@@ -1,43 +1,100 @@
-// functions/api/test-provider.js
-// POST /api/test-provider   body: { provider, message }
-//
-// Used by the "Send Test" button in Admin -> AI Brain. Confirms the stored
-// key actually works by making one real call to the provider. The key itself
-// never leaves the server.
+// functions/api/_lib/providers.js
+// Shared helper: given a provider name + the server-side env, actually call that
+// provider's API. Used by both /api/test-provider and /api/chat so the two
+// endpoints never get out of sync with each other.
 
-import { getProviderKey, callProvider } from './_lib/providers.js';
+// Maps each provider id (as used by the ForgeOS frontend) to the name of the
+// Cloudflare environment variable / secret that should hold its API key.
+export const PROVIDER_ENV_KEYS = {
+    deepseek: 'DEEPSEEK_API_KEY',
+    gemini: 'GEMINI_API_KEY',
+    openai: 'OPENAI_API_KEY',
+    anthropic: 'ANTHROPIC_API_KEY',
+};
 
-export async function onRequestPost(context) {
-    const { request, env } = context;
+export function getProviderKey(provider, env) {
+    const envName = PROVIDER_ENV_KEYS[provider];
+    if (!envName) return null;
+    return env[envName] || null;
+}
 
-    let body;
-    try {
-        body = await request.json();
-    } catch {
-        return json({ success: false, error: 'Invalid request body.' }, 400);
-    }
-
-    const { provider, message } = body || {};
-    if (!provider) {
-        return json({ success: false, error: 'No provider specified.' }, 400);
-    }
-
-    const apiKey = getProviderKey(provider, env);
-    if (!apiKey) {
-        return json({ success: false, error: `${provider} is not configured on the server.` }, 200);
-    }
-
-    try {
-        const response = await callProvider(provider, apiKey, message || 'Reply with: ForgeOS AI connection successful.');
-        return json({ success: true, response });
-    } catch (err) {
-        return json({ success: false, error: err.message || 'Provider request failed.' }, 200);
+// Calls the given provider with a single user message and returns the plain
+// text reply. Throws an Error with a human-readable message on failure.
+export async function callProvider(provider, apiKey, message) {
+    switch (provider) {
+        case 'deepseek':
+            return callOpenAICompatible('https://api.deepseek.com/chat/completions', 'deepseek-chat', apiKey, message);
+        case 'openai':
+            return callOpenAICompatible('https://api.openai.com/v1/chat/completions', 'gpt-4o-mini', apiKey, message);
+        case 'gemini':
+            return callGemini(apiKey, message);
+        case 'anthropic':
+            return callAnthropic(apiKey, message);
+        default:
+            throw new Error(`Unknown provider: ${provider}`);
     }
 }
 
-function json(data, status = 200) {
-    return new Response(JSON.stringify(data), {
-        status,
-        headers: { 'Content-Type': 'application/json' },
+async function callOpenAICompatible(url, model, apiKey, message) {
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+            model,
+            messages: [{ role: 'user', content: message }],
+            max_tokens: 300,
+        }),
     });
+    const data = await res.json();
+    if (!res.ok) {
+        throw new Error(data?.error?.message || `Request failed (${res.status})`);
+    }
+    const text = data?.choices?.[0]?.message?.content;
+    if (!text) throw new Error('Provider returned an empty response.');
+    return text;
+}
+
+async function callAnthropic(apiKey, message) {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+            model: 'claude-3-5-haiku-20241022',
+            max_tokens: 300,
+            messages: [{ role: 'user', content: message }],
+        }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+        throw new Error(data?.error?.message || `Request failed (${res.status})`);
+    }
+    const text = data?.content?.[0]?.text;
+    if (!text) throw new Error('Provider returned an empty response.');
+    return text;
+}
+
+async function callGemini(apiKey, message) {
+    const url =
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            contents: [{ parts: [{ text: message }] }],
+        }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+        throw new Error(data?.error?.message || `Request failed (${res.status})`);
+    }
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    if (!text) throw new Error('Provider returned an empty response.');
+    return text;
 }
