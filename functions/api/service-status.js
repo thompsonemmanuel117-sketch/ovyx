@@ -17,6 +17,28 @@ export async function onRequestGet(context) {
 
     const has = (name) => Boolean(env[name] && String(env[name]).trim().length > 0);
 
+    const knownKeys = new Set([
+        'FIREBASE_API_KEY', 'FIREBASE_PROJECT_ID', 'GITHUB_TOKEN', 'GITHUB_REPO',
+        'GEMINI_API_KEY', 'DEEPSEEK_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY',
+        'FORGEOS_INSTALLATION_ID', 'CLOUDFLARE_PAGES_URL',
+    ]);
+
+    // Real dynamic detection: any environment variable that LOOKS like an
+    // API key or token (by naming convention), that isn't one of the ones
+    // already shown above, gets picked up automatically - no new code
+    // needed when a new key is added in Cloudflare. Only the NAME is ever
+    // reported, never the value.
+    const additionalKeys = [];
+    try {
+        for (const key of Object.keys(env)) {
+            if (knownKeys.has(key)) continue;
+            if (typeof env[key] !== 'string') continue; // skip bindings (KV, etc.), only plain vars/secrets
+            if (/_(API_KEY|TOKEN|SECRET|KEY)$/i.test(key) && env[key].trim().length > 0) {
+                additionalKeys.push(key);
+            }
+        }
+    } catch { /* env enumeration not available in this runtime - skip gracefully */ }
+
     const body = {
         forgeos: {
             // If this function is running at all, ForgeOS's backend is reachable.
@@ -45,9 +67,12 @@ export async function onRequestGet(context) {
         anthropic: {
             status: has('ANTHROPIC_API_KEY') ? 'CONFIGURED' : 'NOT_CONFIGURED',
         },
+        // Any other key Cloudflare has that looks like a credential -
+        // detected automatically, name only.
+        additionalKeysDetected: additionalKeys,
     };
 
     return new Response(JSON.stringify(body), {
         headers: { 'Content-Type': 'application/json' },
     });
-      }
+}
