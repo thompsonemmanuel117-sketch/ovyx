@@ -3,6 +3,8 @@
 // provider's API. Used by both /api/test-provider and /api/chat so the two
 // endpoints never get out of sync with each other.
 
+// Maps each provider id (as used by the ForgeOS frontend) to the name of the
+// Cloudflare environment variable / secret that should hold its API key.
 export const PROVIDER_ENV_KEYS = {
     deepseek: 'DEEPSEEK_API_KEY',
     gemini: 'GEMINI_API_KEY',
@@ -16,6 +18,8 @@ export function getProviderKey(provider, env) {
     return env[envName] || null;
 }
 
+// Calls the given provider with a single user message and returns the plain
+// text reply. Throws an Error with a human-readable message on failure.
 export async function callProvider(provider, apiKey, message) {
     switch (provider) {
         case 'deepseek':
@@ -44,7 +48,13 @@ async function callOpenAICompatible(url, model, apiKey, message) {
             max_tokens: 300,
         }),
     });
-    const data = await res.json();
+    const rawText = await res.text();
+    let data;
+    try {
+        data = rawText ? JSON.parse(rawText) : {};
+    } catch {
+        throw new Error(`Provider returned an unreadable response (status ${res.status}).`);
+    }
     if (!res.ok) {
         throw new Error(data?.error?.message || `Request failed (${res.status})`);
     }
@@ -67,7 +77,13 @@ async function callAnthropic(apiKey, message) {
             messages: [{ role: 'user', content: message }],
         }),
     });
-    const data = await res.json();
+    const rawText = await res.text();
+    let data;
+    try {
+        data = rawText ? JSON.parse(rawText) : {};
+    } catch {
+        throw new Error(`Provider returned an unreadable response (status ${res.status}).`);
+    }
     if (!res.ok) {
         throw new Error(data?.error?.message || `Request failed (${res.status})`);
     }
@@ -78,7 +94,7 @@ async function callAnthropic(apiKey, message) {
 
 async function callGemini(apiKey, message) {
     const url =
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
     const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -86,11 +102,18 @@ async function callGemini(apiKey, message) {
             contents: [{ parts: [{ text: message }] }],
         }),
     });
-    const data = await res.json();
+    const rawText = await res.text();
+    let data;
+    try {
+        data = rawText ? JSON.parse(rawText) : {};
+    } catch {
+        throw new Error(`Provider returned an unreadable response (status ${res.status}).`);
+    }
     if (!res.ok) {
         throw new Error(data?.error?.message || `Request failed (${res.status})`);
     }
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) throw new Error('Provider returned an empty response.');
     return text;
-              }
+                                                                            }
+        
