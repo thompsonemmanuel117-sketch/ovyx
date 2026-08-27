@@ -93,8 +93,7 @@ async function callAnthropic(apiKey, message) {
 }
 
 async function callGemini(apiKey, message) {
-    const url =
-        `https://googleapis.com{apiKey}`;
+    const url = `https://googleapis.com{apiKey}`;
     const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -115,4 +114,4 @@ async function callGemini(apiKey, message) {
     const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
     if (!text) throw new Error('Provider returned an empty response.');
     return text;
-}
+                        }
