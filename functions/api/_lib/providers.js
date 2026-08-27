@@ -1,13 +1,4 @@
 // functions/api/_lib/providers.js
-//
-// Shared provider helper for ForgeOS AI.
-// Used by:
-//   /api/test-provider
-//   /api/chat
-//
-// IMPORTANT:
-// API keys must remain server-side in Cloudflare environment variables/secrets.
-// Never expose them to the frontend.
 
 export const PROVIDER_ENV_KEYS = {
     deepseek: 'DEEPSEEK_API_KEY',
@@ -18,25 +9,16 @@ export const PROVIDER_ENV_KEYS = {
 
 export function getProviderKey(provider, env) {
     const envName = PROVIDER_ENV_KEYS[provider];
+    if (!envName) return null;
 
-    if (!envName) {
-        return null;
-    }
-
+    // Reads the existing Cloudflare Secret.
+    // Does NOT modify the API key.
     return env?.[envName] || null;
 }
 
-/**
- * Call an AI provider with one user message.
- *
- * @param {string} provider
- * @param {string} apiKey
- * @param {string} message
- * @returns {Promise<string>}
- */
 export async function callProvider(provider, apiKey, message) {
     if (!apiKey) {
-        throw new Error(`API key is not configured for ${provider}.`);
+        throw new Error(`${provider} API key is not configured.`);
     }
 
     if (!message || typeof message !== 'string') {
@@ -61,82 +43,67 @@ export async function callProvider(provider, apiKey, message) {
     }
 }
 
-
-/* =========================================================
+/* =========================
    DEEPSEEK
-   ========================================================= */
+========================= */
 
 async function callDeepSeek(apiKey, message) {
-    const res = await fetch(
+    const response = await fetch(
         'https://api.deepseek.com/chat/completions',
         {
             method: 'POST',
-
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiKey}`,
             },
-
             body: JSON.stringify({
-                model: 'deepseek-v4-flash',
-
+                model: 'deepseek-chat',
                 messages: [
                     {
                         role: 'user',
                         content: message,
                     },
                 ],
-
                 max_tokens: 300,
-
-                stream: false,
             }),
         }
     );
 
-    return parseOpenAICompatibleResponse(res, 'DeepSeek');
+    return parseOpenAIResponse(response, 'DeepSeek');
 }
 
-
-/* =========================================================
+/* =========================
    OPENAI
-   ========================================================= */
+========================= */
 
 async function callOpenAI(apiKey, message) {
-    const res = await fetch(
+    const response = await fetch(
         'https://api.openai.com/v1/chat/completions',
         {
             method: 'POST',
-
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${apiKey}`,
             },
-
             body: JSON.stringify({
                 model: 'gpt-4o-mini',
-
                 messages: [
                     {
                         role: 'user',
                         content: message,
                     },
                 ],
-
                 max_tokens: 300,
-
-                stream: false,
             }),
         }
     );
 
-    return parseOpenAICompatibleResponse(res, 'OpenAI');
+    return parseOpenAIResponse(response, 'OpenAI');
 }
 
-
-/* =========================================================
+/* =========================
    GEMINI
-   ========================================================= */
+========================= */
 
 async function callGemini(apiKey, message) {
     const model = 'gemini-3.7-flash';
@@ -144,16 +111,20 @@ async function callGemini(apiKey, message) {
     const url =
         `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
 
-    const res = await fetch(
-        url,
-        {
-            method: 'POST',
+    const controller = new AbortController();
 
+    // Prevent ForgeOS from hanging until Cloudflare returns 524.
+    const timeout = setTimeout(() => {
+        controller.abort();
+    }, 30000);
+
+    try {
+        const response = await fetch(url, {
+            method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'x-goog-api-key': apiKey,
             },
-
             body: JSON.stringify({
                 contents: [
                     {
@@ -164,69 +135,74 @@ async function callGemini(apiKey, message) {
                         ],
                     },
                 ],
-
                 generationConfig: {
                     maxOutputTokens: 300,
                 },
             }),
+            signal: controller.signal,
+        });
+
+        const rawText = await response.text();
+
+        let data = {};
+
+        try {
+            data = rawText ? JSON.parse(rawText) : {};
+        } catch {
+            throw new Error(
+                `Gemini returned an unreadable response (HTTP ${response.status}).`
+            );
         }
-    );
 
-    const rawText = await res.text();
+        if (!response.ok) {
+            throw new Error(
+                data?.error?.message ||
+                `Gemini request failed (HTTP ${response.status}).`
+            );
+        }
 
-    let data = {};
-
-    try {
-        data = rawText ? JSON.parse(rawText) : {};
-    } catch {
-        throw new Error(
-            `Gemini returned an unreadable response (HTTP ${res.status}).`
-        );
-    }
-
-    if (!res.ok) {
-        const message =
-            data?.error?.message ||
-            `Gemini request failed (${res.status}).`;
-
-        throw new Error(message);
-    }
-
-    const text =
-        data?.candidates?.[0]?.content?.parts
+        const text = data?.candidates?.[0]?.content?.parts
             ?.map(part => part?.text || '')
             .join('')
             .trim();
 
-    if (!text) {
-        throw new Error('Gemini returned an empty response.');
-    }
+        if (!text) {
+            throw new Error('Gemini returned an empty response.');
+        }
 
-    return text;
+        return text;
+
+    } catch (error) {
+        if (error?.name === 'AbortError') {
+            throw new Error(
+                'Gemini request timed out after 30 seconds.'
+            );
+        }
+
+        throw error;
+
+    } finally {
+        clearTimeout(timeout);
+    }
 }
 
-
-/* =========================================================
+/* =========================
    ANTHROPIC
-   ========================================================= */
+========================= */
 
 async function callAnthropic(apiKey, message) {
-    const res = await fetch(
+    const response = await fetch(
         'https://api.anthropic.com/v1/messages',
         {
             method: 'POST',
-
             headers: {
                 'Content-Type': 'application/json',
                 'x-api-key': apiKey,
                 'anthropic-version': '2023-06-01',
             },
-
             body: JSON.stringify({
-                model: 'claude-haiku-4-5-20251001',
-
+                model: 'claude-3-5-haiku-20241022',
                 max_tokens: 300,
-
                 messages: [
                     {
                         role: 'user',
@@ -237,7 +213,7 @@ async function callAnthropic(apiKey, message) {
         }
     );
 
-    const rawText = await res.text();
+    const rawText = await response.text();
 
     let data = {};
 
@@ -245,24 +221,22 @@ async function callAnthropic(apiKey, message) {
         data = rawText ? JSON.parse(rawText) : {};
     } catch {
         throw new Error(
-            `Anthropic returned an unreadable response (HTTP ${res.status}).`
+            `Anthropic returned an unreadable response (HTTP ${response.status}).`
         );
     }
 
-    if (!res.ok) {
-        const message =
+    if (!response.ok) {
+        throw new Error(
             data?.error?.message ||
-            `Anthropic request failed (${res.status}).`;
-
-        throw new Error(message);
+            `Anthropic request failed (HTTP ${response.status}).`
+        );
     }
 
-    const text =
-        data?.content
-            ?.filter(block => block?.type === 'text')
-            ?.map(block => block?.text || '')
-            ?.join('')
-            ?.trim();
+    const text = data?.content
+        ?.filter(block => block?.type === 'text')
+        ?.map(block => block?.text || '')
+        .join('')
+        .trim();
 
     if (!text) {
         throw new Error('Anthropic returned an empty response.');
@@ -271,13 +245,12 @@ async function callAnthropic(apiKey, message) {
     return text;
 }
 
+/* =========================
+   OPENAI-COMPATIBLE PARSER
+========================= */
 
-/* =========================================================
-   SHARED OPENAI-COMPATIBLE RESPONSE PARSER
-   ========================================================= */
-
-async function parseOpenAICompatibleResponse(res, providerName) {
-    const rawText = await res.text();
+async function parseOpenAIResponse(response, providerName) {
+    const rawText = await response.text();
 
     let data = {};
 
@@ -285,21 +258,19 @@ async function parseOpenAICompatibleResponse(res, providerName) {
         data = rawText ? JSON.parse(rawText) : {};
     } catch {
         throw new Error(
-            `${providerName} returned an unreadable response (HTTP ${res.status}).`
+            `${providerName} returned an unreadable response (HTTP ${response.status}).`
         );
     }
 
-    if (!res.ok) {
-        const message =
+    if (!response.ok) {
+        throw new Error(
             data?.error?.message ||
             data?.message ||
-            `${providerName} request failed (${res.status}).`;
-
-        throw new Error(message);
+            `${providerName} request failed (HTTP ${response.status}).`
+        );
     }
 
-    const text =
-        data?.choices?.[0]?.message?.content;
+    const text = data?.choices?.[0]?.message?.content;
 
     if (!text) {
         throw new Error(
@@ -308,4 +279,4 @@ async function parseOpenAICompatibleResponse(res, providerName) {
     }
 
     return text;
-                        }
+                }
