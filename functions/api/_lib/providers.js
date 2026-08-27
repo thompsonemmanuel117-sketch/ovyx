@@ -23,11 +23,9 @@ export function getProviderKey(provider, env) {
 export async function callProvider(provider, apiKey, message, env = {}) {
     switch (provider) {
         case 'deepseek':
-            return callOpenAICompatible('https://api.deepseek.com/chat/completions', 'deepseek-chat', apiKey, message);
+            return callOpenAICompatible('https://deepseek.com', 'deepseek-chat', apiKey, message);
         case 'openai':
-            // Dynamically checks for your Cloudflare Base URL; falls back to standard OpenAI if missing.
-            // Also swaps model to llama-3.3-70b-specdec if a Groq base URL is detected.
-            const baseUrl = env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
+            const baseUrl = env.OPENAI_BASE_URL || 'https://openai.com';
             const cleanUrl = baseUrl.endsWith('/chat/completions') ? baseUrl : `${baseUrl.replace(/\/$/, '')}/chat/completions`;
             const modelName = cleanUrl.includes('groq.com') ? 'llama-3.3-70b-specdec' : 'gpt-4o-mini';
             return callOpenAICompatible(cleanUrl, modelName, apiKey, message);
@@ -69,7 +67,7 @@ async function callOpenAICompatible(url, model, apiKey, message) {
 }
 
 async function callAnthropic(apiKey, message) {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch('https://anthropic.com', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -99,7 +97,7 @@ async function callAnthropic(apiKey, message) {
 
 async function callGemini(apiKey, message) {
     const url =
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+        `https://googleapis.com{apiKey}`;
     const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -121,4 +119,3 @@ async function callGemini(apiKey, message) {
     if (!text) throw new Error('Provider returned an empty response.');
     return text;
 }
-    
