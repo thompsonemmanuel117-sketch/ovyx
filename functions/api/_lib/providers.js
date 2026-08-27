@@ -20,15 +20,12 @@ export function getProviderKey(provider, env) {
 
 // Calls the given provider with a single user message and returns the plain
 // text reply. Throws an Error with a human-readable message on failure.
-export async function callProvider(provider, apiKey, message, env = {}) {
+export async function callProvider(provider, apiKey, message) {
     switch (provider) {
         case 'deepseek':
             return callOpenAICompatible('https://deepseek.com', 'deepseek-chat', apiKey, message);
         case 'openai':
-            const baseUrl = env.OPENAI_BASE_URL || 'https://openai.com';
-            const cleanUrl = baseUrl.endsWith('/chat/completions') ? baseUrl : `${baseUrl.replace(/\/$/, '')}/chat/completions`;
-            const modelName = cleanUrl.includes('groq.com') ? 'llama-3.3-70b-specdec' : 'gpt-4o-mini';
-            return callOpenAICompatible(cleanUrl, modelName, apiKey, message);
+            return callOpenAICompatible('https://groq.com', 'llama-3.3-70b-specdec', apiKey, message);
         case 'gemini':
             return callGemini(apiKey, message);
         case 'anthropic':
@@ -46,7 +43,7 @@ async function callOpenAICompatible(url, model, apiKey, message) {
             'Authorization': `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
-            model,
+            model: model,
             messages: [{ role: 'user', content: message }],
             max_tokens: 300,
         }),
