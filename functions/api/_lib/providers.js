@@ -94,7 +94,7 @@ async function callAnthropic(apiKey, message) {
 
 async function callGemini(apiKey, message) {
     const url =
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=${apiKey}`;
     const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
