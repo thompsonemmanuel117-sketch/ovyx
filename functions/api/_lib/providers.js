@@ -5,6 +5,7 @@ export const PROVIDER_ENV_KEYS = {
     gemini: 'GEMINI_API_KEY',
     openai: 'OPENAI_API_KEY',
     anthropic: 'ANTHROPIC_API_KEY',
+    groq: 'GROQ_API_KEY',
 };
 
 export function getProviderKey(provider, env) {
@@ -37,6 +38,9 @@ export async function callProvider(provider, apiKey, message) {
 
         case 'anthropic':
             return callAnthropic(apiKey, message);
+
+        case 'groq':
+            return callGroq(apiKey, message);
 
         default:
             throw new Error(`Unknown provider: ${provider}`);
@@ -102,6 +106,35 @@ async function callOpenAI(apiKey, message) {
 }
 
 /* =========================
+   GROQ (OpenAI-compatible - fast, low-cost inference)
+========================= */
+
+async function callGroq(apiKey, message) {
+    const response = await fetch(
+        'https://api.groq.com/openai/v1/chat/completions',
+        {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify({
+                model: 'llama-3.3-70b-versatile',
+                messages: [
+                    {
+                        role: 'user',
+                        content: message,
+                    },
+                ],
+                max_tokens: 300,
+            }),
+        }
+    );
+
+    return parseOpenAIResponse(response, 'Groq');
+}
+
+/* =========================
    GEMINI
 ========================= */
 
@@ -113,7 +146,7 @@ async function callGemini(apiKey, message) {
 
     const controller = new AbortController();
 
-    // Prevent ForgeOS from hanging until Cloudflare returns 524.
+    // Prevent Ovyx from hanging until Cloudflare returns 524.
     const timeout = setTimeout(() => {
         controller.abort();
     }, 30000);
@@ -279,4 +312,4 @@ async function parseOpenAIResponse(response, providerName) {
     }
 
     return text;
-                }
+}
