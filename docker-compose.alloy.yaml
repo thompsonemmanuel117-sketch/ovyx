@@ -1,0 +1,21 @@
+services:
+  app:
+    image: node:22-bookworm
+    working_dir: /workspace
+    network_mode: host
+    init: true
+    volumes:
+      - .:/workspace
+    environment:
+      IS_ALLOY: ${IS_ALLOY:-true}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      CLOUDFLARE_PAGES_URL: ${CLOUDFLARE_PAGES_URL:-}
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY:-}
+      FIREBASE_API_KEY: ${FIREBASE_API_KEY:-}
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GITHUB_REPO: ${GITHUB_REPO:-thompsonemmanuel117-sketch/ovyx}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+    command: npx --yes wrangler@4 pages dev . --ip 0.0.0.0 --port 3000 --compatibility-date 2026-09-07
