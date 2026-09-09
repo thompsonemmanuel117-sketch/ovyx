@@ -274,4 +274,27 @@ async function processOpenAICompatiblePayload(response, providerName, config) {
     }
 
     if (!response.ok) {
+  throw new Error(data?.error?.message || 
+    data?.message || `${providerName} gateway isolate connection error (HTTP ${response.status}).`);
+}
+
+const text = data?.choices?.[0]?.message?.content;
+if (!text) {
+  throw new Error(`${providerName} returned an empty processing thread element.`);
+}
+
+const inputTokens = data?.usage?.prompt_tokens || calculateTokenConsumption(data?.choices?.[0]?.message?.content || "");
+const outputTokens = data?.usage?.completion_tokens || calculateTokenConsumption(text);
+
+const estimatedCostUSD = ((inputTokens / 1000) * config.costPerKInput) + ((outputTokens / 1000) * config.costPerKOutput);
+
+return {
+  text,
+  usage: {
+    inputTokens,
+    outputTokens,
+    estimatedCostUSD: parseFloat(estimatedCostUSD.toFixed(6))
+  }
+};
+    
                         
