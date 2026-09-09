@@ -1,13 +1,171 @@
 <!DOCTYPE html>
-<html>
+<html lang="en" class="h-full bg-black text-zinc-100 antialiased">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Home</title>
-<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Inter, sans-serif;background:#0a0a0a;color:#e0e0e0;line-height:1.6;}a{color:#d4a06a;}</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OVYX — Supercharge Your Workflow</title>
+    <!-- Tailwind CSS Engine -->
+    <script src="https://tailwindcss.com"></script>
+    <!-- FontAwesome Vector UI Icons -->
+    <link rel="stylesheet" href="https://cloudflare.com">
+    <!-- JetBrains Mono Industrial Typography Matrix -->
+    <link href="https://googleapis.com" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'JetBrains Mono', monospace; background-color: #000000; }
+        .glass-card { background: rgba(255, 255, 255, 0.01); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.12); }
+        .glass-card:hover { border-color: rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.03); transform: translateY(-2px); }
+        .border-premium { border-color: rgba(255, 255, 255, 0.12); }
+    </style>
 </head>
-<body><section style="textAlign:center;padding:5rem 2rem;background:#0f172a;color:#ffffff"><h1 style="font-size:2.5rem;font-weight:800;margin-bottom:0.5rem;">Supercharge Your Workflow</h1><p style="font-size:1.2rem;opacity:0.8;margin-bottom:1rem;">The all-in-one platform to streamline team productivity and automate repetitive tasks.</p><a href="#" style="display:inline-block;background:#d4a06a;color:#000;padding:0.6rem 1.8rem;border-radius:999px;text-decoration:none;font-weight:600;">Start Free Trial</a></section>
-<section style="padding:4rem 2rem;background:#1e293b;color:#f8fafc"><div>{&quot;heading&quot;:&quot;Core Capabilities&quot;,&quot;subheading&quot;:&quot;Everything you need to scale fast&quot;,&quot;items&quot;:[{&quot;title&quot;:&quot;Automated Workflows&quot;,&quot;description&quot;:&quot;Trigger actions across your stack automatically.&quot;},{&quot;title&quot;:&quot;Real-time Analytics&quot;,&quot;description&quot;:&quot;Gain insights with customizable metrics dashboard.&quot;},{&quot;title&quot;:&quot;Enterprise Security&quot;,&quot;description&quot;:&quot;SOC2 compliant with end-to-end data encryption.&quot;}]}</div></section>
-<section style="padding:4rem 2rem;background:#0f172a;color:#ffffff"><div>{&quot;heading&quot;:&quot;Trusted by Innovators&quot;,&quot;quotes&quot;:[{&quot;quote&quot;:&quot;This platform reduced our deployment cycles by 40%.&quot;,&quot;author&quot;:&quot;Sarah Chen&quot;,&quot;role&quot;:&quot;CTO at TechCorp&quot;},{&quot;quote&quot;:&quot;Indispensable tool for our modern growth team.&quot;,&quot;author&quot;:&quot;Marcus Vance&quot;,&quot;role&quot;:&quot;Head of Product&quot;}]}</div></section>
-<section style="textAlign:center;padding:4rem 2rem;background:#2563eb;color:#ffffff"><div>{&quot;heading&quot;:&quot;Ready to get started?&quot;,&quot;subheading&quot;:&quot;Join thousands of teams growing faster today.&quot;,&quot;cta&quot;:&quot;Get Started Now&quot;}</div></section></body>
+<body class="tracking-tight bg-black selection:bg-white selection:text-black">
+
+    <!-- ======================================================================
+         1. PRESTIGE HIGH-CONTRAST HERO SECTION
+         ====================================================================== -->
+    <section class="relative overflow-hidden py-28 px-6 text-center border-b border-premium bg-gradient-to-b from-neutral-950 to-black">
+        <div class="absolute inset-0 bg-white/[0.002] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-neutral-900 via-transparent to-transparent pointer-events-none"></div>
+        
+        <div class="max-w-3xl mx-auto space-y-6 relative z-10">
+            <div class="inline-flex items-center gap-1.5 px-3 py-1 bg-white/5 border border-premium rounded-full text-[10px] text-amber-400 font-mono tracking-wider uppercase">
+                <span class="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse"></span> STAGE 3C ISOLATE ONLINE
+            </div>
+            <h1 class="text-4xl sm:text-6xl font-extrabold tracking-tighter text-white uppercase leading-none">
+                Supercharge <br> Your Workflow
+            </h1>
+            <p class="text-neutral-400 text-sm sm:text-base max-w-xl mx-auto leading-relaxed">
+                The all-in-one platform to streamline team productivity, isolate cloud execution parameters, and automate repetitive backend logic tasks instantly.
+            </p>
+            <div class="pt-4">
+                <a href="features.html" class="inline-flex items-center gap-2 bg-white text-black font-bold font-mono text-xs px-6 py-3 rounded border border-white hover:bg-neutral-200 transition-all duration-150 shadow-lg">
+                    <i class="fa-solid fa-arrow-right text-[10px]"></i> Start Free Trial Session
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ======================================================================
+         2. CORE CAPABILITIES CORE SECTION (FIXED JSON BUG)
+         ====================================================================== -->
+    <section class="py-20 px-6 max-w-6xl mx-auto space-y-12 border-b border-premium">
+        <div class="text-left space-y-2">
+            <h2 class="text-xs font-bold text-neutral-500 uppercase tracking-widest font-mono">Core Capabilities</h2>
+            <p class="text-xl font-bold text-white uppercase font-mono tracking-tight">Everything you need to scale fast</p>
+        </div>
+
+        <!-- 3-Column Premium Responsive Feature Matrix -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            <!-- Feature 1: Automated Workflows -->
+            <div class="glass-card p-6 rounded-lg space-y-4 transition-all duration-200">
+                <div class="h-9 w-9 rounded bg-white/5 border border-premium flex items-center justify-center text-white text-xs">
+                    <i class="fa-solid fa-bolt-lightning"></i>
+                </div>
+                <div class="space-y-1.5">
+                    <h3 class="text-sm font-bold text-white uppercase tracking-wide font-mono">Automated Workflows</h3>
+                    <p class="text-neutral-400 text-xs leading-relaxed">
+                        Trigger multi-step background operations and data pipeline tasks across your entire stack completely automatically.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Feature 2: Real-time Analytics -->
+            <div class="glass-card p-6 rounded-lg space-y-4 transition-all duration-200">
+                <div class="h-9 w-9 rounded bg-white/5 border border-premium flex items-center justify-center text-white text-xs">
+                    <i class="fa-solid fa-chart-pie"></i>
+                </div>
+                <div class="space-y-1.5">
+                    <h3 class="text-sm font-bold text-white uppercase tracking-wide font-mono">Real-time Analytics</h3>
+                    <p class="text-neutral-400 text-xs leading-relaxed">
+                        Gain execution metrics insights instantly via our custom telemetry and high-performance metrics dashboard panels.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Feature 3: Enterprise Security -->
+            <div class="glass-card p-6 rounded-lg space-y-4 transition-all duration-200">
+                <div class="h-9 w-9 rounded bg-white/5 border border-premium flex items-center justify-center text-white text-xs">
+                    <i class="fa-solid fa-fingerprint"></i>
+                </div>
+                <div class="space-y-1.5">
+                    <h3 class="text-sm font-bold text-white uppercase tracking-wide font-mono">Enterprise Security</h3>
+                    <p class="text-neutral-400 text-xs leading-relaxed">
+                        Fully zero-trust architecture featuring explicit end-to-end payload data encryption layers.
+                    </p>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- ======================================================================
+         3. TRUSTED BY INNOVATORS SECTION (TESTIMONIALS RESCUED)
+         ====================================================================== -->
+    <section class="py-20 px-6 max-w-6xl mx-auto space-y-12 border-b border-premium">
+        <div class="text-left space-y-2">
+            <h2 class="text-xs font-bold text-neutral-500 uppercase tracking-widest font-mono">Social Validation</h2>
+            <p class="text-xl font-bold text-white uppercase font-mono tracking-tight">Trusted by Innovators</p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            
+            <!-- Quote 1 -->
+            <div class="glass-card p-6 rounded-lg flex flex-col justify-between space-y-6">
+                <p class="text-white font-medium italic text-xs leading-relaxed">
+                    "This platform reduced our isolated system deployment cycles by 40% with absolute code formatting protection."
+                </p>
+                <div class="flex items-center gap-3 border-t border-premium pt-4">
+                    <div class="h-7 w-7 rounded-full bg-neutral-800 border border-premium flex items-center justify-center font-bold text-[10px] text-white">SC</div>
+                    <div>
+                        <div class="text-xs font-bold text-white font-mono">Sarah Chen</div>
+                        <div class="text-[10px] text-neutral-500 font-mono">CTO at TechCorp</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Quote 2 -->
+            <div class="glass-card p-6 rounded-lg flex flex-col justify-between space-y-6">
+                <p class="text-white font-medium italic text-xs leading-relaxed">
+                    "An indispensable structural development tool for our modern cross-account growth infrastructure team."
+                </p>
+                <div class="flex items-center gap-3 border-t border-premium pt-4">
+                    <div class="h-7 w-7 rounded-full bg-neutral-800 border border-premium flex items-center justify-center font-bold text-[10px] text-white">MV</div>
+                    <div>
+                        <div class="text-xs font-bold text-white font-mono">Marcus Vance</div>
+                        <div class="text-[10px] text-neutral-500 font-mono">Head of Product</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+    <!-- ======================================================================
+         4. HIGH-IMPACT ULTIMATE MONOCHROME CTA SECTION
+         ====================================================================== -->
+    <section class="py-24 px-6 text-center max-w-4xl mx-auto space-y-6">
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-white uppercase tracking-tighter font-mono">
+            Ready to get started?
+        </h2>
+        <p class="text-neutral-400 text-xs max-w-md mx-auto leading-relaxed">
+            Join thousands of fast-growing development teams deploying high-complexity systems safely to the edge today.
+        </p>
+        <div class="pt-2">
+            <button class="px-8 py-3 bg-white text-black hover:bg-neutral-200 transition-all font-bold font-mono text-xs rounded border border-white shadow-md">
+                Get Started Now
+            </button>
+        </div>
+    </section>
+
+</body>
 </html>
