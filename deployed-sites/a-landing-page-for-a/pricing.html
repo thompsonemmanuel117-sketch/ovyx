@@ -1,11 +1,146 @@
 <!DOCTYPE html>
-<html>
+<html lang="en" class="h-full bg-black text-zinc-100 antialiased">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Pricing</title>
-<style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Inter, sans-serif;background:#0a0a0a;color:#e0e0e0;line-height:1.6;}a{color:#d4a06a;}</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pricing — OVYX Architecture Node</title>
+    <!-- Tailwind CSS Core Engine CDN -->
+    <script src="https://tailwindcss.com"></script>
+    <!-- FontAwesome UI Vector Icons -->
+    <link rel="stylesheet" href="https://cloudflare.com">
+    <!-- JetBrains Mono Industrial Typography Matrix -->
+    <link href="https://googleapis.com" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'JetBrains Mono', monospace; background-color: #000000; }
+        .glass-card { background: rgba(255, 255, 255, 0.01); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.12); }
+        .glass-card:hover { border-color: rgba(255, 255, 255, 0.3); background: rgba(255, 255, 255, 0.03); transform: translateY(-2px); }
+        .border-premium { border-color: rgba(255, 255, 255, 0.12); }
+    </style>
 </head>
-<body><section style="textAlign:center;padding:4rem 2rem;background:#0f172a;color:#ffffff"><h1 style="font-size:2.5rem;font-weight:800;margin-bottom:0.5rem;">Simple, Transparent Pricing</h1><p style="font-size:1.2rem;opacity:0.8;margin-bottom:1rem;">No hidden fees. Upgrade or downgrade anytime.</p><a href="#" style="display:inline-block;background:#d4a06a;color:#000;padding:0.6rem 1.8rem;border-radius:999px;text-decoration:none;font-weight:600;">View Plans</a></section>
-<section style="padding:4rem 2rem;background:#1e293b;color:#ffffff"><div>{&quot;heading&quot;:&quot;Choose Your Plan&quot;,&quot;plans&quot;:[{&quot;name&quot;:&quot;Starter&quot;,&quot;price&quot;:&quot;$29/mo&quot;,&quot;features&quot;:[&quot;Up to 5 users&quot;,&quot;Basic analytics&quot;,&quot;Community support&quot;]},{&quot;name&quot;:&quot;Pro&quot;,&quot;price&quot;:&quot;$79/mo&quot;,&quot;features&quot;:[&quot;Unlimited users&quot;,&quot;Advanced analytics&quot;,&quot;24/7 Priority support&quot;]}]}</div></section></body>
+<body class="tracking-tight bg-black selection:bg-white selection:text-black">
+
+    <!-- ======================================================================
+         1. PRESTIGE HIGH-CONTRAST PRICING HERO SECTION
+         ====================================================================== -->
+    <section class="relative overflow-hidden py-24 px-6 text-center border-b border-premium bg-gradient-to-b from-neutral-950 to-black">
+        <div class="absolute inset-0 bg-white/[0.002] bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-neutral-900 via-transparent to-transparent pointer-events-none"></div>
+        
+        <div class="max-w-3xl mx-auto space-y-6 relative z-10">
+            <h1 class="text-3xl sm:text-5xl font-extrabold tracking-tighter text-white uppercase leading-none">
+                Simple, Transparent <br class="hidden sm:block"> Pricing Models
+            </h1>
+            <p class="text-neutral-400 text-sm sm:text-base max-w-xl mx-auto leading-relaxed">
+                No hidden fees. Scale up your generative pipelines, expand context windows, or adjust team allocations cleanly anytime.
+            </p>
+            <div class="pt-4">
+                <a href="#plans-matrix" class="inline-flex items-center gap-2 bg-white text-black font-bold font-mono text-xs px-6 py-3 rounded border border-white hover:bg-neutral-200 transition-all duration-150 shadow-lg">
+                    <i class="fa-solid fa-wallet text-[10px]"></i> View Platform Plans
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ======================================================================
+         2. STRIPE-STYLE PREMIUM USER PLANS REGISTRY (FIXED JSON BUG)
+         ====================================================================== -->
+    <section id="plans-matrix" class="py-20 px-6 max-w-5xl mx-auto space-y-12">
+        <div class="text-center space-y-2 border-b border-premium pb-6">
+            <h2 class="text-xs font-bold text-neutral-500 uppercase tracking-widest font-mono">Allocation Layers</h2>
+            <p class="text-xl font-bold text-white uppercase font-mono tracking-tight">Choose Your Plan</p>
+        </div>
+
+        <!-- 2-Column Responsive Checkout Layout Cards Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            
+            <!-- Plan 1: Starter Tier -->
+            <div class="glass-card p-8 rounded-xl flex flex-col justify-between space-y-8 relative">
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-sm font-bold text-neutral-400 uppercase tracking-wide font-mono">Starter Tier</h3>
+                        <span class="text-[9px] bg-neutral-900 text-neutral-400 border border-premium px-2 py-0.5 rounded font-mono">Core Base</span>
+                    </div>
+                    <div class="flex items-baseline gap-1 text-white">
+                        <span class="text-3xl font-extrabold font-mono">$29</span>
+                        <span class="text-neutral-500 text-xs font-mono">/ mo</span>
+                    </div>
+                    <p class="text-neutral-500 text-xs leading-relaxed border-b border-premium pb-4">
+                        Perfect for small teams and developers starting out with basic isolated deployment scripts.
+                    </p>
+                    
+                    <!-- Feature Checklist -->
+                    <ul class="space-y-3 font-mono text-xs text-neutral-300 pt-2">
+                        <li class="flex items-center gap-2.5">
+                            <i class="fa-solid fa-check text-emerald-400 text-[10px]"></i> Up to 5 allocated users
+                        </li>
+                        <li class="flex items-center gap-2.5">
+                            <i class="fa-solid fa-check text-emerald-400 text-[10px]"></i> Basic execution analytics
+                        </li>
+                        <li class="flex items-center gap-2.5">
+                            <i class="fa-solid fa-check text-emerald-400 text-[10px]"></i> Standard community support
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="pt-4">
+                    <button class="w-full py-2.5 bg-neutral-900 border border-premium text-neutral-300 hover:text-white hover:bg-neutral-800 transition-all text-xs font-bold font-mono rounded">
+                        Initialize Starter Node
+                    </button>
+                </div>
+            </div>
+
+            <!-- Plan 2: Pro Tier (High Contrast Highlight Card) -->
+            <div class="glass-card p-8 rounded-xl flex flex-col justify-between space-y-8 relative border-neutral-600 bg-neutral-950/40">
+                <div class="absolute -top-3 right-6 bg-white text-black px-2.5 py-0.5 rounded text-[9px] font-mono font-bold tracking-wider uppercase border border-white">
+                    Highly Recommended
+                </div>
+                
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-sm font-bold text-white uppercase tracking-wide font-mono">Pro Studio</h3>
+                        <span class="text-[9px] bg-amber-950/30 text-amber-400 border border-amber-900/50 px-2 py-0.5 rounded font-mono font-bold">STAGE 3C</span>
+                    </div>
+                    <div class="flex items-baseline gap-1 text-white">
+                        <span class="text-3xl font-extrabold font-mono text-white">$79</span>
+                        <span class="text-neutral-500 text-xs font-mono">/ mo</span>
+                    </div>
+                    <p class="text-neutral-400 text-xs leading-relaxed border-b border-premium pb-4">
+                        Built for professional engineering environments needing maximum multi-page synthesis scaling.
+                    </p>
+                    
+                    <!-- Feature Checklist -->
+                    <ul class="space-y-3 font-mono text-xs text-neutral-200 pt-2">
+                        <li class="flex items-center gap-2.5">
+                            <i class="fa-solid fa-check text-amber-400 text-[10px]"></i> Unlimited workspace users
+                        </li>
+                        <li class="flex items-center gap-2.5">
+                            <i class="fa-solid fa-check text-amber-400 text-[10px]"></i> Advanced sub-ms telemetry charts
+                        </li>
+                        <li class="flex items-center gap-2.5">
+                            <i class="fa-solid fa-check text-amber-400 text-[10px]"></i> 24/7 Priority edge support
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="pt-4">
+                    <button class="w-full py-2.5 bg-white text-black hover:bg-neutral-200 transition-all text-xs font-bold font-mono rounded shadow-lg">
+                        Deploy Pro Allocation
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </section>
+
+</body>
 </html>
