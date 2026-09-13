@@ -1,11 +1,3 @@
-Please replace my chat.js file completely with the corrected code block below. 
-
-Fixes implemented:
-1. Replaced the incompatible Node.js `process.uptime()` runtime check with a safe high-precision global performance timing calculator (`performance.now()`) to prevent Cloudflare runtime isolate crashes.
-2. Verified all boundary conditions, error checks, and fallback JSON response triggers run cleanly.
-
-Here is the corrected code:
-
 import { getProviderKey, callProvider } from './_lib/providers.js';
 
 export async function onRequestPost(context) {
