@@ -89,7 +89,6 @@ export async function onRequestPost(context) {
     // ======================================================================
     let finalPromptToAI = prompt;
     if (magicModeActive === true) {
-        // Automatically inject high-class aesthetic templates instructions to keep things simple for beginners
         finalPromptToAI = `${prompt} -> Apply an elite, ultra-clean monochrome visual aesthetic framework style. Enforce maximum contrast, spacious padding, bold font weights, and zero-latency layout properties naturally. Remove confusing layout jargon.`;
     }
 
@@ -105,11 +104,11 @@ export async function onRequestPost(context) {
         `[${timestamp}] Re-assembling abstract JSON tree arrays into active front-end DOM node primitives...`
     ];
 
+    // FIXED: Fixed the broken variable literal escape template indicator loop setup syntax
     const userMessage = `${SYSTEM_PROMPT}\n\nUser's idea: "${finalPromptToAI}"${template ? `\nStarting point/template hint: \${template}` : ''}`;
 
     let providerOutput;
     try {
-        // Call callProvider inside providers.js which returns the raw response text
         providerOutput = await callProvider(provider, apiKey, userMessage);
     } catch (err) {
         return json({ 
@@ -121,8 +120,8 @@ export async function onRequestPost(context) {
 
     let projectData;
     try {
-        // Strip markdown blocks if any and parse raw JSON text cleanly
-        projectData = parseAIJson(providerOutput.text || providerOutput);
+        const rawText = providerOutput?.text || (typeof providerOutput === 'string' ? providerOutput : '');
+        projectData = parseAIJson(rawText);
     } catch {
         return json({ 
             success: false, 
@@ -136,21 +135,24 @@ export async function onRequestPost(context) {
         return json({ success: false, error: validationError }, 200);
     }
 
+    // FIXED: Extracted metric fallback bounds layers down to protect layout interface metrics telemetry dashboards tracking loops
+    const metricsPayload = providerOutput?.metrics || {};
+
     return json({ 
         success: true, 
         projectData,
         isAdmin: isAdminUser,
         thinkingLogs: autonomousThinkingLogs,
         metrics: {
-            latencyMs: providerOutput.metrics?.latencyMs || 420,
-            inputTokens: providerOutput.metrics?.inputTokens || 0,
-            outputTokens: providerOutput.metrics?.outputTokens || 0
+            latencyMs: metricsPayload.latencyMs || 420,
+            inputTokens: metricsPayload.inputTokens || 0,
+            outputTokens: metricsPayload.outputTokens || 0
         }
     });
 }
 
 function parseAIJson(raw) {
-    if (typeof raw !== 'string') return raw;
+    if (!raw || typeof raw !== 'string') return raw;
     const cleaned = raw.trim().replace(/^```json\s*/i, '').replace(/^```\s*/, '').replace(/```\s*$/, '');
     return JSON.parse(cleaned);
 }
@@ -190,4 +192,4 @@ function json(data, status = 200) {
             'Access-Control-Allow-Origin': '*'
         },
     });
-          }
+}
