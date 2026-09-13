@@ -125,7 +125,7 @@ export async function onRequestPost(context) {
 }
 
 async function commitFile(repo, token, path, content, customMessage) {
-    const url = `https://github.com{repo}/contents/${path}`;
+    const url = `https://github.com/${repo}/contents/${path}`;
     const headers = {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
@@ -168,13 +168,15 @@ function base64Encode(str) {
 
 function renderPageHTML(page, globalStyles) {
     const boldWeightClass = globalStyles.fontWeightBold || '800';
-    
-    const sections = (page.sections || []).map(sec => {
+
+    const pageSections = Array.isArray(page.sections) ? page.sections : [];
+
+    const sections = pageSections.filter(sec => sec != null).map(sec => {
         if (sec.rawHtmlOverride != null) return sec.rawHtmlOverride;
         const s = sec.styles || {};
         const styleStr = Object.entries(s).map(([k, v]) => `${k.replace(/[A-Z]/g, m => '-' + m.toLowerCase())}:${v}`).join(';');
         const c = sec.content || {};
-        
+
         let inner = '';
         switch (sec.type) {
             case 'hero':
