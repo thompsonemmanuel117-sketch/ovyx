@@ -157,7 +157,7 @@ async function callGroq(apiKey, message) {
    ====================================================================== */
 async function callGemini(apiKey, message) {
     const config = PROVIDER_METRICS_MATRIX.gemini;
-    const url = `https://googleapis.com{config.model}:generateContent`;
+    const url = `https://googleapis.com/${config.model}:generateContent`;
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 45000); // 45 seconds context window limit
 
@@ -274,27 +274,26 @@ async function processOpenAICompatiblePayload(response, providerName, config) {
     }
 
     if (!response.ok) {
-  throw new Error(data?.error?.message || 
-    data?.message || `${providerName} gateway isolate connection error (HTTP ${response.status}).`);
-}
+        throw new Error(data?.error?.message ||
+            data?.message || `${providerName} gateway isolate connection error (HTTP ${response.status}).`);
+    }
 
-const text = data?.choices?.[0]?.message?.content;
-if (!text) {
-  throw new Error(`${providerName} returned an empty processing thread element.`);
-}
+    const text = data?.choices?.[0]?.message?.content;
+    if (!text) {
+        throw new Error(`${providerName} returned an empty processing thread element.`);
+    }
 
-const inputTokens = data?.usage?.prompt_tokens || calculateTokenConsumption(data?.choices?.[0]?.message?.content || "");
-const outputTokens = data?.usage?.completion_tokens || calculateTokenConsumption(text);
+    const inputTokens = data?.usage?.prompt_tokens || calculateTokenConsumption(data?.choices?.[0]?.message?.content || "");
+    const outputTokens = data?.usage?.completion_tokens || calculateTokenConsumption(text);
 
-const estimatedCostUSD = ((inputTokens / 1000) * config.costPerKInput) + ((outputTokens / 1000) * config.costPerKOutput);
+    const estimatedCostUSD = ((inputTokens / 1000) * config.costPerKInput) + ((outputTokens / 1000) * config.costPerKOutput);
 
-return {
-  text,
-  usage: {
-    inputTokens,
-    outputTokens,
-    estimatedCostUSD: parseFloat(estimatedCostUSD.toFixed(6))
-  }
-};
-    
-                        
+    return {
+        text,
+        usage: {
+            inputTokens,
+            outputTokens,
+            estimatedCostUSD: parseFloat(estimatedCostUSD.toFixed(6))
+        }
+    };
+        }
