@@ -17,17 +17,18 @@ export async function onRequestPost(context) {
         return json({ success: false, error: 'Invalid request body payload structure.' }, 400);
     }
 
-    const { provider, message, userEmail } = body || {};
-    if (!provider) {
+    const { provider: rawProvider, message, userEmail } = body || {};
+    if (!rawProvider) {
         return json({ success: false, error: 'No generative provider specified for diagnostic checks.' }, 400);
     }
+
+    // FIXED: Enforce absolute lowercase to align perfectly with the core providers registry matrix names
+    const provider = rawProvider.toLowerCase();
 
     // ======================================================================
     // 1. FIRST-SIGNUP SECURITY LOCKDOWN
     // ======================================================================
-    // Validates that only the authorized root admin email can fire test requests 
-    // to prevent malicious third parties from draining api resource quotas.
-    const systemAdminEmail = env.ADMIN_MASTER_EMAIL || "";
+    const systemAdminEmail = env.ADMIN_MASTER_EMAIL || "ovyxsupportteam@gmail.com";
     const isMasterAdminOverrideActive = body.adminOverride === true;
     const isAdminUser = userEmail && (systemAdminEmail === "" || systemAdminEmail.toLowerCase() === userEmail.toLowerCase());
 
@@ -55,10 +56,8 @@ export async function onRequestPost(context) {
     ];
 
     try {
-        // Force fallback string if no message prompt is passed
         const testPromptString = message || `Reply with exactly: OVYX AI connection profile for ${provider.toUpperCase()} is 100% active. Stage 3C kernel channels online.`;
         
-        // Execute real edge isolate execution handshake via providers.js
         const providerOutput = await callProvider(provider, apiKey, testPromptString);
         
         return json({ 
@@ -96,4 +95,4 @@ function json(data, status = 200) {
             'Access-Control-Allow-Origin': '*'
         },
     });
-                           }
+}
