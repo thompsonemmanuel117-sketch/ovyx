@@ -18,20 +18,17 @@ export async function onRequestGet(context) {
     // ======================================================================
     // 1. FIRST-SIGNUP ADMIN TELEMETRY PRIVILEGES
     // ======================================================================
-    // Identifies if the caller has Root Admin permission to read deep edge parameters
     const systemAdminEmail = env.ADMIN_MASTER_EMAIL || "";
     const isAdminUser = userEmail && (systemAdminEmail === "" || systemAdminEmail.toLowerCase() === userEmail.toLowerCase());
 
     // ======================================================================
     // 2. THE NATIVE INTERNAL KERNEL BRAIN BOT CHECKER
     // ======================================================================
-    // If a Master Admin Access Override is switched on, or the user is the Root Admin,
-    // inject an automated diagnostic status trace instead of displaying potential blocks.
     const isSpecialBypassActive = isAdminUser || isAdminOverrideActive;
 
     try {
-        const startTimeoutSignal = AbortController;
-        const controller = new startTimeoutSignal();
+        // FIXED: Using a safe, native AbortController instantiation to prevent server crashes
+        const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 12000); // 12-second edge timeout ceiling
 
         // Execute a real, edge-isolated validation query to check live response state
