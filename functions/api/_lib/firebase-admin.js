@@ -1,20 +1,21 @@
-'use strict';
+/**
+ * OVYX Firebase Admin REST Layer
+ * Phase 2 + Phase 3
+ *
+ * Cloudflare Pages Functions / Workers compatible.
+ * Uses a Firebase service account through OAuth2 + Firestore REST.
+ */
 
-const TOKEN_CACHE = new Map();
+const FIRESTORE_SCOPE =
+  'https://www.googleapis.com/auth/datastore';
 
-function base64UrlEncode(value) {
-  let bytes;
+let cachedAccessToken = null;
+let cachedAccessTokenExpiresAt = 0;
 
-  if (value instanceof Uint8Array) {
-    bytes = value;
-  } else {
-    bytes = new TextEncoder().encode(String(value));
-  }
-
+function base64UrlEncode(bytes) {
   let binary = '';
-
-  for (let i = 0; i < bytes.length; i += 1) {
-    binary += String.fromCharCode(bytes[i]);
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
   }
 
   return btoa(binary)
@@ -29,7 +30,7 @@ function base64UrlDecodeToBytes(value) {
     .replace(/_/g, '/');
 
   const padded =
-    normalized + '='.repeat((4 - (normalized.length % 4)) % 4);
+    normalized + '='.repeat((4 - normalized.length % 4) % 4);
 
   const binary = atob(padded);
   const bytes = new Uint8Array(binary.length);
@@ -42,24 +43,33 @@ function base64UrlDecodeToBytes(value) {
 }
 
 function pemToArrayBuffer(pem) {
-  const normalized = String(pem || '')
+  const normalized = String(pem)
     .replace(/-----BEGIN PRIVATE KEY-----/g, '')
     .replace(/-----END PRIVATE KEY-----/g, '')
     .replace(/\s+/g, '');
 
-  if (!normalized) {
-    throw new Error('Service-account private key is empty.');
+  const binary = atob(normalized);
+  const bytes = new Uint8Array(binary.length);
+
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
   }
 
-  return base64UrlDecodeToBytes(
-    normalized
-      .replace(/\+/g, '-')
-      .replace(/\//g, '_')
-  ).buffer;
+  return bytes.buffer;
 }
 
-async function importPrivateKey(privateKeyPem) {
-  return crypto.subtle.importKey(
+async function signJwtRS256(header, payload, privateKeyPem) {
+  const headerPart = base64UrlEncode(
+    new TextEncoder().encode(JSON.stringify(header))
+  );
+
+  const payloadPart = base64UrlEncode(
+    new TextEncoder().encode(JSON.stringify(payload))
+  );
+
+  const signingInput = `${headerPart}.${payloadPart}`;
+
+  const cryptoKey = await crypto.subtle.importKey(
     'pkcs8',
     pemToArrayBuffer(privateKeyPem),
     {
@@ -69,246 +79,273 @@ async function importPrivateKey(privateKeyPem) {
     false,
     ['sign']
   );
-}
-
-async function createServiceAccountAssertion(serviceAccount) {
-  const now = Math.floor(Date.now() / 1000);
-
-  const header = {
-    alg: 'RS256',
-    typ: 'JWT'
-  };
-
-  const claims = {
-    iss: serviceAccount.client_email,
-    scope: 'https://www.googleapis.com/auth/datastore',
-    aud: 'https://oauth2.googleapis.com/token',
-    iat: now,
-    exp: now + 3600
-  };
-
-  const encodedHeader = base64UrlEncode(
-    JSON.stringify(header)
-  );
-
-  const encodedClaims = base64UrlEncode(
-    JSON.stringify(claims)
-  );
-
-  const unsignedToken =
-    `${encodedHeader}.${encodedClaims}`;
-
-  const privateKey = await importPrivateKey(
-    serviceAccount.private_key
-  );
 
   const signature = await crypto.subtle.sign(
     'RSASSA-PKCS1-v1_5',
-    privateKey,
-    new TextEncoder().encode(unsignedToken)
+    cryptoKey,
+    new TextEncoder().encode(signingInput)
   );
 
-  return `${unsignedToken}.${base64UrlEncode(
+  return `${signingInput}.${base64UrlEncode(
     new Uint8Array(signature)
   )}`;
 }
 
-function parseServiceAccount(raw) {
-  let parsed;
+function parseServiceAccount(env) {
+  const raw = env?.FIREBASE_SERVICE_ACCOUNT_JSON;
+
+  if (!raw) {
+    throw new Error(
+      'FIREBASE_SERVICE_ACCOUNT_JSON is not configured.'
+    );
+  }
+
+  let account;
 
   try {
-    parsed =
+    account =
       typeof raw === 'string'
         ? JSON.parse(raw)
         : raw;
   } catch {
     throw new Error(
-      'FIREBASE_SERVICE_ACCOUNT_JSON is not valid JSON.'
+      'FIREBASE_SERVICE_ACCOUNT_JSON is invalid JSON.'
     );
   }
 
   if (
-    !parsed ||
-    typeof parsed !== 'object' ||
-    !parsed.client_email ||
-    !parsed.private_key ||
-    !parsed.project_id
+    !account ||
+    !account.client_email ||
+    !account.private_key ||
+    !account.project_id
   ) {
     throw new Error(
-      'Firebase service-account configuration is incomplete.'
+      'Firebase service account is missing required fields.'
     );
   }
 
-  return parsed;
+  return account;
 }
 
-async function getServiceAccountAccessToken(env) {
-  const serviceAccount =
-    parseServiceAccount(env.FIREBASE_SERVICE_ACCOUNT_JSON);
-
-  const cacheKey =
-    `${serviceAccount.client_email}:${serviceAccount.project_id}`;
-
-  const cached = TOKEN_CACHE.get(cacheKey);
+async function getGoogleAccessToken(env) {
+  const now = Date.now();
 
   if (
-    cached &&
-    cached.accessToken &&
-    cached.expiresAt > Date.now() + 60_000
+    cachedAccessToken &&
+    cachedAccessTokenExpiresAt > now + 60_000
   ) {
-    return {
-      accessToken: cached.accessToken,
-      projectId: serviceAccount.project_id
-    };
+    return cachedAccessToken;
   }
 
-  const assertion =
-    await createServiceAccountAssertion(serviceAccount);
+  const serviceAccount = parseServiceAccount(env);
 
-  const tokenResponse = await fetch(
+  const issuedAt = Math.floor(now / 1000);
+
+  const assertion = await signJwtRS256(
+    {
+      alg: 'RS256',
+      typ: 'JWT'
+    },
+    {
+      iss: serviceAccount.client_email,
+      scope: FIRESTORE_SCOPE,
+      aud: 'https://oauth2.googleapis.com/token',
+      iat: issuedAt,
+      exp: issuedAt + 3600
+    },
+    serviceAccount.private_key
+  );
+
+  const response = await fetch(
     'https://oauth2.googleapis.com/token',
     {
       method: 'POST',
       headers: {
-        'Content-Type':
-          'application/x-www-form-urlencoded',
-        'Accept': 'application/json'
+        'content-type':
+          'application/x-www-form-urlencoded'
       },
-      body:
-        `grant_type=${encodeURIComponent(
-          'urn:ietf:params:oauth:grant-type:jwt-bearer'
-        )}` +
-        `&assertion=${encodeURIComponent(assertion)}`
+      body: new URLSearchParams({
+        grant_type:
+          'urn:ietf:params:oauth:grant-type:jwt-bearer',
+        assertion
+      })
     }
   );
 
-  let payload = {};
-
-  try {
-    payload = await tokenResponse.json();
-  } catch {
-    payload = {};
-  }
-
-  if (!tokenResponse.ok || !payload.access_token) {
+  if (!response.ok) {
     throw new Error(
-      'Firebase service-account OAuth authentication failed.'
+      `Google OAuth token exchange failed (${response.status}).`
     );
   }
 
-  const expiresIn =
-    Number(payload.expires_in) || 3600;
+  const data = await response.json();
 
-  TOKEN_CACHE.set(cacheKey, {
-    accessToken: payload.access_token,
-    expiresAt:
-      Date.now() +
-      Math.max(60, expiresIn - 60) * 1000
-  });
+  if (!data.access_token) {
+    throw new Error(
+      'Google OAuth response did not contain an access token.'
+    );
+  }
 
-  return {
-    accessToken: payload.access_token,
-    projectId: serviceAccount.project_id
-  };
+  cachedAccessToken = data.access_token;
+
+  cachedAccessTokenExpiresAt =
+    now + Number(data.expires_in || 3600) * 1000;
+
+  return cachedAccessToken;
+}
+
+function firestoreBaseUrl(projectId) {
+  return (
+    `https://firestore.googleapis.com/v1/projects/` +
+    `${encodeURIComponent(projectId)}` +
+    `/databases/(default)/documents`
+  );
 }
 
 function firestoreValue(value) {
-  if (!value || typeof value !== 'object') {
-    return null;
+  if (value === null) {
+    return { nullValue: null };
   }
 
-  if ('stringValue' in value) {
-    return value.stringValue;
+  if (typeof value === 'boolean') {
+    return { booleanValue: value };
   }
+
+  if (typeof value === 'number') {
+    if (
+      Number.isInteger(value) &&
+      Number.isSafeInteger(value)
+    ) {
+      return { integerValue: String(value) };
+    }
+
+    return { doubleValue: value };
+  }
+
+  if (typeof value === 'string') {
+    return { stringValue: value };
+  }
+
+  if (value instanceof Date) {
+    return {
+      timestampValue: value.toISOString()
+    };
+  }
+
+  if (Array.isArray(value)) {
+    return {
+      arrayValue: {
+        values: value.map(firestoreValue)
+      }
+    };
+  }
+
+  if (typeof value === 'object') {
+    const fields = {};
+
+    for (const [key, nestedValue] of Object.entries(value)) {
+      fields[key] = firestoreValue(nestedValue);
+    }
+
+    return {
+      mapValue: {
+        fields
+      }
+    };
+  }
+
+  return {
+    stringValue: String(value)
+  };
+}
+
+function firestoreDocument(fields = {}) {
+  const result = {};
+
+  for (const [key, value] of Object.entries(fields)) {
+    result[key] = firestoreValue(value);
+  }
+
+  return { fields: result };
+}
+
+function firestoreValueToJs(value) {
+  if (!value) return null;
+
+  if ('nullValue' in value) return null;
+  if ('stringValue' in value) return value.stringValue;
+  if ('booleanValue' in value) return value.booleanValue;
 
   if ('integerValue' in value) {
-    return Number(value.integerValue);
+    const number = Number(value.integerValue);
+
+    return Number.isSafeInteger(number)
+      ? number
+      : value.integerValue;
   }
 
   if ('doubleValue' in value) {
-    return Number(value.doubleValue);
-  }
-
-  if ('booleanValue' in value) {
-    return value.booleanValue === true;
+    return value.doubleValue;
   }
 
   if ('timestampValue' in value) {
     return value.timestampValue;
   }
 
-  if ('nullValue' in value) {
-    return null;
-  }
-
   if ('arrayValue' in value) {
-    return Array.isArray(value.arrayValue?.values)
-      ? value.arrayValue.values.map(firestoreValue)
-      : [];
+    return (value.arrayValue.values || [])
+      .map(firestoreValueToJs);
   }
 
   if ('mapValue' in value) {
-    return firestoreFieldsToObject(
-      value.mapValue?.fields || {}
-    );
+    const result = {};
+
+    for (
+      const [key, nestedValue] of Object.entries(
+        value.mapValue.fields || {}
+      )
+    ) {
+      result[key] = firestoreValueToJs(nestedValue);
+    }
+
+    return result;
   }
 
   return null;
 }
 
-function firestoreFieldsToObject(fields) {
+export function firestoreDocumentToJs(document) {
   const result = {};
 
-  for (const [key, value] of Object.entries(
-    fields || {}
-  )) {
-    result[key] = firestoreValue(value);
+  for (
+    const [key, value] of Object.entries(
+      document?.fields || {}
+    )
+  ) {
+    result[key] = firestoreValueToJs(value);
   }
 
   return result;
 }
 
-function firestoreDocumentToObject(document) {
-  if (!document) {
-    return null;
-  }
-
-  return {
-    id:
-      String(
-        document.name?.split('/').pop() || ''
-      ),
-    ...firestoreFieldsToObject(
-      document.fields || {}
-    )
-  };
-}
-
-async function getFirestoreDocument(
+export async function getFirestoreDocument(
   env,
   collection,
   documentId
 ) {
-  const { accessToken, projectId } =
-    await getServiceAccountAccessToken(env);
-
-  const encodedCollection =
-    encodeURIComponent(collection);
-
-  const encodedDocument =
-    encodeURIComponent(documentId);
+  const serviceAccount = parseServiceAccount(env);
+  const accessToken =
+    await getGoogleAccessToken(env);
 
   const url =
-    `https://firestore.googleapis.com/v1/projects/` +
-    `${encodeURIComponent(projectId)}` +
-    `/databases/(default)/documents/` +
-    `${encodedCollection}/${encodedDocument}`;
+    `${firestoreBaseUrl(serviceAccount.project_id)}/` +
+    `${encodeURIComponent(collection)}/` +
+    `${encodeURIComponent(documentId)}`;
 
   const response = await fetch(url, {
     method: 'GET',
     headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Accept': 'application/json'
+      Authorization: `Bearer ${accessToken}`
     }
   });
 
@@ -318,59 +355,102 @@ async function getFirestoreDocument(
 
   if (!response.ok) {
     throw new Error(
-      `Firestore document request failed with HTTP ${response.status}.`
+      `Firestore document read failed (${response.status}).`
     );
   }
 
-  const document = await response.json();
-
-  return firestoreDocumentToObject(document);
+  return response.json();
 }
 
-async function listFirestoreDocuments(
+export async function getFirestoreData(
   env,
   collection,
-  pageSize = 100
+  documentId
 ) {
-  const { accessToken, projectId } =
-    await getServiceAccountAccessToken(env);
+  const document =
+    await getFirestoreDocument(
+      env,
+      collection,
+      documentId
+    );
+
+  return document
+    ? firestoreDocumentToJs(document)
+    : null;
+}
+
+export async function setFirestoreDocument(
+  env,
+  collection,
+  documentId,
+  data,
+  { merge = true } = {}
+) {
+  const serviceAccount = parseServiceAccount(env);
+  const accessToken =
+    await getGoogleAccessToken(env);
 
   const url =
-    `https://firestore.googleapis.com/v1/projects/` +
-    `${encodeURIComponent(projectId)}` +
-    `/databases/(default)/documents/` +
-    `${encodeURIComponent(collection)}` +
-    `?pageSize=${Math.min(Math.max(pageSize, 1), 100)}`;
+    `${firestoreBaseUrl(serviceAccount.project_id)}/` +
+    `${encodeURIComponent(collection)}/` +
+    `${encodeURIComponent(documentId)}`;
 
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Accept': 'application/json'
+  const body = firestoreDocument(data);
+
+  let requestUrl = url;
+
+  if (merge) {
+    const fieldPaths = Object.keys(data);
+
+    const params = new URLSearchParams();
+
+    for (const fieldPath of fieldPaths) {
+      params.append(
+        'updateMask.fieldPaths',
+        fieldPath
+      );
     }
+
+    requestUrl = `${url}?${params.toString()}`;
+  }
+
+  const response = await fetch(requestUrl, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify(body)
   });
 
   if (!response.ok) {
+    const text = await response.text();
+
+    console.error(
+      '[OVYX FIRESTORE WRITE]',
+      response.status,
+      text.slice(0, 500)
+    );
+
     throw new Error(
-      `Firestore collection request failed with HTTP ${response.status}.`
+      `Firestore document write failed (${response.status}).`
     );
   }
 
-  const payload = await response.json();
-
-  return {
-    documents: Array.isArray(payload.documents)
-      ? payload.documents
-          .map(firestoreDocumentToObject)
-          .filter(Boolean)
-      : [],
-    nextPageToken:
-      payload.nextPageToken || null
-  };
+  return response.json();
 }
 
-module.exports = {
-  getServiceAccountAccessToken,
-  getFirestoreDocument,
-  listFirestoreDocuments
-};
+export async function createFirestoreDocument(
+  env,
+  collection,
+  documentId,
+  data
+) {
+  return setFirestoreDocument(
+    env,
+    collection,
+    documentId,
+    data,
+    { merge: false }
+  );
+}
