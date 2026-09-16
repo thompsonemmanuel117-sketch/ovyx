@@ -1,126 +1,116 @@
 'use strict';
 
+/**
+ * OVYX Phase 7
+ * Central AI Brain orchestrator.
+ */
+
 const {
-  generateWithProvider
+  generate
 } = require('./providers.js');
 
 const {
-  executeTool
-} = require('./tools.js');
-
-const {
-  listAvailableTools
+  listTools
 } = require('./registry.js');
 
-function normalizeMessages(messages) {
-  if (!Array.isArray(messages)) {
-    throw new Error('messages must be an array.');
-  }
-
-  return messages
-    .filter(message =>
-      message &&
-      typeof message === 'object' &&
-      typeof message.content === 'string'
-    )
-    .slice(-30)
-    .map(message => ({
-      role:
-        message.role === 'assistant'
-          ? 'assistant'
-          : message.role === 'system'
-            ? 'system'
-            : 'user',
-
-      content: String(message.content)
-        .replace(/[\u0000-\u001F\u007F]/g, '')
-        .slice(0, 12000)
-    }));
+function clean(value) {
+  return String(value || '').trim();
 }
 
-async function runBrain({
+function buildSystemInstruction({
+  user,
+  entitlements,
+  requestedTool
+}) {
+  const tools = listTools(entitlements, user);
+
+  const toolText = tools.length
+    ? tools
+        .map(function (tool) {
+          return (
+            `- ${tool.name}: ` +
+            tool.actions.join(', ')
+          );
+        })
+        .join('\n')
+    : 'No tools are currently available.';
+
+  return [
+    'You are OVYX Brain, the server-authoritative AI orchestration layer.',
+    '',
+    'Security rules:',
+    '- Never claim a capability the authenticated user does not possess.',
+    '- Never expose provider API keys, Firebase service credentials, GitHub secrets, or Cloudflare secrets.',
+    '- Never treat browser state as authoritative.',
+    '- Never instruct the frontend to bypass server permissions.',
+    '- Tool execution is subject to the server-side capability registry.',
+    '',
+    `Authenticated OVYX user: ${clean(user?.uid) || 'unknown'}`,
+    '',
+    'Available server-authorized tools:',
+    toolText,
+    '',
+    requestedTool
+      ? `Requested tool: ${requestedTool}`
+      : 'No tool was explicitly requested.'
+  ].join('\n');
+}
+
+async function run({
   env,
   user,
-  capabilities,
+  entitlements,
   provider,
   model,
   messages,
+  system,
   temperature,
   maxTokens,
-  toolRequest
+  requestedTool,
+  toolResult
 }) {
-  const safeMessages = normalizeMessages(messages);
-
-  if (!safeMessages.length) {
-    throw new Error('At least one AI message is required.');
-  }
-
-  const availableTools =
-    listAvailableTools(capabilities);
-
-  let toolResult = null;
-
-  if (toolRequest) {
-    toolResult = await executeTool({
-      tool: toolRequest.tool,
-      action: toolRequest.action,
-      input: toolRequest.input || {},
-      capabilities
-    });
-  }
-
   const systemInstruction = [
-    'You are the OVYX AI Assistant.',
-    'You are an assistant, not an authorization authority.',
-    'Never claim a capability that the server has not granted.',
-    'Never request, reveal, invent, or expose provider API keys.',
-    'Never expose Firebase service credentials.',
-    'Never expose GitHub OAuth tokens.',
-    'Never expose Cloudflare API tokens.',
-    `Available server tools: ${availableTools
-      .map(tool => tool.id)
-      .join(', ') || 'none'}.`
-  ].join('\n');
+    buildSystemInstruction({
+      user,
+      entitlements,
+      requestedTool
+    }),
+    clean(system)
+  ]
+    .filter(Boolean)
+    .join('\n\n');
 
-  const providerMessages = [
-    {
-      role: 'system',
-      content: systemInstruction
-    },
-    ...safeMessages
-  ];
+  const augmentedMessages = Array.isArray(messages)
+    ? messages.slice()
+    : [];
 
   if (toolResult) {
-    providerMessages.push({
-      role: 'system',
+    augmentedMessages.push({
+      role: 'user',
       content:
-        `Authorized tool result:\n${JSON.stringify(
-          toolResult
-        )}`
+        'SERVER TOOL RESULT:\n' +
+        JSON.stringify(toolResult)
     });
   }
 
-  const result = await generateWithProvider({
+  const result = await generate(env, {
     provider,
-    env,
-    messages: providerMessages,
     model,
+    messages: augmentedMessages,
+    system: systemInstruction,
     temperature,
     maxTokens
   });
 
   return {
-    user: {
-      uid: user.uid
-    },
     provider: result.provider,
     model: result.model,
     text: result.text,
-    availableTools,
-    toolResult
+    tools: listTools(entitlements, user)
   };
 }
 
 module.exports = {
-  runBrain
+  run,
+  buildSystemInstruction
 };
