@@ -9,31 +9,31 @@ const {
 } = require('../_lib/http.js');
 
 const {
+  isRootUser,
+  normalizeCapabilities
+} = require('../_lib/brain/registry.js');
+
+const {
   executeTool
 } = require('../_lib/brain/tools.js');
 
-const ROOT_EMAIL =
-  'ovyxsupportteam@gmail.com';
+function requestId(request) {
+  return (
+    request.headers.get('X-Request-ID') ||
+    crypto.randomUUID()
+  );
+}
 
-const CAPABILITIES = [
-  'webStudio',
-  'advancedWebStudio',
-  'appStudio',
-  'gameStudio',
-  'aiGeneration',
-  'github',
-  'cloudflareDeploy',
-  'teamWorkspace'
-];
-
-function jsonResponse(status, body) {
+function jsonResponse(status, body, id) {
   return new Response(
     JSON.stringify(body),
     {
       status,
       headers: {
-        'Content-Type': 'application/json; charset=utf-8',
+        'Content-Type':
+          'application/json; charset=utf-8',
         'Cache-Control': 'no-store',
+        'X-Request-ID': id,
         'X-Content-Type-Options': 'nosniff',
         'Referrer-Policy': 'no-referrer'
       }
@@ -41,115 +41,182 @@ function jsonResponse(status, body) {
   );
 }
 
-function getCapabilities(context, user) {
-  if (
-    String(user.email || '').toLowerCase() ===
-    ROOT_EMAIL
-  ) {
-    return CAPABILITIES.reduce(
-      (result, capability) => {
-        result[capability] = true;
-        return result;
-      },
-      {}
-    );
-  }
-
-  const entitlements =
-    context?.data?.entitlements;
-
-  if (
-    entitlements &&
-    typeof entitlements === 'object'
-  ) {
-    return entitlements.capabilities ||
-      entitlements;
-  }
-
-  return {};
-}
-
 async function onRequestPost(context) {
-  const authentication =
-    await verifyFirebaseIdToken(
-      context.request,
-      context.env
-    );
+  const request = context.request;
+  const id = requestId(request);
 
-  if (!authentication.ok) {
-    return authentication.response;
+  const auth = await verifyFirebaseIdToken(
+    request,
+    context.env
+  );
+
+  if (!auth.ok) {
+    return auth.response;
   }
 
-  if (
-    authentication.user.emailVerified !== true &&
-    authentication.user.email !== ROOT_EMAIL
-  ) {
+  if (!auth.user.emailVerified) {
     return errorResponse(
       403,
       'EMAIL_VERIFICATION_REQUIRED',
-      'A verified OVYX account is required.'
+      'A verified OVYX email address is required.'
     );
   }
 
   let body;
 
   try {
-    body = await context.request.json();
+    body = await request.json();
   } catch {
-    return errorResponse(
+    return jsonResponse(
       400,
-      'INVALID_JSON',
-      'Invalid JSON request body.'
+      {
+        ok: false,
+        error: {
+          code: 'INVALID_JSON',
+          message: 'Invalid JSON request body.'
+        }
+      },
+      id
     );
   }
 
-  if (
-    !body ||
-    typeof body !== 'object' ||
-    Array.isArray(body)
-  ) {
-    return errorResponse(
+  const toolName = String(
+    body?.tool || ''
+  ).trim();
+
+  const action = String(
+    body?.action || ''
+  ).trim();
+
+  if (!toolName || !action) {
+    return jsonResponse(
       400,
-      'INVALID_REQUEST',
-      'Request body must be an object.'
+      {
+        ok: false,
+        error: {
+          code: 'TOOL_ACTION_REQUIRED',
+          message:
+            'A tool and action are required.'
+        }
+      },
+      id
+    );
+  }
+
+  let entitlements;
+
+  try {
+    const url = new URL(
+      '/api/entitlements',
+      request.url
+    );
+
+    const response = await fetch(
+      url.toString(),
+      {
+        method: 'GET',
+        headers: {
+          Authorization:
+            `Bearer ${auth.token}`,
+          Accept: 'application/json'
+        }
+      }
+    );
+
+    entitlements =
+      await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        'Entitlement verification failed.'
+      );
+    }
+  } catch {
+    return jsonResponse(
+      503,
+      {
+        ok: false,
+        error: {
+          code: 'ENTITLEMENTS_UNAVAILABLE',
+          message:
+            'OVYX could not verify server-side permissions.'
+        }
+      },
+      id
     );
   }
 
   const capabilities =
-    getCapabilities(
-      context,
-      authentication.user
-    );
+    isRootUser(auth.user)
+      ? {
+          webStudio: true,
+          advancedWebStudio: true,
+          appStudio: true,
+          gameStudio: true,
+          aiGeneration: true,
+          github: true,
+          cloudflareDeploy: true,
+          teamWorkspace: true
+        }
+      : normalizeCapabilities(
+          entitlements
+        );
 
   try {
-    const result = await executeTool({
-      tool: body.tool,
-      action: body.action,
-      input: body.input || {},
-      capabilities
-    });
+    const result =
+      await executeTool({
+        toolName,
+        action,
+        input: body.input || {},
+        user: auth.user,
+        entitlements: {
+          ...entitlements,
+          capabilities
+        }
+      });
 
-    return jsonResponse(200, {
-      ok: true,
-      data: result
-    });
+    return jsonResponse(
+      200,
+      {
+        ok: true,
+        requestId: id,
+        result
+      },
+      id
+    );
   } catch (error) {
-    if (error.code === 'CAPABILITY_DENIED') {
-      return errorResponse(
-        403,
-        'CAPABILITY_DENIED',
-        'This tool is not enabled for your OVYX account.'
-      );
-    }
-
-    return errorResponse(
-      400,
-      'TOOL_REQUEST_REJECTED',
-      error.message || 'Tool request rejected.'
+    return jsonResponse(
+      error.status || 403,
+      {
+        ok: false,
+        requestId: id,
+        error: {
+          code:
+            error.code ||
+            'TOOL_EXECUTION_FAILED',
+          message:
+            error.message ||
+            'OVYX tool execution failed.'
+        }
+      },
+      id
     );
   }
 }
 
+async function onRequest(context) {
+  if (context.request.method !== 'POST') {
+    return errorResponse(
+      405,
+      'METHOD_NOT_ALLOWED',
+      'Only POST is allowed.'
+    );
+  }
+
+  return onRequestPost(context);
+}
+
 module.exports = {
+  onRequest,
   onRequestPost
 };
