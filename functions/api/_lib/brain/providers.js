@@ -1,59 +1,53 @@
 'use strict';
 
-const PROVIDERS = Object.freeze({
-  gemini: Object.freeze({
-    id: 'gemini',
-    name: 'Google Gemini',
-    envKey: 'GEMINI_API_KEY'
-  }),
+/**
+ * OVYX Phase 7
+ * Multi-provider AI adapters.
+ *
+ * SECURITY:
+ * - Provider API keys are read ONLY from Cloudflare env.
+ * - No provider secret is ever returned to the browser.
+ * - No provider secret is accepted from request JSON.
+ */
 
-  claude: Object.freeze({
-    id: 'claude',
-    name: 'Anthropic Claude',
-    envKey: 'ANTHROPIC_API_KEY'
-  }),
+const DEFAULT_TIMEOUT_MS = 60000;
 
-  deepseek: Object.freeze({
-    id: 'deepseek',
-    name: 'DeepSeek',
-    envKey: 'DEEPSEEK_API_KEY'
-  }),
+function clean(value) {
+  return String(value || '').trim();
+}
 
-  openai: Object.freeze({
-    id: 'openai',
-    name: 'OpenAI',
-    envKey: 'OPENAI_API_KEY'
-  })
-});
+function requiredSecret(env, name) {
+  const value = clean(env && env[name]);
 
-const PROVIDER_TIMEOUT_MS = 45000;
-
-function getProviderConfig(provider) {
-  const config = PROVIDERS[String(provider || '').toLowerCase()];
-
-  if (!config) {
-    throw new Error('Unsupported AI provider.');
+  if (!value) {
+    const error = new Error(`Missing server secret: ${name}`);
+    error.code = 'AI_PROVIDER_NOT_CONFIGURED';
+    throw error;
   }
 
-  return config;
+  return value;
 }
 
-function getProviderKey(provider, env) {
-  const config = getProviderConfig(provider);
-  const key = String(env[config.envKey] || '').trim();
-
-  if (!key) {
-    throw new Error(`${config.envKey} is not configured.`);
+function timeoutSignal(ms) {
+  if (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) {
+    return AbortSignal.timeout(ms);
   }
 
-  return key;
+  const controller = new AbortController();
+
+  setTimeout(function () {
+    controller.abort();
+  }, ms);
+
+  return controller.signal;
 }
 
-function createAbortSignal(timeoutMs = PROVIDER_TIMEOUT_MS) {
-  return AbortSignal.timeout(timeoutMs);
-}
+async function requestJson(url, options, timeoutMs) {
+  const response = await fetch(url, {
+    ...options,
+    signal: timeoutSignal(timeoutMs || DEFAULT_TIMEOUT_MS)
+  });
 
-async function readProviderResponse(response) {
   let payload = {};
 
   try {
@@ -63,13 +57,14 @@ async function readProviderResponse(response) {
   }
 
   if (!response.ok) {
-    const message =
+    const error = new Error(
       payload?.error?.message ||
-      payload?.message ||
-      `AI provider returned HTTP ${response.status}.`;
+      payload?.error?.type ||
+      `AI provider request failed with HTTP ${response.status}.`
+    );
 
-    const error = new Error(String(message));
-    error.providerStatus = response.status;
+    error.code = 'AI_PROVIDER_REQUEST_FAILED';
+    error.status = response.status;
     error.providerPayload = payload;
 
     throw error;
@@ -78,276 +73,257 @@ async function readProviderResponse(response) {
   return payload;
 }
 
-async function callGemini({ env, messages, model, temperature, maxTokens }) {
-  const key = getProviderKey('gemini', env);
+function normalizeMessages(messages) {
+  if (!Array.isArray(messages)) return [];
 
-  const selectedModel =
-    String(model || '').trim() || 'gemini-2.5-flash';
+  return messages
+    .filter(Boolean)
+    .map(function (message) {
+      return {
+        role: clean(message.role) || 'user',
+        content: clean(message.content)
+      };
+    })
+    .filter(function (message) {
+      return message.content.length > 0;
+    });
+}
 
-  const contents = messages
-    .filter(message => message && message.content)
-    .map(message => ({
+function extractText(provider, payload) {
+  if (provider === 'gemini') {
+    return (
+      payload?.candidates?.[0]?.content?.parts
+        ?.map(function (part) {
+          return part?.text || '';
+        })
+        .join('') || ''
+    );
+  }
+
+  if (provider === 'claude') {
+    return (
+      payload?.content
+        ?.filter(function (item) {
+          return item?.type === 'text';
+        })
+        .map(function (item) {
+          return item?.text || '';
+        })
+        .join('') || ''
+    );
+  }
+
+  if (provider === 'deepseek' || provider === 'openai') {
+    return clean(payload?.choices?.[0]?.message?.content);
+  }
+
+  return '';
+}
+
+async function callGemini(env, input) {
+  const key = requiredSecret(env, 'GEMINI_API_KEY');
+
+  const model = clean(input.model) || 'gemini-2.5-flash';
+
+  const url =
+    'https://generativelanguage.googleapis.com/v1beta/models/' +
+    encodeURIComponent(model) +
+    ':generateContent?key=' +
+    encodeURIComponent(key);
+
+  const contents = normalizeMessages(input.messages).map(function (message) {
+    return {
       role: message.role === 'assistant' ? 'model' : 'user',
-      parts: [
-        {
-          text: String(message.content)
-        }
-      ]
-    }));
+      parts: [{ text: message.content }]
+    };
+  });
 
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(selectedModel)}:generateContent?key=${encodeURIComponent(key)}`,
+  if (input.system) {
+    contents.unshift({
+      role: 'user',
+      parts: [{ text: `OVYX SYSTEM INSTRUCTION:\n${input.system}` }]
+    });
+  }
+
+  const payload = await requestJson(
+    url,
     {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        Accept: 'application/json'
       },
-      signal: createAbortSignal(),
       body: JSON.stringify({
         contents,
         generationConfig: {
-          temperature,
-          maxOutputTokens: maxTokens
+          temperature:
+            typeof input.temperature === 'number'
+              ? input.temperature
+              : 0.4,
+          maxOutputTokens:
+            Number(input.maxTokens) > 0
+              ? Math.min(Number(input.maxTokens), 8192)
+              : 4096
         }
       })
-    }
+    },
+    input.timeoutMs
   );
-
-  const payload = await readProviderResponse(response);
-
-  const text =
-    payload?.candidates?.[0]?.content?.parts
-      ?.map(part => part?.text || '')
-      .join('') || '';
 
   return {
     provider: 'gemini',
-    model: selectedModel,
-    text
+    model,
+    text: extractText('gemini', payload),
+    raw: payload
   };
 }
 
-async function callClaude({ env, messages, model, temperature, maxTokens }) {
-  const key = getProviderKey('claude', env);
+async function callClaude(env, input) {
+  const key = requiredSecret(env, 'ANTHROPIC_API_KEY');
 
-  const selectedModel =
-    String(model || '').trim() || 'claude-sonnet-4-5';
+  const model =
+    clean(input.model) || 'claude-3-5-sonnet-latest';
 
-  const systemMessages = messages
-    .filter(message => message?.role === 'system')
-    .map(message => String(message.content || ''))
-    .join('\n\n');
-
-  const conversation = messages
-    .filter(
-      message =>
-        message &&
-        message.role !== 'system' &&
-        message.content
-    )
-    .map(message => ({
-      role: message.role === 'assistant' ? 'assistant' : 'user',
-      content: String(message.content)
-    }));
-
-  const response = await fetch(
+  const payload = await requestJson(
     'https://api.anthropic.com/v1/messages',
     {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Accept: 'application/json',
         'x-api-key': key,
         'anthropic-version': '2023-06-01'
       },
-      signal: createAbortSignal(),
       body: JSON.stringify({
-        model: selectedModel,
-        max_tokens: maxTokens,
-        temperature,
-        ...(systemMessages
-          ? { system: systemMessages }
-          : {}),
-        messages: conversation
+        model,
+        system: clean(input.system) || undefined,
+        messages: normalizeMessages(input.messages).map(function (message) {
+          return {
+            role: message.role === 'assistant' ? 'assistant' : 'user',
+            content: message.content
+          };
+        }),
+        max_tokens:
+          Number(input.maxTokens) > 0
+            ? Math.min(Number(input.maxTokens), 8192)
+            : 4096,
+        temperature:
+          typeof input.temperature === 'number'
+            ? input.temperature
+            : 0.4
       })
-    }
+    },
+    input.timeoutMs
   );
-
-  const payload = await readProviderResponse(response);
-
-  const text =
-    payload?.content
-      ?.filter(block => block?.type === 'text')
-      .map(block => block.text || '')
-      .join('') || '';
 
   return {
     provider: 'claude',
-    model: selectedModel,
-    text
+    model,
+    text: extractText('claude', payload),
+    raw: payload
   };
 }
 
-async function callDeepSeek({
+async function callOpenAICompatible(
   env,
-  messages,
-  model,
-  temperature,
-  maxTokens
-}) {
-  const key = getProviderKey('deepseek', env);
-
-  const selectedModel =
-    String(model || '').trim() || 'deepseek-chat';
-
-  const response = await fetch(
-    'https://api.deepseek.com/chat/completions',
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${key}`
-      },
-      signal: createAbortSignal(),
-      body: JSON.stringify({
-        model: selectedModel,
-        messages,
-        temperature,
-        max_tokens: maxTokens
-      })
-    }
-  );
-
-  const payload = await readProviderResponse(response);
-
-  return {
-    provider: 'deepseek',
-    model: selectedModel,
-    text:
-      payload?.choices?.[0]?.message?.content || ''
-  };
-}
-
-async function callOpenAI({
-  env,
-  messages,
-  model,
-  temperature,
-  maxTokens
-}) {
-  const key = getProviderKey('openai', env);
-
-  const selectedModel =
-    String(model || '').trim() || 'gpt-5';
-
-  const response = await fetch(
-    'https://api.openai.com/v1/chat/completions',
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${key}`
-      },
-      signal: createAbortSignal(),
-      body: JSON.stringify({
-        model: selectedModel,
-        messages,
-        temperature,
-        max_tokens: maxTokens
-      })
-    }
-  );
-
-  const payload = await readProviderResponse(response);
-
-  return {
-    provider: 'openai',
-    model: selectedModel,
-    text:
-      payload?.choices?.[0]?.message?.content || ''
-  };
-}
-
-async function generateWithProvider({
+  input,
   provider,
-  env,
-  messages,
-  model,
-  temperature = 0.2,
-  maxTokens = 2000
-}) {
-  const normalizedProvider =
-    String(provider || '').trim().toLowerCase();
+  secretName,
+  baseUrl,
+  defaultModel
+) {
+  const key = requiredSecret(env, secretName);
 
-  if (!Array.isArray(messages) || messages.length === 0) {
-    throw new Error('AI messages are required.');
+  const model = clean(input.model) || defaultModel;
+
+  const messages = normalizeMessages(input.messages);
+
+  if (input.system) {
+    messages.unshift({
+      role: 'system',
+      content: input.system
+    });
   }
 
-  if (!Number.isFinite(Number(maxTokens))) {
-    throw new Error('Invalid maxTokens value.');
-  }
-
-  const safeTemperature = Math.min(
-    2,
-    Math.max(0, Number(temperature))
+  const payload = await requestJson(
+    `${baseUrl}/chat/completions`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+        Authorization: `Bearer ${key}`
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        temperature:
+          typeof input.temperature === 'number'
+            ? input.temperature
+            : 0.4,
+        max_tokens:
+          Number(input.maxTokens) > 0
+            ? Math.min(Number(input.maxTokens), 8192)
+            : 4096
+      })
+    },
+    input.timeoutMs
   );
 
-  const safeMaxTokens = Math.min(
-    8000,
-    Math.max(1, Number(maxTokens))
-  );
-
-  switch (normalizedProvider) {
-    case 'gemini':
-      return callGemini({
-        env,
-        messages,
-        model,
-        temperature: safeTemperature,
-        maxTokens: safeMaxTokens
-      });
-
-    case 'claude':
-      return callClaude({
-        env,
-        messages,
-        model,
-        temperature: safeTemperature,
-        maxTokens: safeMaxTokens
-      });
-
-    case 'deepseek':
-      return callDeepSeek({
-        env,
-        messages,
-        model,
-        temperature: safeTemperature,
-        maxTokens: safeMaxTokens
-      });
-
-    case 'openai':
-      return callOpenAI({
-        env,
-        messages,
-        model,
-        temperature: safeTemperature,
-        maxTokens: safeMaxTokens
-      });
-
-    default:
-      throw new Error('Unsupported AI provider.');
-  }
+  return {
+    provider,
+    model,
+    text: extractText(provider, payload),
+    raw: payload
+  };
 }
 
-function getConfiguredProviders(env) {
-  return Object.values(PROVIDERS)
-    .filter(provider =>
-      Boolean(String(env[provider.envKey] || '').trim())
-    )
-    .map(provider => provider.id);
+async function callDeepSeek(env, input) {
+  return callOpenAICompatible(
+    env,
+    input,
+    'deepseek',
+    'DEEPSEEK_API_KEY',
+    'https://api.deepseek.com',
+    'deepseek-chat'
+  );
+}
+
+async function callOpenAI(env, input) {
+  return callOpenAICompatible(
+    env,
+    input,
+    'openai',
+    'OPENAI_API_KEY',
+    'https://api.openai.com/v1',
+    'gpt-4o-mini'
+  );
+}
+
+const PROVIDERS = Object.freeze({
+  gemini: callGemini,
+  claude: callClaude,
+  deepseek: callDeepSeek,
+  openai: callOpenAI
+});
+
+async function generate(env, input) {
+  const provider = clean(input && input.provider).toLowerCase();
+
+  if (!PROVIDERS[provider]) {
+    const error = new Error(
+      `Unsupported AI provider: ${provider || 'none'}.`
+    );
+
+    error.code = 'AI_PROVIDER_UNSUPPORTED';
+    throw error;
+  }
+
+  return PROVIDERS[provider](env, input);
 }
 
 module.exports = {
   PROVIDERS,
-  generateWithProvider,
-  getConfiguredProviders
+  generate,
+  normalizeMessages
 };
