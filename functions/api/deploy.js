@@ -1,235 +1,375 @@
-// functions/api/deploy.js
-// POST /api/deploy   body: { slug, pages, globalStyles, currentTier, trialPassUsed, userEmail }
-//
-// Stage 3G — Advanced Core Deployment Engine & Version Control Matrix.
-// Controls automated 5-revision rollbacks and intercepts free-trial locks.
+const JSON_HEADERS = {
+  'Content-Type': 'application/json; charset=utf-8',
+  'Cache-Control': 'no-store',
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'Referrer-Policy': 'no-referrer',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()'
+};
 
-export async function onRequestPost(context) {
-    const { request, env } = context;
+const MAX_BODY_BYTES = 32 * 1024;
+const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 
-    const token = env.GITHUB_TOKEN;
-    const repo = env.GITHUB_REPO; // "owner/repo"
-
-    if (!token) {
-        return json({ success: false, stage: 'preparing', error: 'GitHub connection string missing. Add GITHUB_TOKEN in Cloudflare to enable compilation pipelines.' });
-    }
-    if (!repo) {
-        return json({ success: false, stage: 'preparing', error: 'No repository destination configured. Add a GITHUB_REPO environment variable in Cloudflare.' });
-    }
-
-    let body;
-    try {
-        body = await request.json();
-    } catch {
-        return json({ success: false, stage: 'preparing', error: 'Invalid payload request structure data.' }, 400);
-    }
-
-    const { slug, pages, globalStyles, currentTier, trialPassUsed, userEmail } = body || {};
-    if (!slug || !Array.isArray(pages) || pages.length === 0) {
-        return json({ success: false, stage: 'preparing', error: 'No architectural schema page nodes found to deploy.' }, 400);
-    }
-    if (!/^[a-z0-9-]+$/.test(slug)) {
-        return json({ success: false, stage: 'preparing', error: 'Project slug identifier must consist of lowercase alphanumeric letters and hyphens exclusively.' }, 400);
-    }
-
-    // ======================================================================
-    // 1. "TRY-BEFORE-YOU-BUY" COMPILER LOCK INTERCEPTOR
-    // ======================================================================
-    // If a free tier profile pushes "Deploy/Publish" and has already exhausted 
-    // their single free trial session, immediately block the pipeline and return the paywall alert.
-    const userWorkspaceTier = currentTier || 'free';
-    const isMasterAdminOverrideActive = body.adminOverride === true;
-    
-    // Check if user is system admin to bypass security restrictions
-    const systemAdminEmail = env.ADMIN_MASTER_EMAIL || "";
-    const isAdminUser = userEmail && (systemAdminEmail === "" || systemAdminEmail.toLowerCase() === userEmail.toLowerCase());
-
-    if (userWorkspaceTier === 'free' && !isAdminUser && !isMasterAdminOverrideActive) {
-        if (trialPassUsed === true) {
-            return json({
-                success: false,
-                stage: 'authorizing',
-                error: 'MAX PLAN UPGRADE REQUIRED',
-                paywallTrigger: true,
-                message: 'Your dynamic one-time trial session layout pass has ended. Unlock full Pro/Max enterprise permissions to publish.'
-            });
-        }
-    }
-
-    try {
-        const timestamp = new Date().toISOString();
-        const cleanTimestampLabel = timestamp.replace(/[:.]/g, '-');
-
-        // ======================================================================
-        // 2. 5-REVISION AUTOMATED BACKUP REVISION MATRIX (FORK & ROLLBACK)
-        // ======================================================================
-        // Instead of losing files on new pushes, the compiler clones code into an isolated
-        // history folder node block before refreshing the primary live environment index.html files.
-        const filesToPublish = [];
-
-        pages.forEach(page => {
-            const fileSegment = page.slug === 'home' || pages[0].id === page.id ? 'index' : page.slug;
-            const compiledHTMLContent = renderPageHTML(page, globalStyles || {});
-
-            // Slot A: The Live Active Web Viewport Node Link
-            filesToPublish.push({
-                path: `deployed-sites/${slug}/${fileSegment}.html`,
-                content: compiledHTMLContent,
-                commitMsg: `Ovyx Deploy: [Live Production Update] -> ${slug} [${fileSegment}]`
-            });
-
-            // Slot B: The Historical Version Control Archive Snapshots Tree
-            filesToPublish.push({
-                path: `deployed-sites/${slug}/revisions/${cleanTimestampLabel}/${fileSegment}.html`,
-                content: compiledHTMLContent,
-                commitMsg: `Ovyx Archive: [Snapshot Generated] -> ${slug} revision tracking cluster`
-            });
-        });
-
-        // ── Upload Pipeline Loop: Commit files via GitHub Contents API ──
-        const commitTrackingCollection = [];
-        for (const file of filesToPublish) {
-            const commitResult = await commitFile(repo, token, file.path, file.content, file.commitMsg);
-            if (!commitResult.success) {
-                return json({
-                    success: false,
-                    stage: 'uploading',
-                    error: `Edge integration failed to commit raw node file [${file.path}]: ${commitResult.error}`,
-                });
-            }
-            commitTrackingCollection.push(commitResult);
-        }
-
-        // ======================================================================
-        // 3. REVENUE ISOLATE META INJECTION
-        // ======================================================================
-        // Capture Cloudflare Edge location data markers and bundle them into response payloads
-        const userOriginCountry = request.headers.get('CF-IPCountry') || 'US';
-        const targetBaseDomainUrl = env.CLOUDFLARE_PAGES_URL || `https://${repo.split('/')[1]}.pages.dev`;
-        const liveProductionUrl = `${targetBaseDomainUrl}/deployed-sites/${slug}/`;
-
-        return json({
-            success: true,
-            stage: 'deploying',
-            commitSha: commitTrackingCollection[0].sha,
-            liveUrl: liveProductionUrl,
-            filesPublished: pages.length,
-            geoCountry: userOriginCountry,
-            lockTriggerActive: true, // Signal frontend to flip trial state parameters to used
-            note: 'Compilation sequence completed perfectly. Isolate records pushed down to repository tracking lines.',
-        });
-
-    } catch (err) {
-        return json({ success: false, stage: 'uploading', error: err.message || 'Platform engine error interrupted deployment workflows unexpectedly.' });
-    }
-}
-
-async function commitFile(repo, token, path, content, customMessage) {
-    const url = `https://github.com/${repo}/contents/${path}`;
-    const headers = {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/vnd.github+json',
-        'User-Agent': 'Ovyx-Deploy-Kernel',
-    };
-
-    let existingSha = null;
-    try {
-        const getRes = await fetch(url, { headers });
-        if (getRes.ok) {
-            const data = await getRes.json();
-            existingSha = data.sha;
-        }
-    } catch { /* File node is fresh configuration creation */ }
-
-    const putRes = await fetch(url, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify({
-            message: customMessage || `Ovyx Platform Update: ${path}`,
-            content: base64Encode(content),
-            sha: existingSha || undefined,
-        }),
-    });
-
-    const data = await putRes.json();
-    if (!putRes.ok) {
-        return { success: false, error: data.message || `Upstream GitHub instance rejected deployment (HTTP ${putRes.status})` };
-    }
-    return { success: true, sha: data.commit?.sha };
-}
-
-function base64Encode(str) {
-    const bytes = new TextEncoder().encode(str);
-    let binary = '';
-    bytes.forEach(b => { binary += String.fromCharCode(b); });
-    return btoa(binary);
-}
-
-function renderPageHTML(page, globalStyles) {
-    const boldWeightClass = globalStyles.fontWeightBold || '800';
-
-    const pageSections = Array.isArray(page.sections) ? page.sections : [];
-
-    const sections = pageSections.filter(sec => sec != null).map(sec => {
-        if (sec.rawHtmlOverride != null) return sec.rawHtmlOverride;
-        const s = sec.styles || {};
-        const styleStr = Object.entries(s).map(([k, v]) => `${k.replace(/[A-Z]/g, m => '-' + m.toLowerCase())}:${v}`).join(';');
-        const c = sec.content || {};
-
-        let inner = '';
-        switch (sec.type) {
-            case 'hero':
-                inner = `<h1 style="font-size:clamp(2rem, 5vw, 4rem);font-weight:${boldWeightClass};margin-bottom:1rem;letter-spacing:-0.02em;">${escapeHtml(c.heading || '')}</h1><p style="font-size:1.1rem;opacity:0.8;margin-bottom:2rem;max-width:600px;">${escapeHtml(c.subheading || '')}</p>${c.cta ? `<a href="#" style="display:inline-block;background:#ffffff;color:#000000;padding:0.75rem 2rem;border-radius:${s.borderRadius || '8px'};text-decoration:none;font-weight:600;transition:opacity 0.2s;">${escapeHtml(c.cta)}</a>` : ''}`;
-                break;
-            case 'text':
-                inner = `<p style="font-size:1.1rem;line-height:1.8;max-width:72ch;">${escapeHtml(c.text || '')}</p>`;
-                break;
-            default:
-                inner = `<div>${escapeHtml(JSON.stringify(c))}</div>`;
-        }
-        return `<section class="ovyx-section" style="${styleStr}">${inner}</section>`;
-    }).join('\n');
-
-    if (page.rawHtmlOverride != null) {
-        return wrapDocument(page.name, page.rawHtmlOverride, globalStyles);
-    }
-    return wrapDocument(page.name, sections, globalStyles);
-}
-
-function wrapDocument(title, bodyHtml, styles) {
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${escapeHtml(title || 'Ovyx Build App')}</title>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0;}
-    body{font-family:${styles.fontFamily || 'Inter, sans-serif'};}
-    a{color:${styles.linkColor || '#e8b64f'};}
-  </style>
-</head>
-<body>${bodyHtml}</body>
-</html>`;
-}
-
-function escapeHtml(str) {
-  return String(str).replace(/[&<>"']/g, c => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#39;'
-  }[c]));
-}
-
-function json(data, status = 200) {
+function json(data, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
-      'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*'
-    },
+      ...JSON_HEADERS,
+      ...extraHeaders
+    }
   });
+}
+
+function getBearerToken(request) {
+  const value = request.headers.get('Authorization') || '';
+  if (!value.startsWith('Bearer ')) return '';
+  return value.slice(7).trim();
+}
+
+function normalizeEmail(value) {
+  return String(value || '').trim().toLowerCase();
+}
+
+function safeProjectName(value) {
+  const name = String(value || '').trim();
+
+  if (!name || name.length > 63) {
+    throw new Error('Invalid Cloudflare Pages project name.');
+  }
+
+  if (!/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(name)) {
+    throw new Error('Invalid Cloudflare Pages project name.');
+  }
+
+  return name;
+}
+
+async function verifyFirebaseIdentity(idToken, env) {
+  if (!idToken) {
+    return {
+      ok: false,
+      status: 401,
+      error: 'Authentication required.'
+    };
+  }
+
+  if (!env.FIREBASE_WEB_API_KEY) {
+    console.error('[OVYX deploy] FIREBASE_WEB_API_KEY is not configured.');
+    return {
+      ok: false,
+      status: 500,
+      error: 'Authentication service is not configured.'
+    };
+  }
+
+  const endpoint =
+    `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(
+      env.FIREBASE_WEB_API_KEY
+    )}`;
+
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        idToken
+      })
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || !Array.isArray(data.users) || !data.users[0]) {
+      return {
+        ok: false,
+        status: 401,
+        error: 'Invalid or expired authentication session.'
+      };
+    }
+
+    const firebaseUser = data.users[0];
+
+    return {
+      ok: true,
+      user: {
+        uid: String(firebaseUser.localId || ''),
+        email: normalizeEmail(firebaseUser.email),
+        emailVerified: firebaseUser.emailVerified === true
+      }
+    };
+  } catch (error) {
+    console.error('[OVYX deploy] Firebase identity verification failed:', {
+      message: error?.message || 'unknown'
+    });
+
+    return {
+      ok: false,
+      status: 503,
+      error: 'Authentication service is temporarily unavailable.'
+    };
+  }
+}
+
+function hasCloudflareDeployCapability(user, env) {
+  /*
+   * Root OVYX support account is the server-authoritative system override.
+   */
+  if (user.email === ROOT_EMAIL && user.emailVerified) {
+    return true;
+  }
+
+  /*
+   * Normal users must receive this capability from the server-side
+   * entitlement system. This endpoint intentionally does not trust
+   * plan/tier values supplied by the browser.
+   *
+   * FIREBASE_DEPLOY_ALLOWLIST is optional and intended only for
+   * controlled deployment environments where the backend explicitly
+   * provisions deployment-capable users.
+   */
+  const allowlist = String(env.FIREBASE_DEPLOY_ALLOWLIST || '')
+    .split(',')
+    .map(normalizeEmail)
+    .filter(Boolean);
+
+  return allowlist.includes(user.email);
+}
+
+async function cloudflareRequest(path, env, init = {}) {
+  if (!env.CLOUDFLARE_API_TOKEN) {
+    throw new Error('Cloudflare deployment credentials are not configured.');
+  }
+
+  if (!env.CLOUDFLARE_ACCOUNT_ID) {
+    throw new Error('Cloudflare account configuration is missing.');
+  }
+
+  const response = await fetch(
+    `https://api.cloudflare.com/client/v4${path}`,
+    {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${env.CLOUDFLARE_API_TOKEN}`,
+        ...(init.headers || {})
+      }
+    }
+  );
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok || data.success !== true) {
+    const providerMessage =
+      Array.isArray(data.errors) && data.errors[0]?.message
+        ? String(data.errors[0].message)
+        : 'Cloudflare API request failed.';
+
+    const error = new Error(providerMessage);
+    error.status = response.status;
+    error.providerErrors = data.errors || [];
+    throw error;
+  }
+
+  return data;
+}
+
+function getDeploymentResult(result) {
+  const deployment = result || {};
+
+  return {
+    deploymentId: deployment.id || null,
+    status: deployment.latest_stage?.name || deployment.status || 'queued',
+    environment: deployment.environment || 'production',
+    url:
+      Array.isArray(deployment.aliases) && deployment.aliases.length
+        ? deployment.aliases[0]
+        : null,
+    createdAt: deployment.created_on || null,
+    poll: deployment.id
+      ? {
+          enabled: true,
+          method: 'GET',
+          endpoint: '/api/deploy/status',
+          deploymentId: deployment.id
+        }
+      : {
+          enabled: false
+        }
+  };
+}
+
+export async function onRequestPost(context) {
+  const requestId = crypto.randomUUID();
+  const request = context.request;
+  const env = context.env;
+
+  try {
+    if (request.body) {
+      const contentLength = Number(request.headers.get('Content-Length') || 0);
+
+      if (
+        Number.isFinite(contentLength) &&
+        contentLength > MAX_BODY_BYTES
+      ) {
+        return json(
+          {
+            success: false,
+            error: 'Deployment request is too large.',
+            requestId
+          },
+          413
+        );
+      }
+    }
+
+    const token = getBearerToken(request);
+
+    const identity = await verifyFirebaseIdentity(token, env);
+
+    if (!identity.ok) {
+      return json(
+        {
+          success: false,
+          error: identity.error,
+          requestId
+        },
+        identity.status
+      );
+    }
+
+    const user = identity.user;
+
+    if (!user.uid || !user.email) {
+      return json(
+        {
+          success: false,
+          error: 'Authenticated user identity is incomplete.',
+          requestId
+        },
+        401
+      );
+    }
+
+    if (!user.emailVerified) {
+      return json(
+        {
+          success: false,
+          error: 'Verify your email before deploying.',
+          requestId
+        },
+        403
+      );
+    }
+
+    if (!hasCloudflareDeployCapability(user, env)) {
+      return json(
+        {
+          success: false,
+          error: 'Your OVYX account is not authorized to deploy to Cloudflare.',
+          requestId
+        },
+        403
+      );
+    }
+
+    let body;
+
+    try {
+      body = await request.json();
+    } catch {
+      return json(
+        {
+          success: false,
+          error: 'Invalid JSON deployment request.',
+          requestId
+        },
+        400
+      );
+    }
+
+    const projectName = safeProjectName(
+      body?.projectName || env.CLOUDFLARE_PAGES_PROJECT
+    );
+
+    if (!env.CLOUDFLARE_PAGES_PROJECT && !body?.projectName) {
+      return json(
+        {
+          success: false,
+          error: 'Cloudflare Pages project is not configured.',
+          requestId
+        },
+        500
+      );
+    }
+
+    /*
+     * The browser is allowed to request a deployment, but it never
+     * supplies or receives the Cloudflare credential.
+     *
+     * Cloudflare's Pages deployment endpoint creates a new production
+     * deployment for an already-authorized Pages project.
+     */
+    const path =
+      `/accounts/${encodeURIComponent(env.CLOUDFLARE_ACCOUNT_ID)}` +
+      `/pages/projects/${encodeURIComponent(projectName)}` +
+      `/deployments`;
+
+    const cloudflare = await cloudflareRequest(path, env, {
+      method: 'POST',
+      body: JSON.stringify({})
+    });
+
+    const deployment = getDeploymentResult(cloudflare.result);
+
+    console.log(
+      JSON.stringify({
+        event: 'ovyx_cloudflare_deployment_initiated',
+        requestId,
+        uid: user.uid,
+        email: user.email,
+        projectName,
+        deploymentId: deployment.deploymentId,
+        status: deployment.status,
+        timestamp: new Date().toISOString()
+      })
+    );
+
+    return json({
+      success: true,
+      authoritative: true,
+      requestId,
+      deployment
+    });
+  } catch (error) {
+    const status =
+      Number.isInteger(error?.status) &&
+      error.status >= 400 &&
+      error.status <= 599
+        ? error.status
+        : 502;
+
+    console.error(
+      JSON.stringify({
+        event: 'ovyx_cloudflare_deployment_failed',
+        requestId,
+        status,
+        message: error?.message || 'Unknown deployment error',
+        timestamp: new Date().toISOString()
+      })
+    );
+
+    return json(
+      {
+        success: false,
+        authoritative: true,
+        error:
+          status >= 500
+            ? 'Cloudflare deployment service is temporarily unavailable.'
+            : error?.message || 'Cloudflare deployment failed.',
+        requestId
+      },
+      status
+    );
+  }
 }
