@@ -1,201 +1,165 @@
 'use strict';
 
+/**
+ * OVYX Phase 7
+ * Permission-gated Brain tools.
+ *
+ * These adapters deliberately do not expose provider secrets.
+ * They also do not bypass existing Phase 2/5/6 authoritative APIs.
+ */
+
 const {
   authorizeTool
 } = require('./registry.js');
 
-function requireObject(value, message) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error(message);
-  }
-
-  return value;
+function clean(value) {
+  return String(value || '').trim();
 }
 
-function sanitizeString(value, maxLength = 200) {
-  return String(value || '')
-    .replace(/[\u0000-\u001F\u007F]/g, '')
-    .trim()
-    .slice(0, maxLength);
+function safeObject(value) {
+  return value && typeof value === 'object'
+    ? value
+    : {};
 }
 
-async function executeWebStudioTool({
-  action,
-  input,
-  capabilities
-}) {
-  authorizeTool({
-    toolName: 'web_studio',
-    capabilities
-  });
-
-  const safeAction = sanitizeString(action);
-
-  const allowedActions = new Set([
-    'inspect',
-    'optimize',
-    'preview'
-  ]);
-
-  if (!allowedActions.has(safeAction)) {
-    throw new Error(
-      'The requested Web Studio operation is not permitted.'
-    );
-  }
+function executeWebStudio(action, input) {
+  const payload = safeObject(input);
 
   return {
     tool: 'web_studio',
-    action: safeAction,
+    action,
     status: 'accepted',
-    input: requireObject(
-      input || {},
-      'Web Studio input must be an object.'
-    )
+    projectId: clean(payload.projectId) || null,
+    target: clean(payload.target) || null,
+    message:
+      'Web Studio tool request accepted by the OVYX Brain.'
   };
 }
 
-async function executeGitHubTool({
-  action,
-  input,
-  capabilities
-}) {
-  authorizeTool({
-    toolName: 'github',
-    capabilities
-  });
+function executeAdvancedWebStudio(action, input) {
+  const payload = safeObject(input);
 
-  const safeAction = sanitizeString(action);
+  return {
+    tool: 'advanced_web_studio',
+    action,
+    status: 'accepted',
+    projectId: clean(payload.projectId) || null,
+    target: clean(payload.target) || null,
+    message:
+      'Advanced Web Studio tool request accepted by the OVYX Brain.'
+  };
+}
 
-  const allowedActions = new Set([
-    'repositories',
-    'branches',
-    'tree',
-    'contents'
-  ]);
-
-  if (!allowedActions.has(safeAction)) {
-    throw new Error(
-      'The requested GitHub operation is not permitted.'
-    );
-  }
+function executeGithub(action, input) {
+  const payload = safeObject(input);
 
   return {
     tool: 'github',
-    action: safeAction,
+    action,
     status: 'accepted',
-    input: requireObject(
-      input || {},
-      'GitHub input must be an object.'
-    )
+    repository:
+      clean(payload.repository) || null,
+    branch:
+      clean(payload.branch) || null,
+    path:
+      clean(payload.path) || null,
+    message:
+      'GitHub operation authorized. The existing GitHub backend remains the credential authority.'
   };
 }
 
-async function executeFirebaseTool({
-  action,
-  input,
-  capabilities
-}) {
-  authorizeTool({
-    toolName: 'firebase',
-    capabilities
-  });
-
-  const safeAction = sanitizeString(action);
-
-  const allowedActions = new Set([
-    'profile',
-    'project',
-    'read'
-  ]);
-
-  if (!allowedActions.has(safeAction)) {
-    throw new Error(
-      'The requested Firebase operation is not permitted.'
-    );
-  }
+function executeFirebase(action, input) {
+  const payload = safeObject(input);
 
   return {
     tool: 'firebase',
-    action: safeAction,
+    action,
     status: 'accepted',
-    input: requireObject(
-      input || {},
-      'Firebase input must be an object.'
-    )
+    resource:
+      clean(payload.resource) || null,
+    message:
+      'Firebase operation authorized through the OVYX backend boundary.'
   };
 }
 
-async function executeCloudflareTool({
-  action,
-  input,
-  capabilities
-}) {
-  authorizeTool({
-    toolName: 'cloudflare',
-    capabilities
-  });
-
-  const safeAction = sanitizeString(action);
-
-  const allowedActions = new Set([
-    'deploy',
-    'status'
-  ]);
-
-  if (!allowedActions.has(safeAction)) {
-    throw new Error(
-      'The requested Cloudflare operation is not permitted.'
-    );
-  }
+function executeCloudflare(action, input) {
+  const payload = safeObject(input);
 
   return {
     tool: 'cloudflare',
-    action: safeAction,
+    action,
     status: 'accepted',
-    input: requireObject(
-      input || {},
-      'Cloudflare input must be an object.'
-    )
+    project:
+      clean(payload.project) || null,
+    deploymentId:
+      clean(payload.deploymentId) || null,
+    message:
+      'Cloudflare operation authorized. Deployment credentials remain server-side.'
+  };
+}
+
+function executeGameStudio() {
+  return {
+    tool: 'game_studio',
+    status: 'disabled',
+    code: 'GAME_STUDIO_NOT_ENABLED_YET',
+    message:
+      'Game Studio is registered in the OVYX Brain contract, but its execution adapter has not been enabled yet.'
   };
 }
 
 async function executeTool({
-  tool,
+  toolName,
   action,
   input,
-  capabilities
+  entitlements,
+  user
 }) {
-  switch (String(tool || '').trim()) {
+  const authorization = authorizeTool(
+    toolName,
+    action,
+    entitlements,
+    user
+  );
+
+  if (!authorization.ok) {
+    const error = new Error(authorization.message);
+
+    error.code = authorization.code;
+    error.status = authorization.status;
+
+    throw error;
+  }
+
+  switch (toolName) {
     case 'web_studio':
-      return executeWebStudioTool({
-        action,
-        input,
-        capabilities
-      });
+      return executeWebStudio(action, input);
+
+    case 'advanced_web_studio':
+      return executeAdvancedWebStudio(action, input);
 
     case 'github':
-      return executeGitHubTool({
-        action,
-        input,
-        capabilities
-      });
+      return executeGithub(action, input);
 
     case 'firebase':
-      return executeFirebaseTool({
-        action,
-        input,
-        capabilities
-      });
+      return executeFirebase(action, input);
 
     case 'cloudflare':
-      return executeCloudflareTool({
-        action,
-        input,
-        capabilities
-      });
+      return executeCloudflare(action, input);
 
-    default:
-      throw new Error('Unknown AI tool.');
+    case 'game_studio':
+      return executeGameStudio();
+
+    default: {
+      const error = new Error(
+        'No execution adapter exists for this tool.'
+      );
+
+      error.code = 'TOOL_EXECUTION_UNAVAILABLE';
+      error.status = 501;
+
+      throw error;
+    }
   }
 }
 
