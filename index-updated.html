@@ -1,0 +1,148 @@
+/* ============================================================
+   OVYX PHASE 6 — SERVER-AUTHORITATIVE CLOUDFLARE DEPLOYMENT
+   ============================================================ */
+
+(function initOvyxCloudflareDeployment() {
+  'use strict';
+
+  const DEPLOY_ENDPOINT = '/api/deploy';
+
+  async function getFirebaseIdToken() {
+    const firebaseAuth =
+      typeof window.firebase?.auth === 'function'
+        ? window.firebase.auth()
+        : null;
+
+    const user = firebaseAuth?.currentUser;
+
+    if (!user) {
+      throw new Error('Sign in before deploying to Cloudflare.');
+    }
+
+    return user.getIdToken(true);
+  }
+
+  async function deployToCloudflare(options = {}) {
+    const token = await getFirebaseIdToken();
+
+    const projectName =
+      String(
+        options.projectName ||
+        window.KernelState?.project?.name ||
+        window.ProjectStore?.current?.name ||
+        ''
+      ).trim();
+
+    if (!projectName) {
+      throw new Error('Select or create a project before deploying.');
+    }
+
+    const response = await fetch(DEPLOY_ENDPOINT, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        projectName
+      })
+    });
+
+    const data = await response.json().catch(() => ({}));
+
+    if (!response.ok || data.success !== true) {
+      throw new Error(
+        data.error ||
+        'Cloudflare deployment could not be started.'
+      );
+    }
+
+    return data;
+  }
+
+  async function handleDeployClick(button) {
+    if (!button || button.disabled) return;
+
+    const originalHTML = button.innerHTML;
+
+    try {
+      button.disabled = true;
+      button.innerHTML =
+        '<i class="fa-solid fa-spinner fa-spin"></i>' +
+        '<span>Connecting to Cloudflare…</span>';
+
+      const result = await deployToCloudflare();
+
+      const deployment = result.deployment || {};
+
+      button.innerHTML =
+        '<i class="fa-solid fa-circle-check"></i>' +
+        '<span>Deployment Started</span>';
+
+      if (typeof window.toast === 'function') {
+        window.toast(
+          deployment.deploymentId
+            ? `Cloudflare deployment started · ${deployment.deploymentId}`
+            : 'Cloudflare deployment started successfully.',
+          'success'
+        );
+      }
+
+      window.dispatchEvent(
+        new CustomEvent('ovyx:cloudflare-deployment-started', {
+          detail: {
+            authoritative: true,
+            requestId: result.requestId || null,
+            deployment
+          }
+        })
+      );
+
+      return result;
+    } catch (error) {
+      console.error('[OVYX Phase 6] Cloudflare deployment:', error);
+
+      button.innerHTML = originalHTML;
+
+      if (typeof window.toast === 'function') {
+        window.toast(
+          error?.message ||
+          'Cloudflare deployment failed.',
+          'error'
+        );
+      }
+
+      throw error;
+    } finally {
+      button.disabled = false;
+
+      if (
+        button.innerHTML.includes('Deployment Started') ||
+        button.innerHTML.includes('Connecting to Cloudflare')
+      ) {
+        button.innerHTML = originalHTML;
+      }
+    }
+  }
+
+  window.OVYXCloudflareDeployment = {
+    deploy: deployToCloudflare,
+    handleClick: handleDeployClick
+  };
+
+  /*
+   * Existing OVYX deployment buttons can opt into the secure
+   * deployment pipeline without exposing credentials.
+   */
+  document.addEventListener('click', event => {
+    const button = event.target.closest(
+      '[data-ovyx-cloudflare-deploy]'
+    );
+
+    if (!button) return;
+
+    event.preventDefault();
+    handleDeployClick(button).catch(() => {});
+  });
+})();
