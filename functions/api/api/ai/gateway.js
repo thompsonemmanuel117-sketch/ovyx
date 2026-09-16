@@ -9,28 +9,17 @@ const {
 } = require('../_lib/http.js');
 
 const {
-  runBrain
-} = require('../_lib/brain/orchestrator.js');
+  isRootUser,
+  normalizeCapabilities
+} = require('../_lib/brain/registry.js');
 
 const {
-  getConfiguredProviders
-} = require('../_lib/brain/providers.js');
+  run
+} = require('../_lib/brain/orchestrator.js');
 
-const ROOT_EMAIL =
-  'ovyxsupportteam@gmail.com';
+const MAX_BODY_BYTES = 1024 * 1024;
 
-const CAPABILITY_NAMES = [
-  'webStudio',
-  'advancedWebStudio',
-  'appStudio',
-  'gameStudio',
-  'aiGeneration',
-  'github',
-  'cloudflareDeploy',
-  'teamWorkspace'
-];
-
-function jsonResponse(status, body) {
+function jsonResponse(status, body, requestId) {
   return new Response(
     JSON.stringify(body),
     {
@@ -38,190 +27,115 @@ function jsonResponse(status, body) {
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
         'Cache-Control': 'no-store',
+        'X-Request-ID': requestId || crypto.randomUUID(),
         'X-Content-Type-Options': 'nosniff',
-        'Referrer-Policy': 'no-referrer',
-        'Content-Security-Policy':
-          "default-src 'none'; frame-ancestors 'none'"
+        'Referrer-Policy': 'no-referrer'
       }
     }
   );
 }
 
-function normalizeCapabilities(value) {
-  const result = {};
-
-  for (const capability of CAPABILITY_NAMES) {
-    result[capability] =
-      value?.[capability] === true;
-  }
-
-  return result;
-}
-
-function getRootCapabilities(user) {
-  if (
-    String(user.email || '').toLowerCase() ===
-    ROOT_EMAIL
-  ) {
-    return CAPABILITY_NAMES.reduce(
-      (result, capability) => {
-        result[capability] = true;
-        return result;
-      },
-      {}
-    );
-  }
-
-  return null;
-}
-
-/*
- * Phase 2 compatibility adapter.
- *
- * The gateway accepts server-provided capabilities through
- * context.data.entitlements when the existing entitlement
- * middleware populates it.
- *
- * It NEVER trusts a client-supplied capabilities object.
- */
-function resolveServerCapabilities(context, user) {
-  const rootCapabilities =
-    getRootCapabilities(user);
-
-  if (rootCapabilities) {
-    return rootCapabilities;
-  }
-
-  const serverEntitlements =
-    context?.data?.entitlements;
-
-  if (
-    serverEntitlements &&
-    typeof serverEntitlements === 'object'
-  ) {
-    return normalizeCapabilities(
-      serverEntitlements.capabilities ||
-      serverEntitlements
-    );
-  }
-
-  return normalizeCapabilities({});
+function requestId(request) {
+  return (
+    request.headers.get('X-Request-ID') ||
+    crypto.randomUUID()
+  );
 }
 
 async function readJson(request) {
-  let body;
-
-  try {
-    body = await request.json();
-  } catch {
-    throw new Error('Invalid JSON request body.');
-  }
+  const contentLength =
+    Number(request.headers.get('Content-Length') || 0);
 
   if (
-    !body ||
-    typeof body !== 'object' ||
-    Array.isArray(body)
+    contentLength > MAX_BODY_BYTES
   ) {
-    throw new Error('Request body must be an object.');
+    const error = new Error(
+      'AI request payload is too large.'
+    );
+
+    error.code = 'PAYLOAD_TOO_LARGE';
+    error.status = 413;
+
+    throw error;
   }
 
-  return body;
+  return request.json();
 }
 
-function validateBody(body) {
-  const provider =
-    String(body.provider || '')
-      .trim()
-      .toLowerCase();
+async function loadEntitlements(request, token) {
+  const url = new URL(
+    '/api/entitlements',
+    request.url
+  );
 
-  const allowedProviders = new Set([
-    'gemini',
-    'claude',
-    'deepseek',
-    'openai'
-  ]);
+  const response = await fetch(url.toString(), {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/json'
+    }
+  });
 
-  if (!allowedProviders.has(provider)) {
-    throw new Error('Unsupported AI provider.');
+  let payload = {};
+
+  try {
+    payload = await response.json();
+  } catch {
+    payload = {};
   }
 
-  if (!Array.isArray(body.messages)) {
-    throw new Error('messages must be an array.');
-  }
-
-  if (body.messages.length > 30) {
-    throw new Error(
-      'Too many messages in one AI request.'
+  if (!response.ok) {
+    const error = new Error(
+      'The OVYX entitlement service rejected the session.'
     );
+
+    error.code = 'ENTITLEMENTS_UNAVAILABLE';
+    error.status =
+      response.status >= 500
+        ? 503
+        : response.status;
+
+    throw error;
   }
 
-  return {
-    provider,
-    model: String(body.model || '').trim().slice(0, 150),
-    messages: body.messages,
-    temperature:
-      Number.isFinite(Number(body.temperature))
-        ? Number(body.temperature)
-        : 0.2,
-    maxTokens:
-      Number.isFinite(Number(body.maxTokens))
-        ? Number(body.maxTokens)
-        : 2000,
-    toolRequest:
-      body.toolRequest &&
-      typeof body.toolRequest === 'object'
-        ? body.toolRequest
-        : null
+  return payload;
+}
+
+function configuredProvider(env, provider) {
+  const map = {
+    gemini: 'GEMINI_API_KEY',
+    claude: 'ANTHROPIC_API_KEY',
+    deepseek: 'DEEPSEEK_API_KEY',
+    openai: 'OPENAI_API_KEY'
   };
+
+  const secretName = map[provider];
+
+  return Boolean(
+    secretName &&
+    String(env[secretName] || '').trim()
+  );
 }
 
 async function onRequestPost(context) {
-  const { request, env } = context;
+  const request = context.request;
+  const env = context.env;
+  const id = requestId(request);
 
-  if (
-    String(request.headers.get('content-type') || '')
-      .toLowerCase()
-      .includes('application/json') === false
-  ) {
-    return errorResponse(
-      415,
-      'CONTENT_TYPE_REQUIRED',
-      'application/json is required.'
-    );
+  const auth = await verifyFirebaseIdToken(
+    request,
+    env
+  );
+
+  if (!auth.ok) {
+    return auth.response;
   }
 
-  const bodyLimit =
-    Number(env.AI_GATEWAY_MAX_BODY_BYTES || 250000);
-
-  const contentLength =
-    Number(request.headers.get('content-length') || 0);
-
-  if (
-    Number.isFinite(contentLength) &&
-    contentLength > bodyLimit
-  ) {
-    return errorResponse(
-      413,
-      'REQUEST_TOO_LARGE',
-      'The AI request is too large.'
-    );
-  }
-
-  const authentication =
-    await verifyFirebaseIdToken(request, env);
-
-  if (!authentication.ok) {
-    return authentication.response;
-  }
-
-  if (
-    authentication.user.emailVerified !== true &&
-    authentication.user.email !== ROOT_EMAIL
-  ) {
+  if (!auth.user.emailVerified) {
     return errorResponse(
       403,
       'EMAIL_VERIFICATION_REQUIRED',
-      'A verified OVYX account is required.'
+      'A verified OVYX email address is required.'
     );
   }
 
@@ -230,90 +144,188 @@ async function onRequestPost(context) {
   try {
     body = await readJson(request);
   } catch (error) {
-    return errorResponse(
-      400,
-      'INVALID_REQUEST',
-      error.message
+    return jsonResponse(
+      error.status || 400,
+      {
+        ok: false,
+        error: {
+          code:
+            error.code ||
+            'INVALID_REQUEST',
+          message:
+            error.message ||
+            'Invalid AI request.'
+        }
+      },
+      id
     );
   }
 
-  let input;
+  const provider = String(
+    body?.provider || ''
+  ).trim().toLowerCase();
+
+  if (!configuredProvider(env, provider)) {
+    return jsonResponse(
+      503,
+      {
+        ok: false,
+        error: {
+          code: 'AI_PROVIDER_NOT_CONFIGURED',
+          message:
+            'The requested AI provider is not configured on the OVYX server.'
+        }
+      },
+      id
+    );
+  }
+
+  let entitlements;
 
   try {
-    input = validateBody(body);
+    entitlements =
+      await loadEntitlements(
+        request,
+        auth.token
+      );
   } catch (error) {
-    return errorResponse(
-      400,
-      'INVALID_AI_REQUEST',
-      error.message
+    return jsonResponse(
+      error.status || 503,
+      {
+        ok: false,
+        error: {
+          code:
+            error.code ||
+            'ENTITLEMENTS_UNAVAILABLE',
+          message:
+            error.message ||
+            'OVYX entitlement verification failed.'
+        }
+      },
+      id
     );
   }
 
   const capabilities =
-    resolveServerCapabilities(
-      context,
-      authentication.user
-    );
+    isRootUser(auth.user)
+      ? {
+          webStudio: true,
+          advancedWebStudio: true,
+          appStudio: true,
+          gameStudio: true,
+          aiGeneration: true,
+          github: true,
+          cloudflareDeploy: true,
+          teamWorkspace: true
+        }
+      : normalizeCapabilities(
+          entitlements
+        );
 
-  if (capabilities.aiGeneration !== true) {
-    return errorResponse(
+  if (!capabilities.aiGeneration) {
+    return jsonResponse(
       403,
-      'CAPABILITY_DENIED',
-      'AI generation is not enabled for this account.'
+      {
+        ok: false,
+        error: {
+          code: 'AI_GENERATION_NOT_ALLOWED',
+          message:
+            'AI Generation is not enabled for this OVYX account.'
+        }
+      },
+      id
     );
   }
 
-  const configuredProviders =
-    getConfiguredProviders(env);
+  const messages =
+    Array.isArray(body.messages)
+      ? body.messages
+      : [];
 
-  if (!configuredProviders.includes(input.provider)) {
-    return errorResponse(
-      503,
-      'AI_PROVIDER_UNAVAILABLE',
-      'The requested AI provider is not configured.'
+  if (!messages.length) {
+    return jsonResponse(
+      400,
+      {
+        ok: false,
+        error: {
+          code: 'MESSAGES_REQUIRED',
+          message:
+            'At least one AI message is required.'
+        }
+      },
+      id
     );
   }
 
   try {
-    const result = await runBrain({
+    const result = await run({
       env,
-      user: authentication.user,
-      capabilities,
-      provider: input.provider,
-      model: input.model,
-      messages: input.messages,
-      temperature: input.temperature,
-      maxTokens: input.maxTokens,
-      toolRequest: input.toolRequest
+      user: auth.user,
+      entitlements: {
+        ...entitlements,
+        capabilities
+      },
+      provider,
+      model: body.model,
+      messages,
+      system: body.system,
+      temperature:
+        typeof body.temperature === 'number'
+          ? body.temperature
+          : 0.4,
+      maxTokens:
+        Number(body.maxTokens) || 4096,
+      requestedTool:
+        body.tool || null,
+      toolResult:
+        body.toolResult || null
     });
 
-    return jsonResponse(200, {
-      ok: true,
-      data: result
-    });
+    return jsonResponse(
+      200,
+      {
+        ok: true,
+        requestId: id,
+        provider: result.provider,
+        model: result.model,
+        text: result.text,
+        tools: result.tools
+      },
+      id
+    );
   } catch (error) {
-    console.error('OVYX_AI_GATEWAY_ERROR', {
-      uid: authentication.user.uid,
-      provider: input.provider,
-      code: error.code || 'AI_EXECUTION_ERROR'
-    });
-
-    if (error.code === 'CAPABILITY_DENIED') {
-      return errorResponse(
-        403,
-        'CAPABILITY_DENIED',
-        'The requested AI tool is not enabled for this account.'
-      );
-    }
-
-    return errorResponse(
-      502,
-      'AI_PROVIDER_ERROR',
-      'The AI provider could not complete the request.'
+    return jsonResponse(
+      error.status || 502,
+      {
+        ok: false,
+        requestId: id,
+        error: {
+          code:
+            error.code ||
+            'AI_GATEWAY_FAILED',
+          message:
+            error.message ||
+            'OVYX AI Gateway failed.'
+        }
+      },
+      id
     );
   }
 }
 
+async function onRequest(context) {
+  if (context.request.method !== 'POST') {
+    return errorResponse(
+      405,
+      'METHOD_NOT_ALLOWED',
+      'Only POST is allowed.'
+    );
+  }
+
+  return onRequestPost(context);
+}
+
 module.exports = {
+  onRequest,
   onRequestPost
 };
