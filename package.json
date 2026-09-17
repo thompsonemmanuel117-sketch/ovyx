@@ -1,0 +1,31 @@
+{
+  "name": "ovyx-forgeos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "OVYX (ForgeOS) — Cloudflare Pages + Functions application",
+  "type": "commonjs",
+  "main": "index.html",
+  "scripts": {
+    "dev": "wrangler pages dev .",
+    "dev:pages": "wrangler pages dev .",
+    "deploy": "wrangler pages deploy .",
+    "functions:dev": "wrangler pages dev .",
+    "check": "wrangler types",
+    "validate": "node --check index.html"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@cloudflare/workers-types": "^4.20260917.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.36.0"
+  },
+  "cloudflare": {
+    "runtime": "workers",
+    "compatibility_flags": [
+      "nodejs_compat"
+    ]
+  }
+}
