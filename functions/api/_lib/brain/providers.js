@@ -73,7 +73,7 @@ async function requestJson(url, options, timeoutMs) {
   return payload;
 }
 
-function normalizeMessages(messages) {
+export function normalizeMessages(messages) {
   if (!Array.isArray(messages)) return [];
 
   return messages
@@ -300,14 +300,14 @@ async function callOpenAI(env, input) {
   );
 }
 
-const PROVIDERS = Object.freeze({
+export const PROVIDERS = Object.freeze({
   gemini: callGemini,
   claude: callClaude,
   deepseek: callDeepSeek,
   openai: callOpenAI
 });
 
-async function generate(env, input) {
+export async function generate(env, input) {
   const provider = clean(input && input.provider).toLowerCase();
 
   if (!PROVIDERS[provider]) {
@@ -320,10 +320,4 @@ async function generate(env, input) {
   }
 
   return PROVIDERS[provider](env, input);
-}
-
-module.exports = {
-  PROVIDERS,
-  generate,
-  normalizeMessages
-};
+        }
