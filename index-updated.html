@@ -1,29 +1,167 @@
-/* ============================================================
-   OVYX PHASE 6 — SERVER-AUTHORITATIVE CLOUDFLARE DEPLOYMENT
-   ============================================================ */
+<!-- ============================================================
+     OVYX PHASE 6 + PHASE 7
+     SERVER-AUTHORITATIVE CLOUDFLARE DEPLOYMENT
+     SECURE MULTI-PROVIDER AI ASSISTANT + TOOL REGISTRY
+     ============================================================ -->
 
-(function initOvyxCloudflareDeployment() {
+<script id="ovyx-phase6-7-secure-backend-client">
+(function () {
   'use strict';
 
-  const DEPLOY_ENDPOINT = '/api/deploy';
+  /* ============================================================
+     CONFIGURATION
+     ============================================================ */
 
-  async function getFirebaseIdToken() {
-    const firebaseAuth =
-      typeof window.firebase?.auth === 'function'
-        ? window.firebase.auth()
-        : null;
+  const OVYX_API = Object.freeze({
+    deploy: '/api/deploy',
+    aiGateway: '/api/ai/gateway',
+    aiTools: '/api/ai/tools'
+  });
 
-    const user = firebaseAuth?.currentUser;
+  /* ============================================================
+     FIREBASE AUTH
+     The browser only obtains the Firebase ID token.
+     No Cloudflare/API/provider secret is stored here.
+     ============================================================ */
 
-    if (!user) {
-      throw new Error('Sign in before deploying to Cloudflare.');
+  function getFirebaseAuth() {
+    try {
+      if (
+        window.firebase &&
+        typeof window.firebase.auth === 'function'
+      ) {
+        return window.firebase.auth();
+      }
+    } catch (error) {
+      console.error(
+        '[OVYX] Firebase Auth initialization error:',
+        error
+      );
     }
 
-    return user.getIdToken(true);
+    return null;
   }
 
-  async function deployToCloudflare(options = {}) {
-    const token = await getFirebaseIdToken();
+  function getFirebaseUser() {
+    const auth = getFirebaseAuth();
+
+    return auth?.currentUser || null;
+  }
+
+  async function getFirebaseIdToken(forceRefresh = false) {
+    const user = getFirebaseUser();
+
+    if (!user) {
+      throw new Error(
+        'Please sign in to OVYX before using this feature.'
+      );
+    }
+
+    if (
+      typeof user.getIdToken !== 'function'
+    ) {
+      throw new Error(
+        'Firebase authentication is not available.'
+      );
+    }
+
+    return user.getIdToken(forceRefresh);
+  }
+
+  /* ============================================================
+     GENERIC JSON REQUEST
+     ============================================================ */
+
+  async function requestJson(
+    endpoint,
+    options = {}
+  ) {
+    const response = await fetch(
+      endpoint,
+      {
+        ...options,
+
+        credentials: 'same-origin',
+
+        headers: {
+          Accept: 'application/json',
+          ...(options.headers || {})
+        }
+      }
+    );
+
+    let payload = {};
+
+    try {
+      payload = await response.json();
+    } catch (_) {
+      payload = {};
+    }
+
+    if (!response.ok) {
+      const backendError =
+        typeof payload?.error === 'string'
+          ? payload.error
+          : payload?.error?.message;
+
+      const message =
+        payload?.message ||
+        backendError ||
+        'OVYX backend request failed.';
+
+      const error =
+        new Error(String(message));
+
+      error.code =
+        payload?.code ||
+        payload?.error?.code ||
+        'BACKEND_REQUEST_FAILED';
+
+      error.status =
+        response.status;
+
+      error.requestId =
+        payload?.requestId ||
+        payload?.error?.requestId ||
+        response.headers.get(
+          'X-Request-ID'
+        ) ||
+        null;
+
+      throw error;
+    }
+
+    return payload;
+  }
+
+  /* ============================================================
+     NORMALIZE BACKEND RESPONSE
+     Supports the authoritative Phase 7 gateway response without
+     reintroducing client-side authority.
+     ============================================================ */
+
+  function unwrapBackendData(payload) {
+    if (
+      payload &&
+      payload.data &&
+      typeof payload.data === 'object'
+    ) {
+      return payload.data;
+    }
+
+    return payload || {};
+  }
+
+  /* ============================================================
+     PHASE 6
+     SERVER-AUTHORITATIVE CLOUDFLARE DEPLOYMENT
+     ============================================================ */
+
+  async function deployToCloudflare(
+    options = {}
+  ) {
+    const token =
+      await getFirebaseIdToken(true);
 
     const projectName =
       String(
@@ -34,53 +172,97 @@
       ).trim();
 
     if (!projectName) {
-      throw new Error('Select or create a project before deploying.');
+      throw new Error(
+        'Select or create a project before deploying.'
+      );
     }
 
-    const response = await fetch(DEPLOY_ENDPOINT, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({
-        projectName
-      })
-    });
+    const payload =
+      await requestJson(
+        OVYX_API.deploy,
+        {
+          method: 'POST',
 
-    const data = await response.json().catch(() => ({}));
+          headers: {
+            'Content-Type':
+              'application/json',
 
-    if (!response.ok || data.success !== true) {
+            Authorization:
+              `Bearer ${token}`
+          },
+
+          body: JSON.stringify({
+            projectName
+          })
+        }
+      );
+
+    const data =
+      unwrapBackendData(payload);
+
+    /*
+     * The backend is authoritative.
+     * Do not infer deployment success from client state.
+     */
+    if (
+      payload.success === false ||
+      data.success === false
+    ) {
       throw new Error(
         data.error ||
+        payload.error ||
         'Cloudflare deployment could not be started.'
       );
     }
 
-    return data;
+    return {
+      ...data,
+
+      requestId:
+        payload.requestId ||
+        data.requestId ||
+        null
+    };
   }
 
-  async function handleDeployClick(button) {
-    if (!button || button.disabled) return;
+  async function handleDeployClick(
+    button
+  ) {
+    if (
+      !button ||
+      button.disabled
+    ) {
+      return null;
+    }
 
-    const originalHTML = button.innerHTML;
+    const originalHTML =
+      button.innerHTML;
 
     try {
       button.disabled = true;
+
+      button.setAttribute(
+        'aria-busy',
+        'true'
+      );
+
       button.innerHTML =
         '<i class="fa-solid fa-spinner fa-spin"></i>' +
         '<span>Connecting to Cloudflare…</span>';
 
-      const result = await deployToCloudflare();
+      const result =
+        await deployToCloudflare();
 
-      const deployment = result.deployment || {};
+      const deployment =
+        result?.deployment || {};
 
       button.innerHTML =
         '<i class="fa-solid fa-circle-check"></i>' +
         '<span>Deployment Started</span>';
 
-      if (typeof window.toast === 'function') {
+      if (
+        typeof window.toast === 'function'
+      ) {
         window.toast(
           deployment.deploymentId
             ? `Cloudflare deployment started · ${deployment.deploymentId}`
@@ -90,22 +272,35 @@
       }
 
       window.dispatchEvent(
-        new CustomEvent('ovyx:cloudflare-deployment-started', {
-          detail: {
-            authoritative: true,
-            requestId: result.requestId || null,
-            deployment
+        new CustomEvent(
+          'ovyx:cloudflare-deployment-started',
+          {
+            detail: {
+              authoritative: true,
+
+              requestId:
+                result.requestId ||
+                null,
+
+              deployment
+            }
           }
-        })
+        )
       );
 
       return result;
     } catch (error) {
-      console.error('[OVYX Phase 6] Cloudflare deployment:', error);
+      console.error(
+        '[OVYX Phase 6] Cloudflare deployment:',
+        error
+      );
 
-      button.innerHTML = originalHTML;
+      button.innerHTML =
+        originalHTML;
 
-      if (typeof window.toast === 'function') {
+      if (
+        typeof window.toast === 'function'
+      ) {
         window.toast(
           error?.message ||
           'Cloudflare deployment failed.',
@@ -117,80 +312,174 @@
     } finally {
       button.disabled = false;
 
+      button.removeAttribute(
+        'aria-busy'
+      );
+
+      /*
+       * Restore the original button state after a short visual
+       * confirmation period.
+       */
       if (
-        button.innerHTML.includes('Deployment Started') ||
-        button.innerHTML.includes('Connecting to Cloudflare')
+        button.innerHTML.includes(
+          'Deployment Started'
+        )
       ) {
-        button.innerHTML = originalHTML;
+        window.setTimeout(
+          function () {
+            if (
+              button &&
+              document.contains(button)
+            ) {
+              button.innerHTML =
+                originalHTML;
+            }
+          },
+          1800
+        );
       }
     }
   }
 
-  window.OVYXCloudflareDeployment = {
-    deploy: deployToCloudflare,
-    handleClick: handleDeployClick
-  };
+  /* ============================================================
+     PHASE 7
+     SECURE OVYX AI ASSISTANT
+     ============================================================ */
 
-  /*
-   * Existing OVYX deployment buttons can opt into the secure
-   * deployment pipeline without exposing credentials.
-   */
-  document.addEventListener('click', event => {
-    const button = event.target.closest(
-      '[data-ovyx-cloudflare-deploy]'
-    );
+  const OVYXAssistant = {
+    state: {
+      busy: false,
+      provider: 'gemini',
+      model: '',
+      messages: []
+    },
 
-    if (!button) return;
+    async requestAI({
+      provider,
+      model,
+      messages,
+      system,
+      toolRequest
+    } = {}) {
+      if (this.state.busy) {
+        throw new Error(
+          'OVYX Brain is already processing a request.'
+        );
+      }
 
-    event.preventDefault();
-    handleDeployClick(button).catch(() => {});
-  });
-})();
-            body: JSON.stringify({
-              provider:
-                String(provider || this.state.provider)
-                  .trim()
-                  .toLowerCase(),
+      const normalizedProvider =
+        String(
+          provider ||
+          this.state.provider ||
+          'gemini'
+        )
+          .trim()
+          .toLowerCase();
 
-              model:
-                String(model || this.state.model || '')
-                  .trim(),
+      const normalizedModel =
+        String(
+          model ||
+          this.state.model ||
+          ''
+        ).trim();
 
-              messages,
+      if (
+        !Array.isArray(messages)
+      ) {
+        throw new Error(
+          'OVYX AI received an invalid message history.'
+        );
+      }
 
-              temperature,
+      this.state.busy = true;
 
-              maxTokens,
+      try {
+        const token =
+          await getFirebaseIdToken(false);
 
-              toolRequest
-            })
-          });
+        const payload =
+          await requestJson(
+            OVYX_API.aiGateway,
+            {
+              method: 'POST',
 
-        let payload = {};
+              headers: {
+                'Content-Type':
+                  'application/json',
 
-        try {
-          payload = await response.json();
-        } catch {
-          payload = {};
-        }
+                Authorization:
+                  `Bearer ${token}`
+              },
 
-        if (!response.ok) {
-          throw new Error(
-            payload?.message ||
-            payload?.error?.message ||
-            'OVYX AI request failed.'
+              body: JSON.stringify({
+                provider:
+                  normalizedProvider,
+
+                model:
+                  normalizedModel ||
+                  undefined,
+
+                messages,
+
+                system:
+                  system ||
+                  undefined,
+
+                tool:
+                  toolRequest ||
+                  undefined
+              })
+            }
           );
-        }
 
-        return payload.data;
+        const data =
+          unwrapBackendData(payload);
+
+        return {
+          ...data,
+
+          text:
+            typeof data.text === 'string'
+              ? data.text
+              : typeof payload.text === 'string'
+                ? payload.text
+                : '',
+
+          provider:
+            data.provider ||
+            normalizedProvider,
+
+          model:
+            data.model ||
+            normalizedModel ||
+            null,
+
+          requestId:
+            data.requestId ||
+            payload.requestId ||
+            null,
+
+          usage:
+            data.usage ||
+            null,
+
+          tool:
+            data.tool ||
+            null
+        };
       } finally {
         this.state.busy = false;
       }
     },
 
-    async send(message) {
+    async send(
+      message,
+      options = {}
+    ) {
       const text =
-        String(message || '').trim();
+        String(
+          message || ''
+        ).trim();
 
       if (!text) {
         throw new Error(
@@ -198,430 +487,453 @@
         );
       }
 
+      if (this.state.busy) {
+        return null;
+      }
+
+      this.state.provider =
+        String(
+          options.provider ||
+          this.state.provider ||
+          'gemini'
+        )
+          .trim()
+          .toLowerCase();
+
+      this.state.model =
+        String(
+          options.model ||
+          this.state.model ||
+          ''
+        ).trim();
+
       this.state.messages.push({
         role: 'user',
         content: text
       });
 
-      const result =
-        await this.requestAI({
-          provider: this.state.provider,
-          model: this.state.model,
-          messages: this.state.messages
-        });
+      /*
+       * Keep the conversation bounded so a long-running browser
+       * session does not grow without limit.
+       */
+      if (
+        this.state.messages.length >
+        50
+      ) {
+        this.state.messages =
+          this.state.messages.slice(-50);
+      }
 
-      this.state.messages.push({
-        role: 'assistant',
-        content: result.text || ''
-      });
+      try {
+        const result =
+          await this.requestAI({
+            provider:
+              this.state.provider,
 
-      return result;
+            model:
+              this.state.model,
+
+            messages:
+              this.state.messages.slice(),
+
+            system:
+              options.system,
+
+            toolRequest:
+              options.toolRequest
+          });
+
+        const answer =
+          String(
+            result?.text || ''
+          ).trim();
+
+        if (answer) {
+          this.state.messages.push({
+            role: 'assistant',
+            content: answer
+          });
+        }
+
+        return result;
+      } catch (error) {
+        /*
+         * Remove the unsent user message if the backend rejected
+         * the request so the local conversation does not pretend
+         * that the message was successfully processed.
+         */
+        this.state.messages =
+          this.state.messages.filter(
+            function (entry, index, array) {
+              if (
+                index !==
+                array.length - 1
+              ) {
+                return true;
+              }
+
+              return !(
+                entry.role === 'user' &&
+                entry.content === text
+              );
+            }
+          );
+
+        throw error;
+      }
     },
 
     async executeTool({
       tool,
       action,
       input = {}
-    }) {
-      const token =
-        await this.getIdToken();
+    } = {}) {
+      const normalizedTool =
+        String(
+          tool || ''
+        ).trim();
 
-      const response =
-        await fetch('/api/ai/tools', {
-          method: 'POST',
+      const normalizedAction =
+        String(
+          action || ''
+        ).trim();
 
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-
-          body: JSON.stringify({
-            tool,
-            action,
-            input
-          })
-        });
-
-      let payload = {};
-
-      try {
-        payload = await response.json();
-      } catch {
-        payload = {};
-      }
-
-      if (!response.ok) {
+      if (
+        !normalizedTool ||
+        !normalizedAction
+      ) {
         throw new Error(
-          payload?.message ||
-          'OVYX AI tool request was rejected.'
+          'A valid AI tool and action are required.'
         );
       }
 
-      return payload.data;
+      const token =
+        await getFirebaseIdToken(false);
+
+      const payload =
+        await requestJson(
+          OVYX_API.aiTools,
+          {
+            method: 'POST',
+
+            headers: {
+              'Content-Type':
+                'application/json',
+
+              Authorization:
+                `Bearer ${token}`
+            },
+
+            body: JSON.stringify({
+              tool:
+                normalizedTool,
+
+              action:
+                normalizedAction,
+
+              input:
+                input &&
+                typeof input === 'object'
+                  ? input
+                  : {}
+            })
+          }
+        );
+
+      return unwrapBackendData(
+        payload
+      );
     },
 
     reset() {
       this.state.messages = [];
       this.state.busy = false;
+    },
+
+    getState() {
+      return {
+        busy:
+          this.state.busy,
+
+        provider:
+          this.state.provider,
+
+        model:
+          this.state.model,
+
+        conversationLength:
+          this.state.messages.length
+      };
     }
   };
 
-  window.OVYXAssistant = OVYXAssistant;
+  /* ============================================================
+     PUBLIC OVYX API
+     ============================================================ */
+
+  window.OVYXCloudflareDeployment = {
+    deploy:
+      deployToCloudflare,
+
+    handleClick:
+      handleDeployClick
+  };
+
+  window.OVYXAssistant =
+    OVYXAssistant;
+
+  /* ============================================================
+     CLOUDFLARE DEPLOYMENT BUTTON BINDING
+     ============================================================ */
 
   document.addEventListener(
     'click',
-    async event => {
+    function (event) {
+      const target =
+        event.target;
+
+      if (
+        !target ||
+        typeof target.closest !==
+          'function'
+      ) {
+        return;
+      }
+
       const button =
-        event.target.closest(
-          '[data-ovyx-ai-send]'
+        target.closest(
+          '[data-ovyx-cloudflare-deploy]'
         );
 
       if (!button) {
         return;
       }
 
-      const input =
-        document.querySelector(
-          '[data-ovyx-ai-input]'
-        );
+      event.preventDefault();
 
-      if (!input) {
-        return;
-      }
-
-      const message =
-        String(input.value || '').trim();
-
-      if (!message) {
-        return;
-      }
-
-      const originalText =
-        button.textContent;
-
-      button.disabled = true;
-      button.textContent = 'Thinking…';
-
-      try {
-        const result =
-          await OVYXAssistant.send(message);
-
-        const output =
-          document.querySelector(
-            '[data-ovyx-ai-output]'
-          );
-
-        if (output) {
-          output.textContent =
-            result.text || '';
-        }
-
-        input.value = '';
-
-        document.dispatchEvent(
-          new CustomEvent(
-            'ovyx:ai-response',
-            {
-              detail: result
-            }
-          )
-        );
-      } catch (error) {
-        console.error(
-          'OVYX Assistant error:',
-          error
-        );
-
-        const output =
-          document.querySelector(
-            '[data-ovyx-ai-output]'
-          );
-
-        if (output) {
-          output.textContent =
-            error.message ||
-            'The OVYX Assistant could not complete the request.';
-        }
-      } finally {
-        button.disabled = false;
-        button.textContent =
-          originalText;
-      }
+      handleDeployClick(
+        button
+      ).catch(
+        function () {}
+      );
     }
   );
-})();
-<script id="ovyx-phase7-secure-assistant">
-(function () {
-  'use strict';
 
-  window.OVYXAssistant = window.OVYXAssistant || {};
+  /* ============================================================
+     AI ASSISTANT BUTTON BINDING
+     ============================================================ */
 
-  const state = {
-    busy: false,
-    conversation: []
-  };
-
-  function getFirebaseUser() {
-    try {
-      if (
-        window.firebase &&
-        typeof firebase.auth === 'function'
-      ) {
-        return firebase.auth().currentUser || null;
-      }
-    } catch (_) {}
-
-    return null;
-  }
-
-  async function getIdToken() {
-    const user = getFirebaseUser();
-
-    if (!user) {
-      throw new Error(
-        'Please sign in to OVYX before using the AI Assistant.'
-      );
-    }
-
-    return user.getIdToken(false);
-  }
-
-  async function requestJson(url, options) {
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        Accept: 'application/json',
-        ...(options && options.headers
-          ? options.headers
-          : {})
-      }
-    });
-
-    let payload = {};
-
-    try {
-      payload = await response.json();
-    } catch (_) {
-      payload = {};
-    }
-
-    if (!response.ok) {
-      const message =
-        payload?.error?.message ||
-        'OVYX backend request failed.';
-
-      const error = new Error(message);
-
-      error.code =
-        payload?.error?.code ||
-        'BACKEND_REQUEST_FAILED';
-
-      error.status = response.status;
-
-      throw error;
-    }
-
-    return payload;
-  }
-
-  async function send(message, options) {
-    const text = String(message || '').trim();
-
-    if (!text || state.busy) {
-      return null;
-    }
-
-    state.busy = true;
-
-    try {
-      const token = await getIdToken();
-
-      state.conversation.push({
-        role: 'user',
-        content: text
-      });
-
-      const payload = await requestJson(
-        '/api/ai/gateway',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type':
-              'application/json',
-            Authorization:
-              `Bearer ${token}`
-          },
-          body: JSON.stringify({
-            provider:
-              options?.provider ||
-              'gemini',
-
-            model:
-              options?.model ||
-              undefined,
-
-            messages:
-              state.conversation.slice(),
-
-            system:
-              options?.system ||
-              undefined,
-
-            tool:
-              options?.tool ||
-              undefined
-          })
-        }
-      );
-
-      const answer =
-        String(payload.text || '').trim();
-
-      if (answer) {
-        state.conversation.push({
-          role: 'assistant',
-          content: answer
-        });
-      }
-
-      return payload;
-    } finally {
-      state.busy = false;
-    }
-  }
-
-  async function executeTool(
-    tool,
-    action,
-    input
-  ) {
-    const token = await getIdToken();
-
-    return requestJson(
-      '/api/ai/tools',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type':
-            'application/json',
-          Authorization:
-            `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          tool,
-          action,
-          input: input || {}
-        })
-      }
-    );
-  }
-
-  function reset() {
-    state.conversation = [];
-    state.busy = false;
-  }
-
-  window.OVYXAssistant.send = send;
-  window.OVYXAssistant.executeTool =
-    executeTool;
-  window.OVYXAssistant.reset = reset;
-
-  window.OVYXAssistant.getState =
-    function () {
-      return {
-        busy: state.busy,
-        conversationLength:
-          state.conversation.length
-      };
-    };
-
-  function bind() {
-    const sendButtons =
+  function bindAssistantButtons() {
+    const buttons =
       document.querySelectorAll(
         '[data-ovyx-ai-send]'
       );
 
-    sendButtons.forEach(function (button) {
-      if (button.dataset.ovyxPhase7Bound) {
-        return;
-      }
+    buttons.forEach(
+      function (button) {
+        if (
+          button.dataset
+            .ovyxPhase7Bound === '1'
+        ) {
+          return;
+        }
 
-      button.dataset.ovyxPhase7Bound = '1';
+        button.dataset
+          .ovyxPhase7Bound = '1';
 
-      button.addEventListener(
-        'click',
-        async function () {
-          const selector =
-            button.getAttribute(
-              'data-ovyx-ai-input'
+        button.addEventListener(
+          'click',
+          async function () {
+            if (
+              OVYXAssistant.state.busy
+            ) {
+              return;
+            }
+
+            const inputSelector =
+              button.getAttribute(
+                'data-ovyx-ai-input'
+              );
+
+            const input =
+              inputSelector
+                ? document.querySelector(
+                    inputSelector
+                  )
+                : document.querySelector(
+                    '[data-ovyx-ai-input]'
+                  );
+
+            if (!input) {
+              console.warn(
+                '[OVYX Phase 7] AI input element not found.'
+              );
+
+              return;
+            }
+
+            const output =
+              document.querySelector(
+                '[data-ovyx-ai-output]'
+              );
+
+            const message =
+              String(
+                input.value || ''
+              ).trim();
+
+            if (!message) {
+              return;
+            }
+
+            const originalText =
+              button.innerHTML;
+
+            button.disabled = true;
+
+            button.setAttribute(
+              'aria-busy',
+              'true'
             );
 
-          const input =
-            selector
-              ? document.querySelector(selector)
-              : document.querySelector(
-                  '[data-ovyx-ai-input]'
-                );
+            button.innerHTML =
+              '<i class="fa-solid fa-spinner fa-spin"></i>' +
+              '<span>Thinking…</span>';
 
-          if (!input) return;
-
-          const output =
-            document.querySelector(
-              '[data-ovyx-ai-output]'
-            );
-
-          try {
             if (output) {
               output.textContent =
                 'OVYX Brain is thinking…';
             }
 
-            const result =
-              await send(
-                input.value,
-                {
-                  provider:
-                    input.getAttribute(
-                      'data-ovyx-ai-provider'
-                    ) ||
-                    'gemini'
-                }
+            try {
+              const provider =
+                input.getAttribute(
+                  'data-ovyx-ai-provider'
+                ) ||
+                OVYXAssistant.state.provider ||
+                'gemini';
+
+              const model =
+                input.getAttribute(
+                  'data-ovyx-ai-model'
+                ) ||
+                OVYXAssistant.state.model ||
+                '';
+
+              const result =
+                await OVYXAssistant.send(
+                  message,
+                  {
+                    provider,
+                    model
+                  }
+                );
+
+              if (output) {
+                output.textContent =
+                  result?.text ||
+                  'OVYX Brain returned no text.';
+              }
+
+              input.value = '';
+
+              document.dispatchEvent(
+                new CustomEvent(
+                  'ovyx:ai-response',
+                  {
+                    detail:
+                      result || {}
+                  }
+                )
+              );
+            } catch (error) {
+              console.error(
+                '[OVYX Phase 7] Assistant:',
+                error
               );
 
-            input.value = '';
+              if (output) {
+                output.textContent =
+                  error?.message ||
+                  'The OVYX Assistant could not complete the request.';
+              }
 
-            if (output) {
-              output.textContent =
-                result?.text ||
-                'OVYX Brain returned no text.';
-            }
-          } catch (error) {
-            if (output) {
-              output.textContent =
-                error.message ||
-                'OVYX Assistant request failed.';
+              document.dispatchEvent(
+                new CustomEvent(
+                  'ovyx:ai-error',
+                  {
+                    detail: {
+                      message:
+                        error?.message ||
+                        'OVYX Assistant request failed.',
+
+                      code:
+                        error?.code ||
+                        'AI_REQUEST_FAILED',
+
+                      status:
+                        error?.status ||
+                        null
+                    }
+                  }
+                )
+              );
+            } finally {
+              button.disabled = false;
+
+              button.removeAttribute(
+                'aria-busy'
+              );
+
+              button.innerHTML =
+                originalText;
             }
           }
-        }
-      );
-    });
+        );
+      }
+    );
   }
 
-  if (
-    document.readyState === 'loading'
-  ) {
-    document.addEventListener(
-      'DOMContentLoaded',
-      bind,
-      { once: true }
-    );
-  } else {
-    bind();
-  }
+  /* ============================================================
+     RESET EVENT
+     ============================================================ */
 
   window.addEventListener(
     'ovyx:assistant:reset',
-    reset
+    function () {
+      OVYXAssistant.reset();
+    }
   );
+
+  /* ============================================================
+     INITIAL BINDING
+     ============================================================ */
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+    document.addEventListener(
+      'DOMContentLoaded',
+      bindAssistantButtons,
+      {
+        once: true
+      }
+    );
+  } else {
+    bindAssistantButtons();
+  }
+
+  /*
+   * Useful when OVYX dynamically renders studio panels/buttons
+   * after the initial page load.
+   */
+  window.addEventListener(
+    'ovyx:view-changed',
+    function () {
+      bindAssistantButtons();
+    }
+  );
+
 })();
-     </script>
+ </script>
