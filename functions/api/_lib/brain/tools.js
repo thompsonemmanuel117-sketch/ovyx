@@ -3,23 +3,16 @@
 /**
  * OVYX Phase 7
  * Permission-gated Brain tools.
- *
- * These adapters deliberately do not expose provider secrets.
- * They also do not bypass existing Phase 2/5/6 authoritative APIs.
  */
 
-const {
-  authorizeTool
-} = require('./registry.js');
+import { authorizeTool } from './registry.js';
 
 function clean(value) {
   return String(value || '').trim();
 }
 
 function safeObject(value) {
-  return value && typeof value === 'object'
-    ? value
-    : {};
+  return value && typeof value === 'object' ? value : {};
 }
 
 function executeWebStudio(action, input) {
@@ -31,8 +24,7 @@ function executeWebStudio(action, input) {
     status: 'accepted',
     projectId: clean(payload.projectId) || null,
     target: clean(payload.target) || null,
-    message:
-      'Web Studio tool request accepted by the OVYX Brain.'
+    message: 'Web Studio tool request accepted by the OVYX Brain.'
   };
 }
 
@@ -45,8 +37,7 @@ function executeAdvancedWebStudio(action, input) {
     status: 'accepted',
     projectId: clean(payload.projectId) || null,
     target: clean(payload.target) || null,
-    message:
-      'Advanced Web Studio tool request accepted by the OVYX Brain.'
+    message: 'Advanced Web Studio tool request accepted by the OVYX Brain.'
   };
 }
 
@@ -57,14 +48,10 @@ function executeGithub(action, input) {
     tool: 'github',
     action,
     status: 'accepted',
-    repository:
-      clean(payload.repository) || null,
-    branch:
-      clean(payload.branch) || null,
-    path:
-      clean(payload.path) || null,
-    message:
-      'GitHub operation authorized. The existing GitHub backend remains the credential authority.'
+    repository: clean(payload.repository) || null,
+    branch: clean(payload.branch) || null,
+    path: clean(payload.path) || null,
+    message: 'GitHub operation authorized. The existing GitHub backend remains the credential authority.'
   };
 }
 
@@ -75,10 +62,8 @@ function executeFirebase(action, input) {
     tool: 'firebase',
     action,
     status: 'accepted',
-    resource:
-      clean(payload.resource) || null,
-    message:
-      'Firebase operation authorized through the OVYX backend boundary.'
+    resource: clean(payload.resource) || null,
+    message: 'Firebase operation authorized through the OVYX backend boundary.'
   };
 }
 
@@ -89,12 +74,9 @@ function executeCloudflare(action, input) {
     tool: 'cloudflare',
     action,
     status: 'accepted',
-    project:
-      clean(payload.project) || null,
-    deploymentId:
-      clean(payload.deploymentId) || null,
-    message:
-      'Cloudflare operation authorized. Deployment credentials remain server-side.'
+    project: clean(payload.project) || null,
+    deploymentId: clean(payload.deploymentId) || null,
+    message: 'Cloudflare operation authorized. Deployment credentials remain server-side.'
   };
 }
 
@@ -103,24 +85,18 @@ function executeGameStudio() {
     tool: 'game_studio',
     status: 'disabled',
     code: 'GAME_STUDIO_NOT_ENABLED_YET',
-    message:
-      'Game Studio is registered in the OVYX Brain contract, but its execution adapter has not been enabled yet.'
+    message: 'Game Studio is registered in the OVYX Brain contract, but its execution adapter has not been enabled yet.'
   };
 }
 
-async function executeTool({
+export async function executeTool({
   toolName,
   action,
   input,
   entitlements,
   user
 }) {
-  const authorization = authorizeTool(
-    toolName,
-    action,
-    entitlements,
-    user
-  );
+  const authorization = authorizeTool(toolName, action, entitlements, user);
 
   if (!authorization.ok) {
     const error = new Error(authorization.message);
@@ -151,9 +127,7 @@ async function executeTool({
       return executeGameStudio();
 
     default: {
-      const error = new Error(
-        'No execution adapter exists for this tool.'
-      );
+      const error = new Error('No execution adapter exists for this tool.');
 
       error.code = 'TOOL_EXECUTION_UNAVAILABLE';
       error.status = 501;
@@ -162,7 +136,3 @@ async function executeTool({
     }
   }
 }
-
-module.exports = {
-  executeTool
-};
