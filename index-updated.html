@@ -146,77 +146,6 @@
     handleDeployClick(button).catch(() => {});
   });
 })();
-<script>
-(() => {
-  'use strict';
-
-  const OVYXAssistant = {
-    state: {
-      provider: 'gemini',
-      model: '',
-      messages: [],
-      busy: false
-    },
-
-    getFirebaseUser() {
-      try {
-        if (
-          window.firebase &&
-          typeof window.firebase.auth === 'function'
-        ) {
-          return window.firebase.auth().currentUser || null;
-        }
-      } catch (error) {
-        console.error(
-          'OVYX Firebase auth lookup failed.',
-          error
-        );
-      }
-
-      return null;
-    },
-
-    async getIdToken() {
-      const user = this.getFirebaseUser();
-
-      if (!user) {
-        throw new Error(
-          'Please sign in to OVYX before using the AI Assistant.'
-        );
-      }
-
-      return user.getIdToken(false);
-    },
-
-    async requestAI({
-      provider,
-      model,
-      messages,
-      temperature = 0.2,
-      maxTokens = 2000,
-      toolRequest = null
-    }) {
-      if (this.state.busy) {
-        throw new Error(
-          'The OVYX Assistant is already processing a request.'
-        );
-      }
-
-      this.state.busy = true;
-
-      try {
-        const token =
-          await this.getIdToken();
-
-        const response =
-          await fetch('/api/ai/gateway', {
-            method: 'POST',
-
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-
             body: JSON.stringify({
               provider:
                 String(provider || this.state.provider)
@@ -421,11 +350,278 @@
     }
   );
 })();
-</script>
-<input data-ovyx-ai-input>
+<script id="ovyx-phase7-secure-assistant">
+(function () {
+  'use strict';
 
-<button type="button" data-ovyx-ai-send>
-  Ask OVYX
-</button>
+  window.OVYXAssistant = window.OVYXAssistant || {};
 
-<div data-ovyx-ai-output></div>
+  const state = {
+    busy: false,
+    conversation: []
+  };
+
+  function getFirebaseUser() {
+    try {
+      if (
+        window.firebase &&
+        typeof firebase.auth === 'function'
+      ) {
+        return firebase.auth().currentUser || null;
+      }
+    } catch (_) {}
+
+    return null;
+  }
+
+  async function getIdToken() {
+    const user = getFirebaseUser();
+
+    if (!user) {
+      throw new Error(
+        'Please sign in to OVYX before using the AI Assistant.'
+      );
+    }
+
+    return user.getIdToken(false);
+  }
+
+  async function requestJson(url, options) {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        Accept: 'application/json',
+        ...(options && options.headers
+          ? options.headers
+          : {})
+      }
+    });
+
+    let payload = {};
+
+    try {
+      payload = await response.json();
+    } catch (_) {
+      payload = {};
+    }
+
+    if (!response.ok) {
+      const message =
+        payload?.error?.message ||
+        'OVYX backend request failed.';
+
+      const error = new Error(message);
+
+      error.code =
+        payload?.error?.code ||
+        'BACKEND_REQUEST_FAILED';
+
+      error.status = response.status;
+
+      throw error;
+    }
+
+    return payload;
+  }
+
+  async function send(message, options) {
+    const text = String(message || '').trim();
+
+    if (!text || state.busy) {
+      return null;
+    }
+
+    state.busy = true;
+
+    try {
+      const token = await getIdToken();
+
+      state.conversation.push({
+        role: 'user',
+        content: text
+      });
+
+      const payload = await requestJson(
+        '/api/ai/gateway',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type':
+              'application/json',
+            Authorization:
+              `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            provider:
+              options?.provider ||
+              'gemini',
+
+            model:
+              options?.model ||
+              undefined,
+
+            messages:
+              state.conversation.slice(),
+
+            system:
+              options?.system ||
+              undefined,
+
+            tool:
+              options?.tool ||
+              undefined
+          })
+        }
+      );
+
+      const answer =
+        String(payload.text || '').trim();
+
+      if (answer) {
+        state.conversation.push({
+          role: 'assistant',
+          content: answer
+        });
+      }
+
+      return payload;
+    } finally {
+      state.busy = false;
+    }
+  }
+
+  async function executeTool(
+    tool,
+    action,
+    input
+  ) {
+    const token = await getIdToken();
+
+    return requestJson(
+      '/api/ai/tools',
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type':
+            'application/json',
+          Authorization:
+            `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          tool,
+          action,
+          input: input || {}
+        })
+      }
+    );
+  }
+
+  function reset() {
+    state.conversation = [];
+    state.busy = false;
+  }
+
+  window.OVYXAssistant.send = send;
+  window.OVYXAssistant.executeTool =
+    executeTool;
+  window.OVYXAssistant.reset = reset;
+
+  window.OVYXAssistant.getState =
+    function () {
+      return {
+        busy: state.busy,
+        conversationLength:
+          state.conversation.length
+      };
+    };
+
+  function bind() {
+    const sendButtons =
+      document.querySelectorAll(
+        '[data-ovyx-ai-send]'
+      );
+
+    sendButtons.forEach(function (button) {
+      if (button.dataset.ovyxPhase7Bound) {
+        return;
+      }
+
+      button.dataset.ovyxPhase7Bound = '1';
+
+      button.addEventListener(
+        'click',
+        async function () {
+          const selector =
+            button.getAttribute(
+              'data-ovyx-ai-input'
+            );
+
+          const input =
+            selector
+              ? document.querySelector(selector)
+              : document.querySelector(
+                  '[data-ovyx-ai-input]'
+                );
+
+          if (!input) return;
+
+          const output =
+            document.querySelector(
+              '[data-ovyx-ai-output]'
+            );
+
+          try {
+            if (output) {
+              output.textContent =
+                'OVYX Brain is thinking…';
+            }
+
+            const result =
+              await send(
+                input.value,
+                {
+                  provider:
+                    input.getAttribute(
+                      'data-ovyx-ai-provider'
+                    ) ||
+                    'gemini'
+                }
+              );
+
+            input.value = '';
+
+            if (output) {
+              output.textContent =
+                result?.text ||
+                'OVYX Brain returned no text.';
+            }
+          } catch (error) {
+            if (output) {
+              output.textContent =
+                error.message ||
+                'OVYX Assistant request failed.';
+            }
+          }
+        }
+      );
+    });
+  }
+
+  if (
+    document.readyState === 'loading'
+  ) {
+    document.addEventListener(
+      'DOMContentLoaded',
+      bind,
+      { once: true }
+    );
+  } else {
+    bind();
+  }
+
+  window.addEventListener(
+    'ovyx:assistant:reset',
+    reset
+  );
+})();
+     </script>
