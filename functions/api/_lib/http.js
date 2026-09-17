@@ -1,11 +1,8 @@
-'use strict';
-
-const SECURITY_HEADERS = Object.freeze({
+export const SECURITY_HEADERS = Object.freeze({
   'Content-Type': 'application/json; charset=utf-8',
   'Cache-Control': 'no-store, no-cache, must-revalidate, private',
   'Pragma': 'no-cache',
   'Expires': '0',
-
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
   'Referrer-Policy': 'strict-origin-when-cross-origin',
@@ -15,7 +12,7 @@ const SECURITY_HEADERS = Object.freeze({
   'X-Robots-Tag': 'noindex, nofollow, noarchive'
 });
 
-function jsonResponse(payload, status = 200, extraHeaders = {}) {
+export function jsonResponse(payload, status = 200, extraHeaders = {}) {
   const headers = new Headers(SECURITY_HEADERS);
 
   Object.entries(extraHeaders).forEach(([key, value]) => {
@@ -28,7 +25,7 @@ function jsonResponse(payload, status = 200, extraHeaders = {}) {
   });
 }
 
-function errorResponse(status, code, message, requestId) {
+export function errorResponse(status, code, message, requestId) {
   return jsonResponse(
     {
       ok: false,
@@ -40,7 +37,7 @@ function errorResponse(status, code, message, requestId) {
   );
 }
 
-function getRequestId(request) {
+export function getRequestId(request) {
   const incoming = request.headers.get('CF-Ray');
 
   if (incoming && /^[A-Za-z0-9._:-]{1,160}$/.test(incoming)) {
@@ -50,7 +47,7 @@ function getRequestId(request) {
   return crypto.randomUUID();
 }
 
-function getBearerToken(request) {
+export function getBearerToken(request) {
   const value = request.headers.get('Authorization') || '';
 
   if (!value.startsWith('Bearer ')) {
@@ -66,7 +63,7 @@ function getBearerToken(request) {
   return token;
 }
 
-function enforceSameOrigin(request) {
+export function enforceSameOrigin(request) {
   const origin = request.headers.get('Origin');
 
   if (!origin) {
@@ -81,11 +78,11 @@ function enforceSameOrigin(request) {
   }
 }
 
-function methodAllowed(request, methods) {
+export function methodAllowed(request, methods) {
   return methods.includes(request.method.toUpperCase());
 }
 
-function isValidCapabilityName(value) {
+export function isValidCapabilityName(value) {
   return [
     'webStudio',
     'advancedWebStudio',
@@ -96,15 +93,4 @@ function isValidCapabilityName(value) {
     'cloudflareDeploy',
     'teamWorkspace'
   ].includes(String(value || ''));
-}
-
-module.exports = {
-  SECURITY_HEADERS,
-  jsonResponse,
-  errorResponse,
-  getRequestId,
-  getBearerToken,
-  enforceSameOrigin,
-  methodAllowed,
-  isValidCapabilityName
-};
+    }
