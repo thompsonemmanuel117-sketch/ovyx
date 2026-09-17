@@ -3,24 +3,23 @@
  * Fixed folder routing pathways for Cloudflare V8 runtime engine compatibility.
  */
 
-// We pull directly from our verified local _lib folder relative to this file's double-nested depth
-const {
+import {
   jsonResponse,
   errorResponse,
   getRequestId,
   getBearerToken,
   enforceSameOrigin,
   isValidCapabilityName
-} = require('../../_lib/http.js');
+} from '../../_lib/http.js';
 
-const {
+import {
   verifyFirebaseIdToken,
   normalizeEmail
-} = require('../../_lib/auth.js');
+} from '../../_lib/auth.js';
 
-const {
+import {
   getFirestoreDocument
-} = require('../../_lib/firebase-admin.js');
+} from '../../_lib/firebase-admin.js';
 
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 
@@ -94,8 +93,7 @@ function resolveRole(profile, email) {
   return 'FREE_USER';
 }
 
-// Fixed endpoint handles using direct standard export configurations for the build system wrapper
-async function onRequestPost(context) {
+export async function onRequestPost(context) {
   const request = context.request;
   const requestId = getRequestId(request);
 
@@ -152,9 +150,6 @@ async function onRequestPost(context) {
   }
 }
 
-async function onRequestGet(context) {
+export async function onRequestGet(context) {
   return errorResponse(405, 'METHOD_NOT_ALLOWED', 'Use POST for RBAC evaluation.', getRequestId(context.request));
 }
-
-module.exports = { onRequestPost, onRequestGet };
-  
