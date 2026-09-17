@@ -5,13 +5,8 @@
  * Central AI Brain orchestrator.
  */
 
-const {
-  generate
-} = require('./providers.js');
-
-const {
-  listTools
-} = require('./registry.js');
+import { generate } from './brain/providers.js';
+import { listTools } from './brain/registry.js';
 
 function clean(value) {
   return String(value || '').trim();
@@ -56,7 +51,7 @@ function buildSystemInstruction({
   ].join('\n');
 }
 
-async function run({
+export async function run({
   env,
   user,
   entitlements,
@@ -110,7 +105,4 @@ async function run({
   };
 }
 
-module.exports = {
-  run,
-  buildSystemInstruction
-};
+export { buildSystemInstruction };
