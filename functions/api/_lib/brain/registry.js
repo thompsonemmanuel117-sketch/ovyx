@@ -5,7 +5,7 @@
  * Server-side Brain capability + tool registry.
  */
 
-const CAPABILITIES = Object.freeze([
+export const CAPABILITIES = Object.freeze([
   'webStudio',
   'advancedWebStudio',
   'appStudio',
@@ -16,33 +16,19 @@ const CAPABILITIES = Object.freeze([
   'teamWorkspace'
 ]);
 
-const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
+export const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 
-/**
- * Tool implementation status.
- *
- * game_studio intentionally remains disabled until the actual
- * Game Studio backend adapter is installed.
- */
-const TOOL_REGISTRY = Object.freeze({
+export const TOOL_REGISTRY = Object.freeze({
   web_studio: {
     capability: 'webStudio',
     enabled: true,
-    actions: [
-      'inspect',
-      'optimize',
-      'preview'
-    ]
+    actions: ['inspect', 'optimize', 'preview']
   },
 
   advanced_web_studio: {
     capability: 'advancedWebStudio',
     enabled: true,
-    actions: [
-      'inspect',
-      'optimize',
-      'preview'
-    ]
+    actions: ['inspect', 'optimize', 'preview']
   },
 
   game_studio: {
@@ -50,64 +36,43 @@ const TOOL_REGISTRY = Object.freeze({
     enabled: false,
     reason: 'GAME_STUDIO_NOT_ENABLED_YET',
     actions: [
-      'project.create',
-      'project.inspect',
-      'project.update',
-      'scene.create',
-      'scene.inspect',
-      'scene.update',
-      'scene.delete',
-      'asset.list',
-      'asset.import',
-      'asset.remove',
-      'script.read',
-      'script.write',
-      'build.start',
-      'build.status',
-      'preview.start',
-      'preview.status'
+      'project.create', 'project.inspect', 'project.update',
+      'scene.create', 'scene.inspect', 'scene.update', 'scene.delete',
+      'asset.list', 'asset.import', 'asset.remove',
+      'script.read', 'script.write',
+      'build.start', 'build.status',
+      'preview.start', 'preview.status'
     ]
   },
 
   github: {
     capability: 'github',
     enabled: true,
-    actions: [
-      'repositories',
-      'branches',
-      'tree',
-      'contents'
-    ]
+    actions: ['repositories', 'branches', 'tree', 'contents']
   },
 
   firebase: {
     capability: 'teamWorkspace',
     enabled: true,
-    actions: [
-      'profile.read',
-      'project.read'
-    ]
+    actions: ['profile.read', 'project.read']
   },
 
   cloudflare: {
     capability: 'cloudflareDeploy',
     enabled: true,
-    actions: [
-      'deploy',
-      'status'
-    ]
+    actions: ['deploy', 'status']
   }
 });
 
-function normalizeEmail(value) {
+export function normalizeEmail(value) {
   return String(value || '').trim().toLowerCase();
 }
 
-function isRootUser(user) {
+export function isRootUser(user) {
   return normalizeEmail(user && user.email) === ROOT_EMAIL;
 }
 
-function normalizeCapabilities(entitlements) {
+export function normalizeCapabilities(entitlements) {
   const source =
     entitlements?.capabilities ||
     entitlements?.entitlements?.capabilities ||
@@ -122,7 +87,7 @@ function normalizeCapabilities(entitlements) {
   return result;
 }
 
-function hasCapability(entitlements, capability, user) {
+export function hasCapability(entitlements, capability, user) {
   if (!CAPABILITIES.includes(capability)) return false;
 
   if (isRootUser(user)) {
@@ -134,11 +99,11 @@ function hasCapability(entitlements, capability, user) {
   return capabilities[capability] === true;
 }
 
-function getTool(toolName) {
+export function getTool(toolName) {
   return TOOL_REGISTRY[toolName] || null;
 }
 
-function listTools(entitlements, user) {
+export function listTools(entitlements, user) {
   return Object.keys(TOOL_REGISTRY)
     .map(function (name) {
       const tool = TOOL_REGISTRY[name];
@@ -148,11 +113,7 @@ function listTools(entitlements, user) {
         capability: tool.capability,
         enabled:
           tool.enabled &&
-          hasCapability(
-            entitlements,
-            tool.capability,
-            user
-          ),
+          hasCapability(entitlements, tool.capability, user),
         actions: tool.actions.slice(),
         reason: tool.reason || null
       };
@@ -162,7 +123,7 @@ function listTools(entitlements, user) {
     });
 }
 
-function authorizeTool(toolName, action, entitlements, user) {
+export function authorizeTool(toolName, action, entitlements, user) {
   const tool = getTool(toolName);
 
   if (!tool) {
@@ -174,17 +135,12 @@ function authorizeTool(toolName, action, entitlements, user) {
     };
   }
 
-  if (!hasCapability(
-    entitlements,
-    tool.capability,
-    user
-  )) {
+  if (!hasCapability(entitlements, tool.capability, user)) {
     return {
       ok: false,
       status: 403,
       code: 'CAPABILITY_REQUIRED',
-      message:
-        `The ${tool.capability} capability is required for this tool.`
+      message: `The ${tool.capability} capability is required for this tool.`
     };
   }
 
@@ -192,11 +148,8 @@ function authorizeTool(toolName, action, entitlements, user) {
     return {
       ok: false,
       status: 501,
-      code:
-        tool.reason ||
-        'TOOL_NOT_IMPLEMENTED',
-      message:
-        'This OVYX tool is registered but its backend implementation is not enabled yet.'
+      code: tool.reason || 'TOOL_NOT_IMPLEMENTED',
+      message: 'This OVYX tool is registered but its backend implementation is not enabled yet.'
     };
   }
 
@@ -205,8 +158,7 @@ function authorizeTool(toolName, action, entitlements, user) {
       ok: false,
       status: 400,
       code: 'ACTION_NOT_ALLOWED',
-      message:
-        'The requested action is not registered for this tool.'
+      message: 'The requested action is not registered for this tool.'
     };
   }
 
@@ -215,17 +167,4 @@ function authorizeTool(toolName, action, entitlements, user) {
     tool,
     action
   };
-}
-
-module.exports = {
-  ROOT_EMAIL,
-  CAPABILITIES,
-  TOOL_REGISTRY,
-  normalizeEmail,
-  isRootUser,
-  normalizeCapabilities,
-  hasCapability,
-  getTool,
-  listTools,
-  authorizeTool
-};
+        }
