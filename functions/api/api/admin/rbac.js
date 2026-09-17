@@ -1,5 +1,9 @@
-'use strict';
+/**
+ * OVYX (ForgeOS) - Phase 8 Server-Authoritative RBAC Authority
+ * Fixed folder routing pathways for Cloudflare V8 runtime engine compatibility.
+ */
 
+// We pull directly from our verified local _lib folder relative to this file's double-nested depth
 const {
   jsonResponse,
   errorResponse,
@@ -7,19 +11,18 @@ const {
   getBearerToken,
   enforceSameOrigin,
   isValidCapabilityName
-} = require('../../../_lib/http.js');
+} = require('../../_lib/http.js');
 
 const {
   verifyFirebaseIdToken,
   normalizeEmail
-} = require('../../../_lib/auth.js');
+} = require('../../_lib/auth.js');
 
 const {
   getFirestoreDocument
-} = require('../../../_lib/firebase-admin.js');
+} = require('../../_lib/firebase-admin.js');
 
-const ROOT_EMAIL =
-  'ovyxsupportteam@gmail.com';
+const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 
 const CAPABILITIES = Object.freeze({
   FREE_USER: Object.freeze({
@@ -68,106 +71,56 @@ const CAPABILITIES = Object.freeze({
 });
 
 function resolveRole(profile, email) {
-  if (
-    normalizeEmail(email) === ROOT_EMAIL
-  ) {
+  if (normalizeEmail(email) === ROOT_EMAIL) {
     return 'ROOT_SUPERUSER';
   }
 
-  const role =
-    String(profile?.role || '')
-      .trim()
-      .toUpperCase();
+  const role = String(profile?.role || '').trim().toUpperCase();
 
-  if (
-    role === 'ROOT_SUPERUSER' ||
-    role === 'MAX_USER' ||
-    role === 'PRO_USER'
-  ) {
+  if (role === 'ROOT_SUPERUSER' || role === 'MAX_USER' || role === 'PRO_USER') {
     return role;
   }
 
-  const plan =
-    String(
-      profile?.planTier ??
-      profile?.tier ??
-      profile?.plan ??
-      'free'
-    )
-      .trim()
-      .toLowerCase();
+  const plan = String(profile?.planTier ?? profile?.tier ?? profile?.plan ?? 'free').trim().toLowerCase();
 
-  if (
-    plan === 'max' ||
-    plan === 'maximum'
-  ) {
+  if (plan === 'max' || plan === 'maximum') {
     return 'MAX_USER';
   }
 
-  if (
-    plan === 'pro' ||
-    plan === 'professional'
-  ) {
+  if (plan === 'pro' || plan === 'professional') {
     return 'PRO_USER';
   }
 
   return 'FREE_USER';
 }
 
-export async function onRequestPost(context) {
+// Fixed endpoint handles using direct standard export configurations for the build system wrapper
+async function onRequestPost(context) {
   const request = context.request;
-  const requestId =
-    getRequestId(request);
+  const requestId = getRequestId(request);
 
   if (!enforceSameOrigin(request)) {
-    return errorResponse(
-      403,
-      'ORIGIN_REJECTED',
-      'Cross-origin RBAC requests are not permitted.',
-      requestId
-    );
+    return errorResponse(403, 'ORIGIN_REJECTED', 'Cross-origin RBAC requests are not permitted.', requestId);
   }
 
   if (!getBearerToken(request)) {
-    return errorResponse(
-      401,
-      'AUTH_REQUIRED',
-      'Authentication is required.',
-      requestId
-    );
+    return errorResponse(401, 'AUTH_REQUIRED', 'Authentication is required.', requestId);
   }
 
   let body;
-
   try {
     body = await request.json();
   } catch {
-    return errorResponse(
-      400,
-      'INVALID_JSON',
-      'Request body must be valid JSON.',
-      requestId
-    );
+    return errorResponse(400, 'INVALID_JSON', 'Request body must be valid JSON.', requestId);
   }
 
-  const capability =
-    String(body?.capability || '');
+  const capability = String(body?.capability || '');
 
   if (!isValidCapabilityName(capability)) {
-    return errorResponse(
-      400,
-      'INVALID_CAPABILITY',
-      'The requested capability is not recognized.',
-      requestId
-    );
+    return errorResponse(400, 'INVALID_CAPABILITY', 'The requested capability is not recognized.', requestId);
   }
 
-  const auth =
-    await verifyFirebaseIdToken(
-      request,
-      context.env
-    );
-
+  const auth = await verifyFirebaseIdToken(request, context.env);
   if (!auth.ok) {
     return auth.response;
   }
@@ -175,26 +128,12 @@ export async function onRequestPost(context) {
   try {
     let profile = null;
 
-    if (
-      normalizeEmail(auth.user.email) !==
-      ROOT_EMAIL
-    ) {
-      profile =
-        await getFirestoreDocument(
-          context.env,
-          'users',
-          auth.user.uid
-        );
+    if (normalizeEmail(auth.user.email) !== ROOT_EMAIL) {
+      profile = await getFirestoreDocument(context.env, 'users', auth.user.uid);
     }
 
-    const role =
-      resolveRole(
-        profile,
-        auth.user.email
-      );
-
-    const allowed =
-      CAPABILITIES[role]?.[capability] === true;
+    const role = resolveRole(profile, auth.user.email);
+    const allowed = CAPABILITIES[role]?.[capability] === true;
 
     return jsonResponse(
       {
@@ -205,30 +144,17 @@ export async function onRequestPost(context) {
         authority: 'SERVER'
       },
       200,
-      {
-        'X-OVYX-Request-ID': requestId
-      }
+      { 'X-OVYX-Request-ID': requestId }
     );
   } catch (error) {
-    console.error(
-      `[OVYX RBAC ${requestId}]`,
-      error?.message || error
-    );
-
-    return errorResponse(
-      503,
-      'RBAC_EVALUATION_FAILED',
-      'Authorization could not be safely evaluated. Access is denied.',
-      requestId
-    );
+    console.error(`[OVYX RBAC ${requestId}]`, error?.message || error);
+    return errorResponse(503, 'RBAC_EVALUATION_FAILED', 'Authorization could not be safely evaluated.', requestId);
   }
 }
 
-export async function onRequestGet(context) {
-  return errorResponse(
-    405,
-    'METHOD_NOT_ALLOWED',
-    'Use POST for RBAC evaluation.',
-    getRequestId(context.request)
-  );
-      }
+async function onRequestGet(context) {
+  return errorResponse(405, 'METHOD_NOT_ALLOWED', 'Use POST for RBAC evaluation.', getRequestId(context.request));
+}
+
+module.exports = { onRequestPost, onRequestGet };
+  
