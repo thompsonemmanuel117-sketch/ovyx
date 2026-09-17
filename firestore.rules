@@ -1,0 +1,183 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /*
+     * OVYX / ForgeOS Phase 8
+     *
+     * Security model:
+     * - Authentication is required for all user-data access.
+     * - A user may read only their own /users/{uid} document.
+     * - A user may create their own profile, but cannot establish
+     *   privileged role, plan, entitlement, or subscription state.
+     * - A user may update only explicitly client-safe profile fields.
+     * - Role, plan, entitlement, subscription, admin, and security
+     *   fields are server-authoritative and cannot be changed by
+     *   ordinary Firebase clients.
+     * - Administrative mutations must be performed by trusted
+     *   server-side code using Firebase Admin credentials.
+     */
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    /*
+     * Fields controlled exclusively by the trusted backend.
+     * These must never be writable by the browser.
+     */
+    function protectedUserFields() {
+      return [
+        'role',
+        'plan',
+        'planTier',
+        'planTierState',
+        'entitlements',
+        'capabilities',
+        'permissions',
+        'admin',
+        'isAdmin',
+        'isSuperAdmin',
+        'isRoot',
+        'subscription',
+        'subscriptionStatus',
+        'subscriptionId',
+        'paymentStatus',
+        'paymentProvider',
+        'paymentReference',
+        'trial',
+        'trialEndsAt',
+        'featureRules',
+        'accountStatus',
+        'suspended',
+        'disabled',
+        'security',
+        'audit',
+        'createdBy',
+        'lastAdminAction',
+        'lastAdminActionAt'
+      ];
+    }
+
+    function doesNotChangeProtectedUserFields() {
+      return !request.resource.data
+        .diff(resource.data)
+        .affectedKeys()
+        .hasAny(protectedUserFields());
+    }
+
+    /*
+     * Fields a normal authenticated user is allowed to maintain
+     * in their own profile.
+     *
+     * Add additional client-editable profile fields here only after
+     * deliberately reviewing their security implications.
+     */
+    function allowedUserProfileFields() {
+      return [
+        'displayName',
+        'photoURL',
+        'photoUrl',
+        'phoneNumber',
+        'timezone',
+        'locale',
+        'preferences',
+        'uiPreferences',
+        'onboarding',
+        'updatedAt'
+      ];
+    }
+
+    function onlyChangesAllowedProfileFields() {
+      return request.resource.data
+        .diff(resource.data)
+        .affectedKeys()
+        .hasOnly(allowedUserProfileFields());
+    }
+
+    /*
+     * The document ID must correspond to the authenticated Firebase UID.
+     * This prevents one authenticated user from creating a profile
+     * under another user's UID.
+     */
+    match /users/{uid} {
+
+      /*
+       * Users may read only their own profile.
+       */
+      allow read: if isOwner(uid);
+
+      /*
+       * A user may create their own initial profile.
+       *
+       * Server-authoritative fields are explicitly forbidden.
+       * The client therefore cannot create itself as PRO, MAX, ADMIN,
+       * ROOT_SUPERUSER, or grant itself capabilities.
+       */
+      allow create: if isOwner(uid)
+        && !request.resource.data
+          .keys()
+          .hasAny(protectedUserFields());
+
+      /*
+       * A normal user may update only explicitly permitted profile
+       * fields on their own document.
+       *
+       * This is intentionally restrictive: changing a field from
+       * "free" to "pro", adding an admin role, changing entitlements,
+       * or modifying subscription state is rejected by Firestore
+       * before the write reaches the database.
+       */
+      allow update: if isOwner(uid)
+        && doesNotChangeProtectedUserFields()
+        && onlyChangesAllowedProfileFields();
+
+      /*
+       * Client-side deletion of authoritative user profiles is denied.
+       * Account/profile deletion should be handled through a trusted
+       * backend workflow.
+       */
+      allow delete: if false;
+    }
+
+    /*
+     * Server-authoritative system configuration.
+     *
+     * The browser must never be able to change RBAC, feature locks,
+     * provider configuration, or other global security configuration.
+     */
+    match /system/{document} {
+      allow read: if false;
+      allow write: if false;
+    }
+
+    /*
+     * Server-authoritative audit records.
+     */
+    match /audit_logs/{document} {
+      allow read: if false;
+      allow write: if false;
+    }
+
+    /*
+     * GitHub connections and encrypted provider credentials are
+     * backend-managed resources. No direct browser access.
+     */
+    match /github_connections/{uid} {
+      allow read, write: if false;
+    }
+
+    /*
+     * Deny every Firestore path that has not been explicitly opened
+     * above. New collections therefore fail closed by default.
+     */
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
