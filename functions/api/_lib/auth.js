@@ -1,18 +1,16 @@
-'use strict';
-
-const {
+import {
   getBearerToken,
   errorResponse
-} = require('./http.js');
+} from './http.js';
 
 const FIREBASE_LOOKUP_URL =
   'https://identitytoolkit.googleapis.com/v1/accounts:lookup';
 
-function normalizeEmail(value) {
+export function normalizeEmail(value) {
   return String(value || '').trim().toLowerCase();
 }
 
-async function verifyFirebaseIdToken(request, env) {
+export async function verifyFirebaseIdToken(request, env) {
   const token = getBearerToken(request);
 
   if (!token) {
@@ -144,8 +142,3 @@ async function verifyFirebaseIdToken(request, env) {
     }
   };
 }
-
-module.exports = {
-  normalizeEmail,
-  verifyFirebaseIdToken
-};
