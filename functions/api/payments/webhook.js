@@ -1205,12 +1205,12 @@ async function handleWebhook(
     Date.now()
   );
 
-  const existingExpiresAt = normalizeTimestamp(
+   existingExpiresAt = normalizeTimestamp(
     userData.expiresAt,
     0
   );
 
-  const expiresAt = calculateRollingExpiry(
+   expiresAt = calculateRollingExpiry(
     paidAt,
     existingExpiresAt
   );
