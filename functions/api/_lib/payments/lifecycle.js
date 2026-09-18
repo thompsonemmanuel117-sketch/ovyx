@@ -21,8 +21,11 @@
  *   - trust browser subscription status
  *   - call OPay
  *   - perform Firestore writes
+ *   - calculate entitlement access
  *
- * It only determines what state transition is valid.
+ * Subscription timestamp persistence is performed by
+ * the authoritative payment route after successful
+ * provider verification.
  */
 
 const STATES = Object.freeze([
@@ -128,7 +131,9 @@ function normalizeState(value) {
       .trim()
       .toLowerCase();
 
-  if (!STATES.includes(state)) {
+  if (
+    !STATES.includes(state)
+  ) {
     return null;
   }
 
@@ -141,7 +146,9 @@ function normalizeEvent(value) {
       .trim()
       .toUpperCase();
 
-  if (!EVENTS.includes(event)) {
+  if (
+    !EVENTS.includes(event)
+  ) {
     return null;
   }
 
@@ -149,7 +156,8 @@ function normalizeEvent(value) {
 }
 
 function assertState(value) {
-  const state = normalizeState(value);
+  const state =
+    normalizeState(value);
 
   if (!state) {
     throw new Error(
@@ -161,7 +169,8 @@ function assertState(value) {
 }
 
 function assertEvent(value) {
-  const event = normalizeEvent(value);
+  const event =
+    normalizeEvent(value);
 
   if (!event) {
     throw new Error(
@@ -173,13 +182,16 @@ function assertEvent(value) {
 }
 
 function isTerminalState(value) {
-  const state = normalizeState(value);
+  const state =
+    normalizeState(value);
 
   if (!state) {
     return false;
   }
 
-  return TERMINAL_STATES.has(state);
+  return TERMINAL_STATES.has(
+    state
+  );
 }
 
 function canTransition(
@@ -187,10 +199,14 @@ function canTransition(
   event
 ) {
   const state =
-    assertState(currentState);
+    assertState(
+      currentState
+    );
 
   const lifecycleEvent =
-    assertEvent(event);
+    assertEvent(
+      event
+    );
 
   const transitions =
     TRANSITIONS[state] || {};
@@ -208,16 +224,22 @@ function nextState(
   event
 ) {
   const state =
-    assertState(currentState);
+    assertState(
+      currentState
+    );
 
   const lifecycleEvent =
-    assertEvent(event);
+    assertEvent(
+      event
+    );
 
   const transitions =
     TRANSITIONS[state] || {};
 
   const result =
-    transitions[lifecycleEvent];
+    transitions[
+      lifecycleEvent
+    ];
 
   if (!result) {
     throw new Error(
@@ -228,28 +250,19 @@ function nextState(
   return result;
 }
 
-/**
- * Prevents an older provider notification from
- * moving an account backwards.
- *
- * Example:
- *
- *   active + PAYMENT_FAILED
- *       -> past_due
- *
- * but a later/older duplicate SUCCESS notification
- * must be handled by event idempotency at the route
- * level before this function is called.
- */
 function transition(
   currentState,
   event
 ) {
   const from =
-    assertState(currentState);
+    assertState(
+      currentState
+    );
 
   const lifecycleEvent =
-    assertEvent(event);
+    assertEvent(
+      event
+    );
 
   const to =
     nextState(
@@ -259,11 +272,15 @@ function transition(
 
   return {
     from,
+
     event:
       lifecycleEvent,
+
     to,
+
     changed:
       from !== to,
+
     terminal:
       isTerminalState(to)
   };
@@ -385,12 +402,20 @@ function initialPaidState() {
   };
 }
 
+/**
+ * Prevents browser-controlled lifecycle authority.
+ *
+ * The browser must never be allowed to provide a
+ * client-side plan or subscription state that controls
+ * the server payment lifecycle.
+ */
 function assertNoBrowserAuthority(
   candidate
 ) {
   if (
     candidate &&
-    typeof candidate === 'object'
+    typeof candidate ===
+      'object'
   ) {
     if (
       Object.prototype.hasOwnProperty.call(
