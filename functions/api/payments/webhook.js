@@ -30,7 +30,19 @@ const {
   writeAuditLog
 } = require('../_lib/logger.js');
 
+const {
+  normalizeState,
+  paymentSucceeded,
+  initialPaidState
+} = require('../_lib/payments/lifecycle.js');
+
 const MAX_BODY_BYTES = 64 * 1024;
+
+const THIRTY_DAYS_MS =
+  30 * 24 * 60 * 60 * 1000;
+
+const ROOT_EMAIL =
+  'ovyxsupportteam@gmail.com';
 
 const SUCCESS_STATES = new Set([
   'SUCCESS'
@@ -67,10 +79,94 @@ function normalizeStatus(value) {
   ).toUpperCase();
 }
 
+function normalizePlan(value) {
+  return cleanString(
+    value,
+    32
+  ).toLowerCase();
+}
+
+function normalizeTimestamp(value) {
+  if (
+    value === null ||
+    value === undefined ||
+    value === ''
+  ) {
+    return null;
+  }
+
+  const numeric =
+    Number(value);
+
+  if (
+    !Number.isFinite(numeric) ||
+    numeric <= 0
+  ) {
+    return null;
+  }
+
+  return numeric;
+}
+
+/**
+ * Calculates the authoritative rolling subscription
+ * expiry timestamp.
+ *
+ * Rules:
+ *
+ * 1. A brand-new payment starts a 30-day period
+ *    from the exact server payment timestamp.
+ *
+ * 2. If the account already has an active future
+ *    expiry timestamp, an early renewal preserves
+ *    that remaining time and adds another 30 days.
+ *
+ * 3. An already-expired timestamp is ignored and the
+ *    new paidAt timestamp becomes the base.
+ *
+ * This function is deterministic and does not perform
+ * any database or provider operation.
+ */
+function calculateRollingExpiry(
+  existingExpiresAt,
+  paidAt
+) {
+  const paidTimestamp =
+    normalizeTimestamp(
+      paidAt
+    );
+
+  if (
+    paidTimestamp === null
+  ) {
+    throw new Error(
+      'INVALID_PAID_AT_TIMESTAMP'
+    );
+  }
+
+  const existingExpiry =
+    normalizeTimestamp(
+      existingExpiresAt
+    );
+
+  const baseTimestamp =
+    existingExpiry !== null &&
+    existingExpiry > paidTimestamp
+      ? existingExpiry
+      : paidTimestamp;
+
+  return (
+    baseTimestamp +
+    THIRTY_DAYS_MS
+  );
+}
+
 async function readBody(request) {
   const contentLength =
     Number(
-      request.headers.get('Content-Length') || 0
+      request.headers.get(
+        'Content-Length'
+      ) || 0
     );
 
   if (
@@ -86,7 +182,9 @@ async function readBody(request) {
     await request.text();
 
   if (
-    new TextEncoder().encode(raw).byteLength >
+    new TextEncoder()
+      .encode(raw)
+      .byteLength >
     MAX_BODY_BYTES
   ) {
     throw new Error(
@@ -174,21 +272,32 @@ function extractCurrency(data) {
   ).toUpperCase();
 }
 
-function buildEventId(data, request) {
+function buildEventId(
+  data,
+  request
+) {
   return (
     extractTransactionId(data) ||
     extractProviderOrderNo(data) ||
     cleanString(
-      request.headers.get('X-Opay-Tranid'),
+      request.headers.get(
+        'X-Opay-Tranid'
+      ),
       160
     ) ||
     crypto.randomUUID()
   );
 }
 
-async function safeAudit(env, payload) {
+async function safeAudit(
+  env,
+  payload
+) {
   try {
-    if (typeof writeAuditLog === 'function') {
+    if (
+      typeof writeAuditLog ===
+      'function'
+    ) {
       await writeAuditLog(
         env,
         payload
@@ -245,13 +354,6 @@ async function handleWebhook(
   let verified;
 
   try {
-    /*
-     * Group 1 performs the OPay RSA verification.
-     *
-     * The raw request body is passed to the helper so
-     * signature verification is performed against the
-     * exact bytes received from OPay.
-     */
     verified =
       await verifyWebhook(
         env,
@@ -349,12 +451,6 @@ async function handleWebhook(
   }
 
   if (!payment) {
-    /*
-     * Do not acknowledge an unknown order as successful.
-     *
-     * Returning a failure lets the provider retry while
-     * the merchant system is investigated.
-     */
     return errorResponse(
       404,
       'PAYMENT_ORDER_NOT_FOUND',
@@ -375,8 +471,8 @@ async function handleWebhook(
 
   if (
     payment.uid &&
-    payment.email &&
-    typeof payment.uid !== 'string'
+    typeof payment.uid !==
+      'string'
   ) {
     return errorResponse(
       409,
@@ -385,11 +481,6 @@ async function handleWebhook(
     );
   }
 
-  /*
-   * A webhook may arrive using the OPay order number.
-   * Verify that it matches the provider order previously
-   * returned by OPay when one has already been stored.
-   */
   if (
     payment.providerOrderNo &&
     providerOrderNo &&
@@ -410,10 +501,6 @@ async function handleWebhook(
       payment.currency
     );
 
-  /*
-   * Validate the provider amount against the
-   * authoritative current price.
-   */
   const providerAmount =
     extractAmount(
       data
@@ -473,12 +560,6 @@ async function handleWebhook(
     );
   }
 
-  /*
-   * Idempotency is keyed by the provider event.
-   *
-   * OPay can retry a webhook when acknowledgement
-   * is delayed or unsuccessful.
-   */
   let eventClaim;
 
   try {
@@ -521,14 +602,11 @@ async function handleWebhook(
     );
   }
 
-  /*
-   * If already fulfilled, never credit the plan again.
-   */
   if (
     payment.fulfillmentStatus ===
-    'fulfilled' &&
+      'fulfilled' &&
     payment.status ===
-    'success'
+      'success'
   ) {
     await completeIdempotencyKey(
       env,
@@ -559,14 +637,6 @@ async function handleWebhook(
     );
   }
 
-  /*
-   * For SUCCESS, perform a second server-side
-   * reconciliation against OPay.
-   *
-   * This protects against accepting a malformed
-   * notification that happens to contain a valid-looking
-   * signature envelope.
-   */
   if (
     SUCCESS_STATES.has(status)
   ) {
@@ -642,8 +712,25 @@ async function handleWebhook(
     }
   }
 
+  const nowDate =
+    new Date();
+
   const now =
-    new Date().toISOString();
+    nowDate.toISOString();
+
+  const paidAt =
+    nowDate.getTime();
+
+  if (
+    !Number.isFinite(paidAt) ||
+    paidAt <= 0
+  ) {
+    return errorResponse(
+      500,
+      'PAYMENT_TIMESTAMP_ERROR',
+      'The server could not establish an authoritative payment timestamp.'
+    );
+  }
 
   if (
     PENDING_STATES.has(status)
@@ -838,6 +925,9 @@ async function handleWebhook(
    * 6. independent OPay status query
    * 7. independent amount/currency validation
    * 8. idempotency protection
+   *
+   * Only after all of those checks do we modify
+   * the authoritative user subscription.
    */
   if (
     SUCCESS_STATES.has(status)
@@ -899,20 +989,16 @@ async function handleWebhook(
       ).toLowerCase();
 
     const currentTier =
-      cleanString(
-        existingUser.planTier,
-        32
-      ).toLowerCase();
+      normalizePlan(
+        existingUser.planTier
+      );
 
-    /*
-     * Never downgrade a Root account.
-     */
     const isRoot =
       cleanString(
         payment.email,
         160
       ).toLowerCase() ===
-      'ovyxsupportteam@gmail.com';
+      ROOT_EMAIL;
 
     if (isRoot) {
       await firestoreSet(
@@ -1009,213 +1095,224 @@ async function handleWebhook(
     }
 
     /*
-     * Server-side subscription activation.
+     * Determine the lifecycle transition before writing
+     * the new subscription state.
      *
-     * This deliberately does not trust any plan/tier
-     * supplied by the webhook.
+     * A user with no valid existing lifecycle state is
+     * treated as a first paid activation.
      *
-     * payment.plan came from the server-authoritative
-     * pricing lookup during payment creation.
+     * An existing valid lifecycle state must transition
+     * through the deterministic state machine.
      */
-    const userUpdate = {
-      ...existingUser,
+    let lifecycleResult;
 
-      planTier:
-        payment.plan,
+    const normalizedCurrentState =
+      normalizeState(
+        currentState
+      );
 
-      planTierState:
-        'active',
-
-      subscriptionStatus:
-        'active',
-
-      subscriptionProvider:
-        'opay',
-
-      subscriptionId:
-        providerOrderNo ||
-        orderNo,
-
-      paymentStatus:
-        'paid',
-
-      paymentProvider:
-        'opay',
-
-      paymentReference:
-        orderNo,
-
-      paymentProviderReference:
-        providerOrderNo ||
-        null,
-
-      paymentTransactionId:
-        transactionId ||
-        null,
-
-      paymentCurrency:
-        payment.currency,
-
-      paymentAmount:
-        payment.amount,
-
-      subscriptionActivatedAt:
-        now,
-
-      lastPaymentAt:
-        now,
-
-      updatedAt:
-        now
-    };
-
-    /*
-     * Preserve higher plan state when the account already
-     * has an active MAX subscription and a duplicate/older
-     * PRO payment is received.
-     */
-    if (
-      currentTier === 'max' &&
-      currentState === 'active' &&
-      payment.plan === 'pro'
-    ) {
-      userUpdate.planTier =
-        currentTier;
+    try {
+      if (
+        normalizedCurrentState
+      ) {
+        lifecycleResult =
+          paymentSucceeded(
+            normalizedCurrentState
+          );
+      } else {
+        lifecycleResult =
+          initialPaidState();
+      }
+    } catch {
+      return errorResponse(
+        409,
+        'INVALID_PAYMENT_LIFECYCLE',
+        'The OVYX account has an invalid payment lifecycle state and the subscription was not activated.'
+      );
     }
 
-    await firestoreSet(
-      env,
-      [
-        'users',
-        payment.uid
-      ],
-      userUpdate
-    );
+    /*
+     * Server-authoritative rolling subscription period.
+     *
+     * New purchase:
+     *
+     *   expiresAt = paidAt + 30 days
+     *
+     * Early renewal:
+     *
+     *   expiresAt =
+     *     existingFutureExpiresAt + 30 days
+     *
+     * Expired account:
+     *
+     *   expiresAt =
+     *     paidAt + 30 days
+     *
+     * The comparison is performed using exact Unix
+     * millisecond timestamps.
+     */
+    const existingExpiresAt =
+      normalizeTimestamp(
+        existingUser.expiresAt
+      );
 
-    await firestoreSet(
-      env,
-      [
-        'payment_orders',
-        orderNo
-      ],
-      {
-        ...payment,
+    const expiresAt =
+      calculateRollingExpiry(
+        existingExpiresAt,
+        paidAt
+      );
 
-        status:
-          'success',
+    const purchasedPlan =
+      normalizePlan(
+        payment.plan
+      );
 
-        fulfillmentStatus:
-          'fulfilled',
-
-        providerOrderNo:
-          providerOrderNo ||
-          payment.providerOrderNo ||
-          null,
-
-        providerTransactionId:
-          transactionId ||
-          payment.providerTransactionId ||
-          null,
-
-        fulfilledAt:
-          now,
-
-        updatedAt:
-          now
-      }
-    );
-
-    await completeIdempotencyKey(
-      env,
-      `opay:webhook:${eventId}`,
-      {
-        status:
-          200,
-
-        body: {
-          code:
-            '00000',
-
-          message:
-            'SUCCESSFUL'
-        }
-      }
-    );
-
-    await safeAudit(
-      env,
-      {
-        user:
-          payment.uid,
-
-        action:
-          'subscriptionActivated',
-
-        resource:
-          `users/${payment.uid}`,
-
-        timestamp:
-          now,
-
-        requestId:
-          id,
-
-        ipAddress:
-          request.headers.get(
-            'CF-Connecting-IP'
-          ) || '',
-
-        result:
-          'success',
-
-        providerEventId:
-          eventId
-      }
-    );
-
-    return acknowledge(
-      id,
-      {
-        code:
-          '00000',
-
-        message:
-          'SUCCESSFUL'
-      }
-    );
-  }
-
-  return errorResponse(
-    400,
-    'UNHANDLED_PAYMENT_STATE',
-    'The payment state could not be processed.'
+    if (
+      purchasedPlan !== 'pro' &&
+      purchasedPlan !== 'max'
+    ) {
+      return errorResponse(
+        409,
+            "INVALID_PAYMENT_PLAN",
+    "The payment order does not contain a supported OVYX subscription plan"
   );
 }
 
-async function onRequest(context) {
-  const {
-    request,
-    env
-  } = context;
+/*
+ * Preserve MAX when a PRO payment is received while
+ * MAX is currently active.
+ *
+ * The renewal period is still extended by exactly
+ * 30 days from the existing future expiry.
+ */
+let resultingTier = purchasedPlan;
 
-  if (
-    request.method !==
-    'POST'
-  ) {
+if (
+  currentTier === "max" &&
+  currentStatus === "active" &&
+  purchasedPlan === "pro"
+) {
+  resultingTier = "max";
+}
+
+const userUpdate = {
+  ...existingUser,
+  planTier: resultingTier,
+  planTierState: lifecycleResult.to,
+  subscriptionStatus: 'active',
+  subscriptionProvider: 'opay',
+  subscriptionId: providerOrderNo || orderId,
+  paymentStatus: 'paid',
+  paymentProvider: 'opay',
+  paymentReference: orderId,
+  paymentProviderReference: providerOrderNo || null,
+  paymentTransactionId: transactionId || null,
+  paymentCurrency: payment.currency,
+  paymentAmount: payment.amount,
+  /*
+   * Authoritative subscription timestamps.
+   * paidAt in numeric milliseconds so the server
+   * entitlement layer can evaluate:
+   * expiresAt > Date.now()
+   */
+  paidAt: paidAt,
+  expiresAt: expiresResult,
+  subscriptionActivatedAt: now,
+  lastPaymentAt: now,
+  updatedAt: now
+};
+
+await firestoreSet(
+  env,
+  [
+    'users',
+    payment.uid
+  ],
+  userUpdate
+);
+
+await firestoreSet(
+  env,
+  [
+    'payment_orders',
+    orderId
+  ],
+  {
+    ...payment,
+    status: 'success',
+    fulfillmentStatus: 'fulfilled',
+    providerOrderNo: providerOrderNo || payment.providerOrderNo || null,
+    providerTransactionId: transactionId || payment.providerTransactionId || null,
+    fulfilledAt: now,
+    paidAt: paidAt,
+    expiresAt: expiresResult,
+    lifecycleFrom: lifecycleResult.from,
+    lifecycleEvent: lifecycleResult.event,
+    lifecycleTo: lifecycleResult.to,
+    updatedAt: now
+  }
+);
+
+await completeIdempotencyKey(
+  env,
+  `opay_webhook:${eventId}`,
+  {
+    status: 200,
+    body: {
+      code: '00000',
+      message: 'SUCCESS'
+    }
+  }
+);
+
+await safeAuditLog(
+  env,
+  {
+    user: payment.uid,
+    action: 'subscriptionActivated',
+    resource: `users/${payment.uid}`,
+    timestamp: now,
+    requestId: id,
+    ipAddress: request.headers.get('CF-Connecting-IP') || '',
+    result: 'success',
+    providerEventId: eventId
+  }
+);
+
+return acknowledge(
+  id,
+  {
+    code: '00000',
+    message: 'SUCCESS'
+  }
+);
+
+return errorResponse(
+  400,
+  'UNHANDLED_PAYMENT_STATE',
+  'The payment state could not be processed.'
+);
+
+async function onRequest(context) {
+  const { request, env } = context;
+  
+  if (request.method !== 'POST') {
     return errorResponse(
       405,
       'METHOD_NOT_ALLOWED',
       'Only POST is supported for the OPay webhook.'
     );
   }
-
-  return handleWebhook(
-    request,
-    env
-  );
+  
+  return handleWebhook(request, env);
 }
 
 module.exports = {
-  onRequest
+  onRequest,
+  calculateRollingExpiry,
+  normalizeTimestamp
 };
+    
+        
+      
     
