@@ -1,58 +1,15 @@
-/*
- * OVYX — Remote Production Typography
- * Phase 9.5
- *
- * No local .woff2 files required.
- * Font families and weights are pinned in index.html
- * through the Google Fonts CSS endpoint.
- */
-
+/* OVYX Phase 9.5 typography contract.
+   Font binaries are intentionally not required. The pinned Google Fonts
+   stylesheet in index.html supplies the requested production families. */
 :root {
-  --ovyx-font-ui: "Inter", system-ui, -apple-system, BlinkMacSystemFont,
-    "Segoe UI", sans-serif;
-
-  --ovyx-font-code: "Fira Code", "JetBrains Mono", ui-monospace,
-    SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-
-  --ovyx-font-mono: "JetBrains Mono", "Fira Code", ui-monospace,
-    SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --ovyx-font-ui: "Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --ovyx-font-code: "Fira Code", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --ovyx-font-mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
-html,
-body {
-  font-family: var(--ovyx-font-ui);
-}
-
-code,
-pre,
-kbd,
-samp,
-textarea.code,
-.code-font,
-.font-mono,
-[data-font="code"],
-[data-font-family="code"] {
-  font-family: var(--ovyx-font-code);
-}
-
-.jetbrains-mono,
-[data-font="jetbrains-mono"] {
-  font-family: var(--ovyx-font-mono);
-}
-
-.inter,
-[data-font="inter"] {
-  font-family: var(--ovyx-font-ui);
-}
-
-.fira-code,
-[data-font="fira-code"] {
-  font-family: var(--ovyx-font-code);
-}
-
-@supports (font-variation-settings: normal) {
-  html,
-  body {
-    font-synthesis: none;
-  }
-}
+html, body { font-family: var(--ovyx-font-ui); }
+code, pre, kbd, samp, textarea.code, .code-font, .font-mono, [data-font="code"] { font-family: var(--ovyx-font-code); }
+.jetbrains-mono, [data-font="jetbrains-mono"] { font-family: var(--ovyx-font-mono); }
+.fira-code, [data-font="fira-code"] { font-family: var(--ovyx-font-code); }
+.inter, [data-font="inter"] { font-family: var(--ovyx-font-ui); }
+@supports (font-variation-settings: normal) { html, body { font-synthesis: none; } }
