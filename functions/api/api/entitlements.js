@@ -1,339 +1,260 @@
 'use strict';
 
-const {
-  jsonResponse,
-  errorResponse,
-  getRequestId,
-  enforceSameOrigin
-} = require('../../_lib/http.js');
+const { firestoreGet } = require('./firestore.js');
+const { isRootUser } = require('./brain/registry.js');
 
-const {
-  verifyFirebaseIdToken,
-  normalizeEmail
-} = require('../../_lib/auth.js');
+const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 
-const {
-  getFirestoreDocument
-} = require('../../_lib/firebase-admin.js');
-
-const ROOT_EMAIL =
-  'ovyxsupportteam@gmail.com';
-
-const CAPABILITY_NAMES = Object.freeze([
-  'webStudio',
-  'advancedWebStudio',
-  'appStudio',
-  'gameStudio',
-  'aiGeneration',
-  'github',
-  'cloudflareDeploy',
-  'teamWorkspace'
+const PAID_STATES = new Set([
+  'trialing',
+  'active'
 ]);
 
-const FREE_CAPABILITIES = Object.freeze({
-  webStudio: false,
+const PAID_TIERS = new Set([
+  'pro',
+  'max'
+]);
+
+const DEFAULT_FREE_CAPABILITIES = Object.freeze({
+  webStudio: true,
   advancedWebStudio: false,
-  appStudio: false,
+  appStudio: true,
   gameStudio: false,
-  aiGeneration: true,
-  github: true,
+  aiGeneration: false,
+  github: false,
   cloudflareDeploy: false,
   teamWorkspace: false
 });
 
-const PRO_CAPABILITIES = Object.freeze({
-  webStudio: true,
-  advancedWebStudio: true,
-  appStudio: false,
-  gameStudio: false,
-  aiGeneration: true,
-  github: true,
-  cloudflareDeploy: true,
-  teamWorkspace: false
-});
-
-const MAX_CAPABILITIES = Object.freeze({
-  webStudio: true,
-  advancedWebStudio: true,
-  appStudio: true,
-  gameStudio: true,
-  aiGeneration: true,
-  github: true,
-  cloudflareDeploy: true,
-  teamWorkspace: true
-});
-
-const ROOT_CAPABILITIES = Object.freeze({
-  webStudio: true,
-  advancedWebStudio: true,
-  appStudio: true,
-  gameStudio: true,
-  aiGeneration: true,
-  github: true,
-  cloudflareDeploy: true,
-  teamWorkspace: true
-});
-
-function normalizePlan(value) {
-  const plan =
-    String(value || '')
-      .trim()
-      .toLowerCase();
-
-  if (
-    plan === 'max' ||
-    plan === 'maximum' ||
-    plan === 'max_user'
-  ) {
-    return 'max';
-  }
-
-  if (
-    plan === 'pro' ||
-    plan === 'pro_user' ||
-    plan === 'professional'
-  ) {
-    return 'pro';
-  }
-
-  return 'free';
+function normalizeEmail(value) {
+  return String(value || '').trim().toLowerCase();
 }
 
-function normalizeRole(value) {
-  return String(value || '')
+function normalizeTimestamp(value) {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  const numeric = Number(value);
+
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return null;
+  }
+
+  return numeric;
+}
+
+function isRootIdentity(user) {
+  if (isRootUser(user)) {
+    return true;
+  }
+
+  return normalizeEmail(user?.email) === ROOT_EMAIL;
+}
+
+function hasValidRollingAccess(profile, now) {
+  const tier = String(profile?.planTier || 'free')
     .trim()
-    .toUpperCase()
-    .replace(/[\s-]+/g, '_');
-}
+    .toLowerCase();
 
-function cloneCapabilities(source) {
-  return CAPABILITY_NAMES.reduce(
-    (result, key) => {
-      result[key] =
-        source[key] === true;
-      return result;
-    },
-    {}
+  const state = String(profile?.planTierState || 'free')
+    .trim()
+    .toLowerCase();
+
+  const expiresAt = normalizeTimestamp(profile?.expiresAt);
+
+  return (
+    PAID_TIERS.has(tier) &&
+    PAID_STATES.has(state) &&
+    expiresAt !== null &&
+    expiresAt > now
   );
 }
 
-function evaluateCapabilities({
-  email,
-  role,
-  plan
-}) {
-  const normalizedEmail =
-    normalizeEmail(email);
-
-  if (normalizedEmail === ROOT_EMAIL) {
-    return {
-      role: 'ROOT_SUPERUSER',
-      plan: 'root',
-      capabilities:
-        cloneCapabilities(ROOT_CAPABILITIES),
-      systemAccess: {
-        adminConsole: true,
-        providerDiagnostics: true,
-        billingAdministration: true,
-        userAdministration: true,
-        rbacAdministration: true,
-        telemetryAdministration: true,
-        backendAdministration: true,
-        systemOverride: true
-      }
-    };
-  }
-
-  const normalizedRole =
-    normalizeRole(role);
-
-  let effectivePlan =
-    normalizePlan(plan);
-
-  if (
-    normalizedRole === 'MAX_USER' ||
-    normalizedRole === 'MAX'
-  ) {
-    effectivePlan = 'max';
-  } else if (
-    normalizedRole === 'PRO_USER' ||
-    normalizedRole === 'PRO'
-  ) {
-    if (effectivePlan !== 'max') {
-      effectivePlan = 'pro';
-    }
-  }
-
-  if (effectivePlan === 'max') {
-    return {
-      role: 'MAX_USER',
-      plan: 'max',
-      capabilities:
-        cloneCapabilities(MAX_CAPABILITIES),
-      systemAccess: {
-        adminConsole: false,
-        providerDiagnostics: false,
-        billingAdministration: false,
-        userAdministration: false,
-        rbacAdministration: false,
-        telemetryAdministration: false,
-        backendAdministration: false,
-        systemOverride: false
-      }
-    };
-  }
-
-  if (effectivePlan === 'pro') {
-    return {
-      role: 'PRO_USER',
-      plan: 'pro',
-      capabilities:
-        cloneCapabilities(PRO_CAPABILITIES),
-      systemAccess: {
-        adminConsole: false,
-        providerDiagnostics: false,
-        billingAdministration: false,
-        userAdministration: false,
-        rbacAdministration: false,
-        telemetryAdministration: false,
-        backendAdministration: false,
-        systemOverride: false
-      }
-    };
-  }
-
+function buildPaidCapabilities(tier) {
   return {
-    role: 'FREE_USER',
-    plan: 'free',
-    capabilities:
-      cloneCapabilities(FREE_CAPABILITIES),
-    systemAccess: {
-      adminConsole: false,
-      providerDiagnostics: false,
-      billingAdministration: false,
-      userAdministration: false,
-      rbacAdministration: false,
-      telemetryAdministration: false,
-      backendAdministration: false,
-      systemOverride: false
-    }
+    webStudio: true,
+    advancedWebStudio: tier === 'max',
+    appStudio: true,
+    gameStudio: false,
+    aiGeneration: true,
+    github: true,
+    cloudflareDeploy: true,
+    teamWorkspace: true
   };
 }
 
-async function buildEntitlements(env, authenticatedUser) {
-  const email =
-    normalizeEmail(authenticatedUser.email);
-
-  if (email === ROOT_EMAIL) {
-    return evaluateCapabilities({
-      email,
-      role: 'ROOT_SUPERUSER',
-      plan: 'root'
-    });
+function normalizeFeatureRules(value) {
+  if (!Array.isArray(value)) {
+    return [];
   }
 
-  let profile = null;
-
-  try {
-    profile = await getFirestoreDocument(
-      env,
-      'users',
-      authenticatedUser.uid
-    );
-  } catch (error) {
-    throw new Error(
-      `Unable to evaluate account entitlements: ${error.message}`
-    );
-  }
-
-  const role =
-    profile?.role || '';
-
-  const plan =
-    profile?.planTier ??
-    profile?.tier ??
-    profile?.plan ??
-    'free';
-
-  return evaluateCapabilities({
-    email,
-    role,
-    plan
-  });
+  return value
+    .filter(rule => rule && typeof rule === 'object')
+    .map(rule => ({
+      feature: String(rule.feature || '').trim(),
+      tier: String(rule.tier || 'free').trim().toLowerCase(),
+      locked: rule.locked === true
+    }))
+    .filter(rule => rule.feature);
 }
 
-export async function onRequestPost(context) {
-  const request = context.request;
-  const requestId = getRequestId(request);
+function applyFeatureRules(capabilities, featureRules) {
+  const result = {
+    ...capabilities
+  };
 
-  if (!enforceSameOrigin(request)) {
-    return errorResponse(
-      403,
-      'ORIGIN_REJECTED',
-      'Cross-origin entitlement requests are not permitted.',
-      requestId
-    );
+  for (const rule of featureRules) {
+    if (rule.locked !== true) {
+      continue;
+    }
+
+    const feature = rule.feature;
+
+    if (Object.prototype.hasOwnProperty.call(result, feature)) {
+      result[feature] = false;
+    }
   }
 
-  const auth =
-    await verifyFirebaseIdToken(
-      request,
-      context.env
+  return result;
+}
+
+async function resolveEntitlements(env, user) {
+  const now = Date.now();
+
+  /*
+   * ROOT OVYX SUPPORT ACCOUNT
+   *
+   * Root access is deliberately independent of normal subscription
+   * expiration. This is the server-side emergency/admin identity.
+   */
+  if (isRootIdentity(user)) {
+    let systemConfig = {};
+
+    try {
+      systemConfig =
+        (await firestoreGet(env, ['system', 'config'])) || {};
+    } catch {
+      systemConfig = {};
+    }
+
+    const featureRules = normalizeFeatureRules(
+      systemConfig.featureRules
     );
 
-  if (!auth.ok) {
-    return auth.response;
-  }
-
-  try {
-    const entitlement =
-      await buildEntitlements(
-        context.env,
-        auth.user
-      );
-
-    return jsonResponse(
-      {
-        ok: true,
-        authority: 'SERVER',
-        subject: {
-          uid: auth.user.uid,
-          email: auth.user.email
+    return {
+      planTier: 'root',
+      planTierState: 'active',
+      paidAt: null,
+      expiresAt: null,
+      accessExpiresAt: null,
+      accessActive: true,
+      capabilities: applyFeatureRules(
+        {
+          webStudio: true,
+          advancedWebStudio: true,
+          appStudio: true,
+          gameStudio: true,
+          aiGeneration: true,
+          github: true,
+          cloudflareDeploy: true,
+          teamWorkspace: true
         },
-        role: entitlement.role,
-        plan: entitlement.plan,
-        capabilities:
-          entitlement.capabilities,
-        systemAccess:
-          entitlement.systemAccess,
-        evaluatedAt:
-          new Date().toISOString()
-      },
-      200,
-      {
-        'X-OVYX-Request-ID': requestId
-      }
-    );
-  } catch (error) {
-    console.error(
-      `[OVYX ENTITLEMENTS ${requestId}]`,
-      error?.message || error
-    );
-
-    return errorResponse(
-      503,
-      'ENTITLEMENT_EVALUATION_FAILED',
-      'The server could not safely evaluate account entitlements. Access has been denied.',
-      requestId
-    );
+        featureRules
+      ),
+      featureRules
+    };
   }
+
+  const profile =
+    (await firestoreGet(env, ['users', user.uid])) || {};
+
+  const tier = String(profile.planTier || 'free')
+    .trim()
+    .toLowerCase();
+
+  const state = String(profile.planTierState || 'free')
+    .trim()
+    .toLowerCase();
+
+  const paidAt = normalizeTimestamp(profile.paidAt);
+  const expiresAt = normalizeTimestamp(profile.expiresAt);
+
+  /*
+   * CRITICAL SECURITY RULE:
+   *
+   * Paid access exists only while:
+   *
+   *   expiresAt > Date.now()
+   *
+   * This is evaluated on the server for every entitlement resolution.
+   *
+   * Browser values such as:
+   *
+   *   user.plan
+   *   localStorage
+   *   window.KernelState
+   *
+   * have no authority here.
+   */
+  const accessActive =
+    PAID_TIERS.has(tier) &&
+    PAID_STATES.has(state) &&
+    expiresAt !== null &&
+    expiresAt > now;
+
+  let capabilities;
+
+  if (accessActive) {
+    capabilities = buildPaidCapabilities(tier);
+  } else {
+    capabilities = {
+      ...DEFAULT_FREE_CAPABILITIES
+    };
+  }
+
+  /*
+   * Feature locks are also server-side.
+   *
+   * /system/config is not client-writable under Phase 8 rules.
+   */
+  let systemConfig = {};
+
+  try {
+    systemConfig =
+      (await firestoreGet(env, ['system', 'config'])) || {};
+  } catch {
+    systemConfig = {};
+  }
+
+  const featureRules = normalizeFeatureRules(
+    systemConfig.featureRules
+  );
+
+  capabilities = applyFeatureRules(
+    capabilities,
+    featureRules
+  );
+
+  return {
+    planTier: accessActive ? tier : 'free',
+    planTierState: accessActive ? state : 'expired',
+    paidAt,
+    expiresAt,
+    accessExpiresAt: expiresAt,
+    accessActive,
+    capabilities,
+    featureRules
+  };
 }
 
-export async function onRequestGet(context) {
-  return errorResponse(
-    405,
-    'METHOD_NOT_ALLOWED',
-    'Use POST for entitlement evaluation.',
-    getRequestId(context.request)
-  );
-}
+module.exports = {
+  normalizeEmail,
+  normalizeTimestamp,
+  isRootIdentity,
+  hasValidRollingAccess,
+  buildPaidCapabilities,
+  normalizeFeatureRules,
+  applyFeatureRules,
+  resolveEntitlements
+};
