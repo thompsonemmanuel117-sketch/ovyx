@@ -1196,7 +1196,7 @@ async function handleWebhook(
       resultingTier =
         'max';
           }
-  );
+  
 
   const paidAt = normalizeTimestamp(
     payment.paidAt ||
