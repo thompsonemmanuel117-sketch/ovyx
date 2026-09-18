@@ -1193,124 +1193,175 @@ async function handleWebhook(
       currentState === 'active' &&
       purchasedPlan === 'pro'
     ) {
-      resultingTier = "max";
-}
+      resultingTier =
+        'max';
+          }
+  );
 
-const userUpdate = {
-  ...existingUser,
-  planTier: resultingTier,
-  planTierState: lifecycleResult.to,
-  subscriptionStatus: 'active',
-  subscriptionProvider: 'opay',
-  subscriptionId: providerOrderNo || orderId,
-  paymentStatus: 'paid',
-  paymentProvider: 'opay',
-  paymentReference: orderId,
-  paymentProviderReference: providerOrderNo || null,
-  paymentTransactionId: transactionId || null,
-  paymentCurrency: payment.currency,
-  paymentAmount: payment.amount,
+  const paidAt = normalizeTimestamp(
+    payment.paidAt ||
+    payment.lastPaymentAt ||
+    payment.createdAt ||
+    Date.now()
+  );
+
+  const existingExpiresAt = normalizeTimestamp(
+    userData.expiresAt,
+    0
+  );
+
+  const expiresAt = calculateRollingExpiry(
+    paidAt,
+    existingExpiresAt
+  );
+
+  const previousState = normalizeState(
+    currentState || initialPaidState().state
+  );
+
+  let lifecycleState;
+
+  try {
+    lifecycleState = paymentSucceeded(previousState);
+  } catch {
+    lifecycleState = initialPaidState();
+  }
+
+  const userUpdate = {
+    planTier: resultingTier,
+    planTierState: lifecycleState,
+
+    subscriptionStatus: lifecycleState,
+    subscriptionId: String(
+      payment.subscriptionId ||
+      payment.orderNo ||
+      orderNo
+    ).trim(),
+
+    paymentStatus: 'paid',
+    paymentProvider: 'opay',
+    paymentReference: reference,
+    paymentOrderNo: orderNo,
+    paymentTransactionId: transactionId,
+
+    paidAt,
+    expiresAt,
+
+    subscriptionActivatedAt: paidAt,
+    lastPaymentAt: paidAt,
+
+    updatedAt: Date.now()
+  };
+
   /*
-   * Authoritative subscription timestamps.
-   * paidAt in numeric milliseconds so the server
-   * entitlement layer can evaluate:
-   * expiresAt > Date.now()
+   * Preserve any existing subscription metadata when it exists.
+   * The paidAt timestamp is the authoritative start of this payment
+   * period, while expiresAt is calculated from the existing future
+   * expiry when applicable.
    */
-  paidAt: paidAt,
-  expiresAt: expiresResult,
-  subscriptionActivatedAt: now,
-  lastPaymentAt: now,
-  updatedAt: now
-};
-
-await firestoreSet(
-  env,
-  [
-    'users',
-    payment.uid
-  ],
-  userUpdate
-);
-
-await firestoreSet(
-  env,
-  [
-    'payment_orders',
-    orderId
-  ],
-  {
-    ...payment,
-    status: 'success',
-    fulfillmentStatus: 'fulfilled',
-    providerOrderNo: providerOrderNo || payment.providerOrderNo || null,
-    providerTransactionId: transactionId || payment.providerTransactionId || null,
-    fulfilledAt: now,
-    paidAt: paidAt,
-    expiresAt: expiresResult,
-    lifecycleFrom: lifecycleResult.from,
-    lifecycleEvent: lifecycleResult.event,
-    lifecycleTo: lifecycleResult.to,
-    updatedAt: now
+  if (payment.currency) {
+    userUpdate.paymentCurrency = String(
+      payment.currency
+    ).trim().toUpperCase();
   }
-);
 
-await completeIdempotencyKey(
-  env,
-  `opay_webhook:${eventId}`,
-  {
-    status: 200,
-    body: {
-      code: '00000',
-      message: 'SUCCESS'
+  if (payment.amount !== undefined && payment.amount !== null) {
+    userUpdate.paymentAmount = payment.amount;
+  }
+
+  if (payment.providerOrderNo) {
+    userUpdate.providerOrderNo = String(
+      payment.providerOrderNo
+    ).trim();
+  }
+
+  if (payment.payNo) {
+    userUpdate.paymentTransactionId = String(
+      payment.payNo
+    ).trim();
+  }
+
+  if (payment.reference) {
+    userUpdate.paymentReference = String(
+      payment.reference
+    ).trim();
+  }
+
+  await firestoreSet(
+    env,
+    `users/${payment.uid}`,
+    userUpdate
+  );
+
+  await firestoreSet(
+    env,
+    `payment_orders/${orderNo}`,
+    {
+      ...payment,
+      status: 'fulfilled',
+      paymentStatus: 'paid',
+      providerStatus: 'SUCCESS',
+
+      plan: purchasedPlan,
+      fulfilled: true,
+      fulfilledAt: Date.now(),
+
+      paidAt,
+      expiresAt,
+
+      lifecycleState,
+      previousLifecycleState: previousState,
+
+      providerTransactionId: transactionId,
+      providerOrderNo:
+        providerOrderNo ||
+        payment.providerOrderNo ||
+        '',
+
+      reconciledAt: Date.now(),
+      updatedAt: Date.now()
     }
-  }
-);
+  );
 
-await safeAuditLog(
-  env,
-  {
+  await completeIdempotency(
+    env,
+    idempotencyKey,
+    {
+      status: 'fulfilled',
+      orderNo,
+      uid: payment.uid,
+      paidAt,
+      expiresAt
+    }
+  );
+
+  await writeAuditLog(env, {
     user: payment.uid,
     action: 'subscriptionActivated',
-    resource: `users/${payment.uid}`,
-    timestamp: now,
-    requestId: id,
-    ipAddress: request.headers.get('CF-Connecting-IP') || '',
+    resource: `payment_orders/${orderNo}`,
+    timestamp: Date.now(),
+    requestId:
+      request.headers.get('cf-ray') ||
+      request.headers.get('x-request-id') ||
+      orderNo,
+    ipAddress:
+      request.headers.get('cf-connecting-ip') ||
+      '',
     result: 'success',
     providerEventId: eventId
-  }
-);
+  });
 
-return acknowledge(
-  id,
-  {
-    code: '00000',
-    message: 'SUCCESS'
-  }
-);
-
-return errorResponse(
-  400,
-  'UNHANDLED_PAYMENT_STATE',
-  'The payment state could not be processed.'
-);
-
-async function onRequest(context) {
-  const { request, env } = context;
-  
-  if (request.method !== 'POST') {
-    return errorResponse(
-      405,
-      'METHOD_NOT_ALLOWED',
-      'Only POST is supported for the OPay webhook.'
-    );
-  }
-  
-  return handleWebhook(request, env);
+  return jsonResponse({
+    ok: true,
+    acknowledged: true,
+    status: 'fulfilled',
+    orderNo,
+    plan: resultingTier,
+    paidAt,
+    expiresAt
+  });
 }
 
 module.exports = {
-  onRequest,
-  calculateRollingExpiry,
-  normalizeTimestamp
+  onRequest
 };
-        
