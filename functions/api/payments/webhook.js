@@ -1173,26 +1173,27 @@ async function handleWebhook(
     ) {
       return errorResponse(
         409,
-            "INVALID_PAYMENT_PLAN",
-    "The payment order does not contain a supported OVYX subscription plan"
-  );
-}
+        'INVALID_PAYMENT_PLAN',
+        'The payment order does not contain a supported OVYX subscription plan.'
+      );
+    }
 
-/*
- * Preserve MAX when a PRO payment is received while
- * MAX is currently active.
- *
- * The renewal period is still extended by exactly
- * 30 days from the existing future expiry.
- */
-let resultingTier = purchasedPlan;
+    /*
+     * Preserve MAX when a PRO payment is received while
+     * MAX is currently active.
+     *
+     * The renewal period is still extended by exactly
+     * 30 days from the existing future expiry.
+     */
+    let resultingTier =
+      purchasedPlan;
 
-if (
-  currentTier === "max" &&
-  currentStatus === "active" &&
-  purchasedPlan === "pro"
-) {
-  resultingTier = "max";
+    if (
+      currentTier === 'max' &&
+      currentState === 'active' &&
+      purchasedPlan === 'pro'
+    ) {
+      resultingTier = "max";
 }
 
 const userUpdate = {
@@ -1312,7 +1313,4 @@ module.exports = {
   calculateRollingExpiry,
   normalizeTimestamp
 };
-    
         
-      
-    
