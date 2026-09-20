@@ -177,7 +177,7 @@ export async function onRequestGet(context) {
 
       tips: envSummary.missing > 0
         ? [
-            `${envSummary.missing} environment variable(s) are missing.`,
+            `${envSummary.missing} environment variable(s) are missing.`,'
             'Go to Cloudflare Dashboard → Workers & Pages → ovyx → Settings → Environment Variables to add them.',
           ]
         : [
