@@ -1104,5 +1104,5 @@ module.exports = {
   getActiveSessions,
   sweepRuntimeLeases
 };
-
+}
 
