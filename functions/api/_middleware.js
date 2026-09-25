@@ -6,7 +6,7 @@ import {
   errorResponse,
   withCors,
   requestId,
-} from './_lib/http.js';
+} from '../_lib/http.js';
 
 export async function onRequest(
   context
