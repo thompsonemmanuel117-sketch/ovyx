@@ -1,6 +1,6 @@
 import {
   authenticateRequest,
-} from './_lib/firebase.js';
+} from '../_lib/firebase.js';
 
 import {
   errorResponse,
