@@ -1151,12 +1151,12 @@ async function handleWebhook(
      * The comparison is performed using exact Unix
      * millisecond timestamps.
      */
-    const existingExpiresAt =
+    let existingExpiresAt =
       normalizeTimestamp(
         existingUser.expiresAt
       );
 
-    const expiresAt =
+    let expiresAt =
       calculateRollingExpiry(
         existingExpiresAt,
         paidAt
