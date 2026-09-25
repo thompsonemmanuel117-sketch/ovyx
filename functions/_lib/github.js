@@ -88,8 +88,8 @@ function derLength(
       n & 0xff
     );
 
-    n >>>
-      = 8;
+       n >>>= 8;
+      
   }
 
   return new Uint8Array([
