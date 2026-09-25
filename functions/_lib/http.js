@@ -1,96 +1,307 @@
-export const SECURITY_HEADERS = Object.freeze({
-  'Content-Type': 'application/json; charset=utf-8',
-  'Cache-Control': 'no-store, no-cache, must-revalidate, private',
-  'Pragma': 'no-cache',
-  'Expires': '0',
-  'X-Content-Type-Options': 'nosniff',
-  'X-Frame-Options': 'DENY',
-  'Referrer-Policy': 'strict-origin-when-cross-origin',
-  'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=()',
-  'Cross-Origin-Opener-Policy': 'same-origin',
-  'Cross-Origin-Resource-Policy': 'same-origin',
-  'X-Robots-Tag': 'noindex, nofollow, noarchive'
-});
-
-export function jsonResponse(payload, status = 200, extraHeaders = {}) {
-  const headers = new Headers(SECURITY_HEADERS);
-
-  Object.entries(extraHeaders).forEach(([key, value]) => {
-    headers.set(key, String(value));
-  });
-
-  return new Response(JSON.stringify(payload), {
-    status,
-    headers
-  });
+export function json(
+  data,
+  status = 200,
+  headers = {}
+) {
+  return new Response(
+    JSON.stringify(
+      data
+    ),
+    {
+      status,
+      headers: {
+        'Content-Type':
+          'application/json; charset=utf-8',
+        'Cache-Control':
+          'no-store',
+        ...headers,
+      },
+    }
+  );
 }
 
-export function errorResponse(status, code, message, requestId) {
-  return jsonResponse(
+export function errorResponse(
+  message,
+  status = 400,
+  code = 'BAD_REQUEST',
+  extra = {}
+) {
+  return json(
     {
       ok: false,
-      error: code,
-      message,
-      requestId: requestId || null
+      error:
+        message,
+      code,
+      ...extra,
     },
     status
   );
 }
 
-export function getRequestId(request) {
-  const incoming = request.headers.get('CF-Ray');
+export async function readJson(
+  request,
+  maxBytes = 512_000
+) {
+  const contentLength =
+    Number(
+      request.headers.get(
+        'content-length'
+      ) || 0
+    );
 
-  if (incoming && /^[A-Za-z0-9._:-]{1,160}$/.test(incoming)) {
-    return incoming;
+  if (
+    contentLength &&
+    contentLength >
+      maxBytes
+  ) {
+    throw Object.assign(
+      new Error(
+        `Request body exceeds ${maxBytes} bytes.`
+      ),
+      {
+        status:
+          413,
+        code:
+          'BODY_TOO_LARGE',
+      }
+    );
   }
 
-  return crypto.randomUUID();
-}
+  const text =
+    await request.text();
 
-export function getBearerToken(request) {
-  const value = request.headers.get('Authorization') || '';
-
-  if (!value.startsWith('Bearer ')) {
-    return null;
+  if (
+    new TextEncoder()
+      .encode(
+        text
+      )
+      .byteLength >
+    maxBytes
+  ) {
+    throw Object.assign(
+      new Error(
+        `Request body exceeds ${maxBytes} bytes.`
+      ),
+      {
+        status:
+          413,
+        code:
+          'BODY_TOO_LARGE',
+      }
+    );
   }
 
-  const token = value.slice(7).trim();
-
-  if (!token || token.length > 8192) {
-    return null;
-  }
-
-  return token;
-}
-
-export function enforceSameOrigin(request) {
-  const origin = request.headers.get('Origin');
-
-  if (!origin) {
-    return true;
+  if (
+    !text.trim()
+  ) {
+    return {};
   }
 
   try {
-    const requestOrigin = new URL(request.url).origin;
-    return origin === requestOrigin;
+    return JSON.parse(
+      text
+    );
   } catch {
-    return false;
+    throw Object.assign(
+      new Error(
+        'Request body must be valid JSON.'
+      ),
+      {
+        status:
+          400,
+        code:
+          'INVALID_JSON',
+      }
+    );
   }
 }
 
-export function methodAllowed(request, methods) {
-  return methods.includes(request.method.toUpperCase());
+export function requestId(
+  request
+) {
+  return (
+    request.headers.get(
+      'x-ovyx-request-id'
+    ) ||
+    crypto.randomUUID()
+  );
 }
 
-export function isValidCapabilityName(value) {
-  return [
-    'webStudio',
-    'advancedWebStudio',
-    'appStudio',
-    'gameStudio',
-    'aiGeneration',
-    'github',
-    'cloudflareDeploy',
-    'teamWorkspace'
-  ].includes(String(value || ''));
+export function sseResponse(
+  run
+) {
+  const encoder =
+    new TextEncoder();
+
+  const stream =
+    new ReadableStream(
+      {
+        async start(
+          controller
+        ) {
+          let closed =
+            false;
+
+          const close =
+            () => {
+              if (
+                !closed
+              ) {
+                closed =
+                  true;
+
+                try {
+                  controller.close();
+                } catch {}
+              }
+            };
+
+          const send =
+            (
+              event,
+              data
+            ) => {
+              if (
+                closed
+              ) {
+                return;
+              }
+
+              const payload =
+                typeof data ===
+                'string'
+                  ? data
+                  : JSON.stringify(
+                      data
+                    );
+
+              controller.enqueue(
+                encoder.encode(
+                  `event: ${event}\ndata: ${payload}\n\n`
+                )
+              );
+            };
+
+          try {
+            send(
+              'connected',
+              {
+                ts:
+                  Date.now(),
+              }
+            );
+
+            await run(
+              send
+            );
+          } catch (
+            err
+          ) {
+            send(
+              'error',
+              {
+                error:
+                  err?.message ||
+                  'Agent failed.',
+                code:
+                  err?.code ||
+                  'AGENT_FAILED',
+              }
+            );
+          } finally {
+            send(
+              'done',
+              {
+                ts:
+                  Date.now(),
+              }
+            );
+
+            close();
+          }
+        },
+
+        cancel() {},
+      }
+    );
+
+  return new Response(
+    stream,
+    {
+      headers: {
+        'Content-Type':
+          'text/event-stream; charset=utf-8',
+
+        'Cache-Control':
+          'no-cache, no-store, must-revalidate',
+
+        'Connection':
+          'keep-alive',
+
+        'X-Accel-Buffering':
+          'no',
+      },
     }
+  );
+}
+
+export function withCors(
+  response,
+  request
+) {
+  const origin =
+    request.headers.get(
+      'origin'
+    );
+
+  const allowedOrigin =
+    origin &&
+    origin ===
+      new URL(
+        request.url
+      ).origin
+      ? origin
+      : null;
+
+  const headers =
+    new Headers(
+      response.headers
+    );
+
+  if (
+    allowedOrigin
+  ) {
+    headers.set(
+      'Access-Control-Allow-Origin',
+      allowedOrigin
+    );
+
+    headers.set(
+      'Vary',
+      'Origin'
+    );
+  }
+
+  headers.set(
+    'Access-Control-Allow-Headers',
+    'Authorization, Content-Type, X-OVYX-Signature, X-OVYX-Request-ID'
+  );
+
+  headers.set(
+    'Access-Control-Allow-Methods',
+    'GET, POST, OPTIONS'
+  );
+
+  return new Response(
+    response.body,
+    {
+      status:
+        response.status,
+
+      statusText:
+        response.statusText,
+
+      headers,
+    }
+  );
+            }
