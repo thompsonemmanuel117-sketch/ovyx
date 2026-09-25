@@ -1,299 +1,721 @@
-// functions/api/_lib/providers.js
+function getConfiguredModel(
+  env,
+  provider,
+  requested
+) {
+  const map = {
+    gemini:
+      env.GEMINI_AGENT_MODEL ||
+      env.GEMINI_MODEL ||
+      'gemini-2.5-pro',
 
-export const PROVIDER_ENV_KEYS = {
-    deepseek: 'DEEPSEEK_API_KEY',
-    gemini: 'GEMINI_API_KEY',
-    openai: 'OPENAI_API_KEY',
-    anthropic: 'ANTHROPIC_API_KEY',
-    groq: 'GROQ_API_KEY',
-};
+    claude:
+      env.ANTHROPIC_AGENT_MODEL ||
+      env.ANTHROPIC_MODEL ||
+      'claude-opus-5',
 
-// Precise Token and Cost Allocation Configurations Matrix
-export const PROVIDER_METRICS_MATRIX = {
-    deepseek: { model: 'deepseek-chat', costPerKInput: 0.00014, costPerKOutput: 0.00028 },
-    openai: { model: 'gpt-4o-mini', costPerKInput: 0.00015, costPerKOutput: 0.00060 },
-    groq: { model: 'llama-3.3-70b-versatile', costPerKInput: 0.00059, costPerKOutput: 0.00079 },
-    gemini: { model: 'gemini-3.8-flash', costPerKInput: 0.000075, costPerKOutput: 0.00030 },
-    anthropic: { model: 'claude-3-5-haiku-20241022', costPerKInput: 0.00080, costPerKOutput: 0.00400 }
-};
+    deepseek:
+      env.DEEPSEEK_AGENT_MODEL ||
+      env.DEEPSEEK_MODEL ||
+      'deepseek-flash',
 
-export function getProviderKey(provider, env) {
-    const envName = PROVIDER_ENV_KEYS[provider];
-    if (!envName) return null;
-    return env?.[envName] || null;
+    openai:
+      env.OPENAI_AGENT_MODEL ||
+      env.OPENAI_MODEL ||
+      'gpt-5',
+  };
+
+  const generic =
+    new Set([
+      'automatic',
+      'auto',
+      'gemini',
+      'claude',
+      'anthropic',
+      'deepseek',
+      'openai',
+      'gpt',
+      'gpt-3.5',
+    ]);
+
+  return requested &&
+    !generic.has(
+      String(
+        requested
+      ).toLowerCase()
+    )
+    ? requested
+    : map[provider];
 }
 
-// Lightweight character-to-token fallback calculator
-export function calculateTokenConsumption(text) {
-    if (!text) return 0;
-    return Math.ceil(text.length / 4);
-}
+function extractText(
+  value
+) {
+  if (
+    value ==
+    null
+  ) {
+    return '';
+  }
 
-export async function callProvider(provider, apiKey, message) {
-    if (!apiKey) {
-        throw new Error(`${provider} API key is not configured.`);
+  if (
+    typeof value ===
+    'string'
+  ) {
+    return value;
+  }
+
+  if (
+    Array.isArray(value)
+  ) {
+    return value
+      .map(
+        extractText
+      )
+      .join('');
+  }
+
+  if (
+    typeof value ===
+    'object'
+  ) {
+    if (
+      typeof value.text ===
+      'string'
+    ) {
+      return value.text;
     }
 
-    if (!message || typeof message !== 'string') {
-        throw new Error('Message is required.');
+    if (
+      typeof value.output_text ===
+      'string'
+    ) {
+      return value.output_text;
     }
 
-    const startTime = performance.now();
-    let resultText = '';
-    let usageStats = { inputTokens: 0, outputTokens: 0, estimatedCostUSD: 0 };
+    for (
+      const key of [
+        'output',
+        'content',
+        'parts',
+        'message',
+        'choices',
+      ]
+    ) {
+      if (
+        key in value
+      ) {
+        const text =
+          extractText(
+            value[key]
+          );
 
-    switch (provider) {
-        case 'deepseek':
-            const dsRes = await callDeepSeek(apiKey, message);
-            resultText = dsRes.text;
-            usageStats = dsRes.usage;
-            break;
-
-        case 'openai':
-            const oaRes = await callOpenAI(apiKey, message);
-            resultText = oaRes.text;
-            usageStats = oaRes.usage;
-            break;
-
-        case 'gemini':
-            const gemRes = await callGemini(apiKey, message);
-            resultText = gemRes.text;
-            usageStats = gemRes.usage;
-            break;
-
-        case 'anthropic':
-            const antRes = await callAnthropic(apiKey, message);
-            resultText = antRes.text;
-            usageStats = antRes.usage;
-            break;
-
-        case 'groq':
-            const groqRes = await callGroq(apiKey, message);
-            resultText = groqRes.text;
-            usageStats = groqRes.usage;
-            break;
-
-        default:
-            throw new Error(`Unknown provider: ${provider}`);
-    }
-
-    const latencyTime = (performance.now() - startTime).toFixed(2);
-
-    // Return unified structural architecture object down to the caller
-    return {
-        text: resultText,
-        metrics: {
-            latencyMs: parseFloat(latencyTime),
-            ...usageStats
+        if (text) {
+          return text;
         }
-    };
+      }
+    }
+  }
+
+  return '';
 }
 
-/* ======================================================================
-   DEEPSEEK ENGINE PIPELINE WITH R1/V3 METRICS
-   ====================================================================== */
-async function callDeepSeek(apiKey, message) {
-    const config = PROVIDER_METRICS_MATRIX.deepseek;
-    const response = await fetch('https://deepseek.com', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-            model: config.model,
-            messages: [{ role: 'user', content: message }],
-            max_tokens: 2000,
-        }),
-    });
+export function extractJsonObject(
+  text
+) {
+  let cleaned =
+    String(
+      text || ''
+    ).trim();
 
-    return processOpenAICompatiblePayload(response, 'DeepSeek', config);
-}
+  cleaned =
+    cleaned
+      .replace(
+        /^```(?:json)?/i,
+        ''
+      )
+      .replace(
+        /```$/i,
+        ''
+      )
+      .trim();
 
-/* ======================================================================
-   OPENAI PIPELINE ENGINE
-   ====================================================================== */
-async function callOpenAI(apiKey, message) {
-    const config = PROVIDER_METRICS_MATRIX.openai;
-    const response = await fetch('https://openai.com', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-            model: config.model,
-            messages: [{ role: 'user', content: message }],
-            max_tokens: 2000,
-        }),
-    });
+  try {
+    return JSON.parse(
+      cleaned
+    );
+  } catch {}
 
-    return processOpenAICompatiblePayload(response, 'OpenAI', config);
-}
+  const start =
+    cleaned.indexOf(
+      '{'
+    );
 
-/* ======================================================================
-   GROQ INFERENCE DECK PIPELINE
-   ====================================================================== */
-async function callGroq(apiKey, message) {
-    const config = PROVIDER_METRICS_MATRIX.groq;
-    const response = await fetch('https://groq.com', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-            model: config.model,
-            messages: [{ role: 'user', content: message }],
-            max_tokens: 2000,
-        }),
-    });
+  const end =
+    cleaned.lastIndexOf(
+      '}'
+    );
 
-    return processOpenAICompatiblePayload(response, 'Groq', config);
-}
-
-/* ======================================================================
-   GOOGLE GEMINI PIPELINE EXTENDED (GEMINI 3.8 FLASH FOR COMPLEX PIPELINES)
-   ====================================================================== */
-async function callGemini(apiKey, message) {
-    const config = PROVIDER_METRICS_MATRIX.gemini;
-    const url = `https://googleapis.com/${config.model}:generateContent`;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 45000); // 45 seconds context window limit
-
+  if (
+    start >= 0 &&
+    end > start
+  ) {
     try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-goog-api-key': apiKey,
-            },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: message }] }],
-                generationConfig: { maxOutputTokens: 2500 },
-            }),
-            signal: controller.signal,
-        });
+      return JSON.parse(
+        cleaned.slice(
+          start,
+          end + 1
+        )
+      );
+    } catch {}
+  }
 
-        const rawText = await response.text();
-        let data = {};
-
-        try {
-            data = rawText ? JSON.parse(rawText) : {};
-        } catch {
-            throw new Error(`Gemini returned an unreadable layout response (HTTP ${response.status}).`);
-        }
-
-        if (!response.ok) {
-            throw new Error(data?.error?.message || `Gemini request validation failed (HTTP ${response.status}).`);
-        }
-
-        const text = data?.candidates?.[0]?.content?.parts?.map(part => part?.text || '').join('').trim();
-        if (!text) {
-            throw new Error('Gemini returned an empty compilation tree payload.');
-        }
-
-        // Calculate dynamic token allocations metrics
-        const inputTokens = calculateTokenConsumption(message);
-        const outputTokens = calculateTokenConsumption(text);
-        const estimatedCostUSD = ((inputTokens / 1000) * config.costPerKInput) + ((outputTokens / 1000) * config.costPerKOutput);
-
-        return {
-            text,
-            usage: { inputTokens, outputTokens, estimatedCostUSD: parseFloat(estimatedCostUSD.toFixed(6)) }
-        };
-
-    } catch (error) {
-        if (error?.name === 'AbortError') {
-            throw new Error('Gemini execution requests timed out after 45 seconds boundary gates.');
-        }
-        throw error;
-    } finally {
-        clearTimeout(timeout);
+  throw Object.assign(
+    new Error(
+      'AI returned invalid structured JSON.'
+    ),
+    {
+      code:
+        'AI_INVALID_JSON',
     }
+  );
 }
 
-/* ======================================================================
-   ANTHROPIC CLAUDE EDGE PIPELINE
-   ====================================================================== */
-async function callAnthropic(apiKey, message) {
-    const config = PROVIDER_METRICS_MATRIX.anthropic;
-    const response = await fetch('https://anthropic.com', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
+async function callGemini(
+  env,
+  {
+    system,
+    user,
+    model,
+    maxTokens,
+  }
+) {
+  if (
+    !env.GEMINI_API_KEY
+  ) {
+    throw new Error(
+      'Gemini is not configured.'
+    );
+  }
+
+  const url =
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
+      model
+    )}:generateContent?key=${encodeURIComponent(
+      env.GEMINI_API_KEY
+    )}`;
+
+  const body = {
+    systemInstruction: {
+      parts: [
+        {
+          text: system,
         },
-        body: JSON.stringify({
-            model: config.model,
-            max_tokens: 2000,
-            messages: [{ role: 'user', content: message }],
-        }),
-    });
+      ],
+    },
 
-    const rawText = await response.text();
-    let data = {};
+    contents: [
+      {
+        role:
+          'user',
+        parts: [
+          {
+            text: user,
+          },
+        ],
+      },
+    ],
 
-    try {
-        data = rawText ? JSON.parse(rawText) : {};
-    } catch {
-        throw new Error(`Anthropic returned an unreadable response structure (HTTP ${response.status}).`);
-    }
+    generationConfig: {
+      temperature:
+        0.15,
 
-    if (!response.ok) {
-        throw new Error(data?.error?.message || `Anthropic request routing failed (HTTP ${response.status}).`);
-    }
+      maxOutputTokens:
+        maxTokens,
 
-    const text = data?.content?.filter(block => block?.type === 'text')?.map(block => block?.text || '').join('').trim();
-    if (!text) {
-        throw new Error('Anthropic returned an empty synthesis layout token.');
-    }
+      responseMimeType:
+        'application/json',
+    },
+  };
 
-    const inputTokens = data?.usage?.input_tokens || calculateTokenConsumption(message);
-    const outputTokens = data?.usage?.output_tokens || calculateTokenConsumption(text);
-    const estimatedCostUSD = ((inputTokens / 1000) * config.costPerKInput) + ((outputTokens / 1000) * config.costPerKOutput);
+  const response =
+    await fetch(
+      url,
+      {
+        method:
+          'POST',
 
-    return {
-        text,
-        usage: { inputTokens, outputTokens, estimatedCostUSD: parseFloat(estimatedCostUSD.toFixed(6)) }
-    };
+        headers: {
+          'Content-Type':
+            'application/json',
+        },
+
+        body:
+          JSON.stringify(
+            body
+          ),
+      }
+    );
+
+  const data =
+    await response
+      .json()
+      .catch(
+        () => ({})
+      );
+
+  if (
+    !response.ok
+  ) {
+    throw new Error(
+      data?.error
+        ?.message ||
+        `Gemini HTTP ${response.status}`
+    );
+  }
+
+  const text =
+    extractText(
+      data?.candidates?.[0]
+        ?.content?.parts ||
+        data
+    );
+
+  if (!text) {
+    throw new Error(
+      'Gemini returned an empty response.'
+    );
+  }
+
+  return {
+    text,
+    model,
+    provider:
+      'gemini',
+    rawUsage:
+      data?.usageMetadata ||
+      null,
+  };
 }
 
-/* ======================================================================
-   UNIFIED PAYLOAD PARSER HOOK FOR OPENAI COMPATIBLE APIS
-   ====================================================================== */
-async function processOpenAICompatiblePayload(response, providerName, config) {
-    const rawText = await response.text();
-    let data = {};
+async function callClaude(
+  env,
+  {
+    system,
+    user,
+    model,
+    maxTokens,
+  }
+) {
+  if (
+    !env.ANTHROPIC_API_KEY
+  ) {
+    throw new Error(
+      'Anthropic is not configured.'
+    );
+  }
 
+  const response =
+    await fetch(
+      'https://api.anthropic.com/v1/messages',
+      {
+        method:
+          'POST',
+
+        headers: {
+          'content-type':
+            'application/json',
+
+          'x-api-key':
+            env.ANTHROPIC_API_KEY,
+
+          'anthropic-version':
+            '2023-06-01',
+        },
+
+        body:
+          JSON.stringify({
+            model,
+            max_tokens:
+              maxTokens,
+            system,
+            messages: [
+              {
+                role:
+                  'user',
+                content:
+                  user,
+              },
+            ],
+          }),
+      }
+    );
+
+  const data =
+    await response
+      .json()
+      .catch(
+        () => ({})
+      );
+
+  if (
+    !response.ok
+  ) {
+    throw new Error(
+      data?.error
+        ?.message ||
+        `Anthropic HTTP ${response.status}`
+    );
+  }
+
+  const text =
+    extractText(
+      data?.content ||
+        data
+    );
+
+  if (!text) {
+    throw new Error(
+      'Anthropic returned an empty response.'
+    );
+  }
+
+  return {
+    text,
+    model,
+    provider:
+      'claude',
+    rawUsage:
+      data?.usage ||
+      null,
+  };
+}
+
+async function callDeepSeek(
+  env,
+  {
+    system,
+    user,
+    model,
+    maxTokens,
+  }
+) {
+  if (
+    !env.DEEPSEEK_API_KEY
+  ) {
+    throw new Error(
+      'DeepSeek is not configured.'
+    );
+  }
+
+  const response =
+    await fetch(
+      'https://api.deepseek.com/responses',
+      {
+        method:
+          'POST',
+
+        headers: {
+          'content-type':
+            'application/json',
+
+          Authorization:
+            `Bearer ${env.DEEPSEEK_API_KEY}`,
+        },
+
+        body:
+          JSON.stringify({
+            model,
+            instructions:
+              system,
+
+            input:
+              user,
+
+            max_output_tokens:
+              maxTokens,
+
+            stream:
+              false,
+          }),
+      }
+    );
+
+  const data =
+    await response
+      .json()
+      .catch(
+        () => ({})
+      );
+
+  if (
+    !response.ok
+  ) {
+    throw new Error(
+      data?.error
+        ?.message ||
+        `DeepSeek HTTP ${response.status}`
+    );
+  }
+
+  const text =
+    extractText(
+      data
+    );
+
+  if (!text) {
+    throw new Error(
+      'DeepSeek returned an empty response.'
+    );
+  }
+
+  return {
+    text,
+    model,
+    provider:
+      'deepseek',
+    rawUsage:
+      data?.usage ||
+      null,
+  };
+}
+
+async function callOpenAI(
+  env,
+  {
+    system,
+    user,
+    model,
+    maxTokens,
+  }
+) {
+  if (
+    !env.OPENAI_API_KEY
+  ) {
+    throw new Error(
+      'OpenAI is not configured.'
+    );
+  }
+
+  const response =
+    await fetch(
+      'https://api.openai.com/v1/responses',
+      {
+        method:
+          'POST',
+
+        headers: {
+          'content-type':
+            'application/json',
+
+          Authorization:
+            `Bearer ${env.OPENAI_API_KEY}`,
+        },
+
+        body:
+          JSON.stringify({
+            model,
+            instructions:
+              system,
+            input:
+              user,
+            max_output_tokens:
+              maxTokens,
+          }),
+      }
+    );
+
+  const data =
+    await response
+      .json()
+      .catch(
+        () => ({})
+      );
+
+  if (
+    !response.ok
+  ) {
+    throw new Error(
+      data?.error
+        ?.message ||
+        `OpenAI HTTP ${response.status}`
+    );
+  }
+
+  const text =
+    extractText(
+      data
+    );
+
+  if (!text) {
+    throw new Error(
+      'OpenAI returned an empty response.'
+    );
+  }
+
+  return {
+    text,
+    model,
+    provider:
+      'openai',
+    rawUsage:
+      data?.usage ||
+      null,
+  };
+}
+
+export function providerOrder(
+  env,
+  requested
+) {
+  if (
+    requested &&
+    requested !==
+      'automatic'
+  ) {
+    return [
+      requested ===
+      'anthropic'
+        ? 'claude'
+        : requested,
+    ];
+  }
+
+  return String(
+    env.AI_PROVIDER_ORDER ||
+      'gemini,deepseek,claude,openai'
+  )
+    .split(',')
+    .map(
+      x =>
+        x
+          .trim()
+          .toLowerCase()
+    )
+    .filter(Boolean)
+    .map(
+      x =>
+        x ===
+        'anthropic'
+          ? 'claude'
+          : x
+    );
+}
+
+export async function callModel(
+  env,
+  options = {}
+) {
+  const requested =
+    options.provider ||
+    'automatic';
+
+  const errors = [];
+
+  for (
+    const provider of providerOrder(
+      env,
+      requested
+    )
+  ) {
     try {
-        data = rawText ? JSON.parse(rawText) : {};
-    } catch {
-        throw new Error(`${providerName} returned an unreadable JSON matrix payload (HTTP ${response.status}).`);
+      const model =
+        getConfiguredModel(
+          env,
+          provider,
+          options.model
+        );
+
+      const result =
+        provider ===
+        'gemini'
+          ? await callGemini(
+              env,
+              {
+                ...options,
+                model,
+              }
+            )
+          : provider ===
+            'claude'
+          ? await callClaude(
+              env,
+              {
+                ...options,
+                model,
+              }
+            )
+          : provider ===
+            'deepseek'
+          ? await callDeepSeek(
+              env,
+              {
+                ...options,
+                model,
+              }
+            )
+          : provider ===
+            'openai'
+          ? await callOpenAI(
+              env,
+              {
+                ...options,
+                model,
+              }
+            )
+          : null;
+
+      if (!result) {
+        throw new Error(
+          `Unsupported provider: ${provider}`
+        );
+      }
+
+      return result;
+    } catch (err) {
+      errors.push(
+        `${provider}: ${
+          err?.message ||
+          err
+        }`
+      );
     }
+  }
 
-    if (!response.ok) {
-        throw new Error(data?.error?.message ||
-            data?.message || `${providerName} gateway isolate connection error (HTTP ${response.status}).`);
-    }
+  const error =
+    Object.assign(
+      new Error(
+        `No configured AI provider succeeded. ${errors.join(
+          ' | '
+        )}`
+      ),
+      {
+        code:
+          'AI_PROVIDER_UNAVAILABLE',
+      }
+    );
 
-    const text = data?.choices?.[0]?.message?.content;
-    if (!text) {
-        throw new Error(`${providerName} returned an empty processing thread element.`);
-    }
+  throw error;
+}
 
-    const inputTokens = data?.usage?.prompt_tokens || calculateTokenConsumption(data?.choices?.[0]?.message?.content || "");
-    const outputTokens = data?.usage?.completion_tokens || calculateTokenConsumption(text);
+export async function callJsonModel(
+  env,
+  options = {}
+) {
+  const result =
+    await callModel(
+      env,
+      options
+    );
 
-    const estimatedCostUSD = ((inputTokens / 1000) * config.costPerKInput) + ((outputTokens / 1000) * config.costPerKOutput);
+  const value =
+    extractJsonObject(
+      result.text
+    );
 
-    return {
-        text,
-        usage: {
-            inputTokens,
-            outputTokens,
-            estimatedCostUSD: parseFloat(estimatedCostUSD.toFixed(6))
-        }
-    };
-        }
+  return {
+    ...result,
+    json:
+      value,
+  };
+}
