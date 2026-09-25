@@ -216,4 +216,4 @@ export function assertSafePath(
   }
 
   return p;
-      }
+}
