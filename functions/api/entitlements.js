@@ -1,7 +1,7 @@
 'use strict';
 
-const { firestoreGet } = require('./firestore.js');
-const { isRootUser } = require('./brain/registry.js');
+import { getFirestoreData } from '../../_lib/firebase-admin.js';
+import { isRootUser } from '../../_lib/brain/registry.js';
 
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 
@@ -133,7 +133,7 @@ async function resolveEntitlements(env, user) {
 
     try {
       systemConfig =
-        (await firestoreGet(env, ['system', 'config'])) || {};
+        (await getFirestoreData(env, 'system', 'config')) || {};
     } catch {
       systemConfig = {};
     }
@@ -167,7 +167,7 @@ async function resolveEntitlements(env, user) {
   }
 
   const profile =
-    (await firestoreGet(env, ['users', user.uid])) || {};
+    (await getFirestoreData(env, 'users', user.uid)) || {};
 
   const tier = String(profile.planTier || 'free')
     .trim()
@@ -222,7 +222,7 @@ async function resolveEntitlements(env, user) {
 
   try {
     systemConfig =
-      (await firestoreGet(env, ['system', 'config'])) || {};
+      (await getFirestoreData(env, 'system', 'config')) || {};
   } catch {
     systemConfig = {};
   }
@@ -248,7 +248,7 @@ async function resolveEntitlements(env, user) {
   };
 }
 
-module.exports = {
+export {
   normalizeEmail,
   normalizeTimestamp,
   isRootIdentity,

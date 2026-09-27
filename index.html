@@ -6500,37 +6500,36 @@ if(window.ProjectStore){
 /* ---------- real provider connections: secrets stay in memory only ---------- */
 const OVYXConnections={
  githubToken:null,cloudflareToken:null,github:null,cloudflare:null,
- async githubTest(token){
-   if(!token?.trim())throw Error('GitHub token is required for a direct API test.');
-   const r=await fetch('https://api.github.com/user',{headers:{Authorization:'Bearer '+token.trim(),Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}});
-   if(!r.ok)throw Error(`GitHub returned HTTP ${r.status}`);
-   const me=await r.json();this.githubToken=token.trim();this.github=me;return me;
+ async _authFetch(path){
+   const user=window.firebase?.auth?.().currentUser;
+   if(!user)throw Error('Sign in to use the server connection.');
+   const token=await user.getIdToken(false);
+   const r=await fetch(path,{headers:{Accept:'application/json',Authorization:'Bearer '+token},credentials:'same-origin',cache:'no-store'});
+   const data=await r.json().catch(()=>({}));
+   if(!r.ok)throw Error(data?.message||data?.error||('Backend HTTP '+r.status));
+   return data;
+ },
+ async githubTest(){
+   const data=await this._authFetch('/api/github/repos?action=repositories&page=1&per_page=1');
+   this.github={connected:true};this.githubToken=null;this.render();return data;
  },
  async githubRepos(){
-   if(!this.githubToken)throw Error('Connect GitHub first.');
-   const r=await fetch('https://api.github.com/user/repos?per_page=20&sort=updated',{headers:{Authorization:'Bearer '+this.githubToken,Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}});
-   if(!r.ok)throw Error(`GitHub repositories returned HTTP ${r.status}`);
-   return await r.json();
+   const data=await this._authFetch('/api/github/repos?action=repositories&page=1&per_page=20');
+   return data?.data||data?.repositories||[];
  },
- async cloudflareTest(token){
-   if(!token?.trim())throw Error('Cloudflare API token is required.');
-   const r=await fetch('https://api.cloudflare.com/client/v4/user/tokens/verify',{headers:{Authorization:'Bearer '+token.trim(),Accept:'application/json'}});
-   if(!r.ok)throw Error(`Cloudflare returned HTTP ${r.status}`);
-   const data=await r.json();if(!data.success)throw Error('Cloudflare token verification failed.');
-   this.cloudflareToken=token.trim();this.cloudflare=data.result||{};return data.result||{};
+ async cloudflareTest(){
+   const data=await this._authFetch('/api/health');
+   this.cloudflare={server:true,health:data};this.cloudflareToken=null;this.render();return data;
  },
  async cloudflareAccounts(){
-   if(!this.cloudflareToken)throw Error('Connect Cloudflare first.');
-   const r=await fetch('https://api.cloudflare.com/client/v4/accounts?page=1&per_page=20',{headers:{Authorization:'Bearer '+this.cloudflareToken,Accept:'application/json'}});
-   if(!r.ok)throw Error(`Cloudflare accounts returned HTTP ${r.status}`);
-   const d=await r.json();if(!d.success)throw Error('Cloudflare account request failed.');return d.result||[];
+   throw Error('Cloudflare account listing is server-managed and will be enabled after the Cloudflare environment is connected.');
  },
  clear(provider){if(provider==='github'){this.githubToken=null;this.github=null}if(provider==='cloudflare'){this.cloudflareToken=null;this.cloudflare=null};this.render()},
  render(){
    const g=document.getElementById('ovyx-github-status'),c=document.getElementById('ovyx-cloudflare-status');
-   if(g){g.textContent=this.github?'CONNECTED · '+(this.github.login||'GitHub'): 'NOT CONNECTED';g.className='ovyx-conn-status '+(this.github?'ok':'idle')}
-   if(c){c.textContent=this.cloudflare?'CONNECTED · TOKEN VERIFIED':'NOT CONNECTED';c.className='ovyx-conn-status '+(this.cloudflare?'ok':'idle')}
-   const gr=document.getElementById('ovyx-github-repos');if(gr&&this.github)gr.textContent=`${this.github.public_repos||0} public repos visible`;
+   if(g){g.textContent=this.github?'CONNECTED · SERVER':'NOT CONNECTED';g.className='ovyx-conn-status '+(this.github?'ok':'idle')}
+   if(c){c.textContent=this.cloudflare?'SERVER READY':'NOT CONNECTED';c.className='ovyx-conn-status '+(this.cloudflare?'ok':'idle')}
+   const gr=document.getElementById('ovyx-github-repos');if(gr&&this.github)gr.textContent='GitHub is connected through the OVYX server boundary';
  }
 };
 
@@ -6538,10 +6537,10 @@ const OVYXConnections={
 function ensureConnectionsPanel(){
  const settings=document.getElementById('view-settings');if(!settings||document.getElementById('ovyx-connections-panel'))return;
  const panel=document.createElement('div');panel.id='ovyx-connections-panel';panel.className='ovyx-connection-panel';
- panel.innerHTML=`<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><div><div class="ovyx-group-label">CONNECTED ACCOUNTS</div><h2 style="margin-top:5px;color:var(--ov-text);font:800 15px Inter,sans-serif">Repositories & deployment</h2><p style="margin-top:4px;color:var(--ov-muted);font:500 10px/1.5 Inter,sans-serif">Direct API checks use your token only for this browser session. OVYX does not place secrets in localStorage.</p></div></div>
+ panel.innerHTML=`<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><div><div class="ovyx-group-label">CONNECTED ACCOUNTS</div><h2 style="margin-top:5px;color:var(--ov-text);font:800 15px Inter,sans-serif">Repositories & deployment</h2><p style="margin-top:4px;color:var(--ov-muted);font:500 10px/1.5 Inter,sans-serif">Connections are handled by the authenticated OVYX server boundary. Browser API tokens are not accepted.</p></div></div>
  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-top:13px">
-  <div class="ovyx-connection-card"><div style="display:flex;justify-content:space-between;gap:8px"><h4>GitHub</h4><span id="ovyx-github-status" class="ovyx-conn-status idle">NOT CONNECTED</span></div><p>Use a fine-grained token for a direct session test, or configure GitHub OAuth/GitHub App on your backend for production.</p><input id="ovyx-github-token" class="ovyx-secret-input" type="password" autocomplete="off" placeholder="GitHub token (session only)"><div style="display:flex;gap:7px;margin-top:8px"><button id="ovyx-github-connect" class="ovyx-conn-btn">Test & Connect</button><button id="ovyx-github-repos-btn" class="ovyx-conn-btn">Load Repos</button></div><div id="ovyx-github-repos" style="margin-top:8px;font:500 9px JetBrains Mono,monospace;color:#6f747c"></div></div>
-  <div class="ovyx-connection-card"><div style="display:flex;justify-content:space-between;gap:8px"><h4>Cloudflare</h4><span id="ovyx-cloudflare-status" class="ovyx-conn-status idle">NOT CONNECTED</span></div><p>Cloudflare recommends API Tokens over legacy global API keys. Verify the token, then load accounts available to it.</p><input id="ovyx-cloudflare-token" class="ovyx-secret-input" type="password" autocomplete="off" placeholder="Cloudflare API token (session only)"><div style="display:flex;gap:7px;margin-top:8px"><button id="ovyx-cloudflare-connect" class="ovyx-conn-btn">Verify & Connect</button><button id="ovyx-cloudflare-accounts-btn" class="ovyx-conn-btn">Load Accounts</button></div><div id="ovyx-cloudflare-accounts" style="margin-top:8px;font:500 9px JetBrains Mono,monospace;color:#6f747c"></div></div>
+  <div class="ovyx-connection-card"><div style="display:flex;justify-content:space-between;gap:8px"><h4>GitHub</h4><span id="ovyx-github-status" class="ovyx-conn-status idle">NOT CONNECTED</span></div><p>GitHub OAuth/App credentials stay server-side. Connect through the OVYX backend.</p><input id="ovyx-github-token" class="ovyx-secret-input" type="password" autocomplete="off" placeholder="Server-managed GitHub connection"><div style="display:flex;gap:7px;margin-top:8px"><button id="ovyx-github-connect" class="ovyx-conn-btn">Test & Connect</button><button id="ovyx-github-repos-btn" class="ovyx-conn-btn">Load Repos</button></div><div id="ovyx-github-repos" style="margin-top:8px;font:500 9px JetBrains Mono,monospace;color:#6f747c"></div></div>
+  <div class="ovyx-connection-card"><div style="display:flex;justify-content:space-between;gap:8px"><h4>Cloudflare</h4><span id="ovyx-cloudflare-status" class="ovyx-conn-status idle">NOT CONNECTED</span></div><p>Cloudflare credentials stay server-side. Environment status is checked through OVYX backend.</p><input id="ovyx-cloudflare-token" class="ovyx-secret-input" type="password" autocomplete="off" placeholder="Server-managed Cloudflare connection"><div style="display:flex;gap:7px;margin-top:8px"><button id="ovyx-cloudflare-connect" class="ovyx-conn-btn">Verify & Connect</button><button id="ovyx-cloudflare-accounts-btn" class="ovyx-conn-btn">Load Accounts</button></div><div id="ovyx-cloudflare-accounts" style="margin-top:8px;font:500 9px JetBrains Mono,monospace;color:#6f747c"></div></div>
  </div>`;
  settings.appendChild(panel);
  panel.querySelector('#ovyx-github-connect').onclick=async()=>{const b=panel.querySelector('#ovyx-github-connect');try{b.disabled=true;b.textContent='Testing…';await OVYXConnections.githubTest(panel.querySelector('#ovyx-github-token').value);OVYXConnections.render();toast('GitHub API connection verified for this session.','success')}catch(e){toast(e.message,'error')}finally{b.disabled=false;b.textContent='Test & Connect'}};
@@ -6872,7 +6871,7 @@ function aiRender(){const S=window.OVYXSettings;if(!S)return;const main=document
 function ghStatusText(){return window.OVYXConnections?.github?'CONNECTED':'NOT CONNECTED'}
 function ghRepoHtml(repos){if(!repos?.length)return '<div class="ovyx-empty-state">No repositories loaded yet. Connect GitHub and choose Load repositories.</div>';return repos.slice(0,12).map(r=>`<div class="ovyx-gh-repo"><div class="ovyx-gh-repo-main"><div class="ovyx-gh-repo-name">${esc7(r.full_name||r.name||'Repository')}</div><div class="ovyx-gh-repo-branch">${esc7(r.default_branch||'main')} · ${r.private?'Private':'Public'}</div></div><span class="ovyx-gh-sync">● SYNCED</span></div>`).join('')}
 function ghRender(repos=[]){const main=document.getElementById('ovyx-settings-main'),p=main?.querySelector('[data-settings-panel="connections"]');if(!p)return;const connected=!!window.OVYXConnections?.github;const me=window.OVYXConnections?.github;p.innerHTML=`<div class="ovyx-gh-head"><div class="ovyx-gh-brand"><div class="ovyx-gh-icon"><i class="fa-brands fa-github"></i></div><div><div class="ovyx-gh-title">GitHub</div><div class="ovyx-gh-sub">CONNECTED ACCOUNTS / REPOSITORY WORKFLOW</div></div></div><span class="ovyx-gh-status ${connected?'ok':''}">${connected?'● CONNECTED':'○ NOT CONNECTED'}</span></div>
-<div class="ovyx-gh-section"><div class="ovyx-gh-kicker">OVYX GITHUB APP</div><p class="ovyx-gh-note">Connect GitHub for repository-aware building, project sync and future deployment workflows. Direct token testing is session-only; production OAuth/GitHub App credentials belong on the server.</p><div class="ovyx-gh-perms"><span class="ovyx-gh-perm">Repository access</span><span class="ovyx-gh-perm">Deployments</span><span class="ovyx-gh-perm">Pull requests</span></div><div class="ovyx-gh-connect"><input id="set-gh-token" class="ovyx-pref-input" type="password" autocomplete="off" placeholder="Fine-grained GitHub token (session only)"><button id="set-gh-connect" class="ovyx-settings-btn primary">${connected?'Re-verify':'Connect GitHub'}</button><button id="set-gh-clear" class="ovyx-settings-btn">Disconnect</button></div><div class="ovyx-gh-note">${connected?'Connected as '+esc7(me.login||'GitHub user')+'.':'No GitHub credential is stored until you explicitly connect for this browser session.'}</div></div>
+<div class="ovyx-gh-section"><div class="ovyx-gh-kicker">OVYX GITHUB APP</div><p class="ovyx-gh-note">Connect GitHub for repository-aware building, project sync and future deployment workflows. Direct token testing is session-only; production OAuth/GitHub App credentials belong on the server.</p><div class="ovyx-gh-perms"><span class="ovyx-gh-perm">Repository access</span><span class="ovyx-gh-perm">Deployments</span><span class="ovyx-gh-perm">Pull requests</span></div><div class="ovyx-gh-connect"><input id="set-gh-token" class="ovyx-pref-input" type="password" autocomplete="off" placeholder="Fine-grained Server-managed GitHub connection"><button id="set-gh-connect" class="ovyx-settings-btn primary">${connected?'Re-verify':'Connect GitHub'}</button><button id="set-gh-clear" class="ovyx-settings-btn">Disconnect</button></div><div class="ovyx-gh-note">${connected?'Connected as '+esc7(me.login||'GitHub user')+'.':'No GitHub credential is stored until you explicitly connect for this browser session.'}</div></div>
 <div class="ovyx-gh-section"><div style="display:flex;justify-content:space-between;gap:10px;align-items:center"><div><div class="ovyx-gh-kicker">REPOSITORY CONNECTIONS</div><div class="ovyx-gh-note">Repositories available to the connected GitHub account.</div></div><button id="set-gh-repos" class="ovyx-settings-btn">Load repositories</button></div><div class="ovyx-gh-repos" id="set-gh-repo-list">${ghRepoHtml(repos)}</div></div>
 <div class="ovyx-theme-actions"><button type="button" class="ovyx-settings-btn" id="set-gh-manage">Manage GitHub</button></div>`;
  p.querySelector('#set-gh-connect')?.addEventListener('click',async()=>{const b=p.querySelector('#set-gh-connect');try{b.disabled=true;b.textContent='Connecting…';await window.OVYXConnections.githubTest(p.querySelector('#set-gh-token').value);toast('GitHub connection verified for this session.','success');ghRender()}catch(e){toast(e.message||'GitHub connection failed.','error')}finally{b.disabled=false}});

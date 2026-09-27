@@ -1,0 +1,52 @@
+name: OVYX Agent Callback
+
+on:
+  workflow_run:
+    workflows:
+      - OVYX Agent Verify
+    types:
+      - completed
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  callback:
+    if: ${{ github.event.workflow_run.event == 'push' && startsWith(github.event.workflow_run.head_branch, 'ovyx/agent/') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Notify OVYX backend
+        env:
+          CALLBACK_URL: ${{ secrets.OVYX_AGENT_CALLBACK_URL }}
+          CALLBACK_SECRET: ${{ secrets.OVYX_AGENT_CALLBACK_SECRET }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          BRANCH: ${{ github.event.workflow_run.head_branch }}
+          REPO: ${{ github.repository }}
+        run: |
+          if [ -z "$CALLBACK_URL" ] || [ -z "$CALLBACK_SECRET" ]; then
+            echo "OVYX callback secrets are not configured; skipping callback."
+            exit 0
+          fi
+
+          export RUN_ID BRANCH REPO CALLBACK_SECRET
+          BODY="$(node - <<'NODE'
+          const crypto = require('crypto');
+          const body = JSON.stringify({
+            runId: Number(process.env.RUN_ID),
+            branch: process.env.BRANCH,
+            repo: {
+              owner: process.env.REPO.split('/')[0],
+              repo: process.env.REPO.split('/')[1]
+            }
+          });
+          const sig = crypto.createHmac('sha256', process.env.CALLBACK_SECRET).update(body).digest('base64');
+          process.stdout.write(JSON.stringify({ body, sig }));
+          NODE
+          )"
+
+          SIG="$(node -e 'const x=JSON.parse(process.argv[1]);process.stdout.write(x.sig)' "$BODY")"
+          PAYLOAD="$(node -e 'const x=JSON.parse(process.argv[1]);process.stdout.write(x.body)' "$BODY")"
+
+          curl --fail-with-body --silent --show-error             -X POST "$CALLBACK_URL"             -H "Content-Type: application/json"             -H "X-OVYX-Signature: $SIG"             --data "$PAYLOAD"

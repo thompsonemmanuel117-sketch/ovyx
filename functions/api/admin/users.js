@@ -1,21 +1,21 @@
 'use strict';
 
-const {
+import {
   jsonResponse,
   errorResponse,
   getRequestId,
   getBearerToken,
   enforceSameOrigin
-} = require('../../../_lib/http.js');
+} from '../../_lib/http.js';
 
-const {
+import {
   verifyFirebaseIdToken,
   normalizeEmail
-} = require('../../../_lib/auth.js');
+} from '../../_lib/auth.js';
 
-const {
+import {
   listFirestoreDocuments
-} = require('../../../_lib/firebase-admin.js');
+} from '../../_lib/firebase-admin.js';
 
 const ROOT_EMAIL =
   'ovyxsupportteam@gmail.com';
