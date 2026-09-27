@@ -14,13 +14,13 @@
     "validate": "node scripts/ovyx-static-verify.mjs"
   },
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   },
   "dependencies": {
     "@cloudflare/workers-types": "^4.20260917.0"
   },
   "devDependencies": {
-    "wrangler": "^4.36.0",
+    "wrangler": "^4.142.0",
     "@cloudflare/workers-types": "^5.20260926.1"
   },
   "cloudflare": {
