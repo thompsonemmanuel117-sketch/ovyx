@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "OVYX (ForgeOS) — Cloudflare Pages + Functions application",
-  "type": "commonjs",
+  "type": "module",
   "main": "index.html",
   "scripts": {
     "dev": "wrangler pages dev .",
