@@ -1,0 +1,58 @@
+name: OVYX Cloudflare Diagnostics
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Pages deployment environment to inspect"
+        required: true
+        default: production
+        type: choice
+        options:
+          - production
+          - preview
+      deployment_id:
+        description: "Optional specific Cloudflare deployment ID"
+        required: false
+        type: string
+  schedule:
+    - cron: "*/30 * * * *"
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_PAGES_PROJECT: ${{ secrets.CLOUDFLARE_PAGES_PROJECT }}
+      CLOUDFLARE_ENV: ${{ inputs.environment || 'production' }}
+      CLOUDFLARE_DEPLOYMENT_ID: ${{ inputs.deployment_id || '' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Wait briefly for a Pages deployment after main pushes
+        if: ${{ github.event_name == 'push' }}
+        run: sleep 45
+
+      - name: Check Cloudflare Pages project and deployment
+        run: node scripts/ovyx-cloudflare-diagnostics.mjs
+
+      - name: Upload sanitized diagnostics report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ovyx-cloudflare-diagnostics-${{ github.run_id }}
+          path: cloudflare-diagnostics.json
+          if-no-files-found: warn
+          retention-days: 14

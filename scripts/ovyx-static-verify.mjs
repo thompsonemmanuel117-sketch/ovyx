@@ -34,6 +34,18 @@ for (const file of walk(root).filter(x => /\.json$/.test(x))) {
   }
 }
 
+for (const file of [
+  path.join(root, 'scripts/ovyx-pages-build.mjs'),
+  path.join(root, 'scripts/ovyx-cloudflare-diagnostics.mjs'),
+]) {
+  if (!fs.existsSync(file)) continue;
+  try {
+    execFileSync(process.execPath, ['--check', file], { stdio: 'pipe' });
+  } catch (error) {
+    errors.push(`${path.relative(root, file)}: ${String(error.stderr || error.stdout || error.message).trim()}`);
+  }
+}
+
 const html = path.join(root, 'index.html');
 if (fs.existsSync(html)) {
   const text = fs.readFileSync(html, 'utf8');
