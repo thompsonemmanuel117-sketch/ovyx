@@ -10,7 +10,7 @@ Add these repository Actions secrets:
 - `CLOUDFLARE_ACCOUNT_ID`
 - `CLOUDFLARE_PAGES_PROJECT`
 
-The Cloudflare API token should have **Pages Read** permission at minimum. Cloudflare documents Pages Read/Pages Write as the accepted permissions for reading projects, deployments, and deployment logs. citeturn494110search0turn494110search2
+The Cloudflare API token should have **Pages Read** permission at minimum. Cloudflare documents Pages Read/Pages Write as the accepted permissions for reading projects, deployments, and deployment logs.
 
 Do not paste the token into any repository file.
 
@@ -40,4 +40,4 @@ The action:
 6. Fails the GitHub job when Cloudflare reports a failed/canceled deployment stage or relevant error lines.
 7. Uploads a sanitized diagnostics JSON artifact.
 
-Cloudflare's current Pages API provides project, deployment-list, deployment-detail, and deployment-log endpoints for this workflow. citeturn135079search0turn494110search1turn494110search2
+Cloudflare's current Pages API provides project, deployment-list, deployment-detail, and deployment-log endpoints for this workflow.
