@@ -379,6 +379,73 @@ export async function getFirestoreData(
     : null;
 }
 
+export async function listFirestoreDocuments(
+  env,
+  collection,
+  pageSize = 100,
+  pageToken = null
+) {
+  const serviceAccount = parseServiceAccount(env);
+  const accessToken = await getGoogleAccessToken(env);
+
+  const normalizedPageSize = Math.min(
+    Math.max(Number(pageSize) || 100, 1),
+    1000
+  );
+
+  const params = new URLSearchParams({
+    pageSize: String(normalizedPageSize)
+  });
+
+  if (pageToken) {
+    params.set('pageToken', String(pageToken));
+  }
+
+  const url =
+    `${firestoreBaseUrl(serviceAccount.project_id)}\/${encodeURIComponent(collection)}?${params.toString()}`;
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${accessToken}`
+    }
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+
+    console.error(
+      '[OVYX FIRESTORE LIST]',
+      response.status,
+      text.slice(0, 500)
+    );
+
+    throw new Error(
+      `Firestore document list failed (${response.status}).`
+    );
+  }
+
+  const data = await response.json();
+
+  const documents = Array.isArray(data.documents)
+    ? data.documents.map(document => {
+        const value = firestoreDocumentToJs(document);
+        const name = String(document?.name || '');
+        const id = name.split('/').pop() || '';
+
+        return {
+          ...value,
+          id
+        };
+      })
+    : [];
+
+  return {
+    documents,
+    nextPageToken: data.nextPageToken || null
+  };
+}
+
 export async function setFirestoreDocument(
   env,
   collection,
