@@ -31,13 +31,13 @@
  *   - Repository requests are scoped to the authenticated OVYX user.
  */
 
-import * as Http from '../../_lib/http.js';
-import * as Auth from '../../_lib/auth.js';
+import * as Http from '../_lib/http.js';
+import * as Auth from '../_lib/auth.js';
 import {
   getFirestoreDocument,
   setFirestoreDocument,
-} from '../../_lib/firebase-admin.js';
-import { audit } from '../../_lib/logger.js';
+} from '../_lib/firebase-admin.js';
+import { audit } from '../_lib/logger.js';
 
 const GITHUB_API_ENDPOINT =
   'https://api.github.com';
