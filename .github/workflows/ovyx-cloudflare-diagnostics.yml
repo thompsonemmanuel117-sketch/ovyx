@@ -15,9 +15,6 @@ on:
         description: "Optional specific Cloudflare deployment ID"
         required: false
         type: string
-  push:
-    branches:
-      - main
   schedule:
     - cron: "*/30 * * * *"
 
