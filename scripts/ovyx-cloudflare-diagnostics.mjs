@@ -38,6 +38,20 @@ async function cf(path) {
   return data.result;
 }
 
+function redact(value, key = '') {
+  const sensitiveKey = /token|secret|password|authorization|private[_-]?key|api[_-]?key|credential/i.test(String(key));
+  if (sensitiveKey) return '[REDACTED]';
+  if (Array.isArray(value)) return value.map(item => redact(item));
+  if (value && typeof value === 'object') {
+    const out = {};
+    for (const [childKey, childValue] of Object.entries(value)) {
+      out[childKey] = redact(childValue, childKey);
+    }
+    return out;
+  }
+  return value;
+}
+
 function newestFirst(items) {
   return [...items].sort((a, b) => {
     const ad = Date.parse(a.created_on || a.created_at || a.modified_on || '') || 0;
