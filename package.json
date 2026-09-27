@@ -11,14 +11,13 @@
     "deploy": "wrangler pages deploy .",
     "functions:dev": "wrangler pages dev .",
     "check": "wrangler types",
-    "validate": "node scripts/ovyx-static-verify.mjs"
+    "validate": "node scripts/ovyx-static-verify.mjs",
+    "build": "node scripts/ovyx-pages-build.mjs"
   },
   "engines": {
     "node": ">=22.0.0"
   },
-  "dependencies": {
-    "@cloudflare/workers-types": "^4.20260917.0"
-  },
+  "dependencies": {},
   "devDependencies": {
     "wrangler": "^4.142.0",
     "@cloudflare/workers-types": "^5.20260926.1"
