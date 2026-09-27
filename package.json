@@ -11,7 +11,7 @@
     "deploy": "wrangler pages deploy .",
     "functions:dev": "wrangler pages dev .",
     "check": "wrangler types",
-    "validate": "node --check index.html"
+    "validate": "node scripts/ovyx-static-verify.mjs"
   },
   "engines": {
     "node": ">=20.0.0"
