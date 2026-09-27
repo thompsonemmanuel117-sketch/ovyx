@@ -6500,20 +6500,26 @@ if(window.ProjectStore){
 /* ---------- real provider connections: secrets stay in memory only ---------- */
 const OVYXConnections={
  githubToken:null,cloudflareToken:null,github:null,cloudflare:null,
+ async _authFetch(path){
+   const user=window.firebase?.auth?.().currentUser;
+   if(!user)throw Error('Sign in to use the server connection.');
+   const token=await user.getIdToken(false);
+   const r=await fetch(path,{headers:{Accept:'application/json',Authorization:'Bearer '+token},credentials:'same-origin',cache:'no-store'});
+   const data=await r.json().catch(()=>({}));
+   if(!r.ok)throw Error(data?.message||data?.error||('Backend HTTP '+r.status));
+   return data;
+ },
  async githubTest(){
-   const r=await window.OVYXBackendBridge?.githubRepos?.({action:'repositories',page:1,per_page:1});
-   if(r===undefined)throw Error('Server GitHub bridge is not loaded.');
-   this.github={connected:true};this.githubToken=null;this.render();return this.github;
+   const data=await this._authFetch('/api/github/repos?action=repositories&page=1&per_page=1');
+   this.github={connected:true};this.githubToken=null;this.render();return data;
  },
  async githubRepos(){
-   const r=await window.OVYXBackendBridge?.githubRepos?.({action:'repositories',page:1,per_page:20});
-   if(!r)throw Error('GitHub backend connection is unavailable.');
-   return r?.data||r?.repositories||[];
+   const data=await this._authFetch('/api/github/repos?action=repositories&page=1&per_page=20');
+   return data?.data||data?.repositories||[];
  },
  async cloudflareTest(){
-   const r=await window.OVYXBackendBridge?.health?.();
-   if(!r)throw Error('Cloudflare backend connection is unavailable.');
-   this.cloudflare={server:true};this.cloudflareToken=null;this.render();return this.cloudflare;
+   const data=await this._authFetch('/api/health');
+   this.cloudflare={server:true,health:data};this.cloudflareToken=null;this.render();return data;
  },
  async cloudflareAccounts(){
    throw Error('Cloudflare account listing is server-managed and will be enabled after the Cloudflare environment is connected.');
