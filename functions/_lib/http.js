@@ -196,6 +196,37 @@ export function sseResponse(run) {
   });
 }
 
+/**
+ * Enforce same-origin requests when the browser sends an Origin header.
+ * Requests without Origin are allowed so server-to-server calls continue to work.
+ */
+export function enforceSameOrigin(request) {
+  const origin = request?.headers?.get('origin');
+
+  if (!origin) {
+    return true;
+  }
+
+  try {
+    return origin === new URL(request.url).origin;
+  } catch {
+    return false;
+  }
+}
+
+export function isValidCapabilityName(value) {
+  return [
+    'webStudio',
+    'advancedWebStudio',
+    'appStudio',
+    'gameStudio',
+    'aiGeneration',
+    'github',
+    'cloudflareDeploy',
+    'teamWorkspace'
+  ].includes(String(value || ''));
+}
+
 export function withCors(
   response,
   request
