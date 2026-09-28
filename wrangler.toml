@@ -25,10 +25,13 @@ send_metrics = true
 # Pages Functions are discovered from /functions.
 # /functions/_routes.json limits invocation to /api/* while static assets remain static.
 
+[ai]
+binding = "AI"
+
 [vars]
 OVYX_RUNTIME = "cloudflare-pages"
 OVYX_APP_NAME = "OVYX"
-OVYX_AI_PROVIDER_ORDER = "gemini,deepseek,claude,openai"
+OVYX_AI_PROVIDER_ORDER = "gemini,deepseek,cloudflare-workers-ai,groq"
 
 # Do NOT place secrets here. Set these as Cloudflare secrets/environment variables:
 # FIREBASE_SERVICE_ACCOUNT_JSON
@@ -49,6 +52,9 @@ OVYX_AI_PROVIDER_ORDER = "gemini,deepseek,claude,openai"
 # ANTHROPIC_API_KEY
 # DEEPSEEK_API_KEY
 # OPENAI_API_KEY
+# GROQ_API_KEY
+# GROQ_MODEL
+# CLOUDFLARE_AI_MODEL
 # OVYX_AGENT_CALLBACK_SECRET
 # OVYX_AGENT_CALLBACK_URL
 

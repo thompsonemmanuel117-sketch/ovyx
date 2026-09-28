@@ -3,6 +3,7 @@ const ENV_GROUPS = {
     'FIREBASE_PROJECT_ID',
     'FIREBASE_WEB_API_KEY',
     'FIREBASE_SERVICE_ACCOUNT_JSON',
+    'FIREBASE_SERVICE_ACCOUNT',
   ],
   GitHub: [
     'GITHUB_APP_ID',
@@ -21,6 +22,8 @@ const ENV_GROUPS = {
     'ANTHROPIC_API_KEY',
     'DEEPSEEK_API_KEY',
     'OPENAI_API_KEY',
+    'GROQ_API_KEY',
+    'CLOUDFLARE_AI_MODEL',
   ],
   Agent: [
     'OVYX_AGENT_CALLBACK_SECRET',
@@ -31,7 +34,6 @@ const ENV_GROUPS = {
 const REQUIRED = new Set([
   'FIREBASE_PROJECT_ID',
   'FIREBASE_WEB_API_KEY',
-  'FIREBASE_SERVICE_ACCOUNT_JSON',
   'GITHUB_TOKEN_ENCRYPTION_KEY',
   'GITHUB_ALLOWED_REPOS',
 ]);
@@ -77,7 +79,31 @@ export function onRequestGet(context) {
     .filter(item => item.required && !item.configured)
     .map(item => item.key);
 
-  const aiReady = ENV_GROUPS.AI.some(key => configured(env, key));
+  const firebaseServiceAccountReady =
+    configured(
+      env,
+      'FIREBASE_SERVICE_ACCOUNT_JSON'
+    ) ||
+    configured(
+      env,
+      'FIREBASE_SERVICE_ACCOUNT'
+    );
+
+  const hasAiBinding =
+    Boolean(
+      env?.AI &&
+      typeof env.AI.run === 'function'
+    );
+
+  if (!firebaseServiceAccountReady) {
+    requiredMissing.push(
+      'FIREBASE_SERVICE_ACCOUNT_JSON_OR_FIREBASE_SERVICE_ACCOUNT'
+    );
+  }
+
+  const aiReady =
+    ENV_GROUPS.AI.some(key => configured(env, key)) ||
+    hasAiBinding;
 
   return Response.json({
     ok: requiredMissing.length === 0,
@@ -90,6 +116,10 @@ export function onRequestGet(context) {
       cloudflare: groups.Cloudflare,
       ai: {
         providers: groups.AI,
+        workersAiBinding: {
+          configured: hasAiBinding,
+          binding: 'AI',
+        },
         ready: aiReady,
       },
       agent: groups.Agent,

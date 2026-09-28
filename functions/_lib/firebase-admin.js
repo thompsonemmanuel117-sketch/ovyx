@@ -92,7 +92,9 @@ async function signJwtRS256(header, payload, privateKeyPem) {
 }
 
 function parseServiceAccount(env) {
-  const raw = env?.FIREBASE_SERVICE_ACCOUNT_JSON;
+  const raw =
+    env?.FIREBASE_SERVICE_ACCOUNT_JSON ||
+    env?.FIREBASE_SERVICE_ACCOUNT;
 
   if (!raw) {
     throw new Error(
@@ -444,6 +446,33 @@ export async function listFirestoreDocuments(
     documents,
     nextPageToken: data.nextPageToken || null
   };
+}
+
+export async function addFirestoreDocument(
+  env,
+  collection,
+  data,
+  documentId = crypto.randomUUID()
+) {
+  if (
+    !/^[A-Za-z0-9_-]{1,160}$/.test(
+      String(documentId)
+    )
+  ) {
+    throw new Error(
+      'Firestore document ID is invalid.'
+    );
+  }
+
+  await setFirestoreDocument(
+    env,
+    collection,
+    documentId,
+    data,
+    { merge: false }
+  );
+
+  return documentId;
 }
 
 export async function setFirestoreDocument(
