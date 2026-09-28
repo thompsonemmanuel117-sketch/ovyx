@@ -23,6 +23,15 @@ function getConfiguredModel(
       env.OPENAI_AGENT_MODEL ||
       env.OPENAI_MODEL ||
       'gpt-5',
+
+    groq:
+      env.GROQ_AGENT_MODEL ||
+      env.GROQ_MODEL ||
+      'openai/gpt-oss-20b',
+
+    'cloudflare-workers-ai':
+      env.CLOUDFLARE_AI_MODEL ||
+      '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
   };
 
   const generic =
@@ -34,8 +43,13 @@ function getConfiguredModel(
       'anthropic',
       'deepseek',
       'openai',
+      'chatgpt',
       'gpt',
       'gpt-3.5',
+      'groq',
+      'llama',
+      'workers-ai',
+      'cloudflare',
     ]);
 
   return requested &&
@@ -96,6 +110,7 @@ function extractText(
     for (
       const key of [
         'output',
+        'response',
         'content',
         'parts',
         'message',
@@ -480,6 +495,109 @@ async function callDeepSeek(
   };
 }
 
+async function callGroq(
+  env,
+  {
+    system,
+    user,
+    model,
+    maxTokens,
+  }
+) {
+  if (!env.GROQ_API_KEY) {
+    throw new Error(
+      'Groq routing is not configured. Set GROQ_API_KEY in Cloudflare secrets.'
+    );
+  }
+
+  const response = await fetch(
+    'https://api.groq.com/openai/v1/chat/completions',
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        Authorization: 'Bearer ' + env.GROQ_API_KEY,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+        max_tokens: maxTokens,
+        temperature: 0.2,
+      }),
+    }
+  );
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(
+      data?.error?.message ||
+        ('Groq HTTP ' + response.status)
+    );
+  }
+
+  const text = extractText(
+    data?.choices?.[0]?.message?.content || data
+  );
+
+  if (!text) {
+    throw new Error('Groq returned an empty response.');
+  }
+
+  return {
+    text,
+    model,
+    provider: 'groq',
+    rawUsage: data?.usage || null,
+  };
+}
+
+async function callCloudflareWorkersAI(
+  env,
+  {
+    system,
+    user,
+    model,
+    maxTokens,
+  }
+) {
+  if (!env.AI || typeof env.AI.run !== 'function') {
+    throw new Error(
+      'Cloudflare Workers AI binding is not configured. Bind a Pages Functions AI resource as AI.'
+    );
+  }
+
+  const result = await env.AI.run(
+    model,
+    {
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: user },
+      ],
+      max_tokens: maxTokens,
+      temperature: 0.2,
+      stream: false,
+    }
+  );
+
+  const text = extractText(result);
+
+  if (!text) {
+    throw new Error(
+      'Cloudflare Workers AI returned an empty response.'
+    );
+  }
+
+  return {
+    text,
+    model,
+    provider: 'cloudflare-workers-ai',
+    rawUsage: result?.usage || null,
+  };
+}
 async function callOpenAI(
   env,
   {
@@ -564,51 +682,58 @@ async function callOpenAI(
   };
 }
 
+function normalizeRequestedProvider(value) {
+  const normalized = String(value || 'automatic')
+    .trim()
+    .toLowerCase();
+
+  if (normalized === 'chatgpt' || normalized === 'openai') {
+    return 'groq';
+  }
+
+  if (normalized === 'claude' || normalized === 'anthropic') {
+    return 'cloudflare-workers-ai';
+  }
+
+  if (
+    normalized === 'cloudflare' ||
+    normalized === 'workers-ai' ||
+    normalized === 'cloudflare-workers-ai'
+  ) {
+    return 'cloudflare-workers-ai';
+  }
+
+  return normalized;
+}
+
 export function providerOrder(
   env,
   requested
 ) {
-  if (
-    requested &&
-    requested !==
-      'automatic'
-  ) {
-    return [
-      requested ===
-      'anthropic'
-        ? 'claude'
-        : requested,
-    ];
+  if (requested && requested !== 'automatic') {
+    return [normalizeRequestedProvider(requested)];
   }
 
   return String(
-    env.AI_PROVIDER_ORDER ||
-      'gemini,deepseek,claude,openai'
+    env.AI_PROVIDER_ORDER || 'gemini,deepseek,claude,openai'
   )
     .split(',')
-    .map(
-      x =>
-        x
-          .trim()
-          .toLowerCase()
-    )
-    .filter(Boolean)
-    .map(
-      x =>
-        x ===
-        'anthropic'
-          ? 'claude'
-          : x
-    );
+    .map(x => normalizeRequestedProvider(x))
+    .filter(Boolean);
 }
 
 export async function callModel(
   env,
   options = {}
 ) {
-  const requested =
+  const requested = String(
     options.provider ||
-    'automatic';
+      'automatic'
+  )
+    .trim()
+    .toLowerCase();
+
+  const routedProvider = normalizeRequestedProvider(requested);
 
   const errors = [];
 
@@ -663,6 +788,24 @@ export async function callModel(
                 model,
               }
             )
+          : provider ===
+            'groq'
+          ? await callGroq(
+              env,
+              {
+                ...options,
+                model,
+              }
+            )
+          : provider ===
+            'cloudflare-workers-ai'
+          ? await callCloudflareWorkersAI(
+              env,
+              {
+                ...options,
+                model,
+              }
+            )
           : null;
 
       if (!result) {
@@ -671,7 +814,11 @@ export async function callModel(
         );
       }
 
-      return result;
+      return {
+        ...result,
+        requestedProvider: requested,
+        routedProvider,
+      };
     } catch (err) {
       errors.push(
         `${provider}: ${
