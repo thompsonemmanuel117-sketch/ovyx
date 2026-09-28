@@ -1,6 +1,9 @@
 name: OVYX Cloudflare Diagnostics
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       environment:
@@ -43,7 +46,7 @@ jobs:
 
       - name: Wait briefly for a Pages deployment after main pushes
         if: ${{ github.event_name == 'push' }}
-        run: sleep 45
+        run: sleep 90
 
       - name: Check Cloudflare Pages project and deployment
         run: node scripts/ovyx-cloudflare-diagnostics.mjs
