@@ -3,8 +3,13 @@ import {
   readJson,
   json,
   errorResponse,
+  requestId,
 } from '../../_lib/http.js';
 import { callModel } from '../../_lib/providers.js';
+import {
+  saveChatTurn,
+  resolveConversationId,
+} from '../../_lib/chat-history.js';
 
 export async function onRequestPost(context) {
   try {
@@ -60,6 +65,14 @@ export async function onRequestPost(context) {
       )
       .join('\n\n');
 
+    const conversationId = resolveConversationId(
+      payload.conversationId
+    );
+
+    const currentRequestId = requestId(
+      context.request
+    );
+
     const result = await callModel(
       context.env,
       {
@@ -78,6 +91,26 @@ export async function onRequestPost(context) {
       }
     );
 
+    let historySaved = false;
+
+    try {
+      await saveChatTurn({
+        env: context.env,
+        userId: user.sub,
+        conversationId,
+        messages,
+        result,
+        requestId: currentRequestId,
+        requestedProvider: result.requestedProvider,
+      });
+      historySaved = true;
+    } catch (historyError) {
+      console.error(
+        '[OVYX CHAT HISTORY]',
+        historyError?.message || historyError
+      );
+    }
+
     return json({
       ok: true,
       text: result.text,
@@ -86,6 +119,12 @@ export async function onRequestPost(context) {
       provider: result.provider,
       model: result.model,
       usage: result.rawUsage || null,
+      requestedProvider: result.requestedProvider,
+      routedProvider: result.routedProvider,
+      conversationId,
+      history: {
+        saved: historySaved,
+      },
     });
   } catch (err) {
     return errorResponse(
