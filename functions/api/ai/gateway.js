@@ -13,7 +13,7 @@ import {
 
 export async function onRequestPost(context) {
   try {
-    assertAuthenticated(
+    const user = assertAuthenticated(
       context.data?.user
     );
 
