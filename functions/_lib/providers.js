@@ -52,13 +52,31 @@ function getConfiguredModel(
       'cloudflare',
     ]);
 
-  return requested &&
+  const requestedText = String(
+    requested || ''
+  ).trim();
+
+  const requestedLower =
+    requestedText.toLowerCase();
+
+  const compatibleWithRoute =
+    provider === 'groq'
+      ? /^openai\\//i.test(
+          requestedText
+        )
+      : provider ===
+        'cloudflare-workers-ai'
+      ? /^@cf\\//i.test(
+          requestedText
+        )
+      : true;
+
+  return requestedText &&
     !generic.has(
-      String(
-        requested
-      ).toLowerCase()
-    )
-    ? requested
+      requestedLower
+    ) &&
+    compatibleWithRoute
+    ? requestedText
     : map[provider];
 }
 
