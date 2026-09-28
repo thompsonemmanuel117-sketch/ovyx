@@ -2695,327 +2695,243 @@ body.ovyx-legal-open{overflow:hidden!important}
 </div>
 </section>
 <!-- VIEW 2: WEB STUDIO (MULTI-PAGE TABS + ZEN MODE + RESPONSIVE AI + WEBFLOW INSPECTOR) -->
-<section class="h-full flex flex-col hidden relative select-none bg-black" id="view-webstudio">
-<!-- Web Studio Multi-Page Tabs Bar -->
-<div class="h-9 border-b border-white/10 bg-zinc-950/90 px-3 flex items-center justify-between text-xs font-mono" id="ws-page-tabs-bar">
-<div class="flex items-center gap-1 overflow-x-auto" id="ws-page-tabs-list">
-<!-- Dynamically populated page tabs: Home, About Us, Pricing, etc. -->
-</div>
-<button class="spring-btn px-2.5 py-0.5 rounded bg-ovyx-black border border-white/10 text-[10px] text-brand-gold hover:text-white flex items-center gap-1 font-bold shrink-0" onclick="WebStudio.addNewPagePrompt()">
-<i class="fa-solid fa-plus text-[9px]"></i> Add Page
-            </button>
-</div>
-<!-- Web Studio Controls Topbar -->
-<div class="h-12 border-b border-white/12 bg-black px-3 sm:px-4 flex items-center justify-between shrink-0 text-xs font-mono flex-wrap gap-2" id="ws-control-topbar">
-<div class="flex items-center gap-1.5 sm:gap-2">
-<!-- Magic Mode Switch -->
-<div class="flex items-center gap-2 px-2.5 py-1 rounded-full border border-brand-gold/40 bg-zinc-950 shadow-sm mr-2">
-<span class="text-[10px] font-extrabold tracking-wider text-brand-gold uppercase flex items-center gap-1.5">
-<i class="fa-solid fa-wand-magic-sparkles text-xs animate-pulse"></i>
-<span>Ovyx Magic Beginner Mode</span>
-</span>
-<label class="relative inline-flex items-center cursor-pointer">
-<input checked="" class="sr-only toggle-switch-checkbox" id="magic-mode-toggle" onchange="WebStudio.toggleMagicMode(this.checked)" type="checkbox"/>
-<div class="w-9 h-5 bg-zinc-800 border border-white/12 rounded-full toggle-switch-bg transition-colors duration-200"></div>
-<div class="absolute left-0.5 top-0.5 w-4 h-4 bg-zinc-400 rounded-full toggle-switch-thumb transition-transform duration-200"></div>
-</label>
-</div>
-<!-- Breakpoints -->
-<span class="text-zinc-500 text-[10px] uppercase font-extrabold tracking-wider hidden lg:inline">Breakpoints:</span>
-<button class="spring-btn px-2.5 py-1 rounded bg-white/10 text-white font-bold flex items-center gap-1.5" id="vp-desktop-btn" onclick="WebStudio.setViewport('desktop')">
-<i class="fa-solid fa-desktop text-xs"></i> <span class="hidden sm:inline">Desktop</span>
-</button>
-<button class="spring-btn px-2.5 py-1 rounded text-zinc-400 hover:text-white font-bold flex items-center gap-1.5" id="vp-tablet-btn" onclick="WebStudio.setViewport('tablet')">
-<i class="fa-solid fa-tablet text-xs"></i> <span class="hidden sm:inline">Tablet</span>
-</button>
-<button class="spring-btn px-2.5 py-1 rounded text-zinc-400 hover:text-white font-bold flex items-center gap-1.5" id="vp-mobile-btn" onclick="WebStudio.setViewport('mobile')">
-<i class="fa-solid fa-mobile-screen text-xs"></i> <span class="hidden sm:inline">Mobile</span>
-</button>
-<button class="spring-btn ml-1 sm:ml-2 relative inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-bold bg-gradient-to-r from-brand-gold/20 via-brand-cyan/20 to-brand-gold/20 border border-brand-gold/40 text-brand-gold shadow-[0_0_15px_rgba(232,182,79,0.2)]" onclick="WebStudio.runResponsiveAIOptimize()">
-<i class="fa-solid fa-arrows-rotate text-[10px]"></i>
-<span class="hidden sm:inline">Responsive AI Optimize</span>
-</button>
-</div>
-<!-- Zen Mode, Animation & Section Controls -->
-<div class="flex items-center gap-2 sm:gap-3">
-<button class="spring-btn px-2.5 py-1 rounded bg-ovyx-black border border-white/12 text-zinc-300 hover:text-white flex items-center gap-1.5 font-bold" id="zen-expansion-btn" onclick="WebStudio.toggleZenMode()" title="Zen Expansion Mode">
-<i class="fa-regular fa-eye text-brand-gold"></i>
-<span class="hidden sm:inline">Zen Mode</span>
-</button>
-<div class="flex items-center gap-1.5 bg-ovyx-black border border-white/12 rounded px-2 py-0.5">
-<i class="fa-solid fa-film text-brand-cyan text-[10px]"></i>
-<select class="bg-transparent text-[11px] font-mono font-bold text-zinc-300 focus:outline-none cursor-pointer" id="ws-animation-engine" onchange="WebStudio.setGlobalAnimation(this.value)">
-<option value="none">Animation: None</option>
-<option value="spring">Fade-In Spring (GSAP)</option>
-<option value="reveal">Kinetic Reveal</option>
-<option value="glass">Glassmorphic Hover</option>
-<option value="stagger">Stagger Scale</option>
-</select>
-</div>
-<button class="spring-btn text-zinc-400 hover:text-white p-1" onclick="WebStudio.undo()" title="Undo (Ctrl+Z)"><i class="fa-solid fa-rotate-left"></i></button>
-<button class="spring-btn text-zinc-400 hover:text-white p-1" onclick="WebStudio.redo()" title="Redo (Ctrl+Y)"><i class="fa-solid fa-rotate-right"></i></button>
-<button class="spring-btn px-2.5 py-1 rounded bg-white text-black font-extrabold text-[11px]" onclick="WebStudio.appendSectionDialog()">
-                + Add Section
-              </button>
-</div>
-</div>
-<div aria-label="Mobile studio tools" class="ovyx-mobile-feature-strip" id="ws-mobile-feature-strip">
-<button class="ovyx-mobile-feature-btn" data-mobile-studio="files"><i class="fa-regular fa-folder-open"></i> Files</button>
-<button class="ovyx-mobile-feature-btn active" data-mobile-studio="canvas"><i class="fa-solid fa-eye"></i> Canvas</button>
-<button class="ovyx-mobile-feature-btn" data-mobile-studio="blueprint"><i class="fa-solid fa-network-wired"></i> Blueprint</button>
-<button class="ovyx-mobile-feature-btn" data-mobile-studio="inspector"><i class="fa-solid fa-sliders"></i> Inspector</button>
-</div>
-<div class="flex-1 flex flex-col md:flex-row overflow-hidden bg-black" id="ws-studio-body">
-<!-- V0-style file explorer / project navigation -->
-<aside class="hidden md:flex flex-col shrink-0" id="ws-file-explorer">
-<div class="h-10 px-3 flex items-center justify-between border-b border-white/10">
-<span class="text-[9px] uppercase tracking-[0.18em] text-zinc-500 font-bold">Explorer</span>
-<button class="spring-btn text-zinc-500 hover:text-white" onclick="WebStudio.addNewPagePrompt()" title="New page"><i class="fa-solid fa-plus text-[9px]"></i></button>
-</div>
-<div class="px-3 pt-3 pb-1 text-[9px] text-zinc-600 font-mono uppercase tracking-wider">Project files</div>
-<div class="px-2 pb-3 space-y-0.5 overflow-y-auto" id="ws-file-tree">
-<button class="ws-file active w-full flex items-center gap-2 px-2 py-2 rounded text-left text-[11px] font-mono" onclick="WebStudio.setPageByName?.('Home') || WebStudio.setActivePage?.('home')">
-<i class="fa-regular fa-file text-zinc-500"></i><span>Home</span><span class="ml-auto text-[9px] text-zinc-600">html</span>
-</button>
-<button class="ws-file w-full flex items-center gap-2 px-2 py-2 rounded text-left text-[11px] font-mono text-zinc-400" onclick="WebStudio.addNewPagePrompt()">
-<i class="fa-solid fa-folder-plus text-zinc-600"></i><span>Add route</span>
-</button>
-</div>
-<div class="mt-auto p-3 border-t border-white/10 text-[9px] font-mono text-zinc-600 leading-relaxed">
-<div class="flex items-center gap-1.5"><span class="v0-dot"></span> LIVE CANVAS</div>
-<div class="mt-1">Changes compile locally before render.</div>
-</div>
-</aside>
-<!-- Massive live rendering canvas -->
-<div class="w-full md:w-[60%] flex flex-col border-b md:border-b-0 md:border-r border-white/12 bg-black overflow-hidden relative" id="ws-canvas-container">
-<div class="px-4 py-2 border-b border-white/12 bg-black flex items-center justify-between flex-wrap gap-2">
-<div class="flex items-center gap-1 bg-zinc-950 border border-white/12 rounded-lg p-0.5 text-xs font-mono">
-<button class="spring-btn px-3 py-1 rounded-md bg-white/10 text-white font-bold flex items-center gap-1.5" id="tab-mode-visual" onclick="WebStudio.setCanvasMode('visual')">
-<i class="fa-solid fa-eye text-[10px]"></i> <span>Visual Production</span>
-</button>
-<button class="spring-btn px-3 py-1 rounded-md text-zinc-400 hover:text-white font-bold flex items-center gap-1.5" id="tab-mode-blueprint" onclick="WebStudio.setCanvasMode('blueprint')">
-<i class="fa-solid fa-network-wired text-[10px]"></i> <span>Blueprint Schematic</span>
-</button>
-</div>
-<span class="text-[10px] font-mono text-zinc-500 font-bold" id="canvas-resolution-tag">1440 × 900 px</span>
-</div>
-<!-- Quick Command Prompt Bar in Studio -->
-<div class="p-2.5 border-b border-white/12 bg-black" id="ws-prompt-ribbon">
-<div class="flex items-center gap-2 p-1.5 rounded-xl border border-white/12 bg-zinc-950 focus-within:border-white/30">
-<input class="flex-1 bg-transparent px-3 text-xs text-white placeholder-zinc-500 focus:outline-none font-sans font-medium" id="ws-quick-prompt" placeholder="Prompt AI to restyle, optimize flexbox, or add interactive layouts..." type="text"/>
-<select class="bg-black border border-white/12 rounded px-2 py-1 text-[10px] font-mono font-bold text-zinc-300" id="ws-provider-select">
-<option value="gemini">Gemini 1.5</option>
-<option value="deepseek">DeepSeek</option>
-<option value="claude">Claude 3.5</option>
-</select>
-<button class="spring-btn px-3 py-1 bg-white text-black font-black text-xs rounded shadow-sm" onclick="WebStudio.executePromptEdit()">
-                    Generate
-                  </button>
-</div>
-</div>
-<!-- Canvas Workspace Stage with Watermark & Pull-To-Refresh -->
-<div class="flex-1 p-4 sm:p-6 overflow-auto flex items-start justify-center bg-black relative inertial-scroll-canvas" id="ws-touch-canvas-wrapper">
-<!-- Subtle Luxury Background Diamond Watermark (3% Opacity) -->
-<div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.035]">
-<svg class="w-96 h-96" fill="none" viewbox="0 0 120 120">
-<polygon points="32,20 88,20 106,44 14,44" stroke="#e8b64f" stroke-width="2"></polygon>
-<polygon points="14,44 106,44 60,104" stroke="#e8b64f" stroke-width="2"></polygon>
-<polygon points="60,44 46,44 60,104 74,44" stroke="#e8b64f" stroke-width="2"></polygon>
-</svg>
-</div>
-<!-- Legacy pull-to-refresh indicator retained only for markup compatibility; never activated. -->
-<div class="absolute top-2 left-1/2 -translate-x-1/2 z-30 pointer-events-none opacity-0 transition-opacity flex items-center gap-2 px-3 py-1 rounded-full bg-ovyx-black border border-brand-gold/40 text-brand-gold font-mono text-[10px] shadow-lg" id="ptr-indicator">
-<i class="fa-solid fa-arrows-rotate fa-spin text-xs"></i>
-<span>Hot-reloading Canvas State...</span>
-</div>
-<!-- Floating Exit Zen Button -->
-<button class="fixed top-4 right-4 z-[10000] hidden px-3.5 py-1.5 rounded-full bg-ovyx-black/90 border border-white/20 text-xs font-mono font-bold text-white shadow-2xl spring-btn flex items-center gap-1.5 backdrop-blur-md" id="exit-zen-btn" onclick="WebStudio.toggleZenMode()">
-<i class="fa-solid fa-compress text-brand-gold"></i>
-<span>Exit Zen Mode</span>
-</button>
-<div class="preview-desktop transition-all duration-300 bg-black border border-white/12 rounded-xl shadow-2xl overflow-hidden relative z-10" id="ws-viewport-frame">
-<iframe class="w-full h-full border-none bg-black" id="ws-canvas-iframe" title="Production Render View"></iframe>
-<div class="absolute inset-0 bg-black/95 blueprint-grid-overlay p-6 overflow-auto font-mono text-xs hidden" id="ws-blueprint-overlay">
-<div class="flex items-center justify-between border-b border-brand-cyan/30 pb-3 mb-6">
-<div class="flex items-center gap-2">
-<span class="w-2 h-2 rounded-full bg-brand-cyan animate-pulse"></span>
-<span class="text-brand-cyan text-xs font-extrabold tracking-wider uppercase">OVYX ARCHITECTURAL BLUEPRINT SCHEMATIC</span>
-</div>
-<span class="text-[10px] text-zinc-500 font-bold">AST TOKENS &amp; NESTED MAPPINGS</span>
-</div>
-<div class="space-y-4" id="blueprint-schematic-feed"></div>
-</div>
-</div>
-</div>
-</div>
-<!-- Right 40% Inspector / Magic Mode Panel -->
-<div class="w-full md:w-[40%] flex flex-col bg-black border-l border-white/12 overflow-hidden select-none" id="ws-dom-inspector-panel">
-<!-- DOM Hierarchy Tree with Drag/Drop Reorder Controls -->
-<div class="h-[34%] flex flex-col border-b border-white/12 overflow-hidden bg-black">
-<div class="px-4 py-2 border-b border-white/12 flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-zinc-400 bg-black font-extrabold">
-<span>DOM Hierarchy Tree</span>
-<span class="text-zinc-600" id="ws-node-count">0 Nodes</span>
-</div>
-<div class="flex-1 overflow-y-auto p-2 space-y-1 font-mono text-xs" id="ws-dom-tree-list"></div>
-</div>
-<!-- Beginner Magic Mode Panel -->
-<div class="flex-1 flex flex-col overflow-hidden bg-black p-4 space-y-4 font-sans text-xs" id="ws-magic-beginner-panel">
-<div class="flex items-center justify-between border-b border-white/12 pb-2">
-<div class="space-y-0.5">
-<span class="text-white font-bold text-xs flex items-center gap-1.5">
-<i class="fa-solid fa-wand-magic-sparkles text-brand-gold"></i> AI Auto-Aesthetic Assistant
-                    </span>
-<p class="text-[11px] text-zinc-400">Type in natural language. OVYX handles all flexbox and layout math.</p>
-</div>
-<span class="text-brand-gold bg-zinc-950 border border-white/12 px-2 py-0.5 rounded text-[9px] font-mono font-bold" id="ws-magic-selected-badge">HERO</span>
-</div>
-<div class="space-y-1.5">
-<label class="text-[10px] font-mono uppercase text-zinc-400 font-bold">Natural Language Instruction</label>
-<div class="flex gap-2">
-<input class="flex-1 bg-zinc-950 border border-white/12 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-gold font-medium" id="ws-magic-input" placeholder="e.g. 'Make this look clean and luxury with dark gold grid'" type="text"/>
-<button class="spring-btn px-4 py-2 bg-white text-black font-extrabold text-xs rounded-xl shadow-md" onclick="WebStudio.applyMagicPrompt()">
-                      Apply
-                    </button>
-</div>
-</div>
-<div class="space-y-1.5">
-<label class="text-[10px] font-mono uppercase text-zinc-400 font-bold">Aesthetic Presets</label>
-<select class="w-full bg-zinc-950 border border-white/12 rounded-xl p-2.5 text-xs text-white focus:outline-none font-medium" id="ws-aesthetic-preset" onchange="WebStudio.applyAestheticPreset(this.value)">
-<option value="">— Select an Aesthetic Preset —</option>
-<option value="luxury">Clean Minimal Luxury (Gold &amp; Black)</option>
-<option value="obsidian">Obsidian Dark Grid (Fintech)</option>
-<option value="cyber">Cyber Glassmorphic (Neon Cyan)</option>
-<option value="editorial">High-Contrast Editorial Typography</option>
-</select>
-</div>
-<div class="space-y-1.5 pt-2">
-<label class="text-[10px] font-mono uppercase text-zinc-400 font-bold">One-Tap Smart Actions</label>
-<div class="grid grid-cols-2 gap-2 font-mono text-[11px]">
-<button class="spring-btn p-2.5 rounded-lg border border-white/12 bg-zinc-950 hover:bg-ovyx-black text-left text-zinc-300 font-bold" onclick="WebStudio.smartAction('balance_spacing')">
-<i class="fa-solid fa-arrows-up-down text-brand-gold mr-1"></i> Balance Spacing
-                    </button>
-<button class="spring-btn p-2.5 rounded-lg border border-white/12 bg-zinc-950 hover:bg-ovyx-black text-left text-zinc-300 font-bold" onclick="WebStudio.smartAction('luxury_glow')">
-<i class="fa-solid fa-gem text-brand-gold mr-1"></i> Luxury Theme
-                    </button>
-<button class="spring-btn p-2.5 rounded-lg border border-white/12 bg-zinc-950 hover:bg-ovyx-black text-left text-zinc-300 font-bold" onclick="WebStudio.smartAction('punchy_cta')">
-<i class="fa-solid fa-bullhorn text-brand-cyan mr-1"></i> Punchy CTA
-                    </button>
-<button class="spring-btn p-2.5 rounded-lg border border-white/12 bg-zinc-950 hover:bg-ovyx-black text-left text-zinc-300 font-bold" onclick="WebStudio.smartAction('center_align')">
-<i class="fa-solid fa-align-center text-emerald-400 mr-1"></i> Center Alignment
-                    </button>
-</div>
-</div>
-</div>
-<!-- Webflow Style Inspector Panel (3 Accordions) -->
-<div class="flex-1 flex flex-col overflow-hidden bg-black hidden" id="ws-advanced-webflow-panel">
-<div class="px-4 py-2 border-b border-white/12 flex items-center justify-between text-[10px] font-mono uppercase tracking-wider bg-black font-extrabold">
-<span class="text-zinc-300 flex items-center gap-1.5">
-<i class="fa-solid fa-sliders text-brand-gold"></i> Webflow Style Inspector
-                  </span>
-<span class="text-brand-gold bg-ovyx-black border border-white/12 px-2 py-0.5 rounded text-[9px]" id="ws-selected-node-tag">ROOT</span>
-</div>
-<div class="flex-1 overflow-y-auto p-3 space-y-2.5 font-sans text-xs">
-<!-- Accordion 1: Layout & Display -->
-<div class="wf-accordion-item active border border-white/12 rounded-xl bg-zinc-950 overflow-hidden" id="wf-acc-layout">
-<button class="w-full px-3.5 py-2.5 flex items-center justify-between bg-ovyx-black text-xs font-bold text-white" onclick="WebStudio.toggleAccordion('wf-acc-layout')">
-<span class="flex items-center gap-2"><i class="fa-solid fa-table-cells-large text-zinc-400 text-[10px]"></i> Layout &amp; Display</span>
-<i class="fa-solid fa-chevron-down wf-chevron text-[10px] text-zinc-500 transition-transform duration-200"></i>
-</button>
-<div class="wf-accordion-content p-3 space-y-3 font-mono text-[11px]">
-<div>
-<label class="text-[9px] uppercase text-zinc-500 font-bold mb-1.5 block">Display Property</label>
-<div class="grid grid-cols-3 gap-1 bg-black p-1 border border-white/12 rounded-lg">
-<button class="py-1 rounded text-center text-zinc-300 hover:text-white font-bold" id="btn-disp-block" onclick="WebStudio.setStyleParam('display', 'block')">Block</button>
-<button class="py-1 rounded text-center bg-white/10 text-white font-black" id="btn-disp-flex" onclick="WebStudio.setStyleParam('display', 'flex')">Flex</button>
-<button class="py-1 rounded text-center text-zinc-300 hover:text-white font-bold" id="btn-disp-grid" onclick="WebStudio.setStyleParam('display', 'grid')">Grid</button>
-</div>
-</div>
-<div class="grid grid-cols-2 gap-2">
-<div>
-<label class="text-[9px] uppercase text-zinc-500 font-bold mb-1 block">Direction</label>
-<select class="w-full bg-black border border-white/12 rounded p-1.5 text-zinc-300 focus:outline-none font-bold" id="wf-flex-dir" onchange="WebStudio.setStyleParam('flexDirection', this.value)">
-<option value="row">Row (Horizontal)</option>
-<option value="column">Column (Vertical)</option>
-</select>
-</div>
-<div>
-<label class="text-[9px] uppercase text-zinc-500 font-bold mb-1 block">Gap Token</label>
-<input class="w-full bg-black border border-white/12 rounded p-1.5 text-zinc-300 focus:outline-none" id="wf-gap-input" onchange="WebStudio.setStyleParam('gap', this.value)" placeholder="1.5rem" type="text"/>
-</div>
-</div>
-</div>
-</div>
-<!-- Accordion 2: Spacing & Sizing -->
-<div class="wf-accordion-item active border border-white/12 rounded-xl bg-zinc-950 overflow-hidden" id="wf-acc-spacing">
-<button class="w-full px-3.5 py-2.5 flex items-center justify-between bg-ovyx-black text-xs font-bold text-white" onclick="WebStudio.toggleAccordion('wf-acc-spacing')">
-<span class="flex items-center gap-2"><i class="fa-solid fa-arrows-up-down-left-right text-zinc-400 text-[10px]"></i> Spacing &amp; Dimensions</span>
-<i class="fa-solid fa-chevron-down wf-chevron text-[10px] text-zinc-500 transition-transform duration-200"></i>
-</button>
-<div class="wf-accordion-content p-3 space-y-3 font-mono text-[11px]">
-<div class="grid grid-cols-2 gap-2">
-<div>
-<label class="text-[9px] uppercase text-zinc-500 font-bold mb-1 block">Width</label>
-<input class="w-full bg-black border border-white/12 rounded p-1.5 text-zinc-300 focus:outline-none" id="wf-width-input" onchange="WebStudio.setStyleParam('width', this.value)" placeholder="100%" type="text"/>
-</div>
-<div>
-<label class="text-[9px] uppercase text-zinc-500 font-bold mb-1 block">Min Height</label>
-<input class="w-full bg-black border border-white/12 rounded p-1.5 text-zinc-300 focus:outline-none" id="wf-height-input" onchange="WebStudio.setStyleParam('minHeight', this.value)" placeholder="auto" type="text"/>
-</div>
-</div>
-<div class="grid grid-cols-2 gap-2">
-<div>
-<label class="text-[9px] uppercase text-zinc-500 font-bold mb-1 block">Padding Box</label>
-<input class="w-full bg-black border border-white/12 rounded p-1.5 text-zinc-300 focus:outline-none" id="wf-padding-input" onchange="WebStudio.setStyleParam('padding', this.value)" placeholder="4rem 2rem" type="text"/>
-</div>
-<div>
-<label class="text-[9px] uppercase text-zinc-500 font-bold mb-1 block">Margin Box</label>
-<input class="w-full bg-black border border-white/12 rounded p-1.5 text-zinc-300 focus:outline-none" id="wf-margin-input" onchange="WebStudio.setStyleParam('margin', this.value)" placeholder="0 auto" type="text"/>
-</div>
-</div>
-</div>
-</div>
-<!-- Accordion 3: Typography & Accents -->
-<div class="wf-accordion-item active border border-white/12 rounded-xl bg-zinc-950 overflow-hidden" id="wf-acc-typo">
-<button class="w-full px-3.5 py-2.5 flex items-center justify-between bg-ovyx-black text-xs font-bold text-white" onclick="WebStudio.toggleAccordion('wf-acc-typo')">
-<span class="flex items-center gap-2"><i class="fa-solid fa-font text-zinc-400 text-[10px]"></i> Typography &amp; Accents</span>
-<i class="fa-solid fa-chevron-down wf-chevron text-[10px] text-zinc-500 transition-transform duration-200"></i>
-</button>
-<div class="wf-accordion-content p-3 space-y-3 font-mono text-[11px]">
-<div class="grid grid-cols-2 gap-2">
-<div>
-<label class="text-[9px] uppercase text-zinc-500 font-bold mb-1 block">Font Weight</label>
-<select class="w-full bg-black border border-white/12 rounded p-1.5 text-zinc-300 focus:outline-none font-bold" id="wf-font-weight" onchange="WebStudio.setStyleParam('fontWeight', this.value)">
-<option value="400">Regular (400)</option>
-<option value="600">SemiBold (600)</option>
-<option value="800">Bold (800)</option>
-<option value="900">Black (900)</option>
-</select>
-</div>
-<div>
-<label class="text-[9px] uppercase text-zinc-500 font-bold mb-1 block">Text Align</label>
-<select class="w-full bg-black border border-white/12 rounded p-1.5 text-zinc-300 focus:outline-none font-bold" id="wf-text-align" onchange="WebStudio.setStyleParam('textAlign', this.value)">
-<option value="center">Center</option>
-<option value="left">Left</option>
-<option value="right">Right</option>
-</select>
-</div>
-</div>
-<div class="grid grid-cols-2 gap-2">
-<div>
-<label class="text-[9px] uppercase text-zinc-500 font-bold mb-1 block">Background Surface</label>
-<input class="w-full bg-black border border-white/12 rounded p-1.5 text-zinc-300 focus:outline-none" id="wf-bg-input" onchange="WebStudio.setStyleParam('background', this.value)" placeholder="#000000" type="text"/>
-</div>
-<div>
-<label class="text-[9px] uppercase text-zinc-500 font-bold mb-1 block">Border Radius</label>
-<input class="w-full bg-black border border-white/12 rounded p-1.5 text-zinc-300 focus:outline-none" id="wf-radius-input" onchange="WebStudio.setStyleParam('borderRadius', this.value)" placeholder="12px" type="text"/>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
-</div>
+
+<section class="ovyx-crown-studio" id="view-webstudio" aria-label="OVYX Web Studio">
+  <div class="ws-crown-header">
+    <div class="ws-crown-brand">
+      <span class="ws-crown-brand-mark" aria-hidden="true"></span>
+      <span>OVYX STUDIO</span>
+      <span class="ws-crown-live">LIVE</span>
+    </div>
+    <button type="button" class="ws-crown-icon-btn" id="ws-crown-canvas-settings" aria-label="Canvas Settings" title="Canvas Settings">
+      <i class="fa-solid fa-gear"></i>
+    </button>
+  </div>
+
+  <div class="ws-crown-subnav" role="tablist" aria-label="Studio modes">
+    <button type="button" class="ws-crown-tab active" id="ws-crown-tab-chat" role="tab" aria-selected="true">
+      <i class="fa-regular fa-comments"></i><span>Chat</span>
+    </button>
+    <button type="button" class="ws-crown-tab" id="ws-crown-tab-preview" role="tab" aria-selected="false">
+      <i class="fa-regular fa-eye"></i><span>Preview</span>
+    </button>
+  </div>
+
+  <div class="ws-crown-workspace">
+    <main class="ws-crown-canvas" id="ws-canvas-container">
+      <div class="ws-crown-canvas-toolbar">
+        <div class="ws-crown-page-meta">
+          <span class="ws-crown-eyebrow">WEB STUDIO</span>
+          <strong id="ws-crown-page-name">Home</strong>
+          <span class="ws-crown-divider">/</span>
+          <span id="ws-crown-canvas-mode-label">Visual</span>
+        </div>
+        <div class="ws-crown-canvas-actions">
+          <div class="ws-crown-segment">
+            <button type="button" class="is-active" id="vp-desktop-btn" onclick="WebStudio.setViewport('desktop')" title="Desktop preview"><i class="fa-solid fa-desktop"></i></button>
+            <button type="button" id="vp-tablet-btn" onclick="WebStudio.setViewport('tablet')" title="Tablet preview"><i class="fa-solid fa-tablet-screen-button"></i></button>
+            <button type="button" id="vp-mobile-btn" onclick="WebStudio.setViewport('mobile')" title="Mobile preview"><i class="fa-solid fa-mobile-screen-button"></i></button>
+          </div>
+          <button type="button" class="ws-crown-toolbar-btn" id="zen-expansion-btn" onclick="WebStudio.toggleZenMode()" title="Zen Mode"><i class="fa-regular fa-expand"></i></button>
+          <button type="button" class="ws-crown-toolbar-btn" onclick="WebStudio.undo()" title="Undo"><i class="fa-solid fa-rotate-left"></i></button>
+          <button type="button" class="ws-crown-toolbar-btn" onclick="WebStudio.redo()" title="Redo"><i class="fa-solid fa-rotate-right"></i></button>
+        </div>
+      </div>
+
+      <div class="ws-crown-canvas-stage" id="ws-touch-canvas-wrapper">
+        <div class="ws-crown-grid" aria-hidden="true"></div>
+        <div class="ws-crown-grid-label"><span class="ws-crown-dot"></span> LIVE CANVAS <span id="canvas-resolution-tag">1440 × 900 px</span></div>
+        <div class="ws-crown-viewport-wrap">
+          <div class="preview-desktop" id="ws-viewport-frame">
+            <iframe id="ws-canvas-iframe" title="OVYX live preview"></iframe>
+            <div class="ws-crown-blueprint-overlay hidden" id="ws-blueprint-overlay">
+              <div class="ws-crown-blueprint-head">
+                <span><span class="ws-crown-dot"></span> OVYX BLUEPRINT</span>
+                <span>STRUCTURE / STYLE / TOKENS</span>
+              </div>
+              <div id="blueprint-schematic-feed"></div>
+            </div>
+          </div>
+        </div>
+        <div class="ws-crown-canvas-status">
+          <span class="ws-crown-status-pill"><i class="fa-solid fa-bolt"></i> Render-safe</span>
+          <span id="ws-crown-selection-status">ROOT</span>
+        </div>
+        <button type="button" class="ws-crown-add-section" id="ws-crown-add-section" onclick="WebStudio.appendSectionDialog()">
+          <i class="fa-solid fa-plus"></i><span>Add Section</span>
+        </button>
+        <div class="hidden" id="ptr-indicator"><span>Hot-reloading Canvas State...</span></div>
+        <button type="button" class="hidden" id="exit-zen-btn" onclick="WebStudio.toggleZenMode()">Exit Zen Mode</button>
+      </div>
+    </main>
+
+    <aside class="ws-crown-rail" id="ws-crown-rail" aria-label="Studio tools">
+      <button type="button" class="ws-crown-rail-btn is-active" data-crown-drawer="inspector" aria-label="Inspector" title="Inspector">
+        <i class="fa-solid fa-sliders"></i><span>Inspector</span>
+      </button>
+      <button type="button" class="ws-crown-rail-btn" data-crown-drawer="assistant" aria-label="AI Assistant" title="AI Assistant">
+        <i class="fa-solid fa-wand-magic-sparkles"></i><span>AI</span>
+      </button>
+      <button type="button" class="ws-crown-rail-btn" data-crown-drawer="files" aria-label="Files" title="Files">
+        <i class="fa-regular fa-folder-open"></i><span>Files</span>
+      </button>
+      <button type="button" class="ws-crown-rail-btn" data-crown-drawer="blueprint" aria-label="Blueprint" title="Blueprint">
+        <i class="fa-solid fa-diagram-project"></i><span>Blueprint</span>
+      </button>
+    </aside>
+
+    <section class="ws-crown-drawer" id="ws-crown-drawer" aria-hidden="true">
+      <div class="ws-crown-drawer-head">
+        <div>
+          <span class="ws-crown-eyebrow" id="ws-crown-drawer-kicker">INSPECTOR</span>
+          <strong id="ws-crown-drawer-title">Webflow Style Inspector ROOT</strong>
+        </div>
+        <button type="button" class="ws-crown-icon-btn" id="ws-crown-drawer-close" aria-label="Close drawer"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+
+      <div class="ws-crown-drawer-body">
+        <div class="ws-crown-drawer-panel active" data-crown-panel="inspector">
+          <div class="ws-crown-section-block">
+            <div class="ws-crown-section-head"><span>DOM hierarchy</span><span id="ws-node-count">0 Nodes</span></div>
+            <div class="ws-crown-tree" id="ws-dom-tree-list"></div>
+          </div>
+          <div id="ws-dom-inspector-panel">
+            <div id="ws-advanced-webflow-panel">
+              <div class="ws-crown-inspector-header">
+                <span><i class="fa-solid fa-sliders"></i> Webflow Style Inspector ROOT</span>
+                <span id="ws-selected-node-tag">ROOT</span>
+              </div>
+              <div class="ws-crown-inspector-content">
+                <div class="wf-accordion-item active" id="wf-acc-layout">
+                  <button type="button" class="wf-crown-accordion" onclick="WebStudio.toggleAccordion('wf-acc-layout')"><span>Layout &amp; Display</span><i class="fa-solid fa-chevron-down"></i></button>
+                  <div class="wf-accordion-content">
+                    <div class="wf-crown-label">Display</div>
+                    <div class="wf-crown-choice-row">
+                      <button type="button" id="btn-disp-block" onclick="WebStudio.setStyleParam('display','block')">Block</button>
+                      <button type="button" class="is-selected" id="btn-disp-flex" onclick="WebStudio.setStyleParam('display','flex')">Flex</button>
+                      <button type="button" id="btn-disp-grid" onclick="WebStudio.setStyleParam('display','grid')">Grid</button>
+                    </div>
+                    <div class="wf-crown-two">
+                      <label><span>Direction</span><select id="wf-flex-dir" onchange="WebStudio.setStyleParam('flexDirection',this.value)"><option value="row">Row</option><option value="column">Column</option></select></label>
+                      <label><span>Gap</span><input id="wf-gap-input" onchange="WebStudio.setStyleParam('gap',this.value)" placeholder="1.5rem"></label>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="wf-accordion-item active" id="wf-acc-spacing">
+                  <button type="button" class="wf-crown-accordion" onclick="WebStudio.toggleAccordion('wf-acc-spacing')"><span>Spacing &amp; Dimensions</span><i class="fa-solid fa-chevron-down"></i></button>
+                  <div class="wf-accordion-content">
+                    <div class="wf-crown-two">
+                      <label><span>Width</span><input id="wf-width-input" onchange="WebStudio.setStyleParam('width',this.value)" placeholder="100%"></label>
+                      <label><span>Min Height</span><input id="wf-height-input" onchange="WebStudio.setStyleParam('minHeight',this.value)" placeholder="auto"></label>
+                    </div>
+                    <div class="wf-crown-two">
+                      <label><span>Padding</span><input id="wf-padding-input" onchange="WebStudio.setStyleParam('padding',this.value)" placeholder="4rem 2rem"></label>
+                      <label><span>Margin</span><input id="wf-margin-input" onchange="WebStudio.setStyleParam('margin',this.value)" placeholder="0 auto"></label>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="wf-accordion-item active" id="wf-acc-typo">
+                  <button type="button" class="wf-crown-accordion" onclick="WebStudio.toggleAccordion('wf-acc-typo')"><span>Typography &amp; Accents</span><i class="fa-solid fa-chevron-down"></i></button>
+                  <div class="wf-accordion-content">
+                    <div class="wf-crown-two">
+                      <label><span>Font Weight</span><select id="wf-font-weight" onchange="WebStudio.setStyleParam('fontWeight',this.value)"><option value="400">400</option><option value="600">600</option><option value="800">800</option><option value="900">900</option></select></label>
+                      <label><span>Text Align</span><select id="wf-text-align" onchange="WebStudio.setStyleParam('textAlign',this.value)"><option value="center">Center</option><option value="left">Left</option><option value="right">Right</option></select></label>
+                    </div>
+                    <div class="wf-crown-two">
+                      <label><span>Background</span><input id="wf-bg-input" onchange="WebStudio.setStyleParam('background',this.value)" placeholder="#000000"></label>
+                      <label><span>Radius</span><input id="wf-radius-input" onchange="WebStudio.setStyleParam('borderRadius',this.value)" placeholder="0"></label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="ws-crown-setting-strip">
+            <button type="button" onclick="WebStudio.setGlobalAnimation(document.getElementById('ws-animation-engine')?.value || 'none')"><i class="fa-solid fa-film"></i> Animation</button>
+            <select id="ws-animation-engine" aria-label="Animation engine">
+              <option value="none">None</option><option value="spring">Spring</option><option value="reveal">Reveal</option><option value="glass">Glass</option><option value="stagger">Stagger</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="ws-crown-drawer-panel" data-crown-panel="assistant">
+          <div class="ws-crown-assistant-card">
+            <div class="ws-crown-assistant-meta"><span>OVYX AI ASSISTANT</span><span class="ws-crown-engine-dot"></span>SERVER ROUTED</div>
+            <p id="ws-crown-chat-output">Ready. Tell OVYX what to design, refine, or troubleshoot.</p>
+          </div>
+          <div class="ws-crown-quick-actions">
+            <button type="button" onclick="document.getElementById('ws-crown-prompt').value='Restyle this section with a premium obsidian dark system'; document.getElementById('ws-crown-prompt').focus()">Obsidian restyle</button>
+            <button type="button" onclick="document.getElementById('ws-crown-prompt').value='Improve spacing and responsive behavior'; document.getElementById('ws-crown-prompt').focus()">Responsive cleanup</button>
+            <button type="button" onclick="document.getElementById('ws-crown-prompt').value='Build a premium hero section'; document.getElementById('ws-crown-prompt').focus()">Build hero</button>
+          </div>
+          <div id="ws-magic-beginner-panel">
+            <div class="ws-crown-mini-head"><span>Magic Mode</span><span id="ws-magic-selected-badge">ROOT</span></div>
+            <div class="ws-crown-prompt-row">
+              <input id="ws-magic-input" placeholder="Describe the visual change...">
+              <button type="button" onclick="WebStudio.applyMagicPrompt()">Apply</button>
+            </div>
+            <select id="ws-aesthetic-preset" onchange="WebStudio.applyAestheticPreset(this.value)">
+              <option value="">Aesthetic preset</option><option value="luxury">Clean Minimal Luxury</option><option value="obsidian">Obsidian Dark Grid</option><option value="cyber">Cyber Glass</option><option value="editorial">Editorial Contrast</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="ws-crown-drawer-panel" data-crown-panel="files">
+          <div class="ws-crown-section-block">
+            <div class="ws-crown-section-head"><span>Pages</span><button type="button" onclick="WebStudio.addNewPagePrompt()">+ Add Page</button></div>
+            <div class="ws-crown-page-tabs" id="ws-page-tabs-bar"><div id="ws-page-tabs-list"></div></div>
+          </div>
+          <div id="ws-file-explorer">
+            <div class="ws-crown-section-head"><span>Project files</span><button type="button" onclick="WebStudio.addNewPagePrompt()"><i class="fa-solid fa-plus"></i></button></div>
+            <div id="ws-file-tree">
+              <button type="button" class="ws-file active" onclick="WebStudio.switchPage(0)"><i class="fa-regular fa-file"></i><span>Home</span><span>html</span></button>
+              <button type="button" class="ws-file" onclick="WebStudio.addNewPagePrompt()"><i class="fa-solid fa-folder-plus"></i><span>Add route</span></button>
+            </div>
+          </div>
+          <div class="ws-crown-file-note"><span class="ws-crown-dot"></span> Files and page structure stay inside the active project.</div>
+        </div>
+
+        <div class="ws-crown-drawer-panel" data-crown-panel="blueprint">
+          <div class="ws-crown-section-block">
+            <div class="ws-crown-section-head"><span>Architecture</span><span>LIVE</span></div>
+            <div class="ws-crown-blueprint-list" id="ws-crown-blueprint-list">
+              <div class="ws-crown-blueprint-summary">Select Preview → Blueprint to inspect the current section tree and style tokens.</div>
+            </div>
+          </div>
+          <button type="button" class="ws-crown-blueprint-action" onclick="WebStudio.setCanvasMode('blueprint')"><i class="fa-solid fa-diagram-project"></i> Open Blueprint on Canvas</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div class="ws-crown-promptbar" id="ws-prompt-ribbon" data-backend-route="/api/ai/assistant">
+    <div class="ws-crown-engine">
+      <span class="ws-crown-eyebrow">LLM ENGINE</span>
+      <select id="ws-crown-provider" aria-label="LLM Engine Selector">
+        <option value="automatic">Auto — OVYX Server Router</option>
+        <option value="gemini">Gemini</option>
+        <option value="deepseek">DeepSeek</option>
+        <option value="claude">Claude</option>
+        <option value="openai">OpenAI-compatible · Groq</option>
+      </select>
+    </div>
+    <div class="ws-crown-promptfield">
+      <i class="fa-solid fa-sparkles" aria-hidden="true"></i>
+      <input id="ws-crown-prompt" type="text" autocomplete="off" placeholder="✨ Prompt AI to restyle or build..." aria-label="Prompt AI to restyle or build">
+      <span class="ws-crown-route-pill" id="ws-crown-route-pill">SERVER</span>
+    </div>
+    <button type="button" class="ws-crown-build" id="ws-crown-build"><span>Build</span><i class="fa-solid fa-arrow-up"></i></button>
+  </div>
+
+  <div class="ws-crown-legacy-hooks" aria-hidden="true">
+    <input id="ws-quick-prompt" tabindex="-1">
+    <select id="ws-provider-select" tabindex="-1"><option value="automatic">automatic</option><option value="gemini">gemini</option><option value="deepseek">deepseek</option><option value="claude">claude</option><option value="openai">openai</option></select>
+    <div id="ws-mobile-feature-strip">
+      <button data-mobile-studio="files">Files</button><button data-mobile-studio="canvas">Canvas</button><button data-mobile-studio="blueprint">Blueprint</button><button data-mobile-studio="inspector">Inspector</button>
+    </div>
+  </div>
 </section>
 <!-- VIEW 3: APP STUDIO -->
 <section class="h-full flex flex-col hidden relative bg-black" id="view-appstudio">
@@ -17237,6 +17153,397 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 window.addEventListener('ovyx:view-changed',boot,{passive:true});
 window.addEventListener('pageshow',boot,{passive:true});
 const helpRoot=document.getElementById('view-faq');if(helpRoot){const mo=new MutationObserver(()=>{if(!helpRoot.querySelector('#ovyx-v89-real-footage-film'))boot()});mo.observe(helpRoot,{childList:true,subtree:true});}
+})();
+</script>
+
+
+<style id="ovyx-crown-webstudio-style">
+#view-webstudio.ovyx-crown-studio{
+  --ws-bg:#0a0a0a;
+  --ws-panel:#0d0d0d;
+  --ws-panel-2:#111111;
+  --ws-line:#262626;
+  --ws-line-soft:#1a1a1a;
+  --ws-text:#f5f5f5;
+  --ws-muted:#737373;
+  --ws-muted-2:#525252;
+  --ws-gold:#f59e0b;
+  --ws-gold-soft:rgba(245,158,11,.16);
+  --ws-gold-line:rgba(245,158,11,.46);
+  position:relative;
+  display:flex!important;
+  flex-direction:column;
+  width:100%;
+  height:100%;
+  min-width:0;
+  min-height:0;
+  overflow:hidden!important;
+  background:var(--ws-bg)!important;
+  color:var(--ws-text)!important;
+  color-scheme:dark;
+  font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+}
+#view-webstudio.ovyx-crown-studio *{box-sizing:border-box;min-width:0;}
+#view-webstudio.ovyx-crown-studio button,
+#view-webstudio.ovyx-crown-studio input,
+#view-webstudio.ovyx-crown-studio select{font:inherit;}
+#view-webstudio.ovyx-crown-studio button{cursor:pointer;}
+#view-webstudio.ovyx-crown-studio ::selection{background:rgba(245,158,11,.24);color:#fff;}
+
+.ws-crown-header{
+  height:46px;min-height:46px;display:flex;align-items:center;justify-content:space-between;
+  padding:0 12px;border-bottom:1px solid var(--ws-line);background:#000;flex:0 0 auto;
+}
+.ws-crown-brand{display:flex;align-items:center;gap:9px;font:800 12px/1 "JetBrains Mono",monospace;letter-spacing:.16em;color:#f5f5f5;}
+.ws-crown-brand-mark{width:7px;height:7px;background:var(--ws-gold);box-shadow:0 0 0 1px rgba(245,158,11,.24);display:inline-block;}
+.ws-crown-live{font:700 9px/1 "JetBrains Mono",monospace;letter-spacing:.12em;color:var(--ws-gold);border-left:1px solid var(--ws-line);padding-left:8px;}
+.ws-crown-icon-btn{width:30px;height:30px;display:grid;place-items:center;border:1px solid var(--ws-line);background:#050505;color:#a3a3a3;padding:0;border-radius:0;}
+.ws-crown-icon-btn:hover{color:#fff;border-color:#3d3d3d;background:#0b0b0b;}
+.ws-crown-icon-btn:focus-visible{outline:1px solid var(--ws-gold);outline-offset:1px;}
+
+.ws-crown-subnav{display:grid;grid-template-columns:1fr 1fr;height:40px;min-height:40px;border-bottom:1px solid var(--ws-line);background:#0b0b0b;}
+.ws-crown-tab{border:0;border-right:1px solid var(--ws-line);background:#0b0b0b;color:#686868;font:800 10px/1 "JetBrains Mono",monospace;letter-spacing:.13em;text-transform:uppercase;}
+.ws-crown-tab:last-child{border-right:0;}
+.ws-crown-tab.active{background:#101010;color:#f5f5f5;box-shadow:inset 0 -2px 0 var(--ws-gold);}
+.ws-crown-tab:hover{color:#fff;background:#101010;}
+.ws-crown-tab i{margin-right:7px;font-size:10px;}
+
+.ws-crown-workspace{position:relative;display:flex;flex:1 1 auto;min-height:0;min-width:0;overflow:hidden;background:var(--ws-bg);}
+.ws-crown-canvas{position:relative;display:flex;flex:1 1 auto;flex-direction:column;min-width:0;min-height:0;background:var(--ws-bg);overflow:hidden;}
+.ws-crown-canvas-toolbar{height:40px;min-height:40px;display:flex;align-items:center;justify-content:space-between;padding:0 10px;border-bottom:1px solid var(--ws-line);background:#0b0b0b;gap:10px;}
+.ws-crown-page-meta{display:flex;align-items:center;gap:8px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ws-crown-eyebrow{font:800 8px/1 "JetBrains Mono",monospace;letter-spacing:.14em;color:var(--ws-muted);text-transform:uppercase;}
+.ws-crown-page-meta strong{font:700 11px/1.2 Inter,sans-serif;color:#ededed;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ws-crown-divider{color:#303030;}
+.ws-crown-page-meta #ws-crown-canvas-mode-label{color:var(--ws-muted);font:700 9px/1 "JetBrains Mono",monospace;text-transform:uppercase;}
+.ws-crown-canvas-actions{display:flex;align-items:center;gap:5px;flex:0 0 auto;}
+.ws-crown-segment{display:flex;border:1px solid var(--ws-line);background:#070707;}
+.ws-crown-segment button,.ws-crown-toolbar-btn{width:28px;height:26px;border:0;background:transparent;color:#656565;padding:0;display:grid;place-items:center;}
+.ws-crown-segment button+button{border-left:1px solid var(--ws-line);}
+.ws-crown-segment button.is-active,.ws-crown-segment button:hover{background:#151515;color:#fff;}
+.ws-crown-toolbar-btn:hover{color:#fff;background:#121212;}
+
+.ws-crown-canvas-stage{position:relative;display:flex;align-items:center;justify-content:center;flex:1 1 auto;min-width:0;min-height:0;overflow:hidden;background:#0a0a0a;padding:18px;}
+.ws-crown-grid{position:absolute;inset:0;opacity:.7;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:24px 24px;pointer-events:none;}
+.ws-crown-grid:after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 40%,transparent 0,rgba(10,10,10,.06) 55%,rgba(10,10,10,.72) 100%);}
+.ws-crown-grid-label{position:absolute;top:9px;left:11px;z-index:3;display:flex;align-items:center;gap:7px;color:#5c5c5c;font:700 8px/1 "JetBrains Mono",monospace;letter-spacing:.1em;}
+.ws-crown-grid-label #canvas-resolution-tag{color:#444;letter-spacing:0;}
+.ws-crown-dot{width:6px;height:6px;border:1px solid #4b4b4b;background:#1b1b1b;display:inline-block;}
+.ws-crown-viewport-wrap{position:relative;z-index:2;width:100%;height:100%;display:flex;align-items:center;justify-content:center;min-width:0;min-height:0;overflow:hidden;}
+#view-webstudio.ovyx-crown-studio #ws-viewport-frame{display:flex;position:relative;max-width:100%;max-height:100%;width:100%;height:100%;border:1px solid var(--ws-line);background:#000;border-radius:0!important;box-shadow:none!important;overflow:hidden;}
+#view-webstudio.ovyx-crown-studio #ws-canvas-iframe{width:100%;height:100%;border:0;background:#000;display:block;}
+#view-webstudio.ovyx-crown-studio #ws-blueprint-overlay{position:absolute;inset:0;background:#0a0a0a;overflow:auto;padding:14px;color:#ddd;}
+.ws-crown-blueprint-head{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--ws-line);padding-bottom:9px;margin-bottom:12px;font:800 8px/1 "JetBrains Mono",monospace;letter-spacing:.08em;color:#8a8a8a;}
+.ws-crown-blueprint-head span:first-child{color:#f5f5f5;}
+.ws-crown-status-pill{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--ws-line);padding:4px 7px;background:#090909;color:#777;font:700 8px/1 "JetBrains Mono",monospace;letter-spacing:.06em;}
+.ws-crown-canvas-status{position:absolute;bottom:10px;left:10px;z-index:4;display:flex;align-items:center;gap:7px;color:#4d4d4d;font:700 8px/1 "JetBrains Mono",monospace;}
+.ws-crown-canvas-status>#ws-crown-selection-status{color:#666;}
+.ws-crown-add-section{position:absolute;bottom:10px;right:10px;z-index:5;height:32px;padding:0 11px;border:1px solid var(--ws-gold-line);background:#111;color:var(--ws-gold);border-radius:0;display:flex;align-items:center;gap:6px;font:800 9px/1 "JetBrains Mono",monospace;letter-spacing:.03em;}
+.ws-crown-add-section:hover{background:var(--ws-gold);color:#090909;}
+
+.ws-crown-rail{position:absolute;right:0;top:0;bottom:0;width:44px;z-index:20;display:flex;flex-direction:column;align-items:center;padding:9px 5px;gap:6px;background:#090909;border-left:1px solid var(--ws-line);border-right:0;overflow:hidden;}
+.ws-crown-rail-btn{width:33px;height:33px;border:1px solid transparent;background:transparent;color:#565656;padding:0;display:grid;place-items:center;position:relative;}
+.ws-crown-rail-btn span{position:absolute;right:40px;top:50%;transform:translateY(-50%);background:#111;border:1px solid var(--ws-line);color:#bdbdbd;padding:5px 7px;font:700 8px/1 "JetBrains Mono",monospace;letter-spacing:.04em;opacity:0;pointer-events:none;white-space:nowrap;}
+.ws-crown-rail-btn:hover span{opacity:1;}
+.ws-crown-rail-btn:hover{color:#fff;background:#111;}
+.ws-crown-rail-btn.is-active{color:var(--ws-gold);border-color:var(--ws-gold-line);background:var(--ws-gold-soft);}
+
+.ws-crown-drawer{position:absolute;right:44px;top:0;bottom:0;width:min(360px,44vw);z-index:19;background:#0b0b0b;border-left:1px solid var(--ws-line);display:flex;flex-direction:column;transform:translateX(calc(100% + 44px));transition:transform .22s ease;pointer-events:none;overflow:hidden;}
+.ws-crown-drawer.open{transform:translateX(0);pointer-events:auto;}
+.ws-crown-drawer-head{min-height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 11px;border-bottom:1px solid var(--ws-line);background:#0c0c0c;}
+.ws-crown-drawer-head strong{display:block;margin-top:5px;font:700 11px/1.2 Inter,sans-serif;color:#f1f1f1;}
+.ws-crown-drawer-body{flex:1;min-height:0;overflow:auto;padding:10px;}
+.ws-crown-drawer-panel{display:none;min-width:0;}
+.ws-crown-drawer-panel.active{display:block;}
+.ws-crown-section-block{border:1px solid var(--ws-line);background:#0f0f0f;margin-bottom:10px;}
+.ws-crown-section-head{min-height:32px;display:flex;align-items:center;justify-content:space-between;padding:0 9px;border-bottom:1px solid var(--ws-line);font:800 8px/1 "JetBrains Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:#666;}
+.ws-crown-section-head button{border:1px solid var(--ws-line);background:#121212;color:#aaa;padding:5px 7px;font:700 8px/1 "JetBrains Mono",monospace;}
+.ws-crown-tree{max-height:190px;overflow:auto;padding:6px;}
+.ws-crown-tree .ws-node-row{border:1px solid transparent!important;border-radius:0!important;background:transparent!important;color:#7a7a7a!important;padding:7px 7px!important;}
+.ws-crown-tree .ws-node-row:hover,.ws-crown-tree .ws-node-row[class*="border-brand-gold"]{border-color:var(--ws-gold-line)!important;background:var(--ws-gold-soft)!important;color:#fff!important;}
+.ws-crown-inspector-header{display:flex;align-items:center;justify-content:space-between;padding:9px;border:1px solid var(--ws-line);background:#0f0f0f;font:800 8px/1 "JetBrains Mono",monospace;letter-spacing:.08em;color:#a7a7a7;}
+.ws-crown-inspector-header i{color:var(--ws-gold);margin-right:5px;}
+.ws-crown-inspector-header #ws-selected-node-tag{color:var(--ws-gold);}
+.ws-crown-inspector-content{padding:8px;border-left:1px solid var(--ws-line);border-right:1px solid var(--ws-line);border-bottom:1px solid var(--ws-line);background:#0c0c0c;}
+#view-webstudio.ovyx-crown-studio .wf-accordion-item{border:1px solid var(--ws-line)!important;border-radius:0!important;background:#0f0f0f!important;overflow:hidden;margin-bottom:7px;}
+#view-webstudio.ovyx-crown-studio .wf-crown-accordion{width:100%;display:flex;align-items:center;justify-content:space-between;border:0;background:#111;color:#ddd;padding:10px;font:800 9px/1 "JetBrains Mono",monospace;letter-spacing:.03em;text-align:left;}
+#view-webstudio.ovyx-crown-studio .wf-accordion-content{display:block;max-height:600px!important;padding:9px;background:#0d0d0d;color:#888;overflow:visible;}
+#view-webstudio.ovyx-crown-studio .wf-crown-accordion i{color:#555;}
+.wf-crown-label{font:800 8px/1 "JetBrains Mono",monospace;text-transform:uppercase;color:#555;margin-bottom:6px;}
+.wf-crown-choice-row{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--ws-line);background:#080808;}
+.wf-crown-choice-row button{height:28px;border:0;border-right:1px solid var(--ws-line);background:#080808;color:#777;font:800 8px/1 "JetBrains Mono",monospace;}
+.wf-crown-choice-row button:last-child{border-right:0;}
+.wf-crown-choice-row button.is-selected,.wf-crown-choice-row button:hover{background:var(--ws-gold-soft);color:var(--ws-gold);}
+.wf-crown-two{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:8px;}
+.wf-crown-two label{display:block;}
+.wf-crown-two label>span{display:block;font:800 8px/1 "JetBrains Mono",monospace;text-transform:uppercase;color:#555;margin:0 0 5px;}
+.wf-crown-two input,.wf-crown-two select,#view-webstudio.ovyx-crown-studio #ws-aesthetic-preset,
+#view-webstudio.ovyx-crown-studio #ws-magic-input{
+  width:100%;height:30px;border:1px solid var(--ws-line);border-radius:0;background:#080808;color:#ddd;padding:0 8px;outline:0;font:600 9px/1 "JetBrains Mono",monospace;
+}
+.wf-crown-two input:focus,.wf-crown-two select:focus,#view-webstudio.ovyx-crown-studio #ws-aesthetic-preset:focus,#view-webstudio.ovyx-crown-studio #ws-magic-input:focus{border-color:var(--ws-gold-line);}
+.wf-crown-two select{appearance:none;}
+.ws-crown-setting-strip{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-top:7px;}
+.ws-crown-setting-strip button,.ws-crown-setting-strip select{height:30px;border:1px solid var(--ws-line);background:#0f0f0f;color:#969696;padding:0 8px;text-align:left;font:700 8px/1 "JetBrains Mono",monospace;}
+.ws-crown-setting-strip select{color:#cfcfcf;}
+
+.ws-crown-assistant-card{border:1px solid var(--ws-line);padding:11px;background:#0f0f0f;}
+.ws-crown-assistant-meta{display:flex;align-items:center;gap:7px;font:800 8px/1 "JetBrains Mono",monospace;letter-spacing:.08em;color:#777;}
+.ws-crown-engine-dot{width:5px;height:5px;background:var(--ws-gold);display:inline-block;}
+.ws-crown-assistant-card p{margin:9px 0 0;color:#c8c8c8;font-size:12px;line-height:1.55;}
+.ws-crown-quick-actions{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:9px 0;}
+.ws-crown-quick-actions button{border:1px solid var(--ws-line);background:#0e0e0e;color:#8a8a8a;padding:8px 7px;text-align:left;font:700 8px/1.2 "JetBrains Mono",monospace;}
+.ws-crown-quick-actions button:hover{color:#fff;border-color:#3a3a3a;}
+.ws-crown-mini-head{display:flex;align-items:center;justify-content:space-between;margin:11px 0 6px;font:800 8px/1 "JetBrains Mono",monospace;letter-spacing:.08em;color:#666;}
+.ws-crown-mini-head #ws-magic-selected-badge{color:var(--ws-gold);}
+.ws-crown-prompt-row{display:grid;grid-template-columns:1fr auto;gap:6px;}
+#view-webstudio.ovyx-crown-studio #ws-magic-beginner-panel{display:block!important;border-top:1px solid var(--ws-line);padding-top:8px;}
+#view-webstudio.ovyx-crown-studio #ws-magic-input{height:34px;}
+#view-webstudio.ovyx-crown-studio #ws-magic-beginner-panel button{height:34px;border:1px solid var(--ws-gold-line);background:var(--ws-gold-soft);color:var(--ws-gold);padding:0 10px;font:800 8px/1 "JetBrains Mono",monospace;}
+
+.ws-crown-page-tabs{padding:7px;}
+#ws-page-tabs-list{display:flex;flex-wrap:wrap;gap:5px;}
+#ws-page-tabs-list button{border:1px solid var(--ws-line)!important;border-radius:0!important;background:#0b0b0b!important;color:#767676!important;padding:7px 8px!important;font:800 8px/1 "JetBrains Mono",monospace!important;}
+#ws-page-tabs-list button:hover,#ws-page-tabs-list button[class*="bg-white"]{border-color:var(--ws-gold-line)!important;color:var(--ws-gold)!important;background:var(--ws-gold-soft)!important;}
+#ws-file-tree{padding:7px;display:grid;gap:5px;}
+#ws-file-tree .ws-file{display:grid!important;grid-template-columns:16px 1fr auto;gap:7px;align-items:center;width:100%;border:1px solid transparent!important;border-radius:0!important;background:transparent!important;color:#777!important;padding:8px!important;text-align:left;font:700 9px/1 "JetBrains Mono",monospace!important;}
+#ws-file-tree .ws-file:hover,#ws-file-tree .ws-file.active{border-color:var(--ws-line)!important;background:#111!important;color:#fff!important;}
+.ws-crown-file-note{padding:9px;border:1px solid var(--ws-line);background:#0f0f0f;color:#555;font:700 8px/1.5 "JetBrains Mono",monospace;}
+.ws-crown-blueprint-list{padding:9px;}
+.ws-crown-blueprint-summary{padding:10px;border:1px solid var(--ws-line);background:#0b0b0b;color:#666;font:700 9px/1.5 "JetBrains Mono",monospace;}
+.ws-crown-blueprint-action{width:100%;height:34px;border:1px solid var(--ws-gold-line);background:var(--ws-gold-soft);color:var(--ws-gold);font:800 8px/1 "JetBrains Mono",monospace;letter-spacing:.04em;}
+
+.ws-crown-promptbar{display:flex;align-items:center;gap:8px;min-height:60px;padding:8px 10px;border-top:1px solid var(--ws-line);background:#090909;position:relative;z-index:40;flex:0 0 auto;}
+.ws-crown-engine{width:164px;flex:0 0 164px;display:flex;flex-direction:column;gap:4px;}
+.ws-crown-engine select{width:100%;height:31px;border:1px solid var(--ws-line);border-radius:0;background:#0d0d0d;color:#c9c9c9;padding:0 8px;font:700 8px/1 "JetBrains Mono",monospace;outline:0;}
+.ws-crown-engine select:focus{border-color:var(--ws-gold-line);}
+.ws-crown-promptfield{display:flex;align-items:center;gap:7px;min-width:0;flex:1;height:36px;border:1px solid var(--ws-line);background:#0c0c0c;padding:0 9px;}
+.ws-crown-promptfield:focus-within{border-color:var(--ws-gold-line);}
+.ws-crown-promptfield>i{color:var(--ws-gold);font-size:10px;}
+.ws-crown-promptfield input{width:100%;min-width:0;height:32px;border:0;outline:0;background:transparent;color:#ededed;font-size:12px;}
+.ws-crown-promptfield input::placeholder{color:#595959;}
+.ws-crown-route-pill{border:1px solid var(--ws-line);color:#5d5d5d;padding:4px 6px;font:800 7px/1 "JetBrains Mono",monospace;white-space:nowrap;}
+.ws-crown-build{height:36px;min-width:82px;border:1px solid #f6b63d;background:var(--ws-gold);color:#0a0a0a;padding:0 14px;display:flex;align-items:center;justify-content:center;gap:6px;font:900 9px/1 "JetBrains Mono",monospace;letter-spacing:.08em;text-transform:uppercase;}
+.ws-crown-build:hover{background:#ffbd4b;}
+.ws-crown-build:disabled{opacity:.55;cursor:wait;}
+.ws-crown-legacy-hooks{display:none!important;}
+
+.hidden{display:none!important;}
+@media (max-width:980px){
+  .ws-crown-drawer{width:min(340px,55vw);}
+  .ws-crown-engine{width:148px;flex-basis:148px;}
+}
+@media (max-width:760px){
+  .ws-crown-canvas-toolbar{height:38px;min-height:38px;padding:0 7px;}
+  .ws-crown-page-meta .ws-crown-eyebrow,.ws-crown-page-meta .ws-crown-divider,.ws-crown-page-meta #ws-crown-canvas-mode-label{display:none;}
+  .ws-crown-canvas-stage{padding:8px 48px 8px 8px;}
+  .ws-crown-drawer{left:8px;right:8px;top:auto;bottom:7px;width:auto;height:min(60dvh,510px);transform:translateY(calc(100% + 20px));border-left:1px solid var(--ws-line);border-right:1px solid var(--ws-line);border-top:1px solid var(--ws-line);}
+  .ws-crown-drawer.open{transform:translateY(0);}
+  .ws-crown-rail{top:auto;left:8px;right:8px;bottom:7px;width:auto;height:42px;flex-direction:row;justify-content:space-between;padding:4px;border:1px solid var(--ws-line);}
+  .ws-crown-rail-btn{width:25%;height:32px;}
+  .ws-crown-rail-btn span{display:none;}
+  .ws-crown-drawer.open + *{}
+  .ws-crown-promptbar{padding:7px;gap:6px;min-height:58px;}
+  .ws-crown-engine{width:118px;flex-basis:118px;}
+  .ws-crown-engine .ws-crown-eyebrow{display:none;}
+  .ws-crown-route-pill{display:none;}
+  .ws-crown-promptfield{height:34px;}
+  .ws-crown-promptfield input{font-size:11px;}
+  .ws-crown-build{min-width:60px;height:34px;padding:0 9px;}
+  .ws-crown-build i{display:none;}
+  .ws-crown-add-section{bottom:53px;right:8px;}
+  .ws-crown-canvas-status{bottom:53px;}
+}
+@media (max-width:520px){
+  .ws-crown-engine{display:none;}
+  .ws-crown-promptfield{flex:1;}
+  .ws-crown-build{min-width:64px;}
+}
+</style>
+
+<script id="ovyx-crown-webstudio-runtime">
+(function(){
+  'use strict';
+  if(window.__OVYX_CROWN_WEBSTUDIO__)return;
+  window.__OVYX_CROWN_WEBSTUDIO__=true;
+
+  const ROOT='#view-webstudio.ovyx-crown-studio';
+  const $=(id)=>document.getElementById(id);
+  const root=()=>document.querySelector(ROOT);
+  const crown={
+    activeDrawer:'inspector',
+    drawers:{
+      inspector:{kicker:'INSPECTOR',title:'Webflow Style Inspector ROOT'},
+      assistant:{kicker:'AI ASSISTANT',title:'OVYX AI Assistant'},
+      files:{kicker:'FILES',title:'Project Files & Pages'},
+      blueprint:{kicker:'BLUEPRINT',title:'Live Architecture Blueprint'}
+    },
+    openDrawer(name,focus=true){
+      const r=root(); if(!r)return;
+      const drawer=$('ws-crown-drawer');
+      if(!drawer)return;
+      if(!this.drawers[name])name='inspector';
+      this.activeDrawer=name;
+      document.querySelectorAll(ROOT+' .ws-crown-rail-btn').forEach(btn=>btn.classList.toggle('is-active',btn.dataset.crownDrawer===name));
+      document.querySelectorAll(ROOT+' .ws-crown-drawer-panel').forEach(p=>p.classList.toggle('active',p.dataset.crownPanel===name));
+      const meta=this.drawers[name];
+      $('ws-crown-drawer-kicker').textContent=meta.kicker;
+      $('ws-crown-drawer-title').textContent=meta.title;
+      drawer.classList.add('open');
+      drawer.setAttribute('aria-hidden','false');
+      if(name==='assistant'){
+        try{window.WebStudio?.toggleMagicMode?.(true)}catch(e){console.warn('[OVYX Crown]',e)}
+      }else if(name==='inspector'){
+        try{window.WebStudio?.toggleMagicMode?.(false)}catch(e){console.warn('[OVYX Crown]',e)}
+      }
+      if(focus && name==='assistant')setTimeout(()=>$('ws-crown-prompt')?.focus(),60);
+    },
+    closeDrawer(){
+      const drawer=$('ws-crown-drawer'); if(!drawer)return;
+      drawer.classList.remove('open');drawer.setAttribute('aria-hidden','true');
+      document.querySelectorAll(ROOT+' .ws-crown-rail-btn').forEach(btn=>btn.classList.remove('is-active'));
+    },
+    setTab(name){
+      const isChat=name==='chat';
+      $('ws-crown-tab-chat')?.classList.toggle('active',isChat);
+      $('ws-crown-tab-chat')?.setAttribute('aria-selected',String(isChat));
+      $('ws-crown-tab-preview')?.classList.toggle('active',!isChat);
+      $('ws-crown-tab-preview')?.setAttribute('aria-selected',String(!isChat));
+      if(isChat){
+        this.openDrawer('assistant');
+        const label=$('ws-crown-canvas-mode-label'); if(label)label.textContent='Assistant';
+      }else{
+        this.closeDrawer();
+        try{window.WebStudio?.setCanvasMode?.('visual')}catch(e){console.warn('[OVYX Crown]',e)}
+        const label=$('ws-crown-canvas-mode-label'); if(label)label.textContent='Preview';
+      }
+    },
+    syncCompatibility(){
+      const prompt=$('ws-crown-prompt')?.value||'';
+      const provider=$('ws-crown-provider')?.value||'automatic';
+      if($('ws-quick-prompt'))$('ws-quick-prompt').value=prompt;
+      if($('ws-provider-select'))$('ws-provider-select').value=provider;
+      const route=$('ws-prompt-ribbon');
+      if(route)route.dataset.backendRoute=provider==='automatic'?'/api/ai/assistant':'/api/ai/gateway';
+      const pill=$('ws-crown-route-pill');
+      if(pill)pill.textContent=provider==='automatic'?'SERVER':'GATEWAY';
+    },
+    syncPageMeta(){
+      try{
+        const page=window.WebStudio?.getActivePage?.();
+        if(page?.name) $('ws-crown-page-name').textContent=page.name;
+        const label=$('ws-crown-canvas-mode-label');
+        if(label&&window.WebStudio?.canvasMode)label.textContent=window.WebStudio.canvasMode==='blueprint'?'Blueprint':'Visual';
+        const selected=window.WebStudio?.getActiveSection?.();
+        if($('ws-crown-selection-status'))$('ws-crown-selection-status').textContent=selected?.type?String(selected.type).toUpperCase():'ROOT';
+      }catch(e){console.warn('[OVYX Crown] meta sync',e)}
+    },
+    showChatMessage(text,isError=false){
+      const out=$('ws-crown-chat-output'); if(!out)return;
+      out.textContent=String(text||'');
+      out.style.color=isError?'#fca5a5':'#c8c8c8';
+    },
+    async build(){
+      const input=$('ws-crown-prompt');
+      const button=$('ws-crown-build');
+      const prompt=String(input?.value||'').trim();
+      const provider=String($('ws-crown-provider')?.value||'automatic');
+      if(!prompt){input?.focus();return;}
+      this.syncCompatibility();
+      if(button){button.disabled=true;button.querySelector('span')?.replaceChildren(document.createTextNode('Building…'));}
+      this.openDrawer('assistant',false);
+      this.showChatMessage('Routing request through the OVYX secure AI service…');
+      try{
+        const project=window.KernelState?.activeProject;
+        const page=window.WebStudio?.getActivePage?.();
+        const selected=window.WebStudio?.getActiveSection?.();
+        const context={
+          surface:'webstudio',
+          projectId:project?.id||null,
+          pageId:page?.id||null,
+          selectedNodeId:selected?.id||null,
+          pageName:page?.name||null,
+          capabilities:['layout','responsive','typography','sections','blueprint','inspector']
+        };
+        const fn=window.OVYXAIService?.generate;
+        let data=null;
+        if(typeof fn==='function'){
+          data=await fn({provider,prompt,mode:'webstudio',context,maxTokens:4096});
+        }else{
+          data=await fetch(provider==='automatic'?'/api/ai/assistant':'/api/ai/gateway',{
+            method:'POST',
+            credentials:'same-origin',
+            headers:{'Content-Type':'application/json',Accept:'application/json'},
+            body:JSON.stringify({provider,prompt,messages:[{role:'user',content:prompt}],mode:'webstudio',context})
+          }).then(async r=>{
+            const d=await r.json().catch(()=>({}));
+            if(!r.ok)throw new Error(d.error||d.message||('AI HTTP '+r.status));
+            return d;
+          });
+        }
+        const answer=data?.output||data?.text||data?.message||data?.content||data?.response||data?.result||'OVYX received the request.';
+        this.showChatMessage(answer,false);
+        try{
+          if($('ws-magic-input'))$('ws-magic-input').value=prompt;
+          window.WebStudio?.applyMagicPrompt?.();
+        }catch(e){console.warn('[OVYX Crown] local visual apply skipped',e)}
+        window.dispatchEvent(new CustomEvent('ovyx:webstudio:build',{detail:{prompt,provider,data}}));
+        showToast?.('OVYX build request completed.','success');
+      }catch(error){
+        console.warn('[OVYX Crown] AI build failed',error);
+        this.showChatMessage(String(error?.message||error||'The AI service could not complete this request.'),true);
+        showToast?.('OVYX AI request failed.','info');
+      }finally{
+        if(button){button.disabled=false;button.querySelector('span')?.replaceChildren(document.createTextNode('Build'));}
+        this.syncPageMeta();
+      }
+    },
+    boot(){
+      const r=root(); if(!r)return;
+      document.querySelectorAll(ROOT+' [data-crown-drawer]').forEach(btn=>btn.addEventListener('click',()=>this.openDrawer(btn.dataset.crownDrawer)));
+      $('ws-crown-drawer-close')?.addEventListener('click',()=>this.closeDrawer());
+      $('ws-crown-tab-chat')?.addEventListener('click',()=>this.setTab('chat'));
+      $('ws-crown-tab-preview')?.addEventListener('click',()=>this.setTab('preview'));
+      $('ws-crown-canvas-settings')?.addEventListener('click',()=>this.openDrawer('inspector'));
+      $('ws-crown-build')?.addEventListener('click',()=>this.build());
+      $('ws-crown-provider')?.addEventListener('change',()=>this.syncCompatibility());
+      $('ws-crown-prompt')?.addEventListener('keydown',(e)=>{if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){e.preventDefault();this.build();}});
+      window.addEventListener('ovyx:view-changed',e=>{if(e.detail?.view==='webstudio'){setTimeout(()=>{this.bootActive();this.syncPageMeta()},0)}});
+      this.bootActive();
+    },
+    bootActive(){
+      try{
+        if(window.WebStudio&&!window.WebStudio.__crownKeyBridge){
+          const originalRender=window.WebStudio.render?.bind(window.WebStudio);
+          if(originalRender){
+            window.WebStudio.render=function(){
+              const out=originalRender();
+              try{crown.syncPageMeta();}catch(e){console.warn('[OVYX Crown] render sync',e)}
+              return out;
+            };
+          }
+          window.WebStudio.__crownKeyBridge=true;
+        }
+      }catch(e){console.warn('[OVYX Crown] render bridge',e)}
+      this.syncCompatibility();
+      this.syncPageMeta();
+      if(this.activeDrawer)this.openDrawer(this.activeDrawer,false);
+    }
+  };
+
+  window.OVYXWebStudioCrown={
+    config:{
+      promptInputId:'ws-crown-prompt',
+      providerSelectId:'ws-crown-provider',
+      buildButtonId:'ws-crown-build',
+      automaticRoute:'/api/ai/assistant',
+      providerRoute:'/api/ai/gateway',
+      eventName:'ovyx:webstudio:build'
+    },
+    ...crown
+  };
+
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>crown.boot(),{once:true});else crown.boot();
 })();
 </script>
 </body>
