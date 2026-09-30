@@ -132,11 +132,16 @@ async function cloudflareRequest(path, env, init = {}, authToken = env.CLOUDFLAR
     `https://api.cloudflare.com/client/v4${path}`,
     {
       ...init,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`,
-        ...(init.headers || {})
-      }
+      headers: (() => {
+        const h = {
+          'Authorization': `Bearer ${authToken}`,
+          ...(init.headers || {})
+        };
+        if (!(init.body instanceof FormData) && !h['Content-Type']) {
+          h['Content-Type'] = 'application/json';
+        }
+        return h;
+      })()
     }
   );
 
@@ -173,7 +178,7 @@ function getDeploymentResult(result) {
       ? {
           enabled: true,
           method: 'GET',
-          endpoint: '/api/deploy/status',
+          endpoint: '/api/deployment-status',
           deploymentId: deployment.id
         }
       : {
