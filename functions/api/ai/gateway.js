@@ -6,6 +6,7 @@ import {
   requestId,
 } from '../../_lib/http.js';
 import { callModel } from '../../_lib/providers.js';
+import { WEB_STUDIO_SYSTEM_PROMPT } from '../../_lib/prompts.js';
 import {
   saveChatTurn,
   resolveConversationId,
@@ -50,10 +51,16 @@ export async function onRequestPost(context) {
       );
     }
 
+    const mode = String(payload.mode || 'assistant').toLowerCase();
+    const isWebStudio = /^web-studio-(build|fix|plan|ask)$/.test(mode);
+    const projectContext = payload.context && typeof payload.context === 'object'
+      ? JSON.stringify(payload.context).slice(0, 80_000)
+      : '';
     const system = String(
-      payload.system ||
-        'You are OVYX Brain. Return useful, project-aware responses. Never reveal server secrets.'
-    ).slice(0, 20_000);
+      isWebStudio
+        ? WEB_STUDIO_SYSTEM_PROMPT + (payload.system ? '\\n\\nCLIENT STUDIO INSTRUCTIONS:\\n' + String(payload.system) : '')
+        : payload.system || 'You are OVYX Brain. Return useful, project-aware responses. Never reveal server secrets.'
+    ).slice(0, isWebStudio ? 40_000 : 20_000);
 
     const combined = messages
       .slice(-12)
@@ -81,13 +88,10 @@ export async function onRequestPost(context) {
         ).toLowerCase(),
         model: payload.model,
         system,
-        user: combined,
-        maxTokens: Math.min(
-          Number(
-            payload.maxTokens || 4096
-          ),
-          8192
-        ),
+        user: isWebStudio && projectContext ? combined + '\n\nPROJECT CONTEXT:\n' + projectContext : combined,
+        maxTokens: isWebStudio
+          ? Math.min(Number(payload.maxTokens || 12000), 14000)
+          : Math.min(Number(payload.maxTokens || 4096), 8192),
       }
     );
 

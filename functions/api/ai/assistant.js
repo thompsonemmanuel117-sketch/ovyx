@@ -6,10 +6,20 @@ import {
   requestId,
 } from '../../_lib/http.js';
 import { callModel } from '../../_lib/providers.js';
+import { WEB_STUDIO_SYSTEM_PROMPT } from '../../_lib/prompts.js';
 import {
   saveChatTurn,
   resolveConversationId,
 } from '../../_lib/chat-history.js';
+
+function parseStructured(text) {
+  const raw = String(text || '').trim().replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
+  try { return JSON.parse(raw); } catch {}
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start >= 0 && end > start) { try { return JSON.parse(raw.slice(start, end + 1)); } catch {} }
+  return null;
+}
 
 function cleanMessages(payload) {
   if (Array.isArray(payload.messages) && payload.messages.length) {
@@ -58,15 +68,22 @@ export async function onRequestPost(context) {
       );
     }
 
+    const mode = String(payload.mode || 'assistant').toLowerCase();
+    const isWebStudio = /^web-studio-(build|fix|plan|ask)$/.test(mode);
+    const projectContext = payload.context && typeof payload.context === 'object'
+      ? JSON.stringify(payload.context).slice(0, 80_000)
+      : '';
+    const suppliedSystem = String(payload.system || '').trim();
     const system = String(
-      payload.system ||
-        `You are OVYX Brain, the authenticated project-aware AI assistant.
+      isWebStudio
+        ? WEB_STUDIO_SYSTEM_PROMPT + (suppliedSystem ? '\\n\\nCLIENT STUDIO INSTRUCTIONS:\\n' + suppliedSystem : '') + '\\n\\nAuthenticated user UID: ' + user.sub
+        : suppliedSystem || `You are OVYX Brain, the authenticated project-aware AI assistant.
 User UID: ${user.sub}
 Return useful concise answers.
 Never reveal server secrets.
 Do not invent repository state.
 When discussing project changes, distinguish recommendations from changes actually performed.`
-    ).slice(0, 20_000);
+    ).slice(0, isWebStudio ? 40_000 : 20_000);
 
     const provider = String(
       payload.provider || 'automatic'
@@ -93,11 +110,10 @@ When discussing project changes, distinguish recommendations from changes actual
         provider,
         model: payload.model,
         system,
-        user: combined,
-        maxTokens: Math.min(
-          Number(payload.maxTokens || 4096),
-          8192
-        ),
+        user: isWebStudio && projectContext ? combined + '\n\nPROJECT CONTEXT:\n' + projectContext : combined,
+        maxTokens: isWebStudio
+          ? Math.min(Number(payload.maxTokens || 12000), 14000)
+          : Math.min(Number(payload.maxTokens || 4096), 8192),
       }
     );
 
@@ -121,10 +137,13 @@ When discussing project changes, distinguish recommendations from changes actual
       );
     }
 
+    const structured = isWebStudio ? parseStructured(result.text) : null;
+
     return json({
       ok: true,
       text: result.text,
       answer: result.text,
+      data: structured,
       provider: result.provider,
       model: result.model,
       usage: result.rawUsage || null,

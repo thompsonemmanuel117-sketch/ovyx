@@ -28,5 +28,8 @@ jobs:
       - name: Static verification
         run: npm run validate
 
+      - name: Production build preflight
+        run: npm run build
+
       - name: Wrangler validation
         run: npx wrangler --version
