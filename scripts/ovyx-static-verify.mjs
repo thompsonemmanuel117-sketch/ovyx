@@ -52,6 +52,17 @@ if (fs.existsSync(html)) {
   if (!/^\s*<!doctype html>/i.test(text)) errors.push('index.html: missing doctype');
   if (!/<html\b/i.test(text) || !/<\/html>\s*$/i.test(text)) errors.push('index.html: document shell is incomplete');
   if (!/<script\b/i.test(text) || !/<\/script>/i.test(text)) errors.push('index.html: script structure is incomplete');
+  if ((text.match(/id="view-webstudio"/gi) || []).length !== 1) errors.push('index.html: expected exactly one Web Studio view');
+  if (!/id="app-sidebar"/i.test(text) || !/id="mobile-drawer"/i.test(text)) errors.push('index.html: main navigation shell is missing');
+  if (/Agent is starting/i.test(text)) errors.push('index.html: stale Web Studio agent-starting copy detected');
+
+  const inlineScripts = [...text.matchAll(/<script(?:\\s[^>]*)?>([\\s\\S]*?)<\\/script>/gi)];
+  inlineScripts.forEach((match, index) => {
+    const body = String(match[1] || '').trim();
+    if (!body || /^<!--/.test(body)) return;
+    try { execFileSync(process.execPath, ['--check'], { input: body, encoding: 'utf8', stdio: ['pipe','pipe','pipe'] }); }
+    catch (error) { errors.push(`index.html inline script #${index + 1}: ${String(error.stderr || error.stdout || error.message).trim()}`); }
+  });
 }
 
 if (errors.length) {
