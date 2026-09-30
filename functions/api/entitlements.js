@@ -1,7 +1,7 @@
 'use strict';
 
-import { getFirestoreData } from '../../_lib/firebase-admin.js';
-import { isRootUser } from '../../_lib/brain/registry.js';
+import { getFirestoreData } from '../_lib/firebase-admin.js';
+import { isRootUser } from '../_lib/brain/registry.js';
 
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 
