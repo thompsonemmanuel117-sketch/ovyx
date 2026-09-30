@@ -7,7 +7,9 @@ const JSON_HEADERS = {
   'Permissions-Policy': 'camera=(), microphone=(), geolocation=()'
 };
 
-const MAX_BODY_BYTES = 32 * 1024;
+const MAX_BODY_BYTES = 20 * 1024 * 1024;
+const MAX_FILES = 20_000;
+const MAX_FILE_BYTES = 25 * 1024 * 1024;
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 
 function json(data, status = 200, extraHeaders = {}) {
@@ -136,7 +138,7 @@ function hasCloudflareDeployCapability(user, env) {
   return allowlist.includes(user.email);
 }
 
-async function cloudflareRequest(path, env, init = {}) {
+async function cloudflareRequest(path, env, init = {}, authToken = env.CLOUDFLARE_API_TOKEN) {
   if (!env.CLOUDFLARE_API_TOKEN) {
     throw new Error('Cloudflare deployment credentials are not configured.');
   }
@@ -151,7 +153,7 @@ async function cloudflareRequest(path, env, init = {}) {
       ...init,
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${env.CLOUDFLARE_API_TOKEN}`,
+        'Authorization': `Bearer ${authToken}`,
         ...(init.headers || {})
       }
     }
@@ -199,177 +201,46 @@ function getDeploymentResult(result) {
   };
 }
 
+
+async function ovyxSha256(bytes) { const d = await crypto.subtle.digest('SHA-256', bytes); return [...new Uint8Array(d)].map(x=>x.toString(16).padStart(2,'0')).join(''); }
+function ovyxB64(bytes){ let s=''; for(let i=0;i<bytes.length;i+=0x8000)s+=String.fromCharCode(...bytes.subarray(i,i+0x8000)); return btoa(s); }
+function ovyxSlug(v,f='site'){ const x=String(v||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,36); return x||f; }
+function ovyxMime(p){ p=String(p).toLowerCase(); if(p.endsWith('.html'))return'text/html; charset=utf-8'; if(p.endsWith('.css'))return'text/css; charset=utf-8'; if(p.endsWith('.js')||p.endsWith('.mjs'))return'text/javascript; charset=utf-8'; if(p.endsWith('.json'))return'application/json; charset=utf-8'; if(p.endsWith('.svg'))return'image/svg+xml'; if(p.endsWith('.png'))return'image/png'; if(p.endsWith('.jpg')||p.endsWith('.jpeg'))return'image/jpeg'; if(p.endsWith('.webp'))return'image/webp'; if(p.endsWith('.gif'))return'image/gif'; if(p.endsWith('.woff2'))return'font/woff2'; return'application/octet-stream'; }
+function ovyxSafePath(v){ v=String(v||'').replace(/\\\\/g,'/').replace(/^\\.\\//,'').trim(); if(!v||v.length>500||v.startsWith('/')||v.includes('..')||/[\\0\\r\\n]/.test(v))throw new Error('Invalid project file path.'); if(v==='functions'||v.startsWith('functions/'))throw new Error('Static Publish does not deploy functions/.'); return v; }
+async function ovyxPagesName(user,pid,name,prefix){ const h=await ovyxSha256(new TextEncoder().encode(user.uid+':'+pid)); return ovyxSlug(ovyxSlug(prefix||'ovyx','ovyx')+'-'+h.slice(0,10)+'-'+ovyxSlug(name,'site')); }
+async function ovyxEnsurePagesProject(env,name){ try{ const p=(await cloudflareRequest('/accounts/'+encodeURIComponent(env.CLOUDFLARE_ACCOUNT_ID)+'/pages/projects/'+encodeURIComponent(name),env,{method:'GET'})).result||{}; if(p.source?.type)throw Object.assign(new Error('Cloudflare Pages project is Git-integrated. OVYX Publish requires Direct Upload.'),{status:409}); return p; }catch(e){ if(e.status!==404)throw e; return (await cloudflareRequest('/accounts/'+encodeURIComponent(env.CLOUDFLARE_ACCOUNT_ID)+'/pages/projects',env,{method:'POST',body:JSON.stringify({name,production_branch:'main'})})).result||{}; } }
+async function ovyxUploadToken(env,name){ const d=await cloudflareRequest('/accounts/'+encodeURIComponent(env.CLOUDFLARE_ACCOUNT_ID)+'/pages/projects/'+encodeURIComponent(name)+'/upload-token',env,{method:'GET'}); if(!d.result?.jwt)throw new Error('Cloudflare upload token was not returned.'); return d.result.jwt; }
+async function ovyxPrepareFiles(raw){ if(!raw||typeof raw!=='object'||Array.isArray(raw))throw new Error('Deployment files are required.'); const es=Object.entries(raw); if(!es.length)throw new Error('The project has no files to deploy.'); if(es.length>MAX_FILES)throw new Error('Too many project files.'); const out={}; let total=0; for(const [rp,rf0] of es){ const p=ovyxSafePath(rp),rf=rf0&&typeof rf0==='object'?rf0:{content:rf0}; let b; if(String(rf.encoding||'').toLowerCase()==='base64'){const x=atob(String(rf.content||''));b=Uint8Array.from(x,c=>c.charCodeAt(0));}else b=new TextEncoder().encode(String(rf.content??'')); if(b.byteLength>MAX_FILE_BYTES)throw new Error(p+' exceeds the 25 MiB Pages file limit.'); total+=b.byteLength; if(total>MAX_BODY_BYTES)throw new Error('The deployment payload exceeds 20 MiB.'); out[p]={hash:await ovyxSha256(b),value:ovyxB64(b),contentType:String(rf.contentType||ovyxMime(p))}; } return out; }
+async function ovyxUploadMissing(env,jwt,files){ const all=Object.values(files),checked=await cloudflareRequest('/pages/assets/check-missing',env,{method:'POST',body:JSON.stringify({hashes:all.map(x=>x.hash)})},jwt),missing=new Set(Array.isArray(checked.result)?checked.result.map(String):[]); let batch=[],size=0; const flush=async()=>{if(!batch.length)return;await cloudflareRequest('/pages/assets/upload',env,{method:'POST',body:JSON.stringify(batch)},jwt);batch=[];size=0;}; for(const f of all.filter(x=>missing.has(x.hash))){const item={key:f.hash,value:f.value,base64:true,metadata:{contentType:f.contentType}},n=JSON.stringify(item).length;if(batch.length>=25||(size+n>3500000&&batch.length))await flush();batch.push(item);size+=n;} await flush(); return {missing:missing.size,total:all.length}; }
+function ovyxSummary(d,name,action){const x=d||{},a=Array.isArray(x.aliases)?x.aliases:[],s=Array.isArray(x.stages)?x.stages:[],last=s.find(v=>v.status==='active')||s.at(-1)||null;return{deploymentId:x.id||null,pagesProjectName:name,action,environment:x.environment||(action==='publish'?'production':'preview'),status:last?.status||x.status||'queued',stage:last?.name||null,url:a[0]||x.url||null,aliases:a,createdAt:x.created_on||null,modifiedAt:x.modified_on||null};}
+
+
 export async function onRequestPost(context) {
-  const requestId = crypto.randomUUID();
-  const request = context.request;
-  const env = context.env;
-
-  try {
-    if (request.body) {
-      const contentLength = Number(request.headers.get('Content-Length') || 0);
-
-      if (
-        Number.isFinite(contentLength) &&
-        contentLength > MAX_BODY_BYTES
-      ) {
-        return json(
-          {
-            success: false,
-            error: 'Deployment request is too large.',
-            requestId
-          },
-          413
-        );
-      }
-    }
-
-    const token = getBearerToken(request);
-
-    const identity = await verifyFirebaseIdentity(token, env);
-
-    if (!identity.ok) {
-      return json(
-        {
-          success: false,
-          error: identity.error,
-          requestId
-        },
-        identity.status
-      );
-    }
-
-    const user = identity.user;
-
-    if (!user.uid || !user.email) {
-      return json(
-        {
-          success: false,
-          error: 'Authenticated user identity is incomplete.',
-          requestId
-        },
-        401
-      );
-    }
-
-    if (!user.emailVerified) {
-      return json(
-        {
-          success: false,
-          error: 'Verify your email before deploying.',
-          requestId
-        },
-        403
-      );
-    }
-
-    if (!hasCloudflareDeployCapability(user, env)) {
-      return json(
-        {
-          success: false,
-          error: 'Your OVYX account is not authorized to deploy to Cloudflare.',
-          requestId
-        },
-        403
-      );
-    }
-
-    let body;
-
-    try {
-      body = await request.json();
-    } catch {
-      return json(
-        {
-          success: false,
-          error: 'Invalid JSON deployment request.',
-          requestId
-        },
-        400
-      );
-    }
-
-    const projectName = safeProjectName(
-      body?.projectName || env.CLOUDFLARE_PAGES_PROJECT
-    );
-
-    if (!env.CLOUDFLARE_PAGES_PROJECT && !body?.projectName) {
-      return json(
-        {
-          success: false,
-          error: 'Cloudflare Pages project is not configured.',
-          requestId
-        },
-        500
-      );
-    }
-
-    /*
-     * The browser is allowed to request a deployment, but it never
-     * supplies or receives the Cloudflare credential.
-     *
-     * Cloudflare's Pages deployment endpoint creates a new production
-     * deployment for an already-authorized Pages project.
-     */
-    const path =
-      `/accounts/${encodeURIComponent(env.CLOUDFLARE_ACCOUNT_ID)}` +
-      `/pages/projects/${encodeURIComponent(projectName)}` +
-      `/deployments`;
-
-    const cloudflare = await cloudflareRequest(path, env, {
-      method: 'POST',
-      body: JSON.stringify({})
-    });
-
-    const deployment = getDeploymentResult(cloudflare.result);
-
-    console.log(
-      JSON.stringify({
-        event: 'ovyx_cloudflare_deployment_initiated',
-        requestId,
-        uid: user.uid,
-        email: user.email,
-        projectName,
-        deploymentId: deployment.deploymentId,
-        status: deployment.status,
-        timestamp: new Date().toISOString()
-      })
-    );
-
-    return json({
-      success: true,
-      authoritative: true,
-      requestId,
-      deployment
-    });
-  } catch (error) {
-    const status =
-      Number.isInteger(error?.status) &&
-      error.status >= 400 &&
-      error.status <= 599
-        ? error.status
-        : 502;
-
-    console.error(
-      JSON.stringify({
-        event: 'ovyx_cloudflare_deployment_failed',
-        requestId,
-        status,
-        message: error?.message || 'Unknown deployment error',
-        timestamp: new Date().toISOString()
-      })
-    );
-
-    return json(
-      {
-        success: false,
-        authoritative: true,
-        error:
-          status >= 500
-            ? 'Cloudflare deployment service is temporarily unavailable.'
-            : error?.message || 'Cloudflare deployment failed.',
-        requestId
-      },
-      status
-    );
+  const requestId=crypto.randomUUID(),{request,env}=context;
+  try{
+    const n=Number(request.headers.get('Content-Length')||0);
+    if(Number.isFinite(n)&&n>MAX_BODY_BYTES)return json({success:false,authoritative:true,error:'Deployment request is too large.',requestId},413);
+    const identity=await verifyFirebaseIdentity(getBearerToken(request),env);
+    if(!identity.ok)return json({success:false,authoritative:true,error:identity.error,requestId},identity.status);
+    const user=identity.user;
+    if(!user.uid||!user.email)return json({success:false,authoritative:true,error:'Authenticated user identity is incomplete.',requestId},401);
+    if(!user.emailVerified)return json({success:false,authoritative:true,error:'Verify your email before deploying.',requestId},403);
+    if(!hasCloudflareDeployCapability(user,env))return json({success:false,authoritative:true,error:'Your OVYX account is not authorized to deploy to Cloudflare.',requestId},403);
+    let body; try{body=await request.json();}catch{return json({success:false,authoritative:true,error:'Invalid JSON deployment request.',requestId},400);}
+    const action=body?.action==='publish'?'publish':'deploy',projectId=String(body?.projectId||'').trim();
+    if(!projectId||projectId.length>160)return json({success:false,authoritative:true,error:'A valid OVYX projectId is required.',requestId},400);
+    const pagesProjectName=await ovyxPagesName(user,projectId,body?.projectName||'site',env.CLOUDFLARE_PAGES_PROJECT_PREFIX);
+    const files=await ovyxPrepareFiles(body?.files);
+    await ovyxEnsurePagesProject(env,pagesProjectName);
+    const jwt=await ovyxUploadToken(env,pagesProjectName);
+    const uploaded=await ovyxUploadMissing(env,jwt,files);
+    const manifest={}; for(const [path,file] of Object.entries(files))manifest[path]=file.hash;
+    const form=new FormData(); form.append('manifest',JSON.stringify(manifest)); form.append('commit_message','OVYX '+action+': '+String(body?.projectName||projectId).slice(0,80)); if(action==='deploy')form.append('branch','ovyx-preview-'+requestId.slice(0,12));
+    const result=await cloudflareRequest('/accounts/'+encodeURIComponent(env.CLOUDFLARE_ACCOUNT_ID)+'/pages/projects/'+encodeURIComponent(pagesProjectName)+'/deployments',env,{method:'POST',body:form});
+    return json({success:true,authoritative:true,requestId,uploaded,deployment:ovyxSummary(result.result,pagesProjectName,action)});
+  }catch(error){
+    const status=Number.isInteger(error?.status)&&error.status>=400&&error.status<=599?error.status:502;
+    console.error(JSON.stringify({event:'ovyx_pages_direct_upload_failed',requestId,status,message:error?.message||'Unknown deployment error',providerErrors:error?.providerErrors||[]}));
+    return json({success:false,authoritative:true,requestId,error:status>=500?'Cloudflare deployment service is temporarily unavailable.':error?.message||'Cloudflare deployment failed.'},status);
   }
 }
