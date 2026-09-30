@@ -1,3 +1,4 @@
+import { resolveEntitlements } from './entitlements.js';
 const JSON_HEADERS = {
   'Content-Type': 'application/json; charset=utf-8',
   'Cache-Control': 'no-store',
@@ -113,29 +114,9 @@ async function verifyFirebaseIdentity(idToken, env) {
   }
 }
 
-function hasCloudflareDeployCapability(user, env) {
-  /*
-   * Root OVYX support account is the server-authoritative system override.
-   */
-  if (user.email === ROOT_EMAIL && user.emailVerified) {
-    return true;
-  }
-
-  /*
-   * Normal users must receive this capability from the server-side
-   * entitlement system. This endpoint intentionally does not trust
-   * plan/tier values supplied by the browser.
-   *
-   * FIREBASE_DEPLOY_ALLOWLIST is optional and intended only for
-   * controlled deployment environments where the backend explicitly
-   * provisions deployment-capable users.
-   */
-  const allowlist = String(env.FIREBASE_DEPLOY_ALLOWLIST || '')
-    .split(',')
-    .map(normalizeEmail)
-    .filter(Boolean);
-
-  return allowlist.includes(user.email);
+async function hasCloudflareDeployCapability(user, env) {
+  const entitlements = await resolveEntitlements(env, user);
+  return entitlements?.capabilities?.cloudflareDeploy === true;
 }
 
 async function cloudflareRequest(path, env, init = {}, authToken = env.CLOUDFLARE_API_TOKEN) {
