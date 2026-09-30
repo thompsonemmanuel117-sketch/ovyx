@@ -90,7 +90,7 @@ export async function onRequestPost(context) {
         system,
         user: isWebStudio && projectContext ? combined + '\n\nPROJECT CONTEXT:\n' + projectContext : combined,
         maxTokens: isWebStudio
-          ? Math.min(Number(payload.maxTokens || 12000), 14000)
+          ? Math.min(Number(payload.maxTokens || 24000), 24000)
           : Math.min(Number(payload.maxTokens || 4096), 8192),
       }
     );
