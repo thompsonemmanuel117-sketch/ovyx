@@ -56,7 +56,7 @@ if (fs.existsSync(html)) {
   if (!/id="app-sidebar"/i.test(text) || !/id="mobile-drawer"/i.test(text)) errors.push('index.html: main navigation shell is missing');
   if (/Agent is starting/i.test(text)) errors.push('index.html: stale Web Studio agent-starting copy detected');
 
-  const studioMatch = text.match(/<script id="ovyx-webstudio-v2-runtime">([\\s\\S]*?)<\\/script>/i);
+  const studioMatch = text.match(/<script id="ovyx-webstudio-v2-runtime">([\s\S]*?)<\/script>/i);
   if (studioMatch) {
     try {
       execFileSync(process.execPath, ['--check'], { input: String(studioMatch[1] || ''), encoding: 'utf8', stdio: ['pipe','pipe','pipe'] });
