@@ -997,8 +997,7 @@ html,body{background:var(--app-bg)!important;color:var(--app-text)!important}
     background-color: color-mix(in oklab, var(--color-zinc-950) 80%, transparent);
   }
 }
-.bg-zinc-950\/90 {
-  background-color: color-mix(in srgb, #060608 90%, transparent);
+.bg-zinc-950\/90 {  background-color: color-mix(in srgb, #060608 90%, transparent);
   @supports (color: color-mix(in lab, red, red)) {
     background-color: color-mix(in oklab, var(--color-zinc-950) 90%, transparent);
   }
@@ -1997,8 +1996,7 @@ html,body{background:var(--app-bg)!important;color:var(--app-text)!important}
       --tw-gradient-to-position: 100%;
       --tw-leading: initial;
       --tw-font-weight: initial;
-      --tw-tracking: initial;
-      --tw-shadow: 0 0 #0000;
+      --tw-tracking: initial;      --tw-shadow: 0 0 #0000;
       --tw-shadow-color: initial;
       --tw-shadow-alpha: 100%;
       --tw-inset-shadow: 0 0 #0000;
@@ -2695,32 +2693,327 @@ body.ovyx-legal-open{overflow:hidden!important}
 </div>
 </section>
 <!-- VIEW 2: WEB STUDIO (MULTI-PAGE TABS + ZEN MODE + RESPONSIVE AI + WEBFLOW INSPECTOR) -->
-<section class="h-full flex flex-col hidden relative bg-[#0a0a0a] text-white overflow-hidden" id="view-webstudio" aria-hidden="true">
-<div class="ovyx-ws-shell">
-<header class="ovyx-ws-header">
-<button type="button" class="ovyx-ws-brand" id="ovyx-ws-brand" aria-label="Open main OVYX navigation" title="Open main OVYX navigation"><span class="ovyx-ws-diamond" aria-hidden="true">◇</span><strong>OVYX</strong><span class="ovyx-ws-chevron" aria-hidden="true">⌄</span></button>
-<div class="ovyx-ws-project" id="ovyx-ws-project-name">OVYX Studio</div>
-<div class="ovyx-ws-tabs" role="tablist" aria-label="Web Studio"><button type="button" data-ws-tab="chat" role="tab" aria-selected="true">Chat</button><button type="button" data-ws-tab="preview" role="tab" aria-selected="false">Preview</button></div>
-<div class="ovyx-ws-ready" id="ovyx-ws-status" hidden></div>
-</header>
-<main class="ovyx-ws-main">
-<section class="ovyx-ws-chat" id="ovyx-ws-chat" aria-label="OVYX website builder chat">
-<div class="ovyx-ws-chat-head"><div class="ovyx-ws-eyebrow">WEB STUDIO</div><h1>Build the website you have in mind.</h1><p>Describe the goal. OVYX builds the complete responsive experience, then you can refine it by chat or inspect the code.</p></div>
-<div class="ovyx-ws-messages" id="ovyx-ws-messages" aria-live="polite"></div>
-<form class="ovyx-ws-composer" id="ovyx-ws-form"><textarea id="ovyx-ws-prompt" rows="4" maxlength="24000" placeholder="Example: Build a premium hospital website with departments, doctors, appointments, patient resources, trust content, a strong mobile experience and polished interactions."></textarea><div class="ovyx-ws-compose-row"><label class="ovyx-ws-attach">Attach<input id="ovyx-ws-files" type="file" multiple accept=".html,.htm,.css,.js,.mjs,.json,.txt,.md,.svg,.png,.jpg,.jpeg,.webp"></label><span id="ovyx-ws-attachment-note">Ready</span><button type="submit" id="ovyx-ws-build">Build ↗</button></div></form>
+<section class="h-full flex flex-col hidden relative select-none bg-black" id="view-webstudio">
+<!-- Web Studio Multi-Page Tabs Bar -->
+<div class="h-9 border-b border-white/10 bg-zinc-950/90 px-3 flex items-center justify-between text-xs font-mono" id="ws-page-tabs-bar">
+<div class="flex items-center gap-1 overflow-x-auto" id="ws-page-tabs-list">
+<!-- Dynamically populated page tabs: Home, About Us, Pricing, etc. -->
+</div>
+<button class="spring-btn px-2.5 py-0.5 rounded bg-ovyx-black border border-white/10 text-[10px] text-brand-gold hover:text-white flex items-center gap-1 font-bold shrink-0" onclick="WebStudio.addNewPagePrompt()">
+<i class="fa-solid fa-plus text-[9px]"></i> Add Page
+            </button>
+</div>
+<!-- Web Studio Controls Topbar -->
+<div class="h-12 border-b border-white/12 bg-black px-3 sm:px-4 flex items-center justify-between shrink-0 text-xs font-mono flex-wrap gap-2" id="ws-control-topbar">
+<div class="flex items-center gap-1.5 sm:gap-2">
+<!-- Magic Mode Switch -->
+<div class="flex items-center gap-2 px-2.5 py-1 rounded-full border border-brand-gold/40 bg-zinc-950 shadow-sm mr-2">
+<span class="text-[10px] font-extrabold tracking-wider text-brand-gold uppercase flex items-center gap-1.5">
+<i class="fa-solid fa-wand-magic-sparkles text-xs animate-pulse"></i>
+<span>Ovyx Magic Beginner Mode</span>
+</span>
+<label class="relative inline-flex items-center cursor-pointer">
+<input checked="" class="sr-only toggle-switch-checkbox" id="magic-mode-toggle" onchange="WebStudio.toggleMagicMode(this.checked)" type="checkbox"/>
+<div class="w-9 h-5 bg-zinc-800 border border-white/12 rounded-full toggle-switch-bg transition-colors duration-200"></div>
+<div class="absolute left-0.5 top-0.5 w-4 h-4 bg-zinc-400 rounded-full toggle-switch-thumb transition-transform duration-200"></div>
+</label>
+</div>
+<!-- Breakpoints -->
+<span class="text-zinc-500 text-[10px] uppercase font-extrabold tracking-wider hidden lg:inline">Breakpoints:</span>
+<button class="spring-btn px-2.5 py-1 rounded bg-white/10 text-white font-bold flex items-center gap-1.5" id="vp-desktop-btn" onclick="WebStudio.setViewport('desktop')">
+<i class="fa-solid fa-desktop text-xs"></i> <span class="hidden sm:inline">Desktop</span>
+</button>
+<button class="spring-btn px-2.5 py-1 rounded text-zinc-400 hover:text-white font-bold flex items-center gap-1.5" id="vp-tablet-btn" onclick="WebStudio.setViewport('tablet')">
+<i class="fa-solid fa-tablet text-xs"></i> <span class="hidden sm:inline">Tablet</span>
+</button>
+<button class="spring-btn px-2.5 py-1 rounded text-zinc-400 hover:text-white font-bold flex items-center gap-1.5" id="vp-mobile-btn" onclick="WebStudio.setViewport('mobile')">
+<i class="fa-solid fa-mobile-screen text-xs"></i> <span class="hidden sm:inline">Mobile</span>
+</button>
+<button class="spring-btn ml-1 sm:ml-2 relative inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-bold bg-gradient-to-r from-brand-gold/20 via-brand-cyan/20 to-brand-gold/20 border border-brand-gold/40 text-brand-gold shadow-[0_0_15px_rgba(232,182,79,0.2)]" onclick="WebStudio.runResponsiveAIOptimize()">
+<i class="fa-solid fa-arrows-rotate text-[10px]"></i>
+<span class="hidden sm:inline">Responsive AI Optimize</span>
+</button>
+</div>
+<!-- Zen Mode, Animation & Section Controls -->
+<div class="flex items-center gap-2 sm:gap-3">
+<button class="spring-btn px-2.5 py-1 rounded bg-ovyx-black border border-white/12 text-zinc-300 hover:text-white flex items-center gap-1.5 font-bold" id="zen-expansion-btn" onclick="WebStudio.toggleZenMode()" title="Zen Expansion Mode">
+<i class="fa-regular fa-eye text-brand-gold"></i>
+<span class="hidden sm:inline">Zen Mode</span>
+</button>
+<div class="flex items-center gap-1.5 bg-ovyx-black border border-white/12 rounded px-2 py-0.5">
+<i class="fa-solid fa-film text-brand-cyan text-[10px]"></i>
+<select class="bg-transparent text-[11px] font-mono font-bold text-zinc-300 focus:outline-none cursor-pointer" id="ws-animation-engine" onchange="WebStudio.setGlobalAnimation(this.value)">
+<option value="none">Animation: None</option>
+<option value="spring">Fade-In Spring (GSAP)</option>
+<option value="reveal">Kinetic Reveal</option>
+<option value="glass">Glassmorphic Hover</option>
+<option value="stagger">Stagger Scale</option>
+</select>
+</div>
+<button class="spring-btn text-zinc-400 hover:text-white p-1" onclick="WebStudio.undo()" title="Undo (Ctrl+Z)"><i class="fa-solid fa-rotate-left"></i></button>
+<button class="spring-btn text-zinc-400 hover:text-white p-1" onclick="WebStudio.redo()" title="Redo (Ctrl+Y)"><i class="fa-solid fa-rotate-right"></i></button>
+<button class="spring-btn px-2.5 py-1 rounded bg-white text-black font-extrabold text-[11px]" onclick="WebStudio.appendSectionDialog()">
+                + Add Section
+              </button>
+</div>
+</div>
+<div aria-label="Mobile studio tools" class="ovyx-mobile-feature-strip" id="ws-mobile-feature-strip">
+<button class="ovyx-mobile-feature-btn" data-mobile-studio="files"><i class="fa-regular fa-folder-open"></i> Files</button>
+<button class="ovyx-mobile-feature-btn active" data-mobile-studio="canvas"><i class="fa-solid fa-eye"></i> Canvas</button>
+<button class="ovyx-mobile-feature-btn" data-mobile-studio="blueprint"><i class="fa-solid fa-network-wired"></i> Blueprint</button>
+<button class="ovyx-mobile-feature-btn" data-mobile-studio="inspector"><i class="fa-solid fa-sliders"></i> Inspector</button>
+</div>
+<div class="flex-1 flex flex-col md:flex-row overflow-hidden bg-black" id="ws-studio-body">
+<!-- V0-style file explorer / project navigation -->
+<aside class="hidden md:flex flex-col shrink-0" id="ws-file-explorer">
+<div class="h-10 px-3 flex items-center justify-between border-b border-white/10">
+<span class="text-[9px] uppercase tracking-[0.18em] text-zinc-500 font-bold">Explorer</span>
+<button class="spring-btn text-zinc-500 hover:text-white" onclick="WebStudio.addNewPagePrompt()" title="New page"><i class="fa-solid fa-plus text-[9px]"></i></button>
+</div>
+<div class="px-3 pt-3 pb-1 text-[9px] text-zinc-600 font-mono uppercase tracking-wider">Project files</div>
+<div class="px-2 pb-3 space-y-0.5 overflow-y-auto" id="ws-file-tree">
+<button class="ws-file active w-full flex items-center gap-2 px-2 py-2 rounded text-left text-[11px] font-mono" onclick="WebStudio.setPageByName?.('Home') || WebStudio.setActivePage?.('home')">
+<i class="fa-regular fa-file text-zinc-500"></i><span>Home</span><span class="ml-auto text-[9px] text-zinc-600">html</span>
+</button>
+<button class="ws-file w-full flex items-center gap-2 px-2 py-2 rounded text-left text-[11px] font-mono text-zinc-400" onclick="WebStudio.addNewPagePrompt()">
+<i class="fa-solid fa-folder-plus text-zinc-600"></i><span>Add route</span>
+</button>
+</div>
+<div class="mt-auto p-3 border-t border-white/10 text-[9px] font-mono text-zinc-600 leading-relaxed">
+<div class="flex items-center gap-1.5"><span class="v0-dot"></span> LIVE CANVAS</div>
+<div class="mt-1">Changes compile locally before render.</div>
+</div>
+</aside>
+<!-- Massive live rendering canvas -->
+<div class="w-full md:w-[60%] flex flex-col border-b md:border-b-0 md:border-r border-white/12 bg-black overflow-hidden relative" id="ws-canvas-container">
+<div class="px-4 py-2 border-b border-white/12 bg-black flex items-center justify-between flex-wrap gap-2">
+<div class="flex items-center gap-1 bg-zinc-950 border border-white/12 rounded-lg p-0.5 text-xs font-mono">
+<button class="spring-btn px-3 py-1 rounded-md bg-white/10 text-white font-bold flex items-center gap-1.5" id="tab-mode-visual" onclick="WebStudio.setCanvasMode('visual')">
+<i class="fa-solid fa-eye text-[10px]"></i> <span>Visual Production</span>
+</button>
+<button class="spring-btn px-3 py-1 rounded-md text-zinc-400 hover:text-white font-bold flex items-center gap-1.5" id="tab-mode-blueprint" onclick="WebStudio.setCanvasMode('blueprint')">
+<i class="fa-solid fa-network-wired text-[10px]"></i> <span>Blueprint Schematic</span>
+</button>
+</div>
+<span class="text-[10px] font-mono text-zinc-500 font-bold" id="canvas-resolution-tag">1440 × 900 px</span>
+</div>
+<!-- Quick Command Prompt Bar in Studio -->
+<div class="p-2.5 border-b border-white/12 bg-black" id="ws-prompt-ribbon">
+<div class="flex items-center gap-2 p-1.5 rounded-xl border border-white/12 bg-zinc-950 focus-within:border-white/30">
+<input class="flex-1 bg-transparent px-3 text-xs text-white placeholder-zinc-500 focus:outline-none font-sans font-medium" id="ws-quick-prompt" placeholder="Prompt AI to restyle, optimize flexbox, or add interactive layouts..." type="text"/>
+<select class="bg-black border border-white/12 rounded px-2 py-1 text-[10px] font-mono font-bold text-zinc-300" id="ws-provider-select">
+<option value="gemini">Gemini 1.5</option>
+<option value="deepseek">DeepSeek</option>
+<option value="claude">Claude 3.5</option>
+</select>
+<button class="spring-btn px-3 py-1 bg-white text-black font-black text-xs rounded shadow-sm" onclick="WebStudio.executePromptEdit()">
+                    Generate
+                  </button>
+</div>
+</div>
+<!-- Canvas Workspace Stage with Watermark & Pull-To-Refresh -->
+<div class="flex-1 p-4 sm:p-6 overflow-auto flex items-start justify-center bg-black relative inertial-scroll-canvas" id="ws-touch-canvas-wrapper">
+<!-- Subtle Luxury Background Diamond Watermark (3% Opacity) -->
+<div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.035]">
+<svg class="w-96 h-96" fill="none" viewbox="0 0 120 120">
+<polygon points="32,20 88,20 106,44 14,44" stroke="#e8b64f" stroke-width="2"></polygon>
+<polygon points="14,44 106,44 60,104" stroke="#e8b64f" stroke-width="2"></polygon>
+<polygon points="60,44 46,44 60,104 74,44" stroke="#e8b64f" stroke-width="2"></polygon>
+</svg>
+</div>
+<!-- Legacy pull-to-refresh indicator retained only for markup compatibility; never activated. -->
+<div class="absolute top-2 left-1/2 -translate-x-1/2 z-30 pointer-events-none opacity-0 transition-opacity flex items-center gap-2 px-3 py-1 rounded-full bg-ovyx-black border border-brand-gold/40 text-brand-gold font-mono text-[10px] shadow-lg" id="ptr-indicator">
+<i class="fa-solid fa-arrows-rotate fa-spin text-xs"></i>
+<span>Hot-reloading Canvas State...</span>
+</div>
+<!-- Floating Exit Zen Button -->
+<button class="fixed top-4 right-4 z-[10000] hidden px-3.5 py-1.5 rounded-full bg-ovyx-black/90 border border-white/20 text-xs font-mono font-bold text-white shadow-2xl spring-btn flex items-center gap-1.5 backdrop-blur-md" id="exit-zen-btn" onclick="WebStudio.toggleZenMode()">
+<i class="fa-solid fa-compress text-brand-gold"></i>
+<span>Exit Zen Mode</span>
+</button>
+<div class="preview-desktop transition-all duration-300 bg-black border border-white/12 rounded-xl shadow-2xl overflow-hidden relative z-10" id="ws-viewport-frame">
+<iframe class="w-full h-full border-none bg-black" id="ws-canvas-iframe" title="Production Render View"></iframe>
+<div class="absolute inset-0 bg-black/95 blueprint-grid-overlay p-6 overflow-auto font-mono text-xs hidden" id="ws-blueprint-overlay">
+<div class="flex items-center justify-between border-b border-brand-cyan/30 pb-3 mb-6">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-brand-cyan animate-pulse"></span>
+<span class="text-brand-cyan text-xs font-extrabold tracking-wider uppercase">OVYX ARCHITECTURAL BLUEPRINT SCHEMATIC</span>
+</div>
+<span class="text-[10px] text-zinc-500 font-bold">AST TOKENS &amp; NESTED MAPPINGS</span>
+</div>
+<div class="space-y-4" id="blueprint-schematic-feed"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Right 40% Inspector / Magic Mode Panel -->
+<div class="w-full md:w-[40%] flex flex-col bg-black border-l border-white/12 overflow-hidden select-none" id="ws-dom-inspector-panel">
+<!-- DOM Hierarchy Tree with Drag/Drop Reorder Controls -->
+<div class="h-[34%] flex flex-col border-b border-white/12 overflow-hidden bg-black">
+<div class="px-4 py-2 border-b border-white/12 flex items-center justify-between text-[10px] font-mono uppercase tracking-wider text-zinc-400 bg-black font-extrabold">
+<span>DOM Hierarchy Tree</span>
+<span class="text-zinc-600" id="ws-node-count">0 Nodes</span>
+</div>
+<div class="flex-1 overflow-y-auto p-2 space-y-1 font-mono text-xs" id="ws-dom-tree-list"></div>
+</div>
+<!-- Beginner Magic Mode Panel -->
+<div class="flex-1 flex flex-col overflow-hidden bg-black p-4 space-y-4 font-sans text-xs" id="ws-magic-beginner-panel">
+<div class="flex items-center justify-between border-b border-white/12 pb-2">
+<div class="space-y-0.5">
+<span class="text-white font-bold text-xs flex items-center gap-1.5">
+<i class="fa-solid fa-wand-magic-sparkles text-brand-gold"></i> AI Auto-Aesthetic Assistant
+                    </span>
+<p class="text-[11px] text-zinc-400">Type in natural language. OVYX handles all flexbox and layout math.</p>
+</div>
+<span class="text-brand-gold bg-zinc-950 border border-white/12 px-2 py-0.5 rounded text-[9px] font-mono font-bold" id="ws-magic-selected-badge">HERO</span>
+</div>
+<div class="space-y-1.5">
+<label class="text-[10px] font-mono uppercase text-zinc-400 font-bold">Natural Language Instruction</label>
+<div class="flex gap-2">
+<input class="flex-1 bg-zinc-950 border border-white/12 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-gold font-medium" id="ws-magic-input" placeholder="e.g. 'Make this look clean and luxury with dark gold grid'" type="text"/>
+<button class="spring-btn px-4 py-2 bg-white text-black font-extrabold text-xs rounded-xl shadow-md" onclick="WebStudio.applyMagicPrompt()">
+                      Apply
+                    </button>
+</div>
+</div>
+<div class="space-y-1.5">
+<label class="text-[10px] font-mono uppercase text-zinc-400 font-bold">Aesthetic Presets</label>
+<select class="w-full bg-zinc-950 border border-white/12 rounded-xl p-2.5 text-xs text-white focus:outline-none font-medium" id="ws-aesthetic-preset" onchange="WebStudio.applyAestheticPreset(this.value)">
+<option value="">— Select an Aesthetic Preset —</option>
+<option value="luxury">Clean Minimal Luxury (Gold &amp; Black)</option>
+<option value="obsidian">Obsidian Dark Grid (Fintech)</option>
+<option value="cyber">Cyber Glassmorphic (Neon Cyan)</option>
+<option value="editorial">High-Contrast Editorial Typography</option>
+</select>
+</div>
+<div class="space-y-1.5 pt-2">
+<label class="text-[10px] font-mono uppercase text-zinc-400 font-bold">One-Tap Smart Actions</label>
+<div class="grid grid-cols-2 gap-2 font-mono text-[11px]">
+<button class="spring-btn p-2.5 rounded-lg border border-white/12 bg-zinc-950 hover:bg-ovyx-black text-left text-zinc-300 font-bold" onclick="WebStudio.smartAction('balance_spacing')">
+<i class="fa-solid fa-arrows-up-down text-brand-gold mr-1"></i> Balance Spacing
+                    </button>
+<button class="spring-btn p-2.5 rounded-lg border border-white/12 bg-zinc-950 hover:bg-ovyx-black text-left text-zinc-300 font-bold" onclick="WebStudio.smartAction('luxury_glow')">
+<i class="fa-solid fa-gem text-brand-gold mr-1"></i> Luxury Theme
+                    </button>
+<button class="spring-btn p-2.5 rounded-lg border border-white/12 bg-zinc-950 hover:bg-ovyx-black text-left text-zinc-300 font-bold" onclick="WebStudio.smartAction('punchy_cta')">
+<i class="fa-solid fa-bullhorn text-brand-cyan mr-1"></i> Punchy CTA
+                    </button>
+<button class="spring-btn p-2.5 rounded-lg border border-white/12 bg-zinc-950 hover:bg-ovyx-black text-left text-zinc-300 font-bold" onclick="WebStudio.smartAction('center_align')">
+<i class="fa-solid fa-align-center text-emerald-400 mr-1"></i> Center Alignment
+                    </button>
+</div>
+</div>
+</div>
+<!-- Webflow Style Inspector Panel (3 Accordions) -->
+<div class="flex-1 flex flex-col overflow-hidden bg-black hidden" id="ws-advanced-webflow-panel">
+<div class="px-4 py-2 border-b border-white/12 flex items-center justify-between text-[10px] font-mono uppercase tracking-wider bg-black font-extrabold">
+<span class="text-zinc-300 flex items-center gap-1.5">
+<i class="fa-solid fa-sliders text-brand-gold"></i> Webflow Style Inspector
+                  </span>
+<span class="text-brand-gold bg-ovyx-black border border-white/12 px-2 py-0.5 rounded text-[9px]" id="ws-selected-node-tag">ROOT</span>
+</div>
+<div class="flex-1 overflow-y-auto p-3 space-y-2.5 font-sans text-xs">
+<!-- Accordion 1: Layout & Display -->
+<div class="wf-accordion-item active border border-white/12 rounded-xl bg-zinc-950 overflow-hidden" id="wf-acc-layout">
+<button class="w-full px-3.5 py-2.5 flex items-center justify-between bg-ovyx-black text-xs font-bold text-white" onclick="WebStudio.toggleAccordion('wf-acc-layout')">
+<span class="flex items-center gap-2"><i class="fa-solid fa-table-cells-large text-zinc-400 text-[10px]"></i> Layout &amp; Display</span>
+<i class="fa-solid fa-chevron-down wf-chevron text-[10px] text-zinc-500 transition-transform duration-200"></i>
+</button>
+<div class="wf-accordion-content p-3 space-y-3 font-mono text-[11px]">
+<div>
+<label class="text-[9px] uppercase text-zinc-500 font-bold mb-1.5 block">Display Property</label>
+<div class="grid grid-cols-3 gap-1 bg-black p-1 border border-white/12 rounded-lg">
+<button class="py-1 rounded text-center text-zinc-300 hover:text-white font-bold" id="btn-disp-block" onclick="WebStudio.setStyleParam('display', 'block')">Block</button>
+<button class="py-1 rounded text-center bg-white/10 text-white font-black" id="btn-disp-flex" onclick="WebStudio.setStyleParam('display', 'flex')">Flex</button>
+<button class="py-1 rounded text-center text-zinc-300 hover:text-white font-bold" id="btn-disp-grid" onclick="WebStudio.setStyleParam('display', 'grid')">Grid</button>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-2">
+<div>
+<label class="text-[9px] uppercase text-zinc-500 font-bold mb-1 block">Direction</label>
+<select class="w-full bg-black border border-white/12 rounded p-1.5 text-zinc-300 focus:outline-none font-bold" id="wf-flex-dir" onchange="WebStudio.setStyleParam('flexDirection', this.value)">
+<option value="row">Row (Horizontal)</option>
+<option value="column">Column (Vertical)</option>
+</select>
+</div>
+<div>
+<label class="text-[9px] uppercase text-zinc-500 font-bold mb-1 block">Gap Token</label>
+<input class="w-full bg-black border border-white/12 rounded p-1.5 text-zinc-300 focus:outline-none" id="wf-gap-input" onchange="WebStudio.setStyleParam('gap', this.value)" placeholder="1.5rem" type="text"/>
+</div>
+</div>
+</div>
+</div>
+<!-- Accordion 2: Spacing & Sizing -->
+<div class="wf-accordion-item active border border-white/12 rounded-xl bg-zinc-950 overflow-hidden" id="wf-acc-spacing">
+<button class="w-full px-3.5 py-2.5 flex items-center justify-between bg-ovyx-black text-xs font-bold text-white" onclick="WebStudio.toggleAccordion('wf-acc-spacing')">
+<span class="flex items-center gap-2"><i class="fa-solid fa-arrows-up-down-left-right text-zinc-400 text-[10px]"></i> Spacing &amp; Dimensions</span>
+<i class="fa-solid fa-chevron-down wf-chevron text-[10px] text-zinc-500 transition-transform duration-200"></i>
+</button>
+<div class="wf-accordion-content p-3 space-y-3 font-mono text-[11px]">
+<div class="grid grid-cols-2 gap-2">
+<div>
+<label class="text-[9px] uppercase text-zinc-500 font-bold mb-1 block">Width</label>
+<input class="w-full bg-black border border-white/12 rounded p-1.5 text-zinc-300 focus:outline-none" id="wf-width-input" onchange="WebStudio.setStyleParam('width', this.value)" placeholder="100%" type="text"/>
+</div>
+<div>
+<label class="text-[9px] uppercase text-zinc-500 font-bold mb-1 block">Min Height</label>
+<input class="w-full bg-black border border-white/12 rounded p-1.5 text-zinc-300 focus:outline-none" id="wf-height-input" onchange="WebStudio.setStyleParam('minHeight', this.value)" placeholder="auto" type="text"/>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-2">
+<div>
+<label class="text-[9px] uppercase text-zinc-500 font-bold mb-1 block">Padding Box</label>
+<input class="w-full bg-black border border-white/12 rounded p-1.5 text-zinc-300 focus:outline-none" id="wf-padding-input" onchange="WebStudio.setStyleParam('padding', this.value)" placeholder="4rem 2rem" type="text"/>
+</div>
+<div>
+<label class="text-[9px] uppercase text-zinc-500 font-bold mb-1 block">Margin Box</label>
+<input class="w-full bg-black border border-white/12 rounded p-1.5 text-zinc-300 focus:outline-none" id="wf-margin-input" onchange="WebStudio.setStyleParam('margin', this.value)" placeholder="0 auto" type="text"/>
+</div>
+</div>
+</div>
+</div>
+<!-- Accordion 3: Typography & Accents -->
+<div class="wf-accordion-item active border border-white/12 rounded-xl bg-zinc-950 overflow-hidden" id="wf-acc-typo">
+<button class="w-full px-3.5 py-2.5 flex items-center justify-between bg-ovyx-black text-xs font-bold text-white" onclick="WebStudio.toggleAccordion('wf-acc-typo')">
+<span class="flex items-center gap-2"><i class="fa-solid fa-font text-zinc-400 text-[10px]"></i> Typography &amp; Accents</span>
+<i class="fa-solid fa-chevron-down wf-chevron text-[10px] text-zinc-500 transition-transform duration-200"></i>
+</button>
+<div class="wf-accordion-content p-3 space-y-3 font-mono text-[11px]">
+<div class="grid grid-cols-2 gap-2">
+<div>
+<label class="text-[9px] uppercase text-zinc-500 font-bold mb-1 block">Font Weight</label>
+<select class="w-full bg-black border border-white/12 rounded p-1.5 text-zinc-300 focus:outline-none font-bold" id="wf-font-weight" onchange="WebStudio.setStyleParam('fontWeight', this.value)">
+<option value="400">Regular (400)</option>
+<option value="600">SemiBold (600)</option>
+<option value="800">Bold (800)</option>
+<option value="900">Black (900)</option>
+</select>
+</div>
+<div>
+<label class="text-[9px] uppercase text-zinc-500 font-bold mb-1 block">Text Align</label>
+<select class="w-full bg-black border border-white/12 rounded p-1.5 text-zinc-300 focus:outline-none font-bold" id="wf-text-align" onchange="WebStudio.setStyleParam('textAlign', this.value)">
+<option value="center">Center</option>
+<option value="left">Left</option>
+<option value="right">Right</option>
+</select></div>
+</div>
+<div class="grid grid-cols-2 gap-2">
+<div>
+<label class="text-[9px] uppercase text-zinc-500 font-bold mb-1 block">Background Surface</label>
+<input class="w-full bg-black border border-white/12 rounded p-1.5 text-zinc-300 focus:outline-none" id="wf-bg-input" onchange="WebStudio.setStyleParam('background', this.value)" placeholder="#000000" type="text"/>
+</div>
+<div>
+<label class="text-[9px] uppercase text-zinc-500 font-bold mb-1 block">Border Radius</label>
+<input class="w-full bg-black border border-white/12 rounded p-1.5 text-zinc-300 focus:outline-none" id="wf-radius-input" onchange="WebStudio.setStyleParam('borderRadius', this.value)" placeholder="12px" type="text"/>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
 </section>
-<section class="ovyx-ws-preview" id="ovyx-ws-preview" aria-label="Website preview">
-<div class="ovyx-ws-preview-head"><span id="ovyx-ws-preview-label">Preview</span><button type="button" id="ovyx-ws-more" aria-haspopup="menu" aria-expanded="false" aria-label="Preview actions">⋯</button>
-<div class="ovyx-ws-menu" id="ovyx-ws-menu" hidden role="menu">
-<button type="button" data-ws-action="back">Back</button><button type="button" data-ws-action="forward">Forward</button><button type="button" data-ws-action="refresh">Refresh preview</button><hr>
-<button type="button" data-ws-action="code">Code editor</button><button type="button" data-ws-action="files">Project files</button><button type="button" data-ws-action="undo">Undo</button><button type="button" data-ws-action="redo">Redo</button><hr>
-<button type="button" data-ws-action="share">Share live site</button><button type="button" data-ws-action="download">Download project</button><button type="button" data-ws-action="deploy">Deploy preview</button><button type="button" data-ws-action="publish">Publish</button><hr><button type="button" data-ws-action="delete">Delete project</button>
-</div></div>
-<div class="ovyx-ws-frame-wrap" id="ovyx-ws-frame-wrap"><iframe id="ovyx-ws-frame" title="OVYX website preview" sandbox="allow-scripts allow-forms allow-modals allow-popups allow-same-origin"></iframe><div class="ovyx-ws-empty" id="ovyx-ws-empty">Your generated website will appear here.</div></div>
-</section>
-</main>
-<div class="ovyx-ws-code" id="ovyx-ws-code" hidden><div class="ovyx-ws-code-head"><select id="ovyx-ws-file-select" aria-label="Project file"></select><button type="button" data-ws-action="save-code">Save</button><button type="button" data-ws-action="close-code">Close</button></div><textarea id="ovyx-ws-editor" class="ovyx-ws-editor" spellcheck="false" aria-label="Code editor"></textarea></div>
-</div></section>
 <!-- VIEW 3: APP STUDIO -->
 <section class="h-full flex flex-col hidden relative bg-black" id="view-appstudio">
 <div class="studio-topbar">
@@ -3701,8 +3994,7 @@ Body: { broadcastId, title, body, category, link }</div>
 </div>
 <button class="spring-btn w-full py-3 rounded-xl bg-white hover:bg-zinc-200 text-black font-black text-xs font-sans shadow-lg flex items-center justify-center gap-2" onclick="GatedFeatureDrawer.proceedToUpgrade()">
 <span>Upgrade to Unlock</span> <i class="fa-solid fa-arrow-right text-[10px]"></i>
-</button>
-</div>
+</button></div>
 </div>
 <!-- COMMAND PALETTE (CMD+K / CTRL+K) -->
 <div class="fixed inset-0 z-50 flex items-start justify-center pt-24 hidden select-none" id="cmd-palette-modal">
@@ -3852,7 +4144,6 @@ Body: { broadcastId, title, body, category, link }</div>
           if (savedPricing) this.pricing = JSON.parse(savedPricing);
           const savedGating = localStorage.getItem('ovyx_gating_matrix');
           if (savedGating) this.gating = JSON.parse(savedGating);
-          this.gating.webstudio = 'free';
           const savedOverride = (()=>{try{return sessionStorage.getItem('ovyx.admin.previewOverride')==='1'}catch{return false}})();
           this.adminOverride = (window.OVYX_ADMIN_UI_PREVIEW === true || window.OVYX_OWNER_PREVIEW === true || window.OVYXServerOwner?.active === true) && savedOverride;
         } catch (e) {}
@@ -3921,7 +4212,7 @@ Body: { broadcastId, title, body, category, link }</div>
 
         ['webstudio', 'appstudio', 'templates', 'workspace', 'admin-identity'].forEach(mod => {
           const sel = document.getElementById(`gate-${mod}`);
-          if (sel) this.gating[mod] = mod === 'webstudio' ? 'free' : sel.value;
+          if (sel) this.gating[mod] = sel.value;
         });
 
         try {
@@ -4702,8 +4993,7 @@ Body: { broadcastId, title, body, category, link }</div>
         { label: 'Tiers & Gating Matrix (Admin)', run: () => Router.go('admin-pricing') },
         { label: 'Checkout Plans (Stripe Gateway)', run: () => Router.go('pricing') },
         { label: 'App Studio (Mobile)', run: () => Router.go('appstudio') },
-        { label: 'Code Workspace (AST)', run: () => Router.go('workspace') },
-        { label: 'Blueprint Matrix', run: () => Router.go('templates') },
+        { label: 'Code Workspace (AST)', run: () => Router.go('workspace') },        { label: 'Blueprint Matrix', run: () => Router.go('templates') },
         { label: 'Settings & Preferences', run: () => Router.go('settings') },
         { label: 'Create New Project', run: () => ProjectStore.createPromptModal() }
       ],
@@ -4967,7 +5257,48 @@ Body: { broadcastId, title, body, category, link }</div>
         this.render();
       },
 
-      setupPullToRefresh() {}
+      setupPullToRefresh() {
+        const wrapper = document.getElementById('ws-touch-canvas-wrapper');
+        const indicator = document.getElementById('ptr-indicator');
+        if (!wrapper || !indicator) return;
+
+        let startY = 0;
+        let isPulling = false;
+
+        wrapper.addEventListener('touchstart', (e) => {
+          if (wrapper.scrollTop === 0) {
+            startY = e.touches[0].clientY;
+            isPulling = true;
+          }
+        }, { passive: true });
+
+        wrapper.addEventListener('touchmove', (e) => {
+          if (!isPulling) return;
+          const currentY = e.touches[0].clientY;
+          const diff = currentY - startY;
+
+          if (diff > 45) {
+            indicator.style.opacity = '1';
+            indicator.style.transform = `translate(-50%, ${Math.min(diff * 0.4, 30)}px)`;
+          }
+        }, { passive: true });
+
+        wrapper.addEventListener('touchend', (e) => {
+          if (!isPulling) return;
+          isPulling = false;
+
+          const diff = (e.changedTouches[0]?.clientY || 0) - startY;
+          if (diff > 80) {
+            WebStudio.render();
+            showToast('Canvas hot-reloaded successfully', 'success');
+          }
+
+          setTimeout(() => {
+            indicator.style.opacity = '0';
+            indicator.style.transform = 'translate(-50%, 0px)';
+          }, 350);
+        });
+      },
 
       toggleMagicMode(enabled) {
         this.isMagicMode = enabled;
@@ -5379,27 +5710,6 @@ html:not([data-ovyx-mode="light"]) .v0-panel{
 \n
 
 
-<style id="ovyx-webstudio-canonical-style">
-#view-webstudio{padding:0!important;background:#0a0a0a!important}#view-webstudio .ovyx-ws-shell{height:100%;min-height:100%;display:flex;flex-direction:column;background:#0a0a0a;color:#f5f5f5;font-family:Inter,system-ui,sans-serif}.ovyx-ws-header{height:56px;flex:0 0 56px;display:flex;align-items:center;gap:12px;padding:0 14px;background:#050505;border-bottom:1px solid rgba(255,255,255,.09)}.ovyx-ws-brand{height:34px;display:flex;align-items:center;gap:8px;padding:0 10px;border:1px solid rgba(255,255,255,.11);background:#0d0d0e;color:#fff;border-radius:7px;cursor:pointer}.ovyx-ws-brand:hover{border-color:rgba(245,158,11,.7)}.ovyx-ws-diamond{color:#f59e0b;font-size:20px;line-height:1}.ovyx-ws-chevron{color:#777;font-size:13px}.ovyx-ws-project{min-width:0;max-width:38vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#858585;font-size:12px}.ovyx-ws-tabs{margin-left:auto;display:flex;gap:2px}.ovyx-ws-tabs button{border:0;background:none;color:#777;padding:8px 11px;cursor:pointer;font-size:12px;font-weight:800}.ovyx-ws-tabs button[aria-selected="true"]{color:#fff}.ovyx-ws-ready{color:#f59e0b;font:700 10px ui-monospace,monospace}.ovyx-ws-main{flex:1;min-height:0;display:grid;grid-template-columns:minmax(320px,.9fr) minmax(420px,1.1fr)}.ovyx-ws-chat{min-width:0;min-height:0;display:flex;flex-direction:column;border-right:1px solid rgba(255,255,255,.08);background:#0a0a0a}.ovyx-ws-chat-head{padding:25px 25px 12px}.ovyx-ws-eyebrow{color:#f59e0b;font:900 9px/1 Inter,sans-serif;letter-spacing:.2em}.ovyx-ws-chat-head h1{margin:8px 0 9px;font-size:clamp(25px,3vw,42px);line-height:1.02;letter-spacing:-.035em}.ovyx-ws-chat-head p{max-width:700px;margin:0;color:#858585;font-size:13px;line-height:1.65}.ovyx-ws-messages{flex:1;min-height:0;overflow:auto;padding:8px 25px}.ovyx-ws-msg{padding:11px 0;border-bottom:1px solid rgba(255,255,255,.06);color:#bdbdbd;font-size:13px;line-height:1.65}.ovyx-ws-msg b{display:block;margin-bottom:3px;color:#fff;font:900 9px/1 Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase}.ovyx-ws-msg.error b{color:#f87171}.ovyx-ws-composer{margin:12px 14px 16px;padding:10px;border:1px solid rgba(255,255,255,.12);background:#101011;border-radius:10px}.ovyx-ws-composer:focus-within{border-color:rgba(245,158,11,.8)}.ovyx-ws-composer textarea{width:100%;min-height:86px;resize:vertical;border:0;outline:0;background:transparent;color:#fff;font:13px/1.55 Inter,system-ui,sans-serif}.ovyx-ws-compose-row{display:flex;align-items:center;gap:8px}.ovyx-ws-attach{display:inline-flex;align-items:center;border:1px solid rgba(255,255,255,.12);border-radius:6px;padding:7px 9px;color:#aaa;font-size:10px;cursor:pointer}.ovyx-ws-attach input{display:none}.ovyx-ws-compose-row span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#666;font-size:9px}.ovyx-ws-compose-row button{border:1px solid #f59e0b;background:#f59e0b;color:#111;border-radius:6px;padding:8px 13px;font-weight:900;cursor:pointer}.ovyx-ws-compose-row button:disabled{opacity:.55;cursor:wait}.ovyx-ws-preview{min-width:0;min-height:0;display:flex;flex-direction:column;background:#111}.ovyx-ws-preview-head{height:48px;flex:0 0 48px;position:relative;display:flex;align-items:center;justify-content:space-between;padding:0 10px 0 14px;border-bottom:1px solid rgba(255,255,255,.08);color:#707070;font:11px ui-monospace,monospace}.ovyx-ws-preview-head>button{width:34px;height:30px;border:1px solid rgba(255,255,255,.11);border-radius:6px;background:#0e0e0f;color:#ccc;font-size:20px;line-height:1;cursor:pointer}.ovyx-ws-preview-head>button:hover{color:#fff;border-color:#555}.ovyx-ws-menu{position:absolute;right:10px;top:43px;width:220px;z-index:100;background:#111;border:1px solid #303033;border-radius:8px;padding:5px;box-shadow:0 20px 60px rgba(0,0,0,.65)}.ovyx-ws-menu button{width:100%;display:block;border:0;background:none;color:#ccc;text-align:left;padding:8px 9px;border-radius:5px;font-size:11px;cursor:pointer}.ovyx-ws-menu button:hover{background:#202022;color:#fff}.ovyx-ws-menu hr{border:0;border-top:1px solid #29292c;margin:5px 0}.ovyx-ws-frame-wrap{position:relative;flex:1;min-height:0;padding:14px;background:#151515;background-image:linear-gradient(#232323 1px,transparent 1px),linear-gradient(90deg,#232323 1px,transparent 1px);background-size:24px 24px}.ovyx-ws-frame-wrap iframe{width:100%;height:100%;display:block;border:1px solid #2d2d30;border-radius:5px;background:#fff}.ovyx-ws-empty{position:absolute;inset:15px;display:grid;place-items:center;color:#666;font-size:12px;pointer-events:none}.ovyx-ws-empty[hidden]{display:none}.ovyx-ws-code{position:absolute;inset:56px 0 0;z-index:120;display:flex;flex-direction:column;background:#080808}.ovyx-ws-code-head{height:46px;display:flex;gap:6px;padding:7px;border-bottom:1px solid rgba(255,255,255,.09)}.ovyx-ws-code-head select,.ovyx-ws-code-head button{border:1px solid #2d2d30;border-radius:5px;background:#111;color:#ddd;padding:6px 9px;font-size:10px}.ovyx-ws-code-head select{flex:1}.ovyx-ws-editor{flex:1;width:100%;resize:none;border:0;outline:0;background:#070707;color:#d5d5d5;padding:14px;font:12px/1.65 ui-monospace,SFMono-Regular,Menlo,monospace}@media(max-width:767px){.ovyx-ws-main{display:block;position:relative;overflow:hidden}.ovyx-ws-chat,.ovyx-ws-preview{display:none;height:calc(100dvh - 56px)}.ovyx-ws-chat.is-active,.ovyx-ws-preview.is-active{display:flex}.ovyx-ws-chat-head{padding:18px 14px 10px}.ovyx-ws-chat-head h1{font-size:28px}.ovyx-ws-messages{padding:7px 14px}.ovyx-ws-composer{margin:9px 9px 12px}.ovyx-ws-project{display:none}.ovyx-ws-tabs button{padding:8px}}
-</style>
-<script id="ovyx-webstudio-canonical-runtime">
-(()=>{'use strict';
-const KEY='ovyx.webstudio.canonical.v1';const $=id=>document.getElementById(id);let state={projectId:'',projectName:'OVYX Website',files:{},history:[],future:[],previewUrl:'',tab:'chat',busy:false};const starter={'index.html':{language:'html',content:'<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Generated with OVYX Web Studio"><title>OVYX Website</title></head><body><main><section style="min-height:100vh;display:grid;place-items:center;padding:48px;background:#090909;color:#fff;font-family:Inter,system-ui,sans-serif;text-align:center"><div><p style="color:#f59e0b;font-weight:800;letter-spacing:.18em">OVYX WEB STUDIO</p><h1>Tell OVYX what to build.</h1><p style="color:#aaa;line-height:1.7">Your complete responsive website will appear here.</p></div></section></main></body></html>'}};
-function clone(v){return JSON.parse(JSON.stringify(v))}function read(){try{const x=JSON.parse(localStorage.getItem(KEY)||'null');if(x&&typeof x==='object'){state=Object.assign(state,x);if(!state.files||!Object.keys(state.files).length)state.files=clone(starter);return}}catch{}state.projectId=String(window.KernelState?.activeProject?.id||'ovyx-web-'+Date.now().toString(36));state.projectName=String(window.KernelState?.activeProject?.name||'OVYX Website');state.files=clone(starter)}function save(){try{localStorage.setItem(KEY,JSON.stringify(state))}catch{}}function list(){return Object.entries(state.files||{}).filter(x=>x[1]&&typeof x[1].content==='string')}function snapshot(){state.history.push(clone(state.files));state.history=state.history.slice(-50);state.future=[]}function escapeHtml(v){return String(v??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])}function escAttr(v){return String(v??'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}function entry(){return state.files['index.html']?.content||list().find(x=>/\.html?$/i.test(x[0]))?.[1].content||starter['index.html'].content}function buildPreview(){let html=entry();if(!/^\s*<!doctype html>/i.test(html)&&!/<html\b/i.test(html))html='<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>'+html+'</body></html>';const css=list().filter(x=>/\.css$/i.test(x[0])).map(x=>x[1].content).join('\n');const js=list().filter(x=>/\.(?:m?js)$/i.test(x[0])).map(x=>x[1].content).join('\n');if(css)html=html.replace(/<\/head>/i,'<style>'+css+'</style></head>');if(js)html=html.replace(/<\/body>/i,'<script>try{'+js+'}catch(e){console.error(e)}<\/script></body>');return html}function renderPreview(){const frame=$('ovyx-ws-frame'),empty=$('ovyx-ws-empty');if(frame){frame.srcdoc=buildPreview();frame.onload=()=>{if(empty)empty.hidden=true}}}function renderFiles(){const sel=$('ovyx-ws-file-select');if(!sel)return;sel.innerHTML=list().map(([p])=>'<option value="'+escAttr(p)+'">'+escapeHtml(p)+'</option>').join('');if(!sel.value&&list()[0])sel.value=list()[0][0];const ed=$('ovyx-ws-editor');if(ed)ed.value=state.files[sel.value]?.content||''}function setTab(t){state.tab=t==='preview'?'preview':'chat';$('ovyx-ws-chat')?.classList.toggle('is-active',state.tab==='chat');$('ovyx-ws-preview')?.classList.toggle('is-active',state.tab==='preview');document.querySelectorAll('[data-ws-tab]').forEach(b=>b.setAttribute('aria-selected',b.dataset.wsTab===state.tab?'true':'false'));save()}function setStatus(text){const e=$('ovyx-ws-status');if(!e)return;e.hidden=!text;e.textContent=text||''}function addMessage(who,text,error=false){const box=$('ovyx-ws-messages');if(!box)return;const d=document.createElement('div');d.className='ovyx-ws-msg'+(error?' error':'');d.innerHTML='<b>'+escapeHtml(who)+'</b><div>'+escapeHtml(text)+'</div>';box.appendChild(d);box.scrollTop=box.scrollHeight}
-async function readAttachments(){const input=$('ovyx-ws-files'),files=[...(input?.files||[])].slice(0,6),out=[];for(const f of files){if(f.size>100000)continue;if(/^image\//i.test(f.type)){out.push({name:f.name,type:f.type,size:f.size,note:'Image attachment supplied as visual reference.'});continue}out.push({name:f.name,type:f.type,size:f.size,content:(await f.text()).slice(0,90000)})}return out}
-function normalizeFiles(data){const out={};for(const f of Array.isArray(data?.files)?data.files:[]){if(!f||!f.path||typeof f.content!=='string')continue;const p=String(f.path).replace(/^\.\//,'');if(!p||p.startsWith('/')||p.includes('..')||p.length>240)continue;out[p]={language:String(f.language||'text'),content:f.content}}return out}
-async function generate(prompt,attachments){const context={projectId:state.projectId,projectName:state.projectName,files:list().map(([path,v])=>({path,language:v.language||'text',content:String(v.content).slice(0,50000)})),attachments,buildContract:{goal:'production-ready website',inferMissingPieces:true,completeUserJourney:true,responsive:true,accessible:true,interactive:true,seoReady:true,polishBeyondPrompt:true}};const system='Act as the complete OVYX website production team: product strategist, information architect, senior visual designer, frontend engineer, interaction designer, accessibility reviewer, SEO reviewer and QA engineer. Build the complete requested website, not a mockup. Infer sensible missing sections and interactions that directly support the user goal. Make every visible control functional, make desktop/tablet/mobile intentionally responsive, use realistic domain-specific content, add loading/empty/error states where useful, and perform a mental QA pass before returning files. Do not invent unrelated claims. Return complete editable files only.';const result=await window.OVYXAIService.generate({mode:'web-studio-build',prompt,messages:[{role:'user',content:prompt}],system,context,maxTokens:32000});let data=result?.data||null;if(!data){const raw=String(result?.text||result?.answer||'').trim();try{data=JSON.parse(raw)}catch{const s=raw.indexOf('{'),e=raw.lastIndexOf('}');if(s>=0&&e>s){try{data=JSON.parse(raw.slice(s,e+1))}catch{}}}}if(!data)throw new Error('OVYX AI returned no structured website result.');return data}
-async function submit(ev){ev.preventDefault();if(state.busy)return;const input=$('ovyx-ws-prompt'),prompt=String(input?.value||'').trim();if(!prompt)return;state.busy=true;$('ovyx-ws-build').disabled=true;addMessage('You',prompt);input.value='';setStatus('Building…');try{const data=await generate(prompt,await readAttachments());const files=normalizeFiles(data);if(!Object.keys(files).length&&data.html)files['index.html']={language:'html',content:String(data.html)};if(!Object.keys(files).length)throw new Error(data.summary||'The AI returned no website files.');snapshot();state.files=Object.assign({},state.files,files);save();render();addMessage('OVYX',data.summary||('Built '+Object.keys(files).length+' project files.'));setTab('preview')}catch(e){addMessage('OVYX',String(e?.message||e),true)}finally{state.busy=false;$('ovyx-ws-build').disabled=false;setStatus(null)}}
-function openMainNavigation(){if(window.innerWidth<768){window.MobileDrawer?.open?.();return}if(window.OVYXDesktopShell?.open){window.OVYXDesktopShell.open();return}document.documentElement.removeAttribute('data-ovyx-sidebar');document.documentElement.classList.remove('v34-sidebar-collapsed')}function menu(open){const m=$('ovyx-ws-menu'),b=$('ovyx-ws-more');if(!m)return;m.hidden=!open;b?.setAttribute('aria-expanded',open?'true':'false')}function codeOpen(){const c=$('ovyx-ws-code');if(c)c.hidden=false;renderFiles()}function codeClose(){const c=$('ovyx-ws-code');if(c)c.hidden=true}function saveCode(){const s=$('ovyx-ws-file-select'),e=$('ovyx-ws-editor');if(!s||!e||!state.files[s.value])return;snapshot();state.files[s.value].content=e.value;save();renderPreview();addMessage('OVYX','Saved '+s.value+'.')}function download(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(state.files,null,2)],{type:'application/json'}));a.download=(state.projectName||'ovyx-project').replace(/[^a-z0-9]+/gi,'-').toLowerCase()+'.ovyx.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
-async function deploy(action){const u=window.firebase?.auth?.().currentUser;if(!u)throw new Error('Sign in before deploying or publishing.');const token=await u.getIdToken();const r=await fetch('/api/deploy',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({action,projectId:state.projectId,projectName:state.projectName,files:state.files})});const d=await r.json().catch(()=>({}));if(!r.ok||!d.success)throw new Error(d.error||'Deployment failed.');const id=d.deployment?.deploymentId;if(!id)throw new Error('Cloudflare did not return a deployment ID.');let latest=d.deployment||{};for(let n=0;n<18;n++){await new Promise(x=>setTimeout(x,1500));const s=await fetch('/api/deployment-status?projectId='+encodeURIComponent(state.projectId)+'&projectName='+encodeURIComponent(state.projectName)+'&deploymentId='+encodeURIComponent(id),{headers:{Authorization:'Bearer '+token},cache:'no-store'});const sd=await s.json().catch(()=>({}));if(s.ok&&sd.success&&sd.deployment){latest=sd.deployment;if(['success','failure','canceled','skipped'].includes(String(latest.status||'').toLowerCase()))break}}if(['failure','canceled','skipped'].includes(String(latest.status||'').toLowerCase()))throw new Error('Cloudflare deployment '+latest.status+(latest.stage?' at '+latest.stage:''));state.previewUrl=latest.url||d.deployment?.url||'';save();addMessage('OVYX',state.previewUrl?'Deployment ready: '+state.previewUrl:'Deployment is still processing.')}
-async function act(action){menu(false);const frame=$('ovyx-ws-frame');if(action==='back'){try{frame?.contentWindow?.history.back()}catch{}return}if(action==='forward'){try{frame?.contentWindow?.history.forward()}catch{}return}if(action==='refresh'){renderPreview();return}if(action==='code'||action==='files'){codeOpen();return}if(action==='save-code'){saveCode();return}if(action==='close-code'){codeClose();return}if(action==='undo'){const x=state.history.pop();if(x){state.future.push(clone(state.files));state.files=x;save();render()}return}if(action==='redo'){const x=state.future.pop();if(x){state.history.push(clone(state.files));state.files=x;save();render()}return}if(action==='share'){if(!state.previewUrl){addMessage('OVYX','Deploy or publish first to create a live URL.');return}try{await navigator.clipboard?.writeText(state.previewUrl);addMessage('OVYX','Live URL copied.')}catch{addMessage('OVYX',state.previewUrl)}return}if(action==='download'){download();return}if(action==='delete'){if(!confirm('Delete this Web Studio project from this browser?'))return;state.files=clone(starter);state.history=[];state.future=[];state.previewUrl='';save();render();addMessage('OVYX','Project reset.');return}if(action==='deploy'||action==='publish'){setStatus(action==='publish'?'Publishing…':'Deploying…');try{await deploy(action)}catch(e){addMessage('OVYX',String(e?.message||e),true)}finally{setStatus(null)}}}
-function render(){const p=$('view-webstudio');if(!p)return;const name=String(window.KernelState?.activeProject?.name||state.projectName||'OVYX Website');state.projectName=name;const n=$('ovyx-ws-project-name');if(n)n.textContent=name;renderPreview();renderFiles();setTab(state.tab)}
-function mount(){read();const p=$('view-webstudio');if(!p)return;if(window.WebStudio){window.WebStudio.setupPullToRefresh=()=>{};window.WebStudio.render=render;window.WebStudio.init=()=>{}}if(!$('ovyx-ws-messages')?.children.length)addMessage('OVYX','Ready. Tell me what you want to build.');render()}
-function bind(){if(window.__OVYX_CANONICAL_WS_BOUND)return;window.__OVYX_CANONICAL_WS_BOUND=true;document.addEventListener('click',e=>{const tab=e.target.closest('[data-ws-tab]');if(tab){setTab(tab.dataset.wsTab);return}const action=e.target.closest('[data-ws-action]');if(action){act(action.dataset.wsAction);return}if(e.target.closest('#ovyx-ws-more')){const m=$('ovyx-ws-menu');menu(m?.hidden!==false);return}if(!e.target.closest('#ovyx-ws-menu'))menu(false);if(e.target.closest('#ovyx-ws-brand'))openMainNavigation()});$('ovyx-ws-form')?.addEventListener('submit',submit);$('ovyx-ws-file-select')?.addEventListener('change',renderFiles);$('ovyx-ws-files')?.addEventListener('change',()=>{const n=$('ovyx-ws-files')?.files?.length||0;$('ovyx-ws-attachment-note').textContent=n?String(n)+' attached':'Ready'});window.addEventListener('ovyx-project-changed',()=>{if(window.KernelState?.activeView==='webstudio')render()},{passive:true})}
-function hook(){if(window.__OVYX_CANONICAL_WS_HOOK)return;window.__OVYX_CANONICAL_WS_HOOK=true;const original=window.Router?.go?.bind(window.Router);if(original){window.Router.go=function(view){const r=original(view);if(String(view||'').replace(/^view-/,'').toLowerCase()==='webstudio')setTimeout(mount,0);return r}}window.addEventListener('ovyx:view-changed',e=>{if(e?.detail?.view==='webstudio')setTimeout(mount,0)},{passive:true})}
-bind();if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(mount,0),{once:true});else setTimeout(mount,0);hook();window.OVYXWebStudio={mount,render,openMainNavigation};
-})();
-</script>
 </body></html>`;
 
 
@@ -5682,8 +5992,7 @@ bind();if(document.readyState==='loading')document.addEventListener('DOMContentL
         badge.textContent=status==='READY'?`ACTIVE · ${details.label||PROVIDER_LABELS[id]||id.toUpperCase()}`:(status==='NOT_CONFIGURED'?'NOT CONFIGURED':'UNAVAILABLE');
         badge.className=status==='READY'
           ?'ovyx-ai-auto-status'
-          :'text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/10 bg-white/[.04] text-zinc-400 font-extrabold tracking-wider';
-      }
+          :'text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/10 bg-white/[.04] text-zinc-400 font-extrabold tracking-wider';      }
       if(latency){
         latency.textContent=status==='READY'?'SERVER READY':(details.error||'SERVER CHECKING');
         latency.className=status==='READY'?'text-emerald-400 text-[11px] font-bold':'text-zinc-500 text-[11px]';
@@ -6682,8 +6991,7 @@ const notifyDefaults={projectActivity:true,generationCompleted:true,deploymentSt
 function nload(){try{return {...notifyDefaults,...JSON.parse(localStorage.getItem(NOTIFY_KEY)||'{}')}}catch{return {...notifyDefaults}}}
 function nsave(x){try{localStorage.setItem(NOTIFY_KEY,JSON.stringify(x));return true}catch{return false}}
 function renderNotifications(){const S=window.OVYXSettings,p=S?.root?.querySelector('[data-settings-panel="notifications"]');if(!p)return;const st=nload();const toggle=(k)=>`<button type="button" class="ovyx-notify-toggle" data-notify="${k}" role="switch" aria-checked="${!!st[k]}" aria-label="Toggle ${k}"><span></span></button>`;p.innerHTML=`<div class="ovyx-panel-head"><div class="ovyx-panel-kicker">GENERAL / NOTIFICATIONS</div><h2>Notifications</h2><p>Keep important project, AI, deployment and account activity visible without adding noise.</p></div><div class="ovyx-pref-group"><div class="ovyx-pref-label">IN-APP</div>${S.row('Project activity','Changes, saves and important project events',toggle('projectActivity'))}${S.row('Generation completed','Notify when an AI generation finishes',toggle('generationCompleted'))}${S.row('Deployment status','Notify when a deployment starts, succeeds or fails',toggle('deploymentStatus'))}${S.row('AI usage warnings','Warn as you approach your plan limit',toggle('aiUsageWarnings'))}${S.row('Billing','Payment, subscription and booster events',toggle('billing'))}</div><div class="ovyx-pref-group"><div class="ovyx-pref-label">EMAIL</div>${S.row('Product updates','New OVYX features and product announcements',toggle('emailProductUpdates'))}${S.row('Security alerts','Important authentication and account security notices',toggle('emailSecurityAlerts'))}</div><div class="ovyx-theme-actions"><button class="ovyx-settings-btn primary" id="notify-save">Save Notification Preferences</button><button class="ovyx-settings-btn" id="notify-reset">Reset</button></div>`;p.querySelectorAll('[data-notify]').forEach(b=>b.addEventListener('click',()=>{const x=nload(),k=b.dataset.notify;x[k]=!x[k];nsave(x);b.setAttribute('aria-checked',String(x[k]))}));p.querySelector('#notify-save')?.addEventListener('click',()=>{toast('Notification preferences saved.','success')});p.querySelector('#notify-reset')?.addEventListener('click',()=>{nsave({...notifyDefaults});renderNotifications();toast('Notification preferences reset.','info')})}
-function settingsAdmin(){
-  // Normal workspace settings never expose Admin. Owner operations live only in the Admin Center modal.
+function settingsAdmin(){  // Normal workspace settings never expose Admin. Owner operations live only in the Admin Center modal.
   document.querySelectorAll('[data-settings-nav="admin"],[data-settings-nav="admin-preview"],[data-settings-panel="admin"],[data-settings-panel="admin-preview"],.ovyx-settings-admin-panel').forEach(el=>el.remove());
 }
 
@@ -7682,8 +7990,7 @@ button.primary:hover,.ovyx-settings-btn.primary:hover,.ovyx-project-primary:hove
 <section aria-label="Premium module access" aria-modal="true" class="v42-sheet v42-gate-panel" role="dialog">
 <div style="color:#e8b64f;font:800 8px JetBrains Mono;letter-spacing:.14em">OVYX / PREMIUM ACCESS</div><h3 id="v42-gate-title" style="margin-top:7px">Premium module</h3><p id="v42-gate-copy"></p><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:17px"><button class="v42-btn" data-v42-gate-close="" type="button">Not now</button><button class="v42-btn" data-v42-gate-plans="" style="background:#f2f2f2;color:#080808" type="button">View plans</button></div>
 </section>
-</div>
-<script id="ovyx-v42-frontend-kernel">
+</div><script id="ovyx-v42-frontend-kernel">
 (function(){
   'use strict';
   const $=s=>document.querySelector(s);
@@ -8682,8 +8989,7 @@ window.OVYXV58={syncDock,route:safeRoute,useTemplate,previewTemplate,featureLock
     line-height:1.55!important;
   }
   #kernel-brain-bot-panel .v53-ai-composer{
-    margin:0!important;padding:10px 11px max(12px,env(safe-area-inset-bottom))!important;
-    border-top:1px solid rgba(255,255,255,.075)!important;
+    margin:0!important;padding:10px 11px max(12px,env(safe-area-inset-bottom))!important;    border-top:1px solid rgba(255,255,255,.075)!important;
     background:linear-gradient(180deg,rgba(10,10,11,.92),#070708)!important;
     box-shadow:0 -14px 35px rgba(0,0,0,.25)!important;
   }
@@ -9682,8 +9988,7 @@ html[data-ovyx-mode="light"] #app-root .bg-white\/10,
 html[data-ovyx-mode="light"] #app-root .bg-white\/15,
 html[data-ovyx-mode="light"] #app-root .bg-white\/20,
 html[data-ovyx-mode="light"] #app-root .bg-white\/\[0\.025\],
-html[data-ovyx-mode="light"] #app-root .bg-white\/\[\.025\]{
-  background-color:color-mix(in srgb,var(--ovyx-app-text) 5%,transparent)!important;
+html[data-ovyx-mode="light"] #app-root .bg-white\/\[\.025\]{  background-color:color-mix(in srgb,var(--ovyx-app-text) 5%,transparent)!important;
 }
 html[data-ovyx-mode="light"] #app-root .hover\:bg-zinc-200:hover{
   background-color:#d9dce1!important;
@@ -10682,8 +10987,7 @@ body{margin:0;min-height:100svh;min-height:100dvh;overscroll-behavior-y:auto!imp
    No CSS zoom, no viewport hijacking, no fake browser controls. */
 html,body{width:100%;max-width:100%;overflow-x:hidden;}
 #app-container{width:100%;max-width:100%;}
-#view-router-viewport{width:100%;max-width:100%;}
-/* Let Chrome scale text naturally and keep browser zoom available. */
+#view-router-viewport{width:100%;max-width:100%;}/* Let Chrome scale text naturally and keep browser zoom available. */
 html{-webkit-text-size-adjust:100%;text-size-adjust:100%;}
 /* Desktop Admin is a first-class visible command, not hidden in the profile. */
 @media (min-width:768px){
@@ -11682,8 +11986,7 @@ html[data-ovyx-mode="light"] #mobile-drawer .ovyx-mobile-nav-item.active{color:v
 @media(max-width:767px){
   #app-sidebar{display:none!important;}
   #mobile-drawer #v53-mobile-owner-command,#mobile-drawer #mobile-owner-command{
-    width:100%!important;height:48px!important;min-height:48px!important;max-height:48px!important;
-    padding:12px!important;box-sizing:border-box!important;border:1px solid var(--border)!important;
+    width:100%!important;height:48px!important;min-height:48px!important;max-height:48px!important;    padding:12px!important;box-sizing:border-box!important;border:1px solid var(--border)!important;
     border-radius:10px!important;background:var(--card)!important;color:var(--muted)!important;
   }
 }
@@ -12682,8 +12985,7 @@ async function loadCatalog(){
     if(d?.config){state.pricing=d.config.pricing||state.pricing;if(window.AdminConfigurator)window.AdminConfigurator.pricing=state.pricing;syncPricingInputs();state.rules=normalizeRules(d.config.accessRules);applyBilling();applyLocks();renderAdmin();try{localStorage.removeItem('ovyx.access.preview.v81')}catch(e){console.warn('[OVYX runtime]',e)}}
   }catch(e){}
 }
-async function saveServer(){const status=document.getElementById('ovyx-access-registry-status');const previewKey='ovyx.access.preview.v81';const u=window.firebase?.auth?.().currentUser;const persistPreview=()=>{try{localStorage.setItem(previewKey,JSON.stringify({pricing:state.pricing,rules:state.rules,updatedAt:Date.now()}));}catch(e){console.warn('[OVYX runtime]',e)}if(status)status.textContent='Preview saved on this device';applyBilling();applyLocks();renderRuleList();return true};if(!u){return persistPreview();}try{if(status)status.textContent='Saving securely…';const token=await u.getIdToken(true);const r=await fetch('/api/admin/plans',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json',Authorization:'Bearer '+token,'X-Request-ID':crypto.randomUUID()},credentials:'same-origin',body:JSON.stringify({action:'setPlanCatalog',pricing:state.pricing,accessRules:state.rules})});const d=await r.json().catch(()=>({}));if(!r.ok){if(r.status===401||r.status===403)throw Object.assign(new Error(d?.message||d?.error?.message||'Administrator authorization is required to publish this change.'),{status:r.status,code:r.status===403?'ROOT_REQUIRED':'AUTH_REQUIRED'});throw new Error(d?.message||d?.error?.message||'Access and pricing save failed.');}state.rules=normalizeRules(d?.config?.accessRules ?? state.rules);state.pricing=d?.config?.pricing||state.pricing;if(window.AdminConfigurator){window.AdminConfigurator.pricing=state.pricing;}try{localStorage.removeItem(previewKey)}catch(e){console.warn('[OVYX runtime]',e)}syncPricingInputs();if(status)status.textContent='Saved securely to OVYX';applyBilling();applyLocks();renderRuleList();return true}catch(e){if(e?.status===401||e?.status===403||e?.code==='ROOT_REQUIRED'){return persistPreview();}if(status)status.textContent=e.message||'Save failed';toast(e.message||'Access Registry save failed.','error');return false}}
-function bridgeLegacyAdminConfigurator(){const A=window.AdminConfigurator;if(!A||A.__ovyxCatalogBridge)return;A.__ovyxCatalogBridge=true;A.saveSettings=async function(){try{return await window.OVYXPlanAdmin?.save?.()}catch{return false}};A.updateLockIcons=function(){};}
+async function saveServer(){const status=document.getElementById('ovyx-access-registry-status');const previewKey='ovyx.access.preview.v81';const u=window.firebase?.auth?.().currentUser;const persistPreview=()=>{try{localStorage.setItem(previewKey,JSON.stringify({pricing:state.pricing,rules:state.rules,updatedAt:Date.now()}));}catch(e){console.warn('[OVYX runtime]',e)}if(status)status.textContent='Preview saved on this device';applyBilling();applyLocks();renderRuleList();return true};if(!u){return persistPreview();}try{if(status)status.textContent='Saving securely…';const token=await u.getIdToken(true);const r=await fetch('/api/admin/plans',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json',Authorization:'Bearer '+token,'X-Request-ID':crypto.randomUUID()},credentials:'same-origin',body:JSON.stringify({action:'setPlanCatalog',pricing:state.pricing,accessRules:state.rules})});const d=await r.json().catch(()=>({}));if(!r.ok){if(r.status===401||r.status===403)throw Object.assign(new Error(d?.message||d?.error?.message||'Administrator authorization is required to publish this change.'),{status:r.status,code:r.status===403?'ROOT_REQUIRED':'AUTH_REQUIRED'});throw new Error(d?.message||d?.error?.message||'Access and pricing save failed.');}state.rules=normalizeRules(d?.config?.accessRules ?? state.rules);state.pricing=d?.config?.pricing||state.pricing;if(window.AdminConfigurator){window.AdminConfigurator.pricing=state.pricing;}try{localStorage.removeItem(previewKey)}catch(e){console.warn('[OVYX runtime]',e)}syncPricingInputs();if(status)status.textContent='Saved securely to OVYX';applyBilling();applyLocks();renderRuleList();return true}catch(e){if(e?.status===401||e?.status===403||e?.code==='ROOT_REQUIRED'){return persistPreview();}if(status)status.textContent=e.message||'Save failed';toast(e.message||'Access Registry save failed.','error');return false}}function bridgeLegacyAdminConfigurator(){const A=window.AdminConfigurator;if(!A||A.__ovyxCatalogBridge)return;A.__ovyxCatalogBridge=true;A.saveSettings=async function(){try{return await window.OVYXPlanAdmin?.save?.()}catch{return false}};A.updateLockIcons=function(){};}
 function renderAdmin(){const host=document.getElementById('ovyx-access-registry');if(!host)return;const key=document.getElementById('ovyx-lock-key'),name=document.getElementById('ovyx-lock-name'),type=document.getElementById('ovyx-lock-type'),tier=document.getElementById('ovyx-lock-tier'),selector=document.getElementById('ovyx-lock-selector'),desc=document.getElementById('ovyx-lock-description');if(!host.dataset.bound){host.dataset.bound='1';document.getElementById('ovyx-lock-add')?.addEventListener('click',async()=>{const k=clean(key?.value).toLowerCase().replace(/\s+/g,'-'),n=clean(name?.value),t=clean(type?.value).toLowerCase(),tr=clean(tier?.value).toLowerCase();if(!k||!n)return toast('Enter a resource key and name.','error');state.rules=state.rules.filter(r=>r.key!==k);state.rules.push({key:k,name:n,type:t,tier:tr,enabled:true,selector:clean(selector?.value),description:clean(desc?.value)});[key,name,selector,desc].forEach(el=>{if(el)el.value=''});renderRuleList();applyBilling();applyLocks();await saveServer();});document.getElementById('ovyx-lock-save-all')?.addEventListener('click',saveServer);document.getElementById('ovyx-lock-refresh')?.addEventListener('click',loadCatalog);}renderRuleList();applyBilling();}
 function injectAdminPanel(){return true}
 function injectBillingCatalog(){return true}
@@ -13682,8 +13984,7 @@ function forceThemeLab(){
       textColor:lab.state.customThemes[id].text,
       accentColor:lab.state.customThemes[id].accent,
       borderColor:lab.state.customThemes[id].border||'#2E3744'
-    }:presets.obsidian);
-    try{
+    }:presets.obsidian);    try{
       if(lab?.state){
         lab.state.active=id;
         localStorage.setItem('ovyx.theme.lab.v1',JSON.stringify(lab.state));
@@ -14682,8 +14983,7 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
  'use strict';
  if(window.__OVYXV655_FINAL_AUTHORITY)return;window.__OVYXV655_FINAL_AUTHORITY=true;
  var $=function(id){return document.getElementById(id)},qa=function(sel,root){return Array.from((root||document).querySelectorAll(sel))},safe=function(fn,fb){try{return fn()}catch(e){return fb}};
- var owner=false,ownerBusy=false;
- function removeAccessSurfaces(){qa('#ovyx-access-registry,.ovyx-access-registry,[data-ovyx-plan-catalog],.v58-lockbot,.v58-feature-legacy-hidden').forEach(function(el){if(el&&el.parentNode)el.remove()});}
+ var owner=false,ownerBusy=false; function removeAccessSurfaces(){qa('#ovyx-access-registry,.ovyx-access-registry,[data-ovyx-plan-catalog],.v58-lockbot,.v58-feature-legacy-hidden').forEach(function(el){if(el&&el.parentNode)el.remove()});}
  function restoreLogo(){return true;}
  function normalizeSidebar(){
    var host=document.querySelector('#app-sidebar>.ovyx-sidebar-bottom');if(!host)return;
@@ -15682,8 +15982,7 @@ window.OVYXV66Admin={scanFeatures,ensureAdminVisibility,injectFeatureStudio,appl
   function applyAccessPreview(){
     const R=window.OVYXAccessRegistry;if(!R?.state||authUser())return false;
     const saved=readAccessPreview();if(!saved)return false;
-    R.state.rules=saved.rules;
-    if(saved.pricing)R.state.pricing=saved.pricing;
+    R.state.rules=saved.rules;    if(saved.pricing)R.state.pricing=saved.pricing;
     try{R.apply?.()}catch{}
     return true;
   }
@@ -16682,8 +16981,7 @@ html[data-ovyx-mode="light"] #header-ai-heartbeat,html[data-ovyx-mode="light"] #
       for(const provider of order){try{const r=await base({...payload,provider:provider==='automatic'?undefined:provider,requestedProvider:requested,failoverAttempt:provider!==order[0]});return {...(r||{}),requestedProvider:requested,routedProvider:r?.provider||provider,failoverUsed:provider!==order[0]}}catch(e){last=e}}
       throw last||Error('No configured AI provider is available.');
     };
-    A.__ovyxFinalRouting=true;
-  }
+    A.__ovyxFinalRouting=true;  }
   function mountGemini(){
     const box=$('v59-home-composer');if(!box)return;
     const rings=[...box.querySelectorAll('.ovyx-final-gemini-ring')];
