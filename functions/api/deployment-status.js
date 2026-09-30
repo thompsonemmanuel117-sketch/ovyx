@@ -1,5 +1,4 @@
 import { resolveEntitlements } from './entitlements.js';
-import { getFirestoreData } from '../../_lib/firebase-admin.js';
 
 const JSON_HEADERS = {
   'Content-Type': 'application/json; charset=utf-8',

@@ -1,7 +1,7 @@
 'use strict';
 
-import { getFirestoreData } from '../../_lib/firebase-admin.js';
-import { isRootUser } from '../../_lib/brain/registry.js';
+import { getFirestoreData } from '../_lib/firebase-admin.js';
+import { isRootUser } from '../_lib/brain/registry.js';
 
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 
@@ -22,7 +22,7 @@ const DEFAULT_FREE_CAPABILITIES = Object.freeze({
   gameStudio: false,
   aiGeneration: false,
   github: false,
-  cloudflareDeploy: false,
+  cloudflareDeploy: true,
   teamWorkspace: false
 });
 
