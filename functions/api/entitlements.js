@@ -22,7 +22,7 @@ const DEFAULT_FREE_CAPABILITIES = Object.freeze({
   gameStudio: false,
   aiGeneration: false,
   github: false,
-  cloudflareDeploy: false,
+  cloudflareDeploy: true,
   teamWorkspace: false
 });
 
