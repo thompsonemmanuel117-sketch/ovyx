@@ -56,7 +56,7 @@ if (fs.existsSync(html)) {
   if (!/id="app-sidebar"/i.test(text) || !/id="mobile-drawer"/i.test(text)) errors.push('index.html: main navigation shell is missing');
   if (/Agent is starting/i.test(text)) errors.push('index.html: stale Web Studio agent-starting copy detected');
 
-  const inlineScripts = [...text.matchAll(/<script(?:\\s[^>]*)?>([\\s\\S]*?)<\\/script>/gi)];
+  const inlineScripts = [...text.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)];
   inlineScripts.forEach((match, index) => {
     const body = String(match[1] || '').trim();
     if (!body || /^<!--/.test(body)) return;
