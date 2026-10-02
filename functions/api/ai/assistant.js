@@ -62,9 +62,9 @@ export async function onRequestPost(context) {
 
     if (!messages.length) {
       return errorResponse(
-        'AI prompt is required.',
         400,
-        'PROMPT_REQUIRED'
+        'PROMPT_REQUIRED',
+        'AI prompt is required.'
       );
     }
 
@@ -156,9 +156,9 @@ When discussing project changes, distinguish recommendations from changes actual
     });
   } catch (err) {
     return errorResponse(
-      err.message || 'Assistant unavailable.',
       err.status || 500,
-      err.code || 'AI_ASSISTANT_FAILED'
+      err.code || 'AI_ASSISTANT_FAILED',
+      err.message || 'Assistant unavailable.'
     );
   }
 }
