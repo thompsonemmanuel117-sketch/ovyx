@@ -285,7 +285,7 @@ async function callDeepSeek(env, input) {
     'deepseek',
     'DEEPSEEK_API_KEY',
     'https://api.deepseek.com',
-    'deepseek-chat'
+    'deepseek-flash'
   );
 }
 
