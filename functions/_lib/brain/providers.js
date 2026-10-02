@@ -123,7 +123,7 @@ function extractText(provider, payload) {
 async function callGemini(env, input) {
   const key = requiredSecret(env, 'GEMINI_API_KEY');
 
-  const model = clean(input.model) || 'gemini-2.5-flash';
+  const model = clean(input.model) || 'gemini-3.8-flash';
 
   const url =
     'https://generativelanguage.googleapis.com/v1beta/models/' +
@@ -182,7 +182,7 @@ async function callClaude(env, input) {
   const key = requiredSecret(env, 'ANTHROPIC_API_KEY');
 
   const model =
-    clean(input.model) || 'claude-3-5-sonnet-latest';
+    clean(input.model) || 'claude-sonnet-4-6';
 
   const payload = await requestJson(
     'https://api.anthropic.com/v1/messages',
@@ -285,7 +285,7 @@ async function callDeepSeek(env, input) {
     'deepseek',
     'DEEPSEEK_API_KEY',
     'https://api.deepseek.com',
-    'deepseek-chat'
+    'deepseek-flash'
   );
 }
 

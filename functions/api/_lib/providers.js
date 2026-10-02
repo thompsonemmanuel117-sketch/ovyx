@@ -1,299 +1,138 @@
-// functions/api/_lib/providers.js
+'use strict';
 
-export const PROVIDER_ENV_KEYS = {
-    deepseek: 'DEEPSEEK_API_KEY',
-    gemini: 'GEMINI_API_KEY',
-    openai: 'OPENAI_API_KEY',
-    anthropic: 'ANTHROPIC_API_KEY',
-    groq: 'GROQ_API_KEY',
-};
+import { generate } from '../../_lib/brain/providers.js';
 
-// Precise Token and Cost Allocation Configurations Matrix
-export const PROVIDER_METRICS_MATRIX = {
-    deepseek: { model: 'deepseek-chat', costPerKInput: 0.00014, costPerKOutput: 0.00028 },
-    openai: { model: 'gpt-4o-mini', costPerKInput: 0.00015, costPerKOutput: 0.00060 },
-    groq: { model: 'llama-3.3-70b-versatile', costPerKInput: 0.00059, costPerKOutput: 0.00079 },
-    gemini: { model: 'gemini-3.8-flash', costPerKInput: 0.000075, costPerKOutput: 0.00030 },
-    anthropic: { model: 'claude-3-5-haiku-20241022', costPerKInput: 0.00080, costPerKOutput: 0.00400 }
-};
+export const PROVIDER_ENV_KEYS = Object.freeze({
+  deepseek: 'DEEPSEEK_API_KEY',
+  gemini: 'GEMINI_API_KEY',
+  openai: 'OPENAI_API_KEY',
+  anthropic: 'ANTHROPIC_API_KEY',
+});
+
+const PROVIDER_ALIASES = Object.freeze({
+  anthropic: 'claude',
+  claude: 'claude',
+  deepseek: 'deepseek',
+  gemini: 'gemini',
+  openai: 'openai',
+});
+
+const DEFAULT_ORDER = Object.freeze(['gemini', 'deepseek', 'openai', 'claude']);
+
+function clean(value) {
+  return String(value ?? '').trim();
+}
+
+function canonicalProvider(value) {
+  return PROVIDER_ALIASES[clean(value).toLowerCase()] || '';
+}
 
 export function getProviderKey(provider, env) {
-    const envName = PROVIDER_ENV_KEYS[provider];
-    if (!envName) return null;
-    return env?.[envName] || null;
+  const canonical = canonicalProvider(provider);
+  const envName = canonical === 'claude'
+    ? 'ANTHROPIC_API_KEY'
+    : PROVIDER_ENV_KEYS[canonical];
+  return envName ? clean(env?.[envName]) || null : null;
 }
 
-// Lightweight character-to-token fallback calculator
-export function calculateTokenConsumption(text) {
-    if (!text) return 0;
-    return Math.ceil(text.length / 4);
+export function providerConfigured(provider, env) {
+  return Boolean(getProviderKey(provider, env));
 }
 
-export async function callProvider(provider, apiKey, message) {
-    if (!apiKey) {
-        throw new Error(`${provider} API key is not configured.`);
+function providerOrder(env, requested) {
+  if (requested && requested !== 'automatic') return [requested];
+
+  const configured = clean(env?.OVYX_AI_PROVIDER_ORDER)
+    .split(',')
+    .map(canonicalProvider)
+    .filter(Boolean);
+
+  return [...new Set([...configured, ...DEFAULT_ORDER])];
+}
+
+function normalizeMessages(input) {
+  if (Array.isArray(input?.messages) && input.messages.length) {
+    return input.messages
+      .filter(Boolean)
+      .map(message => ({
+        role: clean(message.role) === 'assistant' ? 'assistant' : 'user',
+        content: clean(message.content),
+      }))
+      .filter(message => message.content);
+  }
+
+  const user = clean(input?.user || input?.prompt || input?.message);
+  return user ? [{ role: 'user', content: user }] : [];
+}
+
+function isConfigurationError(error) {
+  return error?.code === 'AI_PROVIDER_NOT_CONFIGURED' ||
+    /Missing server secret/i.test(String(error?.message || ''));
+}
+
+export async function callModel(env, input = {}) {
+  const requestedRaw = clean(input.provider || input.requestedProvider).toLowerCase();
+  const requested = requestedRaw === 'automatic' || !requestedRaw
+    ? 'automatic'
+    : canonicalProvider(requestedRaw);
+
+  if (requestedRaw && requestedRaw !== 'automatic' && !requested) {
+    throw Object.assign(
+      new Error(`Unsupported AI provider: ${requestedRaw}.`),
+      { code: 'AI_PROVIDER_UNSUPPORTED', status: 400 }
+    );
+  }
+
+  const messages = normalizeMessages(input);
+  if (!messages.length) {
+    throw Object.assign(
+      new Error('AI prompt is required.'),
+      { code: 'PROMPT_REQUIRED', status: 400 }
+    );
+  }
+
+  const candidates = providerOrder(env, requested);
+  let lastError = null;
+
+  for (const provider of candidates) {
+    if (!providerConfigured(provider, env)) {
+      lastError = Object.assign(
+        new Error(`Provider not configured: ${provider}.`),
+        { code: 'AI_PROVIDER_NOT_CONFIGURED', status: 400 }
+      );
+      if (requested !== 'automatic') throw lastError;
+      continue;
     }
-
-    if (!message || typeof message !== 'string') {
-        throw new Error('Message is required.');
-    }
-
-    const startTime = performance.now();
-    let resultText = '';
-    let usageStats = { inputTokens: 0, outputTokens: 0, estimatedCostUSD: 0 };
-
-    switch (provider) {
-        case 'deepseek':
-            const dsRes = await callDeepSeek(apiKey, message);
-            resultText = dsRes.text;
-            usageStats = dsRes.usage;
-            break;
-
-        case 'openai':
-            const oaRes = await callOpenAI(apiKey, message);
-            resultText = oaRes.text;
-            usageStats = oaRes.usage;
-            break;
-
-        case 'gemini':
-            const gemRes = await callGemini(apiKey, message);
-            resultText = gemRes.text;
-            usageStats = gemRes.usage;
-            break;
-
-        case 'anthropic':
-            const antRes = await callAnthropic(apiKey, message);
-            resultText = antRes.text;
-            usageStats = antRes.usage;
-            break;
-
-        case 'groq':
-            const groqRes = await callGroq(apiKey, message);
-            resultText = groqRes.text;
-            usageStats = groqRes.usage;
-            break;
-
-        default:
-            throw new Error(`Unknown provider: ${provider}`);
-    }
-
-    const latencyTime = (performance.now() - startTime).toFixed(2);
-
-    // Return unified structural architecture object down to the caller
-    return {
-        text: resultText,
-        metrics: {
-            latencyMs: parseFloat(latencyTime),
-            ...usageStats
-        }
-    };
-}
-
-/* ======================================================================
-   DEEPSEEK ENGINE PIPELINE WITH R1/V3 METRICS
-   ====================================================================== */
-async function callDeepSeek(apiKey, message) {
-    const config = PROVIDER_METRICS_MATRIX.deepseek;
-    const response = await fetch('https://deepseek.com', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-            model: config.model,
-            messages: [{ role: 'user', content: message }],
-            max_tokens: 2000,
-        }),
-    });
-
-    return processOpenAICompatiblePayload(response, 'DeepSeek', config);
-}
-
-/* ======================================================================
-   OPENAI PIPELINE ENGINE
-   ====================================================================== */
-async function callOpenAI(apiKey, message) {
-    const config = PROVIDER_METRICS_MATRIX.openai;
-    const response = await fetch('https://openai.com', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-            model: config.model,
-            messages: [{ role: 'user', content: message }],
-            max_tokens: 2000,
-        }),
-    });
-
-    return processOpenAICompatiblePayload(response, 'OpenAI', config);
-}
-
-/* ======================================================================
-   GROQ INFERENCE DECK PIPELINE
-   ====================================================================== */
-async function callGroq(apiKey, message) {
-    const config = PROVIDER_METRICS_MATRIX.groq;
-    const response = await fetch('https://groq.com', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify({
-            model: config.model,
-            messages: [{ role: 'user', content: message }],
-            max_tokens: 2000,
-        }),
-    });
-
-    return processOpenAICompatiblePayload(response, 'Groq', config);
-}
-
-/* ======================================================================
-   GOOGLE GEMINI PIPELINE EXTENDED (GEMINI 3.8 FLASH FOR COMPLEX PIPELINES)
-   ====================================================================== */
-async function callGemini(apiKey, message) {
-    const config = PROVIDER_METRICS_MATRIX.gemini;
-    const url = `https://googleapis.com/${config.model}:generateContent`;
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 45000); // 45 seconds context window limit
 
     try {
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-goog-api-key': apiKey,
-            },
-            body: JSON.stringify({
-                contents: [{ parts: [{ text: message }] }],
-                generationConfig: { maxOutputTokens: 2500 },
-            }),
-            signal: controller.signal,
-        });
+      const result = await generate(env, {
+        provider,
+        model: input.model,
+        messages,
+        system: clean(input.system),
+        temperature: typeof input.temperature === 'number' ? input.temperature : 0.4,
+        maxTokens: Number(input.maxTokens) > 0 ? Number(input.maxTokens) : undefined,
+        timeoutMs: Number(input.timeoutMs) > 0 ? Number(input.timeoutMs) : undefined,
+      });
 
-        const rawText = await response.text();
-        let data = {};
-
-        try {
-            data = rawText ? JSON.parse(rawText) : {};
-        } catch {
-            throw new Error(`Gemini returned an unreadable layout response (HTTP ${response.status}).`);
-        }
-
-        if (!response.ok) {
-            throw new Error(data?.error?.message || `Gemini request validation failed (HTTP ${response.status}).`);
-        }
-
-        const text = data?.candidates?.[0]?.content?.parts?.map(part => part?.text || '').join('').trim();
-        if (!text) {
-            throw new Error('Gemini returned an empty compilation tree payload.');
-        }
-
-        // Calculate dynamic token allocations metrics
-        const inputTokens = calculateTokenConsumption(message);
-        const outputTokens = calculateTokenConsumption(text);
-        const estimatedCostUSD = ((inputTokens / 1000) * config.costPerKInput) + ((outputTokens / 1000) * config.costPerKOutput);
-
-        return {
-            text,
-            usage: { inputTokens, outputTokens, estimatedCostUSD: parseFloat(estimatedCostUSD.toFixed(6)) }
-        };
-
+      return {
+        text: result.text,
+        provider: result.provider,
+        model: result.model,
+        requestedProvider: requestedRaw || 'automatic',
+        routedProvider: result.provider,
+        rawUsage: result.raw?.usage || null,
+        raw: result.raw || null,
+      };
     } catch (error) {
-        if (error?.name === 'AbortError') {
-            throw new Error('Gemini execution requests timed out after 45 seconds boundary gates.');
-        }
-        throw error;
-    } finally {
-        clearTimeout(timeout);
+      lastError = error;
+      if (requested !== 'automatic') throw error;
+      if (!isConfigurationError(error)) continue;
     }
+  }
+
+  throw lastError || Object.assign(
+    new Error('No configured AI provider is available.'),
+    { code: 'AI_PROVIDER_UNAVAILABLE', status: 503 }
+  );
 }
-
-/* ======================================================================
-   ANTHROPIC CLAUDE EDGE PIPELINE
-   ====================================================================== */
-async function callAnthropic(apiKey, message) {
-    const config = PROVIDER_METRICS_MATRIX.anthropic;
-    const response = await fetch('https://anthropic.com', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-            model: config.model,
-            max_tokens: 2000,
-            messages: [{ role: 'user', content: message }],
-        }),
-    });
-
-    const rawText = await response.text();
-    let data = {};
-
-    try {
-        data = rawText ? JSON.parse(rawText) : {};
-    } catch {
-        throw new Error(`Anthropic returned an unreadable response structure (HTTP ${response.status}).`);
-    }
-
-    if (!response.ok) {
-        throw new Error(data?.error?.message || `Anthropic request routing failed (HTTP ${response.status}).`);
-    }
-
-    const text = data?.content?.filter(block => block?.type === 'text')?.map(block => block?.text || '').join('').trim();
-    if (!text) {
-        throw new Error('Anthropic returned an empty synthesis layout token.');
-    }
-
-    const inputTokens = data?.usage?.input_tokens || calculateTokenConsumption(message);
-    const outputTokens = data?.usage?.output_tokens || calculateTokenConsumption(text);
-    const estimatedCostUSD = ((inputTokens / 1000) * config.costPerKInput) + ((outputTokens / 1000) * config.costPerKOutput);
-
-    return {
-        text,
-        usage: { inputTokens, outputTokens, estimatedCostUSD: parseFloat(estimatedCostUSD.toFixed(6)) }
-    };
-}
-
-/* ======================================================================
-   UNIFIED PAYLOAD PARSER HOOK FOR OPENAI COMPATIBLE APIS
-   ====================================================================== */
-async function processOpenAICompatiblePayload(response, providerName, config) {
-    const rawText = await response.text();
-    let data = {};
-
-    try {
-        data = rawText ? JSON.parse(rawText) : {};
-    } catch {
-        throw new Error(`${providerName} returned an unreadable JSON matrix payload (HTTP ${response.status}).`);
-    }
-
-    if (!response.ok) {
-        throw new Error(data?.error?.message ||
-            data?.message || `${providerName} gateway isolate connection error (HTTP ${response.status}).`);
-    }
-
-    const text = data?.choices?.[0]?.message?.content;
-    if (!text) {
-        throw new Error(`${providerName} returned an empty processing thread element.`);
-    }
-
-    const inputTokens = data?.usage?.prompt_tokens || calculateTokenConsumption(data?.choices?.[0]?.message?.content || "");
-    const outputTokens = data?.usage?.completion_tokens || calculateTokenConsumption(text);
-
-    const estimatedCostUSD = ((inputTokens / 1000) * config.costPerKInput) + ((outputTokens / 1000) * config.costPerKOutput);
-
-    return {
-        text,
-        usage: {
-            inputTokens,
-            outputTokens,
-            estimatedCostUSD: parseFloat(estimatedCostUSD.toFixed(6))
-        }
-    };
-        }
