@@ -45,9 +45,9 @@ export async function onRequestPost(context) {
       ).trim()
     ) {
       return errorResponse(
-        'AI prompt is required.',
         400,
-        'PROMPT_REQUIRED'
+        'PROMPT_REQUIRED',
+        'AI prompt is required.'
       );
     }
 
@@ -132,10 +132,9 @@ export async function onRequestPost(context) {
     });
   } catch (err) {
     return errorResponse(
-      err.message ||
-        'AI gateway unavailable.',
       err.status || 500,
-      err.code || 'AI_GATEWAY_FAILED'
+      err.code || 'AI_GATEWAY_FAILED',
+      err.message || 'AI gateway unavailable.'
     );
   }
       }
