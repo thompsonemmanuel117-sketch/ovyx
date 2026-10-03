@@ -74,6 +74,11 @@ function normalizeProfile(profile = {}) {
     changed = true;
   }
 
+  if (profile.booster_tokens === undefined || profile.booster_tokens === null) {
+    next.booster_tokens = 0;
+    changed = true;
+  }
+
   if (profile.daily_prompts_allowance === undefined || profile.daily_prompts_allowance === null) {
     next.daily_prompts_allowance = limits.daily;
     changed = true;
@@ -110,6 +115,10 @@ function normalizeProfile(profile = {}) {
     0,
     Number.parseInt(next.current_monthly_tokens, 10) || 0
   );
+  next.booster_tokens = Math.max(
+    0,
+    Number.parseInt(next.booster_tokens, 10) || 0
+  );
   next.daily_prompts_allowance = Math.max(
     0,
     Number.parseInt(next.daily_prompts_allowance, 10) || 0
@@ -121,6 +130,7 @@ function normalizeProfile(profile = {}) {
   }
 
   if (profile.current_monthly_tokens !== next.current_monthly_tokens) changed = true;
+  if (profile.booster_tokens !== next.booster_tokens) changed = true;
   if (profile.daily_prompts_allowance !== next.daily_prompts_allowance) changed = true;
   if (profile.is_monthly_exhausted !== next.is_monthly_exhausted) changed = true;
   if (profile._ovyxQuotaDayKey !== next._ovyxQuotaDayKey) changed = true;
@@ -142,14 +152,18 @@ function quotaState(profile, tier, limits) {
   const daily = Math.max(0, Number.parseInt(profile.daily_prompts_allowance, 10) || 0);
   const exhausted = Boolean(profile.is_monthly_exhausted) || monthly <= 0;
 
+  const boosterTokens = Math.max(0, Number.parseInt(profile.booster_tokens, 10) || 0);
+  const mode = exhausted ? (boosterTokens > 0 ? 'booster' : 'daily') : 'monthly';
+
   return {
     plan: tier,
     monthlyLimit: limits.monthly,
     dailyLimit: limits.daily,
     current_monthly_tokens: monthly,
+    boosterTokens,
     daily_prompts_allowance: daily,
     is_monthly_exhausted: exhausted,
-    mode: exhausted ? 'daily' : 'monthly',
+    mode,
   };
 }
 
@@ -171,6 +185,7 @@ async function ensureProfile(env, uid, user) {
       displayName: normalized.profile.displayName || null,
       planTier: normalizeTier(existing.planTier || existing.plan || 'free'),
       current_monthly_tokens: normalized.profile.current_monthly_tokens,
+      booster_tokens: normalized.profile.booster_tokens,
       daily_prompts_allowance: normalized.profile.daily_prompts_allowance,
       is_monthly_exhausted: normalized.profile.is_monthly_exhausted,
       _ovyxQuotaTier: normalized.profile._ovyxQuotaTier,
@@ -189,6 +204,7 @@ async function ensureProfile(env, uid, user) {
       uid,
       {
         current_monthly_tokens: normalized.profile.current_monthly_tokens,
+        booster_tokens: normalized.profile.booster_tokens,
         daily_prompts_allowance: normalized.profile.daily_prompts_allowance,
         is_monthly_exhausted: normalized.profile.is_monthly_exhausted,
         _ovyxQuotaTier: normalized.profile._ovyxQuotaTier,
@@ -219,6 +235,7 @@ export async function getQuotaState(env, user) {
       current_monthly_tokens: limits.monthly,
       daily_prompts_allowance: limits.daily,
       is_monthly_exhausted: false,
+      boosterTokens: 0,
       mode: 'bypass',
       bypass: true,
     };
@@ -291,6 +308,7 @@ export async function beginAIQuota(env, user) {
           displayName: profile.displayName || user?.name || null,
           planTier: normalized.tier,
           current_monthly_tokens: normalized.profile.current_monthly_tokens,
+          booster_tokens: normalized.profile.booster_tokens,
           daily_prompts_allowance: normalized.profile.daily_prompts_allowance,
           is_monthly_exhausted: normalized.profile.is_monthly_exhausted,
           _ovyxQuotaTier: normalized.profile._ovyxQuotaTier,
@@ -328,6 +346,18 @@ export async function beginAIQuota(env, user) {
       return {
         uid,
         mode: 'monthly',
+        plan: normalized.tier,
+        monthlyLimit: normalized.limits.monthly,
+        dailyLimit: normalized.limits.daily,
+        bypass: false,
+        reservedDailyPrompt: false,
+      };
+    }
+
+    if (current.boosterTokens > 0) {
+      return {
+        uid,
+        mode: 'booster',
         plan: normalized.tier,
         monthlyLimit: normalized.limits.monthly,
         dailyLimit: normalized.limits.daily,
@@ -426,7 +456,7 @@ export function calculateTokenUsage(rawUsage, inputText = '', outputText = '') {
 }
 
 export async function finalizeAIQuota(env, reservation, rawUsage, inputText, outputText) {
-  if (!reservation || reservation.bypass || reservation.mode !== 'monthly') {
+  if (!reservation || reservation.bypass) {
     return getQuotaState(env, { uid: reservation?.uid });
   }
 
@@ -438,19 +468,17 @@ export async function finalizeAIQuota(env, reservation, rawUsage, inputText, out
     const doc = await getFirestoreDocument(env, 'users', uid);
     if (!doc) {
       const profile = await ensureProfile(env, uid, { uid });
-      const current = Number(profile.current_monthly_tokens) || 0;
-      const next = Math.max(0, current - cost);
-      await setFirestoreDocument(env, 'users', uid, {
-        current_monthly_tokens: next,
-        is_monthly_exhausted: next <= 0,
-      }, { merge: true });
       return getQuotaState(env, { uid });
     }
 
     const profile = (await getFirestoreData(env, 'users', uid)) || {};
     const normalized = normalizeProfile(profile);
     const current = Math.max(0, Number(normalized.profile.current_monthly_tokens) || 0);
-    const next = Math.max(0, current - cost);
+    const booster = Math.max(0, Number(normalized.profile.booster_tokens) || 0);
+    const monthlySpend = Math.min(current, cost);
+    const boosterSpend = Math.max(0, cost - monthlySpend);
+    const next = Math.max(0, current - monthlySpend);
+    const nextBooster = Math.max(0, booster - boosterSpend);
     const nextExhausted = next <= 0;
 
     try {
@@ -460,6 +488,7 @@ export async function finalizeAIQuota(env, reservation, rawUsage, inputText, out
         uid,
         {
           current_monthly_tokens: next,
+          booster_tokens: nextBooster,
           is_monthly_exhausted: nextExhausted,
           _ovyxQuotaTier: normalized.tier,
           _ovyxQuotaDayKey: normalized.profile._ovyxQuotaDayKey,
