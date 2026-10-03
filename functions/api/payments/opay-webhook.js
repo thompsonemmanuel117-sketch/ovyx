@@ -20,6 +20,7 @@ function response(body,status=200){return new Response(JSON.stringify(body),{sta
 async function fulfill(env,record,user,product,provider){
   const doc=await getFirestoreDocument(env,'users',user.uid);
   const profile=doc?(await getFirestoreData(env,'users',user.uid)||{}):{};
+  if(String(profile.lastPaymentReference||'')===String(record.orderNo||''))return;
   const now=new Date().toISOString();
   const base={paymentFulfillment:{reference:record.orderNo,providerTransactionId:provider.transactionId||'',fulfilledAt:now}};
   if(product.kind==='subscription'){
