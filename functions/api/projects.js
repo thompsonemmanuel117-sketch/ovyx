@@ -56,7 +56,17 @@ export async function onRequest(context){
       const existing=existingDoc?await getFirestoreDataAtPath(context.env,['users',email,'projects',pid]):null;
       if(existing && (clean(existing.ownerUid)!==uid||clean(existing.ownerEmail).toLowerCase()!==email))throw Object.assign(new Error('Project ownership conflict.'),{status:409,code:'PROJECT_OWNERSHIP_CONFLICT'});
       const now=new Date().toISOString();
-      const stored={...project,id:pid,ownerUid:uid,ownerEmail:email,createdAt:existing?.createdAt||now,updatedAt:now};
+      const brandProfile=await getFirestoreDataAtPath(context.env,['users',email,'brand_profile']).catch(()=>null);
+      const stored={
+        ...project,
+        id:pid,
+        ownerUid:uid,
+        ownerEmail:email,
+        brandProfileVersion:Number(brandProfile?.version||0)||0,
+        brandProfileUpdatedAt:brandProfile?.updatedAt||null,
+        createdAt:existing?.createdAt||now,
+        updatedAt:now
+      };
       await setFirestoreDocumentAtPath(context.env,['users',email,'projects',pid],stored,{merge:false,expectedUpdateTime:existingDoc?.updateTime||null});
       return jsonResponse({ok:true,project:{...stored}},200,{'X-OVYX-Request-ID':id});
     }
