@@ -7,6 +7,7 @@ import {
   getFirestoreData,
   setFirestoreDocument
 } from './firebase-admin.js';
+import { syncTierQuota } from './token-quota.js';
 
 export const SUBSCRIPTION_STATES = Object.freeze([
   'trialing',
@@ -440,6 +441,10 @@ export async function applySubscriptionEvent(
     update,
     { merge: true }
   );
+
+  if (nextTier !== currentTier) {
+    await syncTierQuota(env, event.uid, nextTier);
+  }
 
   console.log(
     JSON.stringify({
