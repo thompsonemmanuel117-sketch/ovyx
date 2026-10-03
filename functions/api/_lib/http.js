@@ -25,6 +25,37 @@ export function jsonResponse(payload, status = 200, extraHeaders = {}) {
   });
 }
 
+export async function readJson(request, maxBytes = 512_000) {
+  const contentLength = Number(request?.headers?.get('content-length') || 0);
+
+  if (contentLength && contentLength > maxBytes) {
+    throw Object.assign(
+      new Error(`Request body exceeds ${maxBytes} bytes.`),
+      { status: 413, code: 'BODY_TOO_LARGE' }
+    );
+  }
+
+  const text = await request.text();
+
+  if (new TextEncoder().encode(text).byteLength > maxBytes) {
+    throw Object.assign(
+      new Error(`Request body exceeds ${maxBytes} bytes.`),
+      { status: 413, code: 'BODY_TOO_LARGE' }
+    );
+  }
+
+  if (!text.trim()) return {};
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw Object.assign(
+      new Error('Request body must be valid JSON.'),
+      { status: 400, code: 'INVALID_JSON' }
+    );
+  }
+}
+
 export function errorResponse(status, code, message, requestId) {
   return jsonResponse(
     {
