@@ -74,7 +74,7 @@ export async function onRequestPost(context) {
 
     if (!appName) throw Object.assign(new Error('App display name is required.'), { status: 400, code: 'APP_NAME_REQUIRED' });
     if (!platforms.length) throw Object.assign(new Error('Select at least one build platform.'), { status: 400, code: 'PLATFORM_REQUIRED' });
-    if (!/^data:image/png;base64,[A-Za-z0-9+/=]+$/i.test(iconDataUrl)) {
+    if (!String(iconDataUrl).toLowerCase().startsWith('data:image/png;base64,') || !/^[A-Za-z0-9+/=]+$/.test(String(iconDataUrl).slice('data:image/png;base64,'.length))) {
       throw Object.assign(new Error('A PNG app icon is required.'), { status: 400, code: 'PNG_ICON_REQUIRED' });
     }
     if (!payload || typeof payload !== 'object') {
