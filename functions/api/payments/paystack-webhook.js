@@ -18,8 +18,12 @@ async function fulfill(env,record,user,product,provider){
   const doc=await fb.getFirestoreDocument(env,'users',user.uid);
   const profile=doc?(await fb.getFirestoreData(env,'users',user.uid)||{}):{};
   if(String(profile.lastPaymentReference||'')===String(record.orderNo||''))return;
-  const now=new Date().toISOString();
+  const nowDate=new Date();
+  const now=nowDate.toISOString();
   if(product.kind==='subscription'){
+    const existingExpiry=Date.parse(String(profile.expiresAt||''));
+    const base=Number.isFinite(existingExpiry)&&existingExpiry>nowDate.getTime()?existingExpiry:nowDate.getTime();
+    const expiresAt=new Date(base+30*24*60*60*1000).toISOString();
     await fb.setFirestoreDocumentIfCurrent(env,'users',user.uid,{
       paymentFulfillment:{reference:record.orderNo,providerTransactionId:provider.id?String(provider.id):'',fulfilledAt:now},
       planTier:product.tier,
@@ -33,6 +37,8 @@ async function fulfill(env,record,user,product,provider){
       paymentCurrency:'USD',
       paymentAmount:record.amount,
       paidAt:now,
+      expiresAt,
+      subscriptionActivatedAt:profile.subscriptionActivatedAt||now,
       lastPaymentAt:now,
       lastPaymentReference:record.orderNo,
       updatedAt:now
