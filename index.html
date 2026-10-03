@@ -19365,11 +19365,25 @@ async function sync(){const u=user();if(!u){serverQuota=null;render();return nul
 function user(){return window.firebase?.auth?.().currentUser||null}
 function modal(){let m=$('ovyx-daily-ration-modal');if(m)return m;m=document.createElement('div');m.id='ovyx-daily-ration-modal';m.className='ovyx-daily-ration-backdrop';m.hidden=true;m.innerHTML='<div class="ovyx-daily-ration-card" role="dialog" aria-modal="true"><div class="ovyx-daily-ration-kicker">DAILY RATION MODE</div><h2>Monthly allocation exhausted</h2><p>You have consumed your daily prompt ration. Please wait until midnight for your daily allocation reset or upgrade your subscription tier.</p><button type="button" data-close-ration>Close</button></div>';document.body.appendChild(m);m.addEventListener('click',e=>{if(e.target===m||e.target.closest('[data-close-ration]'))m.hidden=true});return m}
 function showBlock(){modal().hidden=false}
+function patchQuotaFetch(){
+ if(window.__OVYX_QUOTA_FETCH_GUARD__)return;window.__OVYX_QUOTA_FETCH_GUARD__=true;
+ const nativeFetch=window.fetch.bind(window);
+ window.fetch=async function(input,init){
+   const response=await nativeFetch(input,init);
+   try{
+     if(response.status===429){
+       const body=await response.clone().json().catch(()=>({}));
+       if(String(body?.code||body?.error?.code||'').toUpperCase()==='DAILY_RATION_EXHAUSTED'){showBlock();}
+     }
+   }catch(_){}
+   return response;
+ }
+}
 function patchAI(){const A=window.OVYXAIService;if(!A||A.__OVYX_QUOTA_FINAL)return;const old=A.generate?.bind(A);if(!old)return;A.generate=async function(payload){try{const result=await old(payload);if(result?.quota)apply(result.quota);else sync();return result}catch(error){if(String(error?.code||'').toUpperCase()==='DAILY_RATION_EXHAUSTED'||String(error?.message||'').includes('You have consumed your daily prompt ration.')){showBlock();await sync()}throw error}};A.__OVYX_QUOTA_FINAL=true}
 function patchDelete(){const b=$('profile-delete-action');if(!b||b.dataset.ovyxDeleteV2==='1')return;const x=b.cloneNode(true);x.dataset.ovyxDeleteV2='1';b.replaceWith(x);x.addEventListener('click',async()=>{if(!confirm('Delete your OVYX account? This is irreversible and removes your OVYX cloud project data.'))return;const u=user();if(!u)return; x.disabled=true;try{const tr=await u.getIdTokenResult(true),authTime=Number(tr?.claims?.auth_time||0);if(!authTime||Date.now()/1000-authTime>600)throw Object.assign(new Error('For security, sign in again before deleting your account.'),{code:'auth/requires-recent-login'});const token=await u.getIdToken(false),r=await fetch('/api/account/delete',{method:'POST',cache:'no-store',credentials:'same-origin',headers:{Authorization:'Bearer '+token,'X-OVYX-Account-Deletion':'CONFIRM',Accept:'application/json'}}),d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d?.error||'Cloud account cleanup failed.');await u.delete();try{await auth()?.signOut()}catch(_){ }try{localStorage.clear()}catch(_){ }try{sessionStorage.clear()}catch(_){ }window.OVYXServerQuota=null;sync();window.OVYXMasterAuth?.openAuth();setLive();}catch(error){try{window.showToast?.(error?.message||'Account deletion failed.','error')}catch(_){ }x.disabled=false}})}
 function auth(){return window.firebase?.auth?.()}
 function setLive(){try{window.MasterProductionSwitch&&(window.MasterProductionSwitch.isLive=false,window.MasterProductionSwitch.renderUI?.());localStorage.setItem('ovyx_master_production_live','false')}catch(_){ }document.documentElement.dataset.ovyxRuntimeState='locked'}
-function install(){render();patchAI();patchDelete();sync()}
+function install(){patchQuotaFetch();render();patchAI();patchDelete();sync()}
 document.addEventListener('firebase-auth-state-ready',e=>{patchDelete();if(e?.detail?.user)sync();else{serverQuota=null;render()}},{passive:true});
 document.addEventListener('ovyx:view-changed',()=>setTimeout(install,0),{passive:true});
 setInterval(()=>{patchAI();patchDelete()},1200);setInterval(sync,60000);setTimeout(install,300);
