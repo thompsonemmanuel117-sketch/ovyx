@@ -4,7 +4,7 @@ const { createHmac } = require('node:crypto');
 const { getFirestoreDocument, getFirestoreData, setFirestoreDocumentIfCurrent } = require('../../_lib/firebase-admin.js');
 const { findUserByExactEmail } = require('../_lib/firebase-query.js');
 const { queryCashierPayment } = require('../_lib/payments/opay-cashier.js');
-const { QUOTA_PLANS, initializeQuotaProfile } = require('../../_lib/token-quota.js');
+const { initializeQuotaProfile } = require('../../_lib/token-quota.js');
 const { ngnProduct } = require('../_lib/payments/catalog.js');
 
 function clean(v){return String(v??'').trim();}
@@ -29,9 +29,9 @@ async function fulfill(env,record,user,product,provider){
   }else{
     for(let attempt=0;attempt<5;attempt++){
       const currentDoc=await getFirestoreDocument(env,'users',user.uid);const current=currentDoc?(await getFirestoreData(env,'users',user.uid)||{}):{};
-      const currentTokens=Math.max(0,Number(current.current_monthly_tokens)||0);
+      const currentTokens=Math.max(0,Number(current.booster_tokens)||0);
       const nextTokens=currentTokens+product.tokens;
-      const updated=await setFirestoreDocumentIfCurrent(env,'users',user.uid,{...base,current_monthly_tokens:nextTokens,is_monthly_exhausted:false,lastTokenBoosterId:product.id,lastTokenBoosterTokens:product.tokens,lastPaymentReference:record.orderNo,lastPaymentAmount:record.amount,lastPaymentCurrency:'NGN'},currentDoc?.updateTime).catch(e=>e);
+      const updated=await setFirestoreDocumentIfCurrent(env,'users',user.uid,{...base,booster_tokens:nextTokens,lastTokenBoosterId:product.id,lastTokenBoosterTokens:product.tokens,lastPaymentReference:record.orderNo,lastPaymentAmount:record.amount,lastPaymentCurrency:'NGN'},currentDoc?.updateTime).catch(e=>e);
       if(updated?.status===409||updated?.code==='FIRESTORE_PRECONDITION_FAILED')continue;
       if(updated instanceof Error)throw updated;
       return;
