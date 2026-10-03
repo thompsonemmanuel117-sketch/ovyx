@@ -28,37 +28,27 @@ jobs:
     name: Build Android APK
     type: build
     environment: preview
+    env:
+      OVYX_MOBILE_JOB_ID: ${{ inputs.job_id }}
+      OVYX_MOBILE_PAYLOAD_EXPIRES: ${{ inputs.payload_expires }}
+      OVYX_APP_DISPLAY_NAME: ${{ inputs.display_name }}
+      OVYX_APP_SLUG: ${{ inputs.project_slug }}
     params:
       platform: android
       profile: preview
       message: OVYX_BUILD_JOB:${{ inputs.job_id }}
-    hooks:
-      before_install_node_modules:
-        - name: Prepare OVYX web payload
-          run: |
-            export OVYX_MOBILE_JOB_ID='${{ inputs.job_id }}'
-            export OVYX_MOBILE_PAYLOAD_EXPIRES='${{ inputs.payload_expires }}'
-            export OVYX_MOBILE_BUILD_PAYLOAD_SECRET="$OVYX_MOBILE_BUILD_PAYLOAD_SECRET"
-            export OVYX_APP_DISPLAY_NAME='${{ inputs.display_name }}'
-            export OVYX_APP_SLUG='${{ inputs.project_slug }}'
-            node scripts/prepare-ovyx-build.mjs
 
   build_ios:
     if: ${{ contains(inputs.platforms, 'ios') }}
     name: Build Apple iOS IPA
     type: build
     environment: preview
+    env:
+      OVYX_MOBILE_JOB_ID: ${{ inputs.job_id }}
+      OVYX_MOBILE_PAYLOAD_EXPIRES: ${{ inputs.payload_expires }}
+      OVYX_APP_DISPLAY_NAME: ${{ inputs.display_name }}
+      OVYX_APP_SLUG: ${{ inputs.project_slug }}
     params:
       platform: ios
       profile: preview
       message: OVYX_BUILD_JOB:${{ inputs.job_id }}
-    hooks:
-      before_install_node_modules:
-        - name: Prepare OVYX web payload
-          run: |
-            export OVYX_MOBILE_JOB_ID='${{ inputs.job_id }}'
-            export OVYX_MOBILE_PAYLOAD_EXPIRES='${{ inputs.payload_expires }}'
-            export OVYX_MOBILE_BUILD_PAYLOAD_SECRET="$OVYX_MOBILE_BUILD_PAYLOAD_SECRET"
-            export OVYX_APP_DISPLAY_NAME='${{ inputs.display_name }}'
-            export OVYX_APP_SLUG='${{ inputs.project_slug }}'
-            node scripts/prepare-ovyx-build.mjs
