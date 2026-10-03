@@ -551,25 +551,21 @@ export async function setFirestoreDocumentIfCurrent(
     `${encodeURIComponent(collection)}/` +
     `${encodeURIComponent(documentId)}`;
 
-  const body = {
-    ...firestoreDocument(data)
-  };
-
-  if (expectedUpdateTime) {
-    body.currentDocument = {
-      updateTime: String(expectedUpdateTime)
-    };
-  }
-
-  const fieldPaths = Object.keys(data || {});
   const params = new URLSearchParams();
-  for (const fieldPath of fieldPaths) {
+  for (const fieldPath of Object.keys(data || {})) {
     params.append('updateMask.fieldPaths', fieldPath);
   }
+  if (expectedUpdateTime) {
+    params.set(
+      'currentDocument.updateTime',
+      String(expectedUpdateTime)
+    );
+  }
 
-  const requestUrl = params.toString()
-    ? `${url}?${params.toString()}`
-    : url;
+  const requestUrl =
+    params.toString()
+      ? `${url}?${params.toString()}`
+      : url;
 
   const response = await fetch(requestUrl, {
     method: 'PATCH',
@@ -577,7 +573,7 @@ export async function setFirestoreDocumentIfCurrent(
       Authorization: `Bearer ${accessToken}`,
       'content-type': 'application/json'
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify(firestoreDocument(data))
   });
 
   if (response.ok) {
@@ -585,11 +581,12 @@ export async function setFirestoreDocumentIfCurrent(
   }
 
   const payload = await response.json().catch(() => ({}));
+
   if (response.status === 409 || response.status === 412) {
     throw Object.assign(
       new Error(
         payload?.error?.message ||
-          'Firestore document changed while this operation was being processed.'
+        'Firestore document changed while this operation was being processed.'
       ),
       {
         status: 409,
@@ -601,80 +598,13 @@ export async function setFirestoreDocumentIfCurrent(
   throw Object.assign(
     new Error(
       payload?.error?.message ||
-        `Firestore conditional write failed (${response.status}).`
+      `Firestore conditional write failed (${response.status}).`
     ),
     {
       status: response.status >= 500 ? 503 : 400,
       code: 'FIRESTORE_CONDITIONAL_WRITE_FAILED'
     }
   );
-}
-
-
-function firestoreDocumentPath(projectId,segments){
-  const clean=Array.isArray(segments)?segments.map(x=>String(x??'').trim()).filter(Boolean):[];
-  if(!clean.length||clean.length%2!==0)throw new Error('Firestore document path must contain collection/document pairs.');
-  return `${firestoreBaseUrl(projectId)}/${clean.map(encodeURIComponent).join('/')}`;
-}
-
-export async function getFirestoreDocumentAtPath(env,segments){
-  const serviceAccount=parseServiceAccount(env);
-  const accessToken=await getGoogleAccessToken(env);
-  const response=await fetch(firestoreDocumentPath(serviceAccount.project_id,segments),{headers:{Authorization:`Bearer ${accessToken}`}});
-  if(response.status===404)return null;
-  if(!response.ok)throw new Error(`Firestore document read failed (${response.status}).`);
-  return response.json();
-}
-
-export async function getFirestoreDataAtPath(env,segments){
-  const document=await getFirestoreDocumentAtPath(env,segments);
-  return document?firestoreDocumentToJs(document):null;
-}
-
-export async function setFirestoreDocumentAtPath(env,segments,data,{merge=true,expectedUpdateTime=null}={}){
-  const serviceAccount=parseServiceAccount(env);
-  const accessToken=await getGoogleAccessToken(env);
-  const url=firestoreDocumentPath(serviceAccount.project_id,segments);
-  const body={...firestoreDocument(data)};
-  if(expectedUpdateTime)body.currentDocument={updateTime:String(expectedUpdateTime)};
-  const params=new URLSearchParams();
-  if(merge)for(const fieldPath of Object.keys(data||{}))params.append('updateMask.fieldPaths',fieldPath);
-  const response=await fetch(params.toString()?`${url}?${params.toString()}`:url,{
-    method:'PATCH',
-    headers:{Authorization:`Bearer ${accessToken}`,'content-type':'application/json'},
-    body:JSON.stringify(body)
-  });
-  if(response.ok)return response.json();
-  const payload=await response.json().catch(()=>({}));
-  if(response.status===409||response.status===412)throw Object.assign(new Error(payload?.error?.message||'Firestore document changed before this write completed.'),{status:409,code:'FIRESTORE_PRECONDITION_FAILED'});
-  throw Object.assign(new Error(payload?.error?.message||`Firestore write failed (${response.status}).`),{status:response.status>=500?503:400,code:'FIRESTORE_WRITE_FAILED'});
-}
-
-
-export async function deleteFirestoreDocumentAtPath(env,segments,expectedUpdateTime=null){
-  const serviceAccount=parseServiceAccount(env);
-  const accessToken=await getGoogleAccessToken(env);
-  const url=firestoreDocumentPath(serviceAccount.project_id,segments);
-  const body=expectedUpdateTime?{currentDocument:{updateTime:String(expectedUpdateTime)}}:null;
-  const response=await fetch(url,{method:'DELETE',headers:{Authorization:`Bearer ${accessToken}`,'content-type':'application/json'},body:body?JSON.stringify(body):undefined});
-  if(response.ok||response.status===404)return true;
-  const payload=await response.json().catch(()=>({}));
-  if(response.status===409||response.status===412)throw Object.assign(new Error(payload?.error?.message||'Firestore delete conflicted with another update.'),{status:409,code:'FIRESTORE_PRECONDITION_FAILED'});
-  throw Object.assign(new Error(payload?.error?.message||`Firestore delete failed (${response.status}).`),{status:response.status>=500?503:400,code:'FIRESTORE_DELETE_FAILED'});
-}
-
-export async function listFirestoreSubcollectionDocuments(env,parentCollection,parentDocumentId,subcollection,pageSize=100){
-  const serviceAccount=parseServiceAccount(env);
-  const accessToken=await getGoogleAccessToken(env);
-  const parent=firestoreDocumentPath(serviceAccount.project_id,[parentCollection,parentDocumentId]);
-  const params=new URLSearchParams({pageSize:String(Math.min(Math.max(Number(pageSize)||100,1),1000))});
-  const response=await fetch(`${parent}/${encodeURIComponent(subcollection)}?${params.toString()}`,{headers:{Authorization:`Bearer ${accessToken}`}});
-  if(!response.ok)throw new Error(`Firestore subcollection list failed (${response.status}).`);
-  const data=await response.json();
-  return (data.documents||[]).map(document=>({
-    id:String(document?.name||'').split('/').pop()||'',
-    data:firestoreDocumentToJs(document)
-  }));
 }
 
 export async function createFirestoreDocument(
@@ -690,4 +620,84 @@ export async function createFirestoreDocument(
     data,
     { merge: false }
   );
+}export async function setFirestoreDocumentAtPath(
+  env,
+  segments,
+  data,
+  { merge = true, expectedUpdateTime = null } = {}
+) {
+  const serviceAccount = parseServiceAccount(env);
+  const accessToken = await getGoogleAccessToken(env);
+  const url = firestoreDocumentPath(
+    serviceAccount.project_id,
+    segments
+  );
+  const params = new URLSearchParams();
+  if (merge) {
+    for (const fieldPath of Object.keys(data || {})) {
+      params.append('updateMask.fieldPaths', fieldPath);
+    }
+  }
+  if (expectedUpdateTime) {
+    params.set('currentDocument.updateTime', String(expectedUpdateTime));
+  }
+  const requestUrl = params.toString()
+    ? `${url}?${params.toString()}`
+    : url;
+  const response = await fetch(requestUrl, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify(firestoreDocument(data))
+  });
+  if (response.ok) return response.json();
+  const payload = await response.json().catch(() => ({}));
+  if (response.status === 409 || response.status === 412) {
+    throw Object.assign(
+      new Error(payload?.error?.message || 'Firestore document changed before this write completed.'),
+      { status: 409, code: 'FIRESTORE_PRECONDITION_FAILED' }
+    );
+  }
+  throw Object.assign(
+    new Error(payload?.error?.message || `Firestore write failed (${response.status}).`),
+    { status: response.status >= 500 ? 503 : 400, code: 'FIRESTORE_WRITE_FAILED' }
+  );
 }
+export async function deleteFirestoreDocumentAtPath(
+  env,
+  segments,
+  expectedUpdateTime = null
+) {
+  const serviceAccount = parseServiceAccount(env);
+  const accessToken = await getGoogleAccessToken(env);
+  const url = firestoreDocumentPath(
+    serviceAccount.project_id,
+    segments
+  );
+  const params = new URLSearchParams();
+  if (expectedUpdateTime) {
+    params.set('currentDocument.updateTime', String(expectedUpdateTime));
+  }
+  const requestUrl = params.toString()
+    ? `${url}?${params.toString()}`
+    : url;
+  const response = await fetch(requestUrl, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${accessToken}` }
+  });
+  if (response.ok || response.status === 404) return true;
+  const payload = await response.json().catch(() => ({}));
+  if (response.status === 409 || response.status === 412) {
+    throw Object.assign(
+      new Error(payload?.error?.message || 'Firestore delete conflicted with another update.'),
+      { status: 409, code: 'FIRESTORE_PRECONDITION_FAILED' }
+    );
+  }
+  throw Object.assign(
+    new Error(payload?.error?.message || `Firestore delete failed (${response.status}).`),
+    { status: response.status >= 500 ? 503 : 400, code: 'FIRESTORE_DELETE_FAILED' }
+  );
+}
+
