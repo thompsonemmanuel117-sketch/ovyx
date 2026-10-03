@@ -113,7 +113,7 @@ export async function onRequestPost(context) {
       status: 'queued',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      payload,
+      payload: brandedPayload,
       iconDataUrl,
       payloadExpiresAt: expires,
       payloadSignature,
