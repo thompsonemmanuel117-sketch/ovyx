@@ -24,7 +24,26 @@ async function fulfill(env,record,user,product,provider){
   const now=new Date().toISOString();
   const base={paymentFulfillment:{reference:record.orderNo,providerTransactionId:provider.transactionId||'',fulfilledAt:now}};
   if(product.kind==='subscription'){
-    await setFirestoreDocumentIfCurrent(env,'users',user.uid,{...base,planTier:product.tier,planTierState:'active',planActivatedAt:now,lastPaymentReference:record.orderNo,lastPaymentAmount:record.amount,lastPaymentCurrency:'NGN'},doc?.updateTime);
+    const paidAt=now;
+    const previousExpiry=Date.parse(String(profile.expiresAt||'')); 
+    const expiresAt=new Date((Number.isFinite(previousExpiry)&&previousExpiry>Date.now()?previousExpiry:Date.now())+30*24*60*60*1000).toISOString();
+    await setFirestoreDocumentIfCurrent(env,'users',user.uid,{...base,
+      planTier:product.tier,
+      planTierState:'active',
+      subscriptionStatus:'active',
+      paymentStatus:'paid',
+      paymentProvider:'opay',
+      paymentReference:record.orderNo,
+      paymentOrderNo:record.orderNo,
+      paymentTransactionId:provider.transactionId||provider.payNo||'',
+      paymentCurrency:'NGN',
+      paymentAmount:record.amount,
+      paidAt,
+      expiresAt,
+      subscriptionActivatedAt:profile.subscriptionActivatedAt||paidAt,
+      lastPaymentAt:paidAt,
+      lastPaymentReference:record.orderNo
+    },doc?.updateTime);
     await initializeQuotaProfile(env,user.uid,product.tier);
   }else{
     for(let attempt=0;attempt<5;attempt++){
