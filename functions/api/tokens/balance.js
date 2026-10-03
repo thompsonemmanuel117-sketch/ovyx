@@ -17,7 +17,7 @@ export async function onRequestGet(context) {
         ok: true,
         ...quota,
         baseRemaining: quota.current_monthly_tokens,
-        boosterTokens: 0,
+        boosterTokens: Number(quota.boosterTokens || 0),
         checkedAt: new Date().toISOString(),
       },
       200,
