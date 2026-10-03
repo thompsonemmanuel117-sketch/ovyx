@@ -7,6 +7,7 @@ import {
 } from '../../_lib/http.js';
 import { callModel } from '../../_lib/providers.js';
 import { WEB_STUDIO_SYSTEM_PROMPT } from '../../_lib/prompts.js';
+import { beginAIQuota, finalizeAIQuota, refundDailyPrompt } from '../../_lib/token-quota.js';
 import {
   saveChatTurn,
   resolveConversationId,
@@ -80,19 +81,35 @@ export async function onRequestPost(context) {
       context.request
     );
 
-    const result = await callModel(
+    const quotaReservation = await beginAIQuota(context.env, user);
+
+    let result;
+    try {
+      result = await callModel(
+        context.env,
+        {
+          provider: String(
+            payload.provider || 'automatic'
+          ).toLowerCase(),
+          model: payload.model,
+          system,
+          user: isWebStudio && projectContext ? combined + '\n\nPROJECT CONTEXT:\n' + projectContext : combined,
+          maxTokens: isWebStudio
+            ? Math.min(Number(payload.maxTokens || 24000), 24000)
+            : Math.min(Number(payload.maxTokens || 4096), 8192),
+        }
+      );
+    } catch (providerError) {
+      await refundDailyPrompt(context.env, quotaReservation);
+      throw providerError;
+    }
+
+    const quota = await finalizeAIQuota(
       context.env,
-      {
-        provider: String(
-          payload.provider || 'automatic'
-        ).toLowerCase(),
-        model: payload.model,
-        system,
-        user: isWebStudio && projectContext ? combined + '\n\nPROJECT CONTEXT:\n' + projectContext : combined,
-        maxTokens: isWebStudio
-          ? Math.min(Number(payload.maxTokens || 24000), 24000)
-          : Math.min(Number(payload.maxTokens || 4096), 8192),
-      }
+      quotaReservation,
+      result.rawUsage || null,
+      isWebStudio && projectContext ? combined + '\n\nPROJECT CONTEXT:\n' + projectContext : combined,
+      result.text || ''
     );
 
     let historySaved = false;
@@ -123,6 +140,7 @@ export async function onRequestPost(context) {
       provider: result.provider,
       model: result.model,
       usage: result.rawUsage || null,
+      quota,
       requestedProvider: result.requestedProvider,
       routedProvider: result.routedProvider,
       conversationId,
