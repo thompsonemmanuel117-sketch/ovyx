@@ -997,8 +997,7 @@ html,body{background:var(--app-bg)!important;color:var(--app-text)!important}
 .bg-amber-950\/20 {
   background-color: color-mix(in srgb, oklch(27.9% 0.077 45.635) 20%, transparent);
   @supports (color: color-mix(in lab, red, red)) {
-    background-color: color-mix(in oklab, var(--color-amber-950) 20%, transparent);
-  }
+    background-color: color-mix(in oklab, var(--color-amber-950) 20%, transparent);  }
 }
 .bg-amber-950\/30 {
   background-color: color-mix(in srgb, oklch(27.9% 0.077 45.635) 30%, transparent);
@@ -1997,8 +1996,7 @@ html,body{background:var(--app-bg)!important;color:var(--app-text)!important}
   syntax: "<color>";
   inherits: false;
   initial-value: #0000;
-}
-@property --tw-gradient-to {
+}@property --tw-gradient-to {
   syntax: "<color>";
   inherits: false;
   initial-value: #0000;
@@ -2990,6 +2988,18 @@ html[data-ovyx-preboot="1"] #view-router-viewport > section{
 <!-- DYNAMIC ROUTED VIEW PANES -->
 <div class="flex-1 overflow-y-auto relative bg-black" id="view-router-viewport">
 <!-- NUMBER 4 · HOME / COMMAND DECK -->
+<section class="ovyx-master-auth-view hidden" id="view-master-auth" aria-label="OVYX Master Sign-In and Workspace Activation" aria-hidden="true">
+  <div class="ovyx-master-auth-shell">
+    <div class="ovyx-master-auth-brand"><div class="ovyx-master-auth-diamond" aria-hidden="true">◇</div><div><div class="ovyx-master-auth-kicker">OVYX / SECURE ENTRY</div><h1>Sign In &amp; Activate Workspace</h1></div></div>
+    <p class="ovyx-master-auth-copy">Authenticate your OVYX account to activate the current workspace session. Private provider keys, GitHub access and native build credentials remain server-side.</p>
+    <form id="ovyx-master-auth-form" class="ovyx-master-auth-card" novalidate>
+      <label><span>Email</span><input id="ovyx-master-auth-email" type="email" autocomplete="email" required placeholder="you@example.com"></label>
+      <label><span>Password</span><input id="ovyx-master-auth-password" type="password" autocomplete="current-password" required placeholder="Your password"></label>
+      <button type="submit" id="ovyx-master-auth-submit">Sign In &amp; Activate Workspace</button>      <div id="ovyx-master-auth-status" class="ovyx-master-auth-status" aria-live="polite">Workspace access is locked until authentication succeeds.</div>
+    </form>
+    <div class="ovyx-master-auth-checks"><span>EDGE GATEWAY</span><span>GITHUB APP</span><span>MOBILE BUILD</span></div>
+  </div>
+</section>
 <section class="ovyx-home-view bg-black" id="view-home" aria-label="OVYX Home Dashboard">
   <div class="v59-dashboard-shell">
     <header class="v59-home-head">
@@ -3984,8 +3994,7 @@ Body: { broadcastId, title, body, category, link }</div>
 </div>
 </div>
 <div class="v34-inbox-toolbar">
-<button class="v34-inbox-filter active" data-inbox-filter="all">All</button>
-<button class="v34-inbox-filter" data-inbox-filter="unread">Unread <span id="v34-inbox-unread-count">0</span></button>
+<button class="v34-inbox-filter active" data-inbox-filter="all">All</button><button class="v34-inbox-filter" data-inbox-filter="unread">Unread <span id="v34-inbox-unread-count">0</span></button>
 <button class="v34-inbox-filter" data-inbox-filter="product">Product</button>
 <button class="v34-inbox-filter" data-inbox-filter="account">Account</button>
 </div>
@@ -4984,8 +4993,7 @@ Body: { broadcastId, title, body, category, link }</div>
             </div>
             <span class="text-[9px] text-zinc-600 font-bold">RTT: ${Math.floor(Math.random() * 25 + 15)}ms</span>
           </div>
-        `).join('');
-      }
+        `).join('');      }
     };
 
     /**
@@ -5483,6 +5491,8 @@ Body: { broadcastId, title, body, category, link }</div>
 #view-appstudio #app-studio-clean-canvas{background:#000!important;inset:0!important;pointer-events:none!important;}
 #view-appstudio .studio-topbar,#view-appstudio .studio-dual-pane,#view-appstudio .studio-prompt-shell,#view-appstudio .studio-thinking,#view-appstudio .studio-viewport-stage,#view-appstudio .app-device-wrap,#view-appstudio .studio-right-pane,#view-appstudio #ovyx-appstudio-screenbar{display:none!important;}
 </style>
+
+
 </body>\n</html>`;
       },
       renderSectionSource(section,index){
@@ -5982,8 +5992,7 @@ Body: { broadcastId, title, body, category, link }</div>
       undo(){if(this.historyPointer<=0)return;this.historyPointer-=1;try{this.graph=JSON.parse(this.historyStack[this.historyPointer]);this.syncGraphToProject();this.render()}catch(_){}},
       redo(){if(this.historyPointer>=this.historyStack.length-1)return;this.historyPointer+=1;try{this.graph=JSON.parse(this.historyStack[this.historyPointer]);this.syncGraphToProject();this.render()}catch(_){}},
       setActivePage(i){const n=Number(i);if(!Number.isInteger(n))return false;const pages=window.KernelState?.activeProject?.pages||[];if(!pages[n])return false;this.activePageIndex=n;this.selectedNodeId=null;this.ensureProjectGraph();this.render();return true},
-      setPageByName(name){const needle=String(name||'').trim().toLowerCase();const idx=(window.KernelState?.activeProject?.pages||[]).findIndex(p=>String(p?.name||p?.slug||'').trim().toLowerCase()===needle);return idx>=0?this.setActivePage(idx):false},
-      addNewPagePrompt(){const name=window.prompt?.('Page name');if(!name?.trim())return;const p=window.KernelState?.activeProject;if(!p)return;const slug=name.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||`page-${p.pages.length+1}`;this.ensureProjectGraph();this.recordHistory();p.pages.push({id:`page_${Date.now()}`,name:name.trim(),slug,sections:[]});this.activePageIndex=p.pages.length-1;this.graph=null;this.ensureProjectGraph();this.syncGraphToProject();this.render()},
+      setPageByName(name){const needle=String(name||'').trim().toLowerCase();const idx=(window.KernelState?.activeProject?.pages||[]).findIndex(p=>String(p?.name||p?.slug||'').trim().toLowerCase()===needle);return idx>=0?this.setActivePage(idx):false},      addNewPagePrompt(){const name=window.prompt?.('Page name');if(!name?.trim())return;const p=window.KernelState?.activeProject;if(!p)return;const slug=name.trim().toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||`page-${p.pages.length+1}`;this.ensureProjectGraph();this.recordHistory();p.pages.push({id:`page_${Date.now()}`,name:name.trim(),slug,sections:[]});this.activePageIndex=p.pages.length-1;this.graph=null;this.ensureProjectGraph();this.syncGraphToProject();this.render()},
       appendSectionDialog(){const p=this.getActivePage();if(!p)return;const heading=window.prompt?.('Section heading');if(!heading?.trim())return;this.ensureProjectGraph();this.recordHistory();p.sections=Array.isArray(p.sections)?p.sections:[];p.sections.push({id:`sec_${Date.now()}`,type:'section',content:{heading:heading.trim(),subheading:'',cta:''},styles:{background:'#ffffff',color:'#101418',padding:'72px 28px'}});this.graph=null;this.ensureProjectGraph();this.syncGraphToProject();this.render()},
       setStyleParam(key,value){const s=this.getActiveSection();if(!s)return;this.recordHistory();s.styles=s.styles||{};s.styles[String(key)]=String(value??'');this.syncGraphToProject();this.render()},
       selectNode(id){this.selectedNodeId=id||null},
@@ -6982,8 +6991,7 @@ const presets={
 function load(k,d){try{return JSON.parse(localStorage.getItem(k)||'null')??d}catch{return d}}
 function save(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch{return false}}
 const ThemeLab={
- state:load(KEY,{active:'obsidian',custom:{name:'My OVYX Theme',bg:'#050505',panel:'#0b0b0c',elev:'#101012',text:'#f5f5f4',secondary:'#9a9aa0',muted:'#606067',accent:'#e8b64f'},customThemes:{}}),
- activeTheme(){if(this.state.active==='custom')return this.state.custom;const a=String(this.state.active||'');if(!this.state.customThemes[a]&&!presets[a]){this.state.active='obsidian';save(KEY,this.state)}return this.state.customThemes[this.state.active]||presets[this.state.active]||presets.obsidian},
+ state:load(KEY,{active:'obsidian',custom:{name:'My OVYX Theme',bg:'#050505',panel:'#0b0b0c',elev:'#101012',text:'#f5f5f4',secondary:'#9a9aa0',muted:'#606067',accent:'#e8b64f'},customThemes:{}}), activeTheme(){if(this.state.active==='custom')return this.state.custom;const a=String(this.state.active||'');if(!this.state.customThemes[a]&&!presets[a]){this.state.active='obsidian';save(KEY,this.state)}return this.state.customThemes[this.state.active]||presets[this.state.active]||presets.obsidian},
  apply(){if(window.ThemeContext?.apply){window.ThemeContext.apply()}const t=this.activeTheme(),r=document.documentElement.style;r.setProperty('--ov-bg',t.bg);r.setProperty('--ov-panel',t.panel);r.setProperty('--ov-elev',t.elev);r.setProperty('--ov-text',t.text);r.setProperty('--ov-secondary',t.secondary);r.setProperty('--ov-muted',t.muted);r.setProperty('--ov-accent',t.accent);r.setProperty('--ov-accent-soft',t.accent+'1a');document.documentElement.style.backgroundColor=t.bg;this.renderState()},
  renderState(){document.querySelectorAll('.ovyx-theme-card').forEach(x=>x.classList.toggle('active',x.dataset.theme===this.state.active));const t=this.activeTheme();document.querySelectorAll('[data-theme-field]').forEach(i=>{const k=i.dataset.themeField;if(i.type==='color')i.value=t[k]||'#000000';else if(i.value!==t[k])i.value=t[k]||''});const n=document.querySelector('[data-theme-name]');if(n&&document.activeElement!==n)n.value=t.name||'My OVYX Theme';const root=document.querySelector('.ovyx-settings-shell');if(root){root.style.setProperty('--custom-bg',t.bg);root.style.setProperty('--custom-panel',t.panel);root.style.setProperty('--custom-text',t.text);root.style.setProperty('--custom-accent',t.accent)}},
  set(id){this.state.active=id;save(KEY,this.state);this.apply();toast('Theme applied and saved.','success')},
@@ -7982,8 +7990,7 @@ button.primary:hover,.ovyx-settings-btn.primary:hover,.ovyx-project-primary:hove
     document.getElementById('v34-broadcast-clear')?.addEventListener('click',()=>{title.value='';body.value='';link.value='';email.checked=false});
     document.getElementById('v34-broadcast-publish')?.addEventListener('click',async()=>{
       const u=window.firebase?.auth?.().currentUser;
-      if(!u||window.OVYXServerOwner?.active!==true)return setStatus(status,'Owner authentication is required.',false);
-      if(!body.value.trim())return setStatus(status,'Write a message before publishing.',false);
+      if(!u||window.OVYXServerOwner?.active!==true)return setStatus(status,'Owner authentication is required.',false);      if(!body.value.trim())return setStatus(status,'Write a message before publishing.',false);
       if(!window.firebase?.firestore)return setStatus(status,'Firestore is not available in this build.',false);
       const btn=document.getElementById('v34-broadcast-publish');btn.disabled=true;btn.textContent='Publishing…';
       try{
@@ -8838,7 +8845,7 @@ function patchDrawer(){
 (function(){
 'use strict';
 const ROOT='#view-router-viewport';
-const ALIASES={help:'faq',code:'workspace','code-workspace':'workspace','web-studio':'webstudio','app-studio':'appstudio',admin:'admin-overview',blueprints:'templates'};
+const ALIASES={help:'faq',code:'workspace','code-workspace':'workspace','web-studio':'webstudio','app-studio':'appstudio','master-sign-in':'master-auth',admin:'admin-overview',blueprints:'templates'};
 const clean=v=>ALIASES[String(v??'home').replace(/^view-/,'').trim().toLowerCase()]||String(v??'home').replace(/^view-/,'').trim().toLowerCase()||'home';
 const root=()=>document.querySelector(ROOT);
 const sections=()=>Array.from(document.querySelectorAll(ROOT+'>section'));
@@ -8982,8 +8989,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   #view-router-viewport>section{height:auto!important;min-height:100dvh!important;max-height:none!important;overflow:visible!important;box-sizing:border-box!important;padding-bottom:160px!important}
   #view-router-viewport>section.hidden{display:none!important}
 
-  /* The dock is a Home dashboard element, never a global navigation bar. */
-  #ovyx-v52-bottom-bar{display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important;transform:translateY(150%)!important}
+  /* The dock is a Home dashboard element, never a global navigation bar. */  #ovyx-v52-bottom-bar{display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important;transform:translateY(150%)!important}
   @media(max-width:767px){
     body[data-ovyx-v57-view="home"][data-ovyx-v57-drawer="closed"][data-ovyx-v57-modal="closed"] #ovyx-v52-bottom-bar{display:grid!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;transform:none!important}
     body[data-ovyx-v57-view]:not([data-ovyx-v57-view="home"]) #ovyx-v52-bottom-bar,
@@ -9982,8 +9988,7 @@ html:not(.ovyx-light) #mobile-drawer .ovyx-mobile-nav-item.active {
   const readSession=()=>{try{const x=JSON.parse(localStorage.getItem(SESSION_KEY)||'{}');return x&&typeof x==='object'?x:{}}catch{return {}}};
   const writeSession=(patch={})=>{try{const current=readSession();localStorage.setItem(SESSION_KEY,JSON.stringify({...current,...patch,savedAt:Date.now()}));return true}catch{return false}};
   const persistRuntimeSession=()=>{
-    try{
-      const state=window.KernelState||{};
+    try{      const state=window.KernelState||{};
       const project=state.activeProject;
       const draft=project?JSON.parse(JSON.stringify(project)):null;
       const route=String(state.activeView||'home');
@@ -10442,6 +10447,9 @@ html[data-ovyx-scale="large"] #app-root textarea{font-size:calc(100% * 1.04)!imp
     };
 
     AC.saveSettings=async function(){
+      if(window.OVYXPlanAdmin?.save){
+        return window.OVYXPlanAdmin.save();
+      }
       try{
         const pricing={
           pro:{ngn:Number(document.getElementById('adm-pro-ngn')?.value||this.pricing.pro.ngn),usd:Number(document.getElementById('adm-pro-usd')?.value||this.pricing.pro.usd)},
@@ -10979,8 +10987,7 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
     const z=window.OVYXAppearance?.get?.();
     const scale=z?.scale||root().dataset.ovyxScale||'balanced';
     const label=scale==='small'?'94%':scale==='large'?'106%':'100%';
-    const el=zoomValue();if(el)el.textContent=label;
-  }
+    const el=zoomValue();if(el)el.textContent=label;  }
   function adjustZoom(direction){
     const current=window.OVYXAppearance?.get?.()?.scale||root().dataset.ovyxScale||'balanced';
     const order=['small','balanced','large'];
@@ -11979,8 +11986,7 @@ html[data-ovyx-mode="light"] body{background:var(--bg)!important;}
 
   const ThemeContext={
     get(){return clone(tempTheme)},
-    getSaved(){return clone(savedTheme)},
-    set(patch){setTemp(patch,'preview')},
+    getSaved(){return clone(savedTheme)},    set(patch){setTemp(patch,'preview')},
     preview(patch){setTemp(patch,'preview')},
     save,
     cancel(){restoreSaved('cancel')},
@@ -12979,10 +12985,17 @@ html[data-ovyx-mode="light"] #view-router-viewport>section[id^="view-admin-"] .v
   async function authToken(){
     const user=window.firebase?.auth?.().currentUser;
     if(!user)throw Object.assign(new Error('Sign in is required for this protected admin operation.'),{code:'AUTH_REQUIRED'});
-    return user.getIdToken(false);
-  }
+    return user.getIdToken(false);  }
 
-  async function adminConfigRequest(){throw Object.assign(new Error('Legacy admin configuration has been retired. Use the private Plan Configuration controls.'),{code:'LEGACY_ADMIN_CONFIG_RETIRED'});}
+  async function adminConfigRequest(action,payload={}){
+    const user=window.firebase?.auth?.().currentUser;
+    if(!user)throw Object.assign(new Error('Sign in is required for this protected admin operation.'),{code:'AUTH_REQUIRED'});
+    const token=await user.getIdToken(true);
+    const r=await fetch('/api/admin/control',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json',Accept:'application/json',Authorization:'Bearer '+token,'X-Request-ID':crypto.randomUUID()},body:JSON.stringify({action,...payload})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok)throw Object.assign(new Error(d?.error||d?.message||'Administrator control update failed.'),{status:r.status,code:d?.code||'ADMIN_CONTROL_FAILED'});
+    return d;
+  }
 
   function toast(message,type='info'){try{window.showToast?.(message,type)}catch(e){console.warn('[OVYX runtime]',e)}}
   function applyConfig(data){
@@ -13134,7 +13147,7 @@ html[data-ovyx-mode="light"] #view-router-viewport>section[id^="view-admin-"] .v
       theme:'ThemeContext',
       adminUiPreview:false,
       backendAdminAuthority:'user_roles|OVYX_ROOT_ADMIN_UID',
-      protectedAdminApi:'/api/admin/plans'
+      protectedAdminApi:'/api/admin/plans/update'
     };
   }
 
@@ -13243,7 +13256,7 @@ function renderRuleList(){
   }).join('')||'<div style="padding:14px;color:#555;font:700 8px JetBrains Mono,monospace">No access rules configured.</div>';
   host.querySelectorAll('[data-ovyx-remove-rule]').forEach(btn=>btn.onclick=async()=>{state.rules.splice(Number(btn.dataset.ovyxRemoveRule),1);renderRuleList();applyBilling();applyLocks();await saveServer();});
 }
-async function apiConfig(){const u=window.firebase?.auth?.().currentUser;if(!u)return null;const token=await u.getIdToken(true);const r=await fetch('/api/admin/plans',{headers:{Accept:'application/json',Authorization:'Bearer '+token},credentials:'same-origin',cache:'no-store'});if(!r.ok)throw new Error('ADMIN_CONFIG_HTTP_'+r.status);return r.json()}
+async function apiConfig(){const u=window.firebase?.auth?.().currentUser;if(!u)return null;const token=await u.getIdToken(true);const r=await fetch('/api/admin/plans/update',{headers:{Accept:'application/json',Authorization:'Bearer '+token},credentials:'same-origin',cache:'no-store'});if(!r.ok)throw new Error('ADMIN_CONFIG_HTTP_'+r.status);return r.json()}
 function readPreviewCatalog(){try{const raw=localStorage.getItem('ovyx.access.preview.v81');if(!raw)return null;const saved=JSON.parse(raw);if(!saved||typeof saved!=='object')return null;return {pricing:saved.pricing,rules:Array.isArray(saved.rules)?saved.rules:[]};}catch(e){return null}}
 async function loadCatalog(){
   const u=window.firebase?.auth?.().currentUser
@@ -13260,7 +13273,7 @@ async function loadCatalog(){
     if(d?.config){state.pricing=d.config.pricing||state.pricing;if(window.AdminConfigurator)window.AdminConfigurator.pricing=state.pricing;syncPricingInputs();state.rules=normalizeRules(d.config.accessRules);applyBilling();applyLocks();renderAdmin();try{localStorage.removeItem('ovyx.access.preview.v81')}catch(e){console.warn('[OVYX runtime]',e)}}
   }catch(e){}
 }
-async function saveServer(){const status=document.getElementById('ovyx-access-registry-status');const previewKey='ovyx.access.preview.v81';const u=window.firebase?.auth?.().currentUser;const persistPreview=()=>{try{localStorage.setItem(previewKey,JSON.stringify({pricing:state.pricing,rules:state.rules,updatedAt:Date.now()}));}catch(e){console.warn('[OVYX runtime]',e)}if(status)status.textContent='Preview saved on this device';applyBilling();applyLocks();renderRuleList();return true};if(!u){return persistPreview();}try{if(status)status.textContent='Saving securely…';const token=await u.getIdToken(true);const r=await fetch('/api/admin/plans',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json',Authorization:'Bearer '+token,'X-Request-ID':crypto.randomUUID()},credentials:'same-origin',body:JSON.stringify({action:'setPlanCatalog',pricing:state.pricing,accessRules:state.rules})});const d=await r.json().catch(()=>({}));if(!r.ok){if(r.status===401||r.status===403)throw Object.assign(new Error(d?.message||d?.error?.message||'Administrator authorization is required to publish this change.'),{status:r.status,code:r.status===403?'ROOT_REQUIRED':'AUTH_REQUIRED'});throw new Error(d?.message||d?.error?.message||'Access and pricing save failed.');}state.rules=normalizeRules(d?.config?.accessRules ?? state.rules);state.pricing=d?.config?.pricing||state.pricing;if(window.AdminConfigurator){window.AdminConfigurator.pricing=state.pricing;}try{localStorage.removeItem(previewKey)}catch(e){console.warn('[OVYX runtime]',e)}syncPricingInputs();if(status)status.textContent='Saved securely to OVYX';applyBilling();applyLocks();renderRuleList();return true}catch(e){if(e?.status===401||e?.status===403||e?.code==='ROOT_REQUIRED'){return persistPreview();}if(status)status.textContent=e.message||'Save failed';toast(e.message||'Access Registry save failed.','error');return false}}
+async function saveServer(){const status=document.getElementById('ovyx-access-registry-status');const previewKey='ovyx.access.preview.v81';const u=window.firebase?.auth?.().currentUser;const persistPreview=()=>{try{localStorage.setItem(previewKey,JSON.stringify({pricing:state.pricing,rules:state.rules,updatedAt:Date.now()}));}catch(e){console.warn('[OVYX runtime]',e)}if(status)status.textContent='Preview saved on this device';applyBilling();applyLocks();renderRuleList();return true};if(!u){return persistPreview();}try{if(status)status.textContent='Saving securely…';const token=await u.getIdToken(true);const r=await fetch('/api/admin/plans/update',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json',Authorization:'Bearer '+token,'X-Request-ID':crypto.randomUUID()},credentials:'same-origin',body:JSON.stringify({action:'setPlanCatalog',pricing:state.pricing,accessRules:state.rules})});const d=await r.json().catch(()=>({}));if(!r.ok){if(r.status===401||r.status===403)throw Object.assign(new Error(d?.message||d?.error?.message||'Administrator authorization is required to publish this change.'),{status:r.status,code:r.status===403?'ROOT_REQUIRED':'AUTH_REQUIRED'});throw new Error(d?.message||d?.error?.message||'Access and pricing save failed.');}state.rules=normalizeRules(d?.config?.accessRules ?? state.rules);state.pricing=d?.config?.pricing||state.pricing;if(window.AdminConfigurator){window.AdminConfigurator.pricing=state.pricing;}try{localStorage.removeItem(previewKey)}catch(e){console.warn('[OVYX runtime]',e)}syncPricingInputs();if(status)status.textContent='Saved securely to OVYX';applyBilling();applyLocks();renderRuleList();return true}catch(e){if(e?.status===401||e?.status===403||e?.code==='ROOT_REQUIRED'){return persistPreview();}if(status)status.textContent=e.message||'Save failed';toast(e.message||'Access Registry save failed.','error');return false}}
 function bridgeLegacyAdminConfigurator(){const A=window.AdminConfigurator;if(!A||A.__ovyxCatalogBridge)return;A.__ovyxCatalogBridge=true;A.saveSettings=async function(){try{return await window.OVYXPlanAdmin?.save?.()}catch{return false}};A.updateLockIcons=function(){};}
 function renderAdmin(){const host=document.getElementById('ovyx-access-registry');if(!host)return;const key=document.getElementById('ovyx-lock-key'),name=document.getElementById('ovyx-lock-name'),type=document.getElementById('ovyx-lock-type'),tier=document.getElementById('ovyx-lock-tier'),selector=document.getElementById('ovyx-lock-selector'),desc=document.getElementById('ovyx-lock-description');if(!host.dataset.bound){host.dataset.bound='1';document.getElementById('ovyx-lock-add')?.addEventListener('click',async()=>{const k=clean(key?.value).toLowerCase().replace(/\s+/g,'-'),n=clean(name?.value),t=clean(type?.value).toLowerCase(),tr=clean(tier?.value).toLowerCase();if(!k||!n)return toast('Enter a resource key and name.','error');state.rules=state.rules.filter(r=>r.key!==k);state.rules.push({key:k,name:n,type:t,tier:tr,enabled:true,selector:clean(selector?.value),description:clean(desc?.value)});[key,name,selector,desc].forEach(el=>{if(el)el.value=''});renderRuleList();applyBilling();applyLocks();await saveServer();});document.getElementById('ovyx-lock-save-all')?.addEventListener('click',saveServer);document.getElementById('ovyx-lock-refresh')?.addEventListener('click',loadCatalog);}renderRuleList();applyBilling();}
 function injectAdminPanel(){return true}
@@ -13415,7 +13428,7 @@ html[data-ovyx-mode="light"] #view-router-viewport>section[id^="view-admin-"]{
       }
       try{
         const token=await u.getIdToken(true);
-        const r=await fetch('/api/admin/plans',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json',Authorization:'Bearer '+token,'X-Request-ID':crypto.randomUUID()},credentials:'same-origin',cache:'no-store',body:JSON.stringify({action:'setPlanCatalog',pricing:R.state.pricing,accessRules:R.state.rules})});
+        const r=await fetch('/api/admin/plans/update',{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json',Authorization:'Bearer '+token,'X-Request-ID':crypto.randomUUID()},credentials:'same-origin',cache:'no-store',body:JSON.stringify({action:'setPlanCatalog',pricing:R.state.pricing,accessRules:R.state.rules})});
         const d=await r.json().catch(()=>({}));
         if(!r.ok){if(r.status===401||r.status===403){try{localStorage.setItem(PREVIEW_KEY,JSON.stringify({pricing:R.state.pricing,rules:R.state.rules,updatedAt:Date.now()}))}catch(e){console.warn('[OVYX runtime]',e)};toast('Saved locally. Administrator authorization is required to publish it.','info');return true;}throw new Error(d?.error?.message||d?.message||'Access save failed.');}
         R.state.rules=(d?.config?.accessRules||R.state.rules);
@@ -13972,7 +13985,6 @@ function renderSimpleAccess(){
         <div class="ovyx-simple-access-actions"><button type="button" class="primary" id="ovyx-easy-add-new">Add & Save</button></div>
       </div>
     </div>
-
     <div class="ovyx-simple-access-note">You do not need to understand UIDs, Firestore, roles, selectors, or server code. OVYX handles that underneath.</div>
 
     <div class="ovyx-simple-access-steps">
@@ -14971,8 +14983,7 @@ window.addEventListener('click',e=>{if(e.target.closest?.('#checkout-elements-mo
     safe(function(){
       var root=document.documentElement;
       var tc=window.ThemeContext;
-      var current=(tc&&typeof tc.get==='function')?tc.get():null;
-      if(!current||typeof current!=='object')return;
+      var current=(tc&&typeof tc.get==='function')?tc.get():null;      if(!current||typeof current!=='object')return;
       var vars={
         '--bg':current.backgroundColor,'--app-bg':current.backgroundColor,'--sidebar':current.sidebarColor||current.backgroundColor,
         '--black-canvas':current.backgroundColor,'--ovyx-canvas':current.backgroundColor,'--ov-bg':current.backgroundColor,
@@ -15254,7 +15265,7 @@ window.OVYXPlanAdmin={};
 async function ownerFetch(url,opts){var u=safe(function(){return window.firebase?.auth?.().currentUser},null);if(!u)throw new Error('OWNER_AUTH_REQUIRED');var h=Object.assign({Accept:'application/json',Authorization:'Bearer '+await u.getIdToken(true)},opts?.headers||{});return fetch(url,Object.assign({credentials:'same-origin',cache:'no-store'},opts||{},{headers:h}))}
 async function loadAdminPlans(){try{var r=await ownerFetch('/api/plans');if(!r.ok)throw new Error('PLANS_'+r.status);var d=await r.json();adminPlanState.pro=(d.features?.pro||[]).map(function(x){return x.id||x.key||x}).filter(Boolean);adminPlanState.max=(d.features?.max||[]).map(function(x){return x.id||x.key||x}).filter(Boolean);adminPricing=d.pricing||adminPricing;var pn=$('adm-pro-ngn'),pu=$('adm-pro-usd'),mn=$('adm-max-ngn'),mu=$('adm-max-usd');if(pn)pn.value=adminPricing.pro.ngn;if(pu)pu.value=adminPricing.pro.usd;if(mn)mn.value=adminPricing.max.ngn;if(mu)mu.value=adminPricing.max.usd;renderAdminPlanControls()}catch(e){console.warn('[OVYX runtime]',e)}}
 function renderAdminPlanControls(){var host=$('ovyx-v655-plan-control');if(!host)return;host.innerHTML='<div class="ovyx-v655-admin-head"><b>PLAN FEATURES</b><small>Choose what Pro and Max include. Plan access is managed securely from this panel.</small></div><div class="ovyx-v655-admin-body"><div class="ovyx-v655-plan-block"><div class="ovyx-v655-plan-title">PRO</div><div class="ovyx-v655-plan-grid">'+PLAN_FEATURES.map(function(x){return '<label><input type="checkbox" data-v655-plan="pro" value="'+x.id+'" '+(adminPlanState.pro.indexOf(x.id)>=0?'checked':'')+'><span>'+esc(x.label)+'</span></label>'}).join('')+'</div></div><div class="ovyx-v655-plan-block"><div class="ovyx-v655-plan-title">MAX</div><div class="ovyx-v655-plan-grid">'+PLAN_FEATURES.map(function(x){return '<label><input type="checkbox" data-v655-plan="max" value="'+x.id+'" '+(adminPlanState.max.indexOf(x.id)>=0?'checked':'')+'><span>'+esc(x.label)+'</span></label>'}).join('')+'</div></div><div style="margin-top:12px"><button class="ovyx-v655-btn" type="button" data-v655-plan-save>Save Plan Configuration</button><span id="ovyx-v655-plan-status" style="margin-left:8px;color:#666;font:600 7px JetBrains Mono,monospace">Server-backed</span></div></div>';q('[data-v655-plan-save]',host).onclick=function(){window.OVYXPlanAdmin.save()}}
-window.OVYXPlanAdmin.save=async function(){var st=$('ovyx-v655-plan-status');try{var box=$('ovyx-v655-plan-control'),pro=qa('input[data-v655-plan="pro"]:checked',box).map(function(x){return x.value}),max=qa('input[data-v655-plan="max"]:checked',box).map(function(x){return x.value});var pricing={pro:{ngn:Number($('adm-pro-ngn')?.value||adminPricing.pro.ngn),usd:Number($('adm-pro-usd')?.value||adminPricing.pro.usd)},max:{ngn:Number($('adm-max-ngn')?.value||adminPricing.max.ngn),usd:Number($('adm-max-usd')?.value||adminPricing.max.usd)}};var r=await ownerFetch('/api/admin/plans',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({features:{pro:pro,max:max},pricing:pricing})}),d=await r.json().catch(function(){return{}});if(!r.ok)throw new Error(d.error||'Plan configuration could not be saved.');adminPlanState.pro=pro;adminPlanState.max=max;adminPricing=d.pricing||pricing;if(st)st.textContent='Saved to server';refreshPublicPlanFeatures();return true}catch(e){if(st)st.textContent=e.message||'Save failed';return false}};
+window.OVYXPlanAdmin.save=async function(){var st=$('ovyx-v655-plan-status');try{var box=$('ovyx-v655-plan-control'),pro=qa('input[data-v655-plan="pro"]:checked',box).map(function(x){return x.value}),max=qa('input[data-v655-plan="max"]:checked',box).map(function(x){return x.value});var pricing={pro:{ngn:Number($('adm-pro-ngn')?.value||adminPricing.pro.ngn),usd:Number($('adm-pro-usd')?.value||adminPricing.pro.usd)},max:{ngn:Number($('adm-max-ngn')?.value||adminPricing.max.ngn),usd:Number($('adm-max-usd')?.value||adminPricing.max.usd)}};var r=await ownerFetch('/api/admin/plans/update',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({features:{pro:pro,max:max},pricing:pricing})}),d=await r.json().catch(function(){return{}});if(!r.ok)throw new Error(d.error||'Plan configuration could not be saved.');adminPlanState.pro=pro;adminPlanState.max=max;adminPricing=d.pricing||pricing;if(st)st.textContent='Saved to server';refreshPublicPlanFeatures();return true}catch(e){if(st)st.textContent=e.message||'Save failed';return false}};
 function saveAdminPlans(){return window.OVYXPlanAdmin.save()}
 function injectPlanControl(){var v=$('view-admin-pricing');if(!v||$('ovyx-v655-plan-control'))return;var b=document.createElement('section');b.id='ovyx-v655-plan-control';b.className='ovyx-v655-admin-section';v.prepend(b);loadAdminPlans()}
 async function loadSupportTickets(){var host=$('ovyx-v655-ticket-list');if(!host)return;try{var r=await ownerFetch('/api/admin/support-tickets'),d=await r.json();if(!r.ok)throw new Error(d.error||'Unable to load support tickets.');var list=Array.isArray(d.tickets)?d.tickets:[];host.innerHTML=list.length?list.map(function(t){return '<article class="ovyx-v655-ticket"><div class="ovyx-v655-ticket-top"><b>'+esc(t.subject||'Support ticket')+'</b><small>'+esc(t.createdAt||'')+'</small></div><small>'+esc(t.userName||'User')+' · '+esc(t.contactEmail||t.email||'')+' · Project '+esc(t.projectId||'—')+'</small><p>'+esc(t.message||'')+'</p></article>'}).join(''):'<div style="padding:20px;text-align:center;color:#666;font:700 8px JetBrains Mono,monospace">No support tickets yet.</div>'}catch{host.innerHTML='<div style="padding:20px;color:#666;font:700 8px JetBrains Mono,monospace">Owner support stream unavailable.</div>'}}
@@ -15412,7 +15423,7 @@ html:not(.ovyx-owner-account) .v56-admin-rail { display:none!important;visibilit
 (function(){
   'use strict';
   var ADMIN=new Set(['admin-overview','admin-pricing','admin-users','admin-brain','admin-identity','admin-backend','admin-telemetry','admin-broadcasts','admin-template-hub']);
-  var ALIASES={help:'faq',code:'workspace','web-studio':'webstudio','app-studio':'appstudio',blueprints:'templates',template:'templates'};
+  var ALIASES={help:'faq',code:'workspace','web-studio':'webstudio','app-studio':'appstudio','master-sign-in':'master-auth',blueprints:'templates',template:'templates'};
   function clean(v){var x=String(v||'home').replace(/^view-/,'').trim().toLowerCase();return ALIASES[x]||x||'home'}
   let routeBusy=false;
   function owner(){return window.OVYX_ADMIN_UI_PREVIEW===true || window.OVYX_OWNER_PREVIEW===true || (window.__OVYX_ROOT_AUTH_VERIFIED===true && window.OVYXServerOwner?.active===true) || String(window.__OVYX_SERVER_ENTITLEMENTS?.role||'').toUpperCase()==='ROOT_SUPERUSER'}
@@ -15560,7 +15571,7 @@ html:not(.ovyx-owner-account) .v56-admin-rail{display:none!important;visibility:
     'admin-broadcasts':['Broadcasts','fa-bullhorn'],
     'admin-template-hub':['Templates','fa-layer-group']
   };
-  var ALIASES={help:'faq',code:'workspace','web-studio':'webstudio','app-studio':'appstudio',blueprints:'templates',template:'templates'};
+  var ALIASES={help:'faq',code:'workspace','web-studio':'webstudio','app-studio':'appstudio','master-sign-in':'master-auth',blueprints:'templates',template:'templates'};
   var baseGo=null;
   var handlingPop=false;
   var bootUntil=Date.now()+1800;
@@ -15971,8 +15982,7 @@ function boot(){
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
 window.addEventListener('ovyx:view-changed',e=>{if(adminViews.has(String(e.detail?.view||''))){setTimeout(()=>{ensureAdminVisibility();ensureAdminHeader();injectFeatureStudio();improvePlanLayout();improveTemplateManager();removeDuplicateAdminManagers();normalizeNavigationPairs();},0)}} ,{passive:true});
 window.addEventListener('ovyx:theme-applied',()=>{try{window.OVYXThemeLab?.renderState?.()}catch{}} ,{passive:true});
-window.OVYXV66Admin={scanFeatures,ensureAdminVisibility,injectFeatureStudio,applyLocks:()=>window.OVYXAccessRegistry?.apply?.()};
-})();
+window.OVYXV66Admin={scanFeatures,ensureAdminVisibility,injectFeatureStudio,applyLocks:()=>window.OVYXAccessRegistry?.apply?.()};})();
 </script>
 
 <style id="ovyx-v67-admin-feature-template-final">
@@ -16971,8 +16981,7 @@ window.addEventListener('pageshow',()=>setTimeout(install,0),{passive:true});
   window.OVYXV22={syncDock,setDrawer,bindPrompt};
 })();
 </script>
-<style id="ovyx-final-help-support-style">
-/* V23 — restore the original V15 Gemini-style prompt light exactly; no perimeter rewrite. */
+<style id="ovyx-final-help-support-style">/* V23 — restore the original V15 Gemini-style prompt light exactly; no perimeter rewrite. */
 #v59-home-composer{position:relative!important;isolation:isolate!important;overflow:hidden!important}
 #v59-home-composer::before,#v59-home-composer::after{content:none!important;display:none!important;animation:none!important}
 .ovyx-v20-gemini-border,.ovyx-v16-gemini-border-beam{display:none!important;animation:none!important}
@@ -17971,8 +17980,7 @@ body.ovyx-webstudio-active #view-webstudio #ws-desktop-split-toggle{pointer-even
 body.ovyx-webstudio-active #view-webstudio #ws-sidebar-trigger,
 body.ovyx-webstudio-active #view-webstudio #ws-preview-trigger{position:relative!important}
 body.ovyx-webstudio-active #view-webstudio .ovyx-ws-msg-actions,body.ovyx-webstudio-active #view-webstudio .ovyx-ws-msg-actions[hidden]{display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important;height:0!important;overflow:hidden!important}
-body.ovyx-webstudio-active #view-webstudio .ovyx-ws-msg.is-active .ovyx-ws-msg-actions:not([hidden]){display:flex!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;height:auto!important;overflow:visible!important}
-body.ovyx-webstudio-active #view-webstudio .ovyx-ws-msg{cursor:pointer!important;touch-action:manipulation!important}
+body.ovyx-webstudio-active #view-webstudio .ovyx-ws-msg.is-active .ovyx-ws-msg-actions:not([hidden]){display:flex!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;height:auto!important;overflow:visible!important}body.ovyx-webstudio-active #view-webstudio .ovyx-ws-msg{cursor:pointer!important;touch-action:manipulation!important}
 body.ovyx-webstudio-active #view-webstudio .ovyx-ws-msg-body{font-weight:800!important;color:var(--app-text,#F8FAFC)!important}
 body.ovyx-webstudio-active #view-webstudio .ovyx-ws-msg.user .ovyx-ws-msg-body{background:var(--app-card,#0B0D10)!important;border-color:var(--app-border,#1B222A)!important}
 body.ovyx-webstudio-active #view-webstudio .ovyx-ws-msg-action{background:var(--app-card,#0B0D10)!important;border-color:var(--app-border,#1B222A)!important;color:var(--app-muted,#94A3B8)!important}
@@ -18896,15 +18904,37 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-layout="desktop"].ovyx-previe
     return p;
   }
   function buildRequestPayload(buildIdValue,platforms){
-    return {version:1,kind:'ovyx-mobile-build-request',buildId:buildIdValue,appDisplayName:state.displayName||projectName(),platforms,iconDataUrl:state.iconDataUrl||'',source:clonePayload(),sourceProjectId:String(state.payload?.source?.projectId||window.KernelState?.activeProject?.id||''),createdAt:new Date().toISOString()};
+    return {version:1,kind:'ovyx-mobile-build-request',buildId:buildIdValue,appName:state.displayName||projectName(),displayName:state.displayName||projectName(),platforms,iconDataUrl:state.iconDataUrl||'',payload:clonePayload(),source:clonePayload(),sourceProjectId:String(state.payload?.source?.projectId||window.KernelState?.activeProject?.id||''),createdAt:new Date().toISOString()};
   }
   async function requestRealBuild(request){
     const user=window.firebase?.auth?.().currentUser;if(!user)throw new Error('Sign in before generating a real mobile app.');
+    if(!window.OVYXWorkspaceActivation?.active){
+      try{await window.OVYXMasterAuth?.activateWorkspace?.(user,true)}catch(e){throw new Error(e?.message||'Workspace activation is required before starting a mobile build.')}
+    }
     const token=await user.getIdToken(true);
     const response=await fetch('/api/mobile/build',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json',Accept:'application/json',Authorization:'Bearer '+token},body:JSON.stringify(request)});
     const body=await response.json().catch(()=>({}));
     if(!response.ok){const msg=body?.error?.message||body?.error||(`Mobile build service returned HTTP ${response.status}.`);const err=new Error(String(msg));err.status=response.status;err.payload=body;throw err;}
+    state.jobId=String(body?.jobId||'');
     return body;
+  }
+  async function pollBuildStatus(jobId){
+    const user=window.firebase?.auth?.().currentUser;if(!user||!jobId)return {ok:false};
+    const started=Date.now();
+    while(Date.now()-started<45*60*1000){
+      const token=await user.getIdToken(false);
+      const r=await fetch('/api/mobile/build/status?jobId='+encodeURIComponent(jobId),{credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json',Authorization:'Bearer '+token}});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok){const e=new Error(d?.error||d?.message||'Mobile build status check failed.');e.status=r.status;throw e;}
+      const status=String(d?.status||'queued');
+      const pct=status==='queued'?76:status==='building'?84:status==='completed'?96:status==='failed'?100:86;
+      progress(pct,status==='queued'?'QUEUED':status==='building'?'COMPILING':status==='completed'?'ARTIFACTS READY':'BUILD FAILED');
+      if(status==='building')appendLog('Cloud build is compiling the native wrapper and web payload.','ok');
+      if(Array.isArray(d?.builds)){for(const b of d.builds){if(b?.buildId)appendLog((b.platform||'Build')+' build '+b.status+' · '+b.buildId,'ok')}}
+      if(status==='completed'||status==='failed'){return d;}
+      await sleep(5000);
+    }
+    throw new Error('The mobile build is still running. Open App Studio again to resume live status polling.');
   }
   function renderMockQr(){
     const host=document.getElementById('as4-qr');if(!host)return;
@@ -18915,6 +18945,21 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-layout="desktop"].ovyx-previe
     const rects=cells.map(([x,y])=>`<rect x="${x}" y="${y}" width="1" height="1"/>`).join('');
     host.innerHTML=`<svg viewBox="0 0 21 21" xmlns="http://www.w3.org/2000/svg" aria-label="Mobile install test QR placeholder"><rect width="21" height="21" fill="#fff"/>${rects.replace(/<rect/g,'<rect fill="#000"')}</svg><b>Install test QR</b><small>This is a clean mock placeholder. A live QR URL appears only when a real build artifact is returned.</small>`;
   }
+  async function renderLiveQr(url){
+    const host=document.getElementById('as4-qr');if(!host)return;
+    host.innerHTML='<div style="width:126px;height:126px;display:grid;place-items:center;background:#080808;border-radius:7px;border:1px solid rgba(245,158,11,.2);color:#f5b94f;font:800 8px/1.4 JetBrains Mono,monospace;text-align:center;padding:14px;box-sizing:border-box">GENERATING QR…</div><b>Install test QR</b><small>Live artifact URL will be encoded for phone installation.</small>';
+    try{
+      if(!window.QRCode){
+        await new Promise((resolve,reject)=>{const existing=document.querySelector('script[data-ovyx-qrcode]');if(existing){existing.addEventListener('load',resolve,{once:true});existing.addEventListener('error',reject,{once:true});return;}const sc=document.createElement('script');sc.src='https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js';sc.async=true;sc.dataset.ovyxQrcode='1';sc.onload=resolve;sc.onerror=reject;document.head.appendChild(sc);});
+      }
+      const canvas=document.createElement('canvas');canvas.width=180;canvas.height=180;
+      await window.QRCode.toCanvas(canvas,url,{errorCorrectionLevel:'M',margin:1,width:180});
+      host.innerHTML='';host.appendChild(canvas);canvas.style.width='126px';canvas.style.height='126px';canvas.style.background='#fff';canvas.style.padding='6px';canvas.style.borderRadius='7px';canvas.style.shapeRendering='crisp-edges';
+      const b=document.createElement('b');b.textContent='Install test QR';host.appendChild(b);const sm=document.createElement('small');sm.textContent='Scan to open the live EAS installation artifact.';host.appendChild(sm);
+    }catch(error){
+      host.innerHTML='<div style="width:126px;min-height:126px;display:grid;place-items:center;background:#0a0a0a;border-radius:7px;border:1px solid #262626;color:#f5b94f;font:800 8px/1.4 JetBrains Mono,monospace;text-align:center;padding:12px;box-sizing:border-box">LIVE INSTALL LINK<br><br>'+esc(url.slice(0,80))+'</div><b>Install test link</b><small>QR library could not load. The live artifact URL remains available above.</small>';
+    }
+  }
   function renderArtifacts(result){
     const host=document.getElementById('as4-artifacts');if(!host)return;
     const artifacts=result?.artifacts||{};state.artifacts={android:artifacts.android||null,ios:artifacts.ios||null};
@@ -18922,10 +18967,9 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-layout="desktop"].ovyx-previe
     host.innerHTML=rows.map(([key,label,desc])=>{const a=state.artifacts[key],url=clean(a?.url||a?.downloadUrl||'');return `<div class="as4-artifact"><div><b>${label}</b><small>${a?esc(a.version||desc):'No real artifact returned yet.'}</small></div><button class="as4-download" type="button" ${url?'':'disabled'} data-artifact-download="${key}">${url?'Download':'Not available'}</button></div>`}).join('');
     host.querySelectorAll('[data-artifact-download]').forEach(btn=>btn.addEventListener('click',()=>{const a=state.artifacts[btn.dataset.artifactDownload];const url=clean(a?.url||a?.downloadUrl||'');if(url)window.open(url,'_blank','noopener,noreferrer')}));
     const qr=document.getElementById('as4-qr');
-    if((state.artifacts.android?.url||state.artifacts.android?.downloadUrl||state.artifacts.ios?.url||state.artifacts.ios?.downloadUrl) && qr){
-      const url=clean(state.artifacts.android?.url||state.artifacts.android?.downloadUrl||state.artifacts.ios?.url||state.artifacts.ios?.downloadUrl);
-      qr.innerHTML='<div style="width:126px;height:126px;display:grid;place-items:center;background:#0a0a0a;border-radius:7px;border:1px solid #262626;color:#f5b94f;font:800 9px/1.4 JetBrains Mono,monospace;text-align:center;padding:16px;box-sizing:border-box">LIVE BUILD URL<br><br>'+esc(url.slice(0,48))+'</div><b>Install test link</b><small>Replace with a QR encoder in the production artifact service for live device installation.</small>';
-    }else renderMockQr();
+    const url=clean(state.artifacts.android?.url||state.artifacts.android?.downloadUrl||state.artifacts.ios?.url||state.artifacts.ios?.downloadUrl);
+    if(!url||!qr){renderMockQr();return;}
+    renderLiveQr(url);
   }
   async function generateBuild(){
     if(state.building)return;
@@ -18935,8 +18979,7 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-layout="desktop"].ovyx-previe
     if(!state.iconDataUrl)throw new Error('Upload a PNG app icon before generating the app.');
     if(!platforms.length)throw new Error('Select at least one build platform.');
     state.payload=clonePayload();state.building=true;
-    document.getElementById('as4-wizard-card')?.classList.add('as4-hidden');
-    document.getElementById('as4-compile-card')?.classList.remove('as4-hidden');
+    document.getElementById('as4-wizard-card')?.classList.add('as4-hidden');    document.getElementById('as4-compile-card')?.classList.remove('as4-hidden');
     document.getElementById('as4-result-card')?.classList.add('as4-hidden');
     const log=document.getElementById('as4-log');if(log)log.innerHTML='';progress(0,'VALIDATING');
     const steps=[
@@ -18951,10 +18994,15 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-layout="desktop"].ovyx-previe
     let result;
     try{
       result=await requestRealBuild(buildRequestPayload(buildId(),platforms));
-      progress(94,'ARTIFACTS RECEIVED');appendLog('Secure build service returned a response.','ok');
+      appendLog('Cloud workflow queued: '+String(result?.workflowRunId||'pending'),'ok');
+      if(result?.jobId){
+        appendLog('Waiting for live EAS build completion and artifact webhook…','');
+        result=await pollBuildStatus(result.jobId);
+      }
       if(result?.artifacts?.android||result?.artifacts?.ios)appendLog('Real mobile artifacts are available for download.','ok');
-      else appendLog('Build service responded without downloadable artifacts.','warn');
-      progress(100,'COMPLETE');
+      else if(result?.status==='failed')appendLog('The real cloud build failed. Review the returned EAS build details.','warn');
+      else appendLog('Build service completed without downloadable artifacts.','warn');
+      progress(100,result?.status==='completed'?'COMPLETE':'BUILD FINISHED');
     }catch(error){
       progress(100,'BUILD SERVICE UNAVAILABLE');
       const status=Number(error?.status||0);
@@ -19042,8 +19090,65 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-layout="desktop"].ovyx-previe
 })();
 </script>
 
+
+
+
+<style id="ovyx-master-auth-and-build-final-style">
+  #view-master-auth{min-height:100%;background:radial-gradient(circle at 50% 4%,rgba(245,158,11,.07),transparent 34%),#000;color:#f8f8f6;overflow:auto}
+  .ovyx-master-auth-shell{width:min(540px,100%);margin:0 auto;padding:clamp(28px,7vw,72px) 18px 42px}
+  .ovyx-master-auth-brand{display:flex;align-items:center;gap:13px}.ovyx-master-auth-diamond{width:42px;height:42px;border:1px solid rgba(245,158,11,.4);display:grid;place-items:center;color:#f5bf67;font:500 25px/1 Georgia,serif;transform:rotate(45deg);background:rgba(245,158,11,.035)}.ovyx-master-auth-diamond::first-line{transform:rotate(-45deg)}
+  .ovyx-master-auth-kicker{font:800 7px/1 JetBrains Mono,monospace;letter-spacing:.2em;color:#6f7177}.ovyx-master-auth-brand h1{margin-top:7px;color:#f4f4f1;font:850 clamp(27px,6vw,43px)/.98 Inter,sans-serif;letter-spacing:-.05em}
+  .ovyx-master-auth-copy{margin-top:14px;color:#73767d;font:500 10px/1.6 Inter,sans-serif}.ovyx-master-auth-card{margin-top:22px;padding:16px;border:1px solid rgba(255,255,255,.09);border-radius:14px;background:rgba(255,255,255,.018);box-shadow:inset 0 1px 0 rgba(255,255,255,.025)}.ovyx-master-auth-card label{display:grid;gap:7px;margin-bottom:11px}.ovyx-master-auth-card label span{color:#8a8d94;font:800 7px/1 JetBrains Mono,monospace;letter-spacing:.12em;text-transform:uppercase}.ovyx-master-auth-card input{width:100%;box-sizing:border-box;border:1px solid rgba(255,255,255,.09);background:#050606;color:#f3f3ef;border-radius:9px;padding:11px 12px;font:650 10px/1.2 Inter,sans-serif;outline:0}.ovyx-master-auth-card input:focus{border-color:rgba(245,158,11,.34);box-shadow:0 0 0 3px rgba(245,158,11,.04)}.ovyx-master-auth-card button{width:100%;margin-top:3px;min-height:42px;border:1px solid rgba(245,158,11,.32);border-radius:9px;background:#f59e0b;color:#090909;font:850 9px/1 Inter,sans-serif;cursor:pointer}.ovyx-master-auth-card button:disabled{opacity:.55;cursor:wait}.ovyx-master-auth-status{margin-top:11px;color:#5f6268;font:600 7px/1.5 JetBrains Mono,monospace}.ovyx-master-auth-status.error{color:#f5a0a0}.ovyx-master-auth-status.ok{color:#9de6be}.ovyx-master-auth-checks{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px}.ovyx-master-auth-checks span{padding:5px 7px;border:1px solid rgba(255,255,255,.07);border-radius:999px;color:#55585e;font:800 6px/1 JetBrains Mono,monospace;letter-spacing:.08em}
+  .as4-live-build-note{margin-top:8px;color:#62666d;font:600 7px/1.45 JetBrains Mono,monospace}
+</style>
+<script id="ovyx-master-auth-infrastructure-final">
+(function(){
+  'use strict';
+  if(window.__OVYX_MASTER_AUTH_FINAL__)return;
+  window.__OVYX_MASTER_AUTH_FINAL__=true;
+  const isLocalPreview=()=>['file:','content:'].includes(String(location.protocol||''))||['localhost','127.0.0.1'].includes(String(location.hostname||'').toLowerCase())||String(location.hostname||'').endsWith('.local');
+  const auth=()=>window.firebase?.auth?.();
+  const activationKey='ovyx_workspace_activation_v1';
+  let activationInFlight=null;
+  const currentRoute=()=>String(window.KernelState?.activeView||'home').toLowerCase();
+  function status(message,kind=''){const el=document.getElementById('ovyx-master-auth-status');if(el){el.textContent=message;el.className='ovyx-master-auth-status '+kind}}
+  function setActivation(data){try{window.OVYXWorkspaceActivation={active:true,...data};sessionStorage.setItem(activationKey,JSON.stringify(window.OVYXWorkspaceActivation));}catch(_){window.OVYXWorkspaceActivation={active:true,...data}};window.__OVYX_WORKSPACE_ACTIVE=true;window.dispatchEvent(new CustomEvent('ovyx:workspace-activated',{detail:data}))}
+  function clearActivation(){try{sessionStorage.removeItem(activationKey)}catch(_){}window.OVYXWorkspaceActivation={active:false};window.__OVYX_WORKSPACE_ACTIVE=false;try{if(window.OVYXAppStudioPhrase4?.state)window.OVYXAppStudioPhrase4.state.building=false}catch(_){}window.dispatchEvent(new CustomEvent('ovyx:workspace-locked'))}
+  async function activateWorkspace(user,force=false){
+    if(activationInFlight)return activationInFlight;
+    const u=user||auth()?.currentUser;if(!u)throw new Error('Authentication required.');
+    activationInFlight=(async()=>{
+      const token=await u.getIdToken(force);
+      const r=await fetch('/api/workspace/activate',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{Authorization:'Bearer '+token,Accept:'application/json','Content-Type':'application/json'},body:JSON.stringify({activate:true})});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok)throw Object.assign(new Error(d?.error||d?.message||'Workspace activation failed.'),{status:r.status,code:d?.code||'WORKSPACE_ACTIVATION_FAILED'});
+      setActivation(d);
+      return d;
+    })().finally(()=>{activationInFlight=null});
+    return activationInFlight;
+  }
+  async function signIn(e){e?.preventDefault();const form=document.getElementById('ovyx-master-auth-form'),button=document.getElementById('ovyx-master-auth-submit');const email=String(document.getElementById('ovyx-master-auth-email')?.value||'').trim();const password=String(document.getElementById('ovyx-master-auth-password')?.value||'');if(!email||!password){status('Enter your email and password.','error');return}if(!auth()){status('Firebase Authentication is not available in this runtime.','error');return}button&&(button.disabled=true,button.textContent='Authenticating…');status('Verifying account and activating workspace…');try{const credential=await auth().signInWithEmailAndPassword(email,password);await activateWorkspace(credential.user,true);status('Workspace activated. Opening OVYX…','ok');window.Router?.go?.('home',{force:true});}catch(error){status(error?.message||'Sign-in failed.','error');try{await auth().signOut()}catch(_){ }clearActivation()}finally{if(button){button.disabled=false;button.textContent='Sign In & Activate Workspace'}}}
+  function lockWorkspace(reason='Session expired'){clearActivation();if(currentRoute()!=='master-auth'&&!isLocalPreview){status(reason,'error');window.Router?.go?.('master-auth',{force:true})}}
+  async function refreshExpiredSession(){const u=auth()?.currentUser;if(!u){if(!isLocalPreview)lockWorkspace('Sign-in required to activate this workspace.');return false}try{await u.getIdToken(true);if(!window.OVYXWorkspaceActivation?.active)await activateWorkspace(u,false);return true}catch(error){if(error?.code==='auth/user-token-expired'||error?.code==='auth/invalid-user-token'||error?.status===401){try{await auth().signOut()}catch(_){}lockWorkspace('Your session expired. Sign in again to reactivate the workspace.');return false}return true}}
+  function loadCachedActivation(){try{const saved=JSON.parse(sessionStorage.getItem(activationKey)||'null');if(saved?.active){window.OVYXWorkspaceActivation=saved;window.__OVYX_WORKSPACE_ACTIVE=true;return true}}catch(_){ }return false}
+  function installFetchLock(){if(window.__OVYX_FETCH_AUTH_GUARD__)return;window.__OVYX_FETCH_AUTH_GUARD__=true;const nativeFetch=window.fetch.bind(window);window.fetch=async function(input,init){const response=await nativeFetch(input,init);try{const url=typeof input==='string'?input:(input?.url||'');if(response.status===401&&/^\/api\//.test(url)&&currentRoute()!=='master-auth'){const clone=response.clone();const body=await clone.json().catch(()=>({}));if(['AUTH_EXPIRED','AUTH_INVALID','AUTH_REQUIRED'].includes(String(body?.code||body?.error?.code||''))){try{await auth()?.signOut()}catch(_){}lockWorkspace('Your authentication session has expired. Sign in again to continue.')}}}catch(_){ }return response}}
+  function boot(){loadCachedActivation();const form=document.getElementById('ovyx-master-auth-form');form?.addEventListener('submit',signIn);installFetchLock();const a=auth();if(!a)return;let first=true;a.onAuthStateChanged(async user=>{if(user){try{await activateWorkspace(user,false);if(currentRoute()==='master-auth')window.Router?.go?.('home',{force:true})}catch(error){if(error?.status===401){try{await a.signOut()}catch(_){ }lockWorkspace('Workspace activation was not authorized.')}}}else if(!isLocalPreview){clearActivation();if(first||currentRoute()!=='master-auth')window.Router?.go?.('master-auth',{force:true})}first=false;window.dispatchEvent(new CustomEvent('firebase-auth-state-ready',{detail:{user}}))});a.onIdTokenChanged?.(async user=>{if(user){try{await user.getIdToken(false)}catch(error){try{await a.signOut()}catch(_){ }lockWorkspace('Your authentication token expired. Sign in again to continue.')}}else if(!isLocalPreview)lockWorkspace('Sign-in required.')}});window.addEventListener('pageshow',()=>setTimeout(refreshExpiredSession,0),{passive:true});document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')setTimeout(refreshExpiredSession,0)},{passive:true});window.addEventListener('beforeunload',()=>{});}
+  window.OVYXMasterAuth={activateWorkspace,signIn,lockWorkspace,refreshExpiredSession};
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
+})();
+</script>
+<script id="ovyx-server-plan-quota-sync">
+(function(){
+  'use strict';
+  if(window.__OVYX_SERVER_PLAN_QUOTA_SYNC__)return;window.__OVYX_SERVER_PLAN_QUOTA_SYNC__=true;
+  async function sync(){try{const r=await fetch('/api/plans',{credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});const d=await r.json().catch(()=>({}));if(!r.ok||!d.ok)return;const q=d.tokenQuotas||{},Q=window.TokenQuotaRegistry;if(Q){Q.tiers={...Q.tiers,free:{...(Q.tiers?.free||{}),maxTokens:Number(q.free||50000)},pro:{...(Q.tiers?.pro||{}),maxTokens:Number(q.pro||500000)},max:{...(Q.tiers?.max||{}),maxTokens:Number(q.max||5000000)}};Q.serverTokenQuotas={free:Number(q.free||50000),pro:Number(q.pro||500000),max:Number(q.max||5000000)};Q.renderMeter?.();}window.OVYXPlanCatalog=d;}catch(e){console.warn('[OVYX plan catalog sync]',e)}}
+  [0,900,3000].forEach(ms=>setTimeout(sync,ms));window.addEventListener('firebase-auth-state-ready',sync,{passive:true});window.addEventListener('pageshow',()=>setTimeout(sync,250),{passive:true});
+})();
+</script>
+
+
+
 </body>
 </html>
-
 
 
