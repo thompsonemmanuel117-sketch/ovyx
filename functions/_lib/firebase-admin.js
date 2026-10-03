@@ -7,7 +7,7 @@
  */
 
 const FIRESTORE_SCOPE =
-  'https://www.googleapis.com/auth/datastore';
+  'https://www.googleapis.com/auth/datastore https://www.googleapis.com/auth/devstorage.full_control';
 
 let cachedAccessToken = null;
 let cachedAccessTokenExpiresAt = 0;
@@ -549,4 +549,310 @@ export async function createFirestoreDocument(
     data,
     { merge: false }
   );
+}
+
+
+export async function setFirestoreDocumentIfCurrent(
+  env,
+  collection,
+  documentId,
+  data,
+  updateTime
+) {
+  const serviceAccount = parseServiceAccount(env);
+  const accessToken = await getGoogleAccessToken(env);
+
+  if (!updateTime) {
+    throw Object.assign(
+      new Error('Firestore update precondition is missing.'),
+      { status: 400, code: 'FIRESTORE_PRECONDITION_REQUIRED' }
+    );
+  }
+
+  const url =
+    `${firestoreBaseUrl(serviceAccount.project_id)}/` +
+    `${encodeURIComponent(collection)}/` +
+    `${encodeURIComponent(documentId)}`;
+
+  const params = new URLSearchParams({
+    'currentDocument.updateTime': String(updateTime),
+  });
+
+  for (const fieldPath of Object.keys(data)) {
+    params.append('updateMask.fieldPaths', fieldPath);
+  }
+
+  const response = await fetch(`${url}?${params.toString()}`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(firestoreDocument(data)),
+  });
+
+  if (response.status === 409) {
+    throw Object.assign(
+      new Error('Firestore document changed concurrently.'),
+      { status: 409, code: 'FIRESTORE_PRECONDITION_FAILED' }
+    );
+  }
+
+  if (!response.ok) {
+    const text = await response.text();
+    console.error(
+      '[OVYX FIRESTORE CONDITIONAL WRITE]',
+      response.status,
+      text.slice(0, 500)
+    );
+    throw Object.assign(
+      new Error(`Firestore conditional write failed (${response.status}).`),
+      { status: 503, code: 'FIRESTORE_CONDITIONAL_WRITE_FAILED' }
+    );
+  }
+
+  return response.json();
+}
+
+function encodeFirestorePath(pathValue) {
+  return String(pathValue || '')
+    .split('/')
+    .filter(Boolean)
+    .map(segment => encodeURIComponent(segment))
+    .join('/');
+}
+
+async function firestoreListCollectionIds(env, parentPath) {
+  const serviceAccount = parseServiceAccount(env);
+  const accessToken = await getGoogleAccessToken(env);
+
+  let pageToken = null;
+  const collectionIds = [];
+
+  do {
+    const params = new URLSearchParams({ pageSize: '1000' });
+    if (pageToken) params.set('pageToken', pageToken);
+
+    const url =
+      `${firestoreBaseUrl(serviceAccount.project_id)}/` +
+      `${encodeFirestorePath(parentPath)}:listCollectionIds?${params.toString()}`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'content-type': 'application/json',
+      },
+      body: '{}',
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(
+        `Firestore collection enumeration failed (${response.status}): ${text.slice(0, 300)}`
+      );
+    }
+
+    const data = await response.json();
+    for (const id of data.collectionIds || []) collectionIds.push(String(id));
+    pageToken = data.nextPageToken || null;
+  } while (pageToken);
+
+  return collectionIds;
+}
+
+async function firestoreListChildDocuments(env, parentPath, collectionId) {
+  const serviceAccount = parseServiceAccount(env);
+  const accessToken = await getGoogleAccessToken(env);
+
+  let pageToken = null;
+  const documents = [];
+
+  do {
+    const params = new URLSearchParams({ pageSize: '1000' });
+    if (pageToken) params.set('pageToken', pageToken);
+
+    const path =
+      `${parentPath}/${collectionId}`;
+
+    const url =
+      `${firestoreBaseUrl(serviceAccount.project_id)}/` +
+      `${encodeFirestorePath(path)}?${params.toString()}`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (response.status === 404) return documents;
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(
+        `Firestore child document enumeration failed (${response.status}): ${text.slice(0, 300)}`
+      );
+    }
+
+    const data = await response.json();
+    for (const document of data.documents || []) {
+      if (document?.name) documents.push(String(document.name));
+    }
+    pageToken = data.nextPageToken || null;
+  } while (pageToken);
+
+  return documents;
+}
+
+async function deleteFirestoreDocumentPath(env, relativePath) {
+  const serviceAccount = parseServiceAccount(env);
+  const accessToken = await getGoogleAccessToken(env);
+
+  const url =
+    `${firestoreBaseUrl(serviceAccount.project_id)}/` +
+    encodeFirestorePath(relativePath);
+
+  const response = await fetch(url, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  if (response.status === 404) return false;
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(
+      `Firestore document deletion failed (${response.status}): ${text.slice(0, 300)}`
+    );
+  }
+
+  return true;
+}
+
+async function deleteFirestoreTreeByPath(env, relativePath) {
+  let deleted = 0;
+
+  const collectionIds = await firestoreListCollectionIds(
+    env,
+    relativePath
+  );
+
+  for (const collectionId of collectionIds) {
+    const children = await firestoreListChildDocuments(
+      env,
+      relativePath,
+      collectionId
+    );
+
+    for (const fullName of children) {
+      const marker = '/documents/';
+      const index = fullName.indexOf(marker);
+      const childPath = index >= 0
+        ? fullName.slice(index + marker.length)
+        : fullName;
+
+      deleted += await deleteFirestoreTreeByPath(env, childPath);
+    }
+  }
+
+  if (await deleteFirestoreDocumentPath(env, relativePath)) {
+    deleted += 1;
+  }
+
+  return deleted;
+}
+
+export async function deleteFirestoreDocumentTree(
+  env,
+  collection,
+  documentId
+) {
+  const path =
+    `${String(collection || '').trim()}/${String(documentId || '').trim()}`;
+
+  return deleteFirestoreTreeByPath(env, path);
+}
+
+async function storageBucket(env) {
+  if (String(env?.FIREBASE_STORAGE_BUCKET || '').trim()) {
+    return String(env.FIREBASE_STORAGE_BUCKET).trim();
+  }
+
+  const serviceAccount = parseServiceAccount(env);
+  return `${serviceAccount.project_id}.firebasestorage.app`;
+}
+
+export async function deleteStoragePrefix(
+  env,
+  prefix
+) {
+  const serviceAccount = parseServiceAccount(env);
+  const accessToken = await getGoogleAccessToken(env);
+  const bucket = await storageBucket(env);
+  const objectPrefix = String(prefix || '').replace(/^\/+/, '');
+
+  let pageToken = null;
+  let deleted = 0;
+
+  do {
+    const params = new URLSearchParams({
+      prefix: objectPrefix,
+      maxResults: '1000',
+    });
+    if (pageToken) params.set('pageToken', pageToken);
+
+    const listUrl =
+      `https://storage.googleapis.com/storage/v1/b/${encodeURIComponent(bucket)}/o?${params.toString()}`;
+
+    const response = await fetch(listUrl, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
+
+    if (response.status === 404) return 0;
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(
+        `Firebase Storage cleanup enumeration failed (${response.status}): ${text.slice(0, 300)}`
+      );
+    }
+
+    const data = await response.json();
+
+    for (const object of data.items || []) {
+      const name = String(object?.name || '');
+      if (!name) continue;
+
+      const deleteUrl =
+        `https://storage.googleapis.com/storage/v1/b/${encodeURIComponent(bucket)}/o/${encodeURIComponent(name)}`;
+
+      const deletion = await fetch(deleteUrl, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (deletion.status === 404) continue;
+
+      if (!deletion.ok) {
+        const text = await deletion.text();
+        throw new Error(
+          `Firebase Storage object deletion failed (${deletion.status}): ${text.slice(0, 300)}`
+        );
+      }
+
+      deleted += 1;
+    }
+
+    pageToken = data.nextPageToken || null;
+  } while (pageToken);
+
+  return deleted;
 }
