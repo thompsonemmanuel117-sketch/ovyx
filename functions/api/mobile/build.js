@@ -1,5 +1,5 @@
 import { authenticateRequest } from '../../_lib/firebase.js';
-import { setFirestoreDocument } from '../../_lib/firebase-admin.js';
+import { setFirestoreDocument, getFirestoreDataAtPath } from '../../_lib/firebase-admin.js';
 import { readJson, jsonResponse, requestId } from '../_lib/http.js';
 
 const MAX_PAYLOAD_BYTES = 820_000;
@@ -71,6 +71,13 @@ export async function onRequestPost(context) {
     const iconDataUrl = clean(body.iconDataUrl || '', 220_000);
     const payload = safeBuildValue(body.payload || null);
     const projectId = clean(body.sourceProjectId || payload?.source?.projectId || 'current', 180);
+    const userEmail = clean(user?.email || '', 320).toLowerCase();
+    const brandProfile = userEmail
+      ? await getFirestoreDataAtPath(context.env, ['users', userEmail, 'brand_profile']).catch(() => null)
+      : null;
+    const brandedPayload = brandProfile
+      ? { ...payload, brandProfile }
+      : payload;
 
     if (!appName) throw Object.assign(new Error('App display name is required.'), { status: 400, code: 'APP_NAME_REQUIRED' });
     if (!platforms.length) throw Object.assign(new Error('Select at least one build platform.'), { status: 400, code: 'PLATFORM_REQUIRED' });
@@ -81,7 +88,7 @@ export async function onRequestPost(context) {
       throw Object.assign(new Error('A Web Studio payload is required before starting a mobile build.'), { status: 400, code: 'WEB_PAYLOAD_REQUIRED' });
     }
 
-    const serialized = JSON.stringify({ payload, iconDataUrl, appName, projectId });
+    const serialized = JSON.stringify({ payload: brandedPayload, iconDataUrl, appName, projectId });
     const payloadBytes = new TextEncoder().encode(serialized).byteLength;
     if (payloadBytes > MAX_PAYLOAD_BYTES) {
       throw Object.assign(new Error('The selected website payload is too large for the mobile build handoff.'), { status: 413, code: 'MOBILE_PAYLOAD_TOO_LARGE' });
