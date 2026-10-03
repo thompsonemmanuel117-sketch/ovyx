@@ -12,6 +12,12 @@ const DEFAULT_TOKEN_QUOTAS = Object.freeze({
   max: 5000000
 });
 
+const DEFAULT_DAILY_PROMPT_QUOTAS = Object.freeze({
+  free: 4,
+  pro: 20,
+  max: 100
+});
+
 const DEFAULT_FEATURES = Object.freeze({
   pro: [
     { id: 'webStudio', label: 'Web Studio' },
@@ -64,6 +70,11 @@ export async function onRequestGet(context) {
       ...(config.tokenQuotas || {})
     };
 
+    const dailyPromptQuotas = {
+      ...DEFAULT_DAILY_PROMPT_QUOTAS,
+      ...(config.dailyPromptQuotas || {})
+    };
+
     const features = {
       pro: cleanFeatures(config.planFeatures?.pro, DEFAULT_FEATURES.pro),
       max: cleanFeatures(config.planFeatures?.max, DEFAULT_FEATURES.max)
@@ -77,6 +88,7 @@ export async function onRequestGet(context) {
       ok: true,
       pricing,
       tokenQuotas,
+      dailyPromptQuotas,
       features,
       accessRules,
       source: 'server',
