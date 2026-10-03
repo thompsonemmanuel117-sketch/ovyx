@@ -1,6 +1,7 @@
 import { authenticateRequest } from '../../_lib/firebase.js';
 import { getFirestoreData, setFirestoreDocument } from '../../_lib/firebase-admin.js';
 import { getGitHubToken } from '../../_lib/github.js';
+import { initializeQuotaProfile } from '../../_lib/token-quota.js';
 import { jsonResponse, requestId } from '../_lib/http.js';
 
 function userId(user){return String(user?.sub||user?.uid||'').trim();}
@@ -18,7 +19,7 @@ export async function onRequestPost(context){
     const activatedAt=new Date().toISOString();
     const existing=(await getFirestoreData(context.env,'users',uid))||{};
     await setFirestoreDocument(context.env,'users',uid,{workspaceActive:true,workspaceActivatedAt:activatedAt,workspaceActivationVersion:1},{merge:true});
-    return jsonResponse({ok:true,scope:'user_workspace',workspaceActive:true,activatedAt,integrations:{
+    await initializeQuotaProfile(context.env, uid, String(existing.planTier || existing.tier || existing.plan || 'free').toLowerCase());    return jsonResponse({ok:true,scope:'user_workspace',workspaceActive:true,activatedAt,integrations:{
       codeGateway:{enabled:true,basePath:'/api',aiGateway:'/api/ai/gateway',assistant:'/api/ai/assistant'},
       github:{provider:'github-app-installation',connected:githubReady},
       mobileBuild:{provider:'expo-eas',configured:mobileBuildReady,status:mobileBuildReady?'READY':'NOT_CONFIGURED'}
