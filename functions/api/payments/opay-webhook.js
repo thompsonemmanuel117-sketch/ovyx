@@ -52,14 +52,25 @@ async function onRequest(context){
   if(clean(provider.reference)!==reference||clean(provider.status).toUpperCase()!=='SUCCESS'||Number(provider.amount?.total)!==Number(payload.amount)||clean(provider.amount?.currency).toUpperCase()!=='NGN')return response({ok:false,error:'Provider verification did not match the callback.'},409);
   const paymentDoc=await getFirestoreDocument(context.env,'payment_orders',reference);if(!paymentDoc)return response({ok:false,error:'Payment reference is not a known OVYX order.'},404);
   const record=await getFirestoreData(context.env,'payment_orders',reference)||{};
-  if(clean(record.email).toLowerCase()!==clean(record.email).toLowerCase())return response({ok:false,error:'Payment metadata mismatch.'},409);
+  const verifiedEmail=clean(record.email).toLowerCase();
+  if(!verifiedEmail)return response({ok:false,error:'Payment metadata is missing the verified Firebase email.'},409);
+  const claim=await setFirestoreDocumentIfCurrent(context.env,'payment_orders',reference,{fulfillmentStatus:'processing',processingStartedAt:new Date().toISOString()},paymentDoc.updateTime).catch(e=>e);
+  if(claim?.status===409||claim?.code==='FIRESTORE_PRECONDITION_FAILED')return response({ok:true,alreadyProcessing:true},200);
+  if(claim instanceof Error)throw claim;
   if(record.fulfillmentStatus==='fulfilled')return response({ok:true,alreadyFulfilled:true},200);
-  const email=clean(record.email).toLowerCase();if(!email)return response({ok:false,error:'Payment has no verified Firebase email.'},409);
+  const email=verifiedEmail;
   const user=await findUserByExactEmail(context.env,email);
   if(clean(user.data.email).toLowerCase()!==email)return response({ok:false,error:'Verified Firestore email mismatch.'},409);
   const product=ngnProduct(record.productType,record.productId);
-  await fulfill(context.env,{...record,orderNo:reference},user,product,payload);
-  await setFirestoreDocumentIfCurrent(context.env,'payment_orders',reference,{status:'success',fulfillmentStatus:'fulfilled',providerTransactionId:clean(payload.transactionId),fulfilledAt:new Date().toISOString(),verifiedEmail:email},paymentDoc.updateTime);
+  try{
+    await fulfill(context.env,{...record,orderNo:reference},user,product,payload);
+    const latest=await getFirestoreDocument(context.env,'payment_orders',reference);
+    await setFirestoreDocumentIfCurrent(context.env,'payment_orders',reference,{status:'success',fulfillmentStatus:'fulfilled',providerTransactionId:clean(payload.transactionId),fulfilledAt:new Date().toISOString(),verifiedEmail:email},latest?.updateTime);
+  }catch(error){
+    const latest=await getFirestoreDocument(context.env,'payment_orders',reference).catch(()=>null);
+    await setFirestoreDocumentIfCurrent(context.env,'payment_orders',reference,{fulfillmentStatus:'unfulfilled',fulfillmentError:clean(error?.message||'Fulfillment failed',500)},latest?.updateTime).catch(()=>{});
+    throw error;
+  }
   return response({ok:true,fulfilled:true,reference},200);
 }
 module.exports={onRequest};
