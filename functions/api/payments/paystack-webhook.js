@@ -1,5 +1,6 @@
 'use strict';
 
+const { createHash } = require('node:crypto');
 const { hmacSha512, verifyPayment } = require('../_lib/payments/paystack.js');
 const { claimIdempotencyKey, completeIdempotencyKey } = require('../_lib/payments/idempotency.js');
 const { internationalProduct } = require('../_lib/payments/catalog.js');
@@ -74,7 +75,10 @@ async function onRequest(context){
   const signature=text(context.request.headers.get('x-paystack-signature'),200).toLowerCase();
   if(!signature)return json({ok:false,error:'Paystack signature is required.'},401);
   const expected=await hmacSha512(raw,secret);
-  if(signature.length!==expected.length||!crypto.timingSafeEqual(Buffer.from(signature,'hex'),Buffer.from(expected,'hex')))return json({ok:false,error:'Invalid Paystack webhook signature.'},401);
+  if(!/^[a-f0-9]{128}$/.test(signature))return json({ok:false,error:'Invalid Paystack webhook signature.'},401);
+  const actualDigest=createHash('sha256').update(signature).digest('hex');
+  const expectedDigest=createHash('sha256').update(expected).digest('hex');
+  if(actualDigest!==expectedDigest)return json({ok:false,error:'Invalid Paystack webhook signature.'},401);
 
   let body;try{body=JSON.parse(raw)}catch{return json({ok:false,error:'Invalid webhook JSON.'},400);}
   if(text(body?.event)!=='charge.success')return json({ok:true,ignored:true,event:text(body?.event,80)},200);
