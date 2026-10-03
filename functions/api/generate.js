@@ -18,6 +18,10 @@ import {
 } from '../_lib/orchestrator.js';
 
 import {
+  getFirestoreDataAtPath,
+} from '../_lib/firebase-admin.js';
+
+import {
   saveJob,
   updateJob,
 } from '../_lib/jobs.js';
@@ -124,6 +128,14 @@ export async function onRequestPost(
       );
     }
 
+    const userEmail = String(user?.email || '').trim().toLowerCase();
+    const brandProfile = userEmail
+      ? await getFirestoreDataAtPath(
+          context.env,
+          ['users', userEmail, 'brand_profile']
+        ).catch(() => null)
+      : null;
+
     const jobId =
       crypto.randomUUID();
 
@@ -210,8 +222,10 @@ export async function onRequestPost(
                   undefined,
 
                 clientContext:
-                  payload.context ||
-                  {},
+                  {
+                    ...(payload.context || {}),
+                    brandProfile: brandProfile || undefined,
+                  },
 
                 allowDeletes:
                   payload.allowDeletes ===
