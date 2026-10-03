@@ -62,13 +62,24 @@ service cloud.firestore {
         'lastAdminAction',
         'lastAdminActionAt',
         'current_monthly_tokens',
+        'booster_tokens',
         'daily_prompts_allowance',
         'is_monthly_exhausted',
         '_ovyxQuotaTier',
         '_ovyxQuotaDayKey',
         '_ovyxQuotaMonthKey',
         '_ovyxQuotaLastDailyPromptAt',
-        'quotaSchemaVersion'
+        'quotaSchemaVersion',
+        'mobile_builds_remaining',
+        'mobile_builds_last_consumed_at',
+        'workspaceActive',
+        'workspaceActivatedAt',
+        'paymentFulfillment',
+        'lastPaymentReference',
+        'lastPaymentAmount',
+        'lastPaymentCurrency',
+        'lastTokenBoosterId',
+        'lastTokenBoosterTokens'
       ];
     }
 
@@ -151,6 +162,20 @@ service cloud.firestore {
        * backend workflow.
        */
       allow delete: if false;
+    }
+
+
+    /*
+     * Project documents are written and served through the trusted
+     * authenticated backend at:
+     *   /users/{verifiedEmail}/projects/{projectId}
+     *
+     * The browser must not bypass that backend by writing directly
+     * to the nested project collection. The backend verifies the
+     * Firebase UID + exact account email before every operation.
+     */
+    match /users/{userEmail}/projects/{projectId} {
+      allow read, write: if false;
     }
 
     /*
