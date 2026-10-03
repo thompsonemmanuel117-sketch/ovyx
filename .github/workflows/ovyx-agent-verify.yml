@@ -3,6 +3,7 @@ name: OVYX Agent Verify
 on:
   push:
     branches:
+      - main
       - 'ovyx/agent/**'
   pull_request:
 
