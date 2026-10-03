@@ -60,7 +60,15 @@ service cloud.firestore {
         'audit',
         'createdBy',
         'lastAdminAction',
-        'lastAdminActionAt'
+        'lastAdminActionAt',
+        'current_monthly_tokens',
+        'daily_prompts_allowance',
+        'is_monthly_exhausted',
+        '_ovyxQuotaTier',
+        '_ovyxQuotaDayKey',
+        '_ovyxQuotaMonthKey',
+        '_ovyxQuotaLastDailyPromptAt',
+        'quotaSchemaVersion'
       ];
     }
 
