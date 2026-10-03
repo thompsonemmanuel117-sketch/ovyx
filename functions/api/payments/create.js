@@ -1,770 +1,95 @@
 'use strict';
 
-const {
-  verifyFirebaseIdToken
-} = require('../_lib/auth.js');
+const { verifyFirebaseIdToken } = require('../_lib/auth.js');
+const { errorResponse, jsonResponse } = require('../_lib/http.js');
+const { getServerPrice } = require('../_lib/payments/pricing.js');
+const { ngnProduct } = require('../_lib/payments/catalog.js');
+const { createCashierPayment } = require('../_lib/payments/opay-cashier.js');
+const { claimIdempotencyKey, completeIdempotencyKey, releaseIdempotencyKey } = require('../_lib/payments/idempotency.js');
+const { firestoreSet } = require('../_lib/firestore.js');
+const { writeAuditLog } = require('../_lib/logger.js');
 
-const {
-  errorResponse,
-  jsonResponse
-} = require('../_lib/http.js');
+const MAX_BODY_BYTES=16*1024;
+const ALLOWED_METHODS=['POST','OPTIONS'];
 
-const {
-  getServerPrice
-} = require('../_lib/payments/pricing.js');
-
-const {
-  createCheckoutOrder
-} = require('../_lib/payments/opay.js');
-
-const {
-  claimIdempotencyKey,
-  completeIdempotencyKey,
-  releaseIdempotencyKey
-} = require('../_lib/payments/idempotency.js');
-
-const {
-  firestoreGet,
-  firestoreSet
-} = require('../_lib/firestore.js');
-
-const {
-  writeAuditLog
-} = require('../_lib/logger.js');
-
-const MAX_BODY_BYTES = 16 * 1024;
-const ORDER_EXPIRY_SECONDS = 30 * 60;
-
-const ALLOWED_METHODS = Object.freeze([
-  'POST',
-  'OPTIONS'
-]);
-
-function requestId(request) {
-  return (
-    request.headers.get('CF-Ray') ||
-    request.headers.get('X-Request-ID') ||
-    crypto.randomUUID()
-  );
+function clean(v,max=160){return String(v??'').trim().slice(0,max);}
+function requestId(request){return request.headers.get('CF-Ray')||request.headers.get('X-Request-ID')||crypto.randomUUID();}
+function phone(v){const p=clean(v,32);return p&&!/^\+?[0-9]{7,15}$/.test(p)?null:p;}
+async function readJson(request){
+  const raw=await request.text();
+  if(new TextEncoder().encode(raw).byteLength>MAX_BODY_BYTES)throw new Error('REQUEST_TOO_LARGE');
+  try{return JSON.parse(raw)}catch{throw new Error('INVALID_JSON');}
 }
+function orderNo(uid){return ('OVYX-'+clean(uid,12).replace(/[^A-Za-z0-9]/g,'').toUpperCase()+'-'+Date.now().toString(36).toUpperCase()+'-'+crypto.randomUUID().replace(/-/g,'').slice(0,10)).slice(0,32);}
+async function audit(env,payload){try{await writeAuditLog?.(env,payload)}catch{}}
 
-function cleanString(value, max = 128) {
-  return String(value || '')
-    .trim()
-    .slice(0, max);
-}
+async function handlePost(request,env){
+  const id=requestId(request);
+  const identity=await verifyFirebaseIdToken(request,env);
+  if(!identity.ok)return identity.response;
+  const activeEmail=clean(identity.user?.email,320).toLowerCase();
+  if(!activeEmail)return errorResponse(400,'EMAIL_REQUIRED','A verified Firebase account email is required.');
+  if(identity.user.emailVerified!==true)return errorResponse(403,'EMAIL_VERIFICATION_REQUIRED','Verify your OVYX email address before starting a payment.');
+  let body;try{body=await readJson(request)}catch(e){return errorResponse(e.message==='REQUEST_TOO_LARGE'?413:400,e.message==='REQUEST_TOO_LARGE'?'REQUEST_TOO_LARGE':'INVALID_JSON',e.message==='REQUEST_TOO_LARGE'?'The payment request is too large.':'The payment request body is invalid.');}
 
-function normalizeTier(value) {
-  const tier = cleanString(value, 32).toLowerCase();
+  const kind=clean(body.productType||'subscription',32).toLowerCase();
+  const productId=clean(body.productId||body.plan||body.tier,64).toLowerCase();
+  const currency=clean(body.currency||'NGN',8).toUpperCase();
+  if(currency!=='NGN')return errorResponse(400,'INVALID_CURRENCY','OPay Cashier checkout requires NGN.');
+  const customerPhone=phone(body.phone);
+  if(customerPhone===null)return errorResponse(400,'INVALID_PHONE','The supplied phone number is invalid.');
 
-  if (tier !== 'pro' && tier !== 'max') {
-    return null;
-  }
+  let product;
+  try{
+    product=kind==='subscription'
+      ? {...await getServerPrice(env,productId,currency),kind:'subscription',id:productId,tier:productId,name:`OVYX ${productId.toUpperCase()} Plan`}
+      : ngnProduct(kind,productId);
+  }catch(e){return errorResponse(e.status||400,e.code||'INVALID_PAYMENT_PRODUCT',e.message||'Invalid payment product.');}
 
-  return tier;
-}
+  const key=clean(request.headers.get('Idempotency-Key')||body.idempotencyKey,128);
+  if(!key)return errorResponse(400,'IDEMPOTENCY_KEY_REQUIRED','An Idempotency-Key is required for payment creation.');
+  let idem;
+  try{idem=await claimIdempotencyKey(env,key,{uid:identity.user.uid,operation:'payment.create',requestId:id});}catch{return errorResponse(503,'IDEMPOTENCY_UNAVAILABLE','Payment protection is temporarily unavailable.');}
+  if(idem?.replay===true&&idem.response)return jsonResponse(idem.response.body,idem.response.status||200,{'X-OVYX-Request-ID':id});
+  if(idem?.inProgress===true)return errorResponse(409,'PAYMENT_REQUEST_IN_PROGRESS','This payment request is already being processed.');
 
-function normalizeCurrency(value) {
-  const currency = cleanString(value, 8).toUpperCase();
-
-  if (currency !== 'NGN') {
-    return null;
-  }
-
-  return currency;
-}
-
-function normalizePhone(value) {
-  const phone = cleanString(value, 32);
-
-  if (!phone) {
-    return '';
-  }
-
-  if (!/^\+?[0-9]{7,15}$/.test(phone)) {
-    return null;
-  }
-
-  return phone;
-}
-
-function normalizeIdempotencyKey(request, body) {
-  const headerValue =
-    cleanString(
-      request.headers.get('Idempotency-Key'),
-      128
-    );
-
-  const bodyValue =
-    cleanString(
-      body.idempotencyKey,
-      128
-    );
-
-  return headerValue || bodyValue;
-}
-
-async function readJson(request) {
-  const contentLength =
-    Number(
-      request.headers.get('Content-Length') || 0
-    );
-
-  if (
-    Number.isFinite(contentLength) &&
-    contentLength > MAX_BODY_BYTES
-  ) {
-    throw new Error('REQUEST_TOO_LARGE');
-  }
-
-  const raw = await request.text();
-
-  if (
-    new TextEncoder().encode(raw).byteLength >
-    MAX_BODY_BYTES
-  ) {
-    throw new Error('REQUEST_TOO_LARGE');
-  }
-
-  if (!raw.trim()) {
-    throw new Error('INVALID_JSON');
-  }
-
-  try {
-    return JSON.parse(raw);
-  } catch {
-    throw new Error('INVALID_JSON');
+  const reference=orderNo(identity.user.uid),now=new Date(),expiresAt=new Date(now.getTime()+30*60*1000);
+  const customerName=clean(body.userFullName||body.customerName||identity.user.displayName||activeEmail.split('@')[0]||'OVYX Customer',120);
+  const record={
+    uid:identity.user.uid,email:activeEmail,productType:product.kind,productId:product.id,plan:product.tier||null,
+    tokens:product.tokens||0,currency:'NGN',amount:Number(product.amount),minorUnitAmount:Number(product.minorUnitAmount),
+    provider:'opay',status:'pending',fulfillmentStatus:'unfulfilled',orderNo:reference,idempotencyKey:key,requestId:id,
+    customerName,phone:customerPhone||null,createdAt:now.toISOString(),expiresAt:expiresAt.toISOString(),
+    providerOrderNo:null,providerTransactionId:null
+  };
+  try{
+    await firestoreSet(env,['payment_orders',reference],record);
+    const origin=new URL(request.url).origin;
+    const checkout=await createCashierPayment(env,{
+      reference,amount:product.amount,
+      returnUrl:`${origin}/?payment=complete&reference=${encodeURIComponent(reference)}`,
+      callbackUrl:`${origin}/api/payments/opay-webhook`,
+      cancelUrl:`${origin}/?payment=cancelled&reference=${encodeURIComponent(reference)}`,
+      email:activeEmail,uid:identity.user.uid,customerName,phone:customerPhone,
+      productName:product.name,description:product.kind==='subscription'?`OVYX ${product.tier.toUpperCase()} subscription`:`${product.name} · ${Number(product.tokens).toLocaleString()} AI tokens`
+    });
+    const updated={...record,providerOrderNo:checkout.orderNo||null,cashierUrl:checkout.cashierUrl,status:'pending',updatedAt:new Date().toISOString()};
+    await firestoreSet(env,['payment_orders',reference],updated);
+    const responseBody={ok:true,provider:'opay',reference,orderNo:reference,providerOrderNo:checkout.orderNo||null,cashierUrl:checkout.cashierUrl,checkoutUrl:checkout.cashierUrl,authorizationUrl:checkout.cashierUrl,productType:product.kind,productId:product.id,plan:product.tier||null,currency:'NGN',amount:product.amount,minorUnitAmount:product.minorUnitAmount,status:'pending',expiresAt:expiresAt.toISOString()};
+    await completeIdempotencyKey(env,key,{status:200,body:responseBody});
+    await audit(env,{user:identity.user.uid,action:'paymentInitiated',resource:`payment_orders/${reference}`,timestamp:new Date().toISOString(),requestId:id,result:'success',providerEventId:checkout.orderNo||reference});
+    return jsonResponse(responseBody,200,{'X-OVYX-Request-ID':id,'Cache-Control':'no-store'});
+  }catch(error){
+    try{await firestoreSet(env,['payment_orders',reference],{...record,status:'failed',failureCode:error.code||'OPAY_CREATE_FAILED',failureMessage:clean(error.message||'OPay order creation failed.',500),failedAt:new Date().toISOString()})}catch{}
+    try{await releaseIdempotencyKey(env,key)}catch{}
+    await audit(env,{user:identity.user.uid,action:'paymentCreationFailed',resource:`payment_orders/${reference}`,timestamp:new Date().toISOString(),requestId:id,result:'failure',providerEventId:null});
+    return errorResponse(error.status||502,error.code||'OPAY_CREATE_FAILED',error.status===503?error.message:'OPay could not create the secure payment checkout.');
   }
 }
 
-function buildOrderNumber(uid) {
-  const time =
-    Date.now()
-      .toString(36)
-      .toUpperCase();
-
-  const random =
-    crypto.randomUUID()
-      .replace(/-/g, '')
-      .slice(0, 12)
-      .toUpperCase();
-
-  const userPart =
-    cleanString(uid, 12)
-      .replace(/[^A-Za-z0-9]/g, '')
-      .toUpperCase();
-
-  return (
-    `OVYX-${userPart}-${time}-${random}`
-  ).slice(0, 32);
+async function onRequest(context){
+  if(context.request.method==='OPTIONS')return new Response(null,{status:204,headers:{Allow:'POST, OPTIONS'}});
+  if(context.request.method!=='POST')return errorResponse(405,'METHOD_NOT_ALLOWED','Only POST is supported.',{Allow:'POST, OPTIONS'});
+  return handlePost(context.request,context.env);
 }
-
-function buildCustomerName(user, suppliedName) {
-  const supplied =
-    cleanString(suppliedName, 120);
-
-  if (supplied) {
-    return supplied;
-  }
-
-  const displayName =
-    cleanString(
-      user.displayName,
-      120
-    );
-
-  if (displayName) {
-    return displayName;
-  }
-
-  const email =
-    cleanString(
-      user.email,
-      160
-    );
-
-  if (email) {
-    return email.split('@')[0];
-  }
-
-  return 'OVYX Customer';
-}
-
-async function safeAudit(env, payload) {
-  try {
-    if (typeof writeAuditLog === 'function') {
-      await writeAuditLog(env, payload);
-    }
-  } catch {
-    /*
-     * Audit failure must never expose secrets or cause
-     * a successful payment request to be retried as a
-     * payment failure.
-     */
-  }
-}
-
-async function handlePost(request, env) {
-  const id = requestId(request);
-
-  const identity =
-    await verifyFirebaseIdToken(
-      request,
-      env
-    );
-
-  if (!identity.ok) {
-    return identity.response;
-  }
-
-  if (
-    identity.user.emailVerified !== true
-  ) {
-    return errorResponse(
-      403,
-      'EMAIL_VERIFICATION_REQUIRED',
-      'Verify your OVYX email address before starting a payment.'
-    );
-  }
-
-  let body;
-
-  try {
-    body =
-      await readJson(request);
-  } catch (error) {
-    if (error.message === 'REQUEST_TOO_LARGE') {
-      return errorResponse(
-        413,
-        'REQUEST_TOO_LARGE',
-        'The payment request is too large.'
-      );
-    }
-
-    return errorResponse(
-      400,
-      'INVALID_JSON',
-      'The payment request body is invalid.'
-    );
-  }
-
-  const tier =
-    normalizeTier(
-      body.plan ||
-      body.tier ||
-      body.productId
-    );
-
-  const currency =
-    normalizeCurrency(
-      body.currency
-    );
-
-  const phone =
-    normalizePhone(
-      body.phone
-    );
-
-  const customerName =
-    buildCustomerName(
-      identity.user,
-      body.customerName ||
-      body.fullName ||
-      body.name
-    );
-
-  if (!tier) {
-    return errorResponse(
-      400,
-      'INVALID_PLAN',
-      'A valid OVYX plan is required.'
-    );
-  }
-
-  if (!currency) {
-    return errorResponse(
-      400,
-      'INVALID_CURRENCY',
-      'OPay checkout currently requires NGN.'
-    );
-  }
-
-  if (phone === null) {
-    return errorResponse(
-      400,
-      'INVALID_PHONE',
-      'The supplied phone number is invalid.'
-    );
-  }
-
-  if (!identity.user.email) {
-    return errorResponse(
-      400,
-      'EMAIL_REQUIRED',
-      'A verified account email is required for payment.'
-    );
-  }
-
-  const idempotencyKey =
-    normalizeIdempotencyKey(
-      request,
-      body
-    );
-
-  if (!idempotencyKey) {
-    return errorResponse(
-      400,
-      'IDEMPOTENCY_KEY_REQUIRED',
-      'An Idempotency-Key is required for payment creation.'
-    );
-  }
-
-  let idempotency;
-
-  try {
-    idempotency =
-      await claimIdempotencyKey(
-        env,
-        idempotencyKey,
-        {
-          uid: identity.user.uid,
-          operation: 'payment.create',
-          requestId: id
-        }
-      );
-  } catch {
-    return errorResponse(
-      503,
-      'IDEMPOTENCY_UNAVAILABLE',
-      'Payment protection is temporarily unavailable. Please try again.'
-    );
-  }
-
-  if (
-    idempotency &&
-    idempotency.replay === true &&
-    idempotency.response
-  ) {
-    return jsonResponse(
-      idempotency.response.body,
-      idempotency.response.status || 200,
-      {
-        'X-OVYX-Request-ID': id
-      }
-    );
-  }
-
-  if (
-    idempotency &&
-    idempotency.inProgress === true
-  ) {
-    return errorResponse(
-      409,
-      'PAYMENT_REQUEST_IN_PROGRESS',
-      'This payment request is already being processed.'
-    );
-  }
-
-  try {
-    /*
-     * NEVER use body.amount as the authoritative amount.
-     *
-     * The server reads the current Root Admin pricing
-     * configuration through pricing.js.
-     */
-    const price =
-      await getServerPrice(
-        env,
-        tier,
-        currency
-      );
-
-    const orderNo =
-      buildOrderNumber(
-        identity.user.uid
-      );
-
-    const now =
-      new Date();
-
-    const expiresAt =
-      new Date(
-        now.getTime() +
-        ORDER_EXPIRY_SECONDS * 1000
-      );
-
-    /*
-     * Persist the internal payment record BEFORE
-     * calling OPay so the webhook can safely reconcile
-     * the transaction against the authenticated OVYX
-     * account.
-     */
-    const paymentRecord = {
-      uid:
-        identity.user.uid,
-
-      email:
-        identity.user.email,
-
-      plan:
-        price.tier,
-
-      currency:
-        price.currency,
-
-      amount:
-        price.amount,
-
-      minorUnitAmount:
-        price.minorUnitAmount,
-
-      provider:
-        'opay',
-
-      status:
-        'pending',
-
-      fulfillmentStatus:
-        'unfulfilled',
-
-      orderNo,
-
-      idempotencyKey,
-
-      requestId:
-        id,
-
-      customerName,
-
-      phone:
-        phone || null,
-
-      createdAt:
-        now.toISOString(),
-
-      expiresAt:
-        expiresAt.toISOString(),
-
-      providerOrderNo:
-        null,
-
-      providerTransactionId:
-        null
-    };
-
-    await firestoreSet(
-      env,
-      [
-        'payment_orders',
-        orderNo
-      ],
-      paymentRecord
-    );
-
-    let providerResult;
-
-    try {
-      providerResult =
-        await createCheckoutOrder(
-          env,
-          {
-            outOrderNo:
-              orderNo,
-
-            amount:
-              price.amount,
-
-            currency:
-              price.currency,
-
-            orderExpireTime:
-              ORDER_EXPIRY_SECONDS,
-
-            customerName,
-
-            customerEmail:
-              identity.user.email,
-
-            customerPhone:
-              phone || undefined,
-
-            productName:
-              `OVYX ${price.tier.toUpperCase()} Plan`,
-
-            remark:
-              `OVYX ${price.tier.toUpperCase()} subscription`
-          }
-        );
-    } catch (error) {
-      await firestoreSet(
-        env,
-        [
-          'payment_orders',
-          orderNo
-        ],
-        {
-          ...paymentRecord,
-
-          status:
-            'failed',
-
-          failureCode:
-            'OPAY_CREATE_FAILED',
-
-          failureMessage:
-            String(
-              error?.message ||
-              'OPay order creation failed.'
-            ).slice(0, 500),
-
-          failedAt:
-            new Date().toISOString()
-        }
-      );
-
-      await releaseIdempotencyKey(
-        env,
-        idempotencyKey
-      );
-
-      await safeAudit(
-        env,
-        {
-          user:
-            identity.user.uid,
-
-          action:
-            'paymentCreationFailed',
-
-          resource:
-            `payment_orders/${orderNo}`,
-
-          timestamp:
-            new Date().toISOString(),
-
-          requestId:
-            id,
-
-          ipAddress:
-            request.headers.get('CF-Connecting-IP') ||
-            '',
-
-          result:
-            'failure',
-
-          providerEventId:
-            null
-        }
-      );
-
-      return errorResponse(
-        502,
-        'OPAY_CREATE_FAILED',
-        'OPay could not create the payment order.'
-      );
-    }
-
-    const providerOrderNo =
-      String(
-        providerResult?.orderNo ||
-        providerResult?.data?.orderNo ||
-        ''
-      ).trim();
-
-    if (!providerOrderNo) {
-      await firestoreSet(
-        env,
-        [
-          'payment_orders',
-          orderNo
-        ],
-        {
-          ...paymentRecord,
-
-          status:
-            'failed',
-
-          failureCode:
-            'OPAY_MISSING_ORDER_NUMBER',
-
-          failedAt:
-            new Date().toISOString()
-        }
-      );
-
-      await releaseIdempotencyKey(
-        env,
-        idempotencyKey
-      );
-
-      return errorResponse(
-        502,
-        'OPAY_INVALID_RESPONSE',
-        'OPay returned an invalid payment order.'
-      );
-    }
-
-    const updatedRecord = {
-      ...paymentRecord,
-
-      providerOrderNo,
-
-      provider:
-        'opay',
-
-      status:
-        'pending',
-
-      updatedAt:
-        new Date().toISOString()
-    };
-
-    await firestoreSet(
-      env,
-      [
-        'payment_orders',
-        orderNo
-      ],
-      updatedRecord
-    );
-
-    const responseBody = {
-      ok:
-        true,
-
-      provider:
-        'opay',
-
-      reference:
-        orderNo,
-
-      orderNo,
-
-      providerOrderNo,
-
-      plan:
-        price.tier,
-
-      currency:
-        price.currency,
-
-      amount:
-        price.amount,
-
-      minorUnitAmount:
-        price.minorUnitAmount,
-
-      status:
-        'pending',
-
-      expiresAt:
-        expiresAt.toISOString()
-    };
-
-    await completeIdempotencyKey(
-      env,
-      idempotencyKey,
-      {
-        status:
-          200,
-
-        body:
-          responseBody
-      }
-    );
-
-    await safeAudit(
-      env,
-      {
-        user:
-          identity.user.uid,
-
-        action:
-          'paymentInitiated',
-
-        resource:
-          `payment_orders/${orderNo}`,
-
-        timestamp:
-          new Date().toISOString(),
-
-        requestId:
-          id,
-
-        ipAddress:
-          request.headers.get('CF-Connecting-IP') ||
-          '',
-
-        result:
-          'success',
-
-        providerEventId:
-          providerOrderNo
-      }
-    );
-
-    return jsonResponse(
-      responseBody,
-      200,
-      {
-        'X-OVYX-Request-ID': id
-      }
-    );
-  } catch (error) {
-    try {
-      await releaseIdempotencyKey(
-        env,
-        idempotencyKey
-      );
-    } catch {}
-
-    return errorResponse(
-      500,
-      'PAYMENT_CREATION_FAILED',
-      'The payment could not be initialized.'
-    );
-  }
-}
-
-async function onRequest(context) {
-  const {
-    request,
-    env
-  } = context;
-
-  if (
-    !ALLOWED_METHODS.includes(
-      request.method
-    )
-  ) {
-    return errorResponse(
-      405,
-      'METHOD_NOT_ALLOWED',
-      'Only POST is supported for this endpoint.',
-      {
-        Allow: 'POST, OPTIONS'
-      }
-    );
-  }
-
-  if (request.method === 'OPTIONS') {
-    return new Response(
-      null,
-      {
-        status: 204,
-        headers: {
-          'Allow': 'POST, OPTIONS'
-        }
-      }
-    );
-  }
-
-  return handlePost(
-    request,
-    env
-  );
-}
-
-module.exports = {
-  onRequest
-};
+module.exports={onRequest};
