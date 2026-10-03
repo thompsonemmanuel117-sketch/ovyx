@@ -2,7 +2,10 @@ import { authenticateRequest } from '../_lib/firebase.js';
 import {
   getFirestoreDocument,
   getFirestoreData,
-  setFirestoreDocument,
+  getFirestoreDocumentAtPath,
+  getFirestoreDataAtPath,
+  setFirestoreDocumentAtPath,
+  deleteFirestoreDocumentAtPath,
   listFirestoreSubcollectionDocuments,
 } from './_lib/firebase-admin.js';
 import { readJson, jsonResponse, requestId } from './_lib/http.js';
@@ -39,19 +42,22 @@ export async function onRequest(context){
     }
     if(method==='DELETE'){
       const url=new URL(context.request.url);const pid=projectId(url.searchParams.get('projectId'));
-      const existing=await getFirestoreData(context.env,pathFor(email,pid).split('/').slice(0,-1).join('/'),pid);
+      const existingDoc=await getFirestoreDocumentAtPath(context.env,['users',email,'projects',pid]);
+      const existing=existingDoc?await getFirestoreDataAtPath(context.env,['users',email,'projects',pid]):null;
       if(!existing||clean(existing.ownerUid)!==uid||clean(existing.ownerEmail).toLowerCase()!==email)throw Object.assign(new Error('Project not found.'),{status:404,code:'PROJECT_NOT_FOUND'});
-      const fb=await getFirestoreDocument(context.env,'users',email);void fb;
-      return jsonResponse({ok:false,error:'Project deletion endpoint is intentionally not exposed until account-level deletion rules are aligned.'},405,{'X-OVYX-Request-ID':id});
+      await deleteFirestoreDocumentAtPath(context.env,['users',email,'projects',pid],existingDoc?.updateTime);
+      return jsonResponse({ok:true,deleted:true,projectId:pid},200,{'X-OVYX-Request-ID':id});
     }
     if(method==='POST'){
       const body=await readJson(context.request,MAX_PROJECT_BYTES);
       const pid=projectId(body.projectId||body.project?.id||crypto.randomUUID().replace(/-/g,'').slice(0,24));
       const project=payload(body.project||body.data);
-      const existing=await getFirestoreData(context.env,'users/'+email+'/projects',pid).catch(()=>null);
+      const existingDoc=await getFirestoreDocumentAtPath(context.env,['users',email,'projects',pid]);
+      const existing=existingDoc?await getFirestoreDataAtPath(context.env,['users',email,'projects',pid]):null;
+      if(existing && (clean(existing.ownerUid)!==uid||clean(existing.ownerEmail).toLowerCase()!==email))throw Object.assign(new Error('Project ownership conflict.'),{status:409,code:'PROJECT_OWNERSHIP_CONFLICT'});
       const now=new Date().toISOString();
       const stored={...project,id:pid,ownerUid:uid,ownerEmail:email,createdAt:existing?.createdAt||now,updatedAt:now};
-      await setFirestoreDocument(context.env,'users/'+email+'/projects',pid,stored,{merge:false});
+      await setFirestoreDocumentAtPath(context.env,['users',email,'projects',pid],stored,{merge:false,expectedUpdateTime:existingDoc?.updateTime||null});
       return jsonResponse({ok:true,project:{...stored}},200,{'X-OVYX-Request-ID':id});
     }
     return jsonResponse({ok:false,error:'GET, POST or DELETE is required.',code:'METHOD_NOT_ALLOWED'},405,{'X-OVYX-Request-ID':id});
