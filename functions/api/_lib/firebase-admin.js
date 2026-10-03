@@ -650,6 +650,19 @@ export async function setFirestoreDocumentAtPath(env,segments,data,{merge=true,e
   throw Object.assign(new Error(payload?.error?.message||`Firestore write failed (${response.status}).`),{status:response.status>=500?503:400,code:'FIRESTORE_WRITE_FAILED'});
 }
 
+
+export async function deleteFirestoreDocumentAtPath(env,segments,expectedUpdateTime=null){
+  const serviceAccount=parseServiceAccount(env);
+  const accessToken=await getGoogleAccessToken(env);
+  const url=firestoreDocumentPath(serviceAccount.project_id,segments);
+  const body=expectedUpdateTime?{currentDocument:{updateTime:String(expectedUpdateTime)}}:null;
+  const response=await fetch(url,{method:'DELETE',headers:{Authorization:`Bearer ${accessToken}`,'content-type':'application/json'},body:body?JSON.stringify(body):undefined});
+  if(response.ok||response.status===404)return true;
+  const payload=await response.json().catch(()=>({}));
+  if(response.status===409||response.status===412)throw Object.assign(new Error(payload?.error?.message||'Firestore delete conflicted with another update.'),{status:409,code:'FIRESTORE_PRECONDITION_FAILED'});
+  throw Object.assign(new Error(payload?.error?.message||`Firestore delete failed (${response.status}).`),{status:response.status>=500?503:400,code:'FIRESTORE_DELETE_FAILED'});
+}
+
 export async function listFirestoreSubcollectionDocuments(env,parentCollection,parentDocumentId,subcollection,pageSize=100){
   const serviceAccount=parseServiceAccount(env);
   const accessToken=await getGoogleAccessToken(env);
