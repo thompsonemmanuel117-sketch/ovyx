@@ -185,6 +185,32 @@ async function onRequest(context) {
     }
 
     const body = await request.json();
+
+    if (clean(body?.action, 20).toLowerCase() === 'test') {
+      const id = connectionId(body?.id);
+      const record = await getFirestoreDataAtPath(context.env, [...base, id]);
+      if (!record || record.ownerUid !== auth.uid || record.ownerEmail !== auth.email) {
+        return errorResponse(404, 'CONNECTION_NOT_FOUND', 'Connection not found.');
+      }
+      const result = await testEndpoint(record.healthUrl || record.endpoint);
+      await setFirestoreDocumentAtPath(
+        context.env,
+        [...base, id],
+        {
+          lastTestAt: new Date().toISOString(),
+          lastTestStatus: result.ok ? 'reachable' : 'unreachable',
+          lastTestHttpStatus: result.status,
+          lastTestLatencyMs: result.latencyMs
+        },
+        { merge: true }
+      );
+      return jsonResponse({
+        ok: result.ok,
+        test: result,
+        id
+      }, result.ok ? 200 : 502);
+    }
+
     const id = connectionId(body?.id);
     const record = sanitizeConnection(body, { uid: auth.uid, email: auth.email });
     const currentDoc = await getFirestoreDocumentAtPath(context.env, [...base, id]);
