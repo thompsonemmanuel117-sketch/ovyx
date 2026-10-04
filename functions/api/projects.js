@@ -56,7 +56,7 @@ export async function onRequest(context){
       const existing=existingDoc?await getFirestoreDataAtPath(context.env,['users',email,'projects',pid]):null;
       if(existing && (clean(existing.ownerUid)!==uid||clean(existing.ownerEmail).toLowerCase()!==email))throw Object.assign(new Error('Project ownership conflict.'),{status:409,code:'PROJECT_OWNERSHIP_CONFLICT'});
       const now=new Date().toISOString();
-      const brandProfile=await getFirestoreDataAtPath(context.env,['users',email,'brand_profile']).catch(()=>null);
+      const brandProfile=await getFirestoreDataAtPath(context.env,['users',email,'brand_profile','config']).catch(()=>null);
       const stored={
         ...project,
         id:pid,
