@@ -116,8 +116,8 @@ async function identity(request, env) {
   return { ok: true, user: result.user, uid, email };
 }
 
-async function loadContext(env, email) {
-  const profile = await getFirestoreDataAtPath(env, ['users', email]) || {};
+async function loadContext(env, uid, email) {
+  const profile = await getFirestoreDataAtPath(env, ['users', uid]) || {};
   const tier = activeTier(profile, email);
   const limit = limitFor(tier);
   const rows = await listFirestoreSubcollectionDocuments(env, 'users', email, 'universal_connections', 100);
@@ -155,7 +155,7 @@ async function onRequest(context) {
   const base = ['users', auth.email, 'universal_connections'];
 
   try {
-    const state = await loadContext(context.env, auth.email);
+    const state = await loadContext(context.env, auth.uid, auth.email);
 
     if (request.method === 'GET') {
       return jsonResponse({
