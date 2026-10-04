@@ -15,6 +15,13 @@ const PAID_TIERS = new Set([
   'max'
 ]);
 
+const TIER_RANK = Object.freeze({
+  free: 0,
+  pro: 1,
+  max: 2,
+  root: 3
+});
+
 const DEFAULT_FREE_CAPABILITIES = Object.freeze({
   webStudio: true,
   advancedWebStudio: false,
@@ -99,6 +106,37 @@ function normalizeFeatureRules(value) {
     .filter(rule => rule.feature);
 }
 
+function applyGlobalGating(capabilities, gating, tier) {
+  const result = {
+    ...capabilities
+  };
+
+  if (!gating || typeof gating !== 'object') {
+    return result;
+  }
+
+  const currentRank = TIER_RANK[String(tier || 'free').trim().toLowerCase()] ?? 0;
+
+  for (const [feature, requiredTierValue] of Object.entries(gating)) {
+    if (!Object.prototype.hasOwnProperty.call(result, feature)) {
+      continue;
+    }
+
+    const requiredTier = String(requiredTierValue || 'free').trim().toLowerCase();
+    const requiredRank = TIER_RANK[requiredTier];
+
+    if (requiredRank === undefined) {
+      continue;
+    }
+
+    if (currentRank < requiredRank) {
+      result[feature] = false;
+    }
+  }
+
+  return result;
+}
+
 function applyFeatureRules(capabilities, featureRules) {
   const result = {
     ...capabilities
@@ -118,6 +156,7 @@ function applyFeatureRules(capabilities, featureRules) {
 
   return result;
 }
+
 
 async function resolveEntitlements(env, user) {
   const now = Date.now();
@@ -142,6 +181,12 @@ async function resolveEntitlements(env, user) {
       systemConfig.featureRules
     );
 
+    const gating =
+      systemConfig.gating &&
+      typeof systemConfig.gating === 'object'
+        ? systemConfig.gating
+        : {};
+
     return {
       planTier: 'root',
       planTierState: 'active',
@@ -162,7 +207,8 @@ async function resolveEntitlements(env, user) {
         },
         featureRules
       ),
-      featureRules
+      featureRules,
+      gating
     };
   }
 
@@ -231,20 +277,35 @@ async function resolveEntitlements(env, user) {
     systemConfig.featureRules
   );
 
+  const gating =
+    systemConfig.gating &&
+    typeof systemConfig.gating === 'object'
+      ? systemConfig.gating
+      : {};
+
+  const effectiveTier = accessActive ? tier : 'free';
+
+  capabilities = applyGlobalGating(
+    capabilities,
+    gating,
+    effectiveTier
+  );
+
   capabilities = applyFeatureRules(
     capabilities,
     featureRules
   );
 
   return {
-    planTier: accessActive ? tier : 'free',
+    planTier: effectiveTier,
     planTierState: accessActive ? state : 'expired',
     paidAt,
     expiresAt,
     accessExpiresAt: expiresAt,
     accessActive,
     capabilities,
-    featureRules
+    featureRules,
+    gating
   };
 }
 
