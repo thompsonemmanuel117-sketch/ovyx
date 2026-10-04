@@ -79,7 +79,8 @@ service cloud.firestore {
         'lastPaymentAmount',
         'lastPaymentCurrency',
         'lastTokenBoosterId',
-        'lastTokenBoosterTokens'
+        'lastTokenBoosterTokens',
+        'universalConnectionsActiveCount'
       ];
     }
 
