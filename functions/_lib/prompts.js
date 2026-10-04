@@ -66,6 +66,7 @@ export function executePrompt({
   prompt,
   plan,
   files,
+  hints,
   allowDeletes,
   allowWorkflowChanges,
 }) {
@@ -85,6 +86,14 @@ allowWorkflowChanges=${!!allowWorkflowChanges}
 
 INSPECTED FILES:
 ${files}
+
+CLIENT / BRAND CONTEXT:
+${hints || '{}'}
+
+The client / brand context is authoritative for this request when present. Respect its
+colors and layout rules in generated or edited UI. Never copy, decode, or expose a
+logo data URL in repository text; the presence of a logo only means the finished
+experience should reserve an appropriate brand-asset placement when the project supports it.
 
 Return exactly this JSON shape:
 {
