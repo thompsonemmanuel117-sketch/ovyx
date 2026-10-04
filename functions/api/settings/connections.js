@@ -126,6 +126,126 @@ async function loadContext(env, uid, email) {
   return { profile, tier, limit, connections, active };
 }
 
+async function changeActiveCount(
+  env,
+  uid,
+  email,
+  delta,
+  limit
+) {
+  if (limit === Infinity || delta === 0) {
+    return {
+      ok: true,
+      count: null,
+      changed: false
+    };
+  }
+
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const userDoc =
+      await getFirestoreDocumentAtPath(
+        env,
+        ['users', uid]
+      );
+
+    if (!userDoc) {
+      throw Object.assign(
+        new Error('The authenticated OVYX workspace profile is not initialized yet.'),
+        {
+          status: 409,
+          code: 'WORKSPACE_PROFILE_REQUIRED'
+        }
+      );
+    }
+
+    const profile =
+      await getFirestoreDataAtPath(
+        env,
+        ['users', uid]
+      ) || {};
+
+    let current =
+      Number.isSafeInteger(
+        Number(profile.universalConnectionsActiveCount)
+      )
+        ? Number(profile.universalConnectionsActiveCount)
+        : null;
+
+    if (current === null || current < 0) {
+      const rows =
+        await listFirestoreSubcollectionDocuments(
+          env,
+          'users',
+          email,
+          'universal_connections',
+          100
+        );
+
+      current = rows.filter(
+        row => row?.data?.active === true
+      ).length;
+    }
+
+    const next =
+      Math.max(
+        0,
+        current + delta
+      );
+
+    if (
+      delta > 0 &&
+      next > limit
+    ) {
+      return {
+        ok: false,
+        count: current,
+        changed: false
+      };
+    }
+
+    try {
+      await setFirestoreDocumentAtPath(
+        env,
+        ['users', uid],
+        {
+          universalConnectionsActiveCount:
+            next
+        },
+        {
+          merge: true,
+          expectedUpdateTime:
+            userDoc.updateTime
+        }
+      );
+
+      return {
+        ok: true,
+        count: next,
+        changed: true
+      };
+    } catch (error) {
+      if (
+        error?.status === 409 ||
+        error?.code ===
+          'FIRESTORE_PRECONDITION_FAILED'
+      ) {
+        continue;
+      }
+      throw error;
+    }
+  }
+
+  throw Object.assign(
+    new Error(
+      'The universal connection limit changed concurrently. Please retry.'
+    ),
+    {
+      status: 409,
+      code: 'CONNECTION_LIMIT_CONFLICT'
+    }
+  );
+}
+
 async function testEndpoint(url) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 7000);
@@ -176,8 +296,56 @@ async function onRequest(context) {
       if (record?.ownerUid !== auth.uid || record?.ownerEmail !== auth.email) {
         return errorResponse(403, 'CONNECTION_ACCESS_DENIED', 'Connection does not belong to this account.');
       }
-      await deleteFirestoreDocumentAtPath(context.env, [...base, id], current.updateTime);
-      return jsonResponse({ ok: true, deleted: true, id });
+      const currentWasActive = record?.active === true;
+      let reservation = null;
+
+      if (currentWasActive) {
+        reservation = await changeActiveCount(
+          context.env,
+          auth.uid,
+          auth.email,
+          -1,
+          state.limit
+        );
+
+        if (!reservation.ok) {
+          return errorResponse(
+            409,
+            'CONNECTION_LIMIT_CONFLICT',
+            'The universal connection state changed concurrently. Please retry.'
+          );
+        }
+      }
+
+      try {
+        await deleteFirestoreDocumentAtPath(
+          context.env,
+          [...base, id],
+          current.updateTime
+        );
+      } catch (error) {
+        if (currentWasActive && reservation?.changed) {
+          try {
+            await changeActiveCount(
+              context.env,
+              auth.uid,
+              auth.email,
+              1,
+              state.limit
+            );
+          } catch {}
+        }
+        throw error;
+      }
+
+      return jsonResponse({
+        ok: true,
+        deleted: true,
+        id,
+        activeCount:
+          reservation?.count ??
+          state.active.length
+      });
     }
 
     if (request.method !== 'POST' && request.method !== 'PUT') {
@@ -219,40 +387,101 @@ async function onRequest(context) {
     const requestedActive = record.active === true;
     const limit = state.limit;
 
-    if (requestedActive && !currentWasActive && state.active.length >= limit) {
-      return jsonResponse({
-        ok: false,
-        error: 'CONNECTION_LIMIT_REACHED',
-        message: `Your ${state.tier === 'free' ? 'Free Trial' : state.tier === 'pro' ? 'Pro Plan' : 'Max Plan'} allows ${limit === Infinity ? 'unlimited' : limit} active universal connections.`,
-        tier: state.tier,
-        limit: limit === Infinity ? null : limit,
-        activeCount: state.active.length,
-        upgradeRequired: state.tier !== 'max'
-      }, 409);
+    let reservation = null;
+
+    if (
+      requestedActive &&
+      !currentWasActive
+    ) {
+      reservation = await changeActiveCount(
+        context.env,
+        auth.uid,
+        auth.email,
+        1,
+        limit
+      );
+
+      if (!reservation.ok) {
+        return jsonResponse({
+          ok: false,
+          error: 'CONNECTION_LIMIT_REACHED',
+          message: `Your ${state.tier === 'free' ? 'Free Trial' : state.tier === 'pro' ? 'Pro Plan' : 'Max Plan'} allows ${limit === Infinity ? 'unlimited' : limit} active universal connections.`,
+          tier: state.tier,
+          limit: limit === Infinity ? null : limit,
+          activeCount: reservation.count,
+          upgradeRequired: state.tier !== 'max'
+        }, 409);
+      }
+    } else if (
+      !requestedActive &&
+      currentWasActive
+    ) {
+      reservation = await changeActiveCount(
+        context.env,
+        auth.uid,
+        auth.email,
+        -1,
+        limit
+      );
     }
 
-    await setFirestoreDocumentAtPath(
-      context.env,
-      [...base, id],
-      {
-        ...record,
-        createdAt: currentRecord?.createdAt || new Date().toISOString()
-      },
-      {
-        merge: true,
-        expectedUpdateTime: currentDoc?.updateTime || null
+    try {
+      await setFirestoreDocumentAtPath(
+        context.env,
+        [...base, id],
+        {
+          ...record,
+          createdAt:
+            currentRecord?.createdAt ||
+            new Date().toISOString()
+        },
+        {
+          merge: true,
+          expectedUpdateTime:
+            currentDoc?.updateTime ||
+            null
+        }
+      );
+    } catch (error) {
+      if (
+        reservation?.changed
+      ) {
+        try {
+          await changeActiveCount(
+            context.env,
+            auth.uid,
+            auth.email,
+            requestedActive &&
+              !currentWasActive
+              ? -1
+              : 1,
+            limit
+          );
+        } catch {}
       }
-    );
+      throw error;
+    }
 
-    const latest = await getFirestoreDataAtPath(context.env, [...base, id]);
+    const latest =
+      await getFirestoreDataAtPath(
+        context.env,
+        [...base, id]
+      );
+
     return jsonResponse({
       ok: true,
-      connection: { ...(latest || record), id },
+      connection: {
+        ...(latest || record),
+        id
+      },
       tier: state.tier,
-      limit: limit === Infinity ? null : limit,
-      activeCount: requestedActive
-        ? state.active.length + (currentWasActive ? 0 : 1)
-        : Math.max(0, state.active.length - (currentWasActive ? 1 : 0))
+      limit:
+        limit === Infinity
+          ? null
+          : limit,
+      activeCount:
+        reservation?.count ??
+        state.active.length
     });
   } catch (error) {
     return errorResponse(
