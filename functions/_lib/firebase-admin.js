@@ -815,6 +815,19 @@ export async function deleteFirestoreDocumentAtPath(env,segments,expectedUpdateT
   throw Object.assign(new Error(`Firestore document deletion failed (${response.status}): ${text.slice(0,300)}`),{status:response.status>=500?503:400,code:'FIRESTORE_DELETE_FAILED'});
 }
 
+export async function listFirestoreSubcollectionDocumentsAtPath(env,parentSegments,subcollection,pageSize=100){
+  const serviceAccount=parseServiceAccount(env);
+  const accessToken=await getGoogleAccessToken(env);
+  const parent=firestoreDocumentPath(serviceAccount.project_id,parentSegments);
+  const name=String(subcollection||'').trim();
+  if(!name||name.includes('/'))throw new Error('Firestore subcollection name is invalid.');
+  const params=new URLSearchParams({pageSize:String(Math.min(Math.max(Number(pageSize)||100,1),1000))});
+  const response=await fetch(`${parent}/${encodeURIComponent(name)}?${params.toString()}`,{headers:{Authorization:`Bearer ${accessToken}`}});
+  if(!response.ok)throw new Error(`Firestore nested subcollection list failed (${response.status}).`);
+  const data=await response.json();
+  return (data.documents||[]).map(document=>({id:String(document?.name||'').split('/').pop()||'',data:firestoreDocumentToJs(document)}));
+}
+
 export async function listFirestoreSubcollectionDocuments(env,parentCollection,parentDocumentId,subcollection,pageSize=100){
   const serviceAccount=parseServiceAccount(env);
   const accessToken=await getGoogleAccessToken(env);
