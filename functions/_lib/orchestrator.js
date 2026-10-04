@@ -1386,6 +1386,11 @@ export async function runAgent({
 
               files:
                 repairFiles,
+
+              hints:
+                sanitizeHints(
+                  clientContext
+                ),
             }),
 
           maxTokens:
