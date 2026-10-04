@@ -84,6 +84,10 @@ export async function onRequestGet(context) {
       ? config.accessRules
       : DEFAULT_ACCESS_RULES;
 
+    const gating = config.gating && typeof config.gating === 'object'
+      ? config.gating
+      : {};
+
     return jsonResponse({
       ok: true,
       pricing,
@@ -91,6 +95,8 @@ export async function onRequestGet(context) {
       dailyPromptQuotas,
       features,
       accessRules,
+      gating,
+      updatedAt: config.updatedAt || null,
       source: 'server',
       checkedAt: new Date().toISOString()
     }, 200, { 'X-OVYX-Request-ID': id });
