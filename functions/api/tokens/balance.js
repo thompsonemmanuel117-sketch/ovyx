@@ -1,4 +1,5 @@
 import { authenticateRequest } from '../../_lib/firebase.js';
+import { getFirestoreData } from '../../_lib/firebase-admin.js';
 import { getQuotaState } from '../../_lib/token-quota.js';
 import { jsonResponse, requestId } from '../_lib/http.js';
 
@@ -11,6 +12,10 @@ export async function onRequestGet(context) {
       await authenticateRequest(context.request, context.env);
 
     const quota = await getQuotaState(context.env, user);
+    const profile = await getFirestoreData(context.env, 'users', user.uid).catch(() => ({}));
+    const mobileBuildsRemaining = profile?.mobile_builds_remaining === undefined
+      ? 5
+      : Math.max(0, Number(profile.mobile_builds_remaining) || 0);
 
     return jsonResponse(
       {
@@ -18,6 +23,7 @@ export async function onRequestGet(context) {
         ...quota,
         baseRemaining: quota.current_monthly_tokens,
         boosterTokens: Number(quota.boosterTokens || 0),
+        mobileBuildsRemaining,
         checkedAt: new Date().toISOString(),
       },
       200,
