@@ -1,7 +1,7 @@
 'use strict';
 
-import { assertAuthenticated } from '../../_lib/firebase.js';
-import { errorResponse, requestId } from '../_lib/http.js';
+import { assertAuthenticated } from '../_lib/firebase.js';
+import { errorResponse, requestId } from './_lib/http.js';
 
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 const PROVIDERS = {
