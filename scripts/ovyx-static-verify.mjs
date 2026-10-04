@@ -56,7 +56,7 @@ if (fs.existsSync(html)) {
   if (!/id="app-sidebar"/i.test(text) || !/id="mobile-drawer"/i.test(text)) errors.push('index.html: main navigation shell is missing');
   if (/Agent is starting/i.test(text)) errors.push('index.html: stale Web Studio agent-starting copy detected');
 
-  const inlineScriptPattern = /<script\\b([^>]*)>([\\s\\S]*?)<\\/script>/gi;
+  const inlineScriptPattern = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
   let inlineIndex = 0;
 
   for (const match of text.matchAll(inlineScriptPattern)) {
@@ -66,9 +66,9 @@ if (fs.existsSync(html)) {
     const body = String(match[2] || '');
 
     if (!body.trim()) continue;
-    if (/\\bsrc\\s*=\\s*/i.test(attrs)) continue;
+    if (/\bsrc\s*=\s*/i.test(attrs)) continue;
 
-    const typeMatch = attrs.match(/\\btype\\s*=\\s*["']([^"']+)["']/i);
+    const typeMatch = attrs.match(/\btype\s*=\s*["']([^"']+)["']/i);
     const type = String(typeMatch?.[1] || '').trim().toLowerCase();
 
     if (
