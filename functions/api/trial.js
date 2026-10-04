@@ -5,7 +5,7 @@ import {
   getFirestoreDocument,
   getFirestoreData,
   setFirestoreDocumentIfCurrent,
-} from './_lib/firebase-admin.js';
+} from '../_lib/firebase-admin.js';
 import { readJson, jsonResponse, requestId } from './_lib/http.js';
 
 const MAX_BODY_BYTES = 8 * 1024;
