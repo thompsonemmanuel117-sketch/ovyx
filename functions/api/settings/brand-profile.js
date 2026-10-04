@@ -109,7 +109,7 @@ async function onRequest(context) {
   const identity = await getIdentity(request, context.env);
   if (!identity.ok) return identity.response;
 
-  const path = ['users', identity.email, 'brand_profile'];
+  const path = ['users', identity.email, 'brand_profile', 'config'];
 
   try {
     if (request.method === 'GET') {
