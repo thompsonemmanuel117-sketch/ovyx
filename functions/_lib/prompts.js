@@ -139,6 +139,7 @@ export function repairPrompt({
   errors,
   testOutput,
   files,
+  hints,
 }) {
   return `Repair the proposed repository changes using the verification failures below.
 
@@ -158,6 +159,12 @@ ${testOutput || 'none'}
 
 CURRENT FILE CONTENTS:
 ${files}
+
+CLIENT / BRAND CONTEXT:
+${hints || '{}'}
+
+Preserve the supplied brand colors and layout rules while repairing the failure. Never
+copy or expose a logo data URL in repository text.
 
 Return exactly this JSON shape:
 {
