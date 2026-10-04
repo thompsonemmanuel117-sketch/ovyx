@@ -1,7 +1,7 @@
 'use strict';
 
 import { assertAuthenticated } from '../_lib/firebase.js';
-import { errorResponse, requestId } from './_lib/http.js';
+import { errorResponse, requestId, readJson } from './_lib/http.js';
 
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 const PROVIDERS = {
@@ -45,6 +45,10 @@ export async function onRequest(context) {
 
     const url = new URL(context.request.url);
     let provider = String(url.searchParams.get('provider') || '').trim().toLowerCase();
+    if (context.request.method === 'POST') {
+      const body = await readJson(context.request, 16 * 1024);
+      provider = String(body?.provider || body?.context?.provider || provider).trim().toLowerCase();
+    }
     if (provider === 'claude') provider = 'anthropic';
 
     const config = PROVIDERS[provider];
@@ -119,3 +123,4 @@ export async function onRequest(context) {
     );
   }
 }
+
