@@ -73,7 +73,7 @@ export async function onRequestPost(context) {
     const projectId = clean(body.sourceProjectId || payload?.source?.projectId || 'current', 180);
     const userEmail = clean(user?.email || '', 320).toLowerCase();
     const brandProfile = userEmail
-      ? await getFirestoreDataAtPath(context.env, ['users', userEmail, 'brand_profile']).catch(() => null)
+      ? await getFirestoreDataAtPath(context.env, ['users', userEmail, 'brand_profile', 'config']).catch(() => null)
       : null;
     const brandedPayload = brandProfile
       ? { ...payload, brandProfile }
