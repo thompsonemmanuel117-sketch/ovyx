@@ -30,6 +30,20 @@ async function handlePost(request,env){
 
   const activeEmail=clean(identity.user?.email).toLowerCase();
   if(!activeEmail)return errorResponse(400,'EMAIL_REQUIRED','A verified Firebase account email is required.');
+
+  /* ROOT OVYX OWNER: server-authorized payment bypass. */
+  if(activeEmail === 'ovyxsupportteam@gmail.com'){
+    return jsonResponse({
+      ok:true,
+      bypassed:true,
+      paymentRequired:false,
+      role:'ROOT_SUPERUSER',
+      plan:'root',
+      status:'bypassed',
+      message:'Root OVYX owner access does not require checkout.'
+    },200,{'X-OVYX-Request-ID':id,'Cache-Control':'no-store'});
+  }
+
   if(identity.user.emailVerified!==true)return errorResponse(403,'EMAIL_VERIFICATION_REQUIRED','Verify your OVYX email address before starting a payment.');
 
   let body;
