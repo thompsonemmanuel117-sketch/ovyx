@@ -154,6 +154,75 @@ function trimText(
   );
 }
 
+function sanitizeBrandProfile(
+  profile
+) {
+  if (
+    !profile ||
+    typeof profile !==
+      'object'
+  ) {
+    return undefined;
+  }
+
+  const colors =
+    profile.colors &&
+    typeof profile.colors ===
+      'object'
+      ? Object.fromEntries(
+          Object.entries(
+            profile.colors
+          )
+            .filter(
+              ([key, value]) =>
+                /^[A-Za-z0-9_-]{1,40}$/.test(
+                  key
+                ) &&
+                /^#[0-9a-f]{6}$/i.test(
+                  String(value || '')
+                )
+            )
+            .slice(0, 12)
+            .map(
+              ([key, value]) => [
+                key,
+                String(
+                  value
+                ).toUpperCase(),
+              ]
+            )
+        )
+      : {};
+
+  const layoutRules =
+    Array.isArray(
+      profile.layoutRules
+    )
+      ? profile.layoutRules
+          .map(
+            value =>
+              String(
+                value || ''
+              ).trim()
+          )
+          .filter(Boolean)
+          .slice(0, 50)
+      : [];
+
+  return {
+    version:
+      Number(
+        profile.version
+      ) || 1,
+    hasLogo:
+      Boolean(
+        profile.logoDataUrl
+      ),
+    colors,
+    layoutRules,
+  };
+}
+
 function sanitizeHints(
   hints
 ) {
@@ -191,6 +260,11 @@ function sanitizeHints(
                 .status,
           }
         : undefined,
+
+    brandProfile:
+      sanitizeBrandProfile(
+        hints.brandProfile
+      ),
   });
 }
 
@@ -1145,6 +1219,11 @@ export async function runAgent({
 
             files:
               inspected.context,
+
+            hints:
+              sanitizeHints(
+                clientContext
+              ),
 
             allowDeletes,
 
