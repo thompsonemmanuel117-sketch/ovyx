@@ -56,6 +56,52 @@ if (fs.existsSync(html)) {
   if (!/id="app-sidebar"/i.test(text) || !/id="mobile-drawer"/i.test(text)) errors.push('index.html: main navigation shell is missing');
   if (/Agent is starting/i.test(text)) errors.push('index.html: stale Web Studio agent-starting copy detected');
 
+  const inlineScriptPattern = /<script\\b([^>]*)>([\\s\\S]*?)<\\/script>/gi;
+  let inlineIndex = 0;
+
+  for (const match of text.matchAll(inlineScriptPattern)) {
+    inlineIndex += 1;
+
+    const attrs = String(match[1] || '');
+    const body = String(match[2] || '');
+
+    if (!body.trim()) continue;
+    if (/\\bsrc\\s*=\\s*/i.test(attrs)) continue;
+
+    const typeMatch = attrs.match(/\\btype\\s*=\\s*["']([^"']+)["']/i);
+    const type = String(typeMatch?.[1] || '').trim().toLowerCase();
+
+    if (
+      type &&
+      type !== 'module' &&
+      !type.includes('javascript') &&
+      type !== 'text/ecmascript' &&
+      type !== 'application/ecmascript'
+    ) {
+      continue;
+    }
+
+    try {
+      execFileSync(
+        process.execPath,
+        ['--check'],
+        {
+          input: body,
+          encoding: 'utf8',
+          stdio: ['pipe', 'pipe', 'pipe'],
+        }
+      );
+    } catch (error) {
+      errors.push(
+        `index.html inline script #${inlineIndex}: ${String(
+          error.stderr ||
+          error.stdout ||
+          error.message
+        ).trim()}`
+      );
+    }
+  }
+
   const studioMatch = text.match(/<script id="ovyx-webstudio-v2-runtime">([\s\S]*?)<\/script>/i);
   if (studioMatch) {
     try {
