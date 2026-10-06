@@ -22,12 +22,14 @@ export const TOOL_REGISTRY = Object.freeze({
   web_studio: {
     capability: 'webStudio',
     enabled: false,
+    reason: 'ROUTE_BACKED_FEATURE_REQUIRES_EXECUTION_ADAPTER',
     actions: ['inspect', 'optimize', 'preview']
   },
 
   advanced_web_studio: {
     capability: 'advancedWebStudio',
     enabled: false,
+    reason: 'ROUTE_BACKED_FEATURE_REQUIRES_EXECUTION_ADAPTER',
     actions: ['inspect', 'optimize', 'preview']
   },
 
@@ -48,18 +50,21 @@ export const TOOL_REGISTRY = Object.freeze({
   github: {
     capability: 'github',
     enabled: false,
+    reason: 'ROUTE_BACKED_FEATURE_REQUIRES_EXECUTION_ADAPTER',
     actions: ['repositories', 'branches', 'tree', 'contents']
   },
 
   firebase: {
     capability: 'teamWorkspace',
     enabled: false,
+    reason: 'ROUTE_BACKED_FEATURE_REQUIRES_EXECUTION_ADAPTER',
     actions: ['profile.read', 'project.read']
   },
 
   cloudflare: {
     capability: 'cloudflareDeploy',
     enabled: false,
+    reason: 'ROUTE_BACKED_FEATURE_REQUIRES_EXECUTION_ADAPTER',
     actions: ['deploy', 'status']
   }
 });
