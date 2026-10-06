@@ -116,39 +116,23 @@ function methodAllowed(request, methods) {
  * Firebase token verification logic inside this route.
  */
 async function requireAuthenticatedUser(request, env) {
-  const candidates = [
-    'authenticateRequest',
-    'authenticateFirebaseRequest',
-    'requireAuth',
-    'requireFirebaseAuth',
-    'verifyRequest',
-    'verifyFirebaseRequest',
-  ];
-
-  for (const name of candidates) {
-    if (typeof Auth[name] !== 'function') {
-      continue;
+  if (typeof Auth.verifyFirebaseIdToken === 'function') {
+    const verified = await Auth.verifyFirebaseIdToken(request, env);
+    if (!verified?.ok) {
+      const error = new Error('Authentication is required for GitHub connection.');
+      error.status = 401;
+      error.code = 'AUTH_REQUIRED';
+      throw error;
     }
-
-    const result = await Auth[name](request, env);
-
-    if (!result) {
-      continue;
-    }
-
-    if (result.user) {
-      return result.user;
-    }
-
-    if (result.identity) {
-      return result.identity;
-    }
-
-    return result;
+    return {
+      ...(verified.user || {}),
+      uid: verified.user?.uid || verified.user?.sub || '',
+      sub: verified.user?.uid || verified.user?.sub || '',
+    };
   }
-
-  throw new Error(
-    'OVYX authentication module does not expose a supported request-authentication handler.',
+  throw Object.assign(
+    new Error('OVYX Firebase authentication module is unavailable.'),
+    { status: 503, code: 'AUTH_CONFIGURATION_ERROR' }
   );
 }
 
@@ -610,9 +594,11 @@ async function persistGitHubConnection({
   };
 
   await setFirestoreDocument(
-    `github_connections/${uid}`,
-    document,
     env,
+    GITHUB_CONNECTION_COLLECTION,
+    uid,
+    document,
+    { merge: false },
   );
 }
 
