@@ -527,8 +527,8 @@
 <button aria-label="Zoom in" data-ovyx-zoom="in" title="Zoom in" type="button">+</button>
 </div>
 <button aria-label="Open OVYX AI Project Bot" class="ovyx-ai-project-bot spring-btn" id="header-ai-project-bot" title="OVYX AI Assistant" type="button"><i class="fa-solid fa-wand-magic-sparkles"></i><span>AI Assistant</span></button>
-<button aria-label="Sign in to OVYX" class="ovyx-auth-action spring-btn" data-ovyx-auth-control="primary" id="ovyx-auth-action" title="Sign in to OVYX" type="button">
-<span>Sign In</span>
+<button aria-label="Log in to OVYX" class="ovyx-auth-action spring-btn" data-ovyx-auth-control="primary" id="ovyx-auth-action" title="Log in to OVYX" type="button">
+<span>Log In</span>
 </button></div>
 </header>
 <!-- DYNAMIC ROUTED VIEW PANES -->
@@ -997,8 +997,7 @@
 </h2>
 <p class="text-xs text-zinc-400 font-mono mt-1">Configure automated pricing tiers, currency conversion overrides, and per-module permission gates on the fly.</p>
 </div>
-<button class="spring-btn px-4 py-2 bg-white hover:bg-zinc-200 text-black font-extrabold text-xs rounded-xl shadow-lg" data-ovyx-resource="admin.access-registry.write" onclick="AdminConfigurator.saveSettings()">
-              Save Matrix Configuration
+<button class="spring-btn px-4 py-2 bg-white hover:bg-zinc-200 text-black font-extrabold text-xs rounded-xl shadow-lg" data-ovyx-resource="admin.access-registry.write" onclick="AdminConfigurator.saveSettings()">              Save Matrix Configuration
             </button>
 </div>
 <!-- Master Admin Access Override Switch -->
@@ -1997,8 +1996,7 @@ Body: { broadcastId, title, body, category, link }</div>
       },
       persist() {
         try {
-          localStorage.setItem('ovyx_token_used', this.tokensUsed);
-          localStorage.setItem('ovyx_token_last_reset', this.lastResetTimestamp);
+          localStorage.setItem('ovyx_token_used', this.tokensUsed);          localStorage.setItem('ovyx_token_last_reset', this.lastResetTimestamp);
         } catch (e) {}
       },
       renderMeter() {
@@ -2997,8 +2995,7 @@ Body: { broadcastId, title, body, category, link }</div>
           this.status('live','done');
           this.appendMessage('agent',String(reply));
         }catch(e){
-          if(!this.isRequestCurrent(token))return;
-          if(e?.name==='AbortError')return;
+          if(!this.isRequestCurrent(token))return;          if(e?.name==='AbortError')return;
           this.status(e.message||'AI request failed.','error');
           this.appendMessage('agent','OVYX could not complete that request because the connected AI service returned an error.');
         }finally{if(this.isRequestCurrent(token)){this.pendingBuild=false;this.liveAiActive=false;this.renderThread()}}
@@ -3997,7 +3994,6 @@ window.addEventListener('error',e=>{console.error('[OVYX error]',e.error||e.mess
 })();</script>
 
 <style id="ovyx-number7-complete-style">/* NUMBER 7 COMPLETION — PRODUCT-GRADE SETTINGS + THEME LAB */ :root{--ov-bg:#050505;--ov-panel:#0b0b0c;--ov-elev:#101012;--ov-text:#f5f5f4;--ov-secondary:#9a9aa0;--ov-muted:#606067;--ov-line:rgba(255,255,255,.09);--ov-accent:#e8b64f;--ov-accent-soft:rgba(232,182,79,.10)} html.ovyx-light{--ov-bg:#f5f6f7;--ov-panel:#ffffff;--ov-elev:#f0f1f3;--ov-text:#151517;--ov-secondary:#565961;--ov-muted:#858991;--ov-line:rgba(15,18,24,.12);--ov-accent:#9a6a16;--ov-accent-soft:rgba(154,106,22,.09)} html.ovyx-light,html.ovyx-light body{background:var(--ov-bg)!important;color:var(--ov-text)!important} html.ovyx-light #view-router-viewport,html.ovyx-light #view-settings,html.ovyx-light #view-home,html.ovyx-light #view-projects,html.ovyx-light html.ovyx-light #view-faq{background:var(--ov-bg)!important;color:var(--ov-text)!important} html.ovyx-light #app-sidebar,html.ovyx-light #mobile-drawer{background:#eceef1!important;border-color:var(--ov-line)!important} html.ovyx-light header{background:rgba(245,246,247,.94)!important;border-color:var(--ov-line)!important} html.ovyx-light .ovyx-settings-shell{color:var(--ov-text)} html.ovyx-light .ovyx-settings-sidebar,.ovyx-settings-sidebar{background:var(--ov-panel);border:1px solid var(--ov-line)} .ovyx-settings-shell{max-width:1180px;margin:0 auto;padding:28px clamp(14px,3vw,38px) 90px;font-family:Inter,sans-serif;color:var(--ov-text)} .ovyx-settings-top{display:flex;justify-content:space-between;gap:18px;align-items:flex-end;border-bottom:1px solid var(--ov-line);padding-bottom:20px;margin-bottom:18px} .ovyx-settings-title{font:800 30px/1 Inter,sans-serif;letter-spacing:-.045em}.ovyx-settings-sub{margin-top:7px;color:var(--ov-secondary);font:500 11px/1.5 Inter,sans-serif}.ovyx-settings-search{display:flex;align-items:center;gap:9px;min-width:min(360px,100%);border:1px solid var(--ov-line);background:var(--ov-panel);border-radius:9px;padding:10px 11px;color:var(--ov-muted);box-shadow:0 8px 30px rgba(0,0,0,.12)} .ovyx-settings-search input{width:100%;border:0;outline:0;background:transparent;color:var(--ov-text);font:600 11px Inter,sans-serif}.ovyx-settings-search input::placeholder{color:var(--ov-muted)} .ovyx-settings-layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:14px;align-items:start}.ovyx-settings-sidebar{position:sticky;top:16px;padding:8px;border-radius:12px}.ovyx-settings-section-label{padding:9px 9px 6px;color:var(--ov-muted);font:800 8px/1 JetBrains Mono,monospace;letter-spacing:.16em;text-transform:uppercase}.ovyx-settings-nav{width:100%;display:flex;align-items:center;gap:9px;padding:9px;border:1px solid transparent;background:transparent;border-radius:8px;color:var(--ov-secondary);text-align:left;font:650 10px Inter,sans-serif;transition:.16s ease}.ovyx-settings-nav small{display:block;color:var(--ov-muted);font:500 8px JetBrains Mono,monospace;margin-top:3px}.ovyx-settings-nav:hover{background:rgba(255,255,255,.035);color:var(--ov-text)}html.ovyx-light .ovyx-settings-nav:hover{background:rgba(0,0,0,.035)}.ovyx-settings-nav.active{background:var(--ov-accent-soft);border-color:rgba(232,182,79,.22);color:var(--ov-text)}.ovyx-settings-nav i{width:25px;height:25px;display:grid;place-items:center;border:1px solid var(--ov-line);border-radius:7px;color:var(--ov-secondary);font-size:10px}.ovyx-settings-nav.active i{color:var(--ov-accent);border-color:rgba(232,182,79,.22)} .ovyx-settings-main{min-width:0;border:1px solid var(--ov-line);background:var(--ov-panel);border-radius:13px;overflow:hidden}.ovyx-settings-panel{display:none}.ovyx-settings-panel.active{display:block;animation:ovyxPanelIn .16s ease both}@keyframes ovyxPanelIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}} .ovyx-panel-head{padding:20px;border-bottom:1px solid var(--ov-line)}.ovyx-panel-kicker{color:var(--ov-muted);font:800 8px JetBrains Mono,monospace;letter-spacing:.16em;text-transform:uppercase}.ovyx-panel-head h2{margin-top:6px;font:800 18px/1.15 Inter,sans-serif;letter-spacing:-.025em}.ovyx-panel-head p{margin-top:6px;color:var(--ov-secondary);font:500 10px/1.5 Inter,sans-serif}.ovyx-pref-group{border-bottom:1px solid var(--ov-line)}.ovyx-pref-group:last-child{border-bottom:0}.ovyx-pref-label{padding:13px 20px 8px;color:var(--ov-muted);font:800 8px JetBrains Mono,monospace;letter-spacing:.14em;text-transform:uppercase}.ovyx-pref-row{display:flex;align-items:center;gap:12px;min-height:58px;padding:11px 20px;border-top:1px solid rgba(255,255,255,.045)}html.ovyx-light .ovyx-pref-row{border-color:rgba(0,0,0,.05)}.ovyx-pref-copy{flex:1;min-width:0}.ovyx-pref-copy b{display:block;color:var(--ov-text);font:650 11px Inter,sans-serif}.ovyx-pref-copy small{display:block;color:var(--ov-muted);font:500 9px/1.35 Inter,sans-serif;margin-top:3px}.ovyx-pref-control{flex:none}.ovyx-pref-select,.ovyx-pref-input{border:1px solid var(--ov-line);background:var(--ov-elev);color:var(--ov-text);border-radius:7px;padding:8px 9px;outline:0;font:600 9px JetBrains Mono,monospace}.ovyx-pref-select:focus,.ovyx-pref-input:focus{border-color:rgba(232,182,79,.38)} .ovyx-choice-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0 20px 18px}.ovyx-choice{position:relative;border:1px solid var(--ov-line);background:var(--ov-elev);border-radius:9px;padding:9px;text-align:left;color:var(--ov-secondary);cursor:pointer;transition:.16s ease}.ovyx-choice:hover{border-color:rgba(255,255,255,.2);transform:translateY(-1px)}.ovyx-choice.selected{border-color:rgba(232,182,79,.42);box-shadow:inset 0 0 0 1px rgba(232,182,79,.08);color:var(--ov-text)}.ovyx-choice b{display:block;font:700 9px Inter,sans-serif}.ovyx-choice small{display:block;margin-top:3px;color:var(--ov-muted);font:500 7px JetBrains Mono,monospace}.ovyx-theme-preview{height:62px;border:1px solid rgba(255,255,255,.1);border-radius:7px;margin-bottom:8px;overflow:hidden;padding:8px;display:flex;flex-direction:column;gap:5px}.ovyx-theme-preview .p1{height:7px;width:45%;border-radius:3px}.ovyx-theme-preview .p2{height:5px;width:72%;border-radius:3px;opacity:.45}.ovyx-theme-preview .p3{height:16px;width:100%;border-radius:4px;margin-top:auto} .ovyx-theme-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;padding:0 20px 18px}.ovyx-theme-card{border:1px solid var(--ov-line);background:var(--ov-elev);border-radius:10px;padding:8px;cursor:pointer;text-align:left;transition:.16s ease}.ovyx-theme-card:hover{transform:translateY(-1px);border-color:rgba(255,255,255,.2)}.ovyx-theme-card.active{border-color:rgba(232,182,79,.48);box-shadow:inset 0 0 0 1px rgba(232,182,79,.1)}.ovyx-theme-card b{display:block;font:700 9px Inter,sans-serif;color:var(--ov-text)}.ovyx-theme-card small{display:block;margin-top:3px;color:var(--ov-muted);font:500 7px JetBrains Mono,monospace}.ovyx-theme-custom{margin:0 20px 20px;border:1px solid var(--ov-line);border-radius:11px;overflow:hidden}.ovyx-color-row{display:grid;grid-template-columns:1fr 110px;align-items:center;gap:10px;padding:11px 13px;border-top:1px solid var(--ov-line)}.ovyx-color-row:first-child{border-top:0}.ovyx-color-copy b{display:block;font:650 10px Inter,sans-serif;color:var(--ov-text)}.ovyx-color-copy small{display:block;margin-top:3px;color:var(--ov-muted);font:500 8px JetBrains Mono,monospace}.ovyx-color-control{display:flex;align-items:center;gap:7px}.ovyx-color-control input[type=color]{width:30px;height:28px;padding:0;border:1px solid var(--ov-line);background:transparent;border-radius:6px}.ovyx-color-hex{width:72px;padding:7px 6px!important;text-transform:uppercase}.ovyx-mini-preview{margin:0 20px 20px;border:1px solid var(--ov-line);border-radius:12px;padding:16px;background:var(--custom-bg,#050505);color:var(--custom-text,#f5f5f4);min-height:130px}.ovyx-mini-preview .mini-panel{margin-top:12px;border:1px solid color-mix(in srgb,var(--custom-text,#fff) 12%,transparent);background:color-mix(in srgb,var(--custom-panel,#0b0b0c) 88%,transparent);border-radius:9px;padding:12px}.ovyx-mini-preview .mini-btn{margin-top:10px;border:0;border-radius:7px;padding:8px 10px;background:var(--custom-accent,#e8b64f);color:#080808;font:800 9px Inter,sans-serif}.ovyx-theme-actions{display:flex;gap:7px;flex-wrap:wrap;padding:0 20px 20px}.ovyx-settings-btn{border:1px solid var(--ov-line);background:var(--ov-elev);color:var(--ov-secondary);border-radius:7px;padding:8px 10px;font:700 9px Inter,sans-serif;transition:.16s ease}.ovyx-settings-btn:hover{color:var(--ov-text);border-color:rgba(255,255,255,.2)}.ovyx-settings-btn.primary{background:var(--ov-accent);color:#080808;border-color:var(--ov-accent)}.ovyx-settings-btn.danger{color:#fda4af}.ovyx-empty-state{padding:28px 20px;color:var(--ov-muted);font:600 10px JetBrains Mono,monospace;text-align:center}.ovyx-settings-hidden{display:none!important} .ovyx-settings-shell[data-density="comfortable"] .ovyx-pref-row{min-height:66px}.ovyx-settings-shell[data-density="compact"] .ovyx-pref-row{min-height:48px;padding-top:8px;padding-bottom:8px}.ovyx-settings-shell[data-scale="small"]{font-size:94%}.ovyx-settings-shell[data-scale="large"]{font-size:106%}.ovyx-settings-shell[data-motion="reduced"] *{transition-duration:.08s!important;animation-duration:.08s!important}.ovyx-settings-shell[data-motion="minimal"] *{transition:none!important;animation:none!important} @media(max-width:850px){.ovyx-settings-top{align-items:flex-start;flex-direction:column}.ovyx-settings-search{width:100%;min-width:0}.ovyx-settings-layout{grid-template-columns:1fr}.ovyx-settings-sidebar{position:static;display:flex;gap:4px;overflow-x:auto;padding:5px}.ovyx-settings-section-label{display:none}.ovyx-settings-nav{min-width:max-content}.ovyx-settings-nav small{display:none}.ovyx-settings-main{border-radius:11px}.ovyx-theme-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ovyx-choice-grid{grid-template-columns:1fr}} @media(max-width:520px){.ovyx-settings-shell{padding:18px 10px 85px}.ovyx-settings-title{font-size:26px}.ovyx-panel-head,.ovyx-pref-row{padding-left:14px;padding-right:14px}.ovyx-choice-grid,.ovyx-theme-grid{padding-left:14px;padding-right:14px}.ovyx-theme-custom,.ovyx-mini-preview{margin-left:14px;margin-right:14px}.ovyx-color-row{grid-template-columns:1fr}.ovyx-color-control{justify-content:flex-start}.ovyx-settings-btn{flex:1}}</style>
-
 <script id="ovyx-number7-complete-runtime">(function(){'use strict';
 const esc7=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const KEY='ovyx.theme.lab.v1', APPEAR='ovyx.appearance.v3';
@@ -4090,12 +4086,12 @@ function p8ProfileState(){
 function p8ApplyAvatar(){const st=p8ProfileState(),nodes=[document.getElementById('sidebar-avatar-initials'),document.getElementById('profile-avatar-preview')];nodes.forEach(n=>{if(!n)return;if(n.id==='profile-avatar-preview'){n.innerHTML=st.avatar?`<img src="${p8esc(st.avatar)}" alt="Profile photo">`:p8esc(p8Initials(st.name));}else{n.innerHTML=st.avatar?`<img src="${p8esc(st.avatar)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`:p8esc(p8Initials(st.name));}});}
 function p8MaskEmail(email){const x=String(email||'');const at=x.indexOf('@');if(at<2)return x?'••••••••':'Not signed in';return x.slice(0,2)+'••••••'+x.slice(at)}
 async function p8Resize(file){return new Promise((resolve,reject)=>{const r=new FileReader();r.onerror=()=>reject(Error('Could not read that image.'));r.onload=()=>{const img=new Image();img.onerror=()=>reject(Error('That file is not a supported image.'));img.onload=()=>{const max=320,scale=Math.min(1,max/Math.max(img.width,img.height));const c=document.createElement('canvas');c.width=Math.max(1,Math.round(img.width*scale));c.height=Math.max(1,Math.round(img.height*scale));const ctx=c.getContext('2d');ctx.drawImage(img,0,0,c.width,c.height);resolve(c.toDataURL('image/jpeg',.84))};img.src=r.result};r.readAsDataURL(file)})}
-function p8RenderProfile(){const root=document.getElementById('ovyx-settings-main');if(!root)return;const panel=root.querySelector('[data-settings-panel="profile"]');if(!panel)return;const st=p8ProfileState(),u=p8User(),tier=String(window.KernelState?.userTier||'free').toUpperCase(),created=st.created?new Date(st.created).toLocaleDateString(undefined,{month:'long',day:'numeric',year:'numeric'}):'—',email=u?.email||document.getElementById('settings-email-text')?.textContent||'';panel.innerHTML=`<div class="ovyx-profile-hero"><div class="ovyx-profile-avatar-wrap"><div id="profile-avatar-preview" class="ovyx-profile-avatar">${st.avatar?`<img src="${p8esc(st.avatar)}" alt="Profile photo">`:p8esc(p8Initials(st.name))}</div><button type="button" class="ovyx-profile-avatar-edit" id="profile-photo-button" aria-label="Change profile photo"><i class="fa-solid fa-camera"></i></button><input id="profile-photo-input" class="ovyx-profile-upload" type="file" accept="image/png,image/jpeg,image/webp"></div><div><div class="ovyx-profile-eyebrow">PROFILE</div><div class="ovyx-profile-name" id="profile-name-heading">${p8esc(st.name)}</div><div class="ovyx-profile-role">Account Owner</div></div><div class="ovyx-profile-plan">${p8esc(tier)} PLAN</div></div><div class="ovyx-pref-group"><div class="ovyx-pref-label">IDENTITY</div><div class="ovyx-pref-row"><div class="ovyx-pref-copy"><b>Display name</b><small>The name shown throughout your OVYX workspace.</small></div><input class="ovyx-pref-input" id="set-profile-name" value="${p8esc(st.name)}" maxlength="60" autocomplete="name"></div><div class="ovyx-pref-row"><div class="ovyx-pref-copy"><b>Email</b><small>Your authenticated account email.</small></div><div class="ovyx-pref-control"><span class="ovyx-health-chip" title="${p8esc(email)}">${p8esc(p8MaskEmail(email))}</span></div></div><div class="ovyx-pref-row"><div class="ovyx-pref-copy"><b>Account created</b><small>When this OVYX account was first registered.</small></div><div class="ovyx-pref-control"><span class="ovyx-health-chip">${p8esc(created)}</span></div></div></div><div class="ovyx-pref-group"><div class="ovyx-pref-label">WORKSPACE</div><div class="ovyx-pref-row"><div class="ovyx-pref-copy"><b>Workspace name</b><small>The active workspace label used in navigation.</small></div><input class="ovyx-pref-input" id="set-workspace-name" value="${p8esc(st.workspace||'Creative Workspace')}" maxlength="60"></div></div><div class="ovyx-pref-group"><div class="ovyx-pref-label">ACCOUNT ACTIONS</div><div class="ovyx-connection-note">Profile photos are resized locally before storage and remain available to your account on supported devices.</div><div class="ovyx-profile-actions"><button type="button" class="ovyx-profile-action" id="profile-auth-action"><b>Manage authentication</b><small>Open session and security controls</small></button><button type="button" class="ovyx-profile-action" id="profile-signout-action"><b>Sign out</b><small>End the current account session</small></button><button type="button" class="ovyx-profile-action danger" id="profile-delete-action"><b>Delete account</b><small>Requires confirmation and recent authentication</small></button></div></div><div class="ovyx-theme-actions"><button class="ovyx-settings-btn primary" id="profile-save-action">Save Profile</button></div>`;
+function p8RenderProfile(){const root=document.getElementById('ovyx-settings-main');if(!root)return;const panel=root.querySelector('[data-settings-panel="profile"]');if(!panel)return;const st=p8ProfileState(),u=p8User(),tier=String(window.KernelState?.userTier||'free').toUpperCase(),created=st.created?new Date(st.created).toLocaleDateString(undefined,{month:'long',day:'numeric',year:'numeric'}):'—',email=u?.email||document.getElementById('settings-email-text')?.textContent||'';panel.innerHTML=`<div class="ovyx-profile-hero"><div class="ovyx-profile-avatar-wrap"><div id="profile-avatar-preview" class="ovyx-profile-avatar">${st.avatar?`<img src="${p8esc(st.avatar)}" alt="Profile photo">`:p8esc(p8Initials(st.name))}</div><button type="button" class="ovyx-profile-avatar-edit" id="profile-photo-button" aria-label="Change profile photo"><i class="fa-solid fa-camera"></i></button><input id="profile-photo-input" class="ovyx-profile-upload" type="file" accept="image/png,image/jpeg,image/webp"></div><div><div class="ovyx-profile-eyebrow">PROFILE</div><div class="ovyx-profile-name" id="profile-name-heading">${p8esc(st.name)}</div><div class="ovyx-profile-role">Account Owner</div></div><div class="ovyx-profile-plan">${p8esc(tier)} PLAN</div></div><div class="ovyx-pref-group"><div class="ovyx-pref-label">IDENTITY</div><div class="ovyx-pref-row"><div class="ovyx-pref-copy"><b>Display name</b><small>The name shown throughout your OVYX workspace.</small></div><input class="ovyx-pref-input" id="set-profile-name" value="${p8esc(st.name)}" maxlength="60" autocomplete="name"></div><div class="ovyx-pref-row"><div class="ovyx-pref-copy"><b>Email</b><small>Your authenticated account email.</small></div><div class="ovyx-pref-control"><span class="ovyx-health-chip" title="${p8esc(email)}">${p8esc(p8MaskEmail(email))}</span></div></div><div class="ovyx-pref-row"><div class="ovyx-pref-copy"><b>Account created</b><small>When this OVYX account was first registered.</small></div><div class="ovyx-pref-control"><span class="ovyx-health-chip">${p8esc(created)}</span></div></div></div><div class="ovyx-pref-group"><div class="ovyx-pref-label">WORKSPACE</div><div class="ovyx-pref-row"><div class="ovyx-pref-copy"><b>Workspace name</b><small>The active workspace label used in navigation.</small></div><input class="ovyx-pref-input" id="set-workspace-name" value="${p8esc(st.workspace||'Creative Workspace')}" maxlength="60"></div></div><div class="ovyx-pref-group"><div class="ovyx-pref-label">ACCOUNT ACTIONS</div><div class="ovyx-connection-note">Profile photos are resized locally before storage and remain available to your account on supported devices.</div><div class="ovyx-profile-actions"><button type="button" class="ovyx-profile-action" id="profile-auth-action"><b>Manage authentication</b><small>Open session and security controls</small></button><button type="button" class="ovyx-profile-action" id="profile-switch-account-action"><b>Switch account</b><small>Sign out and log in with a different account</small></button><button type="button" class="ovyx-profile-action" id="profile-signout-action"><b>Sign out</b><small>End the current account session</small></button><button type="button" class="ovyx-profile-action danger" id="profile-delete-action"><b>Delete account</b><small>Requires confirmation and recent authentication</small></button></div></div><div class="ovyx-theme-actions"><button class="ovyx-settings-btn primary" id="profile-save-action">Save Profile</button></div>`;
  p8BindProfile();
 }
 function p8BindProfile(){const root=document.getElementById('ovyx-settings-main');if(!root)return;const file=root.querySelector('#profile-photo-input'),photo=root.querySelector('#profile-photo-button'),saveBtn=root.querySelector('#profile-save-action');photo?.addEventListener('click',()=>file?.click());file?.addEventListener('change',async()=>{const f=file.files?.[0];if(!f)return;if(f.size>8*1024*1024)return toast('Choose an image smaller than 8 MB.','error');try{const avatar=await p8Resize(f);const st=p8ProfileState();st.avatar=avatar;p8save(p8StorageKey(),st);p8ApplyAvatar();toast('Profile photo updated for this device.','success');const u=p8User();try{if(u&&window.firebase?.storage){const ref=firebase.storage().ref(`profile/${u.uid}/avatar.jpg`);const blob=await (await fetch(avatar)).blob();const snap=await ref.put(blob,{contentType:'image/jpeg',cacheControl:'public,max-age=3600'});const url=await snap.ref.getDownloadURL();st.avatar=url;p8save(p8StorageKey(),st);await u.updateProfile({photoURL:url});p8ApplyAvatar();toast('Profile photo synced to your account.','success')}}catch(syncErr){console.warn('[OVYX profile photo sync]',syncErr)}}catch(e){toast(e.message||'Profile photo update failed.','error')}file.value=''});
 saveBtn?.addEventListener('click',()=>{const n=root.querySelector('#set-profile-name')?.value.trim();const w=root.querySelector('#set-workspace-name')?.value.trim();if(!n)return toast('Display name cannot be empty.','error');const st=p8ProfileState();st.name=n;if(w)st.workspace=w;p8save(p8StorageKey(),st);document.querySelectorAll('#settings-display-name-text,#sidebar-user-display-name').forEach(x=>x.textContent=n);const h=root.querySelector('#profile-name-heading');if(h)h.textContent=n;const sb=document.getElementById('sidebar-workspace-label');if(w&&sb)sb.textContent=w;p8ApplyAvatar();try{const u=p8User();if(u&&u.displayName!==n)u.updateProfile({displayName:n}).catch(e=>console.warn('[OVYX display name sync]',e))}catch(e){console.warn('[OVYX runtime]',e)}toast('Profile saved.','success')});
-root.querySelector('#profile-auth-action')?.addEventListener('click',()=>{if(window.OVYXSettings?.show)window.OVYXSettings.show('security')});root.querySelector('#profile-signout-action')?.addEventListener('click',async()=>{try{const u=p8User();if(u&&firebase?.auth){await firebase.auth().signOut();toast('Signed out of OVYX.','success');Router.go('home')}}catch(e){toast(e.message||'Sign out failed.','error')}});root.querySelector('#profile-delete-action')?.addEventListener('click',async()=>{if(!confirm('Delete your OVYX account? This cannot be undone.'))return;try{const u=p8User();if(!u)return toast('No authenticated account is active.','error');await u.delete();localStorage.removeItem(P8);toast('Account deleted.','success');Router.go('home')}catch(e){toast(e.code==='auth/requires-recent-login'?'For security, sign in again before deleting your account.':(e.message||'Account deletion failed.'),'error')}})}
+root.querySelector('#profile-auth-action')?.addEventListener('click',()=>{if(window.OVYXSettings?.show)window.OVYXSettings.show('security')});root.querySelector('#profile-switch-account-action')?.addEventListener('click',async()=>{try{if(firebase?.auth){await firebase.auth().signOut();}window.__OVYX_AUTH_STATE_READY__=false;window.isSignUpMode=false;Router.go('home');setTimeout(()=>window.OVYXMasterAuth?.openAuth?.(),120)}catch(e){toast(e.message||'Could not switch accounts.','error')}});root.querySelector('#profile-signout-action')?.addEventListener('click',async()=>{try{const u=p8User();if(u&&firebase?.auth){await firebase.auth().signOut();toast('Signed out of OVYX.','success');Router.go('home')}}catch(e){toast(e.message||'Sign out failed.','error')}});root.querySelector('#profile-delete-action')?.addEventListener('click',async()=>{if(!confirm('Delete your OVYX account? This cannot be undone.'))return;try{const u=p8User();if(!u)return toast('No authenticated account is active.','error');await u.delete();localStorage.removeItem(P8);toast('Account deleted.','success');Router.go('home')}catch(e){toast(e.code==='auth/requires-recent-login'?'For security, sign in again before deleting your account.':(e.message||'Account deletion failed.'),'error')}})}
 function p8FixAdminAccess(){const desktop=document.getElementById('admin-suite-module'),mobile=document.getElementById('mobile-admin-suite-module');if(typeof FirebaseAuthLockdown!=='undefined'){FirebaseAuthLockdown.enforceAccess=function(){const allowed=!!this.isSuperuser;desktop?.classList.toggle('hidden',!allowed);mobile?.classList.toggle('hidden',!allowed);};FirebaseAuthLockdown.__n8nonBlocking=true;}}
 function p8Init(){
   try{localStorage.removeItem(P8_LEGACY)}catch{}
@@ -4997,8 +4993,7 @@ function patchDrawer(){
   }
   let v43Templates=[];
   try{
-    const stored=v43Parse(localStorage.getItem(V43_TEMPLATE_STORAGE),'[]')
-    if(Array.isArray(stored))v43Templates=stored
+    const stored=v43Parse(localStorage.getItem(V43_TEMPLATE_STORAGE),'[]')    if(Array.isArray(stored))v43Templates=stored
   }catch(error){console.warn('[OVYX V43] local template restore:',error)}
   let v43Channel=null;
   let v43LastReleaseSignature='';
@@ -5997,8 +5992,7 @@ window.OVYXV58={syncDock,route:safeRoute,useTemplate,previewTemplate,featureLock
   function auth(){return window.firebase?.auth?.()||null}
   function toast(msg,type){try{window.showToast?.(msg,type)}catch(e){console.warn('[OVYX runtime]',e)}}
   function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-  async function requireRoot(){
-    const u=auth()?.currentUser;
+  async function requireRoot(){    const u=auth()?.currentUser;
     if(!u) throw new Error('ROOT_SUPERUSER authentication is required.');
     const token=await u.getIdToken(false);
     const response=await fetch('/api/entitlements',{
@@ -6997,8 +6991,7 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
           paint(labToTheme(theme),'theme-card');
           lab.renderState?.();
           saveCanonical();
-        }
-      }
+        }      }
       syncUi();
       return;
     }
@@ -7997,8 +7990,7 @@ window.OVYXAccessRegistry={state,requiredTier,allowed,planFeatures,apply:applyLo
     T.__v79=true;
     T.probe=async function(){
       const grid=$('telemetry-cards-grid');if(!grid)return;
-      grid.innerHTML='<div class="col-span-full text-center text-xs py-4 text-zinc-500 font-mono">Running verified health checks…</div>';
-      const checks=[
+      grid.innerHTML='<div class="col-span-full text-center text-xs py-4 text-zinc-500 font-mono">Running verified health checks…</div>';      const checks=[
         ['OVYX Edge','/api/plans'],
         ['AI Configuration','/api/ai/status'],
         ['Current App','/'],
@@ -8997,8 +8989,7 @@ window.addEventListener('click',e=>{if(e.target.closest?.('#checkout-elements-mo
   }
   function sanitizeThemeStorage(){
     safe(function(){
-      var raw=localStorage.getItem('ovyx-theme');
-      if(raw){
+      var raw=localStorage.getItem('ovyx-theme');      if(raw){
         var t=normTheme(JSON.parse(raw));
         localStorage.setItem('ovyx-theme',JSON.stringify(t));
       }
@@ -9325,7 +9316,7 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
    host.appendChild(l);
    host.insertBefore(p,l);
  }
- function noGoogle(){var roots=[document.getElementById('app-sidebar'),document.getElementById('mobile-drawer'),document.getElementById('view-settings')].filter(Boolean);roots.forEach(function(root){qa('a,button,[role=\"button\"]',root).forEach(function(el){var t=(el.textContent||'').toLowerCase(),h=(el.getAttribute('href')||'').toLowerCase();if(/google account|switch account|choose an account|accounts\.google\.com/.test(t+' '+h)){el.remove();}})})}
+ function noGoogle(){}
  function run(){normalizeSidebar();removeAccessSurfaces();restoreLogo();repairSupport();legal();legalBoundary();var lf=document.getElementById('ovyx-v65-legal-footer');if(lf)lf.remove();theme();scrub();noGoogle();ensureOwnerButton();checkOwner();publicTemplates();}
  ['80','450','1200','2500','5000'].forEach(function(ms){setTimeout(run,Number(ms))});
  window.addEventListener('ovyx:view-changed',function(e){setTimeout(function(){normalizeSidebar();if(e?.detail?.view==='templates')publicTemplates();removeAccessSurfaces();legalBoundary();repairSupport();ensureOwnerButton();scrub();},30)},{passive:true});
@@ -9997,8 +9988,7 @@ window.OVYXV66Admin={scanFeatures,ensureAdminVisibility,injectFeatureStudio,appl
   }
   /* -------- Plan Finder: direct unlock without forcing Change -> Free -------- */
   function patchPlanFinder(){
-    const box=document.querySelector('.v67-feature-plan-panel');if(!box||box.dataset.v8Bound==='1')return;
-    box.dataset.v8Bound='1';
+    const box=document.querySelector('.v67-feature-plan-panel');if(!box||box.dataset.v8Bound==='1')return;    box.dataset.v8Bound='1';
     const results=box.querySelector('.v67-results');if(!results)return;
     const findItem=key=>{
       const input=box.querySelector('.v67-feature-search');const q=input?.value||'';
@@ -10997,8 +10987,7 @@ function snapshotState(){
     selectedNodeId:W?.selectedNodeId?String(W.selectedNodeId):null,
     selectedElement:serializeSelectedElement(selected),
     attachments:serializeAttachments(W),
-    activeCodeFile:String(W?.activeCodeFile||''),
-    openCodeTabs:Array.isArray(W?.openCodeTabs)?W.openCodeTabs.slice(0,20):[]
+    activeCodeFile:String(W?.activeCodeFile||''),    openCodeTabs:Array.isArray(W?.openCodeTabs)?W.openCodeTabs.slice(0,20):[]
   };
 }
 function persistStateNow(reason){
@@ -11731,16 +11720,18 @@ window.OVYXWebStudioNavigation.bind();
       button.addEventListener('click',()=>u?window.Router?.go?.('settings',{force:true}):openAuth());
     }
     if(!u){
-      button.innerHTML='<span>Sign In</span>';
+      button.innerHTML='<span>Log In</span>';
       button.removeAttribute('data-authenticated');
-      button.title='Sign in to activate your OVYX workspace';
+      button.setAttribute('aria-label','Log in to OVYX');
+      button.title='Log in to your OVYX workspace';
       return;
     }
-    const display=String(u.displayName||u.email||'OVYX').replace(/[<>]/g,'').slice(0,28);
-    const initials=display.split(/\s+/).map(x=>x[0]).join('').slice(0,2).toUpperCase()||'OV';
+    const identity=String(u.displayName||u.email||'OVYX').replace(/[<>]/g,'').slice(0,28);
+    const initials=identity.split(/\s+/).map(x=>x[0]).join('').slice(0,2).toUpperCase()||'OV';
     const photo=u.photoURL?'<img alt="" src="'+String(u.photoURL).replace(/"/g,'&quot;')+'">':initials;
-    button.innerHTML='<span class="ovyx-auth-avatar">'+photo+'</span><span class="hidden sm:inline">'+display+'</span>';
+    button.innerHTML='<span class="ovyx-auth-avatar">'+photo+'</span><span class="hidden sm:inline">Account</span>';
     button.setAttribute('data-authenticated','true');
+    button.setAttribute('aria-label','Open account settings');
     button.title='Open account settings';
   }
   function setActivation(data){
@@ -11858,6 +11849,14 @@ window.OVYXWebStudioNavigation.bind();
     if(button)button.disabled=true;
     status('Opening '+providerName+' secure sign-in…');
     try{
+      /* An explicit OAuth login is also an account-switch action. Clear the old
+         Firebase session first so the provider result can never be attached to
+         the previous OVYX identity. */
+      if(a.currentUser){
+        await a.signOut();
+        authStateReady=false;
+        window.__OVYX_AUTH_STATE_READY__=false;
+      }
       const provider=new Provider();
       provider.setCustomParameters?.({prompt:'select_account'});
       const cred=await a.signInWithPopup(provider);
@@ -11987,8 +11986,7 @@ window.OVYXWebStudioNavigation.bind();
           setLiveState(false);
           /* Keep the Firebase session alive. A workspace/API failure must not force the user to re-enter credentials. */
         }
-      }else{
-        clearActivation();setLiveState(false);updateAuthAction(null);
+      }else{        clearActivation();setLiveState(false);updateAuthAction(null);
         /* Guests remain on the normal Home/dashboard shell. Protected actions call openAuth() explicitly. */
         if(isAuthRoute(routeName()))showHomeDirect();
       }
@@ -12122,7 +12120,7 @@ function setGuestTopButton(){
   if(window.__OVYX_AUTH_STATE_READY__!==true)return;
   const button=document.getElementById('ovyx-auth-action');
   if(button&&!currentUser()){
-    button.innerHTML='<span>Sign In</span>';
+    button.innerHTML='<span>Log In</span>';
     button.title='Sign in to activate your OVYX workspace';
   }
 }
@@ -12987,8 +12985,7 @@ async function downloadFrameworkProject(target){
     zip.file('next-env.d.ts',`/// <reference types="next" />\n/// <reference types="next/image-types/global" />\n\n// Auto-generated for OVYX export.\n`);
     zip.file('next.config.mjs','/** @type {import(\'next\').NextConfig} */\nconst nextConfig={reactStrictMode:true};\nexport default nextConfig;\n');
     zip.file('app/layout.tsx',`import './globals.css';\nimport type { Metadata } from 'next';\nexport const metadata:Metadata={title:${JSON.stringify(project.name||'OVYX Project')},description:'Exported from OVYX'};\nexport default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><body>{children}</body></html>}`);
-    zip.file('app/page.tsx',`import Hero from '../components/Hero';\nimport Features from '../components/Features';\nexport default function Page(){return <main><Hero/><Features/></main>}`);
-    zip.file('components/Hero.tsx',heroFile.replace('export default function Hero(){','export default function Hero(){'));
+    zip.file('app/page.tsx',`import Hero from '../components/Hero';\nimport Features from '../components/Features';\nexport default function Page(){return <main><Hero/><Features/></main>}`);    zip.file('components/Hero.tsx',heroFile.replace('export default function Hero(){','export default function Hero(){'));
     zip.file('components/Features.tsx',featuresFile);
     zip.file('app/globals.css','*{box-sizing:border-box}html,body{margin:0;padding:0;background:#050607;color:#fff;font-family:Inter,ui-sans-serif,system-ui,sans-serif}button{font:inherit}');
     zip.file('tailwind.config.ts','import type {Config} from "tailwindcss"; const config:Config={content:["./app/**/*.{js,ts,jsx,tsx,mdx}","./components/**/*.{js,ts,jsx,tsx,mdx}"],theme:{extend:{}},plugins:[]}; export default config;');
@@ -13987,8 +13984,7 @@ function installWebStudioSurface(){
     if(!input)return;
     var state=input.__ovyxPromptV28;
     if(!state){
-      state={timer:0,index:0,running:false,token:0};
-      input.__ovyxPromptV28=state;
+      state={timer:0,index:0,running:false,token:0};      input.__ovyxPromptV28=state;
     }
     var phrases=[
       'Build a premium SaaS dashboard with a clean responsive layout',
