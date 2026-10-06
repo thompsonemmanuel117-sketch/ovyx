@@ -1,7 +1,9 @@
 import {
   AGENT_SYSTEM_PROMPT,
+  WEB_STUDIO_EXCELLENCE,
   planPrompt,
   executePrompt,
+  polishPrompt,
   repairPrompt,
 } from './prompts.js';
 
@@ -25,6 +27,12 @@ import {
 import {
   validateChanges,
 } from './validator.js';
+
+import {
+  buildExperienceBrief,
+  isWebStudioPrompt,
+  scoreWebStudioChanges,
+} from './experience.js';
 
 import {
   appendJobEvent,
