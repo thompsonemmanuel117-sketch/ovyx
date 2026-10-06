@@ -6,6 +6,233 @@
  * the user's facts and never inventing business claims.
  */
 
+const EXPERIENCE_ARCHITECTURES = {
+  healthcare: {
+    sections: [
+      'orientation hero',
+      'care-pathway or specialty explorer',
+      'high-priority appointment/contact action',
+      'trust and care-team story',
+      'services or specialties',
+      'patient resources',
+      'locations/contact',
+      'questions and next steps'
+    ],
+    interactionConcepts: [
+      'specialty exploration that reveals the right pathway without a maze of menus',
+      'provider or care-team cards that open useful details without losing context',
+      'sticky mobile appointment/contact controls'
+    ],
+    motionChoreography: [
+      'gentle content reveals',
+      'high-confidence state changes on appointment actions',
+      'reduced motion around urgent information'
+    ],
+    visualAvoid: [
+      'cold generic medical stock aesthetic',
+      'excessive glassmorphism',
+      'decorative motion that competes with care actions'
+    ]
+  },
+  church: {
+    sections: [
+      'immersive welcome hero',
+      'next gathering spotlight',
+      'what to expect / first-visit pathway',
+      'sermon or media experience',
+      'ministries and community discovery',
+      'events and next steps',
+      'pastor or leadership story when supplied',
+      'prayer/giving/contact pathways when relevant'
+    ],
+    interactionConcepts: [
+      'a warm next-gathering action that feels immediate',
+      'sermon/media browsing that preserves editorial rhythm',
+      'ministry discovery that helps different visitor types find their place'
+    ],
+    motionChoreography: [
+      'cinematic but fast first impression',
+      'soft section continuity',
+      'ambient motion that never overwhelms content'
+    ],
+    visualAvoid: [
+      'generic church-template hero photography layouts',
+      'overused glowing crosses or decorative religious effects',
+      'dense event grids without hierarchy'
+    ]
+  },
+  restaurant: {
+    sections: [
+      'sensory hero',
+      'signature dishes / menu discovery',
+      'chef or story',
+      'atmosphere / experience',
+      'reservation or order path',
+      'hours/location',
+      'social proof when supplied',
+      'visit CTA'
+    ],
+    interactionConcepts: [
+      'menu reveals that feel physical rather than like a document dump',
+      'dish storytelling with concise ingredients/context',
+      'one-thumb reservation flow on mobile'
+    ],
+    motionChoreography: [
+      'editorial image reveals',
+      'tasteful parallax only where performant',
+      'micro-interactions around menu and reservation actions'
+    ],
+    visualAvoid: [
+      'generic three-card restaurant sections',
+      'slow hero video that blocks first interaction',
+      'tiny menu typography'
+    ]
+  },
+  saas: {
+    sections: [
+      'positioning hero',
+      'interactive product story',
+      'workflow / how-it-works',
+      'feature hierarchy',
+      'evidence / proof when supplied',
+      'pricing or activation path',
+      'objection-handling FAQ',
+      'conversion CTA'
+    ],
+    interactionConcepts: [
+      'progressive product walkthrough',
+      'feature comparison that reduces decision friction',
+      'stateful demo-like interactions that explain behavior rather than decorate'
+    ],
+    motionChoreography: [
+      'motion tied to product state',
+      'crisp transitions between workflow stages',
+      'restrained hover behavior'
+    ],
+    visualAvoid: [
+      'hero-first template with no product explanation',
+      'endless logo walls without evidence',
+      'card grids with identical emphasis'
+    ]
+  },
+  agency: {
+    sections: [
+      'distinctive positioning hero',
+      'selected work / case-study index',
+      'signature project story',
+      'capabilities',
+      'process',
+      'proof when supplied',
+      'about/team',
+      'contact'
+    ],
+    interactionConcepts: [
+      'project-first browsing',
+      'case studies that transition as a continuous narrative',
+      'editorial hover/tap previews that remain accessible'
+    ],
+    motionChoreography: [
+      'art-directed transitions',
+      'image continuity between sections',
+      'controlled scroll choreography'
+    ],
+    visualAvoid: [
+      'generic agency gradients',
+      'case-study cards that all look identical',
+      'motion for motion’s sake'
+    ]
+  },
+  education: {
+    sections: [
+      'outcomes-led hero',
+      'program/course explorer',
+      'why this institution',
+      'student/faculty story',
+      'admission or enrollment path',
+      'community/campus',
+      'events/news when relevant',
+      'contact/next step'
+    ],
+    interactionConcepts: [
+      'program filtering or discovery without overwhelming first-time visitors',
+      'student journey storytelling',
+      'clear mobile application/enrollment actions'
+    ],
+    motionChoreography: [
+      'optimistic page progression',
+      'content reveals that support scanning',
+      'low-friction state transitions'
+    ],
+    visualAvoid: [
+      'dense catalog-style homepages',
+      'tiny text-heavy cards',
+      'decorative motion that hides information'
+    ]
+  },
+  nonprofit: {
+    sections: [
+      'cause-centered hero',
+      'mission and why now',
+      'impact story',
+      'programs/initiatives',
+      'evidence when supplied',
+      'supporter pathways',
+      'volunteer/community path',
+      'donate/contact'
+    ],
+    interactionConcepts: [
+      'story-first impact browsing',
+      'clear supporter choices',
+      'mobile-first donation journey'
+    ],
+    motionChoreography: [
+      'human-paced storytelling',
+      'gentle emphasis on impact actions',
+      'avoid sensational motion around sensitive content'
+    ],
+    visualAvoid: [
+      'manipulative urgency without evidence',
+      'invented counters or impact statistics',
+      'crowded donation-first layouts'
+    ]
+  },
+  portfolio: {
+    sections: [
+      'identity hero',
+      'selected work',
+      'project/case-study path',
+      'process or craft story',
+      'about',
+      'contact'
+    ],
+    interactionConcepts: [
+      'project-first navigation',
+      'image transitions that preserve context',
+      'touch-friendly previews'
+    ],
+    motionChoreography: [
+      'expressive transitions',
+      'strong image continuity',
+      'minimal but authored movement'
+    ],
+    visualAvoid: [
+      'template portfolios with identical project cards',
+      'heavy motion that harms work visibility',
+      'overloaded menus'
+    ]
+  }
+};
+
+const GLOBAL_ANTI_TEMPLATE_RULES = [
+  'Do not default to a centered headline + two buttons + three cards composition.',
+  'Do not make every section a repeated rounded-card grid.',
+  'Do not use gradients or glow merely to signal “AI”.',
+  'Do not repeat the same spacing, card geometry or heading scale in every section.',
+  'Do not create decorative motion without a user-facing purpose.',
+  'Do not hide the primary action behind clever navigation.',
+  'Do not manufacture social proof, statistics, badges, awards or credentials.'
+];
+
 const ARCHETYPES = [
   {
     id: 'healthcare',
@@ -271,7 +498,27 @@ export function buildExperienceBrief(prompt, context = {}) {
     ],
     brandDirection: brand
       ? 'Use the supplied brand profile as the visual authority.'
-      : 'Infer a restrained, coherent visual direction from the request and avoid generic AI-template styling.'
+      : 'Infer a restrained, coherent visual direction from the request and avoid generic AI-template styling.',
+    architecture: EXPERIENCE_ARCHITECTURES[archetypeId] || {
+      sections: [
+        'orientation hero',
+        'core value proposition',
+        'primary user journey',
+        'supporting proof or information',
+        'conversion/contact path',
+        'FAQ or next steps'
+      ],
+      interactionConcepts: [
+        'one interaction that improves understanding',
+        'one interaction that improves conversion'
+      ],
+      motionChoreography: [
+        'purposeful entry transitions',
+        'state-driven micro-interactions'
+      ],
+      visualAvoid: []
+    },
+    antiTemplateRules: GLOBAL_ANTI_TEMPLATE_RULES
   };
 }
 
