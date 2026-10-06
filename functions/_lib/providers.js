@@ -789,6 +789,39 @@ export async function callModel(
     }
   }
 
+  if (
+    requested === 'automatic' &&
+    options.authUser
+  ) {
+    const activeBrainId =
+      await getActiveBrainConnectionId(
+        env,
+        options.authUser
+      );
+
+    if (activeBrainId) {
+      const result =
+        await callUserUniversalConnection(
+          env,
+          {
+            connectionId: activeBrainId,
+            authUser: options.authUser,
+            system: options.system,
+            user: options.user,
+            model: options.model,
+            maxTokens: options.maxTokens
+          }
+        );
+
+      return {
+        ...result,
+        requestedProvider: 'automatic',
+        routedProvider: 'universal-connection',
+        activeBrainConnectionId: activeBrainId
+      };
+    }
+  }
+
   const routedProvider = requested.startsWith('connection:')
     ? 'universal-connection'
     : normalizeRequestedProvider(requested);
