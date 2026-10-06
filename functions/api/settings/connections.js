@@ -10,6 +10,11 @@ const {
   listFirestoreSubcollectionDocuments
 } = require('../_lib/firebase-admin.js');
 
+const {
+  encryptConnectionSecret,
+  executeUniversalConnection
+} = require('../_lib/universal-connections.js');
+
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 const LIMITS = Object.freeze({ free: 3, pro: 5, max: Infinity });
 const ALLOWED_TYPES = new Set(['webhook', 'tool', 'database']);
@@ -96,6 +101,11 @@ function sanitizeConnection(body, owner) {
     endpoint,
     healthUrl: normalizeUrl(body?.healthUrl || endpoint),
     active: body?.active !== false,
+    method: clean(body?.method || ((type === 'ai' || type === 'api') ? 'POST' : 'GET'), 12).toUpperCase(),
+    protocol: clean(body?.protocol || (type === 'ai' ? 'openai-chat' : 'http-json'), 60).toLowerCase(),
+    model: clean(body?.model, 160) || null,
+    authMode: clean(body?.authMode || (body?.secret ? 'bearer' : 'none'), 40).toLowerCase(),
+    hasSecret: Boolean(body?.secret),
     ownerUid: owner.uid,
     ownerEmail: owner.email,
     updatedAt: new Date().toISOString()
@@ -284,7 +294,12 @@ async function onRequest(context) {
         limit: state.limit === Infinity ? null : state.limit,
         activeCount: state.active.length,
         totalCount: state.connections.length,
-        connections: state.connections
+        connections: state.connections.map(record => {
+          const safe = { ...record };
+          delete safe.encrypted;
+          safe.hasSecret = Boolean(record.hasSecret);
+          return safe;
+        })
       });
     }
 
@@ -354,13 +369,36 @@ async function onRequest(context) {
 
     const body = await request.json();
 
-    if (clean(body?.action, 20).toLowerCase() === 'test') {
+    const requestedAction = clean(body?.action, 20).toLowerCase();
+
+    if (requestedAction === 'execute' || requestedAction === 'chat') {
+      const id = connectionId(body?.id);
+      const result = await executeUniversalConnection(context.env, auth.user, id, {
+        action: requestedAction,
+        method: body?.method,
+        path: body?.path,
+        body: body?.body === undefined ? (body?.input === undefined ? null : body.input) : body.body,
+        headers: body?.headers
+      });
+      return jsonResponse(result, 200);
+    }
+
+    if (requestedAction === 'test') {
       const id = connectionId(body?.id);
       const record = await getFirestoreDataAtPath(context.env, [...base, id]);
       if (!record || record.ownerUid !== auth.uid || record.ownerEmail !== auth.email) {
         return errorResponse(404, 'CONNECTION_NOT_FOUND', 'Connection not found.');
       }
-      const result = await testEndpoint(record.healthUrl || record.endpoint);
+      let result;
+      try {
+        const probe = await executeUniversalConnection(context.env, auth.user, id, {
+          action: 'execute',
+          method: 'GET'
+        });
+        result = { ok: probe.status >= 200 && probe.status < 500, status: probe.status, latencyMs: probe.latencyMs };
+      } catch (error) {
+        result = { ok: false, status: error?.result?.status || 0, latencyMs: error?.result?.latencyMs || 0, error: error?.message || 'Connection test failed.' };
+      }
       await setFirestoreDocumentAtPath(
         context.env,
         [...base, id],
@@ -382,6 +420,14 @@ async function onRequest(context) {
     const id = connectionId(body?.id);
     const record = sanitizeConnection(body, { uid: auth.uid, email: auth.email });
     const currentDoc = await getFirestoreDocumentAtPath(context.env, [...base, id]);
+    const currentRecord = currentDoc ? await getFirestoreDataAtPath(context.env, [...base, id]) : null;
+    if (body?.secret) {
+      record.encrypted = await encryptConnectionSecret(context.env, body.secret);
+      record.hasSecret = true;
+    } else if (currentRecord?.encrypted) {
+      record.encrypted = currentRecord.encrypted;
+      record.hasSecret = true;
+    }
     const currentRecord = currentDoc ? await getFirestoreDataAtPath(context.env, [...base, id]) : null;
     const currentWasActive = currentRecord?.active === true;
     const requestedActive = record.active === true;
