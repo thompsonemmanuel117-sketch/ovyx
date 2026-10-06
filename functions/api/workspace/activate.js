@@ -24,8 +24,33 @@ export async function onRequestPost(context){
     const mobileBuildReady=Boolean(String(context.env.EXPO_TOKEN||'').trim()&&String(context.env.EXPO_PROJECT_ID||'').trim()&&String(context.env.OVYX_MOBILE_PAYLOAD_SECRET||'').trim());
     const activatedAt=new Date().toISOString();
     const existing=(await getFirestoreData(context.env,'users',uid))||{};
-    await setFirestoreDocument(context.env,'users',uid,{workspaceActive:true,workspaceActivatedAt:activatedAt,workspaceActivationVersion:1},{merge:true});
-    await initializeQuotaProfile(context.env, uid, String(existing.planTier || existing.tier || existing.plan || 'free').toLowerCase());    return jsonResponse({ok:true,scope:'user_workspace',workspaceActive:true,activatedAt,integrations:{
+    try{
+      await setFirestoreDocument(
+        context.env,
+        'users',
+        uid,
+        {
+          workspaceActive:true,
+          workspaceActivatedAt:activatedAt,
+          workspaceActivationVersion:2
+        },
+        {merge:true}
+      );
+      await initializeQuotaProfile(
+        context.env,
+        uid,
+        String(existing.planTier || existing.tier || existing.plan || 'free').toLowerCase()
+      );
+    }catch(error){
+      throw Object.assign(
+        new Error(error?.message || 'OVYX could not initialize the authenticated workspace.'),
+        {
+          status:error?.status || 503,
+          code:error?.code || 'WORKSPACE_PROFILE_INITIALIZATION_FAILED'
+        }
+      );
+    }
+    return jsonResponse({ok:true,scope:'user_workspace',workspaceActive:true,activatedAt,integrations:{
       codeGateway:{enabled:true,basePath:'/api',aiGateway:'/api/ai/gateway',assistant:'/api/ai/assistant'},
       github:{provider:'github-app-installation',connected:githubReady},
       mobileBuild:{provider:'expo-eas',configured:mobileBuildReady,status:mobileBuildReady?'READY':'NOT_CONFIGURED'}
