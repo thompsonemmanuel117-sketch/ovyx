@@ -8,6 +8,12 @@ function userId(user){return String(user?.sub||user?.uid||'').trim();}
 export async function onRequestPost(context){
   const id=requestId(context.request);
   try{
+    if(!String(context.env?.FIREBASE_PROJECT_ID||'').trim()){
+      throw Object.assign(new Error('OVYX Firebase server authentication is not configured (FIREBASE_PROJECT_ID).'),{status:503,code:'FIREBASE_SERVER_AUTH_CONFIG_MISSING'});
+    }
+    if(!String(context.env?.FIREBASE_SERVICE_ACCOUNT_JSON||context.env?.FIREBASE_SERVICE_ACCOUNT||'').trim()){
+      throw Object.assign(new Error('OVYX Firebase server database access is not configured (FIREBASE_SERVICE_ACCOUNT_JSON).'),{status:503,code:'FIREBASE_SERVER_DATABASE_CONFIG_MISSING'});
+    }
     const user=context.data?.user||await authenticateRequest(context.request,context.env);
     const uid=userId(user);
     if(!uid)return jsonResponse({ok:false,error:'Authentication required.',code:'AUTH_REQUIRED'},401,{'X-OVYX-Request-ID':id});
