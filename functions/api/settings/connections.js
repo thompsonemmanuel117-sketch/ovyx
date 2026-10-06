@@ -10,14 +10,13 @@ const {
   listFirestoreSubcollectionDocuments
 } = require('../_lib/firebase-admin.js');
 
-const {
-  encryptConnectionSecret,
-  executeUniversalConnection
-} = require('../_lib/universal-connections.js');
+async function universalConnectionModule() {
+  return import('../_lib/universal-connections.js');
+}
 
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 const LIMITS = Object.freeze({ free: 3, pro: 5, max: Infinity });
-const ALLOWED_TYPES = new Set(['webhook', 'tool', 'database']);
+const ALLOWED_TYPES = new Set(['webhook', 'tool', 'database', 'api', 'ai']);
 
 function clean(value, max = 400) {
   return String(value ?? '').trim().slice(0, max);
@@ -373,6 +372,7 @@ async function onRequest(context) {
 
     if (requestedAction === 'execute' || requestedAction === 'chat') {
       const id = connectionId(body?.id);
+      const { executeUniversalConnection } = await universalConnectionModule();
       const result = await executeUniversalConnection(context.env, auth.user, id, {
         action: requestedAction,
         method: body?.method,
@@ -391,6 +391,7 @@ async function onRequest(context) {
       }
       let result;
       try {
+        const { executeUniversalConnection } = await universalConnectionModule();
         const probe = await executeUniversalConnection(context.env, auth.user, id, {
           action: 'execute',
           method: 'GET'
@@ -422,6 +423,7 @@ async function onRequest(context) {
     const currentDoc = await getFirestoreDocumentAtPath(context.env, [...base, id]);
     const currentRecord = currentDoc ? await getFirestoreDataAtPath(context.env, [...base, id]) : null;
     if (body?.secret) {
+      const { encryptConnectionSecret } = await universalConnectionModule();
       record.encrypted = await encryptConnectionSecret(context.env, body.secret);
       record.hasSecret = true;
     } else if (currentRecord?.encrypted) {
