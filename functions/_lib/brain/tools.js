@@ -23,6 +23,13 @@ function unavailable(toolName) {
   return error;
 }
 
+function executeGameStudio() {
+  const error = new Error('Game Studio is registered but has no live execution adapter.');
+  error.code = 'GAME_STUDIO_NOT_ENABLED_YET';
+  error.status = 501;
+  throw error;
+}
+
 export async function executeTool({
   toolName,
   action,
