@@ -1,18 +1,20 @@
-'use strict';
-
-const { verifyFirebaseIdToken } = require('../_lib/auth.js');
-const { errorResponse, jsonResponse } = require('../_lib/http.js');
-const {
+import { verifyFirebaseIdToken } from '../_lib/auth.js';
+import { errorResponse, jsonResponse } from '../_lib/http.js';
+import {
   getFirestoreDocumentAtPath,
   getFirestoreDataAtPath,
   setFirestoreDocumentAtPath,
   deleteFirestoreDocumentAtPath,
   listFirestoreSubcollectionDocuments
-} = require('../_lib/firebase-admin.js');
+} from '../../_lib/firebase-admin.js';
+import {
+  buildConnectionRecord,
+  publicConnection,
+  testUserConnection
+} from '../../_lib/universal-connections.js';
 
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 const LIMITS = Object.freeze({ free: 3, pro: 5, max: Infinity });
-const ALLOWED_TYPES = new Set(['webhook', 'tool', 'database']);
 
 function clean(value, max = 400) {
   return String(value ?? '').trim().slice(0, max);
@@ -48,58 +50,6 @@ function connectionId(value) {
     });
   }
   return id;
-}
-
-function normalizeUrl(value) {
-  const raw = clean(value, 1200);
-  if (!raw) return '';
-  let parsed;
-  try {
-    parsed = new URL(raw);
-  } catch {
-    throw Object.assign(new Error('Connection endpoint must be a valid URL.'), {
-      status: 400,
-      code: 'INVALID_CONNECTION_URL'
-    });
-  }
-  if (!['https:', 'http:'].includes(parsed.protocol)) {
-    throw Object.assign(new Error('Connection endpoint must use HTTP or HTTPS.'), {
-      status: 400,
-      code: 'INVALID_CONNECTION_PROTOCOL'
-    });
-  }
-  return parsed.toString();
-}
-
-function sanitizeConnection(body, owner) {
-  const type = clean(body?.type || 'tool', 30).toLowerCase();
-  if (!ALLOWED_TYPES.has(type)) {
-    throw Object.assign(new Error('Connection type must be webhook, tool or database.'), {
-      status: 400,
-      code: 'INVALID_CONNECTION_TYPE'
-    });
-  }
-  const name = clean(body?.name, 120);
-  if (!name) throw Object.assign(new Error('Connection name is required.'), { status: 400, code: 'CONNECTION_NAME_REQUIRED' });
-
-  const endpoint = normalizeUrl(body?.endpoint || body?.healthUrl);
-  if (!endpoint) {
-    throw Object.assign(new Error('A real HTTPS/HTTP connection endpoint is required.'), {
-      status: 400,
-      code: 'CONNECTION_ENDPOINT_REQUIRED'
-    });
-  }
-
-  return {
-    name,
-    type,
-    endpoint,
-    healthUrl: normalizeUrl(body?.healthUrl || endpoint),
-    active: body?.active !== false,
-    ownerUid: owner.uid,
-    ownerEmail: owner.email,
-    updatedAt: new Date().toISOString()
-  };
 }
 
 async function identity(request, env) {
@@ -246,27 +196,6 @@ async function changeActiveCount(
   );
 }
 
-async function testEndpoint(url) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 7000);
-  const started = Date.now();
-  try {
-    const response = await fetch(url, {
-      method: 'HEAD',
-      redirect: 'manual',
-      signal: controller.signal,
-      headers: { 'User-Agent': 'OVYX-Connection-Check/1.0' }
-    });
-    return {
-      ok: response.status >= 200 && response.status < 500,
-      status: response.status,
-      latencyMs: Date.now() - started
-    };
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
 async function onRequest(context) {
   const request = context.request;
   const auth = await identity(request, context.env);
@@ -284,7 +213,7 @@ async function onRequest(context) {
         limit: state.limit === Infinity ? null : state.limit,
         activeCount: state.active.length,
         totalCount: state.connections.length,
-        connections: state.connections
+        connections: state.connections.map(item => publicConnection(item, item.id))
       });
     }
 
@@ -360,7 +289,11 @@ async function onRequest(context) {
       if (!record || record.ownerUid !== auth.uid || record.ownerEmail !== auth.email) {
         return errorResponse(404, 'CONNECTION_NOT_FOUND', 'Connection not found.');
       }
-      const result = await testEndpoint(record.healthUrl || record.endpoint);
+      const result = await testUserConnection(
+        context.env,
+        auth.user,
+        id
+      );
       await setFirestoreDocumentAtPath(
         context.env,
         [...base, id],
@@ -368,7 +301,8 @@ async function onRequest(context) {
           lastTestAt: new Date().toISOString(),
           lastTestStatus: result.ok ? 'reachable' : 'unreachable',
           lastTestHttpStatus: result.status,
-          lastTestLatencyMs: result.latencyMs
+          lastTestLatencyMs: result.latencyMs,
+          lastTestError: result.error || null
         },
         { merge: true }
       );
@@ -380,9 +314,14 @@ async function onRequest(context) {
     }
 
     const id = connectionId(body?.id);
-    const record = sanitizeConnection(body, { uid: auth.uid, email: auth.email });
     const currentDoc = await getFirestoreDocumentAtPath(context.env, [...base, id]);
     const currentRecord = currentDoc ? await getFirestoreDataAtPath(context.env, [...base, id]) : null;
+    const record = await buildConnectionRecord(
+      context.env,
+      body,
+      { uid: auth.uid, email: auth.email },
+      currentRecord || {}
+    );
     const currentWasActive = currentRecord?.active === true;
     const requestedActive = record.active === true;
     const limit = state.limit;
@@ -471,8 +410,7 @@ async function onRequest(context) {
     return jsonResponse({
       ok: true,
       connection: {
-        ...(latest || record),
-        id
+        ...publicConnection(latest || record, id)
       },
       tier: state.tier,
       limit:
@@ -492,4 +430,4 @@ async function onRequest(context) {
   }
 }
 
-module.exports = { onRequest };
+export { onRequest };
