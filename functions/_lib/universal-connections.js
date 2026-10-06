@@ -240,7 +240,7 @@ export async function buildConnectionRecord(env, body, owner, existing = {}) {
   };
 }
 
-export async function getConnection(env, user, id) {
+export async function getConnection(env, user, id, { requireActive = true } = {}) {
   const { uid, email } = ownerOf(user);
   if (!uid || !email) {
     throw Object.assign(
@@ -276,7 +276,7 @@ export async function getConnection(env, user, id) {
     );
   }
 
-  if (record.active !== true) {
+  if (requireActive && record.active !== true) {
     throw Object.assign(
       new Error('This Universal Connection is inactive.'),
       { status: 409, code: 'CONNECTION_INACTIVE' }
@@ -300,8 +300,14 @@ function applyAuth(headers, authMode, secret) {
 }
 
 function openAiEndpoint(endpoint) {
-  const url = String(endpoint).replace(/\/+$/, '');
-  return /\/chat\/completions$/i.test(url) ? url : url + '/chat/completions';
+  const parsed = new URL(String(endpoint));
+  const path = parsed.pathname.replace(/\/+$/, '');
+  if (!/\/chat\/completions$/i.test(path)) {
+    parsed.pathname = path + '/chat/completions';
+  } else {
+    parsed.pathname = path;
+  }
+  return parsed.toString();
 }
 
 function extractResponseText(payload) {
@@ -364,7 +370,13 @@ async function requestConnection(record, input, env) {
           messages: Array.isArray(input?.messages) ? input.messages : [],
           prompt: clean(input?.prompt, 50_000),
           system: clean(input?.system, 40_000),
-          model: clean(input?.model || record.model, 180) || undefined
+          model: clean(input?.model || record.model, 180) || undefined,
+          max_tokens: Number(input?.maxTokens) > 0
+            ? Math.min(Number(input.maxTokens), 24000)
+            : undefined,
+          temperature: typeof input?.temperature === 'number'
+            ? Math.max(0, Math.min(input.temperature, 1))
+            : 0.2
         };
 
     const url = record.protocol === 'openai-chat'
@@ -470,7 +482,7 @@ export async function callUserUniversalConnection(
 }
 
 export async function testUserConnection(env, user, id) {
-  const { record } = await getConnection(env, user, id);
+  const { record } = await getConnection(env, user, id, { requireActive: false });
   const started = Date.now();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 8000);
@@ -492,7 +504,12 @@ export async function testUserConnection(env, user, id) {
       }
     );
     return {
-      ok: response.status >= 200 && response.status < 500,
+      ok:
+        (response.status >= 200 && response.status < 400) ||
+        response.status === 405,
+      authenticated:
+        response.status !== 401 &&
+        response.status !== 403,
       status: response.status,
       latencyMs: Date.now() - started
     };
