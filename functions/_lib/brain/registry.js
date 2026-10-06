@@ -21,13 +21,13 @@ export const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 export const TOOL_REGISTRY = Object.freeze({
   web_studio: {
     capability: 'webStudio',
-    enabled: true,
+    enabled: false,
     actions: ['inspect', 'optimize', 'preview']
   },
 
   advanced_web_studio: {
     capability: 'advancedWebStudio',
-    enabled: true,
+    enabled: false,
     actions: ['inspect', 'optimize', 'preview']
   },
 
@@ -47,19 +47,19 @@ export const TOOL_REGISTRY = Object.freeze({
 
   github: {
     capability: 'github',
-    enabled: true,
+    enabled: false,
     actions: ['repositories', 'branches', 'tree', 'contents']
   },
 
   firebase: {
     capability: 'teamWorkspace',
-    enabled: true,
+    enabled: false,
     actions: ['profile.read', 'project.read']
   },
 
   cloudflare: {
     capability: 'cloudflareDeploy',
-    enabled: true,
+    enabled: false,
     actions: ['deploy', 'status']
   }
 });
