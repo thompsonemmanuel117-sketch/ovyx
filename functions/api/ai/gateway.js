@@ -94,6 +94,7 @@ export async function onRequestPost(context) {
           model: payload.model,
           system,
           user: isWebStudio && projectContext ? combined + '\n\nPROJECT CONTEXT:\n' + projectContext : combined,
+          authUser: user,
           maxTokens: isWebStudio
             ? Math.min(Number(payload.maxTokens || 24000), 24000)
             : Math.min(Number(payload.maxTokens || 4096), 8192),
