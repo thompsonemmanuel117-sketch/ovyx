@@ -6,7 +6,8 @@ import {
   requestId,
 } from '../../_lib/http.js';
 import { callModel } from '../../_lib/providers.js';
-import { WEB_STUDIO_SYSTEM_PROMPT } from '../../_lib/prompts.js';
+import { WEB_STUDIO_SYSTEM_PROMPT, WEB_STUDIO_EXCELLENCE } from '../../_lib/prompts.js';
+import { buildExperienceBrief, isWebStudioPrompt } from '../../_lib/experience.js';
 import { beginAIQuota, finalizeAIQuota, refundDailyPrompt } from '../../_lib/token-quota.js';
 import {
   saveChatTurn,
@@ -70,14 +71,31 @@ export async function onRequestPost(context) {
     }
 
     const mode = String(payload.mode || 'assistant').toLowerCase();
-    const isWebStudio = /^web-studio-(build|fix|plan|ask)$/.test(mode);
+    const hasStudioContext = !!(
+      payload?.project ||
+      payload?.files ||
+      payload?.context?.project ||
+      payload?.context?.files
+    );
+    const isWebStudio = isWebStudioPrompt(payload.prompt || payload.message || messages[messages.length - 1]?.content || '', mode) ||
+      ((mode === 'build' || mode === 'fix') && hasStudioContext);
     const projectContext = payload.context && typeof payload.context === 'object'
       ? JSON.stringify(payload.context).slice(0, 80_000)
       : '';
     const suppliedSystem = String(payload.system || '').trim();
+    const experience = isWebStudio
+      ? buildExperienceBrief(
+          payload.prompt || payload.message || messages[messages.length - 1]?.content || '',
+          payload.context || {}
+        )
+      : null;
+
     const system = String(
       isWebStudio
-        ? WEB_STUDIO_SYSTEM_PROMPT + (suppliedSystem ? '\\n\\nCLIENT STUDIO INSTRUCTIONS:\\n' + suppliedSystem : '') + '\\n\\nAuthenticated user UID: ' + user.sub
+        ? WEB_STUDIO_SYSTEM_PROMPT + '\\n\\n' + WEB_STUDIO_EXCELLENCE +
+          '\\n\\nEXPERIENCE INTELLIGENCE:\\n' + JSON.stringify(experience || {}) +
+          (suppliedSystem ? '\\n\\nCLIENT STUDIO INSTRUCTIONS:\\n' + suppliedSystem : '') +
+          '\\n\\nAuthenticated user UID: ' + user.sub
         : suppliedSystem || `You are OVYX Brain, the authenticated project-aware AI assistant.
 User UID: ${user.sub}
 Return useful concise answers.
@@ -156,10 +174,20 @@ When discussing project changes, distinguish recommendations from changes actual
 
     const structured = isWebStudio ? parseStructured(result.text) : null;
 
+    const structuredFields = {};
+    if (structured && typeof structured === 'object') {
+      for (const key of ['project', 'updatedProject', 'files', 'fileEdits', 'patch', 'html', 'code', 'summary', 'message', 'answer']) {
+        if (Object.prototype.hasOwnProperty.call(structured, key)) {
+          structuredFields[key] = structured[key];
+        }
+      }
+    }
+
     return json({
       ok: true,
       text: result.text,
       answer: result.text,
+      ...structuredFields,
       data: structured,
       provider: result.provider,
       model: result.model,
@@ -168,6 +196,7 @@ When discussing project changes, distinguish recommendations from changes actual
       requestedProvider: result.requestedProvider,
       routedProvider: result.routedProvider,
       conversationId,
+      experience: isWebStudio ? experience : null,
       history: {
         saved: historySaved,
       },
