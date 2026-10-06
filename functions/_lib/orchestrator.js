@@ -998,6 +998,51 @@ async function materializeChanges(
   return changed;
 }
 
+function applyPolishChanges(baseChanges, rawChanges, maxFiles) {
+  if (!Array.isArray(rawChanges)) {
+    throw new Error('Web Studio polish returned no changes array.');
+  }
+
+  if (rawChanges.length > maxFiles) {
+    throw new Error('Web Studio polish changed too many files.');
+  }
+
+  const byPath = new Map(
+    baseChanges.map(item => [item.path, item])
+  );
+
+  for (const raw of rawChanges) {
+    const path = assertSafePath(raw.path, { allowDeletes: false });
+    if (String(raw.action || 'update') !== 'update') {
+      throw new Error(path + ': polish may only update existing files.');
+    }
+
+    const current = byPath.get(path);
+    if (!current || !current.content) {
+      throw new Error(path + ': polish target was not part of the current build.');
+    }
+
+    if (!Array.isArray(raw.operations) || !raw.operations.length) {
+      throw new Error(path + ': polish update requires exact-match operations.');
+    }
+
+    const content = applyOperationsToContent(
+      current.content,
+      raw.operations,
+      path
+    );
+
+    byPath.set(path, {
+      ...current,
+      action: 'update',
+      content
+    });
+  }
+
+  return [...byPath.values()];
+}
+
+
 /*
  * MASTER OVYX AGENT LOOP
  *
