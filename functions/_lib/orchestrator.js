@@ -1,7 +1,9 @@
 import {
   AGENT_SYSTEM_PROMPT,
+  WEB_STUDIO_EXCELLENCE,
   planPrompt,
   executePrompt,
+  polishPrompt,
   repairPrompt,
 } from './prompts.js';
 
@@ -25,6 +27,12 @@ import {
 import {
   validateChanges,
 } from './validator.js';
+
+import {
+  buildExperienceBrief,
+  isWebStudioPrompt,
+  scoreWebStudioChanges,
+} from './experience.js';
 
 import {
   appendJobEvent,
@@ -990,6 +998,51 @@ async function materializeChanges(
   return changed;
 }
 
+function applyPolishChanges(baseChanges, rawChanges, maxFiles) {
+  if (!Array.isArray(rawChanges)) {
+    throw new Error('Web Studio polish returned no changes array.');
+  }
+
+  if (rawChanges.length > maxFiles) {
+    throw new Error('Web Studio polish changed too many files.');
+  }
+
+  const byPath = new Map(
+    baseChanges.map(item => [item.path, item])
+  );
+
+  for (const raw of rawChanges) {
+    const path = assertSafePath(raw.path, { allowDeletes: false });
+    if (String(raw.action || 'update') !== 'update') {
+      throw new Error(path + ': polish may only update existing files.');
+    }
+
+    const current = byPath.get(path);
+    if (!current || !current.content) {
+      throw new Error(path + ': polish target was not part of the current build.');
+    }
+
+    if (!Array.isArray(raw.operations) || !raw.operations.length) {
+      throw new Error(path + ': polish update requires exact-match operations.');
+    }
+
+    const content = applyOperationsToContent(
+      current.content,
+      raw.operations,
+      path
+    );
+
+    byPath.set(path, {
+      ...current,
+      action: 'update',
+      content
+    });
+  }
+
+  return [...byPath.values()];
+}
+
+
 /*
  * MASTER OVYX AGENT LOOP
  *
@@ -1014,6 +1067,11 @@ export async function runAgent({
   delivery =
     'pr',
 }) {
+  const webStudio = isWebStudioPrompt(prompt, clientContext?.mode || '');
+  const experienceBrief = webStudio
+    ? buildExperienceBrief(prompt, clientContext)
+    : null;
+
   await updateJob(
     env,
     jobId,
@@ -1108,9 +1166,6 @@ export async function runAgent({
 
         model,
 
-        system:
-          AGENT_SYSTEM_PROMPT,
-
         user:
           planPrompt({
             prompt,
@@ -1122,15 +1177,30 @@ export async function runAgent({
               sanitizeHints(
                 clientContext
               ),
+
+            experience:
+              experienceBrief,
           }),
 
+        authUser:
+          user,
+
+        system:
+          webStudio
+            ? AGENT_SYSTEM_PROMPT + '\n\n' + WEB_STUDIO_EXCELLENCE
+            : AGENT_SYSTEM_PROMPT,
+
         maxTokens:
-          3500,
+          5000,
       }
     );
 
   const plan =
     planResult.json;
+
+  if (webStudio && plan && typeof plan === 'object') {
+    plan.experienceBrief = experienceBrief;
+  }
 
   if (
     plan.needsUserInput
@@ -1209,7 +1279,10 @@ export async function runAgent({
         model,
 
         system:
-          `${AGENT_SYSTEM_PROMPT}\n\nYou are now in EXECUTION phase. Use exact-match patch operations for existing files.`,
+          (webStudio
+            ? AGENT_SYSTEM_PROMPT + '\n\n' + WEB_STUDIO_EXCELLENCE
+            : AGENT_SYSTEM_PROMPT) +
+          '\n\nYou are now in EXECUTION phase. Use exact-match patch operations for existing files.',
 
         user:
           executePrompt({
@@ -1225,16 +1298,22 @@ export async function runAgent({
                 clientContext
               ),
 
+            experience:
+              experienceBrief,
+
             allowDeletes,
 
             allowWorkflowChanges,
           }),
 
+        authUser:
+          user,
+
         maxTokens:
           cap(
             env,
             'AGENT_EXECUTE_MAX_TOKENS',
-            9000
+            12000
           ),
       }
     );
@@ -1393,6 +1472,9 @@ export async function runAgent({
                 ),
             }),
 
+          authUser:
+            user,
+
           maxTokens:
             cap(
               env,
@@ -1448,6 +1530,124 @@ export async function runAgent({
           allowDeletes,
         }
       );
+  }
+
+  if (
+    webStudio &&
+    !validation.length &&
+    cap(env, 'AGENT_MAX_POLISH_PASSES', 1) > 0
+  ) {
+    const qualityBefore = scoreWebStudioChanges(changes);
+
+    await emit(
+      'progress',
+      {
+        stage: 'polishing',
+        message:
+          'Applying a final design, interaction and responsive-quality pass…',
+        qualityScore: qualityBefore
+      }
+    );
+
+    for (
+      let polishPass = 1;
+      polishPass <= cap(env, 'AGENT_MAX_POLISH_PASSES', 1);
+      polishPass++
+    ) {
+      try {
+        const polishFiles = changes
+          .filter(item => item.action !== 'delete')
+          .map(item =>
+            'FILE: ' + item.path + '\n\n' +
+            trimText(item.content, 90_000)
+          )
+          .join('\n\n');
+
+        const polishResult = await callJsonModel(
+          env,
+          {
+            provider: requestedProvider,
+            model,
+            authUser: user,
+            system:
+              AGENT_SYSTEM_PROMPT +
+              '\n\n' +
+              WEB_STUDIO_EXCELLENCE +
+              '\n\nYou are in the FINAL POLISH phase. Preserve working functionality and improve only the experience quality.',
+            user:
+              polishPrompt({
+                prompt,
+                plan,
+                experience: experienceBrief,
+                files: polishFiles,
+                currentScore: qualityBefore,
+                hints: sanitizeHints(clientContext)
+              }),
+            maxTokens: cap(
+              env,
+              'AGENT_POLISH_MAX_TOKENS',
+              9000
+            )
+          }
+        );
+
+        const candidate = applyPolishChanges(
+          changes,
+          polishResult.json?.changes,
+          cap(env, 'AGENT_MAX_CHANGED_FILES', DEFAULT_MAX_CHANGED)
+        );
+
+        const candidateValidation = validateChanges(
+          candidate,
+          { allowDeletes: false }
+        );
+
+        const qualityAfter = scoreWebStudioChanges(candidate);
+
+        if (
+          !candidateValidation.length &&
+          qualityAfter >= qualityBefore
+        ) {
+          changes = candidate;
+          validation = candidateValidation;
+
+          await emit(
+            'progress',
+            {
+              stage: 'polishing',
+              message:
+                'Final polish accepted after structural verification.',
+              qualityScore: qualityAfter,
+              qualityDelta: qualityAfter - qualityBefore,
+              pass: polishPass
+            }
+          );
+        } else {
+          await emit(
+            'progress',
+            {
+              stage: 'polishing',
+              message:
+                'Final polish was rejected because it did not improve the verified result.',
+              qualityScore: qualityBefore,
+              candidateQualityScore: qualityAfter,
+              pass: polishPass
+            }
+          );
+        }
+      } catch (polishError) {
+        await emit(
+          'progress',
+          {
+            stage: 'polishing',
+            message:
+              'The optional final polish pass was skipped; the verified build is unchanged.',
+            error:
+              polishError?.message || String(polishError)
+          }
+        );
+      }
+    }
   }
 
   if (
