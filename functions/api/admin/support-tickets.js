@@ -1,5 +1,5 @@
 import { authenticateRequest, hasAdminClaim } from '../../_lib/firebase.js';
-import { listFirestoreSubcollectionDocuments } from '../_lib/firebase-admin.js';
+import { listFirestoreDocuments } from '../_lib/firebase-admin.js';
 import { jsonResponse, requestId } from '../_lib/http.js';
 
 const OWNER_EMAIL = 'ovyxsupportteam@gmail.com';
