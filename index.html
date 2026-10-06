@@ -997,8 +997,7 @@
 <p class="text-xs text-zinc-400 font-mono mt-1">Configure automated pricing tiers, currency conversion overrides, and per-module permission gates on the fly.</p>
 </div>
 <button class="spring-btn px-4 py-2 bg-white hover:bg-zinc-200 text-black font-extrabold text-xs rounded-xl shadow-lg" data-ovyx-resource="admin.access-registry.write" onclick="AdminConfigurator.saveSettings()">
-              Save Matrix Configuration
-            </button>
+              Save Matrix Configuration            </button>
 </div>
 <!-- Master Admin Access Override Switch -->
 <div class="v0-panel rounded-2xl p-5 border border-brand-gold/40 bg-zinc-950 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -1997,8 +1996,7 @@ Body: { broadcastId, title, body, category, link }</div>
       persist() {
         try {
           localStorage.setItem('ovyx_token_used', this.tokensUsed);
-          localStorage.setItem('ovyx_token_last_reset', this.lastResetTimestamp);
-        } catch (e) {}
+          localStorage.setItem('ovyx_token_last_reset', this.lastResetTimestamp);        } catch (e) {}
       },
       renderMeter() {
         const userTier = KernelState.userTier || 'free';
@@ -2997,8 +2995,7 @@ Body: { broadcastId, title, body, category, link }</div>
           this.appendMessage('agent',String(reply));
         }catch(e){
           if(!this.isRequestCurrent(token))return;
-          if(e?.name==='AbortError')return;
-          this.status(e.message||'AI request failed.','error');
+          if(e?.name==='AbortError')return;          this.status(e.message||'AI request failed.','error');
           this.appendMessage('agent','OVYX could not complete that request because the connected AI service returned an error.');
         }finally{if(this.isRequestCurrent(token)){this.pendingBuild=false;this.liveAiActive=false;this.renderThread()}}
       },
@@ -3997,8 +3994,7 @@ window.addEventListener('error',e=>{console.error('[OVYX error]',e.error||e.mess
 
 <style id="ovyx-number7-complete-style">/* NUMBER 7 COMPLETION — PRODUCT-GRADE SETTINGS + THEME LAB */ :root{--ov-bg:#050505;--ov-panel:#0b0b0c;--ov-elev:#101012;--ov-text:#f5f5f4;--ov-secondary:#9a9aa0;--ov-muted:#606067;--ov-line:rgba(255,255,255,.09);--ov-accent:#e8b64f;--ov-accent-soft:rgba(232,182,79,.10)} html.ovyx-light{--ov-bg:#f5f6f7;--ov-panel:#ffffff;--ov-elev:#f0f1f3;--ov-text:#151517;--ov-secondary:#565961;--ov-muted:#858991;--ov-line:rgba(15,18,24,.12);--ov-accent:#9a6a16;--ov-accent-soft:rgba(154,106,22,.09)} html.ovyx-light,html.ovyx-light body{background:var(--ov-bg)!important;color:var(--ov-text)!important} html.ovyx-light #view-router-viewport,html.ovyx-light #view-settings,html.ovyx-light #view-home,html.ovyx-light #view-projects,html.ovyx-light html.ovyx-light #view-faq{background:var(--ov-bg)!important;color:var(--ov-text)!important} html.ovyx-light #app-sidebar,html.ovyx-light #mobile-drawer{background:#eceef1!important;border-color:var(--ov-line)!important} html.ovyx-light header{background:rgba(245,246,247,.94)!important;border-color:var(--ov-line)!important} html.ovyx-light .ovyx-settings-shell{color:var(--ov-text)} html.ovyx-light .ovyx-settings-sidebar,.ovyx-settings-sidebar{background:var(--ov-panel);border:1px solid var(--ov-line)} .ovyx-settings-shell{max-width:1180px;margin:0 auto;padding:28px clamp(14px,3vw,38px) 90px;font-family:Inter,sans-serif;color:var(--ov-text)} .ovyx-settings-top{display:flex;justify-content:space-between;gap:18px;align-items:flex-end;border-bottom:1px solid var(--ov-line);padding-bottom:20px;margin-bottom:18px} .ovyx-settings-title{font:800 30px/1 Inter,sans-serif;letter-spacing:-.045em}.ovyx-settings-sub{margin-top:7px;color:var(--ov-secondary);font:500 11px/1.5 Inter,sans-serif}.ovyx-settings-search{display:flex;align-items:center;gap:9px;min-width:min(360px,100%);border:1px solid var(--ov-line);background:var(--ov-panel);border-radius:9px;padding:10px 11px;color:var(--ov-muted);box-shadow:0 8px 30px rgba(0,0,0,.12)} .ovyx-settings-search input{width:100%;border:0;outline:0;background:transparent;color:var(--ov-text);font:600 11px Inter,sans-serif}.ovyx-settings-search input::placeholder{color:var(--ov-muted)} .ovyx-settings-layout{display:grid;grid-template-columns:220px minmax(0,1fr);gap:14px;align-items:start}.ovyx-settings-sidebar{position:sticky;top:16px;padding:8px;border-radius:12px}.ovyx-settings-section-label{padding:9px 9px 6px;color:var(--ov-muted);font:800 8px/1 JetBrains Mono,monospace;letter-spacing:.16em;text-transform:uppercase}.ovyx-settings-nav{width:100%;display:flex;align-items:center;gap:9px;padding:9px;border:1px solid transparent;background:transparent;border-radius:8px;color:var(--ov-secondary);text-align:left;font:650 10px Inter,sans-serif;transition:.16s ease}.ovyx-settings-nav small{display:block;color:var(--ov-muted);font:500 8px JetBrains Mono,monospace;margin-top:3px}.ovyx-settings-nav:hover{background:rgba(255,255,255,.035);color:var(--ov-text)}html.ovyx-light .ovyx-settings-nav:hover{background:rgba(0,0,0,.035)}.ovyx-settings-nav.active{background:var(--ov-accent-soft);border-color:rgba(232,182,79,.22);color:var(--ov-text)}.ovyx-settings-nav i{width:25px;height:25px;display:grid;place-items:center;border:1px solid var(--ov-line);border-radius:7px;color:var(--ov-secondary);font-size:10px}.ovyx-settings-nav.active i{color:var(--ov-accent);border-color:rgba(232,182,79,.22)} .ovyx-settings-main{min-width:0;border:1px solid var(--ov-line);background:var(--ov-panel);border-radius:13px;overflow:hidden}.ovyx-settings-panel{display:none}.ovyx-settings-panel.active{display:block;animation:ovyxPanelIn .16s ease both}@keyframes ovyxPanelIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}} .ovyx-panel-head{padding:20px;border-bottom:1px solid var(--ov-line)}.ovyx-panel-kicker{color:var(--ov-muted);font:800 8px JetBrains Mono,monospace;letter-spacing:.16em;text-transform:uppercase}.ovyx-panel-head h2{margin-top:6px;font:800 18px/1.15 Inter,sans-serif;letter-spacing:-.025em}.ovyx-panel-head p{margin-top:6px;color:var(--ov-secondary);font:500 10px/1.5 Inter,sans-serif}.ovyx-pref-group{border-bottom:1px solid var(--ov-line)}.ovyx-pref-group:last-child{border-bottom:0}.ovyx-pref-label{padding:13px 20px 8px;color:var(--ov-muted);font:800 8px JetBrains Mono,monospace;letter-spacing:.14em;text-transform:uppercase}.ovyx-pref-row{display:flex;align-items:center;gap:12px;min-height:58px;padding:11px 20px;border-top:1px solid rgba(255,255,255,.045)}html.ovyx-light .ovyx-pref-row{border-color:rgba(0,0,0,.05)}.ovyx-pref-copy{flex:1;min-width:0}.ovyx-pref-copy b{display:block;color:var(--ov-text);font:650 11px Inter,sans-serif}.ovyx-pref-copy small{display:block;color:var(--ov-muted);font:500 9px/1.35 Inter,sans-serif;margin-top:3px}.ovyx-pref-control{flex:none}.ovyx-pref-select,.ovyx-pref-input{border:1px solid var(--ov-line);background:var(--ov-elev);color:var(--ov-text);border-radius:7px;padding:8px 9px;outline:0;font:600 9px JetBrains Mono,monospace}.ovyx-pref-select:focus,.ovyx-pref-input:focus{border-color:rgba(232,182,79,.38)} .ovyx-choice-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:0 20px 18px}.ovyx-choice{position:relative;border:1px solid var(--ov-line);background:var(--ov-elev);border-radius:9px;padding:9px;text-align:left;color:var(--ov-secondary);cursor:pointer;transition:.16s ease}.ovyx-choice:hover{border-color:rgba(255,255,255,.2);transform:translateY(-1px)}.ovyx-choice.selected{border-color:rgba(232,182,79,.42);box-shadow:inset 0 0 0 1px rgba(232,182,79,.08);color:var(--ov-text)}.ovyx-choice b{display:block;font:700 9px Inter,sans-serif}.ovyx-choice small{display:block;margin-top:3px;color:var(--ov-muted);font:500 7px JetBrains Mono,monospace}.ovyx-theme-preview{height:62px;border:1px solid rgba(255,255,255,.1);border-radius:7px;margin-bottom:8px;overflow:hidden;padding:8px;display:flex;flex-direction:column;gap:5px}.ovyx-theme-preview .p1{height:7px;width:45%;border-radius:3px}.ovyx-theme-preview .p2{height:5px;width:72%;border-radius:3px;opacity:.45}.ovyx-theme-preview .p3{height:16px;width:100%;border-radius:4px;margin-top:auto} .ovyx-theme-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;padding:0 20px 18px}.ovyx-theme-card{border:1px solid var(--ov-line);background:var(--ov-elev);border-radius:10px;padding:8px;cursor:pointer;text-align:left;transition:.16s ease}.ovyx-theme-card:hover{transform:translateY(-1px);border-color:rgba(255,255,255,.2)}.ovyx-theme-card.active{border-color:rgba(232,182,79,.48);box-shadow:inset 0 0 0 1px rgba(232,182,79,.1)}.ovyx-theme-card b{display:block;font:700 9px Inter,sans-serif;color:var(--ov-text)}.ovyx-theme-card small{display:block;margin-top:3px;color:var(--ov-muted);font:500 7px JetBrains Mono,monospace}.ovyx-theme-custom{margin:0 20px 20px;border:1px solid var(--ov-line);border-radius:11px;overflow:hidden}.ovyx-color-row{display:grid;grid-template-columns:1fr 110px;align-items:center;gap:10px;padding:11px 13px;border-top:1px solid var(--ov-line)}.ovyx-color-row:first-child{border-top:0}.ovyx-color-copy b{display:block;font:650 10px Inter,sans-serif;color:var(--ov-text)}.ovyx-color-copy small{display:block;margin-top:3px;color:var(--ov-muted);font:500 8px JetBrains Mono,monospace}.ovyx-color-control{display:flex;align-items:center;gap:7px}.ovyx-color-control input[type=color]{width:30px;height:28px;padding:0;border:1px solid var(--ov-line);background:transparent;border-radius:6px}.ovyx-color-hex{width:72px;padding:7px 6px!important;text-transform:uppercase}.ovyx-mini-preview{margin:0 20px 20px;border:1px solid var(--ov-line);border-radius:12px;padding:16px;background:var(--custom-bg,#050505);color:var(--custom-text,#f5f5f4);min-height:130px}.ovyx-mini-preview .mini-panel{margin-top:12px;border:1px solid color-mix(in srgb,var(--custom-text,#fff) 12%,transparent);background:color-mix(in srgb,var(--custom-panel,#0b0b0c) 88%,transparent);border-radius:9px;padding:12px}.ovyx-mini-preview .mini-btn{margin-top:10px;border:0;border-radius:7px;padding:8px 10px;background:var(--custom-accent,#e8b64f);color:#080808;font:800 9px Inter,sans-serif}.ovyx-theme-actions{display:flex;gap:7px;flex-wrap:wrap;padding:0 20px 20px}.ovyx-settings-btn{border:1px solid var(--ov-line);background:var(--ov-elev);color:var(--ov-secondary);border-radius:7px;padding:8px 10px;font:700 9px Inter,sans-serif;transition:.16s ease}.ovyx-settings-btn:hover{color:var(--ov-text);border-color:rgba(255,255,255,.2)}.ovyx-settings-btn.primary{background:var(--ov-accent);color:#080808;border-color:var(--ov-accent)}.ovyx-settings-btn.danger{color:#fda4af}.ovyx-empty-state{padding:28px 20px;color:var(--ov-muted);font:600 10px JetBrains Mono,monospace;text-align:center}.ovyx-settings-hidden{display:none!important} .ovyx-settings-shell[data-density="comfortable"] .ovyx-pref-row{min-height:66px}.ovyx-settings-shell[data-density="compact"] .ovyx-pref-row{min-height:48px;padding-top:8px;padding-bottom:8px}.ovyx-settings-shell[data-scale="small"]{font-size:94%}.ovyx-settings-shell[data-scale="large"]{font-size:106%}.ovyx-settings-shell[data-motion="reduced"] *{transition-duration:.08s!important;animation-duration:.08s!important}.ovyx-settings-shell[data-motion="minimal"] *{transition:none!important;animation:none!important} @media(max-width:850px){.ovyx-settings-top{align-items:flex-start;flex-direction:column}.ovyx-settings-search{width:100%;min-width:0}.ovyx-settings-layout{grid-template-columns:1fr}.ovyx-settings-sidebar{position:static;display:flex;gap:4px;overflow-x:auto;padding:5px}.ovyx-settings-section-label{display:none}.ovyx-settings-nav{min-width:max-content}.ovyx-settings-nav small{display:none}.ovyx-settings-main{border-radius:11px}.ovyx-theme-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.ovyx-choice-grid{grid-template-columns:1fr}} @media(max-width:520px){.ovyx-settings-shell{padding:18px 10px 85px}.ovyx-settings-title{font-size:26px}.ovyx-panel-head,.ovyx-pref-row{padding-left:14px;padding-right:14px}.ovyx-choice-grid,.ovyx-theme-grid{padding-left:14px;padding-right:14px}.ovyx-theme-custom,.ovyx-mini-preview{margin-left:14px;margin-right:14px}.ovyx-color-row{grid-template-columns:1fr}.ovyx-color-control{justify-content:flex-start}.ovyx-settings-btn{flex:1}}</style>
 
-<script id="ovyx-number7-complete-runtime">(function(){'use strict';
-const esc7=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+<script id="ovyx-number7-complete-runtime">(function(){'use strict';const esc7=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 const KEY='ovyx.theme.lab.v1', APPEAR='ovyx.appearance.v3';
 const presets={
  obsidian:{name:'OVYX Obsidian',bg:'#050607',panel:'#0B0D10',elev:'#15100A',text:'#F8FAFC',secondary:'#C5CBD4',muted:'#737985',accent:'#E8B64F'},
@@ -4997,8 +4993,7 @@ function patchDrawer(){
   let v43Templates=[];
   try{
     const stored=v43Parse(localStorage.getItem(V43_TEMPLATE_STORAGE),'[]')
-    if(Array.isArray(stored))v43Templates=stored
-  }catch(error){console.warn('[OVYX V43] local template restore:',error)}
+    if(Array.isArray(stored))v43Templates=stored  }catch(error){console.warn('[OVYX V43] local template restore:',error)}
   let v43Channel=null;
   let v43LastReleaseSignature='';
   function v43Escape(value){
@@ -5997,8 +5992,7 @@ window.OVYXV58={syncDock,route:safeRoute,useTemplate,previewTemplate,featureLock
   function toast(msg,type){try{window.showToast?.(msg,type)}catch(e){console.warn('[OVYX runtime]',e)}}
   function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
   async function requireRoot(){
-    const u=auth()?.currentUser;
-    if(!u) throw new Error('ROOT_SUPERUSER authentication is required.');
+    const u=auth()?.currentUser;    if(!u) throw new Error('ROOT_SUPERUSER authentication is required.');
     const token=await u.getIdToken(false);
     const response=await fetch('/api/entitlements',{
       method:'GET',
@@ -6997,8 +6991,7 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
           lab.renderState?.();
           saveCanonical();
         }
-      }
-      syncUi();
+      }      syncUi();
       return;
     }
     if(el.matches('[data-theme-save]')){
@@ -7997,8 +7990,7 @@ window.OVYXAccessRegistry={state,requiredTier,allowed,planFeatures,apply:applyLo
     T.probe=async function(){
       const grid=$('telemetry-cards-grid');if(!grid)return;
       grid.innerHTML='<div class="col-span-full text-center text-xs py-4 text-zinc-500 font-mono">Running verified health checks…</div>';
-      const checks=[
-        ['OVYX Edge','/api/plans'],
+      const checks=[        ['OVYX Edge','/api/plans'],
         ['AI Configuration','/api/ai/status'],
         ['Current App','/'],
       ];
@@ -8997,8 +8989,7 @@ window.addEventListener('click',e=>{if(e.target.closest?.('#checkout-elements-mo
   function sanitizeThemeStorage(){
     safe(function(){
       var raw=localStorage.getItem('ovyx-theme');
-      if(raw){
-        var t=normTheme(JSON.parse(raw));
+      if(raw){        var t=normTheme(JSON.parse(raw));
         localStorage.setItem('ovyx-theme',JSON.stringify(t));
       }
       var app=JSON.parse(localStorage.getItem('ovyx.appearance.v3')||'null');
@@ -9997,8 +9988,7 @@ window.OVYXV66Admin={scanFeatures,ensureAdminVisibility,injectFeatureStudio,appl
   /* -------- Plan Finder: direct unlock without forcing Change -> Free -------- */
   function patchPlanFinder(){
     const box=document.querySelector('.v67-feature-plan-panel');if(!box||box.dataset.v8Bound==='1')return;
-    box.dataset.v8Bound='1';
-    const results=box.querySelector('.v67-results');if(!results)return;
+    box.dataset.v8Bound='1';    const results=box.querySelector('.v67-results');if(!results)return;
     const findItem=key=>{
       const input=box.querySelector('.v67-feature-search');const q=input?.value||'';
       const scanner=window.OVYXV67?.scanFeatures||window.OVYXV66Admin?.scanFeatures;
@@ -10997,8 +10987,7 @@ function snapshotState(){
     selectedElement:serializeSelectedElement(selected),
     attachments:serializeAttachments(W),
     activeCodeFile:String(W?.activeCodeFile||''),
-    openCodeTabs:Array.isArray(W?.openCodeTabs)?W.openCodeTabs.slice(0,20):[]
-  };
+    openCodeTabs:Array.isArray(W?.openCodeTabs)?W.openCodeTabs.slice(0,20):[]  };
 }
 function persistStateNow(reason){
   try{
@@ -11700,6 +11689,8 @@ window.OVYXWebStudioNavigation.bind();
   const user=()=>auth()?.currentUser||null;
   const activationKey='ovyx_workspace_activation_v2';
   let activationInFlight=null;
+  let authStateReady=window.__OVYX_AUTH_STATE_READY__===true;
+  window.__OVYX_AUTH_STATE_READY__=authStateReady;
   const routeName=()=>String(window.KernelState?.activeView||'home').replace(/^view-/,'').toLowerCase();
   const isAdminRoute=v=>String(v||'').replace(/^view-/,'').toLowerCase()==='admin-overview';
   const isAuthRoute=v=>String(v||'').replace(/^view-/,'').toLowerCase()==='master-auth';
@@ -11755,8 +11746,14 @@ window.OVYXWebStudioNavigation.bind();
     const target=u||user();
     if(!target)throw Object.assign(new Error('Authentication required.'),{status:401,code:'AUTH_REQUIRED'});
     activationInFlight=(async()=>{
-      const token=await target.getIdToken(!!force);
-      const r=await fetch('/api/workspace/activate',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{Authorization:'Bearer '+token,Accept:'application/json','Content-Type':'application/json'},body:JSON.stringify({activate:true})});
+      let token=await target.getIdToken(!!force);
+      let r=await fetch('/api/workspace/activate',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{Authorization:'Bearer '+token,Accept:'application/json','Content-Type':'application/json'},body:JSON.stringify({activate:true})});
+      if(r.status===401){
+        try{
+          token=await target.getIdToken(true);
+          r=await fetch('/api/workspace/activate',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{Authorization:'Bearer '+token,Accept:'application/json','Content-Type':'application/json'},body:JSON.stringify({activate:true})});
+        }catch(_){}
+      }
       const d=await r.json().catch(()=>({}));
       if(!r.ok)throw Object.assign(new Error(d?.error||'Workspace activation failed.'),{status:r.status,code:d?.code||'WORKSPACE_ACTIVATION_FAILED'});
       setActivation(d);return d;
@@ -11803,7 +11800,7 @@ window.OVYXWebStudioNavigation.bind();
     if(submit){submit.disabled=true;submit.textContent='Authenticating…'}
     status('Verifying account and activating workspace…');
     try{const cred=await auth().signInWithEmailAndPassword(email,password);await activateWorkspace(cred.user,true);setLiveState(true);status('Workspace activated. Opening OVYX…','ok');closeAuth();setTimeout(()=>window.Router?.go?.('home',{force:true}),180)}
-    catch(error){status(error?.message||'Sign-in failed.','error');try{await auth().signOut()}catch(_){ }clearActivation();setLiveState(false)}
+    catch(error){status(error?.message||'Sign-in failed.','error');clearActivation();setLiveState(false)}
     finally{if(submit){submit.disabled=false;submit.textContent='Sign In'}}
   }
   async function createAccount(){
@@ -11816,7 +11813,7 @@ window.OVYXWebStudioNavigation.bind();
     const submit=document.getElementById('ovyx-master-auth-submit');
     if(submit){submit.disabled=true;submit.textContent='Creating Account…'}
     try{status('Creating your secure workspace identity…');const cred=await auth().createUserWithEmailAndPassword(email,password);await activateWorkspace(cred.user,true);setLiveState(true);status('Account created and workspace activated. Welcome to OVYX.','ok');closeAuth();setTimeout(()=>window.Router?.go?.('home',{force:true}),180)}
-    catch(error){status(error?.message||'Account creation failed.','error');try{await auth().signOut()}catch(_){ }clearActivation();setLiveState(false)}
+    catch(error){status(error?.message||'Account creation failed.','error');clearActivation();setLiveState(false)}
     finally{if(submit){submit.disabled=false;submit.textContent='Create Account & Activate Workspace'}}
   }
   async function popupSignIn(kind){
@@ -11861,7 +11858,6 @@ window.OVYXWebStudioNavigation.bind();
         code==='auth/popup-closed-by-user' ? 'Sign-in window closed. You can try again when ready.' :
         error?.message||providerName+' sign-in failed.';
       status(message,code==='auth/popup-closed-by-user'?'':'error');
-      try{await a.signOut()}catch(_){}
       clearActivation();
       setLiveState(false);
     }finally{if(button)button.disabled=false}
@@ -11875,11 +11871,20 @@ window.OVYXWebStudioNavigation.bind();
     /* Intentionally empty: the old DOM wall caused dashboard/auth flicker on refresh. */
   }
   function installFetchLock(){
-    if(window.__OVYX_FETCH_AUTH_GUARD_V2__)return;window.__OVYX_FETCH_AUTH_GUARD_V2__=true;
+    if(window.__OVYX_FETCH_AUTH_GUARD_V3__)return;window.__OVYX_FETCH_AUTH_GUARD_V3__=true;
     const nativeFetch=window.fetch.bind(window);
     window.fetch=async function(input,init){
       const response=await nativeFetch(input,init);
-      if(response.status===401){const url=typeof input==='string'?input:(input?.url||'');if(/^\/api\//.test(url)&&!isAuthRoute(routeName())){try{await auth()?.signOut()}catch(_){ }setLiveState(false);clearActivation();openAuth();}}
+      /* A single API 401 is not proof that the Firebase session is invalid.
+         Startup requests can race auth restoration, and Firebase itself owns
+         session persistence. Never sign the user out from a generic fetch hook. */
+      if(response.status===401){
+        const url=typeof input==='string'?input:(input?.url||'');
+        if(/^\/api\//.test(url)&&authStateReady&&!isAuthRoute(routeName())){
+          const active=auth()?.currentUser;
+          if(active){try{await active.getIdToken(true)}catch(_){} }
+        }
+      }
       return response;
     };
   }
@@ -11901,8 +11906,10 @@ window.OVYXWebStudioNavigation.bind();
     back?.addEventListener('click',returnHomeFromAuth);
   }
   async function boot(){
-    if(window.__OVYX_AUTH_BOOT_V3__)return;
-    window.__OVYX_AUTH_BOOT_V3__=true;
+    if(window.__OVYX_AUTH_BOOT_V4__)return;
+    window.__OVYX_AUTH_BOOT_V4__=true;
+    window.__OVYX_AUTH_STATE_READY__=false;
+    authStateReady=false;
     try{
       if(window.__OVYX_FIREBASE_READY_PROMISE__){
         await Promise.race([
@@ -11911,30 +11918,43 @@ window.OVYXWebStudioNavigation.bind();
         ]);
       }
     }catch(_){}
-    updateAuthAction(user());
     wireButtons();
     wrapRouter();
-    installFetchLock();
     const a=auth();if(!a){setLiveState(false);openAuth();return}
-    let first=true;
+    try{
+      const persistence=window.firebase?.auth?.Auth?.Persistence?.LOCAL;
+      if(persistence&&typeof a.setPersistence==='function')await a.setPersistence(persistence);
+    }catch(error){console.warn('[OVYX auth persistence]',error?.message||error)}
+    try{await a.getRedirectResult?.()}catch(error){
+      const code=String(error?.code||'');
+      status(code==='auth/unauthorized-domain'?'This OVYX domain is not authorized for Firebase Authentication. Add the deployed domain to Firebase Authentication → Settings → Authorized domains.':(error?.message||'OAuth sign-in could not be completed.'),'error');
+    }
+    installFetchLock();
     a.onAuthStateChanged(async u=>{
+      authStateReady=true;
+      window.__OVYX_AUTH_STATE_READY__=true;
       updateAuthAction(u);
       if(u){
         try{await activateWorkspace(u,false);setLiveState(true);if(isAuthRoute(routeName())){closeAuth();setTimeout(()=>window.Router?.go?.('home',{force:true}),180)}}
-        catch(error){status(error?.message||'Workspace activation failed.','error');try{await a.signOut()}catch(_){ }clearActivation();setLiveState(false);if(error?.status===401)openAuth();}
+        catch(error){
+          status(error?.message||'Workspace activation failed.','error');
+          clearActivation();
+          setLiveState(false);
+          /* Keep the Firebase session alive. A workspace/API failure must not force the user to re-enter credentials. */
+        }
       }else{
         clearActivation();setLiveState(false);updateAuthAction(null);
         /* Guests remain on the normal Home/dashboard shell. Protected actions call openAuth() explicitly. */
         if(isAuthRoute(routeName()))showHomeDirect();
       }
-      first=false;window.dispatchEvent(new CustomEvent('firebase-auth-state-ready',{detail:{user:u}}));
+      window.dispatchEvent(new CustomEvent('firebase-auth-state-ready',{detail:{user:u}}));
     });
     a.onIdTokenChanged?.(async u=>{
       if(!u){setLiveState(false);clearActivation();return}
-      try{await u.getIdToken(false)}catch(_){try{await a.signOut()}catch(_){ }setLiveState(false);clearActivation();} 
+      try{await u.getIdToken(false)}catch(_){try{await u.getIdToken(true)}catch(__){console.warn('[OVYX auth token refresh] temporary refresh failure')}}
     });
-    window.addEventListener('pageshow',()=>{wrapRouter();updateAuthAction(user())},{passive:true});
-    /* Final auth authority owns guest routing/UI; no competing DOM wall timer. */
+    window.addEventListener('pageshow',()=>{wrapRouter();if(authStateReady)updateAuthAction(user())},{passive:true});
+    /* Final auth authority owns guest routing/UI; Firebase owns persisted session state. */
   }
   window.OVYXMasterAuth={activateWorkspace,signIn,createAccount,popupSignIn,openAuth,lockWorkspace:openAuth,refreshExpiredSession:async()=>{const u=user();if(!u)return false;await u.getIdToken(true);await activateWorkspace(u,true);return true}};
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
@@ -11966,8 +11986,7 @@ function render(){
 function apply(d){if(!d)return;serverQuota={plan:String(d.plan||'free').toLowerCase(),monthlyLimit:Number(d.monthlyLimit||50000),dailyLimit:Number(d.dailyLimit||4),current_monthly_tokens:Math.max(0,Number(d.current_monthly_tokens??0)),daily_prompts_allowance:Math.max(0,Number(d.daily_prompts_allowance??0)),is_monthly_exhausted:Boolean(d.is_monthly_exhausted)};window.OVYXServerQuota=serverQuota;render()}
 async function sync(){const u=user();if(!u){serverQuota=null;render();return null}if(syncing)return syncing;syncing=(async()=>{try{const t=await u.getIdToken(false),r=await fetch('/api/tokens/balance',{cache:'no-store',credentials:'same-origin',headers:{Authorization:'Bearer '+t,Accept:'application/json'}}),d=await r.json().catch(()=>({}));if(r.ok&&d.ok)apply(d);return d}catch(_){return null}finally{syncing=null}})();return syncing}
 function user(){return window.firebase?.auth?.().currentUser||null}
-function modal(){let m=$('ovyx-daily-ration-modal');if(m)return m;m=document.createElement('div');m.id='ovyx-daily-ration-modal';m.className='ovyx-daily-ration-backdrop';m.hidden=true;m.innerHTML='<div class="ovyx-daily-ration-card" role="dialog" aria-modal="true"><div class="ovyx-daily-ration-kicker">DAILY RATION MODE</div><h2>Monthly allocation exhausted</h2><p>You have consumed your daily prompt ration. Please wait until midnight for your daily allocation reset or upgrade your subscription tier.</p><button type="button" data-close-ration>Close</button></div>';document.body.appendChild(m);m.addEventListener('click',e=>{if(e.target===m||e.target.closest('[data-close-ration]'))m.hidden=true});return m}
-function showBlock(){modal().hidden=false}
+function modal(){let m=$('ovyx-daily-ration-modal');if(m)return m;m=document.createElement('div');m.id='ovyx-daily-ration-modal';m.className='ovyx-daily-ration-backdrop';m.hidden=true;m.innerHTML='<div class="ovyx-daily-ration-card" role="dialog" aria-modal="true"><div class="ovyx-daily-ration-kicker">DAILY RATION MODE</div><h2>Monthly allocation exhausted</h2><p>You have consumed your daily prompt ration. Please wait until midnight for your daily allocation reset or upgrade your subscription tier.</p><button type="button" data-close-ration>Close</button></div>';document.body.appendChild(m);m.addEventListener('click',e=>{if(e.target===m||e.target.closest('[data-close-ration]'))m.hidden=true});return m}function showBlock(){modal().hidden=false}
 function patchQuotaFetch(){
  if(window.__OVYX_QUOTA_FETCH_GUARD__)return;window.__OVYX_QUOTA_FETCH_GUARD__=true;
  const nativeFetch=window.fetch.bind(window);
@@ -12125,6 +12144,10 @@ function installAuthMode(){
 }
 function requireAuth(label){
   if(currentUser())return true;
+  if(window.__OVYX_AUTH_STATE_READY__!==true){
+    notify('Restoring your secure OVYX session…','info');
+    return false;
+  }
   try{window.OVYXMasterAuth?.openAuth?.()}catch(_){}
   notify((label||'This action')+' requires an activated OVYX account.','info');
   return false;
@@ -12962,8 +12985,7 @@ function installProjectIsolation(){
       const result=baseCreate.apply(P,arguments);
       persist();
       setTimeout(()=>window.ProjectCloudSync?.syncActive?.(),0);
-      return result;
-    };
+      return result;    };
     P.createPromptModal.__OVYXV3Isolation=true;
   }
   const names=['useUserTemplate','useTemplate'];
@@ -13962,8 +13984,7 @@ function installWebStudioSurface(){
           schedule(type,34,token);
         }else{
           schedule(erase,1700,token);
-        }
-      }
+        }      }
       function erase(){
         if(token!==state.token)return;
         if(!isHome()||document.visibilityState==='hidden'||input.value.trim()||document.activeElement===input){stop(true);return}
