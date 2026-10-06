@@ -529,6 +529,7 @@ async function onRequest(context) {
         limit === Infinity
           ? null
           : limit,
+      activeBrainConnectionId,
       activeCount:
         reservation?.count ??
         state.active.length
