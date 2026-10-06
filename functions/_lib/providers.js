@@ -1,3 +1,8 @@
+import {
+  callUserUniversalConnection,
+  getActiveBrainConnectionId,
+} from './universal-connections.js';
+
 function getConfiguredModel(
   env,
   provider,
@@ -751,7 +756,100 @@ export async function callModel(
     .trim()
     .toLowerCase();
 
-  const routedProvider = normalizeRequestedProvider(requested);
+  if (
+    requested === 'automatic' &&
+    options.authUser
+  ) {
+    const activeBrainId =
+      await getActiveBrainConnectionId(
+        env,
+        options.authUser
+      );
+
+    if (activeBrainId) {
+      const result =
+        await callUserUniversalConnection(
+          env,
+          {
+            connectionId: activeBrainId,
+            authUser: options.authUser,
+            system: options.system,
+            user: options.user,
+            model: options.model,
+            maxTokens: options.maxTokens
+          }
+        );
+
+      return {
+        ...result,
+        requestedProvider: 'automatic',
+        routedProvider: 'universal-connection',
+        activeBrainConnectionId: activeBrainId
+      };
+    }
+  }
+
+  if (
+    requested === 'automatic' &&
+    options.authUser
+  ) {
+    const activeBrainId =
+      await getActiveBrainConnectionId(
+        env,
+        options.authUser
+      );
+
+    if (activeBrainId) {
+      const result =
+        await callUserUniversalConnection(
+          env,
+          {
+            connectionId: activeBrainId,
+            authUser: options.authUser,
+            system: options.system,
+            user: options.user,
+            model: options.model,
+            maxTokens: options.maxTokens
+          }
+        );
+
+      return {
+        ...result,
+        requestedProvider: 'automatic',
+        routedProvider: 'universal-connection',
+        activeBrainConnectionId: activeBrainId
+      };
+    }
+  }
+
+  const routedProvider = requested.startsWith('connection:')
+    ? 'universal-connection'
+    : normalizeRequestedProvider(requested);
+
+  if (requested.startsWith('connection:')) {
+    const connectionId = requested.slice('connection:'.length).trim();
+    if (!connectionId) {
+      throw Object.assign(
+        new Error('Universal Connection ID is required.'),
+        { code: 'CONNECTION_ID_REQUIRED', status: 400 }
+      );
+    }
+
+    const result = await callUserUniversalConnection(env, {
+      connectionId,
+      authUser: options.authUser,
+      system: options.system,
+      user: options.user,
+      model: options.model,
+      maxTokens: options.maxTokens
+    });
+
+    return {
+      ...result,
+      requestedProvider: requested,
+      routedProvider
+    };
+  }
 
   const errors = [];
 
