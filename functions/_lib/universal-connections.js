@@ -178,6 +178,12 @@ export function publicConnection(record, id) {
   delete copy.secret;
   copy.id = clean(id || copy.id, 100);
   copy.hasSecret = !!record?.encryptedSecret;
+  copy.requiresSecret = copy.authMode !== 'none';
+  copy.capabilities = {
+    canUseAsBrain:
+      copy.active === true &&
+      copy.protocol === 'openai-chat'
+  };
   return copy;
 }
 
