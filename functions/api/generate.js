@@ -225,6 +225,7 @@ export async function onRequestPost(
                   {
                     ...(payload.context || {}),
                     brandProfile: brandProfile || undefined,
+                    mode: String(payload.mode || 'agent').slice(0, 60),
                   },
 
                 allowDeletes:
