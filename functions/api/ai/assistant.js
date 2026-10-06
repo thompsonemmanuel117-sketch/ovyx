@@ -6,6 +6,7 @@ import {
   requestId,
 } from '../../_lib/http.js';
 import { callModel } from '../../_lib/providers.js';
+import { executeUniversalConnection } from '../_lib/universal-connections.js';
 import { WEB_STUDIO_SYSTEM_PROMPT } from '../../_lib/prompts.js';
 import { beginAIQuota, finalizeAIQuota, refundDailyPrompt } from '../../_lib/token-quota.js';
 import {
@@ -109,6 +110,25 @@ When discussing project changes, distinguish recommendations from changes actual
 
     let result;
     try {
+      const requestedProvider = String(payload.provider || 'automatic').trim().toLowerCase();
+      const isConnection = requestedProvider.startsWith('connection:');
+      if (isConnection) {
+        const connectionId = requestedProvider.slice('connection:'.length).trim();
+        if (!connectionId) throw Object.assign(new Error('Universal AI connection ID is required.'),{status:400,code:'CONNECTION_ID_REQUIRED'});
+        result = await executeUniversalConnection(context.env, user, connectionId, {
+          action: 'chat',
+          body: {
+            model: payload.model || null,
+            messages,
+            temperature: typeof payload.temperature === 'number' ? payload.temperature : 0.4,
+            max_tokens: isWebStudio ? Math.min(Number(payload.maxTokens || 24000),24000) : Math.min(Number(payload.maxTokens || 4096),8192),
+            system
+          }
+        });
+        result.provider = 'universal-connection';
+        result.routedProvider = requestedProvider;
+        result.requestedProvider = requestedProvider;
+      } else {
       result = await callModel(
         context.env,
         {
@@ -121,6 +141,7 @@ When discussing project changes, distinguish recommendations from changes actual
             : Math.min(Number(payload.maxTokens || 4096), 8192),
         }
       );
+      }
     } catch (providerError) {
       await refundDailyPrompt(context.env, quotaReservation);
       throw providerError;
