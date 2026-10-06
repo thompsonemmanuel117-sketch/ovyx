@@ -1,29 +1,10 @@
 # OVYX Cloudflare Pages configuration
-# This file is intentionally free of secrets and account-specific IDs.
-# Secrets and provider credentials belong in Cloudflare environment variables/secrets.
-#
-# Cloudflare Pages uses this file as configuration source-of-truth once a deployment
-# opts into Wrangler-based Pages configuration.
-#
-# Required production secrets/configuration are documented in functions/api/health.js
-# and must be supplied in Cloudflare, not committed here.
-
+# Secrets are never committed here. Configure them in Cloudflare Pages/Workers.
 name = "ovyx"
 pages_build_output_dir = "."
 compatibility_date = "2026-09-27"
 compatibility_flags = ["nodejs_compat"]
 send_metrics = true
-
-# This is a no-framework/static single-file Pages application.
-# The repository contains a safe "npm run build" preflight command for Git integration.
-#
-# Recommended Pages Git build settings when using the dashboard:
-#   Root directory: /
-#   Build command: npm run build
-#   Build output directory: .
-#
-# Pages Functions are discovered from /functions.
-# /functions/_routes.json limits invocation to /api/* while static assets remain static.
 
 [ai]
 binding = "AI"
@@ -33,7 +14,7 @@ OVYX_RUNTIME = "cloudflare-pages"
 OVYX_APP_NAME = "OVYX"
 OVYX_AI_PROVIDER_ORDER = "gemini,deepseek,cloudflare-workers-ai,groq"
 
-# Do NOT place secrets here. Set these as Cloudflare secrets/environment variables:
+# Required production secrets:
 # FIREBASE_SERVICE_ACCOUNT_JSON
 # FIREBASE_PROJECT_ID
 # FIREBASE_WEB_API_KEY
@@ -45,9 +26,6 @@ OVYX_AI_PROVIDER_ORDER = "gemini,deepseek,cloudflare-workers-ai,groq"
 # GITHUB_CLIENT_ID
 # GITHUB_CLIENT_SECRET
 # GITHUB_REDIRECT_URI
-# CLOUDFLARE_ACCOUNT_ID
-# CLOUDFLARE_API_TOKEN
-# CLOUDFLARE_PAGES_PROJECT
 # PAYSTACK_SECRET_KEY
 # OPAY_MERCHANT_ID
 # OPAY_CASHIER_PUBLIC_KEY
@@ -59,19 +37,8 @@ OVYX_AI_PROVIDER_ORDER = "gemini,deepseek,cloudflare-workers-ai,groq"
 # GROQ_API_KEY
 # GROQ_MODEL
 # CLOUDFLARE_AI_MODEL
+# OVYX_CONNECTION_ENCRYPTION_KEY
+
+# Optional callback/agent secrets:
 # OVYX_AGENT_CALLBACK_SECRET
 # OVYX_AGENT_CALLBACK_URL
-
-# Optional KV bindings used by the OVYX runtime can be added after their real
-# namespace IDs are known. Do not commit placeholder namespace IDs because they
-# would produce an invalid production configuration.
-#
-# Example:
-# [[kv_namespaces]]
-# binding = "OVYX_JOBS"
-# id = "<REAL_KV_NAMESPACE_ID>"
-#
-# [[kv_namespaces]]
-# binding = "OVYX_ERROR_LOGS"
-# id = "<REAL_KV_NAMESPACE_ID>"
-#
