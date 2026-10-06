@@ -1,4 +1,7 @@
-import { callUserUniversalConnection } from './universal-connections.js';
+import {
+  callUserUniversalConnection,
+  getActiveBrainConnectionId,
+} from './universal-connections.js';
 
 function getConfiguredModel(
   env,
@@ -752,6 +755,39 @@ export async function callModel(
   )
     .trim()
     .toLowerCase();
+
+  if (
+    requested === 'automatic' &&
+    options.authUser
+  ) {
+    const activeBrainId =
+      await getActiveBrainConnectionId(
+        env,
+        options.authUser
+      );
+
+    if (activeBrainId) {
+      const result =
+        await callUserUniversalConnection(
+          env,
+          {
+            connectionId: activeBrainId,
+            authUser: options.authUser,
+            system: options.system,
+            user: options.user,
+            model: options.model,
+            maxTokens: options.maxTokens
+          }
+        );
+
+      return {
+        ...result,
+        requestedProvider: 'automatic',
+        routedProvider: 'universal-connection',
+        activeBrainConnectionId: activeBrainId
+      };
+    }
+  }
 
   const routedProvider = requested.startsWith('connection:')
     ? 'universal-connection'
