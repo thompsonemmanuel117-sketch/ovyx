@@ -25,6 +25,9 @@ const ENV_GROUPS = {
     'GROQ_API_KEY',
     'CLOUDFLARE_AI_MODEL',
   ],
+  UniversalConnections: [
+    'OVYX_CONNECTION_ENCRYPTION_KEY',
+  ],
   Agent: [
     'OVYX_AGENT_CALLBACK_SECRET',
     'OVYX_AGENT_CALLBACK_URL',
@@ -36,6 +39,7 @@ const REQUIRED = new Set([
   'FIREBASE_WEB_API_KEY',
   'GITHUB_TOKEN_ENCRYPTION_KEY',
   'GITHUB_ALLOWED_REPOS',
+  'OVYX_CONNECTION_ENCRYPTION_KEY',
 ]);
 
 const ROUTES = [
@@ -52,6 +56,8 @@ const ROUTES = [
   '/api/admin/users',
   '/api/github/oauth',
   '/api/github/repos',
+  '/api/settings/connections',
+  '/api/workspace/activate',
   '/api/deploy',
 ];
 
@@ -80,26 +86,15 @@ export function onRequestGet(context) {
     .map(item => item.key);
 
   const firebaseServiceAccountReady =
-    configured(
-      env,
-      'FIREBASE_SERVICE_ACCOUNT_JSON'
-    ) ||
-    configured(
-      env,
-      'FIREBASE_SERVICE_ACCOUNT'
-    );
-
-  const hasAiBinding =
-    Boolean(
-      env?.AI &&
-      typeof env.AI.run === 'function'
-    );
+    configured(env, 'FIREBASE_SERVICE_ACCOUNT_JSON') ||
+    configured(env, 'FIREBASE_SERVICE_ACCOUNT');
 
   if (!firebaseServiceAccountReady) {
-    requiredMissing.push(
-      'FIREBASE_SERVICE_ACCOUNT_JSON_OR_FIREBASE_SERVICE_ACCOUNT'
-    );
+    requiredMissing.push('FIREBASE_SERVICE_ACCOUNT_JSON_OR_FIREBASE_SERVICE_ACCOUNT');
   }
+
+  const hasAiBinding =
+    Boolean(env?.AI && typeof env.AI.run === 'function');
 
   const aiReady =
     ENV_GROUPS.AI.some(key => configured(env, key)) ||
@@ -122,18 +117,16 @@ export function onRequestGet(context) {
         },
         ready: aiReady,
       },
+      universalConnections: groups.UniversalConnections,
       agent: groups.Agent,
     },
-    missingRequiredEnvironment: requiredMissing,
-    note: 'Cloudflare/Firebase runtime connectivity still requires the deployed environment to be checked; this endpoint does not pretend missing secrets are healthy.',
+    missingRequiredEnvironment: [...new Set(requiredMissing)],
+    note: 'Configuration status is server-derived. A configured secret is not treated as a live provider success until its route is exercised.',
   });
 }
 
 export function onRequest(context) {
-  if (context.request.method === 'GET') {
-    return onRequestGet(context);
-  }
-
+  if (context.request.method === 'GET') return onRequestGet(context);
   return Response.json(
     { ok: false, error: 'METHOD_NOT_ALLOWED' },
     { status: 405, headers: { Allow: 'GET' } },
