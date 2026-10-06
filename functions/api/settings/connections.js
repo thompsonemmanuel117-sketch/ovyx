@@ -66,6 +66,12 @@ function normalizeUrl(value) {
       code: 'INVALID_CONNECTION_URL'
     });
   }
+  if (parsed.username || parsed.password) {
+    throw Object.assign(new Error('Put endpoint credentials in the server-secret field instead of the URL.'), {
+      status: 400,
+      code: 'CONNECTION_URL_CREDENTIALS_DENIED'
+    });
+  }
   if (!['https:', 'http:'].includes(parsed.protocol)) {
     throw Object.assign(new Error('Connection endpoint must use HTTP or HTTPS.'), {
       status: 400,
@@ -78,7 +84,7 @@ function normalizeUrl(value) {
 function sanitizeConnection(body, owner) {
   const type = clean(body?.type || 'tool', 30).toLowerCase();
   if (!ALLOWED_TYPES.has(type)) {
-    throw Object.assign(new Error('Connection type must be webhook, tool or database.'), {
+    throw Object.assign(new Error('Connection type must be ai, api, webhook, tool or database.'), {
       status: 400,
       code: 'INVALID_CONNECTION_TYPE'
     });
