@@ -489,6 +489,36 @@ async function onRequest(context) {
         [...base, id]
       );
 
+    let activeBrainConnectionId =
+      state.activeBrainConnectionId;
+
+    if (
+      activeBrainConnectionId === id &&
+      (!record.active || record.protocol !== 'openai-chat')
+    ) {
+      activeBrainConnectionId = null;
+      await setFirestoreDocumentAtPath(
+        context.env,
+        ['users', auth.uid],
+        { activeBrainConnectionId: null },
+        { merge: true }
+      );
+    }
+
+    if (
+      body?.useAsBrain === true &&
+      record.active === true &&
+      record.protocol === 'openai-chat'
+    ) {
+      activeBrainConnectionId = id;
+      await setFirestoreDocumentAtPath(
+        context.env,
+        ['users', auth.uid],
+        { activeBrainConnectionId: id },
+        { merge: true }
+      );
+    }
+
     return jsonResponse({
       ok: true,
       connection: {
