@@ -216,6 +216,10 @@ export async function buildConnectionRecord(env, body, owner, existing = {}) {
     encryptedSecret = rawSecret ? await encryptSecret(env, rawSecret) : null;
   }
 
+  if (authMode === 'none') {
+    encryptedSecret = null;
+  }
+
   if (authMode !== 'none' && !encryptedSecret) {
     throw Object.assign(
       new Error('This connection authentication mode requires a server secret.'),
@@ -425,6 +429,15 @@ async function requestConnection(record, input, env) {
   } finally {
     clearTimeout(timer);
   }
+}
+
+export async function getActiveBrainConnectionId(env, user) {
+  const { uid } = ownerOf(user);
+  if (!uid) return null;
+  const profile = await getFirestoreDataAtPath(env, ['users', uid]);
+  const id = clean(profile?.activeBrainConnectionId, 100);
+  if (!id || !/^[A-Za-z0-9_-]{1,100}$/.test(id)) return null;
+  return id;
 }
 
 export async function callUserUniversalConnection(
