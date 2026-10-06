@@ -436,7 +436,6 @@ async function onRequest(context) {
       record.encrypted = currentRecord.encrypted;
       record.hasSecret = true;
     }
-    const currentRecord = currentDoc ? await getFirestoreDataAtPath(context.env, [...base, id]) : null;
     const currentWasActive = currentRecord?.active === true;
     const requestedActive = record.active === true;
     const limit = state.limit;
