@@ -194,19 +194,17 @@ async function resolveEntitlements(env, user) {
       expiresAt: null,
       accessExpiresAt: null,
       accessActive: true,
-      capabilities: applyFeatureRules(
-        {
-          webStudio: true,
-          advancedWebStudio: true,
-          appStudio: true,
-          gameStudio: true,
-          aiGeneration: true,
-          github: true,
-          cloudflareDeploy: true,
-          teamWorkspace: true
-        },
-        featureRules
-      ),
+      /* Root owner access is intentionally outside subscription and feature gating. */
+      capabilities: {
+        webStudio: true,
+        advancedWebStudio: true,
+        appStudio: true,
+        gameStudio: true,
+        aiGeneration: true,
+        github: true,
+        cloudflareDeploy: true,
+        teamWorkspace: true
+      },
       featureRules,
       gating
     };
