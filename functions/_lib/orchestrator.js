@@ -1472,6 +1472,9 @@ export async function runAgent({
                 ),
             }),
 
+          authUser:
+            user,
+
           maxTokens:
             cap(
               env,
@@ -1527,6 +1530,124 @@ export async function runAgent({
           allowDeletes,
         }
       );
+  }
+
+  if (
+    webStudio &&
+    !validation.length &&
+    cap(env, 'AGENT_MAX_POLISH_PASSES', 1) > 0
+  ) {
+    const qualityBefore = scoreWebStudioChanges(changes);
+
+    await emit(
+      'progress',
+      {
+        stage: 'polishing',
+        message:
+          'Applying a final design, interaction and responsive-quality pass…',
+        qualityScore: qualityBefore
+      }
+    );
+
+    for (
+      let polishPass = 1;
+      polishPass <= cap(env, 'AGENT_MAX_POLISH_PASSES', 1);
+      polishPass++
+    ) {
+      try {
+        const polishFiles = changes
+          .filter(item => item.action !== 'delete')
+          .map(item =>
+            'FILE: ' + item.path + '\n\n' +
+            trimText(item.content, 90_000)
+          )
+          .join('\n\n');
+
+        const polishResult = await callJsonModel(
+          env,
+          {
+            provider: requestedProvider,
+            model,
+            authUser: user,
+            system:
+              AGENT_SYSTEM_PROMPT +
+              '\n\n' +
+              WEB_STUDIO_EXCELLENCE +
+              '\n\nYou are in the FINAL POLISH phase. Preserve working functionality and improve only the experience quality.',
+            user:
+              polishPrompt({
+                prompt,
+                plan,
+                experience: experienceBrief,
+                files: polishFiles,
+                currentScore: qualityBefore,
+                hints: sanitizeHints(clientContext)
+              }),
+            maxTokens: cap(
+              env,
+              'AGENT_POLISH_MAX_TOKENS',
+              9000
+            )
+          }
+        );
+
+        const candidate = applyPolishChanges(
+          changes,
+          polishResult.json?.changes,
+          cap(env, 'AGENT_MAX_CHANGED_FILES', DEFAULT_MAX_CHANGED)
+        );
+
+        const candidateValidation = validateChanges(
+          candidate,
+          { allowDeletes: false }
+        );
+
+        const qualityAfter = scoreWebStudioChanges(candidate);
+
+        if (
+          !candidateValidation.length &&
+          qualityAfter >= qualityBefore
+        ) {
+          changes = candidate;
+          validation = candidateValidation;
+
+          await emit(
+            'progress',
+            {
+              stage: 'polishing',
+              message:
+                'Final polish accepted after structural verification.',
+              qualityScore: qualityAfter,
+              qualityDelta: qualityAfter - qualityBefore,
+              pass: polishPass
+            }
+          );
+        } else {
+          await emit(
+            'progress',
+            {
+              stage: 'polishing',
+              message:
+                'Final polish was rejected because it did not improve the verified result.',
+              qualityScore: qualityBefore,
+              candidateQualityScore: qualityAfter,
+              pass: polishPass
+            }
+          );
+        }
+      } catch (polishError) {
+        await emit(
+          'progress',
+          {
+            stage: 'polishing',
+            message:
+              'The optional final polish pass was skipped; the verified build is unchanged.',
+            error:
+              polishError?.message || String(polishError)
+          }
+        );
+      }
+    }
   }
 
   if (
