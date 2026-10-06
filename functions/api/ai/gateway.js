@@ -6,7 +6,8 @@ import {
   requestId,
 } from '../../_lib/http.js';
 import { callModel } from '../../_lib/providers.js';
-import { WEB_STUDIO_SYSTEM_PROMPT } from '../../_lib/prompts.js';
+import { WEB_STUDIO_SYSTEM_PROMPT, WEB_STUDIO_EXCELLENCE } from '../../_lib/prompts.js';
+import { buildExperienceBrief, isWebStudioPrompt } from '../../_lib/experience.js';
 import { beginAIQuota, finalizeAIQuota, refundDailyPrompt } from '../../_lib/token-quota.js';
 import {
   saveChatTurn,
@@ -145,6 +146,7 @@ export async function onRequestPost(context) {
       requestedProvider: result.requestedProvider,
       routedProvider: result.routedProvider,
       conversationId,
+      experience: isWebStudio ? experience : null,
       history: {
         saved: historySaved,
       },
