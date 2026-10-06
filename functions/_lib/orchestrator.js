@@ -1022,6 +1022,11 @@ export async function runAgent({
   delivery =
     'pr',
 }) {
+  const webStudio = isWebStudioPrompt(prompt, clientContext?.mode || '');
+  const experienceBrief = webStudio
+    ? buildExperienceBrief(prompt, clientContext)
+    : null;
+
   await updateJob(
     env,
     jobId,
@@ -1130,7 +1135,18 @@ export async function runAgent({
               sanitizeHints(
                 clientContext
               ),
+
+            experience:
+              experienceBrief,
           }),
+
+        authUser:
+          user,
+
+        system:
+          webStudio
+            ? AGENT_SYSTEM_PROMPT + '\n\n' + WEB_STUDIO_EXCELLENCE
+            : AGENT_SYSTEM_PROMPT,
 
         maxTokens:
           3500,
@@ -1139,6 +1155,10 @@ export async function runAgent({
 
   const plan =
     planResult.json;
+
+  if (webStudio && plan && typeof plan === 'object') {
+    plan.experienceBrief = experienceBrief;
+  }
 
   if (
     plan.needsUserInput
@@ -1217,7 +1237,10 @@ export async function runAgent({
         model,
 
         system:
-          `${AGENT_SYSTEM_PROMPT}\n\nYou are now in EXECUTION phase. Use exact-match patch operations for existing files.`,
+          (webStudio
+            ? AGENT_SYSTEM_PROMPT + '\n\n' + WEB_STUDIO_EXCELLENCE
+            : AGENT_SYSTEM_PROMPT) +
+          '\n\nYou are now in EXECUTION phase. Use exact-match patch operations for existing files.',
 
         user:
           executePrompt({
@@ -1238,11 +1261,14 @@ export async function runAgent({
             allowWorkflowChanges,
           }),
 
+        authUser:
+          user,
+
         maxTokens:
           cap(
             env,
             'AGENT_EXECUTE_MAX_TOKENS',
-            9000
+            12000
           ),
       }
     );
