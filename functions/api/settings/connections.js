@@ -73,7 +73,14 @@ async function loadContext(env, uid, email) {
   const rows = await listFirestoreSubcollectionDocuments(env, 'users', email, 'universal_connections', 100);
   const connections = rows.map(row => ({ ...(row.data || {}), id: row.id }));
   const active = connections.filter(item => item.active === true);
-  return { profile, tier, limit, connections, active };
+  return {
+    profile,
+    tier,
+    limit,
+    connections,
+    active,
+    activeBrainConnectionId: clean(profile?.activeBrainConnectionId, 100) || null
+  };
 }
 
 async function changeActiveCount(
@@ -213,6 +220,7 @@ async function onRequest(context) {
         limit: state.limit === Infinity ? null : state.limit,
         activeCount: state.active.length,
         totalCount: state.connections.length,
+        activeBrainConnectionId: state.activeBrainConnectionId,
         connections: state.connections.map(item => publicConnection(item, item.id))
       });
     }
@@ -267,10 +275,23 @@ async function onRequest(context) {
         throw error;
       }
 
+      if (state.activeBrainConnectionId === id) {
+        await setFirestoreDocumentAtPath(
+          context.env,
+          ['users', auth.uid],
+          { activeBrainConnectionId: null },
+          { merge: true }
+        );
+      }
+
       return jsonResponse({
         ok: true,
         deleted: true,
         id,
+        activeBrainConnectionId:
+          state.activeBrainConnectionId === id
+            ? null
+            : state.activeBrainConnectionId,
         activeCount:
           reservation?.count ??
           state.active.length
@@ -283,7 +304,68 @@ async function onRequest(context) {
 
     const body = await request.json();
 
-    if (clean(body?.action, 20).toLowerCase() === 'test') {
+    const action = clean(body?.action, 20).toLowerCase();
+
+    if (action === 'use-ai' || action === 'clear-ai') {
+      if (action === 'clear-ai') {
+        await setFirestoreDocumentAtPath(
+          context.env,
+          ['users', auth.uid],
+          { activeBrainConnectionId: null },
+          { merge: true }
+        );
+
+        return jsonResponse({
+          ok: true,
+          activeBrainConnectionId: null
+        });
+      }
+
+      const id = connectionId(body?.id);
+      const record = await getFirestoreDataAtPath(
+        context.env,
+        [...base, id]
+      );
+
+      if (!record || record.ownerUid !== auth.uid || record.ownerEmail !== auth.email) {
+        return errorResponse(
+          404,
+          'CONNECTION_NOT_FOUND',
+          'Connection not found.'
+        );
+      }
+
+      if (record.active !== true) {
+        return errorResponse(
+          409,
+          'CONNECTION_INACTIVE',
+          'Activate this connection before using it as the AI Brain.'
+        );
+      }
+
+      if (record.protocol !== 'openai-chat') {
+        return errorResponse(
+          400,
+          'CONNECTION_NOT_AI_PROTOCOL',
+          'Only an OpenAI-compatible chat connection can currently be selected as the AI Brain.'
+        );
+      }
+
+      await setFirestoreDocumentAtPath(
+        context.env,
+        ['users', auth.uid],
+        { activeBrainConnectionId: id },
+        { merge: true }
+      );
+
+      return jsonResponse({
+        ok: true,
+        activeBrainConnectionId: id,
+        connection: publicConnection(record, id)
+      });
+    }
+
+    if (action === 'test') {
       const id = connectionId(body?.id);
       const record = await getFirestoreDataAtPath(context.env, [...base, id]);
       if (!record || record.ownerUid !== auth.uid || record.ownerEmail !== auth.email) {
