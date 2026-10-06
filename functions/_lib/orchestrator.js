@@ -1166,9 +1166,6 @@ export async function runAgent({
 
         model,
 
-        system:
-          AGENT_SYSTEM_PROMPT,
-
         user:
           planPrompt({
             prompt,
@@ -1194,7 +1191,7 @@ export async function runAgent({
             : AGENT_SYSTEM_PROMPT,
 
         maxTokens:
-          3500,
+          5000,
       }
     );
 
@@ -1300,6 +1297,9 @@ export async function runAgent({
               sanitizeHints(
                 clientContext
               ),
+
+            experience:
+              experienceBrief,
 
             allowDeletes,
 
