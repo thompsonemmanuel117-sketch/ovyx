@@ -12,7 +12,7 @@ import {
 
 import {
   revokeFirebaseRefreshTokens
-} from '../../../_lib/firebase-admin.js';
+} from '../../_lib/firebase-admin.js';
 
 export async function onRequestPost(context) {
   const request =
