@@ -23,7 +23,7 @@ function ownerOf(user) {
 function normalizeType(value) {
   const type = clean(value, 40).toLowerCase().replace(/[ _-]+/g, '-');
   if (type === 'ai-brain' || type === 'ai') return 'ai';
-  if (type === 'http-api' || type === 'http') return 'http';
+  if (type === 'http-api' || type === 'http' || type === 'api') return 'http';
   if (type === 'tool-endpoint' || type === 'tool') return 'tool';
   if (type === 'legacy-http-database' || type === 'database') return 'database';
   if (type === 'webhook') return 'webhook';
