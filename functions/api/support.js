@@ -483,16 +483,23 @@ export async function onRequest(context) {
       );
     }
 
-    await setFirestoreDocumentAtPath(
-      context.env,
-      ['support_tickets', ticketId],
-      {
-        notificationStatus,
-        notificationMessageId,
-        updatedAt: new Date().toISOString(),
-      },
-      { merge: true }
-    );
+    try {
+      await setFirestoreDocumentAtPath(
+        context.env,
+        ['support_tickets', ticketId],
+        {
+          notificationStatus,
+          notificationMessageId,
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+    } catch (statusError) {
+      console.error(
+        '[OVYX SUPPORT TICKET STATUS]',
+        statusError?.code || 'SUPPORT_STATUS_UPDATE_FAILED'
+      );
+    }
 
     return jsonResponse(
       {
