@@ -49,3 +49,52 @@ The action:
 7. Uploads a sanitized diagnostics JSON artifact.
 
 Cloudflare's current Pages API provides project, deployment-list, deployment-detail, and deployment-log endpoints for this workflow.
+
+
+## OVYX Support Mailer
+
+The support endpoint is:
+
+- `POST /api/support`
+
+It accepts the existing JSON ticket format and also `multipart/form-data` so the support UI can send attachments.
+
+The mailer uses Resend through the server-side REST API. The browser never receives the Resend key.
+
+Add these **new** Cloudflare Pages production variables/secrets in the dashboard:
+
+- `RESEND_API_KEY` — store this as an encrypted secret. A sending-only Resend key is preferred.
+- `RESEND_FROM_EMAIL` — the verified sender identity/domain configured in Resend.
+- `RESEND_SUPPORT_TO_EMAIL` — optional comma-separated support recipients. If omitted, OVYX uses the existing support inbox `ovyxsupportteam@gmail.com`.
+
+Do not replace the existing Cloudflare variable set when adding these values. Add only the three names above as needed, and leave every existing Firebase/API/AI secret untouched.
+
+### Attachment safety
+
+OVYX limits support requests to 8 MB at the HTTP layer, at most 3 attachments, 5 MB per attachment, and 6 MB combined attachment bytes.
+
+Accepted attachment types are limited to:
+
+- PDF
+- JPEG
+- PNG
+- WebP
+- TXT / LOG / Markdown
+- CSV
+- JSON
+
+PDF and image files also pass a basic file-signature check before they are sent to the mail provider. Attachment contents are sent to Resend for delivery and are not stored inside Firestore; Firestore keeps only attachment names, types, and sizes.
+
+### Ticket reliability
+
+A ticket is written to Firestore before the mail notification is attempted. This means a temporary Resend outage does not erase the support request.
+
+The ticket records:
+
+- `notificationStatus` — `pending`, `sent`, or `failed`
+- `notificationProvider` — `resend`
+- `notificationMessageId` when Resend returns one
+
+The request also uses a Resend idempotency key derived from the ticket ID, so provider retries do not intentionally create duplicate sends for the same ticket.
+
+Cloudflare Pages Functions support native `Request.formData()` parsing for multipart forms, and Cloudflare currently allows request bodies up to 100 MB on Free/Pro plans; OVYX deliberately applies a much smaller support-specific limit for safety. 
