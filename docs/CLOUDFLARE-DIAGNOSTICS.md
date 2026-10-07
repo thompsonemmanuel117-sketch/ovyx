@@ -14,6 +14,14 @@ The Cloudflare API token should have **Pages Read** permission at minimum. Cloud
 
 Do not paste the token into any repository file.
 
+## Cloudflare configuration safety
+
+OVYX intentionally does **not** commit a `wrangler.toml`, `wrangler.json`, or `wrangler.jsonc` file.
+
+This is deliberate: the OVYX Pages project uses the **Cloudflare dashboard as the configuration source of truth** so production environment variables and encrypted secrets remain dashboard-managed. A Wrangler configuration committed to a Pages Git-integrated project can become a competing source of truth and overwrite dashboard-managed variables during deployment.
+
+Production API keys and other secrets must remain in **Cloudflare Workers & Pages → Settings → Variables and Secrets**. Never add them to GitHub or a repository configuration file.
+
 ## Automatic execution
 
 The workflow checks production deployments every 30 minutes.

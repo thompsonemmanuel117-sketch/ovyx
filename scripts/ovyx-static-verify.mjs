@@ -17,6 +17,16 @@ function walk(dir) {
   return out;
 }
 
+// OVYX is a Cloudflare Pages Git-integrated project. Pages configuration and
+// production variables/secrets are managed in the Cloudflare dashboard.
+// A Wrangler config in this repository would become a second source of truth
+// and can overwrite dashboard-managed Pages variables on deployment.
+for (const configName of ['wrangler.toml', 'wrangler.json', 'wrangler.jsonc']) {
+  if (fs.existsSync(path.join(root, configName))) {
+    errors.push(`${configName}: must not be committed to OVYX; Cloudflare Pages configuration is dashboard-managed to protect existing variables and secrets.`);
+  }
+}
+
 for (const file of walk(path.join(root, 'functions'))) {
   if (!/\.(js|mjs|cjs)$/.test(file)) continue;
   try {

@@ -6,7 +6,6 @@ const required = [
   'functions',
   'functions/_routes.json',
   'package.json',
-  'wrangler.toml',
 ];
 
 const missing = required.filter(path => !fs.existsSync(path));
@@ -19,4 +18,4 @@ execFileSync(process.execPath, ['scripts/ovyx-static-verify.mjs'], {
   stdio: 'inherit',
 });
 
-console.log('OVYX Pages build preflight passed. Cloudflare Pages output directory: repository root.');
+console.log('OVYX Pages build preflight passed. Cloudflare Pages configuration is managed by the Cloudflare dashboard.');
