@@ -6491,7 +6491,7 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
     if(!R?.go){toast('OVYX navigation is still starting. Please try again in a moment.','info');return null;}
     try{return R.go(v)}catch(e){console.error('[OVYX owner navigation]',e);toast('Command Center could not be opened. Please try again.','error');return null;}
   }
-  async async async function syncEntry(){
+  async function syncEntry(){
     removeDuplicateAdminEntries();
     const authorized=await ownerCheck();
     ['desktop-owner-command','mobile-owner-command','v53-mobile-owner-command'].forEach(id=>{const el=document.getElementById(id);if(el){el.style.display=authorized?'flex':'none';el.onclick=(e)=>{e?.preventDefault?.();open('admin-overview')}}});
@@ -8910,8 +8910,8 @@ function openLegal(kind){
     box.setAttribute('aria-labelledby','ovyx-v65-legal-title');
     box.innerHTML='<div class="ovyx-v65-legal-modal"><div class="ovyx-v65-legal-head"><div class="ovyx-legal-head-brand"><span class="ovyx-legal-head-mark"><svg viewBox="0 0 64 64" aria-hidden="true"><defs><linearGradient id="ovyxLegalGradient" x1="0" y1="1" x2="1" y2="0"><stop offset="0%" stop-color="#00D1FF"/><stop offset="58%" stop-color="#FF2E93"/><stop offset="100%" stop-color="#7A3FFF"/></linearGradient></defs><path d="M32 5L55 18.5V45.5L32 59L9 45.5V18.5L32 5Z" fill="none" stroke="url(#ovyxLegalGradient)" stroke-width="6.5" stroke-linejoin="round"/><path d="M32 18L44 25V39L32 46L20 39V25L32 18Z" fill="none" stroke="url(#ovyxLegalGradient)" stroke-width="6.5" stroke-linejoin="round"/></svg></span><div><span class="ovyx-legal-kicker">OVYX / LEGAL CENTER</span><b id="ovyx-v65-legal-title"></b><small>Clear product terms, privacy practices and support information.</small></div></div><button type="button" id="ovyx-v65-legal-close" class="ovyx-settings-btn"><i class="fa-solid fa-xmark"></i><span>Close</span></button></div><div class="ovyx-v65-legal-meta"><span><i class="fa-regular fa-calendar"></i> Effective 22 Sep 2026</span><span><i class="fa-solid fa-file-shield"></i> Production draft</span><span><i class="fa-solid fa-scale-balanced"></i> Global / Nigeria-ready</span></div><div class="ovyx-v65-legal-body" id="ovyx-v65-legal-body"></div></div>';
     document.body.appendChild(box);
-    document.getElementById('ovyx-v65-legal-close')?.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();box.hidden=true;box.style.display='none';});
-    box.addEventListener('click',function(e){if(e.target===box){box.hidden=true;box.style.display='none';}});
+    document.getElementById('ovyx-v65-legal-close')?.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();window.OVYXLegal?.close?.();});
+    box.addEventListener('click',function(e){if(e.target===box){e.preventDefault();e.stopPropagation();window.OVYXLegal?.close?.();}});
   }
   var body=document.getElementById('ovyx-v65-legal-body');
   var heading=document.getElementById('ovyx-v65-legal-title');
@@ -8921,8 +8921,19 @@ function openLegal(kind){
   document.body.classList.add('ovyx-legal-open');
   setTimeout(function(){document.getElementById('ovyx-v65-legal-close')?.focus?.();},0);
 }
+function closeLegal(){
+  var b=document.getElementById('ovyx-v65-legal-modal');
+  if(b){
+    b.hidden=true;
+    b.setAttribute('aria-hidden','true');
+    b.style.display='none';
+  }
+  document.body.classList.remove('ovyx-legal-open');
+  document.documentElement.classList.remove('ovyx-legal-open');
+  try{document.getElementById('ovyx-master-auth-email')?.focus?.({preventScroll:true})}catch(_){}
+}
 window.openLegal=openLegal;
-window.OVYXLegal={open:openLegal,close:function(){var b=document.getElementById('ovyx-v65-legal-modal');if(b){b.hidden=true;b.style.display='none';}document.body.classList.remove('ovyx-legal-open')}};
+window.OVYXLegal={open:openLegal,close:closeLegal};
 function patchLegalLinks(){
   document.querySelectorAll('a[href*="privacy-policy.html"],a[href*="terms-of-service.html"]').forEach(a=>{const isTerms=/terms/i.test(a.textContent||a.getAttribute('href')||'');const c=document.createElement('button');c.type='button';c.className='ovyx-settings-btn';c.textContent=isTerms?'Terms of Service':'Privacy Policy';c.addEventListener('click',()=>openLegal(isTerms?'terms':'privacy'));a.replaceWith(c)});
 }
@@ -11804,15 +11815,32 @@ window.OVYXWebStudioNavigation.bind();
     if(document.activeElement&&overlay.contains(document.activeElement)){try{document.activeElement.blur()}catch(_){}}
   }
   function showHomeDirect(){
+    /* Use the canonical route authority whenever it is ready so Web Studio/code-editor
+       state is fully torn down before the Home dashboard is revealed. */
+    const current=String(window.KernelState?.activeView||'').replace(/^view-/,'').toLowerCase();
+    if(current&&current!=='home'&&window.Router?.go){
+      try{window.Router.go('home',{force:true});return}catch(_){}
+    }
+    try{
+      window.WebStudio?.abortActiveAi?.();
+      window.WebStudio?.closeModeMenu?.();
+      window.WebStudio?.closePreviewMenu?.();
+      window.WebStudio?.closeMobilePreview?.();
+      window.WebStudio?.closeProjectNavigation?.();
+      window.WebStudio?.persistState?.('route-exit');
+      sessionStorage.removeItem('ovyx.ws.focus-code');
+      sessionStorage.removeItem('ovyx.ws.focus-file');
+      window.WebStudio?.syncShell?.(false);
+      document.body.classList.remove('ovyx-webstudio-active','ovyx-ws-nav-open','ovyx-ws-mobile-preview-open','ovyx-ws-preview-full','ovyx-ws-chat-focus','ovyx-ws-preview-collapsed','ovyx-v58-assistant-open');
+    }catch(_){}
     const vp=document.getElementById('view-router-viewport');
     if(vp){vp.querySelectorAll(':scope>section').forEach(sec=>{const on=sec.id==='view-home';sec.classList.toggle('hidden',!on);sec.setAttribute('aria-hidden',String(!on));if(on)sec.style.removeProperty('display')});}
     try{window.KernelState&&(window.KernelState.activeView='home')}catch(_){}
     try{window.syncNavigation?.('home')}catch(_){}
     try{window.MobileDrawer?.close?.()}catch(_){}
-    try{window.WebStudio?.syncShell?.(false)}catch(_){}
     try{window.dispatchEvent(new CustomEvent('ovyx:view-changed',{detail:{view:'home'}}))}catch(_){}
   }
-  function returnHomeFromAuth(){closeAuth();showHomeDirect()}
+  function returnHomeFromAuth(){closeAuth();try{window.Router?.go?.('home',{force:true});return}catch(_){}showHomeDirect()}
   function openAuth(){
     const overlay=document.getElementById('view-master-auth');
     if(!overlay)return;
