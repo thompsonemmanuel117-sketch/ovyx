@@ -190,6 +190,10 @@ async function resolveEntitlements(env, user) {
     return {
       planTier: 'root',
       planTierState: 'active',
+      role: 'ROOT_SUPERUSER',
+      owner: true,
+      admin: true,
+      bypass: true,
       paidAt: null,
       expiresAt: null,
       accessExpiresAt: null,
