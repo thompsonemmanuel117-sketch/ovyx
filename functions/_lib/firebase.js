@@ -7,6 +7,15 @@ let cachedKeys =
 let cachedKeysExpiresAt =
   0;
 
+const FIREBASE_ACCOUNT_LOOKUP_URL =
+  'https://identitytoolkit.googleapis.com/v1/accounts:lookup';
+
+const AUTH_ACCOUNT_CACHE_TTL_MS =
+  15_000;
+
+const authAccountCache =
+  new Map();
+
 function normalizePem(
   pem
 ) {
@@ -247,6 +256,179 @@ async function loadFirebaseKeys() {
       1000;
 
   return keys;
+}
+
+function normalizeEmail(
+  value
+) {
+  return String(value || '')
+    .trim()
+    .toLowerCase();
+}
+
+function authMessageForError(code) {
+  switch (String(code || '')) {
+    case 'EMAIL_NOT_VERIFIED':
+      return 'Verify your email address before entering the OVYX workspace.';
+    case 'AUTH_SESSION_REVOKED':
+      return 'This OVYX session has been revoked. Sign in again.';
+    case 'ACCOUNT_DISABLED':
+      return 'This OVYX account has been disabled.';
+    case 'AUTH_CONFIGURATION_ERROR':
+      return 'Firebase server authentication is not configured.';
+    case 'AUTH_UPSTREAM_UNAVAILABLE':
+      return 'Firebase authentication service is temporarily unavailable.';
+    default:
+      return 'Authentication failed.';
+  }
+}
+
+export async function lookupFirebaseAccount(
+  token,
+  env,
+  uidHint = ''
+) {
+  const apiKey =
+    String(env?.FIREBASE_WEB_API_KEY || '')
+      .trim();
+
+  if (!apiKey) {
+    throw Object.assign(
+      new Error(
+        authMessageForError(
+          'AUTH_CONFIGURATION_ERROR'
+        )
+      ),
+      {
+        status: 500,
+        code: 'AUTH_CONFIGURATION_ERROR'
+      }
+    );
+  }
+
+  const uidKey =
+    String(uidHint || '')
+      .trim();
+
+  const now =
+    Date.now();
+
+  if (uidKey) {
+    const cached =
+      authAccountCache.get(uidKey);
+
+    if (
+      cached &&
+      cached.expiresAt > now
+    ) {
+      return cached.account;
+    }
+
+    if (cached) {
+      authAccountCache.delete(uidKey);
+    }
+  }
+
+  let response;
+
+  try {
+    response =
+      await fetch(
+        `${FIREBASE_ACCOUNT_LOOKUP_URL}?key=${encodeURIComponent(apiKey)}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type':
+              'application/json',
+            'Accept':
+              'application/json'
+          },
+          body: JSON.stringify({
+            idToken: token
+          })
+        }
+      );
+  } catch {
+    throw Object.assign(
+      new Error(
+        authMessageForError(
+          'AUTH_UPSTREAM_UNAVAILABLE'
+        )
+      ),
+      {
+        status: 503,
+        code: 'AUTH_UPSTREAM_UNAVAILABLE'
+      }
+    );
+  }
+
+  let payload = {};
+
+  try {
+    payload =
+      await response.json();
+  } catch {
+    payload = {};
+  }
+
+  if (!response.ok) {
+    throw Object.assign(
+      new Error(
+        'The Firebase authentication session is invalid or expired.'
+      ),
+      {
+        status: 401,
+        code: 'AUTH_INVALID'
+      }
+    );
+  }
+
+  const account =
+    Array.isArray(payload.users)
+      ? payload.users[0]
+      : null;
+
+  if (
+    !account ||
+    !account.localId
+  ) {
+    throw Object.assign(
+      new Error(
+        'Firebase did not return a valid authenticated account.'
+      ),
+      {
+        status: 401,
+        code: 'AUTH_INVALID'
+      }
+    );
+  }
+
+  if (uidKey &&
+      String(account.localId) !== uidKey) {
+    throw Object.assign(
+      new Error(
+        'Firebase account identity does not match the verified token.'
+      ),
+      {
+        status: 401,
+        code: 'AUTH_INVALID'
+      }
+    );
+  }
+
+  if (uidKey) {
+    authAccountCache.set(
+      uidKey,
+      {
+        account,
+        expiresAt:
+          now +
+          AUTH_ACCOUNT_CACHE_TTL_MS
+      }
+    );
+  }
+
+  return account;
 }
 
 export function getBearerToken(
@@ -511,10 +693,121 @@ export async function authenticateRequest(
     return null;
   }
 
-  return verifyFirebaseIdToken(
-    token,
-    env.FIREBASE_PROJECT_ID
-  );
+  const payload =
+    await verifyFirebaseIdToken(
+      token,
+      env.FIREBASE_PROJECT_ID
+    );
+
+  const account =
+    await lookupFirebaseAccount(
+      token,
+      env,
+      payload.sub
+    );
+
+  if (account.disabled === true) {
+    throw Object.assign(
+      new Error(
+        'This OVYX account has been disabled.'
+      ),
+      {
+        status: 403,
+        code: 'ACCOUNT_DISABLED'
+      }
+    );
+  }
+
+  const email =
+    normalizeEmail(
+      account.email ||
+      payload.email
+    );
+
+  const emailVerified =
+    account.emailVerified === true &&
+    payload.email_verified !== false;
+
+  if (!emailVerified) {
+    throw Object.assign(
+      new Error(
+        'Verify your email address before entering the OVYX workspace.'
+      ),
+      {
+        status: 403,
+        code: 'EMAIL_NOT_VERIFIED'
+      }
+    );
+  }
+
+  const authTime =
+    Number(
+      payload.auth_time || 0
+    );
+
+  const validSince =
+    Number(
+      account.validSince || 0
+    );
+
+  if (
+    validSince > 0 &&
+    (
+      !Number.isFinite(authTime) ||
+      authTime < validSince
+    )
+  ) {
+    throw Object.assign(
+      new Error(
+        'This OVYX session has been revoked. Sign in again.'
+      ),
+      {
+        status: 401,
+        code: 'AUTH_SESSION_REVOKED'
+      }
+    );
+  }
+
+  const secondFactor =
+    String(
+      payload?.firebase?.sign_in_second_factor ||
+      ''
+    ).trim();
+
+  return {
+    ...payload,
+    uid:
+      String(payload.uid || payload.sub || ''),
+    sub:
+      String(payload.sub || ''),
+    email,
+    emailVerified: true,
+    displayName:
+      String(
+        account.displayName ||
+        payload.name ||
+        ''
+      ),
+    photoUrl:
+      String(
+        account.photoUrl ||
+        payload.picture ||
+        ''
+      ),
+    disabled: false,
+    createdAt:
+      account.createdAt
+        ? Number(account.createdAt)
+        : null,
+    lastLoginAt:
+      account.lastLoginAt
+        ? Number(account.lastLoginAt)
+        : null,
+    mfaAuthenticated:
+      Boolean(secondFactor),
+    mfaFactor:
+      secondFactor || null
+  };
 }
 
 export function hasAdminClaim(

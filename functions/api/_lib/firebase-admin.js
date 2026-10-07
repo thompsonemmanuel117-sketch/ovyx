@@ -12,6 +12,9 @@ const FIRESTORE_SCOPE =
 let cachedAccessToken = null;
 let cachedAccessTokenExpiresAt = 0;
 
+let cachedIdentityToolkitAccessToken = null;
+let cachedIdentityToolkitAccessTokenExpiresAt = 0;
+
 function base64UrlEncode(bytes) {
   let binary = '';
   for (const byte of bytes) {
@@ -127,6 +130,85 @@ function parseServiceAccount(env) {
   }
 
   return account;
+}
+
+async function getGoogleIdentityToolkitAccessToken(env) {
+  const now =
+    Date.now();
+
+  if (
+    cachedIdentityToolkitAccessToken &&
+    cachedIdentityToolkitAccessTokenExpiresAt >
+      now + 60_000
+  ) {
+    return cachedIdentityToolkitAccessToken;
+  }
+
+  const serviceAccount =
+    parseServiceAccount(env);
+
+  const issuedAt =
+    Math.floor(now / 1000);
+
+  const assertion =
+    await signJwtRS256(
+      {
+        alg: 'RS256',
+        typ: 'JWT'
+      },
+      {
+        iss: serviceAccount.client_email,
+        scope:
+          'https://www.googleapis.com/auth/identitytoolkit',
+        aud:
+          'https://oauth2.googleapis.com/token',
+        iat: issuedAt,
+        exp: issuedAt + 3600
+      },
+      serviceAccount.private_key
+    );
+
+  const response =
+    await fetch(
+      'https://oauth2.googleapis.com/token',
+      {
+        method: 'POST',
+        headers: {
+          'content-type':
+            'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+          grant_type:
+            'urn:ietf:params:oauth:grant-type:jwt-bearer',
+          assertion
+        })
+      }
+    );
+
+  if (!response.ok) {
+    throw new Error(
+      `Google OAuth Identity Toolkit token exchange failed (${response.status}).`
+    );
+  }
+
+  const data =
+    await response.json();
+
+  if (!data.access_token) {
+    throw new Error(
+      'Google OAuth Identity Toolkit response did not contain an access token.'
+    );
+  }
+
+  cachedIdentityToolkitAccessToken =
+    data.access_token;
+
+  cachedIdentityToolkitAccessTokenExpiresAt =
+    now +
+    Number(data.expires_in || 3600) *
+      1000;
+
+  return cachedIdentityToolkitAccessToken;
 }
 
 async function getGoogleAccessToken(env) {
@@ -681,4 +763,107 @@ export async function createFirestoreDocument(
     data,
     { merge: false }
   );
+}
+
+export async function revokeFirebaseRefreshTokens(
+  env,
+  uid,
+  validSince = Math.floor(Date.now() / 1000)
+) {
+  const serviceAccount =
+    parseServiceAccount(env);
+
+  const cleanUid =
+    String(uid || '').trim();
+
+  if (
+    !cleanUid ||
+    cleanUid.length > 256
+  ) {
+    throw Object.assign(
+      new Error('Firebase user ID is invalid.'),
+      {
+        status: 400,
+        code: 'AUTH_INVALID_IDENTITY'
+      }
+    );
+  }
+
+  const timestamp =
+    Number(validSince);
+
+  if (
+    !Number.isFinite(timestamp) ||
+    timestamp < 0
+  ) {
+    throw Object.assign(
+      new Error('Firebase session revocation timestamp is invalid.'),
+      {
+        status: 400,
+        code: 'AUTH_INVALID_REVOCATION_TIME'
+      }
+    );
+  }
+
+  const accessToken =
+    await getGoogleIdentityToolkitAccessToken(
+      env
+    );
+
+  const url =
+    `https://identitytoolkit.googleapis.com/v1/projects/${encodeURIComponent(serviceAccount.project_id)}/accounts:update`;
+
+  const response =
+    await fetch(
+      url,
+      {
+        method: 'POST',
+        headers: {
+          Authorization:
+            `Bearer ${accessToken}`,
+          'content-type':
+            'application/json'
+        },
+        body: JSON.stringify({
+          localId: cleanUid,
+          validSince:
+            String(
+              Math.floor(timestamp)
+            )
+        })
+      }
+    );
+
+  const payload =
+    await response.json().catch(
+      () => ({})
+    );
+
+  if (!response.ok) {
+    const message =
+      String(
+        payload?.error?.message ||
+        'Firebase session revocation failed.'
+      );
+
+    throw Object.assign(
+      new Error(message),
+      {
+        status:
+          response.status >= 500
+            ? 503
+            : response.status,
+        code:
+          response.status === 403
+            ? 'AUTH_REVOCATION_FORBIDDEN'
+            : 'AUTH_REVOCATION_FAILED'
+      }
+    );
+  }
+
+  return {
+    uid: cleanUid,
+    validSince:
+      Math.floor(timestamp)
+  };
 }

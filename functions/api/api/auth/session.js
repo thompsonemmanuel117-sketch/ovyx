@@ -45,7 +45,11 @@ export async function onRequestPost(context) {
         email: user.email,
         emailVerified: user.emailVerified,
         displayName: user.displayName,
-        photoUrl: user.photoUrl
+        photoUrl: user.photoUrl,
+        mfaAuthenticated:
+          user.mfaAuthenticated === true,
+        mfaFactor:
+          user.mfaFactor || null
       },
       authority: 'SERVER'
     },
