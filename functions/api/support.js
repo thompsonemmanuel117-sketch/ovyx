@@ -141,6 +141,55 @@ function looksLikeFile(value) {
   );
 }
 
+async function readFormDataWithLimit(request, maxBytes) {
+  if (!request.body) {
+    return request.formData();
+  }
+
+  const reader = request.body.getReader();
+  const chunks = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      totalBytes += value.byteLength;
+
+      if (totalBytes > maxBytes) {
+        await reader.cancel();
+
+        throw Object.assign(
+          new Error('Support request is too large.'),
+          {
+            status: 413,
+            code: 'SUPPORT_BODY_TOO_LARGE',
+          }
+        );
+      }
+
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const body = new Uint8Array(totalBytes);
+  let offset = 0;
+
+  for (const chunk of chunks) {
+    body.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+
+  const replayRequest = new Request(request, {
+    body,
+  });
+
+  return replayRequest.formData();
+}
+
 async function parseSubmission(request) {
   const contentLength = Number(
     request.headers.get('content-length') || 0
@@ -167,7 +216,10 @@ async function parseSubmission(request) {
     contentType.includes('multipart/form-data') ||
     contentType.includes('application/x-www-form-urlencoded')
   ) {
-    const form = await request.formData();
+    const form = await readFormDataWithLimit(
+      request,
+      MAX_REQUEST_BYTES
+    );
 
     const fields = {
       subject: getFormString(form, 'subject', MAX_SUBJECT_LENGTH),
@@ -372,8 +424,6 @@ export async function onRequest(context) {
       );
     }
 
-    allowSubmission(user.uid);
-
     const submission = await parseSubmission(request);
 
     if (!submission.subject || !submission.message) {
@@ -411,6 +461,8 @@ export async function onRequest(context) {
       await prepareAttachments(
         submission.attachments
       );
+
+    allowSubmission(user.uid);
 
     const ticketId =
       'OVYX-' +
