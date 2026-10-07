@@ -6491,7 +6491,7 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
     if(!R?.go){toast('OVYX navigation is still starting. Please try again in a moment.','info');return null;}
     try{return R.go(v)}catch(e){console.error('[OVYX owner navigation]',e);toast('Command Center could not be opened. Please try again.','error');return null;}
   }
-  async async function syncEntry(){
+  async function syncEntry(){
     removeDuplicateAdminEntries();
     const authorized=await ownerCheck();
     ['desktop-owner-command','mobile-owner-command','v53-mobile-owner-command'].forEach(id=>{const el=document.getElementById(id);if(el){el.style.display=authorized?'flex':'none';el.onclick=(e)=>{e?.preventDefault?.();open('admin-overview')}}});
