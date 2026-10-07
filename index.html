@@ -14471,5 +14471,76 @@ window.addEventListener('ovyx:view-changed',()=>setTimeout(sync,0),{passive:true
 document.addEventListener('DOMContentLoaded',boot,{once:true});
 setTimeout(boot,600);setTimeout(sync,1600);setTimeout(sync,2800);
 window.OVYXMobileShellAuthority={sync,open:openDrawer,close:closeDrawer};
-})();</script></body>
+})();</script>
+<!-- OVYX V89 · FINAL SPLASH / MOBILE MORE / STRAY-TEXT GUARD -->
+<style id="ovyx-v89-final-ui-stability">
+#mobile-drawer-backdrop.hidden,
+#mobile-drawer-backdrop[aria-hidden="true"]{pointer-events:none!important;opacity:0!important;visibility:hidden!important;}
+#mobile-drawer-backdrop:not(.hidden)[aria-hidden="false"]{pointer-events:auto!important;visibility:visible!important;}
+#mobile-drawer[aria-hidden="true"]{pointer-events:none!important;}
+#mobile-drawer[aria-hidden="false"]{pointer-events:auto!important;}
+@media(max-width:767px){
+  #ovyx-v52-bottom-bar,#ovyx-v52-bottom-bar button[data-v52-bottom="more"]{touch-action:manipulation!important;-webkit-user-select:none!important;user-select:none!important;}
+}
+#ovyx-first-paint-curtain .ovyx-boot-logo-svg{
+  animation:ovyxV89SplashLogoRotate 2.55s linear infinite!important;
+  animation-play-state:running!important;
+  transform:translateZ(0) scale(1)!important;
+  transform-origin:50% 50%!important;
+  transform-box:fill-box!important;
+  rotate:0deg!important;
+  backface-visibility:hidden!important;
+  -webkit-backface-visibility:hidden!important;
+  will-change:rotate!important;
+  perspective:none!important;
+}
+@keyframes ovyxV89SplashLogoRotate{from{rotate:0deg}to{rotate:360deg}}
+@media(prefers-reduced-motion:reduce){
+  #ovyx-first-paint-curtain .ovyx-boot-logo-svg{animation-duration:.01ms!important;animation-iteration-count:1!important;}
+}
+</style>
+<script id="ovyx-v89-final-ui-stability">(function(){
+'use strict';
+if(window.__OVYX_V89_FINAL_UI_STABILITY__)return;
+window.__OVYX_V89_FINAL_UI_STABILITY__=true;
+function cleanupStrayNewlineMarkers(){
+  try{
+    const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+    const remove=[];let n;
+    while(n=walker.nextNode()){
+      if(n.parentElement?.closest('script,style,pre,textarea,code'))continue;
+      const t=String(n.nodeValue||'').trim();
+      if(t==='/n'||t==='\\n')remove.push(n);
+    }
+    remove.forEach(x=>x.parentNode?.removeChild(x));
+  }catch(_){}
+}
+function forceClosedBackdrop(){
+  const b=document.getElementById('mobile-drawer-backdrop');
+  const d=document.getElementById('mobile-drawer');
+  if(!b)return;
+  const open=document.body.classList.contains('ovyx-drawer-open')||document.body.classList.contains('ovyx-mobile-drawer-open')||d?.getAttribute('aria-hidden')==='false';
+  if(!open){
+    b.classList.add('hidden');b.setAttribute('aria-hidden','true');
+    b.style.setProperty('pointer-events','none','important');
+    b.style.setProperty('visibility','hidden','important');
+    b.style.setProperty('opacity','0','important');
+    if(d){d.setAttribute('aria-hidden','true');d.classList.remove('open','is-open');d.classList.add('-translate-x-full');d.style.setProperty('pointer-events','none','important');}
+  }
+}
+function bindMoreSafety(){
+  const more=document.querySelector('#ovyx-v52-bottom-bar [data-v52-bottom="more"]');
+  if(!more||more.dataset.ovyxV89Bound)return;
+  more.dataset.ovyxV89Bound='1';
+  const open=()=>{try{window.OVYXMobileShellAuthority?.open?.();return}catch(_){}try{window.OVYXMobileDockAuthority?.open?.()}catch(_){};};
+  more.addEventListener('pointerup',e=>{if(innerWidth>=768)return;e.preventDefault();e.stopPropagation?.();open()},{passive:false});
+  more.addEventListener('touchend',e=>{if(innerWidth>=768)return;e.preventDefault();e.stopPropagation?.();open()},{passive:false});
+}
+function run(){forceClosedBackdrop();bindMoreSafety();cleanupStrayNewlineMarkers();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{run();setTimeout(run,60);setTimeout(run,320);},{once:true});else{run();setTimeout(run,60);setTimeout(run,320);}
+window.addEventListener('pageshow',()=>setTimeout(run,0),{passive:true});
+window.addEventListener('resize',()=>setTimeout(run,0),{passive:true});
+window.addEventListener('ovyx:view-changed',()=>setTimeout(run,0),{passive:true});
+})();</script>
+</body>
 </html>
