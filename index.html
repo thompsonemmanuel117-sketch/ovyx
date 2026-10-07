@@ -13949,11 +13949,8 @@ function installWebStudioSurface(){
   'use strict';
   if(window.__OVYX_MOBILE_DRAWER_FINAL_EVENT_AUTHORITY_V2__)return;
   window.__OVYX_MOBILE_DRAWER_FINAL_EVENT_AUTHORITY_V2__=true;
-  let suppressedUntil=0;
-  const isSuppressed=()=>Date.now()<suppressedUntil;
-  const suppress=()=>{suppressedUntil=Date.now()+500};
   function canonicalOpen(){try{window.OVYXMobileDockAuthority?.open?.()}catch(_){};}
-  function canonicalClose(){try{window.OVYXMobileDockAuthority?.close?.()}catch(_){};try{window.OVYXMobileDockAuthority?.sync?.()}catch(_){};}
+  function canonicalClose(){try{window.OVYXMobileDockAuthority?.close?.()}catch(_){};}
   function targetType(t){
     if(!t?.closest)return '';
     if(t.closest('#ovyx-v52-bottom-bar [data-v52-bottom="more"]'))return 'more';
@@ -13964,14 +13961,14 @@ function installWebStudioSurface(){
   function handle(e){
     if(window.innerWidth>=768)return;
     const type=targetType(e.target);if(!type)return;
-    if(e.type==='click'&&isSuppressed()){e.preventDefault();e.stopImmediatePropagation?.();return;}
-    e.preventDefault();e.stopImmediatePropagation?.();e.stopPropagation?.();suppress();
+    e.preventDefault();e.stopImmediatePropagation?.();e.stopPropagation?.();
     if(type==='more')canonicalOpen();else canonicalClose();
   }
-  document.addEventListener('pointerdown',handle,{capture:true,passive:false});
-  document.addEventListener('click',handle,{capture:true,passive:false});
-  window.addEventListener('pageshow',()=>{setTimeout(()=>window.OVYXMobileDockAuthority?.sync?.(),40)},{passive:true});
-  window.addEventListener('resize',()=>setTimeout(()=>window.OVYXMobileDockAuthority?.sync?.(),40),{passive:true});
+  /* One deterministic event gate. No delayed suppression window: a quick More → Close tap must work immediately. */
+  window.addEventListener('pointerdown',handle,{capture:true,passive:false});
+  window.addEventListener('click',handle,{capture:true,passive:false});
+  window.addEventListener('pageshow',()=>{setTimeout(()=>window.OVYXMobileDockAuthority?.sync?.(),0)},{passive:true});
+  window.addEventListener('resize',()=>setTimeout(()=>window.OVYXMobileDockAuthority?.sync?.(),0),{passive:true});
 })();</script>
 
 <script id="ovyx-v25-core-controller">(function(){
@@ -14358,5 +14355,121 @@ function installWebStudioSurface(){
   });
   try{localStorage.removeItem('ovyx.billing.config.v1')}catch(_){ }
 })();</script>
-<script id="ovyx-auto-ai-boot-v2">(function(){'use strict';if(window.__OVYX_AUTO_AI_BOOT_V2__)return;window.__OVYX_AUTO_AI_BOOT_V2__=true;function start(){try{if(!window.firebase?.auth?.().currentUser)return;window.OVYXAI=window.OVYXAI||{};window.OVYXAI.provider='automatic';window.OVYXAI.connected=true;}catch(_){}}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();window.addEventListener('ovyx-auth-state-ready',start,{passive:true});window.addEventListener('firebase-auth-ready',start,{passive:true})})();</script>\n</body>
+<script id="ovyx-auto-ai-boot-v2">(function(){'use strict';if(window.__OVYX_AUTO_AI_BOOT_V2__)return;window.__OVYX_AUTO_AI_BOOT_V2__=true;function start(){try{if(!window.firebase?.auth?.().currentUser)return;window.OVYXAI=window.OVYXAI||{};window.OVYXAI.provider='automatic';window.OVYXAI.connected=true;}catch(_){}}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();window.addEventListener('ovyx-auth-state-ready',start,{passive:true});window.addEventListener('firebase-auth-ready',start,{passive:true})})();</script>\n<!-- OVYX V88 · MOBILE DASHBOARD / DOCK / SPLASH STABILITY AUTHORITY -->
+<style id="ovyx-v88-mobile-shell-authority">
+@media(max-width:767px){
+  html,body{overflow-x:hidden!important;overscroll-behavior-y:auto!important;}
+  #view-router-viewport{pointer-events:auto!important;touch-action:pan-y pinch-zoom!important;}
+  body.ovyx-webstudio-active #view-router-viewport{pointer-events:auto!important;}
+  #view-router-viewport>section[aria-hidden="false"]{pointer-events:auto!important;}
+  #ovyx-v52-bottom-bar{
+    position:fixed!important;left:0!important;right:0!important;bottom:0!important;
+    width:100%!important;height:64px!important;box-sizing:border-box!important;
+    z-index:2147482000!important;
+    margin:0!important;border:0!important;border-top:1px solid rgba(255,255,255,.075)!important;
+    border-radius:0!important;background:#070809!important;background-image:none!important;
+    box-shadow:0 -8px 24px rgba(0,0,0,.24)!important;
+    backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+    contain:layout paint!important;transform:none!important;-webkit-transform:none!important;
+    will-change:auto!important;backface-visibility:hidden!important;-webkit-backface-visibility:hidden!important;
+    transition:none!important;
+    visibility:hidden!important;opacity:0!important;pointer-events:none!important;display:none!important;
+  }
+  body.ovyx-v88-dock-home:not(.ovyx-webstudio-active) #ovyx-v52-bottom-bar{
+    display:grid!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;
+  }
+  body.ovyx-drawer-open #ovyx-v52-bottom-bar,
+  body.ovyx-mobile-drawer-open #ovyx-v52-bottom-bar,
+  #mobile-drawer[aria-hidden="false"]~#ovyx-v52-bottom-bar,
+  body.ovyx-webstudio-active #ovyx-v52-bottom-bar,
+  body:has([role="dialog"][aria-modal="true"]:not(.hidden)) #ovyx-v52-bottom-bar{
+    display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important;
+  }
+  body.ovyx-v88-dock-home{padding-bottom:64px!important;}
+  body.ovyx-v88-dock-off{padding-bottom:0!important;}
+}
+html[data-ovyx-stabilizing="1"] #ovyx-first-paint-curtain .ovyx-boot-logo-svg,
+#ovyx-first-paint-curtain .ovyx-boot-logo-svg{
+  transform-box:fill-box!important;transform-origin:50% 50%!important;
+  backface-visibility:hidden!important;-webkit-backface-visibility:hidden!important;
+  shape-rendering:geometricPrecision!important;will-change:transform!important;
+  animation:ovyxV88SplashLogoTurn 2.5s linear infinite!important;
+}
+#ovyx-first-paint-curtain .ovyx-boot-mark{
+  perspective:none!important;perspective-origin:50% 50%!important;transform-style:flat!important;
+}
+@keyframes ovyxV88SplashLogoTurn{from{transform:rotate(0turn)}to{transform:rotate(1turn)}}
+@media(prefers-reduced-motion:reduce){#ovyx-first-paint-curtain .ovyx-boot-logo-svg{animation-duration:.01ms!important;animation-iteration-count:1!important}}
+</style>
+<script id="ovyx-v88-mobile-shell-authority">(function(){
+'use strict';
+if(window.__OVYX_V88_MOBILE_SHELL_AUTHORITY__)return;
+window.__OVYX_V88_MOBILE_SHELL_AUTHORITY__=true;
+const $=id=>document.getElementById(id);
+const root=()=>$('view-router-viewport');
+const clean=v=>String(v||'home').replace(/^view-/,'').toLowerCase().trim()||'home';
+const route=()=>{const r=root();const shown=r?.querySelector(':scope>section[aria-hidden="false"]')||r?.querySelector(':scope>section:not(.hidden)');return clean(shown?.id||window.KernelState?.activeView||'home')};
+const visible=e=>{if(!e)return false;const c=getComputedStyle(e);return !e.hidden&&c.display!=='none'&&c.visibility!=='hidden'&&c.opacity!=='0'&&!e.classList.contains('hidden')};
+const overlayOpen=()=>!!document.querySelector('body .fixed[role="dialog"][aria-modal="true"]:not(.hidden),body .fixed.v55-preview-modal.open,body #kernel-brain-bot-panel:not(.hidden),body #checkout-elements-modal:not(.hidden),body #cmd-palette-modal:not(.hidden),body #ovyx-owner-console:not(.hidden)');
+const drawerOpen=()=>{const d=$('mobile-drawer'),b=$('mobile-drawer-backdrop');return !!(document.body.classList.contains('ovyx-drawer-open')||document.body.classList.contains('ovyx-mobile-drawer-open')||d?.classList.contains('open')||d?.classList.contains('is-open')||d?.getAttribute('aria-hidden')==='false'||visible(b));};
+function sync(){
+  const dock=$('ovyx-v52-bottom-bar');if(!dock)return;
+  const mobile=window.innerWidth<768,home=route()==='home',drawer=drawerOpen(),overlay=overlayOpen();
+  const show=mobile&&home&&!drawer&&!overlay&&!document.body.classList.contains('ovyx-webstudio-active');
+  document.body.classList.toggle('ovyx-v88-dock-home',show);
+  document.body.classList.toggle('ovyx-v88-dock-off',!show);
+  dock.style.setProperty('display',show?'grid':'none','important');
+  dock.style.setProperty('visibility',show?'visible':'hidden','important');
+  dock.style.setProperty('opacity',show?'1':'0','important');
+  dock.style.setProperty('pointer-events',show?'auto':'none','important');
+  dock.style.setProperty('transform','none','important');
+  dock.style.setProperty('backdrop-filter','none','important');
+  dock.style.setProperty('-webkit-backdrop-filter','none','important');
+  if(show)dock.removeAttribute('hidden');
+}
+function closeDrawer(){
+  try{window.MobileDrawer?.close?.()}catch(_){}
+  const d=$('mobile-drawer'),b=$('mobile-drawer-backdrop');
+  if(d){d.classList.remove('open','is-open');d.classList.add('-translate-x-full');d.setAttribute('aria-hidden','true');d.inert=true;d.style.removeProperty('display');d.style.removeProperty('visibility');d.style.removeProperty('opacity');d.style.removeProperty('pointer-events')}
+  if(b){b.classList.add('hidden');b.setAttribute('aria-hidden','true');b.style.opacity='0';b.style.pointerEvents='none'}
+  document.body.classList.remove('ovyx-drawer-open','ovyx-mobile-drawer-open','ovyx-ws-mobile-nav-open');
+  document.body.dataset.ovyxDrawer='closed';
+  if(!overlayOpen()){document.documentElement.style.overflow='auto';document.body.style.overflow='auto';}
+  sync();
+}
+function openDrawer(){
+  if(window.innerWidth>=768)return;
+  const d=$('mobile-drawer'),b=$('mobile-drawer-backdrop');
+  try{window.MobileDrawer?.open?.()}catch(_){}
+  if(d){d.hidden=false;d.inert=false;d.classList.remove('-translate-x-full');d.classList.add('open');d.setAttribute('aria-hidden','false');d.style.setProperty('display','flex','important');d.style.setProperty('visibility','visible','important');d.style.setProperty('opacity','1','important');d.style.setProperty('pointer-events','auto','important')}
+  if(b){b.hidden=false;b.classList.remove('hidden');b.setAttribute('aria-hidden','false');b.style.opacity='1';b.style.pointerEvents='auto'}
+  document.body.classList.add('ovyx-drawer-open');
+  document.body.classList.remove('ovyx-v88-dock-home');
+  document.body.dataset.ovyxDrawer='open';
+  document.documentElement.style.overflow='hidden';document.body.style.overflow='hidden';
+  sync();
+}
+function bind(){
+  const api=window.OVYXMobileDockAuthority||{};
+  api.open=openDrawer;api.close=closeDrawer;api.sync=sync;window.OVYXMobileDockAuthority=api;
+  const more=$('ovyx-v52-bottom-bar')?.querySelector('[data-v52-bottom="more"]');
+  if(more&&!more.dataset.ovyxV88Bound){more.dataset.ovyxV88Bound='1';more.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation?.();openDrawer()},{capture:true});}
+  const close=$('mobile-drawer')?.querySelector('[aria-label="Close navigation"]');
+  if(close&&!close.dataset.ovyxV88Bound){close.dataset.ovyxV88Bound='1';close.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation?.();closeDrawer()},{capture:true});}
+  const back=$('mobile-drawer-backdrop');
+  if(back&&!back.dataset.ovyxV88Bound){back.dataset.ovyxV88Bound='1';back.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation?.();closeDrawer()},{capture:true});}
+  sync();
+}
+function boot(){
+  const r=root();if(r)r.style.setProperty('pointer-events','auto','important');
+  if(document.documentElement.getAttribute('data-ovyx-preboot')==='1')document.documentElement.removeAttribute('data-ovyx-preboot');
+  bind();
+}
+window.addEventListener('resize',sync,{passive:true});
+window.addEventListener('pageshow',()=>setTimeout(boot,0),{passive:true});
+window.addEventListener('ovyx:view-changed',()=>setTimeout(sync,0),{passive:true});
+document.addEventListener('DOMContentLoaded',boot,{once:true});
+setTimeout(boot,600);setTimeout(sync,1600);setTimeout(sync,2800);
+window.OVYXMobileShellAuthority={sync,open:openDrawer,close:closeDrawer};
+})();</script></body>
 </html>
