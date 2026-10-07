@@ -436,10 +436,7 @@
 </nav>
 <div class="px-3 py-3 border-t border-white/[0.07] space-y-1.5 ovyx-sidebar-bottom">
 <button class="ovyx-account-link sidebar-action-card spring-btn" data-nav="projects" onclick="Router.go('projects')"><span><i class="fa-regular fa-folder-open"></i> Projects</span><i class="fa-solid fa-chevron-right"></i></button>
-<div class="ovyx-sidebar-legal" id="ovyx-sidebar-legal">
-<button data-legal="privacy" type="button">Privacy Policy</button>
-<button data-legal="terms" type="button">Terms of Service</button>
-</div>
+
 <div class="ovyx-usage-mini"><div><span>AI usage</span><strong id="sidebar-token-ratio">0 / 50,000</strong></div><div class="ovyx-usage-track"><span id="sidebar-token-bar"></span></div></div>
 <button class="ovyx-account-link sidebar-action-card spring-btn" onclick="Router.go('inbox')"><span><i class="fa-regular fa-bell"></i> Inbox <em class="v34-unread-badge" hidden="" id="desktop-inbox-badge">0</em></span><i class="fa-solid fa-chevron-right"></i></button>
 <button class="ovyx-account-link sidebar-action-card spring-btn" onclick="Router.go('pricing')"><span><i class="fa-regular fa-credit-card"></i> Plans</span><i class="fa-solid fa-chevron-right"></i></button>
@@ -447,7 +444,7 @@
 <button class="ovyx-account-link sidebar-action-card spring-btn" data-nav="ai-assistant" id="desktop-ai-assistant"><span><i class="fa-solid fa-wand-magic-sparkles"></i> AI Assistant</span><i class="fa-solid fa-chevron-right"></i></button>
 <button class="ovyx-account-link sidebar-action-card spring-btn" onclick="Router.go('faq')"><span><i class="fa-regular fa-circle-question"></i> Help / FAQ</span></button>
 <button class="ovyx-account-link sidebar-action-card spring-btn" id="desktop-owner-command" onclick="window.OvyxOwnerConsole?.open()" style="display:none"><span><i class="fa-solid fa-gauge-high text-brand-gold"></i> Admin Center</span><span class="text-brand-gold">OWNER</span></button>
-<button class="ovyx-account-link sidebar-action-card spring-btn" id="desktop-admin-entry" onclick="Router.go('admin-overview')" style="display:none"><span><i class="fa-solid fa-shield-halved text-brand-gold"></i> Admin Center</span><span class="text-brand-gold">ROOT</span></button>
+
 </div>
 <button aria-label="Open profile settings" class="p-3 border-t border-white/[0.07] flex items-center gap-2.5 text-left spring-btn hover:bg-white/[0.025] ovyx-sidebar-profile" onclick="openOvyxProfile()">
 <div class="w-8 h-8 rounded-full bg-[#151515] border border-white/10 flex items-center justify-center text-[10px] font-black text-white shrink-0" id="sidebar-avatar-initials">JT</div>
@@ -478,7 +475,7 @@
 <button class="ovyx-mobile-nav-item spring-btn" data-mobile-nav="workspace" onclick="openWebStudioCode()"><i class="fa-solid fa-code"></i><span>Code<small>Files · Repository · Export</small></span></button>
 <button class="ovyx-mobile-nav-item spring-btn" data-mobile-nav="templates" onclick="Router.go('templates')"><i class="fa-solid fa-layer-group text-brand-gold"></i><span>Templates<small>Published blueprint library</small></span></button>
 </div></div>
-<div><div class="ovyx-nav-label px-2">MANAGE</div><button class="ovyx-mobile-nav-item spring-btn" data-mobile-nav="projects" onclick="Router.go('projects'); MobileDrawer.close()"><i class="fa-regular fa-folder-open"></i><span>Projects<small>All projects · Assets · Revisions</small></span></button><button class="ovyx-mobile-nav-item spring-btn" data-mobile-nav="admin-overview" id="mobile-admin-entry" onclick="Router.go('admin-overview'); MobileDrawer.close()" style="display:none"><i class="fa-solid fa-shield-halved text-brand-gold"></i><span>Admin Center<small>Protected administrator tools</small></span></button></div><div class="ovyx-sidebar-legal ovyx-mobile-legal"><div class="ovyx-nav-label px-2">LEGAL</div><button class="ovyx-mobile-nav-item spring-btn" data-legal="privacy" type="button"><i class="fa-solid fa-shield-halved"></i><span>Privacy Policy<small>How OVYX handles data</small></span></button><button class="ovyx-mobile-nav-item spring-btn" data-legal="terms" type="button"><i class="fa-solid fa-file-contract"></i><span>Terms of Service<small>Service terms and billing</small></span></button></div>
+<div><div class="ovyx-nav-label px-2">MANAGE</div><button class="ovyx-mobile-nav-item spring-btn" data-mobile-nav="projects" onclick="Router.go('projects'); MobileDrawer.close()"><i class="fa-regular fa-folder-open"></i><span>Projects<small>All projects · Assets · Revisions</small></span></button></div>
 </nav>
 </aside>
 <!-- CONTENT VIEWPORT AREA -->
@@ -3775,10 +3772,10 @@ Body: { broadcastId, title, body, category, link }</div>
     modal.innerHTML='<div class="ovyx-project-modal" role="dialog" aria-modal="true" aria-labelledby="ovyx-create-title"><div class="ovyx-project-modal-kicker">OVYX / PROJECT INITIALIZATION</div><h2 id="ovyx-create-title">Create a new project</h2><p>Give the workspace a clear name. You can refine the project inside Web Studio.</p><input id="ovyx-project-name-input" autocomplete="off" maxlength="80" placeholder="e.g. Luxury Restaurant Website" aria-label="Project name"><div class="ovyx-project-modal-actions"><button type="button" class="ovyx-modal-cancel" data-modal-cancel>Cancel</button><button type="button" class="ovyx-modal-create" data-modal-create>Create Project</button></div></div>';
     document.body.appendChild(modal);
     const input=()=>document.getElementById('ovyx-project-name-input');
-    const close=()=>{modal.classList.remove('is-open');setTimeout(()=>{if(!modal.classList.contains('is-open'))modal.hidden=true},160)};
+    const close=()=>{modal.classList.remove('is-open');document.body.classList.remove('ovyx-project-create-open');document.documentElement.style.removeProperty('overflow');setTimeout(()=>{if(!modal.classList.contains('is-open')){modal.hidden=true;modal.setAttribute('aria-hidden','true');}},160)};
     const create=()=>{const value=input()?.value.trim();if(!value){input()?.focus();return}close();window.__ovyxCreateProject?.(value)};
     modal.addEventListener('click',e=>{if(e.target===modal||e.target.closest('[data-modal-cancel]'))close();else if(e.target.closest('[data-modal-create]'))create()});
-    input; modal._open=(initial='')=>{modal.hidden=false;requestAnimationFrame(()=>modal.classList.add('is-open'));const el=input();el.value=initial;setTimeout(()=>el.focus(),30)};modal._close=close;modal._create=create;
+    input; modal._open=(initial='')=>{modal.hidden=false;modal.setAttribute('aria-hidden','false');document.body.classList.add('ovyx-project-create-open');document.documentElement.style.setProperty('overflow','hidden');requestAnimationFrame(()=>modal.classList.add('is-open'));const el=input();el.value=initial;setTimeout(()=>el.focus(),30)};modal._close=close;modal._create=create;
     document.addEventListener('keydown',e=>{if(!modal.hidden&&e.key==='Escape')close();if(!modal.hidden&&e.key==='Enter'&&document.activeElement===input())create()});
     return modal;
   }
@@ -6493,10 +6490,10 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
     if(!R?.go){toast('OVYX navigation is still starting. Please try again in a moment.','info');return null;}
     try{return R.go(v)}catch(e){console.error('[OVYX owner navigation]',e);toast('Command Center could not be opened. Please try again.','error');return null;}
   }
-  function syncEntry(){
+  async function syncEntry(){
     removeDuplicateAdminEntries();
-    const signedIn=!!(window.firebase?.auth?.().currentUser);
-    ['desktop-owner-command','mobile-owner-command','v53-mobile-owner-command'].forEach(id=>{const el=document.getElementById(id);if(el){el.style.display=signedIn?'flex':'none';el.onclick=(e)=>{e?.preventDefault?.();open('admin-overview')}}});
+    const authorized=await ownerCheck();
+    ['desktop-owner-command','mobile-owner-command','v53-mobile-owner-command'].forEach(id=>{const el=document.getElementById(id);if(el){el.style.display=authorized?'flex':'none';el.onclick=(e)=>{e?.preventDefault?.();open('admin-overview')}}});
   }
   window.OvyxOwnerConsole=window.OvyxOwnerConsole||{};
   window.OvyxOwnerConsole.open=open;
@@ -9365,6 +9362,19 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
     try{
       var v=clean(route);
       if(ADMIN.has(v) && !owner()){setOwnerUI();return false}
+      var previous=clean(window.KernelState?.activeView||'');
+      if(previous==='webstudio' && v!=='webstudio'){
+        try{window.WebStudio?.abortActiveAi?.()}catch(e){}
+        try{window.WebStudio?.closeModeMenu?.()}catch(e){}
+        try{window.WebStudio?.closePreviewMenu?.()}catch(e){}
+        try{window.WebStudio?.closeMobilePreview?.()}catch(e){}
+        try{window.WebStudio?.closeProjectNavigation?.()}catch(e){}
+        try{window.WebStudio?.persistState?.('route-exit')}catch(e){}
+        try{sessionStorage.removeItem('ovyx.ws.focus-code')}catch(e){}
+        try{sessionStorage.removeItem('ovyx.ws.focus-file')}catch(e){}
+        try{window.WebStudio?.syncShell?.(false)}catch(e){}
+        document.body.classList.remove('ovyx-webstudio-active','ovyx-ws-nav-open','ovyx-ws-mobile-preview-open','ovyx-ws-preview-full','ovyx-ws-chat-focus','ovyx-ws-preview-collapsed','ovyx-v58-assistant-open');
+      }
       var root=document.getElementById('view-router-viewport');
       var target=document.getElementById('view-'+v)||document.getElementById('view-home');
       if(!root||!target)return false;
@@ -9495,7 +9505,14 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
     if(overlay){closeOverlay(overlay);return true}
     var drawer=document.getElementById('mobile-drawer');
     if(drawer&&(drawer.classList.contains('open')||drawer.classList.contains('is-open')||document.body.classList.contains('ovyx-drawer-open'))){try{window.MobileDrawer?.close?.()}catch(e){};return true}
-    try{history.back();return true}catch(e){return false}
+    var current=clean(window.KernelState?.activeView||currentRoute());
+    var stateRoute=clean(history.state?.ovyxRoute||'');
+    if(current==='webstudio' && (!stateRoute || stateRoute==='webstudio')){
+      try{window.Router?.go?.('home');return true}catch(e){}
+    }
+    try{history.back();return true}catch(e){
+      try{window.Router?.go?.('home');return true}catch(_){return false}
+    }
   }
   window.OVYXNavigation=window.OVYXNavigation||{};
   window.OVYXNavigation.back=back;
