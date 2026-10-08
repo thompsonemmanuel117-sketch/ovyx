@@ -2852,56 +2852,7 @@ Body: { broadcastId, title, body, category, link }</div>
 #view-appstudio #app-studio-clean-canvas{background:#000!important;inset:0!important;pointer-events:none!important;}
 #view-appstudio .studio-topbar,#view-appstudio .studio-dual-pane,#view-appstudio .studio-prompt-shell,#view-appstudio .studio-thinking,#view-appstudio .studio-viewport-stage,#view-appstudio .app-device-wrap,#view-appstudio .studio-right-pane,#view-appstudio #ovyx-appstudio-screenbar{display:none!important;}
 </style>
-<script id="ovyx-auto-ai-boot">(function(){if(window.__OVYX_AUTO_AI_BOOT__)return;window.__OVYX_AUTO_AI_BOOT__=true;const start=()=>{try{if(window.firebase?.auth?.().currentUser){window.OVYXAI=window.OVYXAI||{};window.OVYXAI.provider="automatic";window.OVYXAI.connected=true;}}catch(e){}};if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start,{once:true});else start();window.addEventListener("firebase-auth-ready",start,{passive:true});window.addEventListener("ovyx-auth-state-ready",start,{passive:true})})();<\/script><script id="ovyx-universal-connections-stability-v1">(function(){
-  'use strict';
-  if(window.__OVYX_UNIVERSAL_CONNECTIONS_STABILITY_V1__)return;
-  window.__OVYX_UNIVERSAL_CONNECTIONS_STABILITY_V1__=true;
-  let renderScheduled=false;
-  function getSettings(){try{return window.OVYXSettings?.root?window.OVYXSettings:null}catch(_){return null}}
-  function ensureSurface(){
-    const S=getSettings();if(!S)return null;
-    const root=S.root,sidebar=root?.querySelector('.ovyx-settings-sidebar'),main=root?.querySelector('#ovyx-settings-main');
-    if(!sidebar||!main)return null;
-    let nav=sidebar.querySelector('[data-settings-nav="connections"]');
-    if(!nav){
-      nav=document.createElement('button');nav.type='button';nav.className='ovyx-settings-nav';nav.dataset.settingsNav='connections';
-      nav.innerHTML='<i class="fa-solid fa-plug"></i><span>Universal Connections &amp; Tier Limits<small>Secure external integrations</small></span>';
-      sidebar.appendChild(nav);
-      nav.addEventListener('click',()=>{try{S.show?.('connections')}catch(e){console.warn('[OVYX connections navigation]',e)}});
-    }
-    nav.style.setProperty('display','flex','important');
-    nav.style.setProperty('visibility','visible','important');
-    nav.style.setProperty('opacity','1','important');
-    nav.style.setProperty('pointer-events','auto','important');
-    let panel=main.querySelector('[data-settings-panel="connections"]');
-    if(!panel){
-      panel=document.createElement('section');panel.className='ovyx-settings-panel ovyx-deep-settings-panel';panel.dataset.settingsPanel='connections';panel.hidden=true;main.appendChild(panel);
-    }
-    if(String(S.current||'')==='connections'){
-      panel.classList.add('active');panel.hidden=false;
-      panel.style.setProperty('display','block','important');
-      main.querySelectorAll('[data-settings-panel]').forEach(node=>{if(node!==panel)node.hidden=true});
-      sidebar.querySelectorAll('[data-settings-nav]').forEach(node=>node.classList.toggle('active',node===nav));
-      if(!panel.dataset.ovyxConnectionsRendered && typeof window.renderConnectionsPanel==='function')scheduleRender(panel);
-    }
-    return {S,nav,panel};
-  }
-  function scheduleRender(panel){
-    if(renderScheduled||!panel)return;
-    renderScheduled=true;
-    setTimeout(async()=>{
-      renderScheduled=false;
-      try{if(String(getSettings()?.current||'')!=='connections')return;if(typeof window.renderConnectionsPanel!=='function')return;await window.renderConnectionsPanel();panel.dataset.ovyxConnectionsRendered='1'}catch(error){console.warn('[OVYX connections render]',error)}
-    },0);
-  }
-  function boot(){const surface=ensureSurface();if(surface&&String(surface.S.current||'')==='connections'&&!surface.panel.dataset.ovyxConnectionsRendered)scheduleRender(surface.panel)}
-  const later=[0,50,150,350,800,1600,3000];later.forEach(ms=>setTimeout(boot,ms));
-  window.addEventListener('firebase-auth-state-ready',()=>{setTimeout(boot,0);setTimeout(boot,180)},{passive:true});
-  window.addEventListener('ovyx:view-changed',event=>{if(String(event.detail?.view||'').replace(/^view-/,'')==='settings'){setTimeout(boot,0);setTimeout(boot,100)}},{passive:true});
-  window.addEventListener('pageshow',()=>setTimeout(boot,0),{passive:true});
-  const observer=new MutationObserver(()=>{const S=getSettings();if(!S)return;const root=S.root;if(root&&!root.querySelector('[data-settings-nav="connections"]'))boot();else if(root&&!root.querySelector('[data-settings-panel="connections"]'))boot()});
-  observer.observe(document.documentElement,{childList:true,subtree:true});
-})();</script></body>\n</html>`;
+<script id="ovyx-auto-ai-boot">(function(){if(window.__OVYX_AUTO_AI_BOOT__)return;window.__OVYX_AUTO_AI_BOOT__=true;const start=()=>{try{if(window.firebase?.auth?.().currentUser){window.OVYXAI=window.OVYXAI||{};window.OVYXAI.provider="automatic";window.OVYXAI.connected=true;}}catch(e){}};if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start,{once:true});else start();window.addEventListener("firebase-auth-ready",start,{passive:true});window.addEventListener("ovyx-auth-state-ready",start,{passive:true})})();<\/script></body>\n</html>`;
       },
       renderSectionSource(section,index){
         const c=section?.content||{},s=section?.styles||{};const raw=[c.html,c.markup,c.rawHtml,section?.html].find(v=>typeof v==='string'&&v.trim());if(raw)return raw;
@@ -4369,16 +4320,10 @@ function mountHelpSupportForm(v){
       const fileInput=card.querySelector('#ovyx-help-support-attachments');
       const files=Array.from(fileInput?.files||[]);
       if(files.length>3)throw new Error('Attach at most 3 files.');
-      for(const file of files){
-        if(Number(file.size||0)>5*1024*1024)throw new Error(`Attachment "${file.name}" must be 5 MB or smaller.`);
-      }
+      for(const file of files){if(Number(file.size||0)>5*1024*1024)throw new Error(`Attachment "${file.name}" must be 5 MB or smaller.`);}
       const formData=new FormData();
-      formData.append('userName',userName);
-      formData.append('contactEmail',contactEmail);
-      formData.append('subject',subject);
-      formData.append('message',message);
-      formData.append('projectId',window.KernelState?.activeProject?.id||'');
-      formData.append('route',window.KernelState?.activeView||'home');
+      formData.append('userName',userName);formData.append('contactEmail',contactEmail);formData.append('subject',subject);formData.append('message',message);
+      formData.append('projectId',window.KernelState?.activeProject?.id||'');formData.append('route',window.KernelState?.activeView||'home');
       files.forEach(file=>formData.append('attachments',file,file.name));
       const r=await fetch('/api/support',{method:'POST',headers:{Accept:'application/json',Authorization:'Bearer '+token},credentials:'same-origin',body:formData});
       const d=await r.json().catch(()=>({}));
@@ -4387,8 +4332,7 @@ function mountHelpSupportForm(v){
       card.querySelector('#ovyx-help-support-subject').value='';
       card.querySelector('#ovyx-help-support-message').value='';
       if(fileInput)fileInput.value='';
-      const fileName=card.querySelector('#ovyx-help-support-file-name');
-      if(fileName)fileName.textContent='No files selected';
+      const fileName=card.querySelector('#ovyx-help-support-file-name');if(fileName)fileName.textContent='No files selected';
       (window.showToast||window.toast)?.('Support ticket submitted.','success');
     }catch(err){
       setStatus(err?.message||'Support ticket could not be submitted.','error');
@@ -10408,7 +10352,7 @@ window.addEventListener('pageshow',()=>setTimeout(install,0),{passive:true});
   window.OVYXV22={syncDock,setDrawer,bindPrompt};
 })();</script>
 
-<style id="ovyx-final-help-support-style">.ovyx-help-support-inline{border:1px solid var(--ov-line,rgba(255,255,255,.10));background:linear-gradient(180deg,rgba(255,255,255,.025),rgba(255,255,255,.012));border-radius:14px;overflow:hidden} .ovyx-help-support-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:16px 17px;border-bottom:1px solid var(--ov-line,rgba(255,255,255,.08))} .ovyx-help-support-head h2{margin:6px 0 0;color:var(--ov-text,#fff);font:850 18px/1.1 Inter,sans-serif} .ovyx-help-support-head p{margin:6px 0 0;max-width:720px;color:var(--ov-muted,#8b929a);font:500 9px/1.55 Inter,sans-serif} .ovyx-help-support-badge{display:inline-flex;align-items:center;gap:6px;flex:none;padding:6px 8px;border:1px solid rgba(232,182,79,.16);border-radius:999px;background:rgba(232,182,79,.045);color:#b99a55;font:800 7px JetBrains Mono,monospace;letter-spacing:.06em} .ovyx-help-support-form{padding:14px 16px 16px} .ovyx-help-support-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px} .ovyx-help-support-grid label{display:grid;gap:5px}.ovyx-help-support-grid label.full{grid-column:1/-1} .ovyx-help-support-grid label span{color:#858d97;font:750 7px JetBrains Mono,monospace;letter-spacing:.08em;text-transform:uppercase} .ovyx-help-support-grid input,.ovyx-help-support-grid textarea{width:100%;box-sizing:border-box;border:1px solid rgba(255,255,255,.09);border-radius:9px;background:#090a0c;color:#f3f4f6;outline:none;font:600 10px/1.45 Inter,sans-serif;padding:10px 11px;transition:border-color .16s ease,box-shadow .16s ease,background .16s ease} .ovyx-help-support-grid textarea{min-height:128px;resize:vertical} .ovyx-help-support-grid input:focus,.ovyx-help-support-grid textarea:focus{border-color:rgba(232,182,79,.42);box-shadow:0 0 0 3px rgba(232,182,79,.06);background:#0b0c0f} .ovyx-help-support-grid input::placeholder,.ovyx-help-support-grid textarea::placeholder{color:#555c65} .ovyx-help-support-file-label{margin-top:2px}.ovyx-help-support-file-picker{position:relative;display:flex;align-items:center;gap:9px;min-height:44px;padding:9px 11px;border:1px solid rgba(255,255,255,.09);border-radius:9px;background:linear-gradient(180deg,rgba(255,255,255,.025),rgba(255,255,255,.012));color:#e8b64f;cursor:pointer;transition:border-color .16s ease,background .16s ease,box-shadow .16s ease}.ovyx-help-support-file-picker:hover{border-color:rgba(232,182,79,.32);background:rgba(232,182,79,.045);box-shadow:0 0 0 3px rgba(232,182,79,.045)}.ovyx-help-support-file-picker i{font-size:13px}.ovyx-help-support-file-picker strong{font:800 9px/1 Inter,sans-serif;color:#f0f0ea}.ovyx-help-support-file-picker small{margin-left:auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#666e78;font:600 7px/1.3 JetBrains Mono,monospace}.ovyx-help-support-file-picker input{position:absolute!important;inset:0;width:100%!important;height:100%!important;opacity:0!important;cursor:pointer!important} .ovyx-help-support-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:11px} .ovyx-help-support-foot small{color:#5f6770;font:600 7px/1.5 Inter,sans-serif} .ovyx-help-support-status{min-height:16px;margin-top:9px;color:#737b84;font:700 7px/1.5 JetBrains Mono,monospace}.ovyx-help-support-status[data-kind="success"]{color:#68d391}.ovyx-help-support-status[data-kind="error"]{color:#ff8d8d}.ovyx-help-support-status[data-kind="info"]{color:#8f98a2} @media(max-width:600px){.ovyx-help-support-head{flex-direction:column}.ovyx-help-support-grid{grid-template-columns:1fr}.ovyx-help-support-grid label.full{grid-column:auto}.ovyx-help-support-foot{align-items:flex-start;flex-direction:column}.ovyx-help-support-foot .ovyx-settings-btn{width:100%;justify-content:center}}</style>
+<style id="ovyx-final-help-support-style">.ovyx-help-support-inline{border:1px solid var(--ov-line,rgba(255,255,255,.10));background:linear-gradient(180deg,rgba(255,255,255,.025),rgba(255,255,255,.012));border-radius:14px;overflow:hidden} .ovyx-help-support-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:16px 17px;border-bottom:1px solid var(--ov-line,rgba(255,255,255,.08))} .ovyx-help-support-head h2{margin:6px 0 0;color:var(--ov-text,#fff);font:850 18px/1.1 Inter,sans-serif} .ovyx-help-support-head p{margin:6px 0 0;max-width:720px;color:var(--ov-muted,#8b929a);font:500 9px/1.55 Inter,sans-serif} .ovyx-help-support-badge{display:inline-flex;align-items:center;gap:6px;flex:none;padding:6px 8px;border:1px solid rgba(232,182,79,.16);border-radius:999px;background:rgba(232,182,79,.045);color:#b99a55;font:800 7px JetBrains Mono,monospace;letter-spacing:.06em} .ovyx-help-support-form{padding:14px 16px 16px} .ovyx-help-support-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px} .ovyx-help-support-grid label{display:grid;gap:5px}.ovyx-help-support-grid label.full{grid-column:1/-1} .ovyx-help-support-grid label span{color:#858d97;font:750 7px JetBrains Mono,monospace;letter-spacing:.08em;text-transform:uppercase} .ovyx-help-support-grid input,.ovyx-help-support-grid textarea{width:100%;box-sizing:border-box;border:1px solid rgba(255,255,255,.09);border-radius:9px;background:#090a0c;color:#f3f4f6;outline:none;font:600 10px/1.45 Inter,sans-serif;padding:10px 11px;transition:border-color .16s ease,box-shadow .16s ease,background .16s ease} .ovyx-help-support-grid textarea{min-height:128px;resize:vertical} .ovyx-help-support-grid input:focus,.ovyx-help-support-grid textarea:focus{border-color:rgba(232,182,79,.42);box-shadow:0 0 0 3px rgba(232,182,79,.06);background:#0b0c0f} .ovyx-help-support-grid input::placeholder,.ovyx-help-support-grid textarea::placeholder{color:#555c65} .ovyx-help-support-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:11px} .ovyx-help-support-foot small{color:#5f6770;font:600 7px/1.5 Inter,sans-serif} .ovyx-help-support-status{min-height:16px;margin-top:9px;color:#737b84;font:700 7px/1.5 JetBrains Mono,monospace}.ovyx-help-support-status[data-kind="success"]{color:#68d391}.ovyx-help-support-status[data-kind="error"]{color:#ff8d8d}.ovyx-help-support-status[data-kind="info"]{color:#8f98a2} @media(max-width:600px){.ovyx-help-support-head{flex-direction:column}.ovyx-help-support-grid{grid-template-columns:1fr}.ovyx-help-support-grid label.full{grid-column:auto}.ovyx-help-support-foot{align-items:flex-start;flex-direction:column}.ovyx-help-support-foot .ovyx-settings-btn{width:100%;justify-content:center}}</style>
 
 <script id="ovyx-final-token-booster-runtime">(function(){
   'use strict';
@@ -14785,5 +14729,64 @@ function activate(){
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{setTimeout(activate,300);setTimeout(activate,900)},{once:true});else{setTimeout(activate,0);setTimeout(activate,700)}
 window.addEventListener('firebase-auth-state-ready',()=>setTimeout(activate,80),{passive:true});
 window.addEventListener('ovyx:view-changed',e=>{if(e.detail?.view==='settings')setTimeout(activate,80)},{passive:true});
+})();</script><style id="ovyx-final-connections-stability-v1">
+#view-settings [data-settings-nav="connections"]{display:flex!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important}
+#view-settings [data-settings-panel="connections"].active{display:block!important;visibility:visible!important;opacity:1!important}
+.ovyx-help-support-file-label{margin-top:2px}
+.ovyx-help-support-file-picker{position:relative;display:flex;align-items:center;gap:9px;min-height:44px;padding:9px 11px;border:1px solid rgba(255,255,255,.09);border-radius:9px;background:linear-gradient(180deg,rgba(255,255,255,.025),rgba(255,255,255,.012));color:#e8b64f;cursor:pointer;transition:border-color .16s ease,background .16s ease,box-shadow .16s ease}
+.ovyx-help-support-file-picker:hover{border-color:rgba(232,182,79,.32);background:rgba(232,182,79,.045);box-shadow:0 0 0 3px rgba(232,182,79,.045)}
+.ovyx-help-support-file-picker i{font-size:13px}.ovyx-help-support-file-picker strong{font:800 9px/1 Inter,sans-serif;color:#f0f0ea}.ovyx-help-support-file-picker small{margin-left:auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#666e78;font:600 7px/1.3 JetBrains Mono,monospace}.ovyx-help-support-file-picker input{position:absolute!important;inset:0;width:100%!important;height:100%!important;opacity:0!important;cursor:pointer!important}
+</style><script id="ovyx-final-connections-stability-v1">(function(){
+'use strict';
+if(window.__OVYX_FINAL_CONNECTIONS_STABILITY_V1__)return;
+window.__OVYX_FINAL_CONNECTIONS_STABILITY_V1__=true;
+function getSettings(){try{return window.OVYXSettings||null}catch(_){return null}}
+function ensure(){
+ const S=getSettings(),r=S?.root;
+ if(!S||!r)return;
+ const sidebar=r.querySelector('.ovyx-settings-sidebar'),main=r.querySelector('#ovyx-settings-main');
+ if(!sidebar||!main)return;
+ let nav=sidebar.querySelector('[data-settings-nav="connections"]');
+ if(!nav){
+   nav=document.createElement('button');nav.type='button';nav.className='ovyx-settings-nav';nav.dataset.settingsNav='connections';
+   nav.innerHTML='<i class="fa-solid fa-plug"></i><span>Universal Connections &amp; Tier Limits<small>Secure external integrations</small></span>';
+   sidebar.appendChild(nav);
+   nav.addEventListener('click',()=>{try{S.show('connections')}catch(e){console.warn('[OVYX connections]',e)}});
+ }
+ nav.style.setProperty('display','flex','important');nav.style.setProperty('visibility','visible','important');nav.style.setProperty('opacity','1','important');nav.style.setProperty('pointer-events','auto','important');
+ let panel=main.querySelector('[data-settings-panel="connections"]');
+ if(!panel){panel=document.createElement('section');panel.className='ovyx-settings-panel ovyx-deep-settings-panel';panel.dataset.settingsPanel='connections';panel.hidden=true;main.appendChild(panel);}
+ if(String(S.current||'')==='connections'){panel.hidden=false;panel.classList.add('active');panel.style.setProperty('display','block','important');sidebar.querySelectorAll('[data-settings-nav]').forEach(n=>n.classList.toggle('active',n===nav));}
+}
+function patch(){
+ const S=getSettings();if(!S||typeof S.show!=='function')return;
+ if(!S.__OVYXFinalConnectionsWrapped){
+   const original=S.show.bind(S);
+   S.show=function(id){
+     if(String(id)==='connections'){
+       ensure();
+       const r=S.root,main=r?.querySelector('#ovyx-settings-main'),sidebar=r?.querySelector('.ovyx-settings-sidebar'),panel=main?.querySelector('[data-settings-panel="connections"]'),nav=sidebar?.querySelector('[data-settings-nav="connections"]');
+       if(panel&&main){main.querySelectorAll('[data-settings-panel]').forEach(p=>{p.hidden=p!==panel;p.classList.toggle('active',p===panel)});panel.hidden=false;panel.style.setProperty('display','block','important');}
+       if(nav&&sidebar)sidebar.querySelectorAll('[data-settings-nav]').forEach(n=>n.classList.toggle('active',n===nav));
+       S.current='connections';
+       try{if(typeof window.UniversalConnections!=='undefined'&&typeof window.renderConnectionsPanel==='function')window.renderConnectionsPanel()}catch(_){}
+       return true;
+     }
+     return original(id);
+   };
+   S.__OVYXFinalConnectionsWrapped=true;
+ }
+ if(typeof S.renderPanels==='function'&&!S.__OVYXFinalConnectionsRenderWrapped){
+   const originalRender=S.renderPanels.bind(S);
+   S.renderPanels=function(){const out=originalRender();setTimeout(ensure,0);setTimeout(patch,0);return out};
+   S.__OVYXFinalConnectionsRenderWrapped=true;
+ }
+ ensure();
+}
+function schedule(){[0,60,160,350,800,1500,3000].forEach(ms=>setTimeout(()=>{ensure();patch()},ms))}
+schedule();
+window.addEventListener('firebase-auth-state-ready',schedule,{passive:true});
+window.addEventListener('ovyx:view-changed',e=>{if(String(e.detail?.view||'').replace(/^view-/,'').toLowerCase()==='settings')schedule()},{passive:true});
+window.addEventListener('pageshow',schedule,{passive:true});
 })();</script></body>
 </html>
