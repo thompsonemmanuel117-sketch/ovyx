@@ -4172,9 +4172,38 @@ function renderSecurity(){
  const p=document.querySelector('[data-settings-panel="security"]');if(!p)return;const u=window.firebase?.auth?.().currentUser||null;const platform=/Android/i.test(navigator.userAgent)?'Android':/iPhone|iPad|iPod/i.test(navigator.userAgent)?'iOS':/Mac/i.test(navigator.userAgent)?'macOS':/Windows/i.test(navigator.userAgent)?'Windows':'Browser';const browser=/Chrome/i.test(navigator.userAgent)?'Chrome':/Firefox/i.test(navigator.userAgent)?'Firefox':/Safari/i.test(navigator.userAgent)&&!/Chrome/i.test(navigator.userAgent)?'Safari':'Browser';const last=u?.metadata?.lastSignInTime?new Date(u.metadata.lastSignInTime):null;const created=u?.metadata?.creationTime?new Date(u.metadata.creationTime):null;
  p.innerHTML=`<div class="ovyx-panel-head"><div class="ovyx-panel-kicker">SECURITY / ACCOUNT</div><h2>Security</h2><p>Protect your OVYX account and review the current authenticated session without exposing secrets.</p></div>
  <div class="ovyx-pref-group"><div class="ovyx-pref-label">ACCOUNT SECURITY</div><div class="ovyx-security-grid"><div class="ovyx-security-stat"><span>Authentication</span><b>${u?'● Protected':'○ Not signed in'}</b></div><div class="ovyx-security-stat"><span>Active sessions</span><b>1 current browser</b></div><div class="ovyx-security-stat"><span>Last sign-in</span><b>${last?esc11(last.toLocaleString()):'Not available'}</b></div><div class="ovyx-security-stat"><span>Account created</span><b>${created?esc11(created.toLocaleDateString(undefined,{month:'short',year:'numeric'})):'Not available'}</b></div></div></div>
- <div class="ovyx-pref-group"><div class="ovyx-pref-label">CURRENT SESSION</div><div class="ovyx-session-list"><div class="ovyx-session"><div class="ovyx-session-icon"><i class="fa-solid ${platform==='Android'?'fa-mobile-screen':platform==='iOS'?'fa-mobile-screen-button':'fa-display'}"></i></div><div class="ovyx-session-main"><b>${esc11(platform)} · ${esc11(browser)}</b><small>Current authenticated browser session · location is not collected by this local security surface.</small></div><span class="ovyx-session-current">CURRENT</span></div></div><div class="ovyx-theme-actions"><button class="ovyx-settings-btn" id="ovyx-signout-current">Sign out current session</button><button class="ovyx-settings-btn" id="ovyx-signout-other" disabled title="Requires a server-side session management service">Sign out other sessions</button></div><div class="ovyx-empty-state">Remote session enumeration and global revocation require a trusted backend. OVYX will not pretend to revoke sessions it cannot verify.</div></div>
+ <div class="ovyx-pref-group"><div class="ovyx-pref-label">CURRENT SESSION</div><div class="ovyx-session-list"><div class="ovyx-session"><div class="ovyx-session-icon"><i class="fa-solid ${platform==='Android'?'fa-mobile-screen':platform==='iOS'?'fa-mobile-screen-button':'fa-display'}"></i></div><div class="ovyx-session-main"><b>${esc11(platform)} · ${esc11(browser)}</b><small>Current authenticated browser session · location is not collected by this local security surface.</small></div><span class="ovyx-session-current">CURRENT</span></div></div><div class="ovyx-theme-actions"><button class="ovyx-settings-btn" id="ovyx-signout-current">Sign out current session</button><button class="ovyx-settings-btn" id="ovyx-revoke-all-devices"><i class="fa-solid fa-right-from-bracket" aria-hidden="true"></i> Log Out All Devices</button></div><div class="ovyx-empty-state">Global revocation signs out other authenticated devices and then signs out this browser after the server confirms success.</div></div>
  <div class="ovyx-danger-zone"><div class="ovyx-group-label">DANGER ZONE</div><p>Deleting your account permanently removes the authenticated OVYX account. Recent authentication may be required for security.</p><button class="ovyx-settings-btn danger" id="ovyx-security-delete">Delete account</button></div>`;
  p.querySelector('#ovyx-signout-current')?.addEventListener('click',async()=>{try{if(u){await firebase.auth().signOut();toast('Signed out of OVYX.','success');Router.go('home')}else toast('No authenticated session is active.','info')}catch(e){toast(e.message||'Sign out failed.','error')}});
+ p.querySelector('#ovyx-revoke-all-devices')?.addEventListener('click',async(event)=>{
+  const button=event.currentTarget;
+  if(!window.firebase?.auth?.().currentUser)return toast('No authenticated session is active.','info');
+  const currentUser=window.firebase.auth().currentUser;
+  const originalLabel=button.innerHTML;
+  button.disabled=true;
+  button.setAttribute('aria-busy','true');
+  button.innerHTML='<i class="fa-solid fa-spinner fa-spin" aria-hidden="true"></i> Revoking…';
+  try{
+   const idToken=await currentUser.getIdToken(false);
+   const response=await fetch('/api/api/auth/revoke-sessions',{
+    method:'POST',
+    credentials:'same-origin',
+    cache:'no-store',
+    headers:{Accept:'application/json','Content-Type':'application/json',Authorization:'Bearer '+idToken}
+   });
+   const data=await response.json().catch(()=>({}));
+   if(!response.ok)throw new Error(data?.message||data?.error||`Request failed (HTTP ${response.status})`);
+   toast('All devices have been logged out.','success');
+   await firebase.auth().signOut();
+   window.__OVYX_AUTH_STATE_READY__=false;
+   Router.go('home');
+  }catch(e){
+   button.disabled=false;
+   button.removeAttribute('aria-busy');
+   button.innerHTML=originalLabel;
+   toast(e.message||'Could not log out all devices.','error');
+  }
+ });
  p.querySelector('#ovyx-security-delete')?.addEventListener('click',async()=>{if(!confirm('Delete your OVYX account? This cannot be undone.'))return;try{const user=window.firebase?.auth?.().currentUser;if(!user)return toast('No authenticated account is active.','error');await user.delete();try{localStorage.removeItem('ovyx.profile.v1')}catch(e){console.warn('[OVYX runtime]',e)}toast('Account deleted.','success');Router.go('home')}catch(e){toast(e.code==='auth/requires-recent-login'?'For security, sign in again before deleting your account.':(e.message||'Account deletion failed.'),'error')}});
 }
 function enhanceFAQ(){
@@ -4325,7 +4354,7 @@ function helpCenter(){
  {q:'What is AI Usage?',a:'AI Usage shows the current server-verified OVYX allocation and purchased Token Booster balance. Your active plan determines the base allowance, and the server is the source of truth for usage and remaining capacity.',cat:'Billing'},
  {q:'How does Billing work?',a:'Billing shows the current plan, AI capacity, boosters and subscription options. OVYX does not claim a purchase succeeded without a real checkout/backend response. Real billing activation should be confirmed server-side.',cat:'Billing'},
  {q:'Why is my billing history empty?',a:'Billing history is populated from verified payment transactions. If no verified transaction exists yet, the history can be empty.',cat:'Billing'},
- {q:'What does Security show?',a:'Security shows the authenticated state, current browser/device information and account security metadata when available. Remote session enumeration and global session revocation require a trusted backend; OVYX does not pretend to perform those operations locally.',cat:'Security'},
+ {q:'What does Security show?',a:'Security shows the authenticated state, current browser/device information and account security metadata when available. The Security panel also provides a server-backed Log Out All Devices action that revokes authenticated sessions and then signs out this browser.',cat:'Security'},
  {q:'How do I change my profile photo?',a:'Open Settings → Profile, select the camera button, choose a JPG, PNG or WebP image, and save the profile. OVYX resizes the image locally. Profile synchronization is handled by the account service when enabled.',cat:'Account'},
  {q:'Where is the Admin Command Center?',a:'The real Admin Command Center exists in the project and contains System Overview, Pricing & Gating, Users & Roles, AI Brain, AI Identity, Backend and Telemetry. Operational routes are owner-authenticated and are hidden from ordinary accounts. Settings also includes a read-only Admin Preview map so the owner can see what modules exist without weakening the security guard.',cat:'Admin'},
  {q:'Why can I see some Admin information but not open Admin routes?',a:'OVYX separates a read-only architecture preview from operational administration. The preview explains what has been built; actual admin routes require the configured owner/superuser authentication state.',cat:'Admin'},
