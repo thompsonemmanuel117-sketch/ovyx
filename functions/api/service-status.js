@@ -1,135 +1,142 @@
-// functions/api/service-status.js
-// GET /api/service-status?userEmail=<email>
-//
-// Stage 3C/3G — Dynamic Dual-Gateway Real-Time Upstream Health Check.
-// Tracks local OPay and Foreign payment system connections side-by-side.
+// Safe compatibility endpoint for legacy provider-status surfaces.
+// "CONFIGURED" means a secret exists in the server environment; it does not
+// claim that the provider credentials authenticate or that requests succeed.
+// Actual provider connectivity is tested by the authenticated /api/ai/status route.
+const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 
-export async function onRequestGet(context) {
-    const { request, env } = context;
-    const url = new URL(request.url);
-    const userEmail = url.searchParams.get('userEmail');
+const PROVIDERS = Object.freeze([
+  { id: 'gemini', key: 'GEMINI_API_KEY', label: 'Gemini' },
+  { id: 'groq', key: 'GROQ_API_KEY', label: 'Groq' },
+  { id: 'deepseek', key: 'DEEPSEEK_API_KEY', label: 'DeepSeek' },
+  { id: 'anthropic', key: 'ANTHROPIC_API_KEY', label: 'Anthropic' },
+  { id: 'openai', key: 'OPENAI_API_KEY', label: 'OpenAI' },
+]);
 
-    const has = (name) => Boolean(env[name] && String(env[name]).trim().length > 0);
+const has = (env, key) => Boolean(String(env?.[key] || '').trim());
+const normalizeEmail = value => String(value || '').trim().toLowerCase();
 
-    // ======================================================================
-    // 1. FIRST-SIGNUP ADMIN SUITE ROUTING ENFORCEMENT
-    // ======================================================================
-    const systemAdminEmail = env.ADMIN_MASTER_EMAIL || "";
-    let isAdminUser = false;
-    
-    if (userEmail) {
-        if (systemAdminEmail === "" || systemAdminEmail.toLowerCase() === userEmail.toLowerCase()) {
-            isAdminUser = true;
-        }
-    }
-
-    // Standard secure core keys registry matrix
-    const knownKeys = new Set([
-        'FIREBASE_API_KEY', 'FIREBASE_PROJECT_ID', 'GITHUB_TOKEN', 'GITHUB_REPO',
-        'GEMINI_API_KEY', 'DEEPSEEK_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY',
-        'GROQ_API_KEY', 'OVYX_INSTALLATION_ID', 'CLOUDFLARE_PAGES_URL', 'ADMIN_MASTER_EMAIL',
-        'OPAY_SECRET_KEY', 'FOREIGN_SECRET_KEY'
-    ]);
-
-    // ======================================================================
-    // 2. DUAL-GATEWAY ROUTING HARVESTER
-    // ======================================================================
-    const isLocalOpayConfigured = has('OPAY_SECRET_KEY');
-    const isForeignGatewayConfigured = has('FOREIGN_SECRET_KEY');
-
-    let dynamicGatewaySummary = 'NO_PAYMENT_CONFIGURED';
-    if (isLocalOpayConfigured && isForeignGatewayConfigured) {
-        dynamicGatewaySummary = 'DUAL_ROUTING_ACTIVE';
-    } else if (isLocalOpayConfigured) {
-        dynamicGatewaySummary = 'LOCAL_ONLY_OPAY';
-    } else if (isForeignGatewayConfigured) {
-        dynamicGatewaySummary = 'FOREIGN_ONLY_ACTIVE';
-    }
-
-    const additionalKeys = [];
-    try {
-        // FIXED: Safe explicit lookup loop to protect against Cloudflare's strict env context constraints
-        for (const key of knownKeys) {
-            if (env[key] && typeof env[key] === 'string' && env[key].trim().length > 0) {
-                if (/_(SECRET|SECRET_KEY|API_KEY|TOKEN)$/i.test(key) && key !== 'GITHUB_TOKEN' && !key.includes('SECRET')) {
-                    additionalKeys.push(key);
-                }
-            }
-        }
-    } catch { /* env isolation fallback loop safety */ }
-
-    // ======================================================================
-    // 3. DYNAMIC GEO-IP CURRENCY DETECTION
-    // ======================================================================
-    const userOriginCountry = request.headers.get('CF-IPCountry') || 'NG';
-    const activeCurrencySymbol = (userOriginCountry === 'NG') ? '₦' : '$';
-
-    const body = {
-        ovyx: {
-            recognized: true,
-            installationId: env.OVYX_INSTALLATION_ID || 'ovyx_core_isolate_active',
-            platformName: 'OVYX',
-            isAdminProfile: isAdminUser
-        },
-        firebase: {
-            status: has('FIREBASE_API_KEY') && has('FIREBASE_PROJECT_ID') ? 'CONFIGURED' : 'NOT_CONFIGURED',
-        },
-        github: {
-            status: has('GITHUB_TOKEN') && has('GITHUB_REPO') ? 'CONFIGURED' : 'NOT_CONFIGURED',
-        },
-        cloudflare: {
-            status: 'CONFIGURED',
-            environmentUrl: env.CLOUDFLARE_PAGES_URL || 'Local Edge Runtime'
-        },
-        bankingInfrastructure: {
-            routingState: dynamicGatewaySummary,
-            localGateway: {
-                provider: 'OPay Nigeria Core Channels',
-                status: isLocalOpayConfigured ? 'CONFIGURED' : 'NOT_CONFIGURED'
-            },
-            internationalGateway: {
-                provider: 'Global Foreign Payment Engine',
-                status: isForeignGatewayConfigured ? 'CONFIGURED' : 'NOT_CONFIGURED'
-            },
-            note: 'Cloudflare Pages edge scripts automatically toggle forms based on client country headers.'
-        },
-        gemini: {
-            status: has('GEMINI_API_KEY') ? 'CONFIGURED' : 'NOT_CONFIGURED',
-        },
-        deepseek: {
-            status: has('DEEPSEEK_API_KEY') ? 'CONFIGURED' : 'NOT_CONFIGURED',
-        },
-        openai: {
-            status: has('OPENAI_API_KEY') ? 'CONFIGURED' : 'NOT_CONFIGURED',
-        },
-        anthropic: {
-            status: has('ANTHROPIC_API_KEY') ? 'CONFIGURED' : 'NOT_CONFIGURED',
-        },
-        edgeTelemetry: {
-            countryCode: userOriginCountry,
-            currencyMode: activeCurrencySymbol,
-            latencyMs: 28,
-            isolateUptime: '52.7s active'
-        },
-        additionalKeysDetected: additionalKeys,
+function providerRows(env) {
+  return PROVIDERS.map(provider => {
+    const configured = has(env, provider.key);
+    return {
+      id: provider.id,
+      provider: provider.id,
+      name: provider.label,
+      label: provider.label,
+      status: configured ? 'CONFIGURED' : 'NOT_CONFIGURED',
+      state: configured ? 'CONFIGURED' : 'NOT_CONFIGURED',
+      configured,
+      connected: false,
+      verified: false,
+      testRequired: configured,
+      note: configured
+        ? 'Server secret is present. Live provider authentication has not been tested by this endpoint.'
+        : 'Server secret is not configured.'
     };
-
-    if (!isAdminUser && systemAdminEmail !== "") {
-        body.ovyx.isAdminProfile = false;
-        body.github.status = 'HIDDEN_LAYER';
-        if (isLocalOpayConfigured) body.bankingInfrastructure.localGateway.status = 'ACTIVE_PROTECTED';
-        if (isForeignGatewayConfigured) body.bankingInfrastructure.internationalGateway.status = 'ACTIVE_PROTECTED';
-        body.additionalKeysDetected = [];
-    }
-
-    return new Response(JSON.stringify(body), {
-        status: 200,
-        headers: { 
-            'Content-Type': 'application/json',
-            'X-Ovyx-Edge-Latency': '28ms',
-            'X-Ovyx-Active-Buckets': '1 isolate user',
-            'Access-Control-Allow-Origin': '*'
-        },
-    });
+  });
 }
 
+export async function onRequestGet(context) {
+  const started = Date.now();
+  const { request, env } = context;
+  const user = context.data?.user || null;
+  // Never grant admin status based on the userEmail query parameter.
+  // The middleware only supplies context.data.user after Firebase token validation.
+  const isAdminUser =
+    normalizeEmail(user?.email) === ROOT_EMAIL ||
+    user?.owner === true ||
+    user?.admin === true ||
+    String(user?.role || '').toUpperCase() === 'ROOT_SUPERUSER';
+
+  const providers = providerRows(env);
+  const byId = Object.fromEntries(providers.map(row => [row.id, row]));
+  const firebaseReady =
+    has(env, 'FIREBASE_PROJECT_ID') &&
+    has(env, 'FIREBASE_WEB_API_KEY') &&
+    (has(env, 'FIREBASE_SERVICE_ACCOUNT_JSON') || has(env, 'FIREBASE_SERVICE_ACCOUNT'));
+  const githubReady =
+    has(env, 'GITHUB_APP_ID') &&
+    has(env, 'GITHUB_APP_INSTALLATION_ID') &&
+    has(env, 'GITHUB_APP_PRIVATE_KEY');
+  const cloudflareReady =
+    has(env, 'CLOUDFLARE_ACCOUNT_ID') &&
+    has(env, 'CLOUDFLARE_API_TOKEN') &&
+    has(env, 'CLOUDFLARE_PAGES_PROJECT');
+  const country = request.headers.get('CF-IPCountry') || 'NG';
+
+  return Response.json({
+    ok: true,
+    authority: 'SERVER',
+    ovyx: {
+      recognized: true,
+      platformName: 'OVYX',
+      isAdminProfile: isAdminUser
+    },
+    providers,
+    // Legacy named fields remain present so older dashboard cards do not break.
+    gemini: { status: byId.gemini.status, configured: byId.gemini.configured },
+    groq: { status: byId.groq.status, configured: byId.groq.configured },
+    deepseek: { status: byId.deepseek.status, configured: byId.deepseek.configured },
+    anthropic: { status: byId.anthropic.status, configured: byId.anthropic.configured },
+    openai: { status: byId.openai.status, configured: byId.openai.configured },
+    firebase: {
+      status: firebaseReady ? 'CONFIGURED' : 'NOT_CONFIGURED',
+      configured: firebaseReady,
+      clientServerProjectMatch: Boolean(
+        has(env, 'FIREBASE_PROJECT_ID') &&
+        String(env.FIREBASE_PROJECT_ID).trim() === 'forgeos-49df6'
+      )
+    },
+    github: {
+      status: githubReady ? 'CONFIGURED' : 'NOT_CONFIGURED',
+      configured: githubReady
+    },
+    cloudflare: {
+      status: cloudflareReady ? 'CONFIGURED' : 'NOT_CONFIGURED',
+      configured: cloudflareReady,
+      environmentUrl: has(env, 'CLOUDFLARE_PAGES_URL') ? env.CLOUDFLARE_PAGES_URL : null
+    },
+    bankingInfrastructure: {
+      routingState: has(env, 'OPAY_SECRET_KEY') && has(env, 'FOREIGN_SECRET_KEY')
+        ? 'DUAL_ROUTING_ACTIVE'
+        : has(env, 'OPAY_SECRET_KEY')
+          ? 'LOCAL_ONLY_OPAY'
+          : has(env, 'FOREIGN_SECRET_KEY')
+            ? 'FOREIGN_ONLY_ACTIVE'
+            : 'NO_PAYMENT_CONFIGURED',
+      localGateway: {
+        provider: 'OPay Nigeria Core Channels',
+        status: has(env, 'OPAY_SECRET_KEY') ? 'CONFIGURED' : 'NOT_CONFIGURED'
+      },
+      internationalGateway: {
+        provider: 'International Payment Gateway',
+        status: has(env, 'FOREIGN_SECRET_KEY') ? 'CONFIGURED' : 'NOT_CONFIGURED'
+      }
+    },
+    edgeTelemetry: {
+      countryCode: country,
+      currencyMode: country === 'NG' ? '₦' : '$',
+      latencyMs: Date.now() - started,
+      checkedAt: new Date().toISOString()
+    },
+    connectionEncryption: {
+      configured: has(env, 'OVYX_CONNECTION_ENCRYPTION_KEY'),
+      status: has(env, 'OVYX_CONNECTION_ENCRYPTION_KEY') ? 'CONFIGURED' : 'NOT_CONFIGURED'
+    },
+    warning: 'Configured status shows server-side secret presence only. It is not proof of valid credentials or a successful live request.'
+  }, {
+    status: 200,
+    headers: {
+      'Cache-Control': 'no-store, max-age=0',
+      'X-Content-Type-Options': 'nosniff'
+    }
+  });
+}
+
+export async function onRequest(context) {
+  if (context.request.method === 'GET') return onRequestGet(context);
+  return Response.json(
+    { ok: false, error: 'METHOD_NOT_ALLOWED', message: 'GET is required.' },
+    { status: 405, headers: { Allow: 'GET', 'Cache-Control': 'no-store' } }
+  );
+}
