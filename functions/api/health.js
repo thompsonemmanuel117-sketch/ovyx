@@ -114,8 +114,8 @@ export function onRequestGet(context) {
     authority: 'SERVER',
     routes: ROUTES,
     services: {
-      firebase: {
-        providers: groups.Firebase,
+      firebase: groups.Firebase,
+      firebaseProjectCheck: {
         clientServerProjectMatch: Boolean(
           String(env?.FIREBASE_PROJECT_ID || '').trim() &&
           String(env?.FIREBASE_PROJECT_ID || '').trim() === 'forgeos-49df6'
