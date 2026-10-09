@@ -25,6 +25,9 @@ const ENV_GROUPS = {
     'GROQ_API_KEY',
     'CLOUDFLARE_AI_MODEL',
   ],
+  UniversalConnections: [
+    'OVYX_CONNECTION_ENCRYPTION_KEY',
+  ],
   Agent: [
     'OVYX_AGENT_CALLBACK_SECRET',
     'OVYX_AGENT_CALLBACK_URL',
@@ -111,7 +114,15 @@ export function onRequestGet(context) {
     authority: 'SERVER',
     routes: ROUTES,
     services: {
-      firebase: groups.Firebase,
+      firebase: {
+        providers: groups.Firebase,
+        clientServerProjectMatch: Boolean(
+          String(env?.FIREBASE_PROJECT_ID || '').trim() &&
+          String(env?.FIREBASE_PROJECT_ID || '').trim() === 'forgeos-49df6'
+        ),
+        clientProjectId: 'forgeos-49df6',
+      },
+      universalConnections: groups.UniversalConnections,
       github: groups.GitHub,
       cloudflare: groups.Cloudflare,
       ai: {
