@@ -729,6 +729,22 @@ function normalizeRequestedProvider(value) {
   return normalized;
 }
 
+function normalizeConfiguredProvider(value) {
+  const provider = String(value || '').trim().toLowerCase();
+  /*
+   * An automatic fallback list names the actual server provider whose
+   * secret is configured. Do not silently turn the canonical "claude"
+   * provider into Workers AI or "openai" into Groq: that skips
+   * ANTHROPIC_API_KEY / OPENAI_API_KEY and can make an otherwise configured
+   * stack fail with AI_PROVIDER_UNAVAILABLE. Explicit frontend selections
+   * still use normalizeRequestedProvider() and retain the documented aliases.
+   */
+  if (provider === 'anthropic') return 'claude';
+  if (provider === 'chatgpt' || provider === 'gpt') return 'openai';
+  if (provider === 'cloudflare' || provider === 'workers-ai') return 'cloudflare-workers-ai';
+  return provider;
+}
+
 export function providerOrder(
   env,
   requested
@@ -737,12 +753,15 @@ export function providerOrder(
     return [normalizeRequestedProvider(requested)];
   }
 
-  return String(
-    env.AI_PROVIDER_ORDER || 'gemini,deepseek,claude,openai'
+  const configured = String(
+    env.AI_PROVIDER_ORDER || env.OVYX_AI_PROVIDER_ORDER || 'gemini,deepseek,claude,openai'
   )
     .split(',')
-    .map(x => normalizeRequestedProvider(x))
-    .filter(Boolean);
+    .map(normalizeConfiguredProvider)
+    .filter(provider => ['gemini', 'deepseek', 'claude', 'openai', 'groq', 'cloudflare-workers-ai'].includes(provider));
+
+  /* Preserve order while removing duplicates and empty/unsupported values. */
+  return [...new Set(configured)];
 }
 
 export async function callModel(
