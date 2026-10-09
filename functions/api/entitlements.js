@@ -1,6 +1,8 @@
 'use strict';
 
 import { getFirestoreData } from '../_lib/firebase-admin.js';
+import { authenticateRequest } from '../_lib/firebase.js';
+import { jsonResponse, errorResponse, requestId } from './_lib/http.js';
 import { isRootUser } from '../_lib/brain/registry.js';
 
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
@@ -321,3 +323,69 @@ export {
   applyFeatureRules,
   resolveEntitlements
 };
+
+
+/*
+ * This file is also the deployed GET /api/entitlements route.
+ * The resolver above is deliberately server-authoritative; the handler
+ * authenticates the caller and returns the role in the top-level shape
+ * consumed by the existing OVYX frontend.
+ */
+export async function onRequestGet(context) {
+  const id = requestId(context.request);
+  try {
+    const user = context.data?.user || await authenticateRequest(context.request, context.env);
+    if (!user) {
+      return errorResponse(401, 'AUTH_REQUIRED', 'Sign in to load OVYX account permissions.', id);
+    }
+
+    const identity = {
+      ...user,
+      uid: String(user.uid || user.sub || '').trim(),
+      sub: String(user.sub || user.uid || '').trim(),
+      email: normalizeEmail(user.email)
+    };
+    if (!identity.uid || !identity.email) {
+      return errorResponse(401, 'AUTH_IDENTITY_REQUIRED', 'A verified Firebase account identity is required.', id);
+    }
+
+    const resolved = await resolveEntitlements(context.env, identity);
+    const root = isRootIdentity(identity);
+    const tier = String(resolved.planTier || 'free').trim().toLowerCase();
+    const role = root ? 'ROOT_SUPERUSER' : tier === 'max' ? 'MAX_USER' : tier === 'pro' ? 'PRO_USER' : 'FREE_USER';
+
+    return jsonResponse({
+      ok: true,
+      uid: identity.uid,
+      email: identity.email,
+      ...resolved,
+      role,
+      owner: root,
+      admin: root,
+      bypass: root,
+      isRoot: root,
+      entitlements: {
+        ...resolved,
+        role,
+        owner: root,
+        admin: root,
+        bypass: root
+      }
+    }, 200, {
+      'X-OVYX-Request-ID': id,
+      'Cache-Control': 'no-store, max-age=0'
+    });
+  } catch (error) {
+    return errorResponse(
+      Number.isInteger(error?.status) ? error.status : 503,
+      error?.code || 'ENTITLEMENTS_UNAVAILABLE',
+      error?.message || 'OVYX account permissions could not be loaded safely.',
+      id
+    );
+  }
+}
+
+export async function onRequest(context) {
+  if (context.request.method === 'GET') return onRequestGet(context);
+  return errorResponse(405, 'METHOD_NOT_ALLOWED', 'GET is required.', requestId(context.request));
+}
