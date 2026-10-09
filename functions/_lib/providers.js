@@ -919,7 +919,7 @@ export async function callModel(
       return {
         ...result,
         requestedProvider: requested,
-        routedProvider,
+        routedProvider: requested === 'automatic' ? result.provider : routedProvider,
       };
     } catch (err) {
       errors.push(
@@ -939,8 +939,8 @@ export async function callModel(
         )}`
       ),
       {
-        code:
-          'AI_PROVIDER_UNAVAILABLE',
+        status: 503,
+        code: 'AI_PROVIDER_UNAVAILABLE',
       }
     );
 
