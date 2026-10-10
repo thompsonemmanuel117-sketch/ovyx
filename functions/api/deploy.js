@@ -211,7 +211,10 @@ export async function onRequestPost(context) {
     const user=identity.user;
     if(!user.uid||!user.email)return json({success:false,authoritative:true,error:'Authenticated user identity is incomplete.',requestId},401);
     if(!user.emailVerified)return json({success:false,authoritative:true,error:'Verify your email before deploying.',requestId},403);
-    if(!hasCloudflareDeployCapability(user,env))return json({success:false,authoritative:true,error:'Your OVYX account is not authorized to deploy to Cloudflare.',requestId},403);
+    const canDeploy = await hasCloudflareDeployCapability(user, env);
+    if (!canDeploy) {
+      return json({success:false,authoritative:true,error:'Your OVYX account is not authorized to deploy to Cloudflare.',requestId},403);
+    }
     let body; try{body=await request.json();}catch{return json({success:false,authoritative:true,error:'Invalid JSON deployment request.',requestId},400);}
     const action=body?.action==='publish'?'publish':'deploy',projectId=String(body?.projectId||'').trim();
     if(!projectId||projectId.length>160)return json({success:false,authoritative:true,error:'A valid OVYX projectId is required.',requestId},400);
