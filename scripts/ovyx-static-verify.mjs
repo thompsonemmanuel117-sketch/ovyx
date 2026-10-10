@@ -62,8 +62,8 @@ if (!fs.existsSync(deploymentRoutePath)) {
 } else {
   const deploymentRoute = fs.readFileSync(deploymentRoutePath, 'utf8');
   if (
-    !/const\\s+canDeploy\\s*=\\s*await\\s+hasCloudflareDeployCapability\\s*\\(/.test(deploymentRoute) ||
-    !/if\\s*\\(\\s*!canDeploy\\s*\\)/.test(deploymentRoute)
+    !/const\s+canDeploy\s*=\s*await\s+hasCloudflareDeployCapability\s*\\(/.test(deploymentRoute) ||
+    !/if\s*\\(\s*!canDeploy\s*\\)/.test(deploymentRoute)
   ) {
     errors.push('functions/api/deploy.js: publishing must await the server-side entitlement check and deny deployment when not allowed.');
   }
