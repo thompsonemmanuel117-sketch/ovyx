@@ -47,8 +47,11 @@ if (fs.existsSync(providerRouterPath)) {
   if (!/withTimeout\(\s*getActiveBrainConnectionId/.test(providerRouter)) {
     errors.push('functions/_lib/providers.js: Universal Connection lookup needs a deadline.');
   }
-  if (!/catch\s*\(err\)[\s\S]*?errors\.push\(['"`]universal-connection/i.test(providerRouter)) {
-    errors.push('functions/_lib/providers.js: automatic AI routing must recover from a failed saved Universal Connection.');
+  if (
+    !/UNIVERSAL_CONNECTION_SELECTION_FAILED/.test(providerRouter) ||
+    !/selected Universal Connection AI Brain failed[\s\S]*?did not switch to another AI provider/i.test(providerRouter)
+  ) {
+    errors.push('functions/_lib/providers.js: a saved Universal Connection must be exclusive and fail closed instead of routing silently to platform keys.');
   }
   const rawFetches = (providerRouter.match(/\bawait fetch\s*\(/g) || []).length;
   if (rawFetches !== 1 || !/return await fetch\(url,\s*\{ \.\.\.options, signal: controller\.signal \}\)/.test(providerRouter)) {
