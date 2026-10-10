@@ -32,3 +32,40 @@ The backend returns:
 - `requestedProvider`: frontend requested provider.
 - `routedProvider`: backend route selected.
 - `conversationId` and `history.saved`: chat history status.
+
+
+## Custom OpenAI-compatible endpoints (BYO key)
+
+When `OPENAI_BASE_URL` is set, the OpenAI/ChatGPT selection and an existing
+automatic-order entry for `groq` use that configured endpoint instead of
+silently calling a hard-coded URL. Set the endpoint to an HTTPS base such as
+`https://api.groq.com/openai/v1`, or to its full
+`.../chat/completions` URL. Do not put credentials in the URL.
+
+The backend sends the configured key server-side using Bearer authentication.
+For recognized hosts it prefers the matching secret (`GROQ_API_KEY`,
+`OPENROUTER_API_KEY`, or `DEEPSEEK_API_KEY`); `OPENAI_API_KEY` is also
+accepted as the key slot when the administrator intentionally stores a key
+for the configured compatible endpoint there. Select a model supported by
+that endpoint. For Groq, `GROQ_MODEL` / `GROQ_AGENT_MODEL` are preferred,
+with the existing compatible-model default as a fallback.
+
+Diagnostics keep the legacy OpenAI settings-card identifier so the current UI
+continues to work, but include the actual upstream provider and use a truthful
+label such as `Groq (OpenAI-compatible endpoint)`. This status probe performs
+an authenticated models-list request; it does not prove that every model or
+generation request will succeed.
+
+## Per-user keys without global provider secrets
+
+A user can use their own compatible API key without setting a global
+`OPENAI_API_KEY` or `ANTHROPIC_API_KEY`: create a Universal Connection with
+the provider's HTTPS endpoint, its model, and the user's key; save it; then
+select **Use as Brain**. OVYX encrypts the connection secret in the backend and
+Automatic routing tries the saved Brain before global provider fallbacks.
+
+An API key is not universally interchangeable: a Gemini key cannot authenticate
+to OpenAI's official API, and an OpenAI key cannot authenticate to Anthropic's
+official API. A key only works with the service that issued it, or with a
+compatible gateway endpoint that explicitly accepts it. For non-OpenAI-style
+providers, the endpoint and protocol must match the provider's API format.

@@ -1,5 +1,6 @@
 import { assertAuthenticated } from '../../_lib/firebase.js';
 import { errorResponse, requestId } from '../_lib/http.js';
+import { resolveOpenAICompatibleConfig } from '../../_lib/openai-compatible.js';
 
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 
@@ -69,6 +70,82 @@ function isAdmin(user) {
 }
 
 async function checkProvider(id, config, env) {
+  if (id === 'openai') {
+    let target;
+    try {
+      target = resolveOpenAICompatibleConfig(env);
+    } catch (error) {
+      return {
+        provider: 'openai',
+        actualProvider: 'openai-compatible',
+        label: 'Invalid OpenAI-compatible endpoint',
+        status: 'INVALID_CONFIGURATION',
+        configured: false,
+        connected: false,
+        error: String(error?.message || 'Endpoint configuration is invalid.').slice(0, 240),
+      };
+    }
+
+    const label = target.custom
+      ? target.label + ' (OpenAI-compatible endpoint)'
+      : target.label;
+
+    if (!target.key) {
+      return {
+        provider: 'openai',
+        actualProvider: target.provider,
+        label,
+        endpointHost: target.host,
+        status: 'NOT_CONFIGURED',
+        configured: false,
+        connected: false,
+      };
+    }
+
+    try {
+      const response = await fetchWithTimeout(
+        target.modelsUrl,
+        {
+          headers: {
+            Accept: 'application/json',
+            Authorization: 'Bearer ' + target.key,
+          },
+        },
+      );
+      const status = response.ok
+        ? 'READY'
+        : response.status === 401 || response.status === 403
+          ? 'AUTH_FAILED'
+          : response.status === 402
+            ? 'INSUFFICIENT_CREDITS'
+            : response.status === 429
+              ? 'RATE_LIMITED'
+              : 'UNAVAILABLE';
+
+      return {
+        provider: 'openai',
+        actualProvider: target.provider,
+        label,
+        endpointHost: target.host,
+        status,
+        configured: true,
+        connected: response.ok,
+        httpStatus: response.status,
+      };
+    } catch (error) {
+      return {
+        provider: 'openai',
+        actualProvider: target.provider,
+        label,
+        endpointHost: target.host,
+        status: error?.name === 'AbortError' ? 'TIMEOUT' : 'UNAVAILABLE',
+        configured: true,
+        connected: false,
+        error: String(error?.name === 'AbortError' ? 'Endpoint health check timed out.' : 'Endpoint health check failed.').slice(0, 240),
+      };
+    }
+  }
+
   const key = String(env?.[config.env] || '').trim();
 
   if (!key) {
