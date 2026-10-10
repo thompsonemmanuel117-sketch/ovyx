@@ -76,8 +76,8 @@ function newestFirst(items) {
 
 function sanitizeLine(line) {
   let output = String(line ?? '')
-    .replace(/Bearer\\s+[A-Za-z0-9._-]+/gi, 'Bearer [REDACTED]')
-    .replace(/(api[_-]?key|access[_-]?token|client[_-]?secret|password|private[_-]?key)\\s*[:=]\\s*[^\\s]+/gi, '$1=[REDACTED]');
+    .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, 'Bearer [REDACTED]')
+    .replace(/(api[_-]?key|access[_-]?token|client[_-]?secret|password|private[_-]?key)\s*[:=]\s*[^\s]+/gi, '$1=[REDACTED]');
   for (const value of [...diagnosticSensitiveValues].sort((a, b) => b.length - a.length)) {
     if (value && value.length >= 4) output = output.split(value).join('[REDACTED_VALUE]');
   }
