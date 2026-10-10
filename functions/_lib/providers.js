@@ -829,7 +829,7 @@ export async function callModel(
   // An account-selected Universal Connection is exclusive. Never silently bill a
   // platform provider after a user's own connection failed or could not be verified.
   const errors = [];
-  if (requested === 'automatic' && options.authUser) {
+  if (options.authUser && !requested.startsWith('connection:')) {
     let activeBrainId = null;
     try {
       activeBrainId = await withTimeout(
@@ -860,7 +860,7 @@ export async function callModel(
         );
         return {
           ...result,
-          requestedProvider: 'automatic',
+          requestedProvider: requested || 'automatic',
           routedProvider: 'universal-connection',
           activeBrainConnectionId: activeBrainId
         };

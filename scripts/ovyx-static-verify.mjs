@@ -48,10 +48,11 @@ if (fs.existsSync(providerRouterPath)) {
     errors.push('functions/_lib/providers.js: Universal Connection lookup needs a deadline.');
   }
   if (
+    !/if\s*\(options\.authUser\s*&&\s*!requested\.startsWith\('connection:'\)\)/.test(providerRouter) ||
     !/UNIVERSAL_CONNECTION_SELECTION_FAILED/.test(providerRouter) ||
     !/selected Universal Connection AI Brain failed[\s\S]*?did not switch to another AI provider/i.test(providerRouter)
   ) {
-    errors.push('functions/_lib/providers.js: a saved Universal Connection must be exclusive and fail closed instead of routing silently to platform keys.');
+    errors.push('functions/_lib/providers.js: a saved Universal Connection must override platform provider choices and fail closed instead of routing silently to platform keys.');
   }
   const rawFetches = (providerRouter.match(/\bawait fetch\s*\(/g) || []).length;
   if (rawFetches !== 1 || !/return await fetch\(url,\s*\{ \.\.\.options, signal: controller\.signal \}\)/.test(providerRouter)) {
