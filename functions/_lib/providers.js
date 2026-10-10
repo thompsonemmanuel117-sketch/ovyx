@@ -756,9 +756,9 @@ function normalizeRequestedProvider(value, env = {}) {
     .toLowerCase();
 
   if (normalized === 'chatgpt' || normalized === 'openai') {
-    // A configured base URL is authoritative: use that compatible endpoint
-    // instead of silently replacing it with the hard-coded Groq endpoint.
-    return String(env?.OPENAI_BASE_URL || '').trim() ? 'openai' : 'groq';
+    // OpenAI is a distinct provider. Never divert its key/choice to Groq.
+    // For a custom OpenAI-compatible endpoint, OPENAI_BASE_URL remains authoritative.
+    return 'openai';
   }
 
   if (normalized === 'claude' || normalized === 'anthropic') {
@@ -819,17 +819,13 @@ export async function callModel(
   env,
   options = {}
 ) {
-  const requested = String(
-    options.provider ||
-      'automatic'
-  )
-    .trim()
-    .toLowerCase();
+  const requestedRaw = String(options.provider || 'automatic').trim();
+  const requested = requestedRaw.toLowerCase();
 
   // An account-selected Universal Connection is exclusive. Never silently bill a
   // platform provider after a user's own connection failed or could not be verified.
   const errors = [];
-  if (options.authUser && !requested.startsWith('connection:')) {
+  if (options.authUser && !/^connection:/i.test(requestedRaw)) {
     let activeBrainId = null;
     try {
       activeBrainId = await withTimeout(
@@ -877,8 +873,8 @@ export async function callModel(
     ? 'universal-connection'
     : normalizeRequestedProvider(requested, env);
 
-  if (requested.startsWith('connection:')) {
-    const connectionId = requested.slice('connection:'.length).trim();
+  if (/^connection:/i.test(requestedRaw)) {
+    const connectionId = requestedRaw.slice('connection:'.length).trim();
     if (!connectionId) {
       throw Object.assign(
         new Error('Universal Connection ID is required.'),

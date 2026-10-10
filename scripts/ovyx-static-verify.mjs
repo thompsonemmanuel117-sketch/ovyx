@@ -48,7 +48,7 @@ if (fs.existsSync(providerRouterPath)) {
     errors.push('functions/_lib/providers.js: Universal Connection lookup needs a deadline.');
   }
   if (
-    !/if\s*\(options\.authUser\s*&&\s*!requested\.startsWith\('connection:'\)\)/.test(providerRouter) ||
+    !/if\s*\(options\.authUser\s*&&\s*!\/\^connection:\/i\.test\(requestedRaw\)\)/.test(providerRouter) ||
     !/UNIVERSAL_CONNECTION_SELECTION_FAILED/.test(providerRouter) ||
     !/selected Universal Connection AI Brain failed[\s\S]*?did not switch to another AI provider/i.test(providerRouter)
   ) {

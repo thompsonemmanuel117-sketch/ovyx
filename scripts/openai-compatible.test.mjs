@@ -142,6 +142,15 @@ try {
   assert.equal(requests[0].authorization, 'Bearer test-only-key');
 
   requests.length = 0;
+  const openai = await callModel(
+    { OPENAI_API_KEY: 'test-openai-key' },
+    { provider: 'openai', model: 'automatic', system: 'test system', user: 'test prompt', maxTokens: 32 },
+  );
+  assert.equal(openai.provider, 'openai');
+  assert.equal(requests[0].url, 'https://api.openai.com/v1/responses');
+  assert.equal(requests[0].authorization, 'Bearer test-openai-key');
+
+  requests.length = 0;
   const claude = await callModel(
     { ANTHROPIC_API_KEY: 'test-anthropic-key' },
     { provider: 'anthropic', model: 'automatic', system: 'test system', user: 'test prompt', maxTokens: 32 },
