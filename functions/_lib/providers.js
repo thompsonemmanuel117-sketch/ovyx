@@ -3,7 +3,7 @@ import {
   getActiveBrainConnectionId,
 } from './universal-connections.js';
 
-const PROVIDER_REQUEST_TIMEOUT_MS = 12_000;
+const PROVIDER_REQUEST_TIMEOUT_MS = 60_000;
 const UNIVERSAL_LOOKUP_TIMEOUT_MS = 5_000;
 
 function withTimeout(promise, timeoutMs, label) {
