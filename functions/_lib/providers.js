@@ -640,12 +640,13 @@ async function callOpenAI(
     user,
     model,
     maxTokens,
+    apiKeyPreference,
   }
 ) {
   const customBase = String(env.OVYX_AI_BASE_URL || env.OPENAI_BASE_URL || '').trim();
 
   if (customBase) {
-    const target = resolveOpenAICompatibleConfig(env);
+    const target = resolveOpenAICompatibleConfig(env, { preferredKeyName: apiKeyPreference });
     if (!target.key) {
       throw Object.assign(
         new Error(
@@ -890,6 +891,20 @@ export async function callModel(
     ? 'universal-connection'
     : normalizeRequestedProvider(requested, env);
 
+  const sharedKeySlotByBrain = {
+    openai: 'OPENAI_API_KEY',
+    chatgpt: 'OPENAI_API_KEY',
+    claude: 'ANTHROPIC_API_KEY',
+    anthropic: 'ANTHROPIC_API_KEY',
+    gemini: 'GEMINI_API_KEY',
+    deepseek: 'DEEPSEEK_API_KEY',
+    groq: 'GROQ_API_KEY',
+    openrouter: 'OPENROUTER_API_KEY',
+  };
+  const sharedKeyPreference = String(env?.OVYX_AI_BASE_URL || '').trim()
+    ? (sharedKeySlotByBrain[requested] || null)
+    : null;
+
   if (/^connection:/i.test(requestedRaw)) {
     const connectionId = requestedRaw.slice('connection:'.length).trim();
     if (!connectionId) {
@@ -968,6 +983,7 @@ export async function callModel(
               {
                 ...options,
                 model,
+                ...(sharedKeyPreference ? { apiKeyPreference: sharedKeyPreference } : {}),
               }
             )
           : provider ===
