@@ -3,6 +3,41 @@ import {
   getActiveBrainConnectionId,
 } from './universal-connections.js';
 
+const PROVIDER_REQUEST_TIMEOUT_MS = 60_000;
+const UNIVERSAL_LOOKUP_TIMEOUT_MS = 5_000;
+
+function withTimeout(promise, timeoutMs, label) {
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      reject(Object.assign(
+        new Error(label + ' timed out after ' + Math.ceil(timeoutMs / 1000) + ' seconds.'),
+        { status: 504, code: 'AI_PROVIDER_TIMEOUT' }
+      ));
+    }, timeoutMs);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = PROVIDER_REQUEST_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw Object.assign(
+        new Error('AI provider request timed out after ' + Math.ceil(timeoutMs / 1000) + ' seconds.'),
+        { status: 504, code: 'AI_PROVIDER_TIMEOUT' }
+      );
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+
 function getConfiguredModel(
   env,
   provider,
@@ -277,7 +312,7 @@ async function callGemini(
   };
 
   const response =
-    await fetch(
+    await fetchWithTimeout(
       url,
       {
         method:
@@ -354,7 +389,7 @@ async function callClaude(
   }
 
   const response =
-    await fetch(
+    await fetchWithTimeout(
       'https://api.anthropic.com/v1/messages',
       {
         method:
@@ -447,7 +482,7 @@ async function callDeepSeek(
   }
 
   const response =
-    await fetch(
+    await fetchWithTimeout(
       'https://api.deepseek.com/responses',
       {
         method:
@@ -533,7 +568,7 @@ async function callGroq(
     );
   }
 
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     'https://api.groq.com/openai/v1/chat/completions',
     {
       method: 'POST',
@@ -639,7 +674,7 @@ async function callOpenAI(
   }
 
   const response =
-    await fetch(
+    await fetchWithTimeout(
       'https://api.openai.com/v1/responses',
       {
         method:
@@ -775,36 +810,44 @@ export async function callModel(
     .trim()
     .toLowerCase();
 
-  if (
-    requested === 'automatic' &&
-    options.authUser
-  ) {
-    const activeBrainId =
-      await getActiveBrainConnectionId(
-        env,
-        options.authUser
+  // Prefer the saved Universal Connection Brain, but do not let an offline
+  // or stale connection block the other configured AI providers.
+  const errors = [];
+  if (requested === 'automatic' && options.authUser) {
+    let activeBrainId = null;
+    try {
+      activeBrainId = await withTimeout(
+        getActiveBrainConnectionId(env, options.authUser),
+        UNIVERSAL_LOOKUP_TIMEOUT_MS,
+        'Universal Connection lookup'
       );
+    } catch (err) {
+      errors.push('universal-connection-selection: ' + (err?.message || err));
+    }
 
     if (activeBrainId) {
-      const result =
-        await callUserUniversalConnection(
-          env,
-          {
+      try {
+        const result = await withTimeout(
+          callUserUniversalConnection(env, {
             connectionId: activeBrainId,
             authUser: options.authUser,
             system: options.system,
             user: options.user,
             model: options.model,
             maxTokens: options.maxTokens
-          }
+          }),
+          PROVIDER_REQUEST_TIMEOUT_MS,
+          'Universal Connection'
         );
-
-      return {
-        ...result,
-        requestedProvider: 'automatic',
-        routedProvider: 'universal-connection',
-        activeBrainConnectionId: activeBrainId
-      };
+        return {
+          ...result,
+          requestedProvider: 'automatic',
+          routedProvider: 'universal-connection',
+          activeBrainConnectionId: activeBrainId
+        };
+      } catch (err) {
+        errors.push('universal-connection (' + activeBrainId + '): ' + (err?.message || err));
+      }
     }
   }
 
@@ -821,14 +864,18 @@ export async function callModel(
       );
     }
 
-    const result = await callUserUniversalConnection(env, {
-      connectionId,
-      authUser: options.authUser,
-      system: options.system,
-      user: options.user,
-      model: options.model,
-      maxTokens: options.maxTokens
-    });
+    const result = await withTimeout(
+      callUserUniversalConnection(env, {
+        connectionId,
+        authUser: options.authUser,
+        system: options.system,
+        user: options.user,
+        model: options.model,
+        maxTokens: options.maxTokens
+      }),
+      PROVIDER_REQUEST_TIMEOUT_MS,
+      'Universal Connection'
+    );
 
     return {
       ...result,
@@ -836,8 +883,6 @@ export async function callModel(
       routedProvider
     };
   }
-
-  const errors = [];
 
   for (
     const provider of providerOrder(

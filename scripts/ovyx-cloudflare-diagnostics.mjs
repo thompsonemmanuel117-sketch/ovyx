@@ -104,6 +104,82 @@ function errorLines(lines) {
     .slice(-150);
 }
 
+async function probeApplicationHealth(deploymentUrl) {
+  const raw = String(deploymentUrl || '').trim();
+  if (!raw) {
+    return { ok: false, status: 'unavailable', httpStatus: null, error: 'Deployment URL is missing.' };
+  }
+
+  let origin;
+  try {
+    const parsed = new URL(/^https?:\/\//i.test(raw) ? raw : 'https://' + raw);
+    if (!['https:', 'http:'].includes(parsed.protocol)) throw new Error('Unsupported deployment URL protocol.');
+    origin = parsed.origin;
+  } catch {
+    return { ok: false, status: 'unavailable', httpStatus: null, error: 'Deployment URL is invalid.' };
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const response = await fetch(new URL('/api/health', origin), {
+      method: 'GET',
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+      signal: controller.signal
+    });
+    const payload = await response.json().catch(() => ({}));
+    const services = payload?.services || {};
+    const providerRows = Array.isArray(services?.ai?.providers) ? services.ai.providers : [];
+    const firebaseProjectMatch = services?.firebaseProjectCheck?.clientServerProjectMatch === true;
+    const missing = Array.isArray(payload?.missingRequiredEnvironment)
+      ? payload.missingRequiredEnvironment
+          .map(value => String(value || '').slice(0, 120))
+          .filter(Boolean)
+      : [];
+
+    // Only record secret names and boolean readiness. Never copy environment
+    // values, tokens, keys, response bodies, or credentials into CI artifacts.
+    const configuredProviders = providerRows
+      .filter(row => row && row.configured === true)
+      .map(row => String(row.key || '').slice(0, 100))
+      .filter(Boolean);
+
+    const ok = response.ok && payload?.ok === true && firebaseProjectMatch;
+    return {
+      ok,
+      status: ok ? 'healthy' : String(payload?.status || 'degraded').slice(0, 40),
+      httpStatus: response.status,
+      firebaseProjectMatch,
+      firebaseServiceAccountConfigured: Boolean(
+        (services?.firebase || []).some(row =>
+          ['FIREBASE_SERVICE_ACCOUNT_JSON', 'FIREBASE_SERVICE_ACCOUNT'].includes(row?.key) &&
+          row?.configured === true
+        )
+      ),
+      configuredProviderSecretNames: configuredProviders,
+      workersAiBindingConfigured: services?.ai?.workersAiBinding?.configured === true,
+      connectionEncryptionConfigured: Boolean(
+        (services?.universalConnections || []).some(row =>
+          row?.key === 'OVYX_CONNECTION_ENCRYPTION_KEY' && row?.configured === true
+        )
+      ),
+      missingRequiredEnvironment: missing
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 'unavailable',
+      httpStatus: null,
+      error: error?.name === 'AbortError'
+        ? 'Runtime health request timed out.'
+        : 'Runtime health request failed.'
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 const result = {
   checkedAt: new Date().toISOString(),
   project: projectName,
@@ -159,12 +235,23 @@ try {
 
   const lines = Array.isArray(logs?.data) ? logs.data : [];
   result.logErrors = errorLines(lines);
+  result.runtimeHealth = await probeApplicationHealth(deployment.url);
+  if (!result.runtimeHealth.ok) {
+    result.apiErrors.push(
+      'Runtime health probe failed: ' +
+      (result.runtimeHealth.error ||
+        ('HTTP ' + String(result.runtimeHealth.httpStatus || 'n/a') + ', status ' + result.runtimeHealth.status +
+          (result.runtimeHealth.firebaseProjectMatch === false ? ', Firebase client/server project mismatch' : '') +
+          (result.runtimeHealth.missingRequiredEnvironment?.length ? ', missing required environment: ' + result.runtimeHealth.missingRequiredEnvironment.join(', ') : '')))
+    );
+  }
 
   const stageStatus = String(deployment.latest_stage?.status || '').toLowerCase();
   const hasDeploymentFailure = ['failure', 'canceled'].includes(stageStatus);
   const hasLogErrors = result.logErrors.length > 0;
+  const hasApiErrors = result.apiErrors.length > 0;
 
-  if (hasDeploymentFailure || hasLogErrors) {
+  if (hasDeploymentFailure || hasLogErrors || hasApiErrors) {
     result.status = 'error';
   } else if (stageStatus === 'success') {
     result.status = 'healthy';
@@ -186,6 +273,7 @@ try {
   console.log(`Stage: ${deployment.latest_stage?.name || 'unknown'} / ${deployment.latest_stage?.status || 'unknown'}`);
   console.log(`URL: ${deployment.url || 'n/a'}`);
   console.log(`Detected log errors: ${result.logErrors.length}`);
+  console.log(`Runtime API health: ${result.runtimeHealth?.status || 'unknown'} (HTTP ${result.runtimeHealth?.httpStatus || 'n/a'})`);
 
   if (result.logErrors.length) {
     console.log('--- Relevant Cloudflare log lines ---');

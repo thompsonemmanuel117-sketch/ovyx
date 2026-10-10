@@ -19,11 +19,28 @@ export async function onRequestPost(context){
     const activatedAt=new Date().toISOString();
     const existing=(await getFirestoreData(context.env,'users',uid))||{};
     await setFirestoreDocument(context.env,'users',uid,{workspaceActive:true,workspaceActivatedAt:activatedAt,workspaceActivationVersion:1},{merge:true});
-    await initializeQuotaProfile(context.env, uid, String(existing.planTier || existing.tier || existing.plan || 'free').toLowerCase());    return jsonResponse({ok:true,scope:'user_workspace',workspaceActive:true,activatedAt,integrations:{
+    let quotaProfileInitialized = true;
+    try {
+      await initializeQuotaProfile(
+        context.env,
+        uid,
+        String(existing.planTier || existing.tier || existing.plan || 'free').toLowerCase()
+      );
+    } catch (quotaError) {
+      // Authentication and the workspace profile have already succeeded. A
+      // transient quota write must not make the sign-in UI act as if login
+      // failed; quota initialization can be retried on the next AI request.
+      quotaProfileInitialized = false;
+      console.error(
+        '[OVYX WORKSPACE ' + id + '] quota initialization deferred:',
+        String(quotaError?.code || quotaError?.message || 'unknown error').slice(0, 240)
+      );
+    }
+    return jsonResponse({ok:true,scope:'user_workspace',workspaceActive:true,activatedAt,integrations:{
       codeGateway:{enabled:true,basePath:'/api',aiGateway:'/api/ai/gateway',assistant:'/api/ai/assistant'},
       github:{provider:'github-app-installation',connected:githubReady},
       mobileBuild:{provider:'expo-eas',configured:mobileBuildReady,status:mobileBuildReady?'READY':'NOT_CONFIGURED'}
-    },planTier:String(existing.planTier||'free').toLowerCase()},200,{'X-OVYX-Request-ID':id});
+    },planTier:String(existing.planTier||'free').toLowerCase(),quotaProfile:{initialized:quotaProfileInitialized,status:quotaProfileInitialized?'READY':'DEFERRED'}},200,{'X-OVYX-Request-ID':id});
   }catch(error){
     return jsonResponse({ok:false,error:error?.message||'Workspace activation failed.',code:error?.code||'WORKSPACE_ACTIVATION_FAILED'},error?.status||500,{'X-OVYX-Request-ID':id});
   }
