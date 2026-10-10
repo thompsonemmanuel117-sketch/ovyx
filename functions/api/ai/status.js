@@ -3,6 +3,34 @@ import { errorResponse, requestId } from '../_lib/http.js';
 
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 
+function apiHost(value) {
+  try { return new URL(String(value || '')).hostname.toLowerCase(); } catch { return ''; }
+}
+
+function trimBase(value, fallback) {
+  return String(value || fallback || '').trim()
+    .replace(/\/chat\/completions$/i, '')
+    .replace(/\/models$/i, '')
+    .replace(/\/+$/, '');
+}
+
+function modelListUrl(base) {
+  return trimBase(base, 'https://api.openai.com/v1') + '/models';
+}
+
+function isOpenRouterKey(key) {
+  return /^sk-or-/i.test(String(key || '').trim());
+}
+
+function compatibleProviderLabel(base) {
+  const host = apiHost(base);
+  if (host === 'api.groq.com') return 'Groq';
+  if (host === 'openrouter.ai' || host.endsWith('.openrouter.ai')) return 'OpenRouter';
+  if (host === 'api.openai.com') return 'OpenAI';
+  if (host === 'api.anthropic.com') return 'Anthropic';
+  return 'Custom compatible API';
+}
+
 const PROVIDERS = Object.freeze({
   gemini: {
     env: 'GEMINI_API_KEY',
@@ -21,29 +49,43 @@ const PROVIDERS = Object.freeze({
     ),
   },
   openai: {
-    env: 'OPENAI_API_KEY',
-    label: 'OpenAI',
-    check: key => fetchWithTimeout(
-      'https://api.openai.com/v1/models',
+    envKeys: ['OVYX_AI_API_KEY', 'OPENAI_API_KEY'],
+    label: 'OVYX AI',
+    upstream: env => compatibleProviderLabel(env?.OVYX_AI_BASE_URL || env?.OPENAI_BASE_URL || 'https://api.openai.com/v1'),
+    check: (key, env) => fetchWithTimeout(
+      modelListUrl(env?.OVYX_AI_BASE_URL || env?.OPENAI_BASE_URL || 'https://api.openai.com/v1'),
       { headers: { Accept: 'application/json', Authorization: `Bearer ${key}` } },
     ),
   },
   anthropic: {
     env: 'ANTHROPIC_API_KEY',
-    label: 'Anthropic',
-    check: key => fetchWithTimeout(
-      'https://api.anthropic.com/v1/models',
-      {
-        headers: {
-          Accept: 'application/json',
-          'x-api-key': key,
-          'anthropic-version': '2023-06-01',
+    label: 'Claude / OVYX AI',
+    upstream: (env, key) => isOpenRouterKey(key)
+      ? 'OpenRouter'
+      : compatibleProviderLabel(env?.ANTHROPIC_BASE_URL || env?.ANTHROPIC_API_BASE_URL || 'https://api.anthropic.com/v1'),
+    check: (key, env) => {
+      const configuredBase = String(env?.ANTHROPIC_BASE_URL || env?.ANTHROPIC_API_BASE_URL || '').trim();
+      const openRouter = isOpenRouterKey(key);
+      const base = configuredBase || (openRouter ? 'https://openrouter.ai/api/v1' : 'https://api.anthropic.com/v1');
+      if (openRouter || (configuredBase && apiHost(configuredBase) !== 'api.anthropic.com')) {
+        return fetchWithTimeout(
+          modelListUrl(base),
+          { headers: { Accept: 'application/json', Authorization: `Bearer ${key}` } },
+        );
+      }
+      return fetchWithTimeout(
+        'https://api.anthropic.com/v1/models',
+        {
+          headers: {
+            Accept: 'application/json',
+            'x-api-key': key,
+            'anthropic-version': '2023-06-01',
+          },
         },
-      },
-    ),
+      );
+    },
   },
 });
-
 async function fetchWithTimeout(url, init = {}, timeoutMs = 6000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -69,7 +111,11 @@ function isAdmin(user) {
 }
 
 async function checkProvider(id, config, env) {
-  const key = String(env?.[config.env] || '').trim();
+  const key = String(
+    (Array.isArray(config.envKeys)
+      ? config.envKeys.map(name => env?.[name]).find(value => String(value || '').trim())
+      : env?.[config.env]) || ''
+  ).trim();
 
   if (!key) {
     return {
@@ -82,7 +128,7 @@ async function checkProvider(id, config, env) {
   }
 
   try {
-    const response = await config.check(key);
+    const response = await config.check(key, env);
 
     if (response.ok) {
       return {
@@ -91,6 +137,7 @@ async function checkProvider(id, config, env) {
         status: 'READY',
         configured: true,
         connected: true,
+        upstreamProvider: typeof config.upstream === 'function' ? config.upstream(env, key) : config.label,
         httpStatus: response.status,
       };
     }
