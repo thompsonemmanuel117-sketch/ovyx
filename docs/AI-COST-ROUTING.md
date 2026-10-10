@@ -1,71 +1,41 @@
-# OVYX AI cost-aware routing
+# OVYX AI routing and provider setup
 
-OVYX can keep the existing frontend provider choices while using lower-cost backend routes. The API response always reports the actual routed provider; it does not falsely claim that Groq or Workers AI is OpenAI or Anthropic.
+OVYX sends AI requests through the provider selected by the user or by the configured Automatic routing order. The backend reports the provider that actually handled the request; a key from one company is not treated as a key for another company.
 
-## Routing
+## Provider behavior
 
-- `ChatGPT` / `openai` -> Groq OpenAI-compatible API.
-- `Claude` / `anthropic` -> Cloudflare Workers AI binding `AI`.
-- Automatic routing can use the configured `OVYX_AI_PROVIDER_ORDER`.
+- **OpenAI / ChatGPT** uses the official OpenAI API when no custom endpoint is configured. If `OPENAI_BASE_URL` is set, this route uses that configured OpenAI-compatible endpoint instead.
+- **Claude / Anthropic** uses Anthropic's native Messages API and `ANTHROPIC_API_KEY`.
+- **Gemini** uses Google's Gemini API and `GEMINI_API_KEY`.
+- **DeepSeek** uses DeepSeek's chat completions API and `DEEPSEEK_API_KEY`.
+- **Cloudflare Workers AI** is an optional final fallback in Automatic routing only when the Pages Functions environment has an AI binding named `AI`. It is not the same service as Anthropic or OpenAI.
 
-Groq uses the OpenAI-compatible endpoint `https://api.groq.com/openai/v1/chat/completions` and the server-side secret `GROQ_API_KEY`.
+## Automatic routing
 
-Workers AI uses the Pages Functions binding `context.env.AI`. The default model is `@cf/meta/llama-3.3-70b-instruct-fp8-fast` and can be overridden with `CLOUDFLARE_AI_MODEL`.
+Set `OVYX_AI_PROVIDER_ORDER` (or `AI_PROVIDER_ORDER`) to a comma-separated order such as `gemini,deepseek,claude,openai`. OVYX skips providers that are not configured and tries configured providers in that order. Cloudflare Workers AI is appended as a final fallback when its binding is available.
 
-## Firebase chat history
+An explicitly selected provider is not silently replaced with another provider. If a user has selected a Universal Connection as their AI Brain, OVYX uses that connection exclusively for that authenticated user's AI requests. If the selection cannot be verified or the connection fails, OVYX returns an error instead of silently switching to a platform key. The user must clear the selected Brain to return to platform Automatic routing.
 
-Successful assistant/gateway turns are written server-side to:
+## OpenAI-compatible endpoints
+
+Set `OPENAI_BASE_URL` to an HTTPS base such as `https://api.groq.com/openai/v1`, or to a full `.../chat/completions` URL. Never include a key, credentials, query parameters, or a fragment in the URL.
+
+The server uses Bearer authentication. For recognized hosts it prefers the matching secret (`GROQ_API_KEY`, `OPENROUTER_API_KEY`, or `DEEPSEEK_API_KEY`) and can use `OPENAI_API_KEY` when it is intentionally configured for the selected compatible endpoint. Set a model accepted by that endpoint; provider-specific model variables take priority where supported.
+
+The admin status check calls the configured endpoint's models-list route. A successful check confirms that route answered, not that every model, generation request, billing entitlement or feature works.
+
+## Universal Connections (user-owned keys)
+
+Users can save their own provider key in a Universal Connection with the matching endpoint, protocol and model, then choose **Use as Brain**. Credentials are encrypted by the backend before storage and are not returned to browser code. AI connections and credential-bearing endpoints must use HTTPS. Do not paste credentials into endpoint URLs.
+
+Use the matching provider protocol: OpenAI-compatible Chat Completions, Anthropic Messages, or Gemini Generate Content. A Gemini key does not authenticate to OpenAI, and an OpenAI key does not authenticate to Anthropic. A compatible gateway only accepts keys its own service supports.
+
+## Cloudflare and Firebase setup
+
+For Cloudflare Workers AI, create a Pages Functions AI binding named `AI` in the Cloudflare Pages project and deploy the configuration.
+
+Successful assistant/gateway turns are saved server-side under:
 
 `users/{uid}/aiConversations/{conversationId}/messages/{messageId}`
 
-The backend accepts either `FIREBASE_SERVICE_ACCOUNT_JSON` or `FIREBASE_SERVICE_ACCOUNT` for the service-account secret. No Firebase service-account value belongs in the repository.
-
-## Cloudflare setup
-
-For Pages Functions, create an AI binding named `AI` in the Pages project or through the Wrangler Pages configuration, then redeploy.
-
-Create the `GROQ_API_KEY` as an encrypted Cloudflare secret.
-
-The backend returns:
-
-- `provider`: actual provider used.
-- `requestedProvider`: frontend requested provider.
-- `routedProvider`: backend route selected.
-- `conversationId` and `history.saved`: chat history status.
-
-
-## Custom OpenAI-compatible endpoints (BYO key)
-
-When `OPENAI_BASE_URL` is set, the OpenAI/ChatGPT selection and an existing
-automatic-order entry for `groq` use that configured endpoint instead of
-silently calling a hard-coded URL. Set the endpoint to an HTTPS base such as
-`https://api.groq.com/openai/v1`, or to its full
-`.../chat/completions` URL. Do not put credentials in the URL.
-
-The backend sends the configured key server-side using Bearer authentication.
-For recognized hosts it prefers the matching secret (`GROQ_API_KEY`,
-`OPENROUTER_API_KEY`, or `DEEPSEEK_API_KEY`); `OPENAI_API_KEY` is also
-accepted as the key slot when the administrator intentionally stores a key
-for the configured compatible endpoint there. Select a model supported by
-that endpoint. For Groq, `GROQ_MODEL` / `GROQ_AGENT_MODEL` are preferred,
-with the existing compatible-model default as a fallback.
-
-Diagnostics keep the legacy OpenAI settings-card identifier so the current UI
-continues to work, but include the actual upstream provider and use a truthful
-label such as `Groq (OpenAI-compatible endpoint)`. This status probe performs
-an authenticated models-list request; it does not prove that every model or
-generation request will succeed.
-
-## Per-user keys without global provider secrets
-
-A user can use their own compatible API key without setting a global
-`OPENAI_API_KEY` or `ANTHROPIC_API_KEY`: create a Universal Connection with
-the provider's HTTPS endpoint, its model, and the user's key; save it; then
-select **Use as Brain**. OVYX encrypts the connection secret in the backend and
-Automatic routing tries the saved Brain before global provider fallbacks.
-
-An API key is not universally interchangeable: a Gemini key cannot authenticate
-to OpenAI's official API, and an OpenAI key cannot authenticate to Anthropic's
-official API. A key only works with the service that issued it, or with a
-compatible gateway endpoint that explicitly accepts it. For non-OpenAI-style
-providers, the endpoint and protocol must match the provider's API format.
+The backend accepts `FIREBASE_SERVICE_ACCOUNT_JSON` or `FIREBASE_SERVICE_ACCOUNT` for the service-account secret. Never place Firebase service-account values or provider keys in the repository or frontend.
