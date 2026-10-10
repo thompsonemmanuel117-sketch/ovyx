@@ -9,8 +9,8 @@ const PROVIDERS = Object.freeze({
     env: 'GEMINI_API_KEY',
     label: 'Gemini',
     check: key => fetchWithTimeout(
-      `https://generativelanguage.googleapis.com/v1beta/models?pageSize=1&key=${encodeURIComponent(key)}`,
-      { headers: { Accept: 'application/json' } },
+      `https://generativelanguage.googleapis.com/v1beta/models?pageSize=1`,
+      { headers: { Accept: 'application/json', 'x-goog-api-key': key } },
     ),
   },
   deepseek: {
