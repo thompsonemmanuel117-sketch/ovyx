@@ -86,7 +86,7 @@ function safeApiBaseUrl(value, fallback, label) {
     );
   }
 
-  return parsed.toString().replace(/\\/+$/, '');
+  return parsed.toString().replace(/\/+$/, '');
 }
 
 function getConfiguredModel(
@@ -161,10 +161,10 @@ function getConfiguredModel(
 
   const compatibleWithRoute =
     provider === 'groq'
-      ? /^openai\\//i.test(requestedText)
+      ? /^openai\//i.test(requestedText)
       : provider ===
         'cloudflare-workers-ai'
-      ? /^@cf\\//i.test(requestedText)
+      ? /^@cf\//i.test(requestedText)
       : true;
 
   return requestedText &&
@@ -444,7 +444,7 @@ async function callOpenAICompatible({
   }
 
   const base = safeApiBaseUrl(baseUrl, 'https://api.openai.com/v1', endpointLabel);
-  const endpoint = /\\/chat\\/completions$/i.test(base)
+  const endpoint = /\/chat\/completions$/i.test(base)
     ? base
     : base + '/chat/completions';
 
