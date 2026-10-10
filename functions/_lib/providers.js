@@ -16,7 +16,7 @@ function withTimeout(promise, timeoutMs, label) {
       ));
     }, timeoutMs);
   });
-  return Promise.race([promise, timeout).finally(() => clearTimeout(timer));
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
 async function fetchWithTimeout(url, options = {}, timeoutMs = PROVIDER_REQUEST_TIMEOUT_MS) {
