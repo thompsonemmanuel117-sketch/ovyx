@@ -23,6 +23,7 @@ on:
 
 permissions:
   contents: read
+  actions: write
 
 jobs:
   diagnose:
@@ -43,6 +44,36 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Purge previous Cloudflare diagnostic artifacts
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPOSITORY: ${{ github.repository }}
+        run: |
+          node --input-type=module <<'NODE'
+          const token = process.env.GH_TOKEN;
+          const repository = process.env.GH_REPOSITORY;
+          if (!token || !repository) throw new Error('GitHub artifact cleanup credentials are unavailable.');
+          const headers = { Authorization: 'Bearer ' + token, Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28' };
+          let page = 1;
+          const targets = [];
+          while (true) {
+            const response = await fetch('https://api.github.com/repos/' + repository + '/actions/artifacts?per_page=100&page=' + page, { headers });
+            if (!response.ok) throw new Error('Could not list workflow artifacts (HTTP ' + response.status + ').');
+            const body = await response.json();
+            const batch = Array.isArray(body.artifacts) ? body.artifacts : [];
+            targets.push(...batch.filter(item => String(item.name || '').startsWith('ovyx-cloudflare-diagnostics-')));
+            if (batch.length < 100 || page * 100 >= Number(body.total_count || 0)) break;
+            page += 1;
+          }
+          let deleted = 0;
+          for (const item of targets) {
+            const response = await fetch('https://api.github.com/repos/' + repository + '/actions/artifacts/' + item.id, { method: 'DELETE', headers });
+            if (response.ok || response.status === 404) deleted += 1;
+            else throw new Error('Could not delete a prior diagnostics artifact (HTTP ' + response.status + ').');
+          }
+          console.log('Removed ' + deleted + ' prior Cloudflare diagnostic artifacts.');
+          NODE
+
 
       - name: Wait briefly for a Pages deployment after main pushes
         if: ${{ github.event_name == 'push' }}

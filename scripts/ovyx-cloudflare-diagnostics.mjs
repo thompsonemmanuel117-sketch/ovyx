@@ -33,13 +33,27 @@ async function cf(path) {
       ...(Array.isArray(data.errors) ? data.errors.map(x => x.message) : []),
       ...(Array.isArray(data.messages) ? data.messages.map(x => x.message) : []),
     ].filter(Boolean);
-    throw new Error(`Cloudflare API HTTP ${response.status}: ${messages.join(' | ') || text.slice(0, 500)}`);
+    throw new Error(sanitizeLine(`Cloudflare API HTTP ${response.status}: ${messages.join(' | ') || text.slice(0, 500)}`));
   }
   return data.result;
 }
 
+let diagnosticSensitiveValues = [];
+
+function collectEnvironmentValues(value, out = []) {
+  if (Array.isArray(value)) {
+    for (const item of value) collectEnvironmentValues(item, out);
+    return out;
+  }
+  if (!value || typeof value !== 'object') return out;
+  if (['plain_text', 'secret_text'].includes(String(value.type || '').toLowerCase()) && typeof value.value === 'string' && value.value.length) out.push(value.value);
+  for (const child of Object.values(value)) collectEnvironmentValues(child, out);
+  return out;
+}
 function redact(value, key = '') {
-  const sensitiveKey = /token|secret|password|authorization|private[_-]?key|api[_-]?key|credential/i.test(String(key));
+  const normalizedKey = String(key);
+  if (/^(env_vars|deployment_configs|latest_deployment|canonical_deployment)$/i.test(normalizedKey)) return '[OMITTED]';
+  const sensitiveKey = /token|secret|password|authorization|private[_-]?key|api[_-]?key|credential|encryption[_-]?key|service[_-]?account/i.test(normalizedKey);
   if (sensitiveKey) return '[REDACTED]';
   if (Array.isArray(value)) return value.map(item => redact(item));
   if (value && typeof value === 'object') {
@@ -61,11 +75,14 @@ function newestFirst(items) {
 }
 
 function sanitizeLine(line) {
-  return String(line)
-    .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, 'Bearer [REDACTED]')
-    .replace(/(api[_-]?key|access[_-]?token|client[_-]?secret|password)\s*[:=]\s*[^\s]+/gi, '$1=[REDACTED]');
+  let output = String(line ?? '')
+    .replace(/Bearer\\s+[A-Za-z0-9._-]+/gi, 'Bearer [REDACTED]')
+    .replace(/(api[_-]?key|access[_-]?token|client[_-]?secret|password|private[_-]?key)\\s*[:=]\\s*[^\\s]+/gi, '$1=[REDACTED]');
+  for (const value of [...diagnosticSensitiveValues].sort((a, b) => b.length - a.length)) {
+    if (value && value.length >= 4) output = output.split(value).join('[REDACTED_VALUE]');
+  }
+  return output.slice(0, 1200);
 }
-
 function errorLines(lines) {
   const patterns = [
     /error/i,
@@ -99,7 +116,9 @@ const result = {
 };
 
 try {
-  result.projectInfo = await cf(`/accounts/${encodeURIComponent(accountId)}/pages/projects/${safeProject}`);
+  const rawProjectInfo = await cf(`/accounts/${encodeURIComponent(accountId)}/pages/projects/${safeProject}`);
+  diagnosticSensitiveValues = collectEnvironmentValues(rawProjectInfo);
+  result.projectInfo = redact(rawProjectInfo);
 
   let deployment;
   if (requestedDeploymentId) {
@@ -118,6 +137,7 @@ try {
     throw new Error(`No ${environment} deployment was returned for project ${projectName}.`);
   }
 
+  diagnosticSensitiveValues.push(...collectEnvironmentValues(deployment));
   result.deployment = {
     id: deployment.id,
     environment: deployment.environment,
@@ -130,7 +150,7 @@ try {
     latest_stage: deployment.latest_stage || null,
     stages: deployment.stages || [],
     skip_reason: deployment.skip_reason || null,
-    build_config: deployment.build_config || null,
+    build_config: redact(deployment.build_config || null),
   };
 
   const logs = await cf(
@@ -175,7 +195,7 @@ try {
   if (result.status === 'error') process.exit(1);
 } catch (error) {
   result.status = 'api_error';
-  result.apiErrors.push(String(error.message || error));
+  result.apiErrors.push(sanitizeLine(error.message || error));
   const fs = await import('node:fs/promises');
   await fs.writeFile('cloudflare-diagnostics.json', JSON.stringify(result, null, 2) + '\n');
   console.error(`OVYX Cloudflare diagnostics failed: ${result.apiErrors[0]}`);
