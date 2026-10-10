@@ -110,14 +110,9 @@ function getConfiguredModel(
 
   const compatibleWithRoute =
     provider === 'groq'
-      ? /^openai\\//i.test(
-          requestedText
-        )
-      : provider ===
-        'cloudflare-workers-ai'
-      ? /^@cf\\//i.test(
-          requestedText
-        )
+      ? requestedText.toLowerCase().startsWith('openai/')
+      : provider === 'cloudflare-workers-ai'
+      ? requestedText.toLowerCase().startsWith('@cf/')
       : true;
 
   return requestedText &&
