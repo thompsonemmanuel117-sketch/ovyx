@@ -15,7 +15,7 @@ function clean(value) {
  * OPENAI_BASE_URL may be a base URL (for example .../v1) or a full
  * .../chat/completions URL. The secret is never included in a status response.
  */
-export function resolveOpenAICompatibleConfig(env = {}) {
+export function resolveOpenAICompatibleConfig(env = {}, options = {}) {
   // OVYX_AI_BASE_URL is shared by API-key-backed brain choices. OPENAI_BASE_URL
   // remains an override for the OpenAI route only when shared mode is absent.
   const sharedBase = clean(env.OVYX_AI_BASE_URL);
@@ -90,10 +90,14 @@ export function resolveOpenAICompatibleConfig(env = {}) {
     'GEMINI_API_KEY',
     'ANTHROPIC_API_KEY',
   ];
+  const preferredKeyName = /^[A-Z0-9_]+$/.test(clean(options?.preferredKeyName))
+    ? clean(options.preferredKeyName)
+    : '';
   const candidates = custom
     ? [
         'OVYX_AI_API_KEY',
         'AI_API_KEY',
+        ...(preferredKeyName ? [preferredKeyName] : []),
         ...endpointCandidates,
         ...allProviderKeys,
       ]
