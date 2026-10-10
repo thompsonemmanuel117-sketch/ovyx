@@ -16,6 +16,55 @@ function clean(value) {
   return String(value || '').trim();
 }
 
+function isOpenRouterKey(value) {
+  return /^sk-or-v1-/i.test(clean(value));
+}
+
+function isGroqBaseUrl(value) {
+  try {
+    return new URL(clean(value)).hostname.toLowerCase() === 'api.groq.com';
+  } catch {
+    return false;
+  }
+}
+
+function resolveBaseUrl(value, fallback, variableName) {
+  const candidate = clean(value) || fallback;
+  try {
+    const url = new URL(candidate);
+    if (url.protocol !== 'https:' || url.username || url.password) {
+      throw new Error('Invalid URL');
+    }
+    return url.toString().replace(/\/+$/, '');
+  } catch {
+    const error = new Error(`${variableName} must be a valid HTTPS base URL.`);
+    error.code = 'AI_PROVIDER_CONFIGURATION_INVALID';
+    error.status = 503;
+    throw error;
+  }
+}
+
+function resolveOpenRouterModel(inputModel, env) {
+  const configured = clean(env?.OPENROUTER_MODEL);
+  if (configured) return configured;
+
+  const requested = clean(inputModel);
+  if (/^anthropic\//i.test(requested) || /^openrouter\//i.test(requested)) {
+    return requested;
+  }
+
+  const aliases = {
+    'claude-sonnet-4-6': 'anthropic/claude-sonnet-4.6',
+    'claude-sonnet-4-5': 'anthropic/claude-sonnet-4.5',
+    'claude-opus-4-1': 'anthropic/claude-opus-4.1',
+  };
+  if (aliases[requested.toLowerCase()]) return aliases[requested.toLowerCase()];
+
+  // An OpenRouter token by itself does not imply a paid Claude subscription.
+  // Use OpenRouter's free-model router unless a model is explicitly configured.
+  return 'openrouter/free';
+}
+
 function requiredSecret(env, name) {
   const value = clean(env && env[name]);
 
@@ -113,8 +162,12 @@ function extractText(provider, payload) {
     );
   }
 
-  if (provider === 'deepseek' || provider === 'openai') {
+  if (provider === 'deepseek' || provider === 'openai' || provider === 'groq' || provider === 'openrouter') {
     return clean(payload?.choices?.[0]?.message?.content);
+  }
+
+  if (provider === 'cloudflare-workers-ai') {
+    return clean(payload?.response || payload?.result || payload?.output_text);
   }
 
   return '';
@@ -180,9 +233,56 @@ async function callGemini(env, input) {
 
 async function callClaude(env, input) {
   const key = requiredSecret(env, 'ANTHROPIC_API_KEY');
+  const isOpenRouter = isOpenRouterKey(key);
+
+  if (isOpenRouter) {
+    const model = resolveOpenRouterModel(input.model, env);
+    const baseUrl = resolveBaseUrl(
+      env?.OPENROUTER_BASE_URL,
+      'https://openrouter.ai/api/v1',
+      'OPENROUTER_BASE_URL'
+    );
+    const messages = normalizeMessages(input.messages);
+    if (clean(input.system)) {
+      messages.unshift({ role: 'system', content: clean(input.system) });
+    }
+
+    const payload = await requestJson(
+      `${baseUrl}/chat/completions`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          Authorization: `Bearer ${key}`,
+          'X-Title': clean(env?.OVYX_APP_NAME) || 'OVYX'
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          max_tokens: Number(input.maxTokens) > 0
+            ? Math.min(Number(input.maxTokens), 8192)
+            : 4096,
+          temperature: typeof input.temperature === 'number' ? input.temperature : 0.4
+        })
+      },
+      input.timeoutMs
+    );
+
+    return {
+      provider: 'openrouter',
+      model: clean(payload?.model) || model,
+      text: extractText('openrouter', payload),
+      raw: payload,
+      providerLabel: 'OVYX AI'
+    };
+  }
 
   const model =
-    clean(input.model) || 'claude-3-5-sonnet-latest';
+    clean(input.model) ||
+    clean(env?.ANTHROPIC_AGENT_MODEL) ||
+    clean(env?.ANTHROPIC_MODEL) ||
+    'claude-sonnet-4-6';
 
   const payload = await requestJson(
     'https://api.anthropic.com/v1/messages',
@@ -230,9 +330,10 @@ async function callOpenAICompatible(
   provider,
   secretName,
   baseUrl,
-  defaultModel
+  defaultModel,
+  keyOverride
 ) {
-  const key = requiredSecret(env, secretName);
+  const key = clean(keyOverride) || requiredSecret(env, secretName);
 
   const model = clean(input.model) || defaultModel;
 
@@ -290,21 +391,99 @@ async function callDeepSeek(env, input) {
 }
 
 async function callOpenAI(env, input) {
-  return callOpenAICompatible(
+  const baseUrl = resolveBaseUrl(
+    env?.OPENAI_BASE_URL,
+    'https://api.openai.com/v1',
+    'OPENAI_BASE_URL'
+  );
+  const usesGroq = isGroqBaseUrl(baseUrl);
+  const key = clean(env?.OPENAI_API_KEY) || (usesGroq ? clean(env?.GROQ_API_KEY) : '');
+  if (!key) requiredSecret(env, usesGroq ? 'GROQ_API_KEY or OPENAI_API_KEY' : 'OPENAI_API_KEY');
+
+  const groqDefaultModel =
+    clean(env?.GROQ_AGENT_MODEL) ||
+    clean(env?.GROQ_MODEL) ||
+    'openai/gpt-oss-20b';
+  const suppliedModel = clean(input.model);
+  const model = usesGroq && /^(gpt(?:-|$)|chatgpt\b)/i.test(suppliedModel)
+    ? groqDefaultModel
+    : suppliedModel || clean(env?.OPENAI_AGENT_MODEL) || clean(env?.OPENAI_MODEL) ||
+      (usesGroq ? groqDefaultModel : 'gpt-4o-mini');
+
+  const result = await callOpenAICompatible(
     env,
-    input,
+    { ...input, model },
     'openai',
     'OPENAI_API_KEY',
-    'https://api.openai.com/v1',
-    'gpt-4o-mini'
+    baseUrl,
+    model,
+    key
   );
+  return {
+    ...result,
+    providerLabel: 'OVYX AI',
+    upstream: usesGroq ? 'groq-compatible' : 'openai-compatible'
+  };
+}
+
+async function callGroq(env, input) {
+  const configuredGroqBase = clean(env?.GROQ_BASE_URL) ||
+    (isGroqBaseUrl(env?.OPENAI_BASE_URL) ? clean(env?.OPENAI_BASE_URL) : '') ||
+    'https://api.groq.com/openai/v1';
+  const baseUrl = resolveBaseUrl(configuredGroqBase, 'https://api.groq.com/openai/v1', 'GROQ_BASE_URL');
+  const key = clean(env?.GROQ_API_KEY) ||
+    (isGroqBaseUrl(env?.OPENAI_BASE_URL) ? clean(env?.OPENAI_API_KEY) : '');
+  if (!key) requiredSecret(env, 'GROQ_API_KEY');
+
+  const defaultModel = clean(env?.GROQ_AGENT_MODEL) || clean(env?.GROQ_MODEL) || 'openai/gpt-oss-20b';
+  const suppliedModel = clean(input.model);
+  const model = /^(gpt(?:-|$)|chatgpt\b)/i.test(suppliedModel) ? defaultModel : suppliedModel || defaultModel;
+
+  return callOpenAICompatible(
+    env,
+    { ...input, model },
+    'groq',
+    'GROQ_API_KEY',
+    baseUrl,
+    defaultModel,
+    key
+  );
+}
+
+async function callCloudflareWorkersAI(env, input) {
+  if (!env?.AI || typeof env.AI.run !== 'function') {
+    const error = new Error('Cloudflare Workers AI binding is not configured.');
+    error.code = 'AI_PROVIDER_NOT_CONFIGURED';
+    error.status = 503;
+    throw error;
+  }
+
+  const model = clean(input.model) || clean(env?.CLOUDFLARE_AI_MODEL) || '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
+  const messages = normalizeMessages(input.messages);
+  if (clean(input.system)) messages.unshift({ role: 'system', content: clean(input.system) });
+  const result = await env.AI.run(model, {
+    messages,
+    max_tokens: Number(input.maxTokens) > 0 ? Math.min(Number(input.maxTokens), 8192) : 4096,
+    temperature: typeof input.temperature === 'number' ? input.temperature : 0.4,
+    stream: false
+  });
+  const text = extractText('cloudflare-workers-ai', result);
+  if (!text) {
+    const error = new Error('Cloudflare Workers AI returned an empty response.');
+    error.code = 'AI_PROVIDER_EMPTY_RESPONSE';
+    error.status = 502;
+    throw error;
+  }
+  return { provider: 'cloudflare-workers-ai', model, text, raw: result };
 }
 
 export const PROVIDERS = Object.freeze({
   gemini: callGemini,
   claude: callClaude,
   deepseek: callDeepSeek,
-  openai: callOpenAI
+  openai: callOpenAI,
+  groq: callGroq,
+  'cloudflare-workers-ai': callCloudflareWorkersAI
 });
 
 export async function generate(env, input) {
