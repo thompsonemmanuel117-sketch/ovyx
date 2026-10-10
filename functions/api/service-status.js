@@ -6,18 +6,30 @@ const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 
 const PROVIDERS = Object.freeze([
   { id: 'gemini', key: 'GEMINI_API_KEY', label: 'Gemini' },
-  { id: 'groq', key: 'GROQ_API_KEY', label: 'Groq' },
+  { id: 'groq', key: 'GROQ_API_KEY', label: 'Groq (OVYX AI upstream)', groqFallback: true },
   { id: 'deepseek', key: 'DEEPSEEK_API_KEY', label: 'DeepSeek' },
-  { id: 'anthropic', key: 'ANTHROPIC_API_KEY', label: 'Anthropic' },
-  { id: 'openai', key: 'OPENAI_API_KEY', label: 'OpenAI' },
+  { id: 'anthropic', key: 'ANTHROPIC_API_KEY', label: 'Claude / compatible gateway' },
+  { id: 'openai', keys: ['OVYX_AI_API_KEY', 'OPENAI_API_KEY'], label: 'OVYX AI' },
 ]);
 
 const has = (env, key) => Boolean(String(env?.[key] || '').trim());
+function apiHost(value) {
+  try { return new URL(String(value || '')).hostname.toLowerCase(); } catch { return ''; }
+}
+function isGroqEndpoint(env) {
+  return apiHost(env?.OVYX_AI_BASE_URL || env?.OPENAI_BASE_URL) === 'api.groq.com';
+}
+function isOpenRouterKey(value) {
+  return /^sk-or-/i.test(String(value || '').trim());
+}
 const normalizeEmail = value => String(value || '').trim().toLowerCase();
 
 function providerRows(env) {
   return PROVIDERS.map(provider => {
-    const configured = has(env, provider.key);
+    const configured = Array.isArray(provider.keys)
+      ? provider.keys.some(key => has(env, key))
+      : has(env, provider.key) ||
+        (provider.groqFallback && !has(env, provider.key) && has(env, 'OPENAI_API_KEY') && isGroqEndpoint(env));
     return {
       id: provider.id,
       provider: provider.id,
@@ -50,6 +62,13 @@ export async function onRequestGet(context) {
 
   const providers = providerRows(env);
   const byId = Object.fromEntries(providers.map(row => [row.id, row]));
+  // OVYX AI may use a compatible upstream without requiring a separate GROQ_API_KEY.
+  if (byId.groq && isGroqEndpoint(env) && has(env, 'OPENAI_API_KEY')) {
+    byId.groq.note = 'Uses the configured OVYX AI compatible endpoint. Live authentication must still be tested.';
+  }
+  if (byId.anthropic && isOpenRouterKey(env.ANTHROPIC_API_KEY)) {
+    byId.anthropic.note = 'OpenRouter-compatible credential detected by its documented key prefix; status is configuration-only until the live probe succeeds.';
+  }
   const firebaseReady =
     has(env, 'FIREBASE_PROJECT_ID') &&
     has(env, 'FIREBASE_WEB_API_KEY') &&
