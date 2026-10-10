@@ -235,6 +235,27 @@ try {
   assert.equal(requests[0].body.model, 'openai/gpt-oss-20b');
 
   requests.length = 0;
+  requests.length = 0;
+  const selectedSlotWins = await callModel(
+    {
+      OVYX_AI_BASE_URL: 'https://api.groq.com/openai/v1',
+      OVYX_AI_MODEL: 'openai/gpt-oss-20b',
+      GEMINI_API_KEY: 'test-selected-gemini-slot',
+      GROQ_API_KEY: 'test-other-provider-slot',
+    },
+    {
+      provider: 'gemini',
+      model: 'gemini-2.5-flash',
+      system: 'test system',
+      user: 'test prompt',
+      maxTokens: 32,
+    },
+  );
+  assert.equal(selectedSlotWins.provider, 'groq');
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].authorization, 'Bearer test-selected-gemini-slot');
+
+  requests.length = 0;
   const sharedGatewayClaudeLabel = await callModel(
     {
       OVYX_AI_BASE_URL: 'https://api.groq.com/openai/v1',
