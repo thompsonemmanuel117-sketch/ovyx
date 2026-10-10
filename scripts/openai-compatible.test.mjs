@@ -3,13 +3,46 @@ import {
   resolveOpenAICompatibleConfig,
   resolveOpenAICompatibleModel,
 } from '../functions/_lib/openai-compatible.js';
-import { callModel } from '../functions/_lib/providers.js';
+import { callModel, providerOrder } from '../functions/_lib/providers.js';
 
 const native = resolveOpenAICompatibleConfig({ OPENAI_API_KEY: 'test-native-key' });
 assert.equal(native.provider, 'openai');
 assert.equal(native.chatCompletionsUrl, 'https://api.openai.com/v1/chat/completions');
 assert.equal(native.modelsUrl, 'https://api.openai.com/v1/models');
 assert.equal(native.configured, true);
+assert.equal(native.keySource, 'OPENAI_API_KEY');
+
+const genericKeyFallback = resolveOpenAICompatibleConfig({
+  OPENAI_BASE_URL: 'https://api.groq.com/openai/v1',
+  GEMINI_API_KEY: 'test-key-kept-in-an-unrelated-env-slot',
+});
+assert.equal(genericKeyFallback.provider, 'groq');
+assert.equal(genericKeyFallback.keySource, 'GEMINI_API_KEY');
+assert.equal(genericKeyFallback.key, 'test-key-kept-in-an-unrelated-env-slot');
+
+const sharedGatewayConfig = resolveOpenAICompatibleConfig({
+  OVYX_AI_BASE_URL: 'https://api.groq.com/openai/v1',
+  OVYX_AI_MODEL: 'openai/gpt-oss-20b',
+  ANTHROPIC_API_KEY: 'test-shared-gateway-key',
+});
+assert.equal(sharedGatewayConfig.provider, 'groq');
+assert.equal(sharedGatewayConfig.keySource, 'ANTHROPIC_API_KEY');
+assert.equal(
+  resolveOpenAICompatibleModel(
+    { OVYX_AI_BASE_URL: sharedGatewayConfig.baseUrl, OVYX_AI_MODEL: 'openai/gpt-oss-20b' },
+    sharedGatewayConfig,
+    'claude-sonnet-4-6',
+  ),
+  'openai/gpt-oss-20b',
+);
+assert.deepEqual(
+  providerOrder({ OVYX_AI_BASE_URL: 'https://api.groq.com/openai/v1', OVYX_AI_PROVIDER_ORDER: 'gemini,deepseek,claude,openai' }, 'gemini'),
+  ['openai'],
+);
+assert.deepEqual(
+  providerOrder({ OVYX_AI_BASE_URL: 'https://api.groq.com/openai/v1', OVYX_AI_PROVIDER_ORDER: 'gemini,deepseek,claude,openai' }, 'automatic'),
+  ['openai'],
+);
 
 const groq = resolveOpenAICompatibleConfig({
   OPENAI_BASE_URL: 'https://api.groq.com/openai/v1/chat/completions',
@@ -178,6 +211,48 @@ try {
   assert.equal(requests[0].url, 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent');
   assert.equal(requests[0].geminiKey, 'test-gemini-key');
   assert.equal(requests[0].url.includes('test-gemini-key'), false);
+
+  requests.length = 0;
+  const sharedGateway = await callModel(
+    {
+      OVYX_AI_BASE_URL: 'https://api.groq.com/openai/v1',
+      OVYX_AI_MODEL: 'openai/gpt-oss-20b',
+      ANTHROPIC_API_KEY: 'test-shared-gateway-key',
+    },
+    {
+      provider: 'gemini',
+      model: 'gemini-2.5-flash',
+      system: 'test system',
+      user: 'test prompt',
+      maxTokens: 32,
+    },
+  );
+  assert.equal(sharedGateway.provider, 'groq');
+  assert.equal(sharedGateway.model, 'openai/gpt-oss-20b');
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].url, 'https://api.groq.com/openai/v1/chat/completions');
+  assert.equal(requests[0].authorization, 'Bearer test-shared-gateway-key');
+  assert.equal(requests[0].body.model, 'openai/gpt-oss-20b');
+
+  requests.length = 0;
+  const sharedGatewayClaudeLabel = await callModel(
+    {
+      OVYX_AI_BASE_URL: 'https://api.groq.com/openai/v1',
+      OVYX_AI_MODEL: 'openai/gpt-oss-20b',
+      GEMINI_API_KEY: 'test-any-slot-key',
+    },
+    {
+      provider: 'claude',
+      model: 'claude-sonnet-4-6',
+      system: 'test system',
+      user: 'test prompt',
+      maxTokens: 32,
+    },
+  );
+  assert.equal(sharedGatewayClaudeLabel.provider, 'groq');
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].authorization, 'Bearer test-any-slot-key');
+  assert.equal(requests[0].body.model, 'openai/gpt-oss-20b');
 
   const workersRequests = [];
   const workersAI = {
