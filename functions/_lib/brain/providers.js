@@ -128,8 +128,7 @@ async function callGemini(env, input) {
   const url =
     'https://generativelanguage.googleapis.com/v1beta/models/' +
     encodeURIComponent(model) +
-    ':generateContent?key=' +
-    encodeURIComponent(key);
+    ':generateContent';
 
   const contents = normalizeMessages(input.messages).map(function (message) {
     return {
@@ -151,7 +150,8 @@ async function callGemini(env, input) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Accept: 'application/json'
+        Accept: 'application/json',
+        'x-goog-api-key': key
       },
       body: JSON.stringify({
         contents,

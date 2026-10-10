@@ -47,14 +47,30 @@ if (fs.existsSync(providerRouterPath)) {
   if (!/withTimeout\(\s*getActiveBrainConnectionId/.test(providerRouter)) {
     errors.push('functions/_lib/providers.js: Universal Connection lookup needs a deadline.');
   }
-  if (!/catch\s*\(err\)[\s\S]*?errors\.push\(['"`]universal-connection/i.test(providerRouter)) {
-    errors.push('functions/_lib/providers.js: automatic AI routing must recover from a failed saved Universal Connection.');
+  if (
+    !/if\s*\(options\.authUser\s*&&\s*!\/\^connection:\/i\.test\(requestedRaw\)\)/.test(providerRouter) ||
+    !/UNIVERSAL_CONNECTION_SELECTION_FAILED/.test(providerRouter) ||
+    !/selected Universal Connection AI Brain failed[\s\S]*?did not switch to another AI provider/i.test(providerRouter)
+  ) {
+    errors.push('functions/_lib/providers.js: a saved Universal Connection must override platform provider choices and fail closed instead of routing silently to platform keys.');
   }
   const rawFetches = (providerRouter.match(/\bawait fetch\s*\(/g) || []).length;
   if (rawFetches !== 1 || !/return await fetch\(url,\s*\{ \.\.\.options, signal: controller\.signal \}\)/.test(providerRouter)) {
     errors.push('functions/_lib/providers.js: provider network calls must pass through the timeout wrapper.');
   }
 }
+
+const aiStatusPath = path.join(root, 'functions/api/ai/status.js');
+if (fs.existsSync(aiStatusPath)) {
+  const aiStatus = fs.readFileSync(aiStatusPath, 'utf8');
+  if (/generativelanguage\.googleapis\.com\/v1beta\/models[^\x60]*[?&]key=/i.test(aiStatus)) {
+    errors.push('functions/api/ai/status.js: Gemini API keys must not be placed in request URLs.');
+  }
+  if (!/['"]x-goog-api-key['"]\s*:\s*key/.test(aiStatus)) {
+    errors.push('functions/api/ai/status.js: Gemini health checks must send the key in the x-goog-api-key header.');
+  }
+}
+
 
 const entitlementRoutePath = path.join(root, 'functions/api/entitlements.js');
 if (fs.existsSync(entitlementRoutePath)) {
@@ -96,6 +112,15 @@ if (fs.existsSync(html)) {
   if ((text.match(/id="view-webstudio"/gi) || []).length !== 1) errors.push('index.html: expected exactly one Web Studio view');
   if (!/id="app-sidebar"/i.test(text) || !/id="mobile-drawer"/i.test(text)) errors.push('index.html: main navigation shell is missing');
   if (/Agent is starting/i.test(text)) errors.push('index.html: stale Web Studio agent-starting copy detected');
+  if (!text.includes('id="deep-conn-clear-ai"') || !text.includes('id="ovyx-v91-clear-brain"')) {
+    errors.push('index.html: both Universal Connections screens must expose an explicit Clear AI Brain control.');
+  }
+  if (!/panel\.querySelectorAll\('\[data-conn-use-ai\]'\)[\s\S]{0,1800}action:'use-ai'/.test(text)) {
+    errors.push('index.html: the legacy Use as Brain action must persist the selection through the backend.');
+  }
+  if ((text.match(/action:'clear-ai'/g) || []).length < 2) {
+    errors.push('index.html: both Universal Connections screens must support clearing the selected Brain through the backend.');
+  }
 
   const inlineScriptPattern = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
   let inlineIndex = 0;

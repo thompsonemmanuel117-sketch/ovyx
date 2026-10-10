@@ -1,53 +1,41 @@
 # OVYX Universal Connections
 
-Universal Connections are account-owned server integrations. A connection may be used as an AI Brain when it is active and uses the OpenAI-compatible chat protocol.
+Universal Connections are account-owned server integrations. AI Brain credentials are encrypted with AES-GCM before they are stored in Firestore; they are decrypted only inside the server request and never returned to the browser.
 
-## Supported connection modes
+## Supported AI protocols
 
-- AI Brain — OpenAI-compatible chat endpoint.
-- HTTP API — generic JSON request/response integration.
-- Webhook — HTTP/HTTPS endpoint with server-side authentication.
-- Tool Endpoint — HTTP/HTTPS endpoint for server-routed tool integrations.
-- Legacy HTTP Database — retained for compatibility with existing workspace contracts.
+- `openai-chat` — OpenAI Chat Completions-compatible endpoints, including DeepSeek's compatible chat endpoint and compatible gateways.
+- `anthropic-messages` — Anthropic's native Messages API for Claude.
+- `gemini-generate-content` — Google's native Gemini Generate Content API.
+- `http-json` — generic JSON HTTP integration for non-AI tools, webhooks and other endpoints.
 
-## Authentication
-
-A connection does not inherently require an API key.
-
-Supported server-side authentication modes are:
-
-- `none`
-- `bearer`
-- `api-key` (sent as `X-API-Key`)
-- `basic` (stored secret uses `username:password`)
-
-Credentials are encrypted with AES-GCM before being stored in Firestore. The browser never receives the encrypted credential.
+Enter a provider's own API key in the connection's encrypted credential field. OVYX sends it using the provider's required server-side authentication header. AI endpoints and connections carrying credentials must use HTTPS. Do not paste a key into an endpoint URL.
 
 ## Required production secret
 
-Configure this Cloudflare secret before saving a connection with credentials:
+Configure this Cloudflare secret before saving connections that have credentials:
 
 `OVYX_CONNECTION_ENCRYPTION_KEY`
 
-The secret is never committed to GitHub and must be supplied through the production environment.
+Keep the existing encryption key unchanged if already-saved connections use it. Changing it without first migrating stored encrypted credentials will make those credentials unreadable.
 
-## AI Brain selection
+## AI Brain selection and billing safety
 
-A workspace can persist one active Universal Connection Brain through:
+A user can select one active Universal Connection Brain through:
 
 - `POST /api/settings/connections` with `{ "action": "use-ai", "id": "<connection-id>" }`
 - `POST /api/settings/connections` with `{ "action": "clear-ai" }`
 
-The selected Brain is stored on the authenticated workspace profile as `activeBrainConnectionId`. Automatic server AI routing honors that selection.
+The selection is stored in that user's authenticated workspace profile as `activeBrainConnectionId`. When a selection exists, Automatic routes exclusively through that connection. If it cannot be verified or fails, OVYX reports the failure instead of silently switching to platform-owned keys or another provider. Choose `clear-ai` to return to platform Automatic routing.
 
-A connection selected as the AI Brain must be active and use the `openai-chat` protocol.
+A key is not interchangeable between providers: put a Gemini key on a Gemini connection or in `GEMINI_API_KEY`; a DeepSeek key on a DeepSeek-compatible connection or in `DEEPSEEK_API_KEY`; an Anthropic key on an Anthropic connection or in `ANTHROPIC_API_KEY`; and an OpenAI key on an OpenAI connection or in `OPENAI_API_KEY`. For a custom OpenAI-compatible endpoint, configure `OPENAI_BASE_URL` and its matching secret. Do not put one provider's key into an unrelated provider secret.
 
-## Security boundaries
+## Platform Automatic routing
 
-Connection endpoints must use HTTP or HTTPS. Local/private targets and credentials embedded in URLs are rejected. Ownership is checked against both authenticated UID and workspace email before a connection can be read, tested or executed.
+With no active user Universal Connection selection, OVYX tries the providers in `OVYX_AI_PROVIDER_ORDER` (or the supported default order), skipping providers that are not configured. If Cloudflare Workers AI is bound to the Pages Functions environment as `AI`, it is appended as the final Automatic fallback. An explicitly chosen provider does not silently fall back to another one.
 
-Secrets are decrypted only on the server at request time. Connection list responses expose capability metadata such as `hasSecret`, `requiresSecret` and `capabilities.canUseAsBrain`, but never expose the credential itself.
+## Connection security and tests
 
-## Health checks
+Connection ownership is checked against both the authenticated UID and workspace email. Local/private targets are rejected. Credential-bearing connections and AI protocols require HTTPS. Listing responses expose only safe metadata such as `hasSecret` and `capabilities.canUseAsBrain`, never the credential.
 
-The Test action performs a lightweight authenticated reachability check without sending a paid AI generation request. HTTP 401/403 responses are treated as authentication failures; HTTP 405 may still be treated as endpoint reachability when a health endpoint does not accept GET.
+The Test action performs a non-generation health check against a model-list/health endpoint where supported; it does not intentionally make a paid AI generation request. A successful test means the check endpoint responded, not that every model or billing feature is available.

@@ -23,7 +23,20 @@ const ENV_GROUPS = {
     'DEEPSEEK_API_KEY',
     'OPENAI_API_KEY',
     'GROQ_API_KEY',
+  ],
+  AIModelConfiguration: [
+    'GEMINI_MODEL',
+    'GEMINI_AGENT_MODEL',
+    'ANTHROPIC_MODEL',
+    'ANTHROPIC_AGENT_MODEL',
+    'DEEPSEEK_MODEL',
+    'DEEPSEEK_AGENT_MODEL',
+    'OPENAI_MODEL',
+    'OPENAI_AGENT_MODEL',
+    'OPENAI_BASE_URL',
     'CLOUDFLARE_AI_MODEL',
+    'OVYX_AI_PROVIDER_ORDER',
+    'AI_PROVIDER_ORDER',
   ],
   UniversalConnections: [
     'OVYX_CONNECTION_ENCRYPTION_KEY',
@@ -105,7 +118,8 @@ export function onRequestGet(context) {
   }
 
   const aiReady =
-    ENV_GROUPS.AI.some(key => configured(env, key)) ||
+    ['GEMINI_API_KEY', 'ANTHROPIC_API_KEY', 'DEEPSEEK_API_KEY', 'OPENAI_API_KEY', 'GROQ_API_KEY']
+      .some(key => configured(env, key)) ||
     hasAiBinding;
 
   return Response.json({
@@ -127,6 +141,7 @@ export function onRequestGet(context) {
       cloudflare: groups.Cloudflare,
       ai: {
         providers: groups.AI,
+        modelConfiguration: groups.AIModelConfiguration,
         workersAiBinding: {
           configured: hasAiBinding,
           binding: 'AI',

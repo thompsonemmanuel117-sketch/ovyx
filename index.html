@@ -12793,8 +12793,8 @@ async function renderConnectionsPanel(){
   const rows=Array.isArray(data.connections)?data.connections:[];
   panel.innerHTML=
     '<div class="ovyx-panel-head"><div class="ovyx-panel-kicker">WORKSPACE / CONNECTIONS</div><h2>Universal Connections &amp; Tier Limits</h2><p>Connect real webhooks, tools and databases through the secure OVYX backend. The plan limit is enforced server-side.</p></div>'+
-    '<div class="ovyx-deep-grid"><div class="ovyx-pref-group"><div class="ovyx-pref-label">PLAN</div><div class="ovyx-deep-note"><b style="color:var(--app-text,#fff)">'+String(data.tier||'free').toUpperCase()+'</b> · '+String(data.activeCount||0)+' active / '+limit+'</div></div><div class="ovyx-pref-group"><div class="ovyx-pref-label">STATUS</div><div class="ovyx-deep-note">'+String(data.totalCount||0)+' saved connection'+(Number(data.totalCount||0)===1?'':'s')+'</div></div><div class="ovyx-pref-group"><div class="ovyx-pref-label">CURRENT AI BRAIN</div><div class="ovyx-deep-note">'+String((()=>{try{const x=JSON.parse(localStorage.getItem(window.OVYXAIStorageKey?window.OVYXAIStorageKey():'ovyx.ai.preferences.v1')||'{}');const p=String(x.provider||window.OVYXAI?.provider||'automatic');return p.startsWith('connection:')?'Universal Connection '+p.slice(11):p==='automatic'?'Automatic OVYX Brain':p}catch(_){return 'Automatic OVYX Brain'}})())+'</div></div></div>'+
-    '<div class="ovyx-pref-group"><div class="ovyx-pref-label">ADD CONNECTION</div><div class="ovyx-deep-grid"><div class="ovyx-deep-field"><label>Name</label><input id="deep-conn-name" placeholder="My AI Brain / API"></div><div class="ovyx-deep-field"><label>Type</label><select id="deep-conn-type"><option value="ai">AI Brain</option><option value="http">HTTP API</option><option value="webhook">Webhook</option><option value="tool">Tool Endpoint</option><option value="database">Legacy HTTP Database</option></select></div></div><div class="ovyx-deep-grid"><div class="ovyx-deep-field"><label>Protocol</label><select id="deep-conn-protocol"><option value="openai-chat">OpenAI-compatible chat</option><option value="http-json">Generic JSON HTTP</option></select></div><div class="ovyx-deep-field"><label>Auth</label><select id="deep-conn-auth"><option value="bearer">Bearer token</option><option value="api-key">X-API-Key</option><option value="basic">Basic token</option><option value="none">No credential</option></select></div></div><div class="ovyx-deep-status" id="deep-conn-auth-note">Credential is optional. Choose "No credential" when the endpoint is public.</div><div class="ovyx-deep-field"><label>Endpoint</label><input id="deep-conn-endpoint" placeholder="https://api.example.com/v1/chat/completions"></div><div class="ovyx-deep-field"><label>Credential <small>(optional; only required when the external service requires one; encrypted server-side)</small></label><input id="deep-conn-secret" type="password" autocomplete="new-password" placeholder="Token / API key (leave blank for no credential)"></div><div class="ovyx-deep-field"><label>Model (AI only)</label><input id="deep-conn-model" placeholder="provider-model-name"></div><div class="ovyx-deep-actions"><button class="ovyx-deep-btn primary" id="deep-conn-add">Save Connection</button></div><div class="ovyx-deep-status">Universal Connections are live server connectors. Saving a connection does not claim it works until its Test/Run operation succeeds.</div></div>'+
+    '<div class="ovyx-deep-grid"><div class="ovyx-pref-group"><div class="ovyx-pref-label">PLAN</div><div class="ovyx-deep-note"><b style="color:var(--app-text,#fff)">'+String(data.tier||'free').toUpperCase()+'</b> · '+String(data.activeCount||0)+' active / '+limit+'</div></div><div class="ovyx-pref-group"><div class="ovyx-pref-label">STATUS</div><div class="ovyx-deep-note">'+String(data.totalCount||0)+' saved connection'+(Number(data.totalCount||0)===1?'':'s')+'</div></div><div class="ovyx-pref-group"><div class="ovyx-pref-label">CURRENT AI BRAIN</div><div class="ovyx-deep-note">'+String((()=>{try{const x=JSON.parse(localStorage.getItem(window.OVYXAIStorageKey?window.OVYXAIStorageKey():'ovyx.ai.preferences.v1')||'{}');const activeId=String(data.activeBrainConnectionId||'').trim();if(activeId)return 'Universal Connection '+activeId;const p=String(x.provider||window.OVYXAI?.provider||'automatic');return p.startsWith('connection:')?'Universal Connection '+p.slice(11):p==='automatic'?'Automatic OVYX Brain':p}catch(_){return 'Automatic OVYX Brain'}})())+'</div><button class="ovyx-deep-btn" type="button" id="deep-conn-clear-ai">Clear AI Brain</button></div></div>'+
+    '<div class="ovyx-pref-group"><div class="ovyx-pref-label">ADD CONNECTION</div><div class="ovyx-deep-grid"><div class="ovyx-deep-field"><label>Name</label><input id="deep-conn-name" placeholder="My AI Brain / API"></div><div class="ovyx-deep-field"><label>Type</label><select id="deep-conn-type"><option value="ai">AI Brain</option><option value="http">HTTP API</option><option value="webhook">Webhook</option><option value="tool">Tool Endpoint</option><option value="database">Legacy HTTP Database</option></select></div></div><div class="ovyx-deep-grid"><div class="ovyx-deep-field"><label>Protocol</label><select id="deep-conn-protocol"><option value="openai-chat">OpenAI-compatible chat (OpenAI / DeepSeek compatible)</option><option value="anthropic-messages">Anthropic Messages (Claude)</option><option value="gemini-generate-content">Gemini Generate Content</option><option value="http-json">Generic JSON HTTP</option></select></div><div class="ovyx-deep-field"><label>Auth</label><select id="deep-conn-auth"><option value="bearer">Bearer token</option><option value="api-key">X-API-Key</option><option value="basic">Basic token</option><option value="none">No credential</option></select></div></div><div class="ovyx-deep-status" id="deep-conn-auth-note">Credential is optional. Choose "No credential" when the endpoint is public.</div><div class="ovyx-deep-field"><label>Endpoint</label><input id="deep-conn-endpoint" placeholder="https://api.example.com/v1/chat/completions"></div><div class="ovyx-deep-field"><label>Credential <small>(optional; only required when the external service requires one; encrypted server-side)</small></label><input id="deep-conn-secret" type="password" autocomplete="new-password" placeholder="Token / API key (leave blank for no credential)"></div><div class="ovyx-deep-field"><label>Model (AI only)</label><input id="deep-conn-model" placeholder="provider-model-name"></div><div class="ovyx-deep-actions"><button class="ovyx-deep-btn primary" id="deep-conn-add">Save Connection</button></div><div class="ovyx-deep-status">Universal Connections are live server connectors. Saving a connection does not claim it works until its Test/Run operation succeeds.</div></div>'+
     '<div class="ovyx-pref-group"><div class="ovyx-pref-label">SAVED CONNECTIONS</div><div class="ovyx-deep-conn-list">'+
       (rows.length?rows.map(row=>'<div class="ovyx-deep-conn"><div><b>'+String(row.name||'Unnamed').replace(/[<>]/g,'')+'</b><small>'+String(row.type||'tool').toUpperCase()+' · '+String(row.endpoint||'').replace(/[<>]/g,'')+' · '+(row.active?'ACTIVE':'INACTIVE')+'</small></div><div class="ovyx-deep-conn-actions"><button class="ovyx-deep-btn" data-conn-test="'+String(row.id)+'">Test</button>'+(row.type==='ai'?'<button class="ovyx-deep-btn" data-conn-use-ai="'+String(row.id)+'">Use as Brain</button>':'')+'<button class="ovyx-deep-btn danger" data-conn-delete="'+String(row.id)+'">Delete</button></div></div>').join(''):'<div class="ovyx-deep-status">No universal connections saved yet.</div>')+
     '</div></div><div class="ovyx-deep-status" id="deep-conn-status">Server-side limits are authoritative.</div>';
@@ -12829,17 +12829,33 @@ async function renderConnectionsPanel(){
     catch(error){notify(error?.message||'Connection test failed.','error')}
     finally{button.disabled=false}
   }));
-  panel.querySelectorAll('[data-conn-use-ai]').forEach(button=>button.addEventListener('click',()=>{
+  panel.querySelectorAll('[data-conn-use-ai]').forEach(button=>button.addEventListener('click',async()=>{
     const id=String(button.dataset.connUseAi||'').trim();if(!id)return;
+    button.disabled=true;
     try{
-      const x=(()=>{try{return {...JSON.parse(localStorage.getItem(window.OVYXAIStorageKey?window.OVYXAIStorageKey():'ovyx.ai.preferences.v1')||'{}')}}catch{return {}}})();
-      x.provider='connection:'+id;
-      localStorage.setItem(window.OVYXAIStorageKey?window.OVYXAIStorageKey():'ovyx.ai.preferences.v1',JSON.stringify(x));
-      window.OVYXAI=window.OVYXAI||{};window.OVYXAI.provider='connection:'+id;
-      notify('Connected AI Brain selected for OVYX AI routing.','success');
-      setTimeout(()=>renderConnectionsPanel(),0);
+      await api('/api/settings/connections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'use-ai',id})});
+      const key=window.OVYXAIStorageKey?window.OVYXAIStorageKey():'ovyx.ai.preferences.v1';let prefs={};
+      try{prefs=JSON.parse(localStorage.getItem(key)||'{}')||{}}catch(_){}
+      prefs.provider='automatic';try{localStorage.setItem(key,JSON.stringify(prefs))}catch(_){}
+      window.OVYXAI=window.OVYXAI||{};window.OVYXAI.provider='automatic';
+      notify('AI Brain saved to your account. New AI requests will route through it automatically.','success');
+      await renderConnectionsPanel();
     }catch(error){notify(error?.message||'Could not select this AI Brain.','error')}
+    finally{button.disabled=false}
   }));
+  panel.querySelector('#deep-conn-clear-ai')?.addEventListener('click',async buttonEvent=>{
+    const button=buttonEvent.currentTarget;if(button)button.disabled=true;
+    try{
+      await api('/api/settings/connections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'clear-ai'})});
+      const key=window.OVYXAIStorageKey?window.OVYXAIStorageKey():'ovyx.ai.preferences.v1';let prefs={};
+      try{prefs=JSON.parse(localStorage.getItem(key)||'{}')||{}}catch(_){}
+      prefs.provider='automatic';try{localStorage.setItem(key,JSON.stringify(prefs))}catch(_){}
+      if(window.OVYXAI)window.OVYXAI.provider='automatic';
+      notify('AI Brain cleared. OVYX Automatic routing is active.','success');
+      await renderConnectionsPanel();
+    }catch(error){notify(error?.message||'Could not clear the AI Brain.','error')}
+    finally{if(button)button.disabled=false}
+  });
   panel.querySelectorAll('[data-conn-delete]').forEach(button=>button.addEventListener('click',async()=>{
     if(!confirm('Delete this connection?'))return;
     try{await UniversalConnections.remove(button.dataset.connDelete);notify('Connection deleted.','success');await renderConnectionsPanel()}
@@ -14936,12 +14952,46 @@ function render(panel){
     '<div class="ovyx-v91-conn-card"><div class="ovyx-v91-conn-form">'+
       '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-name">NAME</label><input id="ovyx-v91-conn-name" class="ovyx-v91-input" placeholder="My Webhook" autocomplete="off"></div>'+
       '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-type">TYPE</label><select id="ovyx-v91-conn-type" class="ovyx-v91-select"><option value="webhook">Webhook</option><option value="tool">Tool</option><option value="database">Database</option><option value="http">HTTP API</option><option value="ai">AI Brain</option></select></div>'+
-      '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-endpoint">ENDPOINT</label><input id="ovyx-v91-conn-endpoint" class="ovyx-v91-input" value="https://example.com/health" placeholder="https://example.com/health" inputmode="url" autocomplete="url"></div>'+
+      '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-protocol">AI PROTOCOL</label><select id="ovyx-v91-conn-protocol" class="ovyx-v91-select"><option value="http-json">Generic JSON HTTP</option><option value="openai-chat">OpenAI-compatible chat (OpenAI / DeepSeek compatible)</option><option value="anthropic-messages">Anthropic Messages (Claude)</option><option value="gemini-generate-content">Gemini Generate Content</option></select></div>'+
+      '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-auth">AUTHENTICATION</label><select id="ovyx-v91-conn-auth" class="ovyx-v91-select"><option value="none">No credential</option><option value="bearer">Bearer token</option><option value="api-key">X-API-Key</option><option value="basic">Basic (username:password)</option></select></div>'+
+      '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-endpoint">ENDPOINT</label><input id="ovyx-v91-conn-endpoint" class="ovyx-v91-input" value="https://example.com/health" placeholder="https://api.example.com/v1" inputmode="url" autocomplete="url"></div>'+
+      '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-secret">API KEY / CREDENTIAL</label><input id="ovyx-v91-conn-secret" class="ovyx-v91-input" type="password" autocomplete="new-password" placeholder="Stored encrypted on the server"><small class="text-zinc-500 text-xs">The key is never returned to the browser. AI endpoints must use HTTPS.</small></div>'+
+      '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-model">MODEL (AI BRAIN)</label><input id="ovyx-v91-conn-model" class="ovyx-v91-input" placeholder="e.g. deepseek-flash or claude-sonnet-4-6"></div>'+
       '<div class="ovyx-v91-actions"><button type="button" class="ovyx-v91-btn ovyx-v91-btn-primary" id="ovyx-v91-add">Add Connection</button><button type="button" class="ovyx-v91-btn ovyx-v91-btn-secondary" id="ovyx-v91-reload">Reload</button></div>'+
     '</div><div class="ovyx-v91-status" id="ovyx-v91-status" data-state="'+(user?'ready':'error')+'">'+(user?'Ready. Your plan connection limit will be checked by the server.':'Sign in to manage Universal Connections.')+'</div></div>'+
-    '<div class="ovyx-v91-saved" id="ovyx-v91-saved-wrap" '+(user?'':'hidden')+'><div class="ovyx-v91-saved-head"><b>SAVED CONNECTIONS</b><small id="ovyx-v91-limit"></small></div><div class="ovyx-v91-list" id="ovyx-v91-list"></div></div>'+
+    '<div class="ovyx-v91-saved" id="ovyx-v91-saved-wrap" '+(user?'':'hidden')+'><div class="ovyx-v91-saved-head"><b>SAVED CONNECTIONS</b><small id="ovyx-v91-limit"></small><button class="ovyx-v91-mini" type="button" id="ovyx-v91-clear-brain">Clear AI Brain</button></div><div class="ovyx-v91-list" id="ovyx-v91-list"></div></div>'+
   '</div>';
-  const add=$('ovyx-v91-add'),reload=$('ovyx-v91-reload'),status=$('ovyx-v91-status');
+  const add=$('ovyx-v91-add'),reload=$('ovyx-v91-reload'),status=$('ovyx-v91-status');const clearBrain=$('ovyx-v91-clear-brain');
+  clearBrain?.addEventListener('click',async()=>{
+    clearBrain.disabled=true;status.textContent='Clearing your AI Brain selection…';status.dataset.state='ready';
+    try{
+      await api('/api/settings/connections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'clear-ai'})});
+      const key=window.OVYXAIStorageKey?window.OVYXAIStorageKey():'ovyx.ai.preferences.v1';let prefs={};
+      try{prefs=JSON.parse(localStorage.getItem(key)||'{}')||{}}catch(_){}
+      prefs.provider='automatic';try{localStorage.setItem(key,JSON.stringify(prefs))}catch(_){}
+      if(window.OVYXAI)window.OVYXAI.provider='automatic';
+      status.textContent='AI Brain cleared. OVYX Automatic routing is active.';status.dataset.state='ok';
+      await load();
+    }catch(e){status.textContent=e.message||'AI Brain could not be cleared.';status.dataset.state='error'}
+    finally{clearBrain.disabled=false}
+  });
+  
+  const connType=$('ovyx-v91-conn-type'), connProtocol=$('ovyx-v91-conn-protocol');
+  const connAuth=$('ovyx-v91-conn-auth'), connSecret=$('ovyx-v91-conn-secret');
+  const connModel=$('ovyx-v91-conn-model');
+  const syncConnectionDefaults=()=>{
+    if(connType?.value==='ai'){
+      if(connProtocol?.value==='http-json')connProtocol.value='openai-chat';
+      if(connAuth?.value==='none')connAuth.value='bearer';
+    }else{
+      if(connProtocol && ['openai-chat','anthropic-messages','gemini-generate-content'].includes(connProtocol.value))connProtocol.value='http-json';
+      if(connAuth)connAuth.value='none';
+    }
+    if(connType?.value==='ai' && connProtocol && ['anthropic-messages','gemini-generate-content'].includes(connProtocol.value) && connAuth?.value==='none')connAuth.value='bearer';
+  };
+  connType?.addEventListener('change',syncConnectionDefaults);
+  connProtocol?.addEventListener('change',syncConnectionDefaults);
+  syncConnectionDefaults();
   add.disabled=!user;
   async function load(){
     if(!signedIn()){status.textContent='Sign in to manage Universal Connections.';status.dataset.state='error';add.disabled=true;$('ovyx-v91-saved-wrap')?.setAttribute('hidden','');return}
@@ -14962,7 +15012,12 @@ function render(panel){
     if(!name||!endpoint){status.textContent='Enter a name and endpoint first.';status.dataset.state='error';return}
     add.disabled=true;status.textContent='Saving securely…';status.dataset.state='ready';
     try{
-      await api('/api/settings/connections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,type,endpoint,healthUrl:endpoint,active:true,protocol:type==='ai'?'openai-chat':'http-json',authMode:'none'})});
+      const protocol=connProtocol?.value||(type==='ai'?'openai-chat':'http-json');
+      const authMode=connAuth?.value||'none';
+      const secret=connSecret?.value||'';
+      const model=connModel?.value?.trim()||'';
+      await api('/api/settings/connections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,type,endpoint,healthUrl:endpoint,active:true,protocol,authMode,secret,model})});
+      if(connSecret)connSecret.value='';
       status.textContent='Connection added successfully.';status.dataset.state='ok';
       await load();
     }catch(e){status.textContent=e.message||'Connection could not be saved.';status.dataset.state='error';add.disabled=false}
