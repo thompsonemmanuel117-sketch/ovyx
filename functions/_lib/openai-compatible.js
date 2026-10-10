@@ -16,7 +16,10 @@ function clean(value) {
  * .../chat/completions URL. The secret is never included in a status response.
  */
 export function resolveOpenAICompatibleConfig(env = {}) {
-  const configuredBase = clean(env.OPENAI_BASE_URL);
+  // OVYX_AI_BASE_URL is shared by API-key-backed brain choices. OPENAI_BASE_URL
+  // remains an override for the OpenAI route only when shared mode is absent.
+  const sharedBase = clean(env.OVYX_AI_BASE_URL);
+  const configuredBase = sharedBase || clean(env.OPENAI_BASE_URL);
   const custom = Boolean(configuredBase);
   const raw = configuredBase || DEFAULT_BASE_URL;
 
@@ -68,7 +71,7 @@ export function resolveOpenAICompatibleConfig(env = {}) {
     label = 'OpenAI-compatible provider';
   }
 
-  const candidates = provider === 'groq'
+  const endpointCandidates = provider === 'groq'
     ? ['GROQ_API_KEY', 'OPENAI_API_KEY']
     : provider === 'openrouter'
       ? ['OPENROUTER_API_KEY', 'OPENAI_API_KEY']
@@ -76,7 +79,28 @@ export function resolveOpenAICompatibleConfig(env = {}) {
         ? ['DEEPSEEK_API_KEY', 'OPENAI_API_KEY']
         : ['OPENAI_API_KEY'];
 
-  const keySource = candidates.find(name => Boolean(clean(env[name]))) || null;
+  // For an explicitly configured compatible endpoint, the environment-variable
+  // name is not treated as proof of the credential's vendor. The endpoint must
+  // still accept the key. Native defaults remain vendor-specific.
+  const allProviderKeys = [
+    'OPENAI_API_KEY',
+    'GROQ_API_KEY',
+    'OPENROUTER_API_KEY',
+    'DEEPSEEK_API_KEY',
+    'GEMINI_API_KEY',
+    'ANTHROPIC_API_KEY',
+  ];
+  const candidates = custom
+    ? [
+        'OVYX_AI_API_KEY',
+        'AI_API_KEY',
+        ...endpointCandidates,
+        ...allProviderKeys,
+      ]
+    : ['OPENAI_API_KEY'];
+
+  const uniqueCandidates = [...new Set(candidates)];
+  const keySource = uniqueCandidates.find(name => Boolean(clean(env[name]))) || null;
   const key = keySource ? clean(env[keySource]) : '';
 
   return {
@@ -90,11 +114,21 @@ export function resolveOpenAICompatibleConfig(env = {}) {
     configured: Boolean(key),
     key,
     keySource,
-    expectedKeyName: candidates[0]
+    expectedKeyName: custom
+      ? 'OVYX_AI_API_KEY or any configured provider API-key variable'
+      : 'OPENAI_API_KEY'
   };
 }
 
 export function resolveOpenAICompatibleModel(env = {}, target, requested) {
+  const sharedModel = clean(env.OVYX_AI_MODEL);
+  if (sharedModel && (clean(env.OVYX_AI_BASE_URL) || clean(env.OPENAI_BASE_URL))) {
+    return sharedModel;
+  }
+
+  // With a shared gateway, do not pass an unrelated native model identifier
+  // from the selected UI label to the compatible endpoint.
+  if (clean(env.OVYX_AI_BASE_URL)) requested = '';
   const requestedText = clean(requested);
   if (requestedText && !GENERIC_MODEL_NAMES.has(requestedText.toLowerCase())) {
     return requestedText;
