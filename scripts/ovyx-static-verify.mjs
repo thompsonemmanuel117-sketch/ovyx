@@ -36,6 +36,37 @@ for (const file of walk(path.join(root, 'functions'))) {
   }
 }
 
+// Runtime contract checks for the incidents OVYX is repairing. Syntax alone
+// does not detect an AI route that can wait forever or a missing API handler.
+const providerRouterPath = path.join(root, 'functions/_lib/providers.js');
+if (fs.existsSync(providerRouterPath)) {
+  const providerRouter = fs.readFileSync(providerRouterPath, 'utf8');
+  if (!/function fetchWithTimeout\(/.test(providerRouter)) {
+    errors.push('functions/_lib/providers.js: AI provider requests need an explicit timeout.');
+  }
+  if (!/withTimeout\(\s*getActiveBrainConnectionId/.test(providerRouter)) {
+    errors.push('functions/_lib/providers.js: Universal Connection lookup needs a deadline.');
+  }
+  if (!/catch\s*\(err\)[\s\S]*?errors\.push\(['"`]universal-connection/i.test(providerRouter)) {
+    errors.push('functions/_lib/providers.js: automatic AI routing must recover from a failed saved Universal Connection.');
+  }
+  const rawFetches = (providerRouter.match(/\bawait fetch\s*\(/g) || []).length;
+  if (rawFetches !== 1 || !/return await fetch\(url,\s*\{ \.\.\.options, signal: controller\.signal \}\)/.test(providerRouter)) {
+    errors.push('functions/_lib/providers.js: provider network calls must pass through the timeout wrapper.');
+  }
+}
+
+const entitlementRoutePath = path.join(root, 'functions/api/entitlements.js');
+if (fs.existsSync(entitlementRoutePath)) {
+  const entitlementRoute = fs.readFileSync(entitlementRoutePath, 'utf8');
+  if (!/export async function onRequestGet\s*\(/.test(entitlementRoute)) {
+    errors.push('functions/api/entitlements.js: authenticated GET route is missing; owner/admin visibility cannot be verified.');
+  }
+  if (!/role\s*,[\s\S]*owner:\s*root[\s\S]*admin:\s*root/.test(entitlementRoute)) {
+    errors.push('functions/api/entitlements.js: server-authoritative owner/admin fields are missing from the response contract.');
+  }
+}
+
 for (const file of walk(root).filter(x => /\.json$/.test(x))) {
   try {
     JSON.parse(fs.readFileSync(file, 'utf8'));
