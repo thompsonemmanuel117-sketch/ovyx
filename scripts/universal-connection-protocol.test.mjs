@@ -24,6 +24,11 @@ const anthropicBody = buildUniversalConnectionPayload(
   { system: 'be helpful', user: 'say hello', maxTokens: 120 }
 );
 assert.equal(anthropicBody.model, 'claude-sonnet-4-6');
+const savedAnthropicModelWins = buildUniversalConnectionPayload(
+  { protocol: 'anthropic-messages', model: 'claude-sonnet-4-6' },
+  { model: 'gemini-2.5-flash', system: 'safe', user: 'say hello' }
+);
+assert.equal(savedAnthropicModelWins.model, 'claude-sonnet-4-6');
 assert.equal(anthropicBody.system, 'be helpful');
 assert.deepEqual(anthropicBody.messages, [{ role: 'user', content: 'say hello' }]);
 assert.equal(anthropicBody.max_tokens, 120);
@@ -54,5 +59,13 @@ await assert.rejects(
     { uid: 'test-user', email: 'test@example.test' }
   ),
   /HTTPS/
+);
+await assert.rejects(
+  () => buildConnectionRecord(
+    {},
+    { name: 'Query Secret', type: 'ai', endpoint: 'https://example.test/v1?api_key=do-not-save', protocol: 'openai-chat', authMode: 'bearer', secret: 'test-key' },
+    { uid: 'test-user', email: 'test@example.test' }
+  ),
+  /query parameters/
 );
 console.log('Universal Connection provider protocol tests passed.');

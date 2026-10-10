@@ -278,9 +278,7 @@ async function callGemini(
   const url =
     `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(
       model
-    )}:generateContent?key=${encodeURIComponent(
-      env.GEMINI_API_KEY
-    )}`;
+    )}:generateContent`;
 
   const body = {
     systemInstruction: {
@@ -325,6 +323,8 @@ async function callGemini(
         headers: {
           'Content-Type':
             'application/json',
+          'x-goog-api-key':
+            env.GEMINI_API_KEY,
         },
 
         body:

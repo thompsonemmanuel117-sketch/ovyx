@@ -189,11 +189,29 @@ async function decryptSecret(env, encrypted) {
   return new TextDecoder().decode(plain);
 }
 
+function redactSensitiveEndpoint(value) {
+  const raw = clean(value);
+  if (!raw) return raw;
+  try {
+    const parsed = new URL(raw);
+    for (const key of parsed.searchParams.keys()) {
+      if (/(?:api[-_]?key|token|secret|auth|credential|password|access[-_]?key)/i.test(key)) {
+        parsed.searchParams.set(key, '[REDACTED]');
+      }
+    }
+    return parsed.toString();
+  } catch {
+    return raw.replace(/([?&](?:api[-_]?key|token|secret|auth|credential|password|access[-_]?key)=)[^&]*/ig, '$1[REDACTED]');
+  }
+}
+
 export function publicConnection(record, id) {
   const copy = { ...(record || {}) };
   delete copy.encryptedSecret;
   delete copy.secret;
   copy.id = clean(id || copy.id, 100);
+  copy.endpoint = redactSensitiveEndpoint(copy.endpoint);
+  copy.healthUrl = redactSensitiveEndpoint(copy.healthUrl);
   copy.hasSecret = !!record?.encryptedSecret;
   copy.requiresSecret = copy.authMode !== 'none';
   copy.capabilities = {
@@ -357,11 +375,39 @@ function openAiEndpoint(endpoint) {
 }
 
 
+function connectionModelCompatible(protocol, value) {
+  const model = clean(value, 180);
+  if (!model) return false;
+  if (protocol === 'anthropic-messages') return /^claude-/i.test(model);
+  if (protocol === 'gemini-generate-content') return /^gemini-/i.test(model);
+  if (protocol === 'openai-chat') return !/^(?:claude-|gemini-)/i.test(model);
+  return true;
+}
+
 function resolveConnectionModel(record, requestedModel) {
-  const requested = clean(requestedModel, 180);
   const generic = new Set(['automatic', 'auto', 'openai', 'chatgpt', 'gpt', 'claude', 'anthropic', 'gemini', 'deepseek']);
-  if (requested && !generic.has(requested.toLowerCase())) return requested;
-  return clean(record?.model, 180);
+  const saved = clean(record?.model, 180);
+  if (saved && !generic.has(saved.toLowerCase()) && connectionModelCompatible(record?.protocol, saved)) {
+    return saved;
+  }
+
+  const requested = clean(requestedModel, 180);
+  if (requested && !generic.has(requested.toLowerCase()) && connectionModelCompatible(record?.protocol, requested)) {
+    return requested;
+  }
+
+  if (record?.protocol === 'anthropic-messages') return 'claude-sonnet-4-6';
+  if (record?.protocol === 'gemini-generate-content') return 'gemini-2.5-flash';
+
+  if (record?.protocol === 'openai-chat') {
+    try {
+      const host = new URL(String(record.endpoint || '')).hostname.toLowerCase();
+      if (host === 'api.deepseek.com' || host.endsWith('.deepseek.com')) return 'deepseek-flash';
+      if (host === 'api.openai.com') return 'gpt-5';
+      if (host === 'api.groq.com' || host.endsWith('.groq.com')) return 'openai/gpt-oss-20b';
+    } catch {}
+  }
+  return '';
 }
 
 export function universalConnectionEndpoint(record, requestedModel) {
@@ -399,6 +445,13 @@ export function buildUniversalConnectionPayload(record, input = {}) {
   const user = clean(input.user || input.prompt, 50_000);
   const maxTokens = Number(input.maxTokens) > 0 ? Math.min(Number(input.maxTokens), 24000) : 4096;
   const temperature = typeof input.temperature === 'number' ? Math.max(0, Math.min(input.temperature, 1)) : 0.2;
+
+  if (record?.protocol === 'openai-chat' && !model) {
+    throw Object.assign(
+      new Error('Add the model name to this AI Brain connection before using it.'),
+      { status: 400, code: 'AI_MODEL_REQUIRED' }
+    );
+  }
 
   if (record?.protocol === 'anthropic-messages') {
     return {
@@ -576,7 +629,7 @@ export async function callUserUniversalConnection(
     env
   );
 
-  if (!result.text && record.protocol === 'openai-chat') {
+  if (!result.text && supportsAIProtocol(record.protocol)) {
     throw Object.assign(
       new Error('Universal Connection returned no text content.'),
       { status: 502, code: 'CONNECTION_EMPTY_RESPONSE' }
@@ -586,7 +639,7 @@ export async function callUserUniversalConnection(
   return {
     provider: 'connection:' + id,
     routedProvider: 'universal-connection',
-    model: clean(model || record.model, 180) || null,
+    model: resolveConnectionModel(record, model) || null,
     text: result.text || (typeof result.data === 'string' ? result.data : JSON.stringify(result.data)),
     raw: result.data,
     rawUsage: result.data?.usage || null

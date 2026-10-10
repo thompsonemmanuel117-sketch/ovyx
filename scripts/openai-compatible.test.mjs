@@ -160,6 +160,16 @@ try {
   assert.equal(requests[0].url, 'https://api.deepseek.com/chat/completions');
   assert.equal(requests[0].authorization, 'Bearer test-deepseek-key');
 
+  requests.length = 0;
+  const gemini = await callModel(
+    { GEMINI_API_KEY: 'test-gemini-key' },
+    { provider: 'gemini', model: 'gemini-2.5-flash', system: 'test system', user: 'test prompt', maxTokens: 32 },
+  );
+  assert.equal(gemini.provider, 'gemini');
+  assert.equal(requests[0].url, 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent');
+  assert.equal(requests[0].geminiKey, 'test-gemini-key');
+  assert.equal(requests[0].url.includes('test-gemini-key'), false);
+
   const workersRequests = [];
   const workersAI = {
     run: async (model, payload) => {
