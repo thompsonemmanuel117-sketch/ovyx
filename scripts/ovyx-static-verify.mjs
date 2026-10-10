@@ -56,6 +56,19 @@ if (fs.existsSync(providerRouterPath)) {
   }
 }
 
+const deploymentRoutePath = path.join(root, 'functions/api/deploy.js');
+if (!fs.existsSync(deploymentRoutePath)) {
+  errors.push('functions/api/deploy.js: secure publishing route is missing.');
+} else {
+  const deploymentRoute = fs.readFileSync(deploymentRoutePath, 'utf8');
+  if (
+    !/const\\s+canDeploy\\s*=\\s*await\\s+hasCloudflareDeployCapability\\s*\\(/.test(deploymentRoute) ||
+    !/if\\s*\\(\\s*!canDeploy\\s*\\)/.test(deploymentRoute)
+  ) {
+    errors.push('functions/api/deploy.js: publishing must await the server-side entitlement check and deny deployment when not allowed.');
+  }
+}
+
 const entitlementRoutePath = path.join(root, 'functions/api/entitlements.js');
 if (fs.existsSync(entitlementRoutePath)) {
   const entitlementRoute = fs.readFileSync(entitlementRoutePath, 'utf8');
