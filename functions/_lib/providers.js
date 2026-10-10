@@ -47,9 +47,10 @@ function getConfiguredModel(
   provider,
   requested
 ) {
-  if (provider === 'openai' && String(env?.OPENAI_BASE_URL || '').trim()) {
+  const sharedGateway = String(env?.OVYX_AI_BASE_URL || '').trim();
+  if (provider === 'openai' && (sharedGateway || String(env?.OPENAI_BASE_URL || '').trim())) {
     const target = resolveOpenAICompatibleConfig(env);
-    return resolveOpenAICompatibleModel(env, target, requested);
+    return resolveOpenAICompatibleModel(env, target, sharedGateway ? '' : requested);
   }
 
   const map = {
@@ -641,7 +642,7 @@ async function callOpenAI(
     maxTokens,
   }
 ) {
-  const customBase = String(env.OPENAI_BASE_URL || '').trim();
+  const customBase = String(env.OVYX_AI_BASE_URL || env.OPENAI_BASE_URL || '').trim();
 
   if (customBase) {
     const target = resolveOpenAICompatibleConfig(env);
@@ -660,7 +661,7 @@ async function callOpenAI(
     if (!selectedModel) {
       throw Object.assign(
         new Error(
-          'An OpenAI-compatible endpoint is configured, but its model is not. Set OPENAI_MODEL or the model variable for the actual provider.'
+          'An OpenAI-compatible endpoint is configured, but its model is not. Set OVYX_AI_MODEL for shared gateway mode or OPENAI_MODEL for the OpenAI route.'
         ),
         { code: 'AI_MODEL_NOT_CONFIGURED', status: 503 }
       );
@@ -755,6 +756,15 @@ function normalizeRequestedProvider(value, env = {}) {
     .trim()
     .toLowerCase();
 
+  // Shared gateway mode treats OpenAI/Claude/Gemini/DeepSeek as UI brain choices
+  // routed through one explicitly configured compatible endpoint.
+  if (
+    String(env?.OVYX_AI_BASE_URL || '').trim() &&
+    ['chatgpt', 'openai', 'claude', 'anthropic', 'gemini', 'deepseek', 'groq', 'openrouter', 'openai-compatible'].includes(normalized)
+  ) {
+    return 'openai';
+  }
+
   if (normalized === 'chatgpt' || normalized === 'openai') {
     // OpenAI is a distinct provider. Never divert its key/choice to Groq.
     // For a custom OpenAI-compatible endpoint, OPENAI_BASE_URL remains authoritative.
@@ -778,6 +788,13 @@ function normalizeRequestedProvider(value, env = {}) {
 
 function normalizeConfiguredProvider(value, env = {}) {
   const provider = String(value || '').trim().toLowerCase();
+
+  if (
+    String(env?.OVYX_AI_BASE_URL || '').trim() &&
+    ['gemini', 'deepseek', 'claude', 'anthropic', 'openai', 'chatgpt', 'gpt', 'groq', 'openrouter', 'openai-compatible'].includes(provider)
+  ) {
+    return 'openai';
+  }
 
   // If OPENAI_BASE_URL is set, the "groq" slot in an existing order can use
   // the configured compatible endpoint even when GROQ_API_KEY is not defined.
