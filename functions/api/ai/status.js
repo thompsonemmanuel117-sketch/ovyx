@@ -3,6 +3,21 @@ import { errorResponse, requestId } from '../_lib/http.js';
 
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 
+function isOpenRouterKey(value) {
+  return /^sk-or-v1-/i.test(String(value || '').trim());
+}
+
+function resolveBase(value, fallback) {
+  const candidate = String(value || '').trim() || fallback;
+  try {
+    const url = new URL(candidate);
+    if (url.protocol !== 'https:' || url.username || url.password) throw new Error('Invalid base URL');
+    return url.toString().replace(/\/+$/, '');
+  } catch {
+    return fallback;
+  }
+}
+
 const PROVIDERS = Object.freeze({
   gemini: {
     env: 'GEMINI_API_KEY',
@@ -22,25 +37,37 @@ const PROVIDERS = Object.freeze({
   },
   openai: {
     env: 'OPENAI_API_KEY',
-    label: 'OpenAI',
-    check: key => fetchWithTimeout(
-      'https://api.openai.com/v1/models',
-      { headers: { Accept: 'application/json', Authorization: `Bearer ${key}` } },
-    ),
+    label: 'OVYX AI',
+    check: (key, env) => {
+      const base = resolveBase(env?.OPENAI_BASE_URL, 'https://api.openai.com/v1');
+      return fetchWithTimeout(
+        `${base}/models`,
+        { headers: { Accept: 'application/json', Authorization: `Bearer ${key}` } },
+      );
+    },
   },
   anthropic: {
     env: 'ANTHROPIC_API_KEY',
-    label: 'Anthropic',
-    check: key => fetchWithTimeout(
-      'https://api.anthropic.com/v1/models',
-      {
-        headers: {
-          Accept: 'application/json',
-          'x-api-key': key,
-          'anthropic-version': '2023-06-01',
+    label: 'Claude',
+    check: (key, env) => {
+      if (isOpenRouterKey(key)) {
+        const base = resolveBase(env?.OPENROUTER_BASE_URL, 'https://openrouter.ai/api/v1');
+        return fetchWithTimeout(
+          `${base}/models`,
+          { headers: { Accept: 'application/json', Authorization: `Bearer ${key}` } },
+        );
+      }
+      return fetchWithTimeout(
+        'https://api.anthropic.com/v1/models',
+        {
+          headers: {
+            Accept: 'application/json',
+            'x-api-key': key,
+            'anthropic-version': '2023-06-01',
+          },
         },
-      },
-    ),
+      );
+    },
   },
 });
 
@@ -70,11 +97,14 @@ function isAdmin(user) {
 
 async function checkProvider(id, config, env) {
   const key = String(env?.[config.env] || '').trim();
+  const label = id === 'anthropic' && isOpenRouterKey(key)
+    ? 'OVYX Reasoning'
+    : config.label;
 
   if (!key) {
     return {
       provider: id,
-      label: config.label,
+      label,
       status: 'NOT_CONFIGURED',
       configured: false,
       connected: false,
@@ -82,12 +112,12 @@ async function checkProvider(id, config, env) {
   }
 
   try {
-    const response = await config.check(key);
+    const response = await config.check(key, env);
 
     if (response.ok) {
       return {
         provider: id,
-        label: config.label,
+        label,
         status: 'READY',
         configured: true,
         connected: true,
@@ -97,7 +127,7 @@ async function checkProvider(id, config, env) {
 
     return {
       provider: id,
-      label: config.label,
+      label,
       status: response.status === 401 || response.status === 403
         ? 'AUTH_FAILED'
         : 'UNAVAILABLE',
@@ -108,7 +138,7 @@ async function checkProvider(id, config, env) {
   } catch (error) {
     return {
       provider: id,
-      label: config.label,
+      label,
       status: error?.name === 'AbortError' ? 'TIMEOUT' : 'UNAVAILABLE',
       configured: true,
       connected: false,
