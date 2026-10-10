@@ -7,6 +7,7 @@ export const PROVIDER_ENV_KEYS = Object.freeze({
   gemini: 'GEMINI_API_KEY',
   openai: 'OPENAI_API_KEY',
   anthropic: 'ANTHROPIC_API_KEY',
+  groq: 'GROQ_API_KEY',
 });
 
 const PROVIDER_ALIASES = Object.freeze({
@@ -15,12 +16,31 @@ const PROVIDER_ALIASES = Object.freeze({
   deepseek: 'deepseek',
   gemini: 'gemini',
   openai: 'openai',
+  groq: 'groq',
+  cloudflare: 'cloudflare-workers-ai',
+  'workers-ai': 'cloudflare-workers-ai',
+  'cloudflare-workers-ai': 'cloudflare-workers-ai',
 });
 
-const DEFAULT_ORDER = Object.freeze(['gemini', 'deepseek', 'openai', 'claude']);
+const DEFAULT_ORDER = Object.freeze([
+  'gemini',
+  'deepseek',
+  'cloudflare-workers-ai',
+  'groq',
+  'openai',
+  'claude',
+]);
 
 function clean(value) {
   return String(value ?? '').trim();
+}
+
+function isGroqBaseUrl(value) {
+  try {
+    return new URL(clean(value)).hostname.toLowerCase() === 'api.groq.com';
+  } catch {
+    return false;
+  }
 }
 
 function canonicalProvider(value) {
@@ -29,6 +49,14 @@ function canonicalProvider(value) {
 
 export function getProviderKey(provider, env) {
   const canonical = canonicalProvider(provider);
+  if (canonical === 'cloudflare-workers-ai') {
+    return env?.AI && typeof env.AI.run === 'function' ? 'AI_BINDING' : null;
+  }
+  if (canonical === 'groq') {
+    return clean(env?.GROQ_API_KEY) ||
+      (isGroqBaseUrl(env?.OPENAI_BASE_URL) ? clean(env?.OPENAI_API_KEY) : '') ||
+      null;
+  }
   const envName = canonical === 'claude'
     ? 'ANTHROPIC_API_KEY'
     : PROVIDER_ENV_KEYS[canonical];
@@ -47,7 +75,15 @@ function providerOrder(env, requested) {
     .map(canonicalProvider)
     .filter(Boolean);
 
-  return [...new Set([...configured, ...DEFAULT_ORDER])];
+  let candidates = [...new Set([...configured, ...DEFAULT_ORDER])];
+
+  // If OPENAI_BASE_URL points at Groq and the order already includes Groq,
+  // avoid retrying the same upstream with the same key under a second name.
+  if (isGroqBaseUrl(env?.OPENAI_BASE_URL) && candidates.includes('groq')) {
+    candidates = candidates.filter(provider => provider !== 'openai');
+  }
+
+  return candidates;
 }
 
 function normalizeMessages(input) {
@@ -115,9 +151,13 @@ export async function callModel(env, input = {}) {
         timeoutMs: Number(input.timeoutMs) > 0 ? Number(input.timeoutMs) : undefined,
       });
 
+      const providerLabel = result.providerLabel ||
+        (['openai', 'groq', 'openrouter'].includes(result.provider) ? 'OVYX AI' : result.provider);
+
       return {
         text: result.text,
         provider: result.provider,
+        providerLabel,
         model: result.model,
         requestedProvider: requestedRaw || 'automatic',
         routedProvider: result.provider,
