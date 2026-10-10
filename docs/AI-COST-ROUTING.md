@@ -1,34 +1,42 @@
 # OVYX AI routing and provider setup
 
-OVYX sends AI requests through the provider selected by the user or by the configured Automatic routing order. The backend reports the provider that actually handled the request; a key from one company is not treated as a key for another company.
+OVYX can use normal provider-specific APIs or one shared OpenAI-compatible gateway. The backend reports the service that actually answered the request, rather than pretending a gateway is a native Gemini/Anthropic/OpenAI service.
 
-## Provider behavior
+## Option A: one shared API endpoint for all API-key-backed AI brain choices
 
-- **OpenAI / ChatGPT** uses the official OpenAI API when no custom endpoint is configured. If `OPENAI_BASE_URL` is set, this route uses that configured OpenAI-compatible endpoint instead.
+Set these Cloudflare Pages environment values/secrets:
+
+- `OVYX_AI_BASE_URL` — HTTPS base URL for the compatible endpoint, for example `https://api.groq.com/openai/v1`.
+- `OVYX_AI_MODEL` — a model identifier accepted by that endpoint, for example `openai/gpt-oss-20b` if the selected service supports it.
+- `OVYX_AI_API_KEY` — the key issued by the service at that endpoint. This is the clearest secret name to use for shared-gateway mode.
+
+When `OVYX_AI_BASE_URL` is configured, the OpenAI, Claude, Gemini and DeepSeek choices route through that same compatible endpoint and model. The key can be stored in `OVYX_AI_API_KEY` or, if necessary, in another configured provider key slot. OVYX does not require the secret's variable name to match the gateway's brand.
+
+**Important:** the endpoint and the key must still match. For example, Groq documents its OpenAI-compatible API at `https://api.groq.com/openai/v1` and requires a Groq-issued key for that endpoint. [Groq OpenAI compatibility documentation](https://console.groq.com/docs/openai). An unrelated Gemini or OpenAI key is not made valid for Groq by putting it into a different environment-variable slot. Use a key that the selected endpoint accepts.
+
+## Option B: keep separate native provider routes
+
+If `OVYX_AI_BASE_URL` is not set, OVYX continues using separate native provider endpoints:
+
+- **OpenAI / ChatGPT** uses the official OpenAI API unless `OPENAI_BASE_URL` is set to a compatible endpoint.
 - **Claude / Anthropic** uses Anthropic's native Messages API and `ANTHROPIC_API_KEY`.
 - **Gemini** uses Google's Gemini API and `GEMINI_API_KEY`.
 - **DeepSeek** uses DeepSeek's chat completions API and `DEEPSEEK_API_KEY`.
-- **Cloudflare Workers AI** is an optional final fallback in Automatic routing only when the Pages Functions environment has an AI binding named `AI`. It is not the same service as Anthropic or OpenAI.
+- **Cloudflare Workers AI** is an optional final Automatic fallback when the Pages Functions environment has an AI binding named `AI`.
 
-## Automatic routing
+In this mode, each native provider endpoint must accept the key being supplied. For a custom OpenAI-compatible endpoint set `OPENAI_BASE_URL`; the backend can take a key from any configured provider API-key slot when a custom compatible endpoint is explicitly configured.
 
-Set `OVYX_AI_PROVIDER_ORDER` (or `AI_PROVIDER_ORDER`) to a comma-separated order such as `gemini,deepseek,claude,openai`. OVYX skips providers that are not configured and tries configured providers in that order. Cloudflare Workers AI is appended as a final fallback when its binding is available.
+## Automatic routing and user's selected Brain
 
-An explicitly selected provider is not silently replaced with another provider. If a user has selected a Universal Connection as their AI Brain, OVYX uses that connection exclusively for that authenticated user's AI requests. If the selection cannot be verified or the connection fails, OVYX returns an error instead of silently switching to a platform key. The user must clear the selected Brain to return to platform Automatic routing.
+Without a shared gateway, set `OVYX_AI_PROVIDER_ORDER` (or `AI_PROVIDER_ORDER`) to a preference order such as `gemini,deepseek,claude,openai`. OVYX skips providers that are not configured and tries those that are available. Cloudflare Workers AI is appended as a final fallback when its binding exists.
 
-## OpenAI-compatible endpoints
+If the authenticated user has selected a Universal Connection as their AI Brain, that connection takes priority for the user's AI requests. If OVYX cannot verify or use the selected connection, it reports an error instead of silently switching to a platform key. Use **Clear AI Brain** to return to platform Automatic routing.
 
-Set `OPENAI_BASE_URL` to an HTTPS base such as `https://api.groq.com/openai/v1`, or to a full `.../chat/completions` URL. Never include a key, credentials, query parameters, or a fragment in the URL.
+## Security and diagnostics
 
-The server uses Bearer authentication. For recognized hosts it prefers the matching secret (`GROQ_API_KEY`, `OPENROUTER_API_KEY`, or `DEEPSEEK_API_KEY`) and can use `OPENAI_API_KEY` when it is intentionally configured for the selected compatible endpoint. Set a model accepted by that endpoint; provider-specific model variables take priority where supported.
+Never put keys or credentials in endpoint URLs. Keys stay server-side, and AI connection credentials are encrypted before storage. Keep the existing `OVYX_CONNECTION_ENCRYPTION_KEY` unchanged unless the stored credentials have been migrated.
 
-The admin status check calls the configured endpoint's models-list route. A successful check confirms that route answered, not that every model, generation request, billing entitlement or feature works.
-
-## Universal Connections (user-owned keys)
-
-Users can save their own provider key in a Universal Connection with the matching endpoint, protocol and model, then choose **Use as Brain**. Credentials are encrypted by the backend before storage and are not returned to browser code. AI connections and credential-bearing endpoints must use HTTPS. Do not paste credentials into endpoint URLs.
-
-Use the matching provider protocol: OpenAI-compatible Chat Completions, Anthropic Messages, or Gemini Generate Content. A Gemini key does not authenticate to OpenAI, and an OpenAI key does not authenticate to Anthropic. A compatible gateway only accepts keys its own service supports.
+The admin status check checks the configured endpoint's models-list route. A successful check means that route responded, not that every model, generation request, billing entitlement or feature works. A real generation test is still required.
 
 ## Cloudflare and Firebase setup
 
