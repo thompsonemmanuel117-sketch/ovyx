@@ -38,11 +38,63 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = PROVIDER_REQUEST_
 }
 
 
+function apiHost(value) {
+  try {
+    return new URL(String(value || '')).hostname.toLowerCase();
+  } catch {
+    return '';
+  }
+}
+
+function openAICompatibleBase(env) {
+  return String(
+    env?.OVYX_AI_BASE_URL ||
+    env?.OPENAI_BASE_URL ||
+    'https://api.openai.com/v1'
+  ).trim();
+}
+
+function isGroqEndpoint(value) {
+  return apiHost(value) === 'api.groq.com';
+}
+
+function isOpenRouterEndpoint(value) {
+  const host = apiHost(value);
+  return host === 'openrouter.ai' || host.endsWith('.openrouter.ai');
+}
+
+function isOpenAIFirstPartyEndpoint(value) {
+  return apiHost(value) === 'api.openai.com';
+}
+
+function safeApiBaseUrl(value, fallback, label) {
+  const raw = String(value || fallback || '').trim();
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw Object.assign(
+      new Error(label + ' API base URL is invalid.'),
+      { status: 500, code: 'AI_BASE_URL_INVALID' }
+    );
+  }
+
+  if (parsed.protocol !== 'https:' || parsed.username || parsed.password) {
+    throw Object.assign(
+      new Error(label + ' API base URL must be HTTPS and must not contain embedded credentials.'),
+      { status: 500, code: 'AI_BASE_URL_INVALID' }
+    );
+  }
+
+  return parsed.toString().replace(/\\/+$/, '');
+}
+
 function getConfiguredModel(
   env,
   provider,
   requested
 ) {
+  const compatibleBase = openAICompatibleBase(env);
   const map = {
     gemini:
       env.GEMINI_AGENT_MODEL ||
@@ -60,9 +112,15 @@ function getConfiguredModel(
       'deepseek-flash',
 
     openai:
+      env.OVYX_AI_AGENT_MODEL ||
+      env.OVYX_AI_MODEL ||
       env.OPENAI_AGENT_MODEL ||
       env.OPENAI_MODEL ||
-      'gpt-5',
+      (isGroqEndpoint(compatibleBase)
+        ? (env.GROQ_AGENT_MODEL || env.GROQ_MODEL || 'openai/gpt-oss-20b')
+        : isOpenRouterEndpoint(compatibleBase)
+          ? (env.OPENROUTER_MODEL || 'anthropic/claude-sonnet-4.6')
+          : 'gpt-5'),
 
     groq:
       env.GROQ_AGENT_MODEL ||
@@ -86,6 +144,8 @@ function getConfiguredModel(
       'chatgpt',
       'gpt',
       'gpt-3.5',
+      'ovyx',
+      'ovyx-ai',
       'groq',
       'llama',
       'workers-ai',
@@ -101,14 +161,10 @@ function getConfiguredModel(
 
   const compatibleWithRoute =
     provider === 'groq'
-      ? /^openai\\//i.test(
-          requestedText
-        )
+      ? /^openai\\//i.test(requestedText)
       : provider ===
         'cloudflare-workers-ai'
-      ? /^@cf\\//i.test(
-          requestedText
-        )
+      ? /^@cf\\//i.test(requestedText)
       : true;
 
   return requestedText &&
@@ -371,6 +427,77 @@ async function callGemini(
   };
 }
 
+async function callOpenAICompatible({
+  apiKey,
+  baseUrl,
+  model,
+  system,
+  user,
+  maxTokens,
+  provider,
+  displayProvider = 'OVYX AI',
+  endpointLabel = 'OVYX AI gateway',
+}) {
+  const key = String(apiKey || '').trim();
+  if (!key) {
+    throw new Error(endpointLabel + ' is not configured.');
+  }
+
+  const base = safeApiBaseUrl(baseUrl, 'https://api.openai.com/v1', endpointLabel);
+  const endpoint = /\\/chat\\/completions$/i.test(base)
+    ? base
+    : base + '/chat/completions';
+
+  const response = await fetchWithTimeout(
+    endpoint,
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        Authorization: 'Bearer ' + key,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+        max_tokens: maxTokens,
+        temperature: 0.2,
+      }),
+    }
+  );
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const detail = String(data?.error?.message || ('HTTP ' + response.status)).slice(0, 400);
+    throw new Error(endpointLabel + ' request failed: ' + detail);
+  }
+
+  const text = extractText(data?.choices?.[0]?.message?.content || data);
+  if (!text) {
+    throw new Error(endpointLabel + ' returned an empty response.');
+  }
+
+  const host = apiHost(base);
+  const upstreamProvider = isGroqEndpoint(base)
+    ? 'Groq'
+    : isOpenRouterEndpoint(base)
+      ? 'OpenRouter'
+      : isOpenAIFirstPartyEndpoint(base)
+        ? 'OpenAI'
+        : 'custom compatible endpoint';
+
+  return {
+    text,
+    model,
+    provider,
+    displayProvider,
+    upstreamProvider,
+    rawUsage: data?.usage || null,
+  };
+}
+
 async function callClaude(
   env,
   {
@@ -380,87 +507,86 @@ async function callClaude(
     maxTokens,
   }
 ) {
-  if (
-    !env.ANTHROPIC_API_KEY
-  ) {
+  const apiKey = String(env.ANTHROPIC_API_KEY || '').trim();
+  if (!apiKey) {
+    throw new Error('Anthropic or its configured compatible gateway is not configured.');
+  }
+
+  const configuredBase = String(
+    env.ANTHROPIC_BASE_URL ||
+    env.ANTHROPIC_API_BASE_URL ||
+    ''
+  ).trim();
+  const openRouterKey = /^sk-or-/i.test(apiKey);
+  const base = configuredBase || (openRouterKey
+    ? 'https://openrouter.ai/api/v1'
+    : 'https://api.anthropic.com/v1');
+  const compatibleEndpoint = openRouterKey ||
+    (!!configuredBase && apiHost(configuredBase) !== 'api.anthropic.com');
+
+  if (compatibleEndpoint) {
+    const compatibleModel =
+      env.OPENROUTER_MODEL ||
+      env.ANTHROPIC_AGENT_MODEL ||
+      env.ANTHROPIC_MODEL ||
+      (isOpenRouterEndpoint(base) ? 'anthropic/claude-sonnet-4.6' : model);
+
+    return callOpenAICompatible({
+      apiKey,
+      baseUrl: base,
+      model: compatibleModel,
+      system,
+      user,
+      maxTokens,
+      provider: 'claude',
+      displayProvider: 'OVYX AI',
+      endpointLabel: isOpenRouterEndpoint(base) ? 'OpenRouter gateway' : 'Anthropic-compatible gateway',
+    });
+  }
+
+  const nativeBase = safeApiBaseUrl(base, 'https://api.anthropic.com/v1', 'Anthropic');
+  const response = await fetchWithTimeout(
+    nativeBase + '/messages',
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: maxTokens,
+        system,
+        messages: [
+          {
+            role: 'user',
+            content: user,
+          },
+        ],
+      }),
+    }
+  );
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
     throw new Error(
-      'Anthropic is not configured.'
+      String(data?.error?.message || ('Anthropic HTTP ' + response.status)).slice(0, 400)
     );
   }
 
-  const response =
-    await fetchWithTimeout(
-      'https://api.anthropic.com/v1/messages',
-      {
-        method:
-          'POST',
-
-        headers: {
-          'content-type':
-            'application/json',
-
-          'x-api-key':
-            env.ANTHROPIC_API_KEY,
-
-          'anthropic-version':
-            '2023-06-01',
-        },
-
-        body:
-          JSON.stringify({
-            model,
-            max_tokens:
-              maxTokens,
-            system,
-            messages: [
-              {
-                role:
-                  'user',
-                content:
-                  user,
-              },
-            ],
-          }),
-      }
-    );
-
-  const data =
-    await response
-      .json()
-      .catch(
-        () => ({})
-      );
-
-  if (
-    !response.ok
-  ) {
-    throw new Error(
-      data?.error
-        ?.message ||
-        `Anthropic HTTP ${response.status}`
-    );
-  }
-
-  const text =
-    extractText(
-      data?.content ||
-        data
-    );
-
+  const text = extractText(data?.content || data);
   if (!text) {
-    throw new Error(
-      'Anthropic returned an empty response.'
-    );
+    throw new Error('Anthropic returned an empty response.');
   }
 
   return {
     text,
     model,
-    provider:
-      'claude',
-    rawUsage:
-      data?.usage ||
-      null,
+    provider: 'claude',
+    displayProvider: 'Claude',
+    upstreamProvider: 'Anthropic',
+    rawUsage: data?.usage || null,
   };
 }
 
@@ -562,9 +688,18 @@ async function callGroq(
     maxTokens,
   }
 ) {
-  if (!env.GROQ_API_KEY) {
+  const configuredBase = openAICompatibleBase(env);
+  const key = String(
+    env.GROQ_API_KEY ||
+    (isGroqEndpoint(configuredBase)
+      ? (env.OVYX_AI_API_KEY || env.OPENAI_API_KEY)
+      : '') ||
+    ''
+  ).trim();
+
+  if (!key) {
     throw new Error(
-      'Groq routing is not configured. Set GROQ_API_KEY in Cloudflare secrets.'
+      'Groq is not configured. Set GROQ_API_KEY, or pair OPENAI_API_KEY with OPENAI_BASE_URL=https://api.groq.com/openai/v1.'
     );
   }
 
@@ -574,7 +709,7 @@ async function callGroq(
       method: 'POST',
       headers: {
         'content-type': 'application/json',
-        Authorization: 'Bearer ' + env.GROQ_API_KEY,
+        Authorization: 'Bearer ' + key,
       },
       body: JSON.stringify({
         model,
@@ -592,8 +727,7 @@ async function callGroq(
 
   if (!response.ok) {
     throw new Error(
-      data?.error?.message ||
-        ('Groq HTTP ' + response.status)
+      String(data?.error?.message || ('Groq HTTP ' + response.status)).slice(0, 400)
     );
   }
 
@@ -609,6 +743,8 @@ async function callGroq(
     text,
     model,
     provider: 'groq',
+    displayProvider: 'OVYX AI',
+    upstreamProvider: 'Groq',
     rawUsage: data?.usage || null,
   };
 }
@@ -665,78 +801,78 @@ async function callOpenAI(
     maxTokens,
   }
 ) {
-  if (
-    !env.OPENAI_API_KEY
-  ) {
+  const apiKey = String(
+    env.OVYX_AI_API_KEY ||
+    env.OPENAI_API_KEY ||
+    ''
+  ).trim();
+
+  if (!apiKey) {
     throw new Error(
-      'OpenAI is not configured.'
+      'OVYX AI is not configured. Set OVYX_AI_API_KEY or OPENAI_API_KEY in Cloudflare secrets.'
     );
   }
 
-  const response =
-    await fetchWithTimeout(
-      'https://api.openai.com/v1/responses',
-      {
-        method:
-          'POST',
+  const configuredBase = String(
+    env.OVYX_AI_BASE_URL ||
+    env.OPENAI_BASE_URL ||
+    ''
+  ).trim();
+  const base = configuredBase || 'https://api.openai.com/v1';
 
-        headers: {
-          'content-type':
-            'application/json',
+  // OVYX AI can use any HTTPS endpoint that implements the OpenAI Chat
+  // Completions protocol (for example Groq or OpenRouter). A first-party
+  // OpenAI endpoint keeps its existing Responses API behavior.
+  if (configuredBase && !isOpenAIFirstPartyEndpoint(base)) {
+    return callOpenAICompatible({
+      apiKey,
+      baseUrl: base,
+      model,
+      system,
+      user,
+      maxTokens,
+      provider: 'openai',
+      displayProvider: 'OVYX AI',
+      endpointLabel: 'OVYX AI gateway',
+    });
+  }
 
-          Authorization:
-            `Bearer ${env.OPENAI_API_KEY}`,
-        },
+  const response = await fetchWithTimeout(
+    'https://api.openai.com/v1/responses',
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        Authorization: 'Bearer ' + apiKey,
+      },
+      body: JSON.stringify({
+        model,
+        instructions: system,
+        input: user,
+        max_output_tokens: maxTokens,
+      }),
+    }
+  );
 
-        body:
-          JSON.stringify({
-            model,
-            instructions:
-              system,
-            input:
-              user,
-            max_output_tokens:
-              maxTokens,
-          }),
-      }
-    );
-
-  const data =
-    await response
-      .json()
-      .catch(
-        () => ({})
-      );
-
-  if (
-    !response.ok
-  ) {
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
     throw new Error(
-      data?.error
-        ?.message ||
-        `OpenAI HTTP ${response.status}`
+      String(data?.error?.message || ('OpenAI-compatible gateway HTTP ' + response.status)).slice(0, 400)
     );
   }
 
-  const text =
-    extractText(
-      data
-    );
-
+  const text = extractText(data);
   if (!text) {
-    throw new Error(
-      'OpenAI returned an empty response.'
-    );
+    throw new Error('OVYX AI returned an empty response.');
   }
 
   return {
     text,
     model,
-    provider:
-      'openai',
-    rawUsage:
-      data?.usage ||
-      null,
+    provider: 'openai',
+    displayProvider: 'OVYX AI',
+    upstreamProvider: 'OpenAI',
+    rawUsage: data?.usage || null,
   };
 }
 
@@ -745,12 +881,12 @@ function normalizeRequestedProvider(value) {
     .trim()
     .toLowerCase();
 
-  if (normalized === 'chatgpt' || normalized === 'openai') {
-    return 'groq';
+  if (['chatgpt', 'openai', 'gpt', 'ovyx', 'ovyx-ai', 'openai-compatible'].includes(normalized)) {
+    return 'openai';
   }
 
   if (normalized === 'claude' || normalized === 'anthropic') {
-    return 'cloudflare-workers-ai';
+    return 'claude';
   }
 
   if (
@@ -775,7 +911,7 @@ function normalizeConfiguredProvider(value) {
    * still use normalizeRequestedProvider() and retain the documented aliases.
    */
   if (provider === 'anthropic') return 'claude';
-  if (provider === 'chatgpt' || provider === 'gpt') return 'openai';
+  if (provider === 'chatgpt' || provider === 'gpt' || provider === 'ovyx' || provider === 'ovyx-ai' || provider === 'openai-compatible') return 'openai';
   if (provider === 'cloudflare' || provider === 'workers-ai') return 'cloudflare-workers-ai';
   return provider;
 }
