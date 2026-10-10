@@ -4,7 +4,8 @@ import {
 } from './firebase-admin.js';
 
 const TYPES = new Set(['ai', 'http', 'webhook', 'tool', 'database']);
-const PROTOCOLS = new Set(['openai-chat', 'http-json']);
+const AI_PROTOCOLS = new Set(['openai-chat', 'anthropic-messages', 'gemini-generate-content']);
+const PROTOCOLS = new Set([...AI_PROTOCOLS, 'http-json']);
 const AUTH_MODES = new Set(['bearer', 'api-key', 'basic', 'none']);
 const MAX_RESPONSE_BYTES = 1_000_000;
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -36,6 +37,10 @@ function normalizeProtocol(value, type) {
   return normalizeType(type) === 'ai' ? 'openai-chat' : 'http-json';
 }
 
+export function supportsAIProtocol(value) {
+  return AI_PROTOCOLS.has(clean(value, 40).toLowerCase().replace(/[ _]+/g, '-'));
+}
+
 function normalizeAuthMode(value) {
   const raw = clean(value, 40).toLowerCase().replace(/[_ ]+/g, '-');
   if (raw === 'apikey' || raw === 'x-api-key' || raw === 'api-key') return 'api-key';
@@ -43,7 +48,7 @@ function normalizeAuthMode(value) {
   return 'none';
 }
 
-function assertSafeUrl(value, { required = true } = {}) {
+function assertSafeUrl(value, { required = true, requireHttps = false } = {}) {
   const raw = clean(value);
   if (!raw) {
     if (required) throw Object.assign(new Error('Connection endpoint is required.'), {
@@ -65,6 +70,18 @@ function assertSafeUrl(value, { required = true } = {}) {
     throw Object.assign(new Error('Connection endpoint must use HTTP or HTTPS.'), {
       status: 400, code: 'INVALID_CONNECTION_PROTOCOL'
     });
+  }
+  if (requireHttps && parsed.protocol !== 'https:') {
+    throw Object.assign(new Error('AI endpoints and credential-bearing connections must use HTTPS.'), {
+      status: 400, code: 'CONNECTION_HTTPS_REQUIRED'
+    });
+  }
+  for (const parameter of parsed.searchParams.keys()) {
+    if (/(?:api[-_]?key|token|secret|auth|credential|password|access[-_]?key)/i.test(parameter)) {
+      throw Object.assign(new Error('Do not put API keys or credentials in endpoint query parameters. Use the encrypted credential field instead.'), {
+        status: 400, code: 'CONNECTION_CREDENTIALS_IN_URL'
+      });
+    }
   }
 
   const host = parsed.hostname.toLowerCase();
@@ -182,7 +199,7 @@ export function publicConnection(record, id) {
   copy.capabilities = {
     canUseAsBrain:
       copy.active === true &&
-      copy.protocol === 'openai-chat'
+      AI_PROTOCOLS.has(clean(copy.protocol, 40).toLowerCase())
   };
   return copy;
 }
@@ -204,15 +221,15 @@ export async function buildConnectionRecord(env, body, owner, existing = {}) {
     );
   }
 
-  const endpoint = assertSafeUrl(body?.endpoint || existing?.endpoint);
+  const protocol = normalizeProtocol(body?.protocol || existing?.protocol, type);
+  const authMode = normalizeAuthMode(body?.authMode || existing?.authMode);
+  const requireHttps = authMode !== 'none' || AI_PROTOCOLS.has(protocol);
+  const endpoint = assertSafeUrl(body?.endpoint || existing?.endpoint, { requireHttps });
   const healthUrl =
     assertSafeUrl(
       body?.healthUrl || existing?.healthUrl || endpoint,
-      { required: false }
+      { required: false, requireHttps }
     ) || endpoint;
-
-  const protocol = normalizeProtocol(body?.protocol || existing?.protocol, type);
-  const authMode = normalizeAuthMode(body?.authMode || existing?.authMode);
 
   let encryptedSecret = existing?.encryptedSecret || null;
   const secretProvided = Object.prototype.hasOwnProperty.call(body || {}, 'secret');
@@ -224,6 +241,13 @@ export async function buildConnectionRecord(env, body, owner, existing = {}) {
 
   if (authMode === 'none') {
     encryptedSecret = null;
+  }
+
+  if ((protocol === 'anthropic-messages' || protocol === 'gemini-generate-content') && authMode === 'none') {
+    throw Object.assign(
+      new Error('This provider protocol requires an API key. Choose an authenticated mode and enter the key in the credential field.'),
+      { status: 400, code: 'CONNECTION_SECRET_REQUIRED' }
+    );
   }
 
   if (authMode !== 'none' && !encryptedSecret) {
@@ -296,7 +320,19 @@ export async function getConnection(env, user, id, { requireActive = true } = {}
   return { id: safeId, record };
 }
 
-function applyAuth(headers, authMode, secret) {
+export function applyConnectionAuth(headers, authMode, secret, protocol) {
+  // Vendor-native authentication must be applied only on the server.
+  if (protocol === 'anthropic-messages') {
+    if (secret) {
+      headers['x-api-key'] = secret;
+      headers['anthropic-version'] = '2023-06-01';
+    }
+    return;
+  }
+  if (protocol === 'gemini-generate-content') {
+    if (secret) headers['x-goog-api-key'] = secret;
+    return;
+  }
   if (authMode === 'bearer') {
     headers.Authorization = 'Bearer ' + secret;
   } else if (authMode === 'api-key') {
@@ -318,6 +354,79 @@ function openAiEndpoint(endpoint) {
     parsed.pathname = path;
   }
   return parsed.toString();
+}
+
+
+function resolveConnectionModel(record, requestedModel) {
+  const requested = clean(requestedModel, 180);
+  const generic = new Set(['automatic', 'auto', 'openai', 'chatgpt', 'gpt', 'claude', 'anthropic', 'gemini', 'deepseek']);
+  if (requested && !generic.has(requested.toLowerCase())) return requested;
+  return clean(record?.model, 180);
+}
+
+export function universalConnectionEndpoint(record, requestedModel) {
+  const endpoint = new URL(String(record?.endpoint || ''));
+  const path = endpoint.pathname.replace(/\/+$/, '');
+  if (record?.protocol === 'openai-chat') {
+    if (!/\/chat\/completions$/i.test(path)) endpoint.pathname = path + '/chat/completions';
+    else endpoint.pathname = path;
+    return endpoint.toString();
+  }
+  if (record?.protocol === 'anthropic-messages') {
+    if (/\/v1\/messages$/i.test(path)) endpoint.pathname = path;
+    else if (/\/v1$/i.test(path)) endpoint.pathname = path + '/messages';
+    else endpoint.pathname = (path || '') + '/v1/messages';
+    return endpoint.toString();
+  }
+  if (record?.protocol === 'gemini-generate-content') {
+    const model = resolveConnectionModel(record, requestedModel) || 'gemini-2.5-flash';
+    const encodedModel = encodeURIComponent(model);
+    const complete = path.match(/^(.*\/models\/)[^/]+:generateContent$/i);
+    if (complete) endpoint.pathname = complete[1] + encodedModel + ':generateContent';
+    else if (/\/models$/i.test(path)) endpoint.pathname = path + '/' + encodedModel + ':generateContent';
+    else if (/\/v1beta$/i.test(path)) endpoint.pathname = path + '/models/' + encodedModel + ':generateContent';
+    else if (!path || path === '/') endpoint.pathname = '/v1beta/models/' + encodedModel + ':generateContent';
+    else endpoint.pathname = path + '/v1beta/models/' + encodedModel + ':generateContent';
+    return endpoint.toString();
+  }
+  return endpoint.toString();
+}
+
+export function buildUniversalConnectionPayload(record, input = {}) {
+  if (input?.payload && typeof input.payload === 'object') return input.payload;
+  const model = resolveConnectionModel(record, input.model);
+  const system = clean(input.system, 40_000);
+  const user = clean(input.user || input.prompt, 50_000);
+  const maxTokens = Number(input.maxTokens) > 0 ? Math.min(Number(input.maxTokens), 24000) : 4096;
+  const temperature = typeof input.temperature === 'number' ? Math.max(0, Math.min(input.temperature, 1)) : 0.2;
+
+  if (record?.protocol === 'anthropic-messages') {
+    return {
+      model: model || 'claude-sonnet-4-6',
+      max_tokens: maxTokens,
+      ...(system ? { system } : {}),
+      messages: [{ role: 'user', content: user }],
+      temperature
+    };
+  }
+  if (record?.protocol === 'gemini-generate-content') {
+    return {
+      ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
+      contents: [{ role: 'user', parts: [{ text: user }] }],
+      generationConfig: {
+        temperature,
+        maxOutputTokens: Math.min(maxTokens, 8192)
+      }
+    };
+  }
+  return {
+    messages: Array.isArray(input.messages) ? input.messages : [],
+    prompt: user,
+    system,
+    ...(model ? { model } : {}),
+    max_tokens: Number(input.maxTokens) > 0 ? Math.min(Number(input.maxTokens), 24000) : undefined,
+    temperature
+  };
 }
 
 function extractResponseText(payload) {
@@ -371,27 +480,11 @@ async function requestConnection(record, input, env) {
     'User-Agent': 'OVYX-Universal-Connection/1.0'
   };
   const secret = await decryptSecret(env, record.encryptedSecret);
-  applyAuth(headers, record.authMode, secret);
+  applyConnectionAuth(headers, record.authMode, secret, record.protocol);
 
   try {
-    const payload = input?.payload && typeof input.payload === 'object'
-      ? input.payload
-      : {
-          messages: Array.isArray(input?.messages) ? input.messages : [],
-          prompt: clean(input?.prompt, 50_000),
-          system: clean(input?.system, 40_000),
-          model: clean(input?.model || record.model, 180) || undefined,
-          max_tokens: Number(input?.maxTokens) > 0
-            ? Math.min(Number(input.maxTokens), 24000)
-            : undefined,
-          temperature: typeof input?.temperature === 'number'
-            ? Math.max(0, Math.min(input.temperature, 1))
-            : 0.2
-        };
-
-    const url = record.protocol === 'openai-chat'
-      ? openAiEndpoint(record.endpoint)
-      : record.endpoint;
+    const payload = buildUniversalConnectionPayload(record, input);
+    const url = universalConnectionEndpoint(record, input?.model);
 
     const method = clean(input?.method || 'POST', 10).toUpperCase();
     const response = await fetch(url, {
@@ -510,11 +603,27 @@ export async function testUserConnection(env, user, id) {
     'User-Agent': 'OVYX-Connection-Check/1.0'
   };
   const secret = await decryptSecret(env, record.encryptedSecret);
-  applyAuth(headers, record.authMode, secret);
+  applyConnectionAuth(headers, record.authMode, secret, record.protocol);
 
   try {
+    const healthUrl = record.healthUrl && record.healthUrl !== record.endpoint
+      ? record.healthUrl
+      : (() => {
+          if (!AI_PROTOCOLS.has(record.protocol)) return record.healthUrl || record.endpoint;
+          const parsed = new URL(record.endpoint);
+          const path = parsed.pathname.replace(/\/+$/, '');
+          if (record.protocol === 'anthropic-messages' && parsed.hostname === 'api.anthropic.com') {
+            parsed.pathname = '/v1/models';
+          } else if (record.protocol === 'gemini-generate-content' && parsed.hostname === 'generativelanguage.googleapis.com') {
+            parsed.pathname = '/v1beta/models';
+          } else {
+            const base = path.replace(/\/(?:chat\/completions|models|responses|v1\/messages)$/i, '').replace(/\/+$/, '');
+            parsed.pathname = (base || '') + '/models';
+          }
+          return parsed.toString();
+        })();
     const response = await fetch(
-      record.healthUrl || record.endpoint,
+      healthUrl,
       {
         method: 'GET',
         headers,

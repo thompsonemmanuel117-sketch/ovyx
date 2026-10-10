@@ -13,7 +13,7 @@
     "check": "wrangler types",
     "validate": "node scripts/ovyx-static-verify.mjs",
     "build": "node scripts/ovyx-pages-build.mjs",
-    "test": "node scripts/openai-compatible.test.mjs"
+    "test": "node scripts/openai-compatible.test.mjs && node scripts/universal-connection-protocol.test.mjs"
   },
   "engines": {
     "node": ">=22.0.0"

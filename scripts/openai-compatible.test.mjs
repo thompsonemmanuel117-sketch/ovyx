@@ -79,18 +79,25 @@ assert.throws(
 const originalFetch = globalThis.fetch;
 const requests = [];
 globalThis.fetch = async (input, init = {}) => {
+  const headers = new Headers(init.headers);
+  const url = String(input);
   requests.push({
-    url: String(input),
-    authorization: new Headers(init.headers).get('Authorization'),
+    url,
+    authorization: headers.get('Authorization'),
+    anthropicKey: headers.get('x-api-key'),
+    geminiKey: headers.get('x-goog-api-key'),
     body: JSON.parse(String(init.body || '{}')),
   });
-  return new Response(
-    JSON.stringify({
-      choices: [{ message: { content: 'routing test passed' } }],
-      usage: { prompt_tokens: 2, completion_tokens: 2 },
-    }),
-    { status: 200, headers: { 'Content-Type': 'application/json' } },
-  );
+  const payload = url.includes('anthropic')
+    ? { content: [{ type: 'text', text: 'claude routing test passed' }], usage: { input_tokens: 2, output_tokens: 2 } }
+    : {
+        choices: [{ message: { content: 'routing test passed' } }],
+        usage: { prompt_tokens: 2, completion_tokens: 2 },
+      };
+  return new Response(JSON.stringify(payload), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
 };
 
 try {
@@ -133,6 +140,40 @@ try {
   assert.equal(requests.length, 1);
   assert.equal(requests[0].url, 'https://api.groq.com/openai/v1/chat/completions');
   assert.equal(requests[0].authorization, 'Bearer test-only-key');
+
+  requests.length = 0;
+  const claude = await callModel(
+    { ANTHROPIC_API_KEY: 'test-anthropic-key' },
+    { provider: 'anthropic', model: 'automatic', system: 'test system', user: 'test prompt', maxTokens: 32 },
+  );
+  assert.equal(claude.provider, 'claude');
+  assert.equal(claude.text, 'claude routing test passed');
+  assert.equal(requests[0].url, 'https://api.anthropic.com/v1/messages');
+  assert.equal(requests[0].anthropicKey, 'test-anthropic-key');
+
+  requests.length = 0;
+  const deepseek = await callModel(
+    { DEEPSEEK_API_KEY: 'test-deepseek-key' },
+    { provider: 'deepseek', model: 'deepseek-flash', system: 'test system', user: 'test prompt', maxTokens: 32 },
+  );
+  assert.equal(deepseek.provider, 'deepseek');
+  assert.equal(requests[0].url, 'https://api.deepseek.com/chat/completions');
+  assert.equal(requests[0].authorization, 'Bearer test-deepseek-key');
+
+  const workersRequests = [];
+  const workersAI = {
+    run: async (model, payload) => {
+      workersRequests.push({ model, payload });
+      return { response: 'Cloudflare Workers AI fallback passed' };
+    }
+  };
+  const fallback = await callModel(
+    { AI: workersAI, OVYX_AI_PROVIDER_ORDER: 'gemini,deepseek,claude,openai' },
+    { provider: 'automatic', model: 'automatic', system: 'test system', user: 'test prompt', maxTokens: 32 },
+  );
+  assert.equal(fallback.provider, 'cloudflare-workers-ai');
+  assert.equal(fallback.text, 'Cloudflare Workers AI fallback passed');
+  assert.equal(workersRequests.length, 1);
 } finally {
   globalThis.fetch = originalFetch;
 }

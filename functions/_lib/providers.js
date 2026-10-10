@@ -482,83 +482,55 @@ async function callDeepSeek(
     maxTokens,
   }
 ) {
-  if (
-    !env.DEEPSEEK_API_KEY
-  ) {
-    throw new Error(
-      'DeepSeek is not configured.'
+  if (!env.DEEPSEEK_API_KEY) {
+    throw Object.assign(
+      new Error('DeepSeek is not configured.'),
+      { status: 503, code: 'AI_PROVIDER_NOT_CONFIGURED' }
     );
   }
 
-  const response =
-    await fetchWithTimeout(
-      'https://api.deepseek.com/responses',
-      {
-        method:
-          'POST',
+  const response = await fetchWithTimeout(
+    'https://api.deepseek.com/chat/completions',
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        Authorization: 'Bearer ' + env.DEEPSEEK_API_KEY,
+      },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+        max_tokens: Math.max(1, Math.min(Number(maxTokens) || 4096, 24000)),
+        temperature: 0.2,
+        stream: false,
+      }),
+    }
+  );
 
-        headers: {
-          'content-type':
-            'application/json',
-
-          Authorization:
-            `Bearer ${env.DEEPSEEK_API_KEY}`,
-        },
-
-        body:
-          JSON.stringify({
-            model,
-            instructions:
-              system,
-
-            input:
-              user,
-
-            max_output_tokens:
-              maxTokens,
-
-            stream:
-              false,
-          }),
-      }
-    );
-
-  const data =
-    await response
-      .json()
-      .catch(
-        () => ({})
-      );
-
-  if (
-    !response.ok
-  ) {
-    throw new Error(
-      data?.error
-        ?.message ||
-        `DeepSeek HTTP ${response.status}`
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw Object.assign(
+      new Error(data?.error?.message || data?.message || 'DeepSeek HTTP ' + response.status),
+      { status: response.status, code: 'AI_PROVIDER_REQUEST_FAILED' }
     );
   }
 
-  const text =
-    extractText(
-      data
-    );
-
+  const text = extractText(data?.choices?.[0]?.message?.content || data);
   if (!text) {
-    throw new Error(
-      'DeepSeek returned an empty response.'
+    throw Object.assign(
+      new Error('DeepSeek returned an empty response.'),
+      { status: 502, code: 'AI_PROVIDER_EMPTY_RESPONSE' }
     );
   }
 
   return {
     text,
     model,
-    provider:
-      'deepseek',
-    rawUsage:
-      data?.usage ||
-      null,
+    provider: 'deepseek',
+    rawUsage: data?.usage || null,
   };
 }
 
@@ -795,7 +767,7 @@ function normalizeRequestedProvider(value, env = {}) {
   }
 
   if (normalized === 'claude' || normalized === 'anthropic') {
-    return 'cloudflare-workers-ai';
+    return 'claude';
   }
 
   if (
@@ -839,8 +811,13 @@ export function providerOrder(
     .map(provider => normalizeConfiguredProvider(provider, env))
     .filter(provider => ['gemini', 'deepseek', 'claude', 'openai', 'groq', 'cloudflare-workers-ai'].includes(provider));
 
-  /* Preserve order while removing duplicates and empty/unsupported values. */
-  return [...new Set(configured)];
+  /* Keep the configured preference order. Workers AI is an optional, private
+     final fallback in Automatic mode; explicit provider choices stay exclusive. */
+  const ordered = [...new Set(configured)];
+  if (env?.AI && typeof env.AI.run === 'function' && !ordered.includes('cloudflare-workers-ai')) {
+    ordered.push('cloudflare-workers-ai');
+  }
+  return ordered;
 }
 
 export async function callModel(
@@ -854,8 +831,8 @@ export async function callModel(
     .trim()
     .toLowerCase();
 
-  // Prefer the saved Universal Connection Brain, but do not let an offline
-  // or stale connection block the other configured AI providers.
+  // An account-selected Universal Connection is exclusive. Never silently bill a
+  // platform provider after a user's own connection failed or could not be verified.
   const errors = [];
   if (requested === 'automatic' && options.authUser) {
     let activeBrainId = null;
@@ -865,8 +842,11 @@ export async function callModel(
         UNIVERSAL_LOOKUP_TIMEOUT_MS,
         'Universal Connection lookup'
       );
-    } catch (err) {
-      errors.push('universal-connection-selection: ' + (err?.message || err));
+    } catch {
+      throw Object.assign(
+        new Error('OVYX could not verify your selected AI Brain. No other AI provider was used; retry after your connection settings are available.'),
+        { status: 503, code: 'UNIVERSAL_CONNECTION_SELECTION_FAILED' }
+      );
     }
 
     if (activeBrainId) {
@@ -890,7 +870,10 @@ export async function callModel(
           activeBrainConnectionId: activeBrainId
         };
       } catch (err) {
-        errors.push('universal-connection (' + activeBrainId + '): ' + (err?.message || err));
+        throw Object.assign(
+          new Error('Your selected Universal Connection AI Brain failed. OVYX did not switch to another AI provider. ' + String(err?.message || 'Connection request failed.').slice(0, 260)),
+          { status: err?.status || 503, code: err?.code || 'UNIVERSAL_CONNECTION_FAILED' }
+        );
       }
     }
   }
