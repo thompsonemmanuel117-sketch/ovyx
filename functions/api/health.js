@@ -18,11 +18,14 @@ const ENV_GROUPS = {
     'CLOUDFLARE_PAGES_PROJECT',
   ],
   AI: [
+    'OVYX_AI_API_KEY',
+    'AI_API_KEY',
     'GEMINI_API_KEY',
     'ANTHROPIC_API_KEY',
     'DEEPSEEK_API_KEY',
     'OPENAI_API_KEY',
     'GROQ_API_KEY',
+    'OPENROUTER_API_KEY',
   ],
   AIModelConfiguration: [
     'GEMINI_MODEL',
@@ -34,6 +37,8 @@ const ENV_GROUPS = {
     'OPENAI_MODEL',
     'OPENAI_AGENT_MODEL',
     'OPENAI_BASE_URL',
+    'OVYX_AI_BASE_URL',
+    'OVYX_AI_MODEL',
     'CLOUDFLARE_AI_MODEL',
     'OVYX_AI_PROVIDER_ORDER',
     'AI_PROVIDER_ORDER',
@@ -117,8 +122,19 @@ export function onRequestGet(context) {
     );
   }
 
+  const hasAnyProviderKey = [
+    'OVYX_AI_API_KEY',
+    'AI_API_KEY',
+    'GEMINI_API_KEY',
+    'ANTHROPIC_API_KEY',
+    'DEEPSEEK_API_KEY',
+    'OPENAI_API_KEY',
+    'GROQ_API_KEY',
+    'OPENROUTER_API_KEY',
+  ].some(key => configured(env, key));
   const aiReady =
-    ['GEMINI_API_KEY', 'ANTHROPIC_API_KEY', 'DEEPSEEK_API_KEY', 'OPENAI_API_KEY', 'GROQ_API_KEY']
+    (Boolean(String(env?.OVYX_AI_BASE_URL || '').trim()) && hasAnyProviderKey) ||
+    ['GEMINI_API_KEY', 'ANTHROPIC_API_KEY', 'DEEPSEEK_API_KEY', 'OPENAI_API_KEY', 'GROQ_API_KEY', 'OPENROUTER_API_KEY']
       .some(key => configured(env, key)) ||
     hasAiBinding;
 
