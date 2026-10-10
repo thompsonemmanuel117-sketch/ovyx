@@ -35,7 +35,8 @@ export async function onRequestPost(context){
         '[OVYX WORKSPACE ' + id + '] quota initialization deferred:',
         String(quotaError?.code || quotaError?.message || 'unknown error').slice(0, 240)
       );
-    }    return jsonResponse({ok:true,scope:'user_workspace',workspaceActive:true,activatedAt,integrations:{
+    }
+    return jsonResponse({ok:true,scope:'user_workspace',workspaceActive:true,activatedAt,integrations:{
       codeGateway:{enabled:true,basePath:'/api',aiGateway:'/api/ai/gateway',assistant:'/api/ai/assistant'},
       github:{provider:'github-app-installation',connected:githubReady},
       mobileBuild:{provider:'expo-eas',configured:mobileBuildReady,status:mobileBuildReady?'READY':'NOT_CONFIGURED'}
