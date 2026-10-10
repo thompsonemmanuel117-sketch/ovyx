@@ -887,9 +887,13 @@ export async function callModel(
     }
   }
 
+  const sharedGatewayMode = Boolean(String(env?.OVYX_AI_BASE_URL || '').trim());
   const routedProvider = requested.startsWith('connection:')
     ? 'universal-connection'
-    : normalizeRequestedProvider(requested, env);
+    : sharedGatewayMode &&
+      ['openai', 'chatgpt', 'claude', 'anthropic', 'gemini', 'deepseek', 'groq', 'openrouter'].includes(requested)
+      ? 'shared-compatible-gateway'
+      : normalizeRequestedProvider(requested, env);
 
   const sharedKeySlotByBrain = {
     openai: 'OPENAI_API_KEY',
