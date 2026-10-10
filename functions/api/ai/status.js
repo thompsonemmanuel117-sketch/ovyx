@@ -209,11 +209,34 @@ export async function onRequestGet(context) {
       );
     }
 
-    const results = await Promise.all(
-      Object.entries(PROVIDERS).map(([name, config]) =>
-        checkProvider(name, config, context.env)
-      ),
-    );
+    const sharedGateway = Boolean(String(context.env?.OVYX_AI_BASE_URL || '').trim());
+    let results;
+    if (sharedGateway) {
+      // In shared-gateway mode the selectable provider names are aliases for
+      // one configured compatible endpoint. Report that endpoint's one actual
+      // check consistently instead of probing unrelated native vendor APIs.
+      const shared = await checkProvider('openai', PROVIDERS.openai, context.env);
+      results = Object.entries(PROVIDERS).map(([name, config]) => {
+        if (name === 'openai') return shared;
+        return {
+          provider: name,
+          actualProvider: shared.actualProvider || 'openai-compatible',
+          label: config.label + ' via ' + String(shared.label || 'shared compatible gateway'),
+          status: shared.status,
+          configured: shared.configured,
+          connected: shared.connected,
+          ...(shared.endpointHost ? { endpointHost: shared.endpointHost } : {}),
+          ...(shared.httpStatus ? { httpStatus: shared.httpStatus } : {}),
+          ...(shared.error ? { error: shared.error } : {}),
+        };
+      });
+    } else {
+      results = await Promise.all(
+        Object.entries(PROVIDERS).map(([name, config]) =>
+          checkProvider(name, config, context.env)
+        ),
+      );
+    }
 
     const workersAi = Boolean(
       context.env?.AI &&
