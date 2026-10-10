@@ -60,6 +60,20 @@ if (fs.existsSync(providerRouterPath)) {
   }
 }
 
+const compatibleConfigPath = path.join(root, 'functions/_lib/openai-compatible.js');
+if (fs.existsSync(compatibleConfigPath)) {
+  const compatibleConfig = fs.readFileSync(compatibleConfigPath, 'utf8');
+  if (!compatibleConfig.includes('OVYX_AI_BASE_URL') || !compatibleConfig.includes('OVYX_AI_API_KEY') || !compatibleConfig.includes('GEMINI_API_KEY') || !compatibleConfig.includes('ANTHROPIC_API_KEY')) {
+    errors.push('functions/_lib/openai-compatible.js: shared gateway mode must accept the configured common endpoint and support API-key fallback across provider secret slots.');
+  }
+}
+const routerSource = fs.existsSync(path.join(root, 'functions/_lib/providers.js'))
+  ? fs.readFileSync(path.join(root, 'functions/_lib/providers.js'), 'utf8')
+  : '';
+if (!routerSource.includes('OVYX_AI_BASE_URL') || !routerSource.includes('normalizeRequestedProvider')) {
+  errors.push('functions/_lib/providers.js: shared compatible gateway mode must route API-key-backed brain choices through the configured common endpoint.');
+}
+
 const aiStatusPath = path.join(root, 'functions/api/ai/status.js');
 if (fs.existsSync(aiStatusPath)) {
   const aiStatus = fs.readFileSync(aiStatusPath, 'utf8');
@@ -112,6 +126,9 @@ if (fs.existsSync(html)) {
   if ((text.match(/id="view-webstudio"/gi) || []).length !== 1) errors.push('index.html: expected exactly one Web Studio view');
   if (!/id="app-sidebar"/i.test(text) || !/id="mobile-drawer"/i.test(text)) errors.push('index.html: main navigation shell is missing');
   if (/Agent is starting/i.test(text)) errors.push('index.html: stale Web Studio agent-starting copy detected');
+  if (!text.includes('window.__OVYX_SPLASH_FAILSAFE__') || !text.includes('function releaseSplash(reason,event)') || !text.includes("document.readyState==='complete'")) {
+    errors.push('index.html: splash must wait for full page load and use a bounded failsafe instead of a short fixed timer.');
+  }
   if (!text.includes('id="deep-conn-clear-ai"') || !text.includes('id="ovyx-v91-clear-brain"')) {
     errors.push('index.html: both Universal Connections screens must expose an explicit Clear AI Brain control.');
   }
