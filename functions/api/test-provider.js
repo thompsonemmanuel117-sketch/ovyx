@@ -4,11 +4,70 @@ import { assertAuthenticated } from '../_lib/firebase.js';
 import { errorResponse, requestId, readJson } from './_lib/http.js';
 
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
+
+function clean(value) {
+  return String(value || '').trim();
+}
+
+function isOpenRouterKey(value) {
+  return /^sk-or-v1-/i.test(clean(value));
+}
+
+function isGroqBaseUrl(value) {
+  try {
+    return new URL(clean(value)).hostname.toLowerCase() === 'api.groq.com';
+  } catch {
+    return false;
+  }
+}
+
+function resolveBase(value, fallback) {
+  const candidate = clean(value) || fallback;
+  try {
+    const url = new URL(candidate);
+    if (url.protocol !== 'https:' || url.username || url.password) throw new Error('Invalid URL');
+    return url.toString().replace(/\/+$/, '');
+  } catch {
+    return fallback;
+  }
+}
+
 const PROVIDERS = {
-  gemini: { env: 'GEMINI_API_KEY', label: 'Gemini', url: key => `https://generativelanguage.googleapis.com/v1beta/models?pageSize=1&key=${encodeURIComponent(key)}` },
-  deepseek: { env: 'DEEPSEEK_API_KEY', label: 'DeepSeek', url: () => 'https://api.deepseek.com/models', headers: key => ({ Authorization: `Bearer ${key}` }) },
-  openai: { env: 'OPENAI_API_KEY', label: 'OpenAI', url: () => 'https://api.openai.com/v1/models', headers: key => ({ Authorization: `Bearer ${key}` }) },
-  anthropic: { env: 'ANTHROPIC_API_KEY', label: 'Anthropic', url: () => 'https://api.anthropic.com/v1/models', headers: key => ({ 'x-api-key': key, 'anthropic-version': '2023-06-01' }) },
+  gemini: {
+    env: 'GEMINI_API_KEY',
+    label: 'Gemini',
+    url: key => `https://generativelanguage.googleapis.com/v1beta/models?pageSize=1&key=${encodeURIComponent(key)}`,
+  },
+  deepseek: {
+    env: 'DEEPSEEK_API_KEY',
+    label: 'DeepSeek',
+    url: () => 'https://api.deepseek.com/models',
+    headers: key => ({ Authorization: `Bearer ${key}` }),
+  },
+  openai: {
+    env: 'OPENAI_API_KEY',
+    label: 'OVYX AI',
+    url: (_key, env) => `${resolveBase(env?.OPENAI_BASE_URL, 'https://api.openai.com/v1')}/models`,
+    headers: key => ({ Authorization: `Bearer ${key}` }),
+  },
+  groq: {
+    env: 'GROQ_API_KEY',
+    label: 'OVYX AI',
+    getKey: env => clean(env?.GROQ_API_KEY) ||
+      (isGroqBaseUrl(env?.OPENAI_BASE_URL) ? clean(env?.OPENAI_API_KEY) : ''),
+    url: (_key, env) => `${resolveBase(env?.GROQ_BASE_URL || (isGroqBaseUrl(env?.OPENAI_BASE_URL) ? env.OPENAI_BASE_URL : ''), 'https://api.groq.com/openai/v1')}/models`,
+    headers: key => ({ Authorization: `Bearer ${key}` }),
+  },
+  anthropic: {
+    env: 'ANTHROPIC_API_KEY',
+    label: 'Claude',
+    url: (key, env) => isOpenRouterKey(key)
+      ? `${resolveBase(env?.OPENROUTER_BASE_URL, 'https://openrouter.ai/api/v1')}/models`
+      : 'https://api.anthropic.com/v1/models',
+    headers: key => isOpenRouterKey(key)
+      ? { Authorization: `Bearer ${key}` }
+      : { 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+  },
 };
 
 async function checkedFetch(url, init = {}, ms = 6000) {
@@ -53,10 +112,10 @@ export async function onRequest(context) {
 
     const config = PROVIDERS[provider];
     if (!config) {
-      return errorResponse(400, 'PROVIDER_REQUIRED', 'Use gemini, deepseek, openai or anthropic.', id);
+      return errorResponse(400, 'PROVIDER_REQUIRED', 'Use gemini, deepseek, groq, openai or anthropic.', id);
     }
 
-    const key = String(context.env?.[config.env] || '').trim();
+    const key = clean(config.getKey ? config.getKey(context.env) : context.env?.[config.env]);
 
     if (!key) {
       return Response.json({
