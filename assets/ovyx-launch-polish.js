@@ -343,6 +343,7 @@
   }
 
   var adminLoadPromise = null;
+  var adminLastLoadedAt = 0;
   async function loadAdminQuota(manual) {
     if (adminLoadPromise) return adminLoadPromise;
     var view = document.getElementById('view-admin-users');
@@ -350,6 +351,8 @@
     var state = window.KernelState && window.KernelState.activeView;
     var visible = !view.classList.contains('hidden') || state === 'admin-users';
     if (!visible && !manual) return;
+    if (!manual && Date.now() - adminLastLoadedAt < 45000) return;
+    adminLastLoadedAt = Date.now();
 
     adminLoadPromise = (async function () {
       var headers = await authHeaders();
@@ -405,7 +408,6 @@
   }
 
   function maybeLoadAdminQuota() {
-    loadPersonalQuota();
     var view = document.getElementById('view-admin-users');
     var state = window.KernelState && window.KernelState.activeView;
     if (view && (!view.classList.contains('hidden') || state === 'admin-users')) loadAdminQuota(false);
