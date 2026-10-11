@@ -109,7 +109,7 @@ export async function onRequestGet(context) {
         const monthlyUsagePercent = monthlyLimit > 0 ? Math.min(100, Math.round(monthlyUsed / monthlyLimit * 100)) : 0;
         const dailyPromptUsagePercent = dailyPromptLimit > 0 ? Math.min(100, Math.round(dailyPromptsUsed / dailyPromptLimit * 100)) : 0;
         const boosterTokens = Math.max(0, Number(user.booster_tokens) || 0);
-        const monthlyExhausted = monthlyRemaining <= 0 || user.is_monthly_exhausted === true;
+        const monthlyExhausted = monthCurrent && tierCurrent && (monthlyRemaining <= 0 || user.is_monthly_exhausted === true);
         const quota = rootUser
           ? {
               authority: 'SERVER',

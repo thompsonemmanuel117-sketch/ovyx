@@ -110,6 +110,31 @@ if (fs.existsSync(agentQuotaRoutePath)) {
   }
 }
 
+const orchestratorQuotaPath = path.join(root, 'functions/_lib/orchestrator.js');
+if (fs.existsSync(orchestratorQuotaPath)) {
+  const orchestrator = fs.readFileSync(orchestratorQuotaPath, 'utf8');
+  const runAgentStart = orchestrator.indexOf('export async function runAgent({');
+  const runAgentEnd = runAgentStart < 0 ? -1 : orchestrator.indexOf('}) {', runAgentStart);
+  const runAgentHeader = runAgentEnd < 0 ? '' : orchestrator.slice(runAgentStart, runAgentEnd + 4);
+  if (
+    !runAgentHeader.includes('onUsage = () => {}') ||
+    !orchestrator.includes('onUsage,')
+  ) {
+    errors.push('functions/_lib/orchestrator.js: runAgent must accept a safe AI usage callback before registering usage handlers for each model phase.');
+  }
+}
+
+const agentRouteQuotaPath = path.join(root, 'functions/api/generate.js');
+if (fs.existsSync(agentRouteQuotaPath)) {
+  const agentRoute = fs.readFileSync(agentRouteQuotaPath, 'utf8');
+  if (
+    !agentRoute.includes('if (Number(quotaUsage.total_tokens) > 0)') ||
+    !agentRoute.includes('OVYX AGENT QUOTA ACCOUNTING')
+  ) {
+    errors.push('functions/api/generate.js: failed Agent runs must account for partial AI usage instead of bypassing quota accounting.');
+  }
+}
+
 const adminUsersQuotaPath = path.join(root, 'functions/api/admin/users.js');
 if (fs.existsSync(adminUsersQuotaPath)) {
   const adminUsers = fs.readFileSync(adminUsersQuotaPath, 'utf8');
