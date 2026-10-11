@@ -297,9 +297,22 @@ export async function onRequestPost(
           // pretend the completed build did not consume its allowance.
           if (!agentCompleted) {
             try {
-              await refundDailyPrompt(context.env, quotaReservation);
-            } catch (refundError) {
-              console.error('[OVYX AGENT QUOTA REFUND]', refundError?.message || refundError);
+              // Partial Agent runs still consumed real provider tokens. Charge
+              // those calls instead of refunding a daily prompt and losing usage.
+              if (Number(quotaUsage.total_tokens) > 0) {
+                const partialQuota = await finalizeAIQuota(
+                  context.env,
+                  quotaReservation,
+                  quotaUsage,
+                  '',
+                  ''
+                );
+                if (partialQuota?.usage) partialQuota.usage.estimated = usageEstimated;
+              } else {
+                await refundDailyPrompt(context.env, quotaReservation);
+              }
+            } catch (accountingError) {
+              console.error('[OVYX AGENT QUOTA ACCOUNTING]', accountingError?.message || accountingError);
             }
           }
           await updateJob(
