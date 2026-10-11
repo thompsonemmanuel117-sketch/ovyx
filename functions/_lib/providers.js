@@ -714,13 +714,13 @@ function taskProviderPreference(taskContext) {
 
   // Deterministic task routing makes Automatic useful without inventing an API key
   // or pretending that a provider is configured. The configured order breaks ties.
-  const design = /\\b(design|visual|layout|landing page|website|web studio|html|css|responsive|frontend|front.end|theme|animation|ui|ux|component|prototype)\\b/.test(task);
-  const engineering = /\\b(debug|debugging|bug|fix|refactor|backend|api|database|security|authentication|quota|token|billing|payment|test|testing|deploy|deployment|build|compiler|typescript|python|git|repository|migration|algorithm|architecture|code|implementation|implement)\\b/.test(task);
-  const reasoning = /\\b(complex|analyse|analyze|reason|diagnos|strategy|compare|research|investigate|root cause|multi.step|trade.off)\\b/.test(task);
-  const writing = /\\b(summarize|summarise|rewrite|caption|translate|grammar|format|draft|email|short answer|title|copywriting|proofread)\\b/.test(task);
+  const design = /\b(design|visual|layout|landing page|website|web studio|html|css|responsive|frontend|front.end|theme|animation|ui|ux|component|prototype)\b/.test(task);
+  const engineering = /\b(debug|debugging|bug|fix|refactor|backend|api|database|security|authentication|quota|token|billing|payment|test|testing|deploy|deployment|build|compiler|typescript|python|git|repository|migration|algorithm|architecture|code|implementation|implement)\b/.test(task);
+  const reasoning = /\b(complex|analyse|analyze|reason|diagnos|strategy|compare|research|investigate|root cause|multi.step|trade.off)\b/.test(task);
+  const writing = /\b(summarize|summarise|rewrite|caption|translate|grammar|format|draft|email|short answer|title|copywriting|proofread)\b/.test(task);
 
   if (design && !engineering) return ['gemini', 'claude', 'openai', 'deepseek', 'groq'];
-  if (engineering && (reasoning || /\\b(security|architecture|migration|root cause|refactor)\\b/.test(task))) {
+  if (engineering && (reasoning || /\b(security|architecture|migration|root cause|refactor)\b/.test(task))) {
     return ['claude', 'openai', 'deepseek', 'gemini', 'groq'];
   }
   if (engineering) return ['deepseek', 'claude', 'openai', 'gemini', 'groq'];
