@@ -221,6 +221,19 @@ if (!fs.existsSync(studioMultiPagePath) || !fs.existsSync(studioAssistantPath) |
   }
 }
 
+const webStudioShellPath = path.join(root, 'index.html');
+if (fs.existsSync(webStudioShellPath)) {
+  const webStudioShell = fs.readFileSync(webStudioShellPath, 'utf8');
+  if (
+    !webStudioShell.includes("mode:payload.mode||'assistant'") ||
+    !webStudioShell.includes('send("ovxNavigateTo"') ||
+    !webStudioShell.includes('this.navigatePreviewRoute(event.data.ovxNavigateTo.path)') ||
+    !webStudioShell.includes('navigatePreviewRoute(rawPath)')
+  ) {
+    errors.push('OVYX Web Studio: provider-specific builds must preserve operation mode and internal multi-page preview links must navigate to the matching page.');
+  }
+}
+
 const routeConfigPath = path.join(root, 'functions/_routes.json');
 if (fs.existsSync(routeConfigPath)) {
   const routeConfig = JSON.parse(fs.readFileSync(routeConfigPath, 'utf8'));
