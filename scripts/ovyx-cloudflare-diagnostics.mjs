@@ -132,10 +132,17 @@ async function probeApplicationHealth(deploymentUrl) {
     const services = payload?.services || {};
     const providerRows = Array.isArray(services?.ai?.providers) ? services.ai.providers : [];
     const firebaseProjectMatch = services?.firebaseProjectCheck?.clientServerProjectMatch === true;
-    const missing = Array.isArray(payload?.missingRequiredEnvironment)
-      ? payload.missingRequiredEnvironment
-          .map(value => String(value || '').slice(0, 120))
-          .filter(Boolean)
+    const readKeyList = (key) => Array.isArray(payload?.[key])
+      ? payload[key].map(value => String(value || '').slice(0, 120)).filter(Boolean)
+      : [];
+    const missing = readKeyList('missingRequiredEnvironment');
+    const empty = readKeyList('emptyRequiredEnvironment');
+    const invalid = Array.isArray(payload?.invalidRequiredEnvironment)
+      ? payload.invalidRequiredEnvironment.map(item => ({
+          key: String(item?.key || '').slice(0, 120),
+          state: String(item?.state || 'invalid').slice(0, 60),
+          reason: String(item?.reason || 'value_failed_validation').slice(0, 160),
+        })).filter(item => item.key)
       : [];
 
     // Only record secret names and boolean readiness. Never copy environment
@@ -152,11 +159,24 @@ async function probeApplicationHealth(deploymentUrl) {
       httpStatus: response.status,
       firebaseProjectMatch,
       firebaseServiceAccountConfigured: Boolean(
-        (services?.firebase || []).some(row =>
-          ['FIREBASE_SERVICE_ACCOUNT_JSON', 'FIREBASE_SERVICE_ACCOUNT'].includes(row?.key) &&
-          row?.configured === true
-        )
+        services?.firebaseServiceAccount?.key === 'FIREBASE_SERVICE_ACCOUNT_JSON' &&
+        services?.firebaseServiceAccount?.configured === true &&
+        services?.firebaseServiceAccount?.state === 'configured'
       ),
+      firebaseServiceAccountStatus: services?.firebaseServiceAccount && {
+        key: String(services.firebaseServiceAccount.key || '').slice(0, 120),
+        state: String(services.firebaseServiceAccount.state || 'unknown').slice(0, 60),
+        reason: String(services.firebaseServiceAccount.reason || '').slice(0, 160),
+        missingFields: Array.isArray(services.firebaseServiceAccount.missingFields)
+          ? services.firebaseServiceAccount.missingFields.map(value => String(value).slice(0, 80))
+          : [],
+        credentialAuthentication: String(services.firebaseServiceAccount.credentialAuthentication || 'not_checked').slice(0, 40),
+      },
+      githubTokenEncryptionStatus: services?.githubTokenEncryption && {
+        key: String(services.githubTokenEncryption.key || '').slice(0, 120),
+        state: String(services.githubTokenEncryption.state || 'unknown').slice(0, 60),
+        reason: String(services.githubTokenEncryption.reason || '').slice(0, 160),
+      },
       configuredProviderSecretNames: configuredProviders,
       workersAiBindingConfigured: services?.ai?.workersAiBinding?.configured === true,
       connectionEncryptionConfigured: Boolean(
@@ -164,7 +184,9 @@ async function probeApplicationHealth(deploymentUrl) {
           row?.key === 'OVYX_CONNECTION_ENCRYPTION_KEY' && row?.configured === true
         )
       ),
-      missingRequiredEnvironment: missing
+      missingRequiredEnvironment: missing,
+      emptyRequiredEnvironment: empty,
+      invalidRequiredEnvironment: invalid
     };
   } catch (error) {
     return {
@@ -237,13 +259,20 @@ try {
   result.logErrors = errorLines(lines);
   result.runtimeHealth = await probeApplicationHealth(deployment.url);
   if (!result.runtimeHealth.ok) {
-    result.apiErrors.push(
-      'Runtime health probe failed: ' +
-      (result.runtimeHealth.error ||
-        ('HTTP ' + String(result.runtimeHealth.httpStatus || 'n/a') + ', status ' + result.runtimeHealth.status +
-          (result.runtimeHealth.firebaseProjectMatch === false ? ', Firebase client/server project mismatch' : '') +
-          (result.runtimeHealth.missingRequiredEnvironment?.length ? ', missing required environment: ' + result.runtimeHealth.missingRequiredEnvironment.join(', ') : '')))
-    );
+    const reasons = [];
+    if (result.runtimeHealth.error) reasons.push(result.runtimeHealth.error);
+    else {
+      reasons.push('HTTP ' + String(result.runtimeHealth.httpStatus || 'n/a') + ', status ' + result.runtimeHealth.status);
+      if (result.runtimeHealth.firebaseProjectMatch === false) reasons.push('Firebase client/server project mismatch');
+      if (result.runtimeHealth.missingRequiredEnvironment?.length) reasons.push('variables not present: ' + result.runtimeHealth.missingRequiredEnvironment.join(', '));
+      if (result.runtimeHealth.emptyRequiredEnvironment?.length) reasons.push('variables present but empty: ' + result.runtimeHealth.emptyRequiredEnvironment.join(', '));
+      if (result.runtimeHealth.invalidRequiredEnvironment?.length) {
+        reasons.push('variables present but invalid: ' + result.runtimeHealth.invalidRequiredEnvironment
+          .map(item => item.key + ' (' + item.state + ': ' + item.reason + ')')
+          .join(', '));
+      }
+    }
+    result.apiErrors.push('Runtime health probe failed: ' + reasons.join('; '));
   }
 
   const stageStatus = String(deployment.latest_stage?.status || '').toLowerCase();
