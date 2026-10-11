@@ -39,15 +39,34 @@ export function providerConfigured(provider, env) {
   return Boolean(getProviderKey(provider, env));
 }
 
-function providerOrder(env, requested) {
+function providerOrder(env, requested, input = {}) {
   if (requested && requested !== 'automatic') return [requested];
 
   const configured = clean(env?.OVYX_AI_PROVIDER_ORDER)
     .split(',')
     .map(canonicalProvider)
     .filter(Boolean);
+  const candidates = [...new Set([...configured, ...DEFAULT_ORDER])]
+    .filter(provider => providerConfigured(provider, env));
 
-  return [...new Set([...configured, ...DEFAULT_ORDER])];
+  const taskText = [
+    input?.prompt,
+    input?.user,
+    ...(Array.isArray(input?.messages) ? input.messages.map(message => message?.content) : []),
+  ].map(value => String(value || '')).join(' ').slice(0, 12000).toLowerCase();
+
+  let preferred = [];
+  if (/(debug|bug|fix|code|repository|repo\\b|api|backend|security|test suite|unit test|typescript|javascript|refactor|compile|runtime error|stack trace|ci failure|pull request|database|deploy script|function implementation)/i.test(taskText)) {
+    preferred = ['claude', 'deepseek', 'openai', 'gemini'];
+  } else if (/(website|web site|landing page|web design|ui\\/ux|\\bui\\b|\\bux\\b|front[- ]end|responsive|css|visual design|layout|brand style|template|colour scheme|color scheme|mobile design)/i.test(taskText)) {
+    preferred = ['gemini', 'claude', 'deepseek', 'openai'];
+  } else if (/(reasoning|complex analysis|architecture|trade[- ]off|compare|research|investigate|evaluate|strategy|long[- ]term plan|technical plan|multi[- ]step|data analysis)/i.test(taskText)) {
+    preferred = ['claude', 'openai', 'deepseek', 'gemini'];
+  } else if (/(write|writing|article|blog|email|marketing copy|story|proposal|summari[sz]e|rewrite|proofread|documentation|product description)/i.test(taskText)) {
+    preferred = ['claude', 'gemini', 'openai', 'deepseek'];
+  }
+
+  return [...new Set([...preferred.filter(provider => candidates.includes(provider)), ...candidates])];
 }
 
 function normalizeMessages(input) {
@@ -72,7 +91,7 @@ function isConfigurationError(error) {
 
 export async function callModel(env, input = {}) {
   const requestedRaw = clean(input.provider || input.requestedProvider).toLowerCase();
-  const requested = requestedRaw === 'automatic' || !requestedRaw
+  const requested = requestedRaw === 'automatic' || requestedRaw === 'auto' || !requestedRaw
     ? 'automatic'
     : canonicalProvider(requestedRaw);
 
@@ -91,7 +110,7 @@ export async function callModel(env, input = {}) {
     );
   }
 
-  const candidates = providerOrder(env, requested);
+  const candidates = providerOrder(env, requested, input);
   let lastError = null;
 
   for (const provider of candidates) {
@@ -131,8 +150,17 @@ export async function callModel(env, input = {}) {
     }
   }
 
+  if (requested === 'automatic') {
+    throw Object.assign(
+      new Error(candidates.length
+        ? 'OVYX Auto could not reach a connected AI Brain for this request. Please try again later, or connect your own AI Brain in Universal Connections to continue building.'
+        : 'No AI Brain is connected right now. Please try again later, or connect your own AI Brain in Universal Connections to continue building.'),
+      { code: candidates.length ? 'AI_PROVIDER_UNAVAILABLE' : 'AI_PROVIDER_NOT_CONFIGURED', status: 503 }
+    );
+  }
+
   throw lastError || Object.assign(
-    new Error('No configured AI provider is available.'),
-    { code: 'AI_PROVIDER_UNAVAILABLE', status: 503 }
+    new Error('The selected AI Brain is not configured.'),
+    { code: 'AI_PROVIDER_NOT_CONFIGURED', status: 503 }
   );
 }
