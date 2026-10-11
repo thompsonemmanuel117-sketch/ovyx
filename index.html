@@ -2753,23 +2753,23 @@ Body: { broadcastId, title, body, category, link }</div>
       getActivePage(){const p=window.KernelState?.activeProject;if(!p||!Array.isArray(p.pages)||!p.pages.length)return null;if(this.activePageIndex>=p.pages.length)this.activePageIndex=0;return p.pages[this.activePageIndex]||p.pages[0]},
       navigatePreviewRoute(rawPath){
         const normalizeRoute=value=>{
-          let route=String(value||'/').trim().split(/[?#]/)[0].replace(/\\/g,'/').replace(/\\/{2,}/g,'/');
+          let route=String(value||'/').trim().split(/[?#]/)[0].replace(/\\/g,'/').replace(/\/{2,}/g,'/');
           if(!route.startsWith('/'))route='/'+route;
-          if(route!=='/'&&!/\\.[a-z0-9]+$/i.test(route)&&!route.endsWith('/'))route+='/';
+          if(route!=='/'&&!/\.[a-z0-9]+$/i.test(route)&&!route.endsWith('/'))route+='/';
           return route.toLowerCase();
         };
-        const slug=value=>String(value||'').trim().replace(/\\.html?$/i,'').replace(/[^a-z0-9]+/gi,'-').replace(/^-+|-+$/g,'').toLowerCase();
+        const slug=value=>String(value||'').trim().replace(/\.html?$/i,'').replace(/[^a-z0-9]+/gi,'-').replace(/^-+|-+$/g,'').toLowerCase();
         const target=normalizeRoute(rawPath);
         const pages=Array.isArray(window.KernelState?.activeProject?.pages)?window.KernelState.activeProject.pages:[];
         let index=pages.findIndex(page=>{
           const route=page?.route||page?.url||'';
           if(route&&normalizeRoute(route)===target)return true;
           const name=slug(page?.name);
-          return target===(name==='home'||name==='homepage'?'/':'/'+name+'/')||target==='/'+name+'/';
+          return target===(name==='home'||name==='homepage'?'/':'/'+name+'/');
         });
         if(index<0){
           const part=target.split('/').filter(Boolean).pop()||'home';
-          index=pages.findIndex(page=>slug(page?.name)===slug(part)||slug(page?.name)===slug(part.replace(/\\.html?$/i,'')));
+          index=pages.findIndex(page=>slug(page?.name)===slug(part));
         }
         if(index<0)return false;
         this.activePageIndex=index;
@@ -2778,7 +2778,6 @@ Body: { broadcastId, title, body, category, link }</div>
         this.render();
         return true;
       },
-
       getActiveSection(){const page=this.getActivePage();return page?.sections?.find(s=>s.id===this.selectedNodeId)||null},
       entryFile(){this.ensureProjectGraph();return this.graph?.entry||Object.keys(this.graph?.files||{}).find(k=>/\.html$/i.test(k))||'src/pages/Home.html'},
       pageCount(){return (window.KernelState?.activeProject?.pages||[]).length},
