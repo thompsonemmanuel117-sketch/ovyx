@@ -57,7 +57,7 @@ function getConfiguredModel(
     deepseek:
       env.DEEPSEEK_AGENT_MODEL ||
       env.DEEPSEEK_MODEL ||
-      'deepseek-v4-flash',
+      'deepseek-flash',
 
     openai:
       env.OPENAI_AGENT_MODEL ||
@@ -292,10 +292,8 @@ async function callGemini(
       },
     ],
 
+    // Gemini 3.8 Flash does not accept legacy temperature/top-p sampling fields.
     generationConfig: {
-      temperature:
-        0.15,
-
       maxOutputTokens:
         maxTokens,
 
