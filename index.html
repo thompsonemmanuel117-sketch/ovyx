@@ -4921,8 +4921,14 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       if(!u)throw Error('Sign in before using the live AI service.');
       const token=await u.getIdToken();
       const r=await fetch(ep,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
-      if(!r.ok)throw Error('AI service returned HTTP '+r.status);
-      return await r.json();
+      const data=await r.json().catch(()=>({}));
+      if(!r.ok){
+        const error=new Error(data?.error||data?.message||'AI service returned HTTP '+r.status);
+        error.code=data?.code||'AI_SERVICE_REQUEST_FAILED';error.status=r.status;
+        throw error;
+      }
+      if(data?.ok===false)throw Object.assign(new Error(data?.error||data?.message||'AI request failed.'),{code:data?.code||'AI_SERVICE_REQUEST_FAILED',status:r.status});
+      return data;
     }
   };
   /* Replace the old local-success synthesis with a truthful server call when configured. */
@@ -10712,26 +10718,28 @@ window.addEventListener('pageshow',()=>setTimeout(install,0),{passive:true});
     const base=A.generate?.bind(A);if(!base)return;
     A.generate=async function(payload={},options={}){
       const requested=String(payload.provider||payload.requestedProvider||'automatic').trim().toLowerCase()||'automatic';
-      /* Automatic and connection:<id> must reach the server router directly.
-         Forcing them through a guessed provider list bypasses Universal Connections. */
+      const normalized=requested==='claude'?'anthropic':requested;
+      /* Automatic may use the server's configured order. An explicit provider must never jump to another provider. */
       if(requested==='automatic'||requested.startsWith('connection:')){
         const r=await base({...payload,provider:requested,requestedProvider:requested},options);
         return {...(r||{}),requestedProvider:requested,routedProvider:r?.provider||requested,failoverUsed:false};
       }
-      const normalized=requested==='claude'?'anthropic':requested;
-      const order=normalized==='openai'?['openai','anthropic','deepseek','gemini']:normalized==='anthropic'?['anthropic','deepseek','gemini','openai']:normalized==='deepseek'?['deepseek','gemini','anthropic','openai']:normalized==='gemini'?['gemini','deepseek','anthropic','openai']:['gemini','deepseek','anthropic','openai'];
-      let last=null;
-      for(const provider of order){
-        if(options?.signal?.aborted)throw Object.assign(new Error('OVYX AI request cancelled.'),{name:'AbortError'});
-        try{
-          const r=await base({...payload,provider,requestedProvider:requested,failoverAttempt:provider!==order[0]},options);
-          return {...(r||{}),requestedProvider:requested,routedProvider:r?.provider||provider,failoverUsed:provider!==order[0]};
-        }catch(e){
-          if(options?.signal?.aborted||e?.name==='AbortError')throw e;
-          last=e;
-        }
+      if(options?.signal?.aborted)throw Object.assign(new Error('OVYX AI request cancelled.'),{name:'AbortError'});
+      try{
+        const r=await base({...payload,provider:normalized,requestedProvider:requested,failoverAttempt:false},options);
+        if(r?.ok===false)throw Object.assign(new Error(r.error||r.message||'AI request failed.'),{code:r.code||'AI_SERVICE_REQUEST_FAILED',status:r.status||503});
+        return {...(r||{}),requestedProvider:requested,routedProvider:r?.provider||normalized,failoverUsed:false};
+      }catch(e){
+        if(options?.signal?.aborted||e?.name==='AbortError')throw e;
+        const code=String(e?.code||'').toUpperCase(),message=String(e?.message||e||'');
+        if(code.includes('QUOTA')||code.includes('RATION')||/quota|token allocation|insufficient tokens|token balance/i.test(message))throw e;
+        if(code.startsWith('UNIVERSAL_CONNECTION')||/selected AI Brain|Universal Connection/i.test(message))throw e;
+        const labels={gemini:'Gemini',deepseek:'DeepSeek',anthropic:'Claude',openai:'OpenAI',groq:'Groq','cloudflare-workers-ai':'Cloudflare Workers AI'};
+        const label=labels[normalized]||normalized.replace(/[-_]+/g,' ').replace(/^./,c=>c.toUpperCase())+' AI';
+        const friendly=new Error(label+' is not available right now. Please try again later, or connect your own AI Brain in Universal Connections to continue building.');
+        friendly.code=code||'AI_PROVIDER_UNAVAILABLE';friendly.status=Number(e?.status)||503;friendly.provider=normalized;
+        throw friendly;
       }
-      throw last||Error('No configured AI provider is available.');
     };
     A.__ovyxFinalRouting=true;
   }
