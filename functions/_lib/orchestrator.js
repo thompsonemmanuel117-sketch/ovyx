@@ -1504,14 +1504,14 @@ export async function runAgent({
 
       changes = mergeStagedChanges(changes, batchChanges);
 
-      const missingPages = batch.targetPages.filter(page =>
-        !inspected.lookup.has(page.path) &&
-        !changes.some(item => item.path === page.path && item.action !== 'delete')
+      const missingTargets = batch.targetPaths.filter(path =>
+        !inspected.lookup.has(path) &&
+        !changes.some(item => item.path === path && item.action !== 'delete')
       );
-      if (missingPages.length) {
+      if (missingTargets.length) {
         throw Object.assign(
           new Error(
-            `Multi-page batch ${batch.index} did not create the requested page file(s): ${missingPages.map(page => page.path).join(', ')}. OVYX stopped instead of silently skipping pages.`
+            `Multi-page batch ${batch.index} did not create all required target file(s): ${missingTargets.join(', ')}. OVYX stopped instead of silently skipping part of the site foundation or a page.`
           ),
           { code: 'SITE_MAP_BATCH_INCOMPLETE' }
         );
