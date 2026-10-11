@@ -105,6 +105,21 @@ if (fs.existsSync(quotaHelperPath)) {
   }
 }
 
+const providerAvailabilityPath = path.join(root, 'functions/api/ai/provider-availability.js');
+if (!fs.existsSync(providerAvailabilityPath)) {
+  errors.push('functions/api/ai/provider-availability.js: authenticated provider availability checks are missing.');
+} else {
+  const availabilitySource = fs.readFileSync(providerAvailabilityPath, 'utf8');
+  if (
+    !availabilitySource.includes('assertAuthenticated(context.data?.user)') ||
+    !availabilitySource.includes("'x-goog-api-key'") ||
+    !availabilitySource.includes('NOT_CONFIGURED') ||
+    !availabilitySource.includes('Universal Connections')
+  ) {
+    errors.push('functions/api/ai/provider-availability.js: availability checks must authenticate users, keep keys server-side, and explain how to continue when the provider is unavailable.');
+  }
+}
+
 const aiStatusPath = path.join(root, 'functions/api/ai/status.js');
 if (fs.existsSync(aiStatusPath)) {
   const aiStatus = fs.readFileSync(aiStatusPath, 'utf8');
@@ -190,6 +205,13 @@ if (fs.existsSync(html)) {
     !text.includes("bar.setAttribute('aria-valuenow',String(quotaNow))")
   ) {
     errors.push('index.html: the live token meter must expose the current remaining quota and plan/daily limit.');
+  }
+  if (
+    !text.includes('function checkProviderAvailability(provider)') ||
+    !text.includes('/api/ai/provider-availability?provider=') ||
+    !text.includes('checkProviderAvailability(value).catch')
+  ) {
+    errors.push('index.html: selecting an explicit AI brain must check availability and show an informative popup before generation.');
   }
   const providerChoiceRouter = text.match(/function patchAIBrain\(\)\{([\s\S]*?)\n  function mountGemini\(\)\{\}/);
   if (
