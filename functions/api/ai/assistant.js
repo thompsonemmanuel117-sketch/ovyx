@@ -131,6 +131,7 @@ When discussing project changes, distinguish recommendations from changes actual
         context.env,
         {
           provider,
+          taskPrompt: payload.prompt || payload.message || messages[messages.length - 1]?.content || '',
           model: payload.model,
           system,
           user: isWebStudio && projectContext ? combined + '\n\nPROJECT CONTEXT:\n' + projectContext : combined,
