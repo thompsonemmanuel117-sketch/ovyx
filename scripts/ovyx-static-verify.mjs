@@ -174,8 +174,7 @@ if (fs.existsSync(html)) {
     errors.push('index.html: splash must wait for full page load and use a bounded failsafe instead of a short fixed timer.');
   }
   const toastStart = text.indexOf("function showToast(msg, type = 'info') {");
-  const toastEnd = text.indexOf('    /**\\n     * 1. WEB STUDIO ENGINE', toastStart);
-  const toastSource = toastStart >= 0 && toastEnd > toastStart ? text.slice(toastStart, toastEnd) : '';
+  const toastSource = toastStart >= 0 ? text.slice(toastStart, toastStart + 1800) : '';
   if (
     !toastSource ||
     !toastSource.includes("message.textContent = String(msg == null ? '' : msg)") ||
