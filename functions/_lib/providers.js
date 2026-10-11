@@ -708,9 +708,32 @@ function normalizeConfiguredProvider(value, env = {}) {
   return provider;
 }
 
+function taskProviderPreference(taskContext) {
+  const task = String(taskContext || '').slice(0, 18_000).toLowerCase();
+  if (!task) return [];
+
+  // Deterministic task routing makes Automatic useful without inventing an API key
+  // or pretending that a provider is configured. The configured order breaks ties.
+  const design = /\b(design|visual|layout|landing page|website|web studio|html|css|responsive|frontend|front.end|theme|animation|ui|ux|component|prototype)\b/.test(task);
+  const engineering = /\b(debug|debugging|bug|fix|refactor|backend|api|database|security|authentication|quota|token|billing|payment|test|testing|deploy|deployment|build|compiler|typescript|python|git|repository|migration|algorithm|architecture|code|implementation|implement)\b/.test(task);
+  const reasoning = /\b(complex|analyse|analyze|reason|diagnos|strategy|compare|research|investigate|root cause|multi.step|trade.off)\b/.test(task);
+  const writing = /\b(summarize|summarise|rewrite|caption|translate|grammar|format|draft|email|short answer|title|copywriting|proofread)\b/.test(task);
+
+  const hardEngineering = /\b(debug|debugging|bug|fix|refactor|backend|api|database|security|authentication|quota|token|billing|payment|test|testing|deploy|deployment|compiler|typescript|python|git|repository|migration|algorithm|architecture|root cause)\b/.test(task);
+  if (design && !hardEngineering) return ['gemini', 'claude', 'openai', 'deepseek', 'groq'];
+  if (engineering && (reasoning || /\b(security|architecture|migration|root cause|refactor)\b/.test(task))) {
+    return ['claude', 'openai', 'deepseek', 'gemini', 'groq'];
+  }
+  if (engineering) return ['deepseek', 'claude', 'openai', 'gemini', 'groq'];
+  if (reasoning) return ['claude', 'openai', 'gemini', 'deepseek', 'groq'];
+  if (writing) return ['gemini', 'deepseek', 'openai', 'claude', 'groq'];
+  return [];
+}
+
 export function providerOrder(
   env,
-  requested
+  requested,
+  taskContext = ''
 ) {
   if (requested && requested !== 'automatic') {
     return [normalizeRequestedProvider(requested, env)];
@@ -723,9 +746,19 @@ export function providerOrder(
     .map(normalizeConfiguredProvider)
     .filter(provider => ['gemini', 'deepseek', 'claude', 'openai', 'groq', 'cloudflare-workers-ai'].includes(provider));
 
-  /* Keep the configured preference order. Workers AI is an optional, private
-     final fallback in Automatic mode; explicit provider choices stay exclusive. */
+  /* Keep explicit provider choices exclusive. In Automatic mode, a lightweight
+     task classifier prioritizes suitable configured providers; the operator's
+     configured order is the tie-breaker and remains the fallback preference. */
   const ordered = [...new Set(configured)];
+  const preference = taskProviderPreference(taskContext);
+  if (preference.length) {
+    const rank = new Map(preference.map((provider, index) => [provider, index]));
+    ordered.sort((left, right) => {
+      const a = rank.has(left) ? rank.get(left) : Number.MAX_SAFE_INTEGER;
+      const b = rank.has(right) ? rank.get(right) : Number.MAX_SAFE_INTEGER;
+      return a - b;
+    });
+  }
   if (env?.AI && typeof env.AI.run === 'function' && !ordered.includes('cloudflare-workers-ai')) {
     ordered.push('cloudflare-workers-ai');
   }
@@ -822,7 +855,8 @@ export async function callModel(
   for (
     const provider of providerOrder(
       env,
-      requested
+      requested,
+      String(options.taskPrompt || options.user || '')
     )
   ) {
     try {
@@ -959,6 +993,15 @@ export async function callJsonModel(
       env,
       options
     );
+
+  if (typeof options.onUsage === 'function') {
+    options.onUsage(
+      result.rawUsage || null,
+      String(options.user || ''),
+      String(result.text || ''),
+      result.provider || null
+    );
+  }
 
   const value =
     extractJsonObject(

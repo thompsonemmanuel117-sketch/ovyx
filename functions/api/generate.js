@@ -26,11 +26,21 @@ import {
   updateJob,
 } from '../_lib/jobs.js';
 
+import {
+  beginAIQuota,
+  calculateTokenUsage,
+  finalizeAIQuota,
+  refundDailyPrompt,
+} from '../_lib/token-quota.js';
+
 export async function onRequestPost(
   context
 ) {
   const user =
     context.data?.user;
+  let quotaReservation = null;
+  let streamStarted = false;
+  let agentCompleted = false;
 
   try {
     assertAgentAccess(
@@ -128,6 +138,20 @@ export async function onRequestPost(
       );
     }
 
+    // Reserve one user-visible AI build attempt before starting the Agent.
+    // All model calls made by the multi-stage Agent are aggregated and charged
+    // once at the end, while exhausted daily prompts are reserved atomically.
+    quotaReservation = await beginAIQuota(context.env, user);
+    const quotaUsage = { input_tokens: 0, output_tokens: 0, total_tokens: 0 };
+    let usageEstimated = false;
+    const onUsage = (rawUsage, inputText, outputText) => {
+      const usage = calculateTokenUsage(rawUsage, inputText, outputText);
+      quotaUsage.input_tokens += Math.max(0, Number(usage.inputTokens) || 0);
+      quotaUsage.output_tokens += Math.max(0, Number(usage.outputTokens) || 0);
+      quotaUsage.total_tokens += Math.max(0, Number(usage.totalTokens) || 0);
+      usageEstimated = usageEstimated || usage.estimated === true;
+    };
+
     const userEmail = String(user?.email || '').trim().toLowerCase();
     const brandProfile = userEmail
       ? await getFirestoreDataAtPath(
@@ -180,6 +204,7 @@ export async function onRequestPost(
       }
     );
 
+    streamStarted = true;
     return sseResponse(
       async send => {
         try {
@@ -221,6 +246,8 @@ export async function onRequestPost(
                   payload.model ||
                   undefined,
 
+                onUsage,
+
                 clientContext:
                   {
                     ...(payload.context || {}),
@@ -246,14 +273,35 @@ export async function onRequestPost(
               }
             );
 
+          agentCompleted = true;
+          const quota = await finalizeAIQuota(
+            context.env,
+            quotaReservation,
+            quotaUsage,
+            '',
+            ''
+          );
+          if (quota?.usage) quota.usage.estimated = usageEstimated;
+          await send('quota', { quota });
+
           await updateJob(
             context.env,
             jobId,
-            result
+            { ...result, quota }
           );
         } catch (
           err
         ) {
+          // A reserved daily prompt is refunded when the Agent fails before it
+          // completes. If accounting itself fails after work completed, never
+          // pretend the completed build did not consume its allowance.
+          if (!agentCompleted) {
+            try {
+              await refundDailyPrompt(context.env, quotaReservation);
+            } catch (refundError) {
+              console.error('[OVYX AGENT QUOTA REFUND]', refundError?.message || refundError);
+            }
+          }
           await updateJob(
             context.env,
             jobId,
@@ -275,6 +323,9 @@ export async function onRequestPost(
   } catch (
     err
   ) {
+    if (quotaReservation && !streamStarted) {
+      try { await refundDailyPrompt(context.env, quotaReservation); } catch {}
+    }
     return errorResponse(
       err.message ||
         'Unable to start OVYX Agent.',

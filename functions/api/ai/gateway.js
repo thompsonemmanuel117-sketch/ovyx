@@ -141,6 +141,7 @@ export async function onRequestPost(context) {
           provider: String(
             payload.provider || 'automatic'
           ).toLowerCase(),
+          taskPrompt: payload.prompt || payload.message || messages[messages.length - 1]?.content || '',
           model: payload.model,
           system,
           user: isWebStudio && projectContext ? combined + '\n\nPROJECT CONTEXT:\n' + projectContext : combined,

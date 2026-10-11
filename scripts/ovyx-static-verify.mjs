@@ -96,6 +96,71 @@ if (!fs.existsSync(deploymentRoutePath)) {
   }
 }
 
+const agentQuotaRoutePath = path.join(root, 'functions/api/generate.js');
+if (fs.existsSync(agentQuotaRoutePath)) {
+  const agentRoute = fs.readFileSync(agentQuotaRoutePath, 'utf8');
+  if (
+    !agentRoute.includes('beginAIQuota(context.env, user)') ||
+    !agentRoute.includes('finalizeAIQuota(') ||
+    !agentRoute.includes('quotaUsage') ||
+    !agentRoute.includes('refundDailyPrompt') ||
+    !agentRoute.includes('onUsage')
+  ) {
+    errors.push('functions/api/generate.js: Agent builds must enforce quota before generation, aggregate each model call, settle usage, and refund a daily prompt when a build fails.');
+  }
+}
+
+const adminUsersQuotaPath = path.join(root, 'functions/api/admin/users.js');
+if (fs.existsSync(adminUsersQuotaPath)) {
+  const adminUsers = fs.readFileSync(adminUsersQuotaPath, 'utf8');
+  if (
+    !adminUsers.includes('QUOTA_PLANS') ||
+    !adminUsers.includes('monthlyUsagePercent') ||
+    !adminUsers.includes('dailyPromptsRemaining') ||
+    !adminUsers.includes("authority: 'SERVER'")
+  ) {
+    errors.push('functions/api/admin/users.js: admin user rows must expose server-authoritative monthly and daily AI usage.');
+  }
+}
+
+const launchPolishPath = path.join(root, 'assets/ovyx-launch-polish.js');
+if (!fs.existsSync(launchPolishPath)) {
+  errors.push('assets/ovyx-launch-polish.js: shared animated notification and quota meter runtime is missing.');
+} else {
+  const launchPolish = fs.readFileSync(launchPolishPath, 'utf8');
+  if (
+    !launchPolish.includes('function launchToast(') ||
+    !launchPolish.includes('function loadAdminQuota(') ||
+    !launchPolish.includes('view-admin-users') ||
+    !launchPolish.includes('sidebar-token-bar') ||
+    !launchPolish.includes('textContent')
+  ) {
+    errors.push('assets/ovyx-launch-polish.js: the animated notification or server-backed quota meter contract is incomplete.');
+  }
+}
+
+const shellMiddlewarePath = path.join(root, 'functions/_middleware.js');
+if (fs.existsSync(shellMiddlewarePath)) {
+  const shellMiddleware = fs.readFileSync(shellMiddlewarePath, 'utf8');
+  if (
+    !shellMiddleware.includes("assets/ovyx-launch-polish.js") ||
+    !shellMiddleware.includes('new HTMLRewriter()') ||
+    !shellMiddleware.includes("url.pathname !== '/'")
+  ) {
+    errors.push('functions/_middleware.js: launch runtime must be injected only into the application HTML shell.');
+  }
+} else {
+  errors.push('functions/_middleware.js: application-shell launch runtime middleware is missing.');
+}
+
+const routeConfigPath = path.join(root, 'functions/_routes.json');
+if (fs.existsSync(routeConfigPath)) {
+  const routeConfig = JSON.parse(fs.readFileSync(routeConfigPath, 'utf8'));
+  if (!Array.isArray(routeConfig.include) || !routeConfig.include.includes('/') || !routeConfig.include.includes('/api/*')) {
+    errors.push('functions/_routes.json: both the application shell and API routes must remain enabled.');
+  }
+}
+
 const entitlementRoutePath = path.join(root, 'functions/api/entitlements.js');
 if (fs.existsSync(entitlementRoutePath)) {
   const entitlementRoute = fs.readFileSync(entitlementRoutePath, 'utf8');
@@ -118,6 +183,7 @@ for (const file of walk(root).filter(x => /\.json$/.test(x))) {
 for (const file of [
   path.join(root, 'scripts/ovyx-pages-build.mjs'),
   path.join(root, 'scripts/ovyx-cloudflare-diagnostics.mjs'),
+  path.join(root, 'assets/ovyx-launch-polish.js'),
 ]) {
   if (!fs.existsSync(file)) continue;
   try {
