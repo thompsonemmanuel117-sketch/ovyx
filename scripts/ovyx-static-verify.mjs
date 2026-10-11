@@ -124,6 +124,17 @@ if (fs.existsSync(orchestratorQuotaPath)) {
   }
 }
 
+const agentRouteQuotaPath = path.join(root, 'functions/api/generate.js');
+if (fs.existsSync(agentRouteQuotaPath)) {
+  const agentRoute = fs.readFileSync(agentRouteQuotaPath, 'utf8');
+  if (
+    !agentRoute.includes('if (Number(quotaUsage.total_tokens) > 0)') ||
+    !agentRoute.includes('OVYX AGENT QUOTA ACCOUNTING')
+  ) {
+    errors.push('functions/api/generate.js: failed Agent runs must account for partial AI usage instead of bypassing quota accounting.');
+  }
+}
+
 const adminUsersQuotaPath = path.join(root, 'functions/api/admin/users.js');
 if (fs.existsSync(adminUsersQuotaPath)) {
   const adminUsers = fs.readFileSync(adminUsersQuotaPath, 'utf8');
