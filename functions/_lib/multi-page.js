@@ -56,8 +56,8 @@ export function normalizeSiteMap(raw, maxPages = DEFAULT_PAGE_LIMIT) {
     seenPaths.add(path);
 
     let url = String(item.url || routeFromPath(path)).trim();
-    if (!url.startsWith('/')) url = '/' + url;
     if (/^(?:\/\/|https?:\/\/)/i.test(url)) url = routeFromPath(path);
+    if (!url.startsWith('/')) url = '/' + url;
     url = url.replace(/\/{2,}/g, '/');
     if (!url || url.includes('..') || url.includes('\\')) url = routeFromPath(path);
 
