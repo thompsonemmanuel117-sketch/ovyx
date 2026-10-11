@@ -1335,10 +1335,13 @@ export async function runAgent({
 
   let executionResult;
   let changes = [];
-  const maxChangedFiles = cap(
-    env,
-    'AGENT_MAX_CHANGED_FILES',
-    DEFAULT_MAX_CHANGED
+  const maxChangedFiles = Math.max(
+    2,
+    cap(
+      env,
+      'AGENT_MAX_CHANGED_FILES',
+      DEFAULT_MAX_CHANGED
+    )
   );
 
   if (siteBuild) {
