@@ -60,10 +60,13 @@ if (fs.existsSync(providerRouterPath)) {
   }
 }
 
+const providerRouterSource = fs.existsSync(providerRouterPath)
+  ? fs.readFileSync(providerRouterPath, 'utf8')
+  : '';
 if (
-  /OVYX_AI_BASE_URL|sharedGateway|sharedKeyPreference|resolveOpenAICompatibleConfig/.test(providerRouter) ||
-  !/if\s*\(requested\s*!==\s*['"]automatic['"]\s*&&\s*!requested\.startsWith\(['"]connection:/.test(providerRouter) ||
-  !/not available right now\. Please try again later, or connect your own AI Brain in Universal Connections to continue building/i.test(providerRouter)
+  /OVYX_AI_BASE_URL|sharedGateway|sharedKeyPreference|resolveOpenAICompatibleConfig/.test(providerRouterSource) ||
+  !/if\s*\(requested\s*!==\s*['"]automatic['"]\s*&&\s*!requested\.startsWith\(['"]connection:/.test(providerRouterSource) ||
+  !/not available right now\. Please try again later, or connect your own AI Brain in Universal Connections to continue building/i.test(providerRouterSource)
 ) {
   errors.push('functions/_lib/providers.js: an explicitly selected provider must use its own provider route and show a helpful unavailable message instead of silently switching.');
 }
