@@ -65,7 +65,7 @@ const context = buildSiteBatchContext({
   maxChars: 40_000,
 });
 assert(context.includes('FULL WEBSITE ROUTE MANIFEST'));
-assert(context.includes('pages/page-20/index.html'));
+assert(context.includes('page-20/index.html'));
 assert(context.includes('ALREADY GENERATED FILE PATHS'));
 assert(context.includes('assets/site.css'));
 
