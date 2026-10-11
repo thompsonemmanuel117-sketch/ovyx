@@ -26,6 +26,13 @@ import {
   updateJob,
 } from '../_lib/jobs.js';
 
+import {
+  beginAIQuota,
+  calculateTokenUsage,
+  finalizeAIQuota,
+  refundDailyPrompt,
+} from '../_lib/token-quota.js';
+
 export async function onRequestPost(
   context
 ) {
@@ -139,7 +146,14 @@ export async function onRequestPost(
     const jobId =
       crypto.randomUUID();
 
-    await saveJob(
+    // Agent Mode must use the same server-side quota as Web Studio and AI chat.
+    const quotaReservation = await beginAIQuota(context.env, user);
+    let totalUsedTokens = 0;
+    let successfulModelCalls = 0;
+    let quotaFinalized = false;
+
+    try {
+      await saveJob(
       context.env,
       {
         id:
@@ -178,7 +192,11 @@ export async function onRequestPost(
 
         events: [],
       }
-    );
+      );
+    } catch (saveError) {
+      await refundDailyPrompt(context.env, quotaReservation);
+      throw saveError;
+    }
 
     return sseResponse(
       async send => {
@@ -243,8 +261,24 @@ export async function onRequestPost(
                   'preview'
                     ? 'preview'
                     : 'pr',
+
+                onAIUsage: ({ rawUsage, inputText, outputText }) => {
+                  const usage = calculateTokenUsage(rawUsage, inputText, outputText);
+                  totalUsedTokens += Math.max(0, Number(usage.totalTokens) || 0);
+                  successfulModelCalls += 1;
+                },
               }
             );
+
+          const quota = await finalizeAIQuota(
+            context.env,
+            quotaReservation,
+            { total_tokens: totalUsedTokens },
+            '',
+            ''
+          );
+          quotaFinalized = true;
+          await send('quota', { ...quota, usedTokens: totalUsedTokens });
 
           await updateJob(
             context.env,
@@ -254,6 +288,27 @@ export async function onRequestPost(
         } catch (
           err
         ) {
+          if (!quotaFinalized) {
+            try {
+              if (successfulModelCalls > 0) {
+                await finalizeAIQuota(
+                  context.env,
+                  quotaReservation,
+                  { total_tokens: totalUsedTokens },
+                  '',
+                  ''
+                );
+              } else {
+                await refundDailyPrompt(context.env, quotaReservation);
+              }
+              quotaFinalized = true;
+            } catch (quotaError) {
+              console.error('[OVYX Agent quota]', {
+                code: quotaError?.code || 'QUOTA_FINALIZE_FAILED',
+                message: quotaError?.message || 'Unable to finalize Agent quota.'
+              });
+            }
+          }
           await updateJob(
             context.env,
             jobId,
