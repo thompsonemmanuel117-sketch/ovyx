@@ -9,7 +9,7 @@ import {
 
 const pages = Array.from({ length: 20 }, (_, index) => ({
   title: index === 0 ? 'Home' : 'Page ' + (index + 1),
-  path: index === 0 ? 'index.html' : 'pages/page-' + (index + 1) + '/index.html',
+  path: index === 0 ? 'index.html' : 'page-' + (index + 1) + '/index.html',
   url: index === 0 ? '/' : '/page-' + (index + 1) + '/',
   goal: 'Purpose for page ' + (index + 1),
 }));
@@ -27,6 +27,8 @@ assert.equal(normalized.overflow, 0);
 assert.equal(normalized.siteMap.pages.length, 20);
 assert.equal(normalized.siteMap.pages[0].url, '/');
 assert.equal(normalized.siteMap.pages[1].url, '/page-2/');
+assert.equal(normalizeSiteMap({ pages: [{ path: 'about.html', url: '/about/' }, { path: 'contact/index.html', url: '/contact' }] }).siteMap.pages[0].url, '/about.html', 'Static HTML URLs must match the actual output path.');
+assert.equal(normalizeSiteMap({ pages: [{ path: 'src/pages/about.astro', url: '/wrong/' }, { path: 'src/pages/contact.astro', url: '/also-wrong/' }] }).siteMap.pages[0].url, '/about', 'Framework page URLs should follow native file routes.');
 
 const batches = createSiteBuildBatches(normalized.siteMap, 6);
 assert(batches.length > 1, 'A 20-page site must split into multiple file-sized batches.');
