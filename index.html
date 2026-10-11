@@ -1196,8 +1196,8 @@
 <div class="flex items-center gap-3">
 <div class="w-9 h-9 rounded-xl bg-ovyx-black border border-white/15 flex items-center justify-center text-brand-cyan text-sm font-bold">D</div>
 <div>
-<h3 class="text-sm font-bold text-white tracking-tight">DeepSeek Flash</h3>
-<span class="text-[10px] font-mono text-zinc-500">model: deepseek-flash · Key: DEEPSEEK_API_KEY</span>
+<h3 class="text-sm font-bold text-white tracking-tight">DeepSeek V4 Flash</h3>
+<span class="text-[10px] font-mono text-zinc-500">model: deepseek-v4-flash · Key: DEEPSEEK_API_KEY</span>
 </div>
 </div>
 <span class="text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/15 bg-white/5 text-zinc-300 font-bold uppercase tracking-wider" id="brain-badge-deepseek">NOT CONFIGURED</span>
@@ -1212,8 +1212,8 @@
 <div class="flex items-center gap-3">
 <div class="w-9 h-9 rounded-xl bg-ovyx-black border border-white/15 flex items-center justify-center text-amber-400 text-sm font-bold">C</div>
 <div>
-<h3 class="text-sm font-bold text-white tracking-tight">Claude Sonnet 4.6</h3>
-<span class="text-[10px] font-mono text-zinc-500">model: claude-sonnet-4-6 · Key: ANTHROPIC_API_KEY</span>
+<h3 class="text-sm font-bold text-white tracking-tight">Claude Sonnet 5</h3>
+<span class="text-[10px] font-mono text-zinc-500">model: claude-sonnet-5 · Key: ANTHROPIC_API_KEY</span>
 </div>
 </div>
 <span class="text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/15 bg-white/5 text-zinc-300 font-bold uppercase tracking-wider" id="brain-badge-anthropic">NOT CONFIGURED</span>
@@ -1228,8 +1228,8 @@
 <div class="flex items-center gap-3">
 <div class="w-9 h-9 rounded-xl bg-ovyx-black border border-white/15 flex items-center justify-center text-emerald-400 text-sm font-bold">O</div>
 <div>
-<h3 class="text-sm font-bold text-white tracking-tight">OpenAI GPT-4o Mini</h3>
-<span class="text-[10px] font-mono text-zinc-500">model: gpt-4o-mini · Key: OPENAI_API_KEY</span>
+<h3 class="text-sm font-bold text-white tracking-tight">OpenAI GPT-5.1</h3>
+<span class="text-[10px] font-mono text-zinc-500">model: gpt-5.1 · Key: OPENAI_API_KEY</span>
 </div>
 </div>
 <span class="text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/15 bg-white/5 text-zinc-300 font-bold uppercase tracking-wider" id="brain-badge-openai">NOT CONFIGURED</span>
@@ -1282,7 +1282,7 @@
 │  ├─ env.GEMINI_API_KEY      → Google Generative AI Gateway  │
 │  ├─ env.DEEPSEEK_API_KEY    → DeepSeek V3 Chat Model        │
 │  ├─ env.OPENAI_API_KEY      → GPT-4o Mini JSON Endpoint     │
-│  └─ env.ANTHROPIC_API_KEY   → Claude Sonnet 4.6 Engine      │
+│  └─ env.ANTHROPIC_API_KEY   → Claude Sonnet 5 Engine      │
 └──────────────────────────────┬──────────────────────────────┘
             </pre>
 </div>
@@ -2373,7 +2373,7 @@ Body: { broadcastId, title, body, category, link }</div>
         const grid = document.getElementById('telemetry-cards-grid');
         if (!grid) return;
         grid.innerHTML = '<div class="col-span-full text-center text-xs py-4 text-zinc-500 font-mono">Probing edge services...</div>';
-        const endpoints = ['Cloudflare Worker', 'Firebase Gateway', 'Gemini AI', 'DeepSeek AI', 'OpenAI Mini', 'Claude Sonnet 4.6'];
+        const endpoints = ['Cloudflare Worker', 'Firebase Gateway', 'Gemini AI', 'DeepSeek AI', 'OpenAI Mini', 'Claude Sonnet 5'];
         await new Promise(r => setTimeout(r, 400));
         grid.innerHTML = endpoints.map(name => `
           <div class="v0-card rounded-xl p-4 flex flex-col justify-between h-24">
@@ -2526,20 +2526,78 @@ Body: { broadcastId, title, body, category, link }</div>
      */
     function showToast(msg, type = 'info') {
       const container = document.getElementById('toast-stack');
+      if (!container) return;
+
+      const kind = type === 'success'
+        ? 'success'
+        : type === 'error'
+          ? 'error'
+          : (type === 'warn' || type === 'warning')
+            ? 'warning'
+            : 'info';
+      const labels = {
+        success: 'Done',
+        error: 'Something went wrong',
+        warning: 'Heads up',
+        info: 'OVYX notice'
+      };
+      const icons = {
+        success: 'circle-check',
+        error: 'circle-exclamation',
+        warning: 'triangle-exclamation',
+        info: 'circle-info'
+      };
+      const duration = kind === 'error' ? 5600 : 4200;
+
       const toast = document.createElement('div');
-      toast.className = `px-4 py-2.5 rounded-lg border text-xs font-mono font-bold flex items-center gap-2.5 shadow-xl pointer-events-auto transition-all duration-300 transform translate-y-2 opacity-0 ${
-        type === 'success' ? 'bg-zinc-950 border-emerald-500/40 text-emerald-300' :
-        type === 'error' ? 'bg-zinc-950 border-rose-500/40 text-rose-300' :
-        'bg-zinc-950 border-white/15 text-zinc-200'
-      }`;
-      const icon = type === 'success' ? 'circle-check' : type === 'error' ? 'triangle-exclamation' : 'circle-info';
-      toast.innerHTML = `<i class="fa-solid fa-${icon}"></i> <span>${msg}</span>`;
+      toast.className = 'ovyx-toast-popup';
+      toast.dataset.kind = kind;
+      toast.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+      toast.setAttribute('aria-live', kind === 'error' ? 'assertive' : 'polite');
+
+      const iconWrap = document.createElement('span');
+      iconWrap.className = 'ovyx-toast-icon';
+      iconWrap.setAttribute('aria-hidden', 'true');
+      const icon = document.createElement('i');
+      icon.className = 'fa-solid fa-' + icons[kind];
+      iconWrap.appendChild(icon);
+
+      const body = document.createElement('div');
+      body.className = 'ovyx-toast-copy';
+      const title = document.createElement('strong');
+      title.className = 'ovyx-toast-title';
+      title.textContent = labels[kind];
+      const message = document.createElement('span');
+      message.className = 'ovyx-toast-message';
+      message.textContent = String(msg ?? '');
+      body.append(title, message);
+
+      const close = document.createElement('button');
+      close.type = 'button';
+      close.className = 'ovyx-toast-close';
+      close.setAttribute('aria-label', 'Dismiss notification');
+      close.innerHTML = '<i class="fa-solid fa-xmark" aria-hidden="true"></i>';
+
+      const progress = document.createElement('span');
+      progress.className = 'ovyx-toast-progress';
+      progress.style.animationDuration = duration + 'ms';
+
+      toast.append(iconWrap, body, close, progress);
       container.appendChild(toast);
-      requestAnimationFrame(() => toast.classList.remove('translate-y-2', 'opacity-0'));
-      setTimeout(() => {
-        toast.classList.add('opacity-0', 'translate-y-1');
-        setTimeout(() => toast.remove(), 250);
-      }, 3400);
+
+      let timer = 0;
+      let dismissed = false;
+      const dismiss = () => {
+        if (dismissed) return;
+        dismissed = true;
+        window.clearTimeout(timer);
+        toast.classList.remove('is-visible');
+        toast.classList.add('is-leaving');
+        window.setTimeout(() => toast.remove(), 260);
+      };
+      close.addEventListener('click', dismiss);
+      window.requestAnimationFrame(() => toast.classList.add('is-visible'));
+      timer = window.setTimeout(dismiss, duration);
     }
     /**
      * 1. WEB STUDIO ENGINE: CLEAN CHAT / PREVIEW STRUCTURE
@@ -3479,9 +3537,9 @@ Body: { broadcastId, title, body, category, link }</div>
   const PROVIDERS=['gemini','deepseek','anthropic','openai'];
   const PROVIDER_LABELS={
     gemini:'Gemini 3.8 Flash',
-    deepseek:'DeepSeek Flash',
-    anthropic:'Claude Sonnet 4.6',
-    openai:'OpenAI GPT-4o Mini'
+    deepseek:'DeepSeek V4 Flash',
+    anthropic:'Claude Sonnet 5',
+    openai:'OpenAI GPT-5.1'
   };
   const $=id=>document.getElementById(id);
   const isOwner=()=>window.OVYXServerOwner?.active===true || String(window.__OVYX_SERVER_ENTITLEMENTS?.role||'').toUpperCase()==='ROOT_SUPERUSER';
@@ -4257,7 +4315,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 <script id="ovyx-number9-10-runtime">(function(){'use strict';
 const AI_KEY='ovyx.ai.preferences.v1';
 window.OVYXAIStorageKey=window.OVYXAIStorageKey||function(){try{const u=window.firebase?.auth?.().currentUser;return u?.uid?AI_KEY+'.user.'+String(u.uid):AI_KEY+'.guest'}catch{return AI_KEY+'.guest'}};
-const aiDefaults={mode:'balanced',model:'automatic',explain:true,preserve:true,confirmDestructive:false,contextFiles:true,contextPage:true,contextGithub:true,provider:'gemini'};
+const aiDefaults={mode:'balanced',model:'automatic',explain:true,preserve:true,confirmDestructive:false,contextFiles:true,contextPage:true,contextGithub:true,provider:'automatic'};
 function aiLoad(){try{localStorage.removeItem(AI_KEY);return {...aiDefaults,...JSON.parse(localStorage.getItem(window.OVYXAIStorageKey())||'{}')}}catch{return {...aiDefaults}}}
 function aiSave(st){try{localStorage.setItem(window.OVYXAIStorageKey(),JSON.stringify(st));localStorage.removeItem(AI_KEY);return true}catch{return false}}
 function aiApply(){const st=aiLoad();window.OVYXAI=st;document.querySelectorAll('[data-ai-mode]').forEach(x=>x.classList.toggle('selected',x.dataset.aiMode===st.mode));const model=document.getElementById('set-ai-model');if(model)model.value=st.model;const provider=document.getElementById('set-provider');if(provider)provider.value=st.provider||'gemini';['explain','preserve','confirmDestructive','contextFiles','contextPage','contextGithub'].forEach(k=>{const el=document.querySelector('[data-ai-pref="'+k+'"]');if(el){el.checked=!!st[k];el.setAttribute('aria-checked',String(!!st[k]))}})}
@@ -10720,9 +10778,10 @@ window.addEventListener('pageshow',()=>setTimeout(install,0),{passive:true});
       const requested=String(payload.provider||payload.requestedProvider||'automatic').trim().toLowerCase()||'automatic';
       const normalized=requested==='claude'?'anthropic':requested;
       /* Automatic may use the server's configured order. An explicit provider must never jump to another provider. */
-      if(requested==='automatic'||requested.startsWith('connection:')){
-        const r=await base({...payload,provider:requested,requestedProvider:requested},options);
-        return {...(r||{}),requestedProvider:requested,routedProvider:r?.provider||requested,failoverUsed:false};
+      if(requested==='automatic'||requested==='auto'||requested.startsWith('connection:')){
+        const selected=requested==='auto'?'automatic':requested;
+        const r=await base({...payload,provider:selected,requestedProvider:selected},options);
+        return {...(r||{}),requestedProvider:selected,routedProvider:r?.provider||selected,failoverUsed:Boolean(r?.failoverUsed),autoRouting:r?.autoRouting||null};
       }
       if(options?.signal?.aborted)throw Object.assign(new Error('OVYX AI request cancelled.'),{name:'AbortError'});
       try{
@@ -14987,7 +15046,7 @@ function render(panel){
       '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-auth">AUTHENTICATION</label><select id="ovyx-v91-conn-auth" class="ovyx-v91-select"><option value="none">No credential</option><option value="bearer">Bearer token</option><option value="api-key">X-API-Key</option><option value="basic">Basic (username:password)</option></select></div>'+
       '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-endpoint">ENDPOINT</label><input id="ovyx-v91-conn-endpoint" class="ovyx-v91-input" value="https://example.com/health" placeholder="https://api.example.com/v1" inputmode="url" autocomplete="url"></div>'+
       '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-secret">API KEY / CREDENTIAL</label><input id="ovyx-v91-conn-secret" class="ovyx-v91-input" type="password" autocomplete="new-password" placeholder="Stored encrypted on the server"><small class="text-zinc-500 text-xs">The key is never returned to the browser. AI endpoints must use HTTPS.</small></div>'+
-      '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-model">MODEL (AI BRAIN)</label><input id="ovyx-v91-conn-model" class="ovyx-v91-input" placeholder="e.g. deepseek-flash or claude-sonnet-4-6"></div>'+
+      '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-model">MODEL (AI BRAIN)</label><input id="ovyx-v91-conn-model" class="ovyx-v91-input" placeholder="e.g. deepseek-v4-flash or claude-sonnet-5"></div>'+
       '<div class="ovyx-v91-actions"><button type="button" class="ovyx-v91-btn ovyx-v91-btn-primary" id="ovyx-v91-add">Add Connection</button><button type="button" class="ovyx-v91-btn ovyx-v91-btn-secondary" id="ovyx-v91-reload">Reload</button></div>'+
     '</div><div class="ovyx-v91-status" id="ovyx-v91-status" data-state="'+(user?'ready':'error')+'">'+(user?'Ready. Your plan connection limit will be checked by the server.':'Sign in to manage Universal Connections.')+'</div></div>'+
     '<div class="ovyx-v91-saved" id="ovyx-v91-saved-wrap" '+(user?'':'hidden')+'><div class="ovyx-v91-saved-head"><b>SAVED CONNECTIONS</b><small id="ovyx-v91-limit"></small><button class="ovyx-v91-mini" type="button" id="ovyx-v91-clear-brain">Clear AI Brain</button></div><div class="ovyx-v91-list" id="ovyx-v91-list"></div></div>'+
@@ -15570,6 +15629,28 @@ window.addEventListener('orientationchange',syncNavigation,{passive:true});
   },{passive:true});
 })();
 </script>
+
+<style id="ovyx-toast-motion-v1">
+#toast-stack{z-index:2147480000!important;align-items:flex-end!important;gap:10px!important;max-width:calc(100vw - 24px)!important}
+.ovyx-toast-popup{--toast-accent:#9ca3af;position:relative;display:flex;align-items:flex-start;gap:12px;width:min(420px,calc(100vw - 34px));box-sizing:border-box;overflow:hidden;padding:14px 42px 17px 14px;border:1px solid rgba(255,255,255,.12);border-left:3px solid var(--toast-accent);border-radius:15px;background:linear-gradient(145deg,rgba(18,19,22,.98),rgba(7,8,10,.98));box-shadow:0 22px 60px rgba(0,0,0,.48),0 0 0 1px rgba(255,255,255,.025) inset;backdrop-filter:blur(18px);color:#f4f4f5;opacity:0;transform:translate3d(0,15px,0) scale(.965);transition:opacity .22s ease,transform .3s cubic-bezier(.18,.8,.25,1);pointer-events:auto}
+.ovyx-toast-popup.is-visible{opacity:1;transform:translate3d(0,0,0) scale(1)}
+.ovyx-toast-popup.is-leaving{opacity:0;transform:translate3d(0,8px,0) scale(.98);pointer-events:none}
+.ovyx-toast-popup[data-kind="success"]{--toast-accent:#34d399}
+.ovyx-toast-popup[data-kind="error"]{--toast-accent:#fb7185}
+.ovyx-toast-popup[data-kind="warning"]{--toast-accent:#fbbf24}
+.ovyx-toast-popup[data-kind="info"]{--toast-accent:#60a5fa}
+.ovyx-toast-icon{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;border-radius:11px;background:color-mix(in srgb,var(--toast-accent) 13%,transparent);color:var(--toast-accent);font-size:15px;animation:ovyxToastIconIn .38s cubic-bezier(.18,.9,.28,1.35) both}
+.ovyx-toast-copy{display:flex;flex:1;min-width:0;flex-direction:column;gap:4px;padding-top:1px}
+.ovyx-toast-title{font:800 11px/1.25 Inter,system-ui,sans-serif;letter-spacing:.035em;color:var(--toast-accent)}
+.ovyx-toast-message{font:500 12px/1.5 Inter,system-ui,sans-serif;color:#e4e4e7;overflow-wrap:anywhere}
+.ovyx-toast-close{position:absolute;top:10px;right:10px;display:grid;place-items:center;width:25px;height:25px;border:1px solid rgba(255,255,255,.09);border-radius:8px;background:rgba(255,255,255,.035);color:#a1a1aa;cursor:pointer}
+.ovyx-toast-close:hover{background:rgba(255,255,255,.09);color:#fff}
+.ovyx-toast-progress{position:absolute;left:0;bottom:0;height:2px;width:100%;background:var(--toast-accent);transform-origin:left center;animation:ovyxToastProgress linear forwards;opacity:.82}
+@keyframes ovyxToastIconIn{0%{opacity:0;transform:scale(.65) rotate(-8deg)}100%{opacity:1;transform:scale(1) rotate(0)}}
+@keyframes ovyxToastProgress{from{transform:scaleX(1)}to{transform:scaleX(0)}}
+@media(max-width:520px){#toast-stack{left:12px!important;right:12px!important;bottom:12px!important;align-items:stretch!important;max-width:none!important}.ovyx-toast-popup{width:100%;max-width:none;padding:12px 40px 16px 12px}.ovyx-toast-icon{width:31px;height:31px;flex-basis:31px}}
+@media(prefers-reduced-motion:reduce){.ovyx-toast-popup,.ovyx-toast-icon{animation:none!important;transition:none!important}.ovyx-toast-progress{animation:none!important;display:none!important}}
+</style>
 </body>
 </html>
 
