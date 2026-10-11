@@ -82,7 +82,10 @@ function inspectBinding(env, key) {
   }
 
   const value = environment[key];
-  if (value === undefined || value === null || String(value).trim() === '') {
+  if (value === undefined || value === null) {
+    return { state: 'unavailable', value };
+  }
+  if (String(value).trim() === '') {
     return { state: 'empty', value };
   }
 
@@ -121,13 +124,18 @@ function normalizePrivateKey(value) {
 async function validateFirebaseServiceAccount(env) {
   const key = 'FIREBASE_SERVICE_ACCOUNT_JSON';
   const binding = inspectBinding(env, key);
-  if (binding.state === 'absent' || binding.state === 'empty') {
+  if (['absent', 'empty', 'unavailable'].includes(binding.state)) {
+    const reasons = {
+      absent: 'variable_not_present',
+      empty: 'value_empty',
+      unavailable: 'binding_exists_but_runtime_value_is_unavailable',
+    };
     return {
       key,
       configured: false,
       required: true,
       state: binding.state,
-      reason: binding.state === 'absent' ? 'variable_not_present' : 'value_empty',
+      reason: reasons[binding.state],
     };
   }
 
@@ -220,13 +228,18 @@ async function validateFirebaseServiceAccount(env) {
 function validateGitHubTokenEncryptionKey(env) {
   const key = 'GITHUB_TOKEN_ENCRYPTION_KEY';
   const binding = inspectBinding(env, key);
-  if (binding.state === 'absent' || binding.state === 'empty') {
+  if (['absent', 'empty', 'unavailable'].includes(binding.state)) {
+    const reasons = {
+      absent: 'variable_not_present',
+      empty: 'value_empty',
+      unavailable: 'binding_exists_but_runtime_value_is_unavailable',
+    };
     return {
       key,
       configured: false,
       required: true,
       state: binding.state,
-      reason: binding.state === 'absent' ? 'variable_not_present' : 'value_empty',
+      reason: reasons[binding.state],
     };
   }
 
@@ -273,8 +286,11 @@ export async function onRequestGet(context) {
   const emptyRequiredEnvironment = requiredRows
     .filter((item) => item.state === 'empty')
     .map((item) => item.key);
+  const unavailableRequiredEnvironment = requiredRows
+    .filter((item) => item.state === 'unavailable')
+    .map((item) => item.key);
   const invalidRequiredEnvironment = requiredRows
-    .filter((item) => !['absent', 'empty', 'present', 'configured'].includes(item.state))
+    .filter((item) => !['absent', 'empty', 'unavailable', 'present', 'configured'].includes(item.state))
     .map((item) => ({
       key: item.key,
       state: item.state,
@@ -303,6 +319,7 @@ export async function onRequestGet(context) {
   const hasBlockingConfigurationProblems =
     missingRequiredEnvironment.length > 0 ||
     emptyRequiredEnvironment.length > 0 ||
+    unavailableRequiredEnvironment.length > 0 ||
     invalidRequiredEnvironment.length > 0;
 
   return Response.json({
@@ -334,8 +351,9 @@ export async function onRequestGet(context) {
     },
     missingRequiredEnvironment,
     emptyRequiredEnvironment,
+    unavailableRequiredEnvironment,
     invalidRequiredEnvironment,
-    note: 'Secret values are never returned. Firebase service-account checks validate JSON, required fields, project match, and private-key format; they do not authenticate the account with Google.',
+    note: 'Secret values are never returned. The runtime distinguishes absent bindings, blank values, unreadable/null values, and invalid non-empty values. Firebase service-account checks validate JSON, required fields, project match, and private-key format; they do not authenticate the account with Google.',
   });
 }
 

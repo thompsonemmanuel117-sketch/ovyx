@@ -137,6 +137,7 @@ async function probeApplicationHealth(deploymentUrl) {
       : [];
     const missing = readKeyList('missingRequiredEnvironment');
     const empty = readKeyList('emptyRequiredEnvironment');
+    const unavailable = readKeyList('unavailableRequiredEnvironment');
     const invalid = Array.isArray(payload?.invalidRequiredEnvironment)
       ? payload.invalidRequiredEnvironment.map(item => ({
           key: String(item?.key || '').slice(0, 120),
@@ -186,6 +187,7 @@ async function probeApplicationHealth(deploymentUrl) {
       ),
       missingRequiredEnvironment: missing,
       emptyRequiredEnvironment: empty,
+      unavailableRequiredEnvironment: unavailable,
       invalidRequiredEnvironment: invalid
     };
   } catch (error) {
@@ -266,6 +268,7 @@ try {
       if (result.runtimeHealth.firebaseProjectMatch === false) reasons.push('Firebase client/server project mismatch');
       if (result.runtimeHealth.missingRequiredEnvironment?.length) reasons.push('variables not present: ' + result.runtimeHealth.missingRequiredEnvironment.join(', '));
       if (result.runtimeHealth.emptyRequiredEnvironment?.length) reasons.push('variables present but empty: ' + result.runtimeHealth.emptyRequiredEnvironment.join(', '));
+      if (result.runtimeHealth.unavailableRequiredEnvironment?.length) reasons.push('bindings exist but runtime values are unavailable: ' + result.runtimeHealth.unavailableRequiredEnvironment.join(', '));
       if (result.runtimeHealth.invalidRequiredEnvironment?.length) {
         reasons.push('variables present but invalid: ' + result.runtimeHealth.invalidRequiredEnvironment
           .map(item => item.key + ' (' + item.state + ': ' + item.reason + ')')

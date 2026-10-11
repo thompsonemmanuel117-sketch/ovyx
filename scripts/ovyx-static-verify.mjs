@@ -206,6 +206,7 @@ if (fs.existsSync(healthRoutePath)) {
     !healthRoute.includes("state: 'invalid_private_key'") ||
     !healthRoute.includes("state: 'project_mismatch'") ||
     !healthRoute.includes('emptyRequiredEnvironment') ||
+    !healthRoute.includes('unavailableRequiredEnvironment') ||
     !healthRoute.includes('invalidRequiredEnvironment') ||
     !healthRoute.includes('must_be_at_least_32_characters') ||
     !healthRoute.includes('credentialAuthentication')
