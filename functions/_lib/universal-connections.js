@@ -397,13 +397,13 @@ function resolveConnectionModel(record, requestedModel) {
   }
 
   if (record?.protocol === 'anthropic-messages') return 'claude-sonnet-4-6';
-  if (record?.protocol === 'gemini-generate-content') return 'gemini-2.5-flash';
+  if (record?.protocol === 'gemini-generate-content') return 'gemini-3.8-flash';
 
   if (record?.protocol === 'openai-chat') {
     try {
       const host = new URL(String(record.endpoint || '')).hostname.toLowerCase();
       if (host === 'api.deepseek.com' || host.endsWith('.deepseek.com')) return 'deepseek-flash';
-      if (host === 'api.openai.com') return 'gpt-5';
+      if (host === 'api.openai.com') return 'gpt-4o-mini';
       if (host === 'api.groq.com' || host.endsWith('.groq.com')) return 'openai/gpt-oss-20b';
     } catch {}
   }
