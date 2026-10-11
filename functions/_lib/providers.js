@@ -858,7 +858,6 @@ export async function callModel(
       requested,
       String(options.taskPrompt || options.user || '')
     )
-  )
   ) {
     try {
       const model =
