@@ -3743,6 +3743,7 @@ Body: { broadcastId, title, body, category, link }</div>
           cache:'no-store',
           signal,
           body:JSON.stringify({
+            mode:payload.mode||'assistant',
             provider:requested,
             model:payload.model,
             messages,
