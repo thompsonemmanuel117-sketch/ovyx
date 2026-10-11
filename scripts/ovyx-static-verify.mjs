@@ -96,6 +96,59 @@ if (!fs.existsSync(deploymentRoutePath)) {
   }
 }
 
+const agentQuotaRoutePath = path.join(root, 'functions/api/generate.js');
+if (fs.existsSync(agentQuotaRoutePath)) {
+  const agentRoute = fs.readFileSync(agentQuotaRoutePath, 'utf8');
+  if (
+    !/beginAIQuota\\(context\\.env,\\s*user\\)/.test(agentRoute) ||
+    !/finalizeAIQuota\\(\\s*context\\.env,\\s*quotaReservation,\\s*quotaUsage/.test(agentRoute) ||
+    !/refundDailyPrompt/.test(agentRoute) ||
+    !/onUsage/.test(agentRoute)
+  ) {
+    errors.push('functions/api/generate.js: Agent builds must enforce quota before generation, aggregate each model call, settle usage, and refund a daily prompt when a build fails.');
+  }
+}
+
+const adminUsersQuotaPath = path.join(root, 'functions/api/admin/users.js');
+if (fs.existsSync(adminUsersQuotaPath)) {
+  const adminUsers = fs.readFileSync(adminUsersQuotaPath, 'utf8');
+  if (
+    !/QUOTA_PLANS/.test(adminUsers) ||
+    !/monthlyUsagePercent/.test(adminUsers) ||
+    !/dailyPromptsRemaining/.test(adminUsers) ||
+    !/authority:\\s*'SERVER'/.test(adminUsers)
+  ) {
+    errors.push('functions/api/admin/users.js: admin user rows must expose server-authoritative monthly and daily AI usage.');
+  }
+}
+
+const launchPolishPath = path.join(root, 'assets/ovyx-launch-polish.js');
+if (!fs.existsSync(launchPolishPath)) {
+  errors.push('assets/ovyx-launch-polish.js: shared animated notification and quota meter runtime is missing.');
+} else {
+  const launchPolish = fs.readFileSync(launchPolishPath, 'utf8');
+  if (
+    !/function launchToast\\(/.test(launchPolish) ||
+    !/function loadAdminQuota\\(/.test(launchPolish) ||
+    !/view-admin-users/.test(launchPolish) ||
+    !/sidebar-token-bar/.test(launchPolish) ||
+    !/textContent/.test(launchPolish)
+  ) {
+    errors.push('assets/ovyx-launch-polish.js: the animated notification or server-backed quota meter contract is incomplete.');
+  }
+}
+
+const pagesBuildPath = path.join(root, 'scripts/ovyx-pages-build.mjs');
+if (fs.existsSync(pagesBuildPath)) {
+  const pagesBuild = fs.readFileSync(pagesBuildPath, 'utf8');
+  if (
+    !/assets\\/ovyx-launch-polish\\.js/.test(pagesBuild) ||
+    !/lastIndexOf\\('\\<\\/body\\>'\\)/.test(pagesBuild)
+  ) {
+    errors.push('scripts/ovyx-pages-build.mjs: the launch polish runtime must be injected into the Pages output idempotently.');
+  }
+}
+
 const entitlementRoutePath = path.join(root, 'functions/api/entitlements.js');
 if (fs.existsSync(entitlementRoutePath)) {
   const entitlementRoute = fs.readFileSync(entitlementRoutePath, 'utf8');
@@ -118,6 +171,7 @@ for (const file of walk(root).filter(x => /\.json$/.test(x))) {
 for (const file of [
   path.join(root, 'scripts/ovyx-pages-build.mjs'),
   path.join(root, 'scripts/ovyx-cloudflare-diagnostics.mjs'),
+  path.join(root, 'assets/ovyx-launch-polish.js'),
 ]) {
   if (!fs.existsSync(file)) continue;
   try {
