@@ -30,6 +30,7 @@ import {
   beginAIQuota,
   calculateTokenUsage,
   finalizeAIQuota,
+  getQuotaState,
   refundDailyPrompt,
 } from '../_lib/token-quota.js';
 
@@ -148,9 +149,9 @@ export async function onRequestPost(
 
     // Agent Mode must use the same server-side quota as Web Studio and AI chat.
     const quotaReservation = await beginAIQuota(context.env, user);
-    let totalUsedTokens = 0;
     let successfulModelCalls = 0;
-    let quotaFinalized = false;
+    let promptReservationSettled = quotaReservation.bypass === true;
+    let latestQuotaState = null;
 
     try {
       await saveJob(
@@ -167,6 +168,9 @@ export async function onRequestPost(
 
         userId:
           user.sub,
+
+        userEmail:
+          String(user.email || '').trim().toLowerCase(),
 
         repo,
 
@@ -262,23 +266,60 @@ export async function onRequestPost(
                     ? 'preview'
                     : 'pr',
 
-                onAIUsage: ({ rawUsage, inputText, outputText }) => {
+                onAIUsage: async ({ phase, rawUsage, inputText, outputText } = {}) => {
+                  if (phase === 'before') {
+                    latestQuotaState = await getQuotaState(context.env, user);
+                    if (quotaReservation.bypass) return;
+
+                    const monthlyRemaining = Math.max(0, Number(latestQuotaState?.current_monthly_tokens || 0));
+                    const boosterRemaining = Math.max(0, Number(latestQuotaState?.boosterTokens || 0));
+
+                    // A daily-ration job reserves one daily prompt up front and may
+                    // finish its internal planning/editing steps as that one prompt.
+                    if (quotaReservation.mode === 'monthly' && monthlyRemaining <= 0) {
+                      throw Object.assign(
+                        new Error('Your monthly AI token quota is used up. OVYX stopped this build before the next AI step. Start a new build to use an available daily prompt, or upgrade your plan.'),
+                        { status: 429, code: 'AI_TOKEN_LIMIT_REACHED' }
+                      );
+                    }
+                    if (
+                      quotaReservation.mode === 'booster' &&
+                      monthlyRemaining <= 0 &&
+                      boosterRemaining <= 0
+                    ) {
+                      throw Object.assign(
+                        new Error('Your AI token quota and Token Booster balance are empty. Start a new build to use an available daily prompt, or upgrade your plan.'),
+                        { status: 429, code: 'AI_TOKEN_BOOSTER_EXHAUSTED' }
+                      );
+                    }
+                    return;
+                  }
+
+                  if (phase !== 'after') return;
                   const usage = calculateTokenUsage(rawUsage, inputText, outputText);
-                  totalUsedTokens += Math.max(0, Number(usage.totalTokens) || 0);
+                  latestQuotaState = await finalizeAIQuota(
+                    context.env,
+                    quotaReservation,
+                    rawUsage,
+                    inputText,
+                    outputText
+                  );
                   successfulModelCalls += 1;
+                  promptReservationSettled = true;
+                  await send('quota', {
+                    ...latestQuotaState,
+                    usedTokens: Math.max(0, Number(usage.totalTokens) || 0)
+                  });
                 },
               }
             );
 
-          const quota = await finalizeAIQuota(
-            context.env,
-            quotaReservation,
-            { total_tokens: totalUsedTokens },
-            '',
-            ''
-          );
-          quotaFinalized = true;
-          await send('quota', { ...quota, usedTokens: totalUsedTokens });
+          if (!promptReservationSettled) {
+            await refundDailyPrompt(context.env, quotaReservation);
+            promptReservationSettled = true;
+            latestQuotaState = await getQuotaState(context.env, user);
+            await send('quota', latestQuotaState);
+          }
 
           await updateJob(
             context.env,
@@ -288,24 +329,14 @@ export async function onRequestPost(
         } catch (
           err
         ) {
-          if (!quotaFinalized) {
+          if (!promptReservationSettled && successfulModelCalls === 0) {
             try {
-              if (successfulModelCalls > 0) {
-                await finalizeAIQuota(
-                  context.env,
-                  quotaReservation,
-                  { total_tokens: totalUsedTokens },
-                  '',
-                  ''
-                );
-              } else {
-                await refundDailyPrompt(context.env, quotaReservation);
-              }
-              quotaFinalized = true;
+              await refundDailyPrompt(context.env, quotaReservation);
+              promptReservationSettled = true;
             } catch (quotaError) {
-              console.error('[OVYX Agent quota]', {
-                code: quotaError?.code || 'QUOTA_FINALIZE_FAILED',
-                message: quotaError?.message || 'Unable to finalize Agent quota.'
+              console.error('[OVYX Agent quota refund]', {
+                code: quotaError?.code || 'QUOTA_REFUND_FAILED',
+                message: quotaError?.message || 'Unable to restore the unused daily prompt.'
               });
             }
           }
