@@ -719,7 +719,7 @@ function taskProviderPreference(taskContext) {
   const reasoning = /\b(complex|analyse|analyze|reason|diagnos|strategy|compare|research|investigate|root cause|multi.step|trade.off)\b/.test(task);
   const writing = /\b(summarize|summarise|rewrite|caption|translate|grammar|format|draft|email|short answer|title|copywriting|proofread)\b/.test(task);
 
-  const hardEngineering = /\\b(debug|debugging|bug|fix|refactor|backend|api|database|security|authentication|quota|token|billing|payment|test|testing|deploy|deployment|compiler|typescript|python|git|repository|migration|algorithm|architecture|root cause)\\b/.test(task);
+  const hardEngineering = /\b(debug|debugging|bug|fix|refactor|backend|api|database|security|authentication|quota|token|billing|payment|test|testing|deploy|deployment|compiler|typescript|python|git|repository|migration|algorithm|architecture|root cause)\b/.test(task);
   if (design && !hardEngineering) return ['gemini', 'claude', 'openai', 'deepseek', 'groq'];
   if (engineering && (reasoning || /\b(security|architecture|migration|root cause|refactor)\b/.test(task))) {
     return ['claude', 'openai', 'deepseek', 'gemini', 'groq'];
@@ -856,8 +856,9 @@ export async function callModel(
     const provider of providerOrder(
       env,
       requested,
-      String(options.user || '') + '\n' + String(options.system || '')
+      String(options.taskPrompt || options.user || '')
     )
+  )
   ) {
     try {
       const model =
