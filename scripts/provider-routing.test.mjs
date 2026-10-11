@@ -17,6 +17,43 @@ assert.deepEqual(
   'Automatic may use the configured order.',
 );
 
+assert.deepEqual(
+  providerOrder(
+    { OVYX_AI_PROVIDER_ORDER: 'gemini,deepseek,claude,openai' },
+    'automatic',
+    'Design a responsive website landing page with a polished visual layout',
+  ),
+  ['gemini', 'claude', 'openai', 'deepseek'],
+  'Automatic should prioritize a configured provider suited to visual web design.',
+);
+assert.deepEqual(
+  providerOrder(
+    { OVYX_AI_PROVIDER_ORDER: 'gemini,deepseek,claude,openai' },
+    'automatic',
+    'Fix a backend API bug, secure authentication, and add regression tests',
+  ),
+  ['claude', 'openai', 'deepseek', 'gemini'],
+  'Automatic should prioritize stronger engineering providers for complex backend work.',
+);
+assert.deepEqual(
+  providerOrder(
+    { OVYX_AI_PROVIDER_ORDER: 'gemini,deepseek,claude,openai' },
+    'automatic',
+    'Summarize this paragraph in two sentences',
+  ),
+  ['gemini', 'deepseek', 'openai', 'claude'],
+  'Automatic should apply the configured task preferences for writing tasks.',
+);
+assert.deepEqual(
+  providerOrder(
+    { OVYX_AI_PROVIDER_ORDER: 'gemini,deepseek,claude,openai' },
+    'openai',
+    'Design a website and debug the backend',
+  ),
+  ['openai'],
+  'Automatic task preferences must never override an explicit provider choice.',
+);
+
 const originalFetch = globalThis.fetch;
 const requests = [];
 let rejectGemini = false;
