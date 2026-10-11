@@ -12,9 +12,36 @@ assert.deepEqual(
   'An explicit DeepSeek choice must not be rerouted.',
 );
 assert.deepEqual(
-  providerOrder({ OVYX_AI_PROVIDER_ORDER: 'gemini,deepseek' }, 'automatic'),
+  providerOrder({
+    GEMINI_API_KEY: 'gemini-test',
+    DEEPSEEK_API_KEY: 'deepseek-test',
+    ANTHROPIC_API_KEY: 'claude-test',
+    OPENAI_API_KEY: 'openai-test',
+    OVYX_AI_PROVIDER_ORDER: 'gemini,deepseek,claude,openai',
+  }, 'automatic', { user: 'Build a website with HTML and CSS' }),
+  ['claude', 'deepseek', 'openai', 'gemini'],
+  'OVYX Auto should prefer code-capable providers for website work.',
+);
+assert.deepEqual(
+  providerOrder({
+    GEMINI_API_KEY: 'gemini-test',
+    DEEPSEEK_API_KEY: 'deepseek-test',
+  }, 'automatic', { user: 'Write a marketing blog article' }),
   ['gemini', 'deepseek'],
-  'Automatic may use the configured order.',
+  'OVYX Auto should choose an available writing-focused provider first.',
+);
+assert.deepEqual(
+  providerOrder({
+    DEEPSEEK_API_KEY: 'deepseek-test',
+    OVYX_AI_PROVIDER_ORDER: 'gemini,deepseek,claude,openai',
+  }, 'automatic'),
+  ['deepseek'],
+  'Automatic must skip providers with no API key.',
+);
+assert.deepEqual(
+  providerOrder({}, 'automatic'),
+  [],
+  'Automatic must not pretend that an AI provider is connected when no key or Workers AI binding exists.',
 );
 
 const originalFetch = globalThis.fetch;
