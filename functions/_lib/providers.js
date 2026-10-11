@@ -2,10 +2,6 @@ import {
   callUserUniversalConnection,
   getActiveBrainConnectionId,
 } from './universal-connections.js';
-import {
-  resolveOpenAICompatibleConfig,
-  resolveOpenAICompatibleModel,
-} from './openai-compatible.js';
 
 const PROVIDER_REQUEST_TIMEOUT_MS = 60_000;
 const UNIVERSAL_LOOKUP_TIMEOUT_MS = 5_000;
@@ -47,12 +43,6 @@ function getConfiguredModel(
   provider,
   requested
 ) {
-  const sharedGateway = String(env?.OVYX_AI_BASE_URL || '').trim();
-  if (provider === 'openai' && (sharedGateway || String(env?.OPENAI_BASE_URL || '').trim())) {
-    const target = resolveOpenAICompatibleConfig(env);
-    return resolveOpenAICompatibleModel(env, target, sharedGateway ? '' : requested);
-  }
-
   const map = {
     gemini:
       env.GEMINI_AGENT_MODEL ||
@@ -640,76 +630,8 @@ async function callOpenAI(
     user,
     model,
     maxTokens,
-    apiKeyPreference,
   }
 ) {
-  const customBase = String(env.OVYX_AI_BASE_URL || env.OPENAI_BASE_URL || '').trim();
-
-  if (customBase) {
-    const target = resolveOpenAICompatibleConfig(env, { preferredKeyName: apiKeyPreference });
-    if (!target.key) {
-      throw Object.assign(
-        new Error(
-          'The configured ' + target.label + ' endpoint has no API key. Set ' +
-          target.expectedKeyName + ' (or the endpoint-specific secret) in Cloudflare.'
-        ),
-        { code: 'AI_PROVIDER_NOT_CONFIGURED', status: 503 }
-      );
-    }
-
-    const selectedModel = String(model || '').trim() ||
-      resolveOpenAICompatibleModel(env, target, '');
-    if (!selectedModel) {
-      throw Object.assign(
-        new Error(
-          'An OpenAI-compatible endpoint is configured, but its model is not. Set OVYX_AI_MODEL for shared gateway mode or OPENAI_MODEL for the OpenAI route.'
-        ),
-        { code: 'AI_MODEL_NOT_CONFIGURED', status: 503 }
-      );
-    }
-
-    const response = await fetchWithTimeout(
-      target.chatCompletionsUrl,
-      {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          Authorization: 'Bearer ' + target.key,
-        },
-        body: JSON.stringify({
-          model: selectedModel,
-          messages: [
-            { role: 'system', content: system },
-            { role: 'user', content: user },
-          ],
-          max_tokens: maxTokens,
-          temperature: 0.2,
-        }),
-      }
-    );
-
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      throw new Error(
-        data?.error?.message ||
-        data?.message ||
-        (target.label + ' HTTP ' + response.status)
-      );
-    }
-
-    const text = extractText(data?.choices?.[0]?.message?.content || data);
-    if (!text) {
-      throw new Error(target.label + ' returned an empty response.');
-    }
-
-    return {
-      text,
-      model: selectedModel,
-      provider: target.provider,
-      rawUsage: data?.usage || null,
-    };
-  }
-
   if (!env.OPENAI_API_KEY) {
     throw new Error('OpenAI is not configured.');
   }
@@ -757,18 +679,8 @@ function normalizeRequestedProvider(value, env = {}) {
     .trim()
     .toLowerCase();
 
-  // Shared gateway mode treats OpenAI/Claude/Gemini/DeepSeek as UI brain choices
-  // routed through one explicitly configured compatible endpoint.
-  if (
-    String(env?.OVYX_AI_BASE_URL || '').trim() &&
-    ['chatgpt', 'openai', 'claude', 'anthropic', 'gemini', 'deepseek', 'groq', 'openrouter', 'openai-compatible'].includes(normalized)
-  ) {
-    return 'openai';
-  }
-
   if (normalized === 'chatgpt' || normalized === 'openai') {
     // OpenAI is a distinct provider. Never divert its key/choice to Groq.
-    // For a custom OpenAI-compatible endpoint, OPENAI_BASE_URL remains authoritative.
     return 'openai';
   }
 
@@ -790,19 +702,6 @@ function normalizeRequestedProvider(value, env = {}) {
 function normalizeConfiguredProvider(value, env = {}) {
   const provider = String(value || '').trim().toLowerCase();
 
-  if (
-    String(env?.OVYX_AI_BASE_URL || '').trim() &&
-    ['gemini', 'deepseek', 'claude', 'anthropic', 'openai', 'chatgpt', 'gpt', 'groq', 'openrouter', 'openai-compatible'].includes(provider)
-  ) {
-    return 'openai';
-  }
-
-  // If OPENAI_BASE_URL is set, the "groq" slot in an existing order can use
-  // the configured compatible endpoint even when GROQ_API_KEY is not defined.
-  if (String(env?.OPENAI_BASE_URL || '').trim() && ['groq', 'chatgpt', 'gpt'].includes(provider)) {
-    return 'openai';
-  }
-
   if (provider === 'anthropic') return 'claude';
   if (provider === 'chatgpt' || provider === 'gpt') return 'openai';
   if (provider === 'cloudflare' || provider === 'workers-ai') return 'cloudflare-workers-ai';
@@ -821,7 +720,7 @@ export function providerOrder(
     env.AI_PROVIDER_ORDER || env.OVYX_AI_PROVIDER_ORDER || 'gemini,deepseek,claude,openai'
   )
     .split(',')
-    .map(provider => normalizeConfiguredProvider(provider, env))
+    .map(normalizeConfiguredProvider)
     .filter(provider => ['gemini', 'deepseek', 'claude', 'openai', 'groq', 'cloudflare-workers-ai'].includes(provider));
 
   /* Keep the configured preference order. Workers AI is an optional, private
@@ -887,27 +786,9 @@ export async function callModel(
     }
   }
 
-  const sharedGatewayMode = Boolean(String(env?.OVYX_AI_BASE_URL || '').trim());
   const routedProvider = requested.startsWith('connection:')
     ? 'universal-connection'
-    : sharedGatewayMode &&
-      ['openai', 'chatgpt', 'claude', 'anthropic', 'gemini', 'deepseek', 'groq', 'openrouter'].includes(requested)
-      ? 'shared-compatible-gateway'
-      : normalizeRequestedProvider(requested, env);
-
-  const sharedKeySlotByBrain = {
-    openai: 'OPENAI_API_KEY',
-    chatgpt: 'OPENAI_API_KEY',
-    claude: 'ANTHROPIC_API_KEY',
-    anthropic: 'ANTHROPIC_API_KEY',
-    gemini: 'GEMINI_API_KEY',
-    deepseek: 'DEEPSEEK_API_KEY',
-    groq: 'GROQ_API_KEY',
-    openrouter: 'OPENROUTER_API_KEY',
-  };
-  const sharedKeyPreference = String(env?.OVYX_AI_BASE_URL || '').trim()
-    ? (sharedKeySlotByBrain[requested] || null)
-    : null;
+    : normalizeRequestedProvider(requested, env);
 
   if (/^connection:/i.test(requestedRaw)) {
     const connectionId = requestedRaw.slice('connection:'.length).trim();
@@ -987,7 +868,6 @@ export async function callModel(
               {
                 ...options,
                 model,
-                ...(sharedKeyPreference ? { apiKeyPreference: sharedKeyPreference } : {}),
               }
             )
           : provider ===
@@ -1029,6 +909,29 @@ export async function callModel(
         }`
       );
     }
+  }
+
+  if (requested !== 'automatic' && !requested.startsWith('connection:')) {
+    const labels = {
+      gemini: 'Gemini',
+      deepseek: 'DeepSeek',
+      claude: 'Claude',
+      anthropic: 'Claude',
+      openai: 'OpenAI',
+      chatgpt: 'OpenAI',
+      groq: 'Groq',
+      'cloudflare-workers-ai': 'Cloudflare Workers AI',
+    };
+    const providerLabel = labels[requested] || requested.replace(/[-_]+/g, ' ').replace(/^./, letter => letter.toUpperCase());
+    const notConfigured = errors.some(item => /not configured|missing server secret|binding is not configured/i.test(item));
+    throw Object.assign(
+      new Error(providerLabel + ' is not available right now. Please try again later, or connect your own AI Brain in Universal Connections to continue building.'),
+      {
+        status: 503,
+        code: notConfigured ? 'AI_PROVIDER_NOT_CONFIGURED' : 'AI_PROVIDER_UNAVAILABLE',
+        provider: normalizeRequestedProvider(requested, env),
+      }
+    );
   }
 
   const error =
