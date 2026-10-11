@@ -5,7 +5,7 @@ import { errorResponse, requestId, readJson } from './_lib/http.js';
 
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 const PROVIDERS = {
-  gemini: { env: 'GEMINI_API_KEY', label: 'Gemini', url: key => `https://generativelanguage.googleapis.com/v1beta/models?pageSize=1&key=${encodeURIComponent(key)}` },
+  gemini: { env: 'GEMINI_API_KEY', label: 'Gemini', url: () => 'https://generativelanguage.googleapis.com/v1beta/models?pageSize=1', headers: key => ({ 'x-goog-api-key': key }) },
   deepseek: { env: 'DEEPSEEK_API_KEY', label: 'DeepSeek', url: () => 'https://api.deepseek.com/models', headers: key => ({ Authorization: `Bearer ${key}` }) },
   openai: { env: 'OPENAI_API_KEY', label: 'OpenAI', url: () => 'https://api.openai.com/v1/models', headers: key => ({ Authorization: `Bearer ${key}` }) },
   anthropic: { env: 'ANTHROPIC_API_KEY', label: 'Anthropic', url: () => 'https://api.anthropic.com/v1/models', headers: key => ({ 'x-api-key': key, 'anthropic-version': '2023-06-01' }) },
