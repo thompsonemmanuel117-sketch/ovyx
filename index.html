@@ -10767,7 +10767,7 @@ window.addEventListener('pageshow',()=>setTimeout(install,0),{passive:true});
   function onChange(e){
     const id=e.target?.id;
     if(id==='v59-file-input'||id==='v59-camera-photo'||id==='v59-camera-scan'){addFiles(e.target.files||[]);e.target.value='';return}
-    if(id==='v59-model-select'){const value=e.target.value||'automatic';try{localStorage.setItem('ovyx_selected_ai_brain',value)}catch{};const note=$('v59-routing-note'),labels={automatic:'OVYX Auto',openai:'OpenAI · GPT-3.5',anthropic:'Claude',deepseek:'DeepSeek',gemini:'Gemini'};if(note)note.innerHTML=`<i class="fa-solid fa-route"></i><span>${labels[value]||'OVYX Auto'} selected · OVYX will use that engine when available, then use a configured fallback if it is unavailable.</span>`;return}
+    if(id==='v59-model-select'){const value=e.target.value||'automatic';try{localStorage.setItem('ovyx_selected_ai_brain',value)}catch{};const note=$('v59-routing-note'),labels={automatic:'OVYX Auto',openai:'OpenAI · GPT-3.5',anthropic:'Claude',deepseek:'DeepSeek',gemini:'Gemini'};if(note)note.innerHTML=`<i class="fa-solid fa-route"></i><span>${labels[value]||'OVYX Auto'} selected · OVYX will use only this provider. If unavailable, try later or connect your own AI Brain.</span>`;return}
   }
   function onInput(e){
     if(e.target?.id==='prompt-home-input'){const el=e.target;el.style.height='auto';el.style.height=Math.min(Math.max(el.scrollHeight,112),300)+'px';}
