@@ -708,28 +708,95 @@ function normalizeConfiguredProvider(value, env = {}) {
   return provider;
 }
 
-export function providerOrder(
-  env,
-  requested
-) {
-  if (requested && requested !== 'automatic') {
-    return [normalizeRequestedProvider(requested, env)];
+const SUPPORTED_PROVIDERS = Object.freeze([
+  'gemini',
+  'deepseek',
+  'claude',
+  'openai',
+  'groq',
+  'cloudflare-workers-ai',
+]);
+
+function isProviderConfigured(env, provider) {
+  switch (provider) {
+    case 'gemini':
+      return Boolean(String(env?.GEMINI_API_KEY || '').trim());
+    case 'deepseek':
+      return Boolean(String(env?.DEEPSEEK_API_KEY || '').trim());
+    case 'claude':
+      return Boolean(String(env?.ANTHROPIC_API_KEY || '').trim());
+    case 'openai':
+      return Boolean(String(env?.OPENAI_API_KEY || '').trim());
+    case 'groq':
+      return Boolean(String(env?.GROQ_API_KEY || '').trim());
+    case 'cloudflare-workers-ai':
+      return Boolean(env?.AI && typeof env.AI.run === 'function');
+    default:
+      return false;
+  }
+}
+
+function automaticTaskPreference(options = {}) {
+  const text = String(options.user || options.prompt || '').toLowerCase();
+
+  // Web Studio and engineering tasks benefit from code-focused models first.
+  if (/\b(website|web site|web studio|landing page|html|css|javascript|typescript|react|component|frontend|backend|api|code|coding|debug|debugging|bug|fix|refactor|deploy|build a site|build a website)\b/.test(text)) {
+    return ['claude', 'deepseek', 'openai', 'gemini', 'groq', 'cloudflare-workers-ai'];
   }
 
-  const configured = String(
-    env.AI_PROVIDER_ORDER || env.OVYX_AI_PROVIDER_ORDER || 'gemini,deepseek,claude,openai'
+  // Heavy reasoning, investigation and architecture work.
+  if (/\b(reason|reasoning|logic|algorithm|architecture|diagnose|diagnosis|analy[sz]e|research|compare|math|calculate|complex|performance|security audit)\b/.test(text)) {
+    return ['deepseek', 'claude', 'openai', 'gemini', 'groq', 'cloudflare-workers-ai'];
+  }
+
+  // Writing and everyday creative tasks favor a fast general-purpose model.
+  if (/\b(write|rewrite|blog|article|headline|marketing|copywriting|seo|brand|story|translate|summari[sz]e|email|caption|product description)\b/.test(text)) {
+    return ['gemini', 'claude', 'openai', 'deepseek', 'groq', 'cloudflare-workers-ai'];
+  }
+
+  return ['gemini', 'deepseek', 'claude', 'openai', 'groq', 'cloudflare-workers-ai'];
+}
+
+export function providerOrder(env, requested, options = {}) {
+  const selection = String(requested || 'automatic').trim().toLowerCase();
+  if (selection && selection !== 'automatic') {
+    // An explicitly selected provider remains exclusive. Missing credentials
+    // are reported to the user; no different vendor is substituted.
+    return [normalizeRequestedProvider(selection, env)];
+  }
+
+  // When an administrator configures a preference order, keep it as the
+  // fallback order behind the task-specific first choices.
+  const configuredOrder = String(
+    env?.AI_PROVIDER_ORDER || env?.OVYX_AI_PROVIDER_ORDER || ''
   )
     .split(',')
     .map(normalizeConfiguredProvider)
-    .filter(provider => ['gemini', 'deepseek', 'claude', 'openai', 'groq', 'cloudflare-workers-ai'].includes(provider));
+    .filter(provider => SUPPORTED_PROVIDERS.includes(provider));
 
-  /* Keep the configured preference order. Workers AI is an optional, private
-     final fallback in Automatic mode; explicit provider choices stay exclusive. */
-  const ordered = [...new Set(configured)];
-  if (env?.AI && typeof env.AI.run === 'function' && !ordered.includes('cloudflare-workers-ai')) {
-    ordered.push('cloudflare-workers-ai');
+  const priorities = [
+    ...automaticTaskPreference(options),
+    ...configuredOrder,
+    'gemini',
+    'deepseek',
+    'claude',
+    'openai',
+    'groq',
+  ];
+  const unique = [...new Set(priorities)].filter(provider =>
+    isProviderConfigured(env, provider)
+  );
+
+  // Cloudflare Workers AI stays a last-resort Automatic fallback only.
+  if (
+    env?.AI &&
+    typeof env.AI.run === 'function' &&
+    !unique.includes('cloudflare-workers-ai')
+  ) {
+    unique.push('cloudflare-workers-ai');
   }
-  return ordered;
+
+  return unique;
 }
 
 export async function callModel(
@@ -819,12 +886,15 @@ export async function callModel(
     };
   }
 
-  for (
-    const provider of providerOrder(
-      env,
-      requested
-    )
-  ) {
+  const availableOrder = providerOrder(env, requested, options);
+  if (requested === 'automatic' && availableOrder.length === 0) {
+    throw Object.assign(
+      new Error('No AI provider is connected right now. Please try again later, or connect your own AI Brain in Universal Connections to continue building.'),
+      { status: 503, code: 'AI_PROVIDER_NOT_CONFIGURED' }
+    );
+  }
+
+  for (const provider of availableOrder) {
     try {
       const model =
         getConfiguredModel(
