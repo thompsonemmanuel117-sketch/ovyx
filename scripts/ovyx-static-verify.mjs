@@ -75,9 +75,10 @@ const automaticRouterSource = fs.existsSync(providerRouterPath)
   ? fs.readFileSync(providerRouterPath, 'utf8')
   : '';
 if (
-  !/function automaticTaskPreference\\(options = \\{\\}\\)/.test(automaticRouterSource) ||
-  !/isProviderConfigured\\(env, provider\\)/.test(automaticRouterSource) ||
-  !/No AI provider is connected right now[\\s\\S]*?connect your own AI Brain in Universal Connections/i.test(automaticRouterSource)
+  !automaticRouterSource.includes('function automaticTaskPreference(options = {})') ||
+  !automaticRouterSource.includes('function isProviderConfigured(env, provider)') ||
+  !automaticRouterSource.includes('No AI provider is connected right now.') ||
+  !automaticRouterSource.includes('connect your own AI Brain in Universal Connections')
 ) {
   errors.push('functions/_lib/providers.js: OVYX Auto must choose by task, skip unconfigured providers, and explain how to connect a brain when none are available.');
 }
@@ -99,7 +100,7 @@ for (const routePath of quotaRoutePaths) {
 const quotaHelperPath = path.join(root, 'functions/_lib/token-quota.js');
 if (fs.existsSync(quotaHelperPath)) {
   const quotaHelper = fs.readFileSync(quotaHelperPath, 'utf8');
-  if (!/current\\.daily_prompts_allowance <= 0/.test(quotaHelper) || !/DAILY_RATION_EXHAUSTED/.test(quotaHelper) || !/DAILY_RATION_MESSAGE/.test(quotaHelper)) {
+  if (!quotaHelper.includes('current.daily_prompts_allowance <= 0') || !quotaHelper.includes('DAILY_RATION_EXHAUSTED') || !quotaHelper.includes('DAILY_RATION_MESSAGE')) {
     errors.push('functions/_lib/token-quota.js: exhausted token balance and daily ration must be blocked on the server.');
   }
 }
@@ -172,10 +173,12 @@ if (fs.existsSync(html)) {
   if (!text.includes('window.__OVYX_SPLASH_FAILSAFE__') || !text.includes('function releaseSplash(reason,event)') || !text.includes("document.readyState==='complete'")) {
     errors.push('index.html: splash must wait for full page load and use a bounded failsafe instead of a short fixed timer.');
   }
-  const toastSource = text.match(/function showToast\\(msg, type = ['"]info['"]\\) \\{([\\s\\S]*?)\\n    \\}/);
+  const toastStart = text.indexOf("function showToast(msg, type = 'info') {");
+  const toastEnd = text.indexOf('    /**\\n     * 1. WEB STUDIO ENGINE', toastStart);
+  const toastSource = toastStart >= 0 && toastEnd > toastStart ? text.slice(toastStart, toastEnd) : '';
   if (
     !toastSource ||
-    !toastSource[1].includes('message.textContent = String(msg == null ? \'\' : msg)') ||
+    !toastSource.includes("message.textContent = String(msg == null ? '' : msg)") ||
     !text.includes('id="ovyx-toast-motion-v2"') ||
     !text.includes('ovyxToastEnterV2') ||
     !text.includes('.ovyx-toast--success') ||
