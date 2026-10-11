@@ -211,6 +211,7 @@ export function buildSiteBatchContext({
   stagedChanges = [],
   siteMap,
   batch,
+  repositoryFiles = {},
   maxChars = 160_000,
 }) {
   const limit = Math.max(20_000, Math.floor(Number(maxChars) || 160_000));
@@ -246,8 +247,31 @@ export function buildSiteBatchContext({
     ...remaining,
   ];
 
+  const repositoryParts = [];
+  const stagedPathSet = new Set(stagedPaths);
+  const repositoryPaths = unique([
+    ...(batch?.targetPaths || []),
+    homepagePath,
+    ...sharedPaths,
+  ]);
+  let repositoryUsed = 0;
+  const repositoryBudget = Math.min(40_000, Math.floor(limit * 0.25));
+  for (const path of repositoryPaths) {
+    if (stagedPathSet.has(path) || typeof repositoryFiles?.[path] !== 'string') continue;
+    if (repositoryUsed >= repositoryBudget) break;
+    const available = Math.min(10_000, repositoryBudget - repositoryUsed);
+    if (available < 500) break;
+    const content = String(repositoryFiles[path]);
+    const slice = content.length > available
+      ? content.slice(0, Math.max(0, available - 90)) + '\n/* Existing repository file context shortened; full file remains preserved. */'
+      : content;
+    const piece = '\n\nBASE FILE: ' + path + '\n' + slice;
+    repositoryParts.push(piece);
+    repositoryUsed += piece.length;
+  }
+  const repositoryText = repositoryParts.join('');
   const reservedChars = Math.min(30_000, Math.floor(limit * 0.24));
-  const stagedBudget = Math.max(4_000, limit - baseSlice.length - sitemapText.length - reservedChars);
+  const stagedBudget = Math.max(4_000, limit - baseSlice.length - sitemapText.length - repositoryText.length - reservedChars);
   const stagedParts = [];
   let used = 0;
   for (const item of chosen) {
@@ -275,6 +299,9 @@ export function buildSiteBatchContext({
     '',
     'FULL WEBSITE ROUTE MANIFEST (keep these paths and URLs consistent):',
     sitemapText,
+    '',
+    'CURRENT BASE REPOSITORY FILES FOR THIS BATCH:',
+    repositoryText || '(No existing target files were needed from the base repository.)',
     '',
     'ALREADY GENERATED FILE PATHS:',
     alreadyGenerated,
