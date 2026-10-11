@@ -1197,8 +1197,11 @@ export async function runAgent({
             ? AGENT_SYSTEM_PROMPT + '\n\n' + WEB_STUDIO_EXCELLENCE
             : AGENT_SYSTEM_PROMPT,
 
-        maxTokens:
-          5000,
+        maxTokens: cap(
+          env,
+          'AGENT_PLAN_MAX_TOKENS',
+          webStudio ? 9000 : 5000
+        ),
       }
     );
 
@@ -1270,7 +1273,7 @@ export async function runAgent({
         }),
         authUser: user,
         system: AGENT_SYSTEM_PROMPT + (webStudio ? '\n\n' + WEB_STUDIO_EXCELLENCE : ''),
-        maxTokens: 7000,
+        maxTokens: cap(env, 'AGENT_PLAN_MAX_TOKENS', 9000),
       }
     );
     plan = planResult.json;
@@ -1372,7 +1375,7 @@ export async function runAgent({
         stage: 'building_pages',
         message: batch.kind === 'foundation'
           ? `Building the shared website foundation (batch ${batch.index} of ${batch.total})…`
-          : `Building pages ${Math.min(siteMap.pages.length, 1 + (batch.index - 1) * Math.max(1, maxChangedFiles - 3))} onward (batch ${batch.index} of ${batch.total})…`,
+          : `Building ${batch.targetPages.map(page => page.title).join(', ')} (batch ${batch.index} of ${batch.total})…`,
         batch: batch.index,
         totalBatches: batch.total,
         totalPages: siteMap.pages.length,
