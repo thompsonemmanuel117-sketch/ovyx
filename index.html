@@ -10790,10 +10790,43 @@ window.addEventListener('pageshow',()=>setTimeout(install,0),{passive:true});
     if(t.id==='v59-build'){e.preventDefault();runBuild().catch(()=>{});return}
     if(t.id==='v59-mic'){e.preventDefault();const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){window.showToast?.('Voice input is not available in this browser.','info');return}if(t.__ovyxRecognition){try{t.__ovyxRecognition.stop()}catch{}return}try{const r=new SR();t.__ovyxRecognition=r;r.lang=navigator.language||'en-NG';r.interimResults=true;r.continuous=false;r.onstart=()=>t.classList.add('is-active');r.onend=()=>{t.classList.remove('is-active');t.__ovyxRecognition=null};r.onerror=()=>{t.classList.remove('is-active');t.__ovyxRecognition=null;window.showToast?.('Microphone input could not start.','error')};r.onresult=ev=>{const text=[...ev.results].map(x=>x[0]?.transcript||'').join('');const input=$('prompt-home-input');if(input)input.value=text};r.start()}catch{t.__ovyxRecognition=null;t.classList.remove('is-active');window.showToast?.('Microphone could not start on this device.','error')}}
   }
-  function onChange(e){
+    async function checkProviderAvailability(provider){
+    const selected=String(provider||'automatic').trim().toLowerCase();
+    if(selected==='automatic'){
+      window.showToast?.('OVYX Auto will choose the best available AI brain for your task.','info');
+      return;
+    }
+    const labels={gemini:'Gemini',deepseek:'DeepSeek',anthropic:'Claude',openai:'OpenAI'};
+    const label=labels[selected];
+    if(!label)return;
+    const user=window.firebase?.auth?.()?.currentUser||null;
+    if(!user)return;
+    try{
+      const token=await user.getIdToken();
+      const response=await fetch('/api/ai/provider-availability?provider='+encodeURIComponent(selected),{
+        method:'GET',
+        headers:{Accept:'application/json',Authorization:'Bearer '+token},
+        credentials:'same-origin',
+        cache:'no-store'
+      });
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok){
+        if(response.status===401)throw new Error('Your sign-in has expired. Sign in again to check this AI brain.');
+        throw new Error('Could not check '+label+' right now. Please try again.');
+      }
+      if(data.connected===true&&data.status==='READY'){
+        window.showToast?.(data.message||label+' is connected and ready.','success');
+      }else{
+        window.showToast?.(data.message||label+' is not available right now. Please try again later, or connect your own AI Brain in Universal Connections to continue building.','error');
+      }
+    }catch(error){
+      window.showToast?.(error?.message||label+' is not available right now. Please try again later, or connect your own AI Brain in Universal Connections to continue building.','error');
+    }
+  }
+function onChange(e){
     const id=e.target?.id;
     if(id==='v59-file-input'||id==='v59-camera-photo'||id==='v59-camera-scan'){addFiles(e.target.files||[]);e.target.value='';return}
-    if(id==='v59-model-select'){const value=e.target.value||'automatic';try{localStorage.setItem('ovyx_selected_ai_brain',value)}catch{};const note=$('v59-routing-note'),labels={automatic:'OVYX Auto',openai:'OpenAI · GPT-3.5',anthropic:'Claude',deepseek:'DeepSeek',gemini:'Gemini'};if(note)note.innerHTML=`<i class="fa-solid fa-route"></i><span>${labels[value]||'OVYX Auto'} selected · OVYX will use only this provider. If unavailable, try later or connect your own AI Brain.</span>`;return}
+    if(id==='v59-model-select'){const value=e.target.value||'automatic';try{localStorage.setItem('ovyx_selected_ai_brain',value)}catch{};const note=$('v59-routing-note'),labels={automatic:'OVYX Auto',openai:'OpenAI · GPT-3.5',anthropic:'Claude',deepseek:'DeepSeek',gemini:'Gemini'};const guidance=value==='automatic'?'OVYX Auto will choose the best available brain for your task.':(labels[value]||'AI brain')+' selected · OVYX will use only this provider. If unavailable, try again later or connect your own AI Brain.';if(note)note.innerHTML=`<i class="fa-solid fa-route"></i><span>${guidance}</span>`;checkProviderAvailability(value).catch(()=>{});return}
   }
   function onInput(e){
     if(e.target?.id==='prompt-home-input'){const el=e.target;el.style.height='auto';el.style.height=Math.min(Math.max(el.scrollHeight,112),300)+'px';}
