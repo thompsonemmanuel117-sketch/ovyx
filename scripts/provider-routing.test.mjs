@@ -12,9 +12,29 @@ assert.deepEqual(
   'An explicit DeepSeek choice must not be rerouted.',
 );
 assert.deepEqual(
-  providerOrder({ OVYX_AI_PROVIDER_ORDER: 'gemini,deepseek' }, 'automatic'),
-  ['gemini', 'deepseek'],
-  'Automatic may use the configured order.',
+  providerOrder({
+    OVYX_AI_PROVIDER_ORDER: 'gemini,deepseek',
+    DEEPSEEK_API_KEY: 'test-deepseek-key',
+  }, 'automatic'),
+  ['deepseek'],
+  'Automatic must skip providers without configured keys.',
+);
+
+const connectedProviders = {
+  GEMINI_API_KEY: 'test-gemini-key',
+  DEEPSEEK_API_KEY: 'test-deepseek-key',
+  ANTHROPIC_API_KEY: 'test-anthropic-key',
+  OPENAI_API_KEY: 'test-openai-key',
+};
+assert.deepEqual(
+  providerOrder(connectedProviders, 'automatic', { user: 'Design a responsive landing page website with clean CSS and layout.' }),
+  ['gemini', 'claude', 'deepseek', 'openai'],
+  'OVYX Auto should prioritize a connected design-capable brain for website work.',
+);
+assert.deepEqual(
+  providerOrder(connectedProviders, 'automatic', { user: 'Fix a TypeScript bug and add a regression test in this repository.' }),
+  ['claude', 'deepseek', 'openai', 'gemini'],
+  'OVYX Auto should prioritize engineering-capable brains for code work.',
 );
 
 const originalFetch = globalThis.fetch;
@@ -154,6 +174,40 @@ try {
   assert.equal(result.text, 'DeepSeek test passed');
   assert.equal(requests.length, 1);
   assert.match(requests[0].url, /api\.deepseek\.com/);
+  assert.equal(result.autoRouting?.category, 'general');
+  assert.equal(result.failoverUsed, false);
+
+  // Auto may fall back only when Auto was selected; direct provider selection stays exclusive.
+  requests.length = 0;
+  rejectGemini = true;
+  result = await callModel(
+    {
+      GEMINI_API_KEY: 'test-invalid-gemini-key',
+      DEEPSEEK_API_KEY: 'test-deepseek-key',
+      OVYX_AI_PROVIDER_ORDER: 'gemini,deepseek',
+    },
+    { provider: 'automatic', model: 'automatic', system: 'design a website', user: 'Design a responsive website layout with CSS.', maxTokens: 32 },
+  );
+  assert.equal(result.provider, 'deepseek');
+  assert.equal(result.autoRouting?.category, 'web-design');
+  assert.equal(result.failoverUsed, true);
+  assert.equal(requests.length, 2, 'Auto should try the preferred connected brain, then the next connected brain.');
+  assert.match(requests[0].url, /generativelanguage\.googleapis\.com/);
+  assert.match(requests[1].url, /api\.deepseek\.com/);
+  rejectGemini = false;
+
+  // No configured brains should produce a friendly message without trying random providers.
+  requests.length = 0;
+  await assert.rejects(
+    () => callModel({}, { provider: 'automatic', system: 'test', user: 'hello', maxTokens: 32 }),
+    error => {
+      assert.equal(error.code, 'AI_PROVIDER_UNAVAILABLE');
+      assert.match(error.message, /No AI Brain is connected/i);
+      assert.match(error.message, /connect your own AI Brain/i);
+      return true;
+    },
+  );
+  assert.equal(requests.length, 0);
 
   // Cloudflare Workers AI can be Automatic's final fallback when the binding exists.
   requests.length = 0;
