@@ -183,9 +183,9 @@ async function validateFirebaseServiceAccount(env) {
 
   try {
     const pem = normalizePrivateKey(account.private_key);
-    const match = pem.match(/^-----BEGIN PRIVATE KEY-----([\\s\\S]+?)-----END PRIVATE KEY-----$/);
+    const match = pem.match(/^-----BEGIN PRIVATE KEY-----([\s\S]+?)-----END PRIVATE KEY-----$/);
     if (!match) throw new Error('Invalid PKCS8 private key envelope.');
-    const base64 = match[1].replace(/\\s+/g, '');
+    const base64 = match[1].replace(/\s+/g, '');
     if (!/^[A-Za-z0-9+/]+={0,2}$/.test(base64)) throw new Error('Invalid private key encoding.');
     const binary = atob(base64);
     const bytes = new Uint8Array(binary.length);
