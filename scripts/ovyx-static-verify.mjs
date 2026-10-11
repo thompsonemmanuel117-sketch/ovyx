@@ -178,6 +178,28 @@ if (fs.existsSync(shellMiddlewarePath)) {
   errors.push('functions/_middleware.js: application-shell launch runtime middleware is missing.');
 }
 
+const multiPageHelperPath = path.join(root, 'functions/_lib/multi-page.js');
+const multiPageOrchestratorPath = path.join(root, 'functions/_lib/orchestrator.js');
+const multiPagePromptsPath = path.join(root, 'functions/_lib/prompts.js');
+if (fs.existsSync(multiPageHelperPath) && fs.existsSync(multiPageOrchestratorPath) && fs.existsSync(multiPagePromptsPath)) {
+  const helper = fs.readFileSync(multiPageHelperPath, 'utf8');
+  const orchestrator = fs.readFileSync(multiPageOrchestratorPath, 'utf8');
+  const prompts = fs.readFileSync(multiPagePromptsPath, 'utf8');
+  if (
+    !helper.includes('export function createSiteBuildBatches') ||
+    !helper.includes('export function mergeStagedChanges') ||
+    !orchestrator.includes('createSiteBuildBatches(siteMap, maxChangedFiles)') ||
+    !orchestrator.includes('existingChanges: changes') ||
+    !orchestrator.includes('SITE_MAP_BATCH_INCOMPLETE') ||
+    !prompts.includes('FULL WEBSITE ROUTE MANIFEST') ||
+    !prompts.includes('siteMap')
+  ) {
+    errors.push('OVYX multi-page generation: scalable page batching, staged-file reuse, route planning or missing-page protection is incomplete.');
+  }
+} else {
+  errors.push('OVYX multi-page generation: site batching helper, orchestration or sitemap prompts are missing.');
+}
+
 const routeConfigPath = path.join(root, 'functions/_routes.json');
 if (fs.existsSync(routeConfigPath)) {
   const routeConfig = JSON.parse(fs.readFileSync(routeConfigPath, 'utf8'));
@@ -229,6 +251,7 @@ for (const file of [
   path.join(root, 'scripts/ovyx-pages-build.mjs'),
   path.join(root, 'scripts/ovyx-cloudflare-diagnostics.mjs'),
   path.join(root, 'assets/ovyx-launch-polish.js'),
+  path.join(root, 'functions/_lib/multi-page.js'),
 ]) {
   if (!fs.existsSync(file)) continue;
   try {
