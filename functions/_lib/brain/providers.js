@@ -20,7 +20,9 @@ function requiredSecret(env, name) {
   const value = clean(env && env[name]);
 
   if (!value) {
-    const error = new Error(`Missing server secret: ${name}`);
+    const label = ({ GEMINI_API_KEY:'Gemini', ANTHROPIC_API_KEY:'Claude', DEEPSEEK_API_KEY:'DeepSeek', OPENAI_API_KEY:'OpenAI' })[name] || 'The selected AI provider';
+    const error = new Error(label + " isn't available right now because its API key isn't connected. Try again later, or connect your own AI Brain in Universal Connections to continue building.");
+    error.status = 503;
     error.code = 'AI_PROVIDER_NOT_CONFIGURED';
     throw error;
   }
