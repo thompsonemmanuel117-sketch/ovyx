@@ -113,8 +113,11 @@ if (fs.existsSync(agentQuotaRoutePath)) {
 const orchestratorQuotaPath = path.join(root, 'functions/_lib/orchestrator.js');
 if (fs.existsSync(orchestratorQuotaPath)) {
   const orchestrator = fs.readFileSync(orchestratorQuotaPath, 'utf8');
+  const runAgentStart = orchestrator.indexOf('export async function runAgent({');
+  const runAgentEnd = runAgentStart < 0 ? -1 : orchestrator.indexOf('}) {', runAgentStart);
+  const runAgentHeader = runAgentEnd < 0 ? '' : orchestrator.slice(runAgentStart, runAgentEnd + 4);
   if (
-    !/export async function runAgent\\(\\{[\\s\\S]*?onUsage\\s*=\\s*\\(\\)\\s*=>\\s*\\{\\s*\\}/.test(orchestrator) ||
+    !runAgentHeader.includes('onUsage = () => {}') ||
     !orchestrator.includes('onUsage,')
   ) {
     errors.push('functions/_lib/orchestrator.js: runAgent must accept a safe AI usage callback before registering usage handlers for each model phase.');
