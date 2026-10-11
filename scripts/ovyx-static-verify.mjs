@@ -60,18 +60,12 @@ if (fs.existsSync(providerRouterPath)) {
   }
 }
 
-const compatibleConfigPath = path.join(root, 'functions/_lib/openai-compatible.js');
-if (fs.existsSync(compatibleConfigPath)) {
-  const compatibleConfig = fs.readFileSync(compatibleConfigPath, 'utf8');
-  if (!compatibleConfig.includes('OVYX_AI_BASE_URL') || !compatibleConfig.includes('OVYX_AI_API_KEY') || !compatibleConfig.includes('GEMINI_API_KEY') || !compatibleConfig.includes('ANTHROPIC_API_KEY')) {
-    errors.push('functions/_lib/openai-compatible.js: shared gateway mode must accept the configured common endpoint and support API-key fallback across provider secret slots.');
-  }
-}
-const routerSource = fs.existsSync(path.join(root, 'functions/_lib/providers.js'))
-  ? fs.readFileSync(path.join(root, 'functions/_lib/providers.js'), 'utf8')
-  : '';
-if (!routerSource.includes('OVYX_AI_BASE_URL') || !routerSource.includes('normalizeRequestedProvider')) {
-  errors.push('functions/_lib/providers.js: shared compatible gateway mode must route API-key-backed brain choices through the configured common endpoint.');
+if (
+  /OVYX_AI_BASE_URL|sharedGateway|sharedKeyPreference|resolveOpenAICompatibleConfig/.test(providerRouter) ||
+  !/if\s*\(requested\s*!==\s*['"]automatic['"]\s*&&\s*!requested\.startsWith\(['"]connection:/.test(providerRouter) ||
+  !/not available right now\. Please try again later, or connect your own AI Brain in Universal Connections to continue building/i.test(providerRouter)
+) {
+  errors.push('functions/_lib/providers.js: an explicitly selected provider must use its own provider route and show a helpful unavailable message instead of silently switching.');
 }
 
 const aiStatusPath = path.join(root, 'functions/api/ai/status.js');
@@ -128,6 +122,15 @@ if (fs.existsSync(html)) {
   if (/Agent is starting/i.test(text)) errors.push('index.html: stale Web Studio agent-starting copy detected');
   if (!text.includes('window.__OVYX_SPLASH_FAILSAFE__') || !text.includes('function releaseSplash(reason,event)') || !text.includes("document.readyState==='complete'")) {
     errors.push('index.html: splash must wait for full page load and use a bounded failsafe instead of a short fixed timer.');
+  }
+  const providerChoiceRouter = text.match(/function patchAIBrain\(\)\{([\s\S]*?)\n  function mountGemini\(\)\{\}/);
+  if (
+    !providerChoiceRouter ||
+    !providerChoiceRouter[1].includes('failoverUsed:false') ||
+    !providerChoiceRouter[1].includes('Please try again later, or connect your own AI Brain in Universal Connections to continue building.') ||
+    /for\s*\(const provider of order\)/.test(providerChoiceRouter[1])
+  ) {
+    errors.push('index.html: explicitly selected AI providers must not silently fail over, and must explain how to continue when unavailable.');
   }
   if (!text.includes('id="deep-conn-clear-ai"') || !text.includes('id="ovyx-v91-clear-brain"')) {
     errors.push('index.html: both Universal Connections screens must expose an explicit Clear AI Brain control.');
