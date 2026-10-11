@@ -13,7 +13,7 @@
     "check": "wrangler types",
     "validate": "node scripts/ovyx-static-verify.mjs",
     "build": "node scripts/ovyx-pages-build.mjs",
-    "test": "node scripts/provider-routing.test.mjs && node scripts/universal-connection-protocol.test.mjs"
+    "test": "node scripts/provider-routing.test.mjs && node scripts/universal-connection-protocol.test.mjs && node scripts/provider-availability.test.mjs"
   },
   "engines": {
     "node": ">=22.0.0"
