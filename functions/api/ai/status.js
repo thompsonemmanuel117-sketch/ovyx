@@ -1,6 +1,5 @@
 import { assertAuthenticated } from '../../_lib/firebase.js';
 import { errorResponse, requestId } from '../_lib/http.js';
-import { resolveOpenAICompatibleConfig } from '../../_lib/openai-compatible.js';
 
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 
@@ -70,82 +69,6 @@ function isAdmin(user) {
 }
 
 async function checkProvider(id, config, env) {
-  if (id === 'openai') {
-    let target;
-    try {
-      target = resolveOpenAICompatibleConfig(env);
-    } catch (error) {
-      return {
-        provider: 'openai',
-        actualProvider: 'openai-compatible',
-        label: 'Invalid OpenAI-compatible endpoint',
-        status: 'INVALID_CONFIGURATION',
-        configured: false,
-        connected: false,
-        error: String(error?.message || 'Endpoint configuration is invalid.').slice(0, 240),
-      };
-    }
-
-    const label = target.custom
-      ? target.label + ' (OpenAI-compatible endpoint)'
-      : target.label;
-
-    if (!target.key) {
-      return {
-        provider: 'openai',
-        actualProvider: target.provider,
-        label,
-        endpointHost: target.host,
-        status: 'NOT_CONFIGURED',
-        configured: false,
-        connected: false,
-      };
-    }
-
-    try {
-      const response = await fetchWithTimeout(
-        target.modelsUrl,
-        {
-          headers: {
-            Accept: 'application/json',
-            Authorization: 'Bearer ' + target.key,
-          },
-        },
-      );
-      const status = response.ok
-        ? 'READY'
-        : response.status === 401 || response.status === 403
-          ? 'AUTH_FAILED'
-          : response.status === 402
-            ? 'INSUFFICIENT_CREDITS'
-            : response.status === 429
-              ? 'RATE_LIMITED'
-              : 'UNAVAILABLE';
-
-      return {
-        provider: 'openai',
-        actualProvider: target.provider,
-        label,
-        endpointHost: target.host,
-        status,
-        configured: true,
-        connected: response.ok,
-        httpStatus: response.status,
-      };
-    } catch (error) {
-      return {
-        provider: 'openai',
-        actualProvider: target.provider,
-        label,
-        endpointHost: target.host,
-        status: error?.name === 'AbortError' ? 'TIMEOUT' : 'UNAVAILABLE',
-        configured: true,
-        connected: false,
-        error: String(error?.name === 'AbortError' ? 'Endpoint health check timed out.' : 'Endpoint health check failed.').slice(0, 240),
-      };
-    }
-  }
-
   const key = String(env?.[config.env] || '').trim();
 
   if (!key) {
@@ -209,34 +132,11 @@ export async function onRequestGet(context) {
       );
     }
 
-    const sharedGateway = Boolean(String(context.env?.OVYX_AI_BASE_URL || '').trim());
-    let results;
-    if (sharedGateway) {
-      // In shared-gateway mode the selectable provider names are aliases for
-      // one configured compatible endpoint. Report that endpoint's one actual
-      // check consistently instead of probing unrelated native vendor APIs.
-      const shared = await checkProvider('openai', PROVIDERS.openai, context.env);
-      results = Object.entries(PROVIDERS).map(([name, config]) => {
-        if (name === 'openai') return shared;
-        return {
-          provider: name,
-          actualProvider: shared.actualProvider || 'openai-compatible',
-          label: config.label + ' via ' + String(shared.label || 'shared compatible gateway'),
-          status: shared.status,
-          configured: shared.configured,
-          connected: shared.connected,
-          ...(shared.endpointHost ? { endpointHost: shared.endpointHost } : {}),
-          ...(shared.httpStatus ? { httpStatus: shared.httpStatus } : {}),
-          ...(shared.error ? { error: shared.error } : {}),
-        };
-      });
-    } else {
-      results = await Promise.all(
-        Object.entries(PROVIDERS).map(([name, config]) =>
-          checkProvider(name, config, context.env)
-        ),
-      );
-    }
+    const results = await Promise.all(
+      Object.entries(PROVIDERS).map(([name, config]) =>
+        checkProvider(name, config, context.env)
+      ),
+    );
 
     const workersAi = Boolean(
       context.env?.AI &&
