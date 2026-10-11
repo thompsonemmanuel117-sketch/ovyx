@@ -61,6 +61,21 @@ function row(payload, group, key) {
   assert(payload.invalidRequiredEnvironment.some((item) => item.key === 'FIREBASE_SERVICE_ACCOUNT_JSON' && item.state === 'invalid_json'));
 }
 
+// A binding name can exist while the runtime returns no value; do not call this absent or blank.
+{
+  const env = {
+    ...baseEnv(),
+    GITHUB_TOKEN_ENCRYPTION_KEY: undefined,
+    FIREBASE_SERVICE_ACCOUNT_JSON: undefined,
+  };
+  const payload = await health(env);
+  assert.equal(row(payload, 'GitHub', 'GITHUB_TOKEN_ENCRYPTION_KEY').state, 'unavailable');
+  assert.equal(row(payload, 'Firebase', 'FIREBASE_SERVICE_ACCOUNT_JSON').state, 'unavailable');
+  assert(payload.unavailableRequiredEnvironment.includes('GITHUB_TOKEN_ENCRYPTION_KEY'));
+  assert(payload.unavailableRequiredEnvironment.includes('FIREBASE_SERVICE_ACCOUNT_JSON'));
+  assert(!payload.emptyRequiredEnvironment.includes('FIREBASE_SERVICE_ACCOUNT_JSON'));
+}
+
 // The health contract deliberately checks FIREBASE_SERVICE_ACCOUNT_JSON itself.
 // An alias cannot hide a missing JSON binding.
 {
