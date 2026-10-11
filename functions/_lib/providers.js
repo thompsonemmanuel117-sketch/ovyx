@@ -718,18 +718,23 @@ function providerIsConfigured(env = {}, provider) {
 }
 
 export function classifyAutomaticTask(options = {}) {
+  // Classify the user's actual request first. System prompts often contain broad
+  // product instructions and must not accidentally make every task look like design.
+  const messageText = Array.isArray(options?.messages)
+    ? options.messages.map(message => String(message?.content || '')).join(' ')
+    : '';
   const text = [
-    options?.system,
-    options?.user,
     options?.prompt,
+    options?.user,
+    messageText,
     options?.mode,
   ].map(value => String(value || '')).join(' ').slice(0, 16000).toLowerCase();
 
-  if (/(website|web site|landing page|web design|ui\/ux|\bui\b|\bux\b|front[- ]end|responsive|css|visual design|layout|brand style|template|colour scheme|color scheme|mobile design)/i.test(text)) {
-    return { category: 'web-design', preferred: ['gemini', 'claude', 'deepseek', 'openai', 'groq', 'cloudflare-workers-ai'] };
-  }
-  if (/(debug|bug|fix|code|repository|repo\b|api|backend|security|test suite|unit test|typescript|javascript|refactor|compile|runtime error|stack trace|ci failure|pull request|database|deploy script|function implementation)/i.test(text)) {
+  if (/(debug|bug|fix|code|repository|repo\\b|api|backend|security|test suite|unit test|typescript|javascript|refactor|compile|runtime error|stack trace|ci failure|pull request|database|deploy script|function implementation)/i.test(text)) {
     return { category: 'engineering', preferred: ['claude', 'deepseek', 'openai', 'gemini', 'groq', 'cloudflare-workers-ai'] };
+  }
+  if (/(website|web site|landing page|web design|ui\\/ux|\\bui\\b|\\bux\\b|front[- ]end|responsive|css|visual design|layout|brand style|template|colour scheme|color scheme|mobile design)/i.test(text)) {
+    return { category: 'web-design', preferred: ['gemini', 'claude', 'deepseek', 'openai', 'groq', 'cloudflare-workers-ai'] };
   }
   if (/(reasoning|complex analysis|architecture|trade[- ]off|compare|research|investigate|evaluate|strategy|long[- ]term plan|technical plan|multi[- ]step|data analysis)/i.test(text)) {
     return { category: 'analysis', preferred: ['claude', 'openai', 'deepseek', 'gemini', 'groq', 'cloudflare-workers-ai'] };
