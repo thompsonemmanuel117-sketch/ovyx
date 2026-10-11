@@ -182,7 +182,7 @@ async function callClaude(env, input) {
   const key = requiredSecret(env, 'ANTHROPIC_API_KEY');
 
   const model =
-    clean(input.model) || 'claude-sonnet-4-6';
+    clean(input.model) || 'claude-sonnet-5';
 
   const payload = await requestJson(
     'https://api.anthropic.com/v1/messages',
@@ -285,7 +285,7 @@ async function callDeepSeek(env, input) {
     'deepseek',
     'DEEPSEEK_API_KEY',
     'https://api.deepseek.com',
-    'deepseek-flash'
+    'deepseek-v4-flash'
   );
 }
 
@@ -296,7 +296,7 @@ async function callOpenAI(env, input) {
     'openai',
     'OPENAI_API_KEY',
     'https://api.openai.com/v1',
-    'gpt-4o-mini'
+    'gpt-5.1'
   );
 }
 
