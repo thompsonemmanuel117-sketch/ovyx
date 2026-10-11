@@ -30,7 +30,8 @@ async function health(env) {
 }
 
 function row(payload, group, key) {
-  return payload.services[group].find((entry) => entry.key === key);
+  const serviceGroup = group[0].toLowerCase() + group.slice(1);
+  return payload.services[serviceGroup].find((entry) => entry.key === key);
 }
 
 // Missing bindings and bindings with empty values must be reported separately.
