@@ -10,7 +10,8 @@ import {
 import {
   buildConnectionRecord,
   publicConnection,
-  testUserConnection
+  testUserConnection,
+  supportsAIProtocol
 } from '../../_lib/universal-connections.js';
 
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
@@ -343,11 +344,11 @@ async function onRequest(context) {
         );
       }
 
-      if (record.protocol !== 'openai-chat') {
+      if (!supportsAIProtocol(record.protocol)) {
         return errorResponse(
           400,
           'CONNECTION_NOT_AI_PROTOCOL',
-          'Only an OpenAI-compatible chat connection can currently be selected as the AI Brain.'
+          'Choose an OpenAI-compatible, Anthropic Messages, or Gemini Generate Content AI protocol to use this as the AI Brain.'
         );
       }
 
@@ -494,7 +495,7 @@ async function onRequest(context) {
 
     if (
       activeBrainConnectionId === id &&
-      (!record.active || record.protocol !== 'openai-chat')
+      (!record.active || !supportsAIProtocol(record.protocol))
     ) {
       activeBrainConnectionId = null;
       await setFirestoreDocumentAtPath(
@@ -508,7 +509,7 @@ async function onRequest(context) {
     if (
       body?.useAsBrain === true &&
       record.active === true &&
-      record.protocol === 'openai-chat'
+      supportsAIProtocol(record.protocol)
     ) {
       activeBrainConnectionId = id;
       await setFirestoreDocumentAtPath(

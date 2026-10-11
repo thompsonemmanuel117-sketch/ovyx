@@ -47,12 +47,52 @@ if (fs.existsSync(providerRouterPath)) {
   if (!/withTimeout\(\s*getActiveBrainConnectionId/.test(providerRouter)) {
     errors.push('functions/_lib/providers.js: Universal Connection lookup needs a deadline.');
   }
-  if (!/catch\s*\(err\)[\s\S]*?errors\.push\(['"`]universal-connection/i.test(providerRouter)) {
-    errors.push('functions/_lib/providers.js: automatic AI routing must recover from a failed saved Universal Connection.');
+  if (
+    !/if\s*\(options\.authUser\s*&&\s*!\/\^connection:\/i\.test\(requestedRaw\)\)/.test(providerRouter) ||
+    !/UNIVERSAL_CONNECTION_SELECTION_FAILED/.test(providerRouter) ||
+    !/selected Universal Connection AI Brain failed[\s\S]*?did not switch to another AI provider/i.test(providerRouter)
+  ) {
+    errors.push('functions/_lib/providers.js: a saved Universal Connection must override platform provider choices and fail closed instead of routing silently to platform keys.');
   }
   const rawFetches = (providerRouter.match(/\bawait fetch\s*\(/g) || []).length;
   if (rawFetches !== 1 || !/return await fetch\(url,\s*\{ \.\.\.options, signal: controller\.signal \}\)/.test(providerRouter)) {
     errors.push('functions/_lib/providers.js: provider network calls must pass through the timeout wrapper.');
+  }
+}
+
+const providerRouterSource = fs.existsSync(providerRouterPath)
+  ? fs.readFileSync(providerRouterPath, 'utf8')
+  : '';
+if (
+  /OVYX_AI_BASE_URL|sharedGateway|sharedKeyPreference|resolveOpenAICompatibleConfig/.test(providerRouterSource) ||
+  !/if\s*\(requested\s*!==\s*['"]automatic['"]\s*&&\s*!requested\.startsWith\(['"]connection:/.test(providerRouterSource) ||
+  !/not available right now\. Please try again later, or connect your own AI Brain in Universal Connections to continue building/i.test(providerRouterSource)
+) {
+  errors.push('functions/_lib/providers.js: an explicitly selected provider must use its own provider route and show a helpful unavailable message instead of silently switching.');
+}
+
+const aiStatusPath = path.join(root, 'functions/api/ai/status.js');
+if (fs.existsSync(aiStatusPath)) {
+  const aiStatus = fs.readFileSync(aiStatusPath, 'utf8');
+  if (/generativelanguage\.googleapis\.com\/v1beta\/models[^\x60]*[?&]key=/i.test(aiStatus)) {
+    errors.push('functions/api/ai/status.js: Gemini API keys must not be placed in request URLs.');
+  }
+  if (!/['"]x-goog-api-key['"]\s*:\s*key/.test(aiStatus)) {
+    errors.push('functions/api/ai/status.js: Gemini health checks must send the key in the x-goog-api-key header.');
+  }
+}
+
+
+const deploymentRoutePath = path.join(root, 'functions/api/deploy.js');
+if (!fs.existsSync(deploymentRoutePath)) {
+  errors.push('functions/api/deploy.js: secure publishing route is missing.');
+} else {
+  const deploymentRoute = fs.readFileSync(deploymentRoutePath, 'utf8');
+  if (
+    !/const\s+canDeploy\s*=\s*await\s+hasCloudflareDeployCapability\s*\(/.test(deploymentRoute) ||
+    !/if\s*\(\s*!canDeploy\s*\)/.test(deploymentRoute)
+  ) {
+    errors.push('functions/api/deploy.js: publishing must await the server-side entitlement check and deny deployment when not allowed.');
   }
 }
 
@@ -96,6 +136,27 @@ if (fs.existsSync(html)) {
   if ((text.match(/id="view-webstudio"/gi) || []).length !== 1) errors.push('index.html: expected exactly one Web Studio view');
   if (!/id="app-sidebar"/i.test(text) || !/id="mobile-drawer"/i.test(text)) errors.push('index.html: main navigation shell is missing');
   if (/Agent is starting/i.test(text)) errors.push('index.html: stale Web Studio agent-starting copy detected');
+  if (!text.includes('window.__OVYX_SPLASH_FAILSAFE__') || !text.includes('function releaseSplash(reason,event)') || !text.includes("document.readyState==='complete'")) {
+    errors.push('index.html: splash must wait for full page load and use a bounded failsafe instead of a short fixed timer.');
+  }
+  const providerChoiceRouter = text.match(/function patchAIBrain\(\)\{([\s\S]*?)\n  function mountGemini\(\)\{\}/);
+  if (
+    !providerChoiceRouter ||
+    !providerChoiceRouter[1].includes('failoverUsed:false') ||
+    !providerChoiceRouter[1].includes('Please try again later, or connect your own AI Brain in Universal Connections to continue building.') ||
+    /for\s*\(const provider of order\)/.test(providerChoiceRouter[1])
+  ) {
+    errors.push('index.html: explicitly selected AI providers must not silently fail over, and must explain how to continue when unavailable.');
+  }
+  if (!text.includes('id="deep-conn-clear-ai"') || !text.includes('id="ovyx-v91-clear-brain"')) {
+    errors.push('index.html: both Universal Connections screens must expose an explicit Clear AI Brain control.');
+  }
+  if (!/panel\.querySelectorAll\('\[data-conn-use-ai\]'\)[\s\S]{0,1800}action:'use-ai'/.test(text)) {
+    errors.push('index.html: the legacy Use as Brain action must persist the selection through the backend.');
+  }
+  if ((text.match(/action:'clear-ai'/g) || []).length < 2) {
+    errors.push('index.html: both Universal Connections screens must support clearing the selected Brain through the backend.');
+  }
 
   const inlineScriptPattern = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
   let inlineIndex = 0;
