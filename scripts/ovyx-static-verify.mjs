@@ -71,6 +71,39 @@ if (
   errors.push('functions/_lib/providers.js: an explicitly selected provider must use its own provider route and show a helpful unavailable message instead of silently switching.');
 }
 
+const automaticRouterSource = fs.existsSync(providerRouterPath)
+  ? fs.readFileSync(providerRouterPath, 'utf8')
+  : '';
+if (
+  !/function automaticTaskPreference\\(options = \\{\\}\\)/.test(automaticRouterSource) ||
+  !/isProviderConfigured\\(env, provider\\)/.test(automaticRouterSource) ||
+  !/No AI provider is connected right now[\\s\\S]*?connect your own AI Brain in Universal Connections/i.test(automaticRouterSource)
+) {
+  errors.push('functions/_lib/providers.js: OVYX Auto must choose by task, skip unconfigured providers, and explain how to connect a brain when none are available.');
+}
+
+const quotaRoutePaths = [
+  path.join(root, 'functions/api/ai/gateway.js'),
+  path.join(root, 'functions/api/ai/assistant.js'),
+];
+for (const routePath of quotaRoutePaths) {
+  if (!fs.existsSync(routePath)) {
+    errors.push(`${path.relative(root, routePath)}: AI request route is missing.`);
+    continue;
+  }
+  const routeSource = fs.readFileSync(routePath, 'utf8');
+  if (!/beginAIQuota/.test(routeSource) || !/finalizeAIQuota/.test(routeSource) || !/refundDailyPrompt/.test(routeSource)) {
+    errors.push(`${path.relative(root, routePath)}: AI generation must enforce server-side quota and safely refund failed daily-ration requests.`);
+  }
+}
+const quotaHelperPath = path.join(root, 'functions/_lib/token-quota.js');
+if (fs.existsSync(quotaHelperPath)) {
+  const quotaHelper = fs.readFileSync(quotaHelperPath, 'utf8');
+  if (!/current\\.daily_prompts_allowance <= 0/.test(quotaHelper) || !/DAILY_RATION_EXHAUSTED/.test(quotaHelper) || !/DAILY_RATION_MESSAGE/.test(quotaHelper)) {
+    errors.push('functions/_lib/token-quota.js: exhausted token balance and daily ration must be blocked on the server.');
+  }
+}
+
 const aiStatusPath = path.join(root, 'functions/api/ai/status.js');
 if (fs.existsSync(aiStatusPath)) {
   const aiStatus = fs.readFileSync(aiStatusPath, 'utf8');
@@ -138,6 +171,23 @@ if (fs.existsSync(html)) {
   if (/Agent is starting/i.test(text)) errors.push('index.html: stale Web Studio agent-starting copy detected');
   if (!text.includes('window.__OVYX_SPLASH_FAILSAFE__') || !text.includes('function releaseSplash(reason,event)') || !text.includes("document.readyState==='complete'")) {
     errors.push('index.html: splash must wait for full page load and use a bounded failsafe instead of a short fixed timer.');
+  }
+  const toastSource = text.match(/function showToast\\(msg, type = ['"]info['"]\\) \\{([\\s\\S]*?)\\n    \\}/);
+  if (
+    !toastSource ||
+    !toastSource[1].includes('message.textContent = String(msg == null ? \'\' : msg)') ||
+    !text.includes('id="ovyx-toast-motion-v2"') ||
+    !text.includes('ovyxToastEnterV2') ||
+    !text.includes('.ovyx-toast--success') ||
+    !text.includes('.ovyx-toast--error')
+  ) {
+    errors.push('index.html: success/error notifications must be animated, accessible, and render their text safely.');
+  }
+  if (
+    !text.includes("bar.setAttribute('aria-valuemax',String(quotaMax))") ||
+    !text.includes("bar.setAttribute('aria-valuenow',String(quotaNow))")
+  ) {
+    errors.push('index.html: the live token meter must expose the current remaining quota and plan/daily limit.');
   }
   const providerChoiceRouter = text.match(/function patchAIBrain\(\)\{([\s\S]*?)\n  function mountGemini\(\)\{\}/);
   if (
