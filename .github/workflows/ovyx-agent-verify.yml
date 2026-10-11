@@ -26,7 +26,7 @@ jobs:
       - name: Install dependencies
         run: npm install --ignore-scripts
 
-      - name: OpenAI-compatible routing tests
+      - name: Provider-specific routing tests
         run: npm test
 
       - name: Static verification
