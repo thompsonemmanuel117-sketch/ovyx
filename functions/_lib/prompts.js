@@ -34,6 +34,7 @@ export function planPrompt({
   tree,
   hints,
   experience,
+  requireMultiPage = false,
 }) {
   return `Create an implementation plan for this OVYX task.
 
@@ -56,10 +57,32 @@ Return exactly this JSON shape:
   "plan": [
     {"step": 1, "goal": "...", "paths": ["..."], "risk": "low|medium|high"}
   ],
+  "siteMap": {
+    "architecture": "routing and shared-layout strategy",
+    "pages": [
+      {"title": "Home", "path": "index.html", "url": "/", "goal": "page purpose"}
+    ],
+    "sharedFiles": [
+      {"path": "assets/site.css", "purpose": "shared visual system"}
+    ],
+    "foundationPaths": ["index.html", "assets/site.css"]
+  },
   "inspectPaths": ["..."],
   "constraints": ["..."],
   "verification": ["..." ]
 }
+
+SITE-MAP RULES FOR WEBSITE BUILDS:
+- Plan the information architecture before implementation. A page is a distinct navigable route, not a section on a long page.
+- If the prompt explicitly requests multiple pages, include every explicitly requested page in siteMap.pages. Do not merge separate requested pages into one giant HTML file or a tab-only imitation.
+- Infer a complete but sensible set of supporting pages that genuinely improve the user's goal. Do not inflate a simple landing-page request with unrelated pages.
+- Use the repository's existing framework and routing conventions. For a new static HTML site, prefer a directly routable path such as index.html and about/index.html; for an existing framework, use its native page-route convention.
+- Every page must have a unique path and an internal URL that matches the selected routing strategy. Use "/" for the homepage.
+- Include shared styles, scripts, navigation/layout, router files, and any necessary configuration in sharedFiles when OVYX needs to create or update them. Never list secrets or generated/dependency directories.
+- foundationPaths should contain the homepage and only the shared files/configuration that must exist before the other pages are built. Do not put every page in foundationPaths.
+- Keep shared visual design, navigation, responsive behavior and URL conventions consistent across the whole site.
+- If the task is not a website build, return an empty pages array and an empty sharedFiles array.
+- ${requireMultiPage ? 'The user explicitly requested a multi-page site: siteMap.pages MUST contain at least two distinct navigable pages and all requested pages.' : 'Choose one page only when the user clearly wants a one-page/landing-page experience; otherwise infer the reasonable page architecture.'}
 
 Rules for inspectPaths:
 - Only choose files that exist in the repository tree.
@@ -76,7 +99,25 @@ export function executePrompt({
   experience,
   allowDeletes,
   allowWorkflowChanges,
+  buildBatch = null,
 }) {
+  const batchInstructions = buildBatch
+    ? [
+        'MULTI-PAGE WEBSITE BUILD: You are implementing one controlled batch of a larger site.',
+        `Batch ${buildBatch.index} of ${buildBatch.total}; stage: ${buildBatch.kind}; maximum distinct changed files: ${buildBatch.maxChangedFiles}.`,
+        'This is a batch, not the whole website. Preserve all previous staged work. Use the latest STAGED FILE CONTENTS supplied below when patching previously generated files.',
+        'Required target files for this batch (address every target that is not already present and complete):',
+        JSON.stringify(buildBatch.targetFiles || []),
+        'Only create or edit paths in this allowlist. Target paths and approved shared paths are the only allowed paths:',
+        JSON.stringify(buildBatch.allowedPaths || []),
+        `Already generated files: ${JSON.stringify(buildBatch.alreadyGeneratedPaths || [])}`,
+        `You may make at most ${buildBatch.maxAdditionalChanges} additional shared-file change(s) beyond the listed target paths in this batch.`,
+        'Use the full route manifest in the approved plan to provide consistent, working internal navigation to every planned page. Do not invent missing routes, omit planned pages, or squeeze separate pages into one route.',
+        'For newly created files, return complete content. For existing or staged files, use exact-match operations against the latest supplied content. Do not recreate staged files.',
+        'Keep the shared design system and navigation coherent across batches. Every page needs page-specific content, metadata, mobile behavior, accessible controls and working links where relevant.',
+      ].join('\n')
+    : '';
+
   return `Implement the approved plan in the repository.
 
 USER REQUEST:
@@ -99,6 +140,8 @@ ${hints || '{}'}
 
 EXPERIENCE INTELLIGENCE:
 ${JSON.stringify(experience || {})}
+
+${batchInstructions}
 
 The client / brand context is authoritative for this request when present. Respect its
 colors and layout rules in generated or edited UI. Never copy, decode, or expose a

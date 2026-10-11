@@ -39,6 +39,14 @@ import {
   updateJob,
 } from './jobs.js';
 
+import {
+  normalizeSiteMap,
+  createSiteBuildBatches,
+  mergeStagedChanges,
+  buildSiteBatchContext,
+  selectSitePolishChanges,
+} from './multi-page.js';
+
 const DEFAULT_MAX_CONTEXT =
   220_000;
 
@@ -63,6 +71,15 @@ function cap(
     n > 0
     ? n
     : fallback;
+}
+
+function explicitlyRequestsMultiplePages(prompt) {
+  const text = String(prompt || '').toLowerCase();
+  if (/\b(?:multi[-\s]?page|multiple\s+pages?|several\s+pages?|many\s+pages?|more\s+than\s+one\s+page|\d+\s+pages?|(?:two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|one\s+hundred)\s+pages?)\b/i.test(text)) {
+    return true;
+  }
+  const namedPages = text.match(/\b(?:home(?:page)?|about|services?|pricing|contact|products?|blog|dashboard|faq|privacy|terms)\s+pages?\b/gi) || [];
+  return namedPages.length >= 2 || /\bpages\s*[:\-]/i.test(text);
 }
 
 function isTextPath(path) {
@@ -850,148 +867,130 @@ async function materializeChanges(
   rawChanges,
   opts = {}
 ) {
-  if (
-    !Array.isArray(
-      rawChanges
-    )
-  ) {
+  if (!Array.isArray(rawChanges)) {
+    throw new Error('Agent returned no changes array.');
+  }
+
+  const configuredLimit = cap(
+    env,
+    'AGENT_MAX_CHANGED_FILES',
+    DEFAULT_MAX_CHANGED
+  );
+  const requestedLimit = Number(opts.maxChanges);
+  const maxChanges = Number.isFinite(requestedLimit) && requestedLimit > 0
+    ? Math.floor(requestedLimit)
+    : configuredLimit;
+
+  if (rawChanges.length > maxChanges) {
     throw new Error(
-      'Agent returned no changes array.'
+      `Agent changed too many files in one operation (${rawChanges.length}; maximum ${maxChanges}).`
     );
   }
 
-  if (
-    rawChanges.length >
-    cap(
-      env,
-      'AGENT_MAX_CHANGED_FILES',
-      DEFAULT_MAX_CHANGED
-    )
-  ) {
-    throw new Error(
-      'Agent changed too many files in one operation.'
-    );
-  }
+  const staged = new Map(
+    (Array.isArray(opts.existingChanges) ? opts.existingChanges : [])
+      .map(item => [item.path, item])
+  );
+  const allowedPaths = Array.isArray(opts.allowedPaths)
+    ? new Set(opts.allowedPaths)
+    : null;
+  const changed = [];
 
-  const changed =
-    [];
+  for (const raw of rawChanges) {
+    const path = assertSafePath(raw.path, {
+      allowDeletes: opts.allowDeletes,
+      allowWorkflowChanges: opts.allowWorkflowChanges,
+    });
 
-  for (
-    const raw of rawChanges
-  ) {
-    const path =
-      assertSafePath(
-        raw.path,
-        opts
-      );
-
-    const action =
-      String(
-        raw.action ||
-          'update'
-      );
-
-    if (
-      ![
-        'create',
-        'update',
-        'delete',
-      ].includes(
-        action
-      )
-    ) {
+    if (allowedPaths && !allowedPaths.has(path)) {
       throw new Error(
-        `${path}: unsupported action ${action}.`
+        `${path}: path is outside the approved multi-page batch allowlist.`
       );
     }
 
-    if (
-      action ===
-      'delete'
-    ) {
-      changed.push({
-        path,
-        action:
-          'delete',
-      });
+    const action = String(raw.action || 'update');
+    if (!['create', 'update', 'delete'].includes(action)) {
+      throw new Error(`${path}: unsupported action ${action}.`);
+    }
 
+    const previous = staged.get(path);
+
+    if (action === 'delete') {
+      if (previous?.action === 'create') {
+        changed.push({
+          path,
+          action: 'delete',
+          removeStagedCreate: true,
+        });
+      } else {
+        changed.push({
+          path,
+          action: 'delete',
+          previousSha: previous?.previousSha,
+        });
+      }
       continue;
     }
 
-    let current =
-      null;
+    let current = previous && previous.action !== 'delete'
+      ? {
+          content: previous.content,
+          sha: previous.previousSha,
+        }
+      : null;
 
-    try {
-      current =
-        await readFile(
+    if (!current) {
+      try {
+        current = await readFile(
           env,
           repo.owner,
           repo.repo,
           path,
           branch
         );
-    } catch {
-      current =
-        null;
+      } catch {
+        current = null;
+      }
     }
 
-    if (
-      action ===
-      'create'
-    ) {
+    if (action === 'create') {
       if (current) {
         throw new Error(
           `${path}: create requested but file already exists.`
         );
       }
 
-      const content =
-        String(
-          raw.content ??
-            ''
-        );
-
       changed.push({
         path,
-        action,
-        content,
+        action: 'create',
+        content: String(raw.content ?? ''),
       });
-
       continue;
     }
 
-    if (
-      !current
-    ) {
+    if (!current) {
       throw new Error(
         `${path}: update requested but file does not exist.`
       );
     }
 
-    if (
-      !Array.isArray(
-        raw.operations
-      ) ||
-      !raw.operations.length
-    ) {
+    if (!Array.isArray(raw.operations) || !raw.operations.length) {
       throw new Error(
         `${path}: update requires exact-match operations.`
       );
     }
 
-    const content =
-      applyOperationsToContent(
-        current.content,
-        raw.operations,
-        path
-      );
+    const content = applyOperationsToContent(
+      current.content,
+      raw.operations,
+      path
+    );
 
     changed.push({
       path,
-      action,
+      action: previous?.action === 'create' ? 'create' : 'update',
       content,
-      previousSha:
-        current.sha,
+      previousSha: previous?.previousSha || current.sha,
     });
   }
 
@@ -1158,7 +1157,7 @@ export async function runAgent({
       )
     );
 
-  const planResult =
+  let planResult =
     await callJsonModel(
       env,
       {
@@ -1185,6 +1184,9 @@ export async function runAgent({
 
             experience:
               experienceBrief,
+
+            requireMultiPage:
+              webStudio && explicitlyRequestsMultiplePages(prompt),
           }),
 
         authUser:
@@ -1195,17 +1197,16 @@ export async function runAgent({
             ? AGENT_SYSTEM_PROMPT + '\n\n' + WEB_STUDIO_EXCELLENCE
             : AGENT_SYSTEM_PROMPT,
 
-        maxTokens:
-          5000,
+        maxTokens: cap(
+          env,
+          'AGENT_PLAN_MAX_TOKENS',
+          webStudio ? 9000 : 5000
+        ),
       }
     );
 
-  const plan =
+  let plan =
     planResult.json;
-
-  if (webStudio && plan && typeof plan === 'object') {
-    plan.experienceBrief = experienceBrief;
-  }
 
   if (
     plan.needsUserInput
@@ -1235,6 +1236,70 @@ export async function runAgent({
       plan,
     };
   }
+
+  const multiPageRequested = webStudio && explicitlyRequestsMultiplePages(prompt);
+  const pageLimit = cap(env, 'AGENT_MAX_SITE_PAGES', 250);
+  let normalizedSiteMap = webStudio
+    ? normalizeSiteMap(plan?.siteMap, pageLimit)
+    : { siteMap: null, overflow: 0 };
+  let siteMap = normalizedSiteMap.siteMap;
+
+  if (normalizedSiteMap.overflow > 0) {
+    throw Object.assign(
+      new Error(`The planned site contains more than ${pageLimit} pages. Increase AGENT_MAX_SITE_PAGES to allow a larger build; no pages were silently dropped.`),
+      { code: 'SITE_MAP_PAGE_LIMIT' }
+    );
+  }
+
+  if (multiPageRequested && (!siteMap || siteMap.pages.length < 2)) {
+    await emit('progress', {
+      stage: 'planning',
+      message: 'Rechecking the requested multi-page sitemap before writing any files…',
+    });
+
+    planResult = await callJsonModel(
+      env,
+      {
+        provider: requestedProvider,
+        model,
+        onUsage,
+        taskPrompt: prompt,
+        user: planPrompt({
+          prompt: prompt + '\n\nREQUIRED: This task explicitly asks for multiple distinct website pages. Return a complete siteMap with every requested page as its own route and include all shared files required to build them.',
+          tree: treeText,
+          hints: sanitizeHints(clientContext),
+          experience: experienceBrief,
+          requireMultiPage: true,
+        }),
+        authUser: user,
+        system: AGENT_SYSTEM_PROMPT + (webStudio ? '\n\n' + WEB_STUDIO_EXCELLENCE : ''),
+        maxTokens: cap(env, 'AGENT_PLAN_MAX_TOKENS', 9000),
+      }
+    );
+    plan = planResult.json;
+    normalizedSiteMap = normalizeSiteMap(plan?.siteMap, pageLimit);
+    siteMap = normalizedSiteMap.siteMap;
+
+    if (normalizedSiteMap.overflow > 0) {
+      throw Object.assign(
+        new Error(`The planned site contains more than ${pageLimit} pages. Increase AGENT_MAX_SITE_PAGES to allow a larger build; no pages were silently dropped.`),
+        { code: 'SITE_MAP_PAGE_LIMIT' }
+      );
+    }
+    if (!siteMap || siteMap.pages.length < 2) {
+      throw Object.assign(
+        new Error('OVYX could not create a complete multi-page route plan for this request. No website files were written; try submitting the full list of requested pages in your prompt.'),
+        { code: 'SITE_MAP_PLAN_INCOMPLETE' }
+      );
+    }
+  }
+
+  if (webStudio && plan && typeof plan === 'object') {
+    plan.experienceBrief = experienceBrief;
+    if (siteMap) plan.siteMap = siteMap;
+  }
+
+  const siteBuild = webStudio && siteMap && siteMap.pages.length > 1;
 
   await updateJob(
     env,
@@ -1274,120 +1339,285 @@ export async function runAgent({
       send
     );
 
-  const executionResult =
-    await callJsonModel(
+  let executionResult;
+  let changes = [];
+  const maxChangedFiles = Math.max(
+    2,
+    cap(
+      env,
+      'AGENT_MAX_CHANGED_FILES',
+      DEFAULT_MAX_CHANGED
+    )
+  );
+
+  if (siteBuild) {
+    const batches = createSiteBuildBatches(siteMap, maxChangedFiles);
+    if (!batches.length) {
+      throw Object.assign(
+        new Error('The multi-page sitemap did not produce any executable build batches.'),
+        { code: 'SITE_MAP_BATCHES_EMPTY' }
+      );
+    }
+
+    await updateJob(env, jobId, {
+      status: 'building',
+      siteMap,
+      buildProgress: {
+        mode: 'multi_page',
+        totalPages: siteMap.pages.length,
+        completedBatches: 0,
+        totalBatches: batches.length,
+      },
+    });
+
+    for (const batch of batches) {
+      await emit('progress', {
+        stage: 'building_pages',
+        message: batch.kind === 'foundation'
+          ? `Building the shared website foundation (batch ${batch.index} of ${batch.total})…`
+          : `Building ${batch.targetPages.map(page => page.title).join(', ')} (batch ${batch.index} of ${batch.total})…`,
+        batch: batch.index,
+        totalBatches: batch.total,
+        totalPages: siteMap.pages.length,
+        changedFilesSoFar: changes.length,
+        targetFiles: batch.targetPaths,
+      });
+
+      const stagedPaths = new Set(changes.map(item => item.path));
+      const repositoryFilesForBatch = {};
+      const baselinePaths = [...new Set([
+        ...batch.targetPaths,
+        siteMap.pages[0]?.path,
+        ...batch.allSharedPaths,
+      ].filter(Boolean))];
+
+      for (const path of baselinePaths) {
+        if (stagedPaths.has(path)) continue;
+        if (typeof inspected.files[path] === 'string') {
+          repositoryFilesForBatch[path] = inspected.files[path];
+          continue;
+        }
+        if (!inspected.lookup.has(path)) continue;
+        try {
+          const baseFile = await readFile(
+            env,
+            repo.owner,
+            repo.repo,
+            path,
+            baseBranch
+          );
+          repositoryFilesForBatch[path] = baseFile.content;
+        } catch {}
+      }
+
+      const batchContext = buildSiteBatchContext({
+        baseContext: inspected.context,
+        stagedChanges: changes,
+        siteMap,
+        batch,
+        repositoryFiles: repositoryFilesForBatch,
+        maxChars: cap(env, 'AGENT_MAX_BATCH_CONTEXT_CHARS', 160_000),
+      });
+
+      executionResult = await callJsonModel(
+        env,
+        {
+          provider: requestedProvider,
+          model,
+          onUsage,
+          taskPrompt: prompt,
+          system:
+            AGENT_SYSTEM_PROMPT +
+            '\n\n' +
+            WEB_STUDIO_EXCELLENCE +
+            '\n\nYou are in a controlled multi-page implementation batch. Output only the required structured JSON.',
+          user: executePrompt({
+            prompt,
+            plan,
+            files: batchContext,
+            hints: sanitizeHints(clientContext),
+            experience: experienceBrief,
+            allowDeletes,
+            allowWorkflowChanges,
+            buildBatch: {
+              index: batch.index,
+              total: batch.total,
+              kind: batch.kind,
+              targetFiles: batch.targetFiles,
+              targetPaths: batch.targetPaths,
+              allowedPaths: batch.allowedPaths,
+              alreadyGeneratedPaths: changes.map(item => item.path),
+              maxChangedFiles: batch.maxChangedFiles,
+              maxAdditionalChanges: batch.maxAdditionalChanges,
+            },
+          }),
+          authUser: user,
+          maxTokens: cap(
+            env,
+            'AGENT_EXECUTE_MAX_TOKENS',
+            12_000
+          ),
+        }
+      );
+
+      if (executionResult.json?.needsUserInput) {
+        await updateJob(env, jobId, {
+          status: 'needs_user_input',
+          plan,
+          siteMap,
+          buildProgress: {
+            mode: 'multi_page',
+            totalPages: siteMap.pages.length,
+            completedBatches: batch.index - 1,
+            totalBatches: batches.length,
+          },
+          stagedFilePaths: changes.map(item => item.path),
+          execution: executionResult.json,
+        });
+        await emit('needs_user_input', {
+          execution: executionResult.json,
+          completedBatches: batch.index - 1,
+          totalBatches: batches.length,
+          stagedFilePaths: changes.map(item => item.path),
+        });
+        return {
+          jobId,
+          status: 'needs_user_input',
+          execution: executionResult.json,
+          siteMap,
+        };
+      }
+
+      const batchChanges = await materializeChanges(
+        env,
+        repo,
+        baseBranch,
+        executionResult.json?.changes,
+        {
+          allowDeletes,
+          allowWorkflowChanges,
+          maxChanges: maxChangedFiles,
+          existingChanges: changes,
+          allowedPaths: batch.allowedPaths,
+        }
+      );
+
+      changes = mergeStagedChanges(changes, batchChanges);
+
+      const missingTargets = batch.targetPaths.filter(path =>
+        !inspected.lookup.has(path) &&
+        !changes.some(item => item.path === path && item.action !== 'delete')
+      );
+      if (missingTargets.length) {
+        throw Object.assign(
+          new Error(
+            `Multi-page batch ${batch.index} did not create all required target file(s): ${missingTargets.join(', ')}. OVYX stopped instead of silently skipping part of the site foundation or a page.`
+          ),
+          { code: 'SITE_MAP_BATCH_INCOMPLETE' }
+        );
+      }
+
+      await updateJob(env, jobId, {
+        status: 'building',
+        siteMap,
+        buildProgress: {
+          mode: 'multi_page',
+          totalPages: siteMap.pages.length,
+          completedBatches: batch.index,
+          totalBatches: batches.length,
+          changedFiles: changes.length,
+        },
+        stagedFilePaths: changes.map(item => item.path),
+      });
+      await emit('progress', {
+        stage: 'building_pages',
+        message: `Completed batch ${batch.index} of ${batch.total}; continuing with the rest of the website…`,
+        batch: batch.index,
+        totalBatches: batch.total,
+        totalPages: siteMap.pages.length,
+        changedFilesSoFar: changes.length,
+        completedPagePaths: siteMap.pages
+          .filter(page => changes.some(item => item.path === page.path && item.action !== 'delete') || inspected.lookup.has(page.path))
+          .map(page => page.path),
+      });
+    }
+
+    executionResult = {
+      ...executionResult,
+      json: {
+        ...(executionResult?.json || {}),
+        changes,
+        summary: executionResult?.json?.summary || plan.summary || 'Multi-page website generated in verified batches.',
+      },
+    };
+  } else {
+    executionResult = await callJsonModel(
       env,
       {
-        provider:
-          requestedProvider,
-
+        provider: requestedProvider,
         model,
-
         onUsage,
-
         taskPrompt: prompt,
-
         system:
           (webStudio
             ? AGENT_SYSTEM_PROMPT + '\n\n' + WEB_STUDIO_EXCELLENCE
             : AGENT_SYSTEM_PROMPT) +
           '\n\nYou are now in EXECUTION phase. Use exact-match patch operations for existing files.',
-
-        user:
-          executePrompt({
-            prompt,
-
-            plan,
-
-            files:
-              inspected.context,
-
-            hints:
-              sanitizeHints(
-                clientContext
-              ),
-
-            experience:
-              experienceBrief,
-
-            allowDeletes,
-
-            allowWorkflowChanges,
-          }),
-
-        authUser:
-          user,
-
-        maxTokens:
-          cap(
-            env,
-            'AGENT_EXECUTE_MAX_TOKENS',
-            12000
-          ),
+        user: executePrompt({
+          prompt,
+          plan,
+          files: inspected.context,
+          hints: sanitizeHints(clientContext),
+          experience: experienceBrief,
+          allowDeletes,
+          allowWorkflowChanges,
+        }),
+        authUser: user,
+        maxTokens: cap(
+          env,
+          'AGENT_EXECUTE_MAX_TOKENS',
+          12_000
+        ),
       }
     );
 
-  if (
-    executionResult
-      .json
-      ?.needsUserInput
-  ) {
-    await updateJob(
-      env,
-      jobId,
-      {
-        status:
-          'needs_user_input',
+    if (executionResult.json?.needsUserInput) {
+      await updateJob(
+        env,
+        jobId,
+        {
+          status: 'needs_user_input',
+          execution: executionResult.json,
+        }
+      );
 
-        execution:
-          executionResult.json,
-      }
-    );
+      await emit('needs_user_input', {
+        execution: executionResult.json,
+      });
 
-    await emit(
-      'needs_user_input',
-      {
-        execution:
-          executionResult.json,
-      }
-    );
-
-    return {
-      jobId,
-
-      status:
-        'needs_user_input',
-
-      execution:
-        executionResult.json,
-    };
-  }
-
-  await emit(
-    'progress',
-    {
-      stage:
-        'editing',
-
-      message:
-        'Applying exact file edits and checking structural safety…',
+      return {
+        jobId,
+        status: 'needs_user_input',
+        execution: executionResult.json,
+      };
     }
-  );
 
-  let changes =
-    await materializeChanges(
+    await emit('progress', {
+      stage: 'editing',
+      message: 'Applying exact file edits and checking structural safety…',
+    });
+
+    changes = await materializeChanges(
       env,
       repo,
       baseBranch,
-      executionResult
-        .json
-        .changes,
+      executionResult.json.changes,
       {
         allowDeletes,
-
         allowWorkflowChanges,
       }
     );
+  }
 
   let validation =
     validateChanges(
@@ -1425,23 +1655,25 @@ export async function runAgent({
       }
     );
 
-    const repairFiles =
-      changes
-        .filter(
-          x =>
-            x.action !==
-            'delete'
-        )
-        .map(
-          x =>
-            `FILE: ${x.path}\n\n${trimText(
-              x.content,
-              70_000
-            )}`
-        )
-        .join(
-          '\n\n'
-        );
+    const validationPaths = new Set(
+      validation
+        .map(error => String(error).split(':')[0])
+        .filter(Boolean)
+    );
+    const repairCandidates = siteBuild
+      ? [
+          ...changes.filter(item => validationPaths.has(item.path)),
+          ...changes.filter(item => !validationPaths.has(item.path)).slice(0, maxChangedFiles),
+        ]
+      : changes;
+    const repairTargets = repairCandidates
+      .filter(item => item.action !== 'delete')
+      .filter((item, index, all) => all.findIndex(candidate => candidate.path === item.path) === index)
+      .slice(0, maxChangedFiles);
+
+    const repairFiles = repairTargets
+      .map(item => `FILE: ${item.path}\n\n${trimText(item.content, 18_000)}`)
+      .join('\n\n');
 
     const repairResult =
       await callJsonModel(
@@ -1465,9 +1697,7 @@ export async function runAgent({
 
               changes:
                 JSON.stringify(
-                  executionResult
-                    .json
-                    .changes
+                  changes.map(item => ({ path: item.path, action: item.action }))
                 ),
 
               errors:
@@ -1507,8 +1737,8 @@ export async function runAgent({
           .changes,
         {
           allowDeletes,
-
           allowWorkflowChanges,
+          existingChanges: changes,
         }
       );
 
@@ -1568,11 +1798,18 @@ export async function runAgent({
       polishPass++
     ) {
       try {
-        const polishFiles = changes
+        const polishSourceChanges = siteBuild
+          ? selectSitePolishChanges(
+              changes,
+              siteMap,
+              cap(env, 'AGENT_MAX_POLISH_FILES', 6)
+            )
+          : changes;
+        const polishFiles = polishSourceChanges
           .filter(item => item.action !== 'delete')
           .map(item =>
             'FILE: ' + item.path + '\n\n' +
-            trimText(item.content, 90_000)
+            trimText(item.content, 35_000)
           )
           .join('\n\n');
 

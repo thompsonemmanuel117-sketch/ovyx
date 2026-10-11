@@ -6,6 +6,7 @@ import {
   requestId,
 } from '../../_lib/http.js';
 import { callModel } from '../../_lib/providers.js';
+import { buildStudioMultiPage } from '../../_lib/studio-multipage.js';
 import { WEB_STUDIO_SYSTEM_PROMPT, WEB_STUDIO_EXCELLENCE } from '../../_lib/prompts.js';
 import { buildExperienceBrief, isWebStudioPrompt } from '../../_lib/experience.js';
 import { beginAIQuota, finalizeAIQuota, refundDailyPrompt } from '../../_lib/token-quota.js';
@@ -126,23 +127,75 @@ When discussing project changes, distinguish recommendations from changes actual
     const quotaReservation = await beginAIQuota(context.env, user);
 
     let result;
+    let multiPageBuild = false;
+    let quotaInputText = isWebStudio && projectContext
+      ? combined + '\n\nPROJECT CONTEXT:\n' + projectContext
+      : combined;
+    let quotaOutputText = '';
+
     try {
-      result = await callModel(
-        context.env,
-        {
-          provider,
-          taskPrompt: payload.prompt || payload.message || messages[messages.length - 1]?.content || '',
+      if (isWebStudio && mode === 'build') {
+        const project = payload.context?.project || payload.project || {};
+        const projectFiles = payload.context?.files || payload.files || {};
+        const studioHints = JSON.stringify({
+          activeView: payload.context?.activeView || '',
+          brandProfile: payload.context?.brandProfile || payload.context?.brand || null,
+          theme: payload.context?.theme || null,
+          viewport: payload.context?.viewport || null,
+        }).slice(0, 6000);
+
+        const generated = await buildStudioMultiPage({
+          env: context.env,
+          callModel,
+          provider: String(payload.provider || 'automatic').toLowerCase(),
           model: payload.model,
-          system,
-          user: isWebStudio && projectContext ? combined + '\n\nPROJECT CONTEXT:\n' + projectContext : combined,
-          maxTokens: isWebStudio
-            ? Math.min(Number(payload.maxTokens || 32000), 32000)
-            : Math.min(Number(payload.maxTokens || 4096), 8192),
           authUser: user,
+          prompt: promptText,
+          project,
+          files: projectFiles,
+          mode,
+          context: studioHints,
+        });
+
+        if (generated) {
+          result = generated;
+          multiPageBuild = true;
+          quotaInputText = generated.quotaInputText || quotaInputText;
+          quotaOutputText = generated.quotaOutputText || generated.text || '';
         }
-      );
+      }
+
+      if (!result) {
+        result = await callModel(
+          context.env,
+          {
+            provider: String(payload.provider || 'automatic').toLowerCase(),
+            taskPrompt: payload.prompt || payload.message || messages[messages.length - 1]?.content || '',
+            model: payload.model,
+            system,
+            user: isWebStudio && projectContext ? combined + '\n\nPROJECT CONTEXT:\n' + projectContext : combined,
+            maxTokens: isWebStudio
+              ? Math.min(Number(payload.maxTokens || 32000), 32000)
+              : Math.min(Number(payload.maxTokens || 4096), 8192),
+            authUser: user,
+          }
+        );
+        quotaOutputText = result.text || '';
+      }
     } catch (providerError) {
-      await refundDailyPrompt(context.env, quotaReservation);
+      if (providerError?.partialUsage) {
+        await finalizeAIQuota(
+          context.env,
+          quotaReservation,
+          providerError.partialUsage,
+          providerError.quotaInputText || quotaInputText,
+          providerError.quotaOutputText || ''
+        ).catch(quotaError => {
+          console.error('[OVYX PARTIAL AI USAGE]', quotaError?.message || quotaError);
+        });
+      } else {
+        await refundDailyPrompt(context.env, quotaReservation);
+      }
       throw providerError;
     }
 
@@ -150,8 +203,8 @@ When discussing project changes, distinguish recommendations from changes actual
       context.env,
       quotaReservation,
       result.rawUsage || null,
-      isWebStudio && projectContext ? combined + '\n\nPROJECT CONTEXT:\n' + projectContext : combined,
-      result.text || ''
+      quotaInputText,
+      quotaOutputText || result.text || ''
     );
 
     let historySaved = false;
@@ -183,6 +236,14 @@ When discussing project changes, distinguish recommendations from changes actual
           structuredFields[key] = structured[key];
         }
       }
+    }
+
+    if (multiPageBuild) {
+      structuredFields.files = result.files || {};
+      if (result.project) structuredFields.project = result.project;
+      structuredFields.summary = result.summary || structuredFields.summary;
+      structuredFields.message = result.message || structuredFields.message;
+      structuredFields.siteMap = result.siteMap || null;
     }
 
     return json({

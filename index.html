@@ -2649,6 +2649,10 @@ Body: { broadcastId, title, body, category, link }</div>
           const source = event?.source;
           const isPreviewSource = !!source && (source === desktopFrame?.contentWindow || source === mobileFrame?.contentWindow);
           if (!isPreviewSource) return;
+          if (event?.data?.ovxNavigateTo?.path) {
+            this.navigatePreviewRoute(event.data.ovxNavigateTo.path);
+            return;
+          }
           if (event?.data?.ovxSelect) this.selectPreviewElement(event.data.ovxSelect);
           if (event?.data?.ovxConsole) { this.previewErrors.push(event.data.ovxConsole); this.runtimeLog.push(event.data.ovxConsole); this.renderConsole(); }
         });
@@ -2747,6 +2751,33 @@ Body: { broadcastId, title, body, category, link }</div>
       closeProjectNavigation(){ try{window.OVYXWebStudioNavigation?.close?.()}catch(e){console.warn('[OVYX Web Studio navigation]',e)} },
       syncSidebarTrigger(){ try{window.OVYXWebStudioNavigation?.sync?.()}catch(_){} },
       getActivePage(){const p=window.KernelState?.activeProject;if(!p||!Array.isArray(p.pages)||!p.pages.length)return null;if(this.activePageIndex>=p.pages.length)this.activePageIndex=0;return p.pages[this.activePageIndex]||p.pages[0]},
+      navigatePreviewRoute(rawPath){
+        const normalizeRoute=value=>{
+          let route=String(value||'/').trim().split(/[?#]/)[0].replace(/\\/g,'/').replace(/\/{2,}/g,'/');
+          if(!route.startsWith('/'))route='/'+route;
+          if(route!=='/'&&!/\.[a-z0-9]+$/i.test(route)&&!route.endsWith('/'))route+='/';
+          return route.toLowerCase();
+        };
+        const slug=value=>String(value||'').trim().replace(/\.html?$/i,'').replace(/[^a-z0-9]+/gi,'-').replace(/^-+|-+$/g,'').toLowerCase();
+        const target=normalizeRoute(rawPath);
+        const pages=Array.isArray(window.KernelState?.activeProject?.pages)?window.KernelState.activeProject.pages:[];
+        let index=pages.findIndex(page=>{
+          const route=page?.route||page?.url||'';
+          if(route&&normalizeRoute(route)===target)return true;
+          const name=slug(page?.name);
+          return target===(name==='home'||name==='homepage'?'/':'/'+name+'/');
+        });
+        if(index<0){
+          const part=target.split('/').filter(Boolean).pop()||'home';
+          index=pages.findIndex(page=>slug(page?.name)===slug(part));
+        }
+        if(index<0)return false;
+        this.activePageIndex=index;
+        this.selectedNodeId=null;
+        this.ensureProjectGraph();
+        this.render();
+        return true;
+      },
       getActiveSection(){const page=this.getActivePage();return page?.sections?.find(s=>s.id===this.selectedNodeId)||null},
       entryFile(){this.ensureProjectGraph();return this.graph?.entry||Object.keys(this.graph?.files||{}).find(k=>/\.html$/i.test(k))||'src/pages/Home.html'},
       pageCount(){return (window.KernelState?.activeProject?.pages||[]).length},
@@ -3162,7 +3193,7 @@ Body: { broadcastId, title, body, category, link }</div>
       },
       injectPreviewSelectionHooks(doc){
         const file=this.escapeScriptAttr(this.entryFile());
-        const hook=`<script>(function(){function send(kind,payload){try{var m={};m[kind]=payload;parent.postMessage(m,"*")}catch(_){}}function path(el){var a=[];while(el&&el.nodeType===1&&a.length<7){var n=el.tagName.toLowerCase(),i=1,s=el;while(s=s.previousElementSibling){if(s.tagName===el.tagName)i++}a.unshift(n+":nth-of-type("+i+")");el=el.parentElement}return a.join(" > ")}window.addEventListener("error",function(e){send("ovxConsole",{kind:"error",text:(e.message||"Preview error")+" · "+(e.filename||"runtime")})});window.addEventListener("unhandledrejection",function(e){send("ovxConsole",{kind:"error",text:String(e.reason||"Unhandled promise rejection")})});document.addEventListener("click",function(e){var el=e.target.closest("[data-ov-node],a,button,h1,h2,h3,img,input,section");if(!el)return;e.preventDefault();e.stopPropagation();var node=el.getAttribute("data-ov-node"),title=(el.querySelector("h1,h2,h3")||el).textContent.trim().slice(0,70)||el.tagName;send("ovxSelect",{id:node||el.tagName.toLowerCase()+":"+(el.textContent||"").trim().slice(0,30),selector:path(el),title:title,file:"${file}"})},true)})()<\/script>`;
+        const hook=`<script>(function(){function send(kind,payload){try{var m={};m[kind]=payload;parent.postMessage(m,"*")}catch(_){}}function path(el){var a=[];while(el&&el.nodeType===1&&a.length<7){var n=el.tagName.toLowerCase(),i=1,s=el;while(s=s.previousElementSibling){if(s.tagName===el.tagName)i++}a.unshift(n+":nth-of-type("+i+")");el=el.parentElement}return a.join(" > ")}window.addEventListener("error",function(e){send("ovxConsole",{kind:"error",text:(e.message||"Preview error")+" · "+(e.filename||"runtime")})});window.addEventListener("unhandledrejection",function(e){send("ovxConsole",{kind:"error",text:String(e.reason||"Unhandled promise rejection")})});document.addEventListener("click",function(e){var link=e.target.closest("a[href]");if(link){var href=link.getAttribute("href")||"";if(href.charAt(0)==="/"&&href.charAt(1)!=="/"){e.preventDefault();e.stopPropagation();send("ovxNavigateTo",{path:(href.split(/[?#]/)[0]||"/")});return}if(href.charAt(0)==="#")return}var el=e.target.closest("[data-ov-node],a,button,h1,h2,h3,img,input,section");if(!el)return;e.preventDefault();e.stopPropagation();var node=el.getAttribute("data-ov-node"),title=(el.querySelector("h1,h2,h3")||el).textContent.trim().slice(0,70)||el.tagName;send("ovxSelect",{id:node||el.tagName.toLowerCase()+":"+(el.textContent||"").trim().slice(0,30),selector:path(el),title:title,file:"${file}"})},true)})()<\/script>`;
         return doc.replace(/<body([^>]*)>/i,'<body$1>'+hook);
       },
       canBootWebContainer(){return typeof window!=='undefined' && window.crossOriginIsolated===true && (location.protocol==='https:'||location.hostname==='localhost')},
@@ -3743,6 +3774,7 @@ Body: { broadcastId, title, body, category, link }</div>
           cache:'no-store',
           signal,
           body:JSON.stringify({
+            mode:payload.mode||'assistant',
             provider:requested,
             model:payload.model,
             messages,
