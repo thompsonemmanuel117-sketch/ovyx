@@ -155,11 +155,8 @@ async function callGemini(env, input) {
       },
       body: JSON.stringify({
         contents,
+        // Gemini 3.8 Flash rejects legacy temperature/top-p sampling parameters.
         generationConfig: {
-          temperature:
-            typeof input.temperature === 'number'
-              ? input.temperature
-              : 0.4,
           maxOutputTokens:
             Number(input.maxTokens) > 0
               ? Math.min(Number(input.maxTokens), 8192)
@@ -206,11 +203,7 @@ async function callClaude(env, input) {
         max_tokens:
           Number(input.maxTokens) > 0
             ? Math.min(Number(input.maxTokens), 8192)
-            : 4096,
-        temperature:
-          typeof input.temperature === 'number'
-            ? input.temperature
-            : 0.4
+            : 4096
       })
     },
     input.timeoutMs
@@ -257,14 +250,23 @@ async function callOpenAICompatible(
       body: JSON.stringify({
         model,
         messages,
-        temperature:
-          typeof input.temperature === 'number'
-            ? input.temperature
-            : 0.4,
-        max_tokens:
-          Number(input.maxTokens) > 0
-            ? Math.min(Number(input.maxTokens), 8192)
-            : 4096
+        ...(provider === 'openai'
+          ? {
+              max_completion_tokens:
+                Number(input.maxTokens) > 0
+                  ? Math.min(Number(input.maxTokens), 8192)
+                  : 4096
+            }
+          : {
+              temperature:
+                typeof input.temperature === 'number'
+                  ? input.temperature
+                  : 0.4,
+              max_tokens:
+                Number(input.maxTokens) > 0
+                  ? Math.min(Number(input.maxTokens), 8192)
+                  : 4096
+            })
       })
     },
     input.timeoutMs
@@ -285,7 +287,7 @@ async function callDeepSeek(env, input) {
     'deepseek',
     'DEEPSEEK_API_KEY',
     'https://api.deepseek.com',
-    'deepseek-v4-flash'
+    'deepseek-flash'
   );
 }
 
