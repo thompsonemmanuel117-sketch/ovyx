@@ -110,6 +110,17 @@ if (fs.existsSync(agentQuotaRoutePath)) {
   }
 }
 
+const orchestratorQuotaPath = path.join(root, 'functions/_lib/orchestrator.js');
+if (fs.existsSync(orchestratorQuotaPath)) {
+  const orchestrator = fs.readFileSync(orchestratorQuotaPath, 'utf8');
+  if (
+    !/export async function runAgent\\(\\{[\\s\\S]*?onUsage\\s*=\\s*\\(\\)\\s*=>\\s*\\{\\s*\\}/.test(orchestrator) ||
+    !orchestrator.includes('onUsage,')
+  ) {
+    errors.push('functions/_lib/orchestrator.js: runAgent must accept a safe AI usage callback before registering usage handlers for each model phase.');
+  }
+}
+
 const adminUsersQuotaPath = path.join(root, 'functions/api/admin/users.js');
 if (fs.existsSync(adminUsersQuotaPath)) {
   const adminUsers = fs.readFileSync(adminUsersQuotaPath, 'utf8');
