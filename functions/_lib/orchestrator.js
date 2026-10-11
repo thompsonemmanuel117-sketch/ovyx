@@ -1166,6 +1166,8 @@ export async function runAgent({
 
         model,
 
+        onUsage,
+
         user:
           planPrompt({
             prompt,
@@ -1277,6 +1279,8 @@ export async function runAgent({
           requestedProvider,
 
         model,
+
+        onUsage,
 
         system:
           (webStudio
@@ -1443,6 +1447,8 @@ export async function runAgent({
 
           model,
 
+          onUsage,
+
           system:
             `${AGENT_SYSTEM_PROMPT}\n\nYou are in SELF-REPAIR phase. Repair only the reported verification failures.`,
 
@@ -1568,6 +1574,7 @@ export async function runAgent({
           {
             provider: requestedProvider,
             model,
+            onUsage,
             authUser: user,
             system:
               AGENT_SYSTEM_PROMPT +
