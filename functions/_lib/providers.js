@@ -47,22 +47,22 @@ function getConfiguredModel(
     gemini:
       env.GEMINI_AGENT_MODEL ||
       env.GEMINI_MODEL ||
-      'gemini-2.5-pro',
+      'gemini-3.8-flash',
 
     claude:
       env.ANTHROPIC_AGENT_MODEL ||
       env.ANTHROPIC_MODEL ||
-      'claude-opus-5',
+      'claude-sonnet-5',
 
     deepseek:
       env.DEEPSEEK_AGENT_MODEL ||
       env.DEEPSEEK_MODEL ||
-      'deepseek-flash',
+      'deepseek-v4-flash',
 
     openai:
       env.OPENAI_AGENT_MODEL ||
       env.OPENAI_MODEL ||
-      'gpt-5',
+      'gpt-5.1',
 
     groq:
       env.GROQ_AGENT_MODEL ||
@@ -675,61 +675,93 @@ async function callOpenAI(
 }
 
 function normalizeRequestedProvider(value, env = {}) {
-  const normalized = String(value || 'automatic')
-    .trim()
-    .toLowerCase();
+  const normalized = String(value || 'automatic').trim().toLowerCase();
 
-  if (normalized === 'chatgpt' || normalized === 'openai') {
-    // OpenAI is a distinct provider. Never divert its key/choice to Groq.
+  if (normalized === 'chatgpt' || normalized === 'gpt' || normalized === 'openai') {
     return 'openai';
   }
-
   if (normalized === 'claude' || normalized === 'anthropic') {
     return 'claude';
   }
-
-  if (
-    normalized === 'cloudflare' ||
-    normalized === 'workers-ai' ||
-    normalized === 'cloudflare-workers-ai'
-  ) {
+  if (normalized === 'cloudflare' || normalized === 'workers-ai' || normalized === 'cloudflare-workers-ai') {
     return 'cloudflare-workers-ai';
   }
-
+  if (normalized === 'auto') return 'automatic';
   return normalized;
 }
 
 function normalizeConfiguredProvider(value, env = {}) {
   const provider = String(value || '').trim().toLowerCase();
-
   if (provider === 'anthropic') return 'claude';
   if (provider === 'chatgpt' || provider === 'gpt') return 'openai';
   if (provider === 'cloudflare' || provider === 'workers-ai') return 'cloudflare-workers-ai';
   return provider;
 }
 
-export function providerOrder(
-  env,
-  requested
-) {
-  if (requested && requested !== 'automatic') {
-    return [normalizeRequestedProvider(requested, env)];
+const SUPPORTED_PROVIDER_ORDER = Object.freeze([
+  'gemini',
+  'deepseek',
+  'claude',
+  'openai',
+  'groq',
+  'cloudflare-workers-ai',
+]);
+
+function providerIsConfigured(env = {}, provider) {
+  if (provider === 'gemini') return Boolean(String(env.GEMINI_API_KEY || '').trim());
+  if (provider === 'deepseek') return Boolean(String(env.DEEPSEEK_API_KEY || '').trim());
+  if (provider === 'claude') return Boolean(String(env.ANTHROPIC_API_KEY || '').trim());
+  if (provider === 'openai') return Boolean(String(env.OPENAI_API_KEY || '').trim());
+  if (provider === 'groq') return Boolean(String(env.GROQ_API_KEY || '').trim());
+  if (provider === 'cloudflare-workers-ai') return Boolean(env?.AI && typeof env.AI.run === 'function');
+  return false;
+}
+
+export function classifyAutomaticTask(options = {}) {
+  const text = [
+    options?.system,
+    options?.user,
+    options?.prompt,
+    options?.mode,
+  ].map(value => String(value || '')).join(' ').slice(0, 16000).toLowerCase();
+
+  if (/(website|web site|landing page|web design|ui\/ux|\bui\b|\bux\b|front[- ]end|responsive|css|visual design|layout|brand style|template|colour scheme|color scheme|mobile design)/i.test(text)) {
+    return { category: 'web-design', preferred: ['gemini', 'claude', 'deepseek', 'openai', 'groq', 'cloudflare-workers-ai'] };
+  }
+  if (/(debug|bug|fix|code|repository|repo\b|api|backend|security|test suite|unit test|typescript|javascript|refactor|compile|runtime error|stack trace|ci failure|pull request|database|deploy script|function implementation)/i.test(text)) {
+    return { category: 'engineering', preferred: ['claude', 'deepseek', 'openai', 'gemini', 'groq', 'cloudflare-workers-ai'] };
+  }
+  if (/(reasoning|complex analysis|architecture|trade[- ]off|compare|research|investigate|evaluate|strategy|long[- ]term plan|technical plan|multi[- ]step|data analysis)/i.test(text)) {
+    return { category: 'analysis', preferred: ['claude', 'openai', 'deepseek', 'gemini', 'groq', 'cloudflare-workers-ai'] };
+  }
+  if (/(write|writing|article|blog|email|marketing copy|story|proposal|summari[sz]e|rewrite|proofread|documentation|product description)/i.test(text)) {
+    return { category: 'writing', preferred: ['claude', 'gemini', 'openai', 'deepseek', 'groq', 'cloudflare-workers-ai'] };
+  }
+  return { category: 'general', preferred: [] };
+}
+
+export function providerOrder(env, requested, taskOptions = {}) {
+  const normalizedRequest = String(requested || 'automatic').trim().toLowerCase();
+  if (normalizedRequest && normalizedRequest !== 'automatic' && normalizedRequest !== 'auto') {
+    return [normalizeRequestedProvider(normalizedRequest, env)];
   }
 
   const configured = String(
     env.AI_PROVIDER_ORDER || env.OVYX_AI_PROVIDER_ORDER || 'gemini,deepseek,claude,openai'
   )
     .split(',')
-    .map(normalizeConfiguredProvider)
-    .filter(provider => ['gemini', 'deepseek', 'claude', 'openai', 'groq', 'cloudflare-workers-ai'].includes(provider));
+    .map(provider => normalizeConfiguredProvider(provider, env))
+    .filter(provider => SUPPORTED_PROVIDER_ORDER.includes(provider));
 
-  /* Keep the configured preference order. Workers AI is an optional, private
-     final fallback in Automatic mode; explicit provider choices stay exclusive. */
-  const ordered = [...new Set(configured)];
-  if (env?.AI && typeof env.AI.run === 'function' && !ordered.includes('cloudflare-workers-ai')) {
-    ordered.push('cloudflare-workers-ai');
-  }
-  return ordered;
+  // Treat the configured order as preferences, not an exclusion list: Auto can still
+  // use any other genuinely configured platform brain when the preferred one is absent.
+  const candidateOrder = [...new Set([...configured, ...SUPPORTED_PROVIDER_ORDER])];
+  const available = candidateOrder.filter(provider => providerIsConfigured(env, provider));
+  const task = classifyAutomaticTask(taskOptions);
+  if (!task.preferred.length) return available;
+
+  const preferredAvailable = task.preferred.filter(provider => available.includes(provider));
+  return [...new Set([...preferredAvailable, ...available])];
 }
 
 export async function callModel(
@@ -737,7 +769,8 @@ export async function callModel(
   options = {}
 ) {
   const requestedRaw = String(options.provider || 'automatic').trim();
-  const requested = requestedRaw.toLowerCase();
+  const requestValue = requestedRaw.toLowerCase();
+  const requested = requestValue === 'auto' ? 'automatic' : requestValue;
 
   // An account-selected Universal Connection is exclusive. Never silently bill a
   // platform provider after a user's own connection failed or could not be verified.
@@ -822,7 +855,8 @@ export async function callModel(
   for (
     const provider of providerOrder(
       env,
-      requested
+      requested,
+      options
     )
   ) {
     try {
@@ -900,6 +934,15 @@ export async function callModel(
         ...result,
         requestedProvider: requested,
         routedProvider: requested === 'automatic' ? result.provider : routedProvider,
+        ...(requested === 'automatic' ? {
+          autoRouting: {
+            strategy: 'task-aware',
+            category: classifyAutomaticTask(options).category,
+            selectedProvider: result.provider,
+            failoverUsed: errors.length > 0,
+          },
+          failoverUsed: errors.length > 0,
+        } : { failoverUsed: false }),
       };
     } catch (err) {
       errors.push(
@@ -934,20 +977,17 @@ export async function callModel(
     );
   }
 
-  const error =
-    Object.assign(
-      new Error(
-        `No configured AI provider succeeded. ${errors.join(
-          ' | '
-        )}`
-      ),
-      {
-        status: 503,
-        code: 'AI_PROVIDER_UNAVAILABLE',
-      }
-    );
-
-  throw error;
+  const message = errors.length
+    ? 'OVYX Auto could not reach any connected AI Brain. Please try again later, or connect your own AI Brain in Universal Connections to continue building.'
+    : 'No AI Brain is connected right now. Please try again later, or connect your own AI Brain in Universal Connections to continue building.';
+  throw Object.assign(
+    new Error(message),
+    {
+      status: 503,
+      code: 'AI_PROVIDER_UNAVAILABLE',
+      attemptedProviders: errors.length,
+    }
+  );
 }
 
 export async function callJsonModel(
