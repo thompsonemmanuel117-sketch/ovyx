@@ -1059,6 +1059,7 @@ export async function runAgent({
   requestedProvider =
     'automatic',
   model,
+  onUsage = () => {},
   clientContext = {},
   allowDeletes =
     false,
