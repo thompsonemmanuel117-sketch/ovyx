@@ -20,20 +20,28 @@ function unique(values) {
 
 function routeFromPath(path) {
   const normalized = String(path || '').replace(/^\/+/, '').replace(/\\/g, '/');
-  if (/^(?:index\.html|src\/app\/page\.[cm]?[jt]sx?|app\/page\.[cm]?[jt]sx?)$/i.test(normalized)) {
-    return '/';
+  const appPage = normalized.match(/^(?:src\/)?app(?:\/(.*))?\/page\.[cm]?[jt]sx?$/i);
+  if (appPage) {
+    const route = String(appPage[1] || '').replace(/\/+$/, '');
+    return route ? '/' + route : '/';
   }
-  const appPage = normalized.match(/^(?:src\/)?app\/(.*)\/page\.[cm]?[jt]sx?$/i);
-  if (appPage) return appPage[1] ? '/' + appPage[1].replace(/\/+$/, '') + '/' : '/';
-  const pagesFile = normalized.replace(/^src\/pages\//i, '').replace(/^pages\//i, '');
-  if (/\/index\.html$/i.test(pagesFile)) {
-    return '/' + pagesFile.replace(/\/index\.html$/i, '').replace(/^\/+|\/+$/g, '') + '/';
+
+  const sourcePage = normalized.match(/^(?:src\/)?pages\/(.+)\.(?:astro|tsx?|jsx?)$/i);
+  if (sourcePage) {
+    const route = sourcePage[1].replace(/\/index$/i, '').replace(/^\/+|\/+$/g, '');
+    return route && route !== 'index' ? '/' + route : '/';
   }
-  if (/^index\.html$/i.test(pagesFile)) return '/';
-  if (/\.(?:html|astro|tsx?|jsx?)$/i.test(pagesFile)) {
-    return '/' + pagesFile.replace(/\.(?:astro|tsx?|jsx?)$/i, '');
+
+  if (/^index\.html$/i.test(normalized)) return '/';
+  if (/\/index\.html$/i.test(normalized)) {
+    const directory = normalized.replace(/\/index\.html$/i, '').replace(/^\/+|\/+$/g, '');
+    return directory ? '/' + directory + '/' : '/';
   }
-  return '/' + pagesFile.replace(/\/+$/, '') + '/';
+  if (/\.html$/i.test(normalized)) return '/' + normalized;
+  if (/\.(?:astro|tsx?|jsx?)$/i.test(normalized)) {
+    return '/' + normalized.replace(/\.(?:astro|tsx?|jsx?)$/i, '').replace(/^\/+|\/+$/g, '');
+  }
+  return '/' + normalized.replace(/\/+$/, '') + '/';
 }
 
 export function normalizeSiteMap(raw, maxPages = DEFAULT_PAGE_LIMIT) {
@@ -55,17 +63,22 @@ export function normalizeSiteMap(raw, maxPages = DEFAULT_PAGE_LIMIT) {
     if (!path || seenPaths.has(path)) continue;
     seenPaths.add(path);
 
-    let url = String(item.url || routeFromPath(path)).trim();
-    if (/^(?:\/\/|https?:\/\/)/i.test(url)) url = routeFromPath(path);
+    const derivedUrl = routeFromPath(path);
+    const frameworkRoutePath = /^(?:src\/)?(?:app(?:\/.*)?\/page\.[cm]?[jt]sx?|pages\/.*\.(?:astro|tsx?|jsx?))$/i.test(path);
+    const isStaticHtmlPath = /\.html$/i.test(path);
+    let url = (frameworkRoutePath || isStaticHtmlPath)
+      ? derivedUrl
+      : String(item.url || derivedUrl).trim();
+    if (/^(?:\/\/|https?:\/\/)/i.test(url)) url = derivedUrl;
     if (!url.startsWith('/')) url = '/' + url;
     url = url.replace(/\/{2,}/g, '/');
-    if (!url || url.includes('..') || url.includes('\\')) url = routeFromPath(path);
+    if (!url || url.includes('..') || url.includes('\\')) url = derivedUrl;
 
     pages.push({
       title: String(item.title || item.name || path).trim().slice(0, 120),
       path,
       url,
-      goal: String(item.goal || item.purpose || item.description || '').trim().slice(0, 500),
+      goal: String(item.goal || item.purpose || item.description || '').trim().slice(0, 180),
     });
   }
 
@@ -215,21 +228,16 @@ export function buildSiteBatchContext({
   maxChars = 160_000,
 }) {
   const limit = Math.max(20_000, Math.floor(Number(maxChars) || 160_000));
-  const baseLimit = Math.floor(limit * 0.52);
-  const base = String(baseContext || '');
-  const baseSlice = base.length > baseLimit
-    ? base.slice(0, baseLimit) + '\n/* Base repository context shortened to leave room for multi-page staged files. */'
-    : base;
-
   const pages = Array.isArray(siteMap?.pages) ? siteMap.pages : [];
   const sitemapText = JSON.stringify({
     architecture: siteMap?.architecture || '',
-    pages: pages.map(page => ({ title: page.title, path: page.path, url: page.url, goal: page.goal })),
+    pages: pages.map(page => ({ title: page.title, path: page.path, url: page.url })),
     sharedFiles: (siteMap?.sharedFiles || []).map(file => ({ path: file.path, purpose: file.purpose })),
   });
-  const staged = Array.isArray(stagedChanges) ? stagedChanges.filter(item => item && item.action !== 'delete' && typeof item.content === 'string') : [];
+  const staged = Array.isArray(stagedChanges)
+    ? stagedChanges.filter(item => item && item.action !== 'delete' && typeof item.content === 'string')
+    : [];
   const stagedPaths = unique(staged.map(item => item.path));
-
   const sharedPaths = new Set((siteMap?.sharedFiles || []).map(file => file.path));
   const homepagePath = pages[0]?.path;
   const targetPaths = new Set(batch?.targetPaths || []);
@@ -241,25 +249,36 @@ export function buildSiteBatchContext({
     ...recentPaths,
   ]);
   const byPath = new Map(staged.map(item => [item.path, item]));
-  const remaining = staged.filter(item => !priorityPaths.includes(item.path));
   const chosen = [
     ...priorityPaths.map(path => byPath.get(path)).filter(Boolean),
-    ...remaining,
+    ...staged.filter(item => !priorityPaths.includes(item.path)),
   ];
 
-  const repositoryParts = [];
-  const stagedPathSet = new Set(stagedPaths);
+  const normalizedLimit = limit;
+  const baseLimit = Math.max(10_000, Math.min(68_000, Math.floor(normalizedLimit * 0.42)));
+  const base = String(baseContext || '');
+  const baseSlice = base.length > baseLimit
+    ? base.slice(0, baseLimit) + '\n/* Base repository context shortened to reserve space for all planned routes and staged files. */'
+    : base;
+
+  const alreadyGenerated = stagedPaths.join('\n') || '(none yet)';
+  const generatedList = alreadyGenerated.length > Math.floor(limit * 0.12)
+    ? alreadyGenerated.slice(0, Math.floor(limit * 0.12)) + '\n… additional staged paths are preserved in the approved route manifest.'
+    : alreadyGenerated;
+
   const repositoryPaths = unique([
     ...(batch?.targetPaths || []),
     homepagePath,
-    ...sharedPaths,
+    ...(batch?.allSharedPaths || []),
   ]);
+  const stagedPathSet = new Set(stagedPaths);
+  const repositoryBudget = Math.max(0, Math.min(22_000, limit - baseSlice.length - sitemapText.length - generatedList.length - 38_000));
+  const repositoryParts = [];
   let repositoryUsed = 0;
-  const repositoryBudget = Math.min(40_000, Math.floor(limit * 0.25));
   for (const path of repositoryPaths) {
     if (stagedPathSet.has(path) || typeof repositoryFiles?.[path] !== 'string') continue;
     if (repositoryUsed >= repositoryBudget) break;
-    const available = Math.min(10_000, repositoryBudget - repositoryUsed);
+    const available = Math.min(9_000, repositoryBudget - repositoryUsed);
     if (available < 500) break;
     const content = String(repositoryFiles[path]);
     const slice = content.length > available
@@ -270,8 +289,28 @@ export function buildSiteBatchContext({
     repositoryUsed += piece.length;
   }
   const repositoryText = repositoryParts.join('');
-  const reservedChars = Math.min(30_000, Math.floor(limit * 0.24));
-  const stagedBudget = Math.max(4_000, limit - baseSlice.length - sitemapText.length - repositoryText.length - reservedChars);
+
+  const fixedPrefix = [
+    'BASE REPOSITORY CONTEXT (read-only baseline):',
+    baseSlice,
+    '',
+    'FULL WEBSITE ROUTE MANIFEST (keep these paths and URLs consistent):',
+    sitemapText,
+    '',
+    'CURRENT BASE REPOSITORY FILES FOR THIS BATCH:',
+    repositoryText || '(No existing target files were needed from the base repository.)',
+    '',
+    'ALREADY GENERATED FILE PATHS:',
+    generatedList,
+    '',
+    'CURRENT BATCH TARGETS:',
+    (batch?.targetFiles || [])
+      .map(item => '- ' + item.kind + ': ' + item.path + ' — ' + item.title + (item.goal ? ' — ' + item.goal : ''))
+      .join('\n') || '(No explicit targets)',
+    '',
+    'STAGED FILE CONTENTS (the latest generated version of these files):',
+  ].join('\n') + '\n';
+  const stagedBudget = Math.max(0, limit - fixedPrefix.length - 1_500);
   const stagedParts = [];
   let used = 0;
   for (const item of chosen) {
@@ -287,31 +326,8 @@ export function buildSiteBatchContext({
     used += piece.length;
   }
 
-  const stagedText = stagedParts.join('');
-  const alreadyGenerated = stagedPaths.length ? stagedPaths.join('\n') : '(none yet)';
-  const batchTargetText = (batch?.targetFiles || [])
-    .map(item => '- ' + item.kind + ': ' + item.path + ' — ' + item.title + (item.goal ? ' — ' + item.goal : ''))
-    .join('\n');
-
-  return [
-    'BASE REPOSITORY CONTEXT (read-only baseline):',
-    baseSlice,
-    '',
-    'FULL WEBSITE ROUTE MANIFEST (keep these paths and URLs consistent):',
-    sitemapText,
-    '',
-    'CURRENT BASE REPOSITORY FILES FOR THIS BATCH:',
-    repositoryText || '(No existing target files were needed from the base repository.)',
-    '',
-    'ALREADY GENERATED FILE PATHS:',
-    alreadyGenerated,
-    '',
-    'CURRENT BATCH TARGETS:',
-    batchTargetText || '(No explicit targets)',
-    '',
-    'STAGED FILE CONTENTS (the latest generated version of these files):',
-    stagedText || '(No files have been staged yet)',
-  ].join('\n').slice(0, limit);
+  const result = fixedPrefix + (stagedParts.join('') || '(No files have been staged yet)');
+  return result.length > limit ? result.slice(0, limit) : result;
 }
 
 export function selectSitePolishChanges(changes = [], siteMap, limit = 6) {
