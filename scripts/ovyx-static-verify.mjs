@@ -200,6 +200,27 @@ if (fs.existsSync(multiPageHelperPath) && fs.existsSync(multiPageOrchestratorPat
   errors.push('OVYX multi-page generation: site batching helper, orchestration or sitemap prompts are missing.');
 }
 
+const studioMultiPagePath = path.join(root, 'functions/_lib/studio-multipage.js');
+const studioAssistantPath = path.join(root, 'functions/api/ai/assistant.js');
+const studioGatewayPath = path.join(root, 'functions/api/ai/gateway.js');
+if (!fs.existsSync(studioMultiPagePath) || !fs.existsSync(studioAssistantPath) || !fs.existsSync(studioGatewayPath)) {
+  errors.push('OVYX Web Studio: multi-page build helper or one of the authenticated AI endpoints is missing.');
+} else {
+  const studioMultiPage = fs.readFileSync(studioMultiPagePath, 'utf8');
+  const studioAssistant = fs.readFileSync(studioAssistantPath, 'utf8');
+  const studioGateway = fs.readFileSync(studioGatewayPath, 'utf8');
+  if (
+    !studioMultiPage.includes('createSiteBuildBatches') ||
+    !studioMultiPage.includes('WEBSTUDIO_BATCH_MISSING_FILES') ||
+    !studioAssistant.includes('buildStudioMultiPage') ||
+    !studioAssistant.includes('multiPageBuild') ||
+    !studioGateway.includes('buildStudioMultiPage') ||
+    !studioGateway.includes('multiPageBuild')
+  ) {
+    errors.push('OVYX Web Studio: real AI assistant/gateway routes must use verified multi-page batches and refuse incomplete output.');
+  }
+}
+
 const routeConfigPath = path.join(root, 'functions/_routes.json');
 if (fs.existsSync(routeConfigPath)) {
   const routeConfig = JSON.parse(fs.readFileSync(routeConfigPath, 'utf8'));
