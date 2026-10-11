@@ -1184,6 +1184,9 @@ export async function runAgent({
 
             experience:
               experienceBrief,
+
+            requireMultiPage:
+              webStudio && explicitlyRequestsMultiplePages(prompt),
           }),
 
         authUser:
@@ -1377,11 +1380,39 @@ export async function runAgent({
         targetFiles: batch.targetPaths,
       });
 
+      const stagedPaths = new Set(changes.map(item => item.path));
+      const repositoryFilesForBatch = {};
+      const baselinePaths = [...new Set([
+        ...batch.targetPaths,
+        siteMap.pages[0]?.path,
+        ...batch.allSharedPaths,
+      ].filter(Boolean))];
+
+      for (const path of baselinePaths) {
+        if (stagedPaths.has(path)) continue;
+        if (typeof inspected.files[path] === 'string') {
+          repositoryFilesForBatch[path] = inspected.files[path];
+          continue;
+        }
+        if (!inspected.lookup.has(path)) continue;
+        try {
+          const baseFile = await readFile(
+            env,
+            repo.owner,
+            repo.repo,
+            path,
+            baseBranch
+          );
+          repositoryFilesForBatch[path] = baseFile.content;
+        } catch {}
+      }
+
       const batchContext = buildSiteBatchContext({
         baseContext: inspected.context,
         stagedChanges: changes,
         siteMap,
         batch,
+        repositoryFiles: repositoryFilesForBatch,
         maxChars: cap(env, 'AGENT_MAX_BATCH_CONTEXT_CHARS', 160_000),
       });
 
