@@ -115,7 +115,7 @@ export function executePrompt({
         'Use the full route manifest in the approved plan to provide consistent, working internal navigation to every planned page. Do not invent missing routes, omit planned pages, or squeeze separate pages into one route.',
         'For newly created files, return complete content. For existing or staged files, use exact-match operations against the latest supplied content. Do not recreate staged files.',
         'Keep the shared design system and navigation coherent across batches. Every page needs page-specific content, metadata, mobile behavior, accessible controls and working links where relevant.',
-      ].join('\\n')
+      ].join('\n')
     : '';
 
   return `Implement the approved plan in the repository.
