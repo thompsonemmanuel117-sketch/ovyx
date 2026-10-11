@@ -2102,6 +2102,8 @@ export async function repairBranchFromCI({
         model:
           job.model,
 
+        taskPrompt: job.prompt || '',
+
         system:
           `${AGENT_SYSTEM_PROMPT}\n\nYou are responding to real CI failure output. Repair only the reported defect and preserve the rest of the branch.`,
 
