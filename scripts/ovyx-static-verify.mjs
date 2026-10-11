@@ -139,14 +139,25 @@ if (!fs.existsSync(launchPolishPath)) {
   }
 }
 
-const pagesBuildPath = path.join(root, 'scripts/ovyx-pages-build.mjs');
-if (fs.existsSync(pagesBuildPath)) {
-  const pagesBuild = fs.readFileSync(pagesBuildPath, 'utf8');
+const shellMiddlewarePath = path.join(root, 'functions/_middleware.js');
+if (fs.existsSync(shellMiddlewarePath)) {
+  const shellMiddleware = fs.readFileSync(shellMiddlewarePath, 'utf8');
   if (
-    !pagesBuild.includes('assets/ovyx-launch-polish.js') ||
-    !pagesBuild.includes("lastIndexOf('</body>')")
+    !shellMiddleware.includes("assets/ovyx-launch-polish.js") ||
+    !shellMiddleware.includes('new HTMLRewriter()') ||
+    !shellMiddleware.includes("url.pathname !== '/'")
   ) {
-    errors.push('scripts/ovyx-pages-build.mjs: the launch polish runtime must be injected into the Pages output idempotently.');
+    errors.push('functions/_middleware.js: launch runtime must be injected only into the application HTML shell.');
+  }
+} else {
+  errors.push('functions/_middleware.js: application-shell launch runtime middleware is missing.');
+}
+
+const routeConfigPath = path.join(root, 'functions/_routes.json');
+if (fs.existsSync(routeConfigPath)) {
+  const routeConfig = JSON.parse(fs.readFileSync(routeConfigPath, 'utf8'));
+  if (!Array.isArray(routeConfig.include) || !routeConfig.include.includes('/') || !routeConfig.include.includes('/api/*')) {
+    errors.push('functions/_routes.json: both the application shell and API routes must remain enabled.');
   }
 }
 
