@@ -33,7 +33,11 @@ async function cf(path) {
       ...(Array.isArray(data.errors) ? data.errors.map(x => x.message) : []),
       ...(Array.isArray(data.messages) ? data.messages.map(x => x.message) : []),
     ].filter(Boolean);
-    throw new Error(sanitizeLine(`Cloudflare API HTTP ${response.status}: ${messages.join(' | ') || text.slice(0, 500)}`));
+    const detail = messages.join(' | ') || text.slice(0, 500);
+    const authHint = response.status === 401 || response.status === 403
+      ? ' Verify CLOUDFLARE_API_TOKEN is the full current token, has not expired, and has permission to read the configured account and Pages project.'
+      : '';
+    throw new Error(sanitizeLine(`Cloudflare API HTTP ${response.status}: ${detail}.${authHint}`));
   }
   return data.result;
 }
