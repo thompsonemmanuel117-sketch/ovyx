@@ -739,22 +739,20 @@ function isProviderConfigured(env, provider) {
 function automaticTaskPreference(options = {}) {
   const text = String(options.user || options.prompt || '').toLowerCase();
 
-  // Web Studio and engineering tasks benefit from code-focused models first.
+  // Prefer the closest fit first; configured/default routes remain fallbacks.
   if (/\b(website|web site|web studio|landing page|html|css|javascript|typescript|react|component|frontend|backend|api|code|coding|debug|debugging|bug|fix|refactor|deploy|build a site|build a website)\b/.test(text)) {
-    return ['claude', 'deepseek', 'openai', 'gemini', 'groq', 'cloudflare-workers-ai'];
+    return ['claude', 'deepseek', 'openai'];
   }
 
-  // Heavy reasoning, investigation and architecture work.
   if (/\b(reason|reasoning|logic|algorithm|architecture|diagnose|diagnosis|analy[sz]e|research|compare|math|calculate|complex|performance|security audit)\b/.test(text)) {
-    return ['deepseek', 'claude', 'openai', 'gemini', 'groq', 'cloudflare-workers-ai'];
+    return ['deepseek', 'claude', 'openai'];
   }
 
-  // Writing and everyday creative tasks favor a fast general-purpose model.
   if (/\b(write|rewrite|blog|article|headline|marketing|copywriting|seo|brand|story|translate|summari[sz]e|email|caption|product description)\b/.test(text)) {
-    return ['gemini', 'claude', 'openai', 'deepseek', 'groq', 'cloudflare-workers-ai'];
+    return ['gemini', 'claude', 'openai'];
   }
 
-  return ['gemini', 'deepseek', 'claude', 'openai', 'groq', 'cloudflare-workers-ai'];
+  return ['gemini', 'deepseek'];
 }
 
 export function providerOrder(env, requested, options = {}) {
