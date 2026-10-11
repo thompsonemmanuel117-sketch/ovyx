@@ -26,12 +26,13 @@ const htmlPath = 'index.html';
 const launchMarker = 'assets/ovyx-launch-polish.js';
 let html = fs.readFileSync(htmlPath, 'utf8');
 if (!html.includes(launchMarker)) {
-  if (!/<\\/body\\s*>/i.test(html)) {
+  const closingBodyIndex = html.toLowerCase().lastIndexOf('</body>');
+  if (closingBodyIndex < 0) {
     console.error('OVYX Pages build cannot continue; index.html has no closing body tag for the launch runtime.');
     process.exit(1);
   }
   const scriptTag = '<script defer src="/assets/ovyx-launch-polish.js"></script>';
-  html = html.replace(/<\\/body\\s*>/i, scriptTag + '\\n</body>');
+  html = html.slice(0, closingBodyIndex) + scriptTag + '\n' + html.slice(closingBodyIndex);
   fs.writeFileSync(htmlPath, html, 'utf8');
 }
 
