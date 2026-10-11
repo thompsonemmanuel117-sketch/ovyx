@@ -197,6 +197,25 @@ if (fs.existsSync(entitlementRoutePath)) {
   }
 }
 
+const healthRoutePath = path.join(root, 'functions/api/health.js');
+if (fs.existsSync(healthRoutePath)) {
+  const healthRoute = fs.readFileSync(healthRoutePath, 'utf8');
+  if (
+    !healthRoute.includes("'FIREBASE_SERVICE_ACCOUNT_JSON'") ||
+    !healthRoute.includes("state: 'invalid_json'") ||
+    !healthRoute.includes("state: 'invalid_private_key'") ||
+    !healthRoute.includes("state: 'project_mismatch'") ||
+    !healthRoute.includes('emptyRequiredEnvironment') ||
+    !healthRoute.includes('invalidRequiredEnvironment') ||
+    !healthRoute.includes('must_be_at_least_32_characters') ||
+    !healthRoute.includes('credentialAuthentication')
+  ) {
+    errors.push('functions/api/health.js: health checks must distinguish absent, empty, malformed, and structurally valid runtime secrets without exposing secret values.');
+  }
+} else {
+  errors.push('functions/api/health.js: runtime secret health checks are missing.');
+}
+
 for (const file of walk(root).filter(x => /\.json$/.test(x))) {
   try {
     JSON.parse(fs.readFileSync(file, 'utf8'));
