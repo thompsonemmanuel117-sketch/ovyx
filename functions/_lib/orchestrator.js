@@ -867,148 +867,130 @@ async function materializeChanges(
   rawChanges,
   opts = {}
 ) {
-  if (
-    !Array.isArray(
-      rawChanges
-    )
-  ) {
+  if (!Array.isArray(rawChanges)) {
+    throw new Error('Agent returned no changes array.');
+  }
+
+  const configuredLimit = cap(
+    env,
+    'AGENT_MAX_CHANGED_FILES',
+    DEFAULT_MAX_CHANGED
+  );
+  const requestedLimit = Number(opts.maxChanges);
+  const maxChanges = Number.isFinite(requestedLimit) && requestedLimit > 0
+    ? Math.floor(requestedLimit)
+    : configuredLimit;
+
+  if (rawChanges.length > maxChanges) {
     throw new Error(
-      'Agent returned no changes array.'
+      `Agent changed too many files in one operation (${rawChanges.length}; maximum ${maxChanges}).`
     );
   }
 
-  if (
-    rawChanges.length >
-    cap(
-      env,
-      'AGENT_MAX_CHANGED_FILES',
-      DEFAULT_MAX_CHANGED
-    )
-  ) {
-    throw new Error(
-      'Agent changed too many files in one operation.'
-    );
-  }
+  const staged = new Map(
+    (Array.isArray(opts.existingChanges) ? opts.existingChanges : [])
+      .map(item => [item.path, item])
+  );
+  const allowedPaths = Array.isArray(opts.allowedPaths)
+    ? new Set(opts.allowedPaths)
+    : null;
+  const changed = [];
 
-  const changed =
-    [];
+  for (const raw of rawChanges) {
+    const path = assertSafePath(raw.path, {
+      allowDeletes: opts.allowDeletes,
+      allowWorkflowChanges: opts.allowWorkflowChanges,
+    });
 
-  for (
-    const raw of rawChanges
-  ) {
-    const path =
-      assertSafePath(
-        raw.path,
-        opts
-      );
-
-    const action =
-      String(
-        raw.action ||
-          'update'
-      );
-
-    if (
-      ![
-        'create',
-        'update',
-        'delete',
-      ].includes(
-        action
-      )
-    ) {
+    if (allowedPaths && !allowedPaths.has(path)) {
       throw new Error(
-        `${path}: unsupported action ${action}.`
+        `${path}: path is outside the approved multi-page batch allowlist.`
       );
     }
 
-    if (
-      action ===
-      'delete'
-    ) {
-      changed.push({
-        path,
-        action:
-          'delete',
-      });
+    const action = String(raw.action || 'update');
+    if (!['create', 'update', 'delete'].includes(action)) {
+      throw new Error(`${path}: unsupported action ${action}.`);
+    }
 
+    const previous = staged.get(path);
+
+    if (action === 'delete') {
+      if (previous?.action === 'create') {
+        changed.push({
+          path,
+          action: 'delete',
+          removeStagedCreate: true,
+        });
+      } else {
+        changed.push({
+          path,
+          action: 'delete',
+          previousSha: previous?.previousSha,
+        });
+      }
       continue;
     }
 
-    let current =
-      null;
+    let current = previous && previous.action !== 'delete'
+      ? {
+          content: previous.content,
+          sha: previous.previousSha,
+        }
+      : null;
 
-    try {
-      current =
-        await readFile(
+    if (!current) {
+      try {
+        current = await readFile(
           env,
           repo.owner,
           repo.repo,
           path,
           branch
         );
-    } catch {
-      current =
-        null;
+      } catch {
+        current = null;
+      }
     }
 
-    if (
-      action ===
-      'create'
-    ) {
+    if (action === 'create') {
       if (current) {
         throw new Error(
           `${path}: create requested but file already exists.`
         );
       }
 
-      const content =
-        String(
-          raw.content ??
-            ''
-        );
-
       changed.push({
         path,
-        action,
-        content,
+        action: 'create',
+        content: String(raw.content ?? ''),
       });
-
       continue;
     }
 
-    if (
-      !current
-    ) {
+    if (!current) {
       throw new Error(
         `${path}: update requested but file does not exist.`
       );
     }
 
-    if (
-      !Array.isArray(
-        raw.operations
-      ) ||
-      !raw.operations.length
-    ) {
+    if (!Array.isArray(raw.operations) || !raw.operations.length) {
       throw new Error(
         `${path}: update requires exact-match operations.`
       );
     }
 
-    const content =
-      applyOperationsToContent(
-        current.content,
-        raw.operations,
-        path
-      );
+    const content = applyOperationsToContent(
+      current.content,
+      raw.operations,
+      path
+    );
 
     changed.push({
       path,
-      action,
+      action: previous?.action === 'create' ? 'create' : 'update',
       content,
-      previousSha:
-        current.sha,
+      previousSha: previous?.previousSha || current.sha,
     });
   }
 
