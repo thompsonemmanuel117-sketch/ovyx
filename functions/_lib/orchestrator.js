@@ -1059,6 +1059,7 @@ export async function runAgent({
   requestedProvider =
     'automatic',
   model,
+  onAIUsage = null,
   clientContext = {},
   allowDeletes =
     false,
@@ -1071,6 +1072,24 @@ export async function runAgent({
   const experienceBrief = webStudio
     ? buildExperienceBrief(prompt, clientContext)
     : null;
+
+  // Track every successful model call in the user-facing Agent job so Agent Mode
+  // consumes the same server-enforced quota as Web Studio generation.
+  const trackedModel = async modelOptions => {
+    const result = await callJsonModel(env, modelOptions);
+    if (typeof onAIUsage === 'function') {
+      try {
+        await onAIUsage({
+          rawUsage: result.rawUsage || result.usage || null,
+          inputText: String(modelOptions.system || '') + '\\n' + String(modelOptions.user || ''),
+          outputText: String(result.text || JSON.stringify(result.json ?? {})),
+        });
+      } catch {
+        // Quota telemetry must not leak prompt text or break a completed AI request.
+      }
+    }
+    return result;
+  };
 
   await updateJob(
     env,
@@ -1158,9 +1177,7 @@ export async function runAgent({
     );
 
   const planResult =
-    await callJsonModel(
-      env,
-      {
+    await trackedModel({
         provider:
           requestedProvider,
 
@@ -1270,9 +1287,7 @@ export async function runAgent({
     );
 
   const executionResult =
-    await callJsonModel(
-      env,
-      {
+    await trackedModel({
         provider:
           requestedProvider,
 
@@ -1435,9 +1450,7 @@ export async function runAgent({
         );
 
     const repairResult =
-      await callJsonModel(
-        env,
-        {
+      await trackedModel({
           provider:
             requestedProvider,
 
@@ -1563,9 +1576,7 @@ export async function runAgent({
           )
           .join('\n\n');
 
-        const polishResult = await callJsonModel(
-          env,
-          {
+        const polishResult = await trackedModel({
             provider: requestedProvider,
             model,
             authUser: user,
