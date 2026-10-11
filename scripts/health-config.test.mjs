@@ -30,7 +30,7 @@ async function health(env) {
 }
 
 function row(payload, group, key) {
-  const serviceGroup = group[0].toLowerCase() + group.slice(1);
+  const serviceGroup = ({ Firebase: 'firebase', GitHub: 'github' })[group] || group;
   return payload.services[serviceGroup].find((entry) => entry.key === key);
 }
 
