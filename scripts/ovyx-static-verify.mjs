@@ -100,10 +100,11 @@ const agentQuotaRoutePath = path.join(root, 'functions/api/generate.js');
 if (fs.existsSync(agentQuotaRoutePath)) {
   const agentRoute = fs.readFileSync(agentQuotaRoutePath, 'utf8');
   if (
-    !/beginAIQuota\\(context\\.env,\\s*user\\)/.test(agentRoute) ||
-    !/finalizeAIQuota\\(\\s*context\\.env,\\s*quotaReservation,\\s*quotaUsage/.test(agentRoute) ||
-    !/refundDailyPrompt/.test(agentRoute) ||
-    !/onUsage/.test(agentRoute)
+    !agentRoute.includes('beginAIQuota(context.env, user)') ||
+    !agentRoute.includes('finalizeAIQuota(') ||
+    !agentRoute.includes('quotaUsage') ||
+    !agentRoute.includes('refundDailyPrompt') ||
+    !agentRoute.includes('onUsage')
   ) {
     errors.push('functions/api/generate.js: Agent builds must enforce quota before generation, aggregate each model call, settle usage, and refund a daily prompt when a build fails.');
   }
@@ -113,10 +114,10 @@ const adminUsersQuotaPath = path.join(root, 'functions/api/admin/users.js');
 if (fs.existsSync(adminUsersQuotaPath)) {
   const adminUsers = fs.readFileSync(adminUsersQuotaPath, 'utf8');
   if (
-    !/QUOTA_PLANS/.test(adminUsers) ||
-    !/monthlyUsagePercent/.test(adminUsers) ||
-    !/dailyPromptsRemaining/.test(adminUsers) ||
-    !/authority:\\s*'SERVER'/.test(adminUsers)
+    !adminUsers.includes('QUOTA_PLANS') ||
+    !adminUsers.includes('monthlyUsagePercent') ||
+    !adminUsers.includes('dailyPromptsRemaining') ||
+    !adminUsers.includes("authority: 'SERVER'")
   ) {
     errors.push('functions/api/admin/users.js: admin user rows must expose server-authoritative monthly and daily AI usage.');
   }
@@ -128,11 +129,11 @@ if (!fs.existsSync(launchPolishPath)) {
 } else {
   const launchPolish = fs.readFileSync(launchPolishPath, 'utf8');
   if (
-    !/function launchToast\\(/.test(launchPolish) ||
-    !/function loadAdminQuota\\(/.test(launchPolish) ||
-    !/view-admin-users/.test(launchPolish) ||
-    !/sidebar-token-bar/.test(launchPolish) ||
-    !/textContent/.test(launchPolish)
+    !launchPolish.includes('function launchToast(') ||
+    !launchPolish.includes('function loadAdminQuota(') ||
+    !launchPolish.includes('view-admin-users') ||
+    !launchPolish.includes('sidebar-token-bar') ||
+    !launchPolish.includes('textContent')
   ) {
     errors.push('assets/ovyx-launch-polish.js: the animated notification or server-backed quota meter contract is incomplete.');
   }
@@ -142,8 +143,8 @@ const pagesBuildPath = path.join(root, 'scripts/ovyx-pages-build.mjs');
 if (fs.existsSync(pagesBuildPath)) {
   const pagesBuild = fs.readFileSync(pagesBuildPath, 'utf8');
   if (
-    !/assets\\/ovyx-launch-polish\\.js/.test(pagesBuild) ||
-    !/lastIndexOf\\('\\<\\/body\\>'\\)/.test(pagesBuild)
+    !pagesBuild.includes('assets/ovyx-launch-polish.js') ||
+    !pagesBuild.includes("lastIndexOf('</body>')")
   ) {
     errors.push('scripts/ovyx-pages-build.mjs: the launch polish runtime must be injected into the Pages output idempotently.');
   }
