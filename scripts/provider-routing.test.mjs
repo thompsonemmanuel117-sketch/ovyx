@@ -136,6 +136,38 @@ try {
   assert.equal(requests.at(-1).url, 'https://api.openai.com/v1/responses');
   assert.equal(requests.at(-1).authorization, 'Bearer test-openai-key');
 
+  // OVYX Auto picks a provider suited to the task, while staying inside configured keys.
+  requests.length = 0;
+  result = await callModel(
+    {
+      GEMINI_API_KEY: 'test-gemini-key',
+      DEEPSEEK_API_KEY: 'test-deepseek-key',
+      ANTHROPIC_API_KEY: 'test-anthropic-key',
+      OPENAI_API_KEY: 'test-openai-key',
+    },
+    { provider: 'automatic', model: 'automatic', system: 'test', user: 'Build a website with HTML and CSS', maxTokens: 32 },
+  );
+  assert.equal(result.provider, 'claude');
+  assert.match(requests[0].url, /api\.anthropic\.com/);
+
+  requests.length = 0;
+  result = await callModel(
+    { GEMINI_API_KEY: 'test-gemini-key', DEEPSEEK_API_KEY: 'test-deepseek-key' },
+    { provider: 'automatic', model: 'automatic', system: 'test', user: 'Write a marketing blog article', maxTokens: 32 },
+  );
+  assert.equal(result.provider, 'gemini');
+  assert.match(requests[0].url, /generativelanguage\.googleapis\.com/);
+
+  await assert.rejects(
+    () => callModel({}, { provider: 'automatic', model: 'automatic', system: 'test', user: 'Build a website', maxTokens: 32 }),
+    error => {
+      assert.equal(error.code, 'AI_PROVIDER_NOT_CONFIGURED');
+      assert.match(error.message, /connect your own AI Brain/i);
+      return true;
+    },
+    'Automatic should explain the next step when no provider or Workers AI binding is configured.',
+  );
+
   // Missing Gemini must not use another provider's key, even if one is available.
   requests.length = 0;
   await assert.rejects(
