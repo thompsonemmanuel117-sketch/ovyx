@@ -1076,17 +1076,20 @@ export async function runAgent({
   // Track every successful model call in the user-facing Agent job so Agent Mode
   // consumes the same server-enforced quota as Web Studio generation.
   const trackedModel = async modelOptions => {
+    // Check the server quota before every internal Agent phase so a multi-step
+    // build cannot keep spending after its monthly/booster balance reaches zero.
+    if (typeof onAIUsage === 'function') {
+      await onAIUsage({ phase: 'before' });
+    }
+
     const result = await callJsonModel(env, modelOptions);
     if (typeof onAIUsage === 'function') {
-      try {
-        await onAIUsage({
-          rawUsage: result.rawUsage || result.usage || null,
-          inputText: String(modelOptions.system || '') + '\\n' + String(modelOptions.user || ''),
-          outputText: String(result.text || JSON.stringify(result.json ?? {})),
-        });
-      } catch {
-        // Quota telemetry must not leak prompt text or break a completed AI request.
-      }
+      await onAIUsage({
+        phase: 'after',
+        rawUsage: result.rawUsage || result.usage || result.raw?.usage || null,
+        inputText: String(modelOptions.system || '') + '\n' + String(modelOptions.user || ''),
+        outputText: String(result.text || JSON.stringify(result.json ?? {})),
+      });
     }
     return result;
   };
