@@ -191,7 +191,7 @@ if (fs.existsSync(multiPageHelperPath) && fs.existsSync(multiPageOrchestratorPat
     !orchestrator.includes('createSiteBuildBatches(siteMap, maxChangedFiles)') ||
     !orchestrator.includes('existingChanges: changes') ||
     !orchestrator.includes('SITE_MAP_BATCH_INCOMPLETE') ||
-    !prompts.includes('FULL WEBSITE ROUTE MANIFEST') ||
+    !helper.includes('FULL WEBSITE ROUTE MANIFEST') ||
     !prompts.includes('siteMap')
   ) {
     errors.push('OVYX multi-page generation: scalable page batching, staged-file reuse, route planning or missing-page protection is incomplete.');
