@@ -30,7 +30,7 @@ assert.deepEqual(
   providerOrder(
     { OVYX_AI_PROVIDER_ORDER: 'gemini,deepseek,claude,openai' },
     'automatic',
-    'Fix a backend API bug, secure authentication, and add regression tests',
+    'Fix a backend API bug involving security and architecture, then add regression tests',
   ),
   ['claude', 'openai', 'deepseek', 'gemini'],
   'Automatic should prioritize stronger engineering providers for complex backend work.',
