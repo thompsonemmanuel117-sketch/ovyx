@@ -252,6 +252,8 @@ for (const file of [
   path.join(root, 'scripts/ovyx-cloudflare-diagnostics.mjs'),
   path.join(root, 'assets/ovyx-launch-polish.js'),
   path.join(root, 'functions/_lib/multi-page.js'),
+  path.join(root, 'functions/_lib/orchestrator.js'),
+  path.join(root, 'functions/_lib/prompts.js'),
 ]) {
   if (!fs.existsSync(file)) continue;
   try {
