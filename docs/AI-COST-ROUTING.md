@@ -1,49 +1,38 @@
-# OVYX AI routing and provider setup
+# OVYX AI provider routing
 
-OVYX can use normal provider-specific APIs or one shared OpenAI-compatible gateway. The backend reports the service that actually answered the request, rather than pretending a gateway is a native Gemini/Anthropic/OpenAI service.
+OVYX uses **Setup A: separate provider connections**. A user chooses an AI provider; OVYX uses that provider's own configured server key and official API.
 
-## Option A: one shared API endpoint for all API-key-backed AI brain choices
+## Provider keys
 
-Set these Cloudflare Pages environment values/secrets:
+Keep each key in its own Cloudflare Pages secret:
 
-- `OVYX_AI_BASE_URL` — HTTPS base URL for the compatible endpoint, for example `https://api.groq.com/openai/v1`.
-- `OVYX_AI_MODEL` — a model identifier accepted by that endpoint, for example `openai/gpt-oss-20b` if the selected service supports it.
-- `OVYX_AI_API_KEY` — the key issued by the service at that endpoint. This is the clearest secret name to use for shared-gateway mode.
+- `GEMINI_API_KEY` — Google Gemini.
+- `DEEPSEEK_API_KEY` — DeepSeek.
+- `ANTHROPIC_API_KEY` — Claude / Anthropic.
+- `OPENAI_API_KEY` — OpenAI / ChatGPT.
 
-When `OVYX_AI_BASE_URL` is configured, the OpenAI, Claude, Gemini and DeepSeek choices route through that same compatible endpoint and model. The key can be stored in `OVYX_AI_API_KEY` or, if necessary, in another configured provider key slot. OVYX does not require the secret's variable name to match the gateway's brand.
+OVYX can also use `GROQ_API_KEY` if the Groq choice is enabled. Cloudflare Workers AI is different: it uses a Pages Functions binding named `AI`, not a vendor API key.
 
-**Important:** the endpoint and the key must still match. For example, Groq documents its OpenAI-compatible API at `https://api.groq.com/openai/v1` and requires a Groq-issued key for that endpoint. [Groq OpenAI compatibility documentation](https://console.groq.com/docs/openai). An unrelated Gemini or OpenAI key is not made valid for Groq by putting it into a different environment-variable slot. Use a key that the selected endpoint accepts.
+Do not copy one vendor's key into another vendor's slot. The label on the slot does not change which service issued the key. Keep existing secrets in place; this code change does not replace production key values.
 
-## Option B: keep separate native provider routes
+## What happens when a user chooses a provider?
 
-If `OVYX_AI_BASE_URL` is not set, OVYX continues using separate native provider endpoints:
+- If that provider is configured, OVYX calls its provider-specific endpoint using its own key.
+- If that provider has no key, OVYX stops and tells the user that it is unavailable for now, to try again later, or to connect their own AI Brain in Universal Connections.
+- If the configured key is rejected or the provider is unavailable, OVYX reports the same helpful message. It does **not** secretly try another vendor.
+- When the user selects **Automatic**, OVYX may try the configured provider order and skip providers that are not configured. Cloudflare Workers AI is an optional final Automatic fallback when the Pages binding exists.
+- If the user has explicitly selected a Universal Connection as their AI Brain, that connection remains exclusive. If it fails, OVYX reports the failure instead of billing a platform key. Use **Clear AI Brain** to return to Automatic routing.
 
-- **OpenAI / ChatGPT** uses the official OpenAI API unless `OPENAI_BASE_URL` is set to a compatible endpoint.
-- **Claude / Anthropic** uses Anthropic's native Messages API and `ANTHROPIC_API_KEY`.
-- **Gemini** uses Google's Gemini API and `GEMINI_API_KEY`.
-- **DeepSeek** uses DeepSeek's chat completions API and `DEEPSEEK_API_KEY`.
-- **Cloudflare Workers AI** is an optional final Automatic fallback when the Pages Functions environment has an AI binding named `AI`.
+## Key safety
 
-In this mode, each native provider endpoint must accept the key being supplied. For a custom OpenAI-compatible endpoint set `OPENAI_BASE_URL`; the backend can take a key from any configured provider API-key slot when a custom compatible endpoint is explicitly configured.
+Provider keys stay in Cloudflare server-side environment secrets and are never returned to the browser. Never put keys in a URL, commit them into GitHub, or share them in chat. The Universal Connections credentials remain encrypted server-side. Keep `OVYX_CONNECTION_ENCRYPTION_KEY` unchanged if saved connections already exist; changing it without migrating stored values would make those credentials unreadable.
 
-## Automatic routing and user's selected Brain
+## Health checks and testing
 
-Without a shared gateway, set `OVYX_AI_PROVIDER_ORDER` (or `AI_PROVIDER_ORDER`) to a preference order such as `gemini,deepseek,claude,openai`. OVYX skips providers that are not configured and tries those that are available. Cloudflare Workers AI is appended as a final fallback when its binding exists.
+The admin AI status endpoint checks each provider separately and reports `NOT_CONFIGURED`, `AUTH_FAILED`, `TIMEOUT`, or `UNAVAILABLE` as appropriate. A health check alone does not prove that every model or paid generation request works. The automated provider-routing tests use fake HTTP responses, so they do not spend money or expose real keys.
 
-If the authenticated user has selected a Universal Connection as their AI Brain, that connection takes priority for the user's AI requests. If OVYX cannot verify or use the selected connection, it reports an error instead of silently switching to a platform key. Use **Clear AI Brain** to return to platform Automatic routing.
-
-## Security and diagnostics
-
-Never put keys or credentials in endpoint URLs. Keys stay server-side, and AI connection credentials are encrypted before storage. Keep the existing `OVYX_CONNECTION_ENCRYPTION_KEY` unchanged unless the stored credentials have been migrated.
-
-The admin status check checks the configured endpoint's models-list route. A successful check means that route responded, not that every model, generation request, billing entitlement or feature works. A real generation test is still required.
-
-## Cloudflare and Firebase setup
-
-For Cloudflare Workers AI, create a Pages Functions AI binding named `AI` in the Cloudflare Pages project and deploy the configuration.
-
-Successful assistant/gateway turns are saved server-side under:
+Successful assistant turns are stored server-side under:
 
 `users/{uid}/aiConversations/{conversationId}/messages/{messageId}`
 
-The backend accepts `FIREBASE_SERVICE_ACCOUNT_JSON` or `FIREBASE_SERVICE_ACCOUNT` for the service-account secret. Never place Firebase service-account values or provider keys in the repository or frontend.
+The backend accepts `FIREBASE_SERVICE_ACCOUNT_JSON` or `FIREBASE_SERVICE_ACCOUNT` for the Firebase Admin service-account secret.
