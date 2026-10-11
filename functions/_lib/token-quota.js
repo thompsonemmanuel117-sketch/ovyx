@@ -12,7 +12,7 @@ export const QUOTA_PLANS = Object.freeze({
 });
 
 export const DAILY_RATION_MESSAGE =
-  'You have consumed your daily prompt ration. Please wait until midnight for your daily allocation reset or upgrade your subscription tier.';
+  'You have used your monthly AI token allocation and daily fallback prompts. Please wait until 00:00 UTC for the daily allocation reset or upgrade your subscription tier.';
 
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 
