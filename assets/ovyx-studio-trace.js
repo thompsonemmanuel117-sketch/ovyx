@@ -2,7 +2,7 @@
   'use strict';
 
   if (window.__OVYX_STUDIO_TRACE__) return;
-  const nativeFetch = window.fetch;
+  const nativeFetch = window.fetch.bind(window);
   if (typeof nativeFetch !== 'function') return;
 
   const ROOT_ID = 'ovyx-studio-trace';
