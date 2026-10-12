@@ -129,7 +129,7 @@ const concurrencyScan = await collectSentinelChecks({
     }
   },
 });
-assert.equal(concurrencyScan.checks.length, 5);
+assert.equal(concurrencyScan.checks.length, 6, 'five first-party checks plus the optional GitHub status row should be represented');
 assert.ok(concurrencyState.maxActive >= 5, 'the first-party health probes should run concurrently to stay within the Cron request budget');
 
 const remediationPlan = createSentinelFixPlan({
