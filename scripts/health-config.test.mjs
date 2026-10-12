@@ -8,6 +8,7 @@ const baseEnv = () => ({
   FIREBASE_WEB_API_KEY: 'test-web-api-key',
   GITHUB_TOKEN_ENCRYPTION_KEY: 'g'.repeat(48),
   GITHUB_ALLOWED_REPOS: 'thompsonemmanuel117-sketch/ovyx',
+  OVYX_CONNECTION_ENCRYPTION_KEY: 'c'.repeat(48),
 });
 
 const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
@@ -32,6 +33,16 @@ async function health(env) {
 function row(payload, group, key) {
   const serviceGroup = ({ Firebase: 'firebase', GitHub: 'github' })[group] || group;
   return payload.services[serviceGroup].find((entry) => entry.key === key);
+}
+
+// Universal Connection encryption is required; health must flag it without exposing the key.
+{
+  const env = { ...baseEnv(), OVYX_CONNECTION_ENCRYPTION_KEY: undefined };
+  const payload = await health(env);
+  assert.equal(row(payload, 'UniversalConnections', 'OVYX_CONNECTION_ENCRYPTION_KEY').state, 'unavailable');
+  assert(payload.unavailableRequiredEnvironment.includes('OVYX_CONNECTION_ENCRYPTION_KEY'));
+  assert.equal(payload.ok, false);
+  assert(!JSON.stringify(payload).includes('c'.repeat(48)));
 }
 
 // Missing bindings and bindings with empty values must be reported separately.
