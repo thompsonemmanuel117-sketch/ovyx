@@ -55,6 +55,9 @@ jobs:
           npm test
           npm run build
 
+      - name: Validate separate Sentinel Worker configuration without deploying
+        run: npx wrangler deploy --config sentinel-worker/wrangler.toml --dry-run
+
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
