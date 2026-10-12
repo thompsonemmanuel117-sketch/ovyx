@@ -4,7 +4,7 @@ import {
   setFirestoreDocumentAtPath,
   listFirestoreSubcollectionDocumentsAtPath,
 } from '../../_lib/firebase-admin.js';
-import { errorResponse, jsonResponse, readJson, getRequestId } from '../../_lib/http.js';
+import { errorResponse, jsonResponse, readJson, getRequestId } from '../_lib/http.js';
 import {
   collectSentinelChecks,
   createSentinelReport,
