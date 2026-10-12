@@ -9,6 +9,7 @@ import { callModel } from '../../_lib/providers.js';
 import { buildStudioMultiPage } from '../../_lib/studio-multipage.js';
 import { WEB_STUDIO_SYSTEM_PROMPT, WEB_STUDIO_EXCELLENCE } from '../../_lib/prompts.js';
 import { buildExperienceBrief, isWebStudioPrompt } from '../../_lib/experience.js';
+import { buildPromptContract, getWebStudioBuildClarification } from '../../_lib/prompt-contract.js';
 import { beginAIQuota, finalizeAIQuota, refundDailyPrompt } from '../../_lib/token-quota.js';
 import {
   saveChatTurn,
@@ -86,16 +87,56 @@ export async function onRequestPost(context) {
       isWebStudioPrompt(promptText, mode) ||
       ((mode === 'build' || mode === 'fix') && hasStudioContext);
 
+    const userTurns = messages
+      .filter(item => item && item.role === 'user')
+      .map(item => String(item.content || '').trim().slice(0, 30_000))
+      .filter(Boolean)
+      .slice(-12);
+    const conversationText = userTurns.join('\n\n');
+    const studioPromptText = isWebStudio && conversationText ? conversationText : String(promptText || '');
+    const promptContract = isWebStudio ? buildPromptContract(studioPromptText) : null;
+
     const projectContext = payload.context && typeof payload.context === 'object'
       ? JSON.stringify(payload.context).slice(0, 80_000)
       : '';
 
     const experience = isWebStudio
       ? buildExperienceBrief(
-          promptText,
+          studioPromptText,
           payload.context || {}
         )
       : null;
+
+    // For a fresh build, ask for essential public details or real integration
+    // readiness before spending tokens on a site that could otherwise contain
+    // invented contact data or pretend-live features. Existing-site edits stay fast.
+    const studioFilesForReadiness = payload.context?.files || payload.files || {};
+    const hasExistingHtml = Object.entries(studioFilesForReadiness && typeof studioFilesForReadiness === 'object' ? studioFilesForReadiness : {})
+      .some(([path, value]) => {
+        const text = typeof value === 'string' ? value : value && (value.content || value.text || value.source || value.code);
+        return /\.html?$/i.test(path) && typeof text === 'string' && text.length > 500 && /<body\b/i.test(text);
+      });
+    const isExistingSiteEdit = hasExistingHtml &&
+      /\b(?:fix|edit|change|update|modify|repair|tweak|adjust|redesign|remove|replace|add\s+(?:to|into)\s+(?:the|this|my|existing))\b/i.test(String(promptText || ''));
+    const buildReadiness = isWebStudio && mode === 'build' && !isExistingSiteEdit
+      ? getWebStudioBuildClarification(studioPromptText, {
+          ...(payload.context && typeof payload.context === 'object' ? payload.context : {}),
+          conversationText,
+        })
+      : null;
+
+    if (buildReadiness) {
+      return json({
+        ok: true,
+        needsUserInput: true,
+        type: buildReadiness.type,
+        clarification: buildReadiness,
+        text: buildReadiness.message,
+        message: buildReadiness.message,
+        answer: buildReadiness.message,
+        experience,
+      });
+    }
 
     const suppliedSystem = String(payload.system || '').trim();
 
@@ -106,6 +147,13 @@ export async function onRequestPost(context) {
           WEB_STUDIO_EXCELLENCE +
           '\\n\\nEXPERIENCE INTELLIGENCE:\\n' +
           JSON.stringify(experience || {}) +
+          '\n\nPROMPT REQUIREMENT CONTRACT (preserve every item):\n' +
+          JSON.stringify(promptContract || {}) +
+          '\n\nPROMPT-FIDELITY RULES:\n' +
+          '- Treat every explicit request, restriction and named page as a delivery contract. Do not silently omit requirements.\n' +
+          '- For edits, inspect supplied project files and change only what the request needs; preserve unrelated working sections, routes and styling.\n' +
+          '- Ask short questions when essential public details or a real integration are missing. If the user chooses placeholders or UI-only, proceed transparently without fake success states.\n' +
+          '- Before you finish, compare the result against the full user brief and report any unavailable or pending integration honestly.\n' +
           (suppliedSystem
             ? '\\n\\nCLIENT STUDIO INSTRUCTIONS:\\n' + suppliedSystem
             : '') +
@@ -150,7 +198,8 @@ export async function onRequestPost(context) {
           brandProfile: payload.context?.brandProfile || payload.context?.brand || null,
           theme: payload.context?.theme || null,
           viewport: payload.context?.viewport || null,
-        }).slice(0, 6000);
+          promptContract,
+        }).slice(0, 10000);
 
         const generated = await buildStudioMultiPage({
           env: context.env,
@@ -158,7 +207,7 @@ export async function onRequestPost(context) {
           provider: String(payload.provider || 'automatic').toLowerCase(),
           model: payload.model,
           authUser: user,
-          prompt: promptText,
+          prompt: studioPromptText,
           project,
           files: projectFiles,
           mode,
@@ -238,7 +287,7 @@ export async function onRequestPost(context) {
     const structured = isWebStudio ? parseStructured(result.text) : null;
     const structuredFields = {};
     if (structured && typeof structured === 'object') {
-      for (const key of ['project', 'updatedProject', 'files', 'fileEdits', 'patch', 'html', 'code', 'summary', 'message', 'answer']) {
+      for (const key of ['project', 'updatedProject', 'files', 'fileEdits', 'patch', 'html', 'code', 'summary', 'message', 'answer', 'requirementVerification']) {
         if (Object.prototype.hasOwnProperty.call(structured, key)) {
           structuredFields[key] = structured[key];
         }
@@ -251,6 +300,7 @@ export async function onRequestPost(context) {
       structuredFields.summary = result.summary || structuredFields.summary;
       structuredFields.message = result.message || structuredFields.message;
       structuredFields.siteMap = result.siteMap || null;
+      structuredFields.requirementVerification = result.requirementVerification || null;
     }
 
     return json({
