@@ -519,6 +519,44 @@ if (fs.existsSync(html)) {
   }
 }
 
+const providerAvailabilityPath = path.join(root, 'functions/api/ai/provider-availability.js');
+const providerAvailabilityTestPath = path.join(root, 'scripts/provider-availability.test.mjs');
+const providerAvailabilityClientPath = path.join(root, 'assets/ovyx-provider-availability.js');
+const providerAvailabilityBrowserTestPath = path.join(root, 'scripts/ovyx-provider-availability.browser.test.mjs');
+if (
+  !fs.existsSync(providerAvailabilityPath) ||
+  !fs.existsSync(providerAvailabilityTestPath) ||
+  !fs.existsSync(providerAvailabilityClientPath) ||
+  !fs.existsSync(providerAvailabilityBrowserTestPath)
+) {
+  errors.push('OVYX provider availability: authenticated endpoint, safe selector runtime and unit/browser tests must be present.');
+} else {
+  const endpoint = fs.readFileSync(providerAvailabilityPath, 'utf8');
+  const client = fs.readFileSync(providerAvailabilityClientPath, 'utf8');
+  if (
+    !endpoint.includes('assertAuthenticated(context.data?.user)') ||
+    !endpoint.includes(\"'x-goog-api-key'\") ||
+    !endpoint.includes(\"'x-api-key'\") ||
+    !endpoint.includes('NOT_CONFIGURED') ||
+    !endpoint.includes('AbortController') ||
+    !endpoint.includes('Cache-Control') ||
+    !endpoint.includes('Universal Connections') ||
+    endpoint.includes('console.log(key)') ||
+    !client.includes(\"select.id !== 'v59-model-select'\") ||
+    !client.includes(\"'/api/ai/provider-availability?provider='\") ||
+    !client.includes(\"credentials: 'same-origin'\") ||
+    !client.includes(\"cache: 'no-store'\") ||
+    !client.includes('activeChecks')
+  ) {
+    errors.push('OVYX provider availability: checks must be authenticated, time-bounded, no-store, secret-safe, same-origin and connected to the provider selector.');
+  }
+  if (
+    !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/provider-availability.test.mjs')
+  ) {
+    errors.push('OVYX provider availability: endpoint regression tests must run in npm test.');
+  }
+}
+
 if (errors.length) {
   console.error(errors.join('\n'));
   process.exit(1);
