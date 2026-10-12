@@ -23,7 +23,9 @@ const answeredReadiness = getWebStudioBuildClarification(
   'Build a restaurant website with a contact form that emails enquiries.',
   { conversationText: 'The public email is bookings@harbourhouse.ng' },
 );
-assert.equal(answeredReadiness, null, 'Do not ask again when the conversation already includes a real public email.');
+assert(answeredReadiness, 'A real receiving email still needs a truthful delivery path when no email service is connected.');
+assert(!answeredReadiness.questions.some(question => /public email address/i.test(question)), 'Do not repeat the receiving-email question after the user answers it.');
+assert(answeredReadiness.questions.some(question => /mailto action|email service/i.test(question)), 'Clarify whether the form should use mailto or a connected email service.');
 
 const placeholderChoice = getWebStudioBuildClarification(
   'Build a restaurant website with a contact form that emails enquiries.',
