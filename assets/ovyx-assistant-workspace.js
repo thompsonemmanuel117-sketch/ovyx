@@ -519,7 +519,7 @@
         existingInputRow.insertAdjacentElement('beforebegin', hint);
       }
     }
-    const welcome = historyRoot.querySelector('.p-2\.5.rounded-lg.bg-ovyx-black');
+    const welcome = historyRoot.querySelector('[class~="p-2.5"][class~="rounded-lg"][class~="bg-ovyx-black"]');
     if (welcome && !welcome.dataset.ovyxNativeWelcome) {
       welcome.dataset.ovyxNativeWelcome = '1';
       welcome.classList.add('ovyx-native-welcome');
