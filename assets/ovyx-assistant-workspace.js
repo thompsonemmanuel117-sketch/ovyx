@@ -1211,6 +1211,7 @@
       const input = $('bot-chat-input');
       if (input) input.value = '';
       insertWelcome();
+      setWorkspaceTaskStatus('idle');
       return;
     }
     if (action === 'copy-chat') {
@@ -1238,6 +1239,7 @@
       return;
     }
     if (action === 'refresh-context') {
+      setWorkspaceTaskStatus('idle');
       await refreshWorkspaceContext();
       return;
     }
