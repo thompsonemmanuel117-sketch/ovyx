@@ -9,6 +9,8 @@
   const nativeModes = /^(workspace-assistant|workspace-copilot(?:-v2|-advanced|-native)?|ovyx-native-assistant)$/i;
   const NATIVE_RESPONSE_BOT_MARK = "<svg viewBox=\"0 0 64 64\" aria-hidden=\"true\"><ellipse cx=\"32\" cy=\"56\" rx=\"18\" ry=\"4.5\" fill=\"#000\" opacity=\".42\"/><path d=\"M20 18 16 10l12 4h8l12-4-4 8 3 9-3 18q-2 8-12 9-10-1-12-9l-3-18Z\" fill=\"#b88b42\" stroke=\"#ffe7a5\" stroke-width=\"1.3\"/><path d=\"M21 24q1-7 11-7t11 7v13q-1 7-11 8-10-1-11-8Z\" fill=\"#111c27\" stroke=\"#9aaec2\" stroke-opacity=\".8\"/><path d=\"M25 29q0-3.5 3-3.5t3 3.5v2q0 3-3 3t-3-3Zm10 0q0-3.5 3-3.5t3 3.5v2q0 3-3 3t-3-3Z\" fill=\"#71efff\"/><path d=\"M27 39q5 4 10 0\" fill=\"none\" stroke=\"#b8faff\" stroke-width=\"1.7\" stroke-linecap=\"round\"/><path d=\"M21 22q11-9 22 0\" fill=\"none\" stroke=\"#fff2c9\" stroke-opacity=\".8\" stroke-width=\"2.2\" stroke-linecap=\"round\"/><path d=\"M32 14V8\" stroke=\"#f8d88b\" stroke-width=\"2\" stroke-linecap=\"round\"/><circle cx=\"32\" cy=\"7\" r=\"3\" fill=\"#f8d88b\" stroke=\"#fff3c9\"/></svg>";
   let busy = false;
+  let workspaceTaskStatus = 'idle';
+  let workspaceTaskMessage = '';
   let history = [];
   let conversationId = newConversationId();
 
@@ -307,6 +309,46 @@
       ' Note: this confirms the saved file, not a full live-browser test.');
   }
 
+  async function reviewWorkspaceEditHistory() {
+    const projectId = String(window.KernelState?.activeProject?.id || window.ProjectStore?.current?.id || '');
+    if (!projectId) { push('Choose or open a saved project first. OVYX cannot show edit history without a project ID.'); setWorkspaceTaskStatus('details', 'Open a saved project to review recovery versions.'); return; }
+    setWorkspaceTaskStatus('running', 'Loading recovery versions for the active project.');
+    const result = await workspaceToolRequest({ operation: 'list_revisions', projectId });
+    const rows = Array.isArray(result.revisions) ? result.revisions : [];
+    if (!rows.length) { push('No recoverable AI source edits were found for ' + String(result.projectName || 'this project') + '. New approved source edits will create recovery versions.'); setWorkspaceTaskStatus('inspected', 'No recovery versions are saved for this project yet.'); return; }
+    const lines = rows.slice(0, 8).map((row, index) => (index + 1) + '. ' + String(row.filePath || 'Unknown file') + ' · ' + String(row.kind || 'edit') + ' · ' + String(row.createdAt || 'date unavailable') + (row.reason ? '\n   ' + String(row.reason).slice(0, 180) : ''));
+    push('Saved recovery versions for ' + String(result.projectName || 'your project') + ':\n' + lines.join('\n') + '\nUse “Undo last AI edit” to review the newest recovery diff and confirm before restoring it.');
+    setWorkspaceTaskStatus('inspected', rows.length + ' saved recovery version(s) found.');
+  }
+
+  async function recoverLatestWorkspaceEdit() {
+    const projectId = String(window.KernelState?.activeProject?.id || window.ProjectStore?.current?.id || '');
+    if (!projectId) { push('Open a saved project first. No project was changed.'); setWorkspaceTaskStatus('details', 'Open a saved project before undoing an AI edit.'); return; }
+    setWorkspaceTaskStatus('running', 'Finding the newest saved recovery version.');
+    const historyResult = await workspaceToolRequest({ operation: 'list_revisions', projectId });
+    const latest = Array.isArray(historyResult.revisions) ? historyResult.revisions[0] : null;
+    if (!latest?.id) { push('There is no saved AI edit to undo for this project yet. No changes were made.'); setWorkspaceTaskStatus('inspected', 'No saved recovery version was found.'); return; }
+    const prepared = await workspaceToolRequest({ operation: 'prepare_restore', projectId, revisionId: latest.id });
+    if (!prepared.changed) { push('The newest recovery version already matches ' + String(prepared.filePath || 'the saved file') + '. No change was needed.'); setWorkspaceTaskStatus('inspected', 'The selected recovery version already matches the saved file.'); return; }
+    const message = [
+      'OVYX AI is preparing to restore a saved version of your project file.', '',
+      'Project: ' + String(prepared.projectName || historyResult.projectName || 'Current project'),
+      'File: ' + String(prepared.filePath || latest.filePath || 'Unknown file'),
+      'Saved version: ' + String(latest.createdAt || 'date unavailable'),
+      'Reason: ' + String(latest.reason || 'Saved recovery version'),
+      'Changes: +' + Number(prepared.linesAdded || 0) + ' lines / -' + Number(prepared.linesRemoved || 0) + ' lines', '',
+      'Recovery preview:', String(prepared.preview || '(No short diff available.)').slice(0, 1800), '',
+      'Restore this version? OVYX will save the current file as another recovery version first. You can cancel safely.',
+    ].join('\n');
+    setWorkspaceTaskStatus('approval', 'A recovery preview is ready. No file changes until you approve.');
+    if (typeof window.confirm !== 'function' || !window.confirm(message)) { push('Recovery cancelled. No project files were changed.'); setWorkspaceTaskStatus('inspected', 'Recovery was cancelled by the user.'); return; }
+    const restored = await workspaceToolRequest({ operation: 'restore_revision', projectId, revisionId: latest.id, confirm: true, expectedUpdateTime: prepared.revision });
+    if (!restored.verified || !restored.restored) { push('OVYX could not verify the recovery write. The saved file was not reported as restored. Check the project before retrying.'); setWorkspaceTaskStatus('error', 'The server did not verify the recovery write.'); return; }
+    const updatedLocal = updateLocalProjectFile(projectId, restored.filePath, restored.bucket, restored.restoredContent);
+    push('Restored ' + String(restored.filePath || latest.filePath || 'the saved file') + ' from recovery version ' + String(latest.id) + '. Server read-back verification passed. A safety copy of the replaced file was saved as ' + String(restored.safetyRevisionId || 'a new recovery version') + (updatedLocal ? '. The current workspace source was refreshed.' : '. Reopen or refresh the project to load the restored version.') + ' This verifies saved storage, not live browser behaviour.');
+    setWorkspaceTaskStatus('applied', 'Recovery was applied and verified by reading the saved project back.');
+  }
+
   function normalizeResponse(value) {
     if (!value || typeof value !== 'object') return { text: String(value || ''), actions: [] };
     return {
@@ -460,6 +502,8 @@
       '<button type="button" role="menuitem" data-ovyx-native-action="repair-project"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>Help fix my project</button>',
       '<button type="button" role="menuitem" data-ovyx-native-action="explain-project"><i class="fa-solid fa-book-open" aria-hidden="true"></i>Explain my current project</button>',
       '<button type="button" role="menuitem" data-ovyx-native-action="refresh-context"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i>Refresh workspace context</button>',
+      '<button type="button" role="menuitem" data-ovyx-native-action="undo-last-ai-edit"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i>Undo last AI edit</button>',
+      '<button type="button" role="menuitem" data-ovyx-native-action="review-ai-edits"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>Review AI edit history</button>',
       '<button type="button" role="menuitem" data-ovyx-native-action="recover-project"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>Recover a deleted project</button>',
       '<div class="ovyx-native-menu-divider"></div>',
       '<div class="ovyx-native-menu-label">Quick access</div>',
@@ -598,6 +642,24 @@
     if (typeof bot?.pushMsg === 'function') bot.pushMsg('OVYX: ' + String(text));
     else pushMessage('OVYX: ' + String(text));
   }
+
+  function setWorkspaceTaskStatus(status, message = '') {
+    workspaceTaskStatus = String(status || 'idle');
+    workspaceTaskMessage = String(message || '');
+    const chip = $('bot-context-node-type');
+    if (!chip) return;
+    const labels = { running: 'TASK RUNNING', inspected: 'PROJECT INSPECTED', approval: 'APPROVAL NEEDED', applied: 'APPLIED · VERIFIED', details: 'DETAILS NEEDED', error: 'ACTION FAILED' };
+    if (workspaceTaskStatus === 'idle') { syncWorkspaceBadge(localWorkspaceSnapshot(), true); return; }
+    chip.textContent = labels[workspaceTaskStatus] || 'WORKSPACE READY';
+    chip.title = workspaceTaskMessage || labels[workspaceTaskStatus] || 'Workspace status';
+    const dot = panel()?.querySelector('.ovyx-native-status-dot');
+    if (dot) {
+      const color = workspaceTaskStatus === 'error' ? '#f87185' : workspaceTaskStatus === 'approval' || workspaceTaskStatus === 'details' ? '#e8b64f' : workspaceTaskStatus === 'running' ? '#53d8ee' : workspaceTaskStatus === 'applied' ? '#58d7b5' : '#8eabff';
+      dot.style.background = color;
+      dot.style.boxShadow = '0 0 0 3px ' + color + '22';
+    }
+  }
+
 
   async function runActions(actions) {
     if (!Array.isArray(actions)) return;
@@ -1123,6 +1185,16 @@
     }
     if (action === 'refresh-context') {
       await refreshWorkspaceContext();
+      return;
+    }
+    if (action === 'undo-last-ai-edit') {
+      try { await recoverLatestWorkspaceEdit(); }
+      catch (error) { push('Recovery failed: ' + String(error?.message || 'OVYX could not restore the selected version. No successful recovery is reported unless the server verifies it.')); setWorkspaceTaskStatus('error', String(error?.message || 'Recovery failed.')); }
+      return;
+    }
+    if (action === 'review-ai-edits') {
+      try { await reviewWorkspaceEditHistory(); }
+      catch (error) { push('Could not load edit history: ' + String(error?.message || 'Workspace recovery history is unavailable.')); setWorkspaceTaskStatus('error', String(error?.message || 'Could not load recovery history.')); }
       return;
     }
     if (action === 'recover-project') {
