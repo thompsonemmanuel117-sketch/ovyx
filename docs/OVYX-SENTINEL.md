@@ -12,7 +12,7 @@ Sentinel adds an administrator-only health panel, an opt-in voice companion, sav
 
 Sentinel stores bounded check IDs, endpoint paths, HTTP status codes, durations, allowlisted issue codes and required configuration *names*. It does not store HTTP response bodies, API keys, service-account material, source files, project contents, prompts, or private messages. All report reads and manual scans require a verified administrator identity; scheduled scans require a separate shared secret.
 
-A healthy report proves only that its listed checks passed. It does not prove every user flow is correct, credentials authenticate successfully, or every integration works. A source-code repair is not part of a health scan; it must use the existing guarded development and verification workflow.
+A healthy report proves only that its listed checks passed. It does not prove every user flow is correct, credentials authenticate successfully, or every integration works. A source-code repair is not part of a health scan; it must use the existing guarded development and verification workflow. The administrator can select **Prepare fix plan** to create a bounded, rule-based checklist from the saved check codes. Plans are advisory only: they do not inspect private workspace files or conversations, apply code patches, rotate keys, change Cloudflare settings, or deploy. Encryption-key guidance explicitly warns against rotating an existing key without a migration plan.
 
 ## Voice companion
 

@@ -570,6 +570,11 @@ if (
   const headers = fs.existsSync(headersPath) ? fs.readFileSync(headersPath, 'utf8') : '';
   if (
     !sentinelEngine.includes('collectSentinelChecks') ||
+    !sentinelEngine.includes('export function createSentinelFixPlan') ||
+    !sentinelApi.includes('fixPlan: createSentinelFixPlan(latestReport)') ||
+    !sentinelClient.includes('data-ovsx="plan"') ||
+    !sentinelClient.includes('function renderFixPlan(plan)') ||
+    !sentinelEngine.includes('automaticChanges: false') ||
     !sentinelEngine.includes('OVYX_SENTINEL_GITHUB_TOKEN') ||
     !sentinelEngine.includes("Authorization: 'Bearer '") ||
     !sentinelApi.includes('isSentinelAdmin') ||

@@ -62,6 +62,16 @@ function addStyles() {
     '#' + ID + '-panel .dot.fail{background:#fb7185}#' + ID + '-panel .dot.warning{background:#fbbf24}#' + ID + '-panel .dot.skipped{background:#8495a5}',
     '#' + ID + '-panel .rowtitle{font-size:11px;font-weight:750;color:#d8e4eb}',
     '#' + ID + '-panel .rowsummary{font-size:10px;color:#8298a8;margin-top:2px;overflow-wrap:anywhere}',
+    '#' + ID + '-panel .plan{margin-top:10px;padding:12px;border:1px solid rgba(139,234,244,.18);border-radius:14px;background:rgba(46,96,111,.08)}',
+    '#' + ID + '-panel .plan-task{padding:10px 0;border-bottom:1px solid rgba(255,255,255,.07)}',
+    '#' + ID + '-panel .plan-task:last-child{border-bottom:0}',
+    '#' + ID + '-panel .plan-heading{display:flex;align-items:start;justify-content:space-between;gap:8px;color:#e7f3f8;font-size:11px;font-weight:800}',
+    '#' + ID + '-panel .plan-priority{font-size:8px;letter-spacing:.08em;text-transform:uppercase;color:#fbbf24;white-space:nowrap}',
+    '#' + ID + '-panel .plan-task[data-priority="critical"] .plan-priority{color:#fb7185}',
+    '#' + ID + '-panel .plan-issue{color:#8fa5b4;font-size:10px;margin-top:4px;overflow-wrap:anywhere}',
+    '#' + ID + '-panel .plan ol{padding-left:19px;margin:8px 0 0;color:#c3d1dc;font-size:10px}',
+    '#' + ID + '-panel .plan li{padding:2px 0 2px 2px}',
+    '#' + ID + '-panel .plan-note{margin-top:10px;color:#748b9b;font-size:9px}',
     '#' + ID + '-panel .badge{font-size:8px;font-weight:850;letter-spacing:.08em;color:#b7cad7;text-transform:uppercase}',
     '#' + ID + '-panel .foot{padding:10px 15px;border-top:1px solid rgba(255,255,255,.07);color:#748695;font-size:9px}',
     '#' + ID + '-panel .transcript{white-space:pre-wrap;padding:10px 11px;margin-top:9px;border-radius:11px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);color:#d8e5ed}',
@@ -76,8 +86,8 @@ function buildShell() {
   root = document.createElement('div'); root.id = ID + '-root';
   root.innerHTML = '<button id="' + ID + '-launch" type="button" aria-label="Open private OVYX Sentinel administrator companion"><span class="eye" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M3 16s4.8-8 13-8 13 8 13 8-4.8 8-13 8S3 16 3 16Z" stroke="#8BEAF4" stroke-width="1.5"/><circle cx="16" cy="16" r="5.4" fill="#A5F3FC" fill-opacity=".2" stroke="#8BEAF4" stroke-width="1.4"/><circle cx="16" cy="16" r="2.4" fill="#B9FAFF"/></svg></span><span>OVYX SENTINEL</span></button>' +
   '<section id="' + ID + '-panel" role="dialog" aria-modal="false" aria-labelledby="' + ID + '-title" hidden><header class="head"><span class="eye" aria-hidden="true">◉</span><div class="headcopy"><div id="' + ID + '-title" class="title">OVYX SENTINEL</div><div class="sub">PRIVATE ADMIN COMPANION · SYSTEM HEALTH</div></div><button type="button" class="close" data-ovsx="close" aria-label="Close Sentinel">×</button></header>' +
-  '<div class="actions"><button type="button" class="btn primary" data-ovsx="scan">Check now</button><button type="button" class="btn" data-ovsx="wake">Enable wake word</button><button type="button" class="btn" data-ovsx="mute" disabled>Stop speaking</button></div>' +
-  '<div class="status" role="status" aria-live="polite" data-ovsx-status>Verifying administrator access…</div><div class="body"><div class="summary"><strong>Welcome back, boss.</strong><small>Sentinel checks platform health and authorised service signals. It does not read private user projects or conversations.</small></div><div data-ovsx-report></div><div class="transcript" hidden data-ovsx-transcript></div></div>' +
+  '<div class="actions"><button type="button" class="btn primary" data-ovsx="scan">Check now</button><button type="button" class="btn" data-ovsx="plan">Prepare fix plan</button><button type="button" class="btn" data-ovsx="wake">Enable wake word</button><button type="button" class="btn" data-ovsx="mute" disabled>Stop speaking</button></div>' +
+  '<div class="status" role="status" aria-live="polite" data-ovsx-status>Verifying administrator access…</div><div class="body"><div class="summary"><strong>Welcome back, boss.</strong><small>Sentinel checks platform health and authorised service signals. It does not read private user projects or conversations.</small></div><div data-ovsx-report></div><div class="plan" hidden data-ovsx-plan></div><div class="transcript" hidden data-ovsx-transcript></div></div>' +
   '<div class="foot">Wake word requires an enabled microphone and a supported browser. It works while this page is open and active; you can pause it at any time.</div></section>';
   document.body.appendChild(root); addStyles(); bindShell(); return root;
 }
@@ -92,6 +102,7 @@ function stateLabel(report) {
 }
 function renderReport(report) {
   latestReport = report || null;
+  var planHost = q('[data-ovsx-plan]'); if (planHost) { planHost.hidden = true; planHost.replaceChildren(); }
   var host = q('[data-ovsx-report]'); if (!host) return;
   host.replaceChildren();
   if (!report) { var empty = document.createElement('div'); empty.className = 'summary'; empty.textContent = 'No saved Sentinel report yet. Select Check now to run the first scan.'; host.appendChild(empty); return; }
@@ -108,6 +119,61 @@ function renderReport(report) {
     row.append(dot, info, badge); host.appendChild(row);
   });
   if (report.finishedAt) { var time = document.createElement('div'); time.className = 'rowsummary'; time.style.marginTop = '11px'; time.textContent = 'Checked at ' + safeText(new Date(report.finishedAt).toLocaleString(), 80); host.appendChild(time); }
+}
+
+function renderFixPlan(plan) {
+  var host = q('[data-ovsx-plan]'); if (!host) return;
+  host.replaceChildren();
+  host.hidden = false;
+
+  var header = document.createElement('div'); header.className = 'summary';
+  var title = document.createElement('strong'); title.textContent = 'Safe remediation plan';
+  var summary = document.createElement('small'); summary.textContent = safeText(plan && plan.summary || 'No remediation plan is available.', 280);
+  header.append(title, summary); host.appendChild(header);
+
+  var tasks = Array.isArray(plan && plan.tasks) ? plan.tasks.slice(0, 12) : [];
+  if (!tasks.length) {
+    var empty = document.createElement('div'); empty.className = 'plan-task';
+    empty.textContent = plan && plan.status === 'no_report'
+      ? 'Run a Sentinel scan first, then prepare a plan from its saved findings.'
+      : 'No remediation actions are indicated by the latest saved health checks.';
+    host.appendChild(empty);
+  }
+  tasks.forEach(function (task) {
+    var item = document.createElement('article');
+    item.className = 'plan-task';
+    item.dataset.priority = task && task.priority === 'critical' ? 'critical' : 'warning';
+    var heading = document.createElement('div'); heading.className = 'plan-heading';
+    var name = document.createElement('span'); name.textContent = safeText(task && task.title || 'Review system check', 160);
+    var priority = document.createElement('span'); priority.className = 'plan-priority'; priority.textContent = safeText(task && task.priority || 'review', 24);
+    heading.append(name, priority); item.appendChild(heading);
+
+    var issue = document.createElement('div'); issue.className = 'plan-issue';
+    issue.textContent = safeText(task && task.issue || 'A system check needs attention.', 260);
+    item.appendChild(issue);
+
+    var names = Array.isArray(task && task.configurationNames)
+      ? task.configurationNames.filter(function (value) { return /^[A-Z][A-Z0-9_]{1,79}$/.test(String(value || '')); }).slice(0, 16)
+      : [];
+    if (names.length) {
+      var config = document.createElement('div'); config.className = 'plan-issue';
+      config.textContent = 'Configuration names: ' + names.join(', ');
+      item.appendChild(config);
+    }
+    var steps = Array.isArray(task && task.steps) ? task.steps.slice(0, 6) : [];
+    if (steps.length) {
+      var ordered = document.createElement('ol');
+      steps.forEach(function (step) {
+        var li = document.createElement('li'); li.textContent = safeText(step, 320); ordered.appendChild(li);
+      });
+      item.appendChild(ordered);
+    }
+    host.appendChild(item);
+  });
+
+  var note = document.createElement('div'); note.className = 'plan-note';
+  note.textContent = safeText(plan && plan.note || 'Advisory only. No changes have been applied.', 360);
+  host.appendChild(note);
 }
 function speak(text) {
   if (!window.speechSynthesis || typeof window.SpeechSynthesisUtterance !== 'function') return;
@@ -130,6 +196,21 @@ async function loadLatest() {
   if (busy) return;
   try { var data = await api('GET'); renderReport(data.latestReport); status(data.lastScanAt ? 'Last saved scan: ' + new Date(data.lastScanAt).toLocaleString() : 'Sentinel is connected. Run the first check when ready.', 'success'); }
   catch (error) { status(error.message || 'Sentinel history is unavailable.', 'error'); }
+}
+async function prepareFixPlan() {
+  if (busy) return;
+  var button = q('[data-ovsx="plan"]'); if (button) button.disabled = true;
+  status('Preparing a safe remediation plan from the latest saved checks…');
+  try {
+    var data = await api('GET');
+    renderReport(data.latestReport || null);
+    renderFixPlan(data.fixPlan || null);
+    status('Fix plan prepared for review. Sentinel has not changed code, settings, secrets, or deployments.', 'success');
+  } catch (error) {
+    status(error.message || 'Sentinel could not prepare a remediation plan.', 'error');
+  } finally {
+    var current = q('[data-ovsx="plan"]'); if (current) current.disabled = false;
+  }
 }
 async function scanNow(shouldSpeak) {
   if (busy) return;
@@ -213,6 +294,7 @@ function bindShell() {
     var button = event.target.closest('[data-ovsx]'); if (!button) return;
     if (button.dataset.ovsx === 'close') showPanel(false);
     else if (button.dataset.ovsx === 'scan') void scanNow(false);
+    else if (button.dataset.ovsx === 'plan') void prepareFixPlan();
     else if (button.dataset.ovsx === 'wake') toggleWake();
     else if (button.dataset.ovsx === 'mute') { try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (_) {} button.disabled = true; }
   });
