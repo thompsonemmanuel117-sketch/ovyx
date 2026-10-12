@@ -105,6 +105,15 @@
       #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-welcome-brand .ovyx-native-response-avatar{width:34px!important;height:34px!important;flex-basis:34px!important}
       #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-welcome-brand .ovyx-native-response-avatar svg{width:31px!important;height:31px!important}
       @keyframes ovyxNativeResponseOrbit{to{transform:rotate(360deg)}}@keyframes ovyxNativeResponseFloat{0%,100%{transform:translateY(0) rotateY(-10deg) rotateX(5deg)}50%{transform:translateY(-2px) rotateY(8deg) rotateX(1deg)}}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-response-avatar{transform-style:preserve-3d;transition:filter .35s ease,box-shadow .35s ease}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-response-avatar:before{box-shadow:0 0 14px rgba(83,216,238,.16),inset 0 0 12px rgba(141,124,255,.07)}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-response-avatar:after{animation:ovyxNativeAuraShimmer 3.8s ease-in-out infinite}
+      #kernel-brain-bot-panel.ovyx-native-workspace.ovyx-ai-thinking .ovyx-native-response-avatar{filter:drop-shadow(0 0 12px rgba(83,216,238,.32));box-shadow:0 7px 22px rgba(0,0,0,.42),0 0 28px rgba(83,216,238,.22),0 0 48px rgba(232,193,107,.10);animation:ovyxNativeAuraPulse 1.55s ease-in-out infinite}
+      #kernel-brain-bot-panel.ovyx-native-workspace.ovyx-ai-thinking .ovyx-native-response-avatar:before{border-color:rgba(119,231,255,.62);box-shadow:0 0 22px rgba(83,216,238,.27);animation:ovyxNativeResponseOrbit 2.4s linear infinite}
+      #kernel-brain-bot-panel.ovyx-native-workspace.ovyx-ai-thinking .ovyx-native-response-avatar svg{animation:ovyxNativeResponseAwaken 1.6s ease-in-out infinite!important}
+      @keyframes ovyxNativeAuraPulse{0%,100%{transform:translateY(0) scale(1) rotateX(0)}50%{transform:translateY(-3px) scale(1.045) rotateX(7deg)}}
+      @keyframes ovyxNativeResponseAwaken{0%,100%{transform:translateY(0) rotateY(-16deg) rotateX(7deg) scale(1)}50%{transform:translateY(-2px) rotateY(16deg) rotateX(-3deg) scale(1.035)}}
+      @keyframes ovyxNativeAuraShimmer{0%,100%{opacity:.45;transform:translate(0,0) scale(1)}50%{opacity:.95;transform:translate(5px,2px) scale(1.18)}}
       @media(max-width:640px){#kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-response-avatar{width:34px!important;height:34px!important;flex-basis:34px!important}#kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-response-avatar svg{width:31px!important;height:31px!important}#kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-message-content{padding:10px 11px!important}}
       #kernel-brain-bot-panel.ovyx-native-workspace #bot-chat-history .text-brand-cyan{color:#7ee6e8!important;font-weight:800!important}
       #kernel-brain-bot-panel.ovyx-native-workspace #bot-chat-history .text-brand-gold{color:#e8c36f!important}
@@ -291,21 +300,37 @@
       menu.className = 'ovyx-native-menu';
       menu.hidden = true;
       menu.setAttribute('role', 'menu');
-      menu.innerHTML = '<div class="ovyx-native-menu-label">Conversation</div>' +
-        '<button type="button" role="menuitem" data-ovyx-native-action="new-chat"><i class="fa-regular fa-pen-to-square" aria-hidden="true"></i>New chat</button>' +
-        '<button type="button" role="menuitem" data-ovyx-native-action="copy-chat"><i class="fa-regular fa-copy" aria-hidden="true"></i>Copy conversation</button>' +
-        '<button type="button" role="menuitem" data-ovyx-native-action="help"><i class="fa-regular fa-circle-question" aria-hidden="true"></i>What can OVYX AI do?</button>' +
-        '<div class="ovyx-native-menu-divider"></div><div class="ovyx-native-menu-label">Workspace tools</div>';
-      const advanced = p.querySelector('.ovyx-ai-advanced');
-      const advancedBody = advanced?.querySelector('.ovyx-ai-advanced-body');
-      if (advancedBody) {
-        while (advancedBody.firstElementChild) menu.appendChild(advancedBody.firstElementChild);
-        advanced.remove();
-      }
-      menu.insertAdjacentHTML('beforeend',
-        '<button type="button" role="menuitem" data-ovyx-native-action="open-webstudio"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>Open Web Studio</button>');
       head.appendChild(menu);
     }
+    menu.setAttribute('aria-label', 'OVYX assistant and workspace actions');
+    // Rebuild this small menu on every render. A stale empty menu node must
+    // never permanently hide the actions after an interrupted earlier render.
+    menu.innerHTML = [
+      '<div class="ovyx-native-menu-label">Conversation</div>',
+      '<button type="button" role="menuitem" data-ovyx-native-action="new-chat"><i class="fa-regular fa-pen-to-square" aria-hidden="true"></i>New chat</button>',
+      '<button type="button" role="menuitem" data-ovyx-native-action="copy-chat"><i class="fa-regular fa-copy" aria-hidden="true"></i>Copy conversation</button>',
+      '<button type="button" role="menuitem" data-ovyx-native-action="export-chat"><i class="fa-solid fa-file-arrow-down" aria-hidden="true"></i>Export conversation</button>',
+      '<button type="button" role="menuitem" data-ovyx-native-action="help"><i class="fa-regular fa-circle-question" aria-hidden="true"></i>What can OVYX AI do?</button>',
+      '<div class="ovyx-native-menu-divider"></div>',
+      '<div class="ovyx-native-menu-label">Project intelligence</div>',
+      '<button type="button" role="menuitem" data-ovyx-native-action="diagnose-project"><i class="fa-solid fa-stethoscope" aria-hidden="true"></i>Diagnose my workspace</button>',
+      '<button type="button" role="menuitem" data-ovyx-native-action="repair-project"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i>Help fix my project</button>',
+      '<button type="button" role="menuitem" data-ovyx-native-action="explain-project"><i class="fa-solid fa-book-open" aria-hidden="true"></i>Explain my current project</button>',
+      '<button type="button" role="menuitem" data-ovyx-native-action="refresh-context"><i class="fa-solid fa-arrows-rotate" aria-hidden="true"></i>Refresh workspace context</button>',
+      '<button type="button" role="menuitem" data-ovyx-native-action="recover-project"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>Recover a deleted project</button>',
+      '<div class="ovyx-native-menu-divider"></div>',
+      '<div class="ovyx-native-menu-label">Quick access</div>',
+      '<button type="button" role="menuitem" data-ovyx-native-action="open-projects"><i class="fa-solid fa-folder-open" aria-hidden="true"></i>My projects</button>',
+      '<button type="button" role="menuitem" data-ovyx-native-action="open-workspace"><i class="fa-solid fa-layer-group" aria-hidden="true"></i>Workspace</button>',
+      '<button type="button" role="menuitem" data-ovyx-native-action="open-webstudio"><i class="fa-solid fa-display" aria-hidden="true"></i>Open Web Studio</button>',
+      '<button type="button" role="menuitem" data-ovyx-native-action="open-settings"><i class="fa-solid fa-sliders" aria-hidden="true"></i>Settings & connections</button>',
+      '<button type="button" role="menuitem" data-ovyx-native-action="open-assets"><i class="fa-regular fa-images" aria-hidden="true"></i>Project assets</button>',
+      '<button type="button" role="menuitem" data-ovyx-native-action="open-history"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i>Project history</button>',
+      '<button type="button" role="menuitem" data-ovyx-native-action="open-sections"><i class="fa-solid fa-table-cells-large" aria-hidden="true"></i>Page sections</button>',
+      '<button type="button" role="menuitem" data-ovyx-native-action="open-preview"><i class="fa-regular fa-eye" aria-hidden="true"></i>Preview current site</button>'
+    ].join('');
+    // The native menu replaces the legacy, sometimes-empty advanced-tools wrapper.
+    p.querySelector('.ovyx-ai-advanced')?.remove();
 
     const contextBlock = p.children[1];
     if (contextBlock && contextBlock !== head && !contextBlock.dataset.ovyxNativeCompact) {
@@ -482,12 +507,36 @@
       ? window.ProjectStore.list()
       : (Array.isArray(state.projects) ? state.projects : []);
     const active = state.activeProject || window.ProjectStore?.current || null;
-    const graph = active && active.id === state.activeProject?.id ? window.WebStudio?.graph : null;
-    const files = graph?.files || active?.files || {};
+    const graph = active && (!state.activeProject || active.id === state.activeProject?.id)
+      ? window.WebStudio?.graph
+      : null;
+    const files = graph?.files || active?.files || active?.sourceFiles || {};
     const fileRows = Object.entries(files).slice(0, 24).map(([path, value]) => ({
       path,
-      content: String(typeof value === 'string' ? value : value?.content || '').slice(0, 1400),
+      kind: 'file',
+      content: String(typeof value === 'string' ? value : value?.content || value?.html || value?.source || value?.code || '').slice(0, 1400),
     }));
+    const pageRows = (Array.isArray(active?.pages) ? active.pages : []).slice(0, 12).map((page, index) => {
+      let content = '';
+      try {
+        content = JSON.stringify({
+          name: page?.name || page?.slug || 'Page',
+          slug: page?.slug || '',
+          title: page?.title || '',
+          sections: page?.sections || [],
+          components: page?.components || [],
+          html: page?.html || '',
+        });
+      } catch (_) {
+        content = String(page?.name || page?.slug || 'Page');
+      }
+      return {
+        path: 'page:' + String(page?.slug || page?.id || index + 1),
+        kind: 'page-snapshot',
+        content: content.slice(0, 1400),
+      };
+    });
+    const sourceRows = [...fileRows, ...pageRows].slice(0, 32);
     const inventory = localProjects.slice(0, 60).map(project => ({
       id: project.id,
       name: project.name || 'Untitled project',
@@ -519,9 +568,14 @@
       projectInventory: inventory,
       serverProjectInventory: inventory,
       activeProject,
-      activeProjectSource: fileRows,
+      activeProjectSource: sourceRows,
       activeAssets: [],
       connections: [],
+      selection: {
+        nodeId: window.WebStudio?.selectedNodeId || window.KernelState?.selectedNodeId || null,
+        nodeType: window.WebStudio?.selectedNode?.type || window.KernelState?.selectedNode?.type || null,
+      },
+      capturedAt: new Date().toISOString(),
       contextSource: 'local-workspace-snapshot',
     };
   }
@@ -530,6 +584,11 @@
     const currentUser = getUser();
     const project = context?.activeProject;
     const workspace = context?.workspace;
+    const hasLocalContext = !!(
+      project?.id || project?.name ||
+      (Array.isArray(context?.projectInventory) && context.projectInventory.length) ||
+      workspace?.currentView
+    );
     const label = $('bot-context-node-id');
     const status = $('bot-context-node-type');
     if (label) {
@@ -537,29 +596,38 @@
         ? 'WORKSPACE · ' + String(project.name).slice(0, 90)
         : 'OVYX WORKSPACE · ' + String(workspace?.name || 'CHAT READY').slice(0, 80);
       label.title = limited
-        ? 'The live workspace scan did not finish. Chat still works with the local workspace snapshot.'
-        : 'Workspace details available to OVYX AI.';
+        ? (hasLocalContext
+          ? 'The deeper workspace scan is still unavailable; OVYX AI can use the local project snapshot shown in this session.'
+          : 'No project details were found yet. OVYX AI can still chat and you can refresh the workspace scan.')
+        : 'Workspace details are available to OVYX AI.';
     }
     if (status) {
-      status.textContent = !currentUser ? 'SIGN IN REQUIRED' : (limited ? 'CHAT READY · LIMITED' : 'NATIVE AI READY');
+      status.textContent = !currentUser
+        ? 'SIGN IN REQUIRED'
+        : (limited ? (hasLocalContext ? 'LOCAL CONTEXT READY' : 'SCAN NEEDED') : 'WORKSPACE READY');
       status.title = !currentUser
         ? 'Sign in to use the private, account-aware assistant.'
-        : (limited ? 'Workspace scan is limited; you can still chat with OVYX AI.' : 'OVYX native AI is ready.');
+        : (limited
+          ? (hasLocalContext ? 'The local workspace snapshot is usable while the deeper scan retries.' : 'Refresh context to load project details.')
+          : 'OVYX AI has a current workspace scan.');
     }
     const subtitle = panel()?.querySelector('.ovyx-native-subtitle span');
-    if (subtitle) subtitle.textContent = currentUser
-      ? 'Native AI · workspace-aware'
-      : 'Sign in required to chat';
+    if (subtitle) subtitle.textContent = !currentUser
+      ? 'Sign in required to chat'
+      : (limited && hasLocalContext ? 'Native AI · local snapshot ready' : 'Native AI · workspace-aware');
     const dot = panel()?.querySelector('.ovyx-native-status-dot');
     if (dot) {
-      dot.style.background = currentUser ? '#58d7b5' : '#e8b64f';
-      dot.style.boxShadow = currentUser ? '0 0 0 3px rgba(88,215,181,.09)' : '0 0 0 3px rgba(232,182,79,.09)';
+      dot.style.background = !currentUser ? '#e8b64f' : (limited ? '#8eabff' : '#58d7b5');
+      dot.style.boxShadow = !currentUser
+        ? '0 0 0 3px rgba(232,182,79,.09)'
+        : (limited ? '0 0 0 3px rgba(142,171,255,.12)' : '0 0 0 3px rgba(88,215,181,.09)');
     }
   }
 
   async function resolveWorkspaceContext() {
     const fallback = localWorkspaceSnapshot();
     let scanned = null;
+    let timedOut = false;
     let limited = false;
     const scanner = window.OVYXWorkspaceCopilot?.scan;
     if (typeof scanner === 'function') {
@@ -569,8 +637,9 @@
           Promise.resolve().then(() => scanner()).then(value => ({ value })),
           new Promise(resolve => { timer = setTimeout(() => resolve({ value: null, timedOut: true }), 1800); }),
         ]);
-        scanned = result?.value || null;
-        limited = !scanned || typeof scanned !== 'object' || result?.timedOut === true;
+        scanned = result?.value && typeof result.value === 'object' ? result.value : null;
+        timedOut = result?.timedOut === true;
+        limited = !scanned || timedOut;
       } catch (_) {
         limited = true;
       } finally {
@@ -580,24 +649,46 @@
       limited = true;
     }
 
-    const context = scanned && typeof scanned === 'object' ? scanned : fallback;
-    const projectInventory = Array.isArray(context.projectInventory) && context.projectInventory.length
-      ? context.projectInventory
+    const candidate = scanned || {};
+    const usefulProject = candidate.activeProject &&
+      typeof candidate.activeProject === 'object' &&
+      (candidate.activeProject.id || candidate.activeProject.name ||
+       (Array.isArray(candidate.activeProject.pages) && candidate.activeProject.pages.length) ||
+       (Array.isArray(candidate.activeProject.filePaths) && candidate.activeProject.filePaths.length));
+    const mergeRows = (first, second) => {
+      const rows = new Map();
+      for (const item of [...(Array.isArray(first) ? first : []), ...(Array.isArray(second) ? second : [])]) {
+        if (!item || typeof item !== 'object') continue;
+        const key = String(item.path || item.name || rows.size);
+        const current = rows.get(key);
+        if (!current || String(item.content || '').length >= String(current.content || '').length) rows.set(key, item);
+      }
+      return [...rows.values()].slice(0, 32);
+    };
+    const inventory = Array.isArray(candidate.projectInventory) && candidate.projectInventory.length
+      ? candidate.projectInventory
       : fallback.projectInventory;
+    const serverInventory = Array.isArray(candidate.serverProjectInventory) && candidate.serverProjectInventory.length
+      ? candidate.serverProjectInventory
+      : fallback.serverProjectInventory;
     const merged = {
       ...fallback,
-      ...context,
-      workspace: context.workspace || fallback.workspace,
-      projectInventory,
-      serverProjectInventory: Array.isArray(context.serverProjectInventory) && context.serverProjectInventory.length
-        ? context.serverProjectInventory
-        : fallback.serverProjectInventory,
-      activeProject: context.activeProject || fallback.activeProject,
-      activeProjectSource: Array.isArray(context.activeProjectSource) && context.activeProjectSource.length
-        ? context.activeProjectSource
-        : fallback.activeProjectSource,
+      ...candidate,
+      workspace: { ...fallback.workspace, ...(candidate.workspace && typeof candidate.workspace === 'object' ? candidate.workspace : {}) },
+      projectInventory: inventory,
+      serverProjectInventory: serverInventory,
+      activeProject: usefulProject ? candidate.activeProject : fallback.activeProject,
+      activeProjectSource: mergeRows(fallback.activeProjectSource, candidate.activeProjectSource),
+      activeAssets: Array.isArray(candidate.activeAssets) && candidate.activeAssets.length
+        ? candidate.activeAssets
+        : fallback.activeAssets,
+      connections: Array.isArray(candidate.connections) && candidate.connections.length
+        ? candidate.connections
+        : fallback.connections,
+      selection: candidate.selection || fallback.selection,
+      capturedAt: fallback.capturedAt,
       contextWarning: limited
-        ? 'Live workspace context was unavailable. Use this current browser snapshot when helpful, but continue normal chat.'
+        ? 'The optional live workspace scan did not finish before its time limit. A current browser-local snapshot is included. Use available project, page, and file details; do not say the workspace context is unavailable solely because the deep scan timed out.'
         : null,
     };
     syncWorkspaceBadge(merged, limited);
@@ -630,6 +721,7 @@
     if (!bot || typeof bot.pushMsg !== 'function') return;
 
     busy = true;
+    panel()?.classList.add('ovyx-ai-thinking');
     const sendButton = panel()?.querySelector('[data-ovyx-native-send]');
     if (sendButton) {
       sendButton.disabled = true;
@@ -659,9 +751,10 @@
       runActions(result.actions);
     } catch (error) {
       syncWorkspaceBadge(localWorkspaceSnapshot(), true);
-      bot.pushMsg('OVYX: ' + String(error?.message || 'OVYX AI could not complete that request.'));
+      bot.pushMsg('OVYX ERROR: ' + String(error?.message || 'OVYX AI could not complete that request.'));
     } finally {
       busy = false;
+      panel()?.classList.remove('ovyx-ai-thinking');
       input.disabled = false;
       if (sendButton) {
         sendButton.disabled = !String(input.value || '').trim();
@@ -674,36 +767,225 @@
     }
   }
 
-  function menuAction(action) {
-    const root = $('bot-chat-history');
+  function askAssistantTask(prompt) {
+    const input = $('bot-chat-input');
+    if (!input) {
+      push('The assistant composer is not available on this screen. Reopen OVYX AI and try again.');
+      return;
+    }
+    if (busy) {
+      push('OVYX AI is already working on a message. Wait for that reply before starting another task.');
+      return;
+    }
+    input.value = String(prompt || '').trim();
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    closeMenu();
+    send();
+  }
+
+  async function copyConversation() {
+    const text = String($('bot-chat-history')?.innerText || '').trim();
+    if (!text) {
+      push('There is no conversation to copy yet.');
+      return;
+    }
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        throw new Error('Clipboard API unavailable');
+      }
+      push('Conversation copied to clipboard.');
+    } catch (_) {
+      const helper = document.createElement('textarea');
+      helper.value = text;
+      helper.setAttribute('readonly', '');
+      helper.style.position = 'fixed';
+      helper.style.opacity = '0';
+      helper.style.pointerEvents = 'none';
+      document.body.appendChild(helper);
+      helper.select();
+      let copied = false;
+      try { copied = document.execCommand('copy'); } catch (_) {}
+      helper.remove();
+      push(copied ? 'Conversation copied to clipboard.' : 'Copy was blocked by this browser. You can use Export conversation instead.');
+    }
+  }
+
+  function exportConversation() {
+    const text = String($('bot-chat-history')?.innerText || '').trim();
+    if (!text) {
+      push('There is no conversation to export yet.');
+      return;
+    }
+    try {
+      const blob = new Blob([text + '\n'], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'ovyx-ai-conversation-' + new Date().toISOString().slice(0, 10) + '.txt';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+      push('Conversation export is ready.');
+    } catch (_) {
+      push('This browser could not export the conversation.');
+    }
+  }
+
+  async function refreshWorkspaceContext() {
+    closeMenu();
+    const label = $('bot-context-node-type');
+    if (label) label.textContent = 'REFRESHING…';
+    try {
+      let result = null;
+      if (typeof window.OVYXWorkspaceCopilot?.scan === 'function') {
+        result = await window.OVYXWorkspaceCopilot.scan();
+      } else if (typeof window.__OVYX_SCAN_WORKSPACE_CONTEXT__ === 'function') {
+        result = await window.__OVYX_SCAN_WORKSPACE_CONTEXT__(true);
+      }
+      const local = localWorkspaceSnapshot();
+      const scan = result && typeof result === 'object' ? result : {};
+      const context = {
+        ...local,
+        ...scan,
+        workspace: { ...local.workspace, ...(scan.workspace && typeof scan.workspace === 'object' ? scan.workspace : {}) },
+        projectInventory: Array.isArray(scan.projectInventory) && scan.projectInventory.length
+          ? scan.projectInventory : local.projectInventory,
+        serverProjectInventory: Array.isArray(scan.serverProjectInventory) && scan.serverProjectInventory.length
+          ? scan.serverProjectInventory : local.serverProjectInventory,
+        activeProject: scan.activeProject && (scan.activeProject.id || scan.activeProject.name)
+          ? scan.activeProject : local.activeProject,
+        activeProjectSource: Array.isArray(scan.activeProjectSource) && scan.activeProjectSource.length
+          ? scan.activeProjectSource : local.activeProjectSource,
+        activeAssets: Array.isArray(scan.activeAssets) && scan.activeAssets.length
+          ? scan.activeAssets : local.activeAssets,
+        connections: Array.isArray(scan.connections) && scan.connections.length
+          ? scan.connections : local.connections,
+      };
+      const usable = !!(context.activeProject || context.projectInventory?.length || context.workspace?.currentView);
+      syncWorkspaceBadge(context, !result || typeof result !== 'object');
+      const count = Array.isArray(context.projectInventory) ? context.projectInventory.length : 0;
+      const assets = Array.isArray(context.activeAssets) ? context.activeAssets.length : 0;
+      push('Workspace context refreshed. ' + count + ' project(s) found' +
+        (assets ? ' · ' + assets + ' asset(s) indexed.' : '.') +
+        (usable ? ' Local project details remain available to OVYX AI.' : ' Open or select a project to provide more detail.'));
+    } catch (error) {
+      syncWorkspaceBadge(localWorkspaceSnapshot(), true);
+      push(String(error?.message || 'Workspace refresh failed. The local snapshot is still available.'));
+    }
+  }
+
+  function openStudioTool(toolName, label) {
+    const invoke = () => {
+      let fn = null;
+      let receiver = null;
+      if (toolName === 'open-assets') {
+        receiver = window.OVYXDeepRepairV3;
+        fn = receiver?.openAssets;
+      } else {
+        receiver = window.WebStudio;
+        fn = toolName === 'open-history' ? receiver?.openHistory
+          : toolName === 'open-sections' ? window.OVYXDeepRepairV3?.openSections
+          : receiver?.openPreviewFull;
+        if (toolName === 'open-sections') receiver = window.OVYXDeepRepairV3;
+      }
+      if (typeof fn === 'function') {
+        try {
+          const result = fn.call(receiver);
+          if (result && typeof result.catch === 'function') result.catch(error => push(error?.message || (label + ' could not be opened.')));
+        } catch (error) {
+          push(error?.message || (label + ' could not be opened.'));
+        }
+      } else {
+        push('Web Studio is open. ' + label + ' is not available for this project yet.');
+      }
+    };
+    closeMenu();
+    const view = String(window.KernelState?.activeView || '').replace(/^view-/, '').toLowerCase();
+    if (view !== 'webstudio') {
+      window.Router?.go?.('webstudio');
+      [250, 650, 1100, 1800].forEach(delay => setTimeout(() => {
+        if (String(window.KernelState?.activeView || '').replace(/^view-/, '').toLowerCase() === 'webstudio') invoke();
+      }, delay));
+    } else {
+      invoke();
+    }
+  }
+
+  async function menuAction(action) {
+    closeMenu();
     if (action === 'new-chat') {
       history = [];
       conversationId = newConversationId();
-      closeMenu();
+      const input = $('bot-chat-input');
+      if (input) input.value = '';
       insertWelcome();
       return;
     }
     if (action === 'copy-chat') {
-      const text = String(root?.innerText || '').trim();
-      if (!text) return;
-      if (navigator.clipboard?.writeText) {
-        navigator.clipboard.writeText(text).then(() => push('Conversation copied to clipboard.')).catch(() => push('Copy was blocked by this browser.'));
-      } else {
-        push('Clipboard access is not available in this browser.');
-      }
-      closeMenu();
+      await copyConversation();
+      return;
+    }
+    if (action === 'export-chat') {
+      exportConversation();
       return;
     }
     if (action === 'help') {
-      closeMenu();
-      push('Try asking: “Scan my workspace”, “What is wrong with this project?”, “Open my project settings”, “Explain the current project”, “Check my connections”, or “Prepare a website brief in Web Studio”. I only perform validated workspace actions and will tell you when something needs your approval.');
+      push('OVYX AI can inspect the workspace snapshot, explain projects and page files, diagnose likely problems, refresh project context, navigate to the right tool, and prepare a concrete Web Studio repair brief. Try: “Diagnose my current project”, “Why is this page broken?”, “Fix the mobile layout”, “Explain this project”, or “Check my workspace connections”. It will be clear about what it has inspected, what it prepared, and what still needs your approval.');
+      return;
+    }
+    if (action === 'diagnose-project') {
+      askAssistantTask('Run a careful, non-destructive diagnosis of my current OVYX workspace and active project. Inspect the supplied project inventory, page snapshots, file contents, selected node, and any diagnostics. Report specific findings, likely causes, and the safest next step. If a concrete website code repair is needed, prepare a precise repair brief and take me to Web Studio using a validated navigation action. Do not claim to have changed anything unless it really did.');
+      return;
+    }
+    if (action === 'repair-project') {
+      askAssistantTask('Help fix my active project. First inspect the current workspace context, page snapshots, available file contents, and diagnostics to identify the specific problem rather than giving generic advice. If the task requires editing website files, prepare a concrete repair prompt based on the evidence and take me to Web Studio with that prompt ready for review. Do not invent missing code or claim a repair was applied before the builder confirms it.');
+      return;
+    }
+    if (action === 'explain-project') {
+      askAssistantTask('Explain my active project using the actual workspace snapshot, page list, and source snippets provided. Describe what it contains, how its visible parts fit together, and any concrete issues or missing details you can verify. Clearly separate verified facts from guesses.');
+      return;
+    }
+    if (action === 'refresh-context') {
+      await refreshWorkspaceContext();
+      return;
+    }
+    if (action === 'recover-project') {
+      try {
+        const result = await Promise.resolve(window.OVYXProjectRecovery?.restore?.(null));
+        push(result?.ok ? ('Recovered ' + (result.name || 'project') + '.') : (result?.error || 'No recoverable deleted project was found.'));
+      } catch (error) {
+        push(error?.message || 'Project recovery failed.');
+      }
+      return;
+    }
+    if (action === 'open-projects') {
+      window.Router?.go?.('projects');
+      return;
+    }
+    if (action === 'open-workspace') {
+      window.Router?.go?.('workspace');
+      return;
+    }
+    if (action === 'open-settings') {
+      window.Router?.go?.('settings');
       return;
     }
     if (action === 'open-webstudio') {
-      closeMenu();
       window.Router?.go?.('webstudio');
       setTimeout(() => $('ws-chat-input')?.focus(), 350);
       return;
+    }
+    if (action === 'open-assets' || action === 'open-history' || action === 'open-sections' || action === 'open-preview') {
+      const labels = {
+        'open-assets': 'Project assets',
+        'open-history': 'Project history',
+        'open-sections': 'Page sections',
+        'open-preview': 'Site preview',
+      };
+      openStudioTool(action, labels[action]);
     }
   }
 
@@ -724,7 +1006,7 @@
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation?.();
-        menuAction(actionButton.dataset.ovyxNativeAction);
+        Promise.resolve(menuAction(actionButton.dataset.ovyxNativeAction)).catch(error => push(error?.message || 'That assistant action could not be completed.'));
         return;
       }
       const workspaceTool = event.target.closest('[data-ovyx-ai-scan], [data-ovyx-ai-refresh], [data-ovyx-ai-recover]');
