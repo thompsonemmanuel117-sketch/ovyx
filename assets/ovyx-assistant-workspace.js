@@ -1073,7 +1073,11 @@
         if (!item || typeof item !== 'object') continue;
         const key = String(item.path || item.name || rows.size);
         const current = rows.get(key);
-        if (!current || String(item.content || '').length >= String(current.content || '').length) rows.set(key, item);
+        const priority = row => row?.contentState === 'unsaved-changes' ? 3 : (row?.origin === 'live-editor-source' ? 2 : 1);
+        if (!current || priority(item) > priority(current) ||
+            (priority(item) === priority(current) && String(item.content || '').length >= String(current.content || '').length)) {
+          rows.set(key, item);
+        }
       }
       return [...rows.values()].slice(0, 32);
     };
@@ -1097,7 +1101,27 @@
       connections: Array.isArray(candidate.connections) && candidate.connections.length
         ? candidate.connections
         : fallback.connections,
-      selection: candidate.selection || fallback.selection,
+      settings: {
+        ...(fallback.settings && typeof fallback.settings === 'object' ? fallback.settings : {}),
+        ...(candidate.settings && typeof candidate.settings === 'object' ? candidate.settings : {}),
+      },
+      selection: (() => {
+        const base = fallback.selection && typeof fallback.selection === 'object' ? fallback.selection : {};
+        const next = candidate.selection && typeof candidate.selection === 'object' ? candidate.selection : {};
+        const merged = { ...base };
+        for (const [key, value] of Object.entries(next)) {
+          if (value !== null && value !== undefined && value !== '') merged[key] = value;
+        }
+        merged.nodeId = next.nodeId || base.nodeId || null;
+        merged.nodeType = next.nodeType || base.nodeType || null;
+        merged.attributes = {
+          ...(base.attributes && typeof base.attributes === 'object' ? base.attributes : {}),
+          ...(next.attributes && typeof next.attributes === 'object'
+            ? Object.fromEntries(Object.entries(next.attributes).filter(([, value]) => value !== null && value !== undefined && value !== ''))
+            : {}),
+        };
+        return merged;
+      })(),
       capturedAt: fallback.capturedAt,
       contextWarning: limited
         ? 'The optional live workspace scan did not finish before its time limit. A current browser-local snapshot is included. Use available project, page, and file details; do not say the workspace context is unavailable solely because the deep scan timed out.'
@@ -1323,6 +1347,27 @@
           ? scan.activeAssets : local.activeAssets,
         connections: Array.isArray(scan.connections) && scan.connections.length
           ? scan.connections : local.connections,
+        settings: {
+          ...(local.settings && typeof local.settings === 'object' ? local.settings : {}),
+          ...(scan.settings && typeof scan.settings === 'object' ? scan.settings : {}),
+        },
+        selection: (() => {
+          const base = local.selection && typeof local.selection === 'object' ? local.selection : {};
+          const next = scan.selection && typeof scan.selection === 'object' ? scan.selection : {};
+          const merged = { ...base };
+          for (const [key, value] of Object.entries(next)) {
+            if (value !== null && value !== undefined && value !== '') merged[key] = value;
+          }
+          merged.nodeId = next.nodeId || base.nodeId || null;
+          merged.nodeType = next.nodeType || base.nodeType || null;
+          merged.attributes = {
+            ...(base.attributes && typeof base.attributes === 'object' ? base.attributes : {}),
+            ...(next.attributes && typeof next.attributes === 'object'
+              ? Object.fromEntries(Object.entries(next.attributes).filter(([, value]) => value !== null && value !== undefined && value !== ''))
+              : {}),
+          };
+          return merged;
+        })(),
       };
       const usable = !!(context.activeProject || context.projectInventory?.length || context.workspace?.currentView);
       syncWorkspaceBadge(context, !result || typeof result !== 'object');
