@@ -33,6 +33,10 @@
   }
 
   async function checkProvider(select) {
+    const previous = activeChecks.get(select);
+    if (previous) previous.abort();
+    activeChecks.delete(select);
+    if (select) select.removeAttribute('aria-busy');
     const selected = selectedProvider(select);
     if (!selected || selected === 'automatic') {
       toast('OVYX Auto chooses an available AI brain based on the task and configured providers.', 'info');
@@ -49,8 +53,6 @@
       return;
     }
 
-    const previous = activeChecks.get(select);
-    if (previous) previous.abort();
     const controller = new AbortController();
     activeChecks.set(select, controller);
     const timeout = setTimeout(() => controller.abort(), 9000);
