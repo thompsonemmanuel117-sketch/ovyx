@@ -71,6 +71,31 @@ if (
   errors.push('functions/_lib/providers.js: an explicitly selected provider must use its own provider route and show a helpful unavailable message instead of silently switching.');
 }
 
+if (
+  !providerRouterSource.includes('function isProviderConfigured(env, provider)') ||
+  !providerRouterSource.includes('AI_PROVIDER_NOT_CONFIGURED')
+) {
+  errors.push('functions/_lib/providers.js: Automatic routing must skip unconfigured providers and explain when no AI brain is available.');
+}
+
+const providerAvailabilityPath = path.join(root, 'functions/api/ai/provider-availability.js');
+const providerAvailabilityTestPath = path.join(root, 'scripts/provider-availability.test.mjs');
+if (!fs.existsSync(providerAvailabilityPath) || !fs.existsSync(providerAvailabilityTestPath)) {
+  errors.push('OVYX AI: the authenticated provider availability endpoint and its regression tests must be present.');
+} else {
+  const availability = fs.readFileSync(providerAvailabilityPath, 'utf8');
+  if (
+    !availability.includes('assertAuthenticated(context.data?.user)') ||
+    !availability.includes("'x-goog-api-key'") ||
+    !availability.includes("'x-api-key'") ||
+    !availability.includes('NOT_CONFIGURED') ||
+    !availability.includes("signal: controller.signal") ||
+    !availability.includes('models?pageSize=1') 
+  ) {
+    errors.push('OVYX AI: provider availability must authenticate, time-bound probes, and keep API keys out of URLs and responses.');
+  }
+}
+
 const aiStatusPath = path.join(root, 'functions/api/ai/status.js');
 if (fs.existsSync(aiStatusPath)) {
   const aiStatus = fs.readFileSync(aiStatusPath, 'utf8');
@@ -400,7 +425,10 @@ if (fs.existsSync(healthRoutePath)) {
     !healthRoute.includes('unavailableRequiredEnvironment') ||
     !healthRoute.includes('invalidRequiredEnvironment') ||
     !healthRoute.includes('must_be_at_least_32_characters') ||
-    !healthRoute.includes('credentialAuthentication')
+    !healthRoute.includes('credentialAuthentication') ||
+    !healthRoute.includes('OVYX_CONNECTION_ENCRYPTION_KEY') ||
+    !healthRoute.includes('validateConnectionEncryptionKey') ||
+    !healthRoute.includes("'UniversalConnections'")
   ) {
     errors.push('functions/api/health.js: health checks must distinguish absent, empty, malformed, and structurally valid runtime secrets without exposing secret values.');
   }
@@ -443,6 +471,16 @@ if (fs.existsSync(html)) {
   if (/Agent is starting/i.test(text)) errors.push('index.html: stale Web Studio agent-starting copy detected');
   if (!text.includes('window.__OVYX_SPLASH_FAILSAFE__') || !text.includes('function releaseSplash(reason,event)') || !text.includes("document.readyState==='complete'")) {
     errors.push('index.html: splash must wait for full page load and use a bounded failsafe instead of a short fixed timer.');
+  }
+  if (
+    !text.includes('function checkProviderAvailability(provider)') ||
+    !text.includes('/api/ai/provider-availability?provider=') ||
+    !text.includes('checkProviderAvailability(value).catch') ||
+    !text.includes("message.textContent = String(msg == null ? '' : msg)") ||
+    !text.includes('id="ovyx-toast-motion-v2"') ||
+    !text.includes("bar.setAttribute('aria-valuemax',String(quotaMax))")
+  ) {
+    errors.push('index.html: provider selection feedback, safe animated notifications, and accessible quota values must be wired.');
   }
   const providerChoiceRouter = text.match(/function patchAIBrain\(\)\{([\s\S]*?)\n  function mountGemini\(\)\{\}/);
   if (
