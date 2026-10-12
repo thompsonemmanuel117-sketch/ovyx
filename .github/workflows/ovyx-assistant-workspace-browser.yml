@@ -1,0 +1,64 @@
+name: OVYX Assistant Workspace Browser Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'assets/ovyx-assistant-workspace.js'
+      - 'functions/api/ai/workspace-tools.js'
+      - 'functions/_lib/ovyx-native-ai.js'
+      - 'functions/_middleware.js'
+      - 'scripts/ovyx-assistant-workspace.browser.test.mjs'
+      - 'scripts/ovyx-workspace-tools.test.mjs'
+      - 'scripts/ovyx-workspace-tools.integration.test.mjs'
+      - 'scripts/ovyx-assistant-runtime.test.mjs'
+      - 'scripts/ovyx-static-verify.mjs'
+      - 'package.json'
+      - '.github/workflows/ovyx-assistant-workspace-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  assistant-workspace-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: |
+          npm install --ignore-scripts
+          npm install --ignore-scripts --no-save playwright@^1.55.0
+
+      - name: Verify source and run workspace persistence integration tests
+        run: |
+          npm run validate
+          npm test
+          npm run build
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start local Cloudflare Pages app
+        run: |
+          npx wrangler pages dev . --ip 127.0.0.1 --port 8788 > /tmp/ovyx-pages.log 2>&1 &
+          echo $! > /tmp/ovyx-pages.pid
+          curl --retry 30 --retry-connrefused --retry-delay 2 --fail http://127.0.0.1:8788/ -o /dev/null
+
+      - name: Exercise assistant workspace in desktop and mobile Chromium
+        run: node scripts/ovyx-assistant-workspace.browser.test.mjs
+        env:
+          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
+
+      - name: Print local Pages logs on failure
+        if: failure()
+        run: cat /tmp/ovyx-pages.log || true

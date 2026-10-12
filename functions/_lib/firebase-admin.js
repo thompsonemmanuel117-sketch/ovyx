@@ -816,9 +816,8 @@ export async function deleteFirestoreDocumentAtPath(env,segments,expectedUpdateT
 }
 
 export async function listFirestoreSubcollectionDocumentsAtPath(env,parentSegments,subcollection,pageSize=100){
-  const serviceAccount=parseServiceAccount(env);
   const accessToken=await getGoogleAccessToken(env);
-  const parent=firestoreDocumentPath(serviceAccount.project_id,parentSegments);
+  const parent=firestoreDocumentPathFromSegments(env,parentSegments).url;
   const name=String(subcollection||'').trim();
   if(!name||name.includes('/'))throw new Error('Firestore subcollection name is invalid.');
   const params=new URLSearchParams({pageSize:String(Math.min(Math.max(Number(pageSize)||100,1),1000))});

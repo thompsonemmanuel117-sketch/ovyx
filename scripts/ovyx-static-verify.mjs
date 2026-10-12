@@ -298,6 +298,10 @@ if (!fs.existsSync(nativeAssistantPath) || !fs.existsSync(nativeAssistantRoutePa
   const nativeRoute = fs.readFileSync(nativeAssistantRoutePath, 'utf8');
   const nativeClient = fs.readFileSync(nativeAssistantClientPath, 'utf8');
   const shellMiddleware = fs.readFileSync(shellMiddlewarePath, 'utf8');
+  const workspaceToolsPath = path.join(root, 'functions/api/ai/workspace-tools.js');
+  const workspaceToolsTestPath = path.join(root, 'scripts/ovyx-workspace-tools.test.mjs');
+  const workspaceTools = fs.existsSync(workspaceToolsPath) ? fs.readFileSync(workspaceToolsPath, 'utf8') : '';
+  const workspaceToolsTest = fs.existsSync(workspaceToolsTestPath) ? fs.readFileSync(workspaceToolsTestPath, 'utf8') : '';
   if (
     !nativeAssistant.includes('env.AI.run') ||
     !nativeAssistant.includes('@cf/meta/llama-3.3-70b-instruct-fp8-fast') ||
@@ -310,9 +314,25 @@ if (!fs.existsSync(nativeAssistantPath) || !fs.existsSync(nativeAssistantRoutePa
     !nativeClient.includes('data-ovyx-native-more') ||
     !nativeClient.includes('workspace-copilot-native') ||
     !nativeClient.includes('runActions') ||
-    !shellMiddleware.includes('assets/ovyx-assistant-workspace.js')
+    !nativeClient.includes("operation: 'prepare_restore'") ||
+    !nativeClient.includes("operation: 'restore_revision'") ||
+    !nativeClient.includes("type === 'workspace_undo'") ||
+    !nativeClient.includes('data-ovyx-native-action="undo-last-ai-edit"') ||
+    !nativeClient.includes('data-ovyx-native-action="review-ai-edits"') ||
+    !nativeClient.includes('TASK RUNNING') ||
+    !nativeClient.includes('I inspected the saved project') ||
+    !nativeClient.includes('saved-project scan was unavailable') ||
+    !nativeClient.includes('APPROVAL NEEDED') ||
+    !nativeClient.includes('APPLIED · VERIFIED') ||
+    !workspaceTools.includes("operation === 'prepare_restore'") ||
+    !workspaceTools.includes("operation === 'restore_revision'") ||
+    !workspaceTools.includes('RESTORE_APPROVAL_REQUIRED') ||
+    !workspaceTools.includes('RESTORE_VERIFY_FAILED') ||
+    !fs.readFileSync(nativeAssistantPath, 'utf8').includes("'workspace_undo'") ||
+    !workspaceToolsTest.includes('Recovery must have a distinct preview operation.') ||
+    !shellMiddleware.includes('assets/ovyx-assistant-workspace.js?v=20261012-5')
   ) {
-    errors.push('OVYX native assistant: native Workers AI routing, quota accounting, safe actions, professional menu or shell injection is incomplete.');
+    errors.push('OVYX native assistant: safe recovery, review-before-write, truthful progress states, tests or cache-busted shell injection is incomplete.');
   }
   try {
     execFileSync(process.execPath, ['--check', nativeAssistantClientPath], { stdio: 'pipe' });
@@ -323,6 +343,12 @@ if (!fs.existsSync(nativeAssistantPath) || !fs.existsSync(nativeAssistantRoutePa
 if (!fs.existsSync(path.join(root, 'scripts/ovyx-native-ai.test.mjs')) ||
     !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/ovyx-native-ai.test.mjs')) {
   errors.push('OVYX native assistant: native engine routing tests must run in the standard npm test suite.');
+}
+if (!fs.existsSync(path.join(root, 'scripts/ovyx-workspace-tools.integration.test.mjs')) ||
+    !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/ovyx-workspace-tools.integration.test.mjs') ||
+    !fs.existsSync(path.join(root, 'scripts/ovyx-assistant-workspace.browser.test.mjs')) ||
+    !fs.existsSync(path.join(root, '.github/workflows/ovyx-assistant-workspace-browser.yml'))) {
+  errors.push('OVYX assistant Stage 6: workspace persistence integration tests and desktop/mobile browser test workflow must be present.');
 }
 
 const routeConfigPath = path.join(root, 'functions/_routes.json');

@@ -31,7 +31,11 @@ const result = await generateOvyxNativeAI(
             text: 'I found the project settings area.',
             actions: [
               { type: 'navigate', route: 'settings' },
+              { type: 'workspace_undo' },
               { type: 'run_shell', command: 'rm -rf /' },
+              { type: 'delete_project', projectId: 'project_123' },
+              { type: 'deploy', projectId: 'project_123' },
+              { type: 'change_sensitive_settings', key: 'auth' },
               { type: 'navigate', route: 'https://evil.example' },
             ],
           }),
@@ -53,10 +57,13 @@ assert.match(captured.input.messages[0].content, /OVYX AI/);
 assert.match(captured.input.messages[0].content, /Sample website/);
 assert.match(captured.input.messages[0].content, /FALLBACK CONTEXT/);
 assert.match(captured.input.messages[0].content, /REPAIR WORKFLOW/);
+assert.match(captured.input.messages[0].content, /WORKSPACE CHANGE STATES/);
+assert.match(captured.input.messages[0].content, /RECOVERY AND AUTHORIZATION/);
+assert.match(captured.input.messages[0].content, /workspace_undo/);
 assert.match(captured.input.messages[0].content, /local browser snapshot/i);
 assert.equal(result.provider, 'ovyx-native');
 assert.equal(result.text, 'I found the project settings area.');
-assert.deepEqual(result.actions, [{ type: 'navigate', route: 'settings' }]);
+assert.deepEqual(result.actions, [{ type: 'navigate', route: 'settings' }, { type: 'workspace_undo' }]);
 const parsedPatch = parseOvyxNativeModelOutput({
   response: JSON.stringify({
     text: 'I found a concrete source repair.',
