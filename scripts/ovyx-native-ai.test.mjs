@@ -57,6 +57,8 @@ assert.match(captured.input.messages[0].content, /OVYX AI/);
 assert.match(captured.input.messages[0].content, /Sample website/);
 assert.match(captured.input.messages[0].content, /FALLBACK CONTEXT/);
 assert.match(captured.input.messages[0].content, /REPAIR WORKFLOW/);
+assert.match(captured.input.messages[0].content, /workspace_read_file/);
+assert.match(captured.input.messages[0].content, /feeds actual results back/i);
 assert.match(captured.input.messages[0].content, /WORKSPACE CHANGE STATES/);
 assert.match(captured.input.messages[0].content, /RECOVERY AND AUTHORIZATION/);
 assert.match(captured.input.messages[0].content, /workspace_undo/);
@@ -96,6 +98,26 @@ assert.deepEqual(parsedPatch.actions, [{
   content: '<!doctype html><html><body>Fixed</body></html>',
   reason: 'Restore the missing page structure.',
 }]);
+const parsedReadTools = parseOvyxNativeModelOutput({
+  response: JSON.stringify({
+    text: 'I need the actual saved source before making a diagnosis.',
+    actions: [
+      { type: 'workspace_read_file', projectId: 'project_123', filePath: 'src/menu.js' },
+      { type: 'workspace_search', projectId: 'project_123', query: 'mobile-menu' },
+      { type: 'workspace_inspect', projectId: 'project_123' },
+      { type: 'workspace_diagnose', projectId: 'project_123' },
+      { type: 'workspace_read_file', projectId: 'project_123', filePath: '../private.js' },
+      { type: 'workspace_search', projectId: '../other-owner', query: 'menu' },
+    ],
+  }),
+});
+assert.deepEqual(parsedReadTools.actions, [
+  { type: 'workspace_read_file', projectId: 'project_123', filePath: 'src/menu.js' },
+  { type: 'workspace_search', projectId: 'project_123', query: 'mobile-menu' },
+  { type: 'workspace_inspect', projectId: 'project_123' },
+  { type: 'workspace_diagnose', projectId: 'project_123' },
+], 'native AI should only emit allowlisted read-only tools with validated project IDs and paths');
+
 assert.equal(result.rawUsage.total_tokens, 35);
 
 await assert.rejects(
