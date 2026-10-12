@@ -915,7 +915,7 @@
           diagnostics: window.OVYXWorkspaceCopilot?.diagnose?.() || null,
           contextLimited: contextResult.limited,
           contextWarning: context.contextWarning || null,
-          assistantPolicy: 'OVYX native workspace assistant. Use saved serverWorkspace data and serverDiagnostics when available, and use the local snapshot as a fallback. Any source edit requires a real file preview plus explicit user approval; only report a saved edit when the server confirms read-back verification.',
+          assistantPolicy: 'OVYX native workspace assistant. Context scanning is optional: use saved serverWorkspace data and serverDiagnostics when available, and always use the local snapshot as a fallback when deeper scans are unavailable. Any source edit requires a real file preview plus explicit user approval; only report a saved edit when the server confirms read-back verification.',
         },
         system: 'Answer as OVYX AI. Inspect the authenticated saved project context when supplied. Never claim that code changed unless a server-confirmed workspace_patch action returned verified=true. A source edit must be reviewed and explicitly approved in the UI before it is written. For website builds, preserve the existing Web Studio generation workflow.',
       });
