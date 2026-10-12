@@ -37,6 +37,7 @@ assert.match(source, /APPROVAL NEEDED/);
 assert.match(source, /APPLIED · VERIFIED/);
 assert.match(source, /LOCAL CONTEXT READY/);
 assert.match(source, /function recoverLatestWorkspaceEdit\(\)/);
+assert.match(source, /type === 'workspace_undo'/);
 assert.match(source, /function reviewWorkspaceEditHistory\(\)/);
 assert.match(source, /The current file will be backed up first/);
 
