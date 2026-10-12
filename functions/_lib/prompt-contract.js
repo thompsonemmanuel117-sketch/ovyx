@@ -226,10 +226,11 @@ export function buildPromptContract(prompt) {
 
 export function getWebStudioBuildClarification(prompt, context = {}) {
   const source = clean(prompt);
-  if (!source || hasExplicitContactOptOut(source)) return null;
+  const conversationText = clean(context && context.conversationText);
+  if (!source || hasExplicitContactOptOut(source) || hasExplicitContactOptOut(conversationText)) return null;
 
   const publicContext = publicContextText(context);
-  const evidence = source + '\n' + publicContext;
+  const evidence = source + '\n' + conversationText + '\n' + publicContext;
   const hasEmail = isRealPublicEmail(evidence);
   const hasPhone = hasPhoneNumber(evidence);
   const hasAddress = hasAddressValue(evidence);
@@ -267,5 +268,73 @@ export function getWebStudioBuildClarification(prompt, context = {}) {
     message: 'Before I build this, I need a couple of details so the result matches your request and does not pretend missing services are connected.\n\n' +
       limited.map((question, index) => (index + 1) + '. ' + question).join('\n\n') +
       '\n\nReply with the details you have, or say “use editable placeholders” / “build the UI only” to continue without inventing facts.',
+  };
+}
+
+
+/**
+ * Deterministic, conservative post-build checks for requirements that can be
+ * verified from generated files without pretending to run a browser.
+ */
+export function verifyPromptContractOutput(prompt, files, siteMap = {}) {
+  const contract = buildPromptContract(prompt);
+  const entries = Object.entries(files && typeof files === 'object' && !Array.isArray(files) ? files : {})
+    .filter(([, value]) => typeof value === 'string' && value.trim());
+  const htmlEntries = entries.filter(([path]) => /\.html?$/i.test(path));
+  const allText = entries.map(([, value]) => value).join('\n');
+  const htmlText = htmlEntries.map(([, value]) => value).join('\n');
+  const pageEntries = Array.isArray(siteMap && siteMap.pages) ? siteMap.pages : [];
+  const pageKeys = new Set(pageEntries.map(page => normalizedKey(page && (page.title || page.name))).filter(Boolean));
+  for (const [path] of htmlEntries) {
+    const basename = path.split('/').pop().replace(/\.html?$/i, '').replace(/[-_]+/g, ' ');
+    if (/^(?:home|index)$/i.test(basename)) pageKeys.add('home');
+    pageKeys.add(normalizedKey(basename));
+  }
+
+  const issues = [];
+  const missingPages = contract.explicitPages.filter(title => {
+    const key = normalizedKey(title);
+    return !pageKeys.has(key) && !(key === 'home' && pageKeys.has('index'));
+  });
+  if (missingPages.length) {
+    issues.push({
+      code: 'EXPLICIT_PAGES_MISSING',
+      message: 'The generated site is missing explicitly requested pages: ' + missingPages.join(', '),
+      missing: missingPages,
+    });
+  }
+
+  if (contract.contactSignals.contactForm && !/<form\b/i.test(htmlText)) {
+    issues.push({
+      code: 'CONTACT_FORM_MISSING',
+      message: 'The brief explicitly asks for a contact/enquiry form, but no HTML form was generated.',
+    });
+  }
+  if (contract.contactSignals.newsletter && !/(?:newsletter|subscribe|subscription)/i.test(allText)) {
+    issues.push({
+      code: 'NEWSLETTER_MISSING',
+      message: 'The brief asks for a newsletter/subscription experience, but no matching content was generated.',
+    });
+  }
+  if (contract.contactSignals.authentication && !/(?:log\s*in|login|sign\s*in|sign\s*up|register|create account)/i.test(allText)) {
+    issues.push({
+      code: 'AUTHENTICATION_UI_MISSING',
+      message: 'The brief asks for authentication, but no login/register experience was generated.',
+    });
+  }
+  if (contract.contactSignals.payments && !/(?:checkout|payment|paystack|flutterwave|stripe|paypal)/i.test(allText)) {
+    issues.push({
+      code: 'PAYMENT_FLOW_MISSING',
+      message: 'The brief asks for payments/checkout, but no checkout or payment-related UI was generated.',
+    });
+  }
+
+  return {
+    ok: issues.length === 0,
+    requirementCount: contract.allBriefClauses.length,
+    explicitPages: contract.explicitPages,
+    checkedFiles: entries.length,
+    checkedHtmlFiles: htmlEntries.length,
+    issues,
   };
 }
