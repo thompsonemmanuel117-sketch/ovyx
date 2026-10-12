@@ -74,10 +74,9 @@ export async function onRequestGet(context) {
     const config = PROVIDERS[provider];
     if (!config) {
       return errorResponse(
+        'Choose Gemini, DeepSeek, Claude, or OpenAI.',
         400,
         'PROVIDER_REQUIRED',
-        'Choose Gemini, DeepSeek, Claude, or OpenAI.',
-        id,
       );
     }
 
@@ -138,9 +137,8 @@ export async function onRequestGet(context) {
 export async function onRequest(context) {
   if (context.request.method === 'GET') return onRequestGet(context);
   return errorResponse(
+    'GET is required.',
     405,
     'METHOD_NOT_ALLOWED',
-    'GET is required.',
-    requestId(context.request),
   );
 }
