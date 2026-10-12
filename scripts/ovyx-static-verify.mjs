@@ -234,6 +234,32 @@ if (fs.existsSync(webStudioShellPath)) {
   }
 }
 
+// Web Studio Stage 3: explicit prompt contracts, readiness questions, and
+// required-page recovery are backend-enforced and covered by the standard test suite.
+const promptContractPath = path.join(root, 'functions/_lib/prompt-contract.js');
+const promptContractTestPath = path.join(root, 'scripts/prompt-contract.test.mjs');
+const packageJsonPath = path.join(root, 'package.json');
+if (!fs.existsSync(promptContractPath) || !fs.existsSync(promptContractTestPath)) {
+  errors.push('OVYX Web Studio: prompt contract enforcement or its regression tests are missing.');
+} else {
+  const promptContract = fs.readFileSync(promptContractPath, 'utf8');
+  const promptContractTest = fs.readFileSync(promptContractTestPath, 'utf8');
+  const promptGateway = fs.existsSync(studioGatewayPath) ? fs.readFileSync(studioGatewayPath, 'utf8') : '';
+  const promptMultiPage = fs.existsSync(studioMultiPagePath) ? fs.readFileSync(studioMultiPagePath, 'utf8') : '';
+  const packageJson = fs.existsSync(packageJsonPath) ? fs.readFileSync(packageJsonPath, 'utf8') : '';
+  if (
+    !promptGateway.includes('buildPromptContract') ||
+    !promptGateway.includes('getWebStudioBuildClarification') ||
+    !promptGateway.includes('PROMPT REQUIREMENT CONTRACT') ||
+    !promptMultiPage.includes('verifyPromptContractOutput') ||
+    !promptMultiPage.includes('promptContract.explicitPages') ||
+    !promptContractTest.includes('CONTACT_FORM_MISSING') ||
+    !packageJson.includes('scripts/prompt-contract.test.mjs')
+  ) {
+    errors.push('OVYX Web Studio: prompt fidelity, build-readiness handling, explicit-page recovery, or required regression coverage is incomplete.');
+  }
+}
+
 // OVYX-native workspace assistant: the chat drawer must use the Cloudflare AI
 // binding directly, not the third-party provider/API-key router.
 const nativeAssistantPath = path.join(root, 'functions/_lib/ovyx-native-ai.js');
