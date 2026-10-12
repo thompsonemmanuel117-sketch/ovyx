@@ -219,7 +219,7 @@ try {
     });
 
     page.once('dialog', async dialog => {
-      assert.match(dialog.message(), /src\\/menu\\.js/i, \`[\${target.name}] approval dialog must identify the exact source file\`);
+      assert.match(dialog.message(), /src\/menu\.js/i, \`[\${target.name}] approval dialog must identify the exact source file\`);
       assert.match(dialog.message(), /Apply this change/i, \`[\${target.name}] source writes must require explicit approval\`);
       await dialog.accept();
     });
