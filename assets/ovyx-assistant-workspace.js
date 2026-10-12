@@ -199,7 +199,7 @@
     const assign = target => {
       if (!target) return false;
       if (Array.isArray(target)) {
-        const item = target.find(row => String(row?.path || row?.file || row?.name || '').replace(/^\\/+/, '') === filePath);
+        const item = target.find(row => String(row?.path || row?.file || row?.name || '').replace(/^\/+/, '') === filePath);
         if (!item) return false;
         if (typeof item === 'string') {
           const index = target.indexOf(item);
@@ -894,7 +894,7 @@
           operation: 'snapshot',
           ...(activeProjectId ? { projectId: activeProjectId } : {}),
         });
-        const shouldDiagnose = /\\b(diagnos|debug|broken|bug|repair|fix|not working|doesn.?t work|inspect|malfunction|error)\\b/i.test(prompt);
+        const shouldDiagnose = /\b(diagnos|debug|broken|bug|repair|fix|not working|doesn.?t work|inspect|malfunction|error)\b/i.test(prompt);
         const serverProjectId = String(serverWorkspace?.activeProject?.id || '');
         if (shouldDiagnose && serverProjectId) {
           const diagnosticResult = await workspaceToolRequest({ operation: 'diagnose', projectId: serverProjectId });
