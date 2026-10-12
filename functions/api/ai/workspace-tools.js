@@ -185,6 +185,10 @@ function allProjectFiles(project) {
   return result.slice(0, 120);
 }
 
+export function validateOvyxSourcePath(value) {
+  return safePath(value);
+}
+
 function pageSummary(page, index) {
   const name = clean(page?.name || page?.slug || page?.title || `Page ${index + 1}`, 180);
   const sections = Array.isArray(page?.sections) ? page.sections : [];
@@ -232,7 +236,7 @@ function projectSummary(id, project, updateTime = null, includeContents = true) 
   };
 }
 
-function diagnoseProject(project, id) {
+export function diagnoseProject(project, id) {
   const issues = [];
   const pages = Array.isArray(project?.pages) ? project.pages : [];
   const files = allProjectFiles(project);
