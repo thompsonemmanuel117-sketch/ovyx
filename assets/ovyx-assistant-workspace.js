@@ -1001,6 +1001,9 @@
       } else {
         setWorkspaceTaskStatus('details', serverToolError || 'No active saved project was identified. OVYX can still answer general questions.');
       }
+      setWorkspaceTaskStatus('running', serverWorkspace?.activeProject?.id
+        ? 'Project inspection is complete; OVYX AI is working on your request.'
+        : 'OVYX AI is working with the available local context and will identify any missing project details.');
       const result = await nativeGenerate({
         mode: 'workspace-copilot-native',
         prompt,
