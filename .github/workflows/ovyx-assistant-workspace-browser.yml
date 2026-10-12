@@ -24,6 +24,10 @@ on:
       - 'scripts/ovyx-sentinel.endpoint.test.mjs'
       - 'scripts/ovyx-sentinel.browser.test.mjs'
       - 'docs/OVYX-SENTINEL.md'
+      - 'assets/ovyx-provider-availability.js'
+      - 'functions/api/ai/provider-availability.js'
+      - 'scripts/provider-availability.test.mjs'
+      - 'scripts/ovyx-provider-availability.browser.test.mjs'
       - 'package.json'
       - '.github/workflows/ovyx-assistant-workspace-browser.yml'
   workflow_dispatch:
@@ -74,6 +78,11 @@ jobs:
 
       - name: Exercise Sentinel guardian and wake-word flow in desktop and mobile Chromium
         run: node scripts/ovyx-sentinel.browser.test.mjs
+        env:
+          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
+
+      - name: Exercise provider availability selector in desktop and mobile Chromium
+        run: node scripts/ovyx-provider-availability.browser.test.mjs
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8788
 
