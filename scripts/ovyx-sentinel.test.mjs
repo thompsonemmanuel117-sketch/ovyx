@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {
   collectSentinelChecks,
   createSentinelReport,
+  createSentinelFixPlan,
   isSentinelAdmin,
   sentinelCronSecretMatches,
 } from '../functions/_lib/ovyx-sentinel.js';
@@ -107,5 +108,25 @@ const scheduledScan = { ...failedChecks, finishedAt: new Date().toISOString() };
 const scheduledReport = createSentinelReport({ scan: scheduledScan, id: 'run_cron', source: 'scheduled' });
 assert.equal(scheduledReport.source, 'scheduled');
 assert.equal(scheduledReport.checks.find(item => item.id === 'background_scheduler')?.status, 'pass');
+
+
+const remediationPlan = createSentinelFixPlan({
+  id: 'run_remediation_fixture',
+  status: 'critical',
+  checks: [
+    { id: 'platform_health', status: 'warning', code: 'PLATFORM_HEALTH_DEGRADED', summary: 'Required configuration is degraded.', details: ['FIREBASE_PROJECT_ID', 'FIREBASE_SERVICE_ACCOUNT_JSON', 'not a safe name', 'ghp_superSecretShouldNeverBeShown'] },
+    { id: 'service_configuration', status: 'warning', code: 'CONNECTION_ENCRYPTION_NOT_CONFIGURED', summary: 'Connection encryption is not configured.' },
+    { id: 'github_actions', status: 'fail', code: 'LATEST_CI_RUN_FAILED', summary: 'Recent CI failed.' },
+  ],
+});
+assert.equal(remediationPlan.status, 'attention_required');
+assert.equal(remediationPlan.automaticChanges, false);
+assert.equal(remediationPlan.tasks.length, 3);
+assert.deepEqual(remediationPlan.tasks[0].configurationNames, ['FIREBASE_PROJECT_ID', 'FIREBASE_SERVICE_ACCOUNT_JSON']);
+assert.match(remediationPlan.tasks[1].steps.join(' '), /Do not replace or rotate an existing encryption key/i);
+assert.doesNotMatch(JSON.stringify(remediationPlan), /ghp_superSecretShouldNeverBeShown/);
+assert.match(remediationPlan.note, /does not edit source files/i);
+assert.equal(createSentinelFixPlan({ id: 'run_healthy', status: 'healthy', checks: [{ id: 'health', status: 'pass', code: 'HTTP_OK' }] }).tasks.length, 0);
+assert.equal(createSentinelFixPlan(null).status, 'no_report');
 
 console.log('OVYX Sentinel unit tests passed: admin boundary, constant-time cron secret guard, health checks, optional GitHub authentication, stale workflow handling, degraded configuration, URL policy, and report classification.');
