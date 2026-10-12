@@ -353,7 +353,7 @@ async function loadOwnedProject(env, uid, email, rawId) {
 
 async function handleTool(env, identity, body) {
   const operation = clean(body?.operation || body?.op, 50).toLowerCase();
-  if (!['snapshot', 'list_projects', 'inspect', 'diagnose', 'search', 'list_revisions', 'prepare_patch', 'apply_patch', 'restore_revision'].includes(operation)) {
+  if (!['snapshot', 'list_projects', 'inspect', 'diagnose', 'search', 'list_revisions', 'prepare_patch', 'apply_patch', 'prepare_restore', 'restore_revision'].includes(operation)) {
     fail('Unknown workspace-tool operation.', 400, 'UNKNOWN_WORKSPACE_TOOL');
   }
   const { uid, email } = identity;
@@ -452,6 +452,43 @@ async function handleTool(env, identity, body) {
       .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
       .slice(0, 50);
     return { operation, projectId: found.id, projectName: clean(found.project?.name || 'Untitled project', 180), revision: found.document.updateTime || null, revisions };
+  }
+
+  if (operation === 'prepare_restore') {
+    const revisionId = clean(body.revisionId, 160);
+    if (!/^[A-Za-z0-9_-]{1,160}$/.test(revisionId)) fail('The recovery version identifier is invalid.', 400, 'INVALID_REVISION_ID');
+    const backupPath = [...found.path, 'revisions', revisionId];
+    const backupDoc = await getFirestoreDocumentAtPath(env, backupPath);
+    const backup = backupDoc ? await getFirestoreDataAtPath(env, backupPath) : null;
+    if (!backup || backup.ownerUid !== uid || String(backup.ownerEmail || '').toLowerCase() !== email || backup.projectId !== found.id) {
+      fail('That recovery version was not found in your account.', 404, 'REVISION_NOT_FOUND');
+    }
+    const filePath = safePath(backup.filePath);
+    const slot = locateFile(found.project, filePath);
+    if (!slot) fail('The saved recovery version refers to a file that no longer exists. No change was made.', 404, 'SOURCE_FILE_NOT_FOUND');
+    const restoreContent = String(backup.originalContent ?? '');
+    if (!restoreContent.trim()) fail('The saved recovery version is empty or incomplete. No change was made.', 422, 'REVISION_CONTENT_UNAVAILABLE');
+    if (restoreContent.length > MAX_BACKUP_SOURCE_BYTES || slot.current.length > MAX_BACKUP_SOURCE_BYTES) {
+      fail('This recovery version is too large for a safe automatic restore.', 413, 'SOURCE_TOO_LARGE_FOR_BACKUP');
+    }
+    if (redactSecrets(slot.current) !== slot.current || redactSecrets(restoreContent) !== restoreContent) {
+      fail('This file contains secret-like values. OVYX will not restore it automatically.', 403, 'SOURCE_CONTAINS_SECRET');
+    }
+    const diff = lineDiff(slot.current, restoreContent);
+    return {
+      operation,
+      projectId: found.id,
+      projectName: clean(found.project?.name || 'Untitled project', 180),
+      filePath,
+      revisionId,
+      revision: found.document.updateTime || null,
+      changed: slot.current !== restoreContent,
+      originalLength: slot.current.length,
+      proposedLength: restoreContent.length,
+      ...diff,
+      approvalRequired: true,
+      note: 'Recovery preview only. No project file was changed.',
+    };
   }
 
   if (operation === 'restore_revision') {
