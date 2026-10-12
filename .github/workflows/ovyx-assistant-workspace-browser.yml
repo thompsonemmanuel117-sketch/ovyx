@@ -16,6 +16,13 @@ on:
       - 'scripts/ovyx-workspace-tools.integration.test.mjs'
       - 'scripts/ovyx-assistant-runtime.test.mjs'
       - 'scripts/ovyx-static-verify.mjs'
+      - 'assets/ovyx-sentinel.js'
+      - 'functions/api/admin/sentinel.js'
+      - 'functions/_lib/ovyx-sentinel.js'
+      - 'sentinel-worker/**'
+      - 'scripts/ovyx-sentinel.test.mjs'
+      - 'scripts/ovyx-sentinel.browser.test.mjs'
+      - 'docs/OVYX-SENTINEL.md'
       - 'package.json'
       - '.github/workflows/ovyx-assistant-workspace-browser.yml'
   workflow_dispatch:
@@ -58,6 +65,11 @@ jobs:
 
       - name: Exercise assistant workspace in desktop and mobile Chromium
         run: node scripts/ovyx-assistant-workspace.browser.test.mjs
+        env:
+          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
+
+      - name: Exercise Sentinel guardian and wake-word flow in desktop and mobile Chromium
+        run: node scripts/ovyx-sentinel.browser.test.mjs
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8788
 
