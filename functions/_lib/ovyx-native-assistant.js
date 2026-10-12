@@ -71,7 +71,7 @@ export function sanitizeNativeContext(input = {}) {
     const content = text(file?.content, Math.min(2600, fileBudget))
       .replace(/-----BEGIN [^-]*PRIVATE KEY-----[\s\S]*?-----END [^-]*PRIVATE KEY-----/gi, '[redacted private key]')
       .replace(/((?:api[_-]?key|secret|access[_-]?token|refresh[_-]?token|password|passwd|private[_-]?key|client[_-]?secret)\s*[:=]\s*)["']?[^\s"',;]+/gi, '$1[redacted]')
-      .replace(/\b(Bearer\s+)[A-Za-z0-9._~+/-]+=*/gi, '$1[redacted]');
+      .replace(/\b(Bearer\s+)[A-Za-z0-9._~+\/\-]+=*/gi, '$1[redacted]');
     activeProjectSource.push({ path, content });
     fileBudget -= content.length;
   }
