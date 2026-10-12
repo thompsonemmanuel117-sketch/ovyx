@@ -49,7 +49,7 @@
         border-radius:12px!important;background:rgba(255,255,255,.035)!important;color:#dce2ea!important;cursor:pointer!important;font-size:21px!important;line-height:1!important;
       }
       #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-more:hover,#kernel-brain-bot-panel.ovyx-native-workspace .ovyx-ai-assistant-close:hover{background:rgba(255,255,255,.085)!important;border-color:rgba(255,255,255,.18)!important;color:#fff!important}
-      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-ai-assistant-close{width:38px!important;height:38px!important;display:grid!important;place-items:center!important;border:1px solid rgba(255,255,255,.08)!important;border-radius:12px!important;color:#c7ced8!important;background:transparent!important;flex:0 0 38px!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-ai-assistant-close{position:static!important;inset:auto!important;top:auto!important;right:auto!important;width:38px!important;min-width:38px!important;height:38px!important;margin:0!important;padding:0!important;display:grid!important;place-items:center!important;border:1px solid rgba(255,255,255,.08)!important;border-radius:12px!important;color:#c7ced8!important;background:transparent!important;flex:0 0 38px!important}
       #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-menu{
         position:absolute!important;z-index:20!important;top:64px!important;right:58px!important;width:min(300px,calc(100vw - 44px))!important;max-height:min(66dvh,540px)!important;overflow:auto!important;
         padding:8px!important;border:1px solid rgba(255,255,255,.13)!important;border-radius:16px!important;background:#111317!important;
@@ -110,7 +110,7 @@
         #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-ai-character,#kernel-brain-bot-panel.ovyx-native-workspace .ovyx-ai-character svg{width:34px!important;height:34px!important;flex-basis:34px!important}
         #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-title{font-size:14px!important}
         #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-subtitle{font-size:9px!important}
-        #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-more,#kernel-brain-bot-panel.ovyx-native-workspace .ovyx-ai-assistant-close{width:36px!important;height:36px!important;flex-basis:36px!important}
+        #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-more,#kernel-brain-bot-panel.ovyx-native-workspace .ovyx-ai-assistant-close{width:36px!important;min-width:36px!important;height:36px!important;flex-basis:36px!important}
         #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-menu{top:calc(62px + env(safe-area-inset-top))!important;right:52px!important}
         #kernel-brain-bot-panel.ovyx-native-workspace>div:nth-child(2){padding:9px 12px!important}
         #kernel-brain-bot-panel.ovyx-native-workspace #bot-context-node-id{max-width:75%!important}
