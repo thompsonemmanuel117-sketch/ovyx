@@ -148,11 +148,12 @@
 
   async function nativeGenerate(payload = {}, options = {}) {
     const prompt = String(payload.prompt || payload.message || '').trim();
+    const conversational = !/workspace-copilot-advanced/i.test(String(payload.mode || ''));
     const sentMessages = Array.isArray(payload.messages)
       ? payload.messages.filter(m => m && (m.role === 'user' || m.role === 'assistant')).slice(-12)
       : null;
     const nextMessages = sentMessages || [
-      ...history,
+      ...(conversational ? history : []),
       ...(prompt ? [{ role: 'user', content: prompt }] : []),
     ];
     if (!nextMessages.length) throw new Error('Please enter a message for OVYX AI.');
@@ -188,7 +189,7 @@
       }
       const result = normalizeResponse(data);
       if (!result.text) throw new Error('OVYX AI returned an empty reply.');
-      if (!sentMessages && prompt) {
+      if (!sentMessages && conversational && prompt) {
         history = [...history, { role: 'user', content: prompt }, { role: 'assistant', content: result.text }].slice(-12);
       }
       return result;
