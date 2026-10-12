@@ -526,6 +526,24 @@
         menuAction(actionButton.dataset.ovyxNativeAction);
         return;
       }
+      const workspaceTool = event.target.closest('[data-ovyx-ai-scan], [data-ovyx-ai-refresh], [data-ovyx-ai-recover]');
+      if (workspaceTool) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation?.();
+        closeMenu();
+        if (workspaceTool.hasAttribute('data-ovyx-ai-recover')) {
+          Promise.resolve(window.OVYXProjectRecovery?.restore?.(null))
+            .then(result => push(result?.ok ? `Recovered ${result.name || 'project'}.` : (result?.error || 'No recoverable deleted project was found.')))
+            .catch(error => push(error?.message || 'Project recovery failed.'));
+        } else {
+          Promise.resolve(window.OVYXWorkspaceCopilot?.scan?.() || window.__OVYX_SCAN_WORKSPACE_CONTEXT__?.(true))
+            .then(context => push(`Workspace refreshed · ${context?.projectInventory?.length || 0} projects · ${context?.activeAssets?.length || 0} assets.`))
+            .catch(error => push(error?.message || 'Workspace scan failed.'));
+        }
+        return;
+      }
+      if (event.target.closest('.ovyx-native-menu button')) closeMenu();
       const sendButton = event.target.closest('[data-ovyx-native-send]');
       if (sendButton) {
         event.preventDefault();
