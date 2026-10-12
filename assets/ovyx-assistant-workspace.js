@@ -671,6 +671,14 @@
     if (!Array.isArray(actions)) return;
     for (const action of actions.slice(0, 6)) {
       const type = String(action?.type || '').toLowerCase();
+      if (type === 'workspace_undo') {
+        try { await recoverLatestWorkspaceEdit(); }
+        catch (error) {
+          push('Recovery failed: ' + String(error?.message || 'OVYX could not restore the selected version.'));
+          setWorkspaceTaskStatus('error', String(error?.message || 'Recovery failed.'));
+        }
+        continue;
+      }
       if (type === 'workspace_patch') {
         try {
           await approveAndApplyWorkspacePatch(action);
@@ -1201,7 +1209,7 @@
       return;
     }
     if (action === 'help') {
-      push('OVYX AI can inspect the workspace snapshot, explain projects and page files, diagnose likely problems, refresh project context, navigate to the right tool, and prepare a concrete Web Studio repair brief. Try: “Diagnose my current project”, “Why is this page broken?”, “Fix the mobile layout”, “Explain this project”, or “Check my workspace connections”. It will be clear about what it has inspected, what it prepared, and what still needs your approval.');
+      push('OVYX AI can inspect the workspace snapshot, explain projects and page files, diagnose likely problems, refresh project context, review saved AI edit history, undo a source edit after showing a recovery diff and getting your approval, navigate to the right tool, and prepare a repair brief. Try: “Diagnose my current project”, “Why is this page broken?”, “Fix the mobile layout”, “Explain this project”, or “Check my workspace connections”. It will be clear about what it has inspected, what it prepared, and what still needs your approval.');
       return;
     }
     if (action === 'diagnose-project') {
