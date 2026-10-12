@@ -15,17 +15,25 @@ try {
     const errors = [];
     page.on('pageerror', error => errors.push(error.message));
 
-    await page.route(baseURL.replace(/\/+$/, '') + '/', route => route.fulfill({
-      status: 200,
-      contentType: 'text/html',
-      body: '<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body>' +
-        '<script>' +
-        'let __currentUser=null;const __authListeners=[];window.__setSentinelUser=u=>{__currentUser=u;__authListeners.forEach(cb=>cb(u))};' +
-        'window.firebase={auth:()=>({get currentUser(){return __currentUser},onAuthStateChanged:cb=>{__authListeners.push(cb);cb(__currentUser);return ()=>{}}})};' +
-        'window.__recognizer=null;window.SpeechRecognition=class{start(){window.__recognizer=this}stop(){if(this.onend)this.onend()}};' +
-        'window.SpeechSynthesisUtterance=class{constructor(text){this.text=text}};window.__spoken=[];window.speechSynthesis={cancel(){},speak(u){window.__spoken.push(u.text);if(u.onend)u.onend()}};' +
-        '</script><script defer src="/assets/ovyx-sentinel.js?v=20261012-1"></script></body></html>',
-    }));
+    await page.route('**/*', async route => {
+      const request = route.request();
+      const requestedUrl = new URL(request.url());
+      if (request.isNavigationRequest() && requestedUrl.pathname === '/') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'text/html',
+          body: '<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body>' +
+            '<script>' +
+            'let __currentUser=null;const __authListeners=[];window.__setSentinelUser=u=>{__currentUser=u;__authListeners.forEach(cb=>cb(u))};' +
+            'window.firebase={auth:()=>({get currentUser(){return __currentUser},onAuthStateChanged:cb=>{__authListeners.push(cb);cb(__currentUser);return ()=>{}}})};' +
+            'window.__recognizer=null;window.SpeechRecognition=class{start(){window.__recognizer=this}stop(){if(this.onend)this.onend()}};' +
+            'window.SpeechSynthesisUtterance=class{constructor(text){this.text=text}};window.__spoken=[];window.speechSynthesis={cancel(){},speak(u){window.__spoken.push(u.text);if(u.onend)u.onend()}};' +
+            '</script><script defer src="/assets/ovyx-sentinel.js?v=20261012-1"></script></body></html>',
+        });
+        return;
+      }
+      await route.continue();
+    });
 
     const calls = [];
     let scanCount = 0;
