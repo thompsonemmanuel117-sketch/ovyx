@@ -248,6 +248,159 @@ export function createSentinelReport({ scan, id, source = 'manual', previousSche
   };
 }
 
+
+const SAFE_REMEDIATION_GUIDANCE = Object.freeze({
+  PLATFORM_HEALTH_DEGRADED: {
+    title: 'Review required platform configuration',
+    steps: [
+      'Open the OVYX Cloudflare Pages Production environment settings and check the listed configuration names.',
+      'Repair only values confirmed missing or invalid in the correct environment. Enter secrets in the secure dashboard field; never put them in Git, chat, browser reports, or logs.',
+      'Run another Sentinel scan after the configuration is saved and the deployment is available.',
+    ],
+  },
+  CONNECTION_ENCRYPTION_NOT_CONFIGURED: {
+    title: 'Verify Universal Connections encryption configuration',
+    steps: [
+      'Check whether OVYX_CONNECTION_ENCRYPTION_KEY is present and at least 32 characters in Cloudflare Pages Production.',
+      'Do not replace or rotate an existing encryption key if saved Universal Connections may contain encrypted credentials; rotation needs an explicit migration/recovery plan.',
+      'Never expose the key in chat, Git, screenshots, or logs, then rerun the health check.',
+    ],
+  },
+  LATEST_CI_RUN_FAILED: {
+    title: 'Inspect the most recent failing CI workflow',
+    steps: [
+      'Open the repository Actions page and inspect the latest completed run for the named workflow.',
+      'Locate the first failing step and preserve the error summary without copying secrets or private user data.',
+      'Prepare a targeted code change with a regression test, then run verification before merging. Sentinel has not modified source code.',
+    ],
+  },
+  SCHEDULE_NOT_RECENTLY_CONFIRMED: {
+    title: 'Verify background Sentinel scheduling',
+    steps: [
+      'Confirm the separate ovyx-sentinel-scheduler Worker is deployed with the 30-minute Cron Trigger.',
+      'Confirm OVYX_SENTINEL_BASE_URL is the canonical HTTPS origin and the Worker secret matches the Pages secret; do not place the shared value in Git or chat.',
+      'Do not claim scheduled monitoring is active until a scheduled report is saved and shows a recent scheduler confirmation.',
+    ],
+  },
+  GITHUB_TOKEN_REJECTED: {
+    title: 'Check optional GitHub Actions monitoring access',
+    steps: [
+      'Verify the server-side OVYX_SENTINEL_GITHUB_TOKEN is an unexpired, read-only token scoped to this repository Actions metadata.',
+      'If replacement is necessary, update it through the approved secure secret manager and never display or log the token.',
+      'Run a Sentinel scan again to confirm the optional check can read workflow status.',
+    ],
+  },
+  GITHUB_ACTIONS_UNAVAILABLE: {
+    title: 'Retry optional GitHub Actions monitoring',
+    steps: [
+      'Check GitHub service status and the repository Actions page before assuming the OVYX application is down.',
+      'If the problem persists, inspect the optional Sentinel token permissions and recent server-side network errors without exposing the token.',
+      'Rerun Sentinel after the upstream service is available.',
+    ],
+  },
+  UNEXPECTED_CONTENT_TYPE: {
+    title: 'Verify the application shell route',
+    steps: [
+      'Confirm the current Cloudflare Pages deployment is serving the expected HTML shell at the site root.',
+      'Check the latest deployment result and the route/build output before changing middleware or Web Studio code.',
+      'Run desktop/mobile browser checks after a targeted correction.',
+    ],
+  },
+  UNEXPECTED_ASSET_CONTENT_TYPE: {
+    title: 'Verify an assistant runtime asset',
+    steps: [
+      'Confirm the current Pages deployment serves the required asset as JavaScript rather than an HTML fallback.',
+      'Check the asset path and deployment output; preserve the existing Web Studio generation pipeline.',
+      'Rerun the Sentinel asset check and desktop/mobile tests.',
+    ],
+  },
+});
+
+export function createSentinelFixPlan(report) {
+  const checks = Array.isArray(report?.checks) ? report.checks : [];
+  const affected = checks.filter(check => check && ['fail', 'warning'].includes(String(check.status || '')));
+  const tasks = [];
+  const seen = new Set();
+
+  for (const check of affected) {
+    if (tasks.length >= 12) break;
+    const code = String(check.code || '').trim().slice(0, 100);
+    const checkId = String(check.id || 'system_check').trim().slice(0, 80);
+    const key = checkId + ':' + code;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    let guidance = SAFE_REMEDIATION_GUIDANCE[code];
+    if (!guidance && /^HTTP_[45]\\d{2}$/.test(code)) {
+      guidance = {
+        title: 'Investigate an endpoint HTTP error',
+        steps: [
+          'Check the current Pages deployment result and the server-side logs for the named endpoint and timestamp.',
+          'Determine whether the failure is transient or a repeatable route/configuration issue before editing code.',
+          'Make a narrow fix with a regression test, rerun the relevant checks, and verify the endpoint again.',
+        ],
+      };
+    } else if (!guidance && ['CHECK_TIMEOUT', 'CHECK_UNREACHABLE', 'GITHUB_CHECK_TIMEOUT', 'GITHUB_CHECK_UNREACHABLE'].includes(code)) {
+      guidance = {
+        title: 'Retry an unreachable or timed-out health check',
+        steps: [
+          'Check whether the site or upstream service is reachable and whether a deployment is currently in progress.',
+          'Retry the check before treating a single timeout as a confirmed outage.',
+          'If it repeats, inspect the affected route or upstream status and add a regression check for the confirmed cause.',
+        ],
+      };
+    } else if (!guidance && code === 'GITHUB_TOKEN_NOT_CONFIGURED') {
+      guidance = {
+        title: 'Optional CI history monitoring is not enabled',
+        steps: [
+          'Core Sentinel health checks can still run without this optional integration.',
+          'If CI history monitoring is needed, configure a read-only GitHub Actions token as a server-side secret.',
+          'Do not put a token in source code, requests, or report history.',
+        ],
+      };
+    } else if (!guidance) {
+      guidance = {
+        title: 'Review the reported system check',
+        steps: [
+          'Read the check code and sanitized summary in the Sentinel report.',
+          'Reproduce the issue using the smallest relevant health check before changing configuration or source code.',
+          'Prepare a targeted, reviewable fix with a regression test. Do not apply destructive changes or deploy automatically.',
+        ],
+      };
+    }
+
+    const detailNames = code === 'PLATFORM_HEALTH_DEGRADED' && Array.isArray(check.details)
+      ? [...new Set(check.details.map(value => String(value || '').trim()).filter(value => /^[A-Z][A-Z0-9_]{1,79}$/.test(value)))].slice(0, 16)
+      : [];
+    tasks.push({
+      id: key,
+      checkId,
+      code,
+      priority: check.status === 'fail' ? 'critical' : 'warning',
+      title: guidance.title,
+      issue: String(check.summary || 'A system check needs attention.').replace(/\\s+/g, ' ').trim().slice(0, 240),
+      ...(detailNames.length ? { configurationNames: detailNames } : {}),
+      steps: guidance.steps.slice(0, 6),
+    });
+  }
+
+  const critical = affected.filter(check => check.status === 'fail').length;
+  const warnings = affected.filter(check => check.status === 'warning').length;
+  return {
+    sourceReportId: String(report?.id || '').slice(0, 100) || null,
+    generatedAt: new Date().toISOString(),
+    status: tasks.length ? 'attention_required' : report ? 'clear' : 'no_report',
+    summary: !report
+      ? 'Run a Sentinel scan before preparing a remediation plan.'
+      : tasks.length
+        ? 'Prepared ' + tasks.length + ' reviewable task(s) from ' + critical + ' critical finding(s) and ' + warnings + ' warning(s).'
+        : 'No remediation steps are indicated by the latest saved checks.',
+    automaticChanges: false,
+    tasks,
+    note: 'Advisory only. This plan does not edit source files, change Cloudflare settings, rotate credentials, access private user projects or conversations, or deploy code.',
+  };
+}
+
 export function sentinelCronSecretMatches(provided, configured) {
   const left = new TextEncoder().encode(String(provided || ''));
   const right = new TextEncoder().encode(String(configured || ''));
