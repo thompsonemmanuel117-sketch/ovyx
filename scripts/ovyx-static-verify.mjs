@@ -234,6 +234,45 @@ if (fs.existsSync(webStudioShellPath)) {
   }
 }
 
+// OVYX-native workspace assistant: the chat drawer must use the Cloudflare AI
+// binding directly, not the third-party provider/API-key router.
+const nativeAssistantPath = path.join(root, 'functions/_lib/ovyx-native-ai.js');
+const nativeAssistantRoutePath = path.join(root, 'functions/api/ai/ovyx.js');
+const nativeAssistantClientPath = path.join(root, 'assets/ovyx-assistant-workspace.js');
+if (!fs.existsSync(nativeAssistantPath) || !fs.existsSync(nativeAssistantRoutePath) || !fs.existsSync(nativeAssistantClientPath)) {
+  errors.push('OVYX native assistant: native AI adapter, authenticated endpoint or workspace client is missing.');
+} else {
+  const nativeAssistant = fs.readFileSync(nativeAssistantPath, 'utf8');
+  const nativeRoute = fs.readFileSync(nativeAssistantRoutePath, 'utf8');
+  const nativeClient = fs.readFileSync(nativeAssistantClientPath, 'utf8');
+  const shellMiddleware = fs.readFileSync(shellMiddlewarePath, 'utf8');
+  if (
+    !nativeAssistant.includes('env.AI.run') ||
+    !nativeAssistant.includes('@cf/meta/llama-3.3-70b-instruct-fp8-fast') ||
+    !nativeAssistant.includes('nativeActions') ||
+    !nativeRoute.includes('generateOvyxNativeAI') ||
+    !nativeRoute.includes('beginAIQuota(context.env, user)') ||
+    !nativeRoute.includes('finalizeAIQuota(') ||
+    !nativeRoute.includes('OVYX_NATIVE_AI_NOT_CONFIGURED') ||
+    !nativeClient.includes('/api/ai/ovyx') ||
+    !nativeClient.includes('data-ovyx-native-more') ||
+    !nativeClient.includes('workspace-copilot-native') ||
+    !nativeClient.includes('runActions') ||
+    !shellMiddleware.includes('assets/ovyx-assistant-workspace.js')
+  ) {
+    errors.push('OVYX native assistant: native Workers AI routing, quota accounting, safe actions, professional menu or shell injection is incomplete.');
+  }
+  try {
+    execFileSync(process.execPath, ['--check', nativeAssistantClientPath], { stdio: 'pipe' });
+  } catch (error) {
+    errors.push(`assets/ovyx-assistant-workspace.js: ${String(error.stderr || error.stdout || error.message).trim()}`);
+  }
+}
+if (!fs.existsSync(path.join(root, 'scripts/ovyx-native-ai.test.mjs')) ||
+    !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/ovyx-native-ai.test.mjs')) {
+  errors.push('OVYX native assistant: native engine routing tests must run in the standard npm test suite.');
+}
+
 const routeConfigPath = path.join(root, 'functions/_routes.json');
 if (fs.existsSync(routeConfigPath)) {
   const routeConfig = JSON.parse(fs.readFileSync(routeConfigPath, 'utf8'));
