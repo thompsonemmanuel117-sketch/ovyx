@@ -727,6 +727,110 @@
   }
 
 
+  const READ_ONLY_WORKSPACE_ACTIONS = new Set([
+    'workspace_inspect', 'workspace_read_file', 'workspace_search', 'workspace_diagnose',
+  ]);
+
+  function workspaceToolActionKey(action) {
+    return [
+      String(action?.type || ''),
+      String(action?.projectId || ''),
+      String(action?.filePath || action?.path || ''),
+      String(action?.query || ''),
+    ].join('|');
+  }
+
+  function compactWorkspaceToolResult(action, response) {
+    const operation = response?.operation || action?.type || 'workspace-tool';
+    if (operation === 'read_file' && response?.file) {
+      const file = response.file;
+      return {
+        operation,
+        projectId: response.projectId,
+        projectName: response.projectName,
+        revision: response.revision,
+        source: response.source,
+        file: {
+          path: file.path,
+          size: file.size,
+          content: String(file.content || '').slice(0, 12000),
+          contentComplete: file.contentComplete === true,
+          truncated: file.truncated === true,
+          secretValuesRedacted: file.secretValuesRedacted === true,
+          note: file.note,
+        },
+      };
+    }
+    if (operation === 'inspect' && response?.project) {
+      return {
+        operation,
+        source: response.source,
+        project: {
+          id: response.project.id,
+          name: response.project.name,
+          description: response.project.description,
+          status: response.project.status,
+          revision: response.project.revision,
+          pageCount: response.project.pageCount,
+          fileCount: response.project.fileCount,
+          files: (Array.isArray(response.project.files) ? response.project.files : []).slice(0, 40).map(file => ({
+            path: file.path,
+            size: file.size,
+            content: String(file.content || '').slice(0, 800),
+            contentComplete: false,
+            note: 'File inspection summary only. Request workspace_read_file for the exact complete source before preparing an edit.',
+          })),
+          pages: (Array.isArray(response.project.pages) ? response.project.pages : []).slice(0, 12),
+        },
+        diagnostics: response.diagnostics || null,
+      };
+    }
+    if (operation === 'search') {
+      return {
+        operation,
+        projectId: response.projectId,
+        query: response.query,
+        revision: response.revision,
+        count: response.count,
+        matches: (Array.isArray(response.matches) ? response.matches : []).slice(0, 16),
+      };
+    }
+    return response;
+  }
+
+  async function executeWorkspaceReadAction(action) {
+    const projectId = String(action?.projectId || '');
+    let operation = '';
+    const payload = { projectId };
+    if (!projectId) return { type: action?.type || 'workspace-tool', ok: false, error: 'A project ID is required. No project was changed.' };
+    if (action.type === 'workspace_inspect') operation = 'inspect';
+    else if (action.type === 'workspace_diagnose') operation = 'diagnose';
+    else if (action.type === 'workspace_read_file') {
+      operation = 'read_file';
+      payload.filePath = String(action.filePath || action.path || '');
+    } else if (action.type === 'workspace_search') {
+      operation = 'search';
+      payload.query = String(action.query || '');
+    } else {
+      return { type: action?.type || 'workspace-tool', ok: false, error: 'This workspace action is not a read-only tool.' };
+    }
+    try {
+      const response = await workspaceToolRequest({ operation, ...payload });
+      return {
+        type: action.type,
+        ok: true,
+        result: compactWorkspaceToolResult(action, response),
+      };
+    } catch (error) {
+      return {
+        type: action.type,
+        ok: false,
+        code: String(error?.code || 'WORKSPACE_TOOL_FAILED'),
+        error: String(error?.message || 'The authenticated workspace tool failed.').slice(0, 800),
+      };
+    }
+  }
+
   function contextRows(value) {
     if (Array.isArray(value)) return value;
     if (!value || typeof value !== 'object') return [];
