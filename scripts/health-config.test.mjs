@@ -8,6 +8,7 @@ const baseEnv = () => ({
   FIREBASE_WEB_API_KEY: 'test-web-api-key',
   GITHUB_TOKEN_ENCRYPTION_KEY: 'g'.repeat(48),
   GITHUB_ALLOWED_REPOS: 'thompsonemmanuel117-sketch/ovyx',
+  OVYX_CONNECTION_ENCRYPTION_KEY: 'universal-connection-test-key-0123456789abcd',
 });
 
 const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
@@ -39,24 +40,28 @@ function row(payload, group, key) {
   const env = baseEnv();
   const payload = await health(env);
   assert.equal(row(payload, 'GitHub', 'GITHUB_TOKEN_ENCRYPTION_KEY').state, 'configured');
+  assert.equal(row(payload, 'UniversalConnections', 'OVYX_CONNECTION_ENCRYPTION_KEY').state, 'configured');
+  assert.equal(payload.services.universalConnectionsEncryption.configured, true);
   assert.equal(row(payload, 'Firebase', 'FIREBASE_SERVICE_ACCOUNT_JSON').state, 'absent');
   assert(payload.missingRequiredEnvironment.includes('FIREBASE_SERVICE_ACCOUNT_JSON'));
   assert(!payload.emptyRequiredEnvironment.includes('FIREBASE_SERVICE_ACCOUNT_JSON'));
 }
 
 {
-  const env = { ...baseEnv(), GITHUB_TOKEN_ENCRYPTION_KEY: '', FIREBASE_SERVICE_ACCOUNT_JSON: '' };
+  const env = { ...baseEnv(), GITHUB_TOKEN_ENCRYPTION_KEY: '', OVYX_CONNECTION_ENCRYPTION_KEY: '', FIREBASE_SERVICE_ACCOUNT_JSON: '' };
   const payload = await health(env);
   assert(payload.emptyRequiredEnvironment.includes('GITHUB_TOKEN_ENCRYPTION_KEY'));
   assert(payload.emptyRequiredEnvironment.includes('FIREBASE_SERVICE_ACCOUNT_JSON'));
+  assert(payload.emptyRequiredEnvironment.includes('OVYX_CONNECTION_ENCRYPTION_KEY'));
   assert(!payload.missingRequiredEnvironment.includes('GITHUB_TOKEN_ENCRYPTION_KEY'));
 }
 
 {
-  const env = { ...baseEnv(), GITHUB_TOKEN_ENCRYPTION_KEY: 'too-short', FIREBASE_SERVICE_ACCOUNT_JSON: '{bad json' };
+  const env = { ...baseEnv(), GITHUB_TOKEN_ENCRYPTION_KEY: 'too-short', OVYX_CONNECTION_ENCRYPTION_KEY: 'too-short', FIREBASE_SERVICE_ACCOUNT_JSON: '{bad json' };
   const payload = await health(env);
   assert.equal(row(payload, 'GitHub', 'GITHUB_TOKEN_ENCRYPTION_KEY').state, 'invalid');
   assert.equal(row(payload, 'Firebase', 'FIREBASE_SERVICE_ACCOUNT_JSON').state, 'invalid_json');
+  assert.equal(row(payload, 'UniversalConnections', 'OVYX_CONNECTION_ENCRYPTION_KEY').state, 'invalid');
   assert(payload.invalidRequiredEnvironment.some((item) => item.key === 'GITHUB_TOKEN_ENCRYPTION_KEY'));
   assert(payload.invalidRequiredEnvironment.some((item) => item.key === 'FIREBASE_SERVICE_ACCOUNT_JSON' && item.state === 'invalid_json'));
 }
@@ -66,13 +71,16 @@ function row(payload, group, key) {
   const env = {
     ...baseEnv(),
     GITHUB_TOKEN_ENCRYPTION_KEY: undefined,
+    OVYX_CONNECTION_ENCRYPTION_KEY: undefined,
     FIREBASE_SERVICE_ACCOUNT_JSON: undefined,
   };
   const payload = await health(env);
   assert.equal(row(payload, 'GitHub', 'GITHUB_TOKEN_ENCRYPTION_KEY').state, 'unavailable');
   assert.equal(row(payload, 'Firebase', 'FIREBASE_SERVICE_ACCOUNT_JSON').state, 'unavailable');
+  assert.equal(row(payload, 'UniversalConnections', 'OVYX_CONNECTION_ENCRYPTION_KEY').state, 'unavailable');
   assert(payload.unavailableRequiredEnvironment.includes('GITHUB_TOKEN_ENCRYPTION_KEY'));
   assert(payload.unavailableRequiredEnvironment.includes('FIREBASE_SERVICE_ACCOUNT_JSON'));
+  assert(payload.unavailableRequiredEnvironment.includes('OVYX_CONNECTION_ENCRYPTION_KEY'));
   assert(!payload.emptyRequiredEnvironment.includes('FIREBASE_SERVICE_ACCOUNT_JSON'));
 }
 
