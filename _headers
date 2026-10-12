@@ -10,6 +10,9 @@
 /assets/ovyx-sentinel.js
   Cache-Control: no-store, no-cache, must-revalidate
 
+/assets/ovyx-provider-availability.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
 /api/*
   Access-Control-Allow-Origin: *
   Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
