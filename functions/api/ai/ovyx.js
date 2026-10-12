@@ -27,14 +27,14 @@ export async function onRequestPost(context) {
     const payload = await readJson(context.request, 180_000);
     const messages = normalizeMessages(payload);
     if (!messages.length) {
-      return errorResponse(400, 'PROMPT_REQUIRED', 'Please enter a message for OVYX AI.');
+      return errorResponse('Please enter a message for OVYX AI.', 400, 'PROMPT_REQUIRED');
     }
 
     if (!context.env?.AI || typeof context.env.AI.run !== 'function') {
       return errorResponse(
+        'OVYX AI needs its native Cloudflare Workers AI binding. Add a Workers AI binding named AI in the OVYX Pages project settings and redeploy. No third-party API key is needed.',
         503,
-        'OVYX_NATIVE_AI_NOT_CONFIGURED',
-        'OVYX AI needs its native Cloudflare Workers AI binding. Add a Workers AI binding named AI in the OVYX Pages project settings and redeploy. No third-party API key is needed.'
+        'OVYX_NATIVE_AI_NOT_CONFIGURED'
       );
     }
 
@@ -124,16 +124,16 @@ export async function onRequestPost(context) {
       await refundDailyPrompt(context.env, reservation).catch(() => {});
     }
     return errorResponse(
+      error.message || 'OVYX AI could not complete this request.',
       error.status || 500,
-      error.code || 'OVYX_NATIVE_AI_FAILED',
-      error.message || 'OVYX AI could not complete this request.'
+      error.code || 'OVYX_NATIVE_AI_FAILED'
     );
   }
 }
 
 export async function onRequest(context) {
   if (context.request.method !== 'POST') {
-    return errorResponse(405, 'METHOD_NOT_ALLOWED', 'Only POST is allowed.');
+    return errorResponse('Only POST is allowed.', 405, 'METHOD_NOT_ALLOWED');
   }
   return onRequestPost(context);
 }
