@@ -38,6 +38,7 @@ async function checkEndpoint(config, key) {
     return await fetch(config.url, {
       method: 'GET',
       headers: { Accept: 'application/json', ...config.headers(key) },
+      redirect: 'manual',
       signal: controller.signal,
     });
   } finally {
