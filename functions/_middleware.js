@@ -1,4 +1,4 @@
-const LAUNCH_SCRIPT = '<script defer src="/assets/ovyx-launch-polish.js?v=20261011-1"></script><script defer src="/assets/ovyx-assistant-workspace.js?v=20261012-1"></script>';
+const LAUNCH_SCRIPT = '<script defer src="/assets/ovyx-launch-polish.js?v=20261011-1"></script><script defer src="/assets/ovyx-assistant-workspace.js?v=20261012-2"></script>';
 
 export async function onRequest(context) {
   const url = new URL(context.request.url);
