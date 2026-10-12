@@ -225,7 +225,7 @@ function projectSummary(id, project, updateTime = null, includeContents = true) 
     .slice(0, 12)
     .map((page, index) => pageSummary(page, index, 350));
   const files = allProjectFiles(project);
-  const visibleFiles = files.slice(0, includeContents ? 8 : 40).map(file => {
+  const visibleFiles = files.slice(0, includeContents ? 4 : 40).map(file => {
     const complete = file.content.length <= MAX_MODEL_EDITABLE_SOURCE_BYTES && redactSecrets(file.content) === file.content;
     return {
       path: file.path,
