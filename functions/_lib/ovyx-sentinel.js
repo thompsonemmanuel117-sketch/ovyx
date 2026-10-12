@@ -331,7 +331,7 @@ export function createSentinelFixPlan(report) {
     seen.add(key);
 
     let guidance = SAFE_REMEDIATION_GUIDANCE[code];
-    if (!guidance && /^HTTP_[45]\\d{2}$/.test(code)) {
+    if (!guidance && /^HTTP_[45]\d{2}$/.test(code)) {
       guidance = {
         title: 'Investigate an endpoint HTTP error',
         steps: [
@@ -378,7 +378,7 @@ export function createSentinelFixPlan(report) {
       code,
       priority: check.status === 'fail' ? 'critical' : 'warning',
       title: guidance.title,
-      issue: String(check.summary || 'A system check needs attention.').replace(/\\s+/g, ' ').trim().slice(0, 240),
+      issue: String(check.summary || 'A system check needs attention.').replace(/\s+/g, ' ').trim().slice(0, 240),
       ...(detailNames.length ? { configurationNames: detailNames } : {}),
       steps: guidance.steps.slice(0, 6),
     });
