@@ -2526,20 +2526,46 @@ Body: { broadcastId, title, body, category, link }</div>
      */
     function showToast(msg, type = 'info') {
       const container = document.getElementById('toast-stack');
+      if (!container) return null;
+
+      const allowedTypes = new Set(['success', 'error', 'warning', 'info']);
+      const kind = allowedTypes.has(String(type || '').toLowerCase())
+        ? String(type || '').toLowerCase()
+        : 'info';
+      const iconNames = {
+        success: 'circle-check',
+        error: 'triangle-exclamation',
+        warning: 'circle-exclamation',
+        info: 'circle-info',
+      };
       const toast = document.createElement('div');
-      toast.className = `px-4 py-2.5 rounded-lg border text-xs font-mono font-bold flex items-center gap-2.5 shadow-xl pointer-events-auto transition-all duration-300 transform translate-y-2 opacity-0 ${
-        type === 'success' ? 'bg-zinc-950 border-emerald-500/40 text-emerald-300' :
-        type === 'error' ? 'bg-zinc-950 border-rose-500/40 text-rose-300' :
-        'bg-zinc-950 border-white/15 text-zinc-200'
-      }`;
-      const icon = type === 'success' ? 'circle-check' : type === 'error' ? 'triangle-exclamation' : 'circle-info';
-      toast.innerHTML = `<i class="fa-solid fa-${icon}"></i> <span>${msg}</span>`;
+      toast.className = 'ovyx-toast ovyx-toast--' + kind;
+      toast.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+      toast.setAttribute('aria-live', kind === 'error' || kind === 'warning' ? 'assertive' : 'polite');
+
+      const iconWrap = document.createElement('span');
+      iconWrap.className = 'ovyx-toast__icon';
+      iconWrap.setAttribute('aria-hidden', 'true');
+      const icon = document.createElement('i');
+      icon.className = 'fa-solid fa-' + iconNames[kind];
+      iconWrap.appendChild(icon);
+
+      const message = document.createElement('span');
+      message.className = 'ovyx-toast__message';
+      // Never inject provider or user-controlled error text into HTML.
+      message.textContent = String(msg == null ? '' : msg);
+
+      toast.append(iconWrap, message);
       container.appendChild(toast);
-      requestAnimationFrame(() => toast.classList.remove('translate-y-2', 'opacity-0'));
-      setTimeout(() => {
-        toast.classList.add('opacity-0', 'translate-y-1');
-        setTimeout(() => toast.remove(), 250);
-      }, 3400);
+
+      const dismiss = () => {
+        if (!toast.isConnected || toast.dataset.closing === '1') return;
+        toast.dataset.closing = '1';
+        toast.classList.add('is-leaving');
+        setTimeout(() => toast.remove(), 240);
+      };
+      setTimeout(dismiss, kind === 'error' || kind === 'warning' ? 5200 : 3600);
+      return toast;
     }
     /**
      * 1. WEB STUDIO ENGINE: CLEAN CHAT / PREVIEW STRUCTURE
@@ -10796,10 +10822,44 @@ window.addEventListener('pageshow',()=>setTimeout(install,0),{passive:true});
     if(t.id==='v59-build'){e.preventDefault();runBuild().catch(()=>{});return}
     if(t.id==='v59-mic'){e.preventDefault();const SR=window.SpeechRecognition||window.webkitSpeechRecognition;if(!SR){window.showToast?.('Voice input is not available in this browser.','info');return}if(t.__ovyxRecognition){try{t.__ovyxRecognition.stop()}catch{}return}try{const r=new SR();t.__ovyxRecognition=r;r.lang=navigator.language||'en-NG';r.interimResults=true;r.continuous=false;r.onstart=()=>t.classList.add('is-active');r.onend=()=>{t.classList.remove('is-active');t.__ovyxRecognition=null};r.onerror=()=>{t.classList.remove('is-active');t.__ovyxRecognition=null;window.showToast?.('Microphone input could not start.','error')};r.onresult=ev=>{const text=[...ev.results].map(x=>x[0]?.transcript||'').join('');const input=$('prompt-home-input');if(input)input.value=text};r.start()}catch{t.__ovyxRecognition=null;t.classList.remove('is-active');window.showToast?.('Microphone could not start on this device.','error')}}
   }
+      async function checkProviderAvailability(provider){
+    const selected=String(provider||'automatic').trim().toLowerCase();
+    if(selected==='automatic'){
+      window.showToast?.('OVYX Auto will choose the best available AI brain for your task.','info');
+      return;
+    }
+    const labels={gemini:'Gemini',deepseek:'DeepSeek',anthropic:'Claude',openai:'OpenAI'};
+    const label=labels[selected];
+    if(!label)return;
+    const user=window.firebase?.auth?.()?.currentUser||null;
+    if(!user)return;
+    try{
+      const token=await user.getIdToken();
+      const response=await fetch('/api/ai/provider-availability?provider='+encodeURIComponent(selected),{
+        method:'GET',
+        headers:{Accept:'application/json',Authorization:'Bearer '+token},
+        credentials:'same-origin',
+        cache:'no-store'
+      });
+      const data=await response.json().catch(()=>({}));
+      if(!response.ok){
+        if(response.status===401)throw new Error('Your sign-in has expired. Sign in again to check this AI brain.');
+        throw new Error('Could not check '+label+' right now. Please try again.');
+      }
+      if(data.connected===true&&data.status==='READY'){
+        window.showToast?.(data.message||label+' is connected and ready.','success');
+      }else{
+        window.showToast?.(data.message||label+' is not available right now. Please try again later, or connect your own AI Brain in Universal Connections to continue building.','error');
+      }
+    }catch(error){
+      window.showToast?.(error?.message||label+' is not available right now. Please try again later, or connect your own AI Brain in Universal Connections to continue building.','error');
+    }
+  }
+
   function onChange(e){
     const id=e.target?.id;
     if(id==='v59-file-input'||id==='v59-camera-photo'||id==='v59-camera-scan'){addFiles(e.target.files||[]);e.target.value='';return}
-    if(id==='v59-model-select'){const value=e.target.value||'automatic';try{localStorage.setItem('ovyx_selected_ai_brain',value)}catch{};const note=$('v59-routing-note'),labels={automatic:'OVYX Auto',openai:'OpenAI · GPT-3.5',anthropic:'Claude',deepseek:'DeepSeek',gemini:'Gemini'};if(note)note.innerHTML=`<i class="fa-solid fa-route"></i><span>${labels[value]||'OVYX Auto'} selected · OVYX will use only this provider. If unavailable, try later or connect your own AI Brain.</span>`;return}
+    if(id==='v59-model-select'){const value=e.target.value||'automatic';try{localStorage.setItem('ovyx_selected_ai_brain',value)}catch{};const note=$('v59-routing-note'),labels={automatic:'OVYX Auto',openai:'OpenAI · GPT-3.5',anthropic:'Claude',deepseek:'DeepSeek',gemini:'Gemini'};const guidance=value==='automatic'?'OVYX Auto will choose the best available brain for your task.':(labels[value]||'AI brain')+' selected · OVYX will use only this provider. If unavailable, try again later or connect your own AI Brain.';if(note)note.innerHTML=`<i class="fa-solid fa-route"></i><span>${guidance}</span>`;checkProviderAvailability(value).catch(()=>{});return}
   }
   function onInput(e){
     if(e.target?.id==='prompt-home-input'){const el=e.target;el.style.height='auto';el.style.height=Math.min(Math.max(el.scrollHeight,112),300)+'px';}
@@ -12394,6 +12454,8 @@ function render(){
  if(n)n.dataset.quotaMode=exhausted?'daily':'monthly';
  if(exhausted){const label='Daily Ration Mode: '+fmt(daily)+' Prompts Left Today';ratio.textContent=label;if(head)head.textContent=label;bar.style.width=Math.max(0,Math.min(100,Math.round(daily/Math.max(1,dailyLimit)*100)))+'%';bar.setAttribute('aria-label',label)}
  else{const label=fmt(remaining)+' / '+fmt(monthlyLimit);ratio.textContent=label;if(head)head.textContent=label;bar.style.width=Math.max(0,Math.min(100,Math.round(remaining/Math.max(1,monthlyLimit)*100)))+'%';bar.setAttribute('aria-label',fmt(remaining)+' monthly tokens remaining')}
+ const quotaMax=exhausted?dailyLimit:monthlyLimit,quotaNow=Math.min(quotaMax,Math.max(0,exhausted?daily:remaining));
+ bar.setAttribute('role','progressbar');bar.setAttribute('aria-valuemin','0');bar.setAttribute('aria-valuemax',String(quotaMax));bar.setAttribute('aria-valuenow',String(quotaNow));bar.setAttribute('aria-valuetext',ratio.textContent||'');
  if(Q){Q.serverQuota=serverQuota;Q.serverBaseRemaining=remaining}
 }
 function apply(d){if(!d)return;serverQuota={plan:String(d.plan||'free').toLowerCase(),monthlyLimit:Number(d.monthlyLimit||50000),dailyLimit:Number(d.dailyLimit||4),current_monthly_tokens:Math.max(0,Number(d.current_monthly_tokens??0)),daily_prompts_allowance:Math.max(0,Number(d.daily_prompts_allowance??0)),is_monthly_exhausted:Boolean(d.is_monthly_exhausted)};window.OVYXServerQuota=serverQuota;render()}
@@ -15602,6 +15664,24 @@ window.addEventListener('orientationchange',syncNavigation,{passive:true});
   },{passive:true});
 })();
 </script>
+<style id="ovyx-toast-motion-v2">
+#toast-stack{pointer-events:none!important;gap:10px!important}
+.ovyx-toast{box-sizing:border-box;display:flex;align-items:flex-start;gap:12px;max-width:min(92vw,460px);min-width:min(280px,calc(100vw - 32px));padding:14px 16px;border:1px solid rgba(255,255,255,.12);border-left:3px solid #8b93a1;border-radius:16px;background:rgba(7,9,12,.96);color:#f8fafc;box-shadow:0 16px 42px rgba(0,0,0,.42),0 0 0 1px rgba(255,255,255,.025) inset;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);opacity:0;transform:translate3d(0,12px,0) scale(.97);transform-origin:top right;animation:ovyxToastEnterV2 .34s cubic-bezier(.18,.88,.24,1.12) forwards;overflow-wrap:anywhere}
+.ovyx-toast__icon{width:34px;height:34px;flex:0 0 34px;display:grid;place-items:center;border-radius:11px;background:rgba(148,163,184,.12);color:#cbd5e1;font-size:15px}
+.ovyx-toast__message{display:block;min-width:0;padding-top:2px;font:600 12px/1.55 Inter,system-ui,sans-serif;overflow-wrap:anywhere;white-space:normal}
+.ovyx-toast--success{border-color:rgba(52,211,153,.38);border-left-color:#34d399;background:linear-gradient(135deg,rgba(6,28,21,.98),rgba(7,9,12,.97));color:#d1fae5}
+.ovyx-toast--success .ovyx-toast__icon{background:rgba(52,211,153,.14);color:#6ee7b7;box-shadow:0 0 22px rgba(52,211,153,.08)}
+.ovyx-toast--error{border-color:rgba(251,113,133,.42);border-left-color:#fb7185;background:linear-gradient(135deg,rgba(42,10,17,.98),rgba(10,8,12,.97));color:#ffe4e6}
+.ovyx-toast--error .ovyx-toast__icon{background:rgba(251,113,133,.14);color:#fda4af;box-shadow:0 0 22px rgba(251,113,133,.08)}
+.ovyx-toast--warning{border-color:rgba(251,191,36,.4);border-left-color:#fbbf24;background:linear-gradient(135deg,rgba(43,29,7,.98),rgba(10,8,12,.97));color:#fef3c7}
+.ovyx-toast--warning .ovyx-toast__icon{background:rgba(251,191,36,.14);color:#fcd34d}
+.ovyx-toast--info{border-color:rgba(232,182,79,.28);border-left-color:#e8b64f;background:linear-gradient(135deg,rgba(28,23,13,.98),rgba(8,9,12,.97));color:#fefce8}
+.ovyx-toast--info .ovyx-toast__icon{background:rgba(232,182,79,.12);color:#fcd34d}
+.ovyx-toast.is-leaving{animation:ovyxToastExitV2 .22s ease-in forwards}
+@keyframes ovyxToastEnterV2{0%{opacity:0;transform:translate3d(0,12px,0) scale(.97);filter:blur(3px)}75%{opacity:1;transform:translate3d(0,-1px,0) scale(1.005);filter:blur(0)}100%{opacity:1;transform:translate3d(0,0,0) scale(1);filter:blur(0)}}
+@keyframes ovyxToastExitV2{0%{opacity:1;transform:translate3d(0,0,0) scale(1)}100%{opacity:0;transform:translate3d(0,5px,0) scale(.98)}}
+@media(prefers-reduced-motion:reduce){.ovyx-toast,.ovyx-toast.is-leaving{animation:none;opacity:1;transform:none;filter:none}}
+</style>
 </body>
 </html>
 
