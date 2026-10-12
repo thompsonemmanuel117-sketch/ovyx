@@ -1,0 +1,10 @@
+name = "ovyx-sentinel-scheduler"
+main = "index.js"
+compatibility_date = "2026-10-12"
+workers_dev = false
+
+[triggers]
+crons = ["*/30 * * * *"]
+
+# Configure OVYX_SENTINEL_BASE_URL as a Worker variable and
+# OVYX_SENTINEL_CRON_SECRET as a Worker secret. Never put live secrets here.
