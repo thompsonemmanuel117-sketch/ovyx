@@ -110,6 +110,28 @@ assert.equal(scheduledReport.source, 'scheduled');
 assert.equal(scheduledReport.checks.find(item => item.id === 'background_scheduler')?.status, 'pass');
 
 
+const concurrencyState = { active: 0, maxActive: 0 };
+const concurrencyScan = await collectSentinelChecks({
+  origin: 'https://ovyx.example',
+  fetchImpl: async url => {
+    concurrencyState.active += 1;
+    concurrencyState.maxActive = Math.max(concurrencyState.maxActive, concurrencyState.active);
+    try {
+      await new Promise(resolve => setTimeout(resolve, 12));
+      const path = new URL(String(url)).pathname;
+      if (path === '/') return response('<html></html>', { contentType: 'text/html', rawBody: '<html></html>' });
+      if (path === '/api/health') return response({ ok: true, status: 'healthy' });
+      if (path === '/api/service-status') return response({ ok: true, connectionEncryption: { configured: true } });
+      if (path.startsWith('/assets/')) return response('js', { contentType: 'application/javascript', rawBody: 'js' });
+      throw new Error('Unexpected test URL');
+    } finally {
+      concurrencyState.active -= 1;
+    }
+  },
+});
+assert.equal(concurrencyScan.checks.length, 5);
+assert.ok(concurrencyState.maxActive >= 5, 'the first-party health probes should run concurrently to stay within the Cron request budget');
+
 const remediationPlan = createSentinelFixPlan({
   id: 'run_remediation_fixture',
   status: 'critical',
