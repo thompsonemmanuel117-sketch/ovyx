@@ -70,7 +70,7 @@ try {
     await trigger.click();
     await menu.locator('[data-ovyx-native-action="new-chat"]').click();
     await page.locator('#bot-chat-history').getByText('Welcome to OVYX AI').waitFor({ state: 'visible' });
-    assert.equal(await page.locator('#bot-chat-history .ovyx-native-message').count(), 0, \`[\${target.name}] New Chat did not clear the visible conversation\`);
+    assert.equal(await page.locator('#bot-chat-history .ovyx-native-message').count(), 0, `[${target.name}] New Chat did not clear the visible conversation`);
 
     // Exercise the real browser-side agent loop with authenticated endpoint
     // responses mocked at the network boundary. The server persistence contract
@@ -219,8 +219,8 @@ try {
     });
 
     page.once('dialog', async dialog => {
-      assert.match(dialog.message(), /src\/menu\.js/i, \`[\${target.name}] approval dialog must identify the exact source file\`);
-      assert.match(dialog.message(), /Apply this change/i, \`[\${target.name}] source writes must require explicit approval\`);
+      assert.match(dialog.message(), /src\/menu\.js/i, `[${target.name}] approval dialog must identify the exact source file`);
+      assert.match(dialog.message(), /Apply this change/i, `[${target.name}] source writes must require explicit approval`);
       await dialog.accept();
     });
     await page.locator('#bot-chat-input').fill('Fix my mobile menu');
@@ -230,23 +230,23 @@ try {
     assert.deepEqual(
       workspaceCalls.map(call => call.operation),
       ['snapshot', 'diagnose', 'read_file', 'prepare_patch', 'apply_patch'],
-      \`[\${target.name}] the assistant must execute the owned-project read and approved-write workflow in order\`,
+      `[${target.name}] the assistant must execute the owned-project read and approved-write workflow in order`,
     );
-    assert.equal(workspaceCalls.at(-1).confirm, true, \`[\${target.name}] apply_patch must carry explicit approval\`);
-    assert.equal(workspaceCalls.at(-1).expectedUpdateTime, 'revision-1', \`[\${target.name}] write must be tied to the preview revision\`);
-    assert.equal(aiPayloads.length, 2, \`[\${target.name}] the native model should reason again after receiving tool results\`);
+    assert.equal(workspaceCalls.at(-1).confirm, true, `[${target.name}] apply_patch must carry explicit approval`);
+    assert.equal(workspaceCalls.at(-1).expectedUpdateTime, 'revision-1', `[${target.name}] write must be tied to the preview revision`);
+    assert.equal(aiPayloads.length, 2, `[${target.name}] the native model should reason again after receiving tool results`);
     const toolResults = aiPayloads[1]?.context?.workspaceToolResults || [];
     assert.ok(toolResults.some(item => item.type === 'workspace_read_file' && item.ok === true && item.result?.file?.content === originalSource),
-      \`[\${target.name}] actual saved source must be fed back to the model before it proposes a patch\`);
+      `[${target.name}] actual saved source must be fed back to the model before it proposes a patch`);
     assert.match(aiPayloads[0]?.context?.contextWarning || '', /optional live workspace scan/i,
-      \`[\${target.name}] failed context scans must preserve a clear fallback warning\`);
+      `[${target.name}] failed context scans must preserve a clear fallback warning`);
     const finalStatus = await panel.locator('#bot-context-node-type').innerText();
-    assert.match(finalStatus, /APPLIED · VERIFIED/i, \`[\${target.name}] status must distinguish a verified saved write\`);
+    assert.match(finalStatus, /APPLIED · VERIFIED/i, `[${target.name}] status must distinguish a verified saved write`);
     const updatedLocalSource = await page.evaluate(() => window.KernelState.activeProject.ovyxGraph.files['src/menu.js'].content);
-    assert.equal(updatedLocalSource, repairedSource, \`[\${target.name}] verified source must be reflected back into the active local workspace\`);
-    assert.deepEqual(errors, [], \`[\${target.name}] assistant runtime errors: \${errors.join('; ')}\`);
+    assert.equal(updatedLocalSource, repairedSource, `[${target.name}] verified source must be reflected back into the active local workspace`);
+    assert.deepEqual(errors, [], `[${target.name}] assistant runtime errors: ${errors.join('; ')}`);
 
-    console.log(\`PASS \${target.name}: menu actions, read-only tool loop, local-context fallback, explicit approval and verified source update.\`);
+    console.log(`PASS ${target.name}: menu actions, read-only tool loop, local-context fallback, explicit approval and verified source update.`);
     await page.close();
   }
 } finally {
