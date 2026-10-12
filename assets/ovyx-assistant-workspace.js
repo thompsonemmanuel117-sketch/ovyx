@@ -474,8 +474,8 @@
         menuAction(actionButton.dataset.ovyxNativeAction);
         return;
       }
-      const send = event.target.closest('[data-ovyx-native-send]');
-      if (send) {
+      const sendButton = event.target.closest('[data-ovyx-native-send]');
+      if (sendButton) {
         event.preventDefault();
         event.stopPropagation();
         event.stopImmediatePropagation?.();
