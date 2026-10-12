@@ -11,6 +11,7 @@ import {
   getFirestoreDocumentAtPath,
   getFirestoreDataAtPath,
   listFirestoreSubcollectionDocuments,
+  listFirestoreSubcollectionDocumentsAtPath,
   setFirestoreDocumentAtPath,
 } from '../../_lib/firebase-admin.js';
 import { readJson, jsonResponse, requestId } from '../../_lib/http.js';
@@ -352,7 +353,7 @@ async function loadOwnedProject(env, uid, email, rawId) {
 
 async function handleTool(env, identity, body) {
   const operation = clean(body?.operation || body?.op, 50).toLowerCase();
-  if (!['snapshot', 'list_projects', 'inspect', 'diagnose', 'search', 'prepare_patch', 'apply_patch'].includes(operation)) {
+  if (!['snapshot', 'list_projects', 'inspect', 'diagnose', 'search', 'list_revisions', 'prepare_patch', 'apply_patch', 'restore_revision'].includes(operation)) {
     fail('Unknown workspace-tool operation.', 400, 'UNKNOWN_WORKSPACE_TOOL');
   }
   const { uid, email } = identity;
@@ -436,6 +437,90 @@ async function handleTool(env, identity, body) {
     };
   }
 
+  if (operation === 'list_revisions') {
+    const rows = await listFirestoreSubcollectionDocumentsAtPath(env, found.path, 'revisions', 100);
+    const revisions = rows
+      .filter(row => row?.data?.ownerUid === uid && String(row?.data?.ownerEmail || '').toLowerCase() === email && row?.data?.projectId === found.id)
+      .map(row => ({
+        id: row.id,
+        filePath: clean(row.data.filePath, 500),
+        createdAt: row.data.createdAt || null,
+        reason: clean(row.data.reason, 600),
+        beforeUpdateTime: row.data.beforeUpdateTime || null,
+        kind: row.data.kind === 'restore' ? 'restore' : 'edit',
+      }))
+      .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+      .slice(0, 50);
+    return { operation, projectId: found.id, projectName: clean(found.project?.name || 'Untitled project', 180), revision: found.document.updateTime || null, revisions };
+  }
+
+  if (operation === 'restore_revision') {
+    if (body.confirm !== true) fail('Explicit user approval is required before restoring a project file.', 403, 'RESTORE_APPROVAL_REQUIRED');
+    if (!body.expectedUpdateTime || String(body.expectedUpdateTime) !== String(found.document.updateTime || '')) {
+      fail('This project changed since the recovery preview was prepared. Refresh and review the recovery again.', 409, 'PROJECT_REVISION_CHANGED');
+    }
+    const revisionId = clean(body.revisionId, 160);
+    if (!/^[A-Za-z0-9_-]{1,160}$/.test(revisionId)) fail('The recovery version identifier is invalid.', 400, 'INVALID_REVISION_ID');
+    const backupPath = [...found.path, 'revisions', revisionId];
+    const backupDoc = await getFirestoreDocumentAtPath(env, backupPath);
+    const backup = backupDoc ? await getFirestoreDataAtPath(env, backupPath) : null;
+    if (!backup || backup.ownerUid !== uid || String(backup.ownerEmail || '').toLowerCase() !== email || backup.projectId !== found.id) {
+      fail('That recovery version was not found in your account.', 404, 'REVISION_NOT_FOUND');
+    }
+    const filePath = safePath(backup.filePath);
+    const slot = locateFile(found.project, filePath);
+    if (!slot) fail('The saved recovery version refers to a file that no longer exists. No change was made.', 404, 'SOURCE_FILE_NOT_FOUND');
+    const restoreContent = String(backup.originalContent ?? '');
+    if (!restoreContent.trim()) fail('The saved recovery version is empty or incomplete. No change was made.', 422, 'REVISION_CONTENT_UNAVAILABLE');
+    if (restoreContent.length > MAX_BACKUP_SOURCE_BYTES || slot.current.length > MAX_BACKUP_SOURCE_BYTES) {
+      fail('This recovery version is too large for a safe automatic restore.', 413, 'SOURCE_TOO_LARGE_FOR_BACKUP');
+    }
+    if (redactSecrets(slot.current) !== slot.current || redactSecrets(restoreContent) !== restoreContent) {
+      fail('This file contains secret-like values. OVYX will not restore it automatically.', 403, 'SOURCE_CONTAINS_SECRET');
+    }
+    if (slot.current === restoreContent) {
+      return { operation, projectId: found.id, filePath, restored: false, verified: true, revision: found.document.updateTime || null, message: 'The saved file already matches this recovery version; no write was needed.' };
+    }
+    const restoreBackupId = 'restore_' + Date.now() + '_' + crypto.randomUUID().slice(0, 8);
+    const restoreBackup = {
+      projectId: found.id,
+      filePath,
+      bucket: slot.bucket,
+      originalContent: slot.current,
+      createdAt: new Date().toISOString(),
+      beforeUpdateTime: found.document.updateTime || null,
+      reason: 'Safety copy before restoring revision ' + revisionId,
+      kind: 'restore',
+      ownerUid: uid,
+      ownerEmail: email,
+    };
+    slot.update(restoreContent);
+    found.project.updatedAt = typeof found.project.updatedAt === 'number' ? Date.now() : new Date().toISOString();
+    if (new TextEncoder().encode(JSON.stringify(found.project)).byteLength > MAX_PROJECT_DOCUMENT_BYTES) {
+      fail('The restored project would exceed the safe project size limit. No change was made.', 413, 'PROJECT_TOO_LARGE_FOR_SAFE_PATCH');
+    }
+    await setFirestoreDocumentAtPath(env, [...found.path, 'revisions', restoreBackupId], restoreBackup, { merge: false });
+    await setFirestoreDocumentAtPath(env, found.path, found.project, { merge: false, expectedUpdateTime: found.document.updateTime });
+    const verified = await loadOwnedProject(env, uid, email, found.id);
+    const written = locateFile(verified.project, filePath);
+    if (!written || written.current !== restoreContent) {
+      fail('The restore write was accepted, but read-back verification did not match. A safety copy of the previous file was saved.', 502, 'RESTORE_VERIFY_FAILED');
+    }
+    return {
+      operation,
+      projectId: found.id,
+      projectName: clean(verified.project?.name || 'Untitled project', 180),
+      filePath,
+      restored: true,
+      verified: true,
+      restoredRevisionId: revisionId,
+      safetyRevisionId: restoreBackupId,
+      previousRevision: found.document.updateTime || null,
+      revision: verified.document.updateTime || null,
+      message: 'The selected recovery version was restored and read back successfully. The replaced file was saved as a new recovery version. This verifies storage, not live browser behavior.',
+    };
+  }
+
   const filePath = safePath(body.filePath || body.path);
   const slot = locateFile(found.project, filePath);
   if (!slot) fail('That exact source path does not exist in the saved project. OVYX will not create a guessed file path.', 404, 'SOURCE_FILE_NOT_FOUND');
@@ -492,6 +577,7 @@ async function handleTool(env, identity, body) {
     bucket: slot.bucket,
     originalContent: slot.current,
     createdAt: new Date().toISOString(),
+    kind: 'edit',
     beforeUpdateTime: found.document.updateTime || null,
     reason: clean(body.reason, 600) || 'OVYX AI approved source edit',
     ownerUid: uid,
