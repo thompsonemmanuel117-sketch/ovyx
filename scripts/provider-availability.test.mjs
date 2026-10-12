@@ -84,11 +84,11 @@ try {
   response = await onRequestGet(context('unknown'));
   assert.equal(response.status, 400);
   data = await response.json();
-  assert.equal(data.code, 'PROVIDER_REQUIRED');
+  assert.equal(data.error, 'PROVIDER_REQUIRED');
 
   response = await onRequestGet(context('gemini', {}, null));
   assert.equal(response.status, 401);
-  assert.equal((await response.json()).code, 'AUTH_REQUIRED');
+  assert.equal((await response.json()).error, 'AUTH_REQUIRED');
 } finally {
   globalThis.fetch = originalFetch;
 }
