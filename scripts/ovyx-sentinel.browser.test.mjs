@@ -67,7 +67,32 @@ try {
       const payload = req.method() === 'POST' ? req.postDataJSON() : null;
       calls.push({ method: req.method(), payload });
       if (req.method() === 'GET') {
-        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, latestReport, lastScanAt: latestReport.finishedAt, reports: [latestReport] }) });
+        const activeReport = scanCount > 0 ? scannedReport : latestReport;
+        const fixPlan = scanCount > 0 ? {
+          sourceReportId: scannedReport.id,
+          generatedAt: '2026-10-12T21:00:01.000Z',
+          status: 'attention_required',
+          summary: 'Prepared 1 reviewable task from 0 critical findings and 1 warning.',
+          automaticChanges: false,
+          tasks: [{
+            id: 'background_scheduler:SCHEDULE_NOT_RECENTLY_CONFIRMED',
+            checkId: 'background_scheduler',
+            code: 'SCHEDULE_NOT_RECENTLY_CONFIRMED',
+            priority: 'warning',
+            title: 'Verify background Sentinel scheduling',
+            issue: 'A recent scheduled Sentinel run has not been recorded.',
+            steps: ['Confirm the separate ovyx-sentinel-scheduler Worker is deployed with the 30-minute Cron Trigger.'],
+          }],
+          note: 'Advisory only. No changes have been applied.',
+        } : {
+          sourceReportId: latestReport.id,
+          status: 'clear',
+          summary: 'No remediation steps are indicated by the latest saved checks.',
+          automaticChanges: false,
+          tasks: [],
+          note: 'Advisory only. No changes have been applied.',
+        };
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, latestReport: activeReport, fixPlan, lastScanAt: activeReport.finishedAt, reports: [activeReport] }) });
         return;
       }
       assert.equal(payload.action, 'scan', '[' + target.name + '] scan requests must use the allowlisted scan action');
@@ -108,6 +133,12 @@ try {
     assert.equal(scanCount, 1, '[' + target.name + '] saying the wake word and scan command should trigger a single authenticated scan');
     await page.getByText('Latest report · NEEDS ATTENTION').waitFor({ state: 'visible' });
     assert.ok((await page.evaluate(() => window.__spoken)).some(text => /scan finished/i.test(text)), '[' + target.name + '] wake-word command should speak the result when speech synthesis exists');
+
+    await page.locator('[data-ovsx="plan"]').click();
+    await page.locator('[data-ovsx-plan]').waitFor({ state: 'visible' });
+    assert.match(await page.locator('[data-ovsx-plan]').innerText(), /Safe remediation plan/i, '[' + target.name + '] the fix plan panel should be shown');
+    assert.match(await page.locator('[data-ovsx-plan]').innerText(), /Verify background Sentinel scheduling/i, '[' + target.name + '] the saved warning should produce a relevant remediation checklist');
+    assert.match(await page.locator('[data-ovsx-plan]').innerText(), /Advisory only/i, '[' + target.name + '] the plan must clearly state that it does not apply changes');
 
     await page.locator('[data-ovsx="wake"]').click();
     assert.match(await page.locator('[data-ovsx-status]').innerText(), /Wake word paused/i);
