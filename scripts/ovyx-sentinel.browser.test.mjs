@@ -27,7 +27,7 @@ try {
             'let __currentUser=null;const __authListeners=[];window.__setSentinelUser=u=>{__currentUser=u;__authListeners.forEach(cb=>cb(u))};' +
             'window.firebase={auth:()=>({get currentUser(){return __currentUser},onAuthStateChanged:cb=>{__authListeners.push(cb);cb(__currentUser);return ()=>{}}})};' +
             'window.__recognizer=null;window.SpeechRecognition=class{start(){window.__recognizer=this}stop(){if(this.onend)this.onend()}};' +
-            'window.SpeechSynthesisUtterance=class{constructor(text){this.text=text}};window.__spoken=[];window.speechSynthesis={cancel(){},speak(u){window.__spoken.push(u.text);if(u.onend)u.onend()}};' +
+            'Object.defineProperty(window,"SpeechSynthesisUtterance",{configurable:true,value:class{constructor(text){this.text=text}}});window.__spoken=[];Object.defineProperty(window,"speechSynthesis",{configurable:true,value:{cancel(){},speak(u){window.__spoken.push(u.text);if(u.onend)u.onend()}}});' +
             '</script><script defer src="/assets/ovyx-sentinel.js?v=20261012-1"></script></body></html>',
         });
         return;
