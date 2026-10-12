@@ -261,6 +261,7 @@
       push('OVYX suggested an incomplete source edit. No project files were changed.');
       return;
     }
+    setWorkspaceTaskStatus('running', 'Preparing a source-change preview. No file has been changed.');
     const prepared = await workspaceToolRequest({
       operation: 'prepare_patch',
       projectId,
@@ -270,6 +271,7 @@
     });
     if (!prepared.changed) {
       push('No edit was needed for ' + filePath + '. The saved file already matches the proposed content.');
+      setWorkspaceTaskStatus('inspected', 'The saved file already matches the proposed edit.');
       return;
     }
     const message = [
@@ -285,8 +287,10 @@
       '',
       'Apply this change? The current file will be backed up first. You can cancel without changing anything.',
     ].join('\\n');
+    setWorkspaceTaskStatus('approval', 'A source-change preview is ready. Nothing is saved until you approve.');
     if (typeof window.confirm !== 'function' || !window.confirm(message)) {
       push('Edit cancelled. No project files were changed.');
+      setWorkspaceTaskStatus('inspected', 'The proposed edit was cancelled; the saved project was not changed.');
       return;
     }
     const applied = await workspaceToolRequest({
@@ -300,6 +304,7 @@
     });
     if (!applied.verified) {
       push('The server could not verify the edit to ' + filePath + '. The previous file is backed up; open the project and check it before trying again.');
+      setWorkspaceTaskStatus('error', 'The server did not verify the source edit.');
       return;
     }
     const updatedLocal = updateLocalProjectFile(projectId, filePath, prepared.bucket, proposedContent);
@@ -307,6 +312,7 @@
       '. Server read-back verification passed. Backup: ' + String(applied.revisionId || 'saved') +
       (updatedLocal ? '. The current workspace source was refreshed.' : '. Reopen or refresh the project to load the server-saved version.') +
       ' Note: this confirms the saved file, not a full live-browser test.');
+    setWorkspaceTaskStatus('applied', 'The source edit was applied and verified by reading the saved project back.');
   }
 
   async function reviewWorkspaceEditHistory() {
@@ -835,6 +841,20 @@
         ? '0 0 0 3px rgba(232,182,79,.09)'
         : (limited ? '0 0 0 3px rgba(142,171,255,.12)' : '0 0 0 3px rgba(88,215,181,.09)');
     }
+    if (currentUser && workspaceTaskStatus !== 'idle' && status) {
+      const labels = { running: 'TASK RUNNING', local: 'LOCAL CONTEXT READY', inspected: 'PROJECT INSPECTED', approval: 'APPROVAL NEEDED', applied: 'APPLIED · VERIFIED', details: 'DETAILS NEEDED', error: 'ACTION FAILED' };
+      status.textContent = labels[workspaceTaskStatus] || status.textContent;
+      status.title = workspaceTaskMessage || status.title;
+      if (dot) {
+        const color = workspaceTaskStatus === 'error' ? '#f87185'
+          : workspaceTaskStatus === 'approval' || workspaceTaskStatus === 'details' ? '#e8b64f'
+          : workspaceTaskStatus === 'running' ? '#53d8ee'
+          : workspaceTaskStatus === 'applied' ? '#58d7b5'
+          : workspaceTaskStatus === 'local' ? '#8eabff' : '#58d7b5';
+        dot.style.background = color;
+        dot.style.boxShadow = '0 0 0 3px ' + color + '22';
+      }
+    }
   }
 
   async function resolveWorkspaceContext() {
@@ -934,6 +954,7 @@
     if (!bot || typeof bot.pushMsg !== 'function') return;
 
     busy = true;
+    setWorkspaceTaskStatus('running', 'OVYX AI is inspecting workspace context and working on your request.');
     panel()?.classList.add('ovyx-ai-thinking');
     const sendButton = panel()?.querySelector('[data-ovyx-native-send]');
     if (sendButton) {
@@ -965,6 +986,13 @@
       } catch (error) {
         serverToolError = String(error?.message || 'Saved server-side workspace inspection is unavailable.');
       }
+      if (serverWorkspace?.activeProject?.id) {
+        setWorkspaceTaskStatus('inspected', 'Inspected saved project data for ' + String(serverWorkspace.activeProject.name || serverWorkspace.activeProject.id) + '.');
+      } else if (context?.activeProject?.id) {
+        setWorkspaceTaskStatus('local', serverToolError ? 'Saved server scan unavailable; using the available local project snapshot.' : 'Using the local project snapshot. A saved server project was not identified.');
+      } else {
+        setWorkspaceTaskStatus('details', serverToolError || 'No active saved project was identified. OVYX can still answer general questions.');
+      }
       const result = await nativeGenerate({
         mode: 'workspace-copilot-native',
         prompt,
@@ -983,9 +1011,14 @@
       });
       syncWorkspaceBadge(context, contextResult.limited);
       bot.pushMsg('OVYX: ' + result.text);
+      if (workspaceTaskStatus === 'running') {
+        setWorkspaceTaskStatus(serverWorkspace?.activeProject?.id ? 'inspected' : (context?.activeProject?.id ? 'local' : 'details'),
+          serverWorkspace?.activeProject?.id ? 'Workspace inspection completed; the assistant response is ready.' : 'Response completed using the available context; check whether additional project details are needed.');
+      }
       await runActions(result.actions);
     } catch (error) {
       syncWorkspaceBadge(localWorkspaceSnapshot(), true);
+      setWorkspaceTaskStatus('error', String(error?.message || 'OVYX AI could not complete that request.'));
       bot.pushMsg('OVYX ERROR: ' + String(error?.message || 'OVYX AI could not complete that request.'));
     } finally {
       busy = false;
