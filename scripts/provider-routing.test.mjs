@@ -11,15 +11,22 @@ assert.deepEqual(
   ['deepseek'],
   'An explicit DeepSeek choice must not be rerouted.',
 );
+
+assert.deepEqual(providerOrder({}, 'automatic'), [], 'Automatic must skip every provider when no real key or Workers AI binding exists.');
 assert.deepEqual(
-  providerOrder({ OVYX_AI_PROVIDER_ORDER: 'gemini,deepseek' }, 'automatic'),
+  providerOrder({ DEEPSEEK_API_KEY: 'only-deepseek', OVYX_AI_PROVIDER_ORDER: 'gemini,deepseek,claude,openai' }, 'automatic'),
+  ['deepseek'],
+  'Automatic must skip unconfigured providers rather than making doomed calls first.',
+);
+assert.deepEqual(
+  providerOrder({ GEMINI_API_KEY: 'test-gemini', DEEPSEEK_API_KEY: 'test-deepseek', OVYX_AI_PROVIDER_ORDER: 'gemini,deepseek' }, 'automatic'),
   ['gemini', 'deepseek'],
   'Automatic may use the configured order.',
 );
 
 assert.deepEqual(
   providerOrder(
-    { OVYX_AI_PROVIDER_ORDER: 'gemini,deepseek,claude,openai' },
+    { GEMINI_API_KEY: 'g', DEEPSEEK_API_KEY: 'd', ANTHROPIC_API_KEY: 'c', OPENAI_API_KEY: 'o', OVYX_AI_PROVIDER_ORDER: 'gemini,deepseek,claude,openai' },
     'automatic',
     'Design a responsive website landing page with a polished visual layout',
   ),
@@ -28,7 +35,7 @@ assert.deepEqual(
 );
 assert.deepEqual(
   providerOrder(
-    { OVYX_AI_PROVIDER_ORDER: 'gemini,deepseek,claude,openai' },
+    { GEMINI_API_KEY: 'g', DEEPSEEK_API_KEY: 'd', ANTHROPIC_API_KEY: 'c', OPENAI_API_KEY: 'o', OVYX_AI_PROVIDER_ORDER: 'gemini,deepseek,claude,openai' },
     'automatic',
     'Fix a backend API bug involving security and architecture, then add regression tests',
   ),
@@ -37,7 +44,7 @@ assert.deepEqual(
 );
 assert.deepEqual(
   providerOrder(
-    { OVYX_AI_PROVIDER_ORDER: 'gemini,deepseek,claude,openai' },
+    { GEMINI_API_KEY: 'g', DEEPSEEK_API_KEY: 'd', ANTHROPIC_API_KEY: 'c', OPENAI_API_KEY: 'o', OVYX_AI_PROVIDER_ORDER: 'gemini,deepseek,claude,openai' },
     'automatic',
     'Summarize this paragraph in two sentences',
   ),
