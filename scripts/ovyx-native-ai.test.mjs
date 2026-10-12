@@ -57,6 +57,38 @@ assert.match(captured.input.messages[0].content, /local browser snapshot/i);
 assert.equal(result.provider, 'ovyx-native');
 assert.equal(result.text, 'I found the project settings area.');
 assert.deepEqual(result.actions, [{ type: 'navigate', route: 'settings' }]);
+const parsedPatch = parseOvyxNativeModelOutput({
+  response: JSON.stringify({
+    text: 'I found a concrete source repair.',
+    actions: [
+      {
+        type: 'workspace_patch',
+        projectId: 'project_123',
+        filePath: 'src/pages/home.html',
+        content: '<!doctype html><html><body>Fixed</body></html>',
+        reason: 'Restore the missing page structure.',
+      },
+      {
+        type: 'workspace_patch',
+        projectId: 'project_123',
+        filePath: '../.env',
+        content: 'API_KEY=private',
+        reason: 'Unsafe proposal must be dropped.',
+      },
+      {
+        type: 'run_shell',
+        command: 'rm -rf /',
+      },
+    ],
+  }),
+});
+assert.deepEqual(parsedPatch.actions, [{
+  type: 'workspace_patch',
+  projectId: 'project_123',
+  filePath: 'src/pages/home.html',
+  content: '<!doctype html><html><body>Fixed</body></html>',
+  reason: 'Restore the missing page structure.',
+}]);
 assert.equal(result.rawUsage.total_tokens, 35);
 
 await assert.rejects(
