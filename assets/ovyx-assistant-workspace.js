@@ -276,11 +276,23 @@
       const existingInputRow = footer.querySelector('#bot-chat-input')?.parentElement;
       if (existingInputRow) {
         existingInputRow.classList.add('ovyx-native-composer');
-        const input = $('bot-chat-input');
+        let input = $('bot-chat-input');
+        if (input && input.tagName !== 'TEXTAREA') {
+          const textarea = document.createElement('textarea');
+          textarea.id = input.id;
+          textarea.className = input.className;
+          textarea.value = input.value || '';
+          textarea.rows = 1;
+          textarea.setAttribute('aria-label', 'Message OVYX AI');
+          textarea.setAttribute('placeholder', 'Ask OVYX about your workspace…');
+          input.replaceWith(textarea);
+          input = textarea;
+        }
         if (input) {
           input.setAttribute('aria-label', 'Message OVYX AI');
           input.setAttribute('placeholder', 'Ask OVYX about your workspace…');
           input.removeAttribute('onkeydown');
+          input.setAttribute('rows', '1');
         }
         const send = existingInputRow.querySelector('button');
         if (send) {
@@ -491,6 +503,12 @@
           event.stopPropagation();
           send();
         }
+      });
+      input.addEventListener('input', () => {
+        input.style.height = 'auto';
+        input.style.height = Math.min(input.scrollHeight, 140) + 'px';
+        const button = panel()?.querySelector('[data-ovyx-native-send]');
+        if (button && !busy) button.disabled = !input.value.trim();
       });
     }
     document.addEventListener('click', event => {
