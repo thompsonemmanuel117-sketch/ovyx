@@ -248,6 +248,9 @@ export function getWebStudioBuildClarification(prompt, context = {}) {
 
   if (specificEmailForm && !hasEmail) {
     questions.push('What public email address should receive messages from this form? Please share the address only, never a password or API key.');
+  } else if (specificEmailForm && hasEmail && !hasConnectedIntegration(context, 'email') &&
+      !/\b(?:mailto|email client|ui only|design only|prototype|placeholder|no email integration)\b/i.test(evidence)) {
+    questions.push('The public email is noted, but a website form cannot deliver messages from a static page by itself. Should I use a mailto action (opens the visitor’s email app), or do you want to connect an email service under OVYX Settings & Connections for server-backed delivery? I will not claim form delivery works until it is configured.');
   } else if ((wantsBusinessSite || asksContactInfo) && !hasEmail && !hasPhone && !hasAddress && !explicitPlaceholder) {
     questions.push('To make the contact section useful, share any public business email, phone/WhatsApp number, address, opening hours, or booking link you want visitors to see. Send only what applies; I will not invent missing details.');
   }
