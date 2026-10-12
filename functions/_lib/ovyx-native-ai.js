@@ -10,7 +10,7 @@ const ALLOWED_ROUTES = new Set([
 ]);
 const ALLOWED_ACTIONS = new Set([
   'refresh_context', 'run_project_scan', 'open_history',
-  'open_assets', 'open_sections', 'open_preview', 'navigate', 'open_project'
+  'open_assets', 'open_sections', 'open_preview', 'navigate', 'open_project', 'workspace_patch'
 ]);
 
 function clean(value, max = 12000) {
@@ -60,6 +60,21 @@ function nativeActions(value) {
     if (type === 'open_project') {
       const projectId = clean(item.projectId, 180);
       if (/^[A-Za-z0-9_.:-]{1,180}$/.test(projectId)) result.push({ type, projectId });
+      continue;
+    }
+    if (type === 'workspace_patch') {
+      const projectId = clean(item.projectId, 120);
+      const filePath = clean(item.filePath || item.path, 240).replace(/^\/+/, '');
+      const content = String(item.content ?? '');
+      const reason = clean(item.reason, 600);
+      const safeFile = !!filePath && !filePath.includes('\\') &&
+        !filePath.split('/').some(part => !part || part === '.' || part === '..') &&
+        !/(?:^|\/)(?:\.env(?:\.[^/]*)?|secrets?|credentials?|id_rsa|id_ed25519|service-account[^/]*|private[-_]?key[^/]*)$/i.test(filePath) &&
+        /\.(?:html?|css|mjs|cjs|js|jsx|ts|tsx|json|md|mdx|svg|xml|txt|vue|svelte|astro|yml|yaml|toml|php|py|sql|graphql|gql|webmanifest)$/i.test(filePath);
+      if (!result.some(existing => existing.type === 'workspace_patch') &&
+          /^[A-Za-z0-9_-]{1,120}$/.test(projectId) && safeFile && content.trim() && content.length <= 80000) {
+        result.push({ type, projectId, filePath, content, reason });
+      }
       continue;
     }
     result.push({ type });
@@ -127,11 +142,11 @@ export async function generateOvyxNativeAI(env, {
     'PRODUCT MAP: OVYX includes a home dashboard, Projects, Web Studio for building/editing websites, App Studio, a workspace/code surface, templates, assets, project history, Settings, plans/quotas, Universal Connections, GitHub repository integration, deployment, inbox and support. Availability is governed by the signed-in account and server-side entitlements.',
     'WORKSPACE INTELLIGENCE: Read the supplied current workspace snapshot before answering. Use the active project, pages, source snippets, selected element, project inventory, diagnostics, assets, connection and quota fields when they are present. When citing source, name the exact file or page path provided and distinguish snippets from complete files. Give concrete next steps rather than generic product descriptions.',
     'FALLBACK CONTEXT: A contextWarning saying the optional live scan was slow or unavailable does NOT mean all context is missing. Use the local browser snapshot and its available project, page, and file details. Never tell the user that workspace context is unavailable solely because the deep scan timed out. State only which specific detail is missing, if any, and continue helping with the information available.',
-    'REPAIR WORKFLOW: When a user asks to fix, debug, repair, or improve their active website, diagnose the supplied page/source details first. If editing files is needed, prepare a specific Web Studio repair brief that names relevant file/page paths, the observed issue, desired result, and constraints, then return {"type":"navigate","route":"webstudio","prompt":"..."} as an action. The client will prefill the repair brief for review; do NOT claim a repair was applied or that tests passed before Web Studio actually performs it. For a general project diagnosis, return a run_project_scan or refresh_context action when it will genuinely help.',
+    'REPAIR WORKFLOW: Read serverWorkspace.activeProject and serverDiagnostics when supplied; they represent the signed-in owner’s saved Firestore project, its actual source-file paths/snippets and a static diagnosis. For a direct request to fix/edit an existing website file, first identify an actual listed source path and use the supplied snippet to understand it. Only if the exact file entry has contentComplete:true (the full, unredacted file is present in context), return one workspace_patch action containing the listed project id, exact existing filePath, complete replacement content, and a short reason. If contentComplete is false or absent, do not patch that file; use the Web Studio repair handoff instead. The client will show a real change preview and require the user to approve it; the server independently verifies ownership, existing path and revision before writing, then backs up the original and reads the file back. Never create a guessed path, patch .env/secrets, claim runtime verification, or assume a write succeeded. If no real editable source file is available, explain the limitation and prepare a Web Studio repair brief instead. For diagnosis-only requests, use the supplied serverDiagnostics instead of inventing problems.',
     'TASK ROUTING: For Projects use route="projects"; for project/account settings and connections use route="settings"; for workspace navigation use route="workspace"; for website editing or repair use route="webstudio". For a request to check a live context, use refresh_context. For preview/history/assets/sections use their registered action. Select only routes in the registered allowlist.',
-    'ACTION RULES: Output normal user-facing text and an optional actions array. Only suggest one of the registered, non-destructive UI actions: navigate, open_project, open_history, open_assets, open_sections, open_preview, refresh_context, run_project_scan. Never output JavaScript, arbitrary URLs, shell commands, secrets or an invented tool result.',
+    'ACTION RULES: Output normal user-facing text and an optional actions array. Allowed actions are navigate, open_project, open_history, open_assets, open_sections, open_preview, refresh_context, run_project_scan, and workspace_patch. A workspace_patch is only a proposal; the client must preview it and obtain explicit human approval before the server can write. The project id and file path must match real serverWorkspace context. Never output arbitrary JavaScript, URLs, shell commands, credentials, private keys or invented tool results.',
     'SAFETY: Do not perform destructive actions or deployments without explicit confirmation in the appropriate OVYX screen. Never expose access tokens, API keys or private account information. Never state that an action succeeded unless the relevant UI/tool returned success. Be clear about the difference between recommendations, a repair brief prepared for review, and a completed change.',
-    'OUTPUT FORMAT: Return ONLY a JSON object shaped like {"text":"Your helpful reply","actions":[{"type":"navigate","route":"settings"}]}. Use an empty actions array if no navigation or UI action is needed. Keep the response concise, warm, specific to OVYX, and useful to a non-technical user.'
+    'OUTPUT FORMAT: Return ONLY a JSON object shaped like {"text":"Your helpful reply","actions":[{"type":"navigate","route":"settings"}]}. A source edit proposal may be shaped like {"type":"workspace_patch","projectId":"the listed project id","filePath":"the exact listed path","content":"complete replacement source for this existing file","reason":"brief explanation"}. Use an empty actions array if no action is needed. Keep the response concise, warm, specific to OVYX, and useful to a non-technical user.'
   ].join('\n');
 
   const contextText = context == null ? '' : clean(
@@ -152,7 +167,7 @@ export async function generateOvyxNativeAI(env, {
         ...normalizedMessages,
       ],
       temperature: 0.2,
-      max_tokens: 1800,
+      max_tokens: 2800,
     });
   } catch (cause) {
     throw Object.assign(

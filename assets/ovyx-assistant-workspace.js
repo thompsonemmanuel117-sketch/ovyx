@@ -164,6 +164,149 @@
     return u.getIdToken(false);
   }
 
+  async function workspaceToolRequest(payload = {}) {
+    const token = await readToken();
+    const response = await fetch('/api/ai/workspace-tools', {
+      method: 'POST',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + token,
+      },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data?.ok === false) {
+      throw Object.assign(new Error(data?.error || data?.message || 'OVYX workspace tools are unavailable.'), {
+        status: response.status,
+        code: data?.code || 'WORKSPACE_TOOL_FAILED',
+      });
+    }
+    return data;
+  }
+
+  function updateLocalProjectFile(projectId, filePath, bucket, source) {
+    const state = window.KernelState || {};
+    const projects = Array.isArray(state.projects) ? state.projects : (window.ProjectStore?.list?.() || []);
+    const project = projects.find(item => String(item?.id || '') === String(projectId)) ||
+      (String(state.activeProject?.id || '') === String(projectId) ? state.activeProject : null);
+    if (!project) return false;
+    const chain = String(bucket || '').split('.').filter(Boolean);
+    let collection = project;
+    for (const key of chain) collection = collection?.[key];
+    const assign = target => {
+      if (!target) return false;
+      if (Array.isArray(target)) {
+        const item = target.find(row => String(row?.path || row?.file || row?.name || '').replace(/^\/+/, '') === filePath);
+        if (!item) return false;
+        if (typeof item === 'string') {
+          const index = target.indexOf(item);
+          target[index] = source;
+        } else {
+          const key = ['content', 'text', 'source', 'code', 'html'].find(k => typeof item[k] === 'string') || 'content';
+          item[key] = source;
+          item.updatedAt = typeof item.updatedAt === 'number' ? Date.now() : new Date().toISOString();
+        }
+        return true;
+      }
+      if (typeof target !== 'object' || !Object.prototype.hasOwnProperty.call(target, filePath)) return false;
+      const value = target[filePath];
+      if (typeof value === 'string') target[filePath] = source;
+      else if (value && typeof value === 'object') {
+        const key = ['content', 'text', 'source', 'code', 'html'].find(k => typeof value[k] === 'string') || 'content';
+        value[key] = source;
+        value.updatedAt = typeof value.updatedAt === 'number' ? Date.now() : new Date().toISOString();
+      } else target[filePath] = source;
+      return true;
+    };
+    let updated = assign(collection);
+
+    // Keep Web Studio's live source graph in sync with the server-confirmed file.
+    const liveFiles = window.WebStudio?.graph?.files;
+    if (liveFiles && Object.prototype.hasOwnProperty.call(liveFiles, filePath)) {
+      const live = liveFiles[filePath];
+      if (typeof live === 'string') liveFiles[filePath] = source;
+      else if (live && typeof live === 'object') liveFiles[filePath] = {
+        ...live,
+        content: source,
+        updatedAt: Date.now(),
+      };
+      else liveFiles[filePath] = { type: 'text/plain', content: source, updatedAt: Date.now() };
+      updated = true;
+    }
+    if (!updated) return false;
+    project.updatedAt = Date.now();
+    if (String(state.activeProject?.id || '') === String(projectId)) state.activeProject = project;
+    if (Array.isArray(state.projects) && !state.projects.some(item => item === project)) {
+      state.projects = state.projects.map(item => String(item?.id || '') === String(projectId) ? project : item);
+    }
+    try { window.ProjectStore?.save?.(); } catch (_) {}
+    try { window.OVYXWorkspaceCopilot?.scan?.(); } catch (_) {}
+    window.dispatchEvent(new CustomEvent('ovyx:workspace-source-updated', {
+      detail: { projectId, filePath, source: 'verified-server-write' },
+    }));
+    return true;
+  }
+
+  async function approveAndApplyWorkspacePatch(action) {
+    const projectId = String(action?.projectId || window.KernelState?.activeProject?.id || '');
+    const filePath = String(action?.filePath || '');
+    const reason = String(action?.reason || 'OVYX AI proposed a source repair').slice(0, 600);
+    const proposedContent = String(action?.content ?? '');
+    if (!projectId || !filePath || !proposedContent.trim()) {
+      push('OVYX suggested an incomplete source edit. No project files were changed.');
+      return;
+    }
+    const prepared = await workspaceToolRequest({
+      operation: 'prepare_patch',
+      projectId,
+      filePath,
+      content: proposedContent,
+      reason,
+    });
+    if (!prepared.changed) {
+      push('No edit was needed for ' + filePath + '. The saved file already matches the proposed content.');
+      return;
+    }
+    const message = [
+      'OVYX AI proposes editing an existing file in your saved project.',
+      '',
+      'Project: ' + String(prepared.projectName || 'Current project'),
+      'File: ' + filePath,
+      'Reason: ' + (reason || 'Source repair'),
+      'Changes: +' + Number(prepared.linesAdded || 0) + ' lines / -' + Number(prepared.linesRemoved || 0) + ' lines',
+      '',
+      'Preview:',
+      String(prepared.preview || '(No short diff available.)').slice(0, 1800),
+      '',
+      'Apply this change? The current file will be backed up first. You can cancel without changing anything.',
+    ].join('\\n');
+    if (typeof window.confirm !== 'function' || !window.confirm(message)) {
+      push('Edit cancelled. No project files were changed.');
+      return;
+    }
+    const applied = await workspaceToolRequest({
+      operation: 'apply_patch',
+      projectId,
+      filePath,
+      content: proposedContent,
+      reason,
+      confirm: true,
+      expectedUpdateTime: prepared.revision,
+    });
+    if (!applied.verified) {
+      push('The server could not verify the edit to ' + filePath + '. The previous file is backed up; open the project and check it before trying again.');
+      return;
+    }
+    const updatedLocal = updateLocalProjectFile(projectId, filePath, prepared.bucket, proposedContent);
+    push('Updated ' + filePath + ' in ' + String(applied.projectName || prepared.projectName || 'your project') +
+      '. Server read-back verification passed. Backup: ' + String(applied.revisionId || 'saved') +
+      (updatedLocal ? '. The current workspace source was refreshed.' : '. Reopen or refresh the project to load the server-saved version.') +
+      ' Note: this confirms the saved file, not a full live-browser test.');
+  }
+
   function normalizeResponse(value) {
     if (!value || typeof value !== 'object') return { text: String(value || ''), actions: [] };
     return {
@@ -456,10 +599,18 @@
     else pushMessage('OVYX: ' + String(text));
   }
 
-  function runActions(actions) {
+  async function runActions(actions) {
     if (!Array.isArray(actions)) return;
     for (const action of actions.slice(0, 6)) {
       const type = String(action?.type || '').toLowerCase();
+      if (type === 'workspace_patch') {
+        try {
+          await approveAndApplyWorkspacePatch(action);
+        } catch (error) {
+          push('Workspace edit not applied: ' + String(error?.message || 'The source update failed. No change is reported as complete unless the server verified it.'));
+        }
+        continue;
+      }
       if (type === 'navigate') {
         const route = String(action.route || '').replace(/^view-/i, '').toLowerCase();
         if (!allowedRoutes.has(route)) continue;
@@ -734,21 +885,43 @@
     try {
       const contextResult = await resolveWorkspaceContext();
       const context = contextResult.context;
+      const activeProjectId = String(context?.activeProject?.id || window.KernelState?.activeProject?.id || window.ProjectStore?.current?.id || '');
+      let serverWorkspace = null;
+      let serverDiagnostics = null;
+      let serverToolError = '';
+      try {
+        serverWorkspace = await workspaceToolRequest({
+          operation: 'snapshot',
+          ...(activeProjectId ? { projectId: activeProjectId } : {}),
+        });
+        const shouldDiagnose = /\b(diagnos|debug|broken|bug|repair|fix|not working|doesn.?t work|inspect|malfunction|error)\b/i.test(prompt);
+        const serverProjectId = String(serverWorkspace?.activeProject?.id || '');
+        if (shouldDiagnose && serverProjectId) {
+          const diagnosticResult = await workspaceToolRequest({ operation: 'diagnose', projectId: serverProjectId });
+          serverDiagnostics = diagnosticResult.diagnostics || null;
+        }
+      } catch (error) {
+        serverToolError = String(error?.message || 'Saved server-side workspace inspection is unavailable.');
+      }
       const result = await nativeGenerate({
         mode: 'workspace-copilot-native',
         prompt,
         context: {
+          // Put saved, owner-verified source context first so it remains in the bounded AI context.
+          serverWorkspace,
+          serverDiagnostics,
+          serverToolError: serverToolError || null,
           workspace: context,
           diagnostics: window.OVYXWorkspaceCopilot?.diagnose?.() || null,
           contextLimited: contextResult.limited,
           contextWarning: context.contextWarning || null,
-          assistantPolicy: 'OVYX native workspace assistant; execute only validated safe navigation actions. Context scanning is optional: answer the user normally even if the live scan is unavailable.',
+          assistantPolicy: 'OVYX native workspace assistant. Context scanning is optional: use saved serverWorkspace data and serverDiagnostics when available, and always use the local snapshot as a fallback when deeper scans are unavailable. Any source edit requires a real file preview plus explicit user approval; only report a saved edit when the server confirms read-back verification.',
         },
-        system: 'Answer as OVYX AI. Be specific to the supplied authenticated workspace. Never claim to have completed an action unless it returned success. For website builds, prepare the user in Web Studio rather than claiming you built it here.',
+        system: 'Answer as OVYX AI. Inspect the authenticated saved project context when supplied. Never claim that code changed unless a server-confirmed workspace_patch action returned verified=true. A source edit must be reviewed and explicitly approved in the UI before it is written. For website builds, preserve the existing Web Studio generation workflow.',
       });
       syncWorkspaceBadge(context, contextResult.limited);
       bot.pushMsg('OVYX: ' + result.text);
-      runActions(result.actions);
+      await runActions(result.actions);
     } catch (error) {
       syncWorkspaceBadge(localWorkspaceSnapshot(), true);
       bot.pushMsg('OVYX ERROR: ' + String(error?.message || 'OVYX AI could not complete that request.'));
