@@ -37,8 +37,6 @@ try {
     await page.evaluate(() => window.WorkspaceBrainBot.open());
     const panel = page.locator('#kernel-brain-bot-panel');
     await panel.waitFor({ state: 'visible' });
-    assert.ok(await panel.locator('.ovyx-native-response-avatar').count(), `[${target.name}] premium assistant response avatar is missing`);
-
     const trigger = panel.locator('[data-ovyx-native-more]');
     const menu = panel.locator('.ovyx-native-menu');
     await trigger.click();
@@ -61,6 +59,7 @@ try {
     const helpReply = page.locator('#bot-chat-history .ovyx-native-message-body').last();
     await helpReply.waitFor({ state: 'visible' });
     assert.match(await helpReply.innerText(), /OVYX AI can inspect the workspace snapshot/i);
+    assert.ok(await panel.locator('.ovyx-native-response-avatar').count(), `[${target.name}] premium assistant response avatar is missing`);
 
     await trigger.click();
     await menu.locator('[data-ovyx-native-action="new-chat"]').click();
