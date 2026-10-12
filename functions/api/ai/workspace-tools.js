@@ -179,7 +179,7 @@ function allProjectFiles(project) {
       const path = clean(rawPath, 240).replace(/^\/+/, '');
       if (!path || seen.has(path) || sensitivePath(path)) continue;
       const content = contentOf(value);
-      if (!content || content.length > MAX_PROJECT_FILE_BYTES || !SAFE_TEXT_EXTENSION.test(path)) continue;
+      if (content.length > MAX_PROJECT_FILE_BYTES || !SAFE_TEXT_EXTENSION.test(path)) continue;
       seen.add(path);
       result.push({ path, size: content.length, content });
     }
@@ -226,7 +226,7 @@ function projectSummary(id, project, updateTime = null, includeContents = true) 
     .map((page, index) => pageSummary(page, index, 350));
   const files = allProjectFiles(project);
   const visibleFiles = files.slice(0, includeContents ? 8 : 40).map(file => {
-    const complete = file.content.length <= MAX_MODEL_EDITABLE_SOURCE_BYTES;
+    const complete = file.content.length <= MAX_MODEL_EDITABLE_SOURCE_BYTES && redactSecrets(file.content) === file.content;
     return {
       path: file.path,
       size: file.size,
@@ -331,7 +331,7 @@ async function listOwnedProjects(env, uid, email) {
       fileCount: allProjectFiles(row.data).length,
     }))
     .sort((a, b) => String(b.updatedAt || '').localeCompare(String(a.updatedAt || '')))
-    .slice(0, 60);
+    .slice(0, 24);
 }
 
 async function loadOwnedProject(env, uid, email, rawId) {
@@ -443,6 +443,9 @@ async function handleTool(env, identity, body) {
   const nextContent = String(body.content ?? '');
   if (slot.current.length > MAX_MODEL_EDITABLE_SOURCE_BYTES) {
     fail('OVYX did not receive the complete source for this file, so it will not replace it automatically. Use Web Studio to edit the full file safely.', 413, 'SOURCE_NOT_FULLY_IN_CONTEXT');
+  }
+  if (redactSecrets(slot.current) !== slot.current) {
+    fail('This file contains secret-like values that are hidden from the assistant. OVYX will not replace the file automatically.', 403, 'SOURCE_CONTAINS_SECRET');
   }
   if (slot.current.length > MAX_BACKUP_SOURCE_BYTES) fail('This source file is too large for a safe automatic backup. No change was made.', 413, 'SOURCE_TOO_LARGE_FOR_BACKUP');
   if (nextContent.length > MAX_PATCH_BYTES) fail('The proposed file is too large for a safe single-file assistant edit.', 413, 'PATCH_TOO_LARGE');
