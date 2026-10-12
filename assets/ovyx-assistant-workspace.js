@@ -345,10 +345,10 @@
       }
       return null;
     }
-    const userMatch = text.match(/^USER:\\s*/i);
-    const ovyxMatch = text.match(/^OVYX(?:\\s+ERROR)?:\\s*/i);
+    const userMatch = text.match(/^USER:\s*/i);
+    const ovyxMatch = text.match(/^OVYX(?:\s+ERROR)?:\s*/i);
     const isUser = !!userMatch;
-    const bodyText = text.replace(/^USER:\\s*/i, '').replace(/^OVYX(?:\\s+ERROR)?:\\s*/i, '');
+    const bodyText = text.replace(/^USER:\s*/i, '').replace(/^OVYX(?:\s+ERROR)?:\s*/i, '');
     const row = document.createElement('div');
     row.className = 'ovyx-native-message ' + (isUser ? 'is-user' : 'is-assistant');
     row.dataset.ovyxNativeMessage = '1';
