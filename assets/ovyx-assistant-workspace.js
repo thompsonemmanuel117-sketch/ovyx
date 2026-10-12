@@ -973,6 +973,7 @@
     input.disabled = true;
     bot.pushMsg('USER: ' + prompt);
     input.value = '';
+    const needsWorkspaceInspection = /(?:\b(?:my|this|current|active)\s+project\b|\bworkspace\b|\b(?:broken|fix|repair|debug|diagnos|inspect|undo|restore)\b|\bfind why\b|\bcheck whether (?:the )?fix\b)/i.test(prompt);
     try {
       const contextResult = await resolveWorkspaceContext();
       const context = contextResult.context;
@@ -1000,6 +1001,15 @@
         setWorkspaceTaskStatus('local', serverToolError ? 'Saved server scan unavailable; using the available local project snapshot.' : 'Using the local project snapshot. A saved server project was not identified.');
       } else {
         setWorkspaceTaskStatus('details', serverToolError || 'No active saved project was identified. OVYX can still answer general questions.');
+      }
+      if (needsWorkspaceInspection) {
+        if (serverWorkspace?.activeProject?.id) {
+          bot.pushMsg('OVYX: I inspected the saved project “' + String(serverWorkspace.activeProject.name || serverWorkspace.activeProject.id) + '” and am checking the requested details now. No source changes have been applied.');
+        } else if (serverToolError) {
+          bot.pushMsg('OVYX: The saved-project scan was unavailable, so I’m continuing with the local workspace snapshot. I’ll identify any specific missing details and won’t claim a saved edit without server verification.');
+        } else {
+          bot.pushMsg('OVYX: I couldn’t identify an active saved project. I’m using the available local context and will tell you what information is missing. No project files have been changed.');
+        }
       }
       setWorkspaceTaskStatus('running', serverWorkspace?.activeProject?.id
         ? 'Project inspection is complete; OVYX AI is working on your request.'
