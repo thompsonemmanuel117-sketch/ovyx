@@ -67,13 +67,13 @@ function responseCheck(target, response, payload, durationMs) {
   return check;
 }
 
-async function fetchWithDeadline(fetchImpl, url, timeoutMs) {
+async function fetchWithDeadline(fetchImpl, url, timeoutMs, extraHeaders = {}) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetchImpl(url, {
       method: 'GET',
-      headers: { Accept: 'application/json, text/html, application/javascript', 'Cache-Control': 'no-store' },
+      headers: { Accept: 'application/json, text/html, application/javascript', 'Cache-Control': 'no-store', ...extraHeaders },
       redirect: 'manual',
       signal: controller.signal,
     });
@@ -127,6 +127,11 @@ export async function collectSentinelChecks({ origin, env = {}, fetchImpl = fetc
       const response = await fetchWithDeadline(fetchImpl,
         'https://api.github.com/repos/thompsonemmanuel117-sketch/ovyx/actions/runs?branch=main&per_page=20',
         8000,
+        {
+          Authorization: 'Bearer ' + String(env.OVYX_SENTINEL_GITHUB_TOKEN).trim(),
+          Accept: 'application/vnd.github+json',
+          'X-GitHub-Api-Version': '2022-11-28',
+        },
       );
       if (!response.ok) {
         checks.push({
