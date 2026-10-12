@@ -480,6 +480,7 @@ async function handleTool(env, identity, body) {
       projectId: found.id,
       projectName: clean(found.project?.name || 'Untitled project', 180),
       filePath,
+      bucket: slot.bucket,
       revisionId,
       revision: found.document.updateTime || null,
       changed: slot.current !== restoreContent,
