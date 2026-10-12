@@ -119,9 +119,12 @@ function speak(text) {
     window.speechSynthesis.speak(utterance);
   } catch (_) {}
 }
-function showPanel(show) {
-  buildShell(); q('#' + ID + '-panel').hidden = !show;
-  if (show) { void loadLatest(); q('[data-ovsx="scan"]').focus(); }
+function showPanel(show, refreshReport) {
+  buildShell();
+  var panel = q('#' + ID + '-panel');
+  var wasHidden = panel.hidden;
+  panel.hidden = !show;
+  if (show) { if (refreshReport !== false && wasHidden) void loadLatest(); q('[data-ovsx="scan"]').focus(); }
 }
 async function loadLatest() {
   if (busy) return;
@@ -163,7 +166,7 @@ function handleVoice(raw) {
   if (/\b(?:stop listening|pause listening|disable wake word|turn off wake word)\b/.test(text)) { disableWake('Wake word disabled. Microphone listening has stopped.'); speak('Wake word disabled, boss.'); return; }
   var wake = text.match(/\b(?:ovyx|o\s*v\s*y\s*x|oh\s*v\s*y\s*x|oh\s*vyx)\b/i);
   if (wake) {
-    showPanel(true);
+    showPanel(true, false);
     var command = text.slice((wake.index || 0) + wake[0].length).trim();
     if (command) { awaitingUntil = 0; runVoiceCommand(command); }
     else { awaitingUntil = Date.now() + 12000; status('I heard OVYX. Tell me what you need within 12 seconds.', 'success'); speak('I’m listening, boss. What should I check?'); }
