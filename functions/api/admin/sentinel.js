@@ -8,6 +8,7 @@ import { errorResponse, jsonResponse, readJson, getRequestId } from '../_lib/htt
 import {
   collectSentinelChecks,
   createSentinelReport,
+  createSentinelFixPlan,
   isSentinelAdmin,
   sentinelCronSecretMatches,
 } from '../../_lib/ovyx-sentinel.js';
@@ -99,10 +100,12 @@ export async function onRequestGet(context) {
       .sort((a, b) => String(b.finishedAt || '').localeCompare(String(a.finishedAt || '')))
       .slice(0, 20);
 
+    const latestReport = state.latestReport || reports[0] || null;
     return jsonResponse({
       ok: true,
       administratorOnly: true,
-      latestReport: state.latestReport || reports[0] || null,
+      latestReport,
+      fixPlan: createSentinelFixPlan(latestReport),
       lastScanAt: state.lastScanAt || null,
       lastScheduledAt: state.lastScheduledAt || null,
       totalRuns: Math.max(0, Number(state.totalRuns) || 0),
@@ -149,6 +152,7 @@ export async function onRequestPost(context) {
     return jsonResponse({
       ok: true,
       report,
+      fixPlan: createSentinelFixPlan(report),
       message: source === 'scheduled' ? 'Scheduled Sentinel checks completed.' : 'Sentinel checks completed.',
     }, 200, { 'X-OVYX-Request-ID': requestId });
   } catch (error) {
