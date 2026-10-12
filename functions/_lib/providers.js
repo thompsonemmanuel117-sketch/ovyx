@@ -730,35 +730,46 @@ function taskProviderPreference(taskContext) {
   return [];
 }
 
-export function providerOrder(
-  env,
-  requested,
-  taskContext = ''
-) {
-  if (requested && requested !== 'automatic') {
-    return [normalizeRequestedProvider(requested, env)];
+const SUPPORTED_PROVIDERS = Object.freeze([
+  'gemini', 'deepseek', 'claude', 'openai', 'groq', 'cloudflare-workers-ai',
+]);
+
+function isProviderConfigured(env, provider) {
+  switch (provider) {
+    case 'gemini': return Boolean(String(env?.GEMINI_API_KEY || '').trim());
+    case 'deepseek': return Boolean(String(env?.DEEPSEEK_API_KEY || '').trim());
+    case 'claude': return Boolean(String(env?.ANTHROPIC_API_KEY || '').trim());
+    case 'openai': return Boolean(String(env?.OPENAI_API_KEY || '').trim());
+    case 'groq': return Boolean(String(env?.GROQ_API_KEY || '').trim());
+    case 'cloudflare-workers-ai': return Boolean(env?.AI && typeof env.AI.run === 'function');
+    default: return false;
+  }
+}
+
+export function providerOrder(env, requested, taskContext = '') {
+  const selection = String(requested || 'automatic').trim().toLowerCase();
+  if (selection && selection !== 'automatic') {
+    // An explicit choice is exclusive even when its key is missing.
+    return [normalizeRequestedProvider(selection, env)];
   }
 
-  const configured = String(
-    env.AI_PROVIDER_ORDER || env.OVYX_AI_PROVIDER_ORDER || 'gemini,deepseek,claude,openai'
+  const configuredOrder = String(
+    env?.AI_PROVIDER_ORDER || env?.OVYX_AI_PROVIDER_ORDER || 'gemini,deepseek,claude,openai,groq'
   )
     .split(',')
     .map(normalizeConfiguredProvider)
-    .filter(provider => ['gemini', 'deepseek', 'claude', 'openai', 'groq', 'cloudflare-workers-ai'].includes(provider));
+    .filter(provider => SUPPORTED_PROVIDERS.includes(provider) && provider !== 'cloudflare-workers-ai');
 
-  /* Keep explicit provider choices exclusive. In Automatic mode, a lightweight
-     task classifier prioritizes suitable configured providers; the operator's
-     configured order is the tie-breaker and remains the fallback preference. */
-  const ordered = [...new Set(configured)];
-  const preference = taskProviderPreference(taskContext);
-  if (preference.length) {
-    const rank = new Map(preference.map((provider, index) => [provider, index]));
-    ordered.sort((left, right) => {
-      const a = rank.has(left) ? rank.get(left) : Number.MAX_SAFE_INTEGER;
-      const b = rank.has(right) ? rank.get(right) : Number.MAX_SAFE_INTEGER;
-      return a - b;
-    });
-  }
+  // Use the existing task classifier, then the configured order as fallback.
+  // Unlike the historical implementation, never try an unconfigured provider.
+  const priorities = [
+    ...taskProviderPreference(taskContext),
+    ...configuredOrder,
+    'gemini', 'deepseek', 'claude', 'openai', 'groq',
+  ];
+  const ordered = [...new Set(priorities)].filter(provider => isProviderConfigured(env, provider));
+
+  // Workers AI is an optional final fallback and requires a real binding.
   if (env?.AI && typeof env.AI.run === 'function' && !ordered.includes('cloudflare-workers-ai')) {
     ordered.push('cloudflare-workers-ai');
   }
@@ -852,13 +863,19 @@ export async function callModel(
     };
   }
 
-  for (
-    const provider of providerOrder(
-      env,
-      requested,
-      String(options.taskPrompt || options.user || '')
-    )
-  ) {
+  const availableProviders = providerOrder(
+    env,
+    requested,
+    String(options.taskPrompt || options.user || '')
+  );
+  if (requested === 'automatic' && availableProviders.length === 0) {
+    throw Object.assign(
+      new Error('No AI provider is connected right now. Please try again later, or connect your own AI Brain in Universal Connections to continue building.'),
+      { status: 503, code: 'AI_PROVIDER_NOT_CONFIGURED' }
+    );
+  }
+
+  for (const provider of availableProviders) {
     try {
       const model =
         getConfiguredModel(
