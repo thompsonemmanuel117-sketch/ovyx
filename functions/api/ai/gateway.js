@@ -116,8 +116,12 @@ export async function onRequestPost(context) {
         const text = typeof value === 'string' ? value : value && (value.content || value.text || value.source || value.code);
         return /\.html?$/i.test(path) && typeof text === 'string' && text.length > 500 && /<body\b/i.test(text);
       });
+    const readinessSensitiveRequest =
+      /\b(?:contact\s+forms?|enquir(?:y|ies)\s+forms?|email delivery|send (?:form )?messages|payments?|checkout|paystack|flutterwave|stripe|paypal|booking|reservations?|appointments?|newsletter|subscriptions?|login|log in|sign in|sign up|authentication|database|customer records?|order records?)\b/i.test(studioPromptText) ||
+      /\b(?:add|create|include|build|put|make)\b.{0,55}\b(?:contact|email|phone|whatsapp|address|booking|reservation|newsletter)\b/i.test(studioPromptText);
     const isExistingSiteEdit = hasExistingHtml &&
-      /\b(?:fix|edit|change|update|modify|repair|tweak|adjust|redesign|remove|replace|add)\b/i.test(String(studioPromptText || ''));
+      /\b(?:fix|edit|change|update|modify|repair|tweak|adjust|redesign|remove|replace|add)\b/i.test(String(studioPromptText || '')) &&
+      !readinessSensitiveRequest;
     const buildReadiness = isWebStudio && mode === 'build' && !isExistingSiteEdit
       ? getWebStudioBuildClarification(studioPromptText, {
           ...(payload.context && typeof payload.context === 'object' ? payload.context : {}),
