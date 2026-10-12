@@ -22,7 +22,7 @@ try {
         await route.fulfill({
           status: 200,
           contentType: 'text/html',
-          body: '<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body>' +
+          body: '<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><div id="sentinel-test-fixture">Sentinel test fixture</div>' +
             '<script>' +
             'let __currentUser=null;const __authListeners=[];window.__setSentinelUser=u=>{__currentUser=u;__authListeners.forEach(cb=>cb(u))};' +
             'window.firebase={auth:()=>({get currentUser(){return __currentUser},onAuthStateChanged:cb=>{__authListeners.push(cb);cb(__currentUser);return ()=>{}}})};' +
@@ -78,6 +78,7 @@ try {
     const response = await page.goto(baseURL, { waitUntil: 'domcontentloaded' });
     assert.ok(response && response.ok(), '[' + target.name + '] fixture shell failed to load');
     await page.waitForLoadState('networkidle');
+    assert.equal(await page.locator('#sentinel-test-fixture').count(), 1, '[' + target.name + '] intercepted fixture page was not used');
 
     assert.equal(await page.locator('#ovyx-sentinel-launch').count(), 0, '[' + target.name + '] Sentinel must stay hidden before authenticated admin identity exists');
     await page.evaluate(() => window.__setSentinelUser({ email: 'other@example.test', emailVerified: true, async getIdToken() { return 'not-admin-token'; } }));
@@ -90,7 +91,9 @@ try {
     assert.equal(await script.count(), 1, '[' + target.name + '] Sentinel browser runtime should be loaded once');
     await page.locator('#ovyx-sentinel-launch').click();
     await page.locator('#ovyx-sentinel-panel').waitFor({ state: 'visible' });
-    await page.getByText('Latest report · HEALTHY').waitFor({ state: 'visible' });
+    await page.waitForFunction(() => document.querySelector('#ovyx-sentinel-panel [data-ovsx-report]')?.textContent.includes('Latest report'), null, { timeout: 10000 }).catch(() => {});
+    assert.match(await page.locator('#ovyx-sentinel-panel [data-ovsx-status]').innerText(), /Sentinel is ready|Last saved scan|latest scan|Sentinel server|administrator/i, '[' + target.name + '] Sentinel report bootstrap failed: ' + await page.locator('#ovyx-sentinel-panel [data-ovsx-status]').innerText());
+    assert.match(await page.locator('#ovyx-sentinel-panel [data-ovsx-report]').innerText(), /Latest report · HEALTHY/i, '[' + target.name + '] saved report was not rendered');
 
     await page.locator('[data-ovsx="wake"]').click();
     assert.match(await page.locator('[data-ovsx-status]').innerText(), /Wake word enabled/i);
