@@ -2,9 +2,15 @@
   X-Content-Type-Options: nosniff
   X-Frame-Options: DENY
   Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: geolocation=(), microphone=(), camera=()
+  Permissions-Policy: geolocation=(), microphone=(self), camera=()
 
 /assets/ovyx-assistant-workspace.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-sentinel.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-provider-availability.js
   Cache-Control: no-store, no-cache, must-revalidate
 
 /api/*
