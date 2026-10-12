@@ -285,6 +285,7 @@ for (const file of [
   path.join(root, 'scripts/ovyx-pages-build.mjs'),
   path.join(root, 'scripts/ovyx-cloudflare-diagnostics.mjs'),
   path.join(root, 'assets/ovyx-launch-polish.js'),
+  path.join(root, 'assets/ovyx-ai-workspace.js'),
   path.join(root, 'functions/_lib/multi-page.js'),
   path.join(root, 'functions/_lib/orchestrator.js'),
   path.join(root, 'functions/_lib/prompts.js'),
@@ -382,6 +383,60 @@ if (fs.existsSync(html)) {
       errors.push(`index.html Web Studio runtime: ${String(error.stderr || error.stdout || error.message).trim()}`);
     }
   }
+}
+
+const nativeAssistantPath = path.join(root, 'functions/_lib/ovyx-native-assistant.js');
+const nativeAssistantRoutePath = path.join(root, 'functions/api/ai/ovyx.js');
+const nativeAssistantAssetPath = path.join(root, 'assets/ovyx-ai-workspace.js');
+const nativeAssistantStylePath = path.join(root, 'assets/ovyx-ai-workspace.css');
+if (!fs.existsSync(nativeAssistantPath) || !fs.existsSync(nativeAssistantRoutePath)) {
+  errors.push('OVYX native AI: the project-aware native assistant helper or authenticated endpoint is missing.');
+} else {
+  const nativeHelper = fs.readFileSync(nativeAssistantPath, 'utf8');
+  const nativeRoute = fs.readFileSync(nativeAssistantRoutePath, 'utf8');
+  if (
+    !/env\.AI\.run/.test(nativeRoute) ||
+    !nativeRoute.includes('resolveNativeIntent') ||
+    !nativeRoute.includes('sanitizeNativeContext') ||
+    /callModel|GEMINI_API_KEY|OPENAI_API_KEY|DEEPSEEK_API_KEY|ANTHROPIC_API_KEY|callUserUniversalConnection/.test(nativeRoute)
+  ) {
+    errors.push('OVYX native AI: workspace-assistant requests must use native workspace intents and the Cloudflare AI binding, never the external-provider router or provider API keys.');
+  }
+  if (
+    !nativeHelper.includes('export function resolveNativeIntent') ||
+    !nativeHelper.includes('export function sanitizeNativeContext') ||
+    !nativeHelper.includes('[redacted private key]') ||
+    !nativeHelper.includes('export function buildNativeSystemPrompt')
+  ) {
+    errors.push('OVYX native AI: intent handling, project-context sanitization or secret redaction is incomplete.');
+  }
+}
+if (!fs.existsSync(nativeAssistantAssetPath) || !fs.existsSync(nativeAssistantStylePath)) {
+  errors.push('OVYX native AI workspace: the chat chrome or responsive workspace stylesheet is missing.');
+} else {
+  const nativeAsset = fs.readFileSync(nativeAssistantAssetPath, 'utf8');
+  const nativeStyle = fs.readFileSync(nativeAssistantStylePath, 'utf8');
+  if (
+    !nativeAsset.includes('/api/ai/ovyx') ||
+    !nativeAsset.includes('ovyx-native-more-menu') ||
+    !nativeAsset.includes('data-ovyx-native-menu-button') ||
+    !nativeAsset.includes('function performActions') ||
+    !nativeStyle.includes('#kernel-brain-bot-panel:not(.hidden)') ||
+    !nativeStyle.includes('@media(max-width:767px)')
+  ) {
+    errors.push('OVYX native AI workspace: provider-free endpoint, accessible three-dot actions, action allowlisting or mobile layout contract is incomplete.');
+  }
+}
+const nativeMiddlewarePath = path.join(root, 'functions/_middleware.js');
+const nativeMiddleware = fs.existsSync(nativeMiddlewarePath)
+  ? fs.readFileSync(nativeMiddlewarePath, 'utf8')
+  : '';
+if (!nativeMiddleware.includes('/assets/ovyx-ai-workspace.js') || !nativeMiddleware.includes('/assets/ovyx-ai-workspace.css') || !nativeMiddleware.includes("on('head'")) {
+  errors.push('OVYX native AI workspace: stylesheet and browser runtime must be injected into the app shell.');
+}
+const nativeAssistantTestPath = path.join(root, 'scripts/ovyx-native-assistant.test.mjs');
+if (!fs.existsSync(nativeAssistantTestPath)) {
+  errors.push('OVYX native AI workspace: native intent, provider isolation and model binding regression tests are missing.');
 }
 
 if (errors.length) {
