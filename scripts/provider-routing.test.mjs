@@ -13,6 +13,7 @@ assert.deepEqual(
 );
 
 assert.deepEqual(providerOrder({}, 'automatic'), [], 'Automatic must skip every provider when no real key or Workers AI binding exists.');
+assert.deepEqual(providerOrder({ AI: { run() {} } }, 'automatic'), ['cloudflare-workers-ai'], 'Automatic may use Workers AI only when the runtime exposes a real AI binding.');
 assert.deepEqual(
   providerOrder({ DEEPSEEK_API_KEY: 'only-deepseek', OVYX_AI_PROVIDER_ORDER: 'gemini,deepseek,claude,openai' }, 'automatic'),
   ['deepseek'],
