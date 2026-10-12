@@ -18,6 +18,8 @@ import { readJson, jsonResponse, requestId } from '../../_lib/http.js';
 const MAX_BODY_BYTES = 190_000;
 const MAX_PATCH_BYTES = 80_000;
 const MAX_PROJECT_FILE_BYTES = 900_000;
+const MAX_BACKUP_SOURCE_BYTES = 300_000;
+const MAX_PROJECT_DOCUMENT_BYTES = 850_000;
 const SAFE_TEXT_EXTENSION = /\.(?:html?|css|mjs|cjs|js|jsx|ts|tsx|json|md|mdx|svg|xml|txt|vue|svelte|astro|yml|yaml|toml|php|py|sql|graphql|gql|webmanifest)$/i;
 const SENSITIVE_PATH = /(?:^|\/)(?:\.env(?:\.[^/]*)?|secrets?|credentials?|id_rsa|id_ed25519|service-account[^/]*|private[-_]?key[^/]*)$/i;
 const FILE_BUCKETS = [
@@ -427,6 +429,7 @@ async function handleTool(env, identity, body) {
   if (!slot) fail('That exact source path does not exist in the saved project. OVYX will not create a guessed file path.', 404, 'SOURCE_FILE_NOT_FOUND');
 
   const nextContent = String(body.content ?? '');
+  if (slot.current.length > MAX_BACKUP_SOURCE_BYTES) fail('This source file is too large for a safe automatic backup. No change was made.', 413, 'SOURCE_TOO_LARGE_FOR_BACKUP');
   if (nextContent.length > MAX_PATCH_BYTES) fail('The proposed file is too large for a safe single-file assistant edit.', 413, 'PATCH_TOO_LARGE');
   if (!nextContent.trim()) fail('The proposed file content cannot be empty.', 400, 'EMPTY_PATCH');
 
@@ -479,6 +482,11 @@ async function handleTool(env, identity, body) {
   await setFirestoreDocumentAtPath(env, [...found.path, 'revisions', revisionId], backupValue, { merge: false });
   slot.update(nextContent);
   found.project.updatedAt = typeof found.project.updatedAt === 'number' ? Date.now() : new Date().toISOString();
+
+  const encodedProjectSize = new TextEncoder().encode(JSON.stringify(found.project)).byteLength;
+  if (encodedProjectSize > MAX_PROJECT_DOCUMENT_BYTES) {
+    fail('The saved project is too large for a safe source update. No file was changed; use Web Studio to edit this project.', 413, 'PROJECT_TOO_LARGE_FOR_SAFE_PATCH');
+  }
 
   await setFirestoreDocumentAtPath(env, found.path, found.project, {
     merge: false,
