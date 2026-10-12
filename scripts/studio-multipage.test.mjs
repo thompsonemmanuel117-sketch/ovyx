@@ -86,6 +86,47 @@ assert(result.summary.includes('5 distinct website pages'));
 assert(result.quotaInputText.includes('FULL WEBSITE ROUTE MANIFEST'));
 assert(result.quotaOutputText.length > 0);
 
+// A planning model may omit a named route. Web Studio must recover the
+// explicit user requirement before generating files, rather than silently ship
+// a smaller website.
+const omissionModel = async (env, options) => {
+  if (String(options.user).includes('WEBSITE ARCHITECTURE PLANNING PHASE')) {
+    return {
+      text: JSON.stringify({
+        summary: 'Incomplete draft sitemap',
+        siteMap: {
+          architecture: 'Draft missing one explicitly named route.',
+          pages: [
+            { title: 'Home', goal: 'Introduce the requested website.' },
+            { title: 'About', goal: 'Explain the organization.' },
+            { title: 'Contact', goal: 'Help visitors get in touch.' },
+          ],
+        },
+      }),
+      provider: 'gemini',
+      model: 'test-model',
+      rawUsage: { prompt_tokens: 5, completion_tokens: 4, total_tokens: 9 },
+    };
+  }
+  return callModel(env, options);
+};
+
+const recovered = await buildStudioMultiPage({
+  env: {},
+  callModel: omissionModel,
+  provider: 'automatic',
+  authUser: { sub: 'test-user' },
+  mode: 'build',
+  prompt: 'Build a three-page website with Home, Menu, and Contact pages.',
+  project: { id: 'project-recovery', name: 'Test Site', pages: [] },
+  files: {},
+});
+assert(recovered, 'The multi-page pipeline should recover an omitted explicitly requested page.');
+assert(recovered.siteMap.pages.some(page => page.title === 'Menu'));
+assert(recovered.files['src/pages/Menu.html']?.includes('<h1>Menu</h1>'));
+assert(recovered.requirementVerification?.ok, JSON.stringify(recovered.requirementVerification));
+assert.equal(recovered.totalPages, 4, 'Web Studio may retain useful supporting pages while restoring all required pages.');
+
 const singlePage = await buildStudioMultiPage({
   env: {},
   callModel: async () => { throw new Error('An explicit landing page should not enter multi-page planning.'); },

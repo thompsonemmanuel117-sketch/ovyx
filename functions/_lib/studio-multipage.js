@@ -1,5 +1,6 @@
 import { normalizeSiteMap, createSiteBuildBatches, mergeStagedChanges, buildSiteBatchContext } from './multi-page.js';
 import { validateChanges } from './validator.js';
+import { buildPromptContract, verifyPromptContractOutput } from './prompt-contract.js';
 function cap(env, key, fallback) { const n = Number(env && env[key]); return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback; }
 function singlePage(prompt) { return /\b(?:one[-\s]?page|single[-\s]?page|landing[-\s]?page\s+only|homepage\s+only)\b/i.test(String(prompt || '')); }
 function manyPages(prompt) { return /\b(?:multi[-\s]?page|multiple\s+pages?|several\s+pages?|many\s+pages?|more\s+than\s+one\s+page|\d+\s+pages?|two|three|four|five|six|seven|eight|nine|ten|twelve|fifteen|twenty|thirty|forty|fifty)\b/i.test(String(prompt || '').toLowerCase()); }
@@ -105,7 +106,7 @@ function accountingError(error, usage, hasUsage, inputs, outputs) {
   return result;
 }
 
-function planPrompt(prompt, project, paths, requireMulti, limit, extraContext) {
+function planPrompt(prompt, project, paths, requireMulti, limit, extraContext, promptContract) {
   return [
     'OVYX WEB STUDIO WEBSITE ARCHITECTURE PLANNING PHASE.',
     'Return strict JSON only: {"summary":"...","siteMap":{"architecture":"...","pages":[{"title":"Home","goal":"..."}]}}.',
@@ -115,6 +116,7 @@ function planPrompt(prompt, project, paths, requireMulti, limit, extraContext) {
     'Do not generate code in this phase. Do not invent business facts. Do not merge requested pages.',
     'Configured page ceiling: ' + limit + '. If the brief explicitly requires more, say so in summary rather than silently omitting pages.',
     'USER BRIEF:\n' + String(prompt || ''),
+    'PROMPT REQUIREMENT CONTRACT JSON:\n' + JSON.stringify(promptContract || {}),
     'CURRENT PROJECT:\n' + JSON.stringify(project || {}),
     'EXISTING PROJECT FILE PATHS:\n' + paths.join('\n').slice(0, 18000),
     'BRAND / CLIENT CONTEXT:\n' + String(extraContext || '').slice(0, 6000),
@@ -122,7 +124,7 @@ function planPrompt(prompt, project, paths, requireMulti, limit, extraContext) {
   ].join('\n\n');
 }
 
-function makeBatchPrompt(prompt, plan, siteMap, batch, stagedChanges, existingFiles, extraContext) {
+function makeBatchPrompt(prompt, plan, siteMap, batch, stagedChanges, existingFiles, extraContext, promptContract) {
   const context = buildSiteBatchContext({
     baseContext: 'ORIGINAL BRIEF:\n' + String(prompt || '') + '\n\nAPPROVED SITE MAP:\n' + JSON.stringify(plan) + '\n\nBRAND / CLIENT CONTEXT:\n' + String(extraContext || '').slice(0, 6000),
     stagedChanges,
@@ -137,6 +139,7 @@ function makeBatchPrompt(prompt, plan, siteMap, batch, stagedChanges, existingFi
     'Output shape: {"summary":"...","files":{"src/pages/Home.html":"complete HTML document","src/styles.css":"complete stylesheet","src/main.js":"complete JavaScript"}}.',
     'Every value in files must be complete final UTF-8 file content, not a diff, filename list or summary.',
     'Batch ' + batch.index + ' of ' + batch.total + '; kind: ' + batch.kind + '; maximum distinct output files: ' + batch.maxChangedFiles + '.',
+    'PROMPT REQUIREMENT CONTRACT JSON:\n' + JSON.stringify(promptContract || {}),
     'REQUIRED TARGET FILES JSON:\n' + JSON.stringify(batch.targetFiles),
     'REQUIRED TARGET PATHS JSON:\n' + JSON.stringify(batch.targetPaths),
     'ALLOWED OUTPUT PATHS JSON:\n' + JSON.stringify(batch.allowedPaths),
@@ -174,6 +177,7 @@ export async function buildStudioMultiPage(options) {
   const model = options.model;
   const authUser = options.authUser;
   const prompt = String(options.prompt || '');
+  const promptContract = buildPromptContract(prompt);
   const project = options.project || {};
   const mode = String(options.mode || 'build').toLowerCase();
   if (mode !== 'build' || singlePage(prompt)) return null;
@@ -187,7 +191,7 @@ export async function buildStudioMultiPage(options) {
   const outputs = [];
   let usage = {};
   let hasUsage = false;
-  const planInput = planPrompt(prompt, project, Object.keys(existingFiles), requireMulti, pageLimit, extraContext);
+  const planInput = planPrompt(prompt, project, Object.keys(existingFiles), requireMulti, pageLimit, extraContext, promptContract);
   let planResult;
   try {
     planResult = await callModel(env, {
@@ -216,6 +220,30 @@ export async function buildStudioMultiPage(options) {
     if (!requireMulti) return null;
     throw accountingError(Object.assign(new Error('OVYX could not create a valid multi-page plan. No project files were changed; include the requested page names and retry.'), { status: 502, code: 'WEBSTUDIO_SITEMAP_INVALID' }), usage, hasUsage, inputs, outputs);
   }
+  // Recover omitted requested routes deterministically instead of silently accepting
+  // a sitemap that dropped an explicitly named page.
+  const pageKey = value => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const plannedPageKeys = new Set(siteMap.pages.map(page => pageKey(page.title)));
+  for (const title of promptContract.explicitPages) {
+    const key = pageKey(title);
+    if (!key || plannedPageKeys.has(key)) continue;
+    if (siteMap.pages.length >= pageLimit) {
+      throw accountingError(Object.assign(new Error('The brief explicitly requests the "' + title + '" page, but adding it would exceed the configured page ceiling of ' + pageLimit + '. No pages were silently dropped.'), { status: 413, code: 'WEBSTUDIO_PAGE_LIMIT' }), usage, hasUsage, inputs, outputs);
+    }
+    const pageSlug = slug(title);
+    const page = {
+      title,
+      path: 'src/pages/' + pageSlug + '.html',
+      url: '/' + pageSlug.toLowerCase() + '/',
+      goal: 'Required by the user prompt; do not omit.',
+    };
+    siteMap.pages.push(page);
+    plannedPageKeys.add(key);
+    if (plan && plan.siteMap && Array.isArray(plan.siteMap.pages)) {
+      plan.siteMap.pages.push({ title, goal: page.goal });
+    }
+  }
+
   if (requireMulti && siteMap.pages.length < 2) {
     throw accountingError(Object.assign(new Error('The generated plan did not contain multiple distinct pages. No files were changed; retry with the requested page names.'), { status: 502, code: 'WEBSTUDIO_SITEMAP_INCOMPLETE' }), usage, hasUsage, inputs, outputs);
   }
@@ -229,7 +257,7 @@ export async function buildStudioMultiPage(options) {
   let staged = [];
   let lastResult = planResult;
   for (const batch of batches) {
-    const input = makeBatchPrompt(prompt, plan, siteMap, batch, staged, existingFiles, extraContext);
+    const input = makeBatchPrompt(prompt, plan, siteMap, batch, staged, existingFiles, extraContext, promptContract);
     inputs.push(input);
     let result;
     try {
@@ -270,6 +298,12 @@ export async function buildStudioMultiPage(options) {
   if (validation.length) {
     throw accountingError(Object.assign(new Error('Generated website failed structural validation: ' + validation.slice(0, 4).join(' | ')), { status: 422, code: 'WEBSTUDIO_SITE_VALIDATION_FAILED' }), usage, hasUsage, inputs, outputs);
   }
+  const outputFilesByPath = Object.fromEntries(staged.map(item => [item.path, item.content]));
+  const requirementVerification = verifyPromptContractOutput(prompt, outputFilesByPath, siteMap);
+  if (!requirementVerification.ok) {
+    throw accountingError(Object.assign(new Error('Web Studio could not verify all explicit requirements: ' + requirementVerification.issues.map(issue => issue.message).join(' | ') + '. The site was not marked complete.'), { status: 422, code: 'WEBSTUDIO_PROMPT_REQUIREMENT_MISSING', requirementVerification }), usage, hasUsage, inputs, outputs);
+  }
+
   const updatedProject = project && project.id ? {
     id: project.id,
     name: project.name,
@@ -289,7 +323,8 @@ export async function buildStudioMultiPage(options) {
     text: JSON.stringify({ summary, message: 'Your multi-page website is ready in Web Studio. ' + pageCount + ' pages were generated and checked.' }),
     message: 'Your multi-page website is ready in Web Studio. ' + pageCount + ' pages were generated and checked.',
     summary,
-    files: Object.fromEntries(staged.map(item => [item.path, item.content])),
+    files: outputFilesByPath,
+    requirementVerification,
     project: updatedProject,
     siteMap,
     provider: (lastResult && lastResult.provider) || (planResult && planResult.provider),
