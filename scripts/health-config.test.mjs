@@ -45,6 +45,17 @@ function row(payload, group, key) {
   assert(!JSON.stringify(payload).includes('c'.repeat(48)));
 }
 
+// Universal Connection encryption is required; health must flag it without exposing the key.
+{
+  const env = { ...baseEnv(), OVYX_CONNECTION_ENCRYPTION_KEY: undefined };
+  const payload = await health(env);
+  assert.equal(row(payload, 'UniversalConnections', 'OVYX_CONNECTION_ENCRYPTION_KEY').state, 'unavailable');
+  assert(payload.unavailableRequiredEnvironment.includes('OVYX_CONNECTION_ENCRYPTION_KEY'));
+  assert.equal(payload.services.universalConnectionsEncryption.configured, false);
+  assert.equal(payload.ok, false);
+  assert(!JSON.stringify(payload).includes('c'.repeat(48)));
+}
+
 // Missing bindings and bindings with empty values must be reported separately.
 {
   const env = baseEnv();
@@ -64,11 +75,13 @@ function row(payload, group, key) {
 }
 
 {
-  const env = { ...baseEnv(), GITHUB_TOKEN_ENCRYPTION_KEY: 'too-short', FIREBASE_SERVICE_ACCOUNT_JSON: '{bad json' };
+  const env = { ...baseEnv(), GITHUB_TOKEN_ENCRYPTION_KEY: 'too-short', OVYX_CONNECTION_ENCRYPTION_KEY: 'too-short', FIREBASE_SERVICE_ACCOUNT_JSON: '{bad json' };
   const payload = await health(env);
   assert.equal(row(payload, 'GitHub', 'GITHUB_TOKEN_ENCRYPTION_KEY').state, 'invalid');
+  assert.equal(row(payload, 'UniversalConnections', 'OVYX_CONNECTION_ENCRYPTION_KEY').state, 'invalid');
   assert.equal(row(payload, 'Firebase', 'FIREBASE_SERVICE_ACCOUNT_JSON').state, 'invalid_json');
   assert(payload.invalidRequiredEnvironment.some((item) => item.key === 'GITHUB_TOKEN_ENCRYPTION_KEY'));
+  assert(payload.invalidRequiredEnvironment.some((item) => item.key === 'OVYX_CONNECTION_ENCRYPTION_KEY' && item.reason === 'must_be_at_least_32_characters'));
   assert(payload.invalidRequiredEnvironment.some((item) => item.key === 'FIREBASE_SERVICE_ACCOUNT_JSON' && item.state === 'invalid_json'));
 }
 
