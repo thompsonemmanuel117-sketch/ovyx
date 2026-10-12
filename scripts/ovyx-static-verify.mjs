@@ -316,6 +316,7 @@ if (!fs.existsSync(nativeAssistantPath) || !fs.existsSync(nativeAssistantRoutePa
     !nativeClient.includes('runActions') ||
     !nativeClient.includes("operation: 'prepare_restore'") ||
     !nativeClient.includes("operation: 'restore_revision'") ||
+    !nativeClient.includes("type === 'workspace_undo'") ||
     !nativeClient.includes('data-ovyx-native-action="undo-last-ai-edit"') ||
     !nativeClient.includes('data-ovyx-native-action="review-ai-edits"') ||
     !nativeClient.includes('TASK RUNNING') ||
@@ -325,6 +326,7 @@ if (!fs.existsSync(nativeAssistantPath) || !fs.existsSync(nativeAssistantRoutePa
     !workspaceTools.includes("operation === 'restore_revision'") ||
     !workspaceTools.includes('RESTORE_APPROVAL_REQUIRED') ||
     !workspaceTools.includes('RESTORE_VERIFY_FAILED') ||
+    !fs.readFileSync(nativeAssistantPath, 'utf8').includes("'workspace_undo'") ||
     !workspaceToolsTest.includes('Recovery must have a distinct preview operation.') ||
     !shellMiddleware.includes('assets/ovyx-assistant-workspace.js?v=20261012-5')
   ) {
