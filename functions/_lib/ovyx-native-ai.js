@@ -77,11 +77,10 @@ function nativeActions(value) {
     }
     if (type === 'workspace_read_file') {
       const projectId = clean(item.projectId, 120);
-      const filePath = clean(item.filePath || item.path, 240).replace(/^\\/+/, '');
-      const safeFile = !!filePath && !filePath.includes('\\\\') &&
+      const filePath = clean(item.filePath || item.path, 240).replace(/^\/+/, '');
+      const safeFile = !!filePath && !filePath.includes('\\') &&
         !filePath.split('/').some(part => !part || part === '.' || part === '..') &&
-        !/(?:^|\\/)(?:\\.env(?:\\.[^/]*)?|secrets?|credentials?|id_rsa|id_ed25519|service-account[^/]*|private[-_]?key[^/]*)$/i.test(filePath) &&
-        /\\.(?:html?|css|mjs|cjs|js|jsx|ts|tsx|json|md|mdx|svg|xml|txt|vue|svelte|astro|yml|yaml|toml|php|py|sql|graphql|gql|webmanifest)$/i.test(filePath);
+        /\.(?:html?|css|mjs|cjs|js|jsx|ts|tsx|json|md|mdx|svg|xml|txt|vue|svelte|astro|yml|yaml|toml|php|py|sql|graphql|gql|webmanifest)$/i.test(filePath);
       if (/^[A-Za-z0-9_-]{1,120}$/.test(projectId) && safeFile) result.push({ type, projectId, filePath });
       continue;
     }
