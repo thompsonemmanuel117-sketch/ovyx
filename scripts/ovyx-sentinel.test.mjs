@@ -103,7 +103,8 @@ assert.equal(report.warningCount, 2, 'a missing recent scheduler confirmation is
 assert.equal(report.checkedCount, 3, 'skipped optional checks do not count as checked endpoints');
 assert.ok(!JSON.stringify(report).includes('sourceCode') && !JSON.stringify(report).includes('privateProjectContent'));
 
-const scheduledReport = createSentinelReport({ scan: failedChecks, id: 'run_cron', source: 'scheduled' });
+const scheduledScan = { ...failedChecks, finishedAt: new Date().toISOString() };
+const scheduledReport = createSentinelReport({ scan: scheduledScan, id: 'run_cron', source: 'scheduled' });
 assert.equal(scheduledReport.source, 'scheduled');
 assert.equal(scheduledReport.checks.find(item => item.id === 'background_scheduler')?.status, 'pass');
 
