@@ -22,19 +22,21 @@ The historical PR introduces a separate `assets/ovyx-ai-workspace.js` and `funct
 
 ### PR #29 — Task-aware provider routing and provider availability
 
-**Disposition: preserve current routing; reuse the safer current status route rather than duplicate the old endpoint.**
+**Disposition: selectively port the missing user-facing feature; retain the newer current task classifier.**
 
-The current `functions/_lib/providers.js` already has deterministic task-based preferences in `taskProviderPreference()`, keeps explicit provider choices exclusive, observes configured provider order, and supports the current Groq/Workers AI paths. The current provider-routing tests also assert task-specific preferences and that an explicit selection cannot silently switch providers.
+The current `functions/_lib/providers.js` already has `taskProviderPreference()`, explicit-provider exclusivity, configured-order handling, and Groq/Workers AI paths. The older branch's alternative task-classifier should not replace it. However, the current router previously attempted providers even when their server credentials were absent, and its automatic route lacked the specific friendly error for an empty set of usable providers. The follow-up branch adds filtering to configured providers, preserves Workers AI as a real-binding-only final fallback, and adds regression tests for the zero-credentials and partially configured cases.
 
-The old branch adds `functions/api/ai/provider-availability.js`. The current `functions/api/ai/status.js` already performs live provider checks and restricts platform-key checks to an administrator, while `functions/api/service-status.js` separately reports configuration-only status. The older endpoint would duplicate that function and its broader signed-in access model is not a safer replacement. Do not introduce a second provider-health surface unless a concrete current UI integration requires it.
+The old branch also adds `functions/api/ai/provider-availability.js` plus a selector UI check. The current `/api/ai/status` route is admin-only, so it is not a substitute for the signed-in user-facing availability check used when a user selects a provider. The follow-up branch selectively ports that authenticated, timeout-bounded endpoint and its UI wiring, with API keys held in request headers, never logged or returned, and a regression test for authentication, status mapping, and secret non-disclosure. It also carries over the safe notification DOM, toast motion, and accessible quota meter without replacing the whole historical `index.html`.
 
 ### PR #21 — Authentication, Universal Connections, and encrypted secrets
 
 **Disposition: preserve the newer current implementation; do not replace it with the historical route.**
 
-The current `functions/_lib/universal-connections.js` already encrypts connection credentials using AES-GCM with `OVYX_CONNECTION_ENCRYPTION_KEY`, keeps encrypted values out of public connection objects, uses owner-scoped connection records, rejects credential-bearing URLs, and blocks common local/private network targets. The active `functions/api/settings/connections.js` calls this current helper. The current `functions/api/service-status.js` and `functions/api/health.js` already report encryption-key configuration.
+The current `functions/_lib/universal-connections.js` already encrypts connection credentials using AES-GCM with `OVYX_CONNECTION_ENCRYPTION_KEY`, keeps encrypted values out of public connection objects, uses owner-scoped connection records, rejects credential-bearing URLs, and blocks common local/private network targets. The active `functions/api/settings/connections.js` calls this current helper.
 
-The older PR #21 connection route is a divergent rewrite using an older module/API shape and would overwrite later protocol, ownership, and URL-safety functionality. It should not be merged. The remaining operational check is to verify that `OVYX_CONNECTION_ENCRYPTION_KEY` is configured in the live Cloudflare Pages environment and that existing connections can still be tested after deployment. No secret values belong in Git.
+The historical PR #21 highlighted a real diagnostics gap: the current health route listed `OVYX_CONNECTION_ENCRYPTION_KEY` but did not treat a missing/short value as a required configuration problem, and the activation response did not clearly expose Universal Connections readiness. The follow-up branch makes the encryption key required, checks that it is at least 32 characters without exposing it, lists the connections/activation routes in health diagnostics, and exposes a non-secret Universal Connections readiness summary during workspace activation. It does **not** replace the newer connection handler.
+
+The remaining operational check is to verify that the encryption secret is actually configured in the live Cloudflare Pages environment and existing connections can still be tested after release. No secret values belong in Git.
 
 ### PR #17 — Historical frontend recovery
 
