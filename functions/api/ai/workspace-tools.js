@@ -513,6 +513,8 @@ async function handleTool(env, identity, body) {
       filePath,
       restored: true,
       verified: true,
+      bucket: slot.bucket,
+      restoredContent: restoreContent,
       restoredRevisionId: revisionId,
       safetyRevisionId: restoreBackupId,
       previousRevision: found.document.updateTime || null,
