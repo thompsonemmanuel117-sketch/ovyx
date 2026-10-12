@@ -55,6 +55,12 @@ try {
     assert.match(await panel.locator('#bot-context-node-type').innerText(), /DETAILS NEEDED|ACTION FAILED|PROJECT INSPECTED|LOCAL CONTEXT READY/i);
 
     await trigger.click();
+    await menu.locator('[data-ovyx-native-action="undo-last-ai-edit"]').click();
+    const undoReply = page.locator('#bot-chat-history .ovyx-native-message-body').last();
+    await undoReply.waitFor({ state: 'visible' });
+    assert.match(await undoReply.innerText(), /undo|recovery|project|sign in/i, `[${target.name}] undo action did not explain its outcome`);
+
+    await trigger.click();
     await menu.locator('[data-ovyx-native-action="help"]').click();
     const helpReply = page.locator('#bot-chat-history .ovyx-native-message-body').last();
     await helpReply.waitFor({ state: 'visible' });
