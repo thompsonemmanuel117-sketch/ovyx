@@ -320,6 +320,8 @@ if (!fs.existsSync(nativeAssistantPath) || !fs.existsSync(nativeAssistantRoutePa
     !nativeClient.includes('data-ovyx-native-action="undo-last-ai-edit"') ||
     !nativeClient.includes('data-ovyx-native-action="review-ai-edits"') ||
     !nativeClient.includes('TASK RUNNING') ||
+    !nativeClient.includes('I inspected the saved project') ||
+    !nativeClient.includes('saved-project scan was unavailable') ||
     !nativeClient.includes('APPROVAL NEEDED') ||
     !nativeClient.includes('APPLIED · VERIFIED') ||
     !workspaceTools.includes("operation === 'prepare_restore'") ||
