@@ -340,6 +340,12 @@ if (!fs.existsSync(path.join(root, 'scripts/ovyx-native-ai.test.mjs')) ||
     !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/ovyx-native-ai.test.mjs')) {
   errors.push('OVYX native assistant: native engine routing tests must run in the standard npm test suite.');
 }
+if (!fs.existsSync(path.join(root, 'scripts/ovyx-workspace-tools.integration.test.mjs')) ||
+    !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/ovyx-workspace-tools.integration.test.mjs') ||
+    !fs.existsSync(path.join(root, 'scripts/ovyx-assistant-workspace.browser.test.mjs')) ||
+    !fs.existsSync(path.join(root, '.github/workflows/ovyx-assistant-workspace-browser.yml'))) {
+  errors.push('OVYX assistant Stage 6: workspace persistence integration tests and desktop/mobile browser test workflow must be present.');
+}
 
 const routeConfigPath = path.join(root, 'functions/_routes.json');
 if (fs.existsSync(routeConfigPath)) {
