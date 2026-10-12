@@ -71,6 +71,14 @@ if (
   errors.push('functions/_lib/providers.js: an explicitly selected provider must use its own provider route and show a helpful unavailable message instead of silently switching.');
 }
 
+if (
+  !providerRouterSource.includes('function isProviderConfigured(env, provider)') ||
+  !providerRouterSource.includes('AI_PROVIDER_NOT_CONFIGURED') ||
+  !providerRouterSource.includes('const availableProviders = providerOrder(')
+) {
+  errors.push('functions/_lib/providers.js: Automatic mode must skip unconfigured providers and fail clearly when no provider is usable.');
+}
+
 const aiStatusPath = path.join(root, 'functions/api/ai/status.js');
 if (fs.existsSync(aiStatusPath)) {
   const aiStatus = fs.readFileSync(aiStatusPath, 'utf8');
@@ -443,6 +451,24 @@ if (fs.existsSync(html)) {
   if (/Agent is starting/i.test(text)) errors.push('index.html: stale Web Studio agent-starting copy detected');
   if (!text.includes('window.__OVYX_SPLASH_FAILSAFE__') || !text.includes('function releaseSplash(reason,event)') || !text.includes("document.readyState==='complete'")) {
     errors.push('index.html: splash must wait for full page load and use a bounded failsafe instead of a short fixed timer.');
+  }
+  const toastStart = text.indexOf("function showToast(msg, type = 'info') {");
+  const toastSource = toastStart >= 0 ? text.slice(toastStart, toastStart + 1900) : '';
+  if (
+    !toastSource ||
+    !toastSource.includes("message.textContent = String(msg == null ? '' : msg)") ||
+    !text.includes('id="ovyx-toast-motion-v2"') ||
+    !text.includes('ovyxToastEnterV2') ||
+    !text.includes('.ovyx-toast--success') ||
+    !text.includes('.ovyx-toast--error')
+  ) {
+    errors.push('index.html: notifications must use safe text rendering and accessible, animated status styles.');
+  }
+  if (
+    !text.includes("bar.setAttribute('aria-valuemax',String(quotaMax))") ||
+    !text.includes("bar.setAttribute('aria-valuenow',String(quotaNow))")
+  ) {
+    errors.push('index.html: the live quota meter must expose remaining and maximum values accessibly.');
   }
   const providerChoiceRouter = text.match(/function patchAIBrain\(\)\{([\s\S]*?)\n  function mountGemini\(\)\{\}/);
   if (
