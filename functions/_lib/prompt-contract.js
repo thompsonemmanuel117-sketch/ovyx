@@ -108,6 +108,7 @@ function splitRequirements(prompt) {
 export function extractExplicitPageNames(prompt) {
   const source = clean(prompt);
   const multiPageSignal = /\b(?:multi[-\s]?page|multiple\s+pages?|several\s+pages?|\d+\s*[- ]?pages?|two|three|four|five|six|seven|eight|nine|ten|twelve)\s*(?:website|site|app|pages?|websites?)?\b/i.test(source) ||
+    /\b(?:two|three|four|five|six|seven|eight|nine|ten|twelve)\s*[- ]?\s*pages?\b/i.test(source) ||
     /\bpages?\s*(?:include|are|:|such as|named|will include)\b/i.test(source);
   if (!multiPageSignal) return [];
 
