@@ -524,12 +524,14 @@ const sentinelApiPath = path.join(root, 'functions/api/admin/sentinel.js');
 const sentinelClientPath = path.join(root, 'assets/ovyx-sentinel.js');
 const sentinelUnitTestPath = path.join(root, 'scripts/ovyx-sentinel.test.mjs');
 const sentinelBrowserTestPath = path.join(root, 'scripts/ovyx-sentinel.browser.test.mjs');
+const sentinelEndpointTestPath = path.join(root, 'scripts/ovyx-sentinel.endpoint.test.mjs');
 const sentinelMiddlewarePath = path.join(root, 'functions/_middleware.js');
 if (
   !fs.existsSync(sentinelEnginePath) ||
   !fs.existsSync(sentinelApiPath) ||
   !fs.existsSync(sentinelClientPath) ||
   !fs.existsSync(sentinelUnitTestPath) ||
+  !fs.existsSync(sentinelEndpointTestPath) ||
   !fs.existsSync(sentinelBrowserTestPath)
 ) {
   errors.push('OVYX Sentinel: the operational check engine, guarded admin API, browser companion, and unit/browser tests must all be present.');
@@ -556,7 +558,8 @@ if (
     !sentinelMiddleware.includes('/assets/ovyx-sentinel.js?v=20261012-1') ||
     !headers.includes('microphone=(self)') ||
     !headers.includes('camera=()') ||
-    !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/ovyx-sentinel.test.mjs')
+    !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/ovyx-sentinel.test.mjs') ||
+    !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/ovyx-sentinel.endpoint.test.mjs')
   ) {
     errors.push('OVYX Sentinel: authenticated admin-only reporting, guarded Cron access, privacy-safe rendering, opt-in wake-word controls, or automated test wiring is incomplete.');
   }
