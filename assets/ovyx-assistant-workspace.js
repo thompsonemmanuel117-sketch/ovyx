@@ -448,8 +448,6 @@
           diagnostics: window.OVYXWorkspaceCopilot?.diagnose?.() || null,
           assistantPolicy: 'OVYX native workspace assistant; execute only validated safe navigation actions.',
         },
-        project: context?.activeProject || null,
-        files: context?.activeProjectSource || null,
         system: 'Answer as OVYX AI. Be specific to the supplied authenticated workspace. Never claim to have completed an action unless it returned success. For website builds, prepare the user in Web Studio rather than claiming you built it here.',
       });
       bot.pushMsg('OVYX: ' + result.text);
