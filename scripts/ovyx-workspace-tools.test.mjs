@@ -52,4 +52,23 @@ assert.match(client, /expectedUpdateTime: prepared\.revision/, 'The apply reques
 assert.match(nativeAi, /'workspace_patch'/, 'The native model allowlist must include the constrained patch proposal.');
 assert.match(client, /await runActions\(result\.actions\)/, 'Assistant tool actions must be awaited before idle.');
 
+assert.match(route, /'prepare_restore'/, 'Recovery must have a distinct preview operation.');
+assert.match(route, /operation === 'prepare_restore'/, 'Recovery preview must produce a meaningful diff before approval.');
+assert.match(route, /operation === 'restore_revision'/, 'Recovery must use a dedicated restore operation.');
+assert.match(route, /RESTORE_APPROVAL_REQUIRED/, 'The server must reject restore writes without explicit approval.');
+assert.match(route, /expectedUpdateTime/, 'Recovery writes must reject stale project revisions.');
+assert.match(route, /REVISION_NOT_FOUND/, 'Recovery versions must be checked against the signed-in owner and project.');
+assert.match(route, /RESTORE_VERIFY_FAILED/, 'Recovery writes must be verified by reading the saved file back.');
+assert.match(route, /listFirestoreSubcollectionDocumentsAtPath/, 'The backend must list only the active project revision subcollection.');
+assert.match(client, /data-ovyx-native-action="undo-last-ai-edit"/, 'The assistant menu must expose the real undo action.');
+assert.match(client, /data-ovyx-native-action="review-ai-edits"/, 'The assistant menu must expose edit history.');
+assert.match(client, /operation: 'prepare_restore'/, 'Undo must preview the exact saved recovery version first.');
+assert.match(client, /operation: 'restore_revision'/, 'Undo must call the authenticated restore operation.');
+assert.match(client, /expectedUpdateTime: prepared\.revision/, 'Undo must send the preview revision to prevent overwriting newer work.');
+assert.match(client, /APPLIED · VERIFIED/, 'The context indicator must distinguish verified writes.');
+assert.match(client, /TASK RUNNING/, 'The context indicator must show running tasks.');
+assert.match(client, /APPROVAL NEEDED/, 'The context indicator must show approval-required actions.');
+assert.match(client, /LOCAL CONTEXT READY/, 'The context indicator must distinguish fallback context from a full scan.');
+assert.match(nativeAi, /Never state that an action succeeded unless the relevant UI\/tool returned success/i, 'The assistant must not claim unverified actions succeeded.');
+
 console.log('OVYX workspace tool tests passed.');
