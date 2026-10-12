@@ -846,13 +846,31 @@
         result = await window.__OVYX_SCAN_WORKSPACE_CONTEXT__(true);
       }
       const local = localWorkspaceSnapshot();
-      const context = result && typeof result === 'object'
-        ? { ...local, ...result, workspace: { ...local.workspace, ...(result.workspace || {}) } }
-        : local;
+      const scan = result && typeof result === 'object' ? result : {};
+      const context = {
+        ...local,
+        ...scan,
+        workspace: { ...local.workspace, ...(scan.workspace && typeof scan.workspace === 'object' ? scan.workspace : {}) },
+        projectInventory: Array.isArray(scan.projectInventory) && scan.projectInventory.length
+          ? scan.projectInventory : local.projectInventory,
+        serverProjectInventory: Array.isArray(scan.serverProjectInventory) && scan.serverProjectInventory.length
+          ? scan.serverProjectInventory : local.serverProjectInventory,
+        activeProject: scan.activeProject && (scan.activeProject.id || scan.activeProject.name)
+          ? scan.activeProject : local.activeProject,
+        activeProjectSource: Array.isArray(scan.activeProjectSource) && scan.activeProjectSource.length
+          ? scan.activeProjectSource : local.activeProjectSource,
+        activeAssets: Array.isArray(scan.activeAssets) && scan.activeAssets.length
+          ? scan.activeAssets : local.activeAssets,
+        connections: Array.isArray(scan.connections) && scan.connections.length
+          ? scan.connections : local.connections,
+      };
+      const usable = !!(context.activeProject || context.projectInventory?.length || context.workspace?.currentView);
       syncWorkspaceBadge(context, !result || typeof result !== 'object');
       const count = Array.isArray(context.projectInventory) ? context.projectInventory.length : 0;
       const assets = Array.isArray(context.activeAssets) ? context.activeAssets.length : 0;
-      push('Workspace context refreshed. ' + count + ' project(s) found' + (assets ? ' · ' + assets + ' asset(s) indexed.' : '.'));
+      push('Workspace context refreshed. ' + count + ' project(s) found' +
+        (assets ? ' · ' + assets + ' asset(s) indexed.' : '.') +
+        (usable ? ' Local project details remain available to OVYX AI.' : ' Open or select a project to provide more detail.'));
     } catch (error) {
       syncWorkspaceBadge(localWorkspaceSnapshot(), true);
       push(String(error?.message || 'Workspace refresh failed. The local snapshot is still available.'));
