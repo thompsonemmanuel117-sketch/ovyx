@@ -94,10 +94,8 @@
 
   document.addEventListener('change', event => {
     const select = event.target;
-    if (!select || select.id !== 'v59-model-select' || select.dataset.ovyxAvailabilityBound === '1') return;
-    // The delegated listener remains resilient when the selector is rebuilt by
-    // the app's SPA router. The marker prevents duplicate work for the same node.
-    select.dataset.ovyxAvailabilityBound = '1';
+    if (!select || select.id !== 'v59-model-select') return;
+    // Delegate once at document level so rebuilt selectors and repeated changes work.
     void checkProvider(select);
   });
 
