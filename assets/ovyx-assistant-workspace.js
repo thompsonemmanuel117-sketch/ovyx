@@ -39,6 +39,7 @@
       #kernel-brain-bot-panel.ovyx-native-workspace>div:first-child>div:first-child{min-width:0!important;gap:11px!important;align-items:center!important}
       #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-ai-character{width:38px!important;height:38px!important;flex:0 0 38px!important}
       #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-ai-character svg{width:38px!important;height:38px!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-brand-copy{display:flex!important;flex-direction:column!important;gap:0!important;min-width:0!important;align-items:flex-start!important}
       #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-title{display:block!important;min-width:0!important;color:#f5f7fa!important;font:800 16px/1.2 Inter,system-ui,sans-serif!important;letter-spacing:-.025em!important}
       #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-subtitle{display:flex!important;align-items:center!important;gap:6px!important;margin-top:5px!important;color:#929ba8!important;font:600 10px/1.3 Inter,system-ui,sans-serif!important;letter-spacing:0!important;text-transform:none!important;white-space:normal!important}
       #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-status-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#58d7b5;box-shadow:0 0 0 3px rgba(88,215,181,.09);flex:0 0 6px}
@@ -82,6 +83,11 @@
       }
       #kernel-brain-bot-panel.ovyx-native-workspace #bot-chat-history>div{max-width:100%!important;white-space:pre-wrap!important;overflow-wrap:anywhere!important;padding:13px 15px!important;border:1px solid rgba(255,255,255,.075)!important;border-radius:15px!important;background:rgba(255,255,255,.025)!important;color:#d9dee5!important;font:450 13px/1.7 Inter,system-ui,sans-serif!important}
       #kernel-brain-bot-panel.ovyx-native-workspace #bot-chat-history>div:has(.text-brand-cyan){border-color:rgba(84,203,231,.12)!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace #bot-chat-history>.ovyx-native-message{display:flex!important;flex-direction:column!important;align-self:flex-start!important;gap:6px!important;width:fit-content!important;max-width:92%!important;padding:12px 15px!important;border:1px solid rgba(255,255,255,.08)!important;border-radius:15px 15px 15px 5px!important;background:rgba(255,255,255,.028)!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace #bot-chat-history>.ovyx-native-message.is-user{align-self:flex-end!important;border-color:rgba(142,163,203,.15)!important;border-radius:15px 15px 5px 15px!important;background:rgba(120,145,190,.10)!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-message-label{color:#8290a2!important;font:800 9px/1.2 Inter,system-ui,sans-serif!important;letter-spacing:.09em!important;text-transform:uppercase!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-message.is-user .ovyx-native-message-label{color:#bed0ed!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-message-body{white-space:pre-wrap!important;overflow-wrap:anywhere!important;color:#e1e5eb!important;font:450 13px/1.7 Inter,system-ui,sans-serif!important}
       #kernel-brain-bot-panel.ovyx-native-workspace #bot-chat-history .text-brand-cyan{color:#7ee6e8!important;font-weight:800!important}
       #kernel-brain-bot-panel.ovyx-native-workspace #bot-chat-history .text-brand-gold{color:#e8c36f!important}
       #kernel-brain-bot-panel.ovyx-native-workspace #bot-chat-history .ovyx-native-welcome{background:linear-gradient(140deg,rgba(70,95,155,.08),rgba(255,255,255,.018))!important;border-color:rgba(142,163,203,.13)!important}
@@ -229,7 +235,10 @@
       const subtitle = document.createElement('span');
       subtitle.className = 'ovyx-native-subtitle';
       subtitle.innerHTML = '<i class="ovyx-native-status-dot" aria-hidden="true"></i><span>Workspace assistant · no API key setup</span>';
-      label.parentElement?.appendChild(subtitle);
+      const copy = document.createElement('div');
+      copy.className = 'ovyx-native-brand-copy';
+      label.replaceWith(copy);
+      copy.append(label, subtitle);
     }
 
     let actionBar = head.querySelector('.ovyx-native-head-actions');
@@ -324,9 +333,41 @@
     if (trigger) trigger.setAttribute('aria-expanded', 'false');
   }
 
+  function pushMessage(raw) {
+    const root = $('bot-chat-history');
+    const text = String(raw ?? '').slice(0, 30000);
+    if (!root) {
+      const fallback = $('kernel-bot-stdout');
+      if (fallback) {
+        const row = document.createElement('div');
+        row.textContent = text;
+        fallback.appendChild(row);
+      }
+      return null;
+    }
+    const userMatch = text.match(/^USER:\\s*/i);
+    const ovyxMatch = text.match(/^OVYX(?:\\s+ERROR)?:\\s*/i);
+    const isUser = !!userMatch;
+    const bodyText = text.replace(/^USER:\\s*/i, '').replace(/^OVYX(?:\\s+ERROR)?:\\s*/i, '');
+    const row = document.createElement('div');
+    row.className = 'ovyx-native-message ' + (isUser ? 'is-user' : 'is-assistant');
+    row.dataset.ovyxNativeMessage = '1';
+    const label = document.createElement('div');
+    label.className = 'ovyx-native-message-label';
+    label.textContent = isUser ? 'You' : 'OVYX AI';
+    const body = document.createElement('div');
+    body.className = 'ovyx-native-message-body';
+    body.textContent = bodyText || text;
+    row.append(label, body);
+    root.appendChild(row);
+    root.scrollTop = root.scrollHeight;
+    return row;
+  }
+
   function push(text) {
     const bot = window.WorkspaceBrainBot;
     if (typeof bot?.pushMsg === 'function') bot.pushMsg('OVYX: ' + String(text));
+    else pushMessage('OVYX: ' + String(text));
   }
 
   function runActions(actions) {
@@ -419,7 +460,7 @@
       busy = false;
       input.disabled = false;
       if (sendButton) {
-        sendButton.disabled = false;
+        sendButton.disabled = !String(input.value || '').trim();
         sendButton.removeAttribute('aria-busy');
         sendButton.innerHTML = '<i class="fa-solid fa-arrow-up" aria-hidden="true"></i>';
       }
@@ -529,6 +570,10 @@
       service.__ovyxNativeWorkspaceRoute = true;
     }
     const bot = window.WorkspaceBrainBot;
+    if (bot && !bot.__ovyxNativePushMessage) {
+      bot.pushMsg = pushMessage;
+      bot.__ovyxNativePushMessage = true;
+    }
     if (bot && !bot.__ovyxNativeSend) {
       bot.send = send;
       bot.__ovyxNativeSend = true;
