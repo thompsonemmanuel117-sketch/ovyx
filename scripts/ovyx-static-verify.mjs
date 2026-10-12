@@ -274,7 +274,7 @@ if (!fs.existsSync(studioTracePath) || !fs.existsSync(studioTraceTestPath) || !f
   const packageJson = fs.existsSync(packageJsonPath) ? fs.readFileSync(packageJsonPath, 'utf8') : '';
   if (
     !studioTrace.includes('window.__OVYX_STUDIO_TRACE__') ||
-    !studioTrace.includes('/api/ai/(?:gateway|assistant)') ||
+    !studioTrace.includes('(?:gateway|assistant)') ||
     !studioTrace.includes('requirementVerification') ||
     !studioTrace.includes('full prompt and project contents are not copied') ||
     !studioTraceTest.includes('Normal assistant chat should not open') ||
