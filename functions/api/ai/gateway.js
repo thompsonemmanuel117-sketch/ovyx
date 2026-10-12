@@ -117,7 +117,7 @@ export async function onRequestPost(context) {
         return /\.html?$/i.test(path) && typeof text === 'string' && text.length > 500 && /<body\b/i.test(text);
       });
     const isExistingSiteEdit = hasExistingHtml &&
-      /\b(?:fix|edit|change|update|modify|repair|tweak|adjust|redesign|remove|replace|add\s+(?:to|into)\s+(?:the|this|my|existing))\b/i.test(String(promptText || ''));
+      /\b(?:fix|edit|change|update|modify|repair|tweak|adjust|redesign|remove|replace|add)\b/i.test(String(studioPromptText || ''));
     const buildReadiness = isWebStudio && mode === 'build' && !isExistingSiteEdit
       ? getWebStudioBuildClarification(studioPromptText, {
           ...(payload.context && typeof payload.context === 'object' ? payload.context : {}),
@@ -143,9 +143,9 @@ export async function onRequestPost(context) {
     const system = String(
       isWebStudio
         ? WEB_STUDIO_SYSTEM_PROMPT +
-          '\\n\\n' +
+          '\n\n' +
           WEB_STUDIO_EXCELLENCE +
-          '\\n\\nEXPERIENCE INTELLIGENCE:\\n' +
+          '\n\nEXPERIENCE INTELLIGENCE:\n' +
           JSON.stringify(experience || {}) +
           '\n\nPROMPT REQUIREMENT CONTRACT (preserve every item):\n' +
           JSON.stringify(promptContract || {}) +
@@ -155,9 +155,9 @@ export async function onRequestPost(context) {
           '- Ask short questions when essential public details or a real integration are missing. If the user chooses placeholders or UI-only, proceed transparently without fake success states.\n' +
           '- Before you finish, compare the result against the full user brief and report any unavailable or pending integration honestly.\n' +
           (suppliedSystem
-            ? '\\n\\nCLIENT STUDIO INSTRUCTIONS:\\n' + suppliedSystem
+            ? '\n\nCLIENT STUDIO INSTRUCTIONS:\n' + suppliedSystem
             : '') +
-          '\\n\\nAuthenticated user UID: ' + user.sub
+          '\n\nAuthenticated user UID: ' + user.sub
         : suppliedSystem ||
           'You are OVYX Brain. Return useful, project-aware responses. Never reveal server secrets.'
     ).slice(0, isWebStudio ? 40_000 : 20_000);
