@@ -543,7 +543,7 @@ if (
   if (
     !sentinelEngine.includes('collectSentinelChecks') ||
     !sentinelEngine.includes('OVYX_SENTINEL_GITHUB_TOKEN') ||
-    !sentinelEngine.includes('Authorization: \\'Bearer \\'') ||
+    !sentinelEngine.includes("Authorization: 'Bearer '") ||
     !sentinelApi.includes('isSentinelAdmin') ||
     !sentinelApi.includes('SENTINEL_CRON_AUTH_FAILED') ||
     !sentinelApi.includes('administratorOnly: true') ||
