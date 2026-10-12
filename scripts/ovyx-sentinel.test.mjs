@@ -100,7 +100,7 @@ const report = createSentinelReport({ scan: failedChecks, id: 'run_fixture', sou
 assert.equal(report.status, 'critical');
 assert.equal(report.criticalCount, 1);
 assert.equal(report.warningCount, 2, 'a missing recent scheduler confirmation is a warning on manual runs');
-assert.equal(report.checkedCount, 4);
+assert.equal(report.checkedCount, 3, 'skipped optional checks do not count as checked endpoints');
 assert.ok(!JSON.stringify(report).includes('sourceCode') && !JSON.stringify(report).includes('privateProjectContent'));
 
 const scheduledReport = createSentinelReport({ scan: failedChecks, id: 'run_cron', source: 'scheduled' });
