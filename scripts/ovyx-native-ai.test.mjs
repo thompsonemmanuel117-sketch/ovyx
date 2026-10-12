@@ -53,6 +53,8 @@ assert.match(captured.input.messages[0].content, /OVYX AI/);
 assert.match(captured.input.messages[0].content, /Sample website/);
 assert.match(captured.input.messages[0].content, /FALLBACK CONTEXT/);
 assert.match(captured.input.messages[0].content, /REPAIR WORKFLOW/);
+assert.match(captured.input.messages[0].content, /WORKSPACE CHANGE STATES/);
+assert.match(captured.input.messages[0].content, /RECOVERY AND AUTHORIZATION/);
 assert.match(captured.input.messages[0].content, /local browser snapshot/i);
 assert.equal(result.provider, 'ovyx-native');
 assert.equal(result.text, 'I found the project settings area.');
