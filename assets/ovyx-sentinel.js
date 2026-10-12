@@ -82,7 +82,7 @@ function buildShell() {
   document.body.appendChild(root); addStyles(); bindShell(); return root;
 }
 function status(message, kind) {
-  var element = q('[data-ovsx-status'); if (!element) return;
+  var element = q('[data-ovsx-status]'); if (!element) return;
   element.textContent = String(message || ''); element.dataset.kind = kind || 'info';
 }
 function safeText(value, max) { return String(value == null ? '' : value).replace(/\s+/g, ' ').trim().slice(0, max || 320); }
@@ -92,7 +92,7 @@ function stateLabel(report) {
 }
 function renderReport(report) {
   latestReport = report || null;
-  var host = q('[data-ovsx-report'); if (!host) return;
+  var host = q('[data-ovsx-report]'); if (!host) return;
   host.replaceChildren();
   if (!report) { var empty = document.createElement('div'); empty.className = 'summary'; empty.textContent = 'No saved Sentinel report yet. Select Check now to run the first scan.'; host.appendChild(empty); return; }
   var summary = document.createElement('div'); summary.className = 'summary';
@@ -140,7 +140,7 @@ async function scanNow(shouldSpeak) {
   } catch (error) { status(error.message || 'Sentinel could not complete its scan.', 'error'); if (shouldSpeak) speak('Sorry boss, I could not complete the scan. ' + String(error.message || '')); }
   finally { busy = false; if (button) button.disabled = false; }
 }
-function transcript(message) { var element = q('[data-ovsx-transcript'); if (!element) return; element.hidden = false; element.textContent = safeText(message, 1400); }
+function transcript(message) { var element = q('[data-ovsx-transcript]'); if (!element) return; element.hidden = false; element.textContent = safeText(message, 1400); }
 async function askAI(question) {
   var reportSummary = latestReport ? { status: latestReport.status, checkedAt: latestReport.finishedAt, checks: (latestReport.checks || []).slice(0, 16).map(function (c) { return { path: c.path, status: c.status, code: c.code, summary: c.summary }; }) } : null;
   status('Thinking about your question…');
