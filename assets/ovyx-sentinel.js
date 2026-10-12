@@ -161,8 +161,9 @@ function normalize(text) { return String(text || '').toLowerCase().replace(/[.,!
 function handleVoice(raw) {
   var text = normalize(raw); if (!text) return;
   if (/\b(?:stop listening|pause listening|disable wake word|turn off wake word)\b/.test(text)) { disableWake('Wake word disabled. Microphone listening has stopped.'); speak('Wake word disabled, boss.'); return; }
-  var wake = text.match(/\b(?:ovyx|oh v y x|oh vyx)\b/i);
+  var wake = text.match(/\b(?:ovyx|o\s*v\s*y\s*x|oh\s*v\s*y\s*x|oh\s*vyx)\b/i);
   if (wake) {
+    showPanel(true);
     var command = text.slice((wake.index || 0) + wake[0].length).trim();
     if (command) { awaitingUntil = 0; runVoiceCommand(command); }
     else { awaitingUntil = Date.now() + 12000; status('I heard OVYX. Tell me what you need within 12 seconds.', 'success'); speak('I’m listening, boss. What should I check?'); }
@@ -191,10 +192,10 @@ function makeRecognition() {
   try {
     recognition = new Constructor(); recognition.continuous = true; recognition.interimResults = false; recognition.lang = 'en-US'; recognition.maxAlternatives = 1;
     recognition.onresult = function (event) { for (var i = event.resultIndex; i < event.results.length; i += 1) if (event.results[i].isFinal) handleVoice(event.results[i][0] && event.results[i][0].transcript); };
-    recognition.onerror = function (event) { if (wakeEnabled && !['no-speech','aborted'].includes(String(event.error || ''))) status('Speech recognition issue: ' + safeText(event.error || 'unknown', 60) + '. You can pause and re-enable the wake word.', 'error'); };
+    recognition.onerror = function (event) { if (!wakeEnabled || ['no-speech','aborted'].includes(String(event.error || ''))) return; if (['not-allowed','service-not-allowed','audio-capture'].includes(String(event.error || ''))) { disableWake('Microphone permission or audio capture is unavailable. Enable microphone access in your browser settings, then try again.'); return; } status('Speech recognition issue: ' + safeText(event.error || 'unknown', 60) + '. You can pause and re-enable the wake word.', 'error'); };
     recognition.onend = function () { recognition = null; if (wakeEnabled && !document.hidden) restartTimer = setTimeout(makeRecognition, 700); };
     recognition.start();
-  } catch (_) { recognition = null; status('The browser could not start listening. Check microphone permission and try again.', 'error'); }
+  } catch (_) { recognition = null; disableWake('The browser could not start listening. Check microphone permission and try again.'); }
 }
 function toggleWake() {
   if (wakeEnabled) { disableWake('Wake word paused. Microphone listening has stopped.'); return; }
