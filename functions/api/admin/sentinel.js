@@ -1,4 +1,4 @@
-import { verifyFirebaseIdToken } from '../../_lib/auth.js';
+import { verifyFirebaseIdToken } from '../_lib/auth.js';
 import {
   getFirestoreDataAtPath,
   setFirestoreDocumentAtPath,
