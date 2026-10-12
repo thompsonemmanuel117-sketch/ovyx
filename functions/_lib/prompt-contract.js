@@ -252,7 +252,13 @@ export function getWebStudioBuildClarification(prompt, context = {}) {
   }
 
   if (asksPayment && !hasConnectedIntegration(context, 'payments')) {
-    questions.push('For real payments, which provider should the site use? Connect it under OVYX Settings & Connections; do not paste secret keys into chat. I can build the storefront now, but I will not pretend checkout works before the provider is connected.');
+    const selectedProvider = /\b(paystack|flutterwave|stripe|paypal)\b/i.exec(evidence);
+    if (selectedProvider) {
+      const providerName = selectedProvider[1][0].toUpperCase() + selectedProvider[1].slice(1).toLowerCase();
+      questions.push('You selected ' + providerName + '. Connect it under OVYX Settings & Connections; do not paste secret keys into chat. I can prepare the checkout UI now, but I will not claim real payments work until the connection is active.');
+    } else {
+      questions.push('For real payments, which provider should the site use? Connect it under OVYX Settings & Connections; do not paste secret keys into chat. I can build the storefront now, but I will not pretend checkout works before the provider is connected.');
+    }
   }
 
   if ((contact.authentication || asksBackend) && !hasConnectedIntegration(context, 'backend') &&
