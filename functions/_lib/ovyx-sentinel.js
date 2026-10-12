@@ -48,7 +48,7 @@ function responseCheck(target, response, payload, durationMs) {
         ...(Array.isArray(payload.missingRequiredEnvironment) ? payload.missingRequiredEnvironment : []),
         ...(Array.isArray(payload.emptyRequiredEnvironment) ? payload.emptyRequiredEnvironment : []),
         ...(Array.isArray(payload.unavailableRequiredEnvironment) ? payload.unavailableRequiredEnvironment : []),
-        ...(Array.isArray(payload.invalidRequiredEnvironment) ? payload.invalidRequiredEnvironment.map(item => item && typeof item === 'object' ? item.key : item : []),
+        ...(Array.isArray(payload.invalidRequiredEnvironment) ? payload.invalidRequiredEnvironment.map(item => item && typeof item === 'object' ? item.key : item) : []),
       ];
       check.details = [...new Set(names.map(value => String(value || '').slice(0, 90).replace(/[^A-Za-z0-9_.-]/g, '')).filter(Boolean))].slice(0, 16);
     }
