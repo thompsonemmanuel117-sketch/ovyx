@@ -260,6 +260,32 @@ if (!fs.existsSync(promptContractPath) || !fs.existsSync(promptContractTestPath)
   }
 }
 
+// Web Studio Stage 3 request-level trace: it must be loaded only with the app shell,
+// monitor build/fix requests without changing fetch responses, and have regression tests.
+const studioTracePath = path.join(root, 'assets/ovyx-studio-trace.js');
+const studioTraceTestPath = path.join(root, 'scripts/ovyx-studio-trace.test.mjs');
+const middlewarePath = path.join(root, 'functions/_middleware.js');
+if (!fs.existsSync(studioTracePath) || !fs.existsSync(studioTraceTestPath) || !fs.existsSync(middlewarePath)) {
+  errors.push('OVYX Web Studio: trace UI, regression tests, or app-shell script injection is missing.');
+} else {
+  const studioTrace = fs.readFileSync(studioTracePath, 'utf8');
+  const studioTraceTest = fs.readFileSync(studioTraceTestPath, 'utf8');
+  const middleware = fs.readFileSync(middlewarePath, 'utf8');
+  const packageJson = fs.existsSync(packageJsonPath) ? fs.readFileSync(packageJsonPath, 'utf8') : '';
+  if (
+    !studioTrace.includes('window.__OVYX_STUDIO_TRACE__') ||
+    !studioTrace.includes('(?:gateway|assistant)') ||
+    !studioTrace.includes('requirementVerification') ||
+    !studioTrace.includes('full prompt and project contents are not copied') ||
+    !studioTraceTest.includes('Normal assistant chat should not open') ||
+    !studioTraceTest.includes('network disconnected') ||
+    !middleware.includes('/assets/ovyx-studio-trace.js?v=20261012-1') ||
+    !packageJson.includes('scripts/ovyx-studio-trace.test.mjs')
+  ) {
+    errors.push('OVYX Web Studio: request trace, privacy guard, response checks, or runtime regression coverage is incomplete.');
+  }
+}
+
 // OVYX-native workspace assistant: the chat drawer must use the Cloudflare AI
 // binding directly, not the third-party provider/API-key router.
 const nativeAssistantPath = path.join(root, 'functions/_lib/ovyx-native-ai.js');
