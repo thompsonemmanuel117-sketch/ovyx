@@ -647,6 +647,27 @@ if (
   }
 }
 
+const workspaceActivationPath = path.join(root, 'functions/api/workspace/activate.js');
+const workspaceActivationTestPath = path.join(root, 'scripts/workspace-activation-profile.test.mjs');
+if (!fs.existsSync(workspaceActivationPath) || !fs.existsSync(workspaceActivationTestPath)) {
+  errors.push('Workspace activation: verified profile persistence and its regression test must be present.');
+} else {
+  const activation = fs.readFileSync(workspaceActivationPath, 'utf8');
+  const activationTest = fs.readFileSync(workspaceActivationTestPath, 'utf8');
+  if (
+    !activation.includes('buildWorkspaceActivationRecord') ||
+    !activation.includes('workspaceActivationVersion: 2') ||
+    !activation.includes('merge:true') ||
+    !activation.includes('buildUniversalConnectionsStatus') ||
+    !activation.includes('OVYX_CONNECTION_ENCRYPTION_KEY') ||
+    !activationTest.includes('billingCustomerId') ||
+    !activationTest.includes('fallback@example.test') ||
+    !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/workspace-activation-profile.test.mjs')
+  ) {
+    errors.push('Workspace activation: profile updates must be merge-safe, return only connection readiness, and have automated coverage.');
+  }
+}
+
 if (errors.length) {
   console.error(errors.join('\n'));
   process.exit(1);
