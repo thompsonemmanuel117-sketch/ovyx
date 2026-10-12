@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
+  buildNativeSystemPrompt,
   extractNativeModelText,
   resolveNativeIntent,
   sanitizeNativeContext,
@@ -38,6 +39,18 @@ const projectIntent = resolveNativeIntent('Tell me about my active project', con
 assert.equal(projectIntent.handled, true);
 assert.match(projectIntent.text, /Sunrise Bakery/);
 assert.match(projectIntent.text, /Pages: 2/);
+
+const productIntent = resolveNativeIntent('What is OVYX?', context);
+assert.match(productIntent.text, /App Studio/);
+const assistantIntent = resolveNativeIntent('What is OVYX AI?', context);
+assert.match(assistantIntent.text, /workspace assistant built for this project/i);
+const multipageIntent = resolveNativeIntent('Does OVYX support multi-page websites?', context);
+assert.match(multipageIntent.text, /bounded batches/i);
+const multipageBuildIntent = resolveNativeIntent('Build a multi-page website for my bakery', context);
+assert.equal(multipageBuildIntent.actions[0].handoffPrompt, true);
+const knowledgePrompt = buildNativeSystemPrompt(context);
+assert.match(knowledgePrompt, /OVYX-specific product knowledge/);
+assert.match(knowledgePrompt, /Web Studio/);
 
 const routeIntent = resolveNativeIntent('Open Settings', context);
 assert.equal(routeIntent.handled, true);
