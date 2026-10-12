@@ -18,7 +18,20 @@ export async function onRequestPost(context){
     const mobileBuildReady=Boolean(String(context.env.EXPO_TOKEN||'').trim()&&String(context.env.EXPO_PROJECT_ID||'').trim()&&String(context.env.OVYX_MOBILE_PAYLOAD_SECRET||'').trim());
     const activatedAt=new Date().toISOString();
     const existing=(await getFirestoreData(context.env,'users',uid))||{};
-    await setFirestoreDocument(context.env,'users',uid,{workspaceActive:true,workspaceActivatedAt:activatedAt,workspaceActivationVersion:1},{merge:true});
+    await setFirestoreDocument(
+      context.env,
+      'users',
+      uid,
+      {
+        email: String(user.email || existing.email || '').trim().toLowerCase() || null,
+        displayName: String(user.displayName || existing.displayName || '').trim() || null,
+        photoUrl: String(user.photoUrl || existing.photoUrl || '').trim() || null,
+        workspaceActive: true,
+        workspaceActivatedAt: activatedAt,
+        workspaceActivationVersion: 2,
+      },
+      { merge: true },
+    );
     let quotaProfileInitialized = true;
     try {
       await initializeQuotaProfile(
@@ -36,13 +49,14 @@ export async function onRequestPost(context){
         String(quotaError?.code || quotaError?.message || 'unknown error').slice(0, 240)
       );
     }
-    return jsonResponse({ok:true,scope:'user_workspace',workspaceActive:true,activatedAt,integrations:{
+    return jsonResponse({ok:true,scope:'user_workspace',workspaceActive:true,activatedAt,profile:{uid,email:String(user.email||existing.email||'').trim().toLowerCase()||null,displayName:String(user.displayName||existing.displayName||'').trim()||null},integrations:{
       codeGateway:{enabled:true,basePath:'/api',aiGateway:'/api/ai/gateway',assistant:'/api/ai/assistant'},
+      universalConnections:{enabled:true,route:'/api/settings/connections',serverAuthoritative:true,secretEncryptionConfigured:String(context.env.OVYX_CONNECTION_ENCRYPTION_KEY||'').trim().length>=32},
       github:{provider:'github-app-installation',connected:githubReady},
       mobileBuild:{provider:'expo-eas',configured:mobileBuildReady,status:mobileBuildReady?'READY':'NOT_CONFIGURED'}
-    },planTier:String(existing.planTier||'free').toLowerCase(),quotaProfile:{initialized:quotaProfileInitialized,status:quotaProfileInitialized?'READY':'DEFERRED'}},200,{'X-OVYX-Request-ID':id});
+    },planTier:String(existing.planTier||'free').toLowerCase(),quotaProfile:{initialized:quotaProfileInitialized,status:quotaProfileInitialized?'READY':'DEFERRED'}},200,{'X-OVYX-Request-ID':id,'Cache-Control':'no-store'});
   }catch(error){
-    return jsonResponse({ok:false,error:error?.message||'Workspace activation failed.',code:error?.code||'WORKSPACE_ACTIVATION_FAILED'},error?.status||500,{'X-OVYX-Request-ID':id});
+    return jsonResponse({ok:false,error:error?.message||'Workspace activation failed.',code:error?.code||'WORKSPACE_ACTIVATION_FAILED'},error?.status||500,{'X-OVYX-Request-ID':id,'Cache-Control':'no-store'});
   }
 }
 export async function onRequest(context){
