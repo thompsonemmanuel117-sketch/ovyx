@@ -479,7 +479,6 @@ async function handleTool(env, identity, body) {
     ownerUid: uid,
     ownerEmail: email,
   };
-  await setFirestoreDocumentAtPath(env, [...found.path, 'revisions', revisionId], backupValue, { merge: false });
   slot.update(nextContent);
   found.project.updatedAt = typeof found.project.updatedAt === 'number' ? Date.now() : new Date().toISOString();
 
@@ -488,6 +487,8 @@ async function handleTool(env, identity, body) {
     fail('The saved project is too large for a safe source update. No file was changed; use Web Studio to edit this project.', 413, 'PROJECT_TOO_LARGE_FOR_SAFE_PATCH');
   }
 
+  // Persist the rollback copy only after the replacement is known to fit.
+  await setFirestoreDocumentAtPath(env, [...found.path, 'revisions', revisionId], backupValue, { merge: false });
   await setFirestoreDocumentAtPath(env, found.path, found.project, {
     merge: false,
     expectedUpdateTime: found.document.updateTime,
