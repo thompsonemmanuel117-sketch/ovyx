@@ -19,6 +19,7 @@ const MAX_BODY_BYTES = 190_000;
 const MAX_PATCH_BYTES = 80_000;
 const MAX_PROJECT_FILE_BYTES = 900_000;
 const MAX_BACKUP_SOURCE_BYTES = 300_000;
+const MAX_MODEL_EDITABLE_SOURCE_BYTES = 4_000;
 const MAX_PROJECT_DOCUMENT_BYTES = 850_000;
 const SAFE_TEXT_EXTENSION = /\.(?:html?|css|mjs|cjs|js|jsx|ts|tsx|json|md|mdx|svg|xml|txt|vue|svelte|astro|yml|yaml|toml|php|py|sql|graphql|gql|webmanifest)$/i;
 const SENSITIVE_PATH = /(?:^|\/)(?:\.env(?:\.[^/]*)?|secrets?|credentials?|id_rsa|id_ed25519|service-account[^/]*|private[-_]?key[^/]*)$/i;
@@ -191,7 +192,7 @@ export function validateOvyxSourcePath(value) {
   return safePath(value);
 }
 
-function pageSummary(page, index) {
+function pageSummary(page, index, maxPreview = 900) {
   const name = clean(page?.name || page?.slug || page?.title || `Page ${index + 1}`, 180);
   const sections = Array.isArray(page?.sections) ? page.sections : [];
   const components = Array.isArray(page?.components) ? page.components : [];
@@ -213,13 +214,28 @@ function pageSummary(page, index) {
     title: clean(page?.title, 240),
     sectionsCount: sections.length,
     componentsCount: components.length,
-    content: textPreview(directContent || sectionContent, 900),
+    content: textPreview(directContent || sectionContent, maxPreview),
   };
 }
 
 function projectSummary(id, project, updateTime = null, includeContents = true) {
-  const pages = (Array.isArray(project?.pages) ? project.pages : []).slice(0, 60).map(pageSummary);
+  // Keep the authenticated source files early in the serialized context, before
+  // page summaries, so the native model is less likely to receive truncated code.
+  const pages = (Array.isArray(project?.pages) ? project.pages : [])
+    .slice(0, 12)
+    .map((page, index) => pageSummary(page, index, 350));
   const files = allProjectFiles(project);
+  const visibleFiles = files.slice(0, includeContents ? 8 : 40).map(file => {
+    const complete = file.content.length <= MAX_MODEL_EDITABLE_SOURCE_BYTES;
+    return {
+      path: file.path,
+      size: file.size,
+      ...(includeContents ? {
+        content: textPreview(file.content, complete ? MAX_MODEL_EDITABLE_SOURCE_BYTES : 1200),
+        contentComplete: complete,
+      } : {}),
+    };
+  });
   return {
     id,
     name: clean(project?.name || 'Untitled project', 180),
@@ -227,14 +243,10 @@ function projectSummary(id, project, updateTime = null, includeContents = true) 
     status: clean(project?.status || 'draft', 80),
     updatedAt: project?.updatedAt || null,
     revision: updateTime || null,
-    pages,
     pageCount: Array.isArray(project?.pages) ? project.pages.length : 0,
     fileCount: files.length,
-    files: files.slice(0, includeContents ? 14 : 80).map(file => ({
-      path: file.path,
-      size: file.size,
-      ...(includeContents ? { content: textPreview(file.content, 1550) } : {}),
-    })),
+    files: visibleFiles,
+    pages,
   };
 }
 
@@ -429,6 +441,9 @@ async function handleTool(env, identity, body) {
   if (!slot) fail('That exact source path does not exist in the saved project. OVYX will not create a guessed file path.', 404, 'SOURCE_FILE_NOT_FOUND');
 
   const nextContent = String(body.content ?? '');
+  if (slot.current.length > MAX_MODEL_EDITABLE_SOURCE_BYTES) {
+    fail('OVYX did not receive the complete source for this file, so it will not replace it automatically. Use Web Studio to edit the full file safely.', 413, 'SOURCE_NOT_FULLY_IN_CONTEXT');
+  }
   if (slot.current.length > MAX_BACKUP_SOURCE_BYTES) fail('This source file is too large for a safe automatic backup. No change was made.', 413, 'SOURCE_TOO_LARGE_FOR_BACKUP');
   if (nextContent.length > MAX_PATCH_BYTES) fail('The proposed file is too large for a safe single-file assistant edit.', 413, 'PATCH_TOO_LARGE');
   if (!nextContent.trim()) fail('The proposed file content cannot be empty.', 400, 'EMPTY_PATCH');
