@@ -31,6 +31,27 @@ assert.match(source, /SIGN IN REQUIRED/);
 assert.match(native, /env\.AI\.run/);
 assert.match(native, /No Gemini\/OpenAI\/Anthropic\/DeepSeek API key is used/);
 
+assert.match(source, /function snapshotAssets\(\.\.\.sources\)/);
+assert.match(source, /function snapshotConnections\(\.\.\.sources\)/);
+assert.match(source, /function snapshotRelevantSettings\(\.\.\.sources\)/);
+assert.match(source, /function snapshotSelectedElement\(selected\)/);
+assert.match(source, /contentState: dirtyState/);
+assert.match(source, /sourceState/);
+assert.match(source, /contextWarning: limited/);
+assert.match(source, /priority\(item\) > priority\(current\)/);
+assert.match(source, /const READ_ONLY_WORKSPACE_ACTIONS = new Set/);
+assert.match(source, /async function executeWorkspaceReadAction\(action\)/);
+assert.match(source, /workspaceToolResults: workspaceToolResults\.slice\(-3\)/);
+assert.match(source, /while \(toolRounds < 3\)/);
+assert.match(source, /toolCallCount >= 4|const remaining = 4 - toolCallCount/);
+assert.match(source, /authenticated read-only workspace tools are now in context\.workspaceToolResults/i);
+assert.match(source, /No source edit was applied/);
+assert.match(native, /workspace_read_file/);
+assert.match(native, /workspace_search/);
+assert.match(native, /workspace_inspect/);
+assert.match(native, /workspace_diagnose/);
+
+
 assert.match(source, /data-ovyx-native-action="undo-last-ai-edit"/);
 assert.match(source, /data-ovyx-native-action="review-ai-edits"/);
 assert.match(source, /function setWorkspaceTaskStatus\(status, message = ''\)/);
