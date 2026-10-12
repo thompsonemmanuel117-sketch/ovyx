@@ -87,7 +87,7 @@ const nativeModel = {
     async run(model, input) {
       modelName = model;
       modelMessages = input.messages;
-      return { response: 'The project notes should live next to the relevant code and explain setup, decisions, and maintenance.', usage: { prompt_tokens: 17, completion_tokens: 22 } };
+      return { response: 'Project documentation should live next to the relevant code and explain setup, decisions, and maintenance.', usage: { prompt_tokens: 17, completion_tokens: 22 } };
     },
   },
 };
