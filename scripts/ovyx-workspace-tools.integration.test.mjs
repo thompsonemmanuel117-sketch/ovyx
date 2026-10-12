@@ -113,6 +113,16 @@ async function call(payload, user = owner) {
 }
 
 try {
+  const unauthenticated = await onRequestPost({
+    request: new Request('https://ovyx.test/api/ai/workspace-tools', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ operation: 'snapshot' }),
+    }),
+    env: { FIREBASE_SERVICE_ACCOUNT_JSON: JSON.stringify(serviceAccount) },
+    data: {},
+  });
+  assert.equal(unauthenticated.status, 401, 'workspace tools must reject unsigned requests');
   const initialDoc = documents.get(projectPath);
   const prepared = await call({ operation: 'prepare_patch', projectId, filePath: 'index.html', content: proposedSource, reason: 'Integration test edit' });
   assert.equal(prepared.status, 200);
