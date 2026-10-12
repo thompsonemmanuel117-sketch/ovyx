@@ -134,7 +134,7 @@ try {
   assert.ok(documents.has(projectPath + '/revisions/' + applied.body.revisionId), 'the previous file must be persisted before/with the write');
 
   const revisions = await call({ operation: 'list_revisions', projectId });
-  assert.equal(revisions.status, 200);
+  assert.equal(revisions.status, 200, JSON.stringify(revisions.body));
   assert.equal(revisions.body.revisions.length, 1);
   const revisionId = revisions.body.revisions[0].id;
 
