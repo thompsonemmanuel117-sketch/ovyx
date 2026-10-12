@@ -206,7 +206,7 @@ export function buildPromptContract(prompt) {
     explicitPages: extractExplicitPageNames(source),
     contactSignals: {
       contactForm: /\b(?:contact|enquiry|inquiry|quote|lead|message)\s+forms?\b|\bforms?\b.{0,40}\b(?:contact|email|message|enquiry|inquiry|quote)\b/i.test(source),
-      emailDelivery: /\b(?:send|deliver|email|notify|forward)\b.{0,55}\b(?:form|message|enquiry|inquiry|lead|submission)\b|\b(?:form|message|enquiry|inquiry|lead|submission)\b.{0,55}\b(?:send|deliver|email|notify|forward)\b/i.test(source),
+      emailDelivery: /\b(?:send|sends|deliver|delivers|email|emails|notify|notifies|forward|forwards)\b.{0,55}\b(?:form|message|enquiry|enquiries|inquiry|inquiries|lead|submission)\b|\b(?:form|message|enquiry|enquiries|inquiry|inquiries|lead|submission)\b.{0,55}\b(?:send|sends|deliver|delivers|email|emails|notify|notifies|forward|forwards)\b/i.test(source),
       bookings: /\b(?:booking|bookings|reservation|reservations|appointments?|schedule a visit)\b/i.test(source),
       newsletter: /\b(?:newsletter|subscribe|subscription form)\b/i.test(source),
       payments: /\b(?:payments?|checkout|accept cards|paystack|flutterwave|stripe|paypal|buy now|subscriptions? billing)\b/i.test(source),
