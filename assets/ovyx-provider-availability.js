@@ -80,6 +80,9 @@
         toast(message, data.status === 'NOT_CONFIGURED' ? 'warning' : 'error');
       }
     } catch (error) {
+      if (error?.name === 'AbortError' && activeChecks.get(select) !== controller) {
+        return; // A newer selection superseded this result; do not show a stale toast.
+      }
       if (error?.name === 'AbortError') {
         toast('The ' + label + ' availability check timed out. Try again or connect your own AI Brain in Universal Connections.', 'warning');
       } else {
