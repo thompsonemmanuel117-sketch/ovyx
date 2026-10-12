@@ -22,7 +22,7 @@ try {
         await route.fulfill({
           status: 200,
           contentType: 'text/html',
-          body: '<!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><div id="sentinel-test-fixture">Sentinel test fixture</div>' +
+          body: '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><div id="sentinel-test-fixture">Sentinel test fixture</div>' +
             '<script>' +
             'let __currentUser=null;const __authListeners=[];window.__setSentinelUser=u=>{__currentUser=u;__authListeners.forEach(cb=>cb(u))};' +
             'window.firebase={auth:()=>({get currentUser(){return __currentUser},onAuthStateChanged:cb=>{__authListeners.push(cb);cb(__currentUser);return ()=>{}}})};' +
