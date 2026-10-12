@@ -58,7 +58,7 @@ assert.match(captured.input.messages[0].content, /Sample website/);
 assert.match(captured.input.messages[0].content, /FALLBACK CONTEXT/);
 assert.match(captured.input.messages[0].content, /REPAIR WORKFLOW/);
 assert.match(captured.input.messages[0].content, /workspace_read_file/);
-assert.match(captured.input.messages[0].content, /feeds actual results back/i);
+assert.match(captured.input.messages[0].content, /feed actual results back/i);
 assert.match(captured.input.messages[0].content, /WORKSPACE CHANGE STATES/);
 assert.match(captured.input.messages[0].content, /RECOVERY AND AUTHORIZATION/);
 assert.match(captured.input.messages[0].content, /workspace_undo/);
