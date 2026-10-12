@@ -1,0 +1,39 @@
+name: OVYX Assistant Browser Smoke
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'scripts/ovyx-assistant-menu.browser.test.mjs'
+      - '.github/workflows/ovyx-assistant-menu-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install project and browser test dependencies
+        run: |
+          npm install --ignore-scripts
+          npm install --ignore-scripts --no-save playwright@^1.55.0
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Test deployed assistant menu in desktop and mobile browsers
+        run: node scripts/ovyx-assistant-menu.browser.test.mjs
+        env:
+          OVYX_E2E_BASE_URL: https://587af31b.forgeos-2k0.pages.dev
