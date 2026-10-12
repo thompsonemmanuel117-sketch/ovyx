@@ -89,11 +89,13 @@ export async function collectSentinelChecks({ origin, env = {}, fetchImpl = fetc
   }
   if (base.username || base.password) throw Object.assign(new Error('Site origin must not include credentials.'), { code: 'INVALID_SITE_ORIGIN' });
 
-  const checks = [];
   const issues = [];
   const started = new Date(now()).toISOString();
 
-  for (const target of CHECK_TARGETS) {
+  // Probe the five first-party health targets concurrently. Serial 8-second
+  // timeouts could otherwise consume the separate Cron Worker's 45-second
+  // request budget before it can save a report.
+  const checks = await Promise.all(CHECK_TARGETS.map(async target => {
     const startedAt = now();
     try {
       const url = new URL(target.path, base.origin).toString();
@@ -104,11 +106,10 @@ export async function collectSentinelChecks({ origin, env = {}, fetchImpl = fetc
       } else if (target.kind === 'json') {
         try { await response.body?.cancel(); } catch {}
       }
-      const check = responseCheck(target, response, payload, safeDuration(startedAt, now));
-      checks.push(check);
+      return responseCheck(target, response, payload, safeDuration(startedAt, now));
     } catch (error) {
       const timedOut = error?.name === 'AbortError';
-      checks.push({
+      return {
         id: target.id,
         path: target.path,
         status: 'fail',
@@ -117,9 +118,9 @@ export async function collectSentinelChecks({ origin, env = {}, fetchImpl = fetc
         durationMs: safeDuration(startedAt, now),
         code: timedOut ? 'CHECK_TIMEOUT' : 'CHECK_UNREACHABLE',
         summary: timedOut ? 'Endpoint check timed out.' : 'Endpoint could not be reached.',
-      });
+      };
     }
-  }
+  }));
 
   if (String(env.OVYX_SENTINEL_GITHUB_TOKEN || '').trim()) {
     const startedAt = now();
