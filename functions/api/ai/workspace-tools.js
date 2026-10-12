@@ -21,6 +21,7 @@ const MAX_PATCH_BYTES = 80_000;
 const MAX_PROJECT_FILE_BYTES = 900_000;
 const MAX_BACKUP_SOURCE_BYTES = 300_000;
 const MAX_MODEL_EDITABLE_SOURCE_BYTES = 4_000;
+const MAX_TOOL_READ_FILE_BYTES = 12_000;
 const MAX_PROJECT_DOCUMENT_BYTES = 850_000;
 const SAFE_TEXT_EXTENSION = /\.(?:html?|css|mjs|cjs|js|jsx|ts|tsx|json|md|mdx|svg|xml|txt|vue|svelte|astro|yml|yaml|toml|php|py|sql|graphql|gql|webmanifest)$/i;
 const SENSITIVE_PATH = /(?:^|\/)(?:\.env(?:\.[^/]*)?|secrets?|credentials?|id_rsa|id_ed25519|service-account[^/]*|private[-_]?key[^/]*)$/i;
@@ -353,7 +354,7 @@ async function loadOwnedProject(env, uid, email, rawId) {
 
 async function handleTool(env, identity, body) {
   const operation = clean(body?.operation || body?.op, 50).toLowerCase();
-  if (!['snapshot', 'list_projects', 'inspect', 'diagnose', 'search', 'list_revisions', 'prepare_patch', 'apply_patch', 'prepare_restore', 'restore_revision'].includes(operation)) {
+  if (!['snapshot', 'list_projects', 'inspect', 'diagnose', 'search', 'read_file', 'list_revisions', 'prepare_patch', 'apply_patch', 'prepare_restore', 'restore_revision'].includes(operation)) {
     fail('Unknown workspace-tool operation.', 400, 'UNKNOWN_WORKSPACE_TOOL');
   }
   const { uid, email } = identity;
@@ -410,6 +411,38 @@ async function handleTool(env, identity, body) {
       if (matches.length >= 16) break;
     }
     return { operation, projectId: found.id, query, count: matches.length, matches, revision: found.document.updateTime || null };
+  }
+
+  if (operation === 'read_file') {
+    const found = await loadOwnedProject(env, uid, email, body.projectId);
+    const filePath = safePath(body.filePath || body.path);
+    const slot = locateFile(found.project, filePath);
+    if (!slot) fail('That exact source path does not exist in the saved project.', 404, 'SOURCE_FILE_NOT_FOUND');
+    if (slot.current.length > MAX_PROJECT_FILE_BYTES) {
+      fail('That source file is too large for safe assistant inspection.', 413, 'SOURCE_FILE_TOO_LARGE');
+    }
+    const redactedContent = redactSecrets(slot.current);
+    const content = redactedContent.slice(0, MAX_TOOL_READ_FILE_BYTES);
+    const contentComplete = slot.current.length <= MAX_MODEL_EDITABLE_SOURCE_BYTES &&
+      redactedContent === slot.current && content.length === slot.current.length;
+    return {
+      operation,
+      projectId: found.id,
+      projectName: clean(found.project?.name || 'Untitled project', 180),
+      revision: found.document.updateTime || null,
+      source: 'firestore-owned-project-file',
+      file: {
+        path: filePath,
+        size: slot.current.length,
+        content,
+        contentComplete,
+        truncated: redactedContent.length > content.length,
+        secretValuesRedacted: redactedContent !== slot.current,
+        note: contentComplete
+          ? 'The complete saved source was read and contains no detected secret-like values.'
+          : 'The returned source is inspection context only. It is not eligible for automatic editing unless contentComplete is true.',
+      },
+    };
   }
 
   const found = await loadOwnedProject(env, uid, email, body.projectId);

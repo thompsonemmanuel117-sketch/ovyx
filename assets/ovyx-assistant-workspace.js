@@ -727,6 +727,230 @@
   }
 
 
+  const READ_ONLY_WORKSPACE_ACTIONS = new Set([
+    'workspace_inspect', 'workspace_read_file', 'workspace_search', 'workspace_diagnose',
+  ]);
+
+  function workspaceToolActionKey(action) {
+    return [
+      String(action?.type || ''),
+      String(action?.projectId || ''),
+      String(action?.filePath || action?.path || ''),
+      String(action?.query || ''),
+    ].join('|');
+  }
+
+  function compactWorkspaceToolResult(action, response) {
+    const operation = response?.operation || action?.type || 'workspace-tool';
+    if (operation === 'read_file' && response?.file) {
+      const file = response.file;
+      return {
+        operation,
+        projectId: response.projectId,
+        projectName: response.projectName,
+        revision: response.revision,
+        source: response.source,
+        file: {
+          path: file.path,
+          size: file.size,
+          content: String(file.content || '').slice(0, 12000),
+          contentComplete: file.contentComplete === true,
+          truncated: file.truncated === true,
+          secretValuesRedacted: file.secretValuesRedacted === true,
+          note: file.note,
+        },
+      };
+    }
+    if (operation === 'inspect' && response?.project) {
+      return {
+        operation,
+        source: response.source,
+        project: {
+          id: response.project.id,
+          name: response.project.name,
+          description: response.project.description,
+          status: response.project.status,
+          revision: response.project.revision,
+          pageCount: response.project.pageCount,
+          fileCount: response.project.fileCount,
+          files: (Array.isArray(response.project.files) ? response.project.files : []).slice(0, 40).map(file => ({
+            path: file.path,
+            size: file.size,
+            content: String(file.content || '').slice(0, 800),
+            contentComplete: false,
+            note: 'File inspection summary only. Request workspace_read_file for the exact complete source before preparing an edit.',
+          })),
+          pages: (Array.isArray(response.project.pages) ? response.project.pages : []).slice(0, 12),
+        },
+        diagnostics: response.diagnostics || null,
+      };
+    }
+    if (operation === 'search') {
+      return {
+        operation,
+        projectId: response.projectId,
+        query: response.query,
+        revision: response.revision,
+        count: response.count,
+        matches: (Array.isArray(response.matches) ? response.matches : []).slice(0, 16),
+      };
+    }
+    return response;
+  }
+
+  async function executeWorkspaceReadAction(action) {
+    const projectId = String(action?.projectId || '');
+    let operation = '';
+    const payload = { projectId };
+    if (!projectId) return { type: action?.type || 'workspace-tool', ok: false, error: 'A project ID is required. No project was changed.' };
+    if (action.type === 'workspace_inspect') operation = 'inspect';
+    else if (action.type === 'workspace_diagnose') operation = 'diagnose';
+    else if (action.type === 'workspace_read_file') {
+      operation = 'read_file';
+      payload.filePath = String(action.filePath || action.path || '');
+    } else if (action.type === 'workspace_search') {
+      operation = 'search';
+      payload.query = String(action.query || '');
+    } else {
+      return { type: action?.type || 'workspace-tool', ok: false, error: 'This workspace action is not a read-only tool.' };
+    }
+    try {
+      const response = await workspaceToolRequest({ operation, ...payload });
+      return {
+        type: action.type,
+        ok: true,
+        result: compactWorkspaceToolResult(action, response),
+      };
+    } catch (error) {
+      return {
+        type: action.type,
+        ok: false,
+        code: String(error?.code || 'WORKSPACE_TOOL_FAILED'),
+        error: String(error?.message || 'The authenticated workspace tool failed.').slice(0, 800),
+      };
+    }
+  }
+
+  function contextRows(value) {
+    if (Array.isArray(value)) return value;
+    if (!value || typeof value !== 'object') return [];
+    return Object.entries(value).map(([key, row]) => (
+      row && typeof row === 'object' && !Array.isArray(row)
+        ? { ...row, id: row.id || key }
+        : { id: key, name: String(row ?? key) }
+    ));
+  }
+
+  function contextText(value, max = 180) {
+    return String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
+  }
+
+  function snapshotAssets(...sources) {
+    const rows = sources.map(contextRows).find(items => items.length) || [];
+    return rows.slice(0, 40).map((asset, index) => {
+      const item = asset && typeof asset === 'object' ? asset : { name: asset };
+      return {
+        id: contextText(item.id || item.assetId || item.key || '', 120) || null,
+        name: contextText(item.name || item.filename || item.fileName || item.title || item.path || ('Asset ' + (index + 1)), 180),
+        type: contextText(item.type || item.kind || item.category || '', 80) || null,
+        mimeType: contextText(item.mimeType || item.contentType || item.format || '', 100) || null,
+        path: contextText(item.path || item.filePath || '', 240) || null,
+        size: Number.isFinite(Number(item.size || item.bytes)) ? Number(item.size || item.bytes) : null,
+        alt: contextText(item.alt || item.altText || '', 220) || null,
+        status: contextText(item.status || '', 60) || null,
+      };
+    }).filter(asset => asset.name || asset.path);
+  }
+
+  function snapshotConnections(...sources) {
+    const rows = sources.map(contextRows).find(items => items.length) || [];
+    return rows.slice(0, 30).map((connection, index) => {
+      const item = connection && typeof connection === 'object' ? connection : { name: connection };
+      return {
+        id: contextText(item.id || item.connectionId || '', 120) || null,
+        name: contextText(item.name || item.label || item.displayName || item.provider || ('Connection ' + (index + 1)), 160),
+        type: contextText(item.type || item.kind || item.category || '', 80) || null,
+        provider: contextText(item.provider || item.service || '', 100) || null,
+        status: contextText(item.status || (item.connected === true ? 'connected' : ''), 60) || null,
+        enabled: typeof item.enabled === 'boolean' ? item.enabled : null,
+        connected: typeof item.connected === 'boolean' ? item.connected : null,
+      };
+    }).filter(connection => connection.name);
+  }
+
+  function snapshotRelevantSettings(...sources) {
+    const output = {};
+    const allow = new Set([
+      'theme', 'language', 'locale', 'autosave', 'autoSave', 'selectedProvider',
+      'activeProvider', 'aiProvider', 'model', 'framework', 'buildTarget',
+      'deploymentTarget', 'currentBreakpoint', 'selectedBreakpoint', 'viewport',
+      'responsiveMode', 'siteTitle', 'activePageId', 'activePageSlug',
+      'editorMode', 'previewDevice', 'defaultPage', 'appearance', 'density',
+    ]);
+    const safeValue = value => (
+      typeof value === 'boolean' || (typeof value === 'number' && Number.isFinite(value))
+        ? value
+        : (typeof value === 'string' ? contextText(value, 180) : null)
+    );
+    for (const source of sources) {
+      if (!source || typeof source !== 'object' || Array.isArray(source)) continue;
+      for (const [key, value] of Object.entries(source)) {
+        if (allow.has(key) && !/(?:secret|token|password|credential|api.?key|private)/i.test(key)) {
+          const normalized = safeValue(value);
+          if (normalized !== null && normalized !== '') output[key] = normalized;
+        }
+      }
+      for (const groupName of ['editor', 'ai', 'site', 'appearance', 'workspace']) {
+        const group = source[groupName];
+        if (!group || typeof group !== 'object' || Array.isArray(group)) continue;
+        for (const [key, value] of Object.entries(group)) {
+          if (allow.has(key) && !/(?:secret|token|password|credential|api.?key|private)/i.test(key)) {
+            const normalized = safeValue(value);
+            if (normalized !== null && normalized !== '') output[groupName + '.' + key] = normalized;
+          }
+        }
+      }
+    }
+    return output;
+  }
+
+  function snapshotSelectedElement(selected) {
+    const node = selected && typeof selected === 'object' ? selected : {};
+    const readAttribute = key => {
+      try {
+        if (typeof node.getAttribute === 'function') return node.getAttribute(key);
+      } catch (_) {}
+      const attrs = node.attributes && typeof node.attributes === 'object' ? node.attributes : {};
+      if (Array.isArray(attrs)) {
+        const match = attrs.find(attribute => String(attribute?.name || '') === key);
+        return match?.value ?? null;
+      }
+      return attrs[key] ?? node.props?.[key] ?? null;
+    };
+    const rawClass = typeof node.className === 'string'
+      ? node.className
+      : (node.className?.baseVal || node.props?.className || node.class || '');
+    const nodeId = node.id || node.nodeId || window.WebStudio?.selectedNodeId || window.KernelState?.selectedNodeId || null;
+    const tagName = node.tagName || node.tag || node.elementTag || null;
+    const text = node.textContent || node.text || node.label || node.title || node.props?.text || '';
+    return {
+      nodeId: contextText(nodeId, 160) || null,
+      nodeType: contextText(node.type || node.nodeType || '', 100) || null,
+      tagName: contextText(tagName, 80) || null,
+      name: contextText(node.name || node.label || '', 160) || null,
+      selector: contextText(node.selector || node.cssSelector || (nodeId ? '#' + nodeId : ''), 240) || null,
+      text: contextText(text, 300) || null,
+      className: contextText(rawClass, 240) || null,
+      attributes: {
+        role: contextText(readAttribute('role'), 80) || null,
+        ariaLabel: contextText(readAttribute('aria-label'), 160) || null,
+        title: contextText(readAttribute('title'), 160) || null,
+        alt: contextText(readAttribute('alt'), 160) || null,
+        href: contextText(readAttribute('href'), 240) || null,
+      },
+    };
+  }
+
   function localWorkspaceSnapshot() {
     const state = window.KernelState || {};
     const currentUser = getUser();
@@ -737,12 +961,41 @@
     const graph = active && (!state.activeProject || active.id === state.activeProject?.id)
       ? window.WebStudio?.graph
       : null;
-    const files = graph?.files || active?.files || active?.sourceFiles || {};
-    const fileRows = Object.entries(files).slice(0, 24).map(([path, value]) => ({
-      path,
-      kind: 'file',
-      content: String(typeof value === 'string' ? value : value?.content || value?.html || value?.source || value?.code || '').slice(0, 1400),
-    }));
+    const fileSources = [
+      { value: graph?.files, origin: 'live-editor-source' },
+      { value: active?.files, origin: 'project-store-source' },
+      { value: active?.sourceFiles, origin: 'project-store-source' },
+      { value: active?.ovyxGraph?.files, origin: 'project-store-source' },
+    ];
+    const selectedFiles = fileSources.find(entry => entry.value && typeof entry.value === 'object' && Object.keys(entry.value).length) || { value: {}, origin: 'unknown' };
+    const files = selectedFiles.value;
+    const fileEntries = Array.isArray(files)
+      ? files.map((value, index) => [String(value?.path || value?.file || value?.name || ('file-' + (index + 1))), value])
+      : Object.entries(files);
+    const dirtySignals = [
+      ['WebStudio.graph.isDirty', graph?.isDirty],
+      ['WebStudio.graph.dirty', graph?.dirty],
+      ['WebStudio.hasUnsavedChanges', window.WebStudio?.hasUnsavedChanges],
+      ['KernelState.hasUnsavedChanges', state.hasUnsavedChanges],
+      ['activeProject.isDirty', active?.isDirty],
+      ['activeProject.dirty', active?.dirty],
+    ].filter(([, value]) => typeof value === 'boolean');
+    const dirtyState = dirtySignals.some(([, value]) => value === true)
+      ? 'unsaved-changes'
+      : (dirtySignals.length ? 'clean-or-saved' : 'unknown');
+    const sourceState = { origin: selectedFiles.origin, saveState: dirtyState, dirtySignals: dirtySignals.map(([source, value]) => ({ source, value })) };
+    const fileRows = fileEntries.slice(0, 24).map(([path, value]) => {
+      const fullContent = String(typeof value === 'string' ? value : value?.content || value?.html || value?.source || value?.code || '');
+      return {
+        path,
+        kind: 'file',
+        origin: selectedFiles.origin,
+        contentState: dirtyState,
+        sourceLength: fullContent.length,
+        content: fullContent.slice(0, 1400),
+        truncated: fullContent.length > 1400,
+      };
+    });
     const pageRows = (Array.isArray(active?.pages) ? active.pages : []).slice(0, 12).map((page, index) => {
       let content = '';
       try {
@@ -781,8 +1034,9 @@
         slug: page.slug || '',
         sectionsCount: Array.isArray(page.sections) ? page.sections.length : 0,
       })),
-      filePaths: Object.keys(files).slice(0, 120),
-      fileCount: Object.keys(files).length,
+      filePaths: fileEntries.map(([path]) => String(path)).slice(0, 120),
+      fileCount: fileEntries.length,
+      sourceState,
     } : null;
     return {
       version: 1,
@@ -796,12 +1050,33 @@
       serverProjectInventory: inventory,
       activeProject,
       activeProjectSource: sourceRows,
-      activeAssets: [],
-      connections: [],
-      selection: {
-        nodeId: window.WebStudio?.selectedNodeId || window.KernelState?.selectedNodeId || null,
-        nodeType: window.WebStudio?.selectedNode?.type || window.KernelState?.selectedNode?.type || null,
-      },
+      activeAssets: snapshotAssets(
+        graph?.assets,
+        active?.assets,
+        state.assets,
+        window.OVYXAssets?.items
+      ),
+      connections: snapshotConnections(
+        state.connections,
+        state.universalConnections,
+        active?.connections,
+        state.settings?.connections,
+        window.OVYXConnections?.items,
+        window.OVYXUniversalConnections?.items
+      ),
+      settings: snapshotRelevantSettings(
+        state.settings,
+        active?.settings,
+        graph?.settings,
+        window.OVYXWorkspaceSettings?.current
+      ),
+      selection: snapshotSelectedElement(
+        window.WebStudio?.selectedNode ||
+        window.KernelState?.selectedNode ||
+        window.WebStudio?.selectedElement ||
+        window.KernelState?.selectedElement ||
+        {}
+      ),
       capturedAt: new Date().toISOString(),
       contextSource: 'local-workspace-snapshot',
     };
@@ -902,7 +1177,11 @@
         if (!item || typeof item !== 'object') continue;
         const key = String(item.path || item.name || rows.size);
         const current = rows.get(key);
-        if (!current || String(item.content || '').length >= String(current.content || '').length) rows.set(key, item);
+        const priority = row => row?.contentState === 'unsaved-changes' ? 3 : (row?.origin === 'live-editor-source' ? 2 : 1);
+        if (!current || priority(item) > priority(current) ||
+            (priority(item) === priority(current) && String(item.content || '').length >= String(current.content || '').length)) {
+          rows.set(key, item);
+        }
       }
       return [...rows.values()].slice(0, 32);
     };
@@ -926,7 +1205,27 @@
       connections: Array.isArray(candidate.connections) && candidate.connections.length
         ? candidate.connections
         : fallback.connections,
-      selection: candidate.selection || fallback.selection,
+      settings: {
+        ...(fallback.settings && typeof fallback.settings === 'object' ? fallback.settings : {}),
+        ...(candidate.settings && typeof candidate.settings === 'object' ? candidate.settings : {}),
+      },
+      selection: (() => {
+        const base = fallback.selection && typeof fallback.selection === 'object' ? fallback.selection : {};
+        const next = candidate.selection && typeof candidate.selection === 'object' ? candidate.selection : {};
+        const merged = { ...base };
+        for (const [key, value] of Object.entries(next)) {
+          if (value !== null && value !== undefined && value !== '') merged[key] = value;
+        }
+        merged.nodeId = next.nodeId || base.nodeId || null;
+        merged.nodeType = next.nodeType || base.nodeType || null;
+        merged.attributes = {
+          ...(base.attributes && typeof base.attributes === 'object' ? base.attributes : {}),
+          ...(next.attributes && typeof next.attributes === 'object'
+            ? Object.fromEntries(Object.entries(next.attributes).filter(([, value]) => value !== null && value !== undefined && value !== ''))
+            : {}),
+        };
+        return merged;
+      })(),
       capturedAt: fallback.capturedAt,
       contextWarning: limited
         ? 'The optional live workspace scan did not finish before its time limit. A current browser-local snapshot is included. Use available project, page, and file details; do not say the workspace context is unavailable solely because the deep scan timed out.'
@@ -1014,22 +1313,143 @@
       setWorkspaceTaskStatus('running', serverWorkspace?.activeProject?.id
         ? 'Project inspection is complete; OVYX AI is working on your request.'
         : 'OVYX AI is working with the available local context and will identify any missing project details.');
-      const result = await nativeGenerate({
-        mode: 'workspace-copilot-native',
-        prompt,
-        context: {
-          // Put saved, owner-verified source context first so it remains in the bounded AI context.
-          serverWorkspace,
-          serverDiagnostics,
-          serverToolError: serverToolError || null,
-          workspace: context,
-          diagnostics: window.OVYXWorkspaceCopilot?.diagnose?.() || null,
-          contextLimited: contextResult.limited,
-          contextWarning: context.contextWarning || null,
-          assistantPolicy: 'OVYX native workspace assistant. Context scanning is optional: use saved serverWorkspace data and serverDiagnostics when available, and always use the local snapshot as a fallback when deeper scans are unavailable. Any source edit requires a real file preview plus explicit user approval; only report a saved edit when the server confirms read-back verification.',
-        },
-        system: 'Answer as OVYX AI. Inspect the authenticated saved project context when supplied. Never claim that code changed unless a server-confirmed workspace_patch action returned verified=true. A source edit must be reviewed and explicitly approved in the UI before it is written. For website builds, preserve the existing Web Studio generation workflow.',
-      });
+      const assistantContext = {
+        // Saved owner-verified project context and local fallback travel with every tool round.
+        serverWorkspace,
+        serverDiagnostics,
+        serverToolError: serverToolError || null,
+        workspace: context,
+        diagnostics: window.OVYXWorkspaceCopilot?.diagnose?.() || null,
+        contextLimited: contextResult.limited,
+        contextWarning: context.contextWarning || null,
+        assistantPolicy: 'OVYX native workspace assistant. Use authenticated read-only workspace tools when source evidence is missing. Context scanning is optional: use saved serverWorkspace data and serverDiagnostics when available, and always use the local snapshot as a fallback when deeper scans are unavailable. Any source edit requires a real file preview plus explicit user approval; only report a saved edit when the server confirms read-back verification.',
+      };
+      const assistantSystem = 'Answer as OVYX AI. Inspect the authenticated saved project context when supplied. When necessary, request workspace_inspect, workspace_read_file, workspace_search, or workspace_diagnose and wait for their actual returned results before diagnosing or proposing a code edit. Never claim that code changed unless a server-confirmed workspace_patch action returned verified=true. A source edit must be reviewed and explicitly approved in the UI before it is written. For website builds, preserve the existing Web Studio generation workflow.';
+      const workspaceToolResults = [];
+      const executedToolKeys = new Set();
+      const conversationMessages = [
+        ...history,
+        { role: 'user', content: prompt },
+      ].slice(-12);
+      let roundMessages = conversationMessages;
+      let result = null;
+      let toolCallCount = 0;
+      let toolRounds = 0;
+      let showedToolProgress = false;
+      let toolLimitReached = false;
+
+      // Real bounded agent loop: request a read-only tool, execute it through the
+      // authenticated server endpoint, feed the result back, then reason again.
+      // The model cannot invoke writes directly: workspace_patch still goes through
+      // the explicit human preview/approval flow in runActions().
+      while (toolRounds < 3) {
+        result = await nativeGenerate({
+          mode: 'workspace-copilot-native',
+          prompt,
+          messages: roundMessages,
+          context: {
+            workspaceToolResults: workspaceToolResults.slice(-3),
+            ...assistantContext,
+          },
+          system: assistantSystem,
+        });
+
+        const readActions = (Array.isArray(result.actions) ? result.actions : [])
+          .filter(action => READ_ONLY_WORKSPACE_ACTIONS.has(String(action?.type || '')));
+        if (!readActions.length) break;
+
+        const remaining = 4 - toolCallCount;
+        if (remaining <= 0) {
+          toolLimitReached = true;
+          result = {
+            ...result,
+            actions: [],
+            text: String(result.text || '') + '\n\nI reached the safe workspace-inspection limit for this request, so I stopped before making any change. No source edit was applied.',
+          };
+          break;
+        }
+
+        if (!showedToolProgress) {
+          push('I’m checking the actual saved project evidence before finalizing my answer. Read-only inspection only so far; no files have been changed.');
+          showedToolProgress = true;
+        }
+        const distinctActions = [];
+        for (const action of readActions) {
+          const key = workspaceToolActionKey(action);
+          if (executedToolKeys.has(key)) continue;
+          executedToolKeys.add(key);
+          distinctActions.push(action);
+          if (distinctActions.length >= remaining) break;
+        }
+        toolRounds += 1;
+
+        if (!distinctActions.length) {
+          workspaceToolResults.push({
+            type: 'workspace-tool-loop',
+            ok: false,
+            error: 'The assistant requested the same read-only tools again. Do not repeat them. Use the already returned tool results to answer; no project files were changed.',
+          });
+          roundMessages = [
+            ...roundMessages,
+            { role: 'assistant', content: String(result.text || '') },
+            { role: 'user', content: 'The requested read-only tools have already run and repeating them is blocked. Use the actual results now. Do not claim any additional inspection or saved change.' },
+          ].slice(-12);
+          result = null;
+          continue;
+        }
+
+        setWorkspaceTaskStatus('running', 'Inspecting saved project files and diagnostics through authenticated read-only tools.');
+        const outcomes = await Promise.all(distinctActions.map(executeWorkspaceReadAction));
+        toolCallCount += distinctActions.length;
+        workspaceToolResults.push(...outcomes);
+        if (workspaceToolResults.length > 6) workspaceToolResults.splice(0, workspaceToolResults.length - 6);
+        roundMessages = [
+          ...roundMessages,
+          { role: 'assistant', content: String(result.text || '') },
+          { role: 'user', content: 'The actual results from the authenticated read-only workspace tools are now in context.workspaceToolResults. Continue the same task using this evidence. Do not repeat the same tool action. Do not claim a source edit was applied unless a later approved write is verified.' },
+        ].slice(-12);
+        result = null;
+      }
+
+      // Once the read-only tool budget has been used, ask for a final evidence-based
+      // answer. If it asks for yet another tool, stop honestly rather than claiming
+      // unsupported diagnosis or proceeding with an ungrounded edit.
+      if (!result) {
+        result = await nativeGenerate({
+          mode: 'workspace-copilot-native',
+          prompt,
+          messages: [
+            ...roundMessages,
+            { role: 'user', content: 'Provide the final answer using the evidence already returned in context.workspaceToolResults. Do not request another tool if you can answer from the existing evidence. Clearly state any limitation and do not claim changes were applied.' },
+          ].slice(-12),
+          context: {
+            workspaceToolResults: workspaceToolResults.slice(-3),
+            ...assistantContext,
+          },
+          system: assistantSystem,
+        });
+        const stillRequestsTools = (Array.isArray(result.actions) ? result.actions : [])
+          .some(action => READ_ONLY_WORKSPACE_ACTIONS.has(String(action?.type || '')));
+        if (stillRequestsTools) {
+          toolLimitReached = true;
+          result = {
+            ...result,
+            actions: [],
+            text: String(result.text || '') + '\n\nI could not obtain any further workspace evidence within the safe tool limit. No edit was applied; please provide the specific file or missing detail for the next inspection.',
+          };
+        }
+      }
+
+      if (toolLimitReached && Array.isArray(result.actions) &&
+          result.actions.some(action => READ_ONLY_WORKSPACE_ACTIONS.has(String(action?.type || '')))) {
+        result = { ...result, actions: [] };
+      }
+      history = [
+        ...history,
+        { role: 'user', content: prompt },
+        { role: 'assistant', content: String(result.text || '') },
+      ].slice(-12);
+
       syncWorkspaceBadge(context, contextResult.limited);
       bot.pushMsg('OVYX: ' + result.text);
       if (workspaceTaskStatus === 'running') {
@@ -1152,6 +1572,27 @@
           ? scan.activeAssets : local.activeAssets,
         connections: Array.isArray(scan.connections) && scan.connections.length
           ? scan.connections : local.connections,
+        settings: {
+          ...(local.settings && typeof local.settings === 'object' ? local.settings : {}),
+          ...(scan.settings && typeof scan.settings === 'object' ? scan.settings : {}),
+        },
+        selection: (() => {
+          const base = local.selection && typeof local.selection === 'object' ? local.selection : {};
+          const next = scan.selection && typeof scan.selection === 'object' ? scan.selection : {};
+          const merged = { ...base };
+          for (const [key, value] of Object.entries(next)) {
+            if (value !== null && value !== undefined && value !== '') merged[key] = value;
+          }
+          merged.nodeId = next.nodeId || base.nodeId || null;
+          merged.nodeType = next.nodeType || base.nodeType || null;
+          merged.attributes = {
+            ...(base.attributes && typeof base.attributes === 'object' ? base.attributes : {}),
+            ...(next.attributes && typeof next.attributes === 'object'
+              ? Object.fromEntries(Object.entries(next.attributes).filter(([, value]) => value !== null && value !== undefined && value !== ''))
+              : {}),
+          };
+          return merged;
+        })(),
       };
       const usable = !!(context.activeProject || context.projectInventory?.length || context.workspace?.currentView);
       syncWorkspaceBadge(context, !result || typeof result !== 'object');

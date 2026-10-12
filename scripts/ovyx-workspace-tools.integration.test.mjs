@@ -55,7 +55,10 @@ const initialProject = {
   ownerUid: owner.uid,
   ownerEmail: owner.email,
   updatedAt: '2026-01-01T00:00:00.000Z',
-  ovyxGraph: { files: { 'index.html': { type: 'text/html', content: originalSource } } },
+  ovyxGraph: { files: {
+    'index.html': { type: 'text/html', content: originalSource },
+    'src/config.js': { type: 'text/javascript', content: "export const API_KEY = 'sk_test_dummy_secret_value_12345';\\nexport const mode = 'test';" },
+  } },
 };
 documentFrom(projectPath, initialProject, '2026-01-01T00:00:00.000Z');
 
@@ -124,6 +127,31 @@ try {
   });
   assert.equal(unauthenticated.status, 401, 'workspace tools must reject unsigned requests');
   const initialDoc = documents.get(projectPath);
+  const readFile = await call({ operation: 'read_file', projectId, filePath: 'index.html' });
+  assert.equal(readFile.status, 200, JSON.stringify(readFile.body));
+  assert.equal(readFile.body.operation, 'read_file');
+  assert.equal(readFile.body.file.path, 'index.html');
+  assert.equal(readFile.body.file.content, originalSource, 'file reader returns the actual saved source');
+  assert.equal(readFile.body.file.contentComplete, true, 'small unredacted source is marked complete for evidence-based repair');
+  assert.ok(readFile.body.revision, 'file reader includes the actual saved project revision');
+
+  const searchFile = await call({ operation: 'search', projectId, query: 'Original content' });
+  assert.equal(searchFile.status, 200);
+  assert.ok(searchFile.body.matches.some(match => match.path === 'index.html'), 'project search finds text in the owned saved source');
+
+  const redactedRead = await call({ operation: 'read_file', projectId, filePath: 'src/config.js' });
+  assert.equal(redactedRead.status, 200);
+  assert.equal(redactedRead.body.file.contentComplete, false, 'secret-redacted source can never be marked edit-ready');
+  assert.equal(redactedRead.body.file.secretValuesRedacted, true);
+  assert.ok(!redactedRead.body.file.content.includes('sk_test_dummy_secret_value_12345'), 'file reader must not disclose detected secret values');
+
+  const unsafeRead = await call({ operation: 'read_file', projectId, filePath: '../index.html' });
+  assert.equal(unsafeRead.status, 400);
+  assert.equal(unsafeRead.body.code, 'UNSAFE_FILE_PATH');
+
+  const deniedRead = await call({ operation: 'read_file', projectId, filePath: 'index.html' }, { uid: 'other-uid', email: 'other@example.com' });
+  assert.equal(deniedRead.status, 404, 'file reads must be scoped to the authenticated owner');
+
   const prepared = await call({ operation: 'prepare_patch', projectId, filePath: 'index.html', content: proposedSource, reason: 'Integration test edit' });
   assert.equal(prepared.status, 200);
   assert.equal(prepared.body.changed, true);

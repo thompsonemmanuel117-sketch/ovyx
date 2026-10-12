@@ -300,8 +300,10 @@ if (!fs.existsSync(nativeAssistantPath) || !fs.existsSync(nativeAssistantRoutePa
   const shellMiddleware = fs.readFileSync(shellMiddlewarePath, 'utf8');
   const workspaceToolsPath = path.join(root, 'functions/api/ai/workspace-tools.js');
   const workspaceToolsTestPath = path.join(root, 'scripts/ovyx-workspace-tools.test.mjs');
+  const workspaceToolsIntegrationTestPath = path.join(root, 'scripts/ovyx-workspace-tools.integration.test.mjs');
   const workspaceTools = fs.existsSync(workspaceToolsPath) ? fs.readFileSync(workspaceToolsPath, 'utf8') : '';
   const workspaceToolsTest = fs.existsSync(workspaceToolsTestPath) ? fs.readFileSync(workspaceToolsTestPath, 'utf8') : '';
+  const workspaceToolsIntegrationTest = fs.existsSync(workspaceToolsIntegrationTestPath) ? fs.readFileSync(workspaceToolsIntegrationTestPath, 'utf8') : '';
   if (
     !nativeAssistant.includes('env.AI.run') ||
     !nativeAssistant.includes('@cf/meta/llama-3.3-70b-instruct-fp8-fast') ||
@@ -313,6 +315,20 @@ if (!fs.existsSync(nativeAssistantPath) || !fs.existsSync(nativeAssistantRoutePa
     !nativeClient.includes('/api/ai/ovyx') ||
     !nativeClient.includes('data-ovyx-native-more') ||
     !nativeClient.includes('workspace-copilot-native') ||
+    !nativeAssistant.includes('workspace_read_file') ||
+    !nativeAssistant.includes('workspace_search') ||
+    !nativeAssistant.includes('workspace_inspect') ||
+    !nativeAssistant.includes('workspace_diagnose') ||
+    !nativeClient.includes('READ_ONLY_WORKSPACE_ACTIONS') ||
+    !nativeClient.includes('executeWorkspaceReadAction') ||
+    !nativeClient.includes('workspaceToolResults') ||
+    !nativeClient.includes('while (toolRounds < 3)') ||
+    !nativeClient.includes('snapshotAssets') ||
+    !nativeClient.includes('snapshotConnections') ||
+    !nativeClient.includes('snapshotRelevantSettings') ||
+    !nativeClient.includes('snapshotSelectedElement') ||
+    !nativeClient.includes('contentState: dirtyState') ||
+    !nativeClient.includes('No source edit was applied') ||
     !nativeClient.includes('runActions') ||
     !nativeClient.includes("operation: 'prepare_restore'") ||
     !nativeClient.includes("operation: 'restore_revision'") ||
@@ -324,11 +340,13 @@ if (!fs.existsSync(nativeAssistantPath) || !fs.existsSync(nativeAssistantRoutePa
     !nativeClient.includes('saved-project scan was unavailable') ||
     !nativeClient.includes('APPROVAL NEEDED') ||
     !nativeClient.includes('APPLIED · VERIFIED') ||
+    !workspaceTools.includes("operation === 'read_file'") ||
     !workspaceTools.includes("operation === 'prepare_restore'") ||
     !workspaceTools.includes("operation === 'restore_revision'") ||
     !workspaceTools.includes('RESTORE_APPROVAL_REQUIRED') ||
     !workspaceTools.includes('RESTORE_VERIFY_FAILED') ||
     !fs.readFileSync(nativeAssistantPath, 'utf8').includes("'workspace_undo'") ||
+    !workspaceToolsIntegrationTest.includes("operation: 'read_file'") ||
     !workspaceToolsTest.includes('Recovery must have a distinct preview operation.') ||
     !shellMiddleware.includes('assets/ovyx-assistant-workspace.js?v=20261012-5')
   ) {
