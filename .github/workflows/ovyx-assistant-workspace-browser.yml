@@ -21,6 +21,7 @@ on:
       - 'functions/_lib/ovyx-sentinel.js'
       - 'sentinel-worker/**'
       - 'scripts/ovyx-sentinel.test.mjs'
+      - 'scripts/ovyx-sentinel.endpoint.test.mjs'
       - 'scripts/ovyx-sentinel.browser.test.mjs'
       - 'docs/OVYX-SENTINEL.md'
       - 'package.json'
