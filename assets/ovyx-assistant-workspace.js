@@ -1313,22 +1313,143 @@
       setWorkspaceTaskStatus('running', serverWorkspace?.activeProject?.id
         ? 'Project inspection is complete; OVYX AI is working on your request.'
         : 'OVYX AI is working with the available local context and will identify any missing project details.');
-      const result = await nativeGenerate({
-        mode: 'workspace-copilot-native',
-        prompt,
-        context: {
-          // Put saved, owner-verified source context first so it remains in the bounded AI context.
-          serverWorkspace,
-          serverDiagnostics,
-          serverToolError: serverToolError || null,
-          workspace: context,
-          diagnostics: window.OVYXWorkspaceCopilot?.diagnose?.() || null,
-          contextLimited: contextResult.limited,
-          contextWarning: context.contextWarning || null,
-          assistantPolicy: 'OVYX native workspace assistant. Context scanning is optional: use saved serverWorkspace data and serverDiagnostics when available, and always use the local snapshot as a fallback when deeper scans are unavailable. Any source edit requires a real file preview plus explicit user approval; only report a saved edit when the server confirms read-back verification.',
-        },
-        system: 'Answer as OVYX AI. Inspect the authenticated saved project context when supplied. Never claim that code changed unless a server-confirmed workspace_patch action returned verified=true. A source edit must be reviewed and explicitly approved in the UI before it is written. For website builds, preserve the existing Web Studio generation workflow.',
-      });
+      const assistantContext = {
+        // Saved owner-verified project context and local fallback travel with every tool round.
+        serverWorkspace,
+        serverDiagnostics,
+        serverToolError: serverToolError || null,
+        workspace: context,
+        diagnostics: window.OVYXWorkspaceCopilot?.diagnose?.() || null,
+        contextLimited: contextResult.limited,
+        contextWarning: context.contextWarning || null,
+        assistantPolicy: 'OVYX native workspace assistant. Use authenticated read-only workspace tools when source evidence is missing. Context scanning is optional: use saved serverWorkspace data and serverDiagnostics when available, and always use the local snapshot as a fallback when deeper scans are unavailable. Any source edit requires a real file preview plus explicit user approval; only report a saved edit when the server confirms read-back verification.',
+      };
+      const assistantSystem = 'Answer as OVYX AI. Inspect the authenticated saved project context when supplied. When necessary, request workspace_inspect, workspace_read_file, workspace_search, or workspace_diagnose and wait for their actual returned results before diagnosing or proposing a code edit. Never claim that code changed unless a server-confirmed workspace_patch action returned verified=true. A source edit must be reviewed and explicitly approved in the UI before it is written. For website builds, preserve the existing Web Studio generation workflow.';
+      const workspaceToolResults = [];
+      const executedToolKeys = new Set();
+      const conversationMessages = [
+        ...history,
+        { role: 'user', content: prompt },
+      ].slice(-12);
+      let roundMessages = conversationMessages;
+      let result = null;
+      let toolCallCount = 0;
+      let toolRounds = 0;
+      let showedToolProgress = false;
+      let toolLimitReached = false;
+
+      // Real bounded agent loop: request a read-only tool, execute it through the
+      // authenticated server endpoint, feed the result back, then reason again.
+      // The model cannot invoke writes directly: workspace_patch still goes through
+      // the explicit human preview/approval flow in runActions().
+      while (toolRounds < 3) {
+        result = await nativeGenerate({
+          mode: 'workspace-copilot-native',
+          prompt,
+          messages: roundMessages,
+          context: {
+            workspaceToolResults: workspaceToolResults.slice(-3),
+            ...assistantContext,
+          },
+          system: assistantSystem,
+        });
+
+        const readActions = (Array.isArray(result.actions) ? result.actions : [])
+          .filter(action => READ_ONLY_WORKSPACE_ACTIONS.has(String(action?.type || '')));
+        if (!readActions.length) break;
+
+        const remaining = 4 - toolCallCount;
+        if (remaining <= 0) {
+          toolLimitReached = true;
+          result = {
+            ...result,
+            actions: [],
+            text: String(result.text || '') + '\n\nI reached the safe workspace-inspection limit for this request, so I stopped before making any change. No source edit was applied.',
+          };
+          break;
+        }
+
+        if (!showedToolProgress) {
+          push('I’m checking the actual saved project evidence before finalizing my answer. Read-only inspection only so far; no files have been changed.');
+          showedToolProgress = true;
+        }
+        const distinctActions = [];
+        for (const action of readActions) {
+          const key = workspaceToolActionKey(action);
+          if (executedToolKeys.has(key)) continue;
+          executedToolKeys.add(key);
+          distinctActions.push(action);
+          if (distinctActions.length >= remaining) break;
+        }
+        toolRounds += 1;
+
+        if (!distinctActions.length) {
+          workspaceToolResults.push({
+            type: 'workspace-tool-loop',
+            ok: false,
+            error: 'The assistant requested the same read-only tools again. Do not repeat them. Use the already returned tool results to answer; no project files were changed.',
+          });
+          roundMessages = [
+            ...roundMessages,
+            { role: 'assistant', content: String(result.text || '') },
+            { role: 'user', content: 'The requested read-only tools have already run and repeating them is blocked. Use the actual results now. Do not claim any additional inspection or saved change.' },
+          ].slice(-12);
+          result = null;
+          continue;
+        }
+
+        setWorkspaceTaskStatus('running', 'Inspecting saved project files and diagnostics through authenticated read-only tools.');
+        const outcomes = await Promise.all(distinctActions.map(executeWorkspaceReadAction));
+        toolCallCount += distinctActions.length;
+        workspaceToolResults.push(...outcomes);
+        if (workspaceToolResults.length > 6) workspaceToolResults.splice(0, workspaceToolResults.length - 6);
+        roundMessages = [
+          ...roundMessages,
+          { role: 'assistant', content: String(result.text || '') },
+          { role: 'user', content: 'The actual results from the authenticated read-only workspace tools are now in context.workspaceToolResults. Continue the same task using this evidence. Do not repeat the same tool action. Do not claim a source edit was applied unless a later approved write is verified.' },
+        ].slice(-12);
+        result = null;
+      }
+
+      // Once the read-only tool budget has been used, ask for a final evidence-based
+      // answer. If it asks for yet another tool, stop honestly rather than claiming
+      // unsupported diagnosis or proceeding with an ungrounded edit.
+      if (!result) {
+        result = await nativeGenerate({
+          mode: 'workspace-copilot-native',
+          prompt,
+          messages: [
+            ...roundMessages,
+            { role: 'user', content: 'Provide the final answer using the evidence already returned in context.workspaceToolResults. Do not request another tool if you can answer from the existing evidence. Clearly state any limitation and do not claim changes were applied.' },
+          ].slice(-12),
+          context: {
+            workspaceToolResults: workspaceToolResults.slice(-3),
+            ...assistantContext,
+          },
+          system: assistantSystem,
+        });
+        const stillRequestsTools = (Array.isArray(result.actions) ? result.actions : [])
+          .some(action => READ_ONLY_WORKSPACE_ACTIONS.has(String(action?.type || '')));
+        if (stillRequestsTools) {
+          toolLimitReached = true;
+          result = {
+            ...result,
+            actions: [],
+            text: String(result.text || '') + '\n\nI could not obtain any further workspace evidence within the safe tool limit. No edit was applied; please provide the specific file or missing detail for the next inspection.',
+          };
+        }
+      }
+
+      if (toolLimitReached && Array.isArray(result.actions) &&
+          result.actions.some(action => READ_ONLY_WORKSPACE_ACTIONS.has(String(action?.type || '')))) {
+        result = { ...result, actions: [] };
+      }
+      history = [
+        ...history,
+        { role: 'user', content: prompt },
+        { role: 'assistant', content: String(result.text || '') },
+      ].slice(-12);
+
       syncWorkspaceBadge(context, contextResult.limited);
       bot.pushMsg('OVYX: ' + result.text);
       if (workspaceTaskStatus === 'running') {
