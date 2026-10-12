@@ -519,6 +519,69 @@ if (fs.existsSync(html)) {
   }
 }
 
+const sentinelEnginePath = path.join(root, 'functions/_lib/ovyx-sentinel.js');
+const sentinelApiPath = path.join(root, 'functions/api/admin/sentinel.js');
+const sentinelClientPath = path.join(root, 'assets/ovyx-sentinel.js');
+const sentinelUnitTestPath = path.join(root, 'scripts/ovyx-sentinel.test.mjs');
+const sentinelBrowserTestPath = path.join(root, 'scripts/ovyx-sentinel.browser.test.mjs');
+const sentinelEndpointTestPath = path.join(root, 'scripts/ovyx-sentinel.endpoint.test.mjs');
+const sentinelMiddlewarePath = path.join(root, 'functions/_middleware.js');
+if (
+  !fs.existsSync(sentinelEnginePath) ||
+  !fs.existsSync(sentinelApiPath) ||
+  !fs.existsSync(sentinelClientPath) ||
+  !fs.existsSync(sentinelUnitTestPath) ||
+  !fs.existsSync(sentinelEndpointTestPath) ||
+  !fs.existsSync(sentinelBrowserTestPath)
+) {
+  errors.push('OVYX Sentinel: the operational check engine, guarded admin API, browser companion, and unit/browser tests must all be present.');
+} else {
+  const sentinelEngine = fs.readFileSync(sentinelEnginePath, 'utf8');
+  const sentinelApi = fs.readFileSync(sentinelApiPath, 'utf8');
+  const sentinelClient = fs.readFileSync(sentinelClientPath, 'utf8');
+  const sentinelMiddleware = fs.existsSync(sentinelMiddlewarePath) ? fs.readFileSync(sentinelMiddlewarePath, 'utf8') : '';
+  const headersPath = path.join(root, '_headers');
+  const headers = fs.existsSync(headersPath) ? fs.readFileSync(headersPath, 'utf8') : '';
+  if (
+    !sentinelEngine.includes('collectSentinelChecks') ||
+    !sentinelEngine.includes('OVYX_SENTINEL_GITHUB_TOKEN') ||
+    !sentinelEngine.includes("Authorization: 'Bearer '") ||
+    !sentinelApi.includes('isSentinelAdmin') ||
+    !sentinelApi.includes('SENTINEL_CRON_AUTH_FAILED') ||
+    !sentinelApi.includes('administratorOnly: true') ||
+    !sentinelClient.includes('ADMIN_EMAIL') ||
+    !sentinelClient.includes('onAuthStateChanged') ||
+    !sentinelClient.includes('window.SpeechRecognition') ||
+    !sentinelClient.includes('window.webkitSpeechRecognition') ||
+    !sentinelClient.includes('disableWake') ||
+    !sentinelClient.includes('textContent') ||
+    !sentinelMiddleware.includes('/assets/ovyx-sentinel.js?v=20261012-1') ||
+    !headers.includes('microphone=(self)') ||
+    !headers.includes('camera=()') ||
+    !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/ovyx-sentinel.test.mjs') ||
+    !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/ovyx-sentinel.endpoint.test.mjs')
+  ) {
+    errors.push('OVYX Sentinel: authenticated admin-only reporting, guarded Cron access, privacy-safe rendering, opt-in wake-word controls, or automated test wiring is incomplete.');
+  }
+}
+const sentinelWorkerPath = path.join(root, 'sentinel-worker/index.js');
+const sentinelWorkerConfigPath = path.join(root, 'sentinel-worker/wrangler.toml');
+if (!fs.existsSync(sentinelWorkerPath) || !fs.existsSync(sentinelWorkerConfigPath)) {
+  errors.push('OVYX Sentinel: the separately configured scheduled Worker and Cron Trigger configuration must be present.');
+} else {
+  const worker = fs.readFileSync(sentinelWorkerPath, 'utf8');
+  const workerConfig = fs.readFileSync(sentinelWorkerConfigPath, 'utf8');
+  if (
+    !worker.includes('OVYX_SENTINEL_BASE_URL') ||
+    !worker.includes('OVYX_SENTINEL_CRON_SECRET') ||
+    !workerConfig.includes('name = "ovyx-sentinel-scheduler"') ||
+    !workerConfig.includes('crons = ["*/30 * * * *"]') ||
+    /(?:ghp_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]{20,}|-----BEGIN PRIVATE KEY-----)/.test(worker + workerConfig)
+  ) {
+    errors.push('OVYX Sentinel: separate Worker configuration is incomplete or contains a credential-like value.');
+  }
+}
+
 const providerAvailabilityPath = path.join(root, 'functions/api/ai/provider-availability.js');
 const providerAvailabilityTestPath = path.join(root, 'scripts/provider-availability.test.mjs');
 const providerAvailabilityClientPath = path.join(root, 'assets/ovyx-provider-availability.js');
@@ -533,27 +596,28 @@ if (
 } else {
   const endpoint = fs.readFileSync(providerAvailabilityPath, 'utf8');
   const client = fs.readFileSync(providerAvailabilityClientPath, 'utf8');
+  const shell = fs.existsSync(shellMiddlewarePath) ? fs.readFileSync(shellMiddlewarePath, 'utf8') : '';
+  const headersPath = path.join(root, '_headers');
+  const headers = fs.existsSync(headersPath) ? fs.readFileSync(headersPath, 'utf8') : '';
   if (
     !endpoint.includes('assertAuthenticated(context.data?.user)') ||
-    !endpoint.includes(\"'x-goog-api-key'\") ||
-    !endpoint.includes(\"'x-api-key'\") ||
+    !endpoint.includes("'x-goog-api-key'") ||
+    !endpoint.includes("'x-api-key'") ||
     !endpoint.includes('NOT_CONFIGURED') ||
     !endpoint.includes('AbortController') ||
     !endpoint.includes('Cache-Control') ||
     !endpoint.includes('Universal Connections') ||
     endpoint.includes('console.log(key)') ||
-    !client.includes(\"select.id !== 'v59-model-select'\") ||
-    !client.includes(\"'/api/ai/provider-availability?provider='\") ||
-    !client.includes(\"credentials: 'same-origin'\") ||
-    !client.includes(\"cache: 'no-store'\") ||
-    !client.includes('activeChecks')
-  ) {
-    errors.push('OVYX provider availability: checks must be authenticated, time-bounded, no-store, secret-safe, same-origin and connected to the provider selector.');
-  }
-  if (
+    !client.includes("select.id !== 'v59-model-select'") ||
+    !client.includes("'/api/ai/provider-availability?provider='") ||
+    !client.includes("credentials: 'same-origin'") ||
+    !client.includes("cache: 'no-store'") ||
+    !client.includes('activeChecks') ||
+    !shell.includes('/assets/ovyx-provider-availability.js?v=20261012-1') ||
+    !headers.includes('/assets/ovyx-provider-availability.js') ||
     !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/provider-availability.test.mjs')
   ) {
-    errors.push('OVYX provider availability: endpoint regression tests must run in npm test.');
+    errors.push('OVYX provider availability: checks must be authenticated, time-bounded, no-store, secret-safe, same-origin and connected to the provider selector.');
   }
 }
 
