@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - 'assets/ovyx-assistant-workspace.js'
+      - '_headers'
+      - 'scripts/ovyx-native-ai.test.mjs'
       - 'functions/api/ai/workspace-tools.js'
       - 'functions/_lib/ovyx-native-ai.js'
       - 'functions/_middleware.js'
