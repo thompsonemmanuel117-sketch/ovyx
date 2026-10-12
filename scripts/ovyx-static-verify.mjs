@@ -519,6 +519,69 @@ if (fs.existsSync(html)) {
   }
 }
 
+const sentinelEnginePath = path.join(root, 'functions/_lib/ovyx-sentinel.js');
+const sentinelApiPath = path.join(root, 'functions/api/admin/sentinel.js');
+const sentinelClientPath = path.join(root, 'assets/ovyx-sentinel.js');
+const sentinelUnitTestPath = path.join(root, 'scripts/ovyx-sentinel.test.mjs');
+const sentinelBrowserTestPath = path.join(root, 'scripts/ovyx-sentinel.browser.test.mjs');
+const sentinelEndpointTestPath = path.join(root, 'scripts/ovyx-sentinel.endpoint.test.mjs');
+const sentinelMiddlewarePath = path.join(root, 'functions/_middleware.js');
+if (
+  !fs.existsSync(sentinelEnginePath) ||
+  !fs.existsSync(sentinelApiPath) ||
+  !fs.existsSync(sentinelClientPath) ||
+  !fs.existsSync(sentinelUnitTestPath) ||
+  !fs.existsSync(sentinelEndpointTestPath) ||
+  !fs.existsSync(sentinelBrowserTestPath)
+) {
+  errors.push('OVYX Sentinel: the operational check engine, guarded admin API, browser companion, and unit/browser tests must all be present.');
+} else {
+  const sentinelEngine = fs.readFileSync(sentinelEnginePath, 'utf8');
+  const sentinelApi = fs.readFileSync(sentinelApiPath, 'utf8');
+  const sentinelClient = fs.readFileSync(sentinelClientPath, 'utf8');
+  const sentinelMiddleware = fs.existsSync(sentinelMiddlewarePath) ? fs.readFileSync(sentinelMiddlewarePath, 'utf8') : '';
+  const headersPath = path.join(root, '_headers');
+  const headers = fs.existsSync(headersPath) ? fs.readFileSync(headersPath, 'utf8') : '';
+  if (
+    !sentinelEngine.includes('collectSentinelChecks') ||
+    !sentinelEngine.includes('OVYX_SENTINEL_GITHUB_TOKEN') ||
+    !sentinelEngine.includes("Authorization: 'Bearer '") ||
+    !sentinelApi.includes('isSentinelAdmin') ||
+    !sentinelApi.includes('SENTINEL_CRON_AUTH_FAILED') ||
+    !sentinelApi.includes('administratorOnly: true') ||
+    !sentinelClient.includes('ADMIN_EMAIL') ||
+    !sentinelClient.includes('onAuthStateChanged') ||
+    !sentinelClient.includes('window.SpeechRecognition') ||
+    !sentinelClient.includes('window.webkitSpeechRecognition') ||
+    !sentinelClient.includes('disableWake') ||
+    !sentinelClient.includes('textContent') ||
+    !sentinelMiddleware.includes('/assets/ovyx-sentinel.js?v=20261012-1') ||
+    !headers.includes('microphone=(self)') ||
+    !headers.includes('camera=()') ||
+    !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/ovyx-sentinel.test.mjs') ||
+    !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/ovyx-sentinel.endpoint.test.mjs')
+  ) {
+    errors.push('OVYX Sentinel: authenticated admin-only reporting, guarded Cron access, privacy-safe rendering, opt-in wake-word controls, or automated test wiring is incomplete.');
+  }
+}
+const sentinelWorkerPath = path.join(root, 'sentinel-worker/index.js');
+const sentinelWorkerConfigPath = path.join(root, 'sentinel-worker/wrangler.toml');
+if (!fs.existsSync(sentinelWorkerPath) || !fs.existsSync(sentinelWorkerConfigPath)) {
+  errors.push('OVYX Sentinel: the separately configured scheduled Worker and Cron Trigger configuration must be present.');
+} else {
+  const worker = fs.readFileSync(sentinelWorkerPath, 'utf8');
+  const workerConfig = fs.readFileSync(sentinelWorkerConfigPath, 'utf8');
+  if (
+    !worker.includes('OVYX_SENTINEL_BASE_URL') ||
+    !worker.includes('OVYX_SENTINEL_CRON_SECRET') ||
+    !workerConfig.includes('name = "ovyx-sentinel-scheduler"') ||
+    !workerConfig.includes('crons = ["*/30 * * * *"]') ||
+    /(?:ghp_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]{20,}|-----BEGIN PRIVATE KEY-----)/.test(worker + workerConfig)
+  ) {
+    errors.push('OVYX Sentinel: separate Worker configuration is incomplete or contains a credential-like value.');
+  }
+}
+
 if (errors.length) {
   console.error(errors.join('\n'));
   process.exit(1);
