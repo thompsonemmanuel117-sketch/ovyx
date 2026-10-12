@@ -727,6 +727,126 @@
   }
 
 
+  function contextRows(value) {
+    if (Array.isArray(value)) return value;
+    if (!value || typeof value !== 'object') return [];
+    return Object.entries(value).map(([key, row]) => (
+      row && typeof row === 'object' && !Array.isArray(row)
+        ? { ...row, id: row.id || key }
+        : { id: key, name: String(row ?? key) }
+    ));
+  }
+
+  function contextText(value, max = 180) {
+    return String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
+  }
+
+  function snapshotAssets(...sources) {
+    const rows = sources.map(contextRows).find(items => items.length) || [];
+    return rows.slice(0, 40).map((asset, index) => {
+      const item = asset && typeof asset === 'object' ? asset : { name: asset };
+      return {
+        id: contextText(item.id || item.assetId || item.key || '', 120) || null,
+        name: contextText(item.name || item.filename || item.fileName || item.title || item.path || ('Asset ' + (index + 1)), 180),
+        type: contextText(item.type || item.kind || item.category || '', 80) || null,
+        mimeType: contextText(item.mimeType || item.contentType || item.format || '', 100) || null,
+        path: contextText(item.path || item.filePath || '', 240) || null,
+        size: Number.isFinite(Number(item.size || item.bytes)) ? Number(item.size || item.bytes) : null,
+        alt: contextText(item.alt || item.altText || '', 220) || null,
+        status: contextText(item.status || '', 60) || null,
+      };
+    }).filter(asset => asset.name || asset.path);
+  }
+
+  function snapshotConnections(...sources) {
+    const rows = sources.map(contextRows).find(items => items.length) || [];
+    return rows.slice(0, 30).map((connection, index) => {
+      const item = connection && typeof connection === 'object' ? connection : { name: connection };
+      return {
+        id: contextText(item.id || item.connectionId || '', 120) || null,
+        name: contextText(item.name || item.label || item.displayName || item.provider || ('Connection ' + (index + 1)), 160),
+        type: contextText(item.type || item.kind || item.category || '', 80) || null,
+        provider: contextText(item.provider || item.service || '', 100) || null,
+        status: contextText(item.status || (item.connected === true ? 'connected' : ''), 60) || null,
+        enabled: typeof item.enabled === 'boolean' ? item.enabled : null,
+        connected: typeof item.connected === 'boolean' ? item.connected : null,
+      };
+    }).filter(connection => connection.name);
+  }
+
+  function snapshotRelevantSettings(...sources) {
+    const output = {};
+    const allow = new Set([
+      'theme', 'language', 'locale', 'autosave', 'autoSave', 'selectedProvider',
+      'activeProvider', 'aiProvider', 'model', 'framework', 'buildTarget',
+      'deploymentTarget', 'currentBreakpoint', 'selectedBreakpoint', 'viewport',
+      'responsiveMode', 'siteTitle', 'activePageId', 'activePageSlug',
+      'editorMode', 'previewDevice', 'defaultPage', 'appearance', 'density',
+    ]);
+    const safeValue = value => (
+      typeof value === 'boolean' || (typeof value === 'number' && Number.isFinite(value))
+        ? value
+        : (typeof value === 'string' ? contextText(value, 180) : null)
+    );
+    for (const source of sources) {
+      if (!source || typeof source !== 'object' || Array.isArray(source)) continue;
+      for (const [key, value] of Object.entries(source)) {
+        if (allow.has(key) && !/(?:secret|token|password|credential|api.?key|private)/i.test(key)) {
+          const normalized = safeValue(value);
+          if (normalized !== null && normalized !== '') output[key] = normalized;
+        }
+      }
+      for (const groupName of ['editor', 'ai', 'site', 'appearance', 'workspace']) {
+        const group = source[groupName];
+        if (!group || typeof group !== 'object' || Array.isArray(group)) continue;
+        for (const [key, value] of Object.entries(group)) {
+          if (allow.has(key) && !/(?:secret|token|password|credential|api.?key|private)/i.test(key)) {
+            const normalized = safeValue(value);
+            if (normalized !== null && normalized !== '') output[groupName + '.' + key] = normalized;
+          }
+        }
+      }
+    }
+    return output;
+  }
+
+  function snapshotSelectedElement(selected) {
+    const node = selected && typeof selected === 'object' ? selected : {};
+    const readAttribute = key => {
+      try {
+        if (typeof node.getAttribute === 'function') return node.getAttribute(key);
+      } catch (_) {}
+      const attrs = node.attributes && typeof node.attributes === 'object' ? node.attributes : {};
+      if (Array.isArray(attrs)) {
+        const match = attrs.find(attribute => String(attribute?.name || '') === key);
+        return match?.value ?? null;
+      }
+      return attrs[key] ?? node.props?.[key] ?? null;
+    };
+    const rawClass = typeof node.className === 'string'
+      ? node.className
+      : (node.className?.baseVal || node.props?.className || node.class || '');
+    const nodeId = node.id || node.nodeId || window.WebStudio?.selectedNodeId || window.KernelState?.selectedNodeId || null;
+    const tagName = node.tagName || node.tag || node.elementTag || null;
+    const text = node.textContent || node.text || node.label || node.title || node.props?.text || '';
+    return {
+      nodeId: contextText(nodeId, 160) || null,
+      nodeType: contextText(node.type || node.nodeType || '', 100) || null,
+      tagName: contextText(tagName, 80) || null,
+      name: contextText(node.name || node.label || '', 160) || null,
+      selector: contextText(node.selector || node.cssSelector || (nodeId ? '#' + nodeId : ''), 240) || null,
+      text: contextText(text, 300) || null,
+      className: contextText(rawClass, 240) || null,
+      attributes: {
+        role: contextText(readAttribute('role'), 80) || null,
+        ariaLabel: contextText(readAttribute('aria-label'), 160) || null,
+        title: contextText(readAttribute('title'), 160) || null,
+        alt: contextText(readAttribute('alt'), 160) || null,
+        href: contextText(readAttribute('href'), 240) || null,
+      },
+    };
+  }
+
   function localWorkspaceSnapshot() {
     const state = window.KernelState || {};
     const currentUser = getUser();
@@ -737,12 +857,41 @@
     const graph = active && (!state.activeProject || active.id === state.activeProject?.id)
       ? window.WebStudio?.graph
       : null;
-    const files = graph?.files || active?.files || active?.sourceFiles || {};
-    const fileRows = Object.entries(files).slice(0, 24).map(([path, value]) => ({
-      path,
-      kind: 'file',
-      content: String(typeof value === 'string' ? value : value?.content || value?.html || value?.source || value?.code || '').slice(0, 1400),
-    }));
+    const fileSources = [
+      { value: graph?.files, origin: 'live-editor-source' },
+      { value: active?.files, origin: 'project-store-source' },
+      { value: active?.sourceFiles, origin: 'project-store-source' },
+      { value: active?.ovyxGraph?.files, origin: 'project-store-source' },
+    ];
+    const selectedFiles = fileSources.find(entry => entry.value && typeof entry.value === 'object' && Object.keys(entry.value).length) || { value: {}, origin: 'unknown' };
+    const files = selectedFiles.value;
+    const fileEntries = Array.isArray(files)
+      ? files.map((value, index) => [String(value?.path || value?.file || value?.name || ('file-' + (index + 1))), value])
+      : Object.entries(files);
+    const dirtySignals = [
+      ['WebStudio.graph.isDirty', graph?.isDirty],
+      ['WebStudio.graph.dirty', graph?.dirty],
+      ['WebStudio.hasUnsavedChanges', window.WebStudio?.hasUnsavedChanges],
+      ['KernelState.hasUnsavedChanges', state.hasUnsavedChanges],
+      ['activeProject.isDirty', active?.isDirty],
+      ['activeProject.dirty', active?.dirty],
+    ].filter(([, value]) => typeof value === 'boolean');
+    const dirtyState = dirtySignals.some(([, value]) => value === true)
+      ? 'unsaved-changes'
+      : (dirtySignals.length ? 'clean-or-saved' : 'unknown');
+    const sourceState = { origin: selectedFiles.origin, saveState: dirtyState, dirtySignals: dirtySignals.map(([source, value]) => ({ source, value })) };
+    const fileRows = fileEntries.slice(0, 24).map(([path, value]) => {
+      const fullContent = String(typeof value === 'string' ? value : value?.content || value?.html || value?.source || value?.code || '');
+      return {
+        path,
+        kind: 'file',
+        origin: selectedFiles.origin,
+        contentState: dirtyState,
+        sourceLength: fullContent.length,
+        content: fullContent.slice(0, 1400),
+        truncated: fullContent.length > 1400,
+      };
+    });
     const pageRows = (Array.isArray(active?.pages) ? active.pages : []).slice(0, 12).map((page, index) => {
       let content = '';
       try {
@@ -781,8 +930,9 @@
         slug: page.slug || '',
         sectionsCount: Array.isArray(page.sections) ? page.sections.length : 0,
       })),
-      filePaths: Object.keys(files).slice(0, 120),
-      fileCount: Object.keys(files).length,
+      filePaths: fileEntries.map(([path]) => String(path)).slice(0, 120),
+      fileCount: fileEntries.length,
+      sourceState,
     } : null;
     return {
       version: 1,
@@ -796,12 +946,33 @@
       serverProjectInventory: inventory,
       activeProject,
       activeProjectSource: sourceRows,
-      activeAssets: [],
-      connections: [],
-      selection: {
-        nodeId: window.WebStudio?.selectedNodeId || window.KernelState?.selectedNodeId || null,
-        nodeType: window.WebStudio?.selectedNode?.type || window.KernelState?.selectedNode?.type || null,
-      },
+      activeAssets: snapshotAssets(
+        graph?.assets,
+        active?.assets,
+        state.assets,
+        window.OVYXAssets?.items
+      ),
+      connections: snapshotConnections(
+        state.connections,
+        state.universalConnections,
+        active?.connections,
+        state.settings?.connections,
+        window.OVYXConnections?.items,
+        window.OVYXUniversalConnections?.items
+      ),
+      settings: snapshotRelevantSettings(
+        state.settings,
+        active?.settings,
+        graph?.settings,
+        window.OVYXWorkspaceSettings?.current
+      ),
+      selection: snapshotSelectedElement(
+        window.WebStudio?.selectedNode ||
+        window.KernelState?.selectedNode ||
+        window.WebStudio?.selectedElement ||
+        window.KernelState?.selectedElement ||
+        {}
+      ),
       capturedAt: new Date().toISOString(),
       contextSource: 'local-workspace-snapshot',
     };
