@@ -71,6 +71,7 @@ export async function onRequestPost(context) {
       );
     }
 
+    const promptText = payload.prompt || payload.message || messages[messages.length - 1]?.content || '';
     const mode = String(payload.mode || 'assistant').toLowerCase();
     const hasStudioContext = !!(
       payload?.project ||
