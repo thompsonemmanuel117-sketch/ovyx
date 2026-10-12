@@ -7,6 +7,7 @@
   const panel = () => $('kernel-brain-bot-panel');
   const allowedRoutes = new Set(['home','projects','webstudio','appstudio','workspace','templates','settings','pricing','faq','inbox']);
   const nativeModes = /^(workspace-assistant|workspace-copilot(?:-v2|-advanced|-native)?|ovyx-native-assistant)$/i;
+  const NATIVE_RESPONSE_BOT_MARK = "<svg viewBox=\"0 0 64 64\" aria-hidden=\"true\"><ellipse cx=\"32\" cy=\"56\" rx=\"18\" ry=\"4.5\" fill=\"#000\" opacity=\".42\"/><path d=\"M20 18 16 10l12 4h8l12-4-4 8 3 9-3 18q-2 8-12 9-10-1-12-9l-3-18Z\" fill=\"#b88b42\" stroke=\"#ffe7a5\" stroke-width=\"1.3\"/><path d=\"M21 24q1-7 11-7t11 7v13q-1 7-11 8-10-1-11-8Z\" fill=\"#111c27\" stroke=\"#9aaec2\" stroke-opacity=\".8\"/><path d=\"M25 29q0-3.5 3-3.5t3 3.5v2q0 3-3 3t-3-3Zm10 0q0-3.5 3-3.5t3 3.5v2q0 3-3 3t-3-3Z\" fill=\"#71efff\"/><path d=\"M27 39q5 4 10 0\" fill=\"none\" stroke=\"#b8faff\" stroke-width=\"1.7\" stroke-linecap=\"round\"/><path d=\"M21 22q11-9 22 0\" fill=\"none\" stroke=\"#fff2c9\" stroke-opacity=\".8\" stroke-width=\"2.2\" stroke-linecap=\"round\"/><path d=\"M32 14V8\" stroke=\"#f8d88b\" stroke-width=\"2\" stroke-linecap=\"round\"/><circle cx=\"32\" cy=\"7\" r=\"3\" fill=\"#f8d88b\" stroke=\"#fff3c9\"/></svg>";
   let busy = false;
   let history = [];
   let conversationId = newConversationId();
@@ -88,6 +89,23 @@
       #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-message-label{color:#8290a2!important;font:800 9px/1.2 Inter,system-ui,sans-serif!important;letter-spacing:.09em!important;text-transform:uppercase!important}
       #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-message.is-user .ovyx-native-message-label{color:#bed0ed!important}
       #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-message-body{white-space:pre-wrap!important;overflow-wrap:anywhere!important;color:#e1e5eb!important;font:450 13px/1.7 Inter,system-ui,sans-serif!important}
+
+      #kernel-brain-bot-panel.ovyx-native-workspace #bot-chat-history>.ovyx-native-message{display:flex!important;flex-direction:row!important;align-items:flex-start!important;align-self:stretch!important;gap:10px!important;width:100%!important;max-width:100%!important;padding:0!important;border:0!important;border-radius:0!important;background:transparent!important;overflow:visible!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace #bot-chat-history>.ovyx-native-message.is-user{justify-content:flex-end!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-response-avatar{position:relative!important;isolation:isolate!important;display:grid!important;place-items:center!important;width:38px!important;height:38px!important;flex:0 0 38px!important;padding:1px!important;border-radius:13px!important;background:conic-gradient(from 20deg,#e8c16b,#53d8ee,#8d7cff,#e8c16b)!important;box-shadow:0 5px 18px rgba(0,0,0,.4),0 0 22px rgba(92,212,233,.08)!important;perspective:280px!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-response-avatar:before{content:"";position:absolute;inset:-4px;border:1px solid rgba(89,221,239,.28);border-radius:16px;z-index:-1;animation:ovyxNativeResponseOrbit 9s linear infinite}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-response-avatar:after{content:"";position:absolute;top:4px;left:6px;width:12px;height:5px;border-radius:50%;background:rgba(255,255,255,.58);filter:blur(3px);pointer-events:none}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-response-avatar svg{width:35px!important;height:35px!important;display:block!important;border-radius:12px!important;background:radial-gradient(circle at 28% 20%,#536a7a 0, #1a2631 38%,#05070a 82%)!important;filter:drop-shadow(0 3px 4px rgba(0,0,0,.65))!important;transform:rotateY(-10deg) rotateX(5deg)!important;animation:ovyxNativeResponseFloat 4.8s ease-in-out infinite!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-message-content{min-width:0!important;max-width:calc(100% - 48px)!important;flex:0 1 auto!important;padding:12px 14px!important;border:1px solid rgba(255,255,255,.08)!important;border-radius:4px 15px 15px 15px!important;background:linear-gradient(145deg,rgba(255,255,255,.045),rgba(255,255,255,.018))!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.025)!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-message.is-user .ovyx-native-message-content{max-width:88%!important;border-radius:15px 4px 15px 15px!important;border-color:rgba(142,163,203,.2)!important;background:linear-gradient(145deg,rgba(106,132,178,.16),rgba(106,132,178,.065))!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-message-content .ovyx-native-message-label{margin-bottom:6px!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-message.is-error .ovyx-native-message-content{border-color:rgba(248,113,133,.22)!important;background:linear-gradient(145deg,rgba(248,113,133,.07),rgba(255,255,255,.015))!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-message.is-error .ovyx-native-message-body{color:#fecdd3!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-welcome-brand{display:flex!important;align-items:center!important;gap:10px!important;margin-bottom:8px!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-welcome-brand .ovyx-native-response-avatar{width:34px!important;height:34px!important;flex-basis:34px!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-welcome-brand .ovyx-native-response-avatar svg{width:31px!important;height:31px!important}
+      @keyframes ovyxNativeResponseOrbit{to{transform:rotate(360deg)}}@keyframes ovyxNativeResponseFloat{0%,100%{transform:translateY(0) rotateY(-10deg) rotateX(5deg)}50%{transform:translateY(-2px) rotateY(8deg) rotateX(1deg)}}
+      @media(max-width:640px){#kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-response-avatar{width:34px!important;height:34px!important;flex-basis:34px!important}#kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-response-avatar svg{width:31px!important;height:31px!important}#kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-message-content{padding:10px 11px!important}}
       #kernel-brain-bot-panel.ovyx-native-workspace #bot-chat-history .text-brand-cyan{color:#7ee6e8!important;font-weight:800!important}
       #kernel-brain-bot-panel.ovyx-native-workspace #bot-chat-history .text-brand-gold{color:#e8c36f!important}
       #kernel-brain-bot-panel.ovyx-native-workspace #bot-chat-history .ovyx-native-welcome{background:linear-gradient(140deg,rgba(70,95,155,.08),rgba(255,255,255,.018))!important;border-color:rgba(142,163,203,.13)!important}
@@ -214,7 +232,10 @@
     const footer = document.createElement('div');
     footer.style.cssText = 'margin-top:10px;color:#7c8998;font-size:10px;font-weight:600;';
     footer.textContent = 'OVYX native engine · No third-party API key setup';
-    bubble.append(strong, body, footer);
+    const welcomeHead = document.createElement('div');
+    welcomeHead.className = 'ovyx-native-welcome-brand';
+    welcomeHead.append(makeBotAvatar(), strong);
+    bubble.append(welcomeHead, body, footer);
     root.appendChild(bubble);
   }
 
@@ -246,11 +267,23 @@
     if (!actionBar) {
       actionBar = document.createElement('div');
       actionBar.className = 'ovyx-native-head-actions';
-      actionBar.innerHTML = '<button type="button" class="ovyx-native-more" data-ovyx-native-more aria-label="Open assistant actions" aria-haspopup="menu" aria-expanded="false" title="Assistant actions">⋯</button>';
-      const close = head.querySelector('.ovyx-ai-assistant-close');
-      if (close) actionBar.appendChild(close);
       head.appendChild(actionBar);
     }
+    let moreTrigger = actionBar.querySelector('[data-ovyx-native-more]');
+    if (!moreTrigger) {
+      moreTrigger = document.createElement('button');
+      moreTrigger.type = 'button';
+      moreTrigger.className = 'ovyx-native-more';
+      moreTrigger.dataset.ovyxNativeMore = '1';
+      moreTrigger.setAttribute('aria-label', 'Open assistant actions');
+      moreTrigger.setAttribute('aria-haspopup', 'menu');
+      moreTrigger.setAttribute('aria-expanded', 'false');
+      moreTrigger.title = 'Assistant actions';
+      moreTrigger.textContent = '⋯';
+      actionBar.insertBefore(moreTrigger, actionBar.firstChild);
+    }
+    const close = head.querySelector('.ovyx-ai-assistant-close');
+    if (close && close.parentElement !== actionBar) actionBar.appendChild(close);
 
     let menu = head.querySelector('.ovyx-native-menu');
     if (!menu) {
@@ -334,6 +367,31 @@
     if (trigger) trigger.setAttribute('aria-expanded', 'false');
   }
 
+  function bindMenuTrigger() {
+    const p = panel();
+    const trigger = p?.querySelector('[data-ovyx-native-more]');
+    if (!p || !trigger || trigger.dataset.ovyxNativeToggleBound === '1') return;
+    trigger.dataset.ovyxNativeToggleBound = '1';
+    trigger.addEventListener('click', event => {
+      event.preventDefault();
+      event.stopPropagation();
+      const menu = p.querySelector('.ovyx-native-menu');
+      if (!menu) return;
+      const opening = menu.hidden;
+      menu.hidden = !opening;
+      trigger.setAttribute('aria-expanded', String(opening));
+      if (opening) menu.querySelector('[role="menuitem"]')?.focus();
+    });
+  }
+
+  function makeBotAvatar() {
+    const avatar = document.createElement('span');
+    avatar.className = 'ovyx-native-response-avatar';
+    avatar.setAttribute('aria-label', 'OVYX AI');
+    avatar.innerHTML = NATIVE_RESPONSE_BOT_MARK;
+    return avatar;
+  }
+
   function pushMessage(raw) {
     const root = $('bot-chat-history');
     const text = String(raw ?? '').slice(0, 30000);
@@ -346,25 +404,27 @@
       }
       return null;
     }
-    const userMatch = text.match(/^USER:\s*/i);
-    const ovyxMatch = text.match(/^OVYX(?:\s+ERROR)?:\s*/i);
-    const isUser = !!userMatch;
+    const isUser = /^USER:\s*/i.test(text);
+    const isError = /^OVYX\s+ERROR:/i.test(text);
     const bodyText = text.replace(/^USER:\s*/i, '').replace(/^OVYX(?:\s+ERROR)?:\s*/i, '');
     const row = document.createElement('div');
-    row.className = 'ovyx-native-message ' + (isUser ? 'is-user' : 'is-assistant');
+    row.className = 'ovyx-native-message ' + (isUser ? 'is-user' : 'is-assistant') + (isError ? ' is-error' : '');
     row.dataset.ovyxNativeMessage = '1';
+    if (!isUser) row.appendChild(makeBotAvatar());
+    const content = document.createElement('div');
+    content.className = 'ovyx-native-message-content';
     const label = document.createElement('div');
     label.className = 'ovyx-native-message-label';
     label.textContent = isUser ? 'You' : 'OVYX AI';
     const body = document.createElement('div');
     body.className = 'ovyx-native-message-body';
     body.textContent = bodyText || text;
-    row.append(label, body);
+    content.append(label, body);
+    row.appendChild(content);
     root.appendChild(row);
     root.scrollTop = root.scrollHeight;
     return row;
   }
-
   function push(text) {
     const bot = window.WorkspaceBrainBot;
     if (typeof bot?.pushMsg === 'function') bot.pushMsg('OVYX: ' + String(text));
@@ -414,6 +474,149 @@
     }
   }
 
+
+  function localWorkspaceSnapshot() {
+    const state = window.KernelState || {};
+    const currentUser = getUser();
+    const localProjects = Array.isArray(window.ProjectStore?.list?.())
+      ? window.ProjectStore.list()
+      : (Array.isArray(state.projects) ? state.projects : []);
+    const active = state.activeProject || window.ProjectStore?.current || null;
+    const graph = active && active.id === state.activeProject?.id ? window.WebStudio?.graph : null;
+    const files = graph?.files || active?.files || {};
+    const fileRows = Object.entries(files).slice(0, 24).map(([path, value]) => ({
+      path,
+      content: String(typeof value === 'string' ? value : value?.content || '').slice(0, 1400),
+    }));
+    const inventory = localProjects.slice(0, 60).map(project => ({
+      id: project.id,
+      name: project.name || 'Untitled project',
+      status: project.status || 'draft',
+      pagesCount: Array.isArray(project.pages) ? project.pages.length : 0,
+    }));
+    const activeProject = active ? {
+      id: active.id || null,
+      name: active.name || 'Untitled project',
+      description: String(active.description || '').slice(0, 1200),
+      status: active.status || 'draft',
+      pages: (Array.isArray(active.pages) ? active.pages : []).slice(0, 60).map(page => ({
+        id: page.id || null,
+        name: page.name || page.slug || 'Page',
+        slug: page.slug || '',
+        sectionsCount: Array.isArray(page.sections) ? page.sections.length : 0,
+      })),
+      filePaths: Object.keys(files).slice(0, 120),
+      fileCount: Object.keys(files).length,
+    } : null;
+    return {
+      version: 1,
+      account: { uid: currentUser?.uid || null, signedIn: !!currentUser },
+      workspace: {
+        name: $('sidebar-workspace-label')?.textContent?.trim() || 'OVYX Workspace',
+        currentView: String(state.activeView || 'home').replace(/^view-/, ''),
+        tier: String(state.userTier || window.__OVYX_SERVER_ENTITLEMENTS?.planTier || 'free'),
+      },
+      projectInventory: inventory,
+      serverProjectInventory: inventory,
+      activeProject,
+      activeProjectSource: fileRows,
+      activeAssets: [],
+      connections: [],
+      contextSource: 'local-workspace-snapshot',
+    };
+  }
+
+  function syncWorkspaceBadge(context, limited = false) {
+    const currentUser = getUser();
+    const project = context?.activeProject;
+    const workspace = context?.workspace;
+    const label = $('bot-context-node-id');
+    const status = $('bot-context-node-type');
+    if (label) {
+      label.textContent = project?.name
+        ? 'WORKSPACE · ' + String(project.name).slice(0, 90)
+        : 'OVYX WORKSPACE · ' + String(workspace?.name || 'CHAT READY').slice(0, 80);
+      label.title = limited
+        ? 'The live workspace scan did not finish. Chat still works with the local workspace snapshot.'
+        : 'Workspace details available to OVYX AI.';
+    }
+    if (status) {
+      status.textContent = !currentUser ? 'SIGN IN REQUIRED' : (limited ? 'CHAT READY · LIMITED' : 'NATIVE AI READY');
+      status.title = !currentUser
+        ? 'Sign in to use the private, account-aware assistant.'
+        : (limited ? 'Workspace scan is limited; you can still chat with OVYX AI.' : 'OVYX native AI is ready.');
+    }
+    const subtitle = panel()?.querySelector('.ovyx-native-subtitle span');
+    if (subtitle) subtitle.textContent = currentUser
+      ? 'Native AI · workspace-aware'
+      : 'Sign in required to chat';
+    const dot = panel()?.querySelector('.ovyx-native-status-dot');
+    if (dot) {
+      dot.style.background = currentUser ? '#58d7b5' : '#e8b64f';
+      dot.style.boxShadow = currentUser ? '0 0 0 3px rgba(88,215,181,.09)' : '0 0 0 3px rgba(232,182,79,.09)';
+    }
+  }
+
+  async function resolveWorkspaceContext() {
+    const fallback = localWorkspaceSnapshot();
+    let scanned = null;
+    let limited = false;
+    const scanner = window.OVYXWorkspaceCopilot?.scan;
+    if (typeof scanner === 'function') {
+      let timer = null;
+      try {
+        const result = await Promise.race([
+          Promise.resolve().then(() => scanner()).then(value => ({ value })),
+          new Promise(resolve => { timer = setTimeout(() => resolve({ value: null, timedOut: true }), 1800); }),
+        ]);
+        scanned = result?.value || null;
+        limited = !scanned || typeof scanned !== 'object' || result?.timedOut === true;
+      } catch (_) {
+        limited = true;
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    } else {
+      limited = true;
+    }
+
+    const context = scanned && typeof scanned === 'object' ? scanned : fallback;
+    const projectInventory = Array.isArray(context.projectInventory) && context.projectInventory.length
+      ? context.projectInventory
+      : fallback.projectInventory;
+    const merged = {
+      ...fallback,
+      ...context,
+      workspace: context.workspace || fallback.workspace,
+      projectInventory,
+      serverProjectInventory: Array.isArray(context.serverProjectInventory) && context.serverProjectInventory.length
+        ? context.serverProjectInventory
+        : fallback.serverProjectInventory,
+      activeProject: context.activeProject || fallback.activeProject,
+      activeProjectSource: Array.isArray(context.activeProjectSource) && context.activeProjectSource.length
+        ? context.activeProjectSource
+        : fallback.activeProjectSource,
+      contextWarning: limited
+        ? 'Live workspace context was unavailable. Use this current browser snapshot when helpful, but continue normal chat.'
+        : null,
+    };
+    syncWorkspaceBadge(merged, limited);
+    return { context: merged, limited };
+  }
+
+  function watchContextStatus() {
+    const label = $('bot-context-node-id');
+    const status = $('bot-context-node-type');
+    if (!label || label.dataset.ovyxContextWatch === '1') return;
+    label.dataset.ovyxContextWatch = '1';
+    const observer = new MutationObserver(() => {
+      if (!/workspace context unavailable|scanning workspace/i.test(label.textContent || '')) return;
+      syncWorkspaceBadge(localWorkspaceSnapshot(), true);
+    });
+    observer.observe(label, { childList: true, characterData: true, subtree: true });
+    if (status) status.textContent = getUser() ? 'CHAT READY' : 'SIGN IN REQUIRED';
+  }
+
   async function send() {
     const input = $('bot-chat-input');
     const prompt = String(input?.value || '').trim();
@@ -437,23 +640,25 @@
     bot.pushMsg('USER: ' + prompt);
     input.value = '';
     try {
-      let context = null;
-      try { context = await window.OVYXWorkspaceCopilot?.scan?.(); } catch (_) {
-        context = window.__OVYX_WORKSPACE_AI_CONTEXT?.value || null;
-      }
+      const contextResult = await resolveWorkspaceContext();
+      const context = contextResult.context;
       const result = await nativeGenerate({
         mode: 'workspace-copilot-native',
         prompt,
         context: {
           workspace: context,
           diagnostics: window.OVYXWorkspaceCopilot?.diagnose?.() || null,
-          assistantPolicy: 'OVYX native workspace assistant; execute only validated safe navigation actions.',
+          contextLimited: contextResult.limited,
+          contextWarning: context.contextWarning || null,
+          assistantPolicy: 'OVYX native workspace assistant; execute only validated safe navigation actions. Context scanning is optional: answer the user normally even if the live scan is unavailable.',
         },
         system: 'Answer as OVYX AI. Be specific to the supplied authenticated workspace. Never claim to have completed an action unless it returned success. For website builds, prepare the user in Web Studio rather than claiming you built it here.',
       });
+      syncWorkspaceBadge(context, contextResult.limited);
       bot.pushMsg('OVYX: ' + result.text);
       runActions(result.actions);
     } catch (error) {
+      syncWorkspaceBadge(localWorkspaceSnapshot(), true);
       bot.pushMsg('OVYX: ' + String(error?.message || 'OVYX AI could not complete that request.'));
     } finally {
       busy = false;
@@ -509,13 +714,9 @@
     p.addEventListener('click', event => {
       const trigger = event.target.closest('[data-ovyx-native-more]');
       if (trigger) {
+        // Let the button's own handler toggle the menu. Do not stop the event
+        // during ancestor capture, which can prevent the target click handler from running.
         event.preventDefault();
-        event.stopPropagation();
-        const menu = p.querySelector('.ovyx-native-menu');
-        if (!menu) return;
-        const open = menu.hidden;
-        menu.hidden = !open;
-        trigger.setAttribute('aria-expanded', String(open));
         return;
       }
       const actionButton = event.target.closest('[data-ovyx-native-action]');
@@ -600,14 +801,17 @@
           const result = originalOpen(...args);
           renderChrome();
           bindEvents();
-          try { window.OVYXWorkspaceCopilot?.scan?.().catch(() => {}); } catch (_) {}
+          resolveWorkspaceContext().catch(() => syncWorkspaceBadge(localWorkspaceSnapshot(), true));
           return result;
         };
         bot.__ovyxNativeOpen = true;
       }
     }
     renderChrome();
+    bindMenuTrigger();
     bindEvents();
+    syncWorkspaceBadge(localWorkspaceSnapshot(), false);
+    watchContextStatus();
   }
 
   function boot() {

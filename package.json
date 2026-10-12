@@ -13,7 +13,7 @@
     "check": "wrangler types",
     "validate": "node scripts/ovyx-static-verify.mjs",
     "build": "node scripts/ovyx-pages-build.mjs",
-    "test": "node scripts/provider-routing.test.mjs && node scripts/universal-connection-protocol.test.mjs && node scripts/health-config.test.mjs && node scripts/multi-page-build.test.mjs && node scripts/studio-multipage.test.mjs && node scripts/ovyx-native-ai.test.mjs && node scripts/ovyx-assistant-header.test.mjs"
+    "test": "node scripts/provider-routing.test.mjs && node scripts/universal-connection-protocol.test.mjs && node scripts/health-config.test.mjs && node scripts/multi-page-build.test.mjs && node scripts/studio-multipage.test.mjs && node scripts/ovyx-native-ai.test.mjs && node scripts/ovyx-assistant-header.test.mjs && node scripts/ovyx-assistant-runtime.test.mjs"
   },
   "engines": {
     "node": ">=22.0.0"
