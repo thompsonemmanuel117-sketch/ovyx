@@ -53,6 +53,7 @@ const REQUIRED = new Set([
   'FIREBASE_SERVICE_ACCOUNT_JSON',
   'GITHUB_TOKEN_ENCRYPTION_KEY',
   'GITHUB_ALLOWED_REPOS',
+  'OVYX_CONNECTION_ENCRYPTION_KEY',
 ]);
 
 const ROUTES = [
@@ -69,6 +70,8 @@ const ROUTES = [
   '/api/admin/users',
   '/api/github/oauth',
   '/api/github/repos',
+  '/api/settings/connections',
+  '/api/workspace/activate',
   '/api/deploy',
 ];
 
@@ -262,6 +265,41 @@ function validateGitHubTokenEncryptionKey(env) {
   };
 }
 
+function validateConnectionEncryptionKey(env) {
+  const key = 'OVYX_CONNECTION_ENCRYPTION_KEY';
+  const binding = inspectBinding(env, key);
+  if (['absent', 'empty', 'unavailable'].includes(binding.state)) {
+    const reasons = {
+      absent: 'variable_not_present',
+      empty: 'value_empty',
+      unavailable: 'binding_exists_but_runtime_value_is_unavailable',
+    };
+    return {
+      key,
+      configured: false,
+      required: true,
+      state: binding.state,
+      reason: reasons[binding.state],
+    };
+  }
+  if (String(binding.value).trim().length < 32) {
+    return {
+      key,
+      configured: false,
+      required: true,
+      state: 'invalid',
+      reason: 'must_be_at_least_32_characters',
+    };
+  }
+  return {
+    key,
+    configured: true,
+    required: true,
+    state: 'configured',
+    reason: 'minimum_length_check_passed',
+  };
+}
+
 export async function onRequestGet(context) {
   const env = context.env || {};
   const groups = summarize(env);
@@ -269,9 +307,11 @@ export async function onRequestGet(context) {
   // These two critical bindings need more than a non-empty check. The API
   // reports only states and field names; it never returns secret values.
   const githubEncryption = validateGitHubTokenEncryptionKey(env);
+  const connectionEncryption = validateConnectionEncryptionKey(env);
   const firebaseAccount = await validateFirebaseServiceAccount(env);
 
   updateRow(groups, 'GitHub', 'GITHUB_TOKEN_ENCRYPTION_KEY', githubEncryption);
+  updateRow(groups, 'UniversalConnections', 'OVYX_CONNECTION_ENCRYPTION_KEY', connectionEncryption);
   updateRow(groups, 'Firebase', 'FIREBASE_SERVICE_ACCOUNT_JSON', firebaseAccount);
 
   const firebaseProjectId = String(env?.FIREBASE_PROJECT_ID || '').trim();
@@ -335,6 +375,7 @@ export async function onRequestGet(context) {
         clientProjectId: 'forgeos-49df6',
       },
       universalConnections: groups.UniversalConnections,
+      universalConnectionsEncryption: connectionEncryption,
       github: groups.GitHub,
       githubTokenEncryption: githubEncryption,
       cloudflare: groups.Cloudflare,
