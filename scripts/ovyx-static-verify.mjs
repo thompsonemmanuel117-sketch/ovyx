@@ -428,7 +428,9 @@ if (fs.existsSync(healthRoutePath)) {
     !healthRoute.includes('credentialAuthentication') ||
     !healthRoute.includes('OVYX_CONNECTION_ENCRYPTION_KEY') ||
     !healthRoute.includes('validateConnectionEncryptionKey') ||
-    !healthRoute.includes("'UniversalConnections'")
+    !healthRoute.includes("'UniversalConnections'") ||
+    !healthRoute.includes("'/api/settings/connections'") ||
+    !healthRoute.includes("'/api/workspace/activate'")
   ) {
     errors.push('functions/api/health.js: health checks must distinguish absent, empty, malformed, and structurally valid runtime secrets without exposing secret values.');
   }
