@@ -2,55 +2,65 @@
 
 ## Purpose
 
-This audit compares the historical work in PRs #39, #35, #29, #21, and #17 with the current `main` implementation after the AI Assistant Workspace stages 1–6 were consolidated. The goal is to preserve useful functionality without blindly merging historical snapshots over newer code.
+This audit compares historical PRs #39, #35, #29, #21, and #17 with the current `main` after the AI Assistant Workspace stages 1–6 were consolidated. Historical PRs were not merged wholesale. The missing behaviour that was still useful was ported into current code with focused regression tests; all five older PRs are now closed with an explanation.
 
 ## Findings and disposition
 
 ### PR #39 — Web Studio multi-page generation
 
-**Disposition: do not merge the historical branch wholesale.**
+**Disposition: closed without merge; keep the newer Web Studio implementation.**
 
-The current `main` already contains `functions/_lib/multi-page.js`, `functions/_lib/studio-multipage.js`, the multi-page routing in the current orchestrator and AI gateway, and dedicated multi-page tests. The current implementations differ from the older PR branch and have evolved since it diverged. Replacing them with the old orchestrator/gateway or old inline `index.html` patch risks removing later fixes. The prompt-route fix that defines `promptText` is already present in `functions/api/ai/assistant.js`.
+The current `main` contains `functions/_lib/multi-page.js`, `functions/_lib/studio-multipage.js`, maintained multi-page orchestration and dedicated tests. The current implementations evolved beyond the older PR. Replacing them with the old orchestrator/gateway or inline `index.html` patch risks removing later fixes. The prompt-route fix that defines `promptText` is already present in `functions/api/ai/assistant.js`.
 
-Next verification is to keep running `npm test`, `npm run validate`, and the Web Studio browser/build checks on any further multi-page changes. This audit itself does not alter Web Studio generation code.
+This audit and the AI Assistant Workspace work do not change Web Studio generation/build code.
 
 ### PR #35 — Earlier native AI Assistant Workspace
 
-**Disposition: no duplicate workspace runtime.**
+**Disposition: closed without merge; no duplicate workspace runtime.**
 
-The historical PR introduces a separate `assets/ovyx-ai-workspace.js` and `functions/api/ai/ovyx.js`. The current `main` uses the later `assets/ovyx-assistant-workspace.js`, the native assistant implementation under `functions/_lib/ovyx-native-ai.js`, and the authenticated workspace-tools API. The current runtime also includes the completed saved-project read-only tool loop and guarded patch/recovery path. Adding the old runtime alongside the new one would risk duplicate event handlers and competing UI behaviour. No file from PR #35 should be copied wholesale.
+The historical PR introduces an older `assets/ovyx-ai-workspace.js` and a competing version of `functions/api/ai/ovyx.js`. Current `main` uses `assets/ovyx-assistant-workspace.js`, the native implementation under `functions/_lib/ovyx-native-ai.js`, and authenticated workspace tools. The current experience includes read-only source inspection, the bounded tool loop, guarded patch approval, backup/read-back verification, recovery history and undo safeguards. Copying the old runtime alongside the newer one could create duplicate event handlers and conflicting UI behaviour.
 
-### PR #29 — Task-aware provider routing and provider availability
+### PR #29 — Task-aware provider routing, availability, quota feedback and notifications
 
-**Disposition: preserve current routing; reuse the safer current status route rather than duplicate the old endpoint.**
+**Disposition: closed after its missing behaviour was selectively ported.**
 
-The current `functions/_lib/providers.js` already has deterministic task-based preferences in `taskProviderPreference()`, keeps explicit provider choices exclusive, observes configured provider order, and supports the current Groq/Workers AI paths. The current provider-routing tests also assert task-specific preferences and that an explicit selection cannot silently switch providers.
+Current `functions/_lib/providers.js` retains task-based preferences and explicit-provider isolation. Automatic routing now skips providers without configured server credentials and only uses Workers AI when its real binding exists; if no provider is available it returns a clear configuration error.
 
-The old branch adds `functions/api/ai/provider-availability.js` and calls it from the visible AI provider selector before generation. A review confirmed that the current `main` had task-aware provider routing, but did **not** have that selector availability endpoint/runtime integration. The administrator-only `functions/api/ai/status.js` and configuration-only `functions/api/service-status.js` are not equivalent to a user-facing selected-provider check. This follow-up safely ports the missing endpoint, authenticated selector runtime, and regression tests without replacing current routing or copying the old `index.html` snapshot. It checks only fixed provider model endpoints, never puts keys in URLs/responses, applies a short timeout, and keeps the check same-origin.
+The missing selected-provider check was added as authenticated `/api/ai/provider-availability` with the browser integration in `assets/ovyx-provider-availability.js` (PR #53). It probes fixed provider endpoints with a timeout, puts keys in server-side authorization headers only, does not include secrets in responses, and handles stale selector requests. Safe notification rendering, motion and accessible quota-meter attributes were also ported to the current `index.html` (commit `eee6dcec`). Tests cover provider routing, the availability endpoint and desktop/mobile selector behaviour.
 
-### PR #21 — Authentication, Universal Connections, and encrypted secrets
+The historical branch's full frontend snapshot is still not safe to merge.
 
-**Disposition: preserve the newer current implementation; do not replace it with the historical route.**
+### PR #21 — Authentication, Universal Connections and encrypted secrets
 
-The current `functions/_lib/universal-connections.js` already encrypts connection credentials using AES-GCM with `OVYX_CONNECTION_ENCRYPTION_KEY`, keeps encrypted values out of public connection objects, uses owner-scoped connection records, rejects credential-bearing URLs, and blocks common local/private network targets. The active `functions/api/settings/connections.js` calls this current helper. The current `functions/api/service-status.js` and `functions/api/health.js` already report encryption-key configuration.
+**Disposition: closed without replacing the current connection API; missing readiness checks were ported in PR #56.**
 
-The older PR #21 connection route is a divergent rewrite using an older module/API shape and would overwrite later protocol, ownership, and URL-safety functionality. It should not be merged. The remaining operational check is to verify that `OVYX_CONNECTION_ENCRYPTION_KEY` is configured in the live Cloudflare Pages environment and that existing connections can still be tested after deployment. No secret values belong in Git.
+The maintained `functions/_lib/universal-connections.js` uses AES-GCM encryption, owner-scoped records, redaction of encrypted credential data from public responses, and URL/target safety checks. `functions/api/settings/connections.js` uses that helper; the historical PR contains a divergent route that would overwrite newer protocol and ownership safeguards.
+
+Current `functions/api/health.js` now checks that `OVYX_CONNECTION_ENCRYPTION_KEY` is present and at least 32 characters, without returning its value. Workspace activation reports only non-secret readiness metadata. The most recent completed production diagnostics before the Sentinel scan-budget refinement reported Cloudflare Pages deployment success, zero detected deployment-log errors, and `/api/health` healthy (HTTP 200). This verifies the health/configuration path, **not** a full signed-in test of every saved Universal Connection.
+
+An existing encryption key must not be rotated without a migration/recovery plan for previously saved encrypted credentials.
 
 ### PR #17 — Historical frontend recovery
 
-**Disposition: do not restore an old `index.html` snapshot over current `main`.**
+**Disposition: closed without restoring the old `index.html` snapshot.**
 
-This branch is substantially behind the current project and predates many present-day UI, routing, provider-selection, and workspace changes. Its broad `index.html` replacement is not a safe way to recover one missing feature. Any specific regression should be fixed against the current main frontend with a narrow patch and the existing static and browser tests.
+This branch predates substantial current UI, routing, provider-selection and workspace changes. A broad frontend replacement is not a safe method of fixing an individual regression. Any specific missing behaviour must be patched against current `main` with static and browser tests.
 
-## Safety rules
+## OVYX Sentinel and remaining live setup
+
+The administrator-only Sentinel panel, saved health reports, explicit opt-in wake word and safe voice responses are in current `main` (PR #51). The **Prepare fix plan** action converts saved status codes into a bounded advisory checklist. It does not edit source, change settings, rotate secrets or deploy (PR #57). First-party health probes run concurrently so serial timeouts cannot consume the separate Cron Worker's full request budget (PR #58).
+
+The separate `sentinel-worker/wrangler.toml` and 30-minute Cron Trigger are included and are validated by CI in dry-run mode. The Worker is **not yet deployed**. Truly periodic background scans still require the approved deployment of the separate Worker, a canonical HTTPS Pages origin in `OVYX_SENTINEL_BASE_URL`, and the same strong `OVYX_SENTINEL_CRON_SECRET` configured securely in both Pages and Worker. The optional read-only `OVYX_SENTINEL_GITHUB_TOKEN` enables GitHub Actions status checks; it is not required for core endpoint checks. No secret values belong in Git.
+
+## Safety and verification rules
 
 1. Compare behaviour and tests, not only file names or commit counts.
-2. Prefer the current implementation where an old branch is an obsolete duplicate.
-3. Port a missing behaviour as a small, reviewable patch rather than copying a divergent file.
-4. Never place real provider keys, Firebase credentials, or encryption material into source control.
+2. Prefer current implementations where an old branch is a superseded duplicate.
+3. Port missing behaviour as a small, reviewable patch rather than copying a divergent file.
+4. Never commit provider keys, Firebase credentials, GitHub tokens or encryption material.
 5. Keep Web Studio generation/build code unchanged unless a specific Web Studio defect is identified and its narrow fix is tested.
-6. A green mocked/unit/browser test is not proof that production secrets, authenticated accounts, or the live Cloudflare schedule are configured. Those still need environment-level verification.
+6. Do not claim production account flows or background scheduling are complete solely because unit and browser tests pass; confirm the applicable environment and saved runtime state.
 
 ## Result
 
-No wholesale merge from these historical branches is justified by the inspected comparison. Several of their important features are already represented by newer code on `main`; the old provider availability route is functionally superseded by the current administrator-only live status route. The next concrete work should target verifiable gaps in current `main`, with tests and deployment checks, rather than merging stale snapshots merely to clear the branch list.
+All five audited historical PRs (#39, #35, #29, #21 and #17) have been closed with a comment explaining why their stale snapshots should not be merged. Useful gaps were selectively ported and tested in current `main`; no wholesale historical snapshot was merged. The AI Assistant Workspace stages 4–6 remain separate from Web Studio, and current desktop/mobile browser tests exercise the workspace, Sentinel and provider-availability UI. The remaining external setup is deployment/configuration of the separate scheduled Sentinel Worker.
