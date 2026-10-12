@@ -36,4 +36,4 @@ jobs:
       - name: Test deployed assistant menu in desktop and mobile browsers
         run: node scripts/ovyx-assistant-menu.browser.test.mjs
         env:
-          OVYX_E2E_BASE_URL: https://verify-assistant-menu-browse.forgeos-2k0.pages.dev
+          OVYX_E2E_BASE_URL: https://2ff4d02f.forgeos-2k0.pages.dev
