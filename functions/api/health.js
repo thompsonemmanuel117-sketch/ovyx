@@ -53,6 +53,7 @@ const REQUIRED = new Set([
   'FIREBASE_SERVICE_ACCOUNT_JSON',
   'GITHUB_TOKEN_ENCRYPTION_KEY',
   'GITHUB_ALLOWED_REPOS',
+  'OVYX_CONNECTION_ENCRYPTION_KEY',
 ]);
 
 const ROUTES = [
@@ -69,6 +70,8 @@ const ROUTES = [
   '/api/admin/users',
   '/api/github/oauth',
   '/api/github/repos',
+  '/api/settings/connections',
+  '/api/workspace/activate',
   '/api/deploy',
 ];
 
