@@ -1,0 +1,189 @@
+name: Deploy OVYX Sentinel Scheduler
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'sentinel-worker/**'
+      - '.github/workflows/ovyx-sentinel-scheduler-deploy.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ovyx-sentinel-scheduler-production
+  cancel-in-progress: false
+
+jobs:
+  deploy-sentinel:
+    name: Configure and deploy Sentinel-only scheduler
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_PAGES_PROJECT: ${{ secrets.CLOUDFLARE_PAGES_PROJECT }}
+
+    steps:
+      - name: Checkout main source
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install project Wrangler
+        run: npm install --ignore-scripts
+
+      - name: Configure Sentinel secret, activate Pages binding, and deploy separate Worker
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +x
+          trap 'rm -f "$RUNNER_TEMP/ovyx-sentinel-secrets.json" "$RUNNER_TEMP/ovyx-sentinel-project.json" "$RUNNER_TEMP/ovyx-sentinel-deployments.json" "$RUNNER_TEMP/ovyx-sentinel-scan.json" sentinel-worker/wrangler.deploy.toml' EXIT
+
+          if [[ -z "${CLOUDFLARE_API_TOKEN:-}" || -z "${CLOUDFLARE_ACCOUNT_ID:-}" || -z "${CLOUDFLARE_PAGES_PROJECT:-}" ]]; then
+            echo "Sentinel deployment stopped: the existing Cloudflare API token, account ID, or Pages project secret is missing."
+            exit 1
+          fi
+
+          API_BASE="https://api.cloudflare.com/client/v4"
+          API_HEADERS=(-H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Accept: application/json")
+          PROJECT_PATH="$API_BASE/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$CLOUDFLARE_PAGES_PROJECT"
+          PROJECT_STATUS="$(curl --silent --show-error -o "$RUNNER_TEMP/ovyx-sentinel-project.json" -w '%{http_code}' "${API_HEADERS[@]}" "$PROJECT_PATH")"
+          if [[ "$PROJECT_STATUS" != "200" ]]; then
+            echo "Sentinel deployment stopped: Cloudflare could not read the configured Pages project (HTTP $PROJECT_STATUS)."
+            exit 1
+          fi
+
+          ORIGIN="$(node --input-type=module - "$RUNNER_TEMP/ovyx-sentinel-project.json" <<'NODE'
+          import fs from 'node:fs';
+          const payload = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          if (payload.success !== true || !payload.result) process.exit(2);
+          const subdomain = String(payload.result.subdomain || '').trim();
+          let url;
+          try {
+            url = new URL(/^https?:\/\//i.test(subdomain) ? subdomain : 'https://' + (subdomain.endsWith('.pages.dev') ? subdomain : subdomain + '.pages.dev'));
+          } catch { process.exit(3); }
+          if (url.protocol !== 'https:' || !url.hostname.endsWith('.pages.dev') || url.username || url.password || url.pathname !== '/' || url.search || url.hash) process.exit(4);
+          process.stdout.write(url.origin);
+          NODE
+          )"
+          if [[ -z "$ORIGIN" ]]; then
+            echo "Sentinel deployment stopped: Cloudflare did not return a valid HTTPS Pages origin."
+            exit 1
+          fi
+          echo "Sentinel target origin: $ORIGIN"
+
+          # If Git-integrated Pages automatically started a deployment for this
+          # commit, wait for it to finish before setting the secret and creating
+          # the final production deployment. This avoids a slower parallel build
+          # later replacing the secret-aware deployment.
+          node --input-type=module <<'NODE'
+          const token = process.env.CLOUDFLARE_API_TOKEN;
+          const account = encodeURIComponent(process.env.CLOUDFLARE_ACCOUNT_ID);
+          const project = encodeURIComponent(process.env.CLOUDFLARE_PAGES_PROJECT);
+          const commit = process.env.GITHUB_SHA;
+          const endpoint = 'https://api.cloudflare.com/client/v4/accounts/' + account + '/pages/projects/' + project + '/deployments?env=production&page=1&per_page=25';
+          let matched = false;
+          let terminal = false;
+          for (let attempt = 0; attempt < 36; attempt += 1) {
+            const response = await fetch(endpoint, { headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' } });
+            if (!response.ok) throw new Error('Could not safely inspect Pages deployment state (HTTP ' + response.status + ').');
+            const payload = await response.json();
+            if (payload.success !== true) throw new Error('Cloudflare did not confirm the Pages deployment listing.');
+            const deployments = Array.isArray(payload.result) ? payload.result : [];
+            const current = deployments.find(item =>
+              String(item?.deployment_trigger?.metadata?.commit_hash || '') === commit &&
+              String(item?.deployment_trigger?.metadata?.branch || '') === 'main'
+            );
+            if (current) {
+              matched = true;
+              const status = String(current?.latest_stage?.status || '').toLowerCase();
+              if (['success', 'failure', 'canceled', 'cancelled'].includes(status)) {
+                console.log('Git-integrated Pages deployment is terminal (' + status + '); continuing with the secret-aware deployment.');
+                terminal = true;
+                break;
+              }
+            }
+            await new Promise(resolve => setTimeout(resolve, 10000));
+          }
+          if (matched && !terminal) throw new Error('A Pages deployment for this commit did not reach a terminal state; stopping to avoid competing production deployments.');
+          if (!matched) console.log('No automatic Pages deployment for this commit was detected; the secret-aware deployment will publish the current main source directly.');
+          NODE
+
+          # New secret is scoped only to the Sentinel scheduler's authentication.
+          # It is never committed or printed, and both Cloudflare environments
+          # receive the same generated value.
+          SENTINEL_SECRET="$(node --input-type=module -e 'import { randomBytes } from "node:crypto"; process.stdout.write(randomBytes(48).toString("base64url"))')"
+          if [[ "${#SENTINEL_SECRET}" -lt 32 ]]; then
+            echo "Sentinel deployment stopped: secure secret generation did not meet the minimum length."
+            exit 1
+          fi
+          echo "::add-mask::$SENTINEL_SECRET"
+          printf '%s\n' "$SENTINEL_SECRET" | npx wrangler pages secret put OVYX_SENTINEL_CRON_SECRET --project-name "$CLOUDFLARE_PAGES_PROJECT"
+
+          # Pages applies new secrets to subsequent deployments. Re-deploy only
+          # the current main source so the Sentinel endpoint receives the secret;
+          # this does not change or reset any other Pages variables or secrets.
+          npx wrangler pages deploy . --project-name "$CLOUDFLARE_PAGES_PROJECT" --branch main --commit-hash "$GITHUB_SHA" --commit-message "Activate OVYX Sentinel production secret"
+
+          # Add the public Pages origin to a temporary copy of the nested Worker
+          # config, and inject the shared secret from a temporary file. The
+          # committed config, root Pages configuration, and Task 2 are untouched.
+          node --input-type=module - "$ORIGIN" "$SENTINEL_SECRET" "$RUNNER_TEMP/ovyx-sentinel-secrets.json" <<'NODE'
+          import fs from 'node:fs';
+          const origin = process.argv[2];
+          const secret = process.argv[3];
+          const secretsPath = process.argv[4];
+          const source = fs.readFileSync('sentinel-worker/wrangler.toml', 'utf8');
+          if (source.includes('[vars]')) throw new Error('The committed Sentinel Worker config changed unexpectedly; refusing to override variables.');
+          fs.writeFileSync('sentinel-worker/wrangler.deploy.toml',
+            source.trimEnd() + '\n\n[vars]\nOVYX_SENTINEL_BASE_URL = ' + JSON.stringify(origin) + '\n',
+            { mode: 0o600 });
+          fs.writeFileSync(secretsPath, JSON.stringify({ OVYX_SENTINEL_CRON_SECRET: secret }) + '\n', { mode: 0o600 });
+          NODE
+
+          npx wrangler deploy --config sentinel-worker/wrangler.deploy.toml --secrets-file "$RUNNER_TEMP/ovyx-sentinel-secrets.json"
+
+          # Verify the deployed Cron trigger through Cloudflare's read API.
+          SCHEDULE_STATUS="$(curl --silent --show-error -o "$RUNNER_TEMP/ovyx-sentinel-deployments.json" -w '%{http_code}' "${API_HEADERS[@]}" "$API_BASE/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/ovyx-sentinel-scheduler/schedules")"
+          if [[ "$SCHEDULE_STATUS" != "200" ]]; then
+            echo "Worker code was submitted, but Cron verification failed (HTTP $SCHEDULE_STATUS)."
+            exit 1
+          fi
+          node --input-type=module - "$RUNNER_TEMP/ovyx-sentinel-deployments.json" <<'NODE'
+          import fs from 'node:fs';
+          const payload = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          const schedules = Array.isArray(payload?.result?.schedules) ? payload.result.schedules : [];
+          if (payload.success !== true || !schedules.some(item => item.cron === '*/30 * * * *')) {
+            console.error('Sentinel scheduler is deployed, but the expected 30-minute Cron trigger was not confirmed.');
+            process.exit(1);
+          }
+          console.log('Confirmed Cloudflare Cron trigger: */30 * * * * (every 30 minutes).');
+          NODE
+
+          # Make a safe end-to-end scheduled scan now rather than waiting for the
+          # next half-hour boundary. Only a sanitized result summary is printed.
+          SCAN_STATUS="$(curl --silent --show-error --max-time 70 -o "$RUNNER_TEMP/ovyx-sentinel-scan.json" -w '%{http_code}' -X POST "$ORIGIN/api/admin/sentinel" -H 'Content-Type: application/json' -H 'Accept: application/json' -H "x-ovyx-sentinel-cron-secret: $SENTINEL_SECRET" --data '{"action":"scan","source":"scheduled"}')"
+          if [[ "$SCAN_STATUS" != "200" ]]; then
+            echo "Scheduler and Cron trigger were deployed, but the initial authenticated Sentinel scan was not confirmed (HTTP $SCAN_STATUS). Inspect the Sentinel endpoint/Firestore setup."
+            exit 1
+          fi
+          node --input-type=module - "$RUNNER_TEMP/ovyx-sentinel-scan.json" <<'NODE'
+          import fs from 'node:fs';
+          const payload = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          const report = payload?.report || {};
+          if (payload.ok !== true || report.source !== 'scheduled' || !report.finishedAt) {
+            console.error('Sentinel returned a response without a confirmed scheduled report.');
+            process.exit(1);
+          }
+          console.log('Confirmed authenticated Sentinel scan: source=scheduled; status=' + String(report.status || 'unknown') +
+            '; critical=' + Math.max(0, Number(report.criticalCount) || 0) +
+            '; warnings=' + Math.max(0, Number(report.warningCount) || 0) + '.');
+          NODE
+
+          echo "OVYX Sentinel scheduler deployment and secret verification completed."
