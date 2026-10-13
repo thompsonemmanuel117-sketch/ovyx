@@ -1,5 +1,24 @@
 import { assertAuthenticated } from '../../_lib/firebase.js';
-import { errorResponse, requestId } from '../_lib/http.js';
+import { requestId } from '../_lib/http.js';
+
+
+function availabilityError(status, code, message, id) {
+  // Build the route error locally so this endpoint's HTTP status can never be
+  // confused with the similarly named helper in the root functions library.
+  return Response.json({
+    ok: false,
+    error: code,
+    message,
+    requestId: id || null,
+  }, {
+    status,
+    headers: {
+      'Cache-Control': 'no-store, max-age=0',
+      'X-Content-Type-Options': 'nosniff',
+      'X-OVYX-Request-ID': String(id || ''),
+    },
+  });
+}
 
 const PROVIDERS = Object.freeze({
   gemini: {
@@ -74,7 +93,7 @@ export async function onRequestGet(context) {
 
     const config = PROVIDERS[provider];
     if (!config) {
-      return errorResponse(
+      return availabilityError(
         400,
         'PROVIDER_REQUIRED',
         'Choose Gemini, DeepSeek, Claude, or OpenAI.',
@@ -127,7 +146,7 @@ export async function onRequestGet(context) {
       });
     }
   } catch (error) {
-    return errorResponse(
+    return availabilityError(
       error?.status || 500,
       error?.code || 'PROVIDER_AVAILABILITY_FAILED',
       error?.message || 'Provider availability could not be checked.',
@@ -138,7 +157,7 @@ export async function onRequestGet(context) {
 
 export async function onRequest(context) {
   if (context.request.method === 'GET') return onRequestGet(context);
-  return errorResponse(
+  return availabilityError(
     405,
     'METHOD_NOT_ALLOWED',
     'GET is required.',
