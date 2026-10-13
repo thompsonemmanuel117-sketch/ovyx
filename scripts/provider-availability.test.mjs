@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { onRequestGet } from '../functions/api/ai/provider-availability.js';
+import { onRequest, onRequestGet } from '../functions/api/ai/provider-availability.js';
 
 const originalFetch = globalThis.fetch;
 const requests = [];
@@ -87,8 +87,18 @@ try {
   assert.equal(data.error, 'PROVIDER_REQUIRED');
 
   response = await onRequestGet(context('gemini', {}, null));
-  assert.equal(response.status, 401);
-  assert.equal((await response.json()).error, 'AUTH_REQUIRED');
+  assert.equal(response.status, 401, 'missing authentication must return a valid HTTP 401 response');
+  data = await response.json();
+  assert.equal(data.error, 'AUTH_REQUIRED');
+  assert.equal(data.ok, false);
+
+  response = await onRequest({
+    request: new Request('https://ovyx.test/api/ai/provider-availability', { method: 'POST' }),
+    env: {},
+    data: { user: { uid: 'test-user', email: 'test@example.com' } },
+  });
+  assert.equal(response.status, 405, 'unsupported methods must return a valid HTTP 405 response');
+  assert.equal((await response.json()).error, 'METHOD_NOT_ALLOWED');
 } finally {
   globalThis.fetch = originalFetch;
 }
