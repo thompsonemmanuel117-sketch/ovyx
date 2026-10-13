@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { findCloudflareLogErrors } from './cloudflare-diagnostics-log-filter.mjs';
+
 const BASE = 'https://api.cloudflare.com/client/v4';
 const token = String(process.env.CLOUDFLARE_API_TOKEN || '').trim();
 const accountId = String(process.env.CLOUDFLARE_ACCOUNT_ID || '').trim();
@@ -87,26 +89,7 @@ function sanitizeLine(line) {
   }
   return output.slice(0, 1200);
 }
-function errorLines(lines) {
-  const patterns = [
-    /error/i,
-    /failed/i,
-    /failure/i,
-    /fatal/i,
-    /exception/i,
-    /unhandled/i,
-    /panic/i,
-    /crash/i,
-    /permission denied/i,
-    /module not found/i,
-    /build failed/i,
-    /deployment failed/i,
-  ];
-  return lines
-    .map(item => sanitizeLine(item.line || item.message || ''))
-    .filter(line => patterns.some(pattern => pattern.test(line)))
-    .slice(-150);
-}
+
 
 async function probeApplicationHealth(deploymentUrl) {
   const raw = String(deploymentUrl || '').trim();
@@ -262,7 +245,7 @@ try {
   );
 
   const lines = Array.isArray(logs?.data) ? logs.data : [];
-  result.logErrors = errorLines(lines);
+  result.logErrors = findCloudflareLogErrors(lines, sanitizeLine);
   result.runtimeHealth = await probeApplicationHealth(deployment.url);
   if (!result.runtimeHealth.ok) {
     const reasons = [];
