@@ -131,8 +131,52 @@
     return button;
   }
 
+  function ensureStyles() {
+    if (byId('ovyx-admin-workspace-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'ovyx-admin-workspace-styles';
+    style.textContent = `
+      .ovyx-admin-workspace-entry{display:flex!important;align-items:center!important;gap:10px!important;min-height:42px!important;width:100%!important;box-sizing:border-box!important;border:1px solid rgba(232,182,79,.24)!important;border-radius:12px!important;background:linear-gradient(100deg,rgba(232,182,79,.09),rgba(255,255,255,.018))!important;color:var(--app-text,#f8fafc)!important;text-align:left!important;padding:10px 12px!important;cursor:pointer!important}
+      .ovyx-admin-workspace-entry>i:first-child{color:#e8b64f!important;flex:0 0 auto!important}
+      .ovyx-admin-workspace-entry-title{flex:1 1 auto!important;font:800 10px/1.25 Inter,system-ui,sans-serif!important}
+      .ovyx-admin-workspace-entry-badge{flex:0 0 auto!important;border:1px solid rgba(232,182,79,.28)!important;border-radius:999px!important;padding:4px 6px!important;color:#e8b64f!important;font:800 7px/1 JetBrains Mono,monospace!important;letter-spacing:.08em!important}
+      .ovyx-admin-workspace-entry:hover{border-color:rgba(232,182,79,.52)!important;background:rgba(232,182,79,.09)!important}
+      .ovyx-admin-workspace-mobile-group{display:block!important;margin-top:14px!important;padding-top:12px!important;border-top:1px solid var(--app-border,rgba(255,255,255,.08))!important}
+      .ovyx-admin-workspace-mobile-label{padding:0 8px 8px!important;color:var(--app-muted,#8a929c)!important;font:800 8px/1 JetBrains Mono,monospace!important;letter-spacing:.15em!important}
+      .ovyx-admin-workspace-entry-mobile{display:flex!important;margin:0 0 4px!important}
+      .ovyx-admin-workspace-hub{display:block!important;position:relative!important;width:100%!important;box-sizing:border-box!important;margin:0 0 20px!important;padding:17px!important;border:1px solid var(--app-border,rgba(255,255,255,.09))!important;border-radius:18px!important;background:linear-gradient(145deg,rgba(232,182,79,.055),rgba(255,255,255,.018) 48%,rgba(0,209,255,.025))!important;color:var(--app-text,#f8fafc)!important}
+      .ovyx-admin-workspace-hub[hidden]{display:none!important}
+      .ovyx-admin-workspace-header{display:flex!important;align-items:flex-start!important;justify-content:space-between!important;gap:14px!important}
+      .ovyx-admin-workspace-eyebrow{color:#c9a24b!important;font:800 8px/1 JetBrains Mono,monospace!important;letter-spacing:.18em!important;text-transform:uppercase!important}
+      .ovyx-admin-workspace-header h2{margin:6px 0 0!important;color:var(--app-text,#f8fafc)!important;font:850 clamp(18px,2.5vw,23px)/1.15 Inter,system-ui,sans-serif!important;letter-spacing:-.025em!important}
+      .ovyx-admin-workspace-header p{max-width:680px!important;margin:7px 0 0!important;color:var(--app-muted,#929aa4)!important;font:500 10px/1.6 Inter,system-ui,sans-serif!important}
+      .ovyx-admin-workspace-access{display:inline-flex!important;align-items:center!important;gap:6px!important;flex:0 0 auto!important;white-space:nowrap!important;border:1px solid rgba(52,211,153,.22)!important;border-radius:999px!important;padding:7px 9px!important;background:rgba(52,211,153,.045)!important;color:#6ee7b7!important;font:800 7px/1 JetBrains Mono,monospace!important}
+      .ovyx-admin-workspace-search{display:flex!important;align-items:center!important;gap:9px!important;margin:16px 0 12px!important;padding:10px 12px!important;border:1px solid var(--app-border,rgba(255,255,255,.08))!important;border-radius:11px!important;background:rgba(0,0,0,.12)!important;color:var(--app-muted,#89939d)!important}
+      .ovyx-admin-workspace-search input{width:100%!important;min-width:0!important;border:0!important;outline:0!important;background:transparent!important;color:var(--app-text,#f8fafc)!important;font:600 10px/1.5 Inter,system-ui,sans-serif!important}
+      .ovyx-admin-workspace-search input::placeholder{color:var(--app-muted,#78818b)!important}
+      .ovyx-admin-workspace-search:focus-within{border-color:rgba(232,182,79,.45)!important}
+      .ovyx-admin-workspace-grid{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:9px!important}
+      .ovyx-admin-workspace-module{display:flex!important;align-items:center!important;gap:10px!important;min-width:0!important;min-height:69px!important;padding:11px!important;border:1px solid var(--app-border,rgba(255,255,255,.075))!important;border-radius:12px!important;background:rgba(255,255,255,.018)!important;color:var(--app-text,#f8fafc)!important;text-align:left!important;cursor:pointer!important;transition:transform .15s ease,border-color .15s ease,background .15s ease!important}
+      .ovyx-admin-workspace-module:hover{transform:translateY(-1px)!important;border-color:rgba(232,182,79,.33)!important;background:rgba(232,182,79,.045)!important}
+      .ovyx-admin-workspace-module[hidden]{display:none!important}
+      .ovyx-admin-workspace-module-icon{display:grid!important;place-items:center!important;flex:0 0 32px!important;width:32px!important;height:32px!important;border:1px solid rgba(232,182,79,.16)!important;border-radius:10px!important;background:rgba(232,182,79,.045)!important;color:#e8c16c!important}
+      .ovyx-admin-workspace-module-copy{display:block!important;flex:1 1 auto!important;min-width:0!important}
+      .ovyx-admin-workspace-module-copy strong{display:block!important;color:var(--app-text,#e9edf2)!important;font:800 10px/1.3 Inter,system-ui,sans-serif!important;overflow-wrap:anywhere!important}
+      .ovyx-admin-workspace-module-copy small{display:block!important;margin-top:5px!important;color:var(--app-muted,#89929c)!important;font:500 8px/1.45 Inter,system-ui,sans-serif!important;overflow-wrap:anywhere!important}
+      .ovyx-admin-workspace-module-arrow{flex:0 0 auto!important;color:var(--app-muted,#68717c)!important;font-size:10px!important}
+      .ovyx-admin-workspace-footer{margin:13px 0 0!important;color:var(--app-muted,#747e88)!important;font:500 8px/1.5 JetBrains Mono,monospace!important}
+      .ovyx-admin-workspace-back{display:inline-flex!important;align-items:center!important;gap:8px!important;margin:0 0 12px!important;padding:9px 12px!important;border:1px solid rgba(232,182,79,.2)!important;border-radius:10px!important;background:rgba(232,182,79,.035)!important;color:var(--app-text,#f5f5f5)!important;font:750 9px/1.3 Inter,system-ui,sans-serif!important;cursor:pointer!important}
+      .ovyx-admin-workspace-back i{color:#e8b64f!important}
+      @media(max-width:900px){.ovyx-admin-workspace-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+      @media(max-width:520px){.ovyx-admin-workspace-hub{padding:13px!important}.ovyx-admin-workspace-header{display:block!important}.ovyx-admin-workspace-access{margin-top:12px!important}.ovyx-admin-workspace-grid{grid-template-columns:minmax(0,1fr)!important}.ovyx-admin-workspace-module{min-height:62px!important}.ovyx-admin-workspace-module-copy strong{font-size:11px!important}.ovyx-admin-workspace-module-copy small{font-size:9px!important}}
+      @media(prefers-reduced-motion:reduce){.ovyx-admin-workspace-module{transition:none!important}.ovyx-admin-workspace-module:hover{transform:none!important}}
+    `;
+    (document.head || document.documentElement).appendChild(style);
+  }
+
   function ensureEntries() {
     if (!authorized) return;
+    ensureStyles();
     const sidebar = byId('app-sidebar');
     if (sidebar && !byId(ENTRY_DESKTOP)) {
       const button = createEntry(ENTRY_DESKTOP, false);
@@ -183,6 +227,7 @@
   }
 
   function ensureHub() {
+    if (authorized) ensureStyles();
     const overview = byId('view-admin-overview');
     if (!authorized || !overview) return;
     let hub = byId(HUB_ID);
