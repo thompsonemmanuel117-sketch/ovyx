@@ -3,11 +3,11 @@ import { onRequest as githubOAuth } from '../functions/api/github/oauth.js';
 import { onRequest as githubRepos } from '../functions/api/github/repos.js';
 
 const routes = [
-  ['GitHub OAuth', githubOAuth, 'https://ovyx.test/api/github/oauth'],
-  ['GitHub repositories', githubRepos, 'https://ovyx.test/api/github/repos'],
+  ['GitHub OAuth', githubOAuth, 'https://ovyx.test/api/github/oauth', 'GitHub authentication could not be completed.'],
+  ['GitHub repositories', githubRepos, 'https://ovyx.test/api/github/repos', 'GitHub repository request could not be completed.'],
 ];
 
-for (const [label, handler, url] of routes) {
+for (const [label, handler, url, expectedFailureMessage] of routes) {
   const allowed = await handler({
     request: new Request(url, { method: 'GET' }),
     env: {},
@@ -16,7 +16,7 @@ for (const [label, handler, url] of routes) {
   assert.equal(allowed.status, 500, label + ': absent server configuration should fail closed through a normal HTTP response');
   const failure = await allowed.json();
   assert.equal(failure.ok, false);
-  assert.equal(failure.error, 'GitHub authentication could not be completed.', 'public OAuth error messages must remain generic');
+  assert.equal(failure.error, expectedFailureMessage, 'public GitHub failure messages must remain generic');
 
   const denied = await handler({
     request: new Request(url, { method: 'POST' }),
