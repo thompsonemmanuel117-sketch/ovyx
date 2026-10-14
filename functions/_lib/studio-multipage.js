@@ -207,6 +207,54 @@ function validateStagedSite(staged, prompt, siteMap) {
   return { validation, outputFilesByPath, requirementVerification, integrity };
 }
 
+function selectRequirementRepairPaths(staged, verification) {
+  const codes = new Set((verification && verification.issues || []).map(issue => issue.code));
+  const patterns = [];
+  if (codes.has('BOOKING_FLOW_MISSING')) patterns.push(/reservation|booking|appointment|calendar|home/i);
+  if (codes.has('SHOPPING_CART_MISSING') || codes.has('ADD_TO_CART_ACTION_MISSING')) patterns.push(/shop|product|cart|checkout|store|home/i);
+  if (codes.has('CONTACT_FORM_MISSING')) patterns.push(/contact|enquir|inquir|home/i);
+  if (codes.has('NEWSLETTER_MISSING')) patterns.push(/newsletter|subscribe|home/i);
+  if (codes.has('AUTHENTICATION_UI_MISSING')) patterns.push(/login|sign.?in|account|auth|home/i);
+  if (codes.has('PAYMENT_FLOW_MISSING')) patterns.push(/checkout|payment|shop|product|cart/i);
+
+  const scored = (Array.isArray(staged) ? staged : [])
+    .filter(item => item && /\.html?$/i.test(String(item.path || '')))
+    .map((item, index) => {
+      const searchable = String(item.path || '') + '\n' + String(item.content || '').slice(0, 16000);
+      const hits = patterns.reduce((count, pattern) => count + (pattern.test(searchable) ? 1 : 0), 0);
+      return { path: item.path, score: hits, index };
+    })
+    .filter(item => item.score > 0);
+  scored.sort((a, b) => b.score - a.score || a.index - b.index);
+  return scored.map(item => item.path);
+}
+
+function makeRequirementRepairPrompt(prompt, plan, siteMap, targets, extraContext, promptContract, verification, integrityAudit) {
+  const currentFiles = Object.fromEntries(targets.map(item => [item.path, item.content]));
+  return [
+    'OVYX WEB STUDIO BOUNDED REQUIREMENT REPAIR PHASE.',
+    'The first complete website passed structural validation but did not yet satisfy every deterministic requirement check. Make one narrow repair of the specific missing user-facing behavior listed below. Preserve all unrelated content, existing routes, design direction, and working behavior.',
+    'Return strict JSON only with this shape: {"summary":"...","files":{"exact/allowlisted/path":"complete final file content"}}.',
+    'Return complete contents only for files in the explicit repair allowlist. Do not add, delete, rename, or move files. Do not change the sitemap or modify unrelated pages.',
+    'Implement a real visible control or form in the appropriate existing page. A navigation label or a paragraph describing a feature does not satisfy an action requirement. Do not claim a remote service, booking persistence, payment, cart backend, email delivery, or database is connected unless the source context proves it.',
+    'Preserve supplied facts and never invent addresses, opening hours, prices, availability, testimonials, credentials, or provider status. Keep labels accessible and controls keyboard usable. Do not add dependencies, secrets, TODOs, fake success states, or placeholder links.',
+    'ORIGINAL USER BRIEF:\n' + String(prompt || ''),
+    'APPROVED WEBSITE ARCHITECTURE JSON:\n' + JSON.stringify(plan || {}),
+    'FULL WEBSITE ROUTE MANIFEST JSON:\n' + JSON.stringify({
+      architecture: siteMap && siteMap.architecture || '',
+      pages: (siteMap && Array.isArray(siteMap.pages) ? siteMap.pages : []).map(page => ({ title: page.title, path: page.path, url: page.url, goal: page.goal })),
+      sharedFiles: (siteMap && Array.isArray(siteMap.sharedFiles) ? siteMap.sharedFiles : []).map(file => ({ path: file.path, purpose: file.purpose })),
+    }),
+    'PROMPT REQUIREMENT CONTRACT JSON:\n' + JSON.stringify(promptContract || {}),
+    'REQUIREMENT VERIFICATION FAILURES JSON:\n' + JSON.stringify(verification || {}),
+    'EXISTING SITE-INTEGRITY AUDIT JSON (static source checks only):\n' + JSON.stringify(integrityAudit || {}),
+    'BRAND AND PROJECT CONTEXT:\n' + String(extraContext || '').slice(0, 6000),
+    'REPAIR TARGET FILES JSON:\n' + JSON.stringify(targets.map(item => ({ path: item.path, currentCharacters: item.content.length }))),
+    'REPAIR CURRENT FILE CONTENTS JSON:\n' + JSON.stringify(currentFiles),
+    'REPAIR ALLOWLIST JSON:\n' + JSON.stringify(targets.map(item => item.path)),
+  ].join('\n\n');
+}
+
 function hasNewIntegrityFindings(before, after) {
   const key = item => [item.code, item.file, item.reference].join('|').toLowerCase();
   const existing = new Set((before && before.findings || []).map(key));
