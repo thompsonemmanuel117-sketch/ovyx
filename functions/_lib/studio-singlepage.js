@@ -356,10 +356,13 @@ export async function validateOrRepairSinglePageBuild(options) {
     repairRecord.status = 'unavailable';
   }
 
+  const qualityStatus = checks.validation.length || !checks.requirementVerification.ok
+    ? 'failed'
+    : checks.integrity.totalFindings > 0
+      ? repairRecord.status === 'applied' ? 'repaired-with-integrity-warnings' : 'passed-with-integrity-warnings'
+      : repairRecord.status === 'applied' ? 'repaired-and-passed' : 'passed';
   const qualityVerification = {
-    status: checks.validation.length === 0 && checks.requirementVerification.ok
-      ? repairRecord.status === 'applied' ? 'repaired-and-passed' : 'passed'
-      : 'failed',
+    status: qualityStatus,
     structuralChecksPassed: checks.validation.length === 0,
     requirementsPassed: checks.requirementVerification.ok,
     requirementCount: checks.requirementVerification.requirementCount,
