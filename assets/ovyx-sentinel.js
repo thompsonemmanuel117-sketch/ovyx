@@ -17,6 +17,7 @@ var lastGuardianQuestion = '';
 var lastInspectedFiles = [];
 var guardianAwake = false;
 var companionBusy = false;
+var guardianRequestBusy = false;
 var conversationTurns = [];
 var speechHeld = false;
 var speechSerial = 0;
@@ -92,6 +93,9 @@ function addStyles() {
     '#' + ID + '-panel .badge{font-size:8px;font-weight:850;letter-spacing:.08em;color:#b7cad7;text-transform:uppercase}',
     '#' + ID + '-panel .foot{padding:10px 15px;border-top:1px solid rgba(255,255,255,.07);color:#748695;font-size:9px}',
     '#' + ID + '-panel .transcript{white-space:pre-wrap;padding:10px 11px;margin-top:9px;border-radius:11px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);color:#d8e5ed}',
+    '#' + ID + '-panel .chat-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:12px 14px;border-top:1px solid rgba(255,255,255,.07);background:rgba(0,0,0,.12)}',
+    '#' + ID + '-panel .chat-input{box-sizing:border-box;width:100%;min-height:42px;max-height:100px;resize:vertical;padding:10px 11px;border:1px solid rgba(145,207,224,.22);border-radius:11px;background:#060a0e;color:#eaf7fb;font:12px/1.45 Inter,system-ui,sans-serif}',
+    '#' + ID + '-panel .chat-send{align-self:end;min-height:42px;padding:0 13px;border-radius:10px;border:1px solid transparent;background:linear-gradient(120deg,#cbf7f4,#c2daf5);color:#091116;font:800 11px Inter,system-ui,sans-serif}',
     '#' + ID + '-panel [hidden]{display:none!important}',
     '@media(max-width:640px){#' + ID + '-launch{right:12px;bottom:calc(14px + env(safe-area-inset-bottom));padding:7px 12px 7px 7px}#' + ID + '-panel{right:8px;bottom:72px;width:calc(100vw - 16px);max-height:78dvh;border-radius:18px}}',
     '@media(prefers-reduced-motion:reduce){#' + ID + '-launch{scroll-behavior:auto}}'
@@ -104,7 +108,7 @@ function buildShell() {
   root.innerHTML = '<button id="' + ID + '-launch" type="button" aria-label="Open private OVYX Guardian companion"><span class="eye" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M3 16s4.8-8 13-8 13 8 13 8-4.8 8-13 8S3 16 3 16Z" stroke="#8BEAF4" stroke-width="1.5"/><circle cx="16" cy="16" r="5.4" fill="#A5F3FC" fill-opacity=".2" stroke="#8BEAF4" stroke-width="1.4"/><circle cx="16" cy="16" r="2.4" fill="#B9FAFF"/></svg></span><span>OVYX GUARDIAN</span></button>' +
   '<section id="' + ID + '-panel" role="dialog" aria-modal="false" aria-labelledby="' + ID + '-title" hidden><header class="head"><span class="eye" aria-hidden="true">◉</span><div class="headcopy"><div id="' + ID + '-title" class="title">OVYX GUARDIAN</div><div class="sub">YOUR PRIVATE PROJECT COMPANION · VOICE + HEALTH</div></div><button type="button" class="close" data-ovsx="close" aria-label="Put Guardian to sleep">×</button></header>' +
   '<div class="actions"><button type="button" class="btn primary" data-ovsx="scan">Check now</button><button type="button" class="btn" data-ovsx="plan">Prepare fix plan</button><button type="button" class="btn" data-ovsx="diagnose">AI diagnosis</button><button type="button" class="btn" data-ovsx="patch">Prepare code fix</button><button type="button" class="btn" data-ovsx="wake">Enable wake word</button><button type="button" class="btn" data-ovsx="sleep">Go to sleep</button><button type="button" class="btn" data-ovsx="mute" disabled>Stop speaking</button></div>' +
-  '<div class="status" role="status" aria-live="polite" data-ovsx-status>Verifying administrator access…</div><div class="body"><div class="summary"><strong>Hey boss, I’m here.</strong><small>Your private OVYX companion. Talk naturally, ask questions, or say “OVYX, open Web Studio.” I only listen after you enable the wake word; say “go to sleep” when you want me to disappear. Conversation turns stay in this page session.</small></div><div data-ovsx-report></div><div class="plan" hidden data-ovsx-plan></div><div class="plan" hidden data-ovsx-diagnosis></div><details class="plan" hidden data-ovsx-diagnosis-history><summary class="plan-heading">Previous diagnoses</summary><div data-ovsx-diagnosis-history-list></div></details><div class="plan patch-tools" hidden data-ovsx-patch-tools><strong>Reviewable code fix</strong><div class="plan-note">I will prepare a preview first. Nothing changes until you review the proposal, type the confirmation phrase, and create a pull request. I never merge or deploy automatically.</div><label>Source file path<input type="text" data-ovsx-patch-path maxlength="240" placeholder="functions/api/feature.js"></label><label>What should be fixed?<textarea data-ovsx-patch-task rows="3" maxlength="1200" placeholder="Describe the exact bug and desired result"></textarea></label><button type="button" class="btn primary" data-ovsx="patch-prepare">Prepare patch preview</button><div data-ovsx-patch-summary class="rowsummary"></div><pre class="patch-preview" data-ovsx-patch-preview hidden></pre><label>Type CREATE_PULL_REQUEST to submit for review<input type="text" data-ovsx-patch-confirm autocomplete="off" maxlength="40" placeholder="CREATE_PULL_REQUEST"></label><button type="button" class="btn" data-ovsx="patch-apply" disabled>Create review pull request</button><a class="patch-link" data-ovsx-patch-link hidden target="_blank" rel="noopener noreferrer">Open pull request</a></div><div class="transcript" hidden data-ovsx-transcript></div></div>' +
+  '<div class="status" role="status" aria-live="polite" data-ovsx-status>Verifying administrator access…</div><div class="body"><div class="summary"><strong>Hey boss, I’m here.</strong><small>Your private OVYX companion. Talk naturally, ask questions, or say “OVYX, open Web Studio.” I only listen after you enable the wake word; say “go to sleep” when you want me to disappear. Conversation turns stay in this page session.</small></div><div data-ovsx-report></div><div class="plan" hidden data-ovsx-plan></div><div class="plan" hidden data-ovsx-diagnosis></div><details class="plan" hidden data-ovsx-diagnosis-history><summary class="plan-heading">Previous diagnoses</summary><div data-ovsx-diagnosis-history-list></div></details><div class="plan patch-tools" hidden data-ovsx-patch-tools><strong>Reviewable code fix</strong><div class="plan-note">I will prepare a preview first. Nothing changes until you review the proposal, type the confirmation phrase, and create a pull request. I never merge or deploy automatically.</div><label>Source file path<input type="text" data-ovsx-patch-path maxlength="240" placeholder="functions/api/feature.js"></label><label>What should be fixed?<textarea data-ovsx-patch-task rows="3" maxlength="1200" placeholder="Describe the exact bug and desired result"></textarea></label><button type="button" class="btn primary" data-ovsx="patch-prepare">Prepare patch preview</button><div data-ovsx-patch-summary class="rowsummary"></div><pre class="patch-preview" data-ovsx-patch-preview hidden></pre><label>Type CREATE_PULL_REQUEST to submit for review<input type="text" data-ovsx-patch-confirm autocomplete="off" maxlength="40" placeholder="CREATE_PULL_REQUEST"></label><button type="button" class="btn" data-ovsx="patch-apply" disabled>Create review pull request</button><a class="patch-link" data-ovsx-patch-link hidden target="_blank" rel="noopener noreferrer">Open pull request</a></div><div class="transcript" hidden data-ovsx-transcript></div></div><form class="chat-form" data-ovsx-chat-form><textarea class="chat-input" data-ovsx-chat-input rows="2" maxlength="1200" aria-label="Message OVYX Guardian" placeholder="Talk to me or type a message…"></textarea><button class="chat-send" type="submit">Send</button></form>' +
   '<div class="foot">Voice commands require microphone permission and a supported browser. Wake-word listening only works while this page is open and active. Use “stop listening” to switch off the microphone completely.</div></section>;
   document.body.appendChild(root); addStyles(); bindShell(); return root;
 }
@@ -367,9 +371,12 @@ async function scanNow(shouldSpeak) {
 }
 function transcript(message) { var element = q('[data-ovsx-transcript]'); if (!element) return; element.hidden = false; element.textContent = safeText(message, 7000); }
 function rememberTurn(role, message) {
+  var normalizedRole = role === 'assistant' ? 'assistant' : 'user';
   var content = safeText(message, 1400);
   if (!content) return;
-  conversationTurns.push({ role: role === 'assistant' ? 'assistant' : 'user', content: content });
+  var last = conversationTurns[conversationTurns.length - 1];
+  if (last && last.role === normalizedRole && last.content === content) return;
+  conversationTurns.push({ role: normalizedRole, content: content });
   conversationTurns = conversationTurns.slice(-10);
   transcript(conversationTurns.map(function (item) { return (item.role === 'user' ? 'You' : 'Guardian') + ': ' + item.content; }).join('\n\n'));
 }
@@ -378,7 +385,10 @@ async function askCompanion(question, sourceInspectionUnavailable) {
   if (!prompt) return;
   if (companionBusy) { status('I’m still working on your last message, boss.', 'info'); return; }
   companionBusy = true;
-  var messages = conversationTurns.slice(-9).concat([{ role: 'user', content: prompt }]).slice(-10);
+  var messages = conversationTurns.slice(-10);
+  var lastTurn = messages[messages.length - 1];
+  if (!lastTurn || lastTurn.role !== 'user' || lastTurn.content !== prompt) messages.push({ role: 'user', content: prompt });
+  messages = messages.slice(-10);
   var reportSummary = latestReport ? {
     status: latestReport.status,
     finishedAt: latestReport.finishedAt,
@@ -420,47 +430,57 @@ function questionNeedsRepositoryInspection(question) {
 }
 async function askAI(question) {
   lastGuardianQuestion = safeText(question, 1200);
-  if (!questionNeedsRepositoryInspection(lastGuardianQuestion)) {
-    await askCompanion(lastGuardianQuestion, false);
+  if (!lastGuardianQuestion) return;
+  if (guardianRequestBusy || companionBusy) {
+    status('I’m still working on your last message, boss. Give me a moment to finish it.', 'info');
     return;
   }
-  status('I’ll try to inspect the relevant source safely first…');
+  guardianRequestBusy = true;
+  rememberTurn('user', lastGuardianQuestion);
+  if (questionNeedsRepositoryInspection(lastGuardianQuestion)) {
+    status('I’ll try to inspect the relevant source safely first…');
+    try {
+      var idToken = await getToken();
+      var headers = { Accept: 'application/json', Authorization: 'Bearer ' + idToken };
+      var capabilitiesResponse = await fetch('/api/admin/guardian-repo', {
+        method: 'GET', credentials: 'same-origin', cache: 'no-store', headers: headers
+      });
+      var capabilities = await capabilitiesResponse.json().catch(function () { return {}; });
+      if (capabilitiesResponse.ok && capabilities.ok === true && capabilities.guardian && capabilities.guardian.readOnlyInvestigationReady === true) {
+        status('Investigating the repository with read-only source access…');
+        var investigationResponse = await fetch('/api/admin/guardian-repo', {
+          method: 'POST', credentials: 'same-origin', cache: 'no-store',
+          headers: Object.assign({}, headers, { 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ action: 'investigate', question: lastGuardianQuestion })
+        });
+        var investigation = await investigationResponse.json().catch(function () { return {}; });
+        if (!investigationResponse.ok || investigation.ok !== true) throw new Error(investigation.message || investigation.error || 'Guardian could not investigate the repository.');
+        var answer = safeText(investigation.answer || 'I could not form a diagnosis from the inspected source.', 1800);
+        var files = Array.isArray(investigation.inspectedFiles) ? investigation.inspectedFiles.slice(0, 3).map(function (path) { return safeText(path, 100); }) : [];
+        lastInspectedFiles = files.slice();
+        var patchPathInput = q('[data-ovsx-patch-path]');
+        if (patchPathInput && files.length) patchPathInput.value = files[0];
+        var patchTaskInput = q('[data-ovsx-patch-task]');
+        if (patchTaskInput) patchTaskInput.value = lastGuardianQuestion;
+        rememberTurn('assistant', answer);
+        status(files.length ? 'Read-only source investigation complete. Inspected: ' + files.join(', ') + '. No code changes were applied.' : 'No matching source files were found; no changes were applied.', 'success');
+        speak(answer);
+        return;
+      }
+      await askCompanion(lastGuardianQuestion, true);
+      return;
+    } catch (error) {
+      status('I could not inspect the source on this attempt. I have not changed anything.', 'error');
+      speak('Sorry boss, I could not inspect the source on this attempt. No code changes were applied.');
+      return;
+    } finally {
+      guardianRequestBusy = false;
+    }
+  }
   try {
-    var idToken = await getToken();
-    var headers = { Accept: 'application/json', Authorization: 'Bearer ' + idToken };
-    var capabilitiesResponse = await fetch('/api/admin/guardian-repo', {
-      method: 'GET', credentials: 'same-origin', cache: 'no-store', headers: headers
-    });
-    var capabilities = await capabilitiesResponse.json().catch(function () { return {}; });
-    if (!capabilitiesResponse.ok || capabilities.ok !== true || !capabilities.guardian || capabilities.guardian.readOnlyInvestigationReady !== true) {
-      await askCompanion(lastGuardianQuestion, true);
-      return;
-    }
-    status('Investigating the repository with read-only source access…');
-    var investigationResponse = await fetch('/api/admin/guardian-repo', {
-      method: 'POST', credentials: 'same-origin', cache: 'no-store',
-      headers: Object.assign({}, headers, { 'Content-Type': 'application/json' }),
-      body: JSON.stringify({ action: 'investigate', question: lastGuardianQuestion })
-    });
-    var investigation = await investigationResponse.json().catch(function () { return {}; });
-    if (!investigationResponse.ok || investigation.ok !== true) {
-      await askCompanion(lastGuardianQuestion, true);
-      return;
-    }
-    var answer = safeText(investigation.answer || 'I could not form a diagnosis from the inspected source.', 1800);
-    var files = Array.isArray(investigation.inspectedFiles) ? investigation.inspectedFiles.slice(0, 3).map(function (path) { return safeText(path, 100); }) : [];
-    lastInspectedFiles = files.slice();
-    var patchPathInput = q('[data-ovsx-patch-path]');
-    if (patchPathInput && files.length) patchPathInput.value = files[0];
-    var patchTaskInput = q('[data-ovsx-patch-task]');
-    if (patchTaskInput) patchTaskInput.value = lastGuardianQuestion;
-    rememberTurn('user', lastGuardianQuestion);
-    rememberTurn('assistant', answer);
-    status(files.length ? 'Read-only source investigation complete. Inspected: ' + files.join(', ') + '. No code changes were applied.' : 'No matching source files were found; no changes were applied.', 'success');
-    speak(answer);
-  } catch (error) {
-    status('I could not inspect the source on this attempt. I have not changed anything.', 'error');
-    speak('Sorry boss, I could not inspect the source on this attempt. No code changes were applied.');
+    await askCompanion(lastGuardianQuestion, false);
+  } finally {
+    guardianRequestBusy = false;
   }
 }
 function normalize(text) { return String(text || '').toLowerCase().replace(/[.,!?;:]+/g, ' ').replace(/\s+/g, ' ').trim(); }
@@ -826,7 +846,18 @@ async function applyPatchProposal() {
     updatePatchApplyState();
   }
 }
+function submitChatInput() {
+  var field = q('[data-ovsx-chat-input]');
+  var value = safeText(field && field.value, 1200);
+  if (!value) return;
+  if (field) field.value = '';
+  guardianAwake = true;
+  showPanel(true, false);
+  void askAI(value);
+}
 function bindShell() {
+  var chatForm = q('[data-ovsx-chat-form]');
+  if (chatForm) chatForm.addEventListener('submit', function (event) { event.preventDefault(); submitChatInput(); });
   q('#' + ID + '-launch').addEventListener('click', function () {
     guardianAwake = true;
     showPanel(true);
