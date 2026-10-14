@@ -20,7 +20,8 @@
     "HTML metadata, semantic landmarks, keyboard access, contrast, and image alternatives are checked",
     "Existing unrelated pages and working features are preserved on targeted edits",
     "Remaining untested provider, deployment, and live-integration behavior is reported as unverified",
-    "Rendered text on known solid backgrounds meets WCAG AA contrast targets, and keyboard-focusable controls have visible focus cues."
+    "Rendered text on known solid backgrounds meets WCAG AA contrast targets, and keyboard-focusable controls have visible focus cues.",
+    "Sandbox reports DOM size and initial document/inline-script processing as diagnostics without misrepresenting them as real-world Core Web Vitals."
   ],
   "siteCategories": [
     {
