@@ -32,6 +32,10 @@ for (const token of [
   'function probeControls()',
   'function probeAccessibility()',
   'Isolated render processing budget',
+  'CORE_BROWSER_ROUTE_COUNT = 3',
+  'ADDITIONAL_ROUTE_WIDTHS = [390, 1440]',
+  'var routePlan = []',
+  'report.browser.pagesTested += 1',
   'initialRenderMs',
   'domNodes',
   'Rendered text contrast sample',
@@ -54,6 +58,7 @@ assert.ok(prompts.includes('appropriate aria-expanded, aria-controls, aria-selec
 assert.ok(prompts.includes('4.5:1 for normal text and 3:1 for large/bold text'), 'The generation contract must state readable text-contrast targets.');
 assert.ok(prompts.includes('visible :focus/:focus-visible indicators'), 'The generation contract must require visible keyboard focus cues.');
 assert.ok(prompts.includes('1,800 rendered elements per route'), 'The generation contract must provide a concrete DOM-size budget.');
+assert.ok(!runtime.includes('MAX_BROWSER_PAGES'), 'Responsive browser smoke checks must not silently exclude routes past a fixed route cap.');
 assert.ok(!runtime.includes('runBuildAgent(prompt, false'), 'Quality repairs must not start an unbounded normal build loop.');
 
 console.log('Web Studio quality contracts passed: build prompt, real source/browser checks, safe sandbox, and snapshot-protected repair.');
