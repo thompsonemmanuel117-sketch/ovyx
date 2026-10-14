@@ -255,6 +255,22 @@
       Object.keys(idCounts).forEach(function (id) {
         if (idCounts[id] > 1) accessibilityIssues.push(page.path + ': duplicate id "' + id + '" (' + idCounts[id] + ' occurrences).');
       });
+      doc.querySelectorAll('label[for]').forEach(function (label) {
+        var targetId = text(label.getAttribute('for')).trim();
+        if (targetId && !doc.getElementById(targetId)) {
+          accessibilityIssues.push(page.path + ': a label references a missing control id.');
+        }
+      });
+      doc.querySelectorAll('[aria-labelledby], [aria-describedby]').forEach(function (node) {
+        ['aria-labelledby', 'aria-describedby'].forEach(function (attributeName) {
+          var references = text(node.getAttribute(attributeName)).split(/\\s+/).filter(Boolean);
+          references.forEach(function (targetId) {
+            if (!doc.getElementById(targetId)) {
+              accessibilityIssues.push(page.path + ': ' + attributeName + ' references a missing id.');
+            }
+          });
+        });
+      });
       doc.querySelectorAll('img:not([alt])').forEach(function (image) {
         accessibilityIssues.push(page.path + ': image is missing an alt attribute' + (image.getAttribute('src') ? ' (' + trim(image.getAttribute('src'), 100) + ')' : '') + '.');
       });
