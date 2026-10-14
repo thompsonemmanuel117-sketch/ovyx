@@ -21,7 +21,7 @@ for (const token of [
   'prefers-reduced-motion',
   '3D character is offline. The voice companion is still available.',
 ]) assert.ok(avatar.includes(token), '3D Guardian runtime is missing: ' + token);
-assert.ok(middleware.includes('/assets/ovyx-sentinel-avatar-3d.js?v=20261014-2'), '3D Guardian runtime must be injected after Sentinel.');
+assert.ok(middleware.includes('/assets/ovyx-sentinel-avatar-3d.js?v=20261014-3'), '3D Guardian runtime must be injected after Sentinel.');
 assert.ok(sentinel.includes('window.OVYXSentinel3D?.setSpeaking(true)'), 'spoken Guardian replies must explicitly activate the 3D talking state');
 assert.ok(sentinel.includes('window.OVYXSentinel3D?.setSpeaking(false)'), 'spoken Guardian replies must return the 3D character to idle when speech ends');
 assert.ok(headers.includes('/assets/ovyx-sentinel-avatar-3d.js'), '3D Guardian runtime must use explicit cache controls.');
