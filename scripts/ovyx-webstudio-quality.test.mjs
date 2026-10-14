@@ -93,6 +93,7 @@ assert.ok(multipage.includes('External resource availability and live integratio
 assert.ok(integrity.includes('INTERNAL_ROUTE_UNMAPPED'), 'The integrity audit must detect links outside the approved page route manifest.');
 assert.ok(integrity.includes('LOCAL_CSS_ASSET_MISSING'), 'The integrity audit must detect missing CSS assets.');
 assert.ok(integrity.includes('ORPHAN_FRAGMENT'), 'The integrity audit must detect broken same-page anchors.');
+assert.ok(integrity.includes('BROKEN_ROUTE_FRAGMENT'), 'The source integrity audit must detect anchors that point to missing ids on another page.');
 assert.ok(integrity.includes('runtimeBehaviorVerified: false'), 'Static checks must not be presented as proof that runtime behavior works.');
 assert.ok(prompts.includes('visible :focus/:focus-visible indicators'), 'The generation contract must require visible keyboard focus cues.');
 assert.ok(prompts.includes('1,800 rendered elements per route'), 'The generation contract must provide a concrete DOM-size budget.');
