@@ -43,6 +43,14 @@ for (const token of [
   'Safe interactive behavior smoke test',
   'payload.probeInteractions = width === 390;',
   'Live integration verification',
+  'data-quality-export',
+  'data-quality-copy-summary',
+  'function shareableReport(report)',
+  'function clientSummary(report)',
+  'function downloadQualityReport(report)',
+  'function copyClientSummary()',
+  'projectIdIncluded: false',
+  'sourceFileContentsIncluded: false',
 ]) {
   assert.ok(runtime.includes(token), 'Quality runtime is missing: ' + token);
 }
@@ -59,6 +67,8 @@ assert.ok(prompts.includes('4.5:1 for normal text and 3:1 for large/bold text'),
 assert.ok(prompts.includes('visible :focus/:focus-visible indicators'), 'The generation contract must require visible keyboard focus cues.');
 assert.ok(prompts.includes('1,800 rendered elements per route'), 'The generation contract must provide a concrete DOM-size budget.');
 assert.ok(!runtime.includes('MAX_BROWSER_PAGES'), 'Responsive browser smoke checks must not silently exclude routes past a fixed route cap.');
+assert.ok(runtime.includes('ovyx-webstudio-qa-'), 'The inspector must name exported QA reports with a recognizable prefix.');
+assert.ok(runtime.includes('getClientSummary: function ()'), 'The quality runtime must expose its client summary for review and integration.');
 assert.ok(!runtime.includes('runBuildAgent(prompt, false'), 'Quality repairs must not start an unbounded normal build loop.');
 
 console.log('Web Studio quality contracts passed: build prompt, real source/browser checks, safe sandbox, and snapshot-protected repair.');
