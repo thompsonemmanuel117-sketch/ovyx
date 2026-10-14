@@ -1,0 +1,39 @@
+name: OVYX Web Studio Quality Browser Tests
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'assets/ovyx-webstudio-quality.js'
+      - 'scripts/ovyx-webstudio-quality.browser.test.mjs'
+      - '.github/workflows/ovyx-webstudio-quality-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install project dependencies
+        run: npm install --ignore-scripts
+
+      - name: Install browser test dependency
+        run: npm install --ignore-scripts --no-save playwright@^1.55.0
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Test Web Studio quality inspector in Chromium
+        run: node scripts/ovyx-webstudio-quality.browser.test.mjs

@@ -1,0 +1,43 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+
+const runtime = fs.readFileSync('assets/ovyx-webstudio-quality.js', 'utf8');
+const middleware = fs.readFileSync('functions/_middleware.js', 'utf8');
+const headers = fs.readFileSync('_headers', 'utf8');
+const packageJson = fs.readFileSync('package.json', 'utf8');
+const prompts = fs.readFileSync('functions/_lib/prompts.js', 'utf8');
+
+// Parsing this script does not execute it; browser behavior is exercised separately.
+assert.doesNotThrow(() => new Function(runtime), 'The Web Studio quality runtime must parse as valid JavaScript.');
+
+for (const token of [
+  'OVYX WEB STUDIO QUALITY CONTRACT',
+  "WIDTHS = [320, 390, 768, 1024, 1440]",
+  "setAttribute('sandbox', 'allow-scripts')",
+  "connect-src 'none'",
+  "form-action 'none'",
+  "img-src data: blob:",
+  "media-src data: blob:",
+  "restoreSnapshot(studio, snapshot)",
+  'OVYX QUALITY INSPECTOR REPAIR',
+  'ovyx:webstudio-build-stage',
+  'Automatic build gate',
+  'quality-auto-repair',
+  'rejectBuildForQuality',
+  'Horizontal overflow',
+  'Page runtime errors',
+  'Live integration verification',
+]) {
+  assert.ok(runtime.includes(token), 'Quality runtime is missing: ' + token);
+}
+
+assert.ok(middleware.includes('/assets/ovyx-webstudio-quality.js?v=20261014-2'), 'The quality inspector must load from the application-shell middleware.');
+assert.equal((middleware.match(/\/assets\/ovyx-webstudio-quality\.js\?v=20261014-2/g) || []).length, 1, 'The quality inspector must be injected exactly once per application shell.');
+assert.ok(headers.includes('/assets/ovyx-webstudio-quality.js\n  Cache-Control: no-store, no-cache, must-revalidate'), 'Quality inspection code must not be served from a stale cache.');
+assert.equal((headers.match(/\/assets\/ovyx-webstudio-quality\.js/g) || []).length, 1, 'Quality asset cache rules must appear exactly once.');
+assert.ok(packageJson.includes('scripts/ovyx-webstudio-quality.test.mjs'), 'The quality regression contract must run in npm test.');
+assert.ok(prompts.includes('ART DIRECTION AND DISTINCTIVENESS'), 'The server-side Web Studio agent must receive the premium design contract.');
+assert.ok(prompts.includes('Make at most one bounded targeted repair pass'), 'The server-side Web Studio agent must use bounded repair passes.');
+assert.ok(!runtime.includes('runBuildAgent(prompt, false'), 'Quality repairs must not start an unbounded normal build loop.');
+
+console.log('Web Studio quality contracts passed: build prompt, real source/browser checks, safe sandbox, and snapshot-protected repair.');
