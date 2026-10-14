@@ -191,6 +191,12 @@ try {
     assert.match(await page.locator('[data-ovsx-diagnosis]').innerText(), /Diagnosis only. No source files, provider keys, Cloudflare settings, or deployments were changed/i, '[' + target.name + '] the UI must disclose the diagnosis-only boundary');
     assert.match(await page.locator('[data-ovsx-diagnosis-history] summary').innerText(), /Previous diagnoses \(2\)/i, '[' + target.name + '] a newly saved diagnosis must join prior history');
 
+    await page.locator('[data-ovsx="patch"]').click();
+    await page.locator('[data-ovsx-patch-tools]').waitFor({ state: 'visible' });
+    assert.match(await page.locator('[data-ovsx-patch-tools]').innerText(), /Reviewable code fix/i, '[' + target.name + '] Guardian patch review panel should be visible to the authenticated owner');
+    assert.equal(await page.locator('[data-ovsx="patch-prepare"]').isDisabled(), true, '[' + target.name + '] patch preparation must stay disabled when the server cannot verify the owner credentials');
+    assert.equal(await page.locator('[data-ovsx="patch-apply"]').isDisabled(), true, '[' + target.name + '] pull-request creation must remain disabled without server-confirmed capabilities');
+
     await page.locator('[data-ovsx="wake"]').click();
     assert.match(await page.locator('[data-ovsx-status]').innerText(), /Wake word paused/i);
     assert.deepEqual(errors, [], '[' + target.name + '] Sentinel runtime errors: ' + errors.join('; '));
