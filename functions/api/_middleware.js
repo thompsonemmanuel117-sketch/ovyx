@@ -6,7 +6,7 @@ import {
   errorResponse,
   withCors,
   requestId,
-} from '../_lib/http.js';
+} from './_lib/http.js';
 
 export async function onRequest(context) {
   const req = context.request;
@@ -23,7 +23,7 @@ export async function onRequest(context) {
 
       if (origin && origin !== url.origin) {
         return withCors(
-          errorResponse(403, 'CORS_DENIED', 'Cross-origin API requests are not allowed.'),
+          errorResponse(403, 'CORS_DENIED', 'Cross-origin API requests are not allowed.', id),
           req
         );
       }
