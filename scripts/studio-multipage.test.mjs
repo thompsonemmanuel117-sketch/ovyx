@@ -27,6 +27,21 @@ const callModel = async (_env, options) => {
     };
   }
 
+  if (String(options.user).includes('BOUNDED WEBSITE POLISH PHASE')) {
+    const match = String(options.user).match(/POLISH CURRENT FILE CONTENTS JSON:\n([\s\S]*?)\n\nPOLISH ALLOWLIST JSON:/);
+    assert(match, 'Polish prompt must supply complete target files and an explicit allowlist.');
+    const files = JSON.parse(match[1]);
+    assert.ok(String(options.user).includes('FULL WEBSITE ROUTE MANIFEST JSON'), 'Polish must preserve site-wide route awareness.');
+    assert.ok(String(options.user).includes('PROMPT REQUIREMENT CONTRACT JSON'), 'Polish must preserve the original requirements.');
+    files['src/styles.css'] = String(files['src/styles.css'] || '').replace('outline-offset:3px', 'outline-offset:4px');
+    return {
+      text: JSON.stringify({ summary: 'Bounded polish complete', files }),
+      provider: 'gemini',
+      model: 'test-model',
+      rawUsage: { prompt_tokens: 5, completion_tokens: 9, total_tokens: 14 },
+    };
+  }
+
   const match = String(options.user).match(/REQUIRED TARGET FILES JSON:\n([\s\S]*?)\n\nREQUIRED TARGET PATHS JSON:/);
   assert(match, 'Batch prompt must list its required target files.');
   const targets = JSON.parse(match[1]);
@@ -80,9 +95,14 @@ assert(result.files['src/pages/Menu.html'].includes('<h1>Menu</h1>'));
 assert(result.files['src/styles.css'].includes('box-sizing:border-box'));
 assert(result.files['src/main.js'].includes('aria-label'));
 assert.equal(result.totalPages, 5);
-assert.equal(result.rawUsage.prompt_tokens, 11 + 19 * 3);
-assert.equal(result.rawUsage.completion_tokens, 7 + 31 * 3);
-assert.equal(calls.length, 4, 'The five-page site should use one planning call plus three file-sized batches.');
+assert.equal(result.rawUsage.prompt_tokens, 11 + 19 * 3 + 5);
+assert.equal(result.rawUsage.completion_tokens, 7 + 31 * 3 + 9);
+assert.equal(calls.length, 5, 'The five-page site should use one planning call, three file-sized batches, and one bounded polish call.');
+assert.equal(result.qualityPolish.status, 'applied');
+assert.equal(result.qualityPolish.filesUpdated, 1);
+assert.ok(result.files['src/styles.css'].includes('outline-offset:4px'), 'The verified polish result should be applied.');
+assert(calls[calls.length - 1].user.includes('POLISH ALLOWLIST JSON'), 'The polish phase must use an explicit file allowlist.');
+assert(calls[calls.length - 1].system.includes('senior frontend engineer'), 'The polish phase must preserve the Web Studio role instructions.');
 assert(result.summary.includes('5 distinct website pages'));
 assert(calls.every(call => call.system.includes('OVYX_TEST_WEBSITE_QUALITY_CONTRACT')), 'Every sitemap-planning and page-generation call must receive the Web Studio quality contract.');
 assert(calls[0].system.includes('realistic route-by-route sitemap'), 'The planning-specific instructions must remain present alongside the quality contract.');
@@ -140,5 +160,34 @@ const singlePage = await buildStudioMultiPage({
   files: {},
 });
 assert.equal(singlePage, null);
+
+// An unapproved polish path must not damage an already validated baseline.
+const rejectPolishModel = async (_env, options) => {
+  if (String(options.user).includes('BOUNDED WEBSITE POLISH PHASE')) {
+    return {
+      text: JSON.stringify({ summary: 'Unauthorized file edit', files: { 'src/private.html': '<!doctype html><html lang="en"><head><title>bad</title></head><body><main><h1>Bad</h1></main></body></html>' } }),
+      provider: 'gemini',
+      model: 'test-model',
+      rawUsage: { prompt_tokens: 2, completion_tokens: 3, total_tokens: 5 },
+    };
+  }
+  return callModel(_env, options);
+};
+const safeAfterRejectedPolish = await buildStudioMultiPage({
+  env: {},
+  callModel: rejectPolishModel,
+  provider: 'automatic',
+  authUser: { sub: 'test-user' },
+  mode: 'build',
+  prompt: 'Build a multi-page restaurant website with Home, Menu, About, Reservations, and Contact pages.',
+  project: { id: 'project-polish-fallback', name: 'Restaurant', pages: [] },
+  files: {},
+  qualityContract: 'OVYX_TEST_WEBSITE_QUALITY_CONTRACT: safe fallbacks are required.',
+});
+assert.equal(safeAfterRejectedPolish.qualityPolish.status, 'rejected');
+assert.ok(safeAfterRejectedPolish.files['src/pages/Home.html'].includes('<h1>Home</h1>'));
+assert.equal(safeAfterRejectedPolish.files['src/private.html'], undefined, 'Unapproved polish paths must never be committed into the staged build.');
+assert.equal(safeAfterRejectedPolish.requirementVerification.ok, true);
+assert.equal(safeAfterRejectedPolish.rawUsage.total_tokens, 18 + 50 * 3 + 5);
 
 console.log('Web Studio multi-page integration tests passed.');
