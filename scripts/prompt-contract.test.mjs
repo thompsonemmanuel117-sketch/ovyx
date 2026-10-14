@@ -14,6 +14,7 @@ assert(contract.contactSignals.contactForm);
 assert(contract.contactSignals.bookings, 'Reservation capability should be recorded as an explicit site requirement.');
 assert(buildPromptContract('Make a restaurant website with a button to book a table.').contactSignals.bookings, 'Natural-language booking requests should be detected.');
 assert(buildPromptContract('Let visitors reserve online.').contactSignals.bookings, 'Reservation synonyms should be detected.');
+assert(buildPromptContract('Create an online shop with Add to Cart buttons.').contactSignals.shoppingCart, 'Explicit add-to-cart requirements should be detected.');
 
 const readiness = getWebStudioBuildClarification(
   'Build a restaurant website with a contact form that emails enquiries.',
@@ -81,5 +82,26 @@ const presentBooking = verifyPromptContractOutput(
   { pages: [{ title: 'Home' }] },
 );
 assert.equal(presentBooking.ok, true, JSON.stringify(presentBooking));
+
+const hiddenBookingOnly = verifyPromptContractOutput(
+  'Create a restaurant website with a button to book a table.',
+  { 'index.html': '<!doctype html><html><head><title>Site</title></head><body><main><h1>Welcome</h1></main><script>const label = "Book a table";</script></body></html>' },
+  { pages: [{ title: 'Home' }] },
+);
+assert(hiddenBookingOnly.issues.some(issue => issue.code === 'BOOKING_FLOW_MISSING'), 'JavaScript-only copy must not satisfy a visible booking requirement.');
+
+const missingCart = verifyPromptContractOutput(
+  'Create an online shop with Add to Cart buttons.',
+  { 'index.html': '<!doctype html><html><head><title>Shop</title></head><body><main><h1>Shop</h1><p>Discover our products.</p><button>Explore products</button></main></body></html>' },
+  { pages: [{ title: 'Home' }] },
+);
+assert(missingCart.issues.some(issue => issue.code === 'SHOPPING_CART_MISSING'), 'The verifier must report when the requested cart UI is omitted.');
+
+const presentCart = verifyPromptContractOutput(
+  'Create an online shop with Add to Cart buttons.',
+  { 'index.html': '<!doctype html><html><head><title>Shop</title></head><body><main><h1>Shop</h1><button>Add to cart</button></main></body></html>' },
+  { pages: [{ title: 'Home' }] },
+);
+assert.equal(presentCart.ok, true, JSON.stringify(presentCart));
 
 console.log('Web Studio prompt-contract tests passed.');
