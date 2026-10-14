@@ -731,6 +731,39 @@ if (!fs.existsSync(webStudioReliabilityPath) || !fs.existsSync(webStudioFeedback
   }
 }
 
+const webStudioQualityPath = path.join(root, 'assets/ovyx-webstudio-quality.js');
+const webStudioQualityTestPath = path.join(root, 'scripts/ovyx-webstudio-quality.test.mjs');
+const webStudioQualityBrowserTestPath = path.join(root, 'scripts/ovyx-webstudio-quality.browser.test.mjs');
+if (!fs.existsSync(webStudioQualityPath) || !fs.existsSync(webStudioQualityTestPath) || !fs.existsSync(webStudioQualityBrowserTestPath)) {
+  errors.push('Web Studio quality inspector: the source/browser quality runtime and regression tests must be present.');
+} else {
+  const quality = fs.readFileSync(webStudioQualityPath, 'utf8');
+  const qualityTest = fs.readFileSync(webStudioQualityTestPath, 'utf8');
+  const qualityBrowserTest = fs.readFileSync(webStudioQualityBrowserTestPath, 'utf8');
+  const middleware = fs.existsSync(shellMiddlewarePath) ? fs.readFileSync(shellMiddlewarePath, 'utf8') : '';
+  const headerRules = fs.existsSync(path.join(root, '_headers')) ? fs.readFileSync(path.join(root, '_headers'), 'utf8') : '';
+  const packageJson = fs.readFileSync(path.join(root, 'package.json'), 'utf8');
+  const excellencePrompts = fs.readFileSync(path.join(root, 'functions/_lib/prompts.js'), 'utf8');
+  if (
+    !quality.includes('OVYX WEB STUDIO QUALITY CONTRACT') ||
+    !quality.includes("WIDTHS = [320, 390, 768, 1024, 1440]") ||
+    !quality.includes("setAttribute('sandbox', 'allow-scripts')") ||
+    !quality.includes("connect-src 'none'") ||
+    !quality.includes("form-action 'none'") ||
+    !quality.includes('restoreSnapshot(studio, snapshot)') ||
+    !quality.includes('OVYX QUALITY INSPECTOR REPAIR') ||
+    !quality.includes('ovyx:webstudio-build-stage') ||
+    !qualityTest.includes('Responsive browser checks must cover phone, tablet and desktop widths') ||
+    !qualityBrowserTest.includes('Horizontal overflow') ||
+    !excellencePrompts.includes('ART DIRECTION AND DISTINCTIVENESS') ||
+    !middleware.includes('/assets/ovyx-webstudio-quality.js?v=20261014-1') ||
+    !headerRules.includes('/assets/ovyx-webstudio-quality.js') ||
+    !packageJson.includes('scripts/ovyx-webstudio-quality.test.mjs')
+  ) {
+    errors.push('Web Studio quality inspector: the real responsive matrix, safe sandbox, snapshot-protected targeted repair, truthful build stages, premium design contract, cache policy or regression wiring is incomplete.');
+  }
+}
+
 const guardianPatchApiPath = path.join(root, 'functions/api/admin/guardian-patch.js');
 const guardianPatchHelperPath = path.join(root, 'functions/_lib/ovyx-guardian-patch.js');
 const guardianPatchTestPath = path.join(root, 'scripts/ovyx-guardian-patch.test.mjs');
