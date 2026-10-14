@@ -587,6 +587,9 @@ if (
     !sentinelDiagnosisApi.includes('isSentinelAdmin') ||
     !sentinelDiagnosisApi.includes('changesApplied: false') ||
     !sentinelDiagnosisApi.includes('historySaved') ||
+    !sentinelDiagnosisApi.includes('MAX_DIAGNOSIS_HISTORY = 25') ||
+    !sentinelDiagnosisApi.includes('deleteFirestoreDocumentAtPath') ||
+    !sentinelDiagnosisApi.includes('slice(MAX_DIAGNOSIS_HISTORY)') ||
     !sentinelApi.includes('function publicDiagnosisRecord(value, fallbackId = \'\')') ||
     !sentinelApi.includes("'diagnoses'") ||
     !sentinelApi.includes('latestDiagnosis') ||
