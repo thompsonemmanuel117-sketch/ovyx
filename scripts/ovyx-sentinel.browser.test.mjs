@@ -64,6 +64,25 @@ try {
       checks: [...latestReport.checks, { id: 'sentinel', path: 'Scheduler', status: 'warning', summary: 'No recent scheduled run is confirmed.' }],
     };
 
+    await page.route('**/api/admin/sentinel-diagnose', async route => {
+      const req = route.request();
+      assert.equal(req.method(), 'POST', '[' + target.name + '] AI diagnosis must use POST');
+      assert.equal(req.headers()['authorization'], 'Bearer sentinel-test-token', '[' + target.name + '] AI diagnosis must send the signed-in owner token');
+      calls.push({ method: req.method(), payload: { diagnosis: true } });
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          reportId: 'run_scan',
+          generatedAt: '2026-10-12T21:01:00.000Z',
+          model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+          diagnosis: 'Findings: the schedule warning is evidence. Likely cause: the last scheduled scan is not recent. Next safe step: check the Cron deployment workflow. No repair was applied.',
+          changesApplied: false,
+          evidenceScope: 'latest-saved-sentinel-report-only'
+        })
+      });
+    });
     await page.route('**/api/admin/sentinel', async route => {
       const req = route.request();
       const authorization = req.headers()['authorization'];
@@ -147,10 +166,17 @@ try {
     assert.match(await page.locator('[data-ovsx-plan]').innerText(), /Verify background Sentinel scheduling/i, '[' + target.name + '] the saved warning should produce a relevant remediation checklist');
     assert.match(await page.locator('[data-ovsx-plan]').innerText(), /Advisory only/i, '[' + target.name + '] the plan must clearly state that it does not apply changes');
 
+    await page.locator('[data-ovsx="diagnose"]').click();
+    await page.locator('[data-ovsx-diagnosis]').waitFor({ state: 'visible' });
+    assert.match(await page.locator('[data-ovsx-diagnosis]').innerText(), /AI incident diagnosis/i, '[' + target.name + '] the AI diagnostic result should be shown separately from a rule-based plan');
+    assert.match(await page.locator('[data-ovsx-diagnosis]').innerText(), /schedule warning is evidence/i, '[' + target.name + '] the diagnostic result should be visible as plain text');
+    assert.match(await page.locator('[data-ovsx-diagnosis]').innerText(), /No source files, provider keys, Cloudflare settings, or deployments were changed/i, '[' + target.name + '] the UI must disclose the diagnosis-only boundary');
+
     await page.locator('[data-ovsx="wake"]').click();
     assert.match(await page.locator('[data-ovsx-status]').innerText(), /Wake word paused/i);
     assert.deepEqual(errors, [], '[' + target.name + '] Sentinel runtime errors: ' + errors.join('; '));
-    assert.ok(calls.some(call => call.method === 'GET') && calls.some(call => call.method === 'POST'), '[' + target.name + '] both saved-report and scan routes should be exercised');
+    assert.ok(calls.some(call => call.method === 'GET') && calls.some(call => call.method === 'POST'), '[' + target.name + '] saved-report, scan and diagnosis routes should be exercised');
+    assert.ok(calls.some(call => call.payload && call.payload.diagnosis === true), '[' + target.name + '] the explicit AI diagnosis route should be exercised');
     console.log('PASS Sentinel ' + target.name + ': admin-only visibility, authenticated API, report rendering, opt-in wake word, scan command, voice reply, and pause controls.');
     await page.close();
   }
