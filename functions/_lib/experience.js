@@ -441,7 +441,7 @@ const ARCHETYPES = [
   },
   {
     id: 'saas',
-    triggers: ['saas', 'software', 'platform', 'product', 'startup', 'ai tool', 'app', 'b2b'],
+    triggers: ['saas', 'software', 'product', 'startup', 'ai tool', 'b2b'],
     mission: 'Make value obvious quickly, then move serious users toward activation.',
     mustHave: [
       'clear positioning',
