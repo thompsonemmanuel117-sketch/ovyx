@@ -19,7 +19,7 @@ export function guardianPatchablePath(value) {
   if (!isGuardianReadablePath(path)) return false;
   if (!/\.(?:js|mjs|cjs|ts|tsx|jsx|html?|css|md|mdx)$/i.test(path)) return false;
   if (/(?:^|\/)(?:\.github|sentinel-worker|node_modules|dist|build|coverage|vendor)(?:\/|$)/i.test(path)) return false;
-  if (/^(?:wrangler\.[^/]+|_headers|_redirects|package\.json|package-lock\.json|functions\/api\/_lib\/auth\.js|functions\/api\/_lib\/http\.js|functions\/_lib\/firebase-admin\.js|functions\/api\/admin\/guardian-patch\.js|functions\/_lib\/ovyx-guardian-patch\.js)$/i.test(path)) return false;
+  if (/^(?:wrangler\.[^/]+|_headers|_redirects|package\.json|package-lock\.json|functions\/api\/_lib\/auth\.js|functions\/api\/_lib\/http\.js|functions\/_lib\/firebase-admin\.js|functions\/api\/admin\/guardian-patch\.js|functions\/api\/admin\/guardian-repo\.js|functions\/api\/admin\/sentinel\.js|functions\/api\/admin\/sentinel-diagnose\.js|functions\/_lib\/ovyx-guardian-patch\.js|functions\/_lib\/ovyx-guardian-repo\.js|functions\/_lib\/ovyx-sentinel\.js|functions\/_middleware\.js)$/i.test(path)) return false;
   if (/(?:^|\/)(?:\.env(?:\.[^/]*)?|.*(?:secret|credential|private[-_]?key|service-account).*)$/i.test(path)) return false;
   return true;
 }
