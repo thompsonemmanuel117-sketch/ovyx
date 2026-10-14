@@ -75,6 +75,12 @@ assert.ok(prompts.includes('Make at most one bounded targeted repair pass'), 'Th
 assert.ok(prompts.includes('appropriate aria-expanded, aria-controls, aria-selected or aria-pressed state'), 'Web Studio prompts must require accessible state that browser checks can exercise.');
 assert.ok(prompts.includes('4.5:1 for normal text and 3:1 for large/bold text'), 'The generation contract must state readable text-contrast targets.');
 assert.ok(assistant.includes('qualityContract: WEB_STUDIO_EXCELLENCE'), 'The real Web Studio route must pass its premium quality contract into the multi-page builder.');
+const multipage = fs.readFileSync('functions/_lib/studio-multipage.js', 'utf8');
+assert.ok(multipage.includes('OVYX WEB STUDIO BOUNDED WEBSITE POLISH PHASE'), 'Multi-page builds must receive a bounded final design-polish pass.');
+assert.ok(multipage.includes('selectBoundedPolishTargets'), 'Polish context must be budgeted to protect large builds and provider limits.');
+assert.ok(multipage.includes('allowedPolishPaths'), 'Polish output must be restricted to an explicit file allowlist.');
+assert.ok(multipage.includes('validateStagedSite(candidate, prompt, siteMap)'), 'Polished files must pass the same source and prompt-requirement checks as the baseline.');
+assert.ok(multipage.includes('const baselineStaged = staged.map(item => ({ ...item }));'), 'A valid baseline must be retained so a failed polish cannot destroy a good build.');
 assert.ok(prompts.includes('visible :focus/:focus-visible indicators'), 'The generation contract must require visible keyboard focus cues.');
 assert.ok(prompts.includes('1,800 rendered elements per route'), 'The generation contract must provide a concrete DOM-size budget.');
 assert.ok(!runtime.includes('MAX_BROWSER_PAGES'), 'Responsive browser smoke checks must not silently exclude routes past a fixed route cap.');
