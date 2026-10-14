@@ -28,6 +28,9 @@ on:
       - 'functions/api/ai/provider-availability.js'
       - 'scripts/provider-availability.test.mjs'
       - 'scripts/ovyx-provider-availability.browser.test.mjs'
+      - 'index.html'
+      - 'scripts/ovyx-admin-hub.test.mjs'
+      - 'scripts/ovyx-admin-hub.browser.test.mjs'
       - 'package.json'
       - '.github/workflows/ovyx-assistant-workspace-browser.yml'
   workflow_dispatch:
@@ -70,6 +73,11 @@ jobs:
           npx wrangler pages dev . --ip 127.0.0.1 --port 8788 > /tmp/ovyx-pages.log 2>&1 &
           echo $! > /tmp/ovyx-pages.pid
           curl --retry 30 --retry-connrefused --retry-delay 2 --fail http://127.0.0.1:8788/ -o /dev/null
+
+      - name: Exercise Admin Modules hub in desktop and mobile Chromium
+        run: node scripts/ovyx-admin-hub.browser.test.mjs
+        env:
+          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
 
       - name: Exercise assistant workspace in desktop and mobile Chromium
         run: node scripts/ovyx-assistant-workspace.browser.test.mjs
