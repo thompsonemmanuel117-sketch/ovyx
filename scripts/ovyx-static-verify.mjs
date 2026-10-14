@@ -578,6 +578,11 @@ if (
   const sentinelCompanionApi = fs.readFileSync(sentinelCompanionApiPath, 'utf8');
   const sentinelCI = fs.readFileSync(sentinelCIPath, 'utf8');
   const sentinelClient = fs.readFileSync(sentinelClientPath, 'utf8');
+  try {
+    execFileSync(process.execPath, ['--check'], { input: sentinelClient, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+  } catch (error) {
+    errors.push('assets/ovyx-sentinel.js: JavaScript syntax check failed: ' + String(error.stderr || error.stdout || error.message).trim());
+  }
   const sentinelMiddleware = fs.existsSync(sentinelMiddlewarePath) ? fs.readFileSync(sentinelMiddlewarePath, 'utf8') : '';
   const headersPath = path.join(root, '_headers');
   const headers = fs.existsSync(headersPath) ? fs.readFileSync(headersPath, 'utf8') : '';
