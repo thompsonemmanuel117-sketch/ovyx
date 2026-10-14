@@ -19,7 +19,8 @@
     "No exposed API keys, private keys, or credentials in client-side project files",
     "HTML metadata, semantic landmarks, keyboard access, contrast, and image alternatives are checked",
     "Existing unrelated pages and working features are preserved on targeted edits",
-    "Remaining untested provider, deployment, and live-integration behavior is reported as unverified"
+    "Remaining untested provider, deployment, and live-integration behavior is reported as unverified",
+    "Rendered text on known solid backgrounds meets WCAG AA contrast targets, and keyboard-focusable controls have visible focus cues."
   ],
   "siteCategories": [
     {

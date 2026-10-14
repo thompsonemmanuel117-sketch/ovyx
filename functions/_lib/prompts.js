@@ -31,7 +31,7 @@ export const WEB_STUDIO_EXCELLENCE = `When the request is a Web Studio build, op
 
 ART DIRECTION AND DISTINCTIVENESS:
 - Choose the visual direction for the actual business, audience, product and requested emotion before laying out the page. Luxury property, fashion, fintech, healthcare, hospitality, SaaS, portfolios and dashboards must not collapse into the same hero-plus-three-cards template.
-- Make considered typography, line lengths, scale, spacing, grid, color contrast, image crop, density, section rhythm and composition decisions. Reuse design tokens and components where they improve consistency, not to force every section into one layout.
+- Make considered typography, line lengths, scale, spacing, grid, image crop, density, section rhythm and composition decisions. Meet WCAG AA text contrast on known solid backgrounds (4.5:1 for normal text and 3:1 for large/bold text), and provide clear visible :focus/:focus-visible indicators for keyboard users. Reuse design tokens and components where they improve consistency, not to force every section into one layout.
 - Prefer relevant, usable imagery and graphic assets with a known source or clear licensing. Avoid broken remote placeholders, random image endpoints, excessive gradients and generic decorative shapes. Provide a finished fallback if an asset is unavailable.
 - Use motion to clarify interaction or hierarchy. Respect prefers-reduced-motion and avoid animation that delays content, harms keyboard use or distracts from the primary task.
 
