@@ -89,6 +89,7 @@ assert.ok(multipage.includes('const baselineStaged = staged.map(item => ({ ...it
 assert.ok(multipage.includes('auditWebsiteIntegrity(outputFilesByPath, siteMap)'), 'Multi-page builds must audit internal routes and local assets before accepting a polish result.');
 assert.ok(multipage.includes('hasNewIntegrityFindings(integrityBefore, candidateChecks.integrity)'), 'A polish result must not introduce new source-level link or asset defects.');
 assert.ok(multipage.includes('integrityPreferredPaths'), 'Files with integrity findings must be prioritized for the bounded repair pass.');
+assert.ok(multipage.includes('External resource availability and live integrations were not verified by this static audit.'), 'The build summary must clearly separate static integrity checks from live verification.');
 assert.ok(integrity.includes('INTERNAL_ROUTE_UNMAPPED'), 'The integrity audit must detect links outside the approved page route manifest.');
 assert.ok(integrity.includes('LOCAL_CSS_ASSET_MISSING'), 'The integrity audit must detect missing CSS assets.');
 assert.ok(integrity.includes('ORPHAN_FRAGMENT'), 'The integrity audit must detect broken same-page anchors.');
