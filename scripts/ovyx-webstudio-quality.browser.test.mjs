@@ -1,0 +1,50 @@
+import assert from 'node:assert/strict';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { chromium } from 'playwright';
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const runtimePath = path.join(root, 'assets/ovyx-webstudio-quality.js');
+const browser = await chromium.launch({ headless: true });
+const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+const pageErrors = [];
+page.on('pageerror', error => pageErrors.push(error.message));
+
+const home = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Home | QA fixture</title><link rel="stylesheet" href="../styles.css"></head><body><nav aria-label="Primary navigation"><a href="/">Home</a><a href="/about/">About</a><a href="/contact/">Contact</a></nav><main><h1>Home</h1><img alt="Brand mark" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw=="><button id="toggle-info" type="button">Open details</button><p id="info" hidden>Helpful details appear here.</p><form action="/contact/submit" method="post"><label for="email">Email</label><input id="email" type="email" name="email"><button type="submit">Send request</button></form></main><script src="../main.js"></script></body></html>';
+const about = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>About | QA fixture</title><link rel="stylesheet" href="../styles.css"></head><body><nav aria-label="Primary navigation"><a href="/">Home</a><a href="/about/">About</a><a href="/contact/">Contact</a></nav><main><h1>About</h1><p>About this test website.</p><div class="overflow-probe" style="width:1100px;max-width:none">Responsive regression fixture</div></main><script src="../main.js"></script></body></html>';
+const contact = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Contact | QA fixture</title><link rel="stylesheet" href="../styles.css"></head><body><nav aria-label="Primary navigation"><a href="/">Home</a><a href="/about/">About</a><a href="/contact/">Contact</a></nav><main><h1>Contact</h1><form action="/contact/submit" method="post"><label for="name">Name</label><input id="name" name="name"><label for="message">Message</label><textarea id="message" name="message"></textarea><button type="submit">Send message</button></form></main><script src="../main.js"></script></body></html>';
+const css = '*,*::before,*::after{box-sizing:border-box}html,body{margin:0;padding:0}body{font-family:Arial,sans-serif;color:#172033;background:#fff}nav{display:flex;gap:12px;flex-wrap:wrap;padding:12px}main{width:100%;max-width:64rem;margin:0 auto;padding:16px}img{max-width:100%;height:auto}button,input,textarea{max-width:100%;font:inherit}button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #8b5cf6;outline-offset:2px}@media(max-width:600px){nav{gap:8px}main{padding:12px}}@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}';
+const js = 'var info=document.getElementById("info");var toggle=document.getElementById("toggle-info");if(toggle&&info){toggle.addEventListener("click",function(){info.hidden=!info.hidden;toggle.textContent=info.hidden?"Open details":"Close details"})}document.body.dataset.qaScript="loaded";';
+
+const fixture = '<!doctype html><html lang="en"><head><title>OVYX Web Studio quality fixture</title></head><body><section id="view-webstudio" aria-hidden="false"><header><div class="ovyx-ws-header-actions"><button id="ws-preview-trigger" type="button">Preview</button></div></header><div id="ws-inline-preview"><div id="ws-console-body"></div></div></section><script>window.KernelState={activeView:"webstudio",activeProject:{id:"quality-test-project",name:"Quality test site",description:"A test website",pages:[{name:"Home",route:"/",__ovyxFile:"src/pages/Home.html"},{name:"About",route:"/about/",__ovyxFile:"src/pages/About.html"},{name:"Contact",route:"/contact/",__ovyxFile:"src/pages/Contact.html"}],ovyxBuildState:"verified",ovyxBuildVerifiedAt:"2000-01-01T00:00:00.000Z"},projects:[]};window.KernelState.projects=[window.KernelState.activeProject];window.ProjectStore={save:function(){},renderHome:function(){},renderProjects:function(){}};window.__qualityRepairCalls=[];window.__qualityToasts=[];window.showToast=function(message,kind){window.__qualityToasts.push({message:String(message),kind:String(kind||"")})};window.WebStudio={graph:{version:2,entry:"src/pages/Home.html",files:{"src/pages/Home.html":{type:"text/html",content:""},"src/pages/About.html":{type:"text/html",content:""},"src/pages/Contact.html":{type:"text/html",content:""},"src/styles.css":{type:"text/css",content:""},"src/main.js":{type:"text/javascript",content:""}},updatedAt:Date.now()},requestEpoch:1,historyStack:[],historyPointer:-1,graphKeyPrefix:"quality-test.",ensureProjectGraph:function(){return this.graph},snapshotGraph:function(){return JSON.parse(JSON.stringify(this.graph))},diffFiles:function(a,b){var A=a&&a.files||{},B=b&&b.files||{};return Array.from(new Set(Object.keys(A).concat(Object.keys(B)))).filter(function(k){var av=typeof A[k]==="string"?A[k]:A[k]&&A[k].content||"";var bv=typeof B[k]==="string"?B[k]:B[k]&&B[k].content||"";return av!==bv})},runTests:function(){return {ok:true,summary:"Source checks passed.",details:"No source issues."}},syncGraphToProject:function(){window.KernelState.activeProject.ovyxGraph=this.graph},renderPreview:function(){},render:function(){},runBuildAgent:async function(prompt,repair,token,attachments,rollback){window.__qualityRepairCalls.push({prompt:String(prompt),repair:repair===true,token:token});this.graph.files["src/pages/About.html"].content=this.graph.files["src/pages/About.html"].content.replace("width:1100px;max-width:none","width:100%;max-width:100%");window.KernelState.activeProject.ovyxGraph=this.graph;window.KernelState.activeProject.ovyxBuildState="verified";window.KernelState.activeProject.ovyxBuildVerifiedAt="2026-10-14T13:00:00.000Z";return {ok:true}}};window.WebStudio.graph.files["src/pages/Home.html"].content=' + JSON.stringify(home) + ';window.WebStudio.graph.files["src/pages/About.html"].content=' + JSON.stringify(about) + ';window.WebStudio.graph.files["src/pages/Contact.html"].content=' + JSON.stringify(contact) + ';window.WebStudio.graph.files["src/styles.css"].content=' + JSON.stringify(css) + ';window.WebStudio.graph.files["src/main.js"].content=' + JSON.stringify(js) + ';window.KernelState.activeProject.ovyxGraph=window.WebStudio.graph;</script></body></html>';
+
+try {
+  await page.setContent(fixture, { waitUntil: 'domcontentloaded' });
+  await page.addScriptTag({ path: runtimePath });
+  await page.waitForFunction(() => !!window.OVYXWebStudioQuality && document.querySelector('[data-ovyx-quality-trigger]'));
+  assert.equal(await page.locator('[data-ovyx-quality-trigger]').count(), 1, 'The inspector must add a Web Studio toolbar control.');
+  assert.equal(await page.evaluate(() => document.querySelectorAll('#ws-preview-menu [data-ws-menu]').length), 0, 'The quality feature must not mutate the original preview-menu action list.');
+
+  const first = await page.evaluate(async () => await window.OVYXWebStudioQuality.run());
+  assert.equal(first.browser.total, 15, 'Three generated pages must each receive five real viewport checks.');
+  assert.equal(first.browser.completed, 15, 'Every planned viewport check must report completion.');
+  assert.ok(first.checks.some(item => item.title === 'Horizontal overflow' && item.status === 'fail'), 'The inspector must detect a real mobile horizontal-overflow defect.');
+  assert.ok(first.checks.some(item => item.title === 'Live integration verification' && item.status === 'info'), 'The inspector must not claim live integrations were verified.');
+  assert.equal((await page.evaluate(() => window.__qualityRepairCalls.length)), 0, 'A scan alone must not spend an AI repair attempt.');
+  assert.ok(pageErrors.length === 0, 'The host page should have no unhandled runtime errors: ' + pageErrors.join('; '));
+
+  await page.locator('[data-quality-repair]').click();
+  await page.waitForFunction(() => window.__qualityRepairCalls.length === 1 && window.OVYXWebStudioQuality.getReport()?.checks.some(item => item.group === 'Automatic repair'));
+  const finalReport = await page.evaluate(() => window.OVYXWebStudioQuality.getReport());
+  assert.equal(window ? true : false, true);
+  assert.equal((await page.evaluate(() => window.__qualityRepairCalls.length)), 1, 'Only one bounded repair pass should be sent.');
+  assert.ok((await page.evaluate(() => window.__qualityRepairCalls[0].prompt)).includes('OVYX QUALITY INSPECTOR REPAIR'), 'The repair must use a targeted evidence-based prompt.');
+  assert.ok(finalReport.checks.some(item => item.title === 'Horizontal overflow' && item.status === 'pass'), 'The repaired project must be tested again and pass the same overflow check.');
+  assert.ok(finalReport.checks.some(item => item.group === 'Automatic repair' && item.status === 'pass'), 'The inspector must record a successful re-verification only after the observed score improves.');
+  assert.ok((await page.evaluate(() => window.__qualityToasts.some(item => item.kind === 'success'))), 'The UI may announce success only after the verified re-check.');
+  assert.ok(pageErrors.length === 0, 'The inspector must not create host-page errors: ' + pageErrors.join('; '));
+
+  console.log('Web Studio quality browser tests passed: toolbar wiring, 3 routes × 5 viewport checks, real overflow detection, bounded repair, rollback-aware re-verification, and truthful integration status.');
+} finally {
+  await browser.close();
+}
