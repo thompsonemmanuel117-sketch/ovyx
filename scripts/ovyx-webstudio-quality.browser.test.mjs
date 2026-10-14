@@ -104,7 +104,39 @@ try {
   assert.equal(await page.evaluate(() => window.WebStudio.graph.files["src/pages/About.html"].content.includes("width:1100px;max-width:none")), false, 'The automatically repaired graph must not retain the known overflow defect.');
   assert.ok(pageErrors.length === 0, 'The automatic lifecycle gate must not create browser errors: ' + pageErrors.join('; '));
 
-  console.log('Web Studio quality browser tests passed: toolbar wiring, source, 3 routes × 5 viewport checks, safe-control interaction smoke test, manual and automatic bounded repair, post-build quality gate, verified-preview release timing, rollback-aware verification, and truthful integration status.');
+  // Regression: every route in a larger agency-sized project must receive browser coverage.
+  const largeProjectPages = await page.evaluate(() => {
+    const studio = window.WebStudio;
+    const project = window.KernelState.activeProject;
+    const source = studio.graph.files['src/pages/About.html'].content;
+    for (let index = 1; index <= 15; index += 1) {
+      const name = 'Coverage ' + index;
+      const route = '/coverage-' + index + '/';
+      const filePath = 'src/pages/Coverage-' + index + '.html';
+      const content = source
+        .replace(/<title>[^<]*<\/title>/i, '<title>' + name + ' | QA fixture</title>')
+        .replace(/<h1\b[^>]*>[\s\S]*?<\/h1>/i, '<h1>' + name + '</h1>');
+      studio.graph.files[filePath] = { type: 'text/html', content };
+      project.pages.push({ name, route, __ovyxFile: filePath });
+    }
+    project.ovyxGraph = studio.graph;
+    studio.graph.updatedAt = Date.now();
+    return Object.keys(studio.graph.files).filter(filePath => /\.html?$/i.test(filePath)).length;
+  });
+  assert.equal(largeProjectPages, 18, 'The large-project fixture must contain 18 HTML routes.');
+  await page.locator('[data-quality-run]').click();
+  await page.waitForFunction(() => {
+    const report = window.OVYXWebStudioQuality?.getReport();
+    return report?.finishedAt && report.browser.pagesAvailable === 18 && report.browser.total === 45 && report.browser.completed === 45;
+  }, null, { timeout: 120000 });
+  const largeReport = await page.evaluate(() => window.OVYXWebStudioQuality.getReport());
+  assert.equal(largeReport.browser.pagesTested, 18, 'All routes, including routes after the former 12-route cap, must be browser-tested.');
+  assert.equal(largeReport.browser.total, 45, 'Three core routes receive five viewport checks each; fifteen additional routes receive mobile and desktop checks.');
+  assert.ok(largeReport.checks.some(item => item.group === 'Coverage' && item.title === 'Responsive browser matrix coverage' && item.status === 'pass' && item.detail.includes('all 18 generated HTML route')), 'The report must state its adaptive route coverage honestly.');
+  assert.ok(largeReport.checks.some(item => item.group === 'Browser testing' && item.title === 'Horizontal overflow' && item.status !== 'fail'), 'The large-project fixture must not introduce a horizontal-overflow regression.');
+  assert.ok(pageErrors.length === 0, 'Large-project route coverage must not create browser errors: ' + pageErrors.join('; '));
+
+  console.log('Web Studio quality browser tests passed: toolbar wiring, source, full core viewport matrix, adaptive browser coverage for all 18 routes, safe-control interaction smoke test, manual and automatic bounded repair, post-build quality gate, verified-preview release timing, rollback-aware verification, and truthful integration status.');
 } finally {
   await browser.close();
 }
