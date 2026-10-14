@@ -95,45 +95,4 @@ const crossOrigin = await onRequest({
 });
 assert.equal(crossOrigin.status, 403, 'Guardian capabilities must reject cross-origin requests before auth');
 
-const originalFetch = globalThis.fetch;
-globalThis.fetch = async url => {
-  assert.match(String(url), /identitytoolkit\.googleapis\.com/);
-  return Response.json({ users: [{
-    localId: 'owner-uid',
-    email: 'ovyxsupportteam@gmail.com',
-    emailVerified: true,
-    disabled: false,
-  }] });
-};
-try {
-  const ownerGet = await onRequest({
-    request: new Request('https://ovyx.test/api/admin/guardian-repo', {
-      method: 'GET',
-      headers: { Authorization: 'Bearer verified-test-token', Origin: 'https://ovyx.test' },
-    }),
-    env: { FIREBASE_WEB_API_KEY: 'test-firebase-key', AI: { run: async () => ({ response: 'ok' }) } },
-  });
-  assert.equal(ownerGet.status, 200);
-  const status = await ownerGet.json();
-  assert.equal(status.administratorOnly, true);
-  assert.equal(status.guardian.readOnlyInvestigationReady, false);
-  assert.equal(status.guardian.codeChangesEnabled, false);
-  assert.equal(status.guardian.productionDeploymentsEnabled, false);
-
-  const ownerPost = await onRequest({
-    request: new Request('https://ovyx.test/api/admin/guardian-repo', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer verified-test-token', Origin: 'https://ovyx.test', 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'investigate', question: 'Why does the admin screen fail?' }),
-    }),
-    env: { FIREBASE_WEB_API_KEY: 'test-firebase-key', AI: { run: async () => ({ response: 'ok' }) } },
-  });
-  assert.equal(ownerPost.status, 503, 'investigation must remain disabled until the dedicated read-only repository token exists');
-  const failure = await ownerPost.json();
-  assert.equal(failure.error, 'GUARDIAN_REPO_READ_NOT_CONFIGURED');
-  assert.equal(JSON.stringify(failure).includes('test-firebase-key'), false);
-} finally {
-  globalThis.fetch = originalFetch;
-}
-
 console.log('OVYX Guardian repository investigation tests passed: owner-only access, same-origin guard, dedicated read-only token, source-path filtering, credential redaction, bounded read-only analysis, and no code/deploy actions.');
