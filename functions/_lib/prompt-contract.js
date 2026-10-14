@@ -9,6 +9,7 @@
 const MAX_PROMPT_CHARS = 30000;
 const MAX_REQUIREMENTS = 28;
 const BOOKING_INTENT_PATTERN = /\b(?:bookings?|book\s+(?:a\s+)?(?:table|appointment|visit)|book\s+(?:online|now|today)|reserv(?:e|ation|ations|ing)|appointments?|schedule\s+(?:a\s+)?(?:visit|table|appointment))\b/i;
+const SHOPPING_CART_PATTERN = /\b(?:shopping\s+cart|cart|basket|add(?:ing)?\s+to\s+(?:the\s+)?cart|shopping\s+bag|add\s+to\s+(?:the\s+)?bag)\b/i;
 
 const PAGE_ALIASES = [
   { title: 'Home', pattern: /\b(?:home(?:page)?|landing page)\b/i },
@@ -55,6 +56,19 @@ const NON_REAL_EMAIL_DOMAINS = new Set([
 
 function clean(value, max = MAX_PROMPT_CHARS) {
   return String(value ?? '').replace(/\u0000/g, '').trim().slice(0, max);
+}
+
+function visibleHtmlText(html) {
+  let source = String(html || '')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/<(head|script|style|template)\b[\s\S]*?<\/\1\s*>/gi, ' ');
+  const accessibleLabels = [...source.matchAll(/\b(?:aria-label|title|alt|placeholder|value)\s*=\s*(?:"([^"]*)"|\x27([^\x27]*)\x27|([^\s>]+))/gi)]
+    .map(match => String(match[1] ?? match[2] ?? match[3] ?? '').trim())
+    .filter(Boolean);
+  const text = source.replace(/<[^>]+>/g, ' ');
+  return (text + ' ' + accessibleLabels.join(' '))
+    .replace(/&(?:nbsp|amp|lt|gt|quot|apos|#39);/gi, ' ')
+    .replace(/\s+/g, ' ').trim();
 }
 
 function normalizedKey(value) {
@@ -211,6 +225,7 @@ export function buildPromptContract(prompt) {
       bookings: BOOKING_INTENT_PATTERN.test(source),
       newsletter: /\b(?:newsletter|subscribe|subscription form)\b/i.test(source),
       payments: /\b(?:payments?|checkout|accept cards|paystack|flutterwave|stripe|paypal|buy now|subscriptions? billing)\b/i.test(source),
+      shoppingCart: SHOPPING_CART_PATTERN.test(source),
       authentication: /\b(?:login|log in|sign in|sign up|user accounts?|authentication|register an account)\b/i.test(source),
       backendData: /\b(?:save|store|persist|database|backend|customer records?|booking records?|order records?)\b/i.test(source),
     },
@@ -294,6 +309,7 @@ export function verifyPromptContractOutput(prompt, files, siteMap = {}) {
   const htmlEntries = entries.filter(([path]) => /\.html?$/i.test(path));
   const allText = entries.map(([, value]) => value).join('\n');
   const htmlText = htmlEntries.map(([, value]) => value).join('\n');
+  const visibleText = htmlEntries.map(([, value]) => visibleHtmlText(value)).join(' ');
   const pageEntries = Array.isArray(siteMap && siteMap.pages) ? siteMap.pages : [];
   const pageKeys = new Set(pageEntries.map(page => normalizedKey(page && (page.title || page.name))).filter(Boolean));
   for (const [path] of htmlEntries) {
@@ -321,10 +337,16 @@ export function verifyPromptContractOutput(prompt, files, siteMap = {}) {
       message: 'The brief explicitly asks for a contact/enquiry form, but no HTML form was generated.',
     });
   }
-  if (contract.contactSignals.bookings && !BOOKING_INTENT_PATTERN.test(allText)) {
+  if (contract.contactSignals.bookings && !BOOKING_INTENT_PATTERN.test(visibleText)) {
     issues.push({
       code: 'BOOKING_FLOW_MISSING',
       message: 'The brief asks for booking, reservation or appointment capability, but no corresponding booking path or UI text was generated.',
+    });
+  }
+  if (contract.contactSignals.shoppingCart && !SHOPPING_CART_PATTERN.test(visibleText)) {
+    issues.push({
+      code: 'SHOPPING_CART_MISSING',
+      message: 'The brief asks for a shopping cart or add-to-cart capability, but no corresponding cart UI text or accessible control label was generated.',
     });
   }
   if (contract.contactSignals.newsletter && !/(?:newsletter|subscribe|subscription)/i.test(allText)) {
