@@ -8,7 +8,7 @@ const AI_PROVIDER_TARGETS = Object.freeze([
   { id: 'ai_deepseek', provider: 'DeepSeek', key: 'DEEPSEEK_API_KEY', url: 'https://api.deepseek.com/models', headers: key => ({ Authorization: 'Bearer ' + key }) },
   { id: 'ai_openai', provider: 'OpenAI', key: 'OPENAI_API_KEY', url: 'https://api.openai.com/v1/models', headers: key => ({ Authorization: 'Bearer ' + key }) },
   { id: 'ai_groq', provider: 'Groq', key: 'GROQ_API_KEY', url: 'https://api.groq.com/openai/v1/models', headers: key => ({ Authorization: 'Bearer ' + key }) },
-  { id: 'ai_openrouter', provider: 'OpenRouter', key: 'OPENROUTER_API_KEY', url: 'https://openrouter.ai/api/v1/models', headers: key => ({ Authorization: 'Bearer ' + key }) },
+  { id: 'ai_openrouter', provider: 'OpenRouter', key: 'OPENROUTER_API_KEY', url: 'https://openrouter.ai/api/v1/key', headers: key => ({ Authorization: 'Bearer ' + key }) },
 ]);
 
 async function checkAIProviderCredential(target, env, fetchImpl, now) {
