@@ -75,6 +75,10 @@ assert.ok(prompts.includes('Make at most one bounded targeted repair pass'), 'Th
 assert.ok(prompts.includes('appropriate aria-expanded, aria-controls, aria-selected or aria-pressed state'), 'Web Studio prompts must require accessible state that browser checks can exercise.');
 assert.ok(prompts.includes('4.5:1 for normal text and 3:1 for large/bold text'), 'The generation contract must state readable text-contrast targets.');
 assert.ok(assistant.includes('qualityContract: WEB_STUDIO_EXCELLENCE'), 'The real Web Studio route must pass its premium quality contract into the multi-page builder.');
+assert.ok(assistant.includes("validateOrRepairSinglePageBuild"), 'Single-page Web Studio builds must run the deterministic source/requirement checks.');
+assert.ok(assistant.includes('structuredFields[key] = result[key]'), 'Unparseable or file-less single-page responses must still expose an explicit not-evaluated QA status.');
+assert.ok(assistant.includes("mode === 'build' && !multiPageBuild"), 'Single-page QA must not be applied over the separately validated multi-page builder path.');
+assert.ok(assistant.includes("'qualityVerification', 'siteIntegrity', 'requirementRepair'"), 'The API should surface single-page QA status in the structured response.');
 assert.ok(/WEB_STUDIO_SYSTEM_PROMPT\s*\+\s*'\\n\\n'\s*\+\s*WEB_STUDIO_EXCELLENCE/.test(assistant), 'Single-page Web Studio system instructions must use real line breaks between the core prompt and the premium quality contract.');
 assert.ok(/'\\n\\nEXPERIENCE INTELLIGENCE:\\n'/.test(assistant), 'The experience brief must be separated with real line breaks for the model.');
 assert.ok(/'\\n\\nCLIENT STUDIO INSTRUCTIONS:\\n'/.test(assistant), 'Client studio instructions must be separated with real line breaks for the model.');

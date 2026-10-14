@@ -7,6 +7,7 @@ import {
 } from '../../_lib/http.js';
 import { callModel } from '../../_lib/providers.js';
 import { buildStudioMultiPage } from '../../_lib/studio-multipage.js';
+import { validateOrRepairSinglePageBuild } from '../../_lib/studio-singlepage.js';
 import { WEB_STUDIO_SYSTEM_PROMPT, WEB_STUDIO_EXCELLENCE } from '../../_lib/prompts.js';
 import { buildExperienceBrief, isWebStudioPrompt } from '../../_lib/experience.js';
 import { beginAIQuota, finalizeAIQuota, refundDailyPrompt } from '../../_lib/token-quota.js';
@@ -182,7 +183,27 @@ When discussing project changes, distinguish recommendations from changes actual
             authUser: user,
           }
         );
-        quotaOutputText = result.text || '';
+
+        if (isWebStudio && mode === 'build' && !multiPageBuild) {
+          const singlePageResult = await validateOrRepairSinglePageBuild({
+            env: context.env,
+            callModel,
+            result,
+            provider: String(payload.provider || 'automatic').toLowerCase(),
+            model: payload.model,
+            authUser: user,
+            prompt: promptText,
+            system,
+            projectContext,
+            quotaInputText,
+            quotaOutputText: result.text || '',
+          });
+          result = singlePageResult.result;
+          quotaInputText = singlePageResult.quotaInputText || quotaInputText;
+          quotaOutputText = singlePageResult.quotaOutputText || result.text || '';
+        } else {
+          quotaOutputText = result.text || '';
+        }
       }
     } catch (providerError) {
       if (providerError?.partialUsage) {
@@ -233,10 +254,15 @@ When discussing project changes, distinguish recommendations from changes actual
 
     const structuredFields = {};
     if (structured && typeof structured === 'object') {
-      for (const key of ['project', 'updatedProject', 'files', 'fileEdits', 'patch', 'html', 'code', 'summary', 'message', 'answer']) {
+      for (const key of ['project', 'updatedProject', 'files', 'fileEdits', 'patch', 'html', 'code', 'summary', 'message', 'answer', 'qualityVerification', 'siteIntegrity', 'requirementRepair']) {
         if (Object.prototype.hasOwnProperty.call(structured, key)) {
           structuredFields[key] = structured[key];
         }
+      }
+    }
+    for (const key of ['qualityVerification', 'siteIntegrity', 'requirementRepair']) {
+      if (Object.prototype.hasOwnProperty.call(result || {}, key)) {
+        structuredFields[key] = result[key];
       }
     }
 
