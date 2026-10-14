@@ -135,9 +135,9 @@ export function auditWebsiteIntegrity(rawFiles, siteMap = {}) {
     // whole attribute rather than splitting a valid inline image into false
     // missing-file reports. External and inline-only srcsets remain outside
     // this source-level local-file check.
-    if (!srcset || /\\bdata:/i.test(srcset)) return;
+    if (!srcset || /\bdata:/i.test(srcset)) return;
     for (const candidate of srcset.split(',')) {
-      const reference = candidate.trim().split(/\\s+/)[0];
+      const reference = candidate.trim().split(/\s+/)[0];
       if (reference) checkAsset(fromPath, reference, 'LOCAL_SRCSET_ASSET_MISSING', 'responsive image srcset asset');
     }
   }
