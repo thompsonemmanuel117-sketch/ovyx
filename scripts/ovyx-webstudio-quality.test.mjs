@@ -1,0 +1,36 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+
+const runtime = fs.readFileSync('assets/ovyx-webstudio-quality.js', 'utf8');
+const middleware = fs.readFileSync('functions/_middleware.js', 'utf8');
+const headers = fs.readFileSync('_headers', 'utf8');
+const packageJson = fs.readFileSync('package.json', 'utf8');
+const prompts = fs.readFileSync('functions/_lib/prompts.js', 'utf8');
+
+// Parsing this script does not execute it; browser behavior is exercised separately.
+assert.doesNotThrow(() => new Function(runtime), 'The Web Studio quality runtime must parse as valid JavaScript.');
+
+for (const token of [
+  'OVYX WEB STUDIO QUALITY CONTRACT',
+  "WIDTHS = [320, 390, 768, 1024, 1440]",
+  "setAttribute('sandbox', 'allow-scripts')",
+  "connect-src 'none'",
+  "form-action 'none'",
+  "restoreSnapshot(studio, snapshot)",
+  'OVYX QUALITY INSPECTOR REPAIR',
+  'ovyx:webstudio-build-stage',
+  'Horizontal overflow',
+  'Page runtime errors',
+  'Live integration verification',
+]) {
+  assert.ok(runtime.includes(token), 'Quality runtime is missing: ' + token);
+}
+
+assert.ok(middleware.includes('/assets/ovyx-webstudio-quality.js?v=20261014-1'), 'The quality inspector must load from the application-shell middleware.');
+assert.ok(headers.includes('/assets/ovyx-webstudio-quality.js\n  Cache-Control: no-store, no-cache, must-revalidate'), 'Quality inspection code must not be served from a stale cache.');
+assert.ok(packageJson.includes('scripts/ovyx-webstudio-quality.test.mjs'), 'The quality regression contract must run in npm test.');
+assert.ok(prompts.includes('ART DIRECTION AND DISTINCTIVENESS'), 'The server-side Web Studio agent must receive the premium design contract.');
+assert.ok(prompts.includes('Make at most one bounded targeted repair pass'), 'The server-side Web Studio agent must use bounded repair passes.');
+assert.ok(!runtime.includes('runBuildAgent(prompt, false'), 'Quality repairs must not start an unbounded normal build loop.');
+
+console.log('Web Studio quality contracts passed: build prompt, real source/browser checks, safe sandbox, and snapshot-protected repair.');
