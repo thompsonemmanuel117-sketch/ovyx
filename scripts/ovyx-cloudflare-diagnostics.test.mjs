@@ -40,7 +40,7 @@ const healthyShell = await probeApplicationShell('https://production-fixture.pag
 assert.equal(healthyShell.ok, true, JSON.stringify(healthyShell));
 assert.equal(healthyShell.status, 'healthy');
 assert.equal(healthyShell.qualityRuntimeInjected, true);
-assert.equal(healthyShell.qualityRuntimeVersion, '20261014-3');
+assert.equal(healthyShell.qualityRuntimeVersion, '20261014-4');
 assert.equal(healthyShell.qualityRuntimeAssetOk, true);
 assert.equal(healthyShell.qualityRuntimeSignaturePresent, true);
 
