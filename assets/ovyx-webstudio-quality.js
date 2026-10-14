@@ -299,7 +299,7 @@
     Object.keys(files || {}).forEach(function (path) {
       if (!/\.(?:html?|css|m?js|jsx|tsx|ts)$/i.test(path)) return;
       var contents = fileText(files[path]);
-      if (/\b(?:sk-[A-Za-z0-9]{24,}|AIza[0-9A-Za-z_-]{30,}|-----BEGIN (?:RSA |EC )?PRIVATE KEY-----)\b/.test(contents)) {
+      if (/\b(?:sk-[A-Za-z0-9]{24,}|AIza[0-9A-Za-z_-]{30,})\b|-----BEGIN (?:RSA |EC )?PRIVATE KEY-----/.test(contents)) {
         securityIssues.push(path + ': a credential-like value was detected. Its value is deliberately not displayed.');
       }
     });
@@ -469,7 +469,7 @@
   }
   function syncBuildBadge() {
     if (!root) return;
-    root.querySelectorAll('[data-ovyx-quality-trigger]').forEach(function (button) {
+    document.querySelectorAll('[data-ovyx-quality-trigger]').forEach(function (button) {
       var label = button.querySelector('[data-ovyx-quality-label]');
       var dot = button.querySelector('[data-ovyx-quality-dot]');
       if (label) label.textContent = buildInFlight ? shortBuildLabel(lastBuildStage.stage) : (lastBuildStage.stage === 'build-verified' ? 'Quality · Build OK' : lastBuildStage.stage === 'build-failed' ? 'Quality · Check build' : 'Quality');
@@ -574,7 +574,8 @@
         trigger.setAttribute('data-ovyx-quality-trigger', '1');
         trigger.setAttribute('aria-haspopup', 'dialog');
         trigger.setAttribute('aria-controls', ROOT_ID + '-dialog');
-        trigger.innerHTML = '<i class="fa-solid fa-shield-check" aria-hidden="true"></i><span data-ovyx-quality-label>Quality</span><small data-ovyx-quality-dot aria-hidden="true">•</small>';
+        trigger.innerHTML = '<i class="fa-solid fa-shield-halved" aria-hidden="true"></i><span data-ovyx-quality-label>Quality</span><small data-ovyx-quality-dot aria-hidden="true">•</small>';
+        trigger.addEventListener('click', function (event) { event.preventDefault(); lastFocused = trigger; setOverlay(true); });
         var preview = host.querySelector('#ws-preview-trigger');
         if (preview) host.insertBefore(trigger, preview); else host.appendChild(trigger);
       });
@@ -996,7 +997,7 @@
   }
   function syncVisibility() {
     var active = isActive();
-    if (root) root.querySelectorAll('[data-ovyx-quality-trigger]').forEach(function (button) {
+    if (root) document.querySelectorAll('[data-ovyx-quality-trigger]').forEach(function (button) {
       button.hidden = !active;
     });
     if (!active && root) setOverlay(false);
@@ -1015,6 +1016,7 @@
       trigger.setAttribute('aria-haspopup', 'dialog');
       trigger.setAttribute('aria-controls', ROOT_ID + '-dialog');
       trigger.innerHTML = '<i class="fa-solid fa-shield-halved" aria-hidden="true"></i><span data-ovyx-quality-label>Quality</span><small data-ovyx-quality-dot aria-hidden="true">•</small>';
+      trigger.addEventListener('click', function (event) { event.preventDefault(); lastFocused = trigger; setOverlay(true); });
       var preview = host.querySelector('#ws-preview-trigger');
       if (preview) host.insertBefore(trigger, preview); else host.appendChild(trigger);
     });
