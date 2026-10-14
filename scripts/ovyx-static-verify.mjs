@@ -623,6 +623,8 @@ if (
     !sentinelClient.includes('data-ovsx-chat-form') ||
     !sentinelClient.includes('function goToSleep(') ||
     !sentinelClient.includes('function openFromVoice(') ||
+    !sentinelClient.includes('window.OVYXAdminWorkspace') ||
+    !sentinelClient.includes('adminWorkspace.isAuthorized() !== true') ||
     !sentinelClient.includes('function askCompanion(') ||
     !sentinelCompanionApi.includes('isSentinelAdmin') ||
     !sentinelCompanionApi.includes('sourceInspectionUnavailable') ||
