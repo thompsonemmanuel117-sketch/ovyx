@@ -3087,8 +3087,8 @@ Body: { broadcastId, title, body, category, link }</div>
           if(!this.isRequestCurrent(token))return;
           const afterApply=this.snapshotGraph();
           const changedFiles=this.diffFiles(before,afterApply);
-          const changedHtml=changedFiles.some(path=>/\\.html?$/i.test(path)&&String(afterApply?.files?.[path]?.content||'').trim().length>80);
-          const changedFrontend=changedFiles.some(path=>/\\.(html?|css|m?js|jsx|tsx)$/i.test(path)&&String(afterApply?.files?.[path]?.content||'').trim().length>0);
+          const changedHtml=changedFiles.some(path=>/\.html?$/i.test(path)&&String(afterApply?.files?.[path]?.content||'').trim().length>80);
+          const changedFrontend=changedFiles.some(path=>/\.(html?|css|m?js|jsx|tsx)$/i.test(path)&&String(afterApply?.files?.[path]?.content||'').trim().length>0);
           if(!(hadWebsite?changedFrontend:changedHtml))throw Object.assign(new Error('The AI response did not produce a real website file change. OVYX kept the previous preview unchanged. Please retry or check your selected AI provider.'),{code:'AI_BUILD_NO_ARTIFACTS'});
           const test=this.runTests(false);
           if(!this.isRequestCurrent(token))return;
