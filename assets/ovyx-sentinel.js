@@ -251,9 +251,15 @@ function speak(text) {
     window.speechSynthesis.cancel();
     var utterance = new SpeechSynthesisUtterance(String(text || '').slice(0, 1000));
     var mute = q('[data-ovsx="mute"]'); if (mute) mute.disabled = false;
-    utterance.onend = utterance.onerror = function () { if (mute) mute.disabled = true; };
+    utterance.onend = utterance.onerror = function () {
+      if (mute) mute.disabled = true;
+      try { window.OVYXSentinel3D?.setSpeaking(false); } catch (_) {}
+    };
+    try { window.OVYXSentinel3D?.setSpeaking(true); } catch (_) {}
     window.speechSynthesis.speak(utterance);
-  } catch (_) {}
+  } catch (_) {
+    try { window.OVYXSentinel3D?.setSpeaking(false); } catch (_) {}
+  }
 }
 function showPanel(show, refreshReport) {
   buildShell();
