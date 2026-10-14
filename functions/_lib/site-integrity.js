@@ -87,6 +87,15 @@ function idSet(html) {
   return ids;
 }
 
+function duplicateIdCounts(html) {
+  const counts = new Map();
+  for (const match of String(html || '').matchAll(/\\bid\\s*=\\s*(?:"([^"]*)"|\\x27([^\\x27]*)\\x27|([^\\s>]+))/gi)) {
+    const id = String(match[1] ?? match[2] ?? match[3] ?? '').trim();
+    if (id) counts.set(id, (counts.get(id) || 0) + 1);
+  }
+  return [...counts.entries()].filter(([, count]) => count > 1);
+}
+
 function addIssue(issues, seen, code, file, reference, message) {
   const safeReference = String(reference || '').split(/[?#]/, 1)[0].slice(0, 180);
   const key = [code, file, safeReference].join('|').toLowerCase();
@@ -144,6 +153,10 @@ export function auditWebsiteIntegrity(rawFiles, siteMap = {}) {
 
   for (const [filePath, html] of htmlEntries) {
     const ids = idSet(html);
+    for (const [id, count] of duplicateIdCounts(html)) {
+      addIssue(issues, seen, 'DUPLICATE_HTML_ID', filePath, id,
+        'The HTML document declares the same id multiple times (' + count + ' occurrences); ids must be unique for reliable anchors and accessibility relationships.');
+    }
     const routeForFile = (Array.isArray(siteMap && siteMap.pages) ? siteMap.pages : [])
       .find(page => page && cleanPath(page.path).toLowerCase() === filePath.toLowerCase());
     const currentRoute = normalizeRoute(routeForFile && routeForFile.url || '/');
@@ -214,6 +227,10 @@ export function auditWebsiteIntegrity(rawFiles, siteMap = {}) {
       if (src) checkAsset(filePath, src, 'LOCAL_' + kind.toUpperCase() + '_MISSING', kind);
       const srcset = attribute(tag, 'srcset');
       if (srcset) checkSrcset(filePath, srcset);
+      if (kind === 'img' && !/\\balt\\s*=/i.test(tag)) {
+        addIssue(issues, seen, 'IMAGE_ALT_MISSING', filePath, attribute(tag, 'src'),
+          'An image is missing its alt attribute; use meaningful alternative text or alt="" for a decorative image.');
+      }
       if (kind === 'video') {
         const poster = attribute(tag, 'poster');
         if (poster) checkAsset(filePath, poster, 'LOCAL_VIDEO_POSTER_MISSING', 'video poster');
@@ -248,8 +265,8 @@ export function auditWebsiteIntegrity(rawFiles, siteMap = {}) {
     totalFindings: issues.length,
     counts,
     summary: issues.length
-      ? issues.length + ' source-level link or local-asset issue(s) need review.'
-      : 'No unresolved internal routes, broken same-page or cross-page fragments, placeholder links, or missing local asset and responsive-image references were found.',
+      ? issues.length + ' source-level website integrity or accessibility issue(s) need review.'
+      : 'No unresolved internal routes, broken same-page or cross-page fragments, placeholder links, missing local asset and responsive-image references, duplicate IDs, or images without alt attributes were found.',
     externalResourcesVerified: false,
     runtimeBehaviorVerified: false,
   };
