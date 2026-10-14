@@ -205,7 +205,7 @@ function renderDiagnosisHistory(items) {
   diagnosisHistory.forEach(function (item) {
     var row = document.createElement('div'); row.className = 'plan-task';
     var button = document.createElement('button'); button.className = 'btn'; button.type = 'button';
-    button.dataset.ovsx = 'history'; button.dataset.diagnosisId = safeText(item.id, 120);
+    button.dataset.ovsx = 'history'; button.setAttribute('data-ovsx-history-id', safeText(item.id, 120));
     var timestamp = Date.parse(String(item.generatedAt || ''));
     var label = Number.isFinite(timestamp) ? new Date(timestamp).toLocaleString() : 'Saved diagnosis';
     button.textContent = label + ' · report ' + safeText(item.reportId || 'unknown', 100);
@@ -367,7 +367,7 @@ function bindShell() {
     else if (button.dataset.ovsx === 'plan') void prepareFixPlan();
     else if (button.dataset.ovsx === 'diagnose') void diagnoseLatest(false);
     else if (button.dataset.ovsx === 'history') {
-      var saved = diagnosisHistory.find(function (item) { return String(item.id || '') === String(button.dataset.diagnosisId || ''); });
+      var saved = diagnosisHistory.find(function (item) { return String(item.id || '') === String(button.getAttribute('data-ovsx-history-id') || ''); });
       if (saved) { renderDiagnosis(saved); status('Showing a saved diagnosis from private history. It did not apply changes.', 'success'); }
     }
     else if (button.dataset.ovsx === 'wake') toggleWake();
