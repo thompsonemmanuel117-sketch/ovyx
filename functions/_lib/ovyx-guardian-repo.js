@@ -48,7 +48,8 @@ export function redactGuardianSource(value) {
 }
 
 async function githubGet(path, token, fetchImpl) {
-  const response = await fetchImpl(GITHUB_API + path, {
+  const url = path.startsWith('/search/') ? GITHUB_API + path : GITHUB_API + '/repos/' + REPOSITORY + path;
+  const response = await fetchImpl(url, {
     method: 'GET',
     redirect: 'manual',
     headers: {
