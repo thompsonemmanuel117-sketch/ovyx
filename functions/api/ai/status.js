@@ -3,6 +3,25 @@ import { errorResponse, requestId } from '../_lib/http.js';
 
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 
+const ADDITIONAL_PROVIDERS = Object.freeze({
+  groq: {
+    env: 'GROQ_API_KEY',
+    label: 'Groq',
+    check: key => fetchWithTimeout(
+      'https://api.groq.com/openai/v1/models',
+      { headers: { Accept: 'application/json', Authorization: 'Bearer ' + key } },
+    ),
+  },
+  openrouter: {
+    env: 'OPENROUTER_API_KEY',
+    label: 'OpenRouter',
+    check: key => fetchWithTimeout(
+      'https://openrouter.ai/api/v1/models',
+      { headers: { Accept: 'application/json', Authorization: 'Bearer ' + key } },
+    ),
+  },
+});
+
 const PROVIDERS = Object.freeze({
   gemini: {
     env: 'GEMINI_API_KEY',
@@ -140,11 +159,10 @@ export async function onRequestGet(context) {
       );
     }
 
-    const results = await Promise.all(
-      Object.entries(PROVIDERS).map(([name, config]) =>
-        checkProvider(name, config, context.env)
-      ),
-    );
+    const [results, additionalProviders] = await Promise.all([
+      Promise.all(Object.entries(PROVIDERS).map(([name, config]) => checkProvider(name, config, context.env))),
+      Promise.all(Object.entries(ADDITIONAL_PROVIDERS).map(([name, config]) => checkProvider(name, config, context.env))),
+    ]);
 
     const workersAi = Boolean(
       context.env?.AI &&
@@ -158,6 +176,9 @@ export async function onRequestGet(context) {
       status: ready > 0 || workersAi ? 'READY' : 'DEGRADED',
       authority: 'SERVER',
       providers: results,
+      // Additional provider diagnostics intentionally live in a separate field so
+      // legacy four-provider UI contracts are not disturbed.
+      additionalProviders,
       cloudflare: {
         workersAiBinding: workersAi,
         edgeRuntime: 'CLOUDFLARE_PAGES_FUNCTION',
