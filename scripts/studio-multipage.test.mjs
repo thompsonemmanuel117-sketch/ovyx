@@ -162,6 +162,84 @@ assert(result.quotaOutputText.length > 0);
 // A planning model may omit a named route. Web Studio must recover the
 // explicit user requirement before generating files, rather than silently ship
 // a smaller website.
+const makeBookingOmissionModel = repairHandler => async (_env, options) => {
+  const user = String(options.user || '');
+  if (user.includes('BOUNDED REQUIREMENT REPAIR PHASE')) return repairHandler(options);
+  const result = await callModel(_env, options);
+  if (user.includes('REQUIRED TARGET FILES JSON:') && !user.includes('BOUNDED WEBSITE POLISH PHASE')) {
+    const payload = JSON.parse(result.text);
+    for (const path of Object.keys(payload.files || {})) {
+      if (/Reservations\.html$/i.test(path)) {
+        payload.files[path] = String(payload.files[path]).replace('<button type="button">Reserve a table</button>', '');
+      }
+    }
+    return { ...result, text: JSON.stringify(payload) };
+  }
+  return result;
+};
+
+const repairCalls = [];
+const repairedRequirementBuild = await buildStudioMultiPage({
+  env: {},
+  callModel: makeBookingOmissionModel(async options => {
+    repairCalls.push(options);
+    const match = String(options.user).match(/REPAIR CURRENT FILE CONTENTS JSON:\n([\s\S]*?)\n\nREPAIR ALLOWLIST JSON:/);
+    assert(match, 'Requirement repair must include complete current file contents and a separate allowlist.');
+    assert.ok(String(options.user).includes('REQUIREMENT VERIFICATION FAILURES JSON'), 'Repair must see the exact failed deterministic checks.');
+    const files = JSON.parse(match[1]);
+    const target = Object.keys(files).find(path => /Reservations\.html$/i.test(path));
+    assert.ok(target, 'The bounded repair should select the reservation page for a booking-flow failure.');
+    files[target] = String(files[target]).replace('</main>', '<button type="button">Reserve a table</button></main>');
+    return {
+      text: JSON.stringify({ summary: 'Booking control repaired', files: { [target]: files[target] } }),
+      provider: 'gemini',
+      model: 'test-model',
+      rawUsage: { prompt_tokens: 3, completion_tokens: 5, total_tokens: 8 },
+    };
+  }),
+  provider: 'automatic',
+  authUser: { sub: 'test-user' },
+  mode: 'build',
+  prompt: 'Build a five-page restaurant website with Home, Menu, About, Reservations, and Contact pages.',
+  project: { id: 'project-requirement-repair', name: 'Restaurant', pages: [] },
+  files: {},
+  qualityContract: 'OVYX_TEST_WEBSITE_QUALITY_CONTRACT: preserve requirements and validate repaired files.',
+});
+assert.equal(repairCalls.length, 1, 'A missing booking control should trigger exactly one bounded repair request.');
+assert.equal(repairedRequirementBuild.requirementRepair.status, 'applied', JSON.stringify(repairedRequirementBuild.requirementRepair));
+assert.equal(repairedRequirementBuild.requirementRepair.issuesBefore[0].code, 'BOOKING_FLOW_MISSING');
+assert.equal(repairedRequirementBuild.requirementVerification.ok, true);
+assert.equal(repairedRequirementBuild.requirementRepair.issuesAfter.length, 0);
+assert.ok(repairedRequirementBuild.files['src/pages/Reservations.html'].includes('Reserve a table'));
+assert.equal(repairedRequirementBuild.files['src/private.html'], undefined, 'The requirement repair must not introduce unapproved paths.');
+assert.ok(repairCalls[0].user.includes('REPAIR ALLOWLIST JSON'));
+assert.equal(repairedRequirementBuild.rawUsage.total_tokens, 18 + 50 * 3 + 8 + 14, 'The repair call must be included in usage accounting.');
+assert.ok(repairedRequirementBuild.summary.includes('bounded requirement-repair pass was applied'));
+
+const rejectedRequirementRepair = await buildStudioMultiPage({
+  env: {},
+  callModel: makeBookingOmissionModel(async () => ({
+    text: JSON.stringify({
+      summary: 'Unauthorized requirement repair',
+      files: { 'src/private.html': '<!doctype html><html><head><title>Unauthorized</title></head><body><h1>Unauthorized</h1></body></html>' },
+    }),
+    provider: 'gemini',
+    model: 'test-model',
+    rawUsage: { prompt_tokens: 2, completion_tokens: 3, total_tokens: 5 },
+  })),
+  provider: 'automatic',
+  authUser: { sub: 'test-user' },
+  mode: 'build',
+  prompt: 'Build a five-page restaurant website with Home, Menu, About, Reservations, and Contact pages.',
+  project: { id: 'project-rejected-requirement-repair', name: 'Restaurant', pages: [] },
+  files: {},
+  qualityContract: 'OVYX_TEST_WEBSITE_QUALITY_CONTRACT: preserve the validated baseline.',
+}).then(() => null, error => error);
+assert.ok(rejectedRequirementRepair, 'An incomplete site with an unauthorized repair must not be marked ready.');
+assert.equal(rejectedRequirementRepair.code, 'WEBSTUDIO_PROMPT_REQUIREMENT_MISSING');
+assert.equal(rejectedRequirementRepair.requirementRepair.status, 'rejected');
+assert.equal(rejectedRequirementRepair.requirementVerification.ok, false);
+
 const omissionModel = async (env, options) => {
   if (String(options.user).includes('WEBSITE ARCHITECTURE PLANNING PHASE')) {
     return {
