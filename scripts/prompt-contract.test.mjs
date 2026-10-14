@@ -11,6 +11,9 @@ const contract = buildPromptContract(brief);
 assert.deepEqual(contract.explicitPages, ['Home', 'Menu', 'About', 'Reservations', 'Contact']);
 assert(contract.explicitConstraints.some(item => /do not invent the address/i.test(item)));
 assert(contract.contactSignals.contactForm);
+assert(contract.contactSignals.bookings, 'Reservation capability should be recorded as an explicit site requirement.');
+assert(buildPromptContract('Make a restaurant website with a button to book a table.').contactSignals.bookings, 'Natural-language booking requests should be detected.');
+assert(buildPromptContract('Let visitors reserve online.').contactSignals.bookings, 'Reservation synonyms should be detected.');
 
 const readiness = getWebStudioBuildClarification(
   'Build a restaurant website with a contact form that emails enquiries.',
@@ -63,5 +66,20 @@ const missingForm = verifyPromptContractOutput(
   { pages: [{ title: 'Home' }] },
 );
 assert(missingForm.issues.some(issue => issue.code === 'CONTACT_FORM_MISSING'));
+
+const missingBooking = verifyPromptContractOutput(
+  'Create a restaurant website with a button to book a table.',
+  { 'index.html': '<!doctype html><html><head><title>Restaurant</title></head><body><main><h1>Welcome</h1><button>Explore menu</button></main></body></html>' },
+  { pages: [{ title: 'Home' }] },
+);
+assert.equal(missingBooking.ok, false);
+assert(missingBooking.issues.some(issue => issue.code === 'BOOKING_FLOW_MISSING'), 'A requested booking journey must not silently disappear from the generated site.');
+
+const presentBooking = verifyPromptContractOutput(
+  'Create a restaurant website with a button to book a table.',
+  { 'index.html': '<!doctype html><html><head><title>Restaurant</title></head><body><main><h1>Welcome</h1><button>Reserve a table</button></main></body></html>' },
+  { pages: [{ title: 'Home' }] },
+);
+assert.equal(presentBooking.ok, true, JSON.stringify(presentBooking));
 
 console.log('Web Studio prompt-contract tests passed.');
