@@ -47,7 +47,7 @@ function getConfiguredModel(
     gemini:
       env.GEMINI_AGENT_MODEL ||
       env.GEMINI_MODEL ||
-      'gemini-2.5-pro',
+      'gemini-3.8-flash',
 
     claude:
       env.ANTHROPIC_AGENT_MODEL ||
@@ -62,7 +62,7 @@ function getConfiguredModel(
     openai:
       env.OPENAI_AGENT_MODEL ||
       env.OPENAI_MODEL ||
-      'gpt-5',
+      'gpt-6.1-sol',
 
     groq:
       env.GROQ_AGENT_MODEL ||
