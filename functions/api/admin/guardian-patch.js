@@ -129,6 +129,11 @@ export async function onRequestPost(context) {
       return errorResponse(503, 'GUARDIAN_PATCH_STORE_UNAVAILABLE', 'Guardian could not load the private patch proposal. No GitHub changes were made.', requestId);
     }
     if (!proposal) return errorResponse(404, 'GUARDIAN_PATCH_NOT_FOUND', 'The patch proposal was not found or has expired.', requestId);
+    const proposalExpiry = Date.parse(String(proposal.expiresAt || ''));
+    if (!Number.isFinite(proposalExpiry) || proposalExpiry <= Date.now()) {
+      try { await deleteFirestoreDocumentAtPath(env, proposalPath(proposalId)); } catch {}
+      return errorResponse(410, 'GUARDIAN_PATCH_EXPIRED', 'This patch proposal expired. Prepare a fresh proposal before creating a pull request.', requestId);
+    }
     if (!guardianPatchablePath(proposal.path)) return errorResponse(400, 'GUARDIAN_PATCH_PATH_REJECTED', 'This proposal targets a path Guardian is not allowed to modify.', requestId);
 
     let result;
