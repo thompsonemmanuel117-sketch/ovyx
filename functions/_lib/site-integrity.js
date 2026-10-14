@@ -89,7 +89,7 @@ function idSet(html) {
 
 function duplicateIdCounts(html) {
   const counts = new Map();
-  for (const match of String(html || '').matchAll(/\\bid\\s*=\\s*(?:"([^"]*)"|\\x27([^\\x27]*)\\x27|([^\\s>]+))/gi)) {
+  for (const match of String(html || '').matchAll(/\bid\s*=\s*(?:"([^"]*)"|\x27([^\x27]*)\x27|([^\s>]+))/gi)) {
     const id = String(match[1] ?? match[2] ?? match[3] ?? '').trim();
     if (id) counts.set(id, (counts.get(id) || 0) + 1);
   }
@@ -227,7 +227,7 @@ export function auditWebsiteIntegrity(rawFiles, siteMap = {}) {
       if (src) checkAsset(filePath, src, 'LOCAL_' + kind.toUpperCase() + '_MISSING', kind);
       const srcset = attribute(tag, 'srcset');
       if (srcset) checkSrcset(filePath, srcset);
-      if (kind === 'img' && !/\\balt\\s*=/i.test(tag)) {
+      if (kind === 'img' && !/\balt\s*=/i.test(tag)) {
         addIssue(issues, seen, 'IMAGE_ALT_MISSING', filePath, attribute(tag, 'src'),
           'An image is missing its alt attribute; use meaningful alternative text or alt="" for a decorative image.');
       }
