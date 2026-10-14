@@ -8,6 +8,7 @@
 
 const MAX_PROMPT_CHARS = 30000;
 const MAX_REQUIREMENTS = 28;
+const BOOKING_INTENT_PATTERN = /\b(?:book(?:ing|ings)?|reserv(?:e|ation|ations|ing)|appointments?|schedule\s+(?:a\s+)?(?:visit|table|appointment))\b/i;
 
 const PAGE_ALIASES = [
   { title: 'Home', pattern: /\b(?:home(?:page)?|landing page)\b/i },
@@ -207,7 +208,7 @@ export function buildPromptContract(prompt) {
     contactSignals: {
       contactForm: /\b(?:contact|enquiry|inquiry|quote|lead|message)\s+forms?\b|\bforms?\b.{0,40}\b(?:contact|email|message|enquiry|inquiry|quote)\b/i.test(source),
       emailDelivery: /\b(?:send|sends|deliver|delivers|email|emails|notify|notifies|forward|forwards)\b.{0,55}\b(?:form|message|enquiry|enquiries|inquiry|inquiries|lead|submission)\b|\b(?:form|message|enquiry|enquiries|inquiry|inquiries|lead|submission)\b.{0,55}\b(?:send|sends|deliver|delivers|email|emails|notify|notifies|forward|forwards)\b/i.test(source),
-      bookings: /\b(?:booking|bookings|reservation|reservations|appointments?|schedule a visit)\b/i.test(source),
+      bookings: BOOKING_INTENT_PATTERN.test(source),
       newsletter: /\b(?:newsletter|subscribe|subscription form)\b/i.test(source),
       payments: /\b(?:payments?|checkout|accept cards|paystack|flutterwave|stripe|paypal|buy now|subscriptions? billing)\b/i.test(source),
       authentication: /\b(?:login|log in|sign in|sign up|user accounts?|authentication|register an account)\b/i.test(source),
@@ -318,6 +319,12 @@ export function verifyPromptContractOutput(prompt, files, siteMap = {}) {
     issues.push({
       code: 'CONTACT_FORM_MISSING',
       message: 'The brief explicitly asks for a contact/enquiry form, but no HTML form was generated.',
+    });
+  }
+  if (contract.contactSignals.bookings && !BOOKING_INTENT_PATTERN.test(allText)) {
+    issues.push({
+      code: 'BOOKING_FLOW_MISSING',
+      message: 'The brief asks for booking, reservation or appointment capability, but no corresponding booking path or UI text was generated.',
     });
   }
   if (contract.contactSignals.newsletter && !/(?:newsletter|subscribe|subscription)/i.test(allText)) {
