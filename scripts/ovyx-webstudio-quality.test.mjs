@@ -16,6 +16,8 @@ for (const token of [
   "setAttribute('sandbox', 'allow-scripts')",
   "connect-src 'none'",
   "form-action 'none'",
+  "img-src data: blob:",
+  "media-src data: blob:",
   "restoreSnapshot(studio, snapshot)",
   'OVYX QUALITY INSPECTOR REPAIR',
   'ovyx:webstudio-build-stage',
