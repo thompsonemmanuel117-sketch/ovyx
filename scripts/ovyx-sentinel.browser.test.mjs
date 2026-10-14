@@ -28,7 +28,7 @@ try {
             'window.firebase={auth:()=>({get currentUser(){return __currentUser},onAuthStateChanged:cb=>{__authListeners.push(cb);cb(__currentUser);return ()=>{}}})};' +
             'window.__recognizer=null;window.SpeechRecognition=class{start(){window.__recognizer=this}stop(){if(this.onend)this.onend()}};' +
             'Object.defineProperty(window,"SpeechSynthesisUtterance",{configurable:true,value:class{constructor(text){this.text=text}}});window.__spoken=[];Object.defineProperty(window,"speechSynthesis",{configurable:true,value:{cancel(){},speak(u){window.__spoken.push(u.text);if(u.onend)u.onend()}}});' +
-            '</script><script defer src="/assets/ovyx-sentinel.js?v=20261014-4"></script><script defer src="/assets/ovyx-sentinel-avatar-3d.js?v=20261014-2"></script></body></html>',
+            '</script><script defer src="/assets/ovyx-sentinel.js?v=20261014-9"></script><script defer src="/assets/ovyx-sentinel-avatar-3d.js?v=20261014-2"></script></body></html>',
         });
         return;
       }
@@ -75,6 +75,15 @@ try {
       checks: [...latestReport.checks, { id: 'sentinel', path: 'Scheduler', status: 'warning', summary: 'No recent scheduled run is confirmed.' }],
     };
 
+    await page.route('**/api/admin/guardian-patch', async route => {
+      const req = route.request();
+      assert.equal(req.headers()['authorization'], 'Bearer sentinel-test-token', '[' + target.name + '] patch capability requests must use the signed-in owner token');
+      await route.fulfill({
+        status: 401,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: false, error: 'GUARDIAN_ADMIN_REQUIRED', message: 'Test owner verification denied; patch controls must fail closed.' })
+      });
+    });
     await page.route('**/api/admin/sentinel-diagnose', async route => {
       const req = route.request();
       assert.equal(req.method(), 'POST', '[' + target.name + '] AI diagnosis must use POST');
@@ -190,6 +199,13 @@ try {
     assert.match(await page.locator('[data-ovsx-diagnosis]').innerText(), /schedule warning is evidence/i, '[' + target.name + '] the diagnostic result should be visible as plain text');
     assert.match(await page.locator('[data-ovsx-diagnosis]').innerText(), /Diagnosis only. No source files, provider keys, Cloudflare settings, or deployments were changed/i, '[' + target.name + '] the UI must disclose the diagnosis-only boundary');
     assert.match(await page.locator('[data-ovsx-diagnosis-history] summary').innerText(), /Previous diagnoses \(2\)/i, '[' + target.name + '] a newly saved diagnosis must join prior history');
+
+    await page.locator('[data-ovsx="patch"]').click();
+    await page.locator('[data-ovsx-patch-tools]').waitFor({ state: 'visible' });
+    await page.waitForFunction(() => document.querySelector('[data-ovsx="patch-prepare"]')?.disabled === true, null, { timeout: 10000 });
+    assert.match(await page.locator('[data-ovsx-patch-tools]').innerText(), /Reviewable code fix/i, '[' + target.name + '] Guardian patch review panel should be visible to the authenticated owner');
+    assert.equal(await page.locator('[data-ovsx="patch-prepare"]').isDisabled(), true, '[' + target.name + '] patch preparation must stay disabled when the server cannot verify the owner credentials');
+    assert.equal(await page.locator('[data-ovsx="patch-apply"]').isDisabled(), true, '[' + target.name + '] pull-request creation must remain disabled without server-confirmed capabilities');
 
     await page.locator('[data-ovsx="wake"]').click();
     assert.match(await page.locator('[data-ovsx-status]').innerText(), /Wake word paused/i);

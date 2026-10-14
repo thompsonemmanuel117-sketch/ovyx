@@ -615,7 +615,7 @@ if (
     !sentinelClient.includes('window.webkitSpeechRecognition') ||
     !sentinelClient.includes('disableWake') ||
     !sentinelClient.includes('textContent') ||
-    !sentinelMiddleware.includes('/assets/ovyx-sentinel.js?v=20261014-4') ||
+    !sentinelMiddleware.includes('/assets/ovyx-sentinel.js?v=20261014-9') ||
     !headers.includes('microphone=(self)') ||
     !headers.includes('camera=()') ||
     !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/ovyx-sentinel.test.mjs') ||
@@ -707,6 +707,37 @@ if (!fs.existsSync(webStudioReliabilityPath) || !fs.existsSync(webStudioFeedback
     !mainHtml.includes("ovyxBuildState='verified'")
   ) {
     errors.push('Web Studio reliability: feedback must be authenticated, preview generation must require actual changed website files, and the runtime must be injected with no-store caching.');
+  }
+}
+
+const guardianPatchApiPath = path.join(root, 'functions/api/admin/guardian-patch.js');
+const guardianPatchHelperPath = path.join(root, 'functions/_lib/ovyx-guardian-patch.js');
+const guardianPatchTestPath = path.join(root, 'scripts/ovyx-guardian-patch.test.mjs');
+if (!fs.existsSync(guardianPatchApiPath) || !fs.existsSync(guardianPatchHelperPath) || !fs.existsSync(guardianPatchTestPath)) {
+  errors.push('OVYX Guardian patch workflow: the owner-only patch API, guarded helper, and security tests must be present.');
+} else {
+  const guardianPatchApi = fs.readFileSync(guardianPatchApiPath, 'utf8');
+  const guardianPatchHelper = fs.readFileSync(guardianPatchHelperPath, 'utf8');
+  const guardianClient = fs.readFileSync(path.join(root, 'assets/ovyx-sentinel.js'), 'utf8');
+  const guardianMiddleware = fs.existsSync(shellMiddlewarePath) ? fs.readFileSync(shellMiddlewarePath, 'utf8') : '';
+  if (
+    !guardianPatchApi.includes('verifyFirebaseIdToken') ||
+    !guardianPatchApi.includes('isSentinelAdmin') ||
+    !guardianPatchApi.includes('CREATE_PULL_REQUEST') ||
+    !guardianPatchApi.includes('directMainWritesEnabled: false') ||
+    !guardianPatchApi.includes('proposalStorageConfigured: proposalStorage') ||
+    !guardianPatchApi.includes('GUARDIAN_PATCH_STORAGE_NOT_CONFIGURED') ||
+    !guardianPatchHelper.includes('OVYX_GUARDIAN_GITHUB_WRITE_TOKEN') ||
+    !guardianPatchHelper.includes('ovyx/guardian/fix-') ||
+    !guardianPatchHelper.includes('GUARDIAN_PATCH_STALE') ||
+    !guardianPatchHelper.includes('mainBranchChanged: false') ||
+    !guardianClient.includes('data-ovsx-patch-tools') ||
+    !guardianClient.includes("button.dataset.ovsx === 'patch-apply'") ||
+    !guardianClient.includes('function invalidatePatchProposal()') ||
+    !guardianMiddleware.includes('/assets/ovyx-sentinel.js?v=20261014-9') ||
+    !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/ovyx-guardian-patch.test.mjs')
+  ) {
+    errors.push('OVYX Guardian patch workflow: code changes must be owner-only, stale-safe, branch-only, explicitly confirmed, tested, and never auto-merged/deployed.');
   }
 }
 
