@@ -60,10 +60,6 @@ const GITHUB_CONNECTION_COLLECTION = 'github_connections';
 const SAFE_ERROR = 'GitHub authentication could not be completed.';
 
 function responseJson(payload, status = 200, extraHeaders = {}) {
-  if (typeof Http.json === 'function') {
-    return Http.json(payload, status, extraHeaders);
-  }
-
   if (typeof Http.jsonResponse === 'function') {
     return Http.jsonResponse(payload, status, extraHeaders);
   }
@@ -80,10 +76,6 @@ function responseJson(payload, status = 200, extraHeaders = {}) {
 }
 
 function responseError(message, status = 400, extraHeaders = {}) {
-  if (typeof Http.error === 'function') {
-    return Http.error(message, status, extraHeaders);
-  }
-
   return responseJson(
     {
       ok: false,
@@ -95,19 +87,11 @@ function responseError(message, status = 400, extraHeaders = {}) {
 }
 
 function methodAllowed(request, methods) {
-  if (typeof Http.methodAllowed === 'function') {
-    return Http.methodAllowed(request, methods);
-  }
-
-  const method = request.method.toUpperCase();
-
-  if (!methods.includes(method)) {
-    return responseError('Method not allowed.', 405, {
-      Allow: methods.join(', '),
-    });
-  }
-
-  return null;
+  const method = String(request.method || '').toUpperCase();
+  if (methods.includes(method)) return null;
+  return responseError('Method not allowed.', 405, {
+    Allow: methods.join(', '),
+  });
 }
 
 /**
