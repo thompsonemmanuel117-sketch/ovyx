@@ -19,6 +19,7 @@ on:
       - 'scripts/ovyx-workspace-tools.integration.test.mjs'
       - 'scripts/ovyx-assistant-runtime.test.mjs'
       - 'scripts/ovyx-static-verify.mjs'
+      - 'scripts/ovyx-oauth-registration-policy.test.mjs'
       - 'assets/ovyx-sentinel.js'
       - 'assets/ovyx-sentinel-avatar-3d.js'
       - 'scripts/ovyx-sentinel-avatar.test.mjs'
