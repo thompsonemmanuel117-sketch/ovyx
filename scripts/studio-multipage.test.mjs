@@ -68,6 +68,7 @@ const result = await buildStudioMultiPage({
     'src/main.js': '/* existing */',
   },
   context: { brandProfile: { accent: '#b66b32' } },
+  qualityContract: 'OVYX_TEST_WEBSITE_QUALITY_CONTRACT: premium art direction, keyboard accessibility, responsive layouts, real interactions, truthful integrations.',
 });
 
 assert(result, 'A multi-page website build should return a result.');
@@ -83,6 +84,9 @@ assert.equal(result.rawUsage.prompt_tokens, 11 + 19 * 3);
 assert.equal(result.rawUsage.completion_tokens, 7 + 31 * 3);
 assert.equal(calls.length, 4, 'The five-page site should use one planning call plus three file-sized batches.');
 assert(result.summary.includes('5 distinct website pages'));
+assert(calls.every(call => call.system.includes('OVYX_TEST_WEBSITE_QUALITY_CONTRACT')), 'Every sitemap-planning and page-generation call must receive the Web Studio quality contract.');
+assert(calls[0].system.includes('realistic route-by-route sitemap'), 'The planning-specific instructions must remain present alongside the quality contract.');
+assert(calls.slice(1).every(call => call.system.includes('senior frontend engineer')), 'The page-generation role instructions must remain present alongside the quality contract.');
 assert(result.quotaInputText.includes('FULL WEBSITE ROUTE MANIFEST'));
 assert(result.quotaOutputText.length > 0);
 
