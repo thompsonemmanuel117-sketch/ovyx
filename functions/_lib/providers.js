@@ -69,6 +69,12 @@ function getConfiguredModel(
       env.GROQ_MODEL ||
       'openai/gpt-oss-20b',
 
+    // If no OpenRouter model is pinned, let the account's configured default decide.
+    openrouter:
+      env.OPENROUTER_AGENT_MODEL ||
+      env.OPENROUTER_MODEL ||
+      '',
+
     'cloudflare-workers-ai':
       env.CLOUDFLARE_AI_MODEL ||
       '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
@@ -87,6 +93,7 @@ function getConfiguredModel(
       'gpt',
       'gpt-3.5',
       'groq',
+      'openrouter',
       'llama',
       'workers-ai',
       'cloudflare',
@@ -580,6 +587,62 @@ async function callGroq(
   };
 }
 
+async function callOpenRouter(
+  env,
+  { system, user, model, maxTokens }
+) {
+  const key = String(env?.OPENROUTER_API_KEY || '').trim();
+  if (!key) {
+    throw Object.assign(
+      new Error('OpenRouter is not configured.'),
+      { status: 503, code: 'AI_PROVIDER_NOT_CONFIGURED' }
+    );
+  }
+
+  const requestBody = {
+    messages: [
+      { role: 'system', content: system },
+      { role: 'user', content: user },
+    ],
+    max_tokens: Math.max(1, Math.min(Number(maxTokens) || 4096, 24000)),
+    temperature: 0.2,
+    stream: false,
+  };
+  if (String(model || '').trim()) requestBody.model = String(model).trim();
+
+  const response = await fetchWithTimeout(
+    'https://openrouter.ai/api/v1/chat/completions',
+    {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        Authorization: 'Bearer ' + key,
+      },
+      body: JSON.stringify(requestBody),
+    }
+  );
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw Object.assign(
+      new Error(data?.error?.message || data?.message || 'OpenRouter HTTP ' + response.status),
+      { status: response.status, code: 'AI_PROVIDER_REQUEST_FAILED' }
+    );
+  }
+  const text = extractText(data?.choices?.[0]?.message?.content || data);
+  if (!text) {
+    throw Object.assign(
+      new Error('OpenRouter returned an empty response.'),
+      { status: 502, code: 'AI_PROVIDER_EMPTY_RESPONSE' }
+    );
+  }
+  return {
+    text,
+    model: String(data?.model || model || 'account-default'),
+    provider: 'openrouter',
+    rawUsage: data?.usage || null,
+  };
+}
+
 async function callCloudflareWorkersAI(
   env,
   {
@@ -731,7 +794,7 @@ function taskProviderPreference(taskContext) {
 }
 
 const SUPPORTED_PROVIDERS = Object.freeze([
-  'gemini', 'deepseek', 'claude', 'openai', 'groq', 'cloudflare-workers-ai',
+  'gemini', 'deepseek', 'claude', 'openai', 'groq', 'openrouter', 'cloudflare-workers-ai',
 ]);
 
 function isProviderConfigured(env, provider) {
@@ -741,6 +804,7 @@ function isProviderConfigured(env, provider) {
     case 'claude': return Boolean(String(env?.ANTHROPIC_API_KEY || '').trim());
     case 'openai': return Boolean(String(env?.OPENAI_API_KEY || '').trim());
     case 'groq': return Boolean(String(env?.GROQ_API_KEY || '').trim());
+    case 'openrouter': return Boolean(String(env?.OPENROUTER_API_KEY || '').trim());
     case 'cloudflare-workers-ai': return Boolean(env?.AI && typeof env.AI.run === 'function');
     default: return false;
   }
@@ -754,7 +818,7 @@ export function providerOrder(env, requested, taskContext = '') {
   }
 
   const configuredOrder = String(
-    env?.AI_PROVIDER_ORDER || env?.OVYX_AI_PROVIDER_ORDER || 'gemini,deepseek,claude,openai,groq'
+    env?.AI_PROVIDER_ORDER || env?.OVYX_AI_PROVIDER_ORDER || 'gemini,deepseek,claude,openai,groq,openrouter'
   )
     .split(',')
     .map(normalizeConfiguredProvider)
@@ -765,7 +829,7 @@ export function providerOrder(env, requested, taskContext = '') {
   const priorities = [
     ...taskProviderPreference(taskContext),
     ...configuredOrder,
-    'gemini', 'deepseek', 'claude', 'openai', 'groq',
+    'gemini', 'deepseek', 'claude', 'openai', 'groq', 'openrouter',
   ];
   const ordered = [...new Set(priorities)].filter(provider => isProviderConfigured(env, provider));
 
@@ -931,6 +995,15 @@ export async function callModel(
               }
             )
           : provider ===
+            'openrouter'
+          ? await callOpenRouter(
+              env,
+              {
+                ...options,
+                model,
+              }
+            )
+          : provider ===
             'cloudflare-workers-ai'
           ? await callCloudflareWorkersAI(
               env,
@@ -971,6 +1044,7 @@ export async function callModel(
       openai: 'OpenAI',
       chatgpt: 'OpenAI',
       groq: 'Groq',
+      openrouter: 'OpenRouter',
       'cloudflare-workers-ai': 'Cloudflare Workers AI',
     };
     const providerLabel = labels[requested] || requested.replace(/[-_]+/g, ' ').replace(/^./, letter => letter.toUpperCase());

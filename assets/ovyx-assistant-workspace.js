@@ -148,6 +148,12 @@
         #kernel-brain-bot-panel.ovyx-native-workspace>div:last-child{padding:9px 10px max(10px,env(safe-area-inset-bottom))!important}
         #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-composer-hint{font-size:8px!important}
       }
+      .ovyx-native-response-actions{display:flex!important;align-items:center!important;flex-wrap:wrap!important;gap:6px!important;margin-top:10px!important;padding-top:8px!important;border-top:1px solid rgba(255,255,255,.055)!important}
+      .ovyx-native-response-actions button{display:inline-flex!important;align-items:center!important;gap:4px!important;min-height:28px!important;padding:5px 8px!important;border:1px solid rgba(255,255,255,.08)!important;border-radius:8px!important;background:rgba(255,255,255,.025)!important;color:#9aa5b3!important;font:650 10px/1.1 Inter,system-ui,sans-serif!important;cursor:pointer!important;transition:background .15s ease,border-color .15s ease,color .15s ease!important}
+      .ovyx-native-response-actions button:hover,.ovyx-native-response-actions button:focus-visible{background:rgba(232,182,79,.08)!important;border-color:rgba(232,182,79,.24)!important;color:#f5d99c!important;outline:none!important}
+      .ovyx-native-response-actions button:disabled{opacity:.55!important;cursor:wait!important}
+      .ovyx-native-response-actions button[data-state="saved"]{color:#6ee7b7!important;border-color:rgba(52,211,153,.22)!important}
+      @media(max-width:560px){.ovyx-native-response-actions{gap:5px!important}.ovyx-native-response-actions button{min-height:30px!important;padding:6px 7px!important;font-size:9px!important}}
       @media(prefers-reduced-motion:reduce){#kernel-brain-bot-panel.ovyx-native-workspace *,#kernel-brain-bot-panel.ovyx-native-workspace *::before,#kernel-brain-bot-panel.ovyx-native-workspace *::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
     `;
     document.head.appendChild(style);
@@ -638,6 +644,36 @@
     body.className = 'ovyx-native-message-body';
     body.textContent = bodyText || text;
     content.append(label, body);
+
+    if (!isUser && !isError) {
+      const responseId = 'native_' + Date.now().toString(36) + '_' +
+        (typeof crypto !== 'undefined' && crypto.randomUUID
+          ? crypto.randomUUID().replace(/-/g, '').slice(0, 12)
+          : Math.random().toString(36).slice(2, 14));
+      row.dataset.ovyxNativeMessageId = responseId;
+      const actions = document.createElement('div');
+      actions.className = 'ovyx-native-response-actions';
+      actions.setAttribute('aria-label', 'AI response actions');
+      [
+        ['copy', 'Copy'],
+        ['helpful', 'Helpful'],
+        ['not-helpful', 'Not helpful'],
+        ['retry', 'Retry'],
+      ].forEach(([action, title]) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.dataset.ovyxNativeResponseAction = action;
+        button.setAttribute('aria-label', title + ' AI response');
+        button.title = title;
+        const icon = document.createElement('span');
+        icon.setAttribute('aria-hidden', 'true');
+        icon.textContent = ({ copy: '⧉', helpful: '👍', 'not-helpful': '👎', retry: '↻' })[action];
+        button.append(icon, document.createTextNode(' ' + title));
+        actions.appendChild(button);
+      });
+      content.appendChild(actions);
+    }
+
     row.appendChild(content);
     root.appendChild(row);
     root.scrollTop = root.scrollHeight;
@@ -1451,7 +1487,11 @@
       ].slice(-12);
 
       syncWorkspaceBadge(context, contextResult.limited);
-      bot.pushMsg('OVYX: ' + result.text);
+      const assistantRow = bot.pushMsg('OVYX: ' + result.text);
+      if (assistantRow && assistantRow.dataset) {
+        assistantRow.dataset.ovyxNativeRetryPrompt = prompt.slice(0, 30000);
+        assistantRow.dataset.ovyxNativeProjectId = String(activeProjectId || '').slice(0, 120);
+      }
       if (workspaceTaskStatus === 'running') {
         setWorkspaceTaskStatus(serverWorkspace?.activeProject?.id ? 'inspected' : (context?.activeProject?.id ? 'local' : 'details'),
           serverWorkspace?.activeProject?.id ? 'Workspace inspection completed; the assistant response is ready.' : 'Response completed using the available context; check whether additional project details are needed.');
@@ -1731,11 +1771,140 @@
     }
   }
 
+  function responseToast(message, kind = 'info') {
+    try { window.showToast?.(String(message || ''), kind); } catch (_) {}
+  }
+
+  async function openAssistantSupportDraft(row, saveFailed = false) {
+    if (window.Router && typeof window.Router.go === 'function') window.Router.go('faq');
+    else document.getElementById('view-faq')?.classList.remove('hidden');
+    let form = null;
+    for (let attempt = 0; attempt < 35; attempt += 1) {
+      form = document.getElementById('ovyx-help-support-form');
+      if (form) break;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    if (!form) {
+      responseToast('Open Help → Contact Support to describe the response that was not helpful.', 'warning');
+      return;
+    }
+    const subject = document.getElementById('ovyx-help-support-subject');
+    const message = document.getElementById('ovyx-help-support-message');
+    const project = window.KernelState?.activeProject || {};
+    const responseId = String(row?.dataset?.ovyxNativeMessageId || '').slice(0, 120);
+    const draft = [
+      'I marked an OVYX AI Assistant Workspace response as not helpful.',
+      'Response ID: ' + responseId,
+      'Project: ' + String(project.name || 'Untitled project').slice(0, 120),
+      '',
+      'What went wrong?'
+    ].join('\\n');
+    if (subject && !subject.value.trim()) subject.value = 'OVYX AI Assistant response was not helpful';
+    if (message && !message.value.trim()) message.value = draft;
+    const target = subject || message || form;
+    try { target.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
+    try { target.focus({ preventScroll: true }); } catch (_) {}
+    responseToast(saveFailed
+      ? 'Help is open with a support draft. The vote could not be saved, but you can still submit the issue.'
+      : 'Help is open with a support draft. Review it and submit when ready.', saveFailed ? 'warning' : 'info');
+  }
+
+  async function submitAssistantResponseFeedback(button, row, vote) {
+    const responseId = String(row?.dataset?.ovyxNativeMessageId || '');
+    if (!responseId || !/^[A-Za-z0-9_-]+$/.test(responseId)) {
+      responseToast('This reply could not be identified for feedback.', 'warning');
+      if (vote === 'down') await openAssistantSupportDraft(row, true);
+      return;
+    }
+    let saved = false;
+    const user = getUser();
+    try {
+      if (!user || typeof user.getIdToken !== 'function') throw new Error('Sign in to submit response feedback.');
+      button.disabled = true;
+      const token = await user.getIdToken();
+      const response = await fetch('/api/ai/feedback', {
+        method: 'POST',
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': 'Bearer ' + token },
+        body: JSON.stringify({
+          vote: vote === 'up' ? 'up' : 'down',
+          messageId: responseId,
+          route: 'assistant-workspace',
+          provider: 'native-ovyx-ai',
+          projectId: String(row.dataset.ovyxNativeProjectId || window.KernelState?.activeProject?.id || '').slice(0, 120),
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.ok !== true) throw new Error(data.message || 'Feedback could not be saved.');
+      saved = true;
+      row.querySelectorAll('[data-ovyx-native-response-action="helpful"],[data-ovyx-native-response-action="not-helpful"]').forEach(el => {
+        const active = (vote === 'up' && el.dataset.ovyxNativeResponseAction === 'helpful') ||
+          (vote === 'down' && el.dataset.ovyxNativeResponseAction === 'not-helpful');
+        el.dataset.state = active ? 'saved' : '';
+        el.setAttribute('aria-pressed', String(active));
+      });
+      responseToast('Thanks. Your feedback was saved.', 'success');
+    } catch (error) {
+      responseToast(String(error?.message || 'Feedback could not be saved.'), 'warning');
+    } finally {
+      if (button) button.disabled = false;
+    }
+    if (vote === 'down') await openAssistantSupportDraft(row, !saved);
+  }
+
+  async function copyAssistantResponse(row) {
+    const body = row?.querySelector('.ovyx-native-message-body');
+    const text = String(body?.textContent || '').trim();
+    if (!text) return;
+    try {
+      if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);
+      else throw new Error('Clipboard unavailable');
+      responseToast('AI response copied.', 'success');
+    } catch (_) {
+      const helper = document.createElement('textarea');
+      helper.value = text;
+      helper.setAttribute('readonly', '');
+      helper.style.position = 'fixed';
+      helper.style.opacity = '0';
+      document.body.appendChild(helper);
+      helper.select();
+      let copied = false;
+      try { copied = document.execCommand('copy'); } catch (_) {}
+      helper.remove();
+      responseToast(copied ? 'AI response copied.' : 'Copy was blocked by this browser.', copied ? 'success' : 'warning');
+    }
+  }
+
   function bindEvents() {
     const p = panel();
     if (!p || p.dataset.ovyxNativeEvents === '1') return;
     p.dataset.ovyxNativeEvents = '1';
     p.addEventListener('click', event => {
+      const responseAction = event.target.closest('[data-ovyx-native-response-action]');
+      if (responseAction) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation?.();
+        const row = responseAction.closest('.ovyx-native-message.is-assistant');
+        const action = responseAction.dataset.ovyxNativeResponseAction;
+        if (!row) return;
+        if (action === 'copy') {
+          void copyAssistantResponse(row);
+        } else if (action === 'helpful' || action === 'not-helpful') {
+          void submitAssistantResponseFeedback(responseAction, row, action === 'helpful' ? 'up' : 'down');
+        } else if (action === 'retry') {
+          const prompt = String(row.dataset.ovyxNativeRetryPrompt || '').trim();
+          const input = $('bot-chat-input');
+          if (!prompt) { responseToast('The original prompt is not available for retry.', 'warning'); return; }
+          if (busy) { responseToast('OVYX AI is still working on another request.', 'info'); return; }
+          if (!input) { responseToast('The assistant composer is not available.', 'warning'); return; }
+          input.value = prompt;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          send();
+        }
+        return;
+      }
       const trigger = event.target.closest('[data-ovyx-native-more]');
       if (trigger) {
         // Let the button's own handler toggle the menu. Do not stop the event

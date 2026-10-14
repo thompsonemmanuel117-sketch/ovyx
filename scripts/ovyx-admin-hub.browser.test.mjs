@@ -36,7 +36,16 @@ try {
       { timeout: 45000 },
     );
 
-    await page.evaluate(() => window.Router.go('admin-overview'));
+    // The legacy shell intentionally resets preview flags during its auth-hardening
+    // boot. Re-establish a UI-only local fixture after boot has finished; this
+    // changes no server identity, Firebase token, API authorization, or secrets.
+    await page.evaluate(() => {
+      window.OVYX_ADMIN_UI_PREVIEW = true;
+      window.OVYXServerOwner = { ...(window.OVYXServerOwner || {}), active: true };
+      window.FirebaseAuthLockdown = window.FirebaseAuthLockdown || {};
+      window.FirebaseAuthLockdown.isSuperuser = true;
+      window.Router.go('admin-overview');
+    });
     const overview = page.locator('#view-admin-overview');
     await overview.waitFor({ state: 'visible' });
 
