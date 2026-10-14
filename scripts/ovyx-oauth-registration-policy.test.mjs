@@ -9,20 +9,26 @@ assert.ok(start >= 0 && end > start, 'OAuth policy helpers must exist before the
 const helperSource = html.slice(start, end);
 for (const contract of [
   'function oauthIsNewUser(credential)',
-  'async function enforceOAuthRegistration(a, credential, providerName, allowRegistration)',
+  'async function enforceOAuthRegistration(a, credential, providerName)',
   "credential.user.delete()",
   "error.code = 'auth/registration-required'",
   "error.code = 'auth/registration-check-unavailable'",
 ]) {
   assert.ok(helperSource.includes(contract), 'OAuth registration policy is missing: ' + contract);
 }
-assert.ok(html.includes("await enforceOAuthRegistration(a,cred,providerName,signupRequested)"),
-  'Popup OAuth must verify registration before workspace activation.');
-assert.ok(html.includes("await enforceOAuthRegistration(a,redirectCredential,redirectProviderName,redirectMode==='signup')"),
-  'Redirect OAuth must verify registration before workspace activation.');
-assert.ok(html.includes("saveOAuthIntent(signupRequested?'signup':'signin')") &&
+assert.ok(html.includes("await enforceOAuthRegistration(a,cred,providerName)"),
+  'Popup OAuth must reject new accounts before workspace activation.');
+assert.ok(html.includes("await enforceOAuthRegistration(a,redirectCredential,redirectProviderName)"),
+  'Legacy redirect OAuth must reject new accounts before workspace activation.');
+assert.ok(html.includes("saveOAuthIntent('signin')") &&
   html.includes("window.sessionStorage?.getItem(OAUTH_INTENT_KEY)"),
-  'OAuth intent must survive the browser redirect so login cannot silently become signup.');
+  'OAuth must always be an existing-account sign-in, never an account-creation route.');
+assert.ok(!helperSource.includes('allowRegistration'), 'OAuth account creation must not be enabled by a signup-mode flag.');
+const popupStart=html.indexOf('async function popupSignIn(kind){');
+const popupEnd=html.indexOf('  function wrapRouter(){', popupStart);
+assert.ok(popupStart >= 0 && popupEnd > popupStart);
+assert.doesNotMatch(html.slice(popupStart,popupEnd), /signInWithRedirect/, 'Popup fallback must not bypass account-age enforcement.');
+assert.ok(html.includes('if(u&&oauthLoginInFlight)') && html.includes("if(u&&rejectedOAuthUid&&String(u.uid||'')===rejectedOAuthUid"), 'Auth-state restoration must not activate a newly rejected OAuth identity.');
 
 const state = { removedIntent: 0, deleted: 0, signedOut: 0, liveStates: [], authActions: [] };
 const storage = new Map();
@@ -52,11 +58,6 @@ assert.equal(await policy.enforceOAuthRegistration(auth, existingCredential, 'Go
 assert.equal(state.deleted, 0, 'existing account must never be deleted');
 assert.equal(state.signedOut, 0, 'existing account must not be signed out');
 assert.equal(state.liveStates.length, 0, 'existing account should be allowed to continue');
-
-const signupCredential = { additionalUserInfo: { isNewUser: true }, user: { delete: async () => { state.deleted += 1; } } };
-assert.equal(await policy.enforceOAuthRegistration(auth, signupCredential, 'GitHub', true), signupCredential,
-  'explicit Sign Up may create a new OAuth account');
-assert.equal(state.deleted, 0, 'explicit Sign Up must not delete the new account');
 
 const newCredential = { additionalUserInfo: { isNewUser: true }, user: { delete: async () => { state.deleted += 1; } } };
 await assert.rejects(

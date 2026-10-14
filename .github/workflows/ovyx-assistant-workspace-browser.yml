@@ -20,6 +20,8 @@ on:
       - 'scripts/ovyx-assistant-runtime.test.mjs'
       - 'scripts/ovyx-static-verify.mjs'
       - 'scripts/ovyx-oauth-registration-policy.test.mjs'
+      - 'firebase-auth-blocking/**'
+      - 'scripts/ovyx-auth-blocking.test.mjs'
       - 'assets/ovyx-sentinel.js'
       - 'assets/ovyx-sentinel-avatar-3d.js'
       - 'scripts/ovyx-sentinel-avatar.test.mjs'

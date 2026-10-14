@@ -12070,6 +12070,8 @@ window.OVYXWebStudioNavigation.bind();
   const activationKey='ovyx_workspace_activation_v2';
   let activationInFlight=null;
   let authStateReady=window.__OVYX_AUTH_STATE_READY__===true;
+  let oauthLoginInFlight=false;
+  let rejectedOAuthUid='';
   window.__OVYX_AUTH_STATE_READY__=authStateReady;
   const routeName=()=>String(window.KernelState?.activeView||'home').replace(/^view-/,'').toLowerCase();
   const isAdminRoute=v=>String(v||'').replace(/^view-/,'').toLowerCase()==='admin-overview';
@@ -12279,23 +12281,24 @@ window.OVYXWebStudioNavigation.bind();
     }
     return null;
   }
-  async function enforceOAuthRegistration(a, credential, providerName, allowRegistration) {
-    if (allowRegistration) { clearOAuthIntent(); return credential; }
+  async function enforceOAuthRegistration(a, credential, providerName) {
     const isNew = oauthIsNewUser(credential);
     if (isNew === false) { clearOAuthIntent(); return credential; }
     if (isNew === true) {
+      rejectedOAuthUid=String(credential?.user?.uid||'');
       let deleted = false;
       try { if (typeof credential?.user?.delete === 'function') { await credential.user.delete(); deleted = true; } } catch (_) {}
       try { await a.signOut(); } catch (_) {}
       clearActivation(); setLiveState(false); updateAuthAction(null); clearOAuthIntent();
       const error = new Error(deleted
-        ? 'No existing OVYX account was found for this ' + providerName + ' identity. Choose “New to OVYX? Sign up” first.'
+        ? 'No existing OVYX account was found for this ' + providerName + ' identity. Create an account with email and password first; Google/GitHub are for signing in to existing accounts.'
         : 'This ' + providerName + ' identity is not registered with OVYX. Sign-in was blocked, but Firebase could not confirm cleanup. Please contact OVYX Support before retrying.');
       error.code = 'auth/registration-required'; error.cleanupFailed = !deleted; throw error;
     }
+    rejectedOAuthUid=String(credential?.user?.uid||'');
     try { await a.signOut(); } catch (_) {}
     clearActivation(); setLiveState(false); updateAuthAction(null); clearOAuthIntent();
-    const error = new Error('OVYX could not confirm that this ' + providerName + ' identity was registered previously. Choose “New to OVYX? Sign up” to create a new account, or retry with the provider you originally used.');
+    const error = new Error('OVYX could not confirm that this ' + providerName + ' identity belongs to an existing account. Sign-in was blocked. Create an email/password account first or retry with the provider linked to your existing account.');
     error.code = 'auth/registration-check-unavailable'; throw error;
   }
   async function popupSignIn(kind){
@@ -12306,9 +12309,7 @@ window.OVYXWebStudioNavigation.bind();
     if(typeof Provider!=='function')return status(providerName+' Sign-In is unavailable in this build. Firebase Authentication did not load the OAuth provider.','error');
     const button=document.getElementById(kind==='github'?'ovyx-auth-github-btn':'ovyx-auth-google-btn');
     if(button)button.disabled=true;
-    const signupRequested=!!window.isSignUpMode;
-    let redirectStarted=false;
-    saveOAuthIntent(signupRequested?'signup':'signin');
+    saveOAuthIntent('signin');
     status('Opening '+providerName+' secure sign-in…');
     try{
       /* An explicit OAuth login is also an account-switch action. Clear the old
@@ -12321,8 +12322,10 @@ window.OVYXWebStudioNavigation.bind();
       }
       const provider=new Provider();
       provider.setCustomParameters?.({prompt:'select_account'});
+      oauthLoginInFlight=true;
       const cred=await a.signInWithPopup(provider);
-      await enforceOAuthRegistration(a,cred,providerName,signupRequested);
+      await enforceOAuthRegistration(a,cred,providerName);
+      oauthLoginInFlight=false;
       updateAuthAction(cred.user);
       setLiveState(false);
       closeAuth();
@@ -12332,19 +12335,13 @@ window.OVYXWebStudioNavigation.bind();
     }catch(error){
       let code=String(error?.code||'');
       if(code==='auth/popup-blocked'){
-        try{
-          status('Popup was blocked. Redirecting to '+providerName+' secure sign-in…');
-          const redirectProvider=new Provider();
-          redirectProvider.setCustomParameters?.({prompt:'select_account'});
-          redirectStarted=true;
-          await a.signInWithRedirect(redirectProvider);
-          return;
-        }catch(redirectError){redirectStarted=false;error=redirectError;code=String(error?.code||'');clearOAuthIntent()}
+        status('The browser blocked the '+providerName+' sign-in popup. Allow popups for OVYX and try again. Redirect sign-in is disabled so the existing-account check cannot be bypassed.','error');
+        clearActivation();setLiveState(false);return;
       }
       const message=
         code==='auth/registration-required' || code==='auth/registration-check-unavailable' ? error.message :
         code==='auth/operation-not-allowed' ? providerName+' sign-in is not enabled in the Firebase Authentication providers for this OVYX deployment.' :
-        code==='auth/popup-blocked' ? providerName+' sign-in was blocked by the browser. OVYX tried the secure redirect fallback but it could not start.' :
+        code==='auth/popup-blocked' ? providerName+' sign-in was blocked by the browser. Allow popups for OVYX and try again.' :
         code==='auth/cancelled-popup-request' ? 'Another sign-in window is already open.' :
         code==='auth/account-exists-with-different-credential' ? 'This email already uses another OVYX sign-in method. Sign in with that method first.' :
         code==='auth/unauthorized-domain' ? 'This OVYX domain is not authorized for Firebase Authentication. Add the deployed domain to Firebase Authentication → Settings → Authorized domains.' :
@@ -12353,7 +12350,7 @@ window.OVYXWebStudioNavigation.bind();
       status(message,code==='auth/popup-closed-by-user'?'':'error');
       clearActivation();
       setLiveState(false);
-    }finally{if(!redirectStarted)clearOAuthIntent();if(button)button.disabled=false}
+    }finally{oauthLoginInFlight=false;clearOAuthIntent();if(button)button.disabled=false}
   }
   function wrapRouter(){
     const R=window.Router;if(!R||R.__OVYX_SECURE_WALL_V2)return;
@@ -12442,14 +12439,13 @@ window.OVYXWebStudioNavigation.bind();
     try{
       const redirectCredential=await a.getRedirectResult?.();
       if(redirectCredential?.user){
-        const redirectMode=readOAuthIntent();
         let redirectProviderName='Google/GitHub';
         try{
           const providerId=String(redirectCredential.providerId||(redirectCredential.user.providerData||[]).find(item=>item?.providerId)?.providerId||'');
           if(providerId==='google.com')redirectProviderName='Google';
           else if(providerId==='github.com')redirectProviderName='GitHub';
         }catch(_){}
-        await enforceOAuthRegistration(a,redirectCredential,redirectProviderName,redirectMode==='signup');
+        await enforceOAuthRegistration(a,redirectCredential,redirectProviderName);
       }else{ clearOAuthIntent(); }
     }catch(error){
       clearOAuthIntent();
@@ -12458,6 +12454,16 @@ window.OVYXWebStudioNavigation.bind();
     }
     installFetchLock();
     a.onAuthStateChanged(async u=>{
+      if(u&&oauthLoginInFlight){
+        authStateReady=true;window.__OVYX_AUTH_STATE_READY__=true;
+        clearActivation();setLiveState(false);updateAuthAction(null);
+        return;
+      }
+      if(u&&rejectedOAuthUid&&String(u.uid||'')===rejectedOAuthUid){
+        try{await a.signOut()}catch(_){}
+        clearActivation();setLiveState(false);updateAuthAction(null);
+        return;
+      }
       authStateReady=true;
       window.__OVYX_AUTH_STATE_READY__=true;
       updateAuthAction(u);
