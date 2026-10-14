@@ -10,7 +10,6 @@ const PROVIDERS = Object.freeze([
   { id: 'deepseek', key: 'DEEPSEEK_API_KEY', label: 'DeepSeek' },
   { id: 'anthropic', key: 'ANTHROPIC_API_KEY', label: 'Anthropic' },
   { id: 'openai', key: 'OPENAI_API_KEY', label: 'OpenAI' },
-  { id: 'openrouter', key: 'OPENROUTER_API_KEY', label: 'OpenRouter' },
 ]);
 
 const has = (env, key) => Boolean(String(env?.[key] || '').trim());
@@ -80,7 +79,6 @@ export async function onRequestGet(context) {
     deepseek: { status: byId.deepseek.status, configured: byId.deepseek.configured },
     anthropic: { status: byId.anthropic.status, configured: byId.anthropic.configured },
     openai: { status: byId.openai.status, configured: byId.openai.configured },
-    openrouter: { status: byId.openrouter.status, configured: byId.openrouter.configured },
     firebase: {
       status: firebaseReady ? 'CONFIGURED' : 'NOT_CONFIGURED',
       configured: firebaseReady,
