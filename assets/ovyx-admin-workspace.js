@@ -39,6 +39,7 @@
     byId(ENTRY_DESKTOP)?.remove();
     byId(ENTRY_MOBILE)?.remove();
     byId(HUB_ID)?.remove();
+    byId('ovyx-admin-module-directory')?.remove();
     document.querySelectorAll('[data-ovyx-admin-workspace-back]').forEach(node => node.remove());
     document.documentElement.classList.remove('ovyx-admin-workspace-authorized');
   }
@@ -249,6 +250,9 @@
 
   function ensureHub() {
     if (authorized) ensureStyles();
+    // The old inline directory duplicates this server-verified hub and can be
+    // unlocked by stale preview state. Remove it in both authorized and locked states.
+    byId('ovyx-admin-module-directory')?.remove();
     const overview = byId('view-admin-overview');
     if (!authorized || !overview) return;
     let hub = byId(HUB_ID);
