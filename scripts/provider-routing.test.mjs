@@ -139,6 +139,15 @@ try {
   assert.equal(requests.at(-1).geminiKey, 'test-gemini-key');
   assert.equal(requests.at(-1).url.includes('test-gemini-key'), false);
 
+  // Verify the current Gemini fallback when no model environment variable is set.
+  result = await callModel(
+    { GEMINI_API_KEY: 'test-gemini-key' },
+    { provider: 'gemini', model: 'automatic', system: 'test', user: 'hello', maxTokens: 32 },
+  );
+  assert.equal(result.provider, 'gemini');
+  assert.match(requests.at(-1).url, /models\/gemini-3\.8-flash:generateContent$/,
+    'Gemini fallback must use the current stable model.');
+
   result = await callModel(
     { DEEPSEEK_API_KEY: 'test-deepseek-key' },
     { provider: 'deepseek', model: 'deepseek-flash', system: 'test', user: 'hello', maxTokens: 32 },
@@ -175,6 +184,7 @@ try {
   assert.equal(result.text, 'OpenAI test passed');
   assert.equal(requests.at(-1).url, 'https://api.openai.com/v1/responses');
   assert.equal(requests.at(-1).authorization, 'Bearer test-openai-key');
+  assert.equal(requests.at(-1).body.model, 'gpt-6.1-sol', 'OpenAI fallback must use the supported cost-balanced model.');
 
   requests.length = 0;
   await assert.rejects(
