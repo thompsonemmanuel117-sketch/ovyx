@@ -1,0 +1,259 @@
+{
+  "version": 1,
+  "purpose": "Repeatable evaluation inputs for OVYX Web Studio. These are fixtures, not claims that a live AI provider has generated or passed all scenarios.",
+  "requiredResponsiveWidths": [
+    320,
+    390,
+    768,
+    1024,
+    1440
+  ],
+  "acceptanceCriteria": [
+    "Distinctive visual direction suited to the specific business instead of a generic reused template",
+    "Requested pages, navigation, calls to action, and key user journeys exist",
+    "Mobile, tablet, and desktop layouts do not create unintended horizontal overflow",
+    "Buttons, navigation, filters, and controls have meaningful behavior and visible feedback",
+    "Forms have accessible labels and realistic validation, loading, success, and error states",
+    "No fake claims that forms, bookings, payments, authentication, or database writes succeeded",
+    "No exposed API keys, private keys, or credentials in client-side project files",
+    "HTML metadata, semantic landmarks, keyboard access, contrast, and image alternatives are checked",
+    "Existing unrelated pages and working features are preserved on targeted edits",
+    "Remaining untested provider, deployment, and live-integration behavior is reported as unverified"
+  ],
+  "siteCategories": [
+    {
+      "id": "luxury-real-estate",
+      "category": "Luxury real estate",
+      "prompt": "Build a distinctive premium real-estate website for a high-end property agency. Include Home, Properties, Property Details, Agents, About, and Contact pages; searchable property listings with filters, a property detail journey, agent profiles, and a viewing-request form. Use refined editorial typography, strong architectural photography, deliberate whitespace, and mobile-friendly listing cards. Treat any sample properties as clearly labelled demo content unless a real property feed is connected.",
+      "mustExercise": [
+        "multi-page navigation",
+        "listing filters",
+        "property detail links",
+        "viewing request form",
+        "mobile property-card layout"
+      ],
+      "integrationTruth": [
+        "property feed",
+        "request persistence",
+        "email delivery"
+      ]
+    },
+    {
+      "id": "fashion-brand",
+      "category": "Fashion brand",
+      "prompt": "Build an editorial fashion brand website with a specific art direction, collection browsing, product detail pages, size guidance, a responsive menu, and a working front-end cart interaction. Use intentional type, imagery, color, and spacing for the given brand rather than a generic storefront. Clearly identify any demo products and never claim that a purchase was completed without a connected payment service.",
+      "mustExercise": [
+        "collection navigation",
+        "product detail",
+        "size selection",
+        "cart state",
+        "responsive imagery"
+      ],
+      "integrationTruth": [
+        "inventory",
+        "payment",
+        "order persistence"
+      ]
+    },
+    {
+      "id": "saas-platform",
+      "category": "SaaS platform",
+      "prompt": "Build a focused SaaS marketing site with product overview, features, pricing, documentation/help, and a dashboard preview. Include clear calls to action, meaningful navigation, a useful dashboard empty state, and responsive layouts. Do not invent customer logos, performance statistics, certifications, testimonials, or a working account system. Label demo dashboard data honestly.",
+      "mustExercise": [
+        "marketing navigation",
+        "pricing routes",
+        "dashboard empty state",
+        "CTA behavior",
+        "tablet dashboard layout"
+      ],
+      "integrationTruth": [
+        "authentication",
+        "subscription billing",
+        "live product data"
+      ]
+    },
+    {
+      "id": "restaurant",
+      "category": "Restaurant",
+      "prompt": "Build a restaurant website with Home, Menu, About, Reservations, and Contact pages. Make the menu easy to browse on mobile and include a reservation request flow with validation, pending feedback, errors, and a confirmation state that clearly distinguishes a locally simulated request from a confirmed booking. Use an art direction appropriate to the restaurant and do not invent opening hours or addresses.",
+      "mustExercise": [
+        "menu browsing",
+        "reservation form",
+        "validation feedback",
+        "route navigation",
+        "mobile layout"
+      ],
+      "integrationTruth": [
+        "booking availability",
+        "reservation persistence",
+        "confirmation delivery"
+      ]
+    },
+    {
+      "id": "ecommerce-store",
+      "category": "E-commerce store",
+      "prompt": "Build a complete small e-commerce storefront with categories, product details, search/filter controls, cart quantity updates, checkout validation, and order status feedback. Use a coherent brand system and clear product information. Until a real payment and inventory integration is configured, label demo behavior explicitly and never display a fake successful charge or order.",
+      "mustExercise": [
+        "category filters",
+        "product details",
+        "cart quantity",
+        "checkout validation",
+        "error and empty states"
+      ],
+      "integrationTruth": [
+        "inventory",
+        "payment processing",
+        "order persistence"
+      ]
+    },
+    {
+      "id": "booking-platform",
+      "category": "Booking platform",
+      "prompt": "Build a multi-page booking platform with search, result filters, detail pages, date and guest selection, a booking review step, and an explicit final confirmation state. Keep the interaction flow clear on a phone. Do not show availability as live or call a booking confirmed until the actual booking service returns verified success.",
+      "mustExercise": [
+        "search",
+        "filtering",
+        "date/guest controls",
+        "review step",
+        "mobile booking flow"
+      ],
+      "integrationTruth": [
+        "live availability",
+        "booking persistence",
+        "confirmation delivery"
+      ]
+    },
+    {
+      "id": "agency",
+      "category": "Creative agency",
+      "prompt": "Build a distinctive creative-agency site with Home, Services, Work/Case Studies, About, and Contact pages. Give the brand a memorable art direction and strong editorial composition; avoid the standard template of a gradient hero and repeated feature cards. Include project detail navigation, meaningful calls to action, and an accessible contact form with honest submission feedback.",
+      "mustExercise": [
+        "case-study navigation",
+        "service page",
+        "CTA flow",
+        "contact validation",
+        "responsive editorial layout"
+      ],
+      "integrationTruth": [
+        "contact form delivery",
+        "CRM submission"
+      ]
+    },
+    {
+      "id": "portfolio",
+      "category": "Professional portfolio",
+      "prompt": "Build a personal portfolio for a professional with Home, selected Projects, individual project detail, About/Experience, and Contact. Make the visual system match the stated profession and supplied materials. Ensure keyboard-friendly project navigation, useful empty states, and working links without fabricating client names, achievements, certifications, or employment history.",
+      "mustExercise": [
+        "project index",
+        "project detail",
+        "experience navigation",
+        "keyboard use",
+        "contact flow"
+      ],
+      "integrationTruth": [
+        "contact delivery",
+        "external profile and download links"
+      ]
+    },
+    {
+      "id": "data-dashboard",
+      "category": "Data dashboard",
+      "prompt": "Build a professional analytics dashboard with an overview, reports, filterable data table, date-range controls, and loading, empty, and error states. Make dense information readable on desktop and usable on mobile without hidden overflow. Mark any example values as demo data; do not imply that a database or live data feed is connected when it is not.",
+      "mustExercise": [
+        "filters",
+        "date-range state",
+        "table overflow",
+        "loading/empty/error states",
+        "mobile navigation"
+      ],
+      "integrationTruth": [
+        "database connection",
+        "data freshness",
+        "authorization"
+      ]
+    }
+  ],
+  "failureScenarios": [
+    {
+      "id": "vague-prompt",
+      "input": "Build a website for my business.",
+      "expected": [
+        "Make reasonable clearly stated assumptions or ask only for essential missing information",
+        "Do not invent the business name, location, reviews, contact details, or business facts",
+        "Do not call an incomplete generated shell a verified website"
+      ]
+    },
+    {
+      "id": "long-prompt",
+      "input": "A long multi-page brief with multiple audiences, required routes, feature details, visual references, and a late change request to one page only.",
+      "expected": [
+        "Preserve all explicit requirements and route names",
+        "Retain unrelated existing pages on targeted edits",
+        "Report any omitted or conflicting requirements before release"
+      ]
+    },
+    {
+      "id": "provider-failure",
+      "input": "Simulate the configured AI provider timing out, returning a 5xx response, or returning an empty/invalid artifact.",
+      "expected": [
+        "Show the actual failure and actionable details",
+        "Keep the last known-good preview and project files",
+        "Do not show a verified/success state"
+      ]
+    },
+    {
+      "id": "interrupted-build",
+      "input": "Interrupt generation after the request begins but before a complete website artifact is returned.",
+      "expected": [
+        "Do not mark the build complete",
+        "Do not replace the prior working preview with partial output",
+        "Allow a safe retry without losing the earlier project"
+      ]
+    },
+    {
+      "id": "missing-integration",
+      "input": "Generate a booking, email, payment, authentication, or database flow with no corresponding provider or backend configured.",
+      "expected": [
+        "Build honest user-facing states",
+        "Label live behavior as unconfigured/unverified",
+        "Never report a booking, delivery, login, or payment as successful"
+      ]
+    },
+    {
+      "id": "malformed-source",
+      "input": "Return malformed JavaScript, unbalanced CSS, invalid JSON, or incomplete HTML in a generated artifact.",
+      "expected": [
+        "Report source validation errors",
+        "Attempt at most one bounded targeted repair",
+        "Re-run checks and preserve the prior preview if repair fails"
+      ]
+    },
+    {
+      "id": "targeted-edit",
+      "input": "On an existing multi-page project, change only the Contact page design and preserve the homepage, navigation, and working forms elsewhere.",
+      "expected": [
+        "Only necessary project files change",
+        "Existing unrelated route behavior remains intact",
+        "History or checkpoints allow recovery"
+      ]
+    },
+    {
+      "id": "oversized-project",
+      "input": "Generate a project containing more than twelve HTML routes.",
+      "expected": [
+        "Static source checks inspect every discovered route",
+        "Browser sample limits are stated in the report",
+        "Coverage is not represented as complete if only a subset was browser-tested"
+      ]
+    },
+    {
+      "id": "secret-exposure",
+      "input": "A generated client-side file accidentally contains a credential-like API key or private-key marker.",
+      "expected": [
+        "Flag the exposure without echoing the sensitive value",
+        "Do not treat the affected result as release-ready",
+        "Recommend moving credentials to an approved server-side secret store"
+      ]
+    }
+  ]
+}
