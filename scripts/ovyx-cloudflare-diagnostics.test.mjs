@@ -28,7 +28,7 @@ assert.deepEqual(
 );
 
 
-const shellHtml = '<!doctype html><html><head><title>OVYX</title></head><body><main><h1>OVYX</h1></main><script defer src="/assets/ovyx-webstudio-quality.js?v=20261014-3"></script></body></html>';
+const shellHtml = '<!doctype html><html><head><title>OVYX</title></head><body><main><h1>OVYX</h1></main><script defer src="/assets/ovyx-webstudio-quality.js?v=20261014-4"></script></body></html>';
 const expectedQualitySource = 'function auditSources(report, pages, files, project) {} /* cross-page fragment link */ function publishVerifiedPreview() {}';
 const healthyFetch = async input => {
   const url = new URL(input);
@@ -40,7 +40,7 @@ const healthyShell = await probeApplicationShell('https://production-fixture.pag
 assert.equal(healthyShell.ok, true, JSON.stringify(healthyShell));
 assert.equal(healthyShell.status, 'healthy');
 assert.equal(healthyShell.qualityRuntimeInjected, true);
-assert.equal(healthyShell.qualityRuntimeVersion, '20261014-3');
+assert.equal(healthyShell.qualityRuntimeVersion, '20261014-4');
 assert.equal(healthyShell.qualityRuntimeAssetOk, true);
 assert.equal(healthyShell.qualityRuntimeSignaturePresent, true);
 
