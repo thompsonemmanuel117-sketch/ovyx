@@ -46,6 +46,8 @@ A high static score is not a visual-design rating and does not show that a site 
 
 The inspector's adaptive browser plan runs the full five-width matrix on the first three core routes and mobile (390px) plus desktop (1440px) smoke checks on every additional HTML route. Every route is still source-audited. This widens browser-route coverage for agency-sized projects while keeping the default inspection cost bounded; it is not a full five-width test of every route, nor a production-device or live-network test.
 
+On each route's 390px run, the inspector identifies clearly labelled safe semantic controls (excluding submit, payment, booking, account, destructive and similar actions) and samples up to eight per route. The report counts eligible, tested, state-changed and skipped controls; it flags skipped samples so the report cannot imply exhaustive interaction coverage. This remains a smoke test rather than a complete journey test.
+
 The Quality Inspector now offers a **JSON QA report export** and a **copyable client-ready summary** after a completed inspection. The handoff describes route coverage and findings, excludes project IDs and source file contents, and states the limits of sandbox performance and live-integration verification. Findings can still contain project-specific paths or text, so review the report before sharing it externally.
 
 The source audit also checks local image, media, icon, srcset, and CSS `url()` references in linked stylesheets, inline style blocks, and style attributes against the generated project file graph. It warns about missing local files. Remote asset references are counted but not fetched, so their availability, licensing, latency, and rendering remain unverified.
