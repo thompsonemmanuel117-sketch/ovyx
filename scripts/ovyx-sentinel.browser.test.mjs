@@ -26,9 +26,10 @@ try {
             '<script>' +
             'let __currentUser=null;const __authListeners=[];window.__setSentinelUser=u=>{__currentUser=u;__authListeners.forEach(cb=>cb(u))};' +
             'window.firebase={auth:()=>({get currentUser(){return __currentUser},onAuthStateChanged:cb=>{__authListeners.push(cb);cb(__currentUser);return ()=>{}}})};' +
+            'window.Router={go:view=>{window.__openedRoute=view;return view}};window.__allowAdminNavigation=true;window.__adminRefreshCalls=0;window.OVYXAdminWorkspace={refresh:async()=>{window.__adminRefreshCalls++;return window.__allowAdminNavigation},isAuthorized:()=>window.__allowAdminNavigation===true,open:async view=>{window.__openedRoute=view;return true}};' +
             'window.__recognizer=null;window.SpeechRecognition=class{start(){window.__recognizer=this}stop(){if(this.onend)this.onend()}};' +
             'Object.defineProperty(window,"SpeechSynthesisUtterance",{configurable:true,value:class{constructor(text){this.text=text}}});window.__spoken=[];Object.defineProperty(window,"speechSynthesis",{configurable:true,value:{cancel(){},speak(u){window.__spoken.push(u.text);if(u.onend)u.onend()}}});' +
-            '</script><script defer src="/assets/ovyx-sentinel.js?v=20261014-9"></script><script defer src="/assets/ovyx-sentinel-avatar-3d.js?v=20261014-2"></script></body></html>',
+            '</script><script defer src="/assets/ovyx-sentinel.js?v=20261014-10"></script><script defer src="/assets/ovyx-sentinel-avatar-3d.js?v=20261014-2"></script></body></html>',
         });
         return;
       }
@@ -40,6 +41,7 @@ try {
     await page.route('https://models.codelove.in/**', route => route.abort());
 
     const calls = [];
+    const companionCalls = [];
     let scanCount = 0;
     const latestReport = {
       id: 'run_initial',
@@ -75,6 +77,26 @@ try {
       checks: [...latestReport.checks, { id: 'sentinel', path: 'Scheduler', status: 'warning', summary: 'No recent scheduled run is confirmed.' }],
     };
 
+    await page.route('**/api/admin/sentinel-companion', async route => {
+      const req = route.request();
+      assert.equal(req.method(), 'POST', '[' + target.name + '] Guardian chat must use POST');
+      assert.equal(req.headers()['authorization'], 'Bearer sentinel-test-token', '[' + target.name + '] Guardian chat must send the signed-in owner token');
+      const payload = req.postDataJSON();
+      assert.equal(payload.action, 'chat', '[' + target.name + '] Guardian chat must use the explicit chat action');
+      assert.ok(Array.isArray(payload.messages) && payload.messages.length > 0, '[' + target.name + '] Guardian chat must send the bounded conversation turns');
+      companionCalls.push({ payload, authorization: req.headers()['authorization'] });
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          text: 'Hey boss, I’m happy to help. I’m here and ready to work through OVYX with you.',
+          provider: 'cloudflare-workers-ai',
+          historySaved: false,
+          sessionOnly: true,
+        }),
+      });
+    });
     await page.route('**/api/admin/guardian-patch', async route => {
       const req = route.request();
       assert.equal(req.headers()['authorization'], 'Bearer sentinel-test-token', '[' + target.name + '] patch capability requests must use the signed-in owner token');
@@ -207,9 +229,92 @@ try {
     assert.equal(await page.locator('[data-ovsx="patch-prepare"]').isDisabled(), true, '[' + target.name + '] patch preparation must stay disabled when the server cannot verify the owner credentials');
     assert.equal(await page.locator('[data-ovsx="patch-apply"]').isDisabled(), true, '[' + target.name + '] pull-request creation must remain disabled without server-confirmed capabilities');
 
+    // The conversation is multi-turn, spoken aloud, and authenticated. Follow-up
+    // messages should include only the recent session conversation, not server-persisted chat.
+    await page.waitForFunction(() => !!window.__recognizer, null, { timeout: 10000 });
+    await page.evaluate(() => {
+      const item = [{ transcript: 'OVYX how are you today' }];
+      item.isFinal = true;
+      const results = [item];
+      results.item = i => results[i];
+      window.__recognizer.onresult({ resultIndex: 0, results });
+    });
+    await page.waitForFunction(() => window.__spoken.some(text => /happy to help/i.test(text)), null, { timeout: 10000 });
+    assert.equal(companionCalls.length, 1, '[' + target.name + '] casual speech should open a natural conversational response');
+    assert.equal(companionCalls[0].payload.messages.at(-1).role, 'user');
+    assert.match(companionCalls[0].payload.messages.at(-1).content, /how are you today/i);
+    assert.ok(companionCalls[0].authorization.includes('sentinel-test-token'));
+
+    await page.waitForFunction(() => !!window.__recognizer, null, { timeout: 10000 });
+    await page.locator('[data-ovsx-chat-input]').fill('What did I just ask you?');
+    await page.locator('[data-ovsx-chat-form] button[type="submit"]').click();
+    await page.waitForFunction(() => window.__spoken.filter(text => /happy to help/i.test(text)).length >= 2, null, { timeout: 10000 });
+    assert.equal(companionCalls.length, 2, '[' + target.name + '] the text fallback should use the same companion endpoint');
+    assert.ok(companionCalls[1].payload.messages.some(item => item.role === 'user' && /how are you today/i.test(item.content)), '[' + target.name + '] follow-up conversation should include the previous user turn');
+    assert.ok(companionCalls[1].payload.messages.some(item => item.role === 'assistant' && /happy to help/i.test(item.content)), '[' + target.name + '] follow-up conversation should include the prior Guardian reply');
+
+    await page.waitForFunction(() => !!window.__recognizer, null, { timeout: 10000 });
+    await page.evaluate(() => {
+      const item = [{ transcript: 'OVYX open Web Studio' }];
+      item.isFinal = true;
+      const results = [item];
+      results.item = i => results[i];
+      window.__recognizer.onresult({ resultIndex: 0, results });
+    });
+    await page.waitForFunction(() => window.__openedRoute === 'webstudio', null, { timeout: 10000 });
+    assert.ok((await page.evaluate(() => window.__spoken)).some(text => /Opening Web Studio/i.test(text)), '[' + target.name + '] Guardian should speak a confirmation after a supported navigation action');
+
+    await page.waitForFunction(() => !!window.__recognizer, null, { timeout: 10000 });
+    await page.evaluate(() => {
+      const item = [{ transcript: 'OVYX open Admin Pricing' }];
+      item.isFinal = true;
+      const results = [item];
+      results.item = i => results[i];
+      window.__recognizer.onresult({ resultIndex: 0, results });
+    });
+    await page.waitForFunction(() => window.__openedRoute === 'admin-pricing', null, { timeout: 10000 });
+    assert.ok(await page.evaluate(() => window.__adminRefreshCalls > 0), '[' + target.name + '] Admin navigation must ask the real owner workspace to verify access');
+    assert.ok((await page.evaluate(() => window.__spoken)).some(text => /Opening Admin Pricing and Plans/i.test(text)), '[' + target.name + '] Guardian should speak a confirmation after authorized Admin navigation');
+
+    await page.waitForFunction(() => !!window.__recognizer, null, { timeout: 10000 });
+    await page.evaluate(() => { window.__allowAdminNavigation = false; window.__openedRoute = null; });
+    await page.evaluate(() => {
+      const item = [{ transcript: 'OVYX open Admin Brain' }];
+      item.isFinal = true;
+      const results = [item];
+      results.item = i => results[i];
+      window.__recognizer.onresult({ resultIndex: 0, results });
+    });
+    await page.waitForFunction(() => document.querySelector('#ovyx-sentinel-panel [data-ovsx-status]')?.textContent.includes('verify owner access'), null, { timeout: 10000 });
+    assert.equal(await page.evaluate(() => window.__openedRoute), null, '[' + target.name + '] an unverified Admin navigation request must not open a protected route');
+    assert.ok((await page.evaluate(() => window.__spoken)).some(text => /could not safely open that area/i.test(text)), '[' + target.name + '] blocked Admin navigation must give a spoken explanation');
+
+    await page.waitForFunction(() => !!window.__recognizer, null, { timeout: 10000 });
+    await page.evaluate(() => { window.__allowAdminNavigation = true; });
+    await page.evaluate(() => {
+      const item = [{ transcript: 'go to sleep' }];
+      item.isFinal = true;
+      const results = [item];
+      results.item = i => results[i];
+      window.__recognizer.onresult({ resultIndex: 0, results });
+    });
+    await page.waitForFunction(() => document.querySelector('#ovyx-sentinel-panel')?.hidden === true && document.querySelector('#ovyx-sentinel-root')?.getAttribute('data-ovyx-sleeping') === '1', null, { timeout: 10000 });
+    assert.equal(await page.locator('#ovyx-sentinel-launch').isVisible(), false, '[' + target.name + '] sleep should hide the Guardian character while leaving an enabled wake word active');
+
+    await page.waitForFunction(() => !!window.__recognizer, null, { timeout: 10000 });
+    await page.evaluate(() => {
+      const item = [{ transcript: 'OVYX' }];
+      item.isFinal = true;
+      const results = [item];
+      results.item = i => results[i];
+      window.__recognizer.onresult({ resultIndex: 0, results });
+    });
+    await page.locator('#ovyx-sentinel-panel').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#ovyx-sentinel-launch').isVisible(), true, '[' + target.name + '] wake word should bring the Guardian back');
+
     await page.locator('[data-ovsx="wake"]').click();
-    assert.match(await page.locator('[data-ovsx-status]').innerText(), /Wake word paused/i);
-    assert.deepEqual(errors, [], '[' + target.name + '] Sentinel runtime errors: ' + errors.join('; '));
+    assert.match(await page.locator('[data-ovsx-status]').innerText(), /Wake word disabled/i);
+    assert.deepEqual(errors, [], '[' + target.name + '] Sentinel/Guardian runtime errors: ' + errors.join('; '));
     assert.ok(calls.some(call => call.method === 'GET') && calls.some(call => call.method === 'POST'), '[' + target.name + '] saved-report, scan and diagnosis routes should be exercised');
     assert.ok(calls.some(call => call.payload && call.payload.diagnosis === true), '[' + target.name + '] the explicit AI diagnosis route should be exercised');
     console.log('PASS Sentinel ' + target.name + ': admin-only visibility, authenticated API, report rendering, opt-in wake word, scan command, voice reply, and pause controls.');

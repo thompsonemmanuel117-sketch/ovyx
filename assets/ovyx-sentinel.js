@@ -15,6 +15,12 @@ var awaitingUntil = 0;
 var restartTimer = 0;
 var lastGuardianQuestion = '';
 var lastInspectedFiles = [];
+var guardianAwake = false;
+var companionBusy = false;
+var guardianRequestBusy = false;
+var conversationTurns = [];
+var speechHeld = false;
+var speechSerial = 0;
 var patchCapabilities = null;
 var currentPatchProposalId = '';
 var patchBusy = false;
@@ -42,6 +48,7 @@ function addStyles() {
   var style = document.createElement('style'); style.id = ID + '-css';
   style.textContent = [
     '#' + ID + '-launch{position:fixed;right:20px;bottom:22px;z-index:2147483000;display:flex;align-items:center;gap:10px;padding:9px 15px 9px 9px;border:1px solid rgba(117,225,238,.32);border-radius:999px;background:rgba(8,13,20,.96);color:#edfaff;box-shadow:0 15px 45px rgba(0,0,0,.45),0 0 28px rgba(92,214,231,.1);font:750 12px/1.2 Inter,system-ui,sans-serif;cursor:pointer}',
+    '#' + ID + '-root[data-ovyx-sleeping="1"] #' + ID + '-launch{display:none!important}',
     '#' + ID + '-launch .eye{display:grid;place-items:center;width:36px;height:36px;border-radius:50%;border:1px solid rgba(130,235,246,.55);background:#101e29;box-shadow:0 0 19px rgba(76,228,241,.14)}',
     '#' + ID + '-launch svg{width:25px;height:25px}',
     '#' + ID + '-panel{position:fixed;right:20px;bottom:82px;z-index:2147483001;width:min(460px,calc(100vw - 24px));max-height:min(76dvh,760px);display:flex;flex-direction:column;overflow:hidden;border:1px solid rgba(148,213,232,.18);border-radius:22px;background:radial-gradient(ellipse at 0 0,rgba(69,133,157,.17),transparent 45%),#090d12;color:#e6edf3;box-shadow:0 28px 90px rgba(0,0,0,.65);font:13px/1.55 Inter,system-ui,sans-serif}',
@@ -86,6 +93,9 @@ function addStyles() {
     '#' + ID + '-panel .badge{font-size:8px;font-weight:850;letter-spacing:.08em;color:#b7cad7;text-transform:uppercase}',
     '#' + ID + '-panel .foot{padding:10px 15px;border-top:1px solid rgba(255,255,255,.07);color:#748695;font-size:9px}',
     '#' + ID + '-panel .transcript{white-space:pre-wrap;padding:10px 11px;margin-top:9px;border-radius:11px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);color:#d8e5ed}',
+    '#' + ID + '-panel .chat-form{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;padding:12px 14px;border-top:1px solid rgba(255,255,255,.07);background:rgba(0,0,0,.12)}',
+    '#' + ID + '-panel .chat-input{box-sizing:border-box;width:100%;min-height:42px;max-height:100px;resize:vertical;padding:10px 11px;border:1px solid rgba(145,207,224,.22);border-radius:11px;background:#060a0e;color:#eaf7fb;font:12px/1.45 Inter,system-ui,sans-serif}',
+    '#' + ID + '-panel .chat-send{align-self:end;min-height:42px;padding:0 13px;border-radius:10px;border:1px solid transparent;background:linear-gradient(120deg,#cbf7f4,#c2daf5);color:#091116;font:800 11px Inter,system-ui,sans-serif}',
     '#' + ID + '-panel [hidden]{display:none!important}',
     '@media(max-width:640px){#' + ID + '-launch{right:12px;bottom:calc(14px + env(safe-area-inset-bottom));padding:7px 12px 7px 7px}#' + ID + '-panel{right:8px;bottom:72px;width:calc(100vw - 16px);max-height:78dvh;border-radius:18px}}',
     '@media(prefers-reduced-motion:reduce){#' + ID + '-launch{scroll-behavior:auto}}'
@@ -95,11 +105,11 @@ function addStyles() {
 function buildShell() {
   if (root) return root;
   root = document.createElement('div'); root.id = ID + '-root';
-  root.innerHTML = '<button id="' + ID + '-launch" type="button" aria-label="Open private OVYX Sentinel administrator companion"><span class="eye" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M3 16s4.8-8 13-8 13 8 13 8-4.8 8-13 8S3 16 3 16Z" stroke="#8BEAF4" stroke-width="1.5"/><circle cx="16" cy="16" r="5.4" fill="#A5F3FC" fill-opacity=".2" stroke="#8BEAF4" stroke-width="1.4"/><circle cx="16" cy="16" r="2.4" fill="#B9FAFF"/></svg></span><span>OVYX SENTINEL</span></button>' +
-  '<section id="' + ID + '-panel" role="dialog" aria-modal="false" aria-labelledby="' + ID + '-title" hidden><header class="head"><span class="eye" aria-hidden="true">◉</span><div class="headcopy"><div id="' + ID + '-title" class="title">OVYX SENTINEL</div><div class="sub">PRIVATE ADMIN COMPANION · SYSTEM HEALTH</div></div><button type="button" class="close" data-ovsx="close" aria-label="Close Sentinel">×</button></header>' +
-  '<div class="actions"><button type="button" class="btn primary" data-ovsx="scan">Check now</button><button type="button" class="btn" data-ovsx="plan">Prepare fix plan</button><button type="button" class="btn" data-ovsx="diagnose">AI diagnosis</button><button type="button" class="btn" data-ovsx="patch">Prepare code fix</button><button type="button" class="btn" data-ovsx="wake">Enable wake word</button><button type="button" class="btn" data-ovsx="mute" disabled>Stop speaking</button></div>' +
-  '<div class="status" role="status" aria-live="polite" data-ovsx-status>Verifying administrator access…</div><div class="body"><div class="summary"><strong>Welcome back, boss.</strong><small>Sentinel checks platform health and authorised service signals. It does not read private user projects or conversations.</small></div><div data-ovsx-report></div><div class="plan" hidden data-ovsx-plan></div><div class="plan" hidden data-ovsx-diagnosis></div><details class="plan" hidden data-ovsx-diagnosis-history><summary class="plan-heading">Previous diagnoses</summary><div data-ovsx-diagnosis-history-list></div></details><div class="plan patch-tools" hidden data-ovsx-patch-tools><strong>Reviewable code fix</strong><div class="plan-note">Guardian will prepare a preview first. Nothing is changed until you review the proposal, type the confirmation phrase, and create a pull request. It will never merge or deploy automatically.</div><label>Source file path<input type="text" data-ovsx-patch-path maxlength="240" placeholder="functions/api/feature.js"></label><label>What should be fixed?<textarea data-ovsx-patch-task rows="3" maxlength="1200" placeholder="Describe the exact bug and desired result"></textarea></label><button type="button" class="btn primary" data-ovsx="patch-prepare">Prepare patch preview</button><div data-ovsx-patch-summary class="rowsummary"></div><pre class="patch-preview" data-ovsx-patch-preview hidden></pre><label>Type CREATE_PULL_REQUEST to submit for review<input type="text" data-ovsx-patch-confirm autocomplete="off" maxlength="40" placeholder="CREATE_PULL_REQUEST"></label><button type="button" class="btn" data-ovsx="patch-apply" disabled>Create review pull request</button><a class="patch-link" data-ovsx-patch-link hidden target="_blank" rel="noopener noreferrer">Open pull request</a></div><div class="transcript" hidden data-ovsx-transcript></div></div>' +
-  '<div class="foot">Wake word requires an enabled microphone and a supported browser. It works while this page is open and active; you can pause it at any time.</div></section>';
+  root.innerHTML = '<button id="' + ID + '-launch" type="button" aria-label="Open private OVYX Guardian companion"><span class="eye" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M3 16s4.8-8 13-8 13 8 13 8-4.8 8-13 8S3 16 3 16Z" stroke="#8BEAF4" stroke-width="1.5"/><circle cx="16" cy="16" r="5.4" fill="#A5F3FC" fill-opacity=".2" stroke="#8BEAF4" stroke-width="1.4"/><circle cx="16" cy="16" r="2.4" fill="#B9FAFF"/></svg></span><span>OVYX GUARDIAN</span></button>' +
+  '<section id="' + ID + '-panel" role="dialog" aria-modal="false" aria-labelledby="' + ID + '-title" hidden><header class="head"><span class="eye" aria-hidden="true">◉</span><div class="headcopy"><div id="' + ID + '-title" class="title">OVYX GUARDIAN</div><div class="sub">YOUR PRIVATE PROJECT COMPANION · VOICE + HEALTH</div></div><button type="button" class="close" data-ovsx="close" aria-label="Put Guardian to sleep">×</button></header>' +
+  '<div class="actions"><button type="button" class="btn primary" data-ovsx="scan">Check now</button><button type="button" class="btn" data-ovsx="plan">Prepare fix plan</button><button type="button" class="btn" data-ovsx="diagnose">AI diagnosis</button><button type="button" class="btn" data-ovsx="patch">Prepare code fix</button><button type="button" class="btn" data-ovsx="wake">Enable wake word</button><button type="button" class="btn" data-ovsx="sleep">Go to sleep</button><button type="button" class="btn" data-ovsx="mute" disabled>Stop speaking</button></div>' +
+  '<div class="status" role="status" aria-live="polite" data-ovsx-status>Verifying administrator access…</div><div class="body"><div class="summary"><strong>Hey boss, I’m here.</strong><small>Your private OVYX companion. Talk naturally, ask questions, or say “OVYX, open Web Studio.” I only listen after you enable the wake word; say “go to sleep” when you want me to disappear. Conversation turns stay in this page session.</small></div><div data-ovsx-report></div><div class="plan" hidden data-ovsx-plan></div><div class="plan" hidden data-ovsx-diagnosis></div><details class="plan" hidden data-ovsx-diagnosis-history><summary class="plan-heading">Previous diagnoses</summary><div data-ovsx-diagnosis-history-list></div></details><div class="plan patch-tools" hidden data-ovsx-patch-tools><strong>Reviewable code fix</strong><div class="plan-note">I will prepare a preview first. Nothing changes until you review the proposal, type the confirmation phrase, and create a pull request. I never merge or deploy automatically.</div><label>Source file path<input type="text" data-ovsx-patch-path maxlength="240" placeholder="functions/api/feature.js"></label><label>What should be fixed?<textarea data-ovsx-patch-task rows="3" maxlength="1200" placeholder="Describe the exact bug and desired result"></textarea></label><button type="button" class="btn primary" data-ovsx="patch-prepare">Prepare patch preview</button><div data-ovsx-patch-summary class="rowsummary"></div><pre class="patch-preview" data-ovsx-patch-preview hidden></pre><label>Type CREATE_PULL_REQUEST to submit for review<input type="text" data-ovsx-patch-confirm autocomplete="off" maxlength="40" placeholder="CREATE_PULL_REQUEST"></label><button type="button" class="btn" data-ovsx="patch-apply" disabled>Create review pull request</button><a class="patch-link" data-ovsx-patch-link hidden target="_blank" rel="noopener noreferrer">Open pull request</a></div><div class="transcript" hidden data-ovsx-transcript></div></div><form class="chat-form" data-ovsx-chat-form><textarea class="chat-input" data-ovsx-chat-input rows="2" maxlength="1200" aria-label="Message OVYX Guardian" placeholder="Talk to me or type a message…"></textarea><button class="chat-send" type="submit">Send</button></form>' +
+  '<div class="foot">Voice commands require microphone permission and a supported browser. Wake-word listening only works while this page is open and active. Use “stop listening” to switch off the microphone completely.</div></section>';
   document.body.appendChild(root); addStyles(); bindShell(); return root;
 }
 function status(message, kind) {
@@ -255,28 +265,77 @@ async function diagnoseLatest(shouldSpeak) {
     var current = q('[data-ovsx="diagnose"]'); if (current) current.disabled = false;
   }
 }
-function speak(text) {
-  if (!window.speechSynthesis || typeof window.SpeechSynthesisUtterance !== 'function') return;
+function speak(text, onDone) {
+  var utteranceText = String(text || '').trim().slice(0, 1800);
+  if (!window.speechSynthesis || typeof window.SpeechSynthesisUtterance !== 'function' || !utteranceText) {
+    if (typeof onDone === 'function') onDone();
+    return;
+  }
+  var token = ++speechSerial;
+  var finished = false;
+  pauseRecognitionForSpeech();
   try {
     window.speechSynthesis.cancel();
-    var utterance = new SpeechSynthesisUtterance(String(text || '').slice(0, 1000));
-    var mute = q('[data-ovsx="mute"]'); if (mute) mute.disabled = false;
+    var utterance = new SpeechSynthesisUtterance(utteranceText);
+    var mute = q('[data-ovsx="mute"]');
+    if (mute) mute.disabled = false;
+    utterance.rate = 1;
+    utterance.pitch = 1;
     utterance.onend = utterance.onerror = function () {
+      if (finished) return;
+      finished = true;
+      if (token !== speechSerial) return;
       if (mute) mute.disabled = true;
       try { window.OVYXSentinel3D?.setSpeaking(false); } catch (_) {}
+      resumeRecognitionAfterSpeech();
+      if (typeof onDone === 'function') onDone();
     };
     try { window.OVYXSentinel3D?.setSpeaking(true); } catch (_) {}
     window.speechSynthesis.speak(utterance);
   } catch (_) {
-    try { window.OVYXSentinel3D?.setSpeaking(false); } catch (_) {}
+    if (!finished && token === speechSerial) {
+      finished = true;
+      try { window.OVYXSentinel3D?.setSpeaking(false); } catch (_) {}
+      resumeRecognitionAfterSpeech();
+      if (typeof onDone === 'function') onDone();
+    }
   }
+}
+function syncGuardianVisibility() {
+  if (!root) return;
+  root.setAttribute('data-ovyx-sleeping', !guardianAwake && wakeEnabled ? '1' : '0');
 }
 function showPanel(show, refreshReport) {
   buildShell();
   var panel = q('#' + ID + '-panel');
   var wasHidden = panel.hidden;
   panel.hidden = !show;
-  if (show) { if (refreshReport !== false && wasHidden) void loadLatest(); q('[data-ovsx="scan"]').focus(); }
+  guardianAwake = show === true;
+  awaitingUntil = 0;
+  syncGuardianVisibility();
+  if (show) {
+    if (refreshReport !== false && wasHidden) void loadLatest();
+    q('[data-ovsx="scan"]').focus();
+    try { window.OVYXSentinel3D?.load?.(); } catch (_) {}
+  }
+}
+function goToSleep(shouldSpeak, stopMicrophone) {
+  awaitingUntil = 0;
+  guardianAwake = false;
+  if (stopMicrophone) disableWake('Wake word disabled. Microphone listening has stopped.');
+  var finishSleep = function () {
+    showPanel(false, false);
+    guardianAwake = false;
+    syncGuardianVisibility();
+  };
+  if (shouldSpeak) {
+    speak(stopMicrophone
+      ? 'I’ve switched off the microphone and gone to sleep, boss. Tap my launcher and enable the wake word again whenever you need me.'
+      : 'Alright boss, I’m going back to sleep. I’ll stay out of the way; say OVYX whenever you need me again.',
+      finishSleep);
+  } else {
+    finishSleep();
+  }
 }
 async function loadLatest() {
   if (busy) return;
@@ -310,108 +369,345 @@ async function scanNow(shouldSpeak) {
   } catch (error) { status(error.message || 'Sentinel could not complete its scan.', 'error'); if (shouldSpeak) speak('Sorry boss, I could not complete the scan. ' + String(error.message || '')); }
   finally { busy = false; if (button) button.disabled = false; }
 }
-function transcript(message) { var element = q('[data-ovsx-transcript]'); if (!element) return; element.hidden = false; element.textContent = safeText(message, 1400); }
-async function askAI(question) {
-  lastGuardianQuestion = safeText(question, 1200);
-  var reportSummary = latestReport ? { status: latestReport.status, checkedAt: latestReport.finishedAt, checks: (latestReport.checks || []).slice(0, 16).map(function (c) { return { path: c.path, status: c.status, code: c.code, summary: c.summary }; }) } : null;
-  status('Checking Guardian capabilities…');
+function transcript(message) { var element = q('[data-ovsx-transcript]'); if (!element) return; element.hidden = false; element.textContent = safeText(message, 7000); }
+function rememberTurn(role, message) {
+  var normalizedRole = role === 'assistant' ? 'assistant' : 'user';
+  var content = safeText(message, 1400);
+  if (!content) return;
+  var last = conversationTurns[conversationTurns.length - 1];
+  if (last && last.role === normalizedRole && last.content === content) return;
+  conversationTurns.push({ role: normalizedRole, content: content });
+  conversationTurns = conversationTurns.slice(-10);
+  transcript(conversationTurns.map(function (item) { return (item.role === 'user' ? 'You' : 'Guardian') + ': ' + item.content; }).join('\n\n'));
+}
+async function askCompanion(question, sourceInspectionUnavailable) {
+  var prompt = safeText(question, 1200);
+  if (!prompt) return;
+  if (companionBusy) { status('I’m still working on your last message, boss.', 'info'); return; }
+  companionBusy = true;
+  var messages = conversationTurns.slice(-10);
+  var lastTurn = messages[messages.length - 1];
+  if (!lastTurn || lastTurn.role !== 'user' || lastTurn.content !== prompt) messages.push({ role: 'user', content: prompt });
+  messages = messages.slice(-10);
+  var reportSummary = latestReport ? {
+    status: latestReport.status,
+    finishedAt: latestReport.finishedAt,
+    criticalCount: Number(latestReport.criticalCount || 0),
+    warningCount: Number(latestReport.warningCount || 0),
+    checks: (latestReport.checks || []).slice(0, 8).map(function (item) {
+      return { path: item.path, status: item.status, code: item.code, summary: item.summary };
+    })
+  } : null;
+  status('Thinking with you…');
   try {
     var idToken = await getToken();
-    var headers = { Accept: 'application/json', Authorization: 'Bearer ' + idToken };
-    var capabilitiesResponse = await fetch('/api/admin/guardian-repo', {
-      method: 'GET', credentials: 'same-origin', cache: 'no-store', headers: headers
+    var response = await fetch('/api/admin/sentinel-companion', {
+      method: 'POST', credentials: 'same-origin', cache: 'no-store',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken },
+      body: JSON.stringify({
+        action: 'chat',
+        messages: messages,
+        latestReport: reportSummary,
+        sourceInspectionUnavailable: sourceInspectionUnavailable === true
+      })
     });
-    var capabilities = await capabilitiesResponse.json().catch(function () { return {}; });
-    var answer = '';
-    var modeMessage = '';
-    if (capabilitiesResponse.ok && capabilities.ok === true && capabilities.guardian && capabilities.guardian.readOnlyInvestigationReady === true) {
-      status('Investigating the repository with read-only source access…');
-      var investigationResponse = await fetch('/api/admin/guardian-repo', {
-        method: 'POST', credentials: 'same-origin', cache: 'no-store',
-        headers: Object.assign({}, headers, { 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ action: 'investigate', question: safeText(question, 1200) })
-      });
-      var investigation = await investigationResponse.json().catch(function () { return {}; });
-      if (!investigationResponse.ok || investigation.ok !== true) throw new Error(investigation.message || investigation.error || 'Guardian could not investigate the repository.');
-      answer = safeText(investigation.answer || 'I could not form a diagnosis from the inspected source.', 1300);
-      var files = Array.isArray(investigation.inspectedFiles) ? investigation.inspectedFiles.slice(0, 3).map(function (path) { return safeText(path, 100); }) : [];
-      lastInspectedFiles = files.slice();
-      var patchPathInput = q('[data-ovsx-patch-path]'); if (patchPathInput && files.length) patchPathInput.value = files[0];
-      var patchTaskInput = q('[data-ovsx-patch-task]'); if (patchTaskInput) patchTaskInput.value = lastGuardianQuestion;
-      modeMessage = files.length ? 'Read-only source investigation complete. Inspected: ' + files.join(', ') + '. No code changes were applied.' : 'No matching source files were found; no changes were applied.';
-    } else {
-      var fallbackResponse = await fetch('/api/ai/ovyx', {
-        method: 'POST', credentials: 'same-origin', cache: 'no-store',
-        headers: Object.assign({}, headers, { 'Content-Type': 'application/json' }),
-        body: JSON.stringify({
-          prompt: safeText(question, 1200),
-          system: 'You are OVYX Sentinel, the verified root administrator’s private platform guardian. This is conversation-only mode: you have not inspected repository source unless the supplied context explicitly includes it. Answer conversationally. Use only supplied operational evidence. Never claim a fix was applied, request private end-user files or conversations, or expose secrets. Distinguish evidence from hypotheses. Code changes require the guarded development workflow.',
-          context: { sentinelReport: reportSummary, scope: 'platform-operational-health-only', repositoryInspection: 'not-configured' }
-        })
-      });
-      var fallback = await fallbackResponse.json().catch(function () { return {}; });
-      if (!fallbackResponse.ok || fallback.ok !== true) throw new Error(fallback.message || fallback.error || 'OVYX AI could not answer right now.');
-      answer = safeText(fallback.text || fallback.message || 'I did not receive a response.', 1300);
-      modeMessage = safeText(capabilities.guardian && capabilities.guardian.message || 'Repository source inspection is not configured. This answer uses only the available operational report and conversation context.', 220);
-    }
-    transcript('You: ' + safeText(question, 300) + '\\nGuardian: ' + answer);
-    status(modeMessage || 'Guardian replied.', 'success');
+    var data = await response.json().catch(function () { return {}; });
+    if (!response.ok || data.ok !== true) throw new Error(data.message || data.error || 'I could not answer right now. Check the configured AI provider or try again.');
+    var answer = safeText(data.text || 'I did not receive a complete answer, boss. Please say that again.', 2200);
+    conversationTurns = messages.concat([{ role: 'assistant', content: answer }]).slice(-10);
+    transcript(conversationTurns.map(function (item) { return (item.role === 'user' ? 'You' : 'Guardian') + ': ' + item.content; }).join('\n\n'));
+    status('I’m here, boss. This conversation stays in the active page session.', 'success');
     speak(answer);
   } catch (error) {
-    status(String(error.message || 'Guardian request failed.') + ' No code changes were applied.', 'error');
-    speak('Sorry boss, I could not complete that investigation. ' + String(error.message || ''));
+    status(String(error.message || 'Guardian conversation failed.') + ' No code changes were applied.', 'error');
+    speak('Sorry boss, I could not answer that just now. ' + String(error.message || ''));
+  } finally {
+    companionBusy = false;
+  }
+}
+function questionNeedsRepositoryInspection(question) {
+  return /\b(?:source|source code|codebase|repository|repo|file|inspect|trace|debug|debugging|bug|broken|stack trace|function|endpoint|route|script|implementation|fix the code|find the bug)\b/i.test(String(question || ''));
+}
+async function askAI(question) {
+  lastGuardianQuestion = safeText(question, 1200);
+  if (!lastGuardianQuestion) return;
+  if (guardianRequestBusy || companionBusy) {
+    status('I’m still working on your last message, boss. Give me a moment to finish it.', 'info');
+    return;
+  }
+  guardianRequestBusy = true;
+  rememberTurn('user', lastGuardianQuestion);
+  if (questionNeedsRepositoryInspection(lastGuardianQuestion)) {
+    status('I’ll try to inspect the relevant source safely first…');
+    try {
+      var idToken = await getToken();
+      var headers = { Accept: 'application/json', Authorization: 'Bearer ' + idToken };
+      var capabilitiesResponse = await fetch('/api/admin/guardian-repo', {
+        method: 'GET', credentials: 'same-origin', cache: 'no-store', headers: headers
+      });
+      var capabilities = await capabilitiesResponse.json().catch(function () { return {}; });
+      if (capabilitiesResponse.ok && capabilities.ok === true && capabilities.guardian && capabilities.guardian.readOnlyInvestigationReady === true) {
+        status('Investigating the repository with read-only source access…');
+        var investigationResponse = await fetch('/api/admin/guardian-repo', {
+          method: 'POST', credentials: 'same-origin', cache: 'no-store',
+          headers: Object.assign({}, headers, { 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ action: 'investigate', question: lastGuardianQuestion })
+        });
+        var investigation = await investigationResponse.json().catch(function () { return {}; });
+        if (!investigationResponse.ok || investigation.ok !== true) throw new Error(investigation.message || investigation.error || 'Guardian could not investigate the repository.');
+        var answer = safeText(investigation.answer || 'I could not form a diagnosis from the inspected source.', 1800);
+        var files = Array.isArray(investigation.inspectedFiles) ? investigation.inspectedFiles.slice(0, 3).map(function (path) { return safeText(path, 100); }) : [];
+        lastInspectedFiles = files.slice();
+        var patchPathInput = q('[data-ovsx-patch-path]');
+        if (patchPathInput && files.length) patchPathInput.value = files[0];
+        var patchTaskInput = q('[data-ovsx-patch-task]');
+        if (patchTaskInput) patchTaskInput.value = lastGuardianQuestion;
+        rememberTurn('assistant', answer);
+        status(files.length ? 'Read-only source investigation complete. Inspected: ' + files.join(', ') + '. No code changes were applied.' : 'No matching source files were found; no changes were applied.', 'success');
+        speak(answer);
+        return;
+      }
+      await askCompanion(lastGuardianQuestion, true);
+      return;
+    } catch (error) {
+      status('I could not inspect the source on this attempt. I have not changed anything.', 'error');
+      speak('Sorry boss, I could not inspect the source on this attempt. No code changes were applied.');
+      return;
+    } finally {
+      guardianRequestBusy = false;
+    }
+  }
+  try {
+    await askCompanion(lastGuardianQuestion, false);
+  } finally {
+    guardianRequestBusy = false;
   }
 }
 function normalize(text) { return String(text || '').toLowerCase().replace(/[.,!?;:]+/g, ' ').replace(/\s+/g, ' ').trim(); }
+function extractOpenTarget(text) {
+  var match = String(text || '').match(/^(?:please\s+)?(?:(?:can|could|would)\s+you\s+)?(?:open|show|go to|take me to|navigate to|bring up|switch to|visit)\s+(?:the\s+)?(.+)$/i);
+  return match ? normalize(match[1]).replace(/\b(?:please|for me|right now)\b/g, '').trim() : '';
+}
+function resolveGuardianRoute(target) {
+  var value = normalize(target).replace(/\b(?:in|under)\s+(?:the\s+)?admin(?: area| workspace| panel)?\b/g, '').trim();
+  var admin = /\b(?:admin|command center|owner console)\b/.test(normalize(target));
+  if (admin && /\b(?:pricing|plans?|subscriptions?)\b/.test(value)) return { route: 'admin-pricing', label: 'Admin Pricing and Plans', admin: true };
+  if (admin && /\b(?:template|matrix|catalogue|catalog)\b/.test(value)) return { route: 'admin-template-hub', label: 'Admin Template Matrix', admin: true };
+  if (admin && /\b(?:users?|roles?|accounts?)\b/.test(value)) return { route: 'admin-users', label: 'Admin Users and Roles', admin: true };
+  if (admin && /\b(?:brain|provider|models?|api keys?)\b/.test(value)) return { route: 'admin-brain', label: 'Admin AI Brain', admin: true };
+  if (admin && /\b(?:identity|persona|generation policy)\b/.test(value)) return { route: 'admin-identity', label: 'Admin AI Identity', admin: true };
+  if (admin && /\b(?:backend|endpoints?|security)\b/.test(value)) return { route: 'admin-backend', label: 'Admin Backend', admin: true };
+  if (admin && /\b(?:telemetry|health|monitoring)\b/.test(value)) return { route: 'admin-telemetry', label: 'Admin Telemetry', admin: true };
+  if (admin && /\b(?:broadcast|announcements?)\b/.test(value)) return { route: 'admin-broadcasts', label: 'Admin Broadcasts', admin: true };
+  if (admin || /\b(?:admin workspace|admin area|command center|owner console|admin dashboard)\b/.test(value)) return { route: 'admin-overview', label: 'Admin Command Center', admin: true };
+  if (/\b(?:web studio|website builder|website studio|site builder)\b/.test(value)) return { route: 'webstudio', label: 'Web Studio' };
+  if (/\b(?:ai assistant workspace|assistant workspace|ai workspace|kernel bot|workspace chat)\b/.test(value)) return { route: 'kernel-bot', label: 'AI Assistant Workspace' };
+  if (/\b(?:app studio|app builder|application studio)\b/.test(value)) return { route: 'appstudio', label: 'App Studio' };
+  if (/\b(?:projects?|project dashboard)\b/.test(value)) return { route: 'projects', label: 'Projects' };
+  if (/\b(?:templates?|template library|blueprints)\b/.test(value)) return { route: 'templates', label: 'Templates' };
+  if (/\b(?:settings|preferences|configuration)\b/.test(value)) return { route: 'settings', label: 'Settings' };
+  if (/\b(?:pricing|plans?|upgrade|subscription)\b/.test(value)) return { route: 'pricing', label: 'Pricing and Plans' };
+  if (/\b(?:help|support|contact support|faq|frequently asked questions)\b/.test(value)) return { route: 'faq', label: 'Help and Support' };
+  if (/\b(?:inbox|notifications|messages)\b/.test(value)) return { route: 'inbox', label: 'Inbox' };
+  if (/\b(?:home|dashboard|main screen)\b/.test(value)) return { route: 'home', label: 'Home' };
+  if (/\b(?:code workspace|files|file browser|code editor|source editor)\b/.test(value)) return { route: 'kernel-bot', label: 'AI Assistant Workspace' };
+  return null;
+}
+function clickSafeVisibleControl(target) {
+  var wanted = normalize(target);
+  if (!wanted || wanted.length < 3) return null;
+  var dangerous = /\b(?:delete|remove|reset|clear|submit|send|publish|deploy|save|purchase|pay|checkout|disconnect|revoke|disable|confirm|merge|create|cancel|logout|log out)\b/i;
+  var safeIntent = /\b(?:open|show|view|preview|history|assets|sections|projects|templates|settings|support|help|admin|pricing|users|brain|backend|telemetry|home|web studio|app studio|workspace|file|editor|inbox|faq)\b/i;
+  var nodes = Array.from(document.querySelectorAll('button, a, [role="button"], [role="tab"]'));
+  var choices = nodes.map(function (node) {
+    var raw = [node.getAttribute('aria-label'), node.getAttribute('title'), node.getAttribute('data-nav'), node.textContent].filter(Boolean).join(' ');
+    var label = normalize(raw);
+    if (!label || dangerous.test(label) || !safeIntent.test(label) || node.disabled || !node.getClientRects().length) return null;
+    var score = label === wanted ? 100 : label.includes(wanted) ? 70 : wanted.includes(label) && label.length >= 3 ? 35 : 0;
+    return score ? { node: node, score: score, label: safeText(label, 100) } : null;
+  }).filter(Boolean).sort(function (a, b) { return b.score - a.score; });
+  if (!choices.length || (choices.length > 1 && choices[0].score === choices[1].score)) return null;
+  choices[0].node.click();
+  return choices[0].label;
+}
+async function openFromVoice(command) {
+  var target = extractOpenTarget(command);
+  if (!target) return false;
+  var route = resolveGuardianRoute(target);
+  if (route) {
+    if (route.admin) {
+      var adminWorkspace = window.OVYXAdminWorkspace;
+      if (!adminWorkspace || typeof adminWorkspace.refresh !== 'function' || typeof adminWorkspace.isAuthorized !== 'function') {
+        throw new Error('The verified Admin Workspace is not ready yet.');
+      }
+      var isOwner = await adminWorkspace.refresh();
+      if (isOwner !== true || adminWorkspace.isAuthorized() !== true) {
+        throw new Error('I could not verify owner access to that admin module, so I left it closed.');
+      }
+      if (!window.Router || typeof window.Router.go !== 'function') {
+        throw new Error('OVYX navigation is not ready yet.');
+      }
+      await window.Router.go(route.route);
+    } else {
+      if (!window.Router || typeof window.Router.go !== 'function') throw new Error('OVYX navigation is not ready yet.');
+      await window.Router.go(route.route);
+    }
+    status('Opening ' + route.label + ', boss.', 'success');
+    speak('On it, boss. Opening ' + route.label + '.');
+    return true;
+  }
+  var control = clickSafeVisibleControl(target);
+  if (control) {
+    status('Opened ' + control + '. I did not run any destructive or publishing action.', 'success');
+    speak('Done, boss. I opened ' + control + '.');
+    return true;
+  }
+  status('I could not safely find a matching openable area called "' + safeText(target, 100) + '". Nothing was clicked.', 'error');
+  speak('I could not safely find that exact area, boss, so I did not click anything. Try naming a section like Web Studio, Projects, Templates, Settings, Help, or Admin Pricing.');
+  return true;
+}
 function handleVoice(raw) {
-  var text = normalize(raw); if (!text) return;
-  if (/\b(?:stop listening|pause listening|disable wake word|turn off wake word)\b/.test(text)) { disableWake('Wake word disabled. Microphone listening has stopped.'); speak('Wake word disabled, boss.'); return; }
+  var text = normalize(raw);
+  if (!text) return;
+  if (/\b(?:stop listening|pause listening|disable wake word|turn off wake word|switch off (?:the )?microphone)\b/.test(text)) {
+    goToSleep(true, true);
+    return;
+  }
+  if (/^(?:go to sleep|go back to sleep|return to sleep|sleep now|sleep please|goodnight|good night)\b/.test(text) && guardianAwake) {
+    goToSleep(true, false);
+    return;
+  }
   var wake = text.match(/\b(?:ovyx|o\s*v\s*y\s*x|oh\s*v\s*y\s*x|oh\s*vyx)\b/i);
   if (wake) {
+    guardianAwake = true;
     showPanel(true, false);
     var command = text.slice((wake.index || 0) + wake[0].length).trim();
-    if (command) { awaitingUntil = 0; runVoiceCommand(command); }
-    else { awaitingUntil = Date.now() + 12000; status('I heard OVYX. Tell me what you need within 12 seconds.', 'success'); speak('I’m listening, boss. What should I check?'); }
+    if (command) {
+      awaitingUntil = 0;
+      void runVoiceCommand(command);
+    } else {
+      awaitingUntil = Date.now() + 12000;
+      status('I’m here, boss. Tell me what you need; I’m listening while you stay in this conversation.', 'success');
+      speak('Hey boss, I’m here. What’s on your mind? You can ask me about OVYX, ask me to check its health, or tell me to open a section.');
+    }
     return;
   }
-  if (Date.now() < awaitingUntil) { awaitingUntil = 0; runVoiceCommand(text); }
+  if (guardianAwake || Date.now() < awaitingUntil) {
+    awaitingUntil = 0;
+    void runVoiceCommand(text);
+  }
 }
 async function runVoiceCommand(command) {
-  var text = normalize(command); transcript('Heard: ' + text);
-  if (/\\b(?:prepare|draft|propose|make)\\s+(?:a\\s+)?(?:code\\s+)?(?:fix|patch)\\b/.test(text)) {
-    togglePatchTools(true);
-    status('Patch review opened. Guardian will prepare a preview first; no code will change until you explicitly submit a pull request.', 'info');
-    speak('I opened the code fix review panel, boss. I will prepare a preview first and will not merge or deploy anything.');
+  var text = normalize(command);
+  transcript('Heard: ' + text);
+  if (/^(?:go to sleep|go back to sleep|return to sleep|sleep now|sleep please|goodnight|good night)\b/.test(text)) {
+    goToSleep(true, false);
     return;
   }
-  if (/\b(?:scan|check|diagnos|health|status|inspect platform|system report|check now)\b/.test(text)) { await scanNow(true); return; }
+  if (/^(?:open|show|go to|take me to|navigate to|bring up|switch to|visit|please open|can you open|could you open)\b/.test(text)) {
+    try {
+      if (await openFromVoice(text)) return;
+    } catch (error) {
+      var openMessage = safeText(error && error.message || 'I could not safely open that area.', 220);
+      status(openMessage, 'error');
+      speak('I could not safely open that area, boss. ' + openMessage);
+      return;
+    }
+  }
+  if (/\b(?:prepare|draft|propose|make)\s+(?:a\s+)?(?:code\s+)?(?:fix|patch)\b/.test(text)) {
+    togglePatchTools(true);
+    status('Patch review opened. I’ll prepare a preview first; no code changes until you explicitly create a review pull request.', 'info');
+    speak('I opened the code fix review, boss. I will prepare a preview first, and I will not merge or deploy anything.');
+    return;
+  }
+  if (/\b(?:scan|check|diagnos|health|status|inspect platform|system report|check now)\b/.test(text)) {
+    await scanNow(true);
+    return;
+  }
   if (/\b(?:report|what did you find|latest results|last check|summary)\b/.test(text) && latestReport) {
     var summary = stateLabel(latestReport) + '. ' + Number(latestReport.criticalCount || 0) + ' critical issues and ' + Number(latestReport.warningCount || 0) + ' warnings.';
-    status(summary, latestReport.status === 'critical' ? 'error' : 'success'); transcript(summary); speak(summary); return;
+    status(summary, latestReport.status === 'critical' ? 'error' : 'success');
+    rememberTurn('assistant', summary);
+    speak(summary);
+    return;
   }
   await askAI(command);
 }
 function disableWake(message) {
-  wakeEnabled = false; awaitingUntil = 0; clearTimeout(restartTimer);
-  if (recognition) { try { recognition.onend = null; recognition.stop(); } catch (_) {} recognition = null; }
-  var button = q('[data-ovsx="wake"]'); if (button) button.textContent = 'Enable wake word';
+  wakeEnabled = false;
+  awaitingUntil = 0;
+  speechHeld = false;
+  clearTimeout(restartTimer);
+  if (recognition) {
+    try { recognition.onend = null; recognition.stop(); } catch (_) {}
+    recognition = null;
+  }
+  var button = q('[data-ovsx="wake"]');
+  if (button) button.textContent = 'Enable wake word';
+  syncGuardianVisibility();
   if (message) status(message, 'info');
+}
+function pauseRecognitionForSpeech() {
+  if (!wakeEnabled) return;
+  speechHeld = true;
+  clearTimeout(restartTimer);
+  if (recognition) {
+    try { recognition.stop(); } catch (_) {}
+  }
+}
+function resumeRecognitionAfterSpeech() {
+  speechHeld = false;
+  if (wakeEnabled && !document.hidden && !recognition) {
+    clearTimeout(restartTimer);
+    restartTimer = setTimeout(makeRecognition, 500);
+  }
 }
 function makeRecognition() {
   var Constructor = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!Constructor || !wakeEnabled || document.hidden) return;
+  if (!Constructor || !wakeEnabled || document.hidden || speechHeld) return;
   try {
-    recognition = new Constructor(); recognition.continuous = true; recognition.interimResults = false; recognition.lang = 'en-US'; recognition.maxAlternatives = 1;
-    recognition.onresult = function (event) { for (var i = event.resultIndex; i < event.results.length; i += 1) if (event.results[i].isFinal) handleVoice(event.results[i][0] && event.results[i][0].transcript); };
-    recognition.onerror = function (event) { if (!wakeEnabled || ['no-speech','aborted'].includes(String(event.error || ''))) return; if (['not-allowed','service-not-allowed','audio-capture'].includes(String(event.error || ''))) { disableWake('Microphone permission or audio capture is unavailable. Enable microphone access in your browser settings, then try again.'); return; } status('Speech recognition issue: ' + safeText(event.error || 'unknown', 60) + '. You can pause and re-enable the wake word.', 'error'); };
-    recognition.onend = function () { recognition = null; if (wakeEnabled && !document.hidden) restartTimer = setTimeout(makeRecognition, 700); };
+    recognition = new Constructor();
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+    recognition.maxAlternatives = 1;
+    recognition.onresult = function (event) {
+      for (var i = event.resultIndex; i < event.results.length; i += 1) {
+        if (event.results[i].isFinal) handleVoice(event.results[i][0] && event.results[i][0].transcript);
+      }
+    };
+    recognition.onerror = function (event) {
+      if (!wakeEnabled || ['no-speech', 'aborted'].includes(String(event.error || ''))) return;
+      if (['not-allowed', 'service-not-allowed', 'audio-capture'].includes(String(event.error || ''))) {
+        disableWake('Microphone permission or audio capture is unavailable. Enable microphone access in browser settings, then try again.');
+        return;
+      }
+      status('Speech recognition issue: ' + safeText(event.error || 'unknown', 60) + '. You can pause and re-enable the wake word.', 'error');
+    };
+    recognition.onend = function () {
+      recognition = null;
+      if (wakeEnabled && !document.hidden && !speechHeld) restartTimer = setTimeout(makeRecognition, 500);
+    };
     recognition.start();
-  } catch (_) { recognition = null; disableWake('The browser could not start listening. Check microphone permission and try again.'); }
+  } catch (_) {
+    recognition = null;
+    disableWake('The browser could not start listening. Check microphone permission and try again.');
+  }
 }
 function toggleWake() {
-  if (wakeEnabled) { disableWake('Wake word paused. Microphone listening has stopped.'); return; }
-  if (!(window.SpeechRecognition || window.webkitSpeechRecognition)) { status('This browser does not support speech recognition. You can still use Check now.', 'error'); return; }
-  wakeEnabled = true; q('[data-ovsx="wake"]').textContent = 'Pause wake word';
+  if (wakeEnabled) {
+    disableWake('Wake word disabled. Microphone listening has stopped.');
+    speak('I’ve switched off the microphone, boss.');
+    return;
+  }
+  if (!(window.SpeechRecognition || window.webkitSpeechRecognition)) {
+    status('This browser does not support speech recognition. You can still use Check now.', 'error');
+    return;
+  }
+  wakeEnabled = true;
+  var button = q('[data-ovsx="wake"]');
+  if (button) button.textContent = 'Pause wake word';
+  syncGuardianVisibility();
   status('Wake word enabled. Say OVYX to get my attention. The page must remain open and active.', 'success');
   makeRecognition();
 }
@@ -562,8 +858,23 @@ async function applyPatchProposal() {
     updatePatchApplyState();
   }
 }
+function submitChatInput() {
+  var field = q('[data-ovsx-chat-input]');
+  var value = safeText(field && field.value, 1200);
+  if (!value) return;
+  if (field) field.value = '';
+  guardianAwake = true;
+  showPanel(true, false);
+  void askAI(value);
+}
 function bindShell() {
-  q('#' + ID + '-launch').addEventListener('click', function () { showPanel(true); });
+  var chatForm = q('[data-ovsx-chat-form]');
+  if (chatForm) chatForm.addEventListener('submit', function (event) { event.preventDefault(); submitChatInput(); });
+  q('#' + ID + '-launch').addEventListener('click', function () {
+    guardianAwake = true;
+    showPanel(true);
+    speak('Hey boss, I’m here. What do you need?');
+  });
   var patchConfirmation = q('[data-ovsx-patch-confirm]');
   if (patchConfirmation) patchConfirmation.addEventListener('input', updatePatchApplyState);
   var patchPath = q('[data-ovsx-patch-path]');
@@ -571,8 +882,9 @@ function bindShell() {
   if (patchPath) patchPath.addEventListener('input', invalidatePatchProposal);
   if (patchTask) patchTask.addEventListener('input', invalidatePatchProposal);
   root.addEventListener('click', function (event) {
-    var button = event.target.closest('[data-ovsx]'); if (!button) return;
-    if (button.dataset.ovsx === 'close') showPanel(false);
+    var button = event.target.closest('[data-ovsx]');
+    if (!button) return;
+    if (button.dataset.ovsx === 'close') goToSleep(false, false);
     else if (button.dataset.ovsx === 'scan') void scanNow(false);
     else if (button.dataset.ovsx === 'plan') void prepareFixPlan();
     else if (button.dataset.ovsx === 'diagnose') void diagnoseLatest(false);
@@ -584,7 +896,14 @@ function bindShell() {
       if (saved) { renderDiagnosis(saved); status('Showing a saved diagnosis from private history. It did not apply changes.', 'success'); }
     }
     else if (button.dataset.ovsx === 'wake') toggleWake();
-    else if (button.dataset.ovsx === 'mute') { try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (_) {} button.disabled = true; }
+    else if (button.dataset.ovsx === 'sleep') goToSleep(true, false);
+    else if (button.dataset.ovsx === 'mute') {
+      speechSerial += 1;
+      try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (_) {}
+      try { window.OVYXSentinel3D?.setSpeaking(false); } catch (_) {}
+      var mute = q('[data-ovsx="mute"]'); if (mute) mute.disabled = true;
+      resumeRecognitionAfterSpeech();
+    }
   });
 }
 async function bootstrap() {
@@ -600,7 +919,7 @@ function observeAuth() {
     if (auth && typeof auth.onAuthStateChanged === 'function') {
       auth.onAuthStateChanged(function (u) {
         if (!u || String(u.email || '').trim().toLowerCase() !== ADMIN_EMAIL || u.emailVerified !== true) {
-          disableWake(); if (root) root.remove(); root = null; latestReport = null; return;
+          disableWake(); guardianAwake = false; conversationTurns = []; try { window.speechSynthesis?.cancel?.(); } catch (_) {} if (root) root.remove(); root = null; latestReport = null; return;
         }
         void bootstrap();
       });
