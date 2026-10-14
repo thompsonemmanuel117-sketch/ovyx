@@ -29,5 +29,5 @@ assert.ok(docs.includes('MIT License') && docs.includes('Businessman 01'), 'The 
 assert.doesNotMatch(avatar, /getUserMedia|navigator\.mediaDevices|camera\.get/i, 'The 3D avatar must not enable camera access.');
 assert.doesNotMatch(avatar, /recognition\.start\(|SpeechRecognition\s*=/, 'The 3D avatar must not start or replace the existing opt-in wake-word listener.');
 assert.ok(avatar.includes('if (renderer && scene && camera && characterRoot)'), 'Reopening the Guardian must reuse the loaded avatar scene.');
-assert.ok(avatar.includes('!panel.hidden'), 'The 3D render loop must not continue while the Guardian is asleep.');
+assert.ok(avatar.includes('panel.hidden || !renderer'), 'The 3D render loop must not continue while the Guardian is asleep.');
 console.log('OVYX Sentinel 3D avatar contract tests passed: dressed rigged model, idle/talk/wave animation, voice synchronization, accessible fallback, licence and privacy boundaries.');
