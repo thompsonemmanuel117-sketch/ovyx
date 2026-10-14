@@ -197,6 +197,14 @@
         if (reference) auditAssetReference(fromPath, reference, kind);
       });
     }
+    function auditCssUrlReferences(fromPath, css) {
+      var urlPattern = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^)]*?))\s*\)/gi;
+      var match;
+      while ((match = urlPattern.exec(text(css)))) {
+        var reference = text(match[1] || match[2] || match[3]).trim();
+        if (reference) auditAssetReference(fromPath, reference, 'CSS url() asset');
+      }
+    }
     var interactionIssues = [];
     var securityIssues = [];
     var cssFiles = Object.keys(files || {}).filter(function (path) { return /\.css$/i.test(path) && fileText(files[path]).trim(); });
@@ -253,6 +261,12 @@
         if ((tag === 'img' || tag === 'source') && !src && !srcset && !lazySrc) {
           resourceIssues.push(page.path + ': a ' + tag + ' element has no src, srcset or data-src reference.');
         }
+      });
+      doc.querySelectorAll('style').forEach(function (style) {
+        auditCssUrlReferences(page.path, style.textContent || '');
+      });
+      doc.querySelectorAll('[style]').forEach(function (node) {
+        auditCssUrlReferences(page.path, node.getAttribute('style') || '');
       });
       doc.querySelectorAll('a').forEach(function (anchor) {
         var href = text(anchor.getAttribute('href')).trim();
@@ -338,13 +352,7 @@
       addCheck(report, 'Responsive styling', 'Project stylesheets', 'warn', 'No external CSS file was found in the project graph; inline styles may still be present in the page documents.');
     }
     cssFiles.forEach(function (path) {
-      var css = fileText(files[path]);
-      var urlPattern = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^)]*?))\s*\)/gi;
-      var match;
-      while ((match = urlPattern.exec(css))) {
-        var reference = text(match[1] || match[2] || match[3]).trim();
-        if (reference) auditAssetReference(path, reference, 'CSS url() asset');
-      }
+      auditCssUrlReferences(path, fileText(files[path]));
     });
     addCheck(report, 'Project assets', 'Local asset references', statusForFindings(resourceIssues.length, false),
       resourceIssues.length
