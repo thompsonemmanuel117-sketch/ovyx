@@ -14,6 +14,8 @@
   var running = false;
   var buildDepth = 0;
   var buildInFlight = false;
+  var deferredPreviewRefresh = false;
+  var qualityGateActive = false;
   var lastBuildStage = { stage: 'ready', status: 'idle', message: 'Ready to inspect', at: Date.now() };
   var lastFocused = null;
   var stageRows = [
@@ -822,6 +824,8 @@
   }
   async function rejectBuildForQuality(studio, snapshot, reason) {
     var restored = restoreSnapshot(studio, snapshot);
+    deferredPreviewRefresh = false;
+    qualityGateActive = false;
     var report = null;
     try { report = await inspectProject(); } catch (_) {}
     if (!report) {
@@ -881,6 +885,18 @@
       try { studio.render && studio.render(); } catch (_) {}
       return true;
     } catch (_) { return false; }
+  }
+  function discardDeferredPreview() {
+    deferredPreviewRefresh = false;
+  }
+  function publishVerifiedPreview(studio) {
+    if (!studio || typeof studio.renderPreview !== 'function') {
+      throw new Error('The site passed quality checks, but the verified preview renderer is unavailable.');
+    }
+    qualityGateActive = false;
+    buildInFlight = false;
+    deferredPreviewRefresh = false;
+    studio.renderPreview();
   }
   function findingsForRepair(report) {
     return (report && report.checks || []).filter(function (item) {
@@ -951,11 +967,12 @@
       if (!changed || !newVerification) throw new Error('The build pipeline did not return a newly verified website change. The previous project was restored.');
       running = false;
       var afterReport = await inspectProject();
-      if (issueScore(afterReport) >= scoreBefore) {
+      if (issueScore(afterReport) > 0) {
         restoreSnapshot(studio, snapshot);
+        discardDeferredPreview();
         currentReport = beforeReport;
         renderFindings(beforeReport);
-        var note = 'The attempted repair did not reduce the observed quality issues. OVYX restored the previous project and kept its working preview.';
+        var note = 'The attempted repair still left quality findings. OVYX restored the previous project and kept its working preview.';
         addCheck(beforeReport, 'Automatic repair', 'Repair verification', 'warn', note);
         beforeReport.finishedAt = new Date().toISOString();
         beforeReport.status = reportStatus(beforeReport);
@@ -969,11 +986,13 @@
         afterReport.status = reportStatus(afterReport);
         afterReport.counts = countIssues(afterReport);
         renderFindings(afterReport);
-        toast('OVYX repaired the reported website issues and re-ran the quality checks. Review any remaining warnings.', 'success');
+        if (!qualityGateActive) publishVerifiedPreview(studio);
+        toast('OVYX repaired the reported website issues and re-ran the quality checks.', 'success');
         success = true;
       }
     } catch (error) {
       restoreSnapshot(studio, snapshot);
+      discardDeferredPreview();
       currentReport = beforeReport;
       addCheck(beforeReport, 'Automatic repair', 'Repair verification', 'warn', trim(error && error.message || 'The repair could not be verified.', 700) + ' The previous website files and preview were restored.');
       beforeReport.finishedAt = new Date().toISOString();
@@ -985,7 +1004,13 @@
       running = false;
       if (runButton) runButton.disabled = false;
       if (repairButton) repairButton.disabled = !(currentReport && currentReport.checks.some(function (item) { return item.status === 'fail' || item.status === 'warn'; }));
-      emitBuildStage({ stage: success ? 'build-verified' : 'build-failed', status: success ? 'success' : 'warning', message: success ? 'Targeted repair passed a fresh quality check.' : 'Targeted repair did not pass the quality gate.' });
+      emitBuildStage({
+        stage: success ? (qualityGateActive ? 'quality-auto-repair' : 'build-verified') : 'build-failed',
+        status: success ? (qualityGateActive ? 'info' : 'success') : 'warning',
+        message: success
+          ? (qualityGateActive ? 'The targeted repair re-check passed; the outer build gate still must finish before the preview is released.' : 'Targeted repair passed a fresh quality check and the verified preview was released.')
+          : 'Targeted repair did not pass the quality gate.'
+      });
     }
   }
   function bindControls() {
@@ -1139,8 +1164,17 @@
     if (typeof studio.renderPreview === 'function' && !studio.renderPreview.__ovyxQualityEvents) {
       var originalPreview = studio.renderPreview;
       function qualityRenderPreview() {
+        if (buildInFlight) {
+          deferredPreviewRefresh = true;
+          emitBuildStage({
+            stage: 'preview-refresh',
+            status: 'running',
+            message: 'The new preview is held while its quality checks run; the last known-good preview stays visible.'
+          });
+          return undefined;
+        }
         var value = originalPreview.apply(this, arguments);
-        if (buildInFlight) emitBuildStage({ stage: 'preview-refresh', status: 'success', message: 'Web Studio refreshed its preview using the project graph.' });
+        emitBuildStage({ stage: 'preview-refresh', status: 'success', message: 'Web Studio released the quality-verified site preview.' });
         return value;
       }
       qualityRenderPreview.__ovyxQualityEvents = true;
@@ -1159,6 +1193,8 @@
         var beforeBuildSnapshot = outer && !repairCall ? captureSnapshot(studio) : null;
         depth += 1;
         if (outer) {
+          deferredPreviewRefresh = false;
+          qualityGateActive = false;
           buildInFlight = true;
           emitBuildStage({ stage: 'planning', status: 'running', message: 'Web Studio accepted the build request and is preparing its source graph.' });
         }
@@ -1169,8 +1205,15 @@
             var afterGraph = getGraph(studio);
             var changed = typeof studio.diffFiles === 'function' ? studio.diffFiles(beforeGraph, afterGraph).length > 0 : JSON.stringify(beforeGraph) !== JSON.stringify(afterGraph);
             var verified = changed && text(afterProject.ovyxBuildVerifiedAt) && text(afterProject.ovyxBuildVerifiedAt) !== text(beforeProject.ovyxBuildVerifiedAt);
-            buildInFlight = false;
             if (!verified) {
+              if (changed && beforeBuildSnapshot) {
+                qualityGateRejected = true;
+                await rejectBuildForQuality(studio, beforeBuildSnapshot, 'The project file graph changed, but the build pipeline did not produce a new verified-source marker.');
+                throw new Error('The changed website did not pass built-in source verification; the previous project state was restored.');
+              }
+              qualityGateActive = false;
+              deferredPreviewRefresh = false;
+              buildInFlight = false;
               emitBuildStage({
                 stage: 'build-failed',
                 status: 'warning',
@@ -1178,11 +1221,12 @@
               });
             } else if (repairCall) {
               emitBuildStage({
-                stage: 'build-verified',
-                status: 'success',
-                message: 'The targeted repair passed built-in source verification; the quality repair flow will run its own follow-up checks.'
+                stage: 'source-verified',
+                status: 'info',
+                message: 'The repair passed built-in source verification; the quality repair flow must complete its own follow-up checks.'
               });
             } else {
+              qualityGateActive = true;
               emitBuildStage({
                 stage: 'quality-inspection',
                 status: 'running',
@@ -1232,6 +1276,7 @@
                   addCheck(repairedReport, 'Automatic build gate', 'Post-build quality gate', 'pass',
                     'The generated files passed source checks, the isolated browser matrix, and one evidence-based repair/re-check pass. Any route-coverage or live-integration limitations remain explicitly reported.');
                   finalizeQualityReport(repairedReport);
+                  publishVerifiedPreview(studio);
                   emitBuildStage({
                     stage: 'build-verified',
                     status: 'success',
@@ -1242,6 +1287,7 @@
                 addCheck(report, 'Automatic build gate', 'Post-build quality gate', 'pass',
                   'The generated files passed source validation, route/accessibility checks and the isolated responsive browser matrix. Live integrations and any explicit coverage limits remain separately reported.');
                 finalizeQualityReport(report);
+                publishVerifiedPreview(studio);
                 emitBuildStage({
                   stage: 'build-verified',
                   status: 'success',
@@ -1254,8 +1300,15 @@
         } catch (error) {
           if (outer) {
             buildInFlight = false;
+            qualityGateActive = false;
             if (!qualityGateRejected) {
-              emitBuildStage({ stage: 'build-failed', status: 'error', message: 'The build failed. The existing Web Studio recovery path decides whether to restore the last good preview.' });
+              var errorGraph = getGraph(studio);
+              var errorChanged = typeof studio.diffFiles === 'function'
+                ? studio.diffFiles(beforeGraph, errorGraph).length > 0
+                : JSON.stringify(beforeGraph) !== JSON.stringify(errorGraph);
+              if (errorChanged && beforeBuildSnapshot) restoreSnapshot(studio, beforeBuildSnapshot);
+              deferredPreviewRefresh = false;
+              emitBuildStage({ stage: 'build-failed', status: 'error', message: 'The build failed before quality verification. OVYX kept or restored the last known-good project and preview.' });
             }
           }
           throw error;
