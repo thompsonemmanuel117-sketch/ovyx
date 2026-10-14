@@ -1048,7 +1048,10 @@
       } else {
         addCheck(report, 'Forms and interactions', 'Safe interactive behavior smoke test', 'info', 'No clearly identifiable safe menu, tab, disclosure, filter, or toggle control was available for automatic clicking. Other controls and real integrations remain unverified.');
       }
-      if (interactionAudit.skipped) {
+      if (!interactionAudit.candidates) {
+        addCheck(report, 'Coverage', 'Safe control interaction sampling', 'info',
+          'No controls matched the inspector’s conservative safe-click criteria in ' + interactionAudit.pagesProbed + ' mobile route probe(s). This is not evidence that the project has no interactive controls; other controls and complete user journeys remain unverified.');
+      } else if (interactionAudit.skipped) {
         addCheck(report, 'Coverage', 'Safe control interaction sampling', 'info',
           'The isolated browser tested ' + interactionAudit.tested + ' of ' + interactionAudit.candidates + ' eligible safe semantic control(s) across ' + interactionAudit.pagesProbed + ' mobile route probe(s). ' + interactionAudit.skipped + ' additional eligible control(s) were not clicked because the sampling cap is ' + MAX_SAFE_CONTROLS_PER_ROUTE + ' per route. Untested controls and complete end-to-end user journeys remain unverified.');
       } else {
