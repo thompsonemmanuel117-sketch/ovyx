@@ -12276,7 +12276,6 @@ window.OVYXWebStudioNavigation.bind();
       const cred=await a.signInWithPopup(provider);
       const additional=cred?.additionalUserInfo||a.getAdditionalUserInfo?.(cred)||window.firebase?.auth?.().getAdditionalUserInfo?.(cred);
       if(!additional||typeof additional.isNewUser!=='boolean'){
-        rejectedOAuthUid=String(cred?.user?.uid||'');
         try{await a.signOut()}catch(_){}
         clearActivation();setLiveState(false);updateAuthAction(null);
         status('OVYX could not verify that this Google/GitHub account already exists. Sign-in was blocked for safety. Use the explicit Create Account flow first, or try an already-linked account.','error');
@@ -12406,9 +12405,9 @@ window.OVYXWebStudioNavigation.bind();
       if(redirectCredential?.user){
         const redirectInfo=redirectCredential.additionalUserInfo||a.getAdditionalUserInfo?.(redirectCredential)||window.firebase?.auth?.().getAdditionalUserInfo?.(redirectCredential);
         if(!redirectInfo||typeof redirectInfo.isNewUser!=='boolean'||redirectInfo.isNewUser===true){
-          rejectedOAuthUid=String(redirectCredential.user.uid||'');
           let redirectAccountDeleted=false;
           if(redirectInfo?.isNewUser===true){
+            rejectedOAuthUid=String(redirectCredential.user.uid||'');
             try{if(typeof redirectCredential.user.delete==='function'){await redirectCredential.user.delete();redirectAccountDeleted=true}}catch(_){}
           }
           try{await a.signOut()}catch(_){}
