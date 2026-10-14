@@ -1,0 +1,47 @@
+# OVYX Web Studio: evaluate exported website artifacts
+
+The evaluation corpus in \`scripts/ovyx-webstudio-evaluation-cases.json\` defines nine site categories and nine failure scenarios. This runner evaluates **real exported files placed in a category folder**; it does not generate a website or claim that an AI provider has passed all nine prompts.
+
+## Run it
+
+Export a Web Studio project and place its generated HTML/CSS/JavaScript/assets inside a folder named for the category ID. Repeat for each category, for example:
+
+\`\`\`text
+evaluation-artifacts/
+  luxury-real-estate/
+    index.html
+    properties/index.html
+    assets/site.css
+  fashion-brand/
+    index.html
+    assets/site.css
+  restaurant/
+    index.html
+    menu/index.html
+\`\`\`
+
+The folder names must match the case IDs in the evaluation corpus. A category can include an optional \`run-metadata.json\` containing non-secret metadata such as provider, model, generation time, generation duration in milliseconds, and a prompt hash.
+
+Run a report:
+
+\`\`\`bash
+node scripts/ovyx-webstudio-evaluation-runner.mjs --root ./evaluation-artifacts --out ./evaluation-report.json
+\`\`\`
+
+Use \`--strict\` in a release pipeline to return a non-zero exit code if any required category has no artifact or any evaluated category has blocking technical findings:
+
+\`\`\`bash
+node scripts/ovyx-webstudio-evaluation-runner.mjs --root ./evaluation-artifacts --out ./evaluation-report.json --strict
+\`\`\`
+
+## What the report proves
+
+The static evaluator checks supplied files for HTML structure, page metadata, links, local resources, accessible names/labels, image alt attributes, duplicate IDs, common unfinished placeholder copy, secret-like values, reduced-motion support when animations are used, and declared form delivery. It reports unresolved internal routes that might be handled by a client-side router as warnings rather than making unsupported assumptions.
+
+Each supplied category receives a **technical artifact readiness score**, blocking findings, warnings, file and content counts, and a list of category-specific interactions/integrations that remain unproven. Suspected secret values are never echoed. Files matching secret-store patterns such as \`.env\` and credential filenames are reported by path only and are not loaded into the report.
+
+## What it does not prove
+
+A high static score is not a visual-design rating and does not show that a site is worth a particular amount. The runner does not call an AI provider, click all possible controls, take performance measurements, verify contrast with an accessibility standards engine, check browser compatibility, or submit real payments/bookings/forms. Functional criteria and live integration status remain explicitly unverified unless the appropriate browser or safe service tests are run. Missing website artifacts are reported as \`not-evaluated\`, never as passing.
+
+Use the Web Studio Quality Inspector for isolated browser viewport/interaction checks, and verify real third-party services only against their safe test environments.
