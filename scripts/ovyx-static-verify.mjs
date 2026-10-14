@@ -731,6 +731,7 @@ if (!fs.existsSync(guardianPatchApiPath) || !fs.existsSync(guardianPatchHelperPa
     !guardianPatchHelper.includes('mainBranchChanged: false') ||
     !guardianClient.includes('data-ovsx-patch-tools') ||
     !guardianClient.includes("button.dataset.ovsx === 'patch-apply'") ||
+    !guardianClient.includes('function invalidatePatchProposal()') ||
     !guardianMiddleware.includes('/assets/ovyx-sentinel.js?v=20261014-7') ||
     !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/ovyx-guardian-patch.test.mjs')
   ) {
