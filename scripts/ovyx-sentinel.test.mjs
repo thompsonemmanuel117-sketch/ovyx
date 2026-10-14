@@ -30,6 +30,7 @@ const calls = [];
 const fakeFetch = async (url, init = {}) => {
   const parsed = new URL(String(url));
   calls.push({ url: parsed.toString(), headers: new Headers(init.headers || {}) });
+  if (['generativelanguage.googleapis.com', 'api.anthropic.com', 'api.deepseek.com', 'api.openai.com', 'api.groq.com', 'openrouter.ai'].includes(parsed.hostname)) return response({ data: [] });
   if (parsed.hostname === 'api.github.com') {
     return response({
       workflow_runs: [
@@ -49,13 +50,15 @@ const fakeFetch = async (url, init = {}) => {
 let tick = Date.now();
 const scan = await collectSentinelChecks({
   origin: 'https://ovyx.example',
-  env: { OVYX_SENTINEL_GITHUB_TOKEN: 'read-only-test-token' },
+  env: { OVYX_SENTINEL_GITHUB_TOKEN: 'read-only-test-token', GEMINI_API_KEY: 'test-gemini', ANTHROPIC_API_KEY: 'test-anthropic', DEEPSEEK_API_KEY: 'test-deepseek', OPENAI_API_KEY: 'test-openai', GROQ_API_KEY: 'test-groq', OPENROUTER_API_KEY: 'test-openrouter' },
   fetchImpl: fakeFetch,
   now: () => tick++,
 });
-assert.equal(scan.checks.length, 6, 'all core endpoints plus optional GitHub Actions check must be represented');
+assert.equal(scan.checks.length, 12, 'core endpoints, six configured AI provider checks, and optional GitHub Actions check must be represented');
 assert.ok(scan.checks.find(item => item.id === 'app_shell')?.ok, 'HTML shell should be validated');
 assert.ok(scan.checks.find(item => item.id === 'sentinel_asset')?.ok, 'Sentinel asset itself should be included in health checks');
+assert.equal(scan.checks.filter(item => item.id.startsWith('ai_') && item.status === 'pass').length, 6, 'all configured provider credentials should be checked without generation calls');
+assert.equal(JSON.stringify(scan).includes('test-openrouter'), false, 'provider secrets must never appear in Sentinel reports');
 assert.ok(scan.checks.find(item => item.id === 'github_actions')?.status === 'fail', 'latest failed workflow should be reported even if an older run failed too');
 assert.deepEqual(scan.checks.find(item => item.id === 'github_actions')?.details, ['Security check'], 'only the latest completed run per workflow should determine health');
 const githubRequest = calls.find(item => new URL(item.url).hostname === 'api.github.com');
@@ -78,6 +81,29 @@ assert.equal(degraded.checks.find(item => item.id === 'platform_health')?.status
 assert.deepEqual(degraded.checks.find(item => item.id === 'platform_health')?.details, ['FIREBASE_PROJECT_ID', 'FIREBASE_SERVICE_ACCOUNT_JSON']);
 assert.equal(degraded.checks.find(item => item.id === 'service_configuration')?.code, 'CONNECTION_ENCRYPTION_NOT_CONFIGURED');
 assert.equal(degraded.checks.find(item => item.id === 'github_actions')?.status, 'skipped');
+assert.equal(degraded.checks.filter(item => item.id.startsWith('ai_') && item.status === 'skipped').length, 6, 'missing optional AI keys should be visible as skipped, not false alarms');
+
+const credentialFailures = await collectSentinelChecks({
+  origin: 'https://ovyx.example',
+  env: { GEMINI_API_KEY: 'bad-gemini', OPENAI_API_KEY: 'no-credit-openai', ANTHROPIC_API_KEY: 'restricted-anthropic' },
+  fetchImpl: async (url) => {
+    const host = new URL(String(url)).hostname;
+    if (host === 'generativelanguage.googleapis.com') return response({ error: true }, { status: 401 });
+    if (host === 'api.openai.com') return response({ error: true }, { status: 402 });
+    if (host === 'api.anthropic.com') return response({ error: true }, { status: 403 });
+    const path = new URL(String(url)).pathname;
+    if (path === '/') return response('<html></html>', { contentType: 'text/html', rawBody: '<html></html>' });
+    if (path === '/api/health') return response({ ok: true, status: 'healthy' });
+    if (path === '/api/service-status') return response({ ok: true, connectionEncryption: { configured: true } });
+    if (path.startsWith('/assets/')) return response('js', { contentType: 'application/javascript', rawBody: 'js' });
+    return response({ data: [] });
+  },
+});
+assert.equal(credentialFailures.checks.find(item => item.id === 'ai_gemini')?.code, 'PROVIDER_AUTH_FAILED');
+assert.equal(credentialFailures.checks.find(item => item.id === 'ai_openai')?.code, 'PROVIDER_BILLING_OR_CREDITS_REQUIRED');
+assert.equal(credentialFailures.checks.find(item => item.id === 'ai_anthropic')?.code, 'PROVIDER_PERMISSION_OR_ACCOUNT_RESTRICTED');
+assert.equal(credentialFailures.checks.find(item => item.id === 'ai_deepseek')?.status, 'skipped');
+assert.equal(JSON.stringify(credentialFailures).includes('bad-gemini'), false, 'rejected key values must never appear in reports');
 
 await assert.rejects(
   () => collectSentinelChecks({ origin: 'http://ovyx.example', fetchImpl: fakeFetch }),
