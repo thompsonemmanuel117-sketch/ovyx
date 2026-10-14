@@ -101,8 +101,8 @@ assert.ok(integrity.includes('ARIA_REFERENCE_TARGET_MISSING'), 'The integrity au
 assert.ok(integrity.includes('ORPHAN_FRAGMENT'), 'The integrity audit must detect broken same-page anchors.');
 assert.ok(integrity.includes('BROKEN_ROUTE_FRAGMENT'), 'The source integrity audit must detect anchors that point to missing ids on another page.');
 assert.ok(runtime.includes('label references a missing control id'), 'The browser source audit must detect labels pointing to missing form controls.');
-assert.ok(runtime.includes('aria-labelledby references a missing id'), 'The browser source audit must detect unresolved aria-labelledby references.');
-assert.ok(runtime.includes('aria-describedby references a missing id'), 'The browser source audit must detect unresolved aria-describedby references.');
+assert.ok(runtime.includes("attributeName + ' references a missing id.'"), 'The browser source audit must detect unresolved aria-labelledby and aria-describedby references.');
+
 assert.ok(integrity.includes('runtimeBehaviorVerified: false'), 'Static checks must not be presented as proof that runtime behavior works.');
 assert.ok(prompts.includes('visible :focus/:focus-visible indicators'), 'The generation contract must require visible keyboard focus cues.');
 assert.ok(prompts.includes('1,800 rendered elements per route'), 'The generation contract must provide a concrete DOM-size budget.');
