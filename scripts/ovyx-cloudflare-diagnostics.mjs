@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { findCloudflareLogErrors } from './cloudflare-diagnostics-log-filter.mjs';
+import { probeApplicationShell } from './cloudflare-application-shell.mjs';
 
 const BASE = 'https://api.cloudflare.com/client/v4';
 const token = String(process.env.CLOUDFLARE_API_TOKEN || '').trim();
@@ -106,6 +107,11 @@ async function probeApplicationHealth(deploymentUrl) {
     return { ok: false, status: 'unavailable', httpStatus: null, error: 'Deployment URL is invalid.' };
   }
 
+  const applicationShellPromise = probeApplicationShell(origin).catch(() => ({
+    ok: false, status: 'unavailable', httpStatus: null,
+    qualityRuntimeInjected: false, qualityRuntimeAssetOk: false,
+    error: 'Application shell request failed.',
+  }));
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 10_000);
   try {
@@ -140,10 +146,12 @@ async function probeApplicationHealth(deploymentUrl) {
       .map(row => String(row.key || '').slice(0, 100))
       .filter(Boolean);
 
-    const ok = response.ok && payload?.ok === true && firebaseProjectMatch;
+    const applicationShell = await applicationShellPromise;
+    const ok = response.ok && payload?.ok === true && firebaseProjectMatch && applicationShell.ok;
     return {
       ok,
-      status: ok ? 'healthy' : String(payload?.status || 'degraded').slice(0, 40),
+      status: ok ? 'healthy' : !applicationShell.ok ? 'degraded' : String(payload?.status || 'degraded').slice(0, 40),
+      applicationShell,
       httpStatus: response.status,
       firebaseProjectMatch,
       firebaseServiceAccountConfigured: Boolean(
@@ -178,10 +186,12 @@ async function probeApplicationHealth(deploymentUrl) {
       invalidRequiredEnvironment: invalid
     };
   } catch (error) {
+    const applicationShell = await applicationShellPromise;
     return {
       ok: false,
       status: 'unavailable',
       httpStatus: null,
+      applicationShell,
       error: error?.name === 'AbortError'
         ? 'Runtime health request timed out.'
         : 'Runtime health request failed.'
@@ -260,6 +270,10 @@ try {
         reasons.push('variables present but invalid: ' + result.runtimeHealth.invalidRequiredEnvironment
           .map(item => item.key + ' (' + item.state + ': ' + item.reason + ')')
           .join(', '));
+      }
+      if (result.runtimeHealth.applicationShell && !result.runtimeHealth.applicationShell.ok) {
+        const shell = result.runtimeHealth.applicationShell;
+        reasons.push('public application shell failed: ' + (shell.error || ('HTTP ' + String(shell.httpStatus || 'n/a') + ', quality inspector asset ' + (shell.qualityRuntimeAssetOk ? 'present' : 'unavailable'))));
       }
     }
     result.apiErrors.push('Runtime health probe failed: ' + reasons.join('; '));
