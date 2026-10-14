@@ -77,17 +77,40 @@ function findLocalFile(fromFile, reference, pathsByLower) {
   return '';
 }
 
+function normalizeRoutePath(value) {
+  let route = String(value || '/').trim().split(/[?#]/, 1)[0];
+  if (!route) route = '/';
+  try { route = decodeURIComponent(route); } catch {}
+  if (!route.startsWith('/')) route = '/' + route;
+  route = route.replace(/\/{2,}/g, '/');
+  if (/\/index\.html?$/i.test(route)) route = route.replace(/index\.html?$/i, '');
+  if (!route.endsWith('/') && !/\.[a-z0-9]{1,12}$/i.test(route)) route += '/';
+  return route.toLowerCase();
+}
+
 function inferredRoute(filePath) {
   const normalized = String(filePath || '').replace(/\\/g, '/');
   const base = path.posix.basename(normalized).replace(/\.html?$/i, '');
   const directory = path.posix.dirname(normalized);
   if (/^(?:home|homepage|index)$/i.test(base)) {
     if (directory === '.' || /(?:^|\/)(?:pages|routes|app)$/i.test(directory)) return '/';
-    return '/' + directory.split('/').pop().toLowerCase() + '/';
+    return normalizeRoutePath('/' + directory.split('/').pop() + '/');
   }
-  return '/' + (slug(base) || 'page') + '/';
+  return normalizeRoutePath('/' + (slug(base) || 'page') + '/');
 }
 
+function extractIds(html) {
+  const ids = new Set();
+  for (const match of String(html || '').matchAll(/\bid\s*=\s*(?:"([^"]*)"|\x27([^\x27]*)\x27|([^\s>]+))/gi)) {
+    const id = String(match[1] ?? match[2] ?? match[3] ?? '').trim();
+    if (id) ids.add(id);
+  }
+  return ids;
+}
+
+function decodeFragment(value) {
+  try { return decodeURIComponent(String(value || '')); } catch { return String(value || ''); }
+}
 function addFinding(findings, severity, code, message, file = '') {
   findings.push({
     severity: ['blocker', 'warning', 'info'].includes(severity) ? severity : 'info',
@@ -145,6 +168,8 @@ export function evaluateSiteFiles(rawFiles, category, options = {}) {
   const cssEntries = Object.entries(files).filter(([filePath]) => /\.css$/i.test(filePath));
   const scriptEntries = Object.entries(files).filter(([filePath]) => /\.(?:m?js|jsx|tsx?)$/i.test(filePath));
   const htmlPaths = htmlEntries.map(([filePath]) => filePath);
+  const htmlByPath = new Map(htmlEntries);
+  const idsByHtmlPath = new Map(htmlEntries.map(([filePath, html]) => [filePath, extractIds(html)]));
   const routes = new Map(htmlPaths.map(filePath => [inferredRoute(filePath), filePath]));
   const categoryId = clean(category && category.id || 'unknown', 100);
   const categoryName = clean(category && category.category || categoryId, 140);
@@ -161,6 +186,8 @@ export function evaluateSiteFiles(rawFiles, category, options = {}) {
   let internalLinkCount = 0;
   let controlCount = 0;
   let imageCount = 0;
+  let fragmentLinkCount = 0;
+  let srcsetCandidateCount = 0;
   let sectionCount = 0;
   let wordCount = 0;
 
@@ -207,14 +234,31 @@ export function evaluateSiteFiles(rawFiles, category, options = {}) {
       if (count > 1) duplicateIds.push(filePath + ': #' + clean(id, 80) + ' appears ' + count + ' times');
     }
 
-    for (const match of html.matchAll(/<img\b[^>]*>/gi)) {
-      imageCount += 1;
-      if (!/\balt\s*=/i.test(match[0])) {
-        addFinding(findings, 'blocker', 'IMAGE_ALT_MISSING', 'An image is missing its alt attribute.', filePath);
+    for (const match of html.matchAll(/<(?:img|source)\b[^>]*>/gi)) {
+      const tag = match[0];
+      const isImage = /^<img\b/i.test(tag);
+      if (isImage) {
+        imageCount += 1;
+        if (!/\balt\s*=\s*/i.test(tag)) {
+          addFinding(findings, 'blocker', 'IMAGE_ALT_MISSING', 'An image is missing its alt attribute.', filePath);
+        }
+        const src = attr(tag, 'src');
+        if (src && !isExternal(src) && !findLocalFile(filePath, src, pathsByLower)) {
+          addFinding(findings, 'warning', 'IMAGE_RESOURCE_UNRESOLVED', 'A local image path could not be found in the exported files.', filePath);
+        }
       }
-      const src = attr(match[0], 'src');
-      if (src && !isExternal(src) && !findLocalFile(filePath, src, pathsByLower)) {
-        addFinding(findings, 'warning', 'IMAGE_RESOURCE_UNRESOLVED', 'A local image path could not be found in the exported files.', filePath);
+      const srcset = attr(tag, 'srcset');
+      // Data URLs contain commas, which also separate srcset candidates. Skip
+      // them conservatively so valid inline images do not create false positives.
+      if (srcset && !/\bdata:/i.test(srcset)) {
+        for (const candidate of srcset.split(',')) {
+          const reference = candidate.trim().split(/\s+/)[0];
+          if (!reference) continue;
+          srcsetCandidateCount += 1;
+          if (!isExternal(reference) && !findLocalFile(filePath, reference, pathsByLower)) {
+            addFinding(findings, 'warning', 'IMAGE_SRCSET_UNRESOLVED', 'A local responsive-image srcset candidate could not be found in the exported files.', filePath);
+          }
+        }
       }
     }
 
@@ -239,15 +283,34 @@ export function evaluateSiteFiles(rawFiles, category, options = {}) {
         addFinding(findings, 'blocker', 'JAVASCRIPT_HREF', 'A link uses a javascript: URL instead of a safe action.', filePath);
         continue;
       }
+      const currentIds = idsByHtmlPath.get(filePath) || new Set();
+      if (href.startsWith('#')) {
+        fragmentLinkCount += 1;
+        const fragment = decodeFragment(href.slice(1).split(/[?]/, 1)[0]);
+        if (fragment && !currentIds.has(fragment)) {
+          addFinding(findings, 'blocker', 'ORPHAN_FRAGMENT', 'A same-page anchor points to an id that is not present in this HTML file.', filePath);
+        }
+        continue;
+      }
       if (isExternal(href)) continue;
       internalLinkCount += 1;
       const routeBase = inferredRoute(filePath);
-      let routePath = '';
-      try { routePath = new URL(href, 'https://ovyx-evaluation.invalid' + routeBase).pathname; } catch {}
-      const hasFile = !!findLocalFile(filePath, href, pathsByLower);
-      if (hasFile || routes.has(routePath)) continue;
+      let parsedHref = null;
+      try { parsedHref = new URL(href, 'https://ovyx-evaluation.invalid' + routeBase); } catch {}
+      const routePath = parsedHref ? normalizeRoutePath(parsedHref.pathname) : '';
+      const directFile = findLocalFile(filePath, href, pathsByLower);
+      const routeTarget = routes.get(routePath) || '';
+      const destinationFile = directFile || routeTarget;
+      if (parsedHref && parsedHref.hash && destinationFile && /\.html?$/i.test(destinationFile)) {
+        fragmentLinkCount += 1;
+        const fragment = decodeFragment(parsedHref.hash.slice(1));
+        const targetIds = idsByHtmlPath.get(destinationFile) || extractIds(htmlByPath.get(destinationFile) || '');
+        if (fragment && !targetIds.has(fragment)) {
+          addFinding(findings, 'blocker', 'BROKEN_ROUTE_FRAGMENT', 'A local page/file link targets an id that is not present in the destination HTML file.', filePath);
+        }
+      }
+      if (directFile || routeTarget) continue;
       const cleanHref = href.split(/[?#]/, 1)[0];
-      const exactHtml = /\.html?$/i.test(cleanHref);
       addFinding(findings, exactHtml ? 'blocker' : 'warning',
         exactHtml ? 'HTML_ROUTE_UNRESOLVED' : 'ROUTE_UNVERIFIED',
         exactHtml
@@ -343,6 +406,8 @@ export function evaluateSiteFiles(rawFiles, category, options = {}) {
       controls: controlCount,
       forms: formCount,
       images: imageCount,
+      fragmentLinks: fragmentLinkCount,
+      srcsetCandidates: srcsetCandidateCount,
       semanticSections: sectionCount,
       approximateWords: wordCount,
       blockers,
