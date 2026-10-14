@@ -12,7 +12,7 @@ function normalizedOrigin(value) {
   }
 }
 
-async function getWithTimeout(fetchImpl, url, accept) {
+async function getTextWithTimeout(fetchImpl, url, accept) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
@@ -23,10 +23,14 @@ async function getWithTimeout(fetchImpl, url, accept) {
       redirect: 'follow',
       signal: controller.signal,
     });
-    return { response, error: '' };
+    // Read the response body before clearing the deadline; a server that sends
+    // headers but stalls the body must not hang the release diagnostic.
+    const body = response && response.ok ? await response.text() : '';
+    return { response, body, error: '' };
   } catch (error) {
     return {
       response: null,
+      body: '',
       error: error && error.name === 'AbortError' ? 'Request timed out.' : 'Request failed.',
     };
   } finally {
@@ -48,7 +52,7 @@ export async function probeApplicationShell(deploymentUrl, fetchImpl = globalThi
     return { ok: false, status: 'unavailable', httpStatus: null, qualityRuntimeInjected: false, error: 'HTTP fetch is unavailable.' };
   }
 
-  const shellRequest = await getWithTimeout(fetchImpl, new URL('/', origin), 'text/html');
+  const shellRequest = await getTextWithTimeout(fetchImpl, new URL('/', origin), 'text/html');
   const shellResponse = shellRequest.response;
   if (!shellResponse || !shellResponse.ok) {
     return {
@@ -75,7 +79,7 @@ export async function probeApplicationShell(deploymentUrl, fetchImpl = globalThi
     };
   }
 
-  const html = await shellResponse.text().catch(() => '');
+  const html = shellRequest.body;
   const match = html.match(/<script\b[^>]*\bsrc\s*=\s*(["'])([^"']*\/assets\/ovyx-webstudio-quality\.js(?:\?[^"']*)?)\1[^>]*>/i);
   if (!match) {
     return {
@@ -104,12 +108,10 @@ export async function probeApplicationShell(deploymentUrl, fetchImpl = globalThi
     };
   }
 
-  const runtimeRequest = await getWithTimeout(fetchImpl, runtimeUrl, 'text/javascript, application/javascript');
+  const runtimeRequest = await getTextWithTimeout(fetchImpl, runtimeUrl, 'text/javascript, application/javascript');
   const runtimeResponse = runtimeRequest.response;
   const runtimeContentType = runtimeResponse ? String(runtimeResponse.headers.get('content-type') || '').toLowerCase() : '';
-  const runtimeSource = runtimeResponse && runtimeResponse.ok
-    ? await runtimeResponse.text().catch(() => '')
-    : '';
+  const runtimeSource = runtimeResponse && runtimeResponse.ok ? runtimeRequest.body : '';
   const runtimeSignaturePresent =
     runtimeSource.includes('function auditSources') &&
     runtimeSource.includes('cross-page fragment link') &&
