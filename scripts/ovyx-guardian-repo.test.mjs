@@ -24,7 +24,7 @@ let fetchCalls = 0;
 await assert.rejects(
   () => investigateGuardianRepository({
     question: 'Why does the admin screen fail?',
-    env: { AI: { run: async () => ({ response: 'should not run' }) },
+    env: { AI: { run: async () => ({ response: 'should not run' }) } },
     fetchImpl: async () => { fetchCalls += 1; throw new Error('must not fetch'); },
   }),
   error => error.code === 'GUARDIAN_REPO_READ_NOT_CONFIGURED' && error.status === 503,
@@ -107,7 +107,7 @@ try {
   });
   assert.equal(ownerGet.status, 200);
   const status = await ownerGet.json();
-  assert.equal(status.guardian.administratorOnly, undefined);
+  assert.equal(status.administratorOnly, true);
   assert.equal(status.guardian.readOnlyInvestigationReady, false);
   assert.equal(status.guardian.codeChangesEnabled, false);
   assert.equal(status.guardian.productionDeploymentsEnabled, false);
