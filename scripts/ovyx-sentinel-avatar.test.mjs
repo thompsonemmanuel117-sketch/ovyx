@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const avatar = fs.readFileSync('assets/ovyx-sentinel-avatar-3d.js', 'utf8');
+const sentinel = fs.readFileSync('assets/ovyx-sentinel.js', 'utf8');
 const middleware = fs.readFileSync('functions/_middleware.js', 'utf8');
 const headers = fs.readFileSync('_headers', 'utf8');
 const docs = fs.readFileSync('docs/OVYX-SENTINEL-AVATAR.md', 'utf8');
@@ -13,12 +14,16 @@ for (const token of [
   'https://models.codelove.in/animations/m_wave_01.glb',
   'new THREE.WebGLRenderer',
   'new THREE.AnimationMixer',
+  'characterRoot.rotation.y = rootBaseRotation + Math.sin(now * 0.00027) * 0.018',
+  'speakingRequested = value === true',
   "crossFade('talk'",
   'speechSynthesis',
   'prefers-reduced-motion',
   '3D character is offline. The voice companion is still available.',
 ]) assert.ok(avatar.includes(token), '3D Guardian runtime is missing: ' + token);
-assert.ok(middleware.includes('/assets/ovyx-sentinel-avatar-3d.js?v=20261014-1'), '3D Guardian runtime must be injected after Sentinel.');
+assert.ok(middleware.includes('/assets/ovyx-sentinel-avatar-3d.js?v=20261014-2'), '3D Guardian runtime must be injected after Sentinel.');
+assert.ok(sentinel.includes('window.OVYXSentinel3D?.setSpeaking(true)'), 'spoken Guardian replies must explicitly activate the 3D talking state');
+assert.ok(sentinel.includes('window.OVYXSentinel3D?.setSpeaking(false)'), 'spoken Guardian replies must return the 3D character to idle when speech ends');
 assert.ok(headers.includes('/assets/ovyx-sentinel-avatar-3d.js'), '3D Guardian runtime must use explicit cache controls.');
 assert.ok(docs.includes('MIT License') && docs.includes('Businessman 01'), 'The selected model and licence must be documented.');
 assert.doesNotMatch(avatar, /getUserMedia|navigator\.mediaDevices|camera\.get/i, 'The 3D avatar must not enable camera access.');
