@@ -193,6 +193,7 @@ try {
 
     await page.locator('[data-ovsx="patch"]').click();
     await page.locator('[data-ovsx-patch-tools]').waitFor({ state: 'visible' });
+    await page.waitForFunction(() => document.querySelector('[data-ovsx="patch-prepare"]')?.disabled === true, null, { timeout: 10000 });
     assert.match(await page.locator('[data-ovsx-patch-tools]').innerText(), /Reviewable code fix/i, '[' + target.name + '] Guardian patch review panel should be visible to the authenticated owner');
     assert.equal(await page.locator('[data-ovsx="patch-prepare"]').isDisabled(), true, '[' + target.name + '] patch preparation must stay disabled when the server cannot verify the owner credentials');
     assert.equal(await page.locator('[data-ovsx="patch-apply"]').isDisabled(), true, '[' + target.name + '] pull-request creation must remain disabled without server-confirmed capabilities');
