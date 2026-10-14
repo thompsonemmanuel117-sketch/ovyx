@@ -26,7 +26,7 @@ try {
             '<script>' +
             'let __currentUser=null;const __authListeners=[];window.__setSentinelUser=u=>{__currentUser=u;__authListeners.forEach(cb=>cb(u))};' +
             'window.firebase={auth:()=>({get currentUser(){return __currentUser},onAuthStateChanged:cb=>{__authListeners.push(cb);cb(__currentUser);return ()=>{}}})};' +
-            'window.Router={go:view=>{window.__openedRoute=view;return view}};window.OVYXAdminWorkspace={refresh:async()=>true,isAuthorized:()=>true,open:async view=>{window.__openedRoute=view;return true}};' +
+            'window.Router={go:view=>{window.__openedRoute=view;return view}};window.__allowAdminNavigation=true;window.__adminRefreshCalls=0;window.OVYXAdminWorkspace={refresh:async()=>{window.__adminRefreshCalls++;return window.__allowAdminNavigation},isAuthorized:()=>window.__allowAdminNavigation===true,open:async view=>{window.__openedRoute=view;return true}};' +
             'window.__recognizer=null;window.SpeechRecognition=class{start(){window.__recognizer=this}stop(){if(this.onend)this.onend()}};' +
             'Object.defineProperty(window,"SpeechSynthesisUtterance",{configurable:true,value:class{constructor(text){this.text=text}}});window.__spoken=[];Object.defineProperty(window,"speechSynthesis",{configurable:true,value:{cancel(){},speak(u){window.__spoken.push(u.text);if(u.onend)u.onend()}}});' +
             '</script><script defer src="/assets/ovyx-sentinel.js?v=20261014-10"></script><script defer src="/assets/ovyx-sentinel-avatar-3d.js?v=20261014-2"></script></body></html>',
@@ -265,6 +265,32 @@ try {
     assert.ok((await page.evaluate(() => window.__spoken)).some(text => /Opening Web Studio/i.test(text)), '[' + target.name + '] Guardian should speak a confirmation after a supported navigation action');
 
     await page.waitForFunction(() => !!window.__recognizer, null, { timeout: 10000 });
+    await page.evaluate(() => {
+      const item = [{ transcript: 'OVYX open Admin Pricing' }];
+      item.isFinal = true;
+      const results = [item];
+      results.item = i => results[i];
+      window.__recognizer.onresult({ resultIndex: 0, results });
+    });
+    await page.waitForFunction(() => window.__openedRoute === 'admin-pricing', null, { timeout: 10000 });
+    assert.ok(await page.evaluate(() => window.__adminRefreshCalls > 0), '[' + target.name + '] Admin navigation must ask the real owner workspace to verify access');
+    assert.ok((await page.evaluate(() => window.__spoken)).some(text => /Opening Admin Pricing and Plans/i.test(text)), '[' + target.name + '] Guardian should speak a confirmation after authorized Admin navigation');
+
+    await page.waitForFunction(() => !!window.__recognizer, null, { timeout: 10000 });
+    await page.evaluate(() => { window.__allowAdminNavigation = false; window.__openedRoute = null; });
+    await page.evaluate(() => {
+      const item = [{ transcript: 'OVYX open Admin Brain' }];
+      item.isFinal = true;
+      const results = [item];
+      results.item = i => results[i];
+      window.__recognizer.onresult({ resultIndex: 0, results });
+    });
+    await page.waitForFunction(() => document.querySelector('#ovyx-sentinel-panel [data-ovsx-status]')?.textContent.includes('verify owner access'), null, { timeout: 10000 });
+    assert.equal(await page.evaluate(() => window.__openedRoute), null, '[' + target.name + '] an unverified Admin navigation request must not open a protected route');
+    assert.ok((await page.evaluate(() => window.__spoken)).some(text => /could not safely open that area/i.test(text)), '[' + target.name + '] blocked Admin navigation must give a spoken explanation');
+
+    await page.waitForFunction(() => !!window.__recognizer, null, { timeout: 10000 });
+    await page.evaluate(() => { window.__allowAdminNavigation = true; });
     await page.evaluate(() => {
       const item = [{ transcript: 'go to sleep' }];
       item.isFinal = true;
