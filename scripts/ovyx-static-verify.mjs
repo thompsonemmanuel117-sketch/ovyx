@@ -615,7 +615,7 @@ if (
     !sentinelClient.includes('window.webkitSpeechRecognition') ||
     !sentinelClient.includes('disableWake') ||
     !sentinelClient.includes('textContent') ||
-    !sentinelMiddleware.includes('/assets/ovyx-sentinel.js?v=20261014-7') ||
+    !sentinelMiddleware.includes('/assets/ovyx-sentinel.js?v=20261014-8') ||
     !headers.includes('microphone=(self)') ||
     !headers.includes('camera=()') ||
     !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/ovyx-sentinel.test.mjs') ||
