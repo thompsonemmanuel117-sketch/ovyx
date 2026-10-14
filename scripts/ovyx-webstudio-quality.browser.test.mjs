@@ -36,7 +36,6 @@ try {
   await page.locator('[data-quality-repair]').click();
   await page.waitForFunction(() => window.__qualityRepairCalls.length === 1 && window.OVYXWebStudioQuality.getReport()?.checks.some(item => item.group === 'Automatic repair'));
   const finalReport = await page.evaluate(() => window.OVYXWebStudioQuality.getReport());
-  assert.equal(window ? true : false, true);
   assert.equal((await page.evaluate(() => window.__qualityRepairCalls.length)), 1, 'Only one bounded repair pass should be sent.');
   assert.ok((await page.evaluate(() => window.__qualityRepairCalls[0].prompt)).includes('OVYX QUALITY INSPECTOR REPAIR'), 'The repair must use a targeted evidence-based prompt.');
   assert.ok(finalReport.checks.some(item => item.title === 'Horizontal overflow' && item.status === 'pass'), 'The repaired project must be tested again and pass the same overflow check.');
