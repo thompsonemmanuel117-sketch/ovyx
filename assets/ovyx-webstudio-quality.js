@@ -1004,7 +1004,13 @@
       running = false;
       if (runButton) runButton.disabled = false;
       if (repairButton) repairButton.disabled = !(currentReport && currentReport.checks.some(function (item) { return item.status === 'fail' || item.status === 'warn'; }));
-      emitBuildStage({ stage: success ? 'build-verified' : 'build-failed', status: success ? 'success' : 'warning', message: success ? 'Targeted repair passed a fresh quality check.' : 'Targeted repair did not pass the quality gate.' });
+      emitBuildStage({
+        stage: success ? (qualityGateActive ? 'quality-auto-repair' : 'build-verified') : 'build-failed',
+        status: success ? (qualityGateActive ? 'info' : 'success') : 'warning',
+        message: success
+          ? (qualityGateActive ? 'The targeted repair re-check passed; the outer build gate still must finish before the preview is released.' : 'Targeted repair passed a fresh quality check and the verified preview was released.')
+          : 'Targeted repair did not pass the quality gate.'
+      });
     }
   }
   function bindControls() {
