@@ -1,10 +1,18 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import {
   isGuardianReadablePath,
   redactGuardianSource,
   investigateGuardianRepository,
 } from '../functions/_lib/ovyx-guardian-repo.js';
 import { onRequest } from '../functions/api/admin/guardian-repo.js';
+
+const sentinelUi = fs.readFileSync(new URL('../assets/ovyx-sentinel.js', import.meta.url), 'utf8');
+const middleware = fs.readFileSync(new URL('../functions/_middleware.js', import.meta.url), 'utf8');
+assert.ok(sentinelUi.includes("fetch('/api/admin/guardian-repo'"), 'voice questions should discover and use the private repository investigator');
+assert.ok(sentinelUi.includes('readOnlyInvestigationReady === true'), 'source inspection must only be claimed when the capability endpoint confirms it is configured');
+assert.ok(sentinelUi.includes('No code changes were applied.'), 'the voice UI must be explicit that investigation is read-only');
+assert.ok(middleware.includes('/assets/ovyx-sentinel.js?v=20261014-3'), 'the changed guardian runtime must be injected with a fresh cache key');
 
 assert.equal(isGuardianReadablePath('functions/api/assistant.js'), true);
 assert.equal(isGuardianReadablePath('assets/ovyx-sentinel.js'), true);
@@ -56,7 +64,7 @@ assert.equal(fetchCalls, 0, 'missing repository token must not make an outbound 
           { path: 'keys/service-account.json', sha: 'c'.repeat(40) },
         ] });
       }
-      if (parsed.pathname === '/git/blobs/' + 'a'.repeat(40)) {
+      if (parsed.pathname === '/repos/thompsonemmanuel117-sketch/ovyx/git/blobs/' + 'a'.repeat(40)) {
         const source = 'export function admin() { return "ready"; } // ' + privateKey;
         return Response.json({ encoding: 'base64', size: Buffer.byteLength(source), content: Buffer.from(source).toString('base64') });
       }
