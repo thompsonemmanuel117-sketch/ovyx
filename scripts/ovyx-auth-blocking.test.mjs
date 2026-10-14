@@ -21,7 +21,7 @@ const createSource = html.slice(createStart, oauthStart);
 const oauthSource = html.slice(oauthStart, routerStart);
 assert.ok(signInSource.includes('a.signInWithEmailAndPassword(email,password)'), 'Log In must authenticate an existing email/password account.');
 assert.ok(html.includes("form.addEventListener('submit',signIn)"), 'The Log In form must be wired to the email/password sign-in handler.');
-assert.ok(signInSource.includes('auth/operation-not-allowed'), 'Disabled email/password provider errors must be surfaced instead of pretending sign-in worked.');
+assert.ok(html.includes("'auth/operation-not-allowed':'This sign-in method is not enabled for the current Firebase project.'"), 'Disabled email/password provider errors must be surfaced instead of pretending sign-in worked.');
 assert.ok(createSource.includes('auth().createUserWithEmailAndPassword(email,password)'), 'Creating an account must remain an explicit, separate action.');
 assert.ok(oauthSource.includes('oauthLoginInFlight=true'), 'OAuth sign-in must be tracked so auth state cannot activate the workspace prematurely.');
 assert.ok(oauthSource.includes("!additional||typeof additional.isNewUser!=='boolean'"), 'Unknown OAuth account age must fail closed.');
