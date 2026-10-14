@@ -12,7 +12,7 @@ const middleware = fs.readFileSync(new URL('../functions/_middleware.js', import
 assert.ok(sentinelUi.includes("fetch('/api/admin/guardian-repo'"), 'voice questions should discover and use the private repository investigator');
 assert.ok(sentinelUi.includes('readOnlyInvestigationReady === true'), 'source inspection must only be claimed when the capability endpoint confirms it is configured');
 assert.ok(sentinelUi.includes('No code changes were applied.'), 'the voice UI must be explicit that investigation is read-only');
-assert.ok(middleware.includes('/assets/ovyx-sentinel.js?v=20261014-3'), 'the changed guardian runtime must be injected with a fresh cache key');
+assert.ok(middleware.includes('/assets/ovyx-sentinel.js?v=20261014-4'), 'the changed guardian runtime must be injected with a fresh cache key');
 
 assert.equal(isGuardianReadablePath('functions/api/assistant.js'), true);
 assert.equal(isGuardianReadablePath('assets/ovyx-sentinel.js'), true);
