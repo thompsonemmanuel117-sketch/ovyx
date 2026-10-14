@@ -725,6 +725,8 @@ if (!fs.existsSync(guardianPatchApiPath) || !fs.existsSync(guardianPatchHelperPa
     !guardianPatchApi.includes('isSentinelAdmin') ||
     !guardianPatchApi.includes('CREATE_PULL_REQUEST') ||
     !guardianPatchApi.includes('directMainWritesEnabled: false') ||
+    !guardianPatchApi.includes('proposalStorageConfigured: proposalStorage') ||
+    !guardianPatchApi.includes('GUARDIAN_PATCH_STORAGE_NOT_CONFIGURED') ||
     !guardianPatchHelper.includes('OVYX_GUARDIAN_GITHUB_WRITE_TOKEN') ||
     !guardianPatchHelper.includes('ovyx/guardian/fix-') ||
     !guardianPatchHelper.includes('GUARDIAN_PATCH_STALE') ||
