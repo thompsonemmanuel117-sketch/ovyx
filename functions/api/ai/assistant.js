@@ -156,6 +156,7 @@ When discussing project changes, distinguish recommendations from changes actual
           files: projectFiles,
           mode,
           context: studioHints,
+          qualityContract: WEB_STUDIO_EXCELLENCE + '\n\nEXPERIENCE INTELLIGENCE:\n' + JSON.stringify(experience || {}),
         });
 
         if (generated) {
