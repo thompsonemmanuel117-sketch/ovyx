@@ -28,7 +28,7 @@ try {
             'window.firebase={auth:()=>({get currentUser(){return __currentUser},onAuthStateChanged:cb=>{__authListeners.push(cb);cb(__currentUser);return ()=>{}}})};' +
             'window.__recognizer=null;window.SpeechRecognition=class{start(){window.__recognizer=this}stop(){if(this.onend)this.onend()}};' +
             'Object.defineProperty(window,"SpeechSynthesisUtterance",{configurable:true,value:class{constructor(text){this.text=text}}});window.__spoken=[];Object.defineProperty(window,"speechSynthesis",{configurable:true,value:{cancel(){},speak(u){window.__spoken.push(u.text);if(u.onend)u.onend()}}});' +
-            '</script><script defer src="/assets/ovyx-sentinel.js?v=20261014-4"></script><script defer src="/assets/ovyx-sentinel-avatar-3d.js?v=20261014-2"></script></body></html>',
+            '</script><script defer src="/assets/ovyx-sentinel.js?v=20261014-5"></script><script defer src="/assets/ovyx-sentinel-avatar-3d.js?v=20261014-2"></script></body></html>',
         });
         return;
       }
