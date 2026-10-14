@@ -96,6 +96,23 @@ function duplicateIdCounts(html) {
   return [...counts.entries()].filter(([, count]) => count > 1);
 }
 
+function controlHasLabel(html, tag, ids) {
+  if (attribute(tag, 'aria-label')) return true;
+  const labelledBy = attribute(tag, 'aria-labelledby').split(/\s+/).filter(Boolean);
+  if (labelledBy.length && labelledBy.every(id => ids.has(id))) return true;
+
+  const id = attribute(tag, 'id');
+  if (id) {
+    for (const match of String(html || '').matchAll(/<label\b[^>]*>/gi)) {
+      if (attribute(match[0], 'for') === id) return true;
+    }
+  }
+  for (const match of String(html || '').matchAll(/<label\b[^>]*>[\s\S]*?<\/label\s*>/gi)) {
+    if (match[0].toLowerCase().includes(String(tag || '').toLowerCase())) return true;
+  }
+  return false;
+}
+
 function addIssue(issues, seen, code, file, reference, message) {
   const safeReference = String(reference || '').split(/[?#]/, 1)[0].slice(0, 180);
   const key = [code, file, safeReference].join('|').toLowerCase();
@@ -156,6 +173,35 @@ export function auditWebsiteIntegrity(rawFiles, siteMap = {}) {
     for (const [id, count] of duplicateIdCounts(html)) {
       addIssue(issues, seen, 'DUPLICATE_HTML_ID', filePath, id,
         'The HTML document declares the same id multiple times (' + count + ' occurrences); ids must be unique for reliable anchors and accessibility relationships.');
+    }
+
+    for (const tagMatch of html.matchAll(/<label\b[^>]*>/gi)) {
+      const targetId = attribute(tagMatch[0], 'for');
+      if (targetId && !ids.has(targetId)) {
+        addIssue(issues, seen, 'LABEL_TARGET_MISSING', filePath, targetId,
+          'A label references a control id that is not declared in the same HTML document.');
+      }
+    }
+    for (const tagMatch of html.matchAll(/<[a-z][a-z0-9-]*\b[^>]*>/gi)) {
+      const tag = tagMatch[0];
+      for (const attrName of ['aria-labelledby', 'aria-describedby']) {
+        const refs = attribute(tag, attrName).split(/\s+/).filter(Boolean);
+        for (const targetId of refs) {
+          if (!ids.has(targetId)) {
+            addIssue(issues, seen, 'ARIA_REFERENCE_TARGET_MISSING', filePath, targetId,
+              'An ' + attrName + ' attribute references an id that is not declared in the same HTML document.');
+          }
+        }
+      }
+    }
+    for (const controlMatch of html.matchAll(/<(?:input|select|textarea)\b[^>]*>/gi)) {
+      const tag = controlMatch[0];
+      const type = attribute(tag, 'type').toLowerCase();
+      if (/^<input\b/i.test(tag) && ['hidden', 'button', 'submit', 'reset', 'image'].includes(type)) continue;
+      if (!controlHasLabel(html, tag, ids)) {
+        addIssue(issues, seen, 'FORM_CONTROL_LABEL_MISSING', filePath, attribute(tag, 'name') || attribute(tag, 'id'),
+          'A form control has no detectable label, aria-label, or valid aria-labelledby target in the source HTML.');
+      }
     }
     const routeForFile = (Array.isArray(siteMap && siteMap.pages) ? siteMap.pages : [])
       .find(page => page && cleanPath(page.path).toLowerCase() === filePath.toLowerCase());
@@ -266,7 +312,7 @@ export function auditWebsiteIntegrity(rawFiles, siteMap = {}) {
     counts,
     summary: issues.length
       ? issues.length + ' source-level website integrity or accessibility issue(s) need review.'
-      : 'No unresolved internal routes, broken same-page or cross-page fragments, placeholder links, missing local asset and responsive-image references, duplicate IDs, or images without alt attributes were found.',
+      : 'No unresolved internal routes, broken same-page or cross-page fragments, placeholder links, missing local asset and responsive-image references, duplicate IDs, images without alt attributes, or obvious source-level form/ARIA label references were found.',
     externalResourcesVerified: false,
     runtimeBehaviorVerified: false,
   };
