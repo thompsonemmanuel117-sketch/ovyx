@@ -710,6 +710,34 @@ if (!fs.existsSync(webStudioReliabilityPath) || !fs.existsSync(webStudioFeedback
   }
 }
 
+const guardianPatchApiPath = path.join(root, 'functions/api/admin/guardian-patch.js');
+const guardianPatchHelperPath = path.join(root, 'functions/_lib/ovyx-guardian-patch.js');
+const guardianPatchTestPath = path.join(root, 'scripts/ovyx-guardian-patch.test.mjs');
+if (!fs.existsSync(guardianPatchApiPath) || !fs.existsSync(guardianPatchHelperPath) || !fs.existsSync(guardianPatchTestPath)) {
+  errors.push('OVYX Guardian patch workflow: the owner-only patch API, guarded helper, and security tests must be present.');
+} else {
+  const guardianPatchApi = fs.readFileSync(guardianPatchApiPath, 'utf8');
+  const guardianPatchHelper = fs.readFileSync(guardianPatchHelperPath, 'utf8');
+  const guardianClient = fs.readFileSync(path.join(root, 'assets/ovyx-sentinel.js'), 'utf8');
+  const guardianMiddleware = fs.existsSync(shellMiddlewarePath) ? fs.readFileSync(shellMiddlewarePath, 'utf8') : '';
+  if (
+    !guardianPatchApi.includes('verifyFirebaseIdToken') ||
+    !guardianPatchApi.includes('isSentinelAdmin') ||
+    !guardianPatchApi.includes('CREATE_PULL_REQUEST') ||
+    !guardianPatchApi.includes('directMainWritesEnabled: false') ||
+    !guardianPatchHelper.includes('OVYX_GUARDIAN_GITHUB_WRITE_TOKEN') ||
+    !guardianPatchHelper.includes('ovyx/guardian/fix-') ||
+    !guardianPatchHelper.includes('GUARDIAN_PATCH_STALE') ||
+    !guardianPatchHelper.includes('mainBranchChanged: false') ||
+    !guardianClient.includes('data-ovsx-patch-tools') ||
+    !guardianClient.includes("data-ovsx === 'patch-apply'") ||
+    !guardianMiddleware.includes('/assets/ovyx-sentinel.js?v=20261014-6') ||
+    !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/ovyx-guardian-patch.test.mjs')
+  ) {
+    errors.push('OVYX Guardian patch workflow: code changes must be owner-only, stale-safe, branch-only, explicitly confirmed, tested, and never auto-merged/deployed.');
+  }
+}
+
 if (errors.length) {
   console.error(errors.join('\n'));
   process.exit(1);
