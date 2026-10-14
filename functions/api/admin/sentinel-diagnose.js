@@ -24,7 +24,7 @@ function safeText(value, max = 240) {
   return String(value == null ? '' : value)
     .replace(/(?:Bearer\s+)[A-Za-z0-9._~+/-]+=*/gi, '[redacted credential]')
     .replace(/\b(?:sk-[A-Za-z0-9_-]{12,}|AIza[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9_]{20,})\b/g, '[redacted credential]')
-    .replace(/(?:api[_ -]?key|secret|token|password)\s*[:=]\s*[^\s,;]+/gi, '$1=[redacted]')
+    .replace(/(api[_ -]?key|secret|token|password)\s*[:=]\s*[^\s,;]+/gi, '$1=[redacted]')
     .replace(/[\u0000-\u001f\u007f]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim()
@@ -45,6 +45,8 @@ export function buildSentinelDiagnosticInput(report, now = Date.now()) {
   }
   const finishedAt = Date.parse(String(report.finishedAt || ''));
   if (!Number.isFinite(finishedAt)) return { ok: false, code: 'SENTINEL_REPORT_INVALID' };
+  const startedAtValue = Date.parse(String(report.startedAt || ''));
+  const normalizedStartedAt = Number.isFinite(startedAtValue) ? startedAtValue : finishedAt;
   if (finishedAt > now + 60_000 || now - finishedAt > MAX_AGE_MS) {
     return { ok: false, code: 'SENTINEL_REPORT_STALE' };
   }
@@ -75,7 +77,7 @@ export function buildSentinelDiagnosticInput(report, now = Date.now()) {
         ? String(report.status)
         : 'unknown',
       source: report.source === 'scheduled' ? 'scheduled' : 'manual',
-      startedAt: new Date(Date.parse(String(report.startedAt || report.finishedAt))).toISOString(),
+      startedAt: new Date(normalizedStartedAt).toISOString(),
       finishedAt: new Date(finishedAt).toISOString(),
       checkedCount: Math.max(0, Math.min(100, Number(report.checkedCount) || checks.length)),
       passedCount: Math.max(0, Math.min(100, Number(report.passedCount) || 0)),
