@@ -171,6 +171,32 @@
     var accessibilityIssues = [];
     var routeIssues = [];
     var resourceIssues = [];
+    var assetReferenceCount = 0;
+    var externalAssetReferences = 0;
+    function auditAssetReference(fromPath, reference, kind) {
+      var value = text(reference).trim();
+      if (!value || /^(?:data:|blob:)/i.test(value)) return;
+      if (/^(?:https?:)?\/\//i.test(value)) {
+        externalAssetReferences += 1;
+        return;
+      }
+      if (/^(?:[a-z][a-z0-9+.-]*:|#)/i.test(value)) return;
+      assetReferenceCount += 1;
+      var target = resolveFile(fromPath, value);
+      if (!target) {
+        resourceIssues.push(fromPath + ': local ' + kind + ' reference "' + trim(value, 120) + '" escapes the project root and cannot be resolved.');
+      } else if (!files[target]) {
+        resourceIssues.push(fromPath + ': local ' + kind + ' reference "' + trim(value, 120) + '" does not resolve to a file in the project graph.');
+      }
+    }
+    function auditAssetSrcset(fromPath, value, kind) {
+      var srcset = text(value).trim();
+      if (!srcset || /\bdata:/i.test(srcset)) return;
+      srcset.split(',').forEach(function (candidate) {
+        var reference = text(candidate).trim().split(/\s+/)[0];
+        if (reference) auditAssetReference(fromPath, reference, kind);
+      });
+    }
     var interactionIssues = [];
     var securityIssues = [];
     var cssFiles = Object.keys(files || {}).filter(function (path) { return /\.css$/i.test(path) && fileText(files[path]).trim(); });
@@ -214,6 +240,19 @@
         var type = text(control.getAttribute('type')).toLowerCase();
         if (['button', 'submit', 'reset', 'image'].indexOf(type) >= 0) return;
         if (!hasLabel(control, doc)) accessibilityIssues.push(page.path + ': a form control has no associated accessible label' + (control.id ? ' (#' + control.id + ')' : '') + '.');
+      });
+      doc.querySelectorAll('img, source, video[poster], audio[src], track[src], link[rel~="icon"][href]').forEach(function (node) {
+        var tag = text(node.tagName).toLowerCase();
+        var src = text(node.getAttribute('src')).trim();
+        var srcset = text(node.getAttribute('srcset')).trim();
+        var lazySrc = text(node.getAttribute('data-src')).trim();
+        if (src) auditAssetReference(page.path, src, tag + ' asset');
+        if (srcset) auditAssetSrcset(page.path, srcset, tag + ' srcset asset');
+        if (lazySrc) auditAssetReference(page.path, lazySrc, tag + ' lazy asset');
+        if (tag === 'video' && node.getAttribute('poster')) auditAssetReference(page.path, node.getAttribute('poster'), 'video poster');
+        if ((tag === 'img' || tag === 'source') && !src && !srcset && !lazySrc) {
+          resourceIssues.push(page.path + ': a ' + tag + ' element has no src, srcset or data-src reference.');
+        }
       });
       doc.querySelectorAll('a').forEach(function (anchor) {
         var href = text(anchor.getAttribute('href')).trim();
@@ -268,7 +307,10 @@
       });
       doc.querySelectorAll('link[rel~="stylesheet"][href]').forEach(function (link) {
         var ref = text(link.getAttribute('href'));
-        if (/^(?:https?:)?\/\//i.test(ref)) return;
+        if (/^(?:https?:)?\/\//i.test(ref)) {
+          externalAssetReferences += 1;
+          return;
+        }
         var target = resolveFile(page.path, ref);
         if (target && !files[target]) resourceIssues.push(page.path + ': local stylesheet "' + trim(ref, 120) + '" is not present in the file graph.');
       });
@@ -295,8 +337,24 @@
     } else {
       addCheck(report, 'Responsive styling', 'Project stylesheets', 'warn', 'No external CSS file was found in the project graph; inline styles may still be present in the page documents.');
     }
+    cssFiles.forEach(function (path) {
+      var css = fileText(files[path]);
+      var urlPattern = /url\(\s*(?:"([^"]*)"|'([^']*)'|([^)]*?))\s*\)/gi;
+      var match;
+      while ((match = urlPattern.exec(css))) {
+        var reference = text(match[1] || match[2] || match[3]).trim();
+        if (reference) auditAssetReference(path, reference, 'CSS url() asset');
+      }
+    });
+    addCheck(report, 'Project assets', 'Local asset references', statusForFindings(resourceIssues.length, false),
+      resourceIssues.length
+        ? resourceIssues.slice(0, 40).join('\n')
+        : 'No missing or unresolved local asset references were found. Inspected ' + assetReferenceCount + ' local path reference(s) across images, media, icons, srcsets and CSS url() resources. This checks graph presence, not whether a binary asset is visually correct.');
+    if (externalAssetReferences) {
+      addCheck(report, 'Project assets', 'External asset reachability', 'info',
+        externalAssetReferences + ' external asset reference(s) were found. Their availability, licensing, latency and rendering were not verified because the isolated browser sandbox blocks network access.');
+    }
     if (interactionIssues.length) addCheck(report, 'Forms and interactions', 'Form delivery', 'warn', interactionIssues.slice(0, 30).join('\n'));
-    if (resourceIssues.length) addCheck(report, 'Project assets', 'Local asset references', 'warn', resourceIssues.slice(0, 30).join('\n'));
     var envPaths = Object.keys(files || {}).filter(function (path) { return /(^|\/)\.env(?:\.|$)/i.test(path); });
     if (envPaths.length) securityIssues.push('Environment-like file(s) are present in the project graph: ' + envPaths.slice(0, 8).join(', ') + '.');
     Object.keys(files || {}).forEach(function (path) {
