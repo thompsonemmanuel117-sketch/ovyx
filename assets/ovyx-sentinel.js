@@ -495,7 +495,7 @@ async function preparePatchProposal() {
     var data = await guardianPatchRequest('prepare', { path: path.value.trim(), task: task.value.trim() });
     currentPatchProposalId = String(data.proposalId || '');
     if (summary) summary.textContent = safeText(data.summary || 'Patch preview prepared.', 400) + ' · Expires ' + safeText(data.expiresAt || '', 80) + '. No code changed.';
-    if (preview) { preview.textContent = safeText(data.preview || 'No diff preview returned.', 7000); preview.hidden = false; }
+    if (preview) { preview.textContent = String(data.preview || 'No diff preview returned.').slice(0, 7000); preview.hidden = false; }
     var confirm = q('[data-ovsx-patch-confirm]'); if (confirm) confirm.value = '';
     await refreshPatchCapabilities();
     updatePatchApplyState();
