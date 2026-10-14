@@ -26,6 +26,7 @@ assert.ok(runtime.includes("credentials: 'same-origin'") && runtime.includes("ca
 assert.ok(runtime.includes('ovyx-admin-workspace-entry-desktop') && runtime.includes('ovyx-admin-workspace-entry-mobile'), 'Desktop and mobile owner entry points must be restored.');
 assert.ok(runtime.includes('ovyx-admin-workspace-hub') && runtime.includes('Find an admin module'), 'The Admin Workspace hub and module search must exist.');
 assert.ok(runtime.includes('clearAuthorization(data)'), 'Failed/non-root authorization must remove the owner-only interface.');
+assert.ok(runtime.includes("byId('ovyx-admin-module-directory')?.remove()"), 'The legacy inline module directory must not duplicate or bypass the server-verified hub.');
 
 for (const route of routes) {
   assert.ok(runtime.includes("route: '" + route + "'"), 'Admin Workspace is missing route ' + route + '.');
