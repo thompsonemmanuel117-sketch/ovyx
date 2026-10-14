@@ -7,7 +7,7 @@ OVYX Sentinel's eye icon remains as a safe fallback, while the private administr
 - Model: [Businessman 01](https://models.codelove.in/models/business-male-01/)
 - Source model URL: `https://models.codelove.in/models/business-male-01.glb`
 - Model: 80-bone rigged male business character, approximately 792 KB.
-- Licence: MIT (the model provider says to keep its included licence when shipping or sharing the model).
+- Licence: MIT License (the model provider says to keep its included licence when shipping or sharing the model).
 - Animation source: [models.codelove.in animation library](https://models.codelove.in/animations/), with separate idle, talking and wave GLB clips.
 
 The browser loads the model and clips from the listed source and Three.js modules from a pinned CDN version. If any external asset is unavailable, the Sentinel voice panel continues to work and shows a visible fallback status.
