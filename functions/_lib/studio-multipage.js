@@ -207,6 +207,54 @@ function validateStagedSite(staged, prompt, siteMap) {
   return { validation, outputFilesByPath, requirementVerification, integrity };
 }
 
+function selectRequirementRepairPaths(staged, verification) {
+  const codes = new Set((verification && verification.issues || []).map(issue => issue.code));
+  const patterns = [];
+  if (codes.has('BOOKING_FLOW_MISSING')) patterns.push(/reservation|booking|appointment|calendar|home/i);
+  if (codes.has('SHOPPING_CART_MISSING') || codes.has('ADD_TO_CART_ACTION_MISSING')) patterns.push(/shop|product|cart|checkout|store|home/i);
+  if (codes.has('CONTACT_FORM_MISSING')) patterns.push(/contact|enquir|inquir|home/i);
+  if (codes.has('NEWSLETTER_MISSING')) patterns.push(/newsletter|subscribe|home/i);
+  if (codes.has('AUTHENTICATION_UI_MISSING')) patterns.push(/login|sign.?in|account|auth|home/i);
+  if (codes.has('PAYMENT_FLOW_MISSING')) patterns.push(/checkout|payment|shop|product|cart/i);
+
+  const scored = (Array.isArray(staged) ? staged : [])
+    .filter(item => item && /\.html?$/i.test(String(item.path || '')))
+    .map((item, index) => {
+      const searchable = String(item.path || '') + '\n' + String(item.content || '').slice(0, 16000);
+      const hits = patterns.reduce((count, pattern) => count + (pattern.test(searchable) ? 1 : 0), 0);
+      return { path: item.path, score: hits, index };
+    })
+    .filter(item => item.score > 0);
+  scored.sort((a, b) => b.score - a.score || a.index - b.index);
+  return scored.map(item => item.path);
+}
+
+function makeRequirementRepairPrompt(prompt, plan, siteMap, targets, extraContext, promptContract, verification, integrityAudit) {
+  const currentFiles = Object.fromEntries(targets.map(item => [item.path, item.content]));
+  return [
+    'OVYX WEB STUDIO BOUNDED REQUIREMENT REPAIR PHASE.',
+    'The first complete website passed structural validation but did not yet satisfy every deterministic requirement check. Make one narrow repair of the specific missing user-facing behavior listed below. Preserve all unrelated content, existing routes, design direction, and working behavior.',
+    'Return strict JSON only with this shape: {"summary":"...","files":{"exact/allowlisted/path":"complete final file content"}}.',
+    'Return complete contents only for files in the explicit repair allowlist. Do not add, delete, rename, or move files. Do not change the sitemap or modify unrelated pages.',
+    'Implement a real visible control or form in the appropriate existing page. A navigation label or a paragraph describing a feature does not satisfy an action requirement. Do not claim a remote service, booking persistence, payment, cart backend, email delivery, or database is connected unless the source context proves it.',
+    'Preserve supplied facts and never invent addresses, opening hours, prices, availability, testimonials, credentials, or provider status. Keep labels accessible and controls keyboard usable. Do not add dependencies, secrets, TODOs, fake success states, or placeholder links.',
+    'ORIGINAL USER BRIEF:\n' + String(prompt || ''),
+    'APPROVED WEBSITE ARCHITECTURE JSON:\n' + JSON.stringify(plan || {}),
+    'FULL WEBSITE ROUTE MANIFEST JSON:\n' + JSON.stringify({
+      architecture: siteMap && siteMap.architecture || '',
+      pages: (siteMap && Array.isArray(siteMap.pages) ? siteMap.pages : []).map(page => ({ title: page.title, path: page.path, url: page.url, goal: page.goal })),
+      sharedFiles: (siteMap && Array.isArray(siteMap.sharedFiles) ? siteMap.sharedFiles : []).map(file => ({ path: file.path, purpose: file.purpose })),
+    }),
+    'PROMPT REQUIREMENT CONTRACT JSON:\n' + JSON.stringify(promptContract || {}),
+    'REQUIREMENT VERIFICATION FAILURES JSON:\n' + JSON.stringify(verification || {}),
+    'EXISTING SITE-INTEGRITY AUDIT JSON (static source checks only):\n' + JSON.stringify(integrityAudit || {}),
+    'BRAND AND PROJECT CONTEXT:\n' + String(extraContext || '').slice(0, 6000),
+    'REPAIR TARGET FILES JSON:\n' + JSON.stringify(targets.map(item => ({ path: item.path, currentCharacters: item.content.length }))),
+    'REPAIR CURRENT FILE CONTENTS JSON:\n' + JSON.stringify(currentFiles),
+    'REPAIR ALLOWLIST JSON:\n' + JSON.stringify(targets.map(item => item.path)),
+  ].join('\n\n');
+}
+
 function hasNewIntegrityFindings(before, after) {
   const key = item => [item.code, item.file, item.reference].join('|').toLowerCase();
   const existing = new Set((before && before.findings || []).map(key));
@@ -359,8 +407,122 @@ export async function buildStudioMultiPage(options) {
   if (checks.validation.length) {
     throw accountingError(Object.assign(new Error('Generated website failed structural validation: ' + checks.validation.slice(0, 4).join(' | ')), { status: 422, code: 'WEBSTUDIO_SITE_VALIDATION_FAILED' }), usage, hasUsage, inputs, outputs);
   }
+  let requirementRepair = {
+    status: checks.requirementVerification.ok ? 'not-needed' : 'pending',
+    issuesBefore: checks.requirementVerification.issues,
+    issuesAfter: checks.requirementVerification.issues,
+    filesConsidered: 0,
+    filesUpdated: 0,
+    integrityAuditIsStaticOnly: true,
+  };
+
   if (!checks.requirementVerification.ok) {
-    throw accountingError(Object.assign(new Error('Web Studio could not verify all explicit requirements: ' + checks.requirementVerification.issues.map(issue => issue.message).join(' | ') + '. The site was not marked complete.'), { status: 422, code: 'WEBSTUDIO_PROMPT_REQUIREMENT_MISSING', requirementVerification: checks.requirementVerification }), usage, hasUsage, inputs, outputs);
+    const initialChecks = checks;
+    const repairEnabled = String(env && env.OVYX_WEBSTUDIO_REQUIREMENT_REPAIR_ENABLED || 'true').trim().toLowerCase() !== 'false';
+    const repairLimit = Math.max(1, Math.min(8, cap(env, 'OVYX_WEBSTUDIO_REQUIREMENT_REPAIR_MAX_FILES', 6)));
+    const repairFileChars = Math.max(1000, Math.min(45000, cap(env, 'OVYX_WEBSTUDIO_REQUIREMENT_REPAIR_MAX_FILE_CHARS', 28000)));
+    const repairContextChars = Math.max(10000, Math.min(100000, cap(env, 'OVYX_WEBSTUDIO_REQUIREMENT_REPAIR_MAX_CONTEXT_CHARS', 60000)));
+
+    if (!repairEnabled) {
+      requirementRepair.status = 'disabled';
+    } else {
+      const preferredPaths = selectRequirementRepairPaths(staged, initialChecks.requirementVerification);
+      const repairTargets = selectBoundedPolishTargets(
+        staged, siteMap, repairLimit, repairFileChars, repairContextChars,
+        preferredPaths,
+      );
+      requirementRepair.filesConsidered = repairTargets.length;
+
+      if (!repairTargets.length) {
+        requirementRepair.status = 'no-safe-targets';
+      } else {
+        const repairInput = makeRequirementRepairPrompt(
+          prompt, plan, siteMap, repairTargets, extraContext, promptContract,
+          initialChecks.requirementVerification, initialChecks.integrity,
+        );
+        inputs.push(repairInput);
+        try {
+          const repairResult = await callModel(env, {
+            provider,
+            model,
+            authUser,
+            taskPrompt: prompt,
+            system: [
+              String(options.qualityContract || '').trim(),
+              'You are OVYX Web Studio, a senior frontend engineer repairing only the explicit requirement failures reported by deterministic checks. Return strict JSON and change only approved files.',
+            ].filter(Boolean).join('\n\n'),
+            user: repairInput,
+            maxTokens: Math.max(1000, Math.min(18000, cap(env, 'OVYX_WEBSTUDIO_REQUIREMENT_REPAIR_TOKENS', 12000))),
+          });
+          outputs.push(String(repairResult && repairResult.text || ''));
+          const repairUsage = usageAdd(usage, repairResult && repairResult.rawUsage);
+          usage = repairUsage.total;
+          hasUsage = hasUsage || repairUsage.found;
+
+          const repairedFiles = outputFiles(parseJSON(repairResult && repairResult.text));
+          const repairedPaths = Object.keys(repairedFiles);
+          const allowedRepairPaths = new Set(repairTargets.map(item => item.path));
+          const invalidRepair = !repairedPaths.length ||
+            repairedPaths.length > repairTargets.length ||
+            repairedPaths.some(path => !allowedRepairPaths.has(path) ||
+              !String(repairedFiles[path]).trim() ||
+              String(repairedFiles[path]).length > 120000);
+
+          if (invalidRepair) {
+            requirementRepair.status = 'rejected';
+          } else {
+            const baselineByPath = new Map(staged.map(item => [item.path, item.content]));
+            const candidate = mergeStagedChanges(staged, repairedPaths.map(path => ({
+              path,
+              action: existingFiles[path] || staged.some(item => item.path === path) ? 'update' : 'create',
+              content: repairedFiles[path],
+            })));
+            const candidateChecks = validateStagedSite(candidate, prompt, siteMap);
+            const changedPaths = repairedPaths.filter(path => String(repairedFiles[path]) !== String(baselineByPath.get(path) || ''));
+
+            if (!changedPaths.length) {
+              requirementRepair.status = 'unchanged';
+            } else if (
+              candidateChecks.validation.length ||
+              !candidateChecks.requirementVerification.ok ||
+              hasNewIntegrityFindings(initialChecks.integrity, candidateChecks.integrity)
+            ) {
+              requirementRepair.status = 'rejected';
+            } else {
+              staged = candidate;
+              checks = candidateChecks;
+              requirementRepair.status = 'applied';
+              requirementRepair.filesUpdated = changedPaths.length;
+              requirementRepair.issuesAfter = candidateChecks.requirementVerification.issues;
+              requirementRepair.integrityBefore = initialChecks.integrity.totalFindings;
+              requirementRepair.integrityAfter = candidateChecks.integrity.totalFindings;
+            }
+          }
+        } catch (repairError) {
+          if (repairError && repairError.partialUsage) {
+            const partial = usageAdd(usage, repairError.partialUsage);
+            usage = partial.total;
+            hasUsage = hasUsage || partial.found;
+          }
+          requirementRepair.status = 'failed';
+        }
+      }
+    }
+
+    if (!checks.requirementVerification.ok) {
+      requirementRepair.issuesAfter = checks.requirementVerification.issues;
+      throw accountingError(Object.assign(new Error(
+        'Web Studio could not verify all explicit requirements after one bounded repair attempt (' +
+        requirementRepair.status + '): ' +
+        checks.requirementVerification.issues.map(issue => issue.message).join(' | ') +
+        '. The site was not marked complete.',
+      ), {
+        status: 422,
+        code: 'WEBSTUDIO_PROMPT_REQUIREMENT_MISSING',
+        requirementVerification: checks.requirementVerification,
+        requirementRepair,
+      }), usage, hasUsage, inputs, outputs);
+    }
   }
 
   const baselineStaged = staged.map(item => ({ ...item }));
@@ -488,8 +650,11 @@ export async function buildStudioMultiPage(options) {
   const integrityNote = qualityPolish.integrityAfter > 0
     ? ' Static review still reports ' + qualityPolish.integrityAfter + ' link or local-asset finding(s); review these before publishing. External resources and live integrations were not verified by this static audit.'
     : ' Static route, fragment, and local-asset checks found no unresolved references. External resource availability and live integrations were not verified by this static audit.';
-  const summary = 'Built ' + pageCount + ' distinct website pages in ' + batches.length + ' verified batches.' + polishNote + integrityNote;
-  const message = 'Your multi-page website is ready in Web Studio. ' + pageCount + ' pages were generated and structurally checked.' + polishNote + integrityNote;
+  const repairNote = requirementRepair.status === 'applied'
+    ? ' One bounded requirement-repair pass was applied and passed the same structural, prompt-contract, and no-new-integrity-defect checks.'
+    : '';
+  const summary = 'Built ' + pageCount + ' distinct website pages in ' + batches.length + ' verified batches.' + repairNote + polishNote + integrityNote;
+  const message = 'Your multi-page website is ready in Web Studio. ' + pageCount + ' pages were generated and structurally checked.' + repairNote + polishNote + integrityNote;
   return {
     ok: true,
     text: JSON.stringify({ summary, message }),
@@ -497,6 +662,7 @@ export async function buildStudioMultiPage(options) {
     summary,
     files: outputFilesByPath,
     requirementVerification,
+    requirementRepair,
     qualityPolish,
     project: updatedProject,
     siteMap,
