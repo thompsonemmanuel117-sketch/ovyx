@@ -163,6 +163,23 @@
   function auditSources(report, pages, files, project) {
     var pageRoutes = new Set(pages.map(function (page) { return normalizeRoute(page.route); }));
     var pagePaths = new Set(pages.map(function (page) { return page.path; }));
+    var pageByRoute = new Map();
+    var pageByPath = new Map();
+    var idsByPagePath = new Map();
+    pages.forEach(function (page) {
+      var route = normalizeRoute(page.route);
+      if (route) pageByRoute.set(route, page);
+      if (page.path) pageByPath.set(page.path, page);
+      var ids = new Set();
+      try {
+        var destinationDoc = new DOMParser().parseFromString(page.content, 'text/html');
+        destinationDoc.querySelectorAll('[id]').forEach(function (node) {
+          var id = text(node.id).trim();
+          if (id) ids.add(id);
+        });
+      } catch (_) {}
+      if (page.path) idsByPagePath.set(page.path, ids);
+    });
     if (!pages.length) {
       addCheck(report, 'Project artifacts', 'Generated website files', 'fail', 'No complete HTML page was found in the project file graph. No preview should be represented as a verified build.');
       return;
@@ -293,6 +310,22 @@
           return;
         }
         var localFile = resolveFile(page.path, href);
+        var parsedTarget = null;
+        var targetRoute = '';
+        try {
+          parsedTarget = new URL(href, 'https://ovyx-quality.invalid' + page.route);
+          targetRoute = normalizeRoute(parsedTarget.pathname);
+        } catch (_) {}
+        var destinationPage = (localFile && pageByPath.get(localFile)) || (targetRoute && pageByRoute.get(targetRoute));
+        if (parsedTarget && parsedTarget.hash && destinationPage) {
+          var destinationFragment = '';
+          try { destinationFragment = decodeURIComponent(parsedTarget.hash.slice(1)); }
+          catch (_) { destinationFragment = parsedTarget.hash.slice(1); }
+          var destinationIds = idsByPagePath.get(destinationPage.path) || new Set();
+          if (destinationFragment && !destinationIds.has(destinationFragment)) {
+            routeIssues.push(page.path + ': cross-page fragment link "' + trim(href, 120) + '" points to an id missing from destination "' + trim(destinationPage.path, 100) + '".');
+          }
+        }
         if (/\.html?$/i.test(href) || /\.html?$/i.test(localFile)) {
           if (localFile && files[localFile] && pagePaths.has(localFile)) return;
           var routeUrl = '';
