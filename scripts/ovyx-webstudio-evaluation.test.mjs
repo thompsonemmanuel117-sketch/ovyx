@@ -29,9 +29,9 @@ for (const [id, prompt, expected] of archetypeCases) {
 
 const dashboardBrief = buildExperienceBrief('Build an analytics dashboard for inventory operations.');
 assert.ok(dashboardBrief.architecture.sections.some(item => /table|record|data/i.test(item)), 'Dashboards should prioritize usable data workflows.');
-const bookingBrief = buildExperienceBrief('Create an appointment scheduling platform for a clinic.');
-assert.equal(bookingBrief.archetype, 'healthcare', 'Mixed clinic-booking briefs should preserve the healthcare context instead of losing it to a generic booking template.');
-assert.ok(bookingBrief.architecture.sections.some(item => /availability|slot|date|time/i.test(item)), 'Mixed clinic-booking briefs must also plan explicit appointment availability selection.');
+const clinicAppointmentBrief = buildExperienceBrief('Build a clinic website that lets visitors schedule appointments and choose from available dates and times.');
+assert.equal(clinicAppointmentBrief.archetype, 'healthcare', 'A clinic website with appointment scheduling should preserve the healthcare design context.');
+assert.ok(clinicAppointmentBrief.architecture.sections.some(item => /availability|slot|date|time/i.test(item)), 'Healthcare websites that offer scheduling must also plan explicit appointment availability selection.');
 const commerceBrief = buildExperienceBrief('Build an online store where people can add items to a cart.');
 assert.ok(commerceBrief.architecture.interactionConcepts.some(item => /cart/i.test(item)), 'E-commerce briefs should receive cart-specific interaction guidance.');
 
