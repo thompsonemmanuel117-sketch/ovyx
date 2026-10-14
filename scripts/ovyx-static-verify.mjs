@@ -652,6 +652,50 @@ if (
   }
 }
 
+const adminWorkspaceRuntimePath = path.join(root, 'assets/ovyx-admin-workspace.js');
+const adminWorkspaceContractPath = path.join(root, 'scripts/ovyx-admin-workspace.test.mjs');
+const adminWorkspaceBrowserPath = path.join(root, 'scripts/ovyx-admin-workspace.browser.test.mjs');
+const adminWorkspaceMiddleware = fs.existsSync(shellMiddlewarePath) ? fs.readFileSync(shellMiddlewarePath, 'utf8') : '';
+const adminWorkspaceHeadersPath = path.join(root, '_headers');
+const adminWorkspaceHeaders = fs.existsSync(adminWorkspaceHeadersPath) ? fs.readFileSync(adminWorkspaceHeadersPath, 'utf8') : '';
+if (
+  !fs.existsSync(adminWorkspaceRuntimePath) ||
+  !fs.existsSync(adminWorkspaceContractPath) ||
+  !fs.existsSync(adminWorkspaceBrowserPath)
+) {
+  errors.push('OVYX Admin Workspace: the owner-only module hub and automated regression tests must be present.');
+} else {
+  const adminWorkspaceRuntime = fs.readFileSync(adminWorkspaceRuntimePath, 'utf8');
+  const adminWorkspacePackage = fs.readFileSync(path.join(root, 'package.json'), 'utf8');
+  const adminWorkspaceHtml = fs.existsSync(html) ? fs.readFileSync(html, 'utf8') : '';
+  const adminWorkspaceRoutes = [
+    'admin-overview', 'admin-pricing', 'admin-users', 'admin-brain',
+    'admin-identity', 'admin-backend', 'admin-telemetry',
+    'admin-broadcasts', 'admin-template-hub'
+  ];
+  if (
+    !adminWorkspaceRuntime.includes("fetch('/api/entitlements'") ||
+    !adminWorkspaceRuntime.includes("role === ROOT_ROLE") ||
+    !adminWorkspaceRuntime.includes('ovyx-admin-workspace-entry-desktop') ||
+    !adminWorkspaceRuntime.includes('ovyx-admin-workspace-entry-mobile') ||
+    !adminWorkspaceRuntime.includes('ovyx-admin-workspace-hub') ||
+    !adminWorkspaceMiddleware.includes('/assets/ovyx-admin-workspace.js?v=20261014-1') ||
+    !adminWorkspaceHeaders.includes('/assets/ovyx-admin-workspace.js') ||
+    !adminWorkspaceHeaders.includes('Cache-Control: no-store, no-cache, must-revalidate') ||
+    !adminWorkspacePackage.includes('scripts/ovyx-admin-workspace.test.mjs')
+  ) {
+    errors.push('OVYX Admin Workspace: the runtime must be injected without stale caching and use verified server entitlements.');
+  }
+  for (const route of adminWorkspaceRoutes) {
+    if (
+      !adminWorkspaceRuntime.includes("route: '" + route + "'") ||
+      !adminWorkspaceHtml.includes('id="view-' + route + '"')
+    ) {
+      errors.push('OVYX Admin Workspace: expected existing administrative route is missing: ' + route + '.');
+    }
+  }
+}
+
 if (errors.length) {
   console.error(errors.join('\n'));
   process.exit(1);
