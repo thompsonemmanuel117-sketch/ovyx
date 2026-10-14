@@ -1,9 +1,39 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { buildExperienceBrief, detectArchetype } from '../functions/_lib/experience.js';
 
 const fixturePath = 'scripts/ovyx-webstudio-evaluation-cases.json';
 const suite = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
 const runtime = fs.readFileSync('assets/ovyx-webstudio-quality.js', 'utf8');
+
+const archetypeCases = [
+  ['luxury-real-estate', 'Create a luxury real estate website with search and property listings.', 'realEstate'],
+  ['fashion-brand', 'Design an editorial fashion brand website with seasonal collections and a lookbook.', 'fashion'],
+  ['ecommerce-store', 'Build an e-commerce online store with a shopping cart and add to cart buttons.', 'ecommerce'],
+  ['booking-platform', 'Create an appointment booking platform with an availability calendar and service scheduling.', 'booking'],
+  ['data-dashboard', 'Build an analytics dashboard with metrics and data visualization.', 'dashboard'],
+  ['saas-platform', 'Create a SaaS software platform for business teams with product workflows.', 'saas'],
+  ['restaurant', 'Design a restaurant website with menu discovery and dining experience.', 'restaurant'],
+  ['agency', 'Create a creative agency website with selected work and case studies.', 'agency'],
+  ['portfolio', 'Build a developer portfolio with project case studies.', 'portfolio'],
+];
+for (const [id, prompt, expected] of archetypeCases) {
+  assert.equal(detectArchetype(prompt), expected, id + ' must select its dedicated experience archetype.');
+  const brief = buildExperienceBrief(prompt);
+  assert.equal(brief.archetype, expected, id + ' must receive its matching experience brief.');
+  assert.ok(brief.architecture.sections.length >= 5, id + ' needs industry-specific information architecture.');
+  assert.ok(brief.architecture.visualAvoid.length >= 2, id + ' needs explicit anti-template guidance.');
+  assert.ok(brief.mustHave.length >= 4, id + ' needs a visitor-journey checklist.');
+  assert.ok(brief.delighters.length >= 3, id + ' needs concrete design/interaction opportunities.');
+}
+
+const dashboardBrief = buildExperienceBrief('Build an analytics dashboard for inventory operations.');
+assert.ok(dashboardBrief.architecture.sections.some(item => /table|record|data/i.test(item)), 'Dashboards should prioritize usable data workflows.');
+const clinicAppointmentBrief = buildExperienceBrief('Build a clinic website that lets visitors schedule appointments and choose from available dates and times.');
+assert.equal(clinicAppointmentBrief.archetype, 'healthcare', 'A clinic website with appointment scheduling should preserve the healthcare design context.');
+assert.ok(clinicAppointmentBrief.architecture.sections.some(item => /availability|slot|date|time/i.test(item)), 'Healthcare websites that offer scheduling must also plan explicit appointment availability selection.');
+const commerceBrief = buildExperienceBrief('Build an online store where people can add items to a cart.');
+assert.ok(commerceBrief.architecture.interactionConcepts.some(item => /cart/i.test(item)), 'E-commerce briefs should receive cart-specific interaction guidance.');
 
 const requiredCategories = [
   'luxury-real-estate',

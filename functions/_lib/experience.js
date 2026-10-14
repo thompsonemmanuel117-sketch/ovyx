@@ -12,6 +12,7 @@ const EXPERIENCE_ARCHITECTURES = {
       'orientation hero',
       'care-pathway or specialty explorer',
       'high-priority appointment/contact action',
+      'appointment date/time selection with honest slot state when scheduling is requested',
       'trust and care-team story',
       'services or specialties',
       'patient resources',
@@ -196,6 +197,142 @@ const EXPERIENCE_ARCHITECTURES = {
       'crowded donation-first layouts'
     ]
   },
+  fashion: {
+    sections: [
+      'editorial campaign hero',
+      'collection-led discovery',
+      'lookbook or seasonal story',
+      'product detail and fit/material information only when supplied',
+      'brand craft and origin story when supplied',
+      'shop or enquiry call-to-action',
+      'shipping, returns and support details when supplied'
+    ],
+    interactionConcepts: [
+      'image-forward collection browsing with purposeful crop and rhythm',
+      'variant/favorite controls with clear selected state when relevant',
+      'a continuous editorial path from campaign story into shoppable pieces'
+    ],
+    motionChoreography: [
+      'restrained editorial image transitions',
+      'quick tactile state feedback on collection controls',
+      'reduced motion without hiding product information'
+    ],
+    visualAvoid: [
+      'a generic wall of identical product cards',
+      'invented sustainability, material or ethical claims',
+      'fake sale badges, countdowns or scarcity messages'
+    ]
+  },
+  ecommerce: {
+    sections: [
+      'shop-by-intent or collection orientation',
+      'high-signal category navigation',
+      'product discovery with supplied details only',
+      'functional filtering/sorting and a useful empty state',
+      'product details with variant and quantity controls where relevant',
+      'cart/checkout path with truthful integration state',
+      'shipping, returns and support details when supplied'
+    ],
+    interactionConcepts: [
+      'add-to-cart feedback that updates visible cart state',
+      'filtering and sorting that actually change the result set',
+      'empty, populated, unavailable and error states for cart/product flows',
+      'a one-thumb mobile shopping journey'
+    ],
+    motionChoreography: [
+      'fast state transitions around cart actions',
+      'subtle product-image transitions',
+      'no decorative delays before a shopping action can be used'
+    ],
+    visualAvoid: [
+      'fake checkout completion or fake payment confirmations',
+      'invented discounts, inventory counts, reviews or delivery promises',
+      'filters that change appearance but not results'
+    ]
+  },
+  realEstate: {
+    sections: [
+      'location- or intent-led introduction',
+      'property search/discovery controls',
+      'featured listings with supplied facts only',
+      'property detail paths with photos and attributes when provided',
+      'agent/developer credibility and process',
+      'viewing enquiry or appointment pathway',
+      'location/contact details when supplied',
+      'financing/legal information only when supplied'
+    ],
+    interactionConcepts: [
+      'filters for the actual property attributes present in the data',
+      'listing cards with clear price/location/availability hierarchy when supplied',
+      'a listing detail path that preserves search context',
+      'mobile-friendly viewing/contact actions'
+    ],
+    motionChoreography: [
+      'calm image-led transitions',
+      'immediate feedback on search/filter state',
+      'no motion that interferes with comparing listings'
+    ],
+    visualAvoid: [
+      'invented property prices, addresses, availability or investment returns',
+      'fake map pins or listing counts presented as live data',
+      'repetitive property cards without meaningful hierarchy'
+    ]
+  },
+  booking: {
+    sections: [
+      'service/event selection and clear eligibility information',
+      'availability selection with disabled/unavailable states',
+      'time and date review with timezone clarity when relevant',
+      'short guest/contact details step',
+      'review/confirm step',
+      'truthful confirmation or pending state',
+      'rescheduling/support path when supplied'
+    ],
+    interactionConcepts: [
+      'a keyboard-accessible date/time picker or clear native fallback',
+      'a visible step indicator and back navigation that preserves entries',
+      'validation beside the field that needs attention',
+      'confirmation UI that does not claim server success prematurely'
+    ],
+    motionChoreography: [
+      'subtle step transitions that preserve orientation',
+      'instant feedback when a time slot is selected',
+      'respectful reduced motion and no countdown pressure'
+    ],
+    visualAvoid: [
+      'fake availability or fabricated calendar slots presented as live',
+      'success messages before a booking request actually succeeds',
+      'long forms before users understand the service or available times'
+    ]
+  },
+  dashboard: {
+    sections: [
+      'workspace orientation and task-focused navigation',
+      'summary metrics with clear date/context labels',
+      'searchable/filterable data table or record list',
+      'record detail and next-step actions',
+      'helpful empty/loading/error states',
+      'accessible visualizations with a text/table alternative',
+      'account/settings and permissions surfaces only when relevant'
+    ],
+    interactionConcepts: [
+      'filters, sorting and pagination that change the displayed data',
+      'keyboard-friendly command and table navigation',
+      'detail drawers or inline editing that preserve list context',
+      'clear loading, empty, success and error feedback for asynchronous work'
+    ],
+    motionChoreography: [
+      'low-motion feedback tied to state changes',
+      'fast transitions that protect information density',
+      'reduced-motion support for live or frequently updating displays'
+    ],
+    visualAvoid: [
+      'invented live metrics represented as customer data',
+      'chart-only communication without a readable alternative',
+      'decorative metric cards that hide priority tasks',
+      'tiny text and low-contrast dense tables'
+    ]
+  },
   portfolio: {
     sections: [
       'identity hero',
@@ -304,7 +441,7 @@ const ARCHETYPES = [
   },
   {
     id: 'saas',
-    triggers: ['saas', 'software', 'platform', 'dashboard', 'product', 'startup', 'ai tool', 'app', 'b2b'],
+    triggers: ['saas', 'software', 'product', 'startup', 'ai tool', 'b2b'],
     mission: 'Make value obvious quickly, then move serious users toward activation.',
     mustHave: [
       'clear positioning',
@@ -324,6 +461,106 @@ const ARCHETYPES = [
       'conversion-focused responsive navigation'
     ],
     motion: 'confident, crisp and purposeful; motion should explain product behavior'
+  },
+  {
+    id: 'fashion',
+    triggers: ['fashion brand', 'fashion label', 'clothing brand', 'fashion', 'apparel', 'lookbook', 'boutique', 'streetwear', 'couture', 'designer collection'],
+    mission: 'Make the brand world memorable and make collection discovery feel intentional.',
+    mustHave: [
+      'distinct brand point of view',
+      'collection or lookbook discovery',
+      'product/fit/material details only when supplied',
+      'clear shop or enquiry path',
+      'brand story and craft details when supplied',
+      'shipping/returns/support details when supplied'
+    ],
+    delighters: [
+      'editorial image rhythm',
+      'collection transitions that lead into products',
+      'mobile-first product variant selection',
+      'strong typography and art direction without fake luxury signals'
+    ],
+    motion: 'editorial and tactile, but fast and accessible; product details remain usable with reduced motion'
+  },
+  {
+    id: 'ecommerce',
+    triggers: ['e-commerce', 'ecommerce', 'online store', 'online shop', 'shopping cart', 'product catalog', 'product catalogue', 'retail store', 'marketplace', 'shopify', 'add to cart', 'cart', 'storefront'],
+    mission: 'Help shoppers find the right item, trust the details and complete a clear purchase journey.',
+    mustHave: [
+      'category and product discovery',
+      'useful product details',
+      'working filter/sort controls when offered',
+      'cart state and empty/populated feedback',
+      'checkout path with truthful payment status',
+      'shipping/returns/support details only when supplied'
+    ],
+    delighters: [
+      'responsive filters with clear active state',
+      'useful empty and unavailable states',
+      'cart feedback that preserves shopping context',
+      'cross-sells only where relevant to the selected product'
+    ],
+    motion: 'fast, tactile and low-friction; never delay the main purchase path'
+  },
+  {
+    id: 'realEstate',
+    triggers: ['real estate', 'realty', 'property listing', 'property listings', 'property development', 'property management', 'estate agent', 'estate agency', 'realtor', 'homes for sale', 'commercial real estate', 'apartments for rent'],
+    mission: 'Help visitors compare properties, understand the next step and enquire with confidence.',
+    mustHave: [
+      'property search/discovery',
+      'clear listing information sourced from the brief',
+      'individual property detail path when listings are requested',
+      'viewing/enquiry CTA',
+      'agent/developer story when supplied',
+      'contact/location information when supplied'
+    ],
+    delighters: [
+      'filters matched to actual listing attributes',
+      'listing comparison cues without invented claims',
+      'fast image-led browsing',
+      'mobile-friendly viewing requests'
+    ],
+    motion: 'calm, confident and comparison-friendly; state changes should be immediate'
+  },
+  {
+    id: 'booking',
+    triggers: ['booking platform', 'booking system', 'appointment system', 'appointment scheduling', 'service scheduling', 'reservation system', 'availability calendar', 'event booking', 'hotel booking', 'salon scheduling', 'class booking', 'booking app', 'scheduling platform'],
+    mission: 'Help users choose a valid slot, complete required details and understand whether the booking actually succeeded.',
+    mustHave: [
+      'service/event selection',
+      'availability selection with honest slot state',
+      'short details and validation step',
+      'review before confirmation',
+      'truthful success/pending/error states',
+      'rescheduling/support path when supplied'
+    ],
+    delighters: [
+      'clear multi-step progress',
+      'keyboard-accessible date/time selection',
+      'preserved entries when going back',
+      'inline field feedback'
+    ],
+    motion: 'purposeful and reassuring, with no fake countdowns or premature success states'
+  },
+  {
+    id: 'dashboard',
+    triggers: ['dashboard', 'analytics dashboard', 'data dashboard', 'admin panel', 'operations console', 'reporting dashboard', 'metrics dashboard', 'analytics portal', 'data visualization'],
+    mission: 'Turn dense information into clear decisions and safe, efficient next actions.',
+    mustHave: [
+      'clear workspace hierarchy',
+      'contextual metrics with dates/units',
+      'search/filter/sort for dense data where relevant',
+      'table or record navigation',
+      'loading/empty/error states',
+      'keyboard and screen-reader support'
+    ],
+    delighters: [
+      'data visualizations with accessible alternatives',
+      'preserved context when opening record details',
+      'fast command and table navigation',
+      'responsive density that remains readable on mobile'
+    ],
+    motion: 'functional and restrained; use motion only to signal state or changes in data'
   },
   {
     id: 'agency',
