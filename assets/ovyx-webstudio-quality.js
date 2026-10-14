@@ -263,7 +263,7 @@
       });
       doc.querySelectorAll('[aria-labelledby], [aria-describedby]').forEach(function (node) {
         ['aria-labelledby', 'aria-describedby'].forEach(function (attributeName) {
-          var references = text(node.getAttribute(attributeName)).split(/\\s+/).filter(Boolean);
+          var references = text(node.getAttribute(attributeName)).split(/\s+/).filter(Boolean);
           references.forEach(function (targetId) {
             if (!doc.getElementById(targetId)) {
               accessibilityIssues.push(page.path + ': ' + attributeName + ' references a missing id.');
