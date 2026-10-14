@@ -735,11 +735,15 @@ const webStudioQualityPath = path.join(root, 'assets/ovyx-webstudio-quality.js')
 const webStudioQualityTestPath = path.join(root, 'scripts/ovyx-webstudio-quality.test.mjs');
 const webStudioQualityBrowserTestPath = path.join(root, 'scripts/ovyx-webstudio-quality.browser.test.mjs');
 const webStudioQualityWorkflowPath = path.join(root, '.github/workflows/ovyx-webstudio-quality-browser.yml');
+const webStudioEvaluationCasesPath = path.join(root, 'scripts/ovyx-webstudio-evaluation-cases.json');
+const webStudioEvaluationTestPath = path.join(root, 'scripts/ovyx-webstudio-evaluation.test.mjs');
 if (
   !fs.existsSync(webStudioQualityPath) ||
   !fs.existsSync(webStudioQualityTestPath) ||
   !fs.existsSync(webStudioQualityBrowserTestPath) ||
-  !fs.existsSync(webStudioQualityWorkflowPath)
+  !fs.existsSync(webStudioQualityWorkflowPath) ||
+  !fs.existsSync(webStudioEvaluationCasesPath) ||
+  !fs.existsSync(webStudioEvaluationTestPath)
 ) {
   errors.push('Web Studio quality inspector: the runtime, source/browser regression tests and dedicated browser-test workflow must all be present.');
 } else {
@@ -751,6 +755,8 @@ if (
   const packageJson = fs.readFileSync(path.join(root, 'package.json'), 'utf8');
   const excellencePrompts = fs.readFileSync(path.join(root, 'functions/_lib/prompts.js'), 'utf8');
   const qualityWorkflow = fs.readFileSync(webStudioQualityWorkflowPath, 'utf8');
+  const evaluationCases = fs.readFileSync(webStudioEvaluationCasesPath, 'utf8');
+  const evaluationTest = fs.readFileSync(webStudioEvaluationTestPath, 'utf8');
   if (
     !quality.includes('OVYX WEB STUDIO QUALITY CONTRACT') ||
     !quality.includes('WIDTHS = [320, 390, 768, 1024, 1440]') ||
@@ -770,6 +776,14 @@ if (
     !middleware.includes('/assets/ovyx-webstudio-quality.js?v=20261014-1') ||
     !headerRules.includes('/assets/ovyx-webstudio-quality.js') ||
     !packageJson.includes('scripts/ovyx-webstudio-quality.test.mjs') ||
+    !packageJson.includes('scripts/ovyx-webstudio-evaluation.test.mjs') ||
+    !evaluationCases.includes('luxury-real-estate') ||
+    !evaluationCases.includes('data-dashboard') ||
+    !evaluationCases.includes('provider-failure') ||
+    !evaluationCases.includes('interrupted-build') ||
+    !evaluationCases.includes('missing-integration') ||
+    !evaluationCases.includes('secret-exposure') ||
+    !evaluationTest.includes('nine site categories') ||
     !qualityWorkflow.includes('npx playwright install --with-deps chromium') ||
     !qualityWorkflow.includes('scripts/ovyx-webstudio-quality.browser.test.mjs')
   ) {
