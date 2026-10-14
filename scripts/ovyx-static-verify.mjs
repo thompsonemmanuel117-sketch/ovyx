@@ -547,23 +547,28 @@ if (fs.existsSync(html)) {
 
 const sentinelEnginePath = path.join(root, 'functions/_lib/ovyx-sentinel.js');
 const sentinelApiPath = path.join(root, 'functions/api/admin/sentinel.js');
+const sentinelDiagnosisApiPath = path.join(root, 'functions/api/admin/sentinel-diagnose.js');
 const sentinelClientPath = path.join(root, 'assets/ovyx-sentinel.js');
 const sentinelUnitTestPath = path.join(root, 'scripts/ovyx-sentinel.test.mjs');
 const sentinelBrowserTestPath = path.join(root, 'scripts/ovyx-sentinel.browser.test.mjs');
 const sentinelEndpointTestPath = path.join(root, 'scripts/ovyx-sentinel.endpoint.test.mjs');
+const sentinelDiagnosisTestPath = path.join(root, 'scripts/ovyx-sentinel-diagnose.test.mjs');
 const sentinelMiddlewarePath = path.join(root, 'functions/_middleware.js');
 if (
   !fs.existsSync(sentinelEnginePath) ||
   !fs.existsSync(sentinelApiPath) ||
+  !fs.existsSync(sentinelDiagnosisApiPath) ||
   !fs.existsSync(sentinelClientPath) ||
   !fs.existsSync(sentinelUnitTestPath) ||
   !fs.existsSync(sentinelEndpointTestPath) ||
+  !fs.existsSync(sentinelDiagnosisTestPath) ||
   !fs.existsSync(sentinelBrowserTestPath)
 ) {
   errors.push('OVYX Sentinel: the operational check engine, guarded admin API, browser companion, and unit/browser tests must all be present.');
 } else {
   const sentinelEngine = fs.readFileSync(sentinelEnginePath, 'utf8');
   const sentinelApi = fs.readFileSync(sentinelApiPath, 'utf8');
+  const sentinelDiagnosisApi = fs.readFileSync(sentinelDiagnosisApiPath, 'utf8');
   const sentinelClient = fs.readFileSync(sentinelClientPath, 'utf8');
   const sentinelMiddleware = fs.existsSync(sentinelMiddlewarePath) ? fs.readFileSync(sentinelMiddlewarePath, 'utf8') : '';
   const headersPath = path.join(root, '_headers');
@@ -573,6 +578,11 @@ if (
     !sentinelEngine.includes('export function createSentinelFixPlan') ||
     !sentinelApi.includes('fixPlan: createSentinelFixPlan(latestReport)') ||
     !sentinelClient.includes('data-ovsx="plan"') ||
+    !sentinelClient.includes('data-ovsx="diagnose"') ||
+    !sentinelDiagnosisApi.includes('buildSentinelDiagnosticInput') ||
+    !sentinelDiagnosisApi.includes('verifyFirebaseIdToken') ||
+    !sentinelDiagnosisApi.includes('isSentinelAdmin') ||
+    !sentinelDiagnosisApi.includes('changesApplied: false') ||
     !sentinelClient.includes('function renderFixPlan(plan)') ||
     !sentinelEngine.includes('automaticChanges: false') ||
     !sentinelEngine.includes('OVYX_SENTINEL_GITHUB_TOKEN') ||
@@ -586,11 +596,12 @@ if (
     !sentinelClient.includes('window.webkitSpeechRecognition') ||
     !sentinelClient.includes('disableWake') ||
     !sentinelClient.includes('textContent') ||
-    !sentinelMiddleware.includes('/assets/ovyx-sentinel.js?v=20261012-1') ||
+    !sentinelMiddleware.includes('/assets/ovyx-sentinel.js?v=20261014-2') ||
     !headers.includes('microphone=(self)') ||
     !headers.includes('camera=()') ||
     !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/ovyx-sentinel.test.mjs') ||
-    !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/ovyx-sentinel.endpoint.test.mjs')
+    !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/ovyx-sentinel.endpoint.test.mjs') ||
+    !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/ovyx-sentinel-diagnose.test.mjs')
   ) {
     errors.push('OVYX Sentinel: authenticated admin-only reporting, guarded Cron access, privacy-safe rendering, opt-in wake-word controls, or automated test wiring is incomplete.');
   }
