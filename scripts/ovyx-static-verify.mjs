@@ -548,6 +548,7 @@ if (fs.existsSync(html)) {
 const sentinelEnginePath = path.join(root, 'functions/_lib/ovyx-sentinel.js');
 const sentinelApiPath = path.join(root, 'functions/api/admin/sentinel.js');
 const sentinelDiagnosisApiPath = path.join(root, 'functions/api/admin/sentinel-diagnose.js');
+const sentinelCIPath = path.join(root, 'functions/_lib/ovyx-sentinel-ci.js');
 const sentinelClientPath = path.join(root, 'assets/ovyx-sentinel.js');
 const sentinelUnitTestPath = path.join(root, 'scripts/ovyx-sentinel.test.mjs');
 const sentinelBrowserTestPath = path.join(root, 'scripts/ovyx-sentinel.browser.test.mjs');
@@ -558,6 +559,7 @@ if (
   !fs.existsSync(sentinelEnginePath) ||
   !fs.existsSync(sentinelApiPath) ||
   !fs.existsSync(sentinelDiagnosisApiPath) ||
+  !fs.existsSync(sentinelCIPath) ||
   !fs.existsSync(sentinelClientPath) ||
   !fs.existsSync(sentinelUnitTestPath) ||
   !fs.existsSync(sentinelEndpointTestPath) ||
@@ -569,6 +571,7 @@ if (
   const sentinelEngine = fs.readFileSync(sentinelEnginePath, 'utf8');
   const sentinelApi = fs.readFileSync(sentinelApiPath, 'utf8');
   const sentinelDiagnosisApi = fs.readFileSync(sentinelDiagnosisApiPath, 'utf8');
+  const sentinelCI = fs.readFileSync(sentinelCIPath, 'utf8');
   const sentinelClient = fs.readFileSync(sentinelClientPath, 'utf8');
   const sentinelMiddleware = fs.existsSync(sentinelMiddlewarePath) ? fs.readFileSync(sentinelMiddlewarePath, 'utf8') : '';
   const headersPath = path.join(root, '_headers');
@@ -583,6 +586,11 @@ if (
     !sentinelDiagnosisApi.includes('verifyFirebaseIdToken') ||
     !sentinelDiagnosisApi.includes('isSentinelAdmin') ||
     !sentinelDiagnosisApi.includes('changesApplied: false') ||
+    !sentinelDiagnosisApi.includes('collectSentinelCIMetadata({ env })') ||
+    !sentinelCI.includes('collectSentinelCIMetadata') ||
+    !sentinelCI.includes('MAX_FAILED_WORKFLOWS') ||
+    !sentinelCI.includes('Only workflow/job/step metadata is included') ||
+    !fs.readFileSync(sentinelDiagnosisTestPath, 'utf8').includes('collectSentinelCIMetadata') ||
     !sentinelClient.includes('function renderFixPlan(plan)') ||
     !sentinelEngine.includes('automaticChanges: false') ||
     !sentinelEngine.includes('OVYX_SENTINEL_GITHUB_TOKEN') ||
