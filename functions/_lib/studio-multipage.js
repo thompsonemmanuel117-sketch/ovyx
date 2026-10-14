@@ -196,7 +196,7 @@ export async function buildStudioMultiPage(options) {
   try {
     planResult = await callModel(env, {
       provider, model, authUser, taskPrompt: prompt,
-      system: 'You are an expert website information architect. Return JSON only with a realistic route-by-route sitemap. Do not generate site code in this planning phase.',
+      system: [String(options.qualityContract || '').trim(), 'You are an expert website information architect. Return JSON only with a realistic route-by-route sitemap. Do not generate site code in this planning phase.'].filter(Boolean).join('\n\n'),
       user: planInput,
       maxTokens: cap(env, 'OVYX_WEBSTUDIO_PLAN_TOKENS', 7000),
     });
@@ -263,7 +263,7 @@ export async function buildStudioMultiPage(options) {
     try {
       result = await callModel(env, {
         provider, model, authUser, taskPrompt: prompt,
-        system: 'You are OVYX Web Studio, a senior frontend engineer and UX architect. Follow the batch instructions exactly. Return strict JSON with complete file contents.',
+        system: [String(options.qualityContract || '').trim(), 'You are OVYX Web Studio, a senior frontend engineer and UX architect. Follow the batch instructions exactly. Return strict JSON with complete file contents.'].filter(Boolean).join('\n\n'),
         user: input,
         maxTokens: cap(env, 'OVYX_WEBSTUDIO_BATCH_TOKENS', 18000),
       });
