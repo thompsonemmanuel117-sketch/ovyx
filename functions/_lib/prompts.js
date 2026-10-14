@@ -37,6 +37,7 @@ ART DIRECTION AND DISTINCTIVENESS:
 
 FUNCTIONAL COMPLETENESS AND TRUTHFULNESS:
 - Treat the brief as a full user journey. Implement requested routes, navigation, forms, filters, booking/cart/checkout flows, state feedback and empty/error/loading states; do not add controls that do nothing.
+- For interactive menus, tabs, accordions, filters, dialogs, disclosures and toggles, use semantic controls, stable target IDs, and appropriate aria-expanded, aria-controls, aria-selected or aria-pressed state. Make state changes visible and testable; do not simulate interaction with inert labels or decoration.
 - Distinguish a designed interface from a connected integration and a successfully verified integration. A configured key or a mock response alone is not proof of a working service.
 - Never expose credentials in client code. Never claim a form was delivered, a booking saved, a user authenticated, data persisted, or payment completed unless the real operation succeeded.
 - Preserve working user features and project conventions. Make targeted edits, check references between files, and avoid replacing sound architecture merely to create visual novelty.
