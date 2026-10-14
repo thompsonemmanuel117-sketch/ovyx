@@ -29,7 +29,7 @@ const brokenIntegrityFiles = {
     .replace('href="/about/#team"', 'href="/about/#missing-team"')
     .replace('href="https://example.com/reference"', 'href="#"')
     .replace('src="../assets/mark.svg"', 'src="../assets/missing.svg"')
-    .replace('srcset="../assets/mark.svg 1x"', 'srcset="../assets/missing-srcset.svg 1x'),
+    .replace('srcset="../assets/mark.svg 1x"', 'srcset="../assets/missing-srcset.svg 1x"'),
   'src/styles.css': 'body{background-image:url("./assets/missing.svg")}',
 };
 const brokenIntegrity = auditWebsiteIntegrity(brokenIntegrityFiles, integritySiteMap);
