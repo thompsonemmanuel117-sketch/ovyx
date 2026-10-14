@@ -511,7 +511,7 @@
     if (root || !document.body) return;
     root = document.createElement('div');
     root.id = ROOT_ID;
-    root.innerHTML = '<style id="' + STYLE_ID + '"></style><div class="ovyx-ws-quality-overlay" data-quality-overlay hidden><section class="ovyx-ws-quality-dialog" role="dialog" aria-modal="true" aria-labelledby="ovyx-ws-quality-title" tabindex="-1"><header class="ovyx-ws-quality-header"><div><div class="ovyx-ws-quality-kicker">OVYX WEB STUDIO · ENGINEERING QA</div><h2 id="ovyx-ws-quality-title">Quality Inspector</h2><p data-quality-subtitle>Inspect the actual generated project files before release.</p></div><button class="ovyx-ws-quality-close" type="button" data-quality-close aria-label="Close Quality Inspector">×</button></header><div class="ovyx-ws-quality-body"><div class="ovyx-ws-quality-summary" data-quality-summary aria-live="polite">Ready to inspect the current project.</div><div class="ovyx-ws-quality-progress" aria-hidden="true"><span data-quality-progress></span></div><div class="ovyx-ws-quality-stages" data-quality-stages></div><section class="ovyx-ws-quality-findings"><div class="ovyx-ws-quality-findings-head"><h3>Findings</h3><span data-quality-counts>Not run</span></div><div class="ovyx-ws-quality-list" data-quality-list><p class="ovyx-ws-quality-empty">Run checks to inspect all generated pages and a responsive browser matrix.</p></div></section><p class="ovyx-ws-quality-note">Safe-test limits: generated code runs in an isolated sandbox with network APIs and form submissions blocked. This inspector does not send contact forms, complete payments, book appointments, or verify a live authentication/API integration.</p></div><footer class="ovyx-ws-quality-footer"><button type="button" data-quality-run class="ovyx-ws-quality-primary">Run quality checks</button><button type="button" data-quality-repair class="ovyx-ws-quality-secondary" disabled>Repair issues with OVYX</button><button type="button" data-quality-console class="ovyx-ws-quality-ghost">Open source tests</button></footer></section></div>';
+    root.innerHTML = '<style id="' + STYLE_ID + '"></style><div class="ovyx-ws-quality-overlay" data-quality-overlay hidden><section class="ovyx-ws-quality-dialog" role="dialog" aria-modal="true" aria-labelledby="ovyx-ws-quality-title" tabindex="-1"><header class="ovyx-ws-quality-header"><div><div class="ovyx-ws-quality-kicker">OVYX WEB STUDIO · ENGINEERING QA</div><h2 id="ovyx-ws-quality-title">Quality Inspector</h2><p data-quality-subtitle>Inspect the actual generated project files before release.</p></div><button class="ovyx-ws-quality-close" type="button" data-quality-close aria-label="Close Quality Inspector">×</button></header><div class="ovyx-ws-quality-body"><div class="ovyx-ws-quality-summary" data-quality-summary aria-live="polite">Ready to inspect the current project.</div><div class="ovyx-ws-quality-progress" aria-hidden="true"><span data-quality-progress></span></div><div class="ovyx-ws-quality-stages" data-quality-stages></div><section class="ovyx-ws-quality-findings"><div class="ovyx-ws-quality-findings-head"><h3>Findings</h3><span data-quality-counts>Not run</span></div><div class="ovyx-ws-quality-list" data-quality-list><p class="ovyx-ws-quality-empty">Run checks to inspect all generated pages and a responsive browser matrix.</p></div></section><p class="ovyx-ws-quality-note">Safe-test limits: generated code runs in an isolated sandbox with network APIs and form submissions blocked. This inspector does not send contact forms, complete payments, book appointments, or verify a live authentication/API integration.</p></div><footer class="ovyx-ws-quality-footer"><button type="button" data-quality-run class="ovyx-ws-quality-primary">Run quality checks</button><button type="button" data-quality-repair class="ovyx-ws-quality-secondary" disabled>Repair issues with OVYX</button><button type="button" data-quality-export class="ovyx-ws-quality-ghost" aria-label="Export QA report as JSON" disabled>Export QA report</button><button type="button" data-quality-copy-summary class="ovyx-ws-quality-ghost" aria-label="Copy client-ready QA summary" disabled>Copy summary</button><button type="button" data-quality-console class="ovyx-ws-quality-ghost">Open source tests</button></footer></section></div>';
     document.body.appendChild(root);
     var css = [
       '#'+ROOT_ID+'{font:500 13px/1.5 Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#e5e7eb}',
@@ -559,6 +559,7 @@
       '#'+ROOT_ID+' .ovyx-ws-quality-secondary{border:1px solid rgba(230,197,119,.44);color:#ecd6a0;background:rgba(230,197,119,.08)}',
       '#'+ROOT_ID+' .ovyx-ws-quality-ghost{border:1px solid rgba(255,255,255,.13);color:#d1d5db;background:rgba(255,255,255,.035)}',
       '#'+ROOT_ID+' .ovyx-ws-quality-footer button:disabled{opacity:.4;cursor:not-allowed}',
+      '#'+ROOT_ID+' .ovyx-ws-quality-footer button:focus-visible{outline:2px solid #f0d58f;outline-offset:3px}',
       '.ovyx-ws-quality-trigger{gap:7px!important;display:inline-flex!important;align-items:center!important;white-space:nowrap!important}',
       '.ovyx-ws-quality-trigger [data-ovyx-quality-dot]{font-size:9px;opacity:.82}',
       '.ovyx-ws-quality-trigger[data-build-status="error"],.ovyx-ws-quality-trigger[data-build-status="fail"]{border-color:rgba(248,113,113,.5)!important}',
@@ -604,6 +605,152 @@
       try { if (lastFocused && typeof lastFocused.focus === 'function') lastFocused.focus({ preventScroll: true }); } catch (_) {}
     }
   }
+  function shareableReport(report) {
+    var counts = countIssues(report);
+    var browser = report && report.browser || {};
+    var coverage = (report && report.checks || []).find(function (item) { return item.group === 'Coverage' && item.title === 'Responsive browser matrix coverage'; });
+    return {
+      schemaVersion: 1,
+      product: 'OVYX Web Studio Quality Inspector',
+      generatedAt: new Date().toISOString(),
+      projectName: trim(report && report.projectName || 'Untitled project', 160),
+      inspection: {
+        startedAt: report && report.startedAt || null,
+        finishedAt: report && report.finishedAt || null,
+        status: text(report && report.status || reportStatus(report)),
+        statusMeaning: report && report.status === 'fail'
+          ? 'One or more checks failed; resolve blockers before handoff.'
+          : report && report.status === 'warn'
+            ? 'No check failed, but warnings remain; review them before handoff.'
+            : 'No failing or warning checks were recorded within the tested scope; this is not a production or integration certification.',
+        counts: counts,
+        browser: {
+          pagesAvailable: Number(browser.pagesAvailable || 0),
+          pagesTested: Number(browser.pagesTested || 0),
+          viewportChecksPlanned: Number(browser.total || 0),
+          viewportChecksCompleted: Number(browser.completed || 0),
+          widthsCssPixels: Array.isArray(browser.widths) ? browser.widths.slice() : [],
+          routeCoverage: coverage ? trim(coverage.detail, 1200) : 'No completed responsive browser coverage statement was available.'
+        },
+        checks: (report && report.checks || []).map(function (item) {
+          return {
+            group: trim(item.group, 80),
+            title: trim(item.title, 180),
+            status: text(item.status),
+            detail: trim(item.detail, 1200),
+            file: item.file ? trim(item.file, 240) : undefined
+          };
+        })
+      },
+      privacy: {
+        projectIdIncluded: false,
+        sourceFileContentsIncluded: false,
+        note: 'The report summarizes inspection findings and paths; it does not bundle source files. Review project-specific findings before sharing externally.'
+      },
+      limitations: [
+        'This report contains evidence from source checks and isolated browser smoke tests only.',
+        'Real sign-in, database writes, email delivery, booking, payments and authenticated API behavior remain unverified unless separately tested against the actual service in a safe test environment.',
+        'Sandbox render measurements are diagnostics, not real-network load times or production Core Web Vitals.',
+        'Automated contrast and interaction checks are partial smoke checks, not full WCAG certification or exhaustive interaction testing.'
+      ]
+    };
+  }
+  function clientSummary(report) {
+    var exportData = shareableReport(report);
+    var inspection = exportData.inspection;
+    var counts = inspection.counts;
+    var browser = inspection.browser;
+    var statusLabel = inspection.status === 'fail' ? 'NEEDS ATTENTION'
+      : inspection.status === 'warn' ? 'PASSED WITH WARNINGS'
+      : 'PASS — WITHIN TESTED SCOPE';
+    var lines = [
+      'OVYX WEB STUDIO — CLIENT QA SUMMARY',
+      '',
+      'Project: ' + exportData.projectName,
+      'Inspection finished: ' + (inspection.finishedAt || 'Not completed'),
+      'Result: ' + statusLabel,
+      'Checks: ' + counts.pass + ' passed · ' + counts.warn + ' warnings · ' + counts.fail + ' failed · ' + counts.info + ' informational',
+      'Responsive browser coverage: ' + browser.pagesTested + '/' + browser.pagesAvailable + ' route(s), ' + browser.viewportChecksCompleted + '/' + browser.viewportChecksPlanned + ' viewport checks completed.'
+    ];
+    if (browser.routeCoverage) lines.push('Coverage plan: ' + browser.routeCoverage);
+    var priorities = (report.checks || []).filter(function (item) {
+      return (item.status === 'fail' || item.status === 'warn') && item.group !== 'Coverage';
+    }).slice(0, 6);
+    lines.push('', 'Priority findings');
+    if (priorities.length) {
+      priorities.forEach(function (item, index) {
+        lines.push((index + 1) + '. [' + item.status.toUpperCase() + '] ' + trim(item.group, 80) + ' — ' + trim(item.title, 180));
+        lines.push('   ' + trim(item.detail, 360));
+      });
+    } else {
+      lines.push('No failing or warning checks were recorded within this inspection run.');
+    }
+    lines.push(
+      '',
+      'Verification limits',
+      '• Browser checks are isolated smoke tests; route coverage is adaptive, not every route at every width.',
+      '• Live sign-in, data persistence, email, booking, payments and authenticated APIs are not verified by this report.',
+      '• Sandbox timings are not production load time or Core Web Vitals.',
+      '• This report is evidence for review, not a guarantee of business outcomes or a full accessibility/security certification.'
+    );
+    return lines.join('\n');
+  }
+  function downloadQualityReport(report) {
+    if (!report || !report.finishedAt) {
+      toast('Complete a quality inspection before exporting its report.', 'warning');
+      return false;
+    }
+    try {
+      var data = shareableReport(report);
+      var blob = new Blob([JSON.stringify(data, null, 2) + '\n'], { type: 'application/json;charset=utf-8' });
+      var url = URL.createObjectURL(blob);
+      var link = document.createElement('a');
+      var date = new Date(report.finishedAt);
+      var datePart = Number.isNaN(date.getTime()) ? new Date().toISOString().slice(0, 10) : date.toISOString().slice(0, 10);
+      var projectSlug = slug(report.projectName || 'project').slice(0, 48) || 'project';
+      link.href = url;
+      link.download = 'ovyx-webstudio-qa-' + projectSlug + '-' + datePart + '.json';
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(function () { try { URL.revokeObjectURL(url); } catch (_) {} }, 1000);
+      toast('QA report export was prepared. Review it before sharing with a client.', 'success');
+      return true;
+    } catch (error) {
+      toast('The QA report could not be exported in this browser.', 'error');
+      return false;
+    }
+  }
+  async function copyClientSummary() {
+    if (!currentReport || !currentReport.finishedAt) {
+      toast('Complete a quality inspection before copying its summary.', 'warning');
+      return false;
+    }
+    var summary = clientSummary(currentReport);
+    try {
+      if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+        await navigator.clipboard.writeText(summary);
+      } else {
+        var fallback = document.createElement('textarea');
+        fallback.value = summary;
+        fallback.setAttribute('readonly', '');
+        fallback.setAttribute('aria-hidden', 'true');
+        fallback.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;';
+        document.body.appendChild(fallback);
+        fallback.select();
+        var copied = false;
+        try { copied = !!document.execCommand('copy'); } catch (_) {}
+        fallback.remove();
+        if (!copied) throw new Error('Clipboard access is unavailable.');
+      }
+      toast('Client-ready QA summary copied. Review it before forwarding.', 'success');
+      return true;
+    } catch (error) {
+      toast('The summary could not be copied. Export the JSON report instead.', 'warning');
+      return false;
+    }
+  }
   function renderFindings(report) {
     if (!root) return;
     var list = root.querySelector('[data-quality-list]');
@@ -611,6 +758,8 @@
     var countsNode = root.querySelector('[data-quality-counts]');
     var progress = root.querySelector('[data-quality-progress]');
     var repairButton = root.querySelector('[data-quality-repair]');
+    var exportButton = root.querySelector('[data-quality-export]');
+    var copyButton = root.querySelector('[data-quality-copy-summary]');
     var subtitle = root.querySelector('[data-quality-subtitle]');
     if (!list) return;
     if (!report) {
@@ -623,6 +772,8 @@
       if (countsNode) countsNode.textContent = 'Not run';
       if (progress) progress.style.width = '0%';
       if (repairButton) repairButton.disabled = true;
+      if (exportButton) exportButton.disabled = true;
+      if (copyButton) copyButton.disabled = true;
       return;
     }
     var counts = countIssues(report);
@@ -659,6 +810,8 @@
     if (subtitle) subtitle.textContent = report.projectName ? 'Evidence from "' + report.projectName + '" — the currently generated project, not a design mockup.' : 'Evidence from the current generated project, not a design mockup.';
     if (progress) progress.style.width = '100%';
     if (repairButton) repairButton.disabled = running || !report.checks.some(function (item) { return item.status === 'fail' || item.status === 'warn'; });
+    if (exportButton) exportButton.disabled = running || !report.finishedAt;
+    if (copyButton) copyButton.disabled = running || !report.finishedAt;
   }
   function progressFraction(completed, total) {
     var bar = root && root.querySelector('[data-quality-progress]');
@@ -1106,6 +1259,14 @@
         });
         return;
       }
+      if (event.target && event.target.closest && event.target.closest('[data-quality-export]')) {
+        downloadQualityReport(currentReport);
+        return;
+      }
+      if (event.target && event.target.closest && event.target.closest('[data-quality-copy-summary]')) {
+        copyClientSummary();
+        return;
+      }
       if (event.target && event.target.closest && event.target.closest('[data-quality-repair]')) {
         repairWithOVYX();
         return;
@@ -1398,8 +1559,11 @@
       window.OVYXWebStudioQuality = {
         run: performInspection,
         getReport: function () { return clone(currentReport); },
+        exportReport: function () { return downloadQualityReport(currentReport); },
+        copySummary: copyClientSummary,
+        getClientSummary: function () { return currentReport && currentReport.finishedAt ? clientSummary(currentReport) : ''; },
         close: function () { setOverlay(false); },
-        version: '1.0.0'
+        version: '1.1.0'
       };
     }
     return true;
