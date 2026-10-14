@@ -26,19 +26,15 @@ The wake word is **OVYX**. Listening starts only after the administrator clicks 
 
 Browser speech-recognition behaviour varies by device. The browser must remain open and active; background throttling, mobile OS restrictions, and closed-browser wake-up are not guaranteed. This is not an always-on native wake-word service. Camera permission remains disabled. Microphone access is permitted only for this same origin so the explicit opt-in feature can work.
 
-## Enable scheduled scans
+## Scheduled monitoring
 
-A successful merge/deploy of the Pages app does **not** deploy the separate scheduled Worker automatically. Until all steps below are completed, the panel can run manual scans but must not claim background monitoring is active.
+The repository includes `.github/workflows/ovyx-sentinel-scheduler-deploy.yml` for the separate `ovyx-sentinel-scheduler` Worker. It runs when Sentinel Worker/deployment workflow files change on `main`, and can also be started from GitHub Actions with **Deploy OVYX Sentinel Scheduler → Run workflow**.
 
-1. Let the Pages application deploy from the normal Git-integrated Cloudflare Pages project. Do not add a root `wrangler.toml` or replace Pages environment variables.
-2. In the Cloudflare **Pages project > Settings > Variables and Secrets > Production**, add `OVYX_SENTINEL_CRON_SECRET` as a secret containing a newly generated random value of at least 32 characters.
-3. In Cloudflare Workers & Pages, create/deploy the separate Worker using `sentinel-worker/wrangler.toml` as its config. Its name is `ovyx-sentinel-scheduler`; its Cron Trigger is every 30 minutes.
-4. Set Worker variable `OVYX_SENTINEL_BASE_URL` to the canonical HTTPS origin only (for example, the deployed OVYX origin without a route or credentials).
-5. Set Worker secret `OVYX_SENTINEL_CRON_SECRET` to exactly the same random value as the Pages secret. The value must be entered into the Cloudflare dashboard / secure secret prompt and never saved in GitHub.
-6. Deploy the Worker with `npx wrangler deploy --config sentinel-worker/wrangler.toml` after its variables and secret are configured.
-7. Sign in as the administrator, select **Check now**, then verify that a scheduled report appears after the next Cron interval. The report should show a recently confirmed background scheduler before claiming scheduled monitoring is working.
+A successful run uses the repository's existing Cloudflare deployment credentials, generates a new random value scoped only to `OVYX_SENTINEL_CRON_SECRET`, writes that same value to the Pages Production secret and the separate Worker secret without printing or committing it, redeploys the current Pages source so the secret is available to the Sentinel endpoint, then deploys the nested Worker configuration. The workflow verifies the 30-minute Cron trigger and makes an authenticated scheduled scan immediately; it fails unless a scheduled report is confirmed. It does not intentionally replace or delete any other Cloudflare variable or secret and does not change AI-provider routing or availability configuration.
 
-This nested Wrangler configuration names a **separate Cloudflare Worker**. It is not a Pages configuration file, contains no credentials, and has not been deployed by this repository change. Do not use a root Wrangler config for the existing Pages application; its configuration and secrets remain managed in the Cloudflare dashboard.
+To confirm monitoring is active, open the private OVYX Sentinel panel, choose **Check now**, and confirm the latest report includes a recently confirmed background scheduler. If that check becomes stale, inspect the latest run of the Deploy OVYX Sentinel Scheduler workflow and the last saved scheduled report. A successful source merge alone is not proof that the separate Worker is live; rely on the deployment verification and saved scheduled report.
+
+The committed `sentinel-worker/wrangler.toml` is for the separate Worker only. The deployment workflow adds the site origin to a temporary configuration for deployment; no API secret is committed. Do not replace the root Cloudflare Pages configuration with this nested Worker config.
 
 ## Legacy branch audit
 
