@@ -21,6 +21,9 @@ for (const token of [
   "restoreSnapshot(studio, snapshot)",
   'OVYX QUALITY INSPECTOR REPAIR',
   'ovyx:webstudio-build-stage',
+  'Automatic build gate',
+  'quality-auto-repair',
+  'rejectBuildForQuality',
   'Horizontal overflow',
   'Page runtime errors',
   'Live integration verification',
@@ -28,7 +31,7 @@ for (const token of [
   assert.ok(runtime.includes(token), 'Quality runtime is missing: ' + token);
 }
 
-assert.ok(middleware.includes('/assets/ovyx-webstudio-quality.js?v=20261014-1'), 'The quality inspector must load from the application-shell middleware.');
+assert.ok(middleware.includes('/assets/ovyx-webstudio-quality.js?v=20261014-2'), 'The quality inspector must load from the application-shell middleware.');
 assert.equal((middleware.match(/\/assets\/ovyx-webstudio-quality\.js\?v=20261014-1/g) || []).length, 1, 'The quality inspector must be injected exactly once per application shell.');
 assert.ok(headers.includes('/assets/ovyx-webstudio-quality.js\n  Cache-Control: no-store, no-cache, must-revalidate'), 'Quality inspection code must not be served from a stale cache.');
 assert.equal((headers.match(/\/assets\/ovyx-webstudio-quality\.js/g) || []).length, 1, 'Quality asset cache rules must appear exactly once.');
