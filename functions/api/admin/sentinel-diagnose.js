@@ -188,16 +188,42 @@ export async function onRequestPost(context) {
     if (!text) {
       return errorResponse(502, 'SENTINEL_DIAGNOSIS_EMPTY', 'The diagnostic brain returned an empty answer. Please retry after a fresh check.', requestId);
     }
-    return jsonResponse({
-      ok: true,
+    const generatedAt = new Date().toISOString();
+    const diagnosisId = 'diagnosis_' + Date.now().toString(36) + '_' + crypto.randomUUID().replace(/-/g, '').slice(0, 10);
+    const diagnosisRecord = {
+      id: diagnosisId,
       reportId: built.value.reportId,
-      generatedAt: new Date().toISOString(),
+      generatedAt,
       model,
       diagnosis: text,
       changesApplied: false,
       evidenceScope: 'latest-saved-sentinel-report-and-optional-read-only-ci-metadata',
       ciEvidenceStatus: ciMetadata.status,
       ciEvidenceCheckedAt: ciMetadata.checkedAt,
+    };
+    let historySaved = false;
+    try {
+      await setFirestoreDocumentAtPath(
+        env,
+        ['ovyx_sentinel', 'state', 'diagnoses', diagnosisId],
+        diagnosisRecord,
+        { merge: false },
+      );
+      await setFirestoreDocumentAtPath(
+        env,
+        ['ovyx_sentinel', 'state'],
+        { latestDiagnosis: diagnosisRecord, lastDiagnosisAt: generatedAt },
+        { merge: true },
+      );
+      historySaved = true;
+    } catch (historyError) {
+      console.error('[OVYX SENTINEL DIAGNOSIS HISTORY ' + requestId + ']', String(historyError?.code || 'history save failed').slice(0, 100));
+    }
+    return jsonResponse({
+      ok: true,
+      ...diagnosisRecord,
+      historySaved,
+      historyWarning: historySaved ? null : 'The diagnosis was generated, but Sentinel could not confirm that it was saved to history.',
     }, 200, { 'X-OVYX-Request-ID': requestId });
   } catch (error) {
     console.error('[OVYX SENTINEL DIAGNOSIS ' + requestId + ']', String(error?.code || error?.name || 'diagnosis failed').slice(0, 100));
