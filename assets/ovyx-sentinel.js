@@ -82,7 +82,7 @@ function addStyles() {
     '#' + ID + '-panel .patch-tools input,#' + ID + '-panel .patch-tools textarea{box-sizing:border-box;width:100%;margin-top:5px;padding:9px 10px;border:1px solid rgba(145,207,224,.22);border-radius:9px;background:#060a0e;color:#eaf7fb;font:11px/1.5 ui-monospace,monospace}',
     '#' + ID + '-panel .patch-tools textarea{resize:vertical;min-height:72px;font-family:Inter,system-ui,sans-serif}',
     '#' + ID + '-panel .patch-preview{max-height:240px;overflow:auto;padding:10px;border-radius:9px;background:#05080b;color:#c7d8e2;font:10px/1.45 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere}',
-    '#' + ID + '-panel .patch-link{display:inline-block;margin-top:10px;color:#8beaf4;font-size:11px;font-weight:800}');
+    '#' + ID + '-panel .patch-link{display:inline-block;margin-top:10px;color:#8beaf4;font-size:11px;font-weight:800}',
     '#' + ID + '-panel .badge{font-size:8px;font-weight:850;letter-spacing:.08em;color:#b7cad7;text-transform:uppercase}',
     '#' + ID + '-panel .foot{padding:10px 15px;border-top:1px solid rgba(255,255,255,.07);color:#748695;font-size:9px}',
     '#' + ID + '-panel .transcript{white-space:pre-wrap;padding:10px 11px;margin-top:9px;border-radius:11px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);color:#d8e5ed}',
