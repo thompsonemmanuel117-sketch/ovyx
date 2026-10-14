@@ -148,7 +148,7 @@
     badge.className = 'ovyx-admin-workspace-entry-badge';
     badge.textContent = 'OWNER';
     button.append(icon, title, badge);
-    button.addEventListener('click', () => { void openWorkspace(); });
+    button.addEventListener('click', () => { void navigate('admin-overview'); });
     return button;
   }
 
