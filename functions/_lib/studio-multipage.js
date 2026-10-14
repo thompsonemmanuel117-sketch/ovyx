@@ -650,8 +650,11 @@ export async function buildStudioMultiPage(options) {
   const integrityNote = qualityPolish.integrityAfter > 0
     ? ' Static review still reports ' + qualityPolish.integrityAfter + ' link or local-asset finding(s); review these before publishing. External resources and live integrations were not verified by this static audit.'
     : ' Static route, fragment, and local-asset checks found no unresolved references. External resource availability and live integrations were not verified by this static audit.';
-  const summary = 'Built ' + pageCount + ' distinct website pages in ' + batches.length + ' verified batches.' + polishNote + integrityNote;
-  const message = 'Your multi-page website is ready in Web Studio. ' + pageCount + ' pages were generated and structurally checked.' + polishNote + integrityNote;
+  const repairNote = requirementRepair.status === 'applied'
+    ? ' One bounded requirement-repair pass was applied and passed the same structural, prompt-contract, and no-new-integrity-defect checks.'
+    : '';
+  const summary = 'Built ' + pageCount + ' distinct website pages in ' + batches.length + ' verified batches.' + repairNote + polishNote + integrityNote;
+  const message = 'Your multi-page website is ready in Web Studio. ' + pageCount + ' pages were generated and structurally checked.' + repairNote + polishNote + integrityNote;
   return {
     ok: true,
     text: JSON.stringify({ summary, message }),
@@ -659,6 +662,7 @@ export async function buildStudioMultiPage(options) {
     summary,
     files: outputFilesByPath,
     requirementVerification,
+    requirementRepair,
     qualityPolish,
     project: updatedProject,
     siteMap,
