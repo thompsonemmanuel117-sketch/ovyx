@@ -21,7 +21,7 @@ const ALLOWED_PROVIDERS = new Set([
 ]);
 
 function clean(value, max = 160) {
-  return String(value ?? '').replace(/[\\u0000-\\u001f\\u007f]/g, ' ').trim().slice(0, max);
+  return String(value ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, max);
 }
 
 export async function onRequest(context) {
