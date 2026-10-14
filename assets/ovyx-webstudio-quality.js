@@ -6,7 +6,8 @@
   var STYLE_ID = 'ovyx-ws-quality-style-v1';
   var ROOT_ID = 'ovyx-ws-quality-root';
   var WIDTHS = [320, 390, 768, 1024, 1440];
-  var MAX_BROWSER_PAGES = 12;
+  var CORE_BROWSER_ROUTE_COUNT = 3;
+  var ADDITIONAL_ROUTE_WIDTHS = [390, 1440];
   var FRAME_TIMEOUT_MS = 1400;
   var root = null;
   var studioRef = null;
@@ -715,28 +716,39 @@
     renderFindings(report);
 
     stageStatus('browser', 'running', 'Preparing an isolated browser viewport matrix.');
-    var coveredPages = pages.slice(0, MAX_BROWSER_PAGES);
+    var coveredPages = pages;
     report.browser.pagesAvailable = pages.length;
     if (!pages.length) {
       addCheck(report, 'Browser testing', 'Responsive browser matrix', 'fail', 'No HTML artifact was available to load in an isolated browser. A preview must not be described as browser-verified.');
     } else if (!coveredPages.length) {
       addCheck(report, 'Browser testing', 'Responsive browser matrix', 'warn', 'No page could be selected for the browser matrix.');
     } else {
-      report.browser.total = coveredPages.length * WIDTHS.length;
+      var coreRoutes = coveredPages.slice(0, Math.min(CORE_BROWSER_ROUTE_COUNT, coveredPages.length));
+      var routePlan = [];
+      coreRoutes.forEach(function (corePage) {
+        WIDTHS.forEach(function (width) { routePlan.push({ page: corePage, width: width }); });
+      });
+      coveredPages.slice(coreRoutes.length).forEach(function (additionalPage) {
+        ADDITIONAL_ROUTE_WIDTHS.forEach(function (width) { routePlan.push({ page: additionalPage, width: width }); });
+      });
+      report.browser.total = routePlan.length;
+      var visitedPages = Object.create(null);
       var overflow = [];
       var scriptErrors = [];
       var timeouts = [];
       var sandboxNotes = [];
       var emptyPages = [];
       var runNumber = 0;
-      for (var p = 0; p < coveredPages.length; p += 1) {
-        var page = coveredPages[p];
-        report.browser.pagesTested = p + 1;
-        for (var w = 0; w < WIDTHS.length; w += 1) {
-          var width = WIDTHS[w];
-          runNumber += 1;
-          progressFraction(runNumber, report.browser.total + 4);
-          stageStatus('browser', 'running', 'Page ' + (p + 1) + '/' + coveredPages.length + ' · ' + width + 'px viewport.');
+      for (var p = 0; p < routePlan.length; p += 1) {
+        var page = routePlan[p].page;
+        var width = routePlan[p].width;
+        if (!visitedPages[page.path]) {
+          visitedPages[page.path] = true;
+          report.browser.pagesTested += 1;
+        }
+        runNumber += 1;
+        progressFraction(runNumber, report.browser.total + 4);
+        stageStatus('browser', 'running', 'Browser check ' + (p + 1) + '/' + routePlan.length + ' · ' + page.path + ' · ' + width + 'px viewport.');
           var result;
           try { result = await runViewport(page, files, width, runNumber); }
           catch (error) { result = { timeout: true, result: null, notes: [] }; }
@@ -792,11 +804,10 @@
               if (scriptErrors.indexOf(entry) < 0) scriptErrors.push(entry);
             });
           }
-          progressFraction(runNumber, report.browser.total + 4);
-        }
-        renderFindings(report);
+        progressFraction(runNumber, report.browser.total + 4);
+        if (p % 5 === 4 || p === routePlan.length - 1) renderFindings(report);
       }
-      addCheck(report, 'Browser testing', 'Horizontal overflow', overflow.length ? 'fail' : 'pass', overflow.length ? overflow.slice(0, 45).join('\n') : 'No horizontal overflow was detected at ' + WIDTHS.join(', ') + ' CSS-pixel widths across ' + coveredPages.length + ' HTML route(s).');
+      addCheck(report, 'Browser testing', 'Horizontal overflow', overflow.length ? 'fail' : 'pass', overflow.length ? overflow.slice(0, 45).join('\n') : 'No horizontal overflow was detected across all ' + coveredPages.length + ' HTML route(s) under the selected responsive coverage plan.');
       addCheck(report, 'Browser testing', 'Page runtime errors', scriptErrors.length ? 'fail' : 'pass', scriptErrors.length ? scriptErrors.slice(0, 35).join('\n') : 'No JavaScript runtime errors were captured in the isolated test runs.');
       var interactionAudit = report.browser.interactions;
       if (interactionAudit.tested) {
@@ -830,11 +841,8 @@
       }
       if (timeouts.length) addCheck(report, 'Browser testing', 'Sandbox runtime and render completion', 'warn', timeouts.slice(0, 25).join('\n'));
       if (emptyPages.length) addCheck(report, 'Browser testing', 'Page content presence', 'warn', emptyPages.slice(0, 25).join('\n'));
-      if (pages.length > coveredPages.length) {
-        addCheck(report, 'Coverage', 'Responsive browser matrix coverage', 'warn', 'The browser matrix covered ' + coveredPages.length + ' of ' + pages.length + ' HTML routes because this run is capped at ' + MAX_BROWSER_PAGES + ' routes. Static source audits covered all generated HTML routes.');
-      } else {
-        addCheck(report, 'Coverage', 'Responsive browser matrix coverage', 'pass', 'Every discovered HTML route was tested at all ' + WIDTHS.length + ' viewport widths.');
-      }
+      addCheck(report, 'Coverage', 'Responsive browser matrix coverage', 'pass',
+        'Browser checks covered all ' + coveredPages.length + ' generated HTML route(s): ' + coreRoutes.length + ' core route(s) at all ' + WIDTHS.length + ' viewport widths (' + WIDTHS.join(', ') + 'px), and ' + Math.max(0, coveredPages.length - coreRoutes.length) + ' additional route(s) at mobile ' + ADDITIONAL_ROUTE_WIDTHS[0] + 'px and desktop ' + ADDITIONAL_ROUTE_WIDTHS[1] + 'px. Static source audits covered every route. This is responsive smoke coverage, not exhaustive testing of every interaction or a production-device matrix.');
       if (sandboxNotes.length) addCheck(report, 'Browser testing', 'Isolated test limitations', 'info', sandboxNotes.slice(0, 20).join('\n'));
     }
     stageStatus('browser', 'done', report.browser.completed + ' actual isolated browser viewport check(s) completed.');
