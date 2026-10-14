@@ -13,6 +13,7 @@
     "Requested pages, navigation, calls to action, and key user journeys exist",
     "Mobile, tablet, and desktop layouts do not create unintended horizontal overflow",
     "Buttons, navigation, filters, and controls have meaningful behavior and visible feedback",
+    "Safe menu, tab, disclosure, and toggle controls pass sandboxed interaction smoke tests when their role can be identified",
     "Forms have accessible labels and realistic validation, loading, success, and error states",
     "No fake claims that forms, bookings, payments, authentication, or database writes succeeded",
     "No exposed API keys, private keys, or credentials in client-side project files",
