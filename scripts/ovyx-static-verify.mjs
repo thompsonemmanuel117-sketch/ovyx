@@ -91,6 +91,28 @@ if (fs.existsSync(aiStatusPath)) {
 }
 
 
+const cloudflareDiagnosticsPath = path.join(root, 'scripts/ovyx-cloudflare-diagnostics.mjs');
+const cloudflareShellSmokePath = path.join(root, 'scripts/cloudflare-application-shell.mjs');
+if (!fs.existsSync(cloudflareShellSmokePath)) {
+  errors.push('scripts/cloudflare-application-shell.mjs: live deployment diagnostics need a safe public application-shell probe.');
+} else {
+  const shellSmoke = fs.readFileSync(cloudflareShellSmokePath, 'utf8');
+  if (
+    !shellSmoke.includes('qualityRuntimeInjected') ||
+    !shellSmoke.includes('qualityRuntimeSignaturePresent') ||
+    !shellSmoke.includes('function auditSources') ||
+    !shellSmoke.includes('cross-page fragment link')
+  ) {
+    errors.push('scripts/cloudflare-application-shell.mjs: verify the production shell and actual Web Studio QA runtime signatures before declaring it healthy.');
+  }
+}
+if (fs.existsSync(cloudflareDiagnosticsPath)) {
+  const cloudflareDiagnostics = fs.readFileSync(cloudflareDiagnosticsPath, 'utf8');
+  if (!cloudflareDiagnostics.includes("probeApplicationShell(origin)") || !cloudflareDiagnostics.includes('applicationShell.ok')) {
+    errors.push('scripts/ovyx-cloudflare-diagnostics.mjs: production health must include a real application-shell/quality-runtime smoke test, not only API health.');
+  }
+}
+
 const deploymentRoutePath = path.join(root, 'functions/api/deploy.js');
 if (!fs.existsSync(deploymentRoutePath)) {
   errors.push('functions/api/deploy.js: secure publishing route is missing.');
