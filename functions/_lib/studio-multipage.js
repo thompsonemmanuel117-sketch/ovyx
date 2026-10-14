@@ -1,4 +1,4 @@
-import { normalizeSiteMap, createSiteBuildBatches, mergeStagedChanges, buildSiteBatchContext } from './multi-page.js';
+import { normalizeSiteMap, createSiteBuildBatches, mergeStagedChanges, buildSiteBatchContext, selectSitePolishChanges } from './multi-page.js';
 import { validateChanges } from './validator.js';
 import { buildPromptContract, verifyPromptContractOutput } from './prompt-contract.js';
 function cap(env, key, fallback) { const n = Number(env && env[key]); return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback; }
@@ -154,6 +154,52 @@ function makeBatchPrompt(prompt, plan, siteMap, batch, stagedChanges, existingFi
   ].join('\n\n');
 }
 
+function makePolishPrompt(prompt, plan, siteMap, targets, extraContext, promptContract) {
+  const currentFiles = Object.fromEntries(targets.map(item => [item.path, item.content]));
+  return [
+    'OVYX WEB STUDIO BOUNDED WEBSITE POLISH PHASE.',
+    'Perform one targeted quality-improvement pass on the already generated multi-page website. Preserve its established visual direction and all working behavior.',
+    'Return strict JSON only, using this shape: {"summary":"...","files":{"existing/allowed/path":"complete final file content"}}.',
+    'Return complete final files only for the provided allowlist. Do not add files, rename routes, change the sitemap, or return diffs.',
+    'Improve meaningful details only: design distinctiveness, visual hierarchy, page-to-page consistency, mobile layout, accessibility, metadata, asset references and interaction clarity. Avoid cosmetic churn.',
+    'Keep every explicit user requirement, form, navigation destination, page title, and working interaction intact. Never invent business facts, testimonials, prices, contact details, integrations or results.',
+    'Keep dependencies unchanged. No secrets, TODOs, placeholders or dead controls.',
+    'ORIGINAL USER BRIEF:\n' + String(prompt || ''),
+    'APPROVED WEBSITE ARCHITECTURE JSON:\n' + JSON.stringify(plan || {}),
+    'FULL WEBSITE ROUTE MANIFEST JSON:\n' + JSON.stringify({
+      architecture: siteMap && siteMap.architecture || '',
+      pages: (siteMap && Array.isArray(siteMap.pages) ? siteMap.pages : []).map(page => ({ title: page.title, path: page.path, url: page.url, goal: page.goal })),
+      sharedFiles: (siteMap && Array.isArray(siteMap.sharedFiles) ? siteMap.sharedFiles : []).map(file => ({ path: file.path, purpose: file.purpose })),
+    }),
+    'PROMPT REQUIREMENT CONTRACT JSON:\n' + JSON.stringify(promptContract || {}),
+    'BRAND AND EXPERIENCE CONTEXT:\n' + String(extraContext || '').slice(0, 6000),
+    'POLISH TARGET FILES JSON:\n' + JSON.stringify(targets.map(item => ({ path: item.path, currentCharacters: item.content.length }))),
+    'POLISH CURRENT FILE CONTENTS JSON:\n' + JSON.stringify(currentFiles),
+    'POLISH ALLOWLIST JSON:\n' + JSON.stringify(targets.map(item => item.path)),
+  ].join('\n\n');
+}
+
+function selectBoundedPolishTargets(staged, siteMap, limit, maxFileChars, maxTotalChars) {
+  const candidates = selectSitePolishChanges(staged, siteMap, limit);
+  const selected = [];
+  let totalChars = 0;
+  for (const item of candidates) {
+    const content = String(item && item.content || '');
+    if (!item || !item.path || !content.trim() || content.length > maxFileChars) continue;
+    if (totalChars + content.length > maxTotalChars) continue;
+    selected.push({ ...item, content });
+    totalChars += content.length;
+  }
+  return selected;
+}
+
+function validateStagedSite(staged, prompt, siteMap) {
+  const validation = validateChanges(staged.map(item => ({ ...item, action: 'update' })), { allowDeletes: false });
+  const outputFilesByPath = Object.fromEntries(staged.map(item => [item.path, item.content]));
+  const requirementVerification = verifyPromptContractOutput(prompt, outputFilesByPath, siteMap);
+  return { validation, outputFilesByPath, requirementVerification };
+}
+
 function projectPages(project, siteMap) {
   const oldPages = project && Array.isArray(project.pages) ? project.pages : [];
   const oldByName = new Map(oldPages.map(page => [slug(page && page.name).toLowerCase(), page]));
@@ -196,7 +242,7 @@ export async function buildStudioMultiPage(options) {
   try {
     planResult = await callModel(env, {
       provider, model, authUser, taskPrompt: prompt,
-      system: 'You are an expert website information architect. Return JSON only with a realistic route-by-route sitemap. Do not generate site code in this planning phase.',
+      system: [String(options.qualityContract || '').trim(), 'You are an expert website information architect. Return JSON only with a realistic route-by-route sitemap. Do not generate site code in this planning phase.'].filter(Boolean).join('\n\n'),
       user: planInput,
       maxTokens: cap(env, 'OVYX_WEBSTUDIO_PLAN_TOKENS', 7000),
     });
@@ -263,7 +309,7 @@ export async function buildStudioMultiPage(options) {
     try {
       result = await callModel(env, {
         provider, model, authUser, taskPrompt: prompt,
-        system: 'You are OVYX Web Studio, a senior frontend engineer and UX architect. Follow the batch instructions exactly. Return strict JSON with complete file contents.',
+        system: [String(options.qualityContract || '').trim(), 'You are OVYX Web Studio, a senior frontend engineer and UX architect. Follow the batch instructions exactly. Return strict JSON with complete file contents.'].filter(Boolean).join('\n\n'),
         user: input,
         maxTokens: cap(env, 'OVYX_WEBSTUDIO_BATCH_TOKENS', 18000),
       });
@@ -294,15 +340,99 @@ export async function buildStudioMultiPage(options) {
     })));
   }
 
-  const validation = validateChanges(staged.map(item => ({ ...item, action: 'update' })), { allowDeletes: false });
-  if (validation.length) {
-    throw accountingError(Object.assign(new Error('Generated website failed structural validation: ' + validation.slice(0, 4).join(' | ')), { status: 422, code: 'WEBSTUDIO_SITE_VALIDATION_FAILED' }), usage, hasUsage, inputs, outputs);
+  // Validate the first complete version before the optional polish pass. A failed
+  // polish must never overwrite this baseline or turn a valid build into a failure.
+  let checks = validateStagedSite(staged, prompt, siteMap);
+  if (checks.validation.length) {
+    throw accountingError(Object.assign(new Error('Generated website failed structural validation: ' + checks.validation.slice(0, 4).join(' | ')), { status: 422, code: 'WEBSTUDIO_SITE_VALIDATION_FAILED' }), usage, hasUsage, inputs, outputs);
   }
-  const outputFilesByPath = Object.fromEntries(staged.map(item => [item.path, item.content]));
-  const requirementVerification = verifyPromptContractOutput(prompt, outputFilesByPath, siteMap);
-  if (!requirementVerification.ok) {
-    throw accountingError(Object.assign(new Error('Web Studio could not verify all explicit requirements: ' + requirementVerification.issues.map(issue => issue.message).join(' | ') + '. The site was not marked complete.'), { status: 422, code: 'WEBSTUDIO_PROMPT_REQUIREMENT_MISSING', requirementVerification }), usage, hasUsage, inputs, outputs);
+  if (!checks.requirementVerification.ok) {
+    throw accountingError(Object.assign(new Error('Web Studio could not verify all explicit requirements: ' + checks.requirementVerification.issues.map(issue => issue.message).join(' | ') + '. The site was not marked complete.'), { status: 422, code: 'WEBSTUDIO_PROMPT_REQUIREMENT_MISSING', requirementVerification: checks.requirementVerification }), usage, hasUsage, inputs, outputs);
   }
+
+  const baselineStaged = staged.map(item => ({ ...item }));
+  const polishLimit = Math.max(1, Math.min(8, cap(env, 'OVYX_WEBSTUDIO_POLISH_MAX_FILES', 6)));
+  const maxPolishFileChars = Math.max(1000, Math.min(45000, cap(env, 'OVYX_WEBSTUDIO_POLISH_MAX_FILE_CHARS', 28000)));
+  const maxPolishContextChars = Math.max(10000, Math.min(100000, cap(env, 'OVYX_WEBSTUDIO_POLISH_MAX_CONTEXT_CHARS', 80000)));
+  const polishTargets = selectBoundedPolishTargets(staged, siteMap, polishLimit, maxPolishFileChars, maxPolishContextChars);
+  let qualityPolish = {
+    status: 'skipped',
+    filesConsidered: polishTargets.length,
+    filesUpdated: 0,
+  };
+  const polishEnabled = String(env && env.OVYX_WEBSTUDIO_POLISH_ENABLED || 'true').trim().toLowerCase() !== 'false';
+
+  if (polishEnabled && polishTargets.length) {
+    const polishInput = makePolishPrompt(prompt, plan, siteMap, polishTargets, extraContext, promptContract);
+    inputs.push(polishInput);
+    try {
+      const polishResult = await callModel(env, {
+        provider,
+        model,
+        authUser,
+        taskPrompt: prompt,
+        system: [
+          String(options.qualityContract || '').trim(),
+          'You are OVYX Web Studio, a senior frontend engineer and product designer. Return only complete files from the bounded polish allowlist.',
+        ].filter(Boolean).join('\n\n'),
+        user: polishInput,
+        maxTokens: Math.max(1000, Math.min(18000, cap(env, 'OVYX_WEBSTUDIO_POLISH_TOKENS', 12000))),
+      });
+      lastResult = polishResult;
+      outputs.push(String(polishResult && polishResult.text || ''));
+      const polishUsage = usageAdd(usage, polishResult && polishResult.rawUsage);
+      usage = polishUsage.total;
+      hasUsage = hasUsage || polishUsage.found;
+
+      const polishedFiles = outputFiles(parseJSON(polishResult && polishResult.text));
+      const polishedPaths = Object.keys(polishedFiles);
+      const allowedPolishPaths = new Set(polishTargets.map(item => item.path));
+      const baselineByPath = new Map(baselineStaged.map(item => [item.path, item.content]));
+      const invalidPolish = !polishedPaths.length ||
+        polishedPaths.length > polishTargets.length ||
+        polishedPaths.some(path => !allowedPolishPaths.has(path) ||
+          !String(polishedFiles[path]).trim() ||
+          String(polishedFiles[path]).length > 120000);
+
+      if (invalidPolish) {
+        qualityPolish.status = 'rejected';
+      } else {
+        const candidate = mergeStagedChanges(baselineStaged, polishedPaths.map(path => ({
+          path,
+          action: existingFiles[path] || baselineStaged.some(item => item.path === path) ? 'update' : 'create',
+          content: polishedFiles[path],
+        })));
+        const candidateChecks = validateStagedSite(candidate, prompt, siteMap);
+        const changedPaths = polishedPaths.filter(path => String(polishedFiles[path]) !== String(baselineByPath.get(path) || ''));
+        if (!changedPaths.length) {
+          qualityPolish.status = 'unchanged';
+        } else if (candidateChecks.validation.length || !candidateChecks.requirementVerification.ok) {
+          qualityPolish.status = 'rejected';
+        } else {
+          staged = candidate;
+          checks = candidateChecks;
+          qualityPolish.status = 'applied';
+          qualityPolish.filesUpdated = changedPaths.length;
+        }
+      }
+    } catch (polishError) {
+      // The validated baseline remains usable if this extra, bounded call is
+      // unavailable. Include partial usage when the provider reports it.
+      if (polishError && polishError.partialUsage) {
+        const partial = usageAdd(usage, polishError.partialUsage);
+        usage = partial.total;
+        hasUsage = hasUsage || partial.found;
+      }
+      qualityPolish.status = 'skipped';
+    }
+  } else if (polishEnabled && !polishTargets.length) {
+    qualityPolish.status = 'skipped';
+  } else {
+    qualityPolish.status = 'disabled';
+  }
+
+  const outputFilesByPath = checks.outputFilesByPath;
+  const requirementVerification = checks.requirementVerification;
 
   const updatedProject = project && project.id ? {
     id: project.id,
@@ -317,14 +447,25 @@ export async function buildStudioMultiPage(options) {
     total_tokens: usage.total_tokens === undefined ? ((usage.prompt_tokens || 0) + (usage.completion_tokens || 0)) : usage.total_tokens,
   } : null;
   const pageCount = siteMap.pages.length;
-  const summary = 'Built ' + pageCount + ' distinct website pages in ' + batches.length + ' verified batches.';
+  const polishNote = qualityPolish.status === 'applied'
+    ? ' A bounded design-polish pass refined ' + qualityPolish.filesUpdated + ' file(s).'
+    : qualityPolish.status === 'rejected'
+      ? ' An optional polish result failed validation, so the first validated version was preserved.'
+      : qualityPolish.status === 'unchanged'
+        ? ' The optional polish pass found no necessary changes.'
+        : qualityPolish.status === 'disabled'
+          ? ' The optional design-polish pass is disabled.'
+          : ' The first validated version was preserved because the optional polish pass was unavailable.';
+  const summary = 'Built ' + pageCount + ' distinct website pages in ' + batches.length + ' verified batches.' + polishNote;
+  const message = 'Your multi-page website is ready in Web Studio. ' + pageCount + ' pages were generated and structurally checked.' + polishNote;
   return {
     ok: true,
-    text: JSON.stringify({ summary, message: 'Your multi-page website is ready in Web Studio. ' + pageCount + ' pages were generated and checked.' }),
-    message: 'Your multi-page website is ready in Web Studio. ' + pageCount + ' pages were generated and checked.',
+    text: JSON.stringify({ summary, message }),
+    message,
     summary,
     files: outputFilesByPath,
     requirementVerification,
+    qualityPolish,
     project: updatedProject,
     siteMap,
     provider: (lastResult && lastResult.provider) || (planResult && planResult.provider),
