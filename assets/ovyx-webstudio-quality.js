@@ -375,7 +375,7 @@
     });
     var csp = doc.createElement('meta');
     csp.httpEquiv = 'Content-Security-Policy';
-    csp.content = "default-src 'none'; img-src data: blob: https: http:; style-src 'unsafe-inline'; font-src data:; script-src 'unsafe-inline'; connect-src 'none'; form-action 'none'; object-src 'none'; frame-src 'none'; child-src 'none'; base-uri 'none'; navigate-to 'none'; media-src data: blob: https: http:";
+    csp.content = "default-src 'none'; img-src data: blob:; style-src 'unsafe-inline'; font-src data:; script-src 'unsafe-inline'; connect-src 'none'; form-action 'none'; object-src 'none'; frame-src 'none'; child-src 'none'; base-uri 'none'; navigate-to 'none'; media-src data: blob:";
     head.insertBefore(csp, head.firstChild);
     if (!doc.querySelector('meta[name="viewport" i]')) {
       var viewport = doc.createElement('meta');
