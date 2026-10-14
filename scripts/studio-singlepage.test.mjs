@@ -32,6 +32,23 @@ assert.equal(validPayload.qualityVerification.status, 'passed');
 assert.equal(validPayload.files.length, 2, 'The existing array file contract should be preserved.');
 assert.equal(validPayload.files.find(file => file.path === 'index.html').content, portfolioHtml);
 
+const warningPayload = {
+  summary: 'Portfolio with source-integrity warnings.',
+  files: [
+    { path: 'index.html', language: 'html', content: portfolioHtml.replace('</section>', '<img src="assets/missing.webp"></section>') },
+    { path: 'styles.css', language: 'css', content: 'body{margin:0;font-family:serif} main{max-width:72rem;margin:auto}' },
+  ],
+};
+const warningBuild = await validateOrRepairSinglePageBuild({
+  env: {},
+  prompt: 'Build a one-page portfolio website for a photographer.',
+  result: { text: JSON.stringify(warningPayload), rawUsage: null },
+  quotaInputText: 'portfolio request',
+  quotaOutputText: JSON.stringify(warningPayload),
+});
+assert.equal(warningBuild.qualityVerification.status, 'passed-with-integrity-warnings');
+assert.ok(warningBuild.siteIntegrity.totalFindings >= 2, 'Missing local image files and missing alt attributes must remain visible as source-integrity findings.');
+
 const bookingHtml = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Restaurant reservations"><title>Harbour House</title></head><body><nav><a href="#reservations">Reservations</a></nav><main><h1>Harbour House</h1><section id="reservations"><h2>Reservations</h2><p>Plan a meal by the water.</p></section></main></body></html>';
 const bookingPayload = {
   summary: 'Restaurant landing page.',
