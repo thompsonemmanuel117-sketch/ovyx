@@ -26,6 +26,9 @@ for (const token of [
   'rejectBuildForQuality',
   'Horizontal overflow',
   'Page runtime errors',
+  'function probeControls()',
+  'Safe interactive behavior smoke test',
+  'payload.probeInteractions = width === 390;',
   'Live integration verification',
 ]) {
   assert.ok(runtime.includes(token), 'Quality runtime is missing: ' + token);
@@ -38,6 +41,7 @@ assert.equal((headers.match(/\/assets\/ovyx-webstudio-quality\.js/g) || []).leng
 assert.ok(packageJson.includes('scripts/ovyx-webstudio-quality.test.mjs'), 'The quality regression contract must run in npm test.');
 assert.ok(prompts.includes('ART DIRECTION AND DISTINCTIVENESS'), 'The server-side Web Studio agent must receive the premium design contract.');
 assert.ok(prompts.includes('Make at most one bounded targeted repair pass'), 'The server-side Web Studio agent must use bounded repair passes.');
+assert.ok(prompts.includes('appropriate aria-expanded, aria-controls, aria-selected or aria-pressed state'), 'Web Studio prompts must require accessible state that browser checks can exercise.');
 assert.ok(!runtime.includes('runBuildAgent(prompt, false'), 'Quality repairs must not start an unbounded normal build loop.');
 
 console.log('Web Studio quality contracts passed: build prompt, real source/browser checks, safe sandbox, and snapshot-protected repair.');

@@ -405,8 +405,9 @@
       document.body.appendChild(frame);
       var token = 'ovyx-q-' + Date.now() + '-' + runNumber + '-' + Math.random().toString(36).slice(2, 9);
       var payload = safeSandboxPayload(page, files, token);
+      payload.probeInteractions = width === 390;
       var encoded = utf8Base64(JSON.stringify(payload));
-      var wrapper = '(function(){var p=JSON.parse(decodeURIComponent(escape(atob("' + encoded + '"))));var errs=[];var sent=false;function report(){if(sent)return;sent=true;try{var d=document.documentElement,b=document.body;var vw=window.innerWidth||d.clientWidth||0;var sw=Math.max(d.scrollWidth,b?b.scrollWidth:0);parent.postMessage({type:"ovyx-quality-result",token:p.token,result:{title:document.title||p.title,viewportWidth:vw,scrollWidth:sw,documentHeight:Math.max(d.scrollHeight,b?b.scrollHeight:0),contentLength:(b&&(b.innerText||b.textContent)||"").trim().length,runtimeErrors:errs.slice(0,12)}}, "*")}catch(e){parent.postMessage({type:"ovyx-quality-result",token:p.token,result:{viewportWidth:window.innerWidth||0,scrollWidth:0,runtimeErrors:[String(e&&e.message||e)]}}, "*")}}window.addEventListener("error",function(e){errs.push(String(e.message||"Runtime error").slice(0,240))},true);window.addEventListener("unhandledrejection",function(e){errs.push(String(e.reason&&e.reason.message||e.reason||"Unhandled promise rejection").slice(0,240))});document.open();document.write(p.html);document.close();(p.scripts||[]).forEach(function(src){try{var el=document.createElement("script");el.textContent=src;document.body.appendChild(el)}catch(e){errs.push(String(e&&e.message||e).slice(0,240))}});setTimeout(report,320);setTimeout(report,850)})();';
+      var wrapper = '(function(){var p=JSON.parse(decodeURIComponent(escape(atob("' + encoded + '"))));var errs=[];var sent=false;var interactions={tested:0,responded:0,noOp:[]};function report(){if(sent)return;sent=true;try{var d=document.documentElement,b=document.body;var vw=window.innerWidth||d.clientWidth||0;var sw=Math.max(d.scrollWidth,b?b.scrollWidth:0);parent.postMessage({type:"ovyx-quality-result",token:p.token,result:{title:document.title||p.title,viewportWidth:vw,scrollWidth:sw,documentHeight:Math.max(d.scrollHeight,b?b.scrollHeight:0),contentLength:(b&&(b.innerText||b.textContent)||"").trim().length,runtimeErrors:errs.slice(0,12),interactions:interactions}}, "*")}catch(e){parent.postMessage({type:"ovyx-quality-result",token:p.token,result:{viewportWidth:window.innerWidth||0,scrollWidth:0,runtimeErrors:[String(e&&e.message||e)],interactions:interactions}}, "*")}}window.addEventListener("error",function(e){errs.push(String(e.message||"Runtime error").slice(0,240))},true);window.addEventListener("unhandledrejection",function(e){errs.push(String(e.reason&&e.reason.message||e.reason||"Unhandled promise rejection").slice(0,240))});document.open();document.write(p.html);document.close();(p.scripts||[]).forEach(function(src){try{var el=document.createElement("script");el.textContent=src;document.body.appendChild(el)}catch(e){errs.push(String(e&&e.message||e).slice(0,240))}});function probeControls(){try{var candidates=[].slice.call(document.querySelectorAll("button,[role=button],[role=tab],summary,[aria-expanded],[aria-pressed]")).filter(function(el){if(!el||el.disabled||el.closest("form")||el.getAttribute("type")==="submit"||el.getAttribute("type")==="reset")return false;var label=((el.id||"")+" "+(typeof el.className==="string"?el.className:"")+" "+(el.getAttribute("aria-label")||"")+" "+(el.textContent||"")).toLowerCase();if(/pay|checkout|book|reserve|confirm|delete|remove|purchase|buy|logout|log out|sign in|sign out|login|register|submit|send|order|subscription|password|account/.test(label))return false;return /menu|nav|tab|accordion|disclosure|toggle|dropdown|modal|dialog|filter|sort|search|carousel|slide|expand|collapse|drawer|open|close/.test(label)||el.hasAttribute("aria-controls")||el.getAttribute("role")==="tab"||el.tagName==="SUMMARY"}).slice(0,4);function signature(el){var controlled=el.getAttribute("aria-controls");var target=controlled?document.getElementById(controlled):null;return JSON.stringify({html:el.outerHTML.slice(0,500),body:((document.body&&(document.body.innerText||document.body.textContent))||"").slice(0,180),hidden:target?target.hidden:null,targetText:target?((target.innerText||target.textContent)||"").slice(0,90):"",targetDisplay:target?getComputedStyle(target).display:"",hash:location.hash,details:el.parentElement&&el.parentElement.tagName==="DETAILS"?el.parentElement.open:null})}var index=0;function next(){if(index>=candidates.length)return;var el=candidates[index++];var before=signature(el);var label=(el.getAttribute("aria-label")||el.innerText||el.textContent||el.id||"toggle control").replace(/\\s+/g," ").trim().slice(0,90);interactions.tested++;try{el.click()}catch(e){interactions.noOp.push(label+" (click error)");next();return}setTimeout(function(){var after=signature(el);if(after!==before)interactions.responded++;else interactions.noOp.push(label);next()},70)}next()}catch(e){errs.push("Interaction smoke test: "+String(e&&e.message||e).slice(0,180))}}if(p.probeInteractions){setTimeout(probeControls,50);setTimeout(report,650)}else setTimeout(report,320);setTimeout(report,850)})();';
       var done = false;
       var timer = setTimeout(function () {
         finish({ timeout: true, result: null, notes: payload.notes || [] });
@@ -680,7 +681,7 @@
       startedAt: new Date().toISOString(),
       finishedAt: null,
       checks: [],
-      browser: { total: 0, completed: 0, pagesTested: 0, pagesAvailable: 0, widths: WIDTHS.slice() },
+      browser: { total: 0, completed: 0, pagesTested: 0, pagesAvailable: 0, widths: WIDTHS.slice(), interactions: { tested: 0, responded: 0, noOp: [] } },
       notes: []
     };
     currentReport = report;
@@ -743,6 +744,15 @@
             timeouts.push(page.path + ' at ' + width + 'px: sandbox did not return a report within ' + FRAME_TIMEOUT_MS + 'ms.');
           } else {
             var browserResult = result.result;
+            if (width === 390 && browserResult.interactions) {
+              var interactionAudit = report.browser.interactions;
+              interactionAudit.tested += Number(browserResult.interactions.tested || 0);
+              interactionAudit.responded += Number(browserResult.interactions.responded || 0);
+              (browserResult.interactions.noOp || []).forEach(function (label) {
+                var finding = page.path + ': ' + trim(label, 100);
+                if (interactionAudit.noOp.indexOf(finding) < 0) interactionAudit.noOp.push(finding);
+              });
+            }
             if (browserResult.viewportWidth && Math.abs(browserResult.viewportWidth - width) > 3) {
               timeouts.push(page.path + ' at requested ' + width + 'px, actual sandbox viewport was ' + browserResult.viewportWidth + 'px.');
             }
@@ -761,6 +771,12 @@
       }
       addCheck(report, 'Browser testing', 'Horizontal overflow', overflow.length ? 'fail' : 'pass', overflow.length ? overflow.slice(0, 45).join('\n') : 'No horizontal overflow was detected at ' + WIDTHS.join(', ') + ' CSS-pixel widths across ' + coveredPages.length + ' HTML route(s).');
       addCheck(report, 'Browser testing', 'Page runtime errors', scriptErrors.length ? 'fail' : 'pass', scriptErrors.length ? scriptErrors.slice(0, 35).join('\n') : 'No JavaScript runtime errors were captured in the isolated test runs.');
+      var interactionAudit = report.browser.interactions;
+      if (interactionAudit.tested) {
+        addCheck(report, 'Forms and interactions', 'Safe interactive behavior smoke test', interactionAudit.noOp.length ? 'fail' : 'pass', interactionAudit.noOp.length ? interactionAudit.noOp.slice(0, 20).join('\\n') : interactionAudit.responded + ' of ' + interactionAudit.tested + ' safe menu, tab, disclosure, or toggle control(s) changed observable page state in the isolated mobile browser. Destructive, account, payment, booking, submit and send controls were not clicked.');
+      } else {
+        addCheck(report, 'Forms and interactions', 'Safe interactive behavior smoke test', 'info', 'No clearly identifiable safe menu, tab, disclosure, filter, or toggle control was available for automatic clicking. Other controls and real integrations remain unverified.');
+      }
       if (timeouts.length) addCheck(report, 'Browser testing', 'Sandbox runtime and render completion', 'warn', timeouts.slice(0, 25).join('\n'));
       if (emptyPages.length) addCheck(report, 'Browser testing', 'Page content presence', 'warn', emptyPages.slice(0, 25).join('\n'));
       if (pages.length > coveredPages.length) {
@@ -816,7 +832,7 @@
         startedAt: new Date().toISOString(),
         finishedAt: null,
         checks: [],
-        browser: { total: 0, completed: 0, pagesTested: 0, pagesAvailable: 0, widths: WIDTHS.slice() },
+        browser: { total: 0, completed: 0, pagesTested: 0, pagesAvailable: 0, widths: WIDTHS.slice(), interactions: { tested: 0, responded: 0, noOp: [] } },
         notes: []
       };
     }
