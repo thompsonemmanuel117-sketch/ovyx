@@ -4,6 +4,7 @@ import {
   getFirestoreDataAtPath,
   setFirestoreDocumentAtPath,
   deleteFirestoreDocumentAtPath,
+  listFirestoreSubcollectionDocumentsAtPath,
 } from '../../_lib/firebase-admin.js';
 import { isSentinelAdmin } from '../../_lib/ovyx-sentinel.js';
 import { prepareGuardianPatch, createGuardianPullRequest, guardianPatchablePath } from '../../_lib/ovyx-guardian-patch.js';
@@ -84,6 +85,20 @@ export async function onRequestPost(context) {
         env,
         fetchImpl: fetch,
       });
+      try {
+        const previous = await listFirestoreSubcollectionDocumentsAtPath(env, ['ovyx_guardian', 'patches'], 'proposals', 50);
+        const now = Date.now();
+        for (const item of previous) {
+          const expiry = Date.parse(String(item?.data?.expiresAt || ''));
+          const submitted = Date.parse(String(item?.data?.submittedAt || ''));
+          if ((!Number.isFinite(expiry) || expiry <= now) ||
+              (item?.data?.status === 'submitted' && Number.isFinite(submitted) && now - submitted > 24 * 60 * 60 * 1000)) {
+            if (/^[a-f0-9]{32}$/i.test(String(item?.id || ''))) {
+              try { await deleteFirestoreDocumentAtPath(env, proposalPath(item.id)); } catch {}
+            }
+          }
+        }
+      } catch {}
       const stored = {
         id: proposal.proposalId,
         proposalId: proposal.proposalId,
