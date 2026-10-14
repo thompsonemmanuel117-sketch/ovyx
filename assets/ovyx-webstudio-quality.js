@@ -1136,6 +1136,7 @@
       async function qualityRunBuildAgent() {
         var outer = depth === 0;
         var repairCall = arguments[1] === true;
+        var qualityGateRejected = false;
         var state = window.KernelState || {};
         var beforeProject = clone(state.activeProject || {});
         var beforeGraph = clone(getGraph(studio));
@@ -1183,11 +1184,13 @@
               }
 
               if (inspectionError || !report) {
+                qualityGateRejected = true;
                 await rejectBuildForQuality(
                   studio,
                   beforeBuildSnapshot,
                   'The automatic quality inspection did not complete' + (inspectionError ? ': ' + inspectionError + '.' : '.')
                 );
+                throw new Error('The automatic post-build quality inspection failed. The previous project state was restored where possible.');
               } else if (issueScore(report) > 0) {
                 emitBuildStage({
                   stage: 'quality-auto-repair',
@@ -1202,11 +1205,13 @@
                     return item.group === 'Automatic repair' && item.status === 'pass';
                   }));
                 if (!repairVerified) {
+                  qualityGateRejected = true;
                   await rejectBuildForQuality(
                     studio,
                     beforeBuildSnapshot,
                     'The generated website still had failing or warning quality findings after the single bounded repair attempt.'
                   );
+                  throw new Error('The generated website did not pass the automatic quality gate. The previous project state was restored where possible.');
                 } else {
                   addCheck(repairedReport, 'Automatic build gate', 'Post-build quality gate', 'pass',
                     'The generated files passed source checks, the isolated browser matrix, and one evidence-based repair/re-check pass. Any route-coverage or live-integration limitations remain explicitly reported.');
@@ -1233,7 +1238,9 @@
         } catch (error) {
           if (outer) {
             buildInFlight = false;
-            emitBuildStage({ stage: 'build-failed', status: 'error', message: 'The build failed. The existing Web Studio recovery path decides whether to restore the last good preview.' });
+            if (!qualityGateRejected) {
+              emitBuildStage({ stage: 'build-failed', status: 'error', message: 'The build failed. The existing Web Studio recovery path decides whether to restore the last good preview.' });
+            }
           }
           throw error;
         } finally {
