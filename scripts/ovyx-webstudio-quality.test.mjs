@@ -76,6 +76,7 @@ assert.ok(prompts.includes('appropriate aria-expanded, aria-controls, aria-selec
 assert.ok(prompts.includes('4.5:1 for normal text and 3:1 for large/bold text'), 'The generation contract must state readable text-contrast targets.');
 assert.ok(assistant.includes('qualityContract: WEB_STUDIO_EXCELLENCE'), 'The real Web Studio route must pass its premium quality contract into the multi-page builder.');
 assert.ok(assistant.includes("validateOrRepairSinglePageBuild"), 'Single-page Web Studio builds must run the deterministic source/requirement checks.');
+assert.ok(assistant.includes('structuredFields[key] = result[key]'), 'Unparseable or file-less single-page responses must still expose an explicit not-evaluated QA status.');
 assert.ok(assistant.includes("mode === 'build' && !multiPageBuild"), 'Single-page QA must not be applied over the separately validated multi-page builder path.');
 assert.ok(assistant.includes("'qualityVerification', 'siteIntegrity', 'requirementRepair'"), 'The API should surface single-page QA status in the structured response.');
 assert.ok(/WEB_STUDIO_SYSTEM_PROMPT\s*\+\s*'\\n\\n'\s*\+\s*WEB_STUDIO_EXCELLENCE/.test(assistant), 'Single-page Web Studio system instructions must use real line breaks between the core prompt and the premium quality contract.');
