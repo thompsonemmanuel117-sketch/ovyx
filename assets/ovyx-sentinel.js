@@ -13,6 +13,11 @@ var recognition = null;
 var wakeEnabled = false;
 var awaitingUntil = 0;
 var restartTimer = 0;
+var lastGuardianQuestion = '';
+var lastInspectedFiles = [];
+var patchCapabilities = null;
+var currentPatchProposalId = '';
+var patchBusy = false;
 function q(selector) { return root ? root.querySelector(selector) : null; }
 function user() { try { return window.firebase && window.firebase.auth().currentUser || null; } catch (_) { return null; } }
 function adminClient() { var u = user(); return !!u && String(u.email || '').trim().toLowerCase() === ADMIN_EMAIL && u.emailVerified === true; }
@@ -73,6 +78,11 @@ function addStyles() {
     '#' + ID + '-panel .plan ol{padding-left:19px;margin:8px 0 0;color:#c3d1dc;font-size:10px}',
     '#' + ID + '-panel .plan li{padding:2px 0 2px 2px}',
     '#' + ID + '-panel .plan-note{margin-top:10px;color:#748b9b;font-size:9px}',
+    '#' + ID + '-panel .patch-tools label{display:block;margin:10px 0 6px;color:#b8c9d5;font-size:10px;font-weight:750}',
+    '#' + ID + '-panel .patch-tools input,#' + ID + '-panel .patch-tools textarea{box-sizing:border-box;width:100%;margin-top:5px;padding:9px 10px;border:1px solid rgba(145,207,224,.22);border-radius:9px;background:#060a0e;color:#eaf7fb;font:11px/1.5 ui-monospace,monospace}',
+    '#' + ID + '-panel .patch-tools textarea{resize:vertical;min-height:72px;font-family:Inter,system-ui,sans-serif}',
+    '#' + ID + '-panel .patch-preview{max-height:240px;overflow:auto;padding:10px;border-radius:9px;background:#05080b;color:#c7d8e2;font:10px/1.45 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere}',
+    '#' + ID + '-panel .patch-link{display:inline-block;margin-top:10px;color:#8beaf4;font-size:11px;font-weight:800}');
     '#' + ID + '-panel .badge{font-size:8px;font-weight:850;letter-spacing:.08em;color:#b7cad7;text-transform:uppercase}',
     '#' + ID + '-panel .foot{padding:10px 15px;border-top:1px solid rgba(255,255,255,.07);color:#748695;font-size:9px}',
     '#' + ID + '-panel .transcript{white-space:pre-wrap;padding:10px 11px;margin-top:9px;border-radius:11px;background:rgba(255,255,255,.025);border:1px solid rgba(255,255,255,.08);color:#d8e5ed}',
@@ -87,8 +97,8 @@ function buildShell() {
   root = document.createElement('div'); root.id = ID + '-root';
   root.innerHTML = '<button id="' + ID + '-launch" type="button" aria-label="Open private OVYX Sentinel administrator companion"><span class="eye" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M3 16s4.8-8 13-8 13 8 13 8-4.8 8-13 8S3 16 3 16Z" stroke="#8BEAF4" stroke-width="1.5"/><circle cx="16" cy="16" r="5.4" fill="#A5F3FC" fill-opacity=".2" stroke="#8BEAF4" stroke-width="1.4"/><circle cx="16" cy="16" r="2.4" fill="#B9FAFF"/></svg></span><span>OVYX SENTINEL</span></button>' +
   '<section id="' + ID + '-panel" role="dialog" aria-modal="false" aria-labelledby="' + ID + '-title" hidden><header class="head"><span class="eye" aria-hidden="true">◉</span><div class="headcopy"><div id="' + ID + '-title" class="title">OVYX SENTINEL</div><div class="sub">PRIVATE ADMIN COMPANION · SYSTEM HEALTH</div></div><button type="button" class="close" data-ovsx="close" aria-label="Close Sentinel">×</button></header>' +
-  '<div class="actions"><button type="button" class="btn primary" data-ovsx="scan">Check now</button><button type="button" class="btn" data-ovsx="plan">Prepare fix plan</button><button type="button" class="btn" data-ovsx="diagnose">AI diagnosis</button><button type="button" class="btn" data-ovsx="wake">Enable wake word</button><button type="button" class="btn" data-ovsx="mute" disabled>Stop speaking</button></div>' +
-  '<div class="status" role="status" aria-live="polite" data-ovsx-status>Verifying administrator access…</div><div class="body"><div class="summary"><strong>Welcome back, boss.</strong><small>Sentinel checks platform health and authorised service signals. It does not read private user projects or conversations.</small></div><div data-ovsx-report></div><div class="plan" hidden data-ovsx-plan></div><div class="plan" hidden data-ovsx-diagnosis></div><details class="plan" hidden data-ovsx-diagnosis-history><summary class="plan-heading">Previous diagnoses</summary><div data-ovsx-diagnosis-history-list></div></details><div class="transcript" hidden data-ovsx-transcript></div></div>' +
+  '<div class="actions"><button type="button" class="btn primary" data-ovsx="scan">Check now</button><button type="button" class="btn" data-ovsx="plan">Prepare fix plan</button><button type="button" class="btn" data-ovsx="diagnose">AI diagnosis</button><button type="button" class="btn" data-ovsx="patch">Prepare code fix</button><button type="button" class="btn" data-ovsx="wake">Enable wake word</button><button type="button" class="btn" data-ovsx="mute" disabled>Stop speaking</button></div>' +
+  '<div class="status" role="status" aria-live="polite" data-ovsx-status>Verifying administrator access…</div><div class="body"><div class="summary"><strong>Welcome back, boss.</strong><small>Sentinel checks platform health and authorised service signals. It does not read private user projects or conversations.</small></div><div data-ovsx-report></div><div class="plan" hidden data-ovsx-plan></div><div class="plan" hidden data-ovsx-diagnosis></div><details class="plan" hidden data-ovsx-diagnosis-history><summary class="plan-heading">Previous diagnoses</summary><div data-ovsx-diagnosis-history-list></div></details><div class="plan patch-tools" hidden data-ovsx-patch-tools><strong>Reviewable code fix</strong><div class="plan-note">Guardian will prepare a preview first. Nothing is changed until you review the proposal, type the confirmation phrase, and create a pull request. It will never merge or deploy automatically.</div><label>Source file path<input type="text" data-ovsx-patch-path maxlength="240" placeholder="functions/api/feature.js"></label><label>What should be fixed?<textarea data-ovsx-patch-task rows="3" maxlength="1200" placeholder="Describe the exact bug and desired result"></textarea></label><button type="button" class="btn primary" data-ovsx="patch-prepare">Prepare patch preview</button><div data-ovsx-patch-summary class="rowsummary"></div><pre class="patch-preview" data-ovsx-patch-preview hidden></pre><label>Type CREATE_PULL_REQUEST to submit for review<input type="text" data-ovsx-patch-confirm autocomplete="off" maxlength="40" placeholder="CREATE_PULL_REQUEST"></label><button type="button" class="btn" data-ovsx="patch-apply" disabled>Create review pull request</button><a class="patch-link" data-ovsx-patch-link hidden target="_blank" rel="noopener noreferrer">Open pull request</a></div><div class="transcript" hidden data-ovsx-transcript></div></div>' +
   '<div class="foot">Wake word requires an enabled microphone and a supported browser. It works while this page is open and active; you can pause it at any time.</div></section>';
   document.body.appendChild(root); addStyles(); bindShell(); return root;
 }
@@ -302,6 +312,7 @@ async function scanNow(shouldSpeak) {
 }
 function transcript(message) { var element = q('[data-ovsx-transcript]'); if (!element) return; element.hidden = false; element.textContent = safeText(message, 1400); }
 async function askAI(question) {
+  lastGuardianQuestion = safeText(question, 1200);
   var reportSummary = latestReport ? { status: latestReport.status, checkedAt: latestReport.finishedAt, checks: (latestReport.checks || []).slice(0, 16).map(function (c) { return { path: c.path, status: c.status, code: c.code, summary: c.summary }; }) } : null;
   status('Checking Guardian capabilities…');
   try {
@@ -324,6 +335,9 @@ async function askAI(question) {
       if (!investigationResponse.ok || investigation.ok !== true) throw new Error(investigation.message || investigation.error || 'Guardian could not investigate the repository.');
       answer = safeText(investigation.answer || 'I could not form a diagnosis from the inspected source.', 1300);
       var files = Array.isArray(investigation.inspectedFiles) ? investigation.inspectedFiles.slice(0, 3).map(function (path) { return safeText(path, 100); }) : [];
+      lastInspectedFiles = files.slice();
+      var patchPathInput = q('[data-ovsx-patch-path]'); if (patchPathInput && files.length) patchPathInput.value = files[0];
+      var patchTaskInput = q('[data-ovsx-patch-task]'); if (patchTaskInput) patchTaskInput.value = lastGuardianQuestion;
       modeMessage = files.length ? 'Read-only source investigation complete. Inspected: ' + files.join(', ') + '. No code changes were applied.' : 'No matching source files were found; no changes were applied.';
     } else {
       var fallbackResponse = await fetch('/api/ai/ovyx', {
@@ -364,6 +378,12 @@ function handleVoice(raw) {
 }
 async function runVoiceCommand(command) {
   var text = normalize(command); transcript('Heard: ' + text);
+  if (/\\b(?:prepare|draft|propose|make)\\s+(?:a\\s+)?(?:code\\s+)?(?:fix|patch)\\b/.test(text)) {
+    togglePatchTools(true);
+    status('Patch review opened. Guardian will prepare a preview first; no code will change until you explicitly submit a pull request.', 'info');
+    speak('I opened the code fix review panel, boss. I will prepare a preview first and will not merge or deploy anything.');
+    return;
+  }
   if (/\b(?:scan|check|diagnos|health|status|inspect platform|system report|check now)\b/.test(text)) { await scanNow(true); return; }
   if (/\b(?:report|what did you find|latest results|last check|summary)\b/.test(text) && latestReport) {
     var summary = stateLabel(latestReport) + '. ' + Number(latestReport.criticalCount || 0) + ' critical issues and ' + Number(latestReport.warningCount || 0) + ' warnings.';
@@ -395,14 +415,154 @@ function toggleWake() {
   status('Wake word enabled. Say OVYX to get my attention. The page must remain open and active.', 'success');
   makeRecognition();
 }
+async function guardianPatchRequest(action, payload) {
+  var idToken = await getToken();
+  var response = await fetch('/api/admin/guardian-patch', {
+    method: 'POST', credentials: 'same-origin', cache: 'no-store',
+    headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken },
+    body: JSON.stringify(Object.assign({ action: action }, payload || {}))
+  });
+  var data = await response.json().catch(function () { return {}; });
+  if (!response.ok || data.ok !== true) throw new Error(String(data.message || data.error || 'Guardian patch request failed.').slice(0, 360));
+  return data;
+}
+async function refreshPatchCapabilities() {
+  try {
+    var idToken = await getToken();
+    var response = await fetch('/api/admin/guardian-patch', {
+      method: 'GET', credentials: 'same-origin', cache: 'no-store',
+      headers: { Accept: 'application/json', Authorization: 'Bearer ' + idToken }
+    });
+    var data = await response.json().catch(function () { return {}; });
+    if (!response.ok || data.ok !== true) throw new Error(data.message || data.error || 'Guardian patch capabilities are unavailable.');
+    patchCapabilities = data.guardian || null;
+    var prepare = q('[data-ovsx="patch-prepare"]');
+    if (prepare) prepare.disabled = !(patchCapabilities && patchCapabilities.patchPreparationReady);
+    updatePatchApplyState();
+    if (patchCapabilities && !patchCapabilities.pullRequestCreationReady) status(patchCapabilities.message || 'Review pull requests are not configured.', 'info');
+    else status('Patch preparation is ready. All changes still require a reviewed pull request.', 'success');
+  } catch (error) {
+    patchCapabilities = null;
+    var prepare = q('[data-ovsx="patch-prepare"]');
+    if (prepare) prepare.disabled = true;
+    updatePatchApplyState();
+    status(String(error.message || 'Guardian patch capabilities are unavailable.'), 'error');
+  }
+}
+function updatePatchApplyState() {
+  var button = q('[data-ovsx="patch-apply"]');
+  var confirmation = q('[data-ovsx-patch-confirm]');
+  if (!button) return;
+  button.disabled = !currentPatchProposalId ||
+    !(patchCapabilities && patchCapabilities.pullRequestCreationReady) ||
+    !confirmation || confirmation.value.trim() !== 'CREATE_PULL_REQUEST' || patchBusy;
+}
+function togglePatchTools(prefill) {
+  var panel = q('[data-ovsx-patch-tools]');
+  if (!panel) return;
+  panel.hidden = false;
+  var path = q('[data-ovsx-patch-path]');
+  var task = q('[data-ovsx-patch-task]');
+  if (prefill !== false) {
+    if (path && !path.value.trim() && lastInspectedFiles.length) path.value = lastInspectedFiles[0];
+    if (task && !task.value.trim() && lastGuardianQuestion) task.value = lastGuardianQuestion;
+  }
+  void refreshPatchCapabilities();
+}
+async function preparePatchProposal() {
+  if (patchBusy) return;
+  var path = q('[data-ovsx-patch-path]');
+  var task = q('[data-ovsx-patch-task]');
+  var prepare = q('[data-ovsx="patch-prepare"]');
+  var preview = q('[data-ovsx-patch-preview]');
+  var summary = q('[data-ovsx-patch-summary]');
+  if (!path || !path.value.trim() || !task || !task.value.trim()) {
+    status('Choose a source file and describe the exact change before preparing a patch.', 'error');
+    return;
+  }
+  if (!patchCapabilities || !patchCapabilities.patchPreparationReady) {
+    await refreshPatchCapabilities();
+    if (!patchCapabilities || !patchCapabilities.patchPreparationReady) return;
+  }
+  patchBusy = true;
+  currentPatchProposalId = '';
+  if (prepare) prepare.disabled = true;
+  if (preview) { preview.hidden = true; preview.textContent = ''; }
+  if (summary) summary.textContent = '';
+  updatePatchApplyState();
+  status('Guardian is preparing a read-only patch preview. No source file is being changed…');
+  try {
+    var data = await guardianPatchRequest('prepare', { path: path.value.trim(), task: task.value.trim() });
+    currentPatchProposalId = String(data.proposalId || '');
+    if (summary) summary.textContent = safeText(data.summary || 'Patch preview prepared.', 400) + ' · Expires ' + safeText(data.expiresAt || '', 80) + '. No code changed.';
+    if (preview) { preview.textContent = safeText(data.preview || 'No diff preview returned.', 7000); preview.hidden = false; }
+    var confirm = q('[data-ovsx-patch-confirm]'); if (confirm) confirm.value = '';
+    await refreshPatchCapabilities();
+    updatePatchApplyState();
+    status('Patch preview ready. Review every changed line before creating a pull request.', 'success');
+    transcript('Guardian prepared a patch for ' + safeText(data.path || path.value, 180) + ': ' + safeText(data.summary || '', 300) + '\\nNo code changed.');
+    speak('I prepared a patch preview, boss. Please review the changed lines before you create a pull request.');
+  } catch (error) {
+    status(String(error.message || 'Guardian could not prepare the patch.') + ' No source file was changed.', 'error');
+    speak('I could not prepare that patch safely. ' + String(error.message || ''));
+  } finally {
+    patchBusy = false;
+    if (prepare) prepare.disabled = !(patchCapabilities && patchCapabilities.patchPreparationReady);
+    updatePatchApplyState();
+  }
+}
+async function applyPatchProposal() {
+  if (patchBusy || !currentPatchProposalId) return;
+  var confirmation = q('[data-ovsx-patch-confirm]');
+  if (!confirmation || confirmation.value.trim() !== 'CREATE_PULL_REQUEST') {
+    status('Type CREATE_PULL_REQUEST after reviewing the preview. Nothing has been submitted.', 'error');
+    return;
+  }
+  if (!patchCapabilities || !patchCapabilities.pullRequestCreationReady) {
+    await refreshPatchCapabilities();
+    if (!patchCapabilities || !patchCapabilities.pullRequestCreationReady) return;
+  }
+  patchBusy = true;
+  updatePatchApplyState();
+  status('Submitting the reviewed proposal on a separate branch…');
+  try {
+    var data = await guardianPatchRequest('apply', {
+      proposalId: currentPatchProposalId,
+      confirmation: confirmation.value.trim()
+    });
+    var link = q('[data-ovsx-patch-link]');
+    if (link && /^https:\/\/github\.com\/thompsonemmanuel117-sketch\/ovyx\/pull\/\d+/.test(String(data.pullRequestUrl || ''))) {
+      link.href = data.pullRequestUrl;
+      link.textContent = 'Open pull request #' + String(data.pullRequestNumber || '');
+      link.hidden = false;
+    }
+    currentPatchProposalId = '';
+    confirmation.value = '';
+    updatePatchApplyState();
+    status('Review pull request created. Guardian did not merge or deploy production.', 'success');
+    transcript('Guardian created a review pull request: ' + safeText(data.pullRequestUrl || '', 240) + '\\nThe change is not merged or deployed.');
+    speak('The review pull request is ready, boss. I did not merge or deploy it.');
+  } catch (error) {
+    status(String(error.message || 'Guardian could not create the pull request.') + ' The main branch was not changed.', 'error');
+    speak('I could not create the review pull request. ' + String(error.message || ''));
+  } finally {
+    patchBusy = false;
+    updatePatchApplyState();
+  }
+}
 function bindShell() {
   q('#' + ID + '-launch').addEventListener('click', function () { showPanel(true); });
+  var patchConfirmation = q('[data-ovsx-patch-confirm]');
+  if (patchConfirmation) patchConfirmation.addEventListener('input', updatePatchApplyState);
   root.addEventListener('click', function (event) {
     var button = event.target.closest('[data-ovsx]'); if (!button) return;
     if (button.dataset.ovsx === 'close') showPanel(false);
     else if (button.dataset.ovsx === 'scan') void scanNow(false);
     else if (button.dataset.ovsx === 'plan') void prepareFixPlan();
     else if (button.dataset.ovsx === 'diagnose') void diagnoseLatest(false);
+    else if (button.dataset.ovsx === 'patch') togglePatchTools(true);
+    else if (button.dataset.ovsx === 'patch-prepare') void preparePatchProposal();
+    else if (button.dataset.ovsx === 'patch-apply') void applyPatchProposal();
     else if (button.dataset.ovsx === 'history') {
       var saved = diagnosisHistory.find(function (item) { return String(item.id || '') === String(button.getAttribute('data-ovsx-history-id') || ''); });
       if (saved) { renderDiagnosis(saved); status('Showing a saved diagnosis from private history. It did not apply changes.', 'success'); }
