@@ -28,6 +28,11 @@ on:
       - 'functions/api/ai/provider-availability.js'
       - 'scripts/provider-availability.test.mjs'
       - 'scripts/ovyx-provider-availability.browser.test.mjs'
+      - 'assets/ovyx-webstudio-reliability.js'
+      - 'functions/api/ai/feedback.js'
+      - 'scripts/ovyx-webstudio-feedback.test.mjs'
+      - 'scripts/ovyx-webstudio-reliability.test.mjs'
+      - 'scripts/ovyx-webstudio-reliability.browser.test.mjs'
       - 'index.html'
       - 'scripts/ovyx-admin-hub.test.mjs'
       - 'scripts/ovyx-admin-hub.browser.test.mjs'
@@ -91,6 +96,11 @@ jobs:
 
       - name: Exercise provider availability selector in desktop and mobile Chromium
         run: node scripts/ovyx-provider-availability.browser.test.mjs
+        env:
+          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
+
+      - name: Exercise Web Studio feedback and build-preview safety in desktop and mobile Chromium
+        run: node scripts/ovyx-webstudio-reliability.browser.test.mjs
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8788
 
