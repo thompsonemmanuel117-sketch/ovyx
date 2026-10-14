@@ -485,8 +485,11 @@ export async function buildStudioMultiPage(options) {
         : qualityPolish.status === 'disabled'
           ? ' The optional design-polish pass is disabled.'
           : ' The first validated version was preserved because the optional polish pass was unavailable.';
-  const summary = 'Built ' + pageCount + ' distinct website pages in ' + batches.length + ' verified batches.' + polishNote;
-  const message = 'Your multi-page website is ready in Web Studio. ' + pageCount + ' pages were generated and structurally checked.' + polishNote;
+  const integrityNote = qualityPolish.integrityAfter > 0
+    ? ' Static review still reports ' + qualityPolish.integrityAfter + ' link or local-asset finding(s); review these before publishing. External resources and live integrations were not verified by this static audit.'
+    : ' Static route, fragment, and local-asset checks found no unresolved references. External resource availability and live integrations were not verified by this static audit.';
+  const summary = 'Built ' + pageCount + ' distinct website pages in ' + batches.length + ' verified batches.' + polishNote + integrityNote;
+  const message = 'Your multi-page website is ready in Web Studio. ' + pageCount + ' pages were generated and structurally checked.' + polishNote + integrityNote;
   return {
     ok: true,
     text: JSON.stringify({ summary, message }),
