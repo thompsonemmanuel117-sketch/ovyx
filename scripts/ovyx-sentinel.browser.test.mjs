@@ -54,6 +54,17 @@ try {
         { id: 'health', path: '/api/health', status: 'pass', summary: 'Platform health is healthy.' },
       ],
     };
+    const savedDiagnosis = {
+      id: 'diag_old',
+      reportId: latestReport.id,
+      generatedAt: '2026-10-12T19:00:00.000Z',
+      model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+      diagnosis: 'Historical diagnosis: previous saved check showed a resolved network timeout.',
+      changesApplied: false,
+      evidenceScope: 'latest-saved-sentinel-report-and-optional-read-only-ci-metadata',
+      ciEvidenceStatus: 'skipped',
+      historySaved: true,
+    };
     const scannedReport = {
       ...latestReport,
       id: 'run_scan',
@@ -79,7 +90,9 @@ try {
           model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
           diagnosis: 'Findings: the schedule warning is evidence. Likely cause: the last scheduled scan is not recent. Next safe step: check the Cron deployment workflow. No repair was applied.',
           changesApplied: false,
-          evidenceScope: 'latest-saved-sentinel-report-only'
+          evidenceScope: 'latest-saved-sentinel-report-and-optional-read-only-ci-metadata',
+          id: 'diag_new',
+          historySaved: true
         })
       });
     });
@@ -115,7 +128,7 @@ try {
           tasks: [],
           note: 'Advisory only. No changes have been applied.',
         };
-        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, latestReport: activeReport, fixPlan, lastScanAt: activeReport.finishedAt, reports: [activeReport] }) });
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, latestReport: activeReport, latestDiagnosis: savedDiagnosis, diagnoses: [savedDiagnosis], fixPlan, lastScanAt: activeReport.finishedAt, lastDiagnosisAt: savedDiagnosis.generatedAt, reports: [activeReport] }) });
         return;
       }
       assert.equal(payload.action, 'scan', '[' + target.name + '] scan requests must use the allowlisted scan action');
@@ -145,6 +158,11 @@ try {
     await page.waitForFunction(() => document.querySelector('#ovyx-sentinel-panel [data-ovsx-report]')?.textContent.includes('Latest report'), null, { timeout: 10000 }).catch(() => {});
     assert.match(await page.locator('#ovyx-sentinel-panel [data-ovsx-status]').innerText(), /Sentinel is ready|Last saved scan|latest scan|Sentinel server|administrator/i, '[' + target.name + '] Sentinel report bootstrap failed: ' + await page.locator('#ovyx-sentinel-panel [data-ovsx-status]').innerText());
     assert.match(await page.locator('#ovyx-sentinel-panel [data-ovsx-report]').innerText(), /Latest report · HEALTHY/i, '[' + target.name + '] saved report was not rendered');
+    await page.locator('[data-ovsx-diagnosis-history]').waitFor({ state: 'visible' });
+    assert.match(await page.locator('[data-ovsx-diagnosis-history] summary').innerText(), /Previous diagnoses \(1\)/i, '[' + target.name + '] previous diagnosis history should load from the saved report endpoint');
+    await page.locator('[data-ovsx-diagnosis-history] summary').click();
+    await page.locator('[data-ovsx-history-id]').click();
+    assert.match(await page.locator('[data-ovsx-diagnosis]').innerText(), /Historical diagnosis: previous saved check/i, '[' + target.name + '] the owner should be able to reopen a saved diagnosis');
 
     await page.locator('[data-ovsx="wake"]').click();
     assert.match(await page.locator('[data-ovsx-status]').innerText(), /Wake word enabled/i);
@@ -170,7 +188,8 @@ try {
     await page.locator('[data-ovsx-diagnosis]').waitFor({ state: 'visible' });
     assert.match(await page.locator('[data-ovsx-diagnosis]').innerText(), /AI incident diagnosis/i, '[' + target.name + '] the AI diagnostic result should be shown separately from a rule-based plan');
     assert.match(await page.locator('[data-ovsx-diagnosis]').innerText(), /schedule warning is evidence/i, '[' + target.name + '] the diagnostic result should be visible as plain text');
-    assert.match(await page.locator('[data-ovsx-diagnosis]').innerText(), /No source files, provider keys, Cloudflare settings, or deployments were changed/i, '[' + target.name + '] the UI must disclose the diagnosis-only boundary');
+    assert.match(await page.locator('[data-ovsx-diagnosis]').innerText(), /Diagnosis only. No source files, provider keys, Cloudflare settings, or deployments were changed/i, '[' + target.name + '] the UI must disclose the diagnosis-only boundary');
+    assert.match(await page.locator('[data-ovsx-diagnosis-history] summary').innerText(), /Previous diagnoses \(2\)/i, '[' + target.name + '] a newly saved diagnosis must join prior history');
 
     await page.locator('[data-ovsx="wake"]').click();
     assert.match(await page.locator('[data-ovsx-status]').innerText(), /Wake word paused/i);

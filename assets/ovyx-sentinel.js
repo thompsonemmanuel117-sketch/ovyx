@@ -7,6 +7,7 @@ var ADMIN_EMAIL = 'ovyxsupportteam@gmail.com';
 var ID = 'ovyx-sentinel';
 var root = null;
 var latestReport = null;
+var diagnosisHistory = [];
 var busy = false;
 var recognition = null;
 var wakeEnabled = false;
@@ -87,7 +88,7 @@ function buildShell() {
   root.innerHTML = '<button id="' + ID + '-launch" type="button" aria-label="Open private OVYX Sentinel administrator companion"><span class="eye" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M3 16s4.8-8 13-8 13 8 13 8-4.8 8-13 8S3 16 3 16Z" stroke="#8BEAF4" stroke-width="1.5"/><circle cx="16" cy="16" r="5.4" fill="#A5F3FC" fill-opacity=".2" stroke="#8BEAF4" stroke-width="1.4"/><circle cx="16" cy="16" r="2.4" fill="#B9FAFF"/></svg></span><span>OVYX SENTINEL</span></button>' +
   '<section id="' + ID + '-panel" role="dialog" aria-modal="false" aria-labelledby="' + ID + '-title" hidden><header class="head"><span class="eye" aria-hidden="true">◉</span><div class="headcopy"><div id="' + ID + '-title" class="title">OVYX SENTINEL</div><div class="sub">PRIVATE ADMIN COMPANION · SYSTEM HEALTH</div></div><button type="button" class="close" data-ovsx="close" aria-label="Close Sentinel">×</button></header>' +
   '<div class="actions"><button type="button" class="btn primary" data-ovsx="scan">Check now</button><button type="button" class="btn" data-ovsx="plan">Prepare fix plan</button><button type="button" class="btn" data-ovsx="diagnose">AI diagnosis</button><button type="button" class="btn" data-ovsx="wake">Enable wake word</button><button type="button" class="btn" data-ovsx="mute" disabled>Stop speaking</button></div>' +
-  '<div class="status" role="status" aria-live="polite" data-ovsx-status>Verifying administrator access…</div><div class="body"><div class="summary"><strong>Welcome back, boss.</strong><small>Sentinel checks platform health and authorised service signals. It does not read private user projects or conversations.</small></div><div data-ovsx-report></div><div class="plan" hidden data-ovsx-plan></div><div class="plan" hidden data-ovsx-diagnosis></div><div class="transcript" hidden data-ovsx-transcript></div></div>' +
+  '<div class="status" role="status" aria-live="polite" data-ovsx-status>Verifying administrator access…</div><div class="body"><div class="summary"><strong>Welcome back, boss.</strong><small>Sentinel checks platform health and authorised service signals. It does not read private user projects or conversations.</small></div><div data-ovsx-report></div><div class="plan" hidden data-ovsx-plan></div><div class="plan" hidden data-ovsx-diagnosis></div><details class="plan" hidden data-ovsx-diagnosis-history><summary class="plan-heading">Previous diagnoses</summary><div data-ovsx-diagnosis-history-list></div></details><div class="transcript" hidden data-ovsx-transcript></div></div>' +
   '<div class="foot">Wake word requires an enabled microphone and a supported browser. It works while this page is open and active; you can pause it at any time.</div></section>';
   document.body.appendChild(root); addStyles(); bindShell(); return root;
 }
@@ -190,6 +191,29 @@ function renderDiagnosis(data) {
   note.textContent = 'Diagnosis only. No source files, provider keys, Cloudflare settings, or deployments were changed.';
   host.appendChild(note);
 }
+function renderDiagnosisHistory(items) {
+  diagnosisHistory = Array.isArray(items) ? items.filter(function (item) {
+    return item && String(item.id || '').trim() && String(item.diagnosis || '').trim();
+  }).slice(0, 10) : [];
+  var host = q('[data-ovsx-diagnosis-history]');
+  var list = q('[data-ovsx-diagnosis-history-list]');
+  if (!host || !list) return;
+  list.replaceChildren();
+  host.hidden = diagnosisHistory.length === 0;
+  var summary = host.querySelector('summary');
+  if (summary) summary.textContent = 'Previous diagnoses (' + diagnosisHistory.length + ')';
+  diagnosisHistory.forEach(function (item) {
+    var row = document.createElement('div'); row.className = 'plan-task';
+    var button = document.createElement('button'); button.className = 'btn'; button.type = 'button';
+    button.dataset.ovsx = 'history'; button.setAttribute('data-ovsx-history-id', safeText(item.id, 120));
+    var timestamp = Date.parse(String(item.generatedAt || ''));
+    var label = Number.isFinite(timestamp) ? new Date(timestamp).toLocaleString() : 'Saved diagnosis';
+    button.textContent = label + ' · report ' + safeText(item.reportId || 'unknown', 100);
+    var preview = document.createElement('div'); preview.className = 'plan-issue';
+    preview.textContent = safeText(item.diagnosis, 240);
+    row.append(button, preview); list.appendChild(row);
+  });
+}
 async function diagnoseLatest(shouldSpeak) {
   if (busy) return;
   busy = true;
@@ -205,9 +229,13 @@ async function diagnoseLatest(shouldSpeak) {
     var data = await response.json().catch(function () { return {}; });
     if (!response.ok || data.ok !== true) throw new Error(String(data.message || data.error || 'Sentinel could not diagnose the report.').slice(0, 320));
     renderDiagnosis(data);
+    if (data.historySaved && data.id) {
+      diagnosisHistory = [data].concat(diagnosisHistory.filter(function (item) { return String(item.id || '') !== String(data.id); })).slice(0, 10);
+      renderDiagnosisHistory(diagnosisHistory);
+    }
     var message = safeText(data.diagnosis || 'The diagnosis is ready.', 900);
     transcript('Sentinel AI diagnosis:\n' + message);
-    status('Diagnosis ready. It is based on the saved report; no changes were applied.', 'success');
+    status(data.historySaved ? 'Diagnosis saved to private history. No changes were applied.' : 'Diagnosis is ready, but Sentinel could not confirm that history was saved. No changes were applied.', data.historySaved ? 'success' : 'error');
     if (shouldSpeak) speak(message);
   } catch (error) {
     status(String(error.message || 'AI diagnosis failed.') + ' Run Check now and retry.', 'error');
@@ -236,7 +264,7 @@ function showPanel(show, refreshReport) {
 }
 async function loadLatest() {
   if (busy) return;
-  try { var data = await api('GET'); renderReport(data.latestReport); status(data.lastScanAt ? 'Last saved scan: ' + new Date(data.lastScanAt).toLocaleString() : 'Sentinel is connected. Run the first check when ready.', 'success'); }
+  try { var data = await api('GET'); renderReport(data.latestReport); renderDiagnosisHistory(data.diagnoses); if (data.latestDiagnosis) renderDiagnosis(data.latestDiagnosis); status(data.lastScanAt ? 'Last saved scan: ' + new Date(data.lastScanAt).toLocaleString() : 'Sentinel is connected. Run the first check when ready.', 'success'); }
   catch (error) { status(error.message || 'Sentinel history is unavailable.', 'error'); }
 }
 async function prepareFixPlan() {
@@ -338,6 +366,10 @@ function bindShell() {
     else if (button.dataset.ovsx === 'scan') void scanNow(false);
     else if (button.dataset.ovsx === 'plan') void prepareFixPlan();
     else if (button.dataset.ovsx === 'diagnose') void diagnoseLatest(false);
+    else if (button.dataset.ovsx === 'history') {
+      var saved = diagnosisHistory.find(function (item) { return String(item.id || '') === String(button.getAttribute('data-ovsx-history-id') || ''); });
+      if (saved) { renderDiagnosis(saved); status('Showing a saved diagnosis from private history. It did not apply changes.', 'success'); }
+    }
     else if (button.dataset.ovsx === 'wake') toggleWake();
     else if (button.dataset.ovsx === 'mute') { try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (_) {} button.disabled = true; }
   });
@@ -346,7 +378,7 @@ async function bootstrap() {
   if (!adminClient()) return;
   buildShell();
   status('Administrator identity detected. Verifying access with Sentinel server…');
-  try { var data = await api('GET'); renderReport(data.latestReport); status('Welcome back, boss. Sentinel is ready.', 'success'); }
+  try { var data = await api('GET'); renderReport(data.latestReport); renderDiagnosisHistory(data.diagnoses); if (data.latestDiagnosis) renderDiagnosis(data.latestDiagnosis); status('Welcome back, boss. Sentinel is ready.', 'success'); }
   catch (error) { status('Private Sentinel interface is ready, but the server could not load its report: ' + error.message, 'error'); }
 }
 function observeAuth() {

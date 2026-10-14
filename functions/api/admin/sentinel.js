@@ -39,6 +39,23 @@ async function readState(env) {
   return await getFirestoreDataAtPath(env, ['ovyx_sentinel', 'state']) || {};
 }
 
+export function publicDiagnosisRecord(value, fallbackId = '') {
+  if (!value || typeof value !== 'object' || !String(value.diagnosis || '').trim()) return null;
+  const ciStatus = String(value.ciEvidenceStatus || 'unknown');
+  return {
+    id: String(value.id || fallbackId || '').slice(0, 120),
+    reportId: String(value.reportId || '').slice(0, 120),
+    generatedAt: String(value.generatedAt || '').slice(0, 40),
+    model: String(value.model || '').slice(0, 180),
+    diagnosis: String(value.diagnosis || '').slice(0, 6000),
+    changesApplied: false,
+    evidenceScope: String(value.evidenceScope || '').slice(0, 180),
+    ciEvidenceStatus: ['fail', 'checked', 'skipped', 'unavailable', 'unknown'].includes(ciStatus) ? ciStatus : 'unknown',
+    ciEvidenceCheckedAt: String(value.ciEvidenceCheckedAt || '').slice(0, 40),
+    historySaved: true,
+  };
+}
+
 async function runAndPersist(context, source) {
   const env = context.env || {};
   const startedAt = Date.now();
@@ -100,11 +117,34 @@ export async function onRequestGet(context) {
       .sort((a, b) => String(b.finishedAt || '').localeCompare(String(a.finishedAt || '')))
       .slice(0, 20);
 
+    let diagnosisRows = [];
+    try {
+      diagnosisRows = await listFirestoreSubcollectionDocumentsAtPath(
+        context.env || {},
+        ['ovyx_sentinel', 'state'],
+        'diagnoses',
+        10,
+      );
+    } catch {
+      // Diagnosis history is supplemental. A missing/unreadable history list
+      // must not prevent the owner from loading system health reports.
+      diagnosisRows = [];
+    }
+    const diagnoses = diagnosisRows
+      .map(row => publicDiagnosisRecord(row.data || {}, String(row.id || '')))
+      .filter(Boolean)
+      .sort((a, b) => String(b.generatedAt || '').localeCompare(String(a.generatedAt || '')))
+      .slice(0, 10);
+    const latestDiagnosis = publicDiagnosisRecord(state.latestDiagnosis) || diagnoses[0] || null;
+
     const latestReport = state.latestReport || reports[0] || null;
     return jsonResponse({
       ok: true,
       administratorOnly: true,
       latestReport,
+      latestDiagnosis,
+      diagnoses,
+      lastDiagnosisAt: state.lastDiagnosisAt || null,
       fixPlan: createSentinelFixPlan(latestReport),
       lastScanAt: state.lastScanAt || null,
       lastScheduledAt: state.lastScheduledAt || null,

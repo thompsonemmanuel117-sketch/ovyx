@@ -2,6 +2,8 @@ import { verifyFirebaseIdToken } from '../_lib/auth.js';
 import {
   getFirestoreDataAtPath,
   setFirestoreDocumentAtPath,
+  deleteFirestoreDocumentAtPath,
+  listFirestoreSubcollectionDocumentsAtPath,
 } from '../../_lib/firebase-admin.js';
 import { errorResponse, jsonResponse, getRequestId } from '../_lib/http.js';
 import { isSentinelAdmin } from '../../_lib/ovyx-sentinel.js';
@@ -10,6 +12,7 @@ import { collectSentinelCIMetadata } from '../../_lib/ovyx-sentinel-ci.js';
 const DEFAULT_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const DIAGNOSIS_COOLDOWN_MS = 20 * 1000;
+const MAX_DIAGNOSIS_HISTORY = 25;
 
 function originAllowed(request) {
   const origin = String(request.headers.get('origin') || '').trim();
@@ -188,16 +191,59 @@ export async function onRequestPost(context) {
     if (!text) {
       return errorResponse(502, 'SENTINEL_DIAGNOSIS_EMPTY', 'The diagnostic brain returned an empty answer. Please retry after a fresh check.', requestId);
     }
-    return jsonResponse({
-      ok: true,
+    const generatedAt = new Date().toISOString();
+    const diagnosisId = 'diagnosis_' + Date.now().toString(36) + '_' + crypto.randomUUID().replace(/-/g, '').slice(0, 10);
+    const diagnosisRecord = {
+      id: diagnosisId,
       reportId: built.value.reportId,
-      generatedAt: new Date().toISOString(),
+      generatedAt,
       model,
       diagnosis: text,
       changesApplied: false,
       evidenceScope: 'latest-saved-sentinel-report-and-optional-read-only-ci-metadata',
       ciEvidenceStatus: ciMetadata.status,
       ciEvidenceCheckedAt: ciMetadata.checkedAt,
+    };
+    let historySaved = false;
+    try {
+      await setFirestoreDocumentAtPath(
+        env,
+        ['ovyx_sentinel', 'state', 'diagnoses', diagnosisId],
+        diagnosisRecord,
+        { merge: false },
+      );
+      await setFirestoreDocumentAtPath(
+        env,
+        ['ovyx_sentinel', 'state'],
+        { latestDiagnosis: diagnosisRecord, lastDiagnosisAt: generatedAt },
+        { merge: true },
+      );
+      historySaved = true;
+      try {
+        const storedRows = await listFirestoreSubcollectionDocumentsAtPath(
+          env,
+          ['ovyx_sentinel', 'state'],
+          'diagnoses',
+          1000,
+        );
+        const newestFirst = storedRows.sort((a, b) =>
+          String(b.data?.generatedAt || '').localeCompare(String(a.data?.generatedAt || ''))
+        );
+        const oldRows = newestFirst.slice(MAX_DIAGNOSIS_HISTORY);
+        await Promise.all(oldRows.slice(0, 25).map(row =>
+          deleteFirestoreDocumentAtPath(env, ['ovyx_sentinel', 'state', 'diagnoses', String(row.id || '')])
+        ));
+      } catch (cleanupError) {
+        console.warn('[OVYX SENTINEL DIAGNOSIS HISTORY CLEANUP ' + requestId + ']', String(cleanupError?.code || 'cleanup skipped').slice(0, 80));
+      }
+    } catch (historyError) {
+      console.error('[OVYX SENTINEL DIAGNOSIS HISTORY ' + requestId + ']', String(historyError?.code || 'history save failed').slice(0, 100));
+    }
+    return jsonResponse({
+      ok: true,
+      ...diagnosisRecord,
+      historySaved,
+      historyWarning: historySaved ? null : 'The diagnosis was generated, but Sentinel could not confirm that it was saved to history.',
     }, 200, { 'X-OVYX-Request-ID': requestId });
   } catch (error) {
     console.error('[OVYX SENTINEL DIAGNOSIS ' + requestId + ']', String(error?.code || error?.name || 'diagnosis failed').slice(0, 100));

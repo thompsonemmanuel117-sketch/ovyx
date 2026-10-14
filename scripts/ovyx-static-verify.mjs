@@ -586,6 +586,17 @@ if (
     !sentinelDiagnosisApi.includes('verifyFirebaseIdToken') ||
     !sentinelDiagnosisApi.includes('isSentinelAdmin') ||
     !sentinelDiagnosisApi.includes('changesApplied: false') ||
+    !sentinelDiagnosisApi.includes('historySaved') ||
+    !sentinelDiagnosisApi.includes('MAX_DIAGNOSIS_HISTORY = 25') ||
+    !sentinelDiagnosisApi.includes('deleteFirestoreDocumentAtPath') ||
+    !sentinelDiagnosisApi.includes('slice(MAX_DIAGNOSIS_HISTORY)') ||
+    !sentinelApi.includes('function publicDiagnosisRecord(value, fallbackId = \'\')') ||
+    !sentinelApi.includes("'diagnoses'") ||
+    !sentinelApi.includes('latestDiagnosis') ||
+    !sentinelClient.includes('function renderDiagnosisHistory(items)') ||
+    !sentinelClient.includes('data-ovsx-history-id') ||
+    !sentinelClient.includes('if (data.historySaved && data.id)') ||
+    !fs.readFileSync(sentinelEndpointTestPath, 'utf8').includes('publicDiagnosisRecord') ||
     !sentinelDiagnosisApi.includes('collectSentinelCIMetadata({ env })') ||
     !sentinelCI.includes('collectSentinelCIMetadata') ||
     !sentinelCI.includes('MAX_FAILED_WORKFLOWS') ||
