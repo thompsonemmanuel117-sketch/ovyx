@@ -142,7 +142,10 @@ try {
         .replace(/<title>[^<]*<\/title>/i, '<title>' + name + ' | QA fixture</title>')
         .replace(/<h1\b[^>]*>[\s\S]*?<\/h1>/i, '<h1>' + name + '</h1>');
       if (index === 14) content = content.replace('</main>', '<img alt="Remote image not fetched in QA sandbox" src="https://assets.example.invalid/cover.webp"></main>');
-      if (index === 15) content = content.replace('</main>', '<img alt="Missing local asset regression" src="../assets/absent-missing-qa.webp"></main>').replace('</head>', '<style>.qa-inline-missing-asset{background-image:url("../assets/absent-inline-qa.svg")}</style></head>');
+      if (index === 15) {
+        const safeDetails = Array.from({ length: 9 }, (_, item) => '<details><summary>Open section ' + (item + 1) + '</summary><p>Expanded section content ' + (item + 1) + '</p></details>').join('');
+        content = content.replace('</main>', '<img alt="Missing local asset regression" src="../assets/absent-missing-qa.webp">' + safeDetails + '</main>').replace('</head>', '<style>.qa-inline-missing-asset{background-image:url("../assets/absent-inline-qa.svg")}</style></head>');
+      }
       studio.graph.files[filePath] = { type: 'text/html', content };
       project.pages.push({ name, route, __ovyxFile: filePath });
     }
@@ -161,6 +164,14 @@ try {
   const largeReport = await page.evaluate(() => window.OVYXWebStudioQuality.getReport());
   assert.equal(largeReport.browser.pagesTested, 18, 'All routes, including routes after the former 12-route cap, must be browser-tested.');
   assert.equal(largeReport.browser.total, 45, 'Three core routes receive five viewport checks each; fifteen additional routes receive mobile and desktop checks.');
+  assert.equal(largeReport.browser.interactions.candidates, 10, 'The inspector must discover the safe home disclosure plus nine safe details controls.');
+  assert.equal(largeReport.browser.interactions.tested, 9, 'The per-route sampling limit should test one home control and eight controls from the large route.');
+  assert.equal(largeReport.browser.interactions.responded, 9, 'Each safe details disclosure should show an observable state change.');
+  assert.equal(largeReport.browser.interactions.skipped, 1, 'The ninth safe details control must be reported as skipped by the per-route cap.');
+  assert.equal(largeReport.browser.interactions.pagesProbed, 18, 'Every route receives an interaction-probe opportunity at the mobile width.');
+  assert.ok(largeReport.checks.some(item => item.group === 'Coverage' && item.title === 'Safe control interaction sampling' && item.status === 'info' && item.detail.includes('1 additional eligible control')), 'The report must disclose when the safe interaction sampling cap excludes controls.');
+  const exportedLargeSummary = await page.evaluate(() => window.OVYXWebStudioQuality.getClientSummary());
+  assert.ok(exportedLargeSummary.includes('1 skipped by the per-route safety cap'), 'The client-ready summary must disclose skipped safe control samples.');
   assert.ok(largeReport.checks.some(item => item.group === 'Coverage' && item.title === 'Responsive browser matrix coverage' && item.status === 'pass' && item.detail.includes('all 18 generated HTML route')), 'The report must state its adaptive route coverage honestly.');
   assert.ok(largeReport.checks.some(item => item.group === 'Browser testing' && item.title === 'Horizontal overflow' && item.status !== 'fail'), 'The large-project fixture must not introduce a horizontal-overflow regression.');
   assert.ok(largeReport.checks.some(item => item.group === 'Project assets' && item.title === 'Local asset references' && item.status === 'warn' && item.detail.includes('absent-missing-qa.webp')), 'The source audit must flag a missing local image without echoing unrelated source content.');
