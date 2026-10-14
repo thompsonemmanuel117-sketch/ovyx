@@ -28,12 +28,14 @@ function capability(env) {
   const read = typeof env?.OVYX_GUARDIAN_GITHUB_READ_TOKEN === 'string' && env.OVYX_GUARDIAN_GITHUB_READ_TOKEN.trim().length >= 20;
   const write = typeof env?.OVYX_GUARDIAN_GITHUB_WRITE_TOKEN === 'string' && env.OVYX_GUARDIAN_GITHUB_WRITE_TOKEN.trim().length >= 20;
   const ai = !!env?.AI && typeof env.AI.run === 'function';
+  const tokensSeparate = read && write && String(env.OVYX_GUARDIAN_GITHUB_READ_TOKEN).trim() !== String(env.OVYX_GUARDIAN_GITHUB_WRITE_TOKEN).trim();
   return {
     reasoningConfigured: ai,
     repositoryReadConfigured: read,
     repositoryWriteConfigured: write,
+    repositoryTokensSeparate: !read || !write ? null : tokensSeparate,
     patchPreparationReady: ai && read,
-    pullRequestCreationReady: ai && read && write,
+    pullRequestCreationReady: ai && read && write && tokensSeparate,
     directMainWritesEnabled: false,
     automaticMergeEnabled: false,
     productionDeploymentsEnabled: false,
@@ -43,7 +45,9 @@ function capability(env) {
         ? 'Add the separate read-only OVYX_GUARDIAN_GITHUB_READ_TOKEN to prepare source patches.'
         : !write
           ? 'Patch previews can be prepared, but creating a review pull request needs a separate least-privilege OVYX_GUARDIAN_GITHUB_WRITE_TOKEN. Guardian never writes directly to main.'
-          : 'Guardian can prepare a patch and create a review pull request on a dedicated branch. It cannot merge or deploy.',
+          : !tokensSeparate
+            ? 'The read-only and write GitHub tokens must be different credentials with separate least-privilege scopes.'
+            : 'Guardian can prepare a patch and create a review pull request on a dedicated branch. It cannot merge or deploy.',
   };
 }
 
