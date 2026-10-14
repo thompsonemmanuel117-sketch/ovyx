@@ -461,7 +461,7 @@
   }
   function shortBuildLabel(stage) {
     var labels = {
-      'planning': 'Planning', 'ai-generation': 'Generating', 'artifact-received': 'Output received',
+      'planning': 'Planning', 'ai-generation': 'Generating', 'artifact-received': 'Output received', 'quality-inspection': 'Quality check', 'quality-auto-repair': 'Repairing',
       'files-applied': 'Applying files', 'source-tests': 'Source tests', 'preview-refresh': 'Refreshing preview',
       'build-verified': 'Build verified', 'build-failed': 'Build needs attention', 'ready': 'Quality'
     };
@@ -788,10 +788,49 @@
   function issueScore(report) {
     if (!report) return Infinity;
     return report.checks.reduce(function (sum, item) {
+      if (item.group === 'Coverage') return sum;
       if (item.status === 'fail') return sum + 4;
       if (item.status === 'warn') return sum + 1;
       return sum;
     }, 0);
+  }
+  function finalizeQualityReport(report) {
+    if (!report) return null;
+    report.finishedAt = new Date().toISOString();
+    report.status = reportStatus(report);
+    report.counts = countIssues(report);
+    currentReport = report;
+    renderFindings(report);
+    dispatch('ovyx:webstudio-quality-report', clone(report));
+    return report;
+  }
+  async function rejectBuildForQuality(studio, snapshot, reason) {
+    var restored = restoreSnapshot(studio, snapshot);
+    var report = null;
+    try { report = await inspectProject(); } catch (_) {}
+    if (!report) {
+      var project = window.KernelState && window.KernelState.activeProject || {};
+      report = {
+        projectId: text(project.id),
+        projectName: trim(project.name, 160),
+        startedAt: new Date().toISOString(),
+        finishedAt: null,
+        checks: [],
+        browser: { total: 0, completed: 0, pagesTested: 0, pagesAvailable: 0, widths: WIDTHS.slice() },
+        notes: []
+      };
+    }
+    addCheck(report, 'Automatic build gate', 'Post-build quality gate', 'fail',
+      trim(reason, 900) + ' ' + (restored
+        ? 'The previous project snapshot was restored; the unverified build was not promoted.'
+        : 'The previous project snapshot could not be fully restored. The editor must be checked before continuing.'));
+    finalizeQualityReport(report);
+    emitBuildStage({
+      stage: 'build-failed',
+      status: 'error',
+      message: 'The new build did not pass its automatic post-build quality gate; the last known project state was restored.'
+    });
+    return report;
   }
   function captureSnapshot(studio) {
     var project = window.KernelState && window.KernelState.activeProject || {};
@@ -1096,9 +1135,11 @@
       var depth = 0;
       async function qualityRunBuildAgent() {
         var outer = depth === 0;
+        var repairCall = arguments[1] === true;
         var state = window.KernelState || {};
         var beforeProject = clone(state.activeProject || {});
         var beforeGraph = clone(getGraph(studio));
+        var beforeBuildSnapshot = outer && !repairCall ? captureSnapshot(studio) : null;
         depth += 1;
         if (outer) {
           buildInFlight = true;
@@ -1112,11 +1153,81 @@
             var changed = typeof studio.diffFiles === 'function' ? studio.diffFiles(beforeGraph, afterGraph).length > 0 : JSON.stringify(beforeGraph) !== JSON.stringify(afterGraph);
             var verified = changed && text(afterProject.ovyxBuildVerifiedAt) && text(afterProject.ovyxBuildVerifiedAt) !== text(beforeProject.ovyxBuildVerifiedAt);
             buildInFlight = false;
-            emitBuildStage({
-              stage: verified ? 'build-verified' : 'build-failed',
-              status: verified ? 'success' : 'warning',
-              message: verified ? 'Website changes were saved and passed the built-in source checks.' : 'No newly verified website change was observed; the last good preview remains authoritative.'
-            });
+            if (!verified) {
+              emitBuildStage({
+                stage: 'build-failed',
+                status: 'warning',
+                message: 'No newly verified website change was observed; the last good preview remains authoritative.'
+              });
+            } else if (repairCall) {
+              emitBuildStage({
+                stage: 'build-verified',
+                status: 'success',
+                message: 'The targeted repair passed built-in source verification; the quality repair flow will run its own follow-up checks.'
+              });
+            } else {
+              emitBuildStage({
+                stage: 'quality-inspection',
+                status: 'running',
+                message: 'Source checks passed. Web Studio is now inspecting the actual generated routes and responsive browser previews before marking the build ready.'
+              });
+              var report = null;
+              var inspectionError = null;
+              running = true;
+              try {
+                report = await performInspection();
+              } catch (error) {
+                inspectionError = trim(error && error.message || error, 600);
+              } finally {
+                running = false;
+              }
+
+              if (inspectionError || !report) {
+                await rejectBuildForQuality(
+                  studio,
+                  beforeBuildSnapshot,
+                  'The automatic quality inspection did not complete' + (inspectionError ? ': ' + inspectionError + '.' : '.')
+                );
+              } else if (issueScore(report) > 0) {
+                emitBuildStage({
+                  stage: 'quality-auto-repair',
+                  status: 'running',
+                  message: 'The post-build quality inspection found repairable issues. OVYX will attempt one targeted repair, then repeat the checks.'
+                });
+                await repairWithOVYX();
+                var repairedReport = currentReport;
+                var repairVerified = !!(repairedReport &&
+                  issueScore(repairedReport) === 0 &&
+                  repairedReport.checks.some(function (item) {
+                    return item.group === 'Automatic repair' && item.status === 'pass';
+                  }));
+                if (!repairVerified) {
+                  await rejectBuildForQuality(
+                    studio,
+                    beforeBuildSnapshot,
+                    'The generated website still had failing or warning quality findings after the single bounded repair attempt.'
+                  );
+                } else {
+                  addCheck(repairedReport, 'Automatic build gate', 'Post-build quality gate', 'pass',
+                    'The generated files passed source checks, the isolated browser matrix, and one evidence-based repair/re-check pass. Any route-coverage or live-integration limitations remain explicitly reported.');
+                  finalizeQualityReport(repairedReport);
+                  emitBuildStage({
+                    stage: 'build-verified',
+                    status: 'success',
+                    message: 'The automatic post-build quality gate passed after one bounded repair and re-check.'
+                  });
+                }
+              } else {
+                addCheck(report, 'Automatic build gate', 'Post-build quality gate', 'pass',
+                  'The generated files passed source validation, route/accessibility checks and the isolated responsive browser matrix. Live integrations and any explicit coverage limits remain separately reported.');
+                finalizeQualityReport(report);
+                emitBuildStage({
+                  stage: 'build-verified',
+                  status: 'success',
+                  message: 'Source checks and automatic post-build quality inspection passed. The verified project is ready for review.'
+                });
+              }
+            }
           }
           return value;
         } catch (error) {
