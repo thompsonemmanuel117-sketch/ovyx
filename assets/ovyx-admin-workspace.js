@@ -67,9 +67,30 @@
     window.__OVYX_ROOT_AUTH_VERIFIED = false;
   }
 
+  function syncLegacyAdminGuard(isRoot, data = null) {
+    const lockdown = window.FirebaseAuthLockdown;
+    if (lockdown && typeof lockdown === 'object') {
+      // Older Router guards consult this same flag. It is synchronized only
+      // after /api/entitlements has verified the current Firebase identity.
+      lockdown.isSuperuser = isRoot === true;
+      if (isRoot === true) {
+        lockdown.adminEmail = String(data?.email || currentUser()?.email || '').trim().toLowerCase();
+      }
+      try { lockdown.enforceAccess?.(); } catch (error) {
+        console.warn('[OVYX Admin Workspace] Legacy admin visibility sync failed:', String(error?.message || 'unavailable').slice(0, 90));
+      }
+    }
+    try {
+      window.dispatchEvent(new CustomEvent('ovyx-owner-state', {
+        detail: { root: isRoot === true, source: 'verified-server-entitlements' },
+      }));
+    } catch { /* Optional cross-runtime UI notification. */ }
+  }
+
   function clearAuthorization(data) {
     const wasAuthorized = authorized;
     authorized = false;
+    syncLegacyAdminGuard(false, data);
     hideOwnedUI();
     downgradeCachedOwnerState(data);
     if (wasAuthorized && /^admin-/.test(String(window.KernelState?.activeView || '').replace(/^view-/, ''))) {
@@ -333,6 +354,7 @@
       window.OVYXServerOwner.active = true;
       window.OVYXOwner = window.OVYXOwner || {};
       window.OVYXOwner.active = true;
+      syncLegacyAdminGuard(true, data);
       document.documentElement.classList.add('ovyx-admin-workspace-authorized', 'ovyx-owner-account');
       ensureEntries();
       ensureHub();
