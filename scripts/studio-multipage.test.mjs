@@ -1,5 +1,41 @@
 import assert from 'node:assert/strict';
 import { buildStudioMultiPage } from '../functions/_lib/studio-multipage.js';
+import { auditWebsiteIntegrity } from '../functions/_lib/site-integrity.js';
+
+
+const integritySiteMap = {
+  pages: [
+    { title: 'Home', path: 'src/pages/Home.html', url: '/' },
+    { title: 'About', path: 'src/pages/About.html', url: '/about/' },
+  ],
+};
+const integrityFiles = {
+  'src/pages/Home.html': '<!doctype html><html lang="en"><head><title>Home</title><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="../styles.css"><script src="../main.js"></script></head><body><main><h1>Home</h1><nav><a href="/about/">About</a><a href="#features">Features</a><a href="https://example.com/reference">External reference</a><a href="mailto:hello@example.com">Email</a></nav><section id="features"><img src="../assets/mark.svg" alt="Brand mark"></section></main></body></html>',
+  'src/pages/About.html': '<!doctype html><html lang="en"><head><title>About</title><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="../styles.css"><script src="../main.js"></script></head><body><main><h1>About</h1><a href="/">Home</a></main></body></html>',
+  'src/styles.css': 'body{background-image:url("./assets/mark.svg")}',
+  'src/main.js': 'document.documentElement.dataset.ready = "true";',
+  'src/assets/mark.svg': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4"/></svg>',
+};
+const cleanIntegrity = auditWebsiteIntegrity(integrityFiles, integritySiteMap);
+assert.equal(cleanIntegrity.totalFindings, 0, JSON.stringify(cleanIntegrity.findings));
+assert.equal(cleanIntegrity.externalResourcesVerified, false);
+assert.equal(cleanIntegrity.runtimeBehaviorVerified, false);
+
+const brokenIntegrityFiles = {
+  ...integrityFiles,
+  'src/pages/Home.html': integrityFiles['src/pages/Home.html']
+    .replace('href="/about/"', 'href="/missing-route/"')
+    .replace('href="#features"', 'href="#does-not-exist"')
+    .replace('href="https://example.com/reference"', 'href="#"')
+    .replace('src="../assets/mark.svg"', 'src="../assets/missing.svg"'),
+  'src/styles.css': 'body{background-image:url("./assets/missing.svg")}',
+};
+const brokenIntegrity = auditWebsiteIntegrity(brokenIntegrityFiles, integritySiteMap);
+for (const code of ['INTERNAL_ROUTE_UNMAPPED', 'ORPHAN_FRAGMENT', 'PLACEHOLDER_LINK', 'LOCAL_IMG_MISSING', 'LOCAL_CSS_ASSET_MISSING']) {
+  assert.ok(brokenIntegrity.findings.some(item => item.code === code), 'Integrity audit should detect ' + code);
+}
+assert.ok(brokenIntegrity.totalFindings >= 5);
+assert.ok(brokenIntegrity.summary.includes('source-level'));
 
 const plannedPages = [
   { title: 'Home', goal: 'Explain the restaurant and primary booking path.' },
@@ -34,6 +70,10 @@ const callModel = async (_env, options) => {
     assert.ok(String(options.user).includes('FULL WEBSITE ROUTE MANIFEST JSON'), 'Polish must preserve site-wide route awareness.');
     assert.ok(String(options.user).includes('PROMPT REQUIREMENT CONTRACT JSON'), 'Polish must preserve the original requirements.');
     files['src/styles.css'] = String(files['src/styles.css'] || '').replace('outline-offset:3px', 'outline-offset:4px');
+    if (files['src/pages/Contact.html']) {
+      files['src/pages/Contact.html'] = files['src/pages/Contact.html'].replace('href="/missing-route/"', 'href="/menu/"');
+    }
+    assert.ok(String(options.user).includes('INTERNAL_ROUTE_UNMAPPED'), 'The polish prompt must identify the broken route found before polishing.');
     return {
       text: JSON.stringify({ summary: 'Bounded polish complete', files }),
       provider: 'gemini',
@@ -57,7 +97,7 @@ const callModel = async (_env, options) => {
       const links = plannedPages.map(page => {
         const href = page.title === 'Home' ? '/' : '/' + page.title.toLowerCase() + '/';
         return '<a href="' + href + '">' + page.title + '</a>';
-      }).join('');
+      }).join('') + (title === 'Contact' ? '<a href="/missing-route/">Broken route</a>' : '');
       files[target.path] = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="' + title + ' page"><title>' + title + ' | Test Restaurant</title><link rel="stylesheet" href="../styles.css"></head><body><nav aria-label="Main navigation">' + links + '</nav><main><h1>' + title + '</h1><p>Purposeful content for the ' + slug + ' page.</p></main><script src="../main.js"></script></body></html>';
     }
   }
@@ -99,8 +139,12 @@ assert.equal(result.rawUsage.prompt_tokens, 11 + 19 * 3 + 5);
 assert.equal(result.rawUsage.completion_tokens, 7 + 31 * 3 + 9);
 assert.equal(calls.length, 5, 'The five-page site should use one planning call, three file-sized batches, and one bounded polish call.');
 assert.equal(result.qualityPolish.status, 'applied');
-assert.equal(result.qualityPolish.filesUpdated, 1);
+assert.equal(result.qualityPolish.filesUpdated, 2);
 assert.ok(result.files['src/styles.css'].includes('outline-offset:4px'), 'The verified polish result should be applied.');
+assert.ok(result.files['src/pages/Contact.html'].includes('href="/menu/"'), 'The integrity-targeted polish should repair the broken internal route.');
+assert.equal(result.qualityPolish.integrityBefore, 1, 'The generated baseline should report the unresolved internal route.');
+assert.equal(result.qualityPolish.integrityAfter, 0, 'The accepted polish should remove that integrity finding.');
+assert.equal(result.qualityPolish.integrityFindings.length, 0);
 assert(calls[calls.length - 1].user.includes('POLISH ALLOWLIST JSON'), 'The polish phase must use an explicit file allowlist.');
 assert(calls[calls.length - 1].system.includes('senior frontend engineer'), 'The polish phase must preserve the Web Studio role instructions.');
 assert(result.summary.includes('5 distinct website pages'));
@@ -188,6 +232,7 @@ assert.equal(safeAfterRejectedPolish.qualityPolish.status, 'rejected');
 assert.ok(safeAfterRejectedPolish.files['src/pages/Home.html'].includes('<h1>Home</h1>'));
 assert.equal(safeAfterRejectedPolish.files['src/private.html'], undefined, 'Unapproved polish paths must never be committed into the staged build.');
 assert.equal(safeAfterRejectedPolish.requirementVerification.ok, true);
+assert.equal(safeAfterRejectedPolish.qualityPolish.integrityAfter, 1, 'A rejected polish must preserve the original integrity findings without introducing another defect.');
 assert.equal(safeAfterRejectedPolish.rawUsage.total_tokens, 18 + 50 * 3 + 5);
 
 console.log('Web Studio multi-page integration tests passed.');

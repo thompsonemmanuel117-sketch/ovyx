@@ -1,4 +1,5 @@
 import { normalizeSiteMap, createSiteBuildBatches, mergeStagedChanges, buildSiteBatchContext, selectSitePolishChanges } from './multi-page.js';
+import { auditWebsiteIntegrity } from './site-integrity.js';
 import { validateChanges } from './validator.js';
 import { buildPromptContract, verifyPromptContractOutput } from './prompt-contract.js';
 function cap(env, key, fallback) { const n = Number(env && env[key]); return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback; }
@@ -154,14 +155,15 @@ function makeBatchPrompt(prompt, plan, siteMap, batch, stagedChanges, existingFi
   ].join('\n\n');
 }
 
-function makePolishPrompt(prompt, plan, siteMap, targets, extraContext, promptContract) {
+function makePolishPrompt(prompt, plan, siteMap, targets, extraContext, promptContract, integrityAudit) {
   const currentFiles = Object.fromEntries(targets.map(item => [item.path, item.content]));
   return [
     'OVYX WEB STUDIO BOUNDED WEBSITE POLISH PHASE.',
     'Perform one targeted quality-improvement pass on the already generated multi-page website. Preserve its established visual direction and all working behavior.',
     'Return strict JSON only, using this shape: {"summary":"...","files":{"existing/allowed/path":"complete final file content"}}.',
     'Return complete final files only for the provided allowlist. Do not add files, rename routes, change the sitemap, or return diffs.',
-    'Improve meaningful details only: design distinctiveness, visual hierarchy, page-to-page consistency, mobile layout, accessibility, metadata, asset references and interaction clarity. Avoid cosmetic churn.',
+    'Prioritize fixing the deterministic site-integrity findings below, then improve meaningful details only: design distinctiveness, visual hierarchy, page-to-page consistency, mobile layout, accessibility, metadata, asset references and interaction clarity. Avoid cosmetic churn.',
+    'SITE-INTEGRITY AUDIT JSON (source-level only; do not claim external resources or live integrations were verified):\\n' + JSON.stringify(integrityAudit || {}),
     'Keep every explicit user requirement, form, navigation destination, page title, and working interaction intact. Never invent business facts, testimonials, prices, contact details, integrations or results.',
     'Keep dependencies unchanged. No secrets, TODOs, placeholders or dead controls.',
     'ORIGINAL USER BRIEF:\n' + String(prompt || ''),
@@ -179,8 +181,12 @@ function makePolishPrompt(prompt, plan, siteMap, targets, extraContext, promptCo
   ].join('\n\n');
 }
 
-function selectBoundedPolishTargets(staged, siteMap, limit, maxFileChars, maxTotalChars) {
-  const candidates = selectSitePolishChanges(staged, siteMap, limit);
+function selectBoundedPolishTargets(staged, siteMap, limit, maxFileChars, maxTotalChars, preferredPaths = []) {
+  const byPath = new Map(staged.map(item => [item.path, item]));
+  const preferred = Array.isArray(preferredPaths) ? preferredPaths : [];
+  const ordinary = selectSitePolishChanges(staged, siteMap, limit).map(item => item.path);
+  const allPaths = [...new Set([...preferred, ...ordinary, ...staged.map(item => item.path)])];
+  const candidates = allPaths.map(path => byPath.get(path)).filter(Boolean);
   const selected = [];
   let totalChars = 0;
   for (const item of candidates) {
@@ -197,7 +203,14 @@ function validateStagedSite(staged, prompt, siteMap) {
   const validation = validateChanges(staged.map(item => ({ ...item, action: 'update' })), { allowDeletes: false });
   const outputFilesByPath = Object.fromEntries(staged.map(item => [item.path, item.content]));
   const requirementVerification = verifyPromptContractOutput(prompt, outputFilesByPath, siteMap);
-  return { validation, outputFilesByPath, requirementVerification };
+  const integrity = auditWebsiteIntegrity(outputFilesByPath, siteMap);
+  return { validation, outputFilesByPath, requirementVerification, integrity };
+}
+
+function hasNewIntegrityFindings(before, after) {
+  const key = item => [item.code, item.file, item.reference].join('|').toLowerCase();
+  const existing = new Set((before && before.findings || []).map(key));
+  return (after && after.findings || []).some(item => !existing.has(key(item)));
 }
 
 function projectPages(project, siteMap) {
@@ -354,16 +367,25 @@ export async function buildStudioMultiPage(options) {
   const polishLimit = Math.max(1, Math.min(8, cap(env, 'OVYX_WEBSTUDIO_POLISH_MAX_FILES', 6)));
   const maxPolishFileChars = Math.max(1000, Math.min(45000, cap(env, 'OVYX_WEBSTUDIO_POLISH_MAX_FILE_CHARS', 28000)));
   const maxPolishContextChars = Math.max(10000, Math.min(100000, cap(env, 'OVYX_WEBSTUDIO_POLISH_MAX_CONTEXT_CHARS', 80000)));
-  const polishTargets = selectBoundedPolishTargets(staged, siteMap, polishLimit, maxPolishFileChars, maxPolishContextChars);
+  const integrityBefore = checks.integrity;
+  const integrityPreferredPaths = integrityBefore.findings.map(item => item.file);
+  const polishTargets = selectBoundedPolishTargets(
+    staged, siteMap, polishLimit, maxPolishFileChars, maxPolishContextChars,
+    integrityPreferredPaths,
+  );
   let qualityPolish = {
     status: 'skipped',
     filesConsidered: polishTargets.length,
     filesUpdated: 0,
+    integrityBefore: integrityBefore.totalFindings,
+    integrityAfter: integrityBefore.totalFindings,
+    integrityFindings: integrityBefore.findings,
+    integrityAuditIsStaticOnly: true,
   };
   const polishEnabled = String(env && env.OVYX_WEBSTUDIO_POLISH_ENABLED || 'true').trim().toLowerCase() !== 'false';
 
   if (polishEnabled && polishTargets.length) {
-    const polishInput = makePolishPrompt(prompt, plan, siteMap, polishTargets, extraContext, promptContract);
+    const polishInput = makePolishPrompt(prompt, plan, siteMap, polishTargets, extraContext, promptContract, integrityBefore);
     inputs.push(polishInput);
     try {
       const polishResult = await callModel(env, {
@@ -406,7 +428,11 @@ export async function buildStudioMultiPage(options) {
         const changedPaths = polishedPaths.filter(path => String(polishedFiles[path]) !== String(baselineByPath.get(path) || ''));
         if (!changedPaths.length) {
           qualityPolish.status = 'unchanged';
-        } else if (candidateChecks.validation.length || !candidateChecks.requirementVerification.ok) {
+        } else if (
+          candidateChecks.validation.length ||
+          !candidateChecks.requirementVerification.ok ||
+          hasNewIntegrityFindings(integrityBefore, candidateChecks.integrity)
+        ) {
           qualityPolish.status = 'rejected';
         } else {
           staged = candidate;
@@ -430,6 +456,9 @@ export async function buildStudioMultiPage(options) {
   } else {
     qualityPolish.status = 'disabled';
   }
+  qualityPolish.integrityAfter = checks.integrity.totalFindings;
+  qualityPolish.integrityFindings = checks.integrity.findings;
+  qualityPolish.integritySummary = checks.integrity.summary;
 
   const outputFilesByPath = checks.outputFilesByPath;
   const requirementVerification = checks.requirementVerification;
@@ -456,8 +485,11 @@ export async function buildStudioMultiPage(options) {
         : qualityPolish.status === 'disabled'
           ? ' The optional design-polish pass is disabled.'
           : ' The first validated version was preserved because the optional polish pass was unavailable.';
-  const summary = 'Built ' + pageCount + ' distinct website pages in ' + batches.length + ' verified batches.' + polishNote;
-  const message = 'Your multi-page website is ready in Web Studio. ' + pageCount + ' pages were generated and structurally checked.' + polishNote;
+  const integrityNote = qualityPolish.integrityAfter > 0
+    ? ' Static review still reports ' + qualityPolish.integrityAfter + ' link or local-asset finding(s); review these before publishing. External resources and live integrations were not verified by this static audit.'
+    : ' Static route, fragment, and local-asset checks found no unresolved references. External resource availability and live integrations were not verified by this static audit.';
+  const summary = 'Built ' + pageCount + ' distinct website pages in ' + batches.length + ' verified batches.' + polishNote + integrityNote;
+  const message = 'Your multi-page website is ready in Web Studio. ' + pageCount + ' pages were generated and structurally checked.' + polishNote + integrityNote;
   return {
     ok: true,
     text: JSON.stringify({ summary, message }),
