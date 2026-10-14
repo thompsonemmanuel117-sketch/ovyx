@@ -14,6 +14,11 @@ assert.deepEqual(
 
 assert.deepEqual(providerOrder({}, 'automatic'), [], 'Automatic must skip every provider when no real key or Workers AI binding exists.');
 assert.deepEqual(
+  providerOrder({ OPENROUTER_API_KEY: 'only-openrouter' }, 'automatic'),
+  ['openrouter'],
+  'Automatic must recognize the configured OpenRouter key as a real provider.',
+);
+assert.deepEqual(
   providerOrder({ DEEPSEEK_API_KEY: 'only-deepseek', OVYX_AI_PROVIDER_ORDER: 'gemini,deepseek,claude,openai' }, 'automatic'),
   ['deepseek'],
   'Automatic must skip unconfigured providers rather than making doomed calls first.',
@@ -109,6 +114,14 @@ globalThis.fetch = async (input, init = {}) => {
     }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   }
 
+  if (url.includes('openrouter.ai/api/v1/chat/completions')) {
+    return new Response(JSON.stringify({
+      model: 'openai/gpt-4o-mini',
+      choices: [{ message: { content: 'OpenRouter test passed' } }],
+      usage: { prompt_tokens: 2, completion_tokens: 2, total_tokens: 4 },
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }
+
   return new Response(JSON.stringify({ error: { message: 'Unexpected test URL' } }), {
     status: 404,
     headers: { 'Content-Type': 'application/json' },
@@ -134,6 +147,16 @@ try {
   assert.equal(result.text, 'DeepSeek test passed');
   assert.equal(requests.at(-1).url, 'https://api.deepseek.com/chat/completions');
   assert.equal(requests.at(-1).authorization, 'Bearer test-deepseek-key');
+
+  result = await callModel(
+    { OPENROUTER_API_KEY: 'test-openrouter-key', OPENROUTER_MODEL: 'openai/gpt-4o-mini' },
+    { provider: 'openrouter', model: 'automatic', system: 'test', user: 'hello', maxTokens: 32 },
+  );
+  assert.equal(result.provider, 'openrouter');
+  assert.equal(result.text, 'OpenRouter test passed');
+  assert.equal(requests.at(-1).url, 'https://openrouter.ai/api/v1/chat/completions');
+  assert.equal(requests.at(-1).authorization, 'Bearer test-openrouter-key');
+  assert.equal(requests.at(-1).url.includes('test-openrouter-key'), false);
 
   result = await callModel(
     { ANTHROPIC_API_KEY: 'test-anthropic-key' },
