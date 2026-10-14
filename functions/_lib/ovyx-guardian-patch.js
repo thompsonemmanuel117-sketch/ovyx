@@ -187,7 +187,7 @@ export async function prepareGuardianPatch({ path, task, env = {}, fetchImpl = f
   }
   const summary = parsed.summary.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 400);
   const content = parsed.content;
-  if (!summary || !content || content.length > MAX_PATCH_CHARS) {
+  if (!summary || !content || content.length > MAX_PATCH_CHARS || /^\s*\`\`\`/.test(content)) {
     throw Object.assign(new Error('Guardian returned an empty or oversized patch. No source was changed.'), {
       status: 502, code: 'GUARDIAN_PATCH_SIZE_INVALID',
     });
@@ -243,6 +243,11 @@ export async function createGuardianPullRequest({ proposal, userId, env = {}, fe
       status: 503, code: 'GUARDIAN_GITHUB_WRITE_NOT_CONFIGURED',
     });
   }
+  if (readToken === writeToken) {
+    throw Object.assign(new Error('Use separate GitHub credentials: one Contents read-only token and one token limited to Contents write and Pull Requests write for this repository.'), {
+      status: 400, code: 'GUARDIAN_GITHUB_TOKENS_MUST_BE_SEPARATE',
+    });
+  }
   const current = await getMainFile(proposal.path, readToken, fetchImpl);
   if (current.sha !== proposal.baseSha) {
     throw Object.assign(new Error('The source file changed after this proposal was prepared. Guardian stopped to avoid overwriting newer work; prepare a fresh proposal.'), {
@@ -289,7 +294,7 @@ export async function createGuardianPullRequest({ proposal, userId, env = {}, fe
         '**Review status:** Generated proposal; requires human review.',
         '**Automation boundary:** Guardian created this branch and pull request only. It did not merge the change or deploy production.',
         '',
-        'Requested by verified root administrator: ' + String(userId || '').slice(0, 100),
+        'Requested by the verified OVYX Guardian owner. Personal account identifiers are omitted.',
         'Proposal ID: ' + String(proposal.id || '').slice(0, 100),
       ].join('\n'),
     },
