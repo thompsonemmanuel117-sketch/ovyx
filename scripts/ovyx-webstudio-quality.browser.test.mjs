@@ -146,6 +146,8 @@ try {
       studio.graph.files[filePath] = { type: 'text/html', content };
       project.pages.push({ name, route, __ovyxFile: filePath });
     }
+    const sharedStyles = studio.graph.files['src/styles.css'];
+    sharedStyles.content += '\n.qa-missing-asset-probe{background-image:url("./assets/absent-pattern-qa.svg")}\n';
     project.ovyxGraph = studio.graph;
     studio.graph.updatedAt = Date.now();
     return Object.keys(studio.graph.files).filter(filePath => /\.html?$/i.test(filePath)).length;
@@ -162,6 +164,7 @@ try {
   assert.ok(largeReport.checks.some(item => item.group === 'Coverage' && item.title === 'Responsive browser matrix coverage' && item.status === 'pass' && item.detail.includes('all 18 generated HTML route')), 'The report must state its adaptive route coverage honestly.');
   assert.ok(largeReport.checks.some(item => item.group === 'Browser testing' && item.title === 'Horizontal overflow' && item.status !== 'fail'), 'The large-project fixture must not introduce a horizontal-overflow regression.');
   assert.ok(largeReport.checks.some(item => item.group === 'Project assets' && item.title === 'Local asset references' && item.status === 'warn' && item.detail.includes('absent-missing-qa.webp')), 'The source audit must flag a missing local image without echoing unrelated source content.');
+  assert.ok(largeReport.checks.some(item => item.group === 'Project assets' && item.title === 'Local asset references' && item.detail.includes('absent-pattern-qa.svg')), 'The source audit must also flag missing CSS url() resources.');
   assert.ok(largeReport.checks.some(item => item.group === 'Project assets' && item.title === 'External asset reachability' && item.status === 'info' && item.detail.includes('network access')), 'The report must state that external asset reachability was not verified in its network-blocked sandbox.');
   assert.ok(pageErrors.length === 0, 'Large-project route coverage must not create browser errors: ' + pageErrors.join('; '));
 
