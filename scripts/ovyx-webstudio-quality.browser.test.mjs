@@ -36,6 +36,9 @@ try {
   const first = await page.evaluate(() => window.OVYXWebStudioQuality.getReport());
   assert.equal(first.browser.total, 15, 'Three generated pages must each receive five real viewport checks.');
   assert.equal(first.browser.completed, 15, 'Every planned viewport check must report completion.');
+  assert.ok(first.browser.interactions.tested >= 1, 'The inspector must actually click at least one safe stateful control in the generated page sandbox.');
+  assert.ok(first.browser.interactions.responded >= 1, 'The inspector must observe a state change from the working disclosure control.');
+  assert.ok(first.checks.some(item => item.title === 'Safe interactive behavior smoke test' && item.status === 'pass'), 'Responsive report must include evidence that a safe stateful control worked.');
   assert.ok(first.checks.some(item => item.title === 'Horizontal overflow' && item.status === 'fail'), 'The inspector must detect a real mobile horizontal-overflow defect.');
   assert.ok(first.checks.some(item => item.title === 'Live integration verification' && item.status === 'info'), 'The inspector must not claim live integrations were verified.');
   assert.equal((await page.evaluate(() => window.__qualityRepairCalls.length)), 0, 'A scan alone must not spend an AI repair attempt.');
@@ -76,7 +79,7 @@ try {
   assert.equal(await page.evaluate(() => window.WebStudio.graph.files["src/pages/About.html"].content.includes("width:1100px;max-width:none")), false, 'The automatically repaired graph must not retain the known overflow defect.');
   assert.ok(pageErrors.length === 0, 'The automatic lifecycle gate must not create browser errors: ' + pageErrors.join('; '));
 
-  console.log('Web Studio quality browser tests passed: toolbar wiring, source and 3 routes × 5 viewport checks, manual and automatic bounded repair, post-build quality gate, rollback-aware verification, and truthful integration status.');
+  console.log('Web Studio quality browser tests passed: toolbar wiring, source, 3 routes × 5 viewport checks, safe-control interaction smoke test, manual and automatic bounded repair, post-build quality gate, rollback-aware verification, and truthful integration status.');
 } finally {
   await browser.close();
 }
