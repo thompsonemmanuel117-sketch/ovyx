@@ -28,12 +28,16 @@ try {
             'window.firebase={auth:()=>({get currentUser(){return __currentUser},onAuthStateChanged:cb=>{__authListeners.push(cb);cb(__currentUser);return ()=>{}}})};' +
             'window.__recognizer=null;window.SpeechRecognition=class{start(){window.__recognizer=this}stop(){if(this.onend)this.onend()}};' +
             'Object.defineProperty(window,"SpeechSynthesisUtterance",{configurable:true,value:class{constructor(text){this.text=text}}});window.__spoken=[];Object.defineProperty(window,"speechSynthesis",{configurable:true,value:{cancel(){},speak(u){window.__spoken.push(u.text);if(u.onend)u.onend()}}});' +
-            '</script><script defer src="/assets/ovyx-sentinel.js?v=20261012-1"></script></body></html>',
+            '</script><script defer src="/assets/ovyx-sentinel.js?v=20261012-1"></script><script defer src="/assets/ovyx-sentinel-avatar-3d.js?v=20261014-1"></script></body></html>',
         });
         return;
       }
       await route.continue();
     });
+
+    // Force external 3D dependencies offline in this test: the visible fallback must remain usable.
+    await page.route('https://esm.sh/**', route => route.abort());
+    await page.route('https://models.codelove.in/**', route => route.abort());
 
     const calls = [];
     let scanCount = 0;
@@ -116,6 +120,9 @@ try {
     assert.equal(await script.count(), 1, '[' + target.name + '] Sentinel browser runtime should be loaded once');
     await page.locator('#ovyx-sentinel-launch').click();
     await page.locator('#ovyx-sentinel-panel').waitFor({ state: 'visible' });
+    await page.locator('#ovyx-sentinel-avatar-stage').waitFor({ state: 'visible' });
+    await page.waitForFunction(() => document.querySelector('#ovyx-sentinel-avatar-stage .ovsx3-status')?.textContent.includes('voice companion is still available'), null, { timeout: 10000 });
+    assert.match(await page.locator('#ovyx-sentinel-avatar-stage .ovsx3-status').innerText(), /voice companion is still available/i, '[' + target.name + '] Sentinel must remain usable when remote 3D assets are unavailable');
     await page.waitForFunction(() => document.querySelector('#ovyx-sentinel-panel [data-ovsx-report]')?.textContent.includes('Latest report'), null, { timeout: 10000 }).catch(() => {});
     assert.match(await page.locator('#ovyx-sentinel-panel [data-ovsx-status]').innerText(), /Sentinel is ready|Last saved scan|latest scan|Sentinel server|administrator/i, '[' + target.name + '] Sentinel report bootstrap failed: ' + await page.locator('#ovyx-sentinel-panel [data-ovsx-status]').innerText());
     assert.match(await page.locator('#ovyx-sentinel-panel [data-ovsx-report]').innerText(), /Latest report · HEALTHY/i, '[' + target.name + '] saved report was not rendered');
