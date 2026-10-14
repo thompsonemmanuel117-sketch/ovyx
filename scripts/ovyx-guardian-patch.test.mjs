@@ -44,7 +44,8 @@ assert.equal(requests, 0, 'missing read token must not call GitHub');
       OVYX_GUARDIAN_GITHUB_READ_TOKEN: readToken,
       AI: { run: async (_model, input) => {
         modelCalls += 1;
-        assert.ok(JSON.stringify(input).includes(original));
+        const userMessage = input.messages.find(message => message.role === 'user');
+        assert.equal(JSON.parse(userMessage.content).currentSource, original);
         return { response: JSON.stringify({ summary: 'Fix returned value', content: replacement }) };
       } },
     },
