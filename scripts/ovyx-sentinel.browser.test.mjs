@@ -75,6 +75,15 @@ try {
       checks: [...latestReport.checks, { id: 'sentinel', path: 'Scheduler', status: 'warning', summary: 'No recent scheduled run is confirmed.' }],
     };
 
+    await page.route('**/api/admin/guardian-patch', async route => {
+      const req = route.request();
+      assert.equal(req.headers()['authorization'], 'Bearer sentinel-test-token', '[' + target.name + '] patch capability requests must use the signed-in owner token');
+      await route.fulfill({
+        status: 401,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: false, error: 'GUARDIAN_ADMIN_REQUIRED', message: 'Test owner verification denied; patch controls must fail closed.' })
+      });
+    });
     await page.route('**/api/admin/sentinel-diagnose', async route => {
       const req = route.request();
       assert.equal(req.method(), 'POST', '[' + target.name + '] AI diagnosis must use POST');
