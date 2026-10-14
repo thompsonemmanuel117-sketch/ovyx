@@ -37,6 +37,7 @@ for (const token of [
   'MAX_SAFE_CONTROLS_PER_ROUTE = 8',
   'interactions.skipped=Math.max',
   'Safe control interaction sampling',
+  'No controls matched the inspector’s conservative safe-click criteria',
   'safeControlSampling',
   'var routePlan = []',
   'report.browser.pagesTested += 1',
