@@ -308,7 +308,8 @@ export async function createGuardianPullRequest({ proposal, userId, env = {}, fe
     pullRequestUrl: String(pull.html_url),
     pullRequestNumber: Number(pull.number) || null,
     branch,
-    changesApplied: false,
+    mainBranchChanged: false,
+    reviewBranchCreated: true,
     deployed: false,
   };
 }
