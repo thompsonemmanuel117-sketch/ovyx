@@ -86,8 +86,8 @@ function buildShell() {
   root = document.createElement('div'); root.id = ID + '-root';
   root.innerHTML = '<button id="' + ID + '-launch" type="button" aria-label="Open private OVYX Sentinel administrator companion"><span class="eye" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M3 16s4.8-8 13-8 13 8 13 8-4.8 8-13 8S3 16 3 16Z" stroke="#8BEAF4" stroke-width="1.5"/><circle cx="16" cy="16" r="5.4" fill="#A5F3FC" fill-opacity=".2" stroke="#8BEAF4" stroke-width="1.4"/><circle cx="16" cy="16" r="2.4" fill="#B9FAFF"/></svg></span><span>OVYX SENTINEL</span></button>' +
   '<section id="' + ID + '-panel" role="dialog" aria-modal="false" aria-labelledby="' + ID + '-title" hidden><header class="head"><span class="eye" aria-hidden="true">◉</span><div class="headcopy"><div id="' + ID + '-title" class="title">OVYX SENTINEL</div><div class="sub">PRIVATE ADMIN COMPANION · SYSTEM HEALTH</div></div><button type="button" class="close" data-ovsx="close" aria-label="Close Sentinel">×</button></header>' +
-  '<div class="actions"><button type="button" class="btn primary" data-ovsx="scan">Check now</button><button type="button" class="btn" data-ovsx="plan">Prepare fix plan</button><button type="button" class="btn" data-ovsx="wake">Enable wake word</button><button type="button" class="btn" data-ovsx="mute" disabled>Stop speaking</button></div>' +
-  '<div class="status" role="status" aria-live="polite" data-ovsx-status>Verifying administrator access…</div><div class="body"><div class="summary"><strong>Welcome back, boss.</strong><small>Sentinel checks platform health and authorised service signals. It does not read private user projects or conversations.</small></div><div data-ovsx-report></div><div class="plan" hidden data-ovsx-plan></div><div class="transcript" hidden data-ovsx-transcript></div></div>' +
+  '<div class="actions"><button type="button" class="btn primary" data-ovsx="scan">Check now</button><button type="button" class="btn" data-ovsx="plan">Prepare fix plan</button><button type="button" class="btn" data-ovsx="diagnose">AI diagnosis</button><button type="button" class="btn" data-ovsx="wake">Enable wake word</button><button type="button" class="btn" data-ovsx="mute" disabled>Stop speaking</button></div>' +
+  '<div class="status" role="status" aria-live="polite" data-ovsx-status>Verifying administrator access…</div><div class="body"><div class="summary"><strong>Welcome back, boss.</strong><small>Sentinel checks platform health and authorised service signals. It does not read private user projects or conversations.</small></div><div data-ovsx-report></div><div class="plan" hidden data-ovsx-plan></div><div class="plan" hidden data-ovsx-diagnosis></div><div class="transcript" hidden data-ovsx-transcript></div></div>' +
   '<div class="foot">Wake word requires an enabled microphone and a supported browser. It works while this page is open and active; you can pause it at any time.</div></section>';
   document.body.appendChild(root); addStyles(); bindShell(); return root;
 }
@@ -174,6 +174,47 @@ function renderFixPlan(plan) {
   var note = document.createElement('div'); note.className = 'plan-note';
   note.textContent = safeText(plan && plan.note || 'Advisory only. No changes have been applied.', 360);
   host.appendChild(note);
+}
+function renderDiagnosis(data) {
+  var host = q('[data-ovsx-diagnosis]'); if (!host) return;
+  host.replaceChildren(); host.hidden = false;
+  var header = document.createElement('div'); header.className = 'summary';
+  var title = document.createElement('strong'); title.textContent = 'AI incident diagnosis';
+  var detail = document.createElement('small'); detail.textContent = 'Evidence report ' + safeText(data && data.reportId || 'unknown', 100) + ' · ' + safeText(data && data.generatedAt ? new Date(data.generatedAt).toLocaleString() : 'just now', 80);
+  header.append(title, detail); host.appendChild(header);
+  var body = document.createElement('div'); body.className = 'plan-issue'; body.style.whiteSpace = 'pre-wrap';
+  body.textContent = safeText(data && data.diagnosis || 'The diagnostic brain did not return a result.', 6000);
+  host.appendChild(body);
+  var note = document.createElement('div'); note.className = 'plan-note';
+  note.textContent = 'Diagnosis only. No source files, provider keys, Cloudflare settings, or deployments were changed.';
+  host.appendChild(note);
+}
+async function diagnoseLatest(shouldSpeak) {
+  if (busy) return;
+  busy = true;
+  var button = q('[data-ovsx="diagnose"]'); if (button) button.disabled = true;
+  status('Investigating the latest saved report with the diagnostic AI brain…');
+  try {
+    var idToken = await getToken();
+    var response = await fetch('/api/admin/sentinel-diagnose', {
+      method: 'POST', credentials: 'same-origin', cache: 'no-store',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken },
+      body: JSON.stringify({ action: 'diagnose' })
+    });
+    var data = await response.json().catch(function () { return {}; });
+    if (!response.ok || data.ok !== true) throw new Error(String(data.message || data.error || 'Sentinel could not diagnose the report.').slice(0, 320));
+    renderDiagnosis(data);
+    var message = safeText(data.diagnosis || 'The diagnosis is ready.', 900);
+    transcript('Sentinel AI diagnosis:\\n' + message);
+    status('Diagnosis ready. It is based on the saved report; no changes were applied.', 'success');
+    if (shouldSpeak) speak(message);
+  } catch (error) {
+    status(String(error.message || 'AI diagnosis failed.') + ' Run Check now and retry.', 'error');
+    if (shouldSpeak) speak('Sorry boss, I could not complete the AI diagnosis. ' + String(error.message || ''));
+  } finally {
+    busy = false;
+    var current = q('[data-ovsx="diagnose"]'); if (current) current.disabled = false;
+  }
 }
 function speak(text) {
   if (!window.speechSynthesis || typeof window.SpeechSynthesisUtterance !== 'function') return;
@@ -295,6 +336,7 @@ function bindShell() {
     if (button.dataset.ovsx === 'close') showPanel(false);
     else if (button.dataset.ovsx === 'scan') void scanNow(false);
     else if (button.dataset.ovsx === 'plan') void prepareFixPlan();
+    else if (button.dataset.ovsx === 'diagnose') void diagnoseLatest(false);
     else if (button.dataset.ovsx === 'wake') toggleWake();
     else if (button.dataset.ovsx === 'mute') { try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (_) {} button.disabled = true; }
   });
