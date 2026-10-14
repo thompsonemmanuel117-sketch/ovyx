@@ -93,6 +93,8 @@ assert.ok(multipage.includes('External resource availability and live integratio
 assert.ok(integrity.includes('INTERNAL_ROUTE_UNMAPPED'), 'The integrity audit must detect links outside the approved page route manifest.');
 assert.ok(integrity.includes('LOCAL_CSS_ASSET_MISSING'), 'The integrity audit must detect missing CSS assets.');
 assert.ok(integrity.includes('LOCAL_SRCSET_ASSET_MISSING'), 'The integrity audit must detect missing responsive-image srcset assets.');
+assert.ok(integrity.includes('IMAGE_ALT_MISSING'), 'The integrity audit must detect images that omit an alt attribute.');
+assert.ok(integrity.includes('DUPLICATE_HTML_ID'), 'The integrity audit must detect duplicate HTML ids.');
 assert.ok(integrity.includes('ORPHAN_FRAGMENT'), 'The integrity audit must detect broken same-page anchors.');
 assert.ok(integrity.includes('BROKEN_ROUTE_FRAGMENT'), 'The source integrity audit must detect anchors that point to missing ids on another page.');
 assert.ok(integrity.includes('runtimeBehaviorVerified: false'), 'Static checks must not be presented as proof that runtime behavior works.');

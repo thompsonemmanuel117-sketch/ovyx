@@ -29,11 +29,13 @@ const brokenIntegrityFiles = {
     .replace('href="/about/#team"', 'href="/about/#missing-team"')
     .replace('href="https://example.com/reference"', 'href="#"')
     .replace('src="../assets/mark.svg"', 'src="../assets/missing.svg"')
-    .replace('srcset="../assets/mark.svg 1x"', 'srcset="../assets/missing-srcset.svg 1x"'),
+    .replace('srcset="../assets/mark.svg 1x"', 'srcset="../assets/missing-srcset.svg 1x"')
+    .replace(' alt="Brand mark"', '')
+    .replace('<h1>Home</h1>', '<h1 id="features">Home</h1>'),
   'src/styles.css': 'body{background-image:url("./assets/missing.svg")}',
 };
 const brokenIntegrity = auditWebsiteIntegrity(brokenIntegrityFiles, integritySiteMap);
-for (const code of ['INTERNAL_ROUTE_UNMAPPED', 'ORPHAN_FRAGMENT', 'BROKEN_ROUTE_FRAGMENT', 'PLACEHOLDER_LINK', 'LOCAL_IMG_MISSING', 'LOCAL_SRCSET_ASSET_MISSING', 'LOCAL_CSS_ASSET_MISSING']) {
+for (const code of ['INTERNAL_ROUTE_UNMAPPED', 'ORPHAN_FRAGMENT', 'BROKEN_ROUTE_FRAGMENT', 'PLACEHOLDER_LINK', 'LOCAL_IMG_MISSING', 'LOCAL_SRCSET_ASSET_MISSING', 'IMAGE_ALT_MISSING', 'DUPLICATE_HTML_ID', 'LOCAL_CSS_ASSET_MISSING']) {
   assert.ok(brokenIntegrity.findings.some(item => item.code === code), 'Integrity audit should detect ' + code);
 }
 assert.ok(brokenIntegrity.totalFindings >= 5);
