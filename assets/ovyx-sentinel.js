@@ -536,13 +536,18 @@ async function openFromVoice(command) {
   var route = resolveGuardianRoute(target);
   if (route) {
     if (route.admin) {
-      if (window.OvyxOwnerConsole && typeof window.OvyxOwnerConsole.open === 'function') {
-        await window.OvyxOwnerConsole.open(route.route);
-      } else if (window.Router && typeof window.Router.go === 'function') {
-        await window.Router.go(route.route);
-      } else {
-        throw new Error('The verified admin navigation is not ready yet.');
+      var adminWorkspace = window.OVYXAdminWorkspace;
+      if (!adminWorkspace || typeof adminWorkspace.refresh !== 'function' || typeof adminWorkspace.isAuthorized !== 'function') {
+        throw new Error('The verified Admin Workspace is not ready yet.');
       }
+      var isOwner = await adminWorkspace.refresh();
+      if (isOwner !== true || adminWorkspace.isAuthorized() !== true) {
+        throw new Error('I could not verify owner access to that admin module, so I left it closed.');
+      }
+      if (!window.Router || typeof window.Router.go !== 'function') {
+        throw new Error('OVYX navigation is not ready yet.');
+      }
+      await window.Router.go(route.route);
     } else {
       if (!window.Router || typeof window.Router.go !== 'function') throw new Error('OVYX navigation is not ready yet.');
       await window.Router.go(route.route);
