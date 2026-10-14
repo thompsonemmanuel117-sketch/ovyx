@@ -64,7 +64,8 @@ try {
     assert.ok(await page.locator('#ovyx-admin-workspace-entry-mobile-button').count(), '[' + target.name + '] mobile owner action was not created');
 
     // Open the actual workspace, then verify every restored module and search behavior.
-    await page.locator('#ovyx-admin-workspace-entry-desktop').evaluate(button => button.click());
+    const workspaceEntry = target.name === 'mobile' ? '#ovyx-admin-workspace-entry-mobile-button' : '#ovyx-admin-workspace-entry-desktop';
+    await page.locator(workspaceEntry).evaluate(button => button.click());
     await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-overview');
     const hub = page.locator('#ovyx-admin-workspace-hub');
     await hub.waitFor({ state: 'visible' });
