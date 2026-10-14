@@ -407,8 +407,122 @@ export async function buildStudioMultiPage(options) {
   if (checks.validation.length) {
     throw accountingError(Object.assign(new Error('Generated website failed structural validation: ' + checks.validation.slice(0, 4).join(' | ')), { status: 422, code: 'WEBSTUDIO_SITE_VALIDATION_FAILED' }), usage, hasUsage, inputs, outputs);
   }
+  let requirementRepair = {
+    status: checks.requirementVerification.ok ? 'not-needed' : 'pending',
+    issuesBefore: checks.requirementVerification.issues,
+    issuesAfter: checks.requirementVerification.issues,
+    filesConsidered: 0,
+    filesUpdated: 0,
+    integrityAuditIsStaticOnly: true,
+  };
+
   if (!checks.requirementVerification.ok) {
-    throw accountingError(Object.assign(new Error('Web Studio could not verify all explicit requirements: ' + checks.requirementVerification.issues.map(issue => issue.message).join(' | ') + '. The site was not marked complete.'), { status: 422, code: 'WEBSTUDIO_PROMPT_REQUIREMENT_MISSING', requirementVerification: checks.requirementVerification }), usage, hasUsage, inputs, outputs);
+    const initialChecks = checks;
+    const repairEnabled = String(env && env.OVYX_WEBSTUDIO_REQUIREMENT_REPAIR_ENABLED || 'true').trim().toLowerCase() !== 'false';
+    const repairLimit = Math.max(1, Math.min(8, cap(env, 'OVYX_WEBSTUDIO_REQUIREMENT_REPAIR_MAX_FILES', 6)));
+    const repairFileChars = Math.max(1000, Math.min(45000, cap(env, 'OVYX_WEBSTUDIO_REQUIREMENT_REPAIR_MAX_FILE_CHARS', 28000)));
+    const repairContextChars = Math.max(10000, Math.min(100000, cap(env, 'OVYX_WEBSTUDIO_REQUIREMENT_REPAIR_MAX_CONTEXT_CHARS', 60000)));
+
+    if (!repairEnabled) {
+      requirementRepair.status = 'disabled';
+    } else {
+      const preferredPaths = selectRequirementRepairPaths(staged, initialChecks.requirementVerification);
+      const repairTargets = selectBoundedPolishTargets(
+        staged, siteMap, repairLimit, repairFileChars, repairContextChars,
+        preferredPaths,
+      );
+      requirementRepair.filesConsidered = repairTargets.length;
+
+      if (!repairTargets.length) {
+        requirementRepair.status = 'no-safe-targets';
+      } else {
+        const repairInput = makeRequirementRepairPrompt(
+          prompt, plan, siteMap, repairTargets, extraContext, promptContract,
+          initialChecks.requirementVerification, initialChecks.integrity,
+        );
+        inputs.push(repairInput);
+        try {
+          const repairResult = await callModel(env, {
+            provider,
+            model,
+            authUser,
+            taskPrompt: prompt,
+            system: [
+              String(options.qualityContract || '').trim(),
+              'You are OVYX Web Studio, a senior frontend engineer repairing only the explicit requirement failures reported by deterministic checks. Return strict JSON and change only approved files.',
+            ].filter(Boolean).join('\n\n'),
+            user: repairInput,
+            maxTokens: Math.max(1000, Math.min(18000, cap(env, 'OVYX_WEBSTUDIO_REQUIREMENT_REPAIR_TOKENS', 12000))),
+          });
+          outputs.push(String(repairResult && repairResult.text || ''));
+          const repairUsage = usageAdd(usage, repairResult && repairResult.rawUsage);
+          usage = repairUsage.total;
+          hasUsage = hasUsage || repairUsage.found;
+
+          const repairedFiles = outputFiles(parseJSON(repairResult && repairResult.text));
+          const repairedPaths = Object.keys(repairedFiles);
+          const allowedRepairPaths = new Set(repairTargets.map(item => item.path));
+          const invalidRepair = !repairedPaths.length ||
+            repairedPaths.length > repairTargets.length ||
+            repairedPaths.some(path => !allowedRepairPaths.has(path) ||
+              !String(repairedFiles[path]).trim() ||
+              String(repairedFiles[path]).length > 120000);
+
+          if (invalidRepair) {
+            requirementRepair.status = 'rejected';
+          } else {
+            const baselineByPath = new Map(staged.map(item => [item.path, item.content]));
+            const candidate = mergeStagedChanges(staged, repairedPaths.map(path => ({
+              path,
+              action: existingFiles[path] || staged.some(item => item.path === path) ? 'update' : 'create',
+              content: repairedFiles[path],
+            })));
+            const candidateChecks = validateStagedSite(candidate, prompt, siteMap);
+            const changedPaths = repairedPaths.filter(path => String(repairedFiles[path]) !== String(baselineByPath.get(path) || ''));
+
+            if (!changedPaths.length) {
+              requirementRepair.status = 'unchanged';
+            } else if (
+              candidateChecks.validation.length ||
+              !candidateChecks.requirementVerification.ok ||
+              hasNewIntegrityFindings(initialChecks.integrity, candidateChecks.integrity)
+            ) {
+              requirementRepair.status = 'rejected';
+            } else {
+              staged = candidate;
+              checks = candidateChecks;
+              requirementRepair.status = 'applied';
+              requirementRepair.filesUpdated = changedPaths.length;
+              requirementRepair.issuesAfter = candidateChecks.requirementVerification.issues;
+              requirementRepair.integrityBefore = initialChecks.integrity.totalFindings;
+              requirementRepair.integrityAfter = candidateChecks.integrity.totalFindings;
+            }
+          }
+        } catch (repairError) {
+          if (repairError && repairError.partialUsage) {
+            const partial = usageAdd(usage, repairError.partialUsage);
+            usage = partial.total;
+            hasUsage = hasUsage || partial.found;
+          }
+          requirementRepair.status = 'failed';
+        }
+      }
+    }
+
+    if (!checks.requirementVerification.ok) {
+      requirementRepair.issuesAfter = checks.requirementVerification.issues;
+      throw accountingError(Object.assign(new Error(
+        'Web Studio could not verify all explicit requirements after one bounded repair attempt (' +
+        requirementRepair.status + '): ' +
+        checks.requirementVerification.issues.map(issue => issue.message).join(' | ') +
+        '. The site was not marked complete.',
+      ), {
+        status: 422,
+        code: 'WEBSTUDIO_PROMPT_REQUIREMENT_MISSING',
+        requirementVerification: checks.requirementVerification,
+        requirementRepair,
+      }), usage, hasUsage, inputs, outputs);
+    }
   }
 
   const baselineStaged = staged.map(item => ({ ...item }));
