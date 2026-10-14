@@ -1,0 +1,115 @@
+import assert from 'node:assert/strict';
+import { chromium } from 'playwright';
+
+const baseURL = String(process.env.OVYX_E2E_BASE_URL || '').trim();
+if (!baseURL) throw new Error('OVYX_E2E_BASE_URL must point to the local or deployed OVYX Pages app.');
+
+const browser = await chromium.launch({ headless: true });
+try {
+  for (const target of [
+    { name: 'desktop', viewport: { width: 1280, height: 900 } },
+    { name: 'mobile', viewport: { width: 390, height: 844 } },
+  ]) {
+    const page = await browser.newPage({ viewport: target.viewport });
+    page.setDefaultTimeout(15000);
+
+    await page.route('**/api/entitlements', async route => {
+      const authorization = String(route.request().headers().authorization || '');
+      const isRoot = authorization === 'Bearer ovyx-admin-root-test-token';
+      const body = isRoot
+        ? {
+            ok: true, uid: 'ovyx-admin-root-fixture', email: 'ovyxsupportteam@gmail.com',
+            role: 'ROOT_SUPERUSER', owner: true, admin: true, bypass: true, isRoot: true,
+            planTier: 'root', planTierState: 'active', capabilities: {},
+            entitlements: { role: 'ROOT_SUPERUSER', owner: true, admin: true, bypass: true },
+          }
+        : {
+            ok: true, uid: 'ovyx-admin-free-fixture', email: 'ovyxsupportteam@gmail.com',
+            role: 'FREE_USER', owner: false, admin: false, bypass: false, isRoot: false,
+            planTier: 'free', planTierState: 'free', capabilities: {},
+            entitlements: { role: 'FREE_USER', owner: false, admin: false, bypass: false },
+          };
+      await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Cache-Control': 'no-store' }, body: JSON.stringify(body) });
+    });
+
+    const response = await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell returned an HTTP error');
+    await page.waitForFunction(() => !!window.OVYXAdminWorkspace, null, { timeout: 45000 });
+
+    await page.evaluate(() => {
+      const listeners = new Set();
+      const root = { uid: 'ovyx-admin-root-fixture', email: 'ovyxsupportteam@gmail.com', getIdToken: async () => 'ovyx-admin-root-test-token' };
+      const free = { uid: 'ovyx-admin-free-fixture', email: 'ovyxsupportteam@gmail.com', getIdToken: async () => 'ovyx-admin-free-test-token' };
+      const auth = {
+        currentUser: root,
+        onAuthStateChanged(callback) {
+          listeners.add(callback);
+          queueMicrotask(() => callback(auth.currentUser));
+          return () => listeners.delete(callback);
+        },
+      };
+      window.firebase = { auth: () => auth };
+      window.__setOVYXAdminTestIdentity = mode => {
+        auth.currentUser = mode === 'root' ? root : mode === 'free' ? free : null;
+        for (const callback of listeners) callback(auth.currentUser);
+        window.dispatchEvent(new Event('firebase-auth-state-ready'));
+      };
+      window.__setOVYXAdminTestIdentity('root');
+    });
+
+    await page.evaluate(() => window.OVYXAdminWorkspace.refresh());
+    await page.waitForFunction(() => window.OVYXAdminWorkspace.isAuthorized() === true);
+    assert.ok(await page.locator('#' + 'ovyx-admin-workspace-entry-desktop').count(), '[' + target.name + '] desktop owner entry was not created');
+    assert.ok(await page.locator('#ovyx-admin-workspace-entry-mobile').count(), '[' + target.name + '] mobile owner entry group was not created');
+    assert.ok(await page.locator('#ovyx-admin-workspace-entry-mobile-button').count(), '[' + target.name + '] mobile owner action was not created');
+
+    // Open the actual workspace, then verify every restored module and search behavior.
+    await page.locator('#ovyx-admin-workspace-entry-desktop').evaluate(button => button.click());
+    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-overview');
+    const hub = page.locator('#ovyx-admin-workspace-hub');
+    await hub.waitFor({ state: 'visible' });
+    assert.equal(await hub.locator('[data-ovyx-admin-workspace-route]').count(), 9, '[' + target.name + '] Admin Workspace must list all nine existing modules');
+
+    const expected = [
+      ['admin-overview', 'System Overview'],
+      ['admin-pricing', 'Pricing & Plans'],
+      ['admin-users', 'Users & Roles'],
+      ['admin-brain', 'AI Brain'],
+      ['admin-identity', 'AI Identity'],
+      ['admin-backend', 'Backend'],
+      ['admin-telemetry', 'Telemetry'],
+      ['admin-broadcasts', 'Broadcasts'],
+      ['admin-template-hub', 'Template Matrix'],
+    ];
+    for (const [route, label] of expected) {
+      const button = hub.locator('[data-ovyx-admin-workspace-route="' + route + '"]');
+      assert.equal(await button.count(), 1, '[' + target.name + '] missing/duplicate module ' + route);
+      assert.equal((await button.innerText()).includes(label), true, '[' + target.name + '] incorrect label for ' + route);
+    }
+
+    await hub.locator('#ovyx-admin-workspace-search-input').fill('template');
+    assert.equal(await hub.locator('[data-ovyx-admin-workspace-route="admin-template-hub"]').isVisible(), true, '[' + target.name + '] template module should match search');
+    assert.equal(await hub.locator('[data-ovyx-admin-workspace-route="admin-pricing"]').isVisible(), false, '[' + target.name + '] search must hide non-matching modules');
+    await hub.locator('#ovyx-admin-workspace-search-input').fill('');
+
+    await hub.locator('[data-ovyx-admin-workspace-route="admin-template-hub"]').evaluate(button => button.click());
+    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-template-hub');
+    await page.locator('#view-admin-template-hub [data-ovyx-admin-workspace-back]').waitFor({ state: 'visible' });
+    await page.locator('#view-admin-template-hub [data-ovyx-admin-workspace-back]').evaluate(button => button.click());
+    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-overview');
+    assert.equal(await page.locator('#ovyx-admin-workspace-hub').count(), 1, '[' + target.name + '] hub must not duplicate after route changes');
+
+    // A signed-in account, even one whose visible email looks like the owner,
+    // must lose the admin entry when the server does not authorize ROOT_SUPERUSER.
+    await page.evaluate(() => window.__setOVYXAdminTestIdentity('free'));
+    await page.waitForFunction(() => window.OVYXAdminWorkspace.isAuthorized() === false);
+    await page.waitForFunction(() => !document.getElementById('ovyx-admin-workspace-entry-desktop') && !document.getElementById('ovyx-admin-workspace-entry-mobile') && !document.getElementById('ovyx-admin-workspace-hub'));
+    assert.equal(await page.locator('#ovyx-admin-workspace-entry-desktop').count(), 0, '[' + target.name + '] admin entry must be removed for non-root role');
+    assert.equal(await page.locator('#ovyx-admin-workspace-hub').count(), 0, '[' + target.name + '] admin hub must be removed for non-root role');
+
+    await page.close();
+  }
+  console.log('OVYX Admin Workspace browser tests passed in desktop and mobile Chromium: root-only entry, nine module routes, search, navigation, no duplicate hub, and fail-closed non-root state.');
+} finally {
+  await browser.close();
+}
