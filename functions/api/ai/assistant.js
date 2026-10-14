@@ -94,10 +94,10 @@ export async function onRequestPost(context) {
 
     const system = String(
       isWebStudio
-        ? WEB_STUDIO_SYSTEM_PROMPT + '\\n\\n' + WEB_STUDIO_EXCELLENCE +
-          '\\n\\nEXPERIENCE INTELLIGENCE:\\n' + JSON.stringify(experience || {}) +
-          (suppliedSystem ? '\\n\\nCLIENT STUDIO INSTRUCTIONS:\\n' + suppliedSystem : '') +
-          '\\n\\nAuthenticated user UID: ' + user.sub
+        ? WEB_STUDIO_SYSTEM_PROMPT + '\n\n' + WEB_STUDIO_EXCELLENCE +
+          '\n\nEXPERIENCE INTELLIGENCE:\n' + JSON.stringify(experience || {}) +
+          (suppliedSystem ? '\n\nCLIENT STUDIO INSTRUCTIONS:\n' + suppliedSystem : '') +
+          '\n\nAuthenticated user UID: ' + user.sub
         : suppliedSystem || `You are OVYX Brain, the authenticated project-aware AI assistant.
 User UID: ${user.sub}
 Return useful concise answers.

@@ -75,6 +75,10 @@ assert.ok(prompts.includes('Make at most one bounded targeted repair pass'), 'Th
 assert.ok(prompts.includes('appropriate aria-expanded, aria-controls, aria-selected or aria-pressed state'), 'Web Studio prompts must require accessible state that browser checks can exercise.');
 assert.ok(prompts.includes('4.5:1 for normal text and 3:1 for large/bold text'), 'The generation contract must state readable text-contrast targets.');
 assert.ok(assistant.includes('qualityContract: WEB_STUDIO_EXCELLENCE'), 'The real Web Studio route must pass its premium quality contract into the multi-page builder.');
+assert.ok(/WEB_STUDIO_SYSTEM_PROMPT\s*\+\s*'\\n\\n'\s*\+\s*WEB_STUDIO_EXCELLENCE/.test(assistant), 'Single-page Web Studio system instructions must use real line breaks between the core prompt and the premium quality contract.');
+assert.ok(/'\\n\\nEXPERIENCE INTELLIGENCE:\\n'/.test(assistant), 'The experience brief must be separated with real line breaks for the model.');
+assert.ok(/'\\n\\nCLIENT STUDIO INSTRUCTIONS:\\n'/.test(assistant), 'Client studio instructions must be separated with real line breaks for the model.');
+assert.ok(/'\\n\\nAuthenticated user UID: '/.test(assistant), 'The authenticated-user context must be appended using real line breaks.');
 const multipage = fs.readFileSync('functions/_lib/studio-multipage.js', 'utf8');
 assert.ok(multipage.includes('OVYX WEB STUDIO BOUNDED WEBSITE POLISH PHASE'), 'Multi-page builds must receive a bounded final design-polish pass.');
 assert.ok(multipage.includes('selectBoundedPolishTargets'), 'Polish context must be budgeted to protect large builds and provider limits.');
