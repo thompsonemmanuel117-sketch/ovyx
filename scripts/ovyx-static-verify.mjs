@@ -793,7 +793,7 @@ if (
     !quality.includes('restoreSnapshot(studio, snapshot)') ||
     !quality.includes('OVYX QUALITY INSPECTOR REPAIR') ||
     !quality.includes('ovyx:webstudio-build-stage') ||
-    !qualityTest.includes('The inspector must not claim live integrations were verified.') ||
+    !qualityTest.includes('Live integration verification') ||
     !qualityBrowserTest.includes('Horizontal overflow') ||
     !qualityBrowserTest.includes('runBuildAgent') ||
     !excellencePrompts.includes('ART DIRECTION AND DISTINCTIVENESS') ||
