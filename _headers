@@ -28,3 +28,6 @@
 
 /assets/ovyx-admin-workspace.js
   Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-sentinel-avatar-3d.js
+  Cache-Control: no-store, no-cache, must-revalidate
