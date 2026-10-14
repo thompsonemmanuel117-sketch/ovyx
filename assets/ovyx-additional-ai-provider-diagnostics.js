@@ -143,9 +143,13 @@
     }
     if (detail) detail.textContent = String(data.message || 'No diagnostic details available.').slice(0, 180);
   }
+  function adminBrainIsVisible() {
+    const admin = document.getElementById('view-admin-brain');
+    return Boolean(admin && !admin.classList.contains('hidden') && admin.getAttribute('aria-hidden') !== 'true' && admin.offsetParent !== null);
+  }
   function boot() {
     const section = ensureSection();
-    if (section && !section.dataset.loaded && !section.dataset.loading) void load();
+    if (section && adminBrainIsVisible() && !section.dataset.loaded && !section.dataset.loading) void load();
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
