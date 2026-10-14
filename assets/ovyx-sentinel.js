@@ -605,7 +605,14 @@ async function runVoiceCommand(command) {
     return;
   }
   if (/^(?:open|show|go to|take me to|navigate to|bring up|switch to|visit|please open|can you open|could you open)\b/.test(text)) {
-    if (await openFromVoice(text)) return;
+    try {
+      if (await openFromVoice(text)) return;
+    } catch (error) {
+      var openMessage = safeText(error && error.message || 'I could not safely open that area.', 220);
+      status(openMessage, 'error');
+      speak('I could not safely open that area, boss. ' + openMessage);
+      return;
+    }
   }
   if (/\b(?:prepare|draft|propose|make)\s+(?:a\s+)?(?:code\s+)?(?:fix|patch)\b/.test(text)) {
     togglePatchTools(true);
