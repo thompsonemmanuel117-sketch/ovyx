@@ -757,6 +757,8 @@ if (
     !quality.includes("setAttribute('sandbox', 'allow-scripts')") ||
     !quality.includes("connect-src 'none'") ||
     !quality.includes("form-action 'none'") ||
+    !quality.includes("img-src data: blob:") ||
+    !quality.includes("media-src data: blob:") ||
     !quality.includes('restoreSnapshot(studio, snapshot)') ||
     !quality.includes('OVYX QUALITY INSPECTOR REPAIR') ||
     !quality.includes('ovyx:webstudio-build-stage') ||
