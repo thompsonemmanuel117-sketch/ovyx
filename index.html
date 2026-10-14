@@ -2876,7 +2876,7 @@ Body: { broadcastId, title, body, category, link }</div>
   .adm-health-refresh:active{transform:scale(.94)}
   .brain-status-badge{display:inline-flex;align-items:center;gap:5px;min-height:24px;padding:0 9px;border-radius:999px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.025);font:800 9px/1 JetBrains Mono,monospace;letter-spacing:.08em;text-transform:uppercase;color:#8e969d}
   .brain-status-ready{border-color:rgba(52,211,153,.2)!important;color:#6ee7b7!important;background:rgba(16,185,129,.05)!important}
-  .brain-status-auth_failed,.brain-status-unavailable,.brain-status-timeout{border-color:rgba(251,113,133,.16)!important;color:#fda4af!important;background:rgba(244,63,94,.04)!important}
+  .brain-status-auth_failed,.brain-status-unavailable,.brain-status-timeout,.brain-status-rate_limited,.brain-status-insufficient_credits,.brain-status-upstream_error{border-color:rgba(251,113,133,.16)!important;color:#fda4af!important;background:rgba(244,63,94,.04)!important}
   .brain-status-not_configured{color:#a1a1aa!important}
   .brain-status-preview{color:#a1a1aa!important}
   #card-provider-gemini.brain-auto-ready,#card-provider-deepseek.brain-auto-ready,#card-provider-anthropic.brain-auto-ready,#card-provider-openai.brain-auto-ready{border-color:rgba(52,211,153,.18)!important}
@@ -3623,6 +3623,9 @@ Body: { broadcastId, title, body, category, link }</div>
         NOT_CONFIGURED:'NOT CONFIGURED',
         AUTH_FAILED:'AUTH FAILED',
         TIMEOUT:'TIMEOUT',
+        RATE_LIMITED:'RATE LIMITED',
+        INSUFFICIENT_CREDITS:'CREDITS NEEDED',
+        UPSTREAM_ERROR:'PROVIDER ERROR',
         UNAVAILABLE:'UNAVAILABLE',
         PREVIEW:'PREVIEW'
       };
@@ -3723,7 +3726,7 @@ Body: { broadcastId, title, body, category, link }</div>
             ready++;
             this.setProvider(id,'READY',{label:item.label||PROVIDER_LABELS[id],model:item.model||'',latencyMs:item.latencyMs});
           }else{
-            this.setProvider(id,status==='NOT_CONFIGURED'?'NOT_CONFIGURED':status,{error:item.error||({AUTH_FAILED:'Provider authentication failed.',TIMEOUT:'Provider request timed out.',UNAVAILABLE:'Provider did not respond successfully.'}[status]||'Provider is not ready.')});
+            this.setProvider(id,status==='NOT_CONFIGURED'?'NOT_CONFIGURED':status,{error:item.error||({AUTH_FAILED:'Provider authentication failed (HTTP '+String(item.httpStatus||'401/403')+').',TIMEOUT:'Provider request timed out.',RATE_LIMITED:'Provider rate limit reached (HTTP '+String(item.httpStatus||429)+'). Try again later.',INSUFFICIENT_CREDITS:'Provider reports insufficient credits (HTTP '+String(item.httpStatus||402)+').',UPSTREAM_ERROR:'Provider API returned a server error (HTTP '+String(item.httpStatus||'5xx')+').',UNAVAILABLE:'Provider did not respond successfully (HTTP '+String(item.httpStatus||'unknown')+').'}[status]||'Provider is not ready.')});
           }
         });
         // Fill any missing provider rows without marking them as healthy.
