@@ -22,6 +22,10 @@
   let mixer = null;
   let actions = {};
   let activeAction = null;
+  let characterRoot = null;
+  let rootBaseY = 0;
+  let rootBaseRotation = 0;
+  let speakingRequested = false;
   let frame = 0;
   let resizeObserver = null;
   let loading = null;
@@ -147,6 +151,9 @@
         character.position.x -= center.x;
         character.position.z -= center.z;
         character.position.y -= box.min.y;
+        characterRoot = character;
+        rootBaseY = character.position.y;
+        rootBaseRotation = character.rotation.y;
         scene.add(character);
         camera.position.set(0, Math.max(0.9, size.y * 0.58), Math.max(3.5, size.y * 2.65));
         camera.lookAt(0, size.y * 0.48, 0);
@@ -163,6 +170,8 @@
         });
         resize();
         setStageStatus('Your 3D Guardian is ready.', 'ready');
+        if (speakingRequested || window.speechSynthesis?.speaking) crossFade('talk', 0.12);
+        else crossFade('idle', 0.12);
         if (!document.getElementById('ovyx-sentinel-panel')?.hidden) playWave();
         animate();
         installSpeechHook();
@@ -196,9 +205,11 @@
       last = now;
       if (!document.hidden && renderer && scene && camera) {
         if (mixer) mixer.update(delta);
-        if (stage && stage.dataset.state === 'ready' && reducedMotion() === false) {
-          const character = scene.children.find(child => child?.isObject3D && child.type === 'Group');
-          if (character && !mixer) character.rotation.y = Math.sin(now * 0.00025) * 0.035;
+        if (characterRoot && stage && stage.dataset.state === 'ready' && reducedMotion() === false) {
+          // Small non-periodic-looking body sway keeps the character present
+          // without overriding the rig's idle/talk/wave animation clips.
+          characterRoot.rotation.y = rootBaseRotation + Math.sin(now * 0.00027) * 0.018;
+          characterRoot.position.y = rootBaseY + Math.sin(now * 0.0011) * 0.004;
         }
         renderer.render(scene, camera);
       }
@@ -283,7 +294,10 @@
 
   window.OVYXSentinel3D = Object.freeze({
     load: loadModel,
-    setSpeaking: value => crossFade(value ? 'talk' : 'idle', 0.25),
+    setSpeaking: value => {
+      speakingRequested = value === true;
+      crossFade(speakingRequested ? 'talk' : 'idle', 0.25);
+    },
     getState: () => ({ loaded: !!renderer, state: stage?.dataset?.state || 'waiting' }),
   });
 })();
