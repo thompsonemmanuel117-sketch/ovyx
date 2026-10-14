@@ -129,6 +129,19 @@ export function auditWebsiteIntegrity(rawFiles, siteMap = {}) {
       'A local ' + kind + ' reference does not resolve to a file included in the generated project.');
   }
 
+  function checkSrcset(fromPath, value) {
+    const srcset = String(value || '').trim();
+    // Data URLs contain commas, which are also srcset separators. Skip the
+    // whole attribute rather than splitting a valid inline image into false
+    // missing-file reports. External and inline-only srcsets remain outside
+    // this source-level local-file check.
+    if (!srcset || /\\bdata:/i.test(srcset)) return;
+    for (const candidate of srcset.split(',')) {
+      const reference = candidate.trim().split(/\\s+/)[0];
+      if (reference) checkAsset(fromPath, reference, 'LOCAL_SRCSET_ASSET_MISSING', 'responsive image srcset asset');
+    }
+  }
+
   for (const [filePath, html] of htmlEntries) {
     const ids = idSet(html);
     const routeForFile = (Array.isArray(siteMap && siteMap.pages) ? siteMap.pages : [])
@@ -199,6 +212,8 @@ export function auditWebsiteIntegrity(rawFiles, siteMap = {}) {
       const kind = tag.slice(1).match(/^[a-z]+/i)?.[0]?.toLowerCase() || 'asset';
       const src = attribute(tag, 'src');
       if (src) checkAsset(filePath, src, 'LOCAL_' + kind.toUpperCase() + '_MISSING', kind);
+      const srcset = attribute(tag, 'srcset');
+      if (srcset) checkSrcset(filePath, srcset);
       if (kind === 'video') {
         const poster = attribute(tag, 'poster');
         if (poster) checkAsset(filePath, poster, 'LOCAL_VIDEO_POSTER_MISSING', 'video poster');
@@ -234,7 +249,7 @@ export function auditWebsiteIntegrity(rawFiles, siteMap = {}) {
     counts,
     summary: issues.length
       ? issues.length + ' source-level link or local-asset issue(s) need review.'
-      : 'No unresolved internal routes, broken same-page or cross-page fragments, placeholder links, or missing local asset references were found.',
+      : 'No unresolved internal routes, broken same-page or cross-page fragments, placeholder links, or missing local asset and responsive-image references were found.',
     externalResourcesVerified: false,
     runtimeBehaviorVerified: false,
   };
