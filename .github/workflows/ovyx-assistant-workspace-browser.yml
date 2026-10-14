@@ -6,6 +6,9 @@ on:
       - main
     paths:
       - 'assets/ovyx-assistant-workspace.js'
+      - 'assets/ovyx-admin-workspace.js'
+      - 'scripts/ovyx-admin-workspace.test.mjs'
+      - 'scripts/ovyx-admin-workspace.browser.test.mjs'
       - '_headers'
       - 'scripts/ovyx-native-ai.test.mjs'
       - 'functions/api/ai/workspace-tools.js'
@@ -83,6 +86,11 @@ jobs:
 
       - name: Exercise provider availability selector in desktop and mobile Chromium
         run: node scripts/ovyx-provider-availability.browser.test.mjs
+        env:
+          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
+
+      - name: Exercise owner-only Admin Workspace in desktop and mobile Chromium
+        run: node scripts/ovyx-admin-workspace.browser.test.mjs
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8788
 
