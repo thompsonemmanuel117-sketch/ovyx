@@ -60,7 +60,7 @@ function clean(value, max = MAX_PROMPT_CHARS) {
 
 function visibleHtmlText(html) {
   let source = String(html || '')
-    .replace(<!--[\s\S]*?-->/g, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
     .replace(/<(head|script|style|template)\b[\s\S]*?<\/\1\s*>/gi, ' ');
   const accessibleLabels = [...source.matchAll(/\b(?:aria-label|title|alt|placeholder|value)\s*=\s*(?:"([^"]*)"|\x27([^\x27]*)\x27|([^\s>]+))/gi)]
     .map(match => String(match[1] ?? match[2] ?? match[3] ?? '').trim())
