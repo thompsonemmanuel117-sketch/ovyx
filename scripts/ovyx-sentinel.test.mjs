@@ -30,6 +30,8 @@ const calls = [];
 const fakeFetch = async (url, init = {}) => {
   const parsed = new URL(String(url));
   calls.push({ url: parsed.toString(), headers: new Headers(init.headers || {}) });
+  if (parsed.hostname === 'api.deepseek.com' && parsed.pathname === '/user/balance') return response({ is_available: true, balance_infos: [{ currency: 'USD', total_balance: '110.00', granted_balance: '10.00', topped_up_balance: '100.00' }] });
+  if (parsed.hostname === 'openrouter.ai' && parsed.pathname === '/api/v1/key') return response({ data: { label: 'production-key-label', limit: 100, limit_remaining: 75, expires_at: '2027-12-31T23:59:59Z', usage: 25 } });
   if (['generativelanguage.googleapis.com', 'api.anthropic.com', 'api.deepseek.com', 'api.openai.com', 'api.groq.com', 'openrouter.ai'].includes(parsed.hostname)) return response({ data: [] });
   if (parsed.hostname === 'api.github.com') {
     return response({
@@ -54,10 +56,14 @@ const scan = await collectSentinelChecks({
   fetchImpl: fakeFetch,
   now: () => tick++,
 });
-assert.equal(scan.checks.length, 12, 'core endpoints, six configured AI provider checks, and optional GitHub Actions check must be represented');
+assert.equal(scan.checks.length, 13, 'core endpoints, six configured AI provider credentials, the DeepSeek balance check, and optional GitHub Actions check must be represented');
 assert.ok(scan.checks.find(item => item.id === 'app_shell')?.ok, 'HTML shell should be validated');
 assert.ok(scan.checks.find(item => item.id === 'sentinel_asset')?.ok, 'Sentinel asset itself should be included in health checks');
-assert.equal(scan.checks.filter(item => item.id.startsWith('ai_') && item.status === 'pass').length, 6, 'all configured provider credentials should be checked without generation calls');
+assert.equal(scan.checks.filter(item => item.id.startsWith('ai_') && item.status === 'pass').length, 7, 'all configured provider credentials and the DeepSeek balance should be checked without generation calls');
+assert.equal(scan.checks.find(item => item.id === 'ai_deepseek_balance')?.code, 'PROVIDER_BALANCE_AVAILABLE', 'DeepSeek should report its dedicated read-only balance result');
+assert.equal(scan.checks.find(item => item.id === 'ai_openrouter')?.summary.includes('2027-12-31'), true, 'OpenRouter expiry metadata should be surfaced as a date, not as the key value');
+assert.equal(JSON.stringify(scan).includes('110.00'), false, 'DeepSeek balance amounts must not be persisted');
+assert.equal(JSON.stringify(scan).includes('production-key-label'), false, 'OpenRouter key labels must not be persisted');
 assert.equal(JSON.stringify(scan).includes('test-openrouter'), false, 'provider secrets must never appear in Sentinel reports');
 assert.ok(scan.checks.find(item => item.id === 'github_actions')?.status === 'fail', 'latest failed workflow should be reported even if an older run failed too');
 assert.deepEqual(scan.checks.find(item => item.id === 'github_actions')?.details, ['Security check'], 'only the latest completed run per workflow should determine health');
@@ -81,7 +87,7 @@ assert.equal(degraded.checks.find(item => item.id === 'platform_health')?.status
 assert.deepEqual(degraded.checks.find(item => item.id === 'platform_health')?.details, ['FIREBASE_PROJECT_ID', 'FIREBASE_SERVICE_ACCOUNT_JSON']);
 assert.equal(degraded.checks.find(item => item.id === 'service_configuration')?.code, 'CONNECTION_ENCRYPTION_NOT_CONFIGURED');
 assert.equal(degraded.checks.find(item => item.id === 'github_actions')?.status, 'skipped');
-assert.equal(degraded.checks.filter(item => item.id.startsWith('ai_') && item.status === 'skipped').length, 6, 'missing optional AI keys should be visible as skipped, not false alarms');
+assert.equal(degraded.checks.filter(item => item.id.startsWith('ai_') && item.status === 'skipped').length, 7, 'missing optional AI keys and balance checks should be visible as skipped, not false alarms');
 
 const credentialFailures = await collectSentinelChecks({
   origin: 'https://ovyx.example',
@@ -104,6 +110,41 @@ assert.equal(credentialFailures.checks.find(item => item.id === 'ai_openai')?.co
 assert.equal(credentialFailures.checks.find(item => item.id === 'ai_anthropic')?.code, 'PROVIDER_PERMISSION_OR_ACCOUNT_RESTRICTED');
 assert.equal(credentialFailures.checks.find(item => item.id === 'ai_deepseek')?.status, 'skipped');
 assert.equal(JSON.stringify(credentialFailures).includes('bad-gemini'), false, 'rejected key values must never appear in reports');
+
+const deepseekBalanceEmpty = await collectSentinelChecks({
+  origin: 'https://ovyx.example',
+  env: { DEEPSEEK_API_KEY: 'test-deepseek-balance-empty' },
+  fetchImpl: async url => {
+    const parsed = new URL(String(url));
+    if (parsed.hostname === 'api.deepseek.com' && parsed.pathname === '/user/balance') return response({ is_available: false, balance_infos: [{ currency: 'USD', total_balance: '0.00' }] });
+    if (parsed.hostname === 'api.deepseek.com') return response({ data: [] });
+    if (parsed.pathname === '/') return response('<html></html>', { contentType: 'text/html', rawBody: '<html></html>' });
+    if (parsed.pathname === '/api/health') return response({ ok: true, status: 'healthy' });
+    if (parsed.pathname === '/api/service-status') return response({ ok: true, connectionEncryption: { configured: true } });
+    if (parsed.pathname.startsWith('/assets/')) return response('js', { contentType: 'application/javascript', rawBody: 'js' });
+    return response({ data: [] });
+  },
+});
+assert.equal(deepseekBalanceEmpty.checks.find(item => item.id === 'ai_deepseek_balance')?.code, 'PROVIDER_BALANCE_INSUFFICIENT');
+assert.equal(JSON.stringify(deepseekBalanceEmpty).includes('test-deepseek-balance-empty'), false);
+
+const expiredOpenRouterKey = await collectSentinelChecks({
+  origin: 'https://ovyx.example',
+  env: { OPENROUTER_API_KEY: 'test-openrouter-expired' },
+  fetchImpl: async url => {
+    const parsed = new URL(String(url));
+    if (parsed.hostname === 'openrouter.ai' && parsed.pathname === '/api/v1/key') return response({ data: { limit: 100, limit_remaining: 10, expires_at: '2026-10-13T00:00:00Z', label: 'private-test-label' } });
+    if (parsed.pathname === '/') return response('<html></html>', { contentType: 'text/html', rawBody: '<html></html>' });
+    if (parsed.pathname === '/api/health') return response({ ok: true, status: 'healthy' });
+    if (parsed.pathname === '/api/service-status') return response({ ok: true, connectionEncryption: { configured: true } });
+    if (parsed.pathname.startsWith('/assets/')) return response('js', { contentType: 'application/javascript', rawBody: 'js' });
+    return response({ data: [] });
+  },
+});
+assert.equal(expiredOpenRouterKey.checks.find(item => item.id === 'ai_openrouter')?.code, 'PROVIDER_CREDENTIAL_EXPIRED');
+assert.equal(JSON.stringify(expiredOpenRouterKey).includes('test-openrouter-expired'), false);
+assert.equal(JSON.stringify(expiredOpenRouterKey).includes('private-test-label'), false);
+
 
 await assert.rejects(
   () => collectSentinelChecks({ origin: 'http://ovyx.example', fetchImpl: fakeFetch }),
@@ -155,7 +196,7 @@ const concurrencyScan = await collectSentinelChecks({
     }
   },
 });
-assert.equal(concurrencyScan.checks.length, 12, 'five first-party checks, six skipped optional provider checks, and the optional GitHub status row should be represented');
+assert.equal(concurrencyScan.checks.length, 13, 'five first-party checks, six skipped optional provider credentials, the skipped DeepSeek balance check, and the optional GitHub row should be represented');
 assert.ok(concurrencyState.maxActive >= 5, 'the first-party health probes should run concurrently to stay within the Cron request budget');
 
 const remediationPlan = createSentinelFixPlan({
