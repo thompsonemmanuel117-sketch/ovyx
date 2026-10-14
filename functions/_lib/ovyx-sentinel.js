@@ -223,18 +223,15 @@ function responseCheck(target, response, payload, durationMs) {
 }
 
 async function fetchWithDeadline(fetchImpl, url, timeoutMs, extraHeaders = {}) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetchImpl(url, {
-      method: 'GET',
-      headers: { Accept: 'application/json, text/html, application/javascript', 'Cache-Control': 'no-store', ...extraHeaders },
-      redirect: 'manual',
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timer);
-  }
+  // Keep the deadline alive through response-body consumption as well as
+  // connection setup. The caller may parse one of the two bounded metadata
+  // responses after fetch() resolves its headers.
+  return await fetchImpl(url, {
+    method: 'GET',
+    headers: { Accept: 'application/json, text/html, application/javascript', 'Cache-Control': 'no-store', ...extraHeaders },
+    redirect: 'manual',
+    signal: AbortSignal.timeout(timeoutMs),
+  });
 }
 
 export async function collectSentinelChecks({ origin, env = {}, fetchImpl = fetch, now = Date.now } = {}) {
