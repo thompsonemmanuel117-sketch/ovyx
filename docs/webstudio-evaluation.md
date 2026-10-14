@@ -53,3 +53,6 @@ The Quality Inspector now offers a **JSON QA report export** and a **copyable cl
 The source audit and artifact evaluator check local image, media, icon, responsive `srcset`, and CSS `url()` references against the generated project file graph. They also validate same-page and cross-page fragment anchors, duplicate IDs, and image alternative-text attributes. Missing local files or broken destination fragments are reported; data-containing `srcset` attributes are skipped conservatively to avoid false positives from data-URL commas. Remote asset references are counted but not fetched, so their availability, licensing, latency, and rendering remain unverified.
 
 Use the Web Studio Quality Inspector for isolated browser viewport/interaction checks, and verify real third-party services only against their safe test environments.
+
+
+The artifact evaluator also checks that label `for` targets and `aria-labelledby` / `aria-describedby` references exist within the same HTML document; broken references are reported and do not count as valid form-control names.

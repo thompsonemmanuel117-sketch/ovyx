@@ -34,6 +34,17 @@ assert.ok(routeAssetFailures.findings.some(item => item.code === 'BROKEN_ROUTE_F
 assert.ok(routeAssetFailures.findings.some(item => item.code === 'ORPHAN_FRAGMENT'), 'The evaluator must find broken same-page fragments.');
 assert.ok(routeAssetFailures.findings.some(item => item.code === 'IMAGE_SRCSET_UNRESOLVED'), 'The evaluator must find missing responsive-image candidates.');
 
+const accessibleReferenceFailures = evaluateSiteFiles({
+  ...goodFiles,
+  'index.html': goodFiles['index.html'].replace(
+    '</main>',
+    '<label for="missing-email-control">Email</label><input id="unlabelled-email" name="email"><button aria-labelledby="missing-button-name">Save</button><p aria-describedby="missing-help-copy">Help text</p></main>',
+  ),
+}, category);
+assert.ok(accessibleReferenceFailures.findings.some(item => item.code === 'LABEL_TARGET_MISSING'), 'The evaluator must detect labels that target absent controls.');
+assert.ok(accessibleReferenceFailures.findings.some(item => item.code === 'ARIA_REFERENCE_TARGET_MISSING'), 'The evaluator must detect aria-labelledby/aria-describedby references with missing ids.');
+assert.ok(accessibleReferenceFailures.findings.some(item => item.code === 'FORM_CONTROL_LABEL_MISSING'), 'A missing aria-labelledby target must not count as a valid form control label.');
+
 const dataSrcset = evaluateSiteFiles({
   ...goodFiles,
   'index.html': goodFiles['index.html'].replace('srcset="assets/mark.svg 1x"', 'srcset="data:image/svg+xml,%3Csvg%3E 1x"'),

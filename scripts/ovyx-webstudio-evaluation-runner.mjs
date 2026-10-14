@@ -234,6 +234,25 @@ export function evaluateSiteFiles(rawFiles, category, options = {}) {
       if (count > 1) duplicateIds.push(filePath + ': #' + clean(id, 80) + ' appears ' + count + ' times');
     }
 
+    const ids = new Set(idCounts.keys());
+    for (const match of html.matchAll(/<label\b[^>]*>/gi)) {
+      const targetId = attr(match[0], 'for');
+      if (targetId && !ids.has(targetId)) {
+        addFinding(findings, 'blocker', 'LABEL_TARGET_MISSING', 'A label references a form-control id that is not present in this HTML document.', filePath);
+      }
+    }
+    for (const match of html.matchAll(/<[a-z][a-z0-9-]*\b[^>]*>/gi)) {
+      const tag = match[0];
+      for (const attributeName of ['aria-labelledby', 'aria-describedby']) {
+        const references = attr(tag, attributeName).split(/\s+/).filter(Boolean);
+        for (const targetId of references) {
+          if (!ids.has(targetId)) {
+            addFinding(findings, 'blocker', 'ARIA_REFERENCE_TARGET_MISSING', 'An ' + attributeName + ' reference points to an id that is not present in this HTML document.', filePath);
+          }
+        }
+      }
+    }
+
     for (const match of html.matchAll(/<(?:img|source)\b[^>]*>/gi)) {
       const tag = match[0];
       const isImage = /^<img\b/i.test(tag);
@@ -333,8 +352,10 @@ export function evaluateSiteFiles(rawFiles, category, options = {}) {
       if (match[1].toLowerCase() === 'input' && ['hidden', 'button', 'submit', 'reset', 'image'].includes(type)) continue;
       controlCount += 1;
       const id = attr(tag, 'id');
-      const named = attr(tag, 'aria-label') || attr(tag, 'aria-labelledby') || (id && hasLabelFor(html, id));
-      if (!named) addFinding(findings, 'blocker', 'FORM_CONTROL_LABEL_MISSING', 'A form control has no detectable associated label.', filePath);
+      const labelledBy = attr(tag, 'aria-labelledby').split(/\s+/).filter(Boolean);
+      const hasValidLabelledBy = labelledBy.length > 0 && labelledBy.every(targetId => ids.has(targetId));
+      const named = attr(tag, 'aria-label') || hasValidLabelledBy || (id && hasLabelFor(html, id));
+      if (!named) addFinding(findings, 'blocker', 'FORM_CONTROL_LABEL_MISSING', 'A form control has no detectable associated label or valid accessible-name reference.', filePath);
     }
   }
 
