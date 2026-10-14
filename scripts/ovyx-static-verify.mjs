@@ -731,7 +731,7 @@ if (!fs.existsSync(guardianPatchApiPath) || !fs.existsSync(guardianPatchHelperPa
     !guardianPatchHelper.includes('mainBranchChanged: false') ||
     !guardianClient.includes('data-ovsx-patch-tools') ||
     !guardianClient.includes("data-ovsx === 'patch-apply'") ||
-    !guardianMiddleware.includes('/assets/ovyx-sentinel.js?v=20261014-6') ||
+    !guardianMiddleware.includes('/assets/ovyx-sentinel.js?v=20261014-7') ||
     !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/ovyx-guardian-patch.test.mjs')
   ) {
     errors.push('OVYX Guardian patch workflow: code changes must be owner-only, stale-safe, branch-only, explicitly confirmed, tested, and never auto-merged/deployed.');
