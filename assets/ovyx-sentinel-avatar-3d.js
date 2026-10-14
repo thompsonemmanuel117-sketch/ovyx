@@ -187,6 +187,16 @@
         animate();
         installSpeechHook();
       } catch (error) {
+        // Release partial GPU resources if any remote model or animation fails
+        // so the next open can retry without leaving a broken renderer behind.
+        try { renderer?.dispose(); } catch (_) {}
+        renderer = null;
+        scene = null;
+        camera = null;
+        mixer = null;
+        actions = {};
+        activeAction = null;
+        characterRoot = null;
         console.warn('[OVYX Sentinel 3D] Avatar unavailable:', String(error?.message || 'model load failed').slice(0, 140));
         setStageStatus('3D character is offline. The voice companion is still available.', 'error');
       } finally {
