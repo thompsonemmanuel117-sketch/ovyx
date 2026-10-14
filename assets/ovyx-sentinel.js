@@ -499,7 +499,7 @@ async function preparePatchProposal() {
     var confirm = q('[data-ovsx-patch-confirm]'); if (confirm) confirm.value = '';
     await refreshPatchCapabilities();
     updatePatchApplyState();
-    status('Patch preview ready. Review every changed line before creating a pull request.', 'success');
+    status(patchCapabilities && !patchCapabilities.pullRequestCreationReady ? 'Patch preview ready. ' + patchCapabilities.message : 'Patch preview ready. Review every changed line before creating a pull request.', patchCapabilities && patchCapabilities.pullRequestCreationReady ? 'success' : 'info');
     transcript('Guardian prepared a patch for ' + safeText(data.path || path.value, 180) + ': ' + safeText(data.summary || '', 300) + '\\nNo code changed.');
     speak('I prepared a patch preview, boss. Please review the changed lines before you create a pull request.');
   } catch (error) {
