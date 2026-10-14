@@ -29,7 +29,9 @@ for (const token of [
 }
 
 assert.ok(middleware.includes('/assets/ovyx-webstudio-quality.js?v=20261014-1'), 'The quality inspector must load from the application-shell middleware.');
+assert.equal((middleware.match(/\/assets\/ovyx-webstudio-quality\.js\?v=20261014-1/g) || []).length, 1, 'The quality inspector must be injected exactly once per application shell.');
 assert.ok(headers.includes('/assets/ovyx-webstudio-quality.js\n  Cache-Control: no-store, no-cache, must-revalidate'), 'Quality inspection code must not be served from a stale cache.');
+assert.equal((headers.match(/\/assets\/ovyx-webstudio-quality\.js/g) || []).length, 1, 'Quality asset cache rules must appear exactly once.');
 assert.ok(packageJson.includes('scripts/ovyx-webstudio-quality.test.mjs'), 'The quality regression contract must run in npm test.');
 assert.ok(prompts.includes('ART DIRECTION AND DISTINCTIVENESS'), 'The server-side Web Studio agent must receive the premium design contract.');
 assert.ok(prompts.includes('Make at most one bounded targeted repair pass'), 'The server-side Web Studio agent must use bounded repair passes.');
