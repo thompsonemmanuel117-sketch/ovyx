@@ -102,7 +102,8 @@ const callModel = async (_env, options) => {
         const href = page.title === 'Home' ? '/' : '/' + page.title.toLowerCase() + '/';
         return '<a href="' + href + '">' + page.title + '</a>';
       }).join('') + (title === 'Contact' ? '<a href="/missing-route/">Broken route</a>' : '');
-      files[target.path] = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="' + title + ' page"><title>' + title + ' | Test Restaurant</title><link rel="stylesheet" href="../styles.css"></head><body><nav aria-label="Main navigation">' + links + '</nav><main><h1>' + title + '</h1><p>Purposeful content for the ' + slug + ' page.</p></main><script src="../main.js"></script></body></html>';
+      const primaryAction = title.toLowerCase() === 'reservations' ? '<button type="button">Reserve a table</button>' : '';
+      files[target.path] = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="' + title + ' page"><title>' + title + ' | Test Restaurant</title><link rel="stylesheet" href="../styles.css"></head><body><nav aria-label="Main navigation">' + links + '</nav><main><h1>' + title + '</h1><p>Purposeful content for the ' + slug + ' page.</p>' + primaryAction + '</main><script src="../main.js"></script></body></html>';
     }
   }
   return {
