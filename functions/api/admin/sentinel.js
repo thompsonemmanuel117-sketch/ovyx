@@ -39,7 +39,7 @@ async function readState(env) {
   return await getFirestoreDataAtPath(env, ['ovyx_sentinel', 'state']) || {};
 }
 
-function publicDiagnosisRecord(value, fallbackId = '') {
+export function publicDiagnosisRecord(value, fallbackId = '') {
   if (!value || typeof value !== 'object' || !String(value.diagnosis || '').trim()) return null;
   const ciStatus = String(value.ciEvidenceStatus || 'unknown');
   return {
