@@ -357,6 +357,38 @@ const SAFE_REMEDIATION_GUIDANCE = Object.freeze({
       'Do not claim scheduled monitoring is active until a scheduled report is saved and shows a recent scheduler confirmation.',
     ],
   },
+  PROVIDER_AUTH_FAILED: {
+    title: 'Repair an AI provider credential',
+    steps: [
+      'Open the matching provider dashboard and confirm the key is active, not revoked, and permitted for API use.',
+      'If a replacement is needed, update only that provider secret in Cloudflare Pages Production; never delete or overwrite other keys.',
+      'Run Sentinel again. The diagnostic checks credential acceptance only and never prints or saves the key value.',
+    ],
+  },
+  PROVIDER_PERMISSION_OR_ACCOUNT_RESTRICTED: {
+    title: 'Review AI provider permissions',
+    steps: [
+      'Check the provider account, organization/project scope, and API-key permissions for the affected service.',
+      'Change only the required provider-side permission; do not rotate unrelated credentials.',
+      'Run Sentinel again. A model-list check does not prove every model or generation endpoint is permitted.',
+    ],
+  },
+  PROVIDER_BILLING_OR_CREDITS_REQUIRED: {
+    title: 'Review AI provider billing or credits',
+    steps: [
+      'Open the provider billing/usage dashboard directly to confirm balance, payment status, and account limits.',
+      'The low-cost credential probe does not consume generation credits and cannot reliably inspect every provider balance.',
+      'After resolving billing, rerun Sentinel and perform a controlled generation test when ready.',
+    ],
+  },
+  PROVIDER_RATE_LIMITED: {
+    title: 'Retry the AI provider check later',
+    steps: [
+      'Wait for the provider rate-limit window to reset and check its service status.',
+      'Do not rotate keys just because a request was rate-limited.',
+      'Rerun Sentinel to distinguish a temporary limit from an authentication problem.',
+    ],
+  },
   GITHUB_TOKEN_REJECTED: {
     title: 'Check optional GitHub Actions monitoring access',
     steps: [
