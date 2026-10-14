@@ -231,6 +231,7 @@ try {
 
     // The conversation is multi-turn, spoken aloud, and authenticated. Follow-up
     // messages should include only the recent session conversation, not server-persisted chat.
+    await page.waitForFunction(() => !!window.__recognizer, null, { timeout: 10000 });
     await page.evaluate(() => {
       const item = [{ transcript: 'OVYX how are you today' }];
       item.isFinal = true;
