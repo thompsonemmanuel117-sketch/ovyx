@@ -172,7 +172,10 @@
         setStageStatus('Your 3D Guardian is ready.', 'ready');
         if (speakingRequested || window.speechSynthesis?.speaking) crossFade('talk', 0.12);
         else crossFade('idle', 0.12);
-        if (!document.getElementById('ovyx-sentinel-panel')?.hidden) playWave();
+        if (!document.getElementById('ovyx-sentinel-panel')?.hidden) {
+          if (speakingRequested || window.speechSynthesis?.speaking) crossFade('talk', 0.12);
+          else playWave();
+        }
         animate();
         installSpeechHook();
       } catch (error) {
