@@ -30,6 +30,9 @@ for (const token of [
   'Horizontal overflow',
   'Page runtime errors',
   'function probeControls()',
+  'function probeAccessibility()',
+  'Rendered text contrast sample',
+  'Visible keyboard focus indicators',
   'Safe interactive behavior smoke test',
   'payload.probeInteractions = width === 390;',
   'Live integration verification',
@@ -45,6 +48,8 @@ assert.ok(packageJson.includes('scripts/ovyx-webstudio-quality.test.mjs'), 'The 
 assert.ok(prompts.includes('ART DIRECTION AND DISTINCTIVENESS'), 'The server-side Web Studio agent must receive the premium design contract.');
 assert.ok(prompts.includes('Make at most one bounded targeted repair pass'), 'The server-side Web Studio agent must use bounded repair passes.');
 assert.ok(prompts.includes('appropriate aria-expanded, aria-controls, aria-selected or aria-pressed state'), 'Web Studio prompts must require accessible state that browser checks can exercise.');
+assert.ok(prompts.includes('4.5:1 for normal text and 3:1 for large/bold text'), 'The generation contract must state readable text-contrast targets.');
+assert.ok(prompts.includes('visible :focus/:focus-visible indicators'), 'The generation contract must require visible keyboard focus cues.');
 assert.ok(!runtime.includes('runBuildAgent(prompt, false'), 'Quality repairs must not start an unbounded normal build loop.');
 
 console.log('Web Studio quality contracts passed: build prompt, real source/browser checks, safe sandbox, and snapshot-protected repair.');
