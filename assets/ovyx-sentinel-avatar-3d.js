@@ -207,23 +207,26 @@
 
   function animate() {
     if (frame) window.cancelAnimationFrame(frame);
+    frame = 0;
+
+    // Sleep/close pauses both the rig and WebGL rendering. Reopening calls
+    // loadModel(), which resumes this scene without downloading assets again.
+    if (destroyed || document.hidden || !panel || panel.hidden || !renderer || !scene || !camera) return;
+
     const THREE = window.__OVYX_THREE__;
     let last = performance.now();
     const tick = now => {
       frame = 0;
-      if (destroyed) return;
+      if (destroyed || document.hidden || !panel || panel.hidden || !renderer || !scene || !camera) return;
       const delta = Math.min(0.05, Math.max(0, (now - last) / 1000));
       last = now;
-      if (!document.hidden && renderer && scene && camera) {
-        if (mixer) mixer.update(delta);
-        if (characterRoot && stage && stage.dataset.state === 'ready' && reducedMotion() === false) {
-          // Small non-periodic-looking body sway keeps the character present
-          // without overriding the rig's idle/talk/wave animation clips.
-          characterRoot.rotation.y = rootBaseRotation + Math.sin(now * 0.00027) * 0.018;
-          characterRoot.position.y = rootBaseY + Math.sin(now * 0.0011) * 0.004;
-        }
-        renderer.render(scene, camera);
+      if (mixer) mixer.update(delta);
+      if (characterRoot && stage && stage.dataset.state === 'ready' && reducedMotion() === false) {
+        // Small body sway adds presence without overriding the rigged animations.
+        characterRoot.rotation.y = rootBaseRotation + Math.sin(now * 0.00027) * 0.018;
+        characterRoot.position.y = rootBaseY + Math.sin(now * 0.0011) * 0.004;
       }
+      renderer.render(scene, camera);
       frame = window.requestAnimationFrame(tick);
     };
     if (THREE && renderer) frame = window.requestAnimationFrame(tick);
