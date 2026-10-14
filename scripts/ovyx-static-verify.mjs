@@ -795,7 +795,7 @@ if (
     !qualityBrowserTest.includes('runBuildAgent') ||
     !excellencePrompts.includes('ART DIRECTION AND DISTINCTIVENESS') ||
     !excellencePrompts.includes('Make at most one bounded targeted repair pass') ||
-    !middleware.includes('/assets/ovyx-webstudio-quality.js?v=20261014-3') ||
+    !middleware.includes('/assets/ovyx-webstudio-quality.js?v=20261014-4') ||
     !headerRules.includes('/assets/ovyx-webstudio-quality.js') ||
     !packageJson.includes('scripts/ovyx-webstudio-quality.test.mjs') ||
     !packageJson.includes('scripts/ovyx-webstudio-evaluation.test.mjs') ||
