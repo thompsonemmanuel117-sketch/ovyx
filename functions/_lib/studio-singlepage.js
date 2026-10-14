@@ -253,6 +253,9 @@ export async function validateOrRepairSinglePageBuild(options) {
     };
     return {
       result: { ...originalResult, qualityVerification: report.qualityVerification, siteIntegrity: null, requirementRepair: report.requirementRepair },
+      qualityVerification: report.qualityVerification,
+      siteIntegrity: null,
+      requirementRepair: report.requirementRepair,
       quotaInputText: String(options && options.quotaInputText || ''),
       quotaOutputText: String(options && options.quotaOutputText || initialText),
       evaluated: false,
