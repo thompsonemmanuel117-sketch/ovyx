@@ -138,9 +138,11 @@ try {
       const name = 'Coverage ' + index;
       const route = '/coverage-' + index + '/';
       const filePath = 'src/pages/Coverage-' + index + '.html';
-      const content = source
+      let content = source
         .replace(/<title>[^<]*<\/title>/i, '<title>' + name + ' | QA fixture</title>')
         .replace(/<h1\b[^>]*>[\s\S]*?<\/h1>/i, '<h1>' + name + '</h1>');
+      if (index === 14) content = content.replace('</main>', '<img alt="Remote image not fetched in QA sandbox" src="https://assets.example.invalid/cover.webp"></main>');
+      if (index === 15) content = content.replace('</main>', '<img alt="Missing local asset regression" src="../assets/absent-missing-qa.webp"></main>');
       studio.graph.files[filePath] = { type: 'text/html', content };
       project.pages.push({ name, route, __ovyxFile: filePath });
     }
@@ -159,6 +161,8 @@ try {
   assert.equal(largeReport.browser.total, 45, 'Three core routes receive five viewport checks each; fifteen additional routes receive mobile and desktop checks.');
   assert.ok(largeReport.checks.some(item => item.group === 'Coverage' && item.title === 'Responsive browser matrix coverage' && item.status === 'pass' && item.detail.includes('all 18 generated HTML route')), 'The report must state its adaptive route coverage honestly.');
   assert.ok(largeReport.checks.some(item => item.group === 'Browser testing' && item.title === 'Horizontal overflow' && item.status !== 'fail'), 'The large-project fixture must not introduce a horizontal-overflow regression.');
+  assert.ok(largeReport.checks.some(item => item.group === 'Project assets' && item.title === 'Local asset references' && item.status === 'warn' && item.detail.includes('absent-missing-qa.webp')), 'The source audit must flag a missing local image without echoing unrelated source content.');
+  assert.ok(largeReport.checks.some(item => item.group === 'Project assets' && item.title === 'External asset reachability' && item.status === 'info' && item.detail.includes('network access')), 'The report must state that external asset reachability was not verified in its network-blocked sandbox.');
   assert.ok(pageErrors.length === 0, 'Large-project route coverage must not create browser errors: ' + pageErrors.join('; '));
 
   console.log('Web Studio quality browser tests passed: toolbar wiring, source, full core viewport matrix, adaptive browser coverage for all 18 routes, safe-control interaction smoke test, manual and automatic bounded repair, post-build quality gate, verified-preview release timing, rollback-aware verification, and truthful integration status.');
