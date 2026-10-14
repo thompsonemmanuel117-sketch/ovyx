@@ -136,7 +136,7 @@ export async function probeApplicationShell(deploymentUrl, fetchImpl = globalThi
     qualityRuntimeAssetOk: !!(runtimeResponse && runtimeResponse.ok),
     qualityRuntimeAssetHttpStatus: runtimeResponse ? runtimeResponse.status : null,
     qualityRuntimeAssetContentType: runtimeContentType.slice(0, 100),
-    qualityRuntimeSignaturePresent,
+    qualityRuntimeSignaturePresent: runtimeSignaturePresent,
     error: ok ? '' : runtimeRequest.error || (
       !runtimeResponse || !runtimeResponse.ok
         ? 'Web Studio quality inspector asset did not return a successful HTTP response.'
