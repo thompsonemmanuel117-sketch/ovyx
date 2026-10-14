@@ -228,7 +228,8 @@ export async function createGuardianPullRequest({ proposal, userId, env = {}, fe
       status: 400, code: 'GUARDIAN_PATCH_INVALID',
     });
   }
-  if (Date.parse(String(proposal.expiresAt || '')) <= now()) {
+  const expiresAt = Date.parse(String(proposal.expiresAt || ''));
+  if (!Number.isFinite(expiresAt) || expiresAt <= now()) {
     throw Object.assign(new Error('This patch proposal expired. Prepare a fresh proposal before creating a pull request.'), {
       status: 410, code: 'GUARDIAN_PATCH_EXPIRED',
     });
