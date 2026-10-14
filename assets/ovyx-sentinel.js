@@ -18,6 +18,8 @@ var lastInspectedFiles = [];
 var patchCapabilities = null;
 var currentPatchProposalId = '';
 var patchBusy = false;
+var providerCheckBusy = false;
+var lastProviderStatus = '';
 function q(selector) { return root ? root.querySelector(selector) : null; }
 function user() { try { return window.firebase && window.firebase.auth().currentUser || null; } catch (_) { return null; } }
 function adminClient() { var u = user(); return !!u && String(u.email || '').trim().toLowerCase() === ADMIN_EMAIL && u.emailVerified === true; }
@@ -79,6 +81,11 @@ function addStyles() {
     '#' + ID + '-panel .plan li{padding:2px 0 2px 2px}',
     '#' + ID + '-panel .plan-note{margin-top:10px;color:#748b9b;font-size:9px}',
     '#' + ID + '-panel .patch-tools label{display:block;margin:10px 0 6px;color:#b8c9d5;font-size:10px;font-weight:750}',
+    '#' + ID + '-panel .provider-tools .provider-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid rgba(145,207,224,.1);font-size:11px}',
+    '#' + ID + '-panel .provider-tools .provider-state{font-size:10px;font-weight:800;text-align:right}',
+    '#' + ID + '-panel .provider-tools .provider-state.ready{color:#7ef0bf}',
+    '#' + ID + '-panel .provider-tools .provider-state.warn{color:#ffcb7a}',
+    '#' + ID + '-panel .provider-tools .provider-state.bad{color:#ff8d9a}',
     '#' + ID + '-panel .patch-tools input,#' + ID + '-panel .patch-tools textarea{box-sizing:border-box;width:100%;margin-top:5px;padding:9px 10px;border:1px solid rgba(145,207,224,.22);border-radius:9px;background:#060a0e;color:#eaf7fb;font:11px/1.5 ui-monospace,monospace}',
     '#' + ID + '-panel .patch-tools textarea{resize:vertical;min-height:72px;font-family:Inter,system-ui,sans-serif}',
     '#' + ID + '-panel .patch-preview{max-height:240px;overflow:auto;padding:10px;border-radius:9px;background:#05080b;color:#c7d8e2;font:10px/1.45 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere}',
@@ -97,8 +104,8 @@ function buildShell() {
   root = document.createElement('div'); root.id = ID + '-root';
   root.innerHTML = '<button id="' + ID + '-launch" type="button" aria-label="Open private OVYX Sentinel administrator companion"><span class="eye" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M3 16s4.8-8 13-8 13 8 13 8-4.8 8-13 8S3 16 3 16Z" stroke="#8BEAF4" stroke-width="1.5"/><circle cx="16" cy="16" r="5.4" fill="#A5F3FC" fill-opacity=".2" stroke="#8BEAF4" stroke-width="1.4"/><circle cx="16" cy="16" r="2.4" fill="#B9FAFF"/></svg></span><span>OVYX SENTINEL</span></button>' +
   '<section id="' + ID + '-panel" role="dialog" aria-modal="false" aria-labelledby="' + ID + '-title" hidden><header class="head"><span class="eye" aria-hidden="true">◉</span><div class="headcopy"><div id="' + ID + '-title" class="title">OVYX SENTINEL</div><div class="sub">PRIVATE ADMIN COMPANION · SYSTEM HEALTH</div></div><button type="button" class="close" data-ovsx="close" aria-label="Close Sentinel">×</button></header>' +
-  '<div class="actions"><button type="button" class="btn primary" data-ovsx="scan">Check now</button><button type="button" class="btn" data-ovsx="plan">Prepare fix plan</button><button type="button" class="btn" data-ovsx="diagnose">AI diagnosis</button><button type="button" class="btn" data-ovsx="patch">Prepare code fix</button><button type="button" class="btn" data-ovsx="wake">Enable wake word</button><button type="button" class="btn" data-ovsx="mute" disabled>Stop speaking</button></div>' +
-  '<div class="status" role="status" aria-live="polite" data-ovsx-status>Verifying administrator access…</div><div class="body"><div class="summary"><strong>Welcome back, boss.</strong><small>Sentinel checks platform health and authorised service signals. It does not read private user projects or conversations.</small></div><div data-ovsx-report></div><div class="plan" hidden data-ovsx-plan></div><div class="plan" hidden data-ovsx-diagnosis></div><details class="plan" hidden data-ovsx-diagnosis-history><summary class="plan-heading">Previous diagnoses</summary><div data-ovsx-diagnosis-history-list></div></details><div class="plan patch-tools" hidden data-ovsx-patch-tools><strong>Reviewable code fix</strong><div class="plan-note">Guardian will prepare a preview first. Nothing is changed until you review the proposal, type the confirmation phrase, and create a pull request. It will never merge or deploy automatically.</div><label>Source file path<input type="text" data-ovsx-patch-path maxlength="240" placeholder="functions/api/feature.js"></label><label>What should be fixed?<textarea data-ovsx-patch-task rows="3" maxlength="1200" placeholder="Describe the exact bug and desired result"></textarea></label><button type="button" class="btn primary" data-ovsx="patch-prepare">Prepare patch preview</button><div data-ovsx-patch-summary class="rowsummary"></div><pre class="patch-preview" data-ovsx-patch-preview hidden></pre><label>Type CREATE_PULL_REQUEST to submit for review<input type="text" data-ovsx-patch-confirm autocomplete="off" maxlength="40" placeholder="CREATE_PULL_REQUEST"></label><button type="button" class="btn" data-ovsx="patch-apply" disabled>Create review pull request</button><a class="patch-link" data-ovsx-patch-link hidden target="_blank" rel="noopener noreferrer">Open pull request</a></div><div class="transcript" hidden data-ovsx-transcript></div></div>' +
+  '<div class="actions"><button type="button" class="btn primary" data-ovsx="scan">Check now</button><button type="button" class="btn" data-ovsx="plan">Prepare fix plan</button><button type="button" class="btn" data-ovsx="diagnose">AI diagnosis</button><button type="button" class="btn" data-ovsx="providers">Check AI keys</button><button type="button" class="btn" data-ovsx="patch">Prepare code fix</button><button type="button" class="btn" data-ovsx="wake">Enable wake word</button><button type="button" class="btn" data-ovsx="mute" disabled>Stop speaking</button></div>' +
+  '<div class="status" role="status" aria-live="polite" data-ovsx-status>Verifying administrator access…</div><div class="body"><div class="summary"><strong>Welcome back, boss.</strong><small>Sentinel checks platform health and authorised service signals. It does not read private user projects or conversations.</small></div><div data-ovsx-report></div><div class="plan" hidden data-ovsx-plan></div><div class="plan" hidden data-ovsx-diagnosis></div><div class="plan provider-tools" hidden data-ovsx-provider-tools><strong>AI provider diagnostics</strong><div class="plan-note">Checks provider authentication and endpoint access without displaying keys. READY does not guarantee remaining credit balance or every model permission.</div><div data-ovsx-provider-summary></div><div data-ovsx-provider-results></div></div><details class="plan" hidden data-ovsx-diagnosis-history><summary class="plan-heading">Previous diagnoses</summary><div data-ovsx-diagnosis-history-list></div></details><div class="plan patch-tools" hidden data-ovsx-patch-tools><strong>Reviewable code fix</strong><div class="plan-note">Guardian will prepare a preview first. Nothing is changed until you review the proposal, type the confirmation phrase, and create a pull request. It will never merge or deploy automatically.</div><label>Source file path<input type="text" data-ovsx-patch-path maxlength="240" placeholder="functions/api/feature.js"></label><label>What should be fixed?<textarea data-ovsx-patch-task rows="3" maxlength="1200" placeholder="Describe the exact bug and desired result"></textarea></label><button type="button" class="btn primary" data-ovsx="patch-prepare">Prepare patch preview</button><div data-ovsx-patch-summary class="rowsummary"></div><pre class="patch-preview" data-ovsx-patch-preview hidden></pre><label>Type CREATE_PULL_REQUEST to submit for review<input type="text" data-ovsx-patch-confirm autocomplete="off" maxlength="40" placeholder="CREATE_PULL_REQUEST"></label><button type="button" class="btn" data-ovsx="patch-apply" disabled>Create review pull request</button><a class="patch-link" data-ovsx-patch-link hidden target="_blank" rel="noopener noreferrer">Open pull request</a></div><div class="transcript" hidden data-ovsx-transcript></div></div>' +
   '<div class="foot">Wake word requires an enabled microphone and a supported browser. It works while this page is open and active; you can pause it at any time.</div></section>';
   document.body.appendChild(root); addStyles(); bindShell(); return root;
 }
@@ -311,8 +318,96 @@ async function scanNow(shouldSpeak) {
   finally { busy = false; if (button) button.disabled = false; }
 }
 function transcript(message) { var element = q('[data-ovsx-transcript]'); if (!element) return; element.hidden = false; element.textContent = safeText(message, 1400); }
+function providerStatusLabel(item) {
+  var code = String(item && item.status || 'UNAVAILABLE');
+  if (code === 'READY') return 'Connected';
+  if (code === 'NOT_CONFIGURED') return 'Missing key in Cloudflare';
+  if (code === 'AUTH_FAILED') return 'Auth failed: invalid, expired, revoked, or permission denied';
+  if (code === 'INSUFFICIENT_CREDITS') return 'Insufficient credits or billing';
+  if (code === 'RATE_LIMITED') return 'Rate limited';
+  if (code === 'TIMEOUT') return 'Timed out';
+  if (code === 'UPSTREAM_ERROR') return 'Provider service error';
+  return 'Unavailable or network error';
+}
+function renderProviderStatus(data) {
+  var panel = q('[data-ovsx-provider-tools]');
+  var summaryEl = q('[data-ovsx-provider-summary]');
+  var resultsEl = q('[data-ovsx-provider-results]');
+  if (panel) panel.hidden = false;
+  if (resultsEl) resultsEl.replaceChildren();
+  var items = (Array.isArray(data.providers) ? data.providers : []).concat(Array.isArray(data.additionalProviders) ? data.additionalProviders : []);
+  var ready = items.filter(function (item) { return item && item.status === 'READY' && item.connected === true; }).length;
+  var missing = items.filter(function (item) { return item && item.status === 'NOT_CONFIGURED'; }).length;
+  var authFailed = items.filter(function (item) { return item && item.status === 'AUTH_FAILED'; }).length;
+  var credits = items.filter(function (item) { return item && item.status === 'INSUFFICIENT_CREDITS'; }).length;
+  var limited = items.filter(function (item) { return item && item.status === 'RATE_LIMITED'; }).length;
+  var other = Math.max(0, items.length - ready - missing - authFailed - credits - limited);
+  var workersAi = !!(data.cloudflare && data.cloudflare.workersAiBinding);
+  var summary = ready + ' of ' + items.length + ' provider endpoints ready; ' + missing + ' missing, ' + authFailed + ' authentication failures, ' + credits + ' insufficient-credit responses, ' + limited + ' rate-limited, ' + other + ' other issues. Cloudflare Workers AI binding: ' + (workersAi ? 'available' : 'not available') + '.';
+  if (summaryEl) summaryEl.textContent = summary;
+  items.forEach(function (item) {
+    var row = document.createElement('div');
+    row.className = 'provider-row';
+    var label = document.createElement('span');
+    label.textContent = safeText(item.label || item.provider || 'Provider', 80);
+    var state = document.createElement('span');
+    state.className = 'provider-state ' + (item.status === 'READY' && item.connected === true ? 'ready' : (item.status === 'NOT_CONFIGURED' ? 'warn' : 'bad'));
+    state.textContent = providerStatusLabel(item);
+    row.appendChild(label);
+    row.appendChild(state);
+    if (resultsEl) resultsEl.appendChild(row);
+  });
+  var edge = document.createElement('div');
+  edge.className = 'provider-row';
+  var edgeLabel = document.createElement('span'); edgeLabel.textContent = 'Cloudflare Workers AI';
+  var edgeState = document.createElement('span'); edgeState.className = 'provider-state ' + (workersAi ? 'ready' : 'bad'); edgeState.textContent = workersAi ? 'Binding available' : 'Binding missing';
+  edge.appendChild(edgeLabel); edge.appendChild(edgeState);
+  if (resultsEl) resultsEl.appendChild(edge);
+  var details = items.map(function (item) { return safeText(item.label || item.provider || 'Provider', 60) + '=' + safeText(item.status || 'UNAVAILABLE', 40); }).join('; ');
+  lastProviderStatus = 'Live /api/ai/status result: ' + details + '; Cloudflare Workers AI binding=' + (workersAi ? 'available' : 'missing') + '. This checks endpoint authentication, not guaranteed remaining balance or every model permission.';
+  return { summary: summary, details: lastProviderStatus, ready: ready, missing: missing, authFailed: authFailed, credits: credits, limited: limited, other: other, workersAi: workersAi, total: items.length };
+}
+async function checkAIProviders(options) {
+  var opts = options || {};
+  if (providerCheckBusy) return lastProviderStatus;
+  providerCheckBusy = true;
+  var panel = q('[data-ovsx-provider-tools]');
+  if (panel && opts.showPanel !== false) panel.hidden = false;
+  var button = q('[data-ovsx="providers"]');
+  if (button) button.disabled = true;
+  status('Checking configured AI providers without revealing keys…');
+  try {
+    var idToken = await getToken();
+    var response = await fetch('/api/ai/status', {
+      method: 'GET', credentials: 'same-origin', cache: 'no-store',
+      headers: { Accept: 'application/json', Authorization: 'Bearer ' + idToken }
+    });
+    var data = await response.json().catch(function () { return {}; });
+    if (!response.ok || data.ok !== true) throw new Error(String(data.message || data.error || 'The owner-only AI provider status check failed.').slice(0, 320));
+    var result = renderProviderStatus(data);
+    var issues = result.missing + result.authFailed + result.credits + result.limited + result.other;
+    status(result.summary, issues ? 'error' : 'success');
+    if (!opts.silent) {
+      transcript('AI provider check: ' + result.summary + '\\n' + result.details + '\\nNo API key values were displayed.');
+      var spoken = result.ready + ' of ' + result.total + ' provider endpoints are ready. ' + result.missing + ' are missing, ' + result.authFailed + ' have authentication or permission errors, ' + result.credits + ' returned insufficient credit status, and ' + result.limited + ' are rate limited. I did not display any keys.';
+      speak(spoken);
+    }
+    return result.details;
+  } catch (error) {
+    status(String(error.message || 'AI provider status check failed.') + ' No key values were displayed.', 'error');
+    if (!opts.silent) speak('I could not complete the AI provider check. ' + String(error.message || ''));
+    return '';
+  } finally {
+    providerCheckBusy = false;
+    if (button) button.disabled = false;
+  }
+}
 async function askAI(question) {
   lastGuardianQuestion = safeText(question, 1200);
+  var providerDiagnosticContext = '';
+  if (/\\b(?:api\\s+keys?|ai\\s+keys?|providers?|credits?|quotas?|expired|revoked|permission|billing|authentication)\\b/i.test(question)) {
+    providerDiagnosticContext = await checkAIProviders({ silent: true, showPanel: true });
+  }
   var reportSummary = latestReport ? { status: latestReport.status, checkedAt: latestReport.finishedAt, checks: (latestReport.checks || []).slice(0, 16).map(function (c) { return { path: c.path, status: c.status, code: c.code, summary: c.summary }; }) } : null;
   status('Checking Guardian capabilities…');
   try {
@@ -329,7 +424,7 @@ async function askAI(question) {
       var investigationResponse = await fetch('/api/admin/guardian-repo', {
         method: 'POST', credentials: 'same-origin', cache: 'no-store',
         headers: Object.assign({}, headers, { 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ action: 'investigate', question: safeText(question, 1200) })
+        body: JSON.stringify({ action: 'investigate', question: safeText(question, 1200), diagnosticContext: safeText(providerDiagnosticContext, 900) })
       });
       var investigation = await investigationResponse.json().catch(function () { return {}; });
       if (!investigationResponse.ok || investigation.ok !== true) throw new Error(investigation.message || investigation.error || 'Guardian could not investigate the repository.');
@@ -346,7 +441,7 @@ async function askAI(question) {
         body: JSON.stringify({
           prompt: safeText(question, 1200),
           system: 'You are OVYX Sentinel, the verified root administrator’s private platform guardian. This is conversation-only mode: you have not inspected repository source unless the supplied context explicitly includes it. Answer conversationally. Use only supplied operational evidence. Never claim a fix was applied, request private end-user files or conversations, or expose secrets. Distinguish evidence from hypotheses. Code changes require the guarded development workflow.',
-          context: { sentinelReport: reportSummary, scope: 'platform-operational-health-only', repositoryInspection: 'not-configured' }
+          context: { sentinelReport: reportSummary, providerStatus: safeText(providerDiagnosticContext, 900), scope: 'platform-operational-health-only', repositoryInspection: 'not-configured' }
         })
       });
       var fallback = await fallbackResponse.json().catch(function () { return {}; });
@@ -378,7 +473,11 @@ function handleVoice(raw) {
 }
 async function runVoiceCommand(command) {
   var text = normalize(command); transcript('Heard: ' + text);
-  if (/\\b(?:prepare|draft|propose|make)\\s+(?:a\\s+)?(?:code\\s+)?(?:fix|patch)\\b/.test(text)) {
+  if (/\b(?:check|test|inspect|verify|scan)\b.*\b(?:api\s+keys?|ai\s+keys?|providers?|credits?|quotas?|billing)\b/.test(text) || /\b(?:check|test)\s+(?:my\s+)?keys?\b/.test(text)) {
+    await checkAIProviders({ silent: false, showPanel: true });
+    return;
+  }
+  if (/\b(?:prepare|draft|propose|make)\s+(?:a\s+)?(?:code\s+)?(?:fix|patch)\b/.test(text)) {
     togglePatchTools(true);
     status('Patch review opened. Guardian will prepare a preview first; no code will change until you explicitly submit a pull request.', 'info');
     speak('I opened the code fix review panel, boss. I will prepare a preview first and will not merge or deploy anything.');
@@ -576,6 +675,7 @@ function bindShell() {
     else if (button.dataset.ovsx === 'scan') void scanNow(false);
     else if (button.dataset.ovsx === 'plan') void prepareFixPlan();
     else if (button.dataset.ovsx === 'diagnose') void diagnoseLatest(false);
+    else if (button.dataset.ovsx === 'providers') void checkAIProviders({ silent: false, showPanel: true });
     else if (button.dataset.ovsx === 'patch') togglePatchTools(true);
     else if (button.dataset.ovsx === 'patch-prepare') void preparePatchProposal();
     else if (button.dataset.ovsx === 'patch-apply') void applyPatchProposal();
