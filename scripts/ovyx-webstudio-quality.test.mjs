@@ -43,6 +43,10 @@ for (const token of [
   'Safe interactive behavior smoke test',
   'payload.probeInteractions = width === 390;',
   'Live integration verification',
+  'function auditAssetReference(fromPath, reference, kind)',
+  'function auditAssetSrcset(fromPath, value, kind)',
+  'CSS url() asset',
+  'External asset reachability',
   'data-quality-export',
   'data-quality-copy-summary',
   'function shareableReport(report)',
@@ -69,6 +73,8 @@ assert.ok(prompts.includes('1,800 rendered elements per route'), 'The generation
 assert.ok(!runtime.includes('MAX_BROWSER_PAGES'), 'Responsive browser smoke checks must not silently exclude routes past a fixed route cap.');
 assert.ok(runtime.includes('ovyx-webstudio-qa-'), 'The inspector must name exported QA reports with a recognizable prefix.');
 assert.ok(runtime.includes('getClientSummary: function ()'), 'The quality runtime must expose its client summary for review and integration.');
+assert.ok(runtime.includes('No missing or unresolved local asset references were found.'), 'The inspector must report local image/media/font/CSS URL reference validation.');
+assert.ok(runtime.includes('Their availability, licensing, latency and rendering were not verified'), 'The inspector must not claim external assets were tested when network access is blocked.');
 assert.ok(!runtime.includes('runBuildAgent(prompt, false'), 'Quality repairs must not start an unbounded normal build loop.');
 
 console.log('Web Studio quality contracts passed: build prompt, real source/browser checks, safe sandbox, and snapshot-protected repair.');
