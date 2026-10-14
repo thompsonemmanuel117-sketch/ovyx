@@ -95,6 +95,9 @@ assert.ok(integrity.includes('LOCAL_CSS_ASSET_MISSING'), 'The integrity audit mu
 assert.ok(integrity.includes('LOCAL_SRCSET_ASSET_MISSING'), 'The integrity audit must detect missing responsive-image srcset assets.');
 assert.ok(integrity.includes('IMAGE_ALT_MISSING'), 'The integrity audit must detect images that omit an alt attribute.');
 assert.ok(integrity.includes('DUPLICATE_HTML_ID'), 'The integrity audit must detect duplicate HTML ids.');
+assert.ok(integrity.includes('FORM_CONTROL_LABEL_MISSING'), 'The integrity audit must detect form controls without detectable labels.');
+assert.ok(integrity.includes('LABEL_TARGET_MISSING'), 'The integrity audit must detect labels that point to missing controls.');
+assert.ok(integrity.includes('ARIA_REFERENCE_TARGET_MISSING'), 'The integrity audit must detect missing source targets for aria-labelledby/describedby references.');
 assert.ok(integrity.includes('ORPHAN_FRAGMENT'), 'The integrity audit must detect broken same-page anchors.');
 assert.ok(integrity.includes('BROKEN_ROUTE_FRAGMENT'), 'The source integrity audit must detect anchors that point to missing ids on another page.');
 assert.ok(integrity.includes('runtimeBehaviorVerified: false'), 'Static checks must not be presented as proof that runtime behavior works.');
