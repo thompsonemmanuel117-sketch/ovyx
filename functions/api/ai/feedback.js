@@ -18,6 +18,7 @@ const ALLOWED_PROVIDERS = new Set([
   'groq',
   'cloudflare-workers-ai',
   'unknown',
+  'native-ovyx-ai',
 ]);
 
 function clean(value, max = 160) {
@@ -53,6 +54,10 @@ export async function onRequest(context) {
     let provider = clean(body.provider || 'unknown', 40).toLowerCase();
     if (!ALLOWED_PROVIDERS.has(provider)) provider = 'unknown';
 
+    const route = clean(body.route || 'web-studio', 40).toLowerCase();
+    if (route !== 'web-studio' && route !== 'assistant-workspace') {
+      return errorResponse(400, 'FEEDBACK_ROUTE_INVALID', 'Choose a supported AI response surface.', id);
+    }
     const model = clean(body.model || '', 100);
     const projectId = clean(body.projectId || '', 120);
     const now = new Date().toISOString();
@@ -63,7 +68,7 @@ export async function onRequest(context) {
       uid: String(user.uid || user.sub || ''),
       messageId: rawMessageId,
       vote,
-      route: 'web-studio',
+      route,
       provider,
       model,
       projectId,
