@@ -371,7 +371,7 @@ function rememberTurn(role, message) {
   if (!content) return;
   conversationTurns.push({ role: role === 'assistant' ? 'assistant' : 'user', content: content });
   conversationTurns = conversationTurns.slice(-10);
-  transcript(conversationTurns.map(function (item) { return (item.role === 'user' ? 'You' : 'Guardian') + ': ' + item.content; }).join('\\n\\n'));
+  transcript(conversationTurns.map(function (item) { return (item.role === 'user' ? 'You' : 'Guardian') + ': ' + item.content; }).join('\n\n'));
 }
 async function askCompanion(question, sourceInspectionUnavailable) {
   var prompt = safeText(question, 1200);
