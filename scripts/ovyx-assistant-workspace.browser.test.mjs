@@ -32,7 +32,7 @@ try {
     const assistantScript = page.locator('script[src*="/assets/ovyx-assistant-workspace.js"]');
     assert.ok(await assistantScript.count(), `[${target.name}] assistant workspace script was not injected`);
     const scriptSources = await assistantScript.evaluateAll(nodes => nodes.map(node => node.src));
-    assert.ok(scriptSources.some(src => /[?&]v=20261012-5(?:&|$)/.test(src)), `[${target.name}] the updated assistant runtime cache version was not loaded`);
+    assert.ok(scriptSources.some(src => /[?&]v=20261014-2(?:&|$)/.test(src)), `[${target.name}] the updated assistant runtime cache version was not loaded`);
 
     await page.evaluate(() => window.WorkspaceBrainBot.open());
     const panel = page.locator('#kernel-brain-bot-panel');
@@ -66,6 +66,19 @@ try {
     await helpReply.waitFor({ state: 'visible' });
     assert.match(await helpReply.innerText(), /OVYX AI can inspect the workspace snapshot/i);
     assert.ok(await panel.locator('.ovyx-native-response-avatar').count(), `[${target.name}] premium assistant response avatar is missing`);
+    const helpMessage = page.locator('#bot-chat-history .ovyx-native-message.is-assistant').last();
+    assert.deepEqual(
+      await helpMessage.locator('[data-ovyx-native-response-action]').evaluateAll(nodes => nodes.map(node => node.getAttribute('data-ovyx-native-response-action'))),
+      ['copy', 'helpful', 'not-helpful', 'retry'],
+      `[${target.name}] every native assistant response needs Copy/Helpful/Not helpful/Retry actions`,
+    );
+    await helpMessage.locator('[data-ovyx-native-response-action="not-helpful"]').click();
+    await page.locator('#view-faq').waitFor({ state: 'visible' });
+    await page.locator('#ovyx-help-support-form').waitFor({ state: 'attached' });
+    assert.match(await page.locator('#ovyx-help-support-subject').inputValue(), /Assistant response was not helpful/i,
+      `[${target.name}] thumbs-down should prepare an editable Contact Support subject`);
+    assert.match(await page.locator('#ovyx-help-support-message').inputValue(), /What went wrong\?/i,
+      `[${target.name}] thumbs-down should prepare an editable Contact Support draft`);
 
     await trigger.click();
     await menu.locator('[data-ovyx-native-action="new-chat"]').click();
