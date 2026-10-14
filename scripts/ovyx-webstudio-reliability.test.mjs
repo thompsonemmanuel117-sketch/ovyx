@@ -37,7 +37,7 @@ assert.ok(headers.includes('/assets/ovyx-webstudio-reliability.js'), 'reliabilit
 assert.ok(index.includes('AI_BUILD_NO_ARTIFACTS'), 'failed/no-op AI builds must be rejected');
 assert.ok(index.includes("ovyxBuildState='verified'"), 'Web Studio must mark verified builds only after source checks');
 assert.ok(runtime.includes('function seedOnlyProject'), 'the generic generated seed page must be hidden until a real build exists');
-assert.ok(runtime.includes('The preview was kept unchanged'), 'a no-op AI build must keep the last preview unchanged');
+assert.ok(runtime.includes('The existing preview was kept unchanged'), 'a no-op AI build must keep the last preview unchanged');
 assert.ok(!feedbackApi.includes('body.prompt') && !feedbackApi.includes('body.responseText'), 'feedback records must not store prompts or response content');
 assert.ok(statusApi.includes("? 'RATE_LIMITED'") && statusApi.includes("? 'INSUFFICIENT_CREDITS'"), 'provider health should distinguish rate limits and credit exhaustion');
 assert.ok(statusApi.includes('Provider request timed out.'), 'provider health errors should avoid exposing exception details');
