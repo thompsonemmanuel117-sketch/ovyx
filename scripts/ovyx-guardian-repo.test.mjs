@@ -95,4 +95,4 @@ const crossOrigin = await onRequest({
 });
 assert.equal(crossOrigin.status, 403, 'Guardian capabilities must reject cross-origin requests before auth');
 
-console.log('OVYX Guardian repository investigation tests passed: owner-only access, same-origin guard, dedicated read-only token, source-path filtering, credential redaction, bounded read-only analysis, and no code/deploy actions.');
+console.log('OVYX Guardian repository investigation tests passed: auth and origin guards, dedicated read-only token, source-path filtering, credential redaction, bounded read-only analysis, and no code/deploy actions.');
