@@ -405,7 +405,7 @@ async function checkAIProviders(options) {
 async function askAI(question) {
   lastGuardianQuestion = safeText(question, 1200);
   var providerDiagnosticContext = '';
-  if (/\\b(?:api\\s+keys?|ai\\s+keys?|providers?|credits?|quotas?|expired|revoked|permission|billing|authentication)\\b/i.test(question)) {
+  if (/\b(?:api\s+keys?|ai\s+keys?|providers?|credits?|quotas?|expired|revoked|permission|billing|authentication)\b/i.test(question)) {
     providerDiagnosticContext = await checkAIProviders({ silent: true, showPanel: true });
   }
   var reportSummary = latestReport ? { status: latestReport.status, checkedAt: latestReport.finishedAt, checks: (latestReport.checks || []).slice(0, 16).map(function (c) { return { path: c.path, status: c.status, code: c.code, summary: c.summary }; }) } : null;
