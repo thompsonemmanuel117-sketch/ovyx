@@ -4555,13 +4555,23 @@ function mountHelpSupportForm(v){
       const r=await fetch('/api/support',{method:'POST',headers:{Accept:'application/json',Authorization:'Bearer '+token},credentials:'same-origin',body:formData});
       const d=await r.json().catch(()=>({}));
       if(!r.ok)throw new Error(d?.error?.message||d?.error||'Support ticket could not be submitted.');
-      setStatus(`Ticket ${d?.ticket?.ticketId||'created'} submitted. We will review it in the support queue.`,'success');
+      const ticketId=String(d?.ticket?.ticketId||'created');
+      const mailNotificationStatus=String(d?.ticket?.notificationStatus||'unknown').toLowerCase();
+      let confirmation='Ticket '+ticketId+' is saved in the OVYX Support queue. Email delivery status could not be confirmed; the Admin Support queue still holds the ticket.';
+      let confirmationKind='warning';
+      if(mailNotificationStatus==='sent'){
+        confirmation='Ticket '+ticketId+' is saved in the OVYX Support queue, and an email notification was sent to OVYX Support.';
+        confirmationKind='success';
+      }else if(mailNotificationStatus==='failed'){
+        confirmation='Ticket '+ticketId+' is saved in the OVYX Support queue, but the email notification failed. Your report is recorded and remains available in Admin → Support Tickets.';
+      }
+      setStatus(confirmation,confirmationKind);
       card.querySelector('#ovyx-help-support-subject').value='';
       card.querySelector('#ovyx-help-support-message').value='';
       if(fileInput)fileInput.value='';
       const fileName=card.querySelector('#ovyx-help-support-file-name');
       if(fileName)fileName.textContent='No files selected';
-      (window.showToast||window.toast)?.('Support ticket submitted.','success');
+      (window.showToast||window.toast)?.(confirmation,confirmationKind);
     }catch(err){
       setStatus(err?.message||'Support ticket could not be submitted.','error');
       (window.showToast||window.toast)?.(err?.message||'Support ticket could not be submitted.','error');
