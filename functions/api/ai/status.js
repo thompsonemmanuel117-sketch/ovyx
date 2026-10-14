@@ -100,7 +100,13 @@ async function checkProvider(id, config, env) {
       label: config.label,
       status: response.status === 401 || response.status === 403
         ? 'AUTH_FAILED'
-        : 'UNAVAILABLE',
+        : response.status === 402
+          ? 'INSUFFICIENT_CREDITS'
+          : response.status === 429
+            ? 'RATE_LIMITED'
+            : response.status >= 500
+              ? 'UPSTREAM_ERROR'
+              : 'UNAVAILABLE',
       configured: true,
       connected: false,
       httpStatus: response.status,
@@ -112,7 +118,9 @@ async function checkProvider(id, config, env) {
       status: error?.name === 'AbortError' ? 'TIMEOUT' : 'UNAVAILABLE',
       configured: true,
       connected: false,
-      error: String(error?.message || error).slice(0, 240),
+      error: error?.name === 'AbortError'
+        ? 'Provider request timed out.'
+        : 'Network request failed while checking this provider.',
     };
   }
 }

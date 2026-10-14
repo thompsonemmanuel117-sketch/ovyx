@@ -652,6 +652,34 @@ if (
   }
 }
 
+const webStudioReliabilityPath = path.join(root, 'assets/ovyx-webstudio-reliability.js');
+const webStudioFeedbackPath = path.join(root, 'functions/api/ai/feedback.js');
+if (!fs.existsSync(webStudioReliabilityPath) || !fs.existsSync(webStudioFeedbackPath)) {
+  errors.push('Web Studio reliability: response feedback and AI-generated preview validation must be present.');
+} else {
+  const reliability = fs.readFileSync(webStudioReliabilityPath, 'utf8');
+  const feedbackApi = fs.readFileSync(webStudioFeedbackPath, 'utf8');
+  const shell = fs.existsSync(shellMiddlewarePath) ? fs.readFileSync(shellMiddlewarePath, 'utf8') : '';
+  const headerRules = fs.existsSync(path.join(root, '_headers')) ? fs.readFileSync(path.join(root, '_headers'), 'utf8') : '';
+  const mainHtml = fs.existsSync(path.join(root, 'index.html')) ? fs.readFileSync(path.join(root, 'index.html'), 'utf8') : '';
+  if (
+    !reliability.includes('/api/ai/feedback') ||
+    !reliability.includes('data-ovyx-feedback-vote') ||
+    !reliability.includes('waitForHelpForm') ||
+    !reliability.includes('The AI replied but did not return a new website HTML file') ||
+    !reliability.includes('The AI replied but did not produce a changed website HTML file') ||
+    !feedbackApi.includes('assertAuthenticated(context.data?.user)') ||
+    !feedbackApi.includes('enforceSameOrigin(request)') ||
+    !feedbackApi.includes("['ai_response_feedback', documentId]") ||
+    !shell.includes('/assets/ovyx-webstudio-reliability.js?v=20261014-1') ||
+    !headerRules.includes('/assets/ovyx-webstudio-reliability.js') ||
+    !mainHtml.includes('AI_BUILD_NO_ARTIFACTS') ||
+    !mainHtml.includes("ovyxBuildState='verified'")
+  ) {
+    errors.push('Web Studio reliability: feedback must be authenticated, preview generation must require actual changed website files, and the runtime must be injected with no-store caching.');
+  }
+}
+
 if (errors.length) {
   console.error(errors.join('\n'));
   process.exit(1);
