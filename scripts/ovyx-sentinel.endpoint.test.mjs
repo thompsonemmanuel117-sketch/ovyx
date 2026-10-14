@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { onRequest } from '../functions/api/admin/sentinel.js';
+import { onRequest, publicDiagnosisRecord } from '../functions/api/admin/sentinel.js';
 
 async function call(method, { headers = {}, body, env = {} } = {}) {
   const request = new Request('https://ovyx.invalid/api/admin/sentinel', {
@@ -55,6 +55,26 @@ async function call(method, { headers = {}, body, env = {} } = {}) {
   });
   assert.equal(result.status, 503, 'a well-authenticated scheduled scan without Firestore configuration must fail closed and not report success');
   assert.equal(result.body.error, 'SENTINEL_SCAN_FAILED');
+}
+
+
+{
+  const record = publicDiagnosisRecord({
+    id: 'diagnosis_test',
+    reportId: 'run_test',
+    generatedAt: '2026-10-14T08:00:00.000Z',
+    model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+    diagnosis: 'a'.repeat(7000),
+    changesApplied: true,
+    ciEvidenceStatus: 'fake-status',
+    accessToken: 'never-copy-me',
+  });
+  assert.equal(record.id, 'diagnosis_test');
+  assert.equal(record.diagnosis.length, 6000, 'history summaries must be bounded');
+  assert.equal(record.changesApplied, false, 'history must never claim Sentinel changed code');
+  assert.equal(record.ciEvidenceStatus, 'unknown', 'unknown status values must be normalized');
+  assert.equal('accessToken' in record, false, 'private credential fields must not be copied to the history response');
+  assert.equal(publicDiagnosisRecord(null), null);
 }
 
 console.log('OVYX Sentinel endpoint tests passed: admin authentication required, same-origin guard, method allowlist, schedule-secret validation, action allowlist, and fail-closed persistence.');
