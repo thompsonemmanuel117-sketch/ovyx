@@ -15,6 +15,7 @@ assert(contract.contactSignals.bookings, 'Reservation capability should be recor
 assert(buildPromptContract('Make a restaurant website with a button to book a table.').contactSignals.bookings, 'Natural-language booking requests should be detected.');
 assert(buildPromptContract('Let visitors reserve online.').contactSignals.bookings, 'Reservation synonyms should be detected.');
 assert(buildPromptContract('Create an online shop with Add to Cart buttons.').contactSignals.shoppingCart, 'Explicit add-to-cart requirements should be detected.');
+assert(buildPromptContract('Create an online shop with Add to Cart buttons.').contactSignals.addToCart, 'Explicit Add to Cart intent should be tracked separately from a general cart.');
 
 const readiness = getWebStudioBuildClarification(
   'Build a restaurant website with a contact form that emails enquiries.',
@@ -41,7 +42,7 @@ const completeFiles = {
   'src/pages/Home.html': '<!doctype html><html><head><title>Home</title></head><body><h1>Home</h1><form><label>Email<input type="email" name="email"></label><button>Send</button></form></body></html>',
   'src/pages/Menu.html': '<!doctype html><html><head><title>Menu</title></head><body><h1>Menu</h1></body></html>',
   'src/pages/About.html': '<!doctype html><html><head><title>About</title></head><body><h1>About</h1></body></html>',
-  'src/pages/Reservations.html': '<!doctype html><html><head><title>Reservations</title></head><body><h1>Reservations</h1></body></html>',
+  'src/pages/Reservations.html': '<!doctype html><html><head><title>Reservations</title></head><body><h1>Reservations</h1><button>Reserve a table</button></body></html>',
   'src/pages/Contact.html': '<!doctype html><html><head><title>Contact</title></head><body><h1>Contact</h1></body></html>',
   'src/styles.css': 'body{margin:0}',
   'src/main.js': 'document.documentElement.dataset.ready="true";',
@@ -70,11 +71,11 @@ assert(missingForm.issues.some(issue => issue.code === 'CONTACT_FORM_MISSING'));
 
 const missingBooking = verifyPromptContractOutput(
   'Create a restaurant website with a button to book a table.',
-  { 'index.html': '<!doctype html><html><head><title>Restaurant</title></head><body><main><h1>Welcome</h1><button>Explore menu</button></main></body></html>' },
+  { 'index.html': '<!doctype html><html><head><title>Restaurant</title></head><body><nav><a href="/reservations/">Reservations</a></nav><main><h1>Welcome</h1><button>Explore menu</button></main></body></html>' },
   { pages: [{ title: 'Home' }] },
 );
 assert.equal(missingBooking.ok, false);
-assert(missingBooking.issues.some(issue => issue.code === 'BOOKING_FLOW_MISSING'), 'A requested booking journey must not silently disappear from the generated site.');
+assert(missingBooking.issues.some(issue => issue.code === 'BOOKING_FLOW_MISSING'), 'A navigation label or unrelated button must not satisfy a requested booking journey.');
 
 const presentBooking = verifyPromptContractOutput(
   'Create a restaurant website with a button to book a table.',
@@ -82,6 +83,20 @@ const presentBooking = verifyPromptContractOutput(
   { pages: [{ title: 'Home' }] },
 );
 assert.equal(presentBooking.ok, true, JSON.stringify(presentBooking));
+
+const bookingNavOnly = verifyPromptContractOutput(
+  'Create a restaurant website with reservations.',
+  { 'index.html': '<!doctype html><html><head><title>Restaurant</title></head><body><nav><a href="/reservations/">Reservations</a></nav><main><h1>Reservations</h1><p>Join us for dinner.</p></main></body></html>' },
+  { pages: [{ title: 'Home' }] },
+);
+assert(bookingNavOnly.issues.some(issue => issue.code === 'BOOKING_FLOW_MISSING'), 'A reservations page heading and nav link do not prove there is a booking action.');
+
+const validBookingForm = verifyPromptContractOutput(
+  'Create a restaurant website with reservations.',
+  { 'index.html': '<!doctype html><html><head><title>Restaurant</title></head><body><main><h1>Reservations</h1><form id="reservation-form"><label>Date<input type="date" name="reservation-date"></label><label>Time<select name="reservation-time"><option>Choose a time</option></select></label><button type="submit">Request reservation</button></form></main></body></html>' },
+  { pages: [{ title: 'Home' }] },
+);
+assert.equal(validBookingForm.ok, true, JSON.stringify(validBookingForm));
 
 const hiddenBookingOnly = verifyPromptContractOutput(
   'Create a restaurant website with a button to book a table.',
@@ -92,16 +107,24 @@ assert(hiddenBookingOnly.issues.some(issue => issue.code === 'BOOKING_FLOW_MISSI
 
 const missingCart = verifyPromptContractOutput(
   'Create an online shop with Add to Cart buttons.',
-  { 'index.html': '<!doctype html><html><head><title>Shop</title></head><body><main><h1>Shop</h1><p>Discover our products.</p><button>Explore products</button></main></body></html>' },
+  { 'index.html': '<!doctype html><html><head><title>Shop</title></head><body><main><h1>Shop</h1><p>Discover our products.</p><p>Cart</p><button>Explore products</button></main></body></html>' },
   { pages: [{ title: 'Home' }] },
 );
-assert(missingCart.issues.some(issue => issue.code === 'SHOPPING_CART_MISSING'), 'The verifier must report when the requested cart UI is omitted.');
+assert(missingCart.issues.some(issue => issue.code === 'SHOPPING_CART_MISSING'), 'A cart heading and unrelated button must not satisfy a requested shopping cart.');
+assert(missingCart.issues.some(issue => issue.code === 'ADD_TO_CART_ACTION_MISSING'), 'An explicit Add to Cart requirement must be checked separately.');
 
 const presentCart = verifyPromptContractOutput(
   'Create an online shop with Add to Cart buttons.',
-  { 'index.html': '<!doctype html><html><head><title>Shop</title></head><body><main><h1>Shop</h1><button>Add to cart</button></main></body></html>' },
+  { 'index.html': '<!doctype html><html><head><title>Shop</title></head><body><main><h1>Shop</h1><button>Add to cart</button><button>View cart</button></main></body></html>' },
   { pages: [{ title: 'Home' }] },
 );
 assert.equal(presentCart.ok, true, JSON.stringify(presentCart));
+
+const cartNavOnly = verifyPromptContractOutput(
+  'Create an online shop with a cart page.',
+  { 'index.html': '<!doctype html><html><head><title>Shop</title></head><body><nav><a href="/cart/">Cart</a></nav><main><h1>Shop</h1><p>Products</p></main></body></html>' },
+  { pages: [{ title: 'Home' }] },
+);
+assert(cartNavOnly.issues.some(issue => issue.code === 'SHOPPING_CART_MISSING'), 'A cart navigation link alone does not prove an actionable cart journey.');
 
 console.log('Web Studio prompt-contract tests passed.');
