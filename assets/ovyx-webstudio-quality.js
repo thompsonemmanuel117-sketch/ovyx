@@ -747,7 +747,7 @@
       'Result: ' + statusLabel,
       'Checks: ' + counts.pass + ' passed · ' + counts.warn + ' warnings · ' + counts.fail + ' failed · ' + counts.info + ' informational',
       'Responsive browser coverage: ' + browser.pagesTested + '/' + browser.pagesAvailable + ' route(s), ' + browser.viewportChecksCompleted + '/' + browser.viewportChecksPlanned + ' viewport checks completed.',
-      'Safe control smoke test: ' + Number(browser.interactions && browser.interactions.tested || 0) + ' of ' + Number(browser.interactions && browser.interactions.candidates || 0) + ' eligible controls tested across ' + Number(browser.interactions && browser.interactions.pagesProbed || 0) + ' mobile route probes; ' + Number(browser.interactions && browser.interactions.skipped || 0) + ' skipped by the per-route safety cap.'
+      'Safe control smoke test: ' + Number(browser.safeControlSampling && browser.safeControlSampling.controlsTested || 0) + ' of ' + Number(browser.safeControlSampling && browser.safeControlSampling.eligibleControls || 0) + ' eligible controls tested across ' + Number(browser.safeControlSampling && browser.safeControlSampling.mobileRoutesProbed || 0) + ' mobile route probes; ' + Number(browser.safeControlSampling && browser.safeControlSampling.controlsSkippedByCap || 0) + ' skipped by the per-route safety cap.'
     ];
     if (browser.routeCoverage) lines.push('Coverage plan: ' + browser.routeCoverage);
     var priorities = (report.checks || []).filter(function (item) {
