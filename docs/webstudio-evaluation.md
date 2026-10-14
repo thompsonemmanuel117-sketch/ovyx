@@ -44,4 +44,6 @@ Each supplied category receives a **technical artifact readiness score**, blocki
 
 A high static score is not a visual-design rating and does not show that a site is worth a particular amount. The runner does not call an AI provider, click all possible controls, take performance measurements, verify contrast with an accessibility standards engine, check browser compatibility, or submit real payments/bookings/forms. Functional criteria and live integration status remain explicitly unverified unless the appropriate browser or safe service tests are run. Missing website artifacts are reported as \`not-evaluated\`, never as passing.
 
+The inspector's adaptive browser plan runs the full five-width matrix on the first three core routes and mobile (390px) plus desktop (1440px) smoke checks on every additional HTML route. Every route is still source-audited. This widens browser-route coverage for agency-sized projects while keeping the default inspection cost bounded; it is not a full five-width test of every route, nor a production-device or live-network test.
+
 Use the Web Studio Quality Inspector for isolated browser viewport/interaction checks, and verify real third-party services only against their safe test environments.
