@@ -26,7 +26,7 @@ try {
             '<script>' +
             'let __currentUser=null;const __authListeners=[];window.__setSentinelUser=u=>{__currentUser=u;__authListeners.forEach(cb=>cb(u))};' +
             'window.firebase={auth:()=>({get currentUser(){return __currentUser},onAuthStateChanged:cb=>{__authListeners.push(cb);cb(__currentUser);return ()=>{}}})};' +
-            'window.Router={go:view=>{window.__openedRoute=view;return view}};window.OvyxOwnerConsole={open:async view=>{window.__openedRoute=view;return view}};' +
+            'window.Router={go:view=>{window.__openedRoute=view;return view}};window.OVYXAdminWorkspace={refresh:async()=>true,isAuthorized:()=>true,open:async view=>{window.__openedRoute=view;return true}};' +
             'window.__recognizer=null;window.SpeechRecognition=class{start(){window.__recognizer=this}stop(){if(this.onend)this.onend()}};' +
             'Object.defineProperty(window,"SpeechSynthesisUtterance",{configurable:true,value:class{constructor(text){this.text=text}}});window.__spoken=[];Object.defineProperty(window,"speechSynthesis",{configurable:true,value:{cancel(){},speak(u){window.__spoken.push(u.text);if(u.onend)u.onend()}}});' +
             '</script><script defer src="/assets/ovyx-sentinel.js?v=20261014-10"></script><script defer src="/assets/ovyx-sentinel-avatar-3d.js?v=20261014-2"></script></body></html>',
