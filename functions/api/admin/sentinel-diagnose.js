@@ -5,6 +5,7 @@ import {
 } from '../../_lib/firebase-admin.js';
 import { errorResponse, jsonResponse, getRequestId } from '../_lib/http.js';
 import { isSentinelAdmin } from '../../_lib/ovyx-sentinel.js';
+import { collectSentinelCIMetadata } from '../../_lib/ovyx-sentinel-ci.js';
 
 const DEFAULT_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 const MAX_AGE_MS = 24 * 60 * 60 * 1000;
