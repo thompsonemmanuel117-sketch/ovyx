@@ -40,6 +40,8 @@ on:
       - 'scripts/ovyx-webstudio-reliability.test.mjs'
       - 'scripts/ovyx-webstudio-reliability.browser.test.mjs'
       - 'index.html'
+      - 'firebase-auth-blocking/**'
+      - 'scripts/ovyx-auth-blocking.test.mjs'
       - 'scripts/ovyx-admin-hub.test.mjs'
       - 'scripts/ovyx-admin-hub.browser.test.mjs'
       - 'package.json'
