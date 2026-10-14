@@ -297,19 +297,50 @@ async function scanNow(shouldSpeak) {
 function transcript(message) { var element = q('[data-ovsx-transcript]'); if (!element) return; element.hidden = false; element.textContent = safeText(message, 1400); }
 async function askAI(question) {
   var reportSummary = latestReport ? { status: latestReport.status, checkedAt: latestReport.finishedAt, checks: (latestReport.checks || []).slice(0, 16).map(function (c) { return { path: c.path, status: c.status, code: c.code, summary: c.summary }; }) } : null;
-  status('Thinking about your question…');
+  status('Checking Guardian capabilities…');
   try {
     var idToken = await getToken();
-    var response = await fetch('/api/ai/ovyx', { method: 'POST', credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: 'Bearer ' + idToken }, body: JSON.stringify({
-      prompt: safeText(question, 1500),
-      system: 'You are OVYX Sentinel, the verified root administrator’s private platform guardian. Answer conversationally. Use only the supplied operational report. Never claim background monitoring unless scheduled runs are recorded; never claim a fix was applied when it was not; never request private end-user files or conversations; never expose secrets. Distinguish evidence from hypotheses. Code changes still require the guarded development workflow.',
-      context: { sentinelReport: reportSummary, scope: 'platform-operational-health-only' }
-    }) });
-    var data = await response.json().catch(function () { return {}; });
-    if (!response.ok || data.ok !== true) throw new Error(data.message || data.error || 'OVYX AI could not answer right now.');
-    var answer = safeText(data.text || data.message || 'I did not receive a response.', 1300);
-    transcript('You: ' + safeText(question, 300) + '\nSentinel: ' + answer); status('Sentinel replied using the available report.', 'success'); speak(answer);
-  } catch (error) { status(String(error.message || 'Voice request failed.') + ' Use Check now for a fresh report.', 'error'); speak('Sorry boss, I could not answer that right now.'); }
+    var headers = { Accept: 'application/json', Authorization: 'Bearer ' + idToken };
+    var capabilitiesResponse = await fetch('/api/admin/guardian-repo', {
+      method: 'GET', credentials: 'same-origin', cache: 'no-store', headers: headers
+    });
+    var capabilities = await capabilitiesResponse.json().catch(function () { return {}; });
+    var answer = '';
+    var modeMessage = '';
+    if (capabilitiesResponse.ok && capabilities.ok === true && capabilities.guardian && capabilities.guardian.readOnlyInvestigationReady === true) {
+      status('Investigating the repository with read-only source access…');
+      var investigationResponse = await fetch('/api/admin/guardian-repo', {
+        method: 'POST', credentials: 'same-origin', cache: 'no-store',
+        headers: Object.assign({}, headers, { 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ action: 'investigate', question: safeText(question, 1200) })
+      });
+      var investigation = await investigationResponse.json().catch(function () { return {}; });
+      if (!investigationResponse.ok || investigation.ok !== true) throw new Error(investigation.message || investigation.error || 'Guardian could not investigate the repository.');
+      answer = safeText(investigation.answer || 'I could not form a diagnosis from the inspected source.', 1300);
+      var files = Array.isArray(investigation.inspectedFiles) ? investigation.inspectedFiles.slice(0, 3).map(function (path) { return safeText(path, 100); }) : [];
+      modeMessage = files.length ? 'Read-only source investigation complete. Inspected: ' + files.join(', ') + '. No code changes were applied.' : 'No matching source files were found; no changes were applied.';
+    } else {
+      var fallbackResponse = await fetch('/api/ai/ovyx', {
+        method: 'POST', credentials: 'same-origin', cache: 'no-store',
+        headers: Object.assign({}, headers, { 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          prompt: safeText(question, 1200),
+          system: 'You are OVYX Sentinel, the verified root administrator’s private platform guardian. This is conversation-only mode: you have not inspected repository source unless the supplied context explicitly includes it. Answer conversationally. Use only supplied operational evidence. Never claim a fix was applied, request private end-user files or conversations, or expose secrets. Distinguish evidence from hypotheses. Code changes require the guarded development workflow.',
+          context: { sentinelReport: reportSummary, scope: 'platform-operational-health-only', repositoryInspection: 'not-configured' }
+        })
+      });
+      var fallback = await fallbackResponse.json().catch(function () { return {}; });
+      if (!fallbackResponse.ok || fallback.ok !== true) throw new Error(fallback.message || fallback.error || 'OVYX AI could not answer right now.');
+      answer = safeText(fallback.text || fallback.message || 'I did not receive a response.', 1300);
+      modeMessage = safeText(capabilities.guardian && capabilities.guardian.message || 'Repository source inspection is not configured. This answer uses only the available operational report and conversation context.', 220);
+    }
+    transcript('You: ' + safeText(question, 300) + '\\nGuardian: ' + answer);
+    status(modeMessage || 'Guardian replied.', 'success');
+    speak(answer);
+  } catch (error) {
+    status(String(error.message || 'Guardian request failed.') + ' No code changes were applied.', 'error');
+    speak('Sorry boss, I could not complete that investigation. ' + String(error.message || ''));
+  }
 }
 function normalize(text) { return String(text || '').toLowerCase().replace(/[.,!?;:]+/g, ' ').replace(/\s+/g, ' ').trim(); }
 function handleVoice(raw) {
