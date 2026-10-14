@@ -28,20 +28,24 @@ function capability(env) {
   const read = typeof env?.OVYX_GUARDIAN_GITHUB_READ_TOKEN === 'string' && env.OVYX_GUARDIAN_GITHUB_READ_TOKEN.trim().length >= 20;
   const write = typeof env?.OVYX_GUARDIAN_GITHUB_WRITE_TOKEN === 'string' && env.OVYX_GUARDIAN_GITHUB_WRITE_TOKEN.trim().length >= 20;
   const ai = !!env?.AI && typeof env.AI.run === 'function';
+  const proposalStorage = !!(env?.FIREBASE_SERVICE_ACCOUNT_JSON || env?.FIREBASE_SERVICE_ACCOUNT);
   const tokensSeparate = read && write && String(env.OVYX_GUARDIAN_GITHUB_READ_TOKEN).trim() !== String(env.OVYX_GUARDIAN_GITHUB_WRITE_TOKEN).trim();
   return {
     reasoningConfigured: ai,
+    proposalStorageConfigured: proposalStorage,
     repositoryReadConfigured: read,
     repositoryWriteConfigured: write,
     repositoryTokensSeparate: !read || !write ? null : tokensSeparate,
-    patchPreparationReady: ai && read,
-    pullRequestCreationReady: ai && read && write && tokensSeparate,
+    patchPreparationReady: ai && read && proposalStorage,
+    pullRequestCreationReady: ai && read && write && tokensSeparate && proposalStorage,
     directMainWritesEnabled: false,
     automaticMergeEnabled: false,
     productionDeploymentsEnabled: false,
     message: !ai
       ? 'Guardian patch preparation needs the existing Cloudflare Workers AI binding named AI.'
-      : !read
+      : !proposalStorage
+        ? 'Guardian patch approval needs the existing Firebase Admin/Firestore service account configuration to store private, expiring proposals.'
+        : !read
         ? 'Add the separate read-only OVYX_GUARDIAN_GITHUB_READ_TOKEN to prepare source patches.'
         : !write
           ? 'Patch previews can be prepared, but creating a review pull request needs a separate least-privilege OVYX_GUARDIAN_GITHUB_WRITE_TOKEN. Guardian never writes directly to main.'
@@ -81,6 +85,9 @@ export async function onRequestPost(context) {
   const env = context.env || {};
   const action = String(body.action || '');
   if (action === 'prepare') {
+    if (!(env.FIREBASE_SERVICE_ACCOUNT_JSON || env.FIREBASE_SERVICE_ACCOUNT)) {
+      return errorResponse(503, 'GUARDIAN_PATCH_STORAGE_NOT_CONFIGURED', 'Guardian patch approval needs Firebase Admin/Firestore configuration to store the exact expiring proposal. No source was changed.', requestId);
+    }
     let proposal;
     try {
       proposal = await prepareGuardianPatch({
