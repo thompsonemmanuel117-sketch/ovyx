@@ -27,7 +27,13 @@ try {
   assert.equal(await page.locator('[data-ovyx-quality-trigger]').count(), 1, 'The inspector must add a Web Studio toolbar control.');
   assert.equal(await page.evaluate(() => document.querySelectorAll('#ws-preview-menu [data-ws-menu]').length), 0, 'The quality feature must not mutate the original preview-menu action list.');
 
-  const first = await page.evaluate(async () => await window.OVYXWebStudioQuality.run());
+  await page.locator('[data-ovyx-quality-trigger]').click();
+  await page.locator('[data-quality-run]').click();
+  await page.waitForFunction(() => {
+    const report = window.OVYXWebStudioQuality?.getReport();
+    return !!report?.finishedAt && report.browser.completed === 15;
+  }, null, { timeout: 30000 });
+  const first = await page.evaluate(() => window.OVYXWebStudioQuality.getReport());
   assert.equal(first.browser.total, 15, 'Three generated pages must each receive five real viewport checks.');
   assert.equal(first.browser.completed, 15, 'Every planned viewport check must report completion.');
   assert.ok(first.checks.some(item => item.title === 'Horizontal overflow' && item.status === 'fail'), 'The inspector must detect a real mobile horizontal-overflow defect.');
