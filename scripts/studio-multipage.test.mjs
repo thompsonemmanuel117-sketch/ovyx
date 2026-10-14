@@ -10,7 +10,7 @@ const integritySiteMap = {
   ],
 };
 const integrityFiles = {
-  'src/pages/Home.html': '<!doctype html><html lang="en"><head><title>Home</title><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="../styles.css"><script src="../main.js"></script></head><body><main><h1>Home</h1><nav><a href="/about/">About</a><a href="/about/#team">Meet the team</a><a href="#features">Features</a><a href="https://example.com/reference">External reference</a><a href="mailto:hello@example.com">Email</a></nav><section id="features"><img src="../assets/mark.svg" alt="Brand mark"></section></main></body></html>',
+  'src/pages/Home.html': '<!doctype html><html lang="en"><head><title>Home</title><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="../styles.css"><script src="../main.js"></script></head><body><main><h1>Home</h1><nav><a href="/about/">About</a><a href="/about/#team">Meet the team</a><a href="#features">Features</a><a href="https://example.com/reference">External reference</a><a href="mailto:hello@example.com">Email</a></nav><section id="features"><img src="../assets/mark.svg" srcset="../assets/mark.svg 1x" alt="Brand mark"></section></main></body></html>',
   'src/pages/About.html': '<!doctype html><html lang="en"><head><title>About</title><meta name="viewport" content="width=device-width, initial-scale=1"><link rel="stylesheet" href="../styles.css"><script src="../main.js"></script></head><body><main><h1>About</h1><section id="team"><h2>Meet the team</h2></section><a href="/">Home</a></main></body></html>',
   'src/styles.css': 'body{background-image:url("./assets/mark.svg")}',
   'src/main.js': 'document.documentElement.dataset.ready = "true";',
@@ -28,11 +28,12 @@ const brokenIntegrityFiles = {
     .replace('href="#features"', 'href="#does-not-exist"')
     .replace('href="/about/#team"', 'href="/about/#missing-team"')
     .replace('href="https://example.com/reference"', 'href="#"')
-    .replace('src="../assets/mark.svg"', 'src="../assets/missing.svg"'),
+    .replace('src="../assets/mark.svg"', 'src="../assets/missing.svg"')
+    .replace('srcset="../assets/mark.svg 1x"', 'srcset="../assets/missing-srcset.svg 1x"'),
   'src/styles.css': 'body{background-image:url("./assets/missing.svg")}',
 };
 const brokenIntegrity = auditWebsiteIntegrity(brokenIntegrityFiles, integritySiteMap);
-for (const code of ['INTERNAL_ROUTE_UNMAPPED', 'ORPHAN_FRAGMENT', 'BROKEN_ROUTE_FRAGMENT', 'PLACEHOLDER_LINK', 'LOCAL_IMG_MISSING', 'LOCAL_CSS_ASSET_MISSING']) {
+for (const code of ['INTERNAL_ROUTE_UNMAPPED', 'ORPHAN_FRAGMENT', 'BROKEN_ROUTE_FRAGMENT', 'PLACEHOLDER_LINK', 'LOCAL_IMG_MISSING', 'LOCAL_SRCSET_ASSET_MISSING', 'LOCAL_CSS_ASSET_MISSING']) {
   assert.ok(brokenIntegrity.findings.some(item => item.code === code), 'Integrity audit should detect ' + code);
 }
 assert.ok(brokenIntegrity.totalFindings >= 5);
