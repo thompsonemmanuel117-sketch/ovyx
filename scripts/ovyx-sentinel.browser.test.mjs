@@ -160,6 +160,7 @@ try {
     assert.match(await page.locator('#ovyx-sentinel-panel [data-ovsx-report]').innerText(), /Latest report · HEALTHY/i, '[' + target.name + '] saved report was not rendered');
     await page.locator('[data-ovsx-diagnosis-history]').waitFor({ state: 'visible' });
     assert.match(await page.locator('[data-ovsx-diagnosis-history] summary').innerText(), /Previous diagnoses \\(1\\)/i, '[' + target.name + '] previous diagnosis history should load from the saved report endpoint');
+    await page.locator('[data-ovsx-diagnosis-history] summary').click();
     await page.locator('[data-ovsx-history-id]').click();
     assert.match(await page.locator('[data-ovsx-diagnosis]').innerText(), /Historical diagnosis: previous saved check/i, '[' + target.name + '] the owner should be able to reopen a saved diagnosis');
 
