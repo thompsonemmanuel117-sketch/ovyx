@@ -3067,11 +3067,13 @@ Body: { broadcastId, title, body, category, link }</div>
           this.appendMessage('agent','OVYX could not complete that request because the connected AI service returned an error.');
         }finally{if(this.isRequestCurrent(token)){this.pendingBuild=false;this.liveAiActive=false;this.renderThread()}}
       },
-      async runBuildAgent(text,repair,token=this.requestEpoch,attachments=null){
+      async runBuildAgent(text,repair,token=this.requestEpoch,attachments=null,rollback=null){
         if(!this.isRequestCurrent(token))return;
         this.ensureProjectGraph();this.pendingBuild=true;
         const requestAttachments=Array.isArray(attachments)?attachments:this.attachmentPayload();
+        const hadWebsite=this.hasProjectWebsite();
         const before=this.snapshotGraph();
+        const rollbackState=rollback||{projectId:String(window.KernelState?.activeProject?.id||''),project:JSON.parse(JSON.stringify(window.KernelState?.activeProject||{})),projects:JSON.parse(JSON.stringify(window.KernelState?.projects||[])),graph:before};
         try{
           if(!repair)this.status('live');
           this.status('live');
@@ -3083,22 +3085,38 @@ Body: { broadcastId, title, body, category, link }</div>
           this.status('live');
           this.applyAIResult(result);
           if(!this.isRequestCurrent(token))return;
+          const afterApply=this.snapshotGraph();
+          const changedFiles=this.diffFiles(before,afterApply);
+          const changedHtml=changedFiles.some(path=>/\\.html?$/i.test(path)&&String(afterApply?.files?.[path]?.content||'').trim().length>80);
+          const changedFrontend=changedFiles.some(path=>/\\.(html?|css|m?js|jsx|tsx)$/i.test(path)&&String(afterApply?.files?.[path]?.content||'').trim().length>0);
+          if(!(hadWebsite?changedFrontend:changedHtml))throw Object.assign(new Error('The AI response did not produce a real website file change. OVYX kept the previous preview unchanged. Please retry or check your selected AI provider.'),{code:'AI_BUILD_NO_ARTIFACTS'});
           const test=this.runTests(false);
           if(!this.isRequestCurrent(token))return;
           if(!test.ok){
             this.status('live','error');
             this.appendMessage('agent',test.summary);
-            if(!repair){this.pendingBuild=false;this.status('live');return this.runBuildAgent(`Repair the current project using these verified test failures:\n${test.details}`,true,token,requestAttachments)}
+            if(!repair){this.pendingBuild=false;this.status('live');return this.runBuildAgent(`Repair the current project using these verified test failures:\n${test.details}`,true,token,requestAttachments,rollbackState)}
             throw new Error('Build completed with unresolved test failures.');
           }
           this.status('live','done');
-          this.commitHistory(repair?'Auto-repair':'AI build',before,this.snapshotGraph());
+          if(window.KernelState?.activeProject){window.KernelState.activeProject.ovyxBuildState='verified';window.KernelState.activeProject.ovyxBuildVerifiedAt=new Date().toISOString();window.KernelState.activeProject.ovyxGraph=this.graph;window.ProjectStore?.save?.();}
+          this.commitHistory(repair?'Auto-repair':'AI build',rollbackState.graph||before,this.snapshotGraph());
           this.appendMessage('agent',String(result?.message||result?.summary||'Build completed and the preview was verified.'));
           this.render();
         }catch(e){
           if(!this.isRequestCurrent(token))return;
           if(e?.name==='AbortError')return;
-          this.status(e.message||'Build failed.','error');this.appendMessage('agent',e.message||'OVYX could not complete the build.');
+          try{
+            const restoredProjects=JSON.parse(JSON.stringify(rollbackState?.projects||[]));
+            window.KernelState.projects=restoredProjects;
+            window.KernelState.activeProject=restoredProjects.find(p=>String(p?.id||'')===String(rollbackState?.projectId||''))||JSON.parse(JSON.stringify(rollbackState?.project||{}));
+            this.graph=JSON.parse(JSON.stringify(rollbackState?.graph||before));
+            if(window.KernelState.activeProject)this.graph&&(window.KernelState.activeProject.ovyxGraph=this.graph);
+            try{localStorage.setItem(this.graphKeyPrefix+(window.KernelState.activeProject?.id||'unknown'),JSON.stringify(this.graph))}catch(_){}
+            window.ProjectStore?.save?.();
+            this.renderPreview();
+          }catch(rollbackError){console.error('[OVYX Web Studio build rollback]',String(rollbackError?.message||rollbackError).slice(0,180))}
+          this.status(e.message||'Build failed.','error');this.appendMessage(e.message||'OVYX could not complete the build.');
         }finally{if(this.isRequestCurrent(token)){this.pendingBuild=false;this.liveAiActive=false;this.renderThread()}}
       },
       async runFixAgent(text,token=this.requestEpoch,attachments=null){
