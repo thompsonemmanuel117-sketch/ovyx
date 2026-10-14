@@ -103,6 +103,7 @@ function stateLabel(report) {
 function renderReport(report) {
   latestReport = report || null;
   var planHost = q('[data-ovsx-plan]'); if (planHost) { planHost.hidden = true; planHost.replaceChildren(); }
+  var diagnosisHost = q('[data-ovsx-diagnosis]'); if (diagnosisHost) { diagnosisHost.hidden = true; diagnosisHost.replaceChildren(); }
   var host = q('[data-ovsx-report]'); if (!host) return;
   host.replaceChildren();
   if (!report) { var empty = document.createElement('div'); empty.className = 'summary'; empty.textContent = 'No saved Sentinel report yet. Select Check now to run the first scan.'; host.appendChild(empty); return; }
@@ -205,7 +206,7 @@ async function diagnoseLatest(shouldSpeak) {
     if (!response.ok || data.ok !== true) throw new Error(String(data.message || data.error || 'Sentinel could not diagnose the report.').slice(0, 320));
     renderDiagnosis(data);
     var message = safeText(data.diagnosis || 'The diagnosis is ready.', 900);
-    transcript('Sentinel AI diagnosis:\\n' + message);
+    transcript('Sentinel AI diagnosis:\n' + message);
     status('Diagnosis ready. It is based on the saved report; no changes were applied.', 'success');
     if (shouldSpeak) speak(message);
   } catch (error) {
