@@ -10,6 +10,9 @@ const MAX_PROMPT_CHARS = 30000;
 const MAX_REQUIREMENTS = 28;
 const BOOKING_INTENT_PATTERN = /\b(?:bookings?|book\s+(?:a\s+)?(?:table|appointment|visit)|book\s+(?:online|now|today)|reserv(?:e|ation|ations|ing)|appointments?|schedule\s+(?:a\s+)?(?:visit|table|appointment))\b/i;
 const SHOPPING_CART_PATTERN = /\b(?:shopping\s+cart|cart|basket|add(?:ing)?\s+to\s+(?:the\s+)?cart|shopping\s+bag|add\s+to\s+(?:the\s+)?bag)\b/i;
+const BOOKING_ACTION_PATTERN = /\b(?:book\s+(?:(?:a|an|your)\s+)?(?:table|appointment|visit|room|seat|stay|slot|now|online|today)|reserve\s+(?:(?:a|an|your)\s+)?(?:table|appointment|room|seat|spot|place|time|now|online)|schedule\s+(?:(?:a|an|your)\s+)?(?:visit|appointment|consultation)|make\s+(?:a\s+)?reservation|check\s+availability|choose\s+(?:a\s+)?(?:time|slot|date))\b/i;
+const SHOPPING_CART_ACTION_PATTERN = /\b(?:add\s+(?:to\s+)?(?:the\s+)?(?:cart|bag|basket)|view\s+(?:your\s+)?cart|open\s+(?:your\s+)?cart|go\s+to\s+checkout|proceed\s+to\s+checkout|checkout)\b/i;
+const ADD_TO_CART_PATTERN = /\badd\s+(?:to\s+)?(?:the\s+)?(?:cart|bag|basket)\b/i;
 
 const PAGE_ALIASES = [
   { title: 'Home', pattern: /\b(?:home(?:page)?|landing page)\b/i },
@@ -56,6 +59,65 @@ const NON_REAL_EMAIL_DOMAINS = new Set([
 
 function clean(value, max = MAX_PROMPT_CHARS) {
   return String(value ?? '').replace(/\u0000/g, '').trim().slice(0, max);
+}
+
+function htmlAttribute(tag, name) {
+  const match = String(tag || '').match(new RegExp('\\b' + name + '\\s*=\\s*(?:"([^"]*)"|\\x27([^\\x27]*)\\x27|([^\\s>]+))', 'i'));
+  return match ? String(match[1] ?? match[2] ?? match[3] ?? '').trim() : '';
+}
+
+function hasVisibleActionControl(htmlEntries, actionPattern) {
+  for (const [, html] of htmlEntries) {
+    for (const match of String(html || '').matchAll(/<(a|button)\b[^>]*>[\s\S]*?<\/\1\s*>/gi)) {
+      const tagEnd = match[0].indexOf('>') + 1;
+      const tag = match[0].slice(0, tagEnd);
+      const label = [
+        visibleHtmlText(match[0].slice(tagEnd, match[0].lastIndexOf('</'))),
+        htmlAttribute(tag, 'aria-label'),
+        htmlAttribute(tag, 'title'),
+      ].filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+      if (!actionPattern.test(label)) continue;
+
+      if (match[1].toLowerCase() === 'button') return true;
+
+      // A generic item in the main navigation is a route, not evidence of an
+      // actionable booking/cart journey. An explicit button remains actionable.
+      const before = String(html || '').slice(0, match.index).toLowerCase();
+      if (before.lastIndexOf('<nav') > before.lastIndexOf('</nav')) continue;
+      const href = htmlAttribute(tag, 'href');
+      if (href && href !== '#') return true;
+    }
+  }
+  return false;
+}
+
+function hasIntentForm(htmlEntries, kind) {
+  const pattern = kind === 'booking'
+    ? /\b(?:booking|reservation|appointment|select\s+(?:a\s+)?date|choose\s+(?:a\s+)?time|time\s+slot|party\s+size)\b/i
+    : /\b(?:cart|checkout|order\s+summary|basket)\b/i;
+  for (const [, html] of htmlEntries) {
+    for (const match of String(html || '').matchAll(/<form\b([^>]*)>([\s\S]*?)<\/form\s*>/gi)) {
+      const opening = '<form ' + match[1] + '>';
+      const formContent = match[2];
+      const fields = [...formContent.matchAll(/<(?:input|select|textarea)\b[^>]*>/gi)];
+      const fieldText = fields.map(field => [
+        htmlAttribute(field[0], 'id'),
+        htmlAttribute(field[0], 'name'),
+        htmlAttribute(field[0], 'aria-label'),
+        htmlAttribute(field[0], 'placeholder'),
+      ].join(' ')).join(' ');
+      const evidence = [
+        htmlAttribute(opening, 'id'),
+        htmlAttribute(opening, 'name'),
+        htmlAttribute(opening, 'class'),
+        htmlAttribute(opening, 'action'),
+        visibleHtmlText(formContent),
+        fieldText,
+      ].join(' ');
+      if (fields.length && pattern.test(evidence)) return true;
+    }
+  }
+  return false;
 }
 
 function visibleHtmlText(html) {
@@ -226,6 +288,7 @@ export function buildPromptContract(prompt) {
       newsletter: /\b(?:newsletter|subscribe|subscription form)\b/i.test(source),
       payments: /\b(?:payments?|checkout|accept cards|paystack|flutterwave|stripe|paypal|buy now|subscriptions? billing)\b/i.test(source),
       shoppingCart: SHOPPING_CART_PATTERN.test(source),
+      addToCart: ADD_TO_CART_PATTERN.test(source),
       authentication: /\b(?:login|log in|sign in|sign up|user accounts?|authentication|register an account)\b/i.test(source),
       backendData: /\b(?:save|store|persist|database|backend|customer records?|booking records?|order records?)\b/i.test(source),
     },
@@ -337,16 +400,27 @@ export function verifyPromptContractOutput(prompt, files, siteMap = {}) {
       message: 'The brief explicitly asks for a contact/enquiry form, but no HTML form was generated.',
     });
   }
-  if (contract.contactSignals.bookings && !BOOKING_INTENT_PATTERN.test(visibleText)) {
+  if (contract.contactSignals.bookings &&
+      !hasVisibleActionControl(htmlEntries, BOOKING_ACTION_PATTERN) &&
+      !hasIntentForm(htmlEntries, 'booking')) {
     issues.push({
       code: 'BOOKING_FLOW_MISSING',
-      message: 'The brief asks for booking, reservation or appointment capability, but no corresponding booking path or UI text was generated.',
+      message: 'The brief asks for booking, reservation or appointment capability, but the generated HTML has no actionable booking control or booking-specific form. A navigation label alone does not satisfy this requirement.',
     });
   }
-  if (contract.contactSignals.shoppingCart && !SHOPPING_CART_PATTERN.test(visibleText)) {
+  if (contract.contactSignals.shoppingCart &&
+      !hasVisibleActionControl(htmlEntries, SHOPPING_CART_ACTION_PATTERN) &&
+      !hasIntentForm(htmlEntries, 'cart')) {
     issues.push({
       code: 'SHOPPING_CART_MISSING',
-      message: 'The brief asks for a shopping cart or add-to-cart capability, but no corresponding cart UI text or accessible control label was generated.',
+      message: 'The brief asks for a shopping cart, but the generated HTML has no actionable add-to-cart/cart/checkout control or cart-specific form.',
+    });
+  }
+  if (contract.contactSignals.addToCart &&
+      !hasVisibleActionControl(htmlEntries, ADD_TO_CART_PATTERN)) {
+    issues.push({
+      code: 'ADD_TO_CART_ACTION_MISSING',
+      message: 'The brief explicitly asks for Add to Cart behavior, but no button or non-navigation action link labeled Add to Cart (or equivalent) was generated.',
     });
   }
   if (contract.contactSignals.newsletter && !/(?:newsletter|subscribe|subscription)/i.test(allText)) {
