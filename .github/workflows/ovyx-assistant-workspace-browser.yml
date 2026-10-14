@@ -21,6 +21,8 @@ on:
       - 'scripts/ovyx-static-verify.mjs'
       - 'assets/ovyx-sentinel.js'
       - 'assets/ovyx-sentinel-avatar-3d.js'
+      - 'firebase-auth-blocking/**'
+      - 'scripts/ovyx-auth-blocking.test.mjs'
       - 'scripts/ovyx-sentinel-avatar.test.mjs'
       - 'docs/OVYX-SENTINEL-AVATAR.md'
       - 'functions/api/admin/sentinel.js'
