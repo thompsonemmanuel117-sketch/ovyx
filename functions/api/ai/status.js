@@ -102,6 +102,8 @@ async function checkProvider(id, config, env) {
 
   try {
     const response = await config.check(key);
+    // Only status codes are needed. Do not retain provider payloads in memory.
+    try { await response.body?.cancel(); } catch (_) {}
 
     if (response.ok) {
       return {
