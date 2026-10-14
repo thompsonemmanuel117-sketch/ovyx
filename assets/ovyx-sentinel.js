@@ -449,6 +449,18 @@ async function refreshPatchCapabilities() {
     status(String(error.message || 'Guardian patch capabilities are unavailable.'), 'error');
   }
 }
+function invalidatePatchProposal() {
+  if (!currentPatchProposalId) return;
+  currentPatchProposalId = '';
+  var preview = q('[data-ovsx-patch-preview]');
+  var summary = q('[data-ovsx-patch-summary]');
+  var confirmation = q('[data-ovsx-patch-confirm]');
+  if (preview) { preview.hidden = true; preview.textContent = ''; }
+  if (summary) summary.textContent = 'The file path or task changed. Prepare a fresh preview before submitting.';
+  if (confirmation) confirmation.value = '';
+  updatePatchApplyState();
+  status('The patch request changed, so the previous approval was invalidated. Prepare and review a new preview.', 'info');
+}
 function updatePatchApplyState() {
   var button = q('[data-ovsx="patch-apply"]');
   var confirmation = q('[data-ovsx-patch-confirm]');
@@ -554,6 +566,10 @@ function bindShell() {
   q('#' + ID + '-launch').addEventListener('click', function () { showPanel(true); });
   var patchConfirmation = q('[data-ovsx-patch-confirm]');
   if (patchConfirmation) patchConfirmation.addEventListener('input', updatePatchApplyState);
+  var patchPath = q('[data-ovsx-patch-path]');
+  var patchTask = q('[data-ovsx-patch-task]');
+  if (patchPath) patchPath.addEventListener('input', invalidatePatchProposal);
+  if (patchTask) patchTask.addEventListener('input', invalidatePatchProposal);
   root.addEventListener('click', function (event) {
     var button = event.target.closest('[data-ovsx]'); if (!button) return;
     if (button.dataset.ovsx === 'close') showPanel(false);
