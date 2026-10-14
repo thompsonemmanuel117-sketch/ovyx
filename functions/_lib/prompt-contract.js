@@ -8,7 +8,7 @@
 
 const MAX_PROMPT_CHARS = 30000;
 const MAX_REQUIREMENTS = 28;
-const BOOKING_INTENT_PATTERN = /\b(?:book(?:ing|ings)?|reserv(?:e|ation|ations|ing)|appointments?|schedule\s+(?:a\s+)?(?:visit|table|appointment))\b/i;
+const BOOKING_INTENT_PATTERN = /\b(?:bookings?|book\s+(?:a\s+)?(?:table|appointment|visit)|book\s+(?:online|now|today)|reserv(?:e|ation|ations|ing)|appointments?|schedule\s+(?:a\s+)?(?:visit|table|appointment))\b/i;
 
 const PAGE_ALIASES = [
   { title: 'Home', pattern: /\b(?:home(?:page)?|landing page)\b/i },
