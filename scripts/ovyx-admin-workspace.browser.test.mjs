@@ -12,8 +12,11 @@ try {
   ]) {
     const page = await browser.newPage({ viewport: target.viewport });
     page.setDefaultTimeout(15000);
+    page.on('console', message => console.log('[' + target.name + ' browser console] ' + message.type() + ': ' + message.text()));
 
+    let entitlementCalls = 0;
     await page.route('**/api/entitlements', async route => {
+      entitlementCalls += 1;
       const authorization = String(route.request().headers().authorization || '');
       const isRoot = authorization === 'Bearer ovyx-admin-root-test-token';
       const body = isRoot
@@ -60,7 +63,13 @@ try {
       window.__setOVYXAdminTestIdentity('root');
     });
 
-    await page.evaluate(() => window.OVYXAdminWorkspace.refresh());
+    const refreshResult = await page.evaluate(() => window.OVYXAdminWorkspace.refresh());
+    console.log('[' + target.name + '] admin auth fixture', JSON.stringify(await page.evaluate(() => ({
+      authorized: window.OVYXAdminWorkspace.isAuthorized(),
+      hasUser: !!window.firebase?.auth?.()?.currentUser,
+      uid: window.firebase?.auth?.()?.currentUser?.uid || null,
+      firebaseReady: window.__OVYX_FIREBASE_READY__,
+    }))), 'refreshResult=' + refreshResult, 'entitlementCalls=' + entitlementCalls);
     await page.waitForFunction(() => window.OVYXAdminWorkspace.isAuthorized() === true);
     assert.ok(await page.locator('#' + 'ovyx-admin-workspace-entry-desktop').count(), '[' + target.name + '] desktop owner entry was not created');
     assert.ok(await page.locator('#ovyx-admin-workspace-entry-mobile').count(), '[' + target.name + '] mobile owner entry group was not created');
