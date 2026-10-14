@@ -1,3 +1,74 @@
+
+// Provider checks validate that configured server-side credentials can reach
+// each provider's low-cost model-list endpoint. They do not consume generation
+// credits and cannot guarantee billing balance or permissions for every model.
+const AI_PROVIDER_TARGETS = Object.freeze([
+  { id: 'ai_gemini', provider: 'Gemini', key: 'GEMINI_API_KEY', url: 'https://generativelanguage.googleapis.com/v1beta/models?pageSize=1', headers: key => ({ 'x-goog-api-key': key }) },
+  { id: 'ai_anthropic', provider: 'Anthropic', key: 'ANTHROPIC_API_KEY', url: 'https://api.anthropic.com/v1/models?limit=1', headers: key => ({ 'x-api-key': key, 'anthropic-version': '2023-06-01' }) },
+  { id: 'ai_deepseek', provider: 'DeepSeek', key: 'DEEPSEEK_API_KEY', url: 'https://api.deepseek.com/models', headers: key => ({ Authorization: 'Bearer ' + key }) },
+  { id: 'ai_openai', provider: 'OpenAI', key: 'OPENAI_API_KEY', url: 'https://api.openai.com/v1/models', headers: key => ({ Authorization: 'Bearer ' + key }) },
+  { id: 'ai_groq', provider: 'Groq', key: 'GROQ_API_KEY', url: 'https://api.groq.com/openai/v1/models', headers: key => ({ Authorization: 'Bearer ' + key }) },
+  { id: 'ai_openrouter', provider: 'OpenRouter', key: 'OPENROUTER_API_KEY', url: 'https://openrouter.ai/api/v1/models', headers: key => ({ Authorization: 'Bearer ' + key }) },
+]);
+
+async function checkAIProviderCredential(target, env, fetchImpl, now) {
+  const key = String(env?.[target.key] || '').trim();
+  if (!key) {
+    return {
+      id: target.id,
+      path: target.provider + ' credential',
+      status: 'skipped',
+      ok: true,
+      httpStatus: null,
+      durationMs: 0,
+      code: 'PROVIDER_KEY_NOT_CONFIGURED',
+      summary: target.provider + ' API key is not configured; this optional provider was not probed.',
+    };
+  }
+
+  const startedAt = now();
+  try {
+    const response = await fetchWithDeadline(fetchImpl, target.url, 6000, {
+      Accept: 'application/json',
+      ...target.headers(key),
+    });
+    // Only HTTP metadata is retained; never read or persist provider response bodies.
+    try { await response.body?.cancel(); } catch {}
+    if (response.ok) {
+      return {
+        id: target.id, path: target.provider + ' credential', status: 'pass', ok: true,
+        httpStatus: response.status, durationMs: safeDuration(startedAt, now),
+        code: 'PROVIDER_CREDENTIAL_ACCEPTED',
+        summary: target.provider + ' accepted the configured credential for a model-list request.',
+      };
+    }
+    const authFailure = response.status === 401;
+    const permissionFailure = response.status === 403;
+    const creditFailure = response.status === 402;
+    const rateLimited = response.status === 429;
+    const status = authFailure || creditFailure ? 'fail' : 'warning';
+    const code = authFailure ? 'PROVIDER_AUTH_FAILED'
+      : permissionFailure ? 'PROVIDER_PERMISSION_OR_ACCOUNT_RESTRICTED'
+      : creditFailure ? 'PROVIDER_BILLING_OR_CREDITS_REQUIRED'
+      : rateLimited ? 'PROVIDER_RATE_LIMITED'
+      : response.status >= 500 ? 'PROVIDER_UPSTREAM_ERROR' : 'PROVIDER_REQUEST_REJECTED';
+    const summary = authFailure ? target.provider + ' rejected the credential (HTTP 401); check whether it was revoked, expired, or copied incorrectly.'
+      : permissionFailure ? target.provider + ' denied access (HTTP 403); check account restrictions and API permissions.'
+      : creditFailure ? target.provider + ' reported a billing or credit restriction (HTTP 402).'
+      : rateLimited ? target.provider + ' rate-limited the diagnostic request (HTTP 429); retry later.'
+      : response.status >= 500 ? target.provider + ' is temporarily reporting an upstream error.'
+      : target.provider + ' rejected the diagnostic request (HTTP ' + response.status + ').';
+    return { id: target.id, path: target.provider + ' credential', status, ok: false,
+      httpStatus: response.status, durationMs: safeDuration(startedAt, now), code, summary };
+  } catch (error) {
+    const timedOut = error?.name === 'AbortError';
+    return { id: target.id, path: target.provider + ' credential', status: 'warning', ok: false,
+      httpStatus: null, durationMs: safeDuration(startedAt, now),
+      code: timedOut ? 'PROVIDER_CHECK_TIMEOUT' : 'PROVIDER_CHECK_UNREACHABLE',
+      summary: timedOut ? target.provider + ' credential check timed out.' : target.provider + ' credential check could not reach the provider.' };
+  }
+}
+
 const CHECK_TARGETS = Object.freeze([
   { id: 'app_shell', path: '/', kind: 'html' },
   { id: 'platform_health', path: '/api/health', kind: 'json' },
@@ -121,6 +192,9 @@ export async function collectSentinelChecks({ origin, env = {}, fetchImpl = fetc
       };
     }
   }));
+
+  const providerChecks = await Promise.all(AI_PROVIDER_TARGETS.map(target => checkAIProviderCredential(target, env, fetchImpl, now)));
+  checks.push(...providerChecks);
 
   if (String(env.OVYX_SENTINEL_GITHUB_TOKEN || '').trim()) {
     const startedAt = now();
