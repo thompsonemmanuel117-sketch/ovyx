@@ -3085,6 +3085,11 @@ Body: { broadcastId, title, body, category, link }</div>
           this.status('live');
           this.applyAIResult(result);
           if(!this.isRequestCurrent(token))return;
+          const returnedFiles=result?.files||result?.fileEdits||result?.patch?.files;
+          const returnedHtmlPaths=Object.keys(returnedFiles||{}).filter(path=>/\\.html?$/i.test(path)&&!String(path).split(/[\\/]/).some(part=>part==='..'||part==='.')&&String(typeof returnedFiles[path]==='string'?returnedFiles[path]:(returnedFiles[path]?.content??returnedFiles[path]?.text??'')).trim().length>80);
+          const activePage=this.getActivePage();
+          const selectedHtmlPath=returnedHtmlPaths.find(path=>path===activePage?.__ovyxFile)||returnedHtmlPaths.find(path=>/(^|\\/)(index|home)\\.html?$/i.test(path))||returnedHtmlPaths.find(path=>path===this.graph?.entry)||returnedHtmlPaths[0];
+          if(selectedHtmlPath){this.graph.entry=selectedHtmlPath;if(activePage)activePage.__ovyxFile=selectedHtmlPath;this.syncGraphToProject();}
           const afterApply=this.snapshotGraph();
           const changedFiles=this.diffFiles(before,afterApply);
           const changedHtml=changedFiles.some(path=>/\.html?$/i.test(path)&&String(afterApply?.files?.[path]?.content||'').trim().length>80);
