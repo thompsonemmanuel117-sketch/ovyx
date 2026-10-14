@@ -39,7 +39,7 @@ const placeholderChoice = getWebStudioBuildClarification(
 assert.equal(placeholderChoice, null, 'An explicit placeholder/UI-only choice should unblock the build.');
 
 const completeFiles = {
-  'src/pages/Home.html': '<!doctype html><html><head><title>Home</title></head><body><h1>Home</h1><form><label>Email<input type="email" name="email"></label><button>Send</button></form></body></html>',
+  'src/pages/Home.html': '<!doctype html><html><head><title>Home</title></head><body><h1>Home</h1><form id="contact-form"><label>Email<input type="email" name="email"></label><label>Message<textarea name="message"></textarea></label><button type="submit">Send message</button></form></body></html>',
   'src/pages/Menu.html': '<!doctype html><html><head><title>Menu</title></head><body><h1>Menu</h1></body></html>',
   'src/pages/About.html': '<!doctype html><html><head><title>About</title></head><body><h1>About</h1></body></html>',
   'src/pages/Reservations.html': '<!doctype html><html><head><title>Reservations</title></head><body><h1>Reservations</h1><button>Reserve a table</button></body></html>',
@@ -68,6 +68,55 @@ const missingForm = verifyPromptContractOutput(
   { pages: [{ title: 'Home' }] },
 );
 assert(missingForm.issues.some(issue => issue.code === 'CONTACT_FORM_MISSING'));
+
+const signupDoesNotCountAsContact = verifyPromptContractOutput(
+  'Create a one-page website with a contact form.',
+  { 'index.html': '<!doctype html><html><head><title>Contact</title></head><body><main><h1>Contact us</h1><form id="newsletter-form"><label>Email<input type="email" name="email"></label><button>Subscribe</button></form></main></body></html>' },
+  { pages: [{ title: 'Home' }] },
+);
+assert(signupDoesNotCountAsContact.issues.some(issue => issue.code === 'CONTACT_FORM_MISSING'), 'A newsletter signup must not satisfy a contact-form requirement.');
+
+const missingNewsletter = verifyPromptContractOutput(
+  'Create a one-page website with a newsletter signup form.',
+  { 'index.html': '<!doctype html><html><head><title>News</title></head><body><main><h1>Newsletter</h1><p>Subscribe to our newsletter.</p></main></body></html>' },
+  { pages: [{ title: 'Home' }] },
+);
+assert(missingNewsletter.issues.some(issue => issue.code === 'NEWSLETTER_MISSING'), 'Visible newsletter copy without an email signup form and action must not satisfy the contract.');
+
+const validNewsletter = verifyPromptContractOutput(
+  'Create a one-page website with a newsletter signup form.',
+  { 'index.html': '<!doctype html><html><head><title>News</title></head><body><main><h1>Newsletter</h1><form id="newsletter-form"><label>Email<input type="email" name="newsletter-email"></label><button type="submit">Subscribe to newsletter</button></form></main></body></html>' },
+  { pages: [{ title: 'Home' }] },
+);
+assert.equal(validNewsletter.ok, true, JSON.stringify(validNewsletter));
+
+const missingAuth = verifyPromptContractOutput(
+  'Create a dashboard website with login and user accounts.',
+  { 'index.html': '<!doctype html><html><head><title>Dashboard</title></head><body><main><h1>Welcome to your dashboard</h1><p>User account settings are available.</p></main></body></html>' },
+  { pages: [{ title: 'Home' }] },
+);
+assert(missingAuth.issues.some(issue => issue.code === 'AUTHENTICATION_UI_MISSING'), 'Mentioning accounts is not an authentication interface.');
+
+const validAuth = verifyPromptContractOutput(
+  'Create a dashboard website with login and user accounts.',
+  { 'index.html': '<!doctype html><html><head><title>Dashboard</title></head><body><main><h1>Welcome</h1><button type="button">Sign in</button></main></body></html>' },
+  { pages: [{ title: 'Home' }] },
+);
+assert.equal(validAuth.ok, true, JSON.stringify(validAuth));
+
+const missingPayment = verifyPromptContractOutput(
+  'Create a shop website that accepts payments with Paystack.',
+  { 'index.html': '<!doctype html><html><head><title>Shop</title></head><body><main><h1>Shop</h1><p>Paystack is supported.</p><button>View products</button></main></body></html>' },
+  { pages: [{ title: 'Home' }] },
+);
+assert(missingPayment.issues.some(issue => issue.code === 'PAYMENT_FLOW_MISSING'), 'Mentioning a payment provider must not satisfy the payment-action requirement.');
+
+const validPayment = verifyPromptContractOutput(
+  'Create a shop website that accepts payments with Paystack.',
+  { 'index.html': '<!doctype html><html><head><title>Shop</title></head><body><main><h1>Checkout</h1><button type="button">Pay now</button></main></body></html>' },
+  { pages: [{ title: 'Home' }] },
+);
+assert.equal(validPayment.ok, true, JSON.stringify(validPayment));
 
 const missingBooking = verifyPromptContractOutput(
   'Create a restaurant website with a button to book a table.',
