@@ -48,4 +48,6 @@ The inspector's adaptive browser plan runs the full five-width matrix on the fir
 
 The Quality Inspector now offers a **JSON QA report export** and a **copyable client-ready summary** after a completed inspection. The handoff describes route coverage and findings, excludes project IDs and source file contents, and states the limits of sandbox performance and live-integration verification. Findings can still contain project-specific paths or text, so review the report before sharing it externally.
 
+The source audit also checks local image, media, icon, srcset, and CSS `url()` references against the generated project file graph. It warns about missing local files. Remote asset references are counted but not fetched, so their availability, licensing, latency, and rendering remain unverified.
+
 Use the Web Studio Quality Inspector for isolated browser viewport/interaction checks, and verify real third-party services only against their safe test environments.
