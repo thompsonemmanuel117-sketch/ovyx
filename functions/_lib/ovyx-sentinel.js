@@ -1,22 +1,24 @@
 
-// Provider checks validate that configured server-side credentials can reach
-// each provider's low-cost model-list endpoint. They do not consume generation
-// credits and cannot guarantee billing balance or permissions for every model.
+// Provider checks use bounded, read-only endpoints. Most are model-list checks;
+// DeepSeek also exposes a balance availability flag, and OpenRouter exposes
+// current-key expiry/limit metadata. No model generation is requested.
 const AI_PROVIDER_TARGETS = Object.freeze([
-  { id: 'ai_gemini', provider: 'Gemini', key: 'GEMINI_API_KEY', url: 'https://generativelanguage.googleapis.com/v1beta/models?pageSize=1', headers: key => ({ 'x-goog-api-key': key }) },
-  { id: 'ai_anthropic', provider: 'Anthropic', key: 'ANTHROPIC_API_KEY', url: 'https://api.anthropic.com/v1/models?limit=1', headers: key => ({ 'x-api-key': key, 'anthropic-version': '2023-06-01' }) },
-  { id: 'ai_deepseek', provider: 'DeepSeek', key: 'DEEPSEEK_API_KEY', url: 'https://api.deepseek.com/models', headers: key => ({ Authorization: 'Bearer ' + key }) },
-  { id: 'ai_openai', provider: 'OpenAI', key: 'OPENAI_API_KEY', url: 'https://api.openai.com/v1/models', headers: key => ({ Authorization: 'Bearer ' + key }) },
-  { id: 'ai_groq', provider: 'Groq', key: 'GROQ_API_KEY', url: 'https://api.groq.com/openai/v1/models', headers: key => ({ Authorization: 'Bearer ' + key }) },
-  { id: 'ai_openrouter', provider: 'OpenRouter', key: 'OPENROUTER_API_KEY', url: 'https://openrouter.ai/api/v1/key', headers: key => ({ Authorization: 'Bearer ' + key }) },
+  { id: 'ai_gemini', provider: 'Gemini', key: 'GEMINI_API_KEY', url: 'https://generativelanguage.googleapis.com/v1beta/models?pageSize=1', headers: key => ({ 'x-goog-api-key': key }), kind: 'model-list' },
+  { id: 'ai_anthropic', provider: 'Anthropic', key: 'ANTHROPIC_API_KEY', url: 'https://api.anthropic.com/v1/models?limit=1', headers: key => ({ 'x-api-key': key, 'anthropic-version': '2023-06-01' }), kind: 'model-list' },
+  { id: 'ai_deepseek', provider: 'DeepSeek', key: 'DEEPSEEK_API_KEY', url: 'https://api.deepseek.com/models', headers: key => ({ Authorization: 'Bearer ' + key }), kind: 'model-list' },
+  { id: 'ai_deepseek_balance', provider: 'DeepSeek', label: 'DeepSeek balance', key: 'DEEPSEEK_API_KEY', url: 'https://api.deepseek.com/user/balance', headers: key => ({ Authorization: 'Bearer ' + key }), kind: 'balance' },
+  { id: 'ai_openai', provider: 'OpenAI', key: 'OPENAI_API_KEY', url: 'https://api.openai.com/v1/models', headers: key => ({ Authorization: 'Bearer ' + key }), kind: 'model-list' },
+  { id: 'ai_groq', provider: 'Groq', key: 'GROQ_API_KEY', url: 'https://api.groq.com/openai/v1/models', headers: key => ({ Authorization: 'Bearer ' + key }), kind: 'model-list' },
+  { id: 'ai_openrouter', provider: 'OpenRouter', label: 'OpenRouter API key status', key: 'OPENROUTER_API_KEY', url: 'https://openrouter.ai/api/v1/key', headers: key => ({ Authorization: 'Bearer ' + key }), kind: 'key-metadata' },
 ]);
 
 async function checkAIProviderCredential(target, env, fetchImpl, now) {
   const key = String(env?.[target.key] || '').trim();
+  const path = target.label || target.provider + ' credential';
   if (!key) {
     return {
       id: target.id,
-      path: target.provider + ' credential',
+      path,
       status: 'skipped',
       ok: true,
       httpStatus: null,
@@ -32,16 +34,98 @@ async function checkAIProviderCredential(target, env, fetchImpl, now) {
       Accept: 'application/json',
       ...target.headers(key),
     });
-    // Only HTTP metadata is retained; never read or persist provider response bodies.
-    try { await response.body?.cancel(); } catch {}
-    if (response.ok) {
+    let payload = null;
+    // Parse only the two documented, read-only metadata endpoints below. Their
+    // response bodies are consumed in memory and never stored or logged.
+    if (response.ok && (target.kind === 'balance' || target.kind === 'key-metadata')) {
+      payload = await response.json().catch(() => null);
+    } else {
+      try { await response.body?.cancel(); } catch {}
+    }
+
+    if (response.ok && target.kind === 'balance') {
+      if (payload?.is_available === false) {
+        return {
+          id: target.id, path, status: 'fail', ok: false, httpStatus: response.status,
+          durationMs: safeDuration(startedAt, now), code: 'PROVIDER_BALANCE_INSUFFICIENT',
+          summary: 'DeepSeek reports that the account balance is not sufficient for API calls. Review the balance in the DeepSeek console.',
+        };
+      }
+      if (payload?.is_available === true) {
+        return {
+          id: target.id, path, status: 'pass', ok: true, httpStatus: response.status,
+          durationMs: safeDuration(startedAt, now), code: 'PROVIDER_BALANCE_AVAILABLE',
+          summary: 'DeepSeek reports a balance sufficient for API calls. No balance amount is stored in Sentinel history.',
+        };
+      }
       return {
-        id: target.id, path: target.provider + ' credential', status: 'pass', ok: true,
-        httpStatus: response.status, durationMs: safeDuration(startedAt, now),
-        code: 'PROVIDER_CREDENTIAL_ACCEPTED',
-        summary: target.provider + ' accepted the configured credential for a model-list request.',
+        id: target.id, path, status: 'warning', ok: false, httpStatus: response.status,
+        durationMs: safeDuration(startedAt, now), code: 'PROVIDER_BALANCE_STATUS_UNKNOWN',
+        summary: 'DeepSeek accepted the balance request, but its response did not contain a recognised availability flag.',
       };
     }
+
+    if (response.ok && target.kind === 'key-metadata') {
+      const metadata = payload && typeof payload.data === 'object' && payload.data && !Array.isArray(payload.data)
+        ? payload.data
+        : {};
+      const expiryText = typeof metadata.expires_at === 'string' ? metadata.expires_at : '';
+      const expiryMs = expiryText ? Date.parse(expiryText) : NaN;
+      const expiryDate = Number.isFinite(expiryMs) ? new Date(expiryMs).toISOString().slice(0, 10) : '';
+      const remainingRaw = metadata.limit_remaining;
+      const remaining = remainingRaw !== null && remainingRaw !== undefined && remainingRaw !== ''
+        ? Number(remainingRaw)
+        : NaN;
+      const hasRemainingLimit = Number.isFinite(remaining);
+      const suffixes = [];
+      if (expiryDate) suffixes.push('Key expiry metadata: ' + expiryDate + '.');
+      if (hasRemainingLimit) suffixes.push(remaining <= 0
+        ? 'The key spending limit has no remaining capacity.'
+        : 'The key spending limit still has remaining capacity.');
+      const suffix = suffixes.length ? ' ' + suffixes.join(' ') : '';
+
+      if (Number.isFinite(expiryMs) && expiryMs <= now()) {
+        return {
+          id: target.id, path, status: 'fail', ok: false, httpStatus: response.status,
+          durationMs: safeDuration(startedAt, now), code: 'PROVIDER_CREDENTIAL_EXPIRED',
+          summary: 'OpenRouter reports that this API key has expired.' + suffix,
+        };
+      }
+      if (hasRemainingLimit && remaining <= 0) {
+        return {
+          id: target.id, path, status: 'fail', ok: false, httpStatus: response.status,
+          durationMs: safeDuration(startedAt, now), code: 'PROVIDER_SPENDING_LIMIT_EXHAUSTED',
+          summary: 'OpenRouter reports that this key has reached its configured spending limit.' + suffix,
+        };
+      }
+      if (Number.isFinite(expiryMs) && expiryMs - now() <= 7 * 24 * 60 * 60 * 1000) {
+        return {
+          id: target.id, path, status: 'warning', ok: false, httpStatus: response.status,
+          durationMs: safeDuration(startedAt, now), code: 'PROVIDER_CREDENTIAL_EXPIRING',
+          summary: 'OpenRouter accepted the credential, but the key is due to expire within seven days.' + suffix,
+        };
+      }
+      return {
+        id: target.id, path, status: 'pass', ok: true, httpStatus: response.status,
+        durationMs: safeDuration(startedAt, now), code: 'PROVIDER_CREDENTIAL_ACCEPTED',
+        summary: 'OpenRouter accepted the credential for its read-only current-key metadata request.' + suffix,
+      };
+    }
+
+    if (response.ok) {
+      const endpointLabel = target.kind === 'balance'
+        ? 'a read-only balance request'
+        : target.kind === 'key-metadata'
+          ? 'a read-only current-key metadata request'
+          : 'a read-only model-list request';
+      return {
+        id: target.id, path, status: 'pass', ok: true,
+        httpStatus: response.status, durationMs: safeDuration(startedAt, now),
+        code: 'PROVIDER_CREDENTIAL_ACCEPTED',
+        summary: target.provider + ' accepted the configured credential for ' + endpointLabel + '.',
+      };
+    }
+
     const authFailure = response.status === 401;
     const permissionFailure = response.status === 403;
     const creditFailure = response.status === 402;
@@ -58,11 +142,11 @@ async function checkAIProviderCredential(target, env, fetchImpl, now) {
       : rateLimited ? target.provider + ' rate-limited the diagnostic request (HTTP 429); retry later.'
       : response.status >= 500 ? target.provider + ' is temporarily reporting an upstream error.'
       : target.provider + ' rejected the diagnostic request (HTTP ' + response.status + ').';
-    return { id: target.id, path: target.provider + ' credential', status, ok: false,
+    return { id: target.id, path, status, ok: false,
       httpStatus: response.status, durationMs: safeDuration(startedAt, now), code, summary };
   } catch (error) {
     const timedOut = error?.name === 'AbortError';
-    return { id: target.id, path: target.provider + ' credential', status: 'warning', ok: false,
+    return { id: target.id, path, status: 'warning', ok: false,
       httpStatus: null, durationMs: safeDuration(startedAt, now),
       code: timedOut ? 'PROVIDER_CHECK_TIMEOUT' : 'PROVIDER_CHECK_UNREACHABLE',
       summary: timedOut ? target.provider + ' credential check timed out.' : target.provider + ' credential check could not reach the provider.' };
@@ -355,6 +439,46 @@ const SAFE_REMEDIATION_GUIDANCE = Object.freeze({
       'Confirm the separate ovyx-sentinel-scheduler Worker is deployed with the 30-minute Cron Trigger.',
       'Confirm OVYX_SENTINEL_BASE_URL is the canonical HTTPS origin and the Worker secret matches the Pages secret; do not place the shared value in Git or chat.',
       'Do not claim scheduled monitoring is active until a scheduled report is saved and shows a recent scheduler confirmation.',
+    ],
+  },
+  PROVIDER_BALANCE_INSUFFICIENT: {
+    title: 'Review DeepSeek balance',
+    steps: [
+      'Open the DeepSeek console and confirm available API balance and any billing restrictions.',
+      'Only add credits or change billing through the provider dashboard; Sentinel does not make purchases or change provider accounts.',
+      'Rerun Sentinel to confirm the read-only balance endpoint reports availability.',
+    ],
+  },
+  PROVIDER_BALANCE_STATUS_UNKNOWN: {
+    title: 'Confirm DeepSeek balance status',
+    steps: [
+      'Open the DeepSeek console to verify current API balance; the endpoint did not return a recognised availability flag.',
+      'Do not interpret an unknown balance flag as proof that generation will work.',
+      'Rerun Sentinel and perform a controlled generation test when ready.',
+    ],
+  },
+  PROVIDER_CREDENTIAL_EXPIRED: {
+    title: 'Replace an expired OpenRouter credential',
+    steps: [
+      'Confirm the key expiry in the OpenRouter dashboard.',
+      'If a new key is required, update only OPENROUTER_API_KEY in the Cloudflare Pages Production secret field; do not delete or overwrite other provider secrets.',
+      'Redeploy the Pages app if Cloudflare requires a new deployment to expose the updated secret, then rerun Sentinel.',
+    ],
+  },
+  PROVIDER_CREDENTIAL_EXPIRING: {
+    title: 'Renew the OpenRouter credential before expiry',
+    steps: [
+      'Review the key expiry date shown by Sentinel and plan a replacement in the OpenRouter dashboard.',
+      'Update only OPENROUTER_API_KEY in the secure Cloudflare Pages Production secret field when the replacement is ready.',
+      'Never paste the key into chat, source files, or diagnostic reports; rerun Sentinel after the deployment picks it up.',
+    ],
+  },
+  PROVIDER_SPENDING_LIMIT_EXHAUSTED: {
+    title: 'Review OpenRouter key spending limit',
+    steps: [
+      'Open the OpenRouter dashboard and check this key’s configured spending limit and remaining capacity.',
+      'If appropriate, adjust the limit in the provider dashboard; Sentinel does not change billing or limits.',
+      'Rerun Sentinel after the provider-side change.',
     ],
   },
   PROVIDER_AUTH_FAILED: {
