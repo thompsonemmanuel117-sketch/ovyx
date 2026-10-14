@@ -13,6 +13,9 @@ const SHOPPING_CART_PATTERN = /\b(?:shopping\s+cart|cart|basket|add(?:ing)?\s+to
 const BOOKING_ACTION_PATTERN = /\b(?:book\s+(?:(?:a|an|your)\s+)?(?:table|appointment|visit|room|seat|stay|slot|now|online|today)|reserve\s+(?:(?:a|an|your)\s+)?(?:table|appointment|room|seat|spot|place|time|now|online)|schedule\s+(?:(?:a|an|your)\s+)?(?:visit|appointment|consultation)|make\s+(?:a\s+)?reservation|check\s+availability|choose\s+(?:a\s+)?(?:time|slot|date))\b/i;
 const SHOPPING_CART_ACTION_PATTERN = /\b(?:add\s+(?:to\s+)?(?:the\s+)?(?:cart|bag|basket)|view\s+(?:your\s+)?cart|open\s+(?:your\s+)?cart|go\s+to\s+checkout|proceed\s+to\s+checkout|checkout)\b/i;
 const ADD_TO_CART_PATTERN = /\badd\s+(?:to\s+)?(?:the\s+)?(?:cart|bag|basket)\b/i;
+const NEWSLETTER_ACTION_PATTERN = /\b(?:subscribe|join\s+(?:the\s+)?(?:newsletter|mailing\s+list)|sign\s+up\s+for\s+(?:updates|news|the\s+newsletter)|get\s+(?:email\s+)?updates)\b/i;
+const AUTH_ACTION_PATTERN = /\b(?:log\s*in|login|sign\s*in|sign\s*up|register|create\s+account|continue\s+with\s+(?:google|apple|email))\b/i;
+const PAYMENT_ACTION_PATTERN = /\b(?:pay\s+now|pay\s+securely|complete\s+(?:your\s+)?payment|place\s+(?:your\s+)?order|proceed\s+to\s+checkout|go\s+to\s+checkout|checkout|continue\s+to\s+payment|confirm\s+purchase)\b/i;
 
 const PAGE_ALIASES = [
   { title: 'Home', pattern: /\b(?:home(?:page)?|landing page)\b/i },
@@ -92,34 +95,66 @@ function hasVisibleActionControl(htmlEntries, actionPattern) {
 }
 
 function hasIntentForm(htmlEntries, kind) {
-  const pattern = kind === 'booking'
-    ? /\b(?:booking|reservation|appointment|select\s+(?:a\s+)?date|choose\s+(?:a\s+)?time|time\s+slot|party\s+size)\b/i
-    : /\b(?:cart|checkout|order\s+summary|basket)\b/i;
+  const patterns = {
+    booking: /\b(?:booking|reservation|appointment|select\s+(?:a\s+)?date|choose\s+(?:a\s+)?time|time\s+slot|party\s+size)\b/i,
+    cart: /\b(?:cart|checkout|order\s+summary|basket)\b/i,
+    newsletter: /\b(?:newsletter|subscribe|subscription|mailing\s+list|email\s+updates)\b/i,
+    contact: /\b(?:contact|inquir(?:y|ies)|enquir(?:y|ies)|message|send\s+(?:us\s+)?a\s+message|your\s+name)\b/i,
+    authentication: /\b(?:login|log\s*in|sign\s*in|sign\s*up|register|password|account|create\s+account)\b/i,
+    payments: /\b(?:payment|checkout|billing|card\s+details|paystack|flutterwave|stripe|paypal|order\s+summary|pay\s+now)\b/i,
+  };
+  const pattern = patterns[kind] || /$a/;
   for (const [, html] of htmlEntries) {
     for (const match of String(html || '').matchAll(/<form\b([^>]*)>([\s\S]*?)<\/form\s*>/gi)) {
       const opening = '<form ' + match[1] + '>';
       const formContent = match[2];
-      const fields = [...formContent.matchAll(/<(?:input|select|textarea)\b[^>]*>/gi)];
-      const fieldText = fields.map(field => [
-        htmlAttribute(field[0], 'id'),
-        htmlAttribute(field[0], 'name'),
-        htmlAttribute(field[0], 'aria-label'),
-        htmlAttribute(field[0], 'placeholder'),
-      ].join(' ')).join(' ');
+      const fields = [...formContent.matchAll(/<(?:input|select|textarea)\b[^>]*>/gi)]
+        .map(field => ({
+          tag: field[0],
+          type: htmlAttribute(field[0], 'type').toLowerCase(),
+          identity: [
+            htmlAttribute(field[0], 'id'),
+            htmlAttribute(field[0], 'name'),
+            htmlAttribute(field[0], 'aria-label'),
+            htmlAttribute(field[0], 'placeholder'),
+          ].join(' '),
+        }));
+      if (!fields.length) continue;
+
       const evidence = [
         htmlAttribute(opening, 'id'),
         htmlAttribute(opening, 'name'),
         htmlAttribute(opening, 'class'),
         htmlAttribute(opening, 'action'),
         visibleHtmlText(formContent),
-        fieldText,
+        fields.map(field => field.identity).join(' '),
       ].join(' ');
-      if (fields.length && pattern.test(evidence)) return true;
+
+      if (!pattern.test(evidence)) continue;
+      if (kind === 'newsletter') {
+        if (fields.some(field => field.type === 'email' || /email/i.test(field.identity))) return true;
+        continue;
+      }
+      if (kind === 'contact') {
+        // A contact form needs a message field, or more than one relevant
+        // detail field. An email-only signup form is not a contact journey.
+        if (fields.some(field => /^<textarea\b/i.test(field.tag)) || fields.length >= 2) return true;
+        continue;
+      }
+      if (kind === 'authentication') {
+        if (fields.some(field => field.type === 'password') && fields.length >= 2) return true;
+        continue;
+      }
+      if (kind === 'payments') {
+        if (fields.some(field => /card|payment|billing|stripe|paystack|flutterwave|paypal/i.test(field.identity)) ||
+            fields.some(field => field.type === 'number' && /card|number/i.test(field.identity))) return true;
+        continue;
+      }
+      return true;
     }
   }
   return false;
 }
-
 function visibleHtmlText(html) {
   let source = String(html || '')
     .replace(/<!--[\s\S]*?-->/g, ' ')
@@ -394,10 +429,10 @@ export function verifyPromptContractOutput(prompt, files, siteMap = {}) {
     });
   }
 
-  if (contract.contactSignals.contactForm && !/<form\b/i.test(htmlText)) {
+  if (contract.contactSignals.contactForm && !hasIntentForm(htmlEntries, 'contact')) {
     issues.push({
       code: 'CONTACT_FORM_MISSING',
-      message: 'The brief explicitly asks for a contact/enquiry form, but no HTML form was generated.',
+      message: 'The brief explicitly asks for a contact/enquiry form, but the generated HTML has no form with a detectable message or contact-details path.',
     });
   }
   if (contract.contactSignals.bookings &&
@@ -423,22 +458,28 @@ export function verifyPromptContractOutput(prompt, files, siteMap = {}) {
       message: 'The brief explicitly asks for Add to Cart behavior, but no button or non-navigation action link labeled Add to Cart (or equivalent) was generated.',
     });
   }
-  if (contract.contactSignals.newsletter && !/(?:newsletter|subscribe|subscription)/i.test(allText)) {
+  if (contract.contactSignals.newsletter &&
+      (!hasIntentForm(htmlEntries, 'newsletter') ||
+       !hasVisibleActionControl(htmlEntries, NEWSLETTER_ACTION_PATTERN))) {
     issues.push({
       code: 'NEWSLETTER_MISSING',
-      message: 'The brief asks for a newsletter/subscription experience, but no matching content was generated.',
+      message: 'The brief asks for a newsletter, but the generated HTML lacks an email signup form with an actionable subscription control.',
     });
   }
-  if (contract.contactSignals.authentication && !/(?:log\s*in|login|sign\s*in|sign\s*up|register|create account)/i.test(allText)) {
+  if (contract.contactSignals.authentication &&
+      !hasVisibleActionControl(htmlEntries, AUTH_ACTION_PATTERN) &&
+      !hasIntentForm(htmlEntries, 'authentication')) {
     issues.push({
       code: 'AUTHENTICATION_UI_MISSING',
-      message: 'The brief asks for authentication, but no login/register experience was generated.',
+      message: 'The brief asks for authentication, but the generated HTML has no actionable sign-in/register control or credential form.',
     });
   }
-  if (contract.contactSignals.payments && !/(?:checkout|payment|paystack|flutterwave|stripe|paypal)/i.test(allText)) {
+  if (contract.contactSignals.payments &&
+      !hasVisibleActionControl(htmlEntries, PAYMENT_ACTION_PATTERN) &&
+      !hasIntentForm(htmlEntries, 'payments')) {
     issues.push({
       code: 'PAYMENT_FLOW_MISSING',
-      message: 'The brief asks for payments/checkout, but no checkout or payment-related UI was generated.',
+      message: 'The brief asks for payments, but the generated HTML has no actionable payment/checkout control or payment-specific form.',
     });
   }
 
