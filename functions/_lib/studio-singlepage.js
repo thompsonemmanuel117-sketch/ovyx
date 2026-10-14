@@ -212,24 +212,6 @@ function repairPrompt(prompt, targets, contract, checks, contextText) {
   ].join('\n\n');
 }
 
-function attachReport(result, payload, report, files) {
-  const nextPayload = applyFilesToPayload(payload, files, typeof payload.html === 'string');
-  nextPayload.qualityVerification = report.qualityVerification;
-  nextPayload.siteIntegrity = report.siteIntegrity;
-  nextPayload.requirementRepair = report.requirementRepair;
-  if (report.requirementRepair.status === 'applied') {
-    nextPayload.summary = String(nextPayload.summary || 'Single-page website generated.') +
-      ' One bounded repair pass was applied and passed structural and prompt-requirement checks.';
-  }
-  return {
-    ...result,
-    text: JSON.stringify(nextPayload),
-    qualityVerification: report.qualityVerification,
-    siteIntegrity: report.siteIntegrity,
-    requirementRepair: report.requirementRepair,
-  };
-}
-
 export async function validateOrRepairSinglePageBuild(options) {
   const originalResult = options && options.result;
   const prompt = String(options && options.prompt || '');
@@ -238,25 +220,6 @@ export async function validateOrRepairSinglePageBuild(options) {
   const normalized = normalizeGeneratedFiles(payload);
   const files = normalized.files;
   const htmlPaths = Object.keys(files).filter(path => /\.html?$/i.test(path));
-
-  if (!payload || !Object.keys(files).length || !htmlPaths.length) {
-    const report = {
-      qualityVerification: {
-        status: 'not-evaluated',
-        structuralChecksPassed: false,
-        requirementsPassed: false,
-        message: 'No parseable generated HTML file set was available for deterministic single-page source checks.',
-      },
-      siteIntegrity: null,
-      requirementRepair: { status: 'not-attempted', filesConsidered: 0, filesUpdated: 0, integrityAuditIsStaticOnly: true },
-    };
-    return {
-      result: { ...originalResult, qualityVerification: report.qualityVerification, siteIntegrity: null, requirementRepair: report.requirementRepair },
-      quotaInputText: String(options && options.quotaInputText || ''),
-      quotaOutputText: String(options && options.quotaOutputText || initialText),
-      evaluated: false,
-    };
-  }
 
   if (normalized.invalidPaths.length) {
     const report = {
@@ -275,6 +238,25 @@ export async function validateOrRepairSinglePageBuild(options) {
       quotaOutputText: String(options && options.quotaOutputText || initialText),
     });
     throw error;
+  }
+
+  if (!payload || !Object.keys(files).length || !htmlPaths.length) {
+    const report = {
+      qualityVerification: {
+        status: 'not-evaluated',
+        structuralChecksPassed: false,
+        requirementsPassed: false,
+        message: 'No parseable generated HTML file set was available for deterministic single-page source checks.',
+      },
+      siteIntegrity: null,
+      requirementRepair: { status: 'not-attempted', filesConsidered: 0, filesUpdated: 0, integrityAuditIsStaticOnly: true },
+    };
+    return {
+      result: { ...originalResult, qualityVerification: report.qualityVerification, siteIntegrity: null, requirementRepair: report.requirementRepair },
+      quotaInputText: String(options && options.quotaInputText || ''),
+      quotaOutputText: String(options && options.quotaOutputText || initialText),
+      evaluated: false,
+    };
   }
 
   const contract = buildPromptContract(prompt);
@@ -379,7 +361,7 @@ export async function validateOrRepairSinglePageBuild(options) {
     requirementsPassed: checks.requirementVerification.ok,
     requirementCount: checks.requirementVerification.requirementCount,
     explicitPages: checks.requirementVerification.explicitPages,
-    checkedFiles: checks.validation.length === 0 ? Object.keys(files).length : Object.keys(files).length,
+    checkedFiles: Object.keys(files).length,
     checkedHtmlFiles: htmlPaths.length,
     validationIssues: checks.validation.slice(0, 24),
     requirementIssues: checks.requirementVerification.issues,
