@@ -110,6 +110,14 @@
     if (loading) return loading;
     const target = ensureStage();
     if (!target) return;
+    if (renderer && scene && camera && characterRoot) {
+      setStageStatus('Your 3D Guardian is ready.', 'ready');
+      resize();
+      if (speakingRequested || window.speechSynthesis?.speaking) crossFade('talk', 0.12);
+      else if (activeAction !== actions.wave) crossFade('idle', 0.12);
+      animate();
+      return;
+    }
     const canvas = target.querySelector('canvas');
     setStageStatus('Loading the 3D character and motion…', 'loading');
     loading = (async () => {
