@@ -17,8 +17,10 @@ export function containsGuardianCredential(value) {
 export function guardianPatchablePath(value) {
   const path = String(value || '').trim().replace(/^\/+/, '');
   if (!isGuardianReadablePath(path)) return false;
-  if (/(?:^|\/)(?:\.github|sentinel-worker|node_modules|dist|build|coverage)(?:\/|$)/i.test(path)) return false;
-  if (/^(?:wrangler\.toml|_headers|_redirects|package-lock\.json)$/i.test(path)) return false;
+  if (!/\.(?:js|mjs|cjs|ts|tsx|jsx|html?|css|md|mdx)$/i.test(path)) return false;
+  if (/(?:^|\/)(?:\.github|sentinel-worker|node_modules|dist|build|coverage|vendor)(?:\/|$)/i.test(path)) return false;
+  if (/^(?:wrangler\.[^/]+|_headers|_redirects|package\.json|package-lock\.json|functions\/api\/_lib\/auth\.js|functions\/api\/_lib\/http\.js|functions\/_lib\/firebase-admin\.js|functions\/api\/admin\/guardian-patch\.js|functions\/_lib\/ovyx-guardian-patch\.js)$/i.test(path)) return false;
+  if (/(?:^|\/)(?:\.env(?:\.[^/]*)?|.*(?:secret|credential|private[-_]?key|service-account).*)$/i.test(path)) return false;
   return true;
 }
 
