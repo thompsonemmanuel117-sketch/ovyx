@@ -1,5 +1,18 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import { onRequest } from '../functions/api/ai/feedback.js';
+
+
+const indexHtml = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+for (const message of [
+  "const mailNotificationStatus=String(d?.ticket?.notificationStatus||'unknown').toLowerCase();",
+  'an email notification was sent to OVYX Support',
+  'but the email notification failed',
+  'Admin → Support Tickets',
+  "let confirmationKind='warning'",
+]) {
+  assert.ok(indexHtml.includes(message), 'Support UI must report its server-confirmed email result: ' + message);
+}
 
 async function call(method, options = {}) {
   const headers = new Headers(options.headers || {});
