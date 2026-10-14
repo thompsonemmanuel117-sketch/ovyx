@@ -112,12 +112,6 @@ export function auditWebsiteIntegrity(rawFiles, siteMap = {}) {
 
   const fileByPath = fileIndex(files);
   const routes = routeIndex(siteMap, fileByPath);
-  const pageByRoute = new Map();
-  for (const page of Array.isArray(siteMap && siteMap.pages) ? siteMap.pages : []) {
-    if (!page || !page.path) continue;
-    const file = fileByPath.get(cleanPath(page.path).toLowerCase());
-    if (file) pageByRoute.set(normalizeRoute(page.url || '/'), file);
-  }
 
   const htmlEntries = Object.entries(files).filter(([path]) => /\.html?$/i.test(path));
   const cssEntries = Object.entries(files).filter(([path]) => /\.css$/i.test(path));
@@ -167,13 +161,30 @@ export function auditWebsiteIntegrity(rawFiles, siteMap = {}) {
         continue;
       }
 
-      let routePath = '';
-      try { routePath = normalizeRoute(new URL(href, 'https://ovyx-integrity.invalid' + currentRoute).pathname); } catch {}
+      let parsedHref = null;
+      try { parsedHref = new URL(href, 'https://ovyx-integrity.invalid' + currentRoute); } catch {}
+      const routePath = parsedHref ? normalizeRoute(parsedHref.pathname) : '';
       const rawPath = stripSuffix(href);
       const extension = /\.[a-z0-9]{1,12}$/i.test(rawPath);
       const directFile = resolveLocalFile(filePath, href);
-      const existingLocalFile = !!(directFile && fileByPath.has(directFile.toLowerCase()));
-      if (existingLocalFile || routes.has(routePath)) continue;
+      const directTarget = directFile ? fileByPath.get(directFile.toLowerCase()) : null;
+      const existingLocalFile = !!directTarget;
+      const routeTarget = routes.get(routePath);
+      const fragmentTarget = routeTarget || directTarget;
+
+      // Catch links that resolve to a real page/file but jump to an id that
+      // does not exist there. The current-page-only fragment check above cannot
+      // catch href="/about/#team" when the "team" section is missing on About.
+      if (parsedHref && parsedHref.hash && fragmentTarget && /\.html?$/i.test(fragmentTarget.path)) {
+        let fragment = parsedHref.hash.slice(1);
+        try { fragment = decodeURIComponent(fragment); } catch {}
+        if (fragment && !idSet(fragmentTarget.content).has(fragment)) {
+          addIssue(issues, seen, 'BROKEN_ROUTE_FRAGMENT', filePath, href,
+            'A local page/file link targets an id that is not present in the destination HTML file.');
+        }
+      }
+
+      if (existingLocalFile || routeTarget) continue;
 
       if (rawPath.startsWith('/api/')) continue;
       if (extension) {
@@ -223,7 +234,7 @@ export function auditWebsiteIntegrity(rawFiles, siteMap = {}) {
     counts,
     summary: issues.length
       ? issues.length + ' source-level link or local-asset issue(s) need review.'
-      : 'No unresolved internal routes, placeholder links, orphaned anchors, or missing local asset references were found.',
+      : 'No unresolved internal routes, broken same-page or cross-page fragments, placeholder links, or missing local asset references were found.',
     externalResourcesVerified: false,
     runtimeBehaviorVerified: false,
   };
