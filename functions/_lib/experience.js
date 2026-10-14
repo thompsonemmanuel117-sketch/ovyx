@@ -12,6 +12,7 @@ const EXPERIENCE_ARCHITECTURES = {
       'orientation hero',
       'care-pathway or specialty explorer',
       'high-priority appointment/contact action',
+      'appointment date/time selection with honest slot state when scheduling is requested',
       'trust and care-team story',
       'services or specialties',
       'patient resources',
