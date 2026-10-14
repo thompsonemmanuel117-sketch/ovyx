@@ -260,6 +260,11 @@ When discussing project changes, distinguish recommendations from changes actual
         }
       }
     }
+    for (const key of ['qualityVerification', 'siteIntegrity', 'requirementRepair']) {
+      if (Object.prototype.hasOwnProperty.call(result || {}, key)) {
+        structuredFields[key] = result[key];
+      }
+    }
 
     if (multiPageBuild) {
       structuredFields.files = result.files || {};
