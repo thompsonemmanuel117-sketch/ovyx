@@ -10,6 +10,9 @@ const html = read('index.html');
 const profileApi = read('functions/api/settings/profile.js');
 const preferencesApi = read('functions/api/settings/preferences.js');
 const deletionApi = read('functions/api/account/delete.js');
+const brandProfileApi = read('functions/api/settings/brand-profile.js');
+const connectionsApi = read('functions/api/settings/connections.js');
+const revokeSessionsApi = read('functions/api/api/auth/revoke-sessions.js');
 const providers = read('functions/_lib/providers.js');
 const assistant = read('functions/api/ai/assistant.js');
 const gateway = read('functions/api/ai/gateway.js');
@@ -20,6 +23,10 @@ for (const path of [
   'assets/ovyx-settings-reliability.js',
   'functions/api/settings/profile.js',
   'functions/api/settings/preferences.js',
+  'functions/api/account/delete.js',
+  'functions/api/settings/brand-profile.js',
+  'functions/api/settings/connections.js',
+  'functions/api/api/auth/revoke-sessions.js',
   'functions/_lib/providers.js',
   'functions/_lib/studio-multipage.js',
   'functions/api/ai/assistant.js',
@@ -51,6 +58,10 @@ for (const requirement of [
   "api(QUOTA_ENDPOINT)",
   "fetch('/api/account/delete'",
   "X-OVYX-Account-Deletion': 'CONFIRM'",
+  "closest('#profile-save-action, [data-save-profile]')",
+  "set-profile-name-legacy",
+  "set-workspace-name-legacy",
+  "ovyx.brand.v1.",
   'stopImmediatePropagation()',
   'installLivePreviewBridge',
   'payload.preferredProvider',
@@ -70,10 +81,20 @@ assert.match(preferencesApi, /request\.method !== 'PUT'/);
 assert.match(preferencesApi, /PREFERENCES_WRITE_UNCONFIRMED/);
 assert.match(preferencesApi, /enforceSameOrigin/);
 assert.match(deletionApi, /deleteFirestoreDocumentTree/);
+assert.match(deletionApi, /deleteFirestoreDocumentTree\\(context\\.env, 'users', email\\)/, 'Deletion removes email-keyed Settings data for brand identity and Universal Connections.');
+assert.match(deletionApi, /emailScopedDocumentsDeleted/);
 assert.match(deletionApi, /deleteStoragePrefix\(context\.env, `users\/\$\{uid\}\/`\)/);
 assert.match(deletionApi, /deleteStoragePrefix\(context\.env, `profile\/\$\{uid\}\/`\)/, 'Account deletion must remove profile avatars saved by Settings.');
 assert.match(deletionApi, /assertFreshAuth/);
 assert.match(deletionApi, /X-OVYX-Account-Deletion/);
+assert.match(brandProfileApi, /setFirestoreDocumentAtPath/);
+assert.match(brandProfileApi, /deleteFirestoreDocumentAtPath/);
+assert.match(brandProfileApi, /\\['users', identity\\.email, 'brand_profile', 'config'\\]/);
+assert.match(connectionsApi, /testUserConnection/);
+assert.match(connectionsApi, /setFirestoreDocumentAtPath/);
+assert.match(connectionsApi, /\\['users', auth\\.email, 'universal_connections'\\]/);
+assert.match(revokeSessionsApi, /enforceSameOrigin/);
+assert.match(revokeSessionsApi, /revokeFirebaseRefreshTokens/);
 
 assert.match(providers, /providerRouting/);
 assert.match(providers, /preferredProvider/);
@@ -86,4 +107,4 @@ assert.ok(packageJson.scripts.test.includes('scripts/ovyx-settings-actions.test.
 assert.doesNotMatch(runtime, /Bearer\s+[A-Za-z0-9._~+/=-]{20,}/i, 'The Settings runtime must not contain a literal access token.');
 assert.doesNotMatch(runtime, /(?:sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9_]{20,}|AIza[0-9A-Za-z_-]{30,})/, 'The Settings runtime must not contain provider credentials.');
 
-console.log('OVYX Settings actions tests passed: server-backed profile and notification preferences, account cleanup, usage lookup, actual workspace toggle effects, editor mode, and AI preference routing.');
+console.log('OVYX Settings actions tests passed: server-backed profile and notifications, account and email-scoped cleanup, Brand Identity, live Universal Connection tests, session revocation, usage, workspace toggles, editor mode and AI routing.');
