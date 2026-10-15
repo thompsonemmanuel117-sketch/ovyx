@@ -87,6 +87,13 @@ export async function onRequestPost(context) {
       isWebStudioPrompt(promptText, mode) ||
       ((mode === 'build' || mode === 'fix') && hasStudioContext);
 
+    if (isWebStudio) {
+      const entitlement = context.data?.entitlements || await resolveEntitlements(context.env, user);
+      if (entitlement?.capabilities?.webStudio !== true) {
+        return errorResponse('Web Studio is not included in this account’s current server-authoritative feature access.', 403, 'FEATURE_NOT_INCLUDED');
+      }
+    }
+
     const userTurns = messages
       .filter(item => item && item.role === 'user')
       .map(item => String(item.content || '').trim().slice(0, 30_000))
