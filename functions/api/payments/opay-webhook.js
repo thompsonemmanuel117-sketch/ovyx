@@ -58,6 +58,23 @@ async function fulfill(env,record,user,product,provider){
     throw Object.assign(new Error('Unable to atomically credit token booster.'),{status:503,code:'TOKEN_CREDIT_CONFLICT'});
   }
 }
+async function notifyOwnerPush(env, product, reference) {
+  try {
+    const { sendAdminPushNotification } = await import('../_lib/admin-push.js');
+    const subscription = product?.kind === 'subscription';
+    await sendAdminPushNotification(env, {
+      type: subscription ? 'subscriptions' : 'payments',
+      title: subscription ? 'OVYX subscription payment received' : 'OVYX customer payment received',
+      body: subscription
+        ? String('A successful ' + String(product.tier || 'paid').toUpperCase() + ' subscription payment was verified.')
+        : 'A customer token-booster payment was verified.',
+      url: '/view-admin-overview',
+      tag: 'ovyx-payment-' + String(reference || '').slice(0, 100),
+    });
+  } catch (error) {
+    console.warn('[OVYX ADMIN PUSH] payment alert delivery skipped:', String(error?.code || error?.name || 'PUSH_DELIVERY_FAILED').slice(0, 90));
+  }
+}
 async function onRequest(context){
   if(context.request.method!=='POST')return response({ok:false,error:'POST is required.'},405);
   let body;try{body=await context.request.json()}catch{return response({ok:false,error:'Invalid callback JSON.'},400);}
@@ -104,6 +121,7 @@ async function onRequest(context){
     await setFirestoreDocumentIfCurrent(context.env,'payment_orders',reference,{fulfillmentStatus:'unfulfilled',fulfillmentError:clean(error?.message||'Fulfillment failed',500)},latest?.updateTime).catch(()=>{});
     throw error;
   }
+  await notifyOwnerPush(context.env,product,reference);
   return response({ok:true,fulfilled:true,reference},200);
 }
 module.exports={onRequest};
