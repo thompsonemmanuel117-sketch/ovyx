@@ -13,7 +13,7 @@ try {
   ]) {
     const page = await browser.newPage({ viewport: target.viewport });
     page.setDefaultTimeout(15000);
-    page.on('console', message => console.log('[' + target.name + ' browser console] ' + message.type() + ': ' + message.text()));
+    page.on('console', message => { const location = message.location(); console.log('[' + target.name + ' browser console] ' + message.type() + (location?.url ? ' [' + location.url + ':' + (location.lineNumber || 0) + ']' : '') + ': ' + message.text()); });
 
     await installOwnerBrowserApiFixtures(page, { initialUser: { uid: 'ovyx-admin-root-fixture', email: 'ovyxsupportteam@gmail.com', token: 'ovyx-admin-root-test-token' } });
 
