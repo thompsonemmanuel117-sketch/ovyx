@@ -202,6 +202,223 @@ try {
     assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('ovyx.appearance.v3'))).mode, 'dark',
       '[' + target.name + '] Privacy reset must update the legacy appearance mirror too.');
 
+    // Authenticate as a deterministic test account; no real user or real account data is used.
+    await page.evaluate(() => {
+      const user = {
+        uid: 'settings-browser-test-user',
+        email: 'settings-browser-test@example.test',
+        displayName: 'Initial Display Name',
+        updateProfileCalls: 0,
+        async getIdToken() { return 'settings-browser-test-token'; },
+        async updateProfile(patch) {
+          this.updateProfileCalls += 1;
+          if (patch?.displayName) this.displayName = patch.displayName;
+        },
+      };
+      window.__settingsBrowserTestUser = user;
+      const firebaseStub = window.firebase || {};
+      try {
+        firebaseStub.auth = () => ({ currentUser: user });
+        window.firebase = firebaseStub;
+      } catch (_) {
+        Object.defineProperty(window, 'firebase', {
+          configurable: true,
+          value: { auth: () => ({ currentUser: user }) },
+        });
+      }
+    });
+
+    // Profile Save must call the account API once, suppress the older local-only handler,
+    // preserve failed-save state, and allow a successful retry.
+    let failNextProfileSave = true;
+    const profileRequests = [];
+    await page.route('**/api/settings/profile', async route => {
+      const request = route.request();
+      if (request.method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            ok: true,
+            profile: { displayName: 'Server Initial Name', workspaceName: 'Server Initial Workspace' },
+            updatedAt: '2026-10-15T00:00:00.000Z',
+          }),
+        });
+        return;
+      }
+      const headers = await request.allHeaders();
+      const body = request.postDataJSON();
+      profileRequests.push({ method: request.method(), headers, body });
+      if (failNextProfileSave) {
+        failNextProfileSave = false;
+        await route.fulfill({
+          status: 503,
+          contentType: 'application/json',
+          body: JSON.stringify({ ok: false, message: 'Simulated profile service failure.' }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          profile: body.profile,
+          updatedAt: '2026-10-15T22:00:00.000Z',
+        }),
+      });
+    });
+
+    await page.evaluate(() => window.OVYXSettings.show('profile'));
+    const profilePanel = page.locator('[data-settings-panel="profile"]');
+    await profilePanel.locator('#set-profile-name').waitFor({ state: 'visible' });
+    await page.waitForFunction(
+      () => document.getElementById('ovyx-profile-server-status')?.textContent?.includes('Server profile last saved'),
+      null,
+      { timeout: 20000 },
+    );
+    await profilePanel.locator('#set-profile-name').fill('Stage Two Browser Name');
+    await profilePanel.locator('#set-workspace-name').fill('Stage Two Browser Workspace');
+    const profileSave = profilePanel.locator('#profile-save-action');
+
+    await profileSave.click();
+    await page.waitForFunction(
+      () => document.getElementById('ovyx-profile-server-status')?.textContent?.includes('Save failed: Simulated profile service failure.'),
+      null,
+      { timeout: 20000 },
+    );
+    assert.equal(profileRequests.length, 1, '[' + target.name + '] failed Profile Save must issue exactly one PUT.');
+    assert.equal(profileRequests[0].method, 'PUT');
+    assert.equal(profileRequests[0].headers.authorization, 'Bearer settings-browser-test-token',
+      '[' + target.name + '] Profile Save must use the authenticated account token.');
+    assert.deepEqual(profileRequests[0].body.profile, {
+      displayName: 'Stage Two Browser Name',
+      workspaceName: 'Stage Two Browser Workspace',
+    });
+    assert.equal(await page.evaluate(() => window.__settingsBrowserTestUser.updateProfileCalls), 0,
+      '[' + target.name + '] Firebase displayName must not update before the server confirms the save.');
+
+    await profileSave.click();
+    await page.waitForFunction(
+      () => document.getElementById('ovyx-profile-server-status')?.textContent?.includes('Verified on server at 2026-10-15T22:00:00.000Z'),
+      null,
+      { timeout: 20000 },
+    );
+    assert.equal(profileRequests.length, 2, '[' + target.name + '] each Profile Save click must result in only one account API PUT.');
+    assert.equal(await page.evaluate(() => window.__settingsBrowserTestUser.updateProfileCalls), 1,
+      '[' + target.name + '] the legacy Profile save listener must not fire alongside the account-backed handler.');
+    const profileMirror = await page.evaluate(
+      () => JSON.parse(localStorage.getItem('ovyx.profile.v2.user.settings-browser-test-user') || '{}'),
+    );
+    assert.equal(profileMirror.name, 'Stage Two Browser Name');
+    assert.equal(profileMirror.workspace, 'Stage Two Browser Workspace');
+
+    // Notification toggles stay as drafts. Failed Save does not commit the draft to the local mirror
+    // or claim success; retry saves exactly one PUT, and Reset saves defaults through the same API.
+    const notificationDefaults = {
+      projectActivity: true,
+      generationCompleted: true,
+      deploymentStatus: true,
+      connectionFailures: true,
+      aiUsageWarnings: true,
+      billing: true,
+      emailProductUpdates: true,
+      emailSecurityAlerts: true,
+    };
+    let failNextNotificationSave = true;
+    const notificationRequests = [];
+    await page.route('**/api/settings/preferences', async route => {
+      const request = route.request();
+      if (request.method() === 'GET') {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ ok: true, notifications: notificationDefaults, updatedAt: '2026-10-15T00:00:00.000Z' }),
+        });
+        return;
+      }
+      const headers = await request.allHeaders();
+      const body = request.postDataJSON();
+      notificationRequests.push({ method: request.method(), headers, body });
+      if (failNextNotificationSave) {
+        failNextNotificationSave = false;
+        await route.fulfill({
+          status: 503,
+          contentType: 'application/json',
+          body: JSON.stringify({ ok: false, message: 'Simulated notification service failure.' }),
+        });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, notifications: body.notifications, updatedAt: '2026-10-15T22:01:00.000Z' }),
+      });
+    });
+
+    await page.evaluate(() => window.OVYXSettings.show('notifications'));
+    const notificationsPanel = page.locator('[data-settings-panel="notifications"]');
+    await notificationsPanel.locator('[data-notify="projectActivity"]').waitFor({ state: 'visible' });
+    await page.waitForFunction(
+      () => document.getElementById('ovyx-notification-server-status')?.textContent?.includes('Preferences loaded from your account'),
+      null,
+      { timeout: 20000 },
+    );
+    const activityToggle = notificationsPanel.locator('[data-notify="projectActivity"]');
+    assert.equal(await activityToggle.getAttribute('aria-checked'), 'true');
+    await activityToggle.click();
+    assert.equal(await activityToggle.getAttribute('aria-checked'), 'false',
+      '[' + target.name + '] a notification toggle must update its draft state.');
+    assert.equal(notificationRequests.filter(request => request.method === 'PUT').length, 0,
+      '[' + target.name + '] changing a toggle must not save before the Save button is clicked.');
+
+    const preferencesKey = 'ovyx.notifications.v1.user.settings-browser-test-user';
+    const savedBeforeFailedPut = await page.evaluate(key => JSON.parse(localStorage.getItem(key) || '{}'), preferencesKey);
+    assert.equal(savedBeforeFailedPut.projectActivity, true,
+      '[' + target.name + '] toggling a notification must not immediately overwrite the saved local mirror.');
+
+    await notificationsPanel.locator('#notify-save').click();
+    await page.waitForFunction(
+      () => document.getElementById('ovyx-notification-server-status')?.textContent?.includes('Save failed: Simulated notification service failure.'),
+      null,
+      { timeout: 20000 },
+    );
+    const failedNotificationPuts = notificationRequests.filter(request => request.method === 'PUT');
+    assert.equal(failedNotificationPuts.length, 1, '[' + target.name + '] failed notification Save must issue one PUT.');
+    assert.equal(failedNotificationPuts[0].headers.authorization, 'Bearer settings-browser-test-token');
+    assert.equal(failedNotificationPuts[0].body.notifications.projectActivity, false);
+    const savedAfterFailedPut = await page.evaluate(key => JSON.parse(localStorage.getItem(key) || '{}'), preferencesKey);
+    assert.equal(savedAfterFailedPut.projectActivity, true,
+      '[' + target.name + '] a failed Save must not pretend that the draft was persisted.');
+
+    await notificationsPanel.locator('#notify-save').click();
+    await page.waitForFunction(
+      () => document.getElementById('ovyx-notification-server-status')?.textContent?.includes('Server confirmed account preferences saved.'),
+      null,
+      { timeout: 20000 },
+    );
+    let notificationPuts = notificationRequests.filter(request => request.method === 'PUT');
+    assert.equal(notificationPuts.length, 2, '[' + target.name + '] successful retry must issue one additional PUT only.');
+    assert.equal(notificationPuts[1].body.notifications.projectActivity, false);
+    const savedAfterSuccess = await page.evaluate(key => JSON.parse(localStorage.getItem(key) || '{}'), preferencesKey);
+    assert.equal(savedAfterSuccess.projectActivity, false,
+      '[' + target.name + '] successful Save must update the local mirror after server confirmation.');
+
+    await notificationsPanel.locator('#notify-reset').click();
+    await page.waitForFunction(
+      () => document.getElementById('ovyx-notification-server-status')?.textContent?.includes('Server confirmed account preferences saved.'),
+      null,
+      { timeout: 20000 },
+    );
+    notificationPuts = notificationRequests.filter(request => request.method === 'PUT');
+    assert.equal(notificationPuts.length, 3, '[' + target.name + '] Reset must issue one additional PUT only.');
+    assert.deepEqual(notificationPuts[2].body.notifications, notificationDefaults,
+      '[' + target.name + '] Reset must persist all documented defaults.');
+    const savedAfterReset = await page.evaluate(key => JSON.parse(localStorage.getItem(key) || '{}'), preferencesKey);
+    assert.deepEqual(savedAfterReset, notificationDefaults);
+    assert.match(await notificationsPanel.locator('#ovyx-notification-server-status').innerText(), /Email options are stored preferences; delivery still requires a configured mail channel/i,
+      '[' + target.name + '] Email settings must not claim to actually send email.');
+
     assert.deepEqual(settingsErrors, [], '[' + target.name + '] Settings controls should not throw browser errors.');
     await context.close();
   }
