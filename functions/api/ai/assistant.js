@@ -58,10 +58,13 @@ export async function onRequestPost(context) {
       context.data?.user
     );
 
-    const payload = await readJson(
+    let payload = await readJson(
       context.request,
       300_000
     );
+    const accountSettings = await readUserSettings(context.env, user.uid || user.sub).catch(() => mergeUserSettings({}));
+    payload = resolvePreferredAIOptions(filterAIContext(payload, accountSettings.ai), accountSettings.ai);
+    const userSettingsDirective = buildUserSettingsDirective(accountSettings.ai, accountSettings.workspace);
 
     const rawLastMessage = Array.isArray(payload.messages)
       ? payload.messages.filter(x => x && (x.role === 'user' || x.role === 'assistant')).slice(-12).at(-1)?.content
@@ -143,7 +146,7 @@ Return useful concise answers.
 Never reveal server secrets.
 Do not invent repository state.
 When discussing project changes, distinguish recommendations from changes actually performed.`
-    ).slice(0, isWebStudio ? 40_000 : 20_000) + '\n\n' + globalAIIdentityDirective;
+    ).slice(0, isWebStudio ? 40_000 : 20_000) + '\n\n' + userSettingsDirective + '\n\n' + globalAIIdentityDirective;
 
     const provider = String(
       payload.provider || 'automatic'
@@ -195,7 +198,7 @@ When discussing project changes, distinguish recommendations from changes actual
           files: projectFiles,
           mode,
           context: studioHints,
-          qualityContract: WEB_STUDIO_EXCELLENCE + '\n\nEXPERIENCE INTELLIGENCE:\n' + JSON.stringify(experience || {}) + '\n\n' + globalAIIdentityDirective,
+          qualityContract: WEB_STUDIO_EXCELLENCE + '\n\nEXPERIENCE INTELLIGENCE:\n' + JSON.stringify(experience || {}) + '\n\n' + userSettingsDirective + '\n\n' + globalAIIdentityDirective,
         });
 
         if (generated) {
