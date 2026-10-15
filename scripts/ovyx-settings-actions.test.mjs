@@ -113,7 +113,7 @@ assert.match(revokeSessionsApi, /enforceSameOrigin/);
 assert.match(revokeSessionsApi, /revokeFirebaseRefreshTokens/);
 assert.ok(runtime.includes("event.target.closest('#ovyx-security-delete, #profile-delete-action')"), 'Profile and Security deletion buttons must share the same server-confirmed deletion path.');
 assert.ok(runtime.includes('Date.now() / 1000 - authTime > 240'), 'Account deletion must enforce the server-matched four-minute recent-authentication window.');
-assert.ok(runtime.includes("data-settings-panel=\\"workspace\\""), 'Recovered workspace controls must target the actual Workspace settings panel.');
+assert.ok(runtime.includes('[data-settings-panel="workspace"]'), 'Recovered workspace controls must target the actual Workspace settings panel.');
 assert.ok(runtime.includes("saveDataLayerConfig({ endpoint: endpoint, projectSync: enabled })"), 'The Data API sync switch must persist before reporting success.');
 assert.ok(runtime.includes("The Data API returned a non-JSON response"), 'The Data API must not report a successful project write when it cannot verify a JSON response.');
 assert.ok(runtime.includes("projectSync === false"), 'Disabling Data API project sync must prevent metadata upload.');
