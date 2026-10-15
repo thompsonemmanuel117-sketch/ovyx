@@ -25,7 +25,8 @@ const DEFAULT_SETTINGS = Object.freeze({
     inspector: true,
     livePreview: true,
     aiSafe: true,
-    editorMode: 'Magic'
+    editorMode: 'build',
+    workspaceName: 'Creative Workspace'
   }),
   ai: Object.freeze({
     mode: 'balanced',
@@ -51,7 +52,7 @@ const BOOLEAN_KEYS = Object.freeze({
 const ENUM_KEYS = Object.freeze({
   workspace: {
     openBehavior: ['Web Studio', 'Last active view', 'Project overview'],
-    editorMode: ['Magic', 'Advanced', 'Last used']
+    editorMode: ['build', 'plan', 'ask', 'fix', 'last-used']
   },
   ai: {
     mode: ['balanced', 'fast', 'quality'],
@@ -88,11 +89,21 @@ function normalizeScope(scope, input, { strict = true } = {}) {
   const result = {};
   const allowed = new Set([
     ...(BOOLEAN_KEYS[scope] || []),
-    ...Object.keys(ENUM_KEYS[scope] || {})
+    ...Object.keys(ENUM_KEYS[scope] || {}),
+    ...(scope === 'workspace' ? ['workspaceName'] : [])
   ]);
   for (const [key, value] of Object.entries(input)) {
     if (ROOT_FORBIDDEN_KEYS.has(key) || !allowed.has(key)) {
       if (strict) throw Object.assign(new Error('This Settings field is not supported.'), { status: 400, code: 'SETTINGS_FIELD_NOT_ALLOWED' });
+      continue;
+    }
+    if (scope === 'workspace' && key === 'workspaceName') {
+      const name = String(value ?? '').replace(/[\\u0000-\\u001F\\u007F]/g, '').trim();
+      if (!name || name.length > 60) {
+        if (strict) throw Object.assign(new Error('Workspace name must be between 1 and 60 characters.'), { status: 400, code: 'SETTINGS_VALUE_INVALID' });
+        continue;
+      }
+      result[key] = name;
       continue;
     }
     if ((BOOLEAN_KEYS[scope] || []).includes(key)) {
