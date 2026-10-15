@@ -2,6 +2,7 @@ import { authenticateRequest } from '../../_lib/firebase.js';
 import {
   deleteFirestoreDocumentTree,
   deleteStoragePrefix,
+  deleteFirebaseAccount,
   listFirestoreDocuments,
 } from '../../_lib/firebase-admin.js';
 import { jsonResponse, requestId } from '../_lib/http.js';
@@ -87,41 +88,43 @@ export async function onRequestPost(context) {
 
     const uid = uidOf(user);
 
-    // Delete the authenticated user's Firestore tree, including project,
-    // conversation and notification subcollections. Payment/audit records
-    // are intentionally preserved where required for reconciliation/security.
-    await deleteFirestoreDocumentTree(context.env, 'users', uid);
-
-    // Remove the trusted GitHub connection record, if one exists.
-    try {
-      await deleteFirestoreDocumentTree(context.env, 'github_connections', uid);
-    } catch (error) {
-      console.warn('[OVYX ACCOUNT DELETE] github connection cleanup failed', error);
-    }
-
-    // Remove server-side mobile build payloads belonging to this account.
+    // Remove remote build payloads and all account-owned Storage folders
+    // before deleting the Firestore profile or Firebase Auth identity. If a
+    // cleanup step fails, the signed-in user can retry the same operation.
     try {
       await deleteUserBuildRecords(context.env, uid);
     } catch (error) {
-      console.warn('[OVYX ACCOUNT DELETE] mobile build cleanup failed', error);
       throw Object.assign(new Error('Cloud project build data could not be fully removed.'), {
         status: 503,
         code: 'ACCOUNT_BUILD_CLEANUP_FAILED',
       });
     }
 
-    // Remove Firebase Storage objects using the user's OVYX namespace.
     await deleteStoragePrefix(context.env, `users/${uid}/`);
+    await deleteStoragePrefix(context.env, `profile/${uid}/`);
+
+    // Personal Universal Connections and Brand Identity profiles have been
+    // stored under the normalized account email for compatibility. Delete
+    // that document tree as well as the UID-based profile tree.
+    const email = String(user.email || '').trim().toLowerCase();
+    await deleteFirestoreDocumentTree(context.env, 'github_connections', uid);
+    if (email) await deleteFirestoreDocumentTree(context.env, 'users', email);
+    await deleteFirestoreDocumentTree(context.env, 'users', uid);
+
+    // Auth deletion is the final irreversible step. It is executed with the
+    // service account so the client never has to perform a second, fragile
+    // delete call after server-side project data has already been erased.
+    await deleteFirebaseAccount(context.env, uid);
 
     return jsonResponse(
       {
         ok: true,
         uid,
         deleted: true,
+        authentication: 'deleted',
         firestore: 'deleted',
         storage: 'deleted',
-        requiresClientAuthDeletion: true,
-        nextStep: 'Call currentUser.delete() on the Firebase client, then signOut and clear local session state.',
+        clientSignOutRequired: true,
       },
       200,
       {
