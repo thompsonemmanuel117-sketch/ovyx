@@ -1432,6 +1432,34 @@
           button.style.setProperty('opacity', '1', 'important');
           button.style.setProperty('pointer-events', 'auto', 'important');
         });
+
+        // Restore the content column as well as the navigation. Some legacy
+        // Settings styles hide the main column, which leaves valid controls in
+        // the DOM but impossible to use with a pointer or keyboard.
+        const main = shell.querySelector('.ovyx-settings-main');
+        if (main) {
+          if (main.hasAttribute('hidden')) main.removeAttribute('hidden');
+          main.style.setProperty('display', 'block', 'important');
+          main.style.setProperty('visibility', 'visible', 'important');
+          main.style.setProperty('opacity', '1', 'important');
+          const currentSection = String(settings.current || 'general');
+          main.querySelectorAll('[data-settings-panel]').forEach(function (panel) {
+            const active = panel.dataset.settingsPanel === currentSection;
+            if (active) {
+              if (!panel.classList.contains('active')) panel.classList.add('active');
+              if (panel.hasAttribute('hidden')) panel.removeAttribute('hidden');
+              panel.style.setProperty('display', 'block', 'important');
+              panel.style.setProperty('visibility', 'visible', 'important');
+              panel.style.setProperty('opacity', '1', 'important');
+            } else {
+              if (panel.classList.contains('active')) panel.classList.remove('active');
+              if (panel.style.getPropertyValue('display') !== 'none' ||
+                  panel.style.getPropertyPriority('display') !== 'important') {
+                panel.style.setProperty('display', 'none', 'important');
+              }
+            }
+          });
+        }
       }
     }
     if (typeof settings.show === 'function') {
