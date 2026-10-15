@@ -8,6 +8,79 @@ import assert from 'node:assert/strict';
  * Keep the response bodies shaped like the corresponding public/admin APIs.
  */
 export async function installOwnerBrowserApiFixtures(page) {
+  // Avoid depending on outbound Firebase CDN availability in a local browser
+  // test. This facade only exists inside the Playwright page; API authority is
+  // represented by route fixtures and is independently verified server-side.
+  await page.addInitScript(() => {
+    if (window.__OVYX_TEST_FIREBASE__) return;
+    window.__OVYX_TEST_FIREBASE__ = true;
+    window.__OVYX_FIREBASE_LOADER_INSTALLED__ = true;
+    window.__OVYX_FIREBASE_READY__ = true;
+    window.__OVYX_FIREBASE_READY_ERROR__ = null;
+    window.__OVYX_FIREBASE_READY_PROMISE__ = Promise.resolve(true);
+    window.OVYXFirebaseConfig = window.OVYXFirebaseConfig || {
+      apiKey: 'test-browser-only', projectId: 'ovyx-browser-test',
+      authDomain: 'ovyx-browser-test.invalid'
+    };
+    let currentUser = null;
+    const authListeners = new Set();
+    const emitAuth = () => authListeners.forEach(callback => {
+      try { callback(currentUser); } catch (_) {}
+    });
+    const authInstance = {
+      get currentUser() { return currentUser; },
+      onAuthStateChanged(callback) { authListeners.add(callback); queueMicrotask(() => callback(currentUser)); return () => authListeners.delete(callback); },
+      onIdTokenChanged(callback) { authListeners.add(callback); queueMicrotask(() => callback(currentUser)); return () => authListeners.delete(callback); },
+      async signOut() { currentUser = null; emitAuth(); },
+      async setPersistence() {},
+      async getRedirectResult() { return { user: null }; },
+      async signInWithEmailAndPassword() { throw Object.assign(new Error('Firebase Auth is intentionally mocked in this isolated browser test.'), { code: 'auth/operation-not-allowed' }); },
+      async createUserWithEmailAndPassword() { throw Object.assign(new Error('Firebase Auth is intentionally mocked in this isolated browser test.'), { code: 'auth/operation-not-allowed' }); },
+      async signInWithPopup() { throw Object.assign(new Error('Firebase Auth is intentionally mocked in this isolated browser test.'), { code: 'auth/operation-not-allowed' }); },
+      async signInWithRedirect() { throw Object.assign(new Error('Firebase Auth is intentionally mocked in this isolated browser test.'), { code: 'auth/operation-not-allowed' }); },
+    };
+    const snapshot = () => ({ empty: true, docs: [], forEach() {}, docChanges() { return []; } });
+    function firestoreCollection() {
+      const chain = {
+        doc(id) {
+          return {
+            id: String(id || 'fixture-document'),
+            async get() { return { id: String(id || 'fixture-document'), exists: false, data() { return {}; } }; },
+            async set() {}, async update() {}, async delete() {},
+            onSnapshot(callback) { callback({ id: String(id || 'fixture-document'), exists: false, data() { return {}; } }); return () => {}; },
+            collection() { return firestoreCollection(); }
+          };
+        },
+        where() { return this; }, orderBy() { return this; }, limit() { return this; }, startAfter() { return this; },
+        async get() { return snapshot(); },
+        onSnapshot(callback) { callback(snapshot()); return () => {}; },
+        async add() { return { id: 'ovyx-browser-test-document' }; }
+      };
+      return chain;
+    }
+    const db = { collection: firestoreCollection, async runTransaction(callback) { return callback({ get: async () => ({ exists: false, data() { return {}; } }), set() {}, update() {}, delete() {} }); } };
+    function authFactory() { return authInstance; }
+    authFactory.GoogleAuthProvider = class { addScope() {} };
+    authFactory.OAuthProvider = class { constructor(providerId) { this.providerId = providerId; } addScope() {} };
+    authFactory.GithubAuthProvider = class { addScope() {} };
+    authFactory.EmailAuthProvider = { credential(email, password) { return { providerId: 'password', email, password }; } };
+    function storage() {
+      const ref = { async getDownloadURL() { return ''; }, async put() { return { ref }; }, async delete() {} };
+      ref.child = () => ref;
+      return { ref: () => ref };
+    }
+    function firebaseStore() { return db; }
+    firebaseStore.FieldValue = { serverTimestamp() { return { __fixtureServerTimestamp: true }; }, delete() { return { __fixtureDelete: true }; } };
+    const firebase = {
+      apps: [{ name: '[DEFAULT]', options: window.OVYXFirebaseConfig }],
+      initializeApp(config) { this.apps = [{ name: '[DEFAULT]', options: config }]; return this.apps[0]; },
+      auth: authFactory,
+      firestore: firebaseStore,
+      storage,
+    };
+    Object.defineProperty(window, 'firebase', { configurable: true, writable: true, value: firebase });
+    window.__OVYX_RESOLVE_FIREBASE_READY__ = () => true;
+  });
   const pricing = {
     pro: { ngn: 33500, usd: 20 },
     max: { ngn: 209375, usd: 120 }
