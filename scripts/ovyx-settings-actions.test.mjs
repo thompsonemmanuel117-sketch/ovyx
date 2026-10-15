@@ -66,7 +66,7 @@ assert.ok(html.includes("x.routing=p.querySelector('#set-ai-routing')?.value||'a
 assert.ok(html.includes("x.fallback=p.querySelector('#set-ai-fallback')?.value||'next'"), 'AI preference save must persist its provider fallback strategy.');
 assert.ok(html.includes("x.contextLimit=p.querySelector('#set-ai-context-limit')?.value||'automatic'"), 'AI preference save must persist its context limit.');
 assert.ok(html.includes("x.budget=p.querySelector('#set-ai-budget')?.value||'automatic'"), 'AI preference save must persist its generation budget.');
-assert.ok(html.includes("window.OVYXAI=x;aiRender();toast('AI preferences reset to OVYX defaults.'"), 'AI Reset must update the active runtime preference object as well as storage.');
+assert.ok(html.includes("window.OVYXAI=Object.assign({},window.OVYXAI||{},x);const model=p.querySelector('#set-ai-model')"), 'AI Reset must update the active runtime preference object and visible controls as well as storage.');
 
 assert.match(runtime, /function hydrateProfileForm\(profile\)/, 'Profile reads must hydrate the active Settings form.');
 const hydration = runtime.slice(runtime.indexOf('function hydrateProfileForm(profile)'), runtime.indexOf('async function loadProfile()'));
