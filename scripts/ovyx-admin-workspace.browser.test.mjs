@@ -247,13 +247,13 @@ try {
     await hub.locator('[data-ovyx-admin-workspace-route="admin-template-hub"]').evaluate(button => button.click());
     await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-template-hub');
     await page.locator('#view-admin-template-hub [data-ovyx-admin-workspace-back]').waitFor({ state: 'visible' });
-    await page.locator('#v43-template-title').fill('Owner Browser Published Template');
-    await page.locator('#v43-template-category').selectOption('SaaS');
-    await page.locator('#v43-template-preview').fill('');
-    await page.locator('#v43-template-tier').selectOption('free');
-    await page.locator('#v43-template-ast').fill('{"nodes":[{"id":"owner-browser-test-node","type":"section"}]}');
-    await page.locator('#v43-template-form').evaluate(form => form.requestSubmit());
-    await page.waitForFunction(() => /Server confirmed a global template write/.test(document.getElementById('v43-template-form-status')?.textContent || ''), null, { timeout: 20000 });
+    await page.locator('#ovyx-global-template-title').fill('Owner Browser Published Template');
+    await page.locator('#ovyx-global-template-category').selectOption('SaaS');
+    await page.locator('#ovyx-global-template-preview').fill('');
+    await page.locator('#ovyx-global-template-tier').selectOption('free');
+    await page.locator('#ovyx-global-template-ast').fill('{"nodes":[{"id":"owner-browser-test-node","type":"section"}]}');
+    await page.locator('#ovyx-global-template-publish-form').evaluate(form => form.requestSubmit());
+    await page.waitForFunction(() => /Server confirmed a global template write/.test(document.getElementById('ovyx-global-template-publish-status')?.textContent || ''), null, { timeout: 20000 });
     assert.ok(ownerApiWrites.some(item => item.path === '/api/admin/templates' && item.body.action === 'publish' && item.body.title === 'Owner Browser Published Template'),
       '[' + target.name + '] Template publication must reach the protected server API.');
     await page.locator('#ovyx-global-template-refresh').click();
