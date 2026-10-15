@@ -872,7 +872,7 @@
       '<div class="ovyx-pref-row"><div class="ovyx-pref-copy"><b>Autosave recovery snapshot</b><small>Keep a local recovery snapshot of the active project and current route.</small></div><div class="ovyx-pref-control"><button type="button" id="set-autosave" class="ovyx-toggle" role="switch" aria-label="Autosave recovery snapshot" aria-checked="true"><span></span></button></div></div>' +
       '<div class="ovyx-pref-row"><div class="ovyx-pref-copy"><b>Confirm destructive actions</b><small>Ask before deleting project data.</small></div><div class="ovyx-pref-control"><button type="button" id="set-confirm-delete" class="ovyx-toggle" role="switch" aria-label="Confirm destructive actions" aria-checked="true"><span></span></button></div></div>' +
       '<div id="ovyx-project-data-sync-status" class="ovyx-settings-action-status" role="status" style="padding:9px 0;color:var(--ov-muted,#858990);font:600 9px/1.5 JetBrains Mono,monospace;overflow-wrap:anywhere"></div>' +
-      '<p class="ovyx-deep-note">Data API project sync sends project metadata only. Project source files and secrets are not uploaded by this optional integration. The configured endpoint must accept Firebase ID-token authentication.</p>';
+      '<p class="ovyx-deep-note">Data API project sync sends project metadata only. Project source files and secrets are not uploaded by this optional integration. Enabling an external endpoint sends a Firebase ID token for authentication, so only enable an endpoint you trust.</p>';
     const result = panel.querySelector('#ovyx-data-result');
     if (result && result.parentNode) result.insertAdjacentElement('afterend', group);
     else panel.appendChild(group);
@@ -1006,6 +1006,10 @@
           return;
         }
         const enabled = !before;
+        if (enabled && endpoint && new URL(endpoint).origin !== window.location.origin) {
+          const trusted = window.confirm('Enable Data API project sync for ' + new URL(endpoint).origin + '? OVYX will send a Firebase ID token for authentication and only project metadata (not project source files or secrets). Continue only if you trust this endpoint.');
+          if (!trusted) return;
+        }
         switchButton.setAttribute('aria-checked', String(enabled));
         const saved = saveDataLayerConfig({ endpoint: endpoint || readDataLayerConfig().endpoint, projectSync: enabled });
         if (!saved) {
