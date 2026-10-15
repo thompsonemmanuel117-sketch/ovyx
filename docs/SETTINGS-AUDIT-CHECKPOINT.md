@@ -3,7 +3,7 @@
 **Status:** Source inventory recorded; live-browser verification remains pending.
 **Baseline:** main @ 49d4fe7493b8f5b221ca6a0979de5f0bac0d4106 — “Repair Settings workspace and project sync”.
 **Rollback branch:** rollback/settings-baseline-20261015 (created at that exact baseline SHA; preserve it).
-**Audit branch:** audit/settings-stage-1-20261015 (created at that same SHA; this document is committed here).
+**Stage 1 merge:** merged into `main` by PR #136; main merge commit `3ed1e28d0d78155c08011592a9ae19280ec4376d`. The temporary audit branch was used only to submit the inventory; its files are now in `main`.
 **Source:** index.html blob 5ccef85057bf2a4b18958d676139ffcd5c26fcdf; Settings runtime asset blob e2304b9e2f34b2762b67ffc594eb5848a886155a.
 **Links:** [Baseline commit](https://github.com/thompsonemmanuel117-sketch/ovyx/commit/49d4fe7493b8f5b221ca6a0979de5f0bac0d4106) · [Settings runtime](https://github.com/thompsonemmanuel117-sketch/ovyx/blob/main/assets/ovyx-settings-reliability.js) · [Source contract tests](https://github.com/thompsonemmanuel117-sketch/ovyx/blob/main/scripts/ovyx-settings-actions.test.mjs)
 
@@ -134,6 +134,24 @@ Stage 2: use browser evidence to audit duplicate handlers and misleading status 
 ## Stage 1 inventory artifact link
 A detailed second-format checklist, with per-control intent, persistence location, implementation path, overlap risks, and verification boundary, is also committed at:
 - `docs/SETTINGS-CONTROL-INVENTORY.md`
-- URL: https://github.com/thompsonemmanuel117-sketch/ovyx/blob/audit/settings-stage-1-20261015/docs/SETTINGS-CONTROL-INVENTORY.md
+- URL: https://github.com/thompsonemmanuel117-sketch/ovyx/blob/main/docs/SETTINGS-CONTROL-INVENTORY.md
 
 This supplemental document does not change product code. The rollback branch remains untouched. Stage 1 source inventory is complete; rendered/live-browser verification is intentionally still unchecked.
+
+
+## Mainline merge and build-log checkpoint — 2026-10-15
+- [x] PR #136 merged: https://github.com/thompsonemmanuel117-sketch/ovyx/pull/136
+- [x] Main commit: `3ed1e28d0d78155c08011592a9ae19280ec4376d`; source files were not changed in this docs-only merge.
+- [x] PR verification job `OVYX Agent Verify` run #791 / job `verify` completed with **success**: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38814368633
+- [x] Verified log steps: `npm test` passed, `npm run validate` reported `OVYX static verification passed.`, and `npm run build` reported `OVYX Pages build preflight passed.`
+- [x] Settings action regression output was green within the full npm test chain.
+- [!] Non-blocking warnings visible in the log: the Node `punycode` module is deprecated; GitHub warns the workflow's `actions/checkout@v4` and `actions/setup-node@v4` use Node.js 20 while the runner forces Node.js 24. Tests also intentionally exercise missing-provider-secret/configuration paths; the log reports those messages while those tests pass.
+- [!] The available combined-status endpoint returns no status contexts for the final squash commit itself. Run #791 checked the pull-request merge tree `28c7cea` before merge, whose application files are identical because PR #136 changed documentation only. Do not describe this as live-browser verification.
+- [ ] Real browser click-through of all Settings controls remains pending.
+
+## Mandatory build-log rule for every future stage
+1. After each milestone/commit, inspect GitHub Actions for the exact tested commit and open the job log.
+2. Confirm `npm test`, `npm run validate`, and `npm run build` (plus new targeted browser tests) actually completed with success.
+3. Read warnings/errors from the actual log. Separate expected negative-test configuration messages from genuine failing commands, but record deprecations and actionable warnings in this checkpoint.
+4. If a required job is failed or still running, do not claim it passed or mark the stage verified. Inspect the failed step/log, fix only in-scope failures, rerun, and record the result here before proceeding.
+5. Keep the rollback branch `rollback/settings-baseline-20261015` untouched. Do not deploy without explicit permission.
