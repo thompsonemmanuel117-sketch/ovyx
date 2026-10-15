@@ -161,6 +161,7 @@ export async function onRequestGet(context) {
       ok: true,
       settings: normalizeUserSettings(stored),
       updatedAt: stored.updatedAt || null,
+      savedScopes: Object.keys(DEFAULT_SETTINGS).filter(scope => Object.prototype.hasOwnProperty.call(stored, scope)),
       scope: 'account',
       authority: 'SERVER'
     }, 200, { 'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store, max-age=0' });
