@@ -216,3 +216,37 @@ Add targeted desktop/mobile tests for Appearance Save/Cancel/Reset and Profile/N
 
 ## Updated exact next action
 Add targeted desktop/mobile browser coverage for **Profile Save and Notifications Save/Reset**. Assert Profile save makes exactly one authenticated `PUT /api/settings/profile` and does not also perform the older local-only save; assert Notifications toggles remain drafts until Save, then one authenticated `PUT /api/settings/preferences` persists the values; mock failure responses to verify the UI does not claim success and retry works. Then use the observed browser/API outcomes to repair any actual duplicate or failure-path bugs, run both CI jobs, inspect full logs, merge the focused changes to `main`, and update this checkpoint.
+
+
+## Stage 2 — Appearance single-owner fix and integrated Settings browser coverage (2026-10-15)
+
+- **PR #142 merged:** https://github.com/thompsonemmanuel117-sketch/ovyx/pull/142
+- **Main merge commit:** `99ed2657fb3ff3093767f2ada846f22c3a84fa3a`
+- Closed obsolete duplicate PR #139 as superseded by PR #142.
+- [x] Removed the duplicate legacy Appearance click handlers. The canonical ThemeContext bridge now owns mode preview, Save, Cancel and Reset; propagation is stopped so the same mode click is not processed by a later handler.
+- [x] Fixed the Settings browser-test route race. The actual app has a late route-restoration controller; tests now wait for boot restoration, and the reload test writes the intended `settings` route before reloading.
+- [x] Desktop/mobile Chromium verified Appearance single-owner actions: one preview per click, no premature persistence, and one canonical Save/Cancel/Reset behavior.
+- [x] Integrated desktop/mobile Chromium verified Workspace Data Layer: truthful health-only status, local endpoint save/reload, sync-toggle persistence, omitted third-party cookies, starter schema download, no duplicate panel.
+- [x] Integrated desktop/mobile Chromium verified Profile and Notifications: one authenticated profile save, failed-save recovery, notification switches as drafts until Save, failed-save preservation, server-confirmed retry/reset, truthful email-preference wording.
+- [x] Existing desktop/mobile browser scenarios also passed: Admin Modules, assistant workspace, Sentinel, provider availability, Web Studio reliability, Admin Workspace.
+- [x] Pull-request verification **run #820 passed** `npm test`, `npm run validate`, `npm run build` preflight and Wrangler check: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38821645503
+- [x] Pull-request Chromium **run #352 passed** all targeted Settings steps and the complete existing desktop/mobile browser suite: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38821645467
+- [x] The actual merged-main verification **run #821 passed**; full log checked, no failed step/error-level build/test failure: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38821965106
+- [!] Non-blocking warnings remain in all logs: Node's `punycode` deprecation and the GitHub Actions Node 20-to-24 deprecation notice. No real test/build errors were found in these successful runs.
+- [x] Merged fix branch was aligned to main after merge. Frozen rollback branch `rollback/settings-baseline-20261015` remains identical to the original baseline SHA.
+- [ ] Cloudflare diagnostics run #379 was still in progress when this checkpoint was updated; inspect its final result if it finishes after the verification job. It is not a substitute for test/build success and must not be used to imply deployment.
+
+## Current Stage 2 remaining items
+
+1. **AI Preferences:** exercise Save/Reset for preferred provider/model, generation mode, routing, fallback, context limit and budget; verify values flow into the actual next generation request, not only localStorage.
+2. **Editor and Workspace:** test actual route behavior, autosave recovery on/off, confirm-delete on/off, inspector, live preview and default editor mode on desktop and mobile.
+3. **Shortcuts:** test Command Palette, New Project, Save Project, Undo and Redo in their relevant surfaces. Make sure shortcut text that is reference-only isn't presented as customization.
+4. **Profile and Security destructive paths:** verify both Profile and Security account deletion controls separately with a disposable test account; test session revocation through a safe authenticated fixture, not a personal account.
+5. **Appearance Theme Lab:** inspect custom theme Save, Duplicate, Import, Export, Delete and Reset. The canonical path now owns click handling, but CRUD/download/import flows still need direct coverage.
+6. **Plan, Usage and Token Boosters:** verify quota refresh/error states and checkout start/cancel/failure/verified credit using provider mocks or a configured sandbox only. Never create a real purchase during regression tests.
+7. **Account email preferences:** still only store notification preferences; there is no verified outgoing mail delivery. Preserve this wording until a mail provider and delivery test exist.
+8. **Data Layer:** the custom endpoint remains a health-check-only field; it does not provision or migrate PostgreSQL or replace the built-in authenticated project sync.
+
+## Exact next action
+
+Add targeted desktop/mobile browser coverage for **AI Preferences Save/Reset and request propagation** first. Use mocked authenticated AI endpoints, record the generated payload, verify Save and Reset each operate once, and prove the next request receives the selected provider/model/routing/fallback/context options. Run the full Agent Verify and Chromium workflows, inspect both full logs for errors and warnings, merge into main only after success, and update this checkpoint again. Then proceed through Editor/Workspace toggles and Shortcuts. Do not mark Settings complete until all visible controls in the 13-category inventory have direct behavior/persistence/API evidence.
