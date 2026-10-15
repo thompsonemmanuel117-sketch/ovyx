@@ -121,6 +121,13 @@ try {
     await page.evaluate(() => {
       window.__settingsThemeAppliedEvents.length = 0;
       window.__settingsAppearanceCanonicalizedEvents.length = 0;
+      window.__settingsPreviewCallStacks = [];
+      const context = window.ThemeContext;
+      const originalPreview = context.preview.bind(context);
+      context.preview = function (patch) {
+        window.__settingsPreviewCallStacks.push(String(new Error('ThemeContext.preview call').stack || ''));
+        return originalPreview(patch);
+      };
     });
     await appearance.locator('[data-mode="light"]').click();
     await page.waitForFunction(() => window.ThemeContext?.get?.().mode === 'light');
@@ -132,8 +139,9 @@ try {
       applied: [...window.__settingsThemeAppliedEvents],
       canonicalized: [...window.__settingsAppearanceCanonicalizedEvents],
     }));
+    const previewTraces = await page.evaluate(() => window.__settingsPreviewCallStacks || []);
     assert.equal(events.applied.filter(reason => reason === 'preview').length, 1,
-      '[' + target.name + '] a single mode click must apply exactly one preview; duplicate click listeners must not fire.');
+      '[' + target.name + '] a single mode click must apply exactly one preview; details=' + JSON.stringify({ events, previewTraces }));
     assert.equal(events.canonicalized.filter(reason => reason === 'mode-change').length, 1,
       '[' + target.name + '] a single mode click must have one canonical appearance action.');
 
