@@ -102,8 +102,11 @@ try {
 
     // Open behavior must change the result of a real, safe local ProjectStore.open().
     await workspace.locator('#set-open-behavior').selectOption({ label: 'Project overview' });
+    const savedOpenBehavior = await page.evaluate(
+      () => JSON.parse(localStorage.getItem('ovyx.settings.integrity.v83') || '{}').openBehavior,
+    );
     assert.equal(
-      (await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx.settings.integrity.v83') || '{}')).openBehavior),
+      savedOpenBehavior,
       'Project overview',
       '[' + target.name + '] Project overview preference must be persisted.',
     );
