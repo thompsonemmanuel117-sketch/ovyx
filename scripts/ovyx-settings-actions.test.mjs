@@ -41,9 +41,15 @@ assert.deepEqual(
   { ...NOTIFICATION_DEFAULTS, projectActivity: false },
   'Notification preference parsing must accept only known boolean fields.'
 );
-assert.ok(html.includes('/assets/ovyx-settings-reliability.js?v=20261015-5'), 'The audited Settings runtime must load in the application shell.');
+assert.ok(html.includes('/assets/ovyx-settings-reliability.js?v=20261015-6'), 'The audited Settings runtime must load in the application shell.');
 assert.ok(html.includes('autosaveRecoveryEnabled'), 'Turning autosave off must remove saved recovery snapshots rather than merely change the toggle label.');
 assert.equal((html.match(/ovyx-settings-reliability\.js/g) || []).length, 1, 'Settings reliability runtime must only be injected once.');
+assert.ok(html.includes('Buy Token Booster'), 'The Token Boosters Settings panel must expose a real purchase action.');
+assert.ok(html.includes("bar.querySelector('button').addEventListener('click',()=>openBooster('starter'))"), 'The Settings Token Booster action must open the secure purchase modal.');
+assert.ok(html.includes("if(name&&!name.value.trim())name.value='My OVYX Theme';"), 'Theme previews must not overwrite the owner-entered custom theme name.');
+for (const action of ['data-theme-save','data-theme-duplicate','data-theme-import','data-theme-export','data-theme-delete','data-theme-reset']) {
+  assert.ok(html.includes('[' + action + ']'), 'Appearance UI must retain the Theme Lab action ' + action + '.');
+}
 for (const section of ['general','profile','appearance','workspace','notifications','editor','shortcuts','ai','privacy','security','plan','usage','boosters']) {
   assert.ok(html.includes("['" + section + "'"), 'Settings navigation must retain the ' + section + ' section.');
 }
@@ -53,6 +59,9 @@ for (const id of ['set-ai-routing','set-ai-fallback','set-ai-context-limit','set
 }
 
 assert.match(runtime, /function hydrateProfileForm\(profile\)/, 'Profile reads must hydrate the active Settings form.');
+const hydration = runtime.slice(runtime.indexOf('function hydrateProfileForm(profile)'), runtime.indexOf('async function loadProfile()'));
+assert.ok(hydration.includes("$('set-profile-name') || $('set-profile-name-legacy')"), 'Server profile hydration must target the currently rendered display-name input.');
+assert.ok(hydration.includes("$('set-workspace-name') || $('set-workspace-name-legacy')"), 'Server profile hydration must target the currently rendered workspace-name input.');
 assert.match(runtime, /\$\('set-profile-name'\) \|\| \$\('set-profile-name-legacy'\)/, 'Profile load must support the live legacy-suffixed display-name field.');
 assert.match(runtime, /\$\('set-workspace-name'\) \|\| \$\('set-workspace-name-legacy'\)/, 'Profile load must support the live legacy-suffixed workspace field.');
 assert.match(runtime, /hydrateProfileForm\(data\.profile \|\| \{\}\)/, 'Server-read profile values must be applied after the authenticated GET succeeds.');
@@ -78,7 +87,14 @@ for (const requirement of [
   'payload.providerRouting',
   'payload.provider = String(prefs.provider).toLowerCase()',
   'limitContextFiles',
-  'set-editor-mode'
+  'set-editor-mode',
+  'installThemeLabActions',
+  'function handleThemeLabClick(event)',
+  'saveCurrentAsCustomTheme',
+  'importThemeFile',
+  'downloadTheme',
+  'window.ThemeContext.preview(appearanceFromLabTheme',
+  'event.stopImmediatePropagation()'
 ]) assert.ok(runtime.includes(requirement), 'Settings runtime must have real behavior for: ' + requirement);
 
 assert.match(profileApi, /request\.method === 'GET'/);
