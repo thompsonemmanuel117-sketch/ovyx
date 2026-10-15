@@ -8,6 +8,8 @@ import {
   requestId,
 } from './_lib/http.js';
 
+import { resolveEntitlements } from './entitlements.js';
+
 const INTEGRATION_GATED_PATHS = new Set([
   '/api/ai/assistant',
   '/api/ai/gateway',
