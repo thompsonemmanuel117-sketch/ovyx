@@ -5362,6 +5362,7 @@ function patchDrawer(){
     list.innerHTML=v43Templates.map(item=>`<article class="v0-card rounded-xl p-4"><div class="flex items-center justify-between gap-3"><div><div class="text-[9px] uppercase tracking-[.15em] text-zinc-500 font-mono">${v43Escape(item.category)}</div><strong class="text-white text-sm block mt-1">${v43Escape(item.title)}</strong></div><span class="text-[8px] uppercase px-2 py-1 rounded-full border border-white/10 text-zinc-400 font-mono">${v43Escape(item.requiredTier)}</span></div><div class="text-[9px] text-zinc-600 font-mono mt-3">Updated ${v43Escape(new Date(item.updatedAt).toLocaleString())}</div></article>`).join('')
   }
   function v43RenderGallery(){
+    if(window.OVYXV655&&typeof window.OVYXV655.fetchPublishedTemplates==='function')return
     const feed=v43ById('templates-catalog-feed')
     if(!feed)return
     /* V57: only templates published by the OVYX owner are public. No seeded/built-in templates. */
@@ -5512,26 +5513,51 @@ function patchDrawer(){
       v43RenderGallery()
       if(newest)v43Release(v43Normalize(newest))
     })
-    const db=window.firebase?.firestore?.()
-    if(db && !window.__OVYX_TEMPLATE_FIRESTORE_OWNER__){
+    async function refreshPublishedTemplatesFromServer(){
+      const user=v43User()
+      if(!user){
+        v43Merge([])
+        v43RenderAdmin()
+        if(!window.OVYXV655)v43RenderGallery()
+        v43ById('v43-template-channel')?.replaceChildren(document.createTextNode('SIGN IN TO LOAD TEMPLATES'))
+        return []
+      }
       try{
-        window.__OVYX_TEMPLATE_FIRESTORE_OWNER__='v43'
-        db.collection('ovyx_templates').where('published','==',true).onSnapshot(snapshot=>{
-          const incoming=[]
-          snapshot.forEach(doc=>incoming.push({...doc.data(),id:doc.id}))
-          window.__OVYX_TEMPLATE_LIVE__=incoming.slice()
-          const newest=incoming.map(v43Normalize).filter(Boolean).sort((a,b)=>b.updatedAt-a.updatedAt)[0]
-          v43Merge(incoming)
-          v43RenderAdmin()
-          v43RenderGallery()
-          if(newest)v43Release(newest)
-          v43ById('v43-template-channel')?.replaceChildren(document.createTextNode('FIRESTORE LIVE'))
-          try{window.dispatchEvent(new CustomEvent('ovyx:templates-live-cache',{detail:{source:'firestore',count:incoming.length}}))}catch(error){console.warn('[OVYX V43] live cache event:',error)}
-        },error=>{
-          console.warn('[OVYX V43] Firestore listener:',error)
+        const token=await user.getIdToken(false)
+        const response=await fetch('/api/templates/published',{
+          method:'GET',
+          headers:{Accept:'application/json',Authorization:'Bearer '+token},
+          credentials:'same-origin',
+          cache:'no-store'
         })
-      }catch(error){console.warn('[OVYX V43] Firestore binding:',error)}
+        const data=await response.json().catch(()=>({}))
+        if(!response.ok||data.ok===false)throw new Error(data.message||data.error||'Template catalogue unavailable.')
+        const incoming=(Array.isArray(data.templates)?data.templates:[]).filter(item=>item&&item.accessible===true&&item.ast)
+        window.__OVYX_TEMPLATE_LIVE__=incoming.slice()
+        v43Merge(incoming)
+        v43RenderAdmin()
+        if(!window.OVYXV655)v43RenderGallery()
+        v43ById('v43-template-channel')?.replaceChildren(document.createTextNode('SERVER CATALOG'))
+        try{window.dispatchEvent(new CustomEvent('ovyx:templates-live-cache',{detail:{source:'server',count:incoming.length}}))}catch(error){console.warn('[OVYX V43] server catalogue event:',error)}
+        return incoming
+      }catch(error){
+        v43ById('v43-template-channel')?.replaceChildren(document.createTextNode('SERVER CATALOG UNAVAILABLE'))
+        console.warn('[OVYX V43] server template catalogue:',String(error?.message||'unavailable').slice(0,180))
+        return []
+      }
     }
+    window.__OVYX_TEMPLATE_REFRESH__=refreshPublishedTemplatesFromServer
+    refreshPublishedTemplatesFromServer()
+    window.addEventListener('firebase-auth-state-ready',()=>{refreshPublishedTemplatesFromServer()},{passive:true})
+    window.addEventListener('ovyx:view-changed',()=>{
+      const view=String(window.KernelState?.activeView||'').replace(/^view-/,'')
+      if(view==='templates'||view==='admin-template-hub')refreshPublishedTemplatesFromServer()
+    },{passive:true})
+    setInterval(()=>{
+      const view=String(window.KernelState?.activeView||'').replace(/^view-/,'')
+      if(view==='templates'||view==='admin-template-hub')refreshPublishedTemplatesFromServer()
+    },60000)
+
   }
   let v43DashboardMounted=false
   function v43MountSafeDashboard(){
@@ -9534,9 +9560,43 @@ function renderEmptyTemplates(feed,msg){feed.innerHTML='<div class="col-span-ful
 function renderPublishedTemplates(feed){
  if(!publishedTemplates.length){renderEmptyTemplates(feed,'Publish a template from the Admin Center and it will appear here.');return}
  var current=String(window.KernelState?.userTier||'free').toLowerCase(),rank={free:0,pro:1,max:2};
- feed.innerHTML='<div class="col-span-full" style="display:flex;align-items:end;justify-content:space-between;gap:12px;margin-bottom:2px"><div><div class="text-[8px] font-black uppercase tracking-[.16em] text-zinc-500">OVYX / PUBLISHED LIBRARY</div><h3 class="text-xl font-black text-white mt-1">Published templates</h3><p class="text-xs text-zinc-500 mt-1">Only templates explicitly published through the OVYX Template Library are shown.</p></div><span class="text-[8px] font-mono text-zinc-600">'+publishedTemplates.length+' published</span></div><div class="ovyx-v65-template-grid col-span-full">'+publishedTemplates.map(function(t){var tier=String(t.requiredTier||t.tier||'free').toLowerCase(),locked=(rank[current]||0)<(rank[tier]||0),accent=t.accent||t.theme?.[1]||'#e8b64f',bg=t.background||t.theme?.[0]||'#050607';return '<article class="ovyx-v65-template-card"><div class="ovyx-v65-template-preview"><div class="bar"></div><div class="hero" style="background:linear-gradient(135deg,'+esc(bg)+',#0B0D10)"><i style="background:'+esc(accent)+'"></i><em></em><button style="background:'+esc(accent)+'"></button></div></div><div class="ovyx-v65-template-body"><b>'+esc(t.title||t.name||'OVYX Template')+'</b><p>'+esc(t.description||'Published OVYX template.')+'</p><div class="ovyx-v65-template-meta"><span>'+esc(t.category||'PUBLISHED')+'</span><span>'+esc(tier.toUpperCase())+'</span></div><div class="ovyx-v65-template-actions"><button type="button" data-v655-preview="'+esc(t.id)+'">Preview</button><button type="button" class="primary" data-v655-use="'+esc(t.id)+'">'+(locked?'Upgrade to Use':'Use Template')+'</button></div></div></article>'}).join('')+'</div>';
+ feed.innerHTML='<div class="col-span-full" style="display:flex;align-items:end;justify-content:space-between;gap:12px;margin-bottom:2px"><div><div class="text-[8px] font-black uppercase tracking-[.16em] text-zinc-500">OVYX / PUBLISHED LIBRARY</div><h3 class="text-xl font-black text-white mt-1">Published templates</h3><p class="text-xs text-zinc-500 mt-1">Only templates explicitly published through the OVYX Template Library are shown.</p></div><span class="text-[8px] font-mono text-zinc-600">'+publishedTemplates.length+' published</span></div><div class="ovyx-v65-template-grid col-span-full">'+publishedTemplates.map(function(t){var tier=String(t.requiredTier||t.tier||'free').toLowerCase(),locked=t.accessible===false||(rank[current]||0)<(rank[tier]||0),accent=t.accent||t.theme?.[1]||'#e8b64f',bg=t.background||t.theme?.[0]||'#050607';return '<article class="ovyx-v65-template-card"><div class="ovyx-v65-template-preview"><div class="bar"></div><div class="hero" style="background:linear-gradient(135deg,'+esc(bg)+',#0B0D10)"><i style="background:'+esc(accent)+'"></i><em></em><button style="background:'+esc(accent)+'"></button></div></div><div class="ovyx-v65-template-body"><b>'+esc(t.title||t.name||'OVYX Template')+'</b><p>'+esc(t.description||'Published OVYX template.')+'</p><div class="ovyx-v65-template-meta"><span>'+esc(t.category||'PUBLISHED')+'</span><span>'+esc(tier.toUpperCase())+'</span></div><div class="ovyx-v65-template-actions"><button type="button" data-v655-preview="'+esc(t.id)+'">Preview</button><button type="button" class="primary" data-v655-use="'+esc(t.id)+'">'+(locked?'Upgrade to Use':'Use Template')+'</button></div></div></article>'}).join('')+'</div>';
  qa('[data-v655-preview]',feed).forEach(function(b){b.onclick=function(){var t=publishedTemplates.find(function(x){return String(x.id)===String(b.dataset.v655Preview)});if(t&&typeof window.OVYXTemplatePreview==='function')window.OVYXTemplatePreview(t);else if(t&&typeof window.previewUserTemplate==='function')window.previewUserTemplate(t)}});
- qa('[data-v655-use]',feed).forEach(function(b){b.onclick=function(){var t=publishedTemplates.find(function(x){return String(x.id)===String(b.dataset.v655Use)});if(!t)return;var tier=String(t.requiredTier||'free').toLowerCase();if((rank[current]||0)<(rank[tier]||0)){window.Router?.go?.('pricing');return}var p=t.project||null;if(!p&&typeof window.builtProject==='function')p=window.builtProject({name:t.title||t.name||'Published Template',desc:t.description||'',theme:[t.background||'#050607',t.accent||'#e8b64f'],pages:t.pages||[]});if(p){window.KernelState.projects=Array.isArray(window.KernelState.projects)?window.KernelState.projects:[];window.KernelState.projects.unshift(p);window.KernelState.activeProject=p;try{localStorage.setItem('ovyx.projects.v21',JSON.stringify(window.KernelState.projects))}catch(e){console.warn('[OVYX runtime]',e)}window.Router?.go?.('webstudio')}}});
+ qa('[data-v655-use]',feed).forEach(function(b){b.onclick=async function(){
+  var t=publishedTemplates.find(function(x){return String(x.id)===String(b.dataset.v655Use)});
+  if(!t)return;
+  var user=safe(function(){return window.firebase?.auth?.().currentUser},null);
+  if(!user){window.showToast?.('Sign in before using a published template.','error');return}
+  b.disabled=true;
+  try{
+    var token=await user.getIdToken(true);
+    var url='/api/templates/published?id='+encodeURIComponent(String(t.id));
+    var response=await fetch(url,{method:'GET',headers:{Accept:'application/json',Authorization:'Bearer '+token},credentials:'same-origin',cache:'no-store'});
+    var payload=await response.json().catch(function(){return{}});
+    var latest=(Array.isArray(payload.templates)?payload.templates:[]).find(function(item){return String(item.id)===String(t.id)});
+    if(!response.ok||payload.ok===false)throw new Error(payload.message||payload.error||'The current template access could not be verified.');
+    if(!latest||latest.published!==true){await fetchPublishedTemplates();window.showToast?.('This template is no longer published. Refreshing the catalogue.','info');return}
+    if(latest.accessible!==true||!latest.project){window.Router?.go?.('pricing');window.showToast?.('This template is not included in your current plan or feature access.','info');return}
+    var p=JSON.parse(JSON.stringify(latest.project));
+    p.id='proj_'+Date.now()+'_'+String(crypto.randomUUID?crypto.randomUUID().replace(/-/g,'').slice(0,10):'template');
+    p.name=latest.title||latest.name||p.name||'Published OVYX Template';
+    p.description=latest.description||p.description||'Started from an owner-published OVYX template.';
+    p.status='draft';
+    p.updatedAt=Date.now();
+    p.templateSource={id:latest.id,title:p.name,version:latest.updatedAt};
+    window.KernelState.projects=Array.isArray(window.KernelState.projects)?window.KernelState.projects:[];
+    window.KernelState.projects.unshift(p);
+    window.KernelState.activeProject=p;
+    try{localStorage.setItem('ovyx.projects.v21',JSON.stringify(window.KernelState.projects))}catch(e){console.warn('[OVYX runtime] project cache:',e)}
+    window.ProjectStore?.save?.();
+    window.Router?.go?.('webstudio');
+    window.WebStudio?.render?.();
+    window.showToast?.(p.name+' loaded into Web Studio.','success');
+  }catch(error){
+    window.showToast?.('Template could not be loaded: '+String(error?.message||'server request failed'),'error');
+  }finally{b.disabled=false}
+ }});
+
 }
 async function fetchPublishedTemplates(){
  var feed=$('templates-catalog-feed');if(!feed)return [];
@@ -9572,7 +9632,69 @@ function injectPlanControl(){var v=$('view-admin-pricing');if(!ownerAdminOpsAuth
 async function loadSupportTickets(){var host=$('ovyx-v655-ticket-list');if(!host)return;try{var r=await ownerFetch('/api/admin/support-tickets'),d=await r.json();if(!r.ok)throw new Error(d.error||'Unable to load support tickets.');var list=Array.isArray(d.tickets)?d.tickets:[];host.innerHTML=list.length?list.map(function(t){return '<article class="ovyx-v655-ticket"><div class="ovyx-v655-ticket-top"><b>'+esc(t.subject||'Support ticket')+'</b><small>'+esc(t.createdAt||'')+'</small></div><small>'+esc(t.userName||'User')+' · '+esc(t.contactEmail||t.email||'')+' · Project '+esc(t.projectId||'—')+'</small><p>'+esc(t.message||'')+'</p></article>'}).join(''):'<div style="padding:20px;text-align:center;color:#666;font:700 8px JetBrains Mono,monospace">No support tickets yet.</div>'}catch{host.innerHTML='<div style="padding:20px;color:#666;font:700 8px JetBrains Mono,monospace">Owner support stream unavailable.</div>'}}
 async function publishBroadcast(){var msg=$('ovyx-v655-broadcast-message'),title=$('ovyx-v655-broadcast-title'),status=$('ovyx-v655-broadcast-status'),body=String(msg?.value||'').trim();if(!body){if(status)status.textContent='Write an announcement first.';return}try{var r=await ownerFetch('/api/admin/broadcasts',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:String(title?.value||'OVYX Update').trim(),message:body})}),d=await r.json().catch(function(){return{}});if(!r.ok)throw new Error(d.error||'Announcement could not be published.');if(status)status.textContent='Announcement published';if(msg)msg.value=''}catch(e){if(status)status.textContent=e.message||'Announcement failed.'}}
 function injectAdminOps(){var v=$('view-admin-broadcasts');if(!ownerAdminOpsAuthorized()||!v||$('ovyx-v655-admin-feedback'))return;var wrap=document.createElement('div');wrap.id='ovyx-v655-admin-feedback';wrap.className='ovyx-v655-admin-section';wrap.innerHTML='<div class="ovyx-v655-admin-head"><b>USER FEEDBACK STREAM</b><small>Authenticated support tickets with username, account email, project ID and complaint.</small></div><div class="ovyx-v655-admin-body"><div id="ovyx-v655-ticket-list" class="ovyx-v655-ticket-list">Loading support tickets…</div><button type="button" class="ovyx-v655-btn" style="margin-top:10px" data-v655-ticket-refresh>Refresh Tickets</button></div><div class="ovyx-v655-admin-head"><b>GLOBAL SYSTEM BROADCAST</b><small>Publish a non-intrusive live banner to authenticated users.</small></div><div class="ovyx-v655-admin-body"><div class="ovyx-v655-broadcast-row"><input id="ovyx-v655-broadcast-title" value="OVYX System Update"><textarea id="ovyx-v655-broadcast-message" maxlength="4000" placeholder="Write the announcement…"></textarea><button class="ovyx-v655-btn" type="button" data-v655-broadcast-publish>Publish Announcement</button><span id="ovyx-v655-broadcast-status" style="color:#666;font:600 7px JetBrains Mono,monospace">Ready</span></div></div>';v.appendChild(wrap);q('[data-v655-ticket-refresh]',wrap).onclick=loadSupportTickets;q('[data-v655-broadcast-publish]',wrap).onclick=publishBroadcast;loadSupportTickets()}
-function startBroadcastListener(){var db=safe(function(){return window.firebase?.firestore?.()},null);if(!db||window.__OVYXV655_BROADCAST_LISTENER__)return;if(!safe(function(){return window.firebase?.auth?.().currentUser},null))return;window.__OVYXV655_BROADCAST_LISTENER__=true;try{db.collection('ovyx_announcements').where('published','==',true).onSnapshot(function(snapshot){var rows=[];snapshot.forEach(function(doc){var d=doc.data()||{};rows.push(Object.assign({id:doc.id},d))});rows.sort(function(a,b){return String(b.createdAt||'').localeCompare(String(a.createdAt||''))});var item=rows[0],banner=$('ovyx-v655-user-banner');if(!banner){banner=document.createElement('div');banner.id='ovyx-v655-user-banner';var vp=$('view-router-viewport');if(vp)vp.prepend(banner)}if(item){banner.innerHTML='<div class="ovyx-v655-banner-row"><div><b>'+esc(item.title||'OVYX Update')+'</b><div>'+esc(item.message||item.body||'')+'</div></div><button type="button" aria-label="Dismiss" data-v655-dismiss>×</button></div>';banner.style.display='block';q('[data-v655-dismiss]',banner).onclick=function(){banner.style.display='none';try{sessionStorage.setItem('ovyx.v655.dismiss.'+item.id,'1')}catch(e){console.warn('[OVYX runtime]',e)}};try{if(sessionStorage.getItem('ovyx.v655.dismiss.'+item.id)==='1')banner.style.display='none'}catch(e){console.warn('[OVYX runtime]',e)}}else banner.style.display='none'},function(){})}catch(e){console.warn('[OVYX runtime]',e)}}
+function startBroadcastListener(){
+ if(window.__OVYXV655_BROADCAST_LISTENER__)return;
+ window.__OVYXV655_BROADCAST_LISTENER__=true;
+ var requestBusy=false,lastRenderedId='';
+ function getBanner(){
+  var banner=$('ovyx-v655-user-banner');
+  if(!banner){
+   banner=document.createElement('div');
+   banner.id='ovyx-v655-user-banner';
+   var viewport=$('view-router-viewport');
+   if(viewport)viewport.prepend(banner);
+  }
+  return banner;
+ }
+ function hideBanner(){var banner=getBanner();if(banner)banner.style.display='none'}
+ function safeLink(value){
+  try{var url=new URL(String(value||''),location.origin);return ['http:','https:'].includes(url.protocol)?url.href:''}catch(e){return ''}
+ }
+ async function refreshAnnouncements(){
+  if(requestBusy)return;
+  requestBusy=true;
+  try{
+   var user=safe(function(){return window.firebase?.auth?.().currentUser},null);
+   if(!user){lastRenderedId='';hideBanner();return}
+   var token=await user.getIdToken(false);
+   var response=await fetch('/api/notifications',{method:'GET',headers:{Accept:'application/json',Authorization:'Bearer '+token},credentials:'same-origin',cache:'no-store'});
+   var data=await response.json().catch(function(){return{}});
+   if(!response.ok||data.ok===false){if(response.status===401||response.status===403)hideBanner();return}
+   var items=Array.isArray(data.notifications)?data.notifications:[];
+   var item=items.find(function(row){return row&&row.unread===true&&row.published===true&&String(row.body||row.message||'').trim()});
+   var banner=getBanner();
+   if(!banner)return;
+   if(!item){lastRenderedId='';banner.style.display='none';banner.replaceChildren();return}
+   if(lastRenderedId===String(item.id)&&banner.style.display!=='none')return;
+   lastRenderedId=String(item.id);
+   banner.replaceChildren();
+   var row=document.createElement('div');row.className='ovyx-v655-banner-row';
+   var copy=document.createElement('div');
+   var heading=document.createElement('b');heading.textContent=String(item.title||'OVYX Update');
+   var message=document.createElement('div');message.textContent=String(item.body||item.message||'');
+   copy.appendChild(heading);copy.appendChild(message);
+   var link=safeLink(item.link);
+   if(link){var anchor=document.createElement('a');anchor.href=link;anchor.target='_blank';anchor.rel='noopener noreferrer';anchor.textContent='Learn more';copy.appendChild(anchor)}
+   var dismiss=document.createElement('button');dismiss.type='button';dismiss.setAttribute('aria-label','Dismiss announcement');dismiss.textContent='×';
+   dismiss.addEventListener('click',async function(){
+    dismiss.disabled=true;
+    try{
+     await fetch('/api/notifications',{method:'POST',headers:{Accept:'application/json',Authorization:'Bearer '+await user.getIdToken(false),'Content-Type':'application/json'},credentials:'same-origin',cache:'no-store',body:JSON.stringify({action:'read',notificationId:String(item.id)})});
+    }catch(error){console.warn('[OVYX broadcast] acknowledgement failed:',String(error?.message||'unavailable').slice(0,100))}
+    banner.style.display='none';lastRenderedId='';refreshAnnouncements();
+   });
+   row.appendChild(copy);row.appendChild(dismiss);banner.appendChild(row);banner.style.display='block';
+  }catch(error){
+   console.warn('[OVYX broadcast] server notifications unavailable:',String(error?.message||'unavailable').slice(0,120));
+  }finally{requestBusy=false}
+ }
+ window.__OVYXV655_REFRESH_BROADCASTS__=refreshAnnouncements;
+ refreshAnnouncements();
+ window.addEventListener('firebase-auth-state-ready',refreshAnnouncements,{passive:true});
+ window.addEventListener('pageshow',refreshAnnouncements,{passive:true});
+ window.addEventListener('ovyx:view-changed',refreshAnnouncements,{passive:true});
+ setInterval(refreshAnnouncements,60000);
+}
 function harden(){protectLogo();wireSidebarLegal();ensureSupportModal();removeGoogleAccountTriggers();syncOwnerState();scrubRenderedArtifacts();refreshPublicPlanFeatures();injectPlanControl();injectAdminOps();startBroadcastListener();if(window.KernelState?.activeView==='templates')fetchPublishedTemplates();}
 [200,700,1600,3500].forEach(function(ms){setTimeout(harden,ms)});
 window.addEventListener('ovyx:view-changed',function(e){var v=e?.detail?.view;if(v==='templates')fetchPublishedTemplates();if(v==='admin-pricing')injectPlanControl();if(v==='admin-broadcasts'){injectAdminOps();loadSupportTickets()}scrubRenderedArtifacts();syncOwnerState()},{passive:true});
