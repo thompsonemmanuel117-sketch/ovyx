@@ -211,6 +211,23 @@ try {
     await hub.locator('[data-ovyx-admin-workspace-route="admin-telemetry"]').evaluate(button => button.click());
     await page.locator('#ovyx-owner-telemetry-note').waitFor({ state: 'attached' });
     await page.waitForFunction(() => document.querySelectorAll('#telemetry-cards-grid .v0-card').length >= 4, null, { timeout: 20000 });
+    // Confirm that global in-app broadcasts can be published and withdrawn.
+    await hub.locator('[data-ovyx-admin-workspace-route="admin-broadcasts"]').evaluate(button => button.click());
+    await page.locator('#ovyx-global-broadcast-registry').waitFor({ state: 'attached' });
+    await page.locator('#v34-broadcast-title').fill('Owner browser test announcement');
+    await page.locator('#v34-broadcast-body').fill('A global message from the automated Owner Tools test.');
+    await page.locator('#v34-broadcast-category').selectOption('product');
+    await page.locator('#v34-broadcast-publish').click();
+    await page.waitForFunction(() => /Published to every authenticated OVYX inbox/.test(document.getElementById('v34-broadcast-status')?.textContent || ''), null, { timeout: 20000 });
+    assert.ok(ownerApiWrites.some(item => item.path === '/api/admin/broadcasts' && item.body.message === 'A global message from the automated Owner Tools test.'),
+      '[' + target.name + '] Broadcast publish must use the protected server route.');
+    await page.locator('#ovyx-global-broadcast-refresh').click();
+    await page.locator('#ovyx-global-broadcast-list [data-withdraw-broadcast]').waitFor({ state: 'attached' });
+    await page.locator('#ovyx-global-broadcast-list [data-withdraw-broadcast]').click();
+    await page.waitForFunction(() => /Loaded 0 published broadcast/.test(document.getElementById('ovyx-global-broadcast-status')?.textContent || ''), null, { timeout: 20000 });
+    assert.ok(ownerApiWrites.some(item => item.path === '/api/admin/broadcasts' && item.body.action === 'unpublish'),
+      '[' + target.name + '] Broadcast withdrawal must use the protected server route.');
+
     await hub.locator('[data-ovyx-admin-workspace-route="admin-template-hub"]').evaluate(button => button.click());
     await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-template-hub');
     await page.locator('#view-admin-template-hub [data-ovyx-admin-workspace-back]').waitFor({ state: 'visible' });
