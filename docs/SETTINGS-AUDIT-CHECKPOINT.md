@@ -129,3 +129,11 @@ Legend: **Account/server** = authenticated API-backed; **Browser-local** = local
 
 ## Exact next action
 Stage 2: use browser evidence to audit duplicate handlers and misleading status claims first. Begin with Profile save/delete, Notifications save/reset, Workspace toggles/Data Layer, Appearance commit/cancel/reset, AI save/reset/routing, Security revocation, Usage and Booster checkout. Change only failures supported by tests.
+
+
+## Stage 1 inventory artifact link
+A detailed second-format checklist, with per-control intent, persistence location, implementation path, overlap risks, and verification boundary, is also committed at:
+- `docs/SETTINGS-CONTROL-INVENTORY.md`
+- URL: https://github.com/thompsonemmanuel117-sketch/ovyx/blob/audit/settings-stage-1-20261015/docs/SETTINGS-CONTROL-INVENTORY.md
+
+This supplemental document does not change product code. The rollback branch remains untouched. Stage 1 source inventory is complete; rendered/live-browser verification is intentionally still unchecked.
