@@ -91,6 +91,8 @@ assert.match(deletionApi, /emailScopedDocumentsDeleted/);
 assert.match(deletionApi, /deleteStoragePrefix\(context\.env, `users\/\$\{uid\}\/`\)/);
 assert.match(deletionApi, /deleteStoragePrefix\(context\.env, `profile\/\$\{uid\}\/`\)/, 'Account deletion must remove profile avatars saved by Settings.');
 assert.match(deletionApi, /assertFreshAuth/);
+assert.ok(deletionApi.includes('const RECENT_AUTH_SECONDS = 4 * 60'), 'Server account deletion must use a conservative recent-auth window.');
+assert.ok(runtime.includes('Date.now() / 1000 - authTime > 240'), 'Client account deletion must enforce the same recent-auth window before erasing cloud data.');
 assert.match(deletionApi, /X-OVYX-Account-Deletion/);
 assert.match(brandProfileApi, /setFirestoreDocumentAtPath/);
 assert.match(brandProfileApi, /deleteFirestoreDocumentAtPath/);
