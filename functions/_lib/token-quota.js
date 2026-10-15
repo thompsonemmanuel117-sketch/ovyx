@@ -16,6 +16,31 @@ export const DAILY_RATION_MESSAGE =
 
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 
+let configuredQuotaPlansCache = null;
+let configuredQuotaPlansAt = 0;
+async function getConfiguredQuotaPlans(env) {
+  const now = Date.now();
+  if (configuredQuotaPlansCache && now - configuredQuotaPlansAt < 2500) {
+    return Object.fromEntries(Object.entries(configuredQuotaPlansCache).map(([tier, value]) => [tier, { ...value }]));
+  }
+  const config = (await getFirestoreData(env, 'system', 'config')) || {};
+  const tokenQuotas = config.tokenQuotas && typeof config.tokenQuotas === 'object' ? config.tokenQuotas : {};
+  const dailyPromptQuotas = config.dailyPromptQuotas && typeof config.dailyPromptQuotas === 'object' ? config.dailyPromptQuotas : {};
+  const result = {};
+  for (const tier of ['free', 'pro', 'max']) {
+    const tokenValue = Number(tokenQuotas[tier]);
+    const dailyValue = Number(dailyPromptQuotas[tier]);
+    result[tier] = {
+      ...QUOTA_PLANS[tier],
+      monthly: Number.isSafeInteger(tokenValue) && tokenValue > 0 ? tokenValue : QUOTA_PLANS[tier].monthly,
+      daily: Number.isSafeInteger(dailyValue) && dailyValue > 0 ? dailyValue : QUOTA_PLANS[tier].daily,
+    };
+  }
+  configuredQuotaPlansCache = result;
+  configuredQuotaPlansAt = now;
+  return Object.fromEntries(Object.entries(result).map(([tier, value]) => [tier, { ...value }]));
+}
+
 function normalizeTier(value) {
   const tier = String(value || '').trim().toLowerCase();
   return ['free', 'pro', 'max'].includes(tier) ? tier : 'free';
@@ -59,12 +84,12 @@ function activeTier(profile = {}) {
   return normalizeTier(raw);
 }
 
-function normalizeProfile(profile = {}) {
+function normalizeProfile(profile = {}, plans = QUOTA_PLANS) {
   const now = new Date();
   const dayKey = utcDayKey(now);
   const monthKey = utcMonthKey(now);
   const tier = activeTier(profile);
-  const limits = QUOTA_PLANS[tier];
+  const limits = plans[tier] || QUOTA_PLANS[tier];
 
   const next = { ...profile };
   let changed = false;
@@ -95,6 +120,29 @@ function normalizeProfile(profile = {}) {
     next.current_monthly_tokens = limits.monthly;
     next.daily_prompts_allowance = limits.daily;
     next.is_monthly_exhausted = false;
+    changed = true;
+  } else {
+    const previousMonthlyLimit = Number(profile._ovyxQuotaMonthlyLimit) > 0
+      ? Number(profile._ovyxQuotaMonthlyLimit) : QUOTA_PLANS[tier].monthly;
+    const previousDailyLimit = Number(profile._ovyxQuotaDailyLimit) > 0
+      ? Number(profile._ovyxQuotaDailyLimit) : QUOTA_PLANS[tier].daily;
+    if (previousMonthlyLimit !== limits.monthly) {
+      const used = Math.max(0, previousMonthlyLimit - Math.max(0, Number(next.current_monthly_tokens) || 0));
+      next.current_monthly_tokens = Math.max(0, limits.monthly - used);
+      changed = true;
+    }
+    if (previousDailyLimit !== limits.daily) {
+      const used = Math.max(0, previousDailyLimit - Math.max(0, Number(next.daily_prompts_allowance) || 0));
+      next.daily_prompts_allowance = Math.max(0, limits.daily - used);
+      changed = true;
+    }
+  }
+  if (Number(profile._ovyxQuotaMonthlyLimit) !== limits.monthly) {
+    next._ovyxQuotaMonthlyLimit = limits.monthly;
+    changed = true;
+  }
+  if (Number(profile._ovyxQuotaDailyLimit) !== limits.daily) {
+    next._ovyxQuotaDailyLimit = limits.daily;
     changed = true;
   }
 
@@ -167,7 +215,7 @@ function quotaState(profile, tier, limits) {
   };
 }
 
-async function ensureProfile(env, uid, user) {
+async function ensureProfile(env, uid, user, plans = QUOTA_PLANS) {
   const existingDoc = await getFirestoreDocument(env, 'users', uid);
   const existing = existingDoc
     ? (await getFirestoreData(env, 'users', uid)) || {}
@@ -177,7 +225,7 @@ async function ensureProfile(env, uid, user) {
     ...existing,
     email: existing.email || user?.email || null,
     displayName: existing.displayName || user?.name || null,
-  });
+  }, plans);
 
   if (!existingDoc) {
     const payload = {
@@ -191,6 +239,8 @@ async function ensureProfile(env, uid, user) {
       _ovyxQuotaTier: normalized.profile._ovyxQuotaTier,
       _ovyxQuotaDayKey: normalized.profile._ovyxQuotaDayKey,
       _ovyxQuotaMonthKey: normalized.profile._ovyxQuotaMonthKey,
+      _ovyxQuotaMonthlyLimit: normalized.profile._ovyxQuotaMonthlyLimit,
+      _ovyxQuotaDailyLimit: normalized.profile._ovyxQuotaDailyLimit,
       quotaSchemaVersion: 1,
     };
     await setFirestoreDocument(env, 'users', uid, payload, { merge: true });
@@ -210,6 +260,8 @@ async function ensureProfile(env, uid, user) {
         _ovyxQuotaTier: normalized.profile._ovyxQuotaTier,
         _ovyxQuotaDayKey: normalized.profile._ovyxQuotaDayKey,
         _ovyxQuotaMonthKey: normalized.profile._ovyxQuotaMonthKey,
+        _ovyxQuotaMonthlyLimit: normalized.limits.monthly,
+        _ovyxQuotaDailyLimit: normalized.limits.daily,
         quotaSchemaVersion: 1,
       },
       { merge: true }
@@ -226,8 +278,9 @@ export async function getQuotaState(env, user) {
     code: 'AUTH_REQUIRED',
   });
 
+  const plans = await getConfiguredQuotaPlans(env);
   if (isAdminUser(user)) {
-    const limits = QUOTA_PLANS.max;
+    const limits = plans.max;
     return {
       plan: 'max',
       monthlyLimit: limits.monthly,
@@ -241,8 +294,8 @@ export async function getQuotaState(env, user) {
     };
   }
 
-  const profile = await ensureProfile(env, uid, user);
-  const normalized = normalizeProfile(profile);
+  const profile = await ensureProfile(env, uid, user, plans);
+  const normalized = normalizeProfile(profile, plans);
 
   if (normalized.changed) {
     await setFirestoreDocument(
@@ -256,6 +309,8 @@ export async function getQuotaState(env, user) {
         _ovyxQuotaTier: normalized.profile._ovyxQuotaTier,
         _ovyxQuotaDayKey: normalized.profile._ovyxQuotaDayKey,
         _ovyxQuotaMonthKey: normalized.profile._ovyxQuotaMonthKey,
+        _ovyxQuotaMonthlyLimit: normalized.limits.monthly,
+        _ovyxQuotaDailyLimit: normalized.limits.daily,
         quotaSchemaVersion: 1,
       },
       { merge: true }
@@ -277,8 +332,9 @@ export async function beginAIQuota(env, user) {
     });
   }
 
+  const plans = await getConfiguredQuotaPlans(env);
   if (isAdminUser(user)) {
-    const limits = QUOTA_PLANS.max;
+    const limits = plans.max;
     return {
       uid,
       mode: 'bypass',
@@ -296,7 +352,7 @@ export async function beginAIQuota(env, user) {
       ? (await getFirestoreData(env, 'users', uid)) || {}
       : {};
 
-    const normalized = normalizeProfile(profile);
+    const normalized = normalizeProfile(profile, plans);
 
     if (!doc) {
       await setFirestoreDocument(
@@ -314,6 +370,8 @@ export async function beginAIQuota(env, user) {
           _ovyxQuotaTier: normalized.profile._ovyxQuotaTier,
           _ovyxQuotaDayKey: normalized.profile._ovyxQuotaDayKey,
           _ovyxQuotaMonthKey: normalized.profile._ovyxQuotaMonthKey,
+          _ovyxQuotaMonthlyLimit: normalized.limits.monthly,
+          _ovyxQuotaDailyLimit: normalized.limits.daily,
           quotaSchemaVersion: 1,
         },
         { merge: true }
@@ -328,6 +386,8 @@ export async function beginAIQuota(env, user) {
       _ovyxQuotaTier: normalized.profile._ovyxQuotaTier,
       _ovyxQuotaDayKey: normalized.profile._ovyxQuotaDayKey,
       _ovyxQuotaMonthKey: normalized.profile._ovyxQuotaMonthKey,
+      _ovyxQuotaMonthlyLimit: normalized.profile._ovyxQuotaMonthlyLimit,
+      _ovyxQuotaDailyLimit: normalized.profile._ovyxQuotaDailyLimit,
       quotaSchemaVersion: 1,
     };
 
@@ -460,6 +520,7 @@ export async function finalizeAIQuota(env, reservation, rawUsage, inputText, out
     return getQuotaState(env, { uid: reservation?.uid });
   }
 
+  const plans = await getConfiguredQuotaPlans(env);
   const uid = reservation.uid;
   const usage = calculateTokenUsage(rawUsage, inputText, outputText);
   const cost = Math.max(0, Number(usage.totalTokens) || 0);
@@ -467,12 +528,12 @@ export async function finalizeAIQuota(env, reservation, rawUsage, inputText, out
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const doc = await getFirestoreDocument(env, 'users', uid);
     if (!doc) {
-      const profile = await ensureProfile(env, uid, { uid });
+      const profile = await ensureProfile(env, uid, { uid }, plans);
       return getQuotaState(env, { uid });
     }
 
     const profile = (await getFirestoreData(env, 'users', uid)) || {};
-    const normalized = normalizeProfile(profile);
+    const normalized = normalizeProfile(profile, plans);
     const current = Math.max(0, Number(normalized.profile.current_monthly_tokens) || 0);
     const booster = Math.max(0, Number(normalized.profile.booster_tokens) || 0);
     const monthlySpend = Math.min(current, cost);
@@ -493,6 +554,8 @@ export async function finalizeAIQuota(env, reservation, rawUsage, inputText, out
           _ovyxQuotaTier: normalized.tier,
           _ovyxQuotaDayKey: normalized.profile._ovyxQuotaDayKey,
           _ovyxQuotaMonthKey: normalized.profile._ovyxQuotaMonthKey,
+          _ovyxQuotaMonthlyLimit: normalized.limits.monthly,
+          _ovyxQuotaDailyLimit: normalized.limits.daily,
           quotaSchemaVersion: 1,
         },
         doc.updateTime
@@ -530,13 +593,14 @@ export async function refundDailyPrompt(env, reservation) {
 
   const uid = String(reservation.uid || '').trim();
   if (!uid) return;
+  const plans = await getConfiguredQuotaPlans(env);
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const doc = await getFirestoreDocument(env, 'users', uid);
     if (!doc) return;
 
     const profile = (await getFirestoreData(env, 'users', uid)) || {};
-    const normalized = normalizeProfile(profile);
+    const normalized = normalizeProfile(profile, plans);
     const cap = normalized.limits.daily;
     const current = Math.max(0, Number.parseInt(normalized.profile.daily_prompts_allowance, 10) || 0);
     const restored = Math.min(cap, current + 1);
@@ -552,6 +616,8 @@ export async function refundDailyPrompt(env, reservation) {
           _ovyxQuotaDayKey: normalized.profile._ovyxQuotaDayKey,
           _ovyxQuotaMonthKey: normalized.profile._ovyxQuotaMonthKey,
           _ovyxQuotaTier: normalized.tier,
+          _ovyxQuotaMonthlyLimit: normalized.limits.monthly,
+          _ovyxQuotaDailyLimit: normalized.limits.daily,
           quotaSchemaVersion: 1,
         },
         doc.updateTime
@@ -569,7 +635,8 @@ export async function syncTierQuota(env, uid, tierValue) {
   if (!id) return;
 
   const tier = normalizeTier(tierValue);
-  const limits = QUOTA_PLANS[tier];
+  const plans = await getConfiguredQuotaPlans(env);
+  const limits = plans[tier];
 
   for (let attempt = 0; attempt < 5; attempt += 1) {
     const doc = await getFirestoreDocument(env, 'users', id);
@@ -590,6 +657,8 @@ export async function syncTierQuota(env, uid, tierValue) {
       _ovyxQuotaTier: tier,
       _ovyxQuotaDayKey: utcDayKey(),
       _ovyxQuotaMonthKey: utcMonthKey(),
+      _ovyxQuotaMonthlyLimit: limits.monthly,
+      _ovyxQuotaDailyLimit: limits.daily,
       quotaSchemaVersion: 1,
     };
 
