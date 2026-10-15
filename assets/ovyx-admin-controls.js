@@ -1040,6 +1040,42 @@
     } finally { button.disabled = false; }
   }
 
+  function bindTemplateAccessGuard() {
+    const hub = window.OVYXTemplateHub;
+    if (!hub || typeof hub.deploy !== 'function' || hub.__ovyxServerEntitlementGuard === true) return;
+    const originalDeploy = hub.deploy.bind(hub);
+    hub.deploy = function (templateId) {
+      const user = window.firebase?.auth?.().currentUser;
+      if (!user) {
+        notify('Sign in before deploying a shared template.', 'error');
+        return false;
+      }
+      return (async () => {
+        try {
+          const response = await fetch('/api/entitlements', {
+            method: 'GET',
+            credentials: 'same-origin',
+            cache: 'no-store',
+            headers: { Accept: 'application/json', Authorization: 'Bearer ' + await user.getIdToken(false) }
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok || String(data.uid || user.uid) !== String(user.uid)) {
+            throw new Error(String(data.message || data.error || 'Account entitlements could not be verified.'));
+          }
+          if (data.capabilities?.templates !== true) {
+            notify('Shared templates are not included in this account’s current server-authoritative feature access.', 'error');
+            return false;
+          }
+          return originalDeploy(templateId);
+        } catch (error) {
+          notify('Template access was not verified by the server: ' + error.message, 'error');
+          return false;
+        }
+      })();
+    };
+    hub.__ovyxServerEntitlementGuard = true;
+  }
+
   async function onView() {
     loadPublicIdentity();
     if (!owner()) return;
@@ -1066,6 +1102,9 @@
   function boot() {
     addStyles();
     loadPublicIdentity();
+    bindTemplateAccessGuard();
+    window.addEventListener('ovyx:templates-live-cache', bindTemplateAccessGuard, { passive: true });
+    [250, 900, 1800].forEach(ms => setTimeout(bindTemplateAccessGuard, ms));
     window.addEventListener('ovyx-owner-state', event => {
       if (event.detail?.root === true) setTimeout(onView, 50);
     });
