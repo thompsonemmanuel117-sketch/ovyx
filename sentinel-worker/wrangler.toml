@@ -6,5 +6,8 @@ workers_dev = false
 [triggers]
 crons = ["*/30 * * * *"]
 
-# Configure OVYX_SENTINEL_BASE_URL as a Worker variable and
-# OVYX_SENTINEL_CRON_SECRET as a Worker secret. Never put live secrets here.
+# Configure OVYX_SENTINEL_BASE_URL as a Worker variable.
+# OVYX_SENTINEL_CRON_SECRET is generated and synchronized by
+# .github/workflows/ovyx-sentinel-scheduler-deploy.yml. Run that workflow
+# to rotate both the Pages Production secret and this Worker's secret together.
+# Never commit, echo, or manually replace only one copy of the shared secret.
