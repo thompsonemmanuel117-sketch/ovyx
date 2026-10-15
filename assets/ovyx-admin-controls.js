@@ -778,7 +778,8 @@
     const cfCard = document.createElement('div'); cfCard.className = 'ovyx-owner-live-card';
     cfCard.innerHTML = '<div class="ovyx-owner-live-label">Cloudflare Workers AI</div><div class="ovyx-owner-live-value">' + (cf.workersAiBinding ? 'BOUND' : 'NOT BOUND') + '</div><div class="ovyx-owner-live-detail">Binding presence only; generation has not been simulated by this diagnostic.</div>';
     grid.appendChild(cfCard);
-    statusText($('ovyx-global-ai-route-status'), 'Live provider-status endpoint responded at HTTP ' + result.status + ' in ' + result.duration + ' ms. Status: ' + String(result.data.status || 'reported') + '.', 'ok');
+    const activeOrder = Array.isArray(latestAIConfig?.providerOrder) ? latestAIConfig.providerOrder : [];
+    statusText($('ovyx-global-ai-route-status'), (activeOrder.length ? 'Global routing order: ' + activeOrder.join(' → ') + '. ' : '') + 'Live provider-status endpoint responded at HTTP ' + result.status + ' in ' + result.duration + ' ms. Status: ' + String(result.data.status || 'reported') + '.', 'ok');
   }
 
   async function runLiveOverview() {
