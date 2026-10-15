@@ -22,6 +22,7 @@ const packageJson = JSON.parse(read('package.json'));
 
 for (const path of [
   'assets/ovyx-settings-reliability.js',
+  'scripts/ovyx-settings.browser.test.mjs',
   'functions/api/settings/profile.js',
   'functions/api/settings/preferences.js',
   'functions/api/account/delete.js',
@@ -94,6 +95,9 @@ for (const requirement of [
   'set-editor-mode',
   'installThemeLabActions',
   'installSecurityActions',
+  'Sign out all sessions',
+  'Delete account and cloud data',
+  "fetch('/api/auth/revoke-sessions'",
   '/api/auth/revoke-sessions',
   '#ovyx-security-revoke-sessions',
   '#ovyx-security-delete',
@@ -133,6 +137,7 @@ assert.match(revokeSessionsApi, /enforceSameOrigin/);
 assert.match(revokeSessionsApi, /revokeFirebaseRefreshTokens/);
 assert.match(revokeSessionsAlias, /export \{ onRequestPost, onRequestGet \} from '\.\.\/api\/auth\/revoke-sessions\.js'/);
 assert.match(revokeSessionsAlias, /onRequestPost/);
+assert.match(revokeSessionsAlias, /onRequestGet/);
 
 assert.match(providers, /providerRouting/);
 assert.match(providers, /preferredProvider/);
