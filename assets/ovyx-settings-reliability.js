@@ -1403,12 +1403,35 @@
           if (button.hasAttribute('hidden')) button.removeAttribute('hidden');
           if (button.hasAttribute('aria-hidden')) button.removeAttribute('aria-hidden');
         });
+        // Older Settings skins can leave inline/important hiding styles behind
+        // even after the search classes are cleared. Restore the real navigation
+        // surface explicitly when search is empty; these style writes are not part
+        // of this observer's class/hidden attribute filter.
+        if (shell.hasAttribute('hidden')) shell.removeAttribute('hidden');
+        shell.style.setProperty('display', 'block', 'important');
+        shell.style.setProperty('visibility', 'visible', 'important');
+        shell.style.setProperty('opacity', '1', 'important');
+        const layout = shell.querySelector('.ovyx-settings-layout');
+        if (layout) {
+          if (layout.hasAttribute('hidden')) layout.removeAttribute('hidden');
+          layout.style.setProperty('display', 'grid', 'important');
+          layout.style.setProperty('visibility', 'visible', 'important');
+        }
         const sidebar = shell.querySelector('.ovyx-settings-sidebar');
         if (sidebar) {
           if (sidebar.classList.contains('hidden')) sidebar.classList.remove('hidden');
           if (sidebar.classList.contains('ovyx-settings-hidden')) sidebar.classList.remove('ovyx-settings-hidden');
           if (sidebar.hasAttribute('hidden')) sidebar.removeAttribute('hidden');
+          sidebar.style.setProperty('display', 'block', 'important');
+          sidebar.style.setProperty('visibility', 'visible', 'important');
+          sidebar.style.setProperty('opacity', '1', 'important');
         }
+        shell.querySelectorAll('[data-settings-nav]').forEach(function (button) {
+          button.style.setProperty('display', 'flex', 'important');
+          button.style.setProperty('visibility', 'visible', 'important');
+          button.style.setProperty('opacity', '1', 'important');
+          button.style.setProperty('pointer-events', 'auto', 'important');
+        });
       }
     }
     if (typeof settings.show === 'function') {
