@@ -176,3 +176,29 @@ Continue from the source inventory and address only evidenced issues: inspect Ap
 
 ## Exact next action
 Implement targeted automated browser coverage for actual Settings interactions (start with Workspace Data Layer and Appearance Save/Cancel/Reset), run it against the current mainline, inspect both the job summary and full logs, then repair only observed failures. Do not claim full Settings completion until the 13 categories have direct interaction/persistence/API verification.
+
+
+## Stage 2 — targeted Settings browser coverage and renderer fix (2026-10-15)
+- **PR:** #138 — https://github.com/thompsonemmanuel117-sketch/ovyx/pull/138
+- **Merged commit:** `32dffa33b870023dacf00a1bd7b29d9ef5379aa9`
+- [x] Added `scripts/ovyx-settings.browser.test.mjs`, running through the existing Playwright/Chromium CI workflow on desktop (1280×900) and mobile (390×844).
+- [x] Added workflow path triggers for Settings runtime/API/test changes and a direct Settings Data Layer browser step.
+- [x] Browser test initially exposed a real renderer bug: `renderDataLayer()` called `esc7()`, which is local to a different IIFE and was not in scope. The panel root was appended, but rendering stopped with a ReferenceError and left it empty.
+- [x] Fixed `index.html` by adding a local `escDataLayer()` escape helper and using it for the endpoint field. The new browser test passed on desktop and mobile after the fix.
+- [x] Browser coverage verified the truthful status, blank-endpoint response, endpoint save/reload, health-only GET request, omitted third-party cookies, starter SQL download, local sync-toggle persistence, and no duplicated panel after navigation/reload.
+- [x] **OVYX Agent Verify run #799 passed:** full `npm test` chain, `npm run validate`, `npm run build` preflight, Wrangler version check. Log: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38815755404
+- [x] **OVYX Assistant Workspace Browser Tests run #338 passed:** targeted Settings Data Layer browser step and all existing desktop/mobile Chromium steps passed. Log: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38815755325
+- [!] Non-blocking warnings remain: Node's `punycode` deprecation and the GitHub Actions Node 20-to-24 deprecation notice. No error-level failures were present in the successful logs.
+- [x] Product code, tests and workflow are merged into `main`. Temporary test branch should be aligned to `main`; keep rollback branch at baseline unchanged.
+
+## Remaining Stage 2 work
+- [ ] Audit Appearance’s legacy Theme Lab and canonical Theme Context overlap, including Save/Cancel/Reset, custom theme edit/save/import/export/delete and persistence.
+- [ ] Audit legacy vs capture-phase Profile Save, Profile Delete and Security Delete event paths for duplicate actions/handlers.
+- [ ] Audit Notifications draft/toggle/Save/Reset behavior and account persistence on both success and failed API responses.
+- [ ] Audit AI Save/Reset and provider/model routing values, including whether saved settings actually affect the next generation request.
+- [ ] Browser-test editor/workspace toggles, shortcut actions, usage refresh, plan actions and Token Booster purchase flow. Do not run real purchases; use mocks or configured sandbox.
+- [ ] Keep email preferences explicitly described as stored preferences only unless a real mail delivery provider is configured.
+- [ ] Re-run and inspect exact commit Actions logs after each focused merge.
+
+## Exact next action
+Add targeted desktop/mobile tests for Appearance Save/Cancel/Reset and Profile/Notifications actions without changing existing runtime behavior first. Use observed click outcomes, localStorage values, API requests and page errors to determine which older listeners actually fire. Then fix the smallest evidenced bug, run both CI workflows, review full logs, merge into `main`, update this checkpoint, and align temporary branches to `main`. Do not claim the 13-category Settings audit is finished until all listed controls receive direct behavior/persistence/API verification.
