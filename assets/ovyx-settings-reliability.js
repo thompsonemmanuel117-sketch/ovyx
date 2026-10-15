@@ -249,7 +249,12 @@
           });
         }
       }
-      try { window.ThemeContext && window.ThemeContext.apply && window.ThemeContext.apply(); } catch (error) { console.warn('[OVYX Settings] Theme restoration failed:', String(error && error.message || error).slice(0, 120)); }
+      try {
+        if (window.ThemeContext && typeof window.ThemeContext.set === 'function' && isObject(preferences.appearance)) {
+          window.ThemeContext.set(preferences.appearance);
+          if (typeof window.ThemeContext.save === 'function') window.ThemeContext.save();
+        } else if (window.ThemeContext && typeof window.ThemeContext.apply === 'function') window.ThemeContext.apply();
+      } catch (error) { console.warn('[OVYX Settings] Theme restoration failed:', String(error && error.message || error).slice(0, 120)); }
       try { window.OVYXSettings && window.OVYXSettings.syncAppearance && window.OVYXSettings.syncAppearance(); } catch (_) {}
       try { window.OVYXSettings && window.OVYXSettings.renderThemeCards && window.OVYXSettings.renderThemeCards(); } catch (_) {}
       window.OVYXAI = aiState();
@@ -1069,7 +1074,7 @@
       deleteCurrentAccount();
     }, true);
     document.addEventListener('click', function (event) {
-      const target = event.target && event.target.closest && event.target.closest('#view-settings #profile-save-action,[data-save-profile]');
+      const target = event.target && event.target.closest && event.target.closest('#view-settings #profile-save-action,#view-settings [data-save-profile]');
       if (!target) return;
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -1087,10 +1092,26 @@
   }
   function installUserStoragePolicy() {
     installAutosavePolicy();
-    const nativeSet = nativeStorageSetItem;
-    if (nativeSet && !nativeSet.__ovyxPreferenceWrapped) {
-      // This flag is only documentary; the wrapper is installed once above.
-      nativeSet.__ovyxPreferenceWrapped = true;
+    const store = window.ProjectStore;
+    if (store && typeof store.save === 'function' && !store.save.__ovyxSettingsSaveWrapped) {
+      const originalSave = store.save.bind(store);
+      const wrappedSave = function () {
+        const result = originalSave.apply(this, arguments);
+        if (workspaceState().autosave !== false || manualProjectWriteDepth > 0) {
+          pendingProjectSave = false;
+          try {
+            window.dispatchEvent(new CustomEvent('ovyx:project-saved', {
+              detail: { projectId: window.KernelState && window.KernelState.activeProject && window.KernelState.activeProject.id || null, source: manualProjectWriteDepth > 0 ? 'manual-save' : 'autosave' }
+            }));
+          } catch (_) {}
+        } else {
+          pendingProjectSave = true;
+        }
+        refreshWorkspaceControls();
+        return result;
+      };
+      wrappedSave.__ovyxSettingsSaveWrapped = true;
+      store.save = wrappedSave;
     }
   }
   function installAccountDeletionApiHint() {
