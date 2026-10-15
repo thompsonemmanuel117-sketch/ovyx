@@ -179,6 +179,20 @@ function normalizeRefundAmount(
   );
 }
 
+async function notifyOwnerRefund(env, reference, amount, currency) {
+  try {
+    const { sendAdminPushNotification } = await import('../_lib/admin-push.js');
+    await sendAdminPushNotification(env, {
+      type: 'refunds',
+      title: 'OVYX refund requested',
+      body: 'A provider-confirmed refund request was recorded for ' + String(currency || '').toUpperCase() + ' ' + Number(amount || 0).toFixed(2) + '.',
+      url: '/view-admin-overview',
+      tag: 'ovyx-refund-' + String(reference || '').slice(0, 100),
+    });
+  } catch (error) {
+    console.warn('[OVYX ADMIN PUSH] refund alert delivery skipped:', String(error?.code || error?.name || 'PUSH_DELIVERY_FAILED').slice(0, 90));
+  }
+}
 async function handlePost(
   request,
   env
@@ -862,6 +876,8 @@ async function handlePost(
         response
     }
   );
+
+  await notifyOwnerRefund(env, reference, refundAmount, payment.currency);
 
   await audit(
     env,
