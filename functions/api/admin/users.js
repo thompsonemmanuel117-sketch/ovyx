@@ -39,6 +39,14 @@ async function authorizeRoot(request, env, id) {
   return { ok: true, user: auth.user };
 }
 
+function timestampMs(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const n = Number(value);
+  if (Number.isFinite(n) && n > 0) return n;
+  const parsed = Date.parse(String(value));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
 function configuredLimits(config = {}) {
   const result = {};
   for (const tier of ['free', 'pro', 'max']) {
@@ -63,6 +71,7 @@ async function readRegistryPage(context, id) {
   const config = await getFirestoreData(context.env, 'system', 'config') || {};
   const plans = configuredLimits(config);
   const checkedAt = new Date().toISOString();
+  const checkedAtMs = Date.now();
   const dayKey = checkedAt.slice(0, 10);
   const monthKey = checkedAt.slice(0, 7);
   const users = result.documents.map(user => {
@@ -70,9 +79,12 @@ async function readRegistryPage(context, id) {
     const role = clean(user.role || 'FREE_USER', 80).toUpperCase();
     const planState = clean(user.planTierState, 80).toLowerCase();
     const storedPlan = clean(user.planTier ?? user.tier ?? user.plan ?? 'free', 30).toLowerCase();
+    const expiresAtMs = timestampMs(user.expiresAt);
     const rootUser = email === ROOT_EMAIL || ['ROOT_SUPERUSER', 'OWNER', 'ADMIN'].includes(role);
-    const expiredState = ['expired', 'refunded', 'chargeback', 'suspended', 'canceled'].includes(planState);
-    const plan = rootUser ? 'root' : (expiredState ? 'free' : (VALID_TIERS.has(storedPlan) ? storedPlan : 'free'));
+    const terminalState = ['expired', 'refunded', 'chargeback', 'suspended', 'canceled'].includes(planState);
+    const paidAccessActive = VALID_TIERS.has(storedPlan) && storedPlan !== 'free' &&
+      ['active', 'trialing'].includes(planState) && expiresAtMs !== null && expiresAtMs > checkedAtMs;
+    const plan = rootUser ? 'root' : (paidAccessActive ? storedPlan : 'free');
     const limits = plans[plan === 'root' ? 'max' : plan] || plans.free;
     const monthCurrent = String(user._ovyxQuotaMonthKey || '') === monthKey;
     const dayCurrent = String(user._ovyxQuotaDayKey || '') === dayKey;
@@ -105,7 +117,7 @@ async function readRegistryPage(context, id) {
       displayName: String(user.displayName || ''),
       role: String(user.role || 'FREE_USER'),
       plan,
-      planState: rootUser ? 'active' : (planState || 'free'),
+      planState: rootUser ? 'active' : (plan === 'free' && VALID_TIERS.has(storedPlan) && storedPlan !== 'free' && !terminalState ? 'expired' : (planState || 'free')),
       expiresAt: user.expiresAt ?? null,
       disabled: user.disabled === true || String(user.accountStatus || '').toLowerCase() === 'disabled',
       quota,
@@ -255,9 +267,10 @@ export async function onRequestPost(context) {
 
     if (action === 'resetQuota') {
       const currentTier = clean(target.planTier ?? target.tier ?? target.plan ?? 'free', 20).toLowerCase();
+      const targetExpiryMs = timestampMs(target.expiresAt);
       const activeTier = ['pro', 'max'].includes(currentTier) &&
         ['active', 'trialing'].includes(clean(target.planTierState, 40).toLowerCase()) &&
-        Number(target.expiresAt) > now.getTime()
+        targetExpiryMs !== null && targetExpiryMs > now.getTime()
         ? currentTier : 'free';
       const fields = quotaResetFields(activeTier, plans, now);
       await setFirestoreDocument(context.env, 'users', uid, { ...fields, ...audit }, { merge: true });
