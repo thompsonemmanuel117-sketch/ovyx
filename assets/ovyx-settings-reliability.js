@@ -392,13 +392,29 @@
       notify((key === 'aiSafe' ? 'Safe generation' : key.replace(/([A-Z])/g, ' $1')) + (next[key] ? ' enabled.' : ' disabled.'), 'success');
     }, true);
   }
+  const MODELS_BY_PROVIDER = Object.freeze({
+    gemini: ['gemini-3.8-flash'],
+    anthropic: ['claude-opus-5'],
+    deepseek: ['deepseek-flash'],
+    openai: ['gpt-6.1-sol']
+  });
+  function syncModelOptions(provider, panel) {
+    panel = panel || document.querySelector('[data-settings-panel="ai"]');
+    if (!panel) return;
+    const model = panel.querySelector('#set-ai-model');
+    if (!model) return;
+    const supported = MODELS_BY_PROVIDER[String(provider || 'gemini').toLowerCase()] || [];
+    Array.from(model.options).forEach(option => {
+      option.hidden = !!option.dataset.provider && option.dataset.provider !== String(provider || 'gemini').toLowerCase();
+    });
+    if (model.value !== 'automatic' && !supported.includes(model.value)) model.value = 'automatic';
+  }
   function syncAISettingsControls() {
     const panel = document.querySelector('[data-settings-panel="ai"]');
     if (!panel) return;
     const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
     const prefs = safeJson(localStorage.getItem(key));
     const values = {
-      'set-ai-model': prefs.model || 'automatic',
       'set-provider': prefs.provider || 'gemini',
       'set-ai-routing': prefs.routing || 'automatic',
       'set-ai-fallback': prefs.fallback || 'next',
@@ -409,6 +425,13 @@
       const select = panel.querySelector('#' + id);
       if (select && Array.from(select.options).some(option => option.value === values[id])) select.value = values[id];
     });
+    syncModelOptions(values['set-provider'], panel);
+    const model = panel.querySelector('#set-ai-model');
+    const preferredModel = String(prefs.model || 'automatic');
+    if (model && Array.from(model.options).some(option => option.value === preferredModel)) {
+      model.value = preferredModel;
+      syncModelOptions(values['set-provider'], panel);
+    }
   }
   function limitContextFiles(files, maxChars) {
     if (!files || typeof files !== 'object') return files;
@@ -436,6 +459,12 @@
   }
   function installAISettingsBridge() {
     window.addEventListener('ovyx-settings-rendered', syncAISettingsControls);
+    document.addEventListener('change', function (event) {
+      const target = event.target;
+      if (!target || target.id !== 'set-provider') return;
+      const panel = target.closest('[data-settings-panel="ai"]');
+      syncModelOptions(target.value, panel);
+    }, true);
     document.addEventListener('click', function (event) {
       const button = event.target && event.target.closest && event.target.closest('#set-ai-save');
       if (!button) return;
@@ -449,8 +478,10 @@
           contextFiles: true, contextPage: true, contextGithub: true,
           routing: 'automatic', fallback: 'next', contextLimit: 'automatic', budget: 'automatic'
         }, safeJson(localStorage.getItem(key)));
-        prefs.model = String(panel && panel.querySelector('#set-ai-model') && panel.querySelector('#set-ai-model').value || 'automatic');
         prefs.provider = String(panel && panel.querySelector('#set-provider') && panel.querySelector('#set-provider').value || 'gemini');
+        const selectedModel = String(panel && panel.querySelector('#set-ai-model') && panel.querySelector('#set-ai-model').value || 'automatic');
+        prefs.model = selectedModel === 'automatic' || (MODELS_BY_PROVIDER[prefs.provider] || []).includes(selectedModel) ? selectedModel : 'automatic';
+        if (selectedModel !== prefs.model) notify('The model override did not match the selected provider; Automatic model selection was saved instead.', 'info');
         prefs.routing = String(panel && panel.querySelector('#set-ai-routing') && panel.querySelector('#set-ai-routing').value || 'automatic');
         prefs.fallback = String(panel && panel.querySelector('#set-ai-fallback') && panel.querySelector('#set-ai-fallback').value || 'next');
         prefs.contextLimit = String(panel && panel.querySelector('#set-ai-context-limit') && panel.querySelector('#set-ai-context-limit').value || 'automatic');
