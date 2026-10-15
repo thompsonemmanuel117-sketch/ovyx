@@ -10,15 +10,15 @@ import {
 
 assert.equal(ADMIN_PUSH_COLLECTION, 'ovyx_admin_push_subscriptions');
 assert.deepEqual(ADMIN_PUSH_SETTINGS, [
-  'paymentEvents', 'subscriptionEvents', 'securityEvents', 'systemAlerts', 'testNotifications',
+  'payments', 'refunds', 'chargebacks', 'subscriptions', 'deploymentFailures',
 ]);
 assert.deepEqual(normalizeAdminPushPreferences({}), {
-  paymentEvents: true, subscriptionEvents: true, securityEvents: true,
-  systemAlerts: true, testNotifications: true,
+  payments: true, refunds: true, chargebacks: true,
+  subscriptions: true, deploymentFailures: true,
 });
-assert.deepEqual(normalizeAdminPushPreferences({ paymentEvents: false, systemAlerts: 'false', unknown: false }), {
-  paymentEvents: false, subscriptionEvents: true, securityEvents: true,
-  systemAlerts: true, testNotifications: true,
+assert.deepEqual(normalizeAdminPushPreferences({ payments: false, deploymentFailures: 'false', unknown: false }), {
+  payments: false, refunds: true, chargebacks: true,
+  subscriptions: true, deploymentFailures: true,
 });
 assert.equal(validateAdminPushEndpoint('http://fcm.googleapis.com/fcm/send/test'), null);
 assert.equal(validateAdminPushEndpoint('https://127.0.0.1/private'), null);
