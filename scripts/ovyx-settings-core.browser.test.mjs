@@ -63,6 +63,14 @@ try {
     await page.evaluate(() => window.OVYXSettings.show('appearance'));
     const appearance = page.locator('[data-settings-panel="appearance"]');
     await appearance.locator('[data-appearance-save]').waitFor({ state: 'visible' });
+    // The Settings shell has delayed appearance-open synchronization. Let that
+    // initial panel transition settle before counting events from a user click.
+    await page.waitForFunction(
+      () => window.__settingsThemeAppliedEvents?.includes('appearance-open'),
+      null,
+      { timeout: 10000 },
+    );
+    await page.waitForTimeout(350);
     const savedBefore = await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx-theme') || '{}'));
     await page.evaluate(() => {
       window.__settingsThemeAppliedEvents.length = 0;
