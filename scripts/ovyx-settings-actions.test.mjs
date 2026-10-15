@@ -19,8 +19,16 @@ const gateway = read('functions/api/ai/gateway.js');
 const multipage = read('functions/_lib/studio-multipage.js');
 const packageJson = JSON.parse(read('package.json'));
 
+const billingRuntime = read('assets/ovyx-settings-billing-live.js');
+const paymentHistoryApi = read('functions/api/payments/history.js');
+const firebaseQuery = read('functions/api/_lib/firebase-query.js');
+
+
 for (const path of [
   'assets/ovyx-settings-reliability.js',
+  'assets/ovyx-settings-billing-live.js',
+  'functions/api/payments/history.js',
+  'functions/api/_lib/firebase-query.js',
   'functions/api/settings/profile.js',
   'functions/api/settings/preferences.js',
   'functions/api/account/delete.js',
@@ -42,6 +50,21 @@ assert.deepEqual(
   'Notification preference parsing must accept only known boolean fields.'
 );
 assert.ok(html.includes('/assets/ovyx-settings-reliability.js?v=20261015-5'), 'The audited Settings runtime must load in the application shell.');
+
+assert.ok(html.includes('/assets/ovyx-settings-billing-live.js?v=20261015-1'), 'The server-truth Billing runtime must load from the app shell.');
+assert.equal((html.match(/ovyx-settings-billing-live\\.js/g) || []).length, 1, 'The Billing runtime must only be injected once.');
+assert.ok(billingRuntime.includes("getJson('/api/payments/status')"), 'Billing must use authenticated server subscription status.');
+assert.ok(billingRuntime.includes("getJson('/api/tokens/balance')"), 'Billing must use the authenticated server token balance.');
+assert.ok(billingRuntime.includes("getJson('/api/payments/history')"), 'Billing must load payment records from the authenticated history API.');
+assert.doesNotMatch(billingRuntime, /localStorage\\.getItem\\(['"]ovyx\\.billing\\.history/i, 'Billing must not present browser-local history as verified payment history.');
+assert.match(paymentHistoryApi, /verifyFirebaseIdToken/);
+assert.match(paymentHistoryApi, /findRecentPaymentsForUid\\(env, identity\\.user\\.uid, 8\\)/, 'Payment history must query with the verified Firebase UID.');
+assert.match(firebaseQuery, /collectionId: 'payment_orders'/);
+assert.match(firebaseQuery, /fieldPath: 'uid'/);
+assert.match(firebaseQuery, /value: \\{ stringValue: cleanUid \\}/);
+assert.match(firebaseQuery, /limit: maxResults/);
+assert.match(paymentHistoryApi, /Cache-Control/);
+
 assert.ok(html.includes('autosaveRecoveryEnabled'), 'Turning autosave off must remove saved recovery snapshots rather than merely change the toggle label.');
 assert.ok(html.includes("layer.innerHTML=`"), 'The Data Layer renderer must append to its own container instead of replacing the Workspace panel.');
 assert.ok(!html.includes("if(!p)return;const c=dbCfg();p.innerHTML=`"), 'The Data Layer renderer must not erase normal Workspace preferences.');
