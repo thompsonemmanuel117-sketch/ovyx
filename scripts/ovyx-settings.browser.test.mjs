@@ -134,7 +134,75 @@ try {
     const afterReload = await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx.data.layer.v1') || '{}'));
     assert.equal(afterReload.projectSync, false);
 
-    assert.deepEqual(settingsErrors, [], '[' + target.name + '] Settings Data Layer should not throw browser errors.');
+    // Exercise Appearance preview, save, cancel, and reset through the rendered UI.
+    // Seed a known persisted baseline and reload so ThemeContext starts from that state.
+    await page.evaluate(() => {
+      const dark = {
+        mode: 'dark',
+        accentColor: '#F59E0B',
+        backgroundColor: '#050607',
+        sidebarColor: '#050607',
+        cardColor: '#0B0D10',
+        borderColor: '#1B222A',
+        textColor: '#F8FAFC',
+        mutedColor: '#94A3B8',
+        density: 'balanced',
+        scale: 'balanced',
+        motion: 'full',
+      };
+      localStorage.setItem('ovyx-theme', JSON.stringify(dark));
+      localStorage.setItem('ovyx.appearance.v3', JSON.stringify({ mode: 'dark', density: 'balanced', scale: 'balanced', motion: 'full' }));
+    });
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.waitForFunction(
+      () => typeof window.Router?.go === 'function' && typeof window.OVYXSettings?.show === 'function',
+      null,
+      { timeout: 45000 },
+    );
+    await page.evaluate(() => window.Router.go('settings'));
+    await page.locator('#view-settings').waitFor({ state: 'visible' });
+    await page.evaluate(() => window.OVYXSettings.show('appearance'));
+    const appearance = page.locator('[data-settings-panel="appearance"]');
+    await appearance.waitFor({ state: 'visible' });
+    await appearance.locator('[data-appearance-save]').waitFor({ state: 'visible' });
+    await appearance.locator('[data-appearance-cancel]').waitFor({ state: 'visible' });
+
+    const initialSavedTheme = await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx-theme') || '{}'));
+    assert.equal(initialSavedTheme.mode, 'dark', '[' + target.name + '] Appearance test baseline must be dark.');
+    await appearance.locator('[data-mode="light"]').click();
+    await page.waitForFunction(() => document.documentElement.dataset.ovyxAppearanceMode === 'light');
+    let savedTheme = await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx-theme') || '{}'));
+    assert.equal(savedTheme.mode, 'dark', '[' + target.name + '] selecting Light must preview without persisting before Save.');
+
+    await appearance.locator('#set-density').selectOption('compact');
+    await page.waitForFunction(() => window.ThemeContext?.get?.().density === 'compact');
+    savedTheme = await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx-theme') || '{}'));
+    assert.equal(savedTheme.density, 'balanced', '[' + target.name + '] density changes must remain a preview until Save.');
+
+    await appearance.locator('[data-appearance-cancel]').click();
+    await page.waitForFunction(() => document.documentElement.dataset.ovyxAppearanceMode === 'dark'
+      && window.ThemeContext?.get?.().density === 'balanced');
+    savedTheme = await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx-theme') || '{}'));
+    assert.equal(savedTheme.mode, 'dark', '[' + target.name + '] Cancel must retain the saved mode.');
+    assert.equal(savedTheme.density, 'balanced', '[' + target.name + '] Cancel must retain saved density.');
+
+    await appearance.locator('[data-mode="light"]').click();
+    await appearance.locator('[data-appearance-save]').click();
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('ovyx-theme') || '{}').mode === 'light');
+    savedTheme = await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx-theme') || '{}'));
+    assert.equal(savedTheme.mode, 'light', '[' + target.name + '] Save Appearance must persist selected mode.');
+
+    await page.evaluate(() => window.OVYXSettings.show('privacy'));
+    const privacy = page.locator('[data-settings-panel="privacy"]');
+    await privacy.locator('[data-clear-appearance]').click();
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('ovyx-theme') || '{}').mode === 'dark');
+    savedTheme = await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx-theme') || '{}'));
+    assert.equal(savedTheme.mode, 'dark', '[' + target.name + '] Privacy reset must restore the dark appearance baseline.');
+    assert.equal(savedTheme.density, 'balanced', '[' + target.name + '] Privacy reset must restore balanced density.');
+    assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('ovyx.appearance.v3'))).mode, 'dark',
+      '[' + target.name + '] Privacy reset must update the legacy appearance mirror too.');
+
+    assert.deepEqual(settingsErrors, [], '[' + target.name + '] Settings controls should not throw browser errors.');
     await context.close();
   }
   console.log('OVYX Settings Data Layer browser tests passed on desktop and mobile: truthful status, local save/reload, sync toggle persistence, health-only request, omitted external cookies, and starter schema download.');
