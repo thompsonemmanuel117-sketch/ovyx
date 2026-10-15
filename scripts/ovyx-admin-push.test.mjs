@@ -5,6 +5,7 @@ import {
   adminPushSubscriptionId,
   getAdminPushConfiguration,
   normalizeAdminPushPreferences,
+  adminPushPreferenceForType,
   validateAdminPushEndpoint,
 } from '../functions/api/_lib/admin-push.js';
 
@@ -20,6 +21,15 @@ assert.deepEqual(normalizeAdminPushPreferences({ payments: false, deploymentFail
   payments: false, refunds: true, chargebacks: true,
   subscriptions: true, deploymentFailures: true,
 });
+assert.equal(adminPushPreferenceForType('payment'), 'payments');
+assert.equal(adminPushPreferenceForType('successful-payment'), 'payments');
+assert.equal(adminPushPreferenceForType('refund'), 'refunds');
+assert.equal(adminPushPreferenceForType('chargeback'), 'chargebacks');
+assert.equal(adminPushPreferenceForType('dispute-created'), 'chargebacks');
+assert.equal(adminPushPreferenceForType('subscription-expired'), 'subscriptions');
+assert.equal(adminPushPreferenceForType('deploymentFailure'), 'deploymentFailures');
+assert.equal(adminPushPreferenceForType('test'), null, 'Connection tests must ignore saved alert filters.');
+assert.equal(adminPushPreferenceForType('unknown'), null, 'Unknown events must not accidentally inherit a restrictive toggle.');
 assert.equal(validateAdminPushEndpoint('http://fcm.googleapis.com/fcm/send/test'), null);
 assert.equal(validateAdminPushEndpoint('https://127.0.0.1/private'), null);
 assert.equal(validateAdminPushEndpoint('https://fcm.googleapis.com/fcm/send/test'), 'https://fcm.googleapis.com/fcm/send/test');
