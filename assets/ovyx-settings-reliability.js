@@ -436,6 +436,42 @@
       saveNotifications(button, !!reset);
     }, true);
   }
+  function installWorkspaceOpenBehaviorActions() {
+    document.addEventListener('change', function (event) {
+      const select = event.target && event.target.closest && event.target.closest('[data-settings-panel="workspace"] #set-open-behavior');
+      if (!select) return;
+      event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
+      const value = String(select.value || '');
+      const allowed = ['Web Studio', 'Last active view', 'Project overview'];
+      if (!allowed.includes(value)) {
+        const saved = window.OVYXSettingsIntegrity?.load?.() || safeJson(localStorage.getItem('ovyx.settings.integrity.v83'));
+        select.value = allowed.includes(saved.openBehavior) ? saved.openBehavior : 'Web Studio';
+        notify('Choose a valid project open behavior.', 'error');
+        return;
+      }
+      const store = window.OVYXSettingsIntegrity;
+      const current = store && typeof store.load === 'function'
+        ? store.load()
+        : safeJson(localStorage.getItem('ovyx.settings.integrity.v83'));
+      const next = Object.assign({}, current, { openBehavior: value });
+      let saved = false;
+      try {
+        if (store && typeof store.save === 'function') saved = store.save(next) === true;
+        else {
+          localStorage.setItem('ovyx.settings.integrity.v83', JSON.stringify(next));
+          saved = true;
+        }
+      } catch (_) { saved = false; }
+      if (!saved) {
+        notify('Project open behavior could not be saved on this device.', 'error');
+        return;
+      }
+      select.value = value;
+      const status = $('settings-save-status');
+      if (status) status.textContent = 'Project open behavior saved.';
+      notify('Project open behavior saved.', 'success');
+    }, true);
+  }
   function installWorkspaceToggleActions() {
     document.addEventListener('click', function (event) {
       const button = event.target && event.target.closest && event.target.closest('.ovyx-toggle');
@@ -816,6 +852,7 @@
     installProfileActions();
     installNotificationActions();
     installNotificationToastFilters();
+    installWorkspaceOpenBehaviorActions();
     installWorkspaceToggleActions();
     installAISettingsBridge();
     installAppearanceAndUsageHooks();
