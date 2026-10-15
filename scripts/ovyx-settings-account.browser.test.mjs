@@ -4,6 +4,26 @@ import { chromium } from 'playwright';
 const baseURL = String(process.env.OVYX_E2E_BASE_URL || '').trim();
 if (!baseURL) throw new Error('OVYX_E2E_BASE_URL must point to the local OVYX Pages app.');
 
+async function waitForRouteRestore(page) {
+  // The late V25 controller reapplies the stored route at load/pageshow. Do not
+  // issue a test navigation until that boot restoration has finished.
+  await page.waitForFunction(
+    () => document.readyState === 'complete'
+      && typeof window.__OVYX_BOOT_ROUTE === 'string'
+      && window.KernelState?.activeView === window.__OVYX_BOOT_ROUTE,
+    null,
+    { timeout: 45000 },
+  );
+  await page.waitForTimeout(120);
+  await page.waitForFunction(
+    () => typeof window.__OVYX_BOOT_ROUTE === 'string'
+      && window.KernelState?.activeView === window.__OVYX_BOOT_ROUTE,
+    null,
+    { timeout: 10000 },
+  );
+}
+
+
 const browser = await chromium.launch({ headless: true });
 try {
   for (const target of [
@@ -25,6 +45,7 @@ try {
       null,
       { timeout: 45000 },
     );
+    await waitForRouteRestore(page);
     await page.evaluate(() => window.Router.go('settings'));
     await page.locator('#view-settings').waitFor({ state: 'visible' });
 

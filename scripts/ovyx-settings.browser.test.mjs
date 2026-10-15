@@ -4,6 +4,26 @@ import { chromium } from 'playwright';
 const baseURL = String(process.env.OVYX_E2E_BASE_URL || '').trim();
 if (!baseURL) throw new Error('OVYX_E2E_BASE_URL must point to the local or deployed OVYX Pages app.');
 
+async function waitForRouteRestore(page) {
+  // The late V25 controller reapplies the stored route at load/pageshow. Do not
+  // issue a test navigation until that boot restoration has finished.
+  await page.waitForFunction(
+    () => document.readyState === 'complete'
+      && typeof window.__OVYX_BOOT_ROUTE === 'string'
+      && window.KernelState?.activeView === window.__OVYX_BOOT_ROUTE,
+    null,
+    { timeout: 45000 },
+  );
+  await page.waitForTimeout(120);
+  await page.waitForFunction(
+    () => typeof window.__OVYX_BOOT_ROUTE === 'string'
+      && window.KernelState?.activeView === window.__OVYX_BOOT_ROUTE,
+    null,
+    { timeout: 10000 },
+  );
+}
+
+
 const browser = await chromium.launch({ headless: true });
 try {
   for (const target of [
@@ -30,6 +50,7 @@ try {
       { timeout: 45000 },
     );
 
+    await waitForRouteRestore(page);
     await page.evaluate(() => window.Router.go('settings'));
     await page.locator('#view-settings').waitFor({ state: 'visible' });
     await page.evaluate(() => window.OVYXSettings.show('workspace'));
@@ -126,6 +147,7 @@ try {
       null,
       { timeout: 45000 },
     );
+    await waitForRouteRestore(page);
     await page.evaluate(() => window.Router.go('settings'));
     await page.locator('#view-settings').waitFor({ state: 'visible' });
     await page.evaluate(() => window.OVYXSettings.show('workspace'));
@@ -152,6 +174,10 @@ try {
       };
       localStorage.setItem('ovyx-theme', JSON.stringify(dark));
       localStorage.setItem('ovyx.appearance.v3', JSON.stringify({ mode: 'dark', density: 'balanced', scale: 'balanced', motion: 'full' }));
+      // Make the app's late route-restoration controller reopen Settings on reload.
+      // Otherwise it can validly restore Home while this test expects Settings.
+      localStorage.setItem('ovyx.runtime.route.v18', 'settings');
+      localStorage.setItem('ovyx.settings.last-view.v1', 'settings');
     });
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForFunction(
@@ -159,6 +185,7 @@ try {
       null,
       { timeout: 45000 },
     );
+    await waitForRouteRestore(page);
     await page.evaluate(() => window.Router.go('settings'));
     await page.locator('#view-settings').waitFor({ state: 'visible' });
     await page.evaluate(() => window.OVYXSettings.show('appearance'));
