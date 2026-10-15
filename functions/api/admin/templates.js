@@ -98,7 +98,11 @@ export async function onRequestPost(context) {
     const previous = await getFirestoreData(context.env, 'ovyx_templates', templateId);
     const record = {
       id: templateId, title, category, previewUrl: previewUrl || '', requiredTier, ast,
-      published: true, createdAt: previous?.createdAt || now, updatedAt: now,
+      published: true,
+      createdAt: Number.isFinite(Number(previous?.createdAt)) && Number(previous.createdAt) > 0
+        ? Number(previous.createdAt)
+        : (Number.isFinite(Date.parse(String(previous?.createdAt || ''))) ? Date.parse(String(previous.createdAt)) : now),
+      updatedAt: now,
       createdBy: previous?.createdBy || { uid, email }, updatedBy: { uid, email }
     };
     await setFirestoreDocumentAtPath(context.env, ['ovyx_templates', templateId], record, { merge: true });
