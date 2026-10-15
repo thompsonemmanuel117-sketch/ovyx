@@ -32,7 +32,8 @@ const DEFAULT_FREE_CAPABILITIES = Object.freeze({
   aiGeneration: false,
   github: false,
   cloudflareDeploy: true,
-  teamWorkspace: false
+  teamWorkspace: false,
+  templates: true
 });
 
 function normalizeEmail(value) {
@@ -89,7 +90,8 @@ function buildPaidCapabilities(tier) {
     aiGeneration: true,
     github: true,
     cloudflareDeploy: true,
-    teamWorkspace: true
+    teamWorkspace: true,
+    templates: true
   };
 }
 
@@ -108,6 +110,36 @@ function normalizeFeatureRules(value) {
     .filter(rule => rule.feature);
 }
 
+function canonicalCapabilityName(value, capabilities) {
+  const normalized = String(value || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+  const aliases = {
+    webstudio: 'webStudio',
+    advancedwebstudio: 'advancedWebStudio',
+    appstudio: 'appStudio',
+    gamestudio: 'gameStudio',
+    aigeneration: 'aiGeneration',
+    github: 'github',
+    cloudflaredeploy: 'cloudflareDeploy',
+    teamworkspace: 'teamWorkspace',
+    workspace: 'teamWorkspace',
+    templates: 'templates'
+  };
+  const candidate = aliases[normalized] || value;
+  return Object.prototype.hasOwnProperty.call(capabilities, candidate) ? candidate : null;
+}
+
+function applyPlanFeatures(capabilities, planFeatures, tier, managed) {
+  const result = { ...capabilities };
+  if (!managed || !['pro', 'max'].includes(String(tier || '').toLowerCase())) return result;
+  const source = planFeatures && planFeatures[String(tier).toLowerCase()];
+  if (!Array.isArray(source)) return result;
+  const allowed = new Set(source.map(item => String(typeof item === 'string' ? item : (item?.id || item?.key || '')).trim()).filter(Boolean));
+  for (const feature of ['webStudio', 'advancedWebStudio', 'appStudio', 'gameStudio', 'aiGeneration', 'github', 'cloudflareDeploy', 'teamWorkspace', 'templates']) {
+    result[feature] = Boolean(result[feature] && allowed.has(feature));
+  }
+  return result;
+}
+
 function applyGlobalGating(capabilities, gating, tier) {
   const result = {
     ...capabilities
@@ -120,9 +152,8 @@ function applyGlobalGating(capabilities, gating, tier) {
   const currentRank = TIER_RANK[String(tier || 'free').trim().toLowerCase()] ?? 0;
 
   for (const [feature, requiredTierValue] of Object.entries(gating)) {
-    if (!Object.prototype.hasOwnProperty.call(result, feature)) {
-      continue;
-    }
+    const canonicalFeature = canonicalCapabilityName(feature, result);
+    if (!canonicalFeature) continue;
 
     const requiredTier = String(requiredTierValue || 'free').trim().toLowerCase();
     const requiredRank = TIER_RANK[requiredTier];
@@ -132,7 +163,7 @@ function applyGlobalGating(capabilities, gating, tier) {
     }
 
     if (currentRank < requiredRank) {
-      result[feature] = false;
+      result[canonicalFeature] = false;
     }
   }
 
@@ -209,10 +240,13 @@ async function resolveEntitlements(env, user) {
         aiGeneration: true,
         github: true,
         cloudflareDeploy: true,
-        teamWorkspace: true
+        teamWorkspace: true,
+        templates: true
       },
       featureRules,
-      gating
+      gating,
+      planFeatures: systemConfig.planFeatures || {},
+      planFeaturesManaged: systemConfig.planFeaturesManaged === true
     };
   }
 
@@ -289,6 +323,7 @@ async function resolveEntitlements(env, user) {
 
   const effectiveTier = accessActive ? tier : 'free';
 
+  capabilities = applyPlanFeatures(capabilities, systemConfig.planFeatures, effectiveTier, systemConfig.planFeaturesManaged === true);
   capabilities = applyGlobalGating(
     capabilities,
     gating,
@@ -309,7 +344,9 @@ async function resolveEntitlements(env, user) {
     accessActive,
     capabilities,
     featureRules,
-    gating
+    gating,
+    planFeatures: systemConfig.planFeatures || {},
+    planFeaturesManaged: systemConfig.planFeaturesManaged === true
   };
 }
 
@@ -321,6 +358,8 @@ export {
   buildPaidCapabilities,
   normalizeFeatureRules,
   applyFeatureRules,
+  applyGlobalGating,
+  applyPlanFeatures,
   resolveEntitlements
 };
 
