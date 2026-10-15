@@ -5,6 +5,8 @@
 
   const PROFILE_ENDPOINT = '/api/settings/profile';
   const NOTIFICATIONS_ENDPOINT = '/api/settings/preferences';
+  const AI_PREFERENCES_ENDPOINT = '/api/settings/ai';
+  const AI_PREFERENCE_DEFAULTS = Object.freeze({ mode:'balanced', model:'automatic', provider:'gemini', explain:true, preserve:true, confirmDestructive:false, contextFiles:true, contextPage:true, contextGithub:true, routing:'automatic', fallback:'next', contextLimit:'automatic', budget:'automatic' });
   const QUOTA_ENDPOINT = '/api/tokens/balance';
   const NOTIFICATION_DEFAULTS = Object.freeze({
     projectActivity: true,
@@ -481,11 +483,11 @@
     });
     if (model.value !== 'automatic' && !supported.includes(model.value)) model.value = 'automatic';
   }
-  function syncAISettingsControls() {
+  function syncAISettingsControls(preferences) {
     const panel = document.querySelector('[data-settings-panel="ai"]');
     if (!panel) return;
     const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
-    const prefs = safeJson(localStorage.getItem(key));
+    const prefs = Object.assign({}, AI_PREFERENCE_DEFAULTS, safeJson(localStorage.getItem(key)), preferences || {});
     const values = {
       'set-provider': prefs.provider || 'gemini',
       'set-ai-routing': prefs.routing || 'automatic',
@@ -497,6 +499,16 @@
       const select = panel.querySelector('#' + id);
       if (select && Array.from(select.options).some(option => option.value === values[id])) select.value = values[id];
     });
+    panel.querySelectorAll('[data-ai-mode]').forEach(button => {
+      button.classList.toggle('selected', button.dataset.aiMode === String(prefs.mode || 'balanced'));
+    });
+    ['explain','preserve','confirmDestructive','contextFiles','contextPage','contextGithub'].forEach(name => {
+      const control = panel.querySelector('[data-ai-pref="' + name + '"]');
+      if (control) {
+        control.checked = prefs[name] !== false;
+        control.setAttribute('aria-checked', String(control.checked));
+      }
+    });
     syncModelOptions(values['set-provider'], panel);
     const model = panel.querySelector('#set-ai-model');
     const preferredModel = String(prefs.model || 'automatic');
@@ -504,6 +516,49 @@
       model.value = preferredModel;
       syncModelOptions(values['set-provider'], panel);
     }
+  }
+  function setAIPreferenceStatus(message, state) {
+    const panel = document.querySelector('[data-settings-panel="ai"]');
+    const status = addStatus(panel, 'ovyx-ai-preference-status', message);
+    if (!status) return;
+    status.textContent = String(message || '');
+    status.dataset.state = String(state || 'info');
+  }
+  let aiPreferencesLoadPromise = null;
+  async function loadAIPreferencesFromServer() {
+    const user = currentUser();
+    if (!user) return null;
+    if (aiPreferencesLoadPromise) return aiPreferencesLoadPromise;
+    const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
+    const cached = safeJson(localStorage.getItem(key));
+    aiPreferencesLoadPromise = (async function () {
+      try {
+        const data = await api(AI_PREFERENCES_ENDPOINT);
+        let preferences = Object.assign({}, AI_PREFERENCE_DEFAULTS, data.preferences || {});
+        // Migrate previously saved per-account browser preferences once, so adding
+        // server persistence does not silently discard a user's existing setup.
+        if (!data.updatedAt && Object.keys(cached).length) {
+          const migrated = Object.assign({}, AI_PREFERENCE_DEFAULTS, cached);
+          const saved = await api(AI_PREFERENCES_ENDPOINT, jsonOptions('PUT', { preferences: migrated }));
+          preferences = Object.assign({}, AI_PREFERENCE_DEFAULTS, saved.preferences || migrated);
+          setAIPreferenceStatus('Existing AI preferences migrated to your account and verified by the server.', 'ok');
+        } else {
+          setAIPreferenceStatus(data.updatedAt
+            ? 'AI preferences loaded from your account on the server.'
+            : 'No account AI preferences have been saved yet. Your local preferences are ready to save.', 'info');
+        }
+        localStorage.setItem(key, JSON.stringify(preferences));
+        window.OVYXAI = Object.assign({}, window.OVYXAI || {}, preferences);
+        syncAISettingsControls(preferences);
+        return preferences;
+      } catch (error) {
+        setAIPreferenceStatus('Account AI preferences could not be loaded. The local copy was kept: ' + (error.message || 'server unavailable'), 'error');
+        return null;
+      } finally {
+        aiPreferencesLoadPromise = null;
+      }
+    })();
+    return aiPreferencesLoadPromise;
   }
   function limitContextFiles(files, maxChars) {
     if (!files || typeof files !== 'object') return files;
@@ -531,57 +586,113 @@
   }
   function installAISettingsBridge() {
     window.addEventListener('ovyx-settings-rendered', syncAISettingsControls);
+    const settings = window.OVYXSettings;
+    if (settings && typeof settings.show === 'function' && !settings.__ovyxAIPreferencePersistenceV1) {
+      const originalShow = settings.show.bind(settings);
+      settings.show = function (id) {
+        const result = originalShow(id);
+        if (id === 'ai') {
+          setTimeout(function () {
+            syncAISettingsControls();
+            if (currentUser()) loadAIPreferencesFromServer().catch(function () {});
+          }, 0);
+        }
+        return result;
+      };
+      settings.__ovyxAIPreferencePersistenceV1 = true;
+    }
+    document.addEventListener('firebase-auth-state-ready', function (event) {
+      if (event && event.detail && event.detail.user) setTimeout(function () { loadAIPreferencesFromServer().catch(function () {}); }, 0);
+    }, { passive: true });
     document.addEventListener('change', function (event) {
       const target = event.target;
       if (!target || target.id !== 'set-provider') return;
       const panel = target.closest('[data-settings-panel="ai"]');
       syncModelOptions(target.value, panel);
     }, true);
-    window.addEventListener('click', function (event) {
+    document.addEventListener('click', async function (event) {
       const button = event.target && event.target.closest && event.target.closest('#set-ai-save');
       if (!button) return;
       event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
+      if (button.disabled) return;
+      button.disabled = true;
       try {
         const panel = document.querySelector('[data-settings-panel="ai"]');
         const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
-        const prefs = Object.assign({
-          mode: 'balanced', model: 'automatic', provider: 'gemini',
-          explain: true, preserve: true, confirmDestructive: false,
-          contextFiles: true, contextPage: true, contextGithub: true,
-          routing: 'automatic', fallback: 'next', contextLimit: 'automatic', budget: 'automatic'
-        }, safeJson(localStorage.getItem(key)));
-        prefs.provider = String(panel && panel.querySelector('#set-provider') && panel.querySelector('#set-provider').value || 'gemini');
-        const selectedModel = String(panel && panel.querySelector('#set-ai-model') && panel.querySelector('#set-ai-model').value || 'automatic');
+        const prefs = Object.assign({}, AI_PREFERENCE_DEFAULTS, safeJson(localStorage.getItem(key)));
+        prefs.mode = String(panel && panel.querySelector('[data-ai-mode].selected')?.dataset.aiMode || prefs.mode || 'balanced');
+        prefs.provider = String(panel && panel.querySelector('#set-provider')?.value || 'gemini');
+        const selectedModel = String(panel && panel.querySelector('#set-ai-model')?.value || 'automatic');
         prefs.model = selectedModel === 'automatic' || (MODELS_BY_PROVIDER[prefs.provider] || []).includes(selectedModel) ? selectedModel : 'automatic';
         if (selectedModel !== prefs.model) notify('The model override did not match the selected provider; Automatic model selection was saved instead.', 'info');
-        prefs.routing = String(panel && panel.querySelector('#set-ai-routing') && panel.querySelector('#set-ai-routing').value || 'automatic');
-        prefs.fallback = String(panel && panel.querySelector('#set-ai-fallback') && panel.querySelector('#set-ai-fallback').value || 'next');
-        prefs.contextLimit = String(panel && panel.querySelector('#set-ai-context-limit') && panel.querySelector('#set-ai-context-limit').value || 'automatic');
-        prefs.budget = String(panel && panel.querySelector('#set-ai-budget') && panel.querySelector('#set-ai-budget').value || 'automatic');
+        prefs.routing = String(panel && panel.querySelector('#set-ai-routing')?.value || 'automatic');
+        prefs.fallback = String(panel && panel.querySelector('#set-ai-fallback')?.value || 'next');
+        prefs.contextLimit = String(panel && panel.querySelector('#set-ai-context-limit')?.value || 'automatic');
+        prefs.budget = String(panel && panel.querySelector('#set-ai-budget')?.value || 'automatic');
         ['explain','preserve','confirmDestructive','contextFiles','contextPage','contextGithub'].forEach(name => {
           const input = panel && panel.querySelector('[data-ai-pref="' + name + '"]');
           if (input) prefs[name] = !!input.checked;
         });
         localStorage.setItem(key, JSON.stringify(prefs));
         window.OVYXAI = Object.assign({}, window.OVYXAI || {}, prefs);
-        const status = addStatus(panel, 'ovyx-ai-preference-status', 'AI preferences saved on this device and account browser.');
-        if (status) status.textContent = 'Preferences saved on this device. Provider selection will be used when automatic routing is requested.';
-        notify('AI preferences saved.', 'success');
+        if (!currentUser()) {
+          syncAISettingsControls(prefs);
+          setAIPreferenceStatus('Saved on this device only. Sign in to sync AI preferences to your account.', 'info');
+          notify('AI preferences saved on this device.', 'success');
+          return;
+        }
+        setAIPreferenceStatus('Saving AI preferences to your account…', 'info');
+        try {
+          const saved = await api(AI_PREFERENCES_ENDPOINT, jsonOptions('PUT', { preferences: prefs }));
+          const confirmed = Object.assign({}, AI_PREFERENCE_DEFAULTS, saved.preferences || {});
+          localStorage.setItem(key, JSON.stringify(confirmed));
+          window.OVYXAI = Object.assign({}, window.OVYXAI || {}, confirmed);
+          syncAISettingsControls(confirmed);
+          setAIPreferenceStatus('Verified on server. Your AI preferences are saved to your account.', 'ok');
+          notify('AI preferences saved to your account.', 'success');
+        } catch (error) {
+          syncAISettingsControls(prefs);
+          setAIPreferenceStatus('Saved on this device only; account sync failed: ' + (error.message || 'server could not verify the write'), 'error');
+          notify('AI preferences remain local; account save failed.', 'error');
+        }
       } catch (error) {
+        setAIPreferenceStatus('AI preferences could not be saved: ' + (error.message || 'request failed'), 'error');
         notify(error.message || 'AI preferences could not be saved.', 'error');
+      } finally {
+        button.disabled = false;
       }
     }, true);
-    document.addEventListener('click', function (event) {
+    document.addEventListener('click', async function (event) {
       const button = event.target && event.target.closest && event.target.closest('#set-ai-reset');
       if (!button) return;
       event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
+      if (button.disabled) return;
+      button.disabled = true;
+      const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
+      const defaults = Object.assign({}, AI_PREFERENCE_DEFAULTS);
       try {
-        const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
-        localStorage.removeItem(key);
-        const settings = window.OVYXSettings;
-        if (settings && typeof settings.show === 'function') settings.show('ai');
-        notify('AI preferences reset to defaults.', 'info');
-      } catch (error) { notify(error.message || 'AI preferences could not be reset.', 'error'); }
+        localStorage.setItem(key, JSON.stringify(defaults));
+        window.OVYXAI = Object.assign({}, window.OVYXAI || {}, defaults);
+        syncAISettingsControls(defaults);
+        if (!currentUser()) {
+          setAIPreferenceStatus('Defaults reset on this device only. Sign in to sync them to your account.', 'info');
+          notify('AI preferences reset on this device.', 'success');
+          return;
+        }
+        setAIPreferenceStatus('Resetting account AI preferences…', 'info');
+        const saved = await api(AI_PREFERENCES_ENDPOINT, jsonOptions('PUT', { preferences: defaults }));
+        const confirmed = Object.assign({}, AI_PREFERENCE_DEFAULTS, saved.preferences || defaults);
+        localStorage.setItem(key, JSON.stringify(confirmed));
+        window.OVYXAI = Object.assign({}, window.OVYXAI || {}, confirmed);
+        syncAISettingsControls(confirmed);
+        setAIPreferenceStatus('Verified on server. AI preferences were reset to OVYX defaults.', 'ok');
+        notify('AI preferences reset and saved to your account.', 'success');
+      } catch (error) {
+        setAIPreferenceStatus('AI preferences were reset locally, but the account reset could not be verified: ' + (error.message || 'server unavailable'), 'error');
+        notify('AI preference reset is local only; account save failed.', 'error');
+      } finally {
+        button.disabled = false;
+      }
     }, true);
     const service = window.OVYXAIService;
     if (service && typeof service.generate === 'function' && !service.__ovyxSettingsPreferencesV1) {
@@ -596,11 +707,7 @@
         payload.providerRouting = validRouting;
         if ((!payload.model || String(payload.model).toLowerCase() === 'automatic') && prefs.model && String(prefs.model).toLowerCase() !== 'automatic') {
           payload.model = String(prefs.model);
-          // A concrete model is provider-specific. Pin this request to its chosen provider
-          // rather than sending a Claude model ID to Gemini (or vice versa).
-          if ((!requestedProvider || requestedProvider === 'automatic' || requestedProvider === 'auto') && prefs.provider) {
-            payload.provider = String(prefs.provider).toLowerCase();
-          }
+          if ((!requestedProvider || requestedProvider === 'automatic' || requestedProvider === 'auto') && prefs.provider) payload.provider = String(prefs.provider).toLowerCase();
         }
         if ((!requestedProvider || requestedProvider === 'automatic' || requestedProvider === 'auto') && prefs.provider) {
           payload.preferredProvider = String(prefs.provider).toLowerCase();
@@ -617,8 +724,7 @@
           delete payload.files;
           if (payload.project && typeof payload.project === 'object') {
             payload.project = Object.assign({}, payload.project);
-            delete payload.project.files;
-            delete payload.project.fileTree;
+            delete payload.project.files; delete payload.project.fileTree;
           }
           if (payload.context) {
             const context = Object.assign({}, payload.context);
@@ -1279,6 +1385,44 @@
         : 'No external Data API configured. Built-in OVYX cloud project sync is unaffected.')) + '</div>';
     panel.appendChild(section);
   }
+  function installSettingsNavigationVisibilityRecovery() {
+    const settings = window.OVYXSettings;
+    if (!settings || settings.__ovyxSettingsNavigationVisibilityV1) return;
+    function repairNavigation() {
+      const root = settings.root || document.getElementById('view-settings');
+      const shell = root && root.querySelector('.ovyx-settings-shell');
+      if (!shell) return;
+      const search = shell.querySelector('#ovyx-settings-search');
+      if (!search || !String(search.value || '').trim()) {
+        shell.querySelectorAll('[data-settings-nav]').forEach(function (button) {
+          button.classList.remove('ovyx-settings-hidden', 'hidden');
+          button.removeAttribute('hidden');
+          button.removeAttribute('aria-hidden');
+        });
+        const sidebar = shell.querySelector('.ovyx-settings-sidebar');
+        if (sidebar) {
+          sidebar.classList.remove('hidden', 'ovyx-settings-hidden');
+          sidebar.removeAttribute('hidden');
+        }
+      }
+    }
+    if (typeof settings.show === 'function') {
+      const originalShow = settings.show.bind(settings);
+      settings.show = function (id) {
+        const result = originalShow(id);
+        repairNavigation();
+        [0, 60, 180].forEach(function (delay) { setTimeout(repairNavigation, delay); });
+        return result;
+      };
+    }
+    const root = document.getElementById('view-settings');
+    if (root && typeof MutationObserver === 'function') {
+      const observer = new MutationObserver(repairNavigation);
+      observer.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['class','hidden'] });
+    }
+    settings.__ovyxSettingsNavigationVisibilityV1 = true;
+    repairNavigation();
+  }
   function installWorkspaceControlRecovery() {
     ensureWorkspaceControls();
     ensureDataLayerControls();
@@ -1666,6 +1810,7 @@
   }
   function boot() {
     installGlobalProjectShortcuts();
+    installSettingsNavigationVisibilityRecovery();
     installEditorMode();
     installWorkspaceControlRecovery();
     installProjectOpenBehavior();
