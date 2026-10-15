@@ -98,7 +98,7 @@ try {
     assert.equal(preferenceWrites.at(-1)?.projectActivity, false, '[' + target.name + '] notification toggle was not saved');
 
     // Workspace settings change actual persistent state and editor mode.
-    await page.locator('[data-settings-nav="workspace"]').click();
+    await page.locator('[data-settings-nav="editor"]').click();
     const livePreview = page.locator('#set-live-preview');
     await livePreview.waitFor({ state: 'visible' });
     const beforeLivePreview = await livePreview.getAttribute('aria-checked');
@@ -110,7 +110,6 @@ try {
     }, expectedLivePreview);
     assert.equal(await livePreview.getAttribute('aria-checked'), String(expectedLivePreview), '[' + target.name + '] live-preview toggle state did not match persistence');
 
-    await page.locator('[data-settings-nav="editor"]').click();
     await page.locator('#set-editor-mode').selectOption('fix');
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('ovyx.settings.integrity.v83') || '{}').editorMode === 'fix');
 
