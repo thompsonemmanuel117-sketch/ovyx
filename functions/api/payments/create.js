@@ -7,7 +7,7 @@ const { ngnProduct, internationalProduct } = require('../_lib/payments/catalog.j
 const { createCashierPayment } = require('../_lib/payments/opay-cashier.js');
 const { initializePayment: initializePaystackPayment } = require('../_lib/payments/paystack.js');
 const { claimIdempotencyKey, completeIdempotencyKey, releaseIdempotencyKey } = require('../_lib/payments/idempotency.js');
-const { firestoreSet } = require('../_lib/firestore.js');
+const { firestoreSet, firestoreSetAtPath } = require('../_lib/firestore.js');
 const { writeAuditLog } = require('../_lib/logger.js');
 
 const MAX_BODY_BYTES=16*1024;
@@ -22,6 +22,29 @@ async function readJson(request){
 }
 function orderNo(uid){return ('OVYX-'+clean(uid,12).replace(/[^A-Za-z0-9]/g,'').toUpperCase()+'-'+Date.now().toString(36).toUpperCase()+'-'+crypto.randomUUID().replace(/-/g,'').slice(0,10)).slice(0,32);}
 async function audit(env,payload){try{await writeAuditLog?.(env,payload)}catch{}}
+async function indexBillingHistory(env, record) {
+  try {
+    await firestoreSetAtPath(env, ['users', String(record.uid), 'billing_history', String(record.orderNo)], {
+      uid: String(record.uid),
+      orderNo: String(record.orderNo),
+      label: 'OVYX ' + String(record.plan || record.productId || record.productType || 'purchase').toUpperCase(),
+      createdAt: String(record.createdAt || new Date().toISOString()),
+      amount: Number(record.amount || 0),
+      currency: String(record.currency || 'NGN').toUpperCase(),
+      provider: String(record.provider || ''),
+      paymentMethod: String(record.paymentMethod || ''),
+      productType: String(record.productType || ''),
+      productId: String(record.productId || ''),
+      plan: record.plan || null,
+      status: String(record.status || 'pending'),
+      fulfillmentStatus: String(record.fulfillmentStatus || 'unfulfilled'),
+      updatedAt: new Date().toISOString()
+    });
+  } catch (error) {
+    // History indexing is supplemental; a failure must not prevent a valid checkout.
+    console.warn('[OVYX BILLING HISTORY INDEX]', String(error?.code || 'write_unavailable').slice(0, 80));
+  }
+}
 
 async function handlePost(request,env){
   const id=requestId(request);
@@ -115,6 +138,7 @@ async function handlePost(request,env){
 
   try{
     await firestoreSet(env,['payment_orders',reference],record);
+    await indexBillingHistory(env, record);
     const origin=new URL(request.url).origin;
     let checkout;
     if(provider==='opay'){
@@ -139,6 +163,7 @@ async function handlePost(request,env){
 
     const updated={...record,providerOrderNo:checkout.orderNo||checkout.reference||null,providerTransactionId:null,cashierUrl:checkout.cashierUrl||null,authorizationUrl:checkout.authorizationUrl||null,status:'pending',updatedAt:new Date().toISOString()};
     await firestoreSet(env,['payment_orders',reference],updated);
+    await indexBillingHistory(env, updated);
 
     const checkoutUrl=checkout.cashierUrl||checkout.authorizationUrl||'';
     const responseBody={
@@ -165,7 +190,7 @@ async function handlePost(request,env){
     await audit(env,{user:identity.user.uid,action:'paymentInitiated',resource:`payment_orders/${reference}`,timestamp:new Date().toISOString(),requestId:id,result:'success',providerEventId:updated.providerOrderNo||reference});
     return jsonResponse(responseBody,200,{'X-OVYX-Request-ID':id,'Cache-Control':'no-store'});
   }catch(error){
-    try{await firestoreSet(env,['payment_orders',reference],{...record,status:'failed',failureCode:error.code||'PAYMENT_CREATE_FAILED',failureMessage:clean(error.message||'Payment creation failed.',500),failedAt:new Date().toISOString()})}catch{}
+    try{const failed={...record,status:'failed',failureCode:error.code||'PAYMENT_CREATE_FAILED',failureMessage:clean(error.message||'Payment creation failed.',500),failedAt:new Date().toISOString()};await firestoreSet(env,['payment_orders',reference],failed);await indexBillingHistory(env, failed)}catch{}
     try{await releaseIdempotencyKey(env,key)}catch{}
     await audit(env,{user:identity.user.uid,action:'paymentCreationFailed',resource:`payment_orders/${reference}`,timestamp:new Date().toISOString(),requestId:id,result:'failure',providerEventId:null});
     return errorResponse(error.status||502,error.code||'PAYMENT_CREATE_FAILED',clean(error.message||'Secure payment could not be created.',500));
