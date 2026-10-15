@@ -981,3 +981,53 @@ export async function setFirebaseAccountDisabled(env, uid, disabled) {
   return { uid: cleanUid, disabled };
 }
 
+/**
+ * Revokes Firebase refresh tokens after account suspension.
+ * Existing ID tokens are also rejected by authenticateRequest because it
+ * checks the Firebase Authentication account's disabled status on each call.
+ */
+export async function revokeFirebaseRefreshTokens(
+  env,
+  uid,
+  validSince = Math.floor(Date.now() / 1000)
+) {
+  const serviceAccount = parseServiceAccount(env);
+  const cleanUid = String(uid || '').trim();
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(cleanUid)) {
+    throw Object.assign(new Error('Firebase user ID is invalid.'), {
+      status: 400,
+      code: 'AUTH_INVALID_IDENTITY'
+    });
+  }
+  const timestamp = Number(validSince);
+  if (!Number.isFinite(timestamp) || timestamp < 0) {
+    throw Object.assign(new Error('Firebase session revocation timestamp is invalid.'), {
+      status: 400,
+      code: 'AUTH_INVALID_REVOCATION_TIME'
+    });
+  }
+
+  const accessToken = await getGoogleIdentityToolkitAccessToken(env);
+  const url = 'https://identitytoolkit.googleapis.com/v1/projects/' +
+    encodeURIComponent(serviceAccount.project_id) + '/accounts:update';
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer ' + accessToken,
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({
+      localId: cleanUid,
+      validSince: String(Math.floor(timestamp))
+    })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = String(payload?.error?.message || 'Firebase refresh-token revocation failed.');
+    throw Object.assign(new Error(message.slice(0, 240)), {
+      status: response.status >= 500 ? 503 : response.status,
+      code: response.status === 403 ? 'AUTH_REVOCATION_FORBIDDEN' : 'AUTH_REVOCATION_FAILED'
+    });
+  }
+  return { uid: cleanUid, validSince: Math.floor(timestamp) };
+}
