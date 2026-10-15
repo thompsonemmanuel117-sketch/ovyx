@@ -521,7 +521,7 @@
       const panel = target.closest('[data-settings-panel="ai"]');
       syncModelOptions(target.value, panel);
     }, true);
-    document.addEventListener('click', function (event) {
+    window.addEventListener('click', function (event) {
       const button = event.target && event.target.closest && event.target.closest('#set-ai-save');
       if (!button) return;
       event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
@@ -1081,7 +1081,7 @@
       }
     }, true);
   }
-  const DATA_LAYER_CONFIG_KEY = 'ovyx.data.layer.v1';
+  const DATA_LAYER_CONFIG_KEY = 'ovyx.data.layer.external.v1';
   let workspaceRecoveryObserver = null;
   let workspaceShowWrapped = false;
   let dataLayerSyncTimer = null;
@@ -1178,9 +1178,19 @@
     // If the controls already exist, hydrate them from the saved settings instead
     // of returning early with stale values after a panel is revisited.
     const existingInput = panel.querySelector('#ovyx-data-endpoint');
-    const existingSwitch = panel.querySelector('#ovyx-data-sync');
-    if (existingInput || existingSwitch) {
-      if (existingInput && document.activeElement !== existingInput) existingInput.value = cfg.endpoint || '';
+    let existingSwitch = panel.querySelector('#ovyx-data-api-sync');
+    if (existingInput) {
+      // The external Data API and built-in OVYX cloud sync are separate features.
+      // Keep their switches and persisted settings independent while sharing the endpoint field.
+      if (document.activeElement !== existingInput) existingInput.value = cfg.endpoint || '';
+      const group = existingInput.closest('.ovyx-pref-group') || panel.querySelector('.ovyx-pref-group');
+      if (!existingSwitch && group && !panel.querySelector('.ovyx-settings-data-api-sync-row-v1')) {
+        const row = document.createElement('div');
+        row.className = 'ovyx-pref-row ovyx-settings-data-api-sync-row-v1';
+        row.innerHTML = '<div class="ovyx-pref-copy"><b>External Data API metadata sync</b><small>Optional external sync sends project metadata only, never source files or secrets.</small></div><div class="ovyx-pref-control"><button type="button" class="ovyx-notify-toggle" id="ovyx-data-api-sync" role="switch" aria-checked="false"><span></span></button></div>';
+        group.appendChild(row);
+        existingSwitch = row.querySelector('#ovyx-data-api-sync');
+      }
       if (existingSwitch) existingSwitch.setAttribute('aria-checked', String(cfg.projectSync === true));
       const existingResult = panel.querySelector('#ovyx-data-result');
       if (existingResult && document.activeElement !== existingInput) {
@@ -1204,7 +1214,7 @@
       '<div class="ovyx-pref-row"><div class="ovyx-pref-copy"><b>Data API endpoint</b><small>Use an HTTPS endpoint that implements the OVYX project metadata API.</small></div>' +
       '<div class="ovyx-pref-control"><input class="ovyx-pref-input" id="ovyx-data-endpoint" value="' + escapeAttribute(cfg.endpoint) + '" placeholder="https://your-domain.com/api/data" autocomplete="off"></div></div>' +
       '<div class="ovyx-pref-row"><div class="ovyx-pref-copy"><b>Project metadata sync</b><small>Disabled until explicitly enabled. Project source files and secrets are never uploaded by this integration.</small></div>' +
-      '<div class="ovyx-pref-control"><button type="button" class="ovyx-notify-toggle" id="ovyx-data-sync" role="switch" aria-checked="' + String(cfg.projectSync === true) + '"><span></span></button></div></div></div>' +
+      '<div class="ovyx-pref-control"><button type="button" class="ovyx-notify-toggle" id="ovyx-data-api-sync" role="switch" aria-checked="' + String(cfg.projectSync === true) + '"><span></span></button></div></div></div>' +
       '<div class="ovyx-data-code">Recommended server contract: GET /health, POST /projects, PUT /projects/:projectId. The endpoint must verify the Firebase ID token and authorize the project owner.</div>' +
       '<div class="ovyx-data-actions"><button type="button" class="ovyx-settings-btn primary" id="ovyx-data-save">Save Data Settings</button>' +
       '<button type="button" class="ovyx-settings-btn" id="ovyx-data-test">Test API</button>' +
@@ -1304,7 +1314,7 @@
     if (raw === null) {
       if (!saveDataLayerConfig({ endpoint: '', projectSync: false })) return;
     }
-    const switchButton = document.getElementById('ovyx-data-sync');
+    const switchButton = document.getElementById('ovyx-data-api-sync');
     if (switchButton) switchButton.setAttribute('aria-checked', String(readDataLayerConfig().projectSync === true));
   }
   function installDataLayerClickActions() {
@@ -1316,7 +1326,7 @@
       }
     }, { passive: true });
     document.addEventListener('click', async function (event) {
-      const target = event.target && event.target.closest && event.target.closest('#ovyx-data-save, #ovyx-data-test, #ovyx-data-sync, #ovyx-data-schema');
+      const target = event.target && event.target.closest && event.target.closest('#ovyx-data-save, #ovyx-data-test, #ovyx-data-api-sync, #ovyx-data-schema');
       if (!target) return;
       event.preventDefault();
       event.stopPropagation();
@@ -1324,7 +1334,7 @@
       const output = document.getElementById('ovyx-data-result');
       const endpointInput = document.getElementById('ovyx-data-endpoint');
       const switchButton = document.getElementById('ovyx-data-sync');
-      if (target.id === 'ovyx-data-sync') {
+      if (target.id === 'ovyx-data-api-sync') {
         const before = switchButton.getAttribute('aria-checked') === 'true';
         let endpoint = '';
         try { endpoint = normaliseDataLayerEndpoint(endpointInput && endpointInput.value); }
