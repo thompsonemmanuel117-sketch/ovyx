@@ -575,7 +575,7 @@
         if ((!payload.model || String(payload.model).toLowerCase() === 'automatic') && prefs.model && String(prefs.model).toLowerCase() !== 'automatic') payload.model = String(prefs.model);
         if ((!requestedProvider || requestedProvider === 'automatic' || requestedProvider === 'auto') && prefs.provider) {
           payload.preferredProvider = String(prefs.provider).toLowerCase();
-          if (prefs.fallback === 'stop' && validRouting !== 'provider-priority') payload.provider = String(prefs.provider).toLowerCase();
+          if (prefs.fallback === 'stop') payload.provider = String(prefs.provider).toLowerCase();
         }
         const instructions = [];
         if (prefs.mode === 'fast') instructions.push('Generation preference: prioritize concise, low-latency iterations.');
@@ -601,16 +601,25 @@
             payload.context = context;
           }
         }
-        if (prefs.contextPage === false && payload.context) {
-          const context = Object.assign({}, payload.context);
-          delete context.page; delete context.currentPage; delete context.section; delete context.activePage;
-          payload.context = context;
+        if (prefs.contextPage === false) {
+          delete payload.page; delete payload.currentPage; delete payload.activePage;
+          if (payload.context) {
+            const context = Object.assign({}, payload.context);
+            delete context.page; delete context.currentPage; delete context.section; delete context.activePage;
+            payload.context = context;
+          }
         }
         const contextLimit = prefs.contextLimit === 'conservative' ? 120000 : prefs.contextLimit === 'expanded' ? 650000 : 350000;
         if (prefs.contextFiles !== false) {
           if (payload.files && typeof payload.files === 'object') payload.files = limitContextFiles(payload.files, contextLimit);
           if (payload.context && payload.context.files && typeof payload.context.files === 'object') {
             payload.context = Object.assign({}, payload.context, { files: limitContextFiles(payload.context.files, contextLimit) });
+          }
+          if (payload.project && typeof payload.project === 'object' && payload.project.files && typeof payload.project.files === 'object') {
+            payload.project = Object.assign({}, payload.project, { files: limitContextFiles(payload.project.files, contextLimit) });
+          }
+          if (payload.context && payload.context.project && typeof payload.context.project === 'object' && payload.context.project.files && typeof payload.context.project.files === 'object') {
+            payload.context = Object.assign({}, payload.context, { project: Object.assign({}, payload.context.project, { files: limitContextFiles(payload.context.project.files, contextLimit) }) });
           }
         }
         if (prefs.budget === 'efficient' && !Number.isFinite(Number(payload.maxTokens))) payload.maxTokens = 4096;
