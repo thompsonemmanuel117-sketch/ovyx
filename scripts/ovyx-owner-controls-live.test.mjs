@@ -27,6 +27,8 @@ const source = {
   gatewayAI: read('functions/api/ai/gateway.js'),
   broadcastApi: read('functions/api/admin/broadcasts.js'),
   templatesApi: read('functions/api/admin/templates.js'),
+  pushApi: read('functions/api/admin/push.js'),
+  pushDelivery: read('functions/api/_lib/admin-push.js'),
   paymentVerify: read('functions/api/payments/verify.js'),
   opayWebhook: read('functions/api/payments/opay-webhook.js'),
   paystackWebhook: read('functions/api/payments/paystack-webhook.js'),
@@ -60,6 +62,8 @@ const changedJavaScriptFiles = [
   'functions/api/ai/gateway.js',
   'functions/api/admin/broadcasts.js',
   'functions/api/admin/templates.js',
+  'functions/api/admin/push.js',
+  'functions/api/_lib/admin-push.js',
   'functions/api/payments/verify.js',
   'functions/api/payments/opay-webhook.js',
   'functions/api/payments/paystack-webhook.js'
@@ -136,6 +140,23 @@ assert.match(source.opayWebhook, /stored OVYX order snapshot/);
 assert.match(source.paystackWebhook, /stored OVYX order snapshot/);
 assert.match(source.paystackWebhook, /Number\(data\.amount\)!==expectedMinor/);
 
+
+assert.match(source.pushApi, /ROOT_REQUIRED/);
+assert.match(source.pushApi, /emailVerified !== true/);
+assert.match(source.pushApi, /enforceSameOrigin/);
+for (const action of ['subscribe', 'unsubscribe', 'preferences', 'test']) {
+  assert.ok(source.pushApi.includes("action === '" + action + "'"), 'Admin push API must implement ' + action + '.');
+}
+assert.match(source.pushApi, /VAPID_NOT_CONFIGURED/);
+assert.match(source.pushApi, /activeDeviceCount/);
+assert.match(source.pushDelivery, /ADMIN_PUSH_COLLECTION/);
+assert.match(source.pushDelivery, /sendAdminPushNotification/);
+assert.match(source.pushDelivery, /Content-Encoding/);
+assert.match(source.pushDelivery, /aes128gcm/);
+assert.match(source.pushDelivery, /validateAdminPushEndpoint/);
+assert.match(source.browserFixtures, /path === '\/api\/admin\/push'/);
+assert.match(source.runtime, /pushApi\('subscribe'/);
+assert.match(source.runtime, /pushApi\('preferences'/);
 
 assert.match(source.aiConfigApi, /ROOT_REQUIRED/);
 assert.match(source.providerRouter, /readGlobalProviderOrder/);
