@@ -18,6 +18,9 @@ try {
 
     let savedProfile = null;
     let savedNotifications = null;
+    let savedAIPreferences = null;
+    let serverAIPreferences = { mode:'balanced', model:'automatic', provider:'gemini', explain:true, preserve:true, confirmDestructive:false, contextFiles:true, contextPage:true, contextGithub:true, routing:'automatic', fallback:'next', contextLimit:'automatic', budget:'automatic' };
+    let serverAIUpdatedAt = null;
     let accountDeletionRequests = 0;
     await page.route('**/api/settings/profile', async route => {
       const method = route.request().method();
@@ -51,6 +54,26 @@ try {
       if (method === 'PUT') {
         savedNotifications = JSON.parse(route.request().postData() || '{}');
         await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, notifications: savedNotifications.notifications || defaults }) });
+        return;
+      }
+      await route.fulfill({ status: 405, contentType: 'application/json', body: JSON.stringify({ ok: false, error: 'Unsupported test method.' }) });
+    });
+    await page.route('**/api/settings/ai', async route => {
+      const method = route.request().method();
+      if (method === 'GET') {
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+          ok: true, preferences: serverAIPreferences, updatedAt: serverAIUpdatedAt
+        }) });
+        return;
+      }
+      if (method === 'PUT') {
+        const body = JSON.parse(route.request().postData() || '{}');
+        savedAIPreferences = body.preferences || body.ai || body;
+        serverAIPreferences = { ...serverAIPreferences, ...savedAIPreferences };
+        serverAIUpdatedAt = '2026-10-15T00:02:00.000Z';
+        await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
+          ok: true, preferences: serverAIPreferences, updatedAt: serverAIUpdatedAt, authority: 'SERVER', scope: 'account'
+        }) });
         return;
       }
       await route.fulfill({ status: 405, contentType: 'application/json', body: JSON.stringify({ ok: false, error: 'Unsupported test method.' }) });
@@ -150,17 +173,6 @@ try {
     await page.locator('#set-live-preview').click();
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('ovyx.settings.integrity.v83') || '{}').livePreview === false);
 
-    await page.evaluate(() => window.OVYXSettings.show('ai'));
-    await page.waitForSelector('#set-ai-save', { state: 'attached' });
-    await page.locator('#set-provider').selectOption('deepseek');
-    await page.locator('#set-ai-model').selectOption('deepseek-flash');
-    await page.locator('#set-ai-save').click();
-    await page.waitForFunction(() => {
-      const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
-      const prefs = JSON.parse(localStorage.getItem(key) || '{}');
-      return prefs.provider === 'deepseek' && prefs.model === 'deepseek-flash';
-    });
-
     await page.evaluate(() => {
       const testUser = {
         uid: 'settings-browser-test-user',
@@ -178,6 +190,20 @@ try {
         value: { auth: () => ({ currentUser: testUser, signOut: async () => {} }) }
       });
     });
+
+    await page.evaluate(() => window.OVYXSettings.show('ai'));
+    await page.waitForSelector('#set-ai-save', { state: 'attached' });
+    await page.locator('#set-provider').selectOption('deepseek');
+    await page.locator('#set-ai-model').selectOption('deepseek-flash');
+    await page.locator('#set-ai-save').click();
+    await page.waitForFunction(() => {
+      const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
+      const prefs = JSON.parse(localStorage.getItem(key) || '{}');
+      return prefs.provider === 'deepseek' && prefs.model === 'deepseek-flash';
+    });
+    await page.waitForFunction(() => /Verified on server/.test(document.getElementById('ovyx-ai-preference-status')?.textContent || ''));
+    assert.equal(savedAIPreferences?.provider, 'deepseek', `[${target.name}] AI preference Save did not write the selected provider to the authenticated account API.`);
+    assert.equal(savedAIPreferences?.model, 'deepseek-flash', `[${target.name}] AI preference Save did not write the selected model to the authenticated account API.`);
 
     await page.evaluate(() => window.OVYXSettings.show('profile'));
     await page.waitForSelector('#profile-save-action', { state: 'attached' });
