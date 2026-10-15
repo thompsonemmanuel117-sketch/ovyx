@@ -68,6 +68,9 @@ for (const path of changedJavaScriptFiles) {
   execFileSync(process.execPath, ['--check', fileURLToPath(new URL('../' + path, import.meta.url))], { stdio: 'pipe' });
 }
 
+assert.ok(source.pushWorker.includes("addEventListener('push'"), 'OVYX must serve a real push notification worker.');
+assert.ok(source.pushWorker.includes("addEventListener('notificationclick'"), 'Notification clicks must have a worker handler.');
+assert.ok(source.html.includes("navigator.serviceWorker.register('/sw.js'"), 'The payment notification UI must register the root push worker.');
 assert.match(source.appMiddleware, /INTEGRATION_GATED_PATHS/);
 for (const path of [
   '/api/ai/assistant', '/api/ai/gateway', '/api/ai/ovyx', '/api/generate',
