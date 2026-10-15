@@ -72,6 +72,23 @@ async function fulfill(env,record,user,product,provider){
     throw Object.assign(new Error('Unable to credit the international token booster safely.'),{status:503,code:'TOKEN_CREDIT_CONFLICT'});
   }
 }
+async function notifyOwnerPush(env, product, reference) {
+  try {
+    const { sendAdminPushNotification } = await import('../_lib/admin-push.js');
+    const subscription = product?.kind === 'subscription';
+    await sendAdminPushNotification(env, {
+      type: subscription ? 'subscriptions' : 'payments',
+      title: subscription ? 'OVYX subscription payment received' : 'OVYX customer payment received',
+      body: subscription
+        ? String('A successful ' + String(product.tier || 'paid').toUpperCase() + ' subscription payment was verified.')
+        : 'A customer token-booster payment was verified.',
+      url: '/view-admin-overview',
+      tag: 'ovyx-payment-' + String(reference || '').slice(0, 100),
+    });
+  } catch (error) {
+    console.warn('[OVYX ADMIN PUSH] payment alert delivery skipped:', String(error?.code || error?.name || 'PUSH_DELIVERY_FAILED').slice(0, 90));
+  }
+}
 async function onRequest(context){
   if(context.request.method!=='POST')return json({ok:false,error:'POST is required.'},405);
   const secret=text(context.env?.PAYSTACK_SECRET_KEY,5000);
@@ -153,6 +170,7 @@ async function onRequest(context){
       updatedAt:new Date().toISOString()
     },latest?.updateTime);
     await completeIdempotencyKey(context.env,eventKey,{status:200,body:{ok:true,fulfilled:true,reference}});
+    await notifyOwnerPush(context.env,product,reference);
     return json({ok:true,fulfilled:true,reference},200);
   }catch(error){
     const latest=await fb.getFirestoreDocument(context.env,'payment_orders',reference).catch(()=>null);
