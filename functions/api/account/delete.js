@@ -112,6 +112,8 @@ export async function onRequestPost(context) {
 
     // Remove Firebase Storage objects using the user's OVYX namespace.
     await deleteStoragePrefix(context.env, `users/${uid}/`);
+    // Profile avatars are stored in their own namespace by the Settings profile editor.
+    await deleteStoragePrefix(context.env, `profile/${uid}/`);
 
     return jsonResponse(
       {

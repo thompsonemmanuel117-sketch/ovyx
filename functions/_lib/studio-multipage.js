@@ -283,6 +283,8 @@ export async function buildStudioMultiPage(options) {
   const provider = options.provider || 'automatic';
   const model = options.model;
   const authUser = options.authUser;
+  const preferredProvider = options.preferredProvider || '';
+  const providerRouting = options.providerRouting || 'automatic';
   const prompt = String(options.prompt || '');
   const promptContract = buildPromptContract(prompt);
   const project = options.project || {};
@@ -302,7 +304,7 @@ export async function buildStudioMultiPage(options) {
   let planResult;
   try {
     planResult = await callModel(env, {
-      provider, model, authUser, taskPrompt: prompt,
+      provider, model, authUser, preferredProvider, providerRouting, taskPrompt: prompt,
       system: [String(options.qualityContract || '').trim(), 'You are an expert website information architect. Return JSON only with a realistic route-by-route sitemap. Do not generate site code in this planning phase.'].filter(Boolean).join('\n\n'),
       user: planInput,
       maxTokens: cap(env, 'OVYX_WEBSTUDIO_PLAN_TOKENS', 7000),
@@ -446,6 +448,8 @@ export async function buildStudioMultiPage(options) {
             provider,
             model,
             authUser,
+            preferredProvider,
+            providerRouting,
             taskPrompt: prompt,
             system: [
               String(options.qualityContract || '').trim(),
@@ -554,6 +558,8 @@ export async function buildStudioMultiPage(options) {
         provider,
         model,
         authUser,
+        preferredProvider,
+        providerRouting,
         taskPrompt: prompt,
         system: [
           String(options.qualityContract || '').trim(),
