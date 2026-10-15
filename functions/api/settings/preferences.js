@@ -12,6 +12,7 @@ import {
 } from '../_lib/http.js';
 
 const DEFAULTS = Object.freeze({
+  profile: Object.freeze({ displayName: '', workspaceName: 'Creative Workspace' }),
   appearance: Object.freeze({
     mode: 'dark', density: 'balanced', scale: 'balanced', motion: 'full',
     typography: 'jetbrains', haptic: true
@@ -73,7 +74,18 @@ export function normalizeSettings(input, current = DEFAULTS) {
   const previous = isRecord(current) ? current : DEFAULTS;
   const out = {};
 
-  for (const section of Object.keys(DEFAULTS)) {
+  const rawProfile = isRecord(source.profile) ? source.profile : {};
+  const baseProfile = isRecord(previous.profile) ? previous.profile : DEFAULTS.profile;
+  out.profile = {
+    displayName: Object.prototype.hasOwnProperty.call(rawProfile, 'displayName')
+      ? String(rawProfile.displayName ?? '').replace(/[\u0000-\u001F\u007F]/g, '').trim().slice(0, 60)
+      : String(baseProfile.displayName ?? '').slice(0, 60),
+    workspaceName: Object.prototype.hasOwnProperty.call(rawProfile, 'workspaceName')
+      ? (String(rawProfile.workspaceName ?? '').replace(/[\u0000-\u001F\u007F]/g, '').trim().slice(0, 60) || 'Creative Workspace')
+      : (String(baseProfile.workspaceName ?? '').slice(0, 60) || 'Creative Workspace')
+  };
+
+  for (const section of Object.keys(DEFAULTS).filter(key => key !== 'profile')) {
     const base = isRecord(previous[section]) ? previous[section] : DEFAULTS[section];
     const requested = isRecord(source[section]) ? source[section] : {};
     const sectionOut = { ...DEFAULTS[section], ...base };
