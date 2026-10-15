@@ -7,6 +7,7 @@ import { applyGlobalGating, applyPlanFeatures } from '../functions/api/entitleme
 const read = path => fs.readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 const source = {
   runtime: read('assets/ovyx-admin-controls.js'),
+  browserFixtures: read('scripts/ovyx-owner-browser-api-fixtures.mjs'),
   appMiddleware: read('functions/api/_middleware.js'),
   switchState: read('functions/_lib/integration-state.js'),
   controlApi: read('functions/api/admin/control.js'),
@@ -37,6 +38,7 @@ const source = {
 
 const changedJavaScriptFiles = [
   'assets/ovyx-admin-controls.js',
+  'scripts/ovyx-owner-browser-api-fixtures.mjs',
   'functions/api/_middleware.js',
   'functions/_lib/integration-state.js',
   'functions/api/admin/control.js',
@@ -155,6 +157,12 @@ assert.match(source.templatesApi, /updatedAt: now/);
 assert.match(source.shellMiddleware, /ovyx-admin-controls\.js/);
 assert.match(source.headers, /\/assets\/ovyx-admin-controls\.js/);
 assert.match(source.runtime, /async function runTelemetryProbe/);
+assert.match(source.runtime, /function applyPublicPlanCatalog\(data\)/, 'Owner Tools must sync persisted pricing into public account UI');
+assert.match(source.runtime, /async function syncPublicPlanCatalog\(\)/, 'Public plan state should refresh on active pages');
+assert.match(source.runtime, /OvyxCurrencyEngine\?\.renderFormattedPrices\?\.\(\)/, 'Saved server pricing must update price labels in the current page');
+assert.match(source.browserFixtures, /installOwnerBrowserApiFixtures/);
+assert.match(source.browserFixtures, /path === '\/api\/admin\/plans\/update'/);
+assert.match(source.browserFixtures, /fixtureUsers/);
 assert.doesNotMatch(source.runtime, /Math\.random\s*\(/, 'Owner telemetry must not fabricate random service results.');
 
 const managedPlanBase = {
@@ -182,4 +190,4 @@ assert.equal(applyGlobalGating({ webStudio: true }, { webstudio: 'max' }, 'pro')
 const testCommand = source.packageJson.scripts.test;
 assert.ok(testCommand.includes('scripts/ovyx-owner-controls-live.test.mjs'), 'Owner-controls regression test must run under npm test.');
 
-console.log('OVYX owner-control contracts passed: global switch enforcement, root-only account mutations, pricing/gates/quotas, global AI identity and routing, broadcast/template withdrawal, and evidence-based telemetry.');
+console.log('OVYX owner-control contracts passed: global switch enforcement, root-only account mutations, pricing/gates/quotas, public price propagation, global AI identity and routing, broadcast/template withdrawal, and evidence-based telemetry.');
