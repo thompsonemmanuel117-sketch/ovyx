@@ -407,7 +407,7 @@
       saveProfile(button).catch(error => notify(error.message || 'Profile save failed.', 'error'));
     }, true);
     document.addEventListener('click', function (event) {
-      const button = event.target && event.target.closest && event.target.closest('#ovyx-security-delete');
+      const button = event.target && event.target.closest && event.target.closest('#ovyx-security-delete, #profile-delete-action');
       if (!button) return;
       event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
       deleteAccount(button).catch(() => {});
@@ -811,8 +811,374 @@
       }
     }, true);
   }
+  const DATA_LAYER_CONFIG_KEY = 'ovyx.data.layer.v1';
+  let workspaceRecoveryObserver = null;
+  let workspaceShowWrapped = false;
+  let dataLayerSyncTimer = null;
+  let dataLayerSyncInFlight = false;
+  let dataLayerSyncPending = false;
+
+  function readDataLayerConfig() {
+    return Object.assign({ endpoint: '', projectSync: true }, safeJson(localStorage.getItem(DATA_LAYER_CONFIG_KEY)));
+  }
+  function saveDataLayerConfig(patch) {
+    const next = Object.assign({}, readDataLayerConfig(), patch || {});
+    try {
+      localStorage.setItem(DATA_LAYER_CONFIG_KEY, JSON.stringify(next));
+      return true;
+    } catch (error) {
+      console.warn('[OVYX Settings] Data Layer preferences could not be saved.', error);
+      return false;
+    }
+  }
+  function normaliseDataLayerEndpoint(value) {
+    const raw = String(value || '').trim();
+    if (!raw) return '';
+    let url;
+    try { url = new URL(raw); } catch (_) { throw new Error('Enter a complete HTTPS URL for your Data API.'); }
+    const localHost = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname);
+    if (url.protocol !== 'https:' && !(url.protocol === 'http:' && localHost)) {
+      throw new Error('The Data API must use HTTPS. HTTP is allowed only for localhost development.');
+    }
+    if (url.username || url.password || url.search || url.hash) {
+      throw new Error('The Data API URL must not contain credentials, query parameters or a fragment.');
+    }
+    url.pathname = url.pathname.replace(/\/+$/, '');
+    return url.href.replace(/\/$/, '');
+  }
+  function dataLayerFeedback(message, state, syncAt) {
+    const text = String(message || 'No Data API operation has completed yet.');
+    const cfg = readDataLayerConfig();
+    cfg.lastSyncStatus = text;
+    cfg.lastSyncState = String(state || 'info');
+    if (syncAt) cfg.lastSyncAt = syncAt;
+    saveDataLayerConfig(cfg);
+    ['ovyx-data-result', 'ovyx-project-data-sync-status'].forEach(function (id) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.textContent = text;
+      el.dataset.state = String(state || 'info');
+      if (syncAt) el.title = 'Last successful metadata sync: ' + new Date(syncAt).toLocaleString();
+    });
+  }
+  function ensureWorkspaceControls() {
+    const panel = document.querySelector('[data-settings-panel="workspace"]');
+    if (!panel || panel.querySelector('.ovyx-settings-workspace-controls-v1')) return;
+    const group = document.createElement('div');
+    group.className = 'ovyx-pref-group ovyx-settings-workspace-controls-v1';
+    group.innerHTML =
+      '<div class="ovyx-pref-label">WORKSPACE PREFERENCES</div>' +
+      '<div class="ovyx-pref-row"><div class="ovyx-pref-copy"><b>Open behavior</b><small>Choose where a selected project opens.</small></div><div class="ovyx-pref-control"><select id="set-open-behavior" class="ovyx-pref-select"><option value="Web Studio">Web Studio</option><option value="Last active view">Last active view</option><option value="Project overview">Project overview</option></select></div></div>' +
+      '<div class="ovyx-pref-row"><div class="ovyx-pref-copy"><b>Autosave recovery snapshot</b><small>Keep a local recovery snapshot of the active project and current route.</small></div><div class="ovyx-pref-control"><button type="button" id="set-autosave" class="ovyx-toggle" role="switch" aria-label="Autosave recovery snapshot" aria-checked="true"><span></span></button></div></div>' +
+      '<div class="ovyx-pref-row"><div class="ovyx-pref-copy"><b>Confirm destructive actions</b><small>Ask before deleting project data.</small></div><div class="ovyx-pref-control"><button type="button" id="set-confirm-delete" class="ovyx-toggle" role="switch" aria-label="Confirm destructive actions" aria-checked="true"><span></span></button></div></div>' +
+      '<div id="ovyx-project-data-sync-status" class="ovyx-settings-action-status" role="status" style="padding:9px 0;color:var(--ov-muted,#858990);font:600 9px/1.5 JetBrains Mono,monospace;overflow-wrap:anywhere"></div>' +
+      '<p class="ovyx-deep-note">Data API project sync sends project metadata only. Project source files and secrets are not uploaded by this optional integration. The configured endpoint must accept Firebase ID-token authentication.</p>';
+    const result = panel.querySelector('#ovyx-data-result');
+    if (result && result.parentNode) result.insertAdjacentElement('afterend', group);
+    else panel.appendChild(group);
+
+    const stored = settingsState();
+    const open = group.querySelector('#set-open-behavior');
+    if (open) open.value = ['Web Studio', 'Last active view', 'Project overview'].includes(stored.openBehavior) ? stored.openBehavior : 'Web Studio';
+    syncToggleControls(settingsState());
+    const cfg = readDataLayerConfig();
+    const status = group.querySelector('#ovyx-project-data-sync-status');
+    if (status) {
+      status.textContent = cfg.lastSyncStatus || (cfg.endpoint
+        ? 'Data API configured. Project metadata sync is ' + (cfg.projectSync === false ? 'disabled.' : 'enabled after a project save.')
+        : 'No Data API endpoint configured. Built-in OVYX cloud project sync remains separate.');
+      status.dataset.state = cfg.lastSyncState || 'info';
+      if (cfg.lastSyncAt) status.title = 'Last successful metadata sync: ' + new Date(cfg.lastSyncAt).toLocaleString();
+    }
+  }
+  function installWorkspaceControlRecovery() {
+    ensureWorkspaceControls();
+    const settings = window.OVYXSettings;
+    if (settings && typeof settings.show === 'function' && !workspaceShowWrapped) {
+      const original = settings.show.bind(settings);
+      settings.show = function (id) {
+        const result = original(id);
+        if (id === 'workspace') {
+          [0, 80, 220, 500].forEach(function (delay) { setTimeout(ensureWorkspaceControls, delay); });
+        }
+        return result;
+      };
+      workspaceShowWrapped = true;
+    }
+    const root = document.getElementById('view-settings');
+    if (root && !workspaceRecoveryObserver && typeof MutationObserver === 'function') {
+      workspaceRecoveryObserver = new MutationObserver(function () {
+        const panel = root.querySelector('[data-settings-panel="workspace"]');
+        if (panel && !panel.querySelector('.ovyx-settings-workspace-controls-v1')) ensureWorkspaceControls();
+      });
+      workspaceRecoveryObserver.observe(root, { childList: true, subtree: true });
+    }
+    document.addEventListener('change', function (event) {
+      const control = event.target;
+      if (!control || control.id !== 'set-open-behavior') return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      const value = ['Web Studio', 'Last active view', 'Project overview'].includes(control.value) ? control.value : 'Web Studio';
+      const next = writeSettingsState({ openBehavior: value });
+      control.value = next.openBehavior;
+      const status = document.getElementById('ovyx-project-data-sync-status');
+      if (status) status.textContent = 'Project open behavior saved on this device: ' + next.openBehavior + '.';
+      notify('Project open behavior saved.', 'success');
+    }, true);
+    window.addEventListener('ovyx-settings-rendered', function () {
+      setTimeout(ensureWorkspaceControls, 30);
+    });
+  }
+  function installProjectOpenBehavior() {
+    const store = window.ProjectStore;
+    if (!store || typeof store.open !== 'function' || store.open.__ovyxSettingsOpenBehaviorV1) return;
+    const original = store.open;
+    const wrapped = function () {
+      let previousRoute = '';
+      try {
+        previousRoute = String(window.KernelState && window.KernelState.activeView || localStorage.getItem('ovyx.settings.last-view.v1') || 'webstudio')
+          .replace(/^view-/, '').toLowerCase();
+      } catch (_) { previousRoute = 'webstudio'; }
+      const result = original.apply(this, arguments);
+      const applyBehavior = function (value) {
+        if (value === false || !window.KernelState || !window.KernelState.activeProject) return value;
+        const prefs = settingsState();
+        let route = 'webstudio';
+        if (prefs.openBehavior === 'Project overview') {
+          route = 'projects';
+        } else if (prefs.openBehavior === 'Last active view') {
+          const allowed = ['home', 'projects', 'webstudio', 'appstudio', 'workspace', 'templates', 'pricing', 'faq', 'inbox'];
+          route = allowed.includes(previousRoute) ? previousRoute : 'webstudio';
+        }
+        setTimeout(function () {
+          try { if (window.Router && typeof window.Router.go === 'function') window.Router.go(route); }
+          catch (error) { console.warn('[OVYX Settings] Project open behavior could not be applied.', error); }
+        }, 0);
+        return value;
+      };
+      if (result && typeof result.then === 'function') {
+        return result.then(applyBehavior);
+      }
+      return applyBehavior(result);
+    };
+    wrapped.__ovyxSettingsOpenBehaviorV1 = true;
+    store.open = wrapped;
+  }
+
+  function installDataLayerClickActions() {
+    document.addEventListener('click', async function (event) {
+      const target = event.target && event.target.closest && event.target.closest('#ovyx-data-save, #ovyx-data-test, #ovyx-data-sync');
+      if (!target) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      const output = document.getElementById('ovyx-data-result');
+      const endpointInput = document.getElementById('ovyx-data-endpoint');
+      const switchButton = document.getElementById('ovyx-data-sync');
+      if (target.id === 'ovyx-data-sync') {
+        const before = switchButton.getAttribute('aria-checked') === 'true';
+        let endpoint = '';
+        try { endpoint = normaliseDataLayerEndpoint(endpointInput && endpointInput.value); }
+        catch (error) { dataLayerFeedback(error.message, 'error'); notify(error.message, 'error'); return; }
+        if (!before && !endpoint) {
+          const message = 'Save a valid Data API endpoint before enabling project metadata sync.';
+          switchButton.setAttribute('aria-checked', 'false');
+          dataLayerFeedback(message, 'error');
+          notify(message, 'error');
+          return;
+        }
+        const enabled = !before;
+        switchButton.setAttribute('aria-checked', String(enabled));
+        const saved = saveDataLayerConfig({ endpoint: endpoint || readDataLayerConfig().endpoint, projectSync: enabled });
+        if (!saved) {
+          switchButton.setAttribute('aria-checked', String(before));
+          dataLayerFeedback('Data API preferences could not be saved on this device.', 'error');
+          return;
+        }
+        dataLayerFeedback('Project metadata sync ' + (enabled ? 'enabled. The next project save will send metadata only.' : 'disabled. Built-in OVYX cloud sync is unchanged.'), 'ok');
+        notify('Project metadata sync ' + (enabled ? 'enabled.' : 'disabled.'), 'success');
+        if (enabled) scheduleDataLayerProjectSync(100);
+        return;
+      }
+
+      if (target.id === 'ovyx-data-save') {
+        let endpoint = '';
+        try { endpoint = normaliseDataLayerEndpoint(endpointInput && endpointInput.value); }
+        catch (error) { dataLayerFeedback(error.message, 'error'); notify(error.message, 'error'); return; }
+        const enabled = !!switchButton && switchButton.getAttribute('aria-checked') === 'true';
+        if (enabled && !endpoint) {
+          dataLayerFeedback('Enter a valid HTTPS Data API endpoint before enabling project metadata sync.', 'error');
+          notify('A valid Data API endpoint is required before sync can be enabled.', 'error');
+          return;
+        }
+        if (!saveDataLayerConfig({ endpoint: endpoint, projectSync: enabled })) {
+          dataLayerFeedback('Data API settings could not be saved on this device. Check browser storage permissions.', 'error');
+          notify('Data API settings were not saved.', 'error');
+          return;
+        }
+        if (endpointInput) endpointInput.value = endpoint;
+        dataLayerFeedback(endpoint
+          ? 'Data API settings saved on this device. Use Test API to verify its health endpoint.'
+          : 'Data API settings saved with no endpoint. Built-in OVYX cloud project sync remains separate.', 'ok');
+        notify('Data API settings saved.', 'success');
+        if (enabled && endpoint) scheduleDataLayerProjectSync(100);
+        return;
+      }
+
+      if (target.id === 'ovyx-data-test') {
+        let endpoint = '';
+        try { endpoint = normaliseDataLayerEndpoint(endpointInput && endpointInput.value); }
+        catch (error) { dataLayerFeedback(error.message, 'error'); notify(error.message, 'error'); return; }
+        if (!endpoint) {
+          const message = 'Add and save your Data API endpoint first.';
+          dataLayerFeedback(message, 'error');
+          return;
+        }
+        if (output) output.textContent = 'Testing Data API health endpoint…';
+        target.disabled = true;
+        try {
+          const response = await fetch(endpoint + '/health', {
+            method: 'GET', headers: { Accept: 'application/json' },
+            credentials: 'omit', cache: 'no-store'
+          });
+          if (!response.ok) throw new Error('Health check returned HTTP ' + response.status + '.');
+          let data;
+          try { data = await response.json(); }
+          catch (_) { throw new Error('Health check returned a non-JSON response; connectivity could not be verified.'); }
+          if (data && data.ok === false) throw new Error(String(data.message || data.error || 'The Data API reported that its health check failed.'));
+          const db = data && data.database;
+          const dbState = db && (db.status || db.state || (db.connected === true ? 'connected' : db.connected === false ? 'not connected' : 'reported'));
+          const detail = dbState ? ' Database status reported by endpoint: ' + String(dbState) + '.' : ' Database connectivity was not independently confirmed by this response.';
+          dataLayerFeedback('Data API health check succeeded.' + detail, 'ok');
+          notify('Data API health check succeeded.', 'success');
+        } catch (error) {
+          dataLayerFeedback('Data API health check failed: ' + (error.message || 'Connection could not be verified.'), 'error');
+          notify('Data API health check failed.', 'error');
+        } finally {
+          target.disabled = false;
+        }
+      }
+    }, true);
+  }
+  function scheduleDataLayerProjectSync(delay) {
+    if (dataLayerSyncTimer) clearTimeout(dataLayerSyncTimer);
+    dataLayerSyncTimer = setTimeout(function () {
+      dataLayerSyncTimer = null;
+      syncActiveProjectMetadataToDataApi().catch(function () {});
+    }, Math.max(100, Number(delay) || 650));
+  }
+  async function syncActiveProjectMetadataToDataApi() {
+    const cfg = readDataLayerConfig();
+    if (cfg.projectSync === false || !cfg.endpoint) return false;
+    if (dataLayerSyncInFlight) { dataLayerSyncPending = true; return false; }
+    const user = currentUser();
+    const project = window.KernelState && window.KernelState.activeProject;
+    if (!user || !user.uid) {
+      dataLayerFeedback('Project metadata sync is enabled, but you must sign in before sending data to the configured endpoint.', 'error');
+      return false;
+    }
+    if (!project || !project.id) return false;
+    let endpoint;
+    try { endpoint = normaliseDataLayerEndpoint(cfg.endpoint); }
+    catch (error) { dataLayerFeedback(error.message, 'error'); return false; }
+
+    const projectId = String(project.id);
+    const metadata = {
+      id: projectId,
+      name: String(project.name || 'Untitled Project').slice(0, 160),
+      description: String(project.description || '').slice(0, 2000),
+      status: String(project.status || 'draft').slice(0, 40),
+      schemaVersion: 1,
+      updatedAt: String(project.updatedAt || project.updated_at || new Date().toISOString()),
+      framework: String(project.framework || '').slice(0, 100),
+      pageCount: Array.isArray(project.pages) ? project.pages.length : 0
+    };
+    const marker = 'ovyx.data.layer.synced.v1.' + encodeURIComponent(String(user.uid)) + '.' + encodeURIComponent(projectId);
+    const previouslyCreated = !!safeJson(localStorage.getItem(marker));
+    const url = endpoint + '/projects' + (previouslyCreated ? '/' + encodeURIComponent(projectId) : '');
+    let method = previouslyCreated ? 'PUT' : 'POST';
+    dataLayerSyncInFlight = true;
+    try {
+      const token = await user.getIdToken(false);
+      const send = async function (requestMethod, requestUrl) {
+        const response = await fetch(requestUrl, {
+          method: requestMethod,
+          credentials: 'omit',
+          cache: 'no-store',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+            Authorization: 'Bearer ' + token
+          },
+          body: JSON.stringify({ projectId: projectId, project: metadata })
+        });
+        let data = {};
+        try { data = await response.json(); }
+        catch (_) { if (response.ok) throw new Error('The Data API returned a non-JSON response; project metadata sync was not confirmed.'); }
+        if (!response.ok) throw Object.assign(new Error(data.message || data.error || ('Data API returned HTTP ' + response.status + '.')), { status: response.status });
+        if (data && data.ok === false) throw new Error(data.message || data.error || 'The Data API rejected project metadata.');
+        return data;
+      };
+      try {
+        await send(method, url);
+      } catch (error) {
+        if (!previouslyCreated && error.status === 409) {
+          method = 'PUT';
+          await send('PUT', endpoint + '/projects/' + encodeURIComponent(projectId));
+        } else if (previouslyCreated && error.status === 404) {
+          method = 'POST';
+          await send('POST', endpoint + '/projects');
+        } else {
+          throw error;
+        }
+      }
+      try { localStorage.setItem(marker, JSON.stringify({ syncedAt: new Date().toISOString() })); }
+      catch (_) { throw new Error('The Data API accepted the metadata, but the browser could not record sync state.'); }
+      const syncedAt = new Date().toISOString();
+      dataLayerFeedback('Project metadata sync succeeded for "' + metadata.name + '". Source files and secrets were not uploaded.', 'ok', syncedAt);
+      return true;
+    } catch (error) {
+      dataLayerFeedback('Project metadata sync failed: ' + (error.message || 'The endpoint did not confirm the write.'), 'error');
+      notify('Project metadata sync failed. Check the Data API configuration and server logs.', 'error');
+      return false;
+    } finally {
+      dataLayerSyncInFlight = false;
+      if (dataLayerSyncPending) {
+        dataLayerSyncPending = false;
+        scheduleDataLayerProjectSync(650);
+      }
+    }
+  }
+  function installDataLayerProjectSync() {
+    const store = window.ProjectStore;
+    if (store && typeof store.save === 'function' && !store.save.__ovyxSettingsDataLayerSyncV1) {
+      const original = store.save;
+      const wrapped = function () {
+        const result = original.apply(this, arguments);
+        if (result !== false && currentUser() && window.KernelState && window.KernelState.activeProject) {
+          scheduleDataLayerProjectSync(750);
+        }
+        return result;
+      };
+      wrapped.__ovyxSettingsDataLayerSyncV1 = true;
+      store.save = wrapped;
+    }
+    document.addEventListener('firebase-auth-state-ready', function (event) {
+      if (event && event.detail && event.detail.user) scheduleDataLayerProjectSync(900);
+    }, { passive: true });
+    window.addEventListener('ovyx:view-changed', function (event) {
+      const view = String(event && event.detail && event.detail.view || '').replace(/^view-/, '');
+      if (view === 'webstudio') scheduleDataLayerProjectSync(900);
+    }, { passive: true });
+    installDataLayerClickActions();
+    if (currentUser() && window.KernelState && window.KernelState.activeProject) scheduleDataLayerProjectSync(1200);
+  }
   function boot() {
     installGlobalProjectShortcuts();
+    installWorkspaceControlRecovery();
+    installProjectOpenBehavior();
+    installDataLayerProjectSync();
     installProfileActions();
     installNotificationActions();
     installNotificationToastFilters();
