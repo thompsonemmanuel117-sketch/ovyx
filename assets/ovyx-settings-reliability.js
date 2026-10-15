@@ -76,17 +76,49 @@
     }, legacy, integrity);
   }
   function writeSettingsState(patch) {
-    const next = Object.assign({}, settingsState(), patch || {});
+    const previous = settingsState();
+    const next = Object.assign({}, previous, patch || {});
     try { localStorage.setItem('ovyx.settings.toggles.v34', JSON.stringify(next)); } catch (_) {}
     try {
       const old = safeJson(localStorage.getItem('ovyx.settings.integrity.v83'));
       localStorage.setItem('ovyx.settings.integrity.v83', JSON.stringify(Object.assign({}, old, next)));
     } catch (_) {}
-    applySettingEffects(next);
+    applySettingEffects(next, previous);
     syncToggleControls(next);
     return next;
   }
-  function applySettingEffects(state) {
+  let livePreviewOriginal = null;
+  function installLivePreviewBridge() {
+    const studio = window.WebStudio;
+    if (!studio || typeof studio.renderPreview !== 'function' || studio.renderPreview.__ovyxSettingsReliabilityV1) return;
+    livePreviewOriginal = studio.renderPreview.bind(studio);
+    const wrapped = function () {
+      if (settingsState().livePreview === false && window.__OVYX_FORCE_LIVE_PREVIEW__ !== true) {
+        const frame = $('ws-canvas-iframe');
+        if (frame) frame.dataset.ovyxLivePreviewPaused = 'true';
+        const status = $('ws-preview-url');
+        if (status && !status.dataset.ovyxPreviewPauseNote) {
+          status.dataset.ovyxPreviewPauseNote = 'true';
+          status.title = 'Automatic preview refresh is paused in Settings → Workspace.';
+        }
+        return false;
+      }
+      const result = livePreviewOriginal.apply(this, arguments);
+      const frame = $('ws-canvas-iframe');
+      if (frame) frame.dataset.ovyxLivePreviewPaused = 'false';
+      return result;
+    };
+    wrapped.__ovyxSettingsReliabilityV1 = true;
+    studio.renderPreview = wrapped;
+    window.OVYXSettingsLivePreview = {
+      refreshNow: function () {
+        window.__OVYX_FORCE_LIVE_PREVIEW__ = true;
+        try { return studio.renderPreview(); }
+        finally { window.__OVYX_FORCE_LIVE_PREVIEW__ = false; }
+      }
+    };
+  }
+  function applySettingEffects(state, previous) {
     try {
       document.querySelectorAll('#app-node-inspector').forEach(el => {
         el.style.display = state.inspector === false ? 'none' : '';
@@ -94,12 +126,15 @@
     } catch (_) {}
     try {
       const runtime = window.OVYXRuntimeSession;
-      if (runtime && typeof runtime.save === 'function' && state.autosave !== false) runtime.save();
+      if (runtime && typeof runtime.save === 'function') runtime.save();
     } catch (_) {}
     try {
-      if (window.WebStudio && typeof window.WebStudio.renderPreview === 'function') {
-        const frame = $('ws-canvas-iframe');
-        if (frame) frame.dataset.ovyxLivePreviewPaused = state.livePreview === false ? 'true' : 'false';
+      installLivePreviewBridge();
+      const frame = $('ws-canvas-iframe');
+      if (frame) frame.dataset.ovyxLivePreviewPaused = state.livePreview === false ? 'true' : 'false';
+      if (previous && previous.livePreview === false && state.livePreview !== false &&
+          window.WebStudio && typeof window.WebStudio.renderPreview === 'function') {
+        window.WebStudio.renderPreview();
       }
     } catch (_) {}
     try {
@@ -357,7 +392,26 @@
       notify((key === 'aiSafe' ? 'Safe generation' : key.replace(/([A-Z])/g, ' $1')) + (next[key] ? ' enabled.' : ' disabled.'), 'success');
     }, true);
   }
+  function syncAISettingsControls() {
+    const panel = document.querySelector('[data-settings-panel="ai"]');
+    if (!panel) return;
+    const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
+    const prefs = safeJson(localStorage.getItem(key));
+    const values = {
+      'set-ai-model': prefs.model || 'automatic',
+      'set-provider': prefs.provider || 'gemini',
+      'set-ai-routing': prefs.routing || 'automatic',
+      'set-ai-fallback': prefs.fallback || 'next',
+      'set-ai-context-limit': prefs.contextLimit || 'automatic',
+      'set-ai-budget': prefs.budget || 'automatic'
+    };
+    Object.keys(values).forEach(id => {
+      const select = panel.querySelector('#' + id);
+      if (select && Array.from(select.options).some(option => option.value === values[id])) select.value = values[id];
+    });
+  }
   function installAISettingsBridge() {
+    window.addEventListener('ovyx-settings-rendered', syncAISettingsControls);
     document.addEventListener('click', function (event) {
       const button = event.target && event.target.closest && event.target.closest('#set-ai-save');
       if (!button) return;
@@ -450,17 +504,34 @@
       service.__ovyxSettingsPreferencesV1 = true;
     }
   }
+  function applyEditorMode() {
+    const state = safeJson(localStorage.getItem('ovyx.settings.integrity.v83'));
+    const mode = ['build','plan','ask','fix'].includes(String(state.editorMode || '').toLowerCase())
+      ? String(state.editorMode).toLowerCase() : 'build';
+    if (state.editorMode !== mode) {
+      state.editorMode = mode;
+      try { localStorage.setItem('ovyx.settings.integrity.v83', JSON.stringify(state)); } catch (_) {}
+    }
+    const select = $('set-editor-mode');
+    if (select && document.activeElement !== select) select.value = mode;
+    const studio = window.WebStudio;
+    if (studio && typeof studio.setMode === 'function') studio.setMode(mode);
+  }
   function installEditorMode() {
     const select = $('set-editor-mode');
     if (select && !select.dataset.ovyxBound) {
       select.dataset.ovyxBound = '1';
+      applyEditorMode();
       select.addEventListener('change', function () {
-        const mode = String(select.value || 'build');
+        const mode = String(select.value || 'build').toLowerCase();
+        if (!['build','plan','ask','fix'].includes(mode)) {
+          select.value = 'build';
+          return;
+        }
         const state = safeJson(localStorage.getItem('ovyx.settings.integrity.v83'));
         state.editorMode = mode;
         try { localStorage.setItem('ovyx.settings.integrity.v83', JSON.stringify(state)); } catch (_) {}
-        const studio = window.WebStudio;
-        if (studio && typeof studio.setMode === 'function' && ['build','plan','ask','fix'].includes(mode)) studio.setMode(mode);
+        if (window.WebStudio && typeof window.WebStudio.setMode === 'function') window.WebStudio.setMode(mode);
         notify('Default Web Studio mode saved.', 'success');
       });
     }
@@ -474,7 +545,8 @@
         if (id === 'profile') setTimeout(loadProfile, 0);
         if (id === 'notifications') setTimeout(loadNotifications, 0);
         if (id === 'usage') setTimeout(loadUsage, 0);
-        if (id === 'workspace') setTimeout(installEditorMode, 0);
+        if (id === 'workspace' || id === 'editor') setTimeout(installEditorMode, 0);
+        if (id === 'ai') setTimeout(syncAISettingsControls, 0);
         return result;
       };
       settings.__ovyxSettingsReliabilityV1 = true;
@@ -482,6 +554,11 @@
     if (settings && settings.current === 'profile') setTimeout(loadProfile, 0);
     if (settings && settings.current === 'notifications') setTimeout(loadNotifications, 0);
     if (settings && settings.current === 'usage') setTimeout(loadUsage, 0);
+    if (settings && settings.current === 'ai') setTimeout(syncAISettingsControls, 0);
+    window.addEventListener('ovyx:view-changed', function (event) {
+      const view = String(event && event.detail && event.detail.view || '').replace(/^view-/, '');
+      if (view === 'webstudio') setTimeout(applyEditorMode, 0);
+    }, { passive: true });
     setTimeout(installEditorMode, 200);
   }
   function bindAuthenticationRefresh() {
@@ -512,6 +589,7 @@
     installAISettingsBridge();
     installAppearanceAndUsageHooks();
     bindAuthenticationRefresh();
+    installLivePreviewBridge();
     writeSettingsState(settingsState());
     const notificationPanel = notificationPanel();
     if (notificationPanel) {
