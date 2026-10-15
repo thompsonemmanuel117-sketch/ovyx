@@ -271,15 +271,18 @@ try {
 
     await page.evaluate(() => window.OVYXSettings.show('profile'));
     const profilePanel = page.locator('[data-settings-panel="profile"]');
-    await profilePanel.locator('#set-profile-name').waitFor({ state: 'visible' });
+    const profileNameField = profilePanel.locator('#set-profile-name, #set-profile-name-legacy').first();
+    const profileWorkspaceField = profilePanel.locator('#set-workspace-name, #set-workspace-name-legacy').first();
+    await profileNameField.waitFor({ state: 'visible' });
+    await profileWorkspaceField.waitFor({ state: 'visible' });
     await page.waitForFunction(
       () => document.getElementById('ovyx-profile-server-status')?.textContent?.includes('Server profile last saved'),
       null,
       { timeout: 20000 },
     );
-    await profilePanel.locator('#set-profile-name').fill('Stage Two Browser Name');
-    await profilePanel.locator('#set-workspace-name').fill('Stage Two Browser Workspace');
-    const profileSave = profilePanel.locator('#profile-save-action');
+    await profileNameField.fill('Stage Two Browser Name');
+    await profileWorkspaceField.fill('Stage Two Browser Workspace');
+    const profileSave = profilePanel.locator('#profile-save-action, [data-save-profile]').first();
 
     await profileSave.click();
     await page.waitForFunction(
