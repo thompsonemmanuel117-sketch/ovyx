@@ -6,8 +6,10 @@
  * inventing contact data or claiming integrations are configured when they are not.
  */
 
-const MAX_PROMPT_CHARS = 30000;
-const MAX_REQUIREMENTS = 28;
+export const WEB_STUDIO_PROMPT_MAX_CHARS = 80_000;
+const MAX_PROMPT_CHARS = WEB_STUDIO_PROMPT_MAX_CHARS;
+const MAX_REQUIREMENTS = 180;
+const MAX_MANIFEST_CLAUSE_CHARS = 280;
 const BOOKING_INTENT_PATTERN = /\b(?:bookings?|book\s+(?:a\s+)?(?:table|appointment|visit)|book\s+(?:online|now|today)|reserv(?:e|ation|ations|ing)|appointments?|schedule\s+(?:a\s+)?(?:visit|table|appointment))\b/i;
 const SHOPPING_CART_PATTERN = /\b(?:shopping\s+cart|cart|basket|add(?:ing)?\s+to\s+(?:the\s+)?cart|shopping\s+bag|add\s+to\s+(?:the\s+)?bag)\b/i;
 const BOOKING_ACTION_PATTERN = /\b(?:book\s+(?:(?:a|an|your)\s+)?(?:table|appointment|visit|room|seat|stay|slot|now|online|today)|reserve\s+(?:(?:a|an|your)\s+)?(?:table|appointment|room|seat|spot|place|time|now|online)|schedule\s+(?:(?:a|an|your)\s+)?(?:visit|appointment|consultation)|make\s+(?:a\s+)?reservation|check\s+availability|choose\s+(?:a\s+)?(?:time|slot|date))\b/i;
@@ -202,19 +204,23 @@ function hasAddressValue(value) {
 function splitRequirements(prompt) {
   const source = clean(prompt);
   const pieces = source
-    .split(/\n+|;\s*|(?<=[.!?])\s+(?=[A-Z0-9“"'])/u)
+    .split(/\n+|;\s*|(?<=[.!?])\s+/u)
     .map(item => item.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, '').trim())
     .filter(item => item.length >= 9);
   const seen = new Set();
   const output = [];
+  let omittedCount = 0;
   for (const item of pieces) {
     const key = normalizedKey(item);
     if (!key || seen.has(key)) continue;
     seen.add(key);
+    if (output.length >= MAX_REQUIREMENTS) {
+      omittedCount++;
+      continue;
+    }
     output.push(item.slice(0, 900));
-    if (output.length >= MAX_REQUIREMENTS) break;
   }
-  return output;
+  return { items: output, omittedCount };
 }
 
 export function extractExplicitPageNames(prompt) {
@@ -305,16 +311,23 @@ function hasConnectedIntegration(context, kind) {
 }
 
 export function buildPromptContract(prompt) {
-  const source = clean(prompt);
-  const clauses = splitRequirements(source);
+  const rawSource = String(prompt ?? '').replace(/\u0000/g, '').trim();
+  const source = clean(rawSource);
+  const split = splitRequirements(source);
+  const clauses = split.items;
   const exclusions = clauses.filter(item => /\b(?:do not|don't|dont|never|avoid|exclude|without|no longer|only)\b/i.test(item));
   const required = clauses.filter(item => /\b(?:must|make sure|ensure|include|add|needs? to|should|with|keep|preserve|use|exactly|every|all|don't forget)\b/i.test(item));
   return {
     version: 1,
-    sourceLength: source.length,
-    userRequirements: required.slice(0, 20),
-    allBriefClauses: clauses.slice(0, 20),
-    explicitConstraints: exclusions.slice(0, 16),
+    sourceLength: rawSource.length,
+    sourceCharacterLimit: MAX_PROMPT_CHARS,
+    sourceWasTruncated: rawSource.length > MAX_PROMPT_CHARS,
+    requirementClauseCount: clauses.length,
+    omittedRequirementClauseCount: split.omittedCount,
+    requirementManifestComplete: !split.omittedCount && rawSource.length <= MAX_PROMPT_CHARS,
+    userRequirements: required.slice(0, 24).map(item => item.slice(0, MAX_MANIFEST_CLAUSE_CHARS)),
+    allBriefClauses: clauses.map((item, index) => 'R' + String(index + 1).padStart(3, '0') + ': ' + item.slice(0, MAX_MANIFEST_CLAUSE_CHARS)),
+    explicitConstraints: exclusions.slice(0, 20).map(item => item.slice(0, MAX_MANIFEST_CLAUSE_CHARS)),
     explicitPages: extractExplicitPageNames(source),
     contactSignals: {
       contactForm: /\b(?:contact|enquiry|inquiry|quote|lead|message)\s+forms?\b|\bforms?\b.{0,40}\b(?:contact|email|message|enquiry|inquiry|quote)\b/i.test(source),
