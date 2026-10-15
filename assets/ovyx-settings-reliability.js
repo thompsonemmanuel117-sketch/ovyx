@@ -322,8 +322,8 @@
     try {
       const tokenResult = await user.getIdTokenResult(true);
       const authTime = Number(tokenResult && tokenResult.claims && tokenResult.claims.auth_time || 0);
-      if (!authTime || Date.now() / 1000 - authTime > 600) {
-        throw Object.assign(new Error('For security, sign in again before deleting your account.'), { code: 'REAUTH_REQUIRED' });
+      if (!authTime || Date.now() / 1000 - authTime > 240) {
+        throw Object.assign(new Error('For security, sign in again before deleting your account, then complete deletion within four minutes.'), { code: 'REAUTH_REQUIRED' });
       }
       const token = await user.getIdToken(false);
       const response = await fetch('/api/account/delete', {

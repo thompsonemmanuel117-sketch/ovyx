@@ -41,7 +41,7 @@ assert.deepEqual(
   { ...NOTIFICATION_DEFAULTS, projectActivity: false },
   'Notification preference parsing must accept only known boolean fields.'
 );
-assert.ok(html.includes('/assets/ovyx-settings-reliability.js?v=20261015-4'), 'The audited Settings runtime must load in the application shell.');
+assert.ok(html.includes('/assets/ovyx-settings-reliability.js?v=20261015-5'), 'The audited Settings runtime must load in the application shell.');
 assert.ok(html.includes('autosaveRecoveryEnabled'), 'Turning autosave off must remove saved recovery snapshots rather than merely change the toggle label.');
 assert.equal((html.match(/ovyx-settings-reliability\.js/g) || []).length, 1, 'Settings reliability runtime must only be injected once.');
 for (const section of ['general','profile','appearance','workspace','notifications','editor','shortcuts','ai','privacy','security','plan','usage','boosters']) {
@@ -91,6 +91,8 @@ assert.match(deletionApi, /emailScopedDocumentsDeleted/);
 assert.match(deletionApi, /deleteStoragePrefix\(context\.env, `users\/\$\{uid\}\/`\)/);
 assert.match(deletionApi, /deleteStoragePrefix\(context\.env, `profile\/\$\{uid\}\/`\)/, 'Account deletion must remove profile avatars saved by Settings.');
 assert.match(deletionApi, /assertFreshAuth/);
+assert.ok(deletionApi.includes('const RECENT_AUTH_SECONDS = 4 * 60'), 'Server account deletion must use a conservative recent-auth window.');
+assert.ok(runtime.includes('Date.now() / 1000 - authTime > 240'), 'Client account deletion must enforce the same recent-auth window before erasing cloud data.');
 assert.match(deletionApi, /X-OVYX-Account-Deletion/);
 assert.match(brandProfileApi, /setFirestoreDocumentAtPath/);
 assert.match(brandProfileApi, /deleteFirestoreDocumentAtPath/);

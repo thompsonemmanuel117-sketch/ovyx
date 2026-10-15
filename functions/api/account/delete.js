@@ -7,7 +7,8 @@ import {
 import { jsonResponse, requestId } from '../_lib/http.js';
 
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
-const RECENT_AUTH_SECONDS = 10 * 60;
+// Keep a safety margin inside Firebase's recent-sign-in window because cleanup and client confirmation take time.
+const RECENT_AUTH_SECONDS = 4 * 60;
 
 function uidOf(user) {
   return String(user?.sub || user?.uid || '').trim();
