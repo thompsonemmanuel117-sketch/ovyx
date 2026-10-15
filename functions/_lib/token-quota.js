@@ -644,6 +644,8 @@ export async function syncTierQuota(env, uid, tierValue) {
 
     if (
       String(current._ovyxQuotaTier || '').trim().toLowerCase() === tier &&
+      Number(current._ovyxQuotaMonthlyLimit) === limits.monthly &&
+      Number(current._ovyxQuotaDailyLimit) === limits.daily &&
       typeof current.current_monthly_tokens === 'number' &&
       typeof current.daily_prompts_allowance === 'number'
     ) {
