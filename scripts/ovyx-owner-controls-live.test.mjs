@@ -29,6 +29,9 @@ const source = {
   templatesApi: read('functions/api/admin/templates.js'),
   pushApi: read('functions/api/admin/push.js'),
   pushDelivery: read('functions/api/_lib/admin-push.js'),
+  refundApi: read('functions/api/payments/refund.js'),
+  deployApi: read('functions/api/deploy.js'),
+  paymentEventsApi: read('functions/api/pay-route.js'),
   paymentVerify: read('functions/api/payments/verify.js'),
   opayWebhook: read('functions/api/payments/opay-webhook.js'),
   paystackWebhook: read('functions/api/payments/paystack-webhook.js'),
@@ -64,6 +67,9 @@ const changedJavaScriptFiles = [
   'functions/api/admin/templates.js',
   'functions/api/admin/push.js',
   'functions/api/_lib/admin-push.js',
+  'functions/api/payments/refund.js',
+  'functions/api/deploy.js',
+  'functions/api/pay-route.js',
   'functions/api/payments/verify.js',
   'functions/api/payments/opay-webhook.js',
   'functions/api/payments/paystack-webhook.js'
@@ -141,6 +147,13 @@ assert.match(source.paystackWebhook, /stored OVYX order snapshot/);
 assert.match(source.paystackWebhook, /Number\(data\.amount\)!==expectedMinor/);
 
 
+assert.match(source.refundApi, /notifyOwnerRefund/);
+assert.match(source.deployApi, /type: 'deploymentFailures'/);
+assert.match(source.opayWebhook, /notifyOwnerPush/);
+assert.match(source.paystackWebhook, /notifyOwnerPush/);
+assert.match(source.paymentEventsApi, /notifyOwnerLifecycleEvent/);
+assert.match(source.paymentEventsApi, /chargebacks: 'chargebacks'/);
+assert.match(source.paymentEventsApi, /refunded: 'refunds'/);
 assert.match(source.pushApi, /ROOT_REQUIRED/);
 assert.match(source.pushApi, /emailVerified !== true/);
 assert.match(source.pushApi, /enforceSameOrigin/);
