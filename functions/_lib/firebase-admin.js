@@ -929,3 +929,55 @@ export async function deleteStoragePrefix(
 
   return deleted;
 }
+/**
+ * Changes the actual Firebase Authentication account status.
+ * This is deliberately server-only: the service-account credential never
+ * leaves the Worker, and protected API authentication reads Firebase status.
+ */
+export async function setFirebaseAccountDisabled(env, uid, disabled) {
+  const serviceAccount = parseServiceAccount(env);
+  const cleanUid = String(uid || '').trim();
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(cleanUid)) {
+    throw Object.assign(new Error('Firebase user ID is invalid.'), {
+      status: 400,
+      code: 'AUTH_INVALID_IDENTITY'
+    });
+  }
+  if (typeof disabled !== 'boolean') {
+    throw Object.assign(new Error('Account disabled status must be boolean.'), {
+      status: 400,
+      code: 'AUTH_INVALID_ACCOUNT_STATUS'
+    });
+  }
+
+  const accessToken = await getGoogleIdentityToolkitAccessToken(env);
+  const url = 'https://identitytoolkit.googleapis.com/v1/projects/' +
+    encodeURIComponent(serviceAccount.project_id) + '/accounts:update';
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer ' + accessToken,
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({ localId: cleanUid, disable: disabled })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw Object.assign(
+      new Error(String(payload?.error?.message || 'Firebase account status update failed.').slice(0, 240)),
+      {
+        status: response.status >= 500 ? 503 : response.status,
+        code: response.status === 403 ? 'AUTH_ACCOUNT_UPDATE_FORBIDDEN' : 'AUTH_ACCOUNT_UPDATE_FAILED'
+      }
+    );
+  }
+  const account = Array.isArray(payload.users) ? payload.users[0] : payload;
+  if (String(account.localId || '') !== cleanUid || (account.disabled === true) !== disabled) {
+    throw Object.assign(new Error('Firebase did not confirm the requested account status.'), {
+      status: 503,
+      code: 'AUTH_ACCOUNT_UPDATE_UNCONFIRMED'
+    });
+  }
+  return { uid: cleanUid, disabled };
+}
+
