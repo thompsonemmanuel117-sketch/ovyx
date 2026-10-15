@@ -71,7 +71,7 @@ try {
     const openBehavior = page.locator('#view-settings [data-settings-panel="workspace"] #set-open-behavior');
     assert.equal(await openBehavior.inputValue(), 'Web Studio', `[${target.name}] the Workspace open-behavior selector is missing its default.`);
     assert.equal(await page.locator('#set-autosave').getAttribute('aria-checked'), 'true', `[${target.name}] autosave recovery should begin enabled.`);
-    assert.equal(await page.locator('#set-confirm-delete').getAttribute('aria-checked'), 'true', `[${target.name}] destructive-action confirmation should begin enabled.');
+    assert.equal(await page.locator('#set-confirm-delete').getAttribute('aria-checked'), 'true', `[${target.name}] destructive-action confirmation should begin enabled.`);
 
     await openBehavior.selectOption('Last active view');
     await page.waitForFunction(() => {
