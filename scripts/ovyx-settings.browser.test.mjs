@@ -107,6 +107,7 @@ try {
         `[${target.name}] Workspace control ${id} must be present exactly once after the Data Layer finishes rendering.`);
     }
     assert.equal(await openBehavior.inputValue(), 'Web Studio', `[${target.name}] the Workspace open-behavior selector is missing its default.`);
+    assert.equal(await openBehavior.isVisible(), true, `[${target.name}] Workspace settings must be actually visible, not just present in the DOM.`);
     assert.equal(await page.locator('#set-autosave').getAttribute('aria-checked'), 'true', `[${target.name}] autosave recovery should begin enabled.`);
     assert.equal(await page.locator('#set-confirm-delete').getAttribute('aria-checked'), 'true', `[${target.name}] destructive-action confirmation should begin enabled.`);
 
