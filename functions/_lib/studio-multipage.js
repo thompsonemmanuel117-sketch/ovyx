@@ -127,7 +127,7 @@ function planPrompt(prompt, project, paths, requireMulti, limit, extraContext, p
 
 function makeBatchPrompt(prompt, plan, siteMap, batch, stagedChanges, existingFiles, extraContext, promptContract) {
   const context = buildSiteBatchContext({
-    baseContext: 'ORIGINAL BRIEF:\n' + String(prompt || '') + '\n\nAPPROVED SITE MAP:\n' + JSON.stringify(plan) + '\n\nBRAND / CLIENT CONTEXT:\n' + String(extraContext || '').slice(0, 6000),
+    baseContext: 'APPROVED SITE MAP:\n' + JSON.stringify(plan) + '\n\nBRAND / CLIENT CONTEXT:\n' + String(extraContext || '').slice(0, 6000) + '\n\nORIGINAL USER BRIEF (preserve the specific requirements in this request):\n' + String(prompt || ''),
     stagedChanges,
     siteMap,
     batch,

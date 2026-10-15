@@ -69,6 +69,20 @@ assert(context.includes('page-20/index.html'));
 assert(context.includes('ALREADY GENERATED FILE PATHS'));
 assert(context.includes('assets/site.css'));
 
+const longBaseContext = 'EARLY BRIEF REQUIREMENT: make the homepage welcoming.\n' +
+  'MIDDLE DETAIL THAT MAY BE SUMMARIZED '.repeat(900) +
+  '\nLATE BRIEF REQUIREMENT: the dashboard page must support keyboard-accessible sorting and display an empty state.';
+const longContext = buildSiteBatchContext({
+  baseContext: longBaseContext,
+  stagedChanges: merged,
+  siteMap: normalized.siteMap,
+  batch: batches[1],
+  maxChars: 40_000,
+});
+assert(longContext.includes('EARLY BRIEF REQUIREMENT'), 'A long build context must keep the start of the brief.');
+assert(longContext.includes('LATE BRIEF REQUIREMENT'), 'A long build context must preserve its ending so late constraints are not silently lost.');
+assert(longContext.includes('middle of the context exceeded its budget') || longContext.includes('omitted middle text'), 'The truncated middle must be explicitly marked rather than represented as complete.');
+
 const polishSelection = selectSitePolishChanges(
   [...pages.map(page => ({ path: page.path, action: 'create', content: '<html />' })), ...normalized.siteMap.sharedFiles.map(file => ({ path: file.path, action: 'create', content: 'body{}' }))],
   normalized.siteMap,

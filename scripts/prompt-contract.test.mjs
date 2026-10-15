@@ -17,6 +17,25 @@ assert(buildPromptContract('Let visitors reserve online.').contactSignals.bookin
 assert(buildPromptContract('Create an online shop with Add to Cart buttons.').contactSignals.shoppingCart, 'Explicit add-to-cart requirements should be detected.');
 assert(buildPromptContract('Create an online shop with Add to Cart buttons.').contactSignals.addToCart, 'Explicit Add to Cart intent should be tracked separately from a general cart.');
 
+const longPromptClauses = Array.from({ length: 46 }, (_, index) =>
+  '- Requirement ' + String(index + 1).padStart(2, '0') + ': preserve the requested feature and respect its acceptance criteria.'
+);
+longPromptClauses.push('- FINAL REQUIREMENT: add a keyboard-accessible comparison table with working sort controls, and do not replace it with static cards.');
+const longPrompt = 'Build a multi-page business website.\n' + longPromptClauses.join('\n');
+const longContract = buildPromptContract(longPrompt);
+assert.equal(longContract.sourceLength, longPrompt.length, 'The contract should keep the complete source length for a long brief.');
+assert.equal(longContract.sourceWasTruncated, false);
+assert.equal(longContract.requirementManifestComplete, true);
+assert(longContract.allBriefClauses.length > 28, 'Long briefs must keep substantially more than the previous 28-clause limit.');
+assert(longContract.allBriefClauses.some(item => /FINAL REQUIREMENT.*comparison table.*working sort controls/i.test(item)), 'Requirements near the end of a long brief must remain in the manifest.');
+
+const overLimitPrompt = Array.from({ length: 181 }, (_, index) =>
+  'Unique requirement ' + String(index + 1).padStart(3, '0') + ': preserve capability ' + String(index + 1) + ' with its own specific acceptance check.'
+).join('\n');
+const overLimitContract = buildPromptContract(overLimitPrompt);
+assert(overLimitContract.omittedRequirementClauseCount > 0, 'A brief beyond the clause ceiling must be detected instead of presented as a complete checklist.');
+assert.equal(overLimitContract.requirementManifestComplete, false);
+
 const readiness = getWebStudioBuildClarification(
   'Build a restaurant website with a contact form that emails enquiries.',
   {},

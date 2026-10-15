@@ -18,6 +18,18 @@ function unique(values) {
   return [...new Set(values.filter(Boolean))];
 }
 
+function preserveTextEdges(value, maxChars, reason = 'middle of the context shortened') {
+  const source = String(value || '');
+  const limit = Math.max(0, Math.floor(Number(maxChars) || 0));
+  if (source.length <= limit) return source;
+  const marker = '\n\n[OVYX CONTEXT NOTE: ' + reason + '; the beginning and ending have been preserved.]\n\n';
+  if (limit <= marker.length + 2) return source.slice(0, limit);
+  const contentBudget = limit - marker.length;
+  const headChars = Math.ceil(contentBudget * 0.46);
+  const tailChars = contentBudget - headChars;
+  return source.slice(0, headChars) + marker + source.slice(-tailChars);
+}
+
 function routeFromPath(path) {
   const normalized = String(path || '').replace(/^\/+/, '').replace(/\\/g, '/');
   const appPage = normalized.match(/^(?:src\/)?app(?:\/(.*))?\/page\.[cm]?[jt]sx?$/i);
@@ -257,9 +269,11 @@ export function buildSiteBatchContext({
   const normalizedLimit = limit;
   const baseLimit = Math.max(10_000, Math.min(68_000, Math.floor(normalizedLimit * 0.42)));
   const base = String(baseContext || '');
-  const baseSlice = base.length > baseLimit
-    ? base.slice(0, baseLimit) + '\n/* Base repository context shortened to reserve space for all planned routes and staged files. */'
-    : base;
+  const baseSlice = preserveTextEdges(
+    base,
+    baseLimit,
+    'base brief/context exceeded its budget; omitted middle text is not assumed to be satisfied'
+  );
 
   const alreadyGenerated = stagedPaths.join('\n') || '(none yet)';
   const generatedList = alreadyGenerated.length > Math.floor(limit * 0.12)
