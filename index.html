@@ -7295,6 +7295,10 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
       syncUi();
       return;
     }
+    // Theme Lab CRUD is owned by assets/ovyx-settings-reliability.js. Keeping
+    // this compatibility layer out of those clicks prevents duplicate saves and
+    // competing ThemeContext/ThemeLab writes.
+    if(el.matches('[data-theme-save], [data-theme-duplicate], [data-theme-import], [data-theme-export], [data-theme-delete], [data-theme-reset]')) return;
     if(el.matches('[data-theme-save]')){
       e.preventDefault();e.stopPropagation();
       const lab=window.OVYXThemeLab;
