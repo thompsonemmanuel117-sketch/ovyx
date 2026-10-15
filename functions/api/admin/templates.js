@@ -65,7 +65,7 @@ export async function onRequestPost(context) {
     if (auth.response) return auth.response;
     const payload = await readJson(context.request, 1_000_000);
     const action = clean(payload.action || 'publish', 40).toLowerCase();
-    const now = new Date().toISOString();
+    const now = Date.now();
     const uid = String(auth.user.uid || auth.user.sub || '').slice(0, 200);
     const email = normalizeEmail(auth.user.email);
     if (action === 'unpublish') {
