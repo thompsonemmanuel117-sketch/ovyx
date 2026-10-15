@@ -410,6 +410,30 @@
       if (select && Array.from(select.options).some(option => option.value === values[id])) select.value = values[id];
     });
   }
+  function limitContextFiles(files, maxChars) {
+    if (!files || typeof files !== 'object') return files;
+    const output = Array.isArray(files) ? [] : {};
+    let remaining = maxChars;
+    const entries = Array.isArray(files) ? files.map((value, index) => [String(index), value]) : Object.entries(files);
+    for (const [path, value] of entries) {
+      if (remaining <= 0) break;
+      if (typeof value === 'string') {
+        output[path] = value.slice(0, remaining);
+        remaining -= output[path].length;
+      } else if (value && typeof value === 'object') {
+        const clone = Object.assign({}, value);
+        const field = ['content','text','source','code'].find(key => typeof clone[key] === 'string');
+        if (field) {
+          clone[field] = clone[field].slice(0, remaining);
+          remaining -= clone[field].length;
+        }
+        output[path] = clone;
+      } else {
+        output[path] = value;
+      }
+    }
+    return output;
+  }
   function installAISettingsBridge() {
     window.addEventListener('ovyx-settings-rendered', syncAISettingsControls);
     document.addEventListener('click', function (event) {
@@ -464,8 +488,12 @@
         const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
         const prefs = Object.assign({}, safeJson(localStorage.getItem(key)), window.OVYXAI || {});
         const requestedProvider = String(payload.provider || '').trim().toLowerCase();
+        const validRouting = ['automatic','preferred-first','provider-priority'].includes(String(prefs.routing || 'automatic'))
+          ? String(prefs.routing || 'automatic') : 'automatic';
+        payload.providerRouting = validRouting;
         if ((!requestedProvider || requestedProvider === 'automatic' || requestedProvider === 'auto') && prefs.provider) {
           payload.preferredProvider = String(prefs.provider).toLowerCase();
+          if (prefs.fallback === 'stop' && validRouting !== 'provider-priority') payload.provider = String(prefs.provider).toLowerCase();
         }
         const instructions = [];
         if (prefs.mode === 'fast') instructions.push('Generation preference: prioritize concise, low-latency iterations.');
@@ -474,16 +502,37 @@
         if (prefs.preserve) instructions.push('Preserve existing project structure and unrelated working code unless the user explicitly requests a restructure.');
         if (prefs.routing && prefs.routing !== 'automatic') instructions.push('Preferred routing strategy: ' + String(prefs.routing) + '.');
         if (prefs.fallback === 'stop') instructions.push('When the selected provider fails, report the failure rather than pretending success.');
-        if (prefs.contextFiles === false && payload.context) {
-          const context = Object.assign({}, payload.context);
-          delete context.files; delete context.projectFiles; delete context.fileTree;
-          payload.context = context;
+        if (prefs.contextFiles === false) {
+          delete payload.files;
+          if (payload.project && typeof payload.project === 'object') {
+            payload.project = Object.assign({}, payload.project);
+            delete payload.project.files;
+            delete payload.project.fileTree;
+          }
+          if (payload.context) {
+            const context = Object.assign({}, payload.context);
+            delete context.files; delete context.projectFiles; delete context.fileTree;
+            if (context.project && typeof context.project === 'object') {
+              context.project = Object.assign({}, context.project);
+              delete context.project.files; delete context.project.fileTree;
+            }
+            payload.context = context;
+          }
         }
         if (prefs.contextPage === false && payload.context) {
           const context = Object.assign({}, payload.context);
           delete context.page; delete context.currentPage; delete context.section; delete context.activePage;
           payload.context = context;
         }
+        const contextLimit = prefs.contextLimit === 'conservative' ? 120000 : prefs.contextLimit === 'expanded' ? 650000 : 350000;
+        if (prefs.contextFiles !== false) {
+          if (payload.files && typeof payload.files === 'object') payload.files = limitContextFiles(payload.files, contextLimit);
+          if (payload.context && payload.context.files && typeof payload.context.files === 'object') {
+            payload.context = Object.assign({}, payload.context, { files: limitContextFiles(payload.context.files, contextLimit) });
+          }
+        }
+        if (prefs.budget === 'efficient' && !Number.isFinite(Number(payload.maxTokens))) payload.maxTokens = 4096;
+        if (prefs.budget === 'maximum' && !Number.isFinite(Number(payload.maxTokens))) payload.maxTokens = 16000;
         if (prefs.contextGithub === false) {
           payload.contextGithub = false;
           if (payload.context && payload.context.github) {
