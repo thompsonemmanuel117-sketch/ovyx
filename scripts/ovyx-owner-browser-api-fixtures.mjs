@@ -24,6 +24,9 @@ export async function installOwnerBrowserApiFixtures(page) {
     teamworkspace: 'max', templates: 'free'
   };
   const aiConfig = { providerOrder: ['gemini', 'deepseek', 'claude', 'openai', 'groq', 'openrouter'] };
+  let fixtureUsers = [{ uid: 'fixture-user-123', email: 'builder@example.test', displayName: 'Fixture Builder', role: 'FREE_USER', plan: 'free', disabled: false, quota: { plan: 'free', monthlyLimit: 50000, monthlyRemaining: 50000, dailyPromptLimit: 4, dailyPromptsRemaining: 4, boosterTokens: 0 } }];
+  let fixtureBroadcasts = [];
+  let fixtureTemplates = [];
   let identity = { assistantName: 'OVYX AI', persona: '', markColor: '#E8B64F' };
   let integrationLive = true;
 
@@ -35,7 +38,7 @@ export async function installOwnerBrowserApiFixtures(page) {
     };
     if (path === '/api/plans') return {
       ok: true, pricing, tokenQuotas, dailyPromptQuotas, features: planFeatures,
-      planFeaturesManaged: false, accessRules: [], gating: gates, source: 'server-fixture'
+      planFeaturesManaged: true, accessRules: [], gating: gates, source: 'server-fixture'
     };
     if (path === '/api/service-status') return {
       ok: true, providers: [], services: [], statuses: [], ovyx: { recognized: true, isAdminProfile: true },
@@ -64,6 +67,12 @@ export async function installOwnerBrowserApiFixtures(page) {
     if (path === '/api/admin/users') {
       const payload = (() => { try { return request.postDataJSON() || {}; } catch { return {}; } })();
       if (method === 'POST') {
+        const target = fixtureUsers.find(user => user.uid === (payload.uid || payload.targetUid));
+        if (target && payload.action === 'setPlan') {
+          target.plan = payload.plan;
+          target.quota = { plan: payload.plan, monthlyLimit: tokenQuotas[payload.plan] || tokenQuotas.free, monthlyRemaining: tokenQuotas[payload.plan] || tokenQuotas.free, dailyPromptLimit: dailyPromptQuotas[payload.plan] || dailyPromptQuotas.free, dailyPromptsRemaining: dailyPromptQuotas[payload.plan] || dailyPromptQuotas.free, boosterTokens: 0 };
+        }
+        if (target && payload.action === 'setAccountStatus') target.disabled = payload.disabled === true;
         return {
           ok: true, action: payload.action || 'fixture', uid: payload.uid || 'fixture-user',
           plan: payload.plan || 'free', disabled: payload.disabled === true,
@@ -71,7 +80,7 @@ export async function installOwnerBrowserApiFixtures(page) {
           updatedAt: 'fixture', authority: 'FIREBASE_AUTH_AND_SERVER'
         };
       }
-      return { ok: true, authority: 'SERVER', users: [], nextPageToken: null, pageSize: 50 };
+      return { ok: true, authority: 'SERVER', users: fixtureUsers.map(user => ({ ...user, quota: { ...user.quota } })), nextPageToken: null, pageSize: 50 };
     }
     if (path === '/api/admin/sentinel') return {
       ok: true, latestReport: { status: 'healthy', critical: 0, warnings: 0, checkedAt: 'fixture' },
@@ -97,6 +106,7 @@ export async function installOwnerBrowserApiFixtures(page) {
     if (path === '/api/admin/control') {
       const payload = (() => { try { return request.postDataJSON() || {}; } catch { return {}; } })();
       if (method === 'POST' && payload.action === 'setProductionState') integrationLive = payload.live === true;
+      if (method === 'POST' && payload.action === 'saveSettings' && payload.pricing) { Object.assign(pricing.pro, payload.pricing.pro || {}); Object.assign(pricing.max, payload.pricing.max || {}); }
       const config = {
         pricing, gating: gates, masterAdminOverride: false,
         liveDeploy: integrationLive, productionLive: integrationLive,
@@ -106,30 +116,40 @@ export async function installOwnerBrowserApiFixtures(page) {
     }
     if (path === '/api/admin/plans/update') {
       const payload = (() => { try { return request.postDataJSON() || {}; } catch { return {}; } })();
+      if (method === 'POST') {
+        if (payload.pricing?.pro) Object.assign(pricing.pro, payload.pricing.pro);
+        if (payload.pricing?.max) Object.assign(pricing.max, payload.pricing.max);
+        if (payload.tokenQuotas) Object.assign(tokenQuotas, payload.tokenQuotas);
+        if (payload.dailyPromptQuotas) Object.assign(dailyPromptQuotas, payload.dailyPromptQuotas);
+        if (payload.gating) Object.assign(gates, payload.gating);
+        if (payload.features) Object.assign(planFeatures, payload.features);
+      }
       const config = {
-        pricing: payload.pricing || pricing,
-        tokenQuotas: payload.tokenQuotas || tokenQuotas,
-        dailyPromptQuotas: payload.dailyPromptQuotas || dailyPromptQuotas,
-        planFeatures: payload.features || planFeatures,
+        pricing, tokenQuotas, dailyPromptQuotas, planFeatures,
         planFeaturesManaged: true,
-        gating: payload.gating || gates,
-        accessRules: payload.accessRules || []
+        gating: gates,
+        accessRules: []
       };
       return { ok: true, config, authority: 'SERVER_ADMIN' };
     }
     if (path === '/api/admin/broadcasts') {
       if (method === 'POST') {
         const payload = (() => { try { return request.postDataJSON() || {}; } catch { return {}; } })();
-        return { ok: true, broadcast: { id: 'fixture-broadcast', ...payload, body: payload.message || payload.body || '', published: true }, delivery: 'global-inbox' };
+        const item = { id: 'fixture-broadcast-' + (fixtureBroadcasts.length + 1), ...payload, body: payload.message || payload.body || '', published: true, createdAt: new Date().toISOString() };
+        fixtureBroadcasts.unshift(item);
+        return { ok: true, broadcast: item, delivery: 'global-inbox' };
       }
-      return { ok: true, broadcasts: [], nextPageToken: null };
+      return { ok: true, broadcasts: fixtureBroadcasts.slice(), nextPageToken: null };
     }
     if (path === '/api/admin/templates') {
       if (method === 'POST') {
         const payload = (() => { try { return request.postDataJSON() || {}; } catch { return {}; } })();
-        return { ok: true, template: { id: 'fixture-template', ...payload, published: true, updatedAt: 'fixture' }, scope: 'global' };
+        if (payload.action === 'unpublish') { fixtureTemplates = fixtureTemplates.filter(item => item.id !== payload.id); return { ok: true, action: 'unpublish', id: payload.id, published: false }; }
+        const item = { id: payload.id || 'fixture-template-' + (fixtureTemplates.length + 1), ...payload, published: true, updatedAt: new Date().toISOString() };
+        fixtureTemplates = fixtureTemplates.filter(old => old.id !== item.id).concat([item]);
+        return { ok: true, template: item, scope: 'global' };
       }
-      return { ok: true, templates: [], nextPageToken: null };
+      return { ok: true, templates: fixtureTemplates.slice(), nextPageToken: null };
     }
     if (path === '/api/ai/workspace-tools') return { ok: true, operation: 'snapshot', projects: [], activeProject: null, files: [], items: [] };
     if (path === '/api/ai/ovyx') return { ok: true, text: 'This local browser fixture has no live AI credentials.', message: 'This local browser fixture has no live AI credentials.', actions: [] };
