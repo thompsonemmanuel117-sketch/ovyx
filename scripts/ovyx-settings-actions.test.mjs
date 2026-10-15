@@ -35,6 +35,7 @@ assert.deepEqual(
   'Notification preference parsing must accept only known boolean fields.'
 );
 assert.ok(html.includes('/assets/ovyx-settings-reliability.js?v=20261015-1'), 'The audited Settings runtime must load in the application shell.');
+assert.ok(html.includes('autosaveRecoveryEnabled'), 'Turning autosave off must remove saved recovery snapshots rather than merely change the toggle label.');
 assert.equal((html.match(/ovyx-settings-reliability\.js/g) || []).length, 1, 'Settings reliability runtime must only be injected once.');
 for (const section of ['general','profile','appearance','workspace','notifications','editor','shortcuts','ai','privacy','security','plan','usage','boosters']) {
   assert.ok(html.includes("['" + section + "'"), 'Settings navigation must retain the ' + section + ' section.');
@@ -52,7 +53,6 @@ for (const requirement of [
   "X-OVYX-Account-Deletion': 'CONFIRM'",
   'stopImmediatePropagation()',
   'installLivePreviewBridge',
-  'autosaveRecoveryEnabled',
   'payload.preferredProvider',
   'payload.providerRouting',
   'limitContextFiles',
