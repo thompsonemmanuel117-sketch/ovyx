@@ -69,7 +69,11 @@ export async function onRequest(context) {
     }
 
     const body = await readJson(request, 12000);
-    const profile = normalizeProfile(body?.profile || body, identity.user.displayName || '');
+    const incoming = body?.profile || body;
+    if (!String(incoming?.displayName || '').trim()) {
+      return errorResponse(400, 'PROFILE_NAME_REQUIRED', 'Display name cannot be empty.', id);
+    }
+    const profile = normalizeProfile(incoming, identity.user.displayName || '');
     if (!profile.displayName) {
       return errorResponse(400, 'PROFILE_NAME_REQUIRED', 'Display name cannot be empty.', id);
     }
