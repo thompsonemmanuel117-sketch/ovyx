@@ -951,41 +951,67 @@ export async function setFirebaseAccountDisabled(env, uid, disabled) {
   }
 
   const accessToken = await getGoogleIdentityToolkitAccessToken(env);
-  const url = 'https://identitytoolkit.googleapis.com/v1/projects/' +
-    encodeURIComponent(serviceAccount.project_id) + '/accounts:update';
-  const response = await fetch(url, {
+  const projectId = encodeURIComponent(serviceAccount.project_id);
+  const updateUrl = 'https://identitytoolkit.googleapis.com/v1/projects/' + projectId + '/accounts:update';
+  const updateResponse = await fetch(updateUrl, {
     method: 'POST',
     headers: {
       Authorization: 'Bearer ' + accessToken,
       'content-type': 'application/json'
     },
-    body: JSON.stringify({ localId: cleanUid, disable: disabled })
+    body: JSON.stringify({ localId: cleanUid, disableUser: disabled })
   });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
+  const updatePayload = await updateResponse.json().catch(() => ({}));
+  if (!updateResponse.ok) {
     throw Object.assign(
-      new Error(String(payload?.error?.message || 'Firebase account status update failed.').slice(0, 240)),
+      new Error(String(updatePayload?.error?.message || 'Firebase account status update failed.').slice(0, 240)),
       {
-        status: response.status >= 500 ? 503 : response.status,
-        code: response.status === 403 ? 'AUTH_ACCOUNT_UPDATE_FORBIDDEN' : 'AUTH_ACCOUNT_UPDATE_FAILED'
+        status: updateResponse.status >= 500 ? 503 : updateResponse.status,
+        code: updateResponse.status === 403 ? 'AUTH_ACCOUNT_UPDATE_FORBIDDEN' : 'AUTH_ACCOUNT_UPDATE_FAILED'
       }
     );
   }
-  const account = Array.isArray(payload.users) ? payload.users[0] : payload;
-  if (String(account.localId || '') !== cleanUid || (account.disabled === true) !== disabled) {
+  if (String(updatePayload.localId || '') !== cleanUid) {
+    throw Object.assign(new Error('Firebase did not confirm the selected account identity.'), {
+      status: 503,
+      code: 'AUTH_ACCOUNT_UPDATE_UNCONFIRMED'
+    });
+  }
+
+  // The update response does not include the disabled flag in its documented
+  // response schema; look the account up again and verify the actual state.
+  const lookupResponse = await fetch(
+    'https://identitytoolkit.googleapis.com/v1/projects/' + projectId + '/accounts:lookup',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + accessToken,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({ localId: [cleanUid] })
+    }
+  );
+  const lookupPayload = await lookupResponse.json().catch(() => ({}));
+  if (!lookupResponse.ok) {
+    throw Object.assign(
+      new Error('Firebase accepted the account update but its final status could not be verified.'),
+      {
+        status: lookupResponse.status >= 500 ? 503 : lookupResponse.status,
+        code: 'AUTH_ACCOUNT_UPDATE_UNVERIFIED'
+      }
+    );
+  }
+  const confirmed = (Array.isArray(lookupPayload.users) ? lookupPayload.users : [])
+    .find(account => String(account?.localId || '') === cleanUid);
+  if (!confirmed || confirmed.disabled !== disabled) {
     throw Object.assign(new Error('Firebase did not confirm the requested account status.'), {
       status: 503,
       code: 'AUTH_ACCOUNT_UPDATE_UNCONFIRMED'
     });
   }
-  return { uid: cleanUid, disabled };
+  return { uid: cleanUid, disabled: confirmed.disabled, confirmed: true };
 }
 
-/**
- * Revokes Firebase refresh tokens after account suspension.
- * Existing ID tokens are also rejected by authenticateRequest because it
- * checks the Firebase Authentication account's disabled status on each call.
- */
 export async function revokeFirebaseRefreshTokens(
   env,
   uid,
