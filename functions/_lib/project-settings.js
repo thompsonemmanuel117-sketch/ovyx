@@ -111,7 +111,15 @@ function normalizeAppearance(value, fallback) {
  */
 export function normalizeProjectSettings(value = {}, base = PROJECT_SETTINGS_DEFAULTS) {
   const input = asRecord(value);
-  const fallback = mergeProjectSettings(PROJECT_SETTINGS_DEFAULTS, base);
+  const baseRecord = asRecord(base);
+  const fallback = {
+    version: 1,
+    profile: { ...PROJECT_SETTINGS_DEFAULTS.profile, ...asRecord(baseRecord.profile) },
+    workspace: { ...PROJECT_SETTINGS_DEFAULTS.workspace, ...asRecord(baseRecord.workspace) },
+    notifications: { ...PROJECT_SETTINGS_DEFAULTS.notifications, ...asRecord(baseRecord.notifications) },
+    ai: { ...PROJECT_SETTINGS_DEFAULTS.ai, ...asRecord(baseRecord.ai) },
+    appearance: { ...PROJECT_SETTINGS_DEFAULTS.appearance, ...asRecord(baseRecord.appearance) }
+  };
   const profile = asRecord(input.profile);
   return {
     version: 1,
