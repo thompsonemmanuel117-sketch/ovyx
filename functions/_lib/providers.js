@@ -830,10 +830,11 @@ async function readGlobalProviderOrder(env) {
   return [...normalized];
 }
 
-export function providerOrder(env, requested, taskContext = '', globalOrder = null) {
+export function providerOrder(env, requested, taskContext = '', globalOrder = null, userRouting = {}) {
   const selection = String(requested || 'automatic').trim().toLowerCase();
   if (selection && selection !== 'automatic') {
-    // An explicit choice is exclusive even when its key is missing.
+    // An explicitly selected provider stays exclusive. User preferences are
+    // only consulted for Automatic routing and never override an explicit call.
     return [normalizeRequestedProvider(selection, env)];
   }
 
@@ -843,18 +844,41 @@ export function providerOrder(env, requested, taskContext = '', globalOrder = nu
     .split(',')
     .map(normalizeConfiguredProvider)
     .filter(provider => SUPPORTED_PROVIDERS.includes(provider) && provider !== 'cloudflare-workers-ai');
+  const taskOrder = taskProviderPreference(taskContext);
+  const ownerOrder = Array.isArray(globalOrder) && globalOrder.length
+    ? globalOrder.filter(provider => SUPPORTED_PROVIDERS.includes(provider) && provider !== 'cloudflare-workers-ai')
+    : configuredOrder;
+  const preferred = normalizeConfiguredProvider(userRouting.preferredProvider || '');
+  const preferredIsValid = SUPPORTED_PROVIDERS.includes(preferred) && preferred !== 'cloudflare-workers-ai';
+  const strategy = String(userRouting.routingStrategy || 'automatic').trim().toLowerCase();
+  const stopOnPreferredFailure = ['stop', 'stop-and-notify', 'stop-and-notify-me'].includes(
+    String(userRouting.fallbackPolicy || '').trim().toLowerCase()
+  );
 
-  // Use the existing task classifier, then the configured order as fallback.
-  // Unlike the historical implementation, never try an unconfigured provider.
-  const priorities = [
-    ...(Array.isArray(globalOrder) && globalOrder.length ? globalOrder : taskProviderPreference(taskContext)),
-    ...configuredOrder,
-    'gemini', 'deepseek', 'claude', 'openai', 'groq', 'openrouter',
-  ];
-  const ordered = [...new Set(priorities)].filter(provider => isProviderConfigured(env, provider));
+  let priorities;
+  if (stopOnPreferredFailure) {
+    priorities = preferredIsValid ? [preferred] : [];
+  } else if (strategy === 'preferred-first' || strategy === 'preferred model first') {
+    priorities = [preferred, ...taskOrder, ...ownerOrder, ...configuredOrder];
+  } else if (strategy === 'provider-priority' || strategy === 'provider priority') {
+    priorities = [...ownerOrder, preferred, ...taskOrder, ...configuredOrder];
+  } else {
+    priorities = [...taskOrder, preferred, ...ownerOrder, ...configuredOrder];
+  }
 
-  // Workers AI is an optional final fallback and requires a real binding.
-  if (env?.AI && typeof env.AI.run === 'function' && !ordered.includes('cloudflare-workers-ai')) {
+  // Only configured providers are tried; never invent a credential or route to
+  // an unavailable provider. Deduplication also prevents repeat calls.
+  const ordered = [...new Set(priorities.filter(Boolean))]
+    .filter(provider => isProviderConfigured(env, provider));
+
+  // Workers AI is an optional fallback unless the user explicitly selected
+  // "Stop and notify me" for a preferred external provider.
+  if (
+    !stopOnPreferredFailure &&
+    env?.AI &&
+    typeof env.AI.run === 'function' &&
+    !ordered.includes('cloudflare-workers-ai')
+  ) {
     ordered.push('cloudflare-workers-ai');
   }
   return ordered;
@@ -960,7 +984,12 @@ export async function callModel(
     env,
     requested,
     String(options.taskPrompt || options.user || ''),
-    globalOrder
+    globalOrder,
+    {
+      preferredProvider: options.preferredProvider,
+      routingStrategy: options.routingStrategy,
+      fallbackPolicy: options.fallbackPolicy
+    }
   );
   if (requested === 'automatic' && availableProviders.length === 0) {
     throw Object.assign(
