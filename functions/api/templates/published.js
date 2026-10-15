@@ -13,9 +13,12 @@ function timestampMs(value) {
   if (typeof value === 'object') {
     const seconds = Number(value.seconds ?? value._seconds);
     if (Number.isFinite(seconds) && seconds > 0) return Math.round(seconds * 1000);
-    const date = String(value.toDate?.() || '');
-    const parsedDate = Date.parse(date);
-    return Number.isFinite(parsedDate) && parsedDate > 0 ? parsedDate : null;
+    if (typeof value.toDate === 'function') {
+      const date = value.toDate();
+      const parsedDate = date instanceof Date ? date.getTime() : Date.parse(String(date || ''));
+      return Number.isFinite(parsedDate) && parsedDate > 0 ? parsedDate : null;
+    }
+    return null;
   }
   const numeric = Number(value);
   if (Number.isFinite(numeric) && numeric > 0) return numeric;
