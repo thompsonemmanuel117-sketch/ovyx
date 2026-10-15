@@ -268,7 +268,8 @@
     try {
       const data = await api(NOTIFICATIONS_ENDPOINT, jsonOptions('PUT', { notifications: next }));
       renderNotificationState(panel, data.notifications || next);
-      try { localStorage.setItem('ovyx.notifications.v1', JSON.stringify(notificationDraft)); } catch (_) {}
+      window.OVYXSettingsNotificationPreferences = Object.assign({}, notificationDraft);
+      try { localStorage.setItem(notificationStorageKey(), JSON.stringify(notificationDraft)); } catch (_) {}
       if (status) status.textContent = 'Server confirmed account preferences saved. Email options are stored preferences; delivery still requires a configured mail channel.';
       notify(reset ? 'Notification preferences reset and saved to your account.' : 'Notification preferences saved to your account.', 'success');
     } catch (error) {
