@@ -78,7 +78,7 @@ for (const requirement of [
   "const DATA_LAYER_CONFIG_KEY = 'ovyx.data.layer.v1'",
   "credentials: 'omit'",
   "store.open = wrapped",
-  "payload.preferredProvider',
+  'payload.preferredProvider',
   'payload.providerRouting',
   'payload.provider = String(prefs.provider).toLowerCase()',
   'limitContextFiles',
