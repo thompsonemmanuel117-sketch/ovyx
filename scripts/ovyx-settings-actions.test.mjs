@@ -78,7 +78,7 @@ for (const requirement of [
   "const DATA_LAYER_CONFIG_KEY = 'ovyx.data.layer.v1'",
   "Object.assign({ endpoint: '', projectSync: false }",
   'initialiseDataLayerConsent',
-  'window.confirm(\'Enable Data API project sync for \')',
+  "window.confirm('Enable Data API project sync for ' + new URL",
   'Firebase ID token for authentication',
   "credentials: 'omit'",
   "store.open = wrapped",
