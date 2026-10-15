@@ -235,6 +235,7 @@ try {
       null,
       { timeout: 45000 },
     );
+    await waitForRouteRestore(page);
     await page.evaluate(() => window.Router.go('settings'));
     await page.locator('#view-settings').waitFor({ state: 'visible' });
     await page.evaluate(() => window.OVYXSettings.show('editor'));
