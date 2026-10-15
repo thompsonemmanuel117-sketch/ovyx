@@ -14,6 +14,19 @@ try {
     const page = await browser.newPage({ viewport: target.viewport });
     page.setDefaultTimeout(15000);
     page.on('console', message => { const location = message.location(); console.log('[' + target.name + ' browser console] ' + message.type() + (location?.url ? ' [' + location.url + ':' + (location.lineNumber || 0) + ']' : '') + ': ' + message.text()); });
+    page.on('requestfailed', request => {
+      if (/\\.(?:m?js|tsx)(?:\\?|$)/i.test(request.url())) {
+        console.log('[' + target.name + ' script request failed] ' + request.url() + ': ' + String(request.failure()?.errorText || 'unknown network error'));
+      }
+    });
+    page.on('response', response => {
+      const url = response.url();
+      if (!/\\.(?:m?js|tsx)(?:\\?|$)/i.test(url)) return;
+      const contentType = String(response.headers()['content-type'] || '').toLowerCase();
+      if (!response.ok() || contentType.includes('text/html')) {
+        console.log('[' + target.name + ' script response issue] HTTP ' + response.status() + ' ' + url + ' content-type=' + contentType);
+      }
+    });
 
     await installOwnerBrowserApiFixtures(page, { initialUser: { uid: 'ovyx-admin-root-fixture', email: 'ovyxsupportteam@gmail.com', token: 'ovyx-admin-root-test-token' } });
 
