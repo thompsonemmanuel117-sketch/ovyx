@@ -250,3 +250,36 @@ Add targeted desktop/mobile browser coverage for **Profile Save and Notification
 ## Exact next action
 
 Add targeted desktop/mobile browser coverage for **AI Preferences Save/Reset and request propagation** first. Use mocked authenticated AI endpoints, record the generated payload, verify Save and Reset each operate once, and prove the next request receives the selected provider/model/routing/fallback/context options. Run the full Agent Verify and Chromium workflows, inspect both full logs for errors and warnings, merge into main only after success, and update this checkpoint again. Then proceed through Editor/Workspace toggles and Shortcuts. Do not mark Settings complete until all visible controls in the 13-category inventory have direct behavior/persistence/API evidence.
+
+
+## Stage 2 — AI Preferences propagation fix (2026-10-15)
+- **PR:** #144 — https://github.com/thompsonemmanuel117-sketch/ovyx/pull/144
+- **Merged commit:** 9f3836e6e909a1ccd5fc00517ded01da6f55ffb8
+- [x] Added scripts/ovyx-settings-ai.browser.test.mjs and wired it into the existing desktop/mobile Chromium workflow.
+- [x] Confirmed a real gap: the Settings runtime prepared preferredProvider, providerRouting, and maxTokens, but secureGenerate() rebuilt the JSON request body without forwarding those values on the automatic assistant path. The authenticated backend already supports these fields.
+- [x] Forwarded the saved preferred provider, routing strategy, model override and token budget through the assistant request body; forwarded provider/routing settings through the gateway request body as well.
+- [x] Added source regression assertions so request-body fields cannot silently disappear again.
+- [x] Browser test passed on desktop and mobile Chromium. It verified exactly one Save write and one Reset removal; provider and routing arrived at the actual mocked /api/ai/assistant request boundary; maximum budget, quality-mode instruction, conservative context size (120,000 characters), and disabled page/GitHub context all matched the saved settings.
+- [x] OVYX Agent Verify run #824 passed: npm test, npm run validate, npm run build preflight, Wrangler check. Log: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38823686294
+- [x] OVYX Assistant Workspace Browser Tests run #354 passed: Appearance, Data Layer, AI Preferences, Profile/Notifications, and the entire existing desktop/mobile Chromium regression suite passed. Log: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38823686406
+- [!] Non-blocking warnings remain: punycode deprecation and GitHub Actions Node 20-to-24 deprecation. Both full logs were inspected; no error-level failures, failed tests, or build failures were found.
+- [x] The code/test/workflow changes are merged into main. Preserve rollback/settings-baseline-20261015 at the original frozen baseline.
+
+## Stage 2 progress after AI Preferences
+Completed and directly browser-tested on desktop/mobile:
+- Appearance Save/Cancel/Reset is handled by one canonical owner; a single click applies/saves/resets once.
+- Data Layer truthfulness, endpoint health-only request, local persistence, sync toggle, and starter SQL download.
+- Profile server-backed save, failed-save retry, and Notifications draft/save/reset/server persistence.
+- AI Preferences Save/Reset and actual request propagation for provider/routing/model-budget/context settings.
+
+## Remaining Stage 2 work
+1. **Editor and Workspace:** test actual route behavior, autosave recovery on/off, confirm-delete on/off, inspector, live preview and default editor mode on desktop/mobile.
+2. **Shortcuts:** test Command Palette, New Project, Save Project, Undo and Redo in their relevant surfaces.
+3. **Profile/Security destructive paths:** verify both account-deletion controls separately with a disposable test account; verify session revocation using a safe authenticated fixture.
+4. **Appearance Theme Lab:** cover custom theme Save, Duplicate, Import, Export, Delete and Reset in browser tests.
+5. **Plan, Usage, Token Boosters:** test quota refresh/error states and mocked/sandbox checkout start/cancel/failure/verified credit. Never make a real purchase in regression tests.
+6. **Account email preferences:** they store preferences only; no outgoing delivery is verified without a configured mail provider.
+7. After each focused fix, inspect both full CI logs, merge only when required jobs pass, and update this checkpoint.
+
+## Exact next action
+Add targeted desktop/mobile tests for **Editor and Workspace behavior**: open behavior route outcome, autosave snapshot on/off, destructive-confirm on/off, inspector visibility, live-preview pause/resume, and editor-mode persistence. Use safe test projects and mocked APIs, then fix only failures the browser test demonstrates. Run the Agent Verify and Chromium workflows, inspect full logs, merge into main, and update this checkpoint again.
