@@ -483,6 +483,17 @@
         ['teamworkspace', 'Team Workspace'],
         ['templates', 'Blueprint Templates']
       ];
+      const defaultGates = {
+        webstudio: 'pro',
+        advancedwebstudio: 'max',
+        appstudio: 'max',
+        aigeneration: 'free',
+        github: 'pro',
+        cloudflaredeploy: 'pro',
+        teamworkspace: 'max',
+        templates: 'free'
+      };
+      const savedGates = window.AdminConfigurator?.gating || {};
       for (const [key, label] of gateRows) {
         const field = document.createElement('label');
         field.className = 'ovyx-owner-live-field';
@@ -497,6 +508,8 @@
           option.textContent = tier.toUpperCase();
           select.appendChild(option);
         }
+        const initialGate = String(savedGates[key] || defaultGates[key] || 'free').toLowerCase();
+        select.value = ['free', 'pro', 'max', 'root'].includes(initialGate) ? initialGate : 'free';
         field.appendChild(select);
         gatesHost.appendChild(field);
       }
