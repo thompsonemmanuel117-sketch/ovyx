@@ -949,9 +949,11 @@ export async function callModel(
 
   let globalOrder = null;
   if (requested === 'automatic') {
-    try { globalOrder = await readGlobalProviderOrder(env); }
-    catch (error) {
-      throw Object.assign(new Error('OVYX could not verify the owner-configured AI Brain routing policy. Retry after server configuration is available.'), { status: 503, code: 'GLOBAL_AI_CONFIG_UNAVAILABLE' });
+    try {
+      globalOrder = await readGlobalProviderOrder(env);
+    } catch {
+      /* The routing preference is not an access-control secret. Preserve AI availability by using the existing server/env fallback if Firestore is temporarily unavailable. */
+      globalOrder = null;
     }
   }
   const availableProviders = providerOrder(
