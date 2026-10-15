@@ -44,14 +44,14 @@ async function onRequestGet(context){
       verifiedData=response?.data||{};
       status=text(verifiedData.status).toLowerCase()||'pending';
       assertServerAmount(expectedAmount,amountForProvider(verifiedData)/100);
-      assertCurrency(expectedCurrency,providerCurrency(verifiedData)||'NGN');
+      assertCurrency(expectedCurrency,providerCurrency(verifiedData));
       if(text(verifiedData.reference||verifiedData.outOrderNo)!==reference)throw Object.assign(new Error('OPay reference mismatch.'),{status:409,code:'OPAY_REFERENCE_MISMATCH'});
     }else if(provider==='paystack'){
       const response=await verifyPayment(context.env,reference);
       verifiedData=response?.data||{};
       status=text(verifiedData.status).toLowerCase()||'pending';
       assertServerAmount(expectedAmount,Number(verifiedData.amount)/100);
-      assertCurrency(expectedCurrency,text(verifiedData.currency||expectedCurrency).toUpperCase());
+      assertCurrency(expectedCurrency,text(verifiedData.currency).toUpperCase());
       if(text(verifiedData.reference)!==reference)throw Object.assign(new Error('Paystack reference mismatch.'),{status:409,code:'PAYSTACK_REFERENCE_MISMATCH'});
     }else{
       return errorResponse(409,'PAYMENT_PROVIDER_UNSUPPORTED','This payment provider is not supported.',id);
