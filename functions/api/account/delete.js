@@ -86,11 +86,21 @@ export async function onRequestPost(context) {
     assertFreshAuth(user);
 
     const uid = uidOf(user);
+    const accountEmail = String(user.email || '').trim().toLowerCase();
+    if (!accountEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(accountEmail)) {
+      throw Object.assign(new Error('A verified account email is required to clean up this OVYX account.'), {
+        status: 401,
+        code: 'ACCOUNT_EMAIL_REQUIRED'
+      });
+    }
 
-    // Delete the authenticated user's Firestore tree, including project,
-    // conversation and notification subcollections. Payment/audit records
-    // are intentionally preserved where required for reconciliation/security.
+    // OVYX has used both UID-keyed account records and email-keyed workspace
+    // records. Delete both roots recursively so projects, connections,
+    // notifications and brand-profile subcollections are not left orphaned.
     await deleteFirestoreDocumentTree(context.env, 'users', uid);
+    if (accountEmail !== uid) {
+      await deleteFirestoreDocumentTree(context.env, 'users', accountEmail);
+    }
 
     // Remove the trusted GitHub connection record, if one exists.
     try {
@@ -110,16 +120,17 @@ export async function onRequestPost(context) {
       });
     }
 
-    // Remove Firebase Storage objects using the user's OVYX namespace.
-    await deleteStoragePrefix(context.env, `users/${uid}/`);
+    // Remove user-scoped project assets and the separate profile-avatar namespace.
+    await deleteStoragePrefix(context.env, `users/\${uid}/`);
+    await deleteStoragePrefix(context.env, `profile/\${uid}/`);
 
     return jsonResponse(
       {
         ok: true,
         uid,
         deleted: true,
-        firestore: 'deleted',
-        storage: 'deleted',
+        firestore: 'uid-and-email-workspace-trees-deleted',
+        storage: 'user-and-profile-prefixes-deleted',
         requiresClientAuthDeletion: true,
         nextStep: 'Call currentUser.delete() on the Firebase client, then signOut and clear local session state.',
       },
