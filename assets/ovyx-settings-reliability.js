@@ -186,8 +186,8 @@
   async function saveProfile(button) {
     const panel = document.querySelector('[data-settings-panel="profile"]');
     const status = addStatus(panel, 'ovyx-profile-server-status', 'Saving account profile…');
-    const name = $('set-profile-name');
-    const workspace = $('set-workspace-name');
+    const name = $('set-profile-name') || $('set-profile-name-legacy');
+    const workspace = $('set-workspace-name') || $('set-workspace-name-legacy');
     const displayName = String(name && name.value || '').trim();
     const workspaceName = String(workspace && workspace.value || 'Creative Workspace').trim();
     if (!displayName) throw new Error('Display name cannot be empty.');
@@ -345,6 +345,8 @@
       try {
         const prefix = 'ovyx.profile.v2.user.' + String(user.uid);
         localStorage.removeItem(prefix);
+        localStorage.removeItem('ovyx.profile.v1');
+        localStorage.removeItem('ovyx.brand.v1.' + encodeURIComponent(String(user.email || '').trim().toLowerCase()));
         localStorage.removeItem('ovyx.ai.preferences.v1.user.' + String(user.uid));
         localStorage.removeItem('ovyx.notifications.v1.user.' + String(user.uid));
         localStorage.removeItem('ovyx.notifications.v1');
@@ -399,7 +401,7 @@
   }
   function installProfileActions() {
     document.addEventListener('click', function (event) {
-      const button = event.target && event.target.closest && event.target.closest('#profile-save-action');
+      const button = event.target && event.target.closest && event.target.closest('#profile-save-action, [data-save-profile]');
       if (!button) return;
       event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
       saveProfile(button).catch(error => notify(error.message || 'Profile save failed.', 'error'));
