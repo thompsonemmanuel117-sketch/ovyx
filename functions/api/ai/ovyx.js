@@ -3,6 +3,7 @@ import { readJson, json, errorResponse, requestId } from '../../_lib/http.js';
 import { beginAIQuota, finalizeAIQuota, refundDailyPrompt } from '../../_lib/token-quota.js';
 import { saveChatTurn, resolveConversationId } from '../../_lib/chat-history.js';
 import { generateOvyxNativeAI } from '../../_lib/ovyx-native-ai.js';
+import { getAIIdentityDirective } from '../../_lib/ai-identity.js';
 
 function normalizeMessages(payload) {
   if (Array.isArray(payload?.messages)) {
@@ -48,10 +49,11 @@ export async function onRequestPost(context) {
     reservation = await beginAIQuota(context.env, user);
     let result;
     try {
+      const globalIdentityDirective = await getAIIdentityDirective(context.env);
       result = await generateOvyxNativeAI(context.env, {
         messages,
         prompt: requestPrompt,
-        system: String(payload.system || '').slice(0, 7000),
+        system: [String(payload.system || '').slice(0, 7000), globalIdentityDirective].filter(Boolean).join('\\n\\n').slice(0, 10500),
         context: payload.context || {
           project: payload.project || null,
           files: payload.files || null,
