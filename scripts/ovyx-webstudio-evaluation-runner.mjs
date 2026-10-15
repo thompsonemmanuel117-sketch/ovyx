@@ -149,6 +149,123 @@ const SECRET_PATTERNS = [
 
 const PLACEHOLDER_COPY = /\b(?:lorem ipsum|coming soon|insert (?:your|company|text)|replace (?:me|this|with)|todo|fixme|placeholder text|your (?:company|business|brand) name|example\.com)\b/i;
 
+function buildDesignEvidence(categoryId, allSource, htmlEntries, cssEntries) {
+  const css = cssEntries.map(([, content]) => String(content || '')).join('\n');
+  const html = htmlEntries.map(([, content]) => String(content || '')).join('\n');
+  const source = String(allSource || '') + '\n' + css + '\n' + html;
+  const customProperties = new Set(Array.from(css.matchAll(/(--[a-z0-9_-]+)\s*:/gi), match => match[1].toLowerCase()));
+  const fontFamilies = new Set();
+  for (const match of css.matchAll(/font-family\s*:\s*([^;}{]+)/gi)) {
+    for (const family of match[1].split(',').map(value => value.trim().replace(/^["']|["']$/g, '').toLowerCase()).filter(Boolean)) {
+      fontFamilies.add(family);
+    }
+  }
+  const layoutPatterns = [
+    /display\s*:\s*grid/i, /display\s*:\s*flex/i, /grid-template-(?:columns|areas|rows)\s*:/i,
+    /aspect-ratio\s*:/i, /object-position\s*:/i, /container-type\s*:/i, /clip-path\s*:/i,
+    /mask-image\s*:/i, /mix-blend-mode\s*:/i, /scroll-snap-type\s*:/i, /writing-mode\s*:/i,
+  ];
+  const layoutTechniques = layoutPatterns.filter(pattern => pattern.test(css)).length;
+  const mediaQueries = (css.match(/@media\b/gi) || []).length;
+  const fluidTypography = (css.match(/font-size\s*:\s*[^;}]*\bclamp\s*\(/gi) || []).length;
+  const responsiveImageSignals = (html.match(/<picture\b|<source\b[^>]*\bsrcset\s*=|<img\b[^>]*\bsrcset\s*=/gi) || []).length;
+  const reducedMotion = /prefers-reduced-motion\s*:\s*reduce/i.test(css);
+  const categoryPatterns = {
+    'luxury-real-estate': /\b(?:property|properties|listing|real estate|viewing|agent|bedrooms?)\b/i,
+    'fashion-brand': /\b(?:collection|lookbook|size guide|variant|fit guide|editorial)\b/i,
+    'saas-platform': /\b(?:pricing|product|features|dashboard|workflow|integrations)\b/i,
+    restaurant: /\b(?:menu|reservation|dining|opening hours|table booking)\b/i,
+    'ecommerce-store': /\b(?:add.{0,24}cart|product|category|checkout|shopping cart|basket)\b/i,
+    'booking-platform': /\b(?:availability|time slot|booking|reservation|select a date|guest details)\b/i,
+    agency: /\b(?:case studies|case study|selected work|our work|services|creative studio)\b/i,
+    portfolio: /\b(?:projects|selected work|case studies|experience|project archive)\b/i,
+    'data-dashboard': /\b(?:dashboard|metric|filters?|data table|date range|chart|reporting)\b/i,
+  };
+  const signals = {
+    designSystemTokens: { status: customProperties.size >= 4 ? 'present' : customProperties.size ? 'partial' : 'not-found', count: customProperties.size },
+    typographySystem: { status: fontFamilies.size >= 2 ? 'present' : fontFamilies.size ? 'partial' : 'not-found', distinctFamilies: fontFamilies.size },
+    fluidTypography: { status: fluidTypography > 0 ? 'present' : 'not-found', declarations: fluidTypography },
+    layoutComposition: { status: layoutTechniques >= 3 ? 'present' : layoutTechniques ? 'partial' : 'not-found', distinctTechniques: layoutTechniques },
+    responsiveArtDirection: { status: responsiveImageSignals > 0 ? 'present' : 'not-found', pictureOrResponsiveImageSignals: responsiveImageSignals },
+    responsiveBreakpoints: { status: mediaQueries >= 2 ? 'present' : mediaQueries ? 'partial' : 'not-found', mediaQueries },
+    reducedMotionSupport: { status: reducedMotion ? 'present' : 'not-found' },
+    categorySpecificDirection: { status: (categoryPatterns[categoryId] || /$a/).test(source) ? 'source-evidence-present' : 'not-found' },
+  };
+  return {
+    signals,
+    observedSignalCount: Object.values(signals).filter(item => item.status === 'present' || item.status === 'source-evidence-present').length,
+    signalCountAvailable: Object.keys(signals).length,
+    visualOriginalityVerified: false,
+    notes: [
+      'These are source-level design signals, not a score for beauty, originality, brand fit, conversion or business outcomes.',
+      'Stylesheet signals can exist in a page that renders poorly; inspect screenshots at real viewport sizes before judging visual quality.',
+    ],
+  };
+}
+
+function buildJourneyEvidence(requirements, allSource, htmlEntries, cssEntries, scriptEntries) {
+  const html = htmlEntries.map(([, content]) => String(content || '')).join('\n');
+  const css = cssEntries.map(([, content]) => String(content || '')).join('\n');
+  const scripts = scriptEntries.map(([, content]) => String(content || '')).join('\n');
+  const source = String(allSource || '') + '\n' + html + '\n' + css + '\n' + scripts;
+  const hasForm = /<form\b/i.test(html);
+  const hasFields = /<(?:input|select|textarea)\b/i.test(html);
+  const hasNativeValidation = /\brequired\b|checkValidity\s*\(|reportValidity\s*\(|setCustomValidity\s*\(|aria-invalid\s*=/i.test(source);
+  const hasErrorState = /\b(?:error-message|form-error|aria-invalid|role\s*=\s*["']alert|something went wrong|try again)\b/i.test(source);
+  const hasAsyncState = /\b(?:loading|isLoading|pending|aria-busy|skeleton|empty state|no results|no data|failed to load)\b/i.test(source);
+  const hasSearch = /type\s*=\s*["']?search\b|\brole\s*=\s*["']search\b/i.test(html) || /\bsearch\b/i.test(html + scripts);
+  const hasFilter = /\b(?:filter|sort)\b/i.test(html + scripts) && (/<select\b|type\s*=\s*["']?(?:checkbox|search|radio)|addEventListener\s*\(/i.test(html + scripts));
+  const hasDateOrGuest = /type\s*=\s*["']?(?:date|time|datetime-local)|\b(?:date range|time slot|availability calendar|choose a time|select a date|guest details|number of guests)\b/i.test(html + scripts);
+  const hasCartActions = /\b(?:add to cart|add to basket|view cart|cart count|cart-count|shopping cart)\b/i.test(html + scripts);
+  const hasEvents = /addEventListener\s*\(\s*["'](?:click|change|input|submit|keydown|keyup)["']|\.onclick\s*=|onchange\s*=/i.test(scripts + '\n' + html);
+  const hasResponsive = /name\s*=\s*["']viewport/i.test(html) && /@media\b/i.test(css);
+  const hasTable = /<table\b/i.test(html);
+  const hasHorizontalTableScroll = hasTable && /overflow-x\s*:\s*(?:auto|scroll)|overflow\s*:\s*(?:auto|scroll)/i.test(css);
+  const hasDetailEvidence = htmlEntries.length > 1 && /(?:product|property|project|case-study|details?)/i.test(html + '\n' + htmlEntries.map(([path]) => path).join('\n'));
+  const hasNav = /<nav\b/i.test(html) && /<a\b[^>]*href\s*=/i.test(html);
+  const hasPricingRoute = /href\s*=\s*["'][^"']*pricing[^"']*["']/i.test(html) || htmlEntries.some(([path]) => /pricing/i.test(path));
+  const hasServiceRoute = /href\s*=\s*["'][^"']*services?[^"']*["']/i.test(html) || htmlEntries.some(([path]) => /services?/i.test(path));
+  const hasReviewStep = /\b(?:review your|review booking|review order|step\s*[1-9]|aria-current\s*=\s*["']step|step-indicator)\b/i.test(html + scripts);
+  const hasKeyboardEvidence = /:focus(?:-visible)?\b/i.test(css) || /tabindex\s*=|aria-keyshortcuts/i.test(html + scripts);
+  const hasMobileNav = /<nav\b/i.test(html) && /(?:aria-expanded|menu-toggle|mobile-menu|nav-toggle|hamburger)/i.test(html + scripts);
+  const hasVisibleAction = /<(?:button|a)\b[^>]*>[\s\S]*?(?:contact|enquire|inquire|book|reserve|start|continue|request|send|view|explore|sign in|subscribe)[\s\S]*?<\/(?:button|a)\s*>/i.test(html);
+  const hasCollectionLinks = /(?:collection|lookbook|product)/i.test(html) && /<a\b[^>]*href\s*=/i.test(html);
+  const definitions = [
+    { re: /\b(?:multi-page navigation|marketing navigation|route navigation|navigation|navigate|nav links?)\b/i, test: () => hasNav, signals: ['semantic nav and href links'] },
+    { re: /\b(?:pricing routes?)\b/i, test: () => hasPricingRoute, signals: ['pricing route/file or internal link'] },
+    { re: /\b(?:filters?|filtering|sorting|sort(?:ing)?)\b/i, test: () => hasFilter, signals: ['filter/sort evidence plus control or event signal'] },
+    { re: /\bsearch\b/i, test: () => hasSearch, signals: ['search input/role or search source reference'] },
+    { re: /\b(?:viewing request form|reservation form|contact validation|contact flow|contact form|enquir(?:y|ies)|inquir(?:y|ies)|request form|form)\b/i, test: () => hasForm && hasFields, signals: ['form and at least one field'] },
+    { re: /\b(?:validation feedback|validation)\b/i, test: () => hasNativeValidation || hasErrorState, signals: ['native/custom validation or error feedback marker'] },
+    { re: /\b(?:empty state|loading\/empty\/error states?|error and empty states?|dashboard empty state)\b/i, test: () => hasAsyncState && (hasErrorState || /empty state|no results|no data/i.test(html + scripts)), signals: ['loading/empty marker with an error or explicit empty marker'] },
+    { re: /\b(?:mobile|responsive|tablet)\b/i, test: () => hasResponsive, signals: ['viewport metadata and CSS media query'] },
+    { re: /\b(?:cart|quantity|add to cart|cart state|checkout)\b/i, test: () => hasCartActions && (hasEvents || /<button\b/i.test(html)), signals: ['cart action and button/event source'] },
+    { re: /\b(?:size selection|size selector|variant)\b/i, test: () => /(?:size|variant)/i.test(html + scripts) && /<select\b|type\s*=\s*["']?radio|addEventListener\s*\(/i.test(html + scripts), signals: ['size/variant source plus selection control/event'] },
+    { re: /\b(?:date|guest controls|availability|booking flow|date\/guest controls)\b/i, test: () => hasDateOrGuest, signals: ['date/time input or availability/guest-control source'] },
+    { re: /\b(?:product detail|property detail|project detail|case-study navigation|detail links?|project detail)\b/i, test: () => hasDetailEvidence || /(?:product|property|project|case-study|details?)/i.test(html + scripts) && /<a\b[^>]*href\s*=/i.test(html), signals: ['detail route/copy and links'] },
+    { re: /\b(?:project index|project archive)\b/i, test: () => /(?:project|work|portfolio)/i.test(html + '\n' + htmlEntries.map(([path]) => path).join('\n')) && /<a\b[^>]*href\s*=/i.test(html), signals: ['project/work source and links'] },
+    { re: /\b(?:table overflow|data table)\b/i, test: () => hasHorizontalTableScroll, signals: ['HTML table plus overflow handling in CSS'] },
+    { re: /\b(?:review step)\b/i, test: () => hasReviewStep, signals: ['review-step or step-indicator source signal'] },
+    { re: /\b(?:cta behavior|cta flow|cta)\b/i, test: () => hasVisibleAction && hasEvents, signals: ['action label and event handler source'] },
+    { re: /\b(?:service page)\b/i, test: () => hasServiceRoute, signals: ['service route/file or internal link'] },
+    { re: /\b(?:keyboard use|keyboard-accessible|keyboard navigation)\b/i, test: () => hasKeyboardEvidence, signals: ['focus CSS or keyboard semantics'] },
+    { re: /\b(?:collection navigation)\b/i, test: () => hasCollectionLinks, signals: ['collection/product text plus internal links'] },
+    { re: /\b(?:mobile navigation)\b/i, test: () => hasMobileNav, signals: ['navigation plus mobile menu disclosure signal'] },
+    { re: /\b(?:responsive editorial layout|mobile property-card layout|tablet dashboard layout|mobile layout)\b/i, test: () => hasResponsive, signals: ['viewport declaration and responsive media CSS'] },
+  ];
+  return (Array.isArray(requirements) ? requirements : []).map(requirement => {
+    const matched = definitions.find(item => item.re.test(String(requirement || '')));
+    const present = matched ? matched.test() : false;
+    return {
+      requirement: clean(requirement, 160),
+      status: present ? 'source-evidence-present-behavior-unverified' : 'no-matching-static-evidence',
+      matchedSignals: present ? matched.signals : [],
+      browserBehaviorVerified: false,
+      integrationVerified: false,
+    };
+  });
+}
+
 export function evaluateSiteFiles(rawFiles, category, options = {}) {
   const files = {};
   if (rawFiles && typeof rawFiles === 'object' && !Array.isArray(rawFiles)) {
@@ -436,7 +553,8 @@ export function evaluateSiteFiles(rawFiles, category, options = {}) {
       info: infos,
     },
     findings,
-    functionalAcceptance: exercise.map(requirement => ({ requirement, status: 'not-proven-by-static-scan' })),
+    designEvidence: buildDesignEvidence(categoryId, allSource, htmlEntries, cssEntries),
+    functionalAcceptance: buildJourneyEvidence(exercise, allSource, htmlEntries, cssEntries, scriptEntries),
     integrationTruth: integrations.map(integration => ({ integration, status: 'unverified-unless-checked-against-the-real-service' })),
     limitations: [
       'The score measures static technical artifact readiness, not premium visual design or business value.',
