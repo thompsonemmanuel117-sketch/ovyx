@@ -6,6 +6,7 @@ import {
   requestId,
 } from '../../_lib/http.js';
 import { callModel } from '../../_lib/providers.js';
+import { getAIUserSettings, applyAIContextPreferences, buildAIUserDirective, buildAIUserCallOptions, applyAIUserBudget } from '../../_lib/ai-user-preferences.js';
 import { buildStudioMultiPage } from '../../_lib/studio-multipage.js';
 import { validateOrRepairSinglePageBuild } from '../../_lib/studio-singlepage.js';
 import { WEB_STUDIO_SYSTEM_PROMPT, WEB_STUDIO_EXCELLENCE } from '../../_lib/prompts.js';
@@ -62,6 +63,13 @@ export async function onRequestPost(context) {
       context.request,
       300_000
     );
+    const aiUserSettings = await getAIUserSettings(context.env, user.uid || user.sub);
+    Object.assign(payload, applyAIContextPreferences(payload, aiUserSettings));
+    const userAIDirective = buildAIUserDirective(aiUserSettings);
+    const callModelWithUserSettings = async (env, options = {}) => {
+      const preferred = buildAIUserCallOptions(aiUserSettings, options.provider, options.model);
+      return callModel(env, applyAIUserBudget({ ...options, ...preferred }, aiUserSettings));
+    };
 
     const rawLastMessage = Array.isArray(payload.messages)
       ? payload.messages.filter(x => x && (x.role === 'user' || x.role === 'assistant')).slice(-12).at(-1)?.content
@@ -143,7 +151,7 @@ Return useful concise answers.
 Never reveal server secrets.
 Do not invent repository state.
 When discussing project changes, distinguish recommendations from changes actually performed.`
-    ).slice(0, isWebStudio ? 40_000 : 20_000) + '\n\n' + globalAIIdentityDirective;
+    ).slice(0, isWebStudio ? 40_000 : 20_000) + '\n\n' + globalAIIdentityDirective + '\n\n' + userAIDirective;
 
     const provider = String(
       payload.provider || 'automatic'
@@ -186,7 +194,7 @@ When discussing project changes, distinguish recommendations from changes actual
 
         const generated = await buildStudioMultiPage({
           env: context.env,
-          callModel,
+          callModel: callModelWithUserSettings,
           provider: String(payload.provider || 'automatic').toLowerCase(),
           model: payload.model,
           authUser: user,
@@ -207,7 +215,7 @@ When discussing project changes, distinguish recommendations from changes actual
       }
 
       if (!result) {
-        result = await callModel(
+        result = await callModelWithUserSettings(
           context.env,
           {
             provider: String(payload.provider || 'automatic').toLowerCase(),
@@ -225,7 +233,7 @@ When discussing project changes, distinguish recommendations from changes actual
         if (isWebStudio && mode === 'build' && !multiPageBuild) {
           const singlePageResult = await validateOrRepairSinglePageBuild({
             env: context.env,
-            callModel,
+            callModel: callModelWithUserSettings,
             result,
             provider: String(payload.provider || 'automatic').toLowerCase(),
             model: payload.model,
