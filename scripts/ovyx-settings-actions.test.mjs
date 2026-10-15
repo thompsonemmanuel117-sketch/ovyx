@@ -52,6 +52,11 @@ for (const id of ['set-ai-routing','set-ai-fallback','set-ai-context-limit','set
   assert.ok(html.includes('id="' + id + '"'), 'Advanced AI preference must have a stable id: ' + id);
 }
 
+assert.match(runtime, /function hydrateProfileForm\(profile\)/, 'Profile reads must hydrate the active Settings form.');
+assert.match(runtime, /\$\('set-profile-name'\) \|\| \$\('set-profile-name-legacy'\)/, 'Profile load must support the live legacy-suffixed display-name field.');
+assert.match(runtime, /\$\('set-workspace-name'\) \|\| \$\('set-workspace-name-legacy'\)/, 'Profile load must support the live legacy-suffixed workspace field.');
+assert.match(runtime, /hydrateProfileForm\(data\.profile \|\| \{\}\)/, 'Server-read profile values must be applied after the authenticated GET succeeds.');
+
 for (const requirement of [
   "api(PROFILE_ENDPOINT, jsonOptions('PUT'",
   "api(NOTIFICATIONS_ENDPOINT, jsonOptions('PUT'",
