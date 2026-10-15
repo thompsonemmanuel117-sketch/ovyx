@@ -32,12 +32,14 @@ const source = {
   paystackWebhook: read('functions/api/payments/paystack-webhook.js'),
   shellMiddleware: read('functions/_middleware.js'),
   headers: read('_headers'),
+  pushWorker: read('sw.js'),
   html: read('index.html'),
   packageJson: JSON.parse(read('package.json')),
 };
 
 const changedJavaScriptFiles = [
   'assets/ovyx-admin-controls.js',
+  'sw.js',
   'scripts/ovyx-owner-browser-api-fixtures.mjs',
   'functions/api/_middleware.js',
   'functions/_lib/integration-state.js',
