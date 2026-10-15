@@ -83,7 +83,8 @@ try {
       await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ ok: true, deleted: true, emailScopedDocumentsDeleted: true }) });
     });
 
-    const response = await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+    const response = await page.goto(baseURL, { waitUntil: 'commit', timeout: 60000 });
+    // The single-file app has many legacy and deferred scripts. Verify the actual Settings runtime below instead of making this check depend on a global DOMContentLoaded wait.
     assert.ok(response && response.status() < 400, `[${target.name}] OVYX app did not load successfully.`);
     await page.waitForFunction(() => !!window.OVYXSettings && !!window.OVYXSettings.root?.querySelector('#ovyx-settings-main'), null, { timeout: 45000 });
     // Use the actual Settings navigation control on desktop. The mobile shell can hide
