@@ -148,6 +148,7 @@ for (const path of ['nativeAI','assistantAI','gatewayAI']) {
 }
 
 assert.match(source.broadcastApi, /action === 'unpublish'/);
+assert.match(source.html, /esc\(item\.message\|\|item\.body\|\|''\)/, 'Published global broadcasts store body and must render it for all users');
 assert.match(source.templatesApi, /action === 'unpublish'/);
 assert.match(source.runtime, /function withdrawBroadcast/);
 assert.match(source.runtime, /function withdrawTemplate/);
