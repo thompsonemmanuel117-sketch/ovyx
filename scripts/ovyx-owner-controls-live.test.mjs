@@ -68,6 +68,17 @@ for (const path of [
   '/api/deploy', '/api/payments/create', '/api/github/repos', '/api/workspace/activate'
 ]) assert.ok(source.appMiddleware.includes("'" + path + "'"), 'Global integration switch must guard ' + path + '.');
 assert.match(source.appMiddleware, /PRODUCTION_INTEGRATIONS_PAUSED/);
+assert.match(source.appMiddleware, /FEATURE_REQUIREMENTS_BY_PATH/);
+assert.match(source.appMiddleware, /resolveEntitlements\(context\.env, user\)/);
+assert.match(source.appMiddleware, /FEATURE_NOT_INCLUDED/);
+assert.match(source.entitlements, /aiGeneration: true/, 'Free AI access must remain consistent with the existing Free prompt/token allowance.');
+assert.match(source.assistantAI, /capabilities\?\.webStudio !== true/);
+assert.match(source.gatewayAI, /capabilities\?\.webStudio !== true/);
+assert.match(source.assistantAI, /capabilities\?\.appStudio !== true/);
+assert.match(source.gatewayAI, /capabilities\?\.appStudio !== true/);
+assert.match(source.runtime, /function bindTemplateAccessGuard/);
+assert.match(source.runtime, /capabilities\?\.templates !== true/);
+
 assert.match(source.switchState, /getProductionIntegrationState/);
 assert.match(source.controlApi, /action === 'setProductionState'/);
 assert.match(source.controlApi, /action === 'saveSettings'/);
