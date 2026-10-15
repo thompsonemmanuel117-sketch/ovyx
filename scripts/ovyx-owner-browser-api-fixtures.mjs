@@ -7,11 +7,11 @@ import assert from 'node:assert/strict';
  * missing-environment responses into misleading browser-console failures.
  * Keep the response bodies shaped like the corresponding public/admin APIs.
  */
-export async function installOwnerBrowserApiFixtures(page) {
+export async function installOwnerBrowserApiFixtures(page, options = {}) {
   // Avoid depending on outbound Firebase CDN availability in a local browser
   // test. This facade only exists inside the Playwright page; API authority is
   // represented by route fixtures and is independently verified server-side.
-  await page.addInitScript(() => {
+  await page.addInitScript((options) => {
     if (window.__OVYX_TEST_FIREBASE__) return;
     window.__OVYX_TEST_FIREBASE__ = true;
     window.__OVYX_FIREBASE_LOADER_INSTALLED__ = true;
@@ -22,7 +22,14 @@ export async function installOwnerBrowserApiFixtures(page) {
       apiKey: 'test-browser-only', projectId: 'ovyx-browser-test',
       authDomain: 'ovyx-browser-test.invalid'
     };
-    let currentUser = null;
+    const initialUser = options && options.initialUser && typeof options.initialUser === 'object' ? options.initialUser : null;
+    let currentUser = initialUser ? {
+      uid: String(initialUser.uid || 'ovyx-browser-test-user'),
+      email: String(initialUser.email || 'builder@example.test'),
+      emailVerified: true,
+      displayName: String(initialUser.displayName || 'OVYX Browser Test'),
+      getIdToken: async () => String(initialUser.token || 'ovyx-browser-test-token')
+    } : null;
     const authListeners = new Set();
     const emitAuth = () => authListeners.forEach(callback => {
       try { callback(currentUser); } catch (_) {}
@@ -80,7 +87,7 @@ export async function installOwnerBrowserApiFixtures(page) {
     };
     Object.defineProperty(window, 'firebase', { configurable: true, writable: true, value: firebase });
     window.__OVYX_RESOLVE_FIREBASE_READY__ = () => true;
-  });
+  }, options || {});
   const pricing = {
     pro: { ngn: 33500, usd: 20 },
     max: { ngn: 209375, usd: 120 }
