@@ -5,7 +5,7 @@
 - **Baseline branch:** `main`
 - **Baseline commit:** [`49d4fe7493b8f5b221ca6a0979de5f0bac0d4106`](https://github.com/thompsonemmanuel117-sketch/ovyx/commit/49d4fe7493b8f5b221ca6a0979de5f0bac0d4106) — `Repair Settings workspace and project sync` (2026-10-15 20:23:31 UTC).
 - **Rollback point:** `rollback/settings-baseline-20261015`, created directly from that exact SHA. Do not move this branch during the Settings audit.
-- **Audit/work branch:** `audit/settings-stage-1-20261015`, also started from the exact baseline SHA. Stage 1 documentation is committed here; `main` is not changed.
+- **Mainline merge:** Stage 1 docs are now merged into `main` by PR #136 at `3ed1e28d0d78155c08011592a9ae19280ec4376d`. The temporary audit branch was only used to submit the docs; do not continue work there.
 - **Source fingerprints at the baseline:** `index.html` blob `5ccef85057bf2a4b18958d676139ffcd5c26fcdf`; `assets/ovyx-settings-reliability.js` blob `e2304b9e2f34b2762b67ffc594eb5848a886155a`; `scripts/ovyx-settings-actions.test.mjs` blob `1e90b7ef63db057036c266470d33c0d91dc24992`; `package.json` blob `1820027650adc8f16aa9819090681a6273ceadd9`.
 - **Scope rule:** Stage 1 is inventory only. No Settings application behavior has been changed.
 
@@ -208,3 +208,10 @@ These rows are shortcut references, not settings to save. No per-shortcut custom
 - `scripts/ovyx-settings-actions.test.mjs` performs static source assertions and syntax checks and is included in `npm test`; it is not a live browser click-through of all Settings controls.
 - The GitHub combined commit-status endpoint returned no status contexts for the frozen SHA. This is **not** evidence that the tests passed.
 - A local repository checkout/browser run was not available in this Stage 1 session; no test result is claimed.
+
+
+## Mainline and verification status
+- Stage 1 source inventory/checkpoint are merged into `main` in PR #136 (commit `3ed1e28d0d78155c08011592a9ae19280ec4376d`).
+- PR verification `OVYX Agent Verify` run #791 passed its full `npm test` chain, `npm run validate`, and `npm run build` preflight; log: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38814368633
+- Recorded warnings: Node `punycode` deprecation and GitHub Actions Node 20-to-24 deprecation warning. These did not fail the job. Configuration messages emitted by negative-path tests were followed by those tests passing.
+- Source/browser behavior remains unverified until real clicks, persisted values, and network outcomes are tested. The successful source suite is not a substitute for a browser run.
