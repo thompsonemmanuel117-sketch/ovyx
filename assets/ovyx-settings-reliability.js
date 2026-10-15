@@ -981,7 +981,18 @@
       const originalShow = settings.show.bind(settings);
       settings.show = function (id) {
         const result = originalShow(id);
-        if (id === 'profile') setTimeout(loadProfile, 0);
+        if (id === 'profile') {
+          // Other Settings renderers can replace the Profile panel after initial boot.
+          // Rebuild its current form whenever the user opens it before hydrating server data.
+          try {
+            if (window.OVYXProfile && typeof window.OVYXProfile.render === 'function') {
+              window.OVYXProfile.render();
+            }
+          } catch (error) {
+            console.warn('[OVYX Settings] Profile panel could not be re-rendered.', String(error && error.message || error).slice(0, 120));
+          }
+          setTimeout(loadProfile, 0);
+        }
         if (id === 'notifications') setTimeout(loadNotifications, 0);
         if (id === 'usage') setTimeout(loadUsage, 0);
         if (id === 'workspace' || id === 'editor') setTimeout(installEditorMode, 0);
