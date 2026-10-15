@@ -189,6 +189,28 @@ try {
     await page.locator('#ovyx-global-ai-save').click();
     await page.waitForFunction(() => /Saved globally/.test(document.getElementById('ovyx-global-ai-status')?.textContent || ''), null, { timeout: 20000 });
 
+    // Confirm AI Brain routing writes are issued to the protected server API.
+    await hub.locator('[data-ovyx-admin-workspace-route="admin-brain"]').evaluate(button => button.click());
+    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-brain');
+    await page.locator('#ovyx-global-ai-routing').waitFor({ state: 'attached' });
+    await page.waitForFunction(() => /Loaded the saved server provider order/.test(document.getElementById('ovyx-global-ai-route-status')?.textContent || ''), null, { timeout: 20000 });
+    await page.locator('[data-provider-priority="openai"]').selectOption('1');
+    await page.locator('[data-provider-priority="gemini"]').selectOption('2');
+    await page.locator('#ovyx-global-ai-route-save').click();
+    await page.waitForFunction(() => /Global AI routing saved/.test(document.getElementById('ovyx-global-ai-route-status')?.textContent || ''), null, { timeout: 20000 });
+    assert.ok(ownerApiWrites.some(item => item.path === '/api/admin/ai-config' && item.body.providerOrder?.[0] === 'openai'),
+      '[' + target.name + '] AI Brain provider order must be saved via the protected server route.');
+
+    // Confirm overview, backend and telemetry use live HTTP response measurements.
+    await hub.locator('[data-ovyx-admin-workspace-route="admin-overview"]').evaluate(button => button.click());
+    await page.locator('#ovyx-owner-live-overview').waitFor({ state: 'attached' });
+    await page.waitForFunction(() => document.querySelectorAll('#ovyx-owner-overview-cards .ovyx-owner-live-card').length >= 4, null, { timeout: 20000 });
+    await hub.locator('[data-ovyx-admin-workspace-route="admin-backend"]').evaluate(button => button.click());
+    await page.locator('#ovyx-owner-backend-live-checks').waitFor({ state: 'attached' });
+    await page.waitForFunction(() => document.querySelectorAll('#ovyx-owner-backend-cards .ovyx-owner-live-card').length >= 4, null, { timeout: 20000 });
+    await hub.locator('[data-ovyx-admin-workspace-route="admin-telemetry"]').evaluate(button => button.click());
+    await page.locator('#ovyx-owner-telemetry-note').waitFor({ state: 'attached' });
+    await page.waitForFunction(() => document.querySelectorAll('#telemetry-cards-grid .v0-card').length >= 4, null, { timeout: 20000 });
     await hub.locator('[data-ovyx-admin-workspace-route="admin-template-hub"]').evaluate(button => button.click());
     await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-template-hub');
     await page.locator('#view-admin-template-hub [data-ovyx-admin-workspace-back]').waitFor({ state: 'visible' });
