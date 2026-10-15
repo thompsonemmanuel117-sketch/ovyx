@@ -15,7 +15,7 @@ const USER_PREFS_PATH = uid => ['users', uid, 'settings', 'preferences'];
 const clean = (value, max = 200) => String(value ?? '').replace(/[\u0000-\u001F\u007F]/g, '').trim().slice(0, max);
 const isRecord = value => Boolean(value && typeof value === 'object' && !Array.isArray(value));
 const bool = value => typeof value === 'boolean' ? value : undefined;
-const COLOR_KEYS = ['accentColor', 'backgroundColor', 'sidebarColor', 'cardColor', 'borderColor', 'textColor', 'mutedColor'];
+const COLOR_KEYS = ['accentColor', 'backgroundColor', 'sidebarColor', 'cardColor', 'borderColor', 'textColor', 'mutedColor', 'bg', 'panel', 'elev', 'text', 'secondary', 'muted', 'accent'];
 const THEME_KEYS = ['bg', 'panel', 'elev', 'text', 'secondary', 'muted', 'accent'];
 
 function normalizeAppearance(value) {
