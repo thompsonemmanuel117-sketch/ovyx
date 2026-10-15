@@ -93,6 +93,16 @@ function normalizeAI(value) {
   return out;
 }
 
+function normalizeProfile(value) {
+  if (!isRecord(value)) return null;
+  const out = {};
+  const displayName = clean(value.displayName, 60);
+  const workspaceName = clean(value.workspaceName, 60);
+  if (displayName) out.displayName = displayName;
+  if (workspaceName) out.workspaceName = workspaceName;
+  return out;
+}
+
 function normalizeNotifications(value) {
   if (!isRecord(value)) return null;
   const out = {};
@@ -112,6 +122,7 @@ export function sanitizeSettingsPreferences(value) {
     appearance: normalizeAppearance,
     themeLab: normalizeThemeLab,
     workspace: normalizeWorkspace,
+    profile: normalizeProfile,
     ai: normalizeAI,
     notifications: normalizeNotifications
   };
