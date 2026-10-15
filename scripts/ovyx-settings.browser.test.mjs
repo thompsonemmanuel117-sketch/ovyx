@@ -116,7 +116,7 @@ try {
     const endpointChangeDialog = page.waitForEvent('dialog');
     const endpointSaveClick = page.locator('#ovyx-data-save').click();
     const endpointDialog = await endpointChangeDialog;
-    assert.match(endpointDialog.message(), /new service.*Firebase ID token/i, `[${target.name}] changing the active external endpoint must require renewed consent.`);
+    assert.match(endpointDialog.message(), /Firebase ID token.*new service/i, `[${target.name}] changing the active external endpoint must require renewed consent.`);
     await endpointDialog.dismiss();
     await endpointSaveClick;
     const endpointConfig = await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx.data.layer.v1') || '{}'));
@@ -195,7 +195,10 @@ try {
     await page.waitForFunction(() => window.__OVYX_SETTINGS_BROWSER_TEST_USER__?.deleted === true);
     assert.equal(accountDeletionRequests, 1, `[${target.name}] Profile account deletion bypassed the server-confirmed cleanup API.`);
 
-    await page.evaluate(() => window.Router?.go?.('settings'));
+    await page.evaluate(() => {
+      window.__OVYX_SETTINGS_BROWSER_TEST_USER__.deleted = false;
+      window.Router?.go?.('settings');
+    });
     await page.evaluate(() => window.OVYXSettings.show('security'));
     await page.waitForSelector('#ovyx-security-delete', { state: 'attached' });
     const securityDeleteDialog = page.waitForEvent('dialog');
