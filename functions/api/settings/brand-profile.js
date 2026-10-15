@@ -139,14 +139,17 @@ async function onRequest(context) {
     }
 
     const body = await parseBody(request);
+    const now = new Date().toISOString();
+    const current = await getFirestoreDocumentAtPath(context.env, path);
+    const currentData = current ? (await getFirestoreDataAtPath(context.env, path)) || {} : {};
+    // This UI commonly saves colors/rules without selecting a new logo. A null
+    // logo value therefore means "keep the current asset", not "erase it".
+    // There is no separate remove-logo action in this settings surface.
     const logoDataUrl = body.logoDataUrl == null
-      ? null
+      ? (currentData.logoDataUrl || null)
       : normalizeLogo(body.logoDataUrl);
     const colors = normalizeColors(body.colors);
     const layoutRules = normalizeRules(body.layoutRules);
-
-    const now = new Date().toISOString();
-    const current = await getFirestoreDocumentAtPath(context.env, path);
 
     const profile = {
       ownerUid: identity.uid,
@@ -154,7 +157,7 @@ async function onRequest(context) {
       logoDataUrl,
       colors,
       layoutRules,
-      version: Number(current ? (await getFirestoreDataAtPath(context.env, path))?.version : 0) + 1 || 1,
+      version: Number(currentData.version || 0) + 1 || 1,
       updatedAt: now
     };
 
