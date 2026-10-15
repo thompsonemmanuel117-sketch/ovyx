@@ -71,6 +71,7 @@ for (const path of [
 assert.match(source.appMiddleware, /PRODUCTION_INTEGRATIONS_PAUSED/);
 assert.match(source.appMiddleware, /FEATURE_REQUIREMENTS_BY_PATH/);
 assert.match(source.appMiddleware, /resolveEntitlements\(context\.env, user\)/);
+assert.match(source.appMiddleware, /import \{ resolveEntitlements \} from '\.\/entitlements\.js';/, 'Feature enforcement middleware must import the resolver it invokes.');
 assert.match(source.appMiddleware, /FEATURE_NOT_INCLUDED/);
 assert.match(source.entitlements, /aiGeneration: true/, 'Free AI access must remain consistent with the existing Free prompt/token allowance.');
 assert.match(source.assistantAI, /capabilities\?\.webStudio !== true/);
