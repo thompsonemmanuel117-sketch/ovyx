@@ -17,7 +17,14 @@ const good = evaluateSiteFiles(goodFiles, category);
 assert.equal(good.status, 'pass', JSON.stringify(good.findings));
 assert.equal(good.counts.htmlPages, 2);
 assert.ok(good.technicalReadinessScore >= 95);
-assert.ok(good.functionalAcceptance.some(item => item.status === 'not-proven-by-static-scan'));
+assert.ok(good.functionalAcceptance.length > 0);
+assert.ok(good.functionalAcceptance.every(item => ['source-evidence-present-behavior-unverified', 'no-matching-static-evidence'].includes(item.status)));
+assert.ok(good.functionalAcceptance.every(item => item.browserBehaviorVerified === false && item.integrationVerified === false));
+assert.ok(good.functionalAcceptance.some(item => item.requirement === 'multi-page navigation' && item.status === 'source-evidence-present-behavior-unverified'));
+assert.ok(good.functionalAcceptance.some(item => item.requirement === 'listing filters' && item.status === 'no-matching-static-evidence'));
+assert.equal(good.designEvidence.visualOriginalityVerified, false);
+assert.ok(good.designEvidence.signalCountAvailable >= 7);
+assert.equal(good.designEvidence.signals.categorySpecificDirection.status, 'source-evidence-present');
 assert.ok(good.integrationTruth.every(item => item.status.includes('unverified')));
 assert.equal(good.counts.fragmentLinks, 2, 'Valid same-page and cross-page fragment links should be counted.');
 assert.equal(good.counts.srcsetCandidates, 1, 'Responsive image candidates should be counted.');
@@ -50,6 +57,22 @@ const dataSrcset = evaluateSiteFiles({
   'index.html': goodFiles['index.html'].replace('srcset="assets/mark.svg 1x"', 'srcset="data:image/svg+xml,%3Csvg%3E 1x"'),
 }, category);
 assert.ok(!dataSrcset.findings.some(item => item.code === 'IMAGE_SRCSET_UNRESOLVED'), 'Data URLs must not create false responsive-image findings.');
+
+const richFiles = {
+  ...goodFiles,
+  'index.html': '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Northstar Studio</title><meta name="description" content="Independent creative studio."><meta property="og:title" content="Northstar Studio"><link rel="stylesheet" href="assets/site.css"></head><body><nav><a href="/work/">Selected work</a><a href="/services/">Services</a></nav><main><h1>Ideas made tangible</h1><section id="approach"><p>We create digital experiences with care.</p><img src="assets/mark.svg" srcset="assets/mark.svg 1x" alt="Northstar Studio mark"><a href="/work/project-one/">Read case study</a><button type="button">Contact our team</button></section></main></body></html>',
+  'assets/site.css': ':root{--ink:#111;--paper:#fff;--space:1rem;--radius:1rem}body{font-family:Inter,sans-serif;color:var(--ink)}h1{font-family:Georgia,serif;font-size:clamp(2rem,5vw,5rem)}main{display:grid;grid-template-columns:1fr 1fr;gap:2rem}.visual{aspect-ratio:4/3;object-position:center}@media(max-width:800px){main{display:flex;flex-direction:column}}@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}',
+  'work/project-one/index.html': '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project One</title><meta name="description" content="A selected case study."></head><body><nav><a href="/">Home</a></nav><main><h1>Project One</h1><p>Our work and process.</p></main></body></html>',
+};
+const rich = evaluateSiteFiles(richFiles, category);
+assert.equal(rich.designEvidence.signals.designSystemTokens.status, 'present');
+assert.equal(rich.designEvidence.signals.fluidTypography.status, 'present');
+assert.equal(rich.designEvidence.signals.layoutComposition.status, 'present');
+assert.equal(rich.designEvidence.signals.responsiveBreakpoints.status, 'present');
+assert.equal(rich.designEvidence.signals.reducedMotionSupport.status, 'present');
+assert.equal(rich.designEvidence.signals.categorySpecificDirection.status, 'source-evidence-present');
+assert.ok(rich.functionalAcceptance.some(item => item.requirement === 'case-study navigation' && item.status === 'source-evidence-present-behavior-unverified'));
+assert.ok(rich.functionalAcceptance.every(item => item.browserBehaviorVerified === false));
 
 const secret = 'sk-abcdefghijklmnopqrstuvwxyz123456';
 const badFiles = {
