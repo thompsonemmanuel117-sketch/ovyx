@@ -13,6 +13,21 @@
     { id: 'groq', label: 'Groq' },
     { id: 'openrouter', label: 'OpenRouter' }
   ];
+  const PLAN_FEATURES = [
+    { id: 'webStudio', label: 'Web Studio' },
+    { id: 'advancedWebStudio', label: 'Advanced Web Studio' },
+    { id: 'appStudio', label: 'App Studio' },
+    { id: 'gameStudio', label: 'Game Studio' },
+    { id: 'aiGeneration', label: 'AI Generation' },
+    { id: 'github', label: 'GitHub Integration' },
+    { id: 'cloudflareDeploy', label: 'Cloudflare Deploy' },
+    { id: 'teamWorkspace', label: 'Team Workspace' },
+    { id: 'templates', label: 'Blueprint Templates' }
+  ];
+  const DEFAULT_PLAN_FEATURES = {
+    pro: ['webStudio', 'appStudio', 'aiGeneration', 'github', 'cloudflareDeploy', 'templates'],
+    max: ['webStudio', 'advancedWebStudio', 'appStudio', 'aiGeneration', 'github', 'cloudflareDeploy', 'teamWorkspace', 'templates']
+  };
   const $ = id => document.getElementById(id);
   const owner = () => window.OVYXServerOwner?.active === true && window.__OVYX_ROOT_AUTH_VERIFIED === true;
   const currentUser = () => {
@@ -434,12 +449,25 @@
   }
 
   let latestPlans = null;
+  function syncPlanFeatureControls(data) {
+    const features = data && data.features || {};
+    for (const tier of ['pro', 'max']) {
+      const values = Array.isArray(features[tier]) ? features[tier] : DEFAULT_PLAN_FEATURES[tier];
+      const selected = new Set(values.map(item => String(typeof item === 'string' ? item : (item?.id || item?.key || '')).trim()).filter(Boolean));
+      document.querySelectorAll('input[data-v655-plan="' + tier + '"]').forEach(input => {
+        input.checked = selected.has(input.value);
+      });
+    }
+  }
   async function loadPlansCatalog() {
     const response = await fetch('/api/plans', { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data.ok === false) throw new Error(data.error || data.code || 'Public plan catalog is unavailable.');
     latestPlans = data;
+    syncPlanFeatureControls(data);
     applyPublicPlanCatalog(data);
+    const saveButton = $('ovyx-global-quota-save');
+    if (saveButton) saveButton.disabled = false;
     if (data.gating && typeof data.gating === 'object') {
       Object.entries(data.gating).forEach(([key, tier]) => {
         const control = $('gate-' + key);
@@ -467,6 +495,14 @@
       return value;
     };
     const featureList = tier => Array.from(document.querySelectorAll('input[data-v655-plan="' + tier + '"]:checked')).map(input => input.value);
+    if (!latestPlans) {
+      statusText(status, 'The current server plan catalog has not loaded. Refresh the catalog before saving so paid-plan features are not unintentionally cleared.', 'error');
+      return;
+    }
+    if (!document.querySelector('input[data-v655-plan="pro"]') || !document.querySelector('input[data-v655-plan="max"]')) {
+      statusText(status, 'The paid-plan feature controls are unavailable. Nothing was saved.', 'error');
+      return;
+    }
     const current = latestPlans || {};
     const gating = Object.assign({}, current.gating || {}, window.AdminConfigurator?.gating || {});
     ['webstudio','advancedwebstudio','appstudio','gamestudio','aigeneration','github','cloudflaredeploy','teamworkspace','workspace','templates','admin-identity'].forEach(key => {
@@ -519,8 +555,59 @@
         '<label class="ovyx-owner-live-field">Pro daily prompts<input class="ovyx-owner-live-input" id="ovyx-quota-daily-pro" type="number" min="1" step="1" value="20"/></label>' +
         '<label class="ovyx-owner-live-field">Max daily prompts<input class="ovyx-owner-live-input" id="ovyx-quota-daily-max" type="number" min="1" step="1" value="100"/></label>' +
       '</div>' +
-      '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:13px"><button class="ovyx-owner-live-button" id="ovyx-global-quota-save" type="button">Save global plan rules</button><span id="ovyx-global-quota-status" class="ovyx-owner-live-status" style="margin:0;flex:1;min-width:180px">Loading server plan catalog…</span></div>');
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:13px"><button class="ovyx-owner-live-button" id="ovyx-global-quota-save" type="button" disabled>Save global plan rules</button><span id="ovyx-global-quota-status" class="ovyx-owner-live-status" style="margin:0;flex:1;min-width:180px">Loading server plan catalog…</span></div>');
     if (!host) return;
+    let featuresHost = $('ovyx-global-plan-features');
+    if (!featuresHost) {
+      const featurePanel = document.createElement('section');
+      featurePanel.id = 'ovyx-global-plan-features';
+      featurePanel.className = 'ovyx-owner-live-panel';
+      featurePanel.style.marginTop = '14px';
+      const heading = document.createElement('h4');
+      heading.className = 'ovyx-owner-live-label';
+      heading.textContent = 'Included features per paid plan';
+      const description = document.createElement('p');
+      description.className = 'ovyx-owner-live-detail';
+      description.textContent = 'Select exactly which capabilities Pro and Max subscribers receive. These selections are saved with your global plan rules and enforced by the server.';
+      featurePanel.append(heading, description);
+      const grid = document.createElement('div');
+      grid.className = 'ovyx-owner-live-form-grid';
+      grid.style.marginTop = '10px';
+      for (const tier of ['pro', 'max']) {
+        const card = document.createElement('div');
+        card.className = 'ovyx-owner-live-card';
+        const tierTitle = document.createElement('div');
+        tierTitle.className = 'ovyx-owner-live-label';
+        tierTitle.textContent = tier.toUpperCase() + ' PLAN';
+        card.appendChild(tierTitle);
+        const list = document.createElement('div');
+        list.style.display = 'grid';
+        list.style.gap = '8px';
+        list.style.marginTop = '10px';
+        for (const feature of PLAN_FEATURES) {
+          const label = document.createElement('label');
+          label.style.display = 'flex';
+          label.style.alignItems = 'center';
+          label.style.gap = '8px';
+          label.style.color = '#d4d4d8';
+          label.style.fontSize = '11px';
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.dataset.v655Plan = tier;
+          checkbox.value = feature.id;
+          checkbox.checked = DEFAULT_PLAN_FEATURES[tier].includes(feature.id);
+          const text = document.createElement('span');
+          text.textContent = feature.label;
+          label.append(checkbox, text);
+          list.appendChild(label);
+        }
+        card.append(tierTitle, list);
+        grid.appendChild(card);
+      }
+      featurePanel.appendChild(grid);
+      host.appendChild(featurePanel);
+      featuresHost = featurePanel;
+    }
     let gatesHost = $('ovyx-global-gates-controls');
     if (!gatesHost) {
       const gatePanel = document.createElement('div');
