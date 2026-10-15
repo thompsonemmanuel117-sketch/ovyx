@@ -154,6 +154,8 @@ function quotaResetFields(tier, plans, now = new Date()) {
     _ovyxQuotaTier: tier,
     _ovyxQuotaDayKey: now.toISOString().slice(0, 10),
     _ovyxQuotaMonthKey: now.toISOString().slice(0, 7),
+    _ovyxQuotaMonthlyLimit: selected.monthly,
+    _ovyxQuotaDailyLimit: selected.daily,
     quotaSchemaVersion: 1
   };
 }
