@@ -115,7 +115,13 @@ try {
 
     // AI preferences update the account-specific browser preference record used by the generation request bridge.
     await page.locator('[data-settings-nav="ai"]').click();
+    await page.locator('[data-settings-panel="ai"]').waitFor({ state: 'visible' });
     await page.locator('#set-provider').waitFor({ state: 'visible' });
+    // Advanced AI options intentionally live inside a collapsed disclosure. Expand
+    // it before interacting with its controls; hidden selects must not be force-used.
+    const aiAdvanced = page.locator('[data-settings-panel="ai"] details.ovyx-ai-advanced');
+    await aiAdvanced.locator('summary').click();
+    await page.locator('#set-ai-routing').waitFor({ state: 'visible' });
     await page.locator('#set-provider').selectOption('openai');
     await page.locator('#set-ai-routing').selectOption('preferred-first');
     await page.locator('#set-ai-fallback').selectOption('stop');
