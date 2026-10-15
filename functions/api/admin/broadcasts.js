@@ -1,5 +1,5 @@
 import { jsonResponse, errorResponse, requestId, readJson } from '../_lib/http.js';
-import { verifyFirebaseIdToken } from '../../_lib/auth.js';
+import { verifyFirebaseIdToken, normalizeEmail } from '../../_lib/auth.js';
 import { isRootUser } from '../../_lib/brain/registry.js';
 import {
   listFirestoreDocuments,
