@@ -1101,6 +1101,19 @@
       return false;
     }
   }
+  function readNativeDataLayerConfig() {
+    return Object.assign({ endpoint: '', projectSync: true }, safeJson(localStorage.getItem('ovyx.data.layer.v1')));
+  }
+  function saveNativeDataLayerConfig(patch) {
+    const next = Object.assign({}, readNativeDataLayerConfig(), patch || {});
+    try {
+      localStorage.setItem('ovyx.data.layer.v1', JSON.stringify(next));
+      return true;
+    } catch (error) {
+      console.warn('[OVYX Settings] Built-in cloud-sync preference could not be saved.', error);
+      return false;
+    }
+  }
   function normaliseDataLayerEndpoint(value) {
     const raw = String(value || '').trim();
     if (!raw) return '';
@@ -1333,7 +1346,8 @@
       event.stopImmediatePropagation();
       const output = document.getElementById('ovyx-data-result');
       const endpointInput = document.getElementById('ovyx-data-endpoint');
-      const switchButton = document.getElementById('ovyx-data-sync');
+      const switchButton = document.getElementById('ovyx-data-api-sync');
+      const nativeSwitchButton = document.getElementById('ovyx-data-sync');
       if (target.id === 'ovyx-data-api-sync') {
         const before = switchButton.getAttribute('aria-checked') === 'true';
         let endpoint = '';
@@ -1386,10 +1400,23 @@
           notify('A valid Data API endpoint is required before sync can be enabled.', 'error');
           return;
         }
-        if (!saveDataLayerConfig({ endpoint: endpoint, projectSync: enabled })) {
-          dataLayerFeedback('Data API settings could not be saved on this device. Check browser storage permissions.', 'error');
+        const previousNative = readNativeDataLayerConfig();
+        const nativeEnabled = nativeSwitchButton
+          ? nativeSwitchButton.getAttribute('aria-checked') !== 'false'
+          : previousNative.projectSync !== false;
+        if (!saveNativeDataLayerConfig({ endpoint: endpoint, projectSync: nativeEnabled })) {
+          dataLayerFeedback('Built-in OVYX settings could not be saved on this device. Check browser storage permissions.', 'error');
           notify('Data API settings were not saved.', 'error');
           return;
+        }
+        if (!saveDataLayerConfig({ endpoint: endpoint, projectSync: enabled })) {
+          saveNativeDataLayerConfig(previousNative);
+          dataLayerFeedback('External Data API settings could not be saved on this device. Check browser storage permissions.', 'error');
+          notify('Data API settings were not saved.', 'error');
+          return;
+        }
+        if (previousNative.projectSync !== nativeEnabled) {
+          window.OVYXDataLayerSettings?.changed?.(nativeEnabled);
         }
         if (endpointInput) endpointInput.value = endpoint;
         dataLayerFeedback(endpoint
