@@ -155,3 +155,24 @@ This supplemental document does not change product code. The rollback branch rem
 3. Read warnings/errors from the actual log. Separate expected negative-test configuration messages from genuine failing commands, but record deprecations and actionable warnings in this checkpoint.
 4. If a required job is failed or still running, do not claim it passed or mark the stage verified. Inspect the failed step/log, fix only in-scope failures, rerun, and record the result here before proceeding.
 5. Keep the rollback branch `rollback/settings-baseline-20261015` untouched. Do not deploy without explicit permission.
+
+
+## Stage 2 — Data Layer truthfulness fix (2026-10-15)
+- **PR:** #137 — https://github.com/thompsonemmanuel117-sketch/ovyx/pull/137
+- **Merged commit:** `53d9ef25b68fdbf97117759b45b91f53932311c4`
+- [x] Reworded Workspace → Data Layer so it no longer claims PostgreSQL is production-ready/provisioned by OVYX.
+- [x] Explained that the configured endpoint is used only for `GET <endpoint>/health`; it does not provision PostgreSQL, run schema migrations, or route project CRUD through that endpoint. Project sync remains the existing authenticated `/api/projects` service.
+- [x] Changed the custom endpoint health request to `credentials: 'omit'` and `cache: 'no-store'`, avoiding sending third-party endpoint cookies and avoiding cached health responses.
+- [x] Changed success feedback to say only that the health endpoint responded. Any returned database label is explicitly identified as backend-reported and does not claim verified PostgreSQL connectivity/project CRUD.
+- [x] Added six regression assertions in `scripts/ovyx-settings-actions.test.mjs` covering the scope, schema-download truthfulness, absence of false production-ready text, no-cookie request, and health-only success claim.
+- [x] **OVYX Agent Verify run #795 passed** `npm test`, `npm run validate`, `npm run build` preflight, and Wrangler validation. Log: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38814934365
+- [x] **OVYX Assistant Workspace Browser Tests run #336 passed** its desktop/mobile Chromium regression suite. Log: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38814934387
+- [!] The Chromium workflow exercised Admin Modules, assistant workspace, Sentinel, provider availability, Web Studio, and Admin Workspace. Its steps did **not** click the Settings Data Layer controls; therefore the Settings-specific interactive test remains outstanding even though the source assertions and general browser suite passed.
+- [!] Both logs report non-blocking `punycode` deprecation and GitHub Actions Node 20-to-24 warnings. No error-level failure, failed test, or build error was found in the two successful job logs.
+- [x] Product/test changes are merged into `main`; temporary fix branch should be aligned to main after this checkpoint update. Preserve `rollback/settings-baseline-20261015` at the Stage 1 baseline.
+
+## Remaining Stage 2 work
+Continue from the source inventory and address only evidenced issues: inspect Appearance’s overlapping handlers/storage keys, ensure the Profile/Notifications/AI capture handlers do not double-fire, and verify the actual rendered Settings actions. Email preferences still do not send mail without a configured delivery provider; do not label them as email delivery. Token Booster flow exists in source but purchase confirmation needs a configured provider/sandbox test. The custom Data Layer endpoint remains health-check-only, not a complete PostgreSQL integration.
+
+## Exact next action
+Implement targeted automated browser coverage for actual Settings interactions (start with Workspace Data Layer and Appearance Save/Cancel/Reset), run it against the current mainline, inspect both the job summary and full logs, then repair only observed failures. Do not claim full Settings completion until the 13 categories have direct interaction/persistence/API verification.
