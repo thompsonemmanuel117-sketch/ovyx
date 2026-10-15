@@ -5,7 +5,7 @@ const workflow = fs.readFileSync('.github/workflows/ovyx-sentinel-scheduler-depl
 assert.match(workflow, /randomBytes\(48\)\.toString\(["']base64url["']\)/, 'The shared secret must be generated from cryptographically secure randomness.');
 assert.match(workflow, /pages secret put OVYX_SENTINEL_CRON_SECRET/, 'The production Pages endpoint must receive the generated secret.');
 assert.match(workflow, /--secrets-file \"\$RUNNER_TEMP\/ovyx-sentinel-secrets\.json\"/, 'The Worker must receive the same generated secret through a temporary secret file.');
-assert.match(workflow, /crons = \[\"\*\/30 \* \* \* \*\"\]/, 'Sentinel should keep its expected 30-minute schedule.');
+assert.match(workflow, /item\.cron === '\*\/30 \* \* \* \*'/, 'Sentinel should keep its expected 30-minute schedule.');
 assert.match(workflow, /for attempt in 1 2 3 4 5 6 7 8/, 'The production endpoint must tolerate bounded secret-propagation delay.');
 assert.match(workflow, /if \[\[ \"\$SCAN_STATUS\" != \"401\" \]\]; then/, 'Retry only authentication rejections and report other failures promptly.');
 assert.match(workflow, /SAFE_SCAN_CODE/, 'A failed scan should report only the safe error code for diagnosis.');
