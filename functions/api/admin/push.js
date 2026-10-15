@@ -125,6 +125,11 @@ async function onRequestPost(context) {
         updatedAt: now,
         inactiveReason: null,
       }, { merge: true });
+      await setFirestoreDocument(env, 'system', 'admin_push', {
+        ownerUid: uid,
+        ownerEmail: email,
+        ownerUpdatedAt: now,
+      }, { merge: true });
       const subscriptions = await loadSubscriptions(env, uid);
       return jsonResponse({
         ok: true,
@@ -178,6 +183,8 @@ async function onRequestPost(context) {
       const current = await getFirestoreData(env, 'system', 'admin_push') || {};
       const preferences = normalizeAdminPushPreferences({ ...(current.preferences || {}), ...incoming });
       await setFirestoreDocument(env, 'system', 'admin_push', {
+        ownerUid: uid,
+        ownerEmail: email,
         preferences,
         preferencesUpdatedAt: now,
         preferencesUpdatedBy: { uid, email },
