@@ -6989,25 +6989,8 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
   };
   window.ThemeContext=ThemeContext;
   window.useTheme=function(){return ThemeContext};
-  /* Stop the older Settings/ThemeLab listeners from persisting appearance changes immediately. */
-  document.addEventListener('click',function(e){
-    const el=e.target.closest?.('.ovyx-theme-card,[data-mode],[data-theme-save],[data-theme-duplicate],[data-theme-import],[data-theme-export],[data-theme-delete],[data-theme-reset],[data-clear-appearance],[data-appearance-save],[data-appearance-cancel]');
-    if(!el)return;
-    const p=el.closest('[data-settings-panel="appearance"],#view-settings');
-    if(!p && !el.matches('[data-clear-appearance]'))return;
-    if(el.matches('[data-appearance-save]')){e.preventDefault();e.stopPropagation();save();return}
-    if(el.matches('[data-appearance-cancel]')){e.preventDefault();e.stopPropagation();restoreSaved('cancel');return}
-    if(el.matches('[data-clear-appearance]')){e.preventDefault();e.stopPropagation();resetSaved();window.showToast?.('Appearance reset','success');return}
-    if(el.matches('[data-theme-save], [data-theme-duplicate], [data-theme-import], [data-theme-export], [data-theme-delete], [data-theme-reset]')){e.preventDefault();e.stopPropagation();return}
-    if(el.matches('[data-mode]')){
-      e.preventDefault();e.stopPropagation();
-      const mode=el.dataset.mode;
-      const base=mode==='light'?LIGHT:(mode==='dark'?DEFAULT_DARK:(resolveMode('system')==='light'?LIGHT:DEFAULT_DARK));
-      setTemp({...base,mode,accentColor:tempTheme.accentColor,density:tempTheme.density,scale:tempTheme.scale,motion:tempTheme.motion},'preview');
-      return
-    }
-    if(el.matches('.ovyx-theme-card')){e.preventDefault();e.stopPropagation();const t=themeFromLab(el.dataset.theme);setTemp(t,'preview');return}
-  },true);
+  /* Click actions are owned by the canonical appearance bridge below. Keeping a second
+     capture-phase click handler here caused one click to preview/save/reset twice. */
   document.addEventListener('input',function(e){
     const el=e.target.closest?.('[data-theme-field],[data-theme-hex]');if(!el)return;
     const panel=el.closest('[data-settings-panel="appearance"]');if(!panel)return;
