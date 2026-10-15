@@ -34,3 +34,6 @@
 
 /assets/ovyx-sentinel-avatar-3d.js
   Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-admin-controls.js
+  Cache-Control: no-store, no-cache, must-revalidate

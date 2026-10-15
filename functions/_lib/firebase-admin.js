@@ -929,3 +929,131 @@ export async function deleteStoragePrefix(
 
   return deleted;
 }
+/**
+ * Changes the actual Firebase Authentication account status.
+ * This is deliberately server-only: the service-account credential never
+ * leaves the Worker, and protected API authentication reads Firebase status.
+ */
+export async function setFirebaseAccountDisabled(env, uid, disabled) {
+  const serviceAccount = parseServiceAccount(env);
+  const cleanUid = String(uid || '').trim();
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(cleanUid)) {
+    throw Object.assign(new Error('Firebase user ID is invalid.'), {
+      status: 400,
+      code: 'AUTH_INVALID_IDENTITY'
+    });
+  }
+  if (typeof disabled !== 'boolean') {
+    throw Object.assign(new Error('Account disabled status must be boolean.'), {
+      status: 400,
+      code: 'AUTH_INVALID_ACCOUNT_STATUS'
+    });
+  }
+
+  const accessToken = await getGoogleIdentityToolkitAccessToken(env);
+  const projectId = encodeURIComponent(serviceAccount.project_id);
+  const updateUrl = 'https://identitytoolkit.googleapis.com/v1/projects/' + projectId + '/accounts:update';
+  const updateResponse = await fetch(updateUrl, {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer ' + accessToken,
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({ localId: cleanUid, disableUser: disabled })
+  });
+  const updatePayload = await updateResponse.json().catch(() => ({}));
+  if (!updateResponse.ok) {
+    throw Object.assign(
+      new Error(String(updatePayload?.error?.message || 'Firebase account status update failed.').slice(0, 240)),
+      {
+        status: updateResponse.status >= 500 ? 503 : updateResponse.status,
+        code: updateResponse.status === 403 ? 'AUTH_ACCOUNT_UPDATE_FORBIDDEN' : 'AUTH_ACCOUNT_UPDATE_FAILED'
+      }
+    );
+  }
+  if (String(updatePayload.localId || '') !== cleanUid) {
+    throw Object.assign(new Error('Firebase did not confirm the selected account identity.'), {
+      status: 503,
+      code: 'AUTH_ACCOUNT_UPDATE_UNCONFIRMED'
+    });
+  }
+
+  // The update response does not include the disabled flag in its documented
+  // response schema; look the account up again and verify the actual state.
+  const lookupResponse = await fetch(
+    'https://identitytoolkit.googleapis.com/v1/projects/' + projectId + '/accounts:lookup',
+    {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + accessToken,
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify({ localId: [cleanUid] })
+    }
+  );
+  const lookupPayload = await lookupResponse.json().catch(() => ({}));
+  if (!lookupResponse.ok) {
+    throw Object.assign(
+      new Error('Firebase accepted the account update but its final status could not be verified.'),
+      {
+        status: lookupResponse.status >= 500 ? 503 : lookupResponse.status,
+        code: 'AUTH_ACCOUNT_UPDATE_UNVERIFIED'
+      }
+    );
+  }
+  const confirmed = (Array.isArray(lookupPayload.users) ? lookupPayload.users : [])
+    .find(account => String(account?.localId || '') === cleanUid);
+  if (!confirmed || confirmed.disabled !== disabled) {
+    throw Object.assign(new Error('Firebase did not confirm the requested account status.'), {
+      status: 503,
+      code: 'AUTH_ACCOUNT_UPDATE_UNCONFIRMED'
+    });
+  }
+  return { uid: cleanUid, disabled: confirmed.disabled, confirmed: true };
+}
+
+export async function revokeFirebaseRefreshTokens(
+  env,
+  uid,
+  validSince = Math.floor(Date.now() / 1000)
+) {
+  const serviceAccount = parseServiceAccount(env);
+  const cleanUid = String(uid || '').trim();
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(cleanUid)) {
+    throw Object.assign(new Error('Firebase user ID is invalid.'), {
+      status: 400,
+      code: 'AUTH_INVALID_IDENTITY'
+    });
+  }
+  const timestamp = Number(validSince);
+  if (!Number.isFinite(timestamp) || timestamp < 0) {
+    throw Object.assign(new Error('Firebase session revocation timestamp is invalid.'), {
+      status: 400,
+      code: 'AUTH_INVALID_REVOCATION_TIME'
+    });
+  }
+
+  const accessToken = await getGoogleIdentityToolkitAccessToken(env);
+  const url = 'https://identitytoolkit.googleapis.com/v1/projects/' +
+    encodeURIComponent(serviceAccount.project_id) + '/accounts:update';
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer ' + accessToken,
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({
+      localId: cleanUid,
+      validSince: String(Math.floor(timestamp))
+    })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = String(payload?.error?.message || 'Firebase refresh-token revocation failed.');
+    throw Object.assign(new Error(message.slice(0, 240)), {
+      status: response.status >= 500 ? 503 : response.status,
+      code: response.status === 403 ? 'AUTH_REVOCATION_FORBIDDEN' : 'AUTH_REVOCATION_FAILED'
+    });
+  }
+  return { uid: cleanUid, validSince: Math.floor(timestamp) };
+}

@@ -1,7 +1,7 @@
-import { authenticateRequest, hasAdminClaim } from '../../_lib/firebase.js';
+import { authenticateRequest } from '../../_lib/firebase.js';
 import { getFirestoreData, setFirestoreDocument } from '../../_lib/firebase-admin.js';
 import { isRootUser } from '../../_lib/brain/registry.js';
-import { readJson, jsonResponse, requestId } from '../_lib/http.js';
+import { readJson, jsonResponse, requestId, enforceSameOrigin } from '../_lib/http.js';
 
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 const clean = (v, n = 400) => String(v ?? '').trim().slice(0, n);
@@ -9,8 +9,8 @@ const clean = (v, n = 400) => String(v ?? '').trim().slice(0, n);
 function isRootAdmin(user) {
   if (!user) return false;
   const email = clean(user.email, 320).toLowerCase();
-  if (email === ROOT_EMAIL.toLowerCase() || isRootUser(user) || hasAdminClaim(user)) return true;
-  return ['ROOT_SUPERUSER', 'OVYX OWNER', 'OWNER', 'ADMIN'].includes(clean(user.role, 80).toUpperCase());
+  if (email === ROOT_EMAIL.toLowerCase() || isRootUser(user)) return true;
+  return clean(user.role, 80).toUpperCase() === 'ROOT_SUPERUSER';
 }
 
 function positive(value, label) {
@@ -19,9 +19,36 @@ function positive(value, label) {
   return n;
 }
 
+export async function onRequestGet(context) {
+  const id = requestId(context.request);
+  try {
+    if (!enforceSameOrigin(context.request)) return jsonResponse({ ok: false, error: 'Cross-origin admin requests are not permitted.', code: 'ORIGIN_REJECTED' }, 403, { 'X-OVYX-Request-ID': id });
+    const user = context.data?.user || await authenticateRequest(context.request, context.env);
+    if (!isRootAdmin(user)) return jsonResponse({ ok: false, error: 'Root administrator authorization is required.', code: 'ROOT_REQUIRED' }, 403, { 'X-OVYX-Request-ID': id });
+    const current = (await getFirestoreData(context.env, 'system', 'config')) || {};
+    return jsonResponse({
+      ok: true,
+      config: {
+        pricing: current.pricing || null,
+        gating: current.gating || {},
+        masterAdminOverride: current.masterAdminOverride === true,
+        liveDeploy: typeof current.liveDeploy === 'boolean' ? current.liveDeploy : (typeof current.productionLive === 'boolean' ? current.productionLive : true),
+        productionLive: typeof current.productionLive === 'boolean' ? current.productionLive : (typeof current.liveDeploy === 'boolean' ? current.liveDeploy : true),
+        environment: current.environment || (current.liveDeploy === false || current.productionLive === false ? 'sandbox' : 'live'),
+        updatedAt: current.updatedAt || null,
+        updatedBy: current.updatedBy || null
+      },
+      authority: 'SERVER_ADMIN'
+    }, 200, { 'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store, max-age=0' });
+  } catch (error) {
+    return jsonResponse({ ok: false, error: error?.message || 'Administrative configuration could not be loaded.', code: error?.code || 'ADMIN_CONTROL_READ_FAILED' }, error?.status || 503, { 'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store, max-age=0' });
+  }
+}
+
 export async function onRequestPost(context) {
   const id = requestId(context.request);
   try {
+    if (!enforceSameOrigin(context.request)) return jsonResponse({ ok: false, error: 'Cross-origin admin requests are not permitted.', code: 'ORIGIN_REJECTED' }, 403, { 'X-OVYX-Request-ID': id });
     const user = context.data?.user || await authenticateRequest(context.request, context.env);
     if (!isRootAdmin(user)) return jsonResponse({ ok: false, error: 'Root administrator authorization is required.', code: 'ROOT_REQUIRED' }, 403, { 'X-OVYX-Request-ID': id });
 
@@ -40,7 +67,17 @@ export async function onRequestPost(context) {
           usd: positive(payload.pricing?.max?.usd, 'Max USD price')
         }
       };
-      const gating = payload.gating && typeof payload.gating === 'object' ? payload.gating : (current.gating || {});
+      const gatingSource = payload.gating && typeof payload.gating === 'object' ? payload.gating : (current.gating || {});
+      const gating = {};
+      const allowedGates = new Set(['webstudio','advancedwebstudio','appstudio','gamestudio','aigeneration','github','cloudflaredeploy','teamworkspace','workspace','templates','admin-identity']);
+      for (const [key, value] of Object.entries(gatingSource).slice(0, 40)) {
+        if (!allowedGates.has(clean(key, 80).toLowerCase())) continue;
+        const requiredTier = clean(value, 20).toLowerCase();
+        if (!['free','pro','max','root'].includes(requiredTier)) {
+          throw Object.assign(new Error('Every feature gate must use Free, Pro, Max or Root.'), { status: 400, code: 'INVALID_FEATURE_GATE' });
+        }
+        gating[clean(key, 80)] = requiredTier;
+      }
       const updatedAt = new Date().toISOString();
       const updatedBy = clean(user.sub || user.email, 200);
 
@@ -101,6 +138,7 @@ export async function onRequestPost(context) {
 }
 
 export async function onRequest(context) {
+  if (context.request.method === 'GET') return onRequestGet(context);
   if (context.request.method === 'POST') return onRequestPost(context);
-  return jsonResponse({ ok: false, error: 'POST is required.', code: 'METHOD_NOT_ALLOWED' }, 405);
+  return jsonResponse({ ok: false, error: 'GET or POST is required.', code: 'METHOD_NOT_ALLOWED' }, 405);
 }

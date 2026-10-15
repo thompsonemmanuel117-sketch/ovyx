@@ -2,6 +2,7 @@ import {
   callUserUniversalConnection,
   getActiveBrainConnectionId,
 } from './universal-connections.js';
+import { getFirestoreData } from './firebase-admin.js';
 
 const PROVIDER_REQUEST_TIMEOUT_MS = 60_000;
 const UNIVERSAL_LOOKUP_TIMEOUT_MS = 5_000;
@@ -810,7 +811,26 @@ function isProviderConfigured(env, provider) {
   }
 }
 
-export function providerOrder(env, requested, taskContext = '') {
+
+let globalProviderOrderCache = null;
+let globalProviderOrderCheckedAt = 0;
+async function readGlobalProviderOrder(env) {
+  const now = Date.now();
+  if (globalProviderOrderCache && now - globalProviderOrderCheckedAt < 4000) {
+    return [...globalProviderOrderCache];
+  }
+  const config = (await getFirestoreData(env, 'system', 'config')) || {};
+  const value = config.aiConfig?.providerOrder;
+  const normalized = Array.isArray(value)
+    ? value.map(normalizeConfiguredProvider).filter(provider => SUPPORTED_PROVIDERS.includes(provider) && provider !== 'cloudflare-workers-ai')
+      .filter((provider, index, all) => all.indexOf(provider) === index)
+    : [];
+  globalProviderOrderCache = normalized;
+  globalProviderOrderCheckedAt = now;
+  return [...normalized];
+}
+
+export function providerOrder(env, requested, taskContext = '', globalOrder = null) {
   const selection = String(requested || 'automatic').trim().toLowerCase();
   if (selection && selection !== 'automatic') {
     // An explicit choice is exclusive even when its key is missing.
@@ -827,7 +847,7 @@ export function providerOrder(env, requested, taskContext = '') {
   // Use the existing task classifier, then the configured order as fallback.
   // Unlike the historical implementation, never try an unconfigured provider.
   const priorities = [
-    ...taskProviderPreference(taskContext),
+    ...(Array.isArray(globalOrder) && globalOrder.length ? globalOrder : taskProviderPreference(taskContext)),
     ...configuredOrder,
     'gemini', 'deepseek', 'claude', 'openai', 'groq', 'openrouter',
   ];
@@ -927,10 +947,20 @@ export async function callModel(
     };
   }
 
+  let globalOrder = null;
+  if (requested === 'automatic') {
+    try {
+      globalOrder = await readGlobalProviderOrder(env);
+    } catch {
+      /* The routing preference is not an access-control secret. Preserve AI availability by using the existing server/env fallback if Firestore is temporarily unavailable. */
+      globalOrder = null;
+    }
+  }
   const availableProviders = providerOrder(
     env,
     requested,
-    String(options.taskPrompt || options.user || '')
+    String(options.taskPrompt || options.user || ''),
+    globalOrder
   );
   if (requested === 'automatic' && availableProviders.length === 0) {
     throw Object.assign(

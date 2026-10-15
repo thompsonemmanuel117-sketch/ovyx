@@ -74,8 +74,24 @@ export async function onRequestPost(context) {
       payload?.context?.project ||
       payload?.context?.files
     );
-    const isWebStudio = isWebStudioPrompt(promptText, mode) ||
-      ((mode === 'build' || mode === 'fix') && hasStudioContext);
+    const activeView = String(payload.context?.activeView || '').replace(/^view-/i, '').trim().toLowerCase();
+    const isAppStudio = activeView === 'appstudio' || ['appstudio', 'app-build', 'app-fix'].includes(mode);
+    const isWebStudio = !isAppStudio && (isWebStudioPrompt(promptText, mode) ||
+      ((mode === 'build' || mode === 'fix') && hasStudioContext));
+
+    if (isAppStudio) {
+      const entitlement = context.data?.entitlements || await resolveEntitlements(context.env, user);
+      if (entitlement?.capabilities?.appStudio !== true) {
+        return errorResponse('App Studio is not included in this account’s current server-authoritative feature access.', 403, 'FEATURE_NOT_INCLUDED');
+      }
+    }
+
+    if (isWebStudio) {
+      const entitlement = context.data?.entitlements || await resolveEntitlements(context.env, user);
+      if (entitlement?.capabilities?.webStudio !== true) {
+        return errorResponse('Web Studio is not included in this account’s current server-authoritative feature access.', 403, 'FEATURE_NOT_INCLUDED');
+      }
+    }
 
     if (isWebStudio && mode === 'build' && promptText.length > WEB_STUDIO_PROMPT_MAX_CHARS) {
       return errorResponse(
@@ -114,6 +130,7 @@ export async function onRequestPost(context) {
         )
       : null;
 
+    const globalAIIdentityDirective = await getAIIdentityDirective(context.env);
     const system = String(
       isWebStudio
         ? WEB_STUDIO_SYSTEM_PROMPT + '\n\n' + WEB_STUDIO_EXCELLENCE +
@@ -126,7 +143,7 @@ Return useful concise answers.
 Never reveal server secrets.
 Do not invent repository state.
 When discussing project changes, distinguish recommendations from changes actually performed.`
-    ).slice(0, isWebStudio ? 40_000 : 20_000);
+    ).slice(0, isWebStudio ? 40_000 : 20_000) + '\n\n' + globalAIIdentityDirective;
 
     const provider = String(
       payload.provider || 'automatic'
@@ -178,7 +195,7 @@ When discussing project changes, distinguish recommendations from changes actual
           files: projectFiles,
           mode,
           context: studioHints,
-          qualityContract: WEB_STUDIO_EXCELLENCE + '\n\nEXPERIENCE INTELLIGENCE:\n' + JSON.stringify(experience || {}),
+          qualityContract: WEB_STUDIO_EXCELLENCE + '\n\nEXPERIENCE INTELLIGENCE:\n' + JSON.stringify(experience || {}) + '\n\n' + globalAIIdentityDirective,
         });
 
         if (generated) {

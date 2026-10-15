@@ -45,10 +45,10 @@ const DEFAULT_ACCESS_RULES = [];
 function cleanFeatures(value, fallback) {
   if (!Array.isArray(value)) return fallback;
   return value
-    .filter(item => item && typeof item === 'object')
+    .filter(item => typeof item === 'string' || (item && typeof item === 'object'))
     .map(item => ({
-      id: String(item.id || item.key || '').trim(),
-      label: String(item.label || item.name || item.id || '').trim()
+      id: String(typeof item === 'string' ? item : (item.id || item.key || '')).trim(),
+      label: String(typeof item === 'string' ? item : (item.label || item.name || item.id || item.key || '')).trim()
     }))
     .filter(item => item.id && item.label);
 }
@@ -75,7 +75,10 @@ export async function onRequestGet(context) {
       ...(config.dailyPromptQuotas || {})
     };
 
-    const features = {
+    const features = config.planFeaturesManaged === true ? {
+      pro: cleanFeatures(config.planFeatures?.pro, []),
+      max: cleanFeatures(config.planFeatures?.max, [])
+    } : {
       pro: cleanFeatures(config.planFeatures?.pro, DEFAULT_FEATURES.pro),
       max: cleanFeatures(config.planFeatures?.max, DEFAULT_FEATURES.max)
     };
@@ -94,6 +97,7 @@ export async function onRequestGet(context) {
       tokenQuotas,
       dailyPromptQuotas,
       features,
+      planFeaturesManaged: config.planFeaturesManaged === true,
       accessRules,
       gating,
       updatedAt: config.updatedAt || null,

@@ -83,9 +83,24 @@ export async function onRequestPost(context) {
       payload.message ||
       messages[messages.length - 1]?.content ||
       '';
-    const isWebStudio =
-      isWebStudioPrompt(promptText, mode) ||
-      ((mode === 'build' || mode === 'fix') && hasStudioContext);
+    const activeView = String(payload.context?.activeView || '').replace(/^view-/i, '').trim().toLowerCase();
+    const isAppStudio = activeView === 'appstudio' || ['appstudio', 'app-build', 'app-fix'].includes(mode);
+    const isWebStudio = !isAppStudio && (isWebStudioPrompt(promptText, mode) ||
+      ((mode === 'build' || mode === 'fix') && hasStudioContext));
+
+    if (isAppStudio) {
+      const entitlement = context.data?.entitlements || await resolveEntitlements(context.env, user);
+      if (entitlement?.capabilities?.appStudio !== true) {
+        return errorResponse('App Studio is not included in this account’s current server-authoritative feature access.', 403, 'FEATURE_NOT_INCLUDED');
+      }
+    }
+
+    if (isWebStudio) {
+      const entitlement = context.data?.entitlements || await resolveEntitlements(context.env, user);
+      if (entitlement?.capabilities?.webStudio !== true) {
+        return errorResponse('Web Studio is not included in this account’s current server-authoritative feature access.', 403, 'FEATURE_NOT_INCLUDED');
+      }
+    }
 
     const userTurns = messages
       .filter(item => item && item.role === 'user')
@@ -144,6 +159,7 @@ export async function onRequestPost(context) {
 
     const suppliedSystem = String(payload.system || '').trim();
 
+    const globalAIIdentityDirective = await getAIIdentityDirective(context.env);
     const system = String(
       isWebStudio
         ? WEB_STUDIO_SYSTEM_PROMPT +
@@ -164,7 +180,7 @@ export async function onRequestPost(context) {
           '\n\nAuthenticated user UID: ' + user.sub
         : suppliedSystem ||
           'You are OVYX Brain. Return useful, project-aware responses. Never reveal server secrets.'
-    ).slice(0, isWebStudio ? 40_000 : 20_000);
+    ).slice(0, isWebStudio ? 40_000 : 20_000) + '\n\n' + globalAIIdentityDirective;
 
     const combined = messages
       .slice(-12)
@@ -216,6 +232,7 @@ export async function onRequestPost(context) {
           files: projectFiles,
           mode,
           context: studioHints,
+          qualityContract: WEB_STUDIO_EXCELLENCE + '\n\n' + globalAIIdentityDirective,
         });
 
         if (generated) {
