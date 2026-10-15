@@ -44,7 +44,7 @@ assert.deepEqual(
   { ...NOTIFICATION_DEFAULTS, projectActivity: false },
   'Notification preference parsing must accept only known boolean fields.'
 );
-assert.ok(html.includes('/assets/ovyx-settings-reliability.js?v=20261015-7'), 'The audited Settings runtime must load in the application shell.');
+assert.ok(html.includes('/assets/ovyx-settings-reliability.js?v=20261015-8'), 'The audited Settings runtime must load in the application shell.');
 assert.ok(html.includes('Date.now()/1000-authTime>240'), 'Every Settings account-deletion client path must match the server four-minute recent-auth window.');
 assert.doesNotMatch(html, /Date\.now\(\)\/1000-authTime>600/, 'No legacy Settings account-deletion action may allow an auth window the server will reject.');
 assert.ok(html.includes('autosaveRecoveryEnabled'), 'Turning autosave off must remove saved recovery snapshots rather than merely change the toggle label.');
