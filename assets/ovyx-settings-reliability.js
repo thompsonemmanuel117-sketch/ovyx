@@ -1028,6 +1028,18 @@
         try { endpoint = normaliseDataLayerEndpoint(endpointInput && endpointInput.value); }
         catch (error) { dataLayerFeedback(error.message, 'error'); notify(error.message, 'error'); return; }
         const enabled = !!switchButton && switchButton.getAttribute('aria-checked') === 'true';
+        const previousConfig = readDataLayerConfig();
+        if (enabled && previousConfig.projectSync === true && previousConfig.endpoint &&
+            endpoint && new URL(endpoint).origin !== new URL(previousConfig.endpoint).origin) {
+          const trusted = window.confirm('Change the active Data API endpoint to ' + new URL(endpoint).origin +
+            '? Future project metadata and a Firebase ID token will be sent to this new service. Continue only if you trust it.');
+          if (!trusted) {
+            if (endpointInput) endpointInput.value = previousConfig.endpoint;
+            if (switchButton) switchButton.setAttribute('aria-checked', 'true');
+            dataLayerFeedback('Data API endpoint change cancelled. The previously saved endpoint remains active.', 'info');
+            return;
+          }
+        }
         if (enabled && !endpoint) {
           dataLayerFeedback('Enter a valid HTTPS Data API endpoint before enabling project metadata sync.', 'error');
           notify('A valid Data API endpoint is required before sync can be enabled.', 'error');
