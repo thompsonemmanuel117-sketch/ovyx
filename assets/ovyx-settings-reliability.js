@@ -689,6 +689,276 @@
       });
     }
   }
+  const THEME_LAB_KEY = 'ovyx.theme.lab.v1';
+  const THEME_COLOR_RE = /^#[0-9a-f]{6}$/i;
+
+  function themeLabState() {
+    const lab = window.OVYXThemeLab;
+    if (!lab || !lab.state || !window.ThemeContext) {
+      throw new Error('The appearance editor is not ready yet. Reopen Settings and try again.');
+    }
+    if (!lab.state.customThemes || typeof lab.state.customThemes !== 'object') lab.state.customThemes = {};
+    return lab;
+  }
+
+  function cleanThemeName(value, fallback = 'My OVYX Theme') {
+    return String(value || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 60) || fallback;
+  }
+
+  function themeColor(value, fallback) {
+    const candidate = String(value || '').trim();
+    if (THEME_COLOR_RE.test(candidate)) return candidate.toUpperCase();
+    return fallback;
+  }
+
+  function themeNameInput() {
+    return document.querySelector('#view-settings [data-theme-name]');
+  }
+
+  function currentAppearanceAsLabTheme(name) {
+    const ctx = window.ThemeContext.get();
+    return {
+      name: cleanThemeName(name || themeNameInput()?.value || 'My OVYX Theme'),
+      bg: themeColor(ctx.backgroundColor, '#050607'),
+      panel: themeColor(ctx.cardColor, '#0B0D10'),
+      elev: themeColor(ctx.cardColor, '#15100A'),
+      text: themeColor(ctx.textColor, '#F8FAFC'),
+      secondary: themeColor(ctx.mutedColor, '#C5CBD4'),
+      muted: themeColor(ctx.mutedColor, '#737985'),
+      accent: themeColor(ctx.accentColor, '#E8B64F'),
+      border: themeColor(ctx.borderColor, '#1B222A'),
+      mode: ['dark','light','system'].includes(ctx.mode) ? ctx.mode : 'dark',
+      density: ['comfortable','balanced','compact'].includes(ctx.density) ? ctx.density : 'balanced',
+      scale: ['small','balanced','large'].includes(ctx.scale) ? ctx.scale : 'balanced',
+      motion: ['full','reduced','minimal'].includes(ctx.motion) ? ctx.motion : 'full'
+    };
+  }
+
+  function appearanceFromLabTheme(theme) {
+    const base = window.ThemeContext.get();
+    return {
+      ...base,
+      mode: ['dark','light','system'].includes(theme.mode) ? theme.mode : base.mode,
+      density: ['comfortable','balanced','compact'].includes(theme.density) ? theme.density : base.density,
+      scale: ['small','balanced','large'].includes(theme.scale) ? theme.scale : base.scale,
+      motion: ['full','reduced','minimal'].includes(theme.motion) ? theme.motion : base.motion,
+      backgroundColor: themeColor(theme.bg || theme.backgroundColor, base.backgroundColor),
+      sidebarColor: themeColor(theme.bg || theme.sidebarColor || theme.backgroundColor, base.sidebarColor),
+      cardColor: themeColor(theme.panel || theme.cardColor, base.cardColor),
+      borderColor: themeColor(theme.border || theme.borderColor, base.borderColor),
+      textColor: themeColor(theme.text || theme.textColor, base.textColor),
+      mutedColor: themeColor(theme.muted || theme.secondary || theme.mutedColor, base.mutedColor),
+      accentColor: themeColor(theme.accent || theme.accentColor, base.accentColor)
+    };
+  }
+
+  function persistThemeLab(lab) {
+    if (Object.keys(lab.state.customThemes).length > 100) {
+      throw new Error('The Theme Lab supports up to 100 saved custom themes. Delete one before adding another.');
+    }
+    localStorage.setItem(THEME_LAB_KEY, JSON.stringify(lab.state));
+    try { window.OVYXSettings?.renderThemeCards?.(); } catch (error) {
+      console.warn('[OVYX Settings] Theme gallery refresh failed:', String(error?.message || 'unavailable').slice(0, 120));
+    }
+    document.querySelectorAll('#view-settings .ovyx-theme-card').forEach(card => {
+      card.classList.toggle('active', card.dataset.theme === lab.state.active);
+    });
+  }
+
+  function createThemeId(name) {
+    return 'custom_' + String(name || 'theme').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 32) + '_' + Date.now().toString(36);
+  }
+
+  function saveCurrentAsCustomTheme(name) {
+    const lab = themeLabState();
+    if (Object.keys(lab.state.customThemes).length >= 100) {
+      throw new Error('The Theme Lab supports up to 100 saved custom themes. Delete one before adding another.');
+    }
+    const theme = currentAppearanceAsLabTheme(name);
+    const id = createThemeId(theme.name);
+    lab.state.custom = { ...theme };
+    lab.state.customThemes[id] = { ...theme };
+    lab.state.active = id;
+    persistThemeLab(lab);
+    if (themeNameInput()) themeNameInput().value = theme.name;
+    return id;
+  }
+
+  function setThemeActionStatus(message) {
+    const panel = document.querySelector('#view-settings [data-settings-panel="appearance"]');
+    const status = addStatus(panel, 'ovyx-theme-action-status', message);
+    if (status) status.textContent = message;
+  }
+
+  function downloadTheme() {
+    const ctx = window.ThemeContext.get();
+    const name = cleanThemeName(themeNameInput()?.value || 'OVYX Theme');
+    const payload = {
+      schema: 'ovyx-theme',
+      version: 1,
+      name,
+      mode: ctx.mode,
+      density: ctx.density,
+      scale: ctx.scale,
+      motion: ctx.motion,
+      backgroundColor: ctx.backgroundColor,
+      sidebarColor: ctx.sidebarColor,
+      cardColor: ctx.cardColor,
+      borderColor: ctx.borderColor,
+      textColor: ctx.textColor,
+      mutedColor: ctx.mutedColor,
+      accentColor: ctx.accentColor
+    };
+    const filename = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'ovyx-theme';
+    const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename + '.json';
+    anchor.style.display = 'none';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setThemeActionStatus('Theme exported as ' + filename + '.json.');
+    notify('Theme exported.', 'success');
+  }
+
+  function importThemeFile() {
+    const picker = document.createElement('input');
+    picker.type = 'file';
+    picker.accept = '.json,application/json';
+    picker.setAttribute('aria-label', 'Import an OVYX theme JSON file');
+    picker.style.display = 'none';
+    document.body.appendChild(picker);
+    picker.addEventListener('change', async function () {
+      try {
+        const file = picker.files && picker.files[0];
+        if (!file) return;
+        if (file.size > 100000) throw new Error('Theme files must be 100 KB or smaller.');
+        const parsed = JSON.parse(await file.text());
+        const source = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+          ? (parsed.theme && typeof parsed.theme === 'object' ? parsed.theme : parsed)
+          : null;
+        if (!source) throw new Error('The selected file must contain a JSON theme object.');
+        const hasBackground = typeof source.bg === 'string' || typeof source.backgroundColor === 'string';
+        const hasText = typeof source.text === 'string' || typeof source.textColor === 'string';
+        if (!hasBackground || !hasText) {
+          throw new Error('The theme file must include background and text colors.');
+        }
+        const base = window.ThemeContext.get();
+        const imported = {
+          name: cleanThemeName(source.name || file.name.replace(/\.json$/i, ''), 'Imported OVYX Theme'),
+          mode: ['dark','light','system'].includes(source.mode) ? source.mode : base.mode,
+          density: ['comfortable','balanced','compact'].includes(source.density) ? source.density : base.density,
+          scale: ['small','balanced','large'].includes(source.scale) ? source.scale : base.scale,
+          motion: ['full','reduced','minimal'].includes(source.motion) ? source.motion : base.motion,
+          bg: themeColor(source.bg || source.backgroundColor, base.backgroundColor),
+          panel: themeColor(source.panel || source.cardColor, base.cardColor),
+          elev: themeColor(source.elev || source.cardColor || source.panel, base.cardColor),
+          text: themeColor(source.text || source.textColor, base.textColor),
+          secondary: themeColor(source.secondary || source.mutedColor, base.mutedColor),
+          muted: themeColor(source.muted || source.mutedColor || source.secondary, base.mutedColor),
+          accent: themeColor(source.accent || source.accentColor, base.accentColor),
+          border: themeColor(source.border || source.borderColor, base.borderColor)
+        };
+        const lab = themeLabState();
+        if (Object.keys(lab.state.customThemes).length >= 100) {
+          throw new Error('The Theme Lab supports up to 100 saved custom themes. Delete one before importing another.');
+        }
+        const id = createThemeId(imported.name);
+        lab.state.custom = { ...imported };
+        lab.state.customThemes[id] = { ...imported };
+        lab.state.active = id;
+        persistThemeLab(lab);
+        window.ThemeContext.preview(appearanceFromLabTheme(imported));
+        if (themeNameInput()) themeNameInput().value = imported.name;
+        setThemeActionStatus('Imported "' + imported.name + '" as a preview. Click Save Appearance to keep it.');
+        notify('Theme imported. Review it, then choose Save Appearance.', 'success');
+      } catch (error) {
+        setThemeActionStatus('Import failed: ' + String(error?.message || 'invalid theme file'));
+        notify(error?.message || 'Theme import failed.', 'error');
+      } finally {
+        picker.remove();
+      }
+    }, { once: true });
+    picker.click();
+  }
+
+  function handleThemeLabClick(event) {
+    // Theme Lab action buttons are wired once by the Settings panel itself.
+    // Do not stop the click in capture phase: doing so left Chromium waiting
+    // for a click acknowledgement and prevented the real button action.
+    const card = event.target?.closest?.('#view-settings .ovyx-theme-card');
+    if (!card) return;
+    const id = String(card.dataset.theme || '').trim();
+    if (!/^[A-Za-z0-9_-]{1,100}$/.test(id)) return;
+    try {
+      const lab = themeLabState();
+      lab.state.active = id;
+      const selected = lab.state.customThemes[id] || (id === 'custom' ? lab.state.custom : lab.activeTheme());
+      if (selected?.name && themeNameInput()) themeNameInput().value = cleanThemeName(selected.name);
+      persistThemeLab(lab);
+    } catch (error) {
+      console.warn('[OVYX Settings] Theme selection state could not be saved:', String(error?.message || 'unavailable').slice(0, 120));
+    }
+  }
+
+  function handleThemeLabButtonClick(event) {
+    const button = event.target?.closest?.('#view-settings [data-theme-save],#view-settings [data-theme-duplicate],#view-settings [data-theme-import],#view-settings [data-theme-export],#view-settings [data-theme-delete],#view-settings [data-theme-reset]');
+    if (!button) return;
+    event.preventDefault();
+    try {
+      const lab = themeLabState();
+      if (button.hasAttribute('data-theme-save')) {
+        saveCurrentAsCustomTheme();
+        setThemeActionStatus('Custom theme saved in this browser. Click Save Appearance to commit the current preview.');
+        notify('Custom theme saved.', 'success');
+      } else if (button.hasAttribute('data-theme-duplicate')) {
+        const currentName = cleanThemeName(themeNameInput()?.value || lab.activeTheme()?.name || 'OVYX Theme');
+        saveCurrentAsCustomTheme(currentName + ' Copy');
+        setThemeActionStatus('A copy of "' + currentName + '" was saved in your custom themes.');
+        notify('Theme duplicated.', 'success');
+      } else if (button.hasAttribute('data-theme-import')) {
+        importThemeFile();
+      } else if (button.hasAttribute('data-theme-export')) {
+        downloadTheme();
+      } else if (button.hasAttribute('data-theme-delete')) {
+        const active = String(lab.state.active || '');
+        if (!active.startsWith('custom_') || !lab.state.customThemes[active]) {
+          setThemeActionStatus('Select a saved custom theme before deleting it. Built-in presets are protected.');
+          notify('Built-in presets cannot be deleted.', 'info');
+        } else {
+          const name = cleanThemeName(lab.state.customThemes[active].name, 'Custom theme');
+          if (!window.confirm('Delete the custom theme "' + name + '" from this browser?')) return;
+          delete lab.state.customThemes[active];
+          lab.state.active = 'obsidian';
+          persistThemeLab(lab);
+          window.ThemeContext.preview(appearanceFromLabTheme(lab.activeTheme()));
+          setThemeActionStatus('Deleted "' + name + '". Click Save Appearance to keep the fallback appearance.');
+          notify('Custom theme deleted.', 'success');
+        }
+      } else if (button.hasAttribute('data-theme-reset')) {
+        if (!window.confirm('Reset the Theme Lab and remove saved custom themes?')) return;
+        lab.reset();
+        window.ThemeContext.reset();
+        if (themeNameInput()) themeNameInput().value = 'My OVYX Theme';
+        setThemeActionStatus('Theme Lab reset to OVYX defaults.');
+      }
+    } catch (error) {
+      setThemeActionStatus('Theme action failed: ' + String(error?.message || 'could not complete'));
+      notify(error?.message || 'Theme action failed.', 'error');
+    }
+  }
+
+  function installThemeLabActions() {
+    // Custom-theme buttons use one bubbling action handler. Keeping the handler
+    // out of capture phase lets Chromium complete clicks and prevents duplicate
+    // legacy direct handlers from running.
+    document.addEventListener('click', handleThemeLabButtonClick, false);
+    document.addEventListener('click', handleThemeLabClick, true);
+  }
+
+
   function installAppearanceAndUsageHooks() {
     const settings = window.OVYXSettings;
     if (settings && typeof settings.show === 'function' && !settings.__ovyxSettingsReliabilityV1) {
@@ -1327,6 +1597,7 @@
     installNotificationToastFilters();
     installWorkspaceToggleActions();
     installAISettingsBridge();
+    installThemeLabActions();
     installAppearanceAndUsageHooks();
     bindAuthenticationRefresh();
     installLivePreviewBridge();
