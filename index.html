@@ -6095,7 +6095,7 @@ window.OVYXV58={syncDock,route:safeRoute,useTemplate,previewTemplate,featureLock
 <!-- OVYX V79 · AI ASSISTANT DOCK + CLOSE CONTROL AUTHORITY --><script id="ovyx-v83-settings-integrity-runtime">(function(){
   'use strict';
   const KEY='ovyx.settings.integrity.v83';
-  const defaults={openBehavior:'Web Studio',autosave:true,confirmDelete:true,inspector:true,livePreview:true,aiSafe:true,editorMode:'Magic'};
+  const defaults={openBehavior:'Web Studio',autosave:true,confirmDelete:true,inspector:true,livePreview:true,aiSafe:true,editorMode:'build'};
   const load=()=>{try{return {...defaults,...JSON.parse(localStorage.getItem(KEY)||'{}')}}catch{return {...defaults}}};
   const save=(v)=>{try{localStorage.setItem(KEY,JSON.stringify(v));return true}catch{return false}};
   const state=load();
@@ -6171,11 +6171,14 @@ window.OVYXV58={syncDock,route:safeRoute,useTemplate,previewTemplate,featureLock
   const readSession=()=>{try{const x=JSON.parse(localStorage.getItem(SESSION_KEY)||'{}');return x&&typeof x==='object'?x:{}}catch{return {}}};
   const writeSession=(patch={})=>{try{const current=readSession();localStorage.setItem(SESSION_KEY,JSON.stringify({...current,...patch,savedAt:Date.now()}));return true}catch{return false}};
   const persistRuntimeSession=()=>{
-    try{      const state=window.KernelState||{};
+    try{
+      const state=window.KernelState||{};
       const project=state.activeProject;
-      const draft=project?JSON.parse(JSON.stringify(project)):null;
+      const preferences=load();
+      const autosaveEnabled=preferences.autosave!==false;
+      const draft=autosaveEnabled&&project?JSON.parse(JSON.stringify(project)):null;
       const route=String(state.activeView||'home');
-      writeSession({route,projectId:project?.id||null,draft});
+      writeSession({route,projectId:project?.id||null,draft,autosaveRecoveryEnabled:autosaveEnabled});
       if(route!=='settings')localStorage.setItem('ovyx.settings.last-view.v1',route);
     }catch(e){console.warn('[OVYX session persistence]',e)}
   };
