@@ -32,7 +32,7 @@ export function normalizeNotificationPreferences(value = {}, fallback = NOTIFICA
   for (const key of ALLOWED_KEYS) {
     result[key] = typeof value?.[key] === 'boolean'
       ? value[key]
-      : Boolean(fallback?.[key] ?? NOTIFICATION_DEFAULTS[key]);
+      : (typeof fallback?.[key] === 'boolean' ? fallback[key] : NOTIFICATION_DEFAULTS[key]);
   }
   return result;
 }
