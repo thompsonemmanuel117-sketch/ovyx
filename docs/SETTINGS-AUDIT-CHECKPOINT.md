@@ -202,3 +202,17 @@ Implement targeted automated browser coverage for actual Settings interactions (
 
 ## Exact next action
 Add targeted desktop/mobile tests for Appearance Save/Cancel/Reset and Profile/Notifications actions without changing existing runtime behavior first. Use observed click outcomes, localStorage values, API requests and page errors to determine which older listeners actually fire. Then fix the smallest evidenced bug, run both CI workflows, review full logs, merge into `main`, update this checkpoint, and align temporary branches to `main`. Do not claim the 13-category Settings audit is finished until all listed controls receive direct behavior/persistence/API verification.
+
+
+## Stage 2 — Appearance Save/Cancel/Reset browser coverage (2026-10-15)
+- **PR:** #140 — https://github.com/thompsonemmanuel117-sketch/ovyx/pull/140
+- **Merged commit:** `1be92f6b8da74b730b381d18d75dbcb3d535f0ee`
+- [x] Extended `scripts/ovyx-settings.browser.test.mjs` to exercise Appearance in desktop and mobile Chromium using a known persisted baseline.
+- [x] Verified Light mode and Compact density are previews before Save; Cancel restores saved Dark/Balanced values; Save Appearance persists Light mode; Privacy → Reset restores dark defaults and synchronizes the canonical `ovyx-theme` plus legacy `ovyx.appearance.v3` storage.
+- [x] Full verification **run #805 passed** `npm test`, `npm run validate`, `npm run build` preflight, and Wrangler validation. Log: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38817613631
+- [x] Full desktop/mobile Chromium **run #342 passed**, including Data Layer, Appearance, and all pre-existing browser scenarios. Log: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38817613799
+- [!] Logs contain only the known non-blocking `punycode` and GitHub Actions Node 20-to-24 deprecation warnings. No error-level test/build failures.
+- [x] Test-only PR merged; no appearance runtime change was necessary for Save/Cancel/Reset based on these tests.
+
+## Updated exact next action
+Add targeted desktop/mobile browser coverage for **Profile Save and Notifications Save/Reset**. Assert Profile save makes exactly one authenticated `PUT /api/settings/profile` and does not also perform the older local-only save; assert Notifications toggles remain drafts until Save, then one authenticated `PUT /api/settings/preferences` persists the values; mock failure responses to verify the UI does not claim success and retry works. Then use the observed browser/API outcomes to repair any actual duplicate or failure-path bugs, run both CI jobs, inspect full logs, merge the focused changes to `main`, and update this checkpoint.
