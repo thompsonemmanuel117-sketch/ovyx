@@ -77,7 +77,7 @@ function activeTier(profile = {}) {
     profile.plan ??
     'free';
 
-  if (state && ['expired', 'refunded', 'chargeback', 'suspended'].includes(state)) {
+  if (state && ['expired', 'refunded', 'chargeback', 'suspended', 'canceled'].includes(state)) {
     return 'free';
   }
 
