@@ -1,0 +1,524 @@
+(function () {
+  'use strict';
+  if (window.__OVYX_SETTINGS_RELIABILITY_V1__) return;
+  window.__OVYX_SETTINGS_RELIABILITY_V1__ = true;
+
+  const PROFILE_ENDPOINT = '/api/settings/profile';
+  const NOTIFICATIONS_ENDPOINT = '/api/settings/preferences';
+  const QUOTA_ENDPOINT = '/api/tokens/balance';
+  const NOTIFICATION_DEFAULTS = Object.freeze({
+    projectActivity: true,
+    generationCompleted: true,
+    deploymentStatus: true,
+    aiUsageWarnings: true,
+    billing: true,
+    emailProductUpdates: true,
+    emailSecurityAlerts: true
+  });
+  const TOGGLE_MAP = Object.freeze({
+    'set-autosave': 'autosave',
+    'set-confirm-delete': 'confirmDelete',
+    'set-notify-build': 'notifyBuild',
+    'set-notify-fail': 'notifyFail',
+    'set-notify-usage': 'notifyUsage',
+    'set-inspector': 'inspector',
+    'set-live-preview': 'livePreview',
+    'set-ai-safe': 'aiSafe'
+  });
+  const $ = id => document.getElementById(id);
+  const notify = (message, kind) => {
+    try {
+      const fn = window.showToast || window.toast;
+      if (typeof fn === 'function') fn(message, kind || 'info');
+    } catch (_) {}
+  };
+  const safeJson = value => {
+    try { return JSON.parse(value || '{}') || {}; } catch (_) { return {}; }
+  };
+  const currentUser = () => {
+    try { return window.firebase && window.firebase.auth && window.firebase.auth().currentUser || null; }
+    catch (_) { return null; }
+  };
+  async function api(path, options) {
+    options = options || {};
+    const user = currentUser();
+    if (!user) throw Object.assign(new Error('Sign in to change account settings.'), { code: 'AUTH_REQUIRED' });
+    const token = await user.getIdToken(false);
+    const headers = Object.assign({
+      Accept: 'application/json',
+      Authorization: 'Bearer ' + token
+    }, options.headers || {});
+    const response = await fetch(path, Object.assign({
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers
+    }, options, { headers: headers }));
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok || data.ok === false) {
+      throw Object.assign(new Error(data.message || data.error || ('Request failed (HTTP ' + response.status + ').')), {
+        code: data.code || 'SETTINGS_REQUEST_FAILED',
+        status: response.status
+      });
+    }
+    return data;
+  }
+  const jsonOptions = (method, body) => ({
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  function settingsState() {
+    const legacy = safeJson(localStorage.getItem('ovyx.settings.toggles.v34'));
+    const integrity = safeJson(localStorage.getItem('ovyx.settings.integrity.v83'));
+    return Object.assign({
+      autosave: true, confirmDelete: true, notifyBuild: true, notifyFail: true,
+      notifyUsage: true, inspector: true, livePreview: true, aiSafe: true
+    }, legacy, integrity);
+  }
+  function writeSettingsState(patch) {
+    const next = Object.assign({}, settingsState(), patch || {});
+    try { localStorage.setItem('ovyx.settings.toggles.v34', JSON.stringify(next)); } catch (_) {}
+    try {
+      const old = safeJson(localStorage.getItem('ovyx.settings.integrity.v83'));
+      localStorage.setItem('ovyx.settings.integrity.v83', JSON.stringify(Object.assign({}, old, next)));
+    } catch (_) {}
+    applySettingEffects(next);
+    syncToggleControls(next);
+    return next;
+  }
+  function applySettingEffects(state) {
+    try {
+      document.querySelectorAll('#app-node-inspector').forEach(el => {
+        el.style.display = state.inspector === false ? 'none' : '';
+      });
+    } catch (_) {}
+    try {
+      const runtime = window.OVYXRuntimeSession;
+      if (runtime && typeof runtime.save === 'function' && state.autosave !== false) runtime.save();
+    } catch (_) {}
+    try {
+      if (window.WebStudio && typeof window.WebStudio.renderPreview === 'function') {
+        const frame = $('ws-canvas-iframe');
+        if (frame) frame.dataset.ovyxLivePreviewPaused = state.livePreview === false ? 'true' : 'false';
+      }
+    } catch (_) {}
+    try {
+      const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
+      const prefs = safeJson(localStorage.getItem(key));
+      prefs.confirmDestructive = state.aiSafe !== false;
+      localStorage.setItem(key, JSON.stringify(prefs));
+      if (window.OVYXAI) window.OVYXAI.confirmDestructive = prefs.confirmDestructive;
+    } catch (_) {}
+  }
+  function syncToggleControls(state) {
+    Object.keys(TOGGLE_MAP).forEach(id => {
+      const button = $(id);
+      const key = TOGGLE_MAP[id];
+      if (button && key in state) button.setAttribute('aria-checked', String(state[key] !== false));
+    });
+  }
+  function addStatus(panel, id, text) {
+    if (!panel) return null;
+    let el = panel.querySelector('#' + id);
+    if (!el) {
+      el = document.createElement('div');
+      el.id = id;
+      el.className = 'ovyx-settings-action-status';
+      el.setAttribute('role', 'status');
+      el.style.cssText = 'padding:9px 14px;color:var(--ov-muted,#858990);font:600 9px/1.5 JetBrains Mono,monospace;overflow-wrap:anywhere';
+      panel.appendChild(el);
+    }
+    if (text) el.textContent = text;
+    return el;
+  }
+  async function loadProfile() {
+    const panel = document.querySelector('[data-settings-panel="profile"]');
+    if (!panel || !currentUser()) return;
+    const status = addStatus(panel, 'ovyx-profile-server-status', 'Loading saved profile from the server…');
+    try {
+      const data = await api(PROFILE_ENDPOINT);
+      const profile = data.profile || {};
+      const name = $('set-profile-name');
+      const workspace = $('set-workspace-name');
+      if (name && document.activeElement !== name && profile.displayName) name.value = profile.displayName;
+      if (workspace && document.activeElement !== workspace && profile.workspaceName) workspace.value = profile.workspaceName;
+      if (status) status.textContent = data.updatedAt ? 'Server profile last saved ' + new Date(data.updatedAt).toLocaleString() : 'No server profile saved yet.';
+    } catch (error) {
+      if (status) status.textContent = 'Server profile unavailable: ' + (error.message || 'request failed');
+    }
+  }
+  async function saveProfile(button) {
+    const panel = document.querySelector('[data-settings-panel="profile"]');
+    const status = addStatus(panel, 'ovyx-profile-server-status', 'Saving account profile…');
+    const name = $('set-profile-name');
+    const workspace = $('set-workspace-name');
+    const displayName = String(name && name.value || '').trim();
+    const workspaceName = String(workspace && workspace.value || 'Creative Workspace').trim();
+    if (!displayName) throw new Error('Display name cannot be empty.');
+    if (displayName.length > 60 || workspaceName.length > 60) throw new Error('Names must be 60 characters or fewer.');
+    const original = button && button.textContent;
+    if (button) { button.disabled = true; button.textContent = 'Saving…'; }
+    try {
+      const data = await api(PROFILE_ENDPOINT, jsonOptions('PUT', { profile: { displayName, workspaceName } }));
+      const saved = data.profile || { displayName, workspaceName };
+      const key = 'ovyx.profile.v2.user.' + String(currentUser().uid);
+      const old = safeJson(localStorage.getItem(key));
+      try { localStorage.setItem(key, JSON.stringify(Object.assign({}, old, { name: saved.displayName, workspace: saved.workspaceName }))); } catch (_) {}
+      document.querySelectorAll('#settings-display-name-text,#sidebar-user-display-name').forEach(el => { el.textContent = saved.displayName; });
+      const heading = $('profile-name-heading');
+      if (heading) heading.textContent = saved.displayName;
+      const label = $('sidebar-workspace-label');
+      if (label) label.textContent = saved.workspaceName;
+      const user = currentUser();
+      if (user && user.displayName !== saved.displayName && typeof user.updateProfile === 'function') {
+        try { await user.updateProfile({ displayName: saved.displayName }); }
+        catch (error) { console.warn('[OVYX Settings] Firebase displayName sync failed; server profile remains saved.', String(error && error.message || error).slice(0, 120)); }
+      }
+      if (status) status.textContent = 'Verified on server at ' + (data.updatedAt || new Date().toISOString());
+      notify('Profile saved to your OVYX account.', 'success');
+      return data;
+    } catch (error) {
+      if (status) status.textContent = 'Save failed: ' + (error.message || 'server did not confirm the write');
+      throw error;
+    } finally {
+      if (button) { button.disabled = false; button.textContent = original || 'Save Profile'; }
+    }
+  }
+  let notificationDraft = null;
+  let notificationLoadRevision = 0;
+  function notificationPanel() { return document.querySelector('[data-settings-panel="notifications"]'); }
+  function renderNotificationState(panel, values) {
+    if (!panel) return;
+    notificationDraft = Object.assign({}, NOTIFICATION_DEFAULTS, values || {});
+    panel.querySelectorAll('[data-notify]').forEach(button => {
+      const key = button.dataset.notify;
+      if (key in notificationDraft) button.setAttribute('aria-checked', String(!!notificationDraft[key]));
+    });
+  }
+  async function loadNotifications() {
+    const panel = notificationPanel();
+    if (!panel || !currentUser()) return;
+    const revision = ++notificationLoadRevision;
+    const status = addStatus(panel, 'ovyx-notification-server-status', 'Loading notification preferences…');
+    try {
+      const data = await api(NOTIFICATIONS_ENDPOINT);
+      if (revision !== notificationLoadRevision) return;
+      renderNotificationState(panel, data.notifications || NOTIFICATION_DEFAULTS);
+      try { localStorage.setItem('ovyx.notifications.v1', JSON.stringify(notificationDraft)); } catch (_) {}
+      if (status) status.textContent = 'Preferences loaded from your account. Email delivery is not triggered by these preference switches.';
+    } catch (error) {
+      if (status) status.textContent = 'Could not load account preferences: ' + (error.message || 'request failed');
+    }
+  }
+  async function saveNotifications(button, reset) {
+    const panel = notificationPanel();
+    const status = addStatus(panel, 'ovyx-notification-server-status', 'Saving notification preferences…');
+    const next = reset ? Object.assign({}, NOTIFICATION_DEFAULTS) : Object.assign({}, notificationDraft || NOTIFICATION_DEFAULTS);
+    if (button) { button.disabled = true; button.dataset.originalText = button.textContent; button.textContent = 'Saving…'; }
+    try {
+      const data = await api(NOTIFICATIONS_ENDPOINT, jsonOptions('PUT', { notifications: next }));
+      renderNotificationState(panel, data.notifications || next);
+      try { localStorage.setItem('ovyx.notifications.v1', JSON.stringify(notificationDraft)); } catch (_) {}
+      if (status) status.textContent = 'Server confirmed account preferences saved. Email options are stored preferences; delivery still requires a configured mail channel.';
+      notify(reset ? 'Notification preferences reset and saved to your account.' : 'Notification preferences saved to your account.', 'success');
+    } catch (error) {
+      if (status) status.textContent = 'Save failed: ' + (error.message || 'server did not confirm the write');
+      notify(error.message || 'Notification preferences were not saved.', 'error');
+    } finally {
+      if (button) { button.disabled = false; button.textContent = button.dataset.originalText || (reset ? 'Reset' : 'Save Notification Preferences'); delete button.dataset.originalText; }
+    }
+  }
+  async function loadUsage() {
+    const panel = document.querySelector('[data-settings-panel="usage"]');
+    const meter = $('set-token-meter');
+    if (!panel || !meter || !currentUser()) {
+      if (meter && !currentUser()) meter.textContent = 'Sign in to load usage';
+      return;
+    }
+    meter.textContent = 'Loading server quota…';
+    try {
+      const data = await api(QUOTA_ENDPOINT);
+      const limit = Number(data.monthlyLimit || data.monthlyLimitTokens || data.monthly_limit || 0);
+      const remaining = Number(data.current_monthly_tokens ?? data.baseRemaining ?? data.remainingTokens ?? 0);
+      if (!Number.isFinite(limit) || limit <= 0 || !Number.isFinite(remaining)) throw new Error('The quota service returned invalid values.');
+      const used = Math.max(0, limit - Math.max(0, remaining));
+      meter.textContent = used.toLocaleString() + ' used / ' + limit.toLocaleString();
+      meter.title = Math.max(0, remaining).toLocaleString() + ' monthly tokens remaining. Source: authenticated OVYX quota API.';
+      const group = meter.closest('.ovyx-pref-group');
+      let detail = group && group.querySelector('#ovyx-usage-server-detail');
+      if (group && !detail) {
+        detail = document.createElement('div');
+        detail.id = 'ovyx-usage-server-detail';
+        detail.className = 'ovyx-empty-state';
+        group.appendChild(detail);
+      }
+      if (detail) detail.textContent = 'Plan: ' + String(data.plan || 'current').toUpperCase() + ' · Remaining: ' + Math.max(0, remaining).toLocaleString() + ' tokens · Daily prompts remaining: ' + Number(data.daily_prompts_allowance || 0).toLocaleString();
+    } catch (error) {
+      meter.textContent = 'Usage unavailable';
+      meter.title = error.message || '';
+    }
+  }
+  async function deleteAccount(button) {
+    const user = currentUser();
+    if (!user) throw new Error('Sign in to delete your account.');
+    const confirmed = window.confirm('Delete your OVYX account and its cloud project data permanently? This cannot be undone.');
+    if (!confirmed) return;
+    const original = button && button.textContent;
+    if (button) { button.disabled = true; button.textContent = 'Deleting…'; }
+    try {
+      const tokenResult = await user.getIdTokenResult(true);
+      const authTime = Number(tokenResult && tokenResult.claims && tokenResult.claims.auth_time || 0);
+      if (!authTime || Date.now() / 1000 - authTime > 600) {
+        throw Object.assign(new Error('For security, sign in again before deleting your account.'), { code: 'REAUTH_REQUIRED' });
+      }
+      const token = await user.getIdToken(false);
+      const response = await fetch('/api/account/delete', {
+        method: 'POST',
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: {
+          Accept: 'application/json',
+          Authorization: 'Bearer ' + token,
+          'X-OVYX-Account-Deletion': 'CONFIRM'
+        }
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || data.ok !== true || data.deleted !== true) {
+        throw Object.assign(new Error(data.error || data.message || 'The server did not confirm account data cleanup.'), { code: data.code || 'ACCOUNT_DELETE_FAILED', status: response.status });
+      }
+      await user.delete();
+      try { await window.firebase.auth().signOut(); } catch (_) {}
+      try {
+        const prefix = 'ovyx.profile.v2.user.' + String(user.uid);
+        localStorage.removeItem(prefix);
+        localStorage.removeItem('ovyx.ai.preferences.v1.user.' + String(user.uid));
+        localStorage.removeItem('ovyx.notifications.v1');
+        localStorage.removeItem('ovyx.runtime.session.v4');
+        localStorage.removeItem('ovyx.settings.integrity.v83');
+        localStorage.removeItem('ovyx.settings.toggles.v34');
+      } catch (_) {}
+      window.__OVYX_AUTH_STATE_READY__ = false;
+      notify('Account and server-side project data deleted.', 'success');
+      window.Router && window.Router.go && window.Router.go('home');
+      window.OVYXMasterAuth && window.OVYXMasterAuth.openAuth && window.OVYXMasterAuth.openAuth();
+    } catch (error) {
+      notify(error.message || 'Account deletion failed.', 'error');
+      throw error;
+    } finally {
+      if (button) { button.disabled = false; button.textContent = original || 'Delete account'; }
+    }
+  }
+  function installProfileActions() {
+    document.addEventListener('click', function (event) {
+      const button = event.target && event.target.closest && event.target.closest('#profile-save-action');
+      if (!button) return;
+      event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
+      saveProfile(button).catch(error => notify(error.message || 'Profile save failed.', 'error'));
+    }, true);
+    document.addEventListener('click', function (event) {
+      const button = event.target && event.target.closest && event.target.closest('#ovyx-security-delete');
+      if (!button) return;
+      event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
+      deleteAccount(button).catch(() => {});
+    }, true);
+  }
+  function installNotificationActions() {
+    document.addEventListener('click', function (event) {
+      const toggle = event.target && event.target.closest && event.target.closest('[data-settings-panel="notifications"] [data-notify]');
+      if (!toggle) return;
+      event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
+      const key = toggle.dataset.notify;
+      if (!notificationDraft) notificationDraft = Object.assign({}, NOTIFICATION_DEFAULTS, safeJson(localStorage.getItem('ovyx.notifications.v1')));
+      if (!(key in notificationDraft)) return;
+      notificationDraft[key] = !notificationDraft[key];
+      toggle.setAttribute('aria-checked', String(!!notificationDraft[key]));
+      const panel = notificationPanel();
+      const status = addStatus(panel, 'ovyx-notification-server-status', 'Unsaved change. Choose Save Notification Preferences to apply it to your account.');
+      if (status) status.textContent = 'Unsaved change. Save to apply this preference to your account. Email options do not send emails by themselves.';
+    }, true);
+    document.addEventListener('click', function (event) {
+      const save = event.target && event.target.closest && event.target.closest('#notify-save');
+      const reset = event.target && event.target.closest && event.target.closest('#notify-reset');
+      const button = save || reset;
+      if (!button) return;
+      event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
+      saveNotifications(button, !!reset);
+    }, true);
+  }
+  function installWorkspaceToggleActions() {
+    document.addEventListener('click', function (event) {
+      const button = event.target && event.target.closest && event.target.closest('.ovyx-toggle');
+      if (!button || !(button.id in TOGGLE_MAP)) return;
+      event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
+      const key = TOGGLE_MAP[button.id];
+      const state = settingsState();
+      state[key] = state[key] === false;
+      const next = writeSettingsState({ [key]: state[key] });
+      notify((key === 'aiSafe' ? 'Safe generation' : key.replace(/([A-Z])/g, ' $1')) + (next[key] ? ' enabled.' : ' disabled.'), 'success');
+    }, true);
+  }
+  function installAISettingsBridge() {
+    document.addEventListener('click', function (event) {
+      const button = event.target && event.target.closest && event.target.closest('#set-ai-save');
+      if (!button) return;
+      event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
+      try {
+        const panel = document.querySelector('[data-settings-panel="ai"]');
+        const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
+        const prefs = Object.assign({
+          mode: 'balanced', model: 'automatic', provider: 'gemini',
+          explain: true, preserve: true, confirmDestructive: false,
+          contextFiles: true, contextPage: true, contextGithub: true,
+          routing: 'automatic', fallback: 'next', contextLimit: 'automatic', budget: 'automatic'
+        }, safeJson(localStorage.getItem(key)));
+        prefs.model = String(panel && panel.querySelector('#set-ai-model') && panel.querySelector('#set-ai-model').value || 'automatic');
+        prefs.provider = String(panel && panel.querySelector('#set-provider') && panel.querySelector('#set-provider').value || 'gemini');
+        prefs.routing = String(panel && panel.querySelector('#set-ai-routing') && panel.querySelector('#set-ai-routing').value || 'automatic');
+        prefs.fallback = String(panel && panel.querySelector('#set-ai-fallback') && panel.querySelector('#set-ai-fallback').value || 'next');
+        prefs.contextLimit = String(panel && panel.querySelector('#set-ai-context-limit') && panel.querySelector('#set-ai-context-limit').value || 'automatic');
+        prefs.budget = String(panel && panel.querySelector('#set-ai-budget') && panel.querySelector('#set-ai-budget').value || 'automatic');
+        ['explain','preserve','confirmDestructive','contextFiles','contextPage','contextGithub'].forEach(name => {
+          const input = panel && panel.querySelector('[data-ai-pref="' + name + '"]');
+          if (input) prefs[name] = !!input.checked;
+        });
+        localStorage.setItem(key, JSON.stringify(prefs));
+        window.OVYXAI = Object.assign({}, window.OVYXAI || {}, prefs);
+        const status = addStatus(panel, 'ovyx-ai-preference-status', 'AI preferences saved on this device and account browser.');
+        if (status) status.textContent = 'Preferences saved on this device. Provider selection will be used when automatic routing is requested.';
+        notify('AI preferences saved.', 'success');
+      } catch (error) {
+        notify(error.message || 'AI preferences could not be saved.', 'error');
+      }
+    }, true);
+    document.addEventListener('click', function (event) {
+      const button = event.target && event.target.closest && event.target.closest('#set-ai-reset');
+      if (!button) return;
+      event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
+      try {
+        const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
+        localStorage.removeItem(key);
+        const settings = window.OVYXSettings;
+        if (settings && typeof settings.show === 'function') settings.show('ai');
+        notify('AI preferences reset to defaults.', 'info');
+      } catch (error) { notify(error.message || 'AI preferences could not be reset.', 'error'); }
+    }, true);
+    const service = window.OVYXAIService;
+    if (service && typeof service.generate === 'function' && !service.__ovyxSettingsPreferencesV1) {
+      const original = service.generate.bind(service);
+      service.generate = async function (payload, options) {
+        payload = Object.assign({}, payload || {});
+        const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
+        const prefs = Object.assign({}, safeJson(localStorage.getItem(key)), window.OVYXAI || {});
+        const requestedProvider = String(payload.provider || '').trim().toLowerCase();
+        if ((!requestedProvider || requestedProvider === 'automatic' || requestedProvider === 'auto') && prefs.provider) {
+          payload.preferredProvider = String(prefs.provider).toLowerCase();
+        }
+        const instructions = [];
+        if (prefs.mode === 'fast') instructions.push('Generation preference: prioritize concise, low-latency iterations.');
+        if (prefs.mode === 'quality') instructions.push('Generation preference: prioritize thoroughness, completeness and careful validation.');
+        if (prefs.explain) instructions.push('Briefly explain significant changes that are actually completed.');
+        if (prefs.preserve) instructions.push('Preserve existing project structure and unrelated working code unless the user explicitly requests a restructure.');
+        if (prefs.routing && prefs.routing !== 'automatic') instructions.push('Preferred routing strategy: ' + String(prefs.routing) + '.');
+        if (prefs.fallback === 'stop') instructions.push('When the selected provider fails, report the failure rather than pretending success.');
+        if (prefs.contextFiles === false && payload.context) {
+          const context = Object.assign({}, payload.context);
+          delete context.files; delete context.projectFiles; delete context.fileTree;
+          payload.context = context;
+        }
+        if (prefs.contextPage === false && payload.context) {
+          const context = Object.assign({}, payload.context);
+          delete context.page; delete context.currentPage; delete context.section; delete context.activePage;
+          payload.context = context;
+        }
+        if (prefs.contextGithub === false) {
+          payload.contextGithub = false;
+          if (payload.context && payload.context.github) {
+            const context = Object.assign({}, payload.context);
+            delete context.github;
+            payload.context = context;
+          }
+        }
+        const prompt = String(payload.prompt || payload.message || '');
+        if (prefs.confirmDestructive && /\b(delete|remove|overwrite|replace all|clear all|reset all|drop table|destroy)\b/i.test(prompt)) {
+          if (!window.confirm('This request may make destructive changes to project data or files. Continue with the AI request?')) {
+            throw Object.assign(new Error('Cancelled before sending the AI request.'), { code: 'USER_CANCELLED' });
+          }
+        }
+        if (instructions.length) payload.system = [String(payload.system || ''), instructions.join('\n')].filter(Boolean).join('\n\n').slice(0, 12000);
+        return original(payload, options);
+      };
+      service.__ovyxSettingsPreferencesV1 = true;
+    }
+  }
+  function installEditorMode() {
+    const select = $('set-editor-mode');
+    if (select && !select.dataset.ovyxBound) {
+      select.dataset.ovyxBound = '1';
+      select.addEventListener('change', function () {
+        const mode = String(select.value || 'build');
+        const state = safeJson(localStorage.getItem('ovyx.settings.integrity.v83'));
+        state.editorMode = mode;
+        try { localStorage.setItem('ovyx.settings.integrity.v83', JSON.stringify(state)); } catch (_) {}
+        const studio = window.WebStudio;
+        if (studio && typeof studio.setMode === 'function' && ['build','plan','ask','fix'].includes(mode)) studio.setMode(mode);
+        notify('Default Web Studio mode saved.', 'success');
+      });
+    }
+  }
+  function installAppearanceAndUsageHooks() {
+    const settings = window.OVYXSettings;
+    if (settings && typeof settings.show === 'function' && !settings.__ovyxSettingsReliabilityV1) {
+      const originalShow = settings.show.bind(settings);
+      settings.show = function (id) {
+        const result = originalShow(id);
+        if (id === 'profile') setTimeout(loadProfile, 0);
+        if (id === 'notifications') setTimeout(loadNotifications, 0);
+        if (id === 'usage') setTimeout(loadUsage, 0);
+        if (id === 'workspace') setTimeout(installEditorMode, 0);
+        return result;
+      };
+      settings.__ovyxSettingsReliabilityV1 = true;
+    }
+    if (settings && settings.current === 'profile') setTimeout(loadProfile, 0);
+    if (settings && settings.current === 'notifications') setTimeout(loadNotifications, 0);
+    if (settings && settings.current === 'usage') setTimeout(loadUsage, 0);
+    setTimeout(installEditorMode, 200);
+  }
+  function bindAuthenticationRefresh() {
+    document.addEventListener('firebase-auth-state-ready', function () {
+      setTimeout(function () {
+        const settings = window.OVYXSettings;
+        if (!settings) return;
+        if (settings.current === 'profile') loadProfile();
+        if (settings.current === 'notifications') loadNotifications();
+        if (settings.current === 'usage') loadUsage();
+      }, 50);
+    }, { passive: true });
+    window.addEventListener('ovyx-settings-rendered', function () {
+      setTimeout(function () {
+        installEditorMode();
+        const settings = window.OVYXSettings;
+        if (!settings) return;
+        if (settings.current === 'profile') loadProfile();
+        if (settings.current === 'notifications') loadNotifications();
+        if (settings.current === 'usage') loadUsage();
+      }, 10);
+    });
+  }
+  function boot() {
+    installProfileActions();
+    installNotificationActions();
+    installWorkspaceToggleActions();
+    installAISettingsBridge();
+    installAppearanceAndUsageHooks();
+    bindAuthenticationRefresh();
+    writeSettingsState(settingsState());
+    const notificationPanel = notificationPanel();
+    if (notificationPanel) {
+      const paragraph = notificationPanel.querySelector('.ovyx-panel-head p');
+      if (paragraph) paragraph.textContent = 'Choose which activity preferences to save to your account. Email preferences are recorded, but they do not send email without a configured delivery integration.';
+    }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
+  else boot();
+})();
