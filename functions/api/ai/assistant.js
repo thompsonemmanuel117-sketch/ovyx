@@ -79,18 +79,18 @@ export async function onRequestPost(context) {
 
     if (isWebStudio && mode === 'build' && promptText.length > WEB_STUDIO_PROMPT_MAX_CHARS) {
       return errorResponse(
+        'This website brief is ' + promptText.length.toLocaleString('en-US') + ' characters. Web Studio currently supports up to ' + WEB_STUDIO_PROMPT_MAX_CHARS.toLocaleString('en-US') + ' characters per build prompt so it does not silently discard your requirements. Shorten the brief or split it into a base build and a follow-up edit; no generation was started.',
         413,
-        'WEBSTUDIO_PROMPT_TOO_LONG',
-        'This website brief is ' + promptText.length.toLocaleString('en-US') + ' characters. Web Studio currently supports up to ' + WEB_STUDIO_PROMPT_MAX_CHARS.toLocaleString('en-US') + ' characters per build prompt so it does not silently discard your requirements. Shorten the brief or split it into a base build and a follow-up edit; no generation was started.'
+        'WEBSTUDIO_PROMPT_TOO_LONG'
       );
     }
 
     const messages = cleanMessages(payload);
     if (!messages.length) {
       return errorResponse(
+        'AI prompt is required.',
         400,
-        'PROMPT_REQUIRED',
-        'AI prompt is required.'
+        'PROMPT_REQUIRED'
       );
     }
     const projectContext = payload.context && typeof payload.context === 'object'
@@ -305,9 +305,9 @@ When discussing project changes, distinguish recommendations from changes actual
     });
   } catch (err) {
     return errorResponse(
+      err.message || 'Assistant unavailable.',
       err.status || 500,
-      err.code || 'AI_ASSISTANT_FAILED',
-      err.message || 'Assistant unavailable.'
+      err.code || 'AI_ASSISTANT_FAILED'
     );
   }
 }
