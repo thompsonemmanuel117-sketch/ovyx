@@ -167,17 +167,37 @@
     if (text) el.textContent = text;
     return el;
   }
+  function hydrateProfileForm(profile) {
+    const name = $('set-profile-name') || $('set-profile-name-legacy');
+    const workspace = $('set-workspace-name') || $('set-workspace-name-legacy');
+    const displayName = String(profile?.displayName || '').trim();
+    const workspaceName = String(profile?.workspaceName || '').trim();
+
+    // The currently rendered Settings panel uses the legacy-suffixed field IDs.
+    // Support both current and legacy IDs so a server read always hydrates the form.
+    if (name && document.activeElement !== name && displayName) name.value = displayName;
+    if (workspace && document.activeElement !== workspace && workspaceName) workspace.value = workspaceName;
+
+    if (displayName) {
+      document.querySelectorAll('#settings-display-name-text,#sidebar-user-display-name').forEach(el => {
+        el.textContent = displayName;
+      });
+      const heading = $('profile-name-heading');
+      if (heading) heading.textContent = displayName;
+    }
+    if (workspaceName) {
+      const label = $('sidebar-workspace-label');
+      if (label) label.textContent = workspaceName;
+    }
+  }
+
   async function loadProfile() {
     const panel = document.querySelector('[data-settings-panel="profile"]');
     if (!panel || !currentUser()) return;
     const status = addStatus(panel, 'ovyx-profile-server-status', 'Loading saved profile from the server…');
     try {
       const data = await api(PROFILE_ENDPOINT);
-      const profile = data.profile || {};
-      const name = $('set-profile-name');
-      const workspace = $('set-workspace-name');
-      if (name && document.activeElement !== name && profile.displayName) name.value = profile.displayName;
-      if (workspace && document.activeElement !== workspace && profile.workspaceName) workspace.value = profile.workspaceName;
+      hydrateProfileForm(data.profile || {});
       if (status) status.textContent = data.updatedAt ? 'Server profile last saved ' + new Date(data.updatedAt).toLocaleString() : 'No server profile saved yet.';
     } catch (error) {
       if (status) status.textContent = 'Server profile unavailable: ' + (error.message || 'request failed');
@@ -448,6 +468,32 @@
       notify((key === 'aiSafe' ? 'Safe generation' : key.replace(/([A-Z])/g, ' $1')) + (next[key] ? ' enabled.' : ' disabled.'), 'success');
     }, true);
   }
+
+  // The confirmation preference must govern the real project deletion command,
+  // not just persist a switch label. Account deletion remains protected by its
+  // independent confirmation and recent-authentication requirements.
+  function installDestructiveConfirmationPreference() {
+    const deletion = window.OVYXProjectDeletion;
+    if (!deletion || typeof deletion.open !== 'function' ||
+        deletion.open.__ovyxSettingsConfirmDeleteV1) return;
+    const originalOpen = deletion.open.bind(deletion);
+    const openWithPreference = function (projectId) {
+      if (settingsState().confirmDelete !== false) return originalOpen(projectId);
+      const id = String(projectId || '').trim();
+      const listed = window.ProjectStore?.list?.();
+      const state = window.KernelState;
+      const inStore = Array.isArray(listed) && listed.some(project => String(project?.id || '') === id);
+      const inState = Array.isArray(state?.projects) && state.projects.some(project => String(project?.id || '') === id);
+      if (!id || !inStore || !inState || typeof this.confirm !== 'function') {
+        return originalOpen(projectId);
+      }
+      this.target = id;
+      return this.confirm();
+    };
+    openWithPreference.__ovyxSettingsConfirmDeleteV1 = true;
+    deletion.open = openWithPreference;
+    window.__OVYX_SETTINGS_CONFIRM_DELETE_INSTALLED__ = true;
+  }
   const MODELS_BY_PROVIDER = Object.freeze({
     gemini: ['gemini-3.8-flash'],
     anthropic: ['claude-opus-5'],
@@ -521,52 +567,11 @@
       const panel = target.closest('[data-settings-panel="ai"]');
       syncModelOptions(target.value, panel);
     }, true);
-    document.addEventListener('click', function (event) {
-      const button = event.target && event.target.closest && event.target.closest('#set-ai-save');
-      if (!button) return;
-      event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
-      try {
-        const panel = document.querySelector('[data-settings-panel="ai"]');
-        const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
-        const prefs = Object.assign({
-          mode: 'balanced', model: 'automatic', provider: 'gemini',
-          explain: true, preserve: true, confirmDestructive: false,
-          contextFiles: true, contextPage: true, contextGithub: true,
-          routing: 'automatic', fallback: 'next', contextLimit: 'automatic', budget: 'automatic'
-        }, safeJson(localStorage.getItem(key)));
-        prefs.provider = String(panel && panel.querySelector('#set-provider') && panel.querySelector('#set-provider').value || 'gemini');
-        const selectedModel = String(panel && panel.querySelector('#set-ai-model') && panel.querySelector('#set-ai-model').value || 'automatic');
-        prefs.model = selectedModel === 'automatic' || (MODELS_BY_PROVIDER[prefs.provider] || []).includes(selectedModel) ? selectedModel : 'automatic';
-        if (selectedModel !== prefs.model) notify('The model override did not match the selected provider; Automatic model selection was saved instead.', 'info');
-        prefs.routing = String(panel && panel.querySelector('#set-ai-routing') && panel.querySelector('#set-ai-routing').value || 'automatic');
-        prefs.fallback = String(panel && panel.querySelector('#set-ai-fallback') && panel.querySelector('#set-ai-fallback').value || 'next');
-        prefs.contextLimit = String(panel && panel.querySelector('#set-ai-context-limit') && panel.querySelector('#set-ai-context-limit').value || 'automatic');
-        prefs.budget = String(panel && panel.querySelector('#set-ai-budget') && panel.querySelector('#set-ai-budget').value || 'automatic');
-        ['explain','preserve','confirmDestructive','contextFiles','contextPage','contextGithub'].forEach(name => {
-          const input = panel && panel.querySelector('[data-ai-pref="' + name + '"]');
-          if (input) prefs[name] = !!input.checked;
-        });
-        localStorage.setItem(key, JSON.stringify(prefs));
-        window.OVYXAI = Object.assign({}, window.OVYXAI || {}, prefs);
-        const status = addStatus(panel, 'ovyx-ai-preference-status', 'AI preferences saved on this device and account browser.');
-        if (status) status.textContent = 'Preferences saved on this device. Provider selection will be used when automatic routing is requested.';
-        notify('AI preferences saved.', 'success');
-      } catch (error) {
-        notify(error.message || 'AI preferences could not be saved.', 'error');
-      }
-    }, true);
-    document.addEventListener('click', function (event) {
-      const button = event.target && event.target.closest && event.target.closest('#set-ai-reset');
-      if (!button) return;
-      event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
-      try {
-        const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
-        localStorage.removeItem(key);
-        const settings = window.OVYXSettings;
-        if (settings && typeof settings.show === 'function') settings.show('ai');
-        notify('AI preferences reset to defaults.', 'info');
-      } catch (error) { notify(error.message || 'AI preferences could not be reset.', 'error'); }
-    }, true);
+    // The Settings panel binds its own Save AI Preferences control. Keep the
+    // action on that single handler so the click is not intercepted twice; the
+    // inline handler persists the extended fields before updating window.OVYXAI.
+    // Save and Reset are handled directly by the Settings panel so a single
+    // click never competes with multiple delegated click interceptors.
     const service = window.OVYXAIService;
     if (service && typeof service.generate === 'function' && !service.__ovyxSettingsPreferencesV1) {
       const original = service.generate.bind(service);
@@ -657,6 +662,349 @@
       service.__ovyxSettingsPreferencesV1 = true;
     }
   }
+  const THEME_LAB_KEY = 'ovyx.theme.lab.v1';
+  const THEME_COLOR_RE = /^#[0-9a-f]{6}$/i;
+
+  function themeLabState() {
+    const lab = window.OVYXThemeLab;
+    if (!lab || !lab.state || !window.ThemeContext) {
+      throw new Error('The appearance editor is not ready yet. Reopen Settings and try again.');
+    }
+    if (!lab.state.customThemes || typeof lab.state.customThemes !== 'object') lab.state.customThemes = {};
+    return lab;
+  }
+
+  function cleanThemeName(value, fallback = 'My OVYX Theme') {
+    return String(value || '').replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 60) || fallback;
+  }
+
+  function themeColor(value, fallback) {
+    const candidate = String(value || '').trim();
+    if (THEME_COLOR_RE.test(candidate)) return candidate.toUpperCase();
+    return fallback;
+  }
+
+  function themeNameInput() {
+    return document.querySelector('#view-settings [data-theme-name]');
+  }
+
+  function currentAppearanceAsLabTheme(name) {
+    const ctx = window.ThemeContext.get();
+    return {
+      name: cleanThemeName(name || themeNameInput()?.value || 'My OVYX Theme'),
+      bg: themeColor(ctx.backgroundColor, '#050607'),
+      panel: themeColor(ctx.cardColor, '#0B0D10'),
+      elev: themeColor(ctx.cardColor, '#15100A'),
+      text: themeColor(ctx.textColor, '#F8FAFC'),
+      secondary: themeColor(ctx.mutedColor, '#C5CBD4'),
+      muted: themeColor(ctx.mutedColor, '#737985'),
+      accent: themeColor(ctx.accentColor, '#E8B64F'),
+      border: themeColor(ctx.borderColor, '#1B222A'),
+      mode: ['dark','light','system'].includes(ctx.mode) ? ctx.mode : 'dark',
+      density: ['comfortable','balanced','compact'].includes(ctx.density) ? ctx.density : 'balanced',
+      scale: ['small','balanced','large'].includes(ctx.scale) ? ctx.scale : 'balanced',
+      motion: ['full','reduced','minimal'].includes(ctx.motion) ? ctx.motion : 'full'
+    };
+  }
+
+  function appearanceFromLabTheme(theme) {
+    const base = window.ThemeContext.get();
+    return {
+      ...base,
+      mode: ['dark','light','system'].includes(theme.mode) ? theme.mode : base.mode,
+      density: ['comfortable','balanced','compact'].includes(theme.density) ? theme.density : base.density,
+      scale: ['small','balanced','large'].includes(theme.scale) ? theme.scale : base.scale,
+      motion: ['full','reduced','minimal'].includes(theme.motion) ? theme.motion : base.motion,
+      backgroundColor: themeColor(theme.bg || theme.backgroundColor, base.backgroundColor),
+      sidebarColor: themeColor(theme.bg || theme.sidebarColor || theme.backgroundColor, base.sidebarColor),
+      cardColor: themeColor(theme.panel || theme.cardColor, base.cardColor),
+      borderColor: themeColor(theme.border || theme.borderColor, base.borderColor),
+      textColor: themeColor(theme.text || theme.textColor, base.textColor),
+      mutedColor: themeColor(theme.muted || theme.secondary || theme.mutedColor, base.mutedColor),
+      accentColor: themeColor(theme.accent || theme.accentColor, base.accentColor)
+    };
+  }
+
+  function persistThemeLab(lab) {
+    if (Object.keys(lab.state.customThemes).length > 100) {
+      throw new Error('The Theme Lab supports up to 100 saved custom themes. Delete one before adding another.');
+    }
+    localStorage.setItem(THEME_LAB_KEY, JSON.stringify(lab.state));
+    try { window.OVYXSettings?.renderThemeCards?.(); } catch (error) {
+      console.warn('[OVYX Settings] Theme gallery refresh failed:', String(error?.message || 'unavailable').slice(0, 120));
+    }
+    document.querySelectorAll('#view-settings .ovyx-theme-card').forEach(card => {
+      card.classList.toggle('active', card.dataset.theme === lab.state.active);
+    });
+  }
+
+  function createThemeId(name) {
+    return 'custom_' + String(name || 'theme').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 32) + '_' + Date.now().toString(36);
+  }
+
+  function saveCurrentAsCustomTheme(name) {
+    const lab = themeLabState();
+    if (Object.keys(lab.state.customThemes).length >= 100) {
+      throw new Error('The Theme Lab supports up to 100 saved custom themes. Delete one before adding another.');
+    }
+    const theme = currentAppearanceAsLabTheme(name);
+    const id = createThemeId(theme.name);
+    lab.state.custom = { ...theme };
+    lab.state.customThemes[id] = { ...theme };
+    lab.state.active = id;
+    persistThemeLab(lab);
+    if (themeNameInput()) themeNameInput().value = theme.name;
+    return id;
+  }
+
+  function setThemeActionStatus(message) {
+    const panel = document.querySelector('#view-settings [data-settings-panel="appearance"]');
+    const status = addStatus(panel, 'ovyx-theme-action-status', message);
+    if (status) status.textContent = message;
+  }
+
+  function downloadTheme() {
+    const ctx = window.ThemeContext.get();
+    const name = cleanThemeName(themeNameInput()?.value || 'OVYX Theme');
+    const payload = {
+      schema: 'ovyx-theme',
+      version: 1,
+      name,
+      mode: ctx.mode,
+      density: ctx.density,
+      scale: ctx.scale,
+      motion: ctx.motion,
+      backgroundColor: ctx.backgroundColor,
+      sidebarColor: ctx.sidebarColor,
+      cardColor: ctx.cardColor,
+      borderColor: ctx.borderColor,
+      textColor: ctx.textColor,
+      mutedColor: ctx.mutedColor,
+      accentColor: ctx.accentColor
+    };
+    const filename = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'ovyx-theme';
+    const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename + '.json';
+    anchor.style.display = 'none';
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setThemeActionStatus('Theme exported as ' + filename + '.json.');
+    notify('Theme exported.', 'success');
+  }
+
+  function importThemeFile() {
+    const picker = document.createElement('input');
+    picker.type = 'file';
+    picker.accept = '.json,application/json';
+    picker.setAttribute('aria-label', 'Import an OVYX theme JSON file');
+    picker.style.display = 'none';
+    document.body.appendChild(picker);
+    picker.addEventListener('change', async function () {
+      try {
+        const file = picker.files && picker.files[0];
+        if (!file) return;
+        if (file.size > 100000) throw new Error('Theme files must be 100 KB or smaller.');
+        const parsed = JSON.parse(await file.text());
+        const source = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+          ? (parsed.theme && typeof parsed.theme === 'object' ? parsed.theme : parsed)
+          : null;
+        if (!source) throw new Error('The selected file must contain a JSON theme object.');
+        const hasBackground = typeof source.bg === 'string' || typeof source.backgroundColor === 'string';
+        const hasText = typeof source.text === 'string' || typeof source.textColor === 'string';
+        if (!hasBackground || !hasText) {
+          throw new Error('The theme file must include background and text colors.');
+        }
+        const base = window.ThemeContext.get();
+        const imported = {
+          name: cleanThemeName(source.name || file.name.replace(/\.json$/i, ''), 'Imported OVYX Theme'),
+          mode: ['dark','light','system'].includes(source.mode) ? source.mode : base.mode,
+          density: ['comfortable','balanced','compact'].includes(source.density) ? source.density : base.density,
+          scale: ['small','balanced','large'].includes(source.scale) ? source.scale : base.scale,
+          motion: ['full','reduced','minimal'].includes(source.motion) ? source.motion : base.motion,
+          bg: themeColor(source.bg || source.backgroundColor, base.backgroundColor),
+          panel: themeColor(source.panel || source.cardColor, base.cardColor),
+          elev: themeColor(source.elev || source.cardColor || source.panel, base.cardColor),
+          text: themeColor(source.text || source.textColor, base.textColor),
+          secondary: themeColor(source.secondary || source.mutedColor, base.mutedColor),
+          muted: themeColor(source.muted || source.mutedColor || source.secondary, base.mutedColor),
+          accent: themeColor(source.accent || source.accentColor, base.accentColor),
+          border: themeColor(source.border || source.borderColor, base.borderColor)
+        };
+        const lab = themeLabState();
+        if (Object.keys(lab.state.customThemes).length >= 100) {
+          throw new Error('The Theme Lab supports up to 100 saved custom themes. Delete one before importing another.');
+        }
+        const id = createThemeId(imported.name);
+        lab.state.custom = { ...imported };
+        lab.state.customThemes[id] = { ...imported };
+        lab.state.active = id;
+        persistThemeLab(lab);
+        window.ThemeContext.preview(appearanceFromLabTheme(imported));
+        if (themeNameInput()) themeNameInput().value = imported.name;
+        setThemeActionStatus('Imported "' + imported.name + '" as a preview. Click Save Appearance to keep it.');
+        notify('Theme imported. Review it, then choose Save Appearance.', 'success');
+      } catch (error) {
+        setThemeActionStatus('Import failed: ' + String(error?.message || 'invalid theme file'));
+        notify(error?.message || 'Theme import failed.', 'error');
+      } finally {
+        picker.remove();
+      }
+    }, { once: true });
+    picker.click();
+  }
+
+  function handleThemeLabClick(event) {
+    // Theme Lab action buttons are wired once by the Settings panel itself.
+    // Do not stop the click in capture phase: doing so left Chromium waiting
+    // for a click acknowledgement and prevented the real button action.
+    const card = event.target?.closest?.('#view-settings .ovyx-theme-card');
+    if (!card) return;
+    const id = String(card.dataset.theme || '').trim();
+    if (!/^[A-Za-z0-9_-]{1,100}$/.test(id)) return;
+    try {
+      const lab = themeLabState();
+      lab.state.active = id;
+      const selected = lab.state.customThemes[id] || (id === 'custom' ? lab.state.custom : lab.activeTheme());
+      if (selected?.name && themeNameInput()) themeNameInput().value = cleanThemeName(selected.name);
+      persistThemeLab(lab);
+    } catch (error) {
+      console.warn('[OVYX Settings] Theme selection state could not be saved:', String(error?.message || 'unavailable').slice(0, 120));
+    }
+  }
+
+  function handleThemeLabButtonClick(event) {
+    const button = event.target?.closest?.('#view-settings [data-theme-save],#view-settings [data-theme-duplicate],#view-settings [data-theme-import],#view-settings [data-theme-export],#view-settings [data-theme-delete],#view-settings [data-theme-reset]');
+    if (!button) return;
+    event.preventDefault();
+    try {
+      const lab = themeLabState();
+      if (button.hasAttribute('data-theme-save')) {
+        saveCurrentAsCustomTheme();
+        setThemeActionStatus('Custom theme saved in this browser. Click Save Appearance to commit the current preview.');
+        notify('Custom theme saved.', 'success');
+      } else if (button.hasAttribute('data-theme-duplicate')) {
+        const currentName = cleanThemeName(themeNameInput()?.value || lab.activeTheme()?.name || 'OVYX Theme');
+        saveCurrentAsCustomTheme(currentName + ' Copy');
+        setThemeActionStatus('A copy of "' + currentName + '" was saved in your custom themes.');
+        notify('Theme duplicated.', 'success');
+      } else if (button.hasAttribute('data-theme-import')) {
+        importThemeFile();
+      } else if (button.hasAttribute('data-theme-export')) {
+        downloadTheme();
+      } else if (button.hasAttribute('data-theme-delete')) {
+        const active = String(lab.state.active || '');
+        if (!active.startsWith('custom_') || !lab.state.customThemes[active]) {
+          setThemeActionStatus('Select a saved custom theme before deleting it. Built-in presets are protected.');
+          notify('Built-in presets cannot be deleted.', 'info');
+        } else {
+          const name = cleanThemeName(lab.state.customThemes[active].name, 'Custom theme');
+          if (!window.confirm('Delete the custom theme "' + name + '" from this browser?')) return;
+          delete lab.state.customThemes[active];
+          lab.state.active = 'obsidian';
+          persistThemeLab(lab);
+          window.ThemeContext.preview(appearanceFromLabTheme(lab.activeTheme()));
+          setThemeActionStatus('Deleted "' + name + '". Click Save Appearance to keep the fallback appearance.');
+          notify('Custom theme deleted.', 'success');
+        }
+      } else if (button.hasAttribute('data-theme-reset')) {
+        if (!window.confirm('Reset the Theme Lab and remove saved custom themes?')) return;
+        lab.reset();
+        window.ThemeContext.reset();
+        if (themeNameInput()) themeNameInput().value = 'My OVYX Theme';
+        setThemeActionStatus('Theme Lab reset to OVYX defaults.');
+      }
+    } catch (error) {
+      setThemeActionStatus('Theme action failed: ' + String(error?.message || 'could not complete'));
+      notify(error?.message || 'Theme action failed.', 'error');
+    }
+  }
+
+  function installThemeLabActions() {
+    // Custom-theme buttons use one bubbling action handler. Keeping the handler
+    // out of capture phase lets Chromium complete clicks and prevents duplicate
+    // legacy direct handlers from running.
+    document.addEventListener('click', handleThemeLabButtonClick, false);
+    document.addEventListener('click', handleThemeLabClick, true);
+  }
+
+  function installSecurityActions() {
+    let mounted = false;
+    function mount() {
+      const panel = document.querySelector('#view-settings [data-settings-panel="security"]');
+      if (!panel) return;
+      let host = panel.querySelector('#ovyx-settings-security-actions');
+      if (!host) {
+        host = document.createElement('div');
+        host.id = 'ovyx-settings-security-actions';
+        host.className = 'ovyx-pref-group';
+        host.innerHTML = '<div class="ovyx-pref-label">ACCOUNT ACTIONS</div>' +
+          '<div class="ovyx-pref-row"><div class="ovyx-pref-copy"><b>Sign out all sessions</b><small>Revoke Firebase refresh-token sessions on your devices. You will need to sign in again here.</small></div><button type="button" class="ovyx-settings-btn" id="ovyx-security-revoke-sessions">Revoke Sessions</button></div>' +
+          '<div class="ovyx-pref-row"><div class="ovyx-pref-copy"><b>Delete account and cloud data</b><small>Permanently remove this account’s OVYX cloud project data and settings. Recent sign-in is required.</small></div><button type="button" class="ovyx-settings-btn danger" id="ovyx-security-delete">Delete Account</button></div>';
+        panel.appendChild(host);
+      }
+      mounted = true;
+    }
+
+    mount();
+    document.addEventListener('DOMContentLoaded', mount, { once: true });
+    window.addEventListener('ovyx-settings-rendered', mount, { passive: true });
+    window.addEventListener('ovyx:view-changed', mount, { passive: true });
+
+    document.addEventListener('click', async function (event) {
+      const button = event.target && event.target.closest && event.target.closest('#ovyx-security-revoke-sessions');
+      if (!button) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      const user = currentUser();
+      if (!user) {
+        notify('Sign in before revoking account sessions.', 'error');
+        return;
+      }
+      const confirmed = window.confirm('Revoke all Firebase sessions for this account? This will sign you out on this device and require you to sign in again.');
+      if (!confirmed) return;
+
+      const panel = button.closest('[data-settings-panel="security"]');
+      const status = addStatus(panel, 'ovyx-security-action-status', 'Revoking account sessions…');
+      const original = button.textContent;
+      button.disabled = true;
+      button.textContent = 'Revoking…';
+      try {
+        const token = await user.getIdToken(false);
+        const response = await fetch('/api/auth/revoke-sessions', {
+          method: 'POST',
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: { Accept: 'application/json', Authorization: 'Bearer ' + token }
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.ok !== true || data.revoked !== true) {
+          throw Object.assign(new Error(data.message || data.error || 'The server did not confirm session revocation.'), {
+            code: data.code || 'SESSION_REVOCATION_FAILED',
+            status: response.status
+          });
+        }
+        if (status) status.textContent = 'Server confirmed all refresh-token sessions revoked. Signing out this device…';
+        notify('All sessions revoked. Sign in again to continue.', 'success');
+        try { await window.firebase?.auth?.().signOut?.(); } catch (signOutError) {
+          console.warn('[OVYX Settings] Local sign-out after session revocation failed:', String(signOutError?.message || 'unavailable').slice(0, 120));
+        }
+        try { window.Router?.go?.('home'); } catch (_) {}
+        try { window.OVYXMasterAuth?.openAuth?.(); } catch (_) {}
+      } catch (error) {
+        if (status) status.textContent = 'Session revocation failed: ' + (error.message || 'server did not confirm the action');
+        notify(error.message || 'Could not revoke account sessions.', 'error');
+      } finally {
+        button.disabled = false;
+        button.textContent = original || 'Revoke Sessions';
+      }
+    }, true);
+  }
+
   function applyEditorMode() {
     const state = safeJson(localStorage.getItem('ovyx.settings.integrity.v83'));
     const mode = ['build','plan','ask','fix'].includes(String(state.editorMode || '').toLowerCase())
@@ -714,6 +1062,9 @@
     }, { passive: true });
     setTimeout(installEditorMode, 200);
   }
+  window.addEventListener('ovyx-settings-rendered', installDestructiveConfirmationPreference, { passive: true });
+  window.addEventListener('ovyx:view-changed', installDestructiveConfirmationPreference, { passive: true });
+
   function bindAuthenticationRefresh() {
     document.addEventListener('firebase-auth-state-ready', function () {
       setTimeout(function () {
@@ -814,10 +1165,13 @@
   function boot() {
     installGlobalProjectShortcuts();
     installProfileActions();
+    installSecurityActions();
     installNotificationActions();
     installNotificationToastFilters();
     installWorkspaceToggleActions();
+    installDestructiveConfirmationPreference();
     installAISettingsBridge();
+    installThemeLabActions();
     installAppearanceAndUsageHooks();
     bindAuthenticationRefresh();
     installLivePreviewBridge();

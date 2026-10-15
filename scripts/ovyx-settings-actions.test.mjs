@@ -13,6 +13,7 @@ const deletionApi = read('functions/api/account/delete.js');
 const brandProfileApi = read('functions/api/settings/brand-profile.js');
 const connectionsApi = read('functions/api/settings/connections.js');
 const revokeSessionsApi = read('functions/api/api/auth/revoke-sessions.js');
+const revokeSessionsAlias = read('functions/api/auth/revoke-sessions.js');
 const providers = read('functions/_lib/providers.js');
 const assistant = read('functions/api/ai/assistant.js');
 const gateway = read('functions/api/ai/gateway.js');
@@ -21,12 +22,14 @@ const packageJson = JSON.parse(read('package.json'));
 
 for (const path of [
   'assets/ovyx-settings-reliability.js',
+  'scripts/ovyx-settings.browser.test.mjs',
   'functions/api/settings/profile.js',
   'functions/api/settings/preferences.js',
   'functions/api/account/delete.js',
   'functions/api/settings/brand-profile.js',
   'functions/api/settings/connections.js',
   'functions/api/api/auth/revoke-sessions.js',
+  'functions/api/auth/revoke-sessions.js',
   'functions/_lib/providers.js',
   'functions/_lib/studio-multipage.js',
   'functions/api/ai/assistant.js',
@@ -41,9 +44,17 @@ assert.deepEqual(
   { ...NOTIFICATION_DEFAULTS, projectActivity: false },
   'Notification preference parsing must accept only known boolean fields.'
 );
-assert.ok(html.includes('/assets/ovyx-settings-reliability.js?v=20261015-5'), 'The audited Settings runtime must load in the application shell.');
+assert.ok(html.includes('/assets/ovyx-settings-reliability.js?v=20261015-8'), 'The audited Settings runtime must load in the application shell.');
+assert.ok(html.includes('Date.now()/1000-authTime>240'), 'Every Settings account-deletion client path must match the server four-minute recent-auth window.');
+assert.doesNotMatch(html, /Date\.now\(\)\/1000-authTime>600/, 'No legacy Settings account-deletion action may allow an auth window the server will reject.');
 assert.ok(html.includes('autosaveRecoveryEnabled'), 'Turning autosave off must remove saved recovery snapshots rather than merely change the toggle label.');
 assert.equal((html.match(/ovyx-settings-reliability\.js/g) || []).length, 1, 'Settings reliability runtime must only be injected once.');
+assert.ok(html.includes('Buy Token Booster'), 'The Token Boosters Settings panel must expose a real purchase action.');
+assert.ok(html.includes("bar.querySelector('button').addEventListener('click',()=>openBooster('starter'))"), 'The Settings Token Booster action must open the secure purchase modal.');
+assert.ok(html.includes("if(name&&!name.value.trim())name.value='My OVYX Theme';"), 'Theme previews must not overwrite the owner-entered custom theme name.');
+for (const action of ['data-theme-save','data-theme-duplicate','data-theme-import','data-theme-export','data-theme-delete','data-theme-reset']) {
+  assert.ok(html.includes('[' + action + ']'), 'Appearance UI must retain the Theme Lab action ' + action + '.');
+}
 for (const section of ['general','profile','appearance','workspace','notifications','editor','shortcuts','ai','privacy','security','plan','usage','boosters']) {
   assert.ok(html.includes("['" + section + "'"), 'Settings navigation must retain the ' + section + ' section.');
 }
@@ -51,6 +62,19 @@ assert.match(html, /id="set-editor-mode"/, 'Default editor mode select must have
 for (const id of ['set-ai-routing','set-ai-fallback','set-ai-context-limit','set-ai-budget']) {
   assert.ok(html.includes('id="' + id + '"'), 'Advanced AI preference must have a stable id: ' + id);
 }
+assert.ok(html.includes("x.routing=p.querySelector('#set-ai-routing')?.value||'automatic'"), 'AI preference save must persist its routing strategy.');
+assert.ok(html.includes("x.fallback=p.querySelector('#set-ai-fallback')?.value||'next'"), 'AI preference save must persist its provider fallback strategy.');
+assert.ok(html.includes("x.contextLimit=p.querySelector('#set-ai-context-limit')?.value||'automatic'"), 'AI preference save must persist its context limit.');
+assert.ok(html.includes("x.budget=p.querySelector('#set-ai-budget')?.value||'automatic'"), 'AI preference save must persist its generation budget.');
+assert.ok(html.includes("window.OVYXAI=Object.assign({},window.OVYXAI||{},x);const model=p.querySelector('#set-ai-model')"), 'AI Reset must update the active runtime preference object and visible controls as well as storage.');
+
+assert.match(runtime, /function hydrateProfileForm\(profile\)/, 'Profile reads must hydrate the active Settings form.');
+const hydration = runtime.slice(runtime.indexOf('function hydrateProfileForm(profile)'), runtime.indexOf('async function loadProfile()'));
+assert.ok(hydration.includes("$('set-profile-name') || $('set-profile-name-legacy')"), 'Server profile hydration must target the currently rendered display-name input.');
+assert.ok(hydration.includes("$('set-workspace-name') || $('set-workspace-name-legacy')"), 'Server profile hydration must target the currently rendered workspace-name input.');
+assert.match(runtime, /\$\('set-profile-name'\) \|\| \$\('set-profile-name-legacy'\)/, 'Profile load must support the live legacy-suffixed display-name field.');
+assert.match(runtime, /\$\('set-workspace-name'\) \|\| \$\('set-workspace-name-legacy'\)/, 'Profile load must support the live legacy-suffixed workspace field.');
+assert.match(runtime, /hydrateProfileForm\(data\.profile \|\| \{\}\)/, 'Server-read profile values must be applied after the authenticated GET succeeds.');
 
 for (const requirement of [
   "api(PROFILE_ENDPOINT, jsonOptions('PUT'",
@@ -69,11 +93,28 @@ for (const requirement of [
   "ovyx.brand.v1.",
   'stopImmediatePropagation()',
   'installLivePreviewBridge',
+  'installDestructiveConfirmationPreference',
+  'window.__OVYX_SETTINGS_CONFIRM_DELETE_INSTALLED__ = true;',
+  'settingsState().confirmDelete !== false',
   'payload.preferredProvider',
   'payload.providerRouting',
   'payload.provider = String(prefs.provider).toLowerCase()',
   'limitContextFiles',
-  'set-editor-mode'
+  'set-editor-mode',
+  'installThemeLabActions',
+  'installSecurityActions',
+  'Sign out all sessions',
+  'Delete account and cloud data',
+  "fetch('/api/auth/revoke-sessions'",
+  '/api/auth/revoke-sessions',
+  '#ovyx-security-revoke-sessions',
+  '#ovyx-security-delete',
+  'function handleThemeLabClick(event)',
+  'saveCurrentAsCustomTheme',
+  'importThemeFile',
+  'downloadTheme',
+  'window.ThemeContext.preview(appearanceFromLabTheme',
+  'event.stopImmediatePropagation()'
 ]) assert.ok(runtime.includes(requirement), 'Settings runtime must have real behavior for: ' + requirement);
 
 assert.match(profileApi, /request\.method === 'GET'/);
@@ -102,6 +143,9 @@ assert.match(connectionsApi, /setFirestoreDocumentAtPath/);
 assert.ok(connectionsApi.includes("['users', auth.email, 'universal_connections']"));
 assert.match(revokeSessionsApi, /enforceSameOrigin/);
 assert.match(revokeSessionsApi, /revokeFirebaseRefreshTokens/);
+assert.match(revokeSessionsAlias, /export \{ onRequestPost, onRequestGet \} from '\.\.\/api\/auth\/revoke-sessions\.js'/);
+assert.match(revokeSessionsAlias, /onRequestPost/);
+assert.match(revokeSessionsAlias, /onRequestGet/);
 
 assert.match(providers, /providerRouting/);
 assert.match(providers, /preferredProvider/);
@@ -114,4 +158,4 @@ assert.ok(packageJson.scripts.test.includes('scripts/ovyx-settings-actions.test.
 assert.doesNotMatch(runtime, /Bearer\s+[A-Za-z0-9._~+/=-]{20,}/i, 'The Settings runtime must not contain a literal access token.');
 assert.doesNotMatch(runtime, /(?:sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9_]{20,}|AIza[0-9A-Za-z_-]{30,})/, 'The Settings runtime must not contain provider credentials.');
 
-console.log('OVYX Settings actions tests passed: server-backed profile and notifications, account and email-scoped cleanup, Brand Identity, live Universal Connection tests, session revocation, usage, workspace toggles, editor mode and AI routing.');
+console.log('OVYX Settings actions tests passed: server-backed profile and notifications, account and email-scoped cleanup, Brand Identity, live Universal Connection tests, session revocation/delete controls, theme actions, usage, workspace toggles, editor mode and AI routing.');

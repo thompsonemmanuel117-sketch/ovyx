@@ -41,6 +41,11 @@ on:
       - 'scripts/provider-availability.test.mjs'
       - 'scripts/ovyx-provider-availability.browser.test.mjs'
       - 'assets/ovyx-webstudio-reliability.js'
+      - 'assets/ovyx-settings-reliability.js'
+      - 'scripts/ovyx-settings-actions.test.mjs'
+      - 'scripts/ovyx-settings.browser.test.mjs'
+      - 'functions/api/auth/revoke-sessions.js'
+      - 'functions/api/api/auth/revoke-sessions.js'
       - 'functions/api/ai/feedback.js'
       - 'scripts/ovyx-webstudio-feedback.test.mjs'
       - 'scripts/ovyx-webstudio-reliability.test.mjs'
@@ -90,6 +95,11 @@ jobs:
           npx wrangler pages dev . --ip 127.0.0.1 --port 8788 > /tmp/ovyx-pages.log 2>&1 &
           echo $! > /tmp/ovyx-pages.pid
           curl --retry 30 --retry-connrefused --retry-delay 2 --fail http://127.0.0.1:8788/ -o /dev/null
+
+      - name: Exercise Settings in desktop and mobile Chromium
+        run: node scripts/ovyx-settings.browser.test.mjs
+        env:
+          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
 
       - name: Exercise Admin Modules hub in desktop and mobile Chromium
         run: node scripts/ovyx-admin-hub.browser.test.mjs
