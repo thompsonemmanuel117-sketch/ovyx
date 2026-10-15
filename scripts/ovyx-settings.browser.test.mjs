@@ -100,6 +100,24 @@ try {
     await enablingSync;
     assert.equal(await syncToggle.getAttribute('aria-checked'), 'false', `[${target.name}] dismissing external-sync consent must leave it disabled.`);
 
+    await page.evaluate(() => {
+      localStorage.setItem('ovyx.data.layer.v1', JSON.stringify({
+        endpoint: 'https://trusted-api.example.com/api/data', projectSync: true
+      }));
+      window.OVYXSettings.show('workspace');
+    });
+    await page.waitForFunction(() => document.getElementById('ovyx-data-endpoint')?.value === 'https://trusted-api.example.com/api/data');
+    await endpointInput.fill('https://different-api.example.com/api/data');
+    const endpointChangeDialog = page.waitForEvent('dialog');
+    const endpointSaveClick = page.locator('#ovyx-data-save').click();
+    const endpointDialog = await endpointChangeDialog;
+    assert.match(endpointDialog.message(), /new service.*Firebase ID token/i, `[${target.name}] changing the active external endpoint must require renewed consent.`);
+    await endpointDialog.dismiss();
+    await endpointSaveClick;
+    const endpointConfig = await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx.data.layer.v1') || '{}'));
+    assert.equal(endpointConfig.endpoint, 'https://trusted-api.example.com/api/data', `[${target.name}] cancelled endpoint change must preserve the previously saved endpoint.`);
+    assert.equal(await endpointInput.inputValue(), 'https://trusted-api.example.com/api/data', `[${target.name}] cancelled endpoint change must restore the saved URL in the form.`);
+
     await page.evaluate(() => window.OVYXSettings.show('editor'));
     await page.waitForSelector('#set-editor-mode', { state: 'attached' });
     await page.locator('#set-editor-mode').selectOption('ask');
