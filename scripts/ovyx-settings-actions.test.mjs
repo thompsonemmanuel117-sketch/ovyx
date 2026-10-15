@@ -78,6 +78,7 @@ for (const requirement of [
   "X-OVYX-Account-Deletion': 'CONFIRM'",
   "closest('#profile-save-action, [data-save-profile]')",
   'installGlobalProjectShortcuts',
+  'installWorkspaceOpenBehaviorActions',
   'store.createPromptModal',
   'store.save',
   'Project saved on this device.',
