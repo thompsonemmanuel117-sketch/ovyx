@@ -18,9 +18,10 @@
   const user = () => { try { return window.firebase?.auth?.().currentUser || null; } catch (_) { return null; } };
   const jsonRead = (key, fallback = {}) => { try { const v = JSON.parse(localStorage.getItem(key) || 'null'); return v && typeof v === 'object' && !Array.isArray(v) ? v : fallback; } catch (_) { return fallback; } };
   const jsonWrite = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); return true; } catch (_) { return false; } };
-  const key = (base, uid) => base + '.user.' + uid;
+  const key = (base, uid) => uid ? base + '.user.' + uid : base + '.guest';
   let activeUid = '';
   let syncPromise = null;
+  let syncingUid = '';
   let saveQueue = Promise.resolve();
   let currentPreferences = structuredCloneSafe(BASE);
   let lastSyncAt = null;
@@ -31,8 +32,11 @@
     if (!u) throw Object.assign(new Error('Sign in to sync settings across devices.'), { code: 'AUTH_REQUIRED' });
     return u.getIdToken(!!refresh);
   }
-  async function request(method = 'GET', payload = null) {
+  async function request(method = 'GET', payload = null, expectedUid = '') {
+    const before = uidOf(user());
+    if (expectedUid && before !== expectedUid) throw Object.assign(new Error('The signed-in account changed. Reload settings before saving.'), { code: 'SETTINGS_ACCOUNT_CHANGED' });
     const token = await authToken(false);
+    if (expectedUid && uidOf(user()) !== expectedUid) throw Object.assign(new Error('The signed-in account changed. The settings write was cancelled.'), { code: 'SETTINGS_ACCOUNT_CHANGED' });
     const response = await fetch(API, {
       method,
       credentials: 'same-origin',
@@ -41,6 +45,7 @@
       ...(payload ? { body: JSON.stringify(payload) } : {})
     });
     const data = await response.json().catch(() => ({}));
+    if (expectedUid && uidOf(user()) !== expectedUid) throw Object.assign(new Error('The signed-in account changed. This response was ignored.'), { code: 'SETTINGS_ACCOUNT_CHANGED' });
     if (!response.ok || data?.ok === false) {
       throw Object.assign(new Error(data?.message || data?.error || 'Account settings sync failed.'), { status: response.status, code: data?.code || 'SETTINGS_SYNC_FAILED' });
     }
@@ -180,36 +185,44 @@
   }
 
   async function initialSync(uid) {
-    if (syncPromise) return syncPromise;
-    syncPromise = (async () => {
-      const loaded = await request('GET');
+    if (syncPromise && syncingUid === uid) return syncPromise;
+    const operation = (async () => {
+      const loaded = await request('GET', null, uid);
+      if (uidOf(user()) !== uid) throw Object.assign(new Error('The signed-in account changed while settings were loading.'), { code: 'SETTINGS_ACCOUNT_CHANGED' });
       if (loaded.saved) {
         lastSyncAt = loaded.updatedAt || null;
         applyPreferences(loaded.preferences, uid);
         setStatus('Settings synced to your OVYX account.', 'success');
       } else {
         const first = snapshot(uid);
-        const saved = await request('PUT', { preferences: first });
+        const saved = await request('PUT', { preferences: first }, uid);
+        if (uidOf(user()) !== uid) throw Object.assign(new Error('The signed-in account changed while settings were saving.'), { code: 'SETTINGS_ACCOUNT_CHANGED' });
         lastSyncAt = saved.updatedAt || null;
         applyPreferences(saved.preferences, uid);
         setStatus('Settings saved to your OVYX account.', 'success');
       }
       return currentPreferences;
-    })().finally(() => { syncPromise = null; });
-    return syncPromise;
+    })();
+    syncPromise = operation;
+    syncingUid = uid;
+    try { return await operation; }
+    finally { if (syncPromise === operation) { syncPromise = null; syncingUid = ''; } }
   }
 
   function persist(section, value) {
-    if (!activeUid || !user()) {
+    const targetUid = activeUid;
+    if (!targetUid || !user() || uidOf(user()) !== targetUid) {
       setStatus('Changes are saved on this device. Sign in to sync settings across devices.', 'local');
       return Promise.resolve(false);
     }
     const patch = { [section]: structuredCloneSafe(value) };
     saveQueue = saveQueue.catch(() => false).then(async () => {
       try {
-        const result = await request('PUT', { preferences: patch });
+        if (uidOf(user()) !== targetUid || activeUid !== targetUid) throw Object.assign(new Error('The signed-in account changed before settings could be saved.'), { code: 'SETTINGS_ACCOUNT_CHANGED' });
+        const result = await request('PUT', { preferences: patch }, targetUid);
+        if (uidOf(user()) !== targetUid || activeUid !== targetUid) throw Object.assign(new Error('The signed-in account changed. The settings response was ignored.'), { code: 'SETTINGS_ACCOUNT_CHANGED' });
         lastSyncAt = result.updatedAt || null;
-        applyPreferences(result.preferences, activeUid);
+        applyPreferences(result.preferences, targetUid);
         setStatus('Settings saved to your account.', 'success');
         return true;
       } catch (error) {
@@ -260,8 +273,9 @@
     const workspaceName = clean(workspaceInput?.value, 60) || BASE.profile.workspaceName;
     if (!name) { notify('Display name cannot be empty.', 'error'); return; }
     const u = user();
+    const targetUid = uidOf(u);
     if (button) { button.disabled = true; button.setAttribute('aria-busy', 'true'); }
-    const localKey = u?.uid ? key('ovyx.profile.v2', u.uid) : 'ovyx.profile.v2.guest';
+    const localKey = key('ovyx.profile.v2', targetUid);
     const profile = { ...jsonRead(localKey, {}), name, workspace: workspaceName };
     try {
       if (!u) {
@@ -274,7 +288,8 @@
       }
       try { if (u.displayName !== name) await u.updateProfile({ displayName: name }); }
       catch (error) { throw Object.assign(new Error('Firebase could not update your display name. ' + clean(error?.message, 140)), { code: error?.code || 'PROFILE_UPDATE_FAILED' }); }
-      const result = await request('PUT', { preferences: { profile: { workspaceName } } });
+      const result = await request('PUT', { preferences: { profile: { workspaceName } } }, targetUid);
+      if (uidOf(user()) !== targetUid) throw Object.assign(new Error('The signed-in account changed. Profile updates were not applied to the new account.'), { code: 'SETTINGS_ACCOUNT_CHANGED' });
       lastSyncAt = result.updatedAt || null;
       jsonWrite(localKey, profile);
       currentPreferences = result.preferences || currentPreferences;
@@ -293,15 +308,13 @@
 
   function handleAIRequest(payload) {
     const prefs = { ...BASE.ai, ...(window.OVYXAI || {}), ...jsonRead(key('ovyx.ai.preferences.v1', activeUid), {}) };
+    const workspacePrefs = currentPreferences.workspace || BASE.workspace;
     const next = { ...(payload || {}) };
     const userText = clean(next.prompt || next.message || (Array.isArray(next.messages) ? next.messages.filter(x => x?.role === 'user').slice(-1)[0]?.content : ''), 24000);
     const destructive = /\b(delete|remove|wipe|erase|clear all|drop table|destroy|overwrite|replace all|rebuild from scratch|reset everything)\b/i.test(userText);
-    if (prefs.aiSafe !== false && prefs.confirmDestructive !== false && destructive) {
+    const requiresDestructiveConfirmation = workspacePrefs.aiSafe !== false || prefs.confirmDestructive === true;
+    if (requiresDestructiveConfirmation && destructive) {
       if (!window.confirm('This request appears to make destructive changes. Continue only if you intend to remove or overwrite existing work.')) {
-        throw Object.assign(new Error('Destructive AI request cancelled. No request was sent.'), { code: 'AI_DESTRUCTIVE_CONFIRMATION_REQUIRED' });
-      }
-    } else if (prefs.aiSafe !== false && prefs.confirmDestructive === true && destructive) {
-      if (!window.confirm('Confirm this destructive change before OVYX sends the request.')) {
         throw Object.assign(new Error('Destructive AI request cancelled. No request was sent.'), { code: 'AI_DESTRUCTIVE_CONFIRMATION_REQUIRED' });
       }
     }
@@ -313,7 +326,7 @@
     if (prefs.mode === 'quality') guidance.push('USER AI PREFERENCE: Prefer a deliberate quality pass, consider edge cases and validate requirements before responding.');
     if (prefs.explain === false) guidance.push('USER AI PREFERENCE: Keep explanations minimal; provide actionable results first.');
     if (prefs.preserve === true) guidance.push('USER AI PREFERENCE: Preserve existing project structure and working code. Prefer localized edits over unnecessary rewrites.');
-    if (prefs.confirmDestructive === true || prefs.aiSafe === true) guidance.push('USER AI PREFERENCE: Ask for confirmation before destructive edits that would delete or overwrite existing work.');
+    if (prefs.confirmDestructive === true || workspacePrefs.aiSafe !== false) guidance.push('USER AI PREFERENCE: Ask for confirmation before destructive edits that would delete or overwrite existing work.');
     if (prefs.contextLimit === 'Conservative') guidance.push('USER AI PREFERENCE: Use only the minimum relevant context needed for this task.');
     if (prefs.contextLimit === 'Expanded') guidance.push('USER AI PREFERENCE: Consider all relevant supplied project context, without pulling in unrelated projects.');
     if (prefs.budget === 'Efficient') guidance.push('USER AI PREFERENCE: Use an efficient generation strategy and avoid unrequested extra work.');
@@ -453,6 +466,7 @@
     const uid = uidOf(u);
     if (!uid) {
       activeUid = '';
+      lastSyncAt = null;
       currentPreferences = structuredCloneSafe(BASE);
       setStatus('Sign in to sync Settings across devices.', 'local');
       return false;
@@ -492,6 +506,9 @@
       if (uid !== activeUid) {
         activeUid = '';
         lastSyncAt = null;
+        syncPromise = null;
+        syncingUid = '';
+        saveQueue = Promise.resolve();
         if (uid) startSync(true);
         else {
           currentPreferences = structuredCloneSafe(BASE);
