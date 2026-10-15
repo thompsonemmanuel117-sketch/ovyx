@@ -99,7 +99,7 @@ jobs:
           echo $! > /tmp/ovyx-pages.pid
           curl --retry 30 --retry-connrefused --retry-delay 2 --fail http://127.0.0.1:8788/ -o /dev/null
 
-      - name: Exercise Appearance, Profile and Notifications in desktop and mobile Chromium
+      - name: Exercise Appearance single-owner actions in desktop and mobile Chromium
         run: node scripts/ovyx-settings-core.browser.test.mjs
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8788
