@@ -5,202 +5,275 @@ import {
   errorResponse,
   getRequestId,
   getBearerToken,
-  enforceSameOrigin
+  enforceSameOrigin,
+  readJson
 } from '../../_lib/http.js';
-
+import { verifyFirebaseIdToken, normalizeEmail } from '../../_lib/auth.js';
 import {
-  verifyFirebaseIdToken,
-  normalizeEmail
-} from '../../_lib/auth.js';
-
-import {
-  listFirestoreDocuments
+  listFirestoreDocuments,
+  getFirestoreData,
+  setFirestoreDocument,
+  setFirebaseAccountDisabled,
+  revokeFirebaseRefreshTokens
 } from '../../_lib/firebase-admin.js';
-
 import { QUOTA_PLANS } from '../../_lib/token-quota.js';
 
-const ROOT_EMAIL =
-  'ovyxsupportteam@gmail.com';
+const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
+const VALID_TIERS = new Set(['free', 'pro', 'max']);
+const clean = (value, max = 300) => String(value ?? '').trim().slice(0, max);
+
+function adminDenied(requestId) {
+  return errorResponse(403, 'ADMIN_REQUIRED', 'Root administrator access is required.', requestId);
+}
+
+async function authorizeRoot(request, env, id) {
+  if (!enforceSameOrigin(request)) {
+    return { ok: false, response: errorResponse(403, 'ORIGIN_REJECTED', 'Cross-origin admin requests are not permitted.', id) };
+  }
+  if (!getBearerToken(request)) {
+    return { ok: false, response: errorResponse(401, 'AUTH_REQUIRED', 'Authentication is required.', id) };
+  }
+  const auth = await verifyFirebaseIdToken(request, env);
+  if (!auth.ok) return { ok: false, response: auth.response };
+  if (normalizeEmail(auth.user.email) !== ROOT_EMAIL) return { ok: false, response: adminDenied(id) };
+  return { ok: true, user: auth.user };
+}
+
+function configuredLimits(config = {}) {
+  const result = {};
+  for (const tier of ['free', 'pro', 'max']) {
+    const tokenValue = Number(config.tokenQuotas?.[tier]);
+    const dailyValue = Number(config.dailyPromptQuotas?.[tier]);
+    const fallback = QUOTA_PLANS[tier];
+    result[tier] = {
+      monthly: Number.isSafeInteger(tokenValue) && tokenValue > 0 ? tokenValue : fallback.monthly,
+      daily: Number.isSafeInteger(dailyValue) && dailyValue > 0 ? dailyValue : fallback.daily,
+      label: fallback.label
+    };
+  }
+  return result;
+}
+
+async function readRegistryPage(context, id) {
+  const url = new URL(context.request.url);
+  const rawSize = Number.parseInt(url.searchParams.get('pageSize') || '100', 10);
+  const pageSize = Number.isFinite(rawSize) ? Math.min(100, Math.max(1, rawSize)) : 100;
+  const pageToken = clean(url.searchParams.get('pageToken'), 4000) || null;
+  const result = await listFirestoreDocuments(context.env, 'users', pageSize, pageToken);
+  const config = await getFirestoreData(context.env, 'system', 'config') || {};
+  const plans = configuredLimits(config);
+  const checkedAt = new Date().toISOString();
+  const dayKey = checkedAt.slice(0, 10);
+  const monthKey = checkedAt.slice(0, 7);
+  const users = result.documents.map(user => {
+    const email = normalizeEmail(user.email);
+    const role = clean(user.role || 'FREE_USER', 80).toUpperCase();
+    const planState = clean(user.planTierState, 80).toLowerCase();
+    const storedPlan = clean(user.planTier ?? user.tier ?? user.plan ?? 'free', 30).toLowerCase();
+    const rootUser = email === ROOT_EMAIL || ['ROOT_SUPERUSER', 'OWNER', 'ADMIN'].includes(role);
+    const expiredState = ['expired', 'refunded', 'chargeback', 'suspended', 'canceled'].includes(planState);
+    const plan = rootUser ? 'root' : (expiredState ? 'free' : (VALID_TIERS.has(storedPlan) ? storedPlan : 'free'));
+    const limits = plans[plan === 'root' ? 'max' : plan] || plans.free;
+    const monthCurrent = String(user._ovyxQuotaMonthKey || '') === monthKey;
+    const dayCurrent = String(user._ovyxQuotaDayKey || '') === dayKey;
+    const tierCurrent = String(user._ovyxQuotaTier || '').trim().toLowerCase() === (plan === 'root' ? 'max' : plan);
+    const monthlyRemaining = monthCurrent && tierCurrent && Number.isFinite(Number(user.current_monthly_tokens))
+      ? Math.max(0, Math.min(limits.monthly, Number(user.current_monthly_tokens))) : limits.monthly;
+    const dailyRemaining = dayCurrent && tierCurrent && Number.isFinite(Number(user.daily_prompts_allowance))
+      ? Math.max(0, Math.min(limits.daily, Number(user.daily_prompts_allowance))) : limits.daily;
+    const monthlyUsed = Math.max(0, limits.monthly - monthlyRemaining);
+    const dailyUsed = Math.max(0, limits.daily - dailyRemaining);
+    const monthlyExhausted = monthCurrent && tierCurrent && (monthlyRemaining <= 0 || user.is_monthly_exhausted === true);
+    const boosterTokens = Math.max(0, Number(user.booster_tokens) || 0);
+    const quota = rootUser ? {
+      authority: 'SERVER', bypass: true, plan: 'root', mode: 'bypass',
+      monthlyLimit: null, monthlyRemaining: null, monthlyUsed: 0, monthlyUsagePercent: 0,
+      dailyPromptLimit: null, dailyPromptsRemaining: null, dailyPromptsUsed: 0,
+      dailyPromptUsagePercent: 0, monthlyExhausted: false, boosterTokens, checkedAt
+    } : {
+      authority: 'SERVER', bypass: false, plan,
+      mode: !monthlyExhausted ? 'monthly' : (boosterTokens > 0 ? 'booster' : (dailyRemaining > 0 ? 'daily' : 'blocked')),
+      monthlyLimit: limits.monthly, monthlyRemaining, monthlyUsed,
+      monthlyUsagePercent: limits.monthly > 0 ? Math.min(100, Math.round(monthlyUsed / limits.monthly * 100)) : 0,
+      dailyPromptLimit: limits.daily, dailyPromptsRemaining: dailyRemaining, dailyPromptsUsed: dailyUsed,
+      dailyPromptUsagePercent: limits.daily > 0 ? Math.min(100, Math.round(dailyUsed / limits.daily * 100)) : 0,
+      monthlyExhausted, boosterTokens, checkedAt
+    };
+    return {
+      uid: String(user.id || ''),
+      email: String(user.email || ''),
+      displayName: String(user.displayName || ''),
+      role: String(user.role || 'FREE_USER'),
+      plan,
+      planState: rootUser ? 'active' : (planState || 'free'),
+      expiresAt: user.expiresAt ?? null,
+      disabled: user.disabled === true || String(user.accountStatus || '').toLowerCase() === 'disabled',
+      quota,
+      aiUsage: quota,
+      current_monthly_tokens: quota.monthlyRemaining,
+      monthlyTokenLimit: quota.monthlyLimit,
+      tokensUsed: quota.monthlyUsed,
+      tokenLimit: quota.monthlyLimit,
+      tokenUsagePercent: quota.monthlyUsagePercent,
+      daily_prompts_allowance: quota.dailyPromptsRemaining,
+      dailyPromptLimit: quota.dailyPromptLimit,
+      dailyPromptUsagePercent: quota.dailyPromptUsagePercent
+    };
+  });
+  return jsonResponse({ ok: true, authority: 'SERVER', users, pageSize, nextPageToken: result.nextPageToken || null }, 200, {
+    'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store, max-age=0'
+  });
+}
 
 export async function onRequestGet(context) {
-  const request = context.request;
-  const requestId =
-    getRequestId(request);
-
-  if (!enforceSameOrigin(request)) {
-    return errorResponse(
-      403,
-      'ORIGIN_REJECTED',
-      'Cross-origin admin requests are not permitted.',
-      requestId
-    );
-  }
-
-  if (!getBearerToken(request)) {
-    return errorResponse(
-      401,
-      'AUTH_REQUIRED',
-      'Authentication is required.',
-      requestId
-    );
-  }
-
-  const auth =
-    await verifyFirebaseIdToken(
-      request,
-      context.env
-    );
-
-  if (!auth.ok) {
-    return auth.response;
-  }
-
-  if (
-    normalizeEmail(auth.user.email) !==
-    ROOT_EMAIL
-  ) {
-    return errorResponse(
-      403,
-      'ADMIN_REQUIRED',
-      'Root administrator access is required.',
-      requestId
-    );
-  }
-
+  const id = getRequestId(context.request);
   try {
-    const result =
-      await listFirestoreDocuments(
-        context.env,
-        'users',
-        100
-      );
-
-    const checkedAt = new Date().toISOString();
-    const dayKey = checkedAt.slice(0, 10);
-    const monthKey = checkedAt.slice(0, 7);
-    const users =
-      result.documents.map(user => {
-        const email = String(user.email || '').trim().toLowerCase();
-        const role = String(user.role || 'FREE_USER').trim().toUpperCase();
-        const planState = String(user.planTierState || '').trim().toLowerCase();
-        const storedPlan = String(
-          user.planTier ??
-          user.tier ??
-          user.plan ??
-          'free'
-        ).trim().toLowerCase();
-        const rootUser = email === ROOT_EMAIL || ['ROOT_SUPERUSER', 'OWNER', 'ADMIN'].includes(role);
-        const expiredState = ['expired', 'refunded', 'chargeback', 'suspended', 'canceled'].includes(planState);
-        const plan = rootUser ? 'root' : (expiredState ? 'free' : (Object.prototype.hasOwnProperty.call(QUOTA_PLANS, storedPlan) ? storedPlan : 'free'));
-        const limits = QUOTA_PLANS[plan === 'root' ? 'max' : plan] || QUOTA_PLANS.free;
-        const monthCurrent = String(user._ovyxQuotaMonthKey || '') === monthKey;
-        const dayCurrent = String(user._ovyxQuotaDayKey || '') === dayKey;
-        const tierCurrent = String(user._ovyxQuotaTier || '').trim().toLowerCase() === (plan === 'root' ? 'max' : plan);
-        const monthlyLimit = limits.monthly;
-        const dailyPromptLimit = limits.daily;
-        const monthlyRemaining = monthCurrent && tierCurrent && Number.isFinite(Number(user.current_monthly_tokens))
-          ? Math.max(0, Math.min(monthlyLimit, Number(user.current_monthly_tokens)))
-          : monthlyLimit;
-        const dailyPromptsRemaining = dayCurrent && tierCurrent && Number.isFinite(Number(user.daily_prompts_allowance))
-          ? Math.max(0, Math.min(dailyPromptLimit, Number(user.daily_prompts_allowance)))
-          : dailyPromptLimit;
-        const monthlyUsed = Math.max(0, monthlyLimit - monthlyRemaining);
-        const dailyPromptsUsed = Math.max(0, dailyPromptLimit - dailyPromptsRemaining);
-        const monthlyUsagePercent = monthlyLimit > 0 ? Math.min(100, Math.round(monthlyUsed / monthlyLimit * 100)) : 0;
-        const dailyPromptUsagePercent = dailyPromptLimit > 0 ? Math.min(100, Math.round(dailyPromptsUsed / dailyPromptLimit * 100)) : 0;
-        const boosterTokens = Math.max(0, Number(user.booster_tokens) || 0);
-        const monthlyExhausted = monthCurrent && tierCurrent && (monthlyRemaining <= 0 || user.is_monthly_exhausted === true);
-        const quota = rootUser
-          ? {
-              authority: 'SERVER',
-              bypass: true,
-              plan: 'root',
-              mode: 'bypass',
-              monthlyLimit: null,
-              monthlyRemaining: null,
-              monthlyUsed: 0,
-              monthlyUsagePercent: 0,
-              dailyPromptLimit: null,
-              dailyPromptsRemaining: null,
-              dailyPromptsUsed: 0,
-              dailyPromptUsagePercent: 0,
-              monthlyExhausted: false,
-              boosterTokens,
-              checkedAt
-            }
-          : {
-              authority: 'SERVER',
-              bypass: false,
-              plan,
-              mode: !monthlyExhausted ? 'monthly' : (boosterTokens > 0 ? 'booster' : (dailyPromptsRemaining > 0 ? 'daily' : 'blocked')),
-              monthlyLimit,
-              monthlyRemaining,
-              monthlyUsed,
-              monthlyUsagePercent,
-              dailyPromptLimit,
-              dailyPromptsRemaining,
-              dailyPromptsUsed,
-              dailyPromptUsagePercent,
-              monthlyExhausted,
-              boosterTokens,
-              checkedAt
-            };
-
-        return {
-          uid: String(user.id || ''),
-          email: String(user.email || ''),
-          displayName: String(user.displayName || ''),
-          role: String(user.role || 'FREE_USER'),
-          plan,
-          disabled: user.disabled === true,
-          // Both a namespaced object and stable flat aliases are provided so
-          // the admin UI can render real server-authoritative meters.
-          quota,
-          aiUsage: quota,
-          current_monthly_tokens: quota.monthlyRemaining,
-          monthlyTokenLimit: quota.monthlyLimit,
-          tokensUsed: quota.monthlyUsed,
-          tokenLimit: quota.monthlyLimit,
-          tokenUsagePercent: quota.monthlyUsagePercent,
-          daily_prompts_allowance: quota.dailyPromptsRemaining,
-          dailyPromptLimit: quota.dailyPromptLimit,
-          dailyPromptUsagePercent: quota.dailyPromptUsagePercent
-        };
-      });
-
-    return jsonResponse(
-      {
-        ok: true,
-        authority: 'SERVER',
-        users,
-        nextPageToken:
-          result.nextPageToken || null
-      },
-      200,
-      {
-        'X-OVYX-Request-ID': requestId
-      }
-    );
+    const auth = await authorizeRoot(context.request, context.env, id);
+    if (!auth.ok) return auth.response;
+    return await readRegistryPage(context, id);
   } catch (error) {
-    console.error(
-      `[OVYX ADMIN USERS ${requestId}]`,
-      error?.message || error
-    );
-
-    return errorResponse(
-      503,
-      'ADMIN_USERS_UNAVAILABLE',
-      'The server could not retrieve the user registry.',
-      requestId
-    );
+    console.error('[OVYX ADMIN USERS ' + id + ']', String(error?.code || error?.message || 'registry read failed').slice(0, 180));
+    return errorResponse(error?.status || 503, error?.code || 'ADMIN_USERS_UNAVAILABLE', 'The server could not retrieve the user registry.', id);
   }
 }
 
+function validateTargetUid(value) {
+  const uid = clean(value, 128);
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(uid)) {
+    throw Object.assign(new Error('A valid target user ID is required.'), { status: 400, code: 'TARGET_UID_REQUIRED' });
+  }
+  return uid;
+}
+
+function quotaResetFields(tier, plans, now = new Date()) {
+  const selected = plans[tier] || plans.free;
+  return {
+    current_monthly_tokens: selected.monthly,
+    daily_prompts_allowance: selected.daily,
+    is_monthly_exhausted: false,
+    _ovyxQuotaTier: tier,
+    _ovyxQuotaDayKey: now.toISOString().slice(0, 10),
+    _ovyxQuotaMonthKey: now.toISOString().slice(0, 7),
+    quotaSchemaVersion: 1
+  };
+}
+
 export async function onRequestPost(context) {
-  return errorResponse(
-    405,
-    'METHOD_NOT_ALLOWED',
-    'User administration writes are not enabled by this Phase 2 endpoint.',
-    getRequestId(context.request)
-  );
+  const id = getRequestId(context.request);
+  try {
+    const auth = await authorizeRoot(context.request, context.env, id);
+    if (!auth.ok) return auth.response;
+    const body = await readJson(context.request, 16000);
+    const action = clean(body.action, 60);
+    const uid = validateTargetUid(body.uid || body.targetUid);
+    const target = await getFirestoreData(context.env, 'users', uid);
+    if (!target) return errorResponse(404, 'USER_NOT_FOUND', 'The selected account was not found in the OVYX user registry.', id);
+    const targetEmail = normalizeEmail(target.email);
+    const targetRole = clean(target.role, 80).toUpperCase();
+    if (targetEmail === ROOT_EMAIL || ['ROOT_SUPERUSER', 'OWNER'].includes(targetRole)) {
+      return errorResponse(403, 'ROOT_ACCOUNT_PROTECTED', 'The root owner account cannot be changed from the user registry.', id);
+    }
+
+    const config = await getFirestoreData(context.env, 'system', 'config') || {};
+    const plans = configuredLimits(config);
+    const now = new Date();
+    const actor = { uid: String(auth.user.uid || ''), email: normalizeEmail(auth.user.email) };
+    const audit = { adminAction: action, adminActionAt: now.toISOString(), adminActionBy: actor };
+
+    if (action === 'setPlan') {
+      const tier = clean(body.plan, 20).toLowerCase();
+      if (!VALID_TIERS.has(tier)) return errorResponse(400, 'INVALID_PLAN', 'Choose Free, Pro or Max.', id);
+      const durationDaysRaw = Number(body.durationDays ?? 30);
+      const durationDays = Number.isInteger(durationDaysRaw) ? durationDaysRaw : 0;
+      if (tier !== 'free' && (durationDays < 1 || durationDays > 3650)) {
+        return errorResponse(400, 'INVALID_PLAN_DURATION', 'Paid plan duration must be between 1 and 3650 days.', id);
       }
+      const expiresAt = tier === 'free' ? null : now.getTime() + durationDays * 86400000;
+      await setFirestoreDocument(context.env, 'users', uid, {
+        planTier: tier,
+        tier,
+        planTierState: tier === 'free' ? 'expired' : 'active',
+        subscriptionStatus: tier === 'free' ? 'expired' : 'active',
+        expiresAt,
+        adminManagedPlan: true,
+        adminManagedPlanAt: now.toISOString(),
+        adminManagedPlanBy: actor,
+        ...quotaResetFields(tier, plans, now),
+        ...audit
+      }, { merge: true });
+      try {
+        await setFirestoreDocument(context.env, 'plans', tier, {
+          tier,
+          lastUserAssignmentAt: now.toISOString(),
+          lastUserAssignmentBy: actor
+        }, { merge: true });
+      } catch (error) {
+        console.warn('[OVYX ADMIN USERS ' + id + '] plan audit record unavailable');
+      }
+      return jsonResponse({
+        ok: true, action, uid, plan: tier, planState: tier === 'free' ? 'expired' : 'active',
+        expiresAt, quota: plans[tier], updatedAt: now.toISOString(), authority: 'SERVER'
+      }, 200, { 'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store, max-age=0' });
+    }
+
+    if (action === 'setAccountStatus') {
+      const disabled = body.disabled === true;
+      const oldDisabled = target.disabled === true || String(target.accountStatus || '').toLowerCase() === 'disabled';
+      await setFirestoreDocument(context.env, 'users', uid, {
+        disabled,
+        accountStatus: disabled ? 'disabled' : 'active',
+        accountStatusUpdatedAt: now.toISOString(),
+        accountStatusUpdatedBy: actor,
+        ...audit
+      }, { merge: true });
+      try {
+        await setFirebaseAccountDisabled(context.env, uid, disabled);
+      } catch (error) {
+        await setFirestoreDocument(context.env, 'users', uid, {
+          disabled: oldDisabled,
+          accountStatus: oldDisabled ? 'disabled' : 'active',
+          accountStatusUpdateFailedAt: new Date().toISOString()
+        }, { merge: true }).catch(() => {});
+        throw error;
+      }
+      let refreshTokensRevoked = false;
+      if (disabled) {
+        try {
+          await revokeFirebaseRefreshTokens(context.env, uid);
+          refreshTokensRevoked = true;
+        } catch (error) {
+          console.warn('[OVYX ADMIN USERS ' + id + '] account disabled; token revocation unavailable');
+        }
+      }
+      return jsonResponse({
+        ok: true, action, uid, disabled, accountStatus: disabled ? 'disabled' : 'active',
+        refreshTokensRevoked, updatedAt: now.toISOString(), authority: 'FIREBASE_AUTH_AND_SERVER'
+      }, 200, { 'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store, max-age=0' });
+    }
+
+    if (action === 'resetQuota') {
+      const currentTier = clean(target.planTier ?? target.tier ?? target.plan ?? 'free', 20).toLowerCase();
+      const activeTier = ['pro', 'max'].includes(currentTier) &&
+        ['active', 'trialing'].includes(clean(target.planTierState, 40).toLowerCase()) &&
+        Number(target.expiresAt) > now.getTime()
+        ? currentTier : 'free';
+      const fields = quotaResetFields(activeTier, plans, now);
+      await setFirestoreDocument(context.env, 'users', uid, { ...fields, ...audit }, { merge: true });
+      return jsonResponse({
+        ok: true, action, uid, plan: activeTier, quota: plans[activeTier],
+        updatedAt: now.toISOString(), authority: 'SERVER'
+      }, 200, { 'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store, max-age=0' });
+    }
+
+    return errorResponse(400, 'ADMIN_USER_ACTION_NOT_ALLOWED', 'Supported actions are setPlan, setAccountStatus and resetQuota.', id);
+  } catch (error) {
+    console.error('[OVYX ADMIN USERS WRITE ' + id + ']', String(error?.code || error?.message || 'user write failed').slice(0, 180));
+    return errorResponse(error?.status || 500, error?.code || 'ADMIN_USER_UPDATE_FAILED', error?.message || 'The user account could not be updated.', id);
+  }
+}
+
+export async function onRequest(context) {
+  if (context.request.method === 'GET') return onRequestGet(context);
+  if (context.request.method === 'POST') return onRequestPost(context);
+  return errorResponse(405, 'METHOD_NOT_ALLOWED', 'GET or POST is required.', getRequestId(context.request));
+}
