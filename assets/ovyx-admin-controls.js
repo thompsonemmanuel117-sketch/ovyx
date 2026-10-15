@@ -457,6 +457,52 @@
         '<label class="ovyx-owner-live-field">Max daily prompts<input class="ovyx-owner-live-input" id="ovyx-quota-daily-max" type="number" min="1" step="1" value="100"/></label>' +
       '</div>' +
       '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:13px"><button class="ovyx-owner-live-button" id="ovyx-global-quota-save" type="button">Save global plan rules</button><span id="ovyx-global-quota-status" class="ovyx-owner-live-status" style="margin:0;flex:1;min-width:180px">Loading server plan catalog…</span></div>');
+    if (!host) return;
+    let gatesHost = $('ovyx-global-gates-controls');
+    if (!gatesHost) {
+      const gatePanel = document.createElement('div');
+      gatePanel.className = 'ovyx-owner-live-panel';
+      gatePanel.style.marginTop = '14px';
+      const title = document.createElement('h4');
+      title.className = 'ovyx-owner-live-label';
+      title.textContent = 'Global feature gates';
+      const description = document.createElement('p');
+      description.className = 'ovyx-owner-live-detail';
+      description.textContent = 'Minimum plan required for each capability. These gates are checked on the server and affect every account; Root keeps its protected owner access.';
+      gatesHost = document.createElement('div');
+      gatesHost.id = 'ovyx-global-gates-controls';
+      gatesHost.className = 'ovyx-owner-live-form-grid';
+      gatesHost.style.marginTop = '10px';
+      const gateRows = [
+        ['webstudio', 'Web Studio'],
+        ['advancedwebstudio', 'Advanced Web Studio'],
+        ['appstudio', 'App Studio'],
+        ['aigeneration', 'AI Generation'],
+        ['github', 'GitHub Integration'],
+        ['cloudflaredeploy', 'Cloudflare Deploy'],
+        ['teamworkspace', 'Team Workspace'],
+        ['templates', 'Blueprint Templates']
+      ];
+      for (const [key, label] of gateRows) {
+        const field = document.createElement('label');
+        field.className = 'ovyx-owner-live-field';
+        field.textContent = label + ' requires';
+        const select = document.createElement('select');
+        select.id = 'gate-' + key;
+        select.className = 'ovyx-owner-live-select';
+        select.setAttribute('data-ovyx-global-feature-gate', key);
+        for (const tier of ['free', 'pro', 'max', 'root']) {
+          const option = document.createElement('option');
+          option.value = tier;
+          option.textContent = tier.toUpperCase();
+          select.appendChild(option);
+        }
+        field.appendChild(select);
+        gatesHost.appendChild(field);
+      }
+      gatePanel.append(title, description, gatesHost);
+      host.appendChild(gatePanel);
+    }
     if (host.dataset.bound === '1') return;
     host.dataset.bound = '1';
     $('ovyx-global-quota-save')?.addEventListener('click', savePlanConfiguration);
@@ -823,7 +869,8 @@
         if (ac) {
           if (config.pricing) ac.pricing = Object.assign({}, ac.pricing || {}, config.pricing);
           if (config.gating) ac.gating = Object.assign({}, ac.gating || {}, config.gating);
-          if (typeof config.masterAdminOverride === 'boolean') ac.adminOverride = config.masterAdminOverride;
+          // Master Admin Override is a local owner-preview affordance, never a global entitlement.
+          ac.adminOverride = owner() && config.masterAdminOverride === true;
           ['pro','max'].forEach(tier => {
             ['ngn','usd'].forEach(currency => {
               const input = $('adm-' + tier + '-' + currency);
@@ -836,9 +883,9 @@
           });
           ac.updateLockIcons?.();
           const override = $('admin-override-toggle');
-          if (override) override.checked = config.masterAdminOverride === true;
+          if (override) override.checked = owner() && config.masterAdminOverride === true;
           const badge = $('admin-override-badge');
-          if (badge) badge.textContent = config.masterAdminOverride === true ? 'ON (OWNER UI ONLY)' : 'OFF (ENFORCING)';
+          if (badge) badge.textContent = owner() && config.masterAdminOverride === true ? 'ON (OWNER UI ONLY)' : 'OFF (ENFORCING)';
         }
         this.renderUI?.();
         const status = $('ovyx-global-integration-status');
@@ -1106,7 +1153,20 @@
     window.addEventListener('ovyx:templates-live-cache', bindTemplateAccessGuard, { passive: true });
     [250, 900, 1800].forEach(ms => setTimeout(bindTemplateAccessGuard, ms));
     window.addEventListener('ovyx-owner-state', event => {
-      if (event.detail?.root === true) setTimeout(onView, 50);
+      if (event.detail?.root === true && owner()) {
+        patchProductionSwitch();
+        setTimeout(onView, 50);
+        return;
+      }
+      // Do not let a stale owner-preview toggle remain active after sign-out or account switch.
+      if (!owner() && window.AdminConfigurator) {
+        window.AdminConfigurator.adminOverride = false;
+        window.AdminConfigurator.updateLockIcons?.();
+        const toggle = $('admin-override-toggle');
+        if (toggle) toggle.checked = false;
+        const badge = $('admin-override-badge');
+        if (badge) badge.textContent = 'OFF (ENFORCING)';
+      }
     });
     window.addEventListener('ovyx:view-changed', () => setTimeout(onView, 0));
     window.addEventListener('firebase-auth-state-ready', () => setTimeout(onView, 100));
