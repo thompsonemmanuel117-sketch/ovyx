@@ -89,13 +89,23 @@ try {
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('ovyx.settings.integrity.v83') || '{}').confirmDelete === false);
 
     const endpointInput = page.locator('#ovyx-data-endpoint');
+    const nativeCloudSyncBefore = await page.evaluate(() => {
+      const cfg = JSON.parse(localStorage.getItem('ovyx.data.layer.v1') || '{}');
+      return cfg.projectSync === undefined ? true : cfg.projectSync;
+    });
     await endpointInput.fill('https://data-api.example.com/api/data');
     await page.locator('#ovyx-data-save').click();
     await page.waitForFunction(() => {
-      const cfg = JSON.parse(localStorage.getItem('ovyx.data.layer.v1') || '{}');
+      const cfg = JSON.parse(localStorage.getItem('ovyx.data.layer.external.v1') || '{}');
       return cfg.endpoint === 'https://data-api.example.com/api/data' && cfg.projectSync === false;
     });
-    const syncToggle = page.locator('#ovyx-data-sync');
+    const nativeCloudSyncAfter = await page.evaluate(() => {
+      const cfg = JSON.parse(localStorage.getItem('ovyx.data.layer.v1') || '{}');
+      return cfg.projectSync === undefined ? true : cfg.projectSync;
+    });
+    assert.equal(nativeCloudSyncAfter, nativeCloudSyncBefore,
+      `[${target.name}] external Data API settings must not mutate built-in OVYX cloud-sync preference.`);
+    const syncToggle = page.locator('#ovyx-data-api-sync');
     assert.equal(await syncToggle.getAttribute('aria-checked'), 'false', `[${target.name}] external Data API sync must be opt-in by default.`);
     const externalConsent = page.waitForEvent('dialog');
     const enablingSync = syncToggle.click();
@@ -106,7 +116,7 @@ try {
     assert.equal(await syncToggle.getAttribute('aria-checked'), 'false', `[${target.name}] dismissing external-sync consent must leave it disabled.`);
 
     await page.evaluate(() => {
-      localStorage.setItem('ovyx.data.layer.v1', JSON.stringify({
+      localStorage.setItem('ovyx.data.layer.external.v1', JSON.stringify({
         endpoint: 'https://trusted-api.example.com/api/data', projectSync: true
       }));
       window.OVYXSettings.show('workspace');
@@ -119,7 +129,7 @@ try {
     assert.match(endpointDialog.message(), /Firebase ID token.*new service/i, `[${target.name}] changing the active external endpoint must require renewed consent.`);
     await endpointDialog.dismiss();
     await endpointSaveClick;
-    const endpointConfig = await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx.data.layer.v1') || '{}'));
+    const endpointConfig = await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx.data.layer.external.v1') || '{}'));
     assert.equal(endpointConfig.endpoint, 'https://trusted-api.example.com/api/data', `[${target.name}] cancelled endpoint change must preserve the previously saved endpoint.`);
     assert.equal(await endpointInput.inputValue(), 'https://trusted-api.example.com/api/data', `[${target.name}] cancelled endpoint change must restore the saved URL in the form.`);
 
