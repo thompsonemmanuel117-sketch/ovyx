@@ -69,9 +69,15 @@ async function onRequest(context){
   const reference=clean(payload.reference);if(!reference)return response({ok:false,error:'Missing payment reference.'},400);
   let providerStatus;try{providerStatus=await queryCashierPayment(context.env,{reference})}catch(e){return response({ok:false,error:'Provider status verification failed.'},503);}
   const provider=providerStatus?.data||{};
-  if(clean(provider.reference)!==reference||clean(provider.status).toUpperCase()!=='SUCCESS'||Number(provider.amount?.total)!==Number(payload.amount)||clean(provider.amount?.currency).toUpperCase()!=='NGN')return response({ok:false,error:'Provider verification did not match the callback.'},409);
+  if(clean(provider.reference)!==reference||clean(provider.status).toUpperCase()!=='SUCCESS')return response({ok:false,error:'Provider verification did not match the callback.'},409);
   const paymentDoc=await getFirestoreDocument(context.env,'payment_orders',reference);if(!paymentDoc)return response({ok:false,error:'Payment reference is not a known OVYX order.'},404);
   const record=await getFirestoreData(context.env,'payment_orders',reference)||{};
+  const expectedMinor=Number(record.minorUnitAmount)||Math.round(Number(record.amount)*100);
+  if(clean(record.provider)!=='opay'||String(record.currency||'').toUpperCase()!=='NGN'||!Number.isSafeInteger(expectedMinor)||expectedMinor<=0||
+    Number(provider.amount?.total)!==expectedMinor||Number(payload.amount)!==expectedMinor||
+    clean(provider.amount?.currency).toUpperCase()!=='NGN'||clean(payload.currency).toUpperCase()!=='NGN'){
+    return response({ok:false,error:'Provider amount/currency did not match the stored OVYX order snapshot.'},409);
+  }
   const verifiedEmail=clean(record.email).toLowerCase();
   if(!verifiedEmail)return response({ok:false,error:'Payment metadata is missing the verified Firebase email.'},409);
   const claim=await setFirestoreDocumentIfCurrent(context.env,'payment_orders',reference,{fulfillmentStatus:'processing',processingStartedAt:new Date().toISOString()},paymentDoc.updateTime).catch(e=>e);
@@ -81,7 +87,14 @@ async function onRequest(context){
   const email=verifiedEmail;
   const user=await findUserByExactEmail(context.env,email);
   if(clean(user.data.email).toLowerCase()!==email)return response({ok:false,error:'Verified Firestore email mismatch.'},409);
-  const product=ngnProduct(record.productType,record.productId);
+  let product;
+  try {
+    const catalogProduct=ngnProduct(record.productType,record.productId);
+    product={...catalogProduct,amount:Number(record.amount),minorUnitAmount:expectedMinor,currency:'NGN'};
+    if(record.productType==='token_booster'&&Number.isFinite(Number(record.tokens))&&Number(record.tokens)>0)product.tokens=Number(record.tokens);
+  } catch (_) {
+    return response({ok:false,error:'Stored OVYX order product is invalid.'},409);
+  }
   try{
     await fulfill(context.env,{...record,orderNo:reference},user,product,payload);
     const latest=await getFirestoreDocument(context.env,'payment_orders',reference);
