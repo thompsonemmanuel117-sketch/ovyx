@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
+import { installOwnerBrowserApiFixtures } from './ovyx-owner-browser-api-fixtures.mjs';
 
 const baseURL = String(process.env.OVYX_E2E_BASE_URL || '').trim();
 if (!baseURL) throw new Error('OVYX_E2E_BASE_URL must point to the local OVYX Pages app.');
@@ -24,6 +25,8 @@ try {
   ]) {
     const page = await browser.newPage({ viewport: target.viewport });
     page.setDefaultTimeout(20000);
+    await installOwnerBrowserApiFixtures(page);
+
     let entitlementCalls = 0;
     await page.route('**/api/entitlements', async route => {
       entitlementCalls += 1;
