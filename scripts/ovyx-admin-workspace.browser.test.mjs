@@ -125,9 +125,9 @@ try {
       '[' + target.name + '] public catalog refresh must propagate USD pricing too');
     assert.equal(await page.evaluate(() => Number(window.OVYXPlanCatalog?.tokenQuotas?.pro)), 600000,
       '[' + target.name + '] saved monthly quota should be read back from the catalog');
-    assert.equal(await page.locator('#price-pro-display').innerText().catch(() => ''), '$21.00',
-      '[' + target.name + '] the visible Pro price should update to the saved USD amount after selecting USD');
     await page.evaluate(() => window.OvyxCurrencyEngine?.setCurrency?.('USD'));
+    assert.equal(await page.locator('#price-pro-display').evaluate(node => node.textContent).catch(() => ''), '$21.00',
+      '[' + target.name + '] the visible Pro price should update to the saved USD amount after selecting USD');
 
     await hub.locator('[data-ovyx-admin-workspace-route="admin-identity"]').evaluate(button => button.click());
     await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-identity');
