@@ -748,6 +748,41 @@ function isRootAccount(
   );
 }
 
+async function notifyOwnerLifecycleEvent(env, event) {
+  const eventType = String(event?.eventType || '').toLowerCase();
+  const typeByEvent = {
+    payment_success: 'payments',
+    subscription_renewed: 'subscriptions',
+    canceled: 'subscriptions',
+    past_due: 'subscriptions',
+    expired: 'subscriptions',
+    suspended: 'subscriptions',
+    trial_started: 'subscriptions',
+    refunded: 'refunds',
+    chargeback: 'chargebacks'
+  };
+  const type = typeByEvent[eventType];
+  if (!type) return;
+  const titleByType = {
+    payments: 'OVYX payment confirmed',
+    subscriptions: 'OVYX subscription updated',
+    refunds: 'OVYX refund event received',
+    chargebacks: 'OVYX chargeback alert'
+  };
+  try {
+    const { sendAdminPushNotification } = await import('./_lib/admin-push.js');
+    await sendAdminPushNotification(env, {
+      type,
+      title: titleByType[type],
+      body: 'A verified payment-provider event was processed: ' + eventType.replace(/_/g, ' ') + '.',
+      url: '/view-admin-overview',
+      tag: 'ovyx-payment-event-' + String(event?.reference || event?.transactionId || eventType).slice(0, 100),
+    });
+  } catch (error) {
+    console.warn('[OVYX ADMIN PUSH] payment event alert delivery skipped:', String(error?.code || error?.name || 'PUSH_DELIVERY_FAILED').slice(0, 90));
+  }
+}
+
 export async function onRequestPost(
   context
 ) {
@@ -838,6 +873,8 @@ export async function onRequestPost(
         context.env,
         event
       );
+
+    await notifyOwnerLifecycleEvent(context.env, event);
 
     console.log(
       JSON.stringify({
