@@ -186,8 +186,8 @@
   async function saveProfile(button) {
     const panel = document.querySelector('[data-settings-panel="profile"]');
     const status = addStatus(panel, 'ovyx-profile-server-status', 'Saving account profile…');
-    const name = $('set-profile-name');
-    const workspace = $('set-workspace-name');
+    const name = $('set-profile-name') || $('set-profile-name-legacy');
+    const workspace = $('set-workspace-name') || $('set-workspace-name-legacy');
     const displayName = String(name && name.value || '').trim();
     const workspaceName = String(workspace && workspace.value || 'Creative Workspace').trim();
     if (!displayName) throw new Error('Display name cannot be empty.');
@@ -345,6 +345,8 @@
       try {
         const prefix = 'ovyx.profile.v2.user.' + String(user.uid);
         localStorage.removeItem(prefix);
+        localStorage.removeItem('ovyx.profile.v1');
+        localStorage.removeItem('ovyx.brand.v1.' + encodeURIComponent(String(user.email || '').trim().toLowerCase()));
         localStorage.removeItem('ovyx.ai.preferences.v1.user.' + String(user.uid));
         localStorage.removeItem('ovyx.notifications.v1.user.' + String(user.uid));
         localStorage.removeItem('ovyx.notifications.v1');
@@ -399,7 +401,7 @@
   }
   function installProfileActions() {
     document.addEventListener('click', function (event) {
-      const button = event.target && event.target.closest && event.target.closest('#profile-save-action');
+      const button = event.target && event.target.closest && event.target.closest('#profile-save-action, [data-save-profile]');
       if (!button) return;
       event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
       saveProfile(button).catch(error => notify(error.message || 'Profile save failed.', 'error'));
@@ -735,7 +737,82 @@
       }, 10);
     });
   }
+  function installGlobalProjectShortcuts() {
+    if (window.__OVYXSettingsProjectShortcutsV1) return;
+    window.__OVYXSettingsProjectShortcutsV1 = true;
+
+    function storageKey() {
+      const user = currentUser();
+      return user && user.uid
+        ? 'ovyx.projects.v22.user.' + String(user.uid)
+        : 'ovyx.projects.v22.guest';
+    }
+    function readStoredProjects() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(storageKey()) || '[]');
+        return Array.isArray(parsed) ? parsed : null;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    document.addEventListener('keydown', function (event) {
+      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey || event.repeat || event.defaultPrevented) return;
+      const key = String(event.key || '').toLowerCase();
+      if (key !== 'n' && key !== 's') return;
+
+      const store = window.ProjectStore;
+      const state = window.KernelState;
+      const currentProject = state && state.activeProject;
+
+      if (key === 'n') {
+        if (!store || typeof store.createPromptModal !== 'function') {
+          event.preventDefault();
+          notify('New Project is unavailable in this workspace.', 'error');
+          return;
+        }
+        event.preventDefault();
+        const previousId = String(currentProject && currentProject.id || '');
+        try {
+          store.createPromptModal();
+          const nextProject = window.KernelState && window.KernelState.activeProject;
+          const saved = readStoredProjects();
+          if (!nextProject || !nextProject.id || String(nextProject.id) === previousId) return;
+          if (!saved || !saved.some(project => String(project && project.id || '') === String(nextProject.id))) {
+            notify('The new project was created in memory, but local persistence could not be confirmed.', 'error');
+            return;
+          }
+          notify('New project created and saved on this device.', 'success');
+        } catch (error) {
+          notify(error && error.message || 'New project creation failed.', 'error');
+        }
+        return;
+      }
+
+      event.preventDefault();
+      if (!currentProject || !currentProject.id) {
+        notify('Open or create a project before saving.', 'info');
+        return;
+      }
+      if (!store || typeof store.save !== 'function') {
+        notify('Project saving is unavailable in this workspace.', 'error');
+        return;
+      }
+      try {
+        store.save();
+        const saved = readStoredProjects();
+        const storedProject = saved && saved.find(project => String(project && project.id || '') === String(currentProject.id));
+        if (!storedProject || JSON.stringify(storedProject) !== JSON.stringify(currentProject)) {
+          throw new Error('OVYX could not verify the project snapshot in local storage.');
+        }
+        notify('Project saved on this device.', 'success');
+      } catch (error) {
+        notify(error && error.message || 'Project save failed.', 'error');
+      }
+    }, true);
+  }
   function boot() {
+    installGlobalProjectShortcuts();
     installProfileActions();
     installNotificationActions();
     installNotificationToastFilters();

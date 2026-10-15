@@ -86,11 +86,22 @@ export async function onRequestPost(context) {
     assertFreshAuth(user);
 
     const uid = uidOf(user);
+    const email = String(user?.email || '').trim().toLowerCase();
+    if (!email) {
+      throw Object.assign(new Error('A verified account email is required for complete account cleanup.'), {
+        status: 401,
+        code: 'AUTH_IDENTITY_REQUIRED'
+      });
+    }
 
-    // Delete the authenticated user's Firestore tree, including project,
-    // conversation and notification subcollections. Payment/audit records
-    // are intentionally preserved where required for reconciliation/security.
+    // Delete the UID-keyed account tree, including project, conversation and
+    // notification subcollections. Payment/audit records remain for reconciliation.
     await deleteFirestoreDocumentTree(context.env, 'users', uid);
+
+    // Settings also stores Universal Connections and Brand Identity under
+    // users/{email}, not users/{uid}. Delete that separate tree as well so a
+    // deleted account cannot leave encrypted provider credentials, logos or brand rules behind.
+    const emailTreeDeleted = await deleteFirestoreDocumentTree(context.env, 'users', email);
 
     // Remove the trusted GitHub connection record, if one exists.
     try {
@@ -121,6 +132,8 @@ export async function onRequestPost(context) {
         uid,
         deleted: true,
         firestore: 'deleted',
+        emailScopedSettings: 'deleted',
+        emailScopedDocumentsDeleted: emailTreeDeleted,
         storage: 'deleted',
         requiresClientAuthDeletion: true,
         nextStep: 'Call currentUser.delete() on the Firebase client, then signOut and clear local session state.',
