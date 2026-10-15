@@ -83,7 +83,7 @@ try {
     await profileName.fill('Updated Browser Name');
     await workspaceName.fill('Updated Workspace');
     await page.locator('[data-save-profile]').click();
-    await page.waitForFunction(() => document.getElementById('ovyx-profile-server-status')?.textContent?.includes('saved'));
+    await page.waitForFunction(() => document.getElementById('ovyx-profile-server-status')?.textContent?.includes('Verified on server at'));
     assert.equal(profileWrites.at(-1)?.displayName, 'Updated Browser Name', '[' + target.name + '] profile save did not reach the server contract');
     assert.equal(profileWrites.at(-1)?.workspaceName, 'Updated Workspace', '[' + target.name + '] workspace name was not saved');
 
