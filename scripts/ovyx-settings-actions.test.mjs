@@ -69,7 +69,16 @@ for (const requirement of [
   "ovyx.brand.v1.",
   'stopImmediatePropagation()',
   'installLivePreviewBridge',
-  'payload.preferredProvider',
+  'installWorkspaceControlRecovery',
+  'ensureWorkspaceControls',
+  'installProjectOpenBehavior',
+  'installDataLayerProjectSync',
+  'syncActiveProjectMetadataToDataApi',
+  'Data API project sync sends project metadata only',
+  "const DATA_LAYER_CONFIG_KEY = 'ovyx.data.layer.v1'",
+  "credentials: 'omit'",
+  "store.open = wrapped",
+  "payload.preferredProvider',
   'payload.providerRouting',
   'payload.provider = String(prefs.provider).toLowerCase()',
   'limitContextFiles',
@@ -102,6 +111,13 @@ assert.match(connectionsApi, /setFirestoreDocumentAtPath/);
 assert.ok(connectionsApi.includes("['users', auth.email, 'universal_connections']"));
 assert.match(revokeSessionsApi, /enforceSameOrigin/);
 assert.match(revokeSessionsApi, /revokeFirebaseRefreshTokens/);
+assert.ok(runtime.includes("event.target.closest('#ovyx-security-delete, #profile-delete-action')"), 'Profile and Security deletion buttons must share the same server-confirmed deletion path.');
+assert.ok(runtime.includes('Date.now() / 1000 - authTime > 240'), 'Account deletion must enforce the server-matched four-minute recent-authentication window.');
+assert.ok(runtime.includes("data-settings-panel=\\"workspace\\""), 'Recovered workspace controls must target the actual Workspace settings panel.');
+assert.ok(runtime.includes("saveDataLayerConfig({ endpoint: endpoint, projectSync: enabled })"), 'The Data API sync switch must persist before reporting success.');
+assert.ok(runtime.includes("The Data API returned a non-JSON response"), 'The Data API must not report a successful project write when it cannot verify a JSON response.');
+assert.ok(runtime.includes("projectSync === false"), 'Disabling Data API project sync must prevent metadata upload.');
+assert.ok(runtime.includes("Project source files and secrets are not uploaded"), 'The optional Data API feature must disclose its metadata-only transfer scope.');
 
 assert.match(providers, /providerRouting/);
 assert.match(providers, /preferredProvider/);
