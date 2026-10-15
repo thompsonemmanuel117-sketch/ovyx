@@ -27,7 +27,8 @@ const DEFAULT_SETTINGS = Object.freeze({
     livePreview: true,
     aiSafe: true,
     editorMode: 'build',
-    workspaceName: 'Creative Workspace'
+    workspaceName: 'Creative Workspace',
+    dataEndpoint: ''
   }),
   ai: Object.freeze({
     mode: 'balanced',
@@ -91,11 +92,24 @@ function normalizeScope(scope, input, { strict = true } = {}) {
   const allowed = new Set([
     ...(BOOLEAN_KEYS[scope] || []),
     ...Object.keys(ENUM_KEYS[scope] || {}),
-    ...(scope === 'workspace' ? ['workspaceName'] : [])
+    ...(scope === 'workspace' ? ['workspaceName', 'dataEndpoint'] : [])
   ]);
   for (const [key, value] of Object.entries(input)) {
     if (ROOT_FORBIDDEN_KEYS.has(key) || !allowed.has(key)) {
       if (strict) throw Object.assign(new Error('This Settings field is not supported.'), { status: 400, code: 'SETTINGS_FIELD_NOT_ALLOWED' });
+      continue;
+    }
+    if (scope === 'workspace' && key === 'dataEndpoint') {
+      const endpoint = String(value ?? '').trim().slice(0, 1000).replace(/\\\/+$/, '');
+      if (endpoint) {
+        let parsed;
+        try { parsed = new URL(endpoint); } catch {}
+        if (!parsed || parsed.protocol !== 'https:' || parsed.username || parsed.password || parsed.search || parsed.hash) {
+          if (strict) throw Object.assign(new Error('Data API endpoint must be a valid HTTPS URL without credentials, query strings or fragments.'), { status: 400, code: 'SETTINGS_VALUE_INVALID' });
+          continue;
+        }
+      }
+      result[key] = endpoint;
       continue;
     }
     if (scope === 'workspace' && key === 'workspaceName') {
