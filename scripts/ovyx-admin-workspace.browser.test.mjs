@@ -14,6 +14,7 @@ try {
     const page = await browser.newPage({ viewport: target.viewport });
     page.setDefaultTimeout(15000);
     const scriptTrace = [];
+    const scriptMimeErrors = [];
     const ownerApiWrites = [];
     page.on('dialog', dialog => dialog.accept());
     page.on('request', request => {
@@ -35,6 +36,7 @@ try {
       const messageText = message.text();
       console.log('[' + target.name + ' browser console] ' + message.type() + (location?.url ? ' [' + location.url + ':' + (location.lineNumber || 0) + ']' : '') + ': ' + messageText);
       if (/unsupported MIME type/i.test(messageText)) {
+        scriptMimeErrors.push(messageText);
         setTimeout(() => console.log('[' + target.name + ' script MIME diagnostic] ' + JSON.stringify(scriptTrace.filter(item =>
           item.failure || item.status === null || item.status >= 400 || /text\/html/i.test(item.contentType)
         ).slice(-20))), 80);
@@ -275,9 +277,19 @@ try {
     assert.equal(await page.locator('#ovyx-admin-workspace-entry-desktop').count(), 0, '[' + target.name + '] admin entry must be removed for non-root role');
     assert.equal(await page.locator('#ovyx-admin-workspace-hub').count(), 0, '[' + target.name + '] admin hub must be removed for non-root role');
 
+    const workerResponse = await page.evaluate(async () => {
+      const response = await fetch('/sw.js', { cache: 'no-store' });
+      const body = await response.text();
+      return { status: response.status, contentType: response.headers.get('content-type') || '', hasNotificationClick: body.includes('notificationclick') };
+    });
+    assert.equal(workerResponse.status, 200, '[' + target.name + '] Push service-worker asset must be served successfully.');
+    assert.match(workerResponse.contentType, /javascript/i, '[' + target.name + '] Push service-worker asset must use JavaScript MIME.');
+    assert.equal(workerResponse.hasNotificationClick, true, '[' + target.name + '] Push service worker must handle notification clicks.');
+    assert.deepEqual(scriptMimeErrors, [], '[' + target.name + '] Browser must not receive any script with an unsupported MIME type.');
+
     await page.close();
   }
-  console.log('OVYX Admin Workspace browser tests passed in desktop and mobile Chromium: root-only entry, nine module routes, search, navigation, no duplicate hub, and fail-closed non-root state.');
+  console.log('OVYX Admin Workspace browser tests passed in desktop and mobile Chromium: root-only access, nine modules, global owner actions, push worker MIME, broadcast/template publishing and fail-closed non-root state.');
 } finally {
   await browser.close();
 }
