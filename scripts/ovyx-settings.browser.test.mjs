@@ -182,6 +182,10 @@ try {
       // Otherwise it can validly restore Home while this test expects Settings.
       localStorage.setItem('ovyx.runtime.route.v18', 'settings');
       localStorage.setItem('ovyx.settings.last-view.v1', 'settings');
+      // The boot hint prioritizes the current session record. Seed all route
+      // sources consistently so this reload tests Settings, not stale Home/Studio.
+      const session = JSON.parse(localStorage.getItem('ovyx.runtime.session.v4') || '{}');
+      localStorage.setItem('ovyx.runtime.session.v4', JSON.stringify({ ...session, route: 'settings' }));
     });
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForFunction(
