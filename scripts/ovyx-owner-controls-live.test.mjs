@@ -25,6 +25,9 @@ const source = {
   gatewayAI: read('functions/api/ai/gateway.js'),
   broadcastApi: read('functions/api/admin/broadcasts.js'),
   templatesApi: read('functions/api/admin/templates.js'),
+  paymentVerify: read('functions/api/payments/verify.js'),
+  opayWebhook: read('functions/api/payments/opay-webhook.js'),
+  paystackWebhook: read('functions/api/payments/paystack-webhook.js'),
   shellMiddleware: read('functions/_middleware.js'),
   headers: read('_headers'),
   packageJson: JSON.parse(read('package.json')),
@@ -50,7 +53,10 @@ const changedJavaScriptFiles = [
   'functions/api/ai/assistant.js',
   'functions/api/ai/gateway.js',
   'functions/api/admin/broadcasts.js',
-  'functions/api/admin/templates.js'
+  'functions/api/admin/templates.js',
+  'functions/api/payments/verify.js',
+  'functions/api/payments/opay-webhook.js',
+  'functions/api/payments/paystack-webhook.js'
 ];
 for (const path of changedJavaScriptFiles) {
   execFileSync(process.execPath, ['--check', fileURLToPath(new URL('../' + path, import.meta.url))], { stdio: 'pipe' });
@@ -91,10 +97,18 @@ assert.match(source.quota, /normalizeProfile\(profile, plans\)/);
 assert.match(source.quota, /_ovyxQuotaMonthlyLimit/);
 assert.match(source.entitlements, /applyPlanFeatures\(capabilities, systemConfig\.planFeatures/);
 assert.match(source.entitlements, /applyGlobalGating\(/);
+assert.match(source.entitlements, /Date\.parse\(String\(value\)\)/, 'Entitlements must accept ISO expiry timestamps written by payment fulfillment.');
+assert.match(source.quota, /const expiresAt = timestampMs\(profile\.expiresAt\)/, 'AI quota tier must honor subscription expiry.');
+assert.match(source.usersApi, /const targetExpiryMs = timestampMs\(target\.expiresAt\)/, 'Quota reset must correctly parse ISO expiry timestamps.');
+assert.match(source.paymentVerify, /assertServerAmount\(expectedAmount/);
+assert.match(source.opayWebhook, /stored OVYX order snapshot/);
+assert.match(source.paystackWebhook, /stored OVYX order snapshot/);
+assert.match(source.paystackWebhook, /Number\(data\.amount\)!==expectedMinor/);
+
 
 assert.match(source.aiConfigApi, /ROOT_REQUIRED/);
 assert.match(source.providerRouter, /readGlobalProviderOrder/);
-assert.match(source.providerRouter, /GLOBAL_AI_CONFIG_UNAVAILABLE/);
+assert.match(source.providerRouter, /globalOrder = null/);
 assert.match(source.runtime, /function saveAIProviderOrder/);
 assert.match(source.runtime, /function loadProviderStatus/);
 assert.match(source.runtime, /item\.connected === true/);
