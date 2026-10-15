@@ -154,7 +154,20 @@ try {
     await page.locator('#set-ai-save').click();
     await page.waitForFunction(id => {
       const value = JSON.parse(localStorage.getItem('ovyx.ai.preferences.v1.user.' + id) || '{}');
-      return value.provider === 'openai' && value.routing === 'preferred-first' && value.fallback === 'stop';
+      return value.provider === 'openai' && value.routing === 'preferred-first' && value.fallback === 'stop' &&
+        value.contextLimit === 'automatic' && value.budget === 'automatic' &&
+        window.OVYXAI?.provider === 'openai' && window.OVYXAI?.routing === 'preferred-first';
+    }, uid);
+
+    // Reset must change both persisted preferences and the live preferences
+    // consumed by the generation bridge.
+    await page.locator('#set-ai-reset').click();
+    await page.waitForFunction(id => {
+      const value = JSON.parse(localStorage.getItem('ovyx.ai.preferences.v1.user.' + id) || '{}');
+      return value.provider === 'gemini' && value.routing === 'automatic' &&
+        value.fallback === 'next' && value.contextLimit === 'automatic' &&
+        value.budget === 'automatic' && window.OVYXAI?.provider === 'gemini' &&
+        window.OVYXAI?.routing === 'automatic' && window.OVYXAI?.fallback === 'next';
     }, uid);
 
     // Theme Lab buttons all complete real local actions; previews remain previews until Save Appearance.
