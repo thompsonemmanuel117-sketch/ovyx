@@ -108,6 +108,35 @@ try {
     assert.equal(await hub.locator('[data-ovyx-admin-workspace-route="admin-pricing"]').isVisible(), false, '[' + target.name + '] search must hide non-matching modules');
     await hub.locator('#ovyx-admin-workspace-search-input').fill('');
 
+    // Exercise a real owner save through the routed API fixture and verify
+    // that a fresh public catalog read updates the app-wide visible prices.
+    await hub.locator('[data-ovyx-admin-workspace-route="admin-pricing"]').evaluate(button => button.click());
+    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-pricing');
+    await page.locator('#ovyx-global-quota-panel').waitFor({ state: 'attached' });
+    await page.locator('#adm-pro-ngn').fill('36000');
+    await page.locator('#adm-pro-usd').fill('21');
+    await page.locator('#ovyx-quota-tokens-pro').fill('600000');
+    await page.locator('#ovyx-quota-daily-pro').fill('25');
+    await page.locator('#ovyx-global-quota-save').click();
+    await page.waitForFunction(() => /Saved globally/.test(document.getElementById('ovyx-global-quota-status')?.textContent || ''), null, { timeout: 20000 });
+    assert.equal(await page.evaluate(() => Number(window.OVYXPlanCatalog?.pricing?.pro?.ngn)), 36000,
+      '[' + target.name + '] a saved Pro price must be reflected in the server catalog');
+    assert.equal(await page.evaluate(() => Number(window.OVYXPlanCatalog?.pricing?.pro?.usd)), 21,
+      '[' + target.name + '] public catalog refresh must propagate USD pricing too');
+    assert.equal(await page.evaluate(() => Number(window.OVYXPlanCatalog?.tokenQuotas?.pro)), 600000,
+      '[' + target.name + '] saved monthly quota should be read back from the catalog');
+    assert.equal(await page.locator('#price-pro-display').innerText().catch(() => ''), '$21.00',
+      '[' + target.name + '] the visible Pro price should update to the saved USD amount after selecting USD');
+    await page.evaluate(() => window.OvyxCurrencyEngine?.setCurrency?.('USD'));
+
+    await hub.locator('[data-ovyx-admin-workspace-route="admin-identity"]').evaluate(button => button.click());
+    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-identity');
+    await page.locator('#ovyx-global-identity-editor').waitFor({ state: 'attached' });
+    await page.locator('#ovyx-global-ai-name').fill('OVYX Browser Fixture AI');
+    await page.locator('#ovyx-global-ai-persona').fill('Be friendly and professionally helpful in the isolated browser test.');
+    await page.locator('#ovyx-global-ai-save').click();
+    await page.waitForFunction(() => /Saved globally/.test(document.getElementById('ovyx-global-ai-status')?.textContent || ''), null, { timeout: 20000 });
+
     await hub.locator('[data-ovyx-admin-workspace-route="admin-template-hub"]').evaluate(button => button.click());
     await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-template-hub');
     await page.locator('#view-admin-template-hub [data-ovyx-admin-workspace-back]').waitFor({ state: 'visible' });
