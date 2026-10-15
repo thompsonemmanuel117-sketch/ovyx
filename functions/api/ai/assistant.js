@@ -10,6 +10,7 @@ import { buildStudioMultiPage } from '../../_lib/studio-multipage.js';
 import { validateOrRepairSinglePageBuild } from '../../_lib/studio-singlepage.js';
 import { WEB_STUDIO_SYSTEM_PROMPT, WEB_STUDIO_EXCELLENCE } from '../../_lib/prompts.js';
 import { buildExperienceBrief, isWebStudioPrompt } from '../../_lib/experience.js';
+import { WEB_STUDIO_PROMPT_MAX_CHARS } from '../../_lib/prompt-contract.js';
 import { beginAIQuota, finalizeAIQuota, refundDailyPrompt } from '../../_lib/token-quota.js';
 import {
   saveChatTurn,
@@ -36,7 +37,7 @@ function cleanMessages(payload) {
       .slice(-12)
       .map(x => ({
         role: x.role,
-        content: String(x.content || '').slice(0, 30_000),
+        content: String(x.content || '').slice(0, 80_000),
       }));
   }
 
@@ -44,7 +45,7 @@ function cleanMessages(payload) {
     payload.prompt ||
     payload.message ||
     ''
-  ).trim();
+  ).trim().slice(0, 80_000);
 
   return prompt
     ? [{ role: 'user', content: prompt }]
@@ -62,17 +63,10 @@ export async function onRequestPost(context) {
       300_000
     );
 
-    const messages = cleanMessages(payload);
-
-    if (!messages.length) {
-      return errorResponse(
-        400,
-        'PROMPT_REQUIRED',
-        'AI prompt is required.'
-      );
-    }
-
-    const promptText = payload.prompt || payload.message || messages[messages.length - 1]?.content || '';
+    const rawLastMessage = Array.isArray(payload.messages)
+      ? payload.messages.filter(x => x && (x.role === 'user' || x.role === 'assistant')).slice(-12).at(-1)?.content
+      : '';
+    const promptText = String(payload.prompt || payload.message || rawLastMessage || '').trim();
     const mode = String(payload.mode || 'assistant').toLowerCase();
     const hasStudioContext = !!(
       payload?.project ||
@@ -80,8 +74,25 @@ export async function onRequestPost(context) {
       payload?.context?.project ||
       payload?.context?.files
     );
-    const isWebStudio = isWebStudioPrompt(payload.prompt || payload.message || messages[messages.length - 1]?.content || '', mode) ||
+    const isWebStudio = isWebStudioPrompt(promptText, mode) ||
       ((mode === 'build' || mode === 'fix') && hasStudioContext);
+
+    if (isWebStudio && mode === 'build' && promptText.length > WEB_STUDIO_PROMPT_MAX_CHARS) {
+      return errorResponse(
+        413,
+        'WEBSTUDIO_PROMPT_TOO_LONG',
+        'This website brief is ' + promptText.length.toLocaleString('en-US') + ' characters. Web Studio currently supports up to ' + WEB_STUDIO_PROMPT_MAX_CHARS.toLocaleString('en-US') + ' characters per build prompt so it does not silently discard your requirements. Shorten the brief or split it into a base build and a follow-up edit; no generation was started.'
+      );
+    }
+
+    const messages = cleanMessages(payload);
+    if (!messages.length) {
+      return errorResponse(
+        400,
+        'PROMPT_REQUIRED',
+        'AI prompt is required.'
+      );
+    }
     const projectContext = payload.context && typeof payload.context === 'object'
       ? JSON.stringify(payload.context).slice(0, 80_000)
       : '';
