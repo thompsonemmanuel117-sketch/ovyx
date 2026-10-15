@@ -1057,3 +1057,43 @@ export async function revokeFirebaseRefreshTokens(
   }
   return { uid: cleanUid, validSince: Math.floor(timestamp) };
 }
+
+/**
+ * Delete a Firebase Authentication account using the server-only service
+ * account. Callers must first authenticate the requesting user, confirm the
+ * target UID is their own, require recent authentication, and apply any
+ * privileged-account protections.
+ */
+export async function deleteFirebaseAccount(env, uid) {
+  const serviceAccount = parseServiceAccount(env);
+  const cleanUid = String(uid || '').trim();
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(cleanUid)) {
+    throw Object.assign(new Error('Firebase user ID is invalid.'), {
+      status: 400,
+      code: 'AUTH_INVALID_IDENTITY'
+    });
+  }
+
+  const accessToken = await getGoogleIdentityToolkitAccessToken(env);
+  const endpoint = 'https://identitytoolkit.googleapis.com/v1/projects/' +
+    encodeURIComponent(serviceAccount.project_id) + '/accounts:delete';
+  const response = await fetch(endpoint, {
+    method: 'POST',
+    headers: {
+      Authorization: 'Bearer ' + accessToken,
+      'content-type': 'application/json'
+    },
+    body: JSON.stringify({ localId: cleanUid })
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const message = String(payload?.error?.message || 'Firebase account deletion failed.').slice(0, 240);
+    throw Object.assign(new Error(message), {
+      status: response.status >= 500 ? 503 : response.status,
+      code: response.status === 403 ? 'AUTH_ACCOUNT_DELETE_FORBIDDEN' : 'AUTH_ACCOUNT_DELETE_FAILED'
+    });
+  }
+
+  return { uid: cleanUid, deleted: true };
+}
+
