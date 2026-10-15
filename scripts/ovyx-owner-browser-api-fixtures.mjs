@@ -108,6 +108,8 @@ export async function installOwnerBrowserApiFixtures(page, options = {}) {
   let fixtureBroadcasts = [];
   let fixtureTemplates = [];
   let identity = { assistantName: 'OVYX AI', persona: '', markColor: '#E8B64F' };
+  let pushPreferences = { payments: true, refunds: true, chargebacks: true, subscriptions: true, deploymentFailures: true };
+  let pushDeviceCount = 0;
   let integrationLive = true;
 
   const responseFor = (path, method, request) => {
@@ -133,6 +135,26 @@ export async function installOwnerBrowserApiFixtures(page, options = {}) {
         } catch {}
       }
       return { ok: true, identity, authority: 'SERVER', scope: 'global', updatedAt: 'fixture' };
+    }
+    if (path === '/api/admin/push') {
+      if (method === 'POST') {
+        const payload = (() => { try { return request.postDataJSON() || {}; } catch { return {}; } })();
+        if (payload.action === 'preferences') {
+          pushPreferences = { ...pushPreferences, ...(payload.preferences || {}) };
+          return { ok: true, action: 'preferences', preferences: pushPreferences };
+        }
+        if (payload.action === 'subscribe') {
+          return { ok: false, error: 'VAPID_NOT_CONFIGURED', message: 'Push notifications are not configured on this test server.' };
+        }
+        if (payload.action === 'unsubscribe') {
+          pushDeviceCount = 0;
+          return { ok: true, action: 'unsubscribe', activeDeviceCount: 0 };
+        }
+        if (payload.action === 'test') {
+          return { ok: true, action: 'test', result: { delivered: false, deliveredCount: 0, attemptedCount: 0, failedCount: 0 } };
+        }
+      }
+      return { ok: true, authority: 'SERVER', vapidConfigured: false, vapidPublicKey: null, vapidReason: 'missing_vapid_keys', activeDeviceCount: pushDeviceCount, preferences: pushPreferences };
     }
     if (path === '/api/admin/ai-config') {
       if (method === 'POST') {
