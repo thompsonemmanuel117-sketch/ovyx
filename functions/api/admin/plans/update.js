@@ -75,7 +75,7 @@ export async function onRequest(context){
     const user=context.data?.user||await authenticateRequest(context.request,context.env);
     if(!isAdmin(user))return jsonResponse({ok:false,error:'Administrator authorization is required.',code:'ADMIN_REQUIRED'},403,{'X-OVYX-Request-ID':id});
     const config=await readConfig(context.env);
-    if(context.request.method==='GET')return jsonResponse({ok:true,config:{pricing:config.pricing,tokenQuotas:config.tokenQuotas,dailyPromptQuotas:config.dailyPromptQuotas,planFeatures:config.planFeatures,planFeaturesManaged:config.planFeaturesManaged===true,accessRules:config.accessRules},authority:'SERVER_ADMIN'},200,{'X-OVYX-Request-ID':id,'Cache-Control':'no-store, max-age=0'});
+    if(context.request.method==='GET')return jsonResponse({ok:true,config:{pricing:config.pricing,tokenQuotas:config.tokenQuotas,dailyPromptQuotas:config.dailyPromptQuotas,planFeatures:config.planFeatures,planFeaturesManaged:config.planFeaturesManaged===true,gating:config.gating,accessRules:config.accessRules},authority:'SERVER_ADMIN'},200,{'X-OVYX-Request-ID':id,'Cache-Control':'no-store, max-age=0'});
     if(context.request.method!=='POST')return jsonResponse({ok:false,error:'GET or POST is required.',code:'METHOD_NOT_ALLOWED'},405);
     const payload=await readJson(context.request,128000);
     const pricingIn=payload.pricing||{};
