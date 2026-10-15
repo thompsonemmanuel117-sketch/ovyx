@@ -69,19 +69,31 @@ function utcMonthKey(date = new Date()) {
   return date.toISOString().slice(0, 7);
 }
 
+function timestampMs(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const numeric = Number(value);
+  if (Number.isFinite(numeric) && numeric > 0) return numeric;
+  const parsed = Date.parse(String(value));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
 function activeTier(profile = {}) {
   const state = String(profile.planTierState || '').trim().toLowerCase();
-  const raw =
-    profile.planTier ??
-    profile.tier ??
-    profile.plan ??
-    'free';
+  const raw = profile.planTier ?? profile.tier ?? profile.plan ?? 'free';
+  const tier = normalizeTier(raw);
 
   if (state && ['expired', 'refunded', 'chargeback', 'suspended', 'canceled'].includes(state)) {
     return 'free';
   }
 
-  return normalizeTier(raw);
+  /* Match /api/entitlements: a paid tier is effective only while its active/trialing period has not expired. */
+  if (tier === 'pro' || tier === 'max') {
+    if (!['active', 'trialing'].includes(state)) return 'free';
+    const expiresAt = timestampMs(profile.expiresAt);
+    if (expiresAt === null || expiresAt <= Date.now()) return 'free';
+  }
+
+  return tier;
 }
 
 function normalizeProfile(profile = {}, plans = QUOTA_PLANS) {
