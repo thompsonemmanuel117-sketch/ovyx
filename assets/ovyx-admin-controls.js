@@ -1212,14 +1212,71 @@
   function mountTemplateRegistry() {
     const view = $('view-admin-template-hub');
     if (!view || !owner()) return;
-    const host = panel(view, 'ovyx-global-template-registry', 'Published template registry',
-      'Templates are stored server-side and shared to all users. Withdrawals remove the template from the published catalogue; they do not delete historical project copies.',
-      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"><button class="ovyx-owner-live-button" id="ovyx-global-template-refresh" type="button">Refresh templates</button></div><div id="ovyx-global-template-list" class="ovyx-owner-live-grid"></div><div id="ovyx-global-template-status" class="ovyx-owner-live-status">Loading server records…</div>');
+    const host = panel(view, 'ovyx-global-template-registry', 'Published template registry', 
+      'Publish a reusable blueprint to every account from this form. Published templates live in the server catalogue; withdrawals remove them from future catalogue reads without changing users’ existing projects.',
+      '<form id="ovyx-global-template-publish-form" class="ovyx-owner-live-publish-form">' +
+        '<div class="ovyx-owner-live-form-grid">' +
+          '<label class="ovyx-owner-live-field">Template title<input class="ovyx-owner-live-input" id="ovyx-global-template-title" required maxlength="120" placeholder="Premium SaaS landing page"/></label>' +
+          '<label class="ovyx-owner-live-field">Category<select class="ovyx-owner-live-select" id="ovyx-global-template-category" required><option value="SaaS">SaaS</option><option value="Portfolio">Portfolio</option><option value="Commerce">Commerce</option></select></label>' +
+          '<label class="ovyx-owner-live-field">Required account plan<select class="ovyx-owner-live-select" id="ovyx-global-template-tier" required><option value="free">Free</option><option value="pro">Pro</option><option value="max">Max</option></select></label>' +
+          '<label class="ovyx-owner-live-field">Preview image URL (optional)<input class="ovyx-owner-live-input" id="ovyx-global-template-preview" type="url" placeholder="https://…"/></label>' +
+        '</div>' +
+        '<label class="ovyx-owner-live-field" style="display:block;margin-top:12px">Deployable template AST (JSON)<textarea class="ovyx-owner-live-input" id="ovyx-global-template-ast" required rows="7" spellcheck="false">{"nodes":[{"id":"hero-section","type":"section","name":"Hero"}]}</textarea></label>' +
+        '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px"><button class="ovyx-owner-live-button" id="ovyx-global-template-publish" type="submit">Publish template globally</button><span id="ovyx-global-template-publish-status" class="ovyx-owner-live-status" style="margin:0;flex:1">Ready to publish.</span></div>' +
+      '</form>' +
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 10px"><button class="ovyx-owner-live-button" id="ovyx-global-template-refresh" type="button">Refresh published templates</button></div><div id="ovyx-global-template-list" class="ovyx-owner-live-grid"></div><div id="ovyx-global-template-status" class="ovyx-owner-live-status">Loading server records…</div>');
     if (host.dataset.templateBound === '1') return;
     host.dataset.templateBound = '1';
+    $('ovyx-global-template-publish-form')?.addEventListener('submit', publishTemplateFromOwnerForm);
     $('ovyx-global-template-refresh')?.addEventListener('click', loadTemplateRegistry);
     $('ovyx-global-template-list')?.addEventListener('click', withdrawTemplate);
     loadTemplateRegistry();
+  }
+
+  async function publishTemplateFromOwnerForm(event) {
+    event.preventDefault();
+    const status = $('ovyx-global-template-publish-status');
+    const form = $('ovyx-global-template-publish-form');
+    const button = $('ovyx-global-template-publish');
+    if (!owner()) return statusText(status, 'Root owner access is not verified.', 'error');
+    const title = String($('ovyx-global-template-title')?.value || '').trim();
+    const category = String($('ovyx-global-template-category')?.value || '');
+    const requiredTier = String($('ovyx-global-template-tier')?.value || 'free');
+    const previewUrl = String($('ovyx-global-template-preview')?.value || '').trim();
+    const rawAst = String($('ovyx-global-template-ast')?.value || '').trim();
+    if (!title) return statusText(status, 'Enter a title for this template.', 'error');
+    if (!['SaaS', 'Portfolio', 'Commerce'].includes(category)) return statusText(status, 'Choose a supported category.', 'error');
+    if (!['free', 'pro', 'max'].includes(requiredTier)) return statusText(status, 'Choose a supported account plan.', 'error');
+    if (previewUrl && (!/^https:\/\//i.test(previewUrl) || previewUrl.length > 1000)) return statusText(status, 'The preview image must be an HTTPS URL under 1,000 characters.', 'error');
+    let ast;
+    try { ast = JSON.parse(rawAst); } catch (_) { return statusText(status, 'Template AST must be valid JSON.', 'error'); }
+    const hasNodes = ast && typeof ast === 'object' && !Array.isArray(ast) &&
+      (Array.isArray(ast.canvas) || Array.isArray(ast.nodes) || Array.isArray(ast.sections) ||
+        (Array.isArray(ast.pages) && ast.pages.some(page => page && Array.isArray(page.sections))));
+    if (!hasNodes || rawAst.length > 850000) return statusText(status, 'AST must contain a deployable node/section/page structure and stay under the server size limit.', 'error');
+    if (button) button.disabled = true;
+    statusText(status, 'Publishing to the protected server template collection…');
+    try {
+      const result = await api('/api/admin/templates', {
+        method: 'POST',
+        body: JSON.stringify({ action: 'publish', title, category, previewUrl, requiredTier, ast })
+      });
+      const record = result.data.template;
+      if (!record?.id) throw new Error('Server response did not confirm a published template record.');
+      const existing = Array.isArray(window.__OVYX_TEMPLATE_LIVE__) ? window.__OVYX_TEMPLATE_LIVE__ : [];
+      window.__OVYX_TEMPLATE_LIVE__ = existing.filter(item => item.id !== record.id).concat([record]);
+      try { window.dispatchEvent(new CustomEvent('ovyx:templates-live-cache', { detail: { source: 'server-owner-publisher', count: window.__OVYX_TEMPLATE_LIVE__.length } })); } catch (_) {}
+      try { window.dispatchEvent(new CustomEvent('ovyx:template-released', { detail: { template: record } })); } catch (_) {}
+      statusText(status, 'Server confirmed a global template write: ' + String(record.title || title) + '.', 'ok');
+      notify('Template published to the global catalogue.', 'success');
+      await loadTemplateRegistry();
+      form?.reset();
+    } catch (error) {
+      statusText(status, 'Template was not confirmed published: ' + error.message, 'error');
+      notify('Template publication failed: ' + error.message, 'error');
+    } finally {
+      if (button) button.disabled = false;
+    }
   }
 
   async function loadTemplateRegistry() {
