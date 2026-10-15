@@ -15,15 +15,16 @@ try {
     page.setDefaultTimeout(15000);
     page.on('console', message => { const location = message.location(); console.log('[' + target.name + ' browser console] ' + message.type() + (location?.url ? ' [' + location.url + ':' + (location.lineNumber || 0) + ']' : '') + ': ' + message.text()); });
     page.on('requestfailed', request => {
-      if (/\\.(?:m?js|tsx)(?:\\?|$)/i.test(request.url())) {
+      if (request.resourceType() === 'script' || /\.(?:m?js|tsx)(?:\?|$)/i.test(request.url())) {
         console.log('[' + target.name + ' script request failed] ' + request.url() + ': ' + String(request.failure()?.errorText || 'unknown network error'));
       }
     });
     page.on('response', response => {
       const url = response.url();
-      if (!/\\.(?:m?js|tsx)(?:\\?|$)/i.test(url)) return;
+      const isScript = response.request().resourceType() === 'script';
+      if (!isScript && !/\.(?:m?js|tsx)(?:\?|$)/i.test(url)) return;
       const contentType = String(response.headers()['content-type'] || '').toLowerCase();
-      if (!response.ok() || contentType.includes('text/html')) {
+      if (!response.ok() || contentType.includes('text/html') || (isScript && !/(?:javascript|ecmascript)/i.test(contentType))) {
         console.log('[' + target.name + ' script response issue] HTTP ' + response.status() + ' ' + url + ' content-type=' + contentType);
       }
     });
