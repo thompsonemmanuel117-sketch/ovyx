@@ -144,6 +144,7 @@ export async function onRequestPost(context) {
 
     const suppliedSystem = String(payload.system || '').trim();
 
+    const globalAIIdentityDirective = await getAIIdentityDirective(context.env);
     const system = String(
       isWebStudio
         ? WEB_STUDIO_SYSTEM_PROMPT +
@@ -164,7 +165,7 @@ export async function onRequestPost(context) {
           '\n\nAuthenticated user UID: ' + user.sub
         : suppliedSystem ||
           'You are OVYX Brain. Return useful, project-aware responses. Never reveal server secrets.'
-    ).slice(0, isWebStudio ? 40_000 : 20_000);
+    ).slice(0, isWebStudio ? 40_000 : 20_000) + '\n\n' + globalAIIdentityDirective;
 
     const combined = messages
       .slice(-12)
@@ -216,6 +217,7 @@ export async function onRequestPost(context) {
           files: projectFiles,
           mode,
           context: studioHints,
+          qualityContract: WEB_STUDIO_EXCELLENCE + '\n\n' + globalAIIdentityDirective,
         });
 
         if (generated) {
