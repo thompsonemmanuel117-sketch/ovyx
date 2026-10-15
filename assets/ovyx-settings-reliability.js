@@ -646,10 +646,6 @@
       const paragraph = notifyPanel.querySelector('.ovyx-panel-head p');
       if (paragraph) paragraph.textContent = 'Choose which activity preferences to save to your account. Email preferences are recorded, but they do not send email without a configured delivery integration.';
     }
-    if (notificationPanel) {
-      const paragraph = notificationPanel.querySelector('.ovyx-panel-head p');
-      if (paragraph) paragraph.textContent = 'Choose which activity preferences to save to your account. Email preferences are recorded, but they do not send email without a configured delivery integration.';
-    }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
