@@ -54,6 +54,7 @@ on:
       - 'scripts/ovyx-settings-actions.test.mjs'
       - 'scripts/ovyx-settings.browser.test.mjs'
       - 'scripts/ovyx-settings-account.browser.test.mjs'
+      - 'scripts/ovyx-settings-ai.browser.test.mjs'
       - 'scripts/ovyx-settings-core.browser.test.mjs'
       - 'scripts/ovyx-admin-hub.test.mjs'
       - 'scripts/ovyx-admin-hub.browser.test.mjs'
@@ -107,6 +108,11 @@ jobs:
 
       - name: Exercise Settings Data Layer in desktop and mobile Chromium
         run: node scripts/ovyx-settings.browser.test.mjs
+        env:
+          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
+
+      - name: Exercise AI Preferences Save and Reset in desktop and mobile Chromium
+        run: node scripts/ovyx-settings-ai.browser.test.mjs
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8788
 
