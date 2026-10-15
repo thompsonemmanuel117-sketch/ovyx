@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { applyGlobalGating, applyPlanFeatures } from '../functions/api/entitlements.js';
 
 const read = path => fs.readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 const source = {
@@ -155,6 +156,28 @@ assert.match(source.shellMiddleware, /ovyx-admin-controls\.js/);
 assert.match(source.headers, /\/assets\/ovyx-admin-controls\.js/);
 assert.match(source.runtime, /async function runTelemetryProbe/);
 assert.doesNotMatch(source.runtime, /Math\.random\s*\(/, 'Owner telemetry must not fabricate random service results.');
+
+const managedPlanBase = {
+  webStudio: true,
+  advancedWebStudio: false,
+  appStudio: true,
+  gameStudio: false,
+  aiGeneration: true,
+  github: false,
+  cloudflareDeploy: false,
+  teamWorkspace: false,
+  templates: false
+};
+const configuredPro = applyPlanFeatures(managedPlanBase, {
+  pro: ['webStudio', 'advancedWebStudio', 'gameStudio', 'aiGeneration']
+}, 'pro', true);
+assert.equal(configuredPro.advancedWebStudio, true, 'Owner-managed Pro features must be able to enable an advanced capability.');
+assert.equal(configuredPro.gameStudio, true, 'Owner-managed Pro features must honor the saved allowlist even when a capability is off by default.');
+assert.equal(configuredPro.github, false, 'Features absent from the paid-plan allowlist must remain disabled.');
+assert.equal(applyPlanFeatures(managedPlanBase, { pro: ['github'] }, 'pro', false).github, false,
+  'Unmanaged plans must retain the built-in capability defaults.');
+assert.equal(applyGlobalGating({ webStudio: true }, { webstudio: 'max' }, 'pro').webStudio, false,
+  'The saved global tier gate must further restrict plan capabilities.');
 
 const testCommand = source.packageJson.scripts.test;
 assert.ok(testCommand.includes('scripts/ovyx-owner-controls-live.test.mjs'), 'Owner-controls regression test must run under npm test.');
