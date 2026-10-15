@@ -29,7 +29,8 @@ const DEFAULT_FREE_CAPABILITIES = Object.freeze({
   advancedWebStudio: false,
   appStudio: true,
   gameStudio: false,
-  aiGeneration: false,
+  // Free includes a small AI allowance; the server quota engine enforces its limits.
+  aiGeneration: true,
   github: false,
   cloudflareDeploy: true,
   teamWorkspace: false,
