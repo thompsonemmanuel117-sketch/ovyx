@@ -365,12 +365,12 @@
     const kinds = args.filter(value => typeof value === 'string').map(value => value.toLowerCase());
     const isError = kinds.includes('error');
     const categories = [
-      ['projectActivity', /\\b(?:project (?:saved|created|duplicated|updated|deleted|renamed)|saved project|project activity)\\b/i],
-      ['generationCompleted', /\\b(?:generation|build|AI build)\\s+(?:completed|finished|succeeded)\\b|\\b(?:live )?AI generation completed\\b/i],
-      ['deploymentStatus', /\\bdeploy(?:ment)?\\b.*\\b(?:started|complete|completed|succeeded|failed|status|ready)\\b|\\b(?:deployment|deploy)\\s+(?:was )?(?:successful|failed)\\b/i],
-      ['connectionFailures', /\\b(?:connection|provider|backend|service|AI brain|GitHub|Cloudflare)\\b.*\\b(?:failed|unavailable|could not|couldn't|error|timed out|unreachable)\\b/i],
-      ['aiUsageWarnings', /\\b(?:token|quota|usage|allocation)\\b.*\\b(?:low|remaining|limit|exhausted|ration|warning|approaching|left)\\b/i],
-      ['billing', /\\b(?:payment|billing|subscription|token booster)\\b/i]
+      ['projectActivity', /\b(?:project (?:saved|created|duplicated|updated|deleted|renamed)|saved project|project activity)\b/i],
+      ['generationCompleted', /\b(?:generation|build|AI build)\s+(?:completed|finished|succeeded)\b|\b(?:live )?AI generation completed\b/i],
+      ['deploymentStatus', /\bdeploy(?:ment)?\b.*\b(?:started|complete|completed|succeeded|failed|status|ready)\b|\b(?:deployment|deploy)\s+(?:was )?(?:successful|failed)\b/i],
+      ['connectionFailures', /\b(?:connection|provider|backend|service|AI brain|GitHub|Cloudflare)\b.*\b(?:failed|unavailable|could not|couldn't|error|timed out|unreachable)\b/i],
+      ['aiUsageWarnings', /\b(?:token|quota|usage|allocation)\b.*\b(?:low|remaining|limit|exhausted|ration|warning|approaching|left)\b/i],
+      ['billing', /\b(?:payment|billing|subscription|token booster)\b/i]
     ];
     for (const [key, pattern] of categories) {
       if (preferences[key] === false && pattern.test(message)) {
