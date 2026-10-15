@@ -21,6 +21,7 @@ const DEFAULT_SETTINGS = Object.freeze({
   workspace: Object.freeze({
     openBehavior: 'Web Studio',
     autosave: true,
+    cloudSync: true,
     confirmDelete: true,
     inspector: true,
     livePreview: true,
@@ -46,7 +47,7 @@ const DEFAULT_SETTINGS = Object.freeze({
 });
 const BOOLEAN_KEYS = Object.freeze({
   notifications: ['projectActivity', 'generationCompleted', 'deploymentStatus', 'aiUsageWarnings', 'billing', 'emailProductUpdates', 'emailSecurityAlerts'],
-  workspace: ['autosave', 'confirmDelete', 'inspector', 'livePreview', 'aiSafe'],
+  workspace: ['autosave', 'cloudSync', 'confirmDelete', 'inspector', 'livePreview', 'aiSafe'],
   ai: ['explain', 'preserve', 'confirmDestructive', 'contextFiles', 'contextPage', 'contextGithub']
 });
 const ENUM_KEYS = Object.freeze({
