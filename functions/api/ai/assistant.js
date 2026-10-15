@@ -77,6 +77,13 @@ export async function onRequestPost(context) {
     const isWebStudio = isWebStudioPrompt(promptText, mode) ||
       ((mode === 'build' || mode === 'fix') && hasStudioContext);
 
+    if (isWebStudio) {
+      const entitlement = context.data?.entitlements || await resolveEntitlements(context.env, user);
+      if (entitlement?.capabilities?.webStudio !== true) {
+        return errorResponse('Web Studio is not included in this account’s current server-authoritative feature access.', 403, 'FEATURE_NOT_INCLUDED');
+      }
+    }
+
     if (isWebStudio && mode === 'build' && promptText.length > WEB_STUDIO_PROMPT_MAX_CHARS) {
       return errorResponse(
         'This website brief is ' + promptText.length.toLocaleString('en-US') + ' characters. Web Studio currently supports up to ' + WEB_STUDIO_PROMPT_MAX_CHARS.toLocaleString('en-US') + ' characters per build prompt so it does not silently discard your requirements. Shorten the brief or split it into a base build and a follow-up edit; no generation was started.',
