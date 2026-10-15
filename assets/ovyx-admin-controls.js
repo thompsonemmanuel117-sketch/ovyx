@@ -376,6 +376,13 @@
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data.ok === false) throw new Error(data.error || data.code || 'Public plan catalog is unavailable.');
     latestPlans = data;
+    if (window.AdminConfigurator && data.gating && typeof data.gating === 'object') {
+      window.AdminConfigurator.gating = Object.assign({}, window.AdminConfigurator.gating || {}, data.gating);
+      Object.entries(data.gating).forEach(([key, tier]) => {
+        const control = $('gate-' + key);
+        if (control && document.activeElement !== control) control.value = tier;
+      });
+    }
     const q = data.tokenQuotas || {};
     const d = data.dailyPromptQuotas || {};
     ['free','pro','max'].forEach(tier => {
@@ -398,6 +405,12 @@
     };
     const featureList = tier => Array.from(document.querySelectorAll('input[data-v655-plan="' + tier + '"]:checked')).map(input => input.value);
     const current = latestPlans || {};
+    const gating = Object.assign({}, current.gating || {}, window.AdminConfigurator?.gating || {});
+    ['webstudio','advancedwebstudio','appstudio','gamestudio','aigeneration','github','cloudflaredeploy','teamworkspace','workspace','templates','admin-identity'].forEach(key => {
+      const control = $('gate-' + key);
+      const value = String(control?.value || '').trim().toLowerCase();
+      if (control && ['free','pro','max','root'].includes(value)) gating[key] = value;
+    });
     const pricing = {
       pro: { ngn: safeNumber($('adm-pro-ngn')?.value, Number(current.pricing?.pro?.ngn || 33500)), usd: safeNumber($('adm-pro-usd')?.value, Number(current.pricing?.pro?.usd || 20)) },
       max: { ngn: safeNumber($('adm-max-ngn')?.value, Number(current.pricing?.max?.ngn || 209375)), usd: safeNumber($('adm-max-usd')?.value, Number(current.pricing?.max?.usd || 120)) }
@@ -412,7 +425,9 @@
           pricing: pricing,
           tokenQuotas: { free: readInt('ovyx-quota-tokens-free'), pro: readInt('ovyx-quota-tokens-pro'), max: readInt('ovyx-quota-tokens-max') },
           dailyPromptQuotas: { free: readInt('ovyx-quota-daily-free'), pro: readInt('ovyx-quota-daily-pro'), max: readInt('ovyx-quota-daily-max') },
-          features: { pro: featureList('pro'), max: featureList('max') }
+          features: { pro: featureList('pro'), max: featureList('max') },
+          gating: gating,
+          accessRules: Array.isArray(current.accessRules) ? current.accessRules : []
         })
       });
       await loadPlansCatalog();
