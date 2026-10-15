@@ -215,11 +215,17 @@ export async function installOwnerBrowserApiFixtures(page, options = {}) {
     if (path === '/api/admin/broadcasts') {
       if (method === 'POST') {
         const payload = (() => { try { return request.postDataJSON() || {}; } catch { return {}; } })();
+        if (payload.action === 'unpublish') {
+          const target = fixtureBroadcasts.find(item => item.id === payload.id);
+          if (target) target.published = false;
+          fixtureBroadcasts = fixtureBroadcasts.filter(item => item.id !== payload.id);
+          return { ok: true, action: 'unpublish', id: payload.id, published: false, scope: 'global-inbox' };
+        }
         const item = { id: 'fixture-broadcast-' + (fixtureBroadcasts.length + 1), ...payload, body: payload.message || payload.body || '', published: true, createdAt: new Date().toISOString() };
         fixtureBroadcasts.unshift(item);
         return { ok: true, broadcast: item, delivery: 'global-inbox' };
       }
-      return { ok: true, broadcasts: fixtureBroadcasts.slice(), nextPageToken: null };
+      return { ok: true, broadcasts: fixtureBroadcasts.filter(item => item.published !== false).slice(), nextPageToken: null };
     }
     if (path === '/api/admin/templates') {
       if (method === 'POST') {
