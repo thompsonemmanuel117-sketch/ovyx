@@ -217,14 +217,29 @@ try {
       };
       window.__settingsBrowserTestUser = user;
       const firebaseStub = window.firebase || {};
+      const fakeAuth = () => ({ currentUser: user });
       try {
-        firebaseStub.auth = () => ({ currentUser: user });
-        window.firebase = firebaseStub;
+        Object.defineProperty(firebaseStub, 'auth', {
+          configurable: true,
+          enumerable: true,
+          writable: true,
+          value: fakeAuth,
+        });
       } catch (_) {
+        firebaseStub.auth = fakeAuth;
+      }
+      try {
         Object.defineProperty(window, 'firebase', {
           configurable: true,
-          value: { auth: () => ({ currentUser: user }) },
+          enumerable: true,
+          writable: true,
+          value: firebaseStub,
         });
+      } catch (_) {
+        window.firebase = firebaseStub;
+      }
+      if (window.firebase?.auth?.().currentUser?.uid !== 'settings-browser-test-user') {
+        throw new Error('The Settings browser test could not install its fake authenticated identity.');
       }
     });
 
