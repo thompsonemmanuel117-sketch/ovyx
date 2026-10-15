@@ -6,6 +6,7 @@ import {
   requestId,
 } from '../../_lib/http.js';
 import { callModel } from '../../_lib/providers.js';
+import { getAIUserSettings, applyAIContextPreferences, buildAIUserDirective, buildAIUserCallOptions, applyAIUserBudget } from '../../_lib/ai-user-preferences.js';
 import { buildStudioMultiPage } from '../../_lib/studio-multipage.js';
 import { WEB_STUDIO_SYSTEM_PROMPT, WEB_STUDIO_EXCELLENCE } from '../../_lib/prompts.js';
 import { buildExperienceBrief, isWebStudioPrompt } from '../../_lib/experience.js';
@@ -42,6 +43,13 @@ export async function onRequestPost(context) {
       context.request,
       300_000
     );
+    const aiUserSettings = await getAIUserSettings(context.env, user.uid || user.sub);
+    Object.assign(payload, applyAIContextPreferences(payload, aiUserSettings));
+    const userAIDirective = buildAIUserDirective(aiUserSettings);
+    const callModelWithUserSettings = async (env, options = {}) => {
+      const preferred = buildAIUserCallOptions(aiUserSettings, options.provider, options.model);
+      return callModel(env, applyAIUserBudget({ ...options, ...preferred }, aiUserSettings));
+    };
 
     const messages = Array.isArray(
       payload.messages
@@ -180,7 +188,7 @@ export async function onRequestPost(context) {
           '\n\nAuthenticated user UID: ' + user.sub
         : suppliedSystem ||
           'You are OVYX Brain. Return useful, project-aware responses. Never reveal server secrets.'
-    ).slice(0, isWebStudio ? 40_000 : 20_000) + '\n\n' + globalAIIdentityDirective;
+    ).slice(0, isWebStudio ? 40_000 : 20_000) + '\n\n' + globalAIIdentityDirective + '\n\n' + userAIDirective;
 
     const combined = messages
       .slice(-12)
@@ -223,7 +231,7 @@ export async function onRequestPost(context) {
 
         const generated = await buildStudioMultiPage({
           env: context.env,
-          callModel,
+          callModel: callModelWithUserSettings,
           provider: String(payload.provider || 'automatic').toLowerCase(),
           model: payload.model,
           authUser: user,
@@ -244,7 +252,7 @@ export async function onRequestPost(context) {
       }
 
       if (!result) {
-        result = await callModel(
+        result = await callModelWithUserSettings(
           context.env,
           {
             provider: String(payload.provider || 'automatic').toLowerCase(),
