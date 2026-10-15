@@ -15,7 +15,7 @@ try {
     page.setDefaultTimeout(15000);
     page.on('console', message => console.log('[' + target.name + ' browser console] ' + message.type() + ': ' + message.text()));
 
-    await installOwnerBrowserApiFixtures(page);
+    await installOwnerBrowserApiFixtures(page, { initialUser: { uid: 'ovyx-admin-root-fixture', email: 'ovyxsupportteam@gmail.com', token: 'ovyx-admin-root-test-token' } });
 
     let entitlementCalls = 0;
     await page.route('**/api/entitlements', async route => {
@@ -41,8 +41,8 @@ try {
     const response = await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell returned an HTTP error');
     await page.waitForFunction(() => !!window.OVYXAdminWorkspace, null, { timeout: 45000 });
-    // Let the real Firebase loader finish before installing the isolated auth fixture;
-    // otherwise a late SDK load can overwrite the mock and make this test flaky.
+    // The local Firebase facade is installed before app scripts run, so the
+    // isolated auth state cannot race an external Firebase CDN load.
     await page.waitForFunction(() => typeof window.__OVYX_FIREBASE_READY__ === 'boolean', null, { timeout: 15000 });
 
     await page.evaluate(() => {
@@ -116,7 +116,7 @@ try {
     await page.waitForFunction(() => /Loaded current prices and quota limits/.test(document.getElementById('ovyx-global-quota-status')?.textContent || ''), null, { timeout: 20000 });
     assert.equal(await page.locator('#ovyx-global-plan-features').count(), 1,
       '[' + target.name + '] the pricing editor must expose real per-plan feature selectors');
-    assert.equal(await page.locator('input[data-v655-plan="pro"][value="webStudio"]').isChecked(), true,
+    assert.equal(await page.locator('#ovyx-global-plan-features input[data-v655-plan="pro"][value="webStudio"]').isChecked(), true,
       '[' + target.name + '] initial Pro capabilities must load from the server plan catalog');
     await page.locator('#adm-pro-ngn').fill('36000');
     await page.locator('#adm-pro-usd').fill('21');
