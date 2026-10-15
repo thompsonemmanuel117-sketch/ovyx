@@ -400,6 +400,22 @@
     });
   }
   function installProfileActions() {
+    // The legacy Settings renderer can rebuild all panels after boot. Recreate the
+    // account-backed Profile panel whenever it is opened so its controls never go missing.
+    const settings = window.OVYXSettings;
+    if (settings && typeof settings.show === 'function' && !settings.__ovyxProfilePanelRenderV1) {
+      const previousShow = settings.show.bind(settings);
+      settings.show = function (id) {
+        const result = previousShow(id);
+        if (id === 'profile') {
+          try { window.OVYXProfile && window.OVYXProfile.render && window.OVYXProfile.render(); }
+          catch (error) { console.warn('[OVYX Settings] Profile panel render failed.', error); }
+          setTimeout(function () { loadProfile().catch(function () {}); }, 0);
+        }
+        return result;
+      };
+      settings.__ovyxProfilePanelRenderV1 = true;
+    }
     document.addEventListener('click', function (event) {
       const button = event.target && event.target.closest && event.target.closest('#profile-save-action, [data-save-profile]');
       if (!button) return;
