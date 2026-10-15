@@ -122,9 +122,11 @@ try {
     await page.waitForFunction(() => !window.KernelState?.projects?.some(project => project.id === 'settings-confirm-delete-fixture'));
     assert.equal(await page.locator('.ovyx-delete-modal.open').count(), 0, '[' + target.name + '] disabling confirmation still opened the project-delete modal');
     await page.evaluate(() => window.Router?.go?.('settings'));
+    await page.locator('#view-settings .ovyx-settings-shell').waitFor({ state: 'visible' });
 
     // Workspace settings change actual persistent state and editor mode.
     await page.locator('[data-settings-nav="editor"]').click();
+    await page.locator('[data-settings-panel="editor"]').waitFor({ state: 'visible' });
     const livePreview = page.locator('#set-live-preview');
     await livePreview.waitFor({ state: 'visible' });
     const beforeLivePreview = await livePreview.getAttribute('aria-checked');
