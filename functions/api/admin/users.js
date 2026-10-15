@@ -170,7 +170,7 @@ export async function onRequestPost(context) {
     if (!target) return errorResponse(404, 'USER_NOT_FOUND', 'The selected account was not found in the OVYX user registry.', id);
     const targetEmail = normalizeEmail(target.email);
     const targetRole = clean(target.role, 80).toUpperCase();
-    if (targetEmail === ROOT_EMAIL || ['ROOT_SUPERUSER', 'OWNER'].includes(targetRole)) {
+    if (targetEmail === ROOT_EMAIL || ['ROOT_SUPERUSER', 'OWNER', 'ADMIN'].includes(targetRole)) {
       return errorResponse(403, 'ROOT_ACCOUNT_PROTECTED', 'The root owner account cannot be changed from the user registry.', id);
     }
 
