@@ -1394,15 +1394,20 @@
       if (!shell) return;
       const search = shell.querySelector('#ovyx-settings-search');
       if (!search || !String(search.value || '').trim()) {
+        // Avoid writing unchanged class attributes: this function is also called
+        // by a MutationObserver watching class changes, so unconditional classList
+        // mutations can cause a self-triggering observer loop on some browsers.
         shell.querySelectorAll('[data-settings-nav]').forEach(function (button) {
-          button.classList.remove('ovyx-settings-hidden', 'hidden');
-          button.removeAttribute('hidden');
-          button.removeAttribute('aria-hidden');
+          if (button.classList.contains('ovyx-settings-hidden')) button.classList.remove('ovyx-settings-hidden');
+          if (button.classList.contains('hidden')) button.classList.remove('hidden');
+          if (button.hasAttribute('hidden')) button.removeAttribute('hidden');
+          if (button.hasAttribute('aria-hidden')) button.removeAttribute('aria-hidden');
         });
         const sidebar = shell.querySelector('.ovyx-settings-sidebar');
         if (sidebar) {
-          sidebar.classList.remove('hidden', 'ovyx-settings-hidden');
-          sidebar.removeAttribute('hidden');
+          if (sidebar.classList.contains('hidden')) sidebar.classList.remove('hidden');
+          if (sidebar.classList.contains('ovyx-settings-hidden')) sidebar.classList.remove('ovyx-settings-hidden');
+          if (sidebar.hasAttribute('hidden')) sidebar.removeAttribute('hidden');
         }
       }
     }
