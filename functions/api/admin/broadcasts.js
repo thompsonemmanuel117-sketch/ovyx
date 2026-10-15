@@ -72,6 +72,24 @@ export async function onRequestPost(context) {
     if (denied) return denied;
 
     const body = await readJson(context.request, MAX_BODY_BYTES);
+    const action = clean(body?.action || 'publish', 40).toLowerCase();
+    if (action === 'unpublish') {
+      const announcementId = clean(body?.id || body?.announcementId, 160);
+      if (!/^[A-Za-z0-9_-]{1,160}$/.test(announcementId)) {
+        return errorResponse(400, 'BROADCAST_ID_REQUIRED', 'A valid broadcast ID is required.');
+      }
+      const existing = await getFirestoreDataAtPath(context.env, [COLLECTION, announcementId]);
+      if (!existing) return errorResponse(404, 'BROADCAST_NOT_FOUND', 'The broadcast was not found.');
+      if (existing.published !== true) return jsonResponse({ ok: true, action, id: announcementId, published: false }, 200, { 'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store, max-age=0' });
+      const now = new Date().toISOString();
+      await setFirestoreDocumentAtPath(context.env, [COLLECTION, announcementId], {
+        published: false,
+        updatedAt: now,
+        unpublishedBy: { uid: String(auth.user?.uid || ''), email: normalizeEmail(auth.user?.email) }
+      }, { merge: true });
+      return jsonResponse({ ok: true, action, id: announcementId, published: false, updatedAt: now, scope: 'global' }, 200, { 'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store, max-age=0' });
+    }
+    if (action !== 'publish') return errorResponse(400, 'BROADCAST_ACTION_NOT_ALLOWED', 'Supported actions: publish and unpublish.');
     const title = clean(body?.title || 'OVYX Update', 120) || 'OVYX Update';
     const message = clean(body?.message ?? body?.body, 4000);
     if (!message) {
