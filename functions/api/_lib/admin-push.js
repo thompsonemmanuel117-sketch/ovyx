@@ -223,9 +223,14 @@ export async function sendAdminPushNotification(env, {
   const preferences = normalizeAdminPushPreferences(settings.preferences || {});
   const preferenceKey = ADMIN_PUSH_SETTINGS.includes(type) ? type : '';
   if (preferenceKey && preferences[preferenceKey] === false) return { configured: true, skipped: true, attempted: 0, delivered: 0, failed: 0 };
+  // Delivery is restricted to subscriptions created for the root UID saved by the protected owner API.
+  const registeredOwnerUid = clean(settings.ownerUid || settings.owner?.uid, 160);
+  if (!registeredOwnerUid) return { configured: true, skipped: true, attempted: 0, delivered: 0, failed: 0, reason: 'no_owner_device_registered' };
 
   const result = await listFirestoreDocuments(env, ADMIN_PUSH_COLLECTION, 1000);
-  const active = (result.documents || []).filter(row => row.active === true);
+  const active = (result.documents || []).filter(row =>
+    row.active === true && String(row.ownerUid || '') === registeredOwnerUid
+  );
   const safeUrl = (() => {
     try {
       const parsed = new URL(String(url || '/view-admin-overview'), 'https://internal.invalid');
