@@ -10,7 +10,7 @@ import { buildStudioMultiPage } from '../../_lib/studio-multipage.js';
 import { validateOrRepairSinglePageBuild } from '../../_lib/studio-singlepage.js';
 import { WEB_STUDIO_SYSTEM_PROMPT, WEB_STUDIO_EXCELLENCE } from '../../_lib/prompts.js';
 import { buildExperienceBrief, isWebStudioPrompt } from '../../_lib/experience.js';
-import { WEB_STUDIO_PROMPT_MAX_CHARS } from '../../_lib/prompt-contract.js';
+import { buildPromptContract, WEB_STUDIO_PROMPT_MAX_CHARS } from '../../_lib/prompt-contract.js';
 import { beginAIQuota, finalizeAIQuota, refundDailyPrompt } from '../../_lib/token-quota.js';
 import {
   saveChatTurn,
@@ -83,6 +83,16 @@ export async function onRequestPost(context) {
         413,
         'WEBSTUDIO_PROMPT_TOO_LONG'
       );
+    }
+    if (isWebStudio && mode === 'build') {
+      const promptContract = buildPromptContract(promptText);
+      if (promptContract.omittedRequirementClauseCount > 0) {
+        return errorResponse(
+          'This brief contains more distinct requirement clauses than Web Studio can currently track in one build (' + promptContract.requirementClauseCount + ' retained, with additional clauses omitted by the checklist limit). Combine duplicate items or split the work into a base build and follow-up edits; no generation was started.',
+          413,
+          'WEBSTUDIO_REQUIREMENT_MANIFEST_LIMIT'
+        );
+      }
     }
 
     const messages = cleanMessages(payload);
