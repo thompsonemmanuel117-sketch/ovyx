@@ -3,12 +3,14 @@ import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { normalizeNotificationPreferences, NOTIFICATION_DEFAULTS } from '../functions/api/settings/preferences.js';
+import { normalizeAIPreferences, AI_PREFERENCE_DEFAULTS } from '../functions/api/settings/ai.js';
 
 const read = path => fs.readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 const runtime = read('assets/ovyx-settings-reliability.js');
 const html = read('index.html');
 const profileApi = read('functions/api/settings/profile.js');
 const preferencesApi = read('functions/api/settings/preferences.js');
+const aiPreferencesApi = read('functions/api/settings/ai.js');
 const deletionApi = read('functions/api/account/delete.js');
 const brandProfileApi = read('functions/api/settings/brand-profile.js');
 const connectionsApi = read('functions/api/settings/connections.js');
@@ -23,6 +25,7 @@ for (const path of [
   'assets/ovyx-settings-reliability.js',
   'functions/api/settings/profile.js',
   'functions/api/settings/preferences.js',
+  'functions/api/settings/ai.js',
   'functions/api/account/delete.js',
   'functions/api/settings/brand-profile.js',
   'functions/api/settings/connections.js',
@@ -36,12 +39,16 @@ for (const path of [
 }
 
 assert.deepEqual(normalizeNotificationPreferences({}), NOTIFICATION_DEFAULTS);
+assert.deepEqual(normalizeAIPreferences({}), AI_PREFERENCE_DEFAULTS);
+assert.deepEqual(normalizeAIPreferences({ provider: 'deepseek', model: 'deepseek-flash', explain: false, unexpected: true }), {
+  ...AI_PREFERENCE_DEFAULTS, provider: 'deepseek', model: 'deepseek-flash', explain: false
+}, 'AI preference validation must preserve supported selections and ignore unknown keys.');
 assert.deepEqual(
   normalizeNotificationPreferences({ projectActivity: false, billing: 'false', unexpected: false }),
   { ...NOTIFICATION_DEFAULTS, projectActivity: false },
   'Notification preference parsing must accept only known boolean fields.'
 );
-assert.ok(html.includes('/assets/ovyx-settings-reliability.js?v=20261015-11'), 'The audited Settings runtime must load in the application shell.');
+assert.ok(html.includes('/assets/ovyx-settings-reliability.js?v=20261015-12'), 'The audited Settings runtime must load in the application shell.');
 assert.ok(html.includes('autosaveRecoveryEnabled'), 'Turning autosave off must remove saved recovery snapshots rather than merely change the toggle label.');
 assert.equal((html.match(/ovyx-settings-reliability\.js/g) || []).length, 1, 'Settings reliability runtime must only be injected once.');
 for (const section of ['general','profile','appearance','workspace','notifications','editor','shortcuts','ai','privacy','security','plan','usage','boosters']) {
@@ -70,6 +77,10 @@ for (const requirement of [
   'stopImmediatePropagation()',
   'installLivePreviewBridge',
   'installWorkspaceControlRecovery',
+  'installSettingsNavigationVisibilityRecovery',
+  "const AI_PREFERENCES_ENDPOINT = '/api/settings/ai'",
+  'loadAIPreferencesFromServer',
+  'Verified on server. Your AI preferences are saved to your account.',
   'let editorModeChangeInstalled = false',
   "select.id !== 'set-editor-mode'",
   'installEditorMode();\n    installWorkspaceControlRecovery();',
@@ -107,6 +118,11 @@ assert.match(preferencesApi, /request\.method === 'GET'/);
 assert.match(preferencesApi, /request\.method !== 'PUT'/);
 assert.match(preferencesApi, /PREFERENCES_WRITE_UNCONFIRMED/);
 assert.match(preferencesApi, /enforceSameOrigin/);
+assert.match(aiPreferencesApi, /verifyFirebaseIdToken/);
+assert.match(aiPreferencesApi, /request\.method === 'GET'/);
+assert.match(aiPreferencesApi, /request\.method !== 'PUT'/);
+assert.match(aiPreferencesApi, /AI_PREFERENCES_WRITE_UNCONFIRMED/);
+assert.match(aiPreferencesApi, /enforceSameOrigin/);
 assert.match(deletionApi, /deleteFirestoreDocumentTree/);
 assert.ok(deletionApi.includes("deleteFirestoreDocumentTree(context.env, 'users', email)"), 'Deletion removes email-keyed Settings data for brand identity and Universal Connections.');
 assert.match(deletionApi, /emailScopedDocumentsDeleted/);
