@@ -5,7 +5,7 @@ const { errorResponse, jsonResponse } = require('../_lib/http.js');
 const { firestoreGet, firestoreSet } = require('../_lib/firestore.js');
 const { queryCashierPayment } = require('../_lib/payments/opay-cashier.js');
 const { verifyPayment } = require('../_lib/payments/paystack.js');
-const { getServerPrice, assertServerAmount, assertCurrency } = require('../_lib/payments/pricing.js');
+const { assertServerAmount, assertCurrency } = require('../_lib/payments/pricing.js');
 const { ngnProduct, internationalProduct } = require('../_lib/payments/catalog.js');
 
 function text(v,max=320){return String(v??'').trim().slice(0,max);}
@@ -30,6 +30,11 @@ async function onRequestGet(context){
   if(String(payment.uid||'')!==String(identity.user.uid||''))return errorResponse(403,'PAYMENT_ACCESS_DENIED','You are not allowed to access this payment.',id);
 
   const provider=String(payment.provider||'opay').toLowerCase();
+  const expectedAmount=Number(payment.amount);
+  const expectedCurrency=String(payment.currency||'').toUpperCase();
+  if(!Number.isFinite(expectedAmount)||expectedAmount<=0||!['NGN','USD'].includes(expectedCurrency)){
+    return errorResponse(409,'PAYMENT_ORDER_AMOUNT_INVALID','The server payment order does not contain a valid stored amount and currency.',id);
+  }
   let verifiedData={};
   let status='pending';
 
@@ -38,17 +43,15 @@ async function onRequestGet(context){
       const response=await queryCashierPayment(context.env,{reference,orderNo:payment.providerOrderNo||undefined});
       verifiedData=response?.data||{};
       status=text(verifiedData.status).toLowerCase()||'pending';
-      const expected=await getServerPrice(context.env,payment.plan,payment.currency||'NGN');
-      assertServerAmount(expected.amount,amountForProvider(verifiedData)/100);
-      assertCurrency(expected.currency,providerCurrency(verifiedData)||'NGN');
+      assertServerAmount(expectedAmount,amountForProvider(verifiedData)/100);
+      assertCurrency(expectedCurrency,providerCurrency(verifiedData)||'NGN');
       if(text(verifiedData.reference||verifiedData.outOrderNo)!==reference)throw Object.assign(new Error('OPay reference mismatch.'),{status:409,code:'OPAY_REFERENCE_MISMATCH'});
     }else if(provider==='paystack'){
       const response=await verifyPayment(context.env,reference);
       verifiedData=response?.data||{};
       status=text(verifiedData.status).toLowerCase()||'pending';
-      const expected=await getServerPrice(context.env,payment.plan,payment.currency||'USD');
-      assertServerAmount(expected.amount,Number(verifiedData.amount)/100);
-      assertCurrency(expected.currency,text(verifiedData.currency||'USD').toUpperCase());
+      assertServerAmount(expectedAmount,Number(verifiedData.amount)/100);
+      assertCurrency(expectedCurrency,text(verifiedData.currency||expectedCurrency).toUpperCase());
       if(text(verifiedData.reference)!==reference)throw Object.assign(new Error('Paystack reference mismatch.'),{status:409,code:'PAYSTACK_REFERENCE_MISMATCH'});
     }else{
       return errorResponse(409,'PAYMENT_PROVIDER_UNSUPPORTED','This payment provider is not supported.',id);
