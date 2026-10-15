@@ -100,7 +100,7 @@ function normalizeScope(scope, input, { strict = true } = {}) {
       continue;
     }
     if (scope === 'workspace' && key === 'dataEndpoint') {
-      const endpoint = String(value ?? '').trim().slice(0, 1000).replace(/\\\/+$/, '');
+      const endpoint = String(value ?? '').trim().slice(0, 1000).replace(/\/+$/, '');
       if (endpoint) {
         let parsed;
         try { parsed = new URL(endpoint); } catch {}
