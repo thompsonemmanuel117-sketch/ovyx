@@ -942,6 +942,80 @@
     document.addEventListener('click', handleThemeLabClick, true);
   }
 
+  function installSecurityActions() {
+    let mounted = false;
+    function mount() {
+      const panel = document.querySelector('#view-settings [data-settings-panel="security"]');
+      if (!panel) return;
+      let host = panel.querySelector('#ovyx-settings-security-actions');
+      if (!host) {
+        host = document.createElement('div');
+        host.id = 'ovyx-settings-security-actions';
+        host.className = 'ovyx-pref-group';
+        host.innerHTML = '<div class="ovyx-pref-label">ACCOUNT ACTIONS</div>' +
+          '<div class="ovyx-pref-row"><div class="ovyx-pref-copy"><b>Sign out all sessions</b><small>Revoke Firebase refresh-token sessions on your devices. You will need to sign in again here.</small></div><button type="button" class="ovyx-settings-btn" id="ovyx-security-revoke-sessions">Revoke Sessions</button></div>' +
+          '<div class="ovyx-pref-row"><div class="ovyx-pref-copy"><b>Delete account and cloud data</b><small>Permanently remove this account’s OVYX cloud project data and settings. Recent sign-in is required.</small></div><button type="button" class="ovyx-settings-btn danger" id="ovyx-security-delete">Delete Account</button></div>';
+        panel.appendChild(host);
+      }
+      mounted = true;
+    }
+
+    mount();
+    document.addEventListener('DOMContentLoaded', mount, { once: true });
+    window.addEventListener('ovyx-settings-rendered', mount, { passive: true });
+    window.addEventListener('ovyx:view-changed', mount, { passive: true });
+
+    document.addEventListener('click', async function (event) {
+      const button = event.target && event.target.closest && event.target.closest('#ovyx-security-revoke-sessions');
+      if (!button) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      const user = currentUser();
+      if (!user) {
+        notify('Sign in before revoking account sessions.', 'error');
+        return;
+      }
+      const confirmed = window.confirm('Revoke all Firebase sessions for this account? This will sign you out on this device and require you to sign in again.');
+      if (!confirmed) return;
+
+      const panel = button.closest('[data-settings-panel="security"]');
+      const status = addStatus(panel, 'ovyx-security-action-status', 'Revoking account sessions…');
+      const original = button.textContent;
+      button.disabled = true;
+      button.textContent = 'Revoking…';
+      try {
+        const token = await user.getIdToken(false);
+        const response = await fetch('/api/auth/revoke-sessions', {
+          method: 'POST',
+          credentials: 'same-origin',
+          cache: 'no-store',
+          headers: { Accept: 'application/json', Authorization: 'Bearer ' + token }
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.ok !== true || data.revoked !== true) {
+          throw Object.assign(new Error(data.message || data.error || 'The server did not confirm session revocation.'), {
+            code: data.code || 'SESSION_REVOCATION_FAILED',
+            status: response.status
+          });
+        }
+        if (status) status.textContent = 'Server confirmed all refresh-token sessions revoked. Signing out this device…';
+        notify('All sessions revoked. Sign in again to continue.', 'success');
+        try { await window.firebase?.auth?.().signOut?.(); } catch (signOutError) {
+          console.warn('[OVYX Settings] Local sign-out after session revocation failed:', String(signOutError?.message || 'unavailable').slice(0, 120));
+        }
+        try { window.Router?.go?.('home'); } catch (_) {}
+        try { window.OVYXMasterAuth?.openAuth?.(); } catch (_) {}
+      } catch (error) {
+        if (status) status.textContent = 'Session revocation failed: ' + (error.message || 'server did not confirm the action');
+        notify(error.message || 'Could not revoke account sessions.', 'error');
+      } finally {
+        button.disabled = false;
+        button.textContent = original || 'Revoke Sessions';
+      }
+    }, true);
+  }
+
   function applyEditorMode() {
     const state = safeJson(localStorage.getItem('ovyx.settings.integrity.v83'));
     const mode = ['build','plan','ask','fix'].includes(String(state.editorMode || '').toLowerCase())
@@ -1099,6 +1173,7 @@
   function boot() {
     installGlobalProjectShortcuts();
     installProfileActions();
+    installSecurityActions();
     installNotificationActions();
     installNotificationToastFilters();
     installWorkspaceToggleActions();
