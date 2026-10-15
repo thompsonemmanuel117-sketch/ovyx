@@ -257,7 +257,10 @@
       try { localStorage.setItem(notificationStorageKey(), JSON.stringify(notificationDraft)); } catch (_) {}
       if (status) status.textContent = 'Preferences loaded from your account. Email delivery is not triggered by these preference switches.';
     } catch (error) {
-      if (status) status.textContent = 'Could not load account preferences: ' + (error.message || 'request failed');
+      notificationDraft = Object.assign({}, NOTIFICATION_DEFAULTS, safeJson(localStorage.getItem(notificationStorageKey())));
+      window.OVYXSettingsNotificationPreferences = Object.assign({}, notificationDraft);
+      renderNotificationState(panel, notificationDraft);
+      if (status) status.textContent = 'Could not reach the preference service: ' + (error.message || 'request failed') + '. Showing this account’s last saved browser copy.';
     }
   }
   async function saveNotifications(button, reset) {
@@ -343,6 +346,7 @@
         const prefix = 'ovyx.profile.v2.user.' + String(user.uid);
         localStorage.removeItem(prefix);
         localStorage.removeItem('ovyx.ai.preferences.v1.user.' + String(user.uid));
+        localStorage.removeItem('ovyx.notifications.v1.user.' + String(user.uid));
         localStorage.removeItem('ovyx.notifications.v1');
         localStorage.removeItem('ovyx.runtime.session.v4');
         localStorage.removeItem('ovyx.settings.integrity.v83');
@@ -572,7 +576,14 @@
         const validRouting = ['automatic','preferred-first','provider-priority'].includes(String(prefs.routing || 'automatic'))
           ? String(prefs.routing || 'automatic') : 'automatic';
         payload.providerRouting = validRouting;
-        if ((!payload.model || String(payload.model).toLowerCase() === 'automatic') && prefs.model && String(prefs.model).toLowerCase() !== 'automatic') payload.model = String(prefs.model);
+        if ((!payload.model || String(payload.model).toLowerCase() === 'automatic') && prefs.model && String(prefs.model).toLowerCase() !== 'automatic') {
+          payload.model = String(prefs.model);
+          // A concrete model is provider-specific. Pin this request to its chosen provider
+          // rather than sending a Claude model ID to Gemini (or vice versa).
+          if ((!requestedProvider || requestedProvider === 'automatic' || requestedProvider === 'auto') && prefs.provider) {
+            payload.provider = String(prefs.provider).toLowerCase();
+          }
+        }
         if ((!requestedProvider || requestedProvider === 'automatic' || requestedProvider === 'auto') && prefs.provider) {
           payload.preferredProvider = String(prefs.provider).toLowerCase();
           if (prefs.fallback === 'stop') payload.provider = String(prefs.provider).toLowerCase();
@@ -697,7 +708,7 @@
     if (settings && settings.current === 'ai') setTimeout(syncAISettingsControls, 0);
     window.addEventListener('ovyx:view-changed', function (event) {
       const view = String(event && event.detail && event.detail.view || '').replace(/^view-/, '');
-      if (view === 'webstudio') setTimeout(applyEditorMode, 0);
+      if (view === 'webstudio') setTimeout(function () { installLivePreviewBridge(); applyEditorMode(); applySettingEffects(settingsState()); }, 0);
     }, { passive: true });
     setTimeout(installEditorMode, 200);
   }
