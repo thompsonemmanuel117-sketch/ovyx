@@ -494,7 +494,7 @@
       if (!node || !Number.isSafeInteger(value) || value < 1 || value > 1000000000) throw new Error('Every quota must be a positive whole number.');
       return value;
     };
-    const featureList = tier => Array.from(document.querySelectorAll('input[data-v655-plan="' + tier + '"]:checked')).map(input => input.value);
+    const featureList = tier => Array.from($('ovyx-global-plan-features')?.querySelectorAll('input[data-v655-plan="' + tier + '"]:checked') || []).map(input => input.value);
     if (!latestPlans) {
       statusText(status, 'The current server plan catalog has not loaded. Refresh the catalog before saving so paid-plan features are not unintentionally cleared.', 'error');
       return;
@@ -557,6 +557,15 @@
       '</div>' +
       '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:13px"><button class="ovyx-owner-live-button" id="ovyx-global-quota-save" type="button" disabled>Save global plan rules</button><span id="ovyx-global-quota-status" class="ovyx-owner-live-status" style="margin:0;flex:1;min-width:180px">Loading server plan catalog…</span></div>');
     if (!host) return;
+    const hideLegacyPlanControls = () => {
+      const legacy = $('ovyx-v655-plan-control');
+      if (legacy && !host.contains(legacy)) {
+        legacy.hidden = true;
+        legacy.setAttribute('aria-hidden', 'true');
+        legacy.style.setProperty('display', 'none', 'important');
+      }
+    };
+    hideLegacyPlanControls();
     let featuresHost = $('ovyx-global-plan-features');
     if (!featuresHost) {
       const featurePanel = document.createElement('section');
@@ -579,7 +588,6 @@
         const tierTitle = document.createElement('div');
         tierTitle.className = 'ovyx-owner-live-label';
         tierTitle.textContent = tier.toUpperCase() + ' PLAN';
-        card.appendChild(tierTitle);
         const list = document.createElement('div');
         list.style.display = 'grid';
         list.style.gap = '8px';
@@ -666,8 +674,12 @@
       gatePanel.append(title, description, gatesHost);
       host.appendChild(gatePanel);
     }
-    if (host.dataset.bound === '1') return;
+    if (host.dataset.bound === '1') { hideLegacyPlanControls(); return; }
     host.dataset.bound = '1';
+    if (!window.__OVYX_HIDE_LEGACY_PLAN_FEATURES__) {
+      window.__OVYX_HIDE_LEGACY_PLAN_FEATURES__ = new MutationObserver(hideLegacyPlanControls);
+      window.__OVYX_HIDE_LEGACY_PLAN_FEATURES__.observe(view, { childList: true, subtree: true });
+    }
     $('ovyx-global-quota-save')?.addEventListener('click', savePlanConfiguration);
     loadPlansCatalog().then(() => statusText($('ovyx-global-quota-status'), 'Loaded current prices and quota limits from /api/plans.', 'ok'))
       .catch(error => statusText($('ovyx-global-quota-status'), 'Catalog could not be loaded: ' + error.message, 'error'));
