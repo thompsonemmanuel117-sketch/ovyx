@@ -29,6 +29,13 @@ assert.equal(longContract.requirementManifestComplete, true);
 assert(longContract.allBriefClauses.length > 28, 'Long briefs must keep substantially more than the previous 28-clause limit.');
 assert(longContract.allBriefClauses.some(item => /FINAL REQUIREMENT.*comparison table.*working sort controls/i.test(item)), 'Requirements near the end of a long brief must remain in the manifest.');
 
+const overLimitPrompt = Array.from({ length: 181 }, (_, index) =>
+  'Unique requirement ' + String(index + 1).padStart(3, '0') + ': preserve capability ' + String(index + 1) + ' with its own specific acceptance check.'
+).join('\n');
+const overLimitContract = buildPromptContract(overLimitPrompt);
+assert(overLimitContract.omittedRequirementClauseCount > 0, 'A brief beyond the clause ceiling must be detected instead of presented as a complete checklist.');
+assert.equal(overLimitContract.requirementManifestComplete, false);
+
 const readiness = getWebStudioBuildClarification(
   'Build a restaurant website with a contact form that emails enquiries.',
   {},
