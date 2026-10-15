@@ -94,6 +94,8 @@ for (const action of ['setPlan', 'setAccountStatus', 'resetQuota']) {
 assert.match(source.usersApi, /ROOT_ACCOUNT_PROTECTED/);
 assert.match(source.usersApi, /setFirebaseAccountDisabled/);
 assert.match(source.firebaseAdmin, /export async function setFirebaseAccountDisabled/);
+assert.match(source.firebaseAdmin, /disableUser: disabled/, 'Suspension must use the project-level Identity Platform admin field.');
+assert.match(source.firebaseAdmin, /accounts:lookup/, 'Account status changes must be verified by a follow-up Firebase lookup.');
 assert.match(source.firebaseAdmin, /accounts:update/);
 assert.match(source.usersApi, /revokeFirebaseRefreshTokens/);
 
