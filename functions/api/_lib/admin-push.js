@@ -11,19 +11,19 @@ import {
 
 export const ADMIN_PUSH_COLLECTION = 'ovyx_admin_push_subscriptions';
 export const ADMIN_PUSH_SETTINGS = Object.freeze([
-  'paymentEvents',
-  'subscriptionEvents',
-  'securityEvents',
-  'systemAlerts',
-  'testNotifications',
+  'payments',
+  'refunds',
+  'chargebacks',
+  'subscriptions',
+  'deploymentFailures',
 ]);
 
 const DEFAULT_PREFERENCES = Object.freeze({
-  paymentEvents: true,
-  subscriptionEvents: true,
-  securityEvents: true,
-  systemAlerts: true,
-  testNotifications: true,
+  payments: true,
+  refunds: true,
+  chargebacks: true,
+  subscriptions: true,
+  deploymentFailures: true,
 });
 const DEFAULT_SUBJECT = 'mailto:ovyxsupportteam@gmail.com';
 const text = (value, max = 500) => String(value ?? '').trim().slice(0, max);
@@ -142,11 +142,12 @@ export async function adminPushSubscriptionId(endpoint) {
 
 function preferenceForType(type) {
   const normalized = text(type, 80).toLowerCase();
-  if (normalized.includes('payment')) return 'paymentEvents';
-  if (normalized.includes('subscription')) return 'subscriptionEvents';
-  if (normalized.includes('security') || normalized.includes('account')) return 'securityEvents';
-  if (normalized === 'test') return 'testNotifications';
-  return 'systemAlerts';
+  if (normalized.includes('refund')) return 'refunds';
+  if (normalized.includes('chargeback') || normalized.includes('dispute')) return 'chargebacks';
+  if (normalized.includes('subscription')) return 'subscriptions';
+  if (normalized.includes('deployment') || normalized.includes('deploy')) return 'deploymentFailures';
+  if (normalized.includes('payment')) return 'payments';
+  return null;
 }
 
 function loadPrivateKey(config, env) {
@@ -292,7 +293,8 @@ export async function sendAdminPushNotification(env, input = {}) {
   if (!config.configured) return { configured: false, skipped: true, attempted: 0, delivered: 0, failed: 0, reason: config.reason };
   const settings = await getFirestoreData(env, 'system', 'admin_push').catch(() => null);
   const preferences = normalizeAdminPushPreferences(settings?.preferences || {});
-  if (!preferences[preferenceForType(input.type)]) {
+  const preference = preferenceForType(input.type);
+  if (preference && preferences[preference] !== true) {
     return { configured: true, skipped: true, attempted: 0, delivered: 0, failed: 0 };
   }
   const listed = await listFirestoreDocuments(env, ADMIN_PUSH_COLLECTION, 1000);
