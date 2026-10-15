@@ -567,40 +567,9 @@
       const panel = target.closest('[data-settings-panel="ai"]');
       syncModelOptions(target.value, panel);
     }, true);
-    document.addEventListener('click', function (event) {
-      const button = event.target && event.target.closest && event.target.closest('#set-ai-save');
-      if (!button) return;
-      event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
-      try {
-        const panel = document.querySelector('[data-settings-panel="ai"]');
-        const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
-        const prefs = Object.assign({
-          mode: 'balanced', model: 'automatic', provider: 'gemini',
-          explain: true, preserve: true, confirmDestructive: false,
-          contextFiles: true, contextPage: true, contextGithub: true,
-          routing: 'automatic', fallback: 'next', contextLimit: 'automatic', budget: 'automatic'
-        }, safeJson(localStorage.getItem(key)));
-        prefs.provider = String(panel && panel.querySelector('#set-provider') && panel.querySelector('#set-provider').value || 'gemini');
-        const selectedModel = String(panel && panel.querySelector('#set-ai-model') && panel.querySelector('#set-ai-model').value || 'automatic');
-        prefs.model = selectedModel === 'automatic' || (MODELS_BY_PROVIDER[prefs.provider] || []).includes(selectedModel) ? selectedModel : 'automatic';
-        if (selectedModel !== prefs.model) notify('The model override did not match the selected provider; Automatic model selection was saved instead.', 'info');
-        prefs.routing = String(panel && panel.querySelector('#set-ai-routing') && panel.querySelector('#set-ai-routing').value || 'automatic');
-        prefs.fallback = String(panel && panel.querySelector('#set-ai-fallback') && panel.querySelector('#set-ai-fallback').value || 'next');
-        prefs.contextLimit = String(panel && panel.querySelector('#set-ai-context-limit') && panel.querySelector('#set-ai-context-limit').value || 'automatic');
-        prefs.budget = String(panel && panel.querySelector('#set-ai-budget') && panel.querySelector('#set-ai-budget').value || 'automatic');
-        ['explain','preserve','confirmDestructive','contextFiles','contextPage','contextGithub'].forEach(name => {
-          const input = panel && panel.querySelector('[data-ai-pref="' + name + '"]');
-          if (input) prefs[name] = !!input.checked;
-        });
-        localStorage.setItem(key, JSON.stringify(prefs));
-        window.OVYXAI = Object.assign({}, window.OVYXAI || {}, prefs);
-        const status = addStatus(panel, 'ovyx-ai-preference-status', 'AI preferences saved on this device and account browser.');
-        if (status) status.textContent = 'Preferences saved on this device. Provider selection will be used when automatic routing is requested.';
-        notify('AI preferences saved.', 'success');
-      } catch (error) {
-        notify(error.message || 'AI preferences could not be saved.', 'error');
-      }
-    }, true);
+    // The Settings panel binds its own Save AI Preferences control. Keep the
+    // action on that single handler so the click is not intercepted twice; the
+    // inline handler persists the extended fields before updating window.OVYXAI.
     document.addEventListener('click', function (event) {
       const button = event.target && event.target.closest && event.target.closest('#set-ai-reset');
       if (!button) return;
