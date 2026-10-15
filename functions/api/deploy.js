@@ -230,6 +230,17 @@ export async function onRequestPost(context) {
   }catch(error){
     const status=Number.isInteger(error?.status)&&error.status>=400&&error.status<=599?error.status:502;
     console.error(JSON.stringify({event:'ovyx_pages_direct_upload_failed',requestId,status,message:error?.message||'Unknown deployment error',providerErrors:error?.providerErrors||[]}));
+    const alert = import('./_lib/admin-push.js').then(({ sendAdminPushNotification }) => sendAdminPushNotification(env, {
+      type: 'deploymentFailures',
+      title: 'OVYX deployment failed',
+      body: 'A Cloudflare Pages deployment failed (HTTP ' + status + '). Open Owner Tools to inspect the server logs.',
+      url: '/view-admin-backend',
+      tag: 'ovyx-deploy-failure-' + String(requestId).slice(0, 100),
+    })).catch(alertError => {
+      console.warn('[OVYX ADMIN PUSH] deployment alert delivery skipped:', String(alertError?.code || alertError?.name || 'PUSH_DELIVERY_FAILED').slice(0, 90));
+    });
+    if (typeof context.waitUntil === 'function') context.waitUntil(alert);
+    else await alert;
     return json({success:false,authoritative:true,requestId,error:status>=500?'Cloudflare deployment service is temporarily unavailable.':error?.message||'Cloudflare deployment failed.'},status);
   }
 }
