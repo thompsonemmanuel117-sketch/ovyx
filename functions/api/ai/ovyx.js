@@ -4,6 +4,7 @@ import { beginAIQuota, finalizeAIQuota, refundDailyPrompt } from '../../_lib/tok
 import { saveChatTurn, resolveConversationId } from '../../_lib/chat-history.js';
 import { generateOvyxNativeAI } from '../../_lib/ovyx-native-ai.js';
 import { getAIIdentityDirective } from '../../_lib/ai-identity.js';
+import { readUserSettings, mergeUserSettings, buildUserSettingsDirective, filterAIContext } from '../../_lib/user-settings.js';
 
 function normalizeMessages(payload) {
   if (Array.isArray(payload?.messages)) {
@@ -25,7 +26,10 @@ export async function onRequestPost(context) {
   let quotaInputText = '';
   try {
     const user = assertAuthenticated(context.data?.user);
-    const payload = await readJson(context.request, 180_000);
+    let payload = await readJson(context.request, 180_000);
+    const accountSettings = await readUserSettings(context.env, user.uid || user.sub).catch(() => mergeUserSettings({}));
+    payload = filterAIContext(payload, accountSettings.ai);
+    const userSettingsDirective = buildUserSettingsDirective(accountSettings.ai, accountSettings.workspace);
     const messages = normalizeMessages(payload);
     if (!messages.length) {
       return errorResponse('Please enter a message for OVYX AI.', 400, 'PROMPT_REQUIRED');
@@ -53,7 +57,7 @@ export async function onRequestPost(context) {
       result = await generateOvyxNativeAI(context.env, {
         messages,
         prompt: requestPrompt,
-        system: [String(payload.system || '').slice(0, 7000), globalIdentityDirective].filter(Boolean).join('\n\n').slice(0, 10500),
+        system: [String(payload.system || '').slice(0, 7000), userSettingsDirective, globalIdentityDirective].filter(Boolean).join('\n\n').slice(0, 14000),
         context: payload.context || {
           project: payload.project || null,
           files: payload.files || null,
