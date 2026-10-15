@@ -63,8 +63,9 @@ try {
     const response = await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
     assert.ok(response && response.status() < 400, `[${target.name}] OVYX app did not load successfully.`);
     await page.waitForFunction(() => !!window.OVYXSettings && !!window.OVYXSettings.root?.querySelector('#ovyx-settings-main'), null, { timeout: 45000 });
-    await page.evaluate(() => window.Router?.go?.('settings'));
-    await page.waitForSelector('#view-settings [data-settings-nav="workspace"]', { state: 'attached' });
+    await page.locator('#app-sidebar [data-nav="settings"], [data-nav="settings"]').first().click();
+    await page.waitForSelector('#view-settings:not(.hidden)', { state: 'visible' });
+    await page.waitForSelector('#view-settings [data-settings-nav="workspace"]', { state: 'visible' });
 
     await page.evaluate(() => window.OVYXSettings.show('workspace'));
     await page.waitForSelector('#ovyx-data-endpoint', { state: 'attached' });
