@@ -30,6 +30,7 @@ const source = {
   paystackWebhook: read('functions/api/payments/paystack-webhook.js'),
   shellMiddleware: read('functions/_middleware.js'),
   headers: read('_headers'),
+  html: read('index.html'),
   packageJson: JSON.parse(read('package.json')),
 };
 
@@ -78,6 +79,14 @@ assert.match(source.assistantAI, /capabilities\?\.appStudio !== true/);
 assert.match(source.gatewayAI, /capabilities\?\.appStudio !== true/);
 assert.match(source.runtime, /function bindTemplateAccessGuard/);
 assert.match(source.runtime, /capabilities\?\.templates !== true/);
+assert.match(source.runtime, /Global feature gates/);
+assert.match(source.runtime, /select\.id = 'gate-' \+ key/);
+assert.match(source.runtime, /ac\.adminOverride = owner\(\) && config\.masterAdminOverride === true/);
+assert.match(source.runtime, /if \(!owner\(\) && window\.AdminConfigurator\)/, 'Owner preview override must clear on account switch/sign-out.');
+assert.match(source.html, /function ownerAdminOpsAuthorized\(\)\{return window\.OVYXServerOwner\?\.active===true&&window\.__OVYX_ROOT_AUTH_VERIFIED===true/);
+assert.match(source.html, /function injectPlanControl\(\)\{var v=\$\('view-admin-pricing'\);if\(!ownerAdminOpsAuthorized\(\)\|\|!v/);
+assert.match(source.html, /function injectAdminOps\(\)\{var v=\$\('view-admin-broadcasts'\);if\(!ownerAdminOpsAuthorized\(\)\|\|!v/);
+assert.doesNotMatch(source.html, /const auth=window\.firebase\?\.auth\(\);/, 'Firebase mock/runtime initialization must not call a non-function auth property.');
 
 assert.match(source.switchState, /getProductionIntegrationState/);
 assert.match(source.controlApi, /action === 'setProductionState'/);
