@@ -737,7 +737,82 @@
       }, 10);
     });
   }
+  function installGlobalProjectShortcuts() {
+    if (window.__OVYXSettingsProjectShortcutsV1) return;
+    window.__OVYXSettingsProjectShortcutsV1 = true;
+
+    function storageKey() {
+      const user = currentUser();
+      return user && user.uid
+        ? 'ovyx.projects.v22.user.' + String(user.uid)
+        : 'ovyx.projects.v22.guest';
+    }
+    function readStoredProjects() {
+      try {
+        const parsed = JSON.parse(localStorage.getItem(storageKey()) || '[]');
+        return Array.isArray(parsed) ? parsed : null;
+      } catch (_) {
+        return null;
+      }
+    }
+
+    document.addEventListener('keydown', function (event) {
+      if (!(event.metaKey || event.ctrlKey) || event.altKey || event.shiftKey || event.repeat || event.defaultPrevented) return;
+      const key = String(event.key || '').toLowerCase();
+      if (key !== 'n' && key !== 's') return;
+
+      const store = window.ProjectStore;
+      const state = window.KernelState;
+      const currentProject = state && state.activeProject;
+
+      if (key === 'n') {
+        if (!store || typeof store.createPromptModal !== 'function') {
+          event.preventDefault();
+          notify('New Project is unavailable in this workspace.', 'error');
+          return;
+        }
+        event.preventDefault();
+        const previousId = String(currentProject && currentProject.id || '');
+        try {
+          store.createPromptModal();
+          const nextProject = window.KernelState && window.KernelState.activeProject;
+          const saved = readStoredProjects();
+          if (!nextProject || !nextProject.id || String(nextProject.id) === previousId) return;
+          if (!saved || !saved.some(project => String(project && project.id || '') === String(nextProject.id))) {
+            notify('The new project was created in memory, but local persistence could not be confirmed.', 'error');
+            return;
+          }
+          notify('New project created and saved on this device.', 'success');
+        } catch (error) {
+          notify(error && error.message || 'New project creation failed.', 'error');
+        }
+        return;
+      }
+
+      event.preventDefault();
+      if (!currentProject || !currentProject.id) {
+        notify('Open or create a project before saving.', 'info');
+        return;
+      }
+      if (!store || typeof store.save !== 'function') {
+        notify('Project saving is unavailable in this workspace.', 'error');
+        return;
+      }
+      try {
+        store.save();
+        const saved = readStoredProjects();
+        const storedProject = saved && saved.find(project => String(project && project.id || '') === String(currentProject.id));
+        if (!storedProject || JSON.stringify(storedProject) !== JSON.stringify(currentProject)) {
+          throw new Error('OVYX could not verify the project snapshot in local storage.');
+        }
+        notify('Project saved on this device.', 'success');
+      } catch (error) {
+        notify(error && error.message || 'Project save failed.', 'error');
+      }
+    }, true);
+  }
   function boot() {
+    installGlobalProjectShortcuts();
     installProfileActions();
     installNotificationActions();
     installNotificationToastFilters();
