@@ -113,10 +113,12 @@ try {
     await page.evaluate(id => window.ProjectStore.open(id), projectId);
     await page.waitForFunction(() => window.KernelState?.activeView === 'projects', null, { timeout: 15000 });
 
-    await page.evaluate(() => localStorage.setItem('ovyx.settings.last-view.v1', 'projects'));
     await page.evaluate(() => window.Router.go('settings'));
     await page.locator('#view-settings').waitFor({ state: 'visible' });
     await page.evaluate(() => window.OVYXSettings.show('workspace'));
+    // Seed the last non-Settings route after opening Settings, which can itself
+    // update the last-view key during route restoration.
+    await page.evaluate(() => localStorage.setItem('ovyx.settings.last-view.v1', 'projects'));
     await workspace.locator('#set-open-behavior').selectOption({ label: 'Last active view' });
     await page.evaluate(id => window.ProjectStore.open(id), projectId);
     await page.waitForFunction(() => window.KernelState?.activeView === 'projects', null, { timeout: 15000 });
