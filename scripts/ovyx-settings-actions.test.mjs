@@ -76,6 +76,8 @@ for (const requirement of [
   'syncActiveProjectMetadataToDataApi',
   'Data API project sync sends project metadata only',
   "const DATA_LAYER_CONFIG_KEY = 'ovyx.data.layer.v1'",
+  "Object.assign({ endpoint: '', projectSync: false }",
+  'initialiseDataLayerConsent',
   "credentials: 'omit'",
   "store.open = wrapped",
   'payload.preferredProvider',
