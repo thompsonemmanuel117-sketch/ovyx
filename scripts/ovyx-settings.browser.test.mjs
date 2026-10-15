@@ -97,6 +97,32 @@ try {
     await page.waitForFunction(() => document.getElementById('ovyx-notification-server-status')?.textContent?.toLowerCase().includes('saved'));
     assert.equal(preferenceWrites.at(-1)?.projectActivity, false, '[' + target.name + '] notification toggle was not saved');
 
+    // The confirmation preference must affect the real project delete path.
+    await page.locator('[data-settings-nav="workspace"]').click();
+    const confirmDeleteToggle = page.locator('#set-confirm-delete');
+    await confirmDeleteToggle.waitFor({ state: 'visible' });
+    await confirmDeleteToggle.click();
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('ovyx.settings.integrity.v83') || '{}').confirmDelete === false);
+    await page.evaluate(() => {
+      const state = window.KernelState;
+      if (!state) throw new Error('KernelState unavailable for project-delete preference test.');
+      state.projects = Array.isArray(state.projects) ? state.projects : [];
+      state.projects.push({
+        id: 'settings-confirm-delete-fixture',
+        name: 'Settings Confirmation Fixture',
+        canvas: [],
+        pages: []
+      });
+      window.ProjectStore?.save?.();
+      if (window.__OVYX_SETTINGS_CONFIRM_DELETE_INSTALLED__ !== true) {
+        throw new Error('Settings confirmation bridge was not installed.');
+      }
+      window.OVYXProjectDeletion.open('settings-confirm-delete-fixture');
+    });
+    await page.waitForFunction(() => !window.KernelState?.projects?.some(project => project.id === 'settings-confirm-delete-fixture'));
+    assert.equal(await page.locator('.ovyx-delete-modal.open').count(), 0, '[' + target.name + '] disabling confirmation still opened the project-delete modal');
+    await page.evaluate(() => window.Router?.go?.('settings'));
+
     // Workspace settings change actual persistent state and editor mode.
     await page.locator('[data-settings-nav="editor"]').click();
     const livePreview = page.locator('#set-live-preview');
