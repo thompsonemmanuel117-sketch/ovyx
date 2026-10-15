@@ -10,7 +10,7 @@ const source = {
   switchState: read('functions/_lib/integration-state.js'),
   controlApi: read('functions/api/admin/control.js'),
   usersApi: read('functions/api/admin/users.js'),
-  firebaseAdmin: read('functions/api/_lib/firebase-admin.js'),
+  firebaseAdmin: read('functions/_lib/firebase-admin.js'),
   planUpdate: read('functions/api/admin/plans/update.js'),
   publicPlans: read('functions/api/plans.js'),
   entitlements: read('functions/api/entitlements.js'),
