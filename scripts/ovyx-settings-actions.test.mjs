@@ -55,6 +55,7 @@ for (const requirement of [
   'installLivePreviewBridge',
   'payload.preferredProvider',
   'payload.providerRouting',
+  'payload.provider = String(prefs.provider).toLowerCase()',
   'limitContextFiles',
   'set-editor-mode'
 ]) assert.ok(runtime.includes(requirement), 'Settings runtime must have real behavior for: ' + requirement);
@@ -69,7 +70,8 @@ assert.match(preferencesApi, /request\.method !== 'PUT'/);
 assert.match(preferencesApi, /PREFERENCES_WRITE_UNCONFIRMED/);
 assert.match(preferencesApi, /enforceSameOrigin/);
 assert.match(deletionApi, /deleteFirestoreDocumentTree/);
-assert.match(deletionApi, /deleteStoragePrefix/);
+assert.match(deletionApi, /deleteStoragePrefix\(context\.env, `users\/\$\{uid\}\/`\)/);
+assert.match(deletionApi, /deleteStoragePrefix\(context\.env, `profile\/\$\{uid\}\/`\)/, 'Account deletion must remove profile avatars saved by Settings.');
 assert.match(deletionApi, /assertFreshAuth/);
 assert.match(deletionApi, /X-OVYX-Account-Deletion/);
 
