@@ -174,6 +174,10 @@ try {
       };
       localStorage.setItem('ovyx-theme', JSON.stringify(dark));
       localStorage.setItem('ovyx.appearance.v3', JSON.stringify({ mode: 'dark', density: 'balanced', scale: 'balanced', motion: 'full' }));
+      // Make the app's late route-restoration controller reopen Settings on reload.
+      // Otherwise it can validly restore Home while this test expects Settings.
+      localStorage.setItem('ovyx.runtime.route.v18', 'settings');
+      localStorage.setItem('ovyx.settings.last-view.v1', 'settings');
     });
     await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
     await page.waitForFunction(
