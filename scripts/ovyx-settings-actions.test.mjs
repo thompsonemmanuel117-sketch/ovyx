@@ -48,7 +48,7 @@ assert.deepEqual(
   { ...NOTIFICATION_DEFAULTS, projectActivity: false },
   'Notification preference parsing must accept only known boolean fields.'
 );
-assert.ok(html.includes('/assets/ovyx-settings-reliability.js?v=20261015-13'), 'The audited Settings runtime must load in the application shell.');
+assert.ok(html.includes('/assets/ovyx-settings-reliability.js?v=20261015-14'), 'The audited Settings runtime must load in the application shell.');
 assert.ok(html.includes('autosaveRecoveryEnabled'), 'Turning autosave off must remove saved recovery snapshots rather than merely change the toggle label.');
 assert.equal((html.match(/ovyx-settings-reliability\.js/g) || []).length, 1, 'Settings reliability runtime must only be injected once.');
 for (const section of ['general','profile','appearance','workspace','notifications','editor','shortcuts','ai','privacy','security','plan','usage','boosters']) {
@@ -110,6 +110,8 @@ for (const requirement of [
 ]) assert.ok(runtime.includes(requirement), 'Settings runtime must have real behavior for: ' + requirement);
 assert.ok(runtime.includes("if (button.classList.contains('ovyx-settings-hidden')) button.classList.remove('ovyx-settings-hidden');"), 'Navigation repair must avoid unchanged class writes inside its MutationObserver.');
 assert.ok(runtime.includes("if (button.classList.contains('hidden')) button.classList.remove('hidden');"), 'Navigation visibility repair must conditionally remove hidden classes to prevent observer loops.');
+assert.ok(runtime.includes("button.style.setProperty('display', 'flex', 'important')"), 'Settings navigation recovery must override legacy hiding styles when search is clear.');
+assert.ok(runtime.includes("sidebar.style.setProperty('visibility', 'visible', 'important')"), 'Settings sidebar recovery must restore actual visibility, not just CSS classes.');
 
 assert.match(profileApi, /request\.method === 'GET'/);
 assert.match(profileApi, /request\.method !== 'PUT'/);
