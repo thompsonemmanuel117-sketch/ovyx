@@ -897,15 +897,50 @@
       if (cfg.lastSyncAt) status.title = 'Last successful metadata sync: ' + new Date(cfg.lastSyncAt).toLocaleString();
     }
   }
+  function ensureDataLayerControls() {
+    const root = window.OVYXSettings && window.OVYXSettings.root || document.getElementById('view-settings');
+    const panel = root && root.querySelector('[data-settings-panel="workspace"]') ||
+      document.querySelector('#view-settings [data-settings-panel="workspace"]');
+    if (!panel || panel.querySelector('#ovyx-data-endpoint') ||
+        panel.querySelector('.ovyx-settings-data-layer-fallback-v1')) return;
+    const cfg = readDataLayerConfig();
+    const escapeAttribute = value => String(value || '').replace(/[&<>"']/g, character => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[character]);
+    const section = document.createElement('section');
+    section.className = 'ovyx-data-layer-section ovyx-settings-data-layer-fallback-v1';
+    section.innerHTML =
+      '<div class="ovyx-panel-head"><div class="ovyx-panel-kicker">WORKSPACE / DATA</div>' +
+      '<h2>OVYX Data Layer</h2><p>Optional project-metadata integration for a trusted backend. Built-in OVYX project sync remains separate.</p></div>' +
+      '<div class="ovyx-pref-group"><div class="ovyx-pref-label">BACKEND CONNECTION</div>' +
+      '<div class="ovyx-pref-row"><div class="ovyx-pref-copy"><b>Data API endpoint</b><small>Use an HTTPS endpoint that implements the OVYX project metadata API.</small></div>' +
+      '<div class="ovyx-pref-control"><input class="ovyx-pref-input" id="ovyx-data-endpoint" value="' + escapeAttribute(cfg.endpoint) + '" placeholder="https://your-domain.com/api/data" autocomplete="off"></div></div>' +
+      '<div class="ovyx-pref-row"><div class="ovyx-pref-copy"><b>Project metadata sync</b><small>Disabled until explicitly enabled. Project source files and secrets are never uploaded by this integration.</small></div>' +
+      '<div class="ovyx-pref-control"><button type="button" class="ovyx-notify-toggle" id="ovyx-data-sync" role="switch" aria-checked="' + String(cfg.projectSync === true) + '"><span></span></button></div></div></div>' +
+      '<div class="ovyx-data-code">Recommended server contract: GET /health, POST /projects, PUT /projects/:projectId. The endpoint must verify the Firebase ID token and authorize the project owner.</div>' +
+      '<div class="ovyx-data-actions"><button type="button" class="ovyx-settings-btn primary" id="ovyx-data-save">Save Data Settings</button>' +
+      '<button type="button" class="ovyx-settings-btn" id="ovyx-data-test">Test API</button>' +
+      '<button type="button" class="ovyx-settings-btn" id="ovyx-data-schema">Download PostgreSQL Schema</button></div>' +
+      '<div id="ovyx-data-result" class="ovyx-connection-note" role="status" data-state="' +
+      escapeAttribute(cfg.lastSyncState || 'info') + '">' +
+      escapeAttribute(cfg.lastSyncStatus || (cfg.endpoint
+        ? 'Data API configured. Save a project or use Test API to verify it.'
+        : 'No external Data API configured. Built-in OVYX cloud project sync is unaffected.')) + '</div>';
+    panel.appendChild(section);
+  }
   function installWorkspaceControlRecovery() {
     ensureWorkspaceControls();
+    ensureDataLayerControls();
     const settings = window.OVYXSettings;
     if (settings && typeof settings.show === 'function' && !workspaceShowWrapped) {
       const original = settings.show.bind(settings);
       settings.show = function (id) {
         const result = original(id);
         if (id === 'workspace') {
-          [0, 80, 220, 500].forEach(function (delay) { setTimeout(ensureWorkspaceControls, delay); });
+          [0, 80, 220, 500].forEach(function (delay) {
+            setTimeout(ensureWorkspaceControls, delay);
+            setTimeout(ensureDataLayerControls, delay);
+          });
         }
         return result;
       };
@@ -916,6 +951,7 @@
       workspaceRecoveryObserver = new MutationObserver(function () {
         const panel = root.querySelector('[data-settings-panel="workspace"]');
         if (panel && !panel.querySelector('.ovyx-settings-workspace-controls-v1')) ensureWorkspaceControls();
+        if (panel && !panel.querySelector('#ovyx-data-endpoint')) ensureDataLayerControls();
       });
       workspaceRecoveryObserver.observe(root, { childList: true, subtree: true });
     }
@@ -934,6 +970,7 @@
     }, true);
     window.addEventListener('ovyx-settings-rendered', function () {
       setTimeout(ensureWorkspaceControls, 30);
+      setTimeout(ensureDataLayerControls, 30);
     });
   }
   function installProjectOpenBehavior() {
@@ -991,7 +1028,7 @@
       }
     }, { passive: true });
     document.addEventListener('click', async function (event) {
-      const target = event.target && event.target.closest && event.target.closest('#ovyx-data-save, #ovyx-data-test, #ovyx-data-sync');
+      const target = event.target && event.target.closest && event.target.closest('#ovyx-data-save, #ovyx-data-test, #ovyx-data-sync, #ovyx-data-schema');
       if (!target) return;
       event.preventDefault();
       event.stopPropagation();
@@ -1062,6 +1099,55 @@
           : 'Data API settings saved with no endpoint. Built-in OVYX cloud project sync remains separate.', 'ok');
         notify('Data API settings saved.', 'success');
         if (enabled && endpoint) scheduleDataLayerProjectSync(100);
+        return;
+      }
+
+      if (target.id === 'ovyx-data-schema') {
+        const sql = [
+          '-- OVYX PostgreSQL foundation schema',
+          'create table if not exists ovyx_projects (',
+          '  id text primary key,',
+          '  owner_id text not null,',
+          '  name text not null,',
+          "  description text default '',",
+          "  status text default 'draft',",
+          '  schema_version integer default 1,',
+          "  data jsonb not null default '{}'::jsonb,",
+          '  created_at timestamptz not null default now(),',
+          '  updated_at timestamptz not null default now()',
+          ');',
+          'create index if not exists ovyx_projects_owner_updated on ovyx_projects(owner_id, updated_at desc);',
+          'create table if not exists ovyx_project_revisions (',
+          '  id bigserial primary key,',
+          '  project_id text not null references ovyx_projects(id) on delete cascade,',
+          '  owner_id text not null,',
+          '  snapshot jsonb not null,',
+          '  created_at timestamptz not null default now()',
+          ');',
+          'create index if not exists ovyx_revisions_project_created on ovyx_project_revisions(project_id, created_at desc);',
+          'create table if not exists ovyx_ai_usage (',
+          '  id bigserial primary key,',
+          '  owner_id text not null,',
+          '  tokens integer not null default 0,',
+          '  provider text,',
+          '  model text,',
+          '  created_at timestamptz not null default now()',
+          ');',
+          'create index if not exists ovyx_ai_usage_owner_created on ovyx_ai_usage(owner_id, created_at desc);',
+          ''
+        ].join('\n');
+        const blob = new Blob([sql], { type: 'text/plain;charset=utf-8' });
+        const objectUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = objectUrl;
+        link.download = 'ovyx-postgresql-schema.sql';
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(function () { URL.revokeObjectURL(objectUrl); }, 1000);
+        dataLayerFeedback('PostgreSQL schema download started. Review and adapt ownership policies before applying it.', 'ok');
+        notify('PostgreSQL schema downloaded.', 'success');
         return;
       }
 
