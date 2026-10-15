@@ -5311,8 +5311,8 @@ function patchDrawer(){
       previewUrl:String(raw.previewUrl||raw.preview||'').trim(),
       requiredTier:String(raw.requiredTier||raw.tier||'free').toLowerCase().trim(),
       ast:raw.ast||raw.blueprint||raw.schema||raw.structuralAst||null,
-      createdAt:Number(raw.createdAt||Date.now()),
-      updatedAt:Number(raw.updatedAt||raw.createdAt||Date.now()),
+      createdAt:(Number(raw.createdAt)||Date.parse(raw.createdAt)||Date.now()),
+      updatedAt:(Number(raw.updatedAt)||Date.parse(raw.updatedAt)||Number(raw.createdAt)||Date.parse(raw.createdAt)||Date.now()),
       published:Boolean(raw.published!==false)
     }
     if(!item.id||!item.title||!['SaaS','Portfolio','Commerce'].includes(item.category))return null
@@ -5470,19 +5470,32 @@ function patchDrawer(){
       showToast?.('Invalid deployable canvas AST.','error')
       return
     }
-    const item={id:'tpl_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),title,category,previewUrl,requiredTier,ast,createdAt:Date.now(),updatedAt:Date.now(),published:true}
-    let liveWritten=false
+    let item={id:'tpl_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),title,category,previewUrl,requiredTier,ast,createdAt:Date.now(),updatedAt:Date.now(),published:true}
     try{
-      const db=window.firebase?.firestore?.()
-      if(!db)throw new Error('Template collection is not connected')
-      await db.collection('ovyx_templates').doc(item.id).set(item,{merge:true})
-      liveWritten=true
+      const user=v43User()
+      if(!user||!v43RootAuthorized())throw new Error('Verified root owner authorization is required.')
+      const token=await user.getIdToken(false)
+      const response=await fetch('/api/admin/templates',{
+        method:'POST',
+        headers:{Accept:'application/json','Content-Type':'application/json',Authorization:'Bearer '+token},
+        credentials:'same-origin',
+        cache:'no-store',
+        body:JSON.stringify({...item,action:'publish'})
+      })
+      const data=await response.json().catch(()=>({}))
+      if(!response.ok||data.ok===false)throw new Error(data.message||data.error||'The server did not confirm template publication.')
+      const saved=v43Normalize(data.template||item)
+      if(!saved)throw new Error('The server response did not contain a valid published template.')
+      item=saved
     }catch(error){
-      console.warn('[OVYX V43] live template write:',error)
+      console.warn('[OVYX V43] server template publication:',String(error?.message||'unavailable').slice(0,180))
+      if(status)status.textContent='Publish failed: '+String(error?.message||'Server write was not confirmed.')
+      showToast?.('Template was not published. '+String(error?.message||'Server write was not confirmed.'),'error')
+      return
     }
     v43Merge([item])
-    if(status)status.textContent=liveWritten?'Template published to the live collection and released to active workspaces.':'Template retained in owner preview; the live collection write was not confirmed.'
-    showToast?.(liveWritten?'Template published and released.':'Template saved locally; live release was not confirmed.',liveWritten?'success':'info')
+    if(status)status.textContent='Template published to the server catalogue for accounts with matching feature access.'
+    showToast?.('Template published to the live OVYX catalogue.','success')
     v43RenderAdmin()
     v43RenderGallery()
     try{v43Channel?.postMessage({type:'template-release',template:item})}catch(error){console.warn('[OVYX V43] release channel:',error)}
