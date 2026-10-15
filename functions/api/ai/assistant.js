@@ -74,8 +74,17 @@ export async function onRequestPost(context) {
       payload?.context?.project ||
       payload?.context?.files
     );
-    const isWebStudio = isWebStudioPrompt(promptText, mode) ||
-      ((mode === 'build' || mode === 'fix') && hasStudioContext);
+    const activeView = String(payload.context?.activeView || '').replace(/^view-/i, '').trim().toLowerCase();
+    const isAppStudio = activeView === 'appstudio' || ['appstudio', 'app-build', 'app-fix'].includes(mode);
+    const isWebStudio = !isAppStudio && (isWebStudioPrompt(promptText, mode) ||
+      ((mode === 'build' || mode === 'fix') && hasStudioContext));
+
+    if (isAppStudio) {
+      const entitlement = context.data?.entitlements || await resolveEntitlements(context.env, user);
+      if (entitlement?.capabilities?.appStudio !== true) {
+        return errorResponse('App Studio is not included in this account’s current server-authoritative feature access.', 403, 'FEATURE_NOT_INCLUDED');
+      }
+    }
 
     if (isWebStudio) {
       const entitlement = context.data?.entitlements || await resolveEntitlements(context.env, user);
