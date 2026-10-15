@@ -168,9 +168,36 @@ jobs:
 
           # Make a safe end-to-end scheduled scan now rather than waiting for the
           # next half-hour boundary. Only a sanitized result summary is printed.
-          SCAN_STATUS="$(curl --silent --show-error --max-time 70 -o "$RUNNER_TEMP/ovyx-sentinel-scan.json" -w '%{http_code}' -X POST "$ORIGIN/api/admin/sentinel" -H 'Content-Type: application/json' -H 'Accept: application/json' -H "x-ovyx-sentinel-cron-secret: $SENTINEL_SECRET" --data '{"action":"scan","source":"scheduled"}')"
+          # Pages deployments can take a short time to make their Production
+          # secret available on the stable *.pages.dev origin. Retry only an
+          # authentication rejection; other failures are surfaced immediately.
+          SCAN_STATUS="000"
+          for attempt in 1 2 3 4 5 6 7 8; do
+            SCAN_STATUS="$(curl --silent --show-error --max-time 70 -o "$RUNNER_TEMP/ovyx-sentinel-scan.json" -w '%{http_code}' -X POST "$ORIGIN/api/admin/sentinel" -H 'Content-Type: application/json' -H 'Accept: application/json' -H "x-ovyx-sentinel-cron-secret: $SENTINEL_SECRET" --data '{"action":"scan","source":"scheduled"}')"
+            if [[ "$SCAN_STATUS" == "200" ]]; then
+              break
+            fi
+            if [[ "$SCAN_STATUS" != "401" ]]; then
+              break
+            fi
+            if [[ "$attempt" -lt 8 ]]; then
+              echo "Pages has not accepted the scheduler credential yet (HTTP 401, attempt $attempt/8); retrying in 5 seconds."
+              sleep 5
+            fi
+          done
           if [[ "$SCAN_STATUS" != "200" ]]; then
-            echo "Scheduler and Cron trigger were deployed, but the initial authenticated Sentinel scan was not confirmed (HTTP $SCAN_STATUS). Inspect the Sentinel endpoint/Firestore setup."
+            SAFE_SCAN_CODE="$(node --input-type=module - "$RUNNER_TEMP/ovyx-sentinel-scan.json" <<'NODE'
+          import fs from 'node:fs';
+          let code = 'UNKNOWN';
+          try {
+            const payload = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+            const candidate = String(payload.error || payload.code || 'UNKNOWN');
+            if (/^[A-Z0-9_:-]{1,80}$/.test(candidate)) code = candidate;
+          } catch {}
+          process.stdout.write(code);
+          NODE
+          )"
+            echo "Scheduler and Cron trigger were deployed, but the initial authenticated Sentinel scan was not confirmed (HTTP $SCAN_STATUS; code=$SAFE_SCAN_CODE). Inspect Pages secret propagation or the Sentinel endpoint/Firestore configuration."
             exit 1
           fi
           node --input-type=module - "$RUNNER_TEMP/ovyx-sentinel-scan.json" <<'NODE'
