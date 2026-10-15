@@ -72,7 +72,7 @@ function legacyScope(scope){
   if(typeof toggles.inspector==='boolean')old.inspector=toggles.inspector;
   if(typeof toggles.livePreview==='boolean')old.livePreview=toggles.livePreview;
   if(typeof toggles.aiSafe==='boolean')old.aiSafe=toggles.aiSafe;
-  if(typeof toggles.notifyBuild==='boolean')jsonRead; 
+  if(typeof toggles.notifyBuild==='boolean'){}
   if(!['build','plan','ask','fix','last-used'].includes(String(old.editorMode||''))){
     const previous=String(old.editorMode||'').toLowerCase();
     old.editorMode=previous==='last used'||previous==='last-used'?'last-used':'build';
@@ -581,7 +581,10 @@ function enhanceEditorPanel(){
   const mode=selects.find(select=>String(select.closest('.ovyx-pref-row')?.textContent||'').toLowerCase().includes('default web studio mode'))||selects[0];
   if(mode){
     mode.id='set-editor-mode';
-    mode.innerHTML='<option value="build">Build</option><option value="plan">Plan</option><option value="ask">Ask</option><option value="fix">Fix</option><option value="last-used">Last used</option>';
+    if(mode.dataset.ovyxSettingsModeOptions!=='1'){
+      mode.innerHTML='<option value="build">Build</option><option value="plan">Plan</option><option value="ask">Ask</option><option value="fix">Fix</option><option value="last-used">Last used</option>';
+      mode.dataset.ovyxSettingsModeOptions='1';
+    }
     mode.value=workspacePrefs().editorMode||'build';
   }
 }
