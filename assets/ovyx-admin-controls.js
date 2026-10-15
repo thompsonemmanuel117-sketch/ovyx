@@ -146,6 +146,69 @@
     if (preview) preview.style.background = 'radial-gradient(circle,' + color + ' 0%, #111827 78%)';
   }
 
+  function applyPublicPlanCatalog(data) {
+    if (!data || data.ok !== true || !data.pricing || typeof data.pricing !== 'object') return false;
+    const validMoney = value => Number.isFinite(Number(value)) && Number(value) > 0;
+    const pricing = {
+      pro: {
+        ngn: validMoney(data.pricing.pro?.ngn) ? Number(data.pricing.pro.ngn) : 33500,
+        usd: validMoney(data.pricing.pro?.usd) ? Number(data.pricing.pro.usd) : 20
+      },
+      max: {
+        ngn: validMoney(data.pricing.max?.ngn) ? Number(data.pricing.max.ngn) : 209375,
+        usd: validMoney(data.pricing.max?.usd) ? Number(data.pricing.max.usd) : 120
+      }
+    };
+    const AC = window.AdminConfigurator;
+    if (AC) {
+      AC.pricing = Object.assign({}, AC.pricing || {}, {
+        pro: Object.assign({}, AC.pricing?.pro || {}, pricing.pro),
+        max: Object.assign({}, AC.pricing?.max || {}, pricing.max)
+      });
+      if (data.gating && typeof data.gating === 'object') AC.gating = Object.assign({}, AC.gating || {}, data.gating);
+      AC.updateLockIcons?.();
+      try { localStorage.setItem('ovyx_pricing_matrix', JSON.stringify(AC.pricing)); } catch (_) {}
+      const fields = [
+        ['adm-pro-ngn', pricing.pro.ngn], ['adm-pro-usd', pricing.pro.usd],
+        ['adm-max-ngn', pricing.max.ngn], ['adm-max-usd', pricing.max.usd]
+      ];
+      for (const [id, value] of fields) {
+        const input = $(id);
+        if (input && document.activeElement !== input) input.value = String(value);
+      }
+    }
+    const quota = data.tokenQuotas || {};
+    const Q = window.TokenQuotaRegistry;
+    if (Q) {
+      Q.tiers = Object.assign({}, Q.tiers || {}, {
+        free: Object.assign({}, Q.tiers?.free || {}, { maxTokens: Number(quota.free || 50000) }),
+        pro: Object.assign({}, Q.tiers?.pro || {}, { maxTokens: Number(quota.pro || 500000) }),
+        max: Object.assign({}, Q.tiers?.max || {}, { maxTokens: Number(quota.max || 5000000) })
+      });
+      Q.serverTokenQuotas = { free: Number(quota.free || 50000), pro: Number(quota.pro || 500000), max: Number(quota.max || 5000000) };
+      Q.renderMeter?.();
+    }
+    window.OVYXPlanCatalog = data;
+    window.OvyxCurrencyEngine?.renderFormattedPrices?.();
+    try { window.dispatchEvent(new CustomEvent('ovyx:plan-catalog-updated', { detail: { updatedAt: data.updatedAt || null, source: 'server' } })); } catch (_) {}
+    return true;
+  }
+
+  async function syncPublicPlanCatalog() {
+    try {
+      const response = await fetch('/api/plans', {
+        method: 'GET', credentials: 'same-origin', cache: 'no-store',
+        headers: { Accept: 'application/json' }
+      });
+      if (!response.ok) return false;
+      const data = await response.json().catch(() => ({}));
+      return applyPublicPlanCatalog(data);
+    } catch (_) {
+      // Keep the last server-confirmed catalog during transient network outages.
+      return false;
+    }
+  }
+
   async function loadPublicIdentity() {
     try {
       const response = await fetch('/api/identity', { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
@@ -376,8 +439,8 @@
     const data = await response.json().catch(() => ({}));
     if (!response.ok || data.ok === false) throw new Error(data.error || data.code || 'Public plan catalog is unavailable.');
     latestPlans = data;
-    if (window.AdminConfigurator && data.gating && typeof data.gating === 'object') {
-      window.AdminConfigurator.gating = Object.assign({}, window.AdminConfigurator.gating || {}, data.gating);
+    applyPublicPlanCatalog(data);
+    if (data.gating && typeof data.gating === 'object') {
       Object.entries(data.gating).forEach(([key, tier]) => {
         const control = $('gate-' + key);
         if (control && document.activeElement !== control) control.value = tier;
@@ -1162,6 +1225,7 @@
   function boot() {
     addStyles();
     loadPublicIdentity();
+    syncPublicPlanCatalog();
     bindTemplateAccessGuard();
     window.addEventListener('ovyx:templates-live-cache', bindTemplateAccessGuard, { passive: true });
     [250, 900, 1800].forEach(ms => setTimeout(bindTemplateAccessGuard, ms));
@@ -1185,6 +1249,8 @@
     window.addEventListener('firebase-auth-state-ready', () => setTimeout(onView, 100));
     window.addEventListener('pageshow', () => setTimeout(onView, 150));
     setInterval(loadPublicIdentity, 60000);
+    setInterval(syncPublicPlanCatalog, 60000);
+    window.addEventListener('pageshow', () => { syncPublicPlanCatalog(); }, { passive: true });
     setInterval(() => {
       if (owner() && currentView() === 'admin-overview') runLiveOverview();
     }, 60000);
