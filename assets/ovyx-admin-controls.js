@@ -791,9 +791,244 @@
     }, true);
   }
 
+
+  /* The production integration toggle is persisted on the server and enforced by /api middleware. */
+  function patchProductionSwitch() {
+    const sw = window.MasterProductionSwitch;
+    if (sw && !sw.__ovyxGlobalIntegrationControl) {
+      sw.__ovyxGlobalIntegrationControl = true;
+      sw.loadFirestoreState = async function () {
+        if (!owner()) throw new Error('Root owner access is not verified.');
+        const result = await api('/api/admin/control');
+        const config = result.data.config || {};
+        this.isLive = typeof config.liveDeploy === 'boolean' ? config.liveDeploy :
+          (typeof config.productionLive === 'boolean' ? config.productionLive : true);
+        try { localStorage.setItem('ovyx_master_production_live', String(this.isLive)); } catch (_) {}
+        const ac = window.AdminConfigurator;
+        if (ac) {
+          if (config.pricing) ac.pricing = Object.assign({}, ac.pricing || {}, config.pricing);
+          if (config.gating) ac.gating = Object.assign({}, ac.gating || {}, config.gating);
+          if (typeof config.masterAdminOverride === 'boolean') ac.adminOverride = config.masterAdminOverride;
+          ['pro','max'].forEach(tier => {
+            ['ngn','usd'].forEach(currency => {
+              const input = $('adm-' + tier + '-' + currency);
+              if (input && config.pricing && config.pricing[tier] && config.pricing[tier][currency] != null) input.value = config.pricing[tier][currency];
+            });
+          });
+          Object.entries(config.gating || {}).forEach(([key, tier]) => {
+            const input = $('gate-' + key);
+            if (input) input.value = tier;
+          });
+          ac.updateLockIcons?.();
+          const override = $('admin-override-toggle');
+          if (override) override.checked = config.masterAdminOverride === true;
+          const badge = $('admin-override-badge');
+          if (badge) badge.textContent = config.masterAdminOverride === true ? 'ON (OWNER UI ONLY)' : 'OFF (ENFORCING)';
+        }
+        this.renderUI?.();
+        const status = $('ovyx-global-integration-status');
+        statusText(status, this.isLive ? 'LIVE: new AI work, agent runs, deployment, repository access and checkout creation are enabled globally.' :
+          'PAUSED: new AI work, agent runs, deployment, repository access and checkout creation are blocked globally.', this.isLive ? 'ok' : 'warn');
+        return config;
+      };
+      sw.toggle = async function () {
+        if (!owner()) return notify('Root owner access is not verified.', 'error');
+        const next = this.isLive !== true;
+        if (!next && !window.confirm('Pause new AI generation, agent runs, deployment, repository access and payment checkout for EVERY OVYX account? Login, health checks and verification of payments already started remain available.')) return;
+        const button = $('master-switch-toggle-btn') || $('ovyx-global-integration-toggle');
+        if (button) button.disabled = true;
+        try {
+          const result = await api('/api/admin/control', {
+            method: 'POST',
+            body: JSON.stringify({ action: 'setProductionState', live: next })
+          });
+          const config = result.data.config || {};
+          this.isLive = typeof config.liveDeploy === 'boolean' ? config.liveDeploy : next;
+          try { localStorage.setItem('ovyx_master_production_live', String(this.isLive)); } catch (_) {}
+          this.renderUI?.();
+          const status = $('ovyx-global-integration-status');
+          statusText(status, this.isLive ? 'Server confirmed: production integrations are live for all accounts.' :
+            'Server confirmed: production integrations are paused for all accounts.', this.isLive ? 'ok' : 'warn');
+          notify(this.isLive ? 'Production integrations enabled globally.' : 'Production integrations paused globally.', this.isLive ? 'success' : 'info');
+        } catch (error) {
+          statusText($('ovyx-global-integration-status'), 'The integration state was not confirmed saved: ' + error.message, 'error');
+          notify('Production integration switch failed: ' + error.message, 'error');
+        } finally { if (button) button.disabled = false; }
+      };
+    }
+    const ac = window.AdminConfigurator;
+    if (ac && !ac.__ovyxGlobalConfigRead) {
+      ac.__ovyxGlobalConfigRead = true;
+      ac.loadFirestoreState = async function () {
+        const result = await api('/api/admin/control');
+        const config = result.data.config || {};
+        this.pricing = Object.assign({}, this.pricing || {}, config.pricing || {});
+        this.gating = Object.assign({}, this.gating || {}, config.gating || {});
+        this.adminOverride = config.masterAdminOverride === true;
+        this.updateLockIcons?.();
+        const toggle = $('admin-override-toggle');
+        if (toggle) toggle.checked = this.adminOverride;
+        const badge = $('admin-override-badge');
+        if (badge) badge.textContent = this.adminOverride ? 'ON (OWNER UI ONLY)' : 'OFF (ENFORCING)';
+        const sw = window.MasterProductionSwitch;
+        if (sw) {
+          sw.isLive = typeof config.liveDeploy === 'boolean' ? config.liveDeploy :
+            (typeof config.productionLive === 'boolean' ? config.productionLive : true);
+          sw.renderUI?.();
+        }
+        return { config: config, controls: { masterAdminOverride: this.adminOverride } };
+      };
+    }
+    if (sw && owner() && !sw.__ovyxGlobalStateLoaded) {
+      sw.__ovyxGlobalStateLoaded = true;
+      sw.loadFirestoreState().catch(error => {
+        sw.__ovyxGlobalStateLoaded = false;
+        statusText($('ovyx-global-integration-status'), 'Could not read production integration state: ' + error.message, 'error');
+      });
+    }
+  }
+
+  function mountProductionControlPanel() {
+    const view = $('view-admin-pricing');
+    if (!view || !owner()) return;
+    const host = panel(view, 'ovyx-global-integration-control', 'Global production integration switch',
+      'ON enables new AI generation, agent runs, deployments, repository access and payment checkout. OFF pauses those operations for every user; authentication, diagnostics and verification of already-started payments stay available.',
+      '<div class="ovyx-owner-live-grid" id="ovyx-global-integration-cards"><div class="ovyx-owner-live-card"><div class="ovyx-owner-live-label">Authoritative state</div><div id="ovyx-global-integration-value" class="ovyx-owner-live-value">Loading…</div><div class="ovyx-owner-live-detail">Read from system/config, not local storage.</div></div></div>' +
+      '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px"><button type="button" class="ovyx-owner-live-button" id="ovyx-global-integration-toggle">Toggle global integrations</button><div id="ovyx-global-integration-status" class="ovyx-owner-live-status">Loading server setting…</div></div>');
+    if (host.dataset.integrationBound === '1') return;
+    host.dataset.integrationBound = '1';
+    $('ovyx-global-integration-toggle')?.addEventListener('click', () => window.MasterProductionSwitch?.toggle?.());
+    const refreshState = async () => {
+      try {
+        const config = await window.MasterProductionSwitch?.loadFirestoreState?.();
+        const live = config ? (config.liveDeploy !== false && config.productionLive !== false) : window.MasterProductionSwitch?.isLive === true;
+        const value = $('ovyx-global-integration-value');
+        if (value) {
+          value.textContent = live ? 'LIVE / ON' : 'PAUSED / OFF';
+          value.style.color = live ? '#86efac' : '#fcd34d';
+        }
+        statusText($('ovyx-global-integration-status'), live ?
+          'Server says new production integrations are enabled globally.' :
+          'Server says new production integrations are paused globally.', live ? 'ok' : 'warn');
+      } catch (error) {
+        statusText($('ovyx-global-integration-status'), 'Could not load server state: ' + error.message, 'error');
+      }
+    };
+    refreshState();
+  }
+
+  function mountBroadcastRegistry() {
+    const view = $('view-admin-broadcasts');
+    if (!view || !owner()) return;
+    const host = panel(view, 'ovyx-global-broadcast-registry', 'Published global broadcasts',
+      'Withdraw an active announcement from all future user inbox requests. The underlying record remains for audit history.',
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"><button class="ovyx-owner-live-button" id="ovyx-global-broadcast-refresh" type="button">Refresh broadcasts</button></div><div id="ovyx-global-broadcast-list" class="ovyx-owner-live-grid"></div><div id="ovyx-global-broadcast-status" class="ovyx-owner-live-status">Loading server records…</div>');
+    if (host.dataset.broadcastBound === '1') return;
+    host.dataset.broadcastBound = '1';
+    $('ovyx-global-broadcast-refresh')?.addEventListener('click', loadBroadcastRegistry);
+    $('ovyx-global-broadcast-list')?.addEventListener('click', withdrawBroadcast);
+    loadBroadcastRegistry();
+  }
+
+  async function loadBroadcastRegistry() {
+    const grid = $('ovyx-global-broadcast-list');
+    if (!grid || !owner()) return;
+    statusText($('ovyx-global-broadcast-status'), 'Loading published broadcasts…');
+    try {
+      const result = await api('/api/admin/broadcasts');
+      const items = Array.isArray(result.data.broadcasts) ? result.data.broadcasts : [];
+      grid.replaceChildren();
+      if (!items.length) {
+        const empty = document.createElement('div'); empty.className = 'ovyx-owner-live-card'; empty.textContent = 'No active global broadcasts.';
+        grid.appendChild(empty);
+      }
+      items.forEach(item => {
+        const card = document.createElement('div'); card.className = 'ovyx-owner-live-card';
+        const title = document.createElement('div'); title.className = 'ovyx-owner-live-label'; title.textContent = String(item.title || 'OVYX Update');
+        const body = document.createElement('div'); body.className = 'ovyx-owner-live-detail'; body.textContent = String(item.body || '').slice(0, 500);
+        const meta = document.createElement('div'); meta.className = 'ovyx-owner-live-detail'; meta.textContent = String(item.category || 'product') + ' · ' + String(item.createdAt || '');
+        const button = document.createElement('button'); button.type = 'button'; button.className = 'ovyx-owner-live-button'; button.dataset.withdrawBroadcast = String(item.id || ''); button.textContent = 'Withdraw from users';
+        card.append(title, body, meta, button); grid.appendChild(card);
+      });
+      statusText($('ovyx-global-broadcast-status'), 'Loaded ' + items.length + ' published broadcast(s) from the server.', 'ok');
+    } catch (error) {
+      statusText($('ovyx-global-broadcast-status'), 'Broadcast registry could not be loaded: ' + error.message, 'error');
+    }
+  }
+
+  async function withdrawBroadcast(event) {
+    const button = event.target.closest('button[data-withdraw-broadcast]');
+    if (!button) return;
+    const id = button.dataset.withdrawBroadcast || '';
+    if (!id || !window.confirm('Withdraw this announcement from all future authenticated user inbox responses?')) return;
+    button.disabled = true;
+    try {
+      await api('/api/admin/broadcasts', { method: 'POST', body: JSON.stringify({ action: 'unpublish', id: id }) });
+      statusText($('ovyx-global-broadcast-status'), 'Broadcast withdrawn for all users. Its record was retained for audit.', 'ok');
+      await loadBroadcastRegistry();
+    } catch (error) {
+      statusText($('ovyx-global-broadcast-status'), 'Broadcast withdrawal failed: ' + error.message, 'error');
+    } finally { button.disabled = false; }
+  }
+
+  function mountTemplateRegistry() {
+    const view = $('view-admin-template-hub');
+    if (!view || !owner()) return;
+    const host = panel(view, 'ovyx-global-template-registry', 'Published template registry',
+      'Templates are stored server-side and shared to all users. Withdrawals remove the template from the published catalogue; they do not delete historical project copies.',
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"><button class="ovyx-owner-live-button" id="ovyx-global-template-refresh" type="button">Refresh templates</button></div><div id="ovyx-global-template-list" class="ovyx-owner-live-grid"></div><div id="ovyx-global-template-status" class="ovyx-owner-live-status">Loading server records…</div>');
+    if (host.dataset.templateBound === '1') return;
+    host.dataset.templateBound = '1';
+    $('ovyx-global-template-refresh')?.addEventListener('click', loadTemplateRegistry);
+    $('ovyx-global-template-list')?.addEventListener('click', withdrawTemplate);
+    loadTemplateRegistry();
+  }
+
+  async function loadTemplateRegistry() {
+    const grid = $('ovyx-global-template-list');
+    if (!grid || !owner()) return;
+    statusText($('ovyx-global-template-status'), 'Loading published templates…');
+    try {
+      const result = await api('/api/admin/templates');
+      const templates = Array.isArray(result.data.templates) ? result.data.templates : [];
+      grid.replaceChildren();
+      if (!templates.length) {
+        const empty = document.createElement('div'); empty.className = 'ovyx-owner-live-card'; empty.textContent = 'No published templates.';
+        grid.appendChild(empty);
+      }
+      templates.forEach(item => {
+        const card = document.createElement('div'); card.className = 'ovyx-owner-live-card';
+        const title = document.createElement('div'); title.className = 'ovyx-owner-live-label'; title.textContent = String(item.title || 'Untitled');
+        const detail = document.createElement('div'); detail.className = 'ovyx-owner-live-detail'; detail.textContent = String(item.category || '') + ' · ' + String(item.requiredTier || 'free') + ' · updated ' + String(item.updatedAt || '');
+        const button = document.createElement('button'); button.type = 'button'; button.className = 'ovyx-owner-live-button'; button.dataset.withdrawTemplate = String(item.id || ''); button.textContent = 'Withdraw publication';
+        card.append(title, detail, button); grid.appendChild(card);
+      });
+      statusText($('ovyx-global-template-status'), 'Loaded ' + templates.length + ' currently published template(s).', 'ok');
+    } catch (error) {
+      statusText($('ovyx-global-template-status'), 'Template registry could not be loaded: ' + error.message, 'error');
+    }
+  }
+
+  async function withdrawTemplate(event) {
+    const button = event.target.closest('button[data-withdraw-template]');
+    if (!button) return;
+    const id = button.dataset.withdrawTemplate || '';
+    if (!id || !window.confirm('Withdraw this template from the shared OVYX catalogue for every user? Existing projects remain unchanged.')) return;
+    button.disabled = true;
+    try {
+      await api('/api/admin/templates', { method: 'POST', body: JSON.stringify({ action: 'unpublish', id: id }) });
+      statusText($('ovyx-global-template-status'), 'Template withdrawn from the published catalogue.', 'ok');
+      await loadTemplateRegistry();
+      try { window.OVYXTemplateHub?.render?.(); } catch (_) {}
+    } catch (error) {
+      statusText($('ovyx-global-template-status'), 'Template withdrawal failed: ' + error.message, 'error');
+    } finally { button.disabled = false; }
+  }
+
   async function onView() {
     loadPublicIdentity();
     if (!owner()) return;
+    patchProductionSwitch();
     const view = currentView();
     if (view === 'admin-overview') mountOverview();
     if (view === 'admin-pricing') mountPlanControls();
@@ -804,6 +1039,9 @@
     if (view === 'admin-telemetry') mountTelemetry();
     bindGlobalBroadcast();
     bindTemplatePublisher();
+    if (view === 'admin-pricing') { mountProductionControlPanel(); patchProductionSwitch(); }
+    if (view === 'admin-broadcasts') mountBroadcastRegistry();
+    if (view === 'admin-template-hub') mountTemplateRegistry();
     if (view === 'admin-template-hub') {
       const authBadge = $('v43-template-admin-auth');
       if (authBadge) authBadge.textContent = 'ROOT SERVER AUTHORIZED';
