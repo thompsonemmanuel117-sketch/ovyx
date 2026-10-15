@@ -6990,14 +6990,14 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
   window.useTheme=function(){return ThemeContext};
   /* Stop the older Settings/ThemeLab listeners from persisting appearance changes immediately. */
   document.addEventListener('click',function(e){
-    const el=e.target.closest?.('.ovyx-theme-card,[data-mode],[data-theme-save],[data-theme-duplicate],[data-theme-import],[data-theme-export],[data-theme-delete],[data-theme-reset],[data-clear-appearance],[data-appearance-save],[data-appearance-cancel]');
+    const el=e.target.closest?.('.ovyx-theme-card,[data-mode],[data-clear-appearance],[data-appearance-save],[data-appearance-cancel]');
     if(!el)return;
     const p=el.closest('[data-settings-panel="appearance"],#view-settings');
     if(!p && !el.matches('[data-clear-appearance]'))return;
     if(el.matches('[data-appearance-save]')){e.preventDefault();e.stopPropagation();save();return}
     if(el.matches('[data-appearance-cancel]')){e.preventDefault();e.stopPropagation();restoreSaved('cancel');return}
     if(el.matches('[data-clear-appearance]')){e.preventDefault();e.stopPropagation();resetSaved();window.showToast?.('Appearance reset','success');return}
-    if(el.matches('[data-theme-save], [data-theme-duplicate], [data-theme-import], [data-theme-export], [data-theme-delete], [data-theme-reset]')){e.preventDefault();e.stopPropagation();return}
+    
     if(el.matches('[data-mode]')){
       e.preventDefault();e.stopPropagation();
       const mode=el.dataset.mode;
