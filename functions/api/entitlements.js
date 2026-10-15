@@ -134,8 +134,11 @@ function applyPlanFeatures(capabilities, planFeatures, tier, managed) {
   const source = planFeatures && planFeatures[String(tier).toLowerCase()];
   if (!Array.isArray(source)) return result;
   const allowed = new Set(source.map(item => String(typeof item === 'string' ? item : (item?.id || item?.key || '')).trim()).filter(Boolean));
+  // Once the owner explicitly manages a paid tier, the saved list is the
+  // capability allowlist for that tier. Do not intersect with defaults here:
+  // doing so would make it impossible for the owner to enable a new capability.
   for (const feature of ['webStudio', 'advancedWebStudio', 'appStudio', 'gameStudio', 'aiGeneration', 'github', 'cloudflareDeploy', 'teamWorkspace', 'templates']) {
-    result[feature] = Boolean(result[feature] && allowed.has(feature));
+    result[feature] = allowed.has(feature);
   }
   return result;
 }
