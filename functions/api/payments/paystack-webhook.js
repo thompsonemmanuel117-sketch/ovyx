@@ -119,15 +119,24 @@ async function onRequest(context){
   const userQuery=await (await import('../_lib/firebase-query.js')).findUserByExactEmail(context.env,verifiedEmail);
   if(text(userQuery?.data?.email).toLowerCase()!==verifiedEmail)return json({ok:false,error:'Verified account email mismatch.'},409);
 
+  const expectedAmount=Number(record.amount);
+  const expectedMinor=Number(record.minorUnitAmount)||Math.round(expectedAmount*100);
+  const expectedCurrency=text(record.currency,8).toUpperCase();
+  if(!Number.isFinite(expectedAmount)||expectedAmount<=0||!Number.isSafeInteger(expectedMinor)||expectedMinor<=0||
+    Number(data.amount)!==expectedMinor||expectedCurrency!=='USD'||text(data.currency,8).toUpperCase()!==expectedCurrency){
+    return json({ok:false,error:'Paystack amount or currency does not match the stored OVYX order snapshot.'},409);
+  }
   let product;
   if(record.productType==='subscription'){
-    const priceModule=await import('../_lib/payments/pricing.js');
-    const price=await priceModule.getServerPrice(context.env,record.productId,'USD');
-    if(Number(price.minorUnitAmount)!==Number(data.amount))return json({ok:false,error:'Server price and Paystack amount do not match.'},409);
-    product={...price,kind:'subscription',id:record.productId,tier:record.productId,name:`OVYX ${record.productId.toUpperCase()} Plan`};
+    product={kind:'subscription',id:record.productId,tier:record.plan||record.productId,name:`OVYX ${String(record.plan||record.productId).toUpperCase()} Plan`,amount:expectedAmount,minorUnitAmount:expectedMinor,currency:expectedCurrency};
   }else{
-    product=internationalProduct(record.productType,record.productId);
-    if(Number(product.minorUnitAmount)!==Number(data.amount))return json({ok:false,error:'International booster amount does not match the server catalog.'},409);
+    try{
+      const catalogProduct=internationalProduct(record.productType,record.productId);
+      product={...catalogProduct,amount:expectedAmount,minorUnitAmount:expectedMinor,currency:expectedCurrency};
+      if(Number.isFinite(Number(record.tokens))&&Number(record.tokens)>0)product.tokens=Number(record.tokens);
+    }catch(_){
+      return json({ok:false,error:'Stored OVYX order product is invalid.'},409);
+    }
   }
 
   try{
