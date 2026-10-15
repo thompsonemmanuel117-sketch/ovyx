@@ -66,6 +66,43 @@ assert.deepEqual(
   'Automatic task preferences must never override an explicit provider choice.',
 );
 
+assert.deepEqual(
+  providerOrder(
+    { GEMINI_API_KEY: 'g', DEEPSEEK_API_KEY: 'd', OPENAI_API_KEY: 'o' },
+    'automatic',
+    'Design a responsive website',
+    ['deepseek', 'gemini'],
+    'openai',
+    'preferred-first'
+  ),
+  ['openai', 'deepseek', 'gemini'],
+  'Preferred-first routing must try a configured personal preference before global provider order.'
+);
+assert.deepEqual(
+  providerOrder(
+    { GEMINI_API_KEY: 'g', DEEPSEEK_API_KEY: 'd', OPENAI_API_KEY: 'o' },
+    'automatic',
+    'Design a responsive website',
+    ['deepseek', 'gemini'],
+    'openai',
+    'automatic'
+  ),
+  ['deepseek', 'gemini', 'openai'],
+  'Automatic routing must keep the global provider order first and use the preferred provider as a fallback.'
+);
+assert.deepEqual(
+  providerOrder(
+    { GEMINI_API_KEY: 'g', DEEPSEEK_API_KEY: 'd', OPENAI_API_KEY: 'o' },
+    'automatic',
+    'Design a responsive website',
+    ['deepseek', 'gemini'],
+    'openai',
+    'provider-priority'
+  ),
+  ['deepseek', 'gemini', 'openai'],
+  'Provider-priority routing must not promote a personal provider over the global owner order.'
+);
+
 const originalFetch = globalThis.fetch;
 const requests = [];
 let rejectGemini = false;
