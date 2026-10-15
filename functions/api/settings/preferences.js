@@ -15,6 +15,7 @@ export const NOTIFICATION_DEFAULTS = Object.freeze({
   projectActivity: true,
   generationCompleted: true,
   deploymentStatus: true,
+  connectionFailures: true,
   aiUsageWarnings: true,
   billing: true,
   emailProductUpdates: true,
