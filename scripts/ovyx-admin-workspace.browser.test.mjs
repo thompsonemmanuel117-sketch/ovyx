@@ -13,17 +13,50 @@ try {
   ]) {
     const page = await browser.newPage({ viewport: target.viewport });
     page.setDefaultTimeout(15000);
-    page.on('console', message => { const location = message.location(); console.log('[' + target.name + ' browser console] ' + message.type() + (location?.url ? ' [' + location.url + ':' + (location.lineNumber || 0) + ']' : '') + ': ' + message.text()); });
+    const scriptTrace = [];
+    const ownerApiWrites = [];
+    page.on('dialog', dialog => dialog.accept());
+    page.on('request', request => {
+      const url = request.url();
+      if (request.resourceType() === 'script' || /\.(?:m?js|tsx)(?:\?|$)/i.test(url)) {
+        scriptTrace.push({ url, resourceType: request.resourceType(), status: null, contentType: '', failure: '' });
+      }
+      if (request.method() === 'POST') {
+        try {
+          const parsed = new URL(url);
+          if (parsed.pathname.startsWith('/api/admin/')) {
+            ownerApiWrites.push({ path: parsed.pathname, body: request.postDataJSON() || {} });
+          }
+        } catch (_) {}
+      }
+    });
+    page.on('console', message => {
+      const location = message.location();
+      const messageText = message.text();
+      console.log('[' + target.name + ' browser console] ' + message.type() + (location?.url ? ' [' + location.url + ':' + (location.lineNumber || 0) + ']' : '') + ': ' + messageText);
+      if (/unsupported MIME type/i.test(messageText)) {
+        setTimeout(() => console.log('[' + target.name + ' script MIME diagnostic] ' + JSON.stringify(scriptTrace.filter(item =>
+          item.failure || item.status === null || item.status >= 400 || /text\/html/i.test(item.contentType)
+        ).slice(-20))), 80);
+      }
+    });
     page.on('requestfailed', request => {
+      const record = [...scriptTrace].reverse().find(item => item.url === request.url() && !item.failure);
+      if (record) record.failure = String(request.failure()?.errorText || 'unknown network error');
       if (request.resourceType() === 'script' || /\.(?:m?js|tsx)(?:\?|$)/i.test(request.url())) {
         console.log('[' + target.name + ' script request failed] ' + request.url() + ': ' + String(request.failure()?.errorText || 'unknown network error'));
       }
     });
     page.on('response', response => {
       const url = response.url();
+      const contentType = String(response.headers()['content-type'] || '').toLowerCase();
+      const record = [...scriptTrace].reverse().find(item => item.url === url && item.status === null);
+      if (record) {
+        record.status = response.status();
+        record.contentType = contentType;
+      }
       const isScript = response.request().resourceType() === 'script';
       if (!isScript && !/\.(?:m?js|tsx)(?:\?|$)/i.test(url)) return;
-      const contentType = String(response.headers()['content-type'] || '').toLowerCase();
       if (!response.ok() || contentType.includes('text/html') || (isScript && !/(?:javascript|ecmascript)/i.test(contentType))) {
         console.log('[' + target.name + ' script response issue] HTTP ' + response.status() + ' ' + url + ' content-type=' + contentType);
       }
