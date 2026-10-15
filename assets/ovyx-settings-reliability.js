@@ -901,9 +901,27 @@
     const root = window.OVYXSettings && window.OVYXSettings.root || document.getElementById('view-settings');
     const panel = root && root.querySelector('[data-settings-panel="workspace"]') ||
       document.querySelector('#view-settings [data-settings-panel="workspace"]');
-    if (!panel || panel.querySelector('#ovyx-data-endpoint') ||
-        panel.querySelector('.ovyx-settings-data-layer-fallback-v1')) return;
+    if (!panel) return;
     const cfg = readDataLayerConfig();
+
+    // Workspace content is rendered by several legacy and reliability layers.
+    // If the controls already exist, hydrate them from the saved settings instead
+    // of returning early with stale values after a panel is revisited.
+    const existingInput = panel.querySelector('#ovyx-data-endpoint');
+    const existingSwitch = panel.querySelector('#ovyx-data-sync');
+    if (existingInput || existingSwitch) {
+      if (existingInput && document.activeElement !== existingInput) existingInput.value = cfg.endpoint || '';
+      if (existingSwitch) existingSwitch.setAttribute('aria-checked', String(cfg.projectSync === true));
+      const existingResult = panel.querySelector('#ovyx-data-result');
+      if (existingResult && document.activeElement !== existingInput) {
+        existingResult.textContent = cfg.lastSyncStatus || (cfg.endpoint
+          ? 'Data API configured. Use Test API to verify its health endpoint.'
+          : 'No external Data API configured. Built-in OVYX cloud project sync is unaffected.');
+        existingResult.dataset.state = cfg.lastSyncState || 'info';
+      }
+      return;
+    }
+    if (panel.querySelector('.ovyx-settings-data-layer-fallback-v1')) return;
     const escapeAttribute = value => String(value || '').replace(/[&<>"']/g, character => ({
       '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
     })[character]);
