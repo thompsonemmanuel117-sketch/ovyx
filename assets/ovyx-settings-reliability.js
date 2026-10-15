@@ -819,7 +819,7 @@
   let dataLayerSyncPending = false;
 
   function readDataLayerConfig() {
-    return Object.assign({ endpoint: '', projectSync: true }, safeJson(localStorage.getItem(DATA_LAYER_CONFIG_KEY)));
+    return Object.assign({ endpoint: '', projectSync: false }, safeJson(localStorage.getItem(DATA_LAYER_CONFIG_KEY)));
   }
   function saveDataLayerConfig(patch) {
     const next = Object.assign({}, readDataLayerConfig(), patch || {});
@@ -966,7 +966,24 @@
     store.open = wrapped;
   }
 
+  function initialiseDataLayerConsent() {
+    let raw = null;
+    try { raw = localStorage.getItem(DATA_LAYER_CONFIG_KEY); }
+    catch (_) { return; }
+    if (raw === null) {
+      if (!saveDataLayerConfig({ endpoint: '', projectSync: false })) return;
+    }
+    const switchButton = document.getElementById('ovyx-data-sync');
+    if (switchButton) switchButton.setAttribute('aria-checked', String(readDataLayerConfig().projectSync === true));
+  }
   function installDataLayerClickActions() {
+    initialiseDataLayerConsent();
+    window.addEventListener('ovyx-settings-rendered', function () { setTimeout(initialiseDataLayerConsent, 30); });
+    window.addEventListener('ovyx:view-changed', function (event) {
+      if (String(event && event.detail && event.detail.view || '').replace(/^view-/, '') === 'settings') {
+        setTimeout(initialiseDataLayerConsent, 120);
+      }
+    }, { passive: true });
     document.addEventListener('click', async function (event) {
       const target = event.target && event.target.closest && event.target.closest('#ovyx-data-save, #ovyx-data-test, #ovyx-data-sync');
       if (!target) return;
