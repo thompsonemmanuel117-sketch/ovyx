@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 const read = path => fs.readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 const source = {
@@ -27,6 +29,32 @@ const source = {
   headers: read('_headers'),
   packageJson: JSON.parse(read('package.json')),
 };
+
+const changedJavaScriptFiles = [
+  'assets/ovyx-admin-controls.js',
+  'functions/api/_middleware.js',
+  'functions/_lib/integration-state.js',
+  'functions/api/admin/control.js',
+  'functions/api/admin/users.js',
+  'functions/_lib/firebase-admin.js',
+  'functions/api/admin/plans/update.js',
+  'functions/api/plans.js',
+  'functions/api/entitlements.js',
+  'functions/_lib/token-quota.js',
+  'functions/_lib/providers.js',
+  'functions/api/admin/ai-config.js',
+  'functions/api/admin/identity.js',
+  'functions/api/identity.js',
+  'functions/_lib/ai-identity.js',
+  'functions/api/ai/ovyx.js',
+  'functions/api/ai/assistant.js',
+  'functions/api/ai/gateway.js',
+  'functions/api/admin/broadcasts.js',
+  'functions/api/admin/templates.js'
+];
+for (const path of changedJavaScriptFiles) {
+  execFileSync(process.execPath, ['--check', fileURLToPath(new URL('../' + path, import.meta.url))], { stdio: 'pipe' });
+}
 
 assert.match(source.appMiddleware, /INTEGRATION_GATED_PATHS/);
 for (const path of [
