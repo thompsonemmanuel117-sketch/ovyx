@@ -69,8 +69,8 @@ try {
 
     const response = await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
     assert.ok(response && response.status() < 400, '[' + target.name + '] app returned an HTTP error');
-    await page.waitForFunction(() => !!window.OVYXSettings && !!window.ThemeContext && !!window.OVYXThemeLab && !!window.firebase?.auth?.().currentUser, null, { timeout: 45000 });
-    await page.evaluate(() => window.Router?.go?.('settings'));
+    await page.waitForFunction(() => !!window.OVYXSettings && !!window.ThemeContext && !!window.OVYXThemeLab && !!window.firebase?.auth?.().currentUser && typeof window.Router?.go === 'function', null, { timeout: 45000 });
+    await page.evaluate(() => window.Router.go('settings'));
     await page.locator('#view-settings .ovyx-settings-shell').waitFor({ state: 'visible' });
 
     // Profile loads from the account API and Save Profile sends the changed values back to the server.
@@ -91,6 +91,7 @@ try {
     await page.locator('[data-settings-nav="notifications"]').click();
     const projectActivity = page.locator('[data-settings-panel="notifications"] [data-notify="projectActivity"]');
     await projectActivity.waitFor({ state: 'visible' });
+    await page.waitForFunction(() => document.getElementById('ovyx-notification-server-status')?.textContent?.includes('Preferences loaded from your account.'));
     await projectActivity.click();
     await page.locator('#notify-save').click();
     await page.waitForFunction(() => document.getElementById('ovyx-notification-server-status')?.textContent?.toLowerCase().includes('saved'));
@@ -206,13 +207,13 @@ try {
       }) });
     });
     await deletePage.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
-    await deletePage.waitForFunction(() => !!window.OVYXSettings && !!window.firebase?.auth?.().currentUser);
+    await deletePage.waitForFunction(() => !!window.OVYXSettings && !!window.firebase?.auth?.().currentUser && typeof window.Router?.go === 'function');
     await deletePage.evaluate(() => {
       const user = window.firebase.auth().currentUser;
       user.getIdTokenResult = async () => ({ claims: { auth_time: Math.floor(Date.now() / 1000) } });
       user.delete = async () => { window.__OVYX_TEST_AUTH_USER_DELETED__ = true; };
     });
-    await deletePage.evaluate(() => window.Router?.go?.('settings'));
+    await deletePage.evaluate(() => window.Router.go('settings'));
     await deletePage.locator('#view-settings .ovyx-settings-shell').waitFor({ state: 'visible' });
     await deletePage.locator('[data-settings-nav="security"]').click();
     await deletePage.locator('#ovyx-security-delete').waitFor({ state: 'visible' });
