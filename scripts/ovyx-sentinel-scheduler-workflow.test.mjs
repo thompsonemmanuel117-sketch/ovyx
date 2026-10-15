@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const workflow = fs.readFileSync('.github/workflows/ovyx-sentinel-scheduler-deploy.yml', 'utf8');
-assert.match(workflow, /randomBytes\(48\)\.toString\('base64url'\)/, 'The shared secret must be generated from cryptographically secure randomness.');
+assert.match(workflow, /randomBytes\(48\)\.toString\(["']base64url["']\)/, 'The shared secret must be generated from cryptographically secure randomness.');
 assert.match(workflow, /pages secret put OVYX_SENTINEL_CRON_SECRET/, 'The production Pages endpoint must receive the generated secret.');
 assert.match(workflow, /--secrets-file \"\$RUNNER_TEMP\/ovyx-sentinel-secrets\.json\"/, 'The Worker must receive the same generated secret through a temporary secret file.');
 assert.match(workflow, /crons = \[\"\*\/30 \* \* \* \*\"\]/, 'Sentinel should keep its expected 30-minute schedule.');
