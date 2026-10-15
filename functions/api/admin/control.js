@@ -19,6 +19,32 @@ function positive(value, label) {
   return n;
 }
 
+export async function onRequestGet(context) {
+  const id = requestId(context.request);
+  try {
+    if (!enforceSameOrigin(context.request)) return jsonResponse({ ok: false, error: 'Cross-origin admin requests are not permitted.', code: 'ORIGIN_REJECTED' }, 403, { 'X-OVYX-Request-ID': id });
+    const user = context.data?.user || await authenticateRequest(context.request, context.env);
+    if (!isRootAdmin(user)) return jsonResponse({ ok: false, error: 'Root administrator authorization is required.', code: 'ROOT_REQUIRED' }, 403, { 'X-OVYX-Request-ID': id });
+    const current = (await getFirestoreData(context.env, 'system', 'config')) || {};
+    return jsonResponse({
+      ok: true,
+      config: {
+        pricing: current.pricing || null,
+        gating: current.gating || {},
+        masterAdminOverride: current.masterAdminOverride === true,
+        liveDeploy: typeof current.liveDeploy === 'boolean' ? current.liveDeploy : (typeof current.productionLive === 'boolean' ? current.productionLive : true),
+        productionLive: typeof current.productionLive === 'boolean' ? current.productionLive : (typeof current.liveDeploy === 'boolean' ? current.liveDeploy : true),
+        environment: current.environment || (current.liveDeploy === false || current.productionLive === false ? 'sandbox' : 'live'),
+        updatedAt: current.updatedAt || null,
+        updatedBy: current.updatedBy || null
+      },
+      authority: 'SERVER_ADMIN'
+    }, 200, { 'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store, max-age=0' });
+  } catch (error) {
+    return jsonResponse({ ok: false, error: error?.message || 'Administrative configuration could not be loaded.', code: error?.code || 'ADMIN_CONTROL_READ_FAILED' }, error?.status || 503, { 'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store, max-age=0' });
+  }
+}
+
 export async function onRequestPost(context) {
   const id = requestId(context.request);
   try {
@@ -112,6 +138,7 @@ export async function onRequestPost(context) {
 }
 
 export async function onRequest(context) {
+  if (context.request.method === 'GET') return onRequestGet(context);
   if (context.request.method === 'POST') return onRequestPost(context);
-  return jsonResponse({ ok: false, error: 'POST is required.', code: 'METHOD_NOT_ALLOWED' }, 405);
+  return jsonResponse({ ok: false, error: 'GET or POST is required.', code: 'METHOD_NOT_ALLOWED' }, 405);
 }
