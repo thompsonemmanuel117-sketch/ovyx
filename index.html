@@ -3811,6 +3811,10 @@ Body: { broadcastId, title, body, category, link }</div>
           body:JSON.stringify({
             mode:payload.mode||'assistant',
             prompt,
+            preferredProvider:payload.preferredProvider||'',
+            providerRouting:payload.providerRouting||'automatic',
+            model:payload.model||'automatic',
+            maxTokens:payload.maxTokens||4096,
             messages,
             context,
             system:payload.system||'You are OVYX Brain. Work as a senior, project-aware engineering agent. Inspect context, preserve working architecture, produce structured implementation-ready output, and self-audit syntax and integration details before responding.',
@@ -3828,6 +3832,8 @@ Body: { broadcastId, title, body, category, link }</div>
           body:JSON.stringify({
             mode:payload.mode||'assistant',
             provider:requested,
+            preferredProvider:payload.preferredProvider||'',
+            providerRouting:payload.providerRouting||'automatic',
             model:payload.model,
             messages,
             system:payload.system||'You are OVYX Brain. Work as a senior, project-aware engineering agent. Inspect context, preserve working architecture, produce structured implementation-ready output, and self-audit syntax and integration details before responding.',
