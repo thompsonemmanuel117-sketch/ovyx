@@ -830,7 +830,7 @@ async function readGlobalProviderOrder(env) {
   return [...normalized];
 }
 
-export function providerOrder(env, requested, taskContext = '', globalOrder = null) {
+export function providerOrder(env, requested, taskContext = '', globalOrder = null, preferredProvider = '') {
   const selection = String(requested || 'automatic').trim().toLowerCase();
   if (selection && selection !== 'automatic') {
     // An explicit choice is exclusive even when its key is missing.
@@ -846,7 +846,10 @@ export function providerOrder(env, requested, taskContext = '', globalOrder = nu
 
   // Use the existing task classifier, then the configured order as fallback.
   // Unlike the historical implementation, never try an unconfigured provider.
+  const preferred = normalizeConfiguredProvider(preferredProvider);
+  const userPreferredOrder = SUPPORTED_PROVIDERS.includes(preferred) && preferred !== 'cloudflare-workers-ai' ? [preferred] : [];
   const priorities = [
+    ...userPreferredOrder,
     ...(Array.isArray(globalOrder) && globalOrder.length ? globalOrder : taskProviderPreference(taskContext)),
     ...configuredOrder,
     'gemini', 'deepseek', 'claude', 'openai', 'groq', 'openrouter',
@@ -960,7 +963,8 @@ export async function callModel(
     env,
     requested,
     String(options.taskPrompt || options.user || ''),
-    globalOrder
+    globalOrder,
+    options.preferredProvider
   );
   if (requested === 'automatic' && availableProviders.length === 0) {
     throw Object.assign(
