@@ -46,12 +46,11 @@ function normalizeTimestamp(value) {
   }
 
   const numeric = Number(value);
+  if (Number.isFinite(numeric) && numeric > 0) return numeric;
 
-  if (!Number.isFinite(numeric) || numeric <= 0) {
-    return null;
-  }
-
-  return numeric;
+  /* Payment webhooks persist ISO-8601 expiry strings; admin assignments use milliseconds. */
+  const parsed = Date.parse(String(value));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
 function isRootIdentity(user) {
