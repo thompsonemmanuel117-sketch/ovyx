@@ -42,3 +42,78 @@ export async function findUserByExactEmail(env,email){
   const name=String(docs[0].document.name||'');const marker='/documents/users/';const uid=name.includes(marker)?name.slice(name.indexOf(marker)+marker.length):'';
   return {uid,data:Object.fromEntries(Object.entries(docs[0].document.fields||{}).map(([k,v])=>[k,value(v)]))};
 }
+
+/**
+ * Load only the authenticated account's recent payment orders.
+ * The caller must pass the UID from a verified Firebase ID token; never use a
+ * browser-supplied UID for this query.
+ */
+export async function findRecentPaymentsForUid(env, uid, limit = 8) {
+  const cleanUid = String(uid || '').trim();
+  if (!cleanUid || cleanUid.length > 150) {
+    throw Object.assign(new Error('A verified account ID is required.'), {
+      status: 400,
+      code: 'PAYMENT_HISTORY_INVALID_IDENTITY',
+    });
+  }
+
+  const maxResults = Math.min(20, Math.max(1, Math.floor(Number(limit) || 8)));
+  const token = await googleAccessToken(env);
+  const account = serviceAccount(env);
+  const url = `https://firestore.googleapis.com/v1/projects/${encodeURIComponent(account.project_id)}/databases/(default)/documents:runQuery`;
+  const body = {
+    structuredQuery: {
+      from: [{ collectionId: 'payment_orders' }],
+      where: {
+        fieldFilter: {
+          field: { fieldPath: 'uid' },
+          op: 'EQUAL',
+          value: { stringValue: cleanUid },
+        },
+      },
+      orderBy: [{ field: { fieldPath: 'createdAt' }, direction: 'DESCENDING' }],
+      limit: maxResults,
+    },
+  };
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  const rows = await response.json().catch(() => []);
+  if (!response.ok) {
+    throw Object.assign(new Error('Payment history could not be loaded from the account store.'), {
+      status: 503,
+      code: 'PAYMENT_HISTORY_UNAVAILABLE',
+    });
+  }
+
+  return (Array.isArray(rows) ? rows : [])
+    .filter(row => row && row.document && row.document.name)
+    .map(row => {
+      const document = row.document;
+      const fields = Object.fromEntries(
+        Object.entries(document.fields || {}).map(([key, field]) => [key, value(field)])
+      );
+      const name = String(document.name || '');
+      const reference = name.split('/').filter(Boolean).pop() || '';
+      return {
+        reference,
+        provider: String(fields.provider || ''),
+        paymentMethod: String(fields.paymentMethod || ''),
+        productType: String(fields.productType || ''),
+        productId: String(fields.productId || ''),
+        plan: String(fields.plan || ''),
+        amount: Number.isFinite(Number(fields.amount)) ? Number(fields.amount) : null,
+        currency: String(fields.currency || '').toUpperCase(),
+        status: String(fields.status || 'pending'),
+        fulfillmentStatus: String(fields.fulfillmentStatus || 'unfulfilled'),
+        createdAt: String(fields.createdAt || ''),
+        fulfilledAt: String(fields.fulfilledAt || ''),
+      };
+    });
+}
