@@ -10,6 +10,7 @@
     projectActivity: true,
     generationCompleted: true,
     deploymentStatus: true,
+    connectionFailures: true,
     aiUsageWarnings: true,
     billing: true,
     emailProductUpdates: true,
@@ -222,6 +223,10 @@
   let notificationDraft = null;
   let notificationLoadRevision = 0;
   function notificationPanel() { return document.querySelector('[data-settings-panel="notifications"]'); }
+  function notificationStorageKey() {
+    const user = currentUser();
+    return user && user.uid ? 'ovyx.notifications.v1.user.' + String(user.uid) : 'ovyx.notifications.v1.guest';
+  }
   function renderNotificationState(panel, values) {
     if (!panel) return;
     notificationDraft = Object.assign({}, NOTIFICATION_DEFAULTS, values || {});
@@ -232,14 +237,24 @@
   }
   async function loadNotifications() {
     const panel = notificationPanel();
-    if (!panel || !currentUser()) return;
     const revision = ++notificationLoadRevision;
-    const status = addStatus(panel, 'ovyx-notification-server-status', 'Loading notification preferences…');
+    if (!currentUser()) {
+      notificationDraft = Object.assign({}, NOTIFICATION_DEFAULTS);
+      window.OVYXSettingsNotificationPreferences = Object.assign({}, notificationDraft);
+      renderNotificationState(panel, notificationDraft);
+      if (panel) {
+        const signedOutStatus = addStatus(panel, 'ovyx-notification-server-status', 'Sign in to load account notification preferences.');
+        if (signedOutStatus) signedOutStatus.textContent = 'Sign in to load account notification preferences.';
+      }
+      return;
+    }
+    const status = panel ? addStatus(panel, 'ovyx-notification-server-status', 'Loading notification preferences…') : null;
     try {
       const data = await api(NOTIFICATIONS_ENDPOINT);
       if (revision !== notificationLoadRevision) return;
       renderNotificationState(panel, data.notifications || NOTIFICATION_DEFAULTS);
-      try { localStorage.setItem('ovyx.notifications.v1', JSON.stringify(notificationDraft)); } catch (_) {}
+      window.OVYXSettingsNotificationPreferences = Object.assign({}, notificationDraft);
+      try { localStorage.setItem(notificationStorageKey(), JSON.stringify(notificationDraft)); } catch (_) {}
       if (status) status.textContent = 'Preferences loaded from your account. Email delivery is not triggered by these preference switches.';
     } catch (error) {
       if (status) status.textContent = 'Could not load account preferences: ' + (error.message || 'request failed');
@@ -343,6 +358,40 @@
       if (button) { button.disabled = false; button.textContent = original || 'Delete account'; }
     }
   }
+  function shouldShowSettingsToast(args) {
+    const preferences = Object.assign({}, NOTIFICATION_DEFAULTS,
+      window.OVYXSettingsNotificationPreferences || safeJson(localStorage.getItem(notificationStorageKey())));
+    const message = args.map(value => typeof value === 'string' ? value : '').join(' ').slice(0, 2000);
+    const kinds = args.filter(value => typeof value === 'string').map(value => value.toLowerCase());
+    const isError = kinds.includes('error');
+    const categories = [
+      ['projectActivity', /\\b(?:project (?:saved|created|duplicated|updated|deleted|renamed)|saved project|project activity)\\b/i],
+      ['generationCompleted', /\\b(?:generation|build|AI build)\\s+(?:completed|finished|succeeded)\\b|\\b(?:live )?AI generation completed\\b/i],
+      ['deploymentStatus', /\\bdeploy(?:ment)?\\b.*\\b(?:started|complete|completed|succeeded|failed|status|ready)\\b|\\b(?:deployment|deploy)\\s+(?:was )?(?:successful|failed)\\b/i],
+      ['connectionFailures', /\\b(?:connection|provider|backend|service|AI brain|GitHub|Cloudflare)\\b.*\\b(?:failed|unavailable|could not|couldn't|error|timed out|unreachable)\\b/i],
+      ['aiUsageWarnings', /\\b(?:token|quota|usage|allocation)\\b.*\\b(?:low|remaining|limit|exhausted|ration|warning|approaching|left)\\b/i],
+      ['billing', /\\b(?:payment|billing|subscription|token booster)\\b/i]
+    ];
+    for (const [key, pattern] of categories) {
+      if (preferences[key] === false && pattern.test(message)) {
+        if (key === 'connectionFailures' || !isError) return false;
+      }
+    }
+    return true;
+  }
+  function installNotificationToastFilters() {
+    ['showToast', 'toast'].forEach(name => {
+      const original = window[name];
+      if (typeof original !== 'function' || original.__ovyxNotificationPreferenceV1) return;
+      const wrapped = function () {
+        const args = Array.from(arguments);
+        if (!shouldShowSettingsToast(args)) return;
+        return original.apply(this, args);
+      };
+      wrapped.__ovyxNotificationPreferenceV1 = true;
+      window[name] = wrapped;
+    });
+  }
   function installProfileActions() {
     document.addEventListener('click', function (event) {
       const button = event.target && event.target.closest && event.target.closest('#profile-save-action');
@@ -363,7 +412,7 @@
       if (!toggle) return;
       event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
       const key = toggle.dataset.notify;
-      if (!notificationDraft) notificationDraft = Object.assign({}, NOTIFICATION_DEFAULTS, safeJson(localStorage.getItem('ovyx.notifications.v1')));
+      if (!notificationDraft) notificationDraft = Object.assign({}, NOTIFICATION_DEFAULTS, safeJson(localStorage.getItem(notificationStorageKey())));
       if (!(key in notificationDraft)) return;
       notificationDraft[key] = !notificationDraft[key];
       toggle.setAttribute('aria-checked', String(!!notificationDraft[key]));
@@ -647,10 +696,12 @@
       setTimeout(function () {
         const settings = window.OVYXSettings;
         if (!settings) return;
+        loadNotifications();
         if (settings.current === 'profile') loadProfile();
         if (settings.current === 'notifications') loadNotifications();
         if (settings.current === 'usage') loadUsage();
       }, 50);
+      if (currentUser()) setTimeout(loadNotifications, 100);
     }, { passive: true });
     window.addEventListener('ovyx-settings-rendered', function () {
       setTimeout(function () {
@@ -666,11 +717,13 @@
   function boot() {
     installProfileActions();
     installNotificationActions();
+    installNotificationToastFilters();
     installWorkspaceToggleActions();
     installAISettingsBridge();
     installAppearanceAndUsageHooks();
     bindAuthenticationRefresh();
     installLivePreviewBridge();
+    if (currentUser()) setTimeout(loadNotifications, 80);
     writeSettingsState(settingsState());
     const notifyPanel = notificationPanel();
     if (notifyPanel) {
