@@ -876,9 +876,58 @@
     }
   }
 
+  function handleThemeLabButtonClick(event) {
+    const button = event.target?.closest?.('#view-settings [data-theme-save],#view-settings [data-theme-duplicate],#view-settings [data-theme-import],#view-settings [data-theme-export],#view-settings [data-theme-delete],#view-settings [data-theme-reset]');
+    if (!button) return;
+    event.preventDefault();
+    try {
+      const lab = themeLabState();
+      if (button.hasAttribute('data-theme-save')) {
+        saveCurrentAsCustomTheme();
+        setThemeActionStatus('Custom theme saved in this browser. Click Save Appearance to commit the current preview.');
+        notify('Custom theme saved.', 'success');
+      } else if (button.hasAttribute('data-theme-duplicate')) {
+        const currentName = cleanThemeName(themeNameInput()?.value || lab.activeTheme()?.name || 'OVYX Theme');
+        saveCurrentAsCustomTheme(currentName + ' Copy');
+        setThemeActionStatus('A copy of "' + currentName + '" was saved in your custom themes.');
+        notify('Theme duplicated.', 'success');
+      } else if (button.hasAttribute('data-theme-import')) {
+        importThemeFile();
+      } else if (button.hasAttribute('data-theme-export')) {
+        downloadTheme();
+      } else if (button.hasAttribute('data-theme-delete')) {
+        const active = String(lab.state.active || '');
+        if (!active.startsWith('custom_') || !lab.state.customThemes[active]) {
+          setThemeActionStatus('Select a saved custom theme before deleting it. Built-in presets are protected.');
+          notify('Built-in presets cannot be deleted.', 'info');
+        } else {
+          const name = cleanThemeName(lab.state.customThemes[active].name, 'Custom theme');
+          if (!window.confirm('Delete the custom theme "' + name + '" from this browser?')) return;
+          delete lab.state.customThemes[active];
+          lab.state.active = 'obsidian';
+          persistThemeLab(lab);
+          window.ThemeContext.preview(appearanceFromLabTheme(lab.activeTheme()));
+          setThemeActionStatus('Deleted "' + name + '". Click Save Appearance to keep the fallback appearance.');
+          notify('Custom theme deleted.', 'success');
+        }
+      } else if (button.hasAttribute('data-theme-reset')) {
+        if (!window.confirm('Reset the Theme Lab and remove saved custom themes?')) return;
+        lab.reset();
+        window.ThemeContext.reset();
+        if (themeNameInput()) themeNameInput().value = 'My OVYX Theme';
+        setThemeActionStatus('Theme Lab reset to OVYX defaults.');
+      }
+    } catch (error) {
+      setThemeActionStatus('Theme action failed: ' + String(error?.message || 'could not complete'));
+      notify(error?.message || 'Theme action failed.', 'error');
+    }
+  }
+
   function installThemeLabActions() {
-    // The later ThemeContext runtime intercepts the legacy buttons on this same
-    // document in capture phase. Register after it and finish those actions here.
+    // Custom-theme buttons use one bubbling action handler. Keeping the handler
+    // out of capture phase lets Chromium complete clicks and prevents duplicate
+    // legacy direct handlers from running.
+    document.addEventListener('click', handleThemeLabButtonClick, false);
     document.addEventListener('click', handleThemeLabClick, true);
   }
 
