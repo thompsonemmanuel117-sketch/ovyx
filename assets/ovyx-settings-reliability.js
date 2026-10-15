@@ -862,8 +862,14 @@
     });
   }
   function ensureWorkspaceControls() {
-    const panel = document.querySelector('[data-settings-panel="workspace"]');
+    const root = window.OVYXSettings && window.OVYXSettings.root || document.getElementById('view-settings');
+    const panel = root && root.querySelector('[data-settings-panel="workspace"]') || document.querySelector('#view-settings [data-settings-panel="workspace"]');
     if (!panel || panel.querySelector('.ovyx-settings-workspace-controls-v1')) return;
+    // The original Workspace controls exist before the Data Layer renderer finishes.
+    // Leave them in place during that short window rather than adding a duplicate copy.
+    if (panel.querySelector('#set-open-behavior') &&
+        panel.querySelector('#set-autosave') &&
+        panel.querySelector('#set-confirm-delete')) return;
     const group = document.createElement('div');
     group.className = 'ovyx-pref-group ovyx-settings-workspace-controls-v1';
     group.innerHTML =
