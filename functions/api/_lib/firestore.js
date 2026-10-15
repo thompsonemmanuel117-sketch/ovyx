@@ -6,6 +6,7 @@ import {
   setFirestoreDocument,
   createFirestoreDocument,
   setFirestoreDocumentIfCurrent,
+  setFirestoreDocumentAtPath,
 } from './firebase-admin.js';
 
 function pathParts(pathLike){
@@ -25,6 +26,10 @@ export async function firestoreSet(env,pathLike,data){
   const parts=assertDocumentPath(pathLike);
   return setFirestoreDocument(env,parts.slice(0,-1).join('/'),parts.at(-1),data,{merge:true});
 }
+export async function firestoreSetAtPath(env,pathLike,data){
+  const parts=assertDocumentPath(pathLike);
+  return setFirestoreDocumentAtPath(env,parts,data,{merge:true});
+}
 export async function firestoreCreate(env,pathLike,data){
   const parts=assertDocumentPath(pathLike);
   return createFirestoreDocument(env,parts.slice(0,-1).join('/'),parts.at(-1),data);
@@ -37,4 +42,6 @@ export {
   setFirestoreDocument,
   createFirestoreDocument,
   setFirestoreDocumentIfCurrent,
+  setFirestoreDocumentAtPath,
+  firestoreSetAtPath,
 };
