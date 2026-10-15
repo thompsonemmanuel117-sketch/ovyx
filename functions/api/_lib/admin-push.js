@@ -140,7 +140,7 @@ export async function adminPushSubscriptionId(endpoint) {
   return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
-function preferenceForType(type) {
+export function adminPushPreferenceForType(type) {
   const normalized = text(type, 80).toLowerCase();
   if (normalized.includes('refund')) return 'refunds';
   if (normalized.includes('chargeback') || normalized.includes('dispute')) return 'chargebacks';
@@ -293,7 +293,7 @@ export async function sendAdminPushNotification(env, input = {}) {
   if (!config.configured) return { configured: false, skipped: true, attempted: 0, delivered: 0, failed: 0, reason: config.reason };
   const settings = await getFirestoreData(env, 'system', 'admin_push').catch(() => null);
   const preferences = normalizeAdminPushPreferences(settings?.preferences || {});
-  const preference = preferenceForType(input.type);
+  const preference = adminPushPreferenceForType(input.type);
   if (preference && preferences[preference] !== true) {
     return { configured: true, skipped: true, attempted: 0, delivered: 0, failed: 0 };
   }
@@ -334,4 +334,27 @@ export async function sendAdminPushNotification(env, input = {}) {
     delivered: results.filter(item => item.ok).length,
     failed: results.filter(item => !item.ok).length,
   };
+}
+
+
+/**
+ * Best-effort owner push delivery must never roll back the verified payment,
+ * webhook transition or deployment result that triggered it. Pages Functions
+ * keep this task alive with waitUntil when supported.
+ */
+export function scheduleAdminPush(context, input = {}) {
+  const task = Promise.resolve()
+    .then(() => sendAdminPushNotification(context?.env || {}, input))
+    .catch(error => {
+      console.warn('[OVYX ADMIN PUSH DELIVERY]', String(input?.type || 'event').slice(0, 60),
+        String(error?.code || 'PUSH_DELIVERY_FAILED').slice(0, 80));
+      return null;
+    });
+  if (typeof context?.waitUntil === 'function') {
+    try {
+      context.waitUntil(task);
+      return Promise.resolve(null);
+    } catch (_) { /* Fall back to awaiting the already-started, caught task. */ }
+  }
+  return task;
 }
