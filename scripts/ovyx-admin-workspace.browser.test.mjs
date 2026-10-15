@@ -189,6 +189,22 @@ try {
     await page.locator('#ovyx-global-ai-save').click();
     await page.waitForFunction(() => /Saved globally/.test(document.getElementById('ovyx-global-ai-status')?.textContent || ''), null, { timeout: 20000 });
 
+    // Confirm user plan assignment and quota reset issue real owner-authenticated writes.
+    await hub.locator('[data-ovyx-admin-workspace-route="admin-users"]').evaluate(button => button.click());
+    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-users');
+    await page.locator('#ovyx-owner-users-panel').waitFor({ state: 'attached' });
+    await page.waitForFunction(() => /Loaded 1 account record/.test(document.getElementById('ovyx-owner-users-status')?.textContent || ''), null, { timeout: 20000 });
+    let accountRow = page.locator('#ovyx-owner-users-body tr').first();
+    await accountRow.locator('select').first().selectOption('pro');
+    await accountRow.locator('button').filter({ hasText: 'Apply plan' }).click();
+    await page.waitForFunction(() => document.querySelector('#ovyx-owner-users-body tr select')?.value === 'pro', null, { timeout: 20000 });
+    assert.ok(ownerApiWrites.some(item => item.path === '/api/admin/users' && item.body.action === 'setPlan' && item.body.plan === 'pro'),
+      '[' + target.name + '] Apply plan must write the selected user assignment through the server API.');
+    accountRow = page.locator('#ovyx-owner-users-body tr').first();
+    await accountRow.locator('button').filter({ hasText: 'Reset quota' }).click();
+    assert.ok(ownerApiWrites.some(item => item.path === '/api/admin/users' && item.body.action === 'resetQuota'),
+      '[' + target.name + '] Reset quota must call the server-owned quota action.');
+
     // Confirm AI Brain routing writes are issued to the protected server API.
     await hub.locator('[data-ovyx-admin-workspace-route="admin-brain"]').evaluate(button => button.click());
     await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-brain');
