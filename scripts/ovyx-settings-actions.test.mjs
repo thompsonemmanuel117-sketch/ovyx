@@ -50,6 +50,12 @@ assert.ok(html.includes("if(window.OVYXDataLayerSettings?.projectSyncEnabled?.()
 assert.ok(html.includes("if(window.OVYXDataLayerSettings?.projectSyncEnabled?.()===false){"), 'Paused project sync must not load cloud projects over local state.');
 assert.ok(html.includes("Date.now()/1000-authTime>240"), 'The legacy Profile deletion action must match the server four-minute recent-authentication limit.');
 assert.ok(html.includes("does not replace OVYX’s built-in /api/projects sync service"), 'The custom data endpoint must not be presented as if it were the active project-sync backend.');
+assert.ok(html.includes('Health request performed by OVYX: GET <endpoint>/health'), 'The Data Layer must describe only the external endpoint health request it actually performs.');
+assert.ok(html.includes('Download PostgreSQL Schema creates a starter SQL file in this browser.'), 'The schema download must be described as a starter file, not a live database migration.');
+assert.ok(html.includes('Database provisioning') && html.includes('Not provisioned here'), 'The Data Layer must not imply OVYX automatically provisions PostgreSQL.');
+assert.ok(!html.includes('Production-ready relational storage'), 'The Data Layer must not claim production-ready PostgreSQL before a connection is provisioned and verified.');
+assert.ok(html.includes("credentials:'omit',cache:'no-store'"), 'External Data Layer health checks must omit third-party cookies and avoid cached results.');
+assert.ok(html.includes('This verifies only the health endpoint, not PostgreSQL connectivity or project CRUD.'), 'A health response must not be represented as proof of database connectivity or project CRUD.');
 
 assert.equal((html.match(/ovyx-settings-reliability\.js/g) || []).length, 1, 'Settings reliability runtime must only be injected once.');
 for (const section of ['general','profile','appearance','workspace','notifications','editor','shortcuts','ai','privacy','security','plan','usage','boosters']) {
