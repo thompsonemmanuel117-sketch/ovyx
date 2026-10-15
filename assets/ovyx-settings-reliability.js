@@ -686,12 +686,15 @@
     const studio = window.WebStudio;
     if (studio && typeof studio.setMode === 'function') studio.setMode(mode);
   }
+  let editorModeChangeInstalled = false;
   function installEditorMode() {
-    const select = $('set-editor-mode');
-    if (select && !select.dataset.ovyxBound) {
-      select.dataset.ovyxBound = '1';
-      applyEditorMode();
-      select.addEventListener('change', function () {
+    // Delegate from document so a re-rendered select never loses its persistence
+    // handler and a fast user click cannot beat a setTimeout-based binder.
+    if (!editorModeChangeInstalled) {
+      editorModeChangeInstalled = true;
+      document.addEventListener('change', function (event) {
+        const select = event.target;
+        if (!select || select.id !== 'set-editor-mode') return;
         const mode = String(select.value || 'build').toLowerCase();
         if (!['build','plan','ask','fix'].includes(mode)) {
           select.value = 'build';
@@ -699,10 +702,20 @@
         }
         const state = safeJson(localStorage.getItem('ovyx.settings.integrity.v83'));
         state.editorMode = mode;
-        try { localStorage.setItem('ovyx.settings.integrity.v83', JSON.stringify(state)); } catch (_) {}
+        try {
+          localStorage.setItem('ovyx.settings.integrity.v83', JSON.stringify(state));
+        } catch (_) {
+          notify('OVYX could not save the default editor mode in browser storage.', 'error');
+          return;
+        }
         if (window.WebStudio && typeof window.WebStudio.setMode === 'function') window.WebStudio.setMode(mode);
         notify('Default Web Studio mode saved.', 'success');
-      });
+      }, true);
+    }
+    const select = $('set-editor-mode');
+    if (select) {
+      select.dataset.ovyxBound = '1';
+      applyEditorMode();
     }
   }
   const THEME_LAB_KEY = 'ovyx.theme.lab.v1';
@@ -1653,6 +1666,7 @@
   }
   function boot() {
     installGlobalProjectShortcuts();
+    installEditorMode();
     installWorkspaceControlRecovery();
     installProjectOpenBehavior();
     installDataLayerProjectSync();
