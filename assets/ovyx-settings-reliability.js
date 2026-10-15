@@ -167,17 +167,37 @@
     if (text) el.textContent = text;
     return el;
   }
+  function hydrateProfileForm(profile) {
+    const name = $('set-profile-name') || $('set-profile-name-legacy');
+    const workspace = $('set-workspace-name') || $('set-workspace-name-legacy');
+    const displayName = String(profile?.displayName || '').trim();
+    const workspaceName = String(profile?.workspaceName || '').trim();
+
+    // The currently rendered Settings panel uses the legacy-suffixed field IDs.
+    // Support both current and legacy IDs so a server read always hydrates the form.
+    if (name && document.activeElement !== name && displayName) name.value = displayName;
+    if (workspace && document.activeElement !== workspace && workspaceName) workspace.value = workspaceName;
+
+    if (displayName) {
+      document.querySelectorAll('#settings-display-name-text,#sidebar-user-display-name').forEach(el => {
+        el.textContent = displayName;
+      });
+      const heading = $('profile-name-heading');
+      if (heading) heading.textContent = displayName;
+    }
+    if (workspaceName) {
+      const label = $('sidebar-workspace-label');
+      if (label) label.textContent = workspaceName;
+    }
+  }
+
   async function loadProfile() {
     const panel = document.querySelector('[data-settings-panel="profile"]');
     if (!panel || !currentUser()) return;
     const status = addStatus(panel, 'ovyx-profile-server-status', 'Loading saved profile from the server…');
     try {
       const data = await api(PROFILE_ENDPOINT);
-      const profile = data.profile || {};
-      const name = $('set-profile-name');
-      const workspace = $('set-workspace-name');
-      if (name && document.activeElement !== name && profile.displayName) name.value = profile.displayName;
-      if (workspace && document.activeElement !== workspace && profile.workspaceName) workspace.value = profile.workspaceName;
+      hydrateProfileForm(data.profile || {});
       if (status) status.textContent = data.updatedAt ? 'Server profile last saved ' + new Date(data.updatedAt).toLocaleString() : 'No server profile saved yet.';
     } catch (error) {
       if (status) status.textContent = 'Server profile unavailable: ' + (error.message || 'request failed');
