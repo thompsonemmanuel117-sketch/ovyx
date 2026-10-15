@@ -41,7 +41,7 @@ assert.deepEqual(
   { ...NOTIFICATION_DEFAULTS, projectActivity: false },
   'Notification preference parsing must accept only known boolean fields.'
 );
-assert.ok(html.includes('/assets/ovyx-settings-reliability.js?v=20261015-9'), 'The audited Settings runtime must load in the application shell.');
+assert.ok(html.includes('/assets/ovyx-settings-reliability.js?v=20261015-10'), 'The audited Settings runtime must load in the application shell.');
 assert.ok(html.includes('autosaveRecoveryEnabled'), 'Turning autosave off must remove saved recovery snapshots rather than merely change the toggle label.');
 assert.equal((html.match(/ovyx-settings-reliability\.js/g) || []).length, 1, 'Settings reliability runtime must only be injected once.');
 for (const section of ['general','profile','appearance','workspace','notifications','editor','shortcuts','ai','privacy','security','plan','usage','boosters']) {
@@ -76,6 +76,9 @@ for (const requirement of [
   'syncActiveProjectMetadataToDataApi',
   'Data API project sync sends project metadata only',
   "const DATA_LAYER_CONFIG_KEY = 'ovyx.data.layer.external.v1'",
+  "localStorage.getItem('ovyx.data.layer.v1')",
+  'function readNativeDataLayerConfig()',
+  'saveNativeDataLayerConfig({ endpoint: endpoint, projectSync: nativeEnabled })',
   "Object.assign({ endpoint: '', projectSync: false }",
   'initialiseDataLayerConsent',
   "const DATA_LAYER_CONFIG_KEY = 'ovyx.data.layer.external.v1'",
