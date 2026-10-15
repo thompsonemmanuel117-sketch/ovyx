@@ -468,6 +468,32 @@
       notify((key === 'aiSafe' ? 'Safe generation' : key.replace(/([A-Z])/g, ' $1')) + (next[key] ? ' enabled.' : ' disabled.'), 'success');
     }, true);
   }
+
+  // The confirmation preference must govern the real project deletion command,
+  // not just persist a switch label. Account deletion remains protected by its
+  // independent confirmation and recent-authentication requirements.
+  function installDestructiveConfirmationPreference() {
+    const deletion = window.OVYXProjectDeletion;
+    if (!deletion || typeof deletion.open !== 'function' ||
+        deletion.open.__ovyxSettingsConfirmDeleteV1) return;
+    const originalOpen = deletion.open.bind(deletion);
+    const openWithPreference = function (projectId) {
+      if (settingsState().confirmDelete !== false) return originalOpen(projectId);
+      const id = String(projectId || '').trim();
+      const listed = window.ProjectStore?.list?.();
+      const state = window.KernelState;
+      const inStore = Array.isArray(listed) && listed.some(project => String(project?.id || '') === id);
+      const inState = Array.isArray(state?.projects) && state.projects.some(project => String(project?.id || '') === id);
+      if (!id || !inStore || !inState || typeof this.confirm !== 'function') {
+        return originalOpen(projectId);
+      }
+      this.target = id;
+      return this.confirm();
+    };
+    openWithPreference.__ovyxSettingsConfirmDeleteV1 = true;
+    deletion.open = openWithPreference;
+    window.__OVYX_SETTINGS_CONFIRM_DELETE_INSTALLED__ = true;
+  }
   const MODELS_BY_PROVIDER = Object.freeze({
     gemini: ['gemini-3.8-flash'],
     anthropic: ['claude-opus-5'],
@@ -1073,6 +1099,9 @@
     }, { passive: true });
     setTimeout(installEditorMode, 200);
   }
+  window.addEventListener('ovyx-settings-rendered', installDestructiveConfirmationPreference, { passive: true });
+  window.addEventListener('ovyx:view-changed', installDestructiveConfirmationPreference, { passive: true });
+
   function bindAuthenticationRefresh() {
     document.addEventListener('firebase-auth-state-ready', function () {
       setTimeout(function () {
@@ -1177,6 +1206,7 @@
     installNotificationActions();
     installNotificationToastFilters();
     installWorkspaceToggleActions();
+    installDestructiveConfirmationPreference();
     installAISettingsBridge();
     installThemeLabActions();
     installAppearanceAndUsageHooks();
