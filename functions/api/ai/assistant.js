@@ -188,6 +188,7 @@ When discussing project changes, distinguish recommendations from changes actual
           env: context.env,
           callModel,
           provider: String(payload.provider || 'automatic').toLowerCase(),
+          preferredProvider: String(payload.preferredProvider || ''),
           model: payload.model,
           authUser: user,
           prompt: promptText,
@@ -211,6 +212,7 @@ When discussing project changes, distinguish recommendations from changes actual
           context.env,
           {
             provider: String(payload.provider || 'automatic').toLowerCase(),
+            preferredProvider: String(payload.preferredProvider || ''),
             taskPrompt: payload.prompt || payload.message || messages[messages.length - 1]?.content || '',
             model: payload.model,
             system,
