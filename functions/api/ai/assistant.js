@@ -114,6 +114,7 @@ export async function onRequestPost(context) {
         )
       : null;
 
+    const globalAIIdentityDirective = await getAIIdentityDirective(context.env);
     const system = String(
       isWebStudio
         ? WEB_STUDIO_SYSTEM_PROMPT + '\n\n' + WEB_STUDIO_EXCELLENCE +
@@ -126,7 +127,7 @@ Return useful concise answers.
 Never reveal server secrets.
 Do not invent repository state.
 When discussing project changes, distinguish recommendations from changes actually performed.`
-    ).slice(0, isWebStudio ? 40_000 : 20_000);
+    ).slice(0, isWebStudio ? 40_000 : 20_000) + '\n\n' + globalAIIdentityDirective;
 
     const provider = String(
       payload.provider || 'automatic'
@@ -178,7 +179,7 @@ When discussing project changes, distinguish recommendations from changes actual
           files: projectFiles,
           mode,
           context: studioHints,
-          qualityContract: WEB_STUDIO_EXCELLENCE + '\n\nEXPERIENCE INTELLIGENCE:\n' + JSON.stringify(experience || {}),
+          qualityContract: WEB_STUDIO_EXCELLENCE + '\n\nEXPERIENCE INTELLIGENCE:\n' + JSON.stringify(experience || {}) + '\n\n' + globalAIIdentityDirective,
         });
 
         if (generated) {
