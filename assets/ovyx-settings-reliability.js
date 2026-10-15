@@ -491,6 +491,7 @@
         const validRouting = ['automatic','preferred-first','provider-priority'].includes(String(prefs.routing || 'automatic'))
           ? String(prefs.routing || 'automatic') : 'automatic';
         payload.providerRouting = validRouting;
+        if ((!payload.model || String(payload.model).toLowerCase() === 'automatic') && prefs.model && String(prefs.model).toLowerCase() !== 'automatic') payload.model = String(prefs.model);
         if ((!requestedProvider || requestedProvider === 'automatic' || requestedProvider === 'auto') && prefs.provider) {
           payload.preferredProvider = String(prefs.provider).toLowerCase();
           if (prefs.fallback === 'stop' && validRouting !== 'provider-priority') payload.provider = String(prefs.provider).toLowerCase();
@@ -640,7 +641,11 @@
     bindAuthenticationRefresh();
     installLivePreviewBridge();
     writeSettingsState(settingsState());
-    const notificationPanel = notificationPanel();
+    const notifyPanel = notificationPanel();
+    if (notifyPanel) {
+      const paragraph = notifyPanel.querySelector('.ovyx-panel-head p');
+      if (paragraph) paragraph.textContent = 'Choose which activity preferences to save to your account. Email preferences are recorded, but they do not send email without a configured delivery integration.';
+    }
     if (notificationPanel) {
       const paragraph = notificationPanel.querySelector('.ovyx-panel-head p');
       if (paragraph) paragraph.textContent = 'Choose which activity preferences to save to your account. Email preferences are recorded, but they do not send email without a configured delivery integration.';
