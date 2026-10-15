@@ -3,12 +3,14 @@ import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { normalizeNotificationPreferences, NOTIFICATION_DEFAULTS } from '../functions/api/settings/preferences.js';
+import { normalizeAIPreferences, AI_PREFERENCE_DEFAULTS } from '../functions/api/settings/ai.js';
 
 const read = path => fs.readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 const runtime = read('assets/ovyx-settings-reliability.js');
 const html = read('index.html');
 const profileApi = read('functions/api/settings/profile.js');
 const preferencesApi = read('functions/api/settings/preferences.js');
+const aiPreferencesApi = read('functions/api/settings/ai.js');
 const deletionApi = read('functions/api/account/delete.js');
 const brandProfileApi = read('functions/api/settings/brand-profile.js');
 const connectionsApi = read('functions/api/settings/connections.js');
@@ -23,6 +25,7 @@ for (const path of [
   'assets/ovyx-settings-reliability.js',
   'functions/api/settings/profile.js',
   'functions/api/settings/preferences.js',
+  'functions/api/settings/ai.js',
   'functions/api/account/delete.js',
   'functions/api/settings/brand-profile.js',
   'functions/api/settings/connections.js',
@@ -36,12 +39,16 @@ for (const path of [
 }
 
 assert.deepEqual(normalizeNotificationPreferences({}), NOTIFICATION_DEFAULTS);
+assert.deepEqual(normalizeAIPreferences({}), AI_PREFERENCE_DEFAULTS);
+assert.deepEqual(normalizeAIPreferences({ provider: 'deepseek', model: 'deepseek-flash', explain: false, unexpected: true }), {
+  ...AI_PREFERENCE_DEFAULTS, provider: 'deepseek', model: 'deepseek-flash', explain: false
+}, 'AI preference validation must preserve supported selections and ignore unknown keys.');
 assert.deepEqual(
   normalizeNotificationPreferences({ projectActivity: false, billing: 'false', unexpected: false }),
   { ...NOTIFICATION_DEFAULTS, projectActivity: false },
   'Notification preference parsing must accept only known boolean fields.'
 );
-assert.ok(html.includes('/assets/ovyx-settings-reliability.js?v=20261015-5'), 'The audited Settings runtime must load in the application shell.');
+assert.ok(html.includes('/assets/ovyx-settings-reliability.js?v=20261015-15'), 'The audited Settings runtime must load in the application shell.');
 assert.ok(html.includes('autosaveRecoveryEnabled'), 'Turning autosave off must remove saved recovery snapshots rather than merely change the toggle label.');
 assert.ok(html.includes("layer.innerHTML=`"), 'The Data Layer renderer must append to its own container instead of replacing the Workspace panel.');
 assert.ok(!html.includes("if(!p)return;const c=dbCfg();p.innerHTML=`"), 'The Data Layer renderer must not erase normal Workspace preferences.');
@@ -77,12 +84,45 @@ for (const requirement of [
   "ovyx.brand.v1.",
   'stopImmediatePropagation()',
   'installLivePreviewBridge',
+  'installWorkspaceControlRecovery',
+  'installSettingsNavigationVisibilityRecovery',
+  "const AI_PREFERENCES_ENDPOINT = '/api/settings/ai'",
+  'loadAIPreferencesFromServer',
+  'Verified on server. Your AI preferences are saved to your account.',
+  'let editorModeChangeInstalled = false',
+  "select.id !== 'set-editor-mode'",
+  'installEditorMode();\n    installWorkspaceControlRecovery();',
+  'ensureWorkspaceControls',
+  'installProjectOpenBehavior',
+  'installDataLayerProjectSync',
+  'syncActiveProjectMetadataToDataApi',
+  'Data API project sync sends project metadata only',
+  "const DATA_LAYER_CONFIG_KEY = 'ovyx.data.layer.external.v1'",
+  "localStorage.getItem('ovyx.data.layer.v1')",
+  'function readNativeDataLayerConfig()',
+  'saveNativeDataLayerConfig({ endpoint: endpoint, projectSync: nativeEnabled })',
+  "Object.assign({ endpoint: '', projectSync: false }",
+  'initialiseDataLayerConsent',
+  "const DATA_LAYER_CONFIG_KEY = 'ovyx.data.layer.external.v1'",
+  "#ovyx-data-api-sync",
+  'external Data API and built-in OVYX cloud sync are separate features',
+  "window.confirm('Enable Data API project sync for ' + new URL",
+  'Firebase ID token for authentication',
+  "credentials: 'omit'",
+  "store.open = wrapped",
   'payload.preferredProvider',
   'payload.providerRouting',
   'payload.provider = String(prefs.provider).toLowerCase()',
   'limitContextFiles',
   'set-editor-mode'
 ]) assert.ok(runtime.includes(requirement), 'Settings runtime must have real behavior for: ' + requirement);
+assert.ok(runtime.includes("if (button.classList.contains('ovyx-settings-hidden')) button.classList.remove('ovyx-settings-hidden');"), 'Navigation repair must avoid unchanged class writes inside its MutationObserver.');
+assert.ok(runtime.includes("if (button.classList.contains('hidden')) button.classList.remove('hidden');"), 'Navigation visibility repair must conditionally remove hidden classes to prevent observer loops.');
+assert.ok(runtime.includes("button.style.setProperty('display', 'flex', 'important')"), 'Settings navigation recovery must override legacy hiding styles when search is clear.');
+assert.ok(runtime.includes("sidebar.style.setProperty('visibility', 'visible', 'important')"), 'Settings sidebar recovery must restore actual visibility, not just CSS classes.');
+assert.ok(runtime.includes("const main = shell.querySelector('.ovyx-settings-main')"), 'Settings navigation recovery must restore the main content column.');
+assert.ok(runtime.includes("const currentSection = String(settings.current || 'general')"), 'Settings recovery must reveal only the currently selected panel.');
+assert.ok(runtime.includes("panel.style.setProperty('display', 'block', 'important')"), 'The active Settings panel must be visible and interactive after recovery.');
 
 assert.match(profileApi, /request\.method === 'GET'/);
 assert.match(profileApi, /request\.method !== 'PUT'/);
@@ -93,6 +133,11 @@ assert.match(preferencesApi, /request\.method === 'GET'/);
 assert.match(preferencesApi, /request\.method !== 'PUT'/);
 assert.match(preferencesApi, /PREFERENCES_WRITE_UNCONFIRMED/);
 assert.match(preferencesApi, /enforceSameOrigin/);
+assert.match(aiPreferencesApi, /verifyFirebaseIdToken/);
+assert.match(aiPreferencesApi, /request\.method === 'GET'/);
+assert.match(aiPreferencesApi, /request\.method !== 'PUT'/);
+assert.match(aiPreferencesApi, /AI_PREFERENCES_WRITE_UNCONFIRMED/);
+assert.match(aiPreferencesApi, /enforceSameOrigin/);
 assert.match(deletionApi, /deleteFirestoreDocumentTree/);
 assert.ok(deletionApi.includes("deleteFirestoreDocumentTree(context.env, 'users', email)"), 'Deletion removes email-keyed Settings data for brand identity and Universal Connections.');
 assert.match(deletionApi, /emailScopedDocumentsDeleted/);
@@ -110,6 +155,13 @@ assert.match(connectionsApi, /setFirestoreDocumentAtPath/);
 assert.ok(connectionsApi.includes("['users', auth.email, 'universal_connections']"));
 assert.match(revokeSessionsApi, /enforceSameOrigin/);
 assert.match(revokeSessionsApi, /revokeFirebaseRefreshTokens/);
+assert.ok(runtime.includes("event.target.closest('#ovyx-security-delete, #profile-delete-action')"), 'Profile and Security deletion buttons must share the same server-confirmed deletion path.');
+assert.ok(runtime.includes('Date.now() / 1000 - authTime > 240'), 'Account deletion must enforce the server-matched four-minute recent-authentication window.');
+assert.ok(runtime.includes('[data-settings-panel="workspace"]'), 'Recovered workspace controls must target the actual Workspace settings panel.');
+assert.ok(runtime.includes("saveDataLayerConfig({ endpoint: endpoint, projectSync: enabled })"), 'The Data API sync switch must persist before reporting success.');
+assert.ok(runtime.includes("The Data API returned a non-JSON response"), 'The Data API must not report a successful project write when it cannot verify a JSON response.');
+assert.ok(runtime.includes("projectSync === false"), 'Disabling Data API project sync must prevent metadata upload.');
+assert.ok(runtime.includes("Project source files and secrets are not uploaded"), 'The optional Data API feature must disclose its metadata-only transfer scope.');
 
 assert.match(providers, /providerRouting/);
 assert.match(providers, /preferredProvider/);
