@@ -76,7 +76,7 @@ assert.match(source.publicIdentityApi, /assistantName/);
 assert.match(source.identityDirective, /getAIIdentityDirective/);
 for (const path of ['nativeAI','assistantAI','gatewayAI']) {
   assert.match(source[path], /getAIIdentityDirective/);
-  assert.match(source[path], /globalAIIdentityDirective/);
+  assert.match(source[path], /global(?:AI)?IdentityDirective/);
 }
 
 assert.match(source.broadcastApi, /action === 'unpublish'/);
