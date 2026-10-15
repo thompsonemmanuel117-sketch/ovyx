@@ -67,8 +67,13 @@ try {
     await page.waitForSelector('#view-settings [data-settings-nav="workspace"]', { state: 'attached' });
 
     await page.evaluate(() => window.OVYXSettings.show('workspace'));
+    await page.waitForSelector('#ovyx-data-endpoint', { state: 'attached' });
     await page.waitForSelector('#view-settings [data-settings-panel="workspace"].active #set-open-behavior', { state: 'attached' });
     const openBehavior = page.locator('#view-settings [data-settings-panel="workspace"] #set-open-behavior');
+    for (const id of ['set-open-behavior', 'set-autosave', 'set-confirm-delete']) {
+      assert.equal(await page.locator('#view-settings [data-settings-panel="workspace"] #' + id).count(), 1,
+        `[${target.name}] Workspace control ${id} must be present exactly once after the Data Layer finishes rendering.`);
+    }
     assert.equal(await openBehavior.inputValue(), 'Web Studio', `[${target.name}] the Workspace open-behavior selector is missing its default.`);
     assert.equal(await page.locator('#set-autosave').getAttribute('aria-checked'), 'true', `[${target.name}] autosave recovery should begin enabled.`);
     assert.equal(await page.locator('#set-confirm-delete').getAttribute('aria-checked'), 'true', `[${target.name}] destructive-action confirmation should begin enabled.`);
