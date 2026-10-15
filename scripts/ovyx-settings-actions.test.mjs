@@ -13,6 +13,7 @@ const deletionApi = read('functions/api/account/delete.js');
 const brandProfileApi = read('functions/api/settings/brand-profile.js');
 const connectionsApi = read('functions/api/settings/connections.js');
 const revokeSessionsApi = read('functions/api/api/auth/revoke-sessions.js');
+const revokeSessionsAlias = read('functions/api/auth/revoke-sessions.js');
 const providers = read('functions/_lib/providers.js');
 const assistant = read('functions/api/ai/assistant.js');
 const gateway = read('functions/api/ai/gateway.js');
@@ -27,6 +28,7 @@ for (const path of [
   'functions/api/settings/brand-profile.js',
   'functions/api/settings/connections.js',
   'functions/api/api/auth/revoke-sessions.js',
+  'functions/api/auth/revoke-sessions.js',
   'functions/_lib/providers.js',
   'functions/_lib/studio-multipage.js',
   'functions/api/ai/assistant.js',
@@ -41,7 +43,9 @@ assert.deepEqual(
   { ...NOTIFICATION_DEFAULTS, projectActivity: false },
   'Notification preference parsing must accept only known boolean fields.'
 );
-assert.ok(html.includes('/assets/ovyx-settings-reliability.js?v=20261015-6'), 'The audited Settings runtime must load in the application shell.');
+assert.ok(html.includes('/assets/ovyx-settings-reliability.js?v=20261015-7'), 'The audited Settings runtime must load in the application shell.');
+assert.ok(html.includes('Date.now()/1000-authTime>240'), 'Every Settings account-deletion client path must match the server four-minute recent-auth window.');
+assert.doesNotMatch(html, /Date\.now\(\)\/1000-authTime>600/, 'No legacy Settings account-deletion action may allow an auth window the server will reject.');
 assert.ok(html.includes('autosaveRecoveryEnabled'), 'Turning autosave off must remove saved recovery snapshots rather than merely change the toggle label.');
 assert.equal((html.match(/ovyx-settings-reliability\.js/g) || []).length, 1, 'Settings reliability runtime must only be injected once.');
 assert.ok(html.includes('Buy Token Booster'), 'The Token Boosters Settings panel must expose a real purchase action.');
@@ -89,6 +93,10 @@ for (const requirement of [
   'limitContextFiles',
   'set-editor-mode',
   'installThemeLabActions',
+  'installSecurityActions',
+  '/api/auth/revoke-sessions',
+  '#ovyx-security-revoke-sessions',
+  '#ovyx-security-delete',
   'function handleThemeLabClick(event)',
   'saveCurrentAsCustomTheme',
   'importThemeFile',
@@ -123,6 +131,8 @@ assert.match(connectionsApi, /setFirestoreDocumentAtPath/);
 assert.ok(connectionsApi.includes("['users', auth.email, 'universal_connections']"));
 assert.match(revokeSessionsApi, /enforceSameOrigin/);
 assert.match(revokeSessionsApi, /revokeFirebaseRefreshTokens/);
+assert.match(revokeSessionsAlias, /export \{ onRequestPost, onRequestGet \} from '\.\.\/api\/auth\/revoke-sessions\.js'/);
+assert.match(revokeSessionsAlias, /onRequestPost/);
 
 assert.match(providers, /providerRouting/);
 assert.match(providers, /preferredProvider/);
@@ -135,4 +145,4 @@ assert.ok(packageJson.scripts.test.includes('scripts/ovyx-settings-actions.test.
 assert.doesNotMatch(runtime, /Bearer\s+[A-Za-z0-9._~+/=-]{20,}/i, 'The Settings runtime must not contain a literal access token.');
 assert.doesNotMatch(runtime, /(?:sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9_]{20,}|AIza[0-9A-Za-z_-]{30,})/, 'The Settings runtime must not contain provider credentials.');
 
-console.log('OVYX Settings actions tests passed: server-backed profile and notifications, account and email-scoped cleanup, Brand Identity, live Universal Connection tests, session revocation, usage, workspace toggles, editor mode and AI routing.');
+console.log('OVYX Settings actions tests passed: server-backed profile and notifications, account and email-scoped cleanup, Brand Identity, live Universal Connection tests, session revocation/delete controls, theme actions, usage, workspace toggles, editor mode and AI routing.');
