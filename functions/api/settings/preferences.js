@@ -58,6 +58,44 @@ const ENUMS = Object.freeze({
   }
 });
 
+
+const DEFAULT_THEME = Object.freeze({
+  name: 'My OVYX Theme',
+  bg: '#050505',
+  panel: '#0B0B0C',
+  elev: '#101012',
+  text: '#F5F5F4',
+  secondary: '#9A9AA0',
+  muted: '#606067',
+  accent: '#E8B64F'
+});
+const THEME_COLORS = Object.freeze(['bg', 'panel', 'elev', 'text', 'secondary', 'muted', 'accent']);
+function normalizeTheme(value, fallback = DEFAULT_THEME) {
+  const input = isRecord(value) ? value : {};
+  const base = isRecord(fallback) ? fallback : DEFAULT_THEME;
+  const theme = { name: String(input.name || base.name || 'My OVYX Theme').replace(/[\\u0000-\\u001F\\u007F]/g, '').trim().slice(0, 60) || 'My OVYX Theme' };
+  for (const key of THEME_COLORS) {
+    const candidate = String(input[key] ?? base[key] ?? DEFAULT_THEME[key]).trim();
+    theme[key] = /^#[0-9a-f]{6}$/i.test(candidate) ? candidate.toUpperCase() : (base[key] || DEFAULT_THEME[key]);
+  }
+  return theme;
+}
+function normalizeThemeLab(value, fallback = {}) {
+  const input = isRecord(value) ? value : {};
+  const base = isRecord(fallback) ? fallback : {};
+  const custom = normalizeTheme(input.custom, base.custom || DEFAULT_THEME);
+  const oldCustomThemes = isRecord(base.customThemes) ? base.customThemes : {};
+  const requestedCustomThemes = isRecord(input.customThemes) ? input.customThemes : oldCustomThemes;
+  const customThemes = {};
+  for (const [id, theme] of Object.entries(requestedCustomThemes).slice(0, 16)) {
+    if (!/^[A-Za-z0-9_-]{1,80}$/.test(id)) continue;
+    customThemes[id] = normalizeTheme(theme, oldCustomThemes[id] || DEFAULT_THEME);
+  }
+  const rawActive = String(input.active ?? base.active ?? 'obsidian').trim();
+  const active = /^[A-Za-z0-9_-]{1,80}$/.test(rawActive) ? rawActive : 'obsidian';
+  return { active, custom, customThemes };
+}
+
 const BOOLEAN_KEYS = Object.freeze({
   appearance: ['haptic'],
   workspace: ['autosave', 'confirmDelete', 'inspector', 'livePreview', 'aiSafe'],
@@ -100,6 +138,9 @@ export function normalizeSettings(input, current = DEFAULTS) {
       if (Object.prototype.hasOwnProperty.call(requested, key)) {
         sectionOut[key] = requested[key] === true;
       }
+    }
+    if (section === 'appearance') {
+      sectionOut.themeLab = normalizeThemeLab(requested.themeLab, base.themeLab);
     }
 
     // Unknown keys are intentionally dropped so connection credentials or arbitrary
