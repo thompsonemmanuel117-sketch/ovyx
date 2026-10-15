@@ -570,18 +570,8 @@
     // The Settings panel binds its own Save AI Preferences control. Keep the
     // action on that single handler so the click is not intercepted twice; the
     // inline handler persists the extended fields before updating window.OVYXAI.
-    document.addEventListener('click', function (event) {
-      const button = event.target && event.target.closest && event.target.closest('#set-ai-reset');
-      if (!button) return;
-      event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
-      try {
-        const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
-        localStorage.removeItem(key);
-        const settings = window.OVYXSettings;
-        if (settings && typeof settings.show === 'function') settings.show('ai');
-        notify('AI preferences reset to defaults.', 'info');
-      } catch (error) { notify(error.message || 'AI preferences could not be reset.', 'error'); }
-    }, true);
+    // Save and Reset are handled directly by the Settings panel so a single
+    // click never competes with multiple delegated click interceptors.
     const service = window.OVYXAIService;
     if (service && typeof service.generate === 'function' && !service.__ovyxSettingsPreferencesV1) {
       const original = service.generate.bind(service);
