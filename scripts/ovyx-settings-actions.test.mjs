@@ -154,6 +154,8 @@ assert.match(deletionApi, /deleteStoragePrefix\(context\.env, `profile\/\$\{uid\
 assert.match(deletionApi, /assertFreshAuth/);
 assert.ok(deletionApi.includes('const RECENT_AUTH_SECONDS = 4 * 60'), 'Server account deletion must use a conservative recent-auth window.');
 assert.ok(runtime.includes('Date.now() / 1000 - authTime > 240'), 'Client account deletion must enforce the same recent-auth window before erasing cloud data.');
+assert.ok(runtime.includes("if (!confirmed) return;"), 'Cancelling the Delete Account confirmation must not send a request or erase account state.');
+assert.ok(runtime.includes("closest('#ovyx-security-delete')"), 'The visible Security Delete Account button must be connected to the guarded deletion action.');
 assert.match(deletionApi, /X-OVYX-Account-Deletion/);
 assert.match(brandProfileApi, /setFirestoreDocumentAtPath/);
 assert.match(brandProfileApi, /deleteFirestoreDocumentAtPath/);

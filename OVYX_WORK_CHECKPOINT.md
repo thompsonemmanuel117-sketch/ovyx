@@ -202,8 +202,20 @@ Check all three Actions for the scoped-toast fix. If session-revocation tests pa
 
 - [x] Latest main `a5164d82175a1e541996384de6ab9bf8d251f3e6`: Agent Verify/build passed and Cloudflare Diagnostics passed; the desktop/mobile browser workflow passed Editor/Workspace but stopped on Security while waiting for a toast DOM selector that did not match the runtime's shared toast contract.
 - [x] Confirmed the scoped Security toast helper now calls `window.showToast` when available and has an accessible DOM fallback. Updated the Security browser test to observe the public toast message/type contract and wait for feedback before asserting, instead of assuming one toast-stack markup shape.
-- [ ] Verify the exact new commit's Agent Verify/build, Cloudflare Diagnostics, and desktop/mobile Security test logs before declaring Log Out All Devices complete.
+- [x] Exact commit `05f2dcdbb1eb152ba147da74339159cd1a0d3f17`: Agent Verify, static checks and production build preflight passed; the direct Security session-revocation browser step passed on desktop and mobile. The full workflow continues into other Settings groups and Cloudflare Diagnostics is tracked separately.
 
 ## Exact next step
 
 If the Security interaction passes, test Delete Account's cancellation and stale/recent-auth rejection path without sending a valid deletion request or deleting data. Then inspect Usage quota refresh/error and Token Booster mocked balance/checkout error paths. No real account deletion or payment.
+
+
+## Latest Security interaction unit — Delete Account safe rejection paths (2026-10-16)
+
+- [x] Added direct desktop/mobile interaction checks for confirmation cancellation and stale recent-authentication rejection.
+- [x] Both checks use a fake signed-in user with stale `auth_time`; the `/api/account/delete` route is intercepted and returns a failure if ever reached, so no real account data is deleted.
+- [x] Added source contract checks that the visible Security delete button is bound to the guarded handler and cancelling confirmation exits before deletion.
+- [ ] Verify the exact new commit's Agent Verify/build, Cloudflare Diagnostics and full desktop/mobile Security browser step before marking Security complete.
+
+## Exact next step
+
+Check the next commit's three Action results. If the Security step passes, mark Security completed and move to the next unfinished Settings issue (Usage quota refresh/error and Token Booster mocked balance/checkout failure). Do not run real account deletion or payment.

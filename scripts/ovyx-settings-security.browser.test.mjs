@@ -51,7 +51,12 @@ try {
       const user = {
         uid: 'security-browser-test-user',
         email: 'security-browser-test@example.test',
+        deleteCalls: 0,
         async getIdToken() { return 'security-browser-test-token'; },
+        async getIdTokenResult() {
+          return { claims: { auth_time: Math.floor(Date.now() / 1000) - 301 } };
+        },
+        async delete() { this.deleteCalls += 1; },
       };
       window.__securityTestState = { currentUser: user, signOutCalls: 0 };
       window.__securityToasts = [];
@@ -143,6 +148,51 @@ try {
     assert.ok(state.toasts.some(t => t.type === 'error' && /simulated session revocation outage/i.test(t.message)),
       '[' + target.name + '] outage must be reported: ' + JSON.stringify(state.toasts));
 
+    // Delete Account: cancellation must be a no-op; stale recent-auth must stop before the API.
+    // Even a regression cannot delete anything: the only route is intercepted with a failure response.
+    let accountDeleteRequests = 0;
+    await page.route('**/api/account/delete', async route => {
+      accountDeleteRequests += 1;
+      await route.fulfill({
+        status: 503,
+        contentType: 'application/json; charset=utf-8',
+        body: JSON.stringify({ ok: false, code: 'TEST_DELETE_BLOCKED', error: 'Test blocked account deletion.' }),
+      });
+    });
+    const deleteButton = page.locator('#ovyx-security-delete');
+    await deleteButton.waitFor({ state: 'visible' });
+    await page.evaluate(() => { window.confirm = () => false; });
+    await deleteButton.click();
+    await page.waitForFunction(() => {
+      const button = document.getElementById('ovyx-security-delete');
+      return button && !button.disabled;
+    });
+    let deletionState = await page.evaluate(() => ({
+      uid: window.__securityTestState.currentUser?.uid || null,
+      deleteCalls: window.__securityTestState.currentUser?.deleteCalls || 0,
+    }));
+    assert.equal(accountDeleteRequests, 0, '[' + target.name + '] cancelling Delete Account must not call the server.');
+    assert.equal(deletionState.deleteCalls, 0, '[' + target.name + '] cancelling Delete Account must not delete the Firebase user.');
+    assert.equal(deletionState.uid, 'security-browser-test-user');
+
+    await page.evaluate(() => { window.confirm = () => true; });
+    await deleteButton.click();
+    await page.waitForFunction(() => {
+      const button = document.getElementById('ovyx-security-delete');
+      return button && !button.disabled
+        && window.__securityToasts?.some(t => t.type === 'error' && /sign in again before deleting your account/i.test(t.message));
+    }, null, { timeout: 10000 });
+    deletionState = await page.evaluate(() => ({
+      uid: window.__securityTestState.currentUser?.uid || null,
+      deleteCalls: window.__securityTestState.currentUser?.deleteCalls || 0,
+      toasts: [...window.__securityToasts],
+    }));
+    assert.equal(accountDeleteRequests, 0, '[' + target.name + '] stale recent-auth must be rejected before the account deletion API.');
+    assert.equal(deletionState.deleteCalls, 0, '[' + target.name + '] stale recent-auth must not delete the Firebase user.');
+    assert.equal(deletionState.uid, 'security-browser-test-user');
+    assert.ok(deletionState.toasts.some(t => t.type === 'error' && /sign in again before deleting your account/i.test(t.message)),
+      '[' + target.name + '] stale recent-auth must explain that a fresh sign-in is required.');
+
     // Positive server confirmation is required before local sign-out and success messaging.
     nextReply = {
       status: 200,
@@ -167,7 +217,7 @@ try {
 
     await context.close();
   }
-  console.log('OVYX Security browser tests passed on desktop and mobile: Log Out All Devices rejects unconfirmed 2xx responses, handles server outages, and signs out only after confirmed session revocation.');
+  console.log('OVYX Security browser tests passed on desktop and mobile: Log Out All Devices rejects unconfirmed 2xx responses, handles outages, signs out only after confirmed revocation, and Delete Account safely cancels and rejects stale recent authentication.');
 } finally {
   await browser.close();
 }
