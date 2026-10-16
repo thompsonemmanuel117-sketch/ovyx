@@ -75,10 +75,14 @@ try {
         return original();
       };
     });
-    page.once('dialog', async dialog => {
-      assert.equal(dialog.type(), 'prompt', '[' + target.name + '] New Project should request the project name.');
-      assert.match(dialog.message(), /Project name/i);
-      await dialog.accept('Shortcut Browser Test Project');
+    // Replace only the browser-native prompt UI with a deterministic answer;
+    // the real ProjectStore creation, navigation and persistence path still runs.
+    await page.evaluate(() => {
+      window.__settingsShortcutPromptMessage = '';
+      window.prompt = message => {
+        window.__settingsShortcutPromptMessage = String(message || '');
+        return 'Shortcut Browser Test Project';
+      };
     });
     await page.evaluate(() => {
       window.__settingsShortcutKeyEvents = [];
@@ -102,6 +106,8 @@ try {
     }));
     assert.equal(shortcutDiagnostics.activeProject, 'Shortcut Browser Test Project',
       '[' + target.name + '] Ctrl/Command+N must create the prompted project; diagnostics=' + JSON.stringify(shortcutDiagnostics));
+    assert.match(await page.evaluate(() => window.__settingsShortcutPromptMessage), /Project name/i,
+      '[' + target.name + '] New Project must request a project name.');
     assert.equal(await page.evaluate(() => window.__settingsShortcutNewProjectCalls), 1,
       '[' + target.name + '] Ctrl/Command+N should invoke New Project exactly once.');
     const created = await page.evaluate(() => {
