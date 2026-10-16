@@ -42,7 +42,8 @@ try {
       () => typeof window.Router?.go === 'function'
         && typeof window.OVYXSettings?.show === 'function'
         && typeof window.ProjectStore?.createPromptModal === 'function'
-        && typeof window.ProjectStore?.save === 'function',
+        && typeof window.ProjectStore?.save === 'function'
+        && window.__OVYXSettingsProjectShortcutsV1 === true,
       null,
       { timeout: 45000 },
     );
@@ -79,12 +80,29 @@ try {
       assert.match(dialog.message(), /Project name/i);
       await dialog.accept('Shortcut Browser Test Project');
     });
+    await page.evaluate(() => {
+      window.__settingsShortcutKeyEvents = [];
+      document.addEventListener('keydown', event => {
+        if ((event.ctrlKey || event.metaKey) && String(event.key || '').toLowerCase() === 'n') {
+          window.__settingsShortcutKeyEvents.push({ defaultPrevented: event.defaultPrevented });
+        }
+      });
+    });
     await page.keyboard.press('Control+n');
     await page.waitForFunction(
-      () => window.KernelState?.activeProject?.name === 'Shortcut Browser Test Project',
+      () => window.KernelState?.activeProject?.name === 'Shortcut Browser Test Project'
+        || (window.__settingsShortcutNewProjectCalls > 0 && window.__settingsShortcutKeyEvents?.length > 0),
       null,
       { timeout: 15000 },
     );
+    const shortcutDiagnostics = await page.evaluate(() => ({
+      calls: window.__settingsShortcutNewProjectCalls,
+      activeProject: window.KernelState?.activeProject?.name || null,
+      keyEvents: window.__settingsShortcutKeyEvents,
+      activeView: window.KernelState?.activeView || null,
+    }));
+    assert.equal(shortcutDiagnostics.activeProject, 'Shortcut Browser Test Project',
+      '[' + target.name + '] Ctrl/Command+N must create the prompted project; diagnostics=' + JSON.stringify(shortcutDiagnostics));
     assert.equal(await page.evaluate(() => window.__settingsShortcutNewProjectCalls), 1,
       '[' + target.name + '] Ctrl/Command+N should invoke New Project exactly once.');
     const created = await page.evaluate(() => {
