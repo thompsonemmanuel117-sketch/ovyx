@@ -284,7 +284,7 @@ try {
     const securityCopy = await security.innerText();
     assert.match(securityCopy, /Authentication\s+○ Not signed in/i,
       '[' + target.name + '] an unauthenticated browser must not be labelled Protected.');
-    assert.match(securityCopy, /Current session\\s+No authenticated session/i,
+    assert.match(securityCopy, /Current session\s+No authenticated session/i,
       '[' + target.name + '] the Security panel must not claim an authenticated session when signed out.');
     assert.match(securityCopy, /SIGNED OUT/i,
       '[' + target.name + '] session badge must reflect the actual signed-out state.');
