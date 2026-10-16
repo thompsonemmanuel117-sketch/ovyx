@@ -36,6 +36,16 @@ try {
     const pageErrors = [];
 
     await page.addInitScript(() => {
+      // Keep every late route-restoration source consistent for this Settings-only
+      // test. The shell restores runtime.session.v4 again after initial boot; if
+      // it still says Home/Web Studio, that valid restoration can hide Settings
+      // after the test's own Router.go('settings').
+      let session = {};
+      try { session = JSON.parse(localStorage.getItem('ovyx.runtime.session.v4') || '{}'); } catch (_) {}
+      localStorage.setItem('ovyx.runtime.route.v18', 'settings');
+      localStorage.setItem('ovyx.settings.last-view.v1', 'settings');
+      localStorage.setItem('ovyx.runtime.session.v4', JSON.stringify({ ...session, route: 'settings' }));
+
       if (localStorage.getItem('__ovyxSettingsCoreFixtureV1') !== '1') {
         const initialTheme = {
           mode: 'dark',
