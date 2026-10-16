@@ -360,6 +360,13 @@ Check the final conclusion and complete log for browser run #386. Then continue 
 - [x] Inspected the full logs for all three jobs. No failed step or `##[error]` build/test error was present. Non-blocking notices: Node `punycode` and `url.parse()` deprecations, GitHub Actions Node 20-to-24 migration warnings; the browser runner's local Pages readiness check initially retried a refused connection and then started successfully.
 - [x] The Live Preview fix is now verified on desktop and mobile; the previously failing editor/workspace test passes.
 
+## Stage 2 continued — keyboard shortcuts added directly to main (2026-10-16)
+
+- [x] Ported the reviewed Command Palette/shortcut fix into `main`: `show()` no longer immediately hides the palette, the key listener is initialized during app startup, and Shift+Z no longer triggers both Undo and Redo.
+- [x] Added the dedicated desktop/mobile Chromium regression test for palette focus/open/close, New Project creation/persistence, single Save persistence, and Undo/Redo dispatch.
+- [x] Added the shortcut browser test to the mainline browser workflow and its pull-request path filter. Workspace and account browser fixtures also wait for their intended Settings state before continuing.
+- [ ] Verification for this exact main commit is pending; do not mark shortcuts complete until Agent Verify and the complete Chromium logs are reviewed.
+
 ## Exact next action
 
-Port the already-reviewed Shortcuts fix into `main` directly (do not leave completed work only on the existing branch): keep Command Palette open on show, initialize its key listener, ensure Shift+Z runs Redo without also running Undo, and run the dedicated desktop/mobile shortcut test. Add that test to the mainline browser workflow, verify all jobs and review full logs, then continue the Theme Lab custom-theme CRUD and safe Security/session-revocation/Plan/Usage/Token Booster checks. Never place a real purchase, keep email switches described as preferences-only, and preserve `rollback/settings-baseline-20261015` unchanged.
+Inspect the Agent Verify and Assistant Workspace Browser Tests results for the shortcut commit. Review full logs for real build errors and any failing step; fix and retest before moving on. After this milestone, continue the unfinished Theme Lab custom-theme lifecycle and safe Security/account/session-revocation plus Plan/Usage/Booster refresh paths. Keep external-service states truthful, email delivery clearly unavailable without a configured mail integration, never make a real purchase, and preserve `rollback/settings-baseline-20261015` unchanged.

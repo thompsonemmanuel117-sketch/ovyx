@@ -263,6 +263,9 @@ try {
     assert.equal(await page.evaluate(() => window.KernelState?.activeView), 'settings',
       '[' + target.name + '] toggling live preview must preserve the current Settings route.');
 
+    await page.evaluate(() => window.OVYXSettings.show('editor'));
+    await editor.waitFor({ state: 'visible' });
+    await editor.locator('#set-editor-mode').waitFor({ state: 'visible' });
     await page.evaluate(() => {
       const studio = window.WebStudio;
       const original = studio.setMode.bind(studio);
