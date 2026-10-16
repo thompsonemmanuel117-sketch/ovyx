@@ -52,6 +52,11 @@ assert.ok(html.includes("if(window.OVYXDataLayerSettings?.projectSyncEnabled?.()
 assert.ok(html.includes("if(window.OVYXDataLayerSettings?.projectSyncEnabled?.()===false){"), 'Paused project sync must not load cloud projects over local state.');
 assert.ok(html.includes("Date.now()/1000-authTime>240"), 'The legacy Profile deletion action must match the server four-minute recent-authentication limit.');
 assert.ok(html.includes("does not replace OVYX’s built-in /api/projects sync service"), 'The custom data endpoint must not be presented as if it were the active project-sync backend.');
+assert.ok(html.includes("this.search('');\n      },\n      hide() {"), 'Command Palette show must leave the palette open after populating its actions.');
+assert.ok(html.includes('CommandPalette.init();'), 'Command Palette keyboard shortcuts must actually be registered during startup.');
+assert.ok(html.includes("!event.shiftKey && event.key.toLowerCase() === 'z'"), 'Shift+Z must trigger Redo without also triggering Undo.');
+assert.ok(!html.includes("this.search('');\n        this.hide();\n      },\n      hide() {"), 'Command Palette show must not immediately close the palette it just opened.');
+
 assert.ok(html.includes("preferredProvider:payload.preferredProvider||''"), 'The final AI request body must forward the saved preferred provider.');
 assert.ok(html.includes("providerRouting:payload.providerRouting||'automatic'"), 'The final AI request body must forward the saved routing strategy.');
 assert.ok(html.includes("maxTokens:payload.maxTokens||4096"), 'The assistant request must forward the saved generation budget.');
