@@ -121,6 +121,11 @@ jobs:
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8788
 
+      - name: Exercise Security session revocation in desktop and mobile Chromium
+        run: node scripts/ovyx-settings-security.browser.test.mjs
+        env:
+          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
+
       - name: Exercise Appearance single-owner actions in desktop and mobile Chromium
         run: node scripts/ovyx-settings-core.browser.test.mjs
         env:

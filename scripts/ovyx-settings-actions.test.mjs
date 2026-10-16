@@ -80,6 +80,8 @@ assert.ok(!html.includes('future booster products'), 'Token Boosters must not be
 assert.ok(html.includes('Checkout requires sign-in and an available payment provider.'), 'Token Booster checkout requirements must be visible before purchase.');
 assert.ok(html.includes('Availability is checked when you continue; errors stop the purchase.'), 'Token Booster provider availability must not be implied before the server responds.');
 assert.ok(html.includes("${u?'● Signed in':'○ Not signed in'}"), 'Security must not label a merely signed-in user as fully protected.');
+assert.ok(html.includes('data?.ok!==true||data?.revoked!==true'), 'Log Out All Devices must require explicit server confirmation of successful revocation.');
+assert.ok(html.includes("await firebase.auth().signOut();") && html.includes("toast('All devices have been logged out.','success');"), 'Security success feedback must be attached to the confirmed session-revocation path.');
 assert.ok(html.includes("${u?'No active authenticated session':'No authenticated session is active'}") === false || html.includes("${u?'Active in this browser':'No active authenticated session'}"), 'Security session status must reflect whether a user is signed in.');
 assert.ok(html.includes("${u?'CURRENT':'INACTIVE'}"), 'The current-session badge must not appear active when signed out.');
 

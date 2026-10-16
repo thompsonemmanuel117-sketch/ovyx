@@ -4420,11 +4420,11 @@ function renderSecurity(){
     headers:{Accept:'application/json','Content-Type':'application/json',Authorization:'Bearer '+idToken}
    });
    const data=await response.json().catch(()=>({}));
-   if(!response.ok)throw new Error(data?.message||data?.error||`Request failed (HTTP ${response.status})`);
-   toast('All devices have been logged out.','success');
+   if(!response.ok||data?.ok!==true||data?.revoked!==true)throw new Error(data?.message||data?.error||(!response.ok?`Request failed (HTTP ${response.status})`:'The server did not confirm that all sessions were revoked.'));
    await firebase.auth().signOut();
    window.__OVYX_AUTH_STATE_READY__=false;
    Router.go('home');
+   toast('All devices have been logged out.','success');
   }catch(e){
    button.disabled=false;
    button.removeAttribute('aria-busy');

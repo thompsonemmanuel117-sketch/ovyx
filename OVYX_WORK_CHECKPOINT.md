@@ -160,3 +160,16 @@ Check all Actions for the exact new commit. If Appearance Save/Duplicate/Export/
 ## Exact next step
 
 Validate the Theme Lab Reset state capture with Agent Verify and Browser Tests. Fix only the observed Reset mismatch, then continue to safe Security session revocation/recent-auth checks and Usage/Booster quota/error handling. Do not perform real account deletion or purchases.
+
+
+## Latest work unit — Security: Log Out All Devices server confirmation (2026-10-16)
+
+- [x] Kept Editor/Workspace Live Preview closed for this pass: Browser run #422 explicitly reported desktop/mobile pass; Agent Verify #907 and Cloudflare Diagnostics #419 passed.
+- [x] Examined the real Security handler in `index.html`: it treated any HTTP 2xx from `/api/api/auth/revoke-sessions` as success, then displayed “All devices have been logged out” and signed out locally without checking `data.ok` or `data.revoked`.
+- [x] Fixed the control to require both server confirmations (`ok === true` and `revoked === true`), keep the user signed in on unconfirmed/error responses, and show success only after local sign-out succeeds.
+- [x] Added a focused desktop/mobile browser test for HTTP 200 with `revoked:false`, HTTP 503, and server-confirmed revocation; added a source-contract assertion and an early workflow step before the separate Theme Lab blocker.
+- [ ] Verify Agent Verify/build, Cloudflare Diagnostics, and the new Security browser step on this exact commit. Do not mark the control fully verified until those logs pass.
+
+## Exact next step
+
+Inspect the exact commit’s three workflow results and Security browser logs. Once this control passes on desktop and mobile, move to the next unfinished Security control: safe account-deletion confirmation/recent-authentication rejection. Never perform real account deletion or a real payment.
