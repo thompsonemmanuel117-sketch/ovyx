@@ -283,3 +283,36 @@ Completed and directly browser-tested on desktop/mobile:
 
 ## Exact next action
 Add targeted desktop/mobile tests for **Editor and Workspace behavior**: open behavior route outcome, autosave snapshot on/off, destructive-confirm on/off, inspector visibility, live-preview pause/resume, and editor-mode persistence. Use safe test projects and mocked APIs, then fix only failures the browser test demonstrates. Run the Agent Verify and Chromium workflows, inspect full logs, merge into main, and update this checkpoint again.
+
+
+## Stage 2 — Editor and Workspace verified/merged (2026-10-16)
+- **PR #145 merged:** https://github.com/thompsonemmanuel117-sketch/ovyx/pull/145
+- **Main commit:** `685e2269bad8beb24367823bb24ddf0079e77da4`
+- [x] Added desktop/mobile Chromium interaction coverage for Workspace open behavior (Project overview/Last active view), autosave recovery snapshots enabled/disabled, confirm-delete behavior via a disposable local fixture, inspector visibility, live-preview pause/resume, and editor mode persistence.
+- [x] Browser testing exposed a real route interaction defect: enabling Live Preview while Settings was active could trigger `WebStudio.renderPreview()` and change the view beneath the Settings panel. The resume effect now refreshes only when the active route is Web Studio.
+- [x] Added source assertion for the active-Web-Studio guard and browser assertions that the Settings route stays active after resuming preview.
+- [x] Fixed browser test route fixtures only where tests raced against the app's valid late route restoration: seeded the core Settings fixture's route sources consistently and removed the over-strict boot-hint wait from the post-appearance reload check. Product route restoration was not disabled or weakened.
+- [x] **Agent Verify run #845 passed** `npm test`, `npm run validate`, `npm run build` preflight and Wrangler version check: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38878626626
+- [x] **Full Chromium browser run #373 passed** on desktop and mobile, including all targeted Settings checks and the existing full browser suite: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38878626630
+- [x] **Web Studio Quality browser run #42 passed:** https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38878626646
+- [x] Reviewed all three full job logs. No error-level test/build failures; only known non-blocking `punycode` and GitHub Actions Node 20-to-24 deprecation warnings.
+- [x] Changes are merged into `main`. Rollback branch `rollback/settings-baseline-20261015` remains identical to baseline `49d4fe7`.
+
+## Stage 2 progress after Editor/Workspace
+The following Settings areas now have desktop/mobile browser evidence for their core actions:
+1. Data Layer truthfulness, health-only check, local endpoint persistence, sync toggle and schema download.
+2. Appearance preview, Save, Cancel, Reset and single-owner event handling.
+3. Profile server-backed save and failed-save retry; Notifications draft state, Save/Reset and failure recovery.
+4. AI Preferences Save/Reset and actual request propagation for provider, model, routing, context and budget.
+5. Workspace open behavior, recovery snapshot setting, delete confirmation branch, inspector visibility, live-preview pause/resume and editor mode persistence.
+
+## Remaining Stage 2 work
+1. **Shortcuts:** test Command Palette, New Project, Save Project, Undo and Redo in the appropriate surfaces. Use disposable/local project fixtures; verify save is local vs cloud rather than implying cloud backup.
+2. **Profile/Security destructive paths:** verify Profile and Security account deletion endpoints separately with a safe disposable account/fixtures; session revocation using a safe authenticated fixture.
+3. **Appearance Theme Lab:** direct browser coverage of custom-theme Save, Duplicate, Import, Export, Delete and Reset.
+4. **Plan, Usage, Token Boosters:** quota refresh/error states and mocked/sandbox checkout start/cancel/failure/verified credit. Never place a real purchase.
+5. **Email notification options:** still preferences only; no outgoing mail delivery is verified without a configured mail provider.
+6. Keep running and reviewing full CI/build logs after each focused milestone. Do not mark Stage 2 complete until these remaining items are verified.
+
+## Exact next action
+Add a focused desktop/mobile browser test for **Shortcuts**. Exercise Command Palette, New Project, Save Project, Undo and Redo in their relevant app surfaces; confirm exactly what state changes and where project data is persisted. Change runtime code only if the test proves a broken action. Run Agent Verify and Chromium, inspect the complete logs, merge passing work into `main`, and update this checkpoint. Then continue with safe Profile/Security destructive-path verification.
