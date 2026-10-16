@@ -386,3 +386,14 @@ Inspect build/source checks, then the complete desktop/mobile browser log for th
 ## Exact next action
 
 Inspect build and full browser logs for the new commit. If Theme Lab passes, continue direct Security Log Out All Devices and account deletion confirmation/re-auth failures, then quota/Booster balance/error states; do not purchase tokens.
+
+
+## Focused direct interaction — Theme Lab Reset event ownership (2026-10-16)
+
+- Browser run #415 shows Save/Duplicate/Export/Import/Delete passed; Reset did not clear the in-memory `customThemes` map after the click. The exact run timed out at `scripts/ovyx-settings-core.browser.test.mjs:255`: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38917154145
+- Canonical Delete and Reset now stop later same-node click listeners with `stopImmediatePropagation()`, avoiding a second legacy handler acting on the same destructive action. A source contract assertion checks the event ownership.
+- Verification pending on the new main commit; do not report Theme Lab complete until the full desktop/mobile Chromium suite confirms Reset's persisted and in-memory state.
+
+## Exact next step
+
+Inspect this commit's Agent Verify, Diagnostics and Browser Tests; after Reset is green, continue direct Security/session-revocation and safe account-deletion rejection tests, then Usage/Booster refresh/error paths without actual payment.

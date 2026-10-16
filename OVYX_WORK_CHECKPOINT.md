@@ -69,3 +69,15 @@ Commit this fixture-only correction directly to main, inspect all three checks f
 ## Exact next step
 
 Commit the focused Delete/Reset fix and review the exact commit's Actions. If Theme Lab passes, add/perform a safe direct test of Log Out All Devices and the account deletion confirm/recent-auth failure path, then verify Usage/Booster error states without real payments. Keep the work focused on controls, not repository-wide scans.
+
+
+## Latest work unit — Theme Lab Reset still fails the direct round-trip test (2026-10-16)
+
+- [x] Confirmed main `98312faa6eb55482750789631be92e2c7b55661f` passes Agent Verify #900 and Cloudflare Diagnostics #411.
+- [x] Inspected Browser Tests #415 logs. Appearance browser test now passes the Settings → Appearance navigation, custom theme name/color preservation, Save, Duplicate, Export, Import and Delete checks; it times out only after clicking **Reset Lab**, waiting for `customThemes` to become empty: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38917154145
+- [x] The canonical Delete/Reset handler still used `stopPropagation()`, which does not stop later click listeners on the same document from acting on the same click. Change both destructive Theme Lab actions to `stopImmediatePropagation()` and assert this event ownership in the source test.
+- [ ] Verify the new exact commit through Agent Verify, Diagnostics and the complete desktop/mobile Chromium logs; Theme Lab stays unverified until Reset passes.
+
+## Exact next step
+
+After Theme Lab Reset passes, continue with the requested safe Security direct-interaction browser checks: mocked Log Out All Devices result/failure, account-delete missing-confirmation and stale-auth rejection without performing actual deletion, and server-confirmed status handling. Then verify quota refresh/error and mocked Booster balance/checkout failure without real payments. Preserve honest connection/email wording and `rollback/settings-baseline-20261015`.

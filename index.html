@@ -7381,7 +7381,7 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
       return;
     }
     if(el.matches('[data-theme-delete]')){
-      e.preventDefault();e.stopPropagation();
+      e.preventDefault();e.stopImmediatePropagation();
       const lab=window.OVYXThemeLab;const id=String(lab?.state?.active||'');
       if(!id.startsWith('custom_')){window.showToast?.('Built-in OVYX presets cannot be deleted.','info');return;}
       if(!lab?.state?.customThemes?.[id]){window.showToast?.('This custom theme is no longer available.','error');return;}
@@ -7396,7 +7396,7 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
       return;
     }
     if(el.matches('[data-theme-reset]')){
-      e.preventDefault();e.stopPropagation();
+      e.preventDefault();e.stopImmediatePropagation();
       const lab=window.OVYXThemeLab;
       if(lab?.state){
         const previous={...lab.state,custom:{...(lab.state.custom||{})},customThemes:{...(lab.state.customThemes||{})}};
