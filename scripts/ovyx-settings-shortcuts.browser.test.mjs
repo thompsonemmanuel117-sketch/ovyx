@@ -90,8 +90,7 @@ try {
     });
     await page.keyboard.press('Control+n');
     await page.waitForFunction(
-      () => window.KernelState?.activeProject?.name === 'Shortcut Browser Test Project'
-        || (window.__settingsShortcutNewProjectCalls > 0 && window.__settingsShortcutKeyEvents?.length > 0),
+      () => window.KernelState?.activeProject?.name === 'Shortcut Browser Test Project',
       null,
       { timeout: 15000 },
     );
