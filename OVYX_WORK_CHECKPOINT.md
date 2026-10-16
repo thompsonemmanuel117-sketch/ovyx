@@ -173,3 +173,14 @@ Validate the Theme Lab Reset state capture with Agent Verify and Browser Tests. 
 ## Exact next step
 
 Inspect the exact commit’s three workflow results and Security browser logs. Once this control passes on desktop and mobile, move to the next unfinished Security control: safe account-deletion confirmation/recent-authentication rejection. Never perform real account deletion or a real payment.
+
+
+## Security browser test adjustment — assert rendered feedback (2026-10-16)
+
+- [x] Run #424 reached the focused Security browser test. The application correctly kept the current user signed in after a mocked HTTP 200 response with `revoked:false`; the failure occurred only because the test replaced `window.showToast`, while this page's Toast System uses a separate function binding.
+- [x] Updated the test to inspect the real rendered `#toast-stack` error/success messages instead of relying on the ineffective monkey-patch.
+- [ ] Rerun Agent Verify/build, Cloudflare Diagnostics, and desktop/mobile Security browser checks. The control stays unverified until those logs pass.
+
+## Exact next step
+
+Review the corrected Security browser step's logs. If it passes on both viewports, continue to safe Delete Account cancellation and stale-auth rejection checks.

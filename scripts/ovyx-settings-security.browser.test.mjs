@@ -68,10 +68,6 @@ try {
       Object.defineProperty(window, 'firebase', {
         configurable: true, enumerable: true, writable: true, value: firebaseStub,
       });
-      window.__securityToasts = [];
-      window.showToast = (message, type) => {
-        window.__securityToasts.push({ message: String(message), type: String(type || 'info') });
-      };
     });
 
     await page.evaluate(() => window.OVYXSettings.show('security'));
@@ -106,14 +102,18 @@ try {
     let state = await page.evaluate(() => ({
       signOutCalls: window.__securityTestState.signOutCalls,
       uid: window.__securityTestState.currentUser?.uid || null,
-      toasts: [...window.__securityToasts],
       disabled: document.getElementById('ovyx-revoke-all-devices')?.disabled ?? null,
       busy: document.getElementById('ovyx-revoke-all-devices')?.getAttribute('aria-busy') || null,
     }));
     assert.equal(state.signOutCalls, 0, '[' + target.name + '] unconfirmed HTTP 200 must not sign out.');
     assert.equal(state.uid, 'security-browser-test-user');
-    assert.ok(state.toasts.some(t => t.type === 'error' && /did not confirm/i.test(t.message)),
-      '[' + target.name + '] unconfirmed revocation must report an error: ' + JSON.stringify(state.toasts));
+    const unconfirmedErrorToast = page.locator('#toast-stack .ovyx-toast--error').filter({ hasText: /did not confirm/i });
+    await unconfirmedErrorToast.waitFor({ state: 'visible' });
+    assert.equal(
+      await page.locator('#toast-stack .ovyx-toast--success').filter({ hasText: /all devices have been logged out/i }).count(),
+      0,
+      '[' + target.name + '] unconfirmed revocation must not display success feedback.',
+    );
     assert.equal(state.disabled, false);
     assert.equal(state.busy, null);
 
@@ -132,12 +132,12 @@ try {
     state = await page.evaluate(() => ({
       signOutCalls: window.__securityTestState.signOutCalls,
       uid: window.__securityTestState.currentUser?.uid || null,
-      toasts: [...window.__securityToasts],
     }));
     assert.equal(state.signOutCalls, 0, '[' + target.name + '] HTTP 503 must not sign out.');
     assert.equal(state.uid, 'security-browser-test-user');
-    assert.ok(state.toasts.some(t => t.type === 'error' && /simulated session revocation outage/i.test(t.message)),
-      '[' + target.name + '] outage must be reported: ' + JSON.stringify(state.toasts));
+    await page.locator('#toast-stack .ovyx-toast--error')
+      .filter({ hasText: /simulated session revocation outage/i })
+      .waitFor({ state: 'visible' });
 
     // Positive server confirmation is required before local sign-out and success messaging.
     nextReply = {
@@ -153,8 +153,9 @@ try {
     await responseWait;
     await page.waitForFunction(() => window.__securityTestState?.signOutCalls === 1
       && window.__securityTestState.currentUser === null, null, { timeout: 10000 });
-    await page.waitForFunction(() => window.__securityToasts?.some(t =>
-      t.type === 'success' && /all devices have been logged out/i.test(t.message)), null, { timeout: 10000 });
+    await page.locator('#toast-stack .ovyx-toast--success')
+      .filter({ hasText: /all devices have been logged out/i })
+      .waitFor({ state: 'visible', timeout: 10000 });
 
     assert.equal(requests.length, 3, '[' + target.name + '] each click must issue exactly one revocation request.');
     assert.ok(requests.every(r => r.method === 'POST'), '[' + target.name + '] revocation must use POST.');
