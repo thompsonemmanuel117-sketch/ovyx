@@ -113,6 +113,9 @@ try {
 
     // Ctrl+Z / Ctrl+Shift+Z: use real Web Studio history and confirm the source state changes.
     try {
+      await page.evaluate(() => window.Router?.go?.('webstudio'));
+      await page.waitForFunction(() => window.KernelState?.activeView === 'webstudio', null, { timeout: 15000 });
+      await page.waitForTimeout(150);
       const prepared = await page.evaluate(() => {
         const studio = window.WebStudio;
         if (!studio || typeof studio.ensureProjectGraph !== 'function'
@@ -135,16 +138,35 @@ try {
         studio.setStyleParam('background', '#1456a0');
         studio.recordHistory();
         const after = String(studio.getActiveSection()?.styles?.background || '');
-        return { before, after, historyPointer: studio.historyPointer };
+        return { before, after, historyPointer: studio.historyPointer, activeView: String(window.KernelState?.activeView || '') };
       });
       assert.notEqual(prepared.after, prepared.before, '[' + target.name + '] test edit should change the active section before Undo.');
       assert.equal(prepared.after, '#1456a0');
+      await page.evaluate(() => {
+        const studio = window.WebStudio;
+        const undo = studio.undo.bind(studio);
+        const redo = studio.redo.bind(studio);
+        window.__settingsShortcutUndoCalls = 0;
+        window.__settingsShortcutRedoCalls = 0;
+        studio.undo = function () { window.__settingsShortcutUndoCalls += 1; return undo(); };
+        studio.redo = function () { window.__settingsShortcutRedoCalls += 1; return redo(); };
+      });
       await page.keyboard.press('Control+z');
-      const undone = await page.evaluate(() => String(window.WebStudio?.getActiveSection()?.styles?.background || ''));
-      assert.equal(undone, prepared.before, '[' + target.name + '] Ctrl+Z must restore the previous editor state.');
+      const undone = await page.evaluate(() => ({
+        background: String(window.WebStudio?.getActiveSection()?.styles?.background || ''),
+        pointer: window.WebStudio?.historyPointer,
+        activeView: String(window.KernelState?.activeView || ''),
+        calls: window.__settingsShortcutUndoCalls || 0,
+      }));
+      assert.equal(undone.background, prepared.before, '[' + target.name + '] Ctrl+Z must restore the previous editor state (route=' + undone.activeView + ', historyPointer=' + undone.pointer + ', undoCalls=' + undone.calls + ').');
       await page.keyboard.press('Control+Shift+z');
-      const redone = await page.evaluate(() => String(window.WebStudio?.getActiveSection()?.styles?.background || ''));
-      assert.equal(redone, '#1456a0', '[' + target.name + '] Ctrl+Shift+Z must reapply the edit after Undo.');
+      const redone = await page.evaluate(() => ({
+        background: String(window.WebStudio?.getActiveSection()?.styles?.background || ''),
+        pointer: window.WebStudio?.historyPointer,
+        activeView: String(window.KernelState?.activeView || ''),
+        calls: window.__settingsShortcutRedoCalls || 0,
+      }));
+      assert.equal(redone.background, '#1456a0', '[' + target.name + '] Ctrl+Shift+Z must reapply the edit after Undo (route=' + redone.activeView + ', historyPointer=' + redone.pointer + ', redoCalls=' + redone.calls + ').');
     } catch (error) {
       failures.push('[' + target.name + '] Undo/Redo: ' + error.message);
     }
