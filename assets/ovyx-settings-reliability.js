@@ -163,7 +163,11 @@
       }
     } catch (_) {}
     try {
-      installLivePreviewBridge();
+      // The view-change hook installs this shared pause gate. Reuse it instead
+      // of repeatedly replacing preview wrappers on every Settings toggle.
+      if (typeof window.WebStudio?.__ovyxShouldPauseLivePreviewV1 !== 'function') {
+        installLivePreviewBridge();
+      }
       const frame = $('ws-canvas-iframe');
       if (frame) frame.dataset.ovyxLivePreviewPaused = state.livePreview === false ? 'true' : 'false';
       const activeView = String(window.KernelState?.activeView || '').replace(/^view-/, '');

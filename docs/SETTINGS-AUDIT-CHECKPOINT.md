@@ -380,6 +380,13 @@ Check the final conclusion and complete log for browser run #386. Then continue 
 - [x] Confirmed the Data Layer, Appearance, Notifications, connection/security status labels and mocked Token Booster failure tests still pass in the same browser run before the Editor/Workspace timeout.
 - [ ] Do not mark the editor/live-preview toggle fixed until the full desktop/mobile browser workflow is green.
 
+
+## Stage 2 diagnostic step — reuse the installed preview gate (2026-10-16)
+
+- [x] Repeated calls to `applySettingEffects` no longer re-run `installLivePreviewBridge()` after the shared `__ovyxShouldPauseLivePreviewV1` gate is already installed. Web Studio's route-change hook remains the primary installer.
+- [x] Added a static regression assertion for reusing the existing gate.
+- [ ] Full desktop/mobile browser verification pending. Previous #405 still failed in the Editor/Workspace click despite Agent Verify and Diagnostics passing; this is not marked fixed yet.
+
 ## Exact next action
 
-Trace the click event path for `#set-live-preview` and its Settings persistence/render side effects to identify the remaining synchronous hang. Fix the actual cause, add a targeted regression assertion if needed, run the desktop/mobile browser suite and inspect the full logs. Once green, continue Theme Lab custom-theme lifecycle tests, then safe Security/session-revocation and Plan/Usage/Token Booster refresh paths using mock fixtures only. Keep email/service status truthful, never make a real purchase, and preserve `rollback/settings-baseline-20261015` unchanged.
+Verify the exact main commit with full build and Chromium logs. If the Live Preview toggle still times out, instrument the precise synchronous effect and fix the block based on captured trace output before touching other unrelated code. Then test Theme Lab custom-theme save/duplicate/export/import/delete/reset, followed by safe session revocation, account-deletion confirmation/re-auth failure, quota refresh/error state, and mocked Booster checkout/balance actions. Never perform a real purchase; preserve truthful external-service/email status and `rollback/settings-baseline-20261015`.
