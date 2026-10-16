@@ -27,3 +27,14 @@ The Live Preview toast change initially failed CI syntax validation because the 
 ## Exact next step
 
 Commit the Shortcut route-wait fix and the updated checkpoints directly to `main`. Review the exact commit's Agent Verify, Cloudflare Diagnostics, and full desktop/mobile Chromium job logs. If Shortcuts passes, continue to Editor/Workspace; if Live Preview fails, inspect the precise failure before changing the code again. Keep scope limited to controls that demonstrably do not work.
+
+## Stage 2 Theme Lab patch submitted (2026-10-16)
+
+- [x] Fixed canonical JSON import/export mapping and preserved theme names.
+- [x] Duplicate now stores a separate custom-theme entry with a unique ID; imported themes are saved as named Custom themes.
+- [x] Added desktop/mobile browser assertions for Save/Duplicate/Export/Import/Delete/Reset round-tripping.
+- [ ] Verify exact commit's build and browser logs. This is not done until tests pass.
+
+## Exact next step
+
+Inspect all three GitHub Actions for this commit. Then finish the unverified Security/session-revocation, quota refresh/error and mocked Booster balance/failure checks. Do not purchase tokens or overstate external service/email connectivity.

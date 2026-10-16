@@ -4238,10 +4238,10 @@ const ThemeLab={
  renderState(){document.querySelectorAll('.ovyx-theme-card').forEach(x=>x.classList.toggle('active',x.dataset.theme===this.state.active));const t=this.activeTheme();document.querySelectorAll('[data-theme-field]').forEach(i=>{const k=i.dataset.themeField;if(i.type==='color')i.value=t[k]||'#000000';else if(i.value!==t[k])i.value=t[k]||''});const n=document.querySelector('[data-theme-name]');if(n&&document.activeElement!==n)n.value=t.name||'My OVYX Theme';const root=document.querySelector('.ovyx-settings-shell');if(root){root.style.setProperty('--custom-bg',t.bg);root.style.setProperty('--custom-panel',t.panel);root.style.setProperty('--custom-text',t.text);root.style.setProperty('--custom-accent',t.accent)}},
  set(id){this.state.active=id;save(KEY,this.state);this.apply();toast('Theme applied and saved.','success')},
  update(k,v){if(this.state.active!=='custom')this.state.active='custom';this.state.custom[k]=v;save(KEY,this.state);this.apply()},
- saveCustom(){const name=(document.querySelector('[data-theme-name]')?.value||'My OVYX Theme').trim()||'My OVYX Theme';const id='custom_'+name.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,28)+'_'+Date.now().toString(36);this.state.custom.name=name;this.state.customThemes[id]={...this.state.custom,name};this.state.active=id;save(KEY,this.state);this.apply();Settings.renderThemeCards();toast(`Saved ${name}.`,'success')},
+ saveCustom(){const name=(document.querySelector('[data-theme-name]')?.value||this.state.custom?.name||'My OVYX Theme').trim()||'My OVYX Theme';const base='custom_'+name.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,28)+'_'+Date.now().toString(36);let id=base,n=2;while(this.state.customThemes?.[id])id=base+'_'+n++;this.state.custom.name=name;this.state.customThemes={...(this.state.customThemes||{}),[id]:{...this.state.custom,name}};this.state.active=id;save(KEY,this.state);this.apply();Settings.renderThemeCards();toast(`Saved ${name}.`,'success')},
  deleteActive(){if(!this.state.active.startsWith('custom_'))return toast('Built-in OVYX presets cannot be deleted.','info');const name=this.activeTheme().name;delete this.state.customThemes[this.state.active];this.state.active='obsidian';save(KEY,this.state);this.apply();Settings.renderThemeCards();toast(`Deleted ${name}.`,'success')},
  reset(){this.state={active:'obsidian',custom:{...presets.obsidian},customThemes:{}};save(KEY,this.state);this.apply();Settings.renderThemeCards();toast('Theme Lab reset to OVYX Obsidian.','info')},
- duplicate(){this.state.custom={...this.activeTheme(),name:(this.activeTheme().name||'Theme')+' Copy'};this.state.active='custom';save(KEY,this.state);this.apply();toast('Theme duplicated into Custom.','success')},
+ duplicate(source){const active=this.activeTheme()||presets.obsidian;const base=source&&typeof source==='object'?source:({...active,name:(active.name||'Theme')+' Copy'});const name=String(base.name||((active.name||'Theme')+' Copy')).trim()||'Theme Copy';const copy={...base,name};const stem='custom_'+name.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,28)+'_'+Date.now().toString(36);let id=stem,n=2;while(this.state.customThemes?.[id])id=stem+'_'+n++;this.state.custom={...copy};this.state.customThemes={...(this.state.customThemes||{}),[id]:copy};this.state.active=id;save(KEY,this.state);this.apply();Settings.renderThemeCards();toast(`Duplicated ${active.name||'theme'} as ${name}.`,'success')},
  export(){const blob=new Blob([JSON.stringify(this.activeTheme(),null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ovyx-theme.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),600)},
  import(){const input=document.createElement('input');input.type='file';input.accept='application/json,.json';input.onchange=()=>{const f=input.files?.[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const x=JSON.parse(rd.result);const ok=['bg','panel','elev','text','secondary','muted','accent'].every(k=>typeof x[k]==='string');if(!ok)throw Error('Invalid OVYX theme schema.');this.state.custom={...this.state.custom,...x,name:x.name||'Imported Theme'};this.state.active='custom';save(KEY,this.state);this.apply();toast('Theme imported.','success')}catch(e){toast(e.message||'Theme import failed.','error')}};rd.readAsText(f)};input.click()}
 };
@@ -7196,11 +7196,19 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
     motion:['full','reduced','minimal'].includes(String(t?.motion||''))?String(t.motion):'full'
   });
   const labToTheme=t=>clampTheme({
-    mode:'dark',accentColor:t?.accent,bg:t?.bg,panel:t?.panel,text:t?.text,secondary:t?.secondary,muted:t?.muted,
-    backgroundColor:t?.bg,sidebarColor:t?.bg,cardColor:t?.panel,borderColor:t?.border||'#1B222A',textColor:t?.text,mutedColor:t?.muted||t?.secondary
+    mode:t?.mode||'dark',
+    accentColor:t?.accentColor||t?.accent,
+    backgroundColor:t?.backgroundColor||t?.bg,
+    sidebarColor:t?.sidebarColor||t?.backgroundColor||t?.bg,
+    cardColor:t?.cardColor||t?.panel,
+    borderColor:t?.borderColor||t?.border||'#1B222A',
+    textColor:t?.textColor||t?.text,
+    mutedColor:t?.mutedColor||t?.muted||t?.secondary,
+    density:t?.density,scale:t?.scale,motion:t?.motion
   });
-  const themeToLab=t=>({
-    name:'OVYX Industrial Theme',bg:t.backgroundColor,panel:t.cardColor,elev:t.cardColor,text:t.textColor,
+  const themeToLab=(t,name)=>({
+    name:String(name||'OVYX Industrial Theme'),
+    bg:t.backgroundColor,panel:t.cardColor,elev:t.cardColor,text:t.textColor,
     secondary:t.mutedColor,muted:t.mutedColor,accent:t.accentColor,border:t.borderColor
   });
   function current(){return clampTheme(window.ThemeContext?.get?.()||{});}
@@ -7226,7 +7234,13 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
     const lab=window.OVYXThemeLab;
     if(!lab?.state)return;
     const t=current();
-    lab.state.custom={...(lab.state.custom||{}),...themeToLab(t)};
+    const activeId=String(lab.state.active||'');
+    const activeName=String(lab.activeTheme?.().name||lab.state.custom?.name||'OVYX Industrial Theme');
+    const mapped=themeToLab(t,activeName);
+    lab.state.custom={...(lab.state.custom||{}),...mapped};
+    if(activeId.startsWith('custom_')&&lab.state.customThemes?.[activeId]){
+      lab.state.customThemes[activeId]={...lab.state.customThemes[activeId],...mapped};
+    }
     try{localStorage.setItem(LAB_KEY,JSON.stringify(lab.state))}catch(e){console.warn('[OVYX runtime]',e)}
   }
   function saveCanonical(){
@@ -7312,15 +7326,56 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
     }
     if(el.matches('[data-theme-duplicate]')){
       e.preventDefault();e.stopPropagation();
-      const lab=window.OVYXThemeLab;if(lab?.duplicate){lab.state.custom={...(lab.state.custom||{}),...themeToLab(current()),name:(lab.activeTheme?.().name||'OVYX Theme')+' Copy'};lab.duplicate();paint(labToTheme(lab.activeTheme?.()),'custom-duplicate');syncUi();}
+      const lab=window.OVYXThemeLab;
+      if(lab?.duplicate){
+        const name=String(lab.activeTheme?.().name||'OVYX Theme')+' Copy';
+        lab.duplicate({...themeToLab(current(),name),name});
+        paint(labToTheme(lab.activeTheme?.()),'custom-duplicate');
+        saveCanonical();
+        syncUi();
+      }
       return;
     }
     if(el.matches('[data-theme-import]')){
       e.preventDefault();e.stopPropagation();
-      const input=document.createElement('input');input.type='file';input.accept='application/json,.json';input.onchange=()=>{const file=input.files?.[0];if(!file)return;const reader=new FileReader();reader.onload=()=>{try{const x=JSON.parse(String(reader.result||'{}'));const t=labToTheme(x);paint(t,'custom-import');window.showToast?.('Theme imported as a preview. Save Appearance to keep it.','success');syncUi();}catch(err){window.showToast?.(err.message||'Theme import failed.','error')}};reader.readAsText(file)};input.click();return;
+      const input=document.createElement('input');input.type='file';input.accept='application/json,.json';input.onchange=()=>{
+        const file=input.files?.[0];if(!file)return;
+        const reader=new FileReader();
+        reader.onload=()=>{
+          try{
+            const x=JSON.parse(String(reader.result||'{}'));
+            const t=labToTheme(x);
+            const name=String(x.name||x.title||'Imported OVYX Theme').trim().slice(0,80)||'Imported OVYX Theme';
+            const lab=window.OVYXThemeLab;
+            if(!lab?.state||typeof lab.saveCustom!=='function')throw new Error('Custom theme storage is unavailable.');
+            const nameInput=document.querySelector('[data-theme-name]');
+            if(nameInput)nameInput.value=name;
+            lab.state.custom={...themeToLab(t,name),name};
+            lab.saveCustom();
+            const saved=lab.activeTheme?.();
+            if(!String(lab.state.active||'').startsWith('custom_')||!saved)throw new Error('Imported theme was not saved as a custom theme.');
+            paint(labToTheme(saved),'custom-import');
+            saveCanonical();
+            syncUi();
+            const status=document.getElementById('settings-save-status');
+            if(status)status.textContent='Imported and saved custom theme: '+name+'.';
+          }catch(err){
+            const status=document.getElementById('settings-save-status');
+            if(status)status.textContent='Theme import failed: '+String(err?.message||'invalid theme');
+            window.showToast?.(err.message||'Theme import failed.','error');
+          }
+        };
+        reader.readAsText(file);
+      };
+      input.click();return;
     }
     if(el.matches('[data-theme-export]')){
-      e.preventDefault();e.stopPropagation();const blob=new Blob([JSON.stringify(current(),null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ovyx-theme.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500);return;
+      e.preventDefault();e.stopPropagation();
+      const labTheme=getActiveLabTheme();
+      const name=String(labTheme?.name||document.querySelector('[data-theme-name]')?.value||'OVYX Industrial Theme').trim()||'OVYX Industrial Theme';
+      const blob=new Blob([JSON.stringify({...current(),name},null,2)],{type:'application/json'});
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='ovyx-theme.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500);
+      return;
     }
     if(el.matches('[data-theme-delete]')){
       e.preventDefault();e.stopPropagation();

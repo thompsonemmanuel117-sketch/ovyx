@@ -342,83 +342,16 @@ Add a focused desktop/mobile browser test for **Shortcuts**. Exercise Command Pa
 - **Browser run #386:** the new Settings checks and all earlier steps through Web Studio passed in desktop/mobile Chromium; the final owner-only Admin Workspace step was in progress when this note was written. Do not claim that full run is finished until its log says success.
 - Existing non-blocking log warnings include Node `punycode` deprecation and GitHub Actions Node 20-to-24 deprecation. No failing source/build step was found in Agent Verify.
 
+
+## Stage 2 Theme Lab — canonical round-trip and persisted custom entries (2026-10-16)
+
+- [x] Verified #412's desktop/mobile run is evaluating the Settings boot-route fixture after prior #411 stopped before testing shortcuts. Latest main: `0e4dd392cf01cfa8f0fa3258bc98456aaf3fbeef`.
+- [x] Fixed schema conversion so Theme Lab `bg/panel/text/accent` and exported canonical `backgroundColor/cardColor/textColor/accentColor` keys import consistently; exports preserve the custom name.
+- [x] Save Custom Theme uses collision-resistant persisted IDs. Duplicate now creates a separate persisted `custom_*` entry instead of the transient `active:'custom'` alias.
+- [x] Import now saves a named Custom entry and then applies/persists its canonical appearance. Saving a canonical theme updates the active custom theme without losing its name.
+- [x] Extended the desktop/mobile Appearance browser test through Save → Duplicate → Export → Import → Delete → Reset, with round-trip name/color assertions.
+- [ ] Exact commit's Agent Verify and complete Chromium test output pending; do not call Theme Lab done until the new test passes.
+
 ## Exact next action
-Check the final conclusion and complete log for browser run #386. Then continue with the remaining Stage 2 items from the checklist above: Shortcuts, safe destructive-action/session-revocation fixtures, Theme Lab custom-theme CRUD, and a mocked/sandbox Token Booster checkout. Do not make a real purchase. Keep using focused line/function edits and update this checkpoint after each milestone; preserve `rollback/settings-baseline-20261015` unchanged.
 
-## Stage 2 resumed — live-preview resume regression (2026-10-16)
-
-- Confirmed latest mainline at resume: `d5fc80fb995c5f76e9c32a386d26540df019091e`.
-- Inspected full Agent Verify #873 log: `npm test`, `npm run validate`, `npm run build` preflight and Wrangler check all passed. Only known non-blocking `punycode` and GitHub Actions Node 20-to-24 deprecation warnings were present: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38891420900
-- Rechecked the focused Settings browser log on PR head `f7b06b1095b09477880426a835b166fd03c0cfd1`. The desktop/mobile Data Layer, Appearance, Notifications (exactly eight current switches; no legacy switches), connection/security labels, AI preference propagation and mocked Token Booster checkout-failure checks passed. Run #402 later failed in Editor/Workspace while re-enabling Live Preview from Settings; the full log identified the click timeout at `scripts/ovyx-settings-workspace.browser.test.mjs:257`: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38895804247
-- Root cause target: Settings may be visible as an overlay while Web Studio remains the active underlying route. The resume handler could synchronously call `WebStudio.renderPreview()` during that click, blocking the interactive control.
-- [x] Added a visibility guard so enabling Live Preview from a visible Settings surface updates the preference without immediately rebuilding the preview beneath the panel. Automatic preview rendering remains eligible once Settings is no longer visible and Web Studio is active.
-- [x] Added source-contract assertions for the Settings visibility guard.
-- [x] Added a main-branch push trigger for Settings runtime/API/test/workflow files so the exact committed Settings browser suite runs after a direct `main` update.
-- [x] Exact main commit `d866d163724f16af1cba0fa93f077efade707445` verified. **Agent Verify #886 passed** `npm test`, `npm run validate`, `npm run build` preflight and Wrangler validation: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38911187506
-- [x] **Assistant Workspace Browser Tests #403 passed** the complete desktop/mobile Chromium suite, including the previously failing Editor/Workspace Live Preview pause/resume action, Data Layer, Appearance, AI Preferences, Profile/Notifications, booster checkout failure handling, admin hub, Sentinel, provider availability, Web Studio, and owner-only Admin Workspace: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38911187607
-- [x] **Cloudflare Diagnostics #397 passed**: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38911187404
-- [x] Inspected the full logs for all three jobs. No failed step or `##[error]` build/test error was present. Non-blocking notices: Node `punycode` and `url.parse()` deprecations, GitHub Actions Node 20-to-24 migration warnings; the browser runner's local Pages readiness check initially retried a refused connection and then started successfully.
-- [x] The Live Preview fix is now verified on desktop and mobile; the previously failing editor/workspace test passes.
-
-## Stage 2 continued — keyboard shortcuts added directly to main (2026-10-16)
-
-- [x] Ported the reviewed Command Palette/shortcut fix into `main`: `show()` no longer immediately hides the palette, the key listener is initialized during app startup, and Shift+Z no longer triggers both Undo and Redo.
-- [x] Added the dedicated desktop/mobile Chromium regression test for palette focus/open/close, New Project creation/persistence, single Save persistence, and Undo/Redo dispatch.
-- [x] Added the shortcut browser test to the mainline browser workflow and its pull-request path filter. Workspace and account browser fixtures also wait for their intended Settings state before continuing.
-- [x] The shortcut commit’s Agent Verify #888 passed, and the source assertions cover the palette staying open, startup keyboard registration, and Shift+Z undo/redo separation: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38911881284
-- [x] The dedicated Shortcut browser step passed on desktop and mobile in Chromium: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38911880995
-- [ ] Full browser workflow #404 failed later in Editor/Workspace at line 248 on the Live Preview toggle. The exact log confirms the forced click began but never completed; no assertion in the shortcut browser test failed. Agent Verify and Cloudflare Diagnostics were green, but the complete browser job is not green yet.
-
-## Stage 2 continued — avoid deep snapshot on unrelated toggles (2026-10-16)
-
-- [x] Identified that `applySettingEffects` called `OVYXRuntimeSession.save()` on every workspace switch; the runtime implementation deep-clones the active project into a recovery draft.
-- [x] Restricted that synchronous snapshot to an actual `autosave` preference change. Inspector/live-preview/safety/notification changes persist their settings without unnecessarily serializing the whole project. Autosave on/off still runs the existing recovery clear/restore path.
-- [x] Added a static regression assertion for this persistence boundary.
-- [ ] Verify the exact new commit with full Agent Verify and Chromium logs; the editor toggle remains unverified until the browser suite passes.
-
-- [ ] Follow-up commit `7a0f74238d71882b0593dcd4cefe0d2e1fe561e0`: Agent Verify passed and Cloudflare Diagnostics passed, but the complete browser workflow #405 still fails in Editor/Workspace when clicking the Live Preview toggle (step timeout at test line 248). The unrelated-toggle snapshot reduction alone did not resolve the hang. Full log: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38912617329. Latest Agent Verify: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38912617016. Diagnostics: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38912616395.
-- [x] Confirmed the Data Layer, Appearance, Notifications, connection/security status labels and mocked Token Booster failure tests still pass in the same browser run before the Editor/Workspace timeout.
-- [ ] Do not mark the editor/live-preview toggle fixed until the full desktop/mobile browser workflow is green.
-
-
-## Stage 2 diagnostic step — reuse the installed preview gate (2026-10-16)
-
-- [x] Repeated calls to `applySettingEffects` no longer re-run `installLivePreviewBridge()` after the shared `__ovyxShouldPauseLivePreviewV1` gate is already installed. Web Studio's route-change hook remains the primary installer.
-- [x] Added a static regression assertion for reusing the existing gate.
-- [ ] Full desktop/mobile browser verification pending. Previous #405 still failed in the Editor/Workspace click despite Agent Verify and Diagnostics passing; this is not marked fixed yet.
-
-
-## Stage 2 diagnostic step — locate the Live Preview resume stall (2026-10-16)
-
-- [x] Direct Settings code no longer calls `WebStudio.renderPreview()` synchronously for either pause or resume; Agent Verify #892 and Cloudflare Diagnostics #403 passed for commit `9da8c481643c421b013dbfd420ec18fd446098ea`.
-- [x] Browser #407 confirms the pause click now succeeds on desktop/mobile. The next resume click still fails at `scripts/ovyx-settings-workspace.browser.test.mjs:257`: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38913891840
-- [x] Added test-activated trace markers around window capture, Settings toggle handling, state writes, effects and toast; the application remains silent unless the fixture explicitly enables tracing.
-- [ ] Use the next browser log's `[OVYX SETTINGS TRACE]` sequence to isolate the blocking operation, fix it and rerun the desktop/mobile workflow.
-
-
-## Stage 2 fix — remove blocking toast from Workspace toggle clicks (2026-10-16)
-
-- [x] Trace run #410 showed persistence, effects and state synchronization return; the click stopped inside `notify()`/global `showToast`, before the handler returned: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38914490531
-- [x] Switched Workspace toggle feedback to the Settings status region instead of a synchronous global toast. Settings persistence and pause-marker updates remain in place; this removes DOM-heavy toast rendering from the click path.
-- [x] Removed temporary trace instrumentation and added a source-contract check that the toggle handler uses inline status feedback and never calls `notify()`.
-- [ ] Verify pause and resume on desktop/mobile using the full browser run for this exact commit.
-
-
-## Stage 2 syntax repair — non-blocking Workspace status feedback (2026-10-16)
-
-- [x] The first no-toast patch was caught by CI before runtime tests: cleanup of diagnostic tracing left the Live Preview guard's `try` without its `catch`. Full log: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38915004263
-- [x] Restored the local error boundary; the guarded pause-marker/update logic still fails closed without interrupting the Settings toggle.
-- [x] The source regression test now checks Workspace toggles use the inline Settings status and do not call `notify()`.
-- [ ] Exact commit must pass Agent Verify and the full desktop/mobile browser workflow; the Live Preview resume click is not marked fixed yet.
-
-## Latest direct interaction run
-
-- [x] Current main commit `dfdebeea3bc72b78db8a02d56bc45f18e62e7491`: Agent Verify passed; Cloudflare Diagnostics passed.
-- [x] Browser checks for Appearance, Data Layer (including no duplicate legacy notification switches), AI Preferences/request propagation all passed on desktop and mobile.
-- [ ] Browser workflow failed in the Shortcut test before exercising shortcut behavior: after `Router.go('settings')`, the test waited for `#view-settings` without first waiting for `KernelState.activeView === 'settings'`. The panel was still hidden. Full log: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38915231269
-- [x] Fix prepared: wait for the confirmed Settings route before asserting panel visibility, matching the existing Profile/Notifications test pattern.
-- [ ] Validate this test-only timing fix, then check the later Editor/Workspace Live Preview pause/resume step. Do not mark Live Preview complete unless both toggle interactions pass.
-
-## Exact next step
-
-Commit the Shortcut route-wait fix and the updated checkpoints directly to `main`. Review the exact commit's Agent Verify, Cloudflare Diagnostics, and full desktop/mobile Chromium job logs. If Shortcuts passes, continue to Editor/Workspace; if Live Preview fails, inspect the precise failure before changing the code again. Keep scope limited to controls that demonstrably do not work.
+Inspect build logs first, then the full browser run. Fix any failing Theme Lab interaction based on its exact log. Confirm the Workspace pause/resume test also passes after the no-toast change. Then verify safe session revocation/account deletion failure flows, quota refresh/error status, and mocked Booster purchase/balance behavior. Preserve truthful service/email status, never run a real payment, and preserve `rollback/settings-baseline-20261015`.

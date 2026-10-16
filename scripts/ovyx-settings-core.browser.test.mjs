@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
+import { readFile } from 'node:fs/promises';
 
 const baseURL = String(process.env.OVYX_E2E_BASE_URL || '').trim();
 if (!baseURL) throw new Error('OVYX_E2E_BASE_URL must point to the local or deployed OVYX Pages app.');
@@ -175,6 +176,78 @@ try {
       1,
       '[' + target.name + '] Reset must apply exactly once.',
     );
+
+    // Theme Lab lifecycle: Save, Duplicate, Export, Import, Delete and Reset must
+    // update persistent storage and preserve the custom theme's name and colors.
+    await appearance.locator('[data-theme-name]').fill('OVYX Roundtrip QA');
+    await appearance.locator('[data-theme-hex="bg"]').fill('#112233');
+    await appearance.locator('[data-theme-hex="accent"]').fill('#445566');
+    await appearance.locator('[data-theme-save]').click();
+    await page.waitForFunction(() => Object.values(window.OVYXThemeLab?.state?.customThemes || {})
+      .some(theme => theme.name === 'OVYX Roundtrip QA' && String(theme.bg).toUpperCase() === '#112233'));
+    const savedId = await page.evaluate(() => window.OVYXThemeLab.state.active);
+    assert.ok(savedId.startsWith('custom_'), '[' + target.name + '] Save Custom Theme must create a persisted Custom entry.');
+
+    await appearance.locator('[data-theme-duplicate]').click();
+    await page.waitForFunction(previousId => {
+      const lab = window.OVYXThemeLab;
+      return String(lab.state.active).startsWith('custom_')
+        && lab.state.active !== previousId
+        && lab.state.customThemes[lab.state.active]?.name === 'OVYX Roundtrip QA Copy';
+    }, savedId);
+    const duplicateId = await page.evaluate(() => window.OVYXThemeLab.state.active);
+    const duplicateCount = await page.evaluate(() => Object.keys(window.OVYXThemeLab.state.customThemes || {}).length);
+    assert.equal(duplicateCount, 2, '[' + target.name + '] Duplicate must create a second persisted Custom theme.');
+    await page.evaluate(() => {
+      window.__ovyxThemeExportText = null;
+      const original = URL.createObjectURL.bind(URL);
+      URL.createObjectURL = function (blob) {
+        if (blob instanceof Blob && blob.type === 'application/json') blob.text().then(text => { window.__ovyxThemeExportText = text; });
+        return original(blob);
+      };
+    });
+    const downloadPromise = page.waitForEvent('download');
+    await appearance.locator('[data-theme-export]').click();
+    const download = await downloadPromise;
+    assert.equal(download.suggestedFilename(), 'ovyx-theme.json', '[' + target.name + '] Export must download a JSON theme file.');
+    const downloadPath = await download.path();
+    assert.ok(downloadPath, '[' + target.name + '] Export should produce a readable download.');
+    const exported = JSON.parse(await readFile(downloadPath, 'utf8'));
+    await page.waitForFunction(() => Boolean(window.__ovyxThemeExportText));
+    const interceptedExport = JSON.parse(await page.evaluate(() => window.__ovyxThemeExportText));
+    assert.equal(exported.name, 'OVYX Roundtrip QA Copy', '[' + target.name + '] Export must preserve the custom theme name.');
+    assert.equal(exported.backgroundColor, '#112233', '[' + target.name + '] Export must preserve canonical background color.');
+    assert.equal(interceptedExport.accentColor, '#445566', '[' + target.name + '] Exported Blob must preserve canonical accent color.');
+
+    const chooserPromise = page.waitForEvent('filechooser');
+    await appearance.locator('[data-theme-import]').click();
+    const chooser = await chooserPromise;
+    await chooser.setFiles({
+      name: 'ovyx-theme.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from(JSON.stringify(exported)),
+    });
+    await page.waitForFunction(expectedName => {
+      const lab = window.OVYXThemeLab;
+      const active = String(lab?.state?.active || '');
+      return active.startsWith('custom_') && lab.state.customThemes?.[active]?.name === expectedName;
+    }, exported.name);
+    const importedId = await page.evaluate(() => window.OVYXThemeLab.state.active);
+    assert.notEqual(importedId, duplicateId, '[' + target.name + '] Import must create a new Custom entry.');
+    const imported = await page.evaluate(() => {
+      const lab = window.OVYXThemeLab;
+      return { ...lab.state.customThemes[lab.state.active] };
+    });
+    assert.equal(String(imported.bg).toUpperCase(), '#112233', '[' + target.name + '] Import must accept canonical backgroundColor.');
+    assert.equal(String(imported.accent).toUpperCase(), '#445566', '[' + target.name + '] Import must accept canonical accentColor.');
+
+    await appearance.locator('[data-theme-delete]').click();
+    await page.waitForFunction(id => !window.OVYXThemeLab.state.customThemes?.[id]
+      && window.OVYXThemeLab.state.active === 'obsidian', importedId);
+    await appearance.locator('[data-theme-reset]').click();
+    await page.waitForFunction(() => window.OVYXThemeLab.state.active === 'obsidian'
+      && Object.keys(window.OVYXThemeLab.state.customThemes || {}).length === 0);
+    assert.equal((await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx.theme.lab.v1') || '{}')).then(x => x.active)), 'obsidian');
 
     const relevantErrors = pageErrors.filter(message =>
       /ThemeContext|appearance|ReferenceError/i.test(message));
