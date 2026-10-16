@@ -117,3 +117,11 @@ Inspect the exact new commit's build and browser logs. If the source contract pa
 ## Exact next step
 
 Inspect all Actions for the path correction commit. If the source contract passes, let the desktop/mobile browser run reach Theme Lab and fix only the next evidenced failure before moving on to the direct Security, Usage, and Booster controls. No real payments or destructive account deletion.
+
+
+## Latest verification finding — point contract at the Theme Lab test file (2026-10-16)
+
+- [x] Agent Verify #904 and Browser Tests #419 logs showed the previous path correction looked for a nonexistent root-level `ovyx-settings-workspace.browser.test.mjs` and failed with ENOENT before interactions.
+- [x] Inspected the actual browser tests: Theme Lab Import round-trip is in `scripts/ovyx-settings-core.browser.test.mjs`, not the Workspace browser test.
+- [x] Updated the explicit source read to that core browser test; confirmed its source contains both the new-ID wait condition and `previousId: duplicateId` assertion fragments before committing.
+- [ ] Validate the exact new commit with Agent Verify, Cloudflare Diagnostics and desktop/mobile Browser Tests. Theme Lab remains unverified until its full lifecycle passes in the browser.
