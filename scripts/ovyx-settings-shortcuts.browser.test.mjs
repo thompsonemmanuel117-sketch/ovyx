@@ -91,7 +91,13 @@ try {
         window.KernelState.activeProject.updatedAt = Date.now();
       });
       await page.keyboard.press('Control+s');
-      await page.getByText('Project saved on this device.', { exact: true }).waitFor({ state: 'visible' });
+      await page.waitForFunction(() => {
+        const uid = window.firebase?.auth?.().currentUser?.uid;
+        const key = uid ? 'ovyx.projects.v22.user.' + uid : 'ovyx.projects.v22.guest';
+        const projects = JSON.parse(localStorage.getItem(key) || '[]');
+        const active = window.KernelState?.activeProject;
+        return Array.isArray(projects) && projects.some(p => p.id === active?.id && p.description === 'Updated by the Ctrl+S browser test.');
+      }, null, { timeout: 15000 });
       const saved = await page.evaluate(() => {
         const uid = window.firebase?.auth?.().currentUser?.uid;
         const key = uid ? 'ovyx.projects.v22.user.' + uid : 'ovyx.projects.v22.guest';
@@ -118,9 +124,13 @@ try {
         studio.ensureProjectGraph();
         studio.historyStack = [];
         studio.historyPointer = -1;
-        const section = studio.getActiveSection();
-        if (!section) throw new Error('Web Studio has no active section for history testing.');
-        const before = String(section.styles?.background || '');
+        const page = studio.getActivePage();
+        const section = page?.sections?.[0];
+        if (!section) throw new Error('Web Studio has no page section available for history testing.');
+        studio.selectedNodeId = section.id;
+        const selected = studio.getActiveSection();
+        if (!selected) throw new Error('Web Studio could not select the fixture section for history testing.');
+        const before = String(selected.styles?.background || '');
         studio.recordHistory();
         studio.setStyleParam('background', '#1456a0');
         studio.recordHistory();
