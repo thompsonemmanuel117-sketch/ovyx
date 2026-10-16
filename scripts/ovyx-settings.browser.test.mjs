@@ -35,7 +35,7 @@ try {
     page.setDefaultTimeout(20000);
     const settingsErrors = [];
     page.on('pageerror', error => {
-      if (/renderDataLayer|OVYXDataLayerSettings|ovyx-data-(?:endpoint|sync|test|save|schema)|dbCfg/i.test(error.message)) {
+      if (/renderDataLayer|OVYXDataLayerSettings|ovyx-data-(?:endpoint|sync|test|save|schema)|dbCfg|renderNotifications|OVYXTokenBooster|ovyx-v65-booster|settings-panel/i.test(error.message)) {
         settingsErrors.push(error.message);
       }
     });
@@ -239,6 +239,81 @@ try {
     assert.equal(savedTheme.density, 'balanced', '[' + target.name + '] Privacy reset must restore balanced density.');
     assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('ovyx.appearance.v3'))).mode, 'dark',
       '[' + target.name + '] Privacy reset must update the legacy appearance mirror too.');
+
+
+    // The live Notifications renderer must show only its current controls. The
+    // three legacy switches were part of the old panel and must not render beside them.
+    await page.evaluate(() => window.OVYXSettings.show('notifications'));
+    const notifications = page.locator('[data-settings-panel="notifications"]');
+    await notifications.waitFor({ state: 'visible' });
+    await notifications.locator('[data-notify]').first().waitFor({ state: 'visible' });
+    assert.equal(await notifications.locator('[data-notify]').count(), 8,
+      '[' + target.name + '] Notifications must render six in-app switches and two email preference switches.');
+    for (const legacyId of ['set-notify-build', 'set-notify-fail', 'set-notify-usage']) {
+      assert.equal(await notifications.locator('#' + legacyId).count(), 0,
+        '[' + target.name + '] legacy notification switch ' + legacyId + ' must not appear beside the account-backed controls.');
+    }
+    const notificationCopy = await notifications.innerText();
+    assert.match(notificationCopy, /Email delivery is not provided by these switches/i,
+      '[' + target.name + '] email preferences must explicitly disclose that they do not send email.');
+    assert.match(notificationCopy, /delivery service/i);
+
+    // Security badges are guidance labels, not claims that a live audit ran.
+    await page.evaluate(() => window.OVYXSettings.show('security'));
+    const security = page.locator('[data-settings-panel="security"]');
+    await security.waitFor({ state: 'visible' });
+    const securityBadges = await security.locator('.ovyx-health-chip').allTextContents();
+    assert.ok(securityBadges.includes('AUTH PROVIDER'), '[' + target.name + '] security panel must describe the authentication source without an unverified SECURE badge.');
+    assert.ok(securityBadges.includes('GUIDANCE'), '[' + target.name + '] secret storage badge must be guidance, not an unverified protection status.');
+    assert.ok(securityBadges.includes('REQUIRED'), '[' + target.name + '] production secret badge must state a requirement, not claim deployment verification.');
+    assert.ok(!securityBadges.includes('SECURE') && !securityBadges.includes('PROTECTED'),
+      '[' + target.name + '] stale generic security-success badges must not appear.');
+
+    // The active AI boot script must not equate account login with provider health.
+    const aiBoot = page.locator('script#ovyx-auto-ai-boot-v2');
+    assert.equal(await aiBoot.count(), 1, '[' + target.name + '] the active AI connection initializer must be unique.');
+    const aiBootSource = await aiBoot.textContent();
+    assert.match(aiBootSource, /connected=false/);
+    assert.match(aiBootSource, /connectionStatus='not_verified'/);
+    assert.doesNotMatch(aiBootSource, /connected=true/,
+      '[' + target.name + '] account authentication alone must not mark an AI provider connected.');
+
+    // Exercise Token Booster checkout with a mocked failing server response only.
+    // This verifies the UI handles unavailable payments without ever opening a real checkout.
+    await page.evaluate(() => window.OVYXSettings.show('boosters'));
+    const boosters = page.locator('[data-settings-panel="boosters"]');
+    await boosters.waitFor({ state: 'visible' });
+    await boosters.locator('[data-boost-pack]').first().waitFor({ state: 'visible' });
+    assert.equal(await boosters.locator('[data-boost-pack]').count(), 3,
+      '[' + target.name + '] all three Token Booster packs must be available.');
+    await boosters.locator('[data-boost-pack="starter"]').click();
+    const boosterModal = page.locator('#ovyx-v65-booster-modal');
+    await boosterModal.waitFor({ state: 'visible' });
+    assert.match(await boosterModal.innerText(), /credited only after the payment provider confirms and the OVYX server verifies/i,
+      '[' + target.name + '] Token Booster must explain server-confirmed credit.');
+    await boosterModal.locator('[data-pack="builder"]').click();
+    await boosterModal.locator('[data-currency]').selectOption('USD');
+    assert.equal(await boosterModal.locator('[data-provider]').inputValue(), 'paystack');
+    await page.evaluate(() => {
+      const fakeUser = { uid: 'settings-booster-e2e', email: 'settings-booster@example.test', emailVerified: true, getIdToken: async () => 'test-only-browser-token' };
+      try { Object.defineProperty(window, 'firebase', { configurable: true, writable: true, value: { auth: () => ({ currentUser: fakeUser }) } }); }
+      catch (_) { window.firebase = { auth: () => ({ currentUser: fakeUser }) }; }
+    });
+    let paymentCreatePayload = null;
+    await page.route('**/api/payments/create', async route => {
+      paymentCreatePayload = route.request().postDataJSON();
+      await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'MOCKED_PROVIDER_UNAVAILABLE' }) });
+    });
+    await boosterModal.locator('[data-pay]').click();
+    await page.waitForFunction(() => document.querySelector('#ovyx-v65-booster-modal [data-status]')?.textContent?.includes('MOCKED_PROVIDER_UNAVAILABLE'));
+    assert.deepEqual(paymentCreatePayload, {
+      productType: 'token_booster', productId: 'builder', currency: 'USD', provider: 'paystack',
+    }, '[' + target.name + '] checkout must send the selected pack and server-controlled provider choice.');
+    assert.equal(await boosterModal.locator('[data-pay]').isEnabled(), true,
+      '[' + target.name + '] failed checkout initialization must re-enable the button for retry.');
+    assert.doesNotMatch(await boosterModal.locator('[data-status]').innerText(), /Payment confirmed|tokens have been added/i,
+      '[' + target.name + '] failed checkout must never claim the tokens were credited.');
+    await boosterModal.locator('[data-close]').click();
 
     assert.deepEqual(settingsErrors, [], '[' + target.name + '] Settings controls should not throw browser errors.');
     await context.close();
