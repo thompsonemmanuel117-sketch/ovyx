@@ -316,3 +316,16 @@ The following Settings areas now have desktop/mobile browser evidence for their 
 
 ## Exact next action
 Add a focused desktop/mobile browser test for **Shortcuts**. Exercise Command Palette, New Project, Save Project, Undo and Redo in their relevant app surfaces; confirm exactly what state changes and where project data is persisted. Change runtime code only if the test proves a broken action. Run Agent Verify and Chromium, inspect the complete logs, merge passing work into `main`, and update this checkpoint. Then continue with safe Profile/Security destructive-path verification.
+
+
+## Stage 2 focused fix — avoid false AI-connected status (2026-10-16)
+- [x] Inspected only the exact auto-AI boot line in `index.html` (script `ovyx-auto-ai-boot-v2`).
+- [x] Fixed commit on `main`: `aff0bc435c0227c78aa823a6f99d86207c05c059`.
+- [x] A signed-in Firebase user previously caused `window.OVYXAI.connected=true` before any provider/backend health check. It now starts with `connected=false` and `connectionStatus='not_verified'`; login alone no longer claims an AI provider is connected.
+- [x] Confirmed email preference UI already explicitly says saving preferences does not trigger email delivery. Do not implement or claim actual email delivery unless a real mail provider is configured.
+- [x] Token Booster has a purchase modal and server-confirmed credit flow in source; purchases still require safe mocked/sandbox verification, never a real purchase in this audit.
+- [ ] Confirm duplicate legacy notification controls are not simultaneously visible in the actual rendered Settings panel.
+- [ ] Run/inspect CI logs for the new mainline commit and continue targeted Stage 2 browser verification for Token Boosters and connection labels.
+
+## Exact next action
+Check GitHub Actions on `aff0bc435c0227c78aa823a6f99d86207c05c059`. Then add one focused browser assertion that signing in alone never displays a verified/connected AI provider state. Continue with notification duplicate visibility and Token Booster sandbox-path tests; do not scan the full HTML or repository.
