@@ -294,6 +294,7 @@ try {
     assert.match(await boosterModal.innerText(), /credited only after the payment provider confirms and the OVYX server verifies/i);
     await boosterModal.locator('[data-pack="builder"]').click();
     await boosterModal.locator('[data-currency]').selectOption('USD');
+    await page.waitForFunction(() => document.querySelector('#ovyx-v65-booster-modal [data-provider]')?.value === 'paystack');
     assert.equal(await boosterModal.locator('[data-provider]').inputValue(), 'paystack');
     await page.waitForFunction(() => document.querySelector('#ovyx-v65-booster-modal [data-provider-note]')?.textContent?.includes('International USD checkout attempts the configured Paystack provider'));
     assert.match(await boosterModal.locator('[data-provider-note]').innerText(), /Availability is checked when you continue; errors stop the purchase/i);
