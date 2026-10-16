@@ -56,6 +56,10 @@ assert.ok(html.includes("does not replace OVYX’s built-in /api/projects sync s
 assert.ok(html.includes("if(el.matches('[data-theme-delete]')){\n      e.preventDefault();e.stopImmediatePropagation();"), 'Theme Lab delete must have one event owner.');
 assert.ok(html.includes("if(el.matches('[data-theme-reset]')){\n      e.preventDefault();e.stopImmediatePropagation();"), 'Theme Lab reset must have one event owner to prevent stale legacy handlers from restoring custom entries.');
 assert.ok(html.includes("this.search('');\n      },\n      hide() {"), 'Command Palette show must leave the palette open after populating its actions.');
+assert.ok(html.includes("function save(options){") && html.includes("if(!options?.silent)window.showToast?.('Appearance saved','success');"), 'Canonical appearance save must allow destructive Theme Lab actions to persist without a blocking success toast.');
+assert.ok(html.includes("saveCanonical({silent:true});lab.renderState?.();window.OVYXSettings?.renderThemeCards?.();"), 'Theme Lab Delete must save quietly and report success inline.');
+assert.ok(html.includes("saveCanonical({silent:true});lab?.renderState?.();window.OVYXSettings?.renderThemeCards?.();"), 'Theme Lab Reset must save quietly and report success inline.');
+assert.ok(!html.includes("window.showToast?.('Deleted '+name+'.','success')") && !html.includes("window.showToast?.('OVYX Theme Lab reset to the industrial dark baseline.','success')"), 'Theme Lab Delete/Reset success must avoid synchronous global toast rendering.');
 assert.ok(html.includes('CommandPalette.init();'), 'Command Palette keyboard shortcuts must actually be registered during startup.');
 assert.ok(html.includes("!event.shiftKey && event.key.toLowerCase() === 'z'"), 'Shift+Z must trigger Redo without also triggering Undo.');
 assert.ok(!html.includes("this.search('');\n        this.hide();\n      },\n      hide() {"), 'Command Palette show must not immediately close the palette it just opened.');

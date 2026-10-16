@@ -6947,12 +6947,12 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
   function clone(v){return JSON.parse(JSON.stringify(v));}
   function setTemp(patch,reason){tempTheme=normalize({...tempTheme,...patch});dirty=true;apply(tempTheme,reason||'preview');updateDirtyUI();}
   function restoreSaved(reason){tempTheme=clone(savedTheme);dirty=false;apply(tempTheme,reason||'cancel');updateDirtyUI();}
-  function save(){
+  function save(options){
     savedTheme=normalize(clone(tempTheme));
     try{localStorage.setItem(THEME_KEY,JSON.stringify(savedTheme));}
     catch(e){try{window.showToast?.('Appearance could not be saved on this device.','error')}catch(e){console.warn('[OVYX runtime]',e)};return false;}
     try{localStorage.setItem(APPEAR_KEY,JSON.stringify({mode:savedTheme.mode,density:savedTheme.density,scale:savedTheme.scale,motion:savedTheme.motion}));}catch(e){console.warn('[OVYX runtime]',e)}
-    dirty=false;apply(savedTheme,'save');updateDirtyUI();window.showToast?.('Appearance saved','success');return true;
+    dirty=false;apply(savedTheme,'save');updateDirtyUI();if(!options?.silent)window.showToast?.('Appearance saved','success');return true;
   }
   function resetSaved(){savedTheme=clone(DEFAULT_DARK);tempTheme=clone(DEFAULT_DARK);dirty=false;try{localStorage.setItem(THEME_KEY,JSON.stringify(savedTheme));localStorage.setItem(APPEAR_KEY,JSON.stringify({mode:'dark',density:'balanced',scale:'balanced',motion:'full'}));}catch(e){console.warn('[OVYX runtime]',e)};apply(tempTheme,'reset');updateDirtyUI();}
   function syncControls(){
@@ -7246,9 +7246,9 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
     }
     try{localStorage.setItem(LAB_KEY,JSON.stringify(lab.state))}catch(e){console.warn('[OVYX runtime]',e)}
   }
-  function saveCanonical(){
+  function saveCanonical(options){
     if(!window.ThemeContext?.save)return false;
-    const ok=window.ThemeContext.save();
+    const ok=window.ThemeContext.save(options);
     if(ok)syncLabMirror();
     return ok;
   }
@@ -7391,8 +7391,8 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
       try{localStorage.setItem(LAB_KEY,JSON.stringify(lab.state));}
       catch(error){lab.state=previous;window.showToast?.('Theme deletion could not be saved on this device.','error');return;}
       const active=lab.activeTheme?.();if(active)paint(labToTheme(active),'custom-delete');
-      saveCanonical();lab.renderState?.();window.OVYXSettings?.renderThemeCards?.();
-      window.showToast?.('Deleted '+name+'.','success');
+      saveCanonical({silent:true});lab.renderState?.();window.OVYXSettings?.renderThemeCards?.();
+      const status=document.getElementById('settings-save-status');if(status)status.textContent='Deleted '+name+'.';
       return;
     }
     if(el.matches('[data-theme-reset]')){
@@ -7407,8 +7407,8 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
       }
       const active=lab?.activeTheme?.();
       if(active)paint(labToTheme(active),'theme-reset');
-      saveCanonical();lab?.renderState?.();window.OVYXSettings?.renderThemeCards?.();
-      window.showToast?.('OVYX Theme Lab reset to the industrial dark baseline.','success');
+      saveCanonical({silent:true});lab?.renderState?.();window.OVYXSettings?.renderThemeCards?.();
+      const status=document.getElementById('settings-save-status');if(status)status.textContent='OVYX Theme Lab reset to the industrial dark baseline.';
       return;
     }
   },true);

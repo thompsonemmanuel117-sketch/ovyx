@@ -14,7 +14,7 @@ Focused Settings interaction pass only. Do not restart a repository-wide or stag
 - Appearance, AI preference propagation, Profile/Notifications persistence and failure recovery, Shortcuts, and most Workspace actions have desktop/mobile browser coverage.
 
 ## Current blocker
-The Live Preview toast change initially failed CI syntax validation because the temporary trace cleanup removed the surrounding catch. That exact syntax issue is fixed in the current follow-up. Do not mark pause/resume complete until the next full desktop/mobile Chromium run passes.
+The latest full browser run on `aebc9c9288604218f33057def03d871a6a1387a1` fails during the Theme Lab Delete click (`scripts/ovyx-settings-core.browser.test.mjs:253`). Agent Verify and Cloudflare Diagnostics pass. Delete/Reset synchronously save canonical Appearance—which renders a global success toast—and then render another global success toast. This repeats the known click-blocking toast pattern. Fix these actions to save quietly and report through the Settings status region; verify the exact new commit before moving on.
 
 ## Latest direct interaction run
 
@@ -125,3 +125,15 @@ Inspect all Actions for the path correction commit. If the source contract passe
 - [x] Inspected the actual browser tests: Theme Lab Import round-trip is in `scripts/ovyx-settings-core.browser.test.mjs`, not the Workspace browser test.
 - [x] Updated the explicit source read to that core browser test; confirmed its source contains both the new-ID wait condition and `previousId: duplicateId` assertion fragments before committing.
 - [ ] Validate the exact new commit with Agent Verify, Cloudflare Diagnostics and desktop/mobile Browser Tests. Theme Lab remains unverified until its full lifecycle passes in the browser.
+
+
+## Latest work unit — make Theme Lab Delete/Reset click paths non-blocking (2026-10-16)
+
+- [x] Reviewed exact current Actions: Agent Verify #905 passed, Cloudflare Diagnostics #416 passed, Browser Tests #420 failed at the Delete click while performing the click action: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38922295499.
+- [x] Inspected the actual handlers: Delete/Reset called `ThemeContext.save()` (which emits the global “Appearance saved” toast) and then emitted a second global success toast synchronously. A previous Workspace test established that global toast rendering can block the click path.
+- [x] Changed canonical Appearance Save to accept `{silent:true}` and switched Theme Lab Delete/Reset success feedback to the Settings status region; added source-contract assertions.
+- [ ] Verify Agent Verify, Cloudflare Diagnostics and the complete desktop/mobile browser run for the exact fix. If Theme Lab completes, move immediately to safe Security/session and Usage/Booster tests—do not revisit already-passing groups.
+
+## Exact next step
+
+Check all Actions for the exact new commit. If Appearance Save/Duplicate/Export/Import/Delete/Reset passes on desktop and mobile, test Log Out All Devices and account-delete confirmation/re-auth failure safely, then quota refresh/errors and mocked Booster balance/checkout failures. Do not perform account deletion or real purchases.
