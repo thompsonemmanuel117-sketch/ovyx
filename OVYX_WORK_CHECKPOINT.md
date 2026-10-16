@@ -57,3 +57,15 @@ Commit this fixture-only correction directly to main, inspect all three checks f
 - [x] Removed the hard-coded name write during canonical appearance control synchronization and added a browser assertion to keep the name draft intact through color edits.
 - [ ] Verify Agent Verify, Diagnostics, and full desktop/mobile Chromium on the exact fix; don't mark Theme Lab complete until all lifecycle actions pass.
 - **Exact next step:** inspect the new workflows and complete browser logs, then continue the still-unverified Security/Usage/Booster actions without real payments.
+
+
+## Latest work unit — Theme Lab Delete/Reset single-owner actions (2026-10-16)
+
+- [x] On main commit 2ffc462c4a7443e800b2e44889166483d139b631, the Theme Lab name preservation fix progressed past Save and the Duplicate/Export/Import checks. Browser run #414 then timed out while clicking Delete Custom Theme.
+- [x] Replaced the Delete and Reset handlers with single-owner persistence/render operations rather than calling the wrapped legacy delete/reset functions and then applying the theme multiple more times.
+- [x] Failed local-storage writes restore the previous in-memory theme state and show an error, rather than implying deletion/reset succeeded.
+- [ ] Verify Agent Verify, Diagnostics, and full Chromium suite on the next commit before declaring Theme Lab complete.
+
+## Exact next step
+
+Commit the focused Delete/Reset fix and review the exact commit's Actions. If Theme Lab passes, add/perform a safe direct test of Log Out All Devices and the account deletion confirm/recent-auth failure path, then verify Usage/Booster error states without real payments. Keep the work focused on controls, not repository-wide scans.

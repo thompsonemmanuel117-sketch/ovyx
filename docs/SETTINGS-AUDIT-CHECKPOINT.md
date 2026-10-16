@@ -375,3 +375,14 @@ Inspect build logs first, then the full browser run. Fix any failing Theme Lab i
 ## Exact next action
 
 Inspect build/source checks, then the complete desktop/mobile browser log for this commit. Fix any actual lifecycle defect at the failed assertion. If Theme Lab passes, verify the Workspace Live Preview pause/resume test later in the same workflow and continue Security session revoke/account deletion failures plus Usage/Booster refresh/error states. Make no real purchases; keep external-service and email-delivery labels truthful; preserve `rollback/settings-baseline-20261015`.
+
+
+## Stage 2 direct interaction update — single-owner Theme Lab delete/reset (2026-10-16)
+
+- [x] Browser run #414 reached Theme Lab Delete after the named Save/Duplicate/Export/Import checks; the Delete click timed out during the nested legacy action wrappers. Run: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38916672823
+- [x] Reworked Delete Custom Theme and Reset Lab to update and persist the custom-theme map once, apply the resulting active theme once, and avoid nested legacy apply/render wrapper stacks. Storage failure restores the previous in-memory state and surfaces an error rather than success.
+- [ ] Verify on the next exact-main Chromium run; Theme Lab lifecycle remains unverified until Delete and Reset finish.
+
+## Exact next action
+
+Inspect build and full browser logs for the new commit. If Theme Lab passes, continue direct Security Log Out All Devices and account deletion confirmation/re-auth failures, then quota/Booster balance/error states; do not purchase tokens.

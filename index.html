@@ -7384,11 +7384,32 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
       e.preventDefault();e.stopPropagation();
       const lab=window.OVYXThemeLab;const id=String(lab?.state?.active||'');
       if(!id.startsWith('custom_')){window.showToast?.('Built-in OVYX presets cannot be deleted.','info');return;}
-      if(lab?.deleteActive){lab.deleteActive();paint(labToTheme(lab.activeTheme?.()),'custom-delete');saveCanonical();syncUi();}
+      if(!lab?.state?.customThemes?.[id]){window.showToast?.('This custom theme is no longer available.','error');return;}
+      const previous={...lab.state,custom:{...(lab.state.custom||{})},customThemes:{...(lab.state.customThemes||{})}};
+      const name=String(lab.state.customThemes[id].name||'Custom theme');
+      delete lab.state.customThemes[id];lab.state.active='obsidian';
+      try{localStorage.setItem(LAB_KEY,JSON.stringify(lab.state));}
+      catch(error){lab.state=previous;window.showToast?.('Theme deletion could not be saved on this device.','error');return;}
+      const active=lab.activeTheme?.();if(active)paint(labToTheme(active),'custom-delete');
+      saveCanonical();lab.renderState?.();window.OVYXSettings?.renderThemeCards?.();
+      window.showToast?.('Deleted '+name+'.','success');
       return;
     }
     if(el.matches('[data-theme-reset]')){
-      e.preventDefault();e.stopPropagation();const lab=window.OVYXThemeLab;if(lab?.reset)lab.reset();paint({mode:'dark',backgroundColor:'#050607',sidebarColor:'#050607',cardColor:'#0B0D10',borderColor:'#1B222A',textColor:'#F8FAFC',mutedColor:'#94A3B8',accentColor:'#F59E0B'},'theme-reset');saveCanonical();syncUi();window.showToast?.('OVYX Theme Lab reset to the industrial dark baseline.','success');return;
+      e.preventDefault();e.stopPropagation();
+      const lab=window.OVYXThemeLab;
+      if(lab?.state){
+        const previous={...lab.state,custom:{...(lab.state.custom||{})},customThemes:{...(lab.state.customThemes||{})}};
+        const base=themeFromLab('obsidian');
+        lab.state={active:'obsidian',custom:{...base},customThemes:{}};
+        try{localStorage.setItem(LAB_KEY,JSON.stringify(lab.state));}
+        catch(error){lab.state=previous;window.showToast?.('Theme Lab reset could not be saved on this device.','error');return;}
+      }
+      const active=lab?.activeTheme?.();
+      if(active)paint(labToTheme(active),'theme-reset');
+      saveCanonical();lab?.renderState?.();window.OVYXSettings?.renderThemeCards?.();
+      window.showToast?.('OVYX Theme Lab reset to the industrial dark baseline.','success');
+      return;
     }
   },true);
   // Remove obsolete visible overlays left by the retired V42 shell. The current assistant/help
