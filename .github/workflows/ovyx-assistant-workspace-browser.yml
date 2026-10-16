@@ -46,6 +46,7 @@ on:
       - 'scripts/ovyx-webstudio-reliability.test.mjs'
       - 'scripts/ovyx-webstudio-reliability.browser.test.mjs'
       - 'index.html'
+      - 'scripts/ovyx-settings-shortcuts.browser.test.mjs'
       - 'assets/ovyx-settings-reliability.js'
       - 'functions/api/settings/profile.js'
       - 'functions/api/settings/preferences.js'
@@ -104,6 +105,11 @@ jobs:
 
       - name: Exercise Appearance single-owner actions in desktop and mobile Chromium
         run: node scripts/ovyx-settings-core.browser.test.mjs
+        env:
+          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
+
+      - name: Exercise Settings Shortcuts in desktop and mobile Chromium
+        run: node scripts/ovyx-settings-shortcuts.browser.test.mjs
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8788
 
