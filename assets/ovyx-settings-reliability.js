@@ -148,7 +148,7 @@
   }
   function applySettingEffects(state, previous) {
     try {
-      document.querySelectorAll('#app-node-inspector').forEach(el => {
+      document.querySelectorAll('#app-node-inspector, #ws-select-inspector').forEach(el => {
         el.style.display = state.inspector === false ? 'none' : '';
       });
     } catch (_) {}
