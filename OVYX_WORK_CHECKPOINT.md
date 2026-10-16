@@ -279,3 +279,14 @@ Inspect the new commit's browser and build logs. If the reset list clears in mem
 ## Exact next step
 
 Inspect the latest Actions and browser logs. If Reset passes on both screen sizes, continue to Usage quota refresh/error and Token Booster mock payment/balance error handling. Security remains complete; don't rerun completed Settings controls without a new regression.
+
+
+## Theme Lab Reset standalone-owner test correction (2026-10-16)
+
+- [x] Agent Verify for commit `bbd76efa18313cbdea0bb95337365b1935e8e6a4` stopped in the source-contract suite before the browser tests because the new standalone Reset owner's assertions escaped literal newlines incorrectly.
+- [x] Corrected the test matchers to use the actual multi-line source sequences. The production code remains on `main`; no new UI conclusion is claimed from the failed static check.
+- [ ] Verify static checks/build, Cloudflare Diagnostics and the desktop/mobile Reset browser run on the corrected commit.
+
+## Exact next step
+
+Check the exact corrected commit's Agent Verify and full browser logs. Only mark Reset complete after its desktop/mobile state and localStorage assertions pass.
