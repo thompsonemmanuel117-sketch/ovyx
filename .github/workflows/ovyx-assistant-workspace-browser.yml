@@ -1,6 +1,23 @@
 name: OVYX Assistant Workspace Browser Tests
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'index.html'
+      - 'assets/ovyx-settings-reliability.js'
+      - 'functions/api/settings/profile.js'
+      - 'functions/api/settings/preferences.js'
+      - 'functions/api/account/delete.js'
+      - 'functions/api/api/auth/revoke-sessions.js'
+      - 'scripts/ovyx-settings-actions.test.mjs'
+      - 'scripts/ovyx-settings.browser.test.mjs'
+      - 'scripts/ovyx-settings-ai.browser.test.mjs'
+      - 'scripts/ovyx-settings-workspace.browser.test.mjs'
+      - 'scripts/ovyx-settings-account.browser.test.mjs'
+      - 'scripts/ovyx-settings-core.browser.test.mjs'
+      - '.github/workflows/ovyx-assistant-workspace-browser.yml'
   pull_request:
     branches:
       - main
