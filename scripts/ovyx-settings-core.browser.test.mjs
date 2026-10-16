@@ -254,6 +254,27 @@ try {
     await page.waitForFunction(id => !window.OVYXThemeLab.state.customThemes?.[id]
       && window.OVYXThemeLab.state.active === 'obsidian', importedId);
     await appearance.locator('[data-theme-reset]').click();
+    // Reset is a synchronous local action; capture its immediate result so a CI
+    // failure reports the actual in-memory and persisted state instead of only timing out.
+    const resetAfterClick = await page.evaluate(() => {
+      let persisted = {};
+      try { persisted = JSON.parse(localStorage.getItem('ovyx.theme.lab.v1') || '{}'); } catch (_) {}
+      return {
+        active: window.OVYXThemeLab?.state?.active ?? null,
+        customIds: Object.keys(window.OVYXThemeLab?.state?.customThemes || {}),
+        persistedActive: persisted.active ?? null,
+        persistedCustomIds: Object.keys(persisted.customThemes || {}),
+        status: document.getElementById('settings-save-status')?.textContent || '',
+      };
+    });
+    assert.equal(resetAfterClick.active, 'obsidian',
+      '[' + target.name + '] Reset Lab must immediately activate obsidian. Actual: ' + JSON.stringify(resetAfterClick));
+    assert.deepEqual(resetAfterClick.customIds, [],
+      '[' + target.name + '] Reset Lab must immediately clear in-memory custom themes. Actual: ' + JSON.stringify(resetAfterClick));
+    assert.equal(resetAfterClick.persistedActive, 'obsidian',
+      '[' + target.name + '] Reset Lab must persist the obsidian baseline. Actual: ' + JSON.stringify(resetAfterClick));
+    assert.deepEqual(resetAfterClick.persistedCustomIds, [],
+      '[' + target.name + '] Reset Lab must persist an empty custom-theme list. Actual: ' + JSON.stringify(resetAfterClick));
     await page.waitForFunction(() => window.OVYXThemeLab.state.active === 'obsidian'
       && Object.keys(window.OVYXThemeLab.state.customThemes || {}).length === 0);
     assert.equal((await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx.theme.lab.v1') || '{}')).then(x => x.active)), 'obsidian');

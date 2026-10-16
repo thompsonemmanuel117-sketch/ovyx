@@ -14,7 +14,8 @@ Focused Settings interaction pass only. Do not restart a repository-wide or stag
 - Appearance, AI preference propagation, Profile/Notifications persistence and failure recovery, Shortcuts, and most Workspace actions have desktop/mobile browser coverage.
 
 ## Current blocker
-The latest full browser run on `aebc9c9288604218f33057def03d871a6a1387a1` fails during the Theme Lab Delete click (`scripts/ovyx-settings-core.browser.test.mjs:253`). Agent Verify and Cloudflare Diagnostics pass. Delete/Reset synchronously save canonical Appearance—which renders a global success toast—and then render another global success toast. This repeats the known click-blocking toast pattern. Fix these actions to save quietly and report through the Settings status region; verify the exact new commit before moving on.
+
+The latest full browser run confirms Editor/Workspace Live Preview passes on desktop and mobile. The next failing step is the independent Theme Lab Reset assertion at `scripts/ovyx-settings-core.browser.test.mjs:257`; the browser workflow stops before later Settings groups. The next test change captures both in-memory and persisted Theme Lab state immediately after Reset, so the next CI run can distinguish a broken handler from a state-restoration or test-timing issue. Do not reopen or change Live Preview; it is complete for this pass.
 
 ## Latest direct interaction run
 
@@ -147,3 +148,15 @@ Check all Actions for the exact new commit. If Appearance Save/Duplicate/Export/
 - [x] Browser run #421 stopped in the earlier Appearance/Theme Lab Reset assertion at `scripts/ovyx-settings-core.browser.test.mjs:257`; the Editor/Workspace Live Preview step never ran. This failure does not prove Live Preview is broken or passing.
 - [x] Reordered the independent Editor/Workspace desktop/mobile browser step to run before the Appearance test, so the requested Live Preview pause/resume interaction is exercised even while the unrelated Theme Lab failure is still being investigated.
 - [ ] Run the exact new commit's Actions. Inspect the Editor/Workspace test result and its logs first; repair the Live Preview control only if that interaction fails. Then report its verified outcome before moving to the next unfinished Settings control.
+
+
+## Latest verified work unit — Editor/Workspace Live Preview (2026-10-16)
+
+- [x] Commit `438b28dfd1414cb1ab0e77995f41aaf02d86fa67` moves the independent Editor/Workspace browser test before Appearance, allowing the requested interaction to run even if Theme Lab blocks the later suite.
+- [x] Browser job #422 log explicitly reports: `OVYX Editor and Workspace browser tests passed on desktop and mobile`; its checks include Live Preview pause/resume, inspector visibility, autosave snapshots, delete-confirmation branching, open behavior, and editor-mode persistence: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38936188746
+- [x] Agent Verify #907 passed, including static verification and production build preflight: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38936188658
+- [x] Cloudflare Diagnostics #419 passed: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38936188701
+- [ ] Full browser workflow is still red at Theme Lab Reset (line 257); Live Preview did not fail. Added immediate state capture to the Reset assertion to expose in-memory and persisted values on the next run.
+## Exact next step
+
+Validate the Theme Lab Reset state capture with Agent Verify and Browser Tests. Fix only the observed Reset mismatch, then continue to safe Security session revocation/recent-auth checks and Usage/Booster quota/error handling. Do not perform real account deletion or purchases.
