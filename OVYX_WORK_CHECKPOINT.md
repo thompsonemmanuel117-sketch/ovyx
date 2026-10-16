@@ -137,3 +137,13 @@ Inspect all Actions for the path correction commit. If the source contract passe
 ## Exact next step
 
 Check all Actions for the exact new commit. If Appearance Save/Duplicate/Export/Import/Delete/Reset passes on desktop and mobile, test Log Out All Devices and account-delete confirmation/re-auth failure safely, then quota refresh/errors and mocked Booster balance/checkout failures. Do not perform account deletion or real purchases.
+
+
+## Focused Editor/Workspace Live Preview — test access unblock (2026-10-16)
+
+- [x] Reviewed the latest `main` commit `ddf4201eeaada6e2411f9d489ddb2a73bdd66140` and its exact CI logs.
+- [x] Agent Verify #906 passed, including static verification and production build preflight: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38927442894
+- [x] Cloudflare Diagnostics #418 passed with zero detected log errors: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38932026289
+- [x] Browser run #421 stopped in the earlier Appearance/Theme Lab Reset assertion at `scripts/ovyx-settings-core.browser.test.mjs:257`; the Editor/Workspace Live Preview step never ran. This failure does not prove Live Preview is broken or passing.
+- [x] Reordered the independent Editor/Workspace desktop/mobile browser step to run before the Appearance test, so the requested Live Preview pause/resume interaction is exercised even while the unrelated Theme Lab failure is still being investigated.
+- [ ] Run the exact new commit's Actions. Inspect the Editor/Workspace test result and its logs first; repair the Live Preview control only if that interaction fails. Then report its verified outcome before moving to the next unfinished Settings control.

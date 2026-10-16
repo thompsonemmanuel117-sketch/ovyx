@@ -115,6 +115,12 @@ jobs:
           echo $! > /tmp/ovyx-pages.pid
           curl --retry 30 --retry-connrefused --retry-delay 2 --fail http://127.0.0.1:8788/ -o /dev/null
 
+
+      - name: Exercise Editor and Workspace settings in desktop and mobile Chromium
+        run: node scripts/ovyx-settings-workspace.browser.test.mjs
+        env:
+          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
+
       - name: Exercise Appearance single-owner actions in desktop and mobile Chromium
         run: node scripts/ovyx-settings-core.browser.test.mjs
         env:
@@ -131,11 +137,6 @@ jobs:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8788
       - name: Exercise Settings Shortcuts in desktop and mobile Chromium
         run: node scripts/ovyx-settings-shortcuts.browser.test.mjs
-        env:
-          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
-
-      - name: Exercise Editor and Workspace settings in desktop and mobile Chromium
-        run: node scripts/ovyx-settings-workspace.browser.test.mjs
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8788
 
