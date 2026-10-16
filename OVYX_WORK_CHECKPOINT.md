@@ -231,3 +231,14 @@ Check the next commit's three Action results. If the Security step passes, mark 
 ## Exact next step
 
 Inspect the new commit's three Actions and exact browser logs. If Theme Lab Reset passes, continue to Usage quota refresh/error and Token Booster mocked balance/checkout failure checks. Never run a real payment or account deletion.
+
+
+## Theme Lab Reset source-contract correction (2026-10-16)
+
+- [x] The production Reset ordering fix was committed to `main` as `baa977488c95de449d3da640bcee0fba20878b9f`.
+- [x] Corrected newline escaping in its source-contract test so it checks the intended multi-line reset sequence rather than a literal backslash-n sequence.
+- [ ] Validate this correction and the Reset interaction through the exact commit's build and desktop/mobile browser logs.
+
+## Exact next step
+
+Inspect Agent Verify, Cloudflare Diagnostics and the desktop/mobile browser workflow; if Reset passes, continue to Usage and Token Booster failures. Keep Security marked complete.
