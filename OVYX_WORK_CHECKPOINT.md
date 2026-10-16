@@ -38,3 +38,15 @@ Commit the Shortcut route-wait fix and the updated checkpoints directly to `main
 ## Exact next step
 
 Inspect all three GitHub Actions for this commit. Then finish the unverified Security/session-revocation, quota refresh/error and mocked Booster balance/failure checks. Do not purchase tokens or overstate external service/email connectivity.
+
+## Latest work unit — Theme Lab browser test navigation (2026-10-16)
+
+- [x] Agent Verify #897 passed on the previous main commit 6bbfaba79473f296e4db35d0928e35094ae148cb.
+- [x] Browser run #412 passed its first source/build steps and reached the new Theme Lab interaction sequence.
+- [x] Identified a test-only failure: after testing Reset from Settings → Privacy, the test filled a Theme Lab name input in the inactive Appearance panel. The app correctly kept that panel hidden.
+- [x] Fixed the test to select Appearance and wait for the custom-theme name input to become visible before Theme Lab round-trip actions.
+- [ ] New commit's Agent Verify, Cloudflare diagnostics, and complete desktop/mobile Chromium workflow must be checked before marking the theme actions verified.
+
+## Exact next step
+
+Commit this fixture-only correction directly to main, inspect all three checks for that exact commit, then continue the direct control pass on only any still-unverified Security/session-revocation and Usage/Booster refresh/error interactions. Do not restart the stages or a repository-wide scan; never buy tokens for testing.

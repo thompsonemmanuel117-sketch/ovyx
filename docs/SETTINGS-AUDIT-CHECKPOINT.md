@@ -355,3 +355,15 @@ Add a focused desktop/mobile browser test for **Shortcuts**. Exercise Command Pa
 ## Exact next action
 
 Inspect build logs first, then the full browser run. Fix any failing Theme Lab interaction based on its exact log. Confirm the Workspace pause/resume test also passes after the no-toast change. Then verify safe session revocation/account deletion failure flows, quota refresh/error status, and mocked Booster purchase/balance behavior. Preserve truthful service/email status, never run a real payment, and preserve `rollback/settings-baseline-20261015`.
+
+
+## Stage 2 direct interaction update — Theme Lab category fixture (2026-10-16)
+
+- [x] Full Browser Tests #412 showed the app build, Appearance's single-owner Save/Cancel/Reset assertions, Data Layer, AI Preferences, and shortcuts started passing up to the expanded Theme Lab round-trip.
+- [x] Root cause of this run's failure: the test had navigated to Privacy for the Reset control and then tried to fill Theme Lab fields in the now-hidden Appearance panel.
+- [x] Updated the browser test to reopen Appearance and wait for the custom-theme name field to be visible before Save/Duplicate/Export/Import/Delete/Reset checks.
+- [ ] Verify the new exact-main commit. Theme Lab CRUD and the Live Preview pause/resume control remain unverified until the complete desktop/mobile browser workflow passes.
+
+## Exact next action
+
+Inspect the newly triggered Agent Verify, Cloudflare Diagnostics, and full Chromium browser logs. If the Theme Lab round-trip succeeds, continue with the remaining unverified Security session revoke/account deletion confirmation paths and quota/Booster refresh and failed-request states, without real purchases. Preserve truthful external-service/email status and rollback/settings-baseline-20261015.

@@ -177,6 +177,11 @@ try {
       '[' + target.name + '] Reset must apply exactly once.',
     );
 
+    // Reset was tested from Privacy; return to Appearance before interacting with
+    // the Theme Lab fields, which correctly remain hidden outside their category.
+    await page.evaluate(() => window.OVYXSettings.show('appearance'));
+    await appearance.locator('[data-theme-name]').waitFor({ state: 'visible' });
+
     // Theme Lab lifecycle: Save, Duplicate, Export, Import, Delete and Reset must
     // update persistent storage and preserve the custom theme's name and colors.
     await appearance.locator('[data-theme-name]').fill('OVYX Roundtrip QA');
