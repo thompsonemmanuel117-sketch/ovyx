@@ -62,6 +62,11 @@ assert.ok(html.includes('Database provisioning') && html.includes('Not provision
 assert.ok(!html.includes('Production-ready relational storage'), 'The Data Layer must not claim production-ready PostgreSQL before a connection is provisioned and verified.');
 assert.ok(html.includes("credentials:'omit',cache:'no-store'"), 'External Data Layer health checks must omit third-party cookies and avoid cached results.');
 assert.ok(html.includes('This verifies only the health endpoint, not PostgreSQL connectivity or project CRUD.'), 'A health response must not be represented as proof of database connectivity or project CRUD.');
+assert.ok(html.includes("if(g){const connected=!!this.github?.server") && html.includes("state==='connected'") && html.includes("'NOT VERIFIED'"), 'Connection status must distinguish a server-confirmed connection from unknown provider state.');
+assert.ok(html.includes('EMAIL (PREFERENCES ONLY)') && html.includes('This panel does not send email.'), 'Email notification controls must clearly disclose that they only store preferences.');
+assert.ok(html.includes('Checkout requires sign-in and an available payment provider.'), 'Token Booster checkout prerequisites must be visible before purchase.');
+assert.ok(html.includes('Availability is checked when you continue; errors stop the purchase.'), 'Token Booster UI must not imply a payment provider is ready before the server responds.');
+assert.ok(!html.includes("CONNECTED · SERVER':'NOT CONNECTED'"), 'A non-null provider status object alone must not imply a confirmed connection.');
 
 assert.equal((html.match(/ovyx-settings-reliability\.js/g) || []).length, 1, 'Settings reliability runtime must only be injected once.');
 assert.ok(runtime.includes('studio.__ovyxShouldPauseLivePreviewV1 = shouldPause'), 'Settings must publish a live-preview pause gate instead of wrapping the quality wrapper.');
