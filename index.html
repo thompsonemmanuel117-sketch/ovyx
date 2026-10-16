@@ -7352,15 +7352,26 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
       return;
     }
     if(el.matches('[data-theme-duplicate]')){
-      e.preventDefault();e.stopPropagation();
+      e.preventDefault();e.stopImmediatePropagation();
       const lab=window.OVYXThemeLab;
-      if(lab?.duplicate){
-        const name=String(lab.activeTheme?.().name||'OVYX Theme')+' Copy';
-        lab.duplicate({...themeToLab(current(),name),name});
-        paint(labToTheme(lab.activeTheme?.()),'custom-duplicate');
-        saveCanonical();
-        syncUi();
-      }
+      if(!lab?.state){const status=document.getElementById('settings-save-status');if(status)status.textContent='Custom theme storage is unavailable.';return;}
+      const active=lab.activeTheme?.()||{name:'OVYX Theme'};
+      const name=String(active.name||'OVYX Theme')+' Copy';
+      const copy={...themeToLab(current(),name),name};
+      const stem='custom_'+name.toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,28)+'_'+Date.now().toString(36);
+      let id=stem,n=2;
+      while(lab.state.customThemes?.[id])id=stem+'_'+n++;
+      const previous={...lab.state,custom:{...(lab.state.custom||{})},customThemes:{...(lab.state.customThemes||{})}};
+      lab.state.custom={...copy};
+      lab.state.customThemes={...(lab.state.customThemes||{}),[id]:{...copy}};
+      lab.state.active=id;
+      try{localStorage.setItem(LAB_KEY,JSON.stringify(lab.state));}
+      catch(error){lab.state=previous;const status=document.getElementById('settings-save-status');if(status)status.textContent='Custom theme could not be saved on this device.';window.showToast?.('Custom theme could not be saved on this device.','error');return;}
+      paint(labToTheme(copy),'custom-duplicate');
+      lab.renderState?.();window.OVYXSettings?.renderThemeCards?.();
+      const saved=saveCanonical({silent:true});
+      const status=document.getElementById('settings-save-status');
+      if(status)status.textContent=saved?'Duplicated '+name+'.':'Duplicated '+name+' in Theme Lab, but canonical Appearance could not be saved.';
       return;
     }
     if(el.matches('[data-theme-import]')){

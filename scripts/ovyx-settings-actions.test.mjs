@@ -54,6 +54,10 @@ assert.ok(html.includes("if(window.OVYXDataLayerSettings?.projectSyncEnabled?.()
 assert.ok(html.includes("Date.now()/1000-authTime>240"), 'The legacy Profile deletion action must match the server four-minute recent-authentication limit.');
 assert.ok(html.includes("does not replace OVYX’s built-in /api/projects sync service"), 'The custom data endpoint must not be presented as if it were the active project-sync backend.');
 assert.ok(html.includes("if(el.matches('[data-theme-delete]')){\n      e.preventDefault();e.stopImmediatePropagation();"), 'Theme Lab delete must have one event owner.');
+const themeLabDuplicateOwnerStart=html.indexOf("if(el.matches('[data-theme-duplicate]')){");
+const themeLabDuplicateOwnerEnd=html.indexOf("if(el.matches('[data-theme-import]'))",themeLabDuplicateOwnerStart);
+const themeLabDuplicateOwner=html.slice(themeLabDuplicateOwnerStart,themeLabDuplicateOwnerEnd);
+assert.ok(themeLabDuplicateOwner.includes("const copy={...themeToLab(current(),name),name};") && themeLabDuplicateOwner.includes("localStorage.setItem(LAB_KEY,JSON.stringify(lab.state))") && !themeLabDuplicateOwner.includes('lab.duplicate('), 'Theme Lab Duplicate must create and persist one custom entry without invoking the overlapping legacy side-effect chain.');
 assert.ok(html.includes('<script id="ovyx-theme-lab-reset-owner">') && html.includes("window.addEventListener('click',function(e){\n    const button=e.target?.closest?.('[data-theme-reset]');"), 'Theme Lab Reset must have an independent priority window-capture owner outside the guarded Appearance bridge.');
 assert.ok(!html.includes("const el=e.target?.closest?.('[data-theme-reset]');\\n    if(!el)return;\\n    const panel=el.closest?.('[data-settings-panel=\"appearance\"]');\\n    if(!panel)return;"), 'Theme Lab Reset must not silently skip its action based on panel ancestry.');
 assert.ok(html.includes("this.search('');\n      },\n      hide() {"), 'Command Palette show must leave the palette open after populating its actions.');

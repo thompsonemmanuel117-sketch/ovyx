@@ -301,3 +301,15 @@ Check the exact corrected commit's Agent Verify and full browser logs. Only mark
 ## Exact next step
 
 Confirm static/source tests pass, then inspect the browser run through the Theme Lab Reset click. Do not report this control done before the empty in-memory and stored custom-theme list is proven.
+
+
+## Theme Lab Duplicate click hang — single persisted action owner (2026-10-16)
+
+- [x] Browser log for commit `442a7087eaeb1dcf5a8eb67cff33e6f053df3380`: Editor/Workspace and Security browser steps passed desktop/mobile; Appearance timed out at the Duplicate button click before reaching Reset.
+- [x] Replaced the overlapping legacy `lab.duplicate()` apply/render/toast chain plus the second canonical paint/save/render cycle with one owner: it creates a collision-resistant custom ID, persists the copy, previews it, renders once, and performs one quiet canonical save. On storage failure, it restores prior in-memory state and reports an error.
+- [x] Added a source-contract test that Duplicate persists the new Custom entry without calling the legacy side-effect chain.
+- [ ] Verify this exact commit's Agent Verify/build, Cloudflare Diagnostics, and full desktop/mobile Appearance browser run. Reset remains unverified until the test reaches and passes its empty-list assertions.
+
+## Exact next step
+
+Inspect the new commit's static/build logs, diagnostics and browser logs. If Duplicate passes and Reset still fails, fix Reset using the exact new result. If Appearance passes, move to Usage quota refresh/error and mocked Token Booster balance/checkout failure. Do not perform real deletion/payment.
