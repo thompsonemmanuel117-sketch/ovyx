@@ -262,12 +262,15 @@ try {
     await page.evaluate(() => window.OVYXSettings.show('security'));
     const security = page.locator('[data-settings-panel="security"]');
     await security.waitFor({ state: 'visible' });
-    const securityBadges = await security.locator('.ovyx-health-chip').allTextContents();
-    assert.ok(securityBadges.includes('AUTH PROVIDER'), '[' + target.name + '] security panel must describe the authentication source without an unverified SECURE badge.');
-    assert.ok(securityBadges.includes('GUIDANCE'), '[' + target.name + '] secret storage badge must be guidance, not an unverified protection status.');
-    assert.ok(securityBadges.includes('REQUIRED'), '[' + target.name + '] production secret badge must state a requirement, not claim deployment verification.');
-    assert.ok(!securityBadges.includes('SECURE') && !securityBadges.includes('PROTECTED'),
-      '[' + target.name + '] stale generic security-success badges must not appear.');
+    const securityCopy = await security.innerText();
+    assert.match(securityCopy, /Authentication\\s+○ Not signed in/i,
+      '[' + target.name + '] an unauthenticated browser must not be labelled Protected.');
+    assert.match(securityCopy, /Current session\\s+No authenticated session/i,
+      '[' + target.name + '] the Security panel must not claim an authenticated session when signed out.');
+    assert.match(securityCopy, /SIGNED OUT/i,
+      '[' + target.name + '] session badge must reflect the actual signed-out state.');
+    assert.doesNotMatch(securityCopy, /● Protected|Active in this browser/i,
+      '[' + target.name + '] misleading security/session success labels must not appear while signed out.');
 
     // The active AI boot script must not equate account login with provider health.
     const aiBoot = page.locator('script#ovyx-auto-ai-boot-v2');
