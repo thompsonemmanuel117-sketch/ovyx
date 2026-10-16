@@ -161,8 +161,9 @@
       const frame = $('ws-canvas-iframe');
       if (frame) frame.dataset.ovyxLivePreviewPaused = state.livePreview === false ? 'true' : 'false';
       const activeView = String(window.KernelState?.activeView || '').replace(/^view-/, '');
+      const settingsSurfaceVisible = !!document.getElementById('view-settings')?.getClientRects().length;
       if (previous && previous.livePreview === false && state.livePreview !== false &&
-          activeView === 'webstudio' &&
+          activeView === 'webstudio' && !settingsSurfaceVisible &&
           window.WebStudio && typeof window.WebStudio.renderPreview === 'function') {
         window.WebStudio.renderPreview();
       }
