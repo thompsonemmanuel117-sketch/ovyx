@@ -320,6 +320,11 @@ try {
       '[' + target.name + '] failed checkout must never claim the tokens were credited.');
     await boosterModal.locator('[data-close]').click();
 
+    // Clear the payment-only identity fixture before verifying signed-out Security state.
+    await page.evaluate(() => {
+      Object.defineProperty(window, 'firebase', { configurable: true, writable: true, value: { auth: () => ({ currentUser: null }) } });
+    });
+
     await page.evaluate(() => window.OVYXSettings.show('security'));
     await page.waitForFunction(() => !!document.querySelector('[data-settings-panel="security"] #ovyx-revoke-all-devices'));
     const securityCopy = await page.locator('[data-settings-panel="security"]').innerText();
