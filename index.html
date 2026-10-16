@@ -2685,7 +2685,7 @@ Body: { broadcastId, title, body, category, link }</div>
         document.addEventListener('keydown', (event) => {
           const active = String(window.KernelState?.activeView || '') === 'webstudio';
           if (!active) return;
-          if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); this.undo(); }
+          if ((event.ctrlKey || event.metaKey) && !event.shiftKey && event.key.toLowerCase() === 'z') { event.preventDefault(); this.undo(); }
           if ((event.ctrlKey || event.metaKey) && (event.shiftKey && event.key.toLowerCase() === 'z' || event.key.toLowerCase() === 'y')) { event.preventDefault(); this.redo(); }
           if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') { event.preventDefault(); document.getElementById('ws-chat-input')?.focus(); }
           if (event.key === 'Escape') {
