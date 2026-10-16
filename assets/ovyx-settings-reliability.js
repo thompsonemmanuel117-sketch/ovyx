@@ -27,13 +27,6 @@
     'set-ai-safe': 'aiSafe'
   });
   const $ = id => document.getElementById(id);
-  function traceSettings(label) {
-    if (window.__OVYX_SETTINGS_TRACE__ !== true) return;
-    try { console.info('[OVYX SETTINGS TRACE] ' + String(label)); } catch (_) {}
-  }
-  window.addEventListener('click', event => {
-    if (window.__OVYX_SETTINGS_TRACE__ === true && event.target?.closest?.('#set-live-preview')) traceSettings('window-capture:set-live-preview');
-  }, true);
   const notify = (message, kind) => {
     try {
       const fn = window.showToast || window.toast;
@@ -84,7 +77,6 @@
     }, legacy, integrity);
   }
   function writeSettingsState(patch) {
-    traceSettings('state:enter');
     const previous = settingsState();
     const next = Object.assign({}, previous, patch || {});
     try { localStorage.setItem('ovyx.settings.toggles.v34', JSON.stringify(next)); } catch (_) {}
@@ -92,11 +84,8 @@
       const old = safeJson(localStorage.getItem('ovyx.settings.integrity.v83'));
       localStorage.setItem('ovyx.settings.integrity.v83', JSON.stringify(Object.assign({}, old, next)));
     } catch (_) {}
-    traceSettings('state:before-effects');
     applySettingEffects(next, previous);
-    traceSettings('state:after-effects');
     syncToggleControls(next);
-    traceSettings('state:after-sync');
     return next;
   }
   let livePreviewOriginal = null;
@@ -158,7 +147,6 @@
     studio.renderPreview = wrapped;
   }
   function applySettingEffects(state, previous) {
-    traceSettings('effects:enter');
     try {
       document.querySelectorAll('#app-node-inspector, #ws-select-inspector').forEach(el => {
         el.style.display = state.inspector === false ? 'none' : '';
@@ -174,7 +162,6 @@
         runtime.save();
       }
     } catch (_) {}
-    traceSettings('effects:after-session-snapshot');
     try {
       // The view-change hook installs this shared pause gate. Reuse it instead
       // of repeatedly replacing preview wrappers on every Settings toggle.
@@ -183,12 +170,10 @@
       }
       const frame = $('ws-canvas-iframe');
       if (frame) frame.dataset.ovyxLivePreviewPaused = state.livePreview === false ? 'true' : 'false';
-      traceSettings('effects:after-frame-marker');
       // Keep the Settings click handler non-blocking. The wrapper above the preview
       // reads the persisted livePreview preference on every render, so toggling here
       // is enough to pause/resume future automatic refreshes. Never force a full
       // Web Studio render synchronously from inside a Settings click.
-    } catch (_) { traceSettings('effects:preview-branch-caught'); }
     try {
       const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
       const prefs = safeJson(localStorage.getItem(key));
@@ -196,7 +181,6 @@
       localStorage.setItem(key, JSON.stringify(prefs));
       if (window.OVYXAI) window.OVYXAI.confirmDestructive = prefs.confirmDestructive;
     } catch (_) {}
-    traceSettings('effects:exit');
   }
   function syncToggleControls(state) {
     Object.keys(TOGGLE_MAP).forEach(id => {
@@ -528,16 +512,16 @@
     document.addEventListener('click', function (event) {
       const button = event.target && event.target.closest && event.target.closest('.ovyx-toggle');
       if (!button || !(button.id in TOGGLE_MAP)) return;
-      traceSettings('toggle:captured:' + button.id);
       event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
       const key = TOGGLE_MAP[button.id];
       const state = settingsState();
       state[key] = state[key] === false;
-      traceSettings('toggle:before-write:' + key);
       const next = writeSettingsState({ [key]: state[key] });
-      traceSettings('toggle:after-write:' + key);
-      notify((key === 'aiSafe' ? 'Safe generation' : key.replace(/([A-Z])/g, ' $1')) + (next[key] ? ' enabled.' : ' disabled.'), 'success');
-      traceSettings('toggle:after-notify:' + key);
+      const message = (key === 'aiSafe' ? 'Safe generation' : key.replace(/([A-Z])/g, ' $1')) + (next[key] ? ' enabled.' : ' disabled.');
+      // Global toast rendering can block this delegated click path in the Web Studio
+      // shell. Use the persistent Settings status region for non-blocking feedback.
+      const status = $('settings-save-status');
+      if (status) status.textContent = message;
     }, true);
   }
   const MODELS_BY_PROVIDER = Object.freeze({

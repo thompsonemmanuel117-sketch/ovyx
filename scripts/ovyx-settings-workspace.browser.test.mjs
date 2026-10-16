@@ -32,10 +32,6 @@ try {
     const page = await context.newPage();
     page.setDefaultTimeout(20000);
     const settingsErrors = [];
-    page.on('console', message => {
-      const text = message.text();
-      if (text.includes('[OVYX SETTINGS TRACE]')) console.log(text);
-    });
     page.on('pageerror', error => {
       if (/OVYXSettingsIntegrity|OVYXRuntimeSession|OVYXProjectDeletion|set-autosave|set-confirm-delete|set-editor-mode|renderPreview|inspector/i.test(error.message)) {
         settingsErrors.push(error.message);
@@ -249,9 +245,7 @@ try {
     await editor.locator('#set-inspector').click({ force: true });
     await page.waitForFunction(() => document.querySelector('#ws-select-inspector')?.style.display !== 'none');
 
-    await page.evaluate(() => { window.__OVYX_SETTINGS_TRACE__ = true; });
-    console.log('Live Preview trace enabled for ' + target.name + ' Chromium.');
-    await editor.locator('#set-live-preview').click({ force: true, timeout: 8000 });
+    await editor.locator('#set-live-preview').click({ force: true });
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('ovyx.settings.integrity.v83') || '{}').livePreview === false);
     const paused = await page.evaluate(() => ({
       result: window.WebStudio.renderPreview(),
@@ -260,7 +254,7 @@ try {
     assert.equal(paused.result, false, '[' + target.name + '] automatic preview render should be blocked while paused.');
     assert.equal(paused.paused, 'true', '[' + target.name + '] iframe should explicitly report paused preview state.');
 
-    await editor.locator('#set-live-preview').click({ force: true, timeout: 8000 });
+    await editor.locator('#set-live-preview').click({ force: true });
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('ovyx.settings.integrity.v83') || '{}').livePreview === true);
     assert.equal(await page.locator('#ws-canvas-iframe').getAttribute('data-ovyx-live-preview-paused'), 'false',
       '[' + target.name + '] re-enabling live preview should restore automatic preview state.');

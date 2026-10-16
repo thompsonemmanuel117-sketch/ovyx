@@ -17,4 +17,4 @@ Focused Settings interaction pass only. Do not restart a repository-wide or stag
 The direct preview render was removed from the toggle's synchronous effect in `9da8c481643c421b013dbfd420ec18fd446098ea`. Pause now passes, but resume still times out in Browser #407: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38913891840. The next run adds a dormant-by-default trace for the exact click path.
 
 ## Exact next step
-Use the trace-enabled browser logs to locate and fix the Live Preview resume stall, then rerun desktop/mobile and inspect exact build/browser logs. Do not call the control fixed unless pause and resume both pass. Preserve `rollback/settings-baseline-20261015` and never place a real Booster purchase.
+Verify the no-toast toggle change in the complete desktop/mobile run. Do not call Live Preview fixed unless both pause and resume pass. Then continue Theme Lab lifecycle coverage. Preserve `rollback/settings-baseline-20261015` and never place a real Booster purchase.

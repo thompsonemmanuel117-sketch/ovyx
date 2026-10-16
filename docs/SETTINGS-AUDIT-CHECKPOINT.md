@@ -395,6 +395,14 @@ Check the final conclusion and complete log for browser run #386. Then continue 
 - [x] Added test-activated trace markers around window capture, Settings toggle handling, state writes, effects and toast; the application remains silent unless the fixture explicitly enables tracing.
 - [ ] Use the next browser log's `[OVYX SETTINGS TRACE]` sequence to isolate the blocking operation, fix it and rerun the desktop/mobile workflow.
 
+
+## Stage 2 fix — remove blocking toast from Workspace toggle clicks (2026-10-16)
+
+- [x] Trace run #410 showed persistence, effects and state synchronization return; the click stopped inside `notify()`/global `showToast`, before the handler returned: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38914490531
+- [x] Switched Workspace toggle feedback to the Settings status region instead of a synchronous global toast. Settings persistence and pause-marker updates remain in place; this removes DOM-heavy toast rendering from the click path.
+- [x] Removed temporary trace instrumentation and added a source-contract check that the toggle handler uses inline status feedback and never calls `notify()`.
+- [ ] Verify pause and resume on desktop/mobile using the full browser run for this exact commit.
+
 ## Exact next action
 
-Inspect full trace logs, repair the first missing stage in the Live Preview resume path, then verify all build and Chromium tests. Proceed to Theme Lab round-trip and safe security/session/usage/Token Booster failure cases only after the preview pause/resume click passes. Preserve truthful connection/email status, never make a real purchase, and keep `rollback/settings-baseline-20261015` unchanged.
+Inspect the new main commit's full Chromium and build logs. Only after pause/resume passes, continue Theme Lab: preserve selected theme names, make canonical export/import round-trip, persist imported and duplicated themes as Custom entries, prevent duplicate card handling, and add desktop/mobile save/duplicate/export/import/delete/reset tests. Follow with safe session revoke/account deletion failures, quota refresh error status, and mocked Booster checkout/balance behavior. Never purchase real tokens; keep email/service status truthful and preserve `rollback/settings-baseline-20261015`.
