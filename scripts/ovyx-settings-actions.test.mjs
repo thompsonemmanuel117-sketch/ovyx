@@ -95,6 +95,7 @@ for (const requirement of [
   "ovyx.brand.v1.",
   'stopImmediatePropagation()',
   'installLivePreviewBridge',
+  '#ws-select-inspector',
   '__ovyxShouldPauseLivePreviewV1',
   '__ovyxRawRenderPreviewV1',
   'payload.preferredProvider',
