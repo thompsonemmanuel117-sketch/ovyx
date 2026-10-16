@@ -258,6 +258,10 @@ try {
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('ovyx.settings.integrity.v83') || '{}').livePreview === true);
     assert.equal(await page.locator('#ws-canvas-iframe').getAttribute('data-ovyx-live-preview-paused'), 'false',
       '[' + target.name + '] re-enabling live preview should restore automatic preview state.');
+    assert.equal(await page.locator('#view-settings').isVisible(), true,
+      '[' + target.name + '] resuming live preview from Settings must not hide or navigate away from Settings.');
+    assert.equal(await page.evaluate(() => window.KernelState?.activeView), 'settings',
+      '[' + target.name + '] toggling live preview must preserve the current Settings route.');
 
     await page.evaluate(() => {
       const studio = window.WebStudio;
