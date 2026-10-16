@@ -287,6 +287,38 @@ try {
       '[' + target.name + '] Starter, Builder and Studio purchase actions must all be rendered.');
     assert.doesNotMatch(boosterCopy, /future booster products/i);
 
+    // Open the checkout UI but never use a real payment provider: the API is mocked to fail.
+    await boosters.locator('[data-boost-pack="starter"]').click();
+    const boosterModal = page.locator('#ovyx-v65-booster-modal');
+    await boosterModal.waitFor({ state: 'visible' });
+    assert.match(await boosterModal.innerText(), /credited only after the payment provider confirms and the OVYX server verifies/i);
+    await boosterModal.locator('[data-pack="builder"]').click();
+    await boosterModal.locator('[data-currency]').selectOption('USD');
+    assert.equal(await boosterModal.locator('[data-provider]').inputValue(), 'paystack');
+    await page.waitForFunction(() => document.querySelector('#ovyx-v65-booster-modal [data-provider-note]')?.textContent?.includes('International USD checkout attempts the configured Paystack provider'));
+    assert.match(await boosterModal.locator('[data-provider-note]').innerText(), /Availability is checked when you continue; errors stop the purchase/i);
+
+    await page.evaluate(() => {
+      const fakeUser = { uid: 'settings-booster-e2e', email: 'settings-booster@example.test', emailVerified: true, getIdToken: async () => 'test-only-browser-token' };
+      try { Object.defineProperty(window, 'firebase', { configurable: true, writable: true, value: { auth: () => ({ currentUser: fakeUser }) } }); }
+      catch (_) { window.firebase = { auth: () => ({ currentUser: fakeUser }) }; }
+    });
+    let paymentCreatePayload = null;
+    await page.route('**/api/payments/create', async route => {
+      paymentCreatePayload = route.request().postDataJSON();
+      await route.fulfill({ status: 503, contentType: 'application/json', body: JSON.stringify({ error: 'MOCKED_PROVIDER_UNAVAILABLE' }) });
+    });
+    await boosterModal.locator('[data-pay]').click();
+    await page.waitForFunction(() => document.querySelector('#ovyx-v65-booster-modal [data-status]')?.textContent?.includes('MOCKED_PROVIDER_UNAVAILABLE'));
+    assert.deepEqual(paymentCreatePayload, {
+      productType: 'token_booster', productId: 'builder', currency: 'USD', provider: 'paystack',
+    }, '[' + target.name + '] checkout must send the selected pack and server-controlled provider choice.');
+    assert.equal(await boosterModal.locator('[data-pay]').isEnabled(), true,
+      '[' + target.name + '] failed checkout initialization must re-enable the button for retry.');
+    assert.doesNotMatch(await boosterModal.locator('[data-status]').innerText(), /Payment confirmed|tokens have been added/i,
+      '[' + target.name + '] failed checkout must never claim the tokens were credited.');
+    await boosterModal.locator('[data-close]').click();
+
     await page.evaluate(() => window.OVYXSettings.show('security'));
     await page.waitForFunction(() => !!document.querySelector('[data-settings-panel="security"] #ovyx-revoke-all-devices'));
     const securityCopy = await page.locator('[data-settings-panel="security"]').innerText();
@@ -299,7 +331,7 @@ try {
     assert.deepEqual(settingsErrors, [], '[' + target.name + '] Settings controls should not throw browser errors.');
     await context.close();
   }
-  console.log('OVYX Settings Data Layer browser tests passed on desktop and mobile: truthful status, local save/reload, sync toggle persistence, health-only request, omitted external cookies, and starter schema download.');
+  console.log('OVYX Settings browser tests passed on desktop and mobile: Data Layer, Appearance, Notifications, connection/security statuses, and mocked Token Booster failure handling.');
 } finally {
   await browser.close();
 }
