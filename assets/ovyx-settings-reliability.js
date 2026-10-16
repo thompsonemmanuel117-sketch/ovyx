@@ -161,8 +161,16 @@
       const frame = $('ws-canvas-iframe');
       if (frame) frame.dataset.ovyxLivePreviewPaused = state.livePreview === false ? 'true' : 'false';
       const activeView = String(window.KernelState?.activeView || '').replace(/^view-/, '');
+      // Settings can be an overlay while Web Studio remains the underlying active
+      // route. Do not synchronously rebuild the preview from a Settings toggle:
+      // the render can block the click/UI, and Settings should remain responsive.
+      const settingsView = $('view-settings');
+      const settingsVisible = !!settingsView &&
+        settingsView.getClientRects().length > 0 &&
+        window.getComputedStyle(settingsView).display !== 'none' &&
+        window.getComputedStyle(settingsView).visibility !== 'hidden';
       if (previous && previous.livePreview === false && state.livePreview !== false &&
-          activeView === 'webstudio' &&
+          activeView === 'webstudio' && !settingsVisible &&
           window.WebStudio && typeof window.WebStudio.renderPreview === 'function') {
         window.WebStudio.renderPreview();
       }

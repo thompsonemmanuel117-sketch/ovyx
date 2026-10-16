@@ -344,3 +344,18 @@ Add a focused desktop/mobile browser test for **Shortcuts**. Exercise Command Pa
 
 ## Exact next action
 Check the final conclusion and complete log for browser run #386. Then continue with the remaining Stage 2 items from the checklist above: Shortcuts, safe destructive-action/session-revocation fixtures, Theme Lab custom-theme CRUD, and a mocked/sandbox Token Booster checkout. Do not make a real purchase. Keep using focused line/function edits and update this checkpoint after each milestone; preserve `rollback/settings-baseline-20261015` unchanged.
+
+## Stage 2 resumed — live-preview resume regression (2026-10-16)
+
+- Confirmed latest mainline at resume: `d5fc80fb995c5f76e9c32a386d26540df019091e`.
+- Inspected full Agent Verify #873 log: `npm test`, `npm run validate`, `npm run build` preflight and Wrangler check all passed. Only known non-blocking `punycode` and GitHub Actions Node 20-to-24 deprecation warnings were present: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38891420900
+- Rechecked the focused Settings browser log on PR head `f7b06b1095b09477880426a835b166fd03c0cfd1`. The desktop/mobile Data Layer, Appearance, Notifications (exactly eight current switches; no legacy switches), connection/security labels, AI preference propagation and mocked Token Booster checkout-failure checks passed. Run #402 later failed in Editor/Workspace while re-enabling Live Preview from Settings; the full log identified the click timeout at `scripts/ovyx-settings-workspace.browser.test.mjs:257`: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38895804247
+- Root cause target: Settings may be visible as an overlay while Web Studio remains the active underlying route. The resume handler could synchronously call `WebStudio.renderPreview()` during that click, blocking the interactive control.
+- [x] Added a visibility guard so enabling Live Preview from a visible Settings surface updates the preference without immediately rebuilding the preview beneath the panel. Automatic preview rendering remains eligible once Settings is no longer visible and Web Studio is active.
+- [x] Added source-contract assertions for the Settings visibility guard.
+- [x] Added a main-branch push trigger for Settings runtime/API/test/workflow files so the exact committed Settings browser suite runs after a direct `main` update.
+- [ ] Exact commit's Agent Verify and desktop/mobile Chromium results pending; inspect their full logs before marking this fix verified.
+
+## Exact next action
+
+Inspect the new main-commit Agent Verify and Assistant Workspace Browser Tests results. If both succeed, record their run links/log warnings, then continue Stage 2 with the safe remaining Settings coverage: destructive account/security actions and session revocation using test fixtures, Theme Lab custom-theme CRUD, and Plan/Usage/Token Booster refresh/confirmation behavior. Never place a real purchase, keep the email switches described as preferences-only, and preserve `rollback/settings-baseline-20261015` unchanged.

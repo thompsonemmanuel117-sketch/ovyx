@@ -1,6 +1,18 @@
 name: OVYX Assistant Workspace Browser Tests
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'index.html'
+      - 'assets/ovyx-settings-reliability.js'
+      - 'assets/ovyx-webstudio-reliability.js'
+      - 'functions/api/settings/**'
+      - 'functions/api/account/delete.js'
+      - 'functions/api/api/auth/revoke-sessions.js'
+      - 'scripts/ovyx-settings*.mjs'
+      - '.github/workflows/ovyx-assistant-workspace-browser.yml'
   pull_request:
     branches:
       - main
