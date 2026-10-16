@@ -72,6 +72,14 @@ try {
       window.__settingsShortcutNewProjectCalls = 0;
       store.createPromptModal = function () {
         window.__settingsShortcutNewProjectCalls += 1;
+        Object.defineProperty(window, 'prompt', {
+          configurable: true,
+          writable: true,
+          value: message => {
+            window.__settingsShortcutPromptMessage = String(message || '');
+            return 'Shortcut Browser Test Project';
+          },
+        });
         return original();
       };
     });
