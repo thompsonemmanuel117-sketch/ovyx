@@ -229,7 +229,7 @@ try {
     assert.equal(studioRouteResult.ok, true,
       '[' + target.name + '] Web Studio route threw: ' + JSON.stringify(studioRouteResult));
     await page.waitForFunction(() => window.KernelState?.activeView === 'webstudio');
-    await page.locator('#app-node-inspector').waitFor({ state: 'attached' });
+    await page.locator('#ws-select-inspector').waitFor({ state: 'attached' });
     await page.locator('#ws-canvas-iframe').waitFor({ state: 'attached' });
     await page.evaluate(() => window.Router.go('settings'));
     await page.locator('#view-settings').waitFor({ state: 'visible' });
@@ -239,11 +239,11 @@ try {
     await page.waitForFunction(() => document.getElementById('set-editor-mode')?.dataset.ovyxBound === '1');
 
     await editor.locator('#set-inspector').click();
-    await page.waitForFunction(() => document.querySelector('#app-node-inspector')?.style.display === 'none');
+    await page.waitForFunction(() => document.querySelector('#ws-select-inspector')?.style.display === 'none');
     assert.equal(await editor.locator('#set-inspector').getAttribute('aria-checked'), 'false',
       '[' + target.name + '] inspector toggle should apply the hidden state.');
     await editor.locator('#set-inspector').click();
-    await page.waitForFunction(() => document.querySelector('#app-node-inspector')?.style.display !== 'none');
+    await page.waitForFunction(() => document.querySelector('#ws-select-inspector')?.style.display !== 'none');
 
     await editor.locator('#set-live-preview').click();
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('ovyx.settings.integrity.v83') || '{}').livePreview === false);
