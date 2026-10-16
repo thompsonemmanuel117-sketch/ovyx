@@ -212,7 +212,22 @@ try {
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('ovyx.settings.integrity.v83') || '{}').confirmDelete === true);
 
     // Editor controls must change real state and persist across a page reload.
-    await page.evaluate(() => window.Router.go('webstudio'));
+    const studioRouteResult = await page.evaluate(() => {
+      try {
+        window.Router.go('webstudio');
+        return { ok: true, activeView: window.KernelState?.activeView || null };
+      } catch (error) {
+        return {
+          ok: false,
+          name: String(error?.name || 'Error'),
+          message: String(error?.message || error),
+          stack: String(error?.stack || '').split('\\n').slice(0, 18),
+          activeView: window.KernelState?.activeView || null,
+        };
+      }
+    });
+    assert.equal(studioRouteResult.ok, true,
+      '[' + target.name + '] Web Studio route threw: ' + JSON.stringify(studioRouteResult));
     await page.waitForFunction(() => window.KernelState?.activeView === 'webstudio');
     await page.locator('#app-node-inspector').waitFor({ state: 'attached' });
     await page.locator('#ws-canvas-iframe').waitFor({ state: 'attached' });
