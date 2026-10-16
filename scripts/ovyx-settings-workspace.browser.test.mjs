@@ -82,9 +82,34 @@ try {
         description: 'Disposable local-only browser fixture.',
         status: 'draft',
         updatedAt: Date.now(),
-        pages: [{ id: 'settings-test-home', name: 'Home', slug: '/', sections: [] }],
+        pages: [{
+          id: 'settings-test-home',
+          name: 'Home',
+          slug: '/',
+          sections: [{
+            id: 'settings-test-hero',
+            type: 'hero',
+            content: { heading: 'Settings browser fixture', subheading: 'A safe local test page.', cta: 'Preview' },
+            styles: { display: 'flex', minHeight: '220px', padding: '24px', color: '#ffffff', background: '#090a0d' },
+          }],
+        }],
         assets: [],
         revisions: [],
+        ovyxGraph: {
+          version: 2,
+          entry: 'src/pages/Home.html',
+          files: {
+            'src/pages/Home.html': {
+              type: 'text/html',
+              content: '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Settings browser fixture</title></head><body><main><h1>Settings browser fixture</h1></main></body></html>',
+              updatedAt: Date.now(),
+            },
+            'src/styles.css': { type: 'text/css', content: 'body{margin:0;font-family:Arial,sans-serif}', updatedAt: Date.now() },
+            'src/main.js': { type: 'text/javascript', content: '// Disposable Settings browser fixture.\\n', updatedAt: Date.now() },
+            'package.json': { type: 'application/json', content: JSON.stringify({ name: 'settings-browser-fixture', private: true, dependencies: {} }), updatedAt: Date.now() },
+          },
+          updatedAt: Date.now(),
+        },
       };
       const state = window.KernelState;
       state.projects = Array.isArray(state.projects) ? state.projects.filter(item => item?.id !== id) : [];
