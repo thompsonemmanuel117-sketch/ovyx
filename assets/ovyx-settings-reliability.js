@@ -91,33 +91,60 @@
   let livePreviewOriginal = null;
   function installLivePreviewBridge() {
     const studio = window.WebStudio;
-    if (!studio || typeof studio.renderPreview !== 'function' || studio.renderPreview.__ovyxSettingsReliabilityV1) return;
-    livePreviewOriginal = studio.renderPreview.bind(studio);
-    const wrapped = function () {
-      if (settingsState().livePreview === false && window.__OVYX_FORCE_LIVE_PREVIEW__ !== true) {
-        const frame = $('ws-canvas-iframe');
-        if (frame) frame.dataset.ovyxLivePreviewPaused = 'true';
-        const status = $('ws-preview-url');
-        if (status && !status.dataset.ovyxPreviewPauseNote) {
-          status.dataset.ovyxPreviewPauseNote = 'true';
-          status.title = 'Automatic preview refresh is paused in Settings → Workspace.';
-        }
-        return false;
+    if (!studio || typeof studio.renderPreview !== 'function') return;
+
+    // Preserve one raw renderer reference before any optional wrapper is added.
+    // Quality and Settings both delegate to this base so wrappers cannot recurse.
+    if (typeof studio.__ovyxRawRenderPreviewV1 !== 'function') {
+      const current = studio.renderPreview;
+      studio.__ovyxRawRenderPreviewV1 =
+        current.__ovyxRawRenderPreviewV1 ||
+        current.__ovyxPreviewBaseV1 ||
+        current;
+    }
+    const rawPreview = studio.__ovyxRawRenderPreviewV1;
+
+    const shouldPause = function () {
+      if (settingsState().livePreview !== false || window.__OVYX_FORCE_LIVE_PREVIEW__ === true) return false;
+      const frame = $('ws-canvas-iframe');
+      if (frame) frame.dataset.ovyxLivePreviewPaused = 'true';
+      const status = $('ws-preview-url');
+      if (status && !status.dataset.ovyxPreviewPauseNote) {
+        status.dataset.ovyxPreviewPauseNote = 'true';
+        status.title = 'Automatic preview refresh is paused in Settings → Workspace.';
       }
-      const result = livePreviewOriginal.apply(this, arguments);
+      return true;
+    };
+    const previewRendered = function () {
       const frame = $('ws-canvas-iframe');
       if (frame) frame.dataset.ovyxLivePreviewPaused = 'false';
-      return result;
     };
-    wrapped.__ovyxSettingsReliabilityV1 = true;
-    studio.renderPreview = wrapped;
+    studio.__ovyxShouldPauseLivePreviewV1 = shouldPause;
+    studio.__ovyxLivePreviewRenderedV1 = previewRendered;
     window.OVYXSettingsLivePreview = {
+      shouldPause,
       refreshNow: function () {
         window.__OVYX_FORCE_LIVE_PREVIEW__ = true;
         try { return studio.renderPreview(); }
         finally { window.__OVYX_FORCE_LIVE_PREVIEW__ = false; }
       }
     };
+
+    // The quality wrapper owns renderPreview when present. Register the Settings
+    // gate above instead of wrapping that wrapper.
+    if (studio.renderPreview.__ovyxQualityEvents || studio.renderPreview.__ovyxSettingsReliabilityV1) return;
+
+    livePreviewOriginal = rawPreview.bind(studio);
+    const wrapped = function () {
+      if (shouldPause()) return false;
+      const result = livePreviewOriginal.apply(this, arguments);
+      previewRendered();
+      return result;
+    };
+    wrapped.__ovyxSettingsReliabilityV1 = true;
+    wrapped.__ovyxPreviewBaseV1 = rawPreview;
+    wrapped.__ovyxRawRenderPreviewV1 = rawPreview;
+    studio.renderPreview = wrapped;
   }
   function applySettingEffects(state, previous) {
     try {
