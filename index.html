@@ -7317,8 +7317,8 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
   window.addEventListener('click',function(e){
     const el=e.target?.closest?.('[data-theme-reset]');
     if(!el)return;
-    const panel=el.closest?.('[data-settings-panel="appearance"]');
-    if(!panel)return;
+    // The control may be mounted outside the visible panel wrapper by legacy Settings renderers.
+    // Its unique selector is the ownership boundary; do not skip the action based on ancestry.
     e.preventDefault();e.stopImmediatePropagation();
     const lab=window.OVYXThemeLab;
     if(!lab?.state){window.showToast?.('Theme Lab is unavailable; reset could not be applied.','error');return;}

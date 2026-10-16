@@ -55,6 +55,7 @@ assert.ok(html.includes("Date.now()/1000-authTime>240"), 'The legacy Profile del
 assert.ok(html.includes("does not replace OVYX’s built-in /api/projects sync service"), 'The custom data endpoint must not be presented as if it were the active project-sync backend.');
 assert.ok(html.includes("if(el.matches('[data-theme-delete]')){\n      e.preventDefault();e.stopImmediatePropagation();"), 'Theme Lab delete must have one event owner.');
 assert.ok(html.includes("window.addEventListener('click',function(e){\n    const el=e.target?.closest?.('[data-theme-reset]');"), 'Theme Lab reset must have a priority window-capture owner so legacy document handlers cannot supersede it.');
+assert.ok(!html.includes("const el=e.target?.closest?.('[data-theme-reset]');\\n    if(!el)return;\\n    const panel=el.closest?.('[data-settings-panel=\"appearance\"]');\\n    if(!panel)return;"), 'Theme Lab Reset must not silently skip its action based on panel ancestry.');
 assert.ok(html.includes("this.search('');\n      },\n      hide() {"), 'Command Palette show must leave the palette open after populating its actions.');
 assert.ok(html.includes("function save(options){") && html.includes("if(!options?.silent)window.showToast?.('Appearance saved','success');"), 'Canonical appearance save must allow destructive Theme Lab actions to persist without a blocking success toast.');
 assert.ok(html.includes("saveCanonical({silent:true});lab.renderState?.();window.OVYXSettings?.renderThemeCards?.();"), 'Theme Lab Delete must save quietly and report success inline.');

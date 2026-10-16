@@ -255,3 +255,15 @@ Inspect Agent Verify, Cloudflare Diagnostics and the desktop/mobile browser work
 ## Exact next step
 
 Inspect the new commit's build, diagnostics and desktop/mobile browser logs. If Theme Lab Reset passes, continue to Usage quota refresh/error and Token Booster mocked checkout/balance failure. Never run real account deletion or payment.
+
+
+## Theme Lab Reset click ownership follow-up (2026-10-16)
+
+- [x] Run for commit `e2dabeb18aed900b8a22a8d5deee6403bfa66d61` again passed the Security session-revocation and Delete Account safe-rejection tests on desktop/mobile; Reset still failed with the same custom IDs.
+- [x] Removed the unnecessary requirement that the Reset button's ancestors include the Appearance panel selector. The reset control's unique `data-theme-reset` selector is sufficient to identify the action; the window-capture handler now cannot return early merely because a legacy renderer mounted the button outside that wrapper.
+- [x] Added a source-contract assertion against that silent early return.
+- [ ] Recheck build, Cloudflare Diagnostics, and exact desktop/mobile Theme Lab Reset outcome before calling Reset done.
+
+## Exact next step
+
+Inspect the new commit's browser and build logs. If the reset list clears in memory and localStorage on both sizes, proceed to Usage quota refresh/error and Token Booster mocked balance/checkout failures. Security remains completed; do not revisit it unless a new test fails.
