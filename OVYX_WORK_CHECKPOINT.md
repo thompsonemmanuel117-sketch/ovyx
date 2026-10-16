@@ -14,7 +14,7 @@ Focused Settings interaction pass only. Do not restart a repository-wide or stag
 - Appearance, AI preference propagation, Profile/Notifications persistence and failure recovery, Shortcuts, and most Workspace actions have desktop/mobile browser coverage.
 
 ## Current blocker
-The direct preview render was removed from the toggle's synchronous effect in `9da8c481643c421b013dbfd420ec18fd446098ea`. Pause now passes, but resume still times out in Browser #407: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38913891840. The next run adds a dormant-by-default trace for the exact click path.
+The Live Preview toast change initially failed CI syntax validation because the temporary trace cleanup removed the surrounding catch. That exact syntax issue is fixed in the current follow-up. Do not mark pause/resume complete until the next full desktop/mobile Chromium run passes.
 
 ## Exact next step
 Verify the no-toast toggle change in the complete desktop/mobile run. Do not call Live Preview fixed unless both pause and resume pass. Then continue Theme Lab lifecycle coverage. Preserve `rollback/settings-baseline-20261015` and never place a real Booster purchase.

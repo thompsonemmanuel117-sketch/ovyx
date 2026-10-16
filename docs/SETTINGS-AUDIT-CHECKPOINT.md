@@ -403,6 +403,14 @@ Check the final conclusion and complete log for browser run #386. Then continue 
 - [x] Removed temporary trace instrumentation and added a source-contract check that the toggle handler uses inline status feedback and never calls `notify()`.
 - [ ] Verify pause and resume on desktop/mobile using the full browser run for this exact commit.
 
+
+## Stage 2 syntax repair — non-blocking Workspace status feedback (2026-10-16)
+
+- [x] The first no-toast patch was caught by CI before runtime tests: cleanup of diagnostic tracing left the Live Preview guard's `try` without its `catch`. Full log: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38915004263
+- [x] Restored the local error boundary; the guarded pause-marker/update logic still fails closed without interrupting the Settings toggle.
+- [x] The source regression test now checks Workspace toggles use the inline Settings status and do not call `notify()`.
+- [ ] Exact commit must pass Agent Verify and the full desktop/mobile browser workflow; the Live Preview resume click is not marked fixed yet.
+
 ## Exact next action
 
-Inspect the new main commit's full Chromium and build logs. Only after pause/resume passes, continue Theme Lab: preserve selected theme names, make canonical export/import round-trip, persist imported and duplicated themes as Custom entries, prevent duplicate card handling, and add desktop/mobile save/duplicate/export/import/delete/reset tests. Follow with safe session revoke/account deletion failures, quota refresh error status, and mocked Booster checkout/balance behavior. Never purchase real tokens; keep email/service status truthful and preserve `rollback/settings-baseline-20261015`.
+Inspect the next commit's CI logs first. Once the script parses and all preflight suites pass, verify the entire desktop/mobile Editor/Workspace pause/resume path. Then handle the remaining Theme Lab round-trip defect and add targeted Save/Duplicate/Import/Export/Delete/Reset tests. Next verify safe Security session revoke/account-deletion failures, quota refresh error status, and mocked Booster checkout/balance. Keep email and service status truthful; make no real purchase; preserve `rollback/settings-baseline-20261015`.

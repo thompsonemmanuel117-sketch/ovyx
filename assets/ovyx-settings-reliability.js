@@ -174,6 +174,7 @@
       // reads the persisted livePreview preference on every render, so toggling here
       // is enough to pause/resume future automatic refreshes. Never force a full
       // Web Studio render synchronously from inside a Settings click.
+    } catch (_) {}
     try {
       const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
       const prefs = safeJson(localStorage.getItem(key));
