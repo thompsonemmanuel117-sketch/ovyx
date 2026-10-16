@@ -240,6 +240,61 @@ try {
     assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem('ovyx.appearance.v3'))).mode, 'dark',
       '[' + target.name + '] Privacy reset must update the legacy appearance mirror too.');
 
+
+    // Notifications must show only the current account-backed control set.
+    await page.evaluate(() => window.OVYXSettings.show('notifications'));
+    const notifications = page.locator('[data-settings-panel="notifications"]');
+    await page.waitForFunction(() => {
+      const p = document.querySelector('[data-settings-panel="notifications"]');
+      return !!p && !!p.querySelector('#notify-save')
+        && p.querySelectorAll('[data-notify]').length === 8
+        && !p.querySelector('#set-notify-build');
+    });
+    assert.equal(await notifications.locator('[data-notify]').count(), 8,
+      '[' + target.name + '] the old 3-switch notification panel must not appear alongside the new 8 preferences.');
+    assert.equal(await notifications.locator('#set-notify-build, #set-notify-fail, #set-notify-usage').count(), 0,
+      '[' + target.name + '] legacy notification controls must be removed from the rendered panel.');
+    const notificationCopy = await notifications.innerText();
+    assert.match(notificationCopy, /EMAIL \(PREFERENCES ONLY\)/i);
+    assert.equal((notificationCopy.match(/this panel does not send email\./gi) || []).length, 2,
+      '[' + target.name + '] both email preference switches must explain that they do not send email.');
+
+    // The displayed Cloudflare status must follow the actual status field, not object truthiness.
+    await page.waitForFunction(() => !!window.OVYXConnections
+      && !!document.getElementById('ovyx-cloudflare-status'));
+    const connectionLabels = await page.evaluate(() => {
+      const status = document.getElementById('ovyx-cloudflare-status');
+      const values = [];
+      for (const state of ['unknown', 'available', 'auth_required', 'unavailable', 'connected']) {
+        window.OVYXConnections.cloudflare = { server: true, status: state };
+        window.OVYXConnections.render();
+        values.push(status.textContent.trim());
+      }
+      return values;
+    });
+    assert.deepEqual(connectionLabels, ['NOT VERIFIED', 'AVAILABLE', 'AUTH REQUIRED', 'UNAVAILABLE', 'CONNECTED · SERVER'],
+      '[' + target.name + '] Cloudflare state labels must never claim connected for unknown/unavailable state.');
+
+    await page.evaluate(() => window.OVYXSettings.show('boosters'));
+    const boosters = page.locator('[data-settings-panel="boosters"]');
+    await page.waitForFunction(() => !!document.querySelector('[data-settings-panel="boosters"] #ovyx-v65-booster-balance')
+      && document.querySelectorAll('[data-settings-panel="boosters"] [data-boost-pack]').length === 3);
+    const boosterCopy = await boosters.innerText();
+    assert.match(boosterCopy, /Checkout requires sign-in and an available payment provider/i);
+    assert.match(boosterCopy, /credited only after server verification/i);
+    assert.equal(await boosters.locator('[data-boost-pack]').count(), 3,
+      '[' + target.name + '] Starter, Builder and Studio purchase actions must all be rendered.');
+    assert.doesNotMatch(boosterCopy, /future booster products/i);
+
+    await page.evaluate(() => window.OVYXSettings.show('security'));
+    await page.waitForFunction(() => !!document.querySelector('[data-settings-panel="security"] #ovyx-revoke-all-devices'));
+    const securityCopy = await page.locator('[data-settings-panel="security"]').innerText();
+    assert.match(securityCopy, /Not signed in/i);
+    assert.match(securityCopy, /No active authenticated session/i);
+    assert.match(securityCopy, /INACTIVE/i);
+    assert.doesNotMatch(securityCopy, /● Protected/i,
+      '[' + target.name + '] signing out must not be shown as a protected/active session.');
+
     assert.deepEqual(settingsErrors, [], '[' + target.name + '] Settings controls should not throw browser errors.');
     await context.close();
   }
