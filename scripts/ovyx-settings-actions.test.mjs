@@ -62,6 +62,13 @@ assert.ok(html.includes('Database provisioning') && html.includes('Not provision
 assert.ok(!html.includes('Production-ready relational storage'), 'The Data Layer must not claim production-ready PostgreSQL before a connection is provisioned and verified.');
 assert.ok(html.includes("credentials:'omit',cache:'no-store'"), 'External Data Layer health checks must omit third-party cookies and avoid cached results.');
 assert.ok(html.includes('This verifies only the health endpoint, not PostgreSQL connectivity or project CRUD.'), 'A health response must not be represented as proof of database connectivity or project CRUD.');
+assert.ok(html.includes("'NOT VERIFIED'") && html.includes("state==='connected'"), 'Cloudflare must not show CONNECTED merely because a status object exists.');
+assert.ok(html.includes("EMAIL (PREFERENCES ONLY)") && html.includes('this panel does not send email.'), 'Notification email switches must be visibly described as saved preferences only.');
+assert.ok(!html.includes('future booster products'), 'Token Boosters must not be labelled as future products while checkout controls exist.');
+assert.ok(html.includes('Checkout requires sign-in and an available payment provider.'), 'Token Booster checkout requirements must be visible before purchase.');
+assert.ok(html.includes("${u?'● Signed in':'○ Not signed in'}"), 'Security must not label a merely signed-in user as fully protected.');
+assert.ok(html.includes("${u?'No active authenticated session':'No authenticated session is active'}") === false || html.includes("${u?'Active in this browser':'No active authenticated session'}"), 'Security session status must reflect whether a user is signed in.');
+assert.ok(html.includes("${u?'CURRENT':'INACTIVE'}"), 'The current-session badge must not appear active when signed out.');
 
 assert.equal((html.match(/ovyx-settings-reliability\.js/g) || []).length, 1, 'Settings reliability runtime must only be injected once.');
 assert.ok(runtime.includes('studio.__ovyxShouldPauseLivePreviewV1 = shouldPause'), 'Settings must publish a live-preview pause gate instead of wrapping the quality wrapper.');
