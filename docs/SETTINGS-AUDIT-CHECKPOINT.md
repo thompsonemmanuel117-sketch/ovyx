@@ -324,8 +324,23 @@ Add a focused desktop/mobile browser test for **Shortcuts**. Exercise Command Pa
 - [x] A signed-in Firebase user previously caused `window.OVYXAI.connected=true` before any provider/backend health check. It now starts with `connected=false` and `connectionStatus='not_verified'`; login alone no longer claims an AI provider is connected.
 - [x] Confirmed email preference UI already explicitly says saving preferences does not trigger email delivery. Do not implement or claim actual email delivery unless a real mail provider is configured.
 - [x] Token Booster has a purchase modal and server-confirmed credit flow in source; purchases still require safe mocked/sandbox verification, never a real purchase in this audit.
-- [ ] Confirm duplicate legacy notification controls are not simultaneously visible in the actual rendered Settings panel.
-- [ ] Run/inspect CI logs for the new mainline commit and continue targeted Stage 2 browser verification for Token Boosters and connection labels.
+- [x] Confirmed duplicate legacy notification controls are not simultaneously visible: desktop/mobile browser check saw exactly the newer 8 switches, with legacy Build completion / Connection failures / Usage threshold controls absent.
+- [x] CI log reviewed for this focused fix: Agent Verify run #862 passed `npm test`, `npm run validate`, `npm run build` preflight and Wrangler validation. Browser run #386 passed Appearance, Data Layer, AI Preferences, Editor/Workspace, Profile/Notifications, and the existing desktop/mobile regressions through Web Studio; its final owner-only Admin Workspace step was still in progress at this checkpoint write.
+- [x] Token Boosters render on opening the inner Settings category; Starter/Builder/Studio actions and checkout requirements are visible. No payment was placed; sandbox checkout confirmation remains a separate test.
+- [x] Cloudflare state labels now distinguish `NOT VERIFIED`, `AVAILABLE`, `AUTH REQUIRED`, `UNAVAILABLE`, and `CONNECTED · SERVER`; signed-out Security shows `No active authenticated session` and `INACTIVE`, not a protected/current session.
+
+## Stage 2 focused fix — truthful email, connection, security and Booster controls (2026-10-16)
+- **PR #148** merged to `main`: https://github.com/thompsonemmanuel117-sketch/ovyx/pull/148
+- **Merged commit:** `3e52e5f928cf0a39e3a7116db1a883b954f29e1c`
+- Changed only the relevant `index.html` renderers, `scripts/ovyx-settings-actions.test.mjs`, and `scripts/ovyx-settings.browser.test.mjs`.
+- Email controls visibly say **EMAIL (PREFERENCES ONLY)** and state that this panel does not send email; no delivery is claimed.
+- Cloudflare’s UI now derives CONNECTED from `status === 'connected'`, not object truthiness; unknown and unavailable states are not shown as connected.
+- Security UI now distinguishes signed-in from verified/protected, and signed-out state from an active authenticated session.
+- Token Booster copy explains sign-in, provider availability, and server-confirmed crediting. The renderer is now triggered on the `ovyx-settings-rendered` event so the inner category actually displays the three purchase packs.
+- Browser checks initially exposed two issues: the optional Connections card is not always mounted, and Booster panels did not reliably render on inner-category navigation. The test now checks the connection mapping when its optional card is mounted; Booster rendering remains directly asserted and passed on desktop/mobile.
+- **Agent Verify run #862 passed** (full `npm test`, `npm run validate`, `npm run build` preflight, Wrangler check): https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38889316145
+- **Browser run #386:** the new Settings checks and all earlier steps through Web Studio passed in desktop/mobile Chromium; the final owner-only Admin Workspace step was in progress when this note was written. Do not claim that full run is finished until its log says success.
+- Existing non-blocking log warnings include Node `punycode` deprecation and GitHub Actions Node 20-to-24 deprecation. No failing source/build step was found in Agent Verify.
 
 ## Exact next action
-Check GitHub Actions on `aff0bc435c0227c78aa823a6f99d86207c05c059`. Then add one focused browser assertion that signing in alone never displays a verified/connected AI provider state. Continue with notification duplicate visibility and Token Booster sandbox-path tests; do not scan the full HTML or repository.
+Check the final conclusion and complete log for browser run #386. Then continue with the remaining Stage 2 items from the checklist above: Shortcuts, safe destructive-action/session-revocation fixtures, Theme Lab custom-theme CRUD, and a mocked/sandbox Token Booster checkout. Do not make a real purchase. Keep using focused line/function edits and update this checkpoint after each milestone; preserve `rollback/settings-baseline-20261015` unchanged.
