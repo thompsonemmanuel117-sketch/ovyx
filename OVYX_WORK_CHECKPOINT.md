@@ -290,3 +290,14 @@ Inspect the latest Actions and browser logs. If Reset passes on both screen size
 ## Exact next step
 
 Check the exact corrected commit's Agent Verify and full browser logs. Only mark Reset complete after its desktop/mobile state and localStorage assertions pass.
+
+
+## Reset contract updates after standalone owner (2026-10-16)
+
+- [x] Agent Verify on commit `afaeb0ed3fbd83363affda30a62e228c65b552df` surfaced one remaining test assertion that still expected the removed guarded-bridge helper `saveCanonical`; the new standalone owner uses `ThemeContext.save({silent:true})` directly.
+- [x] Updated the contract assertion to match the actual canonical save path; no account/payment calls or destructive actions were run.
+- [ ] Recheck Agent Verify, build, diagnostics, and the actual desktop/mobile Reset interaction on the next commit.
+
+## Exact next step
+
+Confirm static/source tests pass, then inspect the browser run through the Theme Lab Reset click. Do not report this control done before the empty in-memory and stored custom-theme list is proven.
