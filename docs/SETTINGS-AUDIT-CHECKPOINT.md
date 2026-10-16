@@ -365,8 +365,17 @@ Check the final conclusion and complete log for browser run #386. Then continue 
 - [x] Ported the reviewed Command Palette/shortcut fix into `main`: `show()` no longer immediately hides the palette, the key listener is initialized during app startup, and Shift+Z no longer triggers both Undo and Redo.
 - [x] Added the dedicated desktop/mobile Chromium regression test for palette focus/open/close, New Project creation/persistence, single Save persistence, and Undo/Redo dispatch.
 - [x] Added the shortcut browser test to the mainline browser workflow and its pull-request path filter. Workspace and account browser fixtures also wait for their intended Settings state before continuing.
-- [ ] Verification for this exact main commit is pending; do not mark shortcuts complete until Agent Verify and the complete Chromium logs are reviewed.
+- [x] The shortcut commit’s Agent Verify #888 passed, and the source assertions cover the palette staying open, startup keyboard registration, and Shift+Z undo/redo separation: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38911881284
+- [x] The dedicated Shortcut browser step passed on desktop and mobile in Chromium: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38911880995
+- [ ] Full browser workflow #404 failed later in Editor/Workspace at line 248 on the Live Preview toggle. The exact log confirms the forced click began but never completed; no assertion in the shortcut browser test failed. Agent Verify and Cloudflare Diagnostics were green, but the complete browser job is not green yet.
+
+## Stage 2 continued — avoid deep snapshot on unrelated toggles (2026-10-16)
+
+- [x] Identified that `applySettingEffects` called `OVYXRuntimeSession.save()` on every workspace switch; the runtime implementation deep-clones the active project into a recovery draft.
+- [x] Restricted that synchronous snapshot to an actual `autosave` preference change. Inspector/live-preview/safety/notification changes persist their settings without unnecessarily serializing the whole project. Autosave on/off still runs the existing recovery clear/restore path.
+- [x] Added a static regression assertion for this persistence boundary.
+- [ ] Verify the exact new commit with full Agent Verify and Chromium logs; the editor toggle remains unverified until the browser suite passes.
 
 ## Exact next action
 
-Inspect the Agent Verify and Assistant Workspace Browser Tests results for the shortcut commit. Review full logs for real build errors and any failing step; fix and retest before moving on. After this milestone, continue the unfinished Theme Lab custom-theme lifecycle and safe Security/account/session-revocation plus Plan/Usage/Booster refresh paths. Keep external-service states truthful, email delivery clearly unavailable without a configured mail integration, never make a real purchase, and preserve `rollback/settings-baseline-20261015` unchanged.
+Inspect all build and browser logs for the new main commit. If the Editor/Workspace Live Preview toggle now passes on desktop and mobile, update this checkpoint with the exact green run links and then continue the audited Theme Lab custom-theme lifecycle (save/duplicate/import/export/delete/reset with round-trip tests). Next verify safe session revocation, account-deletion confirmation/re-auth failures, quota refresh/error status, and Booster balance refresh/purchase-failure behavior using mock fixtures only. Keep service and email-delivery labels truthful, never make a real purchase, and preserve `rollback/settings-baseline-20261015` unchanged.

@@ -154,7 +154,13 @@
     } catch (_) {}
     try {
       const runtime = window.OVYXRuntimeSession;
-      if (runtime && typeof runtime.save === 'function') runtime.save();
+      // RuntimeSession.save() deep-clones the active project for recovery. That
+      // snapshot is necessary when autosave changes, not on every inspector,
+      // preview, notification or safety toggle; avoid blocking unrelated clicks.
+      if (runtime && typeof runtime.save === 'function' &&
+          previous && previous.autosave !== state.autosave) {
+        runtime.save();
+      }
     } catch (_) {}
     try {
       installLivePreviewBridge();
