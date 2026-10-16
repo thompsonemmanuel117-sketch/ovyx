@@ -259,6 +259,23 @@ try {
     assert.match(notificationCopy, /This panel does not send email\. Sending email is unavailable until a delivery service is configured\./i,
       '[' + target.name + '] email preferences must explicitly disclose that they do not send email.');
 
+    // A non-null status object is not enough to claim the external service is connected.
+    const hasConnectionCard = await page.evaluate(() => !!window.OVYXConnections && !!document.getElementById('ovyx-cloudflare-status'));
+    if (hasConnectionCard) {
+      const connectionLabels = await page.evaluate(() => {
+        const statusNode = document.getElementById('ovyx-cloudflare-status');
+        const values = [];
+        for (const state of ['unknown', 'available', 'auth_required', 'unavailable', 'connected']) {
+          window.OVYXConnections.cloudflare = { server: true, status: state };
+          window.OVYXConnections.render();
+          values.push(statusNode.textContent.trim());
+        }
+        return values;
+      });
+      assert.deepEqual(connectionLabels, ['NOT VERIFIED', 'AVAILABLE', 'AUTH REQUIRED', 'UNAVAILABLE', 'CONNECTED · SERVER'],
+        '[' + target.name + '] unknown/available/error Cloudflare states must not be labelled connected.');
+    }
+
     // Security badges are guidance labels, not claims that a live audit ran.
     await page.evaluate(() => window.OVYXSettings.show('security'));
     const security = page.locator('[data-settings-panel="security"]');
@@ -299,6 +316,8 @@ try {
     await boosterModal.locator('[data-pack="builder"]').click();
     await boosterModal.locator('[data-currency]').selectOption('USD');
     assert.equal(await boosterModal.locator('[data-provider]').inputValue(), 'paystack');
+    await page.waitForFunction(() => document.querySelector('#ovyx-v65-booster-modal [data-provider-note]')?.textContent?.includes('International USD checkout attempts the configured Paystack provider'));
+    assert.match(await boosterModal.locator('[data-provider-note]').innerText(), /Availability is checked when you continue; errors stop the purchase/i);
     await page.evaluate(() => {
       const fakeUser = { uid: 'settings-booster-e2e', email: 'settings-booster@example.test', emailVerified: true, getIdToken: async () => 'test-only-browser-token' };
       try { Object.defineProperty(window, 'firebase', { configurable: true, writable: true, value: { auth: () => ({ currentUser: fakeUser }) } }); }
