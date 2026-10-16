@@ -6,6 +6,7 @@ import { normalizeNotificationPreferences, NOTIFICATION_DEFAULTS } from '../func
 
 const read = path => fs.readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 const runtime = read('assets/ovyx-settings-reliability.js');
+const qualityRuntime = read('assets/ovyx-webstudio-quality.js');
 const html = read('index.html');
 const profileApi = read('functions/api/settings/profile.js');
 const preferencesApi = read('functions/api/settings/preferences.js');
@@ -21,6 +22,7 @@ const packageJson = JSON.parse(read('package.json'));
 
 for (const path of [
   'assets/ovyx-settings-reliability.js',
+  'assets/ovyx-webstudio-quality.js',
   'functions/api/settings/profile.js',
   'functions/api/settings/preferences.js',
   'functions/api/account/delete.js',
@@ -62,6 +64,11 @@ assert.ok(html.includes("credentials:'omit',cache:'no-store'"), 'External Data L
 assert.ok(html.includes('This verifies only the health endpoint, not PostgreSQL connectivity or project CRUD.'), 'A health response must not be represented as proof of database connectivity or project CRUD.');
 
 assert.equal((html.match(/ovyx-settings-reliability\.js/g) || []).length, 1, 'Settings reliability runtime must only be injected once.');
+assert.ok(runtime.includes('studio.__ovyxShouldPauseLivePreviewV1 = shouldPause'), 'Settings must publish a live-preview pause gate instead of wrapping the quality wrapper.');
+assert.ok(qualityRuntime.includes('studio.__ovyxRawRenderPreviewV1 ||'), 'Web Studio quality must reuse a stable raw preview renderer.');
+assert.ok(qualityRuntime.includes("typeof shouldPause === 'function' && shouldPause()"), 'Web Studio quality must honor the Settings pause gate while preserving the quality gate.');
+assert.ok(qualityRuntime.includes('studio.renderPreview.__ovyxRawRenderPreviewV1'), 'Quality must not capture another live-preview wrapper as its base renderer.');
+
 for (const section of ['general','profile','appearance','workspace','notifications','editor','shortcuts','ai','privacy','security','plan','usage','boosters']) {
   assert.ok(html.includes("['" + section + "'"), 'Settings navigation must retain the ' + section + ' section.');
 }
@@ -88,6 +95,8 @@ for (const requirement of [
   "ovyx.brand.v1.",
   'stopImmediatePropagation()',
   'installLivePreviewBridge',
+  '__ovyxShouldPauseLivePreviewV1',
+  '__ovyxRawRenderPreviewV1',
   'payload.preferredProvider',
   'payload.providerRouting',
   'payload.provider = String(prefs.provider).toLowerCase()',
