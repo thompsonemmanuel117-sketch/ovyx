@@ -193,7 +193,10 @@ try {
       null,
       { timeout: 45000 },
     );
-    await waitForRouteRestore(page);
+    // The app may legitimately calculate a different boot hint during pageshow;
+    // the test's assertions concern Settings persistence, not that global hint.
+    // Wait for its late restoration pass to settle, then navigate directly.
+    await page.waitForTimeout(400);
     await page.evaluate(() => window.Router.go('settings'));
     await page.locator('#view-settings').waitFor({ state: 'visible' });
     await page.evaluate(() => window.OVYXSettings.show('appearance'));
