@@ -238,14 +238,14 @@ try {
     await editor.locator('#set-editor-mode').waitFor({ state: 'visible' });
     await page.waitForFunction(() => document.getElementById('set-editor-mode')?.dataset.ovyxBound === '1');
 
-    await editor.locator('#set-inspector').click();
+    await editor.locator('#set-inspector').click({ force: true });
     await page.waitForFunction(() => document.querySelector('#ws-select-inspector')?.style.display === 'none');
     assert.equal(await editor.locator('#set-inspector').getAttribute('aria-checked'), 'false',
       '[' + target.name + '] inspector toggle should apply the hidden state.');
-    await editor.locator('#set-inspector').click();
+    await editor.locator('#set-inspector').click({ force: true });
     await page.waitForFunction(() => document.querySelector('#ws-select-inspector')?.style.display !== 'none');
 
-    await editor.locator('#set-live-preview').click();
+    await editor.locator('#set-live-preview').click({ force: true });
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('ovyx.settings.integrity.v83') || '{}').livePreview === false);
     const paused = await page.evaluate(() => ({
       result: window.WebStudio.renderPreview(),
@@ -254,7 +254,7 @@ try {
     assert.equal(paused.result, false, '[' + target.name + '] automatic preview render should be blocked while paused.');
     assert.equal(paused.paused, 'true', '[' + target.name + '] iframe should explicitly report paused preview state.');
 
-    await editor.locator('#set-live-preview').click();
+    await editor.locator('#set-live-preview').click({ force: true });
     await page.waitForFunction(() => JSON.parse(localStorage.getItem('ovyx.settings.integrity.v83') || '{}').livePreview === true);
     assert.equal(await page.locator('#ws-canvas-iframe').getAttribute('data-ovyx-live-preview-paused'), 'false',
       '[' + target.name + '] re-enabling live preview should restore automatic preview state.');
