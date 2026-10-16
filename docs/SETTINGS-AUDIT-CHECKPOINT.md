@@ -411,6 +411,14 @@ Check the final conclusion and complete log for browser run #386. Then continue 
 - [x] The source regression test now checks Workspace toggles use the inline Settings status and do not call `notify()`.
 - [ ] Exact commit must pass Agent Verify and the full desktop/mobile browser workflow; the Live Preview resume click is not marked fixed yet.
 
-## Exact next action
+## Latest direct interaction run
 
-Inspect the next commit's CI logs first. Once the script parses and all preflight suites pass, verify the entire desktop/mobile Editor/Workspace pause/resume path. Then handle the remaining Theme Lab round-trip defect and add targeted Save/Duplicate/Import/Export/Delete/Reset tests. Next verify safe Security session revoke/account-deletion failures, quota refresh error status, and mocked Booster checkout/balance. Keep email and service status truthful; make no real purchase; preserve `rollback/settings-baseline-20261015`.
+- [x] Current main commit `dfdebeea3bc72b78db8a02d56bc45f18e62e7491`: Agent Verify passed; Cloudflare Diagnostics passed.
+- [x] Browser checks for Appearance, Data Layer (including no duplicate legacy notification switches), AI Preferences/request propagation all passed on desktop and mobile.
+- [ ] Browser workflow failed in the Shortcut test before exercising shortcut behavior: after `Router.go('settings')`, the test waited for `#view-settings` without first waiting for `KernelState.activeView === 'settings'`. The panel was still hidden. Full log: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38915231269
+- [x] Fix prepared: wait for the confirmed Settings route before asserting panel visibility, matching the existing Profile/Notifications test pattern.
+- [ ] Validate this test-only timing fix, then check the later Editor/Workspace Live Preview pause/resume step. Do not mark Live Preview complete unless both toggle interactions pass.
+
+## Exact next step
+
+Commit the Shortcut route-wait fix and the updated checkpoints directly to `main`. Review the exact commit's Agent Verify, Cloudflare Diagnostics, and full desktop/mobile Chromium job logs. If Shortcuts passes, continue to Editor/Workspace; if Live Preview fails, inspect the precise failure before changing the code again. Keep scope limited to controls that demonstrably do not work.
