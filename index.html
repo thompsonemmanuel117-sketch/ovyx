@@ -7422,16 +7422,30 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
     if(el.matches('[data-theme-reset]')){
       e.preventDefault();e.stopImmediatePropagation();
       const lab=window.OVYXThemeLab;
+      const previous=lab?.state?{...lab.state,custom:{...(lab.state.custom||{})},customThemes:{...(lab.state.customThemes||{})}}:null;
+      const base=themeFromLab('obsidian');
+      const resetState={active:'obsidian',custom:{...base},customThemes:{}};
       if(lab?.state){
-        const previous={...lab.state,custom:{...(lab.state.custom||{})},customThemes:{...(lab.state.customThemes||{})}};
-        const base=themeFromLab('obsidian');
-        lab.state={active:'obsidian',custom:{...base},customThemes:{}};
-        try{localStorage.setItem(LAB_KEY,JSON.stringify(lab.state));}
+        lab.state=resetState;
+        try{localStorage.setItem(LAB_KEY,JSON.stringify(resetState));}
         catch(error){lab.state=previous;window.showToast?.('Theme Lab reset could not be saved on this device.','error');return;}
       }
       const active=lab?.activeTheme?.();
       if(active)paint(labToTheme(active),'theme-reset');
       saveCanonical({silent:true});lab?.renderState?.();window.OVYXSettings?.renderThemeCards?.();
+      // Appearance save and legacy theme-sync callbacks can mirror the pre-reset custom list.
+      // Make the reset state authoritative after all canonical rendering/saving has completed.
+      if(lab?.state){
+        lab.state={active:'obsidian',custom:{...base},customThemes:{}};
+        try{localStorage.setItem(LAB_KEY,JSON.stringify(lab.state));}
+        catch(error){
+          const status=document.getElementById('settings-save-status');
+          if(status)status.textContent='Theme Lab reset is active in this tab, but could not be saved on this device.';
+          window.showToast?.('Theme Lab reset could not be fully saved on this device.','error');
+          return;
+        }
+        lab.renderState?.();window.OVYXSettings?.renderThemeCards?.();
+      }
       const status=document.getElementById('settings-save-status');if(status)status.textContent='OVYX Theme Lab reset to the industrial dark baseline.';
       return;
     }

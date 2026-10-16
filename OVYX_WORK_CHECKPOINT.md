@@ -214,8 +214,20 @@ If the Security interaction passes, test Delete Account's cancellation and stale
 - [x] Added direct desktop/mobile interaction checks for confirmation cancellation and stale recent-authentication rejection.
 - [x] Both checks use a fake signed-in user with stale `auth_time`; the `/api/account/delete` route is intercepted and returns a failure if ever reached, so no real account data is deleted.
 - [x] Added source contract checks that the visible Security delete button is bound to the guarded handler and cancelling confirmation exits before deletion.
-- [ ] Verify the exact new commit's Agent Verify/build, Cloudflare Diagnostics and full desktop/mobile Security browser step before marking Security complete.
+- [x] Exact commit `91b7fe593d34587f7bd95dd8d61406ef9da70c54`: Agent Verify and production build preflight passed; Cloudflare Diagnostics passed; browser run #428 explicitly passed the full Security session-revocation plus Delete Account cancel/stale-auth rejection step on desktop and mobile. Real deletion was never executed.
 
 ## Exact next step
 
 Check the next commit's three Action results. If the Security step passes, mark Security completed and move to the next unfinished Settings issue (Usage quota refresh/error and Token Booster mocked balance/checkout failure). Do not run real account deletion or payment.
+
+
+## Latest Settings work unit — Theme Lab Reset restores deleted custom themes (2026-10-16)
+
+- [x] Inspected browser run #428 for exact main commit `91b7fe593d34587f7bd95dd8d61406ef9da70c54`: desktop/mobile Editor/Workspace and Security checks passed, but Appearance then failed because clicking Reset Lab left two custom-theme IDs in both memory and storage while active theme was already `obsidian`.
+- [x] Fixed reset ordering so canonical appearance save/render operations cannot be the final writer of the old custom-theme list. Reset now reasserts `active: obsidian`, the baseline custom draft, and `customThemes: {}` in memory and localStorage after canonical side effects; failures state honestly that persistence did not complete.
+- [x] Added source-contract checks for pre-save reset persistence and final post-save reset persistence. Kept the Settings scope narrow and left Security unchanged.
+- [ ] Verify Agent Verify/build, Cloudflare Diagnostics and the full desktop/mobile Appearance test for this exact fix. Do not call Theme Lab complete until Reset passes.
+
+## Exact next step
+
+Inspect the new commit's three Actions and exact browser logs. If Theme Lab Reset passes, continue to Usage quota refresh/error and Token Booster mocked balance/checkout failure checks. Never run a real payment or account deletion.
