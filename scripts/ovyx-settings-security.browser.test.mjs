@@ -54,6 +54,12 @@ try {
         async getIdToken() { return 'security-browser-test-token'; },
       };
       window.__securityTestState = { currentUser: user, signOutCalls: 0 };
+      window.__securityToasts = [];
+      // The Security runtime now routes errors through window.showToast before its DOM fallback.
+      // Observe the public feedback contract directly instead of assuming the app's toast markup.
+      window.showToast = (message, type) => {
+        window.__securityToasts.push({ message: String(message ?? ''), type: String(type || 'info') });
+      };
       const auth = {
         get currentUser() { return window.__securityTestState.currentUser; },
         async signOut() {
@@ -97,23 +103,21 @@ try {
     await responseWait;
     await page.waitForFunction(() => {
       const current = document.getElementById('ovyx-revoke-all-devices');
-      return window.__securityTestState?.signOutCalls > 0 || (current && !current.disabled);
+      return current && !current.disabled && window.__securityToasts?.some(t => t.type === 'error' && /did not confirm/i.test(t.message));
     });
     let state = await page.evaluate(() => ({
       signOutCalls: window.__securityTestState.signOutCalls,
       uid: window.__securityTestState.currentUser?.uid || null,
+      toasts: [...window.__securityToasts],
       disabled: document.getElementById('ovyx-revoke-all-devices')?.disabled ?? null,
       busy: document.getElementById('ovyx-revoke-all-devices')?.getAttribute('aria-busy') || null,
     }));
     assert.equal(state.signOutCalls, 0, '[' + target.name + '] unconfirmed HTTP 200 must not sign out.');
     assert.equal(state.uid, 'security-browser-test-user');
-    const unconfirmedErrorToast = page.locator('#toast-stack .ovyx-toast--error').filter({ hasText: /did not confirm/i });
-    await unconfirmedErrorToast.waitFor({ state: 'visible' });
-    assert.equal(
-      await page.locator('#toast-stack .ovyx-toast--success').filter({ hasText: /all devices have been logged out/i }).count(),
-      0,
-      '[' + target.name + '] unconfirmed revocation must not display success feedback.',
-    );
+    assert.ok(state.toasts.some(t => t.type === 'error' && /did not confirm/i.test(t.message)),
+      '[' + target.name + '] unconfirmed revocation must show an error, not success: ' + JSON.stringify(state.toasts));
+    assert.ok(!state.toasts.some(t => t.type === 'success' && /all devices have been logged out/i.test(t.message)),
+      '[' + target.name + '] unconfirmed revocation must not display success feedback.');
     assert.equal(state.disabled, false);
     assert.equal(state.busy, null);
 
@@ -127,17 +131,17 @@ try {
     await responseWait;
     await page.waitForFunction(() => {
       const current = document.getElementById('ovyx-revoke-all-devices');
-      return current && !current.disabled;
+      return current && !current.disabled && window.__securityToasts?.some(t => t.type === 'error' && /simulated session revocation outage/i.test(t.message));
     });
     state = await page.evaluate(() => ({
       signOutCalls: window.__securityTestState.signOutCalls,
       uid: window.__securityTestState.currentUser?.uid || null,
+      toasts: [...window.__securityToasts],
     }));
     assert.equal(state.signOutCalls, 0, '[' + target.name + '] HTTP 503 must not sign out.');
     assert.equal(state.uid, 'security-browser-test-user');
-    await page.locator('#toast-stack .ovyx-toast--error')
-      .filter({ hasText: /simulated session revocation outage/i })
-      .waitFor({ state: 'visible' });
+    assert.ok(state.toasts.some(t => t.type === 'error' && /simulated session revocation outage/i.test(t.message)),
+      '[' + target.name + '] outage must be reported: ' + JSON.stringify(state.toasts));
 
     // Positive server confirmation is required before local sign-out and success messaging.
     nextReply = {
@@ -152,10 +156,8 @@ try {
     await button.click();
     await responseWait;
     await page.waitForFunction(() => window.__securityTestState?.signOutCalls === 1
-      && window.__securityTestState.currentUser === null, null, { timeout: 10000 });
-    await page.locator('#toast-stack .ovyx-toast--success')
-      .filter({ hasText: /all devices have been logged out/i })
-      .waitFor({ state: 'visible', timeout: 10000 });
+      && window.__securityTestState.currentUser === null
+      && window.__securityToasts?.some(t => t.type === 'success' && /all devices have been logged out/i.test(t.message)), null, { timeout: 10000 });
 
     assert.equal(requests.length, 3, '[' + target.name + '] each click must issue exactly one revocation request.');
     assert.ok(requests.every(r => r.method === 'POST'), '[' + target.name + '] revocation must use POST.');

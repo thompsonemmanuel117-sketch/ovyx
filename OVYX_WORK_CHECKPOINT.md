@@ -196,3 +196,14 @@ Review the corrected Security browser step's logs. If it passes on both viewport
 ## Exact next step
 
 Check all three Actions for the scoped-toast fix. If session-revocation tests pass on desktop and mobile, proceed to the next Security control: test Delete Account cancel and stale-auth rejection without invoking real deletion.
+
+
+## Security revocation feedback contract — test aligned with scoped toast (2026-10-16)
+
+- [x] Latest main `a5164d82175a1e541996384de6ab9bf8d251f3e6`: Agent Verify/build passed and Cloudflare Diagnostics passed; the desktop/mobile browser workflow passed Editor/Workspace but stopped on Security while waiting for a toast DOM selector that did not match the runtime's shared toast contract.
+- [x] Confirmed the scoped Security toast helper now calls `window.showToast` when available and has an accessible DOM fallback. Updated the Security browser test to observe the public toast message/type contract and wait for feedback before asserting, instead of assuming one toast-stack markup shape.
+- [ ] Verify the exact new commit's Agent Verify/build, Cloudflare Diagnostics, and desktop/mobile Security test logs before declaring Log Out All Devices complete.
+
+## Exact next step
+
+If the Security interaction passes, test Delete Account's cancellation and stale/recent-auth rejection path without sending a valid deletion request or deleting data. Then inspect Usage quota refresh/error and Token Booster mocked balance/checkout error paths. No real account deletion or payment.
