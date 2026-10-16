@@ -65,6 +65,8 @@ assert.ok(html.includes('This verifies only the health endpoint, not PostgreSQL 
 
 assert.equal((html.match(/ovyx-settings-reliability\.js/g) || []).length, 1, 'Settings reliability runtime must only be injected once.');
 assert.ok(runtime.includes('studio.__ovyxShouldPauseLivePreviewV1 = shouldPause'), 'Settings must publish a live-preview pause gate instead of wrapping the quality wrapper.');
+const previewEffect = runtime.slice(runtime.indexOf('function applySettingEffects'), runtime.indexOf('function syncToggleControls'));
+assert.ok(previewEffect.includes("activeView === 'webstudio'"), 'Resuming live preview from Settings must not trigger Web Studio rendering or route changes.');
 assert.ok(qualityRuntime.includes('studio.__ovyxRawRenderPreviewV1 ||'), 'Web Studio quality must reuse a stable raw preview renderer.');
 assert.ok(qualityRuntime.includes("typeof shouldPause === 'function' && shouldPause()"), 'Web Studio quality must honor the Settings pause gate while preserving the quality gate.');
 assert.ok(qualityRuntime.includes('studio.renderPreview.__ovyxRawRenderPreviewV1'), 'Quality must not capture another live-preview wrapper as its base renderer.');
