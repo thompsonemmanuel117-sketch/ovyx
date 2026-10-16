@@ -267,3 +267,15 @@ Inspect the new commit's build, diagnostics and desktop/mobile browser logs. If 
 ## Exact next step
 
 Inspect the new commit's browser and build logs. If the reset list clears in memory and localStorage on both sizes, proceed to Usage quota refresh/error and Token Booster mocked balance/checkout failures. Security remains completed; do not revisit it unless a new test fails.
+
+
+## Theme Lab Reset independent owner (2026-10-16)
+
+- [x] Run for commit `64d58a4a293431c29b986b9da053e5d9e84b25aa` again passed the Security step on desktop/mobile, but Reset still left the same custom IDs in memory and storage despite a window-capture handler inside the guarded Appearance bridge.
+- [x] Removed that guarded handler and the old Settings-root Reset listener. Added one standalone, earlier window-capture owner outside the guarded bridge; it resets canonical Appearance, re-persists the empty custom-theme list, and removes stale Custom cards.
+- [x] Added source-contract checks for the independent owner, post-reset persistence, stale-card cleanup, and absence of the old panel handler.
+- [ ] Verify the exact commit's Agent Verify/build, Cloudflare Diagnostics and desktop/mobile Reset run before marking this control complete.
+
+## Exact next step
+
+Inspect the latest Actions and browser logs. If Reset passes on both screen sizes, continue to Usage quota refresh/error and Token Booster mock payment/balance error handling. Security remains complete; don't rerun completed Settings controls without a new regression.
