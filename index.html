@@ -4373,6 +4373,30 @@ window.addEventListener('storage',()=>{aiApply()});
 
 <script id="ovyx-number11-12-runtime">(function(){'use strict';
 const BILLING_KEY='ovyx.billing.history.v1';
+function toast(message,type='info'){
+  const text=String(message??'');
+  const requested=String(type||'info').toLowerCase();
+  const kind=['success','error','warning','info'].includes(requested)?requested:'info';
+  try{
+    if(typeof window.showToast==='function'){
+      const rendered=window.showToast(text,kind);
+      if(rendered!==null&&rendered!==undefined)return rendered;
+    }
+  }catch(error){console.warn('[OVYX security feedback] shared toast failed',error)}
+  const stack=document.getElementById('toast-stack');
+  if(!stack){(kind==='error'?console.error:console.info)('[OVYX security feedback]',text);return null}
+  const node=document.createElement('div');
+  node.className='ovyx-toast ovyx-toast--'+kind;
+  node.setAttribute('role',kind==='error'?'alert':'status');
+  node.setAttribute('aria-live',kind==='error'||kind==='warning'?'assertive':'polite');
+  const messageNode=document.createElement('span');
+  messageNode.className='ovyx-toast__message';
+  messageNode.textContent=text;
+  node.appendChild(messageNode);
+  stack.appendChild(node);
+  setTimeout(()=>{if(node.isConnected)node.remove()},kind==='error'||kind==='warning'?5200:3600);
+  return node;
+}
 function esc11(v){return String(v??'').replace(/[&<>'"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[m]))}
 function tokenInfo(){
   const q=window.TokenQuotaRegistry;

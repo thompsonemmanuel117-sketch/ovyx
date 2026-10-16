@@ -184,3 +184,15 @@ Inspect the exact commit’s three workflow results and Security browser logs. O
 ## Exact next step
 
 Review the corrected Security browser step's logs. If it passes on both viewports, continue to safe Delete Account cancellation and stale-auth rejection checks.
+
+
+## Security feedback fix — scoped toast function (2026-10-16)
+
+- [x] Browser run #425 reaches the real Security handler and confirms the signed-in browser is not signed out after a mocked HTTP 200 `revoked:false` response; it then fails because no error toast appears.
+- [x] Inspected the `ovyx-number11-12-runtime` IIFE: the Security handler called `toast(...)` in its catch path, but that function was not declared in that IIFE. The catch was therefore unable to report the server failure.
+- [x] Added a scoped toast helper that safely uses the shared UI toast when available and falls back to rendering an accessible toast in `#toast-stack`; added a source-contract assertion.
+- [ ] Verify this exact commit through Agent Verify/build, Cloudflare Diagnostics, and the independent desktop/mobile Security browser step before marking Log Out All Devices complete.
+
+## Exact next step
+
+Check all three Actions for the scoped-toast fix. If session-revocation tests pass on desktop and mobile, proceed to the next Security control: test Delete Account cancel and stale-auth rejection without invoking real deletion.
