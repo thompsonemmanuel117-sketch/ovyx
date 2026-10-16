@@ -9104,6 +9104,7 @@ function renderBoosterSettings(){
   panel.querySelectorAll('[data-boost-pack]').forEach(b=>b.addEventListener('click',()=>window.OVYXTokenBooster?.open?.(b.dataset.boostPack||'starter')));
   panel.querySelector('#ovyx-v65-booster-refresh')?.addEventListener('click',syncBoosterBalance);  syncBoosterBalance();
 }
+window.addEventListener('ovyx-settings-rendered',()=>renderBoosterSettings());
 async function syncBoosterBalance(){
   const el=$('ovyx-v65-booster-balance');if(!el)return;
   const u=auth();if(!u){el.textContent='Sign in to see your balance';return}
