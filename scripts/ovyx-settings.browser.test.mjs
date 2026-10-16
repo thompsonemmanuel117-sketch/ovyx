@@ -254,16 +254,18 @@ try {
         '[' + target.name + '] legacy notification switch ' + legacyId + ' must not appear beside the account-backed controls.');
     }
     const notificationCopy = await notifications.innerText();
-    assert.match(notificationCopy, /Email delivery is not provided by these switches/i,
+    assert.match(notificationCopy, /EMAIL \(PREFERENCES ONLY\)/i,
+      '[' + target.name + '] email switches must be labelled as preferences only.');
+    assert.match(notificationCopy, /This panel does not send email\. Sending email is unavailable until a delivery service is configured\./i,
       '[' + target.name + '] email preferences must explicitly disclose that they do not send email.');
-    assert.match(notificationCopy, /delivery service/i);
 
     // Security badges are guidance labels, not claims that a live audit ran.
     await page.evaluate(() => window.OVYXSettings.show('security'));
     const security = page.locator('[data-settings-panel="security"]');
     await security.waitFor({ state: 'visible' });
+    await security.locator('#ovyx-revoke-all-devices').waitFor({ state: 'attached' });
     const securityCopy = await security.innerText();
-    assert.match(securityCopy, /Authentication\\s+○ Not signed in/i,
+    assert.match(securityCopy, /Authentication\s+○ Not signed in/i,
       '[' + target.name + '] an unauthenticated browser must not be labelled Protected.');
     assert.match(securityCopy, /Current session\\s+No authenticated session/i,
       '[' + target.name + '] the Security panel must not claim an authenticated session when signed out.');
