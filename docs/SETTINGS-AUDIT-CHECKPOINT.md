@@ -397,3 +397,14 @@ Inspect build and full browser logs for the new commit. If Theme Lab passes, con
 ## Exact next step
 
 Inspect this commit's Agent Verify, Diagnostics and Browser Tests; after Reset is green, continue direct Security/session-revocation and safe account-deletion rejection tests, then Usage/Booster refresh/error paths without actual payment.
+
+
+## Focused interaction test follow-up — Theme Lab Import async predicate
+
+- Browser run #416 now passed Reset and reached Import, then failed because the asynchronous wait predicate accepted the existing duplicate theme (matching name) before the FileReader callback created the imported copy. It did not establish a Theme Lab implementation failure; it exposed an assertion that checked only the name, not the new ID.
+- Updated the desktop/mobile test to require the imported active ID to differ from the previous duplicate ID before proceeding to Delete and Reset.
+- [ ] Re-run the full browser and build checks for the exact commit before marking Theme Lab complete.
+
+## Exact next step
+
+Check the exact commit's Actions. If Import/Delete/Reset all pass, add safe direct tests for session revocation and account deletion rejection/fresh-auth path, then quota refresh/error and mocked Booster balance/checkout failure. Keep all real payments/destructive account requests mocked.

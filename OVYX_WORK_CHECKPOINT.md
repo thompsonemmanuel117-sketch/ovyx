@@ -81,3 +81,15 @@ Commit the focused Delete/Reset fix and review the exact commit's Actions. If Th
 ## Exact next step
 
 After Theme Lab Reset passes, continue with the requested safe Security direct-interaction browser checks: mocked Log Out All Devices result/failure, account-delete missing-confirmation and stale-auth rejection without performing actual deletion, and server-confirmed status handling. Then verify quota refresh/error and mocked Booster balance/checkout failure without real payments. Preserve honest connection/email wording and `rollback/settings-baseline-20261015`.
+
+
+## Latest work unit — make Theme Lab Import assertion wait for the new entry (2026-10-16)
+
+- [x] Browser workflow #416 confirms Theme Lab Reset no longer fails; the lifecycle reached Import.
+- [x] Identified the test-only false positive: the Import wait predicate accepted the existing duplicated theme because both have the same name, so it returned before FileReader finished importing. The next assertion then compared the duplicate ID to itself.
+- [x] Tightened the Import wait predicate to require a new active Custom ID different from the existing duplicate before checking imported name and colors.
+- [ ] Exact commit verification pending; do not mark the full Theme Lab lifecycle done until the browser test completes Save/Duplicate/Export/Import/Delete/Reset on desktop and mobile.
+
+## Exact next step
+
+Inspect Agent Verify, Diagnostics and the complete Chromium run for the current commit. Once Theme Lab passes, continue direct Security interaction tests for server-backed Log Out All Devices and account deletion confirmation/recent-auth rejection, then Usage/Booster refresh/error. No real purchases or real account deletion in tests.

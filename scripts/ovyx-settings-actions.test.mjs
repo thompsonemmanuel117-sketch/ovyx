@@ -58,6 +58,7 @@ assert.ok(html.includes("this.search('');\n      },\n      hide() {"), 'Command 
 assert.ok(html.includes('CommandPalette.init();'), 'Command Palette keyboard shortcuts must actually be registered during startup.');
 assert.ok(html.includes("!event.shiftKey && event.key.toLowerCase() === 'z'"), 'Shift+Z must trigger Redo without also triggering Undo.');
 assert.ok(!html.includes("this.search('');\n        this.hide();\n      },\n      hide() {"), 'Command Palette show must not immediately close the palette it just opened.');
+assert.ok(coreBrowser.includes('active !== previousId') && coreBrowser.includes('previousId: duplicateId'), 'Theme Lab Import must wait for a newly created custom ID instead of accepting the existing duplicate with the same name.');
 assert.ok(html.includes("preferredProvider:payload.preferredProvider||''"), 'The final AI request body must forward the saved preferred provider.');
 assert.ok(html.includes("providerRouting:payload.providerRouting||'automatic'"), 'The final AI request body must forward the saved routing strategy.');
 assert.ok(html.includes("maxTokens:payload.maxTokens||4096"), 'The assistant request must forward the saved generation budget.');

@@ -234,11 +234,13 @@ try {
       mimeType: 'application/json',
       buffer: Buffer.from(JSON.stringify(exported)),
     });
-    await page.waitForFunction(expectedName => {
+    await page.waitForFunction(({ expectedName, previousId }) => {
       const lab = window.OVYXThemeLab;
       const active = String(lab?.state?.active || '');
-      return active.startsWith('custom_') && lab.state.customThemes?.[active]?.name === expectedName;
-    }, exported.name);
+      return active.startsWith('custom_')
+        && active !== previousId
+        && lab.state.customThemes?.[active]?.name === expectedName;
+    }, { expectedName: exported.name, previousId: duplicateId });
     const importedId = await page.evaluate(() => window.OVYXThemeLab.state.active);
     assert.notEqual(importedId, duplicateId, '[' + target.name + '] Import must create a new Custom entry.');
     const imported = await page.evaluate(() => {
