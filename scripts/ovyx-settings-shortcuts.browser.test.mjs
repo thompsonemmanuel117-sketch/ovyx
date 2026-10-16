@@ -72,24 +72,7 @@ try {
       window.__settingsShortcutNewProjectCalls = 0;
       store.createPromptModal = function () {
         window.__settingsShortcutNewProjectCalls += 1;
-        Object.defineProperty(window, 'prompt', {
-          configurable: true,
-          writable: true,
-          value: message => {
-            window.__settingsShortcutPromptMessage = String(message || '');
-            return 'Shortcut Browser Test Project';
-          },
-        });
         return original();
-      };
-    });
-    // Replace only the browser-native prompt UI with a deterministic answer;
-    // the real ProjectStore creation, navigation and persistence path still runs.
-    await page.evaluate(() => {
-      window.__settingsShortcutPromptMessage = '';
-      window.prompt = message => {
-        window.__settingsShortcutPromptMessage = String(message || '');
-        return 'Shortcut Browser Test Project';
       };
     });
     await page.evaluate(() => {
@@ -101,6 +84,10 @@ try {
       });
     });
     await page.keyboard.press('Control+n');
+    const createModal = page.locator('#ovyx-project-create-modal');
+    await createModal.waitFor({ state: 'visible' });
+    await page.locator('#ovyx-project-name-input').fill('Shortcut Browser Test Project');
+    await createModal.locator('[data-modal-create]').click();
     await page.waitForFunction(
       () => window.KernelState?.activeProject?.name === 'Shortcut Browser Test Project',
       null,
@@ -114,8 +101,6 @@ try {
     }));
     assert.equal(shortcutDiagnostics.activeProject, 'Shortcut Browser Test Project',
       '[' + target.name + '] Ctrl/Command+N must create the prompted project; diagnostics=' + JSON.stringify(shortcutDiagnostics));
-    assert.match(await page.evaluate(() => window.__settingsShortcutPromptMessage), /Project name/i,
-      '[' + target.name + '] New Project must request a project name.');
     assert.equal(await page.evaluate(() => window.__settingsShortcutNewProjectCalls), 1,
       '[' + target.name + '] Ctrl/Command+N should invoke New Project exactly once.');
     const created = await page.evaluate(() => {
