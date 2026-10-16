@@ -6963,7 +6963,10 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
     const map={bg:tempTheme.backgroundColor,panel:tempTheme.cardColor,elev:tempTheme.cardColor,text:tempTheme.textColor,secondary:tempTheme.mutedColor,muted:tempTheme.mutedColor,accent:tempTheme.accentColor,border:tempTheme.borderColor};
     panel.querySelectorAll('[data-theme-field]').forEach(el=>{const k=el.dataset.themeField;if(map[k]&&document.activeElement!==el)el.value=map[k]});
     panel.querySelectorAll('[data-theme-hex]').forEach(el=>{const k=el.dataset.themeHex;if(map[k]&&document.activeElement!==el)el.value=map[k].toUpperCase()});
-    const name=panel.querySelector('[data-theme-name]');if(name&&document.activeElement!==name)name.value='OVYX Industrial Theme';
+    // Do not rewrite the Theme Lab name field while another color control is edited.
+    // Users may enter the name before choosing colors; preserve that draft until
+    // Save/Cancel or an explicit theme-card selection updates it.
+
   }
   function updateDirtyUI(){
     const p=document.querySelector('[data-settings-panel="appearance"]');if(!p)return;

@@ -187,6 +187,8 @@ try {
     await appearance.locator('[data-theme-name]').fill('OVYX Roundtrip QA');
     await appearance.locator('[data-theme-hex="bg"]').fill('#112233');
     await appearance.locator('[data-theme-hex="accent"]').fill('#445566');
+    assert.equal(await appearance.locator('[data-theme-name]').inputValue(), 'OVYX Roundtrip QA',
+      '[' + target.name + '] changing theme colors must not discard the custom theme name draft.');
     await appearance.locator('[data-theme-save]').click();
     await page.waitForFunction(() => Object.values(window.OVYXThemeLab?.state?.customThemes || {})
       .some(theme => theme.name === 'OVYX Roundtrip QA' && String(theme.bg).toUpperCase() === '#112233'));

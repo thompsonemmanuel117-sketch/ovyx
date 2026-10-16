@@ -364,6 +364,14 @@ Inspect build logs first, then the full browser run. Fix any failing Theme Lab i
 - [x] Updated the browser test to reopen Appearance and wait for the custom-theme name field to be visible before Save/Duplicate/Export/Import/Delete/Reset checks.
 - [ ] Verify the new exact-main commit. Theme Lab CRUD and the Live Preview pause/resume control remain unverified until the complete desktop/mobile browser workflow passes.
 
+
+## Stage 2 Theme Lab name preservation fix (2026-10-16)
+
+- [x] Browser run ID `38916211815` reached the Theme Lab save sequence on desktop and timed out waiting for a custom entry named `OVYX Roundtrip QA`; the persisted color edits triggered the canonical appearance sync, which overwrote the name field with the fixed text `OVYX Industrial Theme`.
+- [x] Removed the destructive hard-coded name rewrite from `ThemeContext.syncControls()`. An in-progress custom name is preserved while the user edits color fields; explicit preset/custom card selection and rendered active-theme state still update names through the existing Theme Lab UI.
+- [x] Added a desktop/mobile assertion that changing the background and accent colors does not erase the typed custom name before Save.
+- [ ] Verify this exact commit through Agent Verify, Cloudflare Diagnostics, and the full Chromium workflow. Save/Duplicate/Export/Import/Delete/Reset remains unverified until its browser suite passes.
+
 ## Exact next action
 
-Inspect the newly triggered Agent Verify, Cloudflare Diagnostics, and full Chromium browser logs. If the Theme Lab round-trip succeeds, continue with the remaining unverified Security session revoke/account deletion confirmation paths and quota/Booster refresh and failed-request states, without real purchases. Preserve truthful external-service/email status and rollback/settings-baseline-20261015.
+Inspect build/source checks, then the complete desktop/mobile browser log for this commit. Fix any actual lifecycle defect at the failed assertion. If Theme Lab passes, verify the Workspace Live Preview pause/resume test later in the same workflow and continue Security session revoke/account deletion failures plus Usage/Booster refresh/error states. Make no real purchases; keep external-service and email-delivery labels truthful; preserve `rollback/settings-baseline-20261015`.

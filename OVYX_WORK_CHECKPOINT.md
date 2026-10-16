@@ -50,3 +50,10 @@ Inspect all three GitHub Actions for this commit. Then finish the unverified Sec
 ## Exact next step
 
 Commit this fixture-only correction directly to main, inspect all three checks for that exact commit, then continue the direct control pass on only any still-unverified Security/session-revocation and Usage/Booster refresh/error interactions. Do not restart the stages or a repository-wide scan; never buy tokens for testing.
+
+## Stage 2 Theme Lab draft preservation (2026-10-16)
+
+- [x] Browser run `38916211815` pinpointed a real Theme Lab behavior bug: color preview sync replaced the user's typed theme name with a fixed label, so Save never produced the expected named custom theme.
+- [x] Removed the hard-coded name write during canonical appearance control synchronization and added a browser assertion to keep the name draft intact through color edits.
+- [ ] Verify Agent Verify, Diagnostics, and full desktop/mobile Chromium on the exact fix; don't mark Theme Lab complete until all lifecycle actions pass.
+- **Exact next step:** inspect the new workflows and complete browser logs, then continue the still-unverified Security/Usage/Booster actions without real payments.
