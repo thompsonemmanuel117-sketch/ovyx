@@ -93,3 +93,15 @@ After Theme Lab Reset passes, continue with the requested safe Security direct-i
 ## Exact next step
 
 Inspect Agent Verify, Diagnostics and the complete Chromium run for the current commit. Once Theme Lab passes, continue direct Security interaction tests for server-backed Log Out All Devices and account deletion confirmation/recent-auth rejection, then Usage/Booster refresh/error. No real purchases or real account deletion in tests.
+
+
+## Latest work unit — fix failing Settings source contract test (2026-10-16)
+
+- [x] Inspected the latest main commit `4df7832d71dcd0ff70ca4d3009add2f73347f7a6` Actions logs before changing anything.
+- [x] Browser run #417 and Agent Verify #902 both stopped before the direct browser interactions because `scripts/ovyx-settings-actions.test.mjs:61` referenced undeclared `coreBrowser`.
+- [x] Fixed the test harness by explicitly reading `scripts/ovyx-settings-workspace.browser.test.mjs` before checking that Theme Lab Import waits for a new custom-theme ID. This is a test harness fix, not evidence that the Theme Lab UI lifecycle has passed.
+- [ ] Check Agent Verify, Cloudflare Diagnostics, and full desktop/mobile browser run for the exact new commit. Do not mark Theme Lab complete until the full browser sequence passes.
+
+## Exact next step
+
+Inspect the exact new commit's build and browser logs. If the source contract passes, continue the actual Theme Lab Save/Duplicate/Export/Import/Delete/Reset browser sequence; only after that succeeds, continue the already scoped Security session revocation/account-deletion rejection checks, then Usage/Booster refresh and error handling. Keep real account deletion and payments mocked.
