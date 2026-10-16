@@ -14,7 +14,7 @@ Focused Settings interaction pass only. Do not restart a repository-wide or stag
 - Appearance, AI preference propagation, Profile/Notifications persistence and failure recovery, Shortcuts, and most Workspace actions have desktop/mobile browser coverage.
 
 ## Current blocker
-The Live Preview switch has repeatedly hung during the click in the desktop/mobile Workspace Settings browser test, even though `npm test`, `npm run validate`, and `npm run build` pass. Latest diagnosed main: `02154269b7016f0b7d4f4a3d8d19ffd3922aebb1`. Browser run #406: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38913416069
+The direct preview render was removed from the toggle's synchronous effect in `9da8c481643c421b013dbfd420ec18fd446098ea`. Pause now passes, but resume still times out in Browser #407: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38913891840. The next run adds a dormant-by-default trace for the exact click path.
 
 ## Exact next step
-Remove synchronous `WebStudio.renderPreview()` from `applySettingEffects()`; update the regression assertion to require immediate pause-marker state but no forced render during a Settings click. Commit directly to `main`, then inspect the exact Agent Verify and full desktop/mobile Chromium logs. If Live Preview passes, proceed to the next still-unverified visible Settings control. Do not claim completion until the targeted interaction passes. Preserve `rollback/settings-baseline-20261015` and never place a real Booster purchase.
+Use the trace-enabled browser logs to locate and fix the Live Preview resume stall, then rerun desktop/mobile and inspect exact build/browser logs. Do not call the control fixed unless pause and resume both pass. Preserve `rollback/settings-baseline-20261015` and never place a real Booster purchase.

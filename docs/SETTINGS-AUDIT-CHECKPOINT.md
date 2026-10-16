@@ -387,6 +387,14 @@ Check the final conclusion and complete log for browser run #386. Then continue 
 - [x] Added a static regression assertion for reusing the existing gate.
 - [ ] Full desktop/mobile browser verification pending. Previous #405 still failed in the Editor/Workspace click despite Agent Verify and Diagnostics passing; this is not marked fixed yet.
 
+
+## Stage 2 diagnostic step — locate the Live Preview resume stall (2026-10-16)
+
+- [x] Direct Settings code no longer calls `WebStudio.renderPreview()` synchronously for either pause or resume; Agent Verify #892 and Cloudflare Diagnostics #403 passed for commit `9da8c481643c421b013dbfd420ec18fd446098ea`.
+- [x] Browser #407 confirms the pause click now succeeds on desktop/mobile. The next resume click still fails at `scripts/ovyx-settings-workspace.browser.test.mjs:257`: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38913891840
+- [x] Added test-activated trace markers around window capture, Settings toggle handling, state writes, effects and toast; the application remains silent unless the fixture explicitly enables tracing.
+- [ ] Use the next browser log's `[OVYX SETTINGS TRACE]` sequence to isolate the blocking operation, fix it and rerun the desktop/mobile workflow.
+
 ## Exact next action
 
-Keep the audit narrow: fix the Live Preview switch's synchronous click hang, rerun the specific desktop/mobile interaction test plus build verification, and inspect the exact commit logs. Then continue clicking through only the controls still unverified—Theme Lab Save/Duplicate/Import/Export/Delete/Reset, Security session revoke/delete confirmation, quota refresh, and mocked Booster checkout/balance. Do not restart a repository-wide staged audit. Never make a real purchase, keep email delivery explicitly unavailable without a configured provider, and preserve `rollback/settings-baseline-20261015` unchanged.
+Inspect full trace logs, repair the first missing stage in the Live Preview resume path, then verify all build and Chromium tests. Proceed to Theme Lab round-trip and safe security/session/usage/Token Booster failure cases only after the preview pause/resume click passes. Preserve truthful connection/email status, never make a real purchase, and keep `rollback/settings-baseline-20261015` unchanged.
