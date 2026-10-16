@@ -78,8 +78,8 @@ assert.ok(html.includes("${u?'CURRENT':'INACTIVE'}"), 'The current-session badge
 assert.equal((html.match(/ovyx-settings-reliability\.js/g) || []).length, 1, 'Settings reliability runtime must only be injected once.');
 assert.ok(runtime.includes('studio.__ovyxShouldPauseLivePreviewV1 = shouldPause'), 'Settings must publish a live-preview pause gate instead of wrapping the quality wrapper.');
 const previewEffect = runtime.slice(runtime.indexOf('function applySettingEffects'), runtime.indexOf('function syncToggleControls'));
-assert.ok(previewEffect.includes("activeView === 'webstudio'") && previewEffect.includes('!settingsVisible'), 'Resuming live preview must not synchronously rebuild Web Studio while the Settings overlay is visible.');
-assert.ok(previewEffect.includes("const settingsView = $('view-settings');") && previewEffect.includes("settingsView.getClientRects().length > 0"), 'The live-preview resume guard must detect a genuinely visible Settings surface.');
+assert.ok(previewEffect.includes("frame.dataset.ovyxLivePreviewPaused = state.livePreview === false ? 'true' : 'false'"), 'The Live Preview switch must update the pause state immediately.');
+assert.ok(!previewEffect.includes('window.WebStudio.renderPreview()'), 'Settings toggles must never force a synchronous Web Studio render from inside the click handler.');
 assert.ok(previewEffect.includes('previous.autosave !== state.autosave'), 'Only autosave changes may synchronously snapshot the whole project session; other Settings toggles must stay responsive.');
 assert.ok(previewEffect.includes("typeof window.WebStudio?.__ovyxShouldPauseLivePreviewV1 !== 'function'"), 'The live-preview pause gate must be reused rather than reinstalled on every toggle.');
 assert.ok(qualityRuntime.includes('studio.__ovyxRawRenderPreviewV1 ||'), 'Web Studio quality must reuse a stable raw preview renderer.');
