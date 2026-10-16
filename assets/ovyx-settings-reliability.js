@@ -91,37 +91,64 @@
   let livePreviewOriginal = null;
   function installLivePreviewBridge() {
     const studio = window.WebStudio;
-    if (!studio || typeof studio.renderPreview !== 'function' || studio.renderPreview.__ovyxSettingsReliabilityV1) return;
-    livePreviewOriginal = studio.renderPreview.bind(studio);
-    const wrapped = function () {
-      if (settingsState().livePreview === false && window.__OVYX_FORCE_LIVE_PREVIEW__ !== true) {
-        const frame = $('ws-canvas-iframe');
-        if (frame) frame.dataset.ovyxLivePreviewPaused = 'true';
-        const status = $('ws-preview-url');
-        if (status && !status.dataset.ovyxPreviewPauseNote) {
-          status.dataset.ovyxPreviewPauseNote = 'true';
-          status.title = 'Automatic preview refresh is paused in Settings → Workspace.';
-        }
-        return false;
+    if (!studio || typeof studio.renderPreview !== 'function') return;
+
+    // Preserve one raw renderer reference before any optional wrapper is added.
+    // Quality and Settings both delegate to this base so wrappers cannot recurse.
+    if (typeof studio.__ovyxRawRenderPreviewV1 !== 'function') {
+      const current = studio.renderPreview;
+      studio.__ovyxRawRenderPreviewV1 =
+        current.__ovyxRawRenderPreviewV1 ||
+        current.__ovyxPreviewBaseV1 ||
+        current;
+    }
+    const rawPreview = studio.__ovyxRawRenderPreviewV1;
+
+    const shouldPause = function () {
+      if (settingsState().livePreview !== false || window.__OVYX_FORCE_LIVE_PREVIEW__ === true) return false;
+      const frame = $('ws-canvas-iframe');
+      if (frame) frame.dataset.ovyxLivePreviewPaused = 'true';
+      const status = $('ws-preview-url');
+      if (status && !status.dataset.ovyxPreviewPauseNote) {
+        status.dataset.ovyxPreviewPauseNote = 'true';
+        status.title = 'Automatic preview refresh is paused in Settings → Workspace.';
       }
-      const result = livePreviewOriginal.apply(this, arguments);
+      return true;
+    };
+    const previewRendered = function () {
       const frame = $('ws-canvas-iframe');
       if (frame) frame.dataset.ovyxLivePreviewPaused = 'false';
-      return result;
     };
-    wrapped.__ovyxSettingsReliabilityV1 = true;
-    studio.renderPreview = wrapped;
+    studio.__ovyxShouldPauseLivePreviewV1 = shouldPause;
+    studio.__ovyxLivePreviewRenderedV1 = previewRendered;
     window.OVYXSettingsLivePreview = {
+      shouldPause,
       refreshNow: function () {
         window.__OVYX_FORCE_LIVE_PREVIEW__ = true;
         try { return studio.renderPreview(); }
         finally { window.__OVYX_FORCE_LIVE_PREVIEW__ = false; }
       }
     };
+
+    // The quality wrapper owns renderPreview when present. Register the Settings
+    // gate above instead of wrapping that wrapper.
+    if (studio.renderPreview.__ovyxQualityEvents || studio.renderPreview.__ovyxSettingsReliabilityV1) return;
+
+    livePreviewOriginal = rawPreview.bind(studio);
+    const wrapped = function () {
+      if (shouldPause()) return false;
+      const result = livePreviewOriginal.apply(this, arguments);
+      previewRendered();
+      return result;
+    };
+    wrapped.__ovyxSettingsReliabilityV1 = true;
+    wrapped.__ovyxPreviewBaseV1 = rawPreview;
+    wrapped.__ovyxRawRenderPreviewV1 = rawPreview;
+    studio.renderPreview = wrapped;
   }
   function applySettingEffects(state, previous) {
     try {
-      document.querySelectorAll('#app-node-inspector').forEach(el => {
+      document.querySelectorAll('#app-node-inspector, #ws-select-inspector').forEach(el => {
         el.style.display = state.inspector === false ? 'none' : '';
       });
     } catch (_) {}
@@ -133,7 +160,9 @@
       installLivePreviewBridge();
       const frame = $('ws-canvas-iframe');
       if (frame) frame.dataset.ovyxLivePreviewPaused = state.livePreview === false ? 'true' : 'false';
+      const activeView = String(window.KernelState?.activeView || '').replace(/^view-/, '');
       if (previous && previous.livePreview === false && state.livePreview !== false &&
+          activeView === 'webstudio' &&
           window.WebStudio && typeof window.WebStudio.renderPreview === 'function') {
         window.WebStudio.renderPreview();
       }
@@ -434,6 +463,42 @@
       if (!button) return;
       event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
       saveNotifications(button, !!reset);
+    }, true);
+  }
+  function installWorkspaceOpenBehaviorActions() {
+    document.addEventListener('change', function (event) {
+      const select = event.target && event.target.closest && event.target.closest('[data-settings-panel="workspace"] #set-open-behavior');
+      if (!select) return;
+      event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
+      const value = String(select.value || '');
+      const allowed = ['Web Studio', 'Last active view', 'Project overview'];
+      if (!allowed.includes(value)) {
+        const saved = window.OVYXSettingsIntegrity?.load?.() || safeJson(localStorage.getItem('ovyx.settings.integrity.v83'));
+        select.value = allowed.includes(saved.openBehavior) ? saved.openBehavior : 'Web Studio';
+        notify('Choose a valid project open behavior.', 'error');
+        return;
+      }
+      const store = window.OVYXSettingsIntegrity;
+      const current = store && typeof store.load === 'function'
+        ? store.load()
+        : safeJson(localStorage.getItem('ovyx.settings.integrity.v83'));
+      const next = Object.assign({}, current, { openBehavior: value });
+      let saved = false;
+      try {
+        if (store && typeof store.save === 'function') saved = store.save(next) === true;
+        else {
+          localStorage.setItem('ovyx.settings.integrity.v83', JSON.stringify(next));
+          saved = true;
+        }
+      } catch (_) { saved = false; }
+      if (!saved) {
+        notify('Project open behavior could not be saved on this device.', 'error');
+        return;
+      }
+      select.value = value;
+      const status = $('settings-save-status');
+      if (status) status.textContent = 'Project open behavior saved.';
+      notify('Project open behavior saved.', 'success');
     }, true);
   }
   function installWorkspaceToggleActions() {
@@ -816,6 +881,7 @@
     installProfileActions();
     installNotificationActions();
     installNotificationToastFilters();
+    installWorkspaceOpenBehaviorActions();
     installWorkspaceToggleActions();
     installAISettingsBridge();
     installAppearanceAndUsageHooks();

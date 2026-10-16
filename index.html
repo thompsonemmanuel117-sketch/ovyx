@@ -6219,18 +6219,37 @@ window.OVYXV58={syncDock,route:safeRoute,useTemplate,previewTemplate,featureLock
   setTimeout(restoreRuntimeSession,250);setTimeout(restoreRuntimeSession,900);
   const patchOpen=()=>{
     const PS=window.ProjectStore;if(!PS||PS.__v83Open)return;
-    const original=PS.open?.bind(PS);if(!original)return;
+    // Open the selected project without first routing through Web Studio.
+    // This lets Project overview and Last active view be honored before the
+    // expensive editor runtime is mounted.
     PS.open=function(id){
-      const result=original(id);const s=load();
-      setTimeout(()=>{
-        if(s.openBehavior==='Project overview')window.Router?.go?.('projects');
-        else if(s.openBehavior==='Last active view'){
-          let v='webstudio';try{v=localStorage.getItem('ovyx.settings.last-view.v1')||'webstudio'}catch(e){console.warn('[OVYX runtime]',e)}
-          if(['home','projects','webstudio','appstudio','workspace','templates'].includes(v))window.Router?.go?.(v);
-        }
-      },0);
-      return result;
-    };PS.__v83Open=true;
+      const state=window.KernelState;
+      const project=Array.isArray(state?.projects)
+        ? state.projects.find(item=>String(item?.id||'')===String(id||''))
+        : null;
+      if(!project){try{window.showToast?.('Project could not be found.','error')}catch(_){};return false}
+      state.activeProject=project;
+      project.updatedAt=Date.now();
+      try {
+        if(typeof PS.save==='function')PS.save();
+        else { try { localStorage.setItem('ovyx.projects.v22.guest',JSON.stringify(state.projects)); } catch (_) {} }
+      } catch(error) {
+        console.warn('[OVYX project open]',error);
+        try{window.showToast?.('Project could not be saved before opening.','error')}catch(_){}
+        return false;
+      }
+      const prefs=load();
+      let route='webstudio';
+      if(prefs.openBehavior==='Project overview')route='projects';
+      else if(prefs.openBehavior==='Last active view'){
+        let last='webstudio';
+        try{last=localStorage.getItem('ovyx.settings.last-view.v1')||'webstudio'}catch(_){}
+        if(['home','projects','webstudio','appstudio','workspace','templates'].includes(last))route=last;
+      }
+      setTimeout(()=>{try{window.Router?.go?.(route)}catch(error){console.warn('[OVYX project open route]',error)}},0);
+      return true;
+    };
+    PS.__v83Open=true;
   };
   setTimeout(patchOpen,700);setTimeout(patchOpen,1600);
   // Runtime lifecycle contract. Endpoint URLs are supplied by the existing OVYX endpoint

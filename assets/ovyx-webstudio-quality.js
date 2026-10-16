@@ -1520,8 +1520,15 @@
       studio.runTests = qualityRunTests;
     }
     if (typeof studio.renderPreview === 'function' && !studio.renderPreview.__ovyxQualityEvents) {
-      var originalPreview = studio.renderPreview;
+      // Always delegate to a stable raw renderer, never another feature wrapper.
+      var originalPreview = studio.__ovyxRawRenderPreviewV1 ||
+        studio.renderPreview.__ovyxRawRenderPreviewV1 ||
+        studio.renderPreview.__ovyxPreviewBaseV1 ||
+        studio.renderPreview;
+      studio.__ovyxRawRenderPreviewV1 = originalPreview;
       function qualityRenderPreview() {
+        var shouldPause = studio.__ovyxShouldPauseLivePreviewV1;
+        if (typeof shouldPause === 'function' && shouldPause()) return false;
         if (buildInFlight) {
           deferredPreviewRefresh = true;
           emitBuildStage({
@@ -1532,10 +1539,13 @@
           return undefined;
         }
         var value = originalPreview.apply(this, arguments);
+        try { studio.__ovyxLivePreviewRenderedV1?.(); } catch (_) {}
         emitBuildStage({ stage: 'preview-refresh', status: 'success', message: 'Web Studio released the quality-verified site preview.' });
         return value;
       }
       qualityRenderPreview.__ovyxQualityEvents = true;
+      qualityRenderPreview.__ovyxPreviewBaseV1 = originalPreview;
+      qualityRenderPreview.__ovyxRawRenderPreviewV1 = originalPreview;
       studio.renderPreview = qualityRenderPreview;
     }
     if (typeof studio.runBuildAgent === 'function' && !studio.runBuildAgent.__ovyxQualityEvents) {
