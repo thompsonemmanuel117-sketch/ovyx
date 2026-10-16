@@ -8,7 +8,7 @@ const read = path => fs.readFileSync(new URL('../' + path, import.meta.url), 'ut
 const runtime = read('assets/ovyx-settings-reliability.js');
 const qualityRuntime = read('assets/ovyx-webstudio-quality.js');
 const html = read('index.html');
-const coreBrowser = read('scripts/ovyx-settings-workspace.browser.test.mjs');
+const coreBrowser = read('ovyx-settings-workspace.browser.test.mjs');
 const profileApi = read('functions/api/settings/profile.js');
 const preferencesApi = read('functions/api/settings/preferences.js');
 const deletionApi = read('functions/api/account/delete.js');

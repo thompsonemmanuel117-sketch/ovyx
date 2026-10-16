@@ -105,3 +105,15 @@ Inspect Agent Verify, Diagnostics and the complete Chromium run for the current 
 ## Exact next step
 
 Inspect the exact new commit's build and browser logs. If the source contract passes, continue the actual Theme Lab Save/Duplicate/Export/Import/Delete/Reset browser sequence; only after that succeeds, continue the already scoped Security session revocation/account-deletion rejection checks, then Usage/Booster refresh and error handling. Keep real account deletion and payments mocked.
+
+
+## Latest verification finding — correct browser-test path (2026-10-16)
+
+- [x] Checked the exact commit's Agent Verify #903 and Browser Tests #418 logs: both failed in the Settings source contract before browser interaction because the imported file assertion returned false.
+- [x] Root cause is the source test's helper: `read(path)` resolves relative to `scripts/ovyx-settings-actions.test.mjs`, so an additional `scripts/` prefix pointed at a nonexistent nested path.
+- [x] Corrected the helper argument to `read('ovyx-settings-workspace.browser.test.mjs')`. This fixes only the test source path; Theme Lab lifecycle is still unverified.
+- [ ] Recheck Agent Verify, Cloudflare Diagnostics, and full desktop/mobile browser logs on the next exact commit.
+
+## Exact next step
+
+Inspect all Actions for the path correction commit. If the source contract passes, let the desktop/mobile browser run reach Theme Lab and fix only the next evidenced failure before moving on to the direct Security, Usage, and Booster controls. No real payments or destructive account deletion.
