@@ -7312,8 +7312,39 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
     lab.update=function(k,v){if(this.state.active!=='custom')this.state.active='custom';this.state.custom={...(this.state.custom||{}),[k]:v};try{localStorage.setItem(LAB_KEY,JSON.stringify(this.state))}catch(e){console.warn('[OVYX runtime]',e)};paint(labToTheme(this.state.custom),'theme-edit');syncUi()};
   }
   // Canonical Appearance action wiring. These are intentionally capture-phase and idempotent.
+  // Theme Lab Reset owns the window capture phase. This outranks legacy document-level
+  // click handlers so the custom-theme list cannot be restored by another handler mid-click.
+  window.addEventListener('click',function(e){
+    const el=e.target?.closest?.('[data-theme-reset]');
+    if(!el)return;
+    const panel=el.closest?.('[data-settings-panel="appearance"]');
+    if(!panel)return;
+    e.preventDefault();e.stopImmediatePropagation();
+    const lab=window.OVYXThemeLab;
+    if(!lab?.state){window.showToast?.('Theme Lab is unavailable; reset could not be applied.','error');return;}
+    const previous={...lab.state,custom:{...(lab.state.custom||{})},customThemes:{...(lab.state.customThemes||{})}};
+    const base=themeFromLab('obsidian');
+    const resetState={active:'obsidian',custom:{...base},customThemes:{}};
+    lab.state=resetState;
+    try{localStorage.setItem(LAB_KEY,JSON.stringify(resetState));}
+    catch(error){lab.state=previous;window.showToast?.('Theme Lab reset could not be saved on this device.','error');return;}
+    const active=lab.activeTheme?.();
+    if(active)paint(labToTheme(active),'theme-reset');
+    saveCanonical({silent:true});lab?.renderState?.();window.OVYXSettings?.renderThemeCards?.();
+    // Keep this final write after every synchronous canonical save/render callback.
+    lab.state=resetState;
+    try{localStorage.setItem(LAB_KEY,JSON.stringify(resetState));}
+    catch(error){
+      const status=document.getElementById('settings-save-status');
+      if(status)status.textContent='Theme Lab reset is active in this tab, but could not be saved on this device.';
+      window.showToast?.('Theme Lab reset could not be fully saved on this device.','error');
+      return;
+    }
+    lab.renderState?.();window.OVYXSettings?.renderThemeCards?.();
+    const status=document.getElementById('settings-save-status');if(status)status.textContent='OVYX Theme Lab reset to the industrial dark baseline.';
+  },true);
   document.addEventListener('click',function(e){
-    const el=e.target?.closest?.('.ovyx-theme-card,[data-theme-save],[data-theme-duplicate],[data-theme-import],[data-theme-export],[data-theme-delete],[data-theme-reset],[data-mode],[data-appearance-save],[data-appearance-cancel],[data-clear-appearance]');
+    const el=e.target?.closest?.('.ovyx-theme-card,[data-theme-save],[data-theme-duplicate],[data-theme-import],[data-theme-export],[data-theme-delete],[data-mode],[data-appearance-save],[data-appearance-cancel],[data-clear-appearance]');
     if(!el)return;
     const panel=el.closest?.('[data-settings-panel="appearance"]');
     if(!panel && !el.matches('[data-clear-appearance]'))return;
@@ -7419,36 +7450,7 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
       const status=document.getElementById('settings-save-status');if(status)status.textContent='Deleted '+name+'.';
       return;
     }
-    if(el.matches('[data-theme-reset]')){
-      e.preventDefault();e.stopImmediatePropagation();
-      const lab=window.OVYXThemeLab;
-      const previous=lab?.state?{...lab.state,custom:{...(lab.state.custom||{})},customThemes:{...(lab.state.customThemes||{})}}:null;
-      const base=themeFromLab('obsidian');
-      const resetState={active:'obsidian',custom:{...base},customThemes:{}};
-      if(lab?.state){
-        lab.state=resetState;
-        try{localStorage.setItem(LAB_KEY,JSON.stringify(resetState));}
-        catch(error){lab.state=previous;window.showToast?.('Theme Lab reset could not be saved on this device.','error');return;}
-      }
-      const active=lab?.activeTheme?.();
-      if(active)paint(labToTheme(active),'theme-reset');
-      saveCanonical({silent:true});lab?.renderState?.();window.OVYXSettings?.renderThemeCards?.();
-      // Appearance save and legacy theme-sync callbacks can mirror the pre-reset custom list.
-      // Make the reset state authoritative after all canonical rendering/saving has completed.
-      if(lab?.state){
-        lab.state={active:'obsidian',custom:{...base},customThemes:{}};
-        try{localStorage.setItem(LAB_KEY,JSON.stringify(lab.state));}
-        catch(error){
-          const status=document.getElementById('settings-save-status');
-          if(status)status.textContent='Theme Lab reset is active in this tab, but could not be saved on this device.';
-          window.showToast?.('Theme Lab reset could not be fully saved on this device.','error');
-          return;
-        }
-        lab.renderState?.();window.OVYXSettings?.renderThemeCards?.();
-      }
-      const status=document.getElementById('settings-save-status');if(status)status.textContent='OVYX Theme Lab reset to the industrial dark baseline.';
-      return;
-    }
+
   },true);
   // Remove obsolete visible overlays left by the retired V42 shell. The current assistant/help
   // surfaces have independent controls; the old overlays are never reopened by the current router.

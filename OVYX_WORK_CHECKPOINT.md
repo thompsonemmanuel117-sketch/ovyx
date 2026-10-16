@@ -224,8 +224,9 @@ Check the next commit's three Action results. If the Security step passes, mark 
 ## Latest Settings work unit — Theme Lab Reset restores deleted custom themes (2026-10-16)
 
 - [x] Inspected browser run #428 for exact main commit `91b7fe593d34587f7bd95dd8d61406ef9da70c54`: desktop/mobile Editor/Workspace and Security checks passed, but Appearance then failed because clicking Reset Lab left two custom-theme IDs in both memory and storage while active theme was already `obsidian`.
-- [x] Fixed reset ordering so canonical appearance save/render operations cannot be the final writer of the old custom-theme list. Reset now reasserts `active: obsidian`, the baseline custom draft, and `customThemes: {}` in memory and localStorage after canonical side effects; failures state honestly that persistence did not complete.
-- [x] Added source-contract checks for pre-save reset persistence and final post-save reset persistence. Kept the Settings scope narrow and left Security unchanged.
+- [x] First adjusted reset ordering to reassert empty custom themes after canonical save/render; source-contract checks passed after correcting newline escaping.
+- [x] Exact browser run for commit `a6d0ef75ed1555df8033382daff07981d13057bd` still reproduced both retained custom IDs, so that attempt was not sufficient.
+- [x] Promoted Reset to the window capture phase and removed it from the later document-level selector so legacy/document listeners cannot override the click. The final state/persistence write remains after synchronous canonical side effects.
 - [ ] Verify Agent Verify/build, Cloudflare Diagnostics and the full desktop/mobile Appearance test for this exact fix. Do not call Theme Lab complete until Reset passes.
 
 ## Exact next step
@@ -242,3 +243,15 @@ Inspect the new commit's three Actions and exact browser logs. If Theme Lab Rese
 ## Exact next step
 
 Inspect Agent Verify, Cloudflare Diagnostics and the desktop/mobile browser workflow; if Reset passes, continue to Usage and Token Booster failures. Keep Security marked complete.
+
+
+## Theme Lab Reset ownership fix (2026-10-16)
+
+- [x] Browser run for `a6d0ef75ed1555df8033382daff07981d13057bd` passed the Security step on desktop/mobile but Reset still returned two custom-theme IDs after the click, even after final state clearing was moved after canonical rendering.
+- [x] Moved Reset to a single window-capture owner and removed it from the later document-level action selector; this gives Reset first click ownership before legacy/document click handlers.
+- [x] Added source-contract checks for window capture ownership and pre-/post-save empty-state persistence.
+- [ ] Verify Agent Verify/build, Cloudflare Diagnostics and the full desktop/mobile Appearance test for this exact fix. Do not call Theme Lab complete until Reset passes.
+
+## Exact next step
+
+Inspect the new commit's build, diagnostics and desktop/mobile browser logs. If Theme Lab Reset passes, continue to Usage quota refresh/error and Token Booster mocked checkout/balance failure. Never run real account deletion or payment.
