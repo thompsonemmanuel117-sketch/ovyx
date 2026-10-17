@@ -417,3 +417,15 @@ Commit these Security test changes and the checkpoint directly to `main`; inspec
 ## Exact next step
 
 Continue from the independent Owner-only Admin Workspace browser timeout at line 258. Do not re-run or re-open the completed Usage & Quota controls unless a later change produces a specific regression. For each next control: reproduce/inspect the exact action, fix only a demonstrated defect, run the relevant test, inspect Agent Verify/build + Diagnostics + browser logs, then commit directly to `main` and update this checkpoint.
+
+## Owner-only Admin Workspace template publish test (2026-10-17)
+
+- [x] Usage & Quota is complete and not implicated in the remaining full browser-suite failure.
+- [x] Inspected failed desktop/mobile browser workflow #442 on commit `e653d91f8fecba7d19443bda18ec6b26201a872f`: the Owner-only Admin Workspace test timed out at `scripts/ovyx-admin-workspace.browser.test.mjs:258` waiting for the global template publish success message. The run log had no `/api/admin/templates` request from that interaction.
+- [x] Updated the browser test to wait for the asynchronously mounted template registry's `data-template-bound="1"` state and click the actual visible **Publish template globally** button instead of calling `form.requestSubmit()`.
+- [x] The test now waits for a terminal status and asserts the success message plus the protected API write; if the UI reports an error, the assertion includes the actual status text. The success condition is not weakened.
+- [ ] Verify the exact new commit's Agent Verify/build, Cloudflare Diagnostics, and full desktop/mobile Chromium run before calling the Owner Workspace test green.
+
+## Exact next step
+
+Inspect the exact commit's three Actions and the complete Owner-only Admin Workspace browser logs. If publishing passes on desktop and mobile, move to the next failing test step in order; do not repeat completed Settings, Security, or Usage/Quota controls absent a regression.

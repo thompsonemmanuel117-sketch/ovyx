@@ -249,13 +249,22 @@ try {
     await hub.locator('[data-ovyx-admin-workspace-route="admin-template-hub"]').evaluate(button => button.click());
     await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-template-hub');
     await page.locator('#view-admin-template-hub [data-ovyx-admin-workspace-back]').waitFor({ state: 'visible' });
+    // Wait until the asynchronously mounted registry has attached its submit handler.
+    await page.locator('#ovyx-global-template-registry[data-template-bound="1"]').waitFor({ state: 'visible', timeout: 20000 });
     await page.locator('#ovyx-global-template-title').fill('Owner Browser Published Template');
     await page.locator('#ovyx-global-template-category').selectOption('SaaS');
     await page.locator('#ovyx-global-template-preview').fill('');
     await page.locator('#ovyx-global-template-tier').selectOption('free');
     await page.locator('#ovyx-global-template-ast').fill('{"nodes":[{"id":"owner-browser-test-node","type":"section"}]}');
-    await page.locator('#ovyx-global-template-publish-form').evaluate(form => form.requestSubmit());
-    await page.waitForFunction(() => /Server confirmed a global template write/.test(document.getElementById('ovyx-global-template-publish-status')?.textContent || ''), null, { timeout: 20000 });
+    // Exercise the visible owner control rather than invoking the form API directly.
+    await page.locator('#ovyx-global-template-publish').click();
+    await page.waitForFunction(() => {
+      const status = document.getElementById('ovyx-global-template-publish-status');
+      return status?.dataset.state === 'ok' || status?.dataset.state === 'error';
+    }, null, { timeout: 20000 });
+    const publishStatus = await page.locator('#ovyx-global-template-publish-status').textContent();
+    assert.match(publishStatus || '', /Server confirmed a global template write/,
+      '[' + target.name + '] Publish template globally did not confirm success. Actual status: ' + String(publishStatus || '').trim());
     assert.ok(ownerApiWrites.some(item => item.path === '/api/admin/templates' && item.body.action === 'publish' && item.body.title === 'Owner Browser Published Template'),
       '[' + target.name + '] Template publication must reach the protected server API.');
     await page.locator('#ovyx-global-template-refresh').click();
