@@ -371,3 +371,17 @@ Commit the Plan → Open Plans test and this checkpoint to `main`, inspect the e
 ## Exact next step
 
 Commit this test-only timing correction and updated checkpoint to `main`. Inspect Agent Verify, Diagnostics, and full Chromium output for the new commit. If the final Billing button route passes on both layouts, continue to the next unverified Settings control; Security and Usage/Booster remain complete.
+
+
+## Billing live-meter rerender fix (2026-10-17)
+
+- [x] On `ed4cd06922d3fdc972c0cf0cebddceed85cd5268`, Agent Verify passed: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38986009671
+- [x] Exact desktop/mobile browser log exposed a genuine rerender defect during the Plan action test: `TokenQuotaRegistry.renderMeter()` called `renderBilling()` whenever the Plan tab was current. `renderBilling()` replaced the whole panel HTML, detaching the visible `#ovyx-upgrade-btn` while the click was pending.
+- [x] Added `refreshBillingMeter()` to update usage, limit, progress-bar width, and reset countdown in place. The quota-meter wrapper now calls it instead of rebuilding the Billing panel. Plan entry only creates the full panel when the final Billing UI is not yet present.
+- [x] Extended the desktop/mobile test to trigger a quota-meter refresh after rendering **Upgrade to Pro**, assert the same DOM button remains connected, then click and verify navigation to Plans.
+- [x] Added static source contracts for the in-place Billing refresh to prevent the whole-panel rerender regression.
+- [ ] Validate the exact new commit's Agent Verify, browser workflow, and Cloudflare Diagnostics. Billing navigation is not complete until the browser interaction passes on both viewport sizes.
+
+## Exact next step
+
+Commit the Billing meter fix, browser regression assertion, source contract, and this checkpoint to `main`. Inspect the exact commit's build and browser logs. If the Billing step passes, continue to the next unfinished Settings control; Security and Usage/Booster already passed the desktop/mobile checks and should not be repeated unless needed by the full workflow.

@@ -422,8 +422,11 @@ try {
     await page.evaluate(() => window.OVYXSettings.show('plan'));
     const planPanel = page.locator('[data-settings-panel="plan"]');
     // The Billing layer replaces the initial Plan shell asynchronously; test its final visible control.
-    const upgradeToPro = planPanel.locator('#ovyx-upgrade-btn');
-    await upgradeToPro.waitFor({ state: 'visible' });
+    const upgradeToPro = await planPanel.locator('#ovyx-upgrade-btn').elementHandle();
+    assert.ok(upgradeToPro, '[' + target.name + '] the final Billing action must render.');
+    await page.evaluate(() => window.TokenQuotaRegistry?.renderMeter?.());
+    assert.equal(await upgradeToPro.evaluate(element => element.isConnected), true,
+      '[' + target.name + '] a quota refresh must not detach the visible Upgrade to Pro control.');
     await upgradeToPro.click();
     await page.waitForFunction(() => window.KernelState?.activeView === 'pricing', null, { timeout: 15000 });
     await page.locator('#view-pricing').waitFor({ state: 'visible' });

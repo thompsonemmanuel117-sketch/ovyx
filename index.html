@@ -4420,6 +4420,19 @@ function renderBilling(){
  p.querySelector('#ovyx-upgrade-btn')?.addEventListener('click',()=>Router.go('pricing'));
  p.querySelector('#ovyx-token-boost-btn')?.addEventListener('click',()=>{Router.go('pricing');setTimeout(()=>toast('Token Boosters are available from Plans.','info'),80)});
 }
+function refreshBillingMeter(){
+  const p=document.querySelector('[data-settings-panel="plan"]');if(!p)return;
+  const usedNode=p.querySelector('#ovyx-bill-used');
+  const limitNode=p.querySelector('.ovyx-billing-limit');
+  const barNode=p.querySelector('#ovyx-bill-bar');
+  const resetNode=p.querySelector('#ovyx-bill-countdown');
+  if(!usedNode||!limitNode||!barNode||!resetNode){renderBilling();return;}
+  const t=tokenInfo(),pct=Math.min(100,Math.round(t.used/t.limit*100));
+  usedNode.textContent=t.used.toLocaleString();
+  limitNode.textContent='/ '+t.limit.toLocaleString()+' tokens';
+  barNode.style.width=pct+'%';
+  resetNode.textContent=countdown(t.resetAt);
+}
 function renderSecurity(){
  const p=document.querySelector('[data-settings-panel="security"]');if(!p)return;const u=window.firebase?.auth?.().currentUser||null;const platform=/Android/i.test(navigator.userAgent)?'Android':/iPhone|iPad|iPod/i.test(navigator.userAgent)?'iOS':/Mac/i.test(navigator.userAgent)?'macOS':/Windows/i.test(navigator.userAgent)?'Windows':'Browser';const browser=/Chrome/i.test(navigator.userAgent)?'Chrome':/Firefox/i.test(navigator.userAgent)?'Firefox':/Safari/i.test(navigator.userAgent)&&!/Chrome/i.test(navigator.userAgent)?'Safari':'Browser';const last=u?.metadata?.lastSignInTime?new Date(u.metadata.lastSignInTime):null;const created=u?.metadata?.creationTime?new Date(u.metadata.creationTime):null;
  p.innerHTML=`<div class="ovyx-panel-head"><div class="ovyx-panel-kicker">SECURITY / ACCOUNT</div><h2>Security</h2><p>Protect your OVYX account and review the current authenticated session without exposing secrets.</p></div>
@@ -4480,8 +4493,8 @@ function enhanceFAQ(){
  window.FAQSystem.render();
  const origToggle=window.FAQSystem.toggleById.bind(window.FAQSystem);window.FAQSystem.toggleById=function(id){origToggle(id);const panel=document.getElementById(id),item=panel?.closest('.ovyx-help-card');const icon=document.getElementById(id+'-icon');if(panel&&item&&icon){const open=item.getAttribute('aria-expanded')==='true';icon.className=open?'fa-solid fa-minus':'fa-solid fa-plus';}};
 }
-function patchSettings(){const S=window.OVYXSettings;if(!S||S.__n1112)return;S.__n1112=true;const oldShow=S.show.bind(S);S.show=function(id){const r=oldShow(id);if(id==='plan')setTimeout(renderBilling,0);if(id==='security')setTimeout(renderSecurity,0);return r};if(S.current==='plan')renderBilling();if(S.current==='security')renderSecurity()}
-function init(){try{patchSettings();enhanceFAQ();if(window.TokenQuotaRegistry?.renderMeter){const old=window.TokenQuotaRegistry.renderMeter.bind(window.TokenQuotaRegistry);window.TokenQuotaRegistry.renderMeter=function(){old();if(window.OVYXSettings?.current==='plan')renderBilling();}}}catch(e){console.warn('[OVYX number11/12]',e)}}
+function patchSettings(){const S=window.OVYXSettings;if(!S||S.__n1112)return;S.__n1112=true;const oldShow=S.show.bind(S);S.show=function(id){const r=oldShow(id);if(id==='plan')setTimeout(()=>{const p=document.querySelector('[data-settings-panel="plan"]');if(!p?.querySelector('#ovyx-upgrade-btn'))renderBilling();else refreshBillingMeter()},0);if(id==='security')setTimeout(renderSecurity,0);return r};if(S.current==='plan')renderBilling();if(S.current==='security')renderSecurity()}
+function init(){try{patchSettings();enhanceFAQ();if(window.TokenQuotaRegistry?.renderMeter){const old=window.TokenQuotaRegistry.renderMeter.bind(window.TokenQuotaRegistry);window.TokenQuotaRegistry.renderMeter=function(){old();if(window.OVYXSettings?.current==='plan')refreshBillingMeter();}}}catch(e){console.warn('[OVYX number11/12]',e)}}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(init,20),{once:true});else setTimeout(init,20);
 setInterval(()=>{const el=document.getElementById('ovyx-bill-countdown');if(el)el.textContent=countdown(tokenInfo().resetAt)},1000);
 })();</script>

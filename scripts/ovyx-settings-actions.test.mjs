@@ -89,6 +89,8 @@ assert.ok(html.includes('Checkout requires sign-in and an available payment prov
 assert.ok(html.includes('Availability is checked when you continue; errors stop the purchase.'), 'Token Booster provider availability must not be implied before the server responds.');
 assert.match(html, /if\(panel\.dataset\.v65Rendered==='1'\)\{\s*if\(window\.OVYXSettings\?\.current==='boosters'\)syncBoosterBalance\(\);\s*return;\s*\}/, 'Opening an already-rendered Token Boosters panel must re-fetch the authenticated balance.');
 assert.match(html, /addEventListener\('click',syncBoosterBalance\);\s*if\(window\.OVYXSettings\?\.current==='boosters'\)syncBoosterBalance\(\);/, 'Booster Refresh must stay wired while panel re-entry also refreshes its balance.');
+assert.ok(html.includes("function refreshBillingMeter(){"), 'Billing quota updates must be implemented as an in-place meter refresh.');
+assert.ok(html.includes("if(window.OVYXSettings?.current==='plan')refreshBillingMeter();"), 'Refreshing usage while the Billing panel is open must not rebuild the entire panel and detach controls.');
 assert.ok(html.includes("${u?'● Signed in':'○ Not signed in'}"), 'Security must not label a merely signed-in user as fully protected.');
 assert.ok(html.includes('data?.ok!==true||data?.revoked!==true'), 'Log Out All Devices must require explicit server confirmation of successful revocation.');
 assert.ok(html.includes("function toast(message,type='info'){") && html.includes("node.className='ovyx-toast ovyx-toast--'+kind"), 'The Security and Billing runtime must own a scoped toast fallback so failures remain visible even without a shared toast global.');
