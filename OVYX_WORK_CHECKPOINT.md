@@ -467,3 +467,13 @@ Inspect the exact commit's three Actions and the complete Owner-only Admin Works
 ## Current status
 
 The Owner-only Admin Workspace browser blocker is closed and the full configured verification/browser pipeline is green. No separate remaining failing browser step is reported by this run. Continue with the next independently identified project problem; do not repeat Settings or Owner Workspace unless evidence shows a new regression.
+## Usage & Quota and Universal Connections follow-up (2026-10-17)
+
+- [x] Usage & Quota remains complete: quota refresh/retry/outage states, Token Booster balance refresh/retry, mocked checkout failure, and billing meter/Plans navigation passed the Settings desktop/mobile browser step documented above. No real payment was made.
+- [x] Current-main Agent Verify #933 passed. Its log confirms `Universal Connection readiness tests passed`, `Universal Connection provider protocol tests passed`, `OVYX Settings actions tests passed`, and production build preflight passed: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38988338757
+- [x] Current-main Cloudflare Diagnostics #448 passed: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38989867434
+- [x] Compared `functions/_lib/providers.js`, `scripts/ovyx-connection-readiness.test.mjs`, `functions/api/settings/connections.js`, `functions/_lib/universal-connections.js`, and `docs/UNIVERSAL-CONNECTIONS.md` against `rollback/settings-baseline-20261015`; all five file blob hashes are identical.
+- [x] The selected AI Brain route remains exclusive in `functions/_lib/providers.js`: it invokes the saved user's Universal Connection first and returns an error rather than silently switching to a platform provider if that connection fails.
+- [x] Reviewed the relevant post-baseline Settings changes: no replacement of the Universal Connections v91 panel/runtime was found. The nearby change is the generic `ovyx-auto-ai-boot-v2` startup status changing from `connected=true` to `connected=false` / `connectionStatus='not_verified'`, because sign-in alone does not verify provider connectivity. Preserve that truthful initial status; do not restore a fake connected claim.
+- [x] Full desktop/mobile Chromium workflow #445 was green with 25/25 steps on commit `c77a1e12033c43896d59831700c0706ef1a2bf58`: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38988111793. Main's subsequent changes through this check are checkpoint/documentation only.
+- [ ] Do not change Universal Connections code unless a specific UI/runtime regression is reproduced. A verified provider status should be set only by an actual successful connection/readiness check.
