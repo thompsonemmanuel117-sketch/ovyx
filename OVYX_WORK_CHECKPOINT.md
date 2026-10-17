@@ -429,3 +429,9 @@ Continue from the independent Owner-only Admin Workspace browser timeout at line
 ## Exact next step
 
 Inspect the exact commit's three Actions and the complete Owner-only Admin Workspace browser logs. If publishing passes on desktop and mobile, move to the next failing test step in order; do not repeat completed Settings, Security, or Usage/Quota controls absent a regression.
+
+### CI trigger correction for Owner Workspace verification (2026-10-17)
+
+- [x] Confirmed the browser workflow's `push.paths` filter previously included Settings paths but omitted the Owner-only Admin Workspace test and its supporting source files. As a result, a test-only commit did not schedule the browser suite.
+- [x] Added the Owner Workspace browser test, its static test, relevant owner UI scripts, owner template API route, and browser API fixture to the push path filter. This workflow-file change should cause the exact updated full browser suite to run from `main`.
+- [ ] Inspect the resulting run for Agent Verify/build, Cloudflare Diagnostics, and the full desktop/mobile Chromium result before moving to another unfinished browser step.
