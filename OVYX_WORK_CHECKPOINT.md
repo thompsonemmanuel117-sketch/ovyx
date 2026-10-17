@@ -499,51 +499,61 @@ The Owner-only Admin Workspace browser blocker is closed and the full configured
 - [x] Generated HTML/file-map post-processing is scoped to App Studio and avoids rewriting ordinary conversational text when no generated HTML/file artifacts are present. Per-request colors and logos remain isolated; no global theme state is changed.
 - [x] Agent Verify run #937 passed on implementation commit `02eedc4f97aedcfc462bbe8811898b77769491ea`, including `npm test`, static verification, production build preflight and Wrangler validation.
 - [x] Inspected desktop/mobile browser workflow #448: Admin Workspace, Editor/Workspace, Security, and Appearance browser groups passed. The run then failed at the existing Settings browser test (`scripts/ovyx-settings.browser.test.mjs:55`, 15-second `page.waitForFunction` timeout), before later Settings groups. This failure is outside Stage 01 and is not hidden or repaired as unrelated scope.
-- [ ] Re-run Agent Verify after the idempotence/prompt-separator hardening; merge only after the Stage 01 test/build checks pass.
+- [x] Re-ran Agent Verify after idempotence/prompt-separator hardening. Final verified code commit: `e1c4c15abbd581a4a7c9d1f9bcd17405b39ec4a1`; see exact run links in the Final Verification section.
 
 ### Completion criteria / honest limits
-The automated sample-app fixture must prove that the original full-colour PNG is used as the actual logo, that every HTML page receives consistent tokens and a favicon, and that the structured file map includes `public/brand/app-icon.svg` plus `public/brand/brand-manifest.json`. This is a code-level fixture, not yet evidence from a live App Studio browser session using a real account's saved profile. Do not mark the live-session criterion complete without that run.
+The automated sample-app fixture proves that the original full-colour PNG is used as the actual logo, each HTML screen receives consistent theme tokens, and the structured file map includes `public/brand/app-icon.svg` plus `public/brand/brand-manifest.json`. Chromium rendered the two-screen sample and the live Pages shell test confirmed the panel mounts. This does not claim an independent AI model generated the sample or that a real logged-in user's saved profile was exercised in their session.
 
 ### Exact next step
-Check the exact follow-up commit's Agent Verify log and confirm the Brand DNA tests pass. Keep the existing Settings browser timeout clearly tracked as an unrelated workflow blocker, then merge the scoped Stage 01 patch to `main` if the repository allows it and record the verified commit and run links here.
+Stage 01 code and desktop/mobile browser verification are complete on the recorded commit; merge the scoped PR to `main`, then check post-merge Agent Verify and Cloudflare Diagnostics.
 
 
 ### Stage 01 per-app configuration follow-up (2026-10-17)
 - [x] Added `functions/api/app-studio/brand-profile.js` for GET/PUT/DELETE of a specific app profile with owner-scoped storage and verified writes.
 - [x] Added `assets/ovyx-app-studio-brand-dna.js` and injected it through the existing root middleware, avoiding a large `index.html` rewrite.
 - [x] App Studio generation now auto-loads/saves the app-specific profile ID and does not silently substitute the user-wide profile when an app ID was explicitly supplied.
-- [ ] Inspect new exact-commit CI logs. The separate Settings desktop/mobile browser workflow currently fails in its Data Layer step; keep that unrelated failure out of this feature unless the diff proves a regression.
+- [x] Inspected exact-commit CI logs. The full browser workflow passed, including the previously recorded Settings Data Layer check; no unrelated Settings failure remains on this run.
 
 
 ### Stage 01 regression evidence (2026-10-17)
 - [x] The deterministic Brand DNA suite passes in Agent Verify for commit `02eedc4f97aedcfc462bbe8811898b77769491ea`, including real PNG source retention, multi-page output, generated SVG icon/manifest and contrast checks.
-- [ ] This follow-up adds a Chromium test for logo upload/preview, server-persisted per-app colors/rules, request-level app ID propagation, second-app isolation and responsive controls. Verify its exact workflow step before merging.
-- [ ] Re-check the live shell's App Studio root and confirm its Brand DNA panel mounts. Do not mark live product proof complete solely from the synthetic fixture.
+- [x] The Chromium test verifies logo upload/preview, per-app profile persistence contract, generation request ID, second-app isolation, responsive controls and the rendered two-screen sample; the exact step passed in Browser Tests run `39025570998`.
+- [x] The same browser run confirmed the real Pages shell has an App Studio root and mounts exactly one Brand DNA panel. This is a shell integration check, not a claim that the user's real saved profile was tested in a logged-in session.
 
 
 ### Stage 01 CI correction (2026-10-17)
 - [x] First run of the new test suite stopped at one stale source-contract assertion that expected the old Brand DNA response object. The implementation now additionally reports `applied` and a safe `applyError`; the assertion has been updated to match that behavior.
-- [ ] Rerun Agent Verify and the browser workflow on the next commit; the browser workflow must reach its new Brand DNA browser step before this stage can be considered verified.
+- [x] Agent Verify and browser workflow reran successfully; Stage 01's Brand DNA step passed on the final verified code commit.
 
 
 ### Stage 01 profile polish (2026-10-17)
 - [x] The Brand DNA panel now auto-seeds a palette from the entered app name until the user explicitly edits colours; custom palettes remain intact when renaming, and the reset-palette action returns to app-name-derived defaults.
 - [x] The browser workflow push trigger now includes the gateway, brand module, per-app profile endpoint, runtime and both brand regression tests so later Stage 01 regressions get checked after merge.
-- [ ] Verify the latest exact-commit Agent Verify and browser workflow results, including the isolated Brand DNA step and the live-shell mount check.
+- [x] Exact-commit Agent Verify and browser workflow passed, including the isolated Brand DNA step and live-shell mount check.
 
 
 ### Stage 01 browser fixture syntax fix (2026-10-17)
 - [x] Browser workflow reached the new App Studio step; it exposed a malformed escaped backtick in the dedicated test's inline HTML fixture, before browser interactions began.
 - [x] Removed the stray escaping and added the browser test file to the regular `node --check` contract list.
-- [ ] Rerun the exact-commit Agent Verify and App Studio desktop/mobile browser step; the stage remains open until both are rechecked.
+- [x] Reran Agent Verify and App Studio desktop/mobile Chromium on the final verified code commit; both passed.
 
 
 ### Stage 01 rendered sample proof and live selector correction (2026-10-17)
 - [x] Updated the live-shell App Studio root assertion to accept the same root selectors used by the injected runtime instead of assuming only `#view-app-studio` exists.
 - [x] Replaced the 1×1 placeholder upload with a distinctive full-colour 96×96 PNG and added a Chromium-rendered two-screen Velora Homes sample using the actual branding transform.
-- [ ] Verify PNG pixel colour diversity, same-logo propagation to both screens, consistent rendered primary/background colours, square SVG icon/manifest fetches, text/CTA contrast, mobile layout and live-shell panel mounting in the exact new CI run.
+- [x] Chromium verified multicolour logo pixels, same-logo propagation to both screens, consistent primary/background colours, SVG icon/manifest responses, text/CTA contrast, mobile layout and live-shell panel mounting on the verified code commit.
 
 
 ### Stage 01 sample logo assertion adjustment (2026-10-17)
 - [x] The hand-crafted sample logo deliberately has five visible opaque brand colours; Chromium’s pixel-count assertion now checks for at least five unique colours, rather than accidentally requiring six.
-- [ ] Check the new exact-commit Agent Verify and browser workflow. Then fix only a precisely observed failing assertion before considering merge.
+- [x] Checked the exact-commit Agent Verify and browser workflow. No Stage 01 test assertion remains failing.
+
+
+## Stage 01 — FINAL VERIFICATION (2026-10-17)
+
+- [x] Brand DNA implementation and deterministic sample fixture passed on verified code commit `e1c4c15abbd581a4a7c9d1f9bcd17405b39ec4a1`.
+- [x] **OVYX Agent Verify** passed, including `npm test` (Brand DNA regression included), static verification, production build preflight, and Wrangler validation. Run: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/39025570969
+- [x] **OVYX Assistant Workspace Browser Tests** passed all 26 steps on desktop/mobile Chromium. This includes the new App Studio Brand DNA sample rendering step and all existing Settings / Admin / Assistant / Sentinel / provider / Web Studio browser checks. Run: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/39025570998
+- [x] The rendered Velora Homes sample displayed the uploaded 96×96 multicolour PNG on Home and Properties, used the same primary/background tokens on both pages, resolved the SVG icon and manifest, and passed contrast/mobile layout assertions.
+- [x] The real Pages shell mount assertion passed: the App Studio view was located and exactly one Brand DNA panel was present. This does not claim that an external AI model independently created the sample or that production deployment has been confirmed.
+- [ ] Merge PR #155 to `main`, then verify the main-branch Agent Verify and Cloudflare Diagnostics runs. Do not claim deployment until Cloudflare confirms it.
