@@ -330,3 +330,17 @@ Inspect the new commit's static/build logs, diagnostics and browser logs. If Dup
 ## Exact next step
 
 Check the exact commit’s three Actions and full browser logs. If Usage and Booster balance interaction tests pass on both desktop/mobile, move to any remaining unverified Usage/Billing settings control; do not revisit Security absent a new regression.
+
+
+## Browser-test routing correction for Usage/Booster verification (2026-10-17)
+
+- [x] Agent Verify / static checks / production build preflight passed on `81a4030405dd11ae415eb09d29b48e69a0dcd28d`: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38985237877
+- [x] Cloudflare Diagnostics completed successfully on that commit: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38985237867 (runtime health HTTP 200, zero detected log errors).
+- [x] Desktop/mobile browser workflow confirmed Editor/Workspace, Security, and Appearance steps passed; the next step failed before its Data Layer/Usage/Booster assertions.
+- [x] Exact failure was at `scripts/ovyx-settings.browser.test.mjs:55`: the test called `Router.go('settings')` then immediately awaited the panel becoming visible while its element was still hidden and the app route had not switched. This is test navigation timing, not evidence of a Settings control regression.
+- [x] Corrected the browser test to wait for `KernelState.activeView === 'settings'` before checking `#view-settings` visibility.
+- [ ] Validate the corrected browser test through all desktop/mobile Settings groups; the new Usage/Booster assertions remain unverified until the test reaches and passes them.
+
+## Exact next step
+
+Commit this isolated browser-fixture timing fix to `main`, rerun Agent Verify, Cloudflare Diagnostics, and the full desktop/mobile Chromium workflow; inspect the exact logs. If the Usage/Booster path passes, continue with any remaining unfinished Settings control without restarting the audit or revisiting Security absent a regression.
