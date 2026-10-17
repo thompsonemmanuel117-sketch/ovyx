@@ -87,6 +87,8 @@ assert.ok(html.includes("EMAIL (PREFERENCES ONLY)") && html.includes('this panel
 assert.ok(!html.includes('future booster products'), 'Token Boosters must not be labelled as future products while checkout controls exist.');
 assert.ok(html.includes('Checkout requires sign-in and an available payment provider.'), 'Token Booster checkout requirements must be visible before purchase.');
 assert.ok(html.includes('Availability is checked when you continue; errors stop the purchase.'), 'Token Booster provider availability must not be implied before the server responds.');
+assert.match(html, /if\(panel\.dataset\.v65Rendered==='1'\)\{\s*if\(window\.OVYXSettings\?\.current==='boosters'\)syncBoosterBalance\(\);\s*return;\s*\}/, 'Opening an already-rendered Token Boosters panel must re-fetch the authenticated balance.');
+assert.match(html, /addEventListener\('click',syncBoosterBalance\);\s*if\(window\.OVYXSettings\?\.current==='boosters'\)syncBoosterBalance\(\);/, 'Booster Refresh must stay wired while panel re-entry also refreshes its balance.');
 assert.ok(html.includes("${u?'● Signed in':'○ Not signed in'}"), 'Security must not label a merely signed-in user as fully protected.');
 assert.ok(html.includes('data?.ok!==true||data?.revoked!==true'), 'Log Out All Devices must require explicit server confirmation of successful revocation.');
 assert.ok(html.includes("function toast(message,type='info'){") && html.includes("node.className='ovyx-toast ovyx-toast--'+kind"), 'The Security and Billing runtime must own a scoped toast fallback so failures remain visible even without a shared toast global.');

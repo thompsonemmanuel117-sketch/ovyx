@@ -9251,13 +9251,13 @@ const PACKS={
 };
 function renderBoosterSettings(){
   const panel=document.querySelector('#view-settings [data-settings-panel="boosters"]');if(!panel)return;
-  if(panel.dataset.v65Rendered==='1')return;
+  if(panel.dataset.v65Rendered==='1'){if(window.OVYXSettings?.current==='boosters')syncBoosterBalance();return;}
   panel.dataset.v65Rendered='1';
   panel.innerHTML=`<div class="ovyx-panel-head"><div class="ovyx-panel-kicker">BILLING / TOKEN BOOSTERS</div><h2>Token Boosters</h2><p>Checkout requires sign-in and an available payment provider. Tokens are credited only after server verification; if checkout is unavailable, no purchase is completed.</p></div>
   <div class="ovyx-pref-group"><div class="ovyx-pref-label">YOUR EXTRA BALANCE</div><div class="ovyx-pref-row"><div class="ovyx-pref-copy"><b id="ovyx-v65-booster-balance">Checking…</b><small>Extra AI tokens are added only after the payment provider confirms the transaction.</small></div><button class="ovyx-settings-btn" type="button" id="ovyx-v65-booster-refresh">Refresh balance</button></div></div>
   <div class="ovyx-v65-template-grid" style="padding:14px 20px 20px">${Object.values(PACKS).map(p=>`<div class="ovyx-v65-template-card"><div class="ovyx-v65-template-preview"><div class="bar"></div><div class="hero"><i></i><em></em><button></button></div></div><div class="ovyx-v65-template-body"><b>${esc(p.name)}</b><p>${p.tokens.toLocaleString()} additional AI tokens.</p><div class="ovyx-v65-template-meta"><span>${p.tokens.toLocaleString()} TOKENS</span><span>₦${p.ngn.toLocaleString('en-NG',{minimumFractionDigits:2})}</span></div><div class="ovyx-v65-template-actions"><button type="button" data-boost-pack="${p.id}" class="primary" style="grid-column:1/-1">Buy ${esc(p.name)} Booster</button></div></div></div>`).join('')}</div>`;
   panel.querySelectorAll('[data-boost-pack]').forEach(b=>b.addEventListener('click',()=>window.OVYXTokenBooster?.open?.(b.dataset.boostPack||'starter')));
-  panel.querySelector('#ovyx-v65-booster-refresh')?.addEventListener('click',syncBoosterBalance);  syncBoosterBalance();
+  panel.querySelector('#ovyx-v65-booster-refresh')?.addEventListener('click',syncBoosterBalance);  if(window.OVYXSettings?.current==='boosters')syncBoosterBalance();
 }
 window.addEventListener('ovyx-settings-rendered',()=>renderBoosterSettings());
 async function syncBoosterBalance(){

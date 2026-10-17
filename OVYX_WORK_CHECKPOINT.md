@@ -313,3 +313,20 @@ Confirm static/source tests pass, then inspect the browser run through the Theme
 ## Exact next step
 
 Inspect the new commit's static/build logs, diagnostics and browser logs. If Duplicate passes and Reset still fails, fix Reset using the exact new result. If Appearance passes, move to Usage quota refresh/error and mocked Token Booster balance/checkout failure. Do not perform real deletion/payment.
+
+
+## Latest work unit — Security verified; fix stale Booster balance on panel entry (2026-10-17)
+
+- [x] Current `main` before this unit: `f8258e551db8750f4b94f8ddeb1158396c047dc4`.
+- [x] Current Agent Verify passed: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38977108281
+- [x] Current desktop/mobile Chromium workflow passed all steps, including the dedicated Security session-revocation test: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38977108267
+- [x] Current Cloudflare Diagnostics passed; deployment/runtime health was HTTP 200 with zero detected log errors: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38977386502
+- [x] Security is complete for this pass: unconfirmed HTTP 200 and 503 session-revocation results do not sign out; a server-confirmed revocation signs out; Delete Account cancellation and stale recent-auth rejection never invoke deletion.
+- [x] Found the next real issue: the Booster panel rendered only once and did not refresh the account balance when reopened after authentication changed. The visible **Refresh balance** control was wired, but users had to know to click it after signing in.
+- [x] Fixed panel re-entry to refresh the authenticated balance while preserving the manual Refresh balance action.
+- [x] Added desktop/mobile checks for Usage server quota success, service error, retry/recovery, and Booster balance refresh success/error/retry. All payments remain mocked; no account deletion is performed.
+- [ ] Exact new commit’s Agent Verify, browser workflow, and Cloudflare Diagnostics must pass before this unit is marked validated.
+
+## Exact next step
+
+Check the exact commit’s three Actions and full browser logs. If Usage and Booster balance interaction tests pass on both desktop/mobile, move to any remaining unverified Usage/Billing settings control; do not revisit Security absent a new regression.

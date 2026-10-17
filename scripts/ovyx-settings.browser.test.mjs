@@ -276,6 +276,67 @@ try {
         '[' + target.name + '] Cloudflare state labels must never claim connected for unknown/unavailable state.');
     }
 
+    // Verify that server quota refreshes on Usage panel entry and that failures remain honest/recoverable.
+    await page.evaluate(() => {
+      const user = {
+        uid: 'settings-balance-e2e',
+        email: 'settings-balance-e2e@example.test',
+        async getIdToken() { return 'test-only-browser-token'; },
+      };
+      const auth = () => ({ currentUser: user });
+      const firebaseStub = window.firebase || {};
+      try { Object.defineProperty(firebaseStub, 'auth', { configurable: true, enumerable: true, writable: true, value: auth }); }
+      catch (_) { firebaseStub.auth = auth; }
+      try { Object.defineProperty(window, 'firebase', { configurable: true, enumerable: true, writable: true, value: firebaseStub }); }
+      catch (_) { window.firebase = firebaseStub; }
+    });
+    let balanceReply = {
+      status: 200,
+      body: { ok: true, monthlyLimit: 100, current_monthly_tokens: 80, baseRemaining: 80, boosterTokens: 11, daily_prompts_allowance: 4, plan: 'free' },
+    };
+    const balanceRequests = [];
+    await page.route('**/api/tokens/balance', async route => {
+      const request = route.request();
+      balanceRequests.push({ method: request.method(), headers: await request.allHeaders() });
+      await route.fulfill({
+        status: balanceReply.status,
+        contentType: 'application/json',
+        headers: { 'Cache-Control': 'no-store' },
+        body: JSON.stringify(balanceReply.body),
+      });
+    });
+
+    let beforeQuotaLoad = balanceRequests.length;
+    await page.evaluate(() => window.OVYXSettings.show('usage'));
+    await page.waitForFunction(() => document.getElementById('set-token-meter')?.textContent?.trim() === '20 used / 100');
+    assert.ok(balanceRequests.length > beforeQuotaLoad, '[' + target.name + '] opening Usage must request server quota.');
+    assert.ok(balanceRequests.every(r => r.method === 'GET' && r.headers.authorization === 'Bearer test-only-browser-token'),
+      '[' + target.name + '] Usage quota refresh must be an authenticated GET.');
+    assert.match(await page.locator('#ovyx-usage-server-detail').innerText(), /Remaining: 80 tokens/i);
+
+    balanceReply = {
+      status: 503,
+      body: { ok: false, error: 'Simulated quota balance outage' },
+    };
+    await page.evaluate(() => window.OVYXSettings.show('privacy'));
+    beforeQuotaLoad = balanceRequests.length;
+    await page.evaluate(() => window.OVYXSettings.show('usage'));
+    await page.waitForFunction(() => document.getElementById('set-token-meter')?.textContent?.trim() === 'Usage unavailable');
+    assert.ok(balanceRequests.length > beforeQuotaLoad, '[' + target.name + '] re-opening Usage must retry the server quota request.');
+    assert.equal(await page.locator('#set-token-meter').getAttribute('title'), 'Simulated quota balance outage',
+      '[' + target.name + '] quota failures must preserve an actionable error instead of showing a stale success value.');
+
+    balanceReply = {
+      status: 200,
+      body: { ok: true, monthlyLimit: 100, current_monthly_tokens: 65, baseRemaining: 65, boosterTokens: 18, daily_prompts_allowance: 3, plan: 'free' },
+    };
+    await page.evaluate(() => window.OVYXSettings.show('privacy'));
+    beforeQuotaLoad = balanceRequests.length;
+    await page.evaluate(() => window.OVYXSettings.show('usage'));
+    await page.waitForFunction(() => document.getElementById('set-token-meter')?.textContent?.trim() === '35 used / 100');
+    assert.ok(balanceRequests.length > beforeQuotaLoad, '[' + target.name + '] Usage must recover when the server returns a valid quota again.');
+    assert.match(await page.locator('#ovyx-usage-server-detail').innerText(), /Remaining: 65 tokens/i);
+
     await page.evaluate(() => window.OVYXSettings.show('boosters'));
     const boosters = page.locator('[data-settings-panel="boosters"]');
     await page.waitForFunction(() => !!document.querySelector('[data-settings-panel="boosters"] #ovyx-v65-booster-balance')
@@ -286,6 +347,43 @@ try {
     assert.equal(await boosters.locator('[data-boost-pack]').count(), 3,
       '[' + target.name + '] Starter, Builder and Studio purchase actions must all be rendered.');
     assert.doesNotMatch(boosterCopy, /future booster products/i);
+    const balanceLabel = page.locator('#ovyx-v65-booster-balance');
+    await page.waitForFunction(() => document.getElementById('ovyx-v65-booster-balance')?.textContent?.trim() === '18 extra tokens',
+      null, { timeout: 15000 });
+    assert.ok(balanceRequests.length > 0, '[' + target.name + '] opening Boosters after sign-in must refresh the existing panel balance.');
+    assert.ok(balanceRequests.every(r => r.method === 'GET' && r.headers.authorization === 'Bearer test-only-browser-token'),
+      '[' + target.name + '] Booster balance must use the authenticated balance endpoint.');
+
+    balanceReply = {
+      status: 200,
+      body: { ok: true, monthlyLimit: 100, current_monthly_tokens: 63, baseRemaining: 63, boosterTokens: 42, daily_prompts_allowance: 3, plan: 'free' },
+    };
+    let beforeBalanceRefresh = balanceRequests.length;
+    await boosters.locator('#ovyx-v65-booster-refresh').click();
+    await page.waitForFunction(() => document.getElementById('ovyx-v65-booster-balance')?.textContent?.trim() === '42 extra tokens');
+    assert.ok(balanceRequests.length > beforeBalanceRefresh, '[' + target.name + '] Refresh balance must issue a new server request.');
+    assert.equal(await page.evaluate(() => window.TokenQuotaRegistry?.boosterTokens), 42,
+      '[' + target.name + '] refreshed balance must update the shared quota meter state.');
+
+    balanceReply = {
+      status: 503,
+      body: { ok: false, error: 'Simulated booster balance outage' },
+    };
+    beforeBalanceRefresh = balanceRequests.length;
+    await boosters.locator('#ovyx-v65-booster-refresh').click();
+    await page.waitForFunction(() => document.getElementById('ovyx-v65-booster-balance')?.textContent?.trim() === 'Balance unavailable');
+    assert.ok(balanceRequests.length > beforeBalanceRefresh, '[' + target.name + '] failed balance refresh must still call the server.');
+    assert.notEqual((await balanceLabel.innerText()).trim(), '0 extra tokens',
+      '[' + target.name + '] a failed balance refresh must not turn an unknown balance into a false zero.');
+
+    balanceReply = {
+      status: 200,
+      body: { ok: true, monthlyLimit: 100, current_monthly_tokens: 62, baseRemaining: 62, boosterTokens: 43, daily_prompts_allowance: 3, plan: 'free' },
+    };
+    beforeBalanceRefresh = balanceRequests.length;
+    await boosters.locator('#ovyx-v65-booster-refresh').click();
+    await page.waitForFunction(() => document.getElementById('ovyx-v65-booster-balance')?.textContent?.trim() === '43 extra tokens');
+    assert.ok(balanceRequests.length > beforeBalanceRefresh, '[' + target.name + '] Refresh balance must recover after a service error.');
 
     // Open the checkout UI but never use a real payment provider: the API is mocked to fail.
     await boosters.locator('[data-boost-pack="starter"]').click();
