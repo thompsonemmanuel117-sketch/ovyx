@@ -519,3 +519,8 @@ Check the exact follow-up commit's Agent Verify log and confirm the Brand DNA te
 - [x] The deterministic Brand DNA suite passes in Agent Verify for commit `02eedc4f97aedcfc462bbe8811898b77769491ea`, including real PNG source retention, multi-page output, generated SVG icon/manifest and contrast checks.
 - [ ] This follow-up adds a Chromium test for logo upload/preview, server-persisted per-app colors/rules, request-level app ID propagation, second-app isolation and responsive controls. Verify its exact workflow step before merging.
 - [ ] Re-check the live shell's App Studio root and confirm its Brand DNA panel mounts. Do not mark live product proof complete solely from the synthetic fixture.
+
+
+### Stage 01 CI correction (2026-10-17)
+- [x] First run of the new test suite stopped at one stale source-contract assertion that expected the old Brand DNA response object. The implementation now additionally reports `applied` and a safe `applyError`; the assertion has been updated to match that behavior.
+- [ ] Rerun Agent Verify and the browser workflow on the next commit; the browser workflow must reach its new Brand DNA browser step before this stage can be considered verified.
