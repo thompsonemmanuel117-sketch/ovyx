@@ -15,6 +15,7 @@ import {
   saveChatTurn,
   resolveConversationId,
 } from '../../_lib/chat-history.js';
+import { getFirestoreDataAtPath } from '../../_lib/firebase-admin.js';
 
 function parseStructured(text) {
   const raw = String(text || '').trim();
@@ -87,6 +88,23 @@ export async function onRequestPost(context) {
     const isAppStudio = activeView === 'appstudio' || ['appstudio', 'app-build', 'app-fix'].includes(mode);
     const isWebStudio = !isAppStudio && (isWebStudioPrompt(promptText, mode) ||
       ((mode === 'build' || mode === 'fix') && hasStudioContext));
+
+    // Resolve the owner's saved Brand Identity profile for fresh Web Studio
+    // builds. Keep explicitly supplied in-session branding authoritative.
+    const providedBrandProfile = payload.context?.brandProfile || payload.context?.brand || null;
+    const userEmail = String(user?.email || '').trim().toLowerCase();
+    let savedBrandProfile = null;
+    if (isWebStudio && mode === 'build' && userEmail && !providedBrandProfile) {
+      try {
+        savedBrandProfile = await getFirestoreDataAtPath(
+          context.env,
+          ['users', userEmail, 'brand_profile', 'config']
+        );
+      } catch {
+        savedBrandProfile = null;
+      }
+    }
+    const brandProfile = providedBrandProfile || savedBrandProfile || null;
 
     if (isAppStudio) {
       const entitlement = context.data?.entitlements || await resolveEntitlements(context.env, user);
@@ -215,7 +233,12 @@ export async function onRequestPost(context) {
         const projectFiles = payload.context?.files || payload.files || {};
         const studioHints = JSON.stringify({
           activeView: payload.context?.activeView || '',
-          brandProfile: payload.context?.brandProfile || payload.context?.brand || null,
+          brandProfile: brandProfile && typeof brandProfile === 'object' ? {
+            colors: brandProfile.colors && typeof brandProfile.colors === 'object' ? brandProfile.colors : {},
+            layoutRules: Array.isArray(brandProfile.layoutRules) ? brandProfile.layoutRules.slice(0, 50) : [],
+            logoConfigured: Boolean(brandProfile.logoDataUrl),
+            version: Number(brandProfile.version) || 1,
+          } : null,
           theme: payload.context?.theme || null,
           viewport: payload.context?.viewport || null,
           promptContract,
