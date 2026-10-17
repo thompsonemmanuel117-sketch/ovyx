@@ -6,7 +6,7 @@
   const PANEL_ID = 'ovyx-app-studio-brand-dna-panel';
   const nativeFetch = window.fetch.bind(window);
   const keys = ['primary', 'secondary', 'accent', 'background', 'surface', 'text', 'muted'];
-  const state = { appName: '', appId: '', boundId: '', logoDataUrl: null, colors: {}, layoutRules: [], dirty: false, hasProfile: false };
+  const state = { appName: '', appId: '', boundId: '', logoDataUrl: null, colors: {}, layoutRules: [], dirty: false, hasProfile: false, paletteCustomized: false };
   const q = (root, selector) => root.querySelector(selector);
   const clean = (value, max) => String(value == null ? '' : value).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, max || 160);
   const validHex = value => /^#[0-9a-f]{6}$/i.test(String(value || ''));
@@ -60,7 +60,7 @@
     const panel=document.getElementById(PANEL_ID);if(!panel)return;
     const appName=clean(profile?.appName||profile?.brandName||name||'',100);
     const palette=Object.assign(defaults(appName||'My App'),profile?.colors||{});
-    state.appName=appName;state.colors={};
+    state.appName=appName;state.colors={};state.paletteCustomized=!!state.hasProfile;
     for(const key of keys){state.colors[key]=validHex(palette[key])?palette[key].toUpperCase():defaults(appName||'My App')[key];q(panel,'[data-brand-color="'+key+'"]').value=state.colors[key];}
     state.logoDataUrl=typeof profile?.logoDataUrl==='string'&&profile.logoDataUrl?profile.logoDataUrl:null;
     state.layoutRules=Array.isArray(profile?.layoutRules)?profile.layoutRules.map(x=>clean(x,500)).filter(Boolean).slice(0,50):[];
@@ -141,8 +141,8 @@
   }
   function bindPanel(panel) {
     const name=q(panel,'[data-brand-app-name]');
-    name.addEventListener('input',()=>{state.appName=clean(name.value,100);state.dirty=true;});
-    for(const key of keys)q(panel,'[data-brand-color="'+key+'"]').addEventListener('input',()=>{state.dirty=true;renderPalette();});
+    name.addEventListener('input',()=>{state.appName=clean(name.value,100);state.dirty=true;if(!state.paletteCustomized){const fresh=defaults(state.appName||'My App');for(const key of keys){q(panel,'[data-brand-color="'+key+'"]').value=fresh[key];}state.colors=fresh;renderPalette();}});
+    for(const key of keys)q(panel,'[data-brand-color="'+key+'"]').addEventListener('input',()=>{state.paletteCustomized=true;state.dirty=true;renderPalette();});
     q(panel,'[data-brand-layout-rules]').addEventListener('input',()=>{state.dirty=true;});
     q(panel,'[data-brand-logo-file]').addEventListener('change',event=>{
       const file=event.target.files&&event.target.files[0];if(!file)return;
@@ -152,7 +152,7 @@
       reader.onerror=()=>setStatus('The selected logo could not be read.','error');reader.readAsDataURL(file);
     });
     q(panel,'[data-brand-remove-logo]').addEventListener('click',()=>{state.logoDataUrl=null;q(panel,'[data-brand-logo-file]').value='';state.dirty=true;renderLogo();setStatus('Logo removed from this app draft.','info');});
-    q(panel,'[data-brand-defaults]').addEventListener('click',()=>{const name=clean(q(panel,'[data-brand-app-name]').value,100)||'My App';const palette=defaults(name);for(const key of keys)q(panel,'[data-brand-color="'+key+'"]').value=palette[key];state.dirty=true;renderPalette();setStatus('A distinct app-specific palette is ready.','info');});
+    q(panel,'[data-brand-defaults]').addEventListener('click',()=>{const name=clean(q(panel,'[data-brand-app-name]').value,100)||'My App';const palette=defaults(name);for(const key of keys)q(panel,'[data-brand-color="'+key+'"]').value=palette[key];state.paletteCustomized=false;state.dirty=true;renderPalette();setStatus('A distinct app-specific palette is ready.','info');});
     q(panel,'[data-brand-load]').addEventListener('click',async()=>{const name=clean(q(panel,'[data-brand-app-name]').value,100);if(!name){setStatus('Enter an app name before loading its saved brand.','error');return;}try{const profile=await loadProfile(slug(name),name,false);if(!profile)setStatus('No saved brand exists for this app yet.','info');}catch(error){setStatus(error.message||'Could not load this app brand.','error');}});
     q(panel,'[data-brand-save]').addEventListener('click',async()=>{const name=clean(q(panel,'[data-brand-app-name]').value,100);if(!name){setStatus('Enter an app name before saving its brand.','error');return;}try{await saveProfile(slug(name));}catch(error){setStatus(error.message||'Could not save this app brand.','error');}});
   }

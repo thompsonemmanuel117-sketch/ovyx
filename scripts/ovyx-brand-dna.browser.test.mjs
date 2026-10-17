@@ -111,7 +111,10 @@ try {
   await mobile.locator('#ovyx-app-studio-brand-dna-panel').waitFor();
   const mobileMetrics = await mobile.locator('#ovyx-app-studio-brand-dna-panel').evaluate(el => ({ width:el.getBoundingClientRect().width, scrollWidth:el.scrollWidth, viewport:document.documentElement.clientWidth }));
   assert.ok(mobileMetrics.width > 0 && mobileMetrics.scrollWidth <= mobileMetrics.viewport + 1, 'Brand controls must not create horizontal overflow on mobile.');
+  const oldDefaultPrimary = await mobile.locator('[data-brand-color="primary"]').inputValue();
   await mobile.locator('[data-brand-app-name]').fill('Nova Health');
+  const newDefaultPrimary = await mobile.locator('[data-brand-color="primary"]').inputValue();
+  assert.notEqual(newDefaultPrimary, oldDefaultPrimary, 'Entering a different app name must derive a fresh palette when the user has not manually overridden colours.');
   await mobile.locator('[data-brand-save]').click();
   await mobile.waitForFunction(() => document.querySelector('[data-brand-status]')?.textContent.includes('Saved and verified on the server.'));
   assert.ok(profiles.has('nova-health'), 'A second app name must store a separate profile.');
