@@ -359,3 +359,15 @@ Commit this isolated browser-fixture timing fix to `main`, rerun Agent Verify, C
 ## Exact next step
 
 Commit the Plan → Open Plans test and this checkpoint to `main`, inspect the exact Actions. If the click/navigation test passes on desktop and mobile, move to the next unverified Billing/Usage action. Security is complete; do not redo it unless a new regression appears.
+
+
+## Billing browser test: wait for final rendered Plan action (2026-10-17)
+
+- [x] On `2489ff3d797fd515025198a75a7db2b48cd284a5`, Agent Verify and Cloudflare Diagnostics passed; the browser workflow identified a test mismatch at `scripts/ovyx-settings.browser.test.mjs:424`.
+- [x] The exact log shows Playwright located the temporary `Open Plans` shell button, but the element detached before clicking. Source inspection confirmed the Billing layer asynchronously replaces the initial Plan shell, then exposes the actual `#ovyx-upgrade-btn` in the same Plan panel.
+- [x] This is a test targeting the transient pre-render control, not yet evidence the final visible Billing action is broken. The browser test now waits for and clicks the final visible **Upgrade to Pro** control, then verifies navigation to `#view-pricing` and return to Settings.
+- [ ] Verify the updated Plan interaction on desktop and mobile with the exact commit's browser logs. Do not mark Plan complete until it passes.
+
+## Exact next step
+
+Commit this test-only timing correction and updated checkpoint to `main`. Inspect Agent Verify, Diagnostics, and full Chromium output for the new commit. If the final Billing button route passes on both layouts, continue to the next unverified Settings control; Security and Usage/Booster remain complete.

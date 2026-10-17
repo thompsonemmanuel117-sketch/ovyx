@@ -421,9 +421,14 @@ try {
 
     await page.evaluate(() => window.OVYXSettings.show('plan'));
     const planPanel = page.locator('[data-settings-panel="plan"]');
-    await planPanel.getByRole('button', { name: 'Open Plans' }).click();
+    // The Billing layer replaces the initial Plan shell asynchronously; test its final visible control.
+    const upgradeToPro = planPanel.locator('#ovyx-upgrade-btn');
+    await upgradeToPro.waitFor({ state: 'visible' });
+    await upgradeToPro.click();
     await page.waitForFunction(() => window.KernelState?.activeView === 'pricing', null, { timeout: 15000 });
     await page.locator('#view-pricing').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#view-pricing').getAttribute('aria-label'), 'OVYX Plans',
+      '[' + target.name + '] Upgrade to Pro must navigate to the Plans view.');
     await page.evaluate(() => window.Router.go('settings'));
     await page.waitForFunction(() => window.KernelState?.activeView === 'settings', null, { timeout: 15000 });
     await page.locator('#view-settings').waitFor({ state: 'visible' });
