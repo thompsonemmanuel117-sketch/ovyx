@@ -579,3 +579,7 @@ Stage 01 code and desktop/mobile browser verification are complete on the record
 - The analyzer never signs in to a source website, bypasses a paywall, ignores disallow rules, executes page JavaScript or downloads/copies asset binaries in this stage.
 - It inspects at most six pages and two same-origin stylesheets with per-response byte caps. Public URL discovery does not prove forms, accounts, databases, payments, APIs or other backend integrations work.
 - Public DNS records are checked before outbound fetches, but Fetch does not pin DNS answers to the socket connection; DNS rebinding is a residual platform-level limitation and is not claimed to be impossible.
+
+
+### Stage 02 security wording refinement (2026-10-18)
+- [x] The analyzer report now explicitly states that public DNS is checked before fetches but the platform does not pin the lookup result to the socket; DNS rebinding between check and connect remains a residual limitation. The test suite asserts this disclosure.

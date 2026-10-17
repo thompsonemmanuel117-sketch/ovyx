@@ -65,6 +65,7 @@ assert.equal(report.branding.faviconUrl, 'https://example.com/favicon.svg');
 assert.ok(report.capabilities.can.length >= 4);
 assert.ok(report.capabilities.cannot.some(item => /JavaScript/i.test(item)));
 assert.ok(report.limitations.some(item => /binary files|asset binaries/i.test(item)));
+assert.ok(report.limitations.some(item => /DNS rebinding/i.test(item)), 'The report must state the DNS-check versus connection-pinning limitation honestly.');
 assert.ok(report.limits.maxPagesInspected <= 6);
 
 const redirectFetch = async input => {
