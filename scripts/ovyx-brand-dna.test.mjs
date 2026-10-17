@@ -9,6 +9,7 @@ const gateway = read('functions/api/ai/gateway.js');
 const mobileBuild = read('functions/api/mobile/build.js');
 const appBrandApi = read('functions/api/app-studio/brand-profile.js');
 const appBrandRuntime = read('assets/ovyx-app-studio-brand-dna.js');
+const testBrowserSource = read('scripts/ovyx-brand-dna.browser.test.mjs');
 const middleware = read('functions/_middleware.js');
 const packageJson = JSON.parse(read('package.json'));
 
@@ -107,6 +108,7 @@ assert.ok(!gateway.includes('quotaOutputText = result.text;'), 'Injected logo by
 assert.ok(appBrandApi.includes("['users', email, 'app_studio_brands', appId]"), 'App brand profiles must be isolated by owner and sanitized app ID.');
 assert.ok(appBrandApi.includes('enforceSameOrigin(request)'), 'App brand mutation must be same-origin guarded.');
 assert.ok(appBrandRuntime.includes('data-brand-logo-file') && appBrandRuntime.includes('type="color"'), 'App Studio must expose real logo upload and color controls.');
+assert.ok(testBrowserSource.includes('visibleColors > 5') && testBrowserSource.includes('Every generated screen must display the same original full-colour logo'), 'The Chromium test must inspect the rendered full-colour logo across generated screens.');
 assert.ok(appBrandRuntime.includes('appBrandId:id'), 'Generated requests must carry an app-scoped profile ID.');
 assert.ok(appBrandRuntime.includes('generation was paused'), 'Failure to persist App Brand DNA must stop the generation attempt.');
 assert.ok(middleware.includes('/assets/ovyx-app-studio-brand-dna.js?v=20261017-1'), 'The real Pages shell must load the App Studio Brand DNA runtime.');

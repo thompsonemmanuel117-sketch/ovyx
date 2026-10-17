@@ -536,3 +536,9 @@ Check the exact follow-up commit's Agent Verify log and confirm the Brand DNA te
 - [x] Browser workflow reached the new App Studio step; it exposed a malformed escaped backtick in the dedicated test's inline HTML fixture, before browser interactions began.
 - [x] Removed the stray escaping and added the browser test file to the regular `node --check` contract list.
 - [ ] Rerun the exact-commit Agent Verify and App Studio desktop/mobile browser step; the stage remains open until both are rechecked.
+
+
+### Stage 01 rendered sample proof and live selector correction (2026-10-17)
+- [x] Updated the live-shell App Studio root assertion to accept the same root selectors used by the injected runtime instead of assuming only `#view-app-studio` exists.
+- [x] Replaced the 1×1 placeholder upload with a distinctive full-colour 96×96 PNG and added a Chromium-rendered two-screen Velora Homes sample using the actual branding transform.
+- [ ] Verify PNG pixel colour diversity, same-logo propagation to both screens, consistent rendered primary/background colours, square SVG icon/manifest fetches, text/CTA contrast, mobile layout and live-shell panel mounting in the exact new CI run.
