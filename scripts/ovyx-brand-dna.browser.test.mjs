@@ -152,7 +152,7 @@ try {
     for (let i = 0; i < pixels.length; i += 4) if (pixels[i+3] > 0) unique.add(pixels[i]+','+pixels[i+1]+','+pixels[i+2]);
     return unique.size;
   });
-  assert.ok(visibleColors > 5, 'The sample app must render multicolour logo pixels, not a monochrome substitute.');
+  assert.ok(visibleColors >= 5, 'The sample app must render multicolour logo pixels, not a monochrome substitute.');
   assert.equal(await samplePage.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--ovyx-brand-primary').trim()), '#D81B60');
   assert.equal(await samplePage.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(255, 249, 252)');
   assert.equal(await samplePage.locator('.btn-primary').evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(216, 27, 96)');

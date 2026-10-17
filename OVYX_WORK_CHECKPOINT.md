@@ -542,3 +542,8 @@ Check the exact follow-up commit's Agent Verify log and confirm the Brand DNA te
 - [x] Updated the live-shell App Studio root assertion to accept the same root selectors used by the injected runtime instead of assuming only `#view-app-studio` exists.
 - [x] Replaced the 1×1 placeholder upload with a distinctive full-colour 96×96 PNG and added a Chromium-rendered two-screen Velora Homes sample using the actual branding transform.
 - [ ] Verify PNG pixel colour diversity, same-logo propagation to both screens, consistent rendered primary/background colours, square SVG icon/manifest fetches, text/CTA contrast, mobile layout and live-shell panel mounting in the exact new CI run.
+
+
+### Stage 01 sample logo assertion adjustment (2026-10-17)
+- [x] The hand-crafted sample logo deliberately has five visible opaque brand colours; Chromium’s pixel-count assertion now checks for at least five unique colours, rather than accidentally requiring six.
+- [ ] Check the new exact-commit Agent Verify and browser workflow. Then fix only a precisely observed failing assertion before considering merge.
