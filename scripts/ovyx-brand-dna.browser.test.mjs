@@ -174,7 +174,6 @@ try {
   assert.ok((await propertiesPage.locator('body').innerText()).includes('Three-bedroom home'));
   await samplePage.close(); await propertiesPage.close();
   await desktop.evaluate(async () => fetch('/api/ai/gateway', {
-  await desktop.evaluate(async () => fetch('/api/ai/gateway', {
     method:'POST', headers:{'Content-Type':'application/json'},
     body:JSON.stringify({ mode:'app-build', prompt:'Build a premium property app with multiple screens.', context:{ activeView:'appstudio', project:{ name:'Velora Homes' } } })
   }));
