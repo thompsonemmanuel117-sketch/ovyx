@@ -108,7 +108,7 @@
     if(!state.appName)applyDraft({appName:name,colors:defaults(name),logoDataUrl:null,layoutRules:[]},name);
     if(state.boundId!==id)await loadProfile(id,name,dirty);
     if(!state.hasProfile||state.dirty||state.appId!==id)await saveProfile(id);
-    payload.context=Object.assign({},payload.context||{},{activeView:payload.context?.activeView||'appstudio',appName:state.appName,appBrandId:id});
+    payload.context=Object.assign({},payload.context||{},{activeView:'appstudio',appName:state.appName,appBrandId:id});
     return payload;
   }
   function buildPanel() {

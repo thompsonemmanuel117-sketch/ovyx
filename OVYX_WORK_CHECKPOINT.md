@@ -513,3 +513,9 @@ Check the exact follow-up commit's Agent Verify log and confirm the Brand DNA te
 - [x] Added `assets/ovyx-app-studio-brand-dna.js` and injected it through the existing root middleware, avoiding a large `index.html` rewrite.
 - [x] App Studio generation now auto-loads/saves the app-specific profile ID and does not silently substitute the user-wide profile when an app ID was explicitly supplied.
 - [ ] Inspect new exact-commit CI logs. The separate Settings desktop/mobile browser workflow currently fails in its Data Layer step; keep that unrelated failure out of this feature unless the diff proves a regression.
+
+
+### Stage 01 regression evidence (2026-10-17)
+- [x] The deterministic Brand DNA suite passes in Agent Verify for commit `02eedc4f97aedcfc462bbe8811898b77769491ea`, including real PNG source retention, multi-page output, generated SVG icon/manifest and contrast checks.
+- [ ] This follow-up adds a Chromium test for logo upload/preview, server-persisted per-app colors/rules, request-level app ID propagation, second-app isolation and responsive controls. Verify its exact workflow step before merging.
+- [ ] Re-check the live shell's App Studio root and confirm its Brand DNA panel mounts. Do not mark live product proof complete solely from the synthetic fixture.

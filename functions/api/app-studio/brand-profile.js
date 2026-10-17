@@ -72,7 +72,7 @@ async function identityFor(request, env, id) {
 function profilePath(email, appId) {
   return ['users', email, 'app_studio_brands', appId];
 }
-export async function onRequest(context) {
+async function onRequest(context) {
   const { request, env } = context;
   const id = requestId(request);
   try {
@@ -128,3 +128,5 @@ export async function onRequest(context) {
     return errorResponse(error?.status || 503, error?.code || 'APP_BRAND_PROFILE_FAILED', error?.message || 'App Brand DNA could not be saved.', id);
   }
 }
+
+module.exports = { onRequest };

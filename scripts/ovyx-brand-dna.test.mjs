@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { normalizeBrandDNA, buildBrandDNAInstructions, applyBrandDNAToHtml, applyBrandDNAToGeneratedOutput, brandContrastRatio } from '../functions/_lib/brand-dna.js';
 
 const read = path => fs.readFileSync(new URL('../' + path, import.meta.url), 'utf8');
@@ -9,6 +11,10 @@ const appBrandApi = read('functions/api/app-studio/brand-profile.js');
 const appBrandRuntime = read('assets/ovyx-app-studio-brand-dna.js');
 const middleware = read('functions/_middleware.js');
 const packageJson = JSON.parse(read('package.json'));
+
+for (const path of ['functions/_lib/brand-dna.js', 'functions/api/app-studio/brand-profile.js', 'assets/ovyx-app-studio-brand-dna.js']) {
+  execFileSync(process.execPath, ['--check', fileURLToPath(new URL('../' + path, import.meta.url))], { stdio: 'pipe' });
+}
 
 const logoDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/g6sAAAAASUVORK5CYII=';
 const profile = {
