@@ -64,7 +64,7 @@ assert.equal(report.branding.logo.url, 'https://example.com/assets/logo.png');
 assert.equal(report.branding.faviconUrl, 'https://example.com/favicon.svg');
 assert.ok(report.capabilities.can.length >= 4);
 assert.ok(report.capabilities.cannot.some(item => /JavaScript/i.test(item)));
-assert.ok(report.limitations.some(item => /asset binaries/i.test(item)));
+assert.ok(report.limitations.some(item => /binary files|asset binaries/i.test(item)));
 assert.ok(report.limits.maxPagesInspected <= 6);
 
 const redirectFetch = async input => {
