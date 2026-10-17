@@ -538,7 +538,7 @@ function reportFromPages(inputUrl, rootUrl, pages, data = {}) {
       },
       limitations,
       warnings,
-      limits: { maxPagesInspected: MAX_PAGES, maxDiscoveredPages: MAX_DISCOVERED, maxAssetsReported: MAX_ASSETS, maxCssFilesInspected: MAX_CSS_FILES, maxHtmlBytesPerPage: MAX_HTML_BYTES, maxCssBytesPerFile: MAX_CSS_BYTES, maxRedirects: MAX_REDIRECTS },
+      limits: { maxPagesInspected: MAX_PAGES, maxPageFetchAttempts: MAX_PAGES, maxDiscoveredPages: MAX_DISCOVERED, maxAssetsReported: MAX_ASSETS, maxCssFilesInspected: MAX_CSS_FILES, maxHtmlBytesPerPage: MAX_HTML_BYTES, maxCssBytesPerFile: MAX_CSS_BYTES, maxRedirects: MAX_REDIRECTS },
     },
   };
 }
@@ -597,6 +597,7 @@ export async function analyzePublicWebsite(input, options = {}) {
 
   const home = await fetchResource(requestUrl);
   const rootUrl = cleanPageUrl(home.url);
+  // Count every page navigation attempt, including failed/non-HTML responses, so a sitemap full of bad links cannot amplify work.
   rootOrigin = new URL(rootUrl).origin;
   if (rootOrigin !== originalUrl.origin) {
     try {
@@ -613,6 +614,7 @@ export async function analyzePublicWebsite(input, options = {}) {
     headings: [...(rootSignals?.heading1 || []), ...(rootSignals?.headings || [])].slice(0, 8),
     description: rootSignals?.description || '', warning: home.truncated ? 'HTML exceeded the per-page byte limit; only the beginning was inspected.' : '',
   };
+  let pageFetchAttempts = 1;
   discovered.set(rootUrl, rootPage);
   inspected.set(rootUrl, { ...rootPage, signals: rootSignals });
   if (rootSignals) signals.push(rootSignals);
@@ -647,9 +649,10 @@ export async function analyzePublicWebsite(input, options = {}) {
         const locs = [...sitemap.text.matchAll(/<loc\b[^>]*>([\s\S]*?)<\/loc\s*>/gi)].map(m => plainText(m[1], 2048)).filter(Boolean).slice(0, MAX_DISCOVERED);
         let count = 0;
         for (const loc of locs) {
-          const before = discovered.size;
-          addPage(loc, rootUrl, 1, 'sitemap.xml');
-          if (discovered.size > before) count++;
+          const ref = safeReference(loc, rootUrl);
+          if (!ref || new URL(ref.url).origin !== rootOrigin) continue;
+          addPage(ref.url, rootUrl, 1, 'sitemap.xml');
+          count++;
         }
         sitemapUsed = count > 0;
       }
@@ -658,7 +661,7 @@ export async function analyzePublicWebsite(input, options = {}) {
 
   const queue = [...discovered.values()].map(item => ({ url: item.url, depth: item.depth, parent: item.parentUrl }));
   const queued = new Set(queue.map(item => item.url));
-  while (queue.length && inspected.size < MAX_PAGES) {
+  while (queue.length && pageFetchAttempts < MAX_PAGES) {
     const current = queue.shift();
     if (inspected.has(current.url)) continue;
     const parsed = new URL(current.url);
@@ -669,6 +672,7 @@ export async function analyzePublicWebsite(input, options = {}) {
       continue;
     }
     let resource;
+    pageFetchAttempts++;
     try { resource = await fetchResource(current.url, { expectedOrigin: rootOrigin }); }
     catch (error) {
       const item = discovered.get(current.url);

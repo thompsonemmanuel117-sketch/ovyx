@@ -588,3 +588,9 @@ Stage 01 code and desktop/mobile browser verification are complete on the record
 ### Stage 02 robots and DNS boundary correction (2026-10-18)
 - [x] Stylesheet fetching now checks robots.txt before reading CSS, just like page and sitemap fetching.
 - [x] The user-facing limitation uses the clear phrase “DNS rebinding” and a regression test asserts the report discloses that Fetch does not pin the earlier DNS answer.
+
+
+### Stage 02 crawl budget hardening (2026-10-18)
+- [x] Crawl budget now counts navigation attempts, including non-HTML and failed responses, so a large list of bad URLs cannot sidestep the six-request page limit.
+- [x] A valid sitemap is marked as used even when its entries duplicate links already found in the homepage.
+- [ ] Re-run Agent Verify and the complete desktop/mobile browser workflow against the updated PR head before merge.

@@ -68,6 +68,30 @@ assert.ok(report.limitations.some(item => /binary files|asset binaries/i.test(it
 assert.ok(report.limitations.some(item => /DNS rebinding/i.test(item)), 'The report must state the DNS-check versus connection-pinning limitation honestly.');
 assert.ok(report.limits.maxPagesInspected <= 6);
 
+assert.equal(report.summary.sitemapUsed, true, 'A usable sitemap should be reported even when its URL duplicates an internal link.');
+
+const manyLinkFetch = async (input, options = {}) => {
+  const url = new URL(typeof input === 'string' ? input : input.url);
+  if (url.hostname === 'cloudflare-dns.com') {
+    const type = url.searchParams.get('type');
+    return new Response(JSON.stringify(type === 'A'
+      ? { Status: 0, Answer: [{ type: 1, data: '93.184.216.34' }] }
+      : { Status: 3 }), { headers: { 'content-type': 'application/dns-json' } });
+  }
+  if (url.pathname === '/robots.txt') return new Response('User-agent: *\nAllow: /\n', { headers: { 'content-type': 'text/plain' } });
+  if (url.pathname === '/sitemap.xml') return new Response('', { status: 404, headers: { 'content-type': 'text/plain' } });
+  if (url.pathname === '/') {
+    const links = Array.from({ length: 24 }, (_, i) => '<a href="/asset-' + i + '">asset ' + i + '</a>').join('');
+    return new Response('<!doctype html><html><head><title>Many links</title></head><body>' + links + '</body></html>', { headers: { 'content-type': 'text/html' } });
+  }
+  return new Response('not an HTML page', { headers: { 'content-type': 'text/plain' } });
+};
+const manyLinksReport = (await analyzePublicWebsite('https://example.com', { fetchImpl: manyLinkFetch })).report;
+assert.equal(manyLinksReport.summary.pagesInspected, 1, 'Non-HTML responses must not be reported as inspected HTML.');
+assert.equal(manyLinksReport.summary.pageLimitReached, true, 'The crawl page-attempt budget must be disclosed even if child requests return non-HTML.');
+assert.equal(manyLinksReport.limits.maxPageFetchAttempts, 6);
+
+
 const redirectFetch = async input => {
   const url = new URL(typeof input === 'string' ? input : input.url);
   if (url.hostname === 'cloudflare-dns.com') {
