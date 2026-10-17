@@ -1,6 +1,6 @@
 # OVYX Work Checkpoint
 
-Updated: 2026-10-16
+Updated: 2026-10-17
 
 ## Current scope
 Focused Settings interaction pass only. Do not restart a repository-wide or staged audit. Click the visible Settings controls, verify the actual effect, repair only a failing or misleading control, then inspect the exact build/browser logs.
@@ -477,3 +477,13 @@ The Owner-only Admin Workspace browser blocker is closed and the full configured
 - [x] Reviewed the relevant post-baseline Settings changes: no replacement of the Universal Connections v91 panel/runtime was found. The nearby change is the generic `ovyx-auto-ai-boot-v2` startup status changing from `connected=true` to `connected=false` / `connectionStatus='not_verified'`, because sign-in alone does not verify provider connectivity. Preserve that truthful initial status; do not restore a fake connected claim.
 - [x] Full desktop/mobile Chromium workflow #445 was green with 25/25 steps on commit `c77a1e12033c43896d59831700c0706ef1a2bf58`: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38988111793. Main's subsequent changes through this check are checkpoint/documentation only.
 - [ ] Do not change Universal Connections code unless a specific UI/runtime regression is reproduced. A verified provider status should be set only by an actual successful connection/readiness check.
+
+
+## Pre-Stage 1 commerce readiness hardening — 2026-10-17
+
+- [x] Finished the Stage 00 read-only App Studio implementation map and inspected the current main CI/deployment logs; the existing successful workflows verify the repository's current contracts, not a full merchant-commerce product.
+- [x] Fixed the Engineering Agent saved-brand lookup to read the canonical Firestore document `users/{email}/brand_profile/config`, matching the Brand Identity settings API.
+- [x] Web Studio fresh builds now automatically read the user's saved Brand Identity profile when the request has not supplied an in-session profile. A bounded projection of saved colors and layout rules reaches the generation context; logo bytes are not blindly copied into the text prompt.
+- [ ] Confirm these changes on the exact commit with Agent Verify and Cloudflare Diagnostics, then inspect the full logs.
+- [ ] Production Commerce OS readiness is **not yet established**. The current OVYX payment APIs manage OVYX subscription/credit purchases, and do not constitute a merchant's own checkout/fulfilment system. Still required before calling commerce production-ready: merchant-scoped product/catalog/order APIs; server-calculated totals; payment initiation and verified provider webhooks for merchant orders; idempotent paid-order fulfilment and inventory updates; customer/staff permissions; error/retry/refund states; an end-to-end merchant checkout/deployment test; URL-import security and asset/page preservation; and verified EAS/provider credentials in the deployed environment.
+- **Safety rule:** never treat a green static/build workflow, a preview, or a queued mobile workflow as proof that real merchant payments, stock, fulfilment, or production deployment have passed. Do not start Stage 1 branding as if the full Commerce OS were complete; keep the remaining commerce implementation explicit.

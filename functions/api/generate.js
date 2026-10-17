@@ -156,7 +156,7 @@ export async function onRequestPost(
     const brandProfile = userEmail
       ? await getFirestoreDataAtPath(
           context.env,
-          ['users', userEmail, 'brand_profile']
+          ['users', userEmail, 'brand_profile', 'config']
         ).catch(() => null)
       : null;
 

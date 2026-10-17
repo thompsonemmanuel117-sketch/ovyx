@@ -18,6 +18,7 @@ const revokeSessionsApi = read('functions/api/api/auth/revoke-sessions.js');
 const providers = read('functions/_lib/providers.js');
 const assistant = read('functions/api/ai/assistant.js');
 const gateway = read('functions/api/ai/gateway.js');
+const agentGenerate = read('functions/api/generate.js');
 const multipage = read('functions/_lib/studio-multipage.js');
 const packageJson = JSON.parse(read('package.json'));
 
@@ -33,11 +34,17 @@ for (const path of [
   'functions/_lib/providers.js',
   'functions/_lib/studio-multipage.js',
   'functions/api/ai/assistant.js',
-  'functions/api/ai/gateway.js'
+  'functions/api/ai/gateway.js',
+  'functions/api/generate.js'
 ]) {
   execFileSync(process.execPath, ['--check', fileURLToPath(new URL('../' + path, import.meta.url))], { stdio: 'pipe' });
 }
 
+assert.ok(brandProfileApi.includes("['users', identity.email, 'brand_profile', 'config']"), 'Brand Identity settings must use the canonical Firestore profile document.');
+assert.ok(agentGenerate.includes("['users', userEmail, 'brand_profile', 'config']"), 'The Engineering Agent must load the same canonical saved brand profile document.');
+assert.ok(gateway.includes("['users', userEmail, 'brand_profile', 'config']"), 'Web Studio fresh builds must automatically load saved branding when the request omits an in-session profile.');
+assert.ok(gateway.includes('logoConfigured: Boolean(brandProfile.logoDataUrl)'), 'Web Studio must receive compact brand metadata without embedding a large base64 logo into its text prompt.');
+assert.ok(gateway.includes('layoutRules: Array.isArray(brandProfile.layoutRules) ? brandProfile.layoutRules.slice(0, 50) : []'), 'Saved brand layout rules must reach the Web Studio build context within a bound.');
 assert.deepEqual(normalizeNotificationPreferences({}), NOTIFICATION_DEFAULTS);
 assert.deepEqual(
   normalizeNotificationPreferences({ projectActivity: false, billing: 'false', unexpected: false }),
