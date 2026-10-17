@@ -85,6 +85,39 @@ try {
     const button = page.locator('#ovyx-revoke-all-devices');
     await button.waitFor({ state: 'visible' });
 
+    const signOutButton = page.locator('#ovyx-signout-current');
+    await signOutButton.waitFor({ state: 'visible' });
+    await signOutButton.click();
+    await page.waitForFunction(() => window.__securityTestState?.signOutCalls === 1
+      && window.__securityTestState.currentUser === null
+      && window.KernelState?.activeView === 'home', null, { timeout: 10000 });
+    const signOutState = await page.evaluate(() => ({
+      signOutCalls: window.__securityTestState.signOutCalls,
+      currentUser: window.__securityTestState.currentUser,
+      toasts: [...window.__securityToasts],
+    }));
+    assert.equal(signOutState.signOutCalls, 1, '[' + target.name + '] current sign-out must call Firebase signOut once.');
+    assert.equal(signOutState.currentUser, null, '[' + target.name + '] current sign-out must clear the current user.');
+    assert.ok(signOutState.toasts.some(t => t.type === 'success' && /signed out of ovyx/i.test(t.message)),
+      '[' + target.name + '] current sign-out must show success feedback.');
+    await page.evaluate(() => {
+      window.__securityTestState.currentUser = {
+        uid: 'security-browser-test-user',
+        email: 'security-browser-test@example.test',
+        deleteCalls: 0,
+        async getIdToken() { return 'security-browser-test-token'; },
+        async getIdTokenResult() { return { claims: { auth_time: Math.floor(Date.now() / 1000) - 301 } }; },
+        async delete() { this.deleteCalls += 1; },
+      };
+      window.__securityTestState.signOutCalls = 0;
+      window.__securityToasts.length = 0;
+      window.Router.go('settings');
+    });
+    await page.waitForFunction(() => window.KernelState?.activeView === 'settings', null, { timeout: 15000 });
+    await page.locator('#view-settings').waitFor({ state: 'visible' });
+    await page.evaluate(() => window.OVYXSettings.show('security'));
+    await button.waitFor({ state: 'visible' });
+
     let nextReply = {
       status: 200,
       body: { ok: false, revoked: false, message: 'The server did not confirm that all sessions were revoked.' },

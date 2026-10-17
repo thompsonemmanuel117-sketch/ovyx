@@ -380,8 +380,23 @@ Commit this test-only timing correction and updated checkpoint to `main`. Inspec
 - [x] Added `refreshBillingMeter()` to update usage, limit, progress-bar width, and reset countdown in place. The quota-meter wrapper now calls it instead of rebuilding the Billing panel. Plan entry only creates the full panel when the final Billing UI is not yet present.
 - [x] Extended the desktop/mobile test to trigger a quota-meter refresh after rendering **Upgrade to Pro**, assert the same DOM button remains connected, then click and verify navigation to Plans.
 - [x] Added static source contracts for the in-place Billing refresh to prevent the whole-panel rerender regression.
-- [ ] Validate the exact new commit's Agent Verify, browser workflow, and Cloudflare Diagnostics. Billing navigation is not complete until the browser interaction passes on both viewport sizes.
+- [x] Agent Verify passed on `fa92edf9b1e774876b6f0462f1cdb40471530364`: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38986244918
+- [x] Cloudflare Diagnostics passed on the same commit: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38986244909
+- [x] The desktop/mobile browser workflow passed the Settings Data Layer/Billing step, including a quota refresh that leaves Upgrade to Pro attached and successful navigation to Plans: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38986244907
+- [ ] Remaining unrelated browser-suite stages had not yet completed.
 
 ## Exact next step
 
 Commit the Billing meter fix, browser regression assertion, source contract, and this checkpoint to `main`. Inspect the exact commit's build and browser logs. If the Billing step passes, continue to the next unfinished Settings control; Security and Usage/Booster already passed the desktop/mobile checks and should not be repeated unless needed by the full workflow.
+
+
+## Final Security control coverage — Sign out current session (2026-10-17)
+
+- [x] Global Log Out All Devices and safe Delete Account paths already passed on desktop/mobile.
+- [x] Added desktop/mobile coverage for the separate **Sign out current session** button: click, call Firebase signOut once, clear current user, return to Home, and show success feedback. The test restores only its mock identity to continue isolated revocation tests.
+- [x] Added source-contract coverage requiring the button handler to perform Firebase sign-out, show success, and return to Home.
+- [ ] Validate the new focused Security assertion with the exact commit's Agent Verify/browser logs before declaring every Security control complete.
+
+## Exact next step
+
+Commit these Security test changes and the checkpoint directly to `main`; inspect Agent Verify and the full desktop/mobile Chromium log. If Sign out current session passes, consider Security complete for this interaction audit and move forward without repeating finished controls.
