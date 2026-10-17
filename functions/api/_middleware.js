@@ -29,6 +29,7 @@ const FEATURE_REQUIREMENTS_BY_PATH = new Map([
   ['/api/deploy', ['cloudflareDeploy']],
   ['/api/github/repos', ['github']],
   ['/api/workspace/activate', ['teamWorkspace']],
+  ['/api/app-studio/url-analyzer', ['appStudio']],
 ]);
 
 

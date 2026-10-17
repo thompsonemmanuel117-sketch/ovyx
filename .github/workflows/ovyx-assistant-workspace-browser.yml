@@ -17,6 +17,16 @@ on:
       - 'assets/ovyx-app-studio-brand-dna.js'
       - 'scripts/ovyx-brand-dna.test.mjs'
       - 'scripts/ovyx-brand-dna.browser.test.mjs'
+      - 'functions/_lib/url-analyzer.js'
+      - 'functions/api/app-studio/url-analyzer.js'
+      - 'assets/ovyx-app-studio-url-analyzer.js'
+      - 'scripts/ovyx-url-analyzer.test.mjs'
+      - 'scripts/ovyx-url-analyzer.browser.test.mjs'
+      - 'functions/_lib/url-analyzer.js'
+      - 'functions/api/app-studio/url-analyzer.js'
+      - 'assets/ovyx-app-studio-url-analyzer.js'
+      - 'scripts/ovyx-url-analyzer.test.mjs'
+      - 'scripts/ovyx-url-analyzer.browser.test.mjs'
       - 'package.json'
       - 'scripts/ovyx-settings*.mjs'
       - 'assets/ovyx-admin-workspace.js'
@@ -135,6 +145,11 @@ jobs:
 
       - name: Exercise App Studio per-app Brand DNA in desktop and mobile Chromium
         run: node scripts/ovyx-brand-dna.browser.test.mjs
+        env:
+          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
+
+      - name: Exercise App Studio URL Analyzer in desktop and mobile Chromium
+        run: node scripts/ovyx-url-analyzer.browser.test.mjs
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8788
 

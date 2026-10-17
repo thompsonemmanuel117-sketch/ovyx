@@ -563,3 +563,19 @@ Stage 01 code and desktop/mobile browser verification are complete on the record
 - [x] Main-branch Chromium rerun attempt 1 passed Stage 01 Brand DNA on desktop/mobile, then hit a 15-second route-visibility timeout in the existing Security session-revocation test (`scripts/ovyx-settings-security.browser.test.mjs:47`).
 - [x] Retried the failed browser job (attempt 2). Stage 01 Brand DNA passed again; the run later timed out waiting for `#view-settings` in the existing Settings Shortcuts test (`scripts/ovyx-settings-shortcuts.browser.test.mjs:53`). This is a UI route-visibility assertion, not a Brand DNA assertion. The full 26-step browser workflow had passed on the same feature code before merge (run https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/39025570998).
 - [x] No unrelated Settings behavior was changed as part of Stage 01. Keep the route-visibility timeouts visible as a separate stability issue and investigate them in a Settings-focused work unit if they reproduce again.
+
+
+## App Studio Stage 02 — URL Analyzer (2026-10-18)
+
+### Scope and verification
+- [x] Defined the safety boundary: authenticated App Studio users; public HTTP(S) only; reject private/reserved IPs and hostnames; check DNS before outbound fetch; revalidate each redirect; block HTTPS downgrades and cross-origin linked resources; respect robots.txt; cap pages, response bytes, stylesheets and redirects.
+- [x] Added structured public-page discovery for a sitemap, titles, descriptions, headings/status, same-origin links, public asset URLs, logo/favicon evidence, theme colors and CSS custom-property colors.
+- [x] Added an App Studio panel that presents the sitemap, detected brand evidence, asset inventory and explicit can/cannot/limitations; a button transfers detected name/colors into the existing Brand DNA form but does not save or copy source logo binaries.
+- [x] The report is only held in this browser tab for the next build stage; page HTML and reports are not persisted by the analyzer endpoint.
+- [ ] Run URL validation, redirect/private-address and robots compliance tests, branding extraction, endpoint-gate checks, desktop/mobile UI, palette transfer, and live shell-mount verification on the exact PR commit.
+- [ ] After merge, confirm the main-branch Agent Verify, browser workflow and Cloudflare Diagnostics before calling the stage deployed.
+
+### Explicit limitations
+- The analyzer never signs in to a source website, bypasses a paywall, ignores disallow rules, executes page JavaScript or downloads/copies asset binaries in this stage.
+- It inspects at most six pages and two same-origin stylesheets with per-response byte caps. Public URL discovery does not prove forms, accounts, databases, payments, APIs or other backend integrations work.
+- Public DNS records are checked before outbound fetches, but Fetch does not pin DNS answers to the socket connection; DNS rebinding is a residual platform-level limitation and is not claimed to be impossible.
