@@ -487,3 +487,20 @@ The Owner-only Admin Workspace browser blocker is closed and the full configured
 - [ ] Confirm these changes on the exact commit with Agent Verify and Cloudflare Diagnostics, then inspect the full logs.
 - [ ] Production Commerce OS readiness is **not yet established**. The current OVYX payment APIs manage OVYX subscription/credit purchases, and do not constitute a merchant's own checkout/fulfilment system. Still required before calling commerce production-ready: merchant-scoped product/catalog/order APIs; server-calculated totals; payment initiation and verified provider webhooks for merchant orders; idempotent paid-order fulfilment and inventory updates; customer/staff permissions; error/retry/refund states; an end-to-end merchant checkout/deployment test; URL-import security and asset/page preservation; and verified EAS/provider credentials in the deployed environment.
 - **Safety rule:** never treat a green static/build workflow, a preview, or a queued mobile workflow as proof that real merchant payments, stock, fulfilment, or production deployment have passed. Do not start Stage 1 branding as if the full Commerce OS were complete; keep the remaining commerce implementation explicit.
+
+
+## App Studio Stage 01 — Brand DNA Engine (2026-10-17)
+
+### Scope and implementation
+- [x] Preserve the existing Brand Identity Lock profile schema: canonical Firestore path remains `users/{email}/brand_profile/config` with full-colour PNG logo, validated hex colours and layout rules.
+- [x] Add reusable `functions/_lib/brand-dna.js` helpers to normalize a request-specific brand profile, derive semantic theme tokens, calculate WCAG contrast, create a branded SVG app icon/manifest, apply real uploaded logo data to HTML logo slots and attach assets to structured generated file maps.
+- [x] App Studio request branding prioritizes request-level `appBrand` / `brandDNA` / `brandConfig` / `brandProfile`, then falls back to the saved Brand Identity profile. The Web Studio fresh-build fallback remains intact.
+- [x] The App Studio model system prompt requires a distinct per-app identity, consistent semantic colour tokens, accessible foreground/background combinations, branded icon assets and no leakage from the OVYX studio chrome. The full-size PNG is injected server-side, not sent as token-heavy prompt text.
+- [x] Generated HTML/file-map post-processing is scoped to App Studio and avoids rewriting ordinary conversational text when no generated HTML/file artifacts are present. Per-request colors and logos remain isolated; no global theme state is changed.
+- [ ] Run the dedicated logo/theme/contrast/multi-page regression test, Agent Verify, production build preflight, and relevant browser/Cloudflare workflows on the exact branch commit before merge.
+
+### Completion criteria / honest limits
+The automated sample-app fixture must prove that the original full-colour PNG is used as the actual logo, that every HTML page receives consistent tokens and a favicon, and that the structured file map includes `public/brand/app-icon.svg` plus `public/brand/brand-manifest.json`. This is a code-level fixture, not yet evidence from a live App Studio browser session using a real account's saved profile. Do not mark the live-session criterion complete without that run.
+
+### Exact next step
+Check the exact Stage 01 branch's GitHub Actions build/test logs. Fix only a reproduced Stage 01 failure; if checks pass, merge the verified patch to `main` and record the verified commit and run links here.

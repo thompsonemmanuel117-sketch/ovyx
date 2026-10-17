@@ -16,6 +16,7 @@ import {
   resolveConversationId,
 } from '../../_lib/chat-history.js';
 import { getFirestoreDataAtPath } from '../../_lib/firebase-admin.js';
+import { normalizeBrandDNA, buildBrandDNAInstructions, applyBrandDNAToGeneratedOutput, brandDNAClientSummary } from '../../_lib/brand-dna.js';
 
 function parseStructured(text) {
   const raw = String(text || '').trim();
@@ -89,12 +90,26 @@ export async function onRequestPost(context) {
     const isWebStudio = !isAppStudio && (isWebStudioPrompt(promptText, mode) ||
       ((mode === 'build' || mode === 'fix') && hasStudioContext));
 
-    // Resolve the owner's saved Brand Identity profile for fresh Web Studio
-    // builds. Keep explicitly supplied in-session branding authoritative.
-    const providedBrandProfile = payload.context?.brandProfile || payload.context?.brand || null;
+    // A request-scoped app brand always wins over the user's saved default.
+    // Fresh Web Studio builds and all App Studio requests can fall back to the
+    // canonical Brand Identity profile without making brand state global to apps.
+    const providedBrandProfile =
+      payload.context?.appBrand ||
+      payload.context?.brandDNA ||
+      payload.context?.brandConfig ||
+      payload.context?.brandProfile ||
+      payload.context?.brand ||
+      payload.brandConfig ||
+      payload.brandProfile ||
+      null;
     const userEmail = String(user?.email || '').trim().toLowerCase();
+    const shouldLoadSavedBrandProfile = Boolean(
+      userEmail &&
+      !providedBrandProfile &&
+      (isAppStudio || (isWebStudio && mode === 'build'))
+    );
     let savedBrandProfile = null;
-    if (isWebStudio && mode === 'build' && userEmail && !providedBrandProfile) {
+    if (shouldLoadSavedBrandProfile) {
       try {
         savedBrandProfile = await getFirestoreDataAtPath(
           context.env,
@@ -105,6 +120,15 @@ export async function onRequestPost(context) {
       }
     }
     const brandProfile = providedBrandProfile || savedBrandProfile || null;
+    const appStudioName = String(
+      payload.context?.appName ||
+      payload.appName ||
+      payload.context?.project?.name ||
+      payload.context?.project?.title ||
+      payload.context?.projectName ||
+      ''
+    ).trim().slice(0, 100);
+    const brandDNA = normalizeBrandDNA(brandProfile, { appName: appStudioName });
 
     if (isAppStudio) {
       const entitlement = context.data?.entitlements || await resolveEntitlements(context.env, user);
@@ -196,8 +220,11 @@ export async function onRequestPost(context) {
             ? '\n\nCLIENT STUDIO INSTRUCTIONS:\n' + suppliedSystem
             : '') +
           '\n\nAuthenticated user UID: ' + user.sub
-        : suppliedSystem ||
-          'You are OVYX Brain. Return useful, project-aware responses. Never reveal server secrets.'
+        : [
+          suppliedSystem ||
+            'You are OVYX Brain. Return useful, project-aware responses. Never reveal server secrets.',
+          isAppStudio ? buildBrandDNAInstructions(brandDNA) : ''
+        ].filter(Boolean).join('\\n\\n')
     ).slice(0, isWebStudio ? 40_000 : 20_000) + '\n\n' + globalAIIdentityDirective;
 
     const combined = messages
@@ -304,6 +331,32 @@ export async function onRequestPost(context) {
       throw providerError;
     }
 
+    // Enforce Brand DNA on generated App Studio artifacts after model generation:
+    // this keeps real uploaded logo pixels out of the token-heavy prompt while
+    // still placing the original asset into every generated HTML page.
+    if (isAppStudio && brandDNA.active && result) {
+      try {
+        if (typeof result.text === 'string') {
+          result.text = applyBrandDNAToGeneratedOutput(
+            result.text,
+            brandDNA,
+            { appName: appStudioName }
+          );
+          quotaOutputText = result.text;
+        }
+        if (result.files && typeof result.files === 'object') {
+          const wrapped = applyBrandDNAToGeneratedOutput(
+            { files: result.files },
+            brandDNA,
+            { appName: appStudioName }
+          );
+          if (wrapped && typeof wrapped === 'object' && wrapped.files) result.files = wrapped.files;
+        }
+      } catch (brandError) {
+        console.error('[OVYX APP BRAND DNA]', brandError?.message || brandError);
+      }
+    }
+
     const quota = await finalizeAIQuota(
       context.env,
       quotaReservation,
@@ -366,6 +419,7 @@ export async function onRequestPost(context) {
       routedProvider: result.routedProvider,
       conversationId,
       experience: isWebStudio ? experience : null,
+      brandDNA: isAppStudio ? brandDNAClientSummary(brandDNA) : null,
       history: {
         saved: historySaved,
       },
