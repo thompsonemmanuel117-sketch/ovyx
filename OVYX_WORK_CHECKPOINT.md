@@ -497,10 +497,12 @@ The Owner-only Admin Workspace browser blocker is closed and the full configured
 - [x] App Studio request branding prioritizes request-level `appBrand` / `brandDNA` / `brandConfig` / `brandProfile`, then falls back to the saved Brand Identity profile. The Web Studio fresh-build fallback remains intact.
 - [x] The App Studio model system prompt requires a distinct per-app identity, consistent semantic colour tokens, accessible foreground/background combinations, branded icon assets and no leakage from the OVYX studio chrome. The full-size PNG is injected server-side, not sent as token-heavy prompt text.
 - [x] Generated HTML/file-map post-processing is scoped to App Studio and avoids rewriting ordinary conversational text when no generated HTML/file artifacts are present. Per-request colors and logos remain isolated; no global theme state is changed.
-- [ ] Run the dedicated logo/theme/contrast/multi-page regression test, Agent Verify, production build preflight, and relevant browser/Cloudflare workflows on the exact branch commit before merge.
+- [x] Agent Verify run #937 passed on implementation commit `02eedc4f97aedcfc462bbe8811898b77769491ea`, including `npm test`, static verification, production build preflight and Wrangler validation.
+- [x] Inspected desktop/mobile browser workflow #448: Admin Workspace, Editor/Workspace, Security, and Appearance browser groups passed. The run then failed at the existing Settings browser test (`scripts/ovyx-settings.browser.test.mjs:55`, 15-second `page.waitForFunction` timeout), before later Settings groups. This failure is outside Stage 01 and is not hidden or repaired as unrelated scope.
+- [ ] Re-run Agent Verify after the idempotence/prompt-separator hardening; merge only after the Stage 01 test/build checks pass.
 
 ### Completion criteria / honest limits
 The automated sample-app fixture must prove that the original full-colour PNG is used as the actual logo, that every HTML page receives consistent tokens and a favicon, and that the structured file map includes `public/brand/app-icon.svg` plus `public/brand/brand-manifest.json`. This is a code-level fixture, not yet evidence from a live App Studio browser session using a real account's saved profile. Do not mark the live-session criterion complete without that run.
 
 ### Exact next step
-Check the exact Stage 01 branch's GitHub Actions build/test logs. Fix only a reproduced Stage 01 failure; if checks pass, merge the verified patch to `main` and record the verified commit and run links here.
+Check the exact follow-up commit's Agent Verify log and confirm the Brand DNA tests pass. Keep the existing Settings browser timeout clearly tracked as an unrelated workflow blocker, then merge the scoped Stage 01 patch to `main` if the repository allows it and record the verified commit and run links here.

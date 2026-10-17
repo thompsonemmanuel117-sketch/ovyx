@@ -42,6 +42,10 @@ assert.ok(brandedHtml.includes('rel="apple-touch-icon"'), 'The page must expose 
 assert.ok(brandedHtml.includes('src="/media/property.jpg"'), 'Ordinary content photos must not be mistaken for the brand logo.');
 assert.ok(brandedHtml.indexOf('id="ovyx-brand-dna"') < brandedHtml.indexOf('</head>'), 'Brand tokens must be installed in the document head.');
 assert.equal((brandedHtml.match(/id="ovyx-brand-dna"/g) || []).length, 1, 'A single application pass must inject one token block.');
+const brandedTwice = applyBrandDNAToHtml(brandedHtml, dna, { appName: 'Velora Homes' });
+assert.equal((brandedTwice.match(/id="ovyx-brand-dna"/g) || []).length, 1, 'Reapplying the engine must replace the managed token block, not duplicate it.');
+assert.equal((brandedTwice.match(/rel="icon" type="image\/svg\+xml"/g) || []).length, 1, 'Reapplying the engine must not duplicate favicon links.');
+
 
 const secondPage = '<!doctype html><html><head><title>Velora Homes Properties</title></head><body><header><nav>Properties</nav></header><main><h1>Available homes</h1></main></body></html>';
 const output = {

@@ -311,7 +311,13 @@ export function applyBrandDNAToHtml(source, dna, options = {}) {
   const icon = iconSvg(dna, name);
   const iconUrl = svgDataUrl(icon);
   const logoSource = dna.logoDataUrl || iconUrl;
-  let html = htmlSource;
+  // Make retries and subsequent brand edits idempotent: replace, do not
+  // accumulate, previously managed tokens and icon metadata.
+  let html = htmlSource
+    .replace(/<style\b[^>]*\bid=["']ovyx-brand-dna["'][^>]*>[\s\S]*?<\/style\s*>/gi, '')
+    .replace(/<meta\b(?=[^>]*\bname=["']theme-color["'])[^>]*>/gi, '')
+    .replace(/<link\b(?=[^>]*\brel=["']icon["'])[^>]*>/gi, '')
+    .replace(/<link\b(?=[^>]*\brel=["']apple-touch-icon["'])[^>]*>/gi, '');
   const injected = injectBrandImage(html, logoSource, name);
   html = injected.html;
   const hasHtmlRoot = /<html\b/i.test(html);

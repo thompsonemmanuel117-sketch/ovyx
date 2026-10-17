@@ -224,7 +224,7 @@ export async function onRequestPost(context) {
           suppliedSystem ||
             'You are OVYX Brain. Return useful, project-aware responses. Never reveal server secrets.',
           isAppStudio ? buildBrandDNAInstructions(brandDNA) : ''
-        ].filter(Boolean).join('\\n\\n')
+        ].filter(Boolean).join('\n\n')
     ).slice(0, isWebStudio ? 40_000 : 20_000) + '\n\n' + globalAIIdentityDirective;
 
     const combined = messages
