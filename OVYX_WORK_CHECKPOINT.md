@@ -451,3 +451,19 @@ Inspect the exact commit's three Actions and the complete Owner-only Admin Works
 - [ ] The overall browser workflow subsequently stopped at `scripts/ovyx-settings.browser.test.mjs:55`, waiting for `KernelState.activeView === 'settings'`. The adjacent account-browser test hit the same strict state comparison in an earlier run. Other route checks in this repo normalize an optional `view-` prefix.
 - [x] Updated the Settings Data Layer and Profile/Notifications browser tests to normalize that optional route prefix in their Settings-route wait predicates. No Settings product code or completed controls were changed.
 - [ ] Validate these test-harness corrections with Agent Verify/build, Cloudflare Diagnostics, and the full desktop/mobile browser run. Revisit Settings behavior only if the normalized route wait still fails.
+
+## Owner-only Admin Workspace browser failure resolved — full run green (2026-10-17)
+
+- [x] Fixed the flaky Owner Workspace template-publish browser interaction by waiting for the asynchronously bound template registry and clicking the visible **Publish template globally** control. The success assertion remains strict and the protected API write is asserted.
+- [x] Made the browser workflow run Owner Workspace immediately after local Pages startup and added its source/test/fixture files to the workflow's push path filter.
+- [x] Normalized optional `view-` route prefixes in the Settings Data Layer and Profile/Notifications browser-test route waits. This was test-only synchronization; no Settings product controls were modified.
+- [x] Exact tested commit: `c77a1e12033c43896d59831700c0706ef1a2bf58`.
+- [x] Agent Verify/build, static verification, Wrangler validation passed: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38988111868
+- [x] Cloudflare Diagnostics passed: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38988111799
+- [x] Full desktop/mobile Chromium workflow passed with 25/25 workflow steps successful and no failed steps: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38988111793
+- [x] Targeted Owner-only Admin Workspace step passed on desktop and mobile, covering root-owner access, module routing, global owner writes, template publish/withdraw and non-root denial.
+- [x] Settings Data Layer/Usage and Profile/Notifications route checks passed after the test-state normalization; completed controls remain closed unless a real regression is introduced.
+
+## Current status
+
+The Owner-only Admin Workspace browser blocker is closed and the full configured verification/browser pipeline is green. No separate remaining failing browser step is reported by this run. Continue with the next independently identified project problem; do not repeat Settings or Owner Workspace unless evidence shows a new regression.
