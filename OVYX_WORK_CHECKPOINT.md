@@ -506,3 +506,10 @@ The automated sample-app fixture must prove that the original full-colour PNG is
 
 ### Exact next step
 Check the exact follow-up commit's Agent Verify log and confirm the Brand DNA tests pass. Keep the existing Settings browser timeout clearly tracked as an unrelated workflow blocker, then merge the scoped Stage 01 patch to `main` if the repository allows it and record the verified commit and run links here.
+
+
+### Stage 01 per-app configuration follow-up (2026-10-17)
+- [x] Added `functions/api/app-studio/brand-profile.js` for GET/PUT/DELETE of a specific app profile with owner-scoped storage and verified writes.
+- [x] Added `assets/ovyx-app-studio-brand-dna.js` and injected it through the existing root middleware, avoiding a large `index.html` rewrite.
+- [x] App Studio generation now auto-loads/saves the app-specific profile ID and does not silently substitute the user-wide profile when an app ID was explicitly supplied.
+- [ ] Inspect new exact-commit CI logs. The separate Settings desktop/mobile browser workflow currently fails in its Data Layer step; keep that unrelated failure out of this feature unless the diff proves a regression.

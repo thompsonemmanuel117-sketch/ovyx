@@ -103,6 +103,10 @@ export async function onRequestPost(context) {
       payload.brandProfile ||
       null;
     const userEmail = String(user?.email || '').trim().toLowerCase();
+    const rawAppBrandId = String(payload.context?.appBrandId || payload.appBrandId || '').trim().toLowerCase();
+    const appBrandId = /^[a-z0-9][a-z0-9_-]{0,79}$/.test(rawAppBrandId) && !rawAppBrandId.includes('..')
+      ? rawAppBrandId
+      : '';
     const shouldLoadSavedBrandProfile = Boolean(
       userEmail &&
       !providedBrandProfile &&
@@ -111,10 +115,17 @@ export async function onRequestPost(context) {
     let savedBrandProfile = null;
     if (shouldLoadSavedBrandProfile) {
       try {
-        savedBrandProfile = await getFirestoreDataAtPath(
-          context.env,
-          ['users', userEmail, 'brand_profile', 'config']
-        );
+        if (isAppStudio && appBrandId) {
+          savedBrandProfile = await getFirestoreDataAtPath(
+            context.env,
+            ['users', userEmail, 'app_studio_brands', appBrandId]
+          );
+        } else {
+          savedBrandProfile = await getFirestoreDataAtPath(
+            context.env,
+            ['users', userEmail, 'brand_profile', 'config']
+          );
+        }
       } catch {
         savedBrandProfile = null;
       }
@@ -126,6 +137,8 @@ export async function onRequestPost(context) {
       payload.context?.project?.name ||
       payload.context?.project?.title ||
       payload.context?.projectName ||
+      brandProfile?.appName ||
+      brandProfile?.brandName ||
       ''
     ).trim().slice(0, 100);
     const brandDNA = normalizeBrandDNA(brandProfile, { appName: appStudioName });
@@ -331,29 +344,27 @@ export async function onRequestPost(context) {
       throw providerError;
     }
 
-    // Enforce Brand DNA on generated App Studio artifacts after model generation:
-    // this keeps real uploaded logo pixels out of the token-heavy prompt while
-    // still placing the original asset into every generated HTML page.
+    // Keep quota estimation based on model output; injected image assets are not generated tokens.
+    let brandDNAApplied = false;
+    let brandDNAApplyError = '';
     if (isAppStudio && brandDNA.active && result) {
       try {
         if (typeof result.text === 'string') {
-          result.text = applyBrandDNAToGeneratedOutput(
-            result.text,
-            brandDNA,
-            { appName: appStudioName }
-          );
-          quotaOutputText = result.text;
+          const originalText = result.text;
+          result.text = applyBrandDNAToGeneratedOutput(originalText, brandDNA, { appName: appStudioName });
+          if (result.text !== originalText) brandDNAApplied = true;
         }
         if (result.files && typeof result.files === 'object') {
-          const wrapped = applyBrandDNAToGeneratedOutput(
-            { files: result.files },
-            brandDNA,
-            { appName: appStudioName }
-          );
-          if (wrapped && typeof wrapped === 'object' && wrapped.files) result.files = wrapped.files;
+          const originalFiles = JSON.stringify(result.files);
+          const wrapped = applyBrandDNAToGeneratedOutput({ files: result.files }, brandDNA, { appName: appStudioName });
+          if (wrapped && typeof wrapped === 'object' && wrapped.files) {
+            result.files = wrapped.files;
+            if (JSON.stringify(result.files) !== originalFiles) brandDNAApplied = true;
+          }
         }
       } catch (brandError) {
-        console.error('[OVYX APP BRAND DNA]', brandError?.message || brandError);
+        brandDNAApplyError = String(brandError?.message || 'Brand asset transformation failed.').slice(0, 240);
+        console.error('[OVYX APP BRAND DNA]', brandDNAApplyError);
       }
     }
 
@@ -419,7 +430,7 @@ export async function onRequestPost(context) {
       routedProvider: result.routedProvider,
       conversationId,
       experience: isWebStudio ? experience : null,
-      brandDNA: isAppStudio ? brandDNAClientSummary(brandDNA) : null,
+      brandDNA: isAppStudio ? { ...brandDNAClientSummary(brandDNA), applied: brandDNAApplied, applyError: brandDNAApplyError || null } : null,
       history: {
         saved: historySaved,
       },

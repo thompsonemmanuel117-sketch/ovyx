@@ -5,6 +5,9 @@ import { normalizeBrandDNA, buildBrandDNAInstructions, applyBrandDNAToHtml, appl
 const read = path => fs.readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 const gateway = read('functions/api/ai/gateway.js');
 const mobileBuild = read('functions/api/mobile/build.js');
+const appBrandApi = read('functions/api/app-studio/brand-profile.js');
+const appBrandRuntime = read('assets/ovyx-app-studio-brand-dna.js');
+const middleware = read('functions/_middleware.js');
 const packageJson = JSON.parse(read('package.json'));
 
 const logoDataUrl = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/g6sAAAAASUVORK5CYII=';
@@ -42,6 +45,11 @@ assert.ok(brandedHtml.includes('rel="apple-touch-icon"'), 'The page must expose 
 assert.ok(brandedHtml.includes('src="/media/property.jpg"'), 'Ordinary content photos must not be mistaken for the brand logo.');
 assert.ok(brandedHtml.indexOf('id="ovyx-brand-dna"') < brandedHtml.indexOf('</head>'), 'Brand tokens must be installed in the document head.');
 assert.equal((brandedHtml.match(/id="ovyx-brand-dna"/g) || []).length, 1, 'A single application pass must inject one token block.');
+assert.ok(brandedHtml.includes('color-scheme:light;'), 'The app document must declare a matching readable colour scheme.');
+assert.ok(brandedHtml.includes('--ovyx-brand-text:#17121A'), 'The configured text colour must become a theme token.');
+const repeatedHtml = applyBrandDNAToHtml(brandedHtml, dna, { appName: 'Velora Homes' });
+assert.equal((repeatedHtml.match(/id="ovyx-brand-dna"/g) || []).length, 1, 'Brand updates must replace managed styles, not duplicate them.');
+assert.equal((repeatedHtml.match(/data-ovyx-brand-logo="true"/g) || []).length, 1, 'Brand updates must not duplicate the real logo.');
 const brandedTwice = applyBrandDNAToHtml(brandedHtml, dna, { appName: 'Velora Homes' });
 assert.equal((brandedTwice.match(/id="ovyx-brand-dna"/g) || []).length, 1, 'Reapplying the engine must replace the managed token block, not duplicate it.');
 assert.equal((brandedTwice.match(/rel="icon" type="image\/svg\+xml"/g) || []).length, 1, 'Reapplying the engine must not duplicate favicon links.');
@@ -61,6 +69,7 @@ const app = JSON.parse(transformed);
 assert.ok(app.files['index.html'].includes(logoDataUrl), 'The generated home page must carry the real uploaded logo.');
 assert.ok(app.files['src/pages/Properties.html'].includes(logoDataUrl), 'Each generated HTML screen must carry the real logo.');
 assert.ok(app.files['src/pages/Properties.html'].includes('ovyx-brand-lockup'), 'Pages without a detected logo slot must receive a branded header lockup.');
+assert.ok(app.files['src/pages/Properties.html'].includes('rel="manifest" href="/brand/brand-manifest.json"'), 'Each HTML page must link the emitted app brand manifest.');
 assert.ok(app.files['src/styles.css'].includes('--ovyx-brand-primary:#D81B60'), 'Shared app styles must receive the same theme tokens.');
 assert.ok(app.files['public/brand/app-icon.svg'].content.includes('<svg'), 'A usable SVG app-icon asset must be emitted.');
 assert.ok(app.files['public/brand/app-icon.svg'].content.includes('#D81B60'), 'The app icon must use the requested brand palette.');
@@ -85,7 +94,16 @@ assert.ok(buildBrandDNAInstructions(unbranded).includes('distinctive visual iden
 
 assert.ok(gateway.includes("payload.context?.appBrand") && gateway.includes("payload.context?.brandDNA") && gateway.includes("payload.context?.brandConfig"), 'Request-level brand identity must override the saved default.');
 assert.ok(gateway.includes("(isAppStudio || (isWebStudio && mode === 'build'))"), 'App Studio must resolve saved Brand Identity settings automatically.');
-assert.ok(gateway.includes("['users', userEmail, 'brand_profile', 'config']"), 'The profile lookup must use the canonical Firestore path.');
+assert.ok(gateway.includes("['users', userEmail, 'brand_profile', 'config']"), 'The legacy/global profile lookup must use the canonical Firestore path.');
+assert.ok(gateway.includes("['users', userEmail, 'app_studio_brands', appBrandId]"), 'App Studio must resolve each saved app brand from its owner-scoped profile.');
+assert.ok(gateway.includes('applied: brandDNAApplied'), 'App Studio must disclose when the output did not contain brandable source artifacts.');
+assert.ok(!gateway.includes('quotaOutputText = result.text;'), 'Injected logo bytes must not be counted as model-generated tokens.');
+assert.ok(appBrandApi.includes("['users', email, 'app_studio_brands', appId]"), 'App brand profiles must be isolated by owner and sanitized app ID.');
+assert.ok(appBrandApi.includes('enforceSameOrigin(request)'), 'App brand mutation must be same-origin guarded.');
+assert.ok(appBrandRuntime.includes('data-brand-logo-file') && appBrandRuntime.includes('type="color"'), 'App Studio must expose real logo upload and color controls.');
+assert.ok(appBrandRuntime.includes('appBrandId:id'), 'Generated requests must carry an app-scoped profile ID.');
+assert.ok(appBrandRuntime.includes('generation was paused'), 'Failure to persist App Brand DNA must stop the generation attempt.');
+assert.ok(middleware.includes('/assets/ovyx-app-studio-brand-dna.js?v=20261017-1'), 'The real Pages shell must load the App Studio Brand DNA runtime.');
 assert.ok(gateway.includes('applyBrandDNAToGeneratedOutput'), 'App Studio HTML/file outputs must be branded after generation.');
 assert.ok(gateway.includes('brandDNA: isAppStudio ? brandDNAClientSummary(brandDNA) : null'), 'The response must expose the resolved, non-secret brand status.');
 assert.ok(mobileBuild.includes("['users', userEmail, 'brand_profile', 'config']"), 'The mobile build handoff must continue to carry the canonical saved brand profile.');

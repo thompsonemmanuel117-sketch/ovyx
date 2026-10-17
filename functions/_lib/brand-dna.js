@@ -116,7 +116,7 @@ function normalizeColorMap(input) {
 }
 
 function normalizeLogo(profile) {
-  const candidate = text(profile?.logoDataUrl || profile?.logo || profile?.logoUrl || '', MAX_LOGO_CHARS);
+  const candidate = String(profile?.logoDataUrl || profile?.logo || profile?.logoUrl || '').trim();
   if (candidate.length > MAX_LOGO_CHARS || !/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(candidate)) return '';
   const base64 = candidate.slice('data:image/png;base64,'.length);
   if (Math.floor(base64.length * 0.75) > 600_000) return '';
@@ -163,10 +163,10 @@ export function normalizeBrandDNA(profile, options = {}) {
   const contrastBackground = background || '#FFFFFF';
   const textColor = requestedText && brandContrastRatio(requestedText, contrastBackground) >= 4.5
     ? requestedText
-    : (background ? contrastForeground(background) : requestedText);
+    : contrastForeground(contrastBackground);
   const mutedColor = requestedMuted && brandContrastRatio(requestedMuted, contrastBackground) >= 4.5
     ? requestedMuted
-    : (textColor || '');
+    : textColor;
   const palette = {
     primary,
     secondary,
@@ -244,11 +244,16 @@ function cssVariables(dna) {
 
 function cssTokenBlock(dna) {
   const variables = Object.entries(cssVariables(dna)).map(([key, value]) => key + ':' + value).join(';');
+  const scheme = luminance(dna.palette?.background || '#FFFFFF') < 0.35 ? 'dark' : 'light';
   return [
     '/* OVYX BRAND DNA START */',
-    ':root{' + variables + '}',
+    ':root{color-scheme:' + scheme + ';' + variables + '}',
+    'html{background-color:var(--ovyx-brand-background,Canvas);}',
+    'body{background-color:var(--ovyx-brand-background,Canvas);color:var(--ovyx-brand-text,CanvasText);}',
     'a:not([data-ovyx-brand-ignore]){color:var(--ovyx-brand-link,var(--ovyx-brand-primary));}',
-    ':where(button[type="submit"],input[type="submit"],.btn-primary,.button-primary,.primary-button,[data-brand-primary]){background-color:var(--ovyx-brand-primary);color:var(--ovyx-on-brand-primary);border-color:var(--ovyx-brand-primary);}',
+    ':where(button[type="submit"],input[type="submit"],.btn-primary,.button-primary,.primary-button,[data-brand-primary]){background-color:var(--ovyx-brand-primary)!important;color:var(--ovyx-on-brand-primary)!important;border-color:var(--ovyx-brand-primary)!important;}',
+    ':where(input,select,textarea){color:var(--ovyx-brand-text,CanvasText);}',
+    ':where(input,textarea)::placeholder{color:var(--ovyx-brand-muted,var(--ovyx-brand-text,CanvasText));opacity:1;}',
     ':where(button,.btn,.button,input,select,textarea,[role="button"]):focus-visible{outline:3px solid var(--ovyx-brand-accent,var(--ovyx-brand-primary));outline-offset:3px;}',
     '.ovyx-brand-lockup{display:inline-flex;align-items:center;gap:.65rem;min-width:0;color:inherit;text-decoration:none;font-weight:700;line-height:1.15;}',
     '.ovyx-brand-logo{display:block;width:clamp(2rem,3.2vw,2.75rem);height:clamp(2rem,3.2vw,2.75rem);object-fit:contain;object-position:center;flex:0 0 auto;}',
@@ -317,12 +322,16 @@ export function applyBrandDNAToHtml(source, dna, options = {}) {
     .replace(/<style\b[^>]*\bid=["']ovyx-brand-dna["'][^>]*>[\s\S]*?<\/style\s*>/gi, '')
     .replace(/<meta\b(?=[^>]*\bname=["']theme-color["'])[^>]*>/gi, '')
     .replace(/<link\b(?=[^>]*\brel=["']icon["'])[^>]*>/gi, '')
-    .replace(/<link\b(?=[^>]*\brel=["']apple-touch-icon["'])[^>]*>/gi, '');
+    .replace(/<link\b(?=[^>]*\brel=["']apple-touch-icon["'])[^>]*>/gi, '')
+    .replace(/<link\b(?=[^>]*\bdata-ovyx-brand-manifest=["']true["'])[^>]*>/gi, '');
   const injected = injectBrandImage(html, logoSource, name);
   html = injected.html;
   const hasHtmlRoot = /<html\b/i.test(html);
   const hasHead = /<head\b/i.test(html);
-  const metaAndStyle = '<meta name="theme-color" content="' + attr(dna.themeColor || dna.palette?.primary || '#334155') + '"><link rel="icon" type="image/svg+xml" href="' + attr(iconUrl) + '"><link rel="apple-touch-icon" href="' + attr(dna.logoDataUrl || iconUrl) + '"><style id="ovyx-brand-dna">' + cssTokenBlock(dna) + '</style>';
+  const manifestLink = options.includeManifest
+    ? '<link rel="manifest" href="/brand/brand-manifest.json" data-ovyx-brand-manifest="true">'
+    : '';
+  const metaAndStyle = '<meta name="theme-color" content="' + attr(dna.themeColor || dna.palette?.primary || '#334155') + '"><link rel="icon" type="image/svg+xml" href="' + attr(iconUrl) + '"><link rel="apple-touch-icon" href="' + attr(iconUrl) + '">' + manifestLink + '<style id="ovyx-brand-dna">' + cssTokenBlock(dna) + '</style>';
   if (hasHead) {
     html = html.replace(/<\/head\s*>/i, metaAndStyle + '</head>');
   } else if (hasHtmlRoot) {
@@ -367,7 +376,7 @@ function applyBrandDNAToFiles(files, dna, options = {}) {
   const isBrandAsset = value => /^(?:public\/)?brand\/(?:app-icon\.svg|brand-manifest\.json)$/i.test(String(value || '').replace(/^\/+/, ''));
   const patchContent = (path, content) => {
     if (typeof content !== 'string') return content;
-    if (/\.html?$/i.test(path) || /<html\b|<!doctype\s+html/i.test(content)) return applyBrandDNAToHtml(content, dna, { appName });
+    if (/\.html?$/i.test(path) || /<html\b|<!doctype\s+html/i.test(content)) return applyBrandDNAToHtml(content, dna, { appName, includeManifest: true });
     if (/\.css$/i.test(path)) return applyBrandDNAToCss(content, dna);
     return content;
   };
