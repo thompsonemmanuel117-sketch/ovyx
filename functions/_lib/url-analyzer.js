@@ -721,6 +721,10 @@ export async function analyzePublicWebsite(input, options = {}) {
     for (const url of page.signals?.stylesheets || []) if (new URL(url).origin === rootOrigin && !cssUrls.includes(url)) cssUrls.push(url);
   }
   for (const cssUrl of cssUrls.slice(0, MAX_CSS_FILES)) {
+    if (!robotsAllows(new URL(cssUrl), robots.rules)) {
+      warnings.push('A linked stylesheet was skipped because robots.txt disallows it.');
+      continue;
+    }
     try {
       const css = await fetchResource(cssUrl, { maxBytes: MAX_CSS_BYTES, accept: 'text/css,*/*;q=0.1', expectedOrigin: rootOrigin });
       if (css.response.status < 200 || css.response.status >= 400 || !cssResponse(css)) continue;
@@ -747,7 +751,7 @@ export async function analyzePublicWebsite(input, options = {}) {
   limitations.push('Asset URLs are discovered but their binary files are not downloaded or copied into the app in this stage.');
   limitations.push('Login-protected or inaccessible pages are not bypassed. HTTP errors and robots.txt restrictions are reported.');
   limitations.push('Public page inspection cannot prove that payments, form delivery, accounts, databases, checkout, APIs or other backend integrations work.');
-  limitations.push('Public DNS records are checked before outbound fetches, but the Fetch runtime does not pin those answers to the underlying connection. A DNS change between the check and connect remains a platform-level DNS-rebinding limitation.');
+  limitations.push('Public DNS records are checked before outbound fetches, but the Fetch runtime does not pin those answers to the underlying connection. A DNS change between the check and connect remains a platform-level DNS rebinding limitation.');
   if (robots.note) warnings.push(robots.note);
 
   return reportFromPages(inputUrl, rootUrl, [...discovered.values()], {

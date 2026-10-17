@@ -80,6 +80,18 @@ const redirectFetch = async input => {
 };
 await assert.rejects(analyzePublicWebsite('https://example.com', { fetchImpl: redirectFetch }), error => error.code === 'PRIVATE_IP_NOT_ALLOWED');
 
+const cssFetchLog = [];
+const cssRobotsFetch = async (input, options = {}) => {
+  const url = new URL(typeof input === 'string' ? input : input.url);
+  cssFetchLog.push(url.href);
+  if (url.pathname === '/robots.txt' && url.hostname === 'example.com') {
+    return new Response('User-agent: *\nDisallow: /assets\nDisallow: /private\n', { headers: { 'content-type': 'text/plain' } });
+  }
+  return mockFetch(input, options);
+};
+await analyzePublicWebsite('https://example.com', { fetchImpl: cssRobotsFetch });
+assert.ok(!cssFetchLog.some(value => new URL(value).pathname === '/assets/site.css'), 'A stylesheet explicitly disallowed by robots.txt must not be fetched.');
+
 const api = read('functions/api/app-studio/url-analyzer.js');
 const middleware = read('functions/api/_middleware.js');
 const shell = read('functions/_middleware.js');

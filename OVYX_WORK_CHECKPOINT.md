@@ -583,3 +583,8 @@ Stage 01 code and desktop/mobile browser verification are complete on the record
 
 ### Stage 02 security wording refinement (2026-10-18)
 - [x] The analyzer report now explicitly states that public DNS is checked before fetches but the platform does not pin the lookup result to the socket; DNS rebinding between check and connect remains a residual limitation. The test suite asserts this disclosure.
+
+
+### Stage 02 robots and DNS boundary correction (2026-10-18)
+- [x] Stylesheet fetching now checks robots.txt before reading CSS, just like page and sitemap fetching.
+- [x] The user-facing limitation uses the clear phrase “DNS rebinding” and a regression test asserts the report discloses that Fetch does not pin the earlier DNS answer.
