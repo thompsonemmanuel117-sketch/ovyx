@@ -435,3 +435,10 @@ Inspect the exact commit's three Actions and the complete Owner-only Admin Works
 - [x] Confirmed the browser workflow's `push.paths` filter previously included Settings paths but omitted the Owner-only Admin Workspace test and its supporting source files. As a result, a test-only commit did not schedule the browser suite.
 - [x] Added the Owner Workspace browser test, its static test, relevant owner UI scripts, owner template API route, and browser API fixture to the push path filter. This workflow-file change should cause the exact updated full browser suite to run from `main`.
 - [ ] Inspect the resulting run for Agent Verify/build, Cloudflare Diagnostics, and the full desktop/mobile Chromium result before moving to another unfinished browser step.
+
+### Run Owner Workspace browser check before unrelated UI stages (2026-10-17)
+
+- [x] Updated workflow for commit `d198ee6b4d8e6e6f0093c156ba0b53be64e20f1a`: Agent Verify passed and Cloudflare Diagnostics passed.
+- [x] The full browser workflow reached Profile/Notifications but hit a route-transition test timeout at `scripts/ovyx-settings-account.browser.test.mjs:50` before the Admin Workspace step. That Profile/Notifications check passed in the preceding full browser run; this does not indicate a product change in that area.
+- [x] Moved the Owner-only Admin Workspace browser step directly after local Pages startup so the targeted result is collected before unrelated UI checks can stop the workflow.
+- [ ] Inspect the next exact Owner Workspace browser output and any failure diagnostics; only proceed after reviewing that targeted result.

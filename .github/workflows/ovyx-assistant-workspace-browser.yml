@@ -121,6 +121,11 @@ jobs:
           echo $! > /tmp/ovyx-pages.pid
           curl --retry 30 --retry-connrefused --retry-delay 2 --fail http://127.0.0.1:8788/ -o /dev/null
 
+      - name: Exercise owner-only Admin Workspace in desktop and mobile Chromium
+        run: node scripts/ovyx-admin-workspace.browser.test.mjs
+        env:
+          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
+
 
       - name: Exercise Editor and Workspace settings in desktop and mobile Chromium
         run: node scripts/ovyx-settings-workspace.browser.test.mjs
@@ -180,11 +185,6 @@ jobs:
 
       - name: Exercise Web Studio feedback and build-preview safety in desktop and mobile Chromium
         run: node scripts/ovyx-webstudio-reliability.browser.test.mjs
-        env:
-          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
-
-      - name: Exercise owner-only Admin Workspace in desktop and mobile Chromium
-        run: node scripts/ovyx-admin-workspace.browser.test.mjs
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8788
 
