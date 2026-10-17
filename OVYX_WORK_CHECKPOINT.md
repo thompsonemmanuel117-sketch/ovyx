@@ -400,3 +400,20 @@ Commit the Billing meter fix, browser regression assertion, source contract, and
 ## Exact next step
 
 Commit these Security test changes and the checkpoint directly to `main`; inspect Agent Verify and the full desktop/mobile Chromium log. If Sign out current session passes, consider Security complete for this interaction audit and move forward without repeating finished controls.
+
+## Usage & Quota completion — 2026-10-17
+
+- [x] Verified on `main` commit `e653d91f8fecba7d19443bda18ec6b26201a872f`; no quota control was changed without a reproduced product defect.
+- [x] Agent Verify #927 passed on this exact commit: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38986551952 (source checks and build verification passed).
+- [x] Cloudflare Diagnostics #441 passed on this exact commit: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38986551984.
+- [x] The desktop/mobile Settings browser step passed on this exact commit: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38986551970. The Settings test printed its success result before a later, separate suite step failed.
+- [x] Usage quota refresh uses an authenticated GET; server success updates the meter; HTTP 503 is shown as “Usage unavailable” rather than stale success; re-opening Usage retries and recovers.
+- [x] Token Booster balance refreshes on panel re-entry; manual Refresh sends a new authenticated request; an outage is not misreported as zero; retry restores the balance.
+- [x] Booster checkout remained mocked: the selected pack/currency/provider payload was checked, failure re-enabled retry, and the UI did not claim payment or token credit.
+- [x] Billing quota-meter refresh updates the meter in place and keeps the Upgrade to Pro button attached; its click navigates to Plans. This interaction is also confirmed by the passing desktop/mobile Settings browser step.
+- [x] Security browser interactions, including current-session sign-out/revocation safeguards, passed in the same current browser run.
+- [ ] The overall browser workflow is not green yet: after the Settings/Usage/Quota step passed, it failed later in the independent Owner-only Admin Workspace test at `scripts/ovyx-admin-workspace.browser.test.mjs:258`. Log: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38986551970. Do not attribute that failure to Usage & Quota.
+
+## Exact next step
+
+Continue from the independent Owner-only Admin Workspace browser timeout at line 258. Do not re-run or re-open the completed Usage & Quota controls unless a later change produces a specific regression. For each next control: reproduce/inspect the exact action, fix only a demonstrated defect, run the relevant test, inspect Agent Verify/build + Diagnostics + browser logs, then commit directly to `main` and update this checkpoint.
