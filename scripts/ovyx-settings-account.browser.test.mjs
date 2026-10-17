@@ -47,7 +47,7 @@ try {
     );
     await waitForRouteRestore(page);
     await page.evaluate(() => window.Router.go('settings'));
-    await page.waitForFunction(() => window.KernelState?.activeView === 'settings', null, { timeout: 15000 });
+    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'settings', null, { timeout: 15000 });
     await page.locator('#view-settings').waitFor({ state: 'visible' });
 
     const identity = await page.evaluate(() => {

@@ -52,7 +52,7 @@ try {
 
     await waitForRouteRestore(page);
     await page.evaluate(() => window.Router.go('settings'));
-    await page.waitForFunction(() => window.KernelState?.activeView === 'settings', null, { timeout: 15000 });
+    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'settings', null, { timeout: 15000 });
     await page.locator('#view-settings').waitFor({ state: 'visible' });
     await page.evaluate(() => window.OVYXSettings.show('workspace'));
     const layer = page.locator('#ovyx-data-layer-panel');
@@ -433,7 +433,7 @@ try {
     assert.equal(await page.locator('#view-pricing').getAttribute('aria-label'), 'OVYX Plans',
       '[' + target.name + '] Upgrade to Pro must navigate to the Plans view.');
     await page.evaluate(() => window.Router.go('settings'));
-    await page.waitForFunction(() => window.KernelState?.activeView === 'settings', null, { timeout: 15000 });
+    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'settings', null, { timeout: 15000 });
     await page.locator('#view-settings').waitFor({ state: 'visible' });
 
     // Clear the payment-only identity fixture before verifying signed-out Security state.

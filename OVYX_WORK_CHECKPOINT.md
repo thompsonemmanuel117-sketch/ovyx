@@ -442,3 +442,12 @@ Inspect the exact commit's three Actions and the complete Owner-only Admin Works
 - [x] The full browser workflow reached Profile/Notifications but hit a route-transition test timeout at `scripts/ovyx-settings-account.browser.test.mjs:50` before the Admin Workspace step. That Profile/Notifications check passed in the preceding full browser run; this does not indicate a product change in that area.
 - [x] Moved the Owner-only Admin Workspace browser step directly after local Pages startup so the targeted result is collected before unrelated UI checks can stop the workflow.
 - [ ] Inspect the next exact Owner Workspace browser output and any failure diagnostics; only proceed after reviewing that targeted result.
+
+## Owner Workspace test verified; normalize Settings test route state (2026-10-17)
+
+- [x] Exact commit `08e03e890b40d405f1186ed4173f09fc88019f6a`: Agent Verify passed, including static verification, production build preflight, and Wrangler validation: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38987872481
+- [x] Exact commit Cloudflare Diagnostics passed: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38987872500
+- [x] Owner-only Admin Workspace browser test passed on desktop and mobile Chromium, including template publish/withdraw and non-root denial. Full browser log: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38987872541
+- [ ] The overall browser workflow subsequently stopped at `scripts/ovyx-settings.browser.test.mjs:55`, waiting for `KernelState.activeView === 'settings'`. The adjacent account-browser test hit the same strict state comparison in an earlier run. Other route checks in this repo normalize an optional `view-` prefix.
+- [x] Updated the Settings Data Layer and Profile/Notifications browser tests to normalize that optional route prefix in their Settings-route wait predicates. No Settings product code or completed controls were changed.
+- [ ] Validate these test-harness corrections with Agent Verify/build, Cloudflare Diagnostics, and the full desktop/mobile browser run. Revisit Settings behavior only if the normalized route wait still fails.
