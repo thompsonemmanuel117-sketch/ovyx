@@ -718,7 +718,7 @@ export async function analyzePublicWebsite(input, options = {}) {
     }
     if (resource.truncated) warnings.push('The page ' + current.url + ' was truncated at the per-page HTML limit.');
   }
-  if (queue.length || [...discovered.values()].some(page => page.status === 'not-inspected')) pageLimitReached = inspected.size >= MAX_PAGES;
+  if (queue.length || [...discovered.values()].some(page => page.status === 'not-inspected')) pageLimitReached = pageFetchAttempts >= MAX_PAGES;
 
   const cssUrls = [];
   for (const page of inspected.values()) {
