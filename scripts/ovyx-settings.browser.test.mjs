@@ -419,6 +419,15 @@ try {
       '[' + target.name + '] failed checkout must never claim the tokens were credited.');
     await boosterModal.locator('[data-close]').click();
 
+    await page.evaluate(() => window.OVYXSettings.show('plan'));
+    const planPanel = page.locator('[data-settings-panel="plan"]');
+    await planPanel.getByRole('button', { name: 'Open Plans' }).click();
+    await page.waitForFunction(() => window.KernelState?.activeView === 'pricing', null, { timeout: 15000 });
+    await page.locator('#view-pricing').waitFor({ state: 'visible' });
+    await page.evaluate(() => window.Router.go('settings'));
+    await page.waitForFunction(() => window.KernelState?.activeView === 'settings', null, { timeout: 15000 });
+    await page.locator('#view-settings').waitFor({ state: 'visible' });
+
     // Clear the payment-only identity fixture before verifying signed-out Security state.
     await page.evaluate(() => {
       Object.defineProperty(window, 'firebase', { configurable: true, writable: true, value: { auth: () => ({ currentUser: null }) } });

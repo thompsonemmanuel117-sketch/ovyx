@@ -344,3 +344,18 @@ Check the exact commit’s three Actions and full browser logs. If Usage and Boo
 ## Exact next step
 
 Commit this isolated browser-fixture timing fix to `main`, rerun Agent Verify, Cloudflare Diagnostics, and the full desktop/mobile Chromium workflow; inspect the exact logs. If the Usage/Booster path passes, continue with any remaining unfinished Settings control without restarting the audit or revisiting Security absent a regression.
+
+
+## Usage/Booster confirmed; Plan → Open Plans is next (2026-10-17)
+
+- [x] Security and Appearance browser steps passed again on `78e26d3d67268cab79b3d9827c97ea8db7eb0856`.
+- [x] The Settings Data Layer browser step passed in desktop/mobile Chromium on that exact commit, exercising Usage quota success/error/recovery and Token Booster balance re-entry/refresh/failure/retry: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38985457950
+- [x] Agent Verify passed on the same commit: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38985457919
+- [x] Cloudflare Diagnostics passed on the same commit: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/38985457932
+- [ ] The full browser workflow's remaining steps had not all completed at the time of this checkpoint.
+- [x] Added a desktop/mobile UI test for Plan → Open Plans, confirming the click navigates to the visible `#view-pricing` route and returns to Settings cleanly.
+- [ ] Verify the exact new commit's Plan navigation interaction and build/diagnostic logs before marking that control complete.
+
+## Exact next step
+
+Commit the Plan → Open Plans test and this checkpoint to `main`, inspect the exact Actions. If the click/navigation test passes on desktop and mobile, move to the next unverified Billing/Usage action. Security is complete; do not redo it unless a new regression appears.
