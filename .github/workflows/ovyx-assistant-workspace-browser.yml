@@ -11,6 +11,13 @@ on:
       - 'functions/api/settings/**'
       - 'functions/api/account/delete.js'
       - 'functions/api/api/auth/revoke-sessions.js'
+      - 'functions/api/ai/gateway.js'
+      - 'functions/_lib/brand-dna.js'
+      - 'functions/api/app-studio/brand-profile.js'
+      - 'assets/ovyx-app-studio-brand-dna.js'
+      - 'scripts/ovyx-brand-dna.test.mjs'
+      - 'scripts/ovyx-brand-dna.browser.test.mjs'
+      - 'package.json'
       - 'scripts/ovyx-settings*.mjs'
       - 'assets/ovyx-admin-workspace.js'
       - 'assets/ovyx-admin-controls.js'
@@ -33,6 +40,11 @@ on:
       - 'functions/_lib/ovyx-native-ai.js'
       - 'functions/_middleware.js'
       - 'scripts/ovyx-assistant-workspace.browser.test.mjs'
+      - 'functions/_lib/brand-dna.js'
+      - 'functions/api/app-studio/brand-profile.js'
+      - 'assets/ovyx-app-studio-brand-dna.js'
+      - 'scripts/ovyx-brand-dna.test.mjs'
+      - 'scripts/ovyx-brand-dna.browser.test.mjs'
       - 'scripts/ovyx-workspace-tools.test.mjs'
       - 'scripts/ovyx-workspace-tools.integration.test.mjs'
       - 'scripts/ovyx-assistant-runtime.test.mjs'
@@ -120,6 +132,11 @@ jobs:
           npx wrangler pages dev . --ip 127.0.0.1 --port 8788 > /tmp/ovyx-pages.log 2>&1 &
           echo $! > /tmp/ovyx-pages.pid
           curl --retry 30 --retry-connrefused --retry-delay 2 --fail http://127.0.0.1:8788/ -o /dev/null
+
+      - name: Exercise App Studio per-app Brand DNA in desktop and mobile Chromium
+        run: node scripts/ovyx-brand-dna.browser.test.mjs
+        env:
+          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
 
       - name: Exercise owner-only Admin Workspace in desktop and mobile Chromium
         run: node scripts/ovyx-admin-workspace.browser.test.mjs
