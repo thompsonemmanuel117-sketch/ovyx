@@ -12,7 +12,7 @@ const appBrandRuntime = read('assets/ovyx-app-studio-brand-dna.js');
 const middleware = read('functions/_middleware.js');
 const packageJson = JSON.parse(read('package.json'));
 
-for (const path of ['functions/_lib/brand-dna.js', 'functions/api/app-studio/brand-profile.js', 'assets/ovyx-app-studio-brand-dna.js']) {
+for (const path of ['functions/_lib/brand-dna.js', 'functions/api/app-studio/brand-profile.js', 'assets/ovyx-app-studio-brand-dna.js', 'scripts/ovyx-brand-dna.browser.test.mjs']) {
   execFileSync(process.execPath, ['--check', fileURLToPath(new URL('../' + path, import.meta.url))], { stdio: 'pipe' });
 }
 

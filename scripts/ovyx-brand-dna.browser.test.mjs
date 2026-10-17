@@ -10,11 +10,11 @@ const runtimeSource = await readFile(runtimePath, 'utf8');
 const profiles = new Map();
 const generationRequests = [];
 const profileOperations = [];
-const html = \`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body>
+const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body>
   <main id="view-app-studio"><h1>App Studio fixture</h1></main>
   <script>window.firebase={auth:function(){return {currentUser:{getIdToken:async function(){return 'test-id-token';}}}}};window.showToast=function(){};</script>
   <script defer src="/assets/ovyx-app-studio-brand-dna.js"></script>
-</body></html>\`;
+</body></html>`;
 
 function send(response, status, data, contentType = 'application/json') {
   response.writeHead(status, { 'Content-Type': contentType, 'Cache-Control': 'no-store' });

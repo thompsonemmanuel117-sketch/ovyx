@@ -530,3 +530,9 @@ Check the exact follow-up commit's Agent Verify log and confirm the Brand DNA te
 - [x] The Brand DNA panel now auto-seeds a palette from the entered app name until the user explicitly edits colours; custom palettes remain intact when renaming, and the reset-palette action returns to app-name-derived defaults.
 - [x] The browser workflow push trigger now includes the gateway, brand module, per-app profile endpoint, runtime and both brand regression tests so later Stage 01 regressions get checked after merge.
 - [ ] Verify the latest exact-commit Agent Verify and browser workflow results, including the isolated Brand DNA step and the live-shell mount check.
+
+
+### Stage 01 browser fixture syntax fix (2026-10-17)
+- [x] Browser workflow reached the new App Studio step; it exposed a malformed escaped backtick in the dedicated test's inline HTML fixture, before browser interactions began.
+- [x] Removed the stray escaping and added the browser test file to the regular `node --check` contract list.
+- [ ] Rerun the exact-commit Agent Verify and App Studio desktop/mobile browser step; the stage remains open until both are rechecked.
