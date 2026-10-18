@@ -688,7 +688,7 @@ async function handleTool(env, identity, body) {
     revision: verified.document.updateTime || null,
     diagnostics: diagnoseProject(verified.project, verified.id),
     project: projectSummary(verified.id, verified.project, verified.document.updateTime, false),
-    message: 'The saved project source was updated and read back successfully. This verifies storage, not live browser behavior.',
+    message: 'Your app files have been saved. Review the preview to confirm how the changes behave.',
   };
 }
 
