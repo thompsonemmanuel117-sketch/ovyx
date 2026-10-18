@@ -108,7 +108,7 @@ function buildShell() {
   root.innerHTML = '<button id="' + ID + '-launch" type="button" aria-label="Open private OVYX Guardian companion"><span class="eye" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M3 16s4.8-8 13-8 13 8 13 8-4.8 8-13 8S3 16 3 16Z" stroke="#8BEAF4" stroke-width="1.5"/><circle cx="16" cy="16" r="5.4" fill="#A5F3FC" fill-opacity=".2" stroke="#8BEAF4" stroke-width="1.4"/><circle cx="16" cy="16" r="2.4" fill="#B9FAFF"/></svg></span><span>OVYX GUARDIAN</span></button>' +
   '<section id="' + ID + '-panel" role="dialog" aria-modal="false" aria-labelledby="' + ID + '-title" hidden><header class="head"><span class="eye" aria-hidden="true">◉</span><div class="headcopy"><div id="' + ID + '-title" class="title">OVYX GUARDIAN</div><div class="sub">YOUR PRIVATE PROJECT COMPANION · VOICE + HEALTH</div></div><button type="button" class="close" data-ovsx="close" aria-label="Put Guardian to sleep">×</button></header>' +
   '<div class="actions"><button type="button" class="btn primary" data-ovsx="scan">Check now</button><button type="button" class="btn" data-ovsx="plan">Prepare fix plan</button><button type="button" class="btn" data-ovsx="diagnose">AI diagnosis</button><button type="button" class="btn" data-ovsx="patch">Prepare code fix</button><button type="button" class="btn" data-ovsx="wake">Enable voice activation</button><button type="button" class="btn" data-ovsx="sleep">Go to sleep</button><button type="button" class="btn" data-ovsx="mute" disabled>Stop speaking</button></div>' +
-  '<div class="status" role="status" aria-live="polite" data-ovsx-status>Verifying administrator access…</div><div class="body"><div class="summary"><strong>Hey boss, I’m here.</strong><small>Your private OVYX companion. Talk naturally, ask questions, or say “OVYX, open Web Studio.” I only listen after you enable the wake word; say “go to sleep” when you want me to disappear. Conversation turns stay in this page session.</small></div><div data-ovsx-report></div><div class="plan" hidden data-ovsx-plan></div><div class="plan" hidden data-ovsx-diagnosis></div><details class="plan" hidden data-ovsx-diagnosis-history><summary class="plan-heading">Previous diagnoses</summary><div data-ovsx-diagnosis-history-list></div></details><div class="plan patch-tools" hidden data-ovsx-patch-tools><strong>Reviewable code fix</strong><div class="plan-note">I will prepare a preview first. Nothing changes until you review the proposal, type the confirmation phrase, and create a pull request. I never merge or deploy automatically.</div><label>Source file path<input type="text" data-ovsx-patch-path maxlength="240" placeholder="functions/api/feature.js"></label><label>What should be fixed?<textarea data-ovsx-patch-task rows="3" maxlength="1200" placeholder="Describe the exact bug and desired result"></textarea></label><button type="button" class="btn primary" data-ovsx="patch-prepare">Prepare patch preview</button><div data-ovsx-patch-summary class="rowsummary"></div><pre class="patch-preview" data-ovsx-patch-preview hidden></pre><label>Type CREATE_PULL_REQUEST to submit for review<input type="text" data-ovsx-patch-confirm autocomplete="off" maxlength="40" placeholder="CREATE_PULL_REQUEST"></label><button type="button" class="btn" data-ovsx="patch-apply" disabled>Create review pull request</button><a class="patch-link" data-ovsx-patch-link hidden target="_blank" rel="noopener noreferrer">Open pull request</a></div><div class="transcript" hidden data-ovsx-transcript></div></div><form class="chat-form" data-ovsx-chat-form><textarea class="chat-input" data-ovsx-chat-input rows="2" maxlength="1200" aria-label="Message OVYX Guardian" placeholder="Talk to me or type a message…"></textarea><button class="chat-send" type="submit">Send</button></form>' +
+  '<div class="status" role="status" aria-live="polite" data-ovsx-status>Verifying administrator access…</div><div class="body"><div class="summary"><strong>Welcome to Sentinel.</strong><small>Your private OVYX assistant. Ask questions, review platform health, or say “OVYX, open Web Studio.” Voice activation works while this page remains open. Your conversation stays in this session.</small></div><div data-ovsx-report></div><div class="plan" hidden data-ovsx-plan></div><div class="plan" hidden data-ovsx-diagnosis></div><details class="plan" hidden data-ovsx-diagnosis-history><summary class="plan-heading">Previous diagnoses</summary><div data-ovsx-diagnosis-history-list></div></details><div class="plan patch-tools" hidden data-ovsx-patch-tools><strong>Reviewable code fix</strong><div class="plan-note">I will prepare a preview first. Nothing changes until you review the proposal, type the confirmation phrase, and create a pull request. I never merge or deploy automatically.</div><label>Source file path<input type="text" data-ovsx-patch-path maxlength="240" placeholder="functions/api/feature.js"></label><label>What should be fixed?<textarea data-ovsx-patch-task rows="3" maxlength="1200" placeholder="Describe the exact bug and desired result"></textarea></label><button type="button" class="btn primary" data-ovsx="patch-prepare">Prepare patch preview</button><div data-ovsx-patch-summary class="rowsummary"></div><pre class="patch-preview" data-ovsx-patch-preview hidden></pre><label>Enter the confirmation phrase to submit for review<input type="text" data-ovsx-patch-confirm autocomplete="off" maxlength="40" placeholder="CREATE_PULL_REQUEST"></label><button type="button" class="btn" data-ovsx="patch-apply" disabled>Create review pull request</button><a class="patch-link" data-ovsx-patch-link hidden target="_blank" rel="noopener noreferrer">Open pull request</a></div><div class="transcript" hidden data-ovsx-transcript></div></div><form class="chat-form" data-ovsx-chat-form><textarea class="chat-input" data-ovsx-chat-input rows="2" maxlength="1200" aria-label="Message OVYX Guardian" placeholder="Talk to me or type a message…"></textarea><button class="chat-send" type="submit">Send</button></form>' +
   '<div class="foot">Voice commands require microphone permission and a supported browser. Wake-word listening only works while this page is open and active. Use “stop listening” to switch off the microphone completely.</div></section>';
   document.body.appendChild(root); addStyles(); bindShell(); return root;
 }
@@ -259,7 +259,7 @@ async function diagnoseLatest(shouldSpeak) {
     if (shouldSpeak) speak(message);
   } catch (error) {
     status(String(error.message || 'The AI-assisted review couldn't be completed.') + ' Run Check now and retry.', 'error');
-    if (shouldSpeak) speak('Sorry boss, I could not complete the AI diagnosis. ' + String(error.message || ''));
+    if (shouldSpeak) speak('I couldn't complete the AI-assisted review. ' + String(error.message || ''));
   } finally {
     busy = false;
     var current = q('[data-ovsx="diagnose"]'); if (current) current.disabled = false;
@@ -420,7 +420,7 @@ async function askCompanion(question, sourceInspectionUnavailable) {
     speak(answer);
   } catch (error) {
     status(String(error.message || 'This message couldn't be completed.') + ' No code changes were applied.', 'error');
-    speak('Sorry boss, I could not answer that just now. ' + String(error.message || ''));
+    speak('I couldn't answer that just now. ' + String(error.message || ''));
   } finally {
     companionBusy = false;
   }
@@ -553,7 +553,7 @@ async function openFromVoice(command) {
       await window.Router.go(route.route);
     }
     status('Opening ' + route.label + '…', 'success');
-    speak('On it, boss. Opening ' + route.label + '.');
+    speak('Opening ' + route.label + '.');
     return true;
   }
   var control = clickSafeVisibleControl(target);
@@ -588,7 +588,7 @@ function handleVoice(raw) {
     } else {
       awaitingUntil = Date.now() + 12000;
       status('Welcome to Sentinel. Tell me what you need help with while you remain in this conversation.', 'success');
-      speak('Hey boss, I’m here. What’s on your mind? You can ask me about OVYX, ask me to check its health, or tell me to open a section.');
+      speak('Welcome to Sentinel. What’s on your mind? You can ask me about OVYX, ask me to check its health, or tell me to open a section.');
     }
     return;
   }
@@ -873,7 +873,7 @@ function bindShell() {
   q('#' + ID + '-launch').addEventListener('click', function () {
     guardianAwake = true;
     showPanel(true);
-    speak('Hey boss, I’m here. What do you need?');
+    speak('Welcome to Sentinel. What do you need?');
   });
   var patchConfirmation = q('[data-ovsx-patch-confirm]');
   if (patchConfirmation) patchConfirmation.addEventListener('input', updatePatchApplyState);
@@ -909,9 +909,9 @@ function bindShell() {
 async function bootstrap() {
   if (!adminClient()) return;
   buildShell();
-  status('Administrator identity detected. Verifying access with Sentinel server…');
-  try { var data = await api('GET'); renderReport(data.latestReport); renderDiagnosisHistory(data.diagnoses); if (data.latestDiagnosis) renderDiagnosis(data.latestDiagnosis); status('Welcome back, boss. Sentinel is ready.', 'success'); }
-  catch (error) { status('Private Sentinel interface is ready, but the server could not load its report: ' + error.message, 'error'); }
+  status('Checking administrator access…');
+  try { var data = await api('GET'); renderReport(data.latestReport); renderDiagnosisHistory(data.diagnoses); if (data.latestDiagnosis) renderDiagnosis(data.latestDiagnosis); status('Welcome back. Sentinel is ready.', 'success'); }
+  catch (error) { status('Sentinel is ready, but the latest health report couldn't be loaded: ' + error.message, 'error'); }
 }
 function observeAuth() {
   try {
