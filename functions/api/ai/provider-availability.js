@@ -48,7 +48,7 @@ const PROVIDERS = Object.freeze({
 });
 
 const NOT_AVAILABLE_SUFFIX =
-  ' isn't available right now. Try OVYX Auto or choose another available AI option.';
+  ' is not available right now. Try OVYX Auto or choose another available AI option.';
 
 async function checkEndpoint(config, key) {
   const controller = new AbortController();
