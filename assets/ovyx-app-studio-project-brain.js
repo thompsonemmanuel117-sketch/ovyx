@@ -320,7 +320,7 @@
         finding('pass', 'LIVE_LINKS_INSPECTED', 'Inspected ' + liveLinks.length + ' rendered links in the live preview.', route, liveLinks.slice(0, 10).map(item => item.href || '(no href)').join(', '));
         finding('pass', 'LIVE_CONTROLS_INSPECTED', 'Inspected ' + liveControls.length + ' rendered controls in the live preview.', route, liveControls.slice(0, 10).map(item => item.id || item.type || item.tag).join(', '));
         for (const control of liveControls) if (control.disabled) finding('warning', 'LIVE_CONTROL_DISABLED', 'Rendered control is disabled in current page.', route, [control.tag, control.id, control.label].filter(Boolean).join(' '));
-        if (liveForms.length) finding('pass', 'LIVE_FORMS_PRESENT', 'The live page rendered ' + liveForms.length + ' form(s); Stage 4 supplies a local outcome on user submission.', route, liveForms.map(item => item.id || item.name || 'unnamed form').join(', '));
+        if (liveForms.length) finding('pass', 'LIVE_FORMS_PRESENT', 'The live preview contains ' + liveForms.length + ' form(s). Submissions are recorded in this browser only.', route, liveForms.map(item => item.id || item.name || 'unnamed form').join(', '));
       }
     }
     finding('pass', 'COMPONENT_INDEXED', 'Indexed ' + controls.length + ' links, forms and controls.', '', controls.slice(0, 12).map(item => item.id || item.href || item.label).join(', '));
