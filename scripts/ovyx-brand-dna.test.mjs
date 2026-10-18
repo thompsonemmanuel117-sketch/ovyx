@@ -108,10 +108,12 @@ assert.ok(!gateway.includes('quotaOutputText = result.text;'), 'Injected logo by
 assert.ok(appBrandApi.includes("['users', email, 'app_studio_brands', appId]"), 'App brand profiles must be isolated by owner and sanitized app ID.');
 assert.ok(appBrandApi.includes('enforceSameOrigin(request)'), 'App brand mutation must be same-origin guarded.');
 assert.ok(appBrandRuntime.includes('data-brand-logo-file') && appBrandRuntime.includes('type="color"'), 'App Studio must expose real logo upload and color controls.');
+assert.ok(appBrandRuntime.includes('object-fit:contain;object-position:center'), 'Logo previews must preserve the entire image without cropping.');
+assert.ok(appBrandRuntime.includes('imageFileToPngDataUrl') && appBrandRuntime.includes('image/jpeg') && appBrandRuntime.includes('image/webp'), 'Common image uploads must be normalized to the safe PNG format used by brand profiles.');
 assert.ok(testBrowserSource.includes('visibleColors >= 5') && testBrowserSource.includes('Every generated screen must display the same original full-colour logo'), 'The Chromium test must inspect the rendered full-colour logo across generated screens.');
 assert.ok(appBrandRuntime.includes('appBrandId:id'), 'Generated requests must carry an app-scoped profile ID.');
 assert.ok(appBrandRuntime.includes('generation was paused'), 'Failure to persist App Brand DNA must stop the generation attempt.');
-assert.ok(middleware.includes('/assets/ovyx-app-studio-brand-dna.js?v=20261017-1'), 'The real Pages shell must load the App Studio Brand DNA runtime.');
+assert.ok(middleware.includes('/assets/ovyx-app-studio-brand-dna.js?v=20261018-2'), 'The real Pages shell must load the App Studio Brand DNA runtime.');
 assert.ok(gateway.includes('applyBrandDNAToGeneratedOutput'), 'App Studio HTML/file outputs must be branded after generation.');
 assert.ok(gateway.includes('brandDNA: isAppStudio ? { ...brandDNAClientSummary(brandDNA), applied: brandDNAApplied, applyError: brandDNAApplyError || null } : null'), 'The response must expose the resolved brand profile and clearly report whether it was applied.');
 assert.ok(mobileBuild.includes("['users', userEmail, 'brand_profile', 'config']"), 'The mobile build handoff must continue to carry the canonical saved brand profile.');
