@@ -31,7 +31,7 @@ assert.ok(runtime.includes("'/api/app-studio/release-health?'"), 'The release UI
 assert.ok(runtime.includes("'/api/mobile/build'") && runtime.includes("'/api/mobile/build/status?'"), 'Mobile build and status actions must use the existing EAS routes.');
 assert.ok(runtime.includes('mobileStandaloneHtml') && runtime.includes('ovyx-mobile-route-runtime'), 'The native WebView build must include the generated inspected pages and local route switching.');
 assert.ok(runtime.includes('data-ovyx-published-actions') && runtime.includes('connect-src'), 'The published static build must disclose/localize supported actions and block arbitrary network calls.');
-assert.ok(runtime.includes('window.confirm') && runtime.includes('Save the release history'), 'Publishing and cloud release-record writes must ask for confirmation.');
+assert.ok(runtime.includes('window.confirm') && runtime.includes('Save release details'), 'Publishing and cloud release-record writes must ask for confirmation.');
 assert.ok(runtime.includes('saveReleaseRecord') && runtime.includes('releaseHistory'), 'Release status history must be savable through the existing authenticated OVYX Projects endpoint.');
 assert.ok(runtime.includes('OVYX account APIs are available only inside the authenticated OVYX preview'), 'A public static release must not pretend it has authenticated OVYX account APIs.');
 assert.ok(deployRoute.includes("body?.action==='publish'") && deployRoute.includes('onRequestPost'), 'The existing Cloudflare route must support preview and production actions.');
