@@ -626,16 +626,16 @@ export async function analyzePublicWebsite(input, options = {}) {
     } else robots = { checked: true, rules: [], note: '' };
   } catch (error) {
     robots = { checked: false, rules: [], note: 'robots.txt could not be checked; strict page and byte limits still apply.' };
-    warnings.push(String(error?.message || 'The website's public access rules could not be checked.').slice(0, 160));
+    warnings.push(String(error?.message || 'Public access rules could not be checked for this website.').slice(0, 160));
   }
   robotsByOrigin.set(originalUrl.origin, robots);
   const inputPath = new URL(inputUrl);
   if (!robotsAllows(inputPath, robots.rules)) {
-    limitations.push('The website's public access rules do not allow this page to be reviewed.');
+    limitations.push('Public access rules do not allow this page to be reviewed.');
     const blocked = {
       url: inputUrl, path: inputPath.pathname || '/', title: '', category: category(inputPath.pathname),
       depth: 0, parentUrl: '', discoveredFrom: 'submitted URL', status: 'robots-blocked',
-      httpStatus: null, contentType: '', headings: [], description: '', warning: 'The website's public access rules do not allow this page.',
+      httpStatus: null, contentType: '', headings: [], description: '', warning: 'Public access rules do not allow this page.',
     };
     return reportFromPages(inputUrl, inputUrl, [blocked], { warnings, limitations, robots });
   }
@@ -653,7 +653,7 @@ export async function analyzePublicWebsite(input, options = {}) {
         const r = await fetchResource(new URL('/robots.txt', rootOrigin).href, { maxBytes: MAX_ROBOTS_BYTES, accept: 'text/plain,*/*;q=0.1', expectedOrigin: rootOrigin, beforeRedirect: false });
         if (r.response.status === 200 && r.contentType.includes('text/plain')) robots = { checked: true, rules: parseRobots(r.text), note: '' };
         else robots = { checked: true, rules: [], note: '' };
-      } catch { warnings.push('The final page's public access rules could not be checked.'); }
+      } catch { warnings.push('Public access rules could not be checked for the final page.'); }
       robotsByOrigin.set(rootOrigin, robots);
     }
   }
@@ -720,7 +720,7 @@ export async function analyzePublicWebsite(input, options = {}) {
     if (parsed.origin !== rootOrigin) continue;
     if (!robotsAllows(parsed, robots.rules)) {
       const item = discovered.get(current.url);
-      if (item) { item.status = 'robots-blocked'; item.warning = 'The website's access rules do not allow this page.'; }
+      if (item) { item.status = 'robots-blocked'; item.warning = 'Public access rules do not allow this page.'; }
       continue;
     }
     let resource;
