@@ -239,6 +239,17 @@
     window.WebStudio.render?.();
     window.WebStudio.renderPreview();
     if (typeof window.WebStudio.openPreviewFull === 'function') window.WebStudio.openPreviewFull();
+    // A route transition can initialise Web Studio without committing its first
+    // preview refresh. In that case, use Web Studio's own document builder and
+    // populate its actual iframe rather than leaving the preview blank.
+    const previewFrame = document.getElementById('ws-canvas-iframe');
+    if (previewFrame && typeof window.WebStudio.buildPreviewDocument === 'function') {
+      const builtDocument = window.WebStudio.buildPreviewDocument(homePage);
+      const requiredStart = homeHtml.slice(0, Math.min(homeHtml.length, 80));
+      if (builtDocument && !String(previewFrame.srcdoc || '').includes(requiredStart)) {
+        previewFrame.srcdoc = builtDocument;
+      }
+    }
     await waitFor(() => {
       const frame = document.getElementById('ws-canvas-iframe');
       const source = String(frame?.srcdoc || '');
