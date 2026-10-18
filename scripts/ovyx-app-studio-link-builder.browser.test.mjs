@@ -22,8 +22,8 @@ const report = {
   summary: { pagesDiscovered: 3, pagesInspected: 3, pagesBlocked: 0, internalLinksDiscovered: 2, assetsDiscovered: 2, pageLimitReached: false },
   siteMap: { rootUrl: 'https://coastal.example/', pages: [
     { url: 'https://coastal.example/', path: '/', title: 'Coastal Living', category: 'Home', depth: 0, status: 'inspected', httpStatus: 200, contentType: 'text/html', headings: ['Find your calm by the coast'], description: 'Thoughtful coastal homes and living.' },
-    { url: 'https://coastal.example/collections', path: '/collections', title: 'Collections', category: 'Products', depth: 1, status: 'not-inspected', headings: ['Curated homes'] },
-    { url: 'https://coastal.example/about', path: '/about', title: 'Our Story', category: 'About', depth: 1, status: 'not-inspected', headings: [] }
+    { url: 'https://coastal.example/collections', path: '/collections', title: 'Collections', category: 'Products', depth: 1, status: 'inspected', httpStatus: 200, contentType: 'text/html', headings: ['Curated homes'], description: 'Explore curated homes.' },
+    { url: 'https://coastal.example/about', path: '/about', title: 'Our Story', category: 'About', depth: 1, status: 'inspected', httpStatus: 200, contentType: 'text/html', headings: ['A more considered way home'], description: 'Our story.' }
   ] },
   branding: { name: 'Coastal Living', confidence: 'high', colors: { primary: '#D81B60', secondary: '#302060', accent: '#00A6A6', background: '#FFF9FC', surface: '#FFFFFF', text: '#17121A', muted: '#5D4B56' }, logo: { url: 'https://coastal.example/assets/logo.png', alt: 'Coastal Living' }, faviconUrl: 'https://coastal.example/favicon.svg' },
   assets: { total: 2, byType: { image: 1, stylesheet: 1 }, items: [
@@ -31,7 +31,7 @@ const report = {
     { url: 'https://coastal.example/assets/site.css', type: 'stylesheet', sameOrigin: true }
   ] },
   capabilities: { can: ['Inspect public HTML', 'Discover same-origin links', 'Extract visible brand evidence'], cannot: ['Run source-site JavaScript', 'Verify live payments or backend behavior'] },
-  limitations: ['Discovered but uninspected routes are not reconstructed as completed pages.'],
+  limitations: ['This fixture verifies only routes explicitly marked inspected.'],
   warnings: [], limits: { maxPagesInspected: 6 }
 };
 const generated = {
@@ -165,11 +165,11 @@ try {
   assert.equal(await preview.locator('#counter').innerText(), 'Tap 1', 'Generated JavaScript must remain active after route navigation.');
 
   await desktop.locator('#ovyx-app-studio-link-builder details summary').click();
-  assert.match(await desktop.locator('[data-lb-source]').innerText(), /index\\.html/);
-  assert.match(await desktop.locator('[data-lb-source]').innerText(), /pages\\/collections\\.html/);
-  assert.match(await desktop.locator('[data-lb-source]').innerText(), /pages\\/about\\.html/);
-  assert.match(await desktop.locator('[data-lb-source]').innerText(), /styles\\.css/);
-  assert.match(await desktop.locator('[data-lb-source]').innerText(), /app\\.js/);
+  assert.ok((await desktop.locator('[data-lb-source]').innerText()).includes('index.html'));
+  assert.ok((await desktop.locator('[data-lb-source]').innerText()).includes('pages/collections.html'));
+  assert.ok((await desktop.locator('[data-lb-source]').innerText()).includes('pages/about.html'));
+  assert.ok((await desktop.locator('[data-lb-source]').innerText()).includes('styles.css'));
+  assert.ok((await desktop.locator('[data-lb-source]').innerText()).includes('app.js'));
   const artifact = await desktop.evaluate(() => window.__OVYX_APP_STUDIO_GENERATED_PROJECT__);
   assert.equal(artifact?.previewMode, 'sandboxed-srcdoc');
   assert.equal(artifact?.sourceUrl, 'https://coastal.example/');
