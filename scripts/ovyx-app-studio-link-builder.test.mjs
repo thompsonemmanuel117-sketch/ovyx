@@ -44,7 +44,7 @@ assert.ok(projectBrain.includes('BROKEN_INTERNAL_ROUTE') && projectBrain.include
 assert.ok(projectBrain.includes('script-hook') && projectBrain.includes('style-hook'), 'Project Brain must record component-to-JavaScript and component-to-CSS edges.');
 assert.ok(runtime.includes('data-ovyx-project-brain-probe'), 'The generated preview must expose a controlled live DOM/error probe to Project Brain.');
 assert.ok(runtime.includes('window.__OVYX_PROJECT_BRAIN_REPORT__'), 'The generated project UI must expose actual Project Brain results.');
-assert.ok(middleware.includes('/assets/ovyx-app-studio-project-brain.js?v=20261018-2'), 'The real Pages shell must load Project Brain after the link builder.');
+assert.ok(middleware.includes('/assets/ovyx-app-studio-project-brain.js?v=20261018-3'), 'The real Pages shell must load Project Brain after the link builder.');
 assert.ok(headers.includes('/assets/ovyx-app-studio-project-brain.js') && headers.includes('Cache-Control: no-store'), 'Project Brain should avoid stale asset caching.');
 assert.ok(pkg.scripts.test.includes('scripts/ovyx-app-studio-project-brain.test.mjs'), 'Project Brain regression tests must run through npm test.');
 assert.ok(browserTest.includes('runtimeChecked === true') && browserTest.includes('repairedAudit.status'), 'Browser integration must inspect the live preview and retest a repaired fixture.');
@@ -52,7 +52,7 @@ assert.ok(runtime.includes('.ovyx-lb-panel :is(input,button,summary):focus-visib
 assert.ok(!runtime.includes('}..ovyx-lb-panel :is(input,button,summary):focus-visible'), 'The malformed CSS selector must not return.');
 assert.ok(!runtime.includes('window.KernelState.activeProject ='), 'Link generation must not replace the user’s currently open project.');
 assert.ok(brandDNA.includes('appBrandId') && brandDNA.includes('isAppStudioRequest'), 'Stage 1 must continue scoping identity and generation requests per app.');
-assert.ok(middleware.includes('/assets/ovyx-app-studio-link-builder.js?v=20261018-2'), 'The real OVYX Pages shell must load the Stage 3 runtime.');
+assert.ok(middleware.includes('/assets/ovyx-app-studio-link-builder.js?v=20261018-3'), 'The real OVYX Pages shell must load the Stage 3 runtime.');
 assert.ok(headers.includes('/assets/ovyx-app-studio-link-builder.js') && headers.includes('Cache-Control: no-store'), 'The live Stage 3 runtime must not be stuck behind stale asset caching.');
 assert.ok(pkg.scripts.test.includes('scripts/ovyx-app-studio-link-builder.test.mjs'), 'The Stage 3 regression test must run under npm test.');
 assert.ok(workflow.includes('scripts/ovyx-app-studio-link-builder.browser.test.mjs'), 'The desktop/mobile browser integration test must be wired into CI.');
