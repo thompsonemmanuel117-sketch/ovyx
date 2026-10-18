@@ -65,7 +65,7 @@ export async function onRequest(context) {
     }
 
     if (request.method !== 'PUT') {
-      return errorResponse(405, 'METHOD_NOT_ALLOWED', 'This action isn't supported.', id);
+      return errorResponse(405, 'METHOD_NOT_ALLOWED', 'This action is not supported.', id);
     }
 
     const body = await readJson(request, 12000);
@@ -88,7 +88,7 @@ export async function onRequest(context) {
 
     const saved = await getFirestoreDataAtPath(env, path);
     if (!saved || saved.displayName !== profile.displayName || saved.workspaceName !== profile.workspaceName) {
-      return errorResponse(503, 'PROFILE_WRITE_UNCONFIRMED', 'Your profile changes couldn't be saved. Please try again.', id);
+      return errorResponse(503, 'PROFILE_WRITE_UNCONFIRMED', 'Your profile changes could not be saved. Please try again.', id);
     }
 
     return jsonResponse({
