@@ -88,7 +88,6 @@ try {
       entry: project?.ovyxGraph?.entry,
       filePaths: Object.keys(project?.ovyxGraph?.files || {}),
       frameSrcdoc: frame?.srcdoc || '',
-      heading: doc?.querySelector('h1')?.textContent || '',
       sectionLinks: Array.from(doc?.querySelectorAll('nav a[href^="#"]') || []).map(a => a.getAttribute('href')),
       sectionIds: Array.from(doc?.querySelectorAll('main section[id]') || []).map(section => section.id),
       previewMark: window.__OVYX_LAST_LINK_BUILD__ || null,
@@ -103,7 +102,8 @@ try {
   assert.ok(result.filePaths.includes('src/styles.css'));
   assert.ok(result.filePaths.includes('src/main.js'));
   assert.match(result.frameSrcdoc, /Find your next place to belong/);
-  assert.equal(result.heading, 'Find your next place to belong', 'The actual iframe document must render HTML from the generated file map.');
+  const liveHeading = await page.frameLocator('#ws-canvas-iframe').locator('h1').textContent();
+  assert.equal(liveHeading, 'Find your next place to belong', 'The real sandboxed preview iframe must render the generated HTML.');
   assert.deepEqual(result.sectionLinks, ['#features', '#about', '#contact'], 'The preview must render working in-page navigation targets.');
   assert.deepEqual(result.sectionIds, ['home', 'features', 'about', 'contact']);
   assert.equal(result.previewMark.previewRendered, true);
