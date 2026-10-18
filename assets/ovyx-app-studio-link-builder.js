@@ -241,8 +241,13 @@
     if (typeof window.WebStudio.openPreviewFull === 'function') window.WebStudio.openPreviewFull();
     await waitFor(() => {
       const frame = document.getElementById('ws-canvas-iframe');
-      const doc = frame?.contentDocument;
-      return !!(frame && String(frame.srcdoc || '').length > 80 && doc?.documentElement && /<body/i.test(frame.srcdoc));
+      const source = String(frame?.srcdoc || '');
+      const rect = frame?.getBoundingClientRect?.();
+      // Web Studio intentionally sandboxes the preview; its parent may not be
+      // allowed to read contentDocument. Check the actual visible iframe source,
+      // which the browser uses to render the built project, instead.
+      return !!(frame && frame.isConnected && source.length > 80 && /<body/i.test(source) &&
+        source.includes('src/pages/Home.html') === false && rect && rect.width > 0 && rect.height > 0);
     }, 'The generated project files were saved, but the live preview did not render in the real editor.');
     window.__OVYX_LAST_LINK_BUILD__ = { projectId, projectName: appName, sourceUrl: evidence.source.canonicalUrl,
       entry: generated.homePath, fileCount: Object.keys(generated.files).length, previewRendered: true };
