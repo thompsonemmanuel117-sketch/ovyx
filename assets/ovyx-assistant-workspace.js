@@ -1328,14 +1328,14 @@
           serverDiagnostics = diagnosticResult.diagnostics || null;
         }
       } catch (error) {
-        serverToolError = String(error?.message || 'Saved server-side workspace inspection is unavailable.');
+        serverToolError = String(error?.message || 'Saved workspace details aren't available right now.');
       }
       if (serverWorkspace?.activeProject?.id) {
-        setWorkspaceTaskStatus('inspected', 'Inspected saved project data for ' + String(serverWorkspace.activeProject.name || serverWorkspace.activeProject.id) + '.');
+        setWorkspaceTaskStatus('inspected', 'Reviewed saved app details for ' + String(serverWorkspace.activeProject.name || serverWorkspace.activeProject.id) + '.'');
       } else if (context?.activeProject?.id) {
         setWorkspaceTaskStatus('local', serverToolError ? 'Some workspace details couldn't be refreshed. Using the information available in this session.' : 'Using the information available in this session. No saved app was selected.');
       } else {
-        setWorkspaceTaskStatus('details', serverToolError || 'No active saved project was identified. OVYX can still answer general questions.');
+        setWorkspaceTaskStatus('details', serverToolError || 'No saved app is selected. OVYX can still answer general questions.');
       }
       if (needsWorkspaceInspection) {
         if (serverWorkspace?.activeProject?.id) {
@@ -1542,7 +1542,7 @@
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
       } else {
-        throw new Error('Clipboard API unavailable');
+        throw new Error('Copying isn't available in this browser.');
       }
       push('Conversation copied to clipboard.');
     } catch (_) {
@@ -1726,12 +1726,12 @@
     }
     if (action === 'undo-last-ai-edit') {
       try { await recoverLatestWorkspaceEdit(); }
-      catch (error) { push('Restore failed: ' + String(error?.message || 'OVYX could not restore the selected version. No successful recovery is reported unless the server verifies it.')); setWorkspaceTaskStatus('error', String(error?.message || 'Recovery failed.')); }
+      catch (error) { push('Restore failed: ' + String(error?.message || 'OVYX couldn't restore the selected version. The restore is only marked complete after verification.')); setWorkspaceTaskStatus('error', String(error?.message || 'Recovery failed.')); }
       return;
     }
     if (action === 'review-ai-edits') {
       try { await reviewWorkspaceEditHistory(); }
-      catch (error) { push('Could not load edit history: ' + String(error?.message || 'Workspace recovery history is unavailable.')); setWorkspaceTaskStatus('error', String(error?.message || 'Could not load recovery history.')); }
+      catch (error) { push('Couldn't load saved edit history: ' + String(error?.message || 'Workspace recovery history is unavailable.')); setWorkspaceTaskStatus('error', String(error?.message || 'Could not load recovery history.')); }
       return;
     }
     if (action === 'recover-project') {
@@ -1859,7 +1859,7 @@
     if (!text) return;
     try {
       if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);
-      else throw new Error('Clipboard unavailable');
+      else throw new Error('Copying isn't available in this browser.');
       responseToast('AI response copied.', 'success');
     } catch (_) {
       const helper = document.createElement('textarea');
