@@ -29,7 +29,7 @@ try {
             'window.firebase={auth:()=>({get currentUser(){return __currentUser}})};' +
             'window.__toasts=[];window.showToast=(message,type)=>window.__toasts.push({message,type});' +
             'window.__setProviderUser=u=>{__currentUser=u};' +
-            '</script><script defer src="/assets/ovyx-provider-availability.js?v=20261018-1"></script></body></html>',
+            '</script><script defer src="/assets/ovyx-provider-availability.js?v=20261018-2"></script></body></html>',
         });
         return;
       }
