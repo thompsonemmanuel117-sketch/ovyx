@@ -60,7 +60,7 @@
 
     const root = node('section');
     root.id = ROOT_ID;
-    root.setAttribute('aria-label', 'Web Studio trace');
+    root.setAttribute('aria-label', 'Web Studio build activity');
     root.setAttribute('aria-live', 'polite');
     root.dataset.busy = 'false';
     root.dataset.status = 'info';
@@ -71,12 +71,12 @@
     const head = node('div', 'ost-head');
     const titleWrap = node('div');
     titleWrap.appendChild(node('div', 'ost-kicker', 'OVYX · BUILD QUALITY'));
-    titleWrap.appendChild(node('div', 'ost-title', 'Studio Trace'));
+    titleWrap.appendChild(node('div', 'ost-title', 'Build activity'));
     const status = node('div', 'ost-status', state.status);
     titleWrap.appendChild(status);
     const close = node('button', 'ost-close', '×');
     close.type = 'button';
-    close.setAttribute('aria-label', 'Minimize Studio Trace');
+    close.setAttribute('aria-label', 'Minimize Build activity');
     close.addEventListener('click', function () {
       panel.hidden = true;
       state.visible = false;
@@ -112,17 +112,17 @@
     ui.toggle.replaceChildren();
     ui.toggle.appendChild(node('span', 'ost-dot'));
     const label = state.busy
-      ? 'Studio Trace · Working'
+      ? 'Build activity · Working'
       : state.status === 'Needs your input'
-        ? 'Studio Trace · Action needed'
+        ? 'Build activity · Action needed'
         : state.status === 'Request failed'
-          ? 'Studio Trace · Failed'
-          : 'Studio Trace';
+          ? 'Build activity · Failed'
+          : 'Build activity';
     ui.toggle.appendChild(node('span', '', label));
     ui.root.dataset.busy = state.busy ? 'true' : 'false';
     ui.root.dataset.status = state.status === 'Request failed'
       ? 'error'
-      : state.status === 'Needs your input' || state.status === 'Output checks need attention'
+      : state.status === 'Needs your input' || state.status === 'Review needed'
         ? 'warning'
         : state.status === 'Output checks passed'
           ? 'success'
@@ -192,8 +192,8 @@
     state.elapsedMs = 0;
     state.status = 'Request in progress';
     state.events = [];
-    record('Request sent to OVYX', 'Mode: ' + mode + '. The full prompt and project contents are not copied into this trace.', 'success');
-    record('Waiting for the AI build response', 'OVYX is processing the request. This panel updates when the server responds.', 'info');
+    record('Request submitted', 'Mode: ' + mode + '. This activity view shows build progress without displaying the full prompt or your app contents.', 'success');
+    record('Preparing your draft', 'OVYX is processing the request. This panel updates when the server responds.', 'info');
     render();
   }
 
@@ -203,15 +203,15 @@
 
     if (!response.ok || payload && payload.ok === false) {
       state.status = 'Request failed';
-      const message = payload && (payload.message || payload.error && payload.error.message) || 'OVYX returned an error response (HTTP ' + response.status + ').';
-      record('OVYX returned an error', message, 'error');
+      const message = payload && (payload.message || payload.error && payload.error.message) || 'The request couldn't be completed. Please try again.';
+      record('The request couldn't be completed', message, 'error');
       render();
       return;
     }
 
     if (payload && payload.needsUserInput) {
       state.status = 'Needs your input';
-      record('Waiting for your details', payload.message || payload.text || 'Answer the question in Web Studio to continue.', 'warning');
+      record('Waiting for your details', payload.message || payload.text || 'Answer the question above to continue.', 'warning');
       render();
       return;
     }
@@ -219,14 +219,14 @@
     const verification = payload && (payload.requirementVerification || payload.data && payload.data.requirementVerification);
     if (verification && verification.ok === true) {
       state.status = 'Output checks passed';
-      record('Required-output checks passed', 'Checked ' + Number(verification.checkedFiles || 0) + ' files (' + Number(verification.checkedHtmlFiles || 0) + ' HTML files). This checks requested structure/signals, not full browser behavior.', 'success');
+      record('Content checks completed', 'Checked ' + Number(verification.checkedFiles || 0) + ' files (' + Number(verification.checkedHtmlFiles || 0) + ' HTML files). This check reviews requested structure; it does not test every interaction.', 'success');
     } else if (verification && verification.ok === false) {
-      state.status = 'Output checks need attention';
+      state.status = 'Review needed';
       const issues = Array.isArray(verification.issues) ? verification.issues : [];
-      record('Some requested items were not verified', issues.map(item => item.message || item.code || 'Requirement needs review').slice(0, 5).join('\n') || 'Review the generated files and preview before publishing.', 'warning');
+      record('Some items still need review', issues.map(item => item.message || item.code || 'Requirement needs review').slice(0, 5).join('\n') || 'Review the generated files and preview before publishing.', 'warning');
     } else {
       state.status = 'Response received';
-      record('AI response received', 'This response did not include automated output-check results. Review every requested detail in the preview before publishing.', 'warning');
+      record('AI response received', 'This response hasn't completed the quality checks. Review the preview before publishing.', 'warning');
     }
     render();
   }
