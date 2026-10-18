@@ -152,14 +152,14 @@ try {
   assert.equal(await preview.locator('style[data-ovyx-generated-css]').count(), 1, 'The returned CSS file must be bundled into the working preview.');
 
   await preview.locator('nav a[href="/collections/"]').click();
-  await preview.locator('h1').waitFor();
+  await preview.getByRole('heading', { name: 'Curated coastal collections' }).waitFor();
   assert.equal(await preview.locator('h1').innerText(), 'Curated coastal collections', 'The collections route must load its own HTML file in the preview.');
   await desktop.waitForFunction(() => document.querySelector('[data-lb-route-indicator]')?.textContent.includes('/collections/'));
   await preview.locator('nav a[href="/about/"]').click();
-  await preview.locator('h1').waitFor();
+  await preview.getByRole('heading', { name: 'A more considered way home' }).waitFor();
   assert.equal(await preview.locator('h1').innerText(), 'A more considered way home', 'The about route must load its own HTML file in the preview.');
   await preview.locator('nav a[href="/"]').click();
-  await preview.locator('h1').waitFor();
+  await preview.getByRole('heading', { name: 'Find your calm by the coast' }).waitFor();
   assert.equal(await preview.locator('h1').innerText(), 'Find your calm by the coast', 'Navigation must return to the root HTML file.');
   await preview.locator('#counter').click();
   assert.equal(await preview.locator('#counter').innerText(), 'Tap 1', 'Generated JavaScript must remain active after route navigation.');
