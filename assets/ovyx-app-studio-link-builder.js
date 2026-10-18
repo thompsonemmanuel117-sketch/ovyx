@@ -148,6 +148,49 @@
     capabilities.setAttribute('role', 'note');
     section.appendChild(capabilities);
 
+    const brain = node('section', 'ovyx-lb-brain');
+    brain.id = 'ovyx-app-studio-project-brain';
+    brain.setAttribute('aria-labelledby', 'ovyx-lb-brain-title');
+    const brainHeading = node('div', 'ovyx-lb-brain-heading');
+    brainHeading.append(node('p', 'ovyx-lb-eyebrow', 'PROJECT BRAIN / TEST ENGINE'),
+      node('h5', '', 'Dependencies, links and control checks'),
+      node('p', 'ovyx-lb-muted', 'Maps HTML, CSS and JavaScript dependencies, checks internal routes, detects unbound component selectors and inspects the rendered preview DOM. It does not click unknown controls or claim external services were tested.'));
+    const brainRun = node('button', 'ovyx-lb-brain-run', 'Run checks again');
+    brainRun.type = 'button';
+    brainRun.disabled = true;
+    brainRun.setAttribute('data-lb-brain-run', '');
+    brainHeading.appendChild(brainRun);
+    brain.appendChild(brainHeading);
+    const brainStatus = node('p', 'ovyx-lb-status', 'Generate an app to run the Project Brain and test engine.');
+    brainStatus.setAttribute('role', 'status');
+    brainStatus.setAttribute('aria-live', 'polite');
+    brainStatus.setAttribute('data-lb-brain-status', '');
+    brain.appendChild(brainStatus);
+    const brainSummary = node('p', 'ovyx-lb-brain-summary', 'No generated project has been checked yet.');
+    brainSummary.setAttribute('data-lb-brain-summary', '');
+    brain.appendChild(brainSummary);
+    const graphDetails = node('details', 'ovyx-lb-brain-graph');
+    graphDetails.appendChild(node('summary', '', 'View component dependency graph'));
+    const graphList = node('ul', 'ovyx-lb-brain-list');
+    graphList.setAttribute('data-lb-brain-graph', '');
+    graphDetails.appendChild(graphList);
+    brain.appendChild(graphDetails);
+    const findingDetails = node('details', 'ovyx-lb-brain-findings');
+    findingDetails.open = true;
+    findingDetails.appendChild(node('summary', '', 'Failures, warnings and evidence'));
+    const findingList = node('ul', 'ovyx-lb-brain-list');
+    findingList.setAttribute('data-lb-brain-findings', '');
+    findingDetails.appendChild(findingList);
+    brain.appendChild(findingDetails);
+    brainRun.addEventListener('click', () => {
+      const artifact = window.__OVYX_APP_STUDIO_GENERATED_PROJECT__;
+      if (!artifact) return;
+      runProjectBrain(section, false);
+      const refresh = window.__OVYX_PROJECT_BRAIN_REFRESH__;
+      if (typeof refresh === 'function') refresh();
+    });
+    section.appendChild(brain);
+
     saveButton.addEventListener('click', () => saveGeneratedProject(section));
     form.addEventListener('submit', event => {
       event.preventDefault();
@@ -162,9 +205,88 @@
     style.id = 'ovyx-link-builder-style';
     style.textContent = [
       '.ovyx-lb-panel{grid-column:1/-1;box-sizing:border-box;padding:16px;border:1px solid rgba(214,180,103,.42);border-radius:15px;background:linear-gradient(145deg,rgba(214,180,103,.09),rgba(7,10,15,.94));color:#f3f4f6;min-width:0}',
-      '.ovyx-lb-panel *{box-sizing:border-box;min-width:0}.ovyx-lb-eyebrow{margin:0 0 7px;color:#d6b467;font-size:10px;font-weight:850;letter-spacing:.14em}.ovyx-lb-heading h4{margin:0 0 6px;color:#fff;font-size:17px}.ovyx-lb-muted{margin:0;color:#a7afbd;font-size:11px;line-height:1.55}.ovyx-lb-form{display:flex;align-items:flex-end;gap:10px;margin-top:13px}.ovyx-lb-label{display:flex;flex:1;flex-direction:column;gap:6px;color:#dce1e9;font-size:11px;font-weight:700}.ovyx-lb-input{width:100%;border:1px solid rgba(255,255,255,.16);border-radius:9px;padding:11px 12px;background:#080a0f;color:#fff;font:inherit}.ovyx-lb-generate{border:1px solid #d6b467;border-radius:9px;background:#d6b467;color:#16130d;padding:12px 14px;font-size:11px;font-weight:850;cursor:pointer;white-space:nowrap}.ovyx-lb-generate:disabled{opacity:.65;cursor:wait}.ovyx-lb-status{margin:10px 0 0;color:#a7afbd;font-size:11px;line-height:1.5;overflow-wrap:anywhere}.ovyx-lb-status[data-kind=error]{color:#fca5a5}.ovyx-lb-status[data-kind=success]{color:#86efac}.ovyx-lb-status[data-kind=busy]{color:#fcd34d}.ovyx-lb-preview{margin-top:14px;padding:10px;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:#080a0f}.ovyx-lb-preview[hidden]{display:none}.ovyx-lb-preview-header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:2px 2px 9px;color:#f1f1ef;font-size:10px;font-weight:850;letter-spacing:.05em}.ovyx-lb-preview-header span{color:#929baa;font-size:9px;font-weight:600}.ovyx-lb-frame{display:block;width:100%;height:min(72vh,720px);min-height:420px;border:1px solid #29313d;border-radius:9px;background:#fff}.ovyx-lb-files{margin-top:10px;color:#d5d9df;font-size:11px}.ovyx-lb-files summary{cursor:pointer;padding:5px 0;color:#dfc580;font-weight:750}.ovyx-lb-source-list{display:grid;gap:8px}.ovyx-lb-source-file{border:1px solid rgba(255,255,255,.1);border-radius:8px;overflow:hidden}.ovyx-lb-source-file strong{display:block;padding:7px 9px;background:rgba(255,255,255,.04);font-size:10px}.ovyx-lb-source-file pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:300px;overflow:auto;padding:9px;margin:0;color:#cbd5e1;font:10px/1.5 ui-monospace,monospace}.ovyx-lb-project-actions{display:flex;align-items:flex-start;gap:11px;flex-wrap:wrap;margin-top:12px}.ovyx-lb-save{border:1px solid rgba(110,231,183,.45);border-radius:9px;background:#104b3d;color:#d1fae5;padding:11px 13px;font-size:11px;font-weight:800;cursor:pointer}.ovyx-lb-save:disabled{opacity:.55;cursor:not-allowed}.ovyx-lb-capabilities{margin:9px 0 0;color:#858e9c;font-size:10px;line-height:1.55}..ovyx-lb-panel :is(input,button,summary):focus-visible{outline:2px solid #d6b467;outline-offset:3px}@media(max-width:620px){.ovyx-lb-form{align-items:stretch;flex-direction:column}.ovyx-lb-generate,.ovyx-lb-save{width:100%}.ovyx-lb-project-actions{flex-direction:column}.ovyx-lb-frame{min-height:440px;height:68vh}.ovyx-lb-preview{padding:7px}}'
+      '.ovyx-lb-panel *{box-sizing:border-box;min-width:0}.ovyx-lb-eyebrow{margin:0 0 7px;color:#d6b467;font-size:10px;font-weight:850;letter-spacing:.14em}.ovyx-lb-heading h4{margin:0 0 6px;color:#fff;font-size:17px}.ovyx-lb-muted{margin:0;color:#a7afbd;font-size:11px;line-height:1.55}.ovyx-lb-form{display:flex;align-items:flex-end;gap:10px;margin-top:13px}.ovyx-lb-label{display:flex;flex:1;flex-direction:column;gap:6px;color:#dce1e9;font-size:11px;font-weight:700}.ovyx-lb-input{width:100%;border:1px solid rgba(255,255,255,.16);border-radius:9px;padding:11px 12px;background:#080a0f;color:#fff;font:inherit}.ovyx-lb-generate{border:1px solid #d6b467;border-radius:9px;background:#d6b467;color:#16130d;padding:12px 14px;font-size:11px;font-weight:850;cursor:pointer;white-space:nowrap}.ovyx-lb-generate:disabled{opacity:.65;cursor:wait}.ovyx-lb-status{margin:10px 0 0;color:#a7afbd;font-size:11px;line-height:1.5;overflow-wrap:anywhere}.ovyx-lb-status[data-kind=error]{color:#fca5a5}.ovyx-lb-status[data-kind=success]{color:#86efac}.ovyx-lb-status[data-kind=busy]{color:#fcd34d}.ovyx-lb-preview{margin-top:14px;padding:10px;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:#080a0f}.ovyx-lb-preview[hidden]{display:none}.ovyx-lb-preview-header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:2px 2px 9px;color:#f1f1ef;font-size:10px;font-weight:850;letter-spacing:.05em}.ovyx-lb-preview-header span{color:#929baa;font-size:9px;font-weight:600}.ovyx-lb-frame{display:block;width:100%;height:min(72vh,720px);min-height:420px;border:1px solid #29313d;border-radius:9px;background:#fff}.ovyx-lb-files{margin-top:10px;color:#d5d9df;font-size:11px}.ovyx-lb-files summary{cursor:pointer;padding:5px 0;color:#dfc580;font-weight:750}.ovyx-lb-source-list{display:grid;gap:8px}.ovyx-lb-source-file{border:1px solid rgba(255,255,255,.1);border-radius:8px;overflow:hidden}.ovyx-lb-source-file strong{display:block;padding:7px 9px;background:rgba(255,255,255,.04);font-size:10px}.ovyx-lb-source-file pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:300px;overflow:auto;padding:9px;margin:0;color:#cbd5e1;font:10px/1.5 ui-monospace,monospace}.ovyx-lb-brain{margin-top:15px;padding:13px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(0,0,0,.22)}.ovyx-lb-brain-heading h5{margin:0 0 6px;color:#fff;font-size:14px}.ovyx-lb-brain-run{margin-top:10px;border:1px solid rgba(214,180,103,.45);border-radius:8px;padding:8px 10px;background:#18150d;color:#efcf86;font-size:10px;font-weight:800;cursor:pointer}.ovyx-lb-brain-run:disabled{opacity:.55;cursor:wait}.ovyx-lb-brain-summary{color:#d1d5db;font-size:10px;line-height:1.6;overflow-wrap:anywhere}.ovyx-lb-brain-graph,.ovyx-lb-brain-findings{margin-top:8px;color:#cbd5e1;font-size:10px}.ovyx-lb-brain-graph summary,.ovyx-lb-brain-findings summary{cursor:pointer;padding:7px 0;color:#dfc580;font-weight:800}.ovyx-lb-brain-list{display:grid;gap:8px;margin:5px 0 0;padding-left:20px}.ovyx-lb-brain-finding{display:grid;gap:4px;color:#cbd5e1;overflow-wrap:anywhere}.ovyx-lb-brain-severity{font-size:9px;letter-spacing:.04em}.ovyx-lb-brain-file{color:#929baa;font:9px ui-monospace,monospace;overflow-wrap:anywhere}.ovyx-lb-brain-evidence{display:block;color:#fca5a5;font:9px/1.5 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere}.ovyx-lb-project-actions{display:flex;align-items:flex-start;gap:11px;flex-wrap:wrap;margin-top:12px}.ovyx-lb-save{border:1px solid rgba(110,231,183,.45);border-radius:9px;background:#104b3d;color:#d1fae5;padding:11px 13px;font-size:11px;font-weight:800;cursor:pointer}.ovyx-lb-save:disabled{opacity:.55;cursor:not-allowed}.ovyx-lb-capabilities{margin:9px 0 0;color:#858e9c;font-size:10px;line-height:1.55}.ovyx-lb-panel :is(input,button,summary):focus-visible{outline:2px solid #d6b467;outline-offset:3px}@media(max-width:620px){.ovyx-lb-form{align-items:stretch;flex-direction:column}.ovyx-lb-generate,.ovyx-lb-save{width:100%}.ovyx-lb-project-actions{flex-direction:column}.ovyx-lb-frame{min-height:440px;height:68vh}.ovyx-lb-preview{padding:7px}}'
     ].join('\n');
     document.head.appendChild(style);
+  }
+  function renderProjectBrainReport(panel, report) {
+    if (!panel || !report) return;
+    window.__OVYX_PROJECT_BRAIN_REPORT__ = report;
+    const statusNode = $(panel, '[data-lb-brain-status]');
+    const summaryNode = $(panel, '[data-lb-brain-summary]');
+    const graphNode = $(panel, '[data-lb-brain-graph]');
+    const findingsNode = $(panel, '[data-lb-brain-findings]');
+    const runButton = $(panel, '[data-lb-brain-run]');
+    if (runButton) runButton.disabled = false;
+    const summary = report.summary || {};
+    const outcome = report.status === 'failed' ? 'FAIL' : report.status === 'needs-attention' ? 'NEEDS ATTENTION' : summary.runtimeChecked ? 'PASS' : 'STATIC CHECKS ONLY';
+    if (statusNode) {
+      statusNode.textContent = outcome + ' — ' + Number(summary.failures || 0) + ' failure(s), ' + Number(summary.warnings || 0) + ' warning(s), ' + Number(summary.passed || 0) + ' passed check(s).' + (summary.runtimeChecked ? ' Live preview DOM inspected.' : ' Waiting for live preview evidence.');
+      statusNode.dataset.kind = report.status === 'failed' ? 'error' : report.status === 'needs-attention' ? 'busy' : 'success';
+    }
+    if (summaryNode) summaryNode.textContent = [
+      Number(summary.files || 0) + ' source files',
+      Number(summary.htmlPages || 0) + ' HTML pages',
+      Number(summary.dependencies || 0) + ' file dependencies',
+      Number(summary.componentDependencies || 0) + ' component hooks',
+      Number(summary.links || 0) + ' links checked',
+      Number(summary.controls || 0) + ' controls indexed',
+      Number(summary.forms || 0) + ' forms'
+    ].join(' · ');
+    if (graphNode) {
+      graphNode.replaceChildren();
+      const edges = Array.isArray(report.graph?.edges) ? report.graph.edges.slice(0, 30) : [];
+      for (const edge of edges) {
+        const item = node('li', '', edge.from.replace(/^file:/, '') + ' → ' + edge.to.replace(/^file:/, '') + ' (' + edge.type + ')');
+        if (edge.evidence) item.title = edge.evidence;
+        graphNode.appendChild(item);
+      }
+      if (!edges.length) graphNode.appendChild(node('li', '', 'No dependencies were identified.'));
+    }
+    if (findingsNode) {
+      findingsNode.replaceChildren();
+      const findings = (Array.isArray(report.checks) ? report.checks : []).filter(item => item.severity !== 'pass').slice(0, 35);
+      for (const finding of findings) {
+        const item = node('li', 'ovyx-lb-brain-finding');
+        const heading = node('strong', 'ovyx-lb-brain-severity', '[' + String(finding.severity || 'info').toUpperCase() + '] ');
+        item.append(heading, document.createTextNode(String(finding.message || finding.code || 'Check result')));
+        if (finding.file) item.appendChild(node('small', 'ovyx-lb-brain-file', finding.file));
+        if (finding.evidence) item.appendChild(node('code', 'ovyx-lb-brain-evidence', finding.evidence));
+        findingsNode.appendChild(item);
+      }
+      if (!findings.length) findingsNode.appendChild(node('li', '', 'No failures or warnings found in the checked source and live preview evidence.'));
+    }
+  }
+  function runProjectBrain(panel, attachLive) {
+    const artifact = window.__OVYX_APP_STUDIO_GENERATED_PROJECT__;
+    const frame = $(panel, '[data-lb-preview]');
+    const brain = window.OVYXProjectBrain;
+    if (!artifact || !brain || typeof brain.analyze !== 'function') {
+      const statusNode = $(panel, '[data-lb-brain-status]');
+      if (statusNode) { statusNode.textContent = 'Test engine is unavailable. No result is reported as passed.'; statusNode.dataset.kind = 'error'; }
+      return null;
+    }
+    let report;
+    try {
+      report = brain.analyze(artifact);
+      renderProjectBrainReport(panel, report);
+      if (attachLive && frame && typeof brain.attachPreview === 'function') {
+        const old = window.__OVYX_PROJECT_BRAIN_CLEANUP__;
+        if (typeof old === 'function') old();
+        const cleanup = brain.attachPreview(frame, artifact.id, () => window.__OVYX_APP_STUDIO_GENERATED_PROJECT__, updated => renderProjectBrainReport(panel, updated));
+        window.__OVYX_PROJECT_BRAIN_CLEANUP__ = cleanup;
+        window.__OVYX_PROJECT_BRAIN_REFRESH__ = () => {
+          const current = window.__OVYX_PROJECT_BRAIN_REPORT__;
+          if (current) renderProjectBrainReport(panel, brain.analyze(window.__OVYX_APP_STUDIO_GENERATED_PROJECT__));
+          if (typeof cleanup.refresh === 'function') cleanup.refresh();
+        };
+      }
+      return report;
+    } catch (error) {
+      const statusNode = $(panel, '[data-lb-brain-status]');
+      if (statusNode) { statusNode.textContent = 'Project Brain failed to run: ' + text(error?.message || error); statusNode.dataset.kind = 'error'; }
+      return null;
+    }
   }
   function parseJson(raw) {
     const source = text(raw).trim().replace(/^\x60{3}(?:json)?\s*/i, '').replace(/\x60{3}$/i, '').trim();
@@ -253,14 +375,30 @@
     }
     return map;
   }
-  function composePreview(build, projectId) {
+  function composePreview(build, projectId, routePath = '/') {
     let html = build.html;
     if (!/<html\b/i.test(html)) html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>' + html + '</body></html>';
     html = html.replace(/<meta\b[^>]*http-equiv\s*=\s*(["'])content-security-policy\1[^>]*>/gi, '');
     const csp = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: blob: https: http:; style-src 'unsafe-inline' https: http:; script-src 'unsafe-inline'; font-src data: https: http:; media-src data: blob: https: http:; connect-src 'none'; form-action 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'">`;
-    if (/<head\b[^>]*>/i.test(html)) html = html.replace(/<head\b[^>]*>/i, match => match + csp);
-    else if (/<html\b[^>]*>/i.test(html)) html = html.replace(/<html\b[^>]*>/i, match => match + '<head>' + csp + '</head>');
-    else html = csp + html;
+    const projectBrainRuntime = [
+      '(function(){',
+      'const projectId=' + JSON.stringify(String(projectId || 'link-app')) + ';',
+      'const route=' + JSON.stringify(String(routePath || '/')) + ';',
+      'const errors=[];',
+      'window.addEventListener("error",function(event){if(event&&event.message&&errors.length<10)errors.push(String(event.message).slice(0,180));});',
+      'window.addEventListener("message",function(event){if(event.source!==parent)return;const request=event.data&&event.data.ovyxProjectBrainInspect;if(!request||request.projectId!==projectId||typeof request.token!=="string")return;',
+      'const label=function(el){return String(el.getAttribute("aria-label")||el.getAttribute("name")||el.id||el.getAttribute("title")||el.textContent||el.tagName||"").trim().slice(0,100)};',
+      'const links=Array.from(document.querySelectorAll("a[href]")).slice(0,100).map(function(el){return {href:el.getAttribute("href")||"",label:label(el),target:el.getAttribute("target")||""}});',
+      'const controls=Array.from(document.querySelectorAll("button,input,select,textarea")).slice(0,100).map(function(el){return {tag:String(el.tagName||"").toLowerCase(),type:el.getAttribute("type")||"",id:el.id||"",name:el.getAttribute("name")||"",label:label(el),disabled:!!el.disabled}});',
+      'const forms=Array.from(document.forms||[]).slice(0,30).map(function(el){return {id:el.id||"",name:el.getAttribute("name")||"",fieldCount:el.querySelectorAll("input,select,textarea").length}});',
+      'const snapshot={loaded:!!document.documentElement&&document.readyState!=="loading",title:String(document.title||""),route:route,links:links,controls:controls,forms:forms,errors:errors.slice(0,10),stylesheetCount:document.styleSheets.length,generatedCss:document.querySelectorAll("[data-ovyx-generated-css]").length,generatedJs:document.querySelectorAll("[data-ovyx-generated-js]").length};',
+      'parent.postMessage({ovyxProjectBrainSnapshot:{projectId:projectId,token:request.token,snapshot:snapshot}},"*");});',
+      '})();'
+    ].join('\n');
+    const brainProbe = '<script data-ovyx-project-brain-probe>' + escapeScript(projectBrainRuntime) + '</' + 'script>';
+    if (/<head\b[^>]*>/i.test(html)) html = html.replace(/<head\b[^>]*>/i, match => match + csp + brainProbe);
+    else if (/<html\b[^>]*>/i.test(html)) html = html.replace(/<html\b[^>]*>/i, match => match + '<head>' + csp + brainProbe + '</head>');
+    else html = csp + brainProbe + html;
     const cssEntries = Object.entries(build.files).filter(([path]) => /\.css$/i.test(path));
     const cssRefs = [...html.matchAll(/<link\b[^>]*\bhref\s*=\s*(["'])([^"']+\.css(?:\?[^"']*)?)\1[^>]*>/gi)].map(match => match[2].split(/[?#]/)[0]);
     const stylesToEmbed = cssRefs.length
@@ -676,7 +814,7 @@
           status(panel, 'That internal route was discovered but was not generated from inspected pages. The current preview remains open.', 'info');
           return;
         }
-        frame.srcdoc = composePreview({ ...build, html: build.files[file], htmlPath: file }, projectId);
+        frame.srcdoc = composePreview({ ...build, html: build.files[file], htmlPath: file }, projectId, route);
         if (indicator) indicator.textContent = (route === '/' ? 'Home' : route.split('/').filter(Boolean).pop()) + ' · ' + route + ' · Interactive';
         status(panel, 'Live preview opened route ' + route + '.', 'success');
       };
@@ -690,6 +828,7 @@
         generatedAt: new Date().toISOString(), previewMode: 'sandboxed-srcdoc', savedToProjects: false
       };
       attachPreviewActionBridge(frame, panel, projectId, ownerUid);
+      runProjectBrain(panel, true);
       frame.srcdoc = renderedHtml;
       if (preview) preview.hidden = false;
       renderSources(panel, build.files);

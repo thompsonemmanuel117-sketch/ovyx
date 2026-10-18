@@ -142,6 +142,13 @@
 
     const allJavaScript = paths.filter(isJs).map(path => files[path]).join('\n');
     const selectors = selectorReferences(allJavaScript);
+    const globalIds = new Set(), globalClasses = new Set();
+    for (const htmlPath of htmlPaths) {
+      for (const item of parseTags(files[htmlPath])) {
+        if (item.attrs.id) globalIds.add(item.attrs.id);
+        text(item.attrs.class || '').split(/\s+/).filter(Boolean).forEach(cls => globalClasses.add(cls));
+      }
+    }
     for (const path of htmlPaths) {
       const source = files[path], parsed = parseTags(source), ids = new Set(), classes = new Set();
       for (const item of parsed) {
@@ -244,18 +251,13 @@
           controls.push({ type, id, label, file: path, disabled: a.disabled !== undefined || a['aria-disabled'] === 'true', actionEvidence: action, componentId });
         }
       }
-      const ids = new Set(), classes = new Set();
-      for (const item of parsed) {
-        if (item.attrs.id) ids.add(item.attrs.id);
-        text(item.attrs.class || '').split(/\s+/).filter(Boolean).forEach(cls => classes.add(cls));
-      }
       for (const selector of selectors) {
         const exists = selector.kind === 'id' ? ids.has(selector.value) : classes.has(selector.value);
         if (exists) {
           const id = 'component:' + path + ':' + (selector.kind === 'id' ? '#' : '.') + selector.value;
           addNode(id, 'component', (selector.kind === 'id' ? '#' : '.') + selector.value, path);
           for (const js of paths.filter(isJs)) if (files[js].includes(selector.evidence)) addEdge('file:' + js, id, 'script-hook', selector.evidence);
-        } else if (selector.kind === 'id') finding('warning', 'JS_TARGET_NOT_IN_HTML', 'JavaScript refers to an ID absent from this HTML file; it may be created dynamically.', path, selector.evidence, { target: selector.value });
+        } else if (selector.kind === 'id' && !globalIds.has(selector.value)) finding('warning', 'JS_TARGET_NOT_IN_HTML', 'JavaScript refers to an ID absent from every generated HTML file; it may be created dynamically.', path, selector.evidence, { target: selector.value });
       }
       for (const css of paths.filter(isCss)) {
         for (const match of files[css].matchAll(/#([a-zA-Z_][\w:-]*)/g)) if (ids.has(match[1])) {

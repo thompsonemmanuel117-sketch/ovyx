@@ -8,6 +8,7 @@ const read = path => readFile(fileURLToPath(new URL('../' + path, import.meta.ur
 const brandRuntime = await read('assets/ovyx-app-studio-brand-dna.js');
 const analyzerRuntime = await read('assets/ovyx-app-studio-url-analyzer.js');
 const builderRuntime = await read('assets/ovyx-app-studio-link-builder.js');
+const projectBrainRuntime = await read('assets/ovyx-app-studio-project-brain.js');
 const requests = { analyzer: [], generation: [], profile: [], api: [], cloudSave: [] };
 const eventOrder = [];
 const existingLogo = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8x8AAwMCAO+/g6sAAAAASUVORK5CYII=';
@@ -54,6 +55,7 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta n
   '<script src="/assets/ovyx-app-studio-brand-dna.js"></script>' +
   '<script src="/assets/ovyx-app-studio-url-analyzer.js"></script>' +
   '<script src="/assets/ovyx-app-studio-link-builder.js"></script>' +
+  '<script src="/assets/ovyx-app-studio-project-brain.js"></script>' +
   '</body></html>';
 
 function send(res, status, body, type) {
@@ -66,6 +68,7 @@ const server = createServer(async (req, res) => {
   if (url.pathname === '/assets/ovyx-app-studio-brand-dna.js') return send(res, 200, brandRuntime, 'text/javascript; charset=utf-8');
   if (url.pathname === '/assets/ovyx-app-studio-url-analyzer.js') return send(res, 200, analyzerRuntime, 'text/javascript; charset=utf-8');
   if (url.pathname === '/assets/ovyx-app-studio-link-builder.js') return send(res, 200, builderRuntime, 'text/javascript; charset=utf-8');
+  if (url.pathname === '/assets/ovyx-app-studio-project-brain.js') return send(res, 200, projectBrainRuntime, 'text/javascript; charset=utf-8');
   if (url.pathname === '/api/app-studio/url-analyzer') {
     let raw = '';
     for await (const chunk of req) raw += chunk;
@@ -140,6 +143,40 @@ try {
   await desktop.locator('[data-lb-name]').fill('Coastal Living');
   await desktop.locator('[data-lb-generate]').click();
   await desktop.waitForFunction(() => document.querySelector('[data-lb-status]')?.textContent.includes('opened in the live preview'), null, { timeout: 15000 });
+  await desktop.waitForFunction(() => window.__OVYX_PROJECT_BRAIN_REPORT__?.summary?.runtimeChecked === true, null, { timeout: 10000 });
+  await desktop.locator('#ovyx-app-studio-project-brain [data-lb-brain-run]').waitFor();
+  const firstBrainReport = await desktop.evaluate(() => window.__OVYX_PROJECT_BRAIN_REPORT__);
+  assert.ok(firstBrainReport?.summary?.files >= 5, 'Project Brain must inventory the actual generated HTML/CSS/JS files.');
+  assert.ok(firstBrainReport?.summary?.componentDependencies >= 1, 'Project Brain must connect component selectors to actual page elements.');
+  assert.equal(firstBrainReport?.summary?.failures, 0, 'The fixture project should have no dependency or route failures: ' + JSON.stringify(firstBrainReport?.checks?.filter(item => item.severity === 'error')));
+  assert.ok(firstBrainReport?.checks?.some(item => item.code === 'LIVE_PREVIEW_LOADED'), 'The report must use a real preview DOM handshake.');
+  assert.ok(firstBrainReport?.checks?.some(item => item.code === 'LIVE_LINKS_INSPECTED'), 'The report must include rendered links inspected inside the preview.');
+  assert.ok(firstBrainReport?.checks?.some(item => item.code === 'LIVE_CONTROLS_INSPECTED'), 'The report must include rendered controls inspected inside the preview.');
+  assert.ok(firstBrainReport?.graph?.edges?.some(edge => edge.type === 'navigation'), 'The dependency graph must capture internal navigation edges.');
+  assert.ok(firstBrainReport?.graph?.edges?.some(edge => edge.type === 'stylesheet'), 'The dependency graph must capture stylesheet edges.');
+  assert.ok(firstBrainReport?.graph?.edges?.some(edge => edge.type === 'script-hook'), 'The dependency graph must capture component-to-JavaScript hooks.');
+  const badAudit = await desktop.evaluate(() => window.OVYXProjectBrain.analyze({
+    id: 'test-broken-project', name: 'Broken test fixture',
+    routes: { '/': 'index.html' },
+    files: { 'index.html': '<html><head><title>Broken test</title></head><body><a href="/missing/">Missing route</a><a href="#absent">Missing section</a><link rel="stylesheet" href="missing.css"></body></html>' }
+  }));
+  assert.equal(badAudit.status, 'failed', 'Project Brain must fail an intentionally broken route/dependency fixture, not blindly report success.');
+  assert.ok(badAudit.checks.some(item => item.code === 'BROKEN_INTERNAL_ROUTE'));
+  assert.ok(badAudit.checks.some(item => item.code === 'BROKEN_FRAGMENT'));
+  assert.ok(badAudit.checks.some(item => item.code === 'STYLESHEET_DEPENDENCY_MISSING'));
+  const repairedAudit = await desktop.evaluate(() => window.OVYXProjectBrain.analyze({
+    id: 'test-repaired-project', name: 'Repaired test fixture',
+    routes: { '/': 'index.html', '/missing/': 'pages/missing.html' },
+    files: {
+      'index.html': '<html><head><title>Repaired test</title><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="styles.css"></head><body><a href="/missing/">Missing route</a><a href="#absent">Missing section</a><section id="absent">Now present</section></body></html>',
+      'pages/missing.html': '<html><head><title>Missing route page</title><meta name="viewport" content="width=device-width,initial-scale=1"></head><body><h1>Now present</h1></body></html>',
+      'styles.css': 'body{font-family:Arial}'
+    }
+  }));
+  assert.equal(repairedAudit.status, 'passed', 'After correcting the paths and anchor, the exact engine must retest the repaired fixture cleanly.');
+
+  await desktop.locator('#ovyx-app-studio-project-brain [data-lb-brain-run]').click();
+  await desktop.waitForFunction(() => window.__OVYX_PROJECT_BRAIN_REPORT__?.summary?.runtimeChecked === true, null, { timeout: 5000 });
 
   assert.equal(requests.analyzer.length, 1, 'The Stage 2 analyzer must perform the URL inspection first.');
   assert.equal(requests.analyzer[0].auth, 'Bearer test-id-token');
@@ -244,13 +281,18 @@ try {
   await mobile.waitForFunction(() => document.querySelector('[data-ua-status]')?.textContent.includes('Analysis complete.'));
   await mobile.locator('[data-lb-generate]').click();
   await mobile.waitForFunction(() => document.querySelector('[data-lb-status]')?.textContent.includes('opened in the live preview'), null, { timeout: 15000 });
+  await mobile.waitForFunction(() => window.__OVYX_PROJECT_BRAIN_REPORT__?.summary?.runtimeChecked === true, null, { timeout: 10000 });
+  const mobileBrain = await mobile.evaluate(() => window.__OVYX_PROJECT_BRAIN_REPORT__);
+  assert.ok(mobileBrain?.summary?.runtimeChecked && mobileBrain.summary.files >= 5, 'Project Brain must inspect the live mobile preview too.');
+  const brainMetrics = await mobile.locator('#ovyx-app-studio-project-brain').evaluate(el => ({ width: el.getBoundingClientRect().width, scrollWidth: el.scrollWidth, viewport: document.documentElement.clientWidth }));
+  assert.ok(brainMetrics.width > 0 && brainMetrics.scrollWidth <= brainMetrics.viewport + 1, 'Project Brain results must fit mobile width.');
   const mobilePreview = mobile.frameLocator('[data-lb-preview]');
   assert.equal(await mobilePreview.locator('nav a[href="/collections/"]').count(), 1, 'The mobile preview must expose cross-page navigation too.');
   await mobilePreview.locator('nav a[href="/collections/"]').click();
   await mobilePreview.getByRole('heading', { name: 'Curated coastal collections' }).waitFor();
   assert.equal(await mobilePreview.locator('h1').innerText(), 'Curated coastal collections', 'Multi-page route navigation must work at mobile width.');
   assert.deepEqual(errors, [], 'The real browser handoff must not throw page exceptions.');
-  console.log('OVYX Stage 4 browser checks passed: multi-page navigation, real form feedback, per-user local persistence, sensitive-field filtering, authorized read-only APIs, direct-network blocking, and confirmed cloud save to OVYX Projects.');
+  console.log('OVYX Stage 5 + 4 browser checks passed: component dependency graph, broken-route regression and repair re-test, real preview DOM/error probe, multi-page navigation, form outcomes, per-user persistence, sensitive-field filtering, authorized read-only APIs, network blocking and confirmed cloud save.');
 } finally {
   await browser.close();
   await new Promise(resolve => server.close(resolve));
