@@ -48,7 +48,7 @@ const PROVIDERS = Object.freeze({
 });
 
 const NOT_AVAILABLE_SUFFIX =
-  ' is not available right now. Please try again later, or connect your own AI Brain in Universal Connections to continue building.';
+  ' isn't available right now. Try OVYX Auto or choose another available AI option.';
 
 async function checkEndpoint(config, key) {
   const controller = new AbortController();
