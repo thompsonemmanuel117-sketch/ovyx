@@ -28,7 +28,7 @@ assert.ok(feedbackApi.includes("route !== 'web-studio' && route !== 'assistant-w
 assert.ok(feedbackApi.includes('route,'), 'feedback record must retain the validated surface');
 assert.ok(feedbackApi.includes("'native-ovyx-ai'"), 'feedback provider allowlist must accept the native assistant');
 assert.ok(!feedbackApi.includes('body.prompt') && !feedbackApi.includes('body.responseText'), 'feedback metadata must not persist private prompt/response content');
-assert.ok(middleware.includes('/assets/ovyx-additional-ai-provider-diagnostics.js?v=20261014-1'), 'extended diagnostics asset must be injected');
+assert.ok(middleware.includes('/assets/ovyx-additional-ai-provider-diagnostics.js?v=20261018-2'), 'extended diagnostics asset must be injected');
 assert.ok(headers.includes('/assets/ovyx-additional-ai-provider-diagnostics.js'), 'extended diagnostics asset must be served with explicit cache controls');
 assert.ok(providerRouter.includes('OPENROUTER_API_KEY'), 'OpenRouter must use its existing server environment key');
 assert.ok(providerRouter.includes("'https://openrouter.ai/api/v1/chat/completions'"), 'OpenRouter must use the fixed official API origin');
