@@ -207,7 +207,7 @@
   async function loadProfile() {
     const panel = document.querySelector('[data-settings-panel="profile"]');
     if (!panel || !currentUser()) return;
-    const status = addStatus(panel, 'ovyx-profile-server-status', 'Loading saved profile from the server…');
+    const status = addStatus(panel, 'ovyx-profile-server-status', 'Loading your saved profile…');
     try {
       const data = await api(PROFILE_ENDPOINT);
       const profile = data.profile || {};
@@ -215,14 +215,14 @@
       const workspace = $('set-workspace-name');
       if (name && document.activeElement !== name && profile.displayName) name.value = profile.displayName;
       if (workspace && document.activeElement !== workspace && profile.workspaceName) workspace.value = profile.workspaceName;
-      if (status) status.textContent = data.updatedAt ? 'Server profile last saved ' + new Date(data.updatedAt).toLocaleString() : 'No server profile saved yet.';
+      if (status) status.textContent = data.updatedAt ? 'Profile last saved ' + new Date(data.updatedAt).toLocaleString() : 'You haven't saved a profile yet.';
     } catch (error) {
-      if (status) status.textContent = 'Server profile unavailable: ' + (error.message || 'request failed');
+      if (status) status.textContent = 'We couldn't load your saved profile. Please try again.;
     }
   }
   async function saveProfile(button) {
     const panel = document.querySelector('[data-settings-panel="profile"]');
-    const status = addStatus(panel, 'ovyx-profile-server-status', 'Saving account profile…');
+    const status = addStatus(panel, 'ovyx-profile-server-status', 'Saving your profile…');
     const name = $('set-profile-name') || $('set-profile-name-legacy');
     const workspace = $('set-workspace-name') || $('set-workspace-name-legacy');
     const displayName = String(name && name.value || '').trim();
@@ -247,11 +247,11 @@
         try { await user.updateProfile({ displayName: saved.displayName }); }
         catch (error) { console.warn('[OVYX Settings] Firebase displayName sync failed; server profile remains saved.', String(error && error.message || error).slice(0, 120)); }
       }
-      if (status) status.textContent = 'Verified on server at ' + (data.updatedAt || new Date().toISOString());
+      if (status) status.textContent = 'Profile saved to your OVYX account. Last updated ' + new Date(data.updatedAt || Date.now()).toLocaleString();
       notify('Profile saved to your OVYX account.', 'success');
       return data;
     } catch (error) {
-      if (status) status.textContent = 'Save failed: ' + (error.message || 'server did not confirm the write');
+      if (status) status.textContent = 'Your profile wasn't saved. Please try again.;
       throw error;
     } finally {
       if (button) { button.disabled = false; button.textContent = original || 'Save Profile'; }
@@ -292,12 +292,12 @@
       renderNotificationState(panel, data.notifications || NOTIFICATION_DEFAULTS);
       window.OVYXSettingsNotificationPreferences = Object.assign({}, notificationDraft);
       try { localStorage.setItem(notificationStorageKey(), JSON.stringify(notificationDraft)); } catch (_) {}
-      if (status) status.textContent = 'Preferences loaded from your account. Email delivery is not triggered by these preference switches.';
+      if (status) status.textContent = 'Your notification preferences are ready. Email notifications are sent only when that delivery option is available.';
     } catch (error) {
       notificationDraft = Object.assign({}, NOTIFICATION_DEFAULTS, safeJson(localStorage.getItem(notificationStorageKey())));
       window.OVYXSettingsNotificationPreferences = Object.assign({}, notificationDraft);
       renderNotificationState(panel, notificationDraft);
-      if (status) status.textContent = 'Could not reach the preference service: ' + (error.message || 'request failed') + '. Showing this account’s last saved browser copy.';
+      if (status) status.textContent = 'We couldn't load your saved notification preferences. Showing the last version available on this device.';
     }
   }
   async function saveNotifications(button, reset) {
@@ -310,10 +310,10 @@
       renderNotificationState(panel, data.notifications || next);
       window.OVYXSettingsNotificationPreferences = Object.assign({}, notificationDraft);
       try { localStorage.setItem(notificationStorageKey(), JSON.stringify(notificationDraft)); } catch (_) {}
-      if (status) status.textContent = 'Server confirmed account preferences saved. Email options are stored preferences; delivery still requires a configured mail channel.';
+      if (status) status.textContent = 'Your notification preferences have been saved. Email notifications will be available when delivery is enabled.';
       notify(reset ? 'Notification preferences reset and saved to your account.' : 'Notification preferences saved to your account.', 'success');
     } catch (error) {
-      if (status) status.textContent = 'Save failed: ' + (error.message || 'server did not confirm the write');
+      if (status) status.textContent = 'Your profile wasn't saved. Please try again.;
       notify(error.message || 'Notification preferences were not saved.', 'error');
     } finally {
       if (button) { button.disabled = false; button.textContent = button.dataset.originalText || (reset ? 'Reset' : 'Save Notification Preferences'); delete button.dataset.originalText; }
@@ -326,15 +326,15 @@
       if (meter && !currentUser()) meter.textContent = 'Sign in to load usage';
       return;
     }
-    meter.textContent = 'Loading server quota…';
+    meter.textContent = 'Loading your AI allowance…';
     try {
       const data = await api(QUOTA_ENDPOINT);
       const limit = Number(data.monthlyLimit || data.monthlyLimitTokens || data.monthly_limit || 0);
       const remaining = Number(data.current_monthly_tokens ?? data.baseRemaining ?? data.remainingTokens ?? 0);
-      if (!Number.isFinite(limit) || limit <= 0 || !Number.isFinite(remaining)) throw new Error('The quota service returned invalid values.');
+      if (!Number.isFinite(limit) || limit <= 0 || !Number.isFinite(remaining)) throw new Error('Your usage details couldn't be verified.');
       const used = Math.max(0, limit - Math.max(0, remaining));
       meter.textContent = used.toLocaleString() + ' used / ' + limit.toLocaleString();
-      meter.title = Math.max(0, remaining).toLocaleString() + ' monthly tokens remaining. Source: authenticated OVYX quota API.';
+      meter.title = Math.max(0, remaining).toLocaleString() + ' monthly AI tokens remaining.';
       const group = meter.closest('.ovyx-pref-group');
       let detail = group && group.querySelector('#ovyx-usage-server-detail');
       if (group && !detail) {
@@ -345,14 +345,14 @@
       }
       if (detail) detail.textContent = 'Plan: ' + String(data.plan || 'current').toUpperCase() + ' · Remaining: ' + Math.max(0, remaining).toLocaleString() + ' tokens · Daily prompts remaining: ' + Number(data.daily_prompts_allowance || 0).toLocaleString();
     } catch (error) {
-      meter.textContent = 'Usage unavailable';
+      meter.textContent = 'Usage couldn't be loaded right now';
       meter.title = error.message || '';
     }
   }
   async function deleteAccount(button) {
     const user = currentUser();
     if (!user) throw new Error('Sign in to delete your account.');
-    const confirmed = window.confirm('Delete your OVYX account and its cloud project data permanently? This cannot be undone.');
+    const confirmed = window.confirm('Permanently delete your OVYX account and saved app data? This action cannot be undone.');
     if (!confirmed) return;
     const original = button && button.textContent;
     if (button) { button.disabled = true; button.textContent = 'Deleting…'; }
@@ -392,11 +392,11 @@
         localStorage.removeItem('ovyx.settings.toggles.v34');
       } catch (_) {}
       window.__OVYX_AUTH_STATE_READY__ = false;
-      notify('Account and server-side project data deleted.', 'success');
+      notify('Your account and saved app data have been deleted.', 'success');
       window.Router && window.Router.go && window.Router.go('home');
       window.OVYXMasterAuth && window.OVYXMasterAuth.openAuth && window.OVYXMasterAuth.openAuth();
     } catch (error) {
-      notify(error.message || 'Account deletion failed.', 'error');
+      notify(error.message || 'Your account couldn't be deleted. Please try again.', 'error');
       throw error;
     } finally {
       if (button) { button.disabled = false; button.textContent = original || 'Delete account'; }
@@ -461,8 +461,8 @@
       notificationDraft[key] = !notificationDraft[key];
       toggle.setAttribute('aria-checked', String(!!notificationDraft[key]));
       const panel = notificationPanel();
-      const status = addStatus(panel, 'ovyx-notification-server-status', 'Unsaved change. Choose Save Notification Preferences to apply it to your account.');
-      if (status) status.textContent = 'Unsaved change. Save to apply this preference to your account. Email options do not send emails by themselves.';
+      const status = addStatus(panel, 'ovyx-notification-server-status', 'Unsaved changes. Save to apply your notification preferences.');
+      if (status) status.textContent = 'Unsaved changes. Save to apply this preference. Email notifications won't be sent until delivery is available.';
     }, true);
     document.addEventListener('click', function (event) {
       const save = event.target && event.target.closest && event.target.closest('#notify-save');
@@ -614,7 +614,7 @@
         prefs.provider = String(panel && panel.querySelector('#set-provider') && panel.querySelector('#set-provider').value || 'gemini');
         const selectedModel = String(panel && panel.querySelector('#set-ai-model') && panel.querySelector('#set-ai-model').value || 'automatic');
         prefs.model = selectedModel === 'automatic' || (MODELS_BY_PROVIDER[prefs.provider] || []).includes(selectedModel) ? selectedModel : 'automatic';
-        if (selectedModel !== prefs.model) notify('The model override did not match the selected provider; Automatic model selection was saved instead.', 'info');
+        if (selectedModel !== prefs.model) notify('The selected model isn't supported by this AI option. Automatic model selection was saved instead.', 'info');
         prefs.routing = String(panel && panel.querySelector('#set-ai-routing') && panel.querySelector('#set-ai-routing').value || 'automatic');
         prefs.fallback = String(panel && panel.querySelector('#set-ai-fallback') && panel.querySelector('#set-ai-fallback').value || 'next');
         prefs.contextLimit = String(panel && panel.querySelector('#set-ai-context-limit') && panel.querySelector('#set-ai-context-limit').value || 'automatic');
@@ -625,8 +625,8 @@
         });
         localStorage.setItem(key, JSON.stringify(prefs));
         window.OVYXAI = Object.assign({}, window.OVYXAI || {}, prefs);
-        const status = addStatus(panel, 'ovyx-ai-preference-status', 'AI preferences saved on this device and account browser.');
-        if (status) status.textContent = 'Preferences saved on this device. Provider selection will be used when automatic routing is requested.';
+        const status = addStatus(panel, 'ovyx-ai-preference-status', 'AI preferences saved on this device.');
+        if (status) status.textContent = 'Preferences saved on this device. Your selection will be used when OVYX Auto chooses an AI model.';
         notify('AI preferences saved.', 'success');
       } catch (error) {
         notify(error.message || 'AI preferences could not be saved.', 'error');
@@ -845,7 +845,7 @@
       if (key === 'n') {
         if (!store || typeof store.createPromptModal !== 'function') {
           event.preventDefault();
-          notify('New Project is unavailable in this workspace.', 'error');
+          notify('Creating a new project isn't available in this workspace yet.', 'error');
           return;
         }
         event.preventDefault();
