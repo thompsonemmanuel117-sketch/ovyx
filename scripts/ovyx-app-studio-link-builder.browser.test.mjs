@@ -321,7 +321,7 @@ try {
   assert.ok(!JSON.stringify(storedLocalState).includes('do-not-store-this'), 'Password values must not enter local preview persistence.');
 
   await desktop.locator('[data-lb-save]').click();
-  await desktop.waitForFunction(() => document.querySelector('[data-lb-save-status]')?.textContent.includes('App saved and verified in OVYX Projects'));
+  await desktop.waitForFunction(() => document.querySelector('[data-lb-save-status]')?.textContent.includes('App saved to OVYX Projects'));
   assert.equal(requests.cloudSave.length, 1, 'The explicit cloud save button must POST the project through the existing Projects API.');
   assert.equal(requests.cloudSave[0].auth, 'Bearer test-id-token');
   assert.equal(requests.cloudSave[0].body.projectId, 'link-coastal-living');
@@ -386,7 +386,7 @@ try {
   assert.ok(requests.webStatus.some(item => item.query.deploymentId === 'deployment-1'));
 
   await desktop.locator('[data-lb-release-health]').click();
-  await desktop.waitForFunction(() => document.querySelector('[data-lb-web-status]')?.textContent.includes('Release health: healthy'), null, { timeout: 10000 });
+  await desktop.waitForFunction(() => document.querySelector('[data-lb-web-status]')?.textContent.includes('Website health: healthy'), null, { timeout: 10000 });
   assert.equal(requests.releaseHealth.length, 1, 'The release-health control must call the authenticated health endpoint.');
   assert.equal(requests.releaseHealth[0].auth, 'Bearer test-id-token');
   assert.equal(requests.releaseHealth[0].query.deploymentId, 'deployment-1');
@@ -401,10 +401,10 @@ try {
   await desktop.locator('[data-lb-release-health]').click();
   await desktop.waitForFunction(() => {
     const target = document.querySelector('[data-lb-web-status]');
-    return target && (target.dataset.kind === 'error' || target.textContent.includes('Release health: healthy'));
+    return target && (target.dataset.kind === 'error' || target.textContent.includes('Website health: healthy'));
   }, null, { timeout: 10000 }).catch(() => {});
   const productionHealthStatus = await desktop.locator('[data-lb-web-status]').innerText();
-  assert.match(productionHealthStatus, /Release health: healthy/, 'Production health check did not complete; status=' + productionHealthStatus + '; release-health requests=' + JSON.stringify(requests.releaseHealth));
+  assert.match(productionHealthStatus, /Website health: healthy/, 'Production health check did not complete; status=' + productionHealthStatus + '; release-health requests=' + JSON.stringify(requests.releaseHealth));
   assert.equal(requests.releaseHealth.length, 2, 'The production release must get its own post-release health check.');
   assert.equal(requests.releaseHealth[1].query.deploymentId, 'deployment-2');
 
@@ -413,10 +413,10 @@ try {
   await mobileStartButton.click();
   await desktop.waitForFunction(() => {
     const target = document.querySelector('[data-lb-mobile-status]');
-    return target && (target.dataset.kind === 'error' || target.textContent.includes('EAS status: completed'));
+    return target && (target.dataset.kind === 'error' || target.textContent.includes('Mobile build status: Complete'));
   }, null, { timeout: 10000 }).catch(() => {});
   const mobileStartStatus = await desktop.locator('[data-lb-mobile-status]').innerText();
-  assert.match(mobileStartStatus, /EAS status: completed/, 'Mobile build did not complete; button disabled before click=' + mobileStartWasDisabled + '; status=' + mobileStartStatus + '; dispatchRequests=' + requests.mobileBuild.length);
+  assert.match(mobileStartStatus, /Mobile build status: Complete/, 'Mobile build did not complete; button disabled before click=' + mobileStartWasDisabled + '; status=' + mobileStartStatus + '; dispatchRequests=' + requests.mobileBuild.length);
   assert.equal(requests.mobileBuild.length, 1, 'The mobile UI must call the existing EAS build API.');
   assert.equal(requests.mobileBuild[0].auth, 'Bearer test-id-token');
   assert.deepEqual(requests.mobileBuild[0].body.platforms, ['android']);
@@ -428,11 +428,11 @@ try {
   assert.ok((await desktop.locator('[data-lb-mobile-links]').innerText()).includes('https://downloads.example/app.apk'), 'Completed mobile status must expose the returned download URL.');
 
   await desktop.locator('[data-lb-mobile-refresh]').click();
-  await desktop.waitForFunction(() => document.querySelector('[data-lb-mobile-status]')?.textContent.includes('EAS status: completed'), null, { timeout: 10000 });
+  await desktop.waitForFunction(() => document.querySelector('[data-lb-mobile-status]')?.textContent.includes('Mobile build status: Complete'), null, { timeout: 10000 });
   assert.equal(requests.mobileStatus.length, 2, 'Manual refresh must re-query the mobile build status endpoint.');
 
   await desktop.locator('[data-lb-save-release]').click();
-  await desktop.waitForFunction(() => document.querySelector('[data-lb-web-status]')?.textContent.includes('Release history saved and verified in OVYX Projects'), null, { timeout: 10000 });
+  await desktop.waitForFunction(() => document.querySelector('[data-lb-web-status]')?.textContent.includes('Release details saved to OVYX Projects'), null, { timeout: 10000 });
   assert.equal(requests.cloudSave.length, 2, 'The release record action must save through the existing OVYX Projects API.');
   const releaseSave = requests.cloudSave[1];
   assert.equal(releaseSave.auth, 'Bearer test-id-token');
