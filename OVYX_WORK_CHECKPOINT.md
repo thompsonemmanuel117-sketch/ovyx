@@ -666,3 +666,14 @@ Stage 01 code and desktop/mobile browser verification are complete on the record
 - [x] Post-merge **OVYX Cloudflare Diagnostics** passed: deployment `729bd19c-81a5-498d-9e9a-98b9845530f4`, `Stage: deploy / success`, runtime API healthy (HTTP 200), and zero detected log errors: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/39131947798.
 - [x] Stage 5 completion condition is met: Project Brain produces an evidence-backed source/dependency graph and honest static-vs-live status, checks the real sandboxed preview, finds intentionally broken wiring, and verifies repaired projects on the same test engine.
 
+## Stage 6 — Export, publish and maintain (2026-10-18)
+
+- [x] Added actual download outputs for portable source JSON and a ZIP archive with deployable HTML routes/assets and a release manifest; export is generated from the current Project App Studio artifact, not a screenshot.
+- [x] Added a release gate that requires Project Brain's live-preview DOM result and zero reported source/dependency failures before web or native publishing. Findings and release attempts are shown as explicit status/diagnostic messages.
+- [x] Connected Preview Deploy and Production Publish to the existing authenticated Cloudflare Pages Direct Upload route. The UI asks before sending source files, then shows provider deployment IDs/status, URL and refreshable authoritative status.
+- [x] Added authenticated `/api/app-studio/release-health`: it reads the exact deployment from the owner's deterministic Pages project and only probes HTTPS `*.pages.dev` aliases returned by Cloudflare; it reports provider stage plus successful/failed public HTTP reachability, with a bounded 8-second probe and no caller-selected host fetch.
+- [x] Connected Android/iOS choices to the existing EAS workflow using a validated, resized square PNG and a generated WebView HTML bundle containing only the inspected HTML routes. Status refresh reads the user-owned build job and renders artifact/download and provider workflow links.
+- [x] Added a separately confirmed “Save release record to OVYX Projects” action that persists web deployment history, health-check results and asynchronous mobile build status without silently saving or publishing.
+- [x] Static web output labels its limits: local app state/form outcomes remain local, and private OVYX account APIs, backend writes and third-party payment/email/auth integrations are not magically carried into a public static deployment. The native wrapper also reports that OVYX-authenticated preview APIs are not included.
+- [ ] Run Stage 6 endpoint/source tests, the desktop/mobile Chromium export → preview/production publish → health check → EAS status sequence, Agent Verify, and production deployment diagnostics against this exact branch/PR head. Do not check this stage complete until their logs pass and merge is verified.
+

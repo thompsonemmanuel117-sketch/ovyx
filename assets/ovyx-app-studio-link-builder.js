@@ -191,7 +191,98 @@
     });
     section.appendChild(brain);
 
+    const release = node('section', 'ovyx-lb-release');
+    release.id = 'ovyx-app-studio-release';
+    release.setAttribute('aria-labelledby', 'ovyx-lb-release-title');
+    const releaseHeading = node('div', 'ovyx-lb-release-heading');
+    releaseHeading.append(
+      node('p', 'ovyx-lb-eyebrow', 'STAGE 06 / RELEASE WORKSPACE'),
+      node('h5', '', 'Export, publish and maintain'),
+      node('p', 'ovyx-lb-muted', 'Validate the current generated files, export a portable package, publish to Cloudflare Pages when your account is authorized, or request Android/iOS builds through the configured EAS pipeline.')
+    );
+    release.appendChild(releaseHeading);
+
+    const exportActions = node('div', 'ovyx-lb-release-actions');
+    const exportZip = node('button', 'ovyx-lb-release-btn', 'Export deployable ZIP');
+    exportZip.type = 'button'; exportZip.setAttribute('data-lb-export-zip', '');
+    const exportJson = node('button', 'ovyx-lb-release-btn secondary', 'Export source JSON');
+    exportJson.type = 'button'; exportJson.setAttribute('data-lb-export-json', '');
+    exportActions.append(exportZip, exportJson);
+    release.appendChild(exportActions);
+
+    const webHeading = node('div', 'ovyx-lb-release-subheading');
+    webHeading.append(node('h6', '', 'Web publish'), node('p', 'ovyx-lb-muted', 'Deploy Preview creates a non-production branch deployment. Publish Production updates the public production deployment. Both require a confirmed action and server-side Cloudflare permission.'));
+    release.appendChild(webHeading);
+    const webActions = node('div', 'ovyx-lb-release-actions');
+    const webDeploy = node('button', 'ovyx-lb-release-btn', 'Deploy preview');
+    webDeploy.type = 'button'; webDeploy.disabled = true; webDeploy.setAttribute('data-lb-deploy-preview', '');
+    const webPublish = node('button', 'ovyx-lb-release-btn publish', 'Publish production');
+    webPublish.type = 'button'; webPublish.disabled = true; webPublish.setAttribute('data-lb-publish', '');
+    const webHealth = node('button', 'ovyx-lb-release-btn secondary', 'Check release health');
+    webHealth.type = 'button'; webHealth.disabled = true; webHealth.setAttribute('data-lb-release-health', '');
+    webActions.append(webDeploy, webPublish, webHealth);
+    release.appendChild(webActions);
+    const webStatus = node('p', 'ovyx-lb-status', 'Build validation and a live Project Brain report are required before web deployment.');
+    webStatus.setAttribute('role', 'status'); webStatus.setAttribute('aria-live', 'polite'); webStatus.setAttribute('data-lb-web-status', '');
+    release.appendChild(webStatus);
+    const releaseLink = node('a', 'ovyx-lb-release-link', 'Open latest deployment');
+    releaseLink.href = '#'; releaseLink.target = '_blank'; releaseLink.rel = 'noopener noreferrer'; releaseLink.hidden = true;
+    releaseLink.setAttribute('data-lb-release-link', '');
+    release.appendChild(releaseLink);
+    const savedRelease = node('button', 'ovyx-lb-release-btn secondary', 'Save release record to OVYX Projects');
+    savedRelease.type = 'button'; savedRelease.disabled = true; savedRelease.setAttribute('data-lb-save-release', '');
+    release.appendChild(savedRelease);
+
+    const mobileHeading = node('div', 'ovyx-lb-release-subheading');
+    mobileHeading.append(node('h6', '', 'Android / iOS builds'), node('p', 'ovyx-lb-muted', 'EAS mobile builds require the OVYX server’s Expo configuration and a PNG app icon. The native wrapper packages the generated routes into one local WebView with local storage; OVYX account APIs stay web-preview-only.'));
+    release.appendChild(mobileHeading);
+    const mobileGrid = node('div', 'ovyx-lb-mobile-grid');
+    const iconLabel = node('label', 'ovyx-lb-label', 'App icon (square PNG)');
+    const iconInput = node('input', 'ovyx-lb-input');
+    iconInput.type = 'file'; iconInput.accept = 'image/png,.png'; iconInput.setAttribute('data-lb-mobile-icon', '');
+    iconLabel.appendChild(iconInput);
+    const platformGroup = node('fieldset', 'ovyx-lb-platforms');
+    platformGroup.appendChild(node('legend', '', 'Build targets'));
+    for (const platform of [{key:'android',label:'Android APK'}, {key:'ios',label:'Apple iOS IPA'}]) {
+      const choice = node('label', 'ovyx-lb-platform');
+      const input = node('input', '');
+      input.type = 'checkbox'; input.value = platform.key; input.setAttribute('data-lb-platform', platform.key);
+      if (platform.key === 'android') input.checked = true;
+      choice.append(input, document.createTextNode(' ' + platform.label));
+      platformGroup.appendChild(choice);
+    }
+    mobileGrid.append(iconLabel, platformGroup);
+    release.appendChild(mobileGrid);
+    const mobileActions = node('div', 'ovyx-lb-release-actions');
+    const mobileBuild = node('button', 'ovyx-lb-release-btn', 'Start mobile build');
+    mobileBuild.type = 'button'; mobileBuild.disabled = true; mobileBuild.setAttribute('data-lb-mobile-build', '');
+    const mobileRefresh = node('button', 'ovyx-lb-release-btn secondary', 'Refresh mobile status');
+    mobileRefresh.type = 'button'; mobileRefresh.disabled = true; mobileRefresh.setAttribute('data-lb-mobile-refresh', '');
+    mobileActions.append(mobileBuild, mobileRefresh);
+    release.appendChild(mobileActions);
+    const mobileStatus = node('p', 'ovyx-lb-status', 'No mobile build has been requested.');
+    mobileStatus.setAttribute('role', 'status'); mobileStatus.setAttribute('aria-live', 'polite'); mobileStatus.setAttribute('data-lb-mobile-status', '');
+    release.appendChild(mobileStatus);
+    const mobileLinks = node('div', 'ovyx-lb-mobile-links');
+    mobileLinks.setAttribute('data-lb-mobile-links', '');
+    release.appendChild(mobileLinks);
+    const releaseDiagnostics = node('ul', 'ovyx-lb-release-diagnostics');
+    releaseDiagnostics.setAttribute('data-lb-release-diagnostics', '');
+    release.appendChild(releaseDiagnostics);
+    const releaseNote = node('p', 'ovyx-lb-capabilities', 'Honest limits: a successful deploy response means the provider accepted the deployment, not that every integration works. Release health checks the returned pages.dev URL and HTTP result. Mobile builds are asynchronous; use Refresh mobile status for the latest EAS result and download links. Forms and app preferences remain local to the browser/WebView, and external auth, account APIs, payments, email, file upload and third-party integrations are not enabled by static publishing.');
+    releaseNote.setAttribute('role', 'note');
+    release.appendChild(releaseNote);
+    section.appendChild(release);
+
     saveButton.addEventListener('click', () => saveGeneratedProject(section));
+    exportZip.addEventListener('click', () => exportGeneratedZip(section));
+    exportJson.addEventListener('click', () => exportGeneratedSourceJson(section));
+    webDeploy.addEventListener('click', () => deployGeneratedProject(section, 'deploy'));
+    webPublish.addEventListener('click', () => deployGeneratedProject(section, 'publish'));
+    webHealth.addEventListener('click', () => checkReleaseHealth(section));
+    savedRelease.addEventListener('click', () => saveReleaseRecord(section));
+    mobileBuild.addEventListener('click', () => startMobileBuild(section));
+    mobileRefresh.addEventListener('click', () => refreshMobileBuildStatus(section));
     form.addEventListener('submit', event => {
       event.preventDefault();
       generate(report, section);
@@ -205,7 +296,7 @@
     style.id = 'ovyx-link-builder-style';
     style.textContent = [
       '.ovyx-lb-panel{grid-column:1/-1;box-sizing:border-box;padding:16px;border:1px solid rgba(214,180,103,.42);border-radius:15px;background:linear-gradient(145deg,rgba(214,180,103,.09),rgba(7,10,15,.94));color:#f3f4f6;min-width:0}',
-      '.ovyx-lb-panel *{box-sizing:border-box;min-width:0}.ovyx-lb-eyebrow{margin:0 0 7px;color:#d6b467;font-size:10px;font-weight:850;letter-spacing:.14em}.ovyx-lb-heading h4{margin:0 0 6px;color:#fff;font-size:17px}.ovyx-lb-muted{margin:0;color:#a7afbd;font-size:11px;line-height:1.55}.ovyx-lb-form{display:flex;align-items:flex-end;gap:10px;margin-top:13px}.ovyx-lb-label{display:flex;flex:1;flex-direction:column;gap:6px;color:#dce1e9;font-size:11px;font-weight:700}.ovyx-lb-input{width:100%;border:1px solid rgba(255,255,255,.16);border-radius:9px;padding:11px 12px;background:#080a0f;color:#fff;font:inherit}.ovyx-lb-generate{border:1px solid #d6b467;border-radius:9px;background:#d6b467;color:#16130d;padding:12px 14px;font-size:11px;font-weight:850;cursor:pointer;white-space:nowrap}.ovyx-lb-generate:disabled{opacity:.65;cursor:wait}.ovyx-lb-status{margin:10px 0 0;color:#a7afbd;font-size:11px;line-height:1.5;overflow-wrap:anywhere}.ovyx-lb-status[data-kind=error]{color:#fca5a5}.ovyx-lb-status[data-kind=success]{color:#86efac}.ovyx-lb-status[data-kind=busy]{color:#fcd34d}.ovyx-lb-preview{margin-top:14px;padding:10px;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:#080a0f}.ovyx-lb-preview[hidden]{display:none}.ovyx-lb-preview-header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:2px 2px 9px;color:#f1f1ef;font-size:10px;font-weight:850;letter-spacing:.05em}.ovyx-lb-preview-header span{color:#929baa;font-size:9px;font-weight:600}.ovyx-lb-frame{display:block;width:100%;height:min(72vh,720px);min-height:420px;border:1px solid #29313d;border-radius:9px;background:#fff}.ovyx-lb-files{margin-top:10px;color:#d5d9df;font-size:11px}.ovyx-lb-files summary{cursor:pointer;padding:5px 0;color:#dfc580;font-weight:750}.ovyx-lb-source-list{display:grid;gap:8px}.ovyx-lb-source-file{border:1px solid rgba(255,255,255,.1);border-radius:8px;overflow:hidden}.ovyx-lb-source-file strong{display:block;padding:7px 9px;background:rgba(255,255,255,.04);font-size:10px}.ovyx-lb-source-file pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:300px;overflow:auto;padding:9px;margin:0;color:#cbd5e1;font:10px/1.5 ui-monospace,monospace}.ovyx-lb-brain{margin-top:15px;padding:13px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(0,0,0,.22)}.ovyx-lb-brain-heading h5{margin:0 0 6px;color:#fff;font-size:14px}.ovyx-lb-brain-run{margin-top:10px;border:1px solid rgba(214,180,103,.45);border-radius:8px;padding:8px 10px;background:#18150d;color:#efcf86;font-size:10px;font-weight:800;cursor:pointer}.ovyx-lb-brain-run:disabled{opacity:.55;cursor:wait}.ovyx-lb-brain-summary{color:#d1d5db;font-size:10px;line-height:1.6;overflow-wrap:anywhere}.ovyx-lb-brain-graph,.ovyx-lb-brain-findings{margin-top:8px;color:#cbd5e1;font-size:10px}.ovyx-lb-brain-graph summary,.ovyx-lb-brain-findings summary{cursor:pointer;padding:7px 0;color:#dfc580;font-weight:800}.ovyx-lb-brain-list{display:grid;gap:8px;margin:5px 0 0;padding-left:20px}.ovyx-lb-brain-finding{display:grid;gap:4px;color:#cbd5e1;overflow-wrap:anywhere}.ovyx-lb-brain-severity{font-size:9px;letter-spacing:.04em}.ovyx-lb-brain-file{color:#929baa;font:9px ui-monospace,monospace;overflow-wrap:anywhere}.ovyx-lb-brain-evidence{display:block;color:#fca5a5;font:9px/1.5 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere}.ovyx-lb-project-actions{display:flex;align-items:flex-start;gap:11px;flex-wrap:wrap;margin-top:12px}.ovyx-lb-save{border:1px solid rgba(110,231,183,.45);border-radius:9px;background:#104b3d;color:#d1fae5;padding:11px 13px;font-size:11px;font-weight:800;cursor:pointer}.ovyx-lb-save:disabled{opacity:.55;cursor:not-allowed}.ovyx-lb-capabilities{margin:9px 0 0;color:#858e9c;font-size:10px;line-height:1.55}.ovyx-lb-panel :is(input,button,summary):focus-visible{outline:2px solid #d6b467;outline-offset:3px}@media(max-width:620px){.ovyx-lb-form{align-items:stretch;flex-direction:column}.ovyx-lb-generate,.ovyx-lb-save{width:100%}.ovyx-lb-project-actions{flex-direction:column}.ovyx-lb-frame{min-height:440px;height:68vh}.ovyx-lb-preview{padding:7px}}'
+      '.ovyx-lb-panel *{box-sizing:border-box;min-width:0}.ovyx-lb-eyebrow{margin:0 0 7px;color:#d6b467;font-size:10px;font-weight:850;letter-spacing:.14em}.ovyx-lb-heading h4{margin:0 0 6px;color:#fff;font-size:17px}.ovyx-lb-muted{margin:0;color:#a7afbd;font-size:11px;line-height:1.55}.ovyx-lb-form{display:flex;align-items:flex-end;gap:10px;margin-top:13px}.ovyx-lb-label{display:flex;flex:1;flex-direction:column;gap:6px;color:#dce1e9;font-size:11px;font-weight:700}.ovyx-lb-input{width:100%;border:1px solid rgba(255,255,255,.16);border-radius:9px;padding:11px 12px;background:#080a0f;color:#fff;font:inherit}.ovyx-lb-generate{border:1px solid #d6b467;border-radius:9px;background:#d6b467;color:#16130d;padding:12px 14px;font-size:11px;font-weight:850;cursor:pointer;white-space:nowrap}.ovyx-lb-generate:disabled{opacity:.65;cursor:wait}.ovyx-lb-status{margin:10px 0 0;color:#a7afbd;font-size:11px;line-height:1.5;overflow-wrap:anywhere}.ovyx-lb-status[data-kind=error]{color:#fca5a5}.ovyx-lb-status[data-kind=success]{color:#86efac}.ovyx-lb-status[data-kind=busy]{color:#fcd34d}.ovyx-lb-preview{margin-top:14px;padding:10px;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:#080a0f}.ovyx-lb-preview[hidden]{display:none}.ovyx-lb-preview-header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:2px 2px 9px;color:#f1f1ef;font-size:10px;font-weight:850;letter-spacing:.05em}.ovyx-lb-preview-header span{color:#929baa;font-size:9px;font-weight:600}.ovyx-lb-frame{display:block;width:100%;height:min(72vh,720px);min-height:420px;border:1px solid #29313d;border-radius:9px;background:#fff}.ovyx-lb-files{margin-top:10px;color:#d5d9df;font-size:11px}.ovyx-lb-files summary{cursor:pointer;padding:5px 0;color:#dfc580;font-weight:750}.ovyx-lb-source-list{display:grid;gap:8px}.ovyx-lb-source-file{border:1px solid rgba(255,255,255,.1);border-radius:8px;overflow:hidden}.ovyx-lb-source-file strong{display:block;padding:7px 9px;background:rgba(255,255,255,.04);font-size:10px}.ovyx-lb-source-file pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:300px;overflow:auto;padding:9px;margin:0;color:#cbd5e1;font:10px/1.5 ui-monospace,monospace}.ovyx-lb-brain{margin-top:15px;padding:13px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(0,0,0,.22)}.ovyx-lb-brain-heading h5{margin:0 0 6px;color:#fff;font-size:14px}.ovyx-lb-brain-run{margin-top:10px;border:1px solid rgba(214,180,103,.45);border-radius:8px;padding:8px 10px;background:#18150d;color:#efcf86;font-size:10px;font-weight:800;cursor:pointer}.ovyx-lb-brain-run:disabled{opacity:.55;cursor:wait}.ovyx-lb-brain-summary{color:#d1d5db;font-size:10px;line-height:1.6;overflow-wrap:anywhere}.ovyx-lb-brain-graph,.ovyx-lb-brain-findings{margin-top:8px;color:#cbd5e1;font-size:10px}.ovyx-lb-brain-graph summary,.ovyx-lb-brain-findings summary{cursor:pointer;padding:7px 0;color:#dfc580;font-weight:800}.ovyx-lb-brain-list{display:grid;gap:8px;margin:5px 0 0;padding-left:20px}.ovyx-lb-brain-finding{display:grid;gap:4px;color:#cbd5e1;overflow-wrap:anywhere}.ovyx-lb-brain-severity{font-size:9px;letter-spacing:.04em}.ovyx-lb-brain-file{color:#929baa;font:9px ui-monospace,monospace;overflow-wrap:anywhere}.ovyx-lb-brain-evidence{display:block;color:#fca5a5;font:9px/1.5 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere}.ovyx-lb-project-actions{display:flex;align-items:flex-start;gap:11px;flex-wrap:wrap;margin-top:12px}.ovyx-lb-save{border:1px solid rgba(110,231,183,.45);border-radius:9px;background:#104b3d;color:#d1fae5;padding:11px 13px;font-size:11px;font-weight:800;cursor:pointer}.ovyx-lb-save:disabled{opacity:.55;cursor:not-allowed}.ovyx-lb-capabilities{margin:9px 0 0;color:#858e9c;font-size:10px;line-height:1.55}.ovyx-lb-panel :is(input,button,summary):focus-visible{outline:2px solid #d6b467;outline-offset:3px}.ovyx-lb-release{margin-top:15px;padding:14px;border:1px solid rgba(110,231,183,.24);border-radius:12px;background:rgba(4,16,14,.34)}.ovyx-lb-release-heading h5,.ovyx-lb-release-subheading h6{margin:0 0 6px;color:#f7faf9;font-size:14px}.ovyx-lb-release-subheading{margin-top:15px;padding-top:12px;border-top:1px solid rgba(255,255,255,.1)}.ovyx-lb-release-subheading h6{font-size:12px}.ovyx-lb-release-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.ovyx-lb-release-btn{border:1px solid rgba(110,231,183,.38);border-radius:8px;padding:10px 12px;background:#104b3d;color:#d1fae5;font-size:10px;font-weight:850;cursor:pointer}.ovyx-lb-release-btn.secondary{border-color:rgba(255,255,255,.18);background:#11151b;color:#d1d5db}.ovyx-lb-release-btn.publish{border-color:rgba(214,180,103,.55);background:#4b3410;color:#fde68a}.ovyx-lb-release-btn:disabled{opacity:.45;cursor:not-allowed}.ovyx-lb-release-link{display:inline-block;margin-top:8px;color:#86efac;font-size:11px;overflow-wrap:anywhere}.ovyx-lb-release-link[hidden]{display:none}.ovyx-lb-mobile-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:10px}.ovyx-lb-platforms{display:flex;align-items:flex-start;gap:8px;flex-direction:column;min-width:0;margin:0;padding:10px;border:1px solid rgba(255,255,255,.13);border-radius:8px;color:#d5d9df;font-size:10px}.ovyx-lb-platforms legend{padding:0 4px;color:#aeb7c5;font-size:10px}.ovyx-lb-platform{display:flex;align-items:center;gap:5px;font-size:10px}.ovyx-lb-platform input,.ovyx-lb-label input[type=file]{max-width:100%}.ovyx-lb-release-diagnostics{display:grid;gap:6px;margin:10px 0 0;padding-left:18px;color:#cbd5e1;font-size:10px;line-height:1.5;overflow-wrap:anywhere}.ovyx-lb-mobile-links{display:grid;gap:6px;margin-top:8px}.ovyx-lb-mobile-links a{color:#86efac;font-size:10px;overflow-wrap:anywhere}.ovyx-lb-release .ovyx-lb-status{overflow-wrap:anywhere}@media(max-width:620px){.ovyx-lb-form{align-items:stretch;flex-direction:column}.ovyx-lb-generate,.ovyx-lb-save,.ovyx-lb-release-btn{width:100%}.ovyx-lb-project-actions,.ovyx-lb-release-actions{flex-direction:column}.ovyx-lb-mobile-grid{grid-template-columns:1fr}.ovyx-lb-frame{min-height:440px;height:68vh}.ovyx-lb-preview{padding:7px}}'
     ].join('\n');
     document.head.appendChild(style);
   }
@@ -750,6 +841,764 @@
     }
   }
 
+  function setReleaseStatus(panel, selector, message, kind) {
+    const target = $(panel, selector);
+    if (!target) return;
+    target.textContent = text(message);
+    target.dataset.kind = kind || 'info';
+  }
+  function currentArtifact() {
+    const artifact = window.__OVYX_APP_STUDIO_GENERATED_PROJECT__;
+    return artifact && artifact.files && typeof artifact.files === 'object' ? artifact : null;
+  }
+  function authenticatedReleaseUser() {
+    const user = window.firebase?.auth?.().currentUser;
+    if (!user || typeof user.getIdToken !== 'function') throw new Error('Sign in to OVYX before publishing, building or saving release records.');
+    return user;
+  }
+  async function releaseToken() {
+    return await authenticatedReleaseUser().getIdToken();
+  }
+  function releaseSlug(value) {
+    return text(value).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'link-app';
+  }
+  function releaseMime(path) {
+    const value = text(path).toLowerCase();
+    if (value.endsWith('.html') || value.endsWith('.htm')) return 'text/html; charset=utf-8';
+    if (value.endsWith('.css')) return 'text/css; charset=utf-8';
+    if (value.endsWith('.js') || value.endsWith('.mjs')) return 'text/javascript; charset=utf-8';
+    if (value.endsWith('.json')) return 'application/json; charset=utf-8';
+    if (value.endsWith('.svg')) return 'image/svg+xml';
+    if (value.endsWith('.png')) return 'image/png';
+    if (value.endsWith('.jpg') || value.endsWith('.jpeg')) return 'image/jpeg';
+    if (value.endsWith('.webp')) return 'image/webp';
+    if (value.endsWith('.woff2')) return 'font/woff2';
+    return 'application/octet-stream';
+  }
+  function releasePath(value) {
+    const path = text(value).replace(/\\/g, '/').replace(/^\.\/+/, '').replace(/^\/+/, '').trim();
+    if (!path || path.length > 500 || path.split('/').some(segment => segment === '..' || segment === '') || /[\u0000\r\n]/.test(path)) {
+      throw new Error('The project has an unsafe or invalid file path: ' + path.slice(0, 90));
+    }
+    if (path === 'functions' || path.startsWith('functions/')) {
+      throw new Error('Static publishing cannot deploy functions/. Configure a supported backend separately before release.');
+    }
+    return path;
+  }
+  function matchLocalReleaseFile(files, currentPath, reference, extension) {
+    let raw = text(reference || '').trim().split(/[?#]/)[0];
+    if (!raw || raw.startsWith('//') || /^[a-z][a-z0-9+.-]*:/i.test(raw)) return '';
+    raw = raw.replace(/\\/g, '/');
+    let resolved = '';
+    try { resolved = new URL(raw, 'https://release.invalid/' + currentPath).pathname.replace(/^\/+/, ''); } catch (_) {}
+    const cleanRef = raw.replace(/^\/+/, '').replace(/^\.\/+/, '');
+    const basename = cleanRef.split('/').pop();
+    const candidates = [resolved, cleanRef, basename].filter(Boolean);
+    for (const candidate of candidates) {
+      if (typeof files[candidate] === 'string' && (!extension || candidate.toLowerCase().endsWith(extension))) return candidate;
+    }
+    const exact = Object.keys(files).find(path => path.endsWith('/' + basename) && (!extension || path.toLowerCase().endsWith(extension)));
+    return exact || '';
+  }
+  function releaseDocument(html) {
+    const source = /<html\b/i.test(text(html)) ? text(html) : '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>' + text(html) + '</body></html>';
+    return new DOMParser().parseFromString(source, 'text/html');
+  }
+  function releaseCspMeta(doc) {
+    doc.querySelectorAll('meta[http-equiv="Content-Security-Policy" i]').forEach(el => el.remove());
+    const csp = doc.createElement('meta');
+    csp.httpEquiv = 'Content-Security-Policy';
+    csp.content = "default-src 'self'; img-src 'self' data: blob: https: http:; style-src 'self' 'unsafe-inline' https: http:; script-src 'self' 'unsafe-inline'; font-src 'self' data: https: http:; media-src 'self' data: blob: https: http:; connect-src 'none'; form-action 'none'; frame-src 'none'; object-src 'none'; base-uri 'self'";
+    doc.head.insertBefore(csp, doc.head.firstChild);
+    doc.querySelectorAll('base').forEach(el => el.remove());
+    const base = doc.createElement('base');
+    base.href = '/';
+    doc.head.insertBefore(base, csp.nextSibling);
+  }
+  function standaloneActionsSource(appId) {
+    return [
+      '(function(){',
+      '"use strict";',
+      'const prefix="ovyx.published-app.v1."+(' + JSON.stringify(String(appId || 'link-app')) + ')+":";',
+      'function read(){try{return JSON.parse(localStorage.getItem(prefix+"state")||"{\\"values\\":{},\\"submissions\\":[]}")}catch(_){return {values:{},submissions:[]}}}',
+      'function write(state){const raw=JSON.stringify(state);if(raw.length>160000)throw new Error("Local app storage reached its limit.");localStorage.setItem(prefix+"state",raw);return true;}',
+      'function key(v){const k=String(v||"").replace(/[\\u0000-\\u001f\\u007f]/g,"").trim();if(!k||k.length>80)throw new Error("Storage keys must be 1–80 characters.");return k;}',
+      'const storage=Object.freeze({get:async function(k){return read().values[key(k)]??null},set:async function(k,v){const state=read();const value=JSON.stringify(v);if(value.length>8000)throw new Error("A saved value cannot exceed 8 KB.");state.values[key(k)]=v;return write(state)},remove:async function(k){const state=read();delete state.values[key(k)];return write(state)},keys:async function(){return Object.keys(read().values)}});',
+      'const auth=Object.freeze({currentUser:async function(){return null}});',
+      'const api=Object.freeze({get:async function(){throw new Error("OVYX account APIs are available only inside the authenticated OVYX preview, not on a public static site.")}});',
+      'try{Object.defineProperty(window,"OVYXApp",{configurable:false,writable:false,value:Object.freeze({version:1,storage:storage,auth:auth,api:api})})}catch(_){window.OVYXApp=Object.freeze({version:1,storage:storage,auth:auth,api:api})}',
+      'function status(form,message,kind){let p=form.querySelector("[data-ovyx-form-status]");if(!p){p=document.createElement("p");p.setAttribute("data-ovyx-form-status","");p.setAttribute("role","status");p.setAttribute("aria-live","polite");form.appendChild(p)}p.textContent=message;p.style.color=kind==="error"?"#b91c1c":kind==="success"?"#166534":"inherit"}',
+      'document.addEventListener("submit",function(e){const form=e.target;if(!(form instanceof HTMLFormElement))return;e.preventDefault();e.stopImmediatePropagation();if(!form.reportValidity())return;try{const values={};let secret=false;let files=false;new FormData(form).forEach(function(v,k){k=String(k||"").replace(/[\\u0000-\\u001f\\u007f]/g,"").trim().slice(0,80);if(!k)return;if(/password|passcode|secret|token|authorization|credential|private.?key|api.?key/i.test(k)){secret=true;return}if(typeof File!=="undefined"&&v instanceof File){if(v.name)files=true;return}if(Object.keys(values).length<40)values[k]=String(v).slice(0,1000)});const state=read();state.submissions=Array.isArray(state.submissions)?state.submissions:[];state.submissions.push({formId:String(form.id||form.name||"form").slice(0,80),submittedAt:new Date().toISOString(),fields:values});state.submissions=state.submissions.slice(-25);write(state);status(form,"Saved in this browser only; nothing was emailed or sent to a backend."+(secret?" Password/secret fields were not stored.":"")+(files?" File attachments were not uploaded.":""),"success")}catch(err){status(form,String(err&&err.message||"Submission could not be saved locally."),"error")}},true);',
+      '})();'
+    ].join('\n');
+  }
+  function staticReleaseHtml(artifact, filePath, route) {
+    const source = text(artifact.files[filePath] || '');
+    if (!source) throw new Error('The release is missing HTML for route ' + route + '.');
+    const doc = releaseDocument(source);
+    releaseCspMeta(doc);
+    if (!doc.querySelector('meta[name="viewport" i]')) {
+      const viewport = doc.createElement('meta'); viewport.name = 'viewport'; viewport.content = 'width=device-width,initial-scale=1'; doc.head.appendChild(viewport);
+    }
+    if (!doc.title) doc.title = text(artifact.name || 'Generated app');
+    const local = doc.createElement('script');
+    local.setAttribute('data-ovyx-published-actions', '');
+    local.textContent = standaloneActionsSource(artifact.id);
+    doc.body.appendChild(local);
+    return '<!doctype html>\n' + doc.documentElement.outerHTML;
+  }
+  function staticReleaseFiles(artifact) {
+    const output = {};
+    for (const [rawPath, rawContent] of Object.entries(artifact.files || {})) {
+      const path = releasePath(rawPath);
+      const outputPath = path.startsWith('public/') ? path.slice('public/'.length) : path;
+      const content = fileContent(rawContent);
+      if (!outputPath || typeof content !== 'string') continue;
+      // Framework build sources keep deployable web assets under public/, but
+      // a direct-upload Pages bundle serves those assets from the site root.
+      output[outputPath] = /\.html?$/i.test(path) ? staticReleaseHtml(artifact, path, '/' + outputPath) : content;
+    }
+    const routes = artifact.routes && typeof artifact.routes === 'object' ? artifact.routes : { '/': 'index.html' };
+    const mapped = new Set();
+    for (const [rawRoute, rawFile] of Object.entries(routes)) {
+      const route = routeKey(rawRoute);
+      const file = releasePath(rawFile);
+      if (!/\.html?$/i.test(file) || typeof artifact.files[file] !== 'string') continue;
+      const target = route === '/' ? 'index.html' : route.split('/').filter(Boolean).map(segment => releaseSlug(segment)).join('/') + '/index.html';
+      if (mapped.has(target)) throw new Error('More than one generated route maps to ' + target + '. Fix the route map before publishing.');
+      mapped.add(target);
+      output[target] = staticReleaseHtml(artifact, file, route);
+    }
+    if (typeof output['index.html'] !== 'string') throw new Error('The project has no deployable index.html entry page.');
+    const manifest = {
+      schemaVersion: 1,
+      project: { id: artifact.id, name: artifact.name, sourceUrl: artifact.sourceUrl },
+      builtAt: new Date().toISOString(),
+      output: 'Cloudflare Pages static HTML/CSS/JavaScript',
+      routes: Object.fromEntries(Object.entries(routes).map(([route, file]) => [routeKey(route), file])),
+      validation: (() => { const brain = window.__OVYX_PROJECT_BRAIN_REPORT__; return { livePreviewChecked: brain?.summary?.runtimeChecked === true, failures: Number(brain?.summary?.failures || 0), warnings: Number(brain?.summary?.warnings || 0) }; })(),
+      limits: ['Forms and app state save locally in each browser.', 'OVYX account APIs and private integrations are not available on the public static deployment.', 'Arbitrary network connections are blocked by the generated-site Content Security Policy.']
+    };
+    output['ovyx-release-manifest.json'] = JSON.stringify(manifest, null, 2);
+    return output;
+  }
+  function mobileStandaloneHtml(artifact) {
+    const files = artifact.files || {};
+    const routes = artifact.routes && typeof artifact.routes === 'object' ? artifact.routes : { '/': 'index.html' };
+    const rootPath = text(routes['/'] || 'index.html');
+    if (typeof files[rootPath] !== 'string') throw new Error('No root HTML route is available for the mobile build.');
+    const rootDoc = releaseDocument(files[rootPath]);
+    const rootMain = rootDoc.querySelector('main');
+    if (!rootMain) throw new Error('The mobile wrapper requires a semantic <main> entry element. Export a web ZIP for this project or add a main element before mobile building.');
+    const rootPanel = rootDoc.createElement('section');
+    rootPanel.id = 'ovyx-mobile-route-home';
+    rootPanel.setAttribute('data-ovyx-mobile-route-panel', '');
+    rootPanel.setAttribute('data-active', 'true');
+    rootMain.replaceWith(rootPanel);
+    rootPanel.appendChild(rootMain);
+
+    const routeTargets = {};
+    const routeTitles = {};
+    routeTargets['/'] = 'ovyx-mobile-route-home';
+    routeTitles['/'] = rootDoc.title || artifact.name || 'Home';
+    const cssFiles = new Set();
+    const jsFiles = new Set();
+    const otherInlineScripts = [];
+    const remoteStyles = [];
+    // Root inline scripts stay in the root document; only collect inline scripts from additional routes.
+    const rootScripts = [];
+    const harvest = (doc, htmlPath, isRoot) => {
+      for (const link of [...doc.querySelectorAll('link[rel~="stylesheet"][href]')]) {
+        const ref = link.getAttribute('href') || '';
+        const found = matchLocalReleaseFile(files, htmlPath, ref, '.css');
+        if (found) cssFiles.add(found);
+        else if (/^(?:https?:)?\/\//i.test(ref) && !remoteStyles.some(existing => existing.href === ref)) remoteStyles.push({ href: ref, media: link.media || '' });
+        link.remove();
+      }
+      for (const script of [...doc.querySelectorAll('script[src]')]) {
+        const ref = script.getAttribute('src') || '';
+        const found = matchLocalReleaseFile(files, htmlPath, ref, '.js') || matchLocalReleaseFile(files, htmlPath, ref, '.mjs');
+        if (found) jsFiles.add(found);
+        script.remove();
+      }
+      if (!isRoot) {
+        for (const script of [...doc.querySelectorAll('script:not([src])')]) {
+          if (script.type && !/^(?:text|application)\/javascript$/i.test(script.type)) continue;
+          if (script.textContent.trim()) otherInlineScripts.push(script.textContent);
+        }
+      }
+    };
+    harvest(rootDoc, rootPath, true);
+    for (const [rawRoute, rawPath] of Object.entries(routes)) {
+      const route = routeKey(rawRoute);
+      const file = text(rawPath);
+      if (route === '/' || typeof files[file] !== 'string' || !/\.html?$/i.test(file)) continue;
+      const routeDoc = releaseDocument(files[file]);
+      const main = routeDoc.querySelector('main');
+      if (!main) continue;
+      harvest(routeDoc, file, false);
+      const panel = rootDoc.createElement('section');
+      panel.id = 'ovyx-mobile-route-' + releaseSlug(route);
+      panel.setAttribute('data-ovyx-mobile-route-panel', '');
+      panel.hidden = true;
+      panel.innerHTML = main.innerHTML;
+      rootDoc.body.appendChild(panel);
+      routeTargets[route] = panel.id;
+      routeTitles[route] = routeDoc.title || (route.split('/').filter(Boolean).pop() || artifact.name);
+    }
+
+    // If the model did not explicitly link local CSS or JS, include conventional entry files.
+    if (!cssFiles.size) for (const path of Object.keys(files)) if (/(?:^|\/)(?:styles?|app)\.css$/i.test(path)) cssFiles.add(path);
+    if (!jsFiles.size) for (const path of Object.keys(files)) if (/(?:^|\/)(?:app|main|index)\.m?js$/i.test(path)) jsFiles.add(path);
+    const styles = [...cssFiles].map(path => text(files[path])).filter(Boolean).join('\n');
+    const styleTag = rootDoc.createElement('style'); styleTag.setAttribute('data-ovyx-mobile-css', '');
+    styleTag.textContent = styles + '\n[data-ovyx-mobile-route-panel][hidden]{display:none!important}[data-ovyx-mobile-route-panel][data-active="true"]{display:block!important}';
+    rootDoc.head.appendChild(styleTag);
+    for (const remote of remoteStyles) {
+      const link = rootDoc.createElement('link'); link.rel = 'stylesheet'; link.href = remote.href; if (remote.media) link.media = remote.media; rootDoc.head.appendChild(link);
+    }
+    const mainScripts = [...jsFiles].map(path => text(files[path])).filter(Boolean);
+    const scripts = [...rootScripts.filter(x => /^(?:text|application)\/javascript$/i.test(x.type)).map(x => x.content), ...mainScripts, ...otherInlineScripts].filter(Boolean).join('\n');
+    const appScripts = rootDoc.createElement('script'); appScripts.setAttribute('data-ovyx-mobile-app-js', ''); appScripts.textContent = scripts; rootDoc.body.appendChild(appScripts);
+
+    const routeRuntime = [
+      '(function(){',
+      'const targets=' + JSON.stringify(routeTargets) + ';',
+      'const titles=' + JSON.stringify(routeTitles) + ';',
+      'const normalize=function(v){let s=String(v||"/").split(/[?#]/)[0].replace(/\\\\/g,"/").replace(/^\\.\\//,"").replace(/^\\/+|\\/+$/g,"").toLowerCase();return s?"/"+s+"/":"/"};',
+      'const show=function(route){const key=normalize(route);const id=targets[key];if(!id)return false;document.querySelectorAll("[data-ovyx-mobile-route-panel]").forEach(function(p){const active=p.id===id;p.hidden=!active;p.setAttribute("data-active",active?"true":"false")});document.title=String(titles[key]||document.title||"App");const message=document.getElementById("ovyx-mobile-route-status");if(message)message.textContent="Opened "+(key==="/"?"Home":key)+" in the mobile app.";return true};',
+      'document.addEventListener("click",function(event){const a=event.target&&event.target.closest?event.target.closest("a[href]"):null;if(!a)return;const href=a.getAttribute("href")||"";if(!href||href.charAt(0)==="#"||/^(?:https?:|mailto:|tel:|data:|javascript:)/i.test(href)||href.slice(0,2)==="//"||(a.target&&a.target!=="_self"))return;let path=href;try{if(/^[a-z][a-z0-9+.-]*:/i.test(href))path=new URL(href).pathname;else if(!href.startsWith("/"))path=new URL(href,"https://ovyx.invalid/").pathname}catch(_){path=href}const route=normalize(path);if(show(route)){event.preventDefault();return}if(path.startsWith("/")){event.preventDefault();const message=document.getElementById("ovyx-mobile-route-status");if(message)message.textContent="This route was not included in the mobile build. Publish the web project or rebuild after inspecting that page."}},true);',
+      'window.addEventListener("popstate",function(){show(location.pathname)});',
+      '})();'
+    ].join('\n');
+    const routeScript = rootDoc.createElement('script'); routeScript.setAttribute('data-ovyx-mobile-route-runtime', ''); routeScript.textContent = routeRuntime; rootDoc.body.appendChild(routeScript);
+    const routeNotice = rootDoc.createElement('p'); routeNotice.id = 'ovyx-mobile-route-status'; routeNotice.setAttribute('role', 'status'); routeNotice.setAttribute('aria-live', 'polite'); routeNotice.style.cssText = 'font-size:12px;padding:6px 10px;opacity:.8';
+    if (rootDoc.body.firstChild) rootDoc.body.insertBefore(routeNotice, rootDoc.body.firstChild); else rootDoc.body.appendChild(routeNotice);
+    releaseCspMeta(rootDoc);
+    const standalone = rootDoc.createElement('script'); standalone.setAttribute('data-ovyx-published-actions', ''); standalone.textContent = standaloneActionsSource(artifact.id); rootDoc.body.appendChild(standalone);
+    return '<!doctype html>\n' + rootDoc.documentElement.outerHTML;
+  }
+  function browserZipBlob(files) {
+    const encoder = new TextEncoder();
+    const entries = Object.entries(files).map(([rawPath, content]) => {
+      const path = releasePath(rawPath);
+      const name = encoder.encode(path);
+      const bytes = encoder.encode(typeof content === 'string' ? content : fileContent(content));
+      return { path, name, bytes, crc: zipCrc32(bytes), dosTime: 0, dosDate: ((2026 - 1980) << 9) | (10 << 5) | 18 };
+    });
+    if (!entries.length) throw new Error('No files are available to export.');
+    let localOffset = 0;
+    const localParts = [];
+    const centralParts = [];
+    let totalSize = 0;
+    const u16 = value => new Uint8Array([value & 255, (value >>> 8) & 255]);
+    const u32 = value => new Uint8Array([value & 255, (value >>> 8) & 255, (value >>> 16) & 255, (value >>> 24) & 255]);
+    const join = parts => {
+      const size = parts.reduce((sum, part) => sum + part.length, 0);
+      const output = new Uint8Array(size); let at = 0;
+      for (const part of parts) { output.set(part, at); at += part.length; }
+      return output;
+    };
+    for (const entry of entries) {
+      totalSize += entry.bytes.length;
+      if (totalSize > 16 * 1024 * 1024) throw new Error('The export exceeds the 16 MiB browser ZIP limit. Remove unused source files before exporting.');
+      const local = join([
+        u32(0x04034b50), u16(20), u16(0x0800), u16(0), u16(entry.dosTime), u16(entry.dosDate),
+        u32(entry.crc), u32(entry.bytes.length), u32(entry.bytes.length), u16(entry.name.length), u16(0),
+        entry.name, entry.bytes
+      ]);
+      localParts.push(local);
+      const central = join([
+        u32(0x02014b50), u16(20), u16(20), u16(0x0800), u16(0), u16(entry.dosTime), u16(entry.dosDate),
+        u32(entry.crc), u32(entry.bytes.length), u32(entry.bytes.length), u16(entry.name.length), u16(0),
+        u16(0), u16(0), u16(0), u32(0), u32(localOffset), entry.name
+      ]);
+      centralParts.push(central);
+      localOffset += local.length;
+    }
+    const centralSize = centralParts.reduce((sum, part) => sum + part.length, 0);
+    const end = join([u32(0x06054b50), u16(0), u16(0), u16(entries.length), u16(entries.length), u32(centralSize), u32(localOffset), u16(0)]);
+    return new Blob([...localParts, ...centralParts, end], { type: 'application/zip' });
+  }
+  function zipCrc32(bytes) {
+    let crc = 0xffffffff;
+    for (const byte of bytes) {
+      crc ^= byte;
+      for (let k = 0; k < 8; k += 1) crc = (crc & 1) ? (crc >>> 1) ^ 0xedb88320 : (crc >>> 1);
+    }
+    return (crc ^ 0xffffffff) >>> 0;
+  }
+  function downloadReleaseBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url; anchor.download = filename; anchor.rel = 'noopener';
+    document.body.appendChild(anchor); anchor.click(); anchor.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  }
+  function releaseRecordKey(artifact) {
+    return 'ovyx.appstudio.release.v1.' + releaseSlug(artifact.ownerUid || 'anonymous') + '.' + releaseSlug(artifact.id || 'link-app');
+  }
+  function persistReleaseState(artifact) {
+    try {
+      localStorage.setItem(releaseRecordKey(artifact), JSON.stringify({
+        version: 1, projectId: artifact.id, projectName: artifact.name, ownerUid: artifact.ownerUid || '',
+        releaseState: artifact.releaseState || {}, updatedAt: new Date().toISOString()
+      }));
+      return true;
+    } catch (_) { return false; }
+  }
+  function restoreReleaseState(artifact) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(releaseRecordKey(artifact)) || 'null');
+      if (saved?.version === 1 && saved.projectId === artifact.id && saved.ownerUid === (artifact.ownerUid || '')) artifact.releaseState = saved.releaseState || { web: {}, mobile: null };
+    } catch (_) {}
+    if (!artifact.releaseState || typeof artifact.releaseState !== 'object') artifact.releaseState = { web: {}, mobile: null, latestWebKey: '' };
+    if (!artifact.releaseState.web || typeof artifact.releaseState.web !== 'object') artifact.releaseState.web = {};
+  }
+  function setReleaseControls(panel) {
+    const artifact = currentArtifact();
+    for (const selector of ['[data-lb-deploy-preview]', '[data-lb-publish]', '[data-lb-mobile-build]']) {
+      const button = $(panel, selector); if (button) button.disabled = !artifact;
+    }
+    const health = $(panel, '[data-lb-release-health]');
+    if (health) health.disabled = !artifact?.releaseState?.web?.[artifact.releaseState.latestWebKey];
+    const saveRelease = $(panel, '[data-lb-save-release]');
+    if (saveRelease) saveRelease.disabled = !artifact || !Object.keys(artifact.releaseState?.web || {}).length && !artifact?.releaseState?.mobile?.jobId;
+    const refreshMobile = $(panel, '[data-lb-mobile-refresh]');
+    if (refreshMobile) refreshMobile.disabled = !artifact?.releaseState?.mobile?.jobId;
+  }
+  function appendReleaseDiagnostic(panel, message) {
+    const list = $(panel, '[data-lb-release-diagnostics]');
+    if (!list) return;
+    const item = node('li', '', message);
+    list.prepend(item);
+    while (list.children.length > 8) list.lastElementChild.remove();
+  }
+  function renderReleaseState(panel) {
+    const artifact = currentArtifact();
+    if (!artifact) { setReleaseControls(panel); return; }
+    restoreReleaseState(artifact);
+    const record = artifact.releaseState.web?.[artifact.releaseState.latestWebKey] || null;
+    const link = $(panel, '[data-lb-release-link]');
+    if (link) {
+      const href = safeUrl(record?.url);
+      if (href) { link.href = href; link.textContent = (record.action === 'publish' ? 'Open production site: ' : 'Open preview deployment: ') + href; link.hidden = false; }
+      else { link.hidden = true; link.removeAttribute('href'); }
+    }
+    const webStatus = $(panel, '[data-lb-web-status]');
+    if (webStatus && record) {
+      webStatus.textContent = 'Latest ' + (record.action === 'publish' ? 'production publish' : 'preview deploy') + ': ' + text(record.status || 'queued') + (record.url ? ' · ' + record.url : '') + (record.health?.message ? ' · ' + record.health.message : '');
+      webStatus.dataset.kind = record.health?.status === 'healthy' ? 'success' : record.health?.status === 'needs-attention' ? 'busy' : 'info';
+    }
+    const mobileStatus = $(panel, '[data-lb-mobile-status]');
+    const mobileLinks = $(panel, '[data-lb-mobile-links]');
+    if (mobileStatus && artifact.releaseState.mobile?.jobId) {
+      const mobile = artifact.releaseState.mobile;
+      mobileStatus.textContent = 'Mobile job ' + mobile.jobId + ': ' + text(mobile.status || 'queued') + (mobile.error?.message ? ' · ' + mobile.error.message : '') + (mobile.workflowUrl ? ' · EAS workflow details available below.' : '');
+      mobileStatus.dataset.kind = mobile.status === 'failed' ? 'error' : mobile.status === 'completed' ? 'success' : 'info';
+      if (mobileLinks) {
+        mobileLinks.replaceChildren();
+        const urls = [];
+        for (const [platform, artifactInfo] of Object.entries(mobile.artifacts || {})) {
+          if (safeUrl(artifactInfo?.downloadUrl || artifactInfo?.url)) urls.push({ label: platform.toUpperCase() + ' build download', url: artifactInfo.downloadUrl || artifactInfo.url });
+          if (safeUrl(artifactInfo?.detailsUrl)) urls.push({ label: platform.toUpperCase() + ' build details', url: artifactInfo.detailsUrl });
+        }
+        for (const build of mobile.builds || []) if (safeUrl(build?.detailsUrl)) urls.push({ label: text(build.platform || 'Mobile').toUpperCase() + ' build status (' + text(build.status || 'unknown') + ')', url: build.detailsUrl });
+        if (safeUrl(mobile.workflowUrl)) urls.push({ label: 'Open EAS workflow run', url: mobile.workflowUrl });
+        for (const item of urls) {
+          const anchor = node('a', '', item.label + ': ' + item.url); anchor.href = item.url; anchor.target = '_blank'; anchor.rel = 'noopener noreferrer'; mobileLinks.appendChild(anchor);
+        }
+        if (!urls.length) mobileLinks.replaceChildren();
+      }
+    }
+    setReleaseControls(panel);
+  }
+  function exportGeneratedZip(panel) {
+    try {
+      const artifact = currentArtifact();
+      if (!artifact) throw new Error('Generate and preview an app before exporting it.');
+      const files = staticReleaseFiles(artifact);
+      downloadReleaseBlob(browserZipBlob(files), releaseSlug(artifact.name) + '-deployable.zip');
+      setReleaseStatus(panel, '[data-lb-web-status]', 'Deployable ZIP exported. It includes route entry files, shared source assets, a release manifest, and local-only form/state behavior; private OVYX APIs are not bundled.', 'success');
+      appendReleaseDiagnostic(panel, 'Deployable ZIP exported at ' + new Date().toISOString() + '.');
+    } catch (error) {
+      setReleaseStatus(panel, '[data-lb-web-status]', error?.message || 'ZIP export failed. No file was reported as exported.', 'error');
+    }
+  }
+  function exportGeneratedSourceJson(panel) {
+    try {
+      const artifact = currentArtifact();
+      if (!artifact) throw new Error('Generate and preview an app before exporting it.');
+      const payload = {
+        schemaVersion: 1, kind: 'ovyx-link-based-app-source', id: artifact.id, name: artifact.name,
+        sourceUrl: artifact.sourceUrl, generatedAt: artifact.generatedAt, routes: artifact.routes || {},
+        pageCount: artifact.pageCount || 1, files: artifact.files,
+        limitations: ['This file contains generated source, not saved OVYX account data or live provider configuration.', 'Credentials, Firebase sessions and EAS/Cloudflare secrets are not included.']
+      };
+      const raw = JSON.stringify(payload, null, 2);
+      if (new TextEncoder().encode(raw).byteLength > 16 * 1024 * 1024) throw new Error('The source JSON exceeds the 16 MiB browser download limit.');
+      downloadReleaseBlob(new Blob([raw], { type: 'application/json;charset=utf-8' }), releaseSlug(artifact.name) + '-source.json');
+      setReleaseStatus(panel, '[data-lb-web-status]', 'Source JSON exported. It includes project files and route metadata but no account credentials or deployment secrets.', 'success');
+      appendReleaseDiagnostic(panel, 'Source JSON exported at ' + new Date().toISOString() + '.');
+    } catch (error) {
+      setReleaseStatus(panel, '[data-lb-web-status]', error?.message || 'Source export failed.', 'error');
+    }
+  }
+  function validateForRelease(panel) {
+    const artifact = currentArtifact();
+    if (!artifact) throw new Error('Generate an app before preparing a release.');
+    const report = window.__OVYX_PROJECT_BRAIN_REPORT__;
+    if (!report || report.summary?.runtimeChecked !== true) {
+      throw new Error('Release blocked: Project Brain has not finished the live-preview check. Run the Project Brain check and wait for LIVE PREVIEW evidence before publishing.');
+    }
+    const failures = Math.max(0, Number(report.summary?.failures) || 0);
+    const warnings = Math.max(0, Number(report.summary?.warnings) || 0);
+    if (failures > 0 || report.status === 'failed') {
+      throw new Error('Release blocked by Project Brain: ' + failures + ' failure(s), ' + warnings + ' warning(s). Fix the listed issues and run checks again.');
+    }
+    if (!artifact.files?.['index.html'] && !artifact.routes?.['/']) throw new Error('Release blocked: no root HTML entry was found.');
+    return { artifact, report, failures, warnings };
+  }
+  async function deploymentRequest(path, options, token) {
+    const response = await fetch(path, Object.assign({
+      credentials: 'same-origin', cache: 'no-store',
+      headers: { Accept: 'application/json', Authorization: 'Bearer ' + token }
+    }, options || {}));
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(text(data.error || data.message || ('OVYX returned HTTP ' + response.status)) + ' [' + text(data.code || response.status) + ']');
+    return data;
+  }
+  async function deployGeneratedProject(panel, action) {
+    const button = $(panel, action === 'publish' ? '[data-lb-publish]' : '[data-lb-deploy-preview]');
+    try {
+      const validation = validateForRelease(panel);
+      const { artifact, warnings } = validation;
+      const label = action === 'publish' ? 'Publish this app to production' : 'Deploy a preview version';
+      const warningNote = warnings ? '\n\nProject Brain recorded ' + warnings + ' warning(s). They do not prevent publishing, but review them first.' : '';
+      if (typeof window.confirm !== 'function' || !window.confirm(label + '?\n\nApp: ' + artifact.name + '\nInspected routes: ' + (artifact.pageCount || 1) + '\nOutput: Cloudflare Pages static HTML/CSS/JavaScript.\nForm submissions and app state remain local. External OVYX account APIs and third-party services are not enabled on the published site.' + warningNote + '\n\nThis sends the generated files to your configured Cloudflare account.')) {
+        setReleaseStatus(panel, '[data-lb-web-status]', 'Deployment cancelled. No Cloudflare request was sent.', 'info');
+        return;
+      }
+      if (button) { button.disabled = true; button.textContent = action === 'publish' ? 'Publishing…' : 'Deploying preview…'; }
+      setReleaseStatus(panel, '[data-lb-web-status]', 'Validating project files and sending the confirmed release to Cloudflare Pages…', 'busy');
+      const files = staticReleaseFiles(artifact);
+      const body = JSON.stringify({ action, projectId: artifact.id, projectName: artifact.name, files });
+      if (new TextEncoder().encode(body).byteLength > 15 * 1024 * 1024) throw new Error('The release payload exceeds the 15 MiB App Studio safety limit. Export the ZIP and remove unused assets before retrying.');
+      const token = await releaseToken();
+      const data = await deploymentRequest('/api/deploy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: 'Bearer ' + token },
+        body
+      }, token);
+      if (data.success !== true || !data.deployment?.deploymentId) throw new Error(data.error || 'Cloudflare did not confirm a deployment ID. The release is not marked as submitted.');
+      restoreReleaseState(artifact);
+      const record = {
+        action, projectId: artifact.id, projectName: artifact.name,
+        deploymentId: String(data.deployment.deploymentId),
+        pagesProjectName: String(data.deployment.pagesProjectName || ''),
+        status: String(data.deployment.status || 'queued'),
+        environment: String(data.deployment.environment || (action === 'publish' ? 'production' : 'preview')),
+        url: safeUrl(data.deployment.url),
+        createdAt: data.deployment.createdAt || new Date().toISOString(),
+        submittedAt: new Date().toISOString(),
+        health: null
+      };
+      const slot = action === 'publish' ? 'production' : 'preview';
+      artifact.releaseState.web[slot] = record;
+      artifact.releaseState.latestWebKey = slot;
+      artifact.lastReleaseValidation = { checkedAt: new Date().toISOString(), failures: validation.failures, warnings: validation.warnings, runtimeChecked: true };
+      persistReleaseState(artifact);
+      renderReleaseState(panel);
+      const deployedName = record.url ? ' ' + record.url : '';
+      setReleaseStatus(panel, '[data-lb-web-status]', (action === 'publish' ? 'Production publish accepted by Cloudflare.' : 'Preview deployment accepted by Cloudflare.') + ' Provider status: ' + record.status + '.' + deployedName + ' Use Check release health to refresh the authoritative status and probe the public URL.', 'success');
+      appendReleaseDiagnostic(panel, action + ' request accepted by Cloudflare at ' + record.submittedAt + '; provider status: ' + record.status + '.');
+      await refreshWebDeploymentStatus(panel, slot);
+    } catch (error) {
+      setReleaseStatus(panel, '[data-lb-web-status]', error?.message || 'Release failed. No successful deployment is being reported.', 'error');
+      appendReleaseDiagnostic(panel, 'Release attempt: ' + text(error?.message || error).slice(0, 500));
+    } finally {
+      if (button) { button.disabled = !currentArtifact(); button.textContent = action === 'publish' ? 'Publish production' : 'Deploy preview'; }
+      setReleaseControls(panel);
+    }
+  }
+  async function refreshWebDeploymentStatus(panel, slot) {
+    const artifact = currentArtifact();
+    const record = artifact?.releaseState?.web?.[slot || artifact?.releaseState?.latestWebKey];
+    if (!artifact || !record?.deploymentId) throw new Error('No deployment record is available to check.');
+    const token = await releaseToken();
+    const query = new URLSearchParams({ projectId: artifact.id, deploymentId: record.deploymentId, projectName: artifact.name });
+    const data = await deploymentRequest('/api/deployment-status?' + query.toString(), {}, token);
+    if (data.success !== true || !data.deployment) throw new Error(data.error || 'Cloudflare status could not be confirmed.');
+    Object.assign(record, {
+      status: String(data.deployment.status || record.status),
+      stage: String(data.deployment.stage || ''),
+      environment: String(data.deployment.environment || record.environment),
+      url: safeUrl(data.deployment.url) || record.url,
+      lastStatusCheckAt: new Date().toISOString()
+    });
+    persistReleaseState(artifact); renderReleaseState(panel);
+    appendReleaseDiagnostic(panel, 'Cloudflare status checked: ' + record.environment + ' / ' + record.status + (record.stage ? ' (' + record.stage + ')' : '') + '.');
+    return record;
+  }
+  async function checkReleaseHealth(panel) {
+    const artifact = currentArtifact();
+    const slot = artifact?.releaseState?.latestWebKey;
+    const record = artifact?.releaseState?.web?.[slot];
+    try {
+      if (!record?.deploymentId) throw new Error('Deploy or publish a web version first.');
+      setReleaseStatus(panel, '[data-lb-web-status]', 'Reading Cloudflare deployment status and probing the public pages.dev URL…', 'busy');
+      try { await refreshWebDeploymentStatus(panel, slot); }
+      catch (statusError) { appendReleaseDiagnostic(panel, 'Status refresh warning: ' + text(statusError.message || statusError)); }
+      const token = await releaseToken();
+      const query = new URLSearchParams({ projectId: artifact.id, deploymentId: record.deploymentId, projectName: artifact.name });
+      const data = await deploymentRequest('/api/app-studio/release-health?' + query.toString(), {}, token);
+      if (data.ok !== true || !data.health) throw new Error(data.error || 'Release health did not return an authoritative result.');
+      // refreshWebDeploymentStatus() re-renders the panel, which restores a cloned
+      // release state from localStorage. Re-acquire the current record after that
+      // render so the health result is attached to the persisted record, not a stale object.
+      const currentRecord = artifact.releaseState?.web?.[slot] || record;
+      currentRecord.status = String(data.deployment?.status || currentRecord.status);
+      currentRecord.stage = String(data.deployment?.stage || currentRecord.stage || '');
+      currentRecord.environment = String(data.deployment?.environment || currentRecord.environment || '');
+      currentRecord.url = safeUrl(data.deployment?.url) || currentRecord.url;
+      currentRecord.health = { ...data.health, checkedAt: data.checkedAt || new Date().toISOString() };
+      persistReleaseState(artifact); renderReleaseState(panel);
+      const message = 'Release health: ' + data.health.status + '. Provider stage: ' + currentRecord.status + (data.health.httpStatus ? ' · HTTP ' + data.health.httpStatus : '') + (data.health.message ? ' · ' + data.health.message : '');
+      setReleaseStatus(panel, '[data-lb-web-status]', message, data.health.status === 'healthy' ? 'success' : 'error');
+      appendReleaseDiagnostic(panel, message);
+    } catch (error) {
+      setReleaseStatus(panel, '[data-lb-web-status]', error?.message || 'Release health check failed.', 'error');
+      appendReleaseDiagnostic(panel, 'Health check failed: ' + text(error?.message || error).slice(0, 500));
+    } finally { setReleaseControls(panel); }
+  }
+  function renderMobileReleaseStatus(panel, state) {
+    const status = $(panel, '[data-lb-mobile-status]');
+    const links = $(panel, '[data-lb-mobile-links]');
+    if (status) {
+      status.textContent = state?.jobId
+        ? 'Mobile job ' + state.jobId + ': ' + text(state.status || 'queued') + (state.error?.message ? ' · ' + state.error.message : '') + (state.updatedAt ? ' · Updated ' + state.updatedAt : '')
+        : 'No mobile build has been requested.';
+      status.dataset.kind = state?.status === 'failed' ? 'error' : state?.status === 'completed' ? 'success' : 'info';
+    }
+    if (links) {
+      links.replaceChildren();
+      const items = [];
+      for (const [platform, info] of Object.entries(state?.artifacts || {})) {
+        const download = safeUrl(info?.downloadUrl || info?.url);
+        const details = safeUrl(info?.detailsUrl);
+        if (download) items.push({ label: platform.toUpperCase() + ' build download', url: download });
+        if (details) items.push({ label: platform.toUpperCase() + ' build details', url: details });
+      }
+      for (const build of state?.builds || []) if (safeUrl(build?.detailsUrl)) items.push({ label: text(build.platform || 'Mobile').toUpperCase() + ' build status (' + text(build.status || 'unknown') + ')', url: build.detailsUrl });
+      if (safeUrl(state?.workflowUrl)) items.push({ label: 'Open EAS workflow', url: state.workflowUrl });
+      for (const item of items) {
+        const link = node('a', '', item.label + ': ' + item.url); link.href = item.url; link.target = '_blank'; link.rel = 'noopener noreferrer'; links.appendChild(link);
+      }
+    }
+  }
+  async function pngIconDataUrl(panel, artifact) {
+    const input = $(panel, '[data-lb-mobile-icon]');
+    const file = input?.files?.[0];
+    let dataUrl = '';
+    if (file) {
+      if (file.type !== 'image/png' && !/\.png$/i.test(file.name || '')) throw new Error('Upload an actual PNG app icon.');
+      if (file.size > 3 * 1024 * 1024) throw new Error('Choose an app icon PNG smaller than 3 MiB.');
+      dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('The PNG icon could not be read.'));
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.readAsDataURL(file);
+      });
+    } else {
+      dataUrl = text(artifact.brandLogoDataUrl || '');
+    }
+    if (!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/i.test(dataUrl)) throw new Error('Upload a square PNG app icon, or add a square PNG logo in Brand DNA first.');
+    const image = new Image();
+    image.src = dataUrl;
+    await new Promise((resolve, reject) => {
+      image.onload = resolve;
+      image.onerror = () => reject(new Error('The chosen PNG is not a valid image.'));
+    });
+    const ratio = image.naturalWidth / Math.max(1, image.naturalHeight);
+    if (!image.naturalWidth || !image.naturalHeight || ratio < 0.65 || ratio > 1.55) throw new Error('The PNG icon should be roughly square. Choose a square launcher icon rather than a wide wordmark.');
+    const size = 512;
+    const crop = Math.min(image.naturalWidth, image.naturalHeight);
+    const canvas = document.createElement('canvas');
+    canvas.width = size; canvas.height = size;
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('The browser cannot prepare the PNG icon.');
+    context.drawImage(image, (image.naturalWidth - crop) / 2, (image.naturalHeight - crop) / 2, crop, crop, 0, 0, size, size);
+    const normalized = canvas.toDataURL('image/png');
+    if (normalized.length > 210000) throw new Error('The optimized PNG icon is still too large for the mobile build service.');
+    return normalized;
+  }
+  async function startMobileBuild(panel) {
+    const button = $(panel, '[data-lb-mobile-build]');
+    let currentStep = 'validating Project Brain result';
+    try {
+      const { artifact } = validateForRelease(panel);
+      currentStep = 'reading selected mobile target';
+      const platforms = Array.from(panel.querySelectorAll('[data-lb-platform]:checked')).map(input => input.value).filter(value => value === 'android' || value === 'ios');
+      if (!platforms.length) throw new Error('Select Android, iOS, or both build targets.');
+      currentStep = 'validating and preparing PNG app icon';
+      const iconDataUrl = await pngIconDataUrl(panel, artifact);
+      currentStep = 'packing inspected HTML routes into native WebView';
+      const mobileHtml = mobileStandaloneHtml(artifact);
+      currentStep = 'serializing native mobile payload';
+      const payload = {
+        version: 1,
+        kind: 'ovyx-link-based-mobile-build',
+        source: { projectId: artifact.id, projectName: artifact.name, sourceUrl: artifact.sourceUrl },
+        website: { compiledHtmlTrees: [mobileHtml], pages: [mobileHtml], project: { name: artifact.name, html: mobileHtml } }
+      };
+      const body = { appName: artifact.name, displayName: artifact.name, platforms, iconDataUrl, sourceProjectId: artifact.id, payload };
+      if (new TextEncoder().encode(JSON.stringify(body)).byteLength > 730000) throw new Error('The mobile build bundle is too large for the current secure handoff (730 KB). Export the deployable ZIP for the complete web project.');
+      if (typeof window.confirm !== 'function' || !window.confirm('Start a real Expo/EAS ' + platforms.map(x => x.toUpperCase()).join(' + ') + ' build for "' + artifact.name + '"?\n\nThis dispatches a remote native build and may consume EAS build resources. The native wrapper uses local browser/WebView persistence; authenticated OVYX account APIs and cloud-connected preview actions are not included in the mobile bundle.')) {
+        setReleaseStatus(panel, '[data-lb-mobile-status]', 'Mobile build cancelled. No EAS build job was requested.', 'info');
+        return;
+      }
+      if (button) { button.disabled = true; button.textContent = 'Starting build…'; }
+      setReleaseStatus(panel, '[data-lb-mobile-status]', 'Preparing the portable route-aware HTML bundle and dispatching to the configured EAS workflow…', 'busy');
+      currentStep = 'requesting authenticated EAS build dispatch';
+      const token = await releaseToken();
+      const data = await deploymentRequest('/api/mobile/build', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify(body)
+      }, token);
+      if (data.ok !== true || !data.jobId) throw new Error(data.error || 'EAS did not return a build job ID. No mobile build is marked as queued.');
+      artifact.releaseState = artifact.releaseState || { web: {}, mobile: null };
+      artifact.releaseState.mobile = {
+        jobId: String(data.jobId), status: String(data.status || 'queued'), platforms,
+        workflowRunId: String(data.workflowRunId || ''), workflowUrl: safeUrl(data.workflowUrl),
+        requestedAt: new Date().toISOString(), artifacts: {}, builds: [], error: null
+      };
+      persistReleaseState(artifact); renderMobileReleaseStatus(panel, artifact.releaseState.mobile);
+      setReleaseStatus(panel, '[data-lb-mobile-status]', 'EAS accepted the mobile build job. It has not necessarily finished yet; refresh the status for completion and artifact URLs.', 'success');
+      appendReleaseDiagnostic(panel, 'EAS mobile build job queued: ' + data.jobId + ' (' + platforms.join(', ') + ').');
+      currentStep = 'reading initial EAS workflow/build status';
+      await refreshMobileBuildStatus(panel);
+    } catch (error) {
+      setReleaseStatus(panel, '[data-lb-mobile-status]', (error?.message || 'Mobile build failed. No successful build is reported.') + ' (Stage: ' + currentStep + ')', 'error');
+      appendReleaseDiagnostic(panel, 'Mobile build attempt: ' + text(error?.message || error).slice(0, 500));
+    } finally {
+      if (button) { button.disabled = !currentArtifact(); button.textContent = 'Start mobile build'; }
+      setReleaseControls(panel);
+    }
+  }
+  async function refreshMobileBuildStatus(panel) {
+    const artifact = currentArtifact();
+    const mobile = artifact?.releaseState?.mobile;
+    if (!mobile?.jobId) {
+      setReleaseStatus(panel, '[data-lb-mobile-status]', 'No EAS build job exists yet.', 'info');
+      return;
+    }
+    const button = $(panel, '[data-lb-mobile-refresh]');
+    if (button) { button.disabled = true; button.textContent = 'Checking…'; }
+    setReleaseStatus(panel, '[data-lb-mobile-status]', 'Checking the authoritative EAS workflow and artifact status…', 'busy');
+    try {
+      const token = await releaseToken();
+      const query = new URLSearchParams({ jobId: mobile.jobId });
+      const data = await deploymentRequest('/api/mobile/build/status?' + query.toString(), {}, token);
+      if (data.ok !== true) throw new Error(data.error || 'EAS status was not confirmed.');
+      Object.assign(mobile, data, { refreshedAt: new Date().toISOString() });
+      persistReleaseState(artifact); renderMobileReleaseStatus(panel, mobile);
+      const message = 'EAS status: ' + text(mobile.status || 'unknown') + (mobile.workflowStatus ? ' (' + mobile.workflowStatus + ')' : '') + (mobile.error?.message ? ' · ' + mobile.error.message : '');
+      setReleaseStatus(panel, '[data-lb-mobile-status]', message + (mobile.status === 'completed' ? ' · Build artifacts are listed below.' : mobile.status === 'failed' ? ' · Inspect the returned EAS details and error before retrying.' : ' · The build is still processing; refresh again later.'), mobile.status === 'completed' ? 'success' : mobile.status === 'failed' ? 'error' : 'info');
+      appendReleaseDiagnostic(panel, 'Mobile job ' + mobile.jobId + ' status checked: ' + mobile.status + '.');
+    } catch (error) {
+      setReleaseStatus(panel, '[data-lb-mobile-status]', error?.message || 'Mobile build status could not be read.', 'error');
+      appendReleaseDiagnostic(panel, 'Mobile status check: ' + text(error?.message || error).slice(0, 500));
+    } finally {
+      if (button) { button.disabled = !currentArtifact()?.releaseState?.mobile?.jobId; button.textContent = 'Refresh mobile status'; }
+      setReleaseControls(panel);
+    }
+  }
+  async function saveReleaseRecord(panel) {
+    const artifact = currentArtifact();
+    const button = $(panel, '[data-lb-save-release]');
+    try {
+      if (!artifact || !Object.keys(artifact.releaseState?.web || {}).length && !artifact.releaseState?.mobile?.jobId) throw new Error('There is no release record to save yet.');
+      const user = authenticatedReleaseUser();
+      if (!user.email) throw new Error('An email address is required to save release details in OVYX Projects.');
+      if (typeof window.confirm !== 'function' || !window.confirm('Save the release history for "' + artifact.name + '" into this project in OVYX Projects? This updates its saved project record and does not change the live deployment.')) {
+        setReleaseStatus(panel, '[data-lb-web-status]', 'Release-record save cancelled; OVYX Projects was not changed.', 'info');
+        return;
+      }
+      if (button) { button.disabled = true; button.textContent = 'Saving release record…'; }
+      const project = {
+        id: artifact.id, name: artifact.name, description: 'Link-based app generated from ' + text(artifact.sourceUrl),
+        sourceUrl: artifact.sourceUrl, projectType: 'link-based-app', files: artifact.files,
+        entryHtml: artifact.entryHtml, summary: artifact.summary,
+        pages: Object.entries(artifact.routes || {}).map(([route, file]) => ({ id: releaseSlug(route), name: route === '/' ? 'Home' : route.split('/').filter(Boolean).pop(), path: route, file })),
+        releaseHistory: artifact.releaseState,
+        lastReleaseValidation: artifact.lastReleaseValidation || null,
+        releaseLimits: ['Static-site forms and app state remain local.', 'External OVYX account APIs are available only in the authenticated preview.', 'EAS jobs are asynchronous and may need additional refreshes.']
+      };
+      const body = JSON.stringify({ projectId: artifact.id, project });
+      if (new TextEncoder().encode(body).byteLength > 880000) throw new Error('This project plus release metadata exceeds the OVYX Projects save limit. Export the source bundle and reduce files before retrying.');
+      const token = await user.getIdToken();
+      const data = await deploymentRequest('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: 'Bearer ' + token }, body }, token);
+      if (data.ok !== true || !data.project?.id) throw new Error(data.error || 'OVYX Projects did not verify the release record save.');
+      artifact.savedToProjects = true; artifact.savedProjectId = data.project.id; artifact.savedAt = data.project.updatedAt || new Date().toISOString();
+      setReleaseStatus(panel, '[data-lb-web-status]', 'Release history saved and verified in OVYX Projects. This records status and URLs; it does not publish or change a live site.', 'success');
+      appendReleaseDiagnostic(panel, 'Release history saved to OVYX Projects at ' + artifact.savedAt + '.');
+    } catch (error) {
+      setReleaseStatus(panel, '[data-lb-web-status]', error?.message || 'Release record was not saved.', 'error');
+    } finally {
+      if (button) { button.disabled = !currentArtifact() || !Object.keys(currentArtifact()?.releaseState?.web || {}).length && !currentArtifact()?.releaseState?.mobile?.jobId; button.textContent = 'Save release record to OVYX Projects'; }
+    }
+  }
+  function zipCrc32(bytes) {
+    let crc = 0xffffffff;
+    for (const byte of bytes) {
+      crc ^= byte;
+      for (let k = 0; k < 8; k += 1) crc = (crc & 1) ? (crc >>> 1) ^ 0xedb88320 : (crc >>> 1);
+    }
+    return (crc ^ 0xffffffff) >>> 0;
+  }
+  function browserZipBlob(files) {
+    const encoder = new TextEncoder();
+    const entries = Object.entries(files).map(([rawPath, content]) => {
+      const path = releasePath(rawPath);
+      const name = encoder.encode(path);
+      const bytes = encoder.encode(typeof content === 'string' ? content : fileContent(content));
+      return { path, name, bytes, crc: zipCrc32(bytes), dosTime: 0, dosDate: ((2026 - 1980) << 9) | (10 << 5) | 18 };
+    });
+    if (!entries.length) throw new Error('No files are available to export.');
+    let localOffset = 0;
+    const localParts = [];
+    const centralParts = [];
+    let totalSize = 0;
+    const u16 = value => new Uint8Array([value & 255, (value >>> 8) & 255]);
+    const u32 = value => new Uint8Array([value & 255, (value >>> 8) & 255, (value >>> 16) & 255, (value >>> 24) & 255]);
+    const join = parts => {
+      const size = parts.reduce((sum, part) => sum + part.length, 0);
+      const output = new Uint8Array(size); let at = 0;
+      for (const part of parts) { output.set(part, at); at += part.length; }
+      return output;
+    };
+    for (const entry of entries) {
+      totalSize += entry.bytes.length;
+      if (totalSize > 16 * 1024 * 1024) throw new Error('The export exceeds the 16 MiB browser ZIP limit. Remove unused source files before exporting.');
+      const local = join([
+        u32(0x04034b50), u16(20), u16(0x0800), u16(0), u16(entry.dosTime), u16(entry.dosDate),
+        u32(entry.crc), u32(entry.bytes.length), u32(entry.bytes.length), u16(entry.name.length), u16(0),
+        entry.name, entry.bytes
+      ]);
+      localParts.push(local);
+      const central = join([
+        u32(0x02014b50), u16(20), u16(20), u16(0x0800), u16(0), u16(entry.dosTime), u16(entry.dosDate),
+        u32(entry.crc), u32(entry.bytes.length), u32(entry.bytes.length), u16(entry.name.length), u16(0),
+        u16(0), u16(0), u16(0), u32(0), u32(localOffset), entry.name
+      ]);
+      centralParts.push(central);
+      localOffset += local.length;
+    }
+    const centralSize = centralParts.reduce((sum, part) => sum + part.length, 0);
+    const end = join([u32(0x06054b50), u16(0), u16(0), u16(entries.length), u16(entries.length), u32(centralSize), u32(localOffset), u16(0)]);
+    return new Blob([...localParts, ...centralParts, end], { type: 'application/zip' });
+  }
   async function generate(report, panel) {
     if (generating) return;
     const button = $(panel, '[data-lb-generate]');
@@ -821,17 +1670,26 @@
       window.__OVYX_APP_STUDIO_LINK_NAV_HANDLER__ = routeHandler;
       window.addEventListener('message', routeHandler);
       const ownerUid = text(user.uid || '');
+      const brandLogoPreview = document.querySelector('#ovyx-app-studio-brand-dna-panel [data-brand-logo-preview]');
+      const brandLogoDataUrl = brandLogoPreview && !brandLogoPreview.hidden && /^data:image\/png;base64,/i.test(String(brandLogoPreview.src || ''))
+        ? String(brandLogoPreview.src)
+        : '';
       window.__OVYX_APP_STUDIO_GENERATED_PROJECT__ = {
         schemaVersion: 1, id: projectId, name: appName, sourceUrl: brief.sourceUrl,
         files: build.files, entryHtml: renderedHtml, summary: build.summary,
         routes: Object.fromEntries(routeFiles.entries()), pageCount, ownerUid,
+        brandLogoDataUrl,
+        releaseState: { web: {}, mobile: null, latestWebKey: '' },
         generatedAt: new Date().toISOString(), previewMode: 'sandboxed-srcdoc', savedToProjects: false
       };
+      restoreReleaseState(window.__OVYX_APP_STUDIO_GENERATED_PROJECT__);
+      renderReleaseState(panel);
       attachPreviewActionBridge(frame, panel, projectId, ownerUid);
       runProjectBrain(panel, true);
       frame.srcdoc = renderedHtml;
       if (preview) preview.hidden = false;
       renderSources(panel, build.files);
+      setReleaseControls(panel);
       const saveButton = $(panel, '[data-lb-save]');
       if (saveButton) { saveButton.disabled = false; saveButton.textContent = 'Save project to OVYX Projects'; }
       const saveStatus = $(panel, '[data-lb-save-status]');
