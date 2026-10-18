@@ -708,7 +708,7 @@ export async function analyzePublicWebsite(input, options = {}) {
         }
         sitemapUsed = count > 0;
       }
-    } catch (error) { warnings.push('The website sitemap could not be reviewed.); }
+    } catch (error) { warnings.push('The website sitemap could not be reviewed.'); }
   }
 
   const queue = [...discovered.values()].map(item => ({ url: item.url, depth: item.depth, parent: item.parentUrl }));
@@ -798,7 +798,7 @@ export async function analyzePublicWebsite(input, options = {}) {
       }
       if (css.truncated) warnings.push('Only part of a stylesheet was reviewed because it was too large.');
     } catch (error) {
-      warnings.push('A page stylesheet could not be reviewed.);
+      warnings.push('A page stylesheet could not be reviewed.');
     }
   }
   if (pageLimitReached) limitations.push('The first six eligible pages were reviewed. Other links may be listed without being opened.');
