@@ -70,13 +70,13 @@
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
         if (response.status === 401) throw new Error('Your session has expired. Sign in again to check AI availability.');
-        if (response.status === 403) throw new Error('Your account can't perform this check.');
+        if (response.status === 403) throw new Error('Your account cannot perform this check.');
         throw new Error('Could not check ' + label + ' right now. Please try again.');
       }
       if (data.connected === true && data.status === 'READY') {
         toast(data.message || label + ' is ready to use.', 'success');
       } else {
-        const message = data.message || (This AI option isn't available right now. Try OVYX Auto or choose another available option.');
+        const message = data.message || (This AI option is not available right now. Try OVYX Auto or choose another available option.');
         toast(message, data.status === 'NOT_CONFIGURED' ? 'warning' : 'error');
       }
     } catch (error) {
