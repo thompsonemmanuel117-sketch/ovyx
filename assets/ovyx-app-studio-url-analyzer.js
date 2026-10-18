@@ -87,10 +87,10 @@
     if (brand.logo && safeUrl(brand.logo.url)) {
       const logo = node('div', 'ovyx-ua-logo-candidate');
       logo.append(node('strong', '', 'Possible logo'), link(brand.logo.url, brand.logo.alt || 'Open detected logo asset'));
-      logo.appendChild(node('p', 'ovyx-ua-muted', 'Detected URL only; the binary was not copied. Upload the original PNG in Brand DNA to keep it in the new app.'));
+      logo.appendChild(node('p', 'ovyx-ua-muted', 'This is a detected URL only; the image is not copied automatically. Upload the logo in Brand DNA to include it in your app.'));
       brandSection.appendChild(logo);
     } else {
-      brandSection.appendChild(node('p', 'ovyx-ua-muted', 'No clear logo element was detected. The source may render a logo through CSS, inline SVG, or client-side JavaScript.'));
+      brandSection.appendChild(node('p', 'ovyx-ua-muted', 'No clear logo was detected. It may be embedded in the page styling or rendered dynamically.'));
     }
     if (safeUrl(brand.faviconUrl)) {
       const favicon = node('p', 'ovyx-ua-inline-link');
@@ -120,7 +120,7 @@
       mapSection.appendChild(map);
     }
     if (summary.pageLimitReached) mapSection.appendChild(node('p', 'ovyx-ua-notice', 'The inspection limit was reached. Remaining routes are listed but were not all fetched.'));
-    const assetSection = section(results, 'Assets discovered', 'These are public URLs referenced by inspected pages. Asset binaries are not downloaded or copied in Stage 2.');
+    const assetSection = section(results, 'Assets discovered', 'These public asset links were found on inspected pages. Files are not copied automatically.');
     const assets = Array.isArray(report.assets?.items) ? report.assets.items : [];
     if (!assets.length) assetSection.appendChild(node('p', 'ovyx-ua-empty', 'No public assets were identified in inspected source.'));
     else {
@@ -133,7 +133,7 @@
       });
       assetSection.appendChild(list);
     }
-    const capability = section(results, 'What this report can and cannot tell us', 'The next build stage can use this structured report as source-site context.');
+    const capability = section(results, 'What this report can and cannot tell us', 'Use these findings to guide app creation.');
     capability.appendChild(node('h5', '', 'Can inspect'));
     renderList(capability, report.capabilities?.can, 'No capabilities returned.');
     capability.appendChild(node('h5', '', 'Cannot prove or reproduce here'));
@@ -148,7 +148,7 @@
     }
     const source = report.source || {};
     results.appendChild(node('p', 'ovyx-ua-report-foot', 'Source: ' + txt(source.canonicalUrl || source.inputUrl) +
-      ' · Analyzed: ' + txt(source.analyzedAt || 'unknown') + '. The report is held in this tab for the next build stage; it is not saved to OVYX storage.'));
+      ' · Analyzed: ' + txt(source.analyzedAt || 'unknown') + '. These findings remain in this tab and are not saved automatically.'));
   }
   function applyDetectedPalette() {
     const report = window.__OVYX_URL_ANALYZER_LAST_REPORT__;
@@ -171,7 +171,7 @@
       applied++;
     });
     setStatus(applied
-      ? 'Transferred ' + applied + ' detected color(s) and the site name. Review them in Brand DNA and click its Save button. The source logo was not downloaded.'
+      ? 'Transferred ' + applied + ' detected colour(s) and the site name. Review the details in Brand DNA and save your changes. The source logo was not copied automatically.'
       : 'No reliable colors were available to transfer. Configure Brand DNA manually.', applied ? 'success' : 'info');
     if (dna.scrollIntoView) dna.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
@@ -216,9 +216,9 @@
     panel.setAttribute('aria-labelledby', 'ovyx-ua-title');
     const header = node('div', 'ovyx-ua-header');
     const title = node('div', '');
-    title.append(node('p', 'ovyx-ua-eyebrow', 'APP STUDIO / SOURCE INSPECTION'), node('h3', '', 'URL Analyzer'),
-      node('p', 'ovyx-ua-muted', 'Inspect a public website and prepare a structured source map for the next build stage.'));
-    header.append(title, node('span', 'ovyx-ua-chip', 'STAGE 02'));
+    title.append(node('p', 'ovyx-ua-eyebrow', 'APP STUDIO / WEBSITE ANALYSIS'), node('h3', '', 'URL Analyzer'),
+      node('p', 'ovyx-ua-muted', 'Inspect a public website to identify its structure, branding and relevant assets.'));
+    header.append(title, node('span', 'ovyx-ua-chip', 'SOURCE ANALYSIS'));
     panel.appendChild(header);
     const form = node('form', 'ovyx-ua-form');
     const label = node('label', 'ovyx-ua-label', 'Website URL');
@@ -232,7 +232,7 @@
     form.append(label, button);
     form.addEventListener('submit', event => { event.preventDefault(); analyze(); });
     panel.appendChild(form);
-    const statusNode = node('p', 'ovyx-ua-status', 'Use a public website URL. OVYX will not sign in, bypass restrictions, run source JavaScript, or download asset binaries.');
+    const statusNode = node('p', 'ovyx-ua-status', 'Enter a public website URL. OVYX respects access controls and does not run source scripts or copy assets automatically.');
     statusNode.setAttribute('role', 'status'); statusNode.setAttribute('aria-live', 'polite'); statusNode.setAttribute('data-ua-status', '');
     panel.appendChild(statusNode);
     const results = node('div', 'ovyx-ua-results');
