@@ -180,6 +180,13 @@
     if (helper.textContent !== copy) helper.textContent = copy;
   }
 
+  function handlePaletteDisclosure(event) {
+    const button = event.target && event.target.closest && event.target.closest('.ovyx-ua-secondary');
+    if (!button) return;
+    const identity = document.getElementById(IDENTITY_ID);
+    if (identity) identity.open = true;
+  }
+
   function handleStepClick(event) {
     const anchor = event.target && event.target.closest && event.target.closest('[data-ovyx-as-step]');
     if (!anchor) return;
@@ -270,6 +277,7 @@
     observer = new MutationObserver(queuePolish);
     observer.observe(document.body, { childList: true, subtree: true });
     document.addEventListener('click', handleStepClick);
+    document.addEventListener('click', handlePaletteDisclosure, true);
     window.addEventListener('ovyx:url-analyzer-report-ready', queuePolish);
     window.addEventListener('ovyx:link-app-generated', queuePolish);
     window.addEventListener('ovyx:project-brain-updated', queuePolish);
