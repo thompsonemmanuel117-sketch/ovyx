@@ -151,7 +151,7 @@ try {
           linesRemoved: 0,
           preview: '- old menu handler\n+ menu handler preserves accessible state and exposes the open class',
           approvalRequired: true,
-          note: 'This is a preview only. No project file was changed.',
+          note: 'Preview mode: no app files have been changed.',
         };
       } else if (payload.operation === 'apply_patch') {
         responseBody = {
