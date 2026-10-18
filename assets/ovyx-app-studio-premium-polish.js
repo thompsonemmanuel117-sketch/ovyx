@@ -156,9 +156,13 @@
     const verified = !!(brain && brain.summary && brain.summary.runtimeChecked);
     const artifact = window.__OVYX_APP_STUDIO_GENERATED_PROJECT__;
     const releaseState = artifact?.releaseState || {};
-    const webReleased = !!(releaseState.latestWebKey || Object.keys(releaseState.web || {}).length);
-    const mobileReleased = !!releaseState.mobile;
-    const released = webReleased || mobileReleased;
+    const production = releaseState.web?.production;
+    const productionIsLive = !!(production && production.action === 'publish' &&
+      ['active', 'success', 'deployed', 'completed'].includes(String(production.status || '').toLowerCase()));
+    const mobile = releaseState.mobile;
+    const mobileHasArtifact = Object.values(mobile?.artifacts || {}).some(item => !!(item && (item.downloadUrl || item.url)));
+    const mobileCompleted = mobile?.status === 'completed' && mobileHasArtifact;
+    const released = artifact?.savedToProjects === true || productionIsLive || mobileCompleted;
     const states = [
       report ? 'complete' : 'current',
       project ? 'complete' : report ? 'current' : 'pending',
