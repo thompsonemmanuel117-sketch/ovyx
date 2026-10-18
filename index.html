@@ -1329,9 +1329,7 @@
 <section class="v34-admin-panel">
 <div class="v34-admin-panel-head"><b>EMAIL DELIVERY</b><small>Server-side only. No API secret belongs in this HTML.</small></div>
 <label class="v34-form-single"><span>Secure broadcast endpoint</span><input autocomplete="off" class="ovyx-pref-input" id="v34-email-endpoint" placeholder="https://your-domain.com/api/notifications/broadcast"/></label>
-<div class="v34-service-contract">POST /api/notifications/broadcast
-Authorization: Bearer &lt;Firebase ID token&gt;
-Body: { broadcastId, title, body, category, link }</div>
+<div class="v34-service-contract">Publish announcements to signed-in OVYX users. Email delivery is available after the email service is configured and verified.</div>
 <button class="ovyx-settings-btn" id="v34-email-endpoint-save">Save endpoint</button>
 <div class="v34-service-status" id="v34-email-status">Email delivery is not claimed as active until the endpoint responds successfully.</div>
 <div class="v34-real-note"><i class="fa-solid fa-circle-info"></i><span>Use a trusted email delivery service configured by an administrator. Keep its credentials private and confirm delivery before reporting success.</span></div>
@@ -3719,7 +3717,7 @@ Body: { broadcastId, title, body, category, link }</div>
           cache:'no-store'
         });
         const data=await r.json().catch(()=>({}));
-        if(!r.ok)throw Object.assign(new Error(data.error||data.message||`AI status HTTP ${r.status}`),{status:r.status});
+        if(!r.ok)throw Object.assign(new Error(data.error||data.message||'AI availability could not be checked. Please try again.'),{status:r.status});
         const list=Array.isArray(data.providers)?data.providers:[];
         if(list.length!==PROVIDERS.length)throw new Error(`Secure AI status returned ${list.length}/${PROVIDERS.length} providers.`);
         let ready=0;
@@ -3851,7 +3849,7 @@ Body: { broadcastId, title, body, category, link }</div>
       const data=await r.json().catch(error=>{if(signal.aborted)throw error;return {};});
       if(signal.aborted)throw abortError();
       if(!r.ok){
-        const message=data.message||data.error||`AI ${requested==='automatic'?'assistant':'gateway'} HTTP ${r.status}`;
+        const message=data.message||data.error||'The AI request could not be completed. Please try again.';
         throw Object.assign(new Error(message),{code:data.code||(requested==='automatic'?'AI_ASSISTANT_FAILED':'AI_GATEWAY_FAILED'),status:r.status});
       }
       return data;
@@ -5056,14 +5054,14 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   window.OVYXAIService=window.OVYXAIService||{
     async generate(payload){
       const ep=endpoints().aiEndpoint;
-      if(!ep)throw Error('AI service is not connected. Please try again later or choose another AI option.');
+      if(!ep)throw Error('AI is not available right now. Try OVYX Auto or choose another option.');
       const u=window.firebase?.auth?.().currentUser;
       if(!u)throw Error('Sign in before using the live AI service.');
       const token=await u.getIdToken();
       const r=await fetch(ep,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
       const data=await r.json().catch(()=>({}));
       if(!r.ok){
-        const error=new Error(data?.error||data?.message||'AI service returned HTTP '+r.status);
+        const error=new Error(data?.error||data?.message||'The AI request could not be completed. Please try again.');
         error.code=data?.code||'AI_SERVICE_REQUEST_FAILED';error.status=r.status;
         throw error;
       }
@@ -5238,10 +5236,10 @@ function patchDrawer(){
     const u=currentUser();const email=encodeURIComponent(u?.email||'');const url='/api/service-status?userEmail='+email;
     const started=performance.now();
     const response=await fetch(url,{method:'GET',headers:{Accept:'application/json'},cache:'no-store',credentials:'same-origin'});
-    if(!response.ok)throw new Error('Service status HTTP '+response.status);
+    if(!response.ok)throw new Error('Service availability could not be checked. Please try again.');
     const payload=await response.json();
     const list=Array.isArray(payload)?payload:(Array.isArray(payload.providers)?payload.providers:(Array.isArray(payload.services)?payload.services:(Array.isArray(payload.statuses)?payload.statuses:(Array.isArray(payload.data)?payload.data:[]))));
-    if(!list.length)throw new Error('Service status response did not contain a provider status array.');
+    if(!list.length)throw new Error('No service status is available right now. Please try again.');
     ['gemini','groq','deepseek','anthropic','openai'].forEach(id=>{const item=list.find(x=>providerKey(x)===id);renderStatus(id,!!item&&providerStatus(item)==='CONFIGURED');const l=$('#brain-latency-'+id);if(l)l.textContent=item&&providerStatus(item)==='CONFIGURED'?'Configured · not checked':'Setup required'});
     $$('[data-ovyx-service-warning],#service-status-warning,.service-status-warning,.backend-warning-banner,#admin-service-warning').forEach(e=>{e.hidden=true;e.remove()});
     window.OVYX_LIVE_SERVICE_STATE={ok:true,providers:list,fetchedAt:Date.now(),rtt:Math.round(performance.now()-started)};
@@ -5261,9 +5259,9 @@ function patchDrawer(){
     const box=$('#v42-ai-messages');const add=(text,kind)=>{const d=document.createElement('div');d.className='v42-msg '+kind;d.textContent=text;box.appendChild(d);box.scrollTop=box.scrollHeight};add(prompt,'user');
     const ctx={product:'OVYX',activeView:window.KernelState?.activeView||'home',activeProject:window.KernelState?.activeProject||null,profile:profileState(),settings:safeJSON('ovyx.settings.toggles.v34',{}),aiPreferences:safeJSON('ovyx.ai.preferences.v1',{})};
     const endpoint=window.OVYX_ENDPOINTS?.assistant||'/api/ai/assistant';
-    try{const u=currentUser();const token=await u?.getIdToken?.();const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:JSON.stringify({message:prompt,context:ctx})});if(!r.ok)throw new Error('AI service HTTP '+r.status);const data=await r.json();const answer=data.answer||data.message||data.output||data.text;if(!answer)throw new Error('AI service returned no answer');add(String(answer),'ai')}
+    try{const u=currentUser();const token=await u?.getIdToken?.();const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json',Accept:'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:JSON.stringify({message:prompt,context:ctx})});if(!r.ok)throw new Error('The AI request could not be completed. Please try again.');const data=await r.json();const answer=data.answer||data.message||data.output||data.text;if(!answer)throw new Error('AI service returned no answer');add(String(answer),'ai')}
     catch(err){
-      const low=prompt.toLowerCase();let answer='OVYX AI could not reach the secure AI service. I will not pretend a model answered. You can still use the workspace controls or contact ovyxsupportteam@gmail.com.';
+      const low=prompt.toLowerCase();let answer='OVYX AI is temporarily unavailable. You can continue using the workspace controls or contact OVYX Support.';
       if(/support|complaint|bug|broken|help/.test(low))answer='I can help diagnose the OVYX workspace. If this is an account or platform issue that needs the owner team, contact ovyxsupportteam@gmail.com.';
       else if(/project|build|website|app/.test(low))answer='I can use the active project context when the secure OVYX AI endpoint is connected. The current browser build will not claim a generated result without that verified service.';
       add(answer,'ai')
@@ -5975,7 +5973,7 @@ window.OVYXV58={syncDock,route:safeRoute,useTemplate,previewTemplate,featureLock
           }
         }catch(e){}
         try{bot.pushMsg?.('The advisory mail action is available from the owner mail service when that endpoint is configured. No project changes were made.')}catch(e){}
-        try{window.showToast?.('Advisory mail service is not configured yet.','info')}catch(e){}
+        try{window.showToast?.('Email notifications are not available right now. Please try again later.','info')}catch(e){}
       };
     }
     return true;
@@ -6371,7 +6369,7 @@ window.OVYXV58={syncDock,route:safeRoute,useTemplate,previewTemplate,featureLock
   }
   async function readSystemDocuments(){
     const firestore=db();
-    if(!firestore) throw new Error('Firebase Firestore is unavailable.');
+    if(!firestore) throw new Error('Admin settings are temporarily unavailable. Please try again later.');
     await requireRoot();
     const [configSnap,controlsSnap]=await Promise.all([
       firestore.collection('system').doc('config').get(),
@@ -6384,7 +6382,7 @@ window.OVYXV58={syncDock,route:safeRoute,useTemplate,previewTemplate,featureLock
   }
   async function writeSystemDocument(docId,payload){
     const firestore=db();
-    if(!firestore) throw new Error('Firebase Firestore is unavailable.');
+    if(!firestore) throw new Error('Admin settings are temporarily unavailable. Please try again later.');
     const {user}=await requireRoot();
     await firestore.collection('system').doc(docId).set({
       ...payload,
@@ -6420,7 +6418,7 @@ window.OVYXV58={syncDock,route:safeRoute,useTemplate,previewTemplate,featureLock
         return docs;
       }catch(e){
         console.error('[OVYX Phase 1] admin Firestore read failed',e);
-        toast(e.message||'Unable to load admin controls from Firestore.','error');
+        toast('Admin settings could not be loaded. Please try again.','error');
         return null;
       }
     };
@@ -6466,7 +6464,7 @@ window.OVYXV58={syncDock,route:safeRoute,useTemplate,previewTemplate,featureLock
         this.pricing=pricing;this.gating=gating;
         try{localStorage.setItem('ovyx_pricing_matrix',JSON.stringify(pricing));localStorage.setItem('ovyx_gating_matrix',JSON.stringify(gating))}catch(e){console.warn('[OVYX runtime]',e)}
         this.updateLockIcons?.();window.OvyxCurrencyEngine?.renderFormattedPrices?.();
-        toast('System configuration saved to Firestore.','success');
+        toast('System settings saved successfully.','success');
       }catch(e){
         console.error('[OVYX Phase 1] system config write failed',e);
         toast(e.message||'System configuration could not be saved.','error');
@@ -6490,7 +6488,7 @@ window.OVYXV58={syncDock,route:safeRoute,useTemplate,previewTemplate,featureLock
         return docs;
       }catch(e){
         console.error('[OVYX Phase 1] production state read failed',e);
-        toast(e.message||'Unable to load production state from Firestore.','error');
+        toast('Platform integration status could not be loaded. Please try again.','error');
         return null;
       }
     };
@@ -6511,7 +6509,7 @@ window.OVYXV58={syncDock,route:safeRoute,useTemplate,previewTemplate,featureLock
         toast(`Master Switch: ${next?'LIVE PRODUCTION STATE ACTIVE':'INTEGRATION OFF'}`,next?'success':'info');
       }catch(e){
         console.error('[OVYX Phase 1] production state write failed',e);
-        toast(e.message||'Production state could not be saved to Firestore.','error');
+        toast('Platform integration settings could not be saved. Please try again.','error');
       }finally{
         if(btn)btn.disabled=false;
       }
@@ -6527,14 +6525,14 @@ window.OVYXV58={syncDock,route:safeRoute,useTemplate,previewTemplate,featureLock
     },
     normalize(input){
       const x=typeof input==='object'&&input?input:{provider:'paystack'};const provider=String(x.provider||'paystack').toLowerCase();const currency=String(x.currency||window.OvyxCurrencyEngine?.currency||'NGN').toUpperCase();const amount=Number(x.amount);
-      if(!['paystack'].includes(provider))throw new Error(`Payment provider "${provider}" is not configured.`);if(!['NGN','USD'].includes(currency))throw new Error(`Currency "${currency}" is not enabled for Paystack in this integration.`);if(!Number.isFinite(amount)||amount<=0)throw new Error('A valid positive payment amount is required.');
+      if(!['paystack'].includes(provider))throw new Error('Payments are not available with this option yet.');if(!['NGN','USD'].includes(currency))throw new Error(`Currency "${currency}" is not enabled for Paystack in this integration.`);if(!Number.isFinite(amount)||amount<=0)throw new Error('A valid positive payment amount is required.');
       return {...x,provider,currency,amount,providerLabel:'Paystack'};
     },
     async pay(userEmail,userFullName,amount,currency,config={}){
       const cfg=this.normalize({...config,amount,currency});if(!userEmail||!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(userEmail))throw new Error('A valid authenticated email is required.');const u=auth()?.currentUser;if(!u)throw new Error('Sign in before starting payment.');const token=await u.getIdToken(true);
       const create=await fetch('/api/payments/create',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({provider:cfg.provider,paymentMethod:cfg.paymentMethod||'international',productType:cfg.productType||'subscription',productId:cfg.productId||'pro',plan:cfg.plan||cfg.productId||'pro',amount:cfg.amount,currency:cfg.currency,userEmail,userFullName,phone:cfg.phone||''})});
       const data=await create.json().catch(()=>({}));if(!create.ok)throw new Error(data.error||'Secure payment initialization failed.');
-      if(cfg.paymentMethod==='opay'){const checkoutUrl=String(data.url||data.checkoutUrl||'').trim();if(!checkoutUrl)throw new Error(data.error||'OPAY checkout is not configured on the server.');window.location.assign(checkoutUrl);return await new Promise(()=>{});}
+      if(cfg.paymentMethod==='opay'){const checkoutUrl=String(data.url||data.checkoutUrl||'').trim();if(!checkoutUrl)throw new Error('Checkout is temporarily unavailable. Please try again later.');window.location.assign(checkoutUrl);return await new Promise(()=>{});}
       if(!data.accessCode||!data.reference)throw new Error(data.error||'Secure international card initialization failed.');await this.loadScript(this.providers.paystack.script);const popup=new window.PaystackPop();
       return new Promise((resolve,reject)=>{popup.resumeTransaction(data.accessCode);const success=payload=>{const reference=String(payload?.reference||payload?.trxref||'').trim();if(!reference){reject(new Error('Payment provider returned no reference.'));return}this.verify(reference,cfg,token).then(resolve).catch(reject)};if(popup.onSuccess)popup.onSuccess=success;if(typeof popup.newTransaction==='function'&&typeof popup.resumeTransaction!=='function')popup.newTransaction({key:data.publicKey,email:userEmail,amount:data.amount,currency:cfg.currency,onSuccess:success,onCancel:()=>reject(new Error('Payment cancelled.')),onError:e=>reject(new Error(e?.message||'Payment provider error.'))});let tries=0;const poll=setInterval(async()=>{if(++tries>180){clearInterval(poll);reject(new Error('Payment verification is still pending. You may retry safely.'));return}try{const r=await fetch('/api/payments/verify?reference='+encodeURIComponent(data.reference),{headers:{Authorization:'Bearer '+token},credentials:'same-origin'});const d=await r.json().catch(()=>({}));if(d.status==='success'&&d.fulfilled){clearInterval(poll);resolve(d)}else if(d.status==='failed'){clearInterval(poll);reject(new Error(d.error||'Payment verification failed.'))}}catch(e){console.warn('[OVYX runtime]',e)}},2000)});
     },
@@ -7908,7 +7906,7 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
         try{localStorage.setItem('ovyx_pricing_matrix',JSON.stringify(pricing));localStorage.setItem('ovyx_gating_matrix',JSON.stringify(gating))}catch(e){console.warn('[OVYX runtime]',e)}
         this.updateLockIcons?.();
         window.OvyxCurrencyEngine?.renderFormattedPrices?.();
-        toast('System configuration saved through the server-authoritative admin API.','success');
+        toast('System settings saved successfully.','success');
       }catch(error){
         console.error('[OVYX Step A] system config write failed',error);
         toast(error.message||'System configuration could not be saved.','error');
@@ -8359,7 +8357,7 @@ window.OVYXAccessRegistry={state,requiredTier,allowed,planFeatures,apply:applyLo
   const cleanName=v=>String(v||'asset').replace(/[^a-zA-Z0-9._-]/g,'_').slice(0,180)||'asset';
   async function authToken(){const user=window.firebase?.auth?.().currentUser;if(!user)throw Object.assign(new Error('Sign in before uploading project assets.'),{code:'AUTH_REQUIRED'});return user.getIdToken();}
   function activeProjectId(explicit){return String(explicit||window.KernelState?.activeProject?.id||'').trim();}
-  function storageRef(uid,projectId,assetId,name){const storage=window.firebase?.storage?.();if(!storage)throw new Error('Firebase Storage is not initialized.');return storage.ref().child(`users/${uid}/projects/${projectId}/assets/${assetId}/${cleanName(name)}`)}
+  function storageRef(uid,projectId,assetId,name){const storage=window.firebase?.storage?.();if(!storage)throw new Error('File storage is not available right now. Please try again later.');return storage.ref().child(`users/${uid}/projects/${projectId}/assets/${assetId}/${cleanName(name)}`)}
   async function register(payload){const token=await authToken();const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},credentials:'same-origin',cache:'no-store',body:JSON.stringify(payload)});const d=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(d?.error?.message||'Asset registration failed.'),{code:d?.error?.code||'ASSET_REGISTER_FAILED',status:r.status});return d.asset}
   async function list(projectId){const pid=activeProjectId(projectId);if(!pid)throw new Error('A project is required.');const token=await authToken();const r=await fetch(`${API}?projectId=${encodeURIComponent(pid)}`,{headers:{Authorization:'Bearer '+token},credentials:'same-origin',cache:'no-store'});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d?.error?.message||'Asset list failed.');return Array.isArray(d.assets)?d.assets:[]}
   async function upload(file,projectId,options={}){
@@ -8375,7 +8373,7 @@ window.OVYXAccessRegistry={state,requiredTier,allowed,planFeatures,apply:applyLo
     try{const p=window.KernelState?.activeProject;if(p&&String(p.id)===pid){p.assets=Array.isArray(p.assets)?p.assets:[];p.assets=p.assets.filter(x=>String(x?.id||x?.assetId)!==asset.assetId);p.assets.push({id:asset.assetId,name:asset.name,size:asset.size,type:asset.contentType,storagePath:asset.storagePath});p.updatedAt=Date.now();window.ProjectStore?.save?.()}}catch(e){console.warn('[OVYX Step B] local asset reference sync failed',e)}
     return {...asset,downloadUrl:await result.ref.getDownloadURL()};
   }
-  async function url(asset){if(!asset?.storagePath)throw new Error('Asset storagePath is missing.');const storage=window.firebase?.storage?.();if(!storage)throw new Error('Firebase Storage is not initialized.');return storage.ref().child(asset.storagePath).getDownloadURL()}
+  async function url(asset){if(!asset?.storagePath)throw new Error('Asset storagePath is missing.');const storage=window.firebase?.storage?.();if(!storage)throw new Error('File storage is not available right now. Please try again later.');return storage.ref().child(asset.storagePath).getDownloadURL()}
   async function remove(asset){if(!asset?.assetId&&!asset?.id)throw new Error('Asset id is required.');const id=asset.assetId||asset.id;const storage=window.firebase?.storage?.();if(storage&&asset.storagePath){try{await storage.ref().child(asset.storagePath).delete()}catch(error){if(error?.code!=='storage/object-not-found')throw error}}const token=await authToken();const r=await fetch(API,{method:'DELETE',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},credentials:'same-origin',cache:'no-store',body:JSON.stringify({assetId:id,projectId:activeProjectId(asset.projectId)})});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d?.error?.message||'Asset metadata deletion failed.');try{const p=window.KernelState?.activeProject;if(p&&Array.isArray(p.assets)){p.assets=p.assets.filter(x=>String(x?.id||x?.assetId)!==String(id));p.updatedAt=Date.now();window.ProjectStore?.save?.()}}catch(e){console.warn('[OVYX runtime]',e)}return true}
   window.OVYXAssetStore={upload,list,url,remove,MAX_BYTES,__stepB:true};
 })();</script>
@@ -8459,7 +8457,7 @@ window.OVYXAccessRegistry={state,requiredTier,allowed,planFeatures,apply:applyLo
       if(!u){
         saveTemplateList(list.filter(x=>String(x.id)!==String(id)));
         renderTemplateManager();
-        toast('Removed from this development browser. Sign in later to remove the live server copy.','info');
+        toast('Removed from this device. Sign in to remove the saved copy from your account.','info');
       }else toast(e.message||'Template delete failed.','error');
     }
   }
@@ -8785,7 +8783,7 @@ async function subscribeAdminPush(){
     if(!auth())throw new Error('Sign in as the OVYX root administrator to enable these notifications.');
     if(typeof Notification==='undefined')throw new Error('This browser does not support notifications.');
     const setup=await loadPushState();
-    if(!setup.vapidConfigured||!setup.vapidPublicKey)throw new Error('VAPID keys are not configured on the server yet.');
+    if(!setup.vapidConfigured||!setup.vapidPublicKey)throw new Error('Push notifications are not available yet. Please try again later.');
     const permission=Notification.permission==='granted'? 'granted' : await Notification.requestPermission();
     if(permission!=='granted')throw new Error('Notification permission was not granted.');
     const ready=await registerPushWorker();
@@ -8852,7 +8850,7 @@ async function renderPushPanel(){
     panel.querySelector('[data-push-status]').className=subscription?'ovyx-push-status ok':'ovyx-push-status';
     panel.querySelector('[data-push-status]').textContent=subscription
       ? `Enabled on this device · ${pushStatusLabel(true,data.activeDeviceCount)}`
-      : data.vapidConfigured?'Not enabled on this device.':'Server VAPID keys are not configured yet.';
+      : data.vapidConfigured?'Not enabled on this device.':'Push notifications are not available yet.';
     panel.querySelector('[data-push-action="enable"]').textContent=subscription?'Refresh Device Subscription':'Enable Payment Notifications';
     panel.querySelector('[data-push-action="disable"]').disabled=!subscription;
     panel.querySelector('[data-push-action="test"]').disabled=!subscription;
@@ -9177,7 +9175,7 @@ const user=()=>{try{return window.firebase?.auth?.().currentUser||null}catch{ret
 async function token(){const u=user();if(!u?.getIdToken)throw new Error('Administrator sign-in is required.');return u.getIdToken(true)}
 async function pushRequest(body={},method='POST'){const t=await token();const r=await fetch('/api/admin/push',{method,headers:{'Content-Type':'application/json',Accept:'application/json',Authorization:'Bearer '+t},credentials:'same-origin',cache:'no-store',body:method==='GET'?undefined:JSON.stringify(body)});const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d?.error?.message||d?.message||`Notification request failed (${r.status})`);return d}
 async function registerPush(){if(!('serviceWorker'in navigator)||!('PushManager'in window)||!('Notification'in window))throw new Error('This browser does not support web push notifications.');if(!window.isSecureContext)throw new Error('Push notifications require a secure HTTPS connection.');const reg=await navigator.serviceWorker.register('/sw.js',{scope:'/'});await navigator.serviceWorker.ready;return reg}
-async function enablePush(){const permission=Notification.permission==='granted'?'granted':await Notification.requestPermission();if(permission!=='granted')throw new Error('Browser notification permission was not granted.');const reg=await registerPush();const info=await pushRequest({},'GET');if(!info.vapidPublicKey)throw new Error('VAPID public key is not configured on the OVYX server.');const existing=await reg.pushManager.getSubscription();const sub=existing||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:info.vapidPublicKey});const result=await pushRequest({action:'subscribe',subscription:sub.toJSON()});toast(result.message||'Payment notifications enabled on this device','success');return result}
+async function enablePush(){const permission=Notification.permission==='granted'?'granted':await Notification.requestPermission();if(permission!=='granted')throw new Error('Browser notification permission was not granted.');const reg=await registerPush();const info=await pushRequest({},'GET');if(!info.vapidPublicKey)throw new Error('Push notifications are not available yet. Please try again later.');const existing=await reg.pushManager.getSubscription();const sub=existing||await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:info.vapidPublicKey});const result=await pushRequest({action:'subscribe',subscription:sub.toJSON()});toast(result.message||'Payment notifications enabled on this device','success');return result}
 async function disablePush(){const reg=await registerPush();const sub=await reg.pushManager.getSubscription();const endpoint=sub?.endpoint||'';try{if(sub)await sub.unsubscribe()}catch(e){console.warn('[OVYX runtime]',e)}const result=await pushRequest({action:'unsubscribe',endpoint});toast(result.message||'Payment notifications disabled on this device','info');return result}
 async function testPush(){const result=await pushRequest({action:'test'});if(result.ok===false&&result.result?.attempted>0)throw new Error('The server could not deliver the test notification.');toast('Test notification sent. Check this device.','success');return result}
 async function savePrefs(preferences){const result=await pushRequest({action:'preferences',preferences});toast('Notification preferences saved.','success');return result}
@@ -9360,7 +9358,7 @@ async function beginSubscriptionCheckout(){
   const tier=String(cfg.productId||window.CheckoutElements?.selectedTier||'pro').toLowerCase();
   const currency=String(cfg.currency||'NGN').toUpperCase();
   const provider=currency==='NGN'?'opay':'paystack';
-  if((currency==='NGN'&&provider!=='opay')||(currency==='USD'&&provider!=='paystack'))throw new Error('This payment route is not configured.');
+  if((currency==='NGN'&&provider!=='opay')||(currency==='USD'&&provider!=='paystack'))throw new Error('Checkout is temporarily unavailable. Please try again later.');
   const email=auth()?.email||'';if(!email)throw new Error('Sign in before starting a secure checkout.');
   const phone=clean(modal.querySelector('[data-opay-phone]')?.value||modal.querySelector('#opay-phone')?.value||'');
   const fullName=clean(modal.querySelector('[data-full-name]')?.value||modal.querySelector('#stripe-cardholder')?.value||auth()?.displayName||'OVYX Customer');
@@ -10203,7 +10201,7 @@ async function lockFeature(item,tier,root){
   const key=item.key;const existing=R.rules.find(r=>r.key===key||r.selector===item.selector);
   const rule={key:existing?.key||key,name:item.label,type:'feature',tier,enabled:true,selector:item.selector,description:`Locked from Server entitlement rule · ${item.context}`};
   if(existing)Object.assign(existing,rule);else R.rules.push(rule);
-  if(!await saveRegistry()){toast('The lock could not be saved. Nothing was changed on the server.','error');return}
+  if(!await saveRegistry()){toast('The lock could not be saved. No changes were made.','error');return}
   R.apply?.();
   renderFeatureStudio(root);
   toast(`${item.label} is now ${PLAN_LABEL[tier]}. Billing access list updated.`,'success');
@@ -10365,8 +10363,8 @@ window.OVYXV66Admin={scanFeatures,ensureAdminVisibility,injectFeatureStudio,appl
   }
   function ruleFor(item){return getRules().find(function(r){return r.selector===item.selector||r.key===item.key})}
   function save(){return window.OVYXAccessRegistry?.save?window.OVYXAccessRegistry.save():false}
-  function renderPlanMap(host){var rules=getRules(),by={free:[],pro:[],max:[]};rules.forEach(function(r){var t=getTier(r);(by[t]||by.free).push(r)});host.innerHTML=PLANS.map(function(plan){var items=by[plan].slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name))});return '<article class="v67-plan-card '+plan+'"><div class="v67-plan-card-head"><b>'+LABEL[plan]+'</b><span>'+items.length+' '+(items.length===1?'feature':'features')+'</span></div><ul>'+(items.length?items.map(function(r){return '<li><span class="v67-plan-item-main"><i class="fa-solid fa-check"></i><span>'+esc(r.name)+'</span></span><button type="button" class="v67-plan-remove" data-remove-rule="'+esc(r.key)+'" title="Remove this plan gate"><i class="fa-solid fa-xmark"></i></button></li>'}).join(''):'<li>No feature rules yet.</li>')+'</ul></article>'}).join('')+'<div class="v67-plan-clear-note">Remove a gate here, or use <b>Clear gates</b> above to start the configurable catalog empty.</div>';host.querySelectorAll('[data-remove-rule]').forEach(function(btn){btn.addEventListener('click',async function(){var R=registry();if(!R)return;var key=btn.dataset.removeRule;R.rules=getRules().filter(function(r){return r.key!==key});var ok=await save();if(ok===false){toast('The gate was not saved as removed. Nothing changed on the server.','error');return}R.apply?.();toast('Plan gate removed. Billing feature lists updated.','success');var input=document.querySelector('.v67-feature-search');input?.dispatchEvent(new Event('input',{bubbles:true}))})})}
-  async function applyChoice(item,tier,host){if(item?.protected)return toast(item.protectedReason||'This control is protected from plan locking.','info');var R=registry();if(!R)return toast('The plan registry has not finished loading.','error');var existing=R.rules.find(function(r){return r.selector===item.selector||r.key===item.key});if(tier==='free'){if(existing)R.rules=R.rules.filter(function(r){return r!==existing})}else{var rule={key:existing?.key||item.key,name:item.label,type:'feature',tier:tier,enabled:true,selector:item.selector,description:'Server entitlement rule · '+item.context};if(existing)Object.assign(existing,rule);else R.rules.push(rule)}var ok=await save();if(ok===false){toast('The plan lock was not saved. No server change was confirmed.','error');return}window.OVYXAccessRegistry?.apply?.();toast(tier==='free'?item.label+' is available to Free again.':item.label+' now requires the '+LABEL[tier]+' plan.','success');window.__OVYXV67_PENDING='';render67(host)}
+  function renderPlanMap(host){var rules=getRules(),by={free:[],pro:[],max:[]};rules.forEach(function(r){var t=getTier(r);(by[t]||by.free).push(r)});host.innerHTML=PLANS.map(function(plan){var items=by[plan].slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name))});return '<article class="v67-plan-card '+plan+'"><div class="v67-plan-card-head"><b>'+LABEL[plan]+'</b><span>'+items.length+' '+(items.length===1?'feature':'features')+'</span></div><ul>'+(items.length?items.map(function(r){return '<li><span class="v67-plan-item-main"><i class="fa-solid fa-check"></i><span>'+esc(r.name)+'</span></span><button type="button" class="v67-plan-remove" data-remove-rule="'+esc(r.key)+'" title="Remove this plan gate"><i class="fa-solid fa-xmark"></i></button></li>'}).join(''):'<li>No feature rules yet.</li>')+'</ul></article>'}).join('')+'<div class="v67-plan-clear-note">Remove a gate here, or use <b>Clear gates</b> above to start the configurable catalog empty.</div>';host.querySelectorAll('[data-remove-rule]').forEach(function(btn){btn.addEventListener('click',async function(){var R=registry();if(!R)return;var key=btn.dataset.removeRule;R.rules=getRules().filter(function(r){return r.key!==key});var ok=await save();if(ok===false){toast('The gate could not be removed. No changes were made.','error');return}R.apply?.();toast('Plan gate removed. Billing feature lists updated.','success');var input=document.querySelector('.v67-feature-search');input?.dispatchEvent(new Event('input',{bubbles:true}))})})}
+  async function applyChoice(item,tier,host){if(item?.protected)return toast(item.protectedReason||'This control is protected from plan locking.','info');var R=registry();if(!R)return toast('The plan registry has not finished loading.','error');var existing=R.rules.find(function(r){return r.selector===item.selector||r.key===item.key});if(tier==='free'){if(existing)R.rules=R.rules.filter(function(r){return r!==existing})}else{var rule={key:existing?.key||item.key,name:item.label,type:'feature',tier:tier,enabled:true,selector:item.selector,description:'Server entitlement rule · '+item.context};if(existing)Object.assign(existing,rule);else R.rules.push(rule)}var ok=await save();if(ok===false){toast('The plan lock could not be saved. No changes were made.','error');return}window.OVYXAccessRegistry?.apply?.();toast(tier==='free'?item.label+' is available to Free again.':item.label+' now requires the '+LABEL[tier]+' plan.','success');window.__OVYXV67_PENDING='';render67(host)}
   function render67(host){var q=host.querySelector('.v67-feature-search')?.value||'',results=scan(q),resultsBox=host.querySelector('.v67-results');if(!resultsBox)return;var pending=window.__OVYXV67_PENDING||'';resultsBox.innerHTML=results.length?results.map(function(item){var r=ruleFor(item),tier=r?getTier(r):'free',pendingRow=pending===item.key,state=r&&tier!=='free'?'<span class="v67-locked"><i class="fa-solid fa-lock"></i>'+LABEL[tier]+'</span>':item.protected?'<span class="v67-locked" title="'+esc(item.protectedReason)+'"><i class="fa-solid fa-shield-halved"></i> PROTECTED</span>':'',action=item.protected?'<span class="v67-protected-note">'+esc(item.protectedReason)+'</span>':(r&&tier!=='free'?'<div class="v67-action-group"><button type="button" class="v67-action" data-change="'+esc(item.key)+'">Change</button><button type="button" class="v67-action danger" data-unlock="'+esc(item.key)+'"><i class="fa-solid fa-unlock"></i> Unlock</button></div>':'<button type="button" class="v67-action primary" data-apply="'+esc(item.key)+'"><i class="fa-solid fa-lock"></i> Apply Lock</button>'),chooser=pendingRow?'<div class="v67-plan-chooser"><span>Which plan should this require?</span><button type="button" class="v67-plan-btn" data-plan="free" data-key="'+esc(item.key)+'">Free</button><button type="button" class="v67-plan-btn pro" data-plan="pro" data-key="'+esc(item.key)+'">Pro</button><button type="button" class="v67-plan-btn max" data-plan="max" data-key="'+esc(item.key)+'">Max</button></div>':'';return '<div class="v67-result"><div class="v67-main"><b>'+esc(item.label)+'</b><small>'+esc(item.context)+' · '+esc(item.selector)+(state?' · locked':'')+'</small></div><div class="v67-actions">'+state+action+'</div>'+chooser+'</div>'}).join(''):'<div class="v67-empty">Nothing matched. Try a button name, visible label, tool name, route, ID, or control text.</div>';resultsBox.querySelectorAll('[data-apply],[data-change]').forEach(function(btn){btn.addEventListener('click',function(){window.__OVYXV67_PENDING=btn.dataset.apply||btn.dataset.change||'';render67(host)})});resultsBox.querySelectorAll('[data-plan]').forEach(function(btn){btn.addEventListener('click',async function(){var item=scan(q).find(function(x){return x.key===btn.dataset.key});if(!item)return;await applyChoice(item,btn.dataset.plan,host)})});var found=host.querySelector('.v67-found-count');if(found)found.textContent=results.length+' matching project control'+(results.length===1?'':'s');var map=host.querySelector('.v67-plan-map');if(map)renderPlanMap(map);var note=host.querySelector('.v67-save-note');if(note)note.textContent=window.firebase?.auth?.().currentUser?'Server-authorized admin changes use the protected Access Registry.':'Preview mode: locks stay on this device until an authorized admin account saves them to the server.'}
   function install(){
     var view=$('view-admin-pricing');
@@ -10546,7 +10544,7 @@ window.OVYXV66Admin={scanFeatures,ensureAdminVisibility,injectFeatureStudio,appl
       R.state.rules=R.state.rules.filter(r=>r.selector!==item.selector&&r.key!==item.key);
       if(R.state.rules.length===before){toast('This feature is already unlocked.','info');return}
       const ok=await R.save?.();
-      if(ok===false){toast('Unlock was not saved. Nothing changed on the server.','error');return}
+      if(ok===false){toast('Unlocking could not be saved. No changes were made.','error');return}
       try{R.apply?.()}catch{}
       toast(item.label+' is unlocked and available to Free.','success');
       const input=box.querySelector('.v67-feature-search');
@@ -11166,7 +11164,7 @@ function decorateLegal(kind){
 function patchLegal(){const opener=window.openLegal;if(typeof opener!=='function'||opener.__ovyxV86)return;const wrapped=function(kind){const k=String(kind).toLowerCase()==='terms'?'terms':'privacy';const out=opener(k);requestAnimationFrame(()=>decorateLegal(k));setTimeout(()=>decorateLegal(k),40);return out};wrapped.__ovyxV86=true;window.openLegal=wrapped;if(window.OVYXLegal)window.OVYXLegal.open=wrapped}
 /* Admin Template Hub: restore the trusted V53 AI Template Factory shape without removing current V67/V65 manager logic. */
 function fallbackTemplateAST(prompt){const p=String(prompt||'OVYX template'),l=p.toLowerCase(),tone=l.includes('luxury')?'#e8b64f':l.includes('fintech')?'#57d4c4':l.includes('creative')?'#c58b32':'#e8b64f',heading=l.includes('portfolio')?'Selected work, precisely made':l.includes('commerce')?'A storefront built to convert':'A sharper way to build online';return {version:2,theme:{background:'#050505',color:'#fff',accent:tone},pages:[{id:'page_home',name:'Home',slug:'home',sections:[{id:'hero',type:'hero',content:{heading,subheading:p.slice(0,220),cta:'Explore the experience'},styles:{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:'70vh',padding:'6rem 2rem',background:'#050505',color:'#fff',textAlign:'center',gap:'1rem'}},{id:'features',type:'features',content:{heading:'Built from a creative brief',items:['Structure','Motion','Responsive system']},styles:{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'1rem',padding:'4rem 2rem',background:'#090909',color:'#fff'}}]}]};}
-async function uploadTemplateReference(file){if(!file)return null;try{const storage=window.firebase?.storage?.(),u=window.firebase?.auth?.().currentUser;if(!storage||!u)throw new Error('Firebase Storage unavailable');const ref=storage.ref().child(`ovyx-template-references/${u.uid}/${Date.now()}_${file.name.replace(/[^a-z0-9._-]/gi,'_')}`);await ref.put(file,{contentType:file.type});return await ref.getDownloadURL()}catch(e){console.warn('[OVYX V86 template reference]',e);return null}}
+async function uploadTemplateReference(file){if(!file)return null;try{const storage=window.firebase?.storage?.(),u=window.firebase?.auth?.().currentUser;if(!storage||!u)throw new Error('File storage is not available right now. Please try again later.');const ref=storage.ref().child(`ovyx-template-references/${u.uid}/${Date.now()}_${file.name.replace(/[^a-z0-9._-]/gi,'_')}`);await ref.put(file,{contentType:file.type});return await ref.getDownloadURL()}catch(e){console.warn('[OVYX V86 template reference]',e);return null}}
 function mountTemplateFactory(){
   const host=document.getElementById('view-admin-template-hub');if(!host||host.querySelector('.v53-template-factory'))return;const form=document.getElementById('v43-template-form');if(!form)return;
   const box=document.createElement('section');box.className='v53-template-factory';box.innerHTML='<div class="v53-template-factory-head"><div><b>AI Template Factory</b><p>Describe the template you want. OVYX generates the editable blueprint and a live preview. Add an image or video reference when you want the visual direction remembered.</p></div><span class="v53-template-factory-pill">PROMPT → BLUEPRINT → PUBLISH</span></div><div class="v53-template-factory-grid"><div class="v53-template-factory-side"><label class="v53-template-label">Template brief</label><textarea id="v53-template-brief" class="v53-template-brief" placeholder="Example: Build a premium fintech landing-page template for African startups. Dark obsidian UI, gold/cyan accents, bold editorial hero, pricing, testimonials, FAQ and strong mobile layout."></textarea><div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:7px"><button type="button" class="v53-template-factory-actions button secondary" data-v53-brief="Premium SaaS dashboard for modern teams with dark luxury glass UI">SaaS</button><button type="button" class="v53-template-factory-actions button secondary" data-v53-brief="Editorial creative portfolio with cinematic case studies and bold typography">Portfolio</button><button type="button" class="v53-template-factory-actions button secondary" data-v53-brief="Luxury commerce storefront with product grid, offers and checkout-focused CTA">Commerce</button></div></div><div class="v53-template-factory-side"><label class="v53-template-label">Visual reference</label><input id="v53-template-media" class="v53-template-file" type="file" accept="image/*,video/*"><div id="v53-template-media-preview" class="v53-template-media-preview">Drop a screenshot or short video to guide the template direction.</div><div id="v53-template-reference-status" class="v53-template-reference">Reference is optional. An attachment may be added when secure file uploads are available.</div></div></div><div class="v53-template-factory-actions"><span id="v53-template-factory-status" class="v53-template-factory-status">Ready · no template generated yet.</span><div style="display:flex;gap:7px"><button type="button" class="secondary" id="v53-template-factory-generate">Generate with AI</button><button type="button" id="v53-template-factory-publish">Generate &amp; Prepare Publish</button></div></div>';
@@ -12070,7 +12068,7 @@ window.OVYXWebStudioNavigation.bind();
     const token=await user.getIdToken(true);
     const response=await fetch('/api/mobile/build',{method:'POST',credentials:'same-origin',cache:'no-store',headers:{'Content-Type':'application/json',Accept:'application/json',Authorization:'Bearer '+token},body:JSON.stringify(request)});
     const body=await response.json().catch(()=>({}));
-    if(!response.ok){const msg=body?.error?.message||body?.error||(`Mobile build service returned HTTP ${response.status}.`);const err=new Error(String(msg));err.status=response.status;err.payload=body;throw err;}
+    if(!response.ok){const msg=body?.error?.message||body?.error||('The mobile build could not be completed. Please try again.');const err=new Error(String(msg));err.status=response.status;err.payload=body;throw err;}
     state.jobId=String(body?.jobId||'');
     return body;
   }
@@ -12111,7 +12109,7 @@ window.OVYXWebStudioNavigation.bind();
       const canvas=document.createElement('canvas');canvas.width=180;canvas.height=180;
       await window.QRCode.toCanvas(canvas,url,{errorCorrectionLevel:'M',margin:1,width:180});
       host.innerHTML='';host.appendChild(canvas);canvas.style.width='126px';canvas.style.height='126px';canvas.style.background='#fff';canvas.style.padding='6px';canvas.style.borderRadius='7px';canvas.style.shapeRendering='crisp-edges';
-      const b=document.createElement('b');b.textContent='Install test QR';host.appendChild(b);const sm=document.createElement('small');sm.textContent='Scan to open the live EAS installation artifact.';host.appendChild(sm);
+      const b=document.createElement('b');b.textContent='Install test QR';host.appendChild(b);const sm=document.createElement('small');sm.textContent='Scan to install the mobile build.';host.appendChild(sm);
     }catch(error){
       host.innerHTML='<div style="width:126px;min-height:126px;display:grid;place-items:center;background:#0a0a0a;border-radius:7px;border:1px solid #262626;color:#f5b94f;font:800 8px/1.4 JetBrains Mono,monospace;text-align:center;padding:12px;box-sizing:border-box">LIVE INSTALL LINK<br><br>'+esc(url.slice(0,80))+'</div><b>Install test link</b><small>QR library could not load. The live artifact URL remains available above.</small>';
     }
@@ -12152,11 +12150,11 @@ window.OVYXWebStudioNavigation.bind();
       result=await requestRealBuild(buildRequestPayload(buildId(),platforms));
       appendLog('Cloud workflow queued: '+String(result?.workflowRunId||'pending'),'ok');
       if(result?.jobId){
-        appendLog('Waiting for live EAS build completion and artifact webhook…','');
+        appendLog('Waiting for the mobile build to finish…','');
         result=await pollBuildStatus(result.jobId);
       }
       if(result?.artifacts?.android||result?.artifacts?.ios)appendLog('Real mobile artifacts are available for download.','ok');
-      else if(result?.status==='failed')appendLog('The real cloud build failed. Review the returned EAS build details.','warn');
+      else if(result?.status==='failed')appendLog('The mobile build failed. Review the details below and try again.','warn');
       else appendLog('Build service completed without downloadable artifacts.','warn');
       progress(100,result?.status==='completed'?'COMPLETE':'BUILD FINISHED');
     }catch(error){
@@ -12475,7 +12473,7 @@ window.OVYXWebStudioNavigation.bind();
       clearActivation(); setLiveState(false); updateAuthAction(null); clearOAuthIntent();
       const error = new Error(deleted
         ? 'No existing OVYX account was found for this ' + providerName + ' identity. Create an account with email and password first; Google/GitHub are for signing in to existing accounts.'
-        : 'This ' + providerName + ' identity is not registered with OVYX. Sign-in was blocked, but Firebase could not confirm cleanup. Please contact OVYX Support before retrying.');
+        : 'This ' + providerName + ' account is not registered with OVYX. We could not verify the sign-in cleanup. Please contact OVYX Support before retrying.');
       error.code = 'auth/registration-required'; error.cleanupFailed = !deleted; throw error;
     }
     rejectedOAuthUid=String(credential?.user?.uid||'');
@@ -12856,7 +12854,7 @@ function installAuthMode(){
     const password=document.getElementById('ovyx-master-auth-password');
     const confirm=document.getElementById('ovyx-master-auth-confirm');
     if(title)title.textContent=window.isSignUpMode?'Create your OVYX workspace':'Activate your OVYX workspace';
-    if(subtitle)subtitle.textContent=window.isSignUpMode?'Create the Firebase account that will own your OVYX workspace.':'Log in to activate your secure OVYX workspace.';
+    if(subtitle)subtitle.textContent=window.isSignUpMode?'Create your OVYX account to get started.':'Log in to activate your secure OVYX workspace.';
     if(cardTitle)cardTitle.textContent=window.isSignUpMode?'Create Account':'Log In';
     if(submit)submit.textContent=window.isSignUpMode?'Create Account & Activate Workspace':'Log In';
     if(toggle)toggle.textContent=window.isSignUpMode?'Already have an account? Log in':'New to OVYX? Sign up';
@@ -13599,7 +13597,7 @@ window.OVYXDeepRepair={version:'1.0',requireAuth,projectSync:ProjectCloudSync,br
     if(!sections.length){const empty=document.createElement('div');empty.style.cssText='padding:14px 2px;color:#6d737b;font:700 8px JetBrains Mono,monospace';empty.textContent='No sections in the active page yet.';list.appendChild(empty)}
   }
   /* Real persistent Assets & Media surface over the existing Firebase Storage bridge. */
-  function assetPanel(){let panel=$('ovyx-asset-manager');if(panel)return panel;panel=document.createElement('section');panel.id='ovyx-asset-manager';panel.setAttribute('aria-label','OVYX Assets & Media');panel.innerHTML='<div class="ovyx-repair-head"><div><b>ASSETS &amp; MEDIA</b><div style="font:700 7px JetBrains Mono,monospace;color:#636a73;margin-top:4px">Persistent project storage · Firebase Storage</div></div><button type="button" data-close-assets aria-label="Close">×</button></div><div class="ovyx-asset-grid" data-assets-list></div><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:10px;border-top:1px solid rgba(255,255,255,.07)"><input type="file" id="ovyx-deep-asset-input" multiple hidden><button type="button" class="ovyx-repair-button" data-assets-upload>Upload Assets</button><span data-assets-status style="color:#666d75;font:700 7px JetBrains Mono,monospace">Ready</span></div>';document.body.appendChild(panel);panel.querySelector('[data-close-assets]').addEventListener('click',()=>panel.classList.remove('open'));panel.querySelector('[data-assets-upload]').addEventListener('click',()=>panel.querySelector('#ovyx-deep-asset-input')?.click());panel.querySelector('#ovyx-deep-asset-input').addEventListener('change',async e=>{const files=[...(e.target.files||[])];e.target.value='';const status=panel.querySelector('[data-assets-status]');for(const file of files){try{status.textContent='Uploading '+file.name+'…';await window.OVYXAssetStore.upload(file,undefined,{onProgress:p=>{status.textContent='Uploading '+file.name+' '+Math.round(p*100)+'%'}})}catch(error){toast(error?.message||'Asset upload failed.','error');} }status.textContent='Ready';await renderAssets(panel)});return panel}
+  function assetPanel(){let panel=$('ovyx-asset-manager');if(panel)return panel;panel=document.createElement('section');panel.id='ovyx-asset-manager';panel.setAttribute('aria-label','OVYX Assets & Media');panel.innerHTML='<div class="ovyx-repair-head"><div><b>ASSETS &amp; MEDIA</b><div style="font:700 7px JetBrains Mono,monospace;color:#636a73;margin-top:4px">Secure project file storage</div></div><button type="button" data-close-assets aria-label="Close">×</button></div><div class="ovyx-asset-grid" data-assets-list></div><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:10px;border-top:1px solid rgba(255,255,255,.07)"><input type="file" id="ovyx-deep-asset-input" multiple hidden><button type="button" class="ovyx-repair-button" data-assets-upload>Upload Assets</button><span data-assets-status style="color:#666d75;font:700 7px JetBrains Mono,monospace">Ready</span></div>';document.body.appendChild(panel);panel.querySelector('[data-close-assets]').addEventListener('click',()=>panel.classList.remove('open'));panel.querySelector('[data-assets-upload]').addEventListener('click',()=>panel.querySelector('#ovyx-deep-asset-input')?.click());panel.querySelector('#ovyx-deep-asset-input').addEventListener('change',async e=>{const files=[...(e.target.files||[])];e.target.value='';const status=panel.querySelector('[data-assets-status]');for(const file of files){try{status.textContent='Uploading '+file.name+'…';await window.OVYXAssetStore.upload(file,undefined,{onProgress:p=>{status.textContent='Uploading '+file.name+' '+Math.round(p*100)+'%'}})}catch(error){toast(error?.message||'Asset upload failed.','error');} }status.textContent='Ready';await renderAssets(panel)});return panel}
   async function renderAssets(panel){const list=panel.querySelector('[data-assets-list]');if(!list)return;const project=window.KernelState?.activeProject;if(!project?.id){list.innerHTML='<div style="grid-column:1/-1;padding:24px;color:#686f77;font:700 8px JetBrains Mono,monospace">Open a project before managing assets.</div>';return}list.innerHTML='<div style="grid-column:1/-1;padding:24px;color:#686f77;font:700 8px JetBrains Mono,monospace">Loading assets…</div>';try{const assets=await window.OVYXAssetStore.list(project.id);if(!assets.length){list.innerHTML='<div style="grid-column:1/-1;padding:24px;color:#686f77;font:700 8px JetBrains Mono,monospace">No stored assets for this project yet.</div>';return}list.innerHTML='';for(const asset of assets){const card=document.createElement('article');card.className='ovyx-asset-card';const b=document.createElement('b');b.textContent=asset.name||'Asset';const s=document.createElement('small');s.textContent=Math.max(1,Math.round(Number(asset.size||0)/1024))+' KB · '+(asset.contentType||asset.type||'file');const actions=document.createElement('div');actions.className='asset-actions';const open=document.createElement('a');open.href='#';open.textContent='Open';open.addEventListener('click',async ev=>{ev.preventDefault();try{open.href=await window.OVYXAssetStore.url(asset);open.target='_blank';open.rel='noopener noreferrer';open.click()}catch(error){toast(error?.message||'Asset URL unavailable.','error')}});const del=document.createElement('button');del.className='danger';del.textContent='Delete';del.addEventListener('click',async()=>{if(!confirm('Delete this stored asset?'))return;try{await window.OVYXAssetStore.remove(asset);toast('Asset deleted.','success');renderAssets(panel)}catch(error){toast(error?.message||'Asset deletion failed.','error')}});actions.append(open,del);card.append(b,s,actions);list.appendChild(card)}}catch(error){list.innerHTML='<div style="grid-column:1/-1;padding:24px;color:#fca5a5;font:700 8px JetBrains Mono,monospace">'+String(error?.message||'Asset service unavailable.').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))+'</div>'}}
   function openAssets(){if(!window.OVYXDeepRepair?.requireAuth?.('Assets & Media'))return;const panel=assetPanel();panel.classList.add('open');renderAssets(panel)}
   /* Protect real high-value actions the first readiness pass could not safely name. */
