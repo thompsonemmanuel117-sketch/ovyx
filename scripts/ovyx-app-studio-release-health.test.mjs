@@ -1,5 +1,44 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { onRequestGet } from '../functions/api/app-studio/release-health.js';
+
+const read = path => fs.readFileSync(new URL('../' + path, import.meta.url), 'utf8');
+const runtime = read('assets/ovyx-app-studio-link-builder.js');
+const mobileWorkflow = read('mobile-app/.eas/workflows/ovyx-mobile-build.yml');
+const deployRoute = read('functions/api/deploy.js');
+const mobileRoute = read('functions/api/mobile/build.js');
+const statusRoute = read('functions/api/mobile/build/status.js');
+const packageJson = JSON.parse(read('package.json'));
+const workflow = read('.github/workflows/ovyx-assistant-workspace-browser.yml');
+
+for (const path of [
+  'functions/api/app-studio/release-health.js',
+  'scripts/ovyx-app-studio-release-health.test.mjs',
+  'assets/ovyx-app-studio-link-builder.js'
+]) {
+  execFileSync(process.execPath, ['--check', fileURLToPath(new URL('../' + path, import.meta.url))], { stdio: 'pipe' });
+}
+
+assert.ok(runtime.includes('data-lb-export-zip') && runtime.includes('data-lb-export-json'), 'The release workspace must expose ZIP and portable source JSON exports.');
+assert.ok(runtime.includes('browserZipBlob') && runtime.includes('zipCrc32'), 'ZIP export must create a real ZIP archive rather than renaming a text file.');
+assert.ok(runtime.includes('validateForRelease') && runtime.includes('runtimeChecked !== true'), 'Publishing must require completed live-preview validation.');
+assert.ok(runtime.includes("'/api/deploy'") && runtime.includes("action === 'publish'"), 'Web preview deployment and production publish must call the existing server deploy route.');
+assert.ok(runtime.includes("'/api/deployment-status?'"), 'The release UI must retrieve current deployment status.');
+assert.ok(runtime.includes("'/api/app-studio/release-health?'"), 'The release UI must display a public post-release health probe.');
+assert.ok(runtime.includes("'/api/mobile/build'") && runtime.includes("'/api/mobile/build/status?'"), 'Mobile build and status actions must use the existing EAS routes.');
+assert.ok(runtime.includes('mobileStandaloneHtml') && runtime.includes('ovyx-mobile-route-runtime'), 'The native WebView build must include the generated inspected pages and local route switching.');
+assert.ok(runtime.includes('data-ovyx-published-actions') && runtime.includes('connect-src'), 'The published static build must disclose/localize supported actions and block arbitrary network calls.');
+assert.ok(runtime.includes('window.confirm') && runtime.includes('Save release history'), 'Publishing and cloud release-record writes must ask for confirmation.');
+assert.ok(runtime.includes('saveReleaseRecord') && runtime.includes('releaseHistory'), 'Release status history must be savable through the existing authenticated OVYX Projects endpoint.');
+assert.ok(runtime.includes('OVYX account APIs are available only inside the authenticated OVYX preview'), 'A public static release must not pretend it has authenticated OVYX account APIs.');
+assert.ok(deployRoute.includes("body?.action==='publish'") && deployRoute.includes('onRequestPost'), 'The existing Cloudflare route must support preview and production actions.');
+assert.ok(mobileRoute.includes('EAS_BUILD_NOT_CONFIGURED') && mobileRoute.includes('platforms'), 'The UI must rely on the existing configured EAS pipeline and its platform validation.');
+assert.ok(statusRoute.includes('BUILD_ACCESS_DENIED') && statusRoute.includes('workflowStatus'), 'Mobile status is user-owned and reports provider workflow status.');
+assert.ok(mobileWorkflow.includes('Build Android APK') && mobileWorkflow.includes('Build Apple iOS IPA'), 'The configured EAS pipeline must include Android and iOS native build targets.');
+assert.ok(packageJson.scripts.test.includes('scripts/ovyx-app-studio-release-health.test.mjs'), 'Release health tests must run under npm test.');
+assert.ok(workflow.includes('functions/api/app-studio/release-health.js') && workflow.includes('scripts/ovyx-app-studio-release-health.test.mjs'), 'CI must run Stage 6 route tests for changed release functionality.');
 
 const originalFetch = globalThis.fetch;
 const calls = [];
