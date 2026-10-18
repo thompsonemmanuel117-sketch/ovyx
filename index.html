@@ -822,7 +822,7 @@
 <span class="text-xs font-bold font-mono text-white flex items-center gap-2"><i class="fa-solid fa-shield-halved text-emerald-400"></i> Security Audit</span>
 <span class="text-[9px] font-mono text-zinc-500 font-bold">INSPECT</span>
 </div>
-<p class="text-[11px] text-zinc-400 font-medium">Verifies CSP compliance, sanitizes innerHTML, and checks token headers.</p>
+<p class="text-[11px] text-zinc-400 font-medium">Reviews content security, safe rendering, and protected requests.</p>
 </button>
 <button class="spring-btn p-4 rounded-xl v0-card border border-white/12 text-left space-y-1" onclick="OvyxKernelBot.injectFeature('pricing_table')">
 <div class="flex items-center justify-between">
@@ -900,7 +900,7 @@
 </div>
 </div>
 <div aria-label="OVYX Admin Center modules" class="v6-admin-module-directory" id="ovyx-admin-module-directory">
-<div class="v6-admin-module-directory-head"><div><div class="v6-admin-kicker">OVYX / COMMAND CENTER</div><h3>Admin Modules</h3><p>Existing administrative workspaces restored here. UI preview may be inspected locally; server-protected actions remain locked until real owner authorization is available.</p></div><span class="v6-admin-preview-badge"><i class="fa-solid fa-shield-halved"></i> CONTROLLED</span></div>
+<div class="v6-admin-module-directory-head"><div><div class="v6-admin-kicker">OVYX / COMMAND CENTER</div><h3>Admin Modules</h3><p>Manage platform settings and operational tools in one place. Sensitive actions require verified administrator access.</p></div><span class="v6-admin-preview-badge"><i class="fa-solid fa-shield-halved"></i> CONTROLLED</span></div>
 <div class="v6-admin-module-grid">
 <button data-admin-module="admin-overview" onclick="Router.go('admin-overview')" type="button"><i class="fa-solid fa-gauge-high"></i><span><b>Overview</b><small>Platform health &amp; telemetry</small></span><i class="fa-solid fa-arrow-right"></i></button>
 <button data-admin-module="admin-pricing" onclick="Router.go('admin-pricing')" type="button"><i class="fa-solid fa-tags"></i><span><b>Pricing &amp; Plans</b><small>Catalog and plan controls</small></span><i class="fa-solid fa-arrow-right"></i></button>
@@ -915,18 +915,18 @@
 </div>
 <section aria-label="OVYX global control plane" class="adm-control-plane" id="ovyx-admin-control-plane">
 <div class="adm-control-plane-head">
-<div><div class="adm-control-kicker">OVYX / ADMINISTRATION · SCOPE GUIDE</div><h3>Administration scope map</h3><p>This guide explains which administration areas can affect multiple accounts. Shared platform changes require the appropriate authorization and confirmation.</p></div>
+<div><div class="adm-control-kicker">OVYX / ADMINISTRATION · SCOPE GUIDE</div><h3>Administration overview</h3><p>This guide explains which administration areas can affect multiple accounts. Shared platform changes require the appropriate authorization and confirmation.</p></div>
 <span class="adm-control-lock"><i class="fa-solid fa-lock"></i> OWNER ACCESS REQUIRED</span>
 </div>
 <div class="adm-control-grid">
-<article class="adm-control-card"><div class="adm-control-icon"><i class="fa-solid fa-tags"></i></div><div><b>Pricing &amp; Entitlements</b><small>Global plans, prices, quotas and feature gates.</small></div><span>GLOBAL</span></article>
-<article class="adm-control-card"><div class="adm-control-icon"><i class="fa-solid fa-brain"></i></div><div><b>AI services</b><small>Review AI availability, default models, and selection preferences.</small></div><span>GLOBAL</span></article>
+<article class="adm-control-card"><div class="adm-control-icon"><i class="fa-solid fa-tags"></i></div><div><b>Pricing &amp; Entitlements</b><small>Manage plans, pricing, usage limits, and plan features.</small></div><span>SHARED</span></article>
+<article class="adm-control-card"><div class="adm-control-icon"><i class="fa-solid fa-brain"></i></div><div><b>AI services</b><small>Review AI availability, default models, and selection preferences.</small></div><span>SHARED</span></article>
 <article class="adm-control-card"><div class="adm-control-icon"><i class="fa-solid fa-bullhorn"></i></div><div><b>Broadcasts</b><small>Platform-wide announcements and maintenance notices.</small></div><span>ALL USERS</span></article>
-<article class="adm-control-card"><div class="adm-control-icon"><i class="fa-solid fa-layer-group"></i></div><div><b>Published Templates</b><small>Shared template catalog exposed to the user workspace.</small></div><span>GLOBAL</span></article>
-<article class="adm-control-card"><div class="adm-control-icon"><i class="fa-solid fa-fingerprint"></i></div><div><b>AI Identity &amp; Policy</b><small>Global identity and safety policy should remain server-owned.</small></div><span>GLOBAL</span></article>
+<article class="adm-control-card"><div class="adm-control-icon"><i class="fa-solid fa-layer-group"></i></div><div><b>Published Templates</b><small>Manage templates available across workspaces.</small></div><span>SHARED</span></article>
+<article class="adm-control-card"><div class="adm-control-icon"><i class="fa-solid fa-fingerprint"></i></div><div><b>AI Identity &amp; Policy</b><small>Set the shared assistant identity and safety guidelines.</small></div><span>SHARED</span></article>
 <article class="adm-control-card"><div class="adm-control-icon"><i class="fa-solid fa-user-shield"></i></div><div><b>User Administration</b><small>Role, plan and entitlements should stay scoped to the selected user.</small></div><span>PER USER</span></article>
-<article class="adm-control-card"><div class="adm-control-icon"><i class="fa-solid fa-server"></i></div><div><b>Service health</b><small>Review platform availability, account access, and system health in one place.</small></div><span>SERVER</span></article>
-<article class="adm-control-card"><div class="adm-control-icon"><i class="fa-solid fa-power-off"></i></div><div><b>Kill Switches &amp; Rate Limits</b><small>Operational safeguards must be enforced at the edge, never only in the UI.</small></div><span>SERVER</span></article>
+<article class="adm-control-card"><div class="adm-control-icon"><i class="fa-solid fa-server"></i></div><div><b>Service health</b><small>Review platform availability, account access, and system health in one place.</small></div><span>RESTRICTED</span></article>
+<article class="adm-control-card"><div class="adm-control-icon"><i class="fa-solid fa-power-off"></i></div><div><b>Kill Switches &amp; Rate Limits</b><small>Manage platform-wide safeguards and usage limits.</small></div><span>RESTRICTED</span></article>
 </div>
 <div class="adm-control-warning"><i class="fa-solid fa-triangle-exclamation"></i><span><b>Scope guard:</b> a per-user action must not mutate the global catalog, AI policy, pricing or platform access rules unless the server endpoint explicitly declares that global scope.</span></div>
 </section>
@@ -1085,7 +1085,7 @@
     <div>
       <div class="ovyx-v31-kicker"><i class="fa-solid fa-layer-group"></i><span>OVYX PLANS</span></div>
       <h2>Choose your workspace capacity.</h2>
-      <p>Start with the essentials, move to Pro for serious creation, or unlock Max for high-volume production. Your plan is verified by the OVYX server.</p>
+      <p>Start with the essentials, move to Pro for more creative control, or choose Max for high-volume work. Your plan and available features are confirmed by OVYX.</p>
     </div>
     <div class="ovyx-v31-billing" aria-label="Billing currency">
       <span class="ovyx-v31-billing-label">BILLING</span>
@@ -4154,9 +4154,9 @@ window.OVYXConnections=OVYXConnections;
 function ensureConnectionsPanel(){
  const settings=document.getElementById('view-settings');if(!settings||document.getElementById('ovyx-connections-panel'))return;
  const panel=document.createElement('div');panel.id='ovyx-connections-panel';panel.className='ovyx-connection-panel';
- panel.innerHTML=`<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><div><div class="ovyx-group-label">INTEGRATIONS</div><h2 style="margin-top:5px;color:var(--ov-text);font:800 15px Inter,sans-serif">Project connections</h2><p style="margin-top:4px;color:var(--ov-muted);font:500 10px/1.5 Inter,sans-serif">Access is checked for this session only. Credentials are not saved on this device.</p></div></div>
+ panel.innerHTML=`<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><div><div class="ovyx-group-label">INTEGRATIONS</div><h2 style="margin-top:5px;color:var(--ov-text);font:800 15px Inter,sans-serif">External services</h2><p style="margin-top:4px;color:var(--ov-muted);font:500 10px/1.5 Inter,sans-serif">Access is checked for this session only. Credentials remain private and are not stored on this device.</p></div></div>
  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-top:13px">
-  <div class="ovyx-connection-card"><div style="display:flex;justify-content:space-between;gap:8px"><h4>Source management</h4><span id="ovyx-github-status" class="ovyx-conn-status idle">Setup required</span></div><p>Use temporary access to browse repositories available to this account. The access token is used only for this session.</p><input id="ovyx-github-token" class="ovyx-secret-input" type="password" autocomplete="off" placeholder="Temporary access token"><div style="display:flex;gap:7px;margin-top:8px"><button id="ovyx-github-connect" class="ovyx-conn-btn">Verify access</button><button id="ovyx-github-repos-btn" class="ovyx-conn-btn">Browse repositories</button></div><div id="ovyx-github-repos" style="margin-top:8px;font:500 9px JetBrains Mono,monospace;color:#6f747c"></div></div>
+  <div class="ovyx-connection-card"><div style="display:flex;justify-content:space-between;gap:8px"><h4>Source management</h4><span id="ovyx-github-status" class="ovyx-conn-status idle">Setup required</span></div><p>Browse repositories available to your account. Access credentials are used only for this session and are not stored on this device.</p><input id="ovyx-github-token" class="ovyx-secret-input" type="password" autocomplete="off" placeholder="Temporary access token"><div style="display:flex;gap:7px;margin-top:8px"><button id="ovyx-github-connect" class="ovyx-conn-btn">Verify access</button><button id="ovyx-github-repos-btn" class="ovyx-conn-btn">Browse repositories</button></div><div id="ovyx-github-repos" style="margin-top:8px;font:500 9px JetBrains Mono,monospace;color:#6f747c"></div></div>
   <div class="ovyx-connection-card"><div style="display:flex;justify-content:space-between;gap:8px"><h4>Publishing service</h4><span id="ovyx-cloudflare-status" class="ovyx-conn-status idle">Setup required</span></div><p>Check publishing availability and review available resources. Any access token is used only for this session and remains private.</p><input id="ovyx-cloudflare-token" class="ovyx-secret-input" type="password" autocomplete="off" placeholder="Temporary access token"><div style="display:flex;gap:7px;margin-top:8px"><button id="ovyx-cloudflare-connect" class="ovyx-conn-btn">Check availability</button><button id="ovyx-cloudflare-accounts-btn" class="ovyx-conn-btn">View available accounts</button></div><div id="ovyx-cloudflare-accounts" style="margin-top:8px;font:500 9px JetBrains Mono,monospace;color:#6f747c"></div></div>
  </div>`;
  settings.appendChild(panel);
@@ -4477,7 +4477,7 @@ function enhanceFAQ(){
   {q:'Why do I see different controls on a phone?',a:'OVYX uses a mobile application shell rather than shrinking the desktop sidebar. Open More for the full workspace navigation, and use the mobile Studio tools strip for Files, Canvas, Blueprint and Inspector access.',cat:'Mobile'},
   {q:'How do I check my project on mobile?',a:'In Web Studio choose Mobile under Breakpoints. OVYX keeps the same project state while changing the preview frame. Responsive AI Optimize can also adjust layout rules for smaller screens.',cat:'Web Studio'},
   {q:'What does AI Preferences control?',a:'AI Preferences lets you choose how OVYX creates content, select a preferred model, and control which context is used. Advanced options remain available without cluttering the main experience.',cat:'AI'},
-  {q:'How does GitHub work with OVYX?',a:'Connect your GitHub account from Connected Accounts, then choose a repository in your project workflow. Your access credentials remain protected.',cat:'GitHub'},
+  {q:'How does source management work?',a:'Open External services to enable source management, then choose a repository for your work. Your access credentials remain private.',cat:'GitHub'},
   {q:'How does billing work?',a:'Billing shows your current plan and AI usage. Upgrades and Token Boosters become active only after checkout confirms your payment.',cat:'Billing'},
   {q:'Where is the Admin Command Center?',a:'The Admin Command Center is reserved for authorized owners. It manages platform settings, pricing, feature access, announcements and service health.',cat:'Account'},
   {q:'Can I delete a project?',a:'Yes. Open Projects, choose the project actions and confirm deletion. OVYX keeps destructive actions behind confirmation.',cat:'Projects'},
