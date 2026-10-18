@@ -32,7 +32,7 @@ for (const [label, source, tokens] of [
     assert.ok(source.includes(token), label + ' is missing required contract: ' + token);
   }
 }
-assert.ok(middleware.includes('/assets/ovyx-webstudio-reliability.js?v=20261014-1'), 'reliability runtime must be injected into the application shell');
+assert.ok(middleware.includes('/assets/ovyx-webstudio-reliability.js?v=20261018-2'), 'reliability runtime must be injected into the application shell');
 assert.ok(headers.includes('/assets/ovyx-webstudio-reliability.js'), 'reliability runtime must have no-store headers');
 assert.ok(index.includes('AI_BUILD_NO_ARTIFACTS'), 'failed/no-op AI builds must be rejected');
 assert.ok(index.includes("ovyxBuildState='verified'"), 'Web Studio must mark verified builds only after source checks');
