@@ -386,7 +386,7 @@ async function handleTool(env, identity, body) {
         activeProject: null,
         missingProjectId: clean(body.projectId, 120),
         source: 'firestore-project-not-found',
-        message: 'This app hasn't been saved to your OVYX account yet. You can still ask questions about this session, but file changes require a saved app.',
+        message: 'This app has not been saved to your OVYX account yet. You can still ask questions about this session, but file changes require a saved app.',
       };
     }
   }
