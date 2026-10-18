@@ -1468,7 +1468,7 @@
       artifact.releaseState.mobile = {
         jobId: String(data.jobId), status: String(data.status || 'queued'), platforms,
         workflowRunId: String(data.workflowRunId || ''), workflowUrl: safeUrl(data.workflowUrl),
-        requestedAt: new Date().toISOString(), artifacts: {}, builds: {}, error: null
+        requestedAt: new Date().toISOString(), artifacts: {}, builds: [], error: null
       };
       persistReleaseState(artifact); renderMobileReleaseStatus(panel, artifact.releaseState.mobile);
       setReleaseStatus(panel, '[data-lb-mobile-status]', 'EAS accepted the mobile build job. It has not necessarily finished yet; refresh the status for completion and artifact URLs.', 'success');
