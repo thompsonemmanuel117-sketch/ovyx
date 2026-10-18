@@ -51,7 +51,7 @@ function executeGithub(action, input) {
     repository: clean(payload.repository) || null,
     branch: clean(payload.branch) || null,
     path: clean(payload.path) || null,
-    message: 'GitHub operation authorized. The existing GitHub backend remains the credential authority.'
+    message: 'Source management access is authorized. Credentials remain protected.'
   };
 }
 
@@ -63,7 +63,7 @@ function executeFirebase(action, input) {
     action,
     status: 'accepted',
     resource: clean(payload.resource) || null,
-    message: 'Firebase operation authorized through the OVYX backend boundary.'
+    message: 'Account operation is authorized. Credentials remain protected.'
   };
 }
 
@@ -76,7 +76,7 @@ function executeCloudflare(action, input) {
     status: 'accepted',
     project: clean(payload.project) || null,
     deploymentId: clean(payload.deploymentId) || null,
-    message: 'Cloudflare operation authorized. Deployment credentials remain server-side.'
+    message: 'Publishing access is authorized. Deployment credentials remain private.'
   };
 }
 
