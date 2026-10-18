@@ -710,7 +710,7 @@ if (
     !endpoint.includes('NOT_CONFIGURED') ||
     !endpoint.includes('AbortController') ||
     !endpoint.includes('Cache-Control') ||
-    !endpoint.includes('Universal Connections') ||
+    !endpoint.includes('Try OVYX Auto or choose another available AI option.') ||
     endpoint.includes('console.log(key)') ||
     !client.includes("select.id !== 'v59-model-select'") ||
     !client.includes("'/api/ai/provider-availability?provider='") ||
