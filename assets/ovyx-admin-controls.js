@@ -19,7 +19,7 @@
     { id: 'appStudio', label: 'App Studio' },
     { id: 'gameStudio', label: 'Game Studio' },
     { id: 'aiGeneration', label: 'AI Generation' },
-    { id: 'github', label: 'GitHub Integration' },
+    { id: 'github', label: 'Source management' },
     { id: 'cloudflareDeploy', label: 'Website publishing' },
     { id: 'teamWorkspace', label: 'Team Workspace' },
     { id: 'templates', label: 'Blueprint Templates' }
@@ -439,7 +439,7 @@
     const host = panel(view, 'ovyx-owner-users-panel', 'Live user registry · Account actions',
       'These actions update account access and saved records. The owner account is protected from account-management actions.',
       '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button type="button" class="ovyx-owner-live-button" id="ovyx-owner-users-refresh">Refresh accounts</button><button type="button" class="ovyx-owner-live-button" id="ovyx-owner-users-next" disabled>Next page</button></div>' +
-      '<div class="ovyx-owner-user-table-wrap"><table class="ovyx-owner-user-table"><thead><tr><th>Account</th><th>Plan</th><th>Plan term</th><th>AI quota</th><th>Status</th><th>Server actions</th></tr></thead><tbody id="ovyx-owner-users-body"></tbody></table></div>' +
+      '<div class="ovyx-owner-user-table-wrap"><table class="ovyx-owner-user-table"><thead><tr><th>Account</th><th>Plan</th><th>Plan term</th><th>AI quota</th><th>Status</th><th>Account actions</th></tr></thead><tbody id="ovyx-owner-users-body"></tbody></table></div>' +
       '<div id="ovyx-owner-users-status" class="ovyx-owner-live-status">Waiting for owner authorization…</div>');
     if (host.dataset.bound === '1') return;
     host.dataset.bound = '1';
@@ -771,7 +771,7 @@
       value.textContent = item.connected === true ? 'Ready' : (item.configured === true ? 'Check failed' : 'Setup required');
       value.style.color = item.connected === true ? '#86efac' : (item.configured === true ? '#fcd34d' : '#fca5a5');
       const detail = document.createElement('div'); detail.className = 'ovyx-owner-live-detail';
-      detail.textContent = String(item.model || item.error || item.detail || (item.connected ? 'Availability check succeeded.' : 'No successful availability check was returned.')).slice(0, 180);
+      detail.textContent = item.connected ? 'Ready to handle AI requests.' : (item.configured ? 'This option needs attention.' : 'Setup is required before use.');
       card.append(label, value, detail); grid.appendChild(card);
     });
     const cf = result.data.cloudflare || {};
@@ -1089,7 +1089,7 @@
           notify(this.isLive ? 'Platform integrations enabled for all accounts.' : 'Platform integrations paused for all accounts.', this.isLive ? 'success' : 'info');
         } catch (error) {
           statusText($('ovyx-global-integration-status'), 'These integration settings couldn't be saved: ' + error.message, 'error');
-          notify('Production integration switch failed: ' + error.message, 'error');
+          notify('Platform integration settings could not be updated. Please try again.', 'error');
         } finally { if (button) button.disabled = false; }
       };
     }
