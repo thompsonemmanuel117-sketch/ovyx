@@ -253,36 +253,59 @@
     }
     return map;
   }
-  function composePreview(build) {
+  function composePreview(build, projectId) {
     let html = build.html;
-    if (!/<html\b/i.test(html)) html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>' + html + '</body></html>';
-    const cssEntries = Object.entries(build.files).filter(([path]) => /\.css$/i.test(path));
-    const cssRefs = [...html.matchAll(/<link\b[^>]*\bhref\s*=\s*(["'])([^"']+\.css(?:\?[^"']*)?)\1[^>]*>/gi)].map(match => match[2].split(/[?#]/)[0]);
+    if (!/<html\\b/i.test(html)) html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>' + html + '</body></html>';
+    // Generated code runs in an opaque sandbox. Direct network requests are blocked;
+    // supported data/actions must use the parent-controlled OVYX bridge below.
+    html = html.replace(/<meta\\b[^>]*http-equiv\\s*=\\s*(["'])content-security-policy\\1[^>]*>/gi, '');
+    const cssEntries = Object.entries(build.files).filter(([path]) => /\\.css$/i.test(path));
+    const cssRefs = [...html.matchAll(/<link\\b[^>]*\\bhref\\s*=\\s*(["'])([^"']+\\.css(?:\\?[^"']*)?)\\1[^>]*>/gi)].map(match => match[2].split(/[?#]/)[0]);
     const stylesToEmbed = cssRefs.length
       ? cssRefs.map(ref => cssEntries.find(([path]) => path === ref || path === ref.split('/').pop() || path.endsWith('/' + ref.split('/').pop()))).filter(Boolean)
-      : cssEntries.filter(([path]) => /(?:^|\/)(?:styles?|app)\.css$/i.test(path)).slice(0, 3);
-    const styles = [...new Set(stylesToEmbed.map(([, content]) => content))].join('\n');
+      : cssEntries.filter(([path]) => /(?:^|\\/)(?:styles?|app)\\.css$/i.test(path)).slice(0, 3);
+    const styles = [...new Set(stylesToEmbed.map(([, content]) => content))].join('\\n');
     if (styles) {
-      html = html.replace(/<link\b[^>]*\bhref\s*=\s*(["'])([^"']+\.css(?:\?[^"']*)?)\1[^>]*>/gi, match => /(?:https?:)?\/\//i.test(match) ? match : '');
+      html = html.replace(/<link\\b[^>]*\\bhref\\s*=\\s*(["'])([^"']+\\.css(?:\\?[^"']*)?)\\1[^>]*>/gi, match => /(?:https?:)?\\/\\//i.test(match) ? match : '');
       const cssTag = '<style data-ovyx-generated-css>' + escapeStyle(styles) + '</style>';
-      if (/<\/head\s*>/i.test(html)) html = html.replace(/<\/head\s*>/i, cssTag + '</head>');
+      if (/<\\/head\\s*>/i.test(html)) html = html.replace(/<\\/head\\s*>/i, cssTag + '</head>');
       else html = cssTag + html;
     }
-    const jsEntries = Object.entries(build.files).filter(([path]) => /\.m?js$/i.test(path) && !/\.json$/i.test(path));
-    const scriptRefs = [...html.matchAll(/<script\b[^>]*\bsrc\s*=\s*(["'])([^"']+\.m?js(?:\?[^"']*)?)\1[^>]*>\s*<\/script\s*>/gi)].map(match => match[2].split(/[?#]/)[0]);
+    const jsEntries = Object.entries(build.files).filter(([path]) => /\\.m?js$/i.test(path) && !/\\.json$/i.test(path));
+    const scriptRefs = [...html.matchAll(/<script\\b[^>]*\\bsrc\\s*=\\s*(["'])([^"']+\\.m?js(?:\\?[^"']*)?)\\1[^>]*>\\s*<\\/script\\s*>/gi)].map(match => match[2].split(/[?#]/)[0]);
     const scriptsToEmbed = scriptRefs.length
       ? scriptRefs.map(ref => jsEntries.find(([path]) => path === ref || path.endsWith('/' + ref.split('/').pop()))).filter(Boolean)
-      : jsEntries.filter(([path]) => /(?:^|\/)(?:app|main|index)\.m?js$/i.test(path)).slice(0, 2);
-    const scripts = [...new Set(scriptsToEmbed.map(([, content]) => content))].join('\n');
+      : jsEntries.filter(([path]) => /(?:^|\\/)(?:app|main|index)\\.m?js$/i.test(path)).slice(0, 2);
+    const scripts = [...new Set(scriptsToEmbed.map(([, content]) => content))].join('\\n');
     if (scripts) {
-      html = html.replace(/<script\b[^>]*\bsrc\s*=\s*(["'])([^"']+\.m?js(?:\?[^"']*)?)\1[^>]*>\s*<\/script\s*>/gi, match => /(?:https?:)?\/\//i.test(match) ? match : '');
-      const jsTag = '<script data-ovyx-generated-js>' + escapeScript(scripts) + '<\/script>';
-      if (/<\/body\s*>/i.test(html)) html = html.replace(/<\/body\s*>/i, jsTag + '</body>');
+      html = html.replace(/<script\\b[^>]*\\bsrc\\s*=\\s*(["'])([^"']+\\.m?js(?:\\?[^"']*)?)\\1[^>]*>\\s*<\\/script\\s*>/gi, match => /(?:https?:)?\\/\\//i.test(match) ? match : '');
+      const jsTag = '<script data-ovyx-generated-js>' + escapeScript(scripts) + '<\\/script>';
+      if (/<\\/body\\s*>/i.test(html)) html = html.replace(/<\\/body\\s*>/i, jsTag + '</body>');
       else html += jsTag;
     }
+    const actionRuntime = [
+      '(function(){',
+      '"use strict";',
+      'const appId=' + JSON.stringify(String(projectId || 'link-app')) + ';',
+      'const pending=new Map();let sequence=0;',
+      'function request(action,payload){return new Promise((resolve,reject)=>{const id="ovx-"+Date.now().toString(36)+"-"+(++sequence).toString(36);const timer=setTimeout(()=>{pending.delete(id);reject(new Error("OVYX action timed out; no result was confirmed."));},15000);pending.set(id,{resolve,reject,timer});parent.postMessage({ovyxAppRequest:{id,appId,action,payload:payload||{}}},"*");});}',
+      'window.addEventListener("message",function(event){if(event.source!==parent)return;const packet=event.data&&event.data.ovyxAppResponse;if(!packet||typeof packet.id!=="string")return;const waiting=pending.get(packet.id);if(!waiting)return;clearTimeout(waiting.timer);pending.delete(packet.id);if(packet.ok)waiting.resolve(packet.data);else waiting.reject(new Error(String(packet.error||"OVYX action was not completed.")));});',
+      'function formStatus(form,message,kind){let target=form.querySelector("[data-ovyx-form-status]");if(!target){target=document.createElement("p");target.setAttribute("data-ovyx-form-status","");target.setAttribute("role","status");target.setAttribute("aria-live","polite");target.style.cssText="margin:12px 0 0;font-size:.875rem;line-height:1.5";form.appendChild(target);}target.textContent=message;target.style.color=kind==="error"?"#b91c1c":kind==="success"?"#166534":"inherit";}',
+      'function collectFields(form){const output={};let omittedSensitive=false;let omittedFiles=false;new FormData(form).forEach((value,key)=>{const name=String(key||"").replace(/[\\u0000-\\u001f\\u007f]/g,"").trim().slice(0,80);if(!name)return;if(/password|passcode|secret|token|authorization|credential|private.?key|api.?key/i.test(name)){omittedSensitive=true;return;}if(typeof File!=="undefined"&&value instanceof File){if(value.name)omittedFiles=true;return;}const clean=String(value).slice(0,1000);if(Object.prototype.hasOwnProperty.call(output,name)){if(!Array.isArray(output[name]))output[name]=[output[name]];if(output[name].length<10)output[name].push(clean);}else if(Object.keys(output).length<40)output[name]=clean;});return {fields:output,omittedSensitive,omittedFiles};}',
+      'document.addEventListener("submit",function(event){const form=event.target;if(!(form instanceof HTMLFormElement))return;event.preventDefault();event.stopImmediatePropagation();if(!form.reportValidity())return;const data=collectFields(form);formStatus(form,"Saving this submission in this browser only…");request("form.submit",{formId:String(form.id||form.getAttribute("name")||"form").replace(/[^a-zA-Z0-9_.-]/g,"-").slice(0,80),fields:data.fields,omittedSensitive:data.omittedSensitive,omittedFiles:data.omittedFiles}).then(result=>formStatus(form,result.message||"Submission saved locally.","success")).catch(error=>formStatus(form,error.message||"Submission was not saved.","error"));},true);',
+      'const storage=Object.freeze({get:key=>request("storage.get",{key}),set:(key,value)=>request("storage.set",{key,value}),remove:key=>request("storage.remove",{key}),keys:()=>request("storage.keys",{})});',
+      'const auth=Object.freeze({currentUser:()=>request("auth.currentUser",{})});',
+      'const api=Object.freeze({get:name=>request("api.get",{name})});',
+      'Object.defineProperty(window,"OVYXApp",{configurable:false,writable:false,value:Object.freeze({version:1,storage,auth,api})});',
+      '})();'
+    ].join('\\n');
     const routerBridge = '<script data-ovyx-link-router>(function(){document.addEventListener("click",function(event){var link=event.target&&event.target.closest?event.target.closest("a[href]"):null;if(!link)return;var raw=link.getAttribute("href")||"";if(!raw||raw.charAt(0)==="#"||raw.slice(0,2)==="//"||/^(?:https?:|mailto:|tel:|data:|javascript:)/i.test(raw)||(link.target&&link.target!=="_self"))return;var route=raw.split(/[?#]/)[0].split("/").filter(Boolean).join("/");event.preventDefault();parent.postMessage({ovyxLinkAppNavigate:route?"/"+route+"/":"/"},"*");},true);})();' + '</' + 'script>';
-    if (/<\/body\s*>/i.test(html)) html = html.replace(/<\/body\s*>/i, routerBridge + '</body>');
-    else html += routerBridge;
+    const actionTag = '<scr' + 'ipt data-ovyx-app-action-bridge>' + escapeScript(actionRuntime) + '</scr' + 'ipt>';
+    const csp = '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; img-src data: blob: https: http:; style-src \'unsafe-inline\' https: http:; script-src \'unsafe-inline\' https: http:; font-src data: https: http:; media-src data: blob: https: http:; connect-src \'none\'; form-action \'none\'; frame-src \'none\'; object-src \'none\'; base-uri \'none\'">';
+    if (/<\\/head\\s*>/i.test(html)) html = html.replace(/<\\/head\\s*>/i, csp + '</head>');
+    else html = csp + html;
+    if (/<\\/body\\s*>/i.test(html)) html = html.replace(/<\\/body\\s*>/i, routerBridge + actionTag + '</body>');
+    else html += routerBridge + actionTag;
     return html;
   }
   function renderSources(panel, files) {
