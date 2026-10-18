@@ -11,7 +11,7 @@ const builderRuntime = await read('assets/ovyx-app-studio-link-builder.js');
 const projectBrainRuntime = await read('assets/ovyx-app-studio-project-brain.js');
 const requests = { analyzer: [], generation: [], profile: [], api: [], cloudSave: [], deploy: [], webStatus: [], releaseHealth: [], mobileBuild: [], mobileStatus: [] };
 const eventOrder = [];
-const existingLogo = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8x8AAwMCAO+/g6sAAAAASUVORK5CYII=';
+const existingLogo = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/g6sAAAAASUVORK5CYII=';
 const profiles = new Map([['coastal-living', {
   appId: 'coastal-living', appName: 'Coastal Living', logoDataUrl: existingLogo,
   colors: { primary: '#111111', secondary: '#222222', accent: '#333333', background: '#FFFFFF', surface: '#FFFFFF', text: '#000000', muted: '#444444' },
@@ -397,8 +397,15 @@ try {
   assert.equal(requests.releaseHealth.length, 2, 'The production release must get its own post-release health check.');
   assert.equal(requests.releaseHealth[1].query.deploymentId, 'deployment-2');
 
-  await desktop.locator('[data-lb-mobile-build]').click();
-  await desktop.waitForFunction(() => document.querySelector('[data-lb-mobile-status]')?.textContent.includes('EAS status: completed'), null, { timeout: 10000 });
+  const mobileStartButton = desktop.locator('[data-lb-mobile-build]');
+  const mobileStartWasDisabled = await mobileStartButton.isDisabled();
+  await mobileStartButton.click();
+  await desktop.waitForFunction(() => {
+    const target = document.querySelector('[data-lb-mobile-status]');
+    return target && (target.dataset.kind === 'error' || target.textContent.includes('EAS status: completed'));
+  }, null, { timeout: 10000 }).catch(() => {});
+  const mobileStartStatus = await desktop.locator('[data-lb-mobile-status]').innerText();
+  assert.match(mobileStartStatus, /EAS status: completed/, 'Mobile build did not complete; button disabled before click=' + mobileStartWasDisabled + '; status=' + mobileStartStatus + '; dispatchRequests=' + requests.mobileBuild.length);
   assert.equal(requests.mobileBuild.length, 1, 'The mobile UI must call the existing EAS build API.');
   assert.equal(requests.mobileBuild[0].auth, 'Bearer test-id-token');
   assert.deepEqual(requests.mobileBuild[0].body.platforms, ['android']);
