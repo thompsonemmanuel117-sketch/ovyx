@@ -75,7 +75,7 @@ export async function onRequest(context) {
     }
 
     if (request.method !== 'PUT') {
-      return errorResponse(405, 'METHOD_NOT_ALLOWED', 'This action isn't supported.', id);
+      return errorResponse(405, 'METHOD_NOT_ALLOWED', 'This action is not supported.', id);
     }
 
     const body = await readJson(request, 12000);
@@ -101,7 +101,7 @@ export async function onRequest(context) {
     const saved = await getFirestoreDataAtPath(env, path);
     const verified = normalizeNotificationPreferences(saved?.notifications);
     if (!saved || Object.keys(notifications).some(key => verified[key] !== notifications[key])) {
-      return errorResponse(503, 'PREFERENCES_WRITE_UNCONFIRMED', 'Your notification preferences couldn't be saved. Please try again.', id);
+      return errorResponse(503, 'PREFERENCES_WRITE_UNCONFIRMED', 'Your notification preferences could not be saved. Please try again.', id);
     }
 
     return jsonResponse({
