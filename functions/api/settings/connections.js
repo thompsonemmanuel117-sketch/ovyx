@@ -45,7 +45,7 @@ function connectionId(value) {
   const id = clean(value, 100);
   if (!id) return crypto.randomUUID().replace(/-/g, '').slice(0, 28);
   if (!/^[A-Za-z0-9_-]{1,100}$/.test(id)) {
-    throw Object.assign(new Error('The selected connection couldn't be identified.'), {
+    throw Object.assign(new Error('The selected connection could not be identified.'), {
       status: 400,
       code: 'INVALID_CONNECTION_ID'
     });
@@ -108,7 +108,7 @@ async function changeActiveCount(
 
     if (!userDoc) {
       throw Object.assign(
-        new Error('Your OVYX workspace profile isn't ready yet. Refresh the page and try again.'),
+        new Error('Your OVYX workspace profile is not ready yet. Refresh the page and try again.'),
         {
           status: 409,
           code: 'WORKSPACE_PROFILE_REQUIRED'
@@ -232,7 +232,7 @@ async function onRequest(context) {
       if (!current) return errorResponse(404, 'CONNECTION_NOT_FOUND', 'This connection is no longer available.');
       const record = await getFirestoreDataAtPath(context.env, [...base, id]);
       if (record?.ownerUid !== auth.uid || record?.ownerEmail !== auth.email) {
-        return errorResponse(403, 'CONNECTION_ACCESS_DENIED', 'This connection isn't available for the current account.');
+        return errorResponse(403, 'CONNECTION_ACCESS_DENIED', 'This connection is not available for the current account.');
       }
       const currentWasActive = record?.active === true;
       let reservation = null;
@@ -300,7 +300,7 @@ async function onRequest(context) {
     }
 
     if (request.method !== 'POST' && request.method !== 'PUT') {
-      return errorResponse(405, 'METHOD_NOT_ALLOWED', 'This action isn't supported.');
+      return errorResponse(405, 'METHOD_NOT_ALLOWED', 'This action is not supported.');
     }
 
     const body = await request.json();
