@@ -48,7 +48,7 @@ const generated = {
 };
 const html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>' +
   '<main id="view-appstudio"><div id="app-studio-clean-canvas"></div></main>' +
-  '<script>window.firebase={auth:function(){return {currentUser:{getIdToken:async function(){return "test-id-token";}}}}};' +
+  '<script>window.firebase={auth:function(){return {currentUser:{uid:"test-owner-uid",email:"owner@example.test",displayName:"Test Owner",getIdToken:async function(){return "test-id-token";}}}}};' +
   'window.KernelState={activeProject:{id:"existing-project",name:"Do not replace me"}};' +
   'window.OVYXAIService={generate:async function(options){const response=await fetch("/api/ai/gateway",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json",Authorization:"Bearer test-id-token"},body:JSON.stringify(options)});const data=await response.json();if(!response.ok)throw new Error(data.message||"Gateway failed");return data;}};</script>' +
   '<script src="/assets/ovyx-app-studio-brand-dna.js"></script>' +
