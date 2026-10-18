@@ -339,7 +339,7 @@ function goToSleep(shouldSpeak, stopMicrophone) {
 }
 async function loadLatest() {
   if (busy) return;
-  try { var data = await api('GET'); renderReport(data.latestReport); renderDiagnosisHistory(data.diagnoses); if (data.latestDiagnosis) renderDiagnosis(data.latestDiagnosis); status(data.lastScanAt ? 'Last health review: ' + new Date(data.lastScanAt).toLocaleString() : 'Sentinel is ready. Run a health review when you're ready.', 'success'); }
+  try { var data = await api('GET'); renderReport(data.latestReport); renderDiagnosisHistory(data.diagnoses); if (data.latestDiagnosis) renderDiagnosis(data.latestDiagnosis); status(data.lastScanAt ? 'Last health review: ' + new Date(data.lastScanAt).toLocaleString() : 'Sentinel is ready. Run a health review when you are ready.', 'success'); }
   catch (error) { status(error.message || 'Health review history is not available right now.', 'error'); }
 }
 async function prepareFixPlan() {
