@@ -210,7 +210,7 @@ try {
   await desktop.locator('#ovyx-app-studio-link-builder [data-lb-generate]').waitFor();
   await desktop.locator('#ovyx-app-studio-url-analyzer-panel .ovyx-as-report-details').waitFor();
   assert.equal(await desktop.locator('#ovyx-app-studio-url-analyzer-panel .ovyx-as-report-details').evaluate(el => el.open), false, 'Detailed sitemap/assets/limitations are collapsed until needed.');
-  assert.match(await desktop.locator('#ovyx-app-studio-link-builder').innerText(), /Generate your first link-based app/);
+  assert.match(await desktop.locator('#ovyx-app-studio-link-builder').innerText(), /Create an app from a website/);
   await desktop.locator('#ovyx-app-studio-url-analyzer-panel [data-ua-palette], #ovyx-app-studio-url-analyzer-panel .ovyx-ua-secondary').first().click();
   assert.equal(await desktop.locator('#ovyx-as-identity-details').evaluate(el => el.open), true, 'Palette transfer opens Brand DNA so users can review the change.');
   await desktop.locator('#ovyx-as-identity-details > summary').click();
@@ -321,7 +321,7 @@ try {
   assert.ok(!JSON.stringify(storedLocalState).includes('do-not-store-this'), 'Password values must not enter local preview persistence.');
 
   await desktop.locator('[data-lb-save]').click();
-  await desktop.waitForFunction(() => document.querySelector('[data-lb-save-status]')?.textContent.includes('Saved and verified in OVYX Projects'));
+  await desktop.waitForFunction(() => document.querySelector('[data-lb-save-status]')?.textContent.includes('App saved and verified in OVYX Projects'));
   assert.equal(requests.cloudSave.length, 1, 'The explicit cloud save button must POST the project through the existing Projects API.');
   assert.equal(requests.cloudSave[0].auth, 'Bearer test-id-token');
   assert.equal(requests.cloudSave[0].body.projectId, 'link-coastal-living');
