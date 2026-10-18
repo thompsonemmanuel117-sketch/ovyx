@@ -66,7 +66,7 @@ const providerRouterSource = fs.existsSync(providerRouterPath)
 if (
   /OVYX_AI_BASE_URL|sharedGateway|sharedKeyPreference|resolveOpenAICompatibleConfig/.test(providerRouterSource) ||
   !/if\s*\(requested\s*!==\s*['"]automatic['"]\s*&&\s*!requested\.startsWith\(['"]connection:/.test(providerRouterSource) ||
-  !/not available right now\. Please try again later, or connect your own AI Brain in Universal Connections to continue building/i.test(providerRouterSource)
+  !/This AI option is not available right now\. Try OVYX Auto or choose another available AI option/i.test(providerRouterSource)
 ) {
   errors.push('functions/_lib/providers.js: an explicitly selected provider must use its own provider route and show a helpful unavailable message instead of silently switching.');
 }
@@ -306,10 +306,10 @@ if (!fs.existsSync(studioTracePath) || !fs.existsSync(studioTraceTestPath) || !f
     !studioTrace.includes('window.__OVYX_STUDIO_TRACE__') ||
     !studioTrace.includes('(?:gateway|assistant)') ||
     !studioTrace.includes('requirementVerification') ||
-    !studioTrace.includes('full prompt and project contents are not copied') ||
+    !studioTrace.includes('without displaying the full prompt or your app contents') ||
     !studioTraceTest.includes('Normal assistant chat should not open') ||
     !studioTraceTest.includes('network disconnected') ||
-    !middleware.includes('/assets/ovyx-studio-trace.js?v=20261012-1') ||
+    !middleware.includes('/assets/ovyx-studio-trace.js?v=20261018-3') ||
     !packageJson.includes('scripts/ovyx-studio-trace.test.mjs')
   ) {
     errors.push('OVYX Web Studio: request trace, privacy guard, response checks, or runtime regression coverage is incomplete.');
@@ -365,11 +365,11 @@ if (!fs.existsSync(nativeAssistantPath) || !fs.existsSync(nativeAssistantRoutePa
     !nativeClient.includes("type === 'workspace_undo'") ||
     !nativeClient.includes('data-ovyx-native-action="undo-last-ai-edit"') ||
     !nativeClient.includes('data-ovyx-native-action="review-ai-edits"') ||
-    !nativeClient.includes('TASK RUNNING') ||
+    !nativeClient.includes("running: 'Working'") ||
     !nativeClient.includes('I inspected the saved project') ||
     !nativeClient.includes('saved-project scan was unavailable') ||
-    !nativeClient.includes('APPROVAL NEEDED') ||
-    !nativeClient.includes('APPLIED · VERIFIED') ||
+    !nativeClient.includes("approval: 'Approval needed'") ||
+    !nativeClient.includes("applied: 'Changes saved and verified'") ||
     !workspaceTools.includes("operation === 'read_file'") ||
     !workspaceTools.includes("operation === 'prepare_restore'") ||
     !workspaceTools.includes("operation === 'restore_revision'") ||
@@ -378,7 +378,7 @@ if (!fs.existsSync(nativeAssistantPath) || !fs.existsSync(nativeAssistantRoutePa
     !fs.readFileSync(nativeAssistantPath, 'utf8').includes("'workspace_undo'") ||
     !workspaceToolsIntegrationTest.includes("operation: 'read_file'") ||
     !workspaceToolsTest.includes('Recovery must have a distinct preview operation.') ||
-    !shellMiddleware.includes('assets/ovyx-assistant-workspace.js?v=20261014-2')
+    !shellMiddleware.includes('assets/ovyx-assistant-workspace.js?v=20261018-4')
   ) {
     errors.push('OVYX native assistant: safe recovery, review-before-write, truthful progress states, tests or cache-busted shell injection is incomplete.');
   }
@@ -496,7 +496,7 @@ if (fs.existsSync(html)) {
   if (
     !providerChoiceRouter ||
     !providerChoiceRouter[1].includes('failoverUsed:false') ||
-    !providerChoiceRouter[1].includes('Please try again later, or connect your own AI Brain in Universal Connections to continue building.') ||
+    !providerChoiceRouter[1].includes('Try OVYX Auto or choose another available AI option.') ||
     /for\s*\(const provider of order\)/.test(providerChoiceRouter[1])
   ) {
     errors.push('index.html: explicitly selected AI providers must not silently fail over, and must explain how to continue when unavailable.');
@@ -657,7 +657,7 @@ if (
     !sentinelCompanionApi.includes('sourceInspectionUnavailable') ||
     !sentinelCompanionApi.includes('historySaved: false') ||
     !fs.readFileSync(sentinelCompanionTestPath, 'utf8').includes('historySaved') ||
-    !sentinelMiddleware.includes('/assets/ovyx-sentinel.js?v=20261014-10') ||
+    !sentinelMiddleware.includes('/assets/ovyx-sentinel.js?v=20261018-3') ||
     !headers.includes('microphone=(self)') ||
     !headers.includes('camera=()') ||
     !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/ovyx-sentinel.test.mjs') ||
@@ -717,7 +717,7 @@ if (
     !client.includes("credentials: 'same-origin'") ||
     !client.includes("cache: 'no-store'") ||
     !client.includes('activeChecks') ||
-    !shellMiddleware.includes('/assets/ovyx-provider-availability.js?v=20261012-1') ||
+    !shellMiddleware.includes('/assets/ovyx-provider-availability.js?v=20261018-2') ||
     !headers.includes('/assets/ovyx-provider-availability.js') ||
     !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/provider-availability.test.mjs')
   ) {
@@ -739,12 +739,12 @@ if (!fs.existsSync(webStudioReliabilityPath) || !fs.existsSync(webStudioFeedback
     !reliability.includes('/api/ai/feedback') ||
     !reliability.includes('data-ovyx-feedback-vote') ||
     !reliability.includes('waitForHelpForm') ||
-    !reliability.includes('The AI replied but did not return a new website HTML file') ||
-    !reliability.includes('The AI replied but did not produce a changed website HTML file') ||
+    !reliability.includes('A website draft was not ready for preview.') ||
+    !reliability.includes('The website draft was not updated.') ||
     !feedbackApi.includes('assertAuthenticated(context.data?.user)') ||
     !feedbackApi.includes('enforceSameOrigin(request)') ||
     !feedbackApi.includes("['ai_response_feedback', documentId]") ||
-    !shell.includes('/assets/ovyx-webstudio-reliability.js?v=20261014-1') ||
+    !shell.includes('/assets/ovyx-webstudio-reliability.js?v=20261018-3') ||
     !headerRules.includes('/assets/ovyx-webstudio-reliability.js') ||
     !mainHtml.includes('AI_BUILD_NO_ARTIFACTS') ||
     !mainHtml.includes("ovyxBuildState='verified'")
@@ -795,7 +795,7 @@ if (
     !qualityBrowserTest.includes('runBuildAgent') ||
     !excellencePrompts.includes('ART DIRECTION AND DISTINCTIVENESS') ||
     !excellencePrompts.includes('Make at most one bounded targeted repair pass') ||
-    !middleware.includes('/assets/ovyx-webstudio-quality.js?v=20261014-5') ||
+    !middleware.includes('/assets/ovyx-webstudio-quality.js?v=20261018-7') ||
     !headerRules.includes('/assets/ovyx-webstudio-quality.js') ||
     !packageJson.includes('scripts/ovyx-webstudio-quality.test.mjs') ||
     !packageJson.includes('scripts/ovyx-webstudio-evaluation.test.mjs') ||
@@ -837,7 +837,7 @@ if (!fs.existsSync(guardianPatchApiPath) || !fs.existsSync(guardianPatchHelperPa
     !guardianClient.includes('data-ovsx-patch-tools') ||
     !guardianClient.includes("button.dataset.ovsx === 'patch-apply'") ||
     !guardianClient.includes('function invalidatePatchProposal()') ||
-    !guardianMiddleware.includes('/assets/ovyx-sentinel.js?v=20261014-10') ||
+    !guardianMiddleware.includes('/assets/ovyx-sentinel.js?v=20261018-3') ||
     !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/ovyx-guardian-patch.test.mjs')
   ) {
     errors.push('OVYX Guardian patch workflow: code changes must be owner-only, stale-safe, branch-only, explicitly confirmed, tested, and never auto-merged/deployed.');

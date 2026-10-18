@@ -973,7 +973,7 @@ export async function callModel(
   );
   if (requested === 'automatic' && availableProviders.length === 0) {
     throw Object.assign(
-      new Error('No AI provider is connected right now. Please try again later, or connect your own AI Brain in Universal Connections to continue building.'),
+      new Error('No AI option is available right now. Try again later or choose another available AI option.'),
       { status: 503, code: 'AI_PROVIDER_NOT_CONFIGURED' }
     );
   }
@@ -1089,7 +1089,7 @@ export async function callModel(
     const providerLabel = labels[requested] || requested.replace(/[-_]+/g, ' ').replace(/^./, letter => letter.toUpperCase());
     const notConfigured = errors.some(item => /not configured|missing server secret|binding is not configured/i.test(item));
     throw Object.assign(
-      new Error(providerLabel + ' is not available right now. Please try again later, or connect your own AI Brain in Universal Connections to continue building.'),
+      new Error(providerLabel + ' is not available right now. Try OVYX Auto or choose another available AI option.'),
       {
         status: 503,
         code: notConfigured ? 'AI_PROVIDER_NOT_CONFIGURED' : 'AI_PROVIDER_UNAVAILABLE',
