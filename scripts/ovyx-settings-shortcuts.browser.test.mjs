@@ -50,12 +50,8 @@ try {
     await waitForRouteRestore(page);
 
     await page.evaluate(() => window.Router.go('settings'));
-    await page.waitForFunction(
-      () => window.KernelState?.activeView === 'settings',
-      null,
-      { timeout: 15000 },
-    );
-    await page.locator('#view-settings').waitFor({ state: 'visible' });
+    // Verify the visible route instead of depending on an internal state mirror.
+    await page.locator('#view-settings').waitFor({ state: 'visible', timeout: 15000 });
     await page.evaluate(() => window.OVYXSettings.show('shortcuts'));
     const panel = page.locator('[data-settings-panel="shortcuts"]');
     await panel.waitFor({ state: 'visible' });
