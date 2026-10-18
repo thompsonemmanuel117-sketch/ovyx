@@ -20,7 +20,7 @@
     { id: 'gameStudio', label: 'Game Studio' },
     { id: 'aiGeneration', label: 'AI Generation' },
     { id: 'github', label: 'GitHub Integration' },
-    { id: 'cloudflareDeploy', label: 'Cloudflare Deploy' },
+    { id: 'cloudflareDeploy', label: 'Website publishing' },
     { id: 'teamWorkspace', label: 'Team Workspace' },
     { id: 'templates', label: 'Blueprint Templates' }
   ];
@@ -51,12 +51,12 @@
 
   async function idToken(force) {
     const user = currentUser();
-    if (!user || typeof user.getIdToken !== 'function') throw new Error('Sign in with the root owner account first.');
+    if (!user || typeof user.getIdToken !== 'function') throw new Error('Sign in with the owner account to continue.');
     return user.getIdToken(force === true);
   }
 
   async function api(path, options) {
-    if (!owner()) throw new Error('Owner access is not currently verified by the server.');
+    if (!owner()) throw new Error('Owner access couldn't be verified.');
     const config = Object.assign({ method: 'GET' }, options || {});
     const token = await idToken(false);
     const headers = Object.assign({ Accept: 'application/json', Authorization: 'Bearer ' + token }, config.headers || {});
@@ -288,9 +288,9 @@
       if ($('ident-mark-code')) $('ident-mark-code').value = identity.markColor || '#E8B64F';
       if ($('ovyx-global-ai-persona')) $('ovyx-global-ai-persona').value = identity.persona || '';
       setGlobalIdentity(identity);
-      statusText(status, 'Loaded from server configuration. Updated: ' + (result.data.updatedAt || 'not yet customized') + '.', 'ok');
+      statusText(status, 'Settings loaded. Last updated: ' + (result.data.updatedAt || 'not yet customized') + '.', 'ok');
     } catch (error) {
-      statusText(status, 'Could not load server settings: ' + error.message, 'error');
+      statusText(status, 'We couldn't load these settings: ' + error.message, 'error');
     }
   }
 
@@ -304,7 +304,7 @@
     if (!/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i.test(markColor)) return statusText(status, 'Use a valid hexadecimal color such as #E8B64F. Raw HTML/SVG is not accepted.', 'error');
     const button = $('ovyx-global-ai-save');
     if (button) button.disabled = true;
-    statusText(status, 'Saving global identity to the server…');
+    statusText(status, 'Saving global AI identity…');
     try {
       const result = await api('/api/admin/identity', {
         method: 'POST',
@@ -312,12 +312,12 @@
       });
       setGlobalIdentity(result.data.identity);
       if ($('ident-mark-code')) $('ident-mark-code').value = result.data.identity.markColor;
-      statusText(status, 'Saved globally at ' + result.data.updatedAt + '. AI prompt behavior updates on the server; open pages refresh the visual mark periodically.', 'ok');
+      statusText(status, 'Global AI identity saved. Last updated ' + result.data.updatedAt + '. New AI requests will use these settings; open pages may take a moment to update the visual mark.', 'ok');
       notify('Global AI identity saved for OVYX accounts.', 'success');
       await loadPublicIdentity();
     } catch (error) {
-      statusText(status, 'Save failed: ' + error.message, 'error');
-      notify('Global AI identity was not saved: ' + error.message, 'error');
+      statusText(status, 'Your changes couldn't be saved: ' + error.message, 'error');
+      notify('Global AI identity wasn't saved: ' + error.message, 'error');
     } finally { if (button) button.disabled = false; }
   }
 
@@ -327,9 +327,9 @@
     const body = $('ovyx-owner-users-body');
     const next = $('ovyx-owner-users-next');
     if (!body) return;
-    if (!owner()) return statusText(status, 'Root owner access is not verified.', 'error');
+    if (!owner()) return statusText(status, 'Owner access couldn't be verified.', 'error');
     body.replaceChildren();
-    statusText(status, 'Loading account records from Firestore…');
+    statusText(status, 'Loading account records…');
     const refresh = $('ovyx-owner-users-refresh');
     if (refresh) refresh.disabled = true;
     try {
@@ -386,10 +386,10 @@
           setPlan.disabled = true;
           try {
             await api('/api/admin/users', { method: 'POST', body: JSON.stringify({ action: 'setPlan', uid: user.uid, plan: plan.value, durationDays: Number(term.value) }) });
-            statusText(status, 'Plan updated on the server for ' + (user.email || user.uid) + '. Entitlements and quota access now use that assignment.', 'ok');
+            statusText(status, 'Plan updated for ' + (user.email || user.uid) + '. Feature access and usage limits now reflect this plan.', 'ok');
             await loadUsers('');
           } catch (error) {
-            statusText(status, 'Plan update failed: ' + error.message, 'error');
+            statusText(status, 'The plan couldn't be updated: ' + error.message, 'error');
           } finally { setPlan.disabled = false; }
         });
         const changeStatus = document.createElement('button');
@@ -403,10 +403,10 @@
             const response = await api('/api/admin/users', { method: 'POST', body: JSON.stringify({ action: 'setAccountStatus', uid: user.uid, disabled: disable }) });
             statusText(status, disable
               ? ('Firebase Auth account suspended globally. Refresh-token revocation: ' + (response.data.refreshTokensRevoked ? 'confirmed.' : 'not confirmed; disabled account status is active.'))
-              : 'Firebase Auth account re-enabled globally.', 'ok');
+              : 'Account re-enabled.', 'ok');
             await loadUsers('');
           } catch (error) {
-            statusText(status, 'Account status update failed: ' + error.message, 'error');
+            statusText(status, 'The account status couldn't be updated: ' + error.message, 'error');
           } finally { changeStatus.disabled = false; }
         });
         const resetQuota = document.createElement('button');
@@ -417,9 +417,9 @@
           resetQuota.disabled = true;
           try {
             await api('/api/admin/users', { method: 'POST', body: JSON.stringify({ action: 'resetQuota', uid: user.uid }) });
-            statusText(status, 'Quota reset to the current server-configured allowance for ' + (user.email || user.uid) + '.', 'ok');
+            statusText(status, 'Usage allowance reset for ' + (user.email || user.uid) + '.', 'ok');
             await loadUsers('');
-          } catch (error) { statusText(status, 'Quota reset failed: ' + error.message, 'error'); }
+          } catch (error) { statusText(status, 'The usage allowance couldn't be reset: ' + error.message, 'error'); }
           finally { resetQuota.disabled = false; }
         });
         actions.append(setPlan, changeStatus, resetQuota);
@@ -429,7 +429,7 @@
       });
       statusText(status, 'Loaded ' + (data.users || []).length + ' account record(s) from the server' + (data.nextPageToken ? '; more accounts are available on the next page.' : '; end of registry reached.') , 'ok');
     } catch (error) {
-      statusText(status, 'The server did not return the account registry: ' + error.message, 'error');
+      statusText(status, 'The account list couldn't be loaded: ' + error.message, 'error');
     } finally { if (refresh) refresh.disabled = false; }
   }
 
@@ -462,7 +462,7 @@
   async function loadPlansCatalog() {
     const response = await fetch('/api/plans', { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok || data.ok === false) throw new Error(data.error || data.code || 'Public plan catalog is unavailable.');
+    if (!response.ok || data.ok === false) throw new Error(data.error || data.code || 'Pricing and plan details aren't available right now.');
     latestPlans = data;
     syncPlanFeatureControls(data);
     applyPublicPlanCatalog(data);
@@ -487,7 +487,7 @@
 
   async function savePlanConfiguration() {
     const status = $('ovyx-global-quota-status') || $('ovyx-v655-plan-status');
-    if (!owner()) return statusText(status, 'Root owner access is not currently verified.', 'error');
+    if (!owner()) return statusText(status, 'Owner access couldn't be verified.', 'error');
     const readInt = id => {
       const node = $(id);
       const value = Number(node?.value);
@@ -500,7 +500,7 @@
       return;
     }
     if (!document.querySelector('input[data-v655-plan="pro"]') || !document.querySelector('input[data-v655-plan="max"]')) {
-      statusText(status, 'The paid-plan feature controls are unavailable. Nothing was saved.', 'error');
+      statusText(status, 'Paid-plan settings aren't available right now. Nothing was saved.', 'error');
       return;
     }
     const current = latestPlans || {};
@@ -516,7 +516,7 @@
     };
     let button = $('ovyx-global-quota-save');
     if (button) button.disabled = true;
-    statusText(status, 'Saving pricing, quotas and feature permissions to global server configuration…');
+    statusText(status, 'Saving pricing, usage limits, and feature access…');
     try {
       const result = await api('/api/admin/plans/update', {
         method: 'POST',
@@ -534,7 +534,7 @@
         window.TokenQuotaRegistry.serverTokenQuotas = Object.assign({}, result.data.config?.tokenQuotas || {});
         window.TokenQuotaRegistry.renderMeter?.();
       }
-      statusText(status, 'Saved globally at ' + (result.data.config?.updatedAt || 'server confirmation') + '. Public prices, server quotas and paid-plan feature permissions now use this configuration.', 'ok');
+      statusText(status, 'Global AI identity saved. Last updated ' + (result.data.config?.updatedAt || 'server confirmation') + '. Public prices, server quotas and paid-plan feature permissions now use this configuration.', 'ok');
       notify('Global pricing, quota and feature settings saved.', 'success');
     } catch (error) {
       statusText(status, 'Nothing was confirmed saved: ' + error.message, 'error');
@@ -747,7 +747,7 @@
       const result = await api('/api/admin/ai-config', { method: 'POST', body: JSON.stringify({ providerOrder: order }) });
       latestAIConfig = result.data.config;
       statusText(status, 'Global AI routing saved: ' + latestAIConfig.providerOrder.join(' → ') + '. Automatic provider selection now follows this order after the deploy/runtime cache refresh.', 'ok');
-      notify('Global AI provider order saved.', 'success');
+      notify('Global AI selection order saved.', 'success');
     } catch (error) {
       statusText(status, 'Global AI route was not saved: ' + error.message, 'error');
     } finally { if (button) button.disabled = false; }
@@ -943,7 +943,7 @@
       event.preventDefault();
       event.stopImmediatePropagation();
       const status = $('v34-broadcast-status');
-      if (!owner()) return statusText(status, 'Root owner access is not verified.', 'error');
+      if (!owner()) return statusText(status, 'Owner access couldn't be verified.', 'error');
       const message = String($('v34-broadcast-body')?.value || '').trim();
       const title = String($('v34-broadcast-title')?.value || 'OVYX Update').trim() || 'OVYX Update';
       const category = String($('v34-broadcast-category')?.value || 'product');
@@ -987,7 +987,7 @@
       event.preventDefault();
       event.stopImmediatePropagation();
       const status = $('v43-template-form-status');
-      if (!owner()) return statusText(status, 'Root owner access is not verified.', 'error');
+      if (!owner()) return statusText(status, 'Owner access couldn't be verified.', 'error');
       const title = String($('v43-template-title')?.value || '').trim();
       const category = String($('v43-template-category')?.value || '');
       const previewUrl = String($('v43-template-preview')?.value || '').trim();
@@ -1035,7 +1035,7 @@
     if (sw && !sw.__ovyxGlobalIntegrationControl) {
       sw.__ovyxGlobalIntegrationControl = true;
       sw.loadFirestoreState = async function () {
-        if (!owner()) throw new Error('Root owner access is not verified.');
+        if (!owner()) throw new Error('Owner access couldn't be verified.');
         const result = await api('/api/admin/control');
         const config = result.data.config || {};
         this.isLive = typeof config.liveDeploy === 'boolean' ? config.liveDeploy :
@@ -1070,7 +1070,7 @@
         return config;
       };
       sw.toggle = async function () {
-        if (!owner()) return notify('Root owner access is not verified.', 'error');
+        if (!owner()) return notify('Owner access couldn't be verified.', 'error');
         const next = this.isLive !== true;
         if (!next && !window.confirm('Pause new AI generation, agent runs, deployment, repository access and payment checkout for EVERY OVYX account? Login, health checks and verification of payments already started remain available.')) return;
         const button = $('master-switch-toggle-btn') || $('ovyx-global-integration-toggle');
@@ -1238,7 +1238,7 @@
     const status = $('ovyx-global-template-publish-status');
     const form = $('ovyx-global-template-publish-form');
     const button = $('ovyx-global-template-publish');
-    if (!owner()) return statusText(status, 'Root owner access is not verified.', 'error');
+    if (!owner()) return statusText(status, 'Owner access couldn't be verified.', 'error');
     const title = String($('ovyx-global-template-title')?.value || '').trim();
     const category = String($('ovyx-global-template-category')?.value || '');
     const requiredTier = String($('ovyx-global-template-tier')?.value || 'free');
