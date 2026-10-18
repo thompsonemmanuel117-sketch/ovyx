@@ -210,6 +210,7 @@ async function fetchPublic(rawUrl, options = {}) {
       validateUrl(next);
       if (url.protocol === 'https:' && next.protocol !== 'https:') fail('HTTPS_DOWNGRADE_BLOCKED', 'OVYX stopped an HTTPS-to-HTTP redirect.', 502);
       if (expectedOrigin && next.origin !== expectedOrigin) fail('CROSS_ORIGIN_REDIRECT_BLOCKED', 'OVYX stopped a cross-origin redirect while inspecting a linked resource.', 502);
+      if (typeof options.beforeRedirect === 'function') await options.beforeRedirect(next, url);
       url = next;
       continue;
     }
@@ -560,20 +561,63 @@ export async function analyzePublicWebsite(input, options = {}) {
   let sitemapUsed = false;
   let pageLimitReached = false;
   let robots = { checked: false, rules: [], note: 'robots.txt could not be checked; inspection remained bounded.' };
+  const robotsByOrigin = new Map();
   let rootOrigin = originalUrl.origin;
   await verifyPublicHost(hostOf(originalUrl), fetchImpl);
   validatedHosts.add(hostOf(originalUrl));
+
+  async function checkRedirectPolicy(next, previous) {
+    let policy = robotsByOrigin.get(next.origin);
+    if (!policy) {
+      const destinationHost = hostOf(next);
+      if (!validatedHosts.has(destinationHost)) {
+        await verifyPublicHost(destinationHost, fetchImpl);
+        validatedHosts.add(destinationHost);
+      }
+      let response;
+      try {
+        response = await fetchImpl(new URL('/robots.txt', next.origin).href, {
+          method: 'GET', redirect: 'manual', credentials: 'omit',
+          headers: { Accept: 'text/plain,*/*;q=0.1' },
+          signal: await signalFor(DNS_TIMEOUT_MS),
+        });
+      } catch {
+        fail('REDIRECT_ROBOTS_CHECK_FAILED', 'OVYX could not check robots.txt at the redirect destination, so it stopped before fetching that page.', 502);
+      }
+      if ([301, 302, 303, 307, 308].includes(response.status)) {
+        fail('REDIRECT_ROBOTS_CHECK_FAILED', 'The redirect destination robots.txt also redirects. OVYX stopped rather than assume that destination path is allowed.', 502);
+      }
+      if (!response.ok && response.status !== 401 && response.status !== 403 && response.status !== 404) {
+        fail('REDIRECT_ROBOTS_CHECK_FAILED', 'OVYX could not verify the redirect destination robots.txt response, so it stopped before fetching that page.', 502);
+      }
+      let rules = [];
+      let note = '';
+      if (response.status === 200 && String(response.headers.get('content-type') || '').toLowerCase().includes('text/plain')) {
+        const robotsBody = await boundedText(response, MAX_ROBOTS_BYTES);
+        rules = parseRobots(robotsBody.text);
+      } else if (response.status === 401 || response.status === 403) {
+        note = 'The redirect destination robots.txt returned HTTP ' + response.status + '; its page was not assumed to be blocked, but automated access may be restricted.';
+      }
+      policy = { checked: true, rules, note };
+      robotsByOrigin.set(next.origin, policy);
+      if (note) warnings.push(note);
+    }
+    if (policy.checked && !robotsAllows(next, policy.rules)) {
+      fail('ROBOTS_REDIRECT_BLOCKED', 'The requested URL redirects to a path disallowed by robots.txt. OVYX did not fetch the redirect destination.', 403);
+    }
+  }
 
   async function fetchResource(url, config = {}) {
     return fetchPublic(url, {
       fetchImpl, validatedHosts, maxBytes: config.maxBytes || MAX_HTML_BYTES,
       accept: config.accept || 'text/html,application/xhtml+xml;q=0.9,*/*;q=0.5',
       expectedOrigin: config.expectedOrigin || '',
+      beforeRedirect: config.beforeRedirect === false ? undefined : checkRedirectPolicy,
     });
   }
   try {
     const r = await fetchResource(new URL('/robots.txt', originalUrl.origin).href, {
-      maxBytes: MAX_ROBOTS_BYTES, accept: 'text/plain,*/*;q=0.1', expectedOrigin: originalUrl.origin,
+      maxBytes: MAX_ROBOTS_BYTES, accept: 'text/plain,*/*;q=0.1', expectedOrigin: originalUrl.origin, beforeRedirect: false,
     });
     if (r.response.status === 200 && r.contentType.includes('text/plain')) robots = { checked: true, rules: parseRobots(r.text), note: '' };
     else if (r.response.status === 401 || r.response.status === 403) {
@@ -584,6 +628,7 @@ export async function analyzePublicWebsite(input, options = {}) {
     robots = { checked: false, rules: [], note: 'robots.txt could not be checked; strict page and byte limits still apply.' };
     warnings.push(String(error?.message || 'robots.txt could not be checked.').slice(0, 160));
   }
+  robotsByOrigin.set(originalUrl.origin, robots);
   const inputPath = new URL(inputUrl);
   if (!robotsAllows(inputPath, robots.rules)) {
     limitations.push('robots.txt disallows the submitted path; OVYX did not fetch page HTML.');
@@ -600,10 +645,17 @@ export async function analyzePublicWebsite(input, options = {}) {
   // Count every page navigation attempt, including failed/non-HTML responses, so a sitemap full of bad links cannot amplify work.
   rootOrigin = new URL(rootUrl).origin;
   if (rootOrigin !== originalUrl.origin) {
-    try {
-      const r = await fetchResource(new URL('/robots.txt', rootOrigin).href, { maxBytes: MAX_ROBOTS_BYTES, accept: 'text/plain,*/*;q=0.1', expectedOrigin: rootOrigin });
-      if (r.response.status === 200 && r.contentType.includes('text/plain')) robots = { checked: true, rules: parseRobots(r.text), note: '' };
-    } catch { warnings.push('The final redirect destination robots.txt could not be checked.'); }
+    const redirectPolicy = robotsByOrigin.get(rootOrigin);
+    if (redirectPolicy) {
+      robots = redirectPolicy;
+    } else {
+      try {
+        const r = await fetchResource(new URL('/robots.txt', rootOrigin).href, { maxBytes: MAX_ROBOTS_BYTES, accept: 'text/plain,*/*;q=0.1', expectedOrigin: rootOrigin, beforeRedirect: false });
+        if (r.response.status === 200 && r.contentType.includes('text/plain')) robots = { checked: true, rules: parseRobots(r.text), note: '' };
+        else robots = { checked: true, rules: [], note: '' };
+      } catch { warnings.push('The final redirect destination robots.txt could not be checked.'); }
+      robotsByOrigin.set(rootOrigin, robots);
+    }
   }
   const rootSignals = htmlResponse(home) ? parseHtml(home.text, rootUrl, rootOrigin) : null;
   const rootPage = {

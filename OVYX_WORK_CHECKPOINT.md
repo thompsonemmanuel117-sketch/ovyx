@@ -594,3 +594,9 @@ Stage 01 code and desktop/mobile browser verification are complete on the record
 - [x] Crawl budget now counts navigation attempts, including non-HTML and failed responses, so a large list of bad URLs cannot sidestep the six-request page limit.
 - [x] A valid sitemap is marked as used even when its entries duplicate links already found in the homepage.
 - [ ] Re-run Agent Verify and the complete desktop/mobile browser workflow against the updated PR head before merge.
+
+
+### Stage 02 redirect robots hardening follow-up (2026-10-18)
+- [x] Added a pre-fetch redirect check that evaluates the destination path against the applicable robots.txt policy before following same-origin or cross-origin redirects.
+- [x] Added a regression test proving that a disallowed redirect target is rejected before its HTML is fetched.
+- [ ] Verify Agent Verify, the full desktop/mobile browser suite and Cloudflare deployment diagnostics on this follow-up commit before considering Stage 2 fully closed.
