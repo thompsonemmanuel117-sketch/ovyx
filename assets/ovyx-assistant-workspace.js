@@ -309,8 +309,8 @@
       expectedUpdateTime: prepared.revision,
     });
     if (!applied.verified) {
-      push('We couldn't confirm the edit to ' + filePath + '. A backup was kept; review the file before trying again.');
-      setWorkspaceTaskStatus('error', 'The edit couldn't be verified.');
+      push('We could not confirm the edit to ' + filePath + '. A backup was kept; review the file before trying again.');
+      setWorkspaceTaskStatus('error', 'The edit could not be verified.');
       return;
     }
     const updatedLocal = updateLocalProjectFile(projectId, filePath, prepared.bucket, proposedContent);
@@ -355,7 +355,7 @@
     setWorkspaceTaskStatus('approval', 'A recovery preview is ready. No file changes until you approve.');
     if (typeof window.confirm !== 'function' || !window.confirm(message)) { push('Recovery cancelled. No project files were changed.'); setWorkspaceTaskStatus('inspected', 'Recovery was cancelled by the user.'); return; }
     const restored = await workspaceToolRequest({ operation: 'restore_revision', projectId, revisionId: latest.id, confirm: true, expectedUpdateTime: prepared.revision });
-    if (!restored.verified || !restored.restored) { push('OVYX could not verify the recovery write. The saved file was not reported as restored. Check the project before retrying.'); setWorkspaceTaskStatus('error', 'The restored version couldn't be verified.'); return; }
+    if (!restored.verified || !restored.restored) { push('OVYX could not verify the recovery write. The saved file was not reported as restored. Check the project before retrying.'); setWorkspaceTaskStatus('error', 'The restored version could not be verified.'); return; }
     const updatedLocal = updateLocalProjectFile(projectId, restored.filePath, restored.bucket, restored.restoredContent);
     push('Restored ' + String(restored.filePath || latest.filePath || 'the saved file') + ' from recovery version ' + String(latest.id) + '. Server read-back verification passed. A safety copy of the replaced file was saved as ' + String(restored.safetyRevisionId || 'a new recovery version') + (updatedLocal ? '. The current workspace source was refreshed.' : '. Reopen or refresh the project to load the restored version.') + ' This verifies saved storage, not live browser behaviour.');
     setWorkspaceTaskStatus('applied', 'The previous version was restored and verified.');
@@ -690,7 +690,7 @@
     workspaceTaskMessage = String(message || '');
     const chip = $('bot-context-node-type');
     if (!chip) return;
-    const labels = { running: 'Working', inspected: 'Workspace reviewed', approval: 'Approval needed', applied: 'Changes saved', details: 'More details needed', error: 'Action couldn't be completed' };
+    const labels = { running: 'Working', inspected: 'Workspace reviewed', approval: 'Approval needed', applied: 'Changes saved', details: 'More details needed', error: 'Action could not be completed' };
     if (workspaceTaskStatus === 'idle') { syncWorkspaceBadge(localWorkspaceSnapshot(), true); return; }
     chip.textContent = labels[workspaceTaskStatus] || 'WORKSPACE READY';
     chip.title = workspaceTaskMessage || labels[workspaceTaskStatus] || 'Workspace status';
@@ -719,7 +719,7 @@
         try {
           await approveAndApplyWorkspacePatch(action);
         } catch (error) {
-          push('The edit wasn't applied: ' + String(error?.message || 'The update couldn't be confirmed. No change is marked complete unless it has been verified.'));
+          push('The edit was not applied: ' + String(error?.message || 'The update could not be confirmed. No change is marked complete unless it has been verified.'));
         }
         continue;
       }
@@ -747,12 +747,12 @@
         continue;
       }
       if (type === 'refresh_context') {
-        window.OVYXWorkspaceCopilot?.scan?.().then(() => push('Workspace details refreshed.')).catch(e => push(e?.message || 'Workspace details couldn't be refreshed.'));
+        window.OVYXWorkspaceCopilot?.scan?.().then(() => push('Workspace details refreshed.')).catch(e => push(e?.message || 'Workspace details could not be refreshed.'));
         continue;
       }
       if (type === 'run_project_scan') {
         const report = window.OVYXWorkspaceCopilot?.diagnose?.();
-        push(report ? JSON.stringify(report, null, 2) : 'Workspace details aren't available yet.');
+        push(report ? JSON.stringify(report, null, 2) : 'Workspace details are not available yet.');
         continue;
       }
       if (type === 'open_history') window.WebStudio?.openHistory?.();
@@ -1161,7 +1161,7 @@
         : (limited ? '0 0 0 3px rgba(142,171,255,.12)' : '0 0 0 3px rgba(88,215,181,.09)');
     }
     if (currentUser && workspaceTaskStatus !== 'idle' && status) {
-      const labels = { running: 'Working', local: 'Workspace details ready', inspected: 'Workspace reviewed', approval: 'Approval needed', applied: 'Changes saved', details: 'More details needed', error: 'Action couldn't be completed' };
+      const labels = { running: 'Working', local: 'Workspace details ready', inspected: 'Workspace reviewed', approval: 'Approval needed', applied: 'Changes saved', details: 'More details needed', error: 'Action could not be completed' };
       status.textContent = labels[workspaceTaskStatus] || status.textContent;
       status.title = workspaceTaskMessage || status.title;
       if (dot) {
@@ -1328,12 +1328,12 @@
           serverDiagnostics = diagnosticResult.diagnostics || null;
         }
       } catch (error) {
-        serverToolError = String(error?.message || 'Saved workspace details aren't available right now.');
+        serverToolError = String(error?.message || 'Saved workspace details are not available right now.');
       }
       if (serverWorkspace?.activeProject?.id) {
         setWorkspaceTaskStatus('inspected', 'Reviewed saved app details for ' + String(serverWorkspace.activeProject.name || serverWorkspace.activeProject.id) + '.'');
       } else if (context?.activeProject?.id) {
-        setWorkspaceTaskStatus('local', serverToolError ? 'Some workspace details couldn't be refreshed. Using the information available in this session.' : 'Using the information available in this session. No saved app was selected.');
+        setWorkspaceTaskStatus('local', serverToolError ? 'Some workspace details could not be refreshed. Using the information available in this session.' : 'Using the information available in this session. No saved app was selected.');
       } else {
         setWorkspaceTaskStatus('details', serverToolError || 'No saved app is selected. OVYX can still answer general questions.');
       }
@@ -1519,7 +1519,7 @@
   function askAssistantTask(prompt) {
     const input = $('bot-chat-input');
     if (!input) {
-      push('The message box isn't available on this screen. Reopen OVYX AI and try again.');
+      push('The message box is not available on this screen. Reopen OVYX AI and try again.');
       return;
     }
     if (busy) {
@@ -1542,7 +1542,7 @@
       if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
       } else {
-        throw new Error('Copying isn't available in this browser.');
+        throw new Error('Copying is not available in this browser.');
       }
       push('Conversation copied to clipboard.');
     } catch (_) {
@@ -1643,7 +1643,7 @@
         (usable ? ' Local project details remain available to OVYX AI.' : ' Open or select a project to provide more detail.'));
     } catch (error) {
       syncWorkspaceBadge(localWorkspaceSnapshot(), true);
-      push(String(error?.message || 'Workspace details couldn't be refreshed. The local snapshot is still available.'));
+      push(String(error?.message || 'Workspace details could not be refreshed. The local snapshot is still available.'));
     }
   }
 
@@ -1669,7 +1669,7 @@
           push(error?.message || (label + ' could not be opened.'));
         }
       } else {
-        push('Web Studio is open. ' + label + ' isn't available for this app yet.');
+        push('Web Studio is open. ' + label + ' is not available for this app yet.');
       }
     };
     closeMenu();
@@ -1726,12 +1726,12 @@
     }
     if (action === 'undo-last-ai-edit') {
       try { await recoverLatestWorkspaceEdit(); }
-      catch (error) { push('Restore failed: ' + String(error?.message || 'OVYX couldn't restore the selected version. The restore is only marked complete after verification.')); setWorkspaceTaskStatus('error', String(error?.message || 'Recovery failed.')); }
+      catch (error) { push('Restore failed: ' + String(error?.message || 'OVYX could not restore the selected version. The restore is only marked complete after verification.')); setWorkspaceTaskStatus('error', String(error?.message || 'Recovery failed.')); }
       return;
     }
     if (action === 'review-ai-edits') {
       try { await reviewWorkspaceEditHistory(); }
-      catch (error) { push('Couldn't load saved edit history: ' + String(error?.message || 'Workspace recovery history is unavailable.')); setWorkspaceTaskStatus('error', String(error?.message || 'Could not load recovery history.')); }
+      catch (error) { push('Could not load saved edit history: ' + String(error?.message || 'Workspace recovery history is unavailable.')); setWorkspaceTaskStatus('error', String(error?.message || 'Could not load recovery history.')); }
       return;
     }
     if (action === 'recover-project') {
@@ -1859,7 +1859,7 @@
     if (!text) return;
     try {
       if (navigator.clipboard?.writeText) await navigator.clipboard.writeText(text);
-      else throw new Error('Copying isn't available in this browser.');
+      else throw new Error('Copying is not available in this browser.');
       responseToast('AI response copied.', 'success');
     } catch (_) {
       const helper = document.createElement('textarea');
@@ -1933,7 +1933,7 @@
         } else {
           Promise.resolve(window.OVYXWorkspaceCopilot?.scan?.() || window.__OVYX_SCAN_WORKSPACE_CONTEXT__?.(true))
             .then(context => push(`Workspace details refreshed · ${context?.projectInventory?.length || 0} apps · ${context?.activeAssets?.length || 0} files.`))
-            .catch(error => push(error?.message || 'Workspace details couldn't be refreshed.'));
+            .catch(error => push(error?.message || 'Workspace details could not be refreshed.'));
         }
         return;
       }
