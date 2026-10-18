@@ -96,7 +96,7 @@ export async function onRequestPost(context) {
     const notificationId = clean(body?.notificationId || body?.id, 160);
 
     if (action !== 'read' || !notificationId || !/^[A-Za-z0-9_-]{1,160}$/.test(notificationId)) {
-      return errorResponse(400, 'INVALID_NOTIFICATION_ACTION', 'A valid notification read action is required.');
+      return errorResponse(400, 'INVALID_NOTIFICATION_ACTION', 'Choose a valid notification action.');
     }
 
     const readAt = new Date().toISOString();
@@ -125,5 +125,5 @@ export async function onRequestPost(context) {
 export async function onRequest(context) {
   if (context.request.method === 'GET') return onRequestGet(context);
   if (context.request.method === 'POST') return onRequestPost(context);
-  return errorResponse(405, 'METHOD_NOT_ALLOWED', 'GET or POST is required.');
+  return errorResponse(405, 'METHOD_NOT_ALLOWED', 'This action isn't supported.');
 }
