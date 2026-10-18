@@ -10,7 +10,7 @@ const ui = html.slice(connectionsUiStart, connectionsUiEnd);
 const api = read('functions/api/settings/connections.js');
 const connectionLib = read('functions/_lib/universal-connections.js');
 
-assert.ok(ui.includes("const testLabel=row.lastTestStatus==='reachable'?'READY':row.lastTestStatus==='unreachable'?'FAILED':'NOT TESTED'"),
+assert.ok(ui.includes("const testLabel=row.lastTestStatus==='reachable'?'Ready':row.lastTestStatus==='unreachable'?'Needs attention':'Not checked'"),
   'Saved connections must visibly show the latest readiness result.');
 assert.ok(ui.includes("status.textContent='Connections refreshed. '+active+' active / '+limit+' active.'"),
   'A successful reload must end in a useful status, not remain stuck on Loading.');
@@ -20,7 +20,7 @@ assert.ok(ui.includes("if(type==='ai'&&saved.connection?.id)"),
   'New AI Brain connections must be checked automatically after saving.');
 assert.ok(ui.includes("JSON.stringify({action:'test',id:saved.connection.id})"),
   'The automatic AI Brain check must target the exact saved connection.');
-assert.ok(ui.includes("resultMessage=readiness.ok?'AI Brain is reachable. Use “Use as Brain” to activate it.'"),
+assert.ok(ui.includes("resultMessage=readiness.ok?'The AI option is ready. Select “Use for AI requests” to activate it.'"),
   'A passing check must distinguish reachable from selected/active.');
 assert.ok(ui.includes("status.textContent=resultMessage;status.dataset.state=resultState"),
   'The UI must preserve the readiness result after refreshing the list.');
@@ -29,7 +29,7 @@ assert.ok(ui.includes("JSON.stringify({action:'test',id:btn.dataset.v91UseBrain}
 assert.ok(ui.indexOf("JSON.stringify({action:'test',id:btn.dataset.v91UseBrain})") <
           ui.indexOf("JSON.stringify({action:'use-ai',id:btn.dataset.v91UseBrain})"),
   'An AI Brain must not be activated before its readiness check succeeds.');
-assert.ok(ui.includes("await load();status.textContent='AI Brain verified and saved."),
+assert.ok(ui.includes("await load();status.textContent='AI option verified and saved."),
   'Successful AI Brain selection must refresh the list and keep the success message.');
 assert.ok(ui.includes("await load();status.textContent=message;status.dataset.state=state"),
   'Manual Test must refresh the visible status after the test finishes.');
