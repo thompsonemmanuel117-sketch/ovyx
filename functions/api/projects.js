@@ -15,7 +15,7 @@ const MAX_PROJECT_BYTES = 950_000;
 function clean(value,max=320){return String(value??'').trim().slice(0,max);}
 function projectId(value){
   const id=clean(value,120);
-  if(!/^[A-Za-z0-9_-]{1,120}$/.test(id))throw Object.assign(new Error('The selected app couldn't be identified.'),{status:400,code:'INVALID_PROJECT_ID'});
+  if(!/^[A-Za-z0-9_-]{1,120}$/.test(id))throw Object.assign(new Error('The selected app could not be identified.'),{status:400,code:'INVALID_PROJECT_ID'});
   return id;
 }
 function payload(value){
@@ -54,7 +54,7 @@ export async function onRequest(context){
       const project=payload(body.project||body.data);
       const existingDoc=await getFirestoreDocumentAtPath(context.env,['users',email,'projects',pid]);
       const existing=existingDoc?await getFirestoreDataAtPath(context.env,['users',email,'projects',pid]):null;
-      if(existing && (clean(existing.ownerUid)!==uid||clean(existing.ownerEmail).toLowerCase()!==email))throw Object.assign(new Error('This app can't be saved under the current account.'),{status:409,code:'PROJECT_OWNERSHIP_CONFLICT'});
+      if(existing && (clean(existing.ownerUid)!==uid||clean(existing.ownerEmail).toLowerCase()!==email))throw Object.assign(new Error('This app cannot be saved under the current account.'),{status:409,code:'PROJECT_OWNERSHIP_CONFLICT'});
       const now=new Date().toISOString();
       const brandProfile=await getFirestoreDataAtPath(context.env,['users',email,'brand_profile','config']).catch(()=>null);
       const stored={
@@ -72,6 +72,6 @@ export async function onRequest(context){
     }
     return jsonResponse({ok:false,error:'GET, POST or DELETE is required.',code:'METHOD_NOT_ALLOWED'},405,{'X-OVYX-Request-ID':id});
   }catch(error){
-    return jsonResponse({ok:false,error:error?.message||'Your saved app request couldn't be completed. Please try again.',code:error?.code||'PROJECTS_FAILED'},error?.status||500,{'X-OVYX-Request-ID':id});
+    return jsonResponse({ok:false,error:error?.message||'Your saved app request could not be completed. Please try again.',code:error?.code||'PROJECTS_FAILED'},error?.status||500,{'X-OVYX-Request-ID':id});
   }
 }
