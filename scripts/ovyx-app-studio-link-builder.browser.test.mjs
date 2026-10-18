@@ -19,11 +19,12 @@ const profiles = new Map([['coastal-living', {
 const report = {
   schemaVersion: 1,
   source: { inputUrl: 'https://coastal.example/', canonicalUrl: 'https://coastal.example/', hostname: 'coastal.example', analyzedAt: '2026-10-18T00:00:00.000Z' },
-  summary: { pagesDiscovered: 3, pagesInspected: 3, pagesBlocked: 0, internalLinksDiscovered: 2, assetsDiscovered: 2, pageLimitReached: false },
+  summary: { pagesDiscovered: 4, pagesInspected: 3, pagesBlocked: 0, internalLinksDiscovered: 3, assetsDiscovered: 2, pageLimitReached: false },
   siteMap: { rootUrl: 'https://coastal.example/', pages: [
     { url: 'https://coastal.example/', path: '/', title: 'Coastal Living', category: 'Home', depth: 0, status: 'inspected', httpStatus: 200, contentType: 'text/html', headings: ['Find your calm by the coast'], description: 'Thoughtful coastal homes and living.' },
     { url: 'https://coastal.example/collections', path: '/collections', title: 'Collections', category: 'Products', depth: 1, status: 'inspected', httpStatus: 200, contentType: 'text/html', headings: ['Curated homes'], description: 'Explore curated homes.' },
-    { url: 'https://coastal.example/about', path: '/about', title: 'Our Story', category: 'About', depth: 1, status: 'inspected', httpStatus: 200, contentType: 'text/html', headings: ['A more considered way home'], description: 'Our story.' }
+    { url: 'https://coastal.example/about', path: '/about', title: 'Our Story', category: 'About', depth: 1, status: 'inspected', httpStatus: 200, contentType: 'text/html', headings: ['A more considered way home'], description: 'Our story.' },
+    { url: 'https://coastal.example/account', path: '/account', title: 'Account', category: 'account', depth: 1, status: 'not-inspected', headings: [], description: '' }
   ] },
   branding: { name: 'Coastal Living', confidence: 'high', colors: { primary: '#D81B60', secondary: '#302060', accent: '#00A6A6', background: '#FFF9FC', surface: '#FFFFFF', text: '#17121A', muted: '#5D4B56' }, logo: { url: 'https://coastal.example/assets/logo.png', alt: 'Coastal Living' }, faviconUrl: 'https://coastal.example/favicon.svg' },
   assets: { total: 2, byType: { image: 1, stylesheet: 1 }, items: [
@@ -176,6 +177,7 @@ try {
   assert.equal(artifact?.pageCount, 3, 'Three inspected source pages must produce three local routes.');
   assert.equal(artifact?.routes?.['/collections/'], 'pages/collections.html');
   assert.equal(artifact?.routes?.['/about/'], 'pages/about.html');
+  assert.equal(artifact?.routes?.['/account/'], undefined, 'Discovered but uninspected routes must not be presented as generated pages.');
   assert.ok(artifact?.files?.['index.html']);
   assert.equal(await desktop.evaluate(() => window.KernelState.activeProject.name), 'Do not replace me', 'Stage 3 must not overwrite the existing active project.');
 
@@ -190,8 +192,10 @@ try {
   await mobile.locator('[data-lb-generate]').click();
   await mobile.waitForFunction(() => document.querySelector('[data-lb-status]')?.textContent.includes('opened in the live preview'), null, { timeout: 15000 });
   const mobilePreview = mobile.frameLocator('[data-lb-preview]');
-  await mobilePreview.locator('#counter').click();
-  assert.equal(await mobilePreview.locator('#counter').innerText(), 'Tap 1', 'The generated mobile-width preview must remain interactive.');
+  assert.equal(await mobilePreview.locator('nav a[href="/collections/"]').count(), 1, 'The mobile preview must expose cross-page navigation too.');
+  await mobilePreview.locator('nav a[href="/collections/"]').click();
+  await mobilePreview.getByRole('heading', { name: 'Curated coastal collections' }).waitFor();
+  assert.equal(await mobilePreview.locator('h1').innerText(), 'Curated coastal collections', 'Multi-page route navigation must work at mobile width.');
   assert.deepEqual(errors, [], 'The real browser handoff must not throw page exceptions.');
   console.log('OVYX Stage 3 browser checks passed: analyzer → per-app brand → existing AI gateway → three HTML routes → working cross-page navigation and interactive desktop/mobile live preview.');
 } finally {
