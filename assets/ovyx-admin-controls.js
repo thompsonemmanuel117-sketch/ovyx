@@ -731,7 +731,7 @@
       statusText(status, 'Loaded the saved server provider order: ' + order.join(' → '), 'ok');
       await loadProviderStatus();
     } catch (error) {
-      statusText(status, 'Provider route could not be loaded: ' + error.message, 'error');
+      statusText(status, 'AI selection settings couldn't be loaded: ' + error.message, 'error');
     }
   }
 
@@ -746,7 +746,7 @@
       })).sort((a, b) => a.priority - b.priority).map(item => item.id);
       const result = await api('/api/admin/ai-config', { method: 'POST', body: JSON.stringify({ providerOrder: order }) });
       latestAIConfig = result.data.config;
-      statusText(status, 'Global AI routing saved: ' + latestAIConfig.providerOrder.join(' → ') + '. Automatic provider selection now follows this order after the deploy/runtime cache refresh.', 'ok');
+      statusText(status, 'AI selection preferences saved: ' + latestAIConfig.providerOrder.join(' → ') + '. OVYX Auto will follow this order when choosing an AI option.', 'ok');
       notify('Global AI selection order saved.', 'success');
     } catch (error) {
       statusText(status, 'Global AI route was not saved: ' + error.message, 'error');
@@ -757,10 +757,10 @@
     const grid = $('ovyx-global-ai-provider-status');
     if (!grid) return;
     grid.replaceChildren();
-    statusText($('ovyx-global-ai-route-status'), 'Checking configured AI credentials with the server…');
+    statusText($('ovyx-global-ai-route-status'), 'Checking AI service availability…');
     const result = await timedRequest('/api/ai/status', true);
     if (!result.ok) {
-      statusText($('ovyx-global-ai-route-status'), 'Provider test failed: ' + (result.error || ('HTTP ' + result.status)), 'error');
+      statusText($('ovyx-global-ai-route-status'), 'AI service check failed: ' + (result.error || ('HTTP ' + result.status)), 'error');
       return;
     }
     const entries = (Array.isArray(result.data.providers) ? result.data.providers : []).concat(Array.isArray(result.data.additionalProviders) ? result.data.additionalProviders : []);
@@ -768,24 +768,24 @@
       const card = document.createElement('div'); card.className = 'ovyx-owner-live-card';
       const label = document.createElement('div'); label.className = 'ovyx-owner-live-label'; label.textContent = String(item.label || item.provider || item.name || 'AI provider');
       const value = document.createElement('div'); value.className = 'ovyx-owner-live-value';
-      value.textContent = item.connected === true ? 'CONNECTED' : (item.configured === true ? 'TEST FAILED' : 'NOT CONFIGURED');
+      value.textContent = item.connected === true ? 'Ready' : (item.configured === true ? 'Check failed' : 'Setup required');
       value.style.color = item.connected === true ? '#86efac' : (item.configured === true ? '#fcd34d' : '#fca5a5');
       const detail = document.createElement('div'); detail.className = 'ovyx-owner-live-detail';
-      detail.textContent = String(item.model || item.error || item.detail || (item.connected ? 'Provider request passed.' : 'No successful provider probe was returned.')).slice(0, 180);
+      detail.textContent = String(item.model || item.error || item.detail || (item.connected ? 'Availability check succeeded.' : 'No successful availability check was returned.')).slice(0, 180);
       card.append(label, value, detail); grid.appendChild(card);
     });
     const cf = result.data.cloudflare || {};
     const cfCard = document.createElement('div'); cfCard.className = 'ovyx-owner-live-card';
-    cfCard.innerHTML = '<div class="ovyx-owner-live-label">Cloudflare Workers AI</div><div class="ovyx-owner-live-value">' + (cf.workersAiBinding ? 'BOUND' : 'NOT BOUND') + '</div><div class="ovyx-owner-live-detail">Binding presence only; generation has not been simulated by this diagnostic.</div>';
+    cfCard.innerHTML = '<div class="ovyx-owner-live-label">Native AI service</div><div class="ovyx-owner-live-value">' + (cf.workersAiBinding ? 'Available' : 'Setup required') + '</div><div class="ovyx-owner-live-detail">Setup is present, but this check does not run an AI request.</div>';
     grid.appendChild(cfCard);
     const activeOrder = Array.isArray(latestAIConfig?.providerOrder) ? latestAIConfig.providerOrder : [];
-    statusText($('ovyx-global-ai-route-status'), (activeOrder.length ? 'Global routing order: ' + activeOrder.join(' → ') + '. ' : '') + 'Live provider-status endpoint responded at HTTP ' + result.status + ' in ' + result.duration + ' ms. Status: ' + String(result.data.status || 'reported') + '.', 'ok');
+    statusText($('ovyx-global-ai-route-status'), (activeOrder.length ? 'Global routing order: ' + activeOrder.join(' → ') + '. ' : '') + 'AI availability check completed in ' + result.duration + ' ms. Status: ' + String(result.data.status || 'reported') + '.', 'ok');
   }
 
   async function runLiveOverview() {
     const host = $('ovyx-owner-live-overview');
     if (!host || !owner()) return;
-    statusText($('ovyx-owner-overview-status'), 'Checking live server endpoints…');
+    statusText($('ovyx-owner-overview-status'), 'Checking key service components…');
     const [health, plans, registry, sentinel] = await Promise.all([
       timedRequest('/api/health', false),
       timedRequest('/api/plans', false),
@@ -817,7 +817,7 @@
     const reportStatus = String(report.status || report.result || 'NO SAVED REPORT').toUpperCase();
     add('Sentinel scan', sentinel.ok ? reportStatus : 'UNAVAILABLE',
       sentinel.ok ? (Number.isFinite(critical) ? String(critical) + ' critical finding(s); ' : '') + 'last scan: ' + String(sentinel.data.lastScanAt || report.finishedAt || 'not recorded') : (sentinel.error || ('HTTP ' + sentinel.status)), sentinel.ok && reportStatus !== 'CRITICAL' ? 'ok' : 'warn');
-    statusText($('ovyx-owner-overview-status'), 'Endpoint results are live as of ' + new Date().toISOString() + '. A responding HTTP API is not proof that every third-party transaction flow works.', health.ok && plans.ok && registry.ok ? 'ok' : 'warn');
+    statusText($('ovyx-owner-overview-status'), 'Checks completed at ' + new Date().toISOString() + '. A successful status check doesn't guarantee every payment, publishing, or email workflow is working.', health.ok && plans.ok && registry.ok ? 'ok' : 'warn');
   }
 
   function mountOverview() {
@@ -835,24 +835,24 @@
   async function runBackendChecks() {
     const grid = $('ovyx-owner-backend-cards');
     if (!grid || !owner()) return;
-    statusText($('ovyx-owner-backend-status'), 'Running real HTTP checks…');
+    statusText($('ovyx-owner-backend-status'), 'Checking core services…');
     const checks = [
-      { label: 'Edge health', url: '/api/health', auth: false },
-      { label: 'Service configuration', url: '/api/service-status', auth: true },
-      { label: 'Root entitlements', url: '/api/entitlements', auth: true },
-      { label: 'Sentinel report storage', url: '/api/admin/sentinel', auth: true }
+      { label: 'Platform health', url: '/api/health', auth: false },
+      { label: 'Feature availability', url: '/api/service-status', auth: true },
+      { label: 'Owner access', url: '/api/entitlements', auth: true },
+      { label: 'Health report storage', url: '/api/admin/sentinel', auth: true }
     ];
     const outcomes = await Promise.all(checks.map(item => timedRequest(item.url, item.auth)));
     grid.replaceChildren();
     outcomes.forEach((outcome, index) => {
       const card = document.createElement('div'); card.className = 'ovyx-owner-live-card';
       const label = document.createElement('div'); label.className = 'ovyx-owner-live-label'; label.textContent = checks[index].label;
-      const value = document.createElement('div'); value.className = 'ovyx-owner-live-value'; value.textContent = outcome.ok ? 'HTTP ' + outcome.status : (outcome.status ? 'HTTP ' + outcome.status : 'FAILED');
+      const value = document.createElement('div'); value.className = 'ovyx-owner-live-value'; value.textContent = outcome.ok ? 'Needs attention' : (outcome.status ? 'Needs attention' : 'Unavailable');
       value.style.color = outcome.ok ? '#86efac' : '#fca5a5';
-      const detail = document.createElement('div'); detail.className = 'ovyx-owner-live-detail'; detail.textContent = outcome.ok ? 'Response in ' + outcome.duration + ' ms.' : String(outcome.error || 'Route returned an unsuccessful status.').slice(0, 150);
+      const detail = document.createElement('div'); detail.className = 'ovyx-owner-live-detail'; detail.textContent = outcome.ok ? 'Responded in ' + outcome.duration + ' ms.' : String(outcome.error || 'Route returned an unsuccessful status.').slice(0, 150);
       card.append(label, value, detail); grid.appendChild(card);
     });
-    statusText($('ovyx-owner-backend-status'), 'A successful check confirms only this endpoint and request path. It does not claim payments, deployments or external emails are verified end-to-end.', outcomes.every(item => item.ok) ? 'ok' : 'warn');
+    statusText($('ovyx-owner-backend-status'), 'Each check covers only the component tested. Payment, publishing and email workflows need separate end-to-end verification.', outcomes.every(item => item.ok) ? 'ok' : 'warn');
   }
 
   function mountBackendChecks() {
@@ -873,7 +873,7 @@
     grid.replaceChildren();
     const loading = document.createElement('div');
     loading.className = 'col-span-full ovyx-owner-live-status';
-    loading.textContent = 'Testing actual edge/API/provider endpoints…';
+    loading.textContent = 'Checking key service components…';
     grid.appendChild(loading);
     const outcomes = await Promise.all([
       timedRequest('/api/health', false),
@@ -890,22 +890,22 @@
       box.append(title, value, info); grid.appendChild(box);
     }
     const health = outcomes[0], auth = outcomes[1], ai = outcomes[2], sentinel = outcomes[3];
-    card('Cloudflare Pages / Edge', health.ok ? 'HTTP ' + health.status : 'FAILED', health.ok ? 'Measured request: ' + health.duration + ' ms' : health.error || 'No successful response', health.ok ? '#86efac' : '#fca5a5');
-    card('Firebase + Entitlements', auth.ok ? 'VERIFIED' : 'FAILED', auth.ok ? 'Authenticated root request returned HTTP ' + auth.status + ' in ' + auth.duration + ' ms' : auth.error || ('HTTP ' + auth.status), auth.ok ? '#86efac' : '#fca5a5');
+    card('Cloudflare Pages / Edge', health.ok ? 'HTTP ' + health.status : 'Unavailable', health.ok ? 'Measured request: ' + health.duration + ' ms' : health.error || 'No successful response', health.ok ? '#86efac' : '#fca5a5');
+    card('Firebase + Entitlements', auth.ok ? 'VERIFIED' : 'Unavailable', auth.ok ? 'Authenticated root request returned HTTP ' + auth.status + ' in ' + auth.duration + ' ms' : auth.error || ('HTTP ' + auth.status), auth.ok ? '#86efac' : '#fca5a5');
     if (ai.ok) {
       const providers = (Array.isArray(ai.data.providers) ? ai.data.providers : []).concat(Array.isArray(ai.data.additionalProviders) ? ai.data.additionalProviders : []);
       providers.forEach(item => {
         const ready = item.connected === true;
         const configured = item.configured === true;
         card(String(item.label || item.provider || item.name || 'AI provider'),
-          ready ? 'CONNECTED' : (configured ? 'TEST FAILED' : 'NOT CONFIGURED'),
+          ready ? 'Ready' : (configured ? 'Check failed' : 'Setup required'),
           'Actual /api/ai/status probe; HTTP ' + ai.status + ' in ' + ai.duration + ' ms. ' + String(item.error || item.detail || '').slice(0, 80),
           ready ? '#86efac' : (configured ? '#fcd34d' : '#fca5a5'));
       });
-      card('Workers AI binding', ai.data.cloudflare?.workersAiBinding ? 'BOUND' : 'NOT BOUND',
+      card('Workers AI binding', ai.data.cloudflare?.workersAiBinding ? 'Available' : 'Setup required',
         'Binding existence only, not a completed model-generation test.', ai.data.cloudflare?.workersAiBinding ? '#fcd34d' : '#fca5a5');
     } else {
-      card('AI provider diagnostics', 'FAILED', ai.error || ('HTTP ' + ai.status), '#fca5a5');
+      card('AI provider diagnostics', 'Unavailable', ai.error || ('HTTP ' + ai.status), '#fca5a5');
     }
     const report = sentinel.data?.latestReport || {};
     const reportStatus = sentinel.ok ? String(report.status || 'NO SAVED REPORT').toUpperCase() : 'UNAVAILABLE';
@@ -918,7 +918,7 @@
     if (window.AdminTelemetry) window.AdminTelemetry.lastVerifiedAt = new Date().toISOString();
     document.documentElement.dataset.ovyxTelemetryCheckedAt = new Date().toISOString();
     const existingStatus = $('ovyx-owner-telemetry-status');
-    statusText(existingStatus, 'Real endpoint checks completed at ' + new Date().toISOString() + '. Provider status reflects the provider credential probe result; latency shown is for the status endpoint, not individual model inference.', allUp ? 'ok' : 'warn');
+    statusText(existingStatus, 'Real endpoint checks completed at ' + new Date().toISOString() + '. Service status reflects a configuration check. The timing shown here does not measure AI response speed.', allUp ? 'ok' : 'warn');
   }
 
   function mountTelemetry() {
@@ -952,13 +952,13 @@
       if (!message) return statusText(status, 'Write an announcement before publishing.', 'error');
       if (link && !/^(?:https:\/\/|\/)/i.test(link)) return statusText(status, 'The optional link must be an HTTPS URL or a local OVYX path.', 'error');
       button.disabled = true;
-      statusText(status, 'Publishing through the protected global broadcast endpoint…');
+      statusText(status, 'Publishing announcement…');
       try {
         const result = await api('/api/admin/broadcasts', {
           method: 'POST',
           body: JSON.stringify({ title: title, message: message, category: category, link: link })
         });
-        statusText(status, 'Published to every authenticated OVYX inbox. Broadcast ID: ' + String(result.data.broadcast?.id || 'confirmed') +
+        statusText(status, 'Announcement published to signed-in OVYX users.' + String(result.data.broadcast?.id || 'confirmed') +
           (wantsEmail ? '. Email was not sent by this action; only global in-app delivery is confirmed.' : '.'), 'ok');
         notify('Global in-app announcement published.', 'success');
         if ($('v34-broadcast-body')) $('v34-broadcast-body').value = '';
@@ -973,8 +973,8 @@
           entry.append(main, time); host.prepend(entry);
         }
       } catch (error) {
-        statusText(status, 'Broadcast was not confirmed published: ' + error.message, 'error');
-        notify('Broadcast failed: ' + error.message, 'error');
+        statusText(status, 'Announcement publication couldn't be confirmed: ' + error.message, 'error');
+        notify('Announcement couldn't be published: ' + error.message, 'error');
       } finally { button.disabled = false; }
     }, true);
   }
@@ -993,16 +993,16 @@
       const previewUrl = String($('v43-template-preview')?.value || '').trim();
       const requiredTier = String($('v43-template-tier')?.value || 'free');
       const raw = String($('v43-template-ast')?.value || '').trim();
-      if (!title || !raw) return statusText(status, 'A title and AST JSON are required.', 'error');
+      if (!title || !raw) return statusText(status, 'Enter a template title and valid template structure.', 'error');
       let ast;
-      try { ast = JSON.parse(raw); } catch (_) { return statusText(status, 'The AST field must be valid JSON.', 'error'); }
+      try { ast = JSON.parse(raw); } catch (_) { return statusText(status, 'The template structure must be valid JSON.', 'error'); }
       const hasNodes = ast && typeof ast === 'object' && !Array.isArray(ast) &&
         (Array.isArray(ast.canvas) || Array.isArray(ast.nodes) || Array.isArray(ast.sections) ||
           (Array.isArray(ast.pages) && ast.pages.some(page => page && Array.isArray(page.sections))));
-      if (!hasNodes) return statusText(status, 'AST must contain canvas, nodes, sections or pages with sections.', 'error');
+      if (!hasNodes) return statusText(status, 'The template must include a canvas or page with at least one section.', 'error');
       const publish = $('v43-template-publish');
       if (publish) publish.disabled = true;
-      statusText(status, 'Publishing to the protected server template collection…');
+      statusText(status, 'Publishing template…');
       try {
         const result = await api('/api/admin/templates', {
           method: 'POST',
@@ -1017,13 +1017,13 @@
         const count = $('v43-template-count');
         if (count && record) count.textContent = String(Math.max(0, Number(count.textContent) || 0) + 1);
         const channel = $('v43-template-channel');
-        if (channel) channel.textContent = 'SERVER WRITE CONFIRMED';
-        statusText(status, 'Server confirmed a global template write: ' + String(record?.title || title) + '. Active galleries refresh through the existing Firestore live listener.', 'ok');
+        if (channel) channel.textContent = 'PUBLISHED';
+        statusText(status, 'Template published to the global catalogue: ' + String(record?.title || title) + '. Published galleries will refresh automatically.', 'ok');
         notify('Template published to the global catalog.', 'success');
         form.reset();
       } catch (error) {
-        statusText(status, 'Template was not confirmed published: ' + error.message, 'error');
-        notify('Template publication failed: ' + error.message, 'error');
+        statusText(status, 'Template publication couldn't be confirmed: ' + error.message, 'error');
+        notify('Template couldn't be published: ' + error.message, 'error');
       } finally { if (publish) publish.disabled = false; }
     }, true);
   }
@@ -1085,11 +1085,11 @@
           try { localStorage.setItem('ovyx_master_production_live', String(this.isLive)); } catch (_) {}
           this.renderUI?.();
           const status = $('ovyx-global-integration-status');
-          statusText(status, this.isLive ? 'Server confirmed: production integrations are live for all accounts.' :
+          statusText(status, this.isLive ? 'Platform integrations are enabled for all accounts.' :
             'Server confirmed: production integrations are paused for all accounts.', this.isLive ? 'ok' : 'warn');
-          notify(this.isLive ? 'Production integrations enabled globally.' : 'Production integrations paused globally.', this.isLive ? 'success' : 'info');
+          notify(this.isLive ? 'Platform integrations enabled for all accounts.' : 'Platform integrations paused for all accounts.', this.isLive ? 'success' : 'info');
         } catch (error) {
-          statusText($('ovyx-global-integration-status'), 'The integration state was not confirmed saved: ' + error.message, 'error');
+          statusText($('ovyx-global-integration-status'), 'These integration settings couldn't be saved: ' + error.message, 'error');
           notify('Production integration switch failed: ' + error.message, 'error');
         } finally { if (button) button.disabled = false; }
       };
@@ -1121,7 +1121,7 @@
       sw.__ovyxGlobalStateLoaded = true;
       sw.loadFirestoreState().catch(error => {
         sw.__ovyxGlobalStateLoaded = false;
-        statusText($('ovyx-global-integration-status'), 'Could not read production integration state: ' + error.message, 'error');
+        statusText($('ovyx-global-integration-status'), 'Platform integration status couldn't be loaded: ' + error.message, 'error');
       });
     }
   }
@@ -1149,7 +1149,7 @@
           'Server says new production integrations are enabled globally.' :
           'Server says new production integrations are paused globally.', live ? 'ok' : 'warn');
       } catch (error) {
-        statusText($('ovyx-global-integration-status'), 'Could not load server state: ' + error.message, 'error');
+        statusText($('ovyx-global-integration-status'), 'The current status couldn't be loaded: ' + error.message, 'error');
       }
     };
     refreshState();
@@ -1188,9 +1188,9 @@
         const button = document.createElement('button'); button.type = 'button'; button.className = 'ovyx-owner-live-button'; button.dataset.withdrawBroadcast = String(item.id || ''); button.textContent = 'Withdraw from users';
         card.append(title, body, meta, button); grid.appendChild(card);
       });
-      statusText($('ovyx-global-broadcast-status'), 'Loaded ' + items.length + ' published broadcast(s) from the server.', 'ok');
+      statusText($('ovyx-global-broadcast-status'), 'Loaded ' + items.length + ' active announcement(s).', 'ok');
     } catch (error) {
-      statusText($('ovyx-global-broadcast-status'), 'Broadcast registry could not be loaded: ' + error.message, 'error');
+      statusText($('ovyx-global-broadcast-status'), 'Announcements couldn't be loaded: ' + error.message, 'error');
     }
   }
 
@@ -1202,10 +1202,10 @@
     button.disabled = true;
     try {
       await api('/api/admin/broadcasts', { method: 'POST', body: JSON.stringify({ action: 'unpublish', id: id }) });
-      statusText($('ovyx-global-broadcast-status'), 'Broadcast withdrawn for all users. Its record was retained for audit.', 'ok');
+      statusText($('ovyx-global-broadcast-status'), 'Announcement withdrawn. Its record has been retained for reference.', 'ok');
       await loadBroadcastRegistry();
     } catch (error) {
-      statusText($('ovyx-global-broadcast-status'), 'Broadcast withdrawal failed: ' + error.message, 'error');
+      statusText($('ovyx-global-broadcast-status'), 'The announcement couldn't be withdrawn: ' + error.message, 'error');
     } finally { button.disabled = false; }
   }
 
@@ -1249,13 +1249,13 @@
     if (!['free', 'pro', 'max'].includes(requiredTier)) return statusText(status, 'Choose a supported account plan.', 'error');
     if (previewUrl && (!/^https:\/\//i.test(previewUrl) || previewUrl.length > 1000)) return statusText(status, 'The preview image must be an HTTPS URL under 1,000 characters.', 'error');
     let ast;
-    try { ast = JSON.parse(rawAst); } catch (_) { return statusText(status, 'Template AST must be valid JSON.', 'error'); }
+    try { ast = JSON.parse(rawAst); } catch (_) { return statusText(status, 'The template structure must be valid JSON.', 'error'); }
     const hasNodes = ast && typeof ast === 'object' && !Array.isArray(ast) &&
       (Array.isArray(ast.canvas) || Array.isArray(ast.nodes) || Array.isArray(ast.sections) ||
         (Array.isArray(ast.pages) && ast.pages.some(page => page && Array.isArray(page.sections))));
-    if (!hasNodes || rawAst.length > 850000) return statusText(status, 'AST must contain a deployable node/section/page structure and stay under the server size limit.', 'error');
+    if (!hasNodes || rawAst.length > 850000) return statusText(status, 'The template must include at least one page or section and remain within the supported size limit.', 'error');
     if (button) button.disabled = true;
-    statusText(status, 'Publishing to the protected server template collection…');
+    statusText(status, 'Publishing template…');
     try {
       const result = await api('/api/admin/templates', {
         method: 'POST',
@@ -1267,13 +1267,13 @@
       window.__OVYX_TEMPLATE_LIVE__ = existing.filter(item => item.id !== record.id).concat([record]);
       try { window.dispatchEvent(new CustomEvent('ovyx:templates-live-cache', { detail: { source: 'server-owner-publisher', count: window.__OVYX_TEMPLATE_LIVE__.length } })); } catch (_) {}
       try { window.dispatchEvent(new CustomEvent('ovyx:template-released', { detail: { template: record } })); } catch (_) {}
-      statusText(status, 'Server confirmed a global template write: ' + String(record.title || title) + '.', 'ok');
+      statusText(status, 'Template published to the global catalogue: ' + String(record.title || title) + '.', 'ok');
       notify('Template published to the global catalogue.', 'success');
       await loadTemplateRegistry();
       form?.reset();
     } catch (error) {
-      statusText(status, 'Template was not confirmed published: ' + error.message, 'error');
-      notify('Template publication failed: ' + error.message, 'error');
+      statusText(status, 'Template publication couldn't be confirmed: ' + error.message, 'error');
+      notify('Template couldn't be published: ' + error.message, 'error');
     } finally {
       if (button) button.disabled = false;
     }
