@@ -1331,7 +1331,7 @@
         serverToolError = String(error?.message || 'Saved workspace details are not available right now.');
       }
       if (serverWorkspace?.activeProject?.id) {
-        setWorkspaceTaskStatus('inspected', 'Reviewed saved app details for ' + String(serverWorkspace.activeProject.name || serverWorkspace.activeProject.id) + '.'');
+        setWorkspaceTaskStatus('inspected', 'Reviewed saved app details for ' + String(serverWorkspace.activeProject.name || serverWorkspace.activeProject.id) + '.');
       } else if (context?.activeProject?.id) {
         setWorkspaceTaskStatus('local', serverToolError ? 'Some workspace details could not be refreshed. Using the information available in this session.' : 'Using the information available in this session. No saved app was selected.');
       } else {
