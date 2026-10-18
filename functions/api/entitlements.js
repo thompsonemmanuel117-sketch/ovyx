@@ -378,7 +378,7 @@ export async function onRequestGet(context) {
   try {
     const user = context.data?.user || await authenticateRequest(context.request, context.env);
     if (!user) {
-      return errorResponse(401, 'AUTH_REQUIRED', 'Sign in to load OVYX account permissions.', id);
+      return errorResponse(401, 'AUTH_REQUIRED', 'Sign in to view your account permissions.', id);
     }
 
     const identity = {
@@ -388,7 +388,7 @@ export async function onRequestGet(context) {
       email: normalizeEmail(user.email)
     };
     if (!identity.uid || !identity.email) {
-      return errorResponse(401, 'AUTH_IDENTITY_REQUIRED', 'A verified Firebase account identity is required.', id);
+      return errorResponse(401, 'AUTH_IDENTITY_REQUIRED', 'Please sign in again to verify your account.', id);
     }
 
     const resolved = await resolveEntitlements(context.env, identity);
