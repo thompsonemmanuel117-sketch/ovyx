@@ -34,7 +34,7 @@ assert.ok(runtime.includes('width:calc(100% - clamp(40px, calc(5.6vw + 16px), 88
 assert.ok(!runtime.includes('window.OVYXAIService') && !runtime.includes('fetch('), 'The polish layer must not duplicate the generation/API logic.');
 assert.ok(functionalRuntime.includes('data-lb-mobile-build') && functionalRuntime.includes('data-lb-export-zip') && functionalRuntime.includes('data-lb-publish'), 'The existing supported release actions must remain in the main release workspace.');
 assert.ok(conversionRuntime.includes('ovyx-appstudio-phrase4-runtime'), 'The existing Web Studio-to-mobile conversion runtime must remain in the app.');
-assert.ok(middleware.includes('/assets/ovyx-app-studio-premium-polish.js?v=20261018-1'), 'The real Pages shell must load the polish runtime after the App Studio feature runtimes.');
+assert.ok(middleware.includes('/assets/ovyx-app-studio-premium-polish.js?v=20261018-2'), 'The real Pages shell must load the polish runtime after the App Studio feature runtimes.');
 assert.ok(headers.includes('/assets/ovyx-app-studio-premium-polish.js') && headers.includes('Cache-Control: no-store'), 'The premium UI asset must not be held behind stale browser caching.');
 assert.ok(packageJson.scripts.test.includes('scripts/ovyx-app-studio-premium-polish.test.mjs'), 'The design-system source test must run under npm test.');
 assert.ok(workflow.includes('scripts/ovyx-app-studio-premium-polish.browser.test.mjs'), 'The responsive progressive-disclosure browser test must run in CI.');
