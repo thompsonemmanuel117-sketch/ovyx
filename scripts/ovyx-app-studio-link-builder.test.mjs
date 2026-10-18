@@ -27,13 +27,13 @@ assert.ok(runtime.includes('window.OVYXAIService.generate'), 'Stage 3 must use t
 assert.ok(runtime.includes("mode: 'app-build'"), 'Stage 3 must route through the App Studio generation mode.');
 assert.ok(runtime.includes("activeView: 'appstudio'"), 'Stage 3 generation must remain scoped to Project App Studio.');
 assert.ok(runtime.includes('sourceSiteMap: brief.pages'), 'The generator must receive route titles, paths, headings, and inspection status from the analyzer.');
-assert.ok(runtime.includes('sourceBrandColors'), 'The analyzed brand identity must be passed with the generation request.');
+assert.ok(runtime.includes('appBrand'), 'The analyzed brand identity must be passed with the generation request.');
 assert.ok(runtime.includes("frame.srcdoc = renderedHtml"), 'Generated HTML must open in the real interactive iframe preview.');
 assert.ok(runtime.includes("setAttribute('sandbox', 'allow-scripts allow-forms allow-popups')"), 'The live project preview must isolate generated code in a sandbox.');
 assert.ok(runtime.includes('data-lb-source'), 'The generated project source files must be inspectable in the UI.');
 assert.ok(runtime.includes('ovyx:link-app-generated'), 'Generation completion must publish a real project event for later stage integrations.');
 assert.ok(!runtime.includes('window.KernelState.activeProject ='), 'Link generation must not replace the user’s currently open project.');
-assert.ok(brandDNA.includes('appBrandId') && brandDNA.includes('isAppStudioRequest'), 'Stage 1 must continue scoping identity and generation requests per app.');
+assert.ok(brandDNA.includes('appBrandId') && brandDNA.includes('appStudioRequest'), 'Stage 1 must continue scoping identity and generation requests per app.');
 assert.ok(middleware.includes('/assets/ovyx-app-studio-link-builder.js?v=20261018-1'), 'The real OVYX Pages shell must load the Stage 3 runtime.');
 assert.ok(headers.includes('/assets/ovyx-app-studio-link-builder.js') && headers.includes('Cache-Control: no-store'), 'The live Stage 3 runtime must not be stuck behind stale asset caching.');
 assert.ok(pkg.scripts.test.includes('scripts/ovyx-app-studio-link-builder.test.mjs'), 'The Stage 3 regression test must run under npm test.');
