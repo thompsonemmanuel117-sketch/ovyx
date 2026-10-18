@@ -313,7 +313,7 @@
       if (status) status.textContent = 'Your notification preferences have been saved. Email notifications will be available when delivery is enabled.';
       notify(reset ? 'Notification preferences reset and saved to your account.' : 'Notification preferences saved to your account.', 'success');
     } catch (error) {
-      if (status) status.textContent = 'Your profile was not saved. Please try again.;
+      if (status) status.textContent = 'Your notification preferences could not be saved. Please try again.';
       notify(error.message || 'Notification preferences were not saved.', 'error');
     } finally {
       if (button) { button.disabled = false; button.textContent = button.dataset.originalText || (reset ? 'Reset' : 'Save Notification Preferences'); delete button.dataset.originalText; }
