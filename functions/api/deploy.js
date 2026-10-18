@@ -230,6 +230,6 @@ export async function onRequestPost(context) {
   }catch(error){
     const status=Number.isInteger(error?.status)&&error.status>=400&&error.status<=599?error.status:502;
     console.error(JSON.stringify({event:'ovyx_pages_direct_upload_failed',requestId,status,message:error?.message||'Unknown deployment error',providerErrors:error?.providerErrors||[]}));
-    return json({success:false,authoritative:true,requestId,error:status>=500?'Publishing is temporarily unavailable. Please try again.':error?.message||'Publishing couldn't be completed. Please try again.'},status);
+    return json({success:false,authoritative:true,requestId,error:status>=500?'Publishing is temporarily unavailable. Please try again.':'The publishing request couldn\'t be completed. Check the app details and try again.'},status);
   }
 }
