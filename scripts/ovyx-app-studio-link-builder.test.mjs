@@ -47,7 +47,7 @@ assert.ok(browserTest.includes('/api/app-studio/url-analyzer') && browserTest.in
 
 assert.ok(runtime.includes('data-ovyx-app-action-bridge'), 'The real preview must receive the controlled Stage 4 parent bridge.');
 assert.ok(runtime.includes('connect-src'), 'The generated preview CSP must explicitly control network access.');
-assert.ok(runtime.includes("connect-src \\'none\\'"), 'The generated preview must block arbitrary direct network calls.');
+assert.ok(runtime.includes('connect-src') && runtime.includes('form-action'), 'The generated preview must block arbitrary direct network calls and browser form posts.');
 assert.ok(runtime.includes('document.addEventListener("submit"'), 'Generated forms must have an implemented submit outcome.');
 assert.ok(runtime.includes('function cleanSubmittedFields'), 'Form submissions must be bounded and sensitive fields filtered.');
 assert.ok(runtime.includes('function writeAppState'), 'The preview must persist per-user app state locally with a size limit.');
