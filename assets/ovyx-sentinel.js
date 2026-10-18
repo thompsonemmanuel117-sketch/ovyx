@@ -383,7 +383,7 @@ function rememberTurn(role, message) {
 async function askCompanion(question, sourceInspectionUnavailable) {
   var prompt = safeText(question, 1200);
   if (!prompt) return;
-  if (companionBusy) { status('I'm still preparing your last response.', 'info'); return; }
+  if (companionBusy) { status('I am still preparing your last response.', 'info'); return; }
   companionBusy = true;
   var messages = conversationTurns.slice(-10);
   var lastTurn = messages[messages.length - 1];
@@ -432,13 +432,13 @@ async function askAI(question) {
   lastGuardianQuestion = safeText(question, 1200);
   if (!lastGuardianQuestion) return;
   if (guardianRequestBusy || companionBusy) {
-    status('I'm still preparing your last response. Give me a moment to finish it.', 'info');
+    status('I am still preparing your last response. Please wait a moment.', 'info');
     return;
   }
   guardianRequestBusy = true;
   rememberTurn('user', lastGuardianQuestion);
   if (questionNeedsRepositoryInspection(lastGuardianQuestion)) {
-    status('I'll review the relevant information first…');
+    status('I will review the relevant information first…');
     try {
       var idToken = await getToken();
       var headers = { Accept: 'application/json', Authorization: 'Bearer ' + idToken };
