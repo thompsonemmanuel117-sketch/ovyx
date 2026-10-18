@@ -1932,7 +1932,7 @@
             .catch(error => push(error?.message || 'Project recovery failed.'));
         } else {
           Promise.resolve(window.OVYXWorkspaceCopilot?.scan?.() || window.__OVYX_SCAN_WORKSPACE_CONTEXT__?.(true))
-            .then(context => push(`Workspace refreshed · ${context?.projectInventory?.length || 0} projects · ${context?.activeAssets?.length || 0} assets.`))
+            .then(context => push(`Workspace details refreshed · ${context?.projectInventory?.length || 0} apps · ${context?.activeAssets?.length || 0} files.`))
             .catch(error => push(error?.message || 'Workspace details couldn't be refreshed.'));
         }
         return;
