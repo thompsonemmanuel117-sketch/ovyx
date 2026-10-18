@@ -545,8 +545,8 @@
   function mountPlanControls() {
     const view = $('view-admin-pricing');
     if (!view || !owner()) return;
-    const host = panel(view, 'ovyx-global-quota-panel', 'Global plan rules · Server-enforced',
-      'These limits are used by the live quota engine for every account. Feature selections apply to Pro and Max entitlements at the API boundary.',
+    const host = panel(view, 'ovyx-global-quota-panel', 'Global plan rules',
+      'These usage limits apply across accounts. Feature selections determine which capabilities are included in Pro and Max plans.',
       '<div class="ovyx-owner-live-form-grid">' +
         '<label class="ovyx-owner-live-field">Free monthly AI tokens<input class="ovyx-owner-live-input" id="ovyx-quota-tokens-free" type="number" min="1" step="1" value="50000"/></label>' +
         '<label class="ovyx-owner-live-field">Pro monthly AI tokens<input class="ovyx-owner-live-input" id="ovyx-quota-tokens-pro" type="number" min="1" step="1" value="500000"/></label>' +
@@ -681,7 +681,7 @@
       window.__OVYX_HIDE_LEGACY_PLAN_FEATURES__.observe(view, { childList: true, subtree: true });
     }
     $('ovyx-global-quota-save')?.addEventListener('click', savePlanConfiguration);
-    loadPlansCatalog().then(() => statusText($('ovyx-global-quota-status'), 'Loaded current prices and quota limits from /api/plans.', 'ok'))
+    loadPlansCatalog().then(() => statusText($('ovyx-global-quota-status'), 'Updated pricing and usage limits are ready.', 'ok'))
       .catch(error => statusText($('ovyx-global-quota-status'), 'Catalog could not be loaded: ' + error.message, 'error'));
     if (window.OVYXPlanAdmin && !window.OVYXPlanAdmin.__globalSaveWrapped) {
       window.OVYXPlanAdmin.save = savePlanConfiguration;
@@ -695,7 +695,7 @@
     if (!view || !owner()) return;
     const host = panel(view, 'ovyx-global-ai-routing', 'Global AI Brain routing',
       'Set the preferred order for AI options used by OVYX Auto. Explicit choices for an individual request and users’ own connected options take priority.',
-      '<div id="ovyx-global-ai-priority-rows"></div><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px"><button type="button" class="ovyx-owner-live-button" id="ovyx-global-ai-route-save">Save global provider order</button><button type="button" class="ovyx-owner-live-button" id="ovyx-global-ai-status-refresh">Test providers now</button></div><div id="ovyx-global-ai-route-status" class="ovyx-owner-live-status">Loading global AI route…</div><div id="ovyx-global-ai-provider-status" class="ovyx-owner-live-grid" style="margin-top:10px"></div>');
+      '<div id="ovyx-global-ai-priority-rows"></div><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px"><button type="button" class="ovyx-owner-live-button" id="ovyx-global-ai-route-save">Save AI selection order</button><button type="button" class="ovyx-owner-live-button" id="ovyx-global-ai-status-refresh">Test providers now</button></div><div id="ovyx-global-ai-route-status" class="ovyx-owner-live-status">Loading global AI route…</div><div id="ovyx-global-ai-provider-status" class="ovyx-owner-live-grid" style="margin-top:10px"></div>');
     if (host.dataset.bound === '1') return;
     host.dataset.bound = '1';
     const rows = $('ovyx-global-ai-priority-rows');
@@ -1128,9 +1128,9 @@
   function mountProductionControlPanel() {
     const view = $('view-admin-pricing');
     if (!view || !owner()) return;
-    const host = panel(view, 'ovyx-global-integration-control', 'Global production integration switch',
+    const host = panel(view, 'ovyx-global-integration-control', 'Platform integration controls',
       'ON enables new AI generation, agent runs, deployments, repository access and payment checkout. OFF pauses those operations for every user; authentication, diagnostics and verification of already-started payments stay available.',
-      '<div class="ovyx-owner-live-grid" id="ovyx-global-integration-cards"><div class="ovyx-owner-live-card"><div class="ovyx-owner-live-label">Authoritative state</div><div id="ovyx-global-integration-value" class="ovyx-owner-live-value">Loading…</div><div class="ovyx-owner-live-detail">Read from system/config, not local storage.</div></div></div>' +
+      '<div class="ovyx-owner-live-grid" id="ovyx-global-integration-cards"><div class="ovyx-owner-live-card"><div class="ovyx-owner-live-label">Current status</div><div id="ovyx-global-integration-value" class="ovyx-owner-live-value">Loading…</div><div class="ovyx-owner-live-detail">Read from system/config, not local storage.</div></div></div>' +
       '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px"><button type="button" class="ovyx-owner-live-button" id="ovyx-global-integration-toggle">Toggle global integrations</button><div id="ovyx-global-integration-status" class="ovyx-owner-live-status">Loading integration settings…</div></div>');
     if (host.dataset.integrationBound === '1') return;
     host.dataset.integrationBound = '1';
@@ -1261,7 +1261,7 @@
         body: JSON.stringify({ action: 'publish', title, category, previewUrl, requiredTier, ast })
       });
       const record = result.data.template;
-      if (!record?.id) throw new Error('Server response did not confirm a published template record.');
+      if (!record?.id) throw new Error('The template couldn't be confirmed as published.');
       const existing = Array.isArray(window.__OVYX_TEMPLATE_LIVE__) ? window.__OVYX_TEMPLATE_LIVE__ : [];
       window.__OVYX_TEMPLATE_LIVE__ = existing.filter(item => item.id !== record.id).concat([record]);
       try { window.dispatchEvent(new CustomEvent('ovyx:templates-live-cache', { detail: { source: 'server-owner-publisher', count: window.__OVYX_TEMPLATE_LIVE__.length } })); } catch (_) {}
@@ -1374,7 +1374,7 @@
     if (view === 'admin-template-hub') mountTemplateRegistry();
     if (view === 'admin-template-hub') {
       const authBadge = $('v43-template-admin-auth');
-      if (authBadge) authBadge.textContent = 'ROOT SERVER AUTHORIZED';
+      if (authBadge) authBadge.textContent = 'OWNER ACCESS VERIFIED';
     }
   }
 
