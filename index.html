@@ -1181,7 +1181,7 @@
 <div class="w-9 h-9 rounded-xl bg-ovyx-black border border-white/15 flex items-center justify-center text-brand-gold text-sm font-bold">G</div>
 <div>
 <h3 class="text-sm font-bold text-white tracking-tight">Google Gemini 3.8 Flash</h3>
-<span class="text-[10px] font-mono text-zinc-500">model: gemini-3.8-flash · Key: GEMINI_API_KEY</span>
+<span class="text-[10px] font-mono text-zinc-500">Model: Gemini Flash</span>
 </div>
 </div>
 <span class="text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/15 bg-white/5 text-zinc-300 font-bold uppercase tracking-wider" id="brain-badge-gemini" >Setup required</span>
@@ -1197,7 +1197,7 @@
 <div class="w-9 h-9 rounded-xl bg-ovyx-black border border-white/15 flex items-center justify-center text-brand-cyan text-sm font-bold">D</div>
 <div>
 <h3 class="text-sm font-bold text-white tracking-tight">DeepSeek Flash</h3>
-<span class="text-[10px] font-mono text-zinc-500">model: deepseek-flash · Key: DEEPSEEK_API_KEY</span>
+<span class="text-[10px] font-mono text-zinc-500">Model: DeepSeek Flash</span>
 </div>
 </div>
 <span class="text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/15 bg-white/5 text-zinc-300 font-bold uppercase tracking-wider" id="brain-badge-deepseek" >Setup required</span>
@@ -1213,7 +1213,7 @@
 <div class="w-9 h-9 rounded-xl bg-ovyx-black border border-white/15 flex items-center justify-center text-amber-400 text-sm font-bold">C</div>
 <div>
 <h3 class="text-sm font-bold text-white tracking-tight">Claude Sonnet 4.6</h3>
-<span class="text-[10px] font-mono text-zinc-500">model: claude-sonnet-4-6 · Key: ANTHROPIC_API_KEY</span>
+<span class="text-[10px] font-mono text-zinc-500">Model: Claude Sonnet</span>
 </div>
 </div>
 <span class="text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/15 bg-white/5 text-zinc-300 font-bold uppercase tracking-wider" id="brain-badge-anthropic" >Setup required</span>
@@ -1229,7 +1229,7 @@
 <div class="w-9 h-9 rounded-xl bg-ovyx-black border border-white/15 flex items-center justify-center text-emerald-400 text-sm font-bold">O</div>
 <div>
 <h3 class="text-sm font-bold text-white tracking-tight">OpenAI GPT-4o Mini</h3>
-<span class="text-[10px] font-mono text-zinc-500">model: gpt-4o-mini · Key: OPENAI_API_KEY</span>
+<span class="text-[10px] font-mono text-zinc-500">Model: GPT-4o Mini</span>
 </div>
 </div>
 <span class="text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/15 bg-white/5 text-zinc-300 font-bold uppercase tracking-wider" id="brain-badge-openai" >Setup required</span>
@@ -2089,7 +2089,7 @@
           const token=await u.getIdToken(true);
           const r=await fetch('/api/payments/create',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},credentials:'same-origin',body:JSON.stringify({productType:'subscription',productId:this.selectedTier})});
           const data=await r.json().catch(()=>({}));
-          if(!r.ok||!data.authorizationUrl) throw new Error(data.error||'No payment provider is configured.');
+          if(!r.ok||!data.authorizationUrl) throw new Error('Secure checkout is temporarily unavailable. Please try again later.');
           window.location.assign(data.authorizationUrl);
         }catch(e){
           showToast?.(e.message||'Secure payment is unavailable.','error');
@@ -4782,11 +4782,11 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     ['How do I use OVYX on a phone?','Use the bottom navigation for Home, Projects, Create, Studio and More. Open More for AI Usage, Plans, Settings and Help. In Web/App Studio, use the mobile tool strip for Files, Canvas, Blueprint and Inspector.','Mobile'],
     ['Why do I see more controls in Desktop Site?','Desktop and mobile use the same responsive OVYX application shell. Navigation and workspace functions reflow for the available screen size, while Studio editing tools use a compact mobile toolbar when space is limited.','Mobile'],
     ['Where can I test the Admin area?','Authorized administrators manage OVYX from this protected Admin Center.','Admin'],
-    ['What is System Overview?','It is the owner operations view for platform/runtime information. Pricing, Users, AI Brain, AI Identity, Backend and Telemetry are separate operational modules.','Admin'],
+    ['What is System Overview?','It provides an overview of platform operations, including pricing, account access, AI settings and service health.','Admin'],
     ['Can I delete a project?','Yes. Open the project library, select the project actions and use the delete confirmation. OVYX asks for confirmation before removing the project.','Projects'],
     ['How does GitHub work?','Connect GitHub from Connected Accounts. OVYX verifies the credential with GitHub and can load repositories available to that account. A production deployment should use a secure OAuth/GitHub App backend.','GitHub'],
-    ['Is PostgreSQL connected already?','The standalone build contains the data-layer contract and schema foundation, but it does not claim a live PostgreSQL connection until a secure backend endpoint is configured.','Data'],
-    ['What should I send Support when something fails?','Open Help → Contact Support. OVYX can copy a diagnostic summary containing the current view, tier, browser, online state and timestamp. Never send passwords, API secrets or tokens.','Support']
+    ['Is cloud database storage available?','Cloud storage is not enabled for every workspace. In the current setup, project details stay on this device; shared cloud storage is available when it has been enabled for your account.','Data'],
+    ['What should I send Support when something fails?','Open Help → Contact Support. You can share a brief report with your current screen and app context. Never include passwords or access credentials.','Support']
   ];
   window.OVYXHelpExtra=FAQ_EXTRA;
 })();</script>
@@ -4796,7 +4796,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   function mount(){
     const v=document.getElementById('view-faq'); if(!v||!extras.length||v.querySelector('#ovyx-verified-help'))return;
     const host=document.createElement('section');host.id='ovyx-verified-help';host.className='ovyx-help-section';host.style.marginTop='12px';
-    host.innerHTML='<div class="ovyx-help-section-head"><b>OVYX QUICK ANSWERS</b><small>Practical answers verified against the current application surfaces.</small></div><div class="ovyx-help-tools" id="ovyx-verified-help-list"></div>';
+    host.innerHTML='<div class="ovyx-help-section-head"><b>OVYX QUICK ANSWERS</b><small>Helpful answers to common questions about OVYX.</small></div><div class="ovyx-help-tools" id="ovyx-verified-help-list"></div>';
     const list=host.querySelector('#ovyx-verified-help-list');
     list.innerHTML=extras.map((x,i)=>`<div class="ovyx-help-card2" style="padding:0;overflow:hidden"><button class="ovyx-help-tool" data-extra-toggle="${i}"><span style="width:22px;height:22px;display:grid;place-items:center;border:1px solid var(--ov-line);border-radius:6px;color:var(--ov-accent);font:800 8px JetBrains Mono,monospace">?</span><span style="flex:1"><b>${String(x[0]).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}</b><small>${String(x[2]).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}</small></span><i class="fa-solid fa-plus"></i></button><div data-extra-panel="${i}" hidden style="padding:0 14px 14px 46px;color:var(--ov-muted);font:500 9px/1.6 Inter,sans-serif">${String(x[1]).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}</div></div>`).join('');
     list.querySelectorAll('[data-extra-toggle]').forEach(b=>b.addEventListener('click',()=>{const p=list.querySelector(`[data-extra-panel="${b.dataset.extraToggle}"]`);if(!p)return;p.hidden=!p.hidden;b.querySelector('i').className=p.hidden?'fa-solid fa-plus':'fa-solid fa-minus'}));
@@ -6533,8 +6533,8 @@ window.OVYXV58={syncDock,route:safeRoute,useTemplate,previewTemplate,featureLock
       const create=await fetch('/api/payments/create',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({provider:cfg.provider,paymentMethod:cfg.paymentMethod||'international',productType:cfg.productType||'subscription',productId:cfg.productId||'pro',plan:cfg.plan||cfg.productId||'pro',amount:cfg.amount,currency:cfg.currency,userEmail,userFullName,phone:cfg.phone||''})});
       const data=await create.json().catch(()=>({}));if(!create.ok)throw new Error(data.error||'Secure payment initialization failed.');
       if(cfg.paymentMethod==='opay'){const checkoutUrl=String(data.url||data.checkoutUrl||'').trim();if(!checkoutUrl)throw new Error('Checkout is temporarily unavailable. Please try again later.');window.location.assign(checkoutUrl);return await new Promise(()=>{});}
-      if(!data.accessCode||!data.reference)throw new Error(data.error||'Secure international card initialization failed.');await this.loadScript(this.providers.paystack.script);const popup=new window.PaystackPop();
-      return new Promise((resolve,reject)=>{popup.resumeTransaction(data.accessCode);const success=payload=>{const reference=String(payload?.reference||payload?.trxref||'').trim();if(!reference){reject(new Error('Payment provider returned no reference.'));return}this.verify(reference,cfg,token).then(resolve).catch(reject)};if(popup.onSuccess)popup.onSuccess=success;if(typeof popup.newTransaction==='function'&&typeof popup.resumeTransaction!=='function')popup.newTransaction({key:data.publicKey,email:userEmail,amount:data.amount,currency:cfg.currency,onSuccess:success,onCancel:()=>reject(new Error('Payment cancelled.')),onError:e=>reject(new Error(e?.message||'Payment provider error.'))});let tries=0;const poll=setInterval(async()=>{if(++tries>180){clearInterval(poll);reject(new Error('Payment verification is still pending. You may retry safely.'));return}try{const r=await fetch('/api/payments/verify?reference='+encodeURIComponent(data.reference),{headers:{Authorization:'Bearer '+token},credentials:'same-origin'});const d=await r.json().catch(()=>({}));if(d.status==='success'&&d.fulfilled){clearInterval(poll);resolve(d)}else if(d.status==='failed'){clearInterval(poll);reject(new Error(d.error||'Payment verification failed.'))}}catch(e){console.warn('[OVYX runtime]',e)}},2000)});
+      if(!data.accessCode||!data.reference)throw new Error('Secure checkout could not be started. Please try again.');await this.loadScript(this.providers.paystack.script);const popup=new window.PaystackPop();
+      return new Promise((resolve,reject)=>{popup.resumeTransaction(data.accessCode);const success=payload=>{const reference=String(payload?.reference||payload?.trxref||'').trim();if(!reference){reject(new Error('Checkout could not be verified. Please try again.'));return}this.verify(reference,cfg,token).then(resolve).catch(reject)};if(popup.onSuccess)popup.onSuccess=success;if(typeof popup.newTransaction==='function'&&typeof popup.resumeTransaction!=='function')popup.newTransaction({key:data.publicKey,email:userEmail,amount:data.amount,currency:cfg.currency,onSuccess:success,onCancel:()=>reject(new Error('Payment cancelled.')),onError:e=>reject(new Error(e?.message||'Payment provider error.'))});let tries=0;const poll=setInterval(async()=>{if(++tries>180){clearInterval(poll);reject(new Error('Payment verification is still pending. You may retry safely.'));return}try{const r=await fetch('/api/payments/verify?reference='+encodeURIComponent(data.reference),{headers:{Authorization:'Bearer '+token},credentials:'same-origin'});const d=await r.json().catch(()=>({}));if(d.status==='success'&&d.fulfilled){clearInterval(poll);resolve(d)}else if(d.status==='failed'){clearInterval(poll);reject(new Error(d.error||'Payment verification failed.'))}}catch(e){console.warn('[OVYX runtime]',e)}},2000)});
     },
     async verify(reference,cfg,token){const r=await fetch('/api/payments/verify',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({reference,provider:cfg.provider,paymentMethod:cfg.paymentMethod||'international',productId:cfg.productId||cfg.plan||'pro'})});const d=await r.json().catch(()=>({}));if(!r.ok||d.status!=='success')throw new Error(d.error||'Payment could not be verified.');return d}
   };
@@ -7150,12 +7150,12 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
          cache:'no-store'
        });
        const details=await r.json().catch(()=>({}));
-       if(!r.ok)throw Object.assign(new Error(details?.error||details?.message||`Provider test HTTP ${r.status}`),{status:r.status});
+       if(!r.ok)throw Object.assign(new Error(details?.message||details?.error||'The AI service check could not be completed. Please try again.'),{status:r.status});
        const ms=Math.round(performance.now()-start);
        const ready=details?.connected===true&&String(details?.status||'').toUpperCase()==='READY';
        const exactStatus=String(details?.status||'UNAVAILABLE').toUpperCase();
-       if(btn){btn.dataset.state=ready?'ready':'error';btn.textContent=ready?'ACTIVE':exactStatus;btn.disabled=false;}
-       if(badge){badge.textContent=ready?`ACTIVE · ${providerLabel[uiId]}`:exactStatus.replaceAll('_',' ');badge.className=ready?'ovyx-ai-auto-status':'brain-status-badge brain-status-'+exactStatus.toLowerCase();}
+       if(btn){btn.dataset.state=ready?'ready':'error';btn.textContent=ready?'Ready':'Needs attention';btn.disabled=false;}
+       if(badge){badge.textContent=ready?`Ready · ${providerLabel[uiId]}`:'Setup required';badge.className=ready?'ovyx-ai-auto-status':'brain-status-badge brain-status-'+exactStatus.toLowerCase();}
        if(latency){latency.textContent=ready?`SERVER READY · ${ms}ms`:String(details?.error||exactStatus);latency.className=ready?'text-emerald-400 text-[11px] font-bold':'text-rose-400 text-[11px]';}
        return ready;
      }catch(err){
@@ -12158,14 +12158,14 @@ window.OVYXWebStudioNavigation.bind();
       else appendLog('Build service completed without downloadable artifacts.','warn');
       progress(100,result?.status==='completed'?'COMPLETE':'BUILD FINISHED');
     }catch(error){
-      progress(100,'BUILD SERVICE UNAVAILABLE');
+      progress(100,'Mobile build unavailable');
       const status=Number(error?.status||0);
       appendLog(status===404?'Mobile builds are not available right now. Please try again later.':'The mobile build could not be completed. Please review the details and try again.','warn');
       appendLog('A download is available only after the mobile build completes successfully. Mobile builds are not available right now.','warn');
       result={ok:false,error:String(error?.message||error),artifacts:{}};
     }
     document.getElementById('as4-result-card')?.classList.remove('as4-hidden');
-    const status=document.getElementById('as4-result-status');if(status)status.textContent=result?.artifacts&&(result.artifacts.android||result.artifacts.ios)?'REAL ARTIFACTS READY':'BUILD SERVICE CONNECTION REQUIRED';
+    const status=document.getElementById('as4-result-status');if(status)status.textContent=result?.artifacts&&(result.artifacts.android||result.artifacts.ios)?'Mobile build ready':'Mobile build unavailable';
     renderArtifacts(result||{});
     state.building=false;
   }
