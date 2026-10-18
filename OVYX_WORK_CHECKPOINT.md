@@ -683,3 +683,11 @@ Stage 01 code and desktop/mobile browser verification are complete on the record
 - [x] Stage 6 completion condition is met: supported exports are downloadable; publication is gated by Project Brain evidence and explicit authorization; generated web publish and health-check handling, EAS build/status flow, and confirmed release-history save are wired into the existing authenticated server routes.
 - [!] CI verifies these provider integrations with request/response fixtures and checks OVYX’s own production deployment. It does not publish a user's generated app to an external Cloudflare account or consume EAS build resources. A real generated-site release or Android/iOS build still requires the signed-in user to be authorized and the server's Cloudflare/EAS credentials to be configured.
 
+## App Studio premium UX and duplicate-control reduction (2026-10-18)
+
+- [x] Added a single, state-aware Analyze → Generate → Verify → Release rail at the top of Project App Studio, with destinations linked to the existing controls rather than duplicate implementations.
+- [x] Consolidated the long analyzer details into one optional disclosure while keeping inspection counts, detected identity and the generator visible. Brand DNA editing and the distinct legacy Web Studio-to-mobile conversion wizard are now collapsed by default, not deleted.
+- [x] Preserved the existing generation, saved Brand DNA/profile, Project Brain, save-to-Projects, source export, web publish, release health and Android/iOS build capabilities. The polish layer adds no new generator/API request path.
+- [x] Standardized spacing, typography, surfaces, focus states and subtle transitions across App Studio; mobile layout uses a two-column step rail, and all decorative motion respects `prefers-reduced-motion`.
+- [x] Progress status reflects evidence from the current analyzer report, generated project, Project Brain live-preview check, verified project save, production deployment state or a completed mobile build with returned artifact. A queued/failed request alone does not mark Release complete.
+- [ ] Verify source tests and the full desktop/mobile App Studio functionality flow on the exact PR head; update this checkpoint with the exact passing run IDs and merge/deployment result before marking the pass complete.

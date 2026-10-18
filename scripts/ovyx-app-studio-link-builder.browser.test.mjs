@@ -9,6 +9,7 @@ const brandRuntime = await read('assets/ovyx-app-studio-brand-dna.js');
 const analyzerRuntime = await read('assets/ovyx-app-studio-url-analyzer.js');
 const builderRuntime = await read('assets/ovyx-app-studio-link-builder.js');
 const projectBrainRuntime = await read('assets/ovyx-app-studio-project-brain.js');
+const premiumPolishRuntime = await read('assets/ovyx-app-studio-premium-polish.js');
 const requests = { analyzer: [], generation: [], profile: [], api: [], cloudSave: [], deploy: [], webStatus: [], releaseHealth: [], mobileBuild: [], mobileStatus: [] };
 const eventOrder = [];
 const existingLogo = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/g6sAAAAASUVORK5CYII=';
@@ -58,6 +59,7 @@ const html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta n
   '<script src="/assets/ovyx-app-studio-url-analyzer.js"></script>' +
   '<script src="/assets/ovyx-app-studio-link-builder.js"></script>' +
   '<script src="/assets/ovyx-app-studio-project-brain.js"></script>' +
+  '<script src="/assets/ovyx-app-studio-premium-polish.js"></script>' +
   '</body></html>';
 
 function send(res, status, body, type) {
@@ -71,6 +73,7 @@ const server = createServer(async (req, res) => {
   if (url.pathname === '/assets/ovyx-app-studio-url-analyzer.js') return send(res, 200, analyzerRuntime, 'text/javascript; charset=utf-8');
   if (url.pathname === '/assets/ovyx-app-studio-link-builder.js') return send(res, 200, builderRuntime, 'text/javascript; charset=utf-8');
   if (url.pathname === '/assets/ovyx-app-studio-project-brain.js') return send(res, 200, projectBrainRuntime, 'text/javascript; charset=utf-8');
+  if (url.pathname === '/assets/ovyx-app-studio-premium-polish.js') return send(res, 200, premiumPolishRuntime, 'text/javascript; charset=utf-8');
   if (url.pathname === '/api/app-studio/url-analyzer') {
     let raw = '';
     for await (const chunk of req) raw += chunk;
@@ -196,13 +199,21 @@ try {
   desktop.on('pageerror', error => errors.push(error.message));
   desktop.on('dialog', dialog => dialog.accept());
   await desktop.goto(base, { waitUntil: 'load' });
+  await desktop.locator('#ovyx-as-title').waitFor();
+  assert.equal(await desktop.locator('[data-ovyx-as-step]').count(), 4, 'The premium guided flow must be mounted in the real Stage 3–6 test fixture.');
+  assert.equal(await desktop.locator('#ovyx-as-identity-details').evaluate(el => el.open), false, 'The large Brand DNA editor should be collapsed by default.');
+  assert.equal(await desktop.locator('#ovyx-as-existing-conversion').evaluate(el => el.open), false, 'The distinct legacy Web Studio conversion route should remain available but not compete with the link-based flow.');
   await desktop.locator('#ovyx-app-studio-url-analyzer-panel').waitFor();
   await desktop.locator('[data-ua-url]').fill('https://coastal.example');
   await desktop.locator('[data-ua-analyze]').click();
   await desktop.waitForFunction(() => document.querySelector('[data-ua-status]')?.textContent.includes('Analysis complete.'));
   await desktop.locator('#ovyx-app-studio-link-builder [data-lb-generate]').waitFor();
+  await desktop.locator('#ovyx-app-studio-url-analyzer-panel .ovyx-as-report-details').waitFor();
+  assert.equal(await desktop.locator('#ovyx-app-studio-url-analyzer-panel .ovyx-as-report-details').evaluate(el => el.open), false, 'Detailed sitemap/assets/limitations are collapsed until needed.');
   assert.match(await desktop.locator('#ovyx-app-studio-link-builder').innerText(), /Generate your first link-based app/);
-  assert.match(await desktop.locator('#ovyx-app-studio-link-builder').innerText(), /STAGE 03/);
+  await desktop.locator('#ovyx-app-studio-url-analyzer-panel [data-ua-palette], #ovyx-app-studio-url-analyzer-panel .ovyx-ua-secondary').first().click();
+  assert.equal(await desktop.locator('#ovyx-as-identity-details').evaluate(el => el.open), true, 'Palette transfer opens Brand DNA so users can review the change.');
+  await desktop.locator('#ovyx-as-identity-details > summary').click();
   await desktop.locator('[data-lb-name]').fill('Coastal Living');
   await desktop.locator('[data-lb-generate]').click();
   await desktop.waitForFunction(() => document.querySelector('[data-lb-status]')?.textContent.includes('opened in the live preview'), null, { timeout: 15000 });

@@ -23,10 +23,13 @@ on:
       - 'scripts/ovyx-url-analyzer.test.mjs'
       - 'scripts/ovyx-url-analyzer.browser.test.mjs'
       - 'assets/ovyx-app-studio-link-builder.js'
+      - 'assets/ovyx-app-studio-premium-polish.js'
+      - 'scripts/ovyx-app-studio-premium-polish.test.mjs'
       - 'assets/ovyx-app-studio-project-brain.js'
       - 'scripts/ovyx-app-studio-project-brain.test.mjs'
       - 'scripts/ovyx-app-studio-link-builder.test.mjs'
       - 'scripts/ovyx-app-studio-link-builder.browser.test.mjs'
+      - 'scripts/ovyx-app-studio-premium-polish.browser.test.mjs'
       - 'functions/api/app-studio/release-health.js'
       - 'scripts/ovyx-app-studio-release-health.test.mjs'
       - 'functions/_lib/url-analyzer.js'
@@ -35,10 +38,13 @@ on:
       - 'scripts/ovyx-url-analyzer.test.mjs'
       - 'scripts/ovyx-url-analyzer.browser.test.mjs'
       - 'assets/ovyx-app-studio-link-builder.js'
+      - 'assets/ovyx-app-studio-premium-polish.js'
+      - 'scripts/ovyx-app-studio-premium-polish.test.mjs'
       - 'assets/ovyx-app-studio-project-brain.js'
       - 'scripts/ovyx-app-studio-project-brain.test.mjs'
       - 'scripts/ovyx-app-studio-link-builder.test.mjs'
       - 'scripts/ovyx-app-studio-link-builder.browser.test.mjs'
+      - 'scripts/ovyx-app-studio-premium-polish.browser.test.mjs'
       - 'functions/api/app-studio/release-health.js'
       - 'scripts/ovyx-app-studio-release-health.test.mjs'
       - 'package.json'
@@ -65,10 +71,13 @@ on:
       - 'functions/_middleware.js'
       - 'scripts/ovyx-assistant-workspace.browser.test.mjs'
       - 'assets/ovyx-app-studio-link-builder.js'
+      - 'assets/ovyx-app-studio-premium-polish.js'
+      - 'scripts/ovyx-app-studio-premium-polish.test.mjs'
       - 'assets/ovyx-app-studio-project-brain.js'
       - 'scripts/ovyx-app-studio-project-brain.test.mjs'
       - 'scripts/ovyx-app-studio-link-builder.test.mjs'
       - 'scripts/ovyx-app-studio-link-builder.browser.test.mjs'
+      - 'scripts/ovyx-app-studio-premium-polish.browser.test.mjs'
       - 'functions/api/app-studio/release-health.js'
       - 'scripts/ovyx-app-studio-release-health.test.mjs'
       - 'functions/_lib/brand-dna.js'
@@ -171,6 +180,11 @@ jobs:
 
       - name: Exercise App Studio URL Analyzer in desktop and mobile Chromium
         run: node scripts/ovyx-url-analyzer.browser.test.mjs
+        env:
+          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
+
+      - name: Exercise polished Project App Studio workspace in desktop and mobile Chromium
+        run: node scripts/ovyx-app-studio-premium-polish.browser.test.mjs
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8788
 
