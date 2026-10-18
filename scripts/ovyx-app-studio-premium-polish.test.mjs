@@ -30,6 +30,7 @@ assert.ok(runtime.includes('handlePaletteDisclosure'), 'Using detected source co
 assert.ok(runtime.includes('prefers-reduced-motion:reduce'), 'Animations must respect reduced-motion preferences.');
 assert.ok(runtime.includes('ovyx-app-studio-project-brain') && runtime.includes('ovyx-app-studio-release'), 'The guided path must target the actual verifier and release controls.');
 assert.ok(runtime.includes('!project') && runtime.includes('!verified'), 'The progress rail must reflect generated and verified state rather than decorative status.');
+assert.ok(runtime.includes('width:calc(100% - clamp(40px, calc(5.6vw + 16px), 88px))'), 'App Studio children must fit the inner available width when a vertical scrollbar consumes layout space.');
 assert.ok(!runtime.includes('window.OVYXAIService') && !runtime.includes('fetch('), 'The polish layer must not duplicate the generation/API logic.');
 assert.ok(functionalRuntime.includes('data-lb-mobile-build') && functionalRuntime.includes('data-lb-export-zip') && functionalRuntime.includes('data-lb-publish'), 'The existing supported release actions must remain in the main release workspace.');
 assert.ok(conversionRuntime.includes('ovyx-appstudio-phrase4-runtime'), 'The existing Web Studio-to-mobile conversion runtime must remain in the app.');
