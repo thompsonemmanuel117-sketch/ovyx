@@ -36,8 +36,7 @@ try {
   assert.equal(response.status, 200);
   assert.equal(data.status, 'NOT_CONFIGURED');
   assert.equal(data.connected, false);
-  assert.match(data.message, /try again later/i);
-  assert.match(data.message, /connect your own AI Brain/i);
+  assert.match(data.message, /choose another available AI option/i);
   assert.equal(requests.length, 0, 'a missing key must be detected without calling the provider');
 
   requests.length = 0;
