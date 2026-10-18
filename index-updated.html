@@ -248,7 +248,7 @@
 
       button.innerHTML =
         '<i class="fa-solid fa-spinner fa-spin"></i>' +
-        '<span>Connecting to Cloudflare…</span>';
+        '<span>Preparing your website…</span>';
 
       const result =
         await deployToCloudflare();
@@ -258,15 +258,15 @@
 
       button.innerHTML =
         '<i class="fa-solid fa-circle-check"></i>' +
-        '<span>Deployment Started</span>';
+        '<span>Publishing started</span>';
 
       if (
         typeof window.toast === 'function'
       ) {
         window.toast(
           deployment.deploymentId
-            ? `Cloudflare deployment started · ${deployment.deploymentId}`
-            : 'Cloudflare deployment started successfully.',
+            ? 'Your website is being published.'
+            : 'Your website is being published.',
           'success'
         );
       }
@@ -303,7 +303,7 @@
       ) {
         window.toast(
           error?.message ||
-          'Cloudflare deployment failed.',
+          'Your website couldn't be published. Please try again.',
           'error'
         );
       }
