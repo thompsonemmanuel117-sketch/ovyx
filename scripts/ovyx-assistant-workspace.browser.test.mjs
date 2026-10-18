@@ -54,7 +54,7 @@ try {
     const historyReply = page.locator('#bot-chat-history .ovyx-native-message-body').last();
     await historyReply.waitFor({ state: 'visible' });
     assert.match(await historyReply.innerText(), /recovery|project|sign in|history/i, `[${target.name}] edit-history action did not return a useful status`);
-    assert.match(await panel.locator('#bot-context-node-type').innerText(), /DETAILS NEEDED|ACTION FAILED|PROJECT INSPECTED|LOCAL CONTEXT READY/i);
+    assert.match(await panel.locator('#bot-context-node-type').innerText(), /More details needed|Action could not be completed|Workspace reviewed|Workspace details ready/i);
 
     await trigger.click();
     await menu.locator('[data-ovyx-native-action="undo-last-ai-edit"]').click();
@@ -256,7 +256,7 @@ try {
     assert.match(aiPayloads[0]?.context?.contextWarning || '', /optional live workspace scan/i,
       `[${target.name}] failed context scans must preserve a clear fallback warning`);
     const finalStatus = await panel.locator('#bot-context-node-type').innerText();
-    assert.match(finalStatus, /APPLIED · VERIFIED/i, `[${target.name}] status must distinguish a verified saved write`);
+    assert.match(finalStatus, /Changes saved and verified/i, `[${target.name}] status must distinguish a verified saved write`);
     const updatedLocalSource = await page.evaluate(() => window.KernelState.activeProject.ovyxGraph.files['src/menu.js'].content);
     assert.equal(updatedLocalSource, repairedSource, `[${target.name}] verified source must be reflected back into the active local workspace`);
     assert.deepEqual(errors, [], `[${target.name}] assistant runtime errors: ${errors.join('; ')}`);
