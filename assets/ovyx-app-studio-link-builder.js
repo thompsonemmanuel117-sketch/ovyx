@@ -257,7 +257,7 @@
     let html = build.html;
     if (!/<html\b/i.test(html)) html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>' + html + '</body></html>';
     html = html.replace(/<meta\b[^>]*http-equiv\s*=\s*(["'])content-security-policy\1[^>]*>/gi, '');
-    const csp = \`<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: blob: https: http:; style-src 'unsafe-inline' https: http:; script-src 'unsafe-inline'; font-src data: https: http:; media-src data: blob: https: http:; connect-src 'none'; form-action 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'">\`;
+    const csp = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: blob: https: http:; style-src 'unsafe-inline' https: http:; script-src 'unsafe-inline'; font-src data: https: http:; media-src data: blob: https: http:; connect-src 'none'; form-action 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'">`;
     if (/<head\b[^>]*>/i.test(html)) html = html.replace(/<head\b[^>]*>/i, match => match + csp);
     else if (/<html\b[^>]*>/i.test(html)) html = html.replace(/<html\b[^>]*>/i, match => match + '<head>' + csp + '</head>');
     else html = csp + html;
