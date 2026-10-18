@@ -204,21 +204,21 @@
     if (/^[a-z][a-z0-9+.-]*:/i.test(value)) {
       try { value = new URL(value).pathname; } catch (_) {}
     }
-    value = value.split(/[?#]/)[0].replace(/\\\\/g, '/').replace(/^\\.\\/+/, '').replace(/^\\/+/, '').replace(/\\/+$/, '').replace(/\\.html?$/i, '').toLowerCase();
+    value = value.split(/[?#]/)[0].replace(/\\/g, '/').replace(/^\.\//, '').replace(/^\/+/, '').replace(/\/+$/, '').replace(/\.html?$/i, '').toLowerCase();
     return value ? '/' + value.split('/').filter(Boolean).join('/') + '/' : '/';
   }
   function routeFilesFor(build, brief) {
     const map = new Map();
-    const htmlPaths = Object.keys(build.files).filter(path => /\\.html?$/i.test(path) && /<html\\b|<!doctype\\s+html/i.test(build.files[path]));
+    const htmlPaths = Object.keys(build.files).filter(path => /\.html?$/i.test(path) && /<html\b|<!doctype\s+html/i.test(build.files[path]));
     const add = (route, file) => { if (file && build.files[file]) map.set(routeKey(route), file); };
     add('/', build.htmlPath);
     add(build.htmlPath, build.htmlPath);
     for (const path of htmlPaths) {
-      add(path, path);
-      const base = path.split('/').pop().replace(/\\.html?$/i, '');
+      const base = path.split('/').pop().replace(/\.html?$/i, '');
       if (/^(?:index|home)$/i.test(base)) add('/', path);
       else add('/' + base + '/', path);
-      add(path.replace(/^(?:src\\/)?pages\\//i, ''), path);
+      add(path, path);
+      add(path.replace(/^(?:src\/)?pages\//i, ''), path);
     }
     for (const page of brief.pages || []) {
       if (page.status !== 'inspected') continue;
@@ -230,7 +230,7 @@
       const routeName = slug(text(page.path || '').split('/').filter(Boolean).pop() || page.title);
       const titleSlug = slug(page.title);
       const match = htmlPaths.find(path => {
-        const base = slug(path.split('/').pop().replace(/\\.html?$/i, ''));
+        const base = slug(path.split('/').pop().replace(/\.html?$/i, ''));
         return base === routeName || base === titleSlug;
       });
       if (match) { add(page.path, match); add(page.url, match); }
@@ -239,33 +239,33 @@
   }
   function composePreview(build) {
     let html = build.html;
-    if (!/<html\\b/i.test(html)) html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>' + html + '</body></html>';
-    const cssEntries = Object.entries(build.files).filter(([path]) => /\\.css$/i.test(path));
-    const cssRefs = [...html.matchAll(/<link\\b[^>]*\\bhref\\s*=\\s*(["'])([^"']+\\.css(?:\\?[^"']*)?)\\1[^>]*>/gi)].map(match => match[2].split(/[?#]/)[0]);
+    if (!/<html\b/i.test(html)) html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>' + html + '</body></html>';
+    const cssEntries = Object.entries(build.files).filter(([path]) => /\.css$/i.test(path));
+    const cssRefs = [...html.matchAll(/<link\b[^>]*\bhref\s*=\s*(["'])([^"']+\.css(?:\?[^"']*)?)\1[^>]*>/gi)].map(match => match[2].split(/[?#]/)[0]);
     const stylesToEmbed = cssRefs.length
       ? cssRefs.map(ref => cssEntries.find(([path]) => path === ref || path.endsWith('/' + ref.split('/').pop()))).filter(Boolean)
-      : cssEntries.filter(([path]) => /(?:^|\\/)(?:styles?|app)\\.css$/i.test(path)).slice(0, 3);
-    const styles = [...new Set(stylesToEmbed.map(([, content]) => content))].join('\\n');
+      : cssEntries.filter(([path]) => /(?:^|\/)(?:styles?|app)\.css$/i.test(path)).slice(0, 3);
+    const styles = [...new Set(stylesToEmbed.map(([, content]) => content))].join('\n');
     if (styles) {
-      html = html.replace(/<link\\b[^>]*\\bhref\\s*=\\s*(["'])([^"']+\\.css(?:\\?[^"']*)?)\\1[^>]*>/gi, match => /(?:https?:)?\\/\\//i.test(match) ? match : '');
+      html = html.replace(/<link\b[^>]*\bhref\s*=\s*(["'])([^"']+\.css(?:\?[^"']*)?)\1[^>]*>/gi, match => /(?:https?:)?\/\//i.test(match) ? match : '');
       const cssTag = '<style data-ovyx-generated-css>' + escapeStyle(styles) + '</style>';
-      if (/<\\/head\\s*>/i.test(html)) html = html.replace(/<\\/head\\s*>/i, cssTag + '</head>');
+      if (/<\/head\s*>/i.test(html)) html = html.replace(/<\/head\s*>/i, cssTag + '</head>');
       else html = cssTag + html;
     }
-    const jsEntries = Object.entries(build.files).filter(([path]) => /\\.m?js$/i.test(path) && !/\\.json$/i.test(path));
-    const scriptRefs = [...html.matchAll(/<script\\b[^>]*\\bsrc\\s*=\\s*(["'])([^"']+\\.m?js(?:\\?[^"']*)?)\\1[^>]*>\\s*<\\/script\\s*>/gi)].map(match => match[2].split(/[?#]/)[0]);
+    const jsEntries = Object.entries(build.files).filter(([path]) => /\.m?js$/i.test(path) && !/\.json$/i.test(path));
+    const scriptRefs = [...html.matchAll(/<script\b[^>]*\bsrc\s*=\s*(["'])([^"']+\.m?js(?:\?[^"']*)?)\1[^>]*>\s*<\/script\s*>/gi)].map(match => match[2].split(/[?#]/)[0]);
     const scriptsToEmbed = scriptRefs.length
       ? scriptRefs.map(ref => jsEntries.find(([path]) => path === ref || path.endsWith('/' + ref.split('/').pop()))).filter(Boolean)
-      : jsEntries.filter(([path]) => /(?:^|\\/)(?:app|main|index)\\.m?js$/i.test(path)).slice(0, 2);
-    const scripts = [...new Set(scriptsToEmbed.map(([, content]) => content))].join('\\n');
+      : jsEntries.filter(([path]) => /(?:^|\/)(?:app|main|index)\.m?js$/i.test(path)).slice(0, 2);
+    const scripts = [...new Set(scriptsToEmbed.map(([, content]) => content))].join('\n');
     if (scripts) {
-      html = html.replace(/<script\\b[^>]*\\bsrc\\s*=\\s*(["'])([^"']+\\.m?js(?:\\?[^"']*)?)\\1[^>]*>\\s*<\\/script\\s*>/gi, match => /(?:https?:)?\\/\\//i.test(match) ? match : '');
-      const jsTag = '<script data-ovyx-generated-js>' + escapeScript(scripts) + '<\\/script>';
-      if (/<\\/body\\s*>/i.test(html)) html = html.replace(/<\\/body\\s*>/i, jsTag + '</body>');
+      html = html.replace(/<script\b[^>]*\bsrc\s*=\s*(["'])([^"']+\.m?js(?:\?[^"']*)?)\1[^>]*>\s*<\/script\s*>/gi, match => /(?:https?:)?\/\//i.test(match) ? match : '');
+      const jsTag = '<script data-ovyx-generated-js>' + escapeScript(scripts) + '<\/script>';
+      if (/<\/body\s*>/i.test(html)) html = html.replace(/<\/body\s*>/i, jsTag + '</body>');
       else html += jsTag;
     }
-    const routerBridge = '<script data-ovyx-link-router>(function(){document.addEventListener("click",function(event){var link=event.target&&event.target.closest?event.target.closest("a[href]"):null;if(!link)return;var raw=link.getAttribute("href")||"";if(!raw||raw.charAt(0)==="#"||/^(?:https?:\\/\\/|mailto:|tel:|data:|javascript:)/i.test(raw))return;if(link.target&&link.target!=="_self")return;event.preventDefault();var route=raw.split(/[?#]/)[0].replace(/\\\\/g,"/").replace(/^\\.\\//,"").replace(/^\\/+|\\/+$/g,"");parent.postMessage({ovyxLinkAppNavigate:route?"/"+route+"/":"/"},"*");},true);})();<\\/script>';
-    if (/<\\/body\\s*>/i.test(html)) html = html.replace(/<\\/body\\s*>/i, routerBridge + '</body>');
+    const routerBridge = '<script data-ovyx-link-router>(function(){document.addEventListener("click",function(event){var link=event.target&&event.target.closest?event.target.closest("a[href]"):null;if(!link)return;var raw=link.getAttribute("href")||"";if(!raw||raw.charAt(0)==="#"||/^(?:https?:\\/\\/|mailto:|tel:|data:|javascript:)/i.test(raw))return;if(link.target&&link.target!=="_self")return;event.preventDefault();var route=raw.split(/[?#]/)[0].replace(/\\\\/g,"/").replace(/^\\.\\//,"").replace(/^\\/+|\\/+$/g,"");parent.postMessage({ovyxLinkAppNavigate:route?"/"+route+"/":"/"},"*");},true);})();<\/script>';
+    if (/<\/body\s*>/i.test(html)) html = html.replace(/<\/body\s*>/i, routerBridge + '</body>');
     else html += routerBridge;
     return html;
   }
