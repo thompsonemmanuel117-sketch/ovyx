@@ -47,7 +47,7 @@ assert.ok(runtime.includes('window.__OVYX_PROJECT_BRAIN_REPORT__'), 'The generat
 assert.ok(middleware.includes('/assets/ovyx-app-studio-project-brain.js?v=20261018-1'), 'The real Pages shell must load Project Brain after the link builder.');
 assert.ok(headers.includes('/assets/ovyx-app-studio-project-brain.js') && headers.includes('Cache-Control: no-store'), 'Project Brain should avoid stale asset caching.');
 assert.ok(pkg.scripts.test.includes('scripts/ovyx-app-studio-project-brain.test.mjs'), 'Project Brain regression tests must run through npm test.');
-assert.ok(browserTest.includes('summary.runtimeChecked') && browserTest.includes('repairedAudit.status'), 'Browser integration must inspect the live preview and retest a repaired fixture.');
+assert.ok(browserTest.includes('runtimeChecked === true') && browserTest.includes('repairedAudit.status'), 'Browser integration must inspect the live preview and retest a repaired fixture.');
 assert.ok(runtime.includes('.ovyx-lb-panel :is(input,button,summary):focus-visible'), 'The Stage 5 accessibility bug fix must preserve the corrected focus selector.');
 assert.ok(!runtime.includes('}..ovyx-lb-panel :is(input,button,summary):focus-visible'), 'The malformed CSS selector must not return.');
 assert.ok(!runtime.includes('window.KernelState.activeProject ='), 'Link generation must not replace the user’s currently open project.');
