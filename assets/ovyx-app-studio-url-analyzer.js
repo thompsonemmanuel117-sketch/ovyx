@@ -119,7 +119,7 @@
       });
       mapSection.appendChild(map);
     }
-    if (summary.pageLimitReached) mapSection.appendChild(node('p', 'ovyx-ua-notice', 'The review limit was reached. Some remaining pages are listed but haven't been reviewed.'));
+    if (summary.pageLimitReached) mapSection.appendChild(node('p', 'ovyx-ua-notice', 'The review limit was reached. Some remaining pages are listed but were not all reviewed.'));
     const assetSection = section(results, 'Assets discovered', 'These public asset links were found on inspected pages. Files are not copied automatically.');
     const assets = Array.isArray(report.assets?.items) ? report.assets.items : [];
     if (!assets.length) assetSection.appendChild(node('p', 'ovyx-ua-empty', 'No public assets were identified in inspected source.'));
@@ -153,7 +153,7 @@
   function applyDetectedPalette() {
     const report = window.__OVYX_URL_ANALYZER_LAST_REPORT__;
     const dna = document.getElementById('ovyx-app-studio-brand-dna-panel');
-    if (!report || !dna) { setStatus('Brand settings aren't available right now. You can review the detected colours and set up branding manually.', 'error'); return; }
+    if (!report || !dna) { setStatus('Brand settings are not available right now. You can review the detected colours and set up branding manually.', 'error'); return; }
     const nameInput = dna.querySelector('[data-brand-app-name]');
     if (nameInput && report.branding?.name) {
       nameInput.value = String(report.branding.name).slice(0, 100);
