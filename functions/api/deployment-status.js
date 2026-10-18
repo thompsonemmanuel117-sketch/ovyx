@@ -48,7 +48,7 @@ async function verifyFirebaseIdentity(idToken, env) {
 
 async function cloudflareGet(path, env) {
   if (!env.CLOUDFLARE_API_TOKEN || !env.CLOUDFLARE_ACCOUNT_ID) {
-    throw Object.assign(new Error('Publishing isn't available right now. Please try again later.'), { status:500 });
+    throw Object.assign(new Error('Publishing is not available right now. Please try again later.'), { status:500 });
   }
   const response = await fetch('https://api.cloudflare.com/client/v4'+path, {
     headers:{
@@ -91,7 +91,7 @@ export async function onRequestGet(context) {
 
     const entitlements=await resolveEntitlements(env,user);
     if(entitlements?.capabilities?.cloudflareDeploy!==true){
-      return json({success:false,authoritative:true,error:'Your OVYX account doesn't have permission to view publishing status.',requestId},403);
+      return json({success:false,authoritative:true,error:'Your OVYX account does not have permission to view publishing status.',requestId},403);
     }
 
     const qs=new URL(request.url).searchParams;
