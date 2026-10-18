@@ -15,11 +15,11 @@ const MAX_PROJECT_BYTES = 950_000;
 function clean(value,max=320){return String(value??'').trim().slice(0,max);}
 function projectId(value){
   const id=clean(value,120);
-  if(!/^[A-Za-z0-9_-]{1,120}$/.test(id))throw Object.assign(new Error('Project ID is invalid.'),{status:400,code:'INVALID_PROJECT_ID'});
+  if(!/^[A-Za-z0-9_-]{1,120}$/.test(id))throw Object.assign(new Error('The selected app couldn't be identified.'),{status:400,code:'INVALID_PROJECT_ID'});
   return id;
 }
 function payload(value){
-  if(!value||typeof value!=='object'||Array.isArray(value))throw Object.assign(new Error('A project object is required.'),{status:400,code:'PROJECT_REQUIRED'});
+  if(!value||typeof value!=='object'||Array.isArray(value))throw Object.assign(new Error('App details are required to continue.'),{status:400,code:'PROJECT_REQUIRED'});
   const copy=JSON.parse(JSON.stringify(value));
   delete copy.ownerUid;delete copy.ownerEmail;
   return copy;
@@ -32,7 +32,7 @@ export async function onRequest(context){
     const user=context.data?.user||await authenticateRequest(context.request,context.env);
     const uid=clean(user?.uid||user?.sub);
     const email=clean(user?.email,320).toLowerCase();
-    if(!uid||!email)throw Object.assign(new Error('Authenticated email is required.'),{status:401,code:'EMAIL_REQUIRED'});
+    if(!uid||!email)throw Object.assign(new Error('Please sign in with a verified email address.'),{status:401,code:'EMAIL_REQUIRED'});
 
     const method=context.request.method.toUpperCase();
     if(method==='GET'){
@@ -54,7 +54,7 @@ export async function onRequest(context){
       const project=payload(body.project||body.data);
       const existingDoc=await getFirestoreDocumentAtPath(context.env,['users',email,'projects',pid]);
       const existing=existingDoc?await getFirestoreDataAtPath(context.env,['users',email,'projects',pid]):null;
-      if(existing && (clean(existing.ownerUid)!==uid||clean(existing.ownerEmail).toLowerCase()!==email))throw Object.assign(new Error('Project ownership conflict.'),{status:409,code:'PROJECT_OWNERSHIP_CONFLICT'});
+      if(existing && (clean(existing.ownerUid)!==uid||clean(existing.ownerEmail).toLowerCase()!==email))throw Object.assign(new Error('This app can't be saved under the current account.'),{status:409,code:'PROJECT_OWNERSHIP_CONFLICT'});
       const now=new Date().toISOString();
       const brandProfile=await getFirestoreDataAtPath(context.env,['users',email,'brand_profile','config']).catch(()=>null);
       const stored={
@@ -72,6 +72,6 @@ export async function onRequest(context){
     }
     return jsonResponse({ok:false,error:'GET, POST or DELETE is required.',code:'METHOD_NOT_ALLOWED'},405,{'X-OVYX-Request-ID':id});
   }catch(error){
-    return jsonResponse({ok:false,error:error?.message||'Project request failed.',code:error?.code||'PROJECTS_FAILED'},error?.status||500,{'X-OVYX-Request-ID':id});
+    return jsonResponse({ok:false,error:error?.message||'Your saved app request couldn't be completed. Please try again.',code:error?.code||'PROJECTS_FAILED'},error?.status||500,{'X-OVYX-Request-ID':id});
   }
 }
