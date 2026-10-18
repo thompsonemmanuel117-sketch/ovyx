@@ -27,6 +27,8 @@ on:
       - 'scripts/ovyx-app-studio-project-brain.test.mjs'
       - 'scripts/ovyx-app-studio-link-builder.test.mjs'
       - 'scripts/ovyx-app-studio-link-builder.browser.test.mjs'
+      - 'functions/api/app-studio/release-health.js'
+      - 'scripts/ovyx-app-studio-release-health.test.mjs'
       - 'functions/_lib/url-analyzer.js'
       - 'functions/api/app-studio/url-analyzer.js'
       - 'assets/ovyx-app-studio-url-analyzer.js'
@@ -37,6 +39,8 @@ on:
       - 'scripts/ovyx-app-studio-project-brain.test.mjs'
       - 'scripts/ovyx-app-studio-link-builder.test.mjs'
       - 'scripts/ovyx-app-studio-link-builder.browser.test.mjs'
+      - 'functions/api/app-studio/release-health.js'
+      - 'scripts/ovyx-app-studio-release-health.test.mjs'
       - 'package.json'
       - 'scripts/ovyx-settings*.mjs'
       - 'assets/ovyx-admin-workspace.js'
@@ -65,6 +69,8 @@ on:
       - 'scripts/ovyx-app-studio-project-brain.test.mjs'
       - 'scripts/ovyx-app-studio-link-builder.test.mjs'
       - 'scripts/ovyx-app-studio-link-builder.browser.test.mjs'
+      - 'functions/api/app-studio/release-health.js'
+      - 'scripts/ovyx-app-studio-release-health.test.mjs'
       - 'functions/_lib/brand-dna.js'
       - 'functions/api/app-studio/brand-profile.js'
       - 'assets/ovyx-app-studio-brand-dna.js'
@@ -172,6 +178,9 @@ jobs:
         run: node scripts/ovyx-app-studio-link-builder.browser.test.mjs
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8788
+
+      - name: Exercise Stage 6 release health diagnostics
+        run: node scripts/ovyx-app-studio-release-health.test.mjs
 
       - name: Exercise owner-only Admin Workspace in desktop and mobile Chromium
         run: node scripts/ovyx-admin-workspace.browser.test.mjs
