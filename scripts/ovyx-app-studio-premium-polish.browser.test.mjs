@@ -83,7 +83,7 @@ try {
   const reportDetails = desktop.locator('#ovyx-app-studio-url-analyzer-panel .ovyx-as-report-details');
   await reportDetails.waitFor();
   assert.equal(await reportDetails.evaluate(el => el.open), false, 'The deep site map/assets/limitations should be progressive-disclosure content.');
-  assert.match(await reportDetails.locator('summary').innerText(), /3 discovered routes/);
+  assert.match(await reportDetails.locator('summary').innerText(), /3 pages reviewed/);
   assert.equal(await desktop.locator('[data-ua-results] > .ovyx-ua-stats').count(), 1);
   assert.equal(await desktop.locator('[data-ua-results] > .ovyx-ua-section').count(), 1, 'The key detected identity remains visible above the detailed report.');
   assert.equal(await desktop.locator('[data-ua-results] > #ovyx-app-studio-link-builder').count(), 1, 'The generator stays prominent beside the summary, not hidden in detailed scan output.');
