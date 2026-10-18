@@ -572,8 +572,8 @@ Stage 01 code and desktop/mobile browser verification are complete on the record
 - [x] Added structured public-page discovery for a sitemap, titles, descriptions, headings/status, same-origin links, public asset URLs, logo/favicon evidence, theme colors and CSS custom-property colors.
 - [x] Added an App Studio panel that presents the sitemap, detected brand evidence, asset inventory and explicit can/cannot/limitations; a button transfers detected name/colors into the existing Brand DNA form but does not save or copy source logo binaries.
 - [x] The report is only held in this browser tab for the next build stage; page HTML and reports are not persisted by the analyzer endpoint.
-- [ ] Run URL validation, redirect/private-address and robots compliance tests, branding extraction, endpoint-gate checks, desktop/mobile UI, palette transfer, and live shell-mount verification on the exact PR commit.
-- [ ] After merge, confirm the main-branch Agent Verify, browser workflow and Cloudflare Diagnostics before calling the stage deployed.
+- [x] URL validation, private/reserved IP and redirect rejection, robots compliance, sitemap/link/asset and brand extraction, server endpoint gates, desktop/mobile UI, palette transfer, and live App Studio shell mount all passed automated verification (Agent Verify run 39081222238; browser workflow run 39081222221).
+- [x] Post-merge main-branch Agent Verify, full desktop/mobile browser suite (26 steps), and Cloudflare Diagnostics all passed on final code commit `903fa7c9926349a0bcaff19f552d9d122cacd1a2`. Production diagnostics: deployment stage success, runtime API HTTP 200, zero detected log errors (run 39081222106).
 
 ### Explicit limitations
 - The analyzer never signs in to a source website, bypasses a paywall, ignores disallow rules, executes page JavaScript or downloads/copies asset binaries in this stage.
@@ -593,10 +593,25 @@ Stage 01 code and desktop/mobile browser verification are complete on the record
 ### Stage 02 crawl budget hardening (2026-10-18)
 - [x] Crawl budget now counts navigation attempts, including non-HTML and failed responses, so a large list of bad URLs cannot sidestep the six-request page limit.
 - [x] A valid sitemap is marked as used even when its entries duplicate links already found in the homepage.
-- [ ] Re-run Agent Verify and the complete desktop/mobile browser workflow against the updated PR head before merge.
+- [x] Agent Verify, the complete desktop/mobile browser workflow (26 steps), and Cloudflare Diagnostics passed on the final main commit; the new page-attempt cap and truthful sitemap-use flag are included.
 
 
 ### Stage 02 redirect robots hardening follow-up (2026-10-18)
 - [x] Added a pre-fetch redirect check that evaluates the destination path against the applicable robots.txt policy before following same-origin or cross-origin redirects.
 - [x] Added a regression test proving that a disallowed redirect target is rejected before its HTML is fetched.
-- [ ] Verify Agent Verify, the full desktop/mobile browser suite and Cloudflare deployment diagnostics on this follow-up commit before considering Stage 2 fully closed.
+- [x] Redirect-policy regression passed Agent Verify; the final main-branch desktop/mobile workflow also passed all 26 steps, and Cloudflare Diagnostics confirmed production healthy on the final main commit.
+
+
+## Stage 02 — FINAL VERIFICATION (2026-10-18)
+
+- [x] URL Analyzer feature merged in PR [#156](https://github.com/thompsonemmanuel117-sketch/ovyx/pull/156); redirect/robots safety follow-up merged in PR [#157](https://github.com/thompsonemmanuel117-sketch/ovyx/pull/157).
+- [x] Final code commit: `903fa7c9926349a0bcaff19f552d9d122cacd1a2`.
+- [x] **OVYX Agent Verify** passed on the final code commit, including the deterministic URL/SSRF/DNS/redirect/robots/sitemap/asset/branding tests, `npm run validate`, `npm run build`, and Wrangler validation: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/39081222238
+- [x] **OVYX Assistant Workspace Browser Tests** passed all 26 desktop/mobile Chromium steps. The dedicated URL Analyzer step verified report rendering, text-safe handling of remote titles, palette transfer into existing Brand DNA, responsive layout, and live App Studio shell mounting: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/39081222221
+- [x] **OVYX Cloudflare Diagnostics** passed for production deployment `c4c5c6e2-869f-47ac-8a95-cf488688ae47`: `Stage: deploy / success`, Runtime API health HTTP 200, zero detected log errors: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/39081222106
+- [x] This closes Stage 2's defined completion condition: a public website URL can produce a bounded structured site map, detected brand evidence and asset inventory, plus a clear report of what OVYX can and cannot inspect.
+
+### Stage 02 remaining limitations
+- Asset URLs are listed but binary assets are not downloaded or copied in this stage.
+- The analyzer does not sign in to source websites, bypass paywalls, ignore robots.txt, execute website JavaScript, reconstruct client-side-only routes, or prove payments/forms/accounts/databases/backend integrations.
+- Public DNS is checked, but the Cloudflare Fetch runtime does not pin those DNS answers to the socket connection; DNS rebinding remains an explicitly disclosed platform-level limitation.
