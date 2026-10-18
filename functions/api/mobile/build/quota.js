@@ -9,6 +9,6 @@ export async function onRequestGet(context){
     const doc=await getFirestoreDocument(context.env,'users',uid);const profile=doc?(await getFirestoreData(context.env,'users',uid)||{}):{};
     const remaining=profile.mobile_builds_remaining===undefined?5:Math.max(0,Number(profile.mobile_builds_remaining)||0);
     return jsonResponse({ok:true,remaining,total:5,tokens:Math.max(0,Number(profile.current_monthly_tokens)||0),planTier:String(profile.planTier||'free').toLowerCase()},200,{'Cache-Control':'no-store'});
-  }catch(error){return jsonResponse({ok:false,error:error?.message||'Your mobile build allowance couldn't be loaded right now.'},error?.status||500,{'Cache-Control':'no-store'});}
+  }catch(error){return jsonResponse({ok:false,error:error?.message||'Your mobile build allowance could not be loaded right now.'},error?.status||500,{'Cache-Control':'no-store'});}
 }
-export async function onRequest(context){if(context.request.method==='GET')return onRequestGet(context);return jsonResponse({ok:false,error:'This action isn't supported.'},405);}
+export async function onRequest(context){if(context.request.method==='GET')return onRequestGet(context);return jsonResponse({ok:false,error:'This action is not supported.'},405);}
