@@ -18,13 +18,13 @@
   var buildInFlight = false;
   var deferredPreviewRefresh = false;
   var qualityGateActive = false;
-  var lastBuildStage = { stage: 'ready', status: 'idle', message: 'Ready to inspect', at: Date.now() };
+  var lastBuildStage = { stage: 'ready', status: 'idle', message: 'Ready to review', at: Date.now() };
   var lastFocused = null;
   var stageRows = [
-    { id: 'source', label: 'Existing source tests', status: 'pending', detail: 'Waiting to run project checks.' },
-    { id: 'audit', label: 'Pages, navigation and accessibility', status: 'pending', detail: 'Waiting to inspect project files.' },
-    { id: 'browser', label: 'Responsive browser matrix', status: 'pending', detail: 'Waiting to render the generated pages.' },
-    { id: 'truth', label: 'Integration and result reporting', status: 'pending', detail: 'Waiting to summarize verified evidence.' }
+    { id: 'source', label: 'Existing source tests', status: 'pending', detail: 'Waiting to review website files.' },
+    { id: 'audit', label: 'Pages, navigation and accessibility', status: 'pending', detail: 'Waiting to review website files.' },
+    { id: 'browser', label: 'Responsive browser matrix', status: 'pending', detail: 'Waiting to review the website preview.' },
+    { id: 'truth', label: 'Integration and result reporting', status: 'pending', detail: 'Waiting to summarize the review results.' }
   ];
 
   function text(value) { return String(value == null ? '' : value); }
@@ -181,10 +181,10 @@
       if (page.path) idsByPagePath.set(page.path, ids);
     });
     if (!pages.length) {
-      addCheck(report, 'Project artifacts', 'Generated website files', 'fail', 'No complete HTML page was found in the project file graph. No preview should be represented as a verified build.');
+      addCheck(report, 'Project artifacts', 'Generated website files', 'fail', 'No complete website page was found. A preview can't be marked as verified until a valid page is available.');
       return;
     }
-    addCheck(report, 'Project artifacts', 'Generated website files', 'pass', pages.length + ' HTML route document(s) are available in the current project file graph.');
+    addCheck(report, 'Project artifacts', 'Generated website files', 'pass', pages.length + ' website page(s) are available for review.');
     var metadataIssues = [];
     var accessibilityIssues = [];
     var routeIssues = [];
@@ -424,10 +424,10 @@
     });
     addCheck(report, 'Security', 'Client-side secret exposure', statusForFindings(securityIssues.length, true), securityIssues.length ? securityIssues.slice(0, 25).join('\n') : 'No credential-like API key or private-key marker was detected in project HTML, CSS or JavaScript. This is a pattern check, not a complete security audit.');
     if (detectedForms) {
-      addCheck(report, 'Integrations', 'Live form and transaction state', 'info', detectedForms + ' form(s) found. The inspector does not submit forms, make purchases, book appointments, authenticate users or call live project APIs. Those integrations remain unverified by this scan.');
+      addCheck(report, 'Integrations', 'Live form and transaction state', 'info', detectedForms + ' form(s) found. This review does not submit forms, make purchases, book appointments, sign in, or contact external services. Those workflows remain unverified.');
     }
     if (detectedButtons) {
-      addCheck(report, 'Forms and interactions', 'Interactive controls', 'info', detectedButtons + ' button-like control(s) found. Their labels were inspected; the inspector does not click potentially destructive, payment, booking or account controls automatically.');
+      addCheck(report, 'Forms and interactions', 'Interactive controls', 'info', detectedButtons + ' interactive control(s) found. Their labels were reviewed; potentially destructive, payment, booking, and account actions are not triggered automatically.');
     }
     addCheck(report, 'Coverage', 'Source audit coverage', 'pass', 'HTML structure and control checks covered all ' + pages.length + ' generated HTML page(s); ' + checkedIds + ' element ID(s) were inspected.');
   }
@@ -628,7 +628,7 @@
     if (root || !document.body) return;
     root = document.createElement('div');
     root.id = ROOT_ID;
-    root.innerHTML = '<style id="' + STYLE_ID + '"></style><div class="ovyx-ws-quality-overlay" data-quality-overlay hidden><section class="ovyx-ws-quality-dialog" role="dialog" aria-modal="true" aria-labelledby="ovyx-ws-quality-title" tabindex="-1"><header class="ovyx-ws-quality-header"><div><div class="ovyx-ws-quality-kicker">OVYX WEB STUDIO · ENGINEERING QA</div><h2 id="ovyx-ws-quality-title">Quality Inspector</h2><p data-quality-subtitle>Inspect the actual generated project files before release.</p></div><button class="ovyx-ws-quality-close" type="button" data-quality-close aria-label="Close Quality Inspector">×</button></header><div class="ovyx-ws-quality-body"><div class="ovyx-ws-quality-summary" data-quality-summary aria-live="polite">Ready to inspect the current project.</div><div class="ovyx-ws-quality-progress" aria-hidden="true"><span data-quality-progress></span></div><div class="ovyx-ws-quality-stages" data-quality-stages></div><section class="ovyx-ws-quality-findings"><div class="ovyx-ws-quality-findings-head"><h3>Findings</h3><span data-quality-counts>Not run</span></div><div class="ovyx-ws-quality-list" data-quality-list><p class="ovyx-ws-quality-empty">Run checks to inspect all generated pages and a responsive browser matrix.</p></div></section><p class="ovyx-ws-quality-note">Safe-test limits: generated code runs in an isolated sandbox with network APIs and form submissions blocked. This inspector does not send contact forms, complete payments, book appointments, or verify a live authentication/API integration.</p></div><footer class="ovyx-ws-quality-footer"><button type="button" data-quality-run class="ovyx-ws-quality-primary">Run quality checks</button><button type="button" data-quality-repair class="ovyx-ws-quality-secondary" disabled>Repair issues with OVYX</button><button type="button" data-quality-export class="ovyx-ws-quality-ghost" aria-label="Export QA report as JSON" disabled>Export QA report</button><button type="button" data-quality-copy-summary class="ovyx-ws-quality-ghost" aria-label="Copy client-ready QA summary" disabled>Copy summary</button><button type="button" data-quality-console class="ovyx-ws-quality-ghost">Open source tests</button></footer></section></div>';
+    root.innerHTML = '<style id="' + STYLE_ID + '"></style><div class="ovyx-ws-quality-overlay" data-quality-overlay hidden><section class="ovyx-ws-quality-dialog" role="dialog" aria-modal="true" aria-labelledby="ovyx-ws-quality-title" tabindex="-1"><header class="ovyx-ws-quality-header"><div><div class="ovyx-ws-quality-kicker">OVYX WEB STUDIO · ENGINEERING QA</div><h2 id="ovyx-ws-quality-title">Quality Inspector</h2><p data-quality-subtitle>Inspect the actual generated project files before release.</p></div><button class="ovyx-ws-quality-close" type="button" data-quality-close aria-label="Close Quality Inspector">×</button></header><div class="ovyx-ws-quality-body"><div class="ovyx-ws-quality-summary" data-quality-summary aria-live="polite">Ready to review the current project.</div><div class="ovyx-ws-quality-progress" aria-hidden="true"><span data-quality-progress></span></div><div class="ovyx-ws-quality-stages" data-quality-stages></div><section class="ovyx-ws-quality-findings"><div class="ovyx-ws-quality-findings-head"><h3>Findings</h3><span data-quality-counts>Not run</span></div><div class="ovyx-ws-quality-list" data-quality-list><p class="ovyx-ws-quality-empty">Run a quality review to inspect website pages across desktop and mobile sizes.</p></div></section><p class="ovyx-ws-quality-note">Safe-test limits: generated code runs in an isolated sandbox with network APIs and form submissions blocked. This inspector does not send contact forms, complete payments, book appointments, or verify a live authentication/API integration.</p></div><footer class="ovyx-ws-quality-footer"><button type="button" data-quality-run class="ovyx-ws-quality-primary">Run quality checks</button><button type="button" data-quality-repair class="ovyx-ws-quality-secondary" disabled>Repair issues with OVYX</button><button type="button" data-quality-export class="ovyx-ws-quality-ghost" aria-label="Export QA report as JSON" disabled>Export QA report</button><button type="button" data-quality-copy-summary class="ovyx-ws-quality-ghost" aria-label="Copy client-ready QA summary" disabled>Copy summary</button><button type="button" data-quality-console class="ovyx-ws-quality-ghost">Open source tests</button></footer></section></div>';
     document.body.appendChild(root);
     var css = [
       '#'+ROOT_ID+'{font:500 13px/1.5 Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#e5e7eb}',
@@ -841,10 +841,10 @@
       link.click();
       link.remove();
       setTimeout(function () { try { URL.revokeObjectURL(url); } catch (_) {} }, 1000);
-      toast('QA report export was prepared. Review it before sharing with a client.', 'success');
+      toast('Quality report prepared. Review it before sharing with a client.', 'success');
       return true;
     } catch (error) {
-      toast('The QA report could not be exported in this browser.', 'error');
+      toast('The quality report couldn't be exported in this browser.', 'error');
       return false;
     }
   }
@@ -870,10 +870,10 @@
         fallback.remove();
         if (!copied) throw new Error('Clipboard access is unavailable.');
       }
-      toast('Client-ready QA summary copied. Review it before forwarding.', 'success');
+      toast('Quality summary copied. Review it before sharing.', 'success');
       return true;
     } catch (error) {
-      toast('The summary could not be copied. Export the JSON report instead.', 'warning');
+      toast('The summary couldn't be copied. Export the full report instead.', 'warning');
       return false;
     }
   }
@@ -892,9 +892,9 @@
       list.textContent = '';
       var empty = document.createElement('p');
       empty.className = 'ovyx-ws-quality-empty';
-      empty.textContent = 'Run checks to inspect all generated pages and a responsive browser matrix.';
+      empty.textContent = 'Run a quality review to inspect website pages across desktop and mobile sizes.';
       list.appendChild(empty);
-      if (summary) summary.textContent = 'Ready to inspect the current project.';
+      if (summary) summary.textContent = 'Ready to review the current project.';
       if (countsNode) countsNode.textContent = 'Not run';
       if (progress) progress.style.width = '0%';
       if (repairButton) repairButton.disabled = true;
@@ -933,7 +933,7 @@
     if (report.finishedAt) summaryText += ' · completed ' + new Date(report.finishedAt).toLocaleTimeString();
     if (summary) summary.textContent = summaryText;
     if (countsNode) countsNode.textContent = counts.pass + ' pass / ' + counts.warn + ' warn / ' + counts.fail + ' fail';
-    if (subtitle) subtitle.textContent = report.projectName ? 'Evidence from "' + report.projectName + '" — the currently generated project, not a design mockup.' : 'Evidence from the current generated project, not a design mockup.';
+    if (subtitle) subtitle.textContent = report.projectName ? 'Evidence from "' + report.projectName + '" — based on the website preview, not a static mockup.' : 'Evidence from the current generated project, not a design mockup.';
     if (progress) progress.style.width = '100%';
     if (repairButton) repairButton.disabled = running || !report.checks.some(function (item) { return item.status === 'fail' || item.status === 'warn'; });
     if (exportButton) exportButton.disabled = running || !report.finishedAt;
@@ -984,7 +984,7 @@
         addCheck(report, 'Source validation', 'Existing Web Studio source tests', existingTests.ok === true ? 'pass' : 'fail', trim(existingTests.summary + (existingTests.details && existingTests.ok !== true ? '\n' + existingTests.details : ''), 1400));
       }
     } catch (error) {
-      addCheck(report, 'Source validation', 'Existing Web Studio source tests', 'fail', 'Source checks threw an error: ' + trim(error && error.message, 400));
+      addCheck(report, 'Source validation', 'Existing Web Studio source tests', 'fail', 'Source checks couldn't complete: ' + trim(error && error.message, 400));
     }
     stageStatus('source', 'done', existingTests && existingTests.ok === true ? 'Source checks completed with no reported errors.' : 'Source checks completed; review findings below.');
     renderFindings(report);
@@ -998,9 +998,9 @@
     var coveredPages = pages;
     report.browser.pagesAvailable = pages.length;
     if (!pages.length) {
-      addCheck(report, 'Browser testing', 'Responsive browser matrix', 'fail', 'No HTML artifact was available to load in an isolated browser. A preview must not be described as browser-verified.');
+      addCheck(report, 'Browser testing', 'Responsive browser matrix', 'fail', 'No website page was available for a browser review. The preview hasn't been verified.');
     } else if (!coveredPages.length) {
-      addCheck(report, 'Browser testing', 'Responsive browser matrix', 'warn', 'No page could be selected for the browser matrix.');
+      addCheck(report, 'Browser testing', 'Responsive browser matrix', 'warn', 'No page was available for the desktop and mobile checks.');
     } else {
       var coreRoutes = coveredPages.slice(0, Math.min(CORE_BROWSER_ROUTE_COUNT, coveredPages.length));
       var routePlan = [];
@@ -1090,12 +1090,12 @@
         if (p % 5 === 4 || p === routePlan.length - 1) renderFindings(report);
       }
       addCheck(report, 'Browser testing', 'Horizontal overflow', overflow.length ? 'fail' : 'pass', overflow.length ? overflow.slice(0, 45).join('\n') : 'No horizontal overflow was detected across all ' + coveredPages.length + ' HTML route(s) under the selected responsive coverage plan.');
-      addCheck(report, 'Browser testing', 'Page runtime errors', scriptErrors.length ? 'fail' : 'pass', scriptErrors.length ? scriptErrors.slice(0, 35).join('\n') : 'No JavaScript runtime errors were captured in the isolated test runs.');
+      addCheck(report, 'Browser testing', 'Page runtime errors', scriptErrors.length ? 'fail' : 'pass', scriptErrors.length ? scriptErrors.slice(0, 35).join('\n') : 'No browser script errors were detected during the tested previews.');
       var interactionAudit = report.browser.interactions;
       if (interactionAudit.tested) {
         addCheck(report, 'Forms and interactions', 'Safe interactive behavior smoke test', interactionAudit.noOp.length ? 'fail' : 'pass', interactionAudit.noOp.length ? interactionAudit.noOp.slice(0, 20).join('\\n') : interactionAudit.responded + ' of ' + interactionAudit.tested + ' safe menu, tab, disclosure, filter, cart, wishlist, or variant control(s) changed observable page state in the isolated mobile browser. Destructive, account, payment, booking, submit and send controls were not clicked.');
       } else {
-        addCheck(report, 'Forms and interactions', 'Safe interactive behavior smoke test', 'info', 'No clearly identifiable safe menu, tab, disclosure, filter, cart, wishlist, or variant control was available for automatic clicking. Other controls and real integrations remain unverified.');
+        addCheck(report, 'Forms and interactions', 'Safe interactive behavior smoke test', 'info', 'No safe menu, tab, filter, or similar control was available for automatic testing. Other controls and integrations still need manual review.');
       }
       if (!interactionAudit.candidates) {
         addCheck(report, 'Coverage', 'Safe control interaction sampling', 'info',
@@ -1240,7 +1240,7 @@
   }
   function publishVerifiedPreview(studio) {
     if (!studio || typeof studio.renderPreview !== 'function') {
-      throw new Error('The site passed quality checks, but the verified preview renderer is unavailable.');
+      throw new Error('The quality checks passed, but the preview couldn't be opened right now.');
     }
     qualityGateActive = false;
     buildInFlight = false;
@@ -1258,12 +1258,12 @@
     if (running) return;
     var studio = getStudio();
     if (!studio || typeof studio.runBuildAgent !== 'function' || !currentReport) {
-      toast('The Web Studio build and repair pipeline is not available in this session.', 'warning');
+      toast('Website creation and repair aren't available right now. Please try again.', 'warning');
       return;
     }
     var findings = findingsForRepair(currentReport);
     if (!findings.length) {
-      toast('No failing or warning checks need a repair.', 'info');
+      toast('No issues were found that require an automatic repair.', 'info');
       return;
     }
     var beforeReport = currentReport;
@@ -1294,12 +1294,12 @@
     });
     renderStages();
     var summary = root && root.querySelector('[data-quality-summary]');
-    if (summary) summary.textContent = 'OVYX is attempting one targeted repair using the existing AI provider and build pipeline.';
+    if (summary) summary.textContent = 'Trying one focused repair using the selected AI option.';
     var runButton = root && root.querySelector('[data-quality-run]');
     var repairButton = root && root.querySelector('[data-quality-repair]');
     if (runButton) runButton.disabled = true;
     if (repairButton) repairButton.disabled = true;
-    emitBuildStage({ stage: 'quality-repair', status: 'running', message: 'A targeted Web Studio quality repair is in progress.' });
+    emitBuildStage({ stage: 'quality-repair', status: 'running', message: 'A focused website repair is in progress.' });
     var success = false;
     try {
       var token = Number(studio.requestEpoch || 0);
@@ -1313,7 +1313,7 @@
       var nextGraph = getGraph(studio);
       var changed = typeof studio.diffFiles === 'function' ? studio.diffFiles(snapshot.graph, nextGraph).length > 0 : JSON.stringify(snapshot.graph) !== JSON.stringify(nextGraph);
       var newVerification = text(nextProject.ovyxBuildVerifiedAt) && text(nextProject.ovyxBuildVerifiedAt) !== text(snapshot.project && snapshot.project.ovyxBuildVerifiedAt);
-      if (!changed || !newVerification) throw new Error('The build pipeline did not return a newly verified website change. The previous project was restored.');
+      if (!changed || !newVerification) throw new Error('The updated website couldn't be verified, so your previous version was restored.');
       running = false;
       var afterReport = await inspectProject();
       if (issueScore(afterReport) > 0) {
@@ -1330,7 +1330,7 @@
         toast(note, 'warning');
       } else {
         currentReport = afterReport;
-        addCheck(afterReport, 'Automatic repair', 'Repair verification', 'pass', 'OVYX changed the project, passed the built-in source checks, and the quality score improved from ' + scoreBefore + ' to ' + issueScore(afterReport) + '.');
+        addCheck(afterReport, 'Automatic repair', 'Repair verification', 'pass', 'The website was updated, passed source checks, and its quality score improved from ' + scoreBefore + ' to ' + issueScore(afterReport) + '.');
         afterReport.finishedAt = new Date().toISOString();
         afterReport.status = reportStatus(afterReport);
         afterReport.counts = countIssues(afterReport);
@@ -1348,7 +1348,7 @@
       beforeReport.status = reportStatus(beforeReport);
       beforeReport.counts = countIssues(beforeReport);
       renderFindings(beforeReport);
-      toast('The attempted repair was not verified; the previous project was restored.', 'warning');
+      toast('The repair couldn't be verified; your previous website version was restored.', 'warning');
     } finally {
       running = false;
       if (runButton) runButton.disabled = false;
@@ -1485,12 +1485,12 @@
         }
         try {
           var result = await originalCallAI.call(this, next, token);
-          if (isBuild) emitBuildStage({ stage: 'artifact-received', status: 'success', message: 'The AI response returned to Web Studio; the build pipeline will validate its files.' });
+          if (isBuild) emitBuildStage({ stage: 'artifact-received', status: 'success', message: 'Draft received. Checking its pages and resources before opening the preview.' });
           return result;
         } catch (error) {
           if (isBuild) {
             buildInFlight = false;
-            emitBuildStage({ stage: 'build-failed', status: 'error', message: 'The AI build request failed before a verified preview was ready.' });
+            emitBuildStage({ stage: 'build-failed', status: 'error', message: 'Website creation couldn't finish, so no new preview was opened.' });
           }
           throw error;
         }
@@ -1502,7 +1502,7 @@
       var originalApply = studio.applyAIResult;
       function qualityApplyAIResult(result) {
         var value = originalApply.apply(this, arguments);
-        if (buildInFlight) emitBuildStage({ stage: 'files-applied', status: 'success', message: 'The returned file changes were applied to the Web Studio project graph.' });
+        if (buildInFlight) emitBuildStage({ stage: 'files-applied', status: 'success', message: 'Draft files were applied. Reviewing the website structure next.' });
         return value;
       }
       qualityApplyAIResult.__ovyxQualityEvents = true;
@@ -1511,7 +1511,7 @@
     if (typeof studio.runTests === 'function' && !studio.runTests.__ovyxQualityEvents) {
       var originalTests = studio.runTests;
       function qualityRunTests() {
-        if (buildInFlight) emitBuildStage({ stage: 'source-tests', status: 'running', message: 'Running the existing project source tests.' });
+        if (buildInFlight) emitBuildStage({ stage: 'source-tests', status: 'running', message: 'Checking the saved website files.' });
         var result = originalTests.apply(this, arguments);
         if (buildInFlight) emitBuildStage({ stage: 'source-tests', status: result && result.ok ? 'success' : 'warning', message: result && result.ok ? 'The existing source tests passed.' : 'The source tests reported issues; see the report or console.' });
         return result;
@@ -1534,13 +1534,13 @@
           emitBuildStage({
             stage: 'preview-refresh',
             status: 'running',
-            message: 'The new preview is held while its quality checks run; the last known-good preview stays visible.'
+            message: 'The new preview is being checked. Your previous verified preview remains available.'
           });
           return undefined;
         }
         var value = originalPreview.apply(this, arguments);
         try { studio.__ovyxLivePreviewRenderedV1?.(); } catch (_) {}
-        emitBuildStage({ stage: 'preview-refresh', status: 'success', message: 'Web Studio released the quality-verified site preview.' });
+        emitBuildStage({ stage: 'preview-refresh', status: 'success', message: 'The preview passed quality checks and is ready to review.' });
         return value;
       }
       qualityRenderPreview.__ovyxQualityEvents = true;
@@ -1564,7 +1564,7 @@
           deferredPreviewRefresh = false;
           qualityGateActive = false;
           buildInFlight = true;
-          emitBuildStage({ stage: 'planning', status: 'running', message: 'Web Studio accepted the build request and is preparing its source graph.' });
+          emitBuildStage({ stage: 'planning', status: 'running', message: 'Website request received. Preparing the page files.' });
         }
         try {
           var value = await originalBuild.apply(this, arguments);
@@ -1577,7 +1577,7 @@
               if (changed && beforeBuildSnapshot) {
                 qualityGateRejected = true;
                 await rejectBuildForQuality(studio, beforeBuildSnapshot, 'The project file graph changed, but the build pipeline did not produce a new verified-source marker.');
-                throw new Error('The changed website did not pass built-in source verification; the previous project state was restored.');
+                throw new Error('The updated website didn't pass initial checks, so your previous version was restored.');
               }
               qualityGateActive = false;
               deferredPreviewRefresh = false;
@@ -1585,20 +1585,20 @@
               emitBuildStage({
                 stage: 'build-failed',
                 status: 'warning',
-                message: 'No newly verified website change was observed; the last good preview remains authoritative.'
+                message: 'No verified changes were found. Your previous preview remains unchanged.'
               });
             } else if (repairCall) {
               emitBuildStage({
                 stage: 'source-verified',
                 status: 'info',
-                message: 'The repair passed built-in source verification; the quality repair flow must complete its own follow-up checks.'
+                message: 'The changes passed initial checks. Final quality review is still in progress.'
               });
             } else {
               qualityGateActive = true;
               emitBuildStage({
                 stage: 'quality-inspection',
                 status: 'running',
-                message: 'Source checks passed. Web Studio is now inspecting the actual generated routes and responsive browser previews before marking the build ready.'
+                message: 'Initial checks passed. Reviewing every page and desktop/mobile layouts before marking the website ready.'
               });
               var report = null;
               var inspectionError = null;
