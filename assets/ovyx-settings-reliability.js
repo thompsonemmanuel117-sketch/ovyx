@@ -375,7 +375,7 @@
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data.ok !== true || data.deleted !== true) {
-        throw Object.assign(new Error(data.error || data.message || 'The server did not confirm account data cleanup.'), { code: data.code || 'ACCOUNT_DELETE_FAILED', status: response.status });
+        throw Object.assign(new Error(data.error || data.message || 'We couldn't confirm that all saved account data was deleted.'), { code: data.code || 'ACCOUNT_DELETE_FAILED', status: response.status });
       }
       await user.delete();
       try { await window.firebase.auth().signOut(); } catch (_) {}
@@ -904,7 +904,7 @@
     const notifyPanel = notificationPanel();
     if (notifyPanel) {
       const paragraph = notifyPanel.querySelector('.ovyx-panel-head p');
-      if (paragraph) paragraph.textContent = 'Choose which activity preferences to save to your account. Email preferences are recorded, but they do not send email without a configured delivery integration.';
+      if (paragraph) paragraph.textContent = 'Choose which activity preferences to save to your account. Email preferences are saved, but email notifications will be available when delivery is enabled.';
     }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
