@@ -33,7 +33,7 @@ export async function onRequestPost(context) {
 
     if (!context.env?.AI || typeof context.env.AI.run !== 'function') {
       return errorResponse(
-        'OVYX AI needs its native Cloudflare Workers AI binding. Add a Workers AI binding named AI in the OVYX Pages project settings and redeploy. No third-party API key is needed.',
+        'OVYX AI isn't available right now. Please try again later or choose another available AI option.',
         503,
         'OVYX_NATIVE_AI_NOT_CONFIGURED'
       );
