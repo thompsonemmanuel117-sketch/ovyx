@@ -144,7 +144,7 @@
     saveStatus.setAttribute('data-lb-save-status', '');
     actionBar.append(saveButton, saveStatus);
     section.appendChild(actionBar);
-    const capabilities = node('p', 'ovyx-lb-capabilities', 'Current limits: form submissions and app data are stored in this browser. Account reads require your approval. Email, external APIs, payments, file uploads and custom sign-in require a configured backend; these integrations are not simulated.');
+    const capabilities = node('p', 'ovyx-lb-capabilities', 'Form submissions and app data are stored in this browser. Account reads require your approval. Email, external APIs, payments, file uploads and custom sign-in require a configured backend before they can be enabled.');
     capabilities.setAttribute('role', 'note');
     section.appendChild(capabilities);
 
@@ -1434,17 +1434,12 @@
   }
   async function startMobileBuild(panel) {
     const button = $(panel, '[data-lb-mobile-build]');
-    let currentStep = 'validating Project Brain result';
-    try {
+         try {
       const { artifact } = validateForRelease(panel);
-      currentStep = 'reading selected mobile target';
       const platforms = Array.from(panel.querySelectorAll('[data-lb-platform]:checked')).map(input => input.value).filter(value => value === 'android' || value === 'ios');
       if (!platforms.length) throw new Error('Select Android, iOS, or both build targets.');
-      currentStep = 'validating and preparing PNG app icon';
       const iconDataUrl = await pngIconDataUrl(panel, artifact);
-      currentStep = 'packing inspected HTML routes into native WebView';
       const mobileHtml = mobileStandaloneHtml(artifact);
-      currentStep = 'serializing native mobile payload';
       const payload = {
         version: 1,
         kind: 'ovyx-link-based-mobile-build',
@@ -1452,14 +1447,13 @@
         website: { compiledHtmlTrees: [mobileHtml], pages: [mobileHtml], project: { name: artifact.name, html: mobileHtml } }
       };
       const body = { appName: artifact.name, displayName: artifact.name, platforms, iconDataUrl, sourceProjectId: artifact.id, payload };
-      if (new TextEncoder().encode(JSON.stringify(body)).byteLength > 730000) throw new Error('The mobile build bundle is too large for the current secure handoff (730 KB). Export the deployable ZIP for the complete web project.');
+      if (new TextEncoder().encode(JSON.stringify(body)).byteLength > 730000) throw new Error('The mobile build package exceeds the 730 KB secure transfer limit. Export the deployable web ZIP to use the complete app.');
       if (typeof window.confirm !== 'function' || !window.confirm('Start a real Expo/EAS ' + platforms.map(x => x.toUpperCase()).join(' + ') + ' build for "' + artifact.name + '"?\n\nThis dispatches a remote native build and may consume EAS build resources. The native wrapper uses local browser/WebView persistence; authenticated OVYX account APIs and cloud-connected preview actions are not included in the mobile bundle.')) {
         setReleaseStatus(panel, '[data-lb-mobile-status]', 'Mobile build cancelled. No EAS build job was requested.', 'info');
         return;
       }
       if (button) { button.disabled = true; button.textContent = 'Starting build…'; }
       setReleaseStatus(panel, '[data-lb-mobile-status]', 'Preparing the portable route-aware HTML bundle and dispatching to the configured EAS workflow…', 'busy');
-      currentStep = 'requesting authenticated EAS build dispatch';
       const token = await releaseToken();
       const data = await deploymentRequest('/api/mobile/build', {
         method: 'POST',
@@ -1476,10 +1470,9 @@
       persistReleaseState(artifact); renderMobileReleaseStatus(panel, artifact.releaseState.mobile);
       setReleaseStatus(panel, '[data-lb-mobile-status]', 'EAS accepted the mobile build job. It has not necessarily finished yet; refresh the status for completion and artifact URLs.', 'success');
       appendReleaseDiagnostic(panel, 'EAS mobile build job queued: ' + data.jobId + ' (' + platforms.join(', ') + ').');
-      currentStep = 'reading initial EAS workflow/build status';
       await refreshMobileBuildStatus(panel);
     } catch (error) {
-      setReleaseStatus(panel, '[data-lb-mobile-status]', (error?.message || 'Mobile build failed. No successful build is reported.') + ' (Stage: ' + currentStep + ')', 'error');
+      setReleaseStatus(panel, '[data-lb-mobile-status]', (error?.message || 'The mobile build could not be completed. No successful build is reported.'), 'error');
       appendReleaseDiagnostic(panel, 'Mobile build attempt: ' + text(error?.message || error).slice(0, 500));
     } finally {
       if (button) { button.disabled = !currentArtifact(); button.textContent = 'Start mobile build'; }
