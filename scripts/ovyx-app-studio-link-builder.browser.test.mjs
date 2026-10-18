@@ -44,7 +44,9 @@ const generated = {
     'pages/collections.html': '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Collections | Coastal Living</title><link rel="stylesheet" href="../styles.css"></head><body><header><nav aria-label="Main navigation"><a href="/">Home</a><a href="/collections/">Collections</a><a href="/about/">Our story</a></nav></header><main><section><h1>Curated coastal collections</h1><p>Explore spaces selected for light, warmth and everyday living.</p></section></main><script src="../app.js"></script></body></html>',
     'pages/about.html': '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Our Story | Coastal Living</title><link rel="stylesheet" href="../styles.css"></head><body><header><nav aria-label="Main navigation"><a href="/">Home</a><a href="/collections/">Collections</a><a href="/about/">Our story</a></nav></header><main><section><h1>A more considered way home</h1><p>Built around calm service and useful details.</p></section></main><script src="../app.js"></script></body></html>',
     'styles.css': ':root{--ovyx-brand-primary:#D81B60;--ovyx-brand-secondary:#302060;--ovyx-brand-accent:#00A6A6;--ovyx-brand-background:#FFF9FC;--ovyx-brand-text:#17121A}body{margin:0;font-family:Arial,sans-serif;background:var(--ovyx-brand-background);color:var(--ovyx-brand-text)}header{padding:18px 5%;background:white}nav{display:flex;gap:18px;flex-wrap:wrap}nav a{color:var(--ovyx-brand-secondary);font-weight:700;text-decoration:none}main{max-width:900px;margin:auto;padding:34px 5%}section{padding:22px 0;scroll-margin-top:20px}button{padding:12px 16px;border:0;border-radius:999px;background:var(--ovyx-brand-primary);color:white;cursor:pointer}a:focus-visible,button:focus-visible{outline:3px solid var(--ovyx-brand-accent);outline-offset:3px}',
-    'app.js': "let taps=0;document.querySelector('#counter')?.addEventListener('click',function(){taps+=1;this.textContent='Tap '+taps});"
+    'app.js': "let taps=0;document.querySelector('#counter')?.addEventListener('click',function(){taps+=1;this.textContent='Tap '+taps});",
+    'public/brand/app-icon.svg': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><rect width="64" height="64" rx="16" fill="#D81B60"/></svg>',
+    'public/brand/brand-manifest.json': JSON.stringify({ name: 'Coastal Living', theme_color: '#D81B60' })
   }
 };
 const html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>' +
@@ -348,6 +350,9 @@ try {
   assert.equal(zipBytes[1], 0x4b, 'Deployable ZIP must have a real ZIP signature.');
   const zipText = zipBytes.toString('utf8');
   assert.ok(zipText.includes('collections/index.html'), 'The ZIP must include an entry file for the generated collections route.');
+  assert.ok(zipText.includes('brand/app-icon.svg'), 'The ZIP must publish public/brand assets at the site-root path expected by generated HTML.');
+  assert.ok(zipText.includes('brand/brand-manifest.json'), 'The ZIP must publish the app manifest at the URL referenced by generated HTML.');
+  assert.ok(!zipText.includes('public/brand/app-icon.svg'), 'The ZIP must not leave public/ prefixed paths that break the generated asset URLs.');
   assert.ok(zipText.includes('ovyx-release-manifest.json'), 'The ZIP must include a release limitations manifest.');
   assert.ok(zipText.includes('connect-src'), 'Static output must include its explicit CSP network boundary.');
 
