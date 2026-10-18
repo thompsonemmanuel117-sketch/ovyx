@@ -206,7 +206,7 @@ try {
   await desktop.locator('#ovyx-app-studio-url-analyzer-panel').waitFor();
   await desktop.locator('[data-ua-url]').fill('https://coastal.example');
   await desktop.locator('[data-ua-analyze]').click();
-  await desktop.waitForFunction(() => document.querySelector('[data-ua-status]')?.textContent.includes('Analysis complete.'));
+  await desktop.waitForFunction(() => document.querySelector('[data-ua-status]')?.textContent.includes('Website review complete.'));
   await desktop.locator('#ovyx-app-studio-link-builder [data-lb-generate]').waitFor();
   await desktop.locator('#ovyx-app-studio-url-analyzer-panel .ovyx-as-report-details').waitFor();
   assert.equal(await desktop.locator('#ovyx-app-studio-url-analyzer-panel .ovyx-as-report-details').evaluate(el => el.open), false, 'Detailed sitemap/assets/limitations are collapsed until needed.');
@@ -454,7 +454,7 @@ try {
   assert.ok(metrics.width > 0 && metrics.scrollWidth <= metrics.viewport + 1, 'Stage 3 controls must not introduce horizontal overflow on mobile.');
   await mobile.locator('[data-ua-url]').fill('https://coastal.example');
   await mobile.locator('[data-ua-analyze]').click();
-  await mobile.waitForFunction(() => document.querySelector('[data-ua-status]')?.textContent.includes('Analysis complete.'));
+  await mobile.waitForFunction(() => document.querySelector('[data-ua-status]')?.textContent.includes('Website review complete.'));
   await mobile.locator('[data-lb-generate]').click();
   await mobile.waitForFunction(() => document.querySelector('[data-lb-status]')?.textContent.includes('Your app is ready in the live preview'), null, { timeout: 15000 });
   await mobile.waitForFunction(() => window.__OVYX_PROJECT_BRAIN_REPORT__?.summary?.runtimeChecked === true, null, { timeout: 10000 });
