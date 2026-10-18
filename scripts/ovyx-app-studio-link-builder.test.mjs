@@ -52,7 +52,7 @@ assert.ok(runtime.includes('.ovyx-lb-panel :is(input,button,summary):focus-visib
 assert.ok(!runtime.includes('}..ovyx-lb-panel :is(input,button,summary):focus-visible'), 'The malformed CSS selector must not return.');
 assert.ok(!runtime.includes('window.KernelState.activeProject ='), 'Link generation must not replace the user’s currently open project.');
 assert.ok(brandDNA.includes('appBrandId') && brandDNA.includes('isAppStudioRequest'), 'Stage 1 must continue scoping identity and generation requests per app.');
-assert.ok(middleware.includes('/assets/ovyx-app-studio-link-builder.js?v=20261018-8'), 'The real OVYX Pages shell must load the Stage 3 runtime.');
+assert.ok(middleware.includes('/assets/ovyx-app-studio-link-builder.js?v=20261018-9'), 'The real OVYX Pages shell must load the Stage 3 runtime.');
 assert.ok(headers.includes('/assets/ovyx-app-studio-link-builder.js') && headers.includes('Cache-Control: no-store'), 'The live Stage 3 runtime must not be stuck behind stale asset caching.');
 assert.ok(pkg.scripts.test.includes('scripts/ovyx-app-studio-link-builder.test.mjs'), 'The Stage 3 regression test must run under npm test.');
 assert.ok(workflow.includes('scripts/ovyx-app-studio-link-builder.browser.test.mjs'), 'The desktop/mobile browser integration test must be wired into CI.');
