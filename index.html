@@ -920,7 +920,7 @@
 </div>
 <div class="adm-control-grid">
 <article class="adm-control-card"><div class="adm-control-icon"><i class="fa-solid fa-tags"></i></div><div><b>Pricing &amp; Entitlements</b><small>Global plans, prices, quotas and feature gates.</small></div><span>GLOBAL</span></article>
-<article class="adm-control-card"><div class="adm-control-icon"><i class="fa-solid fa-brain"></i></div><div><b>AI Brain</b><small>Global provider routing, model defaults and provider health.</small></div><span>GLOBAL</span></article>
+<article class="adm-control-card"><div class="adm-control-icon"><i class="fa-solid fa-brain"></i></div><div><b>AI services</b><small>Review AI availability, default models, and selection preferences.</small></div><span>GLOBAL</span></article>
 <article class="adm-control-card"><div class="adm-control-icon"><i class="fa-solid fa-bullhorn"></i></div><div><b>Broadcasts</b><small>Platform-wide announcements and maintenance notices.</small></div><span>ALL USERS</span></article>
 <article class="adm-control-card"><div class="adm-control-icon"><i class="fa-solid fa-layer-group"></i></div><div><b>Published Templates</b><small>Shared template catalog exposed to the user workspace.</small></div><span>GLOBAL</span></article>
 <article class="adm-control-card"><div class="adm-control-icon"><i class="fa-solid fa-fingerprint"></i></div><div><b>AI Identity &amp; Policy</b><small>Global identity and safety policy should remain server-owned.</small></div><span>GLOBAL</span></article>
@@ -1167,9 +1167,9 @@
 <div>
 <h2 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
 <i class="fa-solid fa-brain text-brand-cyan"></i>
-<span>AI Brain Connectivity Diagnostics</span>
+<span>AI Service Availability</span>
 </h2>
-<p class="text-xs text-zinc-400 font-mono mt-0.5">Provider configuration status, model availability, and upstream readiness.</p>
+<p class="text-xs text-zinc-400 font-mono mt-0.5">Check which AI options are ready to use. Credential details remain private.</p>
 </div>
 </div>
 <!-- Live Provider Diagnostic Matrix Grid -->
@@ -2178,9 +2178,9 @@
             type: 'features',
             content: {
               items: [
-                { title: 'Starter Cloud', desc: 'Full edge isolate deploy, 50k tokens, community support.' },
+                { title: 'Starter Cloud', desc: 'Website publishing, 50,000 AI tokens, and community support.' },
                 { title: 'Pro Production', desc: 'Unlimited AST runs, Wix Responsive AI, Custom apex domains.' },
-                { title: 'Max Enterprise', desc: 'Autonomous Kernel Bot, 5M tokens, dedicated worker bridge.' }
+                { title: 'Max Enterprise', desc: 'Advanced automation, 5 million AI tokens, and expanded service access.' }
               ]
             },
             styles: {
@@ -2422,7 +2422,7 @@
         { label: 'Toggle Brain Bot Assistant', run: () => WorkspaceBrainBot.toggle() },
         { label: 'Internal Kernel Bot', run: () => Router.go('kernel-bot') },
         { label: 'Heal Canvas AST (Kernel Bot)', run: () => { Router.go('kernel-bot'); OvyxKernelBot.healDOM(); } },
-        { label: 'AI Brain Connectivity Diagnostics', run: () => Router.go('admin-brain') },
+        { label: 'AI Service Availability', run: () => Router.go('admin-brain') },
         { label: 'Run Responsive AI Optimize', run: () => { Router.go('webstudio'); WebStudio.runResponsiveAIOptimize(); } },
         { label: 'Toggle Master Production Switch', run: () => MasterProductionSwitch.toggle() },
         { label: 'Toggle Master Admin Override', run: () => AdminConfigurator.toggleAdminOverride(!AdminConfigurator.adminOverride) },
@@ -3645,7 +3645,7 @@
       }
       if(badge){
         badge.textContent=status==='READY'
-          ?`ACTIVE · ${details.label||PROVIDER_LABELS[id]||id.toUpperCase()}`
+          ?`${details.label||PROVIDER_LABELS[id]||'AI option'} ready`
           :this.statusLabel(status);
         badge.className=status==='READY'
           ?'ovyx-ai-auto-status'
@@ -3653,8 +3653,8 @@
       }
       if(latency){
         latency.textContent=status==='READY'
-          ?(details.latencyMs?`SERVER READY · ${details.latencyMs}ms`:'SERVER READY')
-          :(details.error||'SERVER CHECKING');
+          ?(details.latencyMs?`Ready · ${details.latencyMs} ms`:'Ready')
+          :(status==='AUTH_FAILED'?'Sign-in required':status==='TIMEOUT'?'Availability check timed out':status==='UNAVAILABLE'?'Not available right now':'Checking availability…');
         latency.className=status==='READY'
           ?'text-emerald-400 text-[11px] font-bold'
           :(status==='AUTH_FAILED'||status==='UNAVAILABLE'||status==='TIMEOUT'
@@ -3680,7 +3680,7 @@
       if(latencyStat)latencyStat.textContent=latencyMs?`${Math.round(latencyMs)}ms`:'—';
       if(card)card.dataset.providerState=status;
       if(title){
-        title.textContent=status==='4/4'?'4/4 AI BRAINS ACTIVE':status==='PREVIEW'?'LIVE VALIDATION · ADMIN SESSION REQUIRED':status==='SESSION'?'ADMIN SESSION REQUIRED':'AI PROVIDER HEALTH DEGRADED';
+        title.textContent=status==='4/4'?'All AI services are ready':status==='PREVIEW'?'Live status requires administrator access':status==='SESSION'?'Sign in to check live status':'AI availability needs attention';
         title.className=status==='4/4'||status==='SESSION'
           ?'ovyx-ai-auto-status'
           :'text-[10px] font-mono text-zinc-500';
@@ -3693,8 +3693,8 @@
       const preview=window.OVYX_ADMIN_UI_PREVIEW===true;
       if(preview){
         this.state='preview';
-        PROVIDERS.forEach(id=>this.setProvider(id,'PREVIEW',{error:'Live provider status is available only from an authenticated deployed Admin session.'}));
-        this.applyOverview('PREVIEW','Local preview · no production secrets are inspected',0);
+        PROVIDERS.forEach(id=>this.setProvider(id,'PREVIEW',{error:'Sign in with an administrator account to check live AI service availability.'}));
+        this.applyOverview('PREVIEW','Preview only · live AI service status is not shown here',0);
         return false;
       }
       // The status endpoint is deliberately admin-protected. Do not probe it for normal users.
@@ -3733,7 +3733,7 @@
           }
         });
         // Fill any missing provider rows without marking them as healthy.
-        PROVIDERS.filter(id=>!this.providers[id] || !list.some(x=>String(x.provider||'').toLowerCase()===id)).forEach(id=>this.setProvider(id,'UNAVAILABLE',{error:'Provider was not returned by the server.'}));
+        PROVIDERS.filter(id=>!this.providers[id] || !list.some(x=>String(x.provider||'').toLowerCase()===id)).forEach(id=>this.setProvider(id,'UNAVAILABLE',{error:'Availability information is not available for this AI option.'}));
         this.state=ready===PROVIDERS.length?'ready':ready?'degraded':'offline';
         this.lastCheckedAt=Date.now();
         const overall=`${ready}/${PROVIDERS.length}`;
@@ -4115,7 +4115,7 @@ const OVYXConnections={
  githubToken:null,cloudflareToken:null,github:null,cloudflare:null,
  async githubTest(){
    const bridge=window.OVYXBackendBridge;
-   if(!bridge?.githubRepos)throw Error('GitHub connection is not available right now.');
+   if(!bridge?.githubRepos)throw Error('Source management is not available right now. Please try again.');
    const repos=await bridge.githubRepos(true);
    this.github={server:true,login:'GitHub App',repositoryCount:Array.isArray(repos)?repos.length:0};
    this.githubToken=null;
@@ -4123,7 +4123,7 @@ const OVYXConnections={
  },
  async githubRepos(){
    const bridge=window.OVYXBackendBridge;
-   if(!bridge?.githubRepos)throw Error('GitHub connection is not available right now.');
+   if(!bridge?.githubRepos)throw Error('Source management is not available right now. Please try again.');
    const repos=await bridge.githubRepos(true);
    this.github={server:true,login:'GitHub App',repositoryCount:Array.isArray(repos)?repos.length:0};
    this.githubToken=null;
@@ -4131,7 +4131,7 @@ const OVYXConnections={
  },
  async cloudflareTest(){
    const bridge=window.OVYXBackendBridge;
-   if(!bridge?.cloudflareStatus)throw Error('Publishing connection is not available right now.');
+   if(!bridge?.cloudflareStatus)throw Error('Publishing access is not available right now. Please try again.');
    const state=await bridge.cloudflareStatus(true);
    this.cloudflare={server:true,status:state?.status||'unknown',detail:state?.detail||''};
    this.cloudflareToken=null;
@@ -4160,9 +4160,9 @@ function ensureConnectionsPanel(){
   <div class="ovyx-connection-card"><div style="display:flex;justify-content:space-between;gap:8px"><h4>Publishing service</h4><span id="ovyx-cloudflare-status" class="ovyx-conn-status idle">Setup required</span></div><p>Check publishing availability and review available resources. Any access token is used only for this session and remains private.</p><input id="ovyx-cloudflare-token" class="ovyx-secret-input" type="password" autocomplete="off" placeholder="Temporary access token"><div style="display:flex;gap:7px;margin-top:8px"><button id="ovyx-cloudflare-connect" class="ovyx-conn-btn">Check availability</button><button id="ovyx-cloudflare-accounts-btn" class="ovyx-conn-btn">View available accounts</button></div><div id="ovyx-cloudflare-accounts" style="margin-top:8px;font:500 9px JetBrains Mono,monospace;color:#6f747c"></div></div>
  </div>`;
  settings.appendChild(panel);
- panel.querySelector('#ovyx-github-connect').onclick=async()=>{const b=panel.querySelector('#ovyx-github-connect');try{b.disabled=true;b.textContent='Testing…';await OVYXConnections.githubTest(panel.querySelector('#ovyx-github-token').value);OVYXConnections.render();toast('GitHub API connection verified for this session.','success')}catch(e){toast(e.message,'error')}finally{b.disabled=false;b.textContent='Verify access'}};
- panel.querySelector('#ovyx-github-repos-btn').onclick=async()=>{try{const repos=await OVYXConnections.githubRepos();panel.querySelector('#ovyx-github-repos').textContent=repos.length?repos.map(r=>r.full_name).join(' · '):'No repositories are available for this session.'}catch(e){toast(e.message,'error')}};
- panel.querySelector('#ovyx-cloudflare-connect').onclick=async()=>{const b=panel.querySelector('#ovyx-cloudflare-connect');try{b.disabled=true;b.textContent='Verifying…';await OVYXConnections.cloudflareTest(panel.querySelector('#ovyx-cloudflare-token').value);OVYXConnections.render();toast('Connection verified for this session.','success')}catch(e){toast(e.message,'error')}finally{b.disabled=false;b.textContent='Check availability'}};
+ panel.querySelector('#ovyx-github-connect').onclick=async()=>{const b=panel.querySelector('#ovyx-github-connect');try{b.disabled=true;b.textContent='Testing…';await OVYXConnections.githubTest(panel.querySelector('#ovyx-github-token').value);OVYXConnections.render();toast('Source access is ready for this session.','success')}catch(e){toast(e.message,'error')}finally{b.disabled=false;b.textContent='Verify access'}};
+ panel.querySelector('#ovyx-github-repos-btn').onclick=async()=>{try{const repos=await OVYXConnections.githubRepos();panel.querySelector('#ovyx-github-repos').textContent=repos.length?repos.map(r=>r.full_name).join(' · '):'No repositories are available for this account yet.'}catch(e){toast(e.message,'error')}};
+ panel.querySelector('#ovyx-cloudflare-connect').onclick=async()=>{const b=panel.querySelector('#ovyx-cloudflare-connect');try{b.disabled=true;b.textContent='Verifying…';await OVYXConnections.cloudflareTest(panel.querySelector('#ovyx-cloudflare-token').value);OVYXConnections.render();toast('Publishing access is ready for this session.','success')}catch(e){toast(e.message,'error')}finally{b.disabled=false;b.textContent='Check availability'}};
  panel.querySelector('#ovyx-cloudflare-accounts-btn').onclick=async()=>{try{const a=await OVYXConnections.cloudflareAccounts();panel.querySelector('#ovyx-cloudflare-accounts').textContent=a.length?a.map(x=>x.name||x.id).join(' · '):'No accounts are available for this session.'}catch(e){toast(e.message,'error')}};
 }
 /* ---------- APP STUDIO PHRASE 1 · HARD RESET ---------- */
@@ -4260,7 +4260,7 @@ const Settings={
  this.panel('notifications','GENERAL / NOTIFICATIONS','Notifications','Keep important activity visible without noise.',`<div class="ovyx-pref-group"><div class="ovyx-pref-label">ACTIVITY</div>${this.row('Build completion','Notify when a generation finishes',toggle('set-notify-build',true))}${this.row('Connection failures','Show provider and deployment failures',toggle('set-notify-fail',true))}${this.row('Usage threshold','Warn when token usage approaches its limit',toggle('set-notify-usage',true))}</div>`)+
  this.panel('editor','WORKFLOW / EDITOR','Editor','Control the working surface across Web Studio and Code.',`<div class="ovyx-pref-group"><div class="ovyx-pref-label">EDITOR</div>${this.row('Default Web Studio mode','Choose the default Build, Plan, Ask or Fix mode',`<select class="ovyx-pref-select" id="set-editor-mode"><option value="build">Build</option><option value="plan">Plan</option><option value="ask">Ask</option><option value="fix">Fix</option></select>`)}${this.row('Show inspector','Keep the property inspector visible',toggle('set-inspector',true))}${this.row('Live preview','Render changes immediately when possible',toggle('set-live-preview',true))}</div>`)+
  this.panel('shortcuts','WORKFLOW / SHORTCUTS','Shortcuts','Keyboard commands for fast navigation and actions.',`<div class="ovyx-pref-group"><div class="ovyx-pref-label">CORE COMMANDS</div>${[['Command palette','⌘ K','App-wide'],['New project','⌘ N','App-wide'],['Save project','⌘ S','App-wide · saves locally'],['Undo','⌘ Z','Web Studio only'],['Redo','⌘ ⇧ Z','Web Studio only']].map(x=>this.row(x[0],x[2],`<kbd class="ovyx-kbd">${x[1]}</kbd>`)).join('')}</div>`)+
- this.panel('ai','WORKFLOW / AI PREFERENCES','AI Preferences','Model routing, generation behavior and safeguards.',`<div class="ovyx-pref-group"><div class="ovyx-pref-label">GENERATION</div>${this.row('Preferred provider','Used when no provider is specified',`<select class="ovyx-pref-select" data-legacy-control="set-provider"><option value="gemini">Gemini</option><option value="deepseek">DeepSeek</option><option value="anthropic">Claude</option><option value="openai">OpenAI</option></select>`)}${this.row('Thinking detail','How much reasoning context is requested',`<select class="ovyx-pref-select"><option>Balanced</option><option>Fast</option><option>Deep</option></select>`)}${this.row('Safe generation','Keep destructive operations behind confirmation',toggle('set-ai-safe',true))}</div>`)+
+ this.panel('ai','WORKFLOW / AI PREFERENCES','AI Preferences','Choose your preferred AI model, generation style, and safety settings.',`<div class="ovyx-pref-group"><div class="ovyx-pref-label">GENERATION</div>${this.row('Preferred AI option','Default choice when no AI option is selected',`<select class="ovyx-pref-select" data-legacy-control="set-provider"><option value="gemini">Gemini</option><option value="deepseek">DeepSeek</option><option value="anthropic">Claude</option><option value="openai">OpenAI</option></select>`)}${this.row('Thinking detail','How much reasoning context is requested',`<select class="ovyx-pref-select"><option>Balanced</option><option>Fast</option><option>Deep</option></select>`)}${this.row('Safe generation','Keep destructive operations behind confirmation',toggle('set-ai-safe',true))}</div>`)+
  this.panel('privacy','SECURITY / PRIVACY','Privacy','Understand and control local project data.',`<div class="ovyx-pref-group"><div class="ovyx-pref-label">DATA</div>${this.row('Local-first projects','Projects use Local saving is available for continuity. Online sync is shown as active only after a successful save.',`<span class="ovyx-health-chip">On this device</span>`)}${this.row('Telemetry','Service health checks run only when you request a review',`<span class="ovyx-health-chip">CONTROLLED</span>`)}${this.row('Clear appearance data','Reset theme and appearance preferences',`<button class="ovyx-settings-btn danger" data-clear-appearance>Reset</button>`)}</div>`)+
  this.panel('security','SECURITY / SECURITY','Security','Authentication and session controls.',`<div class="ovyx-pref-group"><div class="ovyx-pref-label">SESSION</div>${this.row('Authentication','Sign-in is handled by the configured identity provider; this row does not verify your current account or session.',`<span class="ovyx-health-chip">INFO</span>`)}${this.row('Secret storage','Storage rules depend on each integration. Do not put raw credentials in project files or chats.',`<span class="ovyx-health-chip">POLICY</span>`)}${this.row('Production secrets','Production secret configuration is not checked by this Settings panel.',`<span class="ovyx-health-chip">NOT CHECKED</span>`)}</div>`)+
  this.panel('plan','BILLING / PLAN','Plan','Subscription, feature access and checkout.',`<div class="ovyx-pref-group"><div class="ovyx-pref-label">CURRENT PLAN</div>${this.row('Active plan','Feature gates use the current OVYX tier',`<span class="ovyx-tier-badge">${esc7((KernelState?.userTier||'free').toUpperCase())}</span>`)}${this.row('Manage subscription','Open the real checkout configuration and plans',`<button class="ovyx-settings-btn primary" onclick="Router.go('pricing')">Open Plans</button>`)}</div>`)+
@@ -4350,10 +4350,10 @@ function aiLoad(){try{localStorage.removeItem(AI_KEY);return {...aiDefaults,...J
 function aiSave(st){try{localStorage.setItem(window.OVYXAIStorageKey(),JSON.stringify(st));localStorage.removeItem(AI_KEY);return true}catch{return false}}
 function aiApply(){const st=aiLoad();window.OVYXAI=st;document.querySelectorAll('[data-ai-mode]').forEach(x=>x.classList.toggle('selected',x.dataset.aiMode===st.mode));const model=document.getElementById('set-ai-model');if(model)model.value=st.model;const provider=document.getElementById('set-provider');if(provider)provider.value=st.provider||'gemini';['explain','preserve','confirmDestructive','contextFiles','contextPage','contextGithub'].forEach(k=>{const el=document.querySelector('[data-ai-pref="'+k+'"]');if(el){el.checked=!!st[k];el.setAttribute('aria-checked',String(!!st[k]))}})}
 function aiRender(){const S=window.OVYXSettings;if(!S)return;const main=document.getElementById('ovyx-settings-main');const p=main?.querySelector('[data-settings-panel="ai"]');if(!p)return;const st=aiLoad();p.innerHTML=`<div class="ovyx-panel-head"><div class="ovyx-panel-kicker">WORKFLOW / AI PREFERENCES</div><h2>AI Preferences</h2><p>Control how OVYX generates, protects and routes AI work. Advanced controls stay collapsed until you need them.</p></div>
-<div class="ovyx-pref-group"><div class="ovyx-pref-label">AI EXPERIENCE</div><div class="ovyx-pref-row"><div class="ovyx-pref-copy"><b>Default generation mode</b><small>Choose the balance between speed and output depth.</small></div><div class="ovyx-pref-control"><span class="ovyx-health-chip">${st.mode.toUpperCase()}</span></div></div><div class="ovyx-ai-choice-grid"><button type="button" class="ovyx-ai-choice" data-ai-mode="balanced"><b>Balanced</b><small>Best default for everyday building.</small></button><button type="button" class="ovyx-ai-choice" data-ai-mode="fast"><b>Fast</b><small>Lower latency for quick iterations.</small></button><button type="button" class="ovyx-ai-choice" data-ai-mode="quality"><b>Quality</b><small>More depth for complex generation.</small></button></div>${S.row('Preferred model','Select a provider-compatible model override',`<select class="ovyx-pref-select" id="set-ai-model"><option value="automatic">Automatic · server default</option><option data-provider="gemini" value="gemini-3.8-flash">Gemini Flash</option><option data-provider="anthropic" value="claude-opus-5">Claude Opus</option><option data-provider="deepseek" value="deepseek-flash">DeepSeek Flash</option><option data-provider="openai" value="gpt-6.1-sol">OpenAI default</option></select>`)}${S.row('Preferred provider','Used when a specific provider is not requested',`<select class="ovyx-pref-select" id="set-provider"><option value="gemini">Gemini</option><option value="anthropic">Claude</option><option value="deepseek">DeepSeek</option><option value="openai">OpenAI</option></select>`)}</div>
+<div class="ovyx-pref-group"><div class="ovyx-pref-label">AI EXPERIENCE</div><div class="ovyx-pref-row"><div class="ovyx-pref-copy"><b>Default generation mode</b><small>Choose the balance between speed and output depth.</small></div><div class="ovyx-pref-control"><span class="ovyx-health-chip">${st.mode.toUpperCase()}</span></div></div><div class="ovyx-ai-choice-grid"><button type="button" class="ovyx-ai-choice" data-ai-mode="balanced"><b>Balanced</b><small>Best default for everyday building.</small></button><button type="button" class="ovyx-ai-choice" data-ai-mode="fast"><b>Fast</b><small>Lower latency for quick iterations.</small></button><button type="button" class="ovyx-ai-choice" data-ai-mode="quality"><b>Quality</b><small>More depth for complex generation.</small></button></div>${S.row('Preferred model','Choose a model supported by your preferred AI option',`<select class="ovyx-pref-select" id="set-ai-model"><option value="automatic">Automatic · server default</option><option data-provider="gemini" value="gemini-3.8-flash">Gemini Flash</option><option data-provider="anthropic" value="claude-opus-5">Claude Opus</option><option data-provider="deepseek" value="deepseek-flash">DeepSeek Flash</option><option data-provider="openai" value="gpt-6.1-sol">OpenAI default</option></select>`)}${S.row('Preferred AI option','Default choice when no AI option is selected',`<select class="ovyx-pref-select" id="set-provider"><option value="gemini">Gemini</option><option value="anthropic">Claude</option><option value="deepseek">DeepSeek</option><option value="openai">OpenAI</option></select>`)}</div>
 <div class="ovyx-pref-group"><div class="ovyx-pref-label">GENERATION BEHAVIOR</div>${[['explain','Explain major changes','Give a concise explanation when OVYX makes significant structural changes.'],['preserve','Preserve existing structure','Prefer modifying the existing project instead of unnecessarily rebuilding it.'],['confirmDestructive','Ask before destructive edits','Require confirmation before destructive project changes.']].map(x=>`<label class="ovyx-ai-toggle-row"><span class="ovyx-ai-toggle-copy"><b>${x[1]}</b><small>${x[2]}</small></span><input class="ovyx-ai-check" data-ai-pref="${x[0]}" type="checkbox" ${st[x[0]]?'checked':''}></label>`).join('')}</div>
 <div class="ovyx-pref-group"><div class="ovyx-pref-label">CONTEXT</div>${[['contextFiles','Project files','Include project files and structure in generation context.'],['contextPage','Current page','Include the active page/section when relevant.'],['contextGithub','GitHub repository','Use the connected repository as context when explicitly available.']].map(x=>`<label class="ovyx-ai-toggle-row"><span class="ovyx-ai-toggle-copy"><b>${x[1]}</b><small>${x[2]}</small></span><input class="ovyx-ai-check" data-ai-pref="${x[0]}" type="checkbox" ${st[x[0]]?'checked':''}></label>`).join('')}</div>
-<details class="ovyx-ai-advanced"><summary>ADVANCED</summary><div class="ovyx-ai-advanced-body">${S.row('Model routing','Automatic selection and routing strategy',`<select class="ovyx-pref-select" id="set-ai-routing"><option value="automatic">Automatic</option><option value="preferred-first">Preferred provider first</option><option value="provider-priority">Owner provider priority</option></select>`)}${S.row('Provider fallback','What OVYX should do if the preferred provider fails',`<select class="ovyx-pref-select" id="set-ai-fallback"><option value="automatic">Automatic</option><option value="next">Next available provider</option><option value="stop">Stop and notify me</option></select>`)}${S.row('Context limits','Maximum project context sent to generation',`<select class="ovyx-pref-select" id="set-ai-context-limit"><option value="automatic">Automatic</option><option value="conservative">Conservative</option><option value="expanded">Expanded</option></select>`)}${S.row('Generation budget','Default generation resource preference',`<select class="ovyx-pref-select" id="set-ai-budget"><option value="automatic">Automatic</option><option value="efficient">Efficient</option><option value="maximum">Maximum</option></select>`)}</div></details>
+<details class="ovyx-ai-advanced"><summary>ADVANCED</summary><div class="ovyx-ai-advanced-body">${S.row('AI selection','How OVYX chooses an AI model for each request',`<select class="ovyx-pref-select" id="set-ai-routing"><option value="automatic">Automatic</option><option value="preferred-first">Preferred provider first</option><option value="provider-priority">Owner provider priority</option></select>`)}${S.row('Fallback AI option','Choose what happens if the preferred AI option is unavailable',`<select class="ovyx-pref-select" id="set-ai-fallback"><option value="automatic">Automatic</option><option value="next">Next available provider</option><option value="stop">Stop and notify me</option></select>`)}${S.row('Context limits','Maximum project context sent to generation',`<select class="ovyx-pref-select" id="set-ai-context-limit"><option value="automatic">Automatic</option><option value="conservative">Conservative</option><option value="expanded">Expanded</option></select>`)}${S.row('Generation budget','Default generation resource preference',`<select class="ovyx-pref-select" id="set-ai-budget"><option value="automatic">Automatic</option><option value="efficient">Efficient</option><option value="maximum">Maximum</option></select>`)}</div></details>
 <div class="ovyx-theme-actions"><button type="button" class="ovyx-settings-btn primary" id="set-ai-save">Save AI Preferences</button><button type="button" class="ovyx-settings-btn" id="set-ai-reset">Reset AI Preferences</button></div>`;aiApply();
  p.querySelectorAll('[data-ai-mode]').forEach(b=>b.addEventListener('click',()=>{const x=aiLoad();x.mode=b.dataset.aiMode;aiSave(x);aiApply()}));
  p.querySelector('#set-ai-save')?.addEventListener('click',()=>{const x=aiLoad();x.model=p.querySelector('#set-ai-model')?.value||'automatic';x.provider=p.querySelector('#set-provider')?.value||'gemini';['explain','preserve','confirmDestructive','contextFiles','contextPage','contextGithub'].forEach(k=>x[k]=!!p.querySelector('[data-ai-pref="'+k+'"]')?.checked);aiSave(x);aiApply();toast('AI preferences saved.','success')});
@@ -4899,7 +4899,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
       this.unsub?.();this.unsub=null;this.docs=[];this.loadRead();this.render();
       const badge=document.getElementById('v34-inbox-connection');
       const u=window.firebase?.auth?.().currentUser;
-      if(!u||!window.firebase?.firestore){if(badge){badge.textContent='SIGN IN REQUIRED';badge.classList.remove('live')}return}
+      if(!u||!window.firebase?.firestore){if(badge){badge.textContent='Sign-in required';badge.classList.remove('live')}return}
       try{
         this.unsub=firebase.firestore().collection('ovyx_announcements').where('published','==',true).limit(50).onSnapshot(snap=>{
           this.docs=snap.docs.map(d=>({id:d.id,...d.data()})).sort((a,b)=>(b.createdAt?.toMillis?.()||0)-(a.createdAt?.toMillis?.()||0));
@@ -4908,10 +4908,10 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
           this.renderHistory();
         },err=>{
           console.warn('[OVYX notification stream]',err);
-          if(badge){badge.textContent='FIRESTORE ERROR';badge.classList.remove('live')}
+          if(badge){badge.textContent='Notifications unavailable';badge.classList.remove('live')}
           this.render();
         });
-      }catch(e){if(badge){badge.textContent='UNAVAILABLE';badge.classList.remove('live')}}
+      }catch(e){if(badge){badge.textContent='Unavailable';badge.classList.remove('live')}}
     },
     render(){
       const list=document.getElementById('v34-inbox-list');if(!list)return;
@@ -5251,7 +5251,7 @@ function patchDrawer(){
     catch(err){
       window.OVYX_LIVE_SERVICE_STATE={ok:false,error:err.message,fetchedAt:Date.now()};
       let warning=$('#v42-service-warning');if(!warning){warning=document.createElement('div');warning.id='v42-service-warning';warning.style.cssText='position:fixed;left:12px;right:12px;bottom:12px;z-index:99999;padding:11px 13px;border:1px solid rgba(239,68,68,.42);border-radius:12px;background:rgba(69,10,10,.94);color:#fca5a5;font:700 10px Inter,sans-serif';document.body.appendChild(warning)}
-      warning.textContent='LIVE SERVICE STATUS UNAVAILABLE · '+err.message;warning.hidden=false;return null;
+      warning.textContent='AI service status is unavailable. Please try again.';warning.hidden=false;return null;
     }finally{}
   }
   /* V54: V43 custom pull-to-refresh removed; native browser pull remains the only pull gesture. */
@@ -6755,11 +6755,11 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
     const panel=mount();if(!panel)return;
     panel.dataset.state='attention';
     panel.querySelector('.osh-status').textContent='Some systems need attention';
-    panel.querySelector('.osh-meta').textContent='Health endpoint unavailable';
+    panel.querySelector('.osh-meta').textContent='Health check unavailable';
     panel.querySelector('.osh-grid').innerHTML='';
     panel.querySelector('.osh-tip').textContent='';
     const old=panel.querySelector('.osh-error');if(old)old.remove();
-    const box=document.createElement('div');box.className='osh-error';box.textContent='Unable to reach /api/health. '+String(message||'The health endpoint did not respond.');panel.querySelector('.osh-summary').after(box);
+    const box=document.createElement('div');box.className='osh-error';box.textContent='Platform health could not be checked. Please try again.';panel.querySelector('.osh-summary').after(box);
   }
   async function authHeaders(){
     try{const user=window.firebase?.auth?.().currentUser;if(user){const token=await user.getIdToken(false);if(token)return {Authorization:'Bearer '+token};}}catch(e){}
@@ -7133,11 +7133,11 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
      const badge=$(`brain-badge-${uiId}`);
      const start=performance.now();
      if(btn){btn.disabled=true;btn.dataset.state='';btn.textContent='CHECKING…';}
-     if(latency)latency.textContent='CHECKING SECURE PROVIDER ENDPOINT';
+     if(latency)latency.textContent='Checking AI service availability…';
      try{
        if(window.OVYX_ADMIN_UI_PREVIEW===true){
          const msg='Live provider checks require an authenticated deployed Admin session.';
-         if(btn){btn.dataset.state='preview';btn.textContent='PREVIEW ONLY';btn.disabled=false;}
+         if(btn){btn.dataset.state='preview';btn.textContent='Preview only';btn.disabled=false;}
          if(latency){latency.textContent=msg;latency.className='text-zinc-500 text-[11px]';}
          return false;
        }
@@ -7994,12 +7994,12 @@ const DEFAULT_RULES=[
 {key:'workspace.appstudio',name:'App Studio',type:'workspace',tier:'max',enabled:true,description:'Application-oriented builder.'},
 {key:'workspace.templates',name:'Blueprint Library',type:'workspace',tier:'free',enabled:true,description:'Curated architectural starters.'},
 {key:'workspace.code',name:'Code Workspace',type:'workspace',tier:'free',enabled:true,description:'Bidirectional code workspace.'},
-{key:'feature.ai-generation',name:'AI Generation',type:'feature',tier:'pro',enabled:true,description:'Server-routed AI generation.'},
+{key:'feature.ai-generation',name:'AI Generation',type:'feature',tier:'pro',enabled:true,description:'AI-assisted creation across supported tools.'},
 {key:'feature.advanced-web-studio',name:'Advanced Web Studio',type:'feature',tier:'max',enabled:true,description:'Advanced Web Studio controls.'},
 {key:'feature.ai-identity',name:'AI Identity Studio',type:'feature',tier:'max',enabled:true,description:'AI identity and persona controls.'},
 {key:'feature.project-assets',name:'Project Asset Storage',type:'feature',tier:'pro',enabled:true,description:'Project media and asset storage.'},
-{key:'feature.github',name:'GitHub Integration',type:'integration',tier:'pro',enabled:true,description:'Repository connection and access.'},
-{key:'feature.cloudflare-deploy',name:'Website publishing',type:'deployment',tier:'pro',enabled:true,description:'Server-authorized deployment.'},
+{key:'feature.github',name:'Source management',type:'integration',tier:'pro',enabled:true,description:'Browse and manage source repositories.'},
+{key:'feature.cloudflare-deploy',name:'Website publishing',type:'deployment',tier:'pro',enabled:true,description:'Website publishing when access is available.'},
 {key:'workspace.team',name:'Team Workspace',type:'workspace',tier:'max',enabled:true,description:'Collaborative workspace controls.'},
 {key:'workspace.game-studio',name:'Game Studio',type:'workspace',tier:'max',enabled:false,description:'Reserved until the game-studio execution adapter is enabled.'}
 ];
@@ -8435,7 +8435,7 @@ window.OVYXAccessRegistry={state,requiredTier,allowed,planFeatures,apply:applyLo
     if(desc)desc.placeholder='Optional note for your team';
     let note=box.querySelector('.ovyx-simple-access-note');
     if(!note){note=document.createElement('div');note.className='ovyx-admin-help-note ovyx-simple-access-note';box.querySelector('.ovyx-access-registry-actions')?.after(note)}
-    if(note)note.textContent='You do not need to manage roles here. Roles stay protected on the server; this screen only controls plan access for resources.';
+    if(note)note.textContent='You do not need to manage roles here. Role assignments are managed centrally. This screen controls plan access for features.';
   }
   /* ---------------- Template manager ---------------- */
   function templateList(){try{const x=JSON.parse(localStorage.getItem('ovyx.template.matrix.v43')||'[]');return Array.isArray(x)?x.filter(v=>v&&v.published!==false):[]}catch{return[]}}
@@ -10087,7 +10087,7 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
         var backBtn=document.createElement('button');backBtn.type='button';backBtn.className='ovyx-v5-admin-back';backBtn.dataset.ovyxBack='1';backBtn.innerHTML='<i class="fa-solid fa-arrow-left"></i><span>Back</span>';backBtn.addEventListener('click',function(e){e.preventDefault();back()});
         var nav=document.createElement('div');nav.className='ovyx-v5-admin-nav';
         ADMIN_ROUTES.forEach(function(r){var b=document.createElement('button');b.type='button';b.dataset.v5AdminRoute=r;var meta=ADMIN_META[r];b.innerHTML='<i class="fa-solid '+meta[1]+'"></i><span>'+meta[0]+'</span>';b.addEventListener('click',function(){window.Router?.go?.(r)});nav.appendChild(b)});
-        var state=document.createElement('span');state.className='ovyx-v5-admin-state';state.innerHTML='<i class="fa-solid fa-circle-check"></i><span>Local UI / server actions protected</span>';
+        var state=document.createElement('span');state.className='ovyx-v5-admin-state';state.innerHTML='<i class="fa-solid fa-circle-check"></i><span>Preview only · sensitive actions require authorization</span>';
         chrome.appendChild(backBtn);chrome.appendChild(nav);chrome.appendChild(state);section.insertBefore(chrome,section.firstChild);
       }
       var active=currentRoute();chrome.querySelectorAll('[data-v5-admin-route]').forEach(function(b){b.classList.toggle('is-active',b.dataset.v5AdminRoute===active)});
@@ -10133,7 +10133,7 @@ function ensureAdminVisibility(){
 function ensureAdminHeader(){
   const view=$('view-admin-overview');if(!view||view.querySelector('.v66-admin-header'))return;
   const header=document.createElement('div');header.className='v66-admin-header';
-  header.innerHTML='<div><div class="v66-admin-header__kicker">OVYX / CONTROL CENTER</div><div class="v66-admin-header__title">Admin Command Center</div><div class="v66-admin-header__copy">All nine administrative modules stay in one place. Navigation is local; protected writes still require server authorization.</div></div><div class="v66-admin-header__badge"><i class="fa-solid fa-shield-halved"></i><span>'+ (isPreview()?'LOCAL PREVIEW':'SERVER AUTHORIZED') +'</span></div>';
+  header.innerHTML='<div><div class="v66-admin-header__kicker">OVYX / CONTROL CENTER</div><div class="v66-admin-header__title">Admin Command Center</div><div class="v66-admin-header__copy">Manage all nine administration areas in one place. Sensitive changes require administrator authorization.</div></div><div class="v66-admin-header__badge"><i class="fa-solid fa-shield-halved"></i><span>'+ (isPreview()?'LOCAL PREVIEW':'SERVER AUTHORIZED') +'</span></div>';
   const first=view.firstElementChild; if(first)first.after(header);else view.prepend(header);
   const grid=view.querySelector('.v6-admin-module-grid');
   if(grid&&!view.querySelector('.v66-admin-search')){
@@ -10236,7 +10236,7 @@ function improveTemplateManager(){
   const toolbar=document.createElement('div');toolbar.className='v66-template-toolbar';toolbar.innerHTML='<input id="v66-template-search" type="search" autocomplete="off" placeholder="Search published templates…"><select id="v66-template-tier"><option value="all">All plans</option><option value="free">Free</option><option value="pro">Pro</option><option value="max">Max</option></select><select id="v66-template-category"><option value="all">All categories</option><option value="SaaS">SaaS</option><option value="Portfolio">Portfolio</option><option value="Commerce">Commerce</option></select><button type="button" id="v66-template-refresh"><i class="fa-solid fa-rotate"></i> Refresh</button>';
   host.querySelector('.ovyx-admin-template-manager__head')?.after(toolbar);
   const stats=document.createElement('div');stats.className='v66-template-stats';host.insertBefore(stats,liveGrid);
-  const note=document.createElement('div');note.className='v66-template-live-note';note.textContent=auth()?'Live administrator context: Preview is available. Delete only works when a matching protected server workflow exists.':'Development preview: template changes here affect this browser only until the admin account is authenticated.';toolbar.after(note);
+  const note=document.createElement('div');note.className='v66-template-live-note';note.textContent=auth()?'Administrator preview is available. Deletion is enabled only when the corresponding authorized action is available.':'Development preview: template changes here affect this browser only until the admin account is authenticated.';toolbar.after(note);
   const apply=()=>{
     const q=clean(toolbar.querySelector('#v66-template-search')?.value).toLowerCase(),tier=toolbar.querySelector('#v66-template-tier')?.value||'all',cat=toolbar.querySelector('#v66-template-category')?.value||'all';
     const list=JSON.parse(localStorage.getItem('ovyx.template.matrix.v43')||'[]');const arr=Array.isArray(list)?list.filter(x=>x&&x.published!==false):[];
@@ -10484,7 +10484,7 @@ window.OVYXV66Admin={scanFeatures,ensureAdminVisibility,injectFeatureStudio,appl
           b.addEventListener('click',()=>window.Router?.go?.(r));nav.appendChild(b);
         });
         const state=document.createElement('span');state.className='ovyx-v5-admin-state';
-        state.innerHTML='<i class="fa-solid fa-circle-check"></i><span>'+((authUser()||isRoot())?'Server-authorized admin':'Preview UI · server actions protected')+'</span>';
+        state.innerHTML='<i class="fa-solid fa-circle-check"></i><span>'+((authUser()||isRoot())?'Authorized administrator':'Preview only · sensitive actions require authorization')+'</span>';
         chrome.append(back,nav,state);section.insertBefore(chrome,section.firstChild);
       }
       chrome.querySelectorAll('[data-ovyx-v8-admin-route]').forEach(b=>b.classList.toggle('is-active',b.dataset.ovyxV8AdminRoute===active));
@@ -10566,7 +10566,7 @@ window.OVYXV66Admin={scanFeatures,ensureAdminVisibility,injectFeatureStudio,appl
     const list=templateList().filter(x=>x&&x.published!==false&&String(x.title||'').toLowerCase()!==title.toLowerCase());list.unshift(item);saveTemplateList(list.slice(0,100));
     try{window.OVYXTemplateHub?.render?.()}catch{}
     try{window.OVYXV55?.renderAdmin?.();window.OVYXV55?.renderPublic?.()}catch{}
-    const status=$('v43-template-form-status');if(status)status.textContent='Published to this development browser. Server publishing activates when administrator authentication is connected.';
+    const status=$('v43-template-form-status');if(status)status.textContent='Template published in this browser only. Account-wide publishing requires an authorized administrator.';
     $('v53-template-factory-status')?.replaceChildren(document.createTextNode('Published to the local OVYX Template Library.'));
     toast(title+' published to the local Template Library.','success');
     return true;
