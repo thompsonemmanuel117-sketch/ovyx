@@ -198,7 +198,7 @@
     releaseHeading.append(
       node('p', 'ovyx-lb-eyebrow', 'APP STUDIO / RELEASE'),
       node('h5', '', 'Export, publish and maintain'),
-      node('p', 'ovyx-lb-muted', 'Validate your app, export a deployable package, publish to Cloudflare Pages when authorized, or request Android/iOS builds using the configured mobile build service.')
+      node('p', 'ovyx-lb-muted', 'Validate your app, export a deployable package, publish when you’re ready, or prepare Android/iOS builds.')
     );
     release.appendChild(releaseHeading);
 
@@ -211,7 +211,7 @@
     release.appendChild(exportActions);
 
     const webHeading = node('div', 'ovyx-lb-release-subheading');
-    webHeading.append(node('h6', '', 'Web publish'), node('p', 'ovyx-lb-muted', 'A preview deployment is separate from production. Publishing updates the production site. Both actions require your confirmation and the appropriate Cloudflare permissions.'));
+    webHeading.append(node('h6', '', 'Web publish'), node('p', 'ovyx-lb-muted', 'A preview is separate from your live website. Publishing updates the live site. Both actions require your confirmation and publishing access.'));
     release.appendChild(webHeading);
     const webActions = node('div', 'ovyx-lb-release-actions');
     const webDeploy = node('button', 'ovyx-lb-release-btn', 'Deploy preview');
@@ -234,7 +234,7 @@
     release.appendChild(savedRelease);
 
     const mobileHeading = node('div', 'ovyx-lb-release-subheading');
-    mobileHeading.append(node('h6', '', 'Android / iOS builds'), node('p', 'ovyx-lb-muted', 'Mobile builds require the server’s Expo configuration and a square PNG app icon. Generated screens run inside a mobile WebView with local storage; OVYX account integrations are available only in the authenticated web preview.'));
+    mobileHeading.append(node('h6', '', 'Android / iOS builds'), node('p', 'ovyx-lb-muted', 'Mobile builds require mobile-build setup and a square PNG app icon. App data stays on the device; account-connected features are available only in the signed-in OVYX preview.'));
     release.appendChild(mobileHeading);
     const mobileGrid = node('div', 'ovyx-lb-mobile-grid');
     const iconLabel = node('label', 'ovyx-lb-label', 'App icon (square PNG)');
@@ -269,7 +269,7 @@
     const releaseDiagnostics = node('ul', 'ovyx-lb-release-diagnostics');
     releaseDiagnostics.setAttribute('data-lb-release-diagnostics', '');
     release.appendChild(releaseDiagnostics);
-    const releaseNote = node('p', 'ovyx-lb-capabilities', 'A successful deployment confirms provider acceptance, not that every integration is working. Release health checks the returned deployment URL and HTTP response. Mobile builds run asynchronously; refresh the status to view progress and available downloads. Form submissions and app preferences remain local to the browser or mobile app. External authentication, account APIs, payments, email, file uploads and third-party integrations require separate configuration.');
+    const releaseNote = node('p', 'ovyx-lb-capabilities', 'A successful publish request doesn't guarantee every feature is working. The website health check confirms whether the public site responds. Mobile builds can take time; refresh the status to see progress and downloads. Form submissions and app preferences stay on this device. Sign-in, account services, payments, email, and file uploads require separate setup.');
     releaseNote.setAttribute('role', 'note');
     release.appendChild(releaseNote);
     section.appendChild(release);
@@ -547,7 +547,7 @@
       row.appendChild(node('pre', '', text(content).slice(0, 26000)));
       parent.appendChild(row);
     }
-    if (!entries.length) parent.appendChild(node('p', 'ovyx-lb-muted', 'The generator did not return source files.'));
+    if (!entries.length) parent.appendChild(node('p', 'ovyx-lb-muted', 'Your app files couldn't be prepared. Please try again.'));
   }
   function reportProfile(brief, appName) {
     const profile = { appName, brandName: brief.brand.name, colors: brief.brand.colors };
@@ -599,7 +599,7 @@
       state.submissions.shift();
       serialized = JSON.stringify(state);
     }
-    if (serialized.length > 80000) throw new Error('The app preview storage limit (80 KB) was reached. Remove old data before saving more.');
+    if (serialized.length > 80000) throw new Error('This app has reached its 80 KB local data limit. Remove old saved data before adding more.');
     try { localStorage.setItem(appStateKey(projectId, ownerUid), serialized); }
     catch (_) { throw new Error('This browser could not save the app data. Check available storage and browser privacy settings.'); }
   }
@@ -664,18 +664,18 @@
         createdAt: text(project.createdAt || '').slice(0, 40)
       }))
     };
-    throw new Error('That OVYX API is not on the preview allowlist.');
+    throw new Error('This app can't use that account service from the preview.');
   }
   async function readApprovedApi(name) {
     const rule = API_ACTIONS[name];
-    if (!rule) throw new Error('Unsupported API action. Only entitlements, usage and projects reads are enabled.');
+    if (!rule) throw new Error('This action isn't supported in the preview. Only account access, usage, and saved app list can be read after approval.');
     const user = window.firebase?.auth?.().currentUser;
-    if (!user || typeof user.getIdToken !== 'function') throw new Error('Sign in to OVYX before reading account APIs.');
+    if (!user || typeof user.getIdToken !== 'function') throw new Error('Sign in to OVYX before viewing account information.');
     const approvals = approvedApiReads();
     const approvalKey = text(window.__OVYX_APP_STUDIO_GENERATED_PROJECT__?.id) + ':' + name;
     if (!approvals.has(approvalKey)) {
       if (typeof window.confirm !== 'function' || !window.confirm('Allow this generated preview to read ' + rule.label + ' from your OVYX account? Only a read-only OVYX endpoint will be called.')) {
-        throw new Error('Access was not authorized; no OVYX API request was made.');
+        throw new Error('Access wasn't approved. No account information was requested.');
       }
       approvals.add(approvalKey);
     }
@@ -737,7 +737,7 @@
           const value = safeJsonValue(payload.value);
           if (JSON.stringify(value).length > 8000) throw new Error('One stored app value cannot exceed 8 KB.');
           state.values[key] = value;
-          if (Object.keys(state.values).length > 50) throw new Error('This app has reached its 50-key local storage limit.');
+          if (Object.keys(state.values).length > 50) throw new Error('This app has reached its local data limit. Remove unused saved values and try again.');
           writeAppState(projectId, ownerUid, state);
           reply(true, true);
           return;
@@ -768,7 +768,7 @@
           reply(true, result);
           return;
         }
-        reply(false, null, 'Unsupported action. This preview only enables local storage, local form submissions, current OVYX sign-in status and approved read-only OVYX APIs.');
+        reply(false, null, 'This action isn't available in the preview. Supported features include local app data, local form submissions, sign-in status, and approved read-only account access.');
       } catch (error) {
         reply(false, null, error?.message || 'The app action did not complete.');
       }
@@ -831,7 +831,7 @@
       artifact.savedToProjects = true;
       artifact.savedProjectId = result.project.id;
       artifact.savedAt = result.project.updatedAt || new Date().toISOString();
-      if (saveStatus) { saveStatus.textContent = 'App saved and verified in OVYX Projects. App data remains in this browser; external delivery, authentication and payment integrations require additional configuration.'; saveStatus.dataset.kind = 'success'; }
+      if (saveStatus) { saveStatus.textContent = 'App saved to OVYX Projects. App data stays in this browser. Email, sign-in, and payment features require additional setup.'; saveStatus.dataset.kind = 'success'; }
       if (button) button.textContent = 'Saved to OVYX Projects';
       window.dispatchEvent(new CustomEvent('ovyx:link-app-project-saved', { detail: { projectId: artifact.id, sourceUrl: artifact.sourceUrl, saved: true } }));
     } catch (error) {
@@ -853,7 +853,7 @@
   }
   function authenticatedReleaseUser() {
     const user = window.firebase?.auth?.().currentUser;
-    if (!user || typeof user.getIdToken !== 'function') throw new Error('Sign in to OVYX before publishing, building or saving release records.');
+    if (!user || typeof user.getIdToken !== 'function') throw new Error('Sign in to OVYX before publishing, starting a mobile build, or saving release details.');
     return user;
   }
   async function releaseToken() {
@@ -881,7 +881,7 @@
       throw new Error('The app contains an unsafe or invalid file path: ' + path.slice(0, 90));
     }
     if (path === 'functions' || path.startsWith('functions/')) {
-      throw new Error('Static hosting cannot deploy server functions. Configure a supported backend before release.');
+      throw new Error('This app needs server-side features that aren't available with the selected hosting option. Configure a suitable service before publishing.');
     }
     return path;
   }
@@ -1101,7 +1101,7 @@
     };
     for (const entry of entries) {
       totalSize += entry.bytes.length;
-      if (totalSize > 16 * 1024 * 1024) throw new Error('The export exceeds the 16 MiB browser ZIP limit. Remove unused source files before exporting.');
+      if (totalSize > 16 * 1024 * 1024) throw new Error('This export is larger than the 16 MB limit. Remove unused files and try again.');
       const local = join([
         u32(0x04034b50), u16(20), u16(0x0800), u16(0), u16(entry.dosTime), u16(entry.dosDate),
         u32(entry.crc), u32(entry.bytes.length), u32(entry.bytes.length), u16(entry.name.length), u16(0),
@@ -1204,7 +1204,7 @@
           if (safeUrl(artifactInfo?.detailsUrl)) urls.push({ label: platform.toUpperCase() + ' build details', url: artifactInfo.detailsUrl });
         }
         for (const build of mobile.builds || []) if (safeUrl(build?.detailsUrl)) urls.push({ label: text(build.platform || 'Mobile').toUpperCase() + ' build status (' + text(build.status || 'unknown') + ')', url: build.detailsUrl });
-        if (safeUrl(mobile.workflowUrl)) urls.push({ label: 'Open EAS workflow run', url: mobile.workflowUrl });
+        if (safeUrl(mobile.workflowUrl)) urls.push({ label: 'Open mobile build details', url: mobile.workflowUrl });
         for (const item of urls) {
           const anchor = node('a', '', item.label + ': ' + item.url); anchor.href = item.url; anchor.target = '_blank'; anchor.rel = 'noopener noreferrer'; mobileLinks.appendChild(anchor);
         }
@@ -1236,7 +1236,7 @@
         limitations: ['This file contains generated source, not saved OVYX account data or live provider configuration.', 'Credentials, Firebase sessions and EAS/Cloudflare secrets are not included.']
       };
       const raw = JSON.stringify(payload, null, 2);
-      if (new TextEncoder().encode(raw).byteLength > 16 * 1024 * 1024) throw new Error('The source JSON exceeds the 16 MiB browser download limit.');
+      if (new TextEncoder().encode(raw).byteLength > 16 * 1024 * 1024) throw new Error('The JSON export is larger than the 16 MB download limit.');
       downloadReleaseBlob(new Blob([raw], { type: 'application/json;charset=utf-8' }), releaseSlug(artifact.name) + '-source.json');
       setReleaseStatus(panel, '[data-lb-web-status]', 'Source JSON exported. It includes app files and navigation details, but no account credentials or deployment secrets.', 'success');
       appendReleaseDiagnostic(panel, 'Source JSON exported at ' + new Date().toISOString() + '.');
@@ -1328,7 +1328,7 @@
     const token = await releaseToken();
     const query = new URLSearchParams({ projectId: artifact.id, deploymentId: record.deploymentId, projectName: artifact.name });
     const data = await deploymentRequest('/api/deployment-status?' + query.toString(), {}, token);
-    if (data.success !== true || !data.deployment) throw new Error(data.error || 'Cloudflare status could not be confirmed.');
+    if (data.success !== true || !data.deployment) throw new Error(data.error || 'The current publishing status couldn't be confirmed.');
     Object.assign(record, {
       status: String(data.deployment.status || record.status),
       stage: String(data.deployment.stage || ''),
@@ -1337,7 +1337,7 @@
       lastStatusCheckAt: new Date().toISOString()
     });
     persistReleaseState(artifact); renderReleaseState(panel);
-    appendReleaseDiagnostic(panel, 'Cloudflare status checked: ' + record.environment + ' / ' + record.status + (record.stage ? ' (' + record.stage + ')' : '') + '.');
+    appendReleaseDiagnostic(panel, 'Publishing status checked: ' + record.environment + ' / ' + record.status + (record.stage ? ' (' + record.stage + ')' : '') + '.');
     return record;
   }
   async function checkReleaseHealth(panel) {
@@ -1346,13 +1346,13 @@
     const record = artifact?.releaseState?.web?.[slot];
     try {
       if (!record?.deploymentId) throw new Error('Deploy or publish a web version first.');
-      setReleaseStatus(panel, '[data-lb-web-status]', 'Reading Cloudflare deployment status and probing the public pages.dev URL…', 'busy');
+      setReleaseStatus(panel, '[data-lb-web-status]', 'Checking publishing status and confirming the public website is responding…', 'busy');
       try { await refreshWebDeploymentStatus(panel, slot); }
       catch (statusError) { appendReleaseDiagnostic(panel, 'Status refresh warning: ' + text(statusError.message || statusError)); }
       const token = await releaseToken();
       const query = new URLSearchParams({ projectId: artifact.id, deploymentId: record.deploymentId, projectName: artifact.name });
       const data = await deploymentRequest('/api/app-studio/release-health?' + query.toString(), {}, token);
-      if (data.ok !== true || !data.health) throw new Error(data.error || 'Release health did not return an authoritative result.');
+      if (data.ok !== true || !data.health) throw new Error(data.error || 'The website health check couldn't confirm a result.');
       // refreshWebDeploymentStatus() re-renders the panel, which restores a cloned
       // release state from localStorage. Re-acquire the current record after that
       // render so the health result is attached to the persisted record, not a stale object.
@@ -1390,7 +1390,7 @@
         if (details) items.push({ label: platform.toUpperCase() + ' build details', url: details });
       }
       for (const build of state?.builds || []) if (safeUrl(build?.detailsUrl)) items.push({ label: text(build.platform || 'Mobile').toUpperCase() + ' build status (' + text(build.status || 'unknown') + ')', url: build.detailsUrl });
-      if (safeUrl(state?.workflowUrl)) items.push({ label: 'Open EAS workflow', url: state.workflowUrl });
+      if (safeUrl(state?.workflowUrl)) items.push({ label: 'Open mobile build details', url: state.workflowUrl });
       for (const item of items) {
         const link = node('a', '', item.label + ': ' + item.url); link.href = item.url; link.target = '_blank'; link.rel = 'noopener noreferrer'; links.appendChild(link);
       }
@@ -1449,11 +1449,11 @@
       const body = { appName: artifact.name, displayName: artifact.name, platforms, iconDataUrl, sourceProjectId: artifact.id, payload };
       if (new TextEncoder().encode(JSON.stringify(body)).byteLength > 730000) throw new Error('The mobile build package exceeds the 730 KB secure transfer limit. Export the deployable web ZIP to use the complete app.');
       if (typeof window.confirm !== 'function' || !window.confirm('Start a real Expo/EAS ' + platforms.map(x => x.toUpperCase()).join(' + ') + ' build for "' + artifact.name + '"?\n\nThis dispatches a remote native build and may consume EAS build resources. The native wrapper uses local browser/WebView persistence; authenticated OVYX account APIs and cloud-connected preview actions are not included in the mobile bundle.')) {
-        setReleaseStatus(panel, '[data-lb-mobile-status]', 'Mobile build cancelled. No EAS build job was requested.', 'info');
+        setReleaseStatus(panel, '[data-lb-mobile-status]', 'Mobile build cancelled. No build was started.', 'info');
         return;
       }
       if (button) { button.disabled = true; button.textContent = 'Starting build…'; }
-      setReleaseStatus(panel, '[data-lb-mobile-status]', 'Preparing the portable route-aware HTML bundle and dispatching to the configured EAS workflow…', 'busy');
+      setReleaseStatus(panel, '[data-lb-mobile-status]', 'Preparing your app and requesting a mobile build…', 'busy');
       const token = await releaseToken();
       const data = await deploymentRequest('/api/mobile/build', {
         method: 'POST',
@@ -1573,7 +1573,7 @@
     };
     for (const entry of entries) {
       totalSize += entry.bytes.length;
-      if (totalSize > 16 * 1024 * 1024) throw new Error('The export exceeds the 16 MiB browser ZIP limit. Remove unused source files before exporting.');
+      if (totalSize > 16 * 1024 * 1024) throw new Error('This export is larger than the 16 MB limit. Remove unused files and try again.');
       const local = join([
         u32(0x04034b50), u16(20), u16(0x0800), u16(0), u16(entry.dosTime), u16(entry.dosDate),
         u32(entry.crc), u32(entry.bytes.length), u32(entry.bytes.length), u16(entry.name.length), u16(0),
