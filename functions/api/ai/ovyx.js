@@ -33,7 +33,7 @@ export async function onRequestPost(context) {
 
     if (!context.env?.AI || typeof context.env.AI.run !== 'function') {
       return errorResponse(
-        'OVYX AI isn't available right now. Please try again later or choose another available AI option.',
+        "OVYX AI isn't available right now. Please try again later or choose another available AI option.",
         503,
         'OVYX_NATIVE_AI_NOT_CONFIGURED'
       );
