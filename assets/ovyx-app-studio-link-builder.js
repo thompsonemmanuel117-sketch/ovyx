@@ -951,9 +951,12 @@
     const output = {};
     for (const [rawPath, rawContent] of Object.entries(artifact.files || {})) {
       const path = releasePath(rawPath);
+      const outputPath = path.startsWith('public/') ? path.slice('public/'.length) : path;
       const content = fileContent(rawContent);
-      if (typeof content !== 'string') continue;
-      output[path] = /\.html?$/i.test(path) ? staticReleaseHtml(artifact, path, '/' + path) : content;
+      if (!outputPath || typeof content !== 'string') continue;
+      // Framework build sources keep deployable web assets under public/, but
+      // a direct-upload Pages bundle serves those assets from the site root.
+      output[outputPath] = /\.html?$/i.test(path) ? staticReleaseHtml(artifact, path, '/' + outputPath) : content;
     }
     const routes = artifact.routes && typeof artifact.routes === 'object' ? artifact.routes : { '/': 'index.html' };
     const mapped = new Set();
