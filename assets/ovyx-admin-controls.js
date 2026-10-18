@@ -238,14 +238,14 @@
     if (!view || !owner()) return;
     const host = panel(view, 'ovyx-global-identity-editor',
       'Global AI identity · Server settings',
-      'These settings are stored in Firestore and are included in native OVYX AI, Assistant Brain and Web Studio generation for every account.',
+      'These settings define the shared OVYX AI identity used across conversations and website creation.',
       '<div class="ovyx-owner-live-form-grid">' +
         '<label class="ovyx-owner-live-field">Assistant display name<input class="ovyx-owner-live-input" id="ovyx-global-ai-name" maxlength="60" value="OVYX AI" /></label>' +
         '<label class="ovyx-owner-live-field">Global mark color (hex)<input class="ovyx-owner-live-input" id="ovyx-global-ai-color" maxlength="7" value="#E8B64F" placeholder="#E8B64F" /></label>' +
       '</div>' +
       '<label class="ovyx-owner-live-field" style="display:block;margin-top:12px">Global persona instructions<textarea class="ovyx-owner-live-input" id="ovyx-global-ai-persona" maxlength="3000" rows="5" placeholder="Warm, friendly, professional, helpful…"></textarea></label>' +
       '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:12px"><span id="ovyx-global-mark-preview" style="width:28px;height:28px;border-radius:50%;background:radial-gradient(circle,#E8B64F,#111827);border:1px solid rgba(255,255,255,.16)"></span><button type="button" class="ovyx-owner-live-button" id="ovyx-global-ai-save">Save identity globally</button></div>' +
-      '<div class="ovyx-owner-live-status" id="ovyx-global-ai-status">Loading saved server identity…</div>');
+      '<div class="ovyx-owner-live-status" id="ovyx-global-ai-status">Loading global AI identity…</div>');
     if (host.dataset.bound === '1') return;
     host.dataset.bound = '1';
     const oldTextarea = $('ident-mark-code');
@@ -437,7 +437,7 @@
     const view = $('view-admin-users');
     if (!view || !owner()) return;
     const host = panel(view, 'ovyx-owner-users-panel', 'Live user registry · Account actions',
-      'These buttons mutate server-side user records and Firebase Authentication. The root owner account is protected from all user actions.',
+      'These actions update account access and saved records. The owner account is protected from account-management actions.',
       '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px"><button type="button" class="ovyx-owner-live-button" id="ovyx-owner-users-refresh">Refresh accounts</button><button type="button" class="ovyx-owner-live-button" id="ovyx-owner-users-next" disabled>Next page</button></div>' +
       '<div class="ovyx-owner-user-table-wrap"><table class="ovyx-owner-user-table"><thead><tr><th>Account</th><th>Plan</th><th>Plan term</th><th>AI quota</th><th>Status</th><th>Server actions</th></tr></thead><tbody id="ovyx-owner-users-body"></tbody></table></div>' +
       '<div id="ovyx-owner-users-status" class="ovyx-owner-live-status">Waiting for owner authorization…</div>');
@@ -496,7 +496,7 @@
     };
     const featureList = tier => Array.from($('ovyx-global-plan-features')?.querySelectorAll('input[data-v655-plan="' + tier + '"]:checked') || []).map(input => input.value);
     if (!latestPlans) {
-      statusText(status, 'The current server plan catalog has not loaded. Refresh the catalog before saving so paid-plan features are not unintentionally cleared.', 'error');
+      statusText(status, 'The latest plan details haven't loaded. Refresh the catalogue before saving to avoid unintentionally changing paid-plan access.', 'error');
       return;
     }
     if (!document.querySelector('input[data-v655-plan="pro"]') || !document.querySelector('input[data-v655-plan="max"]')) {
@@ -555,7 +555,7 @@
         '<label class="ovyx-owner-live-field">Pro daily prompts<input class="ovyx-owner-live-input" id="ovyx-quota-daily-pro" type="number" min="1" step="1" value="20"/></label>' +
         '<label class="ovyx-owner-live-field">Max daily prompts<input class="ovyx-owner-live-input" id="ovyx-quota-daily-max" type="number" min="1" step="1" value="100"/></label>' +
       '</div>' +
-      '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:13px"><button class="ovyx-owner-live-button" id="ovyx-global-quota-save" type="button" disabled>Save global plan rules</button><span id="ovyx-global-quota-status" class="ovyx-owner-live-status" style="margin:0;flex:1;min-width:180px">Loading server plan catalog…</span></div>');
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:13px"><button class="ovyx-owner-live-button" id="ovyx-global-quota-save" type="button" disabled>Save global plan rules</button><span id="ovyx-global-quota-status" class="ovyx-owner-live-status" style="margin:0;flex:1;min-width:180px">Loading plan details…</span></div>');
     if (!host) return;
     const hideLegacyPlanControls = () => {
       const legacy = $('ovyx-v655-plan-control');
@@ -577,7 +577,7 @@
       heading.textContent = 'Included features per paid plan';
       const description = document.createElement('p');
       description.className = 'ovyx-owner-live-detail';
-      description.textContent = 'Select exactly which capabilities Pro and Max subscribers receive. These selections are saved with your global plan rules and enforced by the server.';
+      description.textContent = 'Choose the features included with Pro and Max plans. These settings apply to all accounts on the selected plan.';
       featurePanel.append(heading, description);
       const grid = document.createElement('div');
       grid.className = 'ovyx-owner-live-form-grid';
@@ -626,7 +626,7 @@
       title.textContent = 'Global feature gates';
       const description = document.createElement('p');
       description.className = 'ovyx-owner-live-detail';
-      description.textContent = 'Minimum plan required for each capability. These gates are checked on the server and affect every account; Root keeps its protected owner access.';
+      description.textContent = 'Choose the minimum plan required for each feature. These rules apply to all accounts; owner access remains protected.';
       gatesHost = document.createElement('div');
       gatesHost.id = 'ovyx-global-gates-controls';
       gatesHost.className = 'ovyx-owner-live-form-grid';
@@ -637,7 +637,7 @@
         ['appstudio', 'App Studio'],
         ['aigeneration', 'AI Generation'],
         ['github', 'GitHub Integration'],
-        ['cloudflaredeploy', 'Cloudflare Deploy'],
+        ['cloudflaredeploy', 'Website publishing'],
         ['teamworkspace', 'Team Workspace'],
         ['templates', 'Blueprint Templates']
       ];
@@ -694,7 +694,7 @@
     const view = $('view-admin-brain');
     if (!view || !owner()) return;
     const host = panel(view, 'ovyx-global-ai-routing', 'Global AI Brain routing',
-      'Change the server fallback priority for automatic AI requests across user accounts. Explicit per-request provider choices and users’ own Universal Connections remain respected.',
+      'Set the preferred order for AI options used by OVYX Auto. Explicit choices for an individual request and users’ own connected options take priority.',
       '<div id="ovyx-global-ai-priority-rows"></div><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px"><button type="button" class="ovyx-owner-live-button" id="ovyx-global-ai-route-save">Save global provider order</button><button type="button" class="ovyx-owner-live-button" id="ovyx-global-ai-status-refresh">Test providers now</button></div><div id="ovyx-global-ai-route-status" class="ovyx-owner-live-status">Loading global AI route…</div><div id="ovyx-global-ai-provider-status" class="ovyx-owner-live-grid" style="margin-top:10px"></div>');
     if (host.dataset.bound === '1') return;
     host.dataset.bound = '1';
@@ -728,7 +728,7 @@
         const select = document.querySelector('[data-provider-priority="' + item.id + '"]');
         if (select) select.value = String(Math.max(1, order.indexOf(item.id) + 1));
       });
-      statusText(status, 'Loaded the saved server provider order: ' + order.join(' → '), 'ok');
+      statusText(status, 'Loaded AI selection order: ' + order.join(' → '), 'ok');
       await loadProviderStatus();
     } catch (error) {
       statusText(status, 'AI selection settings couldn't be loaded: ' + error.message, 'error');
@@ -760,7 +760,7 @@
     statusText($('ovyx-global-ai-route-status'), 'Checking AI service availability…');
     const result = await timedRequest('/api/ai/status', true);
     if (!result.ok) {
-      statusText($('ovyx-global-ai-route-status'), 'AI service check failed: ' + (result.error || ('HTTP ' + result.status)), 'error');
+      statusText($('ovyx-global-ai-route-status'), 'AI service availability couldn't be checked. Please try again., 'error');
       return;
     }
     const entries = (Array.isArray(result.data.providers) ? result.data.providers : []).concat(Array.isArray(result.data.additionalProviders) ? result.data.additionalProviders : []);
@@ -803,13 +803,13 @@
       const d = document.createElement('div'); d.className = 'ovyx-owner-live-detail'; d.textContent = detail;
       card.append(a, b, d); cards.appendChild(card);
     }
-    add('Edge health API', health.ok ? 'HTTP ' + health.status : (health.status ? 'HTTP ' + health.status : 'UNREACHABLE'),
+    add('Platform health', health.ok ? 'HTTP ' + health.status : (health.status ? 'HTTP ' + health.status : 'UNREACHABLE'),
       health.ok ? 'Response received in ' + health.duration + ' ms.' : (health.error || 'The edge health endpoint did not respond.'), health.ok ? 'ok' : 'bad');
     const pricing = plans.data?.pricing || {};
     add('Global Pro price', plans.ok ? money(pricing.pro?.ngn, 'NGN') : 'UNAVAILABLE',
-      plans.ok ? money(pricing.pro?.usd, 'USD') + ' · server plan catalog' : 'The global plan catalog did not respond.', plans.ok ? 'ok' : 'bad');
+      plans.ok ? money(pricing.pro?.usd, 'USD') + ' · current plan details' : 'Current plan details couldn't be loaded.', plans.ok ? 'ok' : 'bad');
     add('Global Max price', plans.ok ? money(pricing.max?.ngn, 'NGN') : 'UNAVAILABLE',
-      plans.ok ? money(pricing.max?.usd, 'USD') + ' · server plan catalog' : 'The global plan catalog did not respond.', plans.ok ? 'ok' : 'bad');
+      plans.ok ? money(pricing.max?.usd, 'USD') + ' · current plan details' : 'Current plan details couldn't be loaded.', plans.ok ? 'ok' : 'bad');
     add('User registry', registry.ok ? 'AVAILABLE' : 'UNAVAILABLE',
       registry.ok ? 'Server returned ' + String(registry.data.users?.length || 0) + ' sample account record(s) in ' + registry.duration + ' ms; this is not a total count.' : (registry.error || 'Registry API failed.'), registry.ok ? 'ok' : 'bad');
     const report = sentinel.data?.latestReport || {};
@@ -1085,7 +1085,7 @@
           this.renderUI?.();
           const status = $('ovyx-global-integration-status');
           statusText(status, this.isLive ? 'Platform integrations are enabled for all accounts.' :
-            'Server confirmed: production integrations are paused for all accounts.', this.isLive ? 'ok' : 'warn');
+            'Platform integrations are paused for all accounts.', this.isLive ? 'ok' : 'warn');
           notify(this.isLive ? 'Platform integrations enabled for all accounts.' : 'Platform integrations paused for all accounts.', this.isLive ? 'success' : 'info');
         } catch (error) {
           statusText($('ovyx-global-integration-status'), 'These integration settings couldn't be saved: ' + error.message, 'error');
@@ -1131,7 +1131,7 @@
     const host = panel(view, 'ovyx-global-integration-control', 'Global production integration switch',
       'ON enables new AI generation, agent runs, deployments, repository access and payment checkout. OFF pauses those operations for every user; authentication, diagnostics and verification of already-started payments stay available.',
       '<div class="ovyx-owner-live-grid" id="ovyx-global-integration-cards"><div class="ovyx-owner-live-card"><div class="ovyx-owner-live-label">Authoritative state</div><div id="ovyx-global-integration-value" class="ovyx-owner-live-value">Loading…</div><div class="ovyx-owner-live-detail">Read from system/config, not local storage.</div></div></div>' +
-      '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px"><button type="button" class="ovyx-owner-live-button" id="ovyx-global-integration-toggle">Toggle global integrations</button><div id="ovyx-global-integration-status" class="ovyx-owner-live-status">Loading server setting…</div></div>');
+      '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px"><button type="button" class="ovyx-owner-live-button" id="ovyx-global-integration-toggle">Toggle global integrations</button><div id="ovyx-global-integration-status" class="ovyx-owner-live-status">Loading integration settings…</div></div>');
     if (host.dataset.integrationBound === '1') return;
     host.dataset.integrationBound = '1';
     $('ovyx-global-integration-toggle')?.addEventListener('click', () => window.MasterProductionSwitch?.toggle?.());
@@ -1145,8 +1145,8 @@
           value.style.color = live ? '#86efac' : '#fcd34d';
         }
         statusText($('ovyx-global-integration-status'), live ?
-          'Server says new production integrations are enabled globally.' :
-          'Server says new production integrations are paused globally.', live ? 'ok' : 'warn');
+          'Platform integrations are enabled for all accounts.' :
+          'Platform integrations are paused for all accounts.', live ? 'ok' : 'warn');
       } catch (error) {
         statusText($('ovyx-global-integration-status'), 'The current status couldn't be loaded: ' + error.message, 'error');
       }
@@ -1159,7 +1159,7 @@
     if (!view || !owner()) return;
     const host = panel(view, 'ovyx-global-broadcast-registry', 'Published global broadcasts',
       'Withdraw an active announcement from all future user inbox requests. The underlying record remains for audit history.',
-      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"><button class="ovyx-owner-live-button" id="ovyx-global-broadcast-refresh" type="button">Refresh broadcasts</button></div><div id="ovyx-global-broadcast-list" class="ovyx-owner-live-grid"></div><div id="ovyx-global-broadcast-status" class="ovyx-owner-live-status">Loading server records…</div>');
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"><button class="ovyx-owner-live-button" id="ovyx-global-broadcast-refresh" type="button">Refresh broadcasts</button></div><div id="ovyx-global-broadcast-list" class="ovyx-owner-live-grid"></div><div id="ovyx-global-broadcast-status" class="ovyx-owner-live-status">Loading saved records…</div>');
     if (host.dataset.broadcastBound === '1') return;
     host.dataset.broadcastBound = '1';
     $('ovyx-global-broadcast-refresh')?.addEventListener('click', loadBroadcastRegistry);
@@ -1212,7 +1212,7 @@
     const view = $('view-admin-template-hub');
     if (!view || !owner()) return;
     const host = panel(view, 'ovyx-global-template-registry', 'Published template registry', 
-      'Publish a reusable blueprint to every account from this form. Published templates live in the server catalogue; withdrawals remove them from future catalogue reads without changing users’ existing projects.',
+      'Publish a reusable template for all accounts. Withdrawing a template removes it from the catalogue without changing apps that already use it.',
       '<form id="ovyx-global-template-publish-form" class="ovyx-owner-live-publish-form">' +
         '<div class="ovyx-owner-live-form-grid">' +
           '<label class="ovyx-owner-live-field">Template title<input class="ovyx-owner-live-input" id="ovyx-global-template-title" required maxlength="120" placeholder="Premium SaaS landing page"/></label>' +
@@ -1223,7 +1223,7 @@
         '<label class="ovyx-owner-live-field" style="display:block;margin-top:12px">Deployable template AST (JSON)<textarea class="ovyx-owner-live-input" id="ovyx-global-template-ast" required rows="7" spellcheck="false">{"nodes":[{"id":"hero-section","type":"section","name":"Hero"}]}</textarea></label>' +
         '<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px"><button class="ovyx-owner-live-button" id="ovyx-global-template-publish" type="submit">Publish template globally</button><span id="ovyx-global-template-publish-status" class="ovyx-owner-live-status" style="margin:0;flex:1">Ready to publish.</span></div>' +
       '</form>' +
-      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 10px"><button class="ovyx-owner-live-button" id="ovyx-global-template-refresh" type="button">Refresh published templates</button></div><div id="ovyx-global-template-list" class="ovyx-owner-live-grid"></div><div id="ovyx-global-template-status" class="ovyx-owner-live-status">Loading server records…</div>');
+      '<div style="display:flex;gap:8px;flex-wrap:wrap;margin:18px 0 10px"><button class="ovyx-owner-live-button" id="ovyx-global-template-refresh" type="button">Refresh published templates</button></div><div id="ovyx-global-template-list" class="ovyx-owner-live-grid"></div><div id="ovyx-global-template-status" class="ovyx-owner-live-status">Loading saved records…</div>');
     if (host.dataset.templateBound === '1') return;
     host.dataset.templateBound = '1';
     $('ovyx-global-template-publish-form')?.addEventListener('submit', publishTemplateFromOwnerForm);
@@ -1342,12 +1342,12 @@
             throw new Error(String(data.message || data.error || 'Account entitlements could not be verified.'));
           }
           if (data.capabilities?.templates !== true) {
-            notify('Shared templates are not included in this account’s current server-authoritative feature access.', 'error');
+            notify('Shared templates aren't included in your current plan.', 'error');
             return false;
           }
           return originalDeploy(templateId);
         } catch (error) {
-          notify('Template access was not verified by the server: ' + error.message, 'error');
+          notify('Template access couldn't be verified: ' + error.message, 'error');
           return false;
         }
       })();
