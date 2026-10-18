@@ -10,7 +10,7 @@
     { route: 'admin-users', label: 'Users & Roles', detail: 'Accounts and entitlements', icon: 'fa-users' },
     { route: 'admin-brain', label: 'AI Brain', detail: 'AI service status and diagnostics', icon: 'fa-brain' },
     { route: 'admin-identity', label: 'AI Identity', detail: 'OVYX identity and generation policy', icon: 'fa-fingerprint' },
-    { route: 'admin-backend', label: 'Backend', detail: 'Service availability and security', icon: 'fa-server' },
+    { route: 'admin-backend', label: 'Service health', detail: 'Service availability and security', icon: 'fa-server' },
     { route: 'admin-telemetry', label: 'Telemetry', detail: 'Service checks and operational health', icon: 'fa-chart-line' },
     { route: 'admin-broadcasts', label: 'Broadcasts', detail: 'Announcements and push messaging', icon: 'fa-bullhorn' },
     { route: 'admin-template-hub', label: 'Template Matrix', detail: 'Template catalogue and publishing', icon: 'fa-layer-group' },
