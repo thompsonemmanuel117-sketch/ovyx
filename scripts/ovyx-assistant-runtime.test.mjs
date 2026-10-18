@@ -27,7 +27,7 @@ assert.match(source, /saved-project scan was unavailable/);
 assert.match(source, /No source changes have been applied/);
 assert.match(source, /do not say the workspace context is unavailable/i);
 assert.match(source, /\/api\/ai\/ovyx/);
-assert.match(source, /SIGN IN REQUIRED/);
+assert.match(source, /Sign in required/);
 assert.match(native, /env\.AI\.run/);
 assert.match(native, /No Gemini\/OpenAI\/Anthropic\/DeepSeek API key is used/);
 
