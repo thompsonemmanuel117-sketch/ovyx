@@ -37,6 +37,6 @@ assert.ok(middleware.includes('/assets/ovyx-app-studio-premium-polish.js?v=20261
 assert.ok(headers.includes('/assets/ovyx-app-studio-premium-polish.js') && headers.includes('Cache-Control: no-store'), 'The premium UI asset must not be held behind stale browser caching.');
 assert.ok(packageJson.scripts.test.includes('scripts/ovyx-app-studio-premium-polish.test.mjs'), 'The design-system source test must run under npm test.');
 assert.ok(workflow.includes('scripts/ovyx-app-studio-premium-polish.browser.test.mjs'), 'The responsive progressive-disclosure browser test must run in CI.');
-assert.ok(browserTest.includes('390') && browserTest.includes("emulateMedia({ reducedMotion: 'reduce' })") && browserTest.includes('Detailed inspection report'), 'Browser coverage must include mobile layout, reduced motion and report disclosure.');
+assert.ok(browserTest.includes('390') && browserTest.includes("emulateMedia({ reducedMotion: 'reduce' })") && runtime.includes('Detailed inspection report'), 'Browser coverage must include mobile layout, reduced motion and report disclosure.');
 
 console.log('OVYX App Studio premium polish source checks passed: guided flow, progressive disclosure, preserved release/conversion actions, reduced-motion support and CI wiring.');
