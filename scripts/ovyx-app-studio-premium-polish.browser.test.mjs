@@ -74,7 +74,7 @@ try {
   assert.ok(await identity.locator('#ovyx-app-studio-brand-dna-panel').count());
   const legacy = desktop.locator('#ovyx-as-existing-conversion');
   assert.equal(await legacy.evaluate(el => el.open), false, 'The older Web Studio conversion wizard must remain available but tucked away.');
-  assert.match(await legacy.locator('summary').innerText(), /Convert an existing Web Studio project/);
+  assert.match(await legacy.locator('summary').innerText(), /Convert a Web Studio design/);
   await legacy.locator('summary').click();
   assert.equal(await legacy.evaluate(el => el.open), true);
   assert.match(await legacy.innerText(), /Existing Web Studio mobile conversion form/);
