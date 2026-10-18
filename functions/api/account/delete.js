@@ -116,7 +116,7 @@ export async function onRequestPost(context) {
       await deleteUserBuildRecords(context.env, uid);
     } catch (error) {
       console.warn('[OVYX ACCOUNT DELETE] mobile build cleanup failed', error);
-      throw Object.assign(new Error('Some saved app data couldn't be removed. Please contact support before trying again.'), {
+      throw Object.assign(new Error('Some saved app data could not be removed. Please contact support before trying again.'), {
         status: 503,
         code: 'ACCOUNT_BUILD_CLEANUP_FAILED',
       });
@@ -150,7 +150,7 @@ export async function onRequestPost(context) {
     return jsonResponse(
       {
         ok: false,
-        error: error?.message || 'Your account couldn't be deleted. Please try again.',
+        error: error?.message || 'Your account could not be deleted. Please try again.',
         code: error?.code || 'ACCOUNT_DELETE_FAILED',
       },
       error?.status || 500,
