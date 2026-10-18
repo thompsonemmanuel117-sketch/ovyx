@@ -287,6 +287,7 @@
       if (event.detail?.target === 'app_studio') {
         const legacy = document.getElementById(LEGACY_ID);
         if (legacy) legacy.open = true;
+        try { sessionStorage.removeItem('ovyx.appstudio.entryIntent'); } catch (_) {}
       }
     });
     window.addEventListener('ovyx:link-app-generated', queuePolish);
