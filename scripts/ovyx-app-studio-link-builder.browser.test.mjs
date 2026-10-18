@@ -295,9 +295,9 @@ try {
   // Stage 4: forms produce a real, explicitly local outcome; passwords and secrets are not stored.
   await preview.locator('#lead-form input[name="email"]').fill('visitor@example.test');
   await preview.locator('#lead-form button[type="submit"]').click();
-  await preview.locator('#lead-form [data-ovyx-form-status]').filter({ hasText: 'Saved in this browser only' }).waitFor({ timeout: 5000 });
+  await preview.locator('#lead-form [data-ovyx-form-status]').filter({ hasText: 'Saved on this device only' }).waitFor({ timeout: 5000 });
   const formNotice = await preview.locator('#lead-form [data-ovyx-form-status]').innerText();
-  assert.match(formNotice, /Saved in this browser only/);
+  assert.match(formNotice, /Saved on this device only/);
   assert.match(formNotice, /password\/secret fields were not stored/);
 
   const storageSet = await preview.locator('body').evaluate(async () => await window.OVYXApp.storage.set('favorite-color', 'teal'));
