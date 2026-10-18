@@ -236,13 +236,13 @@ try {
     await page.locator('#v34-broadcast-body').fill('A global message from the automated Owner Tools test.');
     await page.locator('#v34-broadcast-category').selectOption('product');
     await page.locator('#v34-broadcast-publish').click();
-    await page.waitForFunction(() => /Published to every authenticated OVYX inbox/.test(document.getElementById('v34-broadcast-status')?.textContent || ''), null, { timeout: 20000 });
+    await page.waitForFunction(() => /Announcement published to signed-in OVYX users/.test(document.getElementById('v34-broadcast-status')?.textContent || ''), null, { timeout: 20000 });
     assert.ok(ownerApiWrites.some(item => item.path === '/api/admin/broadcasts' && item.body.message === 'A global message from the automated Owner Tools test.'),
       '[' + target.name + '] Broadcast publish must use the protected server route.');
     await page.locator('#ovyx-global-broadcast-refresh').click();
     await page.locator('#ovyx-global-broadcast-list [data-withdraw-broadcast]').waitFor({ state: 'attached' });
     await page.locator('#ovyx-global-broadcast-list [data-withdraw-broadcast]').click();
-    await page.waitForFunction(() => /Loaded 0 published broadcast/.test(document.getElementById('ovyx-global-broadcast-status')?.textContent || ''), null, { timeout: 20000 });
+    await page.waitForFunction(() => /Loaded 0 active announcement/.test(document.getElementById('ovyx-global-broadcast-status')?.textContent || ''), null, { timeout: 20000 });
     assert.ok(ownerApiWrites.some(item => item.path === '/api/admin/broadcasts' && item.body.action === 'unpublish'),
       '[' + target.name + '] Broadcast withdrawal must use the protected server route.');
 
@@ -263,7 +263,7 @@ try {
       return status?.dataset.state === 'ok' || status?.dataset.state === 'error';
     }, null, { timeout: 20000 });
     const publishStatus = await page.locator('#ovyx-global-template-publish-status').textContent();
-    assert.match(publishStatus || '', /Server confirmed a global template write/,
+    assert.match(publishStatus || '', /Template published to the global catalogue/,
       '[' + target.name + '] Publish template globally did not confirm success. Actual status: ' + String(publishStatus || '').trim());
     assert.ok(ownerApiWrites.some(item => item.path === '/api/admin/templates' && item.body.action === 'publish' && item.body.title === 'Owner Browser Published Template'),
       '[' + target.name + '] Template publication must reach the protected server API.');
