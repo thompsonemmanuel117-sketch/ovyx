@@ -2156,7 +2156,7 @@
         const hasJavascriptProto = /javascript:/gi.test(serialized);
         if (hasScript || hasJavascriptProto) {
           this.log("SECURITY ALERT: Insecure executable string found! Neutralizing payloads...", "error");
-          showToast("Kernel Bot: Threat neutralized.", "error");
+          showToast("Workspace repair could not be completed. Please try again.", "error");
         } else {
           this.log("Zero-Trust Verification passed: Strict CSP verified, 0 inline script threats found.", "success");
           this.log("Hardware isolate integrity: 100% verified.", "success");
@@ -2416,17 +2416,17 @@
      */
     const CommandPalette = {
       commands: [
-        { label: 'Overview Engine', run: () => Router.go('home') },
-        { label: 'Web Studio Pane', run: () => Router.go('webstudio') },
-        { label: 'Toggle Zen Expansion Mode', run: () => { Router.go('webstudio'); WebStudio.toggleZenMode(); } },
+        { label: 'Overview', run: () => Router.go('home') },
+        { label: 'Web Studio', run: () => Router.go('webstudio') },
+        { label: 'Toggle distraction-free mode', run: () => { Router.go('webstudio'); WebStudio.toggleZenMode(); } },
         { label: 'Toggle assistant', run: () => WorkspaceBrainBot.toggle() },
         { label: 'Workspace repair', run: () => Router.go('kernel-bot') },
         { label: 'Repair workspace layout', run: () => { Router.go('kernel-bot'); OvyxKernelBot.healDOM(); } },
         { label: 'AI Service Availability', run: () => Router.go('admin-brain') },
         { label: 'Optimize responsive layout', run: () => { Router.go('webstudio'); WebStudio.runResponsiveAIOptimize(); } },
-        { label: 'Toggle Master Production Switch', run: () => MasterProductionSwitch.toggle() },
+        { label: 'Toggle production mode', run: () => MasterProductionSwitch.toggle() },
         { label: 'Toggle Master Admin Override', run: () => AdminConfigurator.toggleAdminOverride(!AdminConfigurator.adminOverride) },
-        { label: 'Tiers & Gating Matrix (Admin)', run: () => Router.go('admin-pricing') },
+        { label: 'Plans & access (Admin)', run: () => Router.go('admin-pricing') },
         { label: 'Checkout Plans (Stripe Gateway)', run: () => Router.go('pricing') },
         { label: 'App Studio (Mobile)', run: () => Router.go('appstudio') },
         { label: 'Code Workspace (AST)', run: () => Router.go('webstudio') },
@@ -15379,7 +15379,7 @@ function render(panel){
       if(wrap)wrap.hidden=false;if(lim)lim.textContent=active+' active / '+limit;
       if(list)list.innerHTML=(d.connections||[]).length?d.connections.map(row=>{const activeBrain=String(d.activeBrainConnectionId||'')===String(row.id||'');const canUseBrain=row.active===true&&(row.capabilities?.canUseAsBrain===true||(String(row.type||'').toLowerCase()==='ai'&&String(row.protocol||'').toLowerCase()==='openai-chat'));const testLabel=row.lastTestStatus==='reachable'?'READY':row.lastTestStatus==='unreachable'?'FAILED':'NOT TESTED';return '<div class="ovyx-v91-row"><div class="ovyx-v91-row-main"><b>'+esc(row.name||'Connection')+'</b><small>'+esc(String(row.type||'tool').toUpperCase())+' · '+esc(row.endpoint||'')+' · '+(row.active?'ACTIVE':'INACTIVE')+(activeBrain?' · ACTIVE AI BRAIN':'')+' · LAST TEST: '+testLabel+'</small></div><div class="ovyx-v91-row-actions"><button class="ovyx-v91-mini" type="button" data-v91-test="'+esc(row.id)+'">Test</button>'+(canUseBrain?'<button class="ovyx-v91-mini" type="button" data-v91-use-brain="'+esc(row.id)+'" '+(activeBrain?'disabled aria-pressed="true"':'')+'>'+(activeBrain?'Selected Brain':'Use as Brain')+'</button>':'')+'<button class="ovyx-v91-mini danger" type="button" data-v91-delete="'+esc(row.id)+'">Delete</button></div></div>'}).join(''):'<div class="ovyx-v91-status" data-state="ready">No saved connections yet.</div>';
       list?.querySelectorAll('[data-v91-test]').forEach(btn=>btn.addEventListener('click',async()=>{btn.disabled=true;let message='The service check could not be completed. Please try again.',state='error';try{const d=await api('/api/settings/connections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'test',id:btn.dataset.v91Test})});message=d.ok?'Connection is reachable.':'The service check could not be completed. Please try again.';state=d.ok?'ok':'error';}catch(e){message=e.message||'The service check could not be completed. Please try again.';state='error'}finally{btn.disabled=false}await load();status.textContent=message;status.dataset.state=state;}));
-      list?.querySelectorAll('[data-v91-use-brain]').forEach(btn=>btn.addEventListener('click',async()=>{btn.disabled=true;status.textContent='Checking AI Brain readiness…';status.dataset.state='ready';try{await api('/api/settings/connections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'test',id:btn.dataset.v91UseBrain})});await api('/api/settings/connections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'use-ai',id:btn.dataset.v91UseBrain})});const key=window.OVYXAIStorageKey?window.OVYXAIStorageKey():'ovyx.ai.preferences.v1';let prefs={};try{prefs=JSON.parse(localStorage.getItem(key)||'{}')||{}}catch(_){}prefs.provider='automatic';try{localStorage.setItem(key,JSON.stringify(prefs))}catch(_){}if(window.OVYXAI)window.OVYXAI.provider='automatic';await load();status.textContent='AI Brain verified and saved. New AI requests will route through it automatically.';status.dataset.state='ok'}catch(e){const message=e.message||'AI Brain readiness check failed. It was not activated.';await load();status.textContent=message;status.dataset.state='error';btn.disabled=false}}));
+      list?.querySelectorAll('[data-v91-use-brain]').forEach(btn=>btn.addEventListener('click',async()=>{btn.disabled=true;status.textContent='Checking AI service availability…';status.dataset.state='ready';try{await api('/api/settings/connections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'test',id:btn.dataset.v91UseBrain})});await api('/api/settings/connections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'use-ai',id:btn.dataset.v91UseBrain})});const key=window.OVYXAIStorageKey?window.OVYXAIStorageKey():'ovyx.ai.preferences.v1';let prefs={};try{prefs=JSON.parse(localStorage.getItem(key)||'{}')||{}}catch(_){}prefs.provider='automatic';try{localStorage.setItem(key,JSON.stringify(prefs))}catch(_){}if(window.OVYXAI)window.OVYXAI.provider='automatic';await load();status.textContent='AI Brain verified and saved. New AI requests will route through it automatically.';status.dataset.state='ok'}catch(e){const message=e.message||'AI Brain readiness check failed. It was not activated.';await load();status.textContent=message;status.dataset.state='error';btn.disabled=false}}));
       list?.querySelectorAll('[data-v91-delete]').forEach(btn=>btn.addEventListener('click',async()=>{btn.disabled=true;try{await api('/api/settings/connections?id='+encodeURIComponent(btn.dataset.v91Delete),{method:'DELETE'});await load();status.textContent='Connection deleted.';status.dataset.state='ok'}catch(e){status.textContent=e.message||'Could not remove this service. Please try again.';status.dataset.state='error'}finally{btn.disabled=false}}));
       status.textContent='Connections refreshed. '+active+' active / '+limit+' active.';status.dataset.state='ok';
     }catch(e){status.textContent=e.message||'Unable to load Universal Connections.';status.dataset.state='error'}
@@ -15397,7 +15397,7 @@ function render(panel){
       if(connSecret)connSecret.value='';
       let resultMessage='Connection added. Use Test to verify reachability.',resultState='ok';
       if(type==='ai'&&saved.connection?.id){
-        status.textContent='Connection saved. Checking AI Brain readiness…';status.dataset.state='ready';
+        status.textContent='Connection saved. Checking AI service availability…';status.dataset.state='ready';
         try{
           const readiness=await api('/api/settings/connections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'test',id:saved.connection.id})});
           resultMessage=readiness.ok?'AI Brain is reachable. Use “Use as Brain” to activate it.':'AI Brain readiness check failed. Review the endpoint and credential.';
