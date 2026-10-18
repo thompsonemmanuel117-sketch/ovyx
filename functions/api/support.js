@@ -161,7 +161,7 @@ async function readFormDataWithLimit(request, maxBytes) {
         await reader.cancel();
 
         throw Object.assign(
-          new Error('Support request is too large.'),
+          new Error('Your support request is too large. Shorten your message and try again.'),
           {
             status: 413,
             code: 'SUPPORT_BODY_TOO_LARGE',
@@ -200,7 +200,7 @@ async function parseSubmission(request) {
     contentLength > MAX_REQUEST_BYTES
   ) {
     throw Object.assign(
-      new Error('Support request is too large.'),
+      new Error('Your support request is too large. Shorten your message and try again.'),
       {
         status: 413,
         code: 'SUPPORT_BODY_TOO_LARGE',
@@ -351,7 +351,7 @@ async function prepareAttachments(files) {
 
     if (totalBytes > MAX_TOTAL_ATTACHMENT_BYTES) {
       throw Object.assign(
-        new Error('Combined support attachments are too large.'),
+        new Error('Your attachments are too large. Remove some files and try again.'),
         {
           status: 413,
           code: 'SUPPORT_ATTACHMENT_TOTAL_LIMIT',
