@@ -475,7 +475,23 @@
         const payload = packet.payload && typeof packet.payload === 'object' && !Array.isArray(packet.payload) ? packet.payload : {};
         if (packet.action === 'auth.currentUser') {
           const user = window.firebase?.auth?.().currentUser;
-          reply(true, user ? { signedIn: true, displayName: text(user.displayName || '').slice(0, 100), email: text(user.email || '').slice(0, 200) } : { signedIn: false, displayName: '', email: '' });
+          if (!user) {
+            reply(true, { signedIn: false, displayName: '', email: '', profileShared: false });
+            return;
+          }
+          const approvalKey = projectId + ':auth.currentUser';
+          const approvals = approvedApiReads();
+          let profileShared = approvals.has(approvalKey);
+          if (!profileShared) {
+            profileShared = typeof window.confirm === 'function' && window.confirm('Allow this generated app to read your OVYX display name and email address? You can deny this and the app will still know whether you are signed in.');
+            if (profileShared) approvals.add(approvalKey);
+          }
+          reply(true, {
+            signedIn: true,
+            displayName: profileShared ? text(user.displayName || '').slice(0, 100) : '',
+            email: profileShared ? text(user.email || '').slice(0, 200) : '',
+            profileShared
+          });
           return;
         }
         if (packet.action === 'storage.get' || packet.action === 'storage.set' || packet.action === 'storage.remove' || packet.action === 'storage.keys') {
