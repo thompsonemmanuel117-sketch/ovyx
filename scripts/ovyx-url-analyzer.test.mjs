@@ -17,7 +17,7 @@ for (const address of ['127.0.0.1','10.1.2.3','172.18.0.2','192.168.1.2','169.25
 for (const url of ['javascript:alert(1)','file:///etc/passwd','ftp://example.com','http://localhost','http://127.0.0.1','http://10.0.0.8','http://169.254.169.254/latest/meta-data','https://user:pass@example.com','https://example.com:8443','http://[::1]/','http://site.local','https://metadata.google.internal/']) {
   assert.throws(() => normalizeAnalyzerUrl(url), undefined, url + ' must be rejected.');
 }
-assert.throws(() => normalizeAnalyzerUrl(''), /URL/i);
+assert.throws(() => normalizeAnalyzerUrl(''), /website address/i);
 
 const fetched = [];
 const html = '<!doctype html><html><head><title>Example Public Site</title><meta name="description" content="Public site for analyzer tests"><meta name="theme-color" content="#D81B60"><link rel="stylesheet" href="/assets/site.css"><link rel="icon" href="/favicon.svg"><meta property="og:site_name" content="Example Public Site"></head><body><header><img class="site-logo" alt="Example logo" src="/assets/logo.png"></header><main><h1>Welcome to Example</h1><h2>Products</h2><a href="/about">About our team</a><a href="/services">Services</a><a href="/private">Private area</a><a href="https://other.example/about">Other site</a><img src="/assets/hero.webp" alt="Office"></main></body></html>';
@@ -63,9 +63,9 @@ assert.equal(report.branding.colors.secondary, '#302060');
 assert.equal(report.branding.logo.url, 'https://example.com/assets/logo.png');
 assert.equal(report.branding.faviconUrl, 'https://example.com/favicon.svg');
 assert.ok(report.capabilities.can.length >= 4);
-assert.ok(report.capabilities.cannot.some(item => /JavaScript/i.test(item)));
-assert.ok(report.limitations.some(item => /binary files|asset binaries/i.test(item)));
-assert.ok(report.limitations.some(item => /DNS rebinding/i.test(item)), 'The report must state the DNS-check versus connection-pinning limitation honestly.');
+assert.ok(report.capabilities.cannot.some(item => /original website as an application/i.test(item)));
+assert.ok(report.limitations.some(item => /not copied into your app automatically/i.test(item)));
+assert.ok(report.limitations.some(item => /network-level address changes cannot be fully prevented/i.test(item)), 'The report must state the remaining network safety limitation honestly.');
 assert.ok(report.limits.maxPagesInspected <= 6);
 
 assert.equal(report.summary.sitemapUsed, true, 'A usable sitemap should be reported even when its URL duplicates an internal link.');
@@ -156,7 +156,7 @@ assert.ok(api.includes('assertAuthenticated(context.data?.user)'), 'Analyzer end
 assert.ok(api.includes('enforceSameOrigin(request)'), 'Analyzer endpoint must reject cross-origin requests.');
 assert.ok(api.includes("context.data?.entitlements?.capabilities?.appStudio !== true"), 'Analyzer endpoint must require the server-authoritative App Studio entitlement.');
 assert.ok(middleware.includes("['/api/app-studio/url-analyzer', ['appStudio']]"), 'API middleware must gate the endpoint behind App Studio entitlement.');
-assert.ok(shell.includes('/assets/ovyx-app-studio-url-analyzer.js?v=20261018-4'), 'The real Pages shell must inject the analyzer runtime.');
+assert.ok(shell.includes('/assets/ovyx-app-studio-url-analyzer.js?v=20261018-5'), 'The real Pages shell must inject the analyzer runtime.');
 assert.ok(runtime.includes('__OVYX_URL_ANALYZER_LAST_REPORT__'), 'The structured report must remain available to the next stage in this tab.');
 assert.ok(runtime.includes('textContent') && !runtime.includes('innerHTML'), 'Fetched site text must be rendered safely without interpreting remote HTML.');
 assert.ok(packageJson.scripts.test.includes('scripts/ovyx-url-analyzer.test.mjs'), 'The deterministic analyzer regression must run in npm test.');

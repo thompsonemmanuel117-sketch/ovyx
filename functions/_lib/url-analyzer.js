@@ -73,16 +73,16 @@ function blockedHost(host) {
     value === 'metadata.google' || value === 'metadata.google.internal' || value.endsWith('.metadata.google');
 }
 function validateUrl(url, keepQuery = false) {
-  if (!(url instanceof URL) || !['http:', 'https:'].includes(url.protocol)) fail('URL_SCHEME_NOT_ALLOWED', 'Only public HTTP and HTTPS websites can be inspected.');
-  if (url.username || url.password) fail('URL_CREDENTIALS_NOT_ALLOWED', 'Remove usernames and passwords from the URL before analyzing it.');
-  if (url.port && !['80', '443'].includes(url.port)) fail('URL_PORT_NOT_ALLOWED', 'Only standard public website ports 80 and 443 are supported.');
-  if ((url.protocol === 'https:' && url.port === '80') || (url.protocol === 'http:' && url.port === '443')) fail('URL_PORT_NOT_ALLOWED', 'The URL port does not match its HTTP or HTTPS scheme.');
+  if (!(url instanceof URL) || !['http:', 'https:'].includes(url.protocol)) fail('URL_SCHEME_NOT_ALLOWED', 'Enter a public website address using a standard web link.');
+  if (url.username || url.password) fail('URL_CREDENTIALS_NOT_ALLOWED', 'Remove usernames or passwords from the website address before continuing.');
+  if (url.port && !['80', '443'].includes(url.port)) fail('URL_PORT_NOT_ALLOWED', 'This website address uses an unsupported connection setting.');
+  if ((url.protocol === 'https:' && url.port === '80') || (url.protocol === 'http:' && url.port === '443')) fail('URL_PORT_NOT_ALLOWED', 'This website address uses an unsupported connection setting.');
   const host = hostOf(url);
-  if (!host || host.length > 253 || host.includes('..') || blockedHost(host)) fail('PRIVATE_HOST_NOT_ALLOWED', 'Local, private-network and reserved hostnames cannot be analyzed.');
+  if (!host || host.length > 253 || host.includes('..') || blockedHost(host)) fail('PRIVATE_HOST_NOT_ALLOWED', 'Local or private network addresses cannot be reviewed.');
   if (host.includes(':') || isIpv4(host)) {
-    if (!isPublicIpAddress(host)) fail('PRIVATE_IP_NOT_ALLOWED', 'Loopback, private, link-local and reserved IP addresses cannot be analyzed.');
+    if (!isPublicIpAddress(host)) fail('PRIVATE_IP_NOT_ALLOWED', 'Private or reserved network addresses cannot be reviewed.');
   } else if (!host.includes('.') || !/^[a-z0-9.-]+$/.test(host)) {
-    fail('INVALID_HOST', 'Enter a fully qualified public website hostname.');
+    fail('INVALID_HOST', 'Enter a public website address.');
   }
   if (!keepQuery) url.search = '';
   url.hash = '';
@@ -96,10 +96,10 @@ function displayedUrl(raw) {
 }
 export function normalizeAnalyzerUrl(input) {
   const raw = String(input || '').trim();
-  if (!raw || raw.length > 2048) fail('URL_REQUIRED', 'Enter a website URL up to 2,048 characters.');
+  if (!raw || raw.length > 2048) fail('URL_REQUIRED', 'Enter a website address under 2,048 characters.');
   let url;
   try { url = new URL(/^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : 'https://' + raw); }
-  catch { fail('INVALID_URL', 'Enter a valid website URL such as https://example.com.'); }
+  catch { fail('INVALID_URL', 'Enter a valid website address, such as https://example.com.'); }
   const hadQueryOrFragment = Boolean(url.search || url.hash);
   validateUrl(url, true);
   return { url: url.href, displayUrl: displayedUrl(url.href), hostname: hostOf(url), hadQueryOrFragment };
@@ -150,7 +150,7 @@ async function verifyPublicHost(host, fetchImpl) {
     if (!isPublicIpAddress(name)) fail('PRIVATE_IP_NOT_ALLOWED', 'The destination is a private or reserved IP address.');
     return;
   }
-  if (blockedHost(name)) fail('PRIVATE_HOST_NOT_ALLOWED', 'Local, private-network and reserved hostnames cannot be analyzed.');
+  if (blockedHost(name)) fail('PRIVATE_HOST_NOT_ALLOWED', 'Local or private network addresses cannot be reviewed.');
   const addresses = [];
   await Promise.all(['A', 'AAAA'].map(async type => {
     let response;
@@ -532,9 +532,9 @@ function reportFromPages(inputUrl, rootUrl, pages, data = {}) {
         ],
         cannot: [
           'Sign in, bypass paywalls, ignore robots.txt disallow rules or inspect private pages.',
-          'Execute source-site JavaScript or reproduce UI state that only appears after client-side actions.',
-          'Download/copy binary assets, reconstruct a full SPA route graph or inspect every URL on a large site.',
-          'Verify real payments, form delivery, accounts, databases, checkout, APIs or backend behavior.',
+          'Run the original website as an application or reproduce content that appears only after interaction.',
+          'Copy images and other files automatically, map every page on a large website or reconstruct all application routes.',
+          'Confirm live payments, form submissions, sign-in, data storage or other account-connected actions.',
         ],
       },
       limitations,
@@ -626,16 +626,16 @@ export async function analyzePublicWebsite(input, options = {}) {
     } else robots = { checked: true, rules: [], note: '' };
   } catch (error) {
     robots = { checked: false, rules: [], note: 'robots.txt could not be checked; strict page and byte limits still apply.' };
-    warnings.push(String(error?.message || 'robots.txt could not be checked.').slice(0, 160));
+    warnings.push(String(error?.message || 'The website's public access rules could not be checked.').slice(0, 160));
   }
   robotsByOrigin.set(originalUrl.origin, robots);
   const inputPath = new URL(inputUrl);
   if (!robotsAllows(inputPath, robots.rules)) {
-    limitations.push('robots.txt disallows the submitted path; OVYX did not fetch page HTML.');
+    limitations.push('The website's public access rules do not allow this page to be reviewed.');
     const blocked = {
       url: inputUrl, path: inputPath.pathname || '/', title: '', category: category(inputPath.pathname),
       depth: 0, parentUrl: '', discoveredFrom: 'submitted URL', status: 'robots-blocked',
-      httpStatus: null, contentType: '', headings: [], description: '', warning: 'The site robots.txt rules disallow inspection of this path.',
+      httpStatus: null, contentType: '', headings: [], description: '', warning: 'The website's public access rules do not allow this page.',
     };
     return reportFromPages(inputUrl, inputUrl, [blocked], { warnings, limitations, robots });
   }
@@ -653,7 +653,7 @@ export async function analyzePublicWebsite(input, options = {}) {
         const r = await fetchResource(new URL('/robots.txt', rootOrigin).href, { maxBytes: MAX_ROBOTS_BYTES, accept: 'text/plain,*/*;q=0.1', expectedOrigin: rootOrigin, beforeRedirect: false });
         if (r.response.status === 200 && r.contentType.includes('text/plain')) robots = { checked: true, rules: parseRobots(r.text), note: '' };
         else robots = { checked: true, rules: [], note: '' };
-      } catch { warnings.push('The final redirect destination robots.txt could not be checked.'); }
+      } catch { warnings.push('The final page's public access rules could not be checked.'); }
       robotsByOrigin.set(rootOrigin, robots);
     }
   }
@@ -664,7 +664,7 @@ export async function analyzePublicWebsite(input, options = {}) {
     status: home.response.status >= 400 ? 'http-error' : (rootSignals ? 'inspected' : 'not-html'),
     httpStatus: home.response.status, contentType: home.contentType || '',
     headings: [...(rootSignals?.heading1 || []), ...(rootSignals?.headings || [])].slice(0, 8),
-    description: rootSignals?.description || '', warning: home.truncated ? 'HTML exceeded the per-page byte limit; only the beginning was inspected.' : '',
+    description: rootSignals?.description || '', warning: home.truncated ? 'Only part of this page was reviewed because it was too large.' : '',
   };
   let pageFetchAttempts = 1;
   discovered.set(rootUrl, rootPage);
@@ -674,7 +674,7 @@ export async function analyzePublicWebsite(input, options = {}) {
     const key = asset.type + '|' + asset.url;
     if (!assetKeys.has(key) && assets.length < MAX_ASSETS) { assetKeys.add(key); assets.push(asset); }
   }
-  if (home.truncated) warnings.push('The homepage was truncated at the per-page HTML limit.');
+  if (home.truncated) warnings.push('Only part of the homepage was reviewed because it was too large.');
 
   function addPage(raw, parent, depth, source) {
     const ref = safeReference(raw, rootUrl);
@@ -708,7 +708,7 @@ export async function analyzePublicWebsite(input, options = {}) {
         }
         sitemapUsed = count > 0;
       }
-    } catch (error) { warnings.push('Sitemap discovery was skipped: ' + String(error?.message || 'unavailable').slice(0, 140)); }
+    } catch (error) { warnings.push('The website sitemap could not be reviewed.); }
   }
 
   const queue = [...discovered.values()].map(item => ({ url: item.url, depth: item.depth, parent: item.parentUrl }));
@@ -720,7 +720,7 @@ export async function analyzePublicWebsite(input, options = {}) {
     if (parsed.origin !== rootOrigin) continue;
     if (!robotsAllows(parsed, robots.rules)) {
       const item = discovered.get(current.url);
-      if (item) { item.status = 'robots-blocked'; item.warning = 'robots.txt disallows this page path.'; }
+      if (item) { item.status = 'robots-blocked'; item.warning = 'The website's access rules do not allow this page.'; }
       continue;
     }
     let resource;
@@ -728,8 +728,8 @@ export async function analyzePublicWebsite(input, options = {}) {
     try { resource = await fetchResource(current.url, { expectedOrigin: rootOrigin }); }
     catch (error) {
       const item = discovered.get(current.url);
-      if (item) { item.status = 'fetch-error'; item.warning = String(error?.message || 'Could not fetch this page.').slice(0, 180); }
-      warnings.push('Could not inspect ' + current.url + ': ' + String(error?.message || 'fetch failed').slice(0, 140));
+      if (item) { item.status = 'fetch-error'; item.warning = 'This page could not be reviewed.'; }
+      warnings.push('A discovered page could not be reviewed.');
       continue;
     }
     if (new URL(resource.url).origin !== rootOrigin) {
@@ -768,7 +768,7 @@ export async function analyzePublicWebsite(input, options = {}) {
         queue.push({ url, depth: current.depth + 1, parent: current.url });
       }
     }
-    if (resource.truncated) warnings.push('The page ' + current.url + ' was truncated at the per-page HTML limit.');
+    if (resource.truncated) warnings.push('Only part of a page was reviewed because it was too large.');
   }
   if (queue.length || [...discovered.values()].some(page => page.status === 'not-inspected')) pageLimitReached = pageFetchAttempts >= MAX_PAGES;
 
@@ -796,18 +796,18 @@ export async function analyzePublicWebsite(input, options = {}) {
           assets.push({ url, type, sourcePage: css.url, sameOrigin: new URL(url).origin === rootOrigin, queryRemoved: ref.queryRemoved || undefined });
         }
       }
-      if (css.truncated) warnings.push('A stylesheet was truncated at the CSS byte limit.');
+      if (css.truncated) warnings.push('Only part of a stylesheet was reviewed because it was too large.');
     } catch (error) {
-      warnings.push('A linked stylesheet could not be inspected: ' + String(error?.message || 'unavailable').slice(0, 130));
+      warnings.push('A page stylesheet could not be reviewed.);
     }
   }
-  if (pageLimitReached) limitations.push('Only the first six eligible pages were inspected. Additional links remain listed as discovered but uninspected.');
-  if (normalized.hadQueryOrFragment) limitations.push('Query parameters and fragments were omitted from the report to avoid leaking tracking values or access tokens. Query-driven routes may be represented by path only.');
-  limitations.push('The analyzer reads public HTML and up to two same-origin stylesheets. It does not run source-site JavaScript or reconstruct routes that appear only after client-side actions.');
-  limitations.push('Asset URLs are discovered but their binary files are not downloaded or copied into the app in this stage.');
-  limitations.push('Login-protected or inaccessible pages are not bypassed. HTTP errors and robots.txt restrictions are reported.');
-  limitations.push('Public page inspection cannot prove that payments, form delivery, accounts, databases, checkout, APIs or other backend integrations work.');
-  limitations.push('Public DNS records are checked before outbound fetches, but the Fetch runtime does not pin those answers to the underlying connection. A DNS change between the check and connect remains a platform-level DNS rebinding limitation.');
+  if (pageLimitReached) limitations.push('The first six eligible pages were reviewed. Other links may be listed without being opened.');
+  if (normalized.hadQueryOrFragment) limitations.push('Tracking parameters and URL fragments are omitted to help protect private values. Routes that depend on them may appear by path only.');
+  limitations.push('This review uses public pages and up to two stylesheets. It does not run the original website as an application or recreate pages that appear only after interaction.');
+  limitations.push('Images and other resources are listed as links but are not copied into your app automatically.');
+  limitations.push('Pages that require sign-in or restrict public access are not bypassed. Restricted pages are noted in the report.');
+  limitations.push('This review cannot confirm payments, form submissions, sign-in, data storage, checkout or other account-connected features.');
+  limitations.push('The website address is checked before inspection. Some network-level address changes cannot be fully prevented by the browser.');
   if (robots.note) warnings.push(robots.note);
 
   return reportFromPages(inputUrl, rootUrl, [...discovered.values()], {

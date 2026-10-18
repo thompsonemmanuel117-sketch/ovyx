@@ -14,7 +14,7 @@ const report = {
   siteMap: { rootUrl: 'https://example.com/', pages: [
     { url: 'https://example.com/', path: '/', title: 'Example Public Site', category: 'Home', depth: 0, status: 'inspected', httpStatus: 200, contentType: 'text/html' },
     { url: 'https://example.com/about', path: '/about', title: '<img src=x onerror=alert(1)>', category: 'About', depth: 1, status: 'inspected', httpStatus: 200, contentType: 'text/html' },
-    { url: 'https://example.com/private', path: '/private', title: '', category: 'Other', depth: 1, status: 'robots-blocked', warning: 'Disallowed by robots.txt' }
+    { url: 'https://example.com/private', path: '/private', title: '', category: 'Other', depth: 1, status: 'robots-blocked', warning: 'The website access rules do not allow this page.' }
   ] },
   branding: { name: 'Example Public Site', confidence: 'high',
     colors: { primary: '#D81B60', secondary: '#302060', accent: '#00A6A6', background: '#FFF9FC', text: '#17121A' },
@@ -23,9 +23,9 @@ const report = {
     { url: 'https://example.com/assets/logo.png', type: 'image', alt: 'Example logo', sameOrigin: true },
     { url: 'https://example.com/assets/site.css', type: 'stylesheet', sameOrigin: true }
   ] },
-  capabilities: { can: ['Inspect public HTML', 'Discover same-origin links', 'Extract visible brand evidence'],
-    cannot: ['Run source-site JavaScript', 'Verify real payments, forms, databases, or backend behavior'] },
-  limitations: ['Asset binaries are listed by URL but are not downloaded or copied in this stage.'],
+  capabilities: { can: ['Review public website pages', 'Find links between pages', 'Identify visible brand details'],
+    cannot: ['Run the original website as an application', 'Confirm live payments, form submissions, sign-in or data storage'] },
+  limitations: ['Images and other resources are listed as links but are not copied into your app automatically.'],
   warnings: ['One restricted page was not fetched.'], limits: { maxPagesInspected: 6 }
 };
 const html = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body>' +
@@ -68,17 +68,17 @@ try {
   await desktop.locator('#ovyx-app-studio-url-analyzer-panel').waitFor();
   await desktop.locator('[data-ua-url]').fill('https://example.com');
   await desktop.locator('[data-ua-analyze]').click();
-  await desktop.waitForFunction(() => document.querySelector('[data-ua-status]')?.textContent.includes('Analysis complete.'));
+  await desktop.waitForFunction(() => document.querySelector('[data-ua-status]')?.textContent.includes('Website review complete.'));
   assert.equal(requests.length, 1);
   assert.equal(requests[0].auth, 'Bearer test-id-token');
   assert.deepEqual(requests[0].body, { url: 'https://example.com' });
   const reportText = await desktop.locator('[data-ua-results]').innerText();
   assert.match(reportText, /Example Public Site/);
   assert.match(reportText, /\/about/);
-  assert.match(reportText, /robots-blocked/);
+  assert.match(reportText, /Restricted/);
   assert.match(reportText, /D81B60/);
-  assert.match(reportText, /not downloaded or copied/i);
-  assert.match(reportText, /Run source-site JavaScript/);
+  assert.match(reportText, /not copied into your app automatically/i);
+  assert.match(reportText, /Run the original website as an application/);
   assert.match(reportText, /<img src=x onerror=alert\(1\)>/, 'Remote title markup must be plain text.');
   assert.equal(await desktop.locator('[data-ua-results] img[src="x"]').count(), 0, 'Remote title markup must not create elements or execute a handler.');
   assert.equal(await desktop.locator('[data-ua-results] a[target="_blank"]:not([rel*="noopener"])').count(), 0, 'Report links must isolate the opener.');

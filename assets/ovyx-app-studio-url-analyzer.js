@@ -47,6 +47,15 @@
     values.forEach(value => list.appendChild(node('li', '', value)));
     parent.appendChild(list);
   }
+  function pageStatusLabel(value) {
+    const status = String(value || '').toLowerCase();
+    if (status === 'inspected') return 'Reviewed';
+    if (status === 'not-inspected') return 'Not reviewed';
+    if (status === 'robots-blocked') return 'Restricted';
+    if (status === 'http-error' || status === 'fetch-error') return 'Could not load';
+    if (status === 'not-html') return 'Resource link';
+    return 'Status unavailable';
+  }
   function renderReport(report) {
     const panel = document.getElementById(PANEL_ID);
     const results = panel && $(panel, '[data-ua-results]');
@@ -87,10 +96,10 @@
     if (brand.logo && safeUrl(brand.logo.url)) {
       const logo = node('div', 'ovyx-ua-logo-candidate');
       logo.append(node('strong', '', 'Possible logo'), link(brand.logo.url, brand.logo.alt || 'Open detected logo asset'));
-      logo.appendChild(node('p', 'ovyx-ua-muted', 'This is a detected URL only; the image is not copied automatically. Upload the logo in Brand DNA to include it in your app.'));
+      logo.appendChild(node('p', 'ovyx-ua-muted', 'This logo link was found on the website. Upload the image in Brand DNA to include it in your app.'));
       brandSection.appendChild(logo);
     } else {
-      brandSection.appendChild(node('p', 'ovyx-ua-muted', 'No clear logo was detected. It may be embedded in the page styling or rendered dynamically.'));
+      brandSection.appendChild(node('p', 'ovyx-ua-muted', 'No clear logo was found. It may be part of the page design or appear only after interaction.'));
     }
     if (safeUrl(brand.faviconUrl)) {
       const favicon = node('p', 'ovyx-ua-inline-link');
@@ -101,7 +110,7 @@
     apply.type = 'button';
     apply.addEventListener('click', applyDetectedPalette);
     brandSection.appendChild(apply);
-    const mapSection = section(results, 'Site map', 'Discovered routes are shown with inspection status. A discovered but uninspected page has not been fetched.');
+    const mapSection = section(results, 'Site map', 'Pages are listed with their review status. Some links may be listed without opening the page.');
     const pages = Array.isArray(report.siteMap?.pages) ? report.siteMap.pages : Array.isArray(report.pages) ? report.pages : [];
     if (!pages.length) mapSection.appendChild(node('p', 'ovyx-ua-empty', 'No pages could be inventoried.'));
     else {
@@ -111,18 +120,18 @@
         row.style.marginLeft = (Math.max(0, Math.min(3, Number(page.depth) || 0)) * 15) + 'px';
         const heading = node('div', 'ovyx-ua-page__heading');
         heading.append(link(page.url, (Number(page.depth) ? '↳ ' : '') + (page.title || page.path || page.url), 'ovyx-ua-page__link'),
-          node('span', 'ovyx-ua-page__status', page.status || 'unknown'));
+          node('span', 'ovyx-ua-page__status', pageStatusLabel(page.status)));
         row.appendChild(heading);
-        const detail = [page.category, page.path, page.httpStatus ? 'Status ' + page.httpStatus : '', page.warning || ''].filter(Boolean).join(' · ');
+        const detail = [page.category, page.path, page.httpStatus ? (Number(page.httpStatus) >= 400 ? 'Needs attention' : 'Response received') : '', page.warning || ''].filter(Boolean).join(' · ');
         if (detail) row.appendChild(node('p', 'ovyx-ua-muted', detail));
         map.appendChild(row);
       });
       mapSection.appendChild(map);
     }
     if (summary.pageLimitReached) mapSection.appendChild(node('p', 'ovyx-ua-notice', 'The review limit was reached. Some remaining pages are listed but were not all reviewed.'));
-    const assetSection = section(results, 'Assets discovered', 'These public asset links were found on inspected pages. Files are not copied automatically.');
+    const assetSection = section(results, 'Assets discovered', 'Public images and resources found during review. Files are not copied into your app automatically.');
     const assets = Array.isArray(report.assets?.items) ? report.assets.items : [];
-    if (!assets.length) assetSection.appendChild(node('p', 'ovyx-ua-empty', 'No public assets were identified in inspected source.'));
+    if (!assets.length) assetSection.appendChild(node('p', 'ovyx-ua-empty', 'No public images or resources were found.'));
     else {
       const list = node('ul', 'ovyx-ua-assets');
       assets.slice(0, 80).forEach(asset => {
@@ -133,7 +142,7 @@
       });
       assetSection.appendChild(list);
     }
-    const capability = section(results, 'What this report can and cannot tell us', 'Use these findings to guide app creation.');
+    const capability = section(results, 'Report scope', 'Use these findings to guide your app design.');
     capability.appendChild(node('h5', '', 'Can inspect'));
     renderList(capability, report.capabilities?.can, 'No capabilities returned.');
     capability.appendChild(node('h5', '', 'Cannot prove or reproduce here'));
@@ -143,12 +152,12 @@
       renderList(capability, report.limitations, '');
     }
     if (Array.isArray(report.warnings) && report.warnings.length) {
-      const warning = section(results, 'Warnings', 'Review these before using the report as a reconstruction brief.');
+      const warning = section(results, 'Review notes', 'Review these notes before using the findings to create your app.')
       renderList(warning, report.warnings, '');
     }
     const source = report.source || {};
-    results.appendChild(node('p', 'ovyx-ua-report-foot', 'Source: ' + txt(source.canonicalUrl || source.inputUrl) +
-      ' · Analyzed: ' + txt(source.analyzedAt || 'unknown') + '. These findings remain in this tab and are not saved automatically.'));
+    results.appendChild(node('p', 'ovyx-ua-report-foot', 'Website: ' + txt(source.canonicalUrl || source.inputUrl) +
+      ' · Reviewed: ' + txt(source.analyzedAt || 'unknown') + '. This report stays in this tab and is not saved automatically.'));
   }
   function applyDetectedPalette() {
     const report = window.__OVYX_URL_ANALYZER_LAST_REPORT__;
