@@ -260,7 +260,7 @@ export function diagnoseProject(project, id) {
     issues.push({ severity: 'warning', code: 'EMPTY_PROJECT', message: 'No pages or readable source files were found in the saved project.' });
   }
   if (pages.length && !files.length) {
-    issues.push({ severity: 'info', code: 'NO_SOURCE_GRAPH', message: 'The project has page-builder data, but no saved text source files were found in the project source graph. File-level patches are unavailable for this project snapshot.' });
+    issues.push({ severity: 'info', code: 'NO_SOURCE_GRAPH', message: 'This app has page-builder data, but no editable source files are available in the saved version. File-level changes are not available for this snapshot.' });
   }
   const slugs = new Map();
   pages.forEach((page, index) => {
@@ -386,7 +386,7 @@ async function handleTool(env, identity, body) {
         activeProject: null,
         missingProjectId: clean(body.projectId, 120),
         source: 'firestore-project-not-found',
-        message: 'The current browser project is not available in the saved server project store. Local workspace context can still be used, but server-side file writes are disabled until this project syncs.',
+        message: 'This app hasn't been saved to your OVYX account yet. You can still ask questions about this session, but file changes require a saved app.',
       };
     }
   }
@@ -703,7 +703,7 @@ export async function onRequestPost(context) {
   } catch (error) {
     return jsonResponse({
       ok: false,
-      error: error?.message || 'Workspace tool request failed.',
+      error: error?.status ? error.message : 'The workspace request could not be completed. Please try again.'
       code: error?.code || 'WORKSPACE_TOOL_FAILED',
       requestId: id,
     }, error?.status || 500, { 'X-OVYX-Request-ID': id });
