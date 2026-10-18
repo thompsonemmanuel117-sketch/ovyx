@@ -113,7 +113,7 @@
     summary.append(
       el('span', 'ovyx-as-disclosure__icon', '⌁'),
       el('span', 'ovyx-as-disclosure__copy', 'Detailed inspection report'),
-      el('span', 'ovyx-as-disclosure__hint', pageCount + ' discovered routes · ' + assetCount + ' assets · limits and warnings'),
+      el('span', 'ovyx-as-disclosure__hint', pageCount + ' pages reviewed · ' + assetCount + ' images and resources · notes and warnings'),
       el('span', 'ovyx-as-disclosure__chevron', '＋')
     );
     const body = el('div', 'ovyx-as-report-details__body');
@@ -177,7 +177,7 @@
       states[0] === 'complete' ? 'Done' : 'Start here',
       states[1] === 'complete' ? 'Done' : report ? 'Build next' : 'Next',
       states[2] === 'complete' ? 'Done' : verified ? 'Review findings' : project ? 'Check now' : 'Next',
-      released ? (mobileCompleted && !productionIsLive ? 'Build ready' : 'Published') : productionIsLive ? 'Published' : previewDeployed ? 'Preview live · publish next' : projectSaved ? 'Saved · release next' : verified && brain.status !== 'failed' ? 'Ready when you are' : 'Next'
+      released ? (mobileCompleted && !productionIsLive ? 'Build ready' : 'Published') : productionIsLive ? 'Published' : previewDeployed ? 'Preview ready · publish when ready' : projectSaved ? 'Saved · ready for release' : verified && brain.status !== 'failed' ? 'Ready to continue' : 'Next'
     ];
     steps.forEach((anchor, index) => setStepState(anchor, states[index], messages[index]));
     const helper = $(hero, '[data-ovyx-as-helper]');
