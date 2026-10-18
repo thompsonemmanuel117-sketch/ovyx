@@ -135,7 +135,7 @@
       if (!filesByBase.has(base)) filesByBase.set(base, []);
       filesByBase.get(base).push(path);
     }
-    if (!paths.length) finding('error', 'EMPTY_PROJECT', 'No generated source files were returned.', '', 'Project files map is empty.');
+    if (!paths.length) finding('error', 'EMPTY_PROJECT', 'No generated source files were returned.', '', 'No source files were returned.');
     if (!entry) finding('error', 'MISSING_HTML_ENTRY', 'No HTML entry page was found in the generated file map.', '', paths.join(', ') || 'No files were returned.');
     else finding('pass', 'HTML_ENTRY_PRESENT', 'HTML entry page exists.', entry, 'Generated HTML file found.');
     if (paths.length) finding('pass', 'SOURCE_FILES_READ', 'Read ' + paths.length + ' source files for dependency checks.', entry, paths.join(', '));
@@ -174,7 +174,7 @@
           controls.push({ type: 'link', label: a['aria-label'] || a.title || '', href, file: path, componentId: linkId });
           if (!href) { finding('error', 'LINK_WITHOUT_HREF', 'Anchor has no href destination.', path, item.raw); continue; }
           if (/^(javascript:|data:|file:)/i.test(href)) { finding('error', 'UNSAFE_LINK_SCHEME', 'Anchor uses an unsupported navigation scheme.', path, href); continue; }
-          if (/^(https?:)?\/\//i.test(href) || /^(mailto:|tel:)/i.test(href)) { finding('info', 'EXTERNAL_LINK_NOT_FETCHED', 'External destination is present but reachability is not tested by this local project audit.', path, href); continue; }
+          if (/^(https?:)?\/\//i.test(href) || /^(mailto:|tel:)/i.test(href)) { finding('info', 'EXTERNAL_LINK_NOT_FETCHED', 'External destinations are listed, but availability is not checked automatically.', path, href); continue; }
           if (href.startsWith('#')) {
             let target = href.slice(1);
             try { target = decodeURIComponent(target); } catch (_) {}
@@ -221,7 +221,7 @@
             dependenciesChecked++;
             const target = resolveResource(ref, path);
             if (target) { finding('pass', 'LOCAL_ASSET_OK', 'Referenced local asset exists.', path, ref, { targetFile: target }); addEdge(fileNode, 'file:' + target, 'asset', ref); }
-            else if (item.tag === 'img') finding('warning', 'LOCAL_IMAGE_NOT_IN_PROJECT', 'Image source is not a generated file; verify it loads in the live preview.', path, ref);
+            else if (item.tag === 'img') finding('warning', 'LOCAL_IMAGE_NOT_IN_PROJECT', 'Image source is not included in the generated files; verify that it loads in the preview.', path, ref);
           }
           if (item.tag === 'img' && !('alt' in a)) finding('warning', 'IMAGE_ALT_MISSING', 'Image has no alt attribute.', path, item.raw);
         }
@@ -283,7 +283,7 @@
         else {
           const target = resolveResource(ref, path);
           if (target) { finding('pass', 'CSS_IMPORT_OK', 'CSS import resolves to a generated file.', path, ref, { targetFile: target }); addEdge('file:' + path, 'file:' + target, 'css-import', ref); }
-          else finding('error', 'CSS_IMPORT_MISSING', 'CSS imports a local file missing from the project.', path, ref);
+          else finding('error', 'CSS_IMPORT_MISSING', 'A stylesheet imports a local file that is missing from the generated files.', path, ref);
         }
       }
       for (const match of source.matchAll(/url\(\s*['"]?([^'")]+)['"]?\s*\)/gi)) {
@@ -292,7 +292,7 @@
         dependenciesChecked++;
         const target = resolveResource(ref, path);
         if (target) { finding('pass', 'CSS_ASSET_OK', 'CSS asset reference resolves to a generated file.', path, ref, { targetFile: target }); addEdge('file:' + path, 'file:' + target, 'css-asset', ref); }
-        else finding('warning', 'CSS_ASSET_MISSING', 'CSS references an asset not included in project files.', path, ref);
+        else finding('warning', 'CSS_ASSET_MISSING', 'CSS references an asset that is not included in the generated files.', path, ref);
       }
     }
     for (const path of paths.filter(isJs)) {
@@ -301,7 +301,7 @@
         const ref = match[2]; dependenciesChecked++;
         const target = resolveResource(ref, path);
         if (target) { finding('pass', 'MODULE_IMPORT_OK', 'Local JavaScript import resolves to a generated file.', path, ref, { targetFile: target }); addEdge('file:' + path, 'file:' + target, 'module-import', ref); }
-        else finding('error', 'MODULE_IMPORT_MISSING', 'JavaScript imports a local module missing from project files.', path, ref);
+        else finding('error', 'MODULE_IMPORT_MISSING', 'JavaScript imports a local module that is missing from the generated files.', path, ref);
       }
       if (/\bfetch\s*\(|\bXMLHttpRequest\b|\bWebSocket\s*\(/.test(source)) {
         const evidence = source.match(/.{0,25}(?:\bfetch\s*\(|\bXMLHttpRequest\b|\bWebSocket\s*\().{0,65}/)?.[0] || 'fetch/XHR/WebSocket';
