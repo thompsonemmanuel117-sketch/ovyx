@@ -695,7 +695,7 @@
     if (!view || !owner()) return;
     const host = panel(view, 'ovyx-global-ai-routing', 'AI selection preferences',
       'Set the preferred order for AI options used by OVYX Auto. Explicit choices for an individual request and users’ own connected options take priority.',
-      '<div id="ovyx-global-ai-priority-rows"></div><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px"><button type="button" class="ovyx-owner-live-button" id="ovyx-global-ai-route-save">Save AI selection order</button><button type="button" class="ovyx-owner-live-button" id="ovyx-global-ai-status-refresh">Test providers now</button></div><div id="ovyx-global-ai-route-status" class="ovyx-owner-live-status">Loading global AI route…</div><div id="ovyx-global-ai-provider-status" class="ovyx-owner-live-grid" style="margin-top:10px"></div>');
+      '<div id="ovyx-global-ai-priority-rows"></div><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px"><button type="button" class="ovyx-owner-live-button" id="ovyx-global-ai-route-save">Save AI selection order</button><button type="button" class="ovyx-owner-live-button" id="ovyx-global-ai-status-refresh">Check AI availability</button></div><div id="ovyx-global-ai-route-status" class="ovyx-owner-live-status">Loading AI selection preferences…</div><div id="ovyx-global-ai-provider-status-note" class="ovyx-owner-live-status" aria-live="polite">AI availability has not been checked yet.</div><div id="ovyx-global-ai-provider-status" class="ovyx-owner-live-grid" style="margin-top:10px"></div>');
     if (host.dataset.bound === '1') return;
     host.dataset.bound = '1';
     const rows = $('ovyx-global-ai-priority-rows');
@@ -728,7 +728,7 @@
         const select = document.querySelector('[data-provider-priority="' + item.id + '"]');
         if (select) select.value = String(Math.max(1, order.indexOf(item.id) + 1));
       });
-      statusText(status, 'Loaded AI selection order: ' + order.join(' → '), 'ok');
+      statusText(status, 'AI selection order: ' + order.join(' → '), 'ok');
       await loadProviderStatus();
     } catch (error) {
       statusText(status, 'AI selection settings could not be loaded. Please try again.', 'error');
@@ -757,10 +757,10 @@
     const grid = $('ovyx-global-ai-provider-status');
     if (!grid) return;
     grid.replaceChildren();
-    statusText($('ovyx-global-ai-route-status'), 'Checking AI service availability…');
+    statusText($('ovyx-global-ai-provider-status-note'), 'Checking AI availability…');
     const result = await timedRequest('/api/ai/status', true);
     if (!result.ok) {
-      statusText($('ovyx-global-ai-route-status'), 'AI service availability could not be checked. Please try again.', 'error');
+      statusText($('ovyx-global-ai-provider-status-note'), 'AI availability could not be checked right now. Please try again.', 'error');
       return;
     }
     const entries = (Array.isArray(result.data.providers) ? result.data.providers : []).concat(Array.isArray(result.data.additionalProviders) ? result.data.additionalProviders : []);
@@ -779,7 +779,7 @@
     cfCard.innerHTML = '<div class="ovyx-owner-live-label">Native AI service</div><div class="ovyx-owner-live-value">' + (cf.workersAiBinding ? 'Available' : 'Setup required') + '</div><div class="ovyx-owner-live-detail">Setup is present, but this check does not run an AI request.</div>';
     grid.appendChild(cfCard);
     const activeOrder = Array.isArray(latestAIConfig?.providerOrder) ? latestAIConfig.providerOrder : [];
-    statusText($('ovyx-global-ai-route-status'), (activeOrder.length ? 'AI selection order: ' + activeOrder.join(' → ') + '. ' : '') + 'AI availability check completed in ' + result.duration + ' ms. Status: ' + String(result.data.status || 'reported') + '.', 'ok');
+    statusText($('ovyx-global-ai-provider-status-note'), 'AI availability check completed in ' + result.duration + ' ms.', 'ok');
   }
 
   async function runLiveOverview() {
