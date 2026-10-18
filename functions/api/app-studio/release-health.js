@@ -7,7 +7,7 @@ const slug = (value, fallback = 'site') => clean(value, 100).toLowerCase().repla
 
 async function cloudflareGet(path, env) {
   if (!env.CLOUDFLARE_API_TOKEN || !env.CLOUDFLARE_ACCOUNT_ID) {
-    throw Object.assign(new Error('Publishing isn't available right now. Please try again later.'), { status: 503, code: 'CLOUDFLARE_NOT_CONFIGURED' });
+    throw Object.assign(new Error('Publishing is not available right now. Please try again later.'), { status: 503, code: 'CLOUDFLARE_NOT_CONFIGURED' });
   }
   const response = await fetch('https://api.cloudflare.com/client/v4' + path, {
     headers: { Accept: 'application/json', Authorization: 'Bearer ' + env.CLOUDFLARE_API_TOKEN },
@@ -15,7 +15,7 @@ async function cloudflareGet(path, env) {
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok || data.success !== true) {
-    const message = Array.isArray(data.errors) && data.errors[0]?.message ? String(data.errors[0].message) : 'The publishing status couldn't be checked. Please try again later.';
+    const message = Array.isArray(data.errors) && data.errors[0]?.message ? String(data.errors[0].message) : 'The publishing status could not be checked. Please try again later.';
     throw Object.assign(new Error(message), { status: response.status >= 400 && response.status < 500 ? response.status : 503, code: 'CLOUDFLARE_STATUS_FAILED' });
   }
   return data.result;
@@ -34,11 +34,11 @@ function deploymentStage(deployment) {
 
 async function probePagesUrl(urlValue) {
   let url;
-  try { url = new URL(String(urlValue || '')); } catch { return { checked: false, reachable: false, httpStatus: null, message: 'The public website address couldn't be verified.' }; }
+  try { url = new URL(String(urlValue || '')); } catch { return { checked: false, reachable: false, httpStatus: null, message: 'The public website address could not be verified.' }; }
   // Never accept a probe destination from the caller. Only probe HTTPS aliases returned
   // by the authenticated Cloudflare deployment API, and only on Cloudflare Pages hosts.
   if (url.protocol !== 'https:' || !url.hostname.toLowerCase().endsWith('.pages.dev') || url.username || url.password) {
-    return { checked: false, reachable: false, httpStatus: null, message: 'A public website address wasn't available to check.' };
+    return { checked: false, reachable: false, httpStatus: null, message: 'A public website address was not available to check.' };
   }
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 8000);
@@ -87,7 +87,7 @@ export async function onRequestGet(context) {
     }
     const entitlements = context.data?.entitlements || await resolveEntitlements(context.env, user);
     if (entitlements?.capabilities?.cloudflareDeploy !== true) {
-      return jsonResponse({ ok: false, error: 'Your OVYX account doesn't have permission to view publishing status.', code: 'CLOUDFLARE_DEPLOY_NOT_INCLUDED' }, 403, { 'X-OVYX-Request-ID': id });
+      return jsonResponse({ ok: false, error: 'Your OVYX account does not have permission to view publishing status.', code: 'CLOUDFLARE_DEPLOY_NOT_INCLUDED' }, 403, { 'X-OVYX-Request-ID': id });
     }
 
     const query = new URL(context.request.url).searchParams;
@@ -147,7 +147,7 @@ export async function onRequestGet(context) {
     const status = Number.isInteger(error?.status) ? error.status : 503;
     return jsonResponse({
       ok: false,
-      error: status >= 500 ? 'Release diagnostics service is temporarily unavailable.' : error?.message || 'The publishing status couldn't be checked. Please try again.',
+      error: status >= 500 ? 'Release diagnostics service is temporarily unavailable.' : error?.message || 'The publishing status could not be checked. Please try again.',
       code: error?.code || 'RELEASE_DIAGNOSTICS_FAILED',
       requestId: id
     }, status, { 'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store, max-age=0' });
