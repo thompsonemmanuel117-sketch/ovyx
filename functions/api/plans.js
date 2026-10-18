@@ -107,7 +107,7 @@ export async function onRequestGet(context) {
   } catch (error) {
     return jsonResponse({
       ok: false,
-      error: 'Plan catalog is temporarily unavailable.',
+      error: 'Pricing and plan details are temporarily unavailable. Please try again later.',
       code: 'PLANS_UNAVAILABLE',
       requestId: id
     }, 503, { 'X-OVYX-Request-ID': id });
