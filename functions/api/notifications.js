@@ -125,5 +125,5 @@ export async function onRequestPost(context) {
 export async function onRequest(context) {
   if (context.request.method === 'GET') return onRequestGet(context);
   if (context.request.method === 'POST') return onRequestPost(context);
-  return errorResponse(405, 'METHOD_NOT_ALLOWED', 'This action isn't supported.');
+  return errorResponse(405, 'METHOD_NOT_ALLOWED', 'This action is not supported.');
 }
