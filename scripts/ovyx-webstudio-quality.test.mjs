@@ -32,7 +32,7 @@ for (const token of [
   'Page runtime errors',
   'function probeControls()',
   'function probeAccessibility()',
-  'Isolated render processing budget',
+  'Page loading performance',
   'CORE_BROWSER_ROUTE_COUNT = 3',
   'ADDITIONAL_ROUTE_WIDTHS = [390, 1440]',
   'MAX_SAFE_CONTROLS_PER_ROUTE = 8',
