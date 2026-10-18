@@ -45,4 +45,22 @@ assert.ok(workflow.includes('scripts/ovyx-app-studio-link-builder.browser.test.m
 assert.ok(browserTest.includes("frameLocator('[data-lb-preview]')") && browserTest.includes('Tap 1'), 'The browser test must interact with the live preview, not only inspect a screenshot or iframe element.');
 assert.ok(browserTest.includes('/api/app-studio/url-analyzer') && browserTest.includes('/api/ai/gateway'), 'The integration test must cross the analyzer and existing generator request boundaries.');
 
-console.log('OVYX Stage 3 source checks passed: analyzer handoff, existing AI generator routing, per-app branding, sandboxed live project preview, source inspection, and CI wiring.');
+assert.ok(runtime.includes('data-ovyx-app-action-bridge'), 'The real preview must receive the controlled Stage 4 parent bridge.');
+assert.ok(runtime.includes('connect-src'), 'The generated preview CSP must explicitly control network access.');
+assert.ok(runtime.includes('connect-src') && runtime.includes('form-action'), 'The generated preview must block arbitrary direct network calls and browser form posts.');
+assert.ok(runtime.includes('document.addEventListener("submit"'), 'Generated forms must have an implemented submit outcome.');
+assert.ok(runtime.includes('function cleanSubmittedFields'), 'Form submissions must be bounded and sensitive fields filtered.');
+assert.ok(runtime.includes('function writeAppState'), 'The preview must persist per-user app state locally with a size limit.');
+assert.ok(runtime.includes('window.OVYXApp') && runtime.includes('auth.currentUser'), 'Generated apps must have a real sign-in status bridge.');
+assert.ok(runtime.includes('const API_ACTIONS = Object.freeze'), 'OVYX API access must use a fixed endpoint allowlist.');
+assert.ok(runtime.includes('window.confirm'), 'Private account API reads and project saves must request user authorization.');
+assert.ok(runtime.includes('Allow this generated app to read your OVYX display name and email address?'), 'Generated apps must ask before receiving personal profile details.');
+assert.ok(runtime.includes("fetch('/api/projects'"), 'Cloud project persistence must use the existing authenticated Projects API.');
+assert.ok(runtime.includes('Saved and verified in OVYX Projects'), 'The UI must only report cloud-save success after the API verifies a saved project.');
+assert.ok(runtime.includes('Stage 04 action contract'), 'New generated projects must be instructed to use supported Stage 4 actions and disclose unsupported integrations.');
+assert.ok(browserTest.includes('Saved in this browser only'), 'Browser tests must verify honest local-only form feedback.');
+assert.ok(browserTest.includes('do-not-store-this'), 'Browser tests must verify password values are not stored.');
+assert.ok(browserTest.includes('requests.cloudSave'), 'Browser tests must verify a confirmed authenticated cloud save.');
+assert.ok(browserTest.includes('not-allowed'), 'Browser tests must verify direct arbitrary network calls are blocked.');
+
+console.log('OVYX Stage 4 source checks passed: real form outcomes, bounded per-user persistence, authentication status, allowlisted APIs, explicit authorization, CSP network isolation, and verified cloud project saving.');

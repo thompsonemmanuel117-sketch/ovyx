@@ -162,7 +162,7 @@ jobs:
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8788
 
-      - name: Exercise Stage 3 link-based app generation and live preview in desktop and mobile Chromium
+      - name: Exercise generated app functionality and live preview in desktop and mobile Chromium
         run: node scripts/ovyx-app-studio-link-builder.browser.test.mjs
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8788

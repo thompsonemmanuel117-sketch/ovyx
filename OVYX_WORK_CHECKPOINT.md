@@ -633,3 +633,13 @@ Stage 01 code and desktop/mobile browser verification are complete on the record
 - [x] Post-merge desktop/mobile browser run `39087408099` passed the dedicated Stage 3 live-generation/multi-route preview step. The overall workspace browser workflow later failed at the unrelated Settings Data Layer step; this is recorded as a broader-suite issue, not a Stage 3 pass/fail regression: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/39087408099
 - [x] Stage 3 completion condition is met: suitable analyzed URLs now generate a structured project with a real interactive preview and multi-page navigation for routes actually inspected.
 
+## Stage 4 — Real functionality for generated link-based apps (2026-10-18)
+
+- [x] Added a controlled parent-to-preview action bridge. Generated code cannot call arbitrary network endpoints: the sandbox CSP blocks direct network/form navigation, and only a fixed first-party read-only API allowlist is available through the bridge.
+- [x] Generated forms validate, show visible submission feedback, and persist non-sensitive fields to per-user, per-app browser storage. The UI explicitly says submissions stay in this browser; passwords/secrets are filtered and file uploads are reported as not uploaded.
+- [x] Added bounded app-local persistent values via `window.OVYXApp.storage.get/set/remove/keys`, with limits on keys, values and total state. This is browser persistence, not cross-device/server sync.
+- [x] Exposed the current OVYX sign-in state through `window.OVYXApp.auth.currentUser()`; this does not create a custom login/signup service for the generated app.
+- [x] Added opt-in, confirmed read-only OVYX API access through `window.OVYXApp.api.get('entitlements'|'usage'|'projects')`. Other OVYX write endpoints and arbitrary third-party endpoints are not exposed to generated preview code.
+- [x] Added an explicit **Save project to OVYX Projects** action using the existing authenticated `/api/projects` endpoint. It asks for confirmation and only reports success after the server response verifies the saved project. Generated output is not silently cloud-saved.
+- [x] Generated projects record action limits: custom authentication, email delivery, file uploads, payments/checkout, booking and third-party integration are not represented as working unless a separately authorized/configured backend is available.
+- [ ] Stage 4 verification is pending. Run Agent Verify, then the dedicated desktop/mobile Chromium Stage 4 browser assertions (real local form submit, secret filtering, persistent state, sign-in status, authorized read-only API, direct-network blocking and explicit cloud save) on this exact branch/PR head. Fix only observed failures and record run IDs before merge.
