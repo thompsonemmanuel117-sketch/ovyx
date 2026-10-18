@@ -253,7 +253,7 @@
       state.busy = false;
       state.elapsedMs = Date.now() - state.startedAt;
       state.status = 'Request failed';
-      record('Request could not complete', error && error.message || 'A network error interrupted the request.', 'error');
+      record('Request could not complete', error && error.message || 'The request couldn't be completed. Please try again.', 'error');
       render();
       throw error;
     }
