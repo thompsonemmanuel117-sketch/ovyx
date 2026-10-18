@@ -615,3 +615,14 @@ Stage 01 code and desktop/mobile browser verification are complete on the record
 - Asset URLs are listed but binary assets are not downloaded or copied in this stage.
 - The analyzer does not sign in to source websites, bypass paywalls, ignore robots.txt, execute website JavaScript, reconstruct client-side-only routes, or prove payments/forms/accounts/databases/backend integrations.
 - Public DNS is checked, but the Cloudflare Fetch runtime does not pin those DNS answers to the socket connection; DNS rebinding remains an explicitly disclosed platform-level limitation.
+
+## Stage 3 — First link-based app (2026-10-18)
+
+- [x] Connected the Stage 2 structured URL Analyzer report to the existing authenticated App Studio AI gateway via `mode: app-build`; no new generation service was introduced.
+- [x] Added a Stage 03 generator panel after a successful analysis. It uses the detected source name, inspected page map/headings, route statuses, image-asset candidates and source branding as the generation brief.
+- [x] The existing Stage 1 Brand DNA request hook now applies Stage 2's detected palette *after* loading the selected app's saved profile, so it preserves its original full-colour PNG and layout rules before saving the updated per-app identity.
+- [x] Generated HTML entry file, CSS and JavaScript are combined into an isolated `iframe.srcdoc` live preview; returned source files are inspectable in the UI. This is working HTML/CSS/JS, not a screenshot or image mock.
+- [x] New output is held in `window.__OVYX_APP_STUDIO_GENERATED_PROJECT__` for this tab and signalled by `ovyx:link-app-generated`. Stage 3 deliberately does not replace the user's active project or claim the generated artifact is saved/published.
+- [x] Added source-contract tests and a desktop/mobile browser integration fixture that analyzes a URL, goes through the existing generator request bridge, checks saved brand preservation, opens HTML/CSS/JS, clicks a real preview interaction, and validates in-page navigation.
+- [ ] Run Agent Verify/build and the full desktop/mobile Chromium workflow on the exact PR head; fix only any failure evidenced by the actual logs, then update this checkpoint with the passing run IDs and merge status.
+

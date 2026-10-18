@@ -101,12 +101,31 @@
     setStatus('Saved and verified on the server. This identity will be used for this app’s generated screens.','success');
     return data.profile;
   }
+  function applyAnalyzedColors(payload) {
+    const sourceColors=payload?.context?.sourceBrandColors;
+    if(!sourceColors||typeof sourceColors!=='object'||Array.isArray(sourceColors))return;
+    const panel=document.getElementById(PANEL_ID);if(!panel)return;
+    let applied=0;
+    for(const key of keys){
+      const value=sourceColors[key];
+      if(!validHex(value))continue;
+      state.colors[key]=value.toUpperCase();
+      const input=q(panel,'[data-brand-color="'+key+'"]');
+      if(input)input.value=state.colors[key];
+      applied++;
+    }
+    if(applied){state.paletteCustomized=true;state.dirty=true;renderPalette();}
+  }
   async function prepare(payload) {
     if(!document.getElementById(PANEL_ID))return payload; // Preserve current App Studio if a deployment serves an older view shell.
     const name=nameFrom(payload),id=slug(name);
     const dirty=state.dirty;
     if(!state.appName)applyDraft({appName:name,colors:defaults(name),logoDataUrl:null,layoutRules:[]},name);
     if(state.boundId!==id)await loadProfile(id,name,dirty);
+    // Stage 3 can supply the colors detected by URL Analyzer. Apply them only
+    // after loading the existing per-app profile so its full-colour logo and
+    // layout rules survive the palette transfer.
+    applyAnalyzedColors(payload);
     if(!state.hasProfile||state.dirty||state.appId!==id)await saveProfile(id);
     payload.context=Object.assign({},payload.context||{},{activeView:'appstudio',appName:state.appName,appBrandId:id});
     return payload;

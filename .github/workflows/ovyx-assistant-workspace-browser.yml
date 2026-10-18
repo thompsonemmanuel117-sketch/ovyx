@@ -22,11 +22,17 @@ on:
       - 'assets/ovyx-app-studio-url-analyzer.js'
       - 'scripts/ovyx-url-analyzer.test.mjs'
       - 'scripts/ovyx-url-analyzer.browser.test.mjs'
+      - 'assets/ovyx-app-studio-link-builder.js'
+      - 'scripts/ovyx-app-studio-link-builder.test.mjs'
+      - 'scripts/ovyx-app-studio-link-builder.browser.test.mjs'
       - 'functions/_lib/url-analyzer.js'
       - 'functions/api/app-studio/url-analyzer.js'
       - 'assets/ovyx-app-studio-url-analyzer.js'
       - 'scripts/ovyx-url-analyzer.test.mjs'
       - 'scripts/ovyx-url-analyzer.browser.test.mjs'
+      - 'assets/ovyx-app-studio-link-builder.js'
+      - 'scripts/ovyx-app-studio-link-builder.test.mjs'
+      - 'scripts/ovyx-app-studio-link-builder.browser.test.mjs'
       - 'package.json'
       - 'scripts/ovyx-settings*.mjs'
       - 'assets/ovyx-admin-workspace.js'
@@ -150,6 +156,11 @@ jobs:
 
       - name: Exercise App Studio URL Analyzer in desktop and mobile Chromium
         run: node scripts/ovyx-url-analyzer.browser.test.mjs
+        env:
+          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
+
+      - name: Exercise Stage 3 link-based app generation and live preview in desktop and mobile Chromium
+        run: node scripts/ovyx-app-studio-link-builder.browser.test.mjs
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8788
 

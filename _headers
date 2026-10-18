@@ -40,3 +40,6 @@
 
 /assets/ovyx-app-studio-url-analyzer.js
   Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-app-studio-link-builder.js
+  Cache-Control: no-store, no-cache, must-revalidate
