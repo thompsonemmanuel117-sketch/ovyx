@@ -255,7 +255,7 @@ try {
   assert.ok(requests.cloudSave[0].body.project.files['pages/collections.html']);
   assert.equal((await desktop.evaluate(() => window.__OVYX_APP_STUDIO_GENERATED_PROJECT__)).savedToProjects, true);
 
-  await desktop.locator('#ovyx-app-studio-link-builder details summary').click();
+  await desktop.locator('#ovyx-app-studio-link-builder .ovyx-lb-files > summary').click();
   assert.ok((await desktop.locator('[data-lb-source]').innerText()).includes('index.html'));
   assert.ok((await desktop.locator('[data-lb-source]').innerText()).includes('pages/collections.html'));
   assert.ok((await desktop.locator('[data-lb-source]').innerText()).includes('pages/about.html'));
