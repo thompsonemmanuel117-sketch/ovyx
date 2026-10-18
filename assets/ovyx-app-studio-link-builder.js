@@ -247,7 +247,7 @@
       // allowed to read contentDocument. Check the actual visible iframe source,
       // which the browser uses to render the built project, instead.
       return !!(frame && frame.isConnected && source.length > 80 && /<body/i.test(source) &&
-        source.includes('src/pages/Home.html') === false && rect && rect.width > 0 && rect.height > 0);
+        source.includes(homeHtml.slice(0, Math.min(homeHtml.length, 80)) || '') && rect && rect.width > 0 && rect.height > 0);
     }, 'The generated project files were saved, but the live preview did not render in the real editor.');
     window.__OVYX_LAST_LINK_BUILD__ = { projectId, projectName: appName, sourceUrl: evidence.source.canonicalUrl,
       entry: generated.homePath, fileCount: Object.keys(generated.files).length, previewRendered: true };
