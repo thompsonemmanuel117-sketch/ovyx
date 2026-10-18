@@ -779,7 +779,7 @@
     cfCard.innerHTML = '<div class="ovyx-owner-live-label">Native AI service</div><div class="ovyx-owner-live-value">' + (cf.workersAiBinding ? 'Available' : 'Setup required') + '</div><div class="ovyx-owner-live-detail">Setup is present, but this check does not run an AI request.</div>';
     grid.appendChild(cfCard);
     const activeOrder = Array.isArray(latestAIConfig?.providerOrder) ? latestAIConfig.providerOrder : [];
-    statusText($('ovyx-global-ai-route-status'), (activeOrder.length ? 'Global routing order: ' + activeOrder.join(' → ') + '. ' : '') + 'AI availability check completed in ' + result.duration + ' ms. Status: ' + String(result.data.status || 'reported') + '.', 'ok');
+    statusText($('ovyx-global-ai-route-status'), (activeOrder.length ? 'AI selection order: ' + activeOrder.join(' → ') + '. ' : '') + 'AI availability check completed in ' + result.duration + ' ms. Status: ' + String(result.data.status || 'reported') + '.', 'ok');
   }
 
   async function runLiveOverview() {
@@ -806,17 +806,17 @@
     add('Platform health', health.ok ? 'Available' : (health.status ? 'Needs attention' : 'Unavailable'),
       health.ok ? 'Health check completed in ' + health.duration + ' ms.' : 'The platform health check could not be completed.', health.ok ? 'ok' : 'bad');
     const pricing = plans.data?.pricing || {};
-    add('Global Pro price', plans.ok ? money(pricing.pro?.ngn, 'NGN') : 'UNAVAILABLE',
+    add('Global Pro price', plans.ok ? money(pricing.pro?.ngn, 'NGN') : 'Unavailable',
       plans.ok ? money(pricing.pro?.usd, 'USD') + ' · current plan details' : 'Current plan details couldn't be loaded.', plans.ok ? 'ok' : 'bad');
-    add('Global Max price', plans.ok ? money(pricing.max?.ngn, 'NGN') : 'UNAVAILABLE',
+    add('Global Max price', plans.ok ? money(pricing.max?.ngn, 'NGN') : 'Unavailable',
       plans.ok ? money(pricing.max?.usd, 'USD') + ' · current plan details' : 'Current plan details couldn't be loaded.', plans.ok ? 'ok' : 'bad');
-    add('Accounts', registry.ok ? 'AVAILABLE' : 'UNAVAILABLE',
+    add('Accounts', registry.ok ? 'Available' : 'Unavailable',
       registry.ok ? 'Reviewed ' + String(registry.data.users?.length || 0) + ' account record(s) in ' + registry.duration + ' ms. This is a sample, not a total count.' : 'The account list could not be loaded.', registry.ok ? 'ok' : 'bad');
     const report = sentinel.data?.latestReport || {};
     const critical = safeNumber(report.criticalCount ?? report.summary?.critical ?? report.counts?.critical, NaN);
     const reportStatus = String(report.status || report.result || 'No report yet').toUpperCase();
-    add('Health review', sentinel.ok ? reportStatus : 'UNAVAILABLE',
-      sentinel.ok ? (Number.isFinite(critical) ? String(critical) + ' critical finding(s); ' : '') + 'last reviewed: ' + String(sentinel.data.lastScanAt || report.finishedAt || 'not recorded') : 'The latest health report could not be loaded.', sentinel.ok && reportStatus !== 'CRITICAL' ? 'ok' : 'warn');
+    add('Health review', sentinel.ok ? reportStatus : 'Unavailable',
+      sentinel.ok ? (Number.isFinite(critical) ? String(critical) + ' critical finding(s); ' : '') + 'Last reviewed: ' + String(sentinel.data.lastScanAt || report.finishedAt || 'not recorded') : 'The latest health report could not be loaded.', sentinel.ok && reportStatus !== 'CRITICAL' ? 'ok' : 'warn');
     statusText($('ovyx-owner-overview-status'), 'Checks completed at ' + new Date().toLocaleString() + '. A successful status check doesn't guarantee every payment, publishing, or email workflow is working.', health.ok && plans.ok && registry.ok ? 'ok' : 'warn');
   }
 
@@ -908,12 +908,12 @@
       card('AI service status', 'Unavailable', ai.error || ('The AI availability check couldn't be completed.'), '#fca5a5');
     }
     const report = sentinel.data?.latestReport || {};
-    const reportStatus = sentinel.ok ? String(report.status || 'No report yet').toUpperCase() : 'UNAVAILABLE';
+    const reportStatus = sentinel.ok ? String(report.status || 'No report yet').toUpperCase() : 'Unavailable';
     const checkList = Array.isArray(report.checks) ? report.checks : (Array.isArray(report.findings) ? report.findings : []);
     const critical = checkList.filter(item => String(item.severity || item.status || '').toLowerCase() === 'critical').length;
     card('OVYX Sentinel', reportStatus, sentinel.ok
-      ? (critical ? critical + ' critical item(s) in report. ' : '') + 'Last scan: ' + String(sentinel.data.lastScanAt || report.finishedAt || 'not recorded')
-      : 'The latest health report could not be loaded.', sentinel.ok && reportStatus === 'HEALTHY' ? '#86efac' : '#fcd34d');
+      ? (critical ? critical + ' critical item(s) in report. ' : '') + 'Last reviewed: ' + String(sentinel.data.lastScanAt || report.finishedAt || 'not recorded')
+      : 'The latest health report could not be loaded.', sentinel.ok && reportStatus === 'healthy' ? '#86efac' : '#fcd34d');
     const allUp = health.ok && auth.ok && ai.ok && sentinel.ok;
     if (window.AdminTelemetry) window.AdminTelemetry.lastVerifiedAt = new Date().toISOString();
     document.documentElement.dataset.ovyxTelemetryCheckedAt = new Date().toISOString();
