@@ -19,7 +19,7 @@ const profiles = new Map([['coastal-living', {
 const report = {
   schemaVersion: 1,
   source: { inputUrl: 'https://coastal.example/', canonicalUrl: 'https://coastal.example/', hostname: 'coastal.example', analyzedAt: '2026-10-18T00:00:00.000Z' },
-  summary: { pagesDiscovered: 3, pagesInspected: 1, pagesBlocked: 0, internalLinksDiscovered: 2, assetsDiscovered: 2, pageLimitReached: false },
+  summary: { pagesDiscovered: 3, pagesInspected: 3, pagesBlocked: 0, internalLinksDiscovered: 2, assetsDiscovered: 2, pageLimitReached: false },
   siteMap: { rootUrl: 'https://coastal.example/', pages: [
     { url: 'https://coastal.example/', path: '/', title: 'Coastal Living', category: 'Home', depth: 0, status: 'inspected', httpStatus: 200, contentType: 'text/html', headings: ['Find your calm by the coast'], description: 'Thoughtful coastal homes and living.' },
     { url: 'https://coastal.example/collections', path: '/collections', title: 'Collections', category: 'Products', depth: 1, status: 'not-inspected', headings: ['Curated homes'] },
@@ -35,10 +35,12 @@ const report = {
   warnings: [], limits: { maxPagesInspected: 6 }
 };
 const generated = {
-  summary: 'A responsive one-page coastal property app with working section navigation.',
-  project: { name: 'Coastal Living', description: 'First link-based app.' },
+  summary: 'A responsive three-page coastal property app with working local navigation.',
+  project: { name: 'Coastal Living', description: 'First link-based app with separate inspected routes.' },
   files: {
-    'index.html': '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Coastal Living</title><link rel="stylesheet" href="styles.css"></head><body><header><nav aria-label="Main navigation"><a href="#home">Home</a><a href="#collections">Collections</a><a href="#story">Our story</a></nav></header><main><section id="home"><h1>Find your calm by the coast</h1><p>Thoughtful homes, considered spaces and a clearer way to find your next chapter.</p><button id="counter" type="button">Tap 0</button></section><section id="collections"><h2>Curated coastal homes</h2><p>Explore spaces selected for light, warmth and everyday living.</p></section><section id="story"><h2>A more considered way home</h2><p>Built around calm service and useful details.</p></section></main><script src="app.js"></script></body></html>',
+    'index.html': '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Coastal Living</title><link rel="stylesheet" href="styles.css"></head><body><header><nav aria-label="Main navigation"><a href="/">Home</a><a href="/collections/">Collections</a><a href="/about/">Our story</a></nav></header><main><section id="home"><h1>Find your calm by the coast</h1><p>Thoughtful homes, considered spaces and a clearer way to find your next chapter.</p><button id="counter" type="button">Tap 0</button></section></main><script src="app.js"></script></body></html>',
+    'pages/collections.html': '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Collections | Coastal Living</title><link rel="stylesheet" href="../styles.css"></head><body><header><nav aria-label="Main navigation"><a href="/">Home</a><a href="/collections/">Collections</a><a href="/about/">Our story</a></nav></header><main><section><h1>Curated coastal collections</h1><p>Explore spaces selected for light, warmth and everyday living.</p></section></main><script src="../app.js"></script></body></html>',
+    'pages/about.html': '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Our Story | Coastal Living</title><link rel="stylesheet" href="../styles.css"></head><body><header><nav aria-label="Main navigation"><a href="/">Home</a><a href="/collections/">Collections</a><a href="/about/">Our story</a></nav></header><main><section><h1>A more considered way home</h1><p>Built around calm service and useful details.</p></section></main><script src="../app.js"></script></body></html>',
     'styles.css': ':root{--ovyx-brand-primary:#D81B60;--ovyx-brand-secondary:#302060;--ovyx-brand-accent:#00A6A6;--ovyx-brand-background:#FFF9FC;--ovyx-brand-text:#17121A}body{margin:0;font-family:Arial,sans-serif;background:var(--ovyx-brand-background);color:var(--ovyx-brand-text)}header{padding:18px 5%;background:white}nav{display:flex;gap:18px;flex-wrap:wrap}nav a{color:var(--ovyx-brand-secondary);font-weight:700;text-decoration:none}main{max-width:900px;margin:auto;padding:34px 5%}section{padding:22px 0;scroll-margin-top:20px}button{padding:12px 16px;border:0;border-radius:999px;background:var(--ovyx-brand-primary);color:white;cursor:pointer}a:focus-visible,button:focus-visible{outline:3px solid var(--ovyx-brand-accent);outline-offset:3px}',
     'app.js': "let taps=0;document.querySelector('#counter')?.addEventListener('click',function(){taps+=1;this.textContent='Tap '+taps});"
   }
@@ -145,18 +147,35 @@ try {
   const preview = desktop.frameLocator('[data-lb-preview]');
   await preview.locator('h1').waitFor();
   assert.equal(await preview.locator('h1').innerText(), 'Find your calm by the coast');
-  assert.equal(await preview.locator('nav a[href="#collections"]').count(), 1, 'Generated navigation must target a real section.');
-  assert.equal(await preview.locator('nav a[href="#story"]').count(), 1, 'All visible navigation links must have matching target sections.');
+  assert.equal(await preview.locator('nav a[href="/collections/"]').count(), 1, 'Generated navigation must link to the separate collections page.');
+  assert.equal(await preview.locator('nav a[href="/about/"]').count(), 1, 'Generated navigation must link to the separate about page.');
   assert.equal(await preview.locator('style[data-ovyx-generated-css]').count(), 1, 'The returned CSS file must be bundled into the working preview.');
+
+  await preview.locator('nav a[href="/collections/"]').click();
+  await preview.locator('h1').waitFor();
+  assert.equal(await preview.locator('h1').innerText(), 'Curated coastal collections', 'The collections route must load its own HTML file in the preview.');
+  await desktop.waitForFunction(() => document.querySelector('[data-lb-route-indicator]')?.textContent.includes('/collections/'));
+  await preview.locator('nav a[href="/about/"]').click();
+  await preview.locator('h1').waitFor();
+  assert.equal(await preview.locator('h1').innerText(), 'A more considered way home', 'The about route must load its own HTML file in the preview.');
+  await preview.locator('nav a[href="/"]').click();
+  await preview.locator('h1').waitFor();
+  assert.equal(await preview.locator('h1').innerText(), 'Find your calm by the coast', 'Navigation must return to the root HTML file.');
   await preview.locator('#counter').click();
-  assert.equal(await preview.locator('#counter').innerText(), 'Tap 1', 'Generated JavaScript must run in the interactive real preview.');
+  assert.equal(await preview.locator('#counter').innerText(), 'Tap 1', 'Generated JavaScript must remain active after route navigation.');
+
   await desktop.locator('#ovyx-app-studio-link-builder details summary').click();
-  assert.match(await desktop.locator('[data-lb-source]').innerText(), /index\.html/);
-  assert.match(await desktop.locator('[data-lb-source]').innerText(), /styles\.css/);
-  assert.match(await desktop.locator('[data-lb-source]').innerText(), /app\.js/);
+  assert.match(await desktop.locator('[data-lb-source]').innerText(), /index\\.html/);
+  assert.match(await desktop.locator('[data-lb-source]').innerText(), /pages\\/collections\\.html/);
+  assert.match(await desktop.locator('[data-lb-source]').innerText(), /pages\\/about\\.html/);
+  assert.match(await desktop.locator('[data-lb-source]').innerText(), /styles\\.css/);
+  assert.match(await desktop.locator('[data-lb-source]').innerText(), /app\\.js/);
   const artifact = await desktop.evaluate(() => window.__OVYX_APP_STUDIO_GENERATED_PROJECT__);
   assert.equal(artifact?.previewMode, 'sandboxed-srcdoc');
   assert.equal(artifact?.sourceUrl, 'https://coastal.example/');
+  assert.equal(artifact?.pageCount, 3, 'Three inspected source pages must produce three local routes.');
+  assert.equal(artifact?.routes?.['/collections/'], 'pages/collections.html');
+  assert.equal(artifact?.routes?.['/about/'], 'pages/about.html');
   assert.ok(artifact?.files?.['index.html']);
   assert.equal(await desktop.evaluate(() => window.KernelState.activeProject.name), 'Do not replace me', 'Stage 3 must not overwrite the existing active project.');
 
@@ -174,7 +193,7 @@ try {
   await mobilePreview.locator('#counter').click();
   assert.equal(await mobilePreview.locator('#counter').innerText(), 'Tap 1', 'The generated mobile-width preview must remain interactive.');
   assert.deepEqual(errors, [], 'The real browser handoff must not throw page exceptions.');
-  console.log('OVYX Stage 3 browser checks passed: analyze URL → save per-app brand → existing AI gateway → generated project files → interactive desktop/mobile live preview and working section navigation.');
+  console.log('OVYX Stage 3 browser checks passed: analyzer → per-app brand → existing AI gateway → three HTML routes → working cross-page navigation and interactive desktop/mobile live preview.');
 } finally {
   await browser.close();
   await new Promise(resolve => server.close(resolve));
