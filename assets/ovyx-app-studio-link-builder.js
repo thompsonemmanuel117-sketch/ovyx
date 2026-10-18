@@ -243,7 +243,7 @@
     const cssEntries = Object.entries(build.files).filter(([path]) => /\.css$/i.test(path));
     const cssRefs = [...html.matchAll(/<link\b[^>]*\bhref\s*=\s*(["'])([^"']+\.css(?:\?[^"']*)?)\1[^>]*>/gi)].map(match => match[2].split(/[?#]/)[0]);
     const stylesToEmbed = cssRefs.length
-      ? cssRefs.map(ref => cssEntries.find(([path]) => path === ref || path.endsWith('/' + ref.split('/').pop()))).filter(Boolean)
+      ? cssRefs.map(ref => cssEntries.find(([path]) => path === ref || path === ref.split('/').pop() || path.endsWith('/' + ref.split('/').pop()))).filter(Boolean)
       : cssEntries.filter(([path]) => /(?:^|\/)(?:styles?|app)\.css$/i.test(path)).slice(0, 3);
     const styles = [...new Set(stylesToEmbed.map(([, content]) => content))].join('\n');
     if (styles) {
