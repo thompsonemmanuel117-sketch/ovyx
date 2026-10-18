@@ -759,7 +759,7 @@
           const caveats = [];
           if (submission.omittedSensitive) caveats.push('password/secret fields were not stored');
           if (submission.omittedFiles) caveats.push('file attachments were not uploaded');
-          reply(true, { saved: true, submissionId: submission.id, message: 'Saved in this browser only; nothing was emailed or sent to a backend.' + (caveats.length ? ' Note: ' + caveats.join(' and ') + '.' : '') });
+          reply(true, { saved: true, submissionId: submission.id, message: 'Saved on this device only. No email was sent.' + (caveats.length ? ' Note: ' + caveats.join(' and ') + '.' : '') });
           return;
         }
         if (packet.action === 'api.get') {
@@ -768,7 +768,7 @@
           reply(true, result);
           return;
         }
-        reply(false, null, 'This action is not available in the preview. Supported features include local app data, local form submissions, sign-in status, and approved read-only account access.');
+        reply(false, null, 'This action is not available in the preview. You can use app data, submit forms, review sign-in status, and access supported account information.');
       } catch (error) {
         reply(false, null, error?.message || 'The app action did not complete.');
       }
@@ -928,7 +928,7 @@
       'const api=Object.freeze({get:async function(){throw new Error("Account features are available only in the signed-in OVYX preview.")}});',
       'try{Object.defineProperty(window,"OVYXApp",{configurable:false,writable:false,value:Object.freeze({version:1,storage:storage,auth:auth,api:api})})}catch(_){window.OVYXApp=Object.freeze({version:1,storage:storage,auth:auth,api:api})}',
       'function status(form,message,kind){let p=form.querySelector("[data-ovyx-form-status]");if(!p){p=document.createElement("p");p.setAttribute("data-ovyx-form-status","");p.setAttribute("role","status");p.setAttribute("aria-live","polite");form.appendChild(p)}p.textContent=message;p.style.color=kind==="error"?"#b91c1c":kind==="success"?"#166534":"inherit"}',
-      'document.addEventListener("submit",function(e){const form=e.target;if(!(form instanceof HTMLFormElement))return;e.preventDefault();e.stopImmediatePropagation();if(!form.reportValidity())return;try{const values={};let secret=false;let files=false;new FormData(form).forEach(function(v,k){k=String(k||"").replace(/[\\u0000-\\u001f\\u007f]/g,"").trim().slice(0,80);if(!k)return;if(/password|passcode|secret|token|authorization|credential|private.?key|api.?key/i.test(k)){secret=true;return}if(typeof File!=="undefined"&&v instanceof File){if(v.name)files=true;return}if(Object.keys(values).length<40)values[k]=String(v).slice(0,1000)});const state=read();state.submissions=Array.isArray(state.submissions)?state.submissions:[];state.submissions.push({formId:String(form.id||form.name||"form").slice(0,80),submittedAt:new Date().toISOString(),fields:values});state.submissions=state.submissions.slice(-25);write(state);status(form,"Saved in this browser only; nothing was emailed or sent to a backend."+(secret?" Password/secret fields were not stored.":"")+(files?" File attachments were not uploaded.":""),"success")}catch(err){status(form,String(err&&err.message||"Submission could not be saved locally."),"error")}},true);',
+      'document.addEventListener("submit",function(e){const form=e.target;if(!(form instanceof HTMLFormElement))return;e.preventDefault();e.stopImmediatePropagation();if(!form.reportValidity())return;try{const values={};let secret=false;let files=false;new FormData(form).forEach(function(v,k){k=String(k||"").replace(/[\\u0000-\\u001f\\u007f]/g,"").trim().slice(0,80);if(!k)return;if(/password|passcode|secret|token|authorization|credential|private.?key|api.?key/i.test(k)){secret=true;return}if(typeof File!=="undefined"&&v instanceof File){if(v.name)files=true;return}if(Object.keys(values).length<40)values[k]=String(v).slice(0,1000)});const state=read();state.submissions=Array.isArray(state.submissions)?state.submissions:[];state.submissions.push({formId:String(form.id||form.name||"form").slice(0,80),submittedAt:new Date().toISOString(),fields:values});state.submissions=state.submissions.slice(-25);write(state);status(form,"Saved on this device only. No email was sent."+(secret?" Password/secret fields were not stored.":"")+(files?" File attachments were not uploaded.":""),"success")}catch(err){status(form,String(err&&err.message||"Submission could not be saved locally."),"error")}},true);',
       '})();'
     ].join('\n');
   }
@@ -1194,7 +1194,7 @@
     const mobileLinks = $(panel, '[data-lb-mobile-links]');
     if (mobileStatus && artifact.releaseState.mobile?.jobId) {
       const mobile = artifact.releaseState.mobile;
-      mobileStatus.textContent = 'Mobile job ' + mobile.jobId + ': ' + text(mobile.status || 'queued') + (mobile.error?.message ? ' · ' + mobile.error.message : '') + (mobile.workflowUrl ? ' · EAS workflow details available below.' : '');
+      mobileStatus.textContent = 'Mobile build status: ' + (mobile.status === 'completed' ? 'Complete' : mobile.status === 'failed' ? 'Needs attention' : mobile.status === 'running' ? 'In progress' : 'Queued') + (mobile.status === 'failed' ? '. Review the build details below.' : '') + (mobile.updatedAt ? ' · Last updated ' + new Date(mobile.updatedAt).toLocaleString() : '');
       mobileStatus.dataset.kind = mobile.status === 'failed' ? 'error' : mobile.status === 'completed' ? 'success' : 'info';
       if (mobileLinks) {
         mobileLinks.replaceChildren();
@@ -1219,7 +1219,7 @@
       if (!artifact) throw new Error('Generate and preview an app before exporting it.');
       const files = staticReleaseFiles(artifact);
       downloadReleaseBlob(browserZipBlob(files), releaseSlug(artifact.name) + '-deployable.zip');
-      setReleaseStatus(panel, '[data-lb-web-status]', 'Deployable ZIP exported. It includes route entry files, shared source assets, a release manifest, and local-only form/state behavior; private OVYX APIs are not bundled.', 'success');
+      setReleaseStatus(panel, '[data-lb-web-status]', 'Website package exported. It includes app pages, shared assets, and a release manifest. Forms and app data remain on this device; account-specific features are not included.', 'success');
       appendReleaseDiagnostic(panel, 'Deployable ZIP exported at ' + new Date().toISOString() + '.');
     } catch (error) {
       setReleaseStatus(panel, '[data-lb-web-status]', error?.message || 'ZIP export failed. No file was reported as exported.', 'error');
