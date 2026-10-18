@@ -135,7 +135,7 @@ try {
   });
   assert.ok(metrics.appWidth > 0 && metrics.documentWidth <= metrics.viewport + 1 && metrics.appScrollWidth <= metrics.appWidth + 1,
     'The premium App Studio layout must not create mobile horizontal overflow: ' + JSON.stringify(metrics));
-  const animation = await mobile.locator('#ovyx-as-hero').evaluate(el => getComputedStyle(el).animationDuration);
+  const animation = await mobile.locator('#ovyx-app-studio-experience').evaluate(el => getComputedStyle(el).animationDuration);
   assert.ok(['1e-05s', '0.00001s', '0.01ms'].includes(animation) || parseFloat(animation) <= 0.00001,
     'Reduced-motion users must not receive decorative entrance animation; got ' + animation);
   assert.equal(await mobile.locator('[data-ovyx-as-step]').count(), 4);
