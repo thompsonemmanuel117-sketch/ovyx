@@ -928,7 +928,7 @@
 <article class="adm-control-card"><div class="adm-control-icon"><i class="fa-solid fa-server"></i></div><div><b>Service health</b><small>Review platform availability, account access, and system health in one place.</small></div><span>RESTRICTED</span></article>
 <article class="adm-control-card"><div class="adm-control-icon"><i class="fa-solid fa-power-off"></i></div><div><b>Kill Switches &amp; Rate Limits</b><small>Manage platform-wide safeguards and usage limits.</small></div><span>RESTRICTED</span></article>
 </div>
-<div class="adm-control-warning"><i class="fa-solid fa-triangle-exclamation"></i><span><b>Scope guard:</b> a per-user action must not mutate the global catalog, AI policy, pricing or platform access rules unless the server endpoint explicitly declares that global scope.</span></div>
+<div class="adm-control-warning"><i class="fa-solid fa-triangle-exclamation"></i><span><b>Access control:</b> user-level actions cannot change global catalog, AI policy, pricing, or platform access settings.</span></div>
 </section>
 </section>
 <!-- OVYX V43 — ADMIN TEMPLATE MATRIX HUB -->
@@ -2146,7 +2146,7 @@
         ProjectStore.save();
         WebStudio.render();
         this.log(`Heuristic complete: Repaired ${healed} malformed AST layout nodes across active canvas.`, "success");
-        showToast(`Internal Kernel Bot: Successfully healed ${healed} DOM nodes`, "success");
+        showToast(`Interface recovery completed successfully.`, "success");
       },
       runSecurityAudit() {
         this.log("Scanning AST schema against Zero-Trust CSP rules...", "info");
@@ -3694,7 +3694,7 @@
       if(preview){
         this.state='preview';
         PROVIDERS.forEach(id=>this.setProvider(id,'PREVIEW',{error:'Sign in with an administrator account to check live AI service availability.'}));
-        this.applyOverview('PREVIEW','Preview only · live AI service status is not shown here',0);
+        this.applyOverview('PREVIEW','Live service status is unavailable in preview mode.',0);
         return false;
       }
       // The status endpoint is deliberately admin-protected. Do not probe it for normal users.
@@ -4262,7 +4262,7 @@ const Settings={
  this.panel('shortcuts','WORKFLOW / SHORTCUTS','Shortcuts','Keyboard commands for fast navigation and actions.',`<div class="ovyx-pref-group"><div class="ovyx-pref-label">CORE COMMANDS</div>${[['Command palette','⌘ K','App-wide'],['New project','⌘ N','App-wide'],['Save project','⌘ S','App-wide · saves locally'],['Undo','⌘ Z','Web Studio only'],['Redo','⌘ ⇧ Z','Web Studio only']].map(x=>this.row(x[0],x[2],`<kbd class="ovyx-kbd">${x[1]}</kbd>`)).join('')}</div>`)+
  this.panel('ai','WORKFLOW / AI PREFERENCES','AI Preferences','Choose your preferred AI model, generation style, and safety settings.',`<div class="ovyx-pref-group"><div class="ovyx-pref-label">GENERATION</div>${this.row('Preferred AI option','Default choice when no AI option is selected',`<select class="ovyx-pref-select" data-legacy-control="set-provider"><option value="gemini">Gemini</option><option value="deepseek">DeepSeek</option><option value="anthropic">Claude</option><option value="openai">OpenAI</option></select>`)}${this.row('Thinking detail','How much reasoning context is requested',`<select class="ovyx-pref-select"><option>Balanced</option><option>Fast</option><option>Deep</option></select>`)}${this.row('Safe generation','Keep destructive operations behind confirmation',toggle('set-ai-safe',true))}</div>`)+
  this.panel('privacy','SECURITY / PRIVACY','Privacy','Understand and control local project data.',`<div class="ovyx-pref-group"><div class="ovyx-pref-label">DATA</div>${this.row('Local-first projects','Projects use Local saving is available for continuity. Online sync is shown as active only after a successful save.',`<span class="ovyx-health-chip">On this device</span>`)}${this.row('Telemetry','Service health checks run only when you request a review',`<span class="ovyx-health-chip">CONTROLLED</span>`)}${this.row('Clear appearance data','Reset theme and appearance preferences',`<button class="ovyx-settings-btn danger" data-clear-appearance>Reset</button>`)}</div>`)+
- this.panel('security','SECURITY / SECURITY','Security','Authentication and session controls.',`<div class="ovyx-pref-group"><div class="ovyx-pref-label">SESSION</div>${this.row('Authentication','Sign-in is handled by your account provider. This indicator does not confirm your current session.',`<span class="ovyx-health-chip">INFO</span>`)}${this.row('Secret storage','Storage rules depend on each integration. Do not put raw credentials in project files or chats.',`<span class="ovyx-health-chip">POLICY</span>`)}${this.row('Production secrets','Production secret configuration is not checked by this Settings panel.',`<span class="ovyx-health-chip">NOT CHECKED</span>`)}</div>`)+
+ this.panel('security','SECURITY / SECURITY','Security','Authentication and session controls.',`<div class="ovyx-pref-group"><div class="ovyx-pref-label">SESSION</div>${this.row('Authentication','Sign-in is managed securely. Use the session status below to review your current sign-in state.',`<span class="ovyx-health-chip">INFO</span>`)}${this.row('Secret storage','Storage rules depend on each integration. Do not put raw credentials in project files or chats.',`<span class="ovyx-health-chip">POLICY</span>`)}${this.row('Production secrets','Production secret configuration is not checked by this Settings panel.',`<span class="ovyx-health-chip">NOT CHECKED</span>`)}</div>`)+
  this.panel('plan','BILLING / PLAN','Plan','Subscription, feature access and checkout.',`<div class="ovyx-pref-group"><div class="ovyx-pref-label">CURRENT PLAN</div>${this.row('Active plan','Feature gates use the current OVYX tier',`<span class="ovyx-tier-badge">${esc7((KernelState?.userTier||'free').toUpperCase())}</span>`)}${this.row('Manage subscription','Open the real checkout configuration and plans',`<button class="ovyx-settings-btn primary" onclick="Router.go('pricing')">Open Plans</button>`)}</div>`)+
  this.panel('usage','BILLING / AI USAGE','AI Usage','Token consumption and capacity.',`<div class="ovyx-pref-group"><div class="ovyx-pref-label">CAPACITY</div>${this.row('Monthly token meter','Current AI usage and remaining allowance',`<span class="ovyx-health-chip" id="set-token-meter">Loading AI usage…</span>`)}</div>`)+
  this.panel('boosters','BILLING / TOKEN BOOSTERS','Token Boosters','Purchased AI balance and checkout status.',`<div class="ovyx-empty-state">Token Booster balance and purchase actions load when this panel opens. Checkout requires sign-in and an available payment provider; no tokens are credited until the server verifies payment.</div>`);
@@ -4737,9 +4737,9 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 <button class="ovyx-owner-card" data-owner-view="admin-overview"><b><i class="fa-solid fa-gauge-high"></i>System Overview</b><small>Platform health, projects and runtime metrics.</small></button>
 <button class="ovyx-owner-card" data-owner-view="admin-pricing"><b><i class="fa-solid fa-tags"></i>Pricing &amp; Gating</b><small>Plans, quotas, permissions and feature gates.</small></button>
 <button class="ovyx-owner-card" data-owner-view="admin-users"><b><i class="fa-solid fa-users"></i>Users &amp; Roles</b><small>Account administration and access controls.</small></button>
-<button class="ovyx-owner-card" data-owner-view="admin-brain"><b><i class="fa-solid fa-brain"></i>AI Brain</b><small>Provider diagnostics and model controls.</small></button>
+<button class="ovyx-owner-card" data-owner-view="admin-brain"><b><i class="fa-solid fa-brain"></i>AI services</b><small>Availability and model preferences.</small></button>
 <button class="ovyx-owner-card" data-owner-view="admin-identity"><b><i class="fa-solid fa-fingerprint"></i>AI Identity</b><small>OVYX identity, behavior and generation policy.</small></button>
-<button class="ovyx-owner-card" data-owner-view="admin-backend"><b><i class="fa-solid fa-server"></i>Service health</b><small>Platform availability, account access, and system status.</small></button>
+<button class="ovyx-owner-card" data-owner-view="admin-backend"><b><i class="fa-solid fa-server"></i>Service health</b><small>Availability, access permissions, and service status.</small></button>
 <button class="ovyx-owner-card" data-owner-view="admin-telemetry"><b><i class="fa-solid fa-wave-square"></i>Telemetry</b><small>Response time, availability, and service health.</small></button>
 <button class="ovyx-owner-card" data-owner-view="admin-broadcasts"><b><i class="fa-solid fa-bullhorn"></i>User Broadcasts</b><small>Send a real in-app announcement to every signed-in OVYX user.</small></button>
 <button class="ovyx-owner-card" data-owner-view="admin-template-hub"><b><i class="fa-solid fa-layer-group"></i>Template Matrix Hub</b><small>Create, publish and release curated structural workspace blueprints.</small></button>
