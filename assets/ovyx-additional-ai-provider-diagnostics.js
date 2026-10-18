@@ -82,7 +82,7 @@
         row.append(name, status);
         const key = document.createElement('div');
         key.className = 'oad-key';
-        key.textContent = 'Configuration: managed securely;
+        key.textContent = 'Configuration: managed securely';
         const detail = document.createElement('div');
         detail.className = 'oad-detail';
         detail.id = 'oad-detail-' + provider.id;
