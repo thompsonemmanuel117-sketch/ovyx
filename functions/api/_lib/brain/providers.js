@@ -20,7 +20,7 @@ function requiredSecret(env, name) {
   const value = clean(env && env[name]);
 
   if (!value) {
-    const error = new Error(`Missing server secret: ${name}`);
+    const error = new Error('This AI option is not configured yet.');
     error.code = 'AI_PROVIDER_NOT_CONFIGURED';
     throw error;
   }
