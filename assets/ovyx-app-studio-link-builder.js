@@ -1002,7 +1002,8 @@
     const jsFiles = new Set();
     const otherInlineScripts = [];
     const remoteStyles = [];
-    const rootScripts = [...rootDoc.querySelectorAll('script:not([src])')].map(el => ({ type: el.type || '', content: el.textContent || '' }));
+    // Root inline scripts stay in the root document; only collect inline scripts from additional routes.
+    const rootScripts = [];
     const harvest = (doc, htmlPath, isRoot) => {
       for (const link of [...doc.querySelectorAll('link[rel~="stylesheet"][href]')]) {
         const ref = link.getAttribute('href') || '';
@@ -1656,17 +1657,26 @@
       window.__OVYX_APP_STUDIO_LINK_NAV_HANDLER__ = routeHandler;
       window.addEventListener('message', routeHandler);
       const ownerUid = text(user.uid || '');
+      const brandLogoPreview = document.querySelector('#ovyx-app-studio-brand-dna-panel [data-brand-logo-preview]');
+      const brandLogoDataUrl = brandLogoPreview && !brandLogoPreview.hidden && /^data:image\\/png;base64,/i.test(String(brandLogoPreview.src || ''))
+        ? String(brandLogoPreview.src)
+        : '';
       window.__OVYX_APP_STUDIO_GENERATED_PROJECT__ = {
         schemaVersion: 1, id: projectId, name: appName, sourceUrl: brief.sourceUrl,
         files: build.files, entryHtml: renderedHtml, summary: build.summary,
         routes: Object.fromEntries(routeFiles.entries()), pageCount, ownerUid,
+        brandLogoDataUrl,
+        releaseState: { web: {}, mobile: null, latestWebKey: '' },
         generatedAt: new Date().toISOString(), previewMode: 'sandboxed-srcdoc', savedToProjects: false
       };
+      restoreReleaseState(window.__OVYX_APP_STUDIO_GENERATED_PROJECT__);
+      renderReleaseState(panel);
       attachPreviewActionBridge(frame, panel, projectId, ownerUid);
       runProjectBrain(panel, true);
       frame.srcdoc = renderedHtml;
       if (preview) preview.hidden = false;
       renderSources(panel, build.files);
+      setReleaseControls(panel);
       const saveButton = $(panel, '[data-lb-save]');
       if (saveButton) { saveButton.disabled = false; saveButton.textContent = 'Save project to OVYX Projects'; }
       const saveStatus = $(panel, '[data-lb-save-status]');
