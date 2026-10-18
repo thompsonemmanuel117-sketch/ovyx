@@ -153,6 +153,11 @@ jobs:
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8788
 
+      - name: Exercise Stage 3 URL-to-project handoff in the real live preview
+        run: node scripts/ovyx-app-studio-link-build.browser.test.mjs
+        env:
+          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
+
       - name: Exercise owner-only Admin Workspace in desktop and mobile Chromium
         run: node scripts/ovyx-admin-workspace.browser.test.mjs
         env:
