@@ -5,13 +5,13 @@
   // unlocks Admin from local storage, email text alone, or a preview flag.
   const ROOT_ROLE = 'ROOT_SUPERUSER';
   const MODULES = Object.freeze([
-    { route: 'admin-overview', label: 'System Overview', detail: 'Platform health and runtime metrics', icon: 'fa-gauge-high' },
+    { route: 'admin-overview', label: 'System Overview', detail: 'Platform health and service status', icon: 'fa-gauge-high' },
     { route: 'admin-pricing', label: 'Pricing & Plans', detail: 'Plans, quotas, and feature gates', icon: 'fa-tags' },
     { route: 'admin-users', label: 'Users & Roles', detail: 'Accounts and entitlements', icon: 'fa-users' },
-    { route: 'admin-brain', label: 'AI Brain', detail: 'Provider and runtime diagnostics', icon: 'fa-brain' },
+    { route: 'admin-brain', label: 'AI Brain', detail: 'AI service status and diagnostics', icon: 'fa-brain' },
     { route: 'admin-identity', label: 'AI Identity', detail: 'OVYX identity and generation policy', icon: 'fa-fingerprint' },
-    { route: 'admin-backend', label: 'Backend', detail: 'Endpoint and security diagnostics', icon: 'fa-server' },
-    { route: 'admin-telemetry', label: 'Telemetry', detail: 'Edge checks and operational health', icon: 'fa-chart-line' },
+    { route: 'admin-backend', label: 'Backend', detail: 'Service availability and security', icon: 'fa-server' },
+    { route: 'admin-telemetry', label: 'Telemetry', detail: 'Service checks and operational health', icon: 'fa-chart-line' },
     { route: 'admin-broadcasts', label: 'Broadcasts', detail: 'Announcements and push messaging', icon: 'fa-bullhorn' },
     { route: 'admin-template-hub', label: 'Template Matrix', detail: 'Template catalogue and publishing', icon: 'fa-layer-group' },
   ]);
@@ -272,11 +272,11 @@
       heading.id = 'ovyx-admin-workspace-title';
       heading.textContent = 'Admin Workspace';
       const description = document.createElement('p');
-      description.textContent = 'One place for platform pricing, user access, AI settings, diagnostics, announcements and templates.';
+      description.textContent = 'Manage pricing, account access, AI settings, announcements and templates in one place.';
       copy.append(eyebrow, heading, description);
       const access = document.createElement('span');
       access.className = 'ovyx-admin-workspace-access';
-      access.innerHTML = '<i class="fa-solid fa-shield-check" aria-hidden="true"></i><span>SERVER VERIFIED</span>';
+      access.innerHTML = '<i class="fa-solid fa-shield-check" aria-hidden="true"></i><span>OWNER ACCESS VERIFIED</span>';
       header.append(copy, access);
 
       const search = document.createElement('label');
@@ -297,7 +297,7 @@
       MODULES.forEach(module => grid.appendChild(moduleButton(module)));
       const footer = document.createElement('p');
       footer.className = 'ovyx-admin-workspace-footer';
-      footer.textContent = 'Opening a module does not bypass its normal server-side permission checks.';
+      footer.textContent = 'Each module verifies your permissions before allowing changes.';
       input.addEventListener('input', () => {
         const query = String(input.value || '').trim().toLowerCase();
         grid.querySelectorAll('.ovyx-admin-workspace-module').forEach(button => {
