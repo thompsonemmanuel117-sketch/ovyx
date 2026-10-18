@@ -150,7 +150,7 @@ export async function onRequestGet(context) {
       success:false,
       authoritative:true,
       requestId,
-      error:status>=500?'Publishing status isn't available right now. Please try again.':'The publishing status couldn\'t be retrieved. Please try again.'
+      error:status>=500?'Publishing status is not available right now. Please try again.':'The publishing status couldn\'t be retrieved. Please try again.'
     },status);
   }
 }
