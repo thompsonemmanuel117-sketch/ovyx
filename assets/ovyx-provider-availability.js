@@ -86,7 +86,7 @@
       if (error?.name === 'AbortError') {
         toast('The availability check took too long. Try again or choose another AI option.', 'warning');
       } else {
-        toast(error?.message || AI availability couldn't be checked right now. Please try again.', 'error');
+        toast(error?.message || 'AI availability could not be checked right now. Please try again.', 'error');
       }
     } finally {
       clearTimeout(timeout);
