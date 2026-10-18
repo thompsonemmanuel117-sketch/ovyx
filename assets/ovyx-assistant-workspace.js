@@ -267,7 +267,7 @@
       push('OVYX suggested an incomplete source edit. No project files were changed.');
       return;
     }
-    setWorkspaceTaskStatus('running', 'Preparing a source-change preview. No file has been changed.');
+    setWorkspaceTaskStatus('running', 'Preparing an edit preview. Nothing has been changed yet.');
     const prepared = await workspaceToolRequest({
       operation: 'prepare_patch',
       projectId,
@@ -309,25 +309,25 @@
       expectedUpdateTime: prepared.revision,
     });
     if (!applied.verified) {
-      push('The server could not verify the edit to ' + filePath + '. The previous file is backed up; open the project and check it before trying again.');
-      setWorkspaceTaskStatus('error', 'The server did not verify the source edit.');
+      push('We couldn't confirm the edit to ' + filePath + '. A backup was kept; review the file before trying again.');
+      setWorkspaceTaskStatus('error', 'The edit couldn't be verified.');
       return;
     }
     const updatedLocal = updateLocalProjectFile(projectId, filePath, prepared.bucket, proposedContent);
     push('Updated ' + filePath + ' in ' + String(applied.projectName || prepared.projectName || 'your project') +
-      '. Server read-back verification passed. Backup: ' + String(applied.revisionId || 'saved') +
+      '. The saved change was verified. Backup: ' + String(applied.revisionId || 'saved') +
       (updatedLocal ? '. The current workspace source was refreshed.' : '. Reopen or refresh the project to load the server-saved version.') +
       ' Note: this confirms the saved file, not a full live-browser test.');
-    setWorkspaceTaskStatus('applied', 'The source edit was applied and verified by reading the saved project back.');
+    setWorkspaceTaskStatus('applied', 'The change was saved and verified.');
   }
 
   async function reviewWorkspaceEditHistory() {
     const projectId = String(window.KernelState?.activeProject?.id || window.ProjectStore?.current?.id || '');
     if (!projectId) { push('Choose or open a saved project first. OVYX cannot show edit history without a project ID.'); setWorkspaceTaskStatus('details', 'Open a saved project to review recovery versions.'); return; }
-    setWorkspaceTaskStatus('running', 'Loading recovery versions for the active project.');
+    setWorkspaceTaskStatus('running', 'Loading saved recovery versions…');
     const result = await workspaceToolRequest({ operation: 'list_revisions', projectId });
     const rows = Array.isArray(result.revisions) ? result.revisions : [];
-    if (!rows.length) { push('No recoverable AI source edits were found for ' + String(result.projectName || 'this project') + '. New approved source edits will create recovery versions.'); setWorkspaceTaskStatus('inspected', 'No recovery versions are saved for this project yet.'); return; }
+    if (!rows.length) { push('No recoverable AI source edits were found for ' + String(result.projectName || 'this project') + '. New approved source edits will create recovery versions.'); setWorkspaceTaskStatus('inspected', 'No saved recovery versions were found yet.'); return; }
     const lines = rows.slice(0, 8).map((row, index) => (index + 1) + '. ' + String(row.filePath || 'Unknown file') + ' · ' + String(row.kind || 'edit') + ' · ' + String(row.createdAt || 'date unavailable') + (row.reason ? '\n   ' + String(row.reason).slice(0, 180) : ''));
     push('Saved recovery versions for ' + String(result.projectName || 'your project') + ':\n' + lines.join('\n') + '\nUse “Undo last AI edit” to review the newest recovery diff and confirm before restoring it.');
     setWorkspaceTaskStatus('inspected', rows.length + ' saved recovery version(s) found.');
@@ -355,10 +355,10 @@
     setWorkspaceTaskStatus('approval', 'A recovery preview is ready. No file changes until you approve.');
     if (typeof window.confirm !== 'function' || !window.confirm(message)) { push('Recovery cancelled. No project files were changed.'); setWorkspaceTaskStatus('inspected', 'Recovery was cancelled by the user.'); return; }
     const restored = await workspaceToolRequest({ operation: 'restore_revision', projectId, revisionId: latest.id, confirm: true, expectedUpdateTime: prepared.revision });
-    if (!restored.verified || !restored.restored) { push('OVYX could not verify the recovery write. The saved file was not reported as restored. Check the project before retrying.'); setWorkspaceTaskStatus('error', 'The server did not verify the recovery write.'); return; }
+    if (!restored.verified || !restored.restored) { push('OVYX could not verify the recovery write. The saved file was not reported as restored. Check the project before retrying.'); setWorkspaceTaskStatus('error', 'The restored version couldn't be verified.'); return; }
     const updatedLocal = updateLocalProjectFile(projectId, restored.filePath, restored.bucket, restored.restoredContent);
     push('Restored ' + String(restored.filePath || latest.filePath || 'the saved file') + ' from recovery version ' + String(latest.id) + '. Server read-back verification passed. A safety copy of the replaced file was saved as ' + String(restored.safetyRevisionId || 'a new recovery version') + (updatedLocal ? '. The current workspace source was refreshed.' : '. Reopen or refresh the project to load the restored version.') + ' This verifies saved storage, not live browser behaviour.');
-    setWorkspaceTaskStatus('applied', 'Recovery was applied and verified by reading the saved project back.');
+    setWorkspaceTaskStatus('applied', 'The previous version was restored and verified.');
   }
 
   function normalizeResponse(value) {
@@ -434,10 +434,10 @@
     const strong = document.createElement('strong');
     strong.textContent = 'Welcome to OVYX AI';
     const body = document.createElement('div');
-    body.textContent = 'Your project-aware workspace assistant. Ask about your projects, files, assets, settings, connections, quotas or next steps. OVYX AI can navigate the workspace and prepare tasks for the right tool.';
+    body.textContent = 'Your OVYX workspace assistant. Ask questions about your work, find files and settings, review usage, or get help with next steps. OVYX AI can guide you to the right tools and prepare supported actions.';
     const footer = document.createElement('div');
     footer.style.cssText = 'margin-top:10px;color:#7c8998;font-size:10px;font-weight:600;';
-    footer.textContent = 'OVYX native engine · No third-party API key setup';
+    footer.textContent = 'OVYX AI · Ready to use';
     const welcomeHead = document.createElement('div');
     welcomeHead.className = 'ovyx-native-welcome-brand';
     welcomeHead.append(makeBotAvatar(), strong);
@@ -462,7 +462,7 @@
       label.classList.add('ovyx-native-title');
       const subtitle = document.createElement('span');
       subtitle.className = 'ovyx-native-subtitle';
-      subtitle.innerHTML = '<i class="ovyx-native-status-dot" aria-hidden="true"></i><span>Workspace assistant · no API key setup</span>';
+      subtitle.innerHTML = '<i class="ovyx-native-status-dot" aria-hidden="true"></i><span>Workspace assistant · Ready to help</span>';
       const copy = document.createElement('div');
       copy.className = 'ovyx-native-brand-copy';
       label.replaceWith(copy);
@@ -571,7 +571,7 @@
         }
         const hint = document.createElement('div');
         hint.className = 'ovyx-native-composer-hint';
-        hint.innerHTML = '<span>OVYX AI can help you navigate and understand your project</span><span><kbd>Enter</kbd> send · <kbd>Shift + Enter</kbd> new line</span>';
+        hint.innerHTML = '<span>OVYX AI can help you navigate your workspace and understand your app</span><span><kbd>Enter</kbd> send · <kbd>Shift + Enter</kbd> new line</span>';
         existingInputRow.insertAdjacentElement('beforebegin', hint);
       }
     }
@@ -690,7 +690,7 @@
     workspaceTaskMessage = String(message || '');
     const chip = $('bot-context-node-type');
     if (!chip) return;
-    const labels = { running: 'TASK RUNNING', inspected: 'PROJECT INSPECTED', approval: 'APPROVAL NEEDED', applied: 'APPLIED · VERIFIED', details: 'DETAILS NEEDED', error: 'ACTION FAILED' };
+    const labels = { running: 'Working', inspected: 'Workspace reviewed', approval: 'Approval needed', applied: 'Changes saved', details: 'More details needed', error: 'Action couldn't be completed' };
     if (workspaceTaskStatus === 'idle') { syncWorkspaceBadge(localWorkspaceSnapshot(), true); return; }
     chip.textContent = labels[workspaceTaskStatus] || 'WORKSPACE READY';
     chip.title = workspaceTaskMessage || labels[workspaceTaskStatus] || 'Workspace status';
@@ -710,7 +710,7 @@
       if (type === 'workspace_undo') {
         try { await recoverLatestWorkspaceEdit(); }
         catch (error) {
-          push('Recovery failed: ' + String(error?.message || 'OVYX could not restore the selected version.'));
+          push('Restore failed: ' + String(error?.message || 'OVYX could not restore the selected version.'));
           setWorkspaceTaskStatus('error', String(error?.message || 'Recovery failed.'));
         }
         continue;
@@ -719,7 +719,7 @@
         try {
           await approveAndApplyWorkspacePatch(action);
         } catch (error) {
-          push('Workspace edit not applied: ' + String(error?.message || 'The source update failed. No change is reported as complete unless the server verified it.'));
+          push('The edit wasn't applied: ' + String(error?.message || 'The update couldn't be confirmed. No change is marked complete unless it has been verified.'));
         }
         continue;
       }
@@ -747,12 +747,12 @@
         continue;
       }
       if (type === 'refresh_context') {
-        window.OVYXWorkspaceCopilot?.scan?.().then(() => push('Workspace context refreshed.')).catch(e => push(e?.message || 'Workspace refresh failed.'));
+        window.OVYXWorkspaceCopilot?.scan?.().then(() => push('Workspace details refreshed.')).catch(e => push(e?.message || 'Workspace details couldn't be refreshed.'));
         continue;
       }
       if (type === 'run_project_scan') {
         const report = window.OVYXWorkspaceCopilot?.diagnose?.();
-        push(report ? JSON.stringify(report, null, 2) : 'Workspace diagnostics are not available yet.');
+        push(report ? JSON.stringify(report, null, 2) : 'Workspace details aren't available yet.');
         continue;
       }
       if (type === 'open_history') window.WebStudio?.openHistory?.();
@@ -1132,7 +1132,7 @@
     if (label) {
       label.textContent = project?.name
         ? 'WORKSPACE · ' + String(project.name).slice(0, 90)
-        : 'OVYX WORKSPACE · ' + String(workspace?.name || 'CHAT READY').slice(0, 80);
+        : 'OVYX WORKSPACE · ' + String(workspace?.name || 'Ready to chat').slice(0, 80);
       label.title = limited
         ? (hasLocalContext
           ? 'The deeper workspace scan is still unavailable; OVYX AI can use the local project snapshot shown in this session.'
@@ -1141,8 +1141,8 @@
     }
     if (status) {
       status.textContent = !currentUser
-        ? 'SIGN IN REQUIRED'
-        : (limited ? (hasLocalContext ? 'LOCAL CONTEXT READY' : 'SCAN NEEDED') : 'WORKSPACE READY');
+        ? 'Sign in required'
+        : (limited ? (hasLocalContext ? 'Workspace details ready' : 'SCAN NEEDED') : 'WORKSPACE READY');
       status.title = !currentUser
         ? 'Sign in to use the private, account-aware assistant.'
         : (limited
@@ -1161,7 +1161,7 @@
         : (limited ? '0 0 0 3px rgba(142,171,255,.12)' : '0 0 0 3px rgba(88,215,181,.09)');
     }
     if (currentUser && workspaceTaskStatus !== 'idle' && status) {
-      const labels = { running: 'TASK RUNNING', local: 'LOCAL CONTEXT READY', inspected: 'PROJECT INSPECTED', approval: 'APPROVAL NEEDED', applied: 'APPLIED · VERIFIED', details: 'DETAILS NEEDED', error: 'ACTION FAILED' };
+      const labels = { running: 'Working', local: 'Workspace details ready', inspected: 'Workspace reviewed', approval: 'Approval needed', applied: 'Changes saved', details: 'More details needed', error: 'Action couldn't be completed' };
       status.textContent = labels[workspaceTaskStatus] || status.textContent;
       status.title = workspaceTaskMessage || status.title;
       if (dot) {
@@ -1281,7 +1281,7 @@
       syncWorkspaceBadge(localWorkspaceSnapshot(), true);
     });
     observer.observe(label, { childList: true, characterData: true, subtree: true });
-    if (status) status.textContent = getUser() ? 'CHAT READY' : 'SIGN IN REQUIRED';
+    if (status) status.textContent = getUser() ? 'Ready to chat' : 'Sign in required';
   }
 
   async function send() {
@@ -1333,7 +1333,7 @@
       if (serverWorkspace?.activeProject?.id) {
         setWorkspaceTaskStatus('inspected', 'Inspected saved project data for ' + String(serverWorkspace.activeProject.name || serverWorkspace.activeProject.id) + '.');
       } else if (context?.activeProject?.id) {
-        setWorkspaceTaskStatus('local', serverToolError ? 'Saved server scan unavailable; using the available local project snapshot.' : 'Using the local project snapshot. A saved server project was not identified.');
+        setWorkspaceTaskStatus('local', serverToolError ? 'Some workspace details couldn't be refreshed. Using the information available in this session.' : 'Using the information available in this session. No saved app was selected.');
       } else {
         setWorkspaceTaskStatus('details', serverToolError || 'No active saved project was identified. OVYX can still answer general questions.');
       }
@@ -1406,7 +1406,7 @@
         }
 
         if (!showedToolProgress) {
-          push('I’m checking the actual saved project evidence before finalizing my answer. Read-only inspection only so far; no files have been changed.');
+          push('I’m checking the actual saved project evidence before finalizing my answer. Review only so far. No files have been changed.');
           showedToolProgress = true;
         }
         const distinctActions = [];
@@ -1434,7 +1434,7 @@
           continue;
         }
 
-        setWorkspaceTaskStatus('running', 'Inspecting saved project files and diagnostics through authenticated read-only tools.');
+        setWorkspaceTaskStatus('running', 'Reviewing saved app files and available details.');
         const outcomes = await Promise.all(distinctActions.map(executeWorkspaceReadAction));
         toolCallCount += distinctActions.length;
         workspaceToolResults.push(...outcomes);
@@ -1519,11 +1519,11 @@
   function askAssistantTask(prompt) {
     const input = $('bot-chat-input');
     if (!input) {
-      push('The assistant composer is not available on this screen. Reopen OVYX AI and try again.');
+      push('The message box isn't available on this screen. Reopen OVYX AI and try again.');
       return;
     }
     if (busy) {
-      push('OVYX AI is already working on a message. Wait for that reply before starting another task.');
+      push('OVYX AI is still preparing a reply. Please wait before starting another task.');
       return;
     }
     input.value = String(prompt || '').trim();
@@ -1586,7 +1586,7 @@
   async function refreshWorkspaceContext() {
     closeMenu();
     const label = $('bot-context-node-type');
-    if (label) label.textContent = 'REFRESHING…';
+    if (label) label.textContent = 'Refreshing…';
     try {
       let result = null;
       if (typeof window.OVYXWorkspaceCopilot?.scan === 'function') {
@@ -1638,12 +1638,12 @@
       syncWorkspaceBadge(context, !result || typeof result !== 'object');
       const count = Array.isArray(context.projectInventory) ? context.projectInventory.length : 0;
       const assets = Array.isArray(context.activeAssets) ? context.activeAssets.length : 0;
-      push('Workspace context refreshed. ' + count + ' project(s) found' +
+      push('Workspace details refreshed. ' + count + ' project(s) found' +
         (assets ? ' · ' + assets + ' asset(s) indexed.' : '.') +
         (usable ? ' Local project details remain available to OVYX AI.' : ' Open or select a project to provide more detail.'));
     } catch (error) {
       syncWorkspaceBadge(localWorkspaceSnapshot(), true);
-      push(String(error?.message || 'Workspace refresh failed. The local snapshot is still available.'));
+      push(String(error?.message || 'Workspace details couldn't be refreshed. The local snapshot is still available.'));
     }
   }
 
@@ -1669,7 +1669,7 @@
           push(error?.message || (label + ' could not be opened.'));
         }
       } else {
-        push('Web Studio is open. ' + label + ' is not available for this project yet.');
+        push('Web Studio is open. ' + label + ' isn't available for this app yet.');
       }
     };
     closeMenu();
@@ -1726,7 +1726,7 @@
     }
     if (action === 'undo-last-ai-edit') {
       try { await recoverLatestWorkspaceEdit(); }
-      catch (error) { push('Recovery failed: ' + String(error?.message || 'OVYX could not restore the selected version. No successful recovery is reported unless the server verifies it.')); setWorkspaceTaskStatus('error', String(error?.message || 'Recovery failed.')); }
+      catch (error) { push('Restore failed: ' + String(error?.message || 'OVYX could not restore the selected version. No successful recovery is reported unless the server verifies it.')); setWorkspaceTaskStatus('error', String(error?.message || 'Recovery failed.')); }
       return;
     }
     if (action === 'review-ai-edits') {
@@ -1933,7 +1933,7 @@
         } else {
           Promise.resolve(window.OVYXWorkspaceCopilot?.scan?.() || window.__OVYX_SCAN_WORKSPACE_CONTEXT__?.(true))
             .then(context => push(`Workspace refreshed · ${context?.projectInventory?.length || 0} projects · ${context?.activeAssets?.length || 0} assets.`))
-            .catch(error => push(error?.message || 'Workspace scan failed.'));
+            .catch(error => push(error?.message || 'Workspace details couldn't be refreshed.'));
         }
         return;
       }
