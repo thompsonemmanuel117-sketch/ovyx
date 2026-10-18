@@ -162,7 +162,7 @@ try {
     await hub.locator('[data-ovyx-admin-workspace-route="admin-pricing"]').evaluate(button => button.click());
     await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-pricing');
     await page.locator('#ovyx-global-quota-panel').waitFor({ state: 'attached' });
-    await page.waitForFunction(() => /Loaded current prices and quota limits/.test(document.getElementById('ovyx-global-quota-status')?.textContent || ''), null, { timeout: 20000 });
+    await page.waitForFunction(() => /Updated pricing and usage limits are ready/.test(document.getElementById('ovyx-global-quota-status')?.textContent || ''), null, { timeout: 20000 });
     assert.equal(await page.locator('#ovyx-global-plan-features').count(), 1,
       '[' + target.name + '] the pricing editor must expose real per-plan feature selectors');
     assert.equal(await page.locator('#ovyx-global-plan-features input[data-v655-plan="pro"][value="webStudio"]').isChecked(), true,
