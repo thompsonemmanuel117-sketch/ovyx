@@ -156,7 +156,7 @@ assert.ok(api.includes('assertAuthenticated(context.data?.user)'), 'Analyzer end
 assert.ok(api.includes('enforceSameOrigin(request)'), 'Analyzer endpoint must reject cross-origin requests.');
 assert.ok(api.includes("context.data?.entitlements?.capabilities?.appStudio !== true"), 'Analyzer endpoint must require the server-authoritative App Studio entitlement.');
 assert.ok(middleware.includes("['/api/app-studio/url-analyzer', ['appStudio']]"), 'API middleware must gate the endpoint behind App Studio entitlement.');
-assert.ok(shell.includes('/assets/ovyx-app-studio-url-analyzer.js?v=20261018-3'), 'The real Pages shell must inject the analyzer runtime.');
+assert.ok(shell.includes('/assets/ovyx-app-studio-url-analyzer.js?v=20261018-4'), 'The real Pages shell must inject the analyzer runtime.');
 assert.ok(runtime.includes('__OVYX_URL_ANALYZER_LAST_REPORT__'), 'The structured report must remain available to the next stage in this tab.');
 assert.ok(runtime.includes('textContent') && !runtime.includes('innerHTML'), 'Fetched site text must be rendered safely without interpreting remote HTML.');
 assert.ok(packageJson.scripts.test.includes('scripts/ovyx-url-analyzer.test.mjs'), 'The deterministic analyzer regression must run in npm test.');
