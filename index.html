@@ -3738,8 +3738,8 @@
         this.lastCheckedAt=Date.now();
         const overall=`${ready}/${PROVIDERS.length}`;
         const detail=ready===PROVIDERS.length
-          ?'All configured provider APIs authenticated successfully'
-          :`${ready}/${PROVIDERS.length} provider APIs ready · server truth`;
+          ?'All configured AI services are ready to use.'
+          :`${ready}/${PROVIDERS.length} AI services ready`;
         this.applyOverview(overall,detail,performance.now()-started);
         return ready===PROVIDERS.length;
       }catch(error){
@@ -4476,10 +4476,10 @@ function enhanceFAQ(){
   {q:'What is Web Studio?',a:'Web Studio is the visual web-building workspace. Magic Mode is the beginner-friendly path; Advanced Mode exposes deeper layout and component controls. Use Desktop, Tablet and Mobile preview to check responsive behavior.',cat:'Web Studio'},
   {q:'Why do I see different controls on a phone?',a:'OVYX uses a mobile application shell rather than shrinking the desktop sidebar. Open More for the full workspace navigation, and use the mobile Studio tools strip for Files, Canvas, Blueprint and Inspector access.',cat:'Mobile'},
   {q:'How do I check my project on mobile?',a:'In Web Studio choose Mobile under Breakpoints. OVYX keeps the same project state while changing the preview frame. Responsive AI Optimize can also adjust layout rules for smaller screens.',cat:'Web Studio'},
-  {q:'What does AI Preferences control?',a:'AI Preferences controls generation mode, preferred model, generation safeguards and context sources. Advanced routing controls stay collapsed so beginners do not need to manage provider internals.',cat:'AI'},
-  {q:'How does GitHub work with OVYX?',a:'Connected Accounts is the account-level connection. Repository selection belongs to the project/code workflow. Direct token testing is session-only in this prototype; production OAuth or a GitHub App should be handled server-side.',cat:'GitHub'},
-  {q:'How does billing work?',a:'The Billing panel shows the current tier and local runtime token meter. Upgrade and token boosts must use a real Payment Link or secure checkout endpoint; OVYX never activates a subscription just because a local button was clicked.',cat:'Billing'},
-  {q:'Where is the Admin Command Center?',a:'The Admin Command Center is owner-only and intentionally hidden from ordinary users. It is for platform operations such as provider diagnostics, pricing/gating and telemetry.',cat:'Account'},
+  {q:'What does AI Preferences control?',a:'AI Preferences lets you choose how OVYX creates content, select a preferred model, and control which context is used. Advanced options remain available without cluttering the main experience.',cat:'AI'},
+  {q:'How does GitHub work with OVYX?',a:'Connect your GitHub account from Connected Accounts, then choose a repository in your project workflow. Your access credentials remain protected.',cat:'GitHub'},
+  {q:'How does billing work?',a:'Billing shows your current plan and AI usage. Upgrades and Token Boosters become active only after checkout confirms your payment.',cat:'Billing'},
+  {q:'Where is the Admin Command Center?',a:'The Admin Command Center is reserved for authorized owners. It manages platform settings, pricing, feature access, announcements and service health.',cat:'Account'},
   {q:'Can I delete a project?',a:'Yes. Open Projects, choose the project actions and confirm deletion. OVYX keeps destructive actions behind confirmation.',cat:'Projects'},
   {q:'Can I change the theme?',a:'Yes. Settings → Appearance contains OVYX presets and the OVYX Theme Lab. Custom colors preview live and can be saved, duplicated, imported or exported.',cat:'Appearance'},
   {q:'What should I do if something stops responding?',a:'First return to Home or refresh the page. If the problem persists, check Settings → Security and Connected Accounts, then use the Help Center guidance. OVYX also reports runtime failures instead of showing fake success states.',cat:'Troubleshooting'}
@@ -4626,7 +4626,7 @@ function helpCenter(){
  const items=[
  {q:'What is OVYX?',a:'OVYX is a Creative Operating System for turning an idea into a real web or app project. It brings the project workspace, Web Studio, App Studio, Code, AI controls, settings, integrations, billing and notifications into one product shell. OVYX is designed to keep the project structure editable instead of trapping the work inside a single visual mockup.',cat:'Getting Started'},
  {q:'How do I create a project?',a:'Use New Project from the sidebar, mobile Create button, or the Command Palette. Enter the project name and OVYX creates the project in its local project store, then opens the project workflow.',cat:'Getting Started'},
- {q:'Where are my projects?',a:'Open Projects from the desktop navigation or mobile bottom navigation. The project library supports search, filtering and opening projects into Web Studio. The current standalone build persists project metadata locally; the secure PostgreSQL data layer is available when a backend endpoint is configured.',cat:'Projects'},
+ {q:'Where are my projects?',a:'Open Projects from the desktop or mobile navigation to search, filter and open your apps in Web Studio. In the current setup, project details are saved on this device. Shared cloud storage is available when it has been enabled for your account.',cat:'Projects'},
  {q:'Can I delete a project?',a:'Yes. Project deletion uses OVYX confirmation UI, removes the project from the current project state, updates the active project and persists the change. Deletion is intentionally separate from account deletion.',cat:'Projects'},
  {q:'Can I duplicate a project?',a:'Yes. The project workflow includes Duplicate Project so you can create a separate copy without modifying the original project.',cat:'Projects'},
  {q:'What is Web Studio?',a:'Web Studio is OVYX’s visual web-building workspace. It supports Magic Mode, Advanced Mode, responsive viewport controls, Canvas, Inspector, Pages, Blueprint, Zen Mode and revision-style editing workflows.',cat:'Web Studio'},
@@ -4643,9 +4643,9 @@ function helpCenter(){
  {q:'What does Ask before destructive edits mean?',a:'When enabled, the preference tells the AI workflow to request confirmation before destructive project changes rather than silently applying them.',cat:'AI'},
  {q:'What does Project files context mean?',a:'It allows relevant project files and structure to be considered as AI generation context. It does not mean OVYX should expose unrelated projects to the model.',cat:'AI'},
  {q:'How does GitHub work in OVYX?',a:'Connected Accounts provides a session-only GitHub connection. OVYX can verify the token with GitHub and load repositories available to that credential. The current standalone build does not store the token in localStorage.',cat:'GitHub'},
- {q:'Why do I not see my GitHub repositories?',a:'OVYX intentionally does not invent repository connections. Repository cards appear from the GitHub API after a valid connection and repository load. This keeps the settings truthful.',cat:'GitHub'},
- {q:'Is GitHub production OAuth already complete?',a:'The current standalone build provides the browser-side session test and repository loading foundation. Production OAuth/GitHub App credentials should be handled by a trusted backend so client secrets are never exposed in the browser.',cat:'GitHub'},
- {q:'How do deployments work?',a:'OVYX keeps deployment infrastructure behind the project service boundary. Normal users work with project deployment actions; private credentials and provider configuration are never exposed in the normal workspace.',cat:'Deployment'},
+ {q:'Why do I not see my GitHub repositories?',a:'Repository cards appear after you authorize GitHub and load your available repositories.',cat:'GitHub'},
+ {q:'Is GitHub production OAuth already complete?',a:'Repository access is available after you authorize GitHub. Private credentials are kept out of browser storage.',cat:'GitHub'},
+ {q:'How do deployments work?',a:'Use the publishing actions in your project to prepare and publish a website. Private credentials are protected and are not displayed in the workspace.',cat:'Deployment'},
  {q:'What is OVYX Theme Lab?',a:'Theme Lab lets you choose OVYX Obsidian, Titanium, Graphite or Obsidian, or create a custom theme. Custom surface, text and gold accent colors preview live and can be saved, duplicated, imported, exported, deleted or reset.',cat:'Appearance'},
  {q:'How do I use Light Mode?',a:'Open Settings → Appearance and choose Light. OVYX uses a professional white/light-gray canvas with dark graphite navigation, dark text and restrained gold accents so the interface clearly reads as a true light theme.',cat:'Appearance'},
  {q:'Does Appearance save my preferences?',a:'Yes. Appearance mode, density, interface scale and motion settings are persisted locally and reapplied when OVYX starts.',cat:'Appearance'},
@@ -4665,7 +4665,7 @@ function helpCenter(){
  {q:'What does System Status mean?',a:'The Help Center status describes the local OVYX runtime. External services are only marked connected after a real runtime check succeeds.',cat:'Troubleshooting'},
  {q:'How do I open the Command Palette?',a:'Press Ctrl + K on Windows/Linux or Command + K on macOS. The palette provides shortcuts for common OVYX workflows.',cat:'Workflow'},
  {q:'Can OVYX lock me into its platform?',a:'The product direction is intentionally the opposite: project code should remain exportable and syncable to external infrastructure such as GitHub, and production data should be able to live in a real backend/database. Some of those production connectors still require backend configuration in the current standalone build.',cat:'Platform'},
- {q:'What is the safest production architecture for OVYX?',a:'Use OVYX as the client workspace with a secure authenticated server boundary, durable project storage, source control and a real deployment provider. Keep private credentials on the server, never in browser storage.',cat:'Platform'}
+ {q:'What is the safest production architecture for OVYX?',a:'For shared projects, use secure sign-in, reliable data storage, source control and a verified publishing service. Protect all access credentials and never store them in the browser.',cat:'Platform'}
  ];
  const popular=[['Getting Started','Build your first project','fa-compass','Getting Started'],['Web Studio','Learn Magic Mode','fa-wand-magic-sparkles','Web Studio'],['App Studio','Build app screens','fa-mobile-screen-button','App Studio'],['AI Usage','Understand your token balance','fa-chart-simple','Billing'],['GitHub','Connect your repository','fa-github','GitHub'],['Billing','Plans and boosters','fa-credit-card','Billing']];
  v.innerHTML=`<div class="ovyx-help-shell"><div class="ovyx-help-top"><div><div class="ovyx-panel-kicker">OVYX / HELP CENTER</div><h1 style="margin-top:8px;font:850 28px/1.05 Inter,sans-serif;color:var(--ov-text)">How can we help?</h1><p style="margin-top:7px;color:var(--ov-muted);font:500 10px/1.5 Inter,sans-serif">Answers based on the features currently implemented in this OVYX build.</p></div><label class="ovyx-help-search"><i class="fa-solid fa-magnifying-glass"></i><input id="ovyx-help-search" placeholder="Search OVYX help…" autocomplete="off"></label></div><div><div class="ovyx-panel-kicker" style="margin-bottom:9px">POPULAR</div><div class="ovyx-help-popular">${popular.map(x=>`<button class="ovyx-help-card2" data-help-cat="${x[3]}"><i class="fa-solid ${x[2]}"></i><b>${x[0]}</b><small>${x[1]}</small></button>`).join('')}</div></div><div class="ovyx-help-lower"><section class="ovyx-help-section"><div class="ovyx-help-section-head"><b>START HERE · WHAT IS OVYX?</b><small>The first answer explains OVYX before the rest of the help library.</small></div><div id="ovyx-help-faq-list" class="ovyx-help-tools"></div></section><aside class="ovyx-help-section"><div class="ovyx-help-section-head"><b>QUICK HELP</b><small>Useful actions and runtime information.</small></div><div class="ovyx-help-tools"><button class="ovyx-help-tool" id="help-shortcuts"><i class="fa-solid fa-keyboard"></i><span><b>Keyboard shortcuts</b><small>Open Command Palette with ⌘ / Ctrl + K.</small></span></button><button class="ovyx-help-tool" id="help-system"><i class="fa-solid fa-heart-pulse"></i><span><b>System Status</b><small>Check the local OVYX runtime.</small></span></button></div><div style="padding:0 14px 14px"><div class="ovyx-help-status"><span></span> OVYX local runtime operational</div></div></aside></div></div>`;
@@ -4949,7 +4949,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     const body=document.getElementById('v34-broadcast-body'),category=document.getElementById('v34-broadcast-category'),link=document.getElementById('v34-broadcast-link'),email=document.getElementById('v34-broadcast-email'),status=document.getElementById('v34-broadcast-status'),emailEndpoint=document.getElementById('v34-email-endpoint'),emailStatus=document.getElementById('v34-email-status');
     const cfg=endpoints();if(emailEndpoint)emailEndpoint.value=cfg.emailEndpoint||'';
     const setStatus=(el,text,ok=false)=>{if(el){el.textContent=text;el.classList.toggle('ok',ok)}};
-    document.getElementById('v34-email-endpoint-save')?.addEventListener('click',()=>{const ep=emailEndpoint.value.trim();saveEndpoints({...endpoints(),emailEndpoint:ep});window.OVYXRuntime.endpoints=endpoints();setStatus(emailStatus,ep?'Email endpoint saved.':'No email endpoint configured.');});
+    document.getElementById('v34-email-endpoint-save')?.addEventListener('click',()=>{const ep=emailEndpoint.value.trim();saveEndpoints({...endpoints(),emailEndpoint:ep});window.OVYXRuntime.endpoints=endpoints();setStatus(emailStatus,ep?'Email service settings saved.':'Email service address not added yet.');});
     document.getElementById('v34-broadcast-clear')?.addEventListener('click',()=>{title.value='';body.value='';link.value='';email.checked=false});
     document.getElementById('v34-broadcast-publish')?.addEventListener('click',async()=>{
       const u=window.firebase?.auth?.().currentUser;
@@ -4976,7 +4976,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
               const r=await fetch(ep,{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({broadcastId:ref.id,title:title.value.trim()||'OVYX Update',body:body.value.trim(),category:category.value,link:link.value.trim()||''})});
               if(!r.ok)throw Error('HTTP '+r.status);
               emailResult+=' Email endpoint accepted the broadcast.';
-            }catch(e){emailResult+=' Email was NOT confirmed: '+(e.message||'endpoint error')+'.'}
+            }catch(e){emailResult+=' Email delivery could not be confirmed. Check the email service settings and try again.';}
           }
         }
         setStatus(status,emailResult,true);
@@ -5524,8 +5524,8 @@ function patchDrawer(){
       console.warn('[OVYX V43] live template write:',error)
     }
     v43Merge([item])
-    if(status)status.textContent=liveWritten?'Template published to the live collection and released to active workspaces.':'Template retained in owner preview; the live collection write was not confirmed.'
-    showToast?.(liveWritten?'Template published and released.':'Template saved locally; live release was not confirmed.',liveWritten?'success':'info')
+    if(status)status.textContent=liveWritten?'Template published and made available in active workspaces.':'Template retained in owner preview; the live collection write was not confirmed.'
+    showToast?.(liveWritten?'Template published successfully.':'Template saved locally; live release was not confirmed.',liveWritten?'success':'info')
     v43RenderAdmin()
     v43RenderGallery()
     try{v43Channel?.postMessage({type:'template-release',template:item})}catch(error){console.warn('[OVYX V43] release channel:',error)}
@@ -8127,15 +8127,15 @@ function cleanHelp(){window.OVYXHelpExtra=[];const extra=document.getElementById
 {q:'How do I create and manage a project?',a:'Use New Project to create one, Projects to reopen it, and project actions to duplicate, rename or delete it.',cat:'Projects'},
 {q:'What is Web Studio?',a:'Web Studio is the visual web-building workspace with responsive preview, canvas, inspector, pages and blueprint tools.',cat:'Web Studio'},
 {q:'What is App Studio?',a:'App Studio provides the application-oriented builder and schema workflows available in the current OVYX build.',cat:'App Studio'},
-{q:'How does OVYX AI work?',a:'AI requests are routed through the authenticated OVYX server, where entitlements are checked before the server-side Brain calls a configured provider.',cat:'AI'},
+{q:'How does OVYX AI work?',a:'OVYX checks your account access before sending AI requests to the selected AI service.',cat:'AI'},
 {q:'How do locked features and plans work?',a:'OVYX uses a server-backed Access Registry. When an admin assigns a minimum plan to a resource, the plan access catalog updates automatically.',cat:'Plans'},
 {q:'Does changing a lock automatically change the subscription price?',a:'No. Access changes update plan inclusions automatically; pricing remains an explicit admin setting so OVYX never invents or silently changes a charge.',cat:'Plans'},
 {q:'How does Billing work?',a:'Plans show the configured price and the current access catalog. A purchase is considered active only after the payment backend verifies it.',cat:'Billing'},
 {q:'How does Theme Lab and Light Mode work?',a:'Open Settings → Appearance. Theme Lab and Light Mode both use the canonical ThemeContext and support preview, save and cancel behavior.',cat:'Appearance'},
 {q:'How are project assets stored?',a:'Project assets use the authenticated asset layer. The actual file belongs in Storage while lightweight ownership metadata is kept with the project asset record.',cat:'Data'},
 {q:'How do I set up an external service?',a:'External services use approved access. Keep private credentials secure and do not share them in support messages.',cat:'Integrations'},
-{q:'Why might a service show unavailable?',a:'OVYX only marks a service connected after a real runtime check succeeds. A missing server secret or unavailable provider should be shown as unavailable rather than simulated.',cat:'Troubleshooting'},
-{q:'What should I do when a page hangs?',a:'Return to Home, reopen the page and check the Help diagnostic. If it persists, send Support the diagnostic summary without passwords, tokens or API keys.',cat:'Troubleshooting'},
+{q:'Why might a service show unavailable?',a:'A service is marked ready only after its availability check succeeds. If setup is incomplete or a service is unavailable, OVYX shows its current status without simulating success.',cat:'Troubleshooting'},
+{q:'What should I do when a page hangs?',a:'Return to Home and reopen the page, then review the Help report. If the issue continues, contact Support with the report summary. Do not include passwords or access credentials.',cat:'Troubleshooting'},
 {q:'How do I contact support?',a:'Use the Help Center Support action. OVYX can prepare a concise diagnostic summary so support can see the current view, plan and browser context.',cat:'Support'}
 ];window.FAQSystem&&(window.FAQSystem.items=concise,window.FAQSystem.activeFilter='All',setTimeout(()=>window.FAQSystem.init?.(),0));}
 function retireLegacyLockBot(){document.querySelectorAll('.v58-lockbot').forEach(el=>el.remove());try{window.OVYXFeatureLockAI={legacy:true,disabled:true};}catch(e){console.warn('[OVYX runtime]',e)}}
@@ -12160,8 +12160,8 @@ window.OVYXWebStudioNavigation.bind();
     }catch(error){
       progress(100,'BUILD SERVICE UNAVAILABLE');
       const status=Number(error?.status||0);
-      appendLog(status===404?'No /api/mobile/build service is deployed yet.':'Real mobile build request failed: '+(error?.message||'unknown error'),'warn');
-      appendLog('OVYX will not fabricate APK or IPA downloads. Connect the secure native build service to continue.','warn');
+      appendLog(status===404?'Mobile builds are not available right now. Please try again later.':'The mobile build could not be completed. Please review the details and try again.','warn');
+      appendLog('A download is available only after the mobile build completes successfully. Mobile builds are not available right now.','warn');
       result={ok:false,error:String(error?.message||error),artifacts:{}};
     }
     document.getElementById('as4-result-card')?.classList.remove('as4-hidden');
@@ -12516,7 +12516,7 @@ window.OVYXWebStudioNavigation.bind();
     }catch(error){
       let code=String(error?.code||'');
       if(code==='auth/popup-blocked'){
-        status('The browser blocked the '+providerName+' sign-in popup. Allow popups for OVYX and try again. Redirect sign-in is disabled so the existing-account check cannot be bypassed.','error');
+        status('The '+providerName+' sign-in window was blocked. Allow popups for OVYX and try again.','error');
         clearActivation();setLiveState(false);return;
       }
       const message=
@@ -14068,7 +14068,7 @@ function installWebStudioSurface(){
         load(base+'firebase-firestore-compat.js',6000),
         load(base+'firebase-storage-compat.js',6000)
       ]);
-      if(!window.firebase||!firebase.initializeApp)throw new Error('Firebase SDK did not expose the expected API.');
+      if(!window.firebase||!firebase.initializeApp)throw new Error('The account service could not start. Refresh the page and try again.');
       if(!firebase.apps||!firebase.apps.length)firebase.initializeApp(config);
       finish(true);
     }catch(error){
