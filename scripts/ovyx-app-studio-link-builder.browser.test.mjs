@@ -8,7 +8,7 @@ const read = path => readFile(fileURLToPath(new URL('../' + path, import.meta.ur
 const brandRuntime = await read('assets/ovyx-app-studio-brand-dna.js');
 const analyzerRuntime = await read('assets/ovyx-app-studio-url-analyzer.js');
 const builderRuntime = await read('assets/ovyx-app-studio-link-builder.js');
-const requests = { analyzer: [], generation: [], profile: [] };
+const requests = { analyzer: [], generation: [], profile: [], api: [], cloudSave: [] };
 const eventOrder = [];
 const existingLogo = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8x8AAwMCAO+/g6sAAAAASUVORK5CYII=';
 const profiles = new Map([['coastal-living', {
@@ -39,7 +39,7 @@ const generated = {
   summary: 'A responsive three-page coastal property app with working local navigation.',
   project: { name: 'Coastal Living', description: 'First link-based app with separate inspected routes.' },
   files: {
-    'index.html': '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Coastal Living</title><link rel="stylesheet" href="styles.css"></head><body><header><nav aria-label="Main navigation"><a href="/">Home</a><a href="/collections/">Collections</a><a href="/about/">Our story</a></nav></header><main><section id="home"><h1>Find your calm by the coast</h1><p>Thoughtful homes, considered spaces and a clearer way to find your next chapter.</p><button id="counter" type="button">Tap 0</button></section></main><script src="app.js"></script></body></html>',
+    'index.html': '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Coastal Living</title><link rel="stylesheet" href="styles.css"></head><body><header><nav aria-label="Main navigation"><a href="/">Home</a><a href="/collections/">Collections</a><a href="/about/">Our story</a></nav></header><main><section id="home"><h1>Find your calm by the coast</h1><p>Thoughtful homes, considered spaces and a clearer way to find your next chapter.</p><button id="counter" type="button">Tap 0</button><form id="lead-form" aria-label="Coastal enquiry"><label>Email <input name="email" type="email" required></label><label>Password <input name="password" type="password" value="do-not-store-this"></label><button type="submit">Save enquiry</button></form></section></main><script src="app.js"></script></body></html>',
     'pages/collections.html': '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Collections | Coastal Living</title><link rel="stylesheet" href="../styles.css"></head><body><header><nav aria-label="Main navigation"><a href="/">Home</a><a href="/collections/">Collections</a><a href="/about/">Our story</a></nav></header><main><section><h1>Curated coastal collections</h1><p>Explore spaces selected for light, warmth and everyday living.</p></section></main><script src="../app.js"></script></body></html>',
     'pages/about.html': '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Our Story | Coastal Living</title><link rel="stylesheet" href="../styles.css"></head><body><header><nav aria-label="Main navigation"><a href="/">Home</a><a href="/collections/">Collections</a><a href="/about/">Our story</a></nav></header><main><section><h1>A more considered way home</h1><p>Built around calm service and useful details.</p></section></main><script src="../app.js"></script></body></html>',
     'styles.css': ':root{--ovyx-brand-primary:#D81B60;--ovyx-brand-secondary:#302060;--ovyx-brand-accent:#00A6A6;--ovyx-brand-background:#FFF9FC;--ovyx-brand-text:#17121A}body{margin:0;font-family:Arial,sans-serif;background:var(--ovyx-brand-background);color:var(--ovyx-brand-text)}header{padding:18px 5%;background:white}nav{display:flex;gap:18px;flex-wrap:wrap}nav a{color:var(--ovyx-brand-secondary);font-weight:700;text-decoration:none}main{max-width:900px;margin:auto;padding:34px 5%}section{padding:22px 0;scroll-margin-top:20px}button{padding:12px 16px;border:0;border-radius:999px;background:var(--ovyx-brand-primary);color:white;cursor:pointer}a:focus-visible,button:focus-visible{outline:3px solid var(--ovyx-brand-accent);outline-offset:3px}',
@@ -94,6 +94,21 @@ const server = createServer(async (req, res) => {
     }
     return send(res, 405, { ok: false, message: 'Unsupported method.' });
   }
+  if (url.pathname === '/api/entitlements' || url.pathname === '/api/tokens/balance' || url.pathname === '/api/projects') {
+    if (req.headers.authorization !== 'Bearer test-id-token') return send(res, 401, { ok: false, error: 'Authentication required.' });
+    requests.api.push({ path: url.pathname, method: req.method, auth: req.headers.authorization });
+    if (url.pathname === '/api/entitlements') return send(res, 200, { ok: true, planTier: 'pro', capabilities: { appStudio: true, webStudio: true }, featureRules: [] });
+    if (url.pathname === '/api/tokens/balance') return send(res, 200, { ok: true, current_monthly_tokens: 123, monthly_token_limit: 5000, boosterTokens: 12, mobileBuildsRemaining: 4, checkedAt: '2026-10-18T00:00:00.000Z' });
+    if (req.method === 'GET') return send(res, 200, { ok: true, projects: [{ id: 'existing-1', name: 'Existing Project', description: 'Saved fixture' }] });
+    if (req.method === 'POST') {
+      let raw = '';
+      for await (const chunk of req) raw += chunk;
+      const body = JSON.parse(raw);
+      requests.cloudSave.push({ auth: req.headers.authorization, body });
+      return send(res, 200, { ok: true, project: { id: body.projectId, name: body.project?.name, updatedAt: '2026-10-18T00:00:00.000Z' } });
+    }
+    return send(res, 405, { ok: false, error: 'Unsupported fixture method.' });
+  }
   if (url.pathname === '/api/ai/gateway') {
     let raw = '';
     for await (const chunk of req) raw += chunk;
@@ -113,6 +128,7 @@ try {
   const desktop = await browser.newPage({ viewport: { width: 1280, height: 950 } });
   const errors = [];
   desktop.on('pageerror', error => errors.push(error.message));
+  desktop.on('dialog', dialog => dialog.accept());
   await desktop.goto(base, { waitUntil: 'load' });
   await desktop.locator('#ovyx-app-studio-url-analyzer-panel').waitFor();
   await desktop.locator('[data-ua-url]').fill('https://coastal.example');
@@ -165,6 +181,43 @@ try {
   await preview.locator('#counter').click();
   assert.equal(await preview.locator('#counter').innerText(), 'Tap 1', 'Generated JavaScript must remain active after route navigation.');
 
+  // Stage 4: forms produce a real, explicitly local outcome; passwords and secrets are not stored.
+  await preview.locator('#lead-form input[name="email"]').fill('visitor@example.test');
+  await preview.locator('#lead-form button[type="submit"]').click();
+  await preview.locator('#lead-form [data-ovyx-form-status]').waitFor();
+  const formNotice = await preview.locator('#lead-form [data-ovyx-form-status]').innerText();
+  assert.match(formNotice, /Saved in this browser only/);
+  assert.match(formNotice, /password\/secret fields were not stored/);
+
+  const storageSet = await preview.locator('body').evaluate(async () => await window.OVYXApp.storage.set('favorite-color', 'teal'));
+  assert.equal(storageSet, true, 'OVYXApp.storage.set must resolve after persistence succeeds.');
+  assert.equal(await preview.locator('body').evaluate(async () => await window.OVYXApp.storage.get('favorite-color')), 'teal');
+  assert.ok((await preview.locator('body').evaluate(async () => await window.OVYXApp.storage.keys())).includes('favorite-color'));
+  const authState = await preview.locator('body').evaluate(async () => await window.OVYXApp.auth.currentUser());
+  assert.equal(authState.signedIn, true);
+  assert.equal(authState.email, 'owner@example.test');
+
+  const usage = await preview.locator('body').evaluate(async () => await window.OVYXApp.api.get('usage'));
+  assert.equal(usage.current_monthly_tokens, 123, 'Approved read-only APIs must return actual API results.');
+  assert.ok(requests.api.some(item => item.path === '/api/tokens/balance' && item.auth === 'Bearer test-id-token'));
+  assert.equal(await preview.locator('body').evaluate(async () => { try { await fetch('/api/not-allowed'); return false; } catch (_) { return true; } }), true, 'Direct arbitrary API calls must be blocked by the preview CSP.');
+
+  const localStateKey = 'ovyx.link-app-state.v1.test-owner-uid.link-coastal-living';
+  const storedLocalState = await desktop.evaluate(key => JSON.parse(localStorage.getItem(key) || '{}'), localStateKey);
+  assert.equal(storedLocalState.values['favorite-color'], 'teal');
+  assert.equal(storedLocalState.submissions.length, 1);
+  assert.equal(storedLocalState.submissions[0].fields.email, 'visitor@example.test');
+  assert.ok(!JSON.stringify(storedLocalState).includes('do-not-store-this'), 'Password values must not enter local preview persistence.');
+
+  await desktop.locator('[data-lb-save]').click();
+  await desktop.waitForFunction(() => document.querySelector('[data-lb-save-status]')?.textContent.includes('Saved and verified in OVYX Projects'));
+  assert.equal(requests.cloudSave.length, 1, 'The explicit cloud save button must POST the project through the existing Projects API.');
+  assert.equal(requests.cloudSave[0].auth, 'Bearer test-id-token');
+  assert.equal(requests.cloudSave[0].body.projectId, 'link-coastal-living');
+  assert.equal(requests.cloudSave[0].body.project.projectType, 'link-based-app');
+  assert.ok(requests.cloudSave[0].body.project.files['pages/collections.html']);
+  assert.equal((await desktop.evaluate(() => window.__OVYX_APP_STUDIO_GENERATED_PROJECT__)).savedToProjects, true);
+
   await desktop.locator('#ovyx-app-studio-link-builder details summary').click();
   assert.ok((await desktop.locator('[data-lb-source]').innerText()).includes('index.html'));
   assert.ok((await desktop.locator('[data-lb-source]').innerText()).includes('pages/collections.html'));
@@ -197,7 +250,7 @@ try {
   await mobilePreview.getByRole('heading', { name: 'Curated coastal collections' }).waitFor();
   assert.equal(await mobilePreview.locator('h1').innerText(), 'Curated coastal collections', 'Multi-page route navigation must work at mobile width.');
   assert.deepEqual(errors, [], 'The real browser handoff must not throw page exceptions.');
-  console.log('OVYX Stage 3 browser checks passed: analyzer → per-app brand → existing AI gateway → three HTML routes → working cross-page navigation and interactive desktop/mobile live preview.');
+  console.log('OVYX Stage 4 browser checks passed: multi-page navigation, real form feedback, per-user local persistence, sensitive-field filtering, authorized read-only APIs, direct-network blocking, and confirmed cloud save to OVYX Projects.');
 } finally {
   await browser.close();
   await new Promise(resolve => server.close(resolve));
