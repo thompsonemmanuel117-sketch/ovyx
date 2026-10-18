@@ -690,7 +690,7 @@
     workspaceTaskMessage = String(message || '');
     const chip = $('bot-context-node-type');
     if (!chip) return;
-    const labels = { running: 'Working', inspected: 'Workspace reviewed', approval: 'Approval needed', applied: 'Changes saved', details: 'More details needed', error: 'Action could not be completed' };
+    const labels = { running: 'Working', inspected: 'Workspace reviewed', approval: 'Approval needed', applied: 'Changes saved and verified', details: 'More details needed', error: 'Action could not be completed' };
     if (workspaceTaskStatus === 'idle') { syncWorkspaceBadge(localWorkspaceSnapshot(), true); return; }
     chip.textContent = labels[workspaceTaskStatus] || 'WORKSPACE READY';
     chip.title = workspaceTaskMessage || labels[workspaceTaskStatus] || 'Workspace status';
@@ -1161,7 +1161,7 @@
         : (limited ? '0 0 0 3px rgba(142,171,255,.12)' : '0 0 0 3px rgba(88,215,181,.09)');
     }
     if (currentUser && workspaceTaskStatus !== 'idle' && status) {
-      const labels = { running: 'Working', local: 'Workspace details ready', inspected: 'Workspace reviewed', approval: 'Approval needed', applied: 'Changes saved', details: 'More details needed', error: 'Action could not be completed' };
+      const labels = { running: 'Working', local: 'Workspace details ready', inspected: 'Workspace reviewed', approval: 'Approval needed', applied: 'Changes saved and verified', details: 'More details needed', error: 'Action could not be completed' };
       status.textContent = labels[workspaceTaskStatus] || status.textContent;
       status.title = workspaceTaskMessage || status.title;
       if (dot) {
