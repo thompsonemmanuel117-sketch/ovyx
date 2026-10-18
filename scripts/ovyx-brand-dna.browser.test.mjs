@@ -102,15 +102,17 @@ try {
   await desktop.locator('[data-brand-logo-file]').setInputFiles({ name:'velora-logo.png', mimeType:'image/png', buffer:logoBuffer });
   await desktop.waitForFunction(() => document.querySelector('[data-brand-logo-preview]')?.src.startsWith('data:image/png;base64,'));
   await desktop.locator('[data-brand-save]').click();
-  await desktop.waitForFunction(() => document.querySelector('[data-brand-status]')?.textContent.includes('Saved and verified on the server.'));
+  await desktop.waitForFunction(() => document.querySelector('[data-brand-status]')?.textContent.includes('Branding saved successfully.'));
   const saved = profiles.get('velora-homes');
   assert.ok(saved, 'The real UI must create an owner/app-scoped profile.');
   assert.ok(saved.logoDataUrl.startsWith('data:image/png;base64,'), 'The original PNG data must be persisted.');
   assert.equal(saved.colors.primary, '#D81B60');
   assert.equal(saved.colors.background, '#FFF9FC');
   assert.ok(saved.layoutRules[0].includes('full colour'), 'Brand layout rules must be persisted with the app.');
-  const logoNaturalSize = await desktop.locator('[data-brand-logo-preview]').evaluate(img => ({ complete:img.complete, width:img.naturalWidth, height:img.naturalHeight }));
+  const logoNaturalSize = await desktop.locator('[data-brand-logo-preview]').evaluate(img => ({ complete:img.complete, width:img.naturalWidth, height:img.naturalHeight, fit:getComputedStyle(img).objectFit, box:img.getBoundingClientRect().toJSON() }));
   assert.ok(logoNaturalSize.complete && logoNaturalSize.width === 96 && logoNaturalSize.height === 96, 'The upload preview must be a real 96px PNG, not a placeholder.');
+  assert.equal(logoNaturalSize.fit, 'contain', 'The uploaded logo must preserve its full image without cropping.');
+  assert.ok(logoNaturalSize.box.width > logoNaturalSize.box.height, 'The logo preview must provide a wide, logo-friendly display area.');
   const dna = normalizeBrandDNA(saved, { appName: 'Velora Homes' });
   const homeSource = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Velora Homes</title><style>body{margin:0;font-family:Arial,sans-serif}header{display:flex;align-items:center;gap:16px;padding:20px}.brand-logo{width:64px;height:64px;object-fit:contain}.btn-primary{background:#111827;color:#fff;padding:12px 16px;border:0;border-radius:10px}.content{padding:24px}</style></head><body><header><img class="brand-logo" src="/old-logo.svg" alt="Old logo"><strong>Velora Homes</strong></header><main class="content"><h1>Find a home that feels like yours</h1><p>Browse trusted properties with clear details.</p><button class="btn-primary" type="button">Explore homes</button></main></body></html>';
   const propertiesSource = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Properties — Velora Homes</title><style>body{margin:0;font-family:Arial,sans-serif}header{padding:20px}.property-card{margin:18px;padding:18px;border:1px solid #ddd;border-radius:14px}</style></head><body><header><nav><a href="/">Home</a><a href="/properties/">Properties</a></nav></header><main><article class="property-card"><h1>Three-bedroom home</h1><p>Request a private viewing.</p><button class="btn-primary" type="button">Request viewing</button></article></main></body></html>';
@@ -193,11 +195,19 @@ try {
   const newDefaultPrimary = await mobile.locator('[data-brand-color="primary"]').inputValue();
   assert.notEqual(newDefaultPrimary, oldDefaultPrimary, 'Entering a different app name must derive a fresh palette when the user has not manually overridden colours.');
   await mobile.locator('[data-brand-save]').click();
-  await mobile.waitForFunction(() => document.querySelector('[data-brand-status]')?.textContent.includes('Saved and verified on the server.'));
+  await mobile.waitForFunction(() => document.querySelector('[data-brand-status]')?.textContent.includes('Branding saved successfully.'));
   assert.ok(profiles.has('nova-health'), 'A second app name must store a separate profile.');
   assert.notEqual(profiles.get('nova-health').colors.primary, profiles.get('velora-homes').colors.primary, 'New apps get their own default palette instead of inheriting a previous app palette.');
   assert.equal(profiles.get('nova-health').logoDataUrl, null, 'A second app must not inherit the first app uploaded logo.');
   assert.equal(profiles.get('velora-homes').logoDataUrl, saved.logoDataUrl, 'Changing the second app must not mutate the first app logo.');
+
+  // Verify common photo formats are normalized to the PNG format used by brand profiles.
+  const jpegBase64 = await desktop.evaluate(() => { const canvas=document.createElement('canvas');canvas.width=320;canvas.height=80;const ctx=canvas.getContext('2d');ctx.fillStyle='#D81B60';ctx.fillRect(0,0,160,80);ctx.fillStyle='#00A6A6';ctx.fillRect(160,0,160,80);return canvas.toDataURL('image/jpeg').split(',')[1]; });
+  await desktop.locator('[data-brand-logo-file]').setInputFiles({ name:'brand-photo.jpg', mimeType:'image/jpeg', buffer:Buffer.from(jpegBase64,'base64') });
+  await desktop.waitForFunction(() => { const img=document.querySelector('[data-brand-logo-preview]');return img?.complete&&img.naturalWidth===320&&img.naturalHeight===80&&img.src.startsWith('data:image/png;base64,'); });
+  const jpegPreview = await desktop.locator('[data-brand-logo-preview]').evaluate(img => ({ fit:getComputedStyle(img).objectFit, box:img.getBoundingClientRect().toJSON(), naturalWidth:img.naturalWidth, naturalHeight:img.naturalHeight }));
+  assert.equal(jpegPreview.fit, 'contain', 'Converted photos must also fit without cropping.');
+  assert.ok(jpegPreview.box.width > jpegPreview.box.height && jpegPreview.naturalWidth === 320 && jpegPreview.naturalHeight === 80, 'Wide photo logos must preserve their aspect ratio in the preview.');
 
   const liveBase = String(process.env.OVYX_E2E_BASE_URL || '').trim();
   if (liveBase) {
@@ -208,7 +218,7 @@ try {
     assert.equal(await live.locator('#ovyx-app-studio-brand-dna-panel').count(), 1, 'The real Pages shell must inject one Brand DNA panel into App Studio.');
     await live.close();
   }
-  console.log('OVYX App Studio Brand DNA browser checks passed: real PNG preview, saved app profiles, color/rule persistence, generation request scoping, second-app isolation and desktop/mobile layout.');
+  console.log('OVYX App Studio Brand DNA browser checks passed: PNG/JPEG logo preview with safe fitting, saved app profiles, color/rule persistence, generation request scoping, second-app isolation and desktop/mobile layout.');
 } finally {
   await browser.close();
   await new Promise(resolve => server.close(resolve));
