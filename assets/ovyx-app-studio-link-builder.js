@@ -1658,7 +1658,7 @@
       window.addEventListener('message', routeHandler);
       const ownerUid = text(user.uid || '');
       const brandLogoPreview = document.querySelector('#ovyx-app-studio-brand-dna-panel [data-brand-logo-preview]');
-      const brandLogoDataUrl = brandLogoPreview && !brandLogoPreview.hidden && /^data:image\\/png;base64,/i.test(String(brandLogoPreview.src || ''))
+      const brandLogoDataUrl = brandLogoPreview && !brandLogoPreview.hidden && /^data:image\/png;base64,/i.test(String(brandLogoPreview.src || ''))
         ? String(brandLogoPreview.src)
         : '';
       window.__OVYX_APP_STUDIO_GENERATED_PROJECT__ = {
