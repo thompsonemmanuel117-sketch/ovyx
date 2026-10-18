@@ -388,7 +388,12 @@ try {
   assert.equal(requests.deploy[1].body.action, 'publish');
   assert.ok(requests.webStatus.some(item => item.query.deploymentId === 'deployment-2'));
   await desktop.locator('[data-lb-release-health]').click();
-  await desktop.waitForFunction(() => document.querySelector('[data-lb-web-status]')?.textContent.includes('Release health: healthy'), null, { timeout: 10000 });
+  await desktop.waitForFunction(() => {
+    const target = document.querySelector('[data-lb-web-status]');
+    return target && (target.dataset.kind === 'error' || target.textContent.includes('Release health: healthy'));
+  }, null, { timeout: 10000 }).catch(() => {});
+  const productionHealthStatus = await desktop.locator('[data-lb-web-status]').innerText();
+  assert.match(productionHealthStatus, /Release health: healthy/, 'Production health check did not complete; status=' + productionHealthStatus + '; release-health requests=' + JSON.stringify(requests.releaseHealth));
   assert.equal(requests.releaseHealth.length, 2, 'The production release must get its own post-release health check.');
   assert.equal(requests.releaseHealth[1].query.deploymentId, 'deployment-2');
 
