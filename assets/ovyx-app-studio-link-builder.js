@@ -260,7 +260,7 @@
     mobileRefresh.type = 'button'; mobileRefresh.disabled = true; mobileRefresh.setAttribute('data-lb-mobile-refresh', '');
     mobileActions.append(mobileBuild, mobileRefresh);
     release.appendChild(mobileActions);
-    const mobileStatus = node('p', 'ovyx-lb-status', 'No mobile build has been requested.');
+    const mobileStatus = node('p', 'ovyx-lb-status', 'No mobile build has been started yet.');
     mobileStatus.setAttribute('role', 'status'); mobileStatus.setAttribute('aria-live', 'polite'); mobileStatus.setAttribute('data-lb-mobile-status', '');
     release.appendChild(mobileStatus);
     const mobileLinks = node('div', 'ovyx-lb-mobile-links');
@@ -925,7 +925,7 @@
       'function key(v){const k=String(v||"").replace(/[\\u0000-\\u001f\\u007f]/g,"").trim();if(!k||k.length>80)throw new Error("Storage keys must be 1–80 characters.");return k;}',
       'const storage=Object.freeze({get:async function(k){return read().values[key(k)]??null},set:async function(k,v){const state=read();const value=JSON.stringify(v);if(value.length>8000)throw new Error("A saved value cannot exceed 8 KB.");state.values[key(k)]=v;return write(state)},remove:async function(k){const state=read();delete state.values[key(k)];return write(state)},keys:async function(){return Object.keys(read().values)}});',
       'const auth=Object.freeze({currentUser:async function(){return null}});',
-      'const api=Object.freeze({get:async function(){throw new Error("OVYX account APIs are available only inside the authenticated OVYX preview, not on a public static site.")}});',
+      'const api=Object.freeze({get:async function(){throw new Error("Account features are available only in the signed-in OVYX preview.")}});',
       'try{Object.defineProperty(window,"OVYXApp",{configurable:false,writable:false,value:Object.freeze({version:1,storage:storage,auth:auth,api:api})})}catch(_){window.OVYXApp=Object.freeze({version:1,storage:storage,auth:auth,api:api})}',
       'function status(form,message,kind){let p=form.querySelector("[data-ovyx-form-status]");if(!p){p=document.createElement("p");p.setAttribute("data-ovyx-form-status","");p.setAttribute("role","status");p.setAttribute("aria-live","polite");form.appendChild(p)}p.textContent=message;p.style.color=kind==="error"?"#b91c1c":kind==="success"?"#166534":"inherit"}',
       'document.addEventListener("submit",function(e){const form=e.target;if(!(form instanceof HTMLFormElement))return;e.preventDefault();e.stopImmediatePropagation();if(!form.reportValidity())return;try{const values={};let secret=false;let files=false;new FormData(form).forEach(function(v,k){k=String(k||"").replace(/[\\u0000-\\u001f\\u007f]/g,"").trim().slice(0,80);if(!k)return;if(/password|passcode|secret|token|authorization|credential|private.?key|api.?key/i.test(k)){secret=true;return}if(typeof File!=="undefined"&&v instanceof File){if(v.name)files=true;return}if(Object.keys(values).length<40)values[k]=String(v).slice(0,1000)});const state=read();state.submissions=Array.isArray(state.submissions)?state.submissions:[];state.submissions.push({formId:String(form.id||form.name||"form").slice(0,80),submittedAt:new Date().toISOString(),fields:values});state.submissions=state.submissions.slice(-25);write(state);status(form,"Saved in this browser only; nothing was emailed or sent to a backend."+(secret?" Password/secret fields were not stored.":"")+(files?" File attachments were not uploaded.":""),"success")}catch(err){status(form,String(err&&err.message||"Submission could not be saved locally."),"error")}},true);',
@@ -977,7 +977,7 @@
       output: 'Cloudflare Pages static HTML/CSS/JavaScript',
       routes: Object.fromEntries(Object.entries(routes).map(([route, file]) => [routeKey(route), file])),
       validation: (() => { const brain = window.__OVYX_PROJECT_BRAIN_REPORT__; return { livePreviewChecked: brain?.summary?.runtimeChecked === true, failures: Number(brain?.summary?.failures || 0), warnings: Number(brain?.summary?.warnings || 0) }; })(),
-      limits: ['Forms and app state save locally in each browser.', 'OVYX account APIs and private integrations are not available on the public static deployment.', 'Arbitrary network connections are blocked by the generated-site Content Security Policy.']
+      limits: ['Forms and app state save locally in each browser.', 'Account features and private integrations require the signed-in OVYX preview.', 'External network requests are restricted for safety.']
     };
     output['ovyx-release-manifest.json'] = JSON.stringify(manifest, null, 2);
     return output;
@@ -1311,7 +1311,7 @@
       renderReleaseState(panel);
       const deployedName = record.url ? ' ' + record.url : '';
       setReleaseStatus(panel, '[data-lb-web-status]', (action === 'publish' ? 'Production publish accepted.' : 'Preview deployment accepted.') + ' Status: ' + record.status + '.' + deployedName + ' Check release health to confirm that the public website is responding.', 'success');
-      appendReleaseDiagnostic(panel, action + ' request accepted at ' + record.submittedAt + '; provider status: ' + record.status + '.');
+      appendReleaseDiagnostic(panel, action + ' request accepted at ' + new Date(record.submittedAt).toLocaleString() + '.');
       await refreshWebDeploymentStatus(panel, slot);
     } catch (error) {
       setReleaseStatus(panel, '[data-lb-web-status]', error?.message || 'Release failed. No successful deployment is being reported.', 'error');
@@ -1345,7 +1345,7 @@
     const slot = artifact?.releaseState?.latestWebKey;
     const record = artifact?.releaseState?.web?.[slot];
     try {
-      if (!record?.deploymentId) throw new Error('Deploy or publish a web version first.');
+      if (!record?.deploymentId) throw new Error('Publish a website preview or release first to check its health.');
       setReleaseStatus(panel, '[data-lb-web-status]', 'Checking publishing status and confirming the public website is responding…', 'busy');
       try { await refreshWebDeploymentStatus(panel, slot); }
       catch (statusError) { appendReleaseDiagnostic(panel, 'Status refresh warning: ' + text(statusError.message || statusError)); }
@@ -1363,7 +1363,7 @@
       currentRecord.url = safeUrl(data.deployment?.url) || currentRecord.url;
       currentRecord.health = { ...data.health, checkedAt: data.checkedAt || new Date().toISOString() };
       persistReleaseState(artifact); renderReleaseState(panel);
-      const message = 'Release health: ' + data.health.status + '. Provider stage: ' + currentRecord.status + (data.health.httpStatus ? ' · HTTP ' + data.health.httpStatus : '') + (data.health.message ? ' · ' + data.health.message : '');
+      const message = 'Website health: ' + data.health.status + (data.health.message ? '. ' + data.health.message : '.');
       setReleaseStatus(panel, '[data-lb-web-status]', message, data.health.status === 'healthy' ? 'success' : 'error');
       appendReleaseDiagnostic(panel, message);
     } catch (error) {
@@ -1376,8 +1376,8 @@
     const links = $(panel, '[data-lb-mobile-links]');
     if (status) {
       status.textContent = state?.jobId
-        ? 'Mobile job ' + state.jobId + ': ' + text(state.status || 'queued') + (state.error?.message ? ' · ' + state.error.message : '') + (state.updatedAt ? ' · Updated ' + state.updatedAt : '')
-        : 'No mobile build has been requested.';
+        ? 'Mobile build status: ' + (state.status === 'completed' ? 'Complete' : state.status === 'failed' ? 'Needs attention' : state.status === 'running' ? 'In progress' : 'Queued') + (state.updatedAt ? ' · Last updated ' + new Date(state.updatedAt).toLocaleString() : '')
+        : 'No mobile build has been started yet.';
       status.dataset.kind = state?.status === 'failed' ? 'error' : state?.status === 'completed' ? 'success' : 'info';
     }
     if (links) {
@@ -1448,7 +1448,7 @@
       };
       const body = { appName: artifact.name, displayName: artifact.name, platforms, iconDataUrl, sourceProjectId: artifact.id, payload };
       if (new TextEncoder().encode(JSON.stringify(body)).byteLength > 730000) throw new Error('The mobile build package exceeds the 730 KB secure transfer limit. Export the deployable web ZIP to use the complete app.');
-      if (typeof window.confirm !== 'function' || !window.confirm('Start a real Expo/EAS ' + platforms.map(x => x.toUpperCase()).join(' + ') + ' build for "' + artifact.name + '"?\n\nThis dispatches a remote native build and may consume EAS build resources. The native wrapper uses local browser/WebView persistence; authenticated OVYX account APIs and cloud-connected preview actions are not included in the mobile bundle.')) {
+      if (typeof window.confirm !== 'function' || !window.confirm('Start a mobile build for "' + artifact.name + '" on ' + platforms.map(x => x.toUpperCase()).join(' + ') + '?\n\nThis starts a mobile build and may use your available build allowance. App data stays on the device; account-connected features are available only in the signed-in OVYX preview.')) {
         setReleaseStatus(panel, '[data-lb-mobile-status]', 'Mobile build cancelled. No build was started.', 'info');
         return;
       }
@@ -1496,9 +1496,9 @@
       if (data.ok !== true) throw new Error(data.error || 'Mobile build status couldn't be confirmed.');
       Object.assign(mobile, data, { refreshedAt: new Date().toISOString() });
       persistReleaseState(artifact); renderMobileReleaseStatus(panel, mobile);
-      const message = 'Mobile build status: ' + text(mobile.status || 'unknown') + (mobile.workflowStatus ? ' (' + mobile.workflowStatus + ')' : '') + (mobile.error?.message ? ' · ' + mobile.error.message : '');
-      setReleaseStatus(panel, '[data-lb-mobile-status]', message + (mobile.status === 'completed' ? ' · Build artifacts are listed below.' : mobile.status === 'failed' ? ' · Inspect the returned EAS details and error before retrying.' : ' · The build is still processing; refresh again later.'), mobile.status === 'completed' ? 'success' : mobile.status === 'failed' ? 'error' : 'info');
-      appendReleaseDiagnostic(panel, 'Mobile job ' + mobile.jobId + ' status checked: ' + mobile.status + '.');
+      const message = 'Mobile build status: ' + (mobile.status === 'completed' ? 'Complete' : mobile.status === 'failed' ? 'Needs attention' : mobile.status === 'running' ? 'In progress' : text(mobile.status || 'Queued')) + (mobile.status === 'failed' ? '. Review the details below and try again.' : '');
+      setReleaseStatus(panel, '[data-lb-mobile-status]', message + (mobile.status === 'completed' ? ' · Build artifacts are listed below.' : mobile.status === 'failed' ? '. Review the details below and try again.' : ' · The build is still processing; refresh again later.'), mobile.status === 'completed' ? 'success' : mobile.status === 'failed' ? 'error' : 'info');
+      appendReleaseDiagnostic(panel, 'Mobile build status checked: ' + mobile.status + '.');
     } catch (error) {
       setReleaseStatus(panel, '[data-lb-mobile-status]', error?.message || 'Mobile build status could not be read.', 'error');
       appendReleaseDiagnostic(panel, 'Mobile status check: ' + text(error?.message || error).slice(0, 500));
@@ -1513,7 +1513,7 @@
     try {
       if (!artifact || !Object.keys(artifact.releaseState?.web || {}).length && !artifact.releaseState?.mobile?.jobId) throw new Error('There is no release record to save yet.');
       const user = authenticatedReleaseUser();
-      if (!user.email) throw new Error('An email address is required to save release details in OVYX Projects.');
+      if (!user.email) throw new Error('Sign in with a verified email address to save release details.');
       if (typeof window.confirm !== 'function' || !window.confirm('Save release details for "' + artifact.name + '" in OVYX Projects? This updates the saved app record and does not change the live deployment.')) {
         setReleaseStatus(panel, '[data-lb-web-status]', 'Saving the release record was cancelled. No changes were made.', 'info');
         return;
@@ -1526,15 +1526,15 @@
         pages: Object.entries(artifact.routes || {}).map(([route, file]) => ({ id: releaseSlug(route), name: route === '/' ? 'Home' : route.split('/').filter(Boolean).pop(), path: route, file })),
         releaseHistory: artifact.releaseState,
         lastReleaseValidation: artifact.lastReleaseValidation || null,
-        releaseLimits: ['Static-site forms and app state remain local.', 'External OVYX account APIs are available only in the authenticated preview.', 'EAS jobs are asynchronous and may need additional refreshes.']
+        releaseLimits: ['Forms and app data stay on the device for published websites.', 'Account features are available only in the signed-in OVYX preview.', 'Mobile builds may take time. Refresh the status to see updates.']
       };
       const body = JSON.stringify({ projectId: artifact.id, project });
       if (new TextEncoder().encode(body).byteLength > 880000) throw new Error('This app and its release details exceed the OVYX Projects save limit. Export the source bundle and reduce its files before trying again.');
       const token = await user.getIdToken();
       const data = await deploymentRequest('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: 'Bearer ' + token }, body }, token);
-      if (data.ok !== true || !data.project?.id) throw new Error(data.error || 'OVYX Projects did not verify the release record save.');
+      if (data.ok !== true || !data.project?.id) throw new Error(data.error || 'The release details couldn\'t be saved. Please try again.');
       artifact.savedToProjects = true; artifact.savedProjectId = data.project.id; artifact.savedAt = data.project.updatedAt || new Date().toISOString();
-      setReleaseStatus(panel, '[data-lb-web-status]', 'Release history saved and verified in OVYX Projects. This records status and URLs; it does not publish or change a live site.', 'success');
+      setReleaseStatus(panel, '[data-lb-web-status]', 'Release details saved to OVYX Projects. This records status and links only; it doesn\'t publish changes to your live website.', 'success');
       appendReleaseDiagnostic(panel, 'Release history saved to OVYX Projects at ' + artifact.savedAt + '.');
     } catch (error) {
       setReleaseStatus(panel, '[data-lb-web-status]', error?.message || 'Release record was not saved.', 'error');
