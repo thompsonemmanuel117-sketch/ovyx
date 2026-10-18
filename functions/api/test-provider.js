@@ -53,7 +53,7 @@ export async function onRequest(context) {
 
     const config = PROVIDERS[provider];
     if (!config) {
-      return errorResponse(400, 'PROVIDER_REQUIRED', 'Use gemini, deepseek, openai or anthropic.', id);
+      return errorResponse(400, 'PROVIDER_REQUIRED', 'Choose one of the supported AI options.', id);
     }
 
     const key = String(context.env?.[config.env] || '').trim();
