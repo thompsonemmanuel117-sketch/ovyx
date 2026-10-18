@@ -66,7 +66,7 @@ const providerRouterSource = fs.existsSync(providerRouterPath)
 if (
   /OVYX_AI_BASE_URL|sharedGateway|sharedKeyPreference|resolveOpenAICompatibleConfig/.test(providerRouterSource) ||
   !/if\s*\(requested\s*!==\s*['"]automatic['"]\s*&&\s*!requested\.startsWith\(['"]connection:/.test(providerRouterSource) ||
-  !/This AI option is not available right now\. Try OVYX Auto or choose another available AI option/i.test(providerRouterSource)
+  !/is not available right now\. Try OVYX Auto or choose another available AI option/i.test(providerRouterSource)
 ) {
   errors.push('functions/_lib/providers.js: an explicitly selected provider must use its own provider route and show a helpful unavailable message instead of silently switching.');
 }

@@ -228,7 +228,7 @@ try {
     () => callModel({}, { provider: 'automatic', model: 'automatic', system: 'test', user: 'Build a website', maxTokens: 32 }),
     error => {
       assert.equal(error.code, 'AI_PROVIDER_NOT_CONFIGURED');
-      assert.match(error.message, /No AI provider is connected/i);
+      assert.match(error.message, /No AI option is available/i);
       assert.match(error.message, /connect your own AI Brain/i);
       return true;
     },
