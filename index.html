@@ -3705,7 +3705,7 @@
       const user=window.firebase?.auth?.().currentUser;
       if(!user){
         this.state='idle';
-        this.applyOverview('SESSION','Authenticated Admin session required',0);
+        this.applyOverview('SESSION','Sign in with an administrator account to check live status',0);
         return false;
       }
       try{
@@ -4160,10 +4160,10 @@ function ensureConnectionsPanel(){
   <div class="ovyx-connection-card"><div style="display:flex;justify-content:space-between;gap:8px"><h4>Publishing service</h4><span id="ovyx-cloudflare-status" class="ovyx-conn-status idle">Setup required</span></div><p>Check publishing availability and review available resources. Any access token is used only for this session and remains private.</p><input id="ovyx-cloudflare-token" class="ovyx-secret-input" type="password" autocomplete="off" placeholder="Temporary access token"><div style="display:flex;gap:7px;margin-top:8px"><button id="ovyx-cloudflare-connect" class="ovyx-conn-btn">Check availability</button><button id="ovyx-cloudflare-accounts-btn" class="ovyx-conn-btn">View available accounts</button></div><div id="ovyx-cloudflare-accounts" style="margin-top:8px;font:500 9px JetBrains Mono,monospace;color:#6f747c"></div></div>
  </div>`;
  settings.appendChild(panel);
- panel.querySelector('#ovyx-github-connect').onclick=async()=>{const b=panel.querySelector('#ovyx-github-connect');try{b.disabled=true;b.textContent='Testing…';await OVYXConnections.githubTest(panel.querySelector('#ovyx-github-token').value);OVYXConnections.render();toast('Source access is ready for this session.','success')}catch(e){toast(e.message,'error')}finally{b.disabled=false;b.textContent='Verify access'}};
- panel.querySelector('#ovyx-github-repos-btn').onclick=async()=>{try{const repos=await OVYXConnections.githubRepos();panel.querySelector('#ovyx-github-repos').textContent=repos.length?repos.map(r=>r.full_name).join(' · '):'No repositories are available for this account yet.'}catch(e){toast(e.message,'error')}};
- panel.querySelector('#ovyx-cloudflare-connect').onclick=async()=>{const b=panel.querySelector('#ovyx-cloudflare-connect');try{b.disabled=true;b.textContent='Verifying…';await OVYXConnections.cloudflareTest(panel.querySelector('#ovyx-cloudflare-token').value);OVYXConnections.render();toast('Publishing access is ready for this session.','success')}catch(e){toast(e.message,'error')}finally{b.disabled=false;b.textContent='Check availability'}};
- panel.querySelector('#ovyx-cloudflare-accounts-btn').onclick=async()=>{try{const a=await OVYXConnections.cloudflareAccounts();panel.querySelector('#ovyx-cloudflare-accounts').textContent=a.length?a.map(x=>x.name||x.id).join(' · '):'No accounts are available for this session.'}catch(e){toast(e.message,'error')}};
+ panel.querySelector('#ovyx-github-connect').onclick=async()=>{const b=panel.querySelector('#ovyx-github-connect');try{b.disabled=true;b.textContent='Testing…';await OVYXConnections.githubTest(panel.querySelector('#ovyx-github-token').value);OVYXConnections.render();toast('Source access is ready for this session.','success')}catch(e){toast('Source access could not be verified. Please try again.','error')}finally{b.disabled=false;b.textContent='Verify access'}};
+ panel.querySelector('#ovyx-github-repos-btn').onclick=async()=>{try{const repos=await OVYXConnections.githubRepos();panel.querySelector('#ovyx-github-repos').textContent=repos.length?repos.map(r=>r.full_name).join(' · '):'No repositories are available for this account yet.'}catch(e){toast('Repositories could not be loaded. Please try again.','error')}};
+ panel.querySelector('#ovyx-cloudflare-connect').onclick=async()=>{const b=panel.querySelector('#ovyx-cloudflare-connect');try{b.disabled=true;b.textContent='Verifying…';await OVYXConnections.cloudflareTest(panel.querySelector('#ovyx-cloudflare-token').value);OVYXConnections.render();toast('Publishing access is ready for this session.','success')}catch(e){toast('Publishing access could not be checked. Please try again.','error')}finally{b.disabled=false;b.textContent='Check availability'}};
+ panel.querySelector('#ovyx-cloudflare-accounts-btn').onclick=async()=>{try{const a=await OVYXConnections.cloudflareAccounts();panel.querySelector('#ovyx-cloudflare-accounts').textContent=a.length?a.map(x=>x.name||x.id).join(' · '):'No publishing resources are available for this account yet.'}catch(e){toast('Publishing resources could not be loaded. Please try again.','error')}};
 }
 /* ---------- APP STUDIO PHRASE 1 · HARD RESET ---------- */
 const AppRuntime={
@@ -5168,7 +5168,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 <div aria-hidden="true" class="v42-overlay" id="ovyx-v42-help-modal">
 <section aria-label="OVYX Help and Support" aria-modal="true" class="v42-sheet v42-help-panel" role="dialog">
 <div style="display:flex;justify-content:space-between;gap:12px;align-items:center"><div><div style="color:#e8b64f;font:800 8px JetBrains Mono;letter-spacing:.14em">OVYX / OFFICIAL SUPPORT</div><h3>Help &amp; FAQ</h3></div><button class="v42-btn" data-v42-help-close="" type="button">Close</button></div>
-<p>Use the OVYX Help Center for project workflows, AI usage, account settings, billing, security, and troubleshooting. This support action opens the real support channel; OVYX does not report an external action as successful unless the platform confirms it.</p>
+<p>Find guidance for website creation, AI usage, account settings, billing, security, and troubleshooting. Contact support for further assistance.</p>
 <div style="display:grid;gap:8px;margin-top:14px"><button class="v42-btn" data-v42-help-faq="" type="button">Open Help Center &amp; FAQ</button><button class="v42-btn" data-v42-help-diagnose="" type="button">Diagnose current project with OVYX AI</button></div>
 <div class="v42-support"><div><span style="display:block;color:var(--muted);font:700 8px JetBrains Mono">DIRECT SUPPORT</span><strong style="display:block;margin-top:4px;color:#fff;font:800 11px Inter">OVYX Support Team</strong></div><button data-support-open="1" style="border:0;background:transparent;color:#e8b64f;padding:0;cursor:pointer" type="button">Contact OVYX Support</button></div>
 </section>
@@ -7142,7 +7142,7 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
          return false;
        }
        const user=window.firebase?.auth?.().currentUser;
-       if(!user)throw Object.assign(new Error('Authenticated Admin session required.'),{code:'AUTH_REQUIRED'});       const token=await user.getIdToken(true);
+       if(!user)throw Object.assign(new Error('Sign in with an administrator account to check live status.'),{code:'AUTH_REQUIRED'});       const token=await user.getIdToken(true);
        const r=await fetch('/api/test-provider?provider='+encodeURIComponent(provider),{
          method:'GET',
          headers:{Accept:'application/json',Authorization:'Bearer '+token},
