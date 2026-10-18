@@ -54,6 +54,7 @@ assert.ok(runtime.includes('function writeAppState'), 'The preview must persist 
 assert.ok(runtime.includes('window.OVYXApp') && runtime.includes('auth.currentUser'), 'Generated apps must have a real sign-in status bridge.');
 assert.ok(runtime.includes('const API_ACTIONS = Object.freeze'), 'OVYX API access must use a fixed endpoint allowlist.');
 assert.ok(runtime.includes('window.confirm'), 'Private account API reads and project saves must request user authorization.');
+assert.ok(runtime.includes('Allow this generated app to read your OVYX display name and email address?'), 'Generated apps must ask before receiving personal profile details.');
 assert.ok(runtime.includes("fetch('/api/projects'"), 'Cloud project persistence must use the existing authenticated Projects API.');
 assert.ok(runtime.includes('Saved and verified in OVYX Projects'), 'The UI must only report cloud-save success after the API verifies a saved project.');
 assert.ok(runtime.includes('Stage 04 action contract'), 'New generated projects must be instructed to use supported Stage 4 actions and disclose unsupported integrations.');
