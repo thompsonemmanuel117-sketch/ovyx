@@ -114,14 +114,14 @@
         headers: { Accept: 'application/json', Authorization: 'Bearer ' + token },
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error('Service availability couldn't be checked right now. Please try again.');
+      if (!response.ok) throw new Error('Service availability could not be checked right now. Please try again.');
       const rows = Array.isArray(data.additionalProviders) ? data.additionalProviders : [];
       PROVIDERS.forEach(p => {
         const result = rows.find(row => String(row.provider || '').toLowerCase() === p.id);
         if (!result) update(p.id, { status: 'UNAVAILABLE', message: 'No status is available for this service.' });
         else update(p.id, {
           status: String(result.status || 'UNAVAILABLE').toUpperCase(),
-          message: result.error || (result.httpStatus ? 'This service didn't respond successfully. Please try again.' : result.status === 'READY' ? 'The service is ready to use.' : result.status === 'NOT_CONFIGURED' ? 'This service hasn't been configured yet.' : 'This service isn't ready to use yet.'),
+          message: result.error || (result.httpStatus ? 'This service did not respond successfully. Please try again.' : result.status === 'READY' ? 'The service is ready to use.' : result.status === 'NOT_CONFIGURED' ? 'This service has not been configured yet.' : 'This service is not ready to use yet.'),
         });
       });
       if (!section.dataset.loaded) {
@@ -129,7 +129,7 @@
         section.dataset.checkedAt = String(data.checkedAt || new Date().toISOString());
       }
     } catch (error) {
-      PROVIDERS.forEach(p => update(p.id, { status: 'UNAVAILABLE', message: String(error?.message || 'Availability couldn't be checked. Please try again.').slice(0, 140) }));
+      PROVIDERS.forEach(p => update(p.id, { status: 'UNAVAILABLE', message: String(error?.message || 'Availability could not be checked. Please try again.').slice(0, 140) }));
     } finally {
       section.dataset.loading = '0';
     }
