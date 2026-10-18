@@ -37,7 +37,7 @@ function parseBody(request) {
     try {
       return JSON.parse(raw);
     } catch {
-      throw Object.assign(new Error('Your brand settings couldn't be processed. Please review them and try again.'), {
+      throw Object.assign(new Error('Your brand settings could not be processed. Please review them and try again.'), {
         status: 400,
         code: 'INVALID_JSON'
       });
@@ -135,7 +135,7 @@ async function onRequest(context) {
     }
 
     if (request.method !== 'PUT') {
-      return errorResponse(405, 'METHOD_NOT_ALLOWED', 'This action isn't supported.');
+      return errorResponse(405, 'METHOD_NOT_ALLOWED', 'This action is not supported.');
     }
 
     const body = await parseBody(request);
