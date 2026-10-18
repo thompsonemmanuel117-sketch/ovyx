@@ -17,8 +17,8 @@ for (const [label, source, tokens] of [
     'ovyx-help-support-subject',
     'ovyx-help-support-message',
     'ovyxBuildState',
-    'The AI replied but did not return a new website HTML file',
-    'The AI replied but did not produce a changed website HTML file',
+    'A website draft was not ready for preview. Your existing preview remains unchanged.',
+    'The website draft was not updated. Your existing preview remains unchanged.',
   ]],
   ['feedback API', feedbackApi, [
     'assertAuthenticated(context.data?.user)',
