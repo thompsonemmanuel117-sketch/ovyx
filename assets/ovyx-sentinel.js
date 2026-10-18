@@ -494,9 +494,9 @@ function resolveGuardianRoute(target) {
   if (admin && /\b(?:pricing|plans?|subscriptions?)\b/.test(value)) return { route: 'admin-pricing', label: 'Admin Pricing and Plans', admin: true };
   if (admin && /\b(?:template|matrix|catalogue|catalog)\b/.test(value)) return { route: 'admin-template-hub', label: 'Admin Template Matrix', admin: true };
   if (admin && /\b(?:users?|roles?|accounts?)\b/.test(value)) return { route: 'admin-users', label: 'Admin Users and Roles', admin: true };
-  if (admin && /\b(?:brain|provider|models?|api keys?)\b/.test(value)) return { route: 'admin-brain', label: 'Admin AI Brain', admin: true };
+  if (admin && /\b(?:brain|provider|models?|api keys?)\b/.test(value)) return { route: 'admin-brain', label: 'AI services', admin: true };
   if (admin && /\b(?:identity|persona|generation policy)\b/.test(value)) return { route: 'admin-identity', label: 'Admin AI Identity', admin: true };
-  if (admin && /\b(?:backend|endpoints?|security)\b/.test(value)) return { route: 'admin-backend', label: 'Admin Backend', admin: true };
+  if (admin && /\b(?:backend|endpoints?|security)\b/.test(value)) return { route: 'admin-backend', label: 'Service health', admin: true };
   if (admin && /\b(?:telemetry|health|monitoring)\b/.test(value)) return { route: 'admin-telemetry', label: 'Admin Telemetry', admin: true };
   if (admin && /\b(?:broadcast|announcements?)\b/.test(value)) return { route: 'admin-broadcasts', label: 'Admin Broadcasts', admin: true };
   if (admin || /\b(?:admin workspace|admin area|command center|owner console|admin dashboard)\b/.test(value)) return { route: 'admin-overview', label: 'Admin Command Center', admin: true };
