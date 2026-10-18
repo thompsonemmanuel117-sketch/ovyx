@@ -803,21 +803,21 @@
       const d = document.createElement('div'); d.className = 'ovyx-owner-live-detail'; d.textContent = detail;
       card.append(a, b, d); cards.appendChild(card);
     }
-    add('Platform health', health.ok ? 'HTTP ' + health.status : (health.status ? 'HTTP ' + health.status : 'UNREACHABLE'),
-      health.ok ? 'Response received in ' + health.duration + ' ms.' : (health.error || 'The edge health endpoint did not respond.'), health.ok ? 'ok' : 'bad');
+    add('Platform health', health.ok ? 'Available' : (health.status ? 'Needs attention' : 'Unavailable'),
+      health.ok ? 'Health check completed in ' + health.duration + ' ms.' : 'The platform health check could not be completed.', health.ok ? 'ok' : 'bad');
     const pricing = plans.data?.pricing || {};
     add('Global Pro price', plans.ok ? money(pricing.pro?.ngn, 'NGN') : 'UNAVAILABLE',
       plans.ok ? money(pricing.pro?.usd, 'USD') + ' · current plan details' : 'Current plan details couldn't be loaded.', plans.ok ? 'ok' : 'bad');
     add('Global Max price', plans.ok ? money(pricing.max?.ngn, 'NGN') : 'UNAVAILABLE',
       plans.ok ? money(pricing.max?.usd, 'USD') + ' · current plan details' : 'Current plan details couldn't be loaded.', plans.ok ? 'ok' : 'bad');
-    add('User registry', registry.ok ? 'AVAILABLE' : 'UNAVAILABLE',
-      registry.ok ? 'Server returned ' + String(registry.data.users?.length || 0) + ' sample account record(s) in ' + registry.duration + ' ms; this is not a total count.' : (registry.error || 'Registry API failed.'), registry.ok ? 'ok' : 'bad');
+    add('Accounts', registry.ok ? 'AVAILABLE' : 'UNAVAILABLE',
+      registry.ok ? 'Reviewed ' + String(registry.data.users?.length || 0) + ' account record(s) in ' + registry.duration + ' ms. This is a sample, not a total count.' : 'The account list could not be loaded.', registry.ok ? 'ok' : 'bad');
     const report = sentinel.data?.latestReport || {};
     const critical = safeNumber(report.criticalCount ?? report.summary?.critical ?? report.counts?.critical, NaN);
-    const reportStatus = String(report.status || report.result || 'NO SAVED REPORT').toUpperCase();
-    add('Sentinel scan', sentinel.ok ? reportStatus : 'UNAVAILABLE',
-      sentinel.ok ? (Number.isFinite(critical) ? String(critical) + ' critical finding(s); ' : '') + 'last scan: ' + String(sentinel.data.lastScanAt || report.finishedAt || 'not recorded') : (sentinel.error || ('HTTP ' + sentinel.status)), sentinel.ok && reportStatus !== 'CRITICAL' ? 'ok' : 'warn');
-    statusText($('ovyx-owner-overview-status'), 'Checks completed at ' + new Date().toISOString() + '. A successful status check doesn't guarantee every payment, publishing, or email workflow is working.', health.ok && plans.ok && registry.ok ? 'ok' : 'warn');
+    const reportStatus = String(report.status || report.result || 'No report yet').toUpperCase();
+    add('Health review', sentinel.ok ? reportStatus : 'UNAVAILABLE',
+      sentinel.ok ? (Number.isFinite(critical) ? String(critical) + ' critical finding(s); ' : '') + 'last reviewed: ' + String(sentinel.data.lastScanAt || report.finishedAt || 'not recorded') : 'The latest health report could not be loaded.', sentinel.ok && reportStatus !== 'CRITICAL' ? 'ok' : 'warn');
+    statusText($('ovyx-owner-overview-status'), 'Checks completed at ' + new Date().toLocaleString() + '. A successful status check doesn't guarantee every payment, publishing, or email workflow is working.', health.ok && plans.ok && registry.ok ? 'ok' : 'warn');
   }
 
   function mountOverview() {
@@ -849,7 +849,7 @@
       const label = document.createElement('div'); label.className = 'ovyx-owner-live-label'; label.textContent = checks[index].label;
       const value = document.createElement('div'); value.className = 'ovyx-owner-live-value'; value.textContent = outcome.ok ? 'Available' : (outcome.status ? 'Needs attention' : 'Unavailable');
       value.style.color = outcome.ok ? '#86efac' : '#fca5a5';
-      const detail = document.createElement('div'); detail.className = 'ovyx-owner-live-detail'; detail.textContent = outcome.ok ? 'Responded in ' + outcome.duration + ' ms.' : String(outcome.error || 'Route returned an unsuccessful status.').slice(0, 150);
+      const detail = document.createElement('div'); detail.className = 'ovyx-owner-live-detail'; detail.textContent = outcome.ok ? 'Responded in ' + outcome.duration + ' ms.' : 'This service could not be reached.';
       card.append(label, value, detail); grid.appendChild(card);
     });
     statusText($('ovyx-owner-backend-status'), 'Each check covers only the component tested. Payment, publishing and email workflows need separate end-to-end verification.', outcomes.every(item => item.ok) ? 'ok' : 'warn');
@@ -890,8 +890,8 @@
       box.append(title, value, info); grid.appendChild(box);
     }
     const health = outcomes[0], auth = outcomes[1], ai = outcomes[2], sentinel = outcomes[3];
-    card('Website service', health.ok ? 'Available' : 'Unavailable', health.ok ? 'Availability check completed in ' + health.duration + ' ms.' : health.error || 'No successful response was received.', health.ok ? '#86efac' : '#fca5a5');
-    card('Account access', auth.ok ? 'Available' : 'Unavailable', auth.ok ? 'Owner account access confirmed in ' + auth.duration + ' ms.' : auth.error || 'Account access could not be verified.', auth.ok ? '#86efac' : '#fca5a5');
+    card('Website service', health.ok ? 'Available' : 'Unavailable', health.ok ? 'Availability check completed in ' + health.duration + ' ms.' : 'The website service could not be reached.', health.ok ? '#86efac' : '#fca5a5');
+    card('Account access', auth.ok ? 'Available' : 'Unavailable', auth.ok ? 'Owner access check completed in ' + auth.duration + ' ms.' : auth.error || 'Account access could not be verified.', auth.ok ? '#86efac' : '#fca5a5');
     if (ai.ok) {
       const providers = (Array.isArray(ai.data.providers) ? ai.data.providers : []).concat(Array.isArray(ai.data.additionalProviders) ? ai.data.additionalProviders : []);
       providers.forEach(item => {
@@ -899,21 +899,21 @@
         const configured = item.configured === true;
         card(String(item.label || item.provider || item.name || 'AI provider'),
           ready ? 'Ready' : (configured ? 'Check failed' : 'Setup required'),
-          'Availability check completed in ' + ai.duration + ' ms. ' + String(item.error || item.detail || '').slice(0, 80),
+          'Availability check completed in ' + ai.duration + ' ms. ' + (ready ? 'Ready to handle AI requests.' : configured ? 'This option needs attention.' : 'Setup is required before use.'),
           ready ? '#86efac' : (configured ? '#fcd34d' : '#fca5a5'));
       });
-      card('Workers AI binding', ai.data.cloudflare?.workersAiBinding ? 'Available' : 'Setup required',
-        'Binding existence only, not a completed model-generation test.', ai.data.cloudflare?.workersAiBinding ? '#fcd34d' : '#fca5a5');
+      card('Native AI service', ai.data.cloudflare?.workersAiBinding ? 'Setup detected' : 'Setup required',
+        'Setup status only; this check does not run an AI request.', ai.data.cloudflare?.workersAiBinding ? '#fcd34d' : '#fca5a5');
     } else {
-      card('AI service status', 'Unavailable', ai.error || ('HTTP ' + ai.status), '#fca5a5');
+      card('AI service status', 'Unavailable', ai.error || ('The AI availability check couldn't be completed.'), '#fca5a5');
     }
     const report = sentinel.data?.latestReport || {};
-    const reportStatus = sentinel.ok ? String(report.status || 'NO SAVED REPORT').toUpperCase() : 'UNAVAILABLE';
+    const reportStatus = sentinel.ok ? String(report.status || 'No report yet').toUpperCase() : 'UNAVAILABLE';
     const checkList = Array.isArray(report.checks) ? report.checks : (Array.isArray(report.findings) ? report.findings : []);
     const critical = checkList.filter(item => String(item.severity || item.status || '').toLowerCase() === 'critical').length;
     card('OVYX Sentinel', reportStatus, sentinel.ok
       ? (critical ? critical + ' critical item(s) in report. ' : '') + 'Last scan: ' + String(sentinel.data.lastScanAt || report.finishedAt || 'not recorded')
-      : (sentinel.error || ('HTTP ' + sentinel.status)), sentinel.ok && reportStatus === 'HEALTHY' ? '#86efac' : '#fcd34d');
+      : 'The latest health report could not be loaded.', sentinel.ok && reportStatus === 'HEALTHY' ? '#86efac' : '#fcd34d');
     const allUp = health.ok && auth.ok && ai.ok && sentinel.ok;
     if (window.AdminTelemetry) window.AdminTelemetry.lastVerifiedAt = new Date().toISOString();
     document.documentElement.dataset.ovyxTelemetryCheckedAt = new Date().toISOString();
