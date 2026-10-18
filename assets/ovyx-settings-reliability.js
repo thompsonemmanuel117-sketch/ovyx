@@ -215,9 +215,9 @@
       const workspace = $('set-workspace-name');
       if (name && document.activeElement !== name && profile.displayName) name.value = profile.displayName;
       if (workspace && document.activeElement !== workspace && profile.workspaceName) workspace.value = profile.workspaceName;
-      if (status) status.textContent = data.updatedAt ? 'Profile last saved ' + new Date(data.updatedAt).toLocaleString() : 'You haven't saved a profile yet.';
+      if (status) status.textContent = data.updatedAt ? 'Profile last saved ' + new Date(data.updatedAt).toLocaleString() : 'You have not saved a profile yet.';
     } catch (error) {
-      if (status) status.textContent = 'We couldn't load your saved profile. Please try again.;
+      if (status) status.textContent = 'We could not load your saved profile. Please try again.';
     }
   }
   async function saveProfile(button) {
@@ -251,7 +251,7 @@
       notify('Profile saved to your OVYX account.', 'success');
       return data;
     } catch (error) {
-      if (status) status.textContent = 'Your profile wasn't saved. Please try again.;
+      if (status) status.textContent = 'Your profile was not saved. Please try again.';
       throw error;
     } finally {
       if (button) { button.disabled = false; button.textContent = original || 'Save Profile'; }
@@ -297,7 +297,7 @@
       notificationDraft = Object.assign({}, NOTIFICATION_DEFAULTS, safeJson(localStorage.getItem(notificationStorageKey())));
       window.OVYXSettingsNotificationPreferences = Object.assign({}, notificationDraft);
       renderNotificationState(panel, notificationDraft);
-      if (status) status.textContent = 'We couldn't load your saved notification preferences. Showing the last version available on this device.';
+      if (status) status.textContent = 'We could not load your saved notification preferences. Showing the last version available on this device.';
     }
   }
   async function saveNotifications(button, reset) {
@@ -313,7 +313,7 @@
       if (status) status.textContent = 'Your notification preferences have been saved. Email notifications will be available when delivery is enabled.';
       notify(reset ? 'Notification preferences reset and saved to your account.' : 'Notification preferences saved to your account.', 'success');
     } catch (error) {
-      if (status) status.textContent = 'Your profile wasn't saved. Please try again.;
+      if (status) status.textContent = 'Your profile was not saved. Please try again.;
       notify(error.message || 'Notification preferences were not saved.', 'error');
     } finally {
       if (button) { button.disabled = false; button.textContent = button.dataset.originalText || (reset ? 'Reset' : 'Save Notification Preferences'); delete button.dataset.originalText; }
@@ -331,7 +331,7 @@
       const data = await api(QUOTA_ENDPOINT);
       const limit = Number(data.monthlyLimit || data.monthlyLimitTokens || data.monthly_limit || 0);
       const remaining = Number(data.current_monthly_tokens ?? data.baseRemaining ?? data.remainingTokens ?? 0);
-      if (!Number.isFinite(limit) || limit <= 0 || !Number.isFinite(remaining)) throw new Error('Your usage details couldn't be verified.');
+      if (!Number.isFinite(limit) || limit <= 0 || !Number.isFinite(remaining)) throw new Error('Your usage details could not be verified.');
       const used = Math.max(0, limit - Math.max(0, remaining));
       meter.textContent = used.toLocaleString() + ' used / ' + limit.toLocaleString();
       meter.title = Math.max(0, remaining).toLocaleString() + ' monthly AI tokens remaining.';
@@ -345,7 +345,7 @@
       }
       if (detail) detail.textContent = 'Plan: ' + String(data.plan || 'current').toUpperCase() + ' · Remaining: ' + Math.max(0, remaining).toLocaleString() + ' tokens · Daily prompts remaining: ' + Number(data.daily_prompts_allowance || 0).toLocaleString();
     } catch (error) {
-      meter.textContent = 'Usage couldn't be loaded right now';
+      meter.textContent = 'Usage could not be loaded right now';
       meter.title = error.message || '';
     }
   }
@@ -375,7 +375,7 @@
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data.ok !== true || data.deleted !== true) {
-        throw Object.assign(new Error(data.error || data.message || 'We couldn't confirm that all saved account data was deleted.'), { code: data.code || 'ACCOUNT_DELETE_FAILED', status: response.status });
+        throw Object.assign(new Error(data.error || data.message || 'We could not confirm that all saved account data was deleted.'), { code: data.code || 'ACCOUNT_DELETE_FAILED', status: response.status });
       }
       await user.delete();
       try { await window.firebase.auth().signOut(); } catch (_) {}
@@ -396,7 +396,7 @@
       window.Router && window.Router.go && window.Router.go('home');
       window.OVYXMasterAuth && window.OVYXMasterAuth.openAuth && window.OVYXMasterAuth.openAuth();
     } catch (error) {
-      notify(error.message || 'Your account couldn't be deleted. Please try again.', 'error');
+      notify(error.message || 'Your account could not be deleted. Please try again.', 'error');
       throw error;
     } finally {
       if (button) { button.disabled = false; button.textContent = original || 'Delete account'; }
@@ -412,7 +412,7 @@
       ['projectActivity', /\b(?:project (?:saved|created|duplicated|updated|deleted|renamed)|saved project|project activity)\b/i],
       ['generationCompleted', /\b(?:generation|build|AI build)\s+(?:completed|finished|succeeded)\b|\b(?:live )?AI generation completed\b/i],
       ['deploymentStatus', /\bdeploy(?:ment)?\b.*\b(?:started|complete|completed|succeeded|failed|status|ready)\b|\b(?:deployment|deploy)\s+(?:was )?(?:successful|failed)\b/i],
-      ['connectionFailures', /\b(?:connection|provider|backend|service|AI brain|GitHub|Cloudflare)\b.*\b(?:failed|unavailable|could not|couldn't|error|timed out|unreachable)\b/i],
+      ['connectionFailures', /\b(?:connection|provider|backend|service|AI brain|GitHub|Cloudflare)\b.*\b(?:failed|unavailable|could not|could not|error|timed out|unreachable)\b/i],
       ['aiUsageWarnings', /\b(?:token|quota|usage|allocation)\b.*\b(?:low|remaining|limit|exhausted|ration|warning|approaching|left)\b/i],
       ['billing', /\b(?:payment|billing|subscription|token booster)\b/i]
     ];
@@ -462,7 +462,7 @@
       toggle.setAttribute('aria-checked', String(!!notificationDraft[key]));
       const panel = notificationPanel();
       const status = addStatus(panel, 'ovyx-notification-server-status', 'Unsaved changes. Save to apply your notification preferences.');
-      if (status) status.textContent = 'Unsaved changes. Save to apply this preference. Email notifications won't be sent until delivery is available.';
+      if (status) status.textContent = 'Unsaved changes. Save to apply this preference. Email notifications will not be sent until delivery is available.';
     }, true);
     document.addEventListener('click', function (event) {
       const save = event.target && event.target.closest && event.target.closest('#notify-save');
@@ -614,7 +614,7 @@
         prefs.provider = String(panel && panel.querySelector('#set-provider') && panel.querySelector('#set-provider').value || 'gemini');
         const selectedModel = String(panel && panel.querySelector('#set-ai-model') && panel.querySelector('#set-ai-model').value || 'automatic');
         prefs.model = selectedModel === 'automatic' || (MODELS_BY_PROVIDER[prefs.provider] || []).includes(selectedModel) ? selectedModel : 'automatic';
-        if (selectedModel !== prefs.model) notify('The selected model isn't supported by this AI option. Automatic model selection was saved instead.', 'info');
+        if (selectedModel !== prefs.model) notify('The selected model is not supported by this AI option. Automatic model selection was saved instead.', 'info');
         prefs.routing = String(panel && panel.querySelector('#set-ai-routing') && panel.querySelector('#set-ai-routing').value || 'automatic');
         prefs.fallback = String(panel && panel.querySelector('#set-ai-fallback') && panel.querySelector('#set-ai-fallback').value || 'next');
         prefs.contextLimit = String(panel && panel.querySelector('#set-ai-context-limit') && panel.querySelector('#set-ai-context-limit').value || 'automatic');
@@ -845,7 +845,7 @@
       if (key === 'n') {
         if (!store || typeof store.createPromptModal !== 'function') {
           event.preventDefault();
-          notify('Creating a new project isn't available in this workspace yet.', 'error');
+          notify('Creating a new project is not available in this workspace yet.', 'error');
           return;
         }
         event.preventDefault();
