@@ -204,7 +204,7 @@
       if (!target) {
         resourceIssues.push(fromPath + ': local ' + kind + ' reference "' + trim(value, 120) + '" escapes the project root and cannot be resolved.');
       } else if (!files[target]) {
-        resourceIssues.push(fromPath + ': local ' + kind + ' reference "' + trim(value, 120) + '" does not resolve to a file in the project graph.');
+        resourceIssues.push(fromPath + ': local ' + kind + ' reference "' + trim(value, 120) + '" doesn't match a file in the website.');
       }
     }
     function auditAssetSrcset(fromPath, value, kind) {
@@ -414,7 +414,7 @@
     }
     if (interactionIssues.length) addCheck(report, 'Forms and interactions', 'Form delivery', 'warn', interactionIssues.slice(0, 30).join('\n'));
     var envPaths = Object.keys(files || {}).filter(function (path) { return /(^|\/)\.env(?:\.|$)/i.test(path); });
-    if (envPaths.length) securityIssues.push('Environment-like file(s) are present in the project graph: ' + envPaths.slice(0, 8).join(', ') + '.');
+    if (envPaths.length) securityIssues.push('Configuration files were found in the website files: ' + envPaths.slice(0, 8).join(', ') + '.');
     Object.keys(files || {}).forEach(function (path) {
       if (!/\.(?:html?|css|m?js|jsx|tsx|ts)$/i.test(path)) return;
       var contents = fileText(files[path]);
@@ -452,7 +452,7 @@
         style.textContent = fileText(files[target]).slice(0, 250000);
         link.replaceWith(style);
       } else {
-        notes.push('Local stylesheet "' + trim(href, 100) + '" could not be resolved from the project file graph.');
+        notes.push('Local stylesheet "' + trim(href, 100) + '" couldn't be found among the website files.');
         link.remove();
       }
     });
@@ -468,7 +468,7 @@
         var target = resolveFile(page.path, ref);
         if (target && files[target] && /\.m?js$/i.test(target)) source = fileText(files[target]);
         else {
-          notes.push('Script "' + trim(ref, 100) + '" was not executed because its source is unavailable in the project graph or is external.');
+          notes.push('Script "' + trim(ref, 100) + '" wasn't run because its source isn't included in the website files or is hosted elsewhere.');
           script.remove();
           return;
         }
@@ -1126,10 +1126,10 @@
         if (performanceAudit.maxDomNodes > 1800) performanceFindings.push('A rendered route exceeded the approximate 1,800-element DOM budget.');
         if (performanceAudit.maxScripts > 32) performanceFindings.push('A page contained more than 32 script elements.');
         if (performanceAudit.maxStylesheets > 14) performanceFindings.push('A page contained more than 14 style/link stylesheet elements.');
-        addCheck(report, 'Performance', 'Isolated render processing budget', performanceFindings.length ? 'warn' : 'pass',
+        addCheck(report, 'Performance', 'Page loading performance', performanceFindings.length ? 'warn' : 'pass',
           'Measured ' + performanceAudit.samples + ' isolated viewport render(s): average initial document parse plus inline-script processing ' + averageRenderMs + 'ms, maximum ' + Math.round(performanceAudit.maxInitialRenderMs) + 'ms; maximum DOM nodes ' + performanceAudit.maxDomNodes + ', images ' + performanceAudit.maxImages + ', scripts ' + performanceAudit.maxScripts + ', stylesheets ' + performanceAudit.maxStylesheets + '. This is a sandbox diagnostic, not production load time, Core Web Vitals or a real-network performance measurement.' + (performanceFindings.length ? '\\n' + performanceFindings.join('\\n') : ''));
       } else {
-        addCheck(report, 'Performance', 'Isolated render processing budget', 'info', 'No successful isolated browser render supplied performance measurements.');
+        addCheck(report, 'Performance', 'Page loading performance', 'info', 'The browser review couldn't collect performance measurements.');
       }
       if (timeouts.length) addCheck(report, 'Browser testing', 'Sandbox runtime and render completion', 'warn', timeouts.slice(0, 25).join('\n'));
       if (emptyPages.length) addCheck(report, 'Browser testing', 'Page content presence', 'warn', emptyPages.slice(0, 25).join('\n'));
