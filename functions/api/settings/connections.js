@@ -45,7 +45,7 @@ function connectionId(value) {
   const id = clean(value, 100);
   if (!id) return crypto.randomUUID().replace(/-/g, '').slice(0, 28);
   if (!/^[A-Za-z0-9_-]{1,100}$/.test(id)) {
-    throw Object.assign(new Error('Connection ID is invalid.'), {
+    throw Object.assign(new Error('The selected connection couldn't be identified.'), {
       status: 400,
       code: 'INVALID_CONNECTION_ID'
     });
@@ -61,7 +61,7 @@ async function identity(request, env) {
   if (!uid || !email) {
     return {
       ok: false,
-      response: errorResponse(401, 'AUTH_IDENTITY_REQUIRED', 'A verified Firebase identity is required.')
+      response: errorResponse(401, 'AUTH_IDENTITY_REQUIRED', 'Please sign in again to verify your account.')
     };
   }
   return { ok: true, user: result.user, uid, email };
@@ -108,7 +108,7 @@ async function changeActiveCount(
 
     if (!userDoc) {
       throw Object.assign(
-        new Error('The authenticated OVYX workspace profile is not initialized yet.'),
+        new Error('Your OVYX workspace profile isn't ready yet. Refresh the page and try again.'),
         {
           status: 409,
           code: 'WORKSPACE_PROFILE_REQUIRED'
@@ -229,10 +229,10 @@ async function onRequest(context) {
     if (request.method === 'DELETE') {
       const id = connectionId(new URL(request.url).searchParams.get('id'));
       const current = await getFirestoreDocumentAtPath(context.env, [...base, id]);
-      if (!current) return errorResponse(404, 'CONNECTION_NOT_FOUND', 'Connection not found.');
+      if (!current) return errorResponse(404, 'CONNECTION_NOT_FOUND', 'This connection is no longer available.');
       const record = await getFirestoreDataAtPath(context.env, [...base, id]);
       if (record?.ownerUid !== auth.uid || record?.ownerEmail !== auth.email) {
-        return errorResponse(403, 'CONNECTION_ACCESS_DENIED', 'Connection does not belong to this account.');
+        return errorResponse(403, 'CONNECTION_ACCESS_DENIED', 'This connection isn't available for the current account.');
       }
       const currentWasActive = record?.active === true;
       let reservation = null;
@@ -300,7 +300,7 @@ async function onRequest(context) {
     }
 
     if (request.method !== 'POST' && request.method !== 'PUT') {
-      return errorResponse(405, 'METHOD_NOT_ALLOWED', 'GET, POST, PUT or DELETE is required.');
+      return errorResponse(405, 'METHOD_NOT_ALLOWED', 'This action isn't supported.');
     }
 
     const body = await request.json();
@@ -332,7 +332,7 @@ async function onRequest(context) {
         return errorResponse(
           404,
           'CONNECTION_NOT_FOUND',
-          'Connection not found.'
+          'This connection is no longer available.'
         );
       }
 
@@ -370,7 +370,7 @@ async function onRequest(context) {
       const id = connectionId(body?.id);
       const record = await getFirestoreDataAtPath(context.env, [...base, id]);
       if (!record || record.ownerUid !== auth.uid || record.ownerEmail !== auth.email) {
-        return errorResponse(404, 'CONNECTION_NOT_FOUND', 'Connection not found.');
+        return errorResponse(404, 'CONNECTION_NOT_FOUND', 'This connection is no longer available.');
       }
       const result = await testUserConnection(
         context.env,
