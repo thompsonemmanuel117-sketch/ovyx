@@ -33,7 +33,7 @@ for (const route of routes) {
   assert.ok(html.includes('id="view-' + route + '"'), 'Expected existing admin destination is missing from the application shell: ' + route + '.');
 }
 
-assert.ok(middleware.includes('/assets/ovyx-admin-workspace.js?v=20261018-1'), 'The Admin Workspace runtime must be injected into the application shell.');
+assert.ok(middleware.includes('/assets/ovyx-admin-workspace.js?v=20261018-2'), 'The Admin Workspace runtime must be injected into the application shell.');
 assert.ok(headers.includes('/assets/ovyx-admin-workspace.js') && headers.includes('Cache-Control: no-store, no-cache, must-revalidate'), 'The Admin Workspace runtime must not be served stale from cache.');
 assert.doesNotMatch(runtime, /localStorage\s*\.\s*getItem\([^)]*(?:role|owner|admin|entitlement)/i, 'Local storage must never be used as authority for admin access.');
 assert.doesNotMatch(runtime, /OVYX_ADMIN_UI_PREVIEW\s*=\s*true/, 'The runtime must not unlock admin UI through a browser preview flag.');
