@@ -139,7 +139,7 @@ try {
     await profileSave.click();
     await page.waitForFunction(
       () => document.getElementById('ovyx-profile-server-status')?.textContent
-        ?.includes('Save failed: Simulated profile service failure.'),
+        ?.includes('Your profile was not saved. Please try again.'),
       null,
       { timeout: 12000 },
     );
@@ -159,7 +159,7 @@ try {
     await profileSave.click();
     await page.waitForFunction(
       () => document.getElementById('ovyx-profile-server-status')?.textContent
-        ?.includes('Verified on server at 2026-10-15T22:00:00.000Z'),
+        ?.includes('Profile saved to your OVYX account. Last updated'),
       null,
       { timeout: 12000 },
     );
@@ -242,7 +242,7 @@ try {
     await savePreferences.click();
     await page.waitForFunction(
       () => document.getElementById('ovyx-notification-server-status')?.textContent
-        ?.includes('Save failed: Simulated notification service failure.'),
+        ?.includes('Your notification preferences could not be saved. Please try again.'),
       null,
       { timeout: 12000 },
     );
@@ -257,7 +257,7 @@ try {
     await savePreferences.click();
     await page.waitForFunction(
       () => document.getElementById('ovyx-notification-server-status')?.textContent
-        ?.includes('Server confirmed account preferences saved.'),
+        ?.includes('Your notification preferences have been saved. Email notifications will be available when delivery is enabled.'),
       null,
       { timeout: 12000 },
     );
@@ -271,7 +271,7 @@ try {
     await resetPreferences.click();
     await page.waitForFunction(
       () => document.getElementById('ovyx-notification-server-status')?.textContent
-        ?.includes('Server confirmed account preferences saved.'),
+        ?.includes('Your notification preferences have been saved. Email notifications will be available when delivery is enabled.'),
       null,
       { timeout: 12000 },
     );
@@ -281,7 +281,7 @@ try {
     const savedAfterReset = await page.evaluate(key => JSON.parse(localStorage.getItem(key) || '{}'), preferencesKey);
     assert.deepEqual(savedAfterReset, notificationDefaults);
     assert.match(await notificationsPanel.locator('#ovyx-notification-server-status').innerText(),
-      /Email options are stored preferences; delivery still requires a configured mail channel/i);
+      /Email notifications will be available when delivery is enabled/i);
 
     assert.deepEqual(pageErrors, [], '[' + target.name + '] Profile and Notifications must not throw Settings errors.');
     await context.close();
