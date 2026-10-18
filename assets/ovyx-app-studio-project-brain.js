@@ -239,7 +239,7 @@
           if (a.disabled !== undefined || a['aria-disabled'] === 'true') finding('warning', 'CONTROL_DISABLED', 'Control is disabled in source.', path, item.raw);
           let action = '';
           if (a.onclick) action = 'inline onclick';
-          else if (item.tag === 'button' && text(a.type).toLowerCase() === 'submit' && inForm) action = 'Stage 4 form bridge';
+          else if (item.tag === 'button' && text(a.type).toLowerCase() === 'submit' && inForm) action = 'Local form submission';
           else if (id) {
             const hook = paths.filter(isJs).find(js => files[js].includes("getElementById('" + id + "')") || files[js].includes('getElementById("' + id + '")') || files[js].includes("'#" + id + "'") || files[js].includes('"#' + id + '"'));
             if (hook) action = 'JavaScript selector in ' + hook;
@@ -270,7 +270,7 @@
         }
       }
       for (const tag of parsed.filter(item => item.tag === 'form')) {
-        controls.push({ type: 'form', id: tag.attrs.id || '', label: tag.attrs['aria-label'] || tag.attrs.id || 'Form', file: path, actionEvidence: 'Stage 4 local form bridge' });
+        controls.push({ type: 'form', id: tag.attrs.id || '', label: tag.attrs['aria-label'] || tag.attrs.id || 'Form', file: path, actionEvidence: 'Browser form submission' });
         addNode('component:' + path + ':form:' + tag.index, 'form', tag.attrs['aria-label'] || tag.attrs.id || 'Form', path);
       }
     }
