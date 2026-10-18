@@ -813,7 +813,7 @@
         functionality: {
           previewOnly: ['OVYXApp.storage', 'local preview form submissions', 'authorized read-only OVYX APIs'],
           notConfigured: ['external API integrations', 'email delivery', 'payments', 'custom authentication', 'file uploads'],
-          persistenceNote: 'Saved project source is stored in OVYX Projects. Preview data is stored separately in this browser and is not synced to the cloud.'
+          persistenceNote: 'App files are saved in OVYX Projects. Preview data stays in this browser and is not synced to your cloud account.'
         }
       };
       const body = JSON.stringify({ projectId: artifact.id, project });
@@ -1238,7 +1238,7 @@
       const raw = JSON.stringify(payload, null, 2);
       if (new TextEncoder().encode(raw).byteLength > 16 * 1024 * 1024) throw new Error('The source JSON exceeds the 16 MiB browser download limit.');
       downloadReleaseBlob(new Blob([raw], { type: 'application/json;charset=utf-8' }), releaseSlug(artifact.name) + '-source.json');
-      setReleaseStatus(panel, '[data-lb-web-status]', 'Source JSON exported. It includes project files and route metadata but no account credentials or deployment secrets.', 'success');
+      setReleaseStatus(panel, '[data-lb-web-status]', 'Source JSON exported. It includes app files and navigation details, but no account credentials or deployment secrets.', 'success');
       appendReleaseDiagnostic(panel, 'Source JSON exported at ' + new Date().toISOString() + '.');
     } catch (error) {
       setReleaseStatus(panel, '[data-lb-web-status]', error?.message || 'Source export failed.', 'error');
@@ -1249,12 +1249,12 @@
     if (!artifact) throw new Error('Generate an app before preparing a release.');
     const report = window.__OVYX_PROJECT_BRAIN_REPORT__;
     if (!report || report.summary?.runtimeChecked !== true) {
-      throw new Error('Release blocked: Project Brain has not finished the live-preview check. Run the Project Brain check and wait for LIVE PREVIEW evidence before publishing.');
+      throw new Error('Publishing is unavailable until the live preview check is complete. Run the quality checks and confirm that the preview loaded successfully.');
     }
     const failures = Math.max(0, Number(report.summary?.failures) || 0);
     const warnings = Math.max(0, Number(report.summary?.warnings) || 0);
     if (failures > 0 || report.status === 'failed') {
-      throw new Error('Release blocked by Project Brain: ' + failures + ' failure(s), ' + warnings + ' warning(s). Fix the listed issues and run checks again.');
+      throw new Error('Publishing is blocked by quality checks: ' + failures + ' failure(s), ' + warnings + ' warning(s). Fix the listed issues and run checks again.');
     }
     if (!artifact.files?.['index.html'] && !artifact.routes?.['/']) throw new Error('Release blocked: no root HTML entry was found.');
     return { artifact, report, failures, warnings };
@@ -1274,13 +1274,13 @@
       const validation = validateForRelease(panel);
       const { artifact, warnings } = validation;
       const label = action === 'publish' ? 'Publish this app to production' : 'Deploy a preview version';
-      const warningNote = warnings ? '\n\nProject Brain recorded ' + warnings + ' warning(s). They do not prevent publishing, but review them first.' : '';
+      const warningNote = warnings ? '\n\nQuality checks recorded ' + warnings + ' warning(s). They do not prevent publishing, but review them first.' : '';
       if (typeof window.confirm !== 'function' || !window.confirm(label + '?\n\nApp: ' + artifact.name + '\nInspected routes: ' + (artifact.pageCount || 1) + '\nOutput: Cloudflare Pages static HTML/CSS/JavaScript.\nForm submissions and app state remain local. External OVYX account APIs and third-party services are not enabled on the published site.' + warningNote + '\n\nThis sends the generated files to your configured Cloudflare account.')) {
         setReleaseStatus(panel, '[data-lb-web-status]', 'Deployment cancelled. No Cloudflare request was sent.', 'info');
         return;
       }
       if (button) { button.disabled = true; button.textContent = action === 'publish' ? 'Publishing…' : 'Deploying preview…'; }
-      setReleaseStatus(panel, '[data-lb-web-status]', 'Validating project files and sending the confirmed release to Cloudflare Pages…', 'busy');
+      setReleaseStatus(panel, '[data-lb-web-status]', 'Validating app files and sending the confirmed release to Cloudflare Pages…', 'busy');
       const files = staticReleaseFiles(artifact);
       const body = JSON.stringify({ action, projectId: artifact.id, projectName: artifact.name, files });
       if (new TextEncoder().encode(body).byteLength > 15 * 1024 * 1024) throw new Error('The release payload exceeds the 15 MiB App Studio safety limit. Export the ZIP and remove unused assets before retrying.');
@@ -1521,7 +1521,7 @@
       if (!artifact || !Object.keys(artifact.releaseState?.web || {}).length && !artifact.releaseState?.mobile?.jobId) throw new Error('There is no release record to save yet.');
       const user = authenticatedReleaseUser();
       if (!user.email) throw new Error('An email address is required to save release details in OVYX Projects.');
-      if (typeof window.confirm !== 'function' || !window.confirm('Save the release history for "' + artifact.name + '" into this project in OVYX Projects? This updates its saved project record and does not change the live deployment.')) {
+      if (typeof window.confirm !== 'function' || !window.confirm('Save release details for "' + artifact.name + '" in OVYX Projects? This updates the saved app record and does not change the live deployment.')) {
         setReleaseStatus(panel, '[data-lb-web-status]', 'Saving the release record was cancelled. No changes were made.', 'info');
         return;
       }
@@ -1536,7 +1536,7 @@
         releaseLimits: ['Static-site forms and app state remain local.', 'External OVYX account APIs are available only in the authenticated preview.', 'EAS jobs are asynchronous and may need additional refreshes.']
       };
       const body = JSON.stringify({ projectId: artifact.id, project });
-      if (new TextEncoder().encode(body).byteLength > 880000) throw new Error('This project plus release metadata exceeds the OVYX Projects save limit. Export the source bundle and reduce files before retrying.');
+      if (new TextEncoder().encode(body).byteLength > 880000) throw new Error('This app and its release details exceed the OVYX Projects save limit. Export the source bundle and reduce its files before trying again.');
       const token = await user.getIdToken();
       const data = await deploymentRequest('/api/projects', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: 'Bearer ' + token }, body }, token);
       if (data.ok !== true || !data.project?.id) throw new Error(data.error || 'OVYX Projects did not verify the release record save.');
@@ -1694,7 +1694,7 @@
       if (saveButton) { saveButton.disabled = false; saveButton.textContent = 'Save app to OVYX Projects'; }
       const saveStatus = $(panel, '[data-lb-save-status]');
       if (saveStatus) { saveStatus.textContent = 'Not saved yet. Choose “Save app to OVYX Projects” to persist the generated source in your account.'; saveStatus.dataset.kind = 'info'; }
-      status(panel, 'App generated and opened in the live preview with ' + pageCount + ' page' + (pageCount === 1 ? '' : 's') + '. Supported: internal navigation, interactive UI, local form submissions/state and authorized OVYX read-only APIs. Other integrations are identified below and are not simulated.', 'success');
+      status(panel, 'Your app is ready in the live preview with ' + pageCount + ' page' + (pageCount === 1 ? '' : 's') + '. Navigation, interactive controls, local form submissions and authorized read-only OVYX account access are supported. Other integrations are listed below and require separate configuration.', 'success');
       // Keep the generated artifact separate from the user's currently open project.
       // The editor's active project is deliberately not replaced or autosaved here.
       window.dispatchEvent(new CustomEvent('ovyx:link-app-generated', { detail: { projectId, appName, sourceUrl: brief.sourceUrl, files: Object.keys(build.files), routes: Object.fromEntries(routeFiles.entries()), pageCount, preview: true } }));
