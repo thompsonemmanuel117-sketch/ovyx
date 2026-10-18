@@ -142,6 +142,8 @@ assert.match(source.providerRouter, /readGlobalProviderOrder/);
 assert.match(source.providerRouter, /globalOrder = null/);
 assert.match(source.runtime, /function saveAIProviderOrder/);
 assert.match(source.runtime, /function loadProviderStatus/);
+assert.match(source.runtime, /ovyx-global-ai-provider-status-note/, 'AI availability feedback must use its own status area.');
+assert.match(source.runtime, /statusText\(status, 'AI selection order: '/, 'Provider availability checks must not erase the saved AI selection order.');
 assert.match(source.runtime, /item\.connected === true/);
 
 assert.match(source.identityApi, /aiIdentityUpdatedAt/);
