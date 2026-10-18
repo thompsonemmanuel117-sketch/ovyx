@@ -345,7 +345,7 @@
       }
       if (detail) detail.textContent = 'Plan: ' + String(data.plan || 'current').toUpperCase() + ' · Remaining: ' + Math.max(0, remaining).toLocaleString() + ' tokens · Daily prompts remaining: ' + Number(data.daily_prompts_allowance || 0).toLocaleString();
     } catch (error) {
-      meter.textContent = 'Usage could not be loaded right now';
+      meter.textContent = 'Usage unavailable';
       meter.title = error.message || '';
     }
   }
