@@ -155,7 +155,7 @@ try {
     const body = await response.json();
     assert.equal(response.status, 200);
     assert.equal(body.ok, true);
-    assert.match(body.text, /good to hear from you/i);
+    assert.match(body.text, /welcome back/i);
     assert.equal(body.historySaved, false, 'chat must not be persisted server-side');
     assert.equal(body.sessionOnly, true);
     assert.equal(JSON.stringify(body).includes(secret), false, 'credential-like content must never be echoed in the response');
