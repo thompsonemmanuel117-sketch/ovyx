@@ -104,7 +104,7 @@ try {
 
     await page.locator('#ovyx-data-test').click();
     await page.waitForFunction(
-      () => document.getElementById('ovyx-data-result')?.textContent?.includes('Health endpoint responded successfully'),
+      () => document.getElementById('ovyx-data-result')?.textContent?.includes('Service check completed successfully'),
       null,
       { timeout: 20000 },
     );
@@ -113,9 +113,12 @@ try {
     assert.equal(healthRequests[0].url, endpoint + '/health');
     assert.equal(healthRequests[0].headers.cookie, undefined, '[' + target.name + '] external endpoint cookies must not be sent.');
     const resultText = await page.locator('#ovyx-data-result').innerText();
-    assert.match(resultText, /backend-reported database: PostgreSQL/i);
-    assert.match(resultText, /This verifies only the health endpoint, not PostgreSQL connectivity or project CRUD/i,
+    assert.match(resultText, /Service check completed successfully/i);
+    assert.match(resultText, /This check confirms only that the service responds/i);
+    assert.match(resultText, /does not verify data storage or app data operations/i,
       '[' + target.name + '] a health response must not claim database/CRUD verification.');
+    assert.doesNotMatch(resultText, /backend-reported database|PostgreSQL/i,
+      '[' + target.name + '] a health response must not imply the database vendor or CRUD operations were verified.');
 
     const downloadPromise = page.waitForEvent('download');
     await page.locator('#ovyx-data-schema').click();
