@@ -205,7 +205,7 @@ function renderDiagnosis(data) {
   var detail = document.createElement('small'); detail.textContent = 'Evidence report ' + safeText(data && data.reportId || 'unknown', 100) + ' · ' + safeText(data && data.generatedAt ? new Date(data.generatedAt).toLocaleString() : 'just now', 80);
   header.append(title, detail); host.appendChild(header);
   var body = document.createElement('div'); body.className = 'plan-issue'; body.style.whiteSpace = 'pre-wrap';
-  body.textContent = safeText(data && data.diagnosis || 'The review didn't return a result.', 6000);
+  body.textContent = safeText(data && data.diagnosis || 'The review did not return a result.', 6000);
   host.appendChild(body);
   var note = document.createElement('div'); note.className = 'plan-note';
   note.textContent = 'This is a read-only review. No code, settings, credentials, or live releases were changed.';
@@ -255,11 +255,11 @@ async function diagnoseLatest(shouldSpeak) {
     }
     var message = safeText(data.diagnosis || 'The diagnosis is ready.', 900);
     transcript('Sentinel AI diagnosis:\n' + message);
-    status(data.historySaved ? 'Review saved to your private history. No changes were applied.' : 'The review is ready, but it couldn't be saved to history. No changes were applied.', data.historySaved ? 'success' : 'error');
+    status(data.historySaved ? 'Review saved to your private history. No changes were applied.' : 'The review is ready, but it could not be saved to history. No changes were applied.', data.historySaved ? 'success' : 'error');
     if (shouldSpeak) speak(message);
   } catch (error) {
-    status(String(error.message || 'The AI-assisted review couldn't be completed.') + ' Run Check now and retry.', 'error');
-    if (shouldSpeak) speak('I couldn't complete the AI-assisted review. ' + String(error.message || ''));
+    status(String(error.message || 'The AI-assisted review could not be completed.') + ' Run Check now and retry.', 'error');
+    if (shouldSpeak) speak('I could not complete the AI-assisted review. ' + String(error.message || ''));
   } finally {
     busy = false;
     var current = q('[data-ovsx="diagnose"]'); if (current) current.disabled = false;
@@ -340,7 +340,7 @@ function goToSleep(shouldSpeak, stopMicrophone) {
 async function loadLatest() {
   if (busy) return;
   try { var data = await api('GET'); renderReport(data.latestReport); renderDiagnosisHistory(data.diagnoses); if (data.latestDiagnosis) renderDiagnosis(data.latestDiagnosis); status(data.lastScanAt ? 'Last health review: ' + new Date(data.lastScanAt).toLocaleString() : 'Sentinel is ready. Run a health review when you're ready.', 'success'); }
-  catch (error) { status(error.message || 'Health review history isn't available right now.', 'error'); }
+  catch (error) { status(error.message || 'Health review history is not available right now.', 'error'); }
 }
 async function prepareFixPlan() {
   if (busy) return;
@@ -366,7 +366,7 @@ async function scanNow(shouldSpeak) {
     var message = 'Sentinel scan finished. Status: ' + stateLabel(data.report) + '. ' + Number(data.report.criticalCount || 0) + ' critical issues and ' + Number(data.report.warningCount || 0) + ' warnings.';
     status(message, Number(data.report.criticalCount || 0) ? 'error' : Number(data.report.warningCount || 0) ? 'info' : 'success');
     if (shouldSpeak) speak(message);
-  } catch (error) { status(error.message || 'Sentinel could not complete its scan.', 'error'); if (shouldSpeak) speak('I couldn't complete the health review. ' + String(error.message || '')); }
+  } catch (error) { status(error.message || 'Sentinel could not complete its scan.', 'error'); if (shouldSpeak) speak('I could not complete the health review. ' + String(error.message || '')); }
   finally { busy = false; if (button) button.disabled = false; }
 }
 function transcript(message) { var element = q('[data-ovsx-transcript]'); if (!element) return; element.hidden = false; element.textContent = safeText(message, 7000); }
@@ -412,15 +412,15 @@ async function askCompanion(question, sourceInspectionUnavailable) {
       })
     });
     var data = await response.json().catch(function () { return {}; });
-    if (!response.ok || data.ok !== true) throw new Error(data.message || data.error || 'I couldn't answer right now. Please try again or choose another AI option.');
+    if (!response.ok || data.ok !== true) throw new Error(data.message || data.error || 'I could not answer right now. Please try again or choose another AI option.');
     var answer = safeText(data.text || 'I did not receive a complete answer, boss. Please say that again.', 2200);
     conversationTurns = messages.concat([{ role: 'assistant', content: answer }]).slice(-10);
     transcript(conversationTurns.map(function (item) { return (item.role === 'user' ? 'You' : 'Guardian') + ': ' + item.content; }).join('\n\n'));
     status('Sentinel is ready. This conversation remains in the current session.', 'success');
     speak(answer);
   } catch (error) {
-    status(String(error.message || 'This message couldn't be completed.') + ' No code changes were applied.', 'error');
-    speak('I couldn't answer that just now. ' + String(error.message || ''));
+    status(String(error.message || 'This message could not be completed.') + ' No code changes were applied.', 'error');
+    speak('I could not answer that just now. ' + String(error.message || ''));
   } finally {
     companionBusy = false;
   }
@@ -454,7 +454,7 @@ async function askAI(question) {
           body: JSON.stringify({ action: 'investigate', question: lastGuardianQuestion })
         });
         var investigation = await investigationResponse.json().catch(function () { return {}; });
-        if (!investigationResponse.ok || investigation.ok !== true) throw new Error(investigation.message || investigation.error || 'The source review couldn't be completed.');
+        if (!investigationResponse.ok || investigation.ok !== true) throw new Error(investigation.message || investigation.error || 'The source review could not be completed.');
         var answer = safeText(investigation.answer || 'I could not form a diagnosis from the inspected source.', 1800);
         var files = Array.isArray(investigation.inspectedFiles) ? investigation.inspectedFiles.slice(0, 3).map(function (path) { return safeText(path, 100); }) : [];
         lastInspectedFiles = files.slice();
@@ -470,7 +470,7 @@ async function askAI(question) {
       await askCompanion(lastGuardianQuestion, true);
       return;
     } catch (error) {
-      status('I couldn't complete the review. Nothing has been changed.', 'error');
+      status('I could not complete the review. Nothing has been changed.', 'error');
       speak('Sorry boss, I could not inspect the source on this attempt. No code changes were applied.');
       return;
     } finally {
@@ -610,7 +610,7 @@ async function runVoiceCommand(command) {
     } catch (error) {
       var openMessage = safeText(error && error.message || 'I could not safely open that area.', 220);
       status(openMessage, 'error');
-      speak('I couldn't safely open that area. ' + openMessage);
+      speak('I could not safely open that area. ' + openMessage);
       return;
     }
   }
@@ -682,7 +682,7 @@ function makeRecognition() {
         disableWake('Microphone permission or audio capture is unavailable. Enable microphone access in browser settings, then try again.');
         return;
       }
-      status('Voice activation couldn't start. Check microphone permissions, then try again.', 'error');
+      status('Voice activation could not start. Check microphone permissions, then try again.', 'error');
     };
     recognition.onend = function () {
       recognition = null;
@@ -701,7 +701,7 @@ function toggleWake() {
     return;
   }
   if (!(window.SpeechRecognition || window.webkitSpeechRecognition)) {
-    status('This browser doesn't support voice activation. You can still run a health review manually.', 'error');
+    status('This browser does not support voice activation. You can still run a health review manually.', 'error');
     return;
   }
   wakeEnabled = true;
@@ -730,19 +730,19 @@ async function refreshPatchCapabilities() {
       headers: { Accept: 'application/json', Authorization: 'Bearer ' + idToken }
     });
     var data = await response.json().catch(function () { return {}; });
-    if (!response.ok || data.ok !== true) throw new Error(data.message || data.error || 'Review requests aren't available right now.');
+    if (!response.ok || data.ok !== true) throw new Error(data.message || data.error || 'Review requests are not available right now.');
     patchCapabilities = data.guardian || null;
     var prepare = q('[data-ovsx="patch-prepare"]');
     if (prepare) prepare.disabled = !(patchCapabilities && patchCapabilities.patchPreparationReady);
     updatePatchApplyState();
-    if (patchCapabilities && !patchCapabilities.pullRequestCreationReady) status(patchCapabilities.message || 'Creating review requests isn't available right now.', 'info');
+    if (patchCapabilities && !patchCapabilities.pullRequestCreationReady) status(patchCapabilities.message || 'Creating review requests is not available right now.', 'info');
     else status('Your proposed changes are ready for review. Nothing will be changed until you approve a review request.', 'success');
   } catch (error) {
     patchCapabilities = null;
     var prepare = q('[data-ovsx="patch-prepare"]');
     if (prepare) prepare.disabled = true;
     updatePatchApplyState();
-    status(String(error.message || 'Review requests aren't available right now.'), 'error');
+    status(String(error.message || 'Review requests are not available right now.'), 'error');
   }
 }
 function invalidatePatchProposal() {
@@ -811,7 +811,7 @@ async function preparePatchProposal() {
     transcript('Guardian prepared a patch for ' + safeText(data.path || path.value, 180) + ': ' + safeText(data.summary || '', 300) + '\\nNo code changed.');
     speak('I prepared a patch preview, boss. Please review the changed lines before you create a pull request.');
   } catch (error) {
-    status(String(error.message || 'The proposed change couldn't be prepared.') + ' No source file was changed.', 'error');
+    status(String(error.message || 'The proposed change could not be prepared.') + ' No source file was changed.', 'error');
     speak('I could not prepare that patch safely. ' + String(error.message || ''));
   } finally {
     patchBusy = false;
@@ -911,7 +911,7 @@ async function bootstrap() {
   buildShell();
   status('Checking administrator access…');
   try { var data = await api('GET'); renderReport(data.latestReport); renderDiagnosisHistory(data.diagnoses); if (data.latestDiagnosis) renderDiagnosis(data.latestDiagnosis); status('Welcome back. Sentinel is ready.', 'success'); }
-  catch (error) { status('Sentinel is ready, but the latest health report couldn't be loaded: ' + error.message, 'error'); }
+  catch (error) { status('Sentinel is ready, but the latest health report could not be loaded: ' + error.message, 'error'); }
 }
 function observeAuth() {
   try {
