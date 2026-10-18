@@ -46,7 +46,7 @@ async function getIdentity(request, env, id) {
   if (!auth.ok) return { response: auth.response };
   const uid = cleanUid(auth.user?.uid || auth.user?.sub);
   if (!uid || !auth.user?.email) {
-    return { response: errorResponse(401, 'AUTH_IDENTITY_REQUIRED', 'A verified Firebase account is required.', id) };
+    return { response: errorResponse(401, 'AUTH_IDENTITY_REQUIRED', 'Please sign in again to verify your account.', id) };
   }
   return { user: auth.user, uid };
 }
@@ -75,7 +75,7 @@ export async function onRequest(context) {
     }
 
     if (request.method !== 'PUT') {
-      return errorResponse(405, 'METHOD_NOT_ALLOWED', 'GET or PUT is required.', id);
+      return errorResponse(405, 'METHOD_NOT_ALLOWED', 'This action isn't supported.', id);
     }
 
     const body = await readJson(request, 12000);
@@ -101,7 +101,7 @@ export async function onRequest(context) {
     const saved = await getFirestoreDataAtPath(env, path);
     const verified = normalizeNotificationPreferences(saved?.notifications);
     if (!saved || Object.keys(notifications).some(key => verified[key] !== notifications[key])) {
-      return errorResponse(503, 'PREFERENCES_WRITE_UNCONFIRMED', 'The server could not verify that notification preferences were saved.', id);
+      return errorResponse(503, 'PREFERENCES_WRITE_UNCONFIRMED', 'Your notification preferences couldn't be saved. Please try again.', id);
     }
 
     return jsonResponse({
