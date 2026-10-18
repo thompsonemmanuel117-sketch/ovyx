@@ -356,10 +356,10 @@ try {
   await previewDeployButton.click();
   await desktop.waitForFunction(() => {
     const target = document.querySelector('[data-lb-web-status]');
-    return target && (target.dataset.kind === 'error' || target.textContent.includes('Preview deployment accepted by Cloudflare'));
+    return target && (target.dataset.kind === 'error' || target.textContent.includes('Latest preview deploy: active'));
   }, null, { timeout: 10000 }).catch(() => {});
   const previewDeployStatus = await desktop.locator('[data-lb-web-status]').innerText();
-  assert.match(previewDeployStatus, /Preview deployment accepted by Cloudflare/, 'Preview deploy failed; button disabled before click=' + previewWasDisabled + '; status=' + previewDeployStatus);
+  assert.match(previewDeployStatus, /Latest preview deploy: active/, 'Preview deployment did not reach the active provider stage; button disabled before click=' + previewWasDisabled + '; status=' + previewDeployStatus);
   assert.equal(requests.deploy.length, 1, 'Preview deploy must call the existing Cloudflare route.');
   assert.equal(requests.deploy[0].auth, 'Bearer test-id-token');
   assert.equal(requests.deploy[0].body.action, 'deploy');
@@ -378,7 +378,7 @@ try {
   assert.equal(await desktop.locator('[data-lb-release-link]').getAttribute('href'), 'https://coastal-preview.pages.dev');
 
   await desktop.locator('[data-lb-publish]').click();
-  await desktop.waitForFunction(() => document.querySelector('[data-lb-web-status]')?.textContent.includes('Production publish accepted by Cloudflare'), null, { timeout: 10000 });
+  await desktop.waitForFunction(() => document.querySelector('[data-lb-web-status]')?.textContent.includes('Latest production publish: active'), null, { timeout: 10000 });
   assert.equal(requests.deploy.length, 2, 'Production publish must dispatch a separate request.');
   assert.equal(requests.deploy[1].body.action, 'publish');
   assert.ok(requests.webStatus.some(item => item.query.deploymentId === 'deployment-2'));
