@@ -191,7 +191,98 @@
     });
     section.appendChild(brain);
 
+    const release = node('section', 'ovyx-lb-release');
+    release.id = 'ovyx-app-studio-release';
+    release.setAttribute('aria-labelledby', 'ovyx-lb-release-title');
+    const releaseHeading = node('div', 'ovyx-lb-release-heading');
+    releaseHeading.append(
+      node('p', 'ovyx-lb-eyebrow', 'STAGE 06 / RELEASE WORKSPACE'),
+      node('h5', '', 'Export, publish and maintain'),
+      node('p', 'ovyx-lb-muted', 'Validate the current generated files, export a portable package, publish to Cloudflare Pages when your account is authorized, or request Android/iOS builds through the configured EAS pipeline.')
+    );
+    release.appendChild(releaseHeading);
+
+    const exportActions = node('div', 'ovyx-lb-release-actions');
+    const exportZip = node('button', 'ovyx-lb-release-btn', 'Export deployable ZIP');
+    exportZip.type = 'button'; exportZip.setAttribute('data-lb-export-zip', '');
+    const exportJson = node('button', 'ovyx-lb-release-btn secondary', 'Export source JSON');
+    exportJson.type = 'button'; exportJson.setAttribute('data-lb-export-json', '');
+    exportActions.append(exportZip, exportJson);
+    release.appendChild(exportActions);
+
+    const webHeading = node('div', 'ovyx-lb-release-subheading');
+    webHeading.append(node('h6', '', 'Web publish'), node('p', 'ovyx-lb-muted', 'Deploy Preview creates a non-production branch deployment. Publish Production updates the public production deployment. Both require a confirmed action and server-side Cloudflare permission.'));
+    release.appendChild(webHeading);
+    const webActions = node('div', 'ovyx-lb-release-actions');
+    const webDeploy = node('button', 'ovyx-lb-release-btn', 'Deploy preview');
+    webDeploy.type = 'button'; webDeploy.disabled = true; webDeploy.setAttribute('data-lb-deploy-preview', '');
+    const webPublish = node('button', 'ovyx-lb-release-btn publish', 'Publish production');
+    webPublish.type = 'button'; webPublish.disabled = true; webPublish.setAttribute('data-lb-publish', '');
+    const webHealth = node('button', 'ovyx-lb-release-btn secondary', 'Check release health');
+    webHealth.type = 'button'; webHealth.disabled = true; webHealth.setAttribute('data-lb-release-health', '');
+    webActions.append(webDeploy, webPublish, webHealth);
+    release.appendChild(webActions);
+    const webStatus = node('p', 'ovyx-lb-status', 'Build validation and a live Project Brain report are required before web deployment.');
+    webStatus.setAttribute('role', 'status'); webStatus.setAttribute('aria-live', 'polite'); webStatus.setAttribute('data-lb-web-status', '');
+    release.appendChild(webStatus);
+    const releaseLink = node('a', 'ovyx-lb-release-link', 'Open latest deployment');
+    releaseLink.href = '#'; releaseLink.target = '_blank'; releaseLink.rel = 'noopener noreferrer'; releaseLink.hidden = true;
+    releaseLink.setAttribute('data-lb-release-link', '');
+    release.appendChild(releaseLink);
+    const savedRelease = node('button', 'ovyx-lb-release-btn secondary', 'Save release record to OVYX Projects');
+    savedRelease.type = 'button'; savedRelease.disabled = true; savedRelease.setAttribute('data-lb-save-release', '');
+    release.appendChild(savedRelease);
+
+    const mobileHeading = node('div', 'ovyx-lb-release-subheading');
+    mobileHeading.append(node('h6', '', 'Android / iOS builds'), node('p', 'ovyx-lb-muted', 'EAS mobile builds require the OVYX server’s Expo configuration and a PNG app icon. The native wrapper packages the generated routes into one local WebView with local storage; OVYX account APIs stay web-preview-only.'));
+    release.appendChild(mobileHeading);
+    const mobileGrid = node('div', 'ovyx-lb-mobile-grid');
+    const iconLabel = node('label', 'ovyx-lb-label', 'App icon (square PNG)');
+    const iconInput = node('input', 'ovyx-lb-input');
+    iconInput.type = 'file'; iconInput.accept = 'image/png,.png'; iconInput.setAttribute('data-lb-mobile-icon', '');
+    iconLabel.appendChild(iconInput);
+    const platformGroup = node('fieldset', 'ovyx-lb-platforms');
+    platformGroup.appendChild(node('legend', '', 'Build targets'));
+    for (const platform of [{key:'android',label:'Android APK'}, {key:'ios',label:'Apple iOS IPA'}]) {
+      const choice = node('label', 'ovyx-lb-platform');
+      const input = node('input', '');
+      input.type = 'checkbox'; input.value = platform.key; input.setAttribute('data-lb-platform', platform.key);
+      if (platform.key === 'android') input.checked = true;
+      choice.append(input, document.createTextNode(' ' + platform.label));
+      platformGroup.appendChild(choice);
+    }
+    mobileGrid.append(iconLabel, platformGroup);
+    release.appendChild(mobileGrid);
+    const mobileActions = node('div', 'ovyx-lb-release-actions');
+    const mobileBuild = node('button', 'ovyx-lb-release-btn', 'Start mobile build');
+    mobileBuild.type = 'button'; mobileBuild.disabled = true; mobileBuild.setAttribute('data-lb-mobile-build', '');
+    const mobileRefresh = node('button', 'ovyx-lb-release-btn secondary', 'Refresh mobile status');
+    mobileRefresh.type = 'button'; mobileRefresh.disabled = true; mobileRefresh.setAttribute('data-lb-mobile-refresh', '');
+    mobileActions.append(mobileBuild, mobileRefresh);
+    release.appendChild(mobileActions);
+    const mobileStatus = node('p', 'ovyx-lb-status', 'No mobile build has been requested.');
+    mobileStatus.setAttribute('role', 'status'); mobileStatus.setAttribute('aria-live', 'polite'); mobileStatus.setAttribute('data-lb-mobile-status', '');
+    release.appendChild(mobileStatus);
+    const mobileLinks = node('div', 'ovyx-lb-mobile-links');
+    mobileLinks.setAttribute('data-lb-mobile-links', '');
+    release.appendChild(mobileLinks);
+    const releaseDiagnostics = node('ul', 'ovyx-lb-release-diagnostics');
+    releaseDiagnostics.setAttribute('data-lb-release-diagnostics', '');
+    release.appendChild(releaseDiagnostics);
+    const releaseNote = node('p', 'ovyx-lb-capabilities', 'Honest limits: a successful deploy response means the provider accepted the deployment, not that every integration works. Release health checks the returned pages.dev URL and HTTP result. Mobile builds are asynchronous; use Refresh mobile status for the latest EAS result and download links. Forms and app preferences remain local to the browser/WebView, and external auth, account APIs, payments, email, file upload and third-party integrations are not enabled by static publishing.');
+    releaseNote.setAttribute('role', 'note');
+    release.appendChild(releaseNote);
+    section.appendChild(release);
+
     saveButton.addEventListener('click', () => saveGeneratedProject(section));
+    exportZip.addEventListener('click', () => exportGeneratedZip(section));
+    exportJson.addEventListener('click', () => exportGeneratedSourceJson(section));
+    webDeploy.addEventListener('click', () => deployGeneratedProject(section, 'deploy'));
+    webPublish.addEventListener('click', () => deployGeneratedProject(section, 'publish'));
+    webHealth.addEventListener('click', () => checkReleaseHealth(section));
+    savedRelease.addEventListener('click', () => saveReleaseRecord(section));
+    mobileBuild.addEventListener('click', () => startMobileBuild(section));
+    mobileRefresh.addEventListener('click', () => refreshMobileBuildStatus(section));
     form.addEventListener('submit', event => {
       event.preventDefault();
       generate(report, section);
@@ -205,7 +296,7 @@
     style.id = 'ovyx-link-builder-style';
     style.textContent = [
       '.ovyx-lb-panel{grid-column:1/-1;box-sizing:border-box;padding:16px;border:1px solid rgba(214,180,103,.42);border-radius:15px;background:linear-gradient(145deg,rgba(214,180,103,.09),rgba(7,10,15,.94));color:#f3f4f6;min-width:0}',
-      '.ovyx-lb-panel *{box-sizing:border-box;min-width:0}.ovyx-lb-eyebrow{margin:0 0 7px;color:#d6b467;font-size:10px;font-weight:850;letter-spacing:.14em}.ovyx-lb-heading h4{margin:0 0 6px;color:#fff;font-size:17px}.ovyx-lb-muted{margin:0;color:#a7afbd;font-size:11px;line-height:1.55}.ovyx-lb-form{display:flex;align-items:flex-end;gap:10px;margin-top:13px}.ovyx-lb-label{display:flex;flex:1;flex-direction:column;gap:6px;color:#dce1e9;font-size:11px;font-weight:700}.ovyx-lb-input{width:100%;border:1px solid rgba(255,255,255,.16);border-radius:9px;padding:11px 12px;background:#080a0f;color:#fff;font:inherit}.ovyx-lb-generate{border:1px solid #d6b467;border-radius:9px;background:#d6b467;color:#16130d;padding:12px 14px;font-size:11px;font-weight:850;cursor:pointer;white-space:nowrap}.ovyx-lb-generate:disabled{opacity:.65;cursor:wait}.ovyx-lb-status{margin:10px 0 0;color:#a7afbd;font-size:11px;line-height:1.5;overflow-wrap:anywhere}.ovyx-lb-status[data-kind=error]{color:#fca5a5}.ovyx-lb-status[data-kind=success]{color:#86efac}.ovyx-lb-status[data-kind=busy]{color:#fcd34d}.ovyx-lb-preview{margin-top:14px;padding:10px;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:#080a0f}.ovyx-lb-preview[hidden]{display:none}.ovyx-lb-preview-header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:2px 2px 9px;color:#f1f1ef;font-size:10px;font-weight:850;letter-spacing:.05em}.ovyx-lb-preview-header span{color:#929baa;font-size:9px;font-weight:600}.ovyx-lb-frame{display:block;width:100%;height:min(72vh,720px);min-height:420px;border:1px solid #29313d;border-radius:9px;background:#fff}.ovyx-lb-files{margin-top:10px;color:#d5d9df;font-size:11px}.ovyx-lb-files summary{cursor:pointer;padding:5px 0;color:#dfc580;font-weight:750}.ovyx-lb-source-list{display:grid;gap:8px}.ovyx-lb-source-file{border:1px solid rgba(255,255,255,.1);border-radius:8px;overflow:hidden}.ovyx-lb-source-file strong{display:block;padding:7px 9px;background:rgba(255,255,255,.04);font-size:10px}.ovyx-lb-source-file pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:300px;overflow:auto;padding:9px;margin:0;color:#cbd5e1;font:10px/1.5 ui-monospace,monospace}.ovyx-lb-brain{margin-top:15px;padding:13px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(0,0,0,.22)}.ovyx-lb-brain-heading h5{margin:0 0 6px;color:#fff;font-size:14px}.ovyx-lb-brain-run{margin-top:10px;border:1px solid rgba(214,180,103,.45);border-radius:8px;padding:8px 10px;background:#18150d;color:#efcf86;font-size:10px;font-weight:800;cursor:pointer}.ovyx-lb-brain-run:disabled{opacity:.55;cursor:wait}.ovyx-lb-brain-summary{color:#d1d5db;font-size:10px;line-height:1.6;overflow-wrap:anywhere}.ovyx-lb-brain-graph,.ovyx-lb-brain-findings{margin-top:8px;color:#cbd5e1;font-size:10px}.ovyx-lb-brain-graph summary,.ovyx-lb-brain-findings summary{cursor:pointer;padding:7px 0;color:#dfc580;font-weight:800}.ovyx-lb-brain-list{display:grid;gap:8px;margin:5px 0 0;padding-left:20px}.ovyx-lb-brain-finding{display:grid;gap:4px;color:#cbd5e1;overflow-wrap:anywhere}.ovyx-lb-brain-severity{font-size:9px;letter-spacing:.04em}.ovyx-lb-brain-file{color:#929baa;font:9px ui-monospace,monospace;overflow-wrap:anywhere}.ovyx-lb-brain-evidence{display:block;color:#fca5a5;font:9px/1.5 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere}.ovyx-lb-project-actions{display:flex;align-items:flex-start;gap:11px;flex-wrap:wrap;margin-top:12px}.ovyx-lb-save{border:1px solid rgba(110,231,183,.45);border-radius:9px;background:#104b3d;color:#d1fae5;padding:11px 13px;font-size:11px;font-weight:800;cursor:pointer}.ovyx-lb-save:disabled{opacity:.55;cursor:not-allowed}.ovyx-lb-capabilities{margin:9px 0 0;color:#858e9c;font-size:10px;line-height:1.55}.ovyx-lb-panel :is(input,button,summary):focus-visible{outline:2px solid #d6b467;outline-offset:3px}@media(max-width:620px){.ovyx-lb-form{align-items:stretch;flex-direction:column}.ovyx-lb-generate,.ovyx-lb-save{width:100%}.ovyx-lb-project-actions{flex-direction:column}.ovyx-lb-frame{min-height:440px;height:68vh}.ovyx-lb-preview{padding:7px}}'
+      '.ovyx-lb-panel *{box-sizing:border-box;min-width:0}.ovyx-lb-eyebrow{margin:0 0 7px;color:#d6b467;font-size:10px;font-weight:850;letter-spacing:.14em}.ovyx-lb-heading h4{margin:0 0 6px;color:#fff;font-size:17px}.ovyx-lb-muted{margin:0;color:#a7afbd;font-size:11px;line-height:1.55}.ovyx-lb-form{display:flex;align-items:flex-end;gap:10px;margin-top:13px}.ovyx-lb-label{display:flex;flex:1;flex-direction:column;gap:6px;color:#dce1e9;font-size:11px;font-weight:700}.ovyx-lb-input{width:100%;border:1px solid rgba(255,255,255,.16);border-radius:9px;padding:11px 12px;background:#080a0f;color:#fff;font:inherit}.ovyx-lb-generate{border:1px solid #d6b467;border-radius:9px;background:#d6b467;color:#16130d;padding:12px 14px;font-size:11px;font-weight:850;cursor:pointer;white-space:nowrap}.ovyx-lb-generate:disabled{opacity:.65;cursor:wait}.ovyx-lb-status{margin:10px 0 0;color:#a7afbd;font-size:11px;line-height:1.5;overflow-wrap:anywhere}.ovyx-lb-status[data-kind=error]{color:#fca5a5}.ovyx-lb-status[data-kind=success]{color:#86efac}.ovyx-lb-status[data-kind=busy]{color:#fcd34d}.ovyx-lb-preview{margin-top:14px;padding:10px;border:1px solid rgba(255,255,255,.1);border-radius:12px;background:#080a0f}.ovyx-lb-preview[hidden]{display:none}.ovyx-lb-preview-header{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:2px 2px 9px;color:#f1f1ef;font-size:10px;font-weight:850;letter-spacing:.05em}.ovyx-lb-preview-header span{color:#929baa;font-size:9px;font-weight:600}.ovyx-lb-frame{display:block;width:100%;height:min(72vh,720px);min-height:420px;border:1px solid #29313d;border-radius:9px;background:#fff}.ovyx-lb-files{margin-top:10px;color:#d5d9df;font-size:11px}.ovyx-lb-files summary{cursor:pointer;padding:5px 0;color:#dfc580;font-weight:750}.ovyx-lb-source-list{display:grid;gap:8px}.ovyx-lb-source-file{border:1px solid rgba(255,255,255,.1);border-radius:8px;overflow:hidden}.ovyx-lb-source-file strong{display:block;padding:7px 9px;background:rgba(255,255,255,.04);font-size:10px}.ovyx-lb-source-file pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:300px;overflow:auto;padding:9px;margin:0;color:#cbd5e1;font:10px/1.5 ui-monospace,monospace}.ovyx-lb-brain{margin-top:15px;padding:13px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(0,0,0,.22)}.ovyx-lb-brain-heading h5{margin:0 0 6px;color:#fff;font-size:14px}.ovyx-lb-brain-run{margin-top:10px;border:1px solid rgba(214,180,103,.45);border-radius:8px;padding:8px 10px;background:#18150d;color:#efcf86;font-size:10px;font-weight:800;cursor:pointer}.ovyx-lb-brain-run:disabled{opacity:.55;cursor:wait}.ovyx-lb-brain-summary{color:#d1d5db;font-size:10px;line-height:1.6;overflow-wrap:anywhere}.ovyx-lb-brain-graph,.ovyx-lb-brain-findings{margin-top:8px;color:#cbd5e1;font-size:10px}.ovyx-lb-brain-graph summary,.ovyx-lb-brain-findings summary{cursor:pointer;padding:7px 0;color:#dfc580;font-weight:800}.ovyx-lb-brain-list{display:grid;gap:8px;margin:5px 0 0;padding-left:20px}.ovyx-lb-brain-finding{display:grid;gap:4px;color:#cbd5e1;overflow-wrap:anywhere}.ovyx-lb-brain-severity{font-size:9px;letter-spacing:.04em}.ovyx-lb-brain-file{color:#929baa;font:9px ui-monospace,monospace;overflow-wrap:anywhere}.ovyx-lb-brain-evidence{display:block;color:#fca5a5;font:9px/1.5 ui-monospace,monospace;white-space:pre-wrap;overflow-wrap:anywhere}.ovyx-lb-project-actions{display:flex;align-items:flex-start;gap:11px;flex-wrap:wrap;margin-top:12px}.ovyx-lb-save{border:1px solid rgba(110,231,183,.45);border-radius:9px;background:#104b3d;color:#d1fae5;padding:11px 13px;font-size:11px;font-weight:800;cursor:pointer}.ovyx-lb-save:disabled{opacity:.55;cursor:not-allowed}.ovyx-lb-capabilities{margin:9px 0 0;color:#858e9c;font-size:10px;line-height:1.55}.ovyx-lb-panel :is(input,button,summary):focus-visible{outline:2px solid #d6b467;outline-offset:3px}.ovyx-lb-release{margin-top:15px;padding:14px;border:1px solid rgba(110,231,183,.24);border-radius:12px;background:rgba(4,16,14,.34)}.ovyx-lb-release-heading h5,.ovyx-lb-release-subheading h6{margin:0 0 6px;color:#f7faf9;font-size:14px}.ovyx-lb-release-subheading{margin-top:15px;padding-top:12px;border-top:1px solid rgba(255,255,255,.1)}.ovyx-lb-release-subheading h6{font-size:12px}.ovyx-lb-release-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.ovyx-lb-release-btn{border:1px solid rgba(110,231,183,.38);border-radius:8px;padding:10px 12px;background:#104b3d;color:#d1fae5;font-size:10px;font-weight:850;cursor:pointer}.ovyx-lb-release-btn.secondary{border-color:rgba(255,255,255,.18);background:#11151b;color:#d1d5db}.ovyx-lb-release-btn.publish{border-color:rgba(214,180,103,.55);background:#4b3410;color:#fde68a}.ovyx-lb-release-btn:disabled{opacity:.45;cursor:not-allowed}.ovyx-lb-release-link{display:inline-block;margin-top:8px;color:#86efac;font-size:11px;overflow-wrap:anywhere}.ovyx-lb-release-link[hidden]{display:none}.ovyx-lb-mobile-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:10px}.ovyx-lb-platforms{display:flex;align-items:flex-start;gap:8px;flex-direction:column;min-width:0;margin:0;padding:10px;border:1px solid rgba(255,255,255,.13);border-radius:8px;color:#d5d9df;font-size:10px}.ovyx-lb-platforms legend{padding:0 4px;color:#aeb7c5;font-size:10px}.ovyx-lb-platform{display:flex;align-items:center;gap:5px;font-size:10px}.ovyx-lb-platform input,.ovyx-lb-label input[type=file]{max-width:100%}.ovyx-lb-release-diagnostics{display:grid;gap:6px;margin:10px 0 0;padding-left:18px;color:#cbd5e1;font-size:10px;line-height:1.5;overflow-wrap:anywhere}.ovyx-lb-mobile-links{display:grid;gap:6px;margin-top:8px}.ovyx-lb-mobile-links a{color:#86efac;font-size:10px;overflow-wrap:anywhere}.ovyx-lb-release .ovyx-lb-status{overflow-wrap:anywhere}@media(max-width:620px){.ovyx-lb-form{align-items:stretch;flex-direction:column}.ovyx-lb-generate,.ovyx-lb-save,.ovyx-lb-release-btn{width:100%}.ovyx-lb-project-actions,.ovyx-lb-release-actions{flex-direction:column}.ovyx-lb-mobile-grid{grid-template-columns:1fr}.ovyx-lb-frame{min-height:440px;height:68vh}.ovyx-lb-preview{padding:7px}}'
     ].join('\n');
     document.head.appendChild(style);
   }
