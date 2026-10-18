@@ -205,7 +205,7 @@
   async function openSupportForVote(studio, message, saved) {
     var form = await waitForHelpForm();
     if (!form) {
-      toast(saved ? 'Your feedback has been saved. Visit Help → Contact Support to share more details.' : 'Your feedback couldn't be saved. Visit Help → Contact Support for assistance.', saved ? 'success' : 'warning');
+      toast(saved ? 'Your feedback has been saved. Visit Help → Contact Support to share more details.' : 'Your feedback could not be saved. Visit Help → Contact Support for assistance.', saved ? 'success' : 'warning');
       return;
     }
     var subject = document.getElementById('ovyx-help-support-subject');
@@ -326,11 +326,11 @@
     var candidates = collectHtmlArtifacts(result, studio, baseProject);
     var changed = candidates.filter(function (item) { return isChangedArtifact(item, baselineFiles); });
     if (!changed.length) {
-      throw new Error('A website draft wasn't ready for preview. Your existing preview remains unchanged. Try again or choose another AI option.');
+      throw new Error('A website draft was not ready for preview. Your existing preview remains unchanged. Try again or choose another AI option.');
     }
     var state = window.KernelState;
     var project = result && (result.project || result.updatedProject) || state && state.activeProject;
-    if (!project || typeof project !== 'object') throw new Error('The website draft couldn't be prepared. Please try again.');
+    if (!project || typeof project !== 'object') throw new Error('The website draft could not be prepared. Please try again.');
     if (result && !result.project) result.project = project;
     if (state) {
       state.activeProject = project;
@@ -407,7 +407,7 @@
           window.ProjectStore && window.ProjectStore.renderHome && window.ProjectStore.renderHome();
           window.ProjectStore && window.ProjectStore.renderProjects && window.ProjectStore.renderProjects();
         } catch (_) {}
-        toast(error && error.message || 'We couldn't prepare the website preview. Your existing work is unchanged.', 'error');
+        toast(error && error.message || 'We could not prepare the website preview. Your existing work is unchanged.', 'error');
         return null;
       }
     }
@@ -431,7 +431,7 @@
       var candidates = collectHtmlArtifacts(result, studio, baseProject);
       var changed = candidates.some(function (item) { return isChangedArtifact(item, baselineFiles); });
       if (!changed) {
-        throw Object.assign(new Error('The website draft wasn't updated. Your existing preview remains unchanged. Try again or select another AI option.'), { code: 'AI_BUILD_NO_ARTIFACTS' });
+        throw Object.assign(new Error('The website draft was not updated. Your existing preview remains unchanged. Try again or select another AI option.'), { code: 'AI_BUILD_NO_ARTIFACTS' });
       }
       return result;
     }
