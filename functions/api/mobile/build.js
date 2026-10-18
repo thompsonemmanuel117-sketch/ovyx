@@ -60,7 +60,7 @@ export async function onRequestPost(context) {
     if (!easToken || !easProjectId || !payloadSecret) {
       return jsonResponse({
         ok: false,
-        error: 'Mobile builds aren't available right now. Please try again later.',
+        error: 'Mobile builds are not available right now. Please try again later.',
         code: 'EAS_BUILD_NOT_CONFIGURED'
       }, 503, { 'X-OVYX-Request-ID': id });
     }
@@ -149,9 +149,9 @@ export async function onRequestPost(context) {
       await setFirestoreDocument(context.env, 'mobile_builds', jobId, {
         status: 'failed',
         updatedAt: new Date().toISOString(),
-        errors: [{ code: 'EAS_DISPATCH_FAILED', message: `The mobile build couldn't be started. Please try again.` }]
+        errors: [{ code: 'EAS_DISPATCH_FAILED', message: `The mobile build could not be started. Please try again.` }]
       }, { merge: true });
-      throw Object.assign(new Error(data?.message || `The mobile build couldn't be started. Please try again.`), { status: response.status >= 400 && response.status < 500 ? response.status : 503, code: 'EAS_DISPATCH_FAILED' });
+      throw Object.assign(new Error(data?.message || `The mobile build could not be started. Please try again.`), { status: response.status >= 400 && response.status < 500 ? response.status : 503, code: 'EAS_DISPATCH_FAILED' });
     }
 
     await setFirestoreDocument(context.env, 'mobile_builds', jobId, {
