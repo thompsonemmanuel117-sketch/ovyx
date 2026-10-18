@@ -402,7 +402,7 @@
           try {
             const response = await api('/api/admin/users', { method: 'POST', body: JSON.stringify({ action: 'setAccountStatus', uid: user.uid, disabled: disable }) });
             statusText(status, disable
-              ? ('Firebase Auth account suspended globally. Refresh-token revocation: ' + (response.data.refreshTokensRevoked ? 'confirmed.' : 'not confirmed; disabled account status is active.'))
+              ? (response.data.refreshTokensRevoked ? 'Account suspended. Existing sessions have been revoked.' : 'Account suspended. Some existing sessions may remain active until they expire.')
               : 'Account re-enabled.', 'ok');
             await loadUsers('');
           } catch (error) {
@@ -427,7 +427,7 @@
         [account, planCell, expiry, quotaCell, statusCell, actionsCell].forEach(cell => row.appendChild(cell));
         body.appendChild(row);
       });
-      statusText(status, 'Loaded ' + (data.users || []).length + ' account record(s) from the server' + (data.nextPageToken ? '; more accounts are available on the next page.' : '; end of registry reached.') , 'ok');
+      statusText(status, 'Loaded ' + (data.users || []).length + ' account(s)' + (data.nextPageToken ? '. More accounts are available on the next page.' : '. All matching accounts are shown.'), 'ok');
     } catch (error) {
       statusText(status, 'The account list couldn't be loaded: ' + error.message, 'error');
     } finally { if (refresh) refresh.disabled = false; }
@@ -534,7 +534,7 @@
         window.TokenQuotaRegistry.serverTokenQuotas = Object.assign({}, result.data.config?.tokenQuotas || {});
         window.TokenQuotaRegistry.renderMeter?.();
       }
-      statusText(status, 'Global AI identity saved. Last updated ' + (result.data.config?.updatedAt || 'server confirmation') + '. Public prices, server quotas and paid-plan feature permissions now use this configuration.', 'ok');
+      statusText(status, 'Pricing and plan settings saved. Public prices, usage limits, and paid-plan access now follow these settings.', 'ok');
       notify('Global pricing, quota and feature settings saved.', 'success');
     } catch (error) {
       statusText(status, 'Nothing was confirmed saved: ' + error.message, 'error');
@@ -823,9 +823,9 @@
   function mountOverview() {
     const view = $('view-admin-overview');
     if (!view || !owner()) return;
-    const host = panel(view, 'ovyx-owner-live-overview', 'Live control-plane status',
-      'Server checks, global pricing, the account registry and the latest saved Sentinel result. No random latency or fabricated service state.',
-      '<div class="ovyx-owner-live-grid" id="ovyx-owner-overview-cards"></div><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px"><button type="button" class="ovyx-owner-live-button" id="ovyx-owner-overview-refresh">Refresh live overview</button><div class="ovyx-owner-live-status" id="ovyx-owner-overview-status">Waiting for endpoint checks…</div></div>');
+    const host = panel(view, 'ovyx-owner-live-overview', 'Service health overview',
+      'Review service availability, pricing, account access, and the latest health report. Each check reports only the component tested.',
+      '<div class="ovyx-owner-live-grid" id="ovyx-owner-overview-cards"></div><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px"><button type="button" class="ovyx-owner-live-button" id="ovyx-owner-overview-refresh">Refresh live overview</button><div class="ovyx-owner-live-status" id="ovyx-owner-overview-status">Ready to check services.</div></div>');
     if (host.dataset.bound === '1') return;
     host.dataset.bound = '1';
     $('ovyx-owner-overview-refresh')?.addEventListener('click', runLiveOverview);
@@ -847,7 +847,7 @@
     outcomes.forEach((outcome, index) => {
       const card = document.createElement('div'); card.className = 'ovyx-owner-live-card';
       const label = document.createElement('div'); label.className = 'ovyx-owner-live-label'; label.textContent = checks[index].label;
-      const value = document.createElement('div'); value.className = 'ovyx-owner-live-value'; value.textContent = outcome.ok ? 'Needs attention' : (outcome.status ? 'Needs attention' : 'Unavailable');
+      const value = document.createElement('div'); value.className = 'ovyx-owner-live-value'; value.textContent = outcome.ok ? 'Available' : (outcome.status ? 'Needs attention' : 'Unavailable');
       value.style.color = outcome.ok ? '#86efac' : '#fca5a5';
       const detail = document.createElement('div'); detail.className = 'ovyx-owner-live-detail'; detail.textContent = outcome.ok ? 'Responded in ' + outcome.duration + ' ms.' : String(outcome.error || 'Route returned an unsuccessful status.').slice(0, 150);
       card.append(label, value, detail); grid.appendChild(card);
@@ -858,9 +858,9 @@
   function mountBackendChecks() {
     const view = $('view-admin-backend');
     if (!view || !owner()) return;
-    const host = panel(view, 'ovyx-owner-backend-live-checks', 'Live endpoint checks',
-      'Read-only authenticated probes against the running production endpoints.',
-      '<div class="ovyx-owner-live-grid" id="ovyx-owner-backend-cards"></div><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px"><button type="button" class="ovyx-owner-live-button" id="ovyx-owner-backend-refresh">Run backend checks</button><div id="ovyx-owner-backend-status" class="ovyx-owner-live-status">Waiting for probes…</div></div>');
+    const host = panel(view, 'ovyx-owner-backend-live-checks', 'Service checks',
+      'Run read-only checks of key platform services. A successful check confirms only the component reviewed.',
+      '<div class="ovyx-owner-live-grid" id="ovyx-owner-backend-cards"></div><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px"><button type="button" class="ovyx-owner-live-button" id="ovyx-owner-backend-refresh">Check services</button><div id="ovyx-owner-backend-status" class="ovyx-owner-live-status">Ready to check services.</div></div>');
     if (host.dataset.bound === '1') return;
     host.dataset.bound = '1';
     $('ovyx-owner-backend-refresh')?.addEventListener('click', runBackendChecks);
@@ -890,8 +890,8 @@
       box.append(title, value, info); grid.appendChild(box);
     }
     const health = outcomes[0], auth = outcomes[1], ai = outcomes[2], sentinel = outcomes[3];
-    card('Cloudflare Pages / Edge', health.ok ? 'HTTP ' + health.status : 'Unavailable', health.ok ? 'Measured request: ' + health.duration + ' ms' : health.error || 'No successful response', health.ok ? '#86efac' : '#fca5a5');
-    card('Firebase + Entitlements', auth.ok ? 'VERIFIED' : 'Unavailable', auth.ok ? 'Authenticated root request returned HTTP ' + auth.status + ' in ' + auth.duration + ' ms' : auth.error || ('HTTP ' + auth.status), auth.ok ? '#86efac' : '#fca5a5');
+    card('Website service', health.ok ? 'Available' : 'Unavailable', health.ok ? 'Availability check completed in ' + health.duration + ' ms.' : health.error || 'No successful response was received.', health.ok ? '#86efac' : '#fca5a5');
+    card('Account access', auth.ok ? 'Available' : 'Unavailable', auth.ok ? 'Owner account access confirmed in ' + auth.duration + ' ms.' : auth.error || 'Account access could not be verified.', auth.ok ? '#86efac' : '#fca5a5');
     if (ai.ok) {
       const providers = (Array.isArray(ai.data.providers) ? ai.data.providers : []).concat(Array.isArray(ai.data.additionalProviders) ? ai.data.additionalProviders : []);
       providers.forEach(item => {
@@ -899,13 +899,13 @@
         const configured = item.configured === true;
         card(String(item.label || item.provider || item.name || 'AI provider'),
           ready ? 'Ready' : (configured ? 'Check failed' : 'Setup required'),
-          'Actual /api/ai/status probe; HTTP ' + ai.status + ' in ' + ai.duration + ' ms. ' + String(item.error || item.detail || '').slice(0, 80),
+          'Availability check completed in ' + ai.duration + ' ms. ' + String(item.error || item.detail || '').slice(0, 80),
           ready ? '#86efac' : (configured ? '#fcd34d' : '#fca5a5'));
       });
       card('Workers AI binding', ai.data.cloudflare?.workersAiBinding ? 'Available' : 'Setup required',
         'Binding existence only, not a completed model-generation test.', ai.data.cloudflare?.workersAiBinding ? '#fcd34d' : '#fca5a5');
     } else {
-      card('AI provider diagnostics', 'Unavailable', ai.error || ('HTTP ' + ai.status), '#fca5a5');
+      card('AI service status', 'Unavailable', ai.error || ('HTTP ' + ai.status), '#fca5a5');
     }
     const report = sentinel.data?.latestReport || {};
     const reportStatus = sentinel.ok ? String(report.status || 'NO SAVED REPORT').toUpperCase() : 'UNAVAILABLE';
@@ -918,15 +918,15 @@
     if (window.AdminTelemetry) window.AdminTelemetry.lastVerifiedAt = new Date().toISOString();
     document.documentElement.dataset.ovyxTelemetryCheckedAt = new Date().toISOString();
     const existingStatus = $('ovyx-owner-telemetry-status');
-    statusText(existingStatus, 'Real endpoint checks completed at ' + new Date().toISOString() + '. Service status reflects a configuration check. The timing shown here does not measure AI response speed.', allUp ? 'ok' : 'warn');
+    statusText(existingStatus, 'Service checks completed at ' + new Date().toLocaleString() + '. AI status reflects a configuration check; the timing shown here does not measure response generation speed.', allUp ? 'ok' : 'warn');
   }
 
   function mountTelemetry() {
     const view = $('view-admin-telemetry');
     if (!view || !owner()) return;
-    const host = panel(view, 'ovyx-owner-telemetry-note', 'Evidence-based telemetry',
-      'The original random “operational” figures are replaced by response codes and measured HTTP durations. Provider credentials and runtime bindings are reported separately.',
-      '<div id="ovyx-owner-telemetry-status" class="ovyx-owner-live-status">Ready to run live checks.</div><button type="button" class="ovyx-owner-live-button" id="ovyx-owner-telemetry-refresh" style="margin-top:9px">Run live telemetry check</button>');
+    const host = panel(view, 'ovyx-owner-telemetry-note', 'Service health',
+      'Review service availability, response times, AI status, and the latest health report. These checks show only the components tested.',
+      '<div id="ovyx-owner-telemetry-status" class="ovyx-owner-live-status">Ready to run live checks.</div><button type="button" class="ovyx-owner-live-button" id="ovyx-owner-telemetry-refresh" style="margin-top:9px">Check service health</button>');
     if (host.dataset.bound !== '1') {
       host.dataset.bound = '1';
       $('ovyx-owner-telemetry-refresh')?.addEventListener('click', runTelemetryProbe);
@@ -958,9 +958,8 @@
           method: 'POST',
           body: JSON.stringify({ title: title, message: message, category: category, link: link })
         });
-        statusText(status, 'Announcement published to signed-in OVYX users.' + String(result.data.broadcast?.id || 'confirmed') +
-          (wantsEmail ? '. Email was not sent by this action; only global in-app delivery is confirmed.' : '.'), 'ok');
-        notify('Global in-app announcement published.', 'success');
+        statusText(status, 'Announcement published to signed-in OVYX users.' + (wantsEmail ? ' Email notifications were not sent by this action.' : ''), 'ok');
+        notify('In-app announcement published.', 'success');
         if ($('v34-broadcast-body')) $('v34-broadcast-body').value = '';
         const host = $('v34-broadcast-history');
         if (host) {
