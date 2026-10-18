@@ -28,7 +28,7 @@ function parseBody(request) {
   return request.text().then(raw => {
     const bytes = new TextEncoder().encode(raw).byteLength;
     if (bytes > MAX_BODY_BYTES) {
-      throw Object.assign(new Error('Brand profile payload is too large.'), {
+      throw Object.assign(new Error('Your brand settings contain too much data. Reduce the image or remove optional details and try again.'), {
         status: 413,
         code: 'BRAND_PROFILE_TOO_LARGE'
       });
@@ -37,7 +37,7 @@ function parseBody(request) {
     try {
       return JSON.parse(raw);
     } catch {
-      throw Object.assign(new Error('Brand profile payload must be valid JSON.'), {
+      throw Object.assign(new Error('Your brand settings couldn't be processed. Please review them and try again.'), {
         status: 400,
         code: 'INVALID_JSON'
       });
@@ -74,7 +74,7 @@ function normalizeLogo(input) {
   if (!input || typeof input !== 'string') return null;
   const logo = input.trim();
   if (!/^data:image\/png;base64,[A-Za-z0-9+/=]+$/.test(logo)) {
-    throw Object.assign(new Error('Brand Asset Logo must be a PNG data asset.'), {
+    throw Object.assign(new Error('The optimized logo image must be a PNG.'), {
       status: 400,
       code: 'BRAND_LOGO_PNG_REQUIRED'
     });
@@ -82,7 +82,7 @@ function normalizeLogo(input) {
   const base64 = logo.slice('data:image/png;base64,'.length);
   const estimatedBytes = Math.floor(base64.length * 0.75);
   if (estimatedBytes > MAX_LOGO_BYTES) {
-    throw Object.assign(new Error('Brand Asset Logo must be 600 KB or smaller.'), {
+    throw Object.assign(new Error('The optimized logo must be smaller than 600 KB.'), {
       status: 413,
       code: 'BRAND_LOGO_TOO_LARGE'
     });
@@ -98,7 +98,7 @@ async function getIdentity(request, env) {
   if (!uid || !userEmail) {
     return {
       ok: false,
-      response: errorResponse(401, 'AUTH_IDENTITY_REQUIRED', 'A verified Firebase identity is required.')
+      response: errorResponse(401, 'AUTH_IDENTITY_REQUIRED', 'Please sign in again to verify your account.')
     };
   }
   return { ok: true, user: identity.user, uid, email: userEmail };
@@ -135,7 +135,7 @@ async function onRequest(context) {
     }
 
     if (request.method !== 'PUT') {
-      return errorResponse(405, 'METHOD_NOT_ALLOWED', 'GET, PUT or DELETE is required.');
+      return errorResponse(405, 'METHOD_NOT_ALLOWED', 'This action isn't supported.');
     }
 
     const body = await parseBody(request);
