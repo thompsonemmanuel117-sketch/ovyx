@@ -544,7 +544,7 @@
 <div class="ovyx-auth-eyebrow">PRIVATE WORKSPACE GATEWAY</div>
 <h1 id="ovyx-master-auth-title">Activate your OVYX workspace</h1>
 <p id="ovyx-master-auth-subtitle">Log in to activate your secure OVYX workspace.</p>
-<div class="ovyx-auth-signal-row"><span><i></i> FIREBASE AUTH</span><span><i></i> LIVE AI ROUTING</span><span><i></i> PROJECT VAULT</span></div>
+<div class="ovyx-auth-signal-row"><span><i></i> SECURE SIGN-IN</span><span><i></i> AI SERVICES</span><span><i></i> SAVED PROJECTS</span></div>
 </div>
 <form class="ovyx-master-auth-card" id="ovyx-master-auth-form" novalidate="">
 <div class="ovyx-auth-card-head"><div><div class="ovyx-auth-card-kicker">AUTHENTICATE</div><strong id="ovyx-master-auth-card-title">Log In</strong></div><span aria-hidden="true" class="ovyx-auth-live-dot"></span></div>
@@ -561,7 +561,7 @@
 <button class="ovyx-auth-forgot" id="ovyx-auth-forgot" type="button">Forgot password?</button><div class="ovyx-auth-legal">By continuing, you agree to the <button type="button" data-auth-legal="terms">Terms of Service</button> and <button type="button" data-auth-legal="privacy">Privacy Policy</button>.</div><div aria-live="polite" class="ovyx-master-auth-status" id="ovyx-master-auth-status">Workspace access is locked until authentication succeeds.</div>
 </form>
 </div>
-<div class="ovyx-auth-footer"><span>EDGE AUTHORITY / FIREBASE</span><span>SERVER-SIDE ENTITLEMENTS</span><span>ACCOUNT DATA PROTECTED IN TRANSIT</span></div>
+<div class="ovyx-auth-footer"><span>SECURE ACCOUNT ACCESS</span><span>PLAN-BASED ACCESS</span><span>ACCOUNT DATA PROTECTED IN TRANSIT</span></div>
 </div>
 </section>
 <section aria-label="OVYX Home Dashboard" class="ovyx-home-view bg-black" id="view-home">
@@ -891,7 +891,7 @@
 <div class="v0-card rounded-xl p-4">
 <div class="text-[10px] font-mono text-zinc-500 uppercase font-bold">Node Latency</div>
 <div class="text-2xl font-bold text-brand-gold mt-1" id="adm-stat-latency">CHECKING</div>
-<div class="text-[9px] text-zinc-600 font-mono mt-1 font-bold">Cloudflare Edge Worker</div>
+<div class="text-[9px] text-zinc-600 font-mono mt-1 font-bold">Website service</div>
 </div>
 <div class="v0-card rounded-xl p-4">
 <div class="text-[10px] font-mono text-zinc-500 uppercase font-bold">Security Isolate</div>
@@ -907,7 +907,7 @@
 <button data-admin-module="admin-users" onclick="Router.go('admin-users')" type="button"><i class="fa-solid fa-users"></i><span><b>Users</b><small>Account and entitlement tools</small></span><i class="fa-solid fa-arrow-right"></i></button>
 <button data-admin-module="admin-brain" onclick="Router.go('admin-brain')" type="button"><i class="fa-solid fa-brain"></i><span><b>AI Brain</b><small>Provider and runtime diagnostics</small></span><i class="fa-solid fa-arrow-right"></i></button>
 <button data-admin-module="admin-identity" onclick="Router.go('admin-identity')" type="button"><i class="fa-solid fa-fingerprint"></i><span><b>AI Identity</b><small>Identity and policy controls</small></span><i class="fa-solid fa-arrow-right"></i></button>
-<button data-admin-module="admin-backend" onclick="Router.go('admin-backend')" type="button"><i class="fa-solid fa-server"></i><span><b>Backend</b><small>Endpoint and security map</small></span><i class="fa-solid fa-arrow-right"></i></button>
+<button data-admin-module="admin-backend" onclick="Router.go('admin-backend')" type="button"><i class="fa-solid fa-server"></i><span><b>Backend</b><small>Service availability and security</small></span><i class="fa-solid fa-arrow-right"></i></button>
 <button data-admin-module="admin-telemetry" onclick="Router.go('admin-telemetry')" type="button"><i class="fa-solid fa-chart-line"></i><span><b>Telemetry</b><small>Edge service probes</small></span><i class="fa-solid fa-arrow-right"></i></button>
 <button data-admin-module="admin-broadcasts" onclick="Router.go('admin-broadcasts')" type="button"><i class="fa-solid fa-bullhorn"></i><span><b>Broadcasts</b><small>Announcements and push</small></span><i class="fa-solid fa-arrow-right"></i></button>
 <button data-admin-module="admin-template-hub" onclick="Router.go('admin-template-hub')" type="button"><i class="fa-solid fa-layer-group"></i><span><b>Template Matrix</b><small>Publishing and blueprint hub</small></span><i class="fa-solid fa-arrow-right"></i></button>
@@ -925,7 +925,7 @@
 <article class="adm-control-card"><div class="adm-control-icon"><i class="fa-solid fa-layer-group"></i></div><div><b>Published Templates</b><small>Shared template catalog exposed to the user workspace.</small></div><span>GLOBAL</span></article>
 <article class="adm-control-card"><div class="adm-control-icon"><i class="fa-solid fa-fingerprint"></i></div><div><b>AI Identity &amp; Policy</b><small>Global identity and safety policy should remain server-owned.</small></div><span>GLOBAL</span></article>
 <article class="adm-control-card"><div class="adm-control-icon"><i class="fa-solid fa-user-shield"></i></div><div><b>User Administration</b><small>Role, plan and entitlements should stay scoped to the selected user.</small></div><span>PER USER</span></article>
-<article class="adm-control-card"><div class="adm-control-icon"><i class="fa-solid fa-server"></i></div><div><b>Backend / Infrastructure</b><small>Runtime, Cloudflare and Firebase health are diagnostics, not browser-local settings.</small></div><span>SERVER</span></article>
+<article class="adm-control-card"><div class="adm-control-icon"><i class="fa-solid fa-server"></i></div><div><b>Service health</b><small>Review platform availability, account access, and system health in one place.</small></div><span>SERVER</span></article>
 <article class="adm-control-card"><div class="adm-control-icon"><i class="fa-solid fa-power-off"></i></div><div><b>Kill Switches &amp; Rate Limits</b><small>Operational safeguards must be enforced at the edge, never only in the UI.</small></div><span>SERVER</span></article>
 </div>
 <div class="adm-control-warning"><i class="fa-solid fa-triangle-exclamation"></i><span><b>Scope guard:</b> a per-user action must not mutate the global catalog, AI policy, pricing or platform access rules unless the server endpoint explicitly declares that global scope.</span></div>
@@ -1138,7 +1138,7 @@
 <section class="p-6 sm:p-8 max-w-5xl mx-auto space-y-6 hidden bg-black" id="view-admin-users">
 <div>
 <h2 class="text-xl font-bold tracking-tight text-white">Access Roles &amp; Users</h2>
-<p class="text-xs text-zinc-400 font-mono mt-0.5">Firebase Security Rules compliant authentication table.</p>
+<p class="text-xs text-zinc-400 font-mono mt-0.5">Account access is managed using the platform security controls.</p>
 </div>
 <div class="v0-card rounded-xl overflow-hidden">
 <table class="w-full text-left text-xs font-mono">
@@ -1184,10 +1184,10 @@
 <span class="text-[10px] font-mono text-zinc-500">model: gemini-3.8-flash · Key: GEMINI_API_KEY</span>
 </div>
 </div>
-<span class="text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/15 bg-white/5 text-zinc-300 font-bold uppercase tracking-wider" id="brain-badge-gemini">NOT CONFIGURED</span>
+<span class="text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/15 bg-white/5 text-zinc-300 font-bold uppercase tracking-wider" id="brain-badge-gemini" >Setup required</span>
 </div>
 <div class="flex items-center justify-between pt-2 border-t border-white/5 font-mono text-xs">
-<span class="text-zinc-500 text-[11px]" id="brain-latency-gemini">Awaiting API Key</span>
+<span class="text-zinc-500 text-[11px]" id="brain-latency-gemini" >Availability not checked</span>
 </div>
 </div>
 <!-- DeepSeek V3 -->
@@ -1200,10 +1200,10 @@
 <span class="text-[10px] font-mono text-zinc-500">model: deepseek-flash · Key: DEEPSEEK_API_KEY</span>
 </div>
 </div>
-<span class="text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/15 bg-white/5 text-zinc-300 font-bold uppercase tracking-wider" id="brain-badge-deepseek">NOT CONFIGURED</span>
+<span class="text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/15 bg-white/5 text-zinc-300 font-bold uppercase tracking-wider" id="brain-badge-deepseek" >Setup required</span>
 </div>
 <div class="flex items-center justify-between pt-2 border-t border-white/5 font-mono text-xs">
-<span class="text-zinc-500 text-[11px]" id="brain-latency-deepseek">Awaiting API Key</span>
+<span class="text-zinc-500 text-[11px]" id="brain-latency-deepseek" >Availability not checked</span>
 </div>
 </div>
 <!-- Anthropic Claude -->
@@ -1216,10 +1216,10 @@
 <span class="text-[10px] font-mono text-zinc-500">model: claude-sonnet-4-6 · Key: ANTHROPIC_API_KEY</span>
 </div>
 </div>
-<span class="text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/15 bg-white/5 text-zinc-300 font-bold uppercase tracking-wider" id="brain-badge-anthropic">NOT CONFIGURED</span>
+<span class="text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/15 bg-white/5 text-zinc-300 font-bold uppercase tracking-wider" id="brain-badge-anthropic" >Setup required</span>
 </div>
 <div class="flex items-center justify-between pt-2 border-t border-white/5 font-mono text-xs">
-<span class="text-zinc-500 text-[11px]" id="brain-latency-anthropic">Awaiting API Key</span>
+<span class="text-zinc-500 text-[11px]" id="brain-latency-anthropic" >Availability not checked</span>
 </div>
 </div>
 <!-- OpenAI GPT-4o -->
@@ -1232,10 +1232,10 @@
 <span class="text-[10px] font-mono text-zinc-500">model: gpt-4o-mini · Key: OPENAI_API_KEY</span>
 </div>
 </div>
-<span class="text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/15 bg-white/5 text-zinc-300 font-bold uppercase tracking-wider" id="brain-badge-openai">NOT CONFIGURED</span>
+<span class="text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/15 bg-white/5 text-zinc-300 font-bold uppercase tracking-wider" id="brain-badge-openai" >Setup required</span>
 </div>
 <div class="flex items-center justify-between pt-2 border-t border-white/5 font-mono text-xs">
-<span class="text-zinc-500 text-[11px]" id="brain-latency-openai">Awaiting API Key</span>
+<span class="text-zinc-500 text-[11px]" id="brain-latency-openai" >Availability not checked</span>
 </div>
 </div>
 </div>
@@ -1259,8 +1259,8 @@
 <!-- VIEW 13: BACKEND ARCHITECTURE -->
 <section class="p-6 sm:p-8 max-w-4xl mx-auto space-y-6 hidden bg-black" id="view-admin-backend">
 <div>
-<h2 class="text-xl font-bold tracking-tight text-white">Cloudflare Edge Worker Architecture</h2>
-<p class="text-xs text-zinc-400 font-mono mt-0.5">Zero-trust credential isolation mapping.</p>
+<h2 class="text-xl font-bold tracking-tight text-white">Platform Service Architecture</h2>
+<p class="text-xs text-zinc-400 font-mono mt-0.5">Security controls and access protection.</p>
 </div>
 <div class="v0-panel rounded-xl p-5 overflow-x-auto">
 <pre class="font-mono text-xs text-zinc-300 leading-relaxed font-medium">
@@ -1310,7 +1310,7 @@
 </div>
 <div class="v34-admin-grid">
 <section class="v34-admin-panel">
-<div class="v34-admin-panel-head"><b>NEW BROADCAST</b><small>Creates a live Firestore announcement.</small></div>
+<div class="v34-admin-panel-head"><b>NEW BROADCAST</b><small>Publishes an announcement to signed-in users.</small></div>
 <div class="v34-form-grid">
 <label><span>Title</span><input class="ovyx-pref-input" id="v34-broadcast-title" maxlength="120" placeholder="OVYX has a new update"/></label>
 <label><span>Category</span><select class="ovyx-pref-select" id="v34-broadcast-category"><option value="product">Product update</option><option value="account">Account</option><option value="security">Security</option><option value="maintenance">Maintenance</option></select></label>
@@ -1324,7 +1324,7 @@
 <button class="ovyx-settings-btn primary" id="v34-broadcast-publish"><i class="fa-solid fa-paper-plane"></i> Publish to users</button>
 <button class="ovyx-settings-btn" id="v34-broadcast-clear">Clear</button>
 </div>
-<div class="v34-service-status" id="v34-broadcast-status">Checking Firestore…</div>
+<div class="v34-service-status" id="v34-broadcast-status">Loading announcements…</div>
 </section>
 <section class="v34-admin-panel">
 <div class="v34-admin-panel-head"><b>EMAIL DELIVERY</b><small>Server-side only. No API secret belongs in this HTML.</small></div>
@@ -1338,7 +1338,7 @@ Body: { broadcastId, title, body, category, link }</div>
 </section>
 </div>
 <section class="v34-admin-panel">
-<div class="v34-admin-panel-head"><b>LIVE BROADCAST HISTORY</b><small>Read from the same Firestore collection used by user inboxes.</small></div>
+<div class="v34-admin-panel-head"><b>LIVE BROADCAST HISTORY</b><small>Announcements shown here are the same ones delivered to user inboxes.</small></div>
 <div class="v34-history-list" id="v34-broadcast-history"><div class="v34-inbox-empty">Loading live broadcasts…</div></div>
 </section>
 </section>
@@ -1631,7 +1631,7 @@ Body: { broadcastId, title, body, category, link }</div>
           const text=input?.value?.trim();
           if(!text)return showToast('Describe what you want to build first.','info');
           const service=window.OVYXAIService;
-          if(!service||typeof service.generate!=='function')throw new Error('Live AI service is not connected. OVYX will not report a build as successful until the secure AI service responds.');
+          if(!service||typeof service.generate!=='function')throw new Error('The AI service is not available right now. Please try again.');
           if(!state.activeProject){const p=defaultProject();p.name=text.slice(0,42);p.description=text;state.projects.unshift(p);state.activeProject=p;save(state.projects)}
           state.activeProject.description=text;state.activeProject.updatedAt=Date.now();
           const result=await service.generate({mode,prompt:text,project:state.activeProject,context:{activeView:'home'}});
@@ -3143,7 +3143,7 @@ Body: { broadcastId, title, body, category, link }</div>
         }finally{if(this.isRequestCurrent(token)){this.pendingBuild=false;this.liveAiActive=false;this.renderThread()}}
       },
       async callAI(payload,token=this.requestEpoch){
-        if(typeof window.OVYXAIService?.generate!=='function') throw new Error('OVYX AI service is not connected.');
+        if(typeof window.OVYXAIService?.generate!=='function') throw new Error('The AI service is not available right now.');
         if(!this.isRequestCurrent(token)) throw Object.assign(new Error('OVYX AI request superseded.'),{name:'AbortError'});
         const requested=this.brain==='automatic'?undefined:this.brain;
         const continuity=window.OVYXProjectContinuityMemory?.read?.()||null;
@@ -4159,7 +4159,7 @@ function ensureConnectionsPanel(){
  panel.innerHTML=`<div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start"><div><div class="ovyx-group-label">CONNECTED ACCOUNTS</div><h2 style="margin-top:5px;color:var(--ov-text);font:800 15px Inter,sans-serif">Repositories & deployment</h2><p style="margin-top:4px;color:var(--ov-muted);font:500 10px/1.5 Inter,sans-serif">Direct API checks use your token only for this browser session. OVYX does not place secrets in localStorage.</p></div></div>
  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-top:13px">
   <div class="ovyx-connection-card"><div style="display:flex;justify-content:space-between;gap:8px"><h4>GitHub</h4><span id="ovyx-github-status" class="ovyx-conn-status idle">NOT CONNECTED</span></div><p>Use a fine-grained token for a direct session test, or configure GitHub OAuth/GitHub App on your backend for production.</p><input id="ovyx-github-token" class="ovyx-secret-input" type="password" autocomplete="off" placeholder="GitHub token (session only)"><div style="display:flex;gap:7px;margin-top:8px"><button id="ovyx-github-connect" class="ovyx-conn-btn">Test & Connect</button><button id="ovyx-github-repos-btn" class="ovyx-conn-btn">Load Repos</button></div><div id="ovyx-github-repos" style="margin-top:8px;font:500 9px JetBrains Mono,monospace;color:#6f747c"></div></div>
-  <div class="ovyx-connection-card"><div style="display:flex;justify-content:space-between;gap:8px"><h4>Cloudflare</h4><span id="ovyx-cloudflare-status" class="ovyx-conn-status idle">NOT CONNECTED</span></div><p>Cloudflare recommends API Tokens over legacy global API keys. Verify the token, then load accounts available to it.</p><input id="ovyx-cloudflare-token" class="ovyx-secret-input" type="password" autocomplete="off" placeholder="Cloudflare API token (session only)"><div style="display:flex;gap:7px;margin-top:8px"><button id="ovyx-cloudflare-connect" class="ovyx-conn-btn">Verify & Connect</button><button id="ovyx-cloudflare-accounts-btn" class="ovyx-conn-btn">Load Accounts</button></div><div id="ovyx-cloudflare-accounts" style="margin-top:8px;font:500 9px JetBrains Mono,monospace;color:#6f747c"></div></div>
+  <div class="ovyx-connection-card"><div style="display:flex;justify-content:space-between;gap:8px"><h4>Cloudflare</h4><span id="ovyx-cloudflare-status" class="ovyx-conn-status idle">NOT CONNECTED</span></div><p>Use a restricted access token. Verify it to review the resources available to this connection. Keep the token private.</p><input id="ovyx-cloudflare-token" class="ovyx-secret-input" type="password" autocomplete="off" placeholder="Access token (session only)"><div style="display:flex;gap:7px;margin-top:8px"><button id="ovyx-cloudflare-connect" class="ovyx-conn-btn">Verify & Connect</button><button id="ovyx-cloudflare-accounts-btn" class="ovyx-conn-btn">Load Accounts</button></div><div id="ovyx-cloudflare-accounts" style="margin-top:8px;font:500 9px JetBrains Mono,monospace;color:#6f747c"></div></div>
  </div>`;
  settings.appendChild(panel);
  panel.querySelector('#ovyx-github-connect').onclick=async()=>{const b=panel.querySelector('#ovyx-github-connect');try{b.disabled=true;b.textContent='Testing…';await OVYXConnections.githubTest(panel.querySelector('#ovyx-github-token').value);OVYXConnections.render();toast('GitHub API connection verified for this session.','success')}catch(e){toast(e.message,'error')}finally{b.disabled=false;b.textContent='Test & Connect'}};
@@ -4263,10 +4263,10 @@ const Settings={
  this.panel('editor','WORKFLOW / EDITOR','Editor','Control the working surface across Web Studio and Code.',`<div class="ovyx-pref-group"><div class="ovyx-pref-label">EDITOR</div>${this.row('Default Web Studio mode','Choose the default Build, Plan, Ask or Fix mode',`<select class="ovyx-pref-select" id="set-editor-mode"><option value="build">Build</option><option value="plan">Plan</option><option value="ask">Ask</option><option value="fix">Fix</option></select>`)}${this.row('Show inspector','Keep the property inspector visible',toggle('set-inspector',true))}${this.row('Live preview','Render changes immediately when possible',toggle('set-live-preview',true))}</div>`)+
  this.panel('shortcuts','WORKFLOW / SHORTCUTS','Shortcuts','Keyboard commands for fast navigation and actions.',`<div class="ovyx-pref-group"><div class="ovyx-pref-label">CORE COMMANDS</div>${[['Command palette','⌘ K','App-wide'],['New project','⌘ N','App-wide'],['Save project','⌘ S','App-wide · saves locally'],['Undo','⌘ Z','Web Studio only'],['Redo','⌘ ⇧ Z','Web Studio only']].map(x=>this.row(x[0],x[2],`<kbd class="ovyx-kbd">${x[1]}</kbd>`)).join('')}</div>`)+
  this.panel('ai','WORKFLOW / AI PREFERENCES','AI Preferences','Model routing, generation behavior and safeguards.',`<div class="ovyx-pref-group"><div class="ovyx-pref-label">GENERATION</div>${this.row('Preferred provider','Used when no provider is specified',`<select class="ovyx-pref-select" data-legacy-control="set-provider"><option value="gemini">Gemini</option><option value="deepseek">DeepSeek</option><option value="anthropic">Claude</option><option value="openai">OpenAI</option></select>`)}${this.row('Thinking detail','How much reasoning context is requested',`<select class="ovyx-pref-select"><option>Balanced</option><option>Fast</option><option>Deep</option></select>`)}${this.row('Safe generation','Keep destructive operations behind confirmation',toggle('set-ai-safe',true))}</div>`)+
- this.panel('privacy','SECURITY / PRIVACY','Privacy','Understand and control local project data.',`<div class="ovyx-pref-group"><div class="ovyx-pref-label">DATA</div>${this.row('Local-first projects','Projects use local persistence for resilience; live cloud sync is only marked active after the configured backend/Firestore write succeeds',`<span class="ovyx-health-chip">LOCAL</span>`)}${this.row('Telemetry','Runtime diagnostics are only dispatched by explicit diagnostic actions',`<span class="ovyx-health-chip">CONTROLLED</span>`)}${this.row('Clear appearance data','Reset theme and appearance preferences',`<button class="ovyx-settings-btn danger" data-clear-appearance>Reset</button>`)}</div>`)+
+ this.panel('privacy','SECURITY / PRIVACY','Privacy','Understand and control local project data.',`<div class="ovyx-pref-group"><div class="ovyx-pref-label">DATA</div>${this.row('Local-first projects','Projects use Local saving is available for continuity. Online sync is shown as active only after a successful save.',`<span class="ovyx-health-chip">LOCAL</span>`)}${this.row('Telemetry','Service health checks run only when you request a review',`<span class="ovyx-health-chip">CONTROLLED</span>`)}${this.row('Clear appearance data','Reset theme and appearance preferences',`<button class="ovyx-settings-btn danger" data-clear-appearance>Reset</button>`)}</div>`)+
  this.panel('security','SECURITY / SECURITY','Security','Authentication and session controls.',`<div class="ovyx-pref-group"><div class="ovyx-pref-label">SESSION</div>${this.row('Authentication','Sign-in is handled by the configured identity provider; this row does not verify your current account or session.',`<span class="ovyx-health-chip">INFO</span>`)}${this.row('Secret storage','Storage rules depend on each integration. Do not put raw credentials in project files or chats.',`<span class="ovyx-health-chip">POLICY</span>`)}${this.row('Production secrets','Production secret configuration is not checked by this Settings panel.',`<span class="ovyx-health-chip">NOT CHECKED</span>`)}</div>`)+
  this.panel('plan','BILLING / PLAN','Plan','Subscription, feature access and checkout.',`<div class="ovyx-pref-group"><div class="ovyx-pref-label">CURRENT PLAN</div>${this.row('Active plan','Feature gates use the current OVYX tier',`<span class="ovyx-tier-badge">${esc7((KernelState?.userTier||'free').toUpperCase())}</span>`)}${this.row('Manage subscription','Open the real checkout configuration and plans',`<button class="ovyx-settings-btn primary" onclick="Router.go('pricing')">Open Plans</button>`)}</div>`)+
- this.panel('usage','BILLING / AI USAGE','AI Usage','Token consumption and capacity.',`<div class="ovyx-pref-group"><div class="ovyx-pref-label">CAPACITY</div>${this.row('Monthly token meter','Current server-verified AI quota',`<span class="ovyx-health-chip" id="set-token-meter">Loading server quota…</span>`)}</div>`)+
+ this.panel('usage','BILLING / AI USAGE','AI Usage','Token consumption and capacity.',`<div class="ovyx-pref-group"><div class="ovyx-pref-label">CAPACITY</div>${this.row('Monthly token meter','Current AI usage and remaining allowance',`<span class="ovyx-health-chip" id="set-token-meter">Loading AI usage…</span>`)}</div>`)+
  this.panel('boosters','BILLING / TOKEN BOOSTERS','Token Boosters','Purchased AI balance and checkout status.',`<div class="ovyx-empty-state">Token Booster balance and purchase actions load when this panel opens. Checkout requires sign-in and an available payment provider; no tokens are credited until the server verifies payment.</div>`);
  this.renderThemeCards();},
  renderThemeCards(){const el=document.getElementById('ovyx-theme-grid');if(!el)return;const cards=Object.entries(presets).map(([id,t])=>this.themeCard(id,t)).join('')+Object.entries(ThemeLab.state.customThemes||{}).map(([id,t])=>this.themeCard(id,t)).join('');el.innerHTML=cards;this.bindThemeCards()},
@@ -4361,7 +4361,7 @@ function aiRender(){const S=window.OVYXSettings;if(!S)return;const main=document
  p.querySelector('#set-ai-save')?.addEventListener('click',()=>{const x=aiLoad();x.model=p.querySelector('#set-ai-model')?.value||'automatic';x.provider=p.querySelector('#set-provider')?.value||'gemini';['explain','preserve','confirmDestructive','contextFiles','contextPage','contextGithub'].forEach(k=>x[k]=!!p.querySelector('[data-ai-pref="'+k+'"]')?.checked);aiSave(x);aiApply();toast('AI preferences saved.','success')});
  p.querySelector('#set-ai-reset')?.addEventListener('click',()=>{aiSave({...aiDefaults});aiRender();toast('AI preferences reset to OVYX defaults.','info')});
 }
-function ghStatusText(){return window.OVYXConnections?.github?'CONNECTED':'NOT CONNECTED'}
+function ghStatusText(){return window.OVYXConnections?.github?''Connected':'Not connected'}
 function ghRepoHtml(repos){if(!repos?.length)return '<div class="ovyx-empty-state">No repositories loaded yet. Connect GitHub and choose Load repositories.</div>';return repos.slice(0,12).map(r=>`<div class="ovyx-gh-repo"><div class="ovyx-gh-repo-main"><div class="ovyx-gh-repo-name">${esc7(r.full_name||r.name||'Repository')}</div><div class="ovyx-gh-repo-branch">${esc7(r.default_branch||'main')} · ${r.private?'Private':'Public'}</div></div><span class="ovyx-gh-sync">● SYNCED</span></div>`).join('')}
 function ghRender(){return false}
 function patchSettings(){if(!window.OVYXSettings||window.OVYXSettings.__n910)return;window.OVYXSettings.__n910=true;const S=window.OVYXSettings;const oldRender=S.renderPanels.bind(S);S.renderPanels=function(){const keep=S.current||'general';oldRender();aiRender();try{S.show(keep)}catch(e){console.warn('[OVYX runtime]',e)};};const oldShow=S.show.bind(S);S.show=function(id){const r=oldShow(id);if(id==='ai')setTimeout(aiRender,0);return r};S.renderPanels();}
@@ -5056,7 +5056,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   window.OVYXAIService=window.OVYXAIService||{
     async generate(payload){
       const ep=endpoints().aiEndpoint;
-      if(!ep)throw Error('AI service is not connected. Configure the secure /api/ai/assistant endpoint in OVYX Command Center.');
+      if(!ep)throw Error('AI service is not connected. Please try again later or choose another AI option.');
       const u=window.firebase?.auth?.().currentUser;
       if(!u)throw Error('Sign in before using the live AI service.');
       const token=await u.getIdToken();
@@ -5519,7 +5519,7 @@ function patchDrawer(){
     let liveWritten=false
     try{
       const db=window.firebase?.firestore?.()
-      if(!db)throw new Error('Template collection is not connected')
+      if(!db)throw new Error('Templates are not available right now')
       await db.collection('ovyx_templates').doc(item.id).set(item,{merge:true})
       liveWritten=true
     }catch(error){
