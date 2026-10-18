@@ -365,7 +365,7 @@
           return;
         }
         frame.srcdoc = composePreview({ ...build, html: build.files[file], htmlPath: file });
-        if (indicator) indicator.textContent = (route === '/' ? 'Home' : route.replace(/^\\/+|\\/+$/g, '').split('/').pop()) + ' · ' + route + ' · Interactive';
+        if (indicator) indicator.textContent = (route === '/' ? 'Home' : route.split('/').filter(Boolean).pop()) + ' · ' + route + ' · Interactive';
         status(panel, 'Live preview opened route ' + route + '.', 'success');
       };
       window.__OVYX_APP_STUDIO_LINK_NAV_HANDLER__ = routeHandler;
