@@ -36,7 +36,7 @@ async function getIdentity(request, env, id) {
   if (!auth.ok) return { response: auth.response };
   const uid = cleanText(auth.user?.uid || auth.user?.sub, 180);
   if (!uid || !auth.user?.email) {
-    return { response: errorResponse(401, 'AUTH_IDENTITY_REQUIRED', 'A verified Firebase account is required.', id) };
+    return { response: errorResponse(401, 'AUTH_IDENTITY_REQUIRED', 'Please sign in again to verify your account.', id) };
   }
   return { user: auth.user, uid };
 }
@@ -65,7 +65,7 @@ export async function onRequest(context) {
     }
 
     if (request.method !== 'PUT') {
-      return errorResponse(405, 'METHOD_NOT_ALLOWED', 'GET or PUT is required.', id);
+      return errorResponse(405, 'METHOD_NOT_ALLOWED', 'This action isn't supported.', id);
     }
 
     const body = await readJson(request, 12000);
@@ -88,7 +88,7 @@ export async function onRequest(context) {
 
     const saved = await getFirestoreDataAtPath(env, path);
     if (!saved || saved.displayName !== profile.displayName || saved.workspaceName !== profile.workspaceName) {
-      return errorResponse(503, 'PROFILE_WRITE_UNCONFIRMED', 'The server could not verify that the profile changes were saved.', id);
+      return errorResponse(503, 'PROFILE_WRITE_UNCONFIRMED', 'Your profile changes couldn't be saved. Please try again.', id);
     }
 
     return jsonResponse({
