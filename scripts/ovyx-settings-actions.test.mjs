@@ -83,7 +83,7 @@ assert.ok(html.includes("preferredProvider:payload.preferredProvider||''"), 'The
 assert.ok(html.includes("providerRouting:payload.providerRouting||'automatic'"), 'The final AI request body must forward the saved routing strategy.');
 assert.ok(html.includes("maxTokens:payload.maxTokens||4096"), 'The assistant request must forward the saved generation budget.');
 assert.ok(html.includes("maxTokens:payload.maxTokens||4096") && html.includes("preferredProvider:payload.preferredProvider||''"), 'AI preference fields must reach the authenticated API payload, not remain only in localStorage.');
-assert.ok(html.includes('Service availability check: GET <endpoint>/health'), 'The Data Layer must describe its service availability check accurately.');
+assert.ok(html.includes('Service status check') && html.includes('This check confirms only that the service responds. It does not verify data storage or app data operations.'), 'The Data Layer must describe its service check and limits in plain language.');
 assert.ok(html.includes('Download SQL schema creates a starter file on this device.'), 'The schema download must be described as a starter file, not a live database migration.');
 assert.ok(html.includes('Database setup') && html.includes('Not set up'), 'The Data Layer must not imply OVYX automatically provisions a database.');
 assert.ok(!html.includes('Production-ready relational storage'), 'The Data Layer must not claim production-ready PostgreSQL before a connection is provisioned and verified.');

@@ -3624,17 +3624,17 @@ Body: { broadcastId, title, body, category, link }</div>
     lastCheckedAt:0,
     statusLabel(status){
       const labels={
-        READY:'ACTIVE',
-        NOT_CONFIGURED:'NOT CONFIGURED',
-        AUTH_FAILED:'AUTH FAILED',
-        TIMEOUT:'TIMEOUT',
-        RATE_LIMITED:'RATE LIMITED',
-        INSUFFICIENT_CREDITS:'CREDITS NEEDED',
-        UPSTREAM_ERROR:'PROVIDER ERROR',
-        UNAVAILABLE:'UNAVAILABLE',
-        PREVIEW:'PREVIEW'
+        READY:'Ready',
+        NOT_CONFIGURED:'Setup required',
+        AUTH_FAILED:'Sign-in failed',
+        TIMEOUT:'Timed out',
+        RATE_LIMITED:'Rate limited',
+        INSUFFICIENT_CREDITS:'Credits needed',
+        UPSTREAM_ERROR:'Needs attention',
+        UNAVAILABLE:'Unavailable',
+        PREVIEW:'Preview'
       };
-      return labels[status]||'UNAVAILABLE';
+      return labels[status]||'Unavailable';
     },
     setProvider(id,status,details={}){
       this.providers[id]={status,...details};
@@ -3731,7 +3731,7 @@ Body: { broadcastId, title, body, category, link }</div>
             ready++;
             this.setProvider(id,'READY',{label:item.label||PROVIDER_LABELS[id],model:item.model||'',latencyMs:item.latencyMs});
           }else{
-            this.setProvider(id,status==='NOT_CONFIGURED'?'NOT_CONFIGURED':status,{error:item.error||({AUTH_FAILED:'Provider authentication failed (HTTP '+String(item.httpStatus||'401/403')+').',TIMEOUT:'Provider request timed out.',RATE_LIMITED:'Provider rate limit reached (HTTP '+String(item.httpStatus||429)+'). Try again later.',INSUFFICIENT_CREDITS:'Provider reports insufficient credits (HTTP '+String(item.httpStatus||402)+').',UPSTREAM_ERROR:'Provider API returned a server error (HTTP '+String(item.httpStatus||'5xx')+').',UNAVAILABLE:'Provider did not respond successfully (HTTP '+String(item.httpStatus||'unknown')+').'}[status]||'Provider is not ready.')});
+            this.setProvider(id,status==='NOT_CONFIGURED'?'NOT_CONFIGURED':status,{error:item.error||({AUTH_FAILED:'Sign-in could not be verified. Review the AI service settings.',TIMEOUT:'The availability check took too long. Try again.',RATE_LIMITED:'Too many requests were made. Try again later.',INSUFFICIENT_CREDITS:'This AI option has reached its available credit limit.',UPSTREAM_ERROR:'This AI option encountered an error. Try again later.',UNAVAILABLE:'This AI option could not be reached. Try again later.'}[status]||'Provider is not ready.')});
           }
         });
         // Fill any missing provider rows without marking them as healthy.
@@ -4653,9 +4653,9 @@ function helpCenter(){
  {q:'Does Appearance save my preferences?',a:'Yes. Appearance mode, density, interface scale and motion settings are persisted locally and reapplied when OVYX starts.',cat:'Appearance'},
  {q:'How does project data storage work?',a:'OVYX can keep supported workspace state locally for resilience while production projects can use a secure server-side data store. Database credentials never belong in the browser.',cat:'Data'},
  {q:'Is project data synced automatically?',a:'Only a verified server connection can claim live synchronization. OVYX should never show a live status until the secure service actually responds.',cat:'Data'},
- {q:'Can I export my project data?',a:'OVYX is designed around portable project data and source. Production export formats can be added without exposing database credentials or internal provider configuration.',cat:'Data'},
- {q:'What is AI Usage?',a:'AI Usage shows the current server-verified OVYX allocation and purchased Token Booster balance. Your active plan determines the base allowance, and the server is the source of truth for usage and remaining capacity.',cat:'Billing'},
- {q:'How does Billing work?',a:'Billing shows the current plan, AI capacity, boosters and subscription options. OVYX does not claim a purchase succeeded without a real checkout/backend response. Real billing activation should be confirmed server-side.',cat:'Billing'},
+ {q:'Can I export my project data?',a:'OVYX keeps your app files portable so you can export and reuse your work. Sensitive access credentials are never included in exported files.',cat:'Data'},
+ {q:'What is AI Usage?',a:'AI Usage shows your current monthly allowance and purchased Token Booster balance. Your plan determines the base allowance, and your remaining balance updates as you use OVYX.',cat:'Billing'},
+ {q:'How does Billing work?',a:'Billing shows the current plan, AI capacity, boosters and subscription options. A purchase is confirmed only after checkout reports success. Paid features become available once the purchase is verified.',cat:'Billing'},
  {q:'Why is my billing history empty?',a:'Billing history is populated from verified payment transactions. If no verified transaction exists yet, the history can be empty.',cat:'Billing'},
  {q:'What does Security show?',a:'Security shows the authenticated state, current browser/device information and account security metadata when available. The Security panel also provides a server-backed Log Out All Devices action that revokes authenticated sessions and then signs out this browser.',cat:'Security'},
  {q:'How do I change my profile photo?',a:'Open Settings → Profile, select the camera button, choose a JPG, PNG or WebP image, and save the profile. OVYX resizes the image locally. Profile synchronization is handled by the account service when enabled.',cat:'Account'},
@@ -4690,7 +4690,7 @@ window.OVYXDataLayerSettings={projectSyncEnabled(){return dbCfg().projectSync!==
 function dbCfg(){try{return {...{endpoint:'',projectSync:true},...JSON.parse(localStorage.getItem(DBKEY)||'{}')}}catch{return {endpoint:'',projectSync:true}}}
 function dbSave(x){try{localStorage.setItem(DBKEY,JSON.stringify(x));return true}catch{return false}}
 const escDataLayer = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
-function renderDataLayer(){const S=window.OVYXSettings,p=S?.root?.querySelector('[data-settings-panel="workspace"]');if(!p)return;const c=dbCfg();let layer=p.querySelector('#ovyx-data-layer-panel');if(!layer){layer=document.createElement('div');layer.id='ovyx-data-layer-panel';layer.className='ovyx-data-layer-panel';p.appendChild(layer)}layer.innerHTML=`<div class="ovyx-panel-head"><div class="ovyx-panel-kicker">WORKSPACE / DATA</div><h2>OVYX Data Layer</h2><p>Configure an external data source for this app. Its address is stored on this device. The test checks whether the service responds; it does not create a database. Ensure the service manages its own credentials and access permissions.</p></div><div class="ovyx-data-grid"><div class="ovyx-data-card"><b>Database setup</b><small>This workspace does not create databases or run migrations automatically.</small><span class="ovyx-data-status"><i class="fa-solid fa-circle"></i> Not set up</span></div><div class="ovyx-data-card"><b>Service availability</b><small>This check confirms only that the service responds. It does not verify data storage or app data operations.</small><span class="ovyx-data-status"><i class="fa-solid fa-shield-halved"></i> Health check only</span></div></div><div class="ovyx-pref-group"><div class="ovyx-pref-label">BACKEND CONNECTION</div>${S.row('Data source address','Optional data service address; used only to check availability',`<input class="ovyx-pref-input" id="ovyx-data-endpoint" value="${escDataLayer(c.endpoint)}" placeholder="https://your-domain.com/api/data" autocomplete="off">`)}${S.row('OVYX cloud project sync','Enable or pause the existing authenticated OVYX project sync service',`<button type="button" class="ovyx-notify-toggle" id="ovyx-data-sync" role="switch" aria-checked="${!!c.projectSync}"><span></span></button>`)}</div><div class="ovyx-data-code">Service availability check: GET <endpoint>/health\n\nTest API uses this address only to check whether the service responds. It does not store app data or verify data operations. Your saved apps continue to use the existing save feature.\n\nDownload SQL schema creates a starter file on this device. It does not connect a database or run migrations.\n\nYour chosen data service must protect account access, validate data, and keep credentials secure.</div><div class="ovyx-data-actions"><button class="ovyx-settings-btn primary" id="ovyx-data-save">Save Data Settings</button><button class="ovyx-settings-btn" id="ovyx-data-test">Test API</button><button class="ovyx-settings-btn" id="ovyx-data-schema">Download SQL schema</button></div><div id="ovyx-data-result" class="ovyx-connection-note">No external data service is configured yet. Its status will update after a successful check.</div>`;const sync=p.querySelector('#ovyx-data-sync');sync.onclick=()=>{const x=dbCfg();x.projectSync=!x.projectSync;dbSave(x);sync.setAttribute('aria-checked',String(x.projectSync));window.OVYXDataLayerSettings?.changed?.(x.projectSync);const out=p.querySelector('#ovyx-data-result');if(out)out.textContent=x.projectSync?'OVYX cloud project sync enabled. Existing authenticated /api/projects sync will resume.':'OVYX cloud project sync paused. Local project edits remain on this device until sync is re-enabled.';toast(x.projectSync?'Cloud project sync enabled.':'Cloud project sync paused.','success')};p.querySelector('#ovyx-data-save').onclick=()=>{const x=dbCfg();x.endpoint=p.querySelector('#ovyx-data-endpoint').value.trim().replace(/\/$/,'');x.projectSync=sync.getAttribute('aria-checked')==='true';dbSave(x);toast('Data layer settings saved.','success')};p.querySelector('#ovyx-data-test').onclick=async()=>{const ep=p.querySelector('#ovyx-data-endpoint').value.trim().replace(/\/$/,'');const out=p.querySelector('#ovyx-data-result');if(!ep){out.textContent='Add your secure data API endpoint first.';return}out.textContent='Testing backend…';try{const r=await fetch(ep+'/health',{headers:{Accept:'application/json'},credentials:'omit',cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);const d=await r.json().catch(()=>({}));out.textContent='Health endpoint responded successfully'+(d.database?' · backend-reported database: '+String(d.database):'')+'. This verifies only the health endpoint, not PostgreSQL connectivity or project CRUD.';toast('Data API health check passed.','success')}catch(e){out.textContent='Backend test failed: '+(e.message||'Unable to reach the data API.');toast('Data API test failed.','error')}};p.querySelector('#ovyx-data-schema').onclick=()=>{const sql=`-- OVYX PostgreSQL foundation schema\ncreate table if not exists ovyx_projects (\n  id text primary key,\n  owner_id text not null,\n  name text not null,\n  description text default '',\n  status text default 'draft',\n  schema_version integer default 1,\n  data jsonb not null default '{}'::jsonb,\n  created_at timestamptz not null default now(),\n  updated_at timestamptz not null default now()\n);\ncreate index if not exists ovyx_projects_owner_updated on ovyx_projects(owner_id, updated_at desc);\ncreate table if not exists ovyx_project_revisions (\n  id bigserial primary key,\n  project_id text not null references ovyx_projects(id) on delete cascade,\n  owner_id text not null,\n  snapshot jsonb not null,\n  created_at timestamptz not null default now()\n);\ncreate index if not exists ovyx_revisions_project_created on ovyx_project_revisions(project_id, created_at desc);\ncreate table if not exists ovyx_ai_usage (\n  id bigserial primary key,\n  owner_id text not null,\n  tokens integer not null default 0,\n  provider text,\n  model text,\n  created_at timestamptz not null default now()\n);\ncreate index if not exists ovyx_ai_usage_owner_created on ovyx_ai_usage(owner_id, created_at desc);\n`;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([sql],{type:'text/plain'}));a.download='ovyx-postgresql-schema.sql';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),600)}}
+function renderDataLayer(){const S=window.OVYXSettings,p=S?.root?.querySelector('[data-settings-panel="workspace"]');if(!p)return;const c=dbCfg();let layer=p.querySelector('#ovyx-data-layer-panel');if(!layer){layer=document.createElement('div');layer.id='ovyx-data-layer-panel';layer.className='ovyx-data-layer-panel';p.appendChild(layer)}layer.innerHTML=`<div class="ovyx-panel-head"><div class="ovyx-panel-kicker">WORKSPACE / DATA</div><h2>OVYX Data Layer</h2><p>Configure an external data source for this app. Its address is stored on this device. The test checks whether the service responds; it does not create a database. Ensure the service manages its own credentials and access permissions.</p></div><div class="ovyx-data-grid"><div class="ovyx-data-card"><b>Database setup</b><small>This workspace does not create databases or run migrations automatically.</small><span class="ovyx-data-status"><i class="fa-solid fa-circle"></i> Not set up</span></div><div class="ovyx-data-card"><b>Service availability</b><small>This check confirms only that the service responds. It does not verify data storage or app data operations.</small><span class="ovyx-data-status"><i class="fa-solid fa-shield-halved"></i> Health check only</span></div></div><div class="ovyx-pref-group"><div class="ovyx-pref-label">BACKEND CONNECTION</div>${S.row('Data source address','Optional data service address; used only to check availability',`<input class="ovyx-pref-input" id="ovyx-data-endpoint" value="${escDataLayer(c.endpoint)}" placeholder="https://your-domain.com/api/data" autocomplete="off">`)}${S.row('OVYX cloud project sync','Enable or pause the existing authenticated OVYX project sync service',`<button type="button" class="ovyx-notify-toggle" id="ovyx-data-sync" role="switch" aria-checked="${!!c.projectSync}"><span></span></button>`)}</div><div class="ovyx-data-code">Service status check\n\nThis check confirms only that the service responds. It does not verify data storage or app data operations. Your saved apps continue to use the existing save feature.\n\nDownload SQL schema creates a starter file on this device. It does not connect a database or run migrations.\n\nYour chosen data service must protect account access, validate data, and keep credentials secure.</div><div class="ovyx-data-actions"><button class="ovyx-settings-btn primary" id="ovyx-data-save">Save Data Settings</button><button class="ovyx-settings-btn" id="ovyx-data-test">Test API</button><button class="ovyx-settings-btn" id="ovyx-data-schema">Download SQL schema</button></div><div id="ovyx-data-result" class="ovyx-connection-note">No external data service is configured yet. Its status will update after a successful check.</div>`;const sync=p.querySelector('#ovyx-data-sync');sync.onclick=()=>{const x=dbCfg();x.projectSync=!x.projectSync;dbSave(x);sync.setAttribute('aria-checked',String(x.projectSync));window.OVYXDataLayerSettings?.changed?.(x.projectSync);const out=p.querySelector('#ovyx-data-result');if(out)out.textContent=x.projectSync?'OVYX cloud project sync enabled. Existing authenticated /api/projects sync will resume.':'OVYX cloud project sync paused. Local project edits remain on this device until sync is re-enabled.';toast(x.projectSync?'Cloud project sync enabled.':'Cloud project sync paused.','success')};p.querySelector('#ovyx-data-save').onclick=()=>{const x=dbCfg();x.endpoint=p.querySelector('#ovyx-data-endpoint').value.trim().replace(/\/$/,'');x.projectSync=sync.getAttribute('aria-checked')==='true';dbSave(x);toast('Data layer settings saved.','success')};p.querySelector('#ovyx-data-test').onclick=async()=>{const ep=p.querySelector('#ovyx-data-endpoint').value.trim().replace(/\/$/,'');const out=p.querySelector('#ovyx-data-result');if(!ep){out.textContent='Add your secure data API endpoint first.';return}out.textContent='Testing backend…';try{const r=await fetch(ep+'/health',{headers:{Accept:'application/json'},credentials:'omit',cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);const d=await r.json().catch(()=>({}));out.textContent='Service check completed successfully. This check confirms only that the service responds. It does not verify data storage or app data operations.';toast('Service check completed.','success')}catch(e){out.textContent='The service could not be reached. Check the service address and try again.';toast('The service check could not be completed.','error')}};p.querySelector('#ovyx-data-schema').onclick=()=>{const sql=`-- OVYX PostgreSQL foundation schema\ncreate table if not exists ovyx_projects (\n  id text primary key,\n  owner_id text not null,\n  name text not null,\n  description text default '',\n  status text default 'draft',\n  schema_version integer default 1,\n  data jsonb not null default '{}'::jsonb,\n  created_at timestamptz not null default now(),\n  updated_at timestamptz not null default now()\n);\ncreate index if not exists ovyx_projects_owner_updated on ovyx_projects(owner_id, updated_at desc);\ncreate table if not exists ovyx_project_revisions (\n  id bigserial primary key,\n  project_id text not null references ovyx_projects(id) on delete cascade,\n  owner_id text not null,\n  snapshot jsonb not null,\n  created_at timestamptz not null default now()\n);\ncreate index if not exists ovyx_revisions_project_created on ovyx_project_revisions(project_id, created_at desc);\ncreate table if not exists ovyx_ai_usage (\n  id bigserial primary key,\n  owner_id text not null,\n  tokens integer not null default 0,\n  provider text,\n  model text,\n  created_at timestamptz not null default now()\n);\ncreate index if not exists ovyx_ai_usage_owner_created on ovyx_ai_usage(owner_id, created_at desc);\n`;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([sql],{type:'text/plain'}));a.download='ovyx-postgresql-schema.sql';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),600)}}
 function patchWorkspace(){const S=window.OVYXSettings;if(!S||S.__n1415)return;S.__n1415=true;const oldShow=S.show.bind(S);S.show=function(id){const r=oldShow(id);if(id==='workspace')setTimeout(renderDataLayer,0);return r};if(S.current==='workspace')renderDataLayer()}
 function init(){try{patchWorkspace()}catch(e){console.warn('[OVYX data layer]',e)}}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(init,60),{once:true});else setTimeout(init,60);
@@ -4956,7 +4956,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     document.getElementById('v34-broadcast-publish')?.addEventListener('click',async()=>{
       const u=window.firebase?.auth?.().currentUser;
       if(!u||window.OVYXServerOwner?.active!==true)return setStatus(status,'Owner authentication is required.',false);      if(!body.value.trim())return setStatus(status,'Write a message before publishing.',false);
-      if(!window.firebase?.firestore)return setStatus(status,'Firestore is not available in this build.',false);
+      if(!window.firebase?.firestore)return setStatus(status,'The announcement service is temporarily unavailable. Please try again later.',false);
       const btn=document.getElementById('v34-broadcast-publish');btn.disabled=true;btn.textContent='Publishing…';
       try{
         const ref=await firebase.firestore().collection('ovyx_announcements').add({
@@ -4983,11 +4983,11 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
         }
         setStatus(status,emailResult,true);
         title.value='';body.value='';link.value='';email.checked=false;
-        toast('Broadcast published to the live OVYX inbox.','success');
-      }catch(e){setStatus(status,'Broadcast failed: '+(e.message||'Firestore write failed.'),false);toast('Broadcast could not be published.','error')}
+        toast('Announcement published successfully.','success');
+      }catch(e){setStatus(status,'The announcement could not be published. Please try again.',false);toast('The announcement could not be published.','error')}
       finally{btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-paper-plane"></i> Publish to users'}
     });
-    setStatus(status,window.firebase?.firestore?'Firestore ready.':'Firestore unavailable.');
+    setStatus(status,window.firebase?.firestore?'Announcements are ready.':'The announcement service is currently unavailable.');
   }
   /* ---------- Router + owner console extensions ---------- */
   if(window.OvyxOwnerConsole){
@@ -5242,7 +5242,7 @@ function patchDrawer(){
     const payload=await response.json();
     const list=Array.isArray(payload)?payload:(Array.isArray(payload.providers)?payload.providers:(Array.isArray(payload.services)?payload.services:(Array.isArray(payload.statuses)?payload.statuses:(Array.isArray(payload.data)?payload.data:[]))));
     if(!list.length)throw new Error('Service status response did not contain a provider status array.');
-    ['gemini','groq','deepseek','anthropic','openai'].forEach(id=>{const item=list.find(x=>providerKey(x)===id);renderStatus(id,!!item&&providerStatus(item)==='CONFIGURED');const l=$('#brain-latency-'+id);if(l)l.textContent=item&&providerStatus(item)==='CONFIGURED'?'CONFIGURED · NOT TESTED':'NOT CONFIGURED'});
+    ['gemini','groq','deepseek','anthropic','openai'].forEach(id=>{const item=list.find(x=>providerKey(x)===id);renderStatus(id,!!item&&providerStatus(item)==='CONFIGURED');const l=$('#brain-latency-'+id);if(l)l.textContent=item&&providerStatus(item)==='CONFIGURED'?'Configured · not checked':'Setup required'});
     $$('[data-ovyx-service-warning],#service-status-warning,.service-status-warning,.backend-warning-banner,#admin-service-warning').forEach(e=>{e.hidden=true;e.remove()});
     window.OVYX_LIVE_SERVICE_STATE={ok:true,providers:list,fetchedAt:Date.now(),rtt:Math.round(performance.now()-started)};
     return list;
@@ -11044,7 +11044,7 @@ window.addEventListener('pageshow',()=>setTimeout(install,0),{passive:true});
   function onChange(e){
     const id=e.target?.id;
     if(id==='v59-file-input'||id==='v59-camera-photo'||id==='v59-camera-scan'){addFiles(e.target.files||[]);e.target.value='';return}
-    if(id==='v59-model-select'){const value=e.target.value||'automatic';try{localStorage.setItem('ovyx_selected_ai_brain',value)}catch{};const note=$('v59-routing-note'),labels={automatic:'OVYX Auto',openai:'OpenAI · GPT-3.5',anthropic:'Claude',deepseek:'DeepSeek',gemini:'Gemini'};if(note)note.innerHTML=`<i class="fa-solid fa-route"></i><span>${labels[value]||'OVYX Auto'} selected · OVYX will use only this provider. If unavailable, try later or connect your own AI Brain.</span>`;return}
+    if(id==='v59-model-select'){const value=e.target.value||'automatic';try{localStorage.setItem('ovyx_selected_ai_brain',value)}catch{};const note=$('v59-routing-note'),labels={automatic:'OVYX Auto',openai:'OpenAI · GPT-3.5',anthropic:'Claude',deepseek:'DeepSeek',gemini:'Gemini'};if(note)note.innerHTML=`<i class="fa-solid fa-route"></i><span>${labels[value]||'OVYX Auto'} selected · OVYX will use this option for your request. If it is unavailable, choose OVYX Auto or another available option.</span>`;return}
   }
   function onInput(e){
     if(e.target?.id==='prompt-home-input'){const el=e.target;el.style.height='auto';el.style.height=Math.min(Math.max(el.scrollHeight,112),300)+'px';}
@@ -12272,12 +12272,12 @@ window.OVYXWebStudioNavigation.bind();
       'auth/wrong-password':'We could not sign in with those details. Check your email and password, or use Forgot password.',
       'auth/invalid-credential':'We could not sign in with those details. Check your email and password, or use Forgot password.',
       'auth/user-disabled':'This account is disabled. Please contact OVYX support.',
-      'auth/network-request-failed':'OVYX could not reach Firebase. Check your internet connection and try again.',
-      'auth/too-many-requests':'Too many attempts were made. Wait a little before trying again.',      'auth/operation-not-allowed':'This sign-in method is not enabled for the current Firebase project.',
+      'auth/network-request-failed':'A network issue interrupted sign-in. Check your connection and try again.',
+      'auth/too-many-requests':'Too many attempts were made. Wait a little before trying again.',      'auth/operation-not-allowed':'This sign-in option is not available here. Choose another option or contact support.',
       'auth/email-already-in-use':'An account already exists with this email. Choose Sign In instead.',
       'auth/weak-password':'Choose a stronger password with at least 6 characters.',
-      'auth/invalid-api-key':'Firebase rejected the web API key. The deployment’s Firebase configuration must be checked.',
-      'auth/app-not-authorized':'This OVYX domain is not authorized by Firebase Authentication. Check Firebase Authorized domains.'
+      'auth/invalid-api-key':'Sign-in is temporarily unavailable. Please try again later.',
+      'auth/app-not-authorized':'This website is not currently authorized for this sign-in option. Choose another option or contact support.'
     };
     if(messages[code])return messages[code];
     const raw=String(error?.message||'').trim();
@@ -12405,7 +12405,7 @@ window.OVYXWebStudioNavigation.bind();
     const submit=document.getElementById('ovyx-master-auth-submit');
     if(!email||!password){status('Enter your email and password.','error');return}
     const a=auth();
-    if(!a){status('Firebase Authentication is unavailable in this runtime.','error');return}
+    if(!a){status('Sign-in is temporarily unavailable. Please try again later.','error');return}
     if(submit){submit.disabled=true;submit.textContent='Authenticating…'}
     status('Signing you in securely…');
     let authenticatedUser=null;
@@ -12430,7 +12430,7 @@ window.OVYXWebStudioNavigation.bind();
     const confirm=String(document.getElementById('ovyx-master-auth-confirm')?.value||'');
     if(!email||password.length<6){status('Enter a valid email and a password of at least 6 characters.','error');return}
     if(window.isSignUpMode&&password!==confirm){status('The passwords do not match.','error');return}
-    if(!auth()){status('Firebase Authentication is unavailable in this runtime.','error');return}
+    if(!auth()){status('Sign-in is temporarily unavailable. Please try again later.','error');return}
     const submit=document.getElementById('ovyx-master-auth-submit');
     if(submit){submit.disabled=true;submit.textContent='Creating Account…'}
     try{
@@ -12487,9 +12487,9 @@ window.OVYXWebStudioNavigation.bind();
   async function popupSignIn(kind){
     const providerName=kind==='github'?'GitHub':'Google';
     const a=auth();
-    if(!a)return status('Firebase Authentication is unavailable in this runtime. Please wait for Firebase to finish loading and try again.','error');
+    if(!a)return status('Sign-in is still loading. Please wait a moment and try again.','error');
     const Provider=kind==='github'?window.firebase?.auth?.GithubAuthProvider:window.firebase?.auth?.GoogleAuthProvider;
-    if(typeof Provider!=='function')return status(providerName+' Sign-In is unavailable in this build. Firebase Authentication did not load the OAuth provider.','error');
+    if(typeof Provider!=='function')return status(providerName+' Sign-In is unavailable in this build. This sign-in option could not be loaded. Please try another option.','error');
     const button=document.getElementById(kind==='github'?'ovyx-auth-github-btn':'ovyx-auth-google-btn');
     if(button)button.disabled=true;
     saveOAuthIntent('signin');
@@ -12523,11 +12523,11 @@ window.OVYXWebStudioNavigation.bind();
       }
       const message=
         code==='auth/registration-required' || code==='auth/registration-check-unavailable' ? error.message :
-        code==='auth/operation-not-allowed' ? providerName+' sign-in is not enabled in the Firebase Authentication providers for this OVYX deployment.' :
+        code==='auth/operation-not-allowed' ? providerName+' sign-in is not available here. Choose another option or contact support.' :
         code==='auth/popup-blocked' ? providerName+' sign-in was blocked by the browser. Allow popups for OVYX and try again.' :
         code==='auth/cancelled-popup-request' ? 'Another sign-in window is already open.' :
         code==='auth/account-exists-with-different-credential' ? 'This email already uses another OVYX sign-in method. Sign in with that method first.' :
-        code==='auth/unauthorized-domain' ? 'This OVYX domain is not authorized for Firebase Authentication. Add the deployed domain to Firebase Authentication → Settings → Authorized domains.' :
+        code==='auth/unauthorized-domain' ? 'This website is not currently authorized for this sign-in option. Please try another option or contact support.' :
         code==='auth/popup-closed-by-user' ? 'Sign-in window closed. You can try again when ready.' :
         error?.message||providerName+' sign-in failed.';
       status(message,code==='auth/popup-closed-by-user'?'':'error');
@@ -12633,7 +12633,7 @@ window.OVYXWebStudioNavigation.bind();
     }catch(error){
       clearOAuthIntent();
       const code=String(error?.code||'');
-      status(code==='auth/unauthorized-domain'?'This OVYX domain is not authorized for Firebase Authentication. Add the deployed domain to Firebase Authentication → Settings → Authorized domains.':(code==='auth/registration-required'||code==='auth/registration-check-unavailable')?error.message:(error?.message||'OAuth sign-in could not be completed.'),'error');
+      status(code==='auth/unauthorized-domain'?'This website is not currently authorized for this sign-in option. Please try another option or contact support.':(code==='auth/registration-required'||code==='auth/registration-check-unavailable')?error.message:(error?.message||'OAuth sign-in could not be completed.'),'error');
     }
     installFetchLock();
     a.onAuthStateChanged(async u=>{
