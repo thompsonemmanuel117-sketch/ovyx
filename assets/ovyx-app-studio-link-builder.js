@@ -1275,7 +1275,7 @@
       const { artifact, warnings } = validation;
       const label = action === 'publish' ? 'Publish this app to production' : 'Deploy a preview version';
       const warningNote = warnings ? '\n\nQuality checks recorded ' + warnings + ' warning(s). They do not prevent publishing, but review them first.' : '';
-      if (typeof window.confirm !== 'function' || !window.confirm(label + '?\n\nApp: ' + artifact.name + '\nInspected routes: ' + (artifact.pageCount || 1) + '\nOutput: static website files.\nForm submissions and app state remain local. External OVYX account APIs and third-party services are not enabled on the published site.' + warningNote + '\n\nThis sends the generated files to your configured Cloudflare account.')) {
+      if (typeof window.confirm !== 'function' || !window.confirm(label + '?\n\nApp: ' + artifact.name + '\nInspected routes: ' + (artifact.pageCount || 1) + '\nOutput: static website files.\nForm submissions and app state remain local. Account features and third-party integrations require a signed-in preview or separate setup.' + warningNote + '\n\nThis sends your app files to your configured publishing destination.')) {
         setReleaseStatus(panel, '[data-lb-web-status]', 'Publishing cancelled. No changes were made to the live website.', 'info');
         return;
       }
