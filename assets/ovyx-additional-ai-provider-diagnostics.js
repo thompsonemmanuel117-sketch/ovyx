@@ -49,13 +49,13 @@
       const heading = document.createElement('div');
       const kicker = document.createElement('div');
       kicker.className = 'oad-kicker';
-      kicker.textContent = 'Extended provider checks';
+      kicker.textContent = 'Additional AI service checks';
       const title = document.createElement('div');
       title.className = 'oad-title';
       title.textContent = 'Groq & OpenRouter';
       const note = document.createElement('div');
       note.className = 'oad-note';
-      note.textContent = 'Live server-side checks; secret values never appear here.';
+      note.textContent = 'Checks current service availability. Credential values are always kept private.';
       heading.append(kicker, title, note);
       const refresh = document.createElement('button');
       refresh.type = 'button';
@@ -82,11 +82,11 @@
         row.append(name, status);
         const key = document.createElement('div');
         key.className = 'oad-key';
-        key.textContent = 'Secret: ' + provider.key;
+        key.textContent = 'Configuration: managed securely;
         const detail = document.createElement('div');
         detail.className = 'oad-detail';
         detail.id = 'oad-detail-' + provider.id;
-        detail.textContent = 'Waiting for an authenticated server check.';
+        detail.textContent = 'Waiting for a secure availability check…';
         card.append(row, key, detail);
         gridEl.appendChild(card);
       });
@@ -103,7 +103,7 @@
     try {
       const user = currentUser();
       if (!user || typeof user.getIdToken !== 'function') {
-        PROVIDERS.forEach(p => update(p.id, { status: 'AUTH_REQUIRED', message: 'Sign in as the owner to run live checks.' }));
+        PROVIDERS.forEach(p => update(p.id, { status: 'AUTH_REQUIRED', message: 'Sign in with an owner account to check service availability.' }));
         return;
       }
       const token = await user.getIdToken();
@@ -114,14 +114,14 @@
         headers: { Accept: 'application/json', Authorization: 'Bearer ' + token },
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error('Live diagnostics could not be loaded (HTTP ' + response.status + ').');
+      if (!response.ok) throw new Error('Service availability couldn't be checked right now. Please try again.');
       const rows = Array.isArray(data.additionalProviders) ? data.additionalProviders : [];
       PROVIDERS.forEach(p => {
         const result = rows.find(row => String(row.provider || '').toLowerCase() === p.id);
-        if (!result) update(p.id, { status: 'UNAVAILABLE', message: 'This provider was not returned by the server.' });
+        if (!result) update(p.id, { status: 'UNAVAILABLE', message: 'No status is available for this service.' });
         else update(p.id, {
           status: String(result.status || 'UNAVAILABLE').toUpperCase(),
-          message: result.error || (result.httpStatus ? 'Provider replied with HTTP ' + result.httpStatus + '.' : result.status === 'READY' ? 'Provider authentication succeeded.' : result.status === 'NOT_CONFIGURED' ? 'No secret value is available to this deployed runtime.' : 'Provider is not ready.'),
+          message: result.error || (result.httpStatus ? 'Provider replied with HTTP ' + result.httpStatus + '.' : result.status === 'READY' ? 'Provider authentication succeeded.' : result.status === 'NOT_CONFIGURED' ? 'This service hasn't been configured yet.' : 'This service isn't ready to use yet.'),
         });
       });
       if (!section.dataset.loaded) {
@@ -129,7 +129,7 @@
         section.dataset.checkedAt = String(data.checkedAt || new Date().toISOString());
       }
     } catch (error) {
-      PROVIDERS.forEach(p => update(p.id, { status: 'UNAVAILABLE', message: String(error?.message || 'Live check failed.').slice(0, 140) }));
+      PROVIDERS.forEach(p => update(p.id, { status: 'UNAVAILABLE', message: String(error?.message || 'Availability check failed.').slice(0, 140) }));
     } finally {
       section.dataset.loading = '0';
     }
@@ -141,7 +141,7 @@
       status.textContent = String(data.status || 'UNAVAILABLE').replace(/_/g, ' ');
       status.dataset.status = String(data.status || 'UNAVAILABLE').toUpperCase();
     }
-    if (detail) detail.textContent = String(data.message || 'No diagnostic details available.').slice(0, 180);
+    if (detail) detail.textContent = String(data.message || 'No additional information is available.').slice(0, 180);
   }
   function adminBrainIsVisible() {
     const admin = document.getElementById('view-admin-brain');
