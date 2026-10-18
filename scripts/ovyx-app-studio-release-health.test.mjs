@@ -33,7 +33,7 @@ assert.ok(runtime.includes('mobileStandaloneHtml') && runtime.includes('ovyx-mob
 assert.ok(runtime.includes('data-ovyx-published-actions') && runtime.includes('connect-src'), 'The published static build must disclose/localize supported actions and block arbitrary network calls.');
 assert.ok(runtime.includes('window.confirm') && runtime.includes('Save release details'), 'Publishing and cloud release-record writes must ask for confirmation.');
 assert.ok(runtime.includes('saveReleaseRecord') && runtime.includes('releaseHistory'), 'Release status history must be savable through the existing authenticated OVYX Projects endpoint.');
-assert.ok(runtime.includes('OVYX account APIs are available only inside the authenticated OVYX preview'), 'A public static release must not pretend it has authenticated OVYX account APIs.');
+assert.ok(runtime.includes('Account features are available only in the signed-in OVYX preview'), 'A public static release must not pretend it has authenticated OVYX account APIs.');
 assert.ok(deployRoute.includes("body?.action==='publish'") && deployRoute.includes('onRequestPost'), 'The existing Cloudflare route must support preview and production actions.');
 assert.ok(mobileRoute.includes('EAS_BUILD_NOT_CONFIGURED') && mobileRoute.includes('platforms'), 'The UI must rely on the existing configured EAS pipeline and its platform validation.');
 assert.ok(statusRoute.includes('BUILD_ACCESS_DENIED') && statusRoute.includes('workflowStatus'), 'Mobile status is user-owned and reports provider workflow status.');
