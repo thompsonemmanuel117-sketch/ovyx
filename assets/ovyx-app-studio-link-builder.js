@@ -1353,14 +1353,17 @@
       const query = new URLSearchParams({ projectId: artifact.id, deploymentId: record.deploymentId, projectName: artifact.name });
       const data = await deploymentRequest('/api/app-studio/release-health?' + query.toString(), {}, token);
       if (data.ok !== true || !data.health) throw new Error(data.error || 'Release health did not return an authoritative result.');
-      record.status = String(data.deployment?.status || record.status);
-      record.stage = String(data.deployment?.stage || record.stage || '');
-      record.environment = String(data.deployment?.environment || record.environment || '');
-      record.url = safeUrl(data.deployment?.url) || record.url;
-      record.health = data.health;
-      record.health.checkedAt = data.checkedAt || new Date().toISOString();
+      // refreshWebDeploymentStatus() re-renders the panel, which restores a cloned
+      // release state from localStorage. Re-acquire the current record after that
+      // render so the health result is attached to the persisted record, not a stale object.
+      const currentRecord = artifact.releaseState?.web?.[slot] || record;
+      currentRecord.status = String(data.deployment?.status || currentRecord.status);
+      currentRecord.stage = String(data.deployment?.stage || currentRecord.stage || '');
+      currentRecord.environment = String(data.deployment?.environment || currentRecord.environment || '');
+      currentRecord.url = safeUrl(data.deployment?.url) || currentRecord.url;
+      currentRecord.health = { ...data.health, checkedAt: data.checkedAt || new Date().toISOString() };
       persistReleaseState(artifact); renderReleaseState(panel);
-      const message = 'Release health: ' + data.health.status + '. Provider stage: ' + record.status + (data.health.httpStatus ? ' · HTTP ' + data.health.httpStatus : '') + (data.health.message ? ' · ' + data.health.message : '');
+      const message = 'Release health: ' + data.health.status + '. Provider stage: ' + currentRecord.status + (data.health.httpStatus ? ' · HTTP ' + data.health.httpStatus : '') + (data.health.message ? ' · ' + data.health.message : '');
       setReleaseStatus(panel, '[data-lb-web-status]', message, data.health.status === 'healthy' ? 'success' : 'error');
       appendReleaseDiagnostic(panel, message);
     } catch (error) {
