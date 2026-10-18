@@ -181,7 +181,7 @@
       if (page.path) idsByPagePath.set(page.path, ids);
     });
     if (!pages.length) {
-      addCheck(report, 'Project artifacts', 'Generated website files', 'fail', 'No complete website page was found. A preview can't be marked as verified until a valid page is available.');
+      addCheck(report, 'Project artifacts', 'Generated website files', 'fail', 'No complete website page was found. A preview cannot be marked as verified until a valid page is available.');
       return;
     }
     addCheck(report, 'Project artifacts', 'Generated website files', 'pass', pages.length + ' website page(s) are available for review.');
@@ -204,7 +204,7 @@
       if (!target) {
         resourceIssues.push(fromPath + ': local ' + kind + ' reference "' + trim(value, 120) + '" escapes the project root and cannot be resolved.');
       } else if (!files[target]) {
-        resourceIssues.push(fromPath + ': local ' + kind + ' reference "' + trim(value, 120) + '" doesn't match a file in the website.');
+        resourceIssues.push(fromPath + ': local ' + kind + ' reference "' + trim(value, 120) + '" does not match a file in the website.');
       }
     }
     function auditAssetSrcset(fromPath, value, kind) {
@@ -452,7 +452,7 @@
         style.textContent = fileText(files[target]).slice(0, 250000);
         link.replaceWith(style);
       } else {
-        notes.push('Local stylesheet "' + trim(href, 100) + '" couldn't be found among the website files.');
+        notes.push('Local stylesheet "' + trim(href, 100) + '" could not be found among the website files.');
         link.remove();
       }
     });
@@ -468,7 +468,7 @@
         var target = resolveFile(page.path, ref);
         if (target && files[target] && /\.m?js$/i.test(target)) source = fileText(files[target]);
         else {
-          notes.push('Script "' + trim(ref, 100) + '" wasn't run because its source isn't included in the website files or is hosted elsewhere.');
+          notes.push('Script "' + trim(ref, 100) + '" was not run because its source is not included in the website files or is hosted elsewhere.');
           script.remove();
           return;
         }
@@ -844,7 +844,7 @@
       toast('Quality report prepared. Review it before sharing with a client.', 'success');
       return true;
     } catch (error) {
-      toast('The quality report couldn't be exported in this browser.', 'error');
+      toast('The quality report could not be exported in this browser.', 'error');
       return false;
     }
   }
@@ -873,7 +873,7 @@
       toast('Quality summary copied. Review it before sharing.', 'success');
       return true;
     } catch (error) {
-      toast('The summary couldn't be copied. Export the full report instead.', 'warning');
+      toast('The summary could not be copied. Export the full report instead.', 'warning');
       return false;
     }
   }
@@ -979,12 +979,12 @@
     try {
       if (studio && typeof studio.runTests === 'function') existingTests = studio.runTests(false);
       if (!existingTests) {
-        addCheck(report, 'Source validation', 'Existing Web Studio source tests', 'warn', 'Some additional website checks aren't available, so their results can't be confirmed.');
+        addCheck(report, 'Source validation', 'Existing Web Studio source tests', 'warn', 'Some additional website checks are not available, so their results cannot be confirmed.');
       } else {
         addCheck(report, 'Source validation', 'Existing Web Studio source tests', existingTests.ok === true ? 'pass' : 'fail', trim(existingTests.summary + (existingTests.details && existingTests.ok !== true ? '\n' + existingTests.details : ''), 1400));
       }
     } catch (error) {
-      addCheck(report, 'Source validation', 'Existing Web Studio source tests', 'fail', 'Some source checks couldn't complete. Review the website files and try again.);
+      addCheck(report, 'Source validation', 'Existing Web Studio source tests', 'fail', 'Some source checks could not complete. Review the website files and try again.');
     }
     stageStatus('source', 'done', existingTests && existingTests.ok === true ? 'Source checks completed with no reported errors.' : 'Source checks completed; review findings below.');
     renderFindings(report);
@@ -998,7 +998,7 @@
     var coveredPages = pages;
     report.browser.pagesAvailable = pages.length;
     if (!pages.length) {
-      addCheck(report, 'Browser testing', 'Desktop and mobile checks', 'fail', 'No website page was available for a browser review. The preview hasn't been verified.');
+      addCheck(report, 'Browser testing', 'Desktop and mobile checks', 'fail', 'No website page was available for a browser review. The preview has not been verified.');
     } else if (!coveredPages.length) {
       addCheck(report, 'Browser testing', 'Desktop and mobile checks', 'warn', 'No page was available for the desktop and mobile checks.');
     } else {
@@ -1111,7 +1111,7 @@
       if (accessibilityAudit.contrastSamples) {
         addCheck(report, 'Accessibility', 'Rendered text contrast sample', accessibilityAudit.lowContrast.length ? 'warn' : 'pass', accessibilityAudit.lowContrast.length ? accessibilityAudit.lowContrast.slice(0, 20).join('\\n') : 'No low-contrast text was found in ' + accessibilityAudit.contrastSamples + ' rendered text sample(s) across ' + accessibilityAudit.pagesChecked + ' page(s). Text over image/gradient or uncertain translucent backgrounds was skipped (' + accessibilityAudit.contrastSkipped + ' sample(s)); this is not a full WCAG certification.');
       } else {
-        addCheck(report, 'Accessibility', 'Rendered text contrast sample', 'info', 'Text contrast couldn't be measured reliably because some text appears over images, gradients, or transparent backgrounds.');
+        addCheck(report, 'Accessibility', 'Rendered text contrast sample', 'info', 'Text contrast could not be measured reliably because some text appears over images, gradients, or transparent backgrounds.');
       }
       if (accessibilityAudit.focusControls) {
         addCheck(report, 'Accessibility', 'Visible keyboard focus indicators', accessibilityAudit.noFocusIndicator.length ? 'warn' : 'pass', accessibilityAudit.noFocusIndicator.length ? accessibilityAudit.noFocusIndicator.slice(0, 20).join('\\n') : 'Inspected ' + accessibilityAudit.focusControls + ' focusable control(s) across ' + accessibilityAudit.pagesChecked + ' page(s); visible focus cues or an authored focus-style rule were detected.');
@@ -1129,7 +1129,7 @@
         addCheck(report, 'Performance', 'Page loading performance', performanceFindings.length ? 'warn' : 'pass',
           'Measured ' + performanceAudit.samples + ' isolated viewport render(s): average initial document parse plus inline-script processing ' + averageRenderMs + 'ms, maximum ' + Math.round(performanceAudit.maxInitialRenderMs) + 'ms; maximum DOM nodes ' + performanceAudit.maxDomNodes + ', images ' + performanceAudit.maxImages + ', scripts ' + performanceAudit.maxScripts + ', stylesheets ' + performanceAudit.maxStylesheets + '. This is a sandbox diagnostic, not production load time, Core Web Vitals or a real-network performance measurement.' + (performanceFindings.length ? '\\n' + performanceFindings.join('\\n') : ''));
       } else {
-        addCheck(report, 'Performance', 'Page loading performance', 'info', 'The browser review couldn't collect performance measurements.');
+        addCheck(report, 'Performance', 'Page loading performance', 'info', 'The browser review could not collect performance measurements.');
       }
       if (timeouts.length) addCheck(report, 'Browser testing', 'Sandbox runtime and render completion', 'warn', timeouts.slice(0, 25).join('\n'));
       if (emptyPages.length) addCheck(report, 'Browser testing', 'Page content presence', 'warn', emptyPages.slice(0, 25).join('\n'));
@@ -1141,7 +1141,7 @@
     renderFindings(report);
 
     stageStatus('truth', 'running', 'Summarizing only observed test results.');
-    addCheck(report, 'Integrations', 'Live integration verification', 'info', 'This report covers website structure and the preview. Email, data saving, sign-in, payments, bookings, and account-connected actions haven't been verified unless tested separately.');
+    addCheck(report, 'Integrations', 'Live integration verification', 'info', 'This report covers website structure and the preview. Email, data saving, sign-in, payments, bookings, and account-connected actions have not been verified unless tested separately.');
     report.finishedAt = new Date().toISOString();
     report.status = reportStatus(report);
     report.counts = countIssues(report);
@@ -1197,7 +1197,7 @@
     emitBuildStage({
       stage: 'build-failed',
       status: 'error',
-      message: 'The updated website didn't meet the quality threshold. Your previous version was restored.'
+      message: 'The updated website did not meet the quality threshold. Your previous version was restored.'
     });
     return report;
   }
@@ -1240,7 +1240,7 @@
   }
   function publishVerifiedPreview(studio) {
     if (!studio || typeof studio.renderPreview !== 'function') {
-      throw new Error('The quality checks passed, but the preview couldn't be opened right now.');
+      throw new Error('The quality checks passed, but the preview could not be opened right now.');
     }
     qualityGateActive = false;
     buildInFlight = false;
@@ -1258,7 +1258,7 @@
     if (running) return;
     var studio = getStudio();
     if (!studio || typeof studio.runBuildAgent !== 'function' || !currentReport) {
-      toast('Website creation and repair aren't available right now. Please try again.', 'warning');
+      toast('Website creation and repair are not available right now. Please try again.', 'warning');
       return;
     }
     var findings = findingsForRepair(currentReport);
@@ -1313,7 +1313,7 @@
       var nextGraph = getGraph(studio);
       var changed = typeof studio.diffFiles === 'function' ? studio.diffFiles(snapshot.graph, nextGraph).length > 0 : JSON.stringify(snapshot.graph) !== JSON.stringify(nextGraph);
       var newVerification = text(nextProject.ovyxBuildVerifiedAt) && text(nextProject.ovyxBuildVerifiedAt) !== text(snapshot.project && snapshot.project.ovyxBuildVerifiedAt);
-      if (!changed || !newVerification) throw new Error('The updated website couldn't be verified, so your previous version was restored.');
+      if (!changed || !newVerification) throw new Error('The updated website could not be verified, so your previous version was restored.');
       running = false;
       var afterReport = await inspectProject();
       if (issueScore(afterReport) > 0) {
@@ -1348,7 +1348,7 @@
       beforeReport.status = reportStatus(beforeReport);
       beforeReport.counts = countIssues(beforeReport);
       renderFindings(beforeReport);
-      toast('The repair couldn't be verified; your previous website version was restored.', 'warning');
+      toast('The repair could not be verified; your previous website version was restored.', 'warning');
     } finally {
       running = false;
       if (runButton) runButton.disabled = false;
@@ -1490,7 +1490,7 @@
         } catch (error) {
           if (isBuild) {
             buildInFlight = false;
-            emitBuildStage({ stage: 'build-failed', status: 'error', message: 'Website creation couldn't finish, so no new preview was opened.' });
+            emitBuildStage({ stage: 'build-failed', status: 'error', message: 'Website creation could not finish, so no new preview was opened.' });
           }
           throw error;
         }
@@ -1577,7 +1577,7 @@
               if (changed && beforeBuildSnapshot) {
                 qualityGateRejected = true;
                 await rejectBuildForQuality(studio, beforeBuildSnapshot, 'The project file graph changed, but the build pipeline did not produce a new verified-source marker.');
-                throw new Error('The updated website didn't pass initial checks, so your previous version was restored.');
+                throw new Error('The updated website did not pass initial checks, so your previous version was restored.');
               }
               qualityGateActive = false;
               deferredPreviewRefresh = false;
@@ -1676,7 +1676,7 @@
                 : JSON.stringify(beforeGraph) !== JSON.stringify(errorGraph);
               if (errorChanged && beforeBuildSnapshot) restoreSnapshot(studio, beforeBuildSnapshot);
               deferredPreviewRefresh = false;
-              emitBuildStage({ stage: 'build-failed', status: 'error', message: 'Website creation couldn't be verified, so your previous version was kept or restored.' });
+              emitBuildStage({ stage: 'build-failed', status: 'error', message: 'Website creation could not be verified, so your previous version was kept or restored.' });
             }
           }
           throw error;
