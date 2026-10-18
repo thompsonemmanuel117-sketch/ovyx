@@ -44,5 +44,8 @@
 /assets/ovyx-app-studio-link-builder.js
   Cache-Control: no-store, no-cache, must-revalidate
 
+/assets/ovyx-app-studio-premium-polish.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
 /assets/ovyx-app-studio-project-brain.js
   Cache-Control: no-store, no-cache, must-revalidate
