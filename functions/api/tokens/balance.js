@@ -33,7 +33,7 @@ export async function onRequestGet(context) {
     return jsonResponse(
       {
         ok: false,
-        error: error?.message || 'Quota balance unavailable.',
+        error: error?.status ? error.message : 'Your AI usage balance could not be loaded. Please try again.',
         code: error?.code || 'QUOTA_BALANCE_UNAVAILABLE',
       },
       error?.status || 500,
