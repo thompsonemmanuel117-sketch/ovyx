@@ -76,7 +76,7 @@
       if (data.connected === true && data.status === 'READY') {
         toast(data.message || label + ' is ready to use.', 'success');
       } else {
-        const message = data.message || (This AI option is not available right now. Try OVYX Auto or choose another available option.');
+        const message = data.message || 'This AI option is not available right now. Try OVYX Auto or choose another available option.';
         toast(message, data.status === 'NOT_CONFIGURED' ? 'warning' : 'error');
       }
     } catch (error) {
