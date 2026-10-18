@@ -365,7 +365,7 @@
       });
       var payload = await response.json().catch(function () { return {}; });
       if (!response.ok || payload.ok !== true) {
-        var message = payload.error || (response.status === 403 ? 'Admin access is required to view user quotas.' : 'Unable to load server-verified AI usage.');
+        var message = payload.error || (response.status === 403 ? 'Admin access is required to view user quotas.' : 'Your AI usage couldn't be loaded right now. Please try again.');
         renderAdminQuota([], message);
         if (manual) launchToast(message, 'error');
         return;
