@@ -8,7 +8,7 @@
     { route: 'admin-overview', label: 'System Overview', detail: 'Platform health and service status', icon: 'fa-gauge-high' },
     { route: 'admin-pricing', label: 'Pricing & Plans', detail: 'Plans, quotas, and feature gates', icon: 'fa-tags' },
     { route: 'admin-users', label: 'Users & Roles', detail: 'Accounts and entitlements', icon: 'fa-users' },
-    { route: 'admin-brain', label: 'AI Brain', detail: 'AI service status and diagnostics', icon: 'fa-brain' },
+    { route: 'admin-brain', label: 'AI services', detail: 'AI availability and selection preferences', icon: 'fa-brain' },
     { route: 'admin-identity', label: 'AI Identity', detail: 'OVYX identity and generation policy', icon: 'fa-fingerprint' },
     { route: 'admin-backend', label: 'Service health', detail: 'Service availability and security', icon: 'fa-server' },
     { route: 'admin-telemetry', label: 'Telemetry', detail: 'Service checks and operational health', icon: 'fa-chart-line' },
