@@ -205,7 +205,7 @@
   async function openSupportForVote(studio, message, saved) {
     var form = await waitForHelpForm();
     if (!form) {
-      toast(saved ? 'Feedback saved. Open Help → Contact Support to tell us what happened.' : 'Feedback was not saved. Open Help → Contact Support to report the issue.', saved ? 'success' : 'warning');
+      toast(saved ? 'Your feedback has been saved. Visit Help → Contact Support to share more details.' : 'Your feedback couldn't be saved. Visit Help → Contact Support for assistance.', saved ? 'success' : 'warning');
       return;
     }
     var subject = document.getElementById('ovyx-help-support-subject');
@@ -326,11 +326,11 @@
     var candidates = collectHtmlArtifacts(result, studio, baseProject);
     var changed = candidates.filter(function (item) { return isChangedArtifact(item, baselineFiles); });
     if (!changed.length) {
-      throw new Error('The AI replied but did not return a new website HTML file. OVYX kept the preview closed. Please retry or check your selected AI provider.');
+      throw new Error('A website draft wasn't ready for preview. Your existing preview remains unchanged. Try again or choose another AI option.');
     }
     var state = window.KernelState;
     var project = result && (result.project || result.updatedProject) || state && state.activeProject;
-    if (!project || typeof project !== 'object') throw new Error('The AI did not return a project for the website it generated.');
+    if (!project || typeof project !== 'object') throw new Error('The website draft couldn't be prepared. Please try again.');
     if (result && !result.project) result.project = project;
     if (state) {
       state.activeProject = project;
@@ -352,7 +352,7 @@
     var page = studio.getActivePage && studio.getActivePage();
     if (page) page.__ovyxFile = chosen.path;
     var tests = studio.runTests(false);
-    if (!tests || tests.ok !== true) throw new Error('The generated website did not pass OVYX source checks. The preview stayed closed. ' + clean(tests && tests.summary || 'Please retry the build.', 220));
+    if (!tests || tests.ok !== true) throw new Error('The website draft needs a few fixes before it can be previewed. ' + clean(tests && tests.summary || 'Please retry the build.', 220));
     project.ovyxBuildState = 'verified';
     project.ovyxBuildVerifiedAt = new Date().toISOString();
     project.ovyxGraph = studio.graph;
@@ -407,7 +407,7 @@
           window.ProjectStore && window.ProjectStore.renderHome && window.ProjectStore.renderHome();
           window.ProjectStore && window.ProjectStore.renderProjects && window.ProjectStore.renderProjects();
         } catch (_) {}
-        toast(error && error.message || 'OVYX could not build this website. The preview was not opened.', 'error');
+        toast(error && error.message || 'We couldn't prepare the website preview. Your existing work is unchanged.', 'error');
         return null;
       }
     }
@@ -431,7 +431,7 @@
       var candidates = collectHtmlArtifacts(result, studio, baseProject);
       var changed = candidates.some(function (item) { return isChangedArtifact(item, baselineFiles); });
       if (!changed) {
-        throw Object.assign(new Error('The AI replied but did not produce a changed website HTML file. The existing preview was kept unchanged. Please retry or connect a working AI provider.'), { code: 'AI_BUILD_NO_ARTIFACTS' });
+        throw Object.assign(new Error('The website draft wasn't updated. Your existing preview remains unchanged. Try again or select another AI option.'), { code: 'AI_BUILD_NO_ARTIFACTS' });
       }
       return result;
     }
