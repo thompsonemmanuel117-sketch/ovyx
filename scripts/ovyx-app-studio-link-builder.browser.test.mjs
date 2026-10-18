@@ -9,7 +9,7 @@ const brandRuntime = await read('assets/ovyx-app-studio-brand-dna.js');
 const analyzerRuntime = await read('assets/ovyx-app-studio-url-analyzer.js');
 const builderRuntime = await read('assets/ovyx-app-studio-link-builder.js');
 const projectBrainRuntime = await read('assets/ovyx-app-studio-project-brain.js');
-const requests = { analyzer: [], generation: [], profile: [], api: [], cloudSave: [] };
+const requests = { analyzer: [], generation: [], profile: [], api: [], cloudSave: [], deploy: [], webStatus: [], releaseHealth: [], mobileBuild: [], mobileStatus: [] };
 const eventOrder = [];
 const existingLogo = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8x8AAwMCAO+/g6sAAAAASUVORK5CYII=';
 const profiles = new Map([['coastal-living', {
@@ -111,6 +111,67 @@ const server = createServer(async (req, res) => {
       return send(res, 200, { ok: true, project: { id: body.projectId, name: body.project?.name, updatedAt: '2026-10-18T00:00:00.000Z' } });
     }
     return send(res, 405, { ok: false, error: 'Unsupported fixture method.' });
+  }
+  if (url.pathname === '/api/deploy') {
+    let raw = '';
+    for await (const chunk of req) raw += chunk;
+    const body = JSON.parse(raw);
+    if (req.headers.authorization !== 'Bearer test-id-token') return send(res, 401, { success: false, error: 'Authentication required.' });
+    requests.deploy.push({ auth: req.headers.authorization, body });
+    return send(res, 200, {
+      success: true, authoritative: true, requestId: 'release-deploy-' + requests.deploy.length,
+      uploaded: { total: Object.keys(body.files || {}).length },
+      deployment: {
+        deploymentId: 'deployment-' + requests.deploy.length, pagesProjectName: 'ovyx-coastal-fixture',
+        action: body.action, environment: body.action === 'publish' ? 'production' : 'preview',
+        status: 'queued', stage: 'upload', url: 'https://coastal-preview.pages.dev', createdAt: '2026-10-18T12:00:00.000Z'
+      }
+    });
+  }
+  if (url.pathname === '/api/deployment-status') {
+    if (req.headers.authorization !== 'Bearer test-id-token') return send(res, 401, { success: false, error: 'Authentication required.' });
+    requests.webStatus.push({ auth: req.headers.authorization, query: Object.fromEntries(url.searchParams.entries()) });
+    return send(res, 200, {
+      success: true, authoritative: true,
+      deployment: {
+        deploymentId: url.searchParams.get('deploymentId'), pagesProjectName: 'ovyx-coastal-fixture',
+        status: 'active', stage: 'deploy',
+        environment: url.searchParams.get('deploymentId') === 'deployment-2' ? 'production' : 'preview',
+        url: 'https://coastal-preview.pages.dev', aliases: ['https://coastal-preview.pages.dev']
+      }
+    });
+  }
+  if (url.pathname === '/api/app-studio/release-health') {
+    if (req.headers.authorization !== 'Bearer test-id-token') return send(res, 401, { ok: false, error: 'Authentication required.' });
+    requests.releaseHealth.push({ auth: req.headers.authorization, query: Object.fromEntries(url.searchParams.entries()) });
+    return send(res, 200, {
+      ok: true, authoritative: true, checkedAt: '2026-10-18T12:05:00.000Z',
+      deployment: {
+        deploymentId: url.searchParams.get('deploymentId'), pagesProjectName: 'ovyx-coastal-fixture',
+        status: 'active', stage: 'deploy', environment: url.searchParams.get('deploymentId') === 'deployment-2' ? 'production' : 'preview',
+        url: 'https://coastal-preview.pages.dev', aliases: ['https://coastal-preview.pages.dev']
+      },
+      health: { status: 'healthy', checked: true, reachable: true, httpStatus: 200, contentType: 'text/html; charset=utf-8', message: 'The published Pages URL returned a successful HTTP response.' }
+    });
+  }
+  if (url.pathname === '/api/mobile/build' && req.method === 'POST') {
+    let raw = '';
+    for await (const chunk of req) raw += chunk;
+    const body = JSON.parse(raw);
+    if (req.headers.authorization !== 'Bearer test-id-token') return send(res, 401, { ok: false, error: 'Authentication required.' });
+    requests.mobileBuild.push({ auth: req.headers.authorization, body });
+    return send(res, 202, { ok: true, jobId: 'mobile-job-123', status: 'queued', workflowRunId: 'eas-run-123', workflowUrl: 'https://expo.dev/workflows/eas-run-123' });
+  }
+  if (url.pathname === '/api/mobile/build/status') {
+    if (req.headers.authorization !== 'Bearer test-id-token') return send(res, 401, { ok: false, error: 'Authentication required.' });
+    requests.mobileStatus.push({ auth: req.headers.authorization, query: Object.fromEntries(url.searchParams.entries()) });
+    return send(res, 200, {
+      ok: true, jobId: url.searchParams.get('jobId'), status: 'completed', workflowStatus: 'success',
+      workflowUrl: 'https://expo.dev/workflows/eas-run-123',
+      artifacts: { android: { url: 'https://downloads.example/app.apk', downloadUrl: 'https://downloads.example/app.apk', detailsUrl: 'https://expo.dev/builds/android', status: 'finished' } },
+      builds: [{ platform: 'android', status: 'finished', detailsUrl: 'https://expo.dev/builds/android' }],
+      error: null, updatedAt: '2026-10-18T12:06:00.000Z'
+    });
   }
   if (url.pathname === '/api/ai/gateway') {
     let raw = '';
@@ -271,6 +332,82 @@ try {
   assert.ok(artifact?.files?.['index.html']);
   assert.equal(await desktop.evaluate(() => window.KernelState.activeProject.name), 'Do not replace me', 'Stage 3 must not overwrite the existing active project.');
 
+  // Stage 06: export files, call the existing Pages and EAS APIs, and diagnose the returned release.
+  await desktop.locator('#ovyx-app-studio-release').waitFor();
+  const [sourceJsonDownload] = await Promise.all([desktop.waitForEvent('download'), desktop.locator('[data-lb-export-json]').click()]);
+  assert.match(sourceJsonDownload.suggestedFilename(), /coastal-living-source\.json$/);
+  const sourceJson = JSON.parse(await readFile(await sourceJsonDownload.path(), 'utf8'));
+  assert.equal(sourceJson.kind, 'ovyx-link-based-app-source');
+  assert.equal(sourceJson.id, 'link-coastal-living');
+  assert.ok(sourceJson.files['pages/collections.html']);
+
+  const [zipDownload] = await Promise.all([desktop.waitForEvent('download'), desktop.locator('[data-lb-export-zip]').click()]);
+  assert.match(zipDownload.suggestedFilename(), /coastal-living-deployable\.zip$/);
+  const zipBytes = await readFile(await zipDownload.path());
+  assert.equal(zipBytes[0], 0x50, 'Deployable ZIP must have a real ZIP signature.');
+  assert.equal(zipBytes[1], 0x4b, 'Deployable ZIP must have a real ZIP signature.');
+  const zipText = zipBytes.toString('utf8');
+  assert.ok(zipText.includes('collections/index.html'), 'The ZIP must include an entry file for the generated collections route.');
+  assert.ok(zipText.includes('ovyx-release-manifest.json'), 'The ZIP must include a release limitations manifest.');
+  assert.ok(zipText.includes('connect-src'), 'Static output must include its explicit CSP network boundary.');
+
+  await desktop.locator('[data-lb-deploy-preview]').click();
+  await desktop.waitForFunction(() => document.querySelector('[data-lb-web-status]')?.textContent.includes('Preview deployment accepted by Cloudflare'), null, { timeout: 10000 });
+  assert.equal(requests.deploy.length, 1, 'Preview deploy must call the existing Cloudflare route.');
+  assert.equal(requests.deploy[0].auth, 'Bearer test-id-token');
+  assert.equal(requests.deploy[0].body.action, 'deploy');
+  assert.ok(requests.deploy[0].body.files['index.html']);
+  assert.ok(requests.deploy[0].body.files['collections/index.html']);
+  assert.ok(requests.deploy[0].body.files['about/index.html']);
+  assert.ok(requests.deploy[0].body.files['ovyx-release-manifest.json']);
+  assert.ok(requests.webStatus.some(item => item.query.deploymentId === 'deployment-1'));
+
+  await desktop.locator('[data-lb-release-health]').click();
+  await desktop.waitForFunction(() => document.querySelector('[data-lb-web-status]')?.textContent.includes('Release health: healthy'), null, { timeout: 10000 });
+  assert.equal(requests.releaseHealth.length, 1, 'The release-health control must call the authenticated health endpoint.');
+  assert.equal(requests.releaseHealth[0].auth, 'Bearer test-id-token');
+  assert.equal(requests.releaseHealth[0].query.deploymentId, 'deployment-1');
+  assert.equal(await desktop.locator('[data-lb-release-link]').isVisible(), true);
+  assert.equal(await desktop.locator('[data-lb-release-link]').getAttribute('href'), 'https://coastal-preview.pages.dev');
+
+  await desktop.locator('[data-lb-publish]').click();
+  await desktop.waitForFunction(() => document.querySelector('[data-lb-web-status]')?.textContent.includes('Production publish accepted by Cloudflare'), null, { timeout: 10000 });
+  assert.equal(requests.deploy.length, 2, 'Production publish must dispatch a separate request.');
+  assert.equal(requests.deploy[1].body.action, 'publish');
+  assert.ok(requests.webStatus.some(item => item.query.deploymentId === 'deployment-2'));
+
+  await desktop.locator('[data-lb-mobile-build]').click();
+  await desktop.waitForFunction(() => document.querySelector('[data-lb-mobile-status]')?.textContent.includes('EAS status: completed'), null, { timeout: 10000 });
+  assert.equal(requests.mobileBuild.length, 1, 'The mobile UI must call the existing EAS build API.');
+  assert.equal(requests.mobileBuild[0].auth, 'Bearer test-id-token');
+  assert.deepEqual(requests.mobileBuild[0].body.platforms, ['android']);
+  const mobileBundle = requests.mobileBuild[0].body.payload.website.compiledHtmlTrees[0];
+  assert.ok(mobileBundle.includes('ovyx-mobile-route-runtime'), 'The Android WebView payload must include local route switching.');
+  assert.ok(mobileBundle.includes('Curated coastal collections') && mobileBundle.includes('A more considered way home'), 'The mobile bundle must include inspected routes.');
+  assert.ok(mobileBundle.includes('connect-src'), 'The mobile bundle must retain its network restriction.');
+  assert.ok(requests.mobileStatus.some(item => item.query.jobId === 'mobile-job-123'));
+  assert.ok((await desktop.locator('[data-lb-mobile-links]').innerText()).includes('https://downloads.example/app.apk'), 'Completed mobile status must expose the returned download URL.');
+
+  await desktop.locator('[data-lb-mobile-refresh]').click();
+  await desktop.waitForFunction(() => document.querySelector('[data-lb-mobile-status]')?.textContent.includes('EAS status: completed'), null, { timeout: 10000 });
+  assert.equal(requests.mobileStatus.length, 2, 'Manual refresh must re-query the mobile build status endpoint.');
+
+  await desktop.locator('[data-lb-save-release]').click();
+  await desktop.waitForFunction(() => document.querySelector('[data-lb-web-status]')?.textContent.includes('Release history saved and verified in OVYX Projects'), null, { timeout: 10000 });
+  assert.equal(requests.cloudSave.length, 2, 'The release record action must save through the existing OVYX Projects API.');
+  const releaseSave = requests.cloudSave[1];
+  assert.equal(releaseSave.auth, 'Bearer test-id-token');
+  assert.equal(releaseSave.body.projectId, 'link-coastal-living');
+  assert.ok(releaseSave.body.project.releaseHistory.web.preview.deploymentId);
+  assert.ok(releaseSave.body.project.releaseHistory.web.production.deploymentId);
+  assert.equal(releaseSave.body.project.releaseHistory.mobile.jobId, 'mobile-job-123');
+
+  const releaseState = await desktop.evaluate(() => window.__OVYX_APP_STUDIO_GENERATED_PROJECT__?.releaseState);
+  assert.equal(releaseState.web.preview.status, 'active');
+  assert.equal(releaseState.web.production.status, 'active');
+  assert.equal(releaseState.web.production.health.status, 'healthy');
+  assert.equal(releaseState.mobile.status, 'completed');
+
   const mobile = await browser.newPage({ viewport: { width: 390, height: 844 } });
   await mobile.goto(base, { waitUntil: 'load' });
   await mobile.locator('#ovyx-app-studio-url-analyzer-panel').waitFor();
@@ -292,6 +429,7 @@ try {
   await mobilePreview.getByRole('heading', { name: 'Curated coastal collections' }).waitFor();
   assert.equal(await mobilePreview.locator('h1').innerText(), 'Curated coastal collections', 'Multi-page route navigation must work at mobile width.');
   assert.deepEqual(errors, [], 'The real browser handoff must not throw page exceptions.');
+  console.log('OVYX Stage 6 + Stage 5/4 browser checks passed: export ZIP/JSON, Cloudflare preview and production status, live release health, EAS mobile artifact polling, release history, Project Brain and generated-app functionality.');
   console.log('OVYX Stage 5 + 4 browser checks passed: component dependency graph, broken-route regression and repair re-test, real preview DOM/error probe, multi-page navigation, form outcomes, per-user persistence, sensitive-field filtering, authorized read-only APIs, network blocking and confirmed cloud save.');
 } finally {
   await browser.close();
