@@ -195,7 +195,7 @@ try {
     await hub.locator('[data-ovyx-admin-workspace-route="admin-users"]').evaluate(button => button.click());
     await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-users');
     await page.locator('#ovyx-owner-users-panel').waitFor({ state: 'attached' });
-    await page.waitForFunction(() => /Loaded 1 account record/.test(document.getElementById('ovyx-owner-users-status')?.textContent || ''), null, { timeout: 20000 });
+    await page.waitForFunction(() => /Loaded 1 account/.test(document.getElementById('ovyx-owner-users-status')?.textContent || ''), null, { timeout: 20000 });
     let accountRow = page.locator('#ovyx-owner-users-body tr').first();
     await accountRow.locator('select').first().selectOption('pro');
     await accountRow.locator('button').filter({ hasText: 'Apply plan' }).click();
