@@ -256,6 +256,11 @@
   function composePreview(build, projectId) {
     let html = build.html;
     if (!/<html\b/i.test(html)) html = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>' + html + '</body></html>';
+    html = html.replace(/<meta\b[^>]*http-equiv\s*=\s*(["'])content-security-policy\1[^>]*>/gi, '');
+    const csp = \`<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: blob: https: http:; style-src 'unsafe-inline' https: http:; script-src 'unsafe-inline'; font-src data: https: http:; media-src data: blob: https: http:; connect-src 'none'; form-action 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'">\`;
+    if (/<head\b[^>]*>/i.test(html)) html = html.replace(/<head\b[^>]*>/i, match => match + csp);
+    else if (/<html\b[^>]*>/i.test(html)) html = html.replace(/<html\b[^>]*>/i, match => match + '<head>' + csp + '</head>');
+    else html = csp + html;
     const cssEntries = Object.entries(build.files).filter(([path]) => /\.css$/i.test(path));
     const cssRefs = [...html.matchAll(/<link\b[^>]*\bhref\s*=\s*(["'])([^"']+\.css(?:\?[^"']*)?)\1[^>]*>/gi)].map(match => match[2].split(/[?#]/)[0]);
     const stylesToEmbed = cssRefs.length
@@ -298,9 +303,6 @@
     ].join('\n');
     const routerBridge = '<script data-ovyx-link-router>(function(){document.addEventListener("click",function(event){var link=event.target&&event.target.closest?event.target.closest("a[href]"):null;if(!link)return;var raw=link.getAttribute("href")||"";if(!raw||raw.charAt(0)==="#"||raw.slice(0,2)==="//"||/^(?:https?:|mailto:|tel:|data:|javascript:)/i.test(raw)||(link.target&&link.target!=="_self"))return;var route=raw.split(/[?#]/)[0].split("/").filter(Boolean).join("/");event.preventDefault();parent.postMessage({ovyxLinkAppNavigate:route?"/"+route+"/":"/"},"*");},true);})();' + '</' + 'script>';
     const actionTag = '<scr' + 'ipt data-ovyx-app-action-bridge>' + escapeScript(actionRuntime) + '</scr' + 'ipt>';
-    const csp = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: blob: https: http:; style-src 'unsafe-inline' https: http:; script-src 'unsafe-inline' https: http:; font-src data: https: http:; media-src data: blob: https: http:; connect-src 'none'; form-action 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'">`;
-    if (/<\/head\s*>/i.test(html)) html = html.replace(/<\/head\s*>/i, csp + '</head>');
-    else html = csp + html;
     if (/<\/body\s*>/i.test(html)) html = html.replace(/<\/body\s*>/i, routerBridge + actionTag + '</body>');
     else html += routerBridge + actionTag;
     return html;
