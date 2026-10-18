@@ -23,7 +23,7 @@
   var stageRows = [
     { id: 'source', label: 'Existing source tests', status: 'pending', detail: 'Waiting to review website files.' },
     { id: 'audit', label: 'Pages, navigation and accessibility', status: 'pending', detail: 'Waiting to review website files.' },
-    { id: 'browser', label: 'Responsive browser matrix', status: 'pending', detail: 'Waiting to review the website preview.' },
+    { id: 'browser', label: 'Desktop and mobile checks', status: 'pending', detail: 'Waiting to review the website preview.' },
     { id: 'truth', label: 'Integration and result reporting', status: 'pending', detail: 'Waiting to summarize the review results.' }
   ];
 
@@ -393,13 +393,13 @@
       if (braceIssues.length) addCheck(report, 'Responsive styling', 'Stylesheet structure', 'fail', braceIssues.join('\n'));
       else addCheck(report, 'Responsive styling', 'Stylesheet structure', 'pass', cssFiles.length + ' stylesheet(s) have balanced braces.');
       if (/(?:width|min-width)\s*:\s*(?:1[0-9]{3,}|[2-9][0-9]{3,})px/i.test(cssText) && !/max-width\s*:\s*(?:100%|100vw|[0-9.]+(?:rem|em|vw))/i.test(cssText)) {
-        addCheck(report, 'Responsive styling', 'Large fixed-width rules', 'warn', 'A wide fixed pixel width exists without an obvious max-width constraint. The browser matrix will check for actual horizontal overflow.');
+        addCheck(report, 'Responsive styling', 'Fixed-width layout rules', 'warn', 'A fixed-width element may exceed smaller screens. The desktop and mobile checks will look for horizontal overflow.');
       }
       if (/(?:animation|transition)\s*:/i.test(cssText) && !/prefers-reduced-motion\s*:\s*reduce/i.test(cssText)) {
-        addCheck(report, 'Accessibility', 'Reduced-motion preference', 'warn', 'Motion is present but no prefers-reduced-motion: reduce rule was found in project styles.');
+        addCheck(report, 'Accessibility', 'Reduced-motion preference', 'warn', 'Some motion effects may not respect the reduced-motion accessibility preference.');
       }
     } else {
-      addCheck(report, 'Responsive styling', 'Project stylesheets', 'warn', 'No external CSS file was found in the project graph; inline styles may still be present in the page documents.');
+      addCheck(report, 'Responsive styling', 'Project stylesheets', 'warn', 'No separate stylesheet was found. The website may use styles embedded in its pages.');
     }
     cssFiles.forEach(function (path) {
       auditCssUrlReferences(path, fileText(files[path]));
@@ -422,14 +422,14 @@
         securityIssues.push(path + ': a credential-like value was detected. Its value is deliberately not displayed.');
       }
     });
-    addCheck(report, 'Security', 'Client-side secret exposure', statusForFindings(securityIssues.length, true), securityIssues.length ? securityIssues.slice(0, 25).join('\n') : 'No credential-like API key or private-key marker was detected in project HTML, CSS or JavaScript. This is a pattern check, not a complete security audit.');
+    addCheck(report, 'Security', 'Client-side secret exposure', statusForFindings(securityIssues.length, true), securityIssues.length ? securityIssues.slice(0, 25).join('\n') : 'No obvious access credentials were found in the website files. This automated check cannot guarantee that all sensitive information is absent.');
     if (detectedForms) {
       addCheck(report, 'Integrations', 'Live form and transaction state', 'info', detectedForms + ' form(s) found. This review does not submit forms, make purchases, book appointments, sign in, or contact external services. Those workflows remain unverified.');
     }
     if (detectedButtons) {
       addCheck(report, 'Forms and interactions', 'Interactive controls', 'info', detectedButtons + ' interactive control(s) found. Their labels were reviewed; potentially destructive, payment, booking, and account actions are not triggered automatically.');
     }
-    addCheck(report, 'Coverage', 'Source audit coverage', 'pass', 'HTML structure and control checks covered all ' + pages.length + ' generated HTML page(s); ' + checkedIds + ' element ID(s) were inspected.');
+    addCheck(report, 'Coverage', 'Source audit coverage', 'pass', 'Page structure and controls were reviewed across ' + pages.length + ' website page(s), including ' + checkedIds + ' page elements.');
   }
   function safeSandboxPayload(page, files, token) {
     var notes = [];
@@ -628,7 +628,7 @@
     if (root || !document.body) return;
     root = document.createElement('div');
     root.id = ROOT_ID;
-    root.innerHTML = '<style id="' + STYLE_ID + '"></style><div class="ovyx-ws-quality-overlay" data-quality-overlay hidden><section class="ovyx-ws-quality-dialog" role="dialog" aria-modal="true" aria-labelledby="ovyx-ws-quality-title" tabindex="-1"><header class="ovyx-ws-quality-header"><div><div class="ovyx-ws-quality-kicker">OVYX WEB STUDIO · ENGINEERING QA</div><h2 id="ovyx-ws-quality-title">Quality Inspector</h2><p data-quality-subtitle>Inspect the actual generated project files before release.</p></div><button class="ovyx-ws-quality-close" type="button" data-quality-close aria-label="Close Quality Inspector">×</button></header><div class="ovyx-ws-quality-body"><div class="ovyx-ws-quality-summary" data-quality-summary aria-live="polite">Ready to review the current project.</div><div class="ovyx-ws-quality-progress" aria-hidden="true"><span data-quality-progress></span></div><div class="ovyx-ws-quality-stages" data-quality-stages></div><section class="ovyx-ws-quality-findings"><div class="ovyx-ws-quality-findings-head"><h3>Findings</h3><span data-quality-counts>Not run</span></div><div class="ovyx-ws-quality-list" data-quality-list><p class="ovyx-ws-quality-empty">Run a quality review to inspect website pages across desktop and mobile sizes.</p></div></section><p class="ovyx-ws-quality-note">Safe-test limits: generated code runs in an isolated sandbox with network APIs and form submissions blocked. This inspector does not send contact forms, complete payments, book appointments, or verify a live authentication/API integration.</p></div><footer class="ovyx-ws-quality-footer"><button type="button" data-quality-run class="ovyx-ws-quality-primary">Run quality checks</button><button type="button" data-quality-repair class="ovyx-ws-quality-secondary" disabled>Repair issues with OVYX</button><button type="button" data-quality-export class="ovyx-ws-quality-ghost" aria-label="Export QA report as JSON" disabled>Export QA report</button><button type="button" data-quality-copy-summary class="ovyx-ws-quality-ghost" aria-label="Copy client-ready QA summary" disabled>Copy summary</button><button type="button" data-quality-console class="ovyx-ws-quality-ghost">Open source tests</button></footer></section></div>';
+    root.innerHTML = '<style id="' + STYLE_ID + '"></style><div class="ovyx-ws-quality-overlay" data-quality-overlay hidden><section class="ovyx-ws-quality-dialog" role="dialog" aria-modal="true" aria-labelledby="ovyx-ws-quality-title" tabindex="-1"><header class="ovyx-ws-quality-header"><div><div class="ovyx-ws-quality-kicker">OVYX WEB STUDIO · ENGINEERING QA</div><h2 id="ovyx-ws-quality-title">Quality Inspector</h2><p data-quality-subtitle>Inspect the actual generated project files before release.</p></div><button class="ovyx-ws-quality-close" type="button" data-quality-close aria-label="Close Quality Inspector">×</button></header><div class="ovyx-ws-quality-body"><div class="ovyx-ws-quality-summary" data-quality-summary aria-live="polite">Ready to review this website.</div><div class="ovyx-ws-quality-progress" aria-hidden="true"><span data-quality-progress></span></div><div class="ovyx-ws-quality-stages" data-quality-stages></div><section class="ovyx-ws-quality-findings"><div class="ovyx-ws-quality-findings-head"><h3>Findings</h3><span data-quality-counts>Not run</span></div><div class="ovyx-ws-quality-list" data-quality-list><p class="ovyx-ws-quality-empty">Run a quality review to inspect website pages across desktop and mobile sizes.</p></div></section><p class="ovyx-ws-quality-note">Safe-test limits: generated code runs in an isolated sandbox with network APIs and form submissions blocked. This inspector does not send contact forms, complete payments, book appointments, or verify a live authentication/API integration.</p></div><footer class="ovyx-ws-quality-footer"><button type="button" data-quality-run class="ovyx-ws-quality-primary">Run quality checks</button><button type="button" data-quality-repair class="ovyx-ws-quality-secondary" disabled>Repair issues with OVYX</button><button type="button" data-quality-export class="ovyx-ws-quality-ghost" aria-label="Export QA report as JSON" disabled>Export QA report</button><button type="button" data-quality-copy-summary class="ovyx-ws-quality-ghost" aria-label="Copy client-ready QA summary" disabled>Copy summary</button><button type="button" data-quality-console class="ovyx-ws-quality-ghost">Open source tests</button></footer></section></div>';
     document.body.appendChild(root);
     var css = [
       '#'+ROOT_ID+'{font:500 13px/1.5 Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#e5e7eb}',
@@ -725,7 +725,7 @@
   function shareableReport(report) {
     var counts = countIssues(report);
     var browser = report && report.browser || {};
-    var coverage = (report && report.checks || []).find(function (item) { return item.group === 'Coverage' && item.title === 'Responsive browser matrix coverage'; });
+    var coverage = (report && report.checks || []).find(function (item) { return item.group === 'Coverage' && item.title === 'Desktop and mobile checks coverage'; });
     return {
       schemaVersion: 1,
       product: 'OVYX Web Studio Quality Inspector',
@@ -894,7 +894,7 @@
       empty.className = 'ovyx-ws-quality-empty';
       empty.textContent = 'Run a quality review to inspect website pages across desktop and mobile sizes.';
       list.appendChild(empty);
-      if (summary) summary.textContent = 'Ready to review the current project.';
+      if (summary) summary.textContent = 'Ready to review this website.';
       if (countsNode) countsNode.textContent = 'Not run';
       if (progress) progress.style.width = '0%';
       if (repairButton) repairButton.disabled = true;
@@ -933,7 +933,7 @@
     if (report.finishedAt) summaryText += ' · completed ' + new Date(report.finishedAt).toLocaleTimeString();
     if (summary) summary.textContent = summaryText;
     if (countsNode) countsNode.textContent = counts.pass + ' pass / ' + counts.warn + ' warn / ' + counts.fail + ' fail';
-    if (subtitle) subtitle.textContent = report.projectName ? 'Evidence from "' + report.projectName + '" — based on the website preview, not a static mockup.' : 'Evidence from the current generated project, not a design mockup.';
+    if (subtitle) subtitle.textContent = report.projectName ? 'Evidence from "' + report.projectName + '" — based on the website preview, not a static mockup.' : 'Review results are based on the website preview, not a static mockup.';
     if (progress) progress.style.width = '100%';
     if (repairButton) repairButton.disabled = running || !report.checks.some(function (item) { return item.status === 'fail' || item.status === 'warn'; });
     if (exportButton) exportButton.disabled = running || !report.finishedAt;
@@ -979,12 +979,12 @@
     try {
       if (studio && typeof studio.runTests === 'function') existingTests = studio.runTests(false);
       if (!existingTests) {
-        addCheck(report, 'Source validation', 'Existing Web Studio source tests', 'warn', 'The existing source test method was unavailable; the inspector cannot claim that those checks passed.');
+        addCheck(report, 'Source validation', 'Existing Web Studio source tests', 'warn', 'Some additional website checks aren't available, so their results can't be confirmed.');
       } else {
         addCheck(report, 'Source validation', 'Existing Web Studio source tests', existingTests.ok === true ? 'pass' : 'fail', trim(existingTests.summary + (existingTests.details && existingTests.ok !== true ? '\n' + existingTests.details : ''), 1400));
       }
     } catch (error) {
-      addCheck(report, 'Source validation', 'Existing Web Studio source tests', 'fail', 'Source checks couldn't complete: ' + trim(error && error.message, 400));
+      addCheck(report, 'Source validation', 'Existing Web Studio source tests', 'fail', 'Some source checks couldn't complete. Review the website files and try again.);
     }
     stageStatus('source', 'done', existingTests && existingTests.ok === true ? 'Source checks completed with no reported errors.' : 'Source checks completed; review findings below.');
     renderFindings(report);
@@ -998,9 +998,9 @@
     var coveredPages = pages;
     report.browser.pagesAvailable = pages.length;
     if (!pages.length) {
-      addCheck(report, 'Browser testing', 'Responsive browser matrix', 'fail', 'No website page was available for a browser review. The preview hasn't been verified.');
+      addCheck(report, 'Browser testing', 'Desktop and mobile checks', 'fail', 'No website page was available for a browser review. The preview hasn't been verified.');
     } else if (!coveredPages.length) {
-      addCheck(report, 'Browser testing', 'Responsive browser matrix', 'warn', 'No page was available for the desktop and mobile checks.');
+      addCheck(report, 'Browser testing', 'Desktop and mobile checks', 'warn', 'No page was available for the desktop and mobile checks.');
     } else {
       var coreRoutes = coveredPages.slice(0, Math.min(CORE_BROWSER_ROUTE_COUNT, coveredPages.length));
       var routePlan = [];
@@ -1111,12 +1111,12 @@
       if (accessibilityAudit.contrastSamples) {
         addCheck(report, 'Accessibility', 'Rendered text contrast sample', accessibilityAudit.lowContrast.length ? 'warn' : 'pass', accessibilityAudit.lowContrast.length ? accessibilityAudit.lowContrast.slice(0, 20).join('\\n') : 'No low-contrast text was found in ' + accessibilityAudit.contrastSamples + ' rendered text sample(s) across ' + accessibilityAudit.pagesChecked + ' page(s). Text over image/gradient or uncertain translucent backgrounds was skipped (' + accessibilityAudit.contrastSkipped + ' sample(s)); this is not a full WCAG certification.');
       } else {
-        addCheck(report, 'Accessibility', 'Rendered text contrast sample', 'info', 'No text sample had a reliably resolvable solid background. Text over images, gradients and uncertain translucent backgrounds is not automatically scored.');
+        addCheck(report, 'Accessibility', 'Rendered text contrast sample', 'info', 'Text contrast couldn't be measured reliably because some text appears over images, gradients, or transparent backgrounds.');
       }
       if (accessibilityAudit.focusControls) {
         addCheck(report, 'Accessibility', 'Visible keyboard focus indicators', accessibilityAudit.noFocusIndicator.length ? 'warn' : 'pass', accessibilityAudit.noFocusIndicator.length ? accessibilityAudit.noFocusIndicator.slice(0, 20).join('\\n') : 'Inspected ' + accessibilityAudit.focusControls + ' focusable control(s) across ' + accessibilityAudit.pagesChecked + ' page(s); visible focus cues or an authored focus-style rule were detected.');
       } else {
-        addCheck(report, 'Accessibility', 'Visible keyboard focus indicators', 'info', 'No focusable controls were found to inspect in the browser sandbox.');
+        addCheck(report, 'Accessibility', 'Visible keyboard focus indicators', 'info', 'No keyboard-operable controls were available for this review.');
       }
       var performanceAudit = report.browser.performance;
       if (performanceAudit.samples) {
@@ -1133,7 +1133,7 @@
       }
       if (timeouts.length) addCheck(report, 'Browser testing', 'Sandbox runtime and render completion', 'warn', timeouts.slice(0, 25).join('\n'));
       if (emptyPages.length) addCheck(report, 'Browser testing', 'Page content presence', 'warn', emptyPages.slice(0, 25).join('\n'));
-      addCheck(report, 'Coverage', 'Responsive browser matrix coverage', 'pass',
+      addCheck(report, 'Coverage', 'Desktop and mobile checks coverage', 'pass',
         'Browser checks covered all ' + coveredPages.length + ' generated HTML route(s): ' + coreRoutes.length + ' core route(s) at all ' + WIDTHS.length + ' viewport widths (' + WIDTHS.join(', ') + 'px), and ' + Math.max(0, coveredPages.length - coreRoutes.length) + ' additional route(s) at mobile ' + ADDITIONAL_ROUTE_WIDTHS[0] + 'px and desktop ' + ADDITIONAL_ROUTE_WIDTHS[1] + 'px. Static source audits covered every route. This is responsive smoke coverage, not exhaustive testing of every interaction or a production-device matrix.');
       if (sandboxNotes.length) addCheck(report, 'Browser testing', 'Isolated test limitations', 'info', sandboxNotes.slice(0, 20).join('\n'));
     }
@@ -1141,7 +1141,7 @@
     renderFindings(report);
 
     stageStatus('truth', 'running', 'Summarizing only observed test results.');
-    addCheck(report, 'Integrations', 'Live integration verification', 'info', 'This report verifies source and isolated browser behavior only. Real email delivery, database writes, sign-in, payments, bookings and authenticated API behavior remain unverified unless separately tested against safe test services.');
+    addCheck(report, 'Integrations', 'Live integration verification', 'info', 'This report covers website structure and the preview. Email, data saving, sign-in, payments, bookings, and account-connected actions haven't been verified unless tested separately.');
     report.finishedAt = new Date().toISOString();
     report.status = reportStatus(report);
     report.counts = countIssues(report);
@@ -1197,7 +1197,7 @@
     emitBuildStage({
       stage: 'build-failed',
       status: 'error',
-      message: 'The new build did not pass its automatic post-build quality gate; the last known project state was restored.'
+      message: 'The updated website didn't meet the quality threshold. Your previous version was restored.'
     });
     return report;
   }
@@ -1336,7 +1336,7 @@
         afterReport.counts = countIssues(afterReport);
         renderFindings(afterReport);
         if (!qualityGateActive) publishVerifiedPreview(studio);
-        toast('OVYX repaired the reported website issues and re-ran the quality checks.', 'success');
+        toast('The reported website issues were corrected and quality checks were rerun.', 'success');
         success = true;
       }
     } catch (error) {
@@ -1481,7 +1481,7 @@
         }
         if (isBuild) {
           buildInFlight = true;
-          emitBuildStage({ stage: 'ai-generation', status: 'running', message: 'OVYX is generating website files from the current brief.' });
+          emitBuildStage({ stage: 'ai-generation', status: 'running', message: 'Creating your website from your brief.' });
         }
         try {
           var result = await originalCallAI.call(this, next, token);
@@ -1676,7 +1676,7 @@
                 : JSON.stringify(beforeGraph) !== JSON.stringify(errorGraph);
               if (errorChanged && beforeBuildSnapshot) restoreSnapshot(studio, beforeBuildSnapshot);
               deferredPreviewRefresh = false;
-              emitBuildStage({ stage: 'build-failed', status: 'error', message: 'The build failed before quality verification. OVYX kept or restored the last known-good project and preview.' });
+              emitBuildStage({ stage: 'build-failed', status: 'error', message: 'Website creation couldn't be verified, so your previous version was kept or restored.' });
             }
           }
           throw error;
