@@ -39,7 +39,7 @@
     if (select) select.removeAttribute('aria-busy');
     const selected = selectedProvider(select);
     if (!selected || selected === 'automatic') {
-      toast('OVYX Auto chooses an available AI brain based on the task and configured providers.', 'info');
+      toast('OVYX Auto selects an available AI model for your request.', 'info');
       return;
     }
     const label = PROVIDERS[selected];
@@ -49,7 +49,7 @@
       try { return window.firebase?.auth?.()?.currentUser || null; } catch (_) { return null; }
     })();
     if (!user || typeof user.getIdToken !== 'function') {
-      toast('Please sign in to check ' + label + ' availability.', 'warning');
+      toast('Sign in to check AI availability.', 'warning');
       return;
     }
 
@@ -69,14 +69,14 @@
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        if (response.status === 401) throw new Error('Your sign-in has expired. Sign in again to check this AI brain.');
-        if (response.status === 403) throw new Error('Your account is not allowed to check this AI brain.');
+        if (response.status === 401) throw new Error('Your session has expired. Sign in again to check AI availability.');
+        if (response.status === 403) throw new Error('Your account can't perform this check.');
         throw new Error('Could not check ' + label + ' right now. Please try again.');
       }
       if (data.connected === true && data.status === 'READY') {
-        toast(data.message || label + ' is connected and ready.', 'success');
+        toast(data.message || label + ' is ready to use.', 'success');
       } else {
-        const message = data.message || (label + ' is not available right now. Please try again later, or connect your own AI Brain in Universal Connections to continue building.');
+        const message = data.message || (This AI option isn't available right now. Try OVYX Auto or choose another available option.');
         toast(message, data.status === 'NOT_CONFIGURED' ? 'warning' : 'error');
       }
     } catch (error) {
@@ -84,9 +84,9 @@
         return; // A newer selection superseded this result; do not show a stale toast.
       }
       if (error?.name === 'AbortError') {
-        toast('The ' + label + ' availability check timed out. Try again or connect your own AI Brain in Universal Connections.', 'warning');
+        toast('The availability check took too long. Try again or choose another AI option.', 'warning');
       } else {
-        toast(error?.message || label + ' could not be checked right now.', 'error');
+        toast(error?.message || AI availability couldn't be checked right now. Please try again.', 'error');
       }
     } finally {
       clearTimeout(timeout);
