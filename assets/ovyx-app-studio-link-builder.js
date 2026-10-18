@@ -269,7 +269,7 @@
     const releaseDiagnostics = node('ul', 'ovyx-lb-release-diagnostics');
     releaseDiagnostics.setAttribute('data-lb-release-diagnostics', '');
     release.appendChild(releaseDiagnostics);
-    const releaseNote = node('p', 'ovyx-lb-capabilities', 'A successful publish request doesn't guarantee every feature is working. The website health check confirms whether the public site responds. Mobile builds can take time; refresh the status to see progress and downloads. Form submissions and app preferences stay on this device. Sign-in, account services, payments, email, and file uploads require separate setup.');
+    const releaseNote = node('p', 'ovyx-lb-capabilities', 'A successful publish request does not guarantee every feature is working. The website health check confirms whether the public site responds. Mobile builds can take time; refresh the status to see progress and downloads. Form submissions and app preferences stay on this device. Sign-in, account services, payments, email, and file uploads require separate setup.');
     releaseNote.setAttribute('role', 'note');
     release.appendChild(releaseNote);
     section.appendChild(release);
@@ -547,7 +547,7 @@
       row.appendChild(node('pre', '', text(content).slice(0, 26000)));
       parent.appendChild(row);
     }
-    if (!entries.length) parent.appendChild(node('p', 'ovyx-lb-muted', 'Your app files couldn't be prepared. Please try again.'));
+    if (!entries.length) parent.appendChild(node('p', 'ovyx-lb-muted', 'Your app files could not be prepared. Please try again.'));
   }
   function reportProfile(brief, appName) {
     const profile = { appName, brandName: brief.brand.name, colors: brief.brand.colors };
@@ -664,18 +664,18 @@
         createdAt: text(project.createdAt || '').slice(0, 40)
       }))
     };
-    throw new Error('This app can't use that account service from the preview.');
+    throw new Error('This app cannot use that account service from the preview.');
   }
   async function readApprovedApi(name) {
     const rule = API_ACTIONS[name];
-    if (!rule) throw new Error('This action isn't supported in the preview. Only account access, usage, and saved app list can be read after approval.');
+    if (!rule) throw new Error('This action is not supported in the preview. Only account access, usage, and saved app list can be read after approval.');
     const user = window.firebase?.auth?.().currentUser;
     if (!user || typeof user.getIdToken !== 'function') throw new Error('Sign in to OVYX before viewing account information.');
     const approvals = approvedApiReads();
     const approvalKey = text(window.__OVYX_APP_STUDIO_GENERATED_PROJECT__?.id) + ':' + name;
     if (!approvals.has(approvalKey)) {
       if (typeof window.confirm !== 'function' || !window.confirm('Allow this generated preview to read ' + rule.label + ' from your OVYX account? Only a read-only OVYX endpoint will be called.')) {
-        throw new Error('Access wasn't approved. No account information was requested.');
+        throw new Error('Access was not approved. No account information was requested.');
       }
       approvals.add(approvalKey);
     }
@@ -768,7 +768,7 @@
           reply(true, result);
           return;
         }
-        reply(false, null, 'This action isn't available in the preview. Supported features include local app data, local form submissions, sign-in status, and approved read-only account access.');
+        reply(false, null, 'This action is not available in the preview. Supported features include local app data, local form submissions, sign-in status, and approved read-only account access.');
       } catch (error) {
         reply(false, null, error?.message || 'The app action did not complete.');
       }
@@ -827,7 +827,7 @@
         body
       });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok || result?.ok !== true || !result?.project?.id) throw new Error(text(result.error || result.message || ('The save request couldn't be completed.)));
+      if (!response.ok || result?.ok !== true || !result?.project?.id) throw new Error(text(result.error || result.message || 'The save request could not be completed.'));
       artifact.savedToProjects = true;
       artifact.savedProjectId = result.project.id;
       artifact.savedAt = result.project.updatedAt || new Date().toISOString();
@@ -881,7 +881,7 @@
       throw new Error('The app contains an unsafe or invalid file path: ' + path.slice(0, 90));
     }
     if (path === 'functions' || path.startsWith('functions/')) {
-      throw new Error('This app needs server-side features that aren't available with the selected hosting option. Configure a suitable service before publishing.');
+      throw new Error('This app needs server-side features that are not available with the selected hosting option. Configure a suitable service before publishing.');
     }
     return path;
   }
@@ -1290,7 +1290,7 @@
         headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: 'Bearer ' + token },
         body
       }, token);
-      if (data.success !== true || !data.deployment?.deploymentId) throw new Error(data.error || 'The publishing service didn't confirm a deployment. The release hasn't been marked as submitted.');
+      if (data.success !== true || !data.deployment?.deploymentId) throw new Error(data.error || 'The publishing service did not confirm a deployment. The release has not been marked as submitted.');
       restoreReleaseState(artifact);
       const record = {
         action, projectId: artifact.id, projectName: artifact.name,
@@ -1328,7 +1328,7 @@
     const token = await releaseToken();
     const query = new URLSearchParams({ projectId: artifact.id, deploymentId: record.deploymentId, projectName: artifact.name });
     const data = await deploymentRequest('/api/deployment-status?' + query.toString(), {}, token);
-    if (data.success !== true || !data.deployment) throw new Error(data.error || 'The current publishing status couldn't be confirmed.');
+    if (data.success !== true || !data.deployment) throw new Error(data.error || 'The current publishing status could not be confirmed.');
     Object.assign(record, {
       status: String(data.deployment.status || record.status),
       stage: String(data.deployment.stage || ''),
@@ -1352,7 +1352,7 @@
       const token = await releaseToken();
       const query = new URLSearchParams({ projectId: artifact.id, deploymentId: record.deploymentId, projectName: artifact.name });
       const data = await deploymentRequest('/api/app-studio/release-health?' + query.toString(), {}, token);
-      if (data.ok !== true || !data.health) throw new Error(data.error || 'The website health check couldn't confirm a result.');
+      if (data.ok !== true || !data.health) throw new Error(data.error || 'The website health check could not confirm a result.');
       // refreshWebDeploymentStatus() re-renders the panel, which restores a cloned
       // release state from localStorage. Re-acquire the current record after that
       // render so the health result is attached to the persisted record, not a stale object.
@@ -1460,7 +1460,7 @@
         headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: 'Bearer ' + token },
         body: JSON.stringify(body)
       }, token);
-      if (data.ok !== true || !data.jobId) throw new Error(data.error || 'The mobile build service didn't confirm that a build started. No build is marked as queued.');
+      if (data.ok !== true || !data.jobId) throw new Error(data.error || 'The mobile build service did not confirm that a build started. No build is marked as queued.');
       artifact.releaseState = artifact.releaseState || { web: {}, mobile: null };
       artifact.releaseState.mobile = {
         jobId: String(data.jobId), status: String(data.status || 'queued'), platforms,
@@ -1493,7 +1493,7 @@
       const token = await releaseToken();
       const query = new URLSearchParams({ jobId: mobile.jobId });
       const data = await deploymentRequest('/api/mobile/build/status?' + query.toString(), {}, token);
-      if (data.ok !== true) throw new Error(data.error || 'Mobile build status couldn't be confirmed.');
+      if (data.ok !== true) throw new Error(data.error || 'Mobile build status could not be confirmed.');
       Object.assign(mobile, data, { refreshedAt: new Date().toISOString() });
       persistReleaseState(artifact); renderMobileReleaseStatus(panel, mobile);
       const message = 'Mobile build status: ' + (mobile.status === 'completed' ? 'Complete' : mobile.status === 'failed' ? 'Needs attention' : mobile.status === 'running' ? 'In progress' : text(mobile.status || 'Queued')) + (mobile.status === 'failed' ? '. Review the details below and try again.' : '');
