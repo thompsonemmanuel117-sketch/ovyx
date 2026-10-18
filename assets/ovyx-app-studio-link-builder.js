@@ -91,9 +91,9 @@
     section.id = PANEL_ID;
     section.setAttribute('aria-labelledby', 'ovyx-lb-title');
     const heading = node('div', 'ovyx-lb-heading');
-    heading.append(node('p', 'ovyx-lb-eyebrow', 'STAGE 03 / REAL PROJECT GENERATION'),
-      node('h4', '', 'Generate your first link-based app'),
-      node('p', 'ovyx-lb-muted', 'Use the inspected page map and detected identity to generate an app project. The preview runs the generated HTML, CSS and JavaScript in an isolated live frame.'));
+    heading.append(node('p', 'ovyx-lb-eyebrow', 'APP STUDIO / APP CREATION'),
+      node('h4', '', 'Create an app from a website'),
+      node('p', 'ovyx-lb-muted', 'Use the website structure and detected branding to create a tailored app. Review the interactive preview before publishing.'));
     section.appendChild(heading);
 
     const form = node('form', 'ovyx-lb-form');
@@ -108,7 +108,7 @@
     form.append(label, button);
     section.appendChild(form);
 
-    const state = node('p', 'ovyx-lb-status', 'Ready. Generation uses the existing OVYX AI gateway and your app-specific brand settings.');
+    const state = node('p', 'ovyx-lb-status', 'Ready to create your app using the selected brand settings.');
     state.setAttribute('role', 'status'); state.setAttribute('aria-live', 'polite'); state.setAttribute('data-lb-status', '');
     section.appendChild(state);
 
@@ -116,7 +116,7 @@
     preview.setAttribute('data-lb-preview-wrap', '');
     preview.hidden = true;
     const previewHeader = node('div', 'ovyx-lb-preview-header');
-    previewHeader.append(node('div', '', 'LIVE APP PREVIEW'), node('span', '', 'Home · / · Interactive HTML/CSS/JS'));
+    previewHeader.append(node('div', '', 'LIVE APP PREVIEW'), node('span', '', 'Home · Interactive preview'));
     previewHeader.lastElementChild.setAttribute('data-lb-route-indicator', '');
     const frame = node('iframe', 'ovyx-lb-frame');
     frame.title = 'Live preview of generated link-based app';
@@ -126,7 +126,7 @@
     frame.setAttribute('data-lb-preview', '');
     preview.append(previewHeader, frame);
     const filesDetails = node('details', 'ovyx-lb-files');
-    const filesSummary = node('summary', '', 'View generated project source');
+    const filesSummary = node('summary', '', 'View source files');
     const filesList = node('div', 'ovyx-lb-source-list');
     filesList.setAttribute('data-lb-source', '');
     filesDetails.append(filesSummary, filesList);
@@ -134,17 +134,17 @@
     section.appendChild(preview);
 
     const actionBar = node('div', 'ovyx-lb-project-actions');
-    const saveButton = node('button', 'ovyx-lb-save', 'Save project to OVYX Projects');
+    const saveButton = node('button', 'ovyx-lb-save', 'Save app to OVYX Projects');
     saveButton.type = 'button';
     saveButton.disabled = true;
     saveButton.setAttribute('data-lb-save', '');
-    const saveStatus = node('p', 'ovyx-lb-status', 'Cloud saving requires your signed-in OVYX account and your confirmation.');
+    const saveStatus = node('p', 'ovyx-lb-status', 'Sign in to OVYX and confirm to save this app to your account.');
     saveStatus.setAttribute('role', 'status');
     saveStatus.setAttribute('aria-live', 'polite');
     saveStatus.setAttribute('data-lb-save-status', '');
     actionBar.append(saveButton, saveStatus);
     section.appendChild(actionBar);
-    const capabilities = node('p', 'ovyx-lb-capabilities', 'Action boundaries: forms save on this device only; app state uses browser storage; approved OVYX account reads require confirmation. Email delivery, external APIs, payments, file uploads and custom login require a configured backend/provider and are not simulated.');
+    const capabilities = node('p', 'ovyx-lb-capabilities', 'Current limits: form submissions and app data are stored in this browser. Account reads require your approval. Email, external APIs, payments, file uploads and custom sign-in require a configured backend; these integrations are not simulated.');
     capabilities.setAttribute('role', 'note');
     section.appendChild(capabilities);
 
@@ -152,32 +152,32 @@
     brain.id = 'ovyx-app-studio-project-brain';
     brain.setAttribute('aria-labelledby', 'ovyx-lb-brain-title');
     const brainHeading = node('div', 'ovyx-lb-brain-heading');
-    brainHeading.append(node('p', 'ovyx-lb-eyebrow', 'PROJECT BRAIN / TEST ENGINE'),
+    brainHeading.append(node('p', 'ovyx-lb-eyebrow', 'APP QUALITY / TESTS'),
       node('h5', '', 'Dependencies, links and control checks'),
-      node('p', 'ovyx-lb-muted', 'Maps HTML, CSS and JavaScript dependencies, checks internal routes, detects unbound component selectors and inspects the rendered preview DOM. It does not click unknown controls or claim external services were tested.'));
+      node('p', 'ovyx-lb-muted', 'Checks app dependencies, navigation, controls and the live preview. Unknown controls and external services are not tested automatically.'));
     const brainRun = node('button', 'ovyx-lb-brain-run', 'Run checks again');
     brainRun.type = 'button';
     brainRun.disabled = true;
     brainRun.setAttribute('data-lb-brain-run', '');
     brainHeading.appendChild(brainRun);
     brain.appendChild(brainHeading);
-    const brainStatus = node('p', 'ovyx-lb-status', 'Generate an app to run the Project Brain and test engine.');
+    const brainStatus = node('p', 'ovyx-lb-status', 'Create an app to run quality and behaviour checks.');
     brainStatus.setAttribute('role', 'status');
     brainStatus.setAttribute('aria-live', 'polite');
     brainStatus.setAttribute('data-lb-brain-status', '');
     brain.appendChild(brainStatus);
-    const brainSummary = node('p', 'ovyx-lb-brain-summary', 'No generated project has been checked yet.');
+    const brainSummary = node('p', 'ovyx-lb-brain-summary', 'Your app has not been checked yet.');
     brainSummary.setAttribute('data-lb-brain-summary', '');
     brain.appendChild(brainSummary);
     const graphDetails = node('details', 'ovyx-lb-brain-graph');
-    graphDetails.appendChild(node('summary', '', 'View component dependency graph'));
+    graphDetails.appendChild(node('summary', '', 'View app dependency map'));
     const graphList = node('ul', 'ovyx-lb-brain-list');
     graphList.setAttribute('data-lb-brain-graph', '');
     graphDetails.appendChild(graphList);
     brain.appendChild(graphDetails);
     const findingDetails = node('details', 'ovyx-lb-brain-findings');
     findingDetails.open = true;
-    findingDetails.appendChild(node('summary', '', 'Failures, warnings and evidence'));
+    findingDetails.appendChild(node('summary', '', 'Issues, warnings and details'));
     const findingList = node('ul', 'ovyx-lb-brain-list');
     findingList.setAttribute('data-lb-brain-findings', '');
     findingDetails.appendChild(findingList);
@@ -196,9 +196,9 @@
     release.setAttribute('aria-labelledby', 'ovyx-lb-release-title');
     const releaseHeading = node('div', 'ovyx-lb-release-heading');
     releaseHeading.append(
-      node('p', 'ovyx-lb-eyebrow', 'STAGE 06 / RELEASE WORKSPACE'),
+      node('p', 'ovyx-lb-eyebrow', 'APP STUDIO / RELEASE'),
       node('h5', '', 'Export, publish and maintain'),
-      node('p', 'ovyx-lb-muted', 'Validate the current generated files, export a portable package, publish to Cloudflare Pages when your account is authorized, or request Android/iOS builds through the configured EAS pipeline.')
+      node('p', 'ovyx-lb-muted', 'Validate your app, export a deployable package, publish to Cloudflare Pages when authorized, or request Android/iOS builds using the configured mobile build service.')
     );
     release.appendChild(releaseHeading);
 
@@ -211,7 +211,7 @@
     release.appendChild(exportActions);
 
     const webHeading = node('div', 'ovyx-lb-release-subheading');
-    webHeading.append(node('h6', '', 'Web publish'), node('p', 'ovyx-lb-muted', 'Deploy Preview creates a non-production branch deployment. Publish Production updates the public production deployment. Both require a confirmed action and server-side Cloudflare permission.'));
+    webHeading.append(node('h6', '', 'Web publish'), node('p', 'ovyx-lb-muted', 'A preview deployment is separate from production. Publishing updates the production site. Both actions require your confirmation and the appropriate Cloudflare permissions.'));
     release.appendChild(webHeading);
     const webActions = node('div', 'ovyx-lb-release-actions');
     const webDeploy = node('button', 'ovyx-lb-release-btn', 'Deploy preview');
@@ -222,19 +222,19 @@
     webHealth.type = 'button'; webHealth.disabled = true; webHealth.setAttribute('data-lb-release-health', '');
     webActions.append(webDeploy, webPublish, webHealth);
     release.appendChild(webActions);
-    const webStatus = node('p', 'ovyx-lb-status', 'Build validation and a live Project Brain report are required before web deployment.');
+    const webStatus = node('p', 'ovyx-lb-status', 'Build validation and completed quality checks are required before web deployment.');
     webStatus.setAttribute('role', 'status'); webStatus.setAttribute('aria-live', 'polite'); webStatus.setAttribute('data-lb-web-status', '');
     release.appendChild(webStatus);
     const releaseLink = node('a', 'ovyx-lb-release-link', 'Open latest deployment');
     releaseLink.href = '#'; releaseLink.target = '_blank'; releaseLink.rel = 'noopener noreferrer'; releaseLink.hidden = true;
     releaseLink.setAttribute('data-lb-release-link', '');
     release.appendChild(releaseLink);
-    const savedRelease = node('button', 'ovyx-lb-release-btn secondary', 'Save release record to OVYX Projects');
+    const savedRelease = node('button', 'ovyx-lb-release-btn secondary', 'Save release record');
     savedRelease.type = 'button'; savedRelease.disabled = true; savedRelease.setAttribute('data-lb-save-release', '');
     release.appendChild(savedRelease);
 
     const mobileHeading = node('div', 'ovyx-lb-release-subheading');
-    mobileHeading.append(node('h6', '', 'Android / iOS builds'), node('p', 'ovyx-lb-muted', 'EAS mobile builds require the OVYX server’s Expo configuration and a PNG app icon. The native wrapper packages the generated routes into one local WebView with local storage; OVYX account APIs stay web-preview-only.'));
+    mobileHeading.append(node('h6', '', 'Android / iOS builds'), node('p', 'ovyx-lb-muted', 'Mobile builds require the server’s Expo configuration and a square PNG app icon. Generated screens run inside a mobile WebView with local storage; OVYX account integrations are available only in the authenticated web preview.'));
     release.appendChild(mobileHeading);
     const mobileGrid = node('div', 'ovyx-lb-mobile-grid');
     const iconLabel = node('label', 'ovyx-lb-label', 'App icon (square PNG)');
@@ -269,7 +269,7 @@
     const releaseDiagnostics = node('ul', 'ovyx-lb-release-diagnostics');
     releaseDiagnostics.setAttribute('data-lb-release-diagnostics', '');
     release.appendChild(releaseDiagnostics);
-    const releaseNote = node('p', 'ovyx-lb-capabilities', 'Honest limits: a successful deploy response means the provider accepted the deployment, not that every integration works. Release health checks the returned pages.dev URL and HTTP result. Mobile builds are asynchronous; use Refresh mobile status for the latest EAS result and download links. Forms and app preferences remain local to the browser/WebView, and external auth, account APIs, payments, email, file upload and third-party integrations are not enabled by static publishing.');
+    const releaseNote = node('p', 'ovyx-lb-capabilities', 'A successful deployment confirms provider acceptance, not that every integration is working. Release health checks the returned deployment URL and HTTP response. Mobile builds run asynchronously; refresh the status to view progress and available downloads. Form submissions and app preferences remain local to the browser or mobile app. External authentication, account APIs, payments, email, file uploads and third-party integrations require separate configuration.');
     releaseNote.setAttribute('role', 'note');
     release.appendChild(releaseNote);
     section.appendChild(release);
@@ -354,7 +354,7 @@
     const brain = window.OVYXProjectBrain;
     if (!artifact || !brain || typeof brain.analyze !== 'function') {
       const statusNode = $(panel, '[data-lb-brain-status]');
-      if (statusNode) { statusNode.textContent = 'Test engine is unavailable. No result is reported as passed.'; statusNode.dataset.kind = 'error'; }
+      if (statusNode) { statusNode.textContent = 'Quality checks are unavailable. No successful result has been reported.'; statusNode.dataset.kind = 'error'; }
       return null;
     }
     let report;
@@ -375,7 +375,7 @@
       return report;
     } catch (error) {
       const statusNode = $(panel, '[data-lb-brain-status]');
-      if (statusNode) { statusNode.textContent = 'Project Brain failed to run: ' + text(error?.message || error); statusNode.dataset.kind = 'error'; }
+      if (statusNode) { statusNode.textContent = 'Quality checks could not complete: ' + text(error?.message || error); statusNode.dataset.kind = 'error'; }
       return null;
     }
   }
@@ -413,7 +413,7 @@
   function normalizeGenerated(response) {
     let parsed = parseJson(response?.text || response?.answer || response?.message || '');
     if (!parsed && /^\s*(?:<!doctype\s+html|<html\b)/i.test(text(response?.text))) parsed = { html: response.text };
-    if (!parsed || typeof parsed !== 'object') throw new Error('The generator response did not contain a structured app project. Try generating again.');
+    if (!parsed || typeof parsed !== 'object') throw new Error('The generator did not return a usable app. Try again.');
     const files = asFileMap(response?.files || parsed.files || parsed.project?.files || {});
     if (!files['index.html'] && !files['index.htm']) {
       const candidate = text(parsed.html || parsed.previewHtml || parsed.preview?.html || parsed.project?.html || '');
@@ -781,24 +781,24 @@
     const saveStatus = $(panel, '[data-lb-save-status]');
     const artifact = window.__OVYX_APP_STUDIO_GENERATED_PROJECT__;
     if (!artifact || !artifact.files || typeof artifact.files !== 'object') {
-      if (saveStatus) { saveStatus.textContent = 'Generate a valid app project before saving.'; saveStatus.dataset.kind = 'error'; }
+      if (saveStatus) { saveStatus.textContent = 'Create a valid app before saving.'; saveStatus.dataset.kind = 'error'; }
       return;
     }
     const user = window.firebase?.auth?.().currentUser;
     if (!user || typeof user.getIdToken !== 'function' || !user.email) {
-      if (saveStatus) { saveStatus.textContent = 'Sign in to OVYX with an email address before saving to Projects. No project was written.'; saveStatus.dataset.kind = 'error'; }
+      if (saveStatus) { saveStatus.textContent = 'Sign in to OVYX with an email address before saving. Nothing was saved.'; saveStatus.dataset.kind = 'error'; }
       return;
     }
     if (artifact.savedToProjects === true) {
-      if (saveStatus) { saveStatus.textContent = 'This generated project is already saved to your OVYX Projects account.'; saveStatus.dataset.kind = 'success'; }
+      if (saveStatus) { saveStatus.textContent = 'This app is already saved to your OVYX Projects account.'; saveStatus.dataset.kind = 'success'; }
       return;
     }
     if (typeof window.confirm !== 'function' || !window.confirm('Save "' + artifact.name + '" and its source files to your signed-in OVYX Projects account? This writes the project to your account.')) {
-      if (saveStatus) { saveStatus.textContent = 'Save cancelled. Nothing was written to OVYX Projects.'; saveStatus.dataset.kind = 'info'; }
+      if (saveStatus) { saveStatus.textContent = 'Save cancelled. No changes were made.'; saveStatus.dataset.kind = 'info'; }
       return;
     }
-    if (button) { button.disabled = true; button.textContent = 'Saving project…'; }
-    if (saveStatus) { saveStatus.textContent = 'Saving source files to your OVYX Projects account…'; saveStatus.dataset.kind = 'busy'; }
+    if (button) { button.disabled = true; button.textContent = 'Saving app…'; }
+    if (saveStatus) { saveStatus.textContent = 'Saving app files to your OVYX account…'; saveStatus.dataset.kind = 'busy'; }
     try {
       const project = {
         id: artifact.id,
@@ -817,7 +817,7 @@
         }
       };
       const body = JSON.stringify({ projectId: artifact.id, project });
-      if (new TextEncoder().encode(body).byteLength > 880000) throw new Error('This generated project is too large for the current OVYX Projects save limit (880 KB). Reduce the source files and retry.');
+      if (new TextEncoder().encode(body).byteLength > 880000) throw new Error('This app exceeds the 880 KB save limit. Reduce its source files and try again.');
       const token = await user.getIdToken();
       const response = await fetch('/api/projects', {
         method: 'POST',
@@ -831,13 +831,13 @@
       artifact.savedToProjects = true;
       artifact.savedProjectId = result.project.id;
       artifact.savedAt = result.project.updatedAt || new Date().toISOString();
-      if (saveStatus) { saveStatus.textContent = 'Saved and verified in OVYX Projects. App data remains local to this browser; external delivery/auth/payment integrations still need their own configuration.'; saveStatus.dataset.kind = 'success'; }
+      if (saveStatus) { saveStatus.textContent = 'App saved and verified in OVYX Projects. App data remains in this browser; external delivery, authentication and payment integrations require additional configuration.'; saveStatus.dataset.kind = 'success'; }
       if (button) button.textContent = 'Saved to OVYX Projects';
       window.dispatchEvent(new CustomEvent('ovyx:link-app-project-saved', { detail: { projectId: artifact.id, sourceUrl: artifact.sourceUrl, saved: true } }));
     } catch (error) {
-      if (saveStatus) { saveStatus.textContent = error?.message || 'OVYX Projects save failed. The project was not reported as saved.'; saveStatus.dataset.kind = 'error'; }
+      if (saveStatus) { saveStatus.textContent = error?.message || 'Saving to OVYX Projects failed. The app was not marked as saved.'; saveStatus.dataset.kind = 'error'; }
     } finally {
-      if (button) { button.disabled = false; if (window.__OVYX_APP_STUDIO_GENERATED_PROJECT__?.savedToProjects === true) button.disabled = true; else button.textContent = 'Save project to OVYX Projects'; }
+      if (button) { button.disabled = false; if (window.__OVYX_APP_STUDIO_GENERATED_PROJECT__?.savedToProjects === true) button.disabled = true; else button.textContent = 'Save app to OVYX Projects'; }
     }
   }
 
@@ -878,10 +878,10 @@
   function releasePath(value) {
     const path = text(value).replace(/\\/g, '/').replace(/^\.\/+/, '').replace(/^\/+/, '').trim();
     if (!path || path.length > 500 || path.split('/').some(segment => segment === '..' || segment === '') || /[\u0000\r\n]/.test(path)) {
-      throw new Error('The project has an unsafe or invalid file path: ' + path.slice(0, 90));
+      throw new Error('The app contains an unsafe or invalid file path: ' + path.slice(0, 90));
     }
     if (path === 'functions' || path.startsWith('functions/')) {
-      throw new Error('Static publishing cannot deploy functions/. Configure a supported backend separately before release.');
+      throw new Error('Static hosting cannot deploy server functions. Configure a supported backend before release.');
     }
     return path;
   }
@@ -969,7 +969,7 @@
       mapped.add(target);
       output[target] = staticReleaseHtml(artifact, file, route);
     }
-    if (typeof output['index.html'] !== 'string') throw new Error('The project has no deployable index.html entry page.');
+    if (typeof output['index.html'] !== 'string') throw new Error('The app has no deployable index.html entry page.');
     const manifest = {
       schemaVersion: 1,
       project: { id: artifact.id, name: artifact.name, sourceUrl: artifact.sourceUrl },
@@ -989,7 +989,7 @@
     if (typeof files[rootPath] !== 'string') throw new Error('No root HTML route is available for the mobile build.');
     const rootDoc = releaseDocument(files[rootPath]);
     const rootMain = rootDoc.querySelector('main');
-    if (!rootMain) throw new Error('The mobile wrapper requires a semantic <main> entry element. Export a web ZIP for this project or add a main element before mobile building.');
+    if (!rootMain) throw new Error('The mobile build requires a semantic <main> element. Export a web ZIP or add a main element before building.');
     const rootPanel = rootDoc.createElement('section');
     rootPanel.id = 'ovyx-mobile-route-home';
     rootPanel.setAttribute('data-ovyx-mobile-route-panel', '');
@@ -1522,7 +1522,7 @@
       const user = authenticatedReleaseUser();
       if (!user.email) throw new Error('An email address is required to save release details in OVYX Projects.');
       if (typeof window.confirm !== 'function' || !window.confirm('Save the release history for "' + artifact.name + '" into this project in OVYX Projects? This updates its saved project record and does not change the live deployment.')) {
-        setReleaseStatus(panel, '[data-lb-web-status]', 'Release-record save cancelled; OVYX Projects was not changed.', 'info');
+        setReleaseStatus(panel, '[data-lb-web-status]', 'Saving the release record was cancelled. No changes were made.', 'info');
         return;
       }
       if (button) { button.disabled = true; button.textContent = 'Saving release record…'; }
@@ -1546,7 +1546,7 @@
     } catch (error) {
       setReleaseStatus(panel, '[data-lb-web-status]', error?.message || 'Release record was not saved.', 'error');
     } finally {
-      if (button) { button.disabled = !currentArtifact() || !Object.keys(currentArtifact()?.releaseState?.web || {}).length && !currentArtifact()?.releaseState?.mobile?.jobId; button.textContent = 'Save release record to OVYX Projects'; }
+      if (button) { button.disabled = !currentArtifact() || !Object.keys(currentArtifact()?.releaseState?.web || {}).length && !currentArtifact()?.releaseState?.mobile?.jobId; button.textContent = 'Save release record'; }
     }
   }
   function zipCrc32(bytes) {
@@ -1691,9 +1691,9 @@
       renderSources(panel, build.files);
       setReleaseControls(panel);
       const saveButton = $(panel, '[data-lb-save]');
-      if (saveButton) { saveButton.disabled = false; saveButton.textContent = 'Save project to OVYX Projects'; }
+      if (saveButton) { saveButton.disabled = false; saveButton.textContent = 'Save app to OVYX Projects'; }
       const saveStatus = $(panel, '[data-lb-save-status]');
-      if (saveStatus) { saveStatus.textContent = 'Not saved yet. Choose “Save project to OVYX Projects” to persist the generated source in your account.'; saveStatus.dataset.kind = 'info'; }
+      if (saveStatus) { saveStatus.textContent = 'Not saved yet. Choose “Save app to OVYX Projects” to persist the generated source in your account.'; saveStatus.dataset.kind = 'info'; }
       status(panel, 'App generated and opened in the live preview with ' + pageCount + ' page' + (pageCount === 1 ? '' : 's') + '. Supported: internal navigation, interactive UI, local form submissions/state and authorized OVYX read-only APIs. Other integrations are identified below and are not simulated.', 'success');
       // Keep the generated artifact separate from the user's currently open project.
       // The editor's active project is deliberately not replaced or autosaved here.
