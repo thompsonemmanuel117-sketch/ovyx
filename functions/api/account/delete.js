@@ -68,7 +68,7 @@ export async function onRequestPost(context) {
       return jsonResponse(
         {
           ok: false,
-          error: 'The root administrator account is protected from self-service deletion.',
+          error: 'This account cannot be deleted through self-service. Contact support for assistance.',
           code: 'PRIVILEGED_ACCOUNT_DELETE_BLOCKED',
         },
         403,
@@ -78,7 +78,7 @@ export async function onRequestPost(context) {
 
     if (String(context.request.headers.get('X-OVYX-Account-Deletion') || '') !== 'CONFIRM') {
       return jsonResponse(
-        { ok: false, error: 'Account deletion confirmation is required.', code: 'DELETE_CONFIRMATION_REQUIRED' },
+        { ok: false, error: 'Confirm account deletion to continue.', code: 'DELETE_CONFIRMATION_REQUIRED' },
         400,
         { 'X-OVYX-Request-ID': id }
       );
@@ -89,7 +89,7 @@ export async function onRequestPost(context) {
     const uid = uidOf(user);
     const email = String(user?.email || '').trim().toLowerCase();
     if (!email) {
-      throw Object.assign(new Error('A verified account email is required for complete account cleanup.'), {
+      throw Object.assign(new Error('Please verify your account email before deleting your account.'), {
         status: 401,
         code: 'AUTH_IDENTITY_REQUIRED'
       });
@@ -116,7 +116,7 @@ export async function onRequestPost(context) {
       await deleteUserBuildRecords(context.env, uid);
     } catch (error) {
       console.warn('[OVYX ACCOUNT DELETE] mobile build cleanup failed', error);
-      throw Object.assign(new Error('Cloud project build data could not be fully removed.'), {
+      throw Object.assign(new Error('Some saved app data couldn't be removed. Please contact support before trying again.'), {
         status: 503,
         code: 'ACCOUNT_BUILD_CLEANUP_FAILED',
       });
@@ -150,7 +150,7 @@ export async function onRequestPost(context) {
     return jsonResponse(
       {
         ok: false,
-        error: error?.message || 'Account deletion failed.',
+        error: error?.message || 'Your account couldn't be deleted. Please try again.',
         code: error?.code || 'ACCOUNT_DELETE_FAILED',
       },
       error?.status || 500,
