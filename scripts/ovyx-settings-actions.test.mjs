@@ -59,7 +59,7 @@ assert.ok(html.includes("window.OVYXDataLayerSettings={projectSyncEnabled()"), '
 assert.ok(html.includes("if(window.OVYXDataLayerSettings?.projectSyncEnabled?.()===false)return false;"), 'Paused project sync must block background project writes.');
 assert.ok(html.includes("if(window.OVYXDataLayerSettings?.projectSyncEnabled?.()===false){"), 'Paused project sync must not load cloud projects over local state.');
 assert.ok(html.includes("Date.now()/1000-authTime>240"), 'The legacy Profile deletion action must match the server four-minute recent-authentication limit.');
-assert.ok(html.includes("does not replace OVYX’s built-in /api/projects sync service"), 'The custom data endpoint must not be presented as if it were the active project-sync backend.');
+assert.ok(html.includes("does not create a database"), 'The custom data endpoint must not be presented as if it were the active project-sync backend.');
 assert.ok(html.includes("if(el.matches('[data-theme-delete]')){\n      e.preventDefault();e.stopImmediatePropagation();"), 'Theme Lab delete must have one event owner.');
 const themeLabDuplicateOwnerStart=html.indexOf("if(el.matches('[data-theme-duplicate]')){");
 const themeLabDuplicateOwnerEnd=html.indexOf("if(el.matches('[data-theme-import]'))",themeLabDuplicateOwnerStart);
