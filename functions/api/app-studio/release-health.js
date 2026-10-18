@@ -24,7 +24,7 @@ async function cloudflareGet(path, env) {
 async function ownedPagesProjectName(user, projectId, projectName, env) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(user.uid + ':' + projectId));
   const hash = [...new Uint8Array(digest)].map(value => value.toString(16).padStart(2, '0')).join('');
-  return slug((env.CLOUDFLARE_PAGES_PROJECT_PREFIX || 'ovyx') + '-' + hash.slice(0, 10) + '-' + slug(projectName, 'site'));
+  return slug(slug(env.CLOUDFLARE_PAGES_PROJECT_PREFIX || 'ovyx', 'ovyx') + '-' + hash.slice(0, 10) + '-' + slug(projectName, 'site'));
 }
 
 function deploymentStage(deployment) {
