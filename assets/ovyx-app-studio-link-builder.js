@@ -298,7 +298,7 @@
     ].join('\n');
     const routerBridge = '<script data-ovyx-link-router>(function(){document.addEventListener("click",function(event){var link=event.target&&event.target.closest?event.target.closest("a[href]"):null;if(!link)return;var raw=link.getAttribute("href")||"";if(!raw||raw.charAt(0)==="#"||raw.slice(0,2)==="//"||/^(?:https?:|mailto:|tel:|data:|javascript:)/i.test(raw)||(link.target&&link.target!=="_self"))return;var route=raw.split(/[?#]/)[0].split("/").filter(Boolean).join("/");event.preventDefault();parent.postMessage({ovyxLinkAppNavigate:route?"/"+route+"/":"/"},"*");},true);})();' + '</' + 'script>';
     const actionTag = '<scr' + 'ipt data-ovyx-app-action-bridge>' + escapeScript(actionRuntime) + '</scr' + 'ipt>';
-    const csp = '<meta http-equiv="Content-Security-Policy" content="default-src \\'none\\'; img-src data: blob: https: http:; style-src \\'unsafe-inline\\' https: http:; script-src \\'unsafe-inline\\' https: http:; font-src data: https: http:; media-src data: blob: https: http:; connect-src \\'none\\'; form-action \\'none\\'; frame-src \\'none\\'; object-src \\'none\\'; base-uri \\'none\\'">';
+    const csp = `<meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: blob: https: http:; style-src 'unsafe-inline' https: http:; script-src 'unsafe-inline' https: http:; font-src data: https: http:; media-src data: blob: https: http:; connect-src 'none'; form-action 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'">`;
     if (/<\/head\s*>/i.test(html)) html = html.replace(/<\/head\s*>/i, csp + '</head>');
     else html = csp + html;
     if (/<\/body\s*>/i.test(html)) html = html.replace(/<\/body\s*>/i, routerBridge + actionTag + '</body>');
