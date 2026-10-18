@@ -389,7 +389,7 @@
             statusText(status, 'Plan updated for ' + (user.email || user.uid) + '. Feature access and usage limits now reflect this plan.', 'ok');
             await loadUsers('');
           } catch (error) {
-            statusText(status, 'The plan couldn't be updated: ' + error.message, 'error');
+            statusText(status, 'The plan couldn't be updated. Please try again.', 'error');
           } finally { setPlan.disabled = false; }
         });
         const changeStatus = document.createElement('button');
@@ -406,7 +406,7 @@
               : 'Account re-enabled.', 'ok');
             await loadUsers('');
           } catch (error) {
-            statusText(status, 'The account status couldn't be updated: ' + error.message, 'error');
+            statusText(status, 'The account status couldn't be updated. Please try again.', 'error');
           } finally { changeStatus.disabled = false; }
         });
         const resetQuota = document.createElement('button');
@@ -419,7 +419,7 @@
             await api('/api/admin/users', { method: 'POST', body: JSON.stringify({ action: 'resetQuota', uid: user.uid }) });
             statusText(status, 'Usage allowance reset for ' + (user.email || user.uid) + '.', 'ok');
             await loadUsers('');
-          } catch (error) { statusText(status, 'The usage allowance couldn't be reset: ' + error.message, 'error'); }
+          } catch (error) { statusText(status, 'The usage allowance couldn't be reset. Please try again.', 'error'); }
           finally { resetQuota.disabled = false; }
         });
         actions.append(setPlan, changeStatus, resetQuota);
@@ -429,7 +429,7 @@
       });
       statusText(status, 'Loaded ' + (data.users || []).length + ' account(s)' + (data.nextPageToken ? '. More accounts are available on the next page.' : '. All matching accounts are shown.'), 'ok');
     } catch (error) {
-      statusText(status, 'The account list couldn't be loaded: ' + error.message, 'error');
+      statusText(status, 'The account list couldn't be loaded. Please try again.', 'error');
     } finally { if (refresh) refresh.disabled = false; }
   }
 
@@ -537,7 +537,7 @@
       statusText(status, 'Pricing and plan settings saved. Public prices, usage limits, and paid-plan access now follow these settings.', 'ok');
       notify('Global pricing, quota and feature settings saved.', 'success');
     } catch (error) {
-      statusText(status, 'Nothing was confirmed saved: ' + error.message, 'error');
+      statusText(status, 'Your changes couldn't be saved. Please try again.', 'error');
       notify('Global plan settings were not saved: ' + error.message, 'error');
     } finally { if (button) button.disabled = false; }
   }
@@ -682,7 +682,7 @@
     }
     $('ovyx-global-quota-save')?.addEventListener('click', savePlanConfiguration);
     loadPlansCatalog().then(() => statusText($('ovyx-global-quota-status'), 'Updated pricing and usage limits are ready.', 'ok'))
-      .catch(error => statusText($('ovyx-global-quota-status'), 'Catalog could not be loaded: ' + error.message, 'error'));
+      .catch(error => statusText($('ovyx-global-quota-status'), 'Pricing and plan details could not be loaded. Please try again.', 'error'));
     if (window.OVYXPlanAdmin && !window.OVYXPlanAdmin.__globalSaveWrapped) {
       window.OVYXPlanAdmin.save = savePlanConfiguration;
       window.OVYXPlanAdmin.__globalSaveWrapped = true;
@@ -693,7 +693,7 @@
   function mountBrainControls() {
     const view = $('view-admin-brain');
     if (!view || !owner()) return;
-    const host = panel(view, 'ovyx-global-ai-routing', 'Global AI Brain routing',
+    const host = panel(view, 'ovyx-global-ai-routing', 'AI selection preferences',
       'Set the preferred order for AI options used by OVYX Auto. Explicit choices for an individual request and users’ own connected options take priority.',
       '<div id="ovyx-global-ai-priority-rows"></div><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px"><button type="button" class="ovyx-owner-live-button" id="ovyx-global-ai-route-save">Save AI selection order</button><button type="button" class="ovyx-owner-live-button" id="ovyx-global-ai-status-refresh">Test providers now</button></div><div id="ovyx-global-ai-route-status" class="ovyx-owner-live-status">Loading global AI route…</div><div id="ovyx-global-ai-provider-status" class="ovyx-owner-live-grid" style="margin-top:10px"></div>');
     if (host.dataset.bound === '1') return;
@@ -731,7 +731,7 @@
       statusText(status, 'Loaded AI selection order: ' + order.join(' → '), 'ok');
       await loadProviderStatus();
     } catch (error) {
-      statusText(status, 'AI selection settings couldn't be loaded: ' + error.message, 'error');
+      statusText(status, 'AI selection settings couldn't be loaded. Please try again.', 'error');
     }
   }
 
@@ -749,7 +749,7 @@
       statusText(status, 'AI selection preferences saved: ' + latestAIConfig.providerOrder.join(' → ') + '. OVYX Auto will follow this order when choosing an AI option.', 'ok');
       notify('Global AI selection order saved.', 'success');
     } catch (error) {
-      statusText(status, 'Global AI route was not saved: ' + error.message, 'error');
+      statusText(status, 'AI selection preferences couldn't be saved. Please try again.', 'error');
     } finally { if (button) button.disabled = false; }
   }
 
@@ -766,7 +766,7 @@
     const entries = (Array.isArray(result.data.providers) ? result.data.providers : []).concat(Array.isArray(result.data.additionalProviders) ? result.data.additionalProviders : []);
     entries.forEach(item => {
       const card = document.createElement('div'); card.className = 'ovyx-owner-live-card';
-      const label = document.createElement('div'); label.className = 'ovyx-owner-live-label'; label.textContent = String(item.label || item.provider || item.name || 'AI provider');
+      const label = document.createElement('div'); label.className = 'ovyx-owner-live-label'; label.textContent = String(item.label || item.provider || item.name || 'AI option');
       const value = document.createElement('div'); value.className = 'ovyx-owner-live-value';
       value.textContent = item.connected === true ? 'Ready' : (item.configured === true ? 'Check failed' : 'Setup required');
       value.style.color = item.connected === true ? '#86efac' : (item.configured === true ? '#fcd34d' : '#fca5a5');
@@ -897,7 +897,7 @@
       providers.forEach(item => {
         const ready = item.connected === true;
         const configured = item.configured === true;
-        card(String(item.label || item.provider || item.name || 'AI provider'),
+        card(String(item.label || item.provider || item.name || 'AI option'),
           ready ? 'Ready' : (configured ? 'Check failed' : 'Setup required'),
           'Availability check completed in ' + ai.duration + ' ms. ' + (ready ? 'Ready to handle AI requests.' : configured ? 'This option needs attention.' : 'Setup is required before use.'),
           ready ? '#86efac' : (configured ? '#fcd34d' : '#fca5a5'));
@@ -972,7 +972,7 @@
           entry.append(main, time); host.prepend(entry);
         }
       } catch (error) {
-        statusText(status, 'Announcement publication couldn't be confirmed: ' + error.message, 'error');
+        statusText(status, 'The announcement couldn't be published. Please try again.', 'error');
         notify('Announcement couldn't be published: ' + error.message, 'error');
       } finally { button.disabled = false; }
     }, true);
@@ -1021,7 +1021,7 @@
         notify('Template published to the global catalog.', 'success');
         form.reset();
       } catch (error) {
-        statusText(status, 'Template publication couldn't be confirmed: ' + error.message, 'error');
+        statusText(status, 'The template couldn't be published. Please try again.', 'error');
         notify('Template couldn't be published: ' + error.message, 'error');
       } finally { if (publish) publish.disabled = false; }
     }, true);
@@ -1088,7 +1088,7 @@
             'Platform integrations are paused for all accounts.', this.isLive ? 'ok' : 'warn');
           notify(this.isLive ? 'Platform integrations enabled for all accounts.' : 'Platform integrations paused for all accounts.', this.isLive ? 'success' : 'info');
         } catch (error) {
-          statusText($('ovyx-global-integration-status'), 'These integration settings couldn't be saved: ' + error.message, 'error');
+          statusText($('ovyx-global-integration-status'), 'These platform settings couldn't be saved. Please try again.', 'error');
           notify('Platform integration settings could not be updated. Please try again.', 'error');
         } finally { if (button) button.disabled = false; }
       };
@@ -1120,7 +1120,7 @@
       sw.__ovyxGlobalStateLoaded = true;
       sw.loadFirestoreState().catch(error => {
         sw.__ovyxGlobalStateLoaded = false;
-        statusText($('ovyx-global-integration-status'), 'Platform integration status couldn't be loaded: ' + error.message, 'error');
+        statusText($('ovyx-global-integration-status'), 'Platform integration status couldn't be loaded. Please try again.', 'error');
       });
     }
   }
@@ -1148,7 +1148,7 @@
           'Platform integrations are enabled for all accounts.' :
           'Platform integrations are paused for all accounts.', live ? 'ok' : 'warn');
       } catch (error) {
-        statusText($('ovyx-global-integration-status'), 'The current status couldn't be loaded: ' + error.message, 'error');
+        statusText($('ovyx-global-integration-status'), 'The current status couldn't be loaded. Please try again.', 'error');
       }
     };
     refreshState();
@@ -1189,7 +1189,7 @@
       });
       statusText($('ovyx-global-broadcast-status'), 'Loaded ' + items.length + ' active announcement(s).', 'ok');
     } catch (error) {
-      statusText($('ovyx-global-broadcast-status'), 'Announcements couldn't be loaded: ' + error.message, 'error');
+      statusText($('ovyx-global-broadcast-status'), 'Announcements couldn't be loaded. Please try again.', 'error');
     }
   }
 
@@ -1204,7 +1204,7 @@
       statusText($('ovyx-global-broadcast-status'), 'Announcement withdrawn. Its record has been retained for reference.', 'ok');
       await loadBroadcastRegistry();
     } catch (error) {
-      statusText($('ovyx-global-broadcast-status'), 'The announcement couldn't be withdrawn: ' + error.message, 'error');
+      statusText($('ovyx-global-broadcast-status'), 'The announcement couldn't be withdrawn. Please try again.', 'error');
     } finally { button.disabled = false; }
   }
 
@@ -1271,7 +1271,7 @@
       await loadTemplateRegistry();
       form?.reset();
     } catch (error) {
-      statusText(status, 'Template publication couldn't be confirmed: ' + error.message, 'error');
+      statusText(status, 'The template couldn't be published. Please try again.', 'error');
       notify('Template couldn't be published: ' + error.message, 'error');
     } finally {
       if (button) button.disabled = false;
@@ -1299,7 +1299,7 @@
       });
       statusText($('ovyx-global-template-status'), 'Loaded ' + templates.length + ' currently published template(s).', 'ok');
     } catch (error) {
-      statusText($('ovyx-global-template-status'), 'Template registry could not be loaded: ' + error.message, 'error');
+      statusText($('ovyx-global-template-status'), 'The template catalogue couldn't be loaded. Please try again.', 'error');
     }
   }
 
@@ -1315,7 +1315,7 @@
       await loadTemplateRegistry();
       try { window.OVYXTemplateHub?.render?.(); } catch (_) {}
     } catch (error) {
-      statusText($('ovyx-global-template-status'), 'Template withdrawal failed: ' + error.message, 'error');
+      statusText($('ovyx-global-template-status'), 'The template couldn't be withdrawn. Please try again.', 'error');
     } finally { button.disabled = false; }
   }
 
