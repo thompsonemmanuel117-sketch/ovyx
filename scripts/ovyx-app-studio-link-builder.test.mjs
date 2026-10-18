@@ -72,7 +72,7 @@ assert.ok(runtime.includes('Allow this generated app to read your OVYX display n
 assert.ok(runtime.includes("fetch('/api/projects'"), 'Cloud project persistence must use the existing authenticated Projects API.');
 assert.ok(runtime.includes('App saved to OVYX Projects'), 'The UI must only report cloud-save success after the API verifies a saved project.');
 assert.ok(runtime.includes('Stage 04 action contract'), 'New generated projects must be instructed to use supported Stage 4 actions and disclose unsupported integrations.');
-assert.ok(browserTest.includes('Saved in this browser only'), 'Browser tests must verify honest local-only form feedback.');
+assert.ok(browserTest.includes('Saved on this device only'), 'Browser tests must verify honest local-only form feedback.');
 assert.ok(browserTest.includes('do-not-store-this'), 'Browser tests must verify password values are not stored.');
 assert.ok(browserTest.includes('requests.cloudSave'), 'Browser tests must verify a confirmed authenticated cloud save.');
 assert.ok(browserTest.includes('not-allowed'), 'Browser tests must verify direct arbitrary network calls are blocked.');
