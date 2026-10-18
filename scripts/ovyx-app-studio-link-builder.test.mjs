@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 const read = path => fs.readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 const runtime = read('assets/ovyx-app-studio-link-builder.js');
+const projectBrain = read('assets/ovyx-app-studio-project-brain.js');
 const analyzer = read('assets/ovyx-app-studio-url-analyzer.js');
 const brandDNA = read('assets/ovyx-app-studio-brand-dna.js');
 const middleware = read('functions/_middleware.js');
@@ -15,6 +16,8 @@ const browserTest = read('scripts/ovyx-app-studio-link-builder.browser.test.mjs'
 
 for (const path of [
   'assets/ovyx-app-studio-link-builder.js',
+  'assets/ovyx-app-studio-project-brain.js',
+  'scripts/ovyx-app-studio-project-brain.test.mjs',
   'scripts/ovyx-app-studio-link-builder.test.mjs',
   'scripts/ovyx-app-studio-link-builder.browser.test.mjs'
 ]) {
@@ -36,6 +39,17 @@ assert.ok(runtime.includes("frame.srcdoc = renderedHtml"), 'Generated HTML must 
 assert.ok(runtime.includes("setAttribute('sandbox', 'allow-scripts allow-forms allow-popups')"), 'The live project preview must isolate generated code in a sandbox.');
 assert.ok(runtime.includes('data-lb-source'), 'The generated project source files must be inspectable in the UI.');
 assert.ok(runtime.includes('ovyx:link-app-generated'), 'Generation completion must publish a real project event for later stage integrations.');
+assert.ok(projectBrain.includes('function analyze(project, runtimeSnapshot)'), 'Stage 5 must analyze the actual generated source map and runtime snapshot.');
+assert.ok(projectBrain.includes('BROKEN_INTERNAL_ROUTE') && projectBrain.includes('STYLESHEET_DEPENDENCY_MISSING'), 'Project Brain must report concrete broken route and dependency failures.');
+assert.ok(projectBrain.includes('script-hook') && projectBrain.includes('style-hook'), 'Project Brain must record component-to-JavaScript and component-to-CSS edges.');
+assert.ok(runtime.includes('data-ovyx-project-brain-probe'), 'The generated preview must expose a controlled live DOM/error probe to Project Brain.');
+assert.ok(runtime.includes('window.__OVYX_PROJECT_BRAIN_REPORT__'), 'The generated project UI must expose actual Project Brain results.');
+assert.ok(middleware.includes('/assets/ovyx-app-studio-project-brain.js?v=20261018-1'), 'The real Pages shell must load Project Brain after the link builder.');
+assert.ok(headers.includes('/assets/ovyx-app-studio-project-brain.js') && headers.includes('Cache-Control: no-store'), 'Project Brain should avoid stale asset caching.');
+assert.ok(pkg.scripts.test.includes('scripts/ovyx-app-studio-project-brain.test.mjs'), 'Project Brain regression tests must run through npm test.');
+assert.ok(browserTest.includes('runtimeChecked === true') && browserTest.includes('repairedAudit.status'), 'Browser integration must inspect the live preview and retest a repaired fixture.');
+assert.ok(runtime.includes('.ovyx-lb-panel :is(input,button,summary):focus-visible'), 'The Stage 5 accessibility bug fix must preserve the corrected focus selector.');
+assert.ok(!runtime.includes('}..ovyx-lb-panel :is(input,button,summary):focus-visible'), 'The malformed CSS selector must not return.');
 assert.ok(!runtime.includes('window.KernelState.activeProject ='), 'Link generation must not replace the user’s currently open project.');
 assert.ok(brandDNA.includes('appBrandId') && brandDNA.includes('isAppStudioRequest'), 'Stage 1 must continue scoping identity and generation requests per app.');
 assert.ok(middleware.includes('/assets/ovyx-app-studio-link-builder.js?v=20261018-1'), 'The real OVYX Pages shell must load the Stage 3 runtime.');
@@ -63,4 +77,4 @@ assert.ok(browserTest.includes('do-not-store-this'), 'Browser tests must verify 
 assert.ok(browserTest.includes('requests.cloudSave'), 'Browser tests must verify a confirmed authenticated cloud save.');
 assert.ok(browserTest.includes('not-allowed'), 'Browser tests must verify direct arbitrary network calls are blocked.');
 
-console.log('OVYX Stage 4 source checks passed: real form outcomes, bounded per-user persistence, authentication status, allowlisted APIs, explicit authorization, CSP network isolation, and verified cloud project saving.');
+console.log('OVYX Stage 4/5 source checks passed: real generated-app actions, bounded persistence, Project Brain wiring, dependency graph and source/runtime test coverage.');

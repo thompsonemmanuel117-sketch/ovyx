@@ -647,3 +647,16 @@ Stage 01 code and desktop/mobile browser verification are complete on the record
 - [x] Dedicated desktop/mobile **Stage 4 generated app functionality and live preview** step passed after merge in browser workflow run `39126979428`. Assertions cover form outcome, secret filtering, per-app browser persistence, sign-in/profile consent, approved read-only API calls, network blocking, and confirmed cloud project save: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/39126979428
 - [x] Stage 4 feature PR #162 merged to `main` at `40365b6604af6eb33c69699320d547c6d2fda005`.
 - [x] The full post-merge desktop/mobile **OVYX Assistant Workspace Browser Tests** workflow passed overall on `main` commit `40365b6604af6eb33c69699320d547c6d2fda005` (run `39126979428`), including the Stage 4 generated app functionality step and the later Settings/Workspace checks: https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/39126979428.
+
+## Stage 5 — Project Brain and generated-app test engine (2026-10-18)
+
+- [x] Added a deterministic Project Brain auditor for generated project files. It indexes HTML, CSS, JavaScript and local assets; records page-to-file dependencies; tracks CSS selectors and JavaScript selectors to concrete component IDs/classes; and records internal navigation edges.
+- [x] Added evidence-backed checks for HTML entry/title/viewport, local stylesheet/script/import/asset references, in-page anchors, internal route destinations, unlabeled/disabled controls, buttons with no detectable handler, and direct network calls that the Stage 4 preview CSP blocks.
+- [x] Added a nonce-scoped live-preview probe which reports the rendered page title, links, controls, forms, CSS/JS injection evidence, and captured JavaScript errors to the parent Project Brain. The probe returns labels and control metadata only; it does not send entered form values.
+- [x] Added a visible Project Brain report to App Studio with pass/fail/warning counts, dependency graph edges and supporting source evidence, plus a re-run action. Before the preview responds, the UI says “STATIC CHECKS ONLY” rather than implying live checks have passed.
+- [x] Fixed an existing malformed keyboard-focus CSS selector in the link-builder panel and added a regression assertion for the corrected selector.
+- [x] Added unit fixtures for a valid project, a deliberately broken project and the same project after route/anchor/CSS/handler corrections. The retest contract requires the corrected fixture to pass.
+- [x] Extended the existing desktop/mobile generated-app browser test to verify live Project Brain evidence after preview load; actual navigation, interactive controls, forms, state persistence and authorized APIs remain covered by Stage 4's browser test.
+- [ ] Run Agent Verify and the exact desktop/mobile Chromium workflow for this Stage 5 branch. Review the new Project Brain output and fix any failures supported by the actual logs before merging.
+- [ ] After merge, check the main-commit verification, production deployment diagnostics, and the dedicated generated-app browser step. Record exact run IDs and any unrelated suite failures without relabeling them as Stage 5 failures or passes.
+
