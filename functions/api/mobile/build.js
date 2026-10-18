@@ -149,9 +149,9 @@ export async function onRequestPost(context) {
       await setFirestoreDocument(context.env, 'mobile_builds', jobId, {
         status: 'failed',
         updatedAt: new Date().toISOString(),
-        errors: [{ code: 'MOBILE_BUILD_START_FAILED', message: `The mobile build couldn't be started. Please try again.` }]
+        errors: [{ code: 'EAS_DISPATCH_FAILED', message: `The mobile build couldn't be started. Please try again.` }]
       }, { merge: true });
-      throw Object.assign(new Error(data?.message || `The mobile build couldn't be started. Please try again.`), { status: response.status >= 400 && response.status < 500 ? response.status : 503, code: 'MOBILE_BUILD_START_FAILED' });
+      throw Object.assign(new Error(data?.message || `The mobile build couldn't be started. Please try again.`), { status: response.status >= 400 && response.status < 500 ? response.status : 503, code: 'EAS_DISPATCH_FAILED' });
     }
 
     await setFirestoreDocument(context.env, 'mobile_builds', jobId, {
@@ -174,7 +174,7 @@ export async function onRequestPost(context) {
     return jsonResponse({
       ok: false,
       error: error?.message || 'Unable to start the mobile build.',
-      code: error?.code || 'MOBILE_BUILD_START_FAILED'
+      code: error?.code || 'EAS_DISPATCH_FAILED'
     }, error?.status || 500, { 'X-OVYX-Request-ID': id });
   }
 }
