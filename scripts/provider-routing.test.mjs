@@ -229,7 +229,7 @@ try {
     error => {
       assert.equal(error.code, 'AI_PROVIDER_NOT_CONFIGURED');
       assert.match(error.message, /No AI option is available/i);
-      assert.match(error.message, /connect your own AI Brain/i);
+      assert.match(error.message, /choose another available AI option/i);
       return true;
     },
     'Automatic must report a helpful error before trying any unconfigured provider.',
@@ -246,8 +246,8 @@ try {
     error => {
       assert.equal(error.code, 'AI_PROVIDER_NOT_CONFIGURED');
       assert.match(error.message, /Gemini is not available right now/i);
-      assert.match(error.message, /try again later/i);
-      assert.match(error.message, /connect your own AI Brain/i);
+      assert.match(error.message, /Try OVYX Auto/i);
+      assert.match(error.message, /choose another available AI option/i);
       return true;
     },
   );
