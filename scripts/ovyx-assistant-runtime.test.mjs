@@ -57,7 +57,7 @@ assert.match(source, /data-ovyx-native-action="review-ai-edits"/);
 assert.match(source, /function setWorkspaceTaskStatus\(status, message = ''\)/);
 assert.match(source, /Working/);
 assert.match(source, /Workspace reviewed/);
-assert.match(source, /APPROVAL NEEDED/);
+assert.match(source, /Approval needed/);
 assert.match(source, /Changes saved/);
 assert.match(source, /Workspace details ready/);
 assert.match(source, /function recoverLatestWorkspaceEdit\(\)/);
