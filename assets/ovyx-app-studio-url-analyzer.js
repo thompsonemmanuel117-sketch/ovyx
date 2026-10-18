@@ -113,13 +113,13 @@
         heading.append(link(page.url, (Number(page.depth) ? '↳ ' : '') + (page.title || page.path || page.url), 'ovyx-ua-page__link'),
           node('span', 'ovyx-ua-page__status', page.status || 'unknown'));
         row.appendChild(heading);
-        const detail = [page.category, page.path, page.httpStatus ? 'HTTP ' + page.httpStatus : '', page.warning || ''].filter(Boolean).join(' · ');
+        const detail = [page.category, page.path, page.httpStatus ? 'Status ' + page.httpStatus : '', page.warning || ''].filter(Boolean).join(' · ');
         if (detail) row.appendChild(node('p', 'ovyx-ua-muted', detail));
         map.appendChild(row);
       });
       mapSection.appendChild(map);
     }
-    if (summary.pageLimitReached) mapSection.appendChild(node('p', 'ovyx-ua-notice', 'The inspection limit was reached. Remaining routes are listed but were not all fetched.'));
+    if (summary.pageLimitReached) mapSection.appendChild(node('p', 'ovyx-ua-notice', 'The review limit was reached. Some remaining pages are listed but haven't been reviewed.'));
     const assetSection = section(results, 'Assets discovered', 'These public asset links were found on inspected pages. Files are not copied automatically.');
     const assets = Array.isArray(report.assets?.items) ? report.assets.items : [];
     if (!assets.length) assetSection.appendChild(node('p', 'ovyx-ua-empty', 'No public assets were identified in inspected source.'));
@@ -139,7 +139,7 @@
     capability.appendChild(node('h5', '', 'Cannot prove or reproduce here'));
     renderList(capability, report.capabilities?.cannot, 'No limitations returned.');
     if (Array.isArray(report.limitations) && report.limitations.length) {
-      capability.appendChild(node('h5', '', 'Known limitations'));
+      capability.appendChild(node('h5', '', 'What to know'));
       renderList(capability, report.limitations, '');
     }
     if (Array.isArray(report.warnings) && report.warnings.length) {
@@ -153,7 +153,7 @@
   function applyDetectedPalette() {
     const report = window.__OVYX_URL_ANALYZER_LAST_REPORT__;
     const dna = document.getElementById('ovyx-app-studio-brand-dna-panel');
-    if (!report || !dna) { setStatus('Brand DNA is unavailable. Review the detected colors and configure branding manually.', 'error'); return; }
+    if (!report || !dna) { setStatus('Brand settings aren't available right now. You can review the detected colours and set up branding manually.', 'error'); return; }
     const nameInput = dna.querySelector('[data-brand-app-name]');
     if (nameInput && report.branding?.name) {
       nameInput.value = String(report.branding.name).slice(0, 100);
@@ -184,7 +184,7 @@
     if (!raw) { setStatus('Enter a public website URL first.', 'error'); if (input) input.focus(); return; }
     busy = true;
     if (button) { button.disabled = true; button.textContent = 'Inspecting public pages…'; }
-    setStatus('Validating the URL, checking public DNS and robots.txt, then inspecting a limited set of public pages and assets.', 'busy');
+    setStatus('Checking the website address and public access rules, then reviewing a limited set of pages and images.', 'busy');
     try {
       const user = window.firebase && window.firebase.auth && window.firebase.auth().currentUser;
       if (!user || typeof user.getIdToken !== 'function') throw new Error('Sign in to OVYX to analyze a website.');
@@ -197,7 +197,7 @@
       const data = await response.json().catch(() => ({}));
       if (!response.ok || data.ok !== true || !data.report) throw new Error(String(data.message || data.error || 'OVYX could not analyze this website.'));
       renderReport(data.report);
-      setStatus('Analysis complete. Review the sitemap, branding evidence, assets and limitations before continuing.', 'success');
+      setStatus('Website review complete. Check the pages, branding, images, and any notes before continuing.', 'success');
     } catch (error) {
       const results = panel && $(panel, '[data-ua-results]');
       if (results) results.replaceChildren();
