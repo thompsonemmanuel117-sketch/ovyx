@@ -25,9 +25,9 @@
     hero.innerHTML =
       '<div class="ovyx-as-hero__top">' +
         '<div class="ovyx-as-hero__copy">' +
-          '<p class="ovyx-as-kicker">OVYX · PROJECT APP STUDIO</p>' +
+          '<p class="ovyx-as-kicker">OVYX · APP STUDIO</p>' +
           '<h1 id="ovyx-as-title">From website to working app.</h1>' +
-          '<p class="ovyx-as-hero__desc">One clear workspace to inspect a source, generate a real project, test its behaviour and publish when you’re ready.</p>' +
+          '<p class="ovyx-as-hero__desc">Inspect a website, create a tailored app, verify key interactions, and prepare it for release.</p>' +
         '</div>' +
         '<div class="ovyx-as-hero__mark" aria-hidden="true"><span></span><span></span><span></span><span></span></div>' +
       '</div>' +
@@ -36,7 +36,7 @@
           '<span class="ovyx-as-flow__number">01</span><span class="ovyx-as-flow__copy"><b>Analyze</b><small>Inspect a public URL</small></span><span class="ovyx-as-flow__state" data-ovyx-as-step-state>Start here</span>' +
         '</a>' +
         '<a href="#ovyx-app-studio-link-builder" data-ovyx-as-step="generate">' +
-          '<span class="ovyx-as-flow__number">02</span><span class="ovyx-as-flow__copy"><b>Generate</b><small>Create the project</small></span><span class="ovyx-as-flow__state" data-ovyx-as-step-state>Next</span>' +
+          '<span class="ovyx-as-flow__number">02</span><span class="ovyx-as-flow__copy"><b>Generate</b><small>Create your app</small></span><span class="ovyx-as-flow__state" data-ovyx-as-step-state>Next</span>' +
         '</a>' +
         '<a href="#ovyx-app-studio-project-brain" data-ovyx-as-step="verify">' +
           '<span class="ovyx-as-flow__number">03</span><span class="ovyx-as-flow__copy"><b>Verify</b><small>Test real behaviour</small></span><span class="ovyx-as-flow__state" data-ovyx-as-step-state>Next</span>' +
@@ -78,8 +78,8 @@
     const summary = el('summary', 'ovyx-as-disclosure__summary');
     summary.append(
       el('span', 'ovyx-as-disclosure__icon', '↗'),
-      el('span', 'ovyx-as-disclosure__copy', 'Convert an existing Web Studio project'),
-      el('span', 'ovyx-as-disclosure__hint', 'Keep this separate from URL-based app generation'),
+      el('span', 'ovyx-as-disclosure__copy', 'Convert a Web Studio design'),
+      el('span', 'ovyx-as-disclosure__hint', 'Continue with an existing design'),
       el('span', 'ovyx-as-disclosure__chevron', '＋')
     );
     details.appendChild(summary);
@@ -185,11 +185,11 @@
     let copy = !report
       ? 'Start with a public website URL. Advanced options stay tucked away until you need them.'
       : !project
-        ? 'Source inspected. Generate the first working app from the report below.'
+        ? 'Website analysis is complete. Use the findings below to create your app.'
         : !verified
-          ? 'Your app preview is ready. Project Brain is checking its source and live controls.'
+          ? 'Your app preview is ready. Quality checks are reviewing its source and visible controls.'
           : (brain.status === 'failed' || brain.status === 'needs-attention')
-            ? 'Project Brain found items to review. Open the evidence before publishing.'
+            ? 'Quality checks found items to review. Review the details before publishing.'
             : productionIsLive
               ? 'Production publish is recorded. Use Release Health to confirm the public site is reachable.'
               : mobileCompleted
@@ -197,8 +197,8 @@
                 : previewDeployed
                   ? 'A preview deployment is live. Publish production only after reviewing the preview and release health.'
                   : projectSaved
-                    ? 'Your project is saved in OVYX Projects. Export it or create a preview deployment when you are ready.'
-                    : 'Checks have run. Save your project, export it, or deploy a preview when you are ready.';
+                    ? 'Your app is saved in OVYX Projects. Export it or create a preview deployment when you are ready.'
+                    : 'Checks are complete. Save your app, export it, or deploy a preview when you are ready.';
     if (helper.textContent !== copy) helper.textContent = copy;
   }
 
@@ -226,8 +226,8 @@
       if (target && name !== 'analyze') {
         const helper = $(document.getElementById(HERO_ID), '[data-ovyx-as-helper]');
         if (helper) helper.textContent = name === 'generate'
-          ? 'Analyze a website first. The real generator appears directly below a successful report.'
-          : 'Finish generating and checking the app first; later steps unlock as you go.';
+          ? 'Analyze a website first. The app generator becomes available after a successful analysis.'
+          : 'Complete the current step to continue. The next step becomes available when it is ready.';
       }
     }
     if (!target) return;
