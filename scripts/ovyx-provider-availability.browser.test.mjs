@@ -29,7 +29,7 @@ try {
             'window.firebase={auth:()=>({get currentUser(){return __currentUser}})};' +
             'window.__toasts=[];window.showToast=(message,type)=>window.__toasts.push({message,type});' +
             'window.__setProviderUser=u=>{__currentUser=u};' +
-            '</script><script defer src="/assets/ovyx-provider-availability.js?v=20261012-1"></script></body></html>',
+            '</script><script defer src="/assets/ovyx-provider-availability.js?v=20261018-1"></script></body></html>',
         });
         return;
       }
@@ -46,11 +46,11 @@ try {
       calls.push(provider);
       if (provider === 'gemini') {
         await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
-          ok: true, provider, label: 'Gemini', status: 'READY', configured: true, connected: true, message: 'Gemini is connected and ready.',
+          ok: true, provider, label: 'Gemini', status: 'READY', configured: true, connected: true, message: 'Gemini is ready to use.',
         }) });
       } else if (provider === 'anthropic') {
         await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
-          ok: false, provider, label: 'Claude', status: 'NOT_CONFIGURED', configured: false, connected: false, message: 'Claude is not available right now. Connect your own AI Brain in Universal Connections to continue building.',
+          ok: false, provider, label: 'Claude', status: 'NOT_CONFIGURED', configured: false, connected: false, message: 'Claude isn’t available right now. Try OVYX Auto or choose another available AI option.',
         }) });
       } else {
         await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({
@@ -66,7 +66,7 @@ try {
     assert.equal(await page.locator('script[src*="/assets/ovyx-provider-availability.js"]').count(), 1, '[' + target.name + '] provider availability asset did not load');
 
     await page.locator('#v59-model-select').selectOption('gemini');
-    await page.waitForFunction(() => (window.__toasts || []).some(item => item.type === 'success' && /Gemini is connected and ready/.test(item.message)));
+    await page.waitForFunction(() => (window.__toasts || []).some(item => item.type === 'success' && /Gemini is ready to use/.test(item.message)));
     assert.deepEqual(calls, ['gemini']);
 
     await page.locator('#v59-model-select').selectOption('anthropic');
@@ -74,7 +74,7 @@ try {
     assert.deepEqual(calls, ['gemini', 'anthropic'], '[' + target.name + '] selector must recheck provider availability on each change');
 
     await page.locator('#v59-model-select').selectOption('automatic');
-    await page.waitForFunction(() => (window.__toasts || []).some(item => item.type === 'info' && /OVYX Auto chooses/.test(item.message)));
+    await page.waitForFunction(() => (window.__toasts || []).some(item => item.type === 'info' && /OVYX Auto selects/.test(item.message)));
     assert.deepEqual(calls, ['gemini', 'anthropic'], '[' + target.name + '] Automatic mode should not ping a single provider endpoint');
 
     await page.evaluate(() => window.__setProviderUser(null));
