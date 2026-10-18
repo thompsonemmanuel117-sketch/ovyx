@@ -121,11 +121,11 @@ async function hasCloudflareDeployCapability(user, env) {
 
 async function cloudflareRequest(path, env, init = {}, authToken = env.CLOUDFLARE_API_TOKEN) {
   if (!env.CLOUDFLARE_API_TOKEN) {
-    throw new Error('Publishing isn't available right now. Please try again later.');
+    throw new Error('Publishing is not available right now. Please try again later.');
   }
 
   if (!env.CLOUDFLARE_ACCOUNT_ID) {
-    throw new Error('Publishing isn't available right now. Please try again later.');
+    throw new Error('Publishing is not available right now. Please try again later.');
   }
 
   const response = await fetch(
@@ -151,7 +151,7 @@ async function cloudflareRequest(path, env, init = {}, authToken = env.CLOUDFLAR
     const providerMessage =
       Array.isArray(data.errors) && data.errors[0]?.message
         ? String(data.errors[0].message)
-        : 'The publishing service couldn't complete the request.';
+        : 'The publishing service could not complete the request.';
 
     const error = new Error(providerMessage);
     error.status = response.status;
@@ -192,11 +192,11 @@ async function ovyxSha256(bytes) { const d = await crypto.subtle.digest('SHA-256
 function ovyxB64(bytes){ let s=''; for(let i=0;i<bytes.length;i+=0x8000)s+=String.fromCharCode(...bytes.subarray(i,i+0x8000)); return btoa(s); }
 function ovyxSlug(v,f='site'){ const x=String(v||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,36); return x||f; }
 function ovyxMime(p){ p=String(p).toLowerCase(); if(p.endsWith('.html'))return'text/html; charset=utf-8'; if(p.endsWith('.css'))return'text/css; charset=utf-8'; if(p.endsWith('.js')||p.endsWith('.mjs'))return'text/javascript; charset=utf-8'; if(p.endsWith('.json'))return'application/json; charset=utf-8'; if(p.endsWith('.svg'))return'image/svg+xml'; if(p.endsWith('.png'))return'image/png'; if(p.endsWith('.jpg')||p.endsWith('.jpeg'))return'image/jpeg'; if(p.endsWith('.webp'))return'image/webp'; if(p.endsWith('.gif'))return'image/gif'; if(p.endsWith('.woff2'))return'font/woff2'; return'application/octet-stream'; }
-function ovyxSafePath(v){ v=String(v||'').replace(/\\/g,'/').replace(/^\.\//,'').trim(); if(!v||v.length>500||v.startsWith('/')||v.includes('..')||/[\0\r\n]/.test(v))throw new Error('Invalid project file path.'); if(v==='functions'||v.startsWith('functions/'))throw new Error('This app includes server-side features that aren't available with static hosting. Configure a suitable service before publishing.'); return v; }
+function ovyxSafePath(v){ v=String(v||'').replace(/\\/g,'/').replace(/^\.\//,'').trim(); if(!v||v.length>500||v.startsWith('/')||v.includes('..')||/[\0\r\n]/.test(v))throw new Error('Invalid project file path.'); if(v==='functions'||v.startsWith('functions/'))throw new Error('This app includes server-side features that are not available with static hosting. Configure a suitable service before publishing.'); return v; }
 async function ovyxPagesName(user,pid,name,prefix){ const h=await ovyxSha256(new TextEncoder().encode(user.uid+':'+pid)); return ovyxSlug(ovyxSlug(prefix||'ovyx','ovyx')+'-'+h.slice(0,10)+'-'+ovyxSlug(name,'site')); }
-async function ovyxEnsurePagesProject(env,name){ try{ const p=(await cloudflareRequest('/accounts/'+encodeURIComponent(env.CLOUDFLARE_ACCOUNT_ID)+'/pages/projects/'+encodeURIComponent(name),env,{method:'GET'})).result||{}; if(p.source?.type)throw Object.assign(new Error('This app can't be published to the selected destination. Review the publishing settings or choose a different destination.'),{status:409}); return p; }catch(e){ if(e.status!==404)throw e; return (await cloudflareRequest('/accounts/'+encodeURIComponent(env.CLOUDFLARE_ACCOUNT_ID)+'/pages/projects',env,{method:'POST',body:JSON.stringify({name,production_branch:'main'})})).result||{}; } }
-async function ovyxUploadToken(env,name){ const d=await cloudflareRequest('/accounts/'+encodeURIComponent(env.CLOUDFLARE_ACCOUNT_ID)+'/pages/projects/'+encodeURIComponent(name)+'/upload-token',env,{method:'GET'}); if(!d.result?.jwt)throw new Error('The publishing service couldn't prepare the upload.'); return d.result.jwt; }
-async function ovyxPrepareFiles(raw){ if(!raw||typeof raw!=='object'||Array.isArray(raw))throw new Error('Deployment files are required.'); const es=Object.entries(raw); if(!es.length)throw new Error('The app doesn't contain any files to publish.'); if(es.length>MAX_FILES)throw new Error('The app contains too many files to publish.'); const out={}; let total=0; for(const [rp,rf0] of es){ const p=ovyxSafePath(rp),rf=rf0&&typeof rf0==='object'?rf0:{content:rf0}; let b; if(String(rf.encoding||'').toLowerCase()==='base64'){const x=atob(String(rf.content||''));b=Uint8Array.from(x,c=>c.charCodeAt(0));}else b=new TextEncoder().encode(String(rf.content??'')); if(b.byteLength>MAX_FILE_BYTES)throw new Error(p+' exceeds the 25 MiB Pages file limit.'); total+=b.byteLength; if(total>MAX_BODY_BYTES)throw new Error('The deployment payload exceeds 20 MiB.'); out[p]={hash:await ovyxSha256(b),value:ovyxB64(b),contentType:String(rf.contentType||ovyxMime(p))}; } return out; }
+async function ovyxEnsurePagesProject(env,name){ try{ const p=(await cloudflareRequest('/accounts/'+encodeURIComponent(env.CLOUDFLARE_ACCOUNT_ID)+'/pages/projects/'+encodeURIComponent(name),env,{method:'GET'})).result||{}; if(p.source?.type)throw Object.assign(new Error('This app cannot be published to the selected destination. Review the publishing settings or choose a different destination.'),{status:409}); return p; }catch(e){ if(e.status!==404)throw e; return (await cloudflareRequest('/accounts/'+encodeURIComponent(env.CLOUDFLARE_ACCOUNT_ID)+'/pages/projects',env,{method:'POST',body:JSON.stringify({name,production_branch:'main'})})).result||{}; } }
+async function ovyxUploadToken(env,name){ const d=await cloudflareRequest('/accounts/'+encodeURIComponent(env.CLOUDFLARE_ACCOUNT_ID)+'/pages/projects/'+encodeURIComponent(name)+'/upload-token',env,{method:'GET'}); if(!d.result?.jwt)throw new Error('The publishing service could not prepare the upload.'); return d.result.jwt; }
+async function ovyxPrepareFiles(raw){ if(!raw||typeof raw!=='object'||Array.isArray(raw))throw new Error('Deployment files are required.'); const es=Object.entries(raw); if(!es.length)throw new Error('The app does not contain any files to publish.'); if(es.length>MAX_FILES)throw new Error('The app contains too many files to publish.'); const out={}; let total=0; for(const [rp,rf0] of es){ const p=ovyxSafePath(rp),rf=rf0&&typeof rf0==='object'?rf0:{content:rf0}; let b; if(String(rf.encoding||'').toLowerCase()==='base64'){const x=atob(String(rf.content||''));b=Uint8Array.from(x,c=>c.charCodeAt(0));}else b=new TextEncoder().encode(String(rf.content??'')); if(b.byteLength>MAX_FILE_BYTES)throw new Error(p+' exceeds the 25 MiB Pages file limit.'); total+=b.byteLength; if(total>MAX_BODY_BYTES)throw new Error('The deployment payload exceeds 20 MiB.'); out[p]={hash:await ovyxSha256(b),value:ovyxB64(b),contentType:String(rf.contentType||ovyxMime(p))}; } return out; }
 async function ovyxUploadMissing(env,jwt,files){ const all=Object.values(files),checked=await cloudflareRequest('/pages/assets/check-missing',env,{method:'POST',body:JSON.stringify({hashes:all.map(x=>x.hash)})},jwt),missing=new Set(Array.isArray(checked.result)?checked.result.map(String):[]); let batch=[],size=0; const flush=async()=>{if(!batch.length)return;await cloudflareRequest('/pages/assets/upload',env,{method:'POST',body:JSON.stringify(batch)},jwt);batch=[];size=0;}; for(const f of all.filter(x=>missing.has(x.hash))){const item={key:f.hash,value:f.value,base64:true,metadata:{content_type:f.contentType}},n=JSON.stringify(item).length;if(batch.length>=25||(size+n>3500000&&batch.length))await flush();batch.push(item);size+=n;} await flush(); return {missing:missing.size,total:all.length}; }
 function ovyxSummary(d,name,action){const x=d||{},a=Array.isArray(x.aliases)?x.aliases:[],s=Array.isArray(x.stages)?x.stages:[],last=s.find(v=>v.status==='active')||s.at(-1)||null;return{deploymentId:x.id||null,pagesProjectName:name,action,environment:x.environment||(action==='publish'?'production':'preview'),status:last?.status||x.status||'queued',stage:last?.name||null,url:a[0]||x.url||null,aliases:a,createdAt:x.created_on||null,modifiedAt:x.modified_on||null};}
 
@@ -213,9 +213,9 @@ export async function onRequestPost(context) {
     if(!user.emailVerified)return json({success:false,authoritative:true,error:'Verify your email before deploying.',requestId},403);
     const canDeploy = await hasCloudflareDeployCapability(user, env);
     if (!canDeploy) {
-      return json({success:false,authoritative:true,error:'Your OVYX account doesn't have access to publish this app.',requestId},403);
+      return json({success:false,authoritative:true,error:'Your OVYX account does not have access to publish this app.',requestId},403);
     }
-    let body; try{body=await request.json();}catch{return json({success:false,authoritative:true,error:'The publishing request couldn't be processed. Please try again.',requestId},400);}
+    let body; try{body=await request.json();}catch{return json({success:false,authoritative:true,error:'The publishing request could not be processed. Please try again.',requestId},400);}
     const action=body?.action==='publish'?'publish':'deploy',projectId=String(body?.projectId||'').trim();
     if(!projectId||projectId.length>160)return json({success:false,authoritative:true,error:'Choose a saved app before publishing.',requestId},400);
     const pagesProjectName=await ovyxPagesName(user,projectId,body?.projectName||'site',env.CLOUDFLARE_PAGES_PROJECT_PREFIX);
