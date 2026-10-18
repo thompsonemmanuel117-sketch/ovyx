@@ -65,7 +65,7 @@ for (const token of [
   assert.ok(runtime.includes(token), 'Quality runtime is missing: ' + token);
 }
 
-assert.ok(middleware.includes('/assets/ovyx-webstudio-quality.js?v=20261018-6'), 'The quality inspector must load from the application-shell middleware.');
+assert.ok(middleware.includes('/assets/ovyx-webstudio-quality.js?v=20261018-7'), 'The quality inspector must load from the application-shell middleware.');
 assert.equal((middleware.match(/\/assets\/ovyx-webstudio-quality\.js\?v=20261014-5/g) || []).length, 1, 'The quality inspector must be injected exactly once per application shell.');
 assert.ok(headers.includes('/assets/ovyx-webstudio-quality.js\n  Cache-Control: no-store, no-cache, must-revalidate'), 'Quality inspection code must not be served from a stale cache.');
 assert.equal((headers.match(/\/assets\/ovyx-webstudio-quality\.js/g) || []).length, 1, 'Quality asset cache rules must appear exactly once.');
