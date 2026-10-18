@@ -23,7 +23,7 @@ export async function onRequestPost(context){
       if(result instanceof Error)throw result;
       return jsonResponse({ok:true,url,platform,remaining:next,total:5},200,{'Cache-Control':'no-store'});
     }
-    throw Object.assign(new Error('Your download allowance couldn't be updated. Please try again.'),{status:503});
-  }catch(error){return jsonResponse({ok:false,error:error?.message||'Your download allowance couldn't be checked.',code:error?.code||'MOBILE_DOWNLOAD_FAILED'},error?.status||500,{'Cache-Control':'no-store'});}
+    throw Object.assign(new Error('Your download allowance could not be updated. Please try again.'),{status:503});
+  }catch(error){return jsonResponse({ok:false,error:error?.message||'Your download allowance could not be checked.',code:error?.code||'MOBILE_DOWNLOAD_FAILED'},error?.status||500,{'Cache-Control':'no-store'});}
 }
 export async function onRequest(context){if(context.request.method==='POST')return onRequestPost(context);return jsonResponse({ok:false,error:'POST is required.'},405);}
