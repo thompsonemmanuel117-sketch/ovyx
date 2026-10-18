@@ -172,7 +172,7 @@ try {
     await page.locator('#ovyx-quota-tokens-pro').fill('600000');
     await page.locator('#ovyx-quota-daily-pro').fill('25');
     await page.locator('#ovyx-global-quota-save').click();
-    await page.waitForFunction(() => /Saved globally/.test(document.getElementById('ovyx-global-quota-status')?.textContent || ''), null, { timeout: 20000 });
+    await page.waitForFunction(() => /Pricing and plan settings saved/.test(document.getElementById('ovyx-global-quota-status')?.textContent || ''), null, { timeout: 20000 });
     assert.equal(await page.evaluate(() => Number(window.OVYXPlanCatalog?.pricing?.pro?.ngn)), 36000,
       '[' + target.name + '] a saved Pro price must be reflected in the server catalog');
     assert.equal(await page.evaluate(() => Number(window.OVYXPlanCatalog?.pricing?.pro?.usd)), 21,
@@ -189,7 +189,7 @@ try {
     await page.locator('#ovyx-global-ai-name').fill('OVYX Browser Fixture AI');
     await page.locator('#ovyx-global-ai-persona').fill('Be friendly and professionally helpful in the isolated browser test.');
     await page.locator('#ovyx-global-ai-save').click();
-    await page.waitForFunction(() => /Saved globally/.test(document.getElementById('ovyx-global-ai-status')?.textContent || ''), null, { timeout: 20000 });
+    await page.waitForFunction(() => /AI selection preferences saved/.test(document.getElementById('ovyx-global-ai-status')?.textContent || ''), null, { timeout: 20000 });
 
     // Confirm user plan assignment and quota reset issue real owner-authenticated writes.
     await hub.locator('[data-ovyx-admin-workspace-route="admin-users"]').evaluate(button => button.click());
