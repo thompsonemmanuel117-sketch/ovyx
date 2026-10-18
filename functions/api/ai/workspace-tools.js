@@ -703,7 +703,7 @@ export async function onRequestPost(context) {
   } catch (error) {
     return jsonResponse({
       ok: false,
-      error: error?.status ? error.message : 'The workspace request could not be completed. Please try again.'
+      error: error?.status ? error.message : 'The workspace request could not be completed. Please try again.',
       code: error?.code || 'WORKSPACE_TOOL_FAILED',
       requestId: id,
     }, error?.status || 500, { 'X-OVYX-Request-ID': id });
