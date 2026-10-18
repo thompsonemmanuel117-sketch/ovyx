@@ -109,12 +109,30 @@ try {
   await mobile.emulateMedia({ reducedMotion: 'reduce' });
   await mobile.goto(base, { waitUntil: 'load' });
   await mobile.locator('#ovyx-as-title').waitFor();
-  const metrics = await mobile.evaluate(() => ({
-    viewport: document.documentElement.clientWidth,
-    documentWidth: document.documentElement.scrollWidth,
-    appWidth: document.getElementById('view-appstudio').clientWidth,
-    appScrollWidth: document.getElementById('view-appstudio').scrollWidth
-  }));
+  const metrics = await mobile.evaluate(() => {
+    const root = document.getElementById('view-appstudio');
+    return {
+      viewport: document.documentElement.clientWidth,
+      documentWidth: document.documentElement.scrollWidth,
+      appWidth: root.clientWidth,
+      appScrollWidth: root.scrollWidth,
+      overflowingChildren: Array.from(root.children).map(child => ({
+        id: child.id || '',
+        className: String(child.className || '').slice(0, 120),
+        width: Math.round(child.getBoundingClientRect().width),
+        clientWidth: child.clientWidth,
+        scrollWidth: child.scrollWidth,
+        overflowNodes: Array.from(child.querySelectorAll('*')).filter(node => node.scrollWidth > node.clientWidth + 2).slice(0, 8).map(node => ({
+          tag: node.tagName.toLowerCase(),
+          id: node.id || '',
+          className: String(node.className || '').slice(0, 100),
+          clientWidth: node.clientWidth,
+          scrollWidth: node.scrollWidth,
+          width: Math.round(node.getBoundingClientRect().width)
+        }))
+      })).filter(child => child.scrollWidth > child.clientWidth + 2 || child.width > root.clientWidth + 2)
+    };
+  });
   assert.ok(metrics.appWidth > 0 && metrics.documentWidth <= metrics.viewport + 1 && metrics.appScrollWidth <= metrics.appWidth + 1,
     'The premium App Studio layout must not create mobile horizontal overflow: ' + JSON.stringify(metrics));
   const animation = await mobile.locator('#ovyx-as-hero').evaluate(el => getComputedStyle(el).animationDuration);
