@@ -162,14 +162,23 @@
     const mobile = releaseState.mobile;
     const mobileHasArtifact = Object.values(mobile?.artifacts || {}).some(item => !!(item && (item.downloadUrl || item.url)));
     const mobileCompleted = mobile?.status === 'completed' && mobileHasArtifact;
-    const released = artifact?.savedToProjects === true || productionIsLive || mobileCompleted;
+    const projectSaved = artifact?.savedToProjects === true;
+    const latestWebRecord = releaseState.web?.[releaseState.latestWebKey] || null;
+    const previewDeployed = !!(latestWebRecord && latestWebRecord.environment !== 'production' &&
+      ['active', 'success', 'deployed', 'completed'].includes(String(latestWebRecord.status || '').toLowerCase()));
+    const released = productionIsLive || mobileCompleted;
     const states = [
       report ? 'complete' : 'current',
       project ? 'complete' : report ? 'current' : 'pending',
       verified ? (brain.status === 'failed' || brain.status === 'needs-attention' ? 'current' : 'complete') : project ? 'current' : 'pending',
-      released ? 'complete' : verified && brain.status !== 'failed' ? 'current' : 'pending'
+      released ? 'complete' : (projectSaved || previewDeployed || (verified && brain.status !== 'failed')) ? 'current' : 'pending'
     ];
-    const messages = states.map((state, index) => state === 'complete' ? (index === 2 && (brain.status === 'failed' || brain.status === 'needs-attention') ? 'Review findings' : 'Done') : state === 'current' ? (index === 0 ? 'Start here' : index === 1 ? 'Build next' : index === 2 ? 'Check now' : 'Ready when you are') : 'Next');
+    const messages = [
+      states[0] === 'complete' ? 'Done' : 'Start here',
+      states[1] === 'complete' ? 'Done' : report ? 'Build next' : 'Next',
+      states[2] === 'complete' ? 'Done' : verified ? 'Review findings' : project ? 'Check now' : 'Next',
+      released ? (mobileCompleted && !productionIsLive ? 'Build ready' : 'Published') : productionIsLive ? 'Published' : previewDeployed ? 'Preview live · publish next' : projectSaved ? 'Saved · release next' : verified && brain.status !== 'failed' ? 'Ready when you are' : 'Next'
+    ];
     steps.forEach((anchor, index) => setStepState(anchor, states[index], messages[index]));
     const helper = $(hero, '[data-ovyx-as-helper]');
     if (!helper) return;
@@ -181,9 +190,15 @@
           ? 'Your app preview is ready. Project Brain is checking its source and live controls.'
           : (brain.status === 'failed' || brain.status === 'needs-attention')
             ? 'Project Brain found items to review. Open the evidence before publishing.'
-            : !released
-              ? 'Checks have run. Save or export your work, or publish only when you are ready.'
-              : 'Your release has an outcome recorded. Use release health/status to confirm availability.';
+            : productionIsLive
+              ? 'Production publish is recorded. Use Release Health to confirm the public site is reachable.'
+              : mobileCompleted
+                ? 'A mobile build artifact was returned. Review its download/details and verify it before distribution.'
+                : previewDeployed
+                  ? 'A preview deployment is live. Publish production only after reviewing the preview and release health.'
+                  : projectSaved
+                    ? 'Your project is saved in OVYX Projects. Export it or create a preview deployment when you are ready.'
+                    : 'Checks have run. Save your project, export it, or deploy a preview when you are ready.';
     if (helper.textContent !== copy) helper.textContent = copy;
   }
 
@@ -216,13 +231,14 @@
       }
     }
     if (!target) return;
+    const behavior = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
     const disclosure = target.closest('details');
     if (disclosure) disclosure.open = true;
     if (target.matches('input')) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      target.scrollIntoView({ behavior, block: 'center' });
       target.focus({ preventScroll: true });
     } else {
-      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      target.scrollIntoView({ behavior, block: 'start' });
     }
   }
 
@@ -231,7 +247,7 @@
     const style = el('style', '');
     style.id = 'ovyx-app-studio-premium-polish-style';
     style.textContent = [
-      '#view-appstudio{position:relative!important;display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:clamp(14px,2vw,22px)!important;box-sizing:border-box!important;width:100%!important;height:100%!important;min-height:0!important;overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior:contain;padding:clamp(14px,2.7vw,34px) clamp(12px,2.8vw,36px) 72px!important;scroll-behavior:smooth!important;background:radial-gradient(ellipse at 50% -15%,rgba(214,180,103,.11),transparent 44%),linear-gradient(180deg,#080b11 0%,#05070b 70%,#090b10 100%)!important}',
+      '#view-appstudio{position:relative!important;flex-direction:column!important;align-items:stretch!important;gap:clamp(14px,2vw,22px)!important;box-sizing:border-box!important;width:100%!important;height:100%!important;min-height:0!important;overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior:contain;padding:clamp(14px,2.7vw,34px) clamp(12px,2.8vw,36px) 72px!important;scroll-behavior:smooth!important;background:radial-gradient(ellipse at 50% -15%,rgba(214,180,103,.11),transparent 44%),linear-gradient(180deg,#080b11 0%,#05070b 70%,#090b10 100%)!important}',
       '#view-appstudio>*{flex-shrink:0!important;max-width:1120px!important;width:100%!important;margin-left:auto!important;margin-right:auto!important;min-width:0!important}',
       '#view-appstudio #app-studio-clean-canvas{position:relative!important;inset:auto!important;width:100%!important;height:auto!important;min-height:0!important;overflow:visible!important;pointer-events:auto!important;background:transparent!important;border:0!important;box-shadow:none!important}',
       '#view-appstudio #app-studio-clean-canvas .as4-shell{width:100%!important;min-height:0!important;max-width:1120px!important;padding:clamp(15px,2vw,24px)!important;margin:0 auto!important;border:1px solid rgba(255,255,255,.09);border-radius:18px;background:linear-gradient(145deg,rgba(18,23,32,.94),rgba(9,12,18,.96));box-shadow:0 18px 45px rgba(0,0,0,.2)}',
