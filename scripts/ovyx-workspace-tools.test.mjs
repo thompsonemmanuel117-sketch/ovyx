@@ -65,10 +65,10 @@ assert.match(client, /data-ovyx-native-action="review-ai-edits"/, 'The assistant
 assert.match(client, /operation: 'prepare_restore'/, 'Undo must preview the exact saved recovery version first.');
 assert.match(client, /operation: 'restore_revision'/, 'Undo must call the authenticated restore operation.');
 assert.match(client, /expectedUpdateTime: prepared\.revision/, 'Undo must send the preview revision to prevent overwriting newer work.');
-assert.match(client, /APPLIED · VERIFIED/, 'The context indicator must distinguish verified writes.');
-assert.match(client, /TASK RUNNING/, 'The context indicator must show running tasks.');
-assert.match(client, /APPROVAL NEEDED/, 'The context indicator must show approval-required actions.');
-assert.match(client, /LOCAL CONTEXT READY/, 'The context indicator must distinguish fallback context from a full scan.');
+assert.match(client, /Changes saved and verified/, 'The context indicator must distinguish verified writes.');
+assert.match(client, /Working/, 'The context indicator must show running tasks.');
+assert.match(client, /Approval needed/, 'The context indicator must show approval-required actions.');
+assert.match(client, /Workspace details ready/, 'The context indicator must distinguish fallback context from a full scan.');
 assert.match(nativeAi, /Never state that an action succeeded unless the relevant UI\/tool returned success/i, 'The assistant must not claim unverified actions succeeded.');
 
 console.log('OVYX workspace tool tests passed.');
