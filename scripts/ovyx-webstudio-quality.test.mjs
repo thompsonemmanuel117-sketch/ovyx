@@ -26,7 +26,7 @@ for (const token of [
   'quality-auto-repair',
   'deferredPreviewRefresh',
   'publishVerifiedPreview',
-  'last known-good preview stays visible',
+  'Your previous verified preview remains available',
   'rejectBuildForQuality',
   'Horizontal overflow',
   'Page runtime errors',
