@@ -375,7 +375,7 @@ try {
   assert.equal(requests.releaseHealth[0].auth, 'Bearer test-id-token');
   assert.equal(requests.releaseHealth[0].query.deploymentId, 'deployment-1');
   assert.equal(await desktop.locator('[data-lb-release-link]').isVisible(), true);
-  assert.equal(await desktop.locator('[data-lb-release-link]').getAttribute('href'), 'https://coastal-preview.pages.dev');
+  assert.equal(await desktop.locator('[data-lb-release-link]').getAttribute('href'), 'https://coastal-preview.pages.dev/');
 
   await desktop.locator('[data-lb-publish]').click();
   await desktop.waitForFunction(() => document.querySelector('[data-lb-web-status]')?.textContent.includes('Latest production publish: active'), null, { timeout: 10000 });
