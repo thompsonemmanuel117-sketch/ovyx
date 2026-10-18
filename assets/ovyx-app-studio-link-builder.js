@@ -260,6 +260,18 @@
       return !!(frame && frame.isConnected && source.length > 80 && /<body/i.test(source) &&
         source.includes(homeHtml.slice(0, Math.min(homeHtml.length, 80)) || '') && rect && rect.width > 0 && rect.height > 0);
     }, 'The generated project files were saved, but the live preview did not render in the real editor.');
+    // The route can finish restoring a previous workspace during the first
+    // preview render. Reassert this newly generated project as the active and
+    // persisted project only after the iframe has accepted its generated source.
+    const finalState = window.KernelState;
+    finalState.activeProject = project;
+    finalState.projects = Array.isArray(finalState.projects) ? finalState.projects : [];
+    const savedIndex = finalState.projects.findIndex(item => item?.id === projectId);
+    if (savedIndex >= 0) finalState.projects[savedIndex] = project;
+    else finalState.projects.unshift(project);
+    window.ProjectStore?.save?.();
+    window.WebStudio.graph = graph;
+    window.WebStudio.renderPreview();
     window.__OVYX_LAST_LINK_BUILD__ = { projectId, projectName: appName, sourceUrl: evidence.source.canonicalUrl,
       entry: generated.homePath, fileCount: Object.keys(generated.files).length, previewRendered: true };
     try { sessionStorage.setItem('ovyx.appstudio.link-build', JSON.stringify(window.__OVYX_LAST_LINK_BUILD__)); } catch (_) {}
