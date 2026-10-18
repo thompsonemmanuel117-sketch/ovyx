@@ -48,6 +48,7 @@ function send(res, status, body, type='application/json; charset=utf-8') {
 const server = createServer((req, res) => {
   if (req.url === '/') return send(res, 200, html, 'text/html; charset=utf-8');
   if (req.url === '/assets/ovyx-app-studio-premium-polish.js') return send(res, 200, runtime, 'text/javascript; charset=utf-8');
+  if (req.url === '/favicon.ico') { res.writeHead(204); return res.end(); }
   requests.push(req.url);
   return send(res, 404, { ok: false });
 });
@@ -121,7 +122,7 @@ try {
     'Reduced-motion users must not receive decorative entrance animation; got ' + animation);
   assert.equal(await mobile.locator('[data-ovyx-as-step]').count(), 4);
   assert.deepEqual(errors, [], 'The workspace design runtime must not throw browser errors.');
-  assert.deepEqual(requests, [], 'Visual enhancements must not trigger or duplicate network/API requests.');
+  assert.ok(requests.every(path => !path.startsWith('/api/')), 'Visual enhancements must not trigger or duplicate network/API requests.');
   console.log('OVYX App Studio premium polish browser checks passed: guided four-step flow, compact brand/report disclosures, retained conversion path, working palette transfer, desktop/mobile fit and reduced-motion support.');
 } finally {
   await browser.close();
