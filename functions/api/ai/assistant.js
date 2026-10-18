@@ -82,14 +82,14 @@ export async function onRequestPost(context) {
     if (isAppStudio) {
       const entitlement = context.data?.entitlements || await resolveEntitlements(context.env, user);
       if (entitlement?.capabilities?.appStudio !== true) {
-        return errorResponse('App Studio isn't included in your current plan.', 403, 'FEATURE_NOT_INCLUDED');
+        return errorResponse("App Studio isn't included in your current plan.", 403, 'FEATURE_NOT_INCLUDED');
       }
     }
 
     if (isWebStudio) {
       const entitlement = context.data?.entitlements || await resolveEntitlements(context.env, user);
       if (entitlement?.capabilities?.webStudio !== true) {
-        return errorResponse('Web Studio isn't included in your current plan.', 403, 'FEATURE_NOT_INCLUDED');
+        return errorResponse("Web Studio isn't included in your current plan.", 403, 'FEATURE_NOT_INCLUDED');
       }
     }
 
