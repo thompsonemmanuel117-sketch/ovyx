@@ -109,7 +109,7 @@ try {
   assert.equal(saved.colors.primary, '#D81B60');
   assert.equal(saved.colors.background, '#FFF9FC');
   assert.ok(saved.layoutRules[0].includes('full colour'), 'Brand layout rules must be persisted with the app.');
-  const logoNaturalSize = await desktop.locator('[data-brand-logo-preview]').evaluate(img => ({ complete:img.complete, width:img.naturalWidth, height:img.naturalHeight, fit:getComputedStyle(img).objectFit, box:img.getBoundingClientRect().toJSON() }));
+  const logoNaturalSize = await desktop.locator('[data-brand-logo-preview]').evaluate(img => ({ complete:img.complete, width:img.naturalWidth, height:img.naturalHeight, fit:getComputedStyle(img).objectFit, box:img.parentElement.getBoundingClientRect().toJSON() }));
   assert.ok(logoNaturalSize.complete && logoNaturalSize.width === 96 && logoNaturalSize.height === 96, 'The upload preview must be a real 96px PNG, not a placeholder.');
   assert.equal(logoNaturalSize.fit, 'contain', 'The uploaded logo must preserve its full image without cropping.');
   assert.ok(logoNaturalSize.box.width > logoNaturalSize.box.height, 'The logo preview must provide a wide, logo-friendly display area.');
@@ -205,7 +205,7 @@ try {
   const jpegBase64 = await desktop.evaluate(() => { const canvas=document.createElement('canvas');canvas.width=320;canvas.height=80;const ctx=canvas.getContext('2d');ctx.fillStyle='#D81B60';ctx.fillRect(0,0,160,80);ctx.fillStyle='#00A6A6';ctx.fillRect(160,0,160,80);return canvas.toDataURL('image/jpeg').split(',')[1]; });
   await desktop.locator('[data-brand-logo-file]').setInputFiles({ name:'brand-photo.jpg', mimeType:'image/jpeg', buffer:Buffer.from(jpegBase64,'base64') });
   await desktop.waitForFunction(() => { const img=document.querySelector('[data-brand-logo-preview]');return img?.complete&&img.naturalWidth===320&&img.naturalHeight===80&&img.src.startsWith('data:image/png;base64,'); });
-  const jpegPreview = await desktop.locator('[data-brand-logo-preview]').evaluate(img => ({ fit:getComputedStyle(img).objectFit, box:img.getBoundingClientRect().toJSON(), naturalWidth:img.naturalWidth, naturalHeight:img.naturalHeight }));
+  const jpegPreview = await desktop.locator('[data-brand-logo-preview]').evaluate(img => ({ fit:getComputedStyle(img).objectFit, box:img.parentElement.getBoundingClientRect().toJSON(), naturalWidth:img.naturalWidth, naturalHeight:img.naturalHeight }));
   assert.equal(jpegPreview.fit, 'contain', 'Converted photos must also fit without cropping.');
   assert.ok(jpegPreview.box.width > jpegPreview.box.height && jpegPreview.naturalWidth === 320 && jpegPreview.naturalHeight === 80, 'Wide photo logos must preserve their aspect ratio in the preview.');
 
