@@ -264,7 +264,7 @@
       if (/<\/body\s*>/i.test(html)) html = html.replace(/<\/body\s*>/i, jsTag + '</body>');
       else html += jsTag;
     }
-    const routerBridge = '<script data-ovyx-link-router>(function(){document.addEventListener("click",function(event){var link=event.target&&event.target.closest?event.target.closest("a[href]"):null;if(!link)return;var raw=link.getAttribute("href")||"";if(!raw||raw.charAt(0)==="#"||/^(?:https?:\\/\\/|mailto:|tel:|data:|javascript:)/i.test(raw))return;if(link.target&&link.target!=="_self")return;event.preventDefault();var route=raw.split(/[?#]/)[0].replace(/\\\\/g,"/").replace(/^\\.\\//,"").replace(/^\\/+|\\/+$/g,"");parent.postMessage({ovyxLinkAppNavigate:route?"/"+route+"/":"/"},"*");},true);})();<\/script>';
+    const routerBridge = '<script data-ovyx-link-router>(function(){document.addEventListener("click",function(event){var link=event.target&&event.target.closest?event.target.closest("a[href]"):null;if(!link)return;var raw=link.getAttribute("href")||"";if(!raw||raw.charAt(0)==="#"||raw.slice(0,2)==="//"||/^(?:https?:|mailto:|tel:|data:|javascript:)/i.test(raw)||(link.target&&link.target!=="_self"))return;var route=raw.split(/[?#]/)[0].split("/").filter(Boolean).join("/");event.preventDefault();parent.postMessage({ovyxLinkAppNavigate:route?"/"+route+"/":"/"},"*");},true);})();' + '</' + 'script>';
     if (/<\/body\s*>/i.test(html)) html = html.replace(/<\/body\s*>/i, routerBridge + '</body>');
     else html += routerBridge;
     return html;
