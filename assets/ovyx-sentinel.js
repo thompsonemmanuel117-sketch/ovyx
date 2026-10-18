@@ -29,7 +29,7 @@ function user() { try { return window.firebase && window.firebase.auth().current
 function adminClient() { var u = user(); return !!u && String(u.email || '').trim().toLowerCase() === ADMIN_EMAIL && u.emailVerified === true; }
 async function getToken() {
   var u = user();
-  if (!u || typeof u.getIdToken !== 'function') throw new Error('Please sign in to your OVYX administrator account.');
+  if (!u || typeof u.getIdToken !== 'function') throw new Error('Sign in to your OVYX admin account to continue.');
   return u.getIdToken(false);
 }
 async function api(method, payload) {
@@ -107,7 +107,7 @@ function buildShell() {
   root = document.createElement('div'); root.id = ID + '-root';
   root.innerHTML = '<button id="' + ID + '-launch" type="button" aria-label="Open private OVYX Guardian companion"><span class="eye" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M3 16s4.8-8 13-8 13 8 13 8-4.8 8-13 8S3 16 3 16Z" stroke="#8BEAF4" stroke-width="1.5"/><circle cx="16" cy="16" r="5.4" fill="#A5F3FC" fill-opacity=".2" stroke="#8BEAF4" stroke-width="1.4"/><circle cx="16" cy="16" r="2.4" fill="#B9FAFF"/></svg></span><span>OVYX GUARDIAN</span></button>' +
   '<section id="' + ID + '-panel" role="dialog" aria-modal="false" aria-labelledby="' + ID + '-title" hidden><header class="head"><span class="eye" aria-hidden="true">◉</span><div class="headcopy"><div id="' + ID + '-title" class="title">OVYX GUARDIAN</div><div class="sub">YOUR PRIVATE PROJECT COMPANION · VOICE + HEALTH</div></div><button type="button" class="close" data-ovsx="close" aria-label="Put Guardian to sleep">×</button></header>' +
-  '<div class="actions"><button type="button" class="btn primary" data-ovsx="scan">Check now</button><button type="button" class="btn" data-ovsx="plan">Prepare fix plan</button><button type="button" class="btn" data-ovsx="diagnose">AI diagnosis</button><button type="button" class="btn" data-ovsx="patch">Prepare code fix</button><button type="button" class="btn" data-ovsx="wake">Enable wake word</button><button type="button" class="btn" data-ovsx="sleep">Go to sleep</button><button type="button" class="btn" data-ovsx="mute" disabled>Stop speaking</button></div>' +
+  '<div class="actions"><button type="button" class="btn primary" data-ovsx="scan">Check now</button><button type="button" class="btn" data-ovsx="plan">Prepare fix plan</button><button type="button" class="btn" data-ovsx="diagnose">AI diagnosis</button><button type="button" class="btn" data-ovsx="patch">Prepare code fix</button><button type="button" class="btn" data-ovsx="wake">Enable voice activation</button><button type="button" class="btn" data-ovsx="sleep">Go to sleep</button><button type="button" class="btn" data-ovsx="mute" disabled>Stop speaking</button></div>' +
   '<div class="status" role="status" aria-live="polite" data-ovsx-status>Verifying administrator access…</div><div class="body"><div class="summary"><strong>Hey boss, I’m here.</strong><small>Your private OVYX companion. Talk naturally, ask questions, or say “OVYX, open Web Studio.” I only listen after you enable the wake word; say “go to sleep” when you want me to disappear. Conversation turns stay in this page session.</small></div><div data-ovsx-report></div><div class="plan" hidden data-ovsx-plan></div><div class="plan" hidden data-ovsx-diagnosis></div><details class="plan" hidden data-ovsx-diagnosis-history><summary class="plan-heading">Previous diagnoses</summary><div data-ovsx-diagnosis-history-list></div></details><div class="plan patch-tools" hidden data-ovsx-patch-tools><strong>Reviewable code fix</strong><div class="plan-note">I will prepare a preview first. Nothing changes until you review the proposal, type the confirmation phrase, and create a pull request. I never merge or deploy automatically.</div><label>Source file path<input type="text" data-ovsx-patch-path maxlength="240" placeholder="functions/api/feature.js"></label><label>What should be fixed?<textarea data-ovsx-patch-task rows="3" maxlength="1200" placeholder="Describe the exact bug and desired result"></textarea></label><button type="button" class="btn primary" data-ovsx="patch-prepare">Prepare patch preview</button><div data-ovsx-patch-summary class="rowsummary"></div><pre class="patch-preview" data-ovsx-patch-preview hidden></pre><label>Type CREATE_PULL_REQUEST to submit for review<input type="text" data-ovsx-patch-confirm autocomplete="off" maxlength="40" placeholder="CREATE_PULL_REQUEST"></label><button type="button" class="btn" data-ovsx="patch-apply" disabled>Create review pull request</button><a class="patch-link" data-ovsx-patch-link hidden target="_blank" rel="noopener noreferrer">Open pull request</a></div><div class="transcript" hidden data-ovsx-transcript></div></div><form class="chat-form" data-ovsx-chat-form><textarea class="chat-input" data-ovsx-chat-input rows="2" maxlength="1200" aria-label="Message OVYX Guardian" placeholder="Talk to me or type a message…"></textarea><button class="chat-send" type="submit">Send</button></form>' +
   '<div class="foot">Voice commands require microphone permission and a supported browser. Wake-word listening only works while this page is open and active. Use “stop listening” to switch off the microphone completely.</div></section>';
   document.body.appendChild(root); addStyles(); bindShell(); return root;
@@ -127,7 +127,7 @@ function renderReport(report) {
   var diagnosisHost = q('[data-ovsx-diagnosis]'); if (diagnosisHost) { diagnosisHost.hidden = true; diagnosisHost.replaceChildren(); }
   var host = q('[data-ovsx-report]'); if (!host) return;
   host.replaceChildren();
-  if (!report) { var empty = document.createElement('div'); empty.className = 'summary'; empty.textContent = 'No saved Sentinel report yet. Select Check now to run the first scan.'; host.appendChild(empty); return; }
+  if (!report) { var empty = document.createElement('div'); empty.className = 'summary'; empty.textContent = 'No health report is available yet. Select Check now to run the first review.'; host.appendChild(empty); return; }
   var summary = document.createElement('div'); summary.className = 'summary';
   var heading = document.createElement('strong'); heading.textContent = 'Latest report · ' + stateLabel(report);
   var desc = document.createElement('small'); desc.textContent = Number(report.passedCount || 0) + ' passed · ' + Number(report.criticalCount || 0) + ' critical · ' + Number(report.warningCount || 0) + ' warnings';
@@ -179,7 +179,7 @@ function renderFixPlan(plan) {
       : [];
     if (names.length) {
       var config = document.createElement('div'); config.className = 'plan-issue';
-      config.textContent = 'Configuration names: ' + names.join(', ');
+      config.textContent = 'Configuration items to review: ' + names.join(', ');
       item.appendChild(config);
     }
     var steps = Array.isArray(task && task.steps) ? task.steps.slice(0, 6) : [];
@@ -201,14 +201,14 @@ function renderDiagnosis(data) {
   var host = q('[data-ovsx-diagnosis]'); if (!host) return;
   host.replaceChildren(); host.hidden = false;
   var header = document.createElement('div'); header.className = 'summary';
-  var title = document.createElement('strong'); title.textContent = 'AI incident diagnosis';
+  var title = document.createElement('strong'); title.textContent = 'AI-assisted incident review';
   var detail = document.createElement('small'); detail.textContent = 'Evidence report ' + safeText(data && data.reportId || 'unknown', 100) + ' · ' + safeText(data && data.generatedAt ? new Date(data.generatedAt).toLocaleString() : 'just now', 80);
   header.append(title, detail); host.appendChild(header);
   var body = document.createElement('div'); body.className = 'plan-issue'; body.style.whiteSpace = 'pre-wrap';
   body.textContent = safeText(data && data.diagnosis || 'The diagnostic brain did not return a result.', 6000);
   host.appendChild(body);
   var note = document.createElement('div'); note.className = 'plan-note';
-  note.textContent = 'Diagnosis only. No source files, provider keys, Cloudflare settings, or deployments were changed.';
+  note.textContent = 'This is a read-only review. No code, settings, credentials, or live releases were changed.';
   host.appendChild(note);
 }
 function renderDiagnosisHistory(items) {
@@ -238,7 +238,7 @@ async function diagnoseLatest(shouldSpeak) {
   if (busy) return;
   busy = true;
   var button = q('[data-ovsx="diagnose"]'); if (button) button.disabled = true;
-  status('Investigating the latest saved report with the diagnostic AI brain…');
+  status('Reviewing the latest saved health report…');
   try {
     var idToken = await getToken();
     var response = await fetch('/api/admin/sentinel-diagnose', {
@@ -255,10 +255,10 @@ async function diagnoseLatest(shouldSpeak) {
     }
     var message = safeText(data.diagnosis || 'The diagnosis is ready.', 900);
     transcript('Sentinel AI diagnosis:\n' + message);
-    status(data.historySaved ? 'Diagnosis saved to private history. No changes were applied.' : 'Diagnosis is ready, but Sentinel could not confirm that history was saved. No changes were applied.', data.historySaved ? 'success' : 'error');
+    status(data.historySaved ? 'Review saved to your private history. No changes were applied.' : 'The review is ready, but it couldn't be saved to history. No changes were applied.', data.historySaved ? 'success' : 'error');
     if (shouldSpeak) speak(message);
   } catch (error) {
-    status(String(error.message || 'AI diagnosis failed.') + ' Run Check now and retry.', 'error');
+    status(String(error.message || 'The AI-assisted review couldn't be completed.') + ' Run Check now and retry.', 'error');
     if (shouldSpeak) speak('Sorry boss, I could not complete the AI diagnosis. ' + String(error.message || ''));
   } finally {
     busy = false;
@@ -339,18 +339,18 @@ function goToSleep(shouldSpeak, stopMicrophone) {
 }
 async function loadLatest() {
   if (busy) return;
-  try { var data = await api('GET'); renderReport(data.latestReport); renderDiagnosisHistory(data.diagnoses); if (data.latestDiagnosis) renderDiagnosis(data.latestDiagnosis); status(data.lastScanAt ? 'Last saved scan: ' + new Date(data.lastScanAt).toLocaleString() : 'Sentinel is connected. Run the first check when ready.', 'success'); }
-  catch (error) { status(error.message || 'Sentinel history is unavailable.', 'error'); }
+  try { var data = await api('GET'); renderReport(data.latestReport); renderDiagnosisHistory(data.diagnoses); if (data.latestDiagnosis) renderDiagnosis(data.latestDiagnosis); status(data.lastScanAt ? 'Last saved scan: ' + new Date(data.lastScanAt).toLocaleString() : 'Sentinel is ready. Run a health review when you're ready.', 'success'); }
+  catch (error) { status(error.message || 'Health review history isn't available right now.', 'error'); }
 }
 async function prepareFixPlan() {
   if (busy) return;
   var button = q('[data-ovsx="plan"]'); if (button) button.disabled = true;
-  status('Preparing a safe remediation plan from the latest saved checks…');
+  status('Preparing recommended actions from the latest health review…');
   try {
     var data = await api('GET');
     renderReport(data.latestReport || null);
     renderFixPlan(data.fixPlan || null);
-    status('Fix plan prepared for review. Sentinel has not changed code, settings, secrets, or deployments.', 'success');
+    status('Recommended actions are ready for review. No code, settings, credentials, or live releases have been changed.', 'success');
   } catch (error) {
     status(error.message || 'Sentinel could not prepare a remediation plan.', 'error');
   } finally {
@@ -360,13 +360,13 @@ async function prepareFixPlan() {
 async function scanNow(shouldSpeak) {
   if (busy) return;
   busy = true; var button = q('[data-ovsx="scan"]'); if (button) button.disabled = true;
-  status('Checking platform health, configuration, CI signals, and assistant assets…');
+  status('Reviewing platform health, settings, quality signals, and assistant resources…');
   try {
     var data = await api('POST', { action: 'scan' }); renderReport(data.report);
     var message = 'Sentinel scan finished. Status: ' + stateLabel(data.report) + '. ' + Number(data.report.criticalCount || 0) + ' critical issues and ' + Number(data.report.warningCount || 0) + ' warnings.';
     status(message, Number(data.report.criticalCount || 0) ? 'error' : Number(data.report.warningCount || 0) ? 'info' : 'success');
     if (shouldSpeak) speak(message);
-  } catch (error) { status(error.message || 'Sentinel could not complete its scan.', 'error'); if (shouldSpeak) speak('Sorry boss, I could not complete the scan. ' + String(error.message || '')); }
+  } catch (error) { status(error.message || 'Sentinel could not complete its scan.', 'error'); if (shouldSpeak) speak('I couldn't complete the health review. ' + String(error.message || '')); }
   finally { busy = false; if (button) button.disabled = false; }
 }
 function transcript(message) { var element = q('[data-ovsx-transcript]'); if (!element) return; element.hidden = false; element.textContent = safeText(message, 7000); }
@@ -383,7 +383,7 @@ function rememberTurn(role, message) {
 async function askCompanion(question, sourceInspectionUnavailable) {
   var prompt = safeText(question, 1200);
   if (!prompt) return;
-  if (companionBusy) { status('I’m still working on your last message, boss.', 'info'); return; }
+  if (companionBusy) { status('I'm still preparing your last response.', 'info'); return; }
   companionBusy = true;
   var messages = conversationTurns.slice(-10);
   var lastTurn = messages[messages.length - 1];
@@ -398,7 +398,7 @@ async function askCompanion(question, sourceInspectionUnavailable) {
       return { path: item.path, status: item.status, code: item.code, summary: item.summary };
     })
   } : null;
-  status('Thinking with you…');
+  status('Preparing a response…');
   try {
     var idToken = await getToken();
     var response = await fetch('/api/admin/sentinel-companion', {
@@ -412,14 +412,14 @@ async function askCompanion(question, sourceInspectionUnavailable) {
       })
     });
     var data = await response.json().catch(function () { return {}; });
-    if (!response.ok || data.ok !== true) throw new Error(data.message || data.error || 'I could not answer right now. Check the configured AI provider or try again.');
+    if (!response.ok || data.ok !== true) throw new Error(data.message || data.error || 'I couldn't answer right now. Please try again or choose another AI option.');
     var answer = safeText(data.text || 'I did not receive a complete answer, boss. Please say that again.', 2200);
     conversationTurns = messages.concat([{ role: 'assistant', content: answer }]).slice(-10);
     transcript(conversationTurns.map(function (item) { return (item.role === 'user' ? 'You' : 'Guardian') + ': ' + item.content; }).join('\n\n'));
-    status('I’m here, boss. This conversation stays in the active page session.', 'success');
+    status('Sentinel is ready. This conversation remains in the current session.', 'success');
     speak(answer);
   } catch (error) {
-    status(String(error.message || 'Guardian conversation failed.') + ' No code changes were applied.', 'error');
+    status(String(error.message || 'This message couldn't be completed.') + ' No code changes were applied.', 'error');
     speak('Sorry boss, I could not answer that just now. ' + String(error.message || ''));
   } finally {
     companionBusy = false;
@@ -432,13 +432,13 @@ async function askAI(question) {
   lastGuardianQuestion = safeText(question, 1200);
   if (!lastGuardianQuestion) return;
   if (guardianRequestBusy || companionBusy) {
-    status('I’m still working on your last message, boss. Give me a moment to finish it.', 'info');
+    status('I'm still preparing your last response. Give me a moment to finish it.', 'info');
     return;
   }
   guardianRequestBusy = true;
   rememberTurn('user', lastGuardianQuestion);
   if (questionNeedsRepositoryInspection(lastGuardianQuestion)) {
-    status('I’ll try to inspect the relevant source safely first…');
+    status('I'll review the relevant information first…');
     try {
       var idToken = await getToken();
       var headers = { Accept: 'application/json', Authorization: 'Bearer ' + idToken };
@@ -447,14 +447,14 @@ async function askAI(question) {
       });
       var capabilities = await capabilitiesResponse.json().catch(function () { return {}; });
       if (capabilitiesResponse.ok && capabilities.ok === true && capabilities.guardian && capabilities.guardian.readOnlyInvestigationReady === true) {
-        status('Investigating the repository with read-only source access…');
+        status('Reviewing the relevant source files without making changes…');
         var investigationResponse = await fetch('/api/admin/guardian-repo', {
           method: 'POST', credentials: 'same-origin', cache: 'no-store',
           headers: Object.assign({}, headers, { 'Content-Type': 'application/json' }),
           body: JSON.stringify({ action: 'investigate', question: lastGuardianQuestion })
         });
         var investigation = await investigationResponse.json().catch(function () { return {}; });
-        if (!investigationResponse.ok || investigation.ok !== true) throw new Error(investigation.message || investigation.error || 'Guardian could not investigate the repository.');
+        if (!investigationResponse.ok || investigation.ok !== true) throw new Error(investigation.message || investigation.error || 'The source review couldn't be completed.');
         var answer = safeText(investigation.answer || 'I could not form a diagnosis from the inspected source.', 1800);
         var files = Array.isArray(investigation.inspectedFiles) ? investigation.inspectedFiles.slice(0, 3).map(function (path) { return safeText(path, 100); }) : [];
         lastInspectedFiles = files.slice();
@@ -463,14 +463,14 @@ async function askAI(question) {
         var patchTaskInput = q('[data-ovsx-patch-task]');
         if (patchTaskInput) patchTaskInput.value = lastGuardianQuestion;
         rememberTurn('assistant', answer);
-        status(files.length ? 'Read-only source investigation complete. Inspected: ' + files.join(', ') + '. No code changes were applied.' : 'No matching source files were found; no changes were applied.', 'success');
+        status(files.length ? 'Source review complete. Reviewed: ' + files.join(', ') + '. No files were changed.' : 'No matching files were found. No changes were made.', 'success');
         speak(answer);
         return;
       }
       await askCompanion(lastGuardianQuestion, true);
       return;
     } catch (error) {
-      status('I could not inspect the source on this attempt. I have not changed anything.', 'error');
+      status('I couldn't complete the review. Nothing has been changed.', 'error');
       speak('Sorry boss, I could not inspect the source on this attempt. No code changes were applied.');
       return;
     } finally {
@@ -552,13 +552,13 @@ async function openFromVoice(command) {
       if (!window.Router || typeof window.Router.go !== 'function') throw new Error('OVYX navigation is not ready yet.');
       await window.Router.go(route.route);
     }
-    status('Opening ' + route.label + ', boss.', 'success');
+    status('Opening ' + route.label + '…', 'success');
     speak('On it, boss. Opening ' + route.label + '.');
     return true;
   }
   var control = clickSafeVisibleControl(target);
   if (control) {
-    status('Opened ' + control + '. I did not run any destructive or publishing action.', 'success');
+    status('Opened ' + control + '. No publishing or destructive action was performed.', 'success');
     speak('Done, boss. I opened ' + control + '.');
     return true;
   }
@@ -587,7 +587,7 @@ function handleVoice(raw) {
       void runVoiceCommand(command);
     } else {
       awaitingUntil = Date.now() + 12000;
-      status('I’m here, boss. Tell me what you need; I’m listening while you stay in this conversation.', 'success');
+      status('Welcome to Sentinel. Tell me what you need help with while you remain in this conversation.', 'success');
       speak('Hey boss, I’m here. What’s on your mind? You can ask me about OVYX, ask me to check its health, or tell me to open a section.');
     }
     return;
@@ -643,7 +643,7 @@ function disableWake(message) {
     recognition = null;
   }
   var button = q('[data-ovsx="wake"]');
-  if (button) button.textContent = 'Enable wake word';
+  if (button) button.textContent = 'Enable voice activation';
   syncGuardianVisibility();
   if (message) status(message, 'info');
 }
@@ -682,7 +682,7 @@ function makeRecognition() {
         disableWake('Microphone permission or audio capture is unavailable. Enable microphone access in browser settings, then try again.');
         return;
       }
-      status('Speech recognition issue: ' + safeText(event.error || 'unknown', 60) + '. You can pause and re-enable the wake word.', 'error');
+      status('Voice activation couldn't start. Check microphone permissions, then try again.', 'error');
     };
     recognition.onend = function () {
       recognition = null;
@@ -701,14 +701,14 @@ function toggleWake() {
     return;
   }
   if (!(window.SpeechRecognition || window.webkitSpeechRecognition)) {
-    status('This browser does not support speech recognition. You can still use Check now.', 'error');
+    status('This browser doesn't support voice activation. You can still run a health review manually.', 'error');
     return;
   }
   wakeEnabled = true;
   var button = q('[data-ovsx="wake"]');
-  if (button) button.textContent = 'Pause wake word';
+  if (button) button.textContent = 'Pause voice activation';
   syncGuardianVisibility();
-  status('Wake word enabled. Say OVYX to get my attention. The page must remain open and active.', 'success');
+  status('Voice activation is on. Say “OVYX” while this page remains open and active.', 'success');
   makeRecognition();
 }
 async function guardianPatchRequest(action, payload) {
@@ -735,8 +735,8 @@ async function refreshPatchCapabilities() {
     var prepare = q('[data-ovsx="patch-prepare"]');
     if (prepare) prepare.disabled = !(patchCapabilities && patchCapabilities.patchPreparationReady);
     updatePatchApplyState();
-    if (patchCapabilities && !patchCapabilities.pullRequestCreationReady) status(patchCapabilities.message || 'Review pull requests are not configured.', 'info');
-    else status('Patch preparation is ready. All changes still require a reviewed pull request.', 'success');
+    if (patchCapabilities && !patchCapabilities.pullRequestCreationReady) status(patchCapabilities.message || 'Creating review requests isn't available right now.', 'info');
+    else status('Your proposed changes are ready for review. Nothing will be changed until you approve a review request.', 'success');
   } catch (error) {
     patchCapabilities = null;
     var prepare = q('[data-ovsx="patch-prepare"]');
@@ -785,7 +785,7 @@ async function preparePatchProposal() {
   var preview = q('[data-ovsx-patch-preview]');
   var summary = q('[data-ovsx-patch-summary]');
   if (!path || !path.value.trim() || !task || !task.value.trim()) {
-    status('Choose a source file and describe the exact change before preparing a patch.', 'error');
+    status('Choose a file and describe the change before preparing a review.', 'error');
     return;
   }
   if (!patchCapabilities || !patchCapabilities.patchPreparationReady) {
@@ -807,11 +807,11 @@ async function preparePatchProposal() {
     var confirm = q('[data-ovsx-patch-confirm]'); if (confirm) confirm.value = '';
     await refreshPatchCapabilities();
     updatePatchApplyState();
-    status(patchCapabilities && !patchCapabilities.pullRequestCreationReady ? 'Patch preview ready. ' + patchCapabilities.message : 'Patch preview ready. Review every changed line before creating a pull request.', patchCapabilities && patchCapabilities.pullRequestCreationReady ? 'success' : 'info');
+    status(patchCapabilities && !patchCapabilities.pullRequestCreationReady ? 'Patch preview ready. ' + patchCapabilities.message : 'Your proposed changes are ready. Review each change before submitting a review request.', patchCapabilities && patchCapabilities.pullRequestCreationReady ? 'success' : 'info');
     transcript('Guardian prepared a patch for ' + safeText(data.path || path.value, 180) + ': ' + safeText(data.summary || '', 300) + '\\nNo code changed.');
     speak('I prepared a patch preview, boss. Please review the changed lines before you create a pull request.');
   } catch (error) {
-    status(String(error.message || 'Guardian could not prepare the patch.') + ' No source file was changed.', 'error');
+    status(String(error.message || 'The proposed change couldn't be prepared.') + ' No source file was changed.', 'error');
     speak('I could not prepare that patch safely. ' + String(error.message || ''));
   } finally {
     patchBusy = false;
