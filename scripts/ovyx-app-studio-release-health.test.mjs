@@ -23,6 +23,7 @@ for (const path of [
 
 assert.ok(runtime.includes('data-lb-export-zip') && runtime.includes('data-lb-export-json'), 'The release workspace must expose ZIP and portable source JSON exports.');
 assert.ok(runtime.includes('browserZipBlob') && runtime.includes('zipCrc32'), 'ZIP export must create a real ZIP archive rather than renaming a text file.');
+assert.ok(runtime.includes("path.startsWith('public/') ? path.slice('public/'.length) : path"), 'Framework public/ asset paths must be rooted correctly for static Pages output.');
 assert.ok(runtime.includes('validateForRelease') && runtime.includes('runtimeChecked !== true'), 'Publishing must require completed live-preview validation.');
 assert.ok(runtime.includes("'/api/deploy'") && runtime.includes("action === 'publish'"), 'Web preview deployment and production publish must call the existing server deploy route.');
 assert.ok(runtime.includes("'/api/deployment-status?'"), 'The release UI must retrieve current deployment status.');
