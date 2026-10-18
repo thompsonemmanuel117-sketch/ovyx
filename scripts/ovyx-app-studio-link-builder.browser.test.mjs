@@ -456,7 +456,7 @@ try {
   await mobile.locator('[data-ua-analyze]').click();
   await mobile.waitForFunction(() => document.querySelector('[data-ua-status]')?.textContent.includes('Analysis complete.'));
   await mobile.locator('[data-lb-generate]').click();
-  await mobile.waitForFunction(() => document.querySelector('[data-lb-status]')?.textContent.includes('opened in the live preview'), null, { timeout: 15000 });
+  await mobile.waitForFunction(() => document.querySelector('[data-lb-status]')?.textContent.includes('Your app is ready in the live preview'), null, { timeout: 15000 });
   await mobile.waitForFunction(() => window.__OVYX_PROJECT_BRAIN_REPORT__?.summary?.runtimeChecked === true, null, { timeout: 10000 });
   const mobileBrain = await mobile.evaluate(() => window.__OVYX_PROJECT_BRAIN_REPORT__);
   assert.ok(mobileBrain?.summary?.runtimeChecked && mobileBrain.summary.files >= 5, 'Project Brain must inspect the live mobile preview too.');
