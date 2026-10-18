@@ -4642,7 +4642,7 @@ function helpCenter(){
  {q:'What does Preserve existing structure mean?',a:'When enabled, OVYX should prefer modifying the current project instead of unnecessarily rebuilding its structure. This is especially useful when making incremental changes to an existing project.',cat:'AI'},
  {q:'What does Ask before destructive edits mean?',a:'When enabled, the preference tells the AI workflow to request confirmation before destructive project changes rather than silently applying them.',cat:'AI'},
  {q:'What does Project files context mean?',a:'It allows relevant project files and structure to be considered as AI generation context. It does not mean OVYX should expose unrelated projects to the model.',cat:'AI'},
- {q:'How does GitHub work in OVYX?',a:'Connected Accounts provides a session-only GitHub connection. OVYX can verify the token with GitHub and load repositories available to that credential. The current standalone build does not store the token in localStorage.',cat:'GitHub'},
+ {q:'How does GitHub work in OVYX?',a:'Connected Accounts provides a session-only GitHub connection. OVYX can verify the token with GitHub and load repositories available to that credential. Access credentials are protected and are not saved in browser storage.',cat:'GitHub'},
  {q:'Why do I not see my GitHub repositories?',a:'Repository cards appear after you authorize GitHub and load your available repositories.',cat:'GitHub'},
  {q:'Is GitHub production OAuth already complete?',a:'Repository access is available after you authorize GitHub. Private credentials are kept out of browser storage.',cat:'GitHub'},
  {q:'How do deployments work?',a:'Use the publishing actions in your project to prepare and publish a website. Private credentials are protected and are not displayed in the workspace.',cat:'Deployment'},
@@ -4650,7 +4650,7 @@ function helpCenter(){
  {q:'How do I use Light Mode?',a:'Open Settings → Appearance and choose Light. OVYX uses a professional white/light-gray canvas with dark graphite navigation, dark text and restrained gold accents so the interface clearly reads as a true light theme.',cat:'Appearance'},
  {q:'Does Appearance save my preferences?',a:'Yes. Appearance mode, density, interface scale and motion settings are persisted locally and reapplied when OVYX starts.',cat:'Appearance'},
  {q:'How does project data storage work?',a:'OVYX can keep supported workspace state locally for resilience while production projects can use a secure server-side data store. Database credentials never belong in the browser.',cat:'Data'},
- {q:'Is project data synced automatically?',a:'Only a verified server connection can claim live synchronization. OVYX should never show a live status until the secure service actually responds.',cat:'Data'},
+ {q:'Is project data synced automatically?',a:'Your projects sync when cloud storage is enabled and confirms the update. Otherwise, your changes remain on this device.',cat:'Data'},
  {q:'Can I export my project data?',a:'OVYX keeps your app files portable so you can export and reuse your work. Sensitive access credentials are never included in exported files.',cat:'Data'},
  {q:'What is AI Usage?',a:'AI Usage shows your current monthly allowance and purchased Token Booster balance. Your plan determines the base allowance, and your remaining balance updates as you use OVYX.',cat:'Billing'},
  {q:'How does Billing work?',a:'Billing shows the current plan, AI capacity, boosters and subscription options. A purchase is confirmed only after checkout reports success. Paid features become available once the purchase is verified.',cat:'Billing'},
@@ -4664,7 +4664,7 @@ function helpCenter(){
  {q:'What should I do if a page hangs?',a:'Return to Home and reopen the page. If the problem persists, use Help → Contact Support to send a diagnostic summary. OVYX should only report an external action as successful after the service actually confirms it.',cat:'Troubleshooting'},
  {q:'What does System Status mean?',a:'The Help Center status describes the local OVYX runtime. External services are only marked connected after a real runtime check succeeds.',cat:'Troubleshooting'},
  {q:'How do I open the Command Palette?',a:'Press Ctrl + K on Windows/Linux or Command + K on macOS. The palette provides shortcuts for common OVYX workflows.',cat:'Workflow'},
- {q:'Can OVYX lock me into its platform?',a:'The product direction is intentionally the opposite: project code should remain exportable and syncable to external infrastructure such as GitHub, and production data should be able to live in a real backend/database. Some of those production connectors still require backend configuration in the current standalone build.',cat:'Platform'},
+ {q:'Can OVYX lock me into its platform?',a:'The product direction is intentionally the opposite: project code should remain exportable and syncable to external infrastructure such as GitHub, and production data should be able to live in a real backend/database. Some data and publishing services must be enabled for your account before they can be used.',cat:'Platform'},
  {q:'What is the safest production architecture for OVYX?',a:'For shared projects, use secure sign-in, reliable data storage, source control and a verified publishing service. Protect all access credentials and never store them in the browser.',cat:'Platform'}
  ];
  const popular=[['Getting Started','Build your first project','fa-compass','Getting Started'],['Web Studio','Learn Magic Mode','fa-wand-magic-sparkles','Web Studio'],['App Studio','Build app screens','fa-mobile-screen-button','App Studio'],['AI Usage','Understand your token balance','fa-chart-simple','Billing'],['GitHub','Connect your repository','fa-github','GitHub'],['Billing','Plans and boosters','fa-credit-card','Billing']];
@@ -4784,7 +4784,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
     ['Where can I test the Admin area?','Authorized administrators manage OVYX from this protected Admin Center.','Admin'],
     ['What is System Overview?','It provides an overview of platform operations, including pricing, account access, AI settings and service health.','Admin'],
     ['Can I delete a project?','Yes. Open the project library, select the project actions and use the delete confirmation. OVYX asks for confirmation before removing the project.','Projects'],
-    ['How does GitHub work?','Connect GitHub from Connected Accounts. OVYX verifies the credential with GitHub and can load repositories available to that account. A production deployment should use a secure OAuth/GitHub App backend.','GitHub'],
+    ['How does GitHub work?','Authorize GitHub from Connected Accounts, then view the repositories available to your account. Access credentials are protected and are not saved in browser storage.','GitHub'],
     ['Is cloud database storage available?','Cloud storage is not enabled for every workspace. In the current setup, project details stay on this device; shared cloud storage is available when it has been enabled for your account.','Data'],
     ['What should I send Support when something fails?','Open Help → Contact Support. You can share a brief report with your current screen and app context. Never include passwords or access credentials.','Support']
   ];
@@ -5227,7 +5227,7 @@ function patchDrawer(){
   }
   function renderStatus(id,connected){
     const badge=$('#brain-badge-'+id);if(!badge)return;
-    badge.textContent=connected?'CONFIGURED':'NOT CONFIGURED';
+    badge.textContent=connected?'Ready':'Setup required';
     badge.className=connected?'text-[10px] font-mono px-2.5 py-1 rounded-full border border-emerald-500/50 bg-emerald-950/60 text-emerald-400 font-extrabold uppercase tracking-wider':'text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/10 bg-white/[.04] text-zinc-400 font-extrabold uppercase tracking-wider';
   }
   function providerKey(x){return String(x?.provider||x?.id||x?.name||'').replace(/[^a-z0-9]/gi,'').toLowerCase()}
