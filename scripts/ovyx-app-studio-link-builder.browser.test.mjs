@@ -351,8 +351,15 @@ try {
   assert.ok(zipText.includes('ovyx-release-manifest.json'), 'The ZIP must include a release limitations manifest.');
   assert.ok(zipText.includes('connect-src'), 'Static output must include its explicit CSP network boundary.');
 
-  await desktop.locator('[data-lb-deploy-preview]').click();
-  await desktop.waitForFunction(() => document.querySelector('[data-lb-web-status]')?.textContent.includes('Preview deployment accepted by Cloudflare'), null, { timeout: 10000 });
+  const previewDeployButton = desktop.locator('[data-lb-deploy-preview]');
+  const previewWasDisabled = await previewDeployButton.isDisabled();
+  await previewDeployButton.click();
+  await desktop.waitForFunction(() => {
+    const target = document.querySelector('[data-lb-web-status]');
+    return target && (target.dataset.kind === 'error' || target.textContent.includes('Preview deployment accepted by Cloudflare'));
+  }, null, { timeout: 10000 }).catch(() => {});
+  const previewDeployStatus = await desktop.locator('[data-lb-web-status]').innerText();
+  assert.match(previewDeployStatus, /Preview deployment accepted by Cloudflare/, 'Preview deploy failed; button disabled before click=' + previewWasDisabled + '; status=' + previewDeployStatus);
   assert.equal(requests.deploy.length, 1, 'Preview deploy must call the existing Cloudflare route.');
   assert.equal(requests.deploy[0].auth, 'Bearer test-id-token');
   assert.equal(requests.deploy[0].body.action, 'deploy');
