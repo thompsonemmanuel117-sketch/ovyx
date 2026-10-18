@@ -121,7 +121,7 @@
         if (!result) update(p.id, { status: 'UNAVAILABLE', message: 'No status is available for this service.' });
         else update(p.id, {
           status: String(result.status || 'UNAVAILABLE').toUpperCase(),
-          message: result.error || (result.httpStatus ? 'Provider replied with HTTP ' + result.httpStatus + '.' : result.status === 'READY' ? 'Provider authentication succeeded.' : result.status === 'NOT_CONFIGURED' ? 'This service hasn't been configured yet.' : 'This service isn't ready to use yet.'),
+          message: result.error || (result.httpStatus ? 'This service didn't respond successfully. Please try again.' : result.status === 'READY' ? 'The service is ready to use.' : result.status === 'NOT_CONFIGURED' ? 'This service hasn't been configured yet.' : 'This service isn't ready to use yet.'),
         });
       });
       if (!section.dataset.loaded) {
@@ -129,7 +129,7 @@
         section.dataset.checkedAt = String(data.checkedAt || new Date().toISOString());
       }
     } catch (error) {
-      PROVIDERS.forEach(p => update(p.id, { status: 'UNAVAILABLE', message: String(error?.message || 'Availability check failed.').slice(0, 140) }));
+      PROVIDERS.forEach(p => update(p.id, { status: 'UNAVAILABLE', message: String(error?.message || 'Availability couldn't be checked. Please try again.').slice(0, 140) }));
     } finally {
       section.dataset.loading = '0';
     }
@@ -138,7 +138,8 @@
     const status = document.getElementById('oad-status-' + id);
     const detail = document.getElementById('oad-detail-' + id);
     if (status) {
-      status.textContent = String(data.status || 'UNAVAILABLE').replace(/_/g, ' ');
+      const state = String(data.status || 'UNAVAILABLE').toUpperCase();
+       status.textContent = state === 'READY' || state === 'CONNECTED' ? 'Ready' : state === 'NOT_CONFIGURED' ? 'Setup required' : state === 'AUTH_REQUIRED' ? 'Sign-in required' : state === 'AUTH_FAILED' ? 'Sign-in failed' : state === 'TIMEOUT' ? 'Timed out' : 'Unavailable';
       status.dataset.status = String(data.status || 'UNAVAILABLE').toUpperCase();
     }
     if (detail) detail.textContent = String(data.message || 'No additional information is available.').slice(0, 180);
