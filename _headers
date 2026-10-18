@@ -22,6 +22,15 @@
 /assets/ovyx-provider-availability.js
   Cache-Control: no-store, no-cache, must-revalidate
 
+/assets/ovyx-settings-reliability.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-studio-trace.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-launch-polish.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
 /api/*
   Access-Control-Allow-Origin: *
   Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS
