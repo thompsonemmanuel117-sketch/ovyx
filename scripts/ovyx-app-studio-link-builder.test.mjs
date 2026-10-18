@@ -30,7 +30,7 @@ assert.ok(runtime.includes('sourceSiteMap: brief.pages'), 'The generator must re
 assert.ok(runtime.includes('function routeFilesFor'), 'Stage 3 must map inspected routes to actual generated HTML files.');
 assert.ok(runtime.includes('const multiPageBuild = inspectedPages.length > 1'), 'The generator must choose multiple HTML pages when more than one source page was inspected.');
 assert.ok(runtime.includes('ovyxLinkAppNavigate'), 'The live preview must route internal links through its verified page map.');
-assert.ok(runtime.includes("status: 'inspected'"), 'Only source pages inspected by Stage 2 may be eligible for generated route mapping.');
+assert.ok(runtime.includes("page.status !== 'inspected'"), 'Only source pages inspected by Stage 2 may be eligible for generated route mapping.');
 assert.ok(runtime.includes('sourceBrandColors'), 'The analyzed brand identity must be passed with the generation request.');
 assert.ok(runtime.includes("frame.srcdoc = renderedHtml"), 'Generated HTML must open in the real interactive iframe preview.');
 assert.ok(runtime.includes("setAttribute('sandbox', 'allow-scripts allow-forms allow-popups')"), 'The live project preview must isolate generated code in a sandbox.');
