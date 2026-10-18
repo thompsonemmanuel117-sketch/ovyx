@@ -23,11 +23,11 @@ import { normalizeBrandDNA, buildBrandDNAInstructions, applyBrandDNAToGeneratedO
 function generatedFileMap(value) {
   const output = {};
   const add = (rawPath, rawFile) => {
-    const path = String(rawPath || '').trim().replace(/^\\/+/, '');
-    if (!path || path.length > 400 || path.includes('\\\\') ||
+    const path = String(rawPath || '').trim().replace(/^\/+/, '');
+    if (!path || path.length > 400 || path.includes('\\') ||
       path.split('/').some(part => part === '..' || part === '.') ||
-      /^(?:node_modules|dist|build|coverage|\\.git|\\.env)(?:\\/|$)/i.test(path) ||
-      !/\\.(?:html?|css|m?js|json|svg|txt|md)$/i.test(path)) return;
+      /^(?:node_modules|dist|build|coverage|\.git|\.env)(?:\/|$)/i.test(path) ||
+      !/\.(?:html?|css|m?js|json|svg|txt|md)$/i.test(path)) return;
     const content = typeof rawFile === 'string' ? rawFile :
       rawFile && typeof rawFile === 'object' ? rawFile.content ?? rawFile.text ?? rawFile.source ?? rawFile.code : null;
     if (typeof content === 'string' && content.trim() && content.length <= 120000) output[path] = content;
