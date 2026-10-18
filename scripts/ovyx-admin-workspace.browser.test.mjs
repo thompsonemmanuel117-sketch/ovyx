@@ -211,7 +211,7 @@ try {
     await hub.locator('[data-ovyx-admin-workspace-route="admin-brain"]').evaluate(button => button.click());
     await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-brain');
     await page.locator('#ovyx-global-ai-routing').waitFor({ state: 'attached' });
-    await page.waitForFunction(() => /Loaded AI selection order:/.test(document.getElementById('ovyx-global-ai-route-status')?.textContent || ''), null, { timeout: 20000 });
+    await page.waitForFunction(() => /AI selection order:/.test(document.getElementById('ovyx-global-ai-route-status')?.textContent || ''), null, { timeout: 20000 });
     await page.locator('[data-provider-priority="openai"]').selectOption('1');
     await page.locator('[data-provider-priority="gemini"]').selectOption('2');
     await page.locator('#ovyx-global-ai-route-save').click();
