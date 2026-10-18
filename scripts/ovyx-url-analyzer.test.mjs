@@ -104,6 +104,31 @@ const redirectFetch = async input => {
 };
 await assert.rejects(analyzePublicWebsite('https://example.com', { fetchImpl: redirectFetch }), error => error.code === 'PRIVATE_IP_NOT_ALLOWED');
 
+const redirectRobotsFetchLog = [];
+const redirectRobotsFetch = async input => {
+  const url = new URL(typeof input === 'string' ? input : input.url);
+  redirectRobotsFetchLog.push(url.href);
+  if (url.hostname === 'cloudflare-dns.com') {
+    const type = url.searchParams.get('type');
+    return new Response(JSON.stringify(type === 'A'
+      ? { Status: 0, Answer: [{ type: 1, data: '93.184.216.34' }] }
+      : { Status: 3 }), { headers: { 'content-type': 'application/dns-json' } });
+  }
+  if (url.hostname !== 'example.com') throw new Error('Unexpected redirect destination fetch: ' + url.hostname);
+  if (url.pathname === '/robots.txt') return new Response('User-agent: *\nDisallow: /private\nAllow: /\n', { headers: { 'content-type': 'text/plain' } });
+  if (url.pathname === '/') return new Response('', { status: 302, headers: { location: '/private/secret' } });
+  if (url.pathname === '/private/secret') return new Response('<html><title>Must never be fetched</title></html>', { headers: { 'content-type': 'text/html' } });
+  return new Response('Not found', { status: 404, headers: { 'content-type': 'text/plain' } });
+};
+await assert.rejects(
+  analyzePublicWebsite('https://example.com/', { fetchImpl: redirectRobotsFetch }),
+  error => error.code === 'ROBOTS_REDIRECT_BLOCKED',
+  'The analyzer must enforce robots.txt against a redirect destination before fetching its HTML.'
+);
+assert.ok(!redirectRobotsFetchLog.some(raw => new URL(raw).pathname === '/private/secret'),
+  'Robots-disallowed redirect target HTML must never be fetched.');
+
+
 const cssFetchLog = [];
 const cssRobotsFetch = async (input, options = {}) => {
   const url = new URL(typeof input === 'string' ? input : input.url);
