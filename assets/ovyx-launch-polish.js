@@ -204,7 +204,7 @@
       var pct = valid ? Math.max(0, Math.min(100, used / limit * 100)) : 0;
       var ratio = document.getElementById('sidebar-token-ratio');
       var bar = document.getElementById('sidebar-token-bar');
-      if (ratio) ratio.textContent = bypass ? 'Unlimited AI access' : (valid ? fmt(used) + ' / ' + fmt(limit) : 'Usage couldn't be loaded');
+      if (ratio) ratio.textContent = bypass ? 'Unlimited AI access' : (valid ? fmt(used) + ' / ' + fmt(limit) : 'Usage could not be loaded');
       if (bar) {
         bar.style.width = bypass ? '0%' : pct + '%';
         bar.setAttribute('role', 'progressbar');
@@ -250,7 +250,7 @@
     row.appendChild(head);
 
     if (!quota || quota.authority !== 'SERVER') {
-      row.appendChild(el('div', 'ovyx-launch-empty', 'Usage details aren't available for this account yet.'));
+      row.appendChild(el('div', 'ovyx-launch-empty', 'Usage details are not available for this account yet.'));
       return row;
     }
     if (quota.bypass) {
@@ -365,7 +365,7 @@
       });
       var payload = await response.json().catch(function () { return {}; });
       if (!response.ok || payload.ok !== true) {
-        var message = payload.error || (response.status === 403 ? 'Admin access is required to view user quotas.' : 'Your AI usage couldn't be loaded right now. Please try again.');
+        var message = payload.error || (response.status === 403 ? 'Admin access is required to view user quotas.' : 'Your AI usage could not be loaded right now. Please try again.');
         renderAdminQuota([], message);
         if (manual) launchToast(message, 'error');
         return;
@@ -394,9 +394,9 @@
             if (code === 'DAILY_RATION_EXHAUSTED') {
               launchToast(message || 'Your daily AI allowance is exhausted. Wait for the daily reset or upgrade your plan.', 'error');
             } else if (code === 'AI_PROVIDER_NOT_CONFIGURED' || code === 'AI_PROVIDER_UNAVAILABLE') {
-              launchToast(message || 'This AI option isn't available right now. Try OVYX Auto or choose another option.', 'error');
+              launchToast(message || 'This AI option is not available right now. Try OVYX Auto or choose another option.', 'error');
             } else if (code === 'QUOTA_FINALIZE_FAILED' || code === 'QUOTA_STATE_CONFLICT') {
-              launchToast(message || 'We couldn't update your AI usage. Try again before starting another build.', 'error');
+              launchToast(message || 'We could not update your AI usage. Try again before starting another build.', 'error');
             }
           }).catch(function () {});
         }
