@@ -59,9 +59,9 @@ try {
     await layer.waitFor({ state: 'visible' });
 
     const initialCopy = await layer.innerText();
-    assert.match(initialCopy, /Not provisioned here/i, '[' + target.name + '] must not imply OVYX provisions PostgreSQL.');
+    assert.match(initialCopy, /does not create databases or run migrations automatically/i, '[' + target.name + '] must not imply OVYX provisions PostgreSQL.');
     assert.match(initialCopy, /Health check only/i, '[' + target.name + '] must explain the actual test scope.');
-    assert.match(initialCopy, /Download PostgreSQL Schema creates a starter SQL file/i);
+    assert.match(initialCopy, /Download SQL schema creates a starter file on this device/i);
     assert.doesNotMatch(initialCopy, /Production-ready relational storage/i);
 
     // Missing configuration should produce a useful status without making a network request.
