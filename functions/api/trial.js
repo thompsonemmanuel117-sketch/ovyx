@@ -124,7 +124,7 @@ export async function onRequest(context) {
     return jsonResponse(
       {
         ok: false,
-        error: error?.message || 'Your trial details couldn't be loaded right now.',
+        error: error?.message || 'Your trial details could not be loaded right now.',
         code: error?.code || 'TRIAL_STATE_FAILED',
       },
       error?.status || 500,
