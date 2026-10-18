@@ -87,7 +87,7 @@ assert.ok(retested.checks.some(item => item.code === 'STYLESHEET_DEPENDENCY_OK')
 assert.ok(retested.checks.some(item => item.code === 'BUTTON_ACTION_EVIDENCE'));
 assert.ok(!retested.checks.some(item => item.code === 'DIRECT_NETWORK_BLOCKED'));
 
-assert.ok(middleware.includes('/assets/ovyx-app-studio-project-brain.js?v=20261018-1'), 'The real Pages shell should load Project Brain.');
+assert.ok(middleware.includes('/assets/ovyx-app-studio-project-brain.js?v=20261018-3'), 'The real Pages shell should load Project Brain.');
 assert.ok(headers.includes('/assets/ovyx-app-studio-project-brain.js') && headers.includes('Cache-Control: no-store'), 'Project Brain should not be masked by stale asset caching.');
 assert.ok(packageJson.scripts.test.includes('scripts/ovyx-app-studio-project-brain.test.mjs'), 'The analyzer regression test should run under npm test.');
 assert.ok(workflow.includes('assets/ovyx-app-studio-project-brain.js'), 'CI path filters should cover Project Brain.');
