@@ -65,7 +65,9 @@ try {
 
   await page.locator('#ovyx-app-studio-link-build [data-link-build-run]').waitFor({ timeout: 15000 });
   await page.locator('#ovyx-app-studio-link-build [data-link-build-run]').click();
-  await page.waitForFunction(() => window.__OVYX_LAST_LINK_BUILD__?.previewRendered === true, null, { timeout: 30000 });
+  await page.waitForFunction(() => window.__OVYX_LAST_LINK_BUILD__?.previewRendered === true || document.querySelector('#ovyx-app-studio-link-build [data-link-build-status]')?.dataset.kind === 'error', null, { timeout: 30000 });
+  const buildState = await page.locator('#ovyx-app-studio-link-build [data-link-build-status]').innerText();
+  assert.equal(await page.evaluate(() => window.__OVYX_LAST_LINK_BUILD__?.previewRendered === true), true, 'Link-based build did not open the real preview: ' + buildState);
 
   const request = await page.evaluate(() => window.__OVYX_LINK_BUILD_TEST_REQUEST__);
   assert.equal(request.mode, 'app-build');
