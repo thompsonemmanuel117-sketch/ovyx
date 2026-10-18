@@ -198,7 +198,7 @@
         activeAction = null;
         characterRoot = null;
         console.warn('[OVYX Sentinel 3D] Avatar unavailable:', String(error?.message || 'model load failed').slice(0, 140));
-        setStageStatus('3D character is offline. The voice companion is still available.', 'error');
+        setStageStatus('The animated avatar could not be loaded. Voice chat is still available.', 'warning');
       } finally {
         loading = null;
       }
