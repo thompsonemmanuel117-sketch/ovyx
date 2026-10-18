@@ -166,9 +166,10 @@
   }
 
   function normalizeGeneratedFiles(rawFiles, webStudio) {
-    if (!rawFiles || typeof rawFiles !== 'object' || Array.isArray(rawFiles)) throw new Error('The generator returned no editable source files. No project was opened.');
+    if (!rawFiles || typeof rawFiles !== 'object') throw new Error('The generator returned no editable source files. No project was opened.');
     const files = {};
-    for (const [rawPath, rawValue] of Object.entries(rawFiles)) {
+    const entries = Array.isArray(rawFiles) ? rawFiles.map(item => [item?.path || item?.file || '', item]) : Object.entries(rawFiles);
+    for (const [rawPath, rawValue] of entries) {
       const path = String(rawPath || '').trim().replace(/^\/+/, '');
       if (!path || path.length > 400 || path.includes('\\') || path.split('/').some(part => part === '..' || part === '.') ||
         /^(?:node_modules|dist|build|coverage|\.git|\.env)(?:\/|$)/i.test(path) ||
@@ -245,6 +246,7 @@
     }, 'The generated project files were saved, but the live preview did not render in the real editor.');
     window.__OVYX_LAST_LINK_BUILD__ = { projectId, projectName: appName, sourceUrl: evidence.source.canonicalUrl,
       entry: generated.homePath, fileCount: Object.keys(generated.files).length, previewRendered: true };
+    try { sessionStorage.setItem('ovyx.appstudio.link-build', JSON.stringify(window.__OVYX_LAST_LINK_BUILD__)); } catch (_) {}
     return { projectId, fileCount: Object.keys(generated.files).length };
   }
 
