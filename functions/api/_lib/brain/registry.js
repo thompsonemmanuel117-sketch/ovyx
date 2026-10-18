@@ -149,7 +149,7 @@ export function authorizeTool(toolName, action, entitlements, user) {
       ok: false,
       status: 501,
       code: tool.reason || 'TOOL_NOT_IMPLEMENTED',
-      message: 'This OVYX tool is registered but its backend implementation is not enabled yet.'
+      message: 'This action is not available yet. Please try another supported action.'
     };
   }
 
