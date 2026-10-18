@@ -204,7 +204,7 @@
       var pct = valid ? Math.max(0, Math.min(100, used / limit * 100)) : 0;
       var ratio = document.getElementById('sidebar-token-ratio');
       var bar = document.getElementById('sidebar-token-bar');
-      if (ratio) ratio.textContent = bypass ? 'Unlimited AI access' : (valid ? fmt(used) + ' / ' + fmt(limit) : 'Usage unavailable');
+      if (ratio) ratio.textContent = bypass ? 'Unlimited AI access' : (valid ? fmt(used) + ' / ' + fmt(limit) : 'Usage couldn't be loaded');
       if (bar) {
         bar.style.width = bypass ? '0%' : pct + '%';
         bar.setAttribute('role', 'progressbar');
@@ -250,7 +250,7 @@
     row.appendChild(head);
 
     if (!quota || quota.authority !== 'SERVER') {
-      row.appendChild(el('div', 'ovyx-launch-empty', 'Server usage details are not available for this account.'));
+      row.appendChild(el('div', 'ovyx-launch-empty', 'Usage details aren't available for this account yet.'));
       return row;
     }
     if (quota.bypass) {
@@ -307,9 +307,9 @@
 
     var header = el('div', 'ovyx-launch-admin-head');
     var title = el('div', '');
-    title.appendChild(el('div', 'ovyx-launch-kicker', 'OVYX / SERVER-VERIFIED'));
+    title.appendChild(el('div', 'ovyx-launch-kicker', 'OVYX / ACCOUNT USAGE'));
     title.appendChild(el('div', 'ovyx-launch-admin-title', 'AI usage & limits'));
-    title.appendChild(el('div', 'ovyx-launch-admin-subtitle', 'Per-account monthly tokens, daily fallback prompts, and build access.'));
+    title.appendChild(el('div', 'ovyx-launch-admin-subtitle', 'Monthly AI usage, daily allowances, and plan access by account.'));
     var refresh = el('button', 'ovyx-launch-refresh', 'Refresh usage');
     refresh.type = 'button';
     refresh.addEventListener('click', function () { loadAdminQuota(true); });
@@ -337,7 +337,7 @@
     panel.appendChild(summary);
 
     var list = el('div', 'ovyx-launch-user-list');
-    if (!safeUsers.length) list.appendChild(el('div', 'ovyx-launch-empty', 'No user records were returned by the server.'));
+    if (!safeUsers.length) list.appendChild(el('div', 'ovyx-launch-empty', 'No account records were found.'));
     else safeUsers.forEach(function (user) { list.appendChild(makeUserRow(user)); });
     panel.appendChild(list);
   }
@@ -357,7 +357,7 @@
     adminLoadPromise = (async function () {
       var headers = await authHeaders();
       if (!headers) {
-        if (manual) launchToast('Sign in again to load server-verified AI usage.', 'error');
+        if (manual) launchToast('Sign in again to view account usage.', 'error');
         return;
       }
       var response = await fetch('/api/admin/users', {
@@ -371,7 +371,7 @@
         return;
       }
       renderAdminQuota(payload.users || []);
-      if (manual) launchToast('AI quota usage refreshed from the server.', 'success');
+      if (manual) launchToast('AI usage updated.', 'success');
     })().catch(function (error) {
       renderAdminQuota([], error && error.message || 'Unable to load AI usage.');
       if (manual) launchToast(error && error.message || 'Unable to load AI usage.', 'error');
@@ -394,9 +394,9 @@
             if (code === 'DAILY_RATION_EXHAUSTED') {
               launchToast(message || 'Your daily AI allowance is exhausted. Wait for the daily reset or upgrade your plan.', 'error');
             } else if (code === 'AI_PROVIDER_NOT_CONFIGURED' || code === 'AI_PROVIDER_UNAVAILABLE') {
-              launchToast(message || 'The selected AI provider is unavailable. Try OVYX Auto or connect an AI Brain.', 'error');
+              launchToast(message || 'This AI option isn't available right now. Try OVYX Auto or choose another option.', 'error');
             } else if (code === 'QUOTA_FINALIZE_FAILED' || code === 'QUOTA_STATE_CONFLICT') {
-              launchToast(message || 'OVYX could not confirm your AI usage. Please retry before starting another build.', 'error');
+              launchToast(message || 'We couldn't update your AI usage. Try again before starting another build.', 'error');
             }
           }).catch(function () {});
         }
