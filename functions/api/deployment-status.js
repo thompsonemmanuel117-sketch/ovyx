@@ -48,7 +48,7 @@ async function verifyFirebaseIdentity(idToken, env) {
 
 async function cloudflareGet(path, env) {
   if (!env.CLOUDFLARE_API_TOKEN || !env.CLOUDFLARE_ACCOUNT_ID) {
-    throw Object.assign(new Error('Cloudflare deployment configuration is missing.'), { status:500 });
+    throw Object.assign(new Error('Publishing isn't available right now. Please try again later.'), { status:500 });
   }
   const response = await fetch('https://api.cloudflare.com/client/v4'+path, {
     headers:{
@@ -91,7 +91,7 @@ export async function onRequestGet(context) {
 
     const entitlements=await resolveEntitlements(env,user);
     if(entitlements?.capabilities?.cloudflareDeploy!==true){
-      return json({success:false,authoritative:true,error:'Your OVYX account is not authorized to view deployment status.',requestId},403);
+      return json({success:false,authoritative:true,error:'Your OVYX account doesn't have permission to view publishing status.',requestId},403);
     }
 
     const qs=new URL(request.url).searchParams;
@@ -100,7 +100,7 @@ export async function onRequestGet(context) {
     const projectName=String(qs.get('projectName')||'').trim();
 
     if(!projectId||!deploymentId){
-      return json({success:false,authoritative:true,error:'projectId and deploymentId are required.',requestId},400);
+      return json({success:false,authoritative:true,error:'Choose a saved app and release before checking the publishing status.',requestId},400);
     }
 
     const safeProjectName=await pagesProjectName(
@@ -150,7 +150,7 @@ export async function onRequestGet(context) {
       success:false,
       authoritative:true,
       requestId,
-      error:status>=500?'Cloudflare deployment status service is temporarily unavailable.':error?.message||'Unable to read deployment status.'
+      error:status>=500?'Publishing status isn't available right now. Please try again.':error?.message||'Publishing status couldn't be retrieved.'
     },status);
   }
 }
