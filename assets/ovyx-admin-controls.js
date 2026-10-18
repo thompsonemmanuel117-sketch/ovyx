@@ -56,7 +56,7 @@
   }
 
   async function api(path, options) {
-    if (!owner()) throw new Error('Owner access couldn't be verified.');
+    if (!owner()) throw new Error('Owner access could not be verified.');
     const config = Object.assign({ method: 'GET' }, options || {});
     const token = await idToken(false);
     const headers = Object.assign({ Accept: 'application/json', Authorization: 'Bearer ' + token }, config.headers || {});
@@ -290,7 +290,7 @@
       setGlobalIdentity(identity);
       statusText(status, 'Settings loaded. Last updated: ' + (result.data.updatedAt || 'not yet customized') + '.', 'ok');
     } catch (error) {
-      statusText(status, 'We couldn't load these settings: ' + error.message, 'error');
+      statusText(status, 'We could not load these settings: ' + error.message, 'error');
     }
   }
 
@@ -316,8 +316,8 @@
       notify('Global AI identity saved for OVYX accounts.', 'success');
       await loadPublicIdentity();
     } catch (error) {
-      statusText(status, 'Your changes couldn't be saved: ' + error.message, 'error');
-      notify('Global AI identity wasn't saved: ' + error.message, 'error');
+      statusText(status, 'Your changes could not be saved: ' + error.message, 'error');
+      notify('Global AI identity was not saved: ' + error.message, 'error');
     } finally { if (button) button.disabled = false; }
   }
 
@@ -327,7 +327,7 @@
     const body = $('ovyx-owner-users-body');
     const next = $('ovyx-owner-users-next');
     if (!body) return;
-    if (!owner()) return statusText(status, 'Owner access couldn't be verified.', 'error');
+    if (!owner()) return statusText(status, 'Owner access could not be verified.', 'error');
     body.replaceChildren();
     statusText(status, 'Loading account records…');
     const refresh = $('ovyx-owner-users-refresh');
@@ -389,7 +389,7 @@
             statusText(status, 'Plan updated for ' + (user.email || user.uid) + '. Feature access and usage limits now reflect this plan.', 'ok');
             await loadUsers('');
           } catch (error) {
-            statusText(status, 'The plan couldn't be updated. Please try again.', 'error');
+            statusText(status, 'The plan could not be updated. Please try again.', 'error');
           } finally { setPlan.disabled = false; }
         });
         const changeStatus = document.createElement('button');
@@ -406,7 +406,7 @@
               : 'Account re-enabled.', 'ok');
             await loadUsers('');
           } catch (error) {
-            statusText(status, 'The account status couldn't be updated. Please try again.', 'error');
+            statusText(status, 'The account status could not be updated. Please try again.', 'error');
           } finally { changeStatus.disabled = false; }
         });
         const resetQuota = document.createElement('button');
@@ -419,7 +419,7 @@
             await api('/api/admin/users', { method: 'POST', body: JSON.stringify({ action: 'resetQuota', uid: user.uid }) });
             statusText(status, 'Usage allowance reset for ' + (user.email || user.uid) + '.', 'ok');
             await loadUsers('');
-          } catch (error) { statusText(status, 'The usage allowance couldn't be reset. Please try again.', 'error'); }
+          } catch (error) { statusText(status, 'The usage allowance could not be reset. Please try again.', 'error'); }
           finally { resetQuota.disabled = false; }
         });
         actions.append(setPlan, changeStatus, resetQuota);
@@ -429,7 +429,7 @@
       });
       statusText(status, 'Loaded ' + (data.users || []).length + ' account(s)' + (data.nextPageToken ? '. More accounts are available on the next page.' : '. All matching accounts are shown.'), 'ok');
     } catch (error) {
-      statusText(status, 'The account list couldn't be loaded. Please try again.', 'error');
+      statusText(status, 'The account list could not be loaded. Please try again.', 'error');
     } finally { if (refresh) refresh.disabled = false; }
   }
 
@@ -462,7 +462,7 @@
   async function loadPlansCatalog() {
     const response = await fetch('/api/plans', { credentials: 'same-origin', cache: 'no-store', headers: { Accept: 'application/json' } });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok || data.ok === false) throw new Error(data.error || data.code || 'Pricing and plan details aren't available right now.');
+    if (!response.ok || data.ok === false) throw new Error(data.error || data.code || 'Pricing and plan details are not available right now.');
     latestPlans = data;
     syncPlanFeatureControls(data);
     applyPublicPlanCatalog(data);
@@ -487,7 +487,7 @@
 
   async function savePlanConfiguration() {
     const status = $('ovyx-global-quota-status') || $('ovyx-v655-plan-status');
-    if (!owner()) return statusText(status, 'Owner access couldn't be verified.', 'error');
+    if (!owner()) return statusText(status, 'Owner access could not be verified.', 'error');
     const readInt = id => {
       const node = $(id);
       const value = Number(node?.value);
@@ -496,11 +496,11 @@
     };
     const featureList = tier => Array.from($('ovyx-global-plan-features')?.querySelectorAll('input[data-v655-plan="' + tier + '"]:checked') || []).map(input => input.value);
     if (!latestPlans) {
-      statusText(status, 'The latest plan details haven't loaded. Refresh the catalogue before saving to avoid unintentionally changing paid-plan access.', 'error');
+      statusText(status, 'The latest plan details have not loaded. Refresh the catalogue before saving to avoid unintentionally changing paid-plan access.', 'error');
       return;
     }
     if (!document.querySelector('input[data-v655-plan="pro"]') || !document.querySelector('input[data-v655-plan="max"]')) {
-      statusText(status, 'Paid-plan settings aren't available right now. Nothing was saved.', 'error');
+      statusText(status, 'Paid-plan settings are not available right now. Nothing was saved.', 'error');
       return;
     }
     const current = latestPlans || {};
@@ -537,7 +537,7 @@
       statusText(status, 'Pricing and plan settings saved. Public prices, usage limits, and paid-plan access now follow these settings.', 'ok');
       notify('Global pricing, quota and feature settings saved.', 'success');
     } catch (error) {
-      statusText(status, 'Your changes couldn't be saved. Please try again.', 'error');
+      statusText(status, 'Your changes could not be saved. Please try again.', 'error');
       notify('Global plan settings were not saved: ' + error.message, 'error');
     } finally { if (button) button.disabled = false; }
   }
@@ -731,7 +731,7 @@
       statusText(status, 'Loaded AI selection order: ' + order.join(' → '), 'ok');
       await loadProviderStatus();
     } catch (error) {
-      statusText(status, 'AI selection settings couldn't be loaded. Please try again.', 'error');
+      statusText(status, 'AI selection settings could not be loaded. Please try again.', 'error');
     }
   }
 
@@ -749,7 +749,7 @@
       statusText(status, 'AI selection preferences saved: ' + latestAIConfig.providerOrder.join(' → ') + '. OVYX Auto will follow this order when choosing an AI option.', 'ok');
       notify('Global AI selection order saved.', 'success');
     } catch (error) {
-      statusText(status, 'AI selection preferences couldn't be saved. Please try again.', 'error');
+      statusText(status, 'AI selection preferences could not be saved. Please try again.', 'error');
     } finally { if (button) button.disabled = false; }
   }
 
@@ -760,7 +760,7 @@
     statusText($('ovyx-global-ai-route-status'), 'Checking AI service availability…');
     const result = await timedRequest('/api/ai/status', true);
     if (!result.ok) {
-      statusText($('ovyx-global-ai-route-status'), 'AI service availability couldn't be checked. Please try again., 'error');
+      statusText($('ovyx-global-ai-route-status'), 'AI service availability could not be checked. Please try again.', 'error');
       return;
     }
     const entries = (Array.isArray(result.data.providers) ? result.data.providers : []).concat(Array.isArray(result.data.additionalProviders) ? result.data.additionalProviders : []);
@@ -807,9 +807,9 @@
       health.ok ? 'Health check completed in ' + health.duration + ' ms.' : 'The platform health check could not be completed.', health.ok ? 'ok' : 'bad');
     const pricing = plans.data?.pricing || {};
     add('Global Pro price', plans.ok ? money(pricing.pro?.ngn, 'NGN') : 'Unavailable',
-      plans.ok ? money(pricing.pro?.usd, 'USD') + ' · current plan details' : 'Current plan details couldn't be loaded.', plans.ok ? 'ok' : 'bad');
+      plans.ok ? money(pricing.pro?.usd, 'USD') + ' · current plan details' : 'Current plan details could not be loaded.', plans.ok ? 'ok' : 'bad');
     add('Global Max price', plans.ok ? money(pricing.max?.ngn, 'NGN') : 'Unavailable',
-      plans.ok ? money(pricing.max?.usd, 'USD') + ' · current plan details' : 'Current plan details couldn't be loaded.', plans.ok ? 'ok' : 'bad');
+      plans.ok ? money(pricing.max?.usd, 'USD') + ' · current plan details' : 'Current plan details could not be loaded.', plans.ok ? 'ok' : 'bad');
     add('Accounts', registry.ok ? 'Available' : 'Unavailable',
       registry.ok ? 'Reviewed ' + String(registry.data.users?.length || 0) + ' account record(s) in ' + registry.duration + ' ms. This is a sample, not a total count.' : 'The account list could not be loaded.', registry.ok ? 'ok' : 'bad');
     const report = sentinel.data?.latestReport || {};
@@ -817,7 +817,7 @@
     const reportStatus = String(report.status || report.result || 'No report yet').toUpperCase();
     add('Health review', sentinel.ok ? reportStatus : 'Unavailable',
       sentinel.ok ? (Number.isFinite(critical) ? String(critical) + ' critical finding(s); ' : '') + 'Last reviewed: ' + String(sentinel.data.lastScanAt || report.finishedAt || 'not recorded') : 'The latest health report could not be loaded.', sentinel.ok && reportStatus !== 'CRITICAL' ? 'ok' : 'warn');
-    statusText($('ovyx-owner-overview-status'), 'Checks completed at ' + new Date().toLocaleString() + '. A successful status check doesn't guarantee every payment, publishing, or email workflow is working.', health.ok && plans.ok && registry.ok ? 'ok' : 'warn');
+    statusText($('ovyx-owner-overview-status'), 'Checks completed at ' + new Date().toLocaleString() + '. A successful status check does not guarantee every payment, publishing, or email workflow is working.', health.ok && plans.ok && registry.ok ? 'ok' : 'warn');
   }
 
   function mountOverview() {
@@ -905,7 +905,7 @@
       card('Native AI service', ai.data.cloudflare?.workersAiBinding ? 'Setup detected' : 'Setup required',
         'Setup status only; this check does not run an AI request.', ai.data.cloudflare?.workersAiBinding ? '#fcd34d' : '#fca5a5');
     } else {
-      card('AI service status', 'Unavailable', ai.error || ('The AI availability check couldn't be completed.'), '#fca5a5');
+      card('AI service status', 'Unavailable', ai.error || ('The AI availability check could not be completed.'), '#fca5a5');
     }
     const report = sentinel.data?.latestReport || {};
     const reportStatus = sentinel.ok ? String(report.status || 'No report yet').toUpperCase() : 'Unavailable';
@@ -943,7 +943,7 @@
       event.preventDefault();
       event.stopImmediatePropagation();
       const status = $('v34-broadcast-status');
-      if (!owner()) return statusText(status, 'Owner access couldn't be verified.', 'error');
+      if (!owner()) return statusText(status, 'Owner access could not be verified.', 'error');
       const message = String($('v34-broadcast-body')?.value || '').trim();
       const title = String($('v34-broadcast-title')?.value || 'OVYX Update').trim() || 'OVYX Update';
       const category = String($('v34-broadcast-category')?.value || 'product');
@@ -972,8 +972,8 @@
           entry.append(main, time); host.prepend(entry);
         }
       } catch (error) {
-        statusText(status, 'The announcement couldn't be published. Please try again.', 'error');
-        notify('Announcement couldn't be published: ' + error.message, 'error');
+        statusText(status, 'The announcement could not be published. Please try again.', 'error');
+        notify('Announcement could not be published: ' + error.message, 'error');
       } finally { button.disabled = false; }
     }, true);
   }
@@ -986,7 +986,7 @@
       event.preventDefault();
       event.stopImmediatePropagation();
       const status = $('v43-template-form-status');
-      if (!owner()) return statusText(status, 'Owner access couldn't be verified.', 'error');
+      if (!owner()) return statusText(status, 'Owner access could not be verified.', 'error');
       const title = String($('v43-template-title')?.value || '').trim();
       const category = String($('v43-template-category')?.value || '');
       const previewUrl = String($('v43-template-preview')?.value || '').trim();
@@ -1021,8 +1021,8 @@
         notify('Template published to the global catalog.', 'success');
         form.reset();
       } catch (error) {
-        statusText(status, 'The template couldn't be published. Please try again.', 'error');
-        notify('Template couldn't be published: ' + error.message, 'error');
+        statusText(status, 'The template could not be published. Please try again.', 'error');
+        notify('Template could not be published: ' + error.message, 'error');
       } finally { if (publish) publish.disabled = false; }
     }, true);
   }
@@ -1034,7 +1034,7 @@
     if (sw && !sw.__ovyxGlobalIntegrationControl) {
       sw.__ovyxGlobalIntegrationControl = true;
       sw.loadFirestoreState = async function () {
-        if (!owner()) throw new Error('Owner access couldn't be verified.');
+        if (!owner()) throw new Error('Owner access could not be verified.');
         const result = await api('/api/admin/control');
         const config = result.data.config || {};
         this.isLive = typeof config.liveDeploy === 'boolean' ? config.liveDeploy :
@@ -1069,7 +1069,7 @@
         return config;
       };
       sw.toggle = async function () {
-        if (!owner()) return notify('Owner access couldn't be verified.', 'error');
+        if (!owner()) return notify('Owner access could not be verified.', 'error');
         const next = this.isLive !== true;
         if (!next && !window.confirm('Pause new AI generation, agent runs, deployment, repository access and payment checkout for EVERY OVYX account? Login, health checks and verification of payments already started remain available.')) return;
         const button = $('master-switch-toggle-btn') || $('ovyx-global-integration-toggle');
@@ -1088,7 +1088,7 @@
             'Platform integrations are paused for all accounts.', this.isLive ? 'ok' : 'warn');
           notify(this.isLive ? 'Platform integrations enabled for all accounts.' : 'Platform integrations paused for all accounts.', this.isLive ? 'success' : 'info');
         } catch (error) {
-          statusText($('ovyx-global-integration-status'), 'These platform settings couldn't be saved. Please try again.', 'error');
+          statusText($('ovyx-global-integration-status'), 'These platform settings could not be saved. Please try again.', 'error');
           notify('Platform integration settings could not be updated. Please try again.', 'error');
         } finally { if (button) button.disabled = false; }
       };
@@ -1120,7 +1120,7 @@
       sw.__ovyxGlobalStateLoaded = true;
       sw.loadFirestoreState().catch(error => {
         sw.__ovyxGlobalStateLoaded = false;
-        statusText($('ovyx-global-integration-status'), 'Platform integration status couldn't be loaded. Please try again.', 'error');
+        statusText($('ovyx-global-integration-status'), 'Platform integration status could not be loaded. Please try again.', 'error');
       });
     }
   }
@@ -1148,7 +1148,7 @@
           'Platform integrations are enabled for all accounts.' :
           'Platform integrations are paused for all accounts.', live ? 'ok' : 'warn');
       } catch (error) {
-        statusText($('ovyx-global-integration-status'), 'The current status couldn't be loaded. Please try again.', 'error');
+        statusText($('ovyx-global-integration-status'), 'The current status could not be loaded. Please try again.', 'error');
       }
     };
     refreshState();
@@ -1189,7 +1189,7 @@
       });
       statusText($('ovyx-global-broadcast-status'), 'Loaded ' + items.length + ' active announcement(s).', 'ok');
     } catch (error) {
-      statusText($('ovyx-global-broadcast-status'), 'Announcements couldn't be loaded. Please try again.', 'error');
+      statusText($('ovyx-global-broadcast-status'), 'Announcements could not be loaded. Please try again.', 'error');
     }
   }
 
@@ -1204,7 +1204,7 @@
       statusText($('ovyx-global-broadcast-status'), 'Announcement withdrawn. Its record has been retained for reference.', 'ok');
       await loadBroadcastRegistry();
     } catch (error) {
-      statusText($('ovyx-global-broadcast-status'), 'The announcement couldn't be withdrawn. Please try again.', 'error');
+      statusText($('ovyx-global-broadcast-status'), 'The announcement could not be withdrawn. Please try again.', 'error');
     } finally { button.disabled = false; }
   }
 
@@ -1237,7 +1237,7 @@
     const status = $('ovyx-global-template-publish-status');
     const form = $('ovyx-global-template-publish-form');
     const button = $('ovyx-global-template-publish');
-    if (!owner()) return statusText(status, 'Owner access couldn't be verified.', 'error');
+    if (!owner()) return statusText(status, 'Owner access could not be verified.', 'error');
     const title = String($('ovyx-global-template-title')?.value || '').trim();
     const category = String($('ovyx-global-template-category')?.value || '');
     const requiredTier = String($('ovyx-global-template-tier')?.value || 'free');
@@ -1261,7 +1261,7 @@
         body: JSON.stringify({ action: 'publish', title, category, previewUrl, requiredTier, ast })
       });
       const record = result.data.template;
-      if (!record?.id) throw new Error('The template couldn't be confirmed as published.');
+      if (!record?.id) throw new Error('The template could not be confirmed as published.');
       const existing = Array.isArray(window.__OVYX_TEMPLATE_LIVE__) ? window.__OVYX_TEMPLATE_LIVE__ : [];
       window.__OVYX_TEMPLATE_LIVE__ = existing.filter(item => item.id !== record.id).concat([record]);
       try { window.dispatchEvent(new CustomEvent('ovyx:templates-live-cache', { detail: { source: 'server-owner-publisher', count: window.__OVYX_TEMPLATE_LIVE__.length } })); } catch (_) {}
@@ -1271,8 +1271,8 @@
       await loadTemplateRegistry();
       form?.reset();
     } catch (error) {
-      statusText(status, 'The template couldn't be published. Please try again.', 'error');
-      notify('Template couldn't be published: ' + error.message, 'error');
+      statusText(status, 'The template could not be published. Please try again.', 'error');
+      notify('Template could not be published: ' + error.message, 'error');
     } finally {
       if (button) button.disabled = false;
     }
@@ -1299,7 +1299,7 @@
       });
       statusText($('ovyx-global-template-status'), 'Loaded ' + templates.length + ' currently published template(s).', 'ok');
     } catch (error) {
-      statusText($('ovyx-global-template-status'), 'The template catalogue couldn't be loaded. Please try again.', 'error');
+      statusText($('ovyx-global-template-status'), 'The template catalogue could not be loaded. Please try again.', 'error');
     }
   }
 
@@ -1315,7 +1315,7 @@
       await loadTemplateRegistry();
       try { window.OVYXTemplateHub?.render?.(); } catch (_) {}
     } catch (error) {
-      statusText($('ovyx-global-template-status'), 'The template couldn't be withdrawn. Please try again.', 'error');
+      statusText($('ovyx-global-template-status'), 'The template could not be withdrawn. Please try again.', 'error');
     } finally { button.disabled = false; }
   }
 
@@ -1342,12 +1342,12 @@
             throw new Error(String(data.message || data.error || 'Account entitlements could not be verified.'));
           }
           if (data.capabilities?.templates !== true) {
-            notify('Shared templates aren't included in your current plan.', 'error');
+            notify('Shared templates are not included in your current plan.', 'error');
             return false;
           }
           return originalDeploy(templateId);
         } catch (error) {
-          notify('Template access couldn't be verified: ' + error.message, 'error');
+          notify('Template access could not be verified: ' + error.message, 'error');
           return false;
         }
       })();
