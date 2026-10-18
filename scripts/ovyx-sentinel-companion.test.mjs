@@ -84,7 +84,7 @@ function makeContext(method, options = {}) {
         async run(model, input) {
           aiCalls.push({ model, input });
           return {
-            response: 'Hey boss, good to hear from you. I am here to help you with OVYX.',
+            response: 'Welcome back. I am here to help you with OVYX.',
             usage: { prompt_tokens: 14, completion_tokens: 19, total_tokens: 33 },
           };
         },
