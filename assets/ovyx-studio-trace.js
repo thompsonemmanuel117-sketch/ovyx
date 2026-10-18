@@ -203,8 +203,8 @@
 
     if (!response.ok || payload && payload.ok === false) {
       state.status = 'Request failed';
-      const message = payload && (payload.message || payload.error && payload.error.message) || 'The request couldn't be completed. Please try again.';
-      record('The request couldn't be completed', message, 'error');
+      const message = payload && (payload.message || payload.error && payload.error.message) || 'The request could not be completed. Please try again.';
+      record('The request could not be completed', message, 'error');
       render();
       return;
     }
@@ -226,7 +226,7 @@
       record('Some items still need review', issues.map(item => item.message || item.code || 'Requirement needs review').slice(0, 5).join('\n') || 'Review the generated files and preview before publishing.', 'warning');
     } else {
       state.status = 'Response received';
-      record('AI response received', 'This response hasn't completed the quality checks. Review the preview before publishing.', 'warning');
+      record('AI response received', 'This response has not completed the quality checks. Review the preview before publishing.', 'warning');
     }
     render();
   }
@@ -253,7 +253,7 @@
       state.busy = false;
       state.elapsedMs = Date.now() - state.startedAt;
       state.status = 'Request failed';
-      record('Request could not complete', error && error.message || 'The request couldn't be completed. Please try again.', 'error');
+      record('Request could not complete', error && error.message || 'The request could not be completed. Please try again.', 'error');
       render();
       throw error;
     }
