@@ -108,7 +108,7 @@ function buildShell() {
   root.innerHTML = '<button id="' + ID + '-launch" type="button" aria-label="Open private OVYX Guardian companion"><span class="eye" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M3 16s4.8-8 13-8 13 8 13 8-4.8 8-13 8S3 16 3 16Z" stroke="#8BEAF4" stroke-width="1.5"/><circle cx="16" cy="16" r="5.4" fill="#A5F3FC" fill-opacity=".2" stroke="#8BEAF4" stroke-width="1.4"/><circle cx="16" cy="16" r="2.4" fill="#B9FAFF"/></svg></span><span>OVYX GUARDIAN</span></button>' +
   '<section id="' + ID + '-panel" role="dialog" aria-modal="false" aria-labelledby="' + ID + '-title" hidden><header class="head"><span class="eye" aria-hidden="true">◉</span><div class="headcopy"><div id="' + ID + '-title" class="title">OVYX GUARDIAN</div><div class="sub">YOUR PRIVATE PROJECT COMPANION · VOICE + HEALTH</div></div><button type="button" class="close" data-ovsx="close" aria-label="Put Guardian to sleep">×</button></header>' +
   '<div class="actions"><button type="button" class="btn primary" data-ovsx="scan">Check now</button><button type="button" class="btn" data-ovsx="plan">Prepare fix plan</button><button type="button" class="btn" data-ovsx="diagnose">AI diagnosis</button><button type="button" class="btn" data-ovsx="patch">Prepare code fix</button><button type="button" class="btn" data-ovsx="wake">Enable voice activation</button><button type="button" class="btn" data-ovsx="sleep">Go to sleep</button><button type="button" class="btn" data-ovsx="mute" disabled>Stop speaking</button></div>' +
-  '<div class="status" role="status" aria-live="polite" data-ovsx-status>Verifying administrator access…</div><div class="body"><div class="summary"><strong>Welcome to Sentinel.</strong><small>Your private OVYX assistant. Ask questions, review platform health, or say “OVYX, open Web Studio.” Voice activation works while this page remains open. Your conversation stays in this session.</small></div><div data-ovsx-report></div><div class="plan" hidden data-ovsx-plan></div><div class="plan" hidden data-ovsx-diagnosis></div><details class="plan" hidden data-ovsx-diagnosis-history><summary class="plan-heading">Previous diagnoses</summary><div data-ovsx-diagnosis-history-list></div></details><div class="plan patch-tools" hidden data-ovsx-patch-tools><strong>Reviewable code fix</strong><div class="plan-note">I will prepare a preview first. Nothing changes until you review the proposal, type the confirmation phrase, and create a pull request. I never merge or deploy automatically.</div><label>Source file path<input type="text" data-ovsx-patch-path maxlength="240" placeholder="functions/api/feature.js"></label><label>What should be fixed?<textarea data-ovsx-patch-task rows="3" maxlength="1200" placeholder="Describe the exact bug and desired result"></textarea></label><button type="button" class="btn primary" data-ovsx="patch-prepare">Prepare patch preview</button><div data-ovsx-patch-summary class="rowsummary"></div><pre class="patch-preview" data-ovsx-patch-preview hidden></pre><label>Enter the confirmation phrase to submit for review<input type="text" data-ovsx-patch-confirm autocomplete="off" maxlength="40" placeholder="CREATE_PULL_REQUEST"></label><button type="button" class="btn" data-ovsx="patch-apply" disabled>Create review pull request</button><a class="patch-link" data-ovsx-patch-link hidden target="_blank" rel="noopener noreferrer">Open pull request</a></div><div class="transcript" hidden data-ovsx-transcript></div></div><form class="chat-form" data-ovsx-chat-form><textarea class="chat-input" data-ovsx-chat-input rows="2" maxlength="1200" aria-label="Message OVYX Guardian" placeholder="Talk to me or type a message…"></textarea><button class="chat-send" type="submit">Send</button></form>' +
+  '<div class="status" role="status" aria-live="polite" data-ovsx-status>Checking administrator access…</div><div class="body"><div class="summary"><strong>Welcome to Sentinel.</strong><small>Your private OVYX assistant. Ask questions, review platform health, or say “OVYX, open Web Studio.” Voice activation works while this page remains open. Your conversation stays in this session.</small></div><div data-ovsx-report></div><div class="plan" hidden data-ovsx-plan></div><div class="plan" hidden data-ovsx-diagnosis></div><details class="plan" hidden data-ovsx-diagnosis-history><summary class="plan-heading">Previous diagnoses</summary><div data-ovsx-diagnosis-history-list></div></details><div class="plan patch-tools" hidden data-ovsx-patch-tools><strong>Reviewable code fix</strong><div class="plan-note">I will prepare a preview first. Nothing changes until you review the proposal, type the confirmation phrase, and create a pull request. I never merge or deploy automatically.</div><label>Source file path<input type="text" data-ovsx-patch-path maxlength="240" placeholder="functions/api/feature.js"></label><label>What should be fixed?<textarea data-ovsx-patch-task rows="3" maxlength="1200" placeholder="Describe the exact bug and desired result"></textarea></label><button type="button" class="btn primary" data-ovsx="patch-prepare">Prepare patch preview</button><div data-ovsx-patch-summary class="rowsummary"></div><pre class="patch-preview" data-ovsx-patch-preview hidden></pre><label>Enter the confirmation phrase to submit for review<input type="text" data-ovsx-patch-confirm autocomplete="off" maxlength="40" placeholder="CREATE_PULL_REQUEST"></label><button type="button" class="btn" data-ovsx="patch-apply" disabled>Create review pull request</button><a class="patch-link" data-ovsx-patch-link hidden target="_blank" rel="noopener noreferrer">Open pull request</a></div><div class="transcript" hidden data-ovsx-transcript></div></div><form class="chat-form" data-ovsx-chat-form><textarea class="chat-input" data-ovsx-chat-input rows="2" maxlength="1200" aria-label="Message OVYX Guardian" placeholder="Talk to me or type a message…"></textarea><button class="chat-send" type="submit">Send</button></form>' +
   '<div class="foot">Voice commands require microphone permission and a supported browser. Wake-word listening only works while this page is open and active. Use “stop listening” to switch off the microphone completely.</div></section>';
   document.body.appendChild(root); addStyles(); bindShell(); return root;
 }
@@ -205,7 +205,7 @@ function renderDiagnosis(data) {
   var detail = document.createElement('small'); detail.textContent = 'Evidence report ' + safeText(data && data.reportId || 'unknown', 100) + ' · ' + safeText(data && data.generatedAt ? new Date(data.generatedAt).toLocaleString() : 'just now', 80);
   header.append(title, detail); host.appendChild(header);
   var body = document.createElement('div'); body.className = 'plan-issue'; body.style.whiteSpace = 'pre-wrap';
-  body.textContent = safeText(data && data.diagnosis || 'The diagnostic brain did not return a result.', 6000);
+  body.textContent = safeText(data && data.diagnosis || 'The review didn't return a result.', 6000);
   host.appendChild(body);
   var note = document.createElement('div'); note.className = 'plan-note';
   note.textContent = 'This is a read-only review. No code, settings, credentials, or live releases were changed.';
@@ -339,7 +339,7 @@ function goToSleep(shouldSpeak, stopMicrophone) {
 }
 async function loadLatest() {
   if (busy) return;
-  try { var data = await api('GET'); renderReport(data.latestReport); renderDiagnosisHistory(data.diagnoses); if (data.latestDiagnosis) renderDiagnosis(data.latestDiagnosis); status(data.lastScanAt ? 'Last saved scan: ' + new Date(data.lastScanAt).toLocaleString() : 'Sentinel is ready. Run a health review when you're ready.', 'success'); }
+  try { var data = await api('GET'); renderReport(data.latestReport); renderDiagnosisHistory(data.diagnoses); if (data.latestDiagnosis) renderDiagnosis(data.latestDiagnosis); status(data.lastScanAt ? 'Last health review: ' + new Date(data.lastScanAt).toLocaleString() : 'Sentinel is ready. Run a health review when you're ready.', 'success'); }
   catch (error) { status(error.message || 'Health review history isn't available right now.', 'error'); }
 }
 async function prepareFixPlan() {
@@ -610,7 +610,7 @@ async function runVoiceCommand(command) {
     } catch (error) {
       var openMessage = safeText(error && error.message || 'I could not safely open that area.', 220);
       status(openMessage, 'error');
-      speak('I could not safely open that area, boss. ' + openMessage);
+      speak('I couldn't safely open that area. ' + openMessage);
       return;
     }
   }
@@ -730,7 +730,7 @@ async function refreshPatchCapabilities() {
       headers: { Accept: 'application/json', Authorization: 'Bearer ' + idToken }
     });
     var data = await response.json().catch(function () { return {}; });
-    if (!response.ok || data.ok !== true) throw new Error(data.message || data.error || 'Guardian patch capabilities are unavailable.');
+    if (!response.ok || data.ok !== true) throw new Error(data.message || data.error || 'Review requests aren't available right now.');
     patchCapabilities = data.guardian || null;
     var prepare = q('[data-ovsx="patch-prepare"]');
     if (prepare) prepare.disabled = !(patchCapabilities && patchCapabilities.patchPreparationReady);
@@ -742,7 +742,7 @@ async function refreshPatchCapabilities() {
     var prepare = q('[data-ovsx="patch-prepare"]');
     if (prepare) prepare.disabled = true;
     updatePatchApplyState();
-    status(String(error.message || 'Guardian patch capabilities are unavailable.'), 'error');
+    status(String(error.message || 'Review requests aren't available right now.'), 'error');
   }
 }
 function invalidatePatchProposal() {
