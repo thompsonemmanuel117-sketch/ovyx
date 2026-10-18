@@ -189,7 +189,7 @@ try {
     await page.locator('#ovyx-global-ai-name').fill('OVYX Browser Fixture AI');
     await page.locator('#ovyx-global-ai-persona').fill('Be friendly and professionally helpful in the isolated browser test.');
     await page.locator('#ovyx-global-ai-save').click();
-    await page.waitForFunction(() => /AI selection preferences saved/.test(document.getElementById('ovyx-global-ai-status')?.textContent || ''), null, { timeout: 20000 });
+    await page.waitForFunction(() => /Global AI identity saved/.test(document.getElementById('ovyx-global-ai-status')?.textContent || ''), null, { timeout: 20000 });
 
     // Confirm user plan assignment and quota reset issue real owner-authenticated writes.
     await hub.locator('[data-ovyx-admin-workspace-route="admin-users"]').evaluate(button => button.click());
