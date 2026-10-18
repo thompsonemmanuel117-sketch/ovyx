@@ -827,7 +827,7 @@
         body
       });
       const result = await response.json().catch(() => ({}));
-      if (!response.ok || result?.ok !== true || !result?.project?.id) throw new Error(text(result.error || result.message || ('OVYX Projects returned HTTP ' + response.status)));
+      if (!response.ok || result?.ok !== true || !result?.project?.id) throw new Error(text(result.error || result.message || ('The save request couldn't be completed.)));
       artifact.savedToProjects = true;
       artifact.savedProjectId = result.project.id;
       artifact.savedAt = result.project.updatedAt || new Date().toISOString();
@@ -1275,22 +1275,22 @@
       const { artifact, warnings } = validation;
       const label = action === 'publish' ? 'Publish this app to production' : 'Deploy a preview version';
       const warningNote = warnings ? '\n\nQuality checks recorded ' + warnings + ' warning(s). They do not prevent publishing, but review them first.' : '';
-      if (typeof window.confirm !== 'function' || !window.confirm(label + '?\n\nApp: ' + artifact.name + '\nInspected routes: ' + (artifact.pageCount || 1) + '\nOutput: Cloudflare Pages static HTML/CSS/JavaScript.\nForm submissions and app state remain local. External OVYX account APIs and third-party services are not enabled on the published site.' + warningNote + '\n\nThis sends the generated files to your configured Cloudflare account.')) {
-        setReleaseStatus(panel, '[data-lb-web-status]', 'Deployment cancelled. No Cloudflare request was sent.', 'info');
+      if (typeof window.confirm !== 'function' || !window.confirm(label + '?\n\nApp: ' + artifact.name + '\nInspected routes: ' + (artifact.pageCount || 1) + '\nOutput: static website files.\nForm submissions and app state remain local. External OVYX account APIs and third-party services are not enabled on the published site.' + warningNote + '\n\nThis sends the generated files to your configured Cloudflare account.')) {
+        setReleaseStatus(panel, '[data-lb-web-status]', 'Publishing cancelled. No changes were made to the live website.', 'info');
         return;
       }
       if (button) { button.disabled = true; button.textContent = action === 'publish' ? 'Publishing…' : 'Deploying preview…'; }
-      setReleaseStatus(panel, '[data-lb-web-status]', 'Validating app files and sending the confirmed release to Cloudflare Pages…', 'busy');
+      setReleaseStatus(panel, '[data-lb-web-status]', 'Validating app files and publishing the confirmed release…', 'busy');
       const files = staticReleaseFiles(artifact);
       const body = JSON.stringify({ action, projectId: artifact.id, projectName: artifact.name, files });
-      if (new TextEncoder().encode(body).byteLength > 15 * 1024 * 1024) throw new Error('The release payload exceeds the 15 MiB App Studio safety limit. Export the ZIP and remove unused assets before retrying.');
+      if (new TextEncoder().encode(body).byteLength > 15 * 1024 * 1024) throw new Error('The publishing package exceeds the 15 MB limit. Export the ZIP and remove unused assets before trying again.');
       const token = await releaseToken();
       const data = await deploymentRequest('/api/deploy', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: 'Bearer ' + token },
         body
       }, token);
-      if (data.success !== true || !data.deployment?.deploymentId) throw new Error(data.error || 'Cloudflare did not confirm a deployment ID. The release is not marked as submitted.');
+      if (data.success !== true || !data.deployment?.deploymentId) throw new Error(data.error || 'The publishing service didn't confirm a deployment. The release hasn't been marked as submitted.');
       restoreReleaseState(artifact);
       const record = {
         action, projectId: artifact.id, projectName: artifact.name,
@@ -1310,8 +1310,8 @@
       persistReleaseState(artifact);
       renderReleaseState(panel);
       const deployedName = record.url ? ' ' + record.url : '';
-      setReleaseStatus(panel, '[data-lb-web-status]', (action === 'publish' ? 'Production publish accepted by Cloudflare.' : 'Preview deployment accepted by Cloudflare.') + ' Provider status: ' + record.status + '.' + deployedName + ' Use Check release health to refresh the authoritative status and probe the public URL.', 'success');
-      appendReleaseDiagnostic(panel, action + ' request accepted by Cloudflare at ' + record.submittedAt + '; provider status: ' + record.status + '.');
+      setReleaseStatus(panel, '[data-lb-web-status]', (action === 'publish' ? 'Production publish accepted.' : 'Preview deployment accepted.') + ' Status: ' + record.status + '.' + deployedName + ' Check release health to confirm that the public website is responding.', 'success');
+      appendReleaseDiagnostic(panel, action + ' request accepted at ' + record.submittedAt + '; provider status: ' + record.status + '.');
       await refreshWebDeploymentStatus(panel, slot);
     } catch (error) {
       setReleaseStatus(panel, '[data-lb-web-status]', error?.message || 'Release failed. No successful deployment is being reported.', 'error');
@@ -1460,7 +1460,7 @@
         headers: { 'Content-Type': 'application/json', Accept: 'application/json', Authorization: 'Bearer ' + token },
         body: JSON.stringify(body)
       }, token);
-      if (data.ok !== true || !data.jobId) throw new Error(data.error || 'EAS did not return a build job ID. No mobile build is marked as queued.');
+      if (data.ok !== true || !data.jobId) throw new Error(data.error || 'The mobile build service didn't confirm that a build started. No build is marked as queued.');
       artifact.releaseState = artifact.releaseState || { web: {}, mobile: null };
       artifact.releaseState.mobile = {
         jobId: String(data.jobId), status: String(data.status || 'queued'), platforms,
@@ -1468,7 +1468,7 @@
         requestedAt: new Date().toISOString(), artifacts: {}, builds: [], error: null
       };
       persistReleaseState(artifact); renderMobileReleaseStatus(panel, artifact.releaseState.mobile);
-      setReleaseStatus(panel, '[data-lb-mobile-status]', 'EAS accepted the mobile build job. It has not necessarily finished yet; refresh the status for completion and artifact URLs.', 'success');
+      setReleaseStatus(panel, '[data-lb-mobile-status]', 'Your mobile build request was accepted. It may still be running; refresh the status for progress and downloads.', 'success');
       appendReleaseDiagnostic(panel, 'EAS mobile build job queued: ' + data.jobId + ' (' + platforms.join(', ') + ').');
       await refreshMobileBuildStatus(panel);
     } catch (error) {
@@ -1483,20 +1483,20 @@
     const artifact = currentArtifact();
     const mobile = artifact?.releaseState?.mobile;
     if (!mobile?.jobId) {
-      setReleaseStatus(panel, '[data-lb-mobile-status]', 'No EAS build job exists yet.', 'info');
+      setReleaseStatus(panel, '[data-lb-mobile-status]', 'No mobile build has been started yet.', 'info');
       return;
     }
     const button = $(panel, '[data-lb-mobile-refresh]');
     if (button) { button.disabled = true; button.textContent = 'Checking…'; }
-    setReleaseStatus(panel, '[data-lb-mobile-status]', 'Checking the authoritative EAS workflow and artifact status…', 'busy');
+    setReleaseStatus(panel, '[data-lb-mobile-status]', 'Checking mobile build status and available downloads…', 'busy');
     try {
       const token = await releaseToken();
       const query = new URLSearchParams({ jobId: mobile.jobId });
       const data = await deploymentRequest('/api/mobile/build/status?' + query.toString(), {}, token);
-      if (data.ok !== true) throw new Error(data.error || 'EAS status was not confirmed.');
+      if (data.ok !== true) throw new Error(data.error || 'Mobile build status couldn't be confirmed.');
       Object.assign(mobile, data, { refreshedAt: new Date().toISOString() });
       persistReleaseState(artifact); renderMobileReleaseStatus(panel, mobile);
-      const message = 'EAS status: ' + text(mobile.status || 'unknown') + (mobile.workflowStatus ? ' (' + mobile.workflowStatus + ')' : '') + (mobile.error?.message ? ' · ' + mobile.error.message : '');
+      const message = 'Mobile build status: ' + text(mobile.status || 'unknown') + (mobile.workflowStatus ? ' (' + mobile.workflowStatus + ')' : '') + (mobile.error?.message ? ' · ' + mobile.error.message : '');
       setReleaseStatus(panel, '[data-lb-mobile-status]', message + (mobile.status === 'completed' ? ' · Build artifacts are listed below.' : mobile.status === 'failed' ? ' · Inspect the returned EAS details and error before retrying.' : ' · The build is still processing; refresh again later.'), mobile.status === 'completed' ? 'success' : mobile.status === 'failed' ? 'error' : 'info');
       appendReleaseDiagnostic(panel, 'Mobile job ' + mobile.jobId + ' status checked: ' + mobile.status + '.');
     } catch (error) {
