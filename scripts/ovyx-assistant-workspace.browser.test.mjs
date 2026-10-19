@@ -240,7 +240,7 @@ try {
     });
     await page.locator('#bot-chat-input').fill('Fix my mobile menu');
     await page.locator('[data-ovyx-native-send]').click();
-    await page.getByText(/Server read-back verification passed/i).waitFor({ state: 'visible', timeout: 20000 });
+    await page.getByText(/The saved change was verified/i).waitFor({ state: 'visible', timeout: 20000 });
 
     assert.deepEqual(
       workspaceCalls.map(call => call.operation),
