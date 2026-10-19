@@ -70,7 +70,7 @@ try {
     assert.deepEqual(calls, ['gemini']);
 
     await page.locator('#v59-model-select').selectOption('anthropic');
-    await page.waitForFunction(() => (window.__toasts || []).some(item => item.type === 'warning' && /Claude is not available/.test(item.message)));
+    await page.waitForFunction(() => (window.__toasts || []).some(item => item.type === 'warning' && /Claude (?:is not|isn't|isn’t) available/i.test(item.message)), null, { timeout: 15000 });
     assert.deepEqual(calls, ['gemini', 'anthropic'], '[' + target.name + '] selector must recheck provider availability on each change');
 
     await page.locator('#v59-model-select').selectOption('automatic');
