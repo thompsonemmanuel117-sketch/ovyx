@@ -44,7 +44,7 @@ try {
             window.OVYXAIService={async generate(payload){return window.__responseMode==='noop'?{ok:true,message:'I built your website'}:window.__homeResponse}};
             window.AIOrchestrator={async runSynthesis(mode='build'){return window.OVYXAIService.generate({mode,prompt:'Build it',project:window.KernelState.activeProject,context:{activeView:'home'}})}};
             window.WebStudio={
-              brain:'automatic',mode:'build',setMode(mode){this.mode=mode},async submitPrompt(){window.__submittedMode=this.mode;window.__submitCount=(window.__submitCount||0)+1;return true},thread:[{id:'msg_test_123',role:'agent',text:'I finished reviewing the requested website.'}],
+              brain:'automatic',mode:'build',setMode(mode){this.mode=mode},async submitPrompt(){const input=document.getElementById('ws-chat-input');window.__submittedMode=this.mode;window.__lastSubmittedPrompt=input&&input.value||'';window.__submitCount=(window.__submitCount||0)+1;if(window.__simulateApplySuccess){this.ensureProjectGraph();const file=this.graph.files['src/pages/Home.html'];const content=typeof file==='string'?file:(file&&file.content)||'';this.graph.files['src/pages/Home.html']={type:'text/html',content:content.replace('</main>','<nav aria-label="Primary navigation"><a href="/">Home</a></nav></main>')};this.syncGraphToProject();window.__simulateApplySuccess=false;}if(input)input.value='';return true},thread:[{id:'msg_test_123',role:'agent',text:'I finished reviewing the requested website.'}],
               graph:null,
               ensureProjectGraph(){const p=window.KernelState.activeProject;if(!this.graph)this.graph=JSON.parse(JSON.stringify(p.ovyxGraph||{version:2,entry:'src/pages/Home.html',files:{'src/pages/Home.html':{type:'text/html',content:starter}}}));p.ovyxGraph=this.graph;return this.graph},
               snapshotGraph(){this.ensureProjectGraph();return JSON.parse(JSON.stringify(this.graph))},
@@ -63,6 +63,7 @@ try {
           </script>
           <script defer src="/assets/ovyx-webstudio-reliability.js?v=20261019-2"></script>
           <script defer src="/assets/ovyx-webstudio-research.js?v=20261019-1"></script>
+          <script defer src="/assets/ovyx-webstudio-apply-suggestions.js?v=20261019-1"></script>
           </body></html>`,
         });
         return;
@@ -210,7 +211,7 @@ try {
 
     const webResearchRun = await page.evaluate(async () => {
       window.WebStudio.setMode('ask');
-      window.__buildResponse = { ok: true, text: 'Here is a source-backed summary of accessible navigation patterns.' };
+      window.__buildResponse = { ok: true, text: 'Here are two source-backed improvements for your navigation.\\n\\n<!-- OVYX_APPLY_SUGGESTIONS: {\\"suggestions\\":[{\\"title\\":\\"Label the navigation landmark\\",\\"summary\\":\\"A clear label helps assistive technology users distinguish navigation regions.\\",\\"prompt\\":\\"Add an accessible label to the primary navigation landmark in the existing website. Inspect the current markup and make the smallest safe change.\\",\\"sourceUrls\\":[\\"https://developer.mozilla.org/en-US/docs/Web/HTML/Element/nav\\"]},{\\"title\\":\\"Improve keyboard navigation\\",\\"summary\\":\\"Keyboard users should be able to reach and understand every navigation action.\\",\\"prompt\\":\\"Review the existing primary navigation and make its interactive links and menu controls keyboard accessible, preserving the current design and routes.\\",\\"sourceUrls\\":[\\"https://developer.mozilla.org/en-US/docs/Web/HTML/Element/nav\\"]},{\\"title\\":\\"Unsafe unrelated link\\",\\"summary\\":\\"This must not appear.\\",\\"prompt\\":\\"Change something.\\",\\"sourceUrls\\":[\\"http://127.0.0.1/private\\"]}]} -->' };
       const result = await window.WebStudio.callAI({
         mode: 'ask',
         prompt: 'Search the web for how ChatGPT handles responsive navigation',
@@ -239,6 +240,63 @@ try {
     assert.equal(researchCalls.length, 1, '[' + target.name + '] an explicit web request must invoke the real server route');
     assert.equal(researchCalls[0].authorization, 'Bearer test-token');
     assert.match(researchCalls[0].payload.prompt, /ChatGPT handles responsive navigation/);
+ 
+    const applySuggestionUi = await page.evaluate(async () => {
+      const response = window.__buildResponse;
+      const resultText = response && response.text;
+      const pending = window.WebStudio.__ovyxPendingApplySuggestions;
+      const thread = window.WebStudio.thread;
+      thread.push({ id: 'msg_research_suggestions_123', role: 'agent', text: resultText });
+      window.WebStudio.renderThread();
+      const bar = document.querySelector('.ovyx-ws-apply-suggestions');
+      const buttons = Array.from(document.querySelectorAll('[data-ovyx-apply-suggestion]'));
+      return {
+        markerRemoved: !String(resultText || '').includes('OVYX_APPLY_SUGGESTIONS'),
+        pendingCount: pending && pending.suggestions && pending.suggestions.length,
+        buttonCount: buttons.length,
+        sourceLink: bar && bar.querySelector('a[href="https://developer.mozilla.org/en-US/docs/Web/HTML/Element/nav"]') && bar.querySelector('a').href,
+        visibleUnsafeUrl: !!(bar && bar.querySelector('a[href^="http://127.0.0.1"]')),
+        hasAccessibleLabel: !!(buttons[0] && buttons[0].getAttribute('aria-label')),
+      };
+    });
+    assert.equal(applySuggestionUi.markerRemoved, true, '[' + target.name + '] structured control metadata must never be shown to the user');
+    assert.equal(applySuggestionUi.pendingCount, 2, '[' + target.name + '] only recommendations tied to opened sources should be accepted');
+    assert.equal(applySuggestionUi.buttonCount, 2, '[' + target.name + '] each valid source-backed recommendation should have its own Apply button');
+    assert.equal(applySuggestionUi.sourceLink, 'https://developer.mozilla.org/en-US/docs/Web/HTML/Element/nav');
+    assert.equal(applySuggestionUi.visibleUnsafeUrl, false, '[' + target.name + '] untrusted or private links must never become action sources');
+    assert.equal(applySuggestionUi.hasAccessibleLabel, true, '[' + target.name + '] apply controls need accessible labels');
+
+    const applySuggestionResult = await page.evaluate(async () => {
+      window.__simulateApplySuccess = true;
+      const input = document.getElementById('ws-chat-input');
+      input.value = 'My unsent draft should survive';
+      const button = document.querySelector('[data-ovyx-apply-suggestion]');
+      button.click();
+      const pending = window.WebStudio.__ovyxApplySuggestionPromise;
+      if (pending) await pending;
+      const activity = document.querySelector('.ovyx-ws-live-activity');
+      return {
+        submittedMode: window.__submittedMode,
+        submittedPrompt: window.__lastSubmittedPrompt,
+        restoredDraft: input.value,
+        activeView: window.__lastCallAIPayload && window.__lastCallAIPayload.context.activeView,
+        changedSource: String(window.KernelState.activeProject.ovyxGraph.files['src/pages/Home.html'].content).includes('aria-label="Primary navigation"'),
+        finalActivity: activity && activity.querySelector('.ovyx-ws-live-title') && activity.querySelector('.ovyx-ws-live-title').textContent,
+        buttonText: button.textContent,
+        buttonDisabled: button.disabled,
+      };
+    });
+    assert.equal(applySuggestionResult.submittedMode, 'build', '[' + target.name + '] Apply must route through Web Studio Build mode');
+    assert.match(applySuggestionResult.submittedPrompt, /Label the navigation landmark/);
+    assert.match(applySuggestionResult.submittedPrompt, /developer.mozilla.org/);
+    assert.match(applySuggestionResult.submittedPrompt, /Add an accessible label/);
+    assert.equal(applySuggestionResult.restoredDraft, 'My unsent draft should survive', '[' + target.name + '] applying a suggestion must preserve the user\'s unsent draft');
+    assert.equal(applySuggestionResult.activeView, 'webstudio');
+    assert.equal(applySuggestionResult.changedSource, true, '[' + target.name + '] the mocked Build action should update the existing graph file');
+    assert.match(applySuggestionResult.finalActivity, /Website update verified/);
+    assert.match(applySuggestionResult.buttonText, /Applied & verified/);
+    assert.equal(applySuggestionResult.buttonDisabled, true, '[' + target.name + '] a verified recommendation must not accidentally be applied twice');
+
 
     const thumbs = page.locator('.ovyx-ws-feedback [data-ovyx-feedback-vote]');
     assert.equal(await thumbs.count(), 2, '[' + target.name + '] assistant response must show thumbs up and down');
