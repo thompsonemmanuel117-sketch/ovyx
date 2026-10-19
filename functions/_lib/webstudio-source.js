@@ -32,10 +32,10 @@ export function hasWebStudioSourceTask(prompt) {
 export function isScopedWebStudioEdit(prompt, hasSourceContext = false) {
   const text = String(prompt || '').trim();
   if (!text || !hasSourceContext || !EDIT_TASK.test(text)) return false;
+  if (EXPLICIT_NEW_BUILD.test(text)) return false;
   if (EXISTING_REFERENCE.test(text)) return true;
   // In Web Studio, concise follow-ups like "change the colors" or "fix the menu"
   // act on the current source. Explicit requests to create a new website remain builds.
-  if (EXPLICIT_NEW_BUILD.test(text)) return false;
   return /\b(?:the\s+(?:colors?|colou?rs?|font|typography|spacing|layout|header|footer|hero|menu|navigation|button|form|section|card|logo|image|background|contrast|padding|margin|mobile\s+menu)|colors?|colou?rs?|font|typography|spacing|layout|header|footer|hero|menu|navigation|button|form|section|card|logo|image|background|contrast|padding|margin|mobile\s+menu|the\s+project)\b/i.test(text);
 }
 
