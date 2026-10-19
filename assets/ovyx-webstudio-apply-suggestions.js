@@ -42,7 +42,7 @@
   }
 
   function asksForRecommendations(prompt) {
-    return /\\b(?:recommend(?:ation|ations)?|suggest(?:ion|ions)?|what\\s+(?:should|could|would)\\s+i\\s+(?:change|improve|add)|how\\s+can\\s+i\\s+improve|improvements?\\s+for\\s+my\\s+(?:website|site)|ways?\\s+to\\s+improve)\\b/i.test(String(prompt || ''));
+    return /\b(?:recommend(?:ation|ations)?|suggest(?:ion|ions)?|what\s+(?:should|could|would)\s+i\s+(?:change|improve|add)|how\s+can\s+i\s+improve|improvements?\s+for\s+my\s+(?:website|site)|ways?\s+to\s+improve)\b/i.test(String(prompt || ''));
   }
 
   function verifiedPageSources(research) {
