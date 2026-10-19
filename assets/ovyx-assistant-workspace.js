@@ -1011,6 +1011,12 @@
       };
     }
     if (operation === 'search') {
+      const perQuery = (Array.isArray(response.byQuery) ? response.byQuery : []).slice(0, 8);
+      // Preserve a representative snippet sample for each searched term.
+      // Counts and truncation flags come from the full scan, not this preview.
+      const balancedMatches = perQuery.length
+        ? perQuery.flatMap(entry => (Array.isArray(entry.matches) ? entry.matches : []).slice(0, 4)).slice(0, 32)
+        : (Array.isArray(response.matches) ? response.matches : []).slice(0, 32);
       return {
         operation,
         projectId: response.projectId,
@@ -1023,14 +1029,14 @@
         matchedFileCount: response.matchedFileCount,
         inventoryTruncated: response.inventoryTruncated === true,
         resultsTruncated: response.resultsTruncated === true,
-        byQuery: (Array.isArray(response.byQuery) ? response.byQuery : []).slice(0, 8).map(entry => ({
+        byQuery: perQuery.map(entry => ({
           query: entry.query,
           count: entry.count,
           matchedFileCount: entry.matchedFileCount,
           resultsTruncated: entry.resultsTruncated === true,
-          matches: (Array.isArray(entry.matches) ? entry.matches : []).slice(0, 12),
+          previewCount: (Array.isArray(entry.matches) ? entry.matches : []).length,
         })),
-        matches: (Array.isArray(response.matches) ? response.matches : []).slice(0, 40),
+        matches: balancedMatches,
       };
     }
     return response;
