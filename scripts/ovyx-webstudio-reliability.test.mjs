@@ -101,7 +101,7 @@ assert.match(runtime, /files: requestPayload\.files \|\| priorContext\.files \|\
 assert.match(assistantApi, /if \(!structuredFields\.message\) structuredFields\.message = structured\.text;/);
 assert.match(assistantApi, /scopedWebStudioEdit,/);
 assert.match(runtime, /result && result\.scopedWebStudioEdit === true/);
-assert.match(runtime, /if \(!path \|\| path\.includes\('\\\\'\).*\.css\|scss/);
+assert.ok(fs.readFileSync('functions/_lib/webstudio-source.js', 'utf8').includes("!path.split('/').some(part => part === '..' || part === '.')"), 'scoped edit paths must reject traversal');
 assert.match(runtime, /activeView: 'webstudio'/);
 assert.match(fs.readFileSync('functions/_lib/prompts.js', 'utf8'), /Keep read-only Ask\/source-inspection requests read-only/);
 
