@@ -469,7 +469,7 @@
       return /\b(?:add|change|edit|update|fix|repair|apply|remove|delete|replace|improve|enhance|adjust|modify|restyle|reposition|resize|shrink|enlarge|increase|decrease|align|move|rearrange|polish|optimi[sz]e|implement|make)\b/i.test(text);
     }
     function explicitNewBuild(text) {
-      return /\b(?:build|create|generate|design|develop|launch)\s+(?:(?:me|us)\s+)?(?:(?:a|an|the|brand\s+new|new|complete|full|multi[- ]page|single[- ]page)\s+){0,2}(?:website|web\s+site|site|web\s+app|application|digital\s+product)\b/i.test(text);
+      return /\b(?:build|create|generate|design|develop|launch|make)\s+(?:(?:me|us)\s+)?(?:(?:a|an|brand\s+new|new|complete|full|multi[- ]page|single[- ]page)\s+){0,2}(?:website|web\s+site|site|web\s+app|application|digital\s+product)\b/i.test(text);
     }
     function targetedEdit(text) {
       var asksForAdvice = /\b(?:what\s+should\s+i\s+change|what\s+would\s+you\s+change|tell\s+me\s+what\s+to\s+change|what\s+do\s+you\s+recommend|recommend\s+changes|suggest\s+changes|should\s+i\s+change|how\s+can\s+i\s+improve|how\s+should\s+i)\b/i.test(text);
