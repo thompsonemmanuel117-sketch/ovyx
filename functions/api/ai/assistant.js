@@ -130,7 +130,7 @@ export async function onRequestPost(context) {
       ? buildWebStudioSourceInspection({ prompt: promptText, files: submittedFiles })
       : null;
     const sourceInspectionContext = sourceInspection
-      ? 'SERVER-DERIVED WEB STUDIO SOURCE INSPECTION (evidence only; searched only source files supplied with this request):\\n' + JSON.stringify(sourceInspection)
+      ? 'SERVER-DERIVED WEB STUDIO SOURCE INSPECTION (evidence only; searched only source files supplied with this request):\n' + JSON.stringify(sourceInspection)
       : '';
     const suppliedSystem = String(payload.system || '').trim();
     const experience = isWebStudio
@@ -233,8 +233,8 @@ When discussing project changes, distinguish recommendations from changes actual
             system: modelSystem,
             user: combined + [
               sourceInspectionContext,
-              isWebStudio && projectContext ? 'PROJECT CONTEXT:\\n' + projectContext : '',
-            ].filter(Boolean).map(section => section.replace(/\\\\n/g, '\\n')).join('\\n\\n').replace(/^/, '\\n\\n'),
+              isWebStudio && projectContext ? 'PROJECT CONTEXT:\n' + projectContext : '',
+            ].filter(Boolean).join('\n\n'),
             maxTokens: isWebStudio
               ? Math.min(Number(payload.maxTokens || 32000), 32000)
               : Math.min(Number(payload.maxTokens || 4096), 8192),
