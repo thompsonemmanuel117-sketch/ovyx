@@ -440,7 +440,7 @@
         var hasChangedSource = Object.entries(edits).some(function (entry) {
           var path = String(entry[0] || '');
           var value = entry[1];
-          if (!path || path.includes('\\') || path.split('/').some(function (part) { return part === '..' || part === '.'; })) return false;
+          if (!path || path.includes('\\') || path.split('/').some(function (part) { return !part || part === '..' || part === '.'; }) || !/\.(?:html?|css|scss|sass|less|m?js|cjs|jsx|ts|tsx|json|svg|xml|md|txt|webmanifest|ya?ml)$/i.test(path)) return false;
           var nextContent = typeof value === 'string' ? value : value && (value.content ?? value.text);
           if (typeof nextContent !== 'string') return false;
           var previous = baselineFiles[path];
