@@ -155,6 +155,40 @@
       .ovyx-native-response-actions button:disabled{opacity:.55!important;cursor:wait!important}
       .ovyx-native-response-actions button[data-state="saved"]{color:#6ee7b7!important;border-color:rgba(52,211,153,.22)!important}
       @media(max-width:560px){.ovyx-native-response-actions{gap:5px!important}.ovyx-native-response-actions button{min-height:30px!important;padding:6px 7px!important;font-size:9px!important}}
+      #kernel-brain-bot-panel.ovyx-native-workspace #bot-chat-history>.ovyx-native-activity{
+        align-self:flex-start!important;display:flex!important;align-items:flex-start!important;gap:10px!important;
+        width:min(94%,760px)!important;max-width:100%!important;padding:12px 14px!important;
+        border:1px solid rgba(83,216,238,.18)!important;border-radius:15px!important;
+        background:linear-gradient(135deg,rgba(83,216,238,.055),rgba(141,124,255,.035))!important;
+        color:#d9dee5!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.025)!important;
+      }
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-activity-avatar{width:31px!important;height:31px!important;flex-basis:31px!important;border-radius:10px!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-activity-avatar svg{width:29px!important;height:29px!important;border-radius:9px!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-activity-content{display:flex!important;flex:1 1 auto!important;min-width:0!important;flex-direction:column!important;gap:4px!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-activity-title{font:750 11px/1.35 Inter,system-ui,sans-serif!important;letter-spacing:.015em!important;color:#eef7fb!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-activity-message{font:450 12px/1.55 Inter,system-ui,sans-serif!important;color:#aab9c8!important;overflow-wrap:anywhere!important;white-space:normal!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-activity-details{margin-top:4px!important;color:#94a5b7!important;font:500 10px/1.5 Inter,system-ui,sans-serif!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-activity-details summary{width:fit-content!important;cursor:pointer!important;color:#79d7e7!important;list-style-position:inside!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-activity-details summary:focus-visible{outline:2px solid #53d8ee!important;outline-offset:3px!important;border-radius:4px!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-activity-log{margin:7px 0 0!important;padding:0 0 0 18px!important;max-height:180px!important;overflow:auto!important;display:flex!important;flex-direction:column!important;gap:5px!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-activity-log li{padding-left:2px!important;overflow-wrap:anywhere!important;color:#a8b6c6!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-activity-log li::marker{color:#53d8ee!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-activity[data-stage="complete"]{border-color:rgba(88,215,181,.15)!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-activity[data-stage="error"]{border-color:rgba(248,113,133,.3)!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace.ovyx-ai-searching .ovyx-ai-character svg,
+      #kernel-brain-bot-panel.ovyx-native-workspace.ovyx-ai-searching .ovyx-native-activity-avatar svg{animation:ovyxNativeActivityScan 1.2s ease-in-out infinite!important;transform-origin:center!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace.ovyx-ai-searching .ovyx-native-response-avatar:before{border-style:dashed!important;animation:ovyxNativeResponseOrbit 1.6s linear infinite!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace.ovyx-ai-reading .ovyx-ai-character svg,
+      #kernel-brain-bot-panel.ovyx-native-workspace.ovyx-ai-reading .ovyx-native-activity-avatar svg{animation:ovyxNativeActivityRead 1.35s ease-in-out infinite!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace.ovyx-ai-applying .ovyx-ai-character svg,
+      #kernel-brain-bot-panel.ovyx-native-workspace.ovyx-ai-applying .ovyx-native-activity-avatar svg{animation:ovyxNativeActivityApply 1.35s ease-in-out infinite!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace.ovyx-ai-verifying .ovyx-ai-character svg,
+      #kernel-brain-bot-panel.ovyx-native-workspace.ovyx-ai-verifying .ovyx-native-activity-avatar svg{animation:ovyxNativeActivityVerify 1.4s ease-in-out infinite!important}
+      @keyframes ovyxNativeActivityScan{0%,100%{transform:translateX(-2px) rotateY(-8deg) scale(1)}50%{transform:translateX(2px) rotateY(9deg) scale(1.045)}}
+      @keyframes ovyxNativeActivityRead{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-2px) scale(1.055)}}
+      @keyframes ovyxNativeActivityApply{0%,100%{transform:rotate(-4deg) scale(1)}50%{transform:rotate(5deg) scale(1.055)}}
+      @keyframes ovyxNativeActivityVerify{0%,100%{transform:scale(1);filter:drop-shadow(0 0 1px rgba(88,215,181,.3))}50%{transform:scale(1.07);filter:drop-shadow(0 0 7px rgba(88,215,181,.8))}}
+      @media(max-width:560px){#kernel-brain-bot-panel.ovyx-native-workspace #bot-chat-history>.ovyx-native-activity{width:100%!important;padding:10px 11px!important}.ovyx-native-activity-message{font-size:11px!important}}
       @media(prefers-reduced-motion:reduce){#kernel-brain-bot-panel.ovyx-native-workspace *,#kernel-brain-bot-panel.ovyx-native-workspace *::before,#kernel-brain-bot-panel.ovyx-native-workspace *::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
     `;
     document.head.appendChild(style);
@@ -922,7 +956,7 @@
       String(action?.type || ''),
       String(action?.projectId || ''),
       String(action?.filePath || action?.path || ''),
-      String(action?.query || ''),
+      Array.isArray(action?.queries) ? action.queries.join('¦') : String(action?.query || ''),
     ].join('|');
   }
 
@@ -976,9 +1010,22 @@
         operation,
         projectId: response.projectId,
         query: response.query,
+        queries: (Array.isArray(response.queries) ? response.queries : [response.query]).slice(0, 8),
         revision: response.revision,
         count: response.count,
-        matches: (Array.isArray(response.matches) ? response.matches : []).slice(0, 16),
+        totalMatches: response.totalMatches,
+        filesSearched: response.filesSearched,
+        matchedFileCount: response.matchedFileCount,
+        inventoryTruncated: response.inventoryTruncated === true,
+        resultsTruncated: response.resultsTruncated === true,
+        byQuery: (Array.isArray(response.byQuery) ? response.byQuery : []).slice(0, 8).map(entry => ({
+          query: entry.query,
+          count: entry.count,
+          matchedFileCount: entry.matchedFileCount,
+          resultsTruncated: entry.resultsTruncated === true,
+          matches: (Array.isArray(entry.matches) ? entry.matches : []).slice(0, 12),
+        })),
+        matches: (Array.isArray(response.matches) ? response.matches : []).slice(0, 40),
       };
     }
     return response;
@@ -997,6 +1044,7 @@
     } else if (action.type === 'workspace_search') {
       operation = 'search';
       payload.query = String(action.query || '');
+      if (Array.isArray(action.queries)) payload.queries = action.queries.map(value => String(value || '')).slice(0, 8);
     } else {
       return { type: action?.type || 'workspace-tool', ok: false, error: 'This workspace action is not a read-only tool.' };
     }
