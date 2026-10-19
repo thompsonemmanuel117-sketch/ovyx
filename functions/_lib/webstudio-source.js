@@ -40,6 +40,26 @@ export function isScopedWebStudioEdit(prompt, hasSourceContext = false) {
   return TARGETED_EDIT_OBJECT.test(text);
 }
 
+export function normalizeScopedWebStudioFiles(files) {
+  const entries = Array.isArray(files)
+    ? files.slice(0, 60).map(item => [item && item.path, item])
+    : files && typeof files === 'object'
+      ? Object.entries(files).slice(0, 60)
+      : [];
+  const output = {};
+  const allowedPath = /^(?!\/)(?!.*(?:^|\/)\.{1,2}(?:\/|$))(?!.*\\\\)[a-zA-Z0-9_.@/-]{1,240}\.(?:html?|css|scss|sass|less|m?js|cjs|jsx|ts|tsx|json|svg|xml|md|txt|webmanifest|ya?ml)$/i;
+  for (const [rawPath, value] of entries) {
+    if (typeof rawPath !== 'string') continue;
+    const path = rawPath.trim();
+    if (!allowedPath.test(path) || path.split('/').some(part => !part || part === '.' || part === '..')) continue;
+    if (path === '__proto__' || path === 'constructor' || path === 'prototype') continue;
+    const content = asSourceText(value);
+    if (!content || content.length > 180000) continue;
+    output[path] = content;
+  }
+  return output;
+}
+
 function normalizeFiles(files) {
   if (!files || typeof files !== 'object' || Array.isArray(files)) return [];
   return Object.entries(files)
