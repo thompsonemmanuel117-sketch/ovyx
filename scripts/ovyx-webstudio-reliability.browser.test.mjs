@@ -182,6 +182,43 @@ try {
     assert.equal(scopedCssEdit.accepted, true, '[' + target.name + '] scoped CSS-only edits must not be rejected by the HTML-preview build guard');
     assert.equal(scopedCssEdit.scopedWebStudioEdit, true);
 
+    const scopedJsEdit = await page.evaluate(async () => {
+      window.__buildResponse = {
+        ok: true,
+        scopedWebStudioEdit: true,
+        files: { 'assets/mobile-menu.js': { type: 'text/javascript', content: 'function toggleMobileMenu(){ return true; }' } },
+      };
+      try {
+        const result = await window.WebStudio.callAI({ mode: 'build', prompt: 'Fix the mobile menu interaction' }, 3);
+        return { accepted: true, scopedWebStudioEdit: result.scopedWebStudioEdit };
+      } catch (error) { return { accepted: false, message: error.message }; }
+    });
+    assert.equal(scopedJsEdit.accepted, true, '[' + target.name + '] scoped JavaScript-only edits must pass when the source actually changed');
+    assert.equal(scopedJsEdit.scopedWebStudioEdit, true);
+
+    const scopedNoOp = await page.evaluate(async () => {
+      window.__buildResponse = { ok: true, scopedWebStudioEdit: true, files: {} };
+      try {
+        await window.WebStudio.callAI({ mode: 'build', prompt: 'Change the colors' }, 4);
+        return { rejected: false, message: '' };
+      } catch (error) { return { rejected: true, message: error.message }; }
+    });
+    assert.equal(scopedNoOp.rejected, true, '[' + target.name + '] a scoped-edit flag must not permit a no-op response');
+    assert.match(scopedNoOp.message, /website draft was not updated.*existing preview remains unchanged/i);
+
+    const newBuildCssOnly = await page.evaluate(async () => {
+      window.__buildResponse = {
+        ok: true,
+        files: { 'assets/site.css': { type: 'text/css', content: 'body { color: purple; }' } },
+      };
+      try {
+        await window.WebStudio.callAI({ mode: 'build', prompt: 'Build a new website' }, 5);
+        return { rejected: false, message: '' };
+      } catch (error) { return { rejected: true, message: error.message }; }
+    });
+    assert.equal(newBuildCssOnly.rejected, true, '[' + target.name + '] a new-site build still requires a real HTML artifact');
+    assert.match(newBuildCssOnly.message, /website draft was not updated.*existing preview remains unchanged/i);
+
     assert.deepEqual(errors, [], '[' + target.name + '] browser errors: ' + errors.join('; '));
     console.log('PASS Web Studio reliability ' + target.name + ': useful feedback controls, Help hand-off, no-op build rejection and verified HTML gate.');
     await page.close();
