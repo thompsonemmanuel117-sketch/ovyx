@@ -340,8 +340,10 @@ try {
     assert.equal(applySuggestionResult.buttonDisabled, true, '[' + target.name + '] a verified recommendation must not accidentally be applied twice');
 
 
+    const feedbackGroups = page.locator('.ovyx-ws-feedback');
     const thumbs = page.locator('.ovyx-ws-feedback [data-ovyx-feedback-vote]');
-    assert.equal(await thumbs.count(), 2, '[' + target.name + '] assistant response must show thumbs up and down');
+    assert.equal(await feedbackGroups.count(), 2, '[' + target.name + '] both assistant messages should have their own feedback controls');
+    assert.equal(await thumbs.count(), 4, '[' + target.name + '] each assistant message should show thumbs up and down');
 
     await page.locator('[data-ovyx-feedback-vote="up"]').click();
     await page.waitForFunction(() => window.__toasts.some(x => /feedback was saved/i.test(x.message)));
