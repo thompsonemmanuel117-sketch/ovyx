@@ -241,6 +241,8 @@ try {
     await page.locator('#bot-chat-input').fill('Fix my mobile menu');
     await page.locator('[data-ovyx-native-send]').click();
     await page.getByText(/The saved change was verified/i).waitFor({ state: 'visible', timeout: 20000 });
+    const savedCopy = await page.getByText(/The saved change was verified/i).innerText();
+    assert.doesNotMatch(savedCopy, /server read-back verification/i, '[' + target.name + '] user-facing save feedback must avoid implementation-level wording');
 
     assert.deepEqual(
       workspaceCalls.map(call => call.operation),
