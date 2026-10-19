@@ -294,7 +294,13 @@ try {
     // must lose the admin entry when the server does not authorize ROOT_SUPERUSER.
     await page.evaluate(() => window.__setOVYXAdminTestIdentity('free'));
     await page.waitForFunction(() => window.OVYXAdminWorkspace.isAuthorized() === false, null, { timeout: 15000 });
-    await page.waitForFunction(() => !document.getElementById('ovyx-admin-workspace-entry-desktop') && !document.getElementById('ovyx-admin-workspace-entry-mobile') && !document.getElementById('ovyx-admin-workspace-hub'));
+    await page.waitForFunction(
+      () => !document.getElementById('ovyx-admin-workspace-entry-desktop')
+        && !document.getElementById('ovyx-admin-workspace-entry-mobile')
+        && !document.getElementById('ovyx-admin-workspace-hub'),
+      null,
+      { timeout: 15000 },
+    );
     assert.equal(await page.locator('#ovyx-admin-workspace-entry-desktop').count(), 0, '[' + target.name + '] admin entry must be removed for non-root role');
     assert.equal(await page.locator('#ovyx-admin-workspace-hub').count(), 0, '[' + target.name + '] admin hub must be removed for non-root role');
 
