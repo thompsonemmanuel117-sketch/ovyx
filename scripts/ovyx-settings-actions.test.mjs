@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { normalizeNotificationPreferences, NOTIFICATION_DEFAULTS } from '../functions/api/settings/preferences.js';
+import { normalizeAIPreferences, AI_PREFERENCE_DEFAULTS } from '../functions/api/settings/ai.js';
 
 const read = path => fs.readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 const runtime = read('assets/ovyx-settings-reliability.js');
@@ -11,6 +12,12 @@ const html = read('index.html');
 const coreBrowser = read('scripts/ovyx-settings-core.browser.test.mjs');
 const profileApi = read('functions/api/settings/profile.js');
 const preferencesApi = read('functions/api/settings/preferences.js');
+const aiPreferencesApi = read('functions/api/settings/ai.js');
+const paymentHistoryApi = read('functions/api/payments/history.js');
+const firebaseQuery = read('functions/api/_lib/firebase-query.js');
+const billingRuntime = read('assets/ovyx-settings-billing-live.js');
+const middleware = read('functions/_middleware.js');
+const headers = read('_headers');
 const deletionApi = read('functions/api/account/delete.js');
 const brandProfileApi = read('functions/api/settings/brand-profile.js');
 const connectionsApi = read('functions/api/settings/connections.js');
@@ -27,6 +34,10 @@ for (const path of [
   'assets/ovyx-webstudio-quality.js',
   'functions/api/settings/profile.js',
   'functions/api/settings/preferences.js',
+  'functions/api/settings/ai.js',
+  'functions/api/payments/history.js',
+  'functions/api/_lib/firebase-query.js',
+  'assets/ovyx-settings-billing-live.js',
   'functions/api/account/delete.js',
   'functions/api/settings/brand-profile.js',
   'functions/api/settings/connections.js',
@@ -196,5 +207,46 @@ assert.match(multipage, /providerRouting/);
 assert.ok(packageJson.scripts.test.includes('scripts/ovyx-settings-actions.test.mjs'), 'Settings action regressions must run in the npm test chain.');
 assert.doesNotMatch(runtime, /Bearer\s+[A-Za-z0-9._~+/=-]{20,}/i, 'The Settings runtime must not contain a literal access token.');
 assert.doesNotMatch(runtime, /(?:sk-[A-Za-z0-9_-]{20,}|gh[pousr]_[A-Za-z0-9_]{20,}|AIza[0-9A-Za-z_-]{30,})/, 'The Settings runtime must not contain provider credentials.');
+
+
+// Account AI preferences are validated, persisted and read back by the authenticated server API.
+assert.deepEqual(normalizeAIPreferences({}), AI_PREFERENCE_DEFAULTS);
+assert.deepEqual(
+  normalizeAIPreferences({ provider: 'not-a-provider', model: 'unknown-model', contextFiles: 'false' }),
+  AI_PREFERENCE_DEFAULTS,
+  'Unknown AI preference enums and non-boolean toggles must fall back to safe defaults.'
+);
+assert.deepEqual(
+  normalizeAIPreferences({ provider: 'openai', model: 'gpt-6.1-sol', explain: false, contextFiles: false }),
+  { ...AI_PREFERENCE_DEFAULTS, provider: 'openai', model: 'gpt-6.1-sol', explain: false, contextFiles: false },
+  'Supported AI preferences must survive server normalization.'
+);
+assert.ok(aiPreferencesApi.includes('verifyFirebaseIdToken'), 'AI preference reads and writes must authenticate a Firebase identity.');
+assert.ok(aiPreferencesApi.includes('enforceSameOrigin'), 'AI preference writes must reject cross-origin requests.');
+assert.ok(aiPreferencesApi.includes("request.method === 'GET'"), 'AI preferences must support authenticated server reads.');
+assert.ok(aiPreferencesApi.includes("request.method !== 'PUT'"), 'AI preferences must use explicit PUT writes.');
+assert.ok(aiPreferencesApi.includes('AI_PREFERENCES_WRITE_UNCONFIRMED'), 'AI preference saves must fail closed when read-back verification fails.');
+assert.ok(aiPreferencesApi.includes("['users', uid, 'settings', 'ai_preferences']"), 'AI preferences must be scoped to the authenticated account.');
+assert.ok(runtime.includes("const AI_PREFERENCES_ENDPOINT = '/api/settings/ai'"), 'Settings must connect AI preferences to the authenticated endpoint.');
+assert.ok(runtime.includes('async function loadAIPreferencesFromServer()'), 'Settings must restore and migrate account AI preferences on load.');
+assert.ok(runtime.includes('Preferences saved to your OVYX account and verified by the server.'), 'AI Save must distinguish a server-confirmed save from local-only storage.');
+assert.ok(runtime.includes('AI preferences reset to defaults and verified by the server.'), 'AI Reset must persist defaults and verify them on the server.');
+assert.ok(runtime.includes('Account AI preferences could not be verified.'), 'AI preference sync failures must be visible and keep the existing local copy.');
+assert.ok(runtime.includes("const name = $('set-profile-name') || $('set-profile-name-legacy')"), 'Profile hydration must target both modern and legacy display-name controls.');
+assert.ok(runtime.includes("const workspace = $('set-workspace-name') || $('set-workspace-name-legacy')"), 'Profile hydration must target both modern and legacy workspace-name controls.');
+assert.ok(runtime.includes('installDestructiveConfirmationPreference();'), 'The project-delete confirmation setting must be wired to the real project deletion action.');
+assert.ok(middleware.includes('/assets/ovyx-settings-billing-live.js?v=20261019-1'), 'The server-backed Billing runtime must load through the application shell.');
+assert.ok(headers.includes('/assets/ovyx-settings-billing-live.js'), 'Billing runtime responses must not be cached.');
+assert.ok(billingRuntime.includes("getJson('/api/payments/status')"), 'Billing must use authenticated server subscription status.');
+assert.ok(billingRuntime.includes("getJson('/api/tokens/balance')"), 'Billing must use the authenticated server token balance.');
+assert.ok(billingRuntime.includes("getJson('/api/payments/history')"), 'Billing must display payment history fetched from the server.');
+assert.ok(billingRuntime.includes('No local browser history was substituted') || billingRuntime.includes('No browser-only balance or payment history is being presented as verified.'), 'Billing must not present local browser data as verified payment history.');
+assert.ok(paymentHistoryApi.includes('verifyFirebaseIdToken'), 'Payment history must authenticate the user.');
+assert.ok(paymentHistoryApi.includes('identity.user.uid'), 'Payment history identity must come from the verified token, never a query UID.');
+assert.ok(paymentHistoryApi.includes('findRecentPaymentsForUid(env, identity.user.uid, 8)'), 'Payment history must query only the authenticated user and bound results.');
+assert.ok(paymentHistoryApi.includes('Cache-Control'), 'Payment history responses must disable caching.');
+assert.ok(firebaseQuery.includes("collectionId: 'payment_orders'"), 'Payment history must read existing payment order records.');
+assert.ok(firebaseQuery.includes("field: { fieldPath: 'uid' }"), 'Payment history queries must be scoped to a user ID.');
+assert.ok(firebaseQuery.includes('limit: maxResults'), 'Payment history queries must remain bounded.');
 
 console.log('OVYX Settings actions tests passed: server-backed profile and notifications, account and email-scoped cleanup, Brand Identity, live Universal Connection tests, session revocation, usage, workspace toggles, editor mode and AI routing.');
