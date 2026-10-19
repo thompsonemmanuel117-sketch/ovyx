@@ -237,10 +237,22 @@ try {
     await page.waitForFunction(({ expectedName, previousId }) => {
       const lab = window.OVYXThemeLab;
       const active = String(lab?.state?.active || '');
-      return active.startsWith('custom_')
-        && active !== previousId
-        && lab.state.customThemes?.[active]?.name === expectedName;
+      const status = document.getElementById('settings-save-status')?.textContent || '';
+      return status.startsWith('Theme import failed:')
+        || (active.startsWith('custom_')
+          && active !== previousId
+          && lab.state.customThemes?.[active]?.name === expectedName);
     }, { expectedName: exported.name, previousId: duplicateId }, { timeout: 15000 });
+    const importState = await page.evaluate(() => ({
+      active: String(window.OVYXThemeLab?.state?.active || ''),
+      activeTheme: window.OVYXThemeLab?.state?.customThemes?.[window.OVYXThemeLab?.state?.active] || null,
+      status: document.getElementById('settings-save-status')?.textContent || '',
+    }));
+    assert.ok(!importState.status.startsWith('Theme import failed:'),
+      '[' + target.name + '] Theme import reported failure: ' + JSON.stringify(importState));
+    assert.ok(importState.active.startsWith('custom_') && importState.active !== duplicateId
+      && importState.activeTheme?.name === exported.name,
+      '[' + target.name + '] Import must create a newly named custom theme. Actual: ' + JSON.stringify(importState));
     const importedId = await page.evaluate(() => window.OVYXThemeLab.state.active);
     assert.notEqual(importedId, duplicateId, '[' + target.name + '] Import must create a new Custom entry.');
     const imported = await page.evaluate(() => {

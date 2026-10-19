@@ -7387,8 +7387,8 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
     }
     if(el.matches('[data-theme-import]')){
       e.preventDefault();e.stopPropagation();
-      const input=document.createElement('input');input.type='file';input.accept='application/json,.json';input.onchange=()=>{
-        const file=input.files?.[0];if(!file)return;
+      const input=document.createElement('input');input.type='file';input.accept='application/json,.json';input.setAttribute('aria-label','Import OVYX theme JSON');input.style.cssText='position:fixed;left:-10000px;top:0;width:1px;height:1px;opacity:0;pointer-events:none';input.onchange=()=>{
+        const file=input.files?.[0];if(!file){input.remove();return;}
         const reader=new FileReader();
         reader.onload=()=>{
           try{
@@ -7412,10 +7412,20 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
             const status=document.getElementById('settings-save-status');
             if(status)status.textContent='Theme import failed: '+String(err?.message||'invalid theme');
             window.showToast?.(err.message||'Theme import failed.','error');
+          }finally{
+            input.remove();
           }
+        };
+        reader.onerror=()=>{
+          const status=document.getElementById('settings-save-status');
+          if(status)status.textContent='Theme import failed: The selected file could not be read.';
+          input.remove();
         };
         reader.readAsText(file);
       };
+      // Keep the native file picker input in the live document: Chromium can
+      // ignore activation or drop change events for detached file inputs.
+      document.body.appendChild(input);
       input.click();return;
     }
     if(el.matches('[data-theme-export]')){
