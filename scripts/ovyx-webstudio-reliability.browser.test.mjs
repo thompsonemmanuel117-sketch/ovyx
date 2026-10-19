@@ -211,7 +211,31 @@ try {
 
     const webResearchRun = await page.evaluate(async () => {
       window.WebStudio.setMode('ask');
-      window.__buildResponse = { ok: true, text: 'Here are two source-backed improvements for your navigation.\\n\\n<!-- OVYX_APPLY_SUGGESTIONS: {\\"suggestions\\":[{\\"title\\":\\"Label the navigation landmark\\",\\"summary\\":\\"A clear label helps assistive technology users distinguish navigation regions.\\",\\"prompt\\":\\"Add an accessible label to the primary navigation landmark in the existing website. Inspect the current markup and make the smallest safe change.\\",\\"sourceUrls\\":[\\"https://developer.mozilla.org/en-US/docs/Web/HTML/Element/nav\\"]},{\\"title\\":\\"Improve keyboard navigation\\",\\"summary\\":\\"Keyboard users should be able to reach and understand every navigation action.\\",\\"prompt\\":\\"Review the existing primary navigation and make its interactive links and menu controls keyboard accessible, preserving the current design and routes.\\",\\"sourceUrls\\":[\\"https://developer.mozilla.org/en-US/docs/Web/HTML/Element/nav\\"]},{\\"title\\":\\"Unsafe unrelated link\\",\\"summary\\":\\"This must not appear.\\",\\"prompt\\":\\"Change something.\\",\\"sourceUrls\\":[\\"http://127.0.0.1/private\\"]}]} -->' };
+      window.__buildResponse = {
+        ok: true,
+        text: 'Here are two source-backed improvements for your navigation.\n\n<!-- OVYX_APPLY_SUGGESTIONS: ' + JSON.stringify({
+          suggestions: [
+            {
+              title: 'Label the navigation landmark',
+              summary: 'A clear label helps assistive technology users distinguish navigation regions.',
+              prompt: 'Add an accessible label to the primary navigation landmark in the existing website. Inspect the current markup and make the smallest safe change.',
+              sourceUrls: ['https://developer.mozilla.org/en-US/docs/Web/HTML/Element/nav'],
+            },
+            {
+              title: 'Improve keyboard navigation',
+              summary: 'Keyboard users should be able to reach and understand every navigation action.',
+              prompt: 'Review the existing primary navigation and make its interactive links and menu controls keyboard accessible, preserving the current design and routes.',
+              sourceUrls: ['https://developer.mozilla.org/en-US/docs/Web/HTML/Element/nav'],
+            },
+            {
+              title: 'Unsafe unrelated link',
+              summary: 'This must not appear.',
+              prompt: 'Change something.',
+              sourceUrls: ['http://127.0.0.1/private'],
+            },
+          ],
+        }) + ' -->',
+      };
       const result = await window.WebStudio.callAI({
         mode: 'ask',
         prompt: 'Search the web for how ChatGPT handles responsive navigation and suggest what changes I should make to my website',
