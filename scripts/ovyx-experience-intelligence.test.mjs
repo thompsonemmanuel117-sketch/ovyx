@@ -102,6 +102,12 @@ for (const prompt of openEndedPrompts) {
 const novelBrief = openEndedPrompts[0];
 const novelExperience = buildExperienceBrief(novelBrief);
 assert.match(WEB_STUDIO_SYSTEM_PROMPT, /OPEN-ENDED CREATION POLICY/);
+assert.match(WEB_STUDIO_SYSTEM_PROMPT, /EXISTING-SITE CHANGE REQUESTS \\(NON-NEGOTIABLE\\)/);
+assert.match(WEB_STUDIO_SYSTEM_PROMPT, /concrete delta to the current site—not as permission to rebuild from scratch/i);
+assert.match(WEB_STUDIO_SYSTEM_PROMPT, /Implement the requested change rather than replying with instructions only/i);
+assert.match(WEB_STUDIO_EXCELLENCE, /EXISTING-SITE EDITS — APPLY THE REQUESTED DELTA/);
+assert.match(WEB_STUDIO_EXCELLENCE, /Do not regenerate the whole site or replace unrelated pages/i);
+assert.match(WEB_STUDIO_EXCELLENCE, /Distinguish requests to discuss\/recommend changes from requests to apply them/i);
 assert.match(WEB_STUDIO_EXCELLENCE, /NO CLOSED CATEGORY LIST/);
 const plan = planPrompt({ prompt: novelBrief, tree: 'index.html', hints: '{}', experience: novelExperience });
 assert.match(plan, /FREE-FORM REQUEST RULES/);
