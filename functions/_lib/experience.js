@@ -998,26 +998,8 @@ export function isWebStudioPrompt(prompt, mode = '') {
 }
 
 function triggerMatches(prompt, trigger) {
-  if (trigger.includes(' ')) return prompt.includes(trigger);
-  const escaped = trigger.replace(/[.*+?^${}()|[\]\\]/g, '\\export function isWebStudioPrompt(prompt, mode = '') {
-  const m = clean(mode).toLowerCase();
-  if (/^web-studio-(build|fix|plan|ask)$/.test(m)) return true;
-  const q = clean(prompt).toLowerCase();
-  return /(website|web site|landing page|marketing site|homepage|portfolio site|church site|hospital site|clinic site|restaurant site|web app|dashboard|saas app|storefront)/.test(q);
-}
-
-export function detectArchetype(prompt) {
-  const q = clean(prompt).toLowerCase();
-  let best = { id: 'generic', hits: 0 };
-  for (const archetype of ARCHETYPES) {
-    const hits = archetype.triggers.reduce((count, trigger) => (
-      q.includes(trigger) ? count + 1 : count
-    ), 0);
-    if (hits > best.hits) best = { id: archetype.id, hits };
-  }
-  return best.id;
-}');
-  return new RegExp('(^|[^a-z0-9])' + escaped + '(?=$|[^a-z0-9])', 'i').test(prompt);
+  if (trigger.includes(' ') || /[^a-z0-9]/i.test(trigger)) return prompt.includes(trigger);
+  return prompt.split(/[^a-z0-9]+/).includes(trigger);
 }
 
 export function detectArchetype(prompt) {
