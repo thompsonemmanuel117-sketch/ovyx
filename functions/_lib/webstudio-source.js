@@ -8,7 +8,7 @@ const SOURCE_TASK = /\b(?:search|find|locate|look\s+for|inspect|review|examine|a
 const EDIT_TASK = /\b(?:add|change|edit|update|fix|repair|apply|remove|delete|replace|improve|enhance|adjust|modify|restyle|reposition|resize|shrink|enlarge|increase|decrease|align|move|rearrange|polish|optimi[sz]e|implement)\b/i;
 const EXPLICIT_NEW_BUILD = /\b(?:build|create|generate|design|develop|launch)\s+(?:(?:me|us)\s+)?(?:(?:a|an|the|brand\s+new|new|complete|full|multi[- ]page|single[- ]page)\s+){0,2}(?:website|web\s+site|site|web\s+app|application|digital\s+product)\b/i;
 const EXISTING_REFERENCE = /\b(?:existing|current|already\s+(?:built|made|have)|this\s+(?:project|site|website|page|layout|design|button|menu|section|form|app|component)|that\s+(?:project|site|website|page|layout|design|button|menu|section|form|app|component)|my\s+(?:project|site|website|page|layout|design|app)|selected|above|here|it|the\s+(?:current|existing|same|selected)\s+(?:project|site|website|page|layout|design|app|file|source))\b/i;
-const TARGETED_EDIT_OBJECT = /\b(?:the\s+)?(?:colors?|colou?rs?|font|typography|spacing|layout|header|footer|hero|menu|navigation|button|form|section|card|logo|image|background|contrast|padding|margin|mobile\s+menu|page|component|style|stylesheet|file|source|project)\b/i;
+const TARGETED_EDIT_OBJECT = /\b(?:the\s+)?(?:colors?|colou?rs?|font|typography|spacing|layout|header|footer|hero|headline|heading|title|text|copy|navigation|nav|menu|menu\s+item|button|form|section|card|logo|image|background|contrast|padding|margin|mobile\s+menu|responsive|mobile|desktop|tablet|accessibility|seo|skip\s+link|label|link|component|style|stylesheet|file|source|project|interaction|control|icon|dropdown|sidebar|animation|transition)\b/i;
 
 const STOP_WORDS = new Set((
   'a an and apply are as at be before build change check create current deeply do edit examine existing fix for from here how i improve inspect into it its locate look make me modify my of on or please project read repair replace review search show site source the their them this those to update use want website what where with work your you user asked add remove delete replace inspect review for this that same current already built applied fix fixing corrected improved smaller larger new page current existing selected files file files code source project website site web app app page pages changes change changed edit edited edits apply applied inspect inspecting review reviewed search searching find found locate locate the'
@@ -61,10 +61,11 @@ function extractTerms(prompt) {
     .replace(/([a-z])([A-Z])/g, '$1 $2')
     .replace(/[^\p{L}\p{N}_./-]+/gu, ' ')
     .split(/\s+/)
-    .filter(word => word.length >= 3 && !STOP_WORDS.has(word.toLowerCase()));
+    .filter(word => word.length >= 3);
   for (let i = 0; i < words.length; i += 1) {
     const word = words[i];
-    if (!STOP_WORDS.has(word.toLowerCase())) add(word);
+    if (STOP_WORDS.has(word.toLowerCase())) continue;
+    add(word);
     if (i + 1 < words.length && !STOP_WORDS.has(words[i + 1].toLowerCase())) add(word + ' ' + words[i + 1]);
   }
   if (!terms.length && /\b(?:inspect|review|examine|audit)\b/i.test(text)) {
