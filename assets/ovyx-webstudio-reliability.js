@@ -435,6 +435,20 @@
       });
       var result = await originalCallAI.call(this, requestPayload, token);
       if (!isBuild) return result;
+      if (result && result.scopedWebStudioEdit === true) {
+        var edits = result.files || result.fileEdits || result.patch && result.patch.files || {};
+        var hasChangedSource = Object.entries(edits).some(function (entry) {
+          var path = String(entry[0] || '');
+          var value = entry[1];
+          if (!path || path.includes('\\') || path.split('/').some(function (part) { return part === '..' || part === '.'; })) return false;
+          var nextContent = typeof value === 'string' ? value : value && (value.content ?? value.text);
+          if (typeof nextContent !== 'string') return false;
+          var previous = baselineFiles[path];
+          var previousContent = typeof previous === 'string' ? previous : previous && (previous.content ?? previous.text);
+          return nextContent !== String(previousContent ?? '');
+        });
+        if (hasChangedSource) return result;
+      }
       var candidates = collectHtmlArtifacts(result, studio, baseProject);
       var changed = candidates.some(function (item) { return isChangedArtifact(item, baselineFiles); });
       if (!changed) {
