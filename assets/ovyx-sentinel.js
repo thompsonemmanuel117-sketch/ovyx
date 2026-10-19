@@ -105,8 +105,8 @@ function addStyles() {
 function buildShell() {
   if (root) return root;
   root = document.createElement('div'); root.id = ID + '-root';
-  root.innerHTML = '<button id="' + ID + '-launch" type="button" aria-label="Open private OVYX Guardian companion"><span class="eye" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M3 16s4.8-8 13-8 13 8 13 8-4.8 8-13 8S3 16 3 16Z" stroke="#8BEAF4" stroke-width="1.5"/><circle cx="16" cy="16" r="5.4" fill="#A5F3FC" fill-opacity=".2" stroke="#8BEAF4" stroke-width="1.4"/><circle cx="16" cy="16" r="2.4" fill="#B9FAFF"/></svg></span><span>OVYX GUARDIAN</span></button>' +
-  '<section id="' + ID + '-panel" role="dialog" aria-modal="false" aria-labelledby="' + ID + '-title" hidden><header class="head"><span class="eye" aria-hidden="true">◉</span><div class="headcopy"><div id="' + ID + '-title" class="title">OVYX GUARDIAN</div><div class="sub">YOUR PRIVATE PROJECT COMPANION · VOICE + HEALTH</div></div><button type="button" class="close" data-ovsx="close" aria-label="Put Guardian to sleep">×</button></header>' +
+  root.innerHTML = '<button id="' + ID + '-launch" type="button" aria-label="Open Sentinel assistant"><span class="eye" aria-hidden="true"><svg viewBox="0 0 32 32" fill="none"><path d="M3 16s4.8-8 13-8 13 8 13 8-4.8 8-13 8S3 16 3 16Z" stroke="#8BEAF4" stroke-width="1.5"/><circle cx="16" cy="16" r="5.4" fill="#A5F3FC" fill-opacity=".2" stroke="#8BEAF4" stroke-width="1.4"/><circle cx="16" cy="16" r="2.4" fill="#B9FAFF"/></svg></span><span>OVYX GUARDIAN</span></button>' +
+  '<section id="' + ID + '-panel" role="dialog" aria-modal="false" aria-labelledby="' + ID + '-title" hidden><header class="head"><span class="eye" aria-hidden="true">◉</span><div class="headcopy"><div id="' + ID + '-title" class="title">OVYX GUARDIAN</div><div class="sub">YOUR PRIVATE ASSISTANT · VOICE + HEALTH</div></div><button type="button" class="close" data-ovsx="close" aria-label="Close Sentinel assistant">×</button></header>' +
   '<div class="actions"><button type="button" class="btn primary" data-ovsx="scan">Check now</button><button type="button" class="btn" data-ovsx="plan">Prepare fix plan</button><button type="button" class="btn" data-ovsx="diagnose">AI diagnosis</button><button type="button" class="btn" data-ovsx="patch">Prepare code fix</button><button type="button" class="btn" data-ovsx="wake">Enable voice activation</button><button type="button" class="btn" data-ovsx="sleep">Go to sleep</button><button type="button" class="btn" data-ovsx="mute" disabled>Stop speaking</button></div>' +
   '<div class="status" role="status" aria-live="polite" data-ovsx-status>Checking administrator access…</div><div class="body"><div class="summary"><strong>Welcome to Sentinel.</strong><small>Your private OVYX assistant. Ask questions, review platform health, or say “OVYX, open Web Studio.” Voice activation works while this page remains open. Your conversation stays in this session.</small></div><div data-ovsx-report></div><div class="plan" hidden data-ovsx-plan></div><div class="plan" hidden data-ovsx-diagnosis></div><details class="plan" hidden data-ovsx-diagnosis-history><summary class="plan-heading">Previous diagnoses</summary><div data-ovsx-diagnosis-history-list></div></details><div class="plan patch-tools" hidden data-ovsx-patch-tools><strong>Reviewable code fix</strong><div class="plan-note">I will prepare a preview first. Nothing changes until you review the proposal, type the confirmation phrase, and create a pull request. I never merge or deploy automatically.</div><label>Source file path<input type="text" data-ovsx-patch-path maxlength="240" placeholder="functions/api/feature.js"></label><label>What should be fixed?<textarea data-ovsx-patch-task rows="3" maxlength="1200" placeholder="Describe the exact bug and desired result"></textarea></label><button type="button" class="btn primary" data-ovsx="patch-prepare">Prepare patch preview</button><div data-ovsx-patch-summary class="rowsummary"></div><pre class="patch-preview" data-ovsx-patch-preview hidden></pre><label>Enter the confirmation phrase to submit for review<input type="text" data-ovsx-patch-confirm autocomplete="off" maxlength="40" placeholder="CREATE_PULL_REQUEST"></label><button type="button" class="btn" data-ovsx="patch-apply" disabled>Create review pull request</button><a class="patch-link" data-ovsx-patch-link hidden target="_blank" rel="noopener noreferrer">Open pull request</a></div><div class="transcript" hidden data-ovsx-transcript></div></div><form class="chat-form" data-ovsx-chat-form><textarea class="chat-input" data-ovsx-chat-input rows="2" maxlength="1200" aria-label="Message OVYX Guardian" placeholder="Talk to me or type a message…"></textarea><button class="chat-send" type="submit">Send</button></form>' +
   '<div class="foot">Voice commands require microphone permission and a supported browser. Wake-word listening only works while this page is open and active. Use “stop listening” to switch off the microphone completely.</div></section>';
@@ -330,8 +330,8 @@ function goToSleep(shouldSpeak, stopMicrophone) {
   };
   if (shouldSpeak) {
     speak(stopMicrophone
-      ? 'I’ve switched off the microphone and gone to sleep, boss. Tap my launcher and enable the wake word again whenever you need me.'
-      : 'Alright boss, I’m going back to sleep. I’ll stay out of the way; say OVYX whenever you need me again.',
+      ? 'Voice activation is off and Sentinel is asleep. Reopen Sentinel and enable voice activation when you need it again.'
+      : 'Sentinel is now asleep. Say “OVYX” to wake it again while voice activation is enabled.',
       finishSleep);
   } else {
     finishSleep();
@@ -413,7 +413,7 @@ async function askCompanion(question, sourceInspectionUnavailable) {
     });
     var data = await response.json().catch(function () { return {}; });
     if (!response.ok || data.ok !== true) throw new Error(data.message || data.error || 'I could not answer right now. Please try again or choose another AI option.');
-    var answer = safeText(data.text || 'I did not receive a complete answer, boss. Please say that again.', 2200);
+    var answer = safeText(data.text || 'I did not receive a complete answer. Please try again.', 2200);
     conversationTurns = messages.concat([{ role: 'assistant', content: answer }]).slice(-10);
     transcript(conversationTurns.map(function (item) { return (item.role === 'user' ? 'You' : 'Guardian') + ': ' + item.content; }).join('\n\n'));
     status('Sentinel is ready. This conversation remains in the current session.', 'success');
@@ -471,7 +471,7 @@ async function askAI(question) {
       return;
     } catch (error) {
       status('I could not complete the review. Nothing has been changed.', 'error');
-      speak('Sorry boss, I could not inspect the source on this attempt. No code changes were applied.');
+      speak('The source review could not be completed. No code changes were made.');
       return;
     } finally {
       guardianRequestBusy = false;
@@ -559,11 +559,11 @@ async function openFromVoice(command) {
   var control = clickSafeVisibleControl(target);
   if (control) {
     status('Opened ' + control + '. No publishing or destructive action was performed.', 'success');
-    speak('Done, boss. I opened ' + control + '.');
+    speak('Opened ' + control + '.');
     return true;
   }
   status('I could not safely find a matching openable area called "' + safeText(target, 100) + '". Nothing was clicked.', 'error');
-  speak('I could not safely find that exact area, boss, so I did not click anything. Try naming a section like Web Studio, Projects, Templates, Settings, Help, or Admin Pricing.');
+  speak('That area could not be found, so nothing was opened. Try naming a section such as Web Studio, Projects, Templates, Settings, Help, or Admin Pricing.');
   return true;
 }
 function handleVoice(raw) {
@@ -617,7 +617,7 @@ async function runVoiceCommand(command) {
   if (/\b(?:prepare|draft|propose|make)\s+(?:a\s+)?(?:code\s+)?(?:fix|patch)\b/.test(text)) {
     togglePatchTools(true);
     status('Patch review opened. I’ll prepare a preview first; no code changes until you explicitly create a review pull request.', 'info');
-    speak('I opened the code fix review, boss. I will prepare a preview first, and I will not merge or deploy anything.');
+    speak('The code-change review is open. I will prepare a preview first, and nothing will be merged or published without approval.');
     return;
   }
   if (/\b(?:scan|check|diagnos|health|status|inspect platform|system report|check now)\b/.test(text)) {
@@ -697,7 +697,7 @@ function makeRecognition() {
 function toggleWake() {
   if (wakeEnabled) {
     disableWake('Wake word disabled. Microphone listening has stopped.');
-    speak('I’ve switched off the microphone, boss.');
+    speak('Voice activation is off.');
     return;
   }
   if (!(window.SpeechRecognition || window.webkitSpeechRecognition)) {
@@ -719,7 +719,7 @@ async function guardianPatchRequest(action, payload) {
     body: JSON.stringify(Object.assign({ action: action }, payload || {}))
   });
   var data = await response.json().catch(function () { return {}; });
-  if (!response.ok || data.ok !== true) throw new Error(String(data.message || data.error || 'Guardian patch request failed.').slice(0, 360));
+  if (!response.ok || data.ok !== true) throw new Error(String(data.message || data.error || 'The review request could not be processed.').slice(0, 360));
   return data;
 }
 async function refreshPatchCapabilities() {
@@ -798,7 +798,7 @@ async function preparePatchProposal() {
   if (preview) { preview.hidden = true; preview.textContent = ''; }
   if (summary) summary.textContent = '';
   updatePatchApplyState();
-  status('Guardian is preparing a read-only patch preview. No source file is being changed…');
+  status('Preparing a code-change preview. No file is being changed…');
   try {
     var data = await guardianPatchRequest('prepare', { path: path.value.trim(), task: task.value.trim() });
     currentPatchProposalId = String(data.proposalId || '');
@@ -809,7 +809,7 @@ async function preparePatchProposal() {
     updatePatchApplyState();
     status(patchCapabilities && !patchCapabilities.pullRequestCreationReady ? 'Patch preview ready. ' + patchCapabilities.message : 'Your proposed changes are ready. Review each change before submitting a review request.', patchCapabilities && patchCapabilities.pullRequestCreationReady ? 'success' : 'info');
     transcript('Guardian prepared a patch for ' + safeText(data.path || path.value, 180) + ': ' + safeText(data.summary || '', 300) + '\\nNo code changed.');
-    speak('I prepared a patch preview, boss. Please review the changed lines before you create a pull request.');
+    speak('The proposed changes are ready to review. Please review each line before submitting the review request.');
   } catch (error) {
     status(String(error.message || 'The proposed change could not be prepared.') + ' No source file was changed.', 'error');
     speak('I could not prepare that patch safely. ' + String(error.message || ''));
@@ -847,9 +847,9 @@ async function applyPatchProposal() {
     currentPatchProposalId = '';
     confirmation.value = '';
     updatePatchApplyState();
-    status('Review pull request created. Guardian did not merge or deploy production.', 'success');
-    transcript('Guardian created a review pull request: ' + safeText(data.pullRequestUrl || '', 240) + '\\nThe change is not merged or deployed.');
-    speak('The review pull request is ready, boss. I did not merge or deploy it.');
+    status('Review request created. The changes have not been merged or published.', 'success');
+    transcript('Review request created: ' + safeText(data.pullRequestUrl || '', 240) + '\\nThe change is not merged or deployed.');
+    speak('The review request is ready. The changes have not been merged or published.');
   } catch (error) {
     status(String(error.message || 'Guardian could not create the pull request.') + ' The main branch was not changed.', 'error');
     speak('I could not create the review pull request. ' + String(error.message || ''));
