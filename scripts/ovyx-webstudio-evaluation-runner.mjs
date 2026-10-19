@@ -447,6 +447,7 @@ export function evaluateSiteFiles(rawFiles, category, options = {}) {
       }
       if (directFile || routeTarget) continue;
       const cleanHref = href.split(/[?#]/, 1)[0];
+      const exactHtml = /\.html?$/i.test(cleanHref);
       addFinding(findings, exactHtml ? 'blocker' : 'warning',
         exactHtml ? 'HTML_ROUTE_UNRESOLVED' : 'ROUTE_UNVERIFIED',
         exactHtml
