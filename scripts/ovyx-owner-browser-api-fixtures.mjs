@@ -50,13 +50,21 @@ export async function installOwnerBrowserApiFixtures(page, options = {}) {
     // window.firebase after application boot leaves old listeners attached to a
     // different auth instance and can make owner navigation nondeterministic.
     window.__setOVYXBrowserAuthUser = (user) => {
-      currentUser = user && typeof user === 'object' ? {
+      const nextUser = user && typeof user === 'object' ? {
         uid: String(user.uid || 'ovyx-browser-test-user'),
         email: String(user.email || 'builder@example.test'),
         emailVerified: user.emailVerified !== false,
         displayName: String(user.displayName || 'OVYX Browser Test'),
         getIdToken: async () => String(user.token || 'ovyx-browser-test-token')
       } : null;
+      // The app discards stale entitlement results when currentUser changes
+      // during an in-flight request. Keep object identity stable when the UID
+      // is unchanged, just as Firebase Auth does for the same signed-in user.
+      if (currentUser && nextUser && String(currentUser.uid) === nextUser.uid) {
+        Object.assign(currentUser, nextUser);
+      } else {
+        currentUser = nextUser;
+      }
       emitAuth();
       return currentUser;
     };
