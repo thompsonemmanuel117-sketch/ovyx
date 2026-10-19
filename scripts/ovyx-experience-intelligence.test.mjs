@@ -7,6 +7,8 @@ import {
 
 const cases = [
   ['Build me a premium online fashion store with collection pages.', 'fashion'],
+  ['Build a premium fashion website with an online store and cart controls.', 'fashion'],
+  ['Build an online store with product categories and a cart.', 'ecommerce'],
   ['Build a luxury hotel booking website with room details and guest selection.', 'hospitality'],
   ['Create a professional banking-style dashboard for customer accounts.', 'fintech'],
   ['Build a real-estate marketplace with property listings and agents.', 'realEstate'],
