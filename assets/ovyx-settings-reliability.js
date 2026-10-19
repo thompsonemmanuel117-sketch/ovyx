@@ -870,7 +870,10 @@
         if (id === 'notifications') setTimeout(loadNotifications, 0);
         if (id === 'usage') setTimeout(loadUsage, 0);
         if (id === 'workspace' || id === 'editor') setTimeout(installEditorMode, 0);
-        if (id === 'ai') setTimeout(syncAISettingsControls, 0);
+        if (id === 'ai') {
+          setTimeout(syncAISettingsControls, 0);
+          setTimeout(loadAIPreferencesFromServer, 0);
+        }
         return result;
       };
       settings.__ovyxSettingsReliabilityV1 = true;
@@ -878,7 +881,10 @@
     if (settings && settings.current === 'profile') setTimeout(loadProfile, 0);
     if (settings && settings.current === 'notifications') setTimeout(loadNotifications, 0);
     if (settings && settings.current === 'usage') setTimeout(loadUsage, 0);
-    if (settings && settings.current === 'ai') setTimeout(syncAISettingsControls, 0);
+    if (settings && settings.current === 'ai') {
+      setTimeout(syncAISettingsControls, 0);
+      setTimeout(loadAIPreferencesFromServer, 0);
+    }
     window.addEventListener('ovyx:view-changed', function (event) {
       const view = String(event && event.detail && event.detail.view || '').replace(/^view-/, '');
       if (view === 'webstudio') setTimeout(function () { installLivePreviewBridge(); applyEditorMode(); applySettingEffects(settingsState()); }, 0);
@@ -895,7 +901,6 @@
         if (settings.current === 'notifications') loadNotifications();
         if (settings.current === 'usage') loadUsage();
         if (settings.current === 'ai') loadAIPreferencesFromServer();
-        if (settings.current === 'ai') loadAIPreferencesFromServer();
       }, 50);
       if (currentUser()) setTimeout(loadNotifications, 100);
     }, { passive: true });
@@ -907,6 +912,7 @@
         if (settings.current === 'profile') loadProfile();
         if (settings.current === 'notifications') loadNotifications();
         if (settings.current === 'usage') loadUsage();
+        if (settings.current === 'ai') loadAIPreferencesFromServer();
       }, 10);
     });
   }
