@@ -106,7 +106,7 @@ try {
       } catch (error) { return { rejected:true, message:error.message }; }
     });
     assert.equal(noOp.rejected, true, '[' + target.name + '] a plain AI acknowledgement must not count as a built website');
-    assert.match(noOp.message, /did not return a new website HTML file/i);
+    assert.match(noOp.message, /website draft was not ready for preview/i);
     assert.equal(await page.evaluate(() => window.KernelState.activeProject.ovyxBuildState || ''), '', '[' + target.name + '] no-op AI response must not mark a project verified');
 
     const validHtml='<!doctype html><html><head><title>Generated site</title></head><body><main><h1>Actually generated website</h1><p>Real output content with more than eighty characters for the build check.</p></main></body></html>';
