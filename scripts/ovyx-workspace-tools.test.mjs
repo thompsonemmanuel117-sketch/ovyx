@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
   diagnoseProject,
+  searchProjectSource,
   validateOvyxSourcePath,
 } from '../functions/api/ai/workspace-tools.js';
 
@@ -33,6 +34,37 @@ assert.ok(report.issues.some(issue => issue.code === 'DUPLICATE_PAGE_SLUG'));
 assert.ok(report.issues.some(issue => issue.code === 'HTML_CLOSE_MISSING'));
 assert.ok(report.issues.some(issue => issue.code === 'DUPLICATE_HTML_ID'));
 assert.ok(report.issues.some(issue => issue.code === 'INVALID_PACKAGE_JSON'));
+
+// Deep search must reach files beyond the old 120-file cutoff, inspect both
+// safe text contents and file paths, and disclose when a requested scan is bounded.
+const deepFiles = Object.fromEntries(
+  Array.from({ length: 175 }, (_, index) => [
+    'src/generated/module-' + String(index).padStart(3, '0') + '.js',
+    { type: 'text/javascript', content: 'export const moduleIndex' + index + ' = ' + index + ';' },
+  ]),
+);
+deepFiles['src/features/rare-mega-menu-controller.js'] = {
+  type: 'text/javascript',
+  content: 'export function RareDeepSymbol() { return "ready"; }\\n',
+};
+deepFiles['.env'] = { content: 'RareDeepSymbol=must-never-appear-in-search' };
+const deepSearch = searchProjectSource({ files: deepFiles }, [
+  'RareDeepSymbol',
+  'rare-mega-menu-controller',
+]);
+assert.equal(deepSearch.filesSearched, 176, 'Deep search must scan the saved source inventory beyond the previous 120-file limit and exclude secret paths.');
+assert.equal(deepSearch.inventoryTruncated, false, 'A complete scan within the configured bound must be reported as complete.');
+assert.equal(deepSearch.queryCount, 2, 'Related concepts should be searchable in one batched request.');
+assert.equal(deepSearch.byQuery[0].count, 1, 'Content matches after file 120 must be counted.');
+assert.equal(deepSearch.byQuery[0].matches[0].path, 'src/features/rare-mega-menu-controller.js');
+assert.equal(deepSearch.byQuery[1].matches[0].matchType, 'path', 'Search should find relevant files by path even when names are more useful than contents.');
+assert.equal(deepSearch.matchedFileCount, 1);
+assert.equal(JSON.stringify(deepSearch).includes('must-never-appear-in-search'), false, 'Secret-path source must never appear in search results.');
+
+const boundedSearch = searchProjectSource({ files: deepFiles }, ['RareDeepSymbol'], { maxFiles: 20 });
+assert.equal(boundedSearch.filesSearched, 20);
+assert.equal(boundedSearch.inventoryTruncated, true, 'A capped scan must explicitly disclose incomplete inventory coverage.');
+assert.equal(boundedSearch.byQuery[0].count, 0, 'The bounded scan must not pretend to have found a match outside the searched inventory.');
 
 const route = await readFile(new URL('../functions/api/ai/workspace-tools.js', import.meta.url), 'utf8');
 const client = await readFile(new URL('../assets/ovyx-assistant-workspace.js', import.meta.url), 'utf8');
