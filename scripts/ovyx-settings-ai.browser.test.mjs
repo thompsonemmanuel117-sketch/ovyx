@@ -44,6 +44,35 @@ try {
         token: 'settings-ai-browser-token',
       },
     });
+    const aiPreferenceRequests = [];
+    let serverPreferences = {
+      mode: 'balanced', model: 'automatic', provider: 'gemini',
+      explain: true, preserve: true, confirmDestructive: false,
+      contextFiles: true, contextPage: true, contextGithub: true,
+      routing: 'automatic', fallback: 'next', contextLimit: 'automatic', budget: 'automatic',
+    };
+    await page.route('**/api/settings/ai', async route => {
+      const request = route.request();
+      const body = request.method() === 'PUT' ? request.postDataJSON() : null;
+      aiPreferenceRequests.push({
+        method: request.method(),
+        authorization: (await request.allHeaders()).authorization || '',
+        body,
+      });
+      if (request.method() === 'PUT') serverPreferences = { ...serverPreferences, ...(body?.preferences || {}) };
+      await route.fulfill({
+        status: request.method() === 'GET' || request.method() === 'PUT' ? 200 : 405,
+        contentType: 'application/json',
+        headers: { 'cache-control': 'no-store' },
+        body: JSON.stringify({
+          ok: true,
+          preferences: serverPreferences,
+          updatedAt: '2026-10-19T20:00:00.000Z',
+          authority: 'SERVER',
+          scope: 'account',
+        }),
+      });
+    });
     await page.route('**/api/ai/assistant', async route => {
       aiRequests.push(route.request().postDataJSON());
       await route.fulfill({
@@ -75,10 +104,18 @@ try {
     await page.evaluate(() => window.OVYXSettings.show('ai'));
     const panel = page.locator('[data-settings-panel="ai"]');
     await panel.locator('#set-ai-save').waitFor({ state: 'visible' });
+    await page.waitForFunction(
+      () => document.getElementById('ovyx-ai-preference-status')?.textContent?.includes('AI preferences loaded from your OVYX account.'),
+      null,
+      { timeout: 10000 },
+    );
 
     const key = await page.evaluate(() => window.OVYXAIStorageKey());
     await page.evaluate(key => localStorage.removeItem(key), key);
+    const refreshPreferences = page.waitForResponse(response =>
+      response.url().includes('/api/settings/ai') && response.request().method() === 'GET');
     await page.evaluate(() => window.OVYXSettings.show('ai'));
+    await refreshPreferences;
     await panel.locator('[data-ai-mode="quality"]').waitFor({ state: 'visible' });
     await panel.locator('[data-ai-mode="quality"]').click();
     await panel.locator('#set-provider').selectOption('openai');
@@ -121,6 +158,12 @@ try {
     assert.equal(saved.preferences.budget, 'maximum');
     assert.equal(saved.preferences.contextPage, false);
     assert.equal(saved.preferences.contextGithub, false);
+    const serverSave = aiPreferenceRequests.filter(request => request.method === 'PUT').at(-1);
+    assert.ok(serverSave, '[' + target.name + '] Save must reach the authenticated account AI-preference endpoint.');
+    assert.equal(serverSave.authorization, 'Bearer settings-ai-browser-token');
+    assert.deepEqual(serverSave.body.preferences, saved.preferences);
+    assert.equal(serverPreferences.provider, 'openai');
+    assert.equal(serverPreferences.routing, 'preferred-first');
 
     // Exercise the wrapped real AI service. The test intercepts the final HTTP
     // boundary, so it can distinguish saved preferences from UI/localStorage-only behavior.
@@ -173,7 +216,11 @@ try {
         return original.call(this, name);
       };
     }, key);
+    const resetResponse = page.waitForResponse(response =>
+      response.url().includes('/api/settings/ai') && response.request().method() === 'PUT');
     await page.locator('[data-settings-panel="ai"] #set-ai-reset').click();
+    const resetResponseResult = await resetResponse;
+    assert.equal(resetResponseResult.status(), 200, '[' + target.name + '] Reset must persist defaults to the server.');
     await page.waitForFunction(
       () => document.querySelector('[data-settings-panel="ai"] #set-ai-routing')?.value === 'automatic'
         && document.querySelector('[data-settings-panel="ai"] #set-ai-model')?.value === 'automatic'
@@ -182,11 +229,15 @@ try {
       { timeout: 10000 },
     );
     const reset = await page.evaluate(key => ({
-      stored: localStorage.getItem(key),
+      stored: JSON.parse(localStorage.getItem(key) || '{}'),
       removes: window.__settingsAIRemoveCount,
     }), key);
-    assert.equal(reset.stored, null, '[' + target.name + '] Reset must clear saved overrides.');
-    assert.equal(reset.removes, 1, '[' + target.name + '] one Reset click must remove the preferences key exactly once.');
+    assert.equal(reset.stored.provider, 'gemini', '[' + target.name + '] Reset must persist server-confirmed defaults locally.');
+    assert.equal(reset.stored.model, 'automatic');
+    assert.equal(reset.stored.routing, 'automatic');
+    assert.equal(reset.removes, 0, '[' + target.name + '] an account-backed Reset must save verified defaults rather than only deleting local state.');
+    assert.equal(serverPreferences.provider, 'gemini', '[' + target.name + '] Reset must update the account preferences at the server boundary.');
+    assert.equal(serverPreferences.routing, 'automatic');
     assert.deepEqual(pageErrors, [], '[' + target.name + '] AI Preferences should not throw browser errors.');
     await context.close();
   }
