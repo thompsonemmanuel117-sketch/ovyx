@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { isWebStudioPrompt } from '../functions/_lib/experience.js';
-import { buildWebStudioSourceInspection, hasWebStudioSourceTask, isScopedWebStudioEdit } from '../functions/_lib/webstudio-source.js';
+import { buildWebStudioSourceInspection, hasWebStudioSourceTask, isScopedWebStudioEdit, normalizeScopedWebStudioFiles } from '../functions/_lib/webstudio-source.js';
 
 const runtime = fs.readFileSync('assets/ovyx-webstudio-reliability.js', 'utf8');
 const middleware = fs.readFileSync('functions/_middleware.js', 'utf8');
@@ -56,6 +56,18 @@ assert.equal(isScopedWebStudioEdit('Change the colors', true), true);
 assert.equal(isScopedWebStudioEdit('Change the headline', true), true);
 assert.equal(isScopedWebStudioEdit('Make the font larger', true), true);
 assert.equal(isScopedWebStudioEdit('Apply this', true), true);
+
+const normalizedArrayEdits = normalizeScopedWebStudioFiles([
+  { path: 'src/styles.css', content: '.menu { gap: 1rem; }' },
+  { path: 'src/main.js', content: 'const menuReady = true;' },
+  { path: '../private.js', content: 'should not be included' },
+  { path: '/absolute.css', content: 'should not be included' },
+]);
+assert.equal(normalizedArrayEdits['src/styles.css'], '.menu { gap: 1rem; }');
+assert.equal(normalizedArrayEdits['src/main.js'], 'const menuReady = true;');
+assert.equal(Object.keys(normalizedArrayEdits).length, 2, 'scoped edits must normalize file arrays and reject unsafe paths');
+assert.match(assistantApi, /normalizeScopedWebStudioFiles\(proposedFiles\)/);
+
 assert.equal(isScopedWebStudioEdit('Make a website with a search bar', true), false);
 assert.equal(isScopedWebStudioEdit('Build a new website for a restaurant', true), false);
 
