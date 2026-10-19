@@ -12,7 +12,9 @@ const feedbackApi = fs.readFileSync('functions/api/ai/feedback.js', 'utf8');
 const statusApi = fs.readFileSync('functions/api/ai/status.js', 'utf8');
 const assistantApi = fs.readFileSync('functions/api/ai/assistant.js', 'utf8');
 const researchApi = fs.readFileSync('functions/api/ai/web-search.js', 'utf8');
+const prompts = fs.readFileSync('functions/_lib/prompts.js', 'utf8');
 const researchRuntime = fs.readFileSync('assets/ovyx-webstudio-research.js', 'utf8');
+const applySuggestionsRuntime = fs.readFileSync('assets/ovyx-webstudio-apply-suggestions.js', 'utf8');
 const apiMiddleware = fs.readFileSync('functions/api/_middleware.js', 'utf8');
 
 for (const [label, source, tokens] of [
@@ -41,8 +43,10 @@ for (const [label, source, tokens] of [
 }
 assert.ok(middleware.includes('/assets/ovyx-webstudio-reliability.js?v=20261019-2'), 'reliability runtime must be injected into the application shell');
 assert.ok(middleware.includes('/assets/ovyx-webstudio-research.js?v=20261019-1'), 'web research/progress runtime must be injected into the application shell');
+assert.ok(middleware.includes('/assets/ovyx-webstudio-apply-suggestions.js?v=20261019-1'), 'source-backed apply controls must be injected into Web Studio');
 assert.ok(headers.includes('/assets/ovyx-webstudio-reliability.js'), 'reliability runtime must have no-store headers');
 assert.ok(headers.includes('/assets/ovyx-webstudio-research.js'), 'web research runtime must have no-store headers');
+assert.ok(headers.includes('/assets/ovyx-webstudio-apply-suggestions.js'), 'apply-suggestion runtime must have no-store headers');
 assert.ok(index.includes('AI_BUILD_NO_ARTIFACTS'), 'failed/no-op AI builds must be rejected');
 assert.ok(index.includes("ovyxBuildState='verified'"), 'Web Studio must mark verified builds only after source checks');
 assert.ok(runtime.includes('function seedOnlyProject'), 'the generic generated seed page must be hidden until a real build exists');
@@ -86,6 +90,13 @@ assert.match(researchRuntime, /ovyx:webstudio-build-stage/);
 assert.match(researchRuntime, /ovyx-ws-live-activity/);
 assert.match(researchRuntime, /function isResearchOnlyPrompt/);
 assert.match(researchRuntime, /research-and-recommendation request, so Web Studio will stay read-only/)
+assert.match(applySuggestionsRuntime, /OVYX_APPLY_SUGGESTIONS/);
+assert.match(applySuggestionsRuntime, /function isWebStudioViewActive\(\)/, 'Apply controls must install only while the Web Studio view is active');
+assert.match(applySuggestionsRuntime, /readStatus !== 'page_read'/, 'only fully opened public source pages may back apply controls');
+assert.match(applySuggestionsRuntime, /noopener noreferrer/);
+assert.match(applySuggestionsRuntime, /studio\.submitPrompt\(\)/);
+assert.match(applySuggestionsRuntime, /studio\.setMode\('build'\)/);
+assert.match(prompts, /append one machine-readable HTML comment/);
 
 assert.equal(isScopedWebStudioEdit('Make a website with a search bar', true), false);
 assert.equal(isScopedWebStudioEdit('Build a new website for a restaurant', true), false);
