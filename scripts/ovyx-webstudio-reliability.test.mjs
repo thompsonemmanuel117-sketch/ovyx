@@ -91,6 +91,7 @@ assert.match(researchRuntime, /ovyx-ws-live-activity/);
 assert.match(researchRuntime, /function isResearchOnlyPrompt/);
 assert.match(researchRuntime, /research-and-recommendation request, so Web Studio will stay read-only/)
 assert.match(applySuggestionsRuntime, /OVYX_APPLY_SUGGESTIONS/);
+assert.match(applySuggestionsRuntime, /function isWebStudioViewActive\(\)/, 'Apply controls must install only while the Web Studio view is active');
 assert.match(applySuggestionsRuntime, /readStatus !== 'page_read'/, 'only fully opened public source pages may back apply controls');
 assert.match(applySuggestionsRuntime, /noopener noreferrer/);
 assert.match(applySuggestionsRuntime, /studio\.submitPrompt\(\)/);

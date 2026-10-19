@@ -41,6 +41,16 @@
     return visibleText(value).replace(/\s+/g, ' ').trim();
   }
 
+  function isWebStudioViewActive() {
+    var view = document.getElementById('view-webstudio');
+    if (!view || view.hidden || view.classList.contains('hidden') || view.getAttribute('aria-hidden') === 'true') return false;
+    if (typeof window.getComputedStyle === 'function') {
+      var style = window.getComputedStyle(view);
+      if (style && (style.display === 'none' || style.visibility === 'hidden')) return false;
+    }
+    return true;
+  }
+
   function asksForRecommendations(prompt) {
     return /\b(?:recommend(?:ation|ations)?|suggest(?:ion|ions)?|what\s+(?:should|could|would)\s+i\s+(?:change|improve|add)|how\s+can\s+i\s+improve|improvements?\s+for\s+my\s+(?:website|site)|ways?\s+to\s+improve)\b/i.test(String(prompt || ''));
   }
@@ -150,7 +160,7 @@
 
   function buttonsFor(studio) {
     return Array.prototype.slice.call(document.querySelectorAll('.ovyx-ws-apply-button')).filter(function (button) {
-      return button.closest('#view-webstudio') || document.getElementById('view-webstudio');
+      return !!button.closest('#view-webstudio');
     });
   }
 
@@ -430,8 +440,8 @@
 
   function install() {
     var studio = window.WebStudio;
-    if (!studio || !document.getElementById('view-webstudio') ||
-        typeof studio.callAI !== 'function' || typeof studio.submitPrompt !== 'function') return false;
+    if (!studio || !isWebStudioViewActive() ||
+        typeof studio.callAI !== 'function' || typeof studio.submitPrompt !== 'function' || typeof studio.renderThread !== 'function') return false;
     studioRef = studio;
     addStyles();
     installCallAI(studio);
@@ -442,11 +452,16 @@
 
   var attempts = 0;
   function boot() {
+    if (!isWebStudioViewActive()) return;
     if (install()) return;
     if (attempts++ < 70) window.setTimeout(boot, 200);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
-  window.addEventListener('ovyx:view-changed', function () { window.setTimeout(boot, 0); });
-  window.addEventListener('firebase-auth-state-ready', function () { window.setTimeout(boot, 0); });
+  window.addEventListener('ovyx:view-changed', function () { attempts = 0; window.setTimeout(boot, 0); });
+  window.addEventListener('firebase-auth-state-ready', function () {
+    if (!isWebStudioViewActive()) return;
+    attempts = 0;
+    window.setTimeout(boot, 0);
+  });
 })();
