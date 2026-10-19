@@ -43,6 +43,112 @@ async function getTextWithTimeout(fetchImpl, url, accept) {
  * advertises. The probe records statuses and boolean signatures only; it never
  * returns HTML, JavaScript source, cookies, headers or environment values.
  */
+const REQUIRED_RUNTIMES = [
+  {
+    id: 'reliability',
+    label: 'Web Studio reliability',
+    path: '/assets/ovyx-webstudio-reliability.js',
+    signatures: ['__ovyxBuildArtifactGuard', 'installFollowUpIntentRouter'],
+  },
+  {
+    id: 'research',
+    label: 'Web Studio web research and live progress',
+    path: '/assets/ovyx-webstudio-research.js',
+    signatures: ['function runResearch', 'addResearchContext', 'ovyx-ws-live-activity'],
+  },
+  {
+    id: 'applySuggestions',
+    label: 'Web Studio Apply this suggestion',
+    path: '/assets/ovyx-webstudio-apply-suggestions.js',
+    signatures: ['OVYX_APPLY_SUGGESTIONS', 'function applySuggestion', 'studio.submitPrompt()'],
+  },
+  {
+    id: 'quality',
+    label: 'Web Studio quality inspector',
+    path: '/assets/ovyx-webstudio-quality.js',
+    signatures: ['function auditSources', 'cross-page fragment link', 'publishVerifiedPreview'],
+  },
+];
+
+function findInjectedRuntimeUrls(html, origin) {
+  const scripts = [];
+  const pattern = /<script\b[^>]*\bsrc\s*=\s*(["'])([^"']+)\1[^>]*>/gi;
+  let match;
+  while ((match = pattern.exec(String(html || '')))) {
+    try {
+      scripts.push(new URL(match[2], origin));
+    } catch {}
+  }
+  return scripts;
+}
+
+async function probeRuntime(origin, spec, scripts, fetchImpl) {
+  const asset = scripts.find(url => url.pathname === spec.path);
+  const blocked = {
+    ok: false,
+    injected: false,
+    version: null,
+    httpStatus: null,
+    assetOk: false,
+    contentType: '',
+    signaturePresent: false,
+    error: 'Application shell is missing the ' + spec.label + ' script.',
+  };
+
+  if (!asset) return blocked;
+  if (asset.origin !== origin) {
+    return {
+      ...blocked,
+      injected: true,
+      error: 'The ' + spec.label + ' script URL is not a same-origin application asset.',
+    };
+  }
+
+  const request = await getTextWithTimeout(fetchImpl, asset, 'text/javascript, application/javascript');
+  const response = request.response;
+  const contentType = response ? String(response.headers.get('content-type') || '').toLowerCase() : '';
+  const source = response && response.ok ? request.body : '';
+  let redirectedOffOrigin = false;
+  try {
+    redirectedOffOrigin = !!(response && response.url && new URL(response.url).origin !== origin);
+  } catch {
+    redirectedOffOrigin = true;
+  }
+  const signaturePresent = spec.signatures.every(signature => source.includes(signature));
+  const assetOk = !!(
+    response &&
+    response.ok &&
+    !redirectedOffOrigin &&
+    (contentType.includes('javascript') || contentType.includes('ecmascript'))
+  );
+  const ok = assetOk && signaturePresent;
+  const version = asset.searchParams.get('v');
+
+  return {
+    ok,
+    injected: true,
+    version: version ? version.slice(0, 80) : null,
+    httpStatus: response ? response.status : null,
+    assetOk,
+    contentType: contentType.slice(0, 100),
+    signaturePresent,
+    error: ok ? '' : request.error || (
+      redirectedOffOrigin
+        ? 'The ' + spec.label + ' asset redirected away from the application origin.'
+        : !response || !response.ok
+          ? 'The ' + spec.label + ' asset did not return a successful HTTP response.'
+          : !contentType.includes('javascript') && !contentType.includes('ecmascript')
+            ? 'The ' + spec.label + ' asset did not return a JavaScript content type.'
+            : 'The served ' + spec.label + ' asset is missing expected behavior signatures.'
+    ),
+  };
+}
+
+/**
+ * Smoke-check the public Pages shell and the actual Web Studio runtimes used by
+ * research, source-scoped editing, one-click suggestion application, and QA.
+ * Record statuses/signatures only; never persist HTML or JavaScript contents.
+ */
 export async function probeApplicationShell(deploymentUrl, fetchImpl = globalThis.fetch) {
   const origin = normalizedOrigin(deploymentUrl);
   if (!origin) {
@@ -62,6 +168,7 @@ export async function probeApplicationShell(deploymentUrl, fetchImpl = globalThi
       contentType: shellResponse ? String(shellResponse.headers.get('content-type') || '').slice(0, 100) : '',
       qualityRuntimeInjected: false,
       qualityRuntimeAssetOk: false,
+      requiredRuntimes: {},
       error: shellRequest.error || 'Application shell did not return a successful HTTP response.',
     };
   }
@@ -75,74 +182,40 @@ export async function probeApplicationShell(deploymentUrl, fetchImpl = globalThi
       contentType: contentType.slice(0, 100),
       qualityRuntimeInjected: false,
       qualityRuntimeAssetOk: false,
+      requiredRuntimes: {},
       error: 'Application root did not return HTML.',
     };
   }
 
   const html = shellRequest.body;
-  const match = html.match(/<script\b[^>]*\bsrc\s*=\s*(["'])([^"']*\/assets\/ovyx-webstudio-quality\.js(?:\?[^"']*)?)\1[^>]*>/i);
-  if (!match) {
-    return {
-      ok: false,
-      status: 'degraded',
-      httpStatus: shellResponse.status,
-      contentType: contentType.slice(0, 100),
-      htmlCharacters: html.length,
-      qualityRuntimeInjected: false,
-      qualityRuntimeAssetOk: false,
-      error: 'Application shell is missing the Web Studio quality inspector script.',
-    };
-  }
+  const scripts = findInjectedRuntimeUrls(html, origin);
+  const runtimes = await Promise.all(REQUIRED_RUNTIMES.map(spec => probeRuntime(origin, spec, scripts, fetchImpl)));
+  const requiredRuntimes = Object.fromEntries(REQUIRED_RUNTIMES.map((spec, index) => [
+    spec.id,
+    { ...runtimes[index], label: spec.label, path: spec.path },
+  ]));
+  const quality = requiredRuntimes.quality;
+  const missingOrBroken = REQUIRED_RUNTIMES
+    .filter((spec, index) => !runtimes[index].ok)
+    .map(spec => spec.label);
 
-  const runtimeUrl = new URL(match[2], origin);
-  if (runtimeUrl.origin !== origin || runtimeUrl.pathname !== '/assets/ovyx-webstudio-quality.js') {
-    return {
-      ok: false,
-      status: 'degraded',
-      httpStatus: shellResponse.status,
-      contentType: contentType.slice(0, 100),
-      htmlCharacters: html.length,
-      qualityRuntimeInjected: true,
-      qualityRuntimeAssetOk: false,
-      error: 'Web Studio quality inspector URL is not an approved same-origin application asset.',
-    };
-  }
-
-  const runtimeRequest = await getTextWithTimeout(fetchImpl, runtimeUrl, 'text/javascript, application/javascript');
-  const runtimeResponse = runtimeRequest.response;
-  const runtimeContentType = runtimeResponse ? String(runtimeResponse.headers.get('content-type') || '').toLowerCase() : '';
-  const runtimeSource = runtimeResponse && runtimeResponse.ok ? runtimeRequest.body : '';
-  const runtimeSignaturePresent =
-    runtimeSource.includes('function auditSources') &&
-    runtimeSource.includes('cross-page fragment link') &&
-    runtimeSource.includes('publishVerifiedPreview');
-  const runtimeVersion = runtimeUrl.searchParams.get('v');
-  const assetOk = !!(
-    runtimeResponse &&
-    runtimeResponse.ok &&
-    (runtimeContentType.includes('javascript') || runtimeContentType.includes('ecmascript')) &&
-    runtimeSignaturePresent
-  );
-  const ok = !!assetOk;
-
+  const ok = missingOrBroken.length === 0;
+  const error = ok
+    ? ''
+    : 'Web Studio production smoke check failed: ' + missingOrBroken.join('; ') + '.';
   return {
     ok,
     status: ok ? 'healthy' : 'degraded',
     httpStatus: shellResponse.status,
     contentType: contentType.slice(0, 100),
     htmlCharacters: html.length,
-    qualityRuntimeInjected: true,
-    qualityRuntimeVersion: runtimeVersion ? runtimeVersion.slice(0, 80) : null,
-    qualityRuntimeAssetOk: !!(runtimeResponse && runtimeResponse.ok),
-    qualityRuntimeAssetHttpStatus: runtimeResponse ? runtimeResponse.status : null,
-    qualityRuntimeAssetContentType: runtimeContentType.slice(0, 100),
-    qualityRuntimeSignaturePresent: runtimeSignaturePresent,
-    error: ok ? '' : runtimeRequest.error || (
-      !runtimeResponse || !runtimeResponse.ok
-        ? 'Web Studio quality inspector asset did not return a successful HTTP response.'
-        : !runtimeContentType.includes('javascript') && !runtimeContentType.includes('ecmascript')
-          ? 'Web Studio quality inspector asset did not return a JavaScript content type.'
-          : 'Served quality inspector is missing expected QA behavior signatures.'
-    ),
+    requiredRuntimes,
+    qualityRuntimeInjected: !!quality.injected,
+    qualityRuntimeVersion: quality.version,
+    qualityRuntimeAssetOk: !!quality.assetOk,
+    qualityRuntimeAssetHttpStatus: quality.httpStatus,
+    qualityRuntimeAssetContentType: quality.contentType,
+    qualityRuntimeSignaturePresent: !!quality.signaturePresent,
+    error,
   };
 }
