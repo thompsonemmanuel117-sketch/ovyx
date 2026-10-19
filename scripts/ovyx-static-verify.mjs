@@ -657,7 +657,7 @@ if (
     !sentinelCompanionApi.includes('sourceInspectionUnavailable') ||
     !sentinelCompanionApi.includes('historySaved: false') ||
     !fs.readFileSync(sentinelCompanionTestPath, 'utf8').includes('historySaved') ||
-    !sentinelMiddleware.includes('/assets/ovyx-sentinel.js?v=20261018-3') ||
+    !sentinelMiddleware.includes('/assets/ovyx-sentinel.js?v=20261018-4') ||
     !headers.includes('microphone=(self)') ||
     !headers.includes('camera=()') ||
     !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/ovyx-sentinel.test.mjs') ||
@@ -837,7 +837,7 @@ if (!fs.existsSync(guardianPatchApiPath) || !fs.existsSync(guardianPatchHelperPa
     !guardianClient.includes('data-ovsx-patch-tools') ||
     !guardianClient.includes("button.dataset.ovsx === 'patch-apply'") ||
     !guardianClient.includes('function invalidatePatchProposal()') ||
-    !guardianMiddleware.includes('/assets/ovyx-sentinel.js?v=20261018-3') ||
+    !guardianMiddleware.includes('/assets/ovyx-sentinel.js?v=20261018-4') ||
     !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/ovyx-guardian-patch.test.mjs')
   ) {
     errors.push('OVYX Guardian patch workflow: code changes must be owner-only, stale-safe, branch-only, explicitly confirmed, tested, and never auto-merged/deployed.');
