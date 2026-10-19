@@ -69,7 +69,7 @@ try {
     await page.locator('#ovyx-data-test').click();
     assert.equal(
       (await page.locator('#ovyx-data-result').innerText()).trim(),
-      'Add your secure data API endpoint first.',
+      'Add your secure data service address first.',
       '[' + target.name + '] an empty endpoint must be handled clearly.',
     );
 
