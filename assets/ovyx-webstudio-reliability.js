@@ -430,8 +430,8 @@
       var priorContext = requestPayload.context && typeof requestPayload.context === 'object' ? requestPayload.context : {};
       requestPayload.context = Object.assign({}, priorContext, {
         activeView: 'webstudio',
-        project: requestPayload.project || priorContext.project || null,
-        files: requestPayload.files || priorContext.files || null
+        project: requestPayload.project || priorContext.project || window.KernelState && window.KernelState.activeProject || null,
+        files: requestPayload.files || priorContext.files || (studio.graph && studio.graph.files) || null
       });
       var result = await originalCallAI.call(this, requestPayload, token);
       if (!isBuild) return result;
