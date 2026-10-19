@@ -52,6 +52,9 @@ assert.equal(isWebStudioPrompt('Inspect the current project', 'ask', { activeVie
 assert.equal(isWebStudioPrompt('Inspect the current project', 'ask', { activeView: 'view-webstudio' }), true);
 assert.equal(isWebStudioPrompt('How can I improve my writing?', 'assistant', { activeView: 'assistant' }), false);
 assert.equal(hasWebStudioSourceTask('Inspect this project'), true);
+assert.equal(hasWebStudioSourceTask('Did you already fix my mobile menu?'), true);
+assert.equal(hasWebStudioSourceTask('Check if the headline change was applied'), true);
+assert.equal(hasWebStudioSourceTask('Make a website with a search bar'), false);
 assert.equal(isScopedWebStudioEdit('Change the colors', true), true);
 assert.equal(isScopedWebStudioEdit('Change the headline', true), true);
 assert.equal(isScopedWebStudioEdit('Make the font larger', true), true);
