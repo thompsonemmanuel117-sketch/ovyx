@@ -393,7 +393,10 @@
     var phase = 'verify';
     var status = String(event.status || 'running');
     if (event.stage === 'planning') phase = 'inspect';
-    else if (/^(?:ai-generation|artifact-received|files-applied)$/.test(String(event.stage || ''))) phase = 'apply';
+    else if (/^(?:ai-generation|artifact-received|files-applied)$/.test(String(event.stage || ''))) {
+      phase = 'apply';
+      if (event.stage === 'files-applied') task.changedPaths = changedPaths(task.baselineFiles, currentFiles(studioRef));
+    }
     else if (event.stage === 'build-failed') { phase = 'verify'; task.qualityFailed = true; }
     else if (event.stage === 'build-verified' || status === 'success' && /verified|quality gate/i.test(String(event.stage || '') + ' ' + String(event.message || ''))) task.qualityVerified = true;
     task.qualityEvents.push({ stage: clean(event.stage || '', 80), status: clean(status, 24), message: clean(event.message || '', 220) });
@@ -531,7 +534,7 @@
           task.research = { status: 'unavailable', error: clean(error && error.message || error, 700) };
           task.researchWarning = true;
           requestPayload = addResearchContext(requestPayload, task.research);
-          stage(task, task.isEdit ? 'inspect' : 'compare', 'Online research needs attention', task.research.error + ' OVYX will not claim that these sources were searched.', 'warning');
+          stage(task, task.isEdit ? 'inspect' : 'compare', 'Online research needs attention', task.research.error + ' OVYX will not claim that these sources were searched.');
         }
       } else if (task && task.isEdit && studio.__ovyxLastWebResearch && studio.__ovyxLastWebResearch.status === 'complete' && shouldReuseResearch(prompt)) {
         requestPayload = addResearchContext(requestPayload, studio.__ovyxLastWebResearch);
@@ -544,6 +547,9 @@
         stage(task, 'answer', 'Preparing your response', 'Organizing the available project context and requested answer.');
       }
 
+      if (task && task.isEdit && task.hasResearch && task.research && task.research.status === 'complete') {
+        stage(task, 'inspect', 'Inspecting your existing website', 'The source search is complete. Matching the useful findings against the current project files and preserving unrelated pages and working features.');
+      }
       if (task) await waitForPaint();
       var result;
       try {
@@ -555,7 +561,7 @@
       if (task) {
         if (task.isEdit) stage(task, 'apply', 'Applying the requested changes', 'The response is ready. Web Studio is applying the returned source changes to the active project, then checking the result.');
         else if (task.hasResearch && task.research && task.research.status === 'complete') stage(task, 'compare', 'Preparing source-backed suggestions', 'The sources are gathered; OVYX is turning them into a practical answer with links to the references.');
-        else if (task.hasResearch) stage(task, 'compare', 'Preparing an answer with a research limitation', 'The live search did not complete. OVYX is preparing a response without pretending online sources were verified.', 'warning');
+        else if (task.hasResearch) stage(task, 'compare', 'Preparing an answer with a research limitation', 'The live search did not complete. OVYX is preparing a response without pretending online sources were verified.');
         await waitForPaint();
       }
       if (standalone && task && activeTask === task) {
