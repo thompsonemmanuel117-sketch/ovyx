@@ -43,7 +43,14 @@
       const details = formatDate(payment.createdAt) + ' · ' + String(payment.provider || payment.paymentMethod || 'payment provider').toUpperCase() + ' · ' + recordStatus;
       return '<div class="ovyx-billing-history-row"><div><b>' + escapeHtml(product) + '</b><small>' + escapeHtml(details) + '</small><small>Reference: ' + escapeHtml(payment.reference || 'Not available') + '</small></div><span class="ovyx-billing-amount">' + amount + '</span></div>';
     }).join('') : '<div class="ovyx-empty-state">' + (!user ? 'Sign in to load payment history.' : billingState.loading ? 'Loading payment history…' : billingState.errors.some(error => error.indexOf('Payment history') === 0) ? 'Payment history could not be verified. No local history was substituted.' : 'No payment orders are recorded for this account.') + '</div>';
-    panel.innerHTML = '<div id="ovyx-billing-live-root">' +
+    // Keep action buttons mounted across quota/API refreshes. Consumers can hold a live
+    // reference to Upgrade/Refresh and their existing event handlers must not be detached.
+    const stableControls = {};
+    ['ovyx-upgrade-btn', 'ovyx-token-boost-btn', 'ovyx-billing-refresh'].forEach(function (id) {
+      const node = panel.querySelector('#' + id);
+      if (node) stableControls[id] = node;
+    });
+    const billingMarkup = '<div id="ovyx-billing-live-root">' +
       '<div class="ovyx-panel-head"><div class="ovyx-panel-kicker">BILLING / PLAN</div><h2>Billing</h2><p>Subscription, quota and recent payment records loaded from authenticated OVYX services.</p></div>' +
       '<div class="ovyx-pref-group"><div class="ovyx-pref-label">PLAN</div><div class="ovyx-pref-row"><div class="ovyx-pref-copy"><b>Current plan</b><small>Server-reported subscription state: ' + escapeHtml(subscriptionStatus) + '</small></div><span class="ovyx-tier-badge">' + escapeHtml(tier) + ' PLAN</span></div>' +
       '<div class="ovyx-pref-row"><div class="ovyx-pref-copy"><b>Last verified payment</b><small>' + escapeHtml(subscription && subscription.lastPaymentAt ? formatDate(subscription.lastPaymentAt) : 'No verified payment date reported') + '</small></div><span class="ovyx-billing-amount">' + escapeHtml(subscription && subscription.amount != null ? String(subscription.currency || '') + ' ' + Number(subscription.amount).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—') + '</span></div></div>' +
@@ -52,9 +59,30 @@
       '<div class="ovyx-pref-group"><div class="ovyx-pref-label">RECENT PAYMENT HISTORY</div><div class="ovyx-billing-history">' + paymentRows + '</div></div>' +
       '<div class="ovyx-theme-actions"><button type="button" class="ovyx-settings-btn" id="ovyx-billing-refresh" ' + (billingState.loading ? 'disabled' : '') + '>' + (billingState.loading ? 'Checking…' : 'Refresh Billing Data') + '</button><button type="button" class="ovyx-settings-btn" id="ovyx-token-boost-btn">Token Boosters</button></div>' +
       '<div class="ovyx-connection-note" id="ovyx-billing-status" role="status" data-state="' + statusTone + '">' + escapeHtml(statusText) + '</div></div>';
-    $('ovyx-upgrade-btn')?.addEventListener('click', () => window.Router?.go?.('pricing'));
-    $('ovyx-token-boost-btn')?.addEventListener('click', () => window.Router?.go?.('pricing'));
-    $('ovyx-billing-refresh')?.addEventListener('click', () => refresh(true));
+    panel.innerHTML = billingMarkup;
+    Object.keys(stableControls).forEach(function (id) {
+      const placeholder = panel.querySelector('#' + id);
+      if (placeholder && placeholder !== stableControls[id]) placeholder.replaceWith(stableControls[id]);
+    });
+    const refreshButton = $('ovyx-billing-refresh');
+    if (refreshButton) {
+      refreshButton.disabled = !!billingState.loading;
+      refreshButton.textContent = billingState.loading ? 'Checking…' : 'Refresh Billing Data';
+    }
+    const upgradeButton = $('ovyx-upgrade-btn');
+    if (upgradeButton && upgradeButton.dataset.ovyxBillingActionBound !== '1') {
+      upgradeButton.dataset.ovyxBillingActionBound = '1';
+      upgradeButton.addEventListener('click', () => window.Router?.go?.('pricing'));
+    }
+    const tokenButton = $('ovyx-token-boost-btn');
+    if (tokenButton && tokenButton.dataset.ovyxBillingActionBound !== '1') {
+      tokenButton.dataset.ovyxBillingActionBound = '1';
+      tokenButton.addEventListener('click', () => window.Router?.go?.('pricing'));
+    }
+    if (refreshButton && refreshButton.dataset.ovyxBillingActionBound !== '1') {
+      refreshButton.dataset.ovyxBillingActionBound = '1';
+      refreshButton.addEventListener('click', () => refresh(true));
+    }
   }
   async function refresh(force) {
     if (billingRequest) return billingRequest;
