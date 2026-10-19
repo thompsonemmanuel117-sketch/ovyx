@@ -211,7 +211,19 @@ try {
       );
     }, null, { timeout: 20000 });
     accountRow = page.locator('#ovyx-owner-users-body tr').first();
+    // Register the request wait before clicking: the browser resumes the async
+    // click handler after accepting confirm(), so checking the recorder on the
+    // very next line can race the actual server request on slower runners.
+    const resetQuotaRequest = page.waitForRequest(request => {
+      if (request.method() !== 'POST') return false;
+      try {
+        const url = new URL(request.url());
+        const body = request.postDataJSON() || {};
+        return url.pathname === '/api/admin/users' && body.action === 'resetQuota';
+      } catch { return false; }
+    }, { timeout: 20000 });
     await accountRow.locator('button').filter({ hasText: 'Reset quota' }).click();
+    await resetQuotaRequest;
     assert.ok(ownerApiWrites.some(item => item.path === '/api/admin/users' && item.body.action === 'resetQuota'),
       '[' + target.name + '] Reset quota must call the server-owned quota action.');
 
