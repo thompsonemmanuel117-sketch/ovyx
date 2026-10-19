@@ -350,6 +350,7 @@ When discussing project changes, distinguish recommendations from changes actual
       routedProvider: result.routedProvider,
       conversationId,
       experience: isWebStudio ? experience : null,
+      scopedWebStudioEdit,
       history: {
         saved: historySaved,
       },
