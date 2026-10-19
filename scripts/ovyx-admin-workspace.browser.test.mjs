@@ -95,6 +95,7 @@ try {
     await page.waitForFunction(() => typeof window.__OVYX_FIREBASE_READY__ === 'boolean', null, { timeout: 15000 });
 
     await page.evaluate(() => {
+      const originalUser = window.firebase?.auth?.()?.currentUser;
       const root = { uid: 'ovyx-admin-root-fixture', email: 'ovyxsupportteam@gmail.com', token: 'ovyx-admin-root-test-token' };
       const free = { uid: 'ovyx-admin-free-fixture', email: 'ovyxsupportteam@gmail.com', token: 'ovyx-admin-free-test-token' };
       window.__setOVYXAdminTestIdentity = mode => {
@@ -102,7 +103,10 @@ try {
         window.dispatchEvent(new Event('firebase-auth-state-ready'));
       };
       window.__setOVYXAdminTestIdentity('root');
+      window.__ovyxAdminSameUidStable = originalUser === window.firebase?.auth?.()?.currentUser;
     });
+    assert.equal(await page.evaluate(() => window.__ovyxAdminSameUidStable), true,
+      '[' + target.name + '] same-UID auth fixture must preserve the in-flight user identity.');
 
     const refreshResult = await page.evaluate(() => window.OVYXAdminWorkspace.refresh());
     console.log('[' + target.name + '] admin auth fixture', JSON.stringify(await page.evaluate(() => ({
