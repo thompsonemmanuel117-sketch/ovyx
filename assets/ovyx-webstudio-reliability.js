@@ -426,7 +426,14 @@
         studio.ensureProjectGraph();
         baselineFiles = clone(studio.graph && studio.graph.files || {});
       }
-      var result = await originalCallAI.call(this, payload, token);
+      var requestPayload = Object.assign({}, payload || {});
+      var priorContext = requestPayload.context && typeof requestPayload.context === 'object' ? requestPayload.context : {};
+      requestPayload.context = Object.assign({}, priorContext, {
+        activeView: 'webstudio',
+        project: requestPayload.project || priorContext.project || null,
+        files: requestPayload.files || priorContext.files || null
+      });
+      var result = await originalCallAI.call(this, requestPayload, token);
       if (!isBuild) return result;
       var candidates = collectHtmlArtifacts(result, studio, baseProject);
       var changed = candidates.some(function (item) { return isChangedArtifact(item, baselineFiles); });
