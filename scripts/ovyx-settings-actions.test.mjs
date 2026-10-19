@@ -38,6 +38,8 @@ for (const path of [
   'functions/api/payments/history.js',
   'functions/api/_lib/firebase-query.js',
   'assets/ovyx-settings-billing-live.js',
+  'scripts/ovyx-settings-ai.browser.test.mjs',
+  'scripts/ovyx-settings.browser.test.mjs',
   'functions/api/account/delete.js',
   'functions/api/settings/brand-profile.js',
   'functions/api/settings/connections.js',
@@ -248,5 +250,13 @@ assert.ok(paymentHistoryApi.includes('Cache-Control'), 'Payment history response
 assert.ok(firebaseQuery.includes("collectionId: 'payment_orders'"), 'Payment history must read existing payment order records.');
 assert.ok(firebaseQuery.includes("field: { fieldPath: 'uid' }"), 'Payment history queries must be scoped to a user ID.');
 assert.ok(firebaseQuery.includes('limit: maxResults'), 'Payment history queries must remain bounded.');
+assert.ok(runtime.includes("const EXTERNAL_DATA_LAYER_CONFIG_KEY = 'ovyx.data.layer.external.v1'"), 'External metadata sync must use its own preference key instead of toggling built-in cloud sync.');
+assert.ok(runtime.includes('async function syncExternalProjectMetadata()'), 'External metadata sync must perform a real authenticated HTTP write.');
+assert.ok(runtime.includes("if (!data || data.ok !== true)"), 'External metadata sync must require explicit server confirmation of a successful write.');
+assert.ok(runtime.includes("window.confirm('Enable external metadata sync for '"), 'Sending a Firebase ID token to a third-party endpoint must require explicit destination-specific consent.');
+assert.ok(runtime.includes("credentials: 'omit'") && runtime.includes("cache: 'no-store'"), 'External Data API writes must omit ambient cookies and bypass caches.');
+assert.ok(runtime.includes('consentedOrigin !== endpointUrl.origin'), 'Sync must fail closed if the stored consent does not match the active endpoint origin.');
+assert.ok(runtime.includes('Only the bounded project metadata was sent.'), 'External sync status must accurately describe that only project metadata was sent.');
+assert.ok(runtime.includes("pageCount: Array.isArray(project.pages) ? Math.min(project.pages.length, 1000) : 0"), 'External sync must bound the project page count it sends.');
 
 console.log('OVYX Settings actions tests passed: server-backed profile and notifications, account and email-scoped cleanup, Brand Identity, live Universal Connection tests, session revocation, usage, workspace toggles, editor mode and AI routing.');
