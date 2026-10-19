@@ -248,8 +248,8 @@ try {
     await activity.locator('[data-stage]').waitFor({ state: 'attached' });
     await page.locator('.ovyx-native-activity[data-completed="true"]').waitFor({ state: 'visible', timeout: 5000 });
     const activityText = await activity.evaluate(node => String(node.textContent || ''));
-    assert.match(activityText, /Reading src\\/menu\\.js/i, '[' + target.name + '] the assistant activity card must show the inspected file path');
-    assert.match(activityText, /Read src\\/menu\\.js completely/i, '[' + target.name + '] the activity trace must describe the actual source-read outcome');
+    assert.ok(activityText.toLowerCase().includes('reading src/menu.js') || activityText.toLowerCase().includes('reading src\\menu.js'), '[' + target.name + '] the assistant activity card must show the inspected file path');
+    assert.ok(activityText.toLowerCase().includes('read src/menu.js completely') || activityText.toLowerCase().includes('read src\\menu.js completely'), '[' + target.name + '] the activity trace must describe the actual source-read outcome');
     assert.match(activityText, /Response ready/i, '[' + target.name + '] the activity card must show a finished state rather than a stuck spinner');
 
     assert.deepEqual(
