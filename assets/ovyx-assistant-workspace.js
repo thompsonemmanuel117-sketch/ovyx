@@ -302,6 +302,7 @@
       push('OVYX suggested an incomplete source edit. No project files were changed.');
       return;
     }
+    setAssistantActivityStage('inspecting', 'Preparing a change preview for ' + filePath + '. Nothing has been saved.');
     setWorkspaceTaskStatus('running', 'Preparing an edit preview. Nothing has been changed yet.');
     const prepared = await workspaceToolRequest({
       operation: 'prepare_patch',
@@ -328,12 +329,14 @@
       '',
       'Apply this change? The current file will be backed up first. You can cancel without changing anything.',
     ].join('\\n');
+    setAssistantActivityStage('approval', 'A change preview for ' + filePath + ' is ready. Waiting for your approval; nothing is saved yet.');
     setWorkspaceTaskStatus('approval', 'A source-change preview is ready. Nothing is saved until you approve.');
     if (typeof window.confirm !== 'function' || !window.confirm(message)) {
       push('Edit cancelled. No project files were changed.');
       setWorkspaceTaskStatus('inspected', 'The proposed edit was cancelled; the saved project was not changed.');
       return;
     }
+    setAssistantActivityStage('applying', 'Submitting your approved change for ' + filePath + '.');
     const applied = await workspaceToolRequest({
       operation: 'apply_patch',
       projectId,
@@ -343,6 +346,7 @@
       confirm: true,
       expectedUpdateTime: prepared.revision,
     });
+    setAssistantActivityStage('verifying', 'Checking the server-confirmed save result for ' + filePath + '.');
     if (!applied.verified) {
       push('We could not confirm the edit to ' + filePath + '. A backup was kept; review the file before trying again.');
       setWorkspaceTaskStatus('error', 'The edit could not be verified.');
@@ -353,6 +357,7 @@
       '. The saved change was verified. Backup: ' + String(applied.revisionId || 'saved') +
       (updatedLocal ? '. The current workspace source was refreshed.' : '. Reopen or refresh the project to load the server-saved version.') +
       ' Note: this confirms the saved file, not a full live-browser test.');
+    setAssistantActivityStage('complete', 'The saved change to ' + filePath + ' was verified. Live browser behaviour has not been claimed.');
     setWorkspaceTaskStatus('applied', 'The change was saved and verified.');
   }
 
@@ -1506,11 +1511,15 @@
     input.disabled = true;
     bot.pushMsg('USER: ' + prompt);
     input.value = '';
-    const needsWorkspaceInspection = /(?:\b(?:my|this|current|active)\s+project\b|\bworkspace\b|\b(?:broken|fix|repair|debug|diagnos|inspect|undo|restore)\b|\bfind why\b|\bcheck whether (?:the )?fix\b)/i.test(prompt);
+    beginAssistantActivity('Reading your request and checking the available project context…');
+    setAssistantActivityStage('inspecting', 'Checking the active project, source inventory and current workspace context…');
+    const needsWorkspaceInspection = /(?:\b(?:my|this|current|active)\s+project\b|\bworkspace\b|\b(?:broken|fix|repair|debug|diagnos|inspect|undo|restore)\b|\bfind why\b|\bcheck whether (?:the )?fix\b|\b(?:search|find|look for|locate|trace|study|investigate)\b.{0,80}\b(?:project|file|source|code|component|function|class|selector|setting|reference|implementation|usage|logic|feature|workspace)\b)/i.test(prompt);
     try {
       const contextResult = await resolveWorkspaceContext();
       const context = contextResult.context;
       const activeProjectId = String(context?.activeProject?.id || window.KernelState?.activeProject?.id || window.ProjectStore?.current?.id || '');
+      setAssistantActivityStage(activeProjectId ? 'inspecting' : 'thinking',
+        activeProjectId ? 'A project is selected; checking its saved source and structure…' : 'No saved project is selected; using the available workspace context…');
       let serverWorkspace = null;
       let serverDiagnostics = null;
       let serverToolError = '';
@@ -1522,6 +1531,7 @@
         const shouldDiagnose = /\b(diagnos|debug|broken|bug|repair|fix|not working|doesn.?t work|inspect|malfunction|error)\b/i.test(prompt);
         const serverProjectId = String(serverWorkspace?.activeProject?.id || '');
         if (shouldDiagnose && serverProjectId) {
+          setAssistantActivityStage('diagnosing', 'Checking the saved project for structural issues and source-level problems…');
           const diagnosticResult = await workspaceToolRequest({ operation: 'diagnose', projectId: serverProjectId });
           serverDiagnostics = diagnosticResult.diagnostics || null;
         }
@@ -1547,6 +1557,7 @@
       setWorkspaceTaskStatus('running', serverWorkspace?.activeProject?.id
         ? 'Project inspection is complete; OVYX AI is working on your request.'
         : 'OVYX AI is working with the available local context and will identify any missing project details.');
+      setAssistantActivityStage('thinking', 'Using the available project context to plan the next inspection or answer…');
       const assistantContext = {
         // Saved owner-verified project context and local fallback travel with every tool round.
         serverWorkspace,
@@ -1558,7 +1569,7 @@
         contextWarning: context.contextWarning || null,
         assistantPolicy: 'OVYX native workspace assistant. Use authenticated read-only workspace tools when source evidence is missing. Context scanning is optional: use saved serverWorkspace data and serverDiagnostics when available, and always use the local snapshot as a fallback when deeper scans are unavailable. Any source edit requires a real file preview plus explicit user approval; only report a saved edit when the server confirms read-back verification.',
       };
-      const assistantSystem = 'Answer as OVYX AI. Inspect the authenticated saved project context when supplied. When necessary, request workspace_inspect, workspace_read_file, workspace_search, or workspace_diagnose and wait for their actual returned results before diagnosing or proposing a code edit. Never claim that code changed unless a server-confirmed workspace_patch action returned verified=true. A source edit must be reviewed and explicitly approved in the UI before it is written. For website builds, preserve the existing Web Studio generation workflow.';
+      const assistantSystem = 'Answer as OVYX AI. Inspect the authenticated saved project context when supplied. For deep project searches, use workspace_search with 2–8 related literal terms in queries, then inspect and read the exact relevant files. Follow cross-references when the user asks for a deep study; report searched-file and match counts plus any incomplete scan honestly. When necessary, request workspace_inspect, workspace_read_file, workspace_search, or workspace_diagnose and wait for their actual returned results before diagnosing or proposing a code edit. Never claim that code changed unless a server-confirmed workspace_patch action returned verified=true. A source edit must be reviewed and explicitly approved in the UI before it is written. For website builds, preserve the existing Web Studio generation workflow.';
       const workspaceToolResults = [];
       const executedToolKeys = new Set();
       const conversationMessages = [
@@ -1576,13 +1587,13 @@
       // authenticated server endpoint, feed the result back, then reason again.
       // The model cannot invoke writes directly: workspace_patch still goes through
       // the explicit human preview/approval flow in runActions().
-      while (toolRounds < 3) {
+      while (toolRounds < 4) {
         result = await nativeGenerate({
           mode: 'workspace-copilot-native',
           prompt,
           messages: roundMessages,
           context: {
-            workspaceToolResults: workspaceToolResults.slice(-3),
+            workspaceToolResults: workspaceToolResults.slice(-6),
             ...assistantContext,
           },
           system: assistantSystem,
@@ -1592,7 +1603,7 @@
           .filter(action => READ_ONLY_WORKSPACE_ACTIONS.has(String(action?.type || '')));
         if (!readActions.length) break;
 
-        const remaining = 4 - toolCallCount;
+        const remaining = 6 - toolCallCount;
         if (remaining <= 0) {
           toolLimitReached = true;
           result = {
@@ -1604,7 +1615,7 @@
         }
 
         if (!showedToolProgress) {
-          push('I’m checking the actual saved project evidence before finalizing my answer. Review only so far. No files have been changed.');
+          recordAssistantActivity('OVYX requested read-only inspection tools. No project files have been changed.');
           showedToolProgress = true;
         }
         const distinctActions = [];
@@ -1632,11 +1643,18 @@
           continue;
         }
 
-        setWorkspaceTaskStatus('running', 'Reviewing saved app files and available details.');
+        const activityItems = distinctActions.map(describeWorkspaceToolAction);
+        activityItems.forEach(item => recordAssistantActivity(item.message));
+        const primaryActivity = activityItems.find(item => item.stage === 'searching') || activityItems[0];
+        const activityMessage = activityItems.map(item => item.message).join(' ');
+        setAssistantActivityStage(primaryActivity?.stage || 'inspecting', activityMessage);
+        setWorkspaceTaskStatus('running', activityMessage);
         const outcomes = await Promise.all(distinctActions.map(executeWorkspaceReadAction));
         toolCallCount += distinctActions.length;
+        outcomes.forEach((outcome, index) => recordAssistantActivity(describeWorkspaceToolOutcome(distinctActions[index], outcome)));
         workspaceToolResults.push(...outcomes);
         if (workspaceToolResults.length > 6) workspaceToolResults.splice(0, workspaceToolResults.length - 6);
+        setAssistantActivityStage('thinking', 'Reviewing the returned source evidence and deciding what else needs checking…', { record: false });
         roundMessages = [
           ...roundMessages,
           { role: 'assistant', content: String(result.text || '') },
@@ -1649,6 +1667,7 @@
       // answer. If it asks for yet another tool, stop honestly rather than claiming
       // unsupported diagnosis or proceeding with an ungrounded edit.
       if (!result) {
+        setAssistantActivityStage('thinking', 'Reviewing the collected evidence and preparing a grounded answer…');
         result = await nativeGenerate({
           mode: 'workspace-copilot-native',
           prompt,
@@ -1657,7 +1676,7 @@
             { role: 'user', content: 'Provide the final answer using the evidence already returned in context.workspaceToolResults. Do not request another tool if you can answer from the existing evidence. Clearly state any limitation and do not claim changes were applied.' },
           ].slice(-12),
           context: {
-            workspaceToolResults: workspaceToolResults.slice(-3),
+            workspaceToolResults: workspaceToolResults.slice(-6),
             ...assistantContext,
           },
           system: assistantSystem,
@@ -1684,6 +1703,7 @@
         { role: 'assistant', content: String(result.text || '') },
       ].slice(-12);
 
+      setAssistantActivityStage('thinking', 'Summarizing the findings and preparing any requested action for review…');
       syncWorkspaceBadge(context, contextResult.limited);
       const assistantRow = bot.pushMsg('OVYX: ' + result.text);
       if (assistantRow && assistantRow.dataset) {
@@ -1701,7 +1721,10 @@
       bot.pushMsg('OVYX ERROR: ' + String(error?.message || 'OVYX AI could not complete that request.'));
     } finally {
       busy = false;
-      panel()?.classList.remove('ovyx-ai-thinking');
+      finishAssistantActivity(workspaceTaskStatus === 'error' ? 'error' : 'complete',
+        workspaceTaskStatus === 'error'
+          ? (workspaceTaskMessage || 'The request ended with an issue. Review the activity details.')
+          : 'Response ready. Open the activity details to review the project checks and actions performed.');
       input.disabled = false;
       if (sendButton) {
         sendButton.disabled = !String(input.value || '').trim();
