@@ -97,10 +97,11 @@ assert.match(assistantApi, /isWebStudioPrompt\(promptText, mode, payload\.contex
 assert.match(assistantApi, /buildWebStudioSourceInspection/);
 assert.match(assistantApi, /scopedWebStudioEdit: isWebStudio && mode === 'build' && scopedWebStudioEdit === true/);
 assert.match(assistantApi, /mode === 'build' && !scopedWebStudioEdit/);
-assert.match(runtime, /files: requestPayload\.files \|\| priorContext\.files \|\| null/);
+assert.match(runtime, /files: requestPayload\.files \|\| priorContext\.files \|\| \(studio\.graph && studio\.graph\.files\) \|\| null/);
 assert.match(assistantApi, /if \(!structuredFields\.message\) structuredFields\.message = structured\.text;/);
 assert.match(assistantApi, /scopedWebStudioEdit,/);
 assert.match(runtime, /result && result\.scopedWebStudioEdit === true/);
+assert.match(runtime, /if \(!path \|\| path\.includes\('\\\\'\).*\.css\|scss/);
 assert.match(runtime, /activeView: 'webstudio'/);
 assert.match(fs.readFileSync('functions/_lib/prompts.js', 'utf8'), /Keep read-only Ask\/source-inspection requests read-only/);
 
