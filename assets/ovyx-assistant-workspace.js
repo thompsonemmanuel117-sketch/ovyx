@@ -9,6 +9,7 @@
   const nativeModes = /^(workspace-assistant|workspace-copilot(?:-v2|-advanced|-native)?|ovyx-native-assistant)$/i;
   const NATIVE_RESPONSE_BOT_MARK = "<svg viewBox=\"0 0 64 64\" aria-hidden=\"true\"><ellipse cx=\"32\" cy=\"56\" rx=\"18\" ry=\"4.5\" fill=\"#000\" opacity=\".42\"/><path d=\"M20 18 16 10l12 4h8l12-4-4 8 3 9-3 18q-2 8-12 9-10-1-12-9l-3-18Z\" fill=\"#b88b42\" stroke=\"#ffe7a5\" stroke-width=\"1.3\"/><path d=\"M21 24q1-7 11-7t11 7v13q-1 7-11 8-10-1-11-8Z\" fill=\"#111c27\" stroke=\"#9aaec2\" stroke-opacity=\".8\"/><path d=\"M25 29q0-3.5 3-3.5t3 3.5v2q0 3-3 3t-3-3Zm10 0q0-3.5 3-3.5t3 3.5v2q0 3-3 3t-3-3Z\" fill=\"#71efff\"/><path d=\"M27 39q5 4 10 0\" fill=\"none\" stroke=\"#b8faff\" stroke-width=\"1.7\" stroke-linecap=\"round\"/><path d=\"M21 22q11-9 22 0\" fill=\"none\" stroke=\"#fff2c9\" stroke-opacity=\".8\" stroke-width=\"2.2\" stroke-linecap=\"round\"/><path d=\"M32 14V8\" stroke=\"#f8d88b\" stroke-width=\"2\" stroke-linecap=\"round\"/><circle cx=\"32\" cy=\"7\" r=\"3\" fill=\"#f8d88b\" stroke=\"#fff3c9\"/></svg>";
   let busy = false;
+  let activeActivityNode = null;
   let workspaceTaskStatus = 'idle';
   let workspaceTaskMessage = '';
   let history = [];
@@ -683,6 +684,155 @@
     const bot = window.WorkspaceBrainBot;
     if (typeof bot?.pushMsg === 'function') bot.pushMsg('OVYX: ' + String(text));
     else pushMessage('OVYX: ' + String(text));
+  }
+
+  const ASSISTANT_ACTIVITY_LABELS = Object.freeze({
+    thinking: 'Thinking through your request',
+    inspecting: 'Inspecting your project',
+    searching: 'Searching your project',
+    reading: 'Reading project source',
+    diagnosing: 'Checking project issues',
+    applying: 'Applying approved changes',
+    verifying: 'Verifying the saved result',
+    approval: 'Waiting for your approval',
+    complete: 'Task finished',
+    error: 'Task could not be completed',
+  });
+
+  function recordAssistantActivity(message) {
+    const list = activeActivityNode?.querySelector('.ovyx-native-activity-log');
+    const detail = String(message || '').replace(/\s+/g, ' ').trim().slice(0, 320);
+    if (!list || !detail) return;
+    const last = list.lastElementChild;
+    if (last && last.textContent === detail) return;
+    const item = document.createElement('li');
+    item.textContent = detail;
+    list.appendChild(item);
+    while (list.children.length > 14) list.firstElementChild?.remove();
+  }
+
+  function setAssistantActivityStage(stage, message, options = {}) {
+    if (!activeActivityNode) return;
+    const availableStages = Object.keys(ASSISTANT_ACTIVITY_LABELS);
+    const normalizedStage = availableStages.includes(stage) ? stage : 'thinking';
+    const detail = String(message || ASSISTANT_ACTIVITY_LABELS[normalizedStage]).trim().slice(0, 420);
+    activeActivityNode.dataset.stage = normalizedStage;
+    const title = activeActivityNode.querySelector('.ovyx-native-activity-title');
+    const status = activeActivityNode.querySelector('.ovyx-native-activity-message');
+    const detailsSummary = activeActivityNode.querySelector('.ovyx-native-activity-details summary');
+    if (title) title.textContent = ASSISTANT_ACTIVITY_LABELS[normalizedStage];
+    if (status) status.textContent = detail;
+    if (detailsSummary) detailsSummary.textContent = 'Show activity details';
+    if (options.record !== false) recordAssistantActivity(detail);
+
+    const p = panel();
+    const phaseClasses = [
+      'ovyx-ai-thinking', 'ovyx-ai-inspecting', 'ovyx-ai-searching',
+      'ovyx-ai-reading', 'ovyx-ai-diagnosing', 'ovyx-ai-applying',
+      'ovyx-ai-verifying', 'ovyx-ai-approval',
+    ];
+    phaseClasses.forEach(name => p?.classList.remove(name));
+    if (phaseClasses.includes('ovyx-ai-' + normalizedStage)) {
+      p?.classList.add('ovyx-ai-' + normalizedStage);
+    }
+    const root = $('bot-chat-history');
+    if (root) root.scrollTop = root.scrollHeight;
+  }
+
+  function beginAssistantActivity(message = 'Checking the available project context…') {
+    const root = $('bot-chat-history');
+    if (!root) return null;
+    activeActivityNode?.remove();
+    const row = document.createElement('div');
+    row.className = 'ovyx-native-activity';
+    row.dataset.stage = 'thinking';
+    row.setAttribute('role', 'status');
+    row.setAttribute('aria-live', 'polite');
+
+    const avatar = makeBotAvatar();
+    avatar.classList.add('ovyx-native-activity-avatar');
+    const content = document.createElement('div');
+    content.className = 'ovyx-native-activity-content';
+    const title = document.createElement('div');
+    title.className = 'ovyx-native-activity-title';
+    const status = document.createElement('div');
+    status.className = 'ovyx-native-activity-message';
+
+    const details = document.createElement('details');
+    details.className = 'ovyx-native-activity-details';
+    const summary = document.createElement('summary');
+    summary.textContent = 'Show activity details';
+    const list = document.createElement('ol');
+    list.className = 'ovyx-native-activity-log';
+    details.append(summary, list);
+    content.append(title, status, details);
+    row.append(avatar, content);
+    root.appendChild(row);
+    activeActivityNode = row;
+    setAssistantActivityStage('thinking', message);
+    return row;
+  }
+
+  function finishAssistantActivity(stage = 'complete', message = 'Response ready.') {
+    if (!activeActivityNode) return;
+    const row = activeActivityNode;
+    setAssistantActivityStage(stage, message);
+    row.dataset.completed = 'true';
+    if (stage === 'complete' || stage === 'error') row.removeAttribute('aria-live');
+    activeActivityNode = null;
+    const p = panel();
+    ['ovyx-ai-thinking', 'ovyx-ai-inspecting', 'ovyx-ai-searching', 'ovyx-ai-reading',
+      'ovyx-ai-diagnosing', 'ovyx-ai-applying', 'ovyx-ai-verifying', 'ovyx-ai-approval']
+      .forEach(name => p?.classList.remove(name));
+  }
+
+  function describeWorkspaceToolAction(action) {
+    const type = String(action?.type || '');
+    if (type === 'workspace_search') {
+      const rawQueries = Array.isArray(action.queries) ? action.queries : [action.query];
+      const queries = rawQueries.map(value => String(value || '').trim()).filter(Boolean).slice(0, 8);
+      return {
+        stage: 'searching',
+        message: 'Searching saved project source for ' + (queries.length
+          ? queries.map(query => '“' + query.slice(0, 90) + '”').join(' · ')
+          : 'the requested terms') + '.',
+      };
+    }
+    if (type === 'workspace_read_file') {
+      return { stage: 'reading', message: 'Reading ' + String(action.filePath || action.path || 'the requested source file').slice(0, 220) + '.' };
+    }
+    if (type === 'workspace_diagnose') {
+      return { stage: 'diagnosing', message: 'Checking saved project files for structural and source-level issues.' };
+    }
+    return { stage: 'inspecting', message: 'Inspecting the saved project inventory, pages and source files.' };
+  }
+
+  function describeWorkspaceToolOutcome(action, outcome) {
+    if (!outcome?.ok) return 'Could not complete ' + String(action?.type || 'the requested project check') + ': ' + String(outcome?.error || 'tool failed').slice(0, 180);
+    const result = outcome.result || {};
+    if (result.operation === 'search') {
+      const total = Number(result.totalMatches ?? result.count ?? 0);
+      const files = Number(result.filesSearched ?? 0);
+      const matchedFiles = Number(result.matchedFileCount ?? 0);
+      const queries = Array.isArray(result.byQuery) ? result.byQuery : [];
+      const querySummary = queries.map(item => '“' + String(item.query || '').slice(0, 70) + '”: ' + Number(item.count || 0)).join('; ');
+      let summary = 'Search complete: ' + total + ' match(es) across ' + matchedFiles + ' matching file(s); checked ' + files + ' source file(s)';
+      if (querySummary) summary += '. Per query: ' + querySummary;
+      if (result.inventoryTruncated) summary += '. The safety limit was reached, so the inventory may be incomplete';
+      if (result.resultsTruncated) summary += '. Some matching snippets were omitted from the preview; aggregate counts include them';
+      return summary + '.';
+    }
+    if (result.operation === 'read_file') {
+      return 'Read ' + String(result.file?.path || action.filePath || 'the requested source file') +
+        (result.file?.contentComplete ? ' completely.' : ' as bounded inspection context; the returned source is partial or redacted.');
+    }
+    if (result.operation === 'inspect') {
+      return 'Project inspection returned ' + Number(result.project?.fileCount || 0) + ' source file(s) and ' + Number(result.project?.pageCount || 0) + ' page(s).';
+    }
+    if (result.operation === 'diagnose') {
+      return 'Project diagnostics returned ' + Number(result.diagnostics?.issues?.length || 0) + ' issue(s) to review.';
+    }
+    return 'Project inspection completed.';
   }
 
   function setWorkspaceTaskStatus(status, message = '') {
