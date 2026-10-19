@@ -116,7 +116,7 @@ try {
       };
     });
     await appearance.locator('[data-mode="light"]').click();
-    await page.waitForFunction(() => window.ThemeContext?.get?.().mode === 'light');
+    await page.waitForFunction(() => window.ThemeContext?.get?.().mode === 'light', null, { timeout: 15000 });
     assert.equal(await page.evaluate(() => window.ThemeContext.isDirty()), true,
       '[' + target.name + '] choosing a mode must create an unsaved preview.');
     assert.equal((await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx-theme') || '{}'))).mode, savedBefore.mode,
@@ -136,7 +136,7 @@ try {
       window.__settingsAppearanceCanonicalizedEvents.length = 0;
     });
     await appearance.locator('[data-appearance-cancel]').click();
-    await page.waitForFunction(() => window.ThemeContext?.isDirty?.() === false);
+    await page.waitForFunction(() => window.ThemeContext?.isDirty?.() === false, null, { timeout: 15000 });
     assert.equal((await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx-theme') || '{}'))).mode, savedBefore.mode,
       '[' + target.name + '] Cancel must leave saved appearance unchanged.');
     assert.equal((await page.evaluate(() => window.ThemeContext.get().mode)), savedBefore.mode);
@@ -153,7 +153,7 @@ try {
     });
     await appearance.locator('[data-mode="light"]').click();
     await appearance.locator('[data-appearance-save]').click();
-    await page.waitForFunction(() => window.ThemeContext?.isDirty?.() === false && window.ThemeContext?.getSaved?.().mode === 'light');
+    await page.waitForFunction(() => window.ThemeContext?.isDirty?.() === false && window.ThemeContext?.getSaved?.().mode === 'light', null, { timeout: 15000 });
     assert.equal((await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx-theme') || '{}'))).mode, 'light',
       '[' + target.name + '] Save Appearance must persist the preview.');
     events = await page.evaluate(() => ({
@@ -168,7 +168,7 @@ try {
     await resetButton.waitFor({ state: 'visible' });
     await page.evaluate(() => { window.__settingsThemeAppliedEvents.length = 0; });
     await resetButton.click();
-    await page.waitForFunction(() => window.ThemeContext?.getSaved?.().mode === 'dark' && window.ThemeContext?.isDirty?.() === false);
+    await page.waitForFunction(() => window.ThemeContext?.getSaved?.().mode === 'dark' && window.ThemeContext?.isDirty?.() === false, null, { timeout: 15000 });
     assert.equal((await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx-theme') || '{}'))).mode, 'dark',
       '[' + target.name + '] Reset appearance must persist the default theme.');
     assert.equal(
@@ -191,7 +191,7 @@ try {
       '[' + target.name + '] changing theme colors must not discard the custom theme name draft.');
     await appearance.locator('[data-theme-save]').click();
     await page.waitForFunction(() => Object.values(window.OVYXThemeLab?.state?.customThemes || {})
-      .some(theme => theme.name === 'OVYX Roundtrip QA' && String(theme.bg).toUpperCase() === '#112233'));
+      .some(theme => theme.name === 'OVYX Roundtrip QA' && String(theme.bg).toUpperCase() === '#112233'), null, { timeout: 15000 });
     const savedId = await page.evaluate(() => window.OVYXThemeLab.state.active);
     assert.ok(savedId.startsWith('custom_'), '[' + target.name + '] Save Custom Theme must create a persisted Custom entry.');
 
@@ -201,7 +201,7 @@ try {
       return String(lab.state.active).startsWith('custom_')
         && lab.state.active !== previousId
         && lab.state.customThemes[lab.state.active]?.name === 'OVYX Roundtrip QA Copy';
-    }, savedId);
+    }, savedId, { timeout: 15000 });
     const duplicateId = await page.evaluate(() => window.OVYXThemeLab.state.active);
     const duplicateCount = await page.evaluate(() => Object.keys(window.OVYXThemeLab.state.customThemes || {}).length);
     assert.equal(duplicateCount, 2, '[' + target.name + '] Duplicate must create a second persisted Custom theme.');
@@ -213,20 +213,20 @@ try {
         return original(blob);
       };
     });
-    const downloadPromise = page.waitForEvent('download');
+    const downloadPromise = page.waitForEvent('download', { timeout: 15000 });
     await appearance.locator('[data-theme-export]').click();
     const download = await downloadPromise;
     assert.equal(download.suggestedFilename(), 'ovyx-theme.json', '[' + target.name + '] Export must download a JSON theme file.');
     const downloadPath = await download.path();
     assert.ok(downloadPath, '[' + target.name + '] Export should produce a readable download.');
     const exported = JSON.parse(await readFile(downloadPath, 'utf8'));
-    await page.waitForFunction(() => Boolean(window.__ovyxThemeExportText));
+    await page.waitForFunction(() => Boolean(window.__ovyxThemeExportText), null, { timeout: 15000 });
     const interceptedExport = JSON.parse(await page.evaluate(() => window.__ovyxThemeExportText));
     assert.equal(exported.name, 'OVYX Roundtrip QA Copy', '[' + target.name + '] Export must preserve the custom theme name.');
     assert.equal(exported.backgroundColor, '#112233', '[' + target.name + '] Export must preserve canonical background color.');
     assert.equal(interceptedExport.accentColor, '#445566', '[' + target.name + '] Exported Blob must preserve canonical accent color.');
 
-    const chooserPromise = page.waitForEvent('filechooser');
+    const chooserPromise = page.waitForEvent('filechooser', { timeout: 15000 });
     await appearance.locator('[data-theme-import]').click();
     const chooser = await chooserPromise;
     await chooser.setFiles({
@@ -240,7 +240,7 @@ try {
       return active.startsWith('custom_')
         && active !== previousId
         && lab.state.customThemes?.[active]?.name === expectedName;
-    }, { expectedName: exported.name, previousId: duplicateId });
+    }, { expectedName: exported.name, previousId: duplicateId }, { timeout: 15000 });
     const importedId = await page.evaluate(() => window.OVYXThemeLab.state.active);
     assert.notEqual(importedId, duplicateId, '[' + target.name + '] Import must create a new Custom entry.');
     const imported = await page.evaluate(() => {
@@ -252,7 +252,7 @@ try {
 
     await appearance.locator('[data-theme-delete]').click();
     await page.waitForFunction(id => !window.OVYXThemeLab.state.customThemes?.[id]
-      && window.OVYXThemeLab.state.active === 'obsidian', importedId);
+      && window.OVYXThemeLab.state.active === 'obsidian', importedId, { timeout: 15000 });
     await appearance.locator('[data-theme-reset]').click();
     // Reset is a synchronous local action; capture its immediate result so a CI
     // failure reports the actual in-memory and persisted state instead of only timing out.
@@ -276,7 +276,7 @@ try {
     assert.deepEqual(resetAfterClick.persistedCustomIds, [],
       '[' + target.name + '] Reset Lab must persist an empty custom-theme list. Actual: ' + JSON.stringify(resetAfterClick));
     await page.waitForFunction(() => window.OVYXThemeLab.state.active === 'obsidian'
-      && Object.keys(window.OVYXThemeLab.state.customThemes || {}).length === 0);
+      && Object.keys(window.OVYXThemeLab.state.customThemes || {}).length === 0, null, { timeout: 15000 });
     assert.equal((await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx.theme.lab.v1') || '{}')).then(x => x.active)), 'obsidian');
 
     const relevantErrors = pageErrors.filter(message =>
