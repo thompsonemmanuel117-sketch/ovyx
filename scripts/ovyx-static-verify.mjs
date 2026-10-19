@@ -361,7 +361,7 @@ if (!fs.existsSync(nativeAssistantPath) || !fs.existsSync(nativeAssistantRoutePa
     !nativeClient.includes('payload.queries = action.queries') ||
     !workspaceTools.includes('export function searchProjectSource') ||
     !workspaceTools.includes('MAX_SEARCHABLE_PROJECT_FILES = 2_000') ||
-    !workspaceToolsTest.includes('Deep search must scan the saved source inventory beyond the previous 120-file limit.') ||
+    !workspaceToolsTest.includes('Deep search must scan the saved source inventory beyond the previous 120-file limit') ||
     !workspaceToolsTest.includes('A capped scan must explicitly disclose incomplete inventory coverage.') ||
     !nativeClient.includes('snapshotAssets') ||
     !nativeClient.includes('snapshotConnections') ||
