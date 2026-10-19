@@ -88,7 +88,12 @@
     const panel = document.querySelector('[data-settings-panel="plan"]');
     if (panel && !panel.dataset.ovyxBillingObserver) {
       panel.dataset.ovyxBillingObserver = '1';
-      const observer = new MutationObserver(() => { if (panel.querySelector('#ovyx-bill-used')) render(); });
+      const observer = new MutationObserver(() => {
+        // Use the legacy usage node only as a signal that the original Plan panel
+        // has finished rendering. Once our server-backed panel exists, quota meter
+        // refreshes must not replace it or detach its live controls.
+        if (!panel.querySelector('#ovyx-billing-live-root') && panel.querySelector('#ovyx-bill-used')) render();
+      });
       observer.observe(panel, { childList: true, subtree: true });
     }
     if (settings && settings.current === 'plan') { render(); refresh(true); }
