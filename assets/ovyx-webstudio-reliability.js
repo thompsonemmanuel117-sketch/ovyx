@@ -508,7 +508,7 @@
       var input = document.getElementById('ws-chat-input');
       var prompt = String(input && input.value || '').trim();
       var mode = String(studio.mode || 'build').toLowerCase();
-      if (mode === 'build' && readOnlyFollowUp(prompt)) {
+      if (['build','fix','plan'].includes(mode) && readOnlyFollowUp(prompt)) {
         switchMode('ask', true);
       } else if (mode === 'ask' && studio.__ovyxAutoReadOnlyMode && targetedEdit(prompt)) {
         switchMode('build', false);
