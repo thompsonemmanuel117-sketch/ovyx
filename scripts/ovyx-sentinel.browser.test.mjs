@@ -184,8 +184,8 @@ try {
     await page.locator('#ovyx-sentinel-launch').click();
     await page.locator('#ovyx-sentinel-panel').waitFor({ state: 'visible' });
     await page.locator('#ovyx-sentinel-avatar-stage').waitFor({ state: 'visible' });
-    await page.waitForFunction(() => document.querySelector('#ovyx-sentinel-avatar-stage .ovsx3-status')?.textContent.includes('voice companion is still available'), null, { timeout: 10000 });
-    assert.match(await page.locator('#ovyx-sentinel-avatar-stage .ovsx3-status').innerText(), /voice companion is still available/i, '[' + target.name + '] Sentinel must remain usable when remote 3D assets are unavailable');
+    await page.waitForFunction(() => document.querySelector('#ovyx-sentinel-avatar-stage .ovsx3-status')?.textContent.includes('Voice chat is still available'), null, { timeout: 10000 });
+    assert.match(await page.locator('#ovyx-sentinel-avatar-stage .ovsx3-status').innerText(), /Voice chat is still available/i, '[' + target.name + '] Sentinel must remain usable when remote 3D assets are unavailable');
     await page.waitForFunction(() => document.querySelector('#ovyx-sentinel-panel [data-ovsx-report]')?.textContent.includes('Latest report'), null, { timeout: 10000 }).catch(() => {});
     assert.match(await page.locator('#ovyx-sentinel-panel [data-ovsx-status]').innerText(), /Sentinel is ready|Last saved scan|latest scan|Sentinel server|administrator/i, '[' + target.name + '] Sentinel report bootstrap failed: ' + await page.locator('#ovyx-sentinel-panel [data-ovsx-status]').innerText());
     assert.match(await page.locator('#ovyx-sentinel-panel [data-ovsx-report]').innerText(), /Latest report · HEALTHY/i, '[' + target.name + '] saved report was not rendered');
