@@ -352,7 +352,17 @@ if (!fs.existsSync(nativeAssistantPath) || !fs.existsSync(nativeAssistantRoutePa
     !nativeClient.includes('READ_ONLY_WORKSPACE_ACTIONS') ||
     !nativeClient.includes('executeWorkspaceReadAction') ||
     !nativeClient.includes('workspaceToolResults') ||
-    !nativeClient.includes('while (toolRounds < 3)') ||
+    !nativeClient.includes('while (toolRounds < 4)') ||
+    !nativeClient.includes('const remaining = 6 - toolCallCount') ||
+    !nativeClient.includes('const ASSISTANT_ACTIVITY_LABELS') ||
+    !nativeClient.includes('function beginAssistantActivity') ||
+    !nativeClient.includes('function describeWorkspaceToolOutcome') ||
+    !nativeClient.includes('Searching saved project source for') ||
+    !nativeClient.includes('payload.queries = action.queries') ||
+    !workspaceTools.includes('export function searchProjectSource') ||
+    !workspaceTools.includes('MAX_SEARCHABLE_PROJECT_FILES = 2_000') ||
+    !workspaceToolsTest.includes('Deep search must scan the saved source inventory beyond the previous 120-file limit.') ||
+    !workspaceToolsTest.includes('A capped scan must explicitly disclose incomplete inventory coverage.') ||
     !nativeClient.includes('snapshotAssets') ||
     !nativeClient.includes('snapshotConnections') ||
     !nativeClient.includes('snapshotRelevantSettings') ||
@@ -378,7 +388,7 @@ if (!fs.existsSync(nativeAssistantPath) || !fs.existsSync(nativeAssistantRoutePa
     !fs.readFileSync(nativeAssistantPath, 'utf8').includes("'workspace_undo'") ||
     !workspaceToolsIntegrationTest.includes("operation: 'read_file'") ||
     !workspaceToolsTest.includes('Recovery must have a distinct preview operation.') ||
-    !shellMiddleware.includes('assets/ovyx-assistant-workspace.js?v=20261018-4')
+    !shellMiddleware.includes('assets/ovyx-assistant-workspace.js?v=20261019-1')
   ) {
     errors.push('OVYX native assistant: safe recovery, review-before-write, truthful progress states, tests or cache-busted shell injection is incomplete.');
   }
