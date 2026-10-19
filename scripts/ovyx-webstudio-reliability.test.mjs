@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { isWebStudioPrompt } from '../functions/_lib/experience.js';
 import { buildWebStudioSourceInspection, hasWebStudioSourceTask, isScopedWebStudioEdit, normalizeScopedWebStudioFiles } from '../functions/_lib/webstudio-source.js';
+import { buildWebResearchQueries, isSafePublicUrl, parseSearchResultsHtml, stripResearchHtml } from '../functions/_lib/web-research.js';
 
 const runtime = fs.readFileSync('assets/ovyx-webstudio-reliability.js', 'utf8');
 const middleware = fs.readFileSync('functions/_middleware.js', 'utf8');
@@ -10,6 +11,9 @@ const index = fs.readFileSync('index.html', 'utf8');
 const feedbackApi = fs.readFileSync('functions/api/ai/feedback.js', 'utf8');
 const statusApi = fs.readFileSync('functions/api/ai/status.js', 'utf8');
 const assistantApi = fs.readFileSync('functions/api/ai/assistant.js', 'utf8');
+const researchApi = fs.readFileSync('functions/api/ai/web-search.js', 'utf8');
+const researchRuntime = fs.readFileSync('assets/ovyx-webstudio-research.js', 'utf8');
+const apiMiddleware = fs.readFileSync('functions/api/_middleware.js', 'utf8');
 
 for (const [label, source, tokens] of [
   ['feedback UI', runtime, [
@@ -36,7 +40,9 @@ for (const [label, source, tokens] of [
   }
 }
 assert.ok(middleware.includes('/assets/ovyx-webstudio-reliability.js?v=20261019-2'), 'reliability runtime must be injected into the application shell');
+assert.ok(middleware.includes('/assets/ovyx-webstudio-research.js?v=20261019-1'), 'web research/progress runtime must be injected into the application shell');
 assert.ok(headers.includes('/assets/ovyx-webstudio-reliability.js'), 'reliability runtime must have no-store headers');
+assert.ok(headers.includes('/assets/ovyx-webstudio-research.js'), 'web research runtime must have no-store headers');
 assert.ok(index.includes('AI_BUILD_NO_ARTIFACTS'), 'failed/no-op AI builds must be rejected');
 assert.ok(index.includes("ovyxBuildState='verified'"), 'Web Studio must mark verified builds only after source checks');
 assert.ok(runtime.includes('function seedOnlyProject'), 'the generic generated seed page must be hidden until a real build exists');
@@ -70,6 +76,14 @@ assert.equal(normalizedArrayEdits['src/styles.css'], '.menu { gap: 1rem; }');
 assert.equal(normalizedArrayEdits['src/main.js'], 'const menuReady = true;');
 assert.equal(Object.keys(normalizedArrayEdits).length, 2, 'scoped edits must normalize file arrays and reject unsafe paths');
 assert.match(assistantApi, /normalizeScopedWebStudioFiles\(proposedFiles\)/);
+assert.match(assistantApi, /WEB_STUDIO_RESEARCH_GUIDANCE/);
+assert.match(assistantApi, /payload\.context\?\.webResearch/);
+assert.match(apiMiddleware, /\['\/api\/ai\/web-search', \['aiGeneration', 'webStudio'\]\]/);
+assert.match(apiMiddleware, /'\/api\/ai\/web-search'/);
+assert.match(researchApi, /assertAuthenticated\(context\.data\?\.user\)/);
+assert.match(researchApi, /sseResponse\(async send/);
+assert.match(researchRuntime, /ovyx:webstudio-build-stage/);
+assert.match(researchRuntime, /ovyx-ws-live-activity/)
 
 assert.equal(isScopedWebStudioEdit('Make a website with a search bar', true), false);
 assert.equal(isScopedWebStudioEdit('Build a new website for a restaurant', true), false);
@@ -109,4 +123,16 @@ assert.match(runtime, /activeView: 'webstudio'/);
 assert.match(fs.readFileSync('functions/_lib/prompts.js', 'utf8'), /Keep read-only Ask\/source-inspection requests read-only/);
 
 
-console.log('Web Studio reliability contracts passed: response feedback, support hand-off, verified-preview gate and safe provider diagnostics.');
+assert.equal(buildWebResearchQueries('Please search the internet deeply for how OVYX Web Studio can learn from ChatGPT').length, 3);
+assert.ok(isSafePublicUrl('https://developer.mozilla.org/en-US/docs/Web/JavaScript'));
+assert.equal(isSafePublicUrl('http://127.0.0.1:8788/'), false);
+assert.equal(isSafePublicUrl('file:///etc/passwd'), false);
+assert.equal(isSafePublicUrl('https://user:pass@example.com/private'), false);
+assert.match(stripResearchHtml('<title>Guide</title><p>Safe &amp; sound</p><script>fake result</script>'), /Safe & sound/);
+assert.doesNotMatch(stripResearchHtml('<title>Guide</title><p>Safe &amp; sound</p><script>fake result</script>'), /fake result/);
+const parsedResults = parseSearchResultsHtml('<a class="result__a" href="https://developer.mozilla.org/en-US/docs/Web/HTML">HTML guide &amp; details</a><a class="result__a" href="http://127.0.0.1/private">Blocked</a>', 'DuckDuckGo', 'html guide');
+assert.equal(parsedResults.length, 1);
+assert.match(parsedResults[0].title, /HTML guide & details/);
+assert.equal(parsedResults[0].domain, 'developer.mozilla.org');
+
+console.log('Web Studio contracts passed: source-aware edits, guarded research, link parsing, safe URL filtering and progress-runtime wiring.');
