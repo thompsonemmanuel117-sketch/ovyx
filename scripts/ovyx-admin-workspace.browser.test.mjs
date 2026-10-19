@@ -202,6 +202,14 @@ try {
     await page.waitForFunction(() => document.querySelector('#ovyx-owner-users-body tr select')?.value === 'pro', null, { timeout: 20000 });
     assert.ok(ownerApiWrites.some(item => item.path === '/api/admin/users' && item.body.action === 'setPlan' && item.body.plan === 'pro'),
       '[' + target.name + '] Apply plan must write the selected user assignment through the server API.');
+    // Wait for the plan update and user-list refresh to finish before starting
+    // the next action; otherwise the test can click while the row is re-rendering.
+    await page.waitForFunction(() => {
+      const row = document.querySelector('#ovyx-owner-users-body tr');
+      return Array.from(row?.querySelectorAll('button') || []).some(button =>
+        button.textContent.includes('Apply plan') && !button.disabled
+      );
+    }, null, { timeout: 20000 });
     accountRow = page.locator('#ovyx-owner-users-body tr').first();
     await accountRow.locator('button').filter({ hasText: 'Reset quota' }).click();
     assert.ok(ownerApiWrites.some(item => item.path === '/api/admin/users' && item.body.action === 'resetQuota'),
