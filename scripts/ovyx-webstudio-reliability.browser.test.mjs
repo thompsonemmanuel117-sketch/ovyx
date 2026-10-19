@@ -150,6 +150,20 @@ try {
     assert.equal(noOpStudioCall.rejected, true, '[' + target.name + '] in-studio AI acknowledgements without HTML must be rejected');
     assert.match(noOpStudioCall.message, /website draft was not updated.*existing preview remains unchanged/i);
 
+    const scopedCssEdit = await page.evaluate(async () => {
+      window.__buildResponse = {
+        ok: true,
+        scopedWebStudioEdit: true,
+        files: { 'assets/mobile-menu.css': { type: 'text/css', content: '.mobile-menu { display: grid; gap: 1rem; }' } },
+      };
+      try {
+        const result = await window.WebStudio.callAI({ mode: 'build', prompt: 'Change the mobile menu layout' }, 2);
+        return { accepted: true, scopedWebStudioEdit: result.scopedWebStudioEdit };
+      } catch (error) { return { accepted: false, message: error.message }; }
+    });
+    assert.equal(scopedCssEdit.accepted, true, '[' + target.name + '] scoped CSS-only edits must not be rejected by the HTML-preview build guard');
+    assert.equal(scopedCssEdit.scopedWebStudioEdit, true);
+
     assert.deepEqual(errors, [], '[' + target.name + '] browser errors: ' + errors.join('; '));
     console.log('PASS Web Studio reliability ' + target.name + ': useful feedback controls, Help hand-off, no-op build rejection and verified HTML gate.');
     await page.close();
