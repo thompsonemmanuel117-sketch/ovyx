@@ -45,6 +45,8 @@ assert.match(source, /function setAssistantActivityStage\(/);
 assert.match(source, /function finishAssistantActivity\(/);
 assert.match(source, /function describeWorkspaceToolAction\(/);
 assert.match(source, /function describeWorkspaceToolOutcome\(/);
+assert.match(source, /const balancedMatches = perQuery\.length/);
+assert.match(source, /previewCount: \(Array\.isArray\(entry\.matches\)/);
 assert.match(source, /Searching saved project source for/);
 assert.match(source, /Reading project source/);
 assert.match(source, /Show activity details/);
