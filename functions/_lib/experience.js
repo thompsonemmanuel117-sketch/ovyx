@@ -998,8 +998,8 @@ export function isWebStudioPrompt(prompt, mode = '') {
   // Web Studio work even when the user does not repeat the word "website".
   // This catches concise requests like "fix my mobile menu" and "improve the
   // contrast of this layout" without rerouting unrelated writing or Q&A tasks.
-  const changeAction = /\b(?:add|change|edit|update|fix|repair|improve|enhance|redesign|remove|replace|refine|polish|optimi[sz]e|adjust|modify|implement|restyle)\b/i.test(q);
-  const existingWebArtifact = /\b(?:my|this|the|current|existing|selected|active)\s+(?:(?:[\w-]+)\s+){0,2}(?:website|web site|site|web page|page|homepage|landing page|web app|app|project|layout|design|header|footer|hero|navigation|nav|menu|button|form|section|component|style|stylesheet|css|html|script|link|image|font|typography|spacing|contrast|responsiveness|accessibility|seo|content|copy|interaction|feature|control)\b/i.test(q);
+  const changeAction = /\b(?:add|change|edit|update|fix|repair|improve|enhance|redesign|remove|delete|replace|refine|polish|optimi[sz]e|adjust|modify|implement|restyle|make|move|rearrange|resize|shrink|enlarge|increase|decrease|align|reposition)\b/i.test(q);
+  const existingWebArtifact = /\b(?:my|this|the|current|existing|selected|active|a|an|that|those|these)\s+(?:(?:[\w-]+\s+){0,2})(?:website|web site|site|web page|page|homepage|landing page|web app|app|project|layout|design|header|footer|hero|headline|heading|title|text|copy|navigation|nav|menu|button|form|section|component|card|grid|modal|dialog|tab|dropdown|sidebar|style|styling|stylesheet|css|html|script|link|image|font|typeface|typography|font size|colour|color|colours|colors|background|contrast|spacing|margin|padding|border|shadow|gradient|icon|logo|animation|transition|responsiveness|responsive|mobile|desktop|tablet|accessibility|seo|content|interaction|feature|control)\b/i.test(q);
   if (changeAction && existingWebArtifact) return true;
 
   const explicitBuildAction = /\b(?:build|create|design|make|generate|develop|launch|craft|produce|turn|transform)\b/i.test(q);
