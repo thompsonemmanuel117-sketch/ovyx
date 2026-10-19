@@ -1080,9 +1080,10 @@
       (row && row.parentElement || panel).appendChild(status);
     }
     if (status && document.activeElement !== endpointInput) {
-      status.textContent = config.lastSyncStatus || (config.projectSync
+      const message = config.lastSyncStatus || (config.projectSync
         ? 'External metadata sync is enabled. Project source files and secrets are excluded.'
         : 'External metadata sync is off. Built-in OVYX cloud sync is separate.');
+      if (status.textContent !== message) status.textContent = message;
       status.dataset.state = config.lastSyncState || 'info';
       if (config.lastSyncAt) status.title = 'Last successful metadata sync: ' + new Date(config.lastSyncAt).toLocaleString();
     }
