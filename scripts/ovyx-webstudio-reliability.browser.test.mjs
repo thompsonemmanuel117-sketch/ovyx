@@ -106,11 +106,15 @@ try {
       input.value = 'Check if the menu is done, and fix it if not';
       await window.WebStudio.submitPrompt();
       const conditionalRepairMode = window.__submittedMode;
+      window.WebStudio.setMode('fix');
+      input.value = 'Search the project for the mobile menu handler';
+      await window.WebStudio.submitPrompt();
+      const fixModeSearch = window.__submittedMode;
       window.WebStudio.setMode('build');
       input.value = 'Inspect the menu, but do not change anything';
       await window.WebStudio.submitPrompt();
       const explicitReadOnlyMode = window.__submittedMode;
-      return { adviceMode, searchMode, editMode, manualAskMode, statusCheckMode, conditionalRepairMode, explicitReadOnlyMode };
+      return { adviceMode, searchMode, editMode, manualAskMode, statusCheckMode, conditionalRepairMode, fixModeSearch, explicitReadOnlyMode };
     });
     assert.equal(followUpRouting.adviceMode, 'ask', '[' + target.name + '] advice-only website questions should stay read-only');
     assert.equal(followUpRouting.searchMode, 'ask', '[' + target.name + '] a read-only project search should route to Ask automatically');
@@ -118,6 +122,7 @@ try {
     assert.equal(followUpRouting.manualAskMode, 'ask', '[' + target.name + '] a manually selected Ask mode must remain read-only');
     assert.equal(followUpRouting.statusCheckMode, 'ask', '[' + target.name + '] asking whether a prior edit is already done must inspect read-only');
     assert.equal(followUpRouting.conditionalRepairMode, 'build', '[' + target.name + '] a request to fix the issue if it is not done must stay in edit mode');
+    assert.equal(followUpRouting.fixModeSearch, 'ask', '[' + target.name + '] searches in Fix mode should route to Ask instead of attempting repairs');
     assert.equal(followUpRouting.explicitReadOnlyMode, 'ask', '[' + target.name + '] an explicit no-changes instruction must remain read-only');
 
     const activeGraphContext = await page.evaluate(async () => {
