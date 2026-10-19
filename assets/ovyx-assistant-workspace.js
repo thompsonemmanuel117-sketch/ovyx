@@ -9,6 +9,7 @@
   const nativeModes = /^(workspace-assistant|workspace-copilot(?:-v2|-advanced|-native)?|ovyx-native-assistant)$/i;
   const NATIVE_RESPONSE_BOT_MARK = "<svg viewBox=\"0 0 64 64\" aria-hidden=\"true\"><ellipse cx=\"32\" cy=\"56\" rx=\"18\" ry=\"4.5\" fill=\"#000\" opacity=\".42\"/><path d=\"M20 18 16 10l12 4h8l12-4-4 8 3 9-3 18q-2 8-12 9-10-1-12-9l-3-18Z\" fill=\"#b88b42\" stroke=\"#ffe7a5\" stroke-width=\"1.3\"/><path d=\"M21 24q1-7 11-7t11 7v13q-1 7-11 8-10-1-11-8Z\" fill=\"#111c27\" stroke=\"#9aaec2\" stroke-opacity=\".8\"/><path d=\"M25 29q0-3.5 3-3.5t3 3.5v2q0 3-3 3t-3-3Zm10 0q0-3.5 3-3.5t3 3.5v2q0 3-3 3t-3-3Z\" fill=\"#71efff\"/><path d=\"M27 39q5 4 10 0\" fill=\"none\" stroke=\"#b8faff\" stroke-width=\"1.7\" stroke-linecap=\"round\"/><path d=\"M21 22q11-9 22 0\" fill=\"none\" stroke=\"#fff2c9\" stroke-opacity=\".8\" stroke-width=\"2.2\" stroke-linecap=\"round\"/><path d=\"M32 14V8\" stroke=\"#f8d88b\" stroke-width=\"2\" stroke-linecap=\"round\"/><circle cx=\"32\" cy=\"7\" r=\"3\" fill=\"#f8d88b\" stroke=\"#fff3c9\"/></svg>";
   let busy = false;
+  let activeActivityNode = null;
   let workspaceTaskStatus = 'idle';
   let workspaceTaskMessage = '';
   let history = [];
@@ -154,6 +155,40 @@
       .ovyx-native-response-actions button:disabled{opacity:.55!important;cursor:wait!important}
       .ovyx-native-response-actions button[data-state="saved"]{color:#6ee7b7!important;border-color:rgba(52,211,153,.22)!important}
       @media(max-width:560px){.ovyx-native-response-actions{gap:5px!important}.ovyx-native-response-actions button{min-height:30px!important;padding:6px 7px!important;font-size:9px!important}}
+      #kernel-brain-bot-panel.ovyx-native-workspace #bot-chat-history>.ovyx-native-activity{
+        align-self:flex-start!important;display:flex!important;align-items:flex-start!important;gap:10px!important;
+        width:min(94%,760px)!important;max-width:100%!important;padding:12px 14px!important;
+        border:1px solid rgba(83,216,238,.18)!important;border-radius:15px!important;
+        background:linear-gradient(135deg,rgba(83,216,238,.055),rgba(141,124,255,.035))!important;
+        color:#d9dee5!important;box-shadow:inset 0 1px 0 rgba(255,255,255,.025)!important;
+      }
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-activity-avatar{width:31px!important;height:31px!important;flex-basis:31px!important;border-radius:10px!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-activity-avatar svg{width:29px!important;height:29px!important;border-radius:9px!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-activity-content{display:flex!important;flex:1 1 auto!important;min-width:0!important;flex-direction:column!important;gap:4px!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-activity-title{font:750 11px/1.35 Inter,system-ui,sans-serif!important;letter-spacing:.015em!important;color:#eef7fb!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-activity-message{font:450 12px/1.55 Inter,system-ui,sans-serif!important;color:#aab9c8!important;overflow-wrap:anywhere!important;white-space:normal!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-activity-details{margin-top:4px!important;color:#94a5b7!important;font:500 10px/1.5 Inter,system-ui,sans-serif!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-activity-details summary{width:fit-content!important;cursor:pointer!important;color:#79d7e7!important;list-style-position:inside!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-activity-details summary:focus-visible{outline:2px solid #53d8ee!important;outline-offset:3px!important;border-radius:4px!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-activity-log{margin:7px 0 0!important;padding:0 0 0 18px!important;max-height:180px!important;overflow:auto!important;display:flex!important;flex-direction:column!important;gap:5px!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-activity-log li{padding-left:2px!important;overflow-wrap:anywhere!important;color:#a8b6c6!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-activity-log li::marker{color:#53d8ee!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-activity[data-stage="complete"]{border-color:rgba(88,215,181,.15)!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-activity[data-stage="error"]{border-color:rgba(248,113,133,.3)!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace.ovyx-ai-searching .ovyx-ai-character svg,
+      #kernel-brain-bot-panel.ovyx-native-workspace.ovyx-ai-searching .ovyx-native-activity-avatar svg{animation:ovyxNativeActivityScan 1.2s ease-in-out infinite!important;transform-origin:center!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace.ovyx-ai-searching .ovyx-native-response-avatar:before{border-style:dashed!important;animation:ovyxNativeResponseOrbit 1.6s linear infinite!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace.ovyx-ai-reading .ovyx-ai-character svg,
+      #kernel-brain-bot-panel.ovyx-native-workspace.ovyx-ai-reading .ovyx-native-activity-avatar svg{animation:ovyxNativeActivityRead 1.35s ease-in-out infinite!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace.ovyx-ai-applying .ovyx-ai-character svg,
+      #kernel-brain-bot-panel.ovyx-native-workspace.ovyx-ai-applying .ovyx-native-activity-avatar svg{animation:ovyxNativeActivityApply 1.35s ease-in-out infinite!important}
+      #kernel-brain-bot-panel.ovyx-native-workspace.ovyx-ai-verifying .ovyx-ai-character svg,
+      #kernel-brain-bot-panel.ovyx-native-workspace.ovyx-ai-verifying .ovyx-native-activity-avatar svg{animation:ovyxNativeActivityVerify 1.4s ease-in-out infinite!important}
+      @keyframes ovyxNativeActivityScan{0%,100%{transform:translateX(-2px) rotateY(-8deg) scale(1)}50%{transform:translateX(2px) rotateY(9deg) scale(1.045)}}
+      @keyframes ovyxNativeActivityRead{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-2px) scale(1.055)}}
+      @keyframes ovyxNativeActivityApply{0%,100%{transform:rotate(-4deg) scale(1)}50%{transform:rotate(5deg) scale(1.055)}}
+      @keyframes ovyxNativeActivityVerify{0%,100%{transform:scale(1);filter:drop-shadow(0 0 1px rgba(88,215,181,.3))}50%{transform:scale(1.07);filter:drop-shadow(0 0 7px rgba(88,215,181,.8))}}
+      @media(max-width:560px){#kernel-brain-bot-panel.ovyx-native-workspace #bot-chat-history>.ovyx-native-activity{width:100%!important;padding:10px 11px!important}.ovyx-native-activity-message{font-size:11px!important}}
       @media(prefers-reduced-motion:reduce){#kernel-brain-bot-panel.ovyx-native-workspace *,#kernel-brain-bot-panel.ovyx-native-workspace *::before,#kernel-brain-bot-panel.ovyx-native-workspace *::after{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
     `;
     document.head.appendChild(style);
@@ -267,6 +302,7 @@
       push('OVYX suggested an incomplete source edit. No project files were changed.');
       return;
     }
+    setAssistantActivityStage('inspecting', 'Preparing a change preview for ' + filePath + '. Nothing has been saved.');
     setWorkspaceTaskStatus('running', 'Preparing an edit preview. Nothing has been changed yet.');
     const prepared = await workspaceToolRequest({
       operation: 'prepare_patch',
@@ -293,12 +329,14 @@
       '',
       'Apply this change? The current file will be backed up first. You can cancel without changing anything.',
     ].join('\\n');
+    setAssistantActivityStage('approval', 'A change preview for ' + filePath + ' is ready. Waiting for your approval; nothing is saved yet.');
     setWorkspaceTaskStatus('approval', 'A source-change preview is ready. Nothing is saved until you approve.');
     if (typeof window.confirm !== 'function' || !window.confirm(message)) {
       push('Edit cancelled. No project files were changed.');
       setWorkspaceTaskStatus('inspected', 'The proposed edit was cancelled; the saved project was not changed.');
       return;
     }
+    setAssistantActivityStage('applying', 'Submitting your approved change for ' + filePath + '.');
     const applied = await workspaceToolRequest({
       operation: 'apply_patch',
       projectId,
@@ -308,6 +346,7 @@
       confirm: true,
       expectedUpdateTime: prepared.revision,
     });
+    setAssistantActivityStage('verifying', 'Checking the server-confirmed save result for ' + filePath + '.');
     if (!applied.verified) {
       push('We could not confirm the edit to ' + filePath + '. A backup was kept; review the file before trying again.');
       setWorkspaceTaskStatus('error', 'The edit could not be verified.');
@@ -318,6 +357,7 @@
       '. The saved change was verified. Backup: ' + String(applied.revisionId || 'saved') +
       (updatedLocal ? '. The current workspace source was refreshed.' : '. Reopen or refresh the project to load the server-saved version.') +
       ' Note: this confirms the saved file, not a full live-browser test.');
+    setAssistantActivityStage('complete', 'The saved change to ' + filePath + ' was verified. Live browser behaviour has not been claimed.');
     setWorkspaceTaskStatus('applied', 'The change was saved and verified.');
   }
 
@@ -685,6 +725,155 @@
     else pushMessage('OVYX: ' + String(text));
   }
 
+  const ASSISTANT_ACTIVITY_LABELS = Object.freeze({
+    thinking: 'Thinking through your request',
+    inspecting: 'Inspecting your project',
+    searching: 'Searching your project',
+    reading: 'Reading project source',
+    diagnosing: 'Checking project issues',
+    applying: 'Applying approved changes',
+    verifying: 'Verifying the saved result',
+    approval: 'Waiting for your approval',
+    complete: 'Task finished',
+    error: 'Task could not be completed',
+  });
+
+  function recordAssistantActivity(message) {
+    const list = activeActivityNode?.querySelector('.ovyx-native-activity-log');
+    const detail = String(message || '').replace(/\s+/g, ' ').trim().slice(0, 320);
+    if (!list || !detail) return;
+    const last = list.lastElementChild;
+    if (last && last.textContent === detail) return;
+    const item = document.createElement('li');
+    item.textContent = detail;
+    list.appendChild(item);
+    while (list.children.length > 14) list.firstElementChild?.remove();
+  }
+
+  function setAssistantActivityStage(stage, message, options = {}) {
+    if (!activeActivityNode) return;
+    const availableStages = Object.keys(ASSISTANT_ACTIVITY_LABELS);
+    const normalizedStage = availableStages.includes(stage) ? stage : 'thinking';
+    const detail = String(message || ASSISTANT_ACTIVITY_LABELS[normalizedStage]).trim().slice(0, 420);
+    activeActivityNode.dataset.stage = normalizedStage;
+    const title = activeActivityNode.querySelector('.ovyx-native-activity-title');
+    const status = activeActivityNode.querySelector('.ovyx-native-activity-message');
+    const detailsSummary = activeActivityNode.querySelector('.ovyx-native-activity-details summary');
+    if (title) title.textContent = ASSISTANT_ACTIVITY_LABELS[normalizedStage];
+    if (status) status.textContent = detail;
+    if (detailsSummary) detailsSummary.textContent = 'Show activity details';
+    if (options.record !== false) recordAssistantActivity(detail);
+
+    const p = panel();
+    const phaseClasses = [
+      'ovyx-ai-thinking', 'ovyx-ai-inspecting', 'ovyx-ai-searching',
+      'ovyx-ai-reading', 'ovyx-ai-diagnosing', 'ovyx-ai-applying',
+      'ovyx-ai-verifying', 'ovyx-ai-approval',
+    ];
+    phaseClasses.forEach(name => p?.classList.remove(name));
+    if (phaseClasses.includes('ovyx-ai-' + normalizedStage)) {
+      p?.classList.add('ovyx-ai-' + normalizedStage);
+    }
+    const root = $('bot-chat-history');
+    if (root) root.scrollTop = root.scrollHeight;
+  }
+
+  function beginAssistantActivity(message = 'Checking the available project context…') {
+    const root = $('bot-chat-history');
+    if (!root) return null;
+    activeActivityNode?.remove();
+    const row = document.createElement('div');
+    row.className = 'ovyx-native-activity';
+    row.dataset.stage = 'thinking';
+    row.setAttribute('role', 'status');
+    row.setAttribute('aria-live', 'polite');
+
+    const avatar = makeBotAvatar();
+    avatar.classList.add('ovyx-native-activity-avatar');
+    const content = document.createElement('div');
+    content.className = 'ovyx-native-activity-content';
+    const title = document.createElement('div');
+    title.className = 'ovyx-native-activity-title';
+    const status = document.createElement('div');
+    status.className = 'ovyx-native-activity-message';
+
+    const details = document.createElement('details');
+    details.className = 'ovyx-native-activity-details';
+    const summary = document.createElement('summary');
+    summary.textContent = 'Show activity details';
+    const list = document.createElement('ol');
+    list.className = 'ovyx-native-activity-log';
+    details.append(summary, list);
+    content.append(title, status, details);
+    row.append(avatar, content);
+    root.appendChild(row);
+    activeActivityNode = row;
+    setAssistantActivityStage('thinking', message);
+    return row;
+  }
+
+  function finishAssistantActivity(stage = 'complete', message = 'Response ready.') {
+    if (!activeActivityNode) return;
+    const row = activeActivityNode;
+    setAssistantActivityStage(stage, message);
+    row.dataset.completed = 'true';
+    if (stage === 'complete' || stage === 'error') row.removeAttribute('aria-live');
+    activeActivityNode = null;
+    const p = panel();
+    ['ovyx-ai-thinking', 'ovyx-ai-inspecting', 'ovyx-ai-searching', 'ovyx-ai-reading',
+      'ovyx-ai-diagnosing', 'ovyx-ai-applying', 'ovyx-ai-verifying', 'ovyx-ai-approval']
+      .forEach(name => p?.classList.remove(name));
+  }
+
+  function describeWorkspaceToolAction(action) {
+    const type = String(action?.type || '');
+    if (type === 'workspace_search') {
+      const rawQueries = Array.isArray(action.queries) ? action.queries : [action.query];
+      const queries = rawQueries.map(value => String(value || '').trim()).filter(Boolean).slice(0, 8);
+      return {
+        stage: 'searching',
+        message: 'Searching saved project source for ' + (queries.length
+          ? queries.map(query => '“' + query.slice(0, 90) + '”').join(' · ')
+          : 'the requested terms') + '.',
+      };
+    }
+    if (type === 'workspace_read_file') {
+      return { stage: 'reading', message: 'Reading ' + String(action.filePath || action.path || 'the requested source file').slice(0, 220) + '.' };
+    }
+    if (type === 'workspace_diagnose') {
+      return { stage: 'diagnosing', message: 'Checking saved project files for structural and source-level issues.' };
+    }
+    return { stage: 'inspecting', message: 'Inspecting the saved project inventory, pages and source files.' };
+  }
+
+  function describeWorkspaceToolOutcome(action, outcome) {
+    if (!outcome?.ok) return 'Could not complete ' + String(action?.type || 'the requested project check') + ': ' + String(outcome?.error || 'tool failed').slice(0, 180);
+    const result = outcome.result || {};
+    if (result.operation === 'search') {
+      const total = Number(result.totalMatches ?? result.count ?? 0);
+      const files = Number(result.filesSearched ?? 0);
+      const matchedFiles = Number(result.matchedFileCount ?? 0);
+      const queries = Array.isArray(result.byQuery) ? result.byQuery : [];
+      const querySummary = queries.map(item => '“' + String(item.query || '').slice(0, 70) + '”: ' + Number(item.count || 0)).join('; ');
+      let summary = 'Search complete: ' + total + ' match(es) across ' + matchedFiles + ' matching file(s); checked ' + files + ' source file(s)';
+      if (querySummary) summary += '. Per query: ' + querySummary;
+      if (result.inventoryTruncated) summary += '. The safety limit was reached, so the inventory may be incomplete';
+      if (result.resultsTruncated) summary += '. Some matching snippets were omitted from the preview; aggregate counts include them';
+      return summary + '.';
+    }
+    if (result.operation === 'read_file') {
+      return 'Read ' + String(result.file?.path || action.filePath || 'the requested source file') +
+        (result.file?.contentComplete ? ' completely.' : ' as bounded inspection context; the returned source is partial or redacted.');
+    }
+    if (result.operation === 'inspect') {
+      return 'Project inspection returned ' + Number(result.project?.fileCount || 0) + ' source file(s) and ' + Number(result.project?.pageCount || 0) + ' page(s).';
+    }
+    if (result.operation === 'diagnose') {
+      return 'Project diagnostics returned ' + Number(result.diagnostics?.issues?.length || 0) + ' issue(s) to review.';
+    }
+    return 'Project inspection completed.';
+  }
+
   function setWorkspaceTaskStatus(status, message = '') {
     workspaceTaskStatus = String(status || 'idle');
     workspaceTaskMessage = String(message || '');
@@ -772,7 +961,7 @@
       String(action?.type || ''),
       String(action?.projectId || ''),
       String(action?.filePath || action?.path || ''),
-      String(action?.query || ''),
+      Array.isArray(action?.queries) ? action.queries.join('¦') : String(action?.query || ''),
     ].join('|');
   }
 
@@ -822,13 +1011,32 @@
       };
     }
     if (operation === 'search') {
+      const perQuery = (Array.isArray(response.byQuery) ? response.byQuery : []).slice(0, 8);
+      // Preserve a representative snippet sample for each searched term.
+      // Counts and truncation flags come from the full scan, not this preview.
+      const balancedMatches = perQuery.length
+        ? perQuery.flatMap(entry => (Array.isArray(entry.matches) ? entry.matches : []).slice(0, 4)).slice(0, 32)
+        : (Array.isArray(response.matches) ? response.matches : []).slice(0, 32);
       return {
         operation,
         projectId: response.projectId,
         query: response.query,
+        queries: (Array.isArray(response.queries) ? response.queries : [response.query]).slice(0, 8),
         revision: response.revision,
         count: response.count,
-        matches: (Array.isArray(response.matches) ? response.matches : []).slice(0, 16),
+        totalMatches: response.totalMatches,
+        filesSearched: response.filesSearched,
+        matchedFileCount: response.matchedFileCount,
+        inventoryTruncated: response.inventoryTruncated === true,
+        resultsTruncated: response.resultsTruncated === true,
+        byQuery: perQuery.map(entry => ({
+          query: entry.query,
+          count: entry.count,
+          matchedFileCount: entry.matchedFileCount,
+          resultsTruncated: entry.resultsTruncated === true,
+          previewCount: (Array.isArray(entry.matches) ? entry.matches : []).length,
+        })),
+        matches: balancedMatches,
       };
     }
     return response;
@@ -847,6 +1055,7 @@
     } else if (action.type === 'workspace_search') {
       operation = 'search';
       payload.query = String(action.query || '');
+      if (Array.isArray(action.queries)) payload.queries = action.queries.map(value => String(value || '')).slice(0, 8);
     } else {
       return { type: action?.type || 'workspace-tool', ok: false, error: 'This workspace action is not a read-only tool.' };
     }
@@ -1308,11 +1517,15 @@
     input.disabled = true;
     bot.pushMsg('USER: ' + prompt);
     input.value = '';
-    const needsWorkspaceInspection = /(?:\b(?:my|this|current|active)\s+project\b|\bworkspace\b|\b(?:broken|fix|repair|debug|diagnos|inspect|undo|restore)\b|\bfind why\b|\bcheck whether (?:the )?fix\b)/i.test(prompt);
+    beginAssistantActivity('Reading your request and checking the available project context…');
+    setAssistantActivityStage('inspecting', 'Checking the active project, source inventory and current workspace context…');
+    const needsWorkspaceInspection = /(?:\b(?:my|this|current|active)\s+project\b|\bworkspace\b|\b(?:broken|fix|repair|debug|diagnos|inspect|undo|restore)\b|\bfind why\b|\bcheck whether (?:the )?fix\b|\b(?:search|find|look for|locate|trace|study|investigate)\b.{0,80}\b(?:project|file|source|code|component|function|class|selector|setting|reference|implementation|usage|logic|feature|workspace)\b)/i.test(prompt);
     try {
       const contextResult = await resolveWorkspaceContext();
       const context = contextResult.context;
       const activeProjectId = String(context?.activeProject?.id || window.KernelState?.activeProject?.id || window.ProjectStore?.current?.id || '');
+      setAssistantActivityStage(activeProjectId ? 'inspecting' : 'thinking',
+        activeProjectId ? 'A project is selected; checking its saved source and structure…' : 'No saved project is selected; using the available workspace context…');
       let serverWorkspace = null;
       let serverDiagnostics = null;
       let serverToolError = '';
@@ -1324,6 +1537,7 @@
         const shouldDiagnose = /\b(diagnos|debug|broken|bug|repair|fix|not working|doesn.?t work|inspect|malfunction|error)\b/i.test(prompt);
         const serverProjectId = String(serverWorkspace?.activeProject?.id || '');
         if (shouldDiagnose && serverProjectId) {
+          setAssistantActivityStage('diagnosing', 'Checking the saved project for structural issues and source-level problems…');
           const diagnosticResult = await workspaceToolRequest({ operation: 'diagnose', projectId: serverProjectId });
           serverDiagnostics = diagnosticResult.diagnostics || null;
         }
@@ -1349,6 +1563,7 @@
       setWorkspaceTaskStatus('running', serverWorkspace?.activeProject?.id
         ? 'Project inspection is complete; OVYX AI is working on your request.'
         : 'OVYX AI is working with the available local context and will identify any missing project details.');
+      setAssistantActivityStage('thinking', 'Using the available project context to plan the next inspection or answer…');
       const assistantContext = {
         // Saved owner-verified project context and local fallback travel with every tool round.
         serverWorkspace,
@@ -1360,7 +1575,7 @@
         contextWarning: context.contextWarning || null,
         assistantPolicy: 'OVYX native workspace assistant. Use authenticated read-only workspace tools when source evidence is missing. Context scanning is optional: use saved serverWorkspace data and serverDiagnostics when available, and always use the local snapshot as a fallback when deeper scans are unavailable. Any source edit requires a real file preview plus explicit user approval; only report a saved edit when the server confirms read-back verification.',
       };
-      const assistantSystem = 'Answer as OVYX AI. Inspect the authenticated saved project context when supplied. When necessary, request workspace_inspect, workspace_read_file, workspace_search, or workspace_diagnose and wait for their actual returned results before diagnosing or proposing a code edit. Never claim that code changed unless a server-confirmed workspace_patch action returned verified=true. A source edit must be reviewed and explicitly approved in the UI before it is written. For website builds, preserve the existing Web Studio generation workflow.';
+      const assistantSystem = 'Answer as OVYX AI. Inspect the authenticated saved project context when supplied. For deep project searches, use workspace_search with 2–8 related literal terms in queries, then inspect and read the exact relevant files. Follow cross-references when the user asks for a deep study; report searched-file and match counts plus any incomplete scan honestly. When necessary, request workspace_inspect, workspace_read_file, workspace_search, or workspace_diagnose and wait for their actual returned results before diagnosing or proposing a code edit. Never claim that code changed unless a server-confirmed workspace_patch action returned verified=true. A source edit must be reviewed and explicitly approved in the UI before it is written. For website builds, preserve the existing Web Studio generation workflow.';
       const workspaceToolResults = [];
       const executedToolKeys = new Set();
       const conversationMessages = [
@@ -1378,13 +1593,13 @@
       // authenticated server endpoint, feed the result back, then reason again.
       // The model cannot invoke writes directly: workspace_patch still goes through
       // the explicit human preview/approval flow in runActions().
-      while (toolRounds < 3) {
+      while (toolRounds < 4) {
         result = await nativeGenerate({
           mode: 'workspace-copilot-native',
           prompt,
           messages: roundMessages,
           context: {
-            workspaceToolResults: workspaceToolResults.slice(-3),
+            workspaceToolResults: workspaceToolResults.slice(-6),
             ...assistantContext,
           },
           system: assistantSystem,
@@ -1394,7 +1609,7 @@
           .filter(action => READ_ONLY_WORKSPACE_ACTIONS.has(String(action?.type || '')));
         if (!readActions.length) break;
 
-        const remaining = 4 - toolCallCount;
+        const remaining = 6 - toolCallCount;
         if (remaining <= 0) {
           toolLimitReached = true;
           result = {
@@ -1406,7 +1621,7 @@
         }
 
         if (!showedToolProgress) {
-          push('I’m checking the actual saved project evidence before finalizing my answer. Review only so far. No files have been changed.');
+          recordAssistantActivity('OVYX requested read-only inspection tools. No project files have been changed.');
           showedToolProgress = true;
         }
         const distinctActions = [];
@@ -1434,11 +1649,18 @@
           continue;
         }
 
-        setWorkspaceTaskStatus('running', 'Reviewing saved app files and available details.');
+        const activityItems = distinctActions.map(describeWorkspaceToolAction);
+        activityItems.forEach(item => recordAssistantActivity(item.message));
+        const primaryActivity = activityItems.find(item => item.stage === 'searching') || activityItems[0];
+        const activityMessage = activityItems.map(item => item.message).join(' ');
+        setAssistantActivityStage(primaryActivity?.stage || 'inspecting', activityMessage);
+        setWorkspaceTaskStatus('running', activityMessage);
         const outcomes = await Promise.all(distinctActions.map(executeWorkspaceReadAction));
         toolCallCount += distinctActions.length;
+        outcomes.forEach((outcome, index) => recordAssistantActivity(describeWorkspaceToolOutcome(distinctActions[index], outcome)));
         workspaceToolResults.push(...outcomes);
         if (workspaceToolResults.length > 6) workspaceToolResults.splice(0, workspaceToolResults.length - 6);
+        setAssistantActivityStage('thinking', 'Reviewing the returned source evidence and deciding what else needs checking…', { record: false });
         roundMessages = [
           ...roundMessages,
           { role: 'assistant', content: String(result.text || '') },
@@ -1451,6 +1673,7 @@
       // answer. If it asks for yet another tool, stop honestly rather than claiming
       // unsupported diagnosis or proceeding with an ungrounded edit.
       if (!result) {
+        setAssistantActivityStage('thinking', 'Reviewing the collected evidence and preparing a grounded answer…');
         result = await nativeGenerate({
           mode: 'workspace-copilot-native',
           prompt,
@@ -1459,7 +1682,7 @@
             { role: 'user', content: 'Provide the final answer using the evidence already returned in context.workspaceToolResults. Do not request another tool if you can answer from the existing evidence. Clearly state any limitation and do not claim changes were applied.' },
           ].slice(-12),
           context: {
-            workspaceToolResults: workspaceToolResults.slice(-3),
+            workspaceToolResults: workspaceToolResults.slice(-6),
             ...assistantContext,
           },
           system: assistantSystem,
@@ -1486,6 +1709,7 @@
         { role: 'assistant', content: String(result.text || '') },
       ].slice(-12);
 
+      setAssistantActivityStage('thinking', 'Summarizing the findings and preparing any requested action for review…');
       syncWorkspaceBadge(context, contextResult.limited);
       const assistantRow = bot.pushMsg('OVYX: ' + result.text);
       if (assistantRow && assistantRow.dataset) {
@@ -1503,7 +1727,10 @@
       bot.pushMsg('OVYX ERROR: ' + String(error?.message || 'OVYX AI could not complete that request.'));
     } finally {
       busy = false;
-      panel()?.classList.remove('ovyx-ai-thinking');
+      finishAssistantActivity(workspaceTaskStatus === 'error' ? 'error' : 'complete',
+        workspaceTaskStatus === 'error'
+          ? (workspaceTaskMessage || 'The request ended with an issue. Review the activity details.')
+          : 'Response ready. Open the activity details to review the project checks and actions performed.');
       input.disabled = false;
       if (sendButton) {
         sendButton.disabled = !String(input.value || '').trim();

@@ -34,7 +34,7 @@ try {
     const assistantScript = page.locator('script[src*="/assets/ovyx-assistant-workspace.js"]');
     assert.ok(await assistantScript.count(), `[${target.name}] assistant workspace script was not injected`);
     const scriptSources = await assistantScript.evaluateAll(nodes => nodes.map(node => node.src));
-    assert.ok(scriptSources.some(src => /[?&]v=20261018-4(?:&|$)/.test(src)), `[${target.name}] the updated assistant runtime cache version was not loaded`);
+    assert.ok(scriptSources.some(src => /[?&]v=20261019-1(?:&|$)/.test(src)), `[${target.name}] the updated assistant runtime cache version was not loaded`);
 
     await page.evaluate(() => window.WorkspaceBrainBot.open());
     const panel = page.locator('#kernel-brain-bot-panel');
@@ -243,6 +243,15 @@ try {
     await page.getByText(/The saved change was verified/i).waitFor({ state: 'visible', timeout: 20000 });
     const savedCopy = await page.getByText(/The saved change was verified/i).innerText();
     assert.doesNotMatch(savedCopy, /server read-back verification/i, '[' + target.name + '] user-facing save feedback must avoid implementation-level wording');
+
+    const activity = panel.locator('.ovyx-native-activity');
+    // data-stage belongs to the activity card itself, not a nested child.
+    await activity.waitFor({ state: 'attached', timeout: 5000 });
+    await page.locator('.ovyx-native-activity[data-completed="true"]').waitFor({ state: 'visible', timeout: 5000 });
+    const activityText = await activity.evaluate(node => String(node.textContent || ''));
+    assert.ok(activityText.toLowerCase().includes('reading src/menu.js') || activityText.toLowerCase().includes('reading src\\menu.js'), '[' + target.name + '] the assistant activity card must show the inspected file path');
+    assert.ok(activityText.toLowerCase().includes('read src/menu.js completely') || activityText.toLowerCase().includes('read src\\menu.js completely'), '[' + target.name + '] the activity trace must describe the actual source-read outcome');
+    assert.match(activityText, /Response ready/i, '[' + target.name + '] the activity card must show a finished state rather than a stuck spinner');
 
     assert.deepEqual(
       workspaceCalls.map(call => call.operation),
