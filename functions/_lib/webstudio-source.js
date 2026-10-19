@@ -7,7 +7,7 @@ const CLIENT_FILE_CHAR_LIMIT = 120000;
 const SOURCE_TASK = /\b(?:search|find|locate|look\s+for|inspect|review|examine|audit|trace|where\s+is|show\s+me|list\s+(?:the\s+)?files?|read\s+(?:the\s+)?source|check\s+(?:the\s+)?(?:code|source|project|page)|understand\s+(?:the\s+)?(?:code|project|page))\b/i;
 const EDIT_TASK = /\b(?:add|change|edit|update|fix|repair|apply|remove|delete|replace|improve|enhance|adjust|modify|restyle|reposition|resize|shrink|enlarge|increase|decrease|align|move|rearrange|polish|optimi[sz]e|implement|make)\b/i;
 const EXPLICIT_NEW_BUILD = /\b(?:build|create|generate|design|develop|launch)\s+(?:(?:me|us)\s+)?(?:(?:a|an|the|brand\s+new|new|complete|full|multi[- ]page|single[- ]page)\s+){0,2}(?:website|web\s+site|site|web\s+app|application|digital\s+product)\b/i;
-const EXISTING_REFERENCE = /\b(?:existing|current|already\s+(?:built|made|have)|this\s+(?:project|site|website|page|layout|design|button|menu|section|form|app|component)|that\s+(?:project|site|website|page|layout|design|button|menu|section|form|app|component)|my\s+(?:project|site|website|page|layout|design|app)|selected|above|here|it|the\s+(?:website|site|page|project|app|layout|design|current|existing|same|selected)(?:\s+(?:project|site|website|page|layout|design|app|file|source))?)\b/i;
+const EXISTING_REFERENCE = /\b(?:(?:existing|current)\s+(?:project|site|website|page|layout|design|button|menu|section|form|app|component|file|source)|already\s+(?:built|made|have)|this\s+(?:project|site|website|page|layout|design|button|menu|section|form|app|component)|that\s+(?:project|site|website|page|layout|design|button|menu|section|form|app|component)|my\s+(?:project|site|website|page|layout|design|app)|selected|above|here|it|this|that|the\s+(?:website|site|page|project|app|layout|design|current|existing|same|selected)(?:\s+(?:project|site|website|page|layout|design|app|file|source))?)\b/i;
 const TARGETED_EDIT_OBJECT = /\b(?:the\s+)?(?:colors?|colou?rs?|font|typography|spacing|layout|header|footer|hero|headline|heading|title|text|copy|navigation|nav|menu|menu\s+item|button|form|section|card|logo|image|background|contrast|padding|margin|mobile\s+menu|responsive|mobile|desktop|tablet|accessibility|seo|skip\s+link|label|link|component|style|stylesheet|file|source|project|interaction|control|icon|dropdown|sidebar|animation|transition)\b/i;
 
 const STOP_WORDS = new Set((
@@ -35,7 +35,7 @@ export function isScopedWebStudioEdit(prompt, hasSourceContext = false) {
   if (EXISTING_REFERENCE.test(text)) return true;
   // In Web Studio, concise follow-ups like "change the colors" or "fix the menu"
   // act on the current source. Explicit requests to create a new website remain builds.
-  if (EXPLICIT_NEW_BUILD.test(text) && !/\b(?:existing|current|this|that|my|already\s+built)\b/i.test(text)) return false;
+  if (EXPLICIT_NEW_BUILD.test(text)) return false;
   return /\b(?:the\s+(?:colors?|colou?rs?|font|typography|spacing|layout|header|footer|hero|menu|navigation|button|form|section|card|logo|image|background|contrast|padding|margin|mobile\s+menu)|colors?|colou?rs?|font|typography|spacing|layout|header|footer|hero|menu|navigation|button|form|section|card|logo|image|background|contrast|padding|margin|mobile\s+menu|the\s+project)\b/i.test(text);
 }
 
