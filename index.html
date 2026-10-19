@@ -1847,7 +1847,7 @@
           'admin-overview': 'Admin Overview',
           'admin-pricing': 'Plans & access',
           'admin-users': 'Users & Roles',
-          'admin-brain': 'AI Service Status',
+          'admin-brain': 'AI services',
           'admin-identity': 'AI Identity Studio',
           'admin-backend': 'Service health',
           'admin-telemetry': 'Usage & insights',
@@ -2026,7 +2026,7 @@
           localStorage.setItem('ovyx_master_production_live', this.isLive);
         } catch (e) {}
         this.renderUI();
-        showToast(`Master Switch: ${this.isLive ? 'LIVE PRODUCTION STATE ACTIVE' : 'INTEGRATION OFF'}`, this.isLive ? 'success' : 'info');
+        showToast(`Master Switch: ${this.isLive ? 'PLATFORM SERVICES ACTIVE' : 'PLATFORM SERVICES PAUSED'}`, this.isLive ? 'success' : 'info');
       },
       renderUI() {
         const headerBadge = document.getElementById('header-production-badge');
@@ -2037,26 +2037,26 @@
           if (headerBadge) {
             headerBadge.className = 'hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-emerald-500/30 bg-emerald-950/20 font-mono text-[10px] text-emerald-300 font-bold';
           }
-          if (headerText) headerText.textContent = 'LIVE PRODUCTION';
+          if (headerText) headerText.textContent = 'SERVICES ACTIVE';
           if (adminTag) {
-            adminTag.textContent = 'LIVE PRODUCTION';
+            adminTag.textContent = 'SERVICES ACTIVE';
             adminTag.className = 'text-[9px] font-mono px-2 py-0.5 rounded border border-emerald-500/30 text-emerald-400 bg-emerald-950/30 uppercase font-bold';
           }
           if (toggleBtn) {
-            toggleBtn.textContent = 'Turn Integration Off';
+            toggleBtn.textContent = 'Pause platform services';
             toggleBtn.className = 'spring-btn px-5 py-2.5 rounded-xl border border-rose-500/40 bg-rose-950/30 text-xs font-mono font-bold text-rose-300 hover:bg-rose-900/50';
           }
         } else {
           if (headerBadge) {
             headerBadge.className = 'hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-amber-500/30 bg-amber-950/20 font-mono text-[10px] text-amber-300 font-bold';
           }
-          if (headerText) headerText.textContent = 'INTEGRATION OFF';
+          if (headerText) headerText.textContent = 'PLATFORM SERVICES PAUSED';
           if (adminTag) {
-            adminTag.textContent = 'INTEGRATION OFF';
+            adminTag.textContent = 'PLATFORM SERVICES PAUSED';
             adminTag.className = 'text-[9px] font-mono px-2 py-0.5 rounded border border-amber-500/30 text-amber-400 bg-amber-950/30 uppercase font-bold';
           }
           if (toggleBtn) {
-            toggleBtn.textContent = 'Switch to Live State';
+            toggleBtn.textContent = 'Enable platform services';
             toggleBtn.className = 'spring-btn px-5 py-2.5 rounded-xl border border-emerald-500/40 bg-emerald-950/30 text-xs font-mono font-bold text-emerald-300 hover:bg-emerald-900/50';
           }
         }
@@ -2718,7 +2718,7 @@
         document.getElementById('ws-brain-btn')?.addEventListener('click', () => {
           const order = ['automatic','gemini','deepseek','anthropic','openai']; const i = order.indexOf(this.brain); this.brain = order[(i + 1) % order.length]; try{persistStateNow('brain-cycle')}catch(_){} const label = this.brain === 'automatic' ? 'Auto' : this.brain; const el = document.getElementById('ws-brain-label'); if (el) el.textContent = label[0].toUpperCase()+label.slice(1);
         });
-        document.getElementById('ws-context-btn')?.addEventListener('click', () => { this.ensureProjectGraph(); this.appendMessage('agent', `Project context loaded: ${this.graphFileCount()} source files, ${this.pageCount()} page(s), ${this.dependencySummary()}.`); });
+        document.getElementById('ws-context-btn')?.addEventListener('click', () => { this.ensureProjectGraph(); this.appendMessage('agent', `Workspace details loaded: ${this.graphFileCount()} files across ${this.pageCount()} page(s).`); });
       },
       bindPreview() {
         document.getElementById('ws-desktop-preview-menu')?.addEventListener('click', e => { e.stopPropagation(); this.togglePreviewMenu(); });
@@ -3061,7 +3061,7 @@
         }catch(e){
           if(!this.isRequestCurrent(token))return;
           if(e?.name==='AbortError')return;
-          this.status(e.message||'AI request failed.','error');
+          this.status(e.message||'The AI response could not be completed. Please try again.','error');
           this.appendMessage('agent','Your request could not be completed. Please try again or choose another AI option.');
         }finally{if(this.isRequestCurrent(token)){this.pendingBuild=false;this.liveAiActive=false;this.renderThread()}}
       },
@@ -3092,7 +3092,7 @@
           const changedFiles=this.diffFiles(before,afterApply);
           const changedHtml=changedFiles.some(path=>/\.html?$/i.test(path)&&String(afterApply?.files?.[path]?.content||'').trim().length>80);
           const changedFrontend=changedFiles.some(path=>/\.(html?|css|m?js|jsx|tsx)$/i.test(path)&&String(afterApply?.files?.[path]?.content||'').trim().length>0);
-          if(!(hadWebsite?changedFrontend:changedHtml))throw Object.assign(new Error('The AI response did not produce a real website file change. OVYX kept the previous preview unchanged. Please retry or check your selected AI provider.'),{code:'AI_BUILD_NO_ARTIFACTS'});
+          if(!(hadWebsite?changedFrontend:changedHtml))throw Object.assign(new Error('The website draft could not be updated. Your previous preview remains unchanged. Try again or choose another AI option.'),{code:'AI_BUILD_NO_ARTIFACTS'});
           const test=this.runTests(false);
           if(!this.isRequestCurrent(token))return;
           if(!test.ok){
@@ -3339,10 +3339,10 @@
       async deployDirect(){
         this.ensureProjectGraph();
         const tests=this.runTests(true);
-        if(!tests.ok){this.openEngineeringConsole('tests');window.showToast?.('Deployment stopped: project checks are failing.','error');return false;}
+        if(!tests.ok){this.openEngineeringConsole('tests');window.showToast?.('Publishing is unavailable until quality checks pass.','error');return false;}
         const controller=new AbortController();
         let timer=0;
-        const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>{try{controller.abort()}catch(_){}reject(new Error('Deployment request timed out after 60 seconds.'))},60000)});
+        const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>{try{controller.abort()}catch(_){}reject(new Error('Website publishing took too long. Check publishing status before trying again.'))},60000)});
         try{
           const publish=window.OVYXDeployment?.publish;
           if(typeof publish==='function'){
@@ -3364,7 +3364,7 @@
           window.showToast?.('Deployment published.','success');
           return true;
         }catch(e){
-          const message=controller.signal.aborted?'Deployment request timed out after 60 seconds.':(e?.message||'Publishing is not available for this workspace yet.');
+          const message=controller.signal.aborted?'Website publishing took too long. Check publishing status before trying again.':(e?.message||'Publishing is not available for this workspace yet.');
           window.showToast?.(`Publishing could not be completed. Please try again.`,'error');
           return false;
         }finally{clearTimeout(timer)}
@@ -3438,13 +3438,13 @@
         this.ensureProjectGraph();const host=document.getElementById('ws-graph-content');if(!host)return;
         const files=Object.entries(this.graph.files||{}).sort((a,b)=>a[0].localeCompare(b[0]));
         const rows=files.map(([path,file])=>`<button type="button" class="ovyx-ws-file-node" data-graph-file="${this.escapeAttr(path)}"><span class="path">${this.escapeHtml(path)}</span><span class="kind">${this.escapeHtml(file?.type||this.mime(path))}</span></button>`).join('');
-        host.innerHTML=`<div class="ovyx-ws-plan-section"><span>SOURCE OF TRUTH</span><div style="font:500 9px/1.5 Inter,sans-serif;color:var(--app-muted,#94A3B8)">Agent, Editor and Preview read from this same graph. ${files.length} file(s) are currently tracked.</div></div><div class="ovyx-ws-file-graph">${rows||'<div style="padding:18px;color:var(--app-muted,#94A3B8);font:700 9px JetBrains Mono">No project files yet.</div>'}</div>`;
+        host.innerHTML=`<div class="ovyx-ws-plan-section"><span>SOURCE OF TRUTH</span><div style="font:500 9px/1.5 Inter,sans-serif;color:var(--app-muted,#94A3B8)">Agent, Editor and Preview read from this same graph. ${files.length} file(s) are included.</div></div><div class="ovyx-ws-file-graph">${rows||'<div style="padding:18px;color:var(--app-muted,#94A3B8);font:700 9px JetBrains Mono">No files are available yet.</div>'}</div>`;
         host.querySelectorAll('[data-graph-file]').forEach(btn=>btn.onclick=()=>this.openCodeEditor(btn.dataset.graphFile));
         const modal=document.getElementById('ws-graph-modal');modal.classList.add('open');modal.setAttribute('aria-hidden','false');
       },
       openDeployPanel(){
         this.ensureProjectGraph();const host=document.getElementById('ws-deploy-content');if(!host)return;const p=window.KernelState?.activeProject||{};const deploys=Array.isArray(p.ovyxDeployments)?p.ovyxDeployments:[];
-        host.innerHTML=`<div class="ovyx-ws-plan-section"><span>RELEASE</span><div style="font:500 9px/1.5 Inter,sans-serif;color:var(--app-muted,#94A3B8)">Publish the same version used by Preview and Code. Publishing is blocked when required checks fail.</div></div><div class="ovyx-ws-plan-editor"><div><div class="ovyx-ws-plan-field"><label>Domain</label><input id="ws-deploy-domain" value="${this.escapeAttr(p.ovyxDeploymentDomain||'')}" placeholder="example.com" /></div><div class="ovyx-ws-plan-field" style="margin-top:10px"><label>Environment variables</label><textarea id="ws-deploy-env" placeholder="KEY=value\nANOTHER_KEY=value">${this.escapeHtml(String(p.ovyxDeploymentEnvText||''))}</textarea></div></div><div><div class="ovyx-ws-plan-field"><label>Deployment state</label><div style="padding:10px;border:1px solid var(--app-border,#1B222A);border-radius:9px;background:var(--app-card,#0B0D10);font:700 9px/1.5 JetBrains Mono;color:var(--app-text,#F8FAFC)">${deploys.length?this.escapeHtml(deploys[0]?.status||'unknown'):'No deployment recorded in this browser runtime.'}</div></div><div class="ovyx-ws-plan-field" style="margin-top:10px"><label>History</label><div style="max-height:120px;overflow:auto;font:600 8px/1.55 JetBrains Mono;color:var(--app-muted,#94A3B8)">${deploys.map(d=>`${new Date(d.at).toLocaleString()} · ${d.status} · ${d.url||'no URL'}`).join('<br>')||'No deployment events yet.'}</div></div></div></div><div class="ovyx-ws-plan-actions"><button class="ovyx-ws-action-btn primary" type="button" id="ws-deploy-run">Run checks &amp; publish</button><button class="ovyx-ws-action-btn" type="button" data-ws-close="deploy">Close</button></div>`;
+        host.innerHTML=`<div class="ovyx-ws-plan-section"><span>RELEASE</span><div style="font:500 9px/1.5 Inter,sans-serif;color:var(--app-muted,#94A3B8)">Publish the same version used by Preview and Code. Publishing is blocked when required checks fail.</div></div><div class="ovyx-ws-plan-editor"><div><div class="ovyx-ws-plan-field"><label>Domain</label><input id="ws-deploy-domain" value="${this.escapeAttr(p.ovyxDeploymentDomain||'')}" placeholder="example.com" /></div><div class="ovyx-ws-plan-field" style="margin-top:10px"><label>Environment variables</label><textarea id="ws-deploy-env" placeholder="KEY=value\nANOTHER_KEY=value">${this.escapeHtml(String(p.ovyxDeploymentEnvText||''))}</textarea></div></div><div><div class="ovyx-ws-plan-field"><label>Deployment state</label><div style="padding:10px;border:1px solid var(--app-border,#1B222A);border-radius:9px;background:var(--app-card,#0B0D10);font:700 9px/1.5 JetBrains Mono;color:var(--app-text,#F8FAFC)">${deploys.length?this.escapeHtml(deploys[0]?.status||'unknown'):'No publishing activity has been recorded yet.'}</div></div><div class="ovyx-ws-plan-field" style="margin-top:10px"><label>History</label><div style="max-height:120px;overflow:auto;font:600 8px/1.55 JetBrains Mono;color:var(--app-muted,#94A3B8)">${deploys.map(d=>`${new Date(d.at).toLocaleString()} · ${d.status} · ${d.url||'no URL'}`).join('<br>')||'No publishing activity yet.'}</div></div></div></div><div class="ovyx-ws-plan-actions"><button class="ovyx-ws-action-btn primary" type="button" id="ws-deploy-run">Run checks &amp; publish</button><button class="ovyx-ws-action-btn" type="button" data-ws-close="deploy">Close</button></div>`;
         host.querySelector('#ws-deploy-run').onclick=()=>{p.ovyxDeploymentDomain=host.querySelector('#ws-deploy-domain')?.value.trim()||'';p.ovyxDeploymentEnvText=host.querySelector('#ws-deploy-env')?.value||'';this.deployDirect();};
         host.querySelector('[data-ws-close="deploy"]').onclick=()=>this.closeModal('deploy');
         const modal=document.getElementById('ws-deploy-modal');modal.classList.add('open');modal.setAttribute('aria-hidden','false');
@@ -3471,7 +3471,7 @@
         if(this.monacoReady||this.monaco) return true;
         if((window.__OVYX_EARLY_VIEWPORT__||document.documentElement.getAttribute('data-ovyx-viewport-mode'))==='mobile'){document.getElementById('ovyx-monaco-host').style.display='none';document.getElementById('ovyx-fallback-editor').style.display='block';return false}
         try{
-          await new Promise((resolve,reject)=>{if(window.require?.config)return resolve();const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.55.1/min/vs/loader.min.js';s.onload=resolve;s.onerror=()=>reject(new Error('Monaco loader unavailable'));document.head.appendChild(s)});
+          await new Promise((resolve,reject)=>{if(window.require?.config)return resolve();const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.55.1/min/vs/loader.min.js';s.onload=resolve;s.onerror=()=>reject(new Error('The code editor could not be loaded.'));document.head.appendChild(s)});
           await new Promise((resolve,reject)=>{window.require.config({paths:{vs:'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.55.1/min/vs'}});window.require(['vs/editor/editor.main'],()=>resolve(),reject)});this.monacoReady=true;this.monaco=window.monaco;return true;
         }catch(e){console.warn('[OVYX Code] Monaco unavailable, using fallback editor',e);document.getElementById('ovyx-monaco-host').style.display='none';document.getElementById('ovyx-fallback-editor').style.display='block';return false}
       },
@@ -3694,7 +3694,7 @@
       if(preview){
         this.state='preview';
         PROVIDERS.forEach(id=>this.setProvider(id,'PREVIEW',{error:'Sign in with an administrator account to check live AI service availability.'}));
-        this.applyOverview('PREVIEW','Live service status is unavailable in preview mode.',0);
+        this.applyOverview('PREVIEW','Service availability is not shown in this preview.',0);
         return false;
       }
       // The status endpoint is deliberately admin-protected. Do not probe it for normal users.
@@ -3719,7 +3719,7 @@
         const data=await r.json().catch(()=>({}));
         if(!r.ok)throw Object.assign(new Error(data.error||data.message||'AI availability could not be checked. Please try again.'),{status:r.status});
         const list=Array.isArray(data.providers)?data.providers:[];
-        if(list.length!==PROVIDERS.length)throw new Error(`Secure AI status returned ${list.length}/${PROVIDERS.length} providers.`);
+        if(list.length!==PROVIDERS.length)throw new Error(`AI availability checks returned ${list.length} of ${PROVIDERS.length} results.`);
         let ready=0;
         list.forEach(item=>{
           const id=String(item.provider||'').toLowerCase();
@@ -3729,7 +3729,7 @@
             ready++;
             this.setProvider(id,'READY',{label:item.label||PROVIDER_LABELS[id],model:item.model||'',latencyMs:item.latencyMs});
           }else{
-            this.setProvider(id,status==='NOT_CONFIGURED'?'NOT_CONFIGURED':status,{error:item.error||({AUTH_FAILED:'Sign-in could not be verified. Review the AI service settings.',TIMEOUT:'The availability check took too long. Try again.',RATE_LIMITED:'Too many requests were made. Try again later.',INSUFFICIENT_CREDITS:'This AI option has reached its available credit limit.',UPSTREAM_ERROR:'This AI option encountered an error. Try again later.',UNAVAILABLE:'This AI option could not be reached. Try again later.'}[status]||'Provider is not ready.')});
+            this.setProvider(id,status==='NOT_CONFIGURED'?'NOT_CONFIGURED':status,{error:item.error||({AUTH_FAILED:'Sign-in could not be verified. Review the AI service settings.',TIMEOUT:'The availability check took too long. Try again.',RATE_LIMITED:'Too many requests were made. Try again later.',INSUFFICIENT_CREDITS:'This AI option has reached its available credit limit.',UPSTREAM_ERROR:'This AI option encountered an error. Try again later.',UNAVAILABLE:'This AI option could not be reached. Try again later.'}[status]||'This AI option is not available yet.')});
           }
         });
         // Fill any missing provider rows without marking them as healthy.
@@ -4672,7 +4672,7 @@ function helpCenter(){
  mountHelpSupportForm(v);
  const list=v.querySelector('#ovyx-help-faq-list');
  function render(q=''){const x=q.trim().toLowerCase();const owner=window.OVYXServerOwner?.active===true;const filtered=items.filter(it=>it.cat!=='Admin'||owner).filter(it=>(it.q+' '+it.a+' '+it.cat).toLowerCase().includes(x));list.innerHTML=filtered.length?filtered.map((it,i)=>{const id='helpq-'+i;return `<div class="ovyx-help-card2" style="padding:0;overflow:hidden"><button class="ovyx-help-tool" data-help-toggle="${id}"><span style="width:22px;height:22px;display:grid;place-items:center;border:1px solid var(--ov-line);border-radius:6px;color:var(--ov-accent);font:800 8px JetBrains Mono,monospace">?</span><span style="flex:1"><b>${escHelp(it.q)}</b><small>${escHelp(it.cat)}</small></span><i class="fa-solid fa-${i===0?'minus':'plus'}"></i></button><div id="${id}" ${i===0?'':'hidden'} style="padding:0 14px 14px 46px;color:var(--ov-muted);font:500 9px/1.6 Inter,sans-serif">${escHelp(it.a)}</div></div>`}).join(''):'<div class="ovyx-empty-state">No help articles match that search.</div>';list.querySelectorAll('[data-help-toggle]').forEach(b=>b.addEventListener('click',()=>{const panel=document.getElementById(b.dataset.helpToggle);if(!panel)return;panel.hidden=!panel.hidden;b.querySelector('i').className=panel.hidden?'fa-solid fa-plus':'fa-solid fa-minus'}))}
- render();v.querySelector('#ovyx-help-search').addEventListener('input',e=>render(e.target.value));v.querySelectorAll('[data-help-cat]').forEach(b=>b.addEventListener('click',()=>{v.querySelector('#ovyx-help-search').value=b.dataset.helpCat;render(b.dataset.helpCat)}));v.querySelector('#help-shortcuts').onclick=()=>CommandPalette.toggle();v.querySelector('#help-system').onclick=()=>toast('OVYX local runtime is operational. External service status is checked by the relevant connection or owner diagnostics.','info');
+ render();v.querySelector('#ovyx-help-search').addEventListener('input',e=>render(e.target.value));v.querySelectorAll('[data-help-cat]').forEach(b=>b.addEventListener('click',()=>{v.querySelector('#ovyx-help-search').value=b.dataset.helpCat;render(b.dataset.helpCat)}));v.querySelector('#help-shortcuts').onclick=()=>CommandPalette.toggle();v.querySelector('#help-system').onclick=()=>toast('OVYX is ready to use. Service availability can be reviewed in Settings.','info');
 }
 function boot(){try{patchSettings();helpCenter();settingsAdmin()}catch(e){console.warn('[OVYX number13-14]',e)}const auth=window.FirebaseAuthLockdown;if(auth&&!auth.__n13watch){const old=auth.enforceAccess?.bind(auth);auth.enforceAccess=function(){try{old?.()}catch(e){console.warn('[OVYX runtime]',e)};settingsAdmin()};auth.__n13watch=true;setTimeout(()=>{settingsAdmin()},300)}}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(boot,40),{once:true});else setTimeout(boot,40);
@@ -4688,7 +4688,7 @@ window.OVYXDataLayerSettings={projectSyncEnabled(){return dbCfg().projectSync!==
 function dbCfg(){try{return {...{endpoint:'',projectSync:true},...JSON.parse(localStorage.getItem(DBKEY)||'{}')}}catch{return {endpoint:'',projectSync:true}}}
 function dbSave(x){try{localStorage.setItem(DBKEY,JSON.stringify(x));return true}catch{return false}}
 const escDataLayer = value => String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
-function renderDataLayer(){const S=window.OVYXSettings,p=S?.root?.querySelector('[data-settings-panel="workspace"]');if(!p)return;const c=dbCfg();let layer=p.querySelector('#ovyx-data-layer-panel');if(!layer){layer=document.createElement('div');layer.id='ovyx-data-layer-panel';layer.className='ovyx-data-layer-panel';p.appendChild(layer)}layer.innerHTML=`<div class="ovyx-panel-head"><div class="ovyx-panel-kicker">WORKSPACE / DATA</div><h2>OVYX Data Layer</h2><p>Configure an external data source for this app. Its address is stored on this device. The test checks whether the service responds; it does not create a database. Ensure the service manages its own credentials and access permissions.</p></div><div class="ovyx-data-grid"><div class="ovyx-data-card"><b>Database setup</b><small>This workspace does not create databases or run migrations automatically.</small><span class="ovyx-data-status"><i class="fa-solid fa-circle"></i> Not set up</span></div><div class="ovyx-data-card"><b>Service availability</b><small>This check confirms only that the service responds. It does not verify data storage or app data operations.</small><span class="ovyx-data-status"><i class="fa-solid fa-shield-halved"></i> Health check only</span></div></div><div class="ovyx-pref-group"><div class="ovyx-pref-label">BACKEND CONNECTION</div>${S.row('Data source address','Optional data service address; used only to check availability',`<input class="ovyx-pref-input" id="ovyx-data-endpoint" value="${escDataLayer(c.endpoint)}" placeholder="https://your-domain.com/api/data" autocomplete="off">`)}${S.row('OVYX cloud project sync','Enable or pause the existing authenticated OVYX project sync service',`<button type="button" class="ovyx-notify-toggle" id="ovyx-data-sync" role="switch" aria-checked="${!!c.projectSync}"><span></span></button>`)}</div><div class="ovyx-data-code">Service status check\n\nThis check confirms only that the service responds. It does not verify data storage or app data operations. Your saved apps continue to use the existing save feature.\n\nDownload SQL schema creates a starter file on this device. It does not connect a database or run migrations.\n\nYour chosen data service must protect account access, validate data, and keep credentials secure.</div><div class="ovyx-data-actions"><button class="ovyx-settings-btn primary" id="ovyx-data-save">Save Data Settings</button><button class="ovyx-settings-btn" id="ovyx-data-test">Test API</button><button class="ovyx-settings-btn" id="ovyx-data-schema">Download SQL schema</button></div><div id="ovyx-data-result" class="ovyx-connection-note">No external data service is configured yet. Its status will update after a successful check.</div>`;const sync=p.querySelector('#ovyx-data-sync');sync.onclick=()=>{const x=dbCfg();x.projectSync=!x.projectSync;dbSave(x);sync.setAttribute('aria-checked',String(x.projectSync));window.OVYXDataLayerSettings?.changed?.(x.projectSync);const out=p.querySelector('#ovyx-data-result');if(out)out.textContent=x.projectSync?'OVYX cloud project sync enabled. Existing authenticated /api/projects sync will resume.':'OVYX cloud project sync paused. Local project edits remain on this device until sync is re-enabled.';toast(x.projectSync?'Cloud project sync enabled.':'Cloud project sync paused.','success')};p.querySelector('#ovyx-data-save').onclick=()=>{const x=dbCfg();x.endpoint=p.querySelector('#ovyx-data-endpoint').value.trim().replace(/\/$/,'');x.projectSync=sync.getAttribute('aria-checked')==='true';dbSave(x);toast('Data layer settings saved.','success')};p.querySelector('#ovyx-data-test').onclick=async()=>{const ep=p.querySelector('#ovyx-data-endpoint').value.trim().replace(/\/$/,'');const out=p.querySelector('#ovyx-data-result');if(!ep){out.textContent='Add your secure data API endpoint first.';return}out.textContent='Testing backend…';try{const r=await fetch(ep+'/health',{headers:{Accept:'application/json'},credentials:'omit',cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);const d=await r.json().catch(()=>({}));out.textContent='Service check completed successfully. This check confirms only that the service responds. It does not verify data storage or app data operations.';toast('Service check completed.','success')}catch(e){out.textContent='The service could not be reached. Check the service address and try again.';toast('The service check could not be completed.','error')}};p.querySelector('#ovyx-data-schema').onclick=()=>{const sql=`-- OVYX PostgreSQL foundation schema\ncreate table if not exists ovyx_projects (\n  id text primary key,\n  owner_id text not null,\n  name text not null,\n  description text default '',\n  status text default 'draft',\n  schema_version integer default 1,\n  data jsonb not null default '{}'::jsonb,\n  created_at timestamptz not null default now(),\n  updated_at timestamptz not null default now()\n);\ncreate index if not exists ovyx_projects_owner_updated on ovyx_projects(owner_id, updated_at desc);\ncreate table if not exists ovyx_project_revisions (\n  id bigserial primary key,\n  project_id text not null references ovyx_projects(id) on delete cascade,\n  owner_id text not null,\n  snapshot jsonb not null,\n  created_at timestamptz not null default now()\n);\ncreate index if not exists ovyx_revisions_project_created on ovyx_project_revisions(project_id, created_at desc);\ncreate table if not exists ovyx_ai_usage (\n  id bigserial primary key,\n  owner_id text not null,\n  tokens integer not null default 0,\n  provider text,\n  model text,\n  created_at timestamptz not null default now()\n);\ncreate index if not exists ovyx_ai_usage_owner_created on ovyx_ai_usage(owner_id, created_at desc);\n`;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([sql],{type:'text/plain'}));a.download='ovyx-postgresql-schema.sql';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),600)}}
+function renderDataLayer(){const S=window.OVYXSettings,p=S?.root?.querySelector('[data-settings-panel="workspace"]');if(!p)return;const c=dbCfg();let layer=p.querySelector('#ovyx-data-layer-panel');if(!layer){layer=document.createElement('div');layer.id='ovyx-data-layer-panel';layer.className='ovyx-data-layer-panel';p.appendChild(layer)}layer.innerHTML=`<div class="ovyx-panel-head"><div class="ovyx-panel-kicker">WORKSPACE / DATA</div><h2>OVYX Data Layer</h2><p>Configure an external data source for this app. Its address is stored on this device. The test checks whether the service responds; it does not create a database. Ensure the service manages its own credentials and access permissions.</p></div><div class="ovyx-data-grid"><div class="ovyx-data-card"><b>Database setup</b><small>This workspace does not create databases or run migrations automatically.</small><span class="ovyx-data-status"><i class="fa-solid fa-circle"></i> Not set up</span></div><div class="ovyx-data-card"><b>Service availability</b><small>This check confirms only that the service responds. It does not verify data storage or app data operations.</small><span class="ovyx-data-status"><i class="fa-solid fa-shield-halved"></i> Health check only</span></div></div><div class="ovyx-pref-group"><div class="ovyx-pref-label">BACKEND CONNECTION</div>${S.row('Data source address','Optional data service address; used only to check availability',`<input class="ovyx-pref-input" id="ovyx-data-endpoint" value="${escDataLayer(c.endpoint)}" placeholder="https://your-domain.com/api/data" autocomplete="off">`)}${S.row('OVYX cloud project sync','Enable or pause the existing authenticated OVYX project sync service',`<button type="button" class="ovyx-notify-toggle" id="ovyx-data-sync" role="switch" aria-checked="${!!c.projectSync}"><span></span></button>`)}</div><div class="ovyx-data-code">Service status check\n\nThis check confirms only that the service responds. It does not verify data storage or app data operations. Your saved apps continue to use the existing save feature.\n\nDownload SQL schema creates a starter file on this device. It does not connect a database or run migrations.\n\nYour chosen data service must protect account access, validate data, and keep credentials secure.</div><div class="ovyx-data-actions"><button class="ovyx-settings-btn primary" id="ovyx-data-save">Save Data Settings</button><button class="ovyx-settings-btn" id="ovyx-data-test">Check service</button><button class="ovyx-settings-btn" id="ovyx-data-schema">Download SQL schema</button></div><div id="ovyx-data-result" class="ovyx-connection-note">No external data service is configured yet. Its status will update after a successful check.</div>`;const sync=p.querySelector('#ovyx-data-sync');sync.onclick=()=>{const x=dbCfg();x.projectSync=!x.projectSync;dbSave(x);sync.setAttribute('aria-checked',String(x.projectSync));window.OVYXDataLayerSettings?.changed?.(x.projectSync);const out=p.querySelector('#ovyx-data-result');if(out)out.textContent=x.projectSync?'Cloud sync is on. App changes will sync to your OVYX account.':'Cloud sync is paused. Changes remain on this device until sync is turned back on.';toast(x.projectSync?'Cloud project sync enabled.':'Cloud project sync paused.','success')};p.querySelector('#ovyx-data-save').onclick=()=>{const x=dbCfg();x.endpoint=p.querySelector('#ovyx-data-endpoint').value.trim().replace(/\/$/,'');x.projectSync=sync.getAttribute('aria-checked')==='true';dbSave(x);toast('Data layer settings saved.','success')};p.querySelector('#ovyx-data-test').onclick=async()=>{const ep=p.querySelector('#ovyx-data-endpoint').value.trim().replace(/\/$/,'');const out=p.querySelector('#ovyx-data-result');if(!ep){out.textContent='Add your secure data service address first.';return}out.textContent='Checking service…';try{const r=await fetch(ep+'/health',{headers:{Accept:'application/json'},credentials:'omit',cache:'no-store'});if(!r.ok)throw Error('HTTP '+r.status);const d=await r.json().catch(()=>({}));out.textContent='Service check completed successfully. This check confirms only that the service responds. It does not verify data storage or app data operations.';toast('Service check completed.','success')}catch(e){out.textContent='The service could not be reached. Check the service address and try again.';toast('The service check could not be completed.','error')}};p.querySelector('#ovyx-data-schema').onclick=()=>{const sql=`-- OVYX PostgreSQL foundation schema\ncreate table if not exists ovyx_projects (\n  id text primary key,\n  owner_id text not null,\n  name text not null,\n  description text default '',\n  status text default 'draft',\n  schema_version integer default 1,\n  data jsonb not null default '{}'::jsonb,\n  created_at timestamptz not null default now(),\n  updated_at timestamptz not null default now()\n);\ncreate index if not exists ovyx_projects_owner_updated on ovyx_projects(owner_id, updated_at desc);\ncreate table if not exists ovyx_project_revisions (\n  id bigserial primary key,\n  project_id text not null references ovyx_projects(id) on delete cascade,\n  owner_id text not null,\n  snapshot jsonb not null,\n  created_at timestamptz not null default now()\n);\ncreate index if not exists ovyx_revisions_project_created on ovyx_project_revisions(project_id, created_at desc);\ncreate table if not exists ovyx_ai_usage (\n  id bigserial primary key,\n  owner_id text not null,\n  tokens integer not null default 0,\n  provider text,\n  model text,\n  created_at timestamptz not null default now()\n);\ncreate index if not exists ovyx_ai_usage_owner_created on ovyx_ai_usage(owner_id, created_at desc);\n`;const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([sql],{type:'text/plain'}));a.download='ovyx-postgresql-schema.sql';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),600)}}
 function patchWorkspace(){const S=window.OVYXSettings;if(!S||S.__n1415)return;S.__n1415=true;const oldShow=S.show.bind(S);S.show=function(id){const r=oldShow(id);if(id==='workspace')setTimeout(renderDataLayer,0);return r};if(S.current==='workspace')renderDataLayer()}
 function init(){try{patchWorkspace()}catch(e){console.warn('[OVYX data layer]',e)}}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>setTimeout(init,60),{once:true});else setTimeout(init,60);
@@ -5065,7 +5065,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
         error.code=data?.code||'AI_SERVICE_REQUEST_FAILED';error.status=r.status;
         throw error;
       }
-      if(data?.ok===false)throw Object.assign(new Error(data?.error||data?.message||'AI request failed.'),{code:data?.code||'AI_SERVICE_REQUEST_FAILED',status:r.status});
+      if(data?.ok===false)throw Object.assign(new Error(data?.error||data?.message||'The AI response could not be completed. Please try again.'),{code:data?.code||'AI_SERVICE_REQUEST_FAILED',status:r.status});
       return data;
     }
   };
@@ -6506,7 +6506,7 @@ window.OVYXV58={syncDock,route:safeRoute,useTemplate,previewTemplate,featureLock
         this.isLive=next;
         try{localStorage.setItem('ovyx_master_production_live',String(next))}catch(e){console.warn('[OVYX runtime]',e)}
         originalRender?.();
-        toast(`Master Switch: ${next?'LIVE PRODUCTION STATE ACTIVE':'INTEGRATION OFF'}`,next?'success':'info');
+        toast(`Master Switch: ${next?'PLATFORM SERVICES ACTIVE':'PLATFORM SERVICES PAUSED'}`,next?'success':'info');
       }catch(e){
         console.error('[OVYX Phase 1] production state write failed',e);
         toast('Platform integration settings could not be saved. Please try again.','error');
@@ -7934,7 +7934,7 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
         const data=await adminConfigRequest('POST',{action:'setProductionState',live:next});
         applyConfig(data);
         try{localStorage.setItem('ovyx_master_production_live',String(next))}catch(e){console.warn('[OVYX runtime]',e)}
-        toast(`Master Switch: ${next?'LIVE PRODUCTION STATE ACTIVE':'INTEGRATION OFF'}`,next?'success':'info');
+        toast(`Master Switch: ${next?'PLATFORM SERVICES ACTIVE':'PLATFORM SERVICES PAUSED'}`,next?'success':'info');
       }catch(error){
         console.error('[OVYX Step A] production state write failed',error);
         toast(error.message||'Production state could not be saved.','error');
@@ -8250,7 +8250,7 @@ window.OVYXAccessRegistry={state,requiredTier,allowed,planFeatures,apply:applyLo
     const render=live=>{
       PS.isLive=!!live;
       clone.textContent=live?'Switch to Sandbox':'Switch to Live Integration';
-      if(tag){tag.textContent=previewOpen()&&!auth()?(live?'LIVE INTEGRATION':'INTEGRATION OFF'):(live?'LIVE INTEGRATION':'INTEGRATION OFF');tag.className='text-[9px] font-mono px-2 py-0.5 rounded border '+(live?'border-emerald-500/30 text-emerald-400 bg-emerald-950/20':'border-amber-500/30 text-amber-400 bg-amber-950/30')+' uppercase font-bold';}
+      if(tag){tag.textContent=previewOpen()&&!auth()?(live?'LIVE INTEGRATION':'PLATFORM SERVICES PAUSED'):(live?'LIVE INTEGRATION':'PLATFORM SERVICES PAUSED');tag.className='text-[9px] font-mono px-2 py-0.5 rounded border '+(live?'border-emerald-500/30 text-emerald-400 bg-emerald-950/20':'border-amber-500/30 text-amber-400 bg-amber-950/30')+' uppercase font-bold';}
     };
     let saved=false;try{saved=sessionStorage.getItem(PROD_PREVIEW_KEY)==='1'}catch(e){console.warn('[OVYX runtime]',e)}
     if(previewOpen()&&!auth())render(saved);
@@ -9059,7 +9059,7 @@ window.addEventListener('ovyx:view-changed',()=>{
       const nodes=[];let n;while((n=walker.nextNode()))nodes.push(n);
       nodes.forEach(node=>{
         let text=node.nodeValue||'';
-        text=text.replace(/\bPREVIEW MODE\b/gi,'CURRENT DEVICE').replace(/\bTEST MODE\b/gi,'ADMIN OVERRIDE').replace(/\bINTEGRATION OFF\b/gi,'INTEGRATION OFF').replace(/\bINTEGRATION OFF\b/gi,'INTEGRATION OFF').replace(/\bLIVE INTEGRATION\b/gi,'LIVE INTEGRATION').replace(/\bINTEGRATION OFF\b/gi,'INTEGRATION OFF');
+        text=text.replace(/\bPREVIEW MODE\b/gi,'CURRENT DEVICE').replace(/\bTEST MODE\b/gi,'ADMIN OVERRIDE').replace(/\bINTEGRATION OFF\b/gi,'PLATFORM SERVICES PAUSED').replace(/\bINTEGRATION OFF\b/gi,'PLATFORM SERVICES PAUSED').replace(/\bLIVE INTEGRATION\b/gi,'LIVE INTEGRATION').replace(/\bINTEGRATION OFF\b/gi,'PLATFORM SERVICES PAUSED');
         node.nodeValue=text;
       });
     });
@@ -11002,7 +11002,7 @@ window.addEventListener('pageshow',()=>setTimeout(install,0),{passive:true});
       if(options?.signal?.aborted)throw Object.assign(new Error('OVYX AI request cancelled.'),{name:'AbortError'});
       try{
         const r=await base({...payload,provider:normalized,requestedProvider:requested,failoverAttempt:false},options);
-        if(r?.ok===false)throw Object.assign(new Error(r.error||r.message||'AI request failed.'),{code:r.code||'AI_SERVICE_REQUEST_FAILED',status:r.status||503});
+        if(r?.ok===false)throw Object.assign(new Error(r.error||r.message||'The AI response could not be completed. Please try again.'),{code:r.code||'AI_SERVICE_REQUEST_FAILED',status:r.status||503});
         return {...(r||{}),requestedProvider:requested,routedProvider:r?.provider||normalized,failoverUsed:false};
       }catch(e){
         if(options?.signal?.aborted||e?.name==='AbortError')throw e;
@@ -13558,7 +13558,7 @@ window.OVYXDeepRepair={version:'1.0',requireAuth,projectSync:ProjectCloudSync,br
         const result=await window.OVYXAIService?.generate?.({mode:'workspace-assistant',prompt:q,project:context.activeProject||null,context:{workspaceAssistant:true,workspace:context,assistantPolicy:OVYX_WORKSPACE_AI_POLICY},system:OVYX_WORKSPACE_AI_POLICY});
         const text=String(result?.text||result?.message||result?.answer||'').trim();if(!text)throw new Error('OVYX AI returned no response.');
         this.pushMsg('OVYX: '+text);safeAssistantActions(result?.actions||result?.toolCalls||result?.commands);
-      }catch(error){this.pushMsg('OVYX ERROR: '+String(error?.message||error||'AI request failed.'))}
+      }catch(error){this.pushMsg('OVYX ERROR: '+String(error?.message||error||'The AI response could not be completed. Please try again.'))}
     };
     installWorkspaceAssistantChrome();
     window.addEventListener('firebase-auth-state-ready',()=>{window.__OVYX_WORKSPACE_AI_CONTEXT=null;installWorkspaceAssistantChrome();},{passive:true});
