@@ -994,8 +994,9 @@ export function isWebStudioPrompt(prompt, mode = '') {
   const q = clean(prompt).toLowerCase();
   if (/(website|web site|landing page|marketing site|homepage|portfolio site|church site|hospital site|clinic site|restaurant site|web app|dashboard|saas app|storefront)/.test(q)) return true;
 
-  const buildIntent = /\b(?:build|create|design|make|generate|develop|launch|craft|produce|turn|transform)\b/i.test(q);
-  if (!buildIntent) return false;
+  const explicitBuildAction = /\b(?:build|create|design|make|generate|develop|launch|craft|produce|turn|transform)\b/i.test(q);
+  const naturalLanguageBuildRequest = /\b(?:i|we)\s+(?:want|need|would like|would love)\s+(?:to\s+(?:build|create|design|make|develop)\s+)?(?:a|an|the|my|some kind of|something like)\s*(?:website|site|web app|application|app|platform|portal|marketplace|online community|community|network|workspace|member area|customer portal|client portal|management system|booking system|interactive experience|digital product|web tool|tool|software product|creator platform|service platform|collaboration space|learning environment|resource hub)\b/i.test(q);
+  if (!explicitBuildAction && !naturalLanguageBuildRequest) return false;
 
   // Known industry blueprints improve defaults, but they are not the boundary
   // of what a customer may ask OVYX to create.
