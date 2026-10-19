@@ -988,9 +988,11 @@ function clean(value) {
   return String(value || '').trim();
 }
 
-export function isWebStudioPrompt(prompt, mode = '') {
+export function isWebStudioPrompt(prompt, mode = '', context = {}) {
   const m = clean(mode).toLowerCase();
   if (/^web-studio-(build|fix|plan|ask)$/.test(m)) return true;
+  const activeView = clean(context && context.activeView).replace(/^view-/i, '').toLowerCase();
+  if (activeView === 'webstudio') return true;
   const q = clean(prompt).toLowerCase();
   if (/(website|web site|landing page|marketing site|homepage|portfolio site|church site|hospital site|clinic site|restaurant site|web app|dashboard|saas app|storefront)/.test(q)) return true;
 

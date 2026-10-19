@@ -24,6 +24,7 @@ try {
           status: 200,
           contentType: 'text/html; charset=utf-8',
           body: `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>
+          <input id="ws-chat-input" aria-label="Web Studio chat prompt">
           <div id="ws-agent-thread"></div>
           <section id="view-faq" class="hidden"><form id="ovyx-help-support-form">
             <input id="ovyx-help-support-subject"><textarea id="ovyx-help-support-message"></textarea>
@@ -41,7 +42,7 @@ try {
             window.OVYXAIService={async generate(payload){return window.__responseMode==='noop'?{ok:true,message:'I built your website'}:window.__homeResponse}};
             window.AIOrchestrator={async runSynthesis(mode='build'){return window.OVYXAIService.generate({mode,prompt:'Build it',project:window.KernelState.activeProject,context:{activeView:'home'}})}};
             window.WebStudio={
-              brain:'automatic',thread:[{id:'msg_test_123',role:'agent',text:'I finished reviewing the requested website.'}],
+              brain:'automatic',mode:'build',setMode(mode){this.mode=mode},async submitPrompt(){window.__submittedMode=this.mode;window.__submitCount=(window.__submitCount||0)+1;return true},thread:[{id:'msg_test_123',role:'agent',text:'I finished reviewing the requested website.'}],
               graph:null,
               ensureProjectGraph(){const p=window.KernelState.activeProject;if(!this.graph)this.graph=JSON.parse(JSON.stringify(p.ovyxGraph||{version:2,entry:'src/pages/Home.html',files:{'src/pages/Home.html':{type:'text/html',content:starter}}}));p.ovyxGraph=this.graph;return this.graph},
               snapshotGraph(){this.ensureProjectGraph();return JSON.parse(JSON.stringify(this.graph))},
@@ -49,7 +50,7 @@ try {
               hasProjectWebsite(){return true},
               renderPreview(){window.__previewRenderCount=(window.__previewRenderCount||0)+1},
               renderThread(){const el=document.getElementById('ws-agent-thread');el.innerHTML=this.thread.map((m,i)=>'<div class="ovyx-ws-msg agent" data-ws-thread-index="'+i+'"><div class="ovyx-ws-msg-content"><div class="ovyx-ws-msg-body">'+m.text+'</div><div class="ovyx-ws-msg-actions" hidden><button type="button" class="ovyx-ws-msg-action">Copy Text</button></div></div></div>').join('')},
-              async callAI(payload){return window.__buildResponse},
+              async callAI(payload){window.__lastCallAIPayload=payload;return window.__buildResponse},
               pageToHtml(page){return '<!doctype html><html><body><main><h1>'+page.name+'</h1></main></body></html>'},
               applyAIResult(result){if(result.project){window.KernelState.activeProject=result.project;this.graph=null;this.ensureProjectGraph()}this.ensureProjectGraph();const files=result.files||result.fileEdits||result.patch?.files;if(files)Object.entries(files).forEach(([path,value])=>{const text=typeof value==='string'?value:(value?.content??value?.text);if(text!==undefined)this.graph.files[path]={type:/\.html?$/i.test(path)?'text/html':'text/plain',content:String(text)}});if(result.html)this.graph.files[this.entryFile()]={type:'text/html',content:result.html};if(result.code)this.graph.files[this.entryFile()]={type:'text/html',content:result.code};this.syncGraphToProject()},
               syncGraphToProject(){window.KernelState.activeProject.ovyxGraph=this.graph},
@@ -58,7 +59,7 @@ try {
               diffFiles(a,b){const A=a?.files||{},B=b?.files||{};return [...new Set([...Object.keys(A),...Object.keys(B)])].filter(k=>String(A[k]?.content||'')!==String(B[k]?.content||''))},
             };
           </script>
-          <script defer src="/assets/ovyx-webstudio-reliability.js?v=20261014-1"></script>
+          <script defer src="/assets/ovyx-webstudio-reliability.js?v=20261019-2"></script>
           </body></html>`,
         });
         return;
@@ -80,6 +81,67 @@ try {
     assert.ok(response && response.status() < 400, '[' + target.name + '] app fixture failed to load');
     await page.waitForFunction(() => !!window.__OVYX_WEBSTUDIO_RELIABILITY_V1__);
     await page.waitForSelector('.ovyx-ws-feedback');
+
+    const followUpRouting = await page.evaluate(async () => {
+      const input = document.getElementById('ws-chat-input');
+      input.value = 'What should I change on the website?';
+      await window.WebStudio.submitPrompt();
+      const adviceMode = window.__submittedMode;
+      window.WebStudio.setMode('build'); // Reset to a deliberate Build choice for the source-search loop.
+      input.value = 'Search my project deeply for the mobile menu';
+      await window.WebStudio.submitPrompt();
+      const searchMode = window.__submittedMode;
+      input.value = 'Change the menu background';
+      await window.WebStudio.submitPrompt();
+      const editMode = window.__submittedMode;
+      window.WebStudio.setMode('ask'); // An explicit user choice must override the automatic mode.
+      input.value = 'Change the menu background';
+      await window.WebStudio.submitPrompt();
+      const manualAskMode = window.__submittedMode;
+      window.WebStudio.setMode('build');
+      input.value = 'Did you already fix the mobile menu?';
+      await window.WebStudio.submitPrompt();
+      const statusCheckMode = window.__submittedMode;
+      window.WebStudio.setMode('build');
+      input.value = 'Check if the menu is done, and fix it if not';
+      await window.WebStudio.submitPrompt();
+      const conditionalRepairMode = window.__submittedMode;
+      window.WebStudio.setMode('fix');
+      input.value = 'Search the project for the mobile menu handler';
+      await window.WebStudio.submitPrompt();
+      const fixModeSearch = window.__submittedMode;
+      window.WebStudio.setMode('build');
+      input.value = 'Inspect the menu, but do not change anything';
+      await window.WebStudio.submitPrompt();
+      const explicitReadOnlyMode = window.__submittedMode;
+      return { adviceMode, searchMode, editMode, manualAskMode, statusCheckMode, conditionalRepairMode, fixModeSearch, explicitReadOnlyMode };
+    });
+    assert.equal(followUpRouting.adviceMode, 'ask', '[' + target.name + '] advice-only website questions should stay read-only');
+    assert.equal(followUpRouting.searchMode, 'ask', '[' + target.name + '] a read-only project search should route to Ask automatically');
+    assert.equal(followUpRouting.editMode, 'build', '[' + target.name + '] a targeted edit after an automatic search should return to Build');
+    assert.equal(followUpRouting.manualAskMode, 'ask', '[' + target.name + '] a manually selected Ask mode must remain read-only');
+    assert.equal(followUpRouting.statusCheckMode, 'ask', '[' + target.name + '] asking whether a prior edit is already done must inspect read-only');
+    assert.equal(followUpRouting.conditionalRepairMode, 'build', '[' + target.name + '] a request to fix the issue if it is not done must stay in edit mode');
+    assert.equal(followUpRouting.fixModeSearch, 'ask', '[' + target.name + '] searches in Fix mode should route to Ask instead of attempting repairs');
+    assert.equal(followUpRouting.explicitReadOnlyMode, 'ask', '[' + target.name + '] an explicit no-changes instruction must remain read-only');
+
+    const activeGraphContext = await page.evaluate(async () => {
+      const studio = window.WebStudio;
+      studio.ensureProjectGraph();
+      studio.graph.files['styles/site.css'] = { type: 'text/css', content: '.site { color: navy; }' };
+      window.__buildResponse = { ok: true, scopedWebStudioEdit: true, files: { 'styles/site.css': { type: 'text/css', content: '.site { color: teal; }' } } };
+      await studio.callAI({ mode: 'build', prompt: 'Change the colors' }, 3);
+      return {
+        activeView: window.__lastCallAIPayload.context.activeView,
+        hasEntryFile: !!window.__lastCallAIPayload.context.files['src/pages/Home.html'],
+        hasCssFile: !!window.__lastCallAIPayload.context.files['styles/site.css'],
+        activeProjectId: window.__lastCallAIPayload.context.project && window.__lastCallAIPayload.context.project.id,
+      };
+    });
+    assert.equal(activeGraphContext.activeView, 'webstudio', '[' + target.name + '] Web Studio API context must identify the active view');
+    assert.equal(activeGraphContext.hasEntryFile, true, '[' + target.name + '] source inspection must receive the active graph HTML');
+    assert.equal(activeGraphContext.hasCssFile, true, '[' + target.name + '] source inspection must receive CSS source files too');
+
     const thumbs = page.locator('.ovyx-ws-feedback [data-ovyx-feedback-vote]');
     assert.equal(await thumbs.count(), 2, '[' + target.name + '] assistant response must show thumbs up and down');
 
@@ -126,6 +188,57 @@ try {
     });
     assert.equal(noOpStudioCall.rejected, true, '[' + target.name + '] in-studio AI acknowledgements without HTML must be rejected');
     assert.match(noOpStudioCall.message, /website draft was not updated.*existing preview remains unchanged/i);
+
+    const scopedCssEdit = await page.evaluate(async () => {
+      window.__buildResponse = {
+        ok: true,
+        scopedWebStudioEdit: true,
+        files: { 'assets/mobile-menu.css': { type: 'text/css', content: '.mobile-menu { display: grid; gap: 1rem; }' } },
+      };
+      try {
+        const result = await window.WebStudio.callAI({ mode: 'build', prompt: 'Change the mobile menu layout' }, 2);
+        return { accepted: true, scopedWebStudioEdit: result.scopedWebStudioEdit };
+      } catch (error) { return { accepted: false, message: error.message }; }
+    });
+    assert.equal(scopedCssEdit.accepted, true, '[' + target.name + '] scoped CSS-only edits must not be rejected by the HTML-preview build guard');
+    assert.equal(scopedCssEdit.scopedWebStudioEdit, true);
+
+    const scopedJsEdit = await page.evaluate(async () => {
+      window.__buildResponse = {
+        ok: true,
+        scopedWebStudioEdit: true,
+        files: { 'assets/mobile-menu.js': { type: 'text/javascript', content: 'function toggleMobileMenu(){ return true; }' } },
+      };
+      try {
+        const result = await window.WebStudio.callAI({ mode: 'build', prompt: 'Fix the mobile menu interaction' }, 3);
+        return { accepted: true, scopedWebStudioEdit: result.scopedWebStudioEdit };
+      } catch (error) { return { accepted: false, message: error.message }; }
+    });
+    assert.equal(scopedJsEdit.accepted, true, '[' + target.name + '] scoped JavaScript-only edits must pass when the source actually changed');
+    assert.equal(scopedJsEdit.scopedWebStudioEdit, true);
+
+    const scopedNoOp = await page.evaluate(async () => {
+      window.__buildResponse = { ok: true, scopedWebStudioEdit: true, files: {} };
+      try {
+        await window.WebStudio.callAI({ mode: 'build', prompt: 'Change the colors' }, 4);
+        return { rejected: false, message: '' };
+      } catch (error) { return { rejected: true, message: error.message }; }
+    });
+    assert.equal(scopedNoOp.rejected, true, '[' + target.name + '] a scoped-edit flag must not permit a no-op response');
+    assert.match(scopedNoOp.message, /website draft was not updated.*existing preview remains unchanged/i);
+
+    const newBuildCssOnly = await page.evaluate(async () => {
+      window.__buildResponse = {
+        ok: true,
+        files: { 'assets/site.css': { type: 'text/css', content: 'body { color: purple; }' } },
+      };
+      try {
+        await window.WebStudio.callAI({ mode: 'build', prompt: 'Build a new website' }, 5);
+        return { rejected: false, message: '' };
+      } catch (error) { return { rejected: true, message: error.message }; }
+    });
+    assert.equal(newBuildCssOnly.rejected, true, '[' + target.name + '] a new-site build still requires a real HTML artifact');
+    assert.match(newBuildCssOnly.message, /website draft was not updated.*existing preview remains unchanged/i);
 
     assert.deepEqual(errors, [], '[' + target.name + '] browser errors: ' + errors.join('; '));
     console.log('PASS Web Studio reliability ' + target.name + ': useful feedback controls, Help hand-off, no-op build rejection and verified HTML gate.');

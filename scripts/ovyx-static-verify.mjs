@@ -754,7 +754,7 @@ if (!fs.existsSync(webStudioReliabilityPath) || !fs.existsSync(webStudioFeedback
     !feedbackApi.includes('assertAuthenticated(context.data?.user)') ||
     !feedbackApi.includes('enforceSameOrigin(request)') ||
     !feedbackApi.includes("['ai_response_feedback', documentId]") ||
-    !shell.includes('/assets/ovyx-webstudio-reliability.js?v=20261018-3') ||
+    !shell.includes('/assets/ovyx-webstudio-reliability.js?v=20261019-2') ||
     !headerRules.includes('/assets/ovyx-webstudio-reliability.js') ||
     !mainHtml.includes('AI_BUILD_NO_ARTIFACTS') ||
     !mainHtml.includes("ovyxBuildState='verified'")

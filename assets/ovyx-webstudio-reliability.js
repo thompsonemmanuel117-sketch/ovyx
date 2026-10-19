@@ -426,8 +426,29 @@
         studio.ensureProjectGraph();
         baselineFiles = clone(studio.graph && studio.graph.files || {});
       }
-      var result = await originalCallAI.call(this, payload, token);
+      var requestPayload = Object.assign({}, payload || {});
+      var priorContext = requestPayload.context && typeof requestPayload.context === 'object' ? requestPayload.context : {};
+      requestPayload.context = Object.assign({}, priorContext, {
+        activeView: 'webstudio',
+        project: requestPayload.project || priorContext.project || window.KernelState && window.KernelState.activeProject || null,
+        files: requestPayload.files || priorContext.files || (studio.graph && studio.graph.files) || null
+      });
+      var result = await originalCallAI.call(this, requestPayload, token);
       if (!isBuild) return result;
+      if (result && result.scopedWebStudioEdit === true) {
+        var edits = result.files || result.fileEdits || result.patch && result.patch.files || {};
+        var hasChangedSource = Object.entries(edits).some(function (entry) {
+          var path = String(entry[0] || '');
+          var value = entry[1];
+          if (!path || path.includes('\\') || path.split('/').some(function (part) { return !part || part === '..' || part === '.'; }) || !/\.(?:html?|css|scss|sass|less|m?js|cjs|jsx|ts|tsx|json|svg|xml|md|txt|webmanifest|ya?ml)$/i.test(path)) return false;
+          var nextContent = typeof value === 'string' ? value : value && (value.content ?? value.text);
+          if (typeof nextContent !== 'string') return false;
+          var previous = baselineFiles[path];
+          var previousContent = typeof previous === 'string' ? previous : previous && (previous.content ?? previous.text);
+          return nextContent !== String(previousContent ?? '');
+        });
+        if (hasChangedSource) return result;
+      }
       var candidates = collectHtmlArtifacts(result, studio, baseProject);
       var changed = candidates.some(function (item) { return isChangedArtifact(item, baselineFiles); });
       if (!changed) {
@@ -439,6 +460,65 @@
     studio.callAI = guardedCallAI;
   }
 
+  function installFollowUpIntentRouter(studio) {
+    if (!studio || typeof studio.submitPrompt !== 'function' || studio.submitPrompt.__ovyxFollowUpIntentRouter) return;
+    var originalSubmit = studio.submitPrompt;
+    var originalSetMode = typeof studio.setMode === 'function' ? studio.setMode : null;
+    if (originalSetMode && !originalSetMode.__ovyxFollowUpModeTracker) {
+      function trackedSetMode(mode) {
+        if (!studio.__ovyxAutoModeSwitch) studio.__ovyxAutoReadOnlyMode = false;
+        return originalSetMode.apply(this, arguments);
+      }
+      trackedSetMode.__ovyxFollowUpModeTracker = true;
+      studio.setMode = trackedSetMode;
+    }
+    function switchMode(mode, autoReadOnly) {
+      if (typeof studio.setMode !== 'function') return;
+      studio.__ovyxAutoModeSwitch = true;
+      try { studio.setMode(mode); } finally { studio.__ovyxAutoModeSwitch = false; }
+      studio.__ovyxAutoReadOnlyMode = !!autoReadOnly;
+    }
+    function editAction(text) {
+      return /\b(?:add|change|edit|update|fix|repair|apply|remove|delete|replace|improve|enhance|adjust|modify|restyle|reposition|resize|shrink|enlarge|increase|decrease|align|move|rearrange|polish|optimi[sz]e|implement|make)\b/i.test(text);
+    }
+    function explicitNewBuild(text) {
+      return /\b(?:build|create|generate|design|develop|launch|make)\s+(?:(?:me|us)\s+)?(?:(?:a|an|brand\s+new|new|complete|full|multi[- ]page|single[- ]page)\s+){0,2}(?:website|web\s+site|site|web\s+app|application|digital\s+product)\b/i.test(text);
+    }
+    function targetedEdit(text) {
+      var asksForAdvice = /\b(?:what\s+should\s+i\s+change|what\s+would\s+you\s+change|tell\s+me\s+what\s+to\s+change|what\s+do\s+you\s+recommend|recommend\s+changes|suggest\s+changes|should\s+i\s+change|how\s+can\s+i\s+improve|how\s+should\s+i)\b/i.test(text);
+      return !asksForAdvice && editAction(text) && !explicitNewBuild(text) && (
+        /\b(?:this|that|it|here|above|existing|current|selected|my\s+(?:site|website|page|project)|the\s+(?:website|site|page|project|layout|design|header|footer|hero|menu|navigation|button|form|section|card|font|typography|colors?|colou?rs?|spacing|logo|image|background|contrast|code|source|file|function|method|class)|website|site|page|project|layout|design|header|footer|hero|headline|heading|title|text|copy|menu|navigation|button|form|section|card|font|typography|colors?|colou?rs?|spacing|logo|image|background|contrast|padding|margin|responsive|mobile|desktop|tablet|accessibility|feature|functionality|component|style|stylesheet|skip\s+link|label|link|dropdown|sidebar|control|icon|file|files|source|code|function|method|class|variable|search|filter|sort|upload|download|table|chart)\b/i.test(text)
+      );
+    }
+    function readOnlyFollowUp(text) {
+      var asksForAdvice = /\b(?:what\s+should\s+i\s+change|what\s+would\s+you\s+change|tell\s+me\s+what\s+to\s+change|what\s+do\s+you\s+recommend|recommend\s+changes|suggest\s+changes|should\s+i\s+change|how\s+can\s+i\s+improve|how\s+should\s+i)\b/i.test(text);
+      if (asksForAdvice) return true;
+      if (explicitNewBuild(text)) return false;
+      var explicitReadOnly = /\b(?:do\s+not|don't|dont|never)\s+(?:make\s+)?(?:any\s+)?(?:changes?|edits?|modifications?|fixes?|updates?)\b|\bread[-\s]+only\b|\bonly\s+(?:inspect|search|check|review|read|verify|list|show)\b|without\s+(?:editing|changing|modifying|writing)\b/i.test(text);
+      if (explicitReadOnly) return true;
+      var startsAsInspection = /^(?:(?:please|now|then|just)\s+)*(?:(?:can|could|would)\s+you\s+|i\s+(?:want|need)\s+you\s+to\s+)?(?:search|find|locate|inspect|review|examine|audit|trace|verify|check|list|show|read|where\b|why\b|how\b|what\b|is\b|are\b|was\b|were\b|has\b|have\b|did\b|does\b|do\b|tell\s+me\b|recommend\b|suggest\b)/i.test(text);
+      if (!startsAsInspection) return false;
+      var conditionalRepair = /\b(?:and|then|if\s+(?:not|missing|needed|it\s+isn't|it\s+is\s+not))\s+(?:please\s+)?(?:add|change|edit|update|fix|repair|apply|remove|delete|replace|improve|enhance|adjust|modify|restyle|reposition|resize|polish|implement)\b/i.test(text);
+      var statusQuestion = /\b(?:already|done|applied|changed|updated|fixed|added|implemented|working|exists?|present|saved|there)\b/i.test(text);
+      if (statusQuestion && !conditionalRepair) return true;
+      if (conditionalRepair || (editAction(text) && !statusQuestion)) return false;
+      return /\b(?:project|website|site|page|file|files|source|code|menu|header|footer|section|button|font|layout|design|feature|already|implemented|working|done|css|html|javascript|function|component|app|it|this|that|the)\b/i.test(text);
+    }
+    async function routedSubmitPrompt() {
+      var input = document.getElementById('ws-chat-input');
+      var prompt = String(input && input.value || '').trim();
+      var mode = String(studio.mode || 'build').toLowerCase();
+      if (['build','fix','plan'].includes(mode) && readOnlyFollowUp(prompt)) {
+        switchMode('ask', true);
+      } else if (mode === 'ask' && studio.__ovyxAutoReadOnlyMode && targetedEdit(prompt)) {
+        switchMode('build', false);
+      }
+      return originalSubmit.apply(this, arguments);
+    }
+    routedSubmitPrompt.__ovyxFollowUpIntentRouter = true;
+    studio.submitPrompt = routedSubmitPrompt;
+  }
+
   function install() {
     var studio = window.WebStudio;
     if (!studio || typeof studio.renderThread !== 'function' || typeof studio.callAI !== 'function' || !window.AIOrchestrator) return false;
@@ -446,6 +526,7 @@
     installSeedPreviewGuard(studio);
     attachFeedback(studio);
     installFeedbackActions(studio);
+    installFollowUpIntentRouter(studio);
     installBuildArtifactGuard(studio);
     installHomeBuildGuard(studio);
     try { studio.renderThread(); } catch (_) {}
