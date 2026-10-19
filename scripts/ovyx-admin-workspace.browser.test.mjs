@@ -95,21 +95,10 @@ try {
     await page.waitForFunction(() => typeof window.__OVYX_FIREBASE_READY__ === 'boolean', null, { timeout: 15000 });
 
     await page.evaluate(() => {
-      const listeners = new Set();
-      const root = { uid: 'ovyx-admin-root-fixture', email: 'ovyxsupportteam@gmail.com', getIdToken: async () => 'ovyx-admin-root-test-token' };
-      const free = { uid: 'ovyx-admin-free-fixture', email: 'ovyxsupportteam@gmail.com', getIdToken: async () => 'ovyx-admin-free-test-token' };
-      const auth = {
-        currentUser: root,
-        onAuthStateChanged(callback) {
-          listeners.add(callback);
-          queueMicrotask(() => callback(auth.currentUser));
-          return () => listeners.delete(callback);
-        },
-      };
-      window.firebase = { auth: () => auth };
+      const root = { uid: 'ovyx-admin-root-fixture', email: 'ovyxsupportteam@gmail.com', token: 'ovyx-admin-root-test-token' };
+      const free = { uid: 'ovyx-admin-free-fixture', email: 'ovyxsupportteam@gmail.com', token: 'ovyx-admin-free-test-token' };
       window.__setOVYXAdminTestIdentity = mode => {
-        auth.currentUser = mode === 'root' ? root : mode === 'free' ? free : null;
-        for (const callback of listeners) callback(auth.currentUser);
+        window.__setOVYXBrowserAuthUser(mode === 'root' ? root : mode === 'free' ? free : null);
         window.dispatchEvent(new Event('firebase-auth-state-ready'));
       };
       window.__setOVYXAdminTestIdentity('root');
@@ -122,7 +111,7 @@ try {
       uid: window.firebase?.auth?.()?.currentUser?.uid || null,
       firebaseReady: window.__OVYX_FIREBASE_READY__,
     }))), 'refreshResult=' + refreshResult, 'entitlementCalls=' + entitlementCalls);
-    await page.waitForFunction(() => window.OVYXAdminWorkspace.isAuthorized() === true);
+    await page.waitForFunction(() => window.OVYXAdminWorkspace.isAuthorized() === true, null, { timeout: 15000 });
     assert.ok(await page.locator('#' + 'ovyx-admin-workspace-entry-desktop').count(), '[' + target.name + '] desktop owner entry was not created');
     assert.ok(await page.locator('#ovyx-admin-workspace-entry-mobile').count(), '[' + target.name + '] mobile owner entry group was not created');
     assert.ok(await page.locator('#ovyx-admin-workspace-entry-mobile-button').count(), '[' + target.name + '] mobile owner action was not created');
@@ -130,7 +119,9 @@ try {
     // Open the actual workspace, then verify every restored module and search behavior.
     const workspaceEntry = target.name === 'mobile' ? '#ovyx-admin-workspace-entry-mobile-button' : '#ovyx-admin-workspace-entry-desktop';
     await page.locator(workspaceEntry).evaluate(button => button.click());
-    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-overview');
+    console.log('[' + target.name + '] Admin Workspace entry activation sent; waiting for the overview route.');
+    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-overview', null, { timeout: 15000 });
+    console.log('[' + target.name + '] Admin Workspace overview route confirmed.');
     const hub = page.locator('#ovyx-admin-workspace-hub');
     await hub.waitFor({ state: 'visible' });
     assert.equal(await hub.locator('[data-ovyx-admin-workspace-route]').count(), 9, '[' + target.name + '] Admin Workspace must list all nine existing modules');
@@ -160,7 +151,7 @@ try {
     // Exercise a real owner save through the routed API fixture and verify
     // that a fresh public catalog read updates the app-wide visible prices.
     await hub.locator('[data-ovyx-admin-workspace-route="admin-pricing"]').evaluate(button => button.click());
-    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-pricing');
+    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-pricing', null, { timeout: 15000 });
     await page.locator('#ovyx-global-quota-panel').waitFor({ state: 'attached' });
     await page.waitForFunction(() => /Updated pricing and usage limits are ready/.test(document.getElementById('ovyx-global-quota-status')?.textContent || ''), null, { timeout: 20000 });
     assert.equal(await page.locator('#ovyx-global-plan-features').count(), 1,
@@ -184,7 +175,7 @@ try {
       '[' + target.name + '] the visible Pro price should update to the saved USD amount after selecting USD');
 
     await hub.locator('[data-ovyx-admin-workspace-route="admin-identity"]').evaluate(button => button.click());
-    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-identity');
+    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-identity', null, { timeout: 15000 });
     await page.locator('#ovyx-global-identity-editor').waitFor({ state: 'attached' });
     await page.locator('#ovyx-global-ai-name').fill('OVYX Browser Fixture AI');
     await page.locator('#ovyx-global-ai-persona').fill('Be friendly and professionally helpful in the isolated browser test.');
@@ -193,7 +184,7 @@ try {
 
     // Confirm user plan assignment and quota reset issue real owner-authenticated writes.
     await hub.locator('[data-ovyx-admin-workspace-route="admin-users"]').evaluate(button => button.click());
-    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-users');
+    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-users', null, { timeout: 15000 });
     await page.locator('#ovyx-owner-users-panel').waitFor({ state: 'attached' });
     await page.waitForFunction(() => /Loaded 1 account/.test(document.getElementById('ovyx-owner-users-status')?.textContent || ''), null, { timeout: 20000 });
     let accountRow = page.locator('#ovyx-owner-users-body tr').first();
@@ -226,10 +217,11 @@ try {
     await resetQuotaRequest;
     assert.ok(ownerApiWrites.some(item => item.path === '/api/admin/users' && item.body.action === 'resetQuota'),
       '[' + target.name + '] Reset quota must call the server-owned quota action.');
+    console.log('[' + target.name + '] Owner account plan and quota actions passed.');
 
     // Confirm AI Brain routing writes are issued to the protected server API.
     await hub.locator('[data-ovyx-admin-workspace-route="admin-brain"]').evaluate(button => button.click());
-    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-brain');
+    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-brain', null, { timeout: 15000 });
     await page.locator('#ovyx-global-ai-routing').waitFor({ state: 'attached' });
     await page.waitForFunction(() => /AI selection order:/.test(document.getElementById('ovyx-global-ai-route-status')?.textContent || ''), null, { timeout: 20000 });
     await page.locator('[data-provider-priority="openai"]').selectOption('1');
@@ -267,7 +259,7 @@ try {
       '[' + target.name + '] Broadcast withdrawal must use the protected server route.');
 
     await hub.locator('[data-ovyx-admin-workspace-route="admin-template-hub"]').evaluate(button => button.click());
-    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-template-hub');
+    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-template-hub', null, { timeout: 15000 });
     await page.locator('#view-admin-template-hub [data-ovyx-admin-workspace-back]').waitFor({ state: 'visible' });
     // Wait until the asynchronously mounted registry has attached its submit handler.
     await page.locator('#ovyx-global-template-registry[data-template-bound="1"]').waitFor({ state: 'visible', timeout: 20000 });
@@ -295,13 +287,13 @@ try {
       '[' + target.name + '] Template withdrawal must reach the protected server API.');
 
     await page.locator('#view-admin-template-hub [data-ovyx-admin-workspace-back]').evaluate(button => button.click());
-    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-overview');
+    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-overview', null, { timeout: 15000 });
     assert.equal(await page.locator('#ovyx-admin-workspace-hub').count(), 1, '[' + target.name + '] hub must not duplicate after route changes');
 
     // A signed-in account, even one whose visible email looks like the owner,
     // must lose the admin entry when the server does not authorize ROOT_SUPERUSER.
     await page.evaluate(() => window.__setOVYXAdminTestIdentity('free'));
-    await page.waitForFunction(() => window.OVYXAdminWorkspace.isAuthorized() === false);
+    await page.waitForFunction(() => window.OVYXAdminWorkspace.isAuthorized() === false, null, { timeout: 15000 });
     await page.waitForFunction(() => !document.getElementById('ovyx-admin-workspace-entry-desktop') && !document.getElementById('ovyx-admin-workspace-entry-mobile') && !document.getElementById('ovyx-admin-workspace-hub'));
     assert.equal(await page.locator('#ovyx-admin-workspace-entry-desktop').count(), 0, '[' + target.name + '] admin entry must be removed for non-root role');
     assert.equal(await page.locator('#ovyx-admin-workspace-hub').count(), 0, '[' + target.name + '] admin hub must be removed for non-root role');

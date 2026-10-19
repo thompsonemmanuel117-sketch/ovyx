@@ -46,6 +46,20 @@ export async function installOwnerBrowserApiFixtures(page, options = {}) {
       async signInWithPopup() { throw Object.assign(new Error('Firebase Auth is intentionally mocked in this isolated browser test.'), { code: 'auth/operation-not-allowed' }); },
       async signInWithRedirect() { throw Object.assign(new Error('Firebase Auth is intentionally mocked in this isolated browser test.'), { code: 'auth/operation-not-allowed' }); },
     };
+    // Keep a single Firebase Auth object for the full browser test. Replacing
+    // window.firebase after application boot leaves old listeners attached to a
+    // different auth instance and can make owner navigation nondeterministic.
+    window.__setOVYXBrowserAuthUser = (user) => {
+      currentUser = user && typeof user === 'object' ? {
+        uid: String(user.uid || 'ovyx-browser-test-user'),
+        email: String(user.email || 'builder@example.test'),
+        emailVerified: user.emailVerified !== false,
+        displayName: String(user.displayName || 'OVYX Browser Test'),
+        getIdToken: async () => String(user.token || 'ovyx-browser-test-token')
+      } : null;
+      emitAuth();
+      return currentUser;
+    };
     const snapshot = () => ({ empty: true, docs: [], forEach() {}, docChanges() { return []; } });
     function firestoreCollection() {
       const chain = {
