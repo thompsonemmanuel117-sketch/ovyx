@@ -36,7 +36,7 @@ export function isScopedWebStudioEdit(prompt, hasSourceContext = false) {
   if (EXISTING_REFERENCE.test(text)) return true;
   // In Web Studio, concise follow-ups like "change the colors" or "fix the menu"
   // act on the current source. Explicit requests to create a new website remain builds.
-  return /\b(?:the\s+(?:colors?|colou?rs?|font|typography|spacing|layout|header|footer|hero|menu|navigation|button|form|section|card|logo|image|background|contrast|padding|margin|mobile\s+menu)|colors?|colou?rs?|font|typography|spacing|layout|header|footer|hero|menu|navigation|button|form|section|card|logo|image|background|contrast|padding|margin|mobile\s+menu|the\s+project)\b/i.test(text);
+  return TARGETED_EDIT_OBJECT.test(text);
 }
 
 function normalizeFiles(files) {
