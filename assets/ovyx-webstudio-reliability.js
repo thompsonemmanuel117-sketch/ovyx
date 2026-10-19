@@ -471,7 +471,6 @@
       }
       trackedSetMode.__ovyxFollowUpModeTracker = true;
       studio.setMode = trackedSetMode;
-      originalSetMode = trackedSetMode;
     }
     function switchMode(mode, autoReadOnly) {
       if (typeof studio.setMode !== 'function') return;
