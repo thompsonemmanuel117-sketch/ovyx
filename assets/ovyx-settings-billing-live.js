@@ -50,7 +50,14 @@
       const node = panel.querySelector('#' + id);
       if (node) stableControls[id] = node;
     });
-    const billingMarkup = '<div id="ovyx-billing-live-root">' +
+    // The legacy inline quota timer calls refreshBillingMeter() on every quota tick.
+    // It expects these exact IDs; without them it falls back to the old renderer and
+    // replaces this entire server-backed panel. Keep compatibility nodes hidden and
+    // first in the DOM so legacy updates cannot alter the visible server-confirmed meter.
+    const legacyQuotaCompatibility = '<div hidden aria-hidden="true" data-ovyx-legacy-quota-compat>' +
+      '<span id="ovyx-bill-used">0</span><span class="ovyx-billing-limit">Legacy quota compatibility only</span>' +
+      '<span id="ovyx-bill-bar"></span><span id="ovyx-bill-countdown"></span></div>';
+    const billingMarkup = '<div id="ovyx-billing-live-root">' + legacyQuotaCompatibility +
       '<div class="ovyx-panel-head"><div class="ovyx-panel-kicker">BILLING / PLAN</div><h2>Billing</h2><p>Subscription, quota and recent payment records loaded from authenticated OVYX services.</p></div>' +
       '<div class="ovyx-pref-group"><div class="ovyx-pref-label">PLAN</div><div class="ovyx-pref-row"><div class="ovyx-pref-copy"><b>Current plan</b><small>Server-reported subscription state: ' + escapeHtml(subscriptionStatus) + '</small></div><span class="ovyx-tier-badge">' + escapeHtml(tier) + ' PLAN</span></div>' +
       '<div class="ovyx-pref-row"><div class="ovyx-pref-copy"><b>Last verified payment</b><small>' + escapeHtml(subscription && subscription.lastPaymentAt ? formatDate(subscription.lastPaymentAt) : 'No verified payment date reported') + '</small></div><span class="ovyx-billing-amount">' + escapeHtml(subscription && subscription.amount != null ? String(subscription.currency || '') + ' ' + Number(subscription.amount).toLocaleString(undefined, { maximumFractionDigits: 2 }) : '—') + '</span></div></div>' +
