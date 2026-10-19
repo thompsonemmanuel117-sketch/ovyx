@@ -181,8 +181,8 @@ When discussing project changes, distinguish recommendations from changes actual
 
     let result;
     let multiPageBuild = false;
-    let quotaInputText = isWebStudio && projectContext
-      ? combined + '\n\nPROJECT CONTEXT:\n' + projectContext
+    let quotaInputText = isWebStudio
+      ? combined + (sourceInspectionContext ? '\n\n' + sourceInspectionContext : '') + (projectContext ? '\n\nPROJECT CONTEXT:\n' + projectContext : '')
       : combined;
     let quotaOutputText = '';
 
