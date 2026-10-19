@@ -217,7 +217,7 @@ try {
 
     await page.locator('[data-ovsx="diagnose"]').click();
     await page.locator('[data-ovsx-diagnosis]').waitFor({ state: 'visible' });
-    assert.match(await page.locator('[data-ovsx-diagnosis]').innerText(), /AI incident diagnosis/i, '[' + target.name + '] the AI diagnostic result should be shown separately from a rule-based plan');
+    assert.match(await page.locator('[data-ovsx-diagnosis]').innerText(), /AI-assisted incident review/i, '[' + target.name + '] the AI diagnostic result should be shown separately from a rule-based plan');
     assert.match(await page.locator('[data-ovsx-diagnosis]').innerText(), /schedule warning is evidence/i, '[' + target.name + '] the diagnostic result should be visible as plain text');
     assert.match(await page.locator('[data-ovsx-diagnosis]').innerText(), /This is a read-only review\. No code, settings, credentials, or live releases were changed/i, '[' + target.name + '] the UI must disclose the diagnosis-only boundary');
     assert.match(await page.locator('[data-ovsx-diagnosis-history] summary').innerText(), /Previous diagnoses \(2\)/i, '[' + target.name + '] a newly saved diagnosis must join prior history');
