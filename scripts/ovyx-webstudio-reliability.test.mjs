@@ -12,6 +12,7 @@ const feedbackApi = fs.readFileSync('functions/api/ai/feedback.js', 'utf8');
 const statusApi = fs.readFileSync('functions/api/ai/status.js', 'utf8');
 const assistantApi = fs.readFileSync('functions/api/ai/assistant.js', 'utf8');
 const researchApi = fs.readFileSync('functions/api/ai/web-search.js', 'utf8');
+const prompts = fs.readFileSync('functions/_lib/prompts.js', 'utf8');
 const researchRuntime = fs.readFileSync('assets/ovyx-webstudio-research.js', 'utf8');
 const applySuggestionsRuntime = fs.readFileSync('assets/ovyx-webstudio-apply-suggestions.js', 'utf8');
 const apiMiddleware = fs.readFileSync('functions/api/_middleware.js', 'utf8');

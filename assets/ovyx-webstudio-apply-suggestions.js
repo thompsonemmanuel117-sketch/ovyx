@@ -41,6 +41,10 @@
     return visibleText(value).replace(/\s+/g, ' ').trim();
   }
 
+  function asksForRecommendations(prompt) {
+    return /\\b(?:recommend(?:ation|ations)?|suggest(?:ion|ions)?|what\\s+(?:should|could|would)\\s+i\\s+(?:change|improve|add)|how\\s+can\\s+i\\s+improve|improvements?\\s+for\\s+my\\s+(?:website|site)|ways?\\s+to\\s+improve)\\b/i.test(String(prompt || ''));
+  }
+
   function verifiedPageSources(research) {
     var byUrl = Object.create(null);
     if (!research || research.status !== 'complete' || !Array.isArray(research.sources)) return byUrl;
@@ -161,10 +165,8 @@
 
   function refreshButtonStates() {
     if (!studioRef) return;
-    var pending = studioRef.__ovyxPendingApplySuggestions;
     buttonsFor(studioRef).forEach(function (button) {
-      var index = Number(button.getAttribute('data-suggestion-index'));
-      var suggestion = pending && pending.suggestions && pending.suggestions[index];
+      var suggestion = button.__ovyxApplySuggestionState;
       if (!suggestion) return;
       var state = stateLabel(suggestion);
       button.textContent = state.text;
@@ -205,7 +207,7 @@
     }
 
     var prompt = [
-      'Apply this selected research-backed suggestion to my existing website in Web Studio.',
+      'Apply this selected source-backed suggestion to my existing website in Web Studio.',
       'Suggestion: ' + suggestion.title,
       'Implementation requested: ' + suggestion.prompt,
       suggestion.summary ? 'Why this helps: ' + suggestion.summary : '',
@@ -240,7 +242,7 @@
       setStatus(statusNode, clean(error && error.message || 'Web Studio could not submit this suggestion.', 260), 'error');
       showToast('The suggestion could not be submitted to Web Studio.', 'error');
     } finally {
-      if (originalDraft && !String(input.value || '').trim()) {
+      if (originalDraft && (!String(input.value || '').trim() || String(input.value || '') === prompt)) {
         input.value = originalDraft;
         dispatchInput(input);
       }
@@ -302,6 +304,7 @@
       button.className = 'ovyx-ws-apply-button';
       button.setAttribute('data-ovyx-apply-suggestion', suggestion.id);
       button.setAttribute('data-suggestion-index', String(index));
+      button.__ovyxApplySuggestionState = suggestion;
       button.setAttribute('aria-label', 'Apply suggestion: ' + suggestion.title);
       var label = stateLabel(suggestion);
       button.textContent = label.text;
@@ -327,27 +330,44 @@
   }
 
   function attachPendingSuggestions(studio) {
-    var pending = studio && studio.__ovyxPendingApplySuggestions;
-    if (!pending || !Array.isArray(pending.suggestions) || !pending.suggestions.length || pending.attached) return;
-    var thread = Array.isArray(studio.thread) ? studio.thread : [];
+    var groups = studio && Array.isArray(studio.__ovyxApplySuggestionGroups) ? studio.__ovyxApplySuggestionGroups : [];
+    var thread = Array.isArray(studio && studio.thread) ? studio.thread : [];
     var threadRoot = document.getElementById('ws-agent-thread');
     if (!threadRoot) return;
-    for (var i = thread.length - 1; i >= 0; i -= 1) {
-      var message = thread[i];
-      if (!message || message.role === 'user') continue;
-      var text = normalizeText(message.text || message.content);
-      if (!text || text !== normalizeText(pending.text)) continue;
-      var bubble = threadRoot.querySelector('.ovyx-ws-msg[data-ws-thread-index="' + i + '"]');
-      if (!bubble) continue;
-      pending.projectKey = currentProjectKey();
+    groups.forEach(function (pending) {
+      if (!pending || !Array.isArray(pending.suggestions) || !pending.suggestions.length) return;
+      var messageIndex = -1;
+      if (pending.messageId) {
+        for (var idIndex = thread.length - 1; idIndex >= 0; idIndex -= 1) {
+          if (thread[idIndex] && String(thread[idIndex].id || '') === String(pending.messageId)) {
+            messageIndex = idIndex;
+            break;
+          }
+        }
+      }
+      if (messageIndex < 0) {
+        for (var i = thread.length - 1; i >= 0; i -= 1) {
+          var message = thread[i];
+          if (!message || message.role === 'user') continue;
+          if (normalizeText(message.text || message.content) === normalizeText(pending.text)) {
+            messageIndex = i;
+            pending.messageId = clean(message.id, 120);
+            break;
+          }
+        }
+      }
+      if (messageIndex < 0) return;
+      var bubble = threadRoot.querySelector('.ovyx-ws-msg[data-ws-thread-index="' + messageIndex + '"]');
+      if (!bubble) return;
+      if (!pending.projectKey) pending.projectKey = currentProjectKey();
       renderSuggestionControls(studio, bubble, pending);
-      return;
-    }
+    });
   }
 
   function installCallAI(studio) {
     if (!studio || typeof studio.callAI !== 'function' || studio.callAI.__ovyxApplySuggestionWrapper) return;
     var originalCallAI = studio.callAI;
+    if (!Array.isArray(studio.__ovyxApplySuggestionGroups)) studio.__ovyxApplySuggestionGroups = [];
     async function callAIWithSuggestionMetadata(payload, token) {
       var beforeResearch = studio.__ovyxLastWebResearch;
       var result = await originalCallAI.call(this, payload, token);
@@ -355,10 +375,7 @@
       var markerKey = CONTROL_KEYS.find(function (key) {
         return typeof result[key] === 'string' && MARKER.test(result[key]);
       });
-      if (!markerKey) {
-        studio.__ovyxPendingApplySuggestions = null;
-        return result;
-      }
+      if (!markerKey) return result;
       MARKER.lastIndex = 0;
       var provided = payload && payload.context && payload.context.webResearch;
       var research = provided && provided.status === 'complete'
@@ -376,17 +393,22 @@
           MARKER.lastIndex = 0;
         }
       });
-      studio.__ovyxPendingApplySuggestions = null;
       var mode = String(payload && payload.mode || studio.mode || 'ask').toLowerCase();
-      if (mode === 'ask' && research && research.status === 'complete' && parsed.suggestions.length) {
-        studio.__ovyxPendingApplySuggestions = {
+      var prompt = String(payload && (payload.prompt || payload.message) || '');
+      if (studio.__ovyxApplySuggestionBusy) return cleaned;
+      if (mode === 'ask' && asksForRecommendations(prompt) && research && research.status === 'complete' && parsed.suggestions.length) {
+        var pending = {
           text: parsed.text,
           suggestions: parsed.suggestions,
           research: research,
           projectKey: currentProjectKey(),
           attached: false,
-          createdAt: Date.now()
+          createdAt: Date.now(),
+          messageId: ''
         };
+        studio.__ovyxApplySuggestionGroups.push(pending);
+        if (studio.__ovyxApplySuggestionGroups.length > 20) studio.__ovyxApplySuggestionGroups.shift();
+        studio.__ovyxPendingApplySuggestions = pending;
       }
       return cleaned;
     }

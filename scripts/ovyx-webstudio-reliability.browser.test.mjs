@@ -40,7 +40,7 @@ try {
             window.__toasts=[];window.showToast=(message,type)=>window.__toasts.push({message,type});
             window.__route='home';window.Router={go(route){window.__route=route;document.getElementById('view-faq')?.classList.toggle('hidden',route!=='faq')}};
             window.firebase={auth:()=>({currentUser:{uid:'user_1',email:'test@example.com',async getIdToken(){return 'test-token'}}})};
-            window.__responseMode='noop';window.__buildResponse={};
+            window.__responseMode='noop';window.__buildResponse={};window.OVYXWebStudioQuality={async run(){return {checks:[]}},getReport(){return {checks:[]}}};
             window.OVYXAIService={async generate(payload){return window.__responseMode==='noop'?{ok:true,message:'I built your website'}:window.__homeResponse}};
             window.AIOrchestrator={async runSynthesis(mode='build'){return window.OVYXAIService.generate({mode,prompt:'Build it',project:window.KernelState.activeProject,context:{activeView:'home'}})}};
             window.WebStudio={
@@ -214,12 +214,14 @@ try {
       window.__buildResponse = { ok: true, text: 'Here are two source-backed improvements for your navigation.\\n\\n<!-- OVYX_APPLY_SUGGESTIONS: {\\"suggestions\\":[{\\"title\\":\\"Label the navigation landmark\\",\\"summary\\":\\"A clear label helps assistive technology users distinguish navigation regions.\\",\\"prompt\\":\\"Add an accessible label to the primary navigation landmark in the existing website. Inspect the current markup and make the smallest safe change.\\",\\"sourceUrls\\":[\\"https://developer.mozilla.org/en-US/docs/Web/HTML/Element/nav\\"]},{\\"title\\":\\"Improve keyboard navigation\\",\\"summary\\":\\"Keyboard users should be able to reach and understand every navigation action.\\",\\"prompt\\":\\"Review the existing primary navigation and make its interactive links and menu controls keyboard accessible, preserving the current design and routes.\\",\\"sourceUrls\\":[\\"https://developer.mozilla.org/en-US/docs/Web/HTML/Element/nav\\"]},{\\"title\\":\\"Unsafe unrelated link\\",\\"summary\\":\\"This must not appear.\\",\\"prompt\\":\\"Change something.\\",\\"sourceUrls\\":[\\"http://127.0.0.1/private\\"]}]} -->' };
       const result = await window.WebStudio.callAI({
         mode: 'ask',
-        prompt: 'Search the web for how ChatGPT handles responsive navigation',
+        prompt: 'Search the web for how ChatGPT handles responsive navigation and suggest what changes I should make to my website',
         context: { activeView: 'webstudio' },
       }, 7);
+      window.__lastSanitizedResearchAnswer = result;
       const activity = document.querySelector('.ovyx-ws-live-activity');
       return {
         responseReturned: !!result,
+        answerText: result && result.text,
         activeView: window.__lastCallAIPayload && window.__lastCallAIPayload.context.activeView,
         researchStatus: window.__lastCallAIPayload && window.__lastCallAIPayload.context.webResearch && window.__lastCallAIPayload.context.webResearch.status,
         researchedSource: window.__lastCallAIPayload && window.__lastCallAIPayload.context.webResearch && window.__lastCallAIPayload.context.webResearch.sources[0] && window.__lastCallAIPayload.context.webResearch.sources[0].url,
@@ -242,8 +244,7 @@ try {
     assert.match(researchCalls[0].payload.prompt, /ChatGPT handles responsive navigation/);
  
     const applySuggestionUi = await page.evaluate(async () => {
-      const response = window.__buildResponse;
-      const resultText = response && response.text;
+      const resultText = window.__lastSanitizedResearchAnswer && window.__lastSanitizedResearchAnswer.text;
       const pending = window.WebStudio.__ovyxPendingApplySuggestions;
       const thread = window.WebStudio.thread;
       thread.push({ id: 'msg_research_suggestions_123', role: 'agent', text: resultText });
