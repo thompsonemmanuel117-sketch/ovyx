@@ -345,14 +345,14 @@ try {
     assert.equal(await feedbackGroups.count(), 2, '[' + target.name + '] both assistant messages should have their own feedback controls');
     assert.equal(await thumbs.count(), 4, '[' + target.name + '] each assistant message should show thumbs up and down');
 
-    await page.locator('[data-ovyx-feedback-vote="up"]').click();
+    await feedbackGroups.first().locator('[data-ovyx-feedback-vote="up"]').click();
     await page.waitForFunction(() => window.__toasts.some(x => /feedback was saved/i.test(x.message)));
     assert.equal(feedbackCalls.length, 1, '[' + target.name + '] thumbs up must write feedback');
     assert.equal(feedbackCalls[0].payload.vote, 'up');
     assert.equal(feedbackCalls[0].authorization, 'Bearer test-token');
     assert.equal(JSON.stringify(feedbackCalls[0].payload).includes('Old site'), false, 'feedback must not upload website source or AI message contents');
 
-    await page.locator('[data-ovyx-feedback-vote="down"]').click();
+    await feedbackGroups.first().locator('[data-ovyx-feedback-vote="down"]').click();
     await page.waitForFunction(() => window.__route === 'faq' && document.getElementById('ovyx-help-support-subject').value !== '');
     assert.equal(feedbackCalls.length, 2, '[' + target.name + '] thumbs down must also record the vote');
     assert.equal(feedbackCalls[1].payload.vote, 'down');
