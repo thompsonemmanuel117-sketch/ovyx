@@ -84,6 +84,10 @@ try {
 
     const followUpRouting = await page.evaluate(async () => {
       const input = document.getElementById('ws-chat-input');
+      input.value = 'What should I change on the website?';
+      await window.WebStudio.submitPrompt();
+      const adviceMode = window.__submittedMode;
+      window.WebStudio.setMode('build'); // Reset to a deliberate Build choice for the source-search loop.
       input.value = 'Search my project deeply for the mobile menu';
       await window.WebStudio.submitPrompt();
       const searchMode = window.__submittedMode;
@@ -93,8 +97,9 @@ try {
       window.WebStudio.setMode('ask'); // An explicit user choice must override the automatic mode.
       input.value = 'Change the menu background';
       await window.WebStudio.submitPrompt();
-      return { searchMode, editMode, manualAskMode: window.__submittedMode };
+      return { adviceMode, searchMode, editMode, manualAskMode: window.__submittedMode };
     });
+    assert.equal(followUpRouting.adviceMode, 'ask', '[' + target.name + '] advice-only website questions should stay read-only');
     assert.equal(followUpRouting.searchMode, 'ask', '[' + target.name + '] a read-only project search should route to Ask automatically');
     assert.equal(followUpRouting.editMode, 'build', '[' + target.name + '] a targeted edit after an automatic search should return to Build');
     assert.equal(followUpRouting.manualAskMode, 'ask', '[' + target.name + '] a manually selected Ask mode must remain read-only');
