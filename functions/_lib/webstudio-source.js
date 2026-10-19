@@ -4,10 +4,11 @@ const MAX_MATCHES_PER_TERM = 8;
 const MAX_SNIPPET_CHARS = 260;
 const CLIENT_FILE_CHAR_LIMIT = 120000;
 
-const SOURCE_TASK = /\b(?:search|find|locate|look\s+for|inspect|review|examine|audit|trace|where\s+is|show\s+me|list\s+(?:the\s+)?files?|read\s+(?:the\s+)?source|check\s+(?:the\s+)?(?:code|source|project|page)|understand\s+(?:the\s+)?(?:code|project|page))\b/i;
+const SOURCE_TASK = /\b(?:search|find|locate|look\s+for|inspect|review|examine|audit|trace|where\s+is|show\s+me|list\s+(?:the\s+)?files?|read\s+(?:(?:the\s+)?(?:source|code|project|page|file|css|html|javascript|js|stylesheet|script))?|check\s+(?:(?:whether|if)\s+)?(?:the\s+)?(?:code|source|project|page|file|files|menu|button|form|section|header|footer|layout|design|site|website|css|html|javascript|js)|understand\s+(?:the\s+)?(?:code|source|project|page)|verify|confirm)\b/i;
 const EDIT_TASK = /\b(?:add|change|edit|update|fix|repair|apply|remove|delete|replace|improve|enhance|adjust|modify|restyle|reposition|resize|shrink|enlarge|increase|decrease|align|move|rearrange|polish|optimi[sz]e|implement|make)\b/i;
 const EXPLICIT_NEW_BUILD = /\b(?:build|create|generate|design|develop|launch|make)\s+(?:(?:me|us)\s+)?(?:(?:a|an|brand\s+new|new|complete|full|multi[- ]page|single[- ]page)\s+){0,2}(?:website|web\s+site|site|web\s+app|application|digital\s+product)\b/i;
 const EXISTING_REFERENCE = /\b(?:(?:existing|current)\s+(?:project|site|website|page|layout|design|button|menu|section|form|app|component|file|source)|already\s+(?:built|made|have)|this\s+(?:project|site|website|page|layout|design|button|menu|section|form|app|component)|that\s+(?:project|site|website|page|layout|design|button|menu|section|form|app|component)|my\s+(?:project|site|website|page|layout|design|app)|selected|above|here|it|this|that|the\s+(?:website|site|page|project|app|layout|design|current|existing|same|selected)(?:\s+(?:project|site|website|page|layout|design|app|file|source))?)\b/i;
+const STATUS_CHECK = /\b(?:check|verify|confirm|see)\b.{0,80}\b(?:if|whether|already|done|applied|changed|updated|fixed|added|implemented|working|exists?|present|saved|there)\b|\b(?:is|are|was|were|has|have|did|does|do)\b.{0,80}\b(?:already|done|applied|changed|updated|fixed|added|implemented|working|exists?|present|saved|there)\b/i;
 const TARGETED_EDIT_OBJECT = /\b(?:the\s+)?(?:colors?|colou?rs?|font|typography|spacing|layout|header|footer|hero|headline|heading|title|text|copy|navigation|nav|menu|menu\s+item|button|form|section|card|logo|image|background|contrast|padding|margin|mobile\s+menu|responsive|mobile|desktop|tablet|accessibility|seo|skip\s+link|label|link|component|style|stylesheet|file|files|source|code|project|function|method|class|variable|feature|functionality|search|search\s+bar|filter|sort|upload|download|table|chart|interaction|control|icon|dropdown|sidebar|animation|transition)\b/i;
 
 const STOP_WORDS = new Set((
@@ -27,7 +28,7 @@ export function hasWebStudioSourceTask(prompt) {
   const text = String(prompt || '').trim();
   if (!text) return false;
   if (EXPLICIT_NEW_BUILD.test(text)) return false;
-  return SOURCE_TASK.test(text) || (EDIT_TASK.test(text) && (EXISTING_REFERENCE.test(text) || TARGETED_EDIT_OBJECT.test(text)));
+  return SOURCE_TASK.test(text) || STATUS_CHECK.test(text) || (EDIT_TASK.test(text) && (EXISTING_REFERENCE.test(text) || TARGETED_EDIT_OBJECT.test(text)));
 }
 
 export function isScopedWebStudioEdit(prompt, hasSourceContext = false) {
