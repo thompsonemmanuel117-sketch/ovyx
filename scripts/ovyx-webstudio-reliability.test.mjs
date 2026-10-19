@@ -83,7 +83,9 @@ assert.match(apiMiddleware, /'\/api\/ai\/web-search'/);
 assert.match(researchApi, /assertAuthenticated\(context\.data\?\.user\)/);
 assert.match(researchApi, /sseResponse\(async send/);
 assert.match(researchRuntime, /ovyx:webstudio-build-stage/);
-assert.match(researchRuntime, /ovyx-ws-live-activity/)
+assert.match(researchRuntime, /ovyx-ws-live-activity/);
+assert.match(researchRuntime, /function isResearchOnlyPrompt/);
+assert.match(researchRuntime, /research-and-recommendation request, so Web Studio will stay read-only/)
 
 assert.equal(isScopedWebStudioEdit('Make a website with a search bar', true), false);
 assert.equal(isScopedWebStudioEdit('Build a new website for a restaurant', true), false);

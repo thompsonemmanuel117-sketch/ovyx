@@ -188,6 +188,26 @@ try {
     assert.equal(activeGraphContext.hasEntryFile, true, '[' + target.name + '] source inspection must receive the active graph HTML');
     assert.equal(activeGraphContext.hasCssFile, true, '[' + target.name + '] source inspection must receive CSS source files too');
 
+    const readOnlyResearchMode = await page.evaluate(async () => {
+      window.WebStudio.setMode('build');
+      const input = document.getElementById('ws-chat-input');
+      input.value = 'Research how ChatGPT handles responsive navigation and suggest what changes I should make on my website';
+      await window.WebStudio.submitPrompt();
+      return { mode: window.WebStudio.mode, autoReadOnly: window.WebStudio.__ovyxAutoReadOnlyMode === true };
+    });
+    assert.equal(readOnlyResearchMode.mode, 'ask', '[' + target.name + '] research plus suggestions must stay read-only even when Build was selected');
+    assert.equal(readOnlyResearchMode.autoReadOnly, true, '[' + target.name + '] research-only routing should allow a later targeted edit to switch back to Build');
+
+    const explicitResearchApplyMode = await page.evaluate(async () => {
+      window.WebStudio.setMode('build');
+      const input = document.getElementById('ws-chat-input');
+      input.value = 'Research how ChatGPT handles responsive navigation and then add a keyboard-friendly menu to my website';
+      await window.WebStudio.submitPrompt();
+      return { mode: window.WebStudio.mode, autoReadOnly: window.WebStudio.__ovyxAutoReadOnlyMode === true };
+    });
+    assert.equal(explicitResearchApplyMode.mode, 'build', '[' + target.name + '] a clear request to research and apply a change must remain in Build');
+    assert.equal(explicitResearchApplyMode.autoReadOnly, false);
+
     const webResearchRun = await page.evaluate(async () => {
       window.WebStudio.setMode('ask');
       window.__buildResponse = { ok: true, text: 'Here is a source-backed summary of accessible navigation patterns.' };

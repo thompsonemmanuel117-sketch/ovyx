@@ -41,17 +41,29 @@
     var knownPlatform = /\b(?:ovyx|chatgpt|openai|figma|notion|stripe|linear|vercel|webflow|framer|shopify|wordpress|wix|squarespace|github|claude|gemini)\b/i.test(text);
     return researchVerb && (researchObject || knownPlatform);
   }
+  function hasExplicitApplyClause(value) {
+    var text = String(value || '').trim();
+    var action = '(?:apply|implement|add|change|edit|update|fix|repair|remove|delete|replace|improve|enhance|adjust|modify|restyle|reposition|resize|polish|optimi[sz]e|make|build|create|generate)';
+    return new RegExp('^(?:please\\s+)?' + action + '\\b', 'i').test(text) ||
+      new RegExp('\\b(?:and then|then|after that|and please|also|and|please)\\s+(?:please\\s+)?' + action + '\\b', 'i').test(text);
+  }
   function asksOnlyAdvice(prompt) {
     var text = String(prompt || '');
-    return /\b(?:what should i change|what would you change|what do you recommend|what would you recommend|recommend changes|suggest changes|give me suggestions|how can i improve|what can be improved|what should be improved)\b/i.test(text) &&
-      !/\b(?:and then|and please|then please)?\s*(?:apply|implement|make|add|change|fix|update|build)\b/i.test(text);
+    var advice = /\b(?:what should i change|what would you change|what do you recommend|what would you recommend|recommend changes|suggest changes|suggest what changes|give me suggestions|give me some suggestions|how can i improve|what can be improved|what should be improved|which option would you recommend)\b/i.test(text);
+    return advice && !hasExplicitApplyClause(text);
+  }
+  function isResearchOnlyPrompt(prompt) {
+    var text = String(prompt || '').trim();
+    if (!shouldSearchWeb(text)) return false;
+    var startsWithResearch = /^(?:(?:please|now|then|just)\\s+)*(?:(?:can|could|would)\\s+you\\s+|i\\s+(?:want|need)\\s+you\\s+to\\s+)?(?:search|research|browse|look\\s+up|compare|investigate|find\\s+(?:out|examples|websites|platforms|how|what)|look\\s+at)\\b/i.test(text);
+    return startsWithResearch && !hasExplicitApplyClause(text);
   }
   function isEditPrompt(prompt, mode) {
     var text = String(prompt || '');
-    if (asksOnlyAdvice(text)) return false;
+    if (asksOnlyAdvice(text) || isResearchOnlyPrompt(text)) return false;
     if (/\b(?:apply|implement|add|change|edit|update|fix|repair|remove|delete|replace|improve|enhance|adjust|modify|restyle|reposition|resize|polish|optimi[sz]e|build|create|generate)\b/i.test(text) &&
         /\b(?:site|website|project|page|layout|design|feature|functionality|component|menu|header|footer|hero|button|form|font|colors?|background|style|source|code|this|that|it|those|these|my|new website|website|app|flow|interaction)\b/i.test(text)) return true;
-    return ['build', 'fix'].indexOf(String(mode || '').toLowerCase()) >= 0 && !/^(?:please\s+)?(?:search|find|locate|inspect|review|examine|audit|trace|verify|check|list|show|read|what|how|why|is|are|was|were|has|have|did|does|do|tell me|recommend|suggest)\b/i.test(text);
+    return ['build', 'fix'].indexOf(String(mode || '').toLowerCase()) >= 0 && !/^(?:please\\s+)?(?:search|research|browse|look\\s+up|compare|find|locate|inspect|review|examine|audit|trace|verify|check|list|show|read|what|how|why|is|are|was|were|has|have|did|does|do|tell me|recommend|suggest)\\b/i.test(text);
   }
   function safeWebUrl(value) {
     try {
@@ -586,6 +598,14 @@
       if (!prompt) return originalSubmit.apply(this, arguments);
       var mode = String(studio.mode || 'build').toLowerCase();
       var task = startTask(prompt, mode, studio, false);
+      if (task && task.hasResearch && !task.isEdit && ['build', 'fix', 'plan'].indexOf(mode) >= 0 && typeof studio.setMode === 'function') {
+        studio.__ovyxAutoModeSwitch = true;
+        try { studio.setMode('ask'); } finally { studio.__ovyxAutoModeSwitch = false; }
+        studio.__ovyxAutoReadOnlyMode = true;
+        task.mode = 'ask';
+        task.detail = 'This is a research-and-recommendation request, so Web Studio will stay read-only until you ask it to apply a change.';
+        renderActivity();
+      }
       var value;
       try {
         value = await originalSubmit.apply(this, arguments);
