@@ -310,7 +310,7 @@ try {
     const activityText = await activity.evaluate(node => String(node.textContent || ''));
     assert.ok(activityText.toLowerCase().includes('searching saved project source for'), '[' + target.name + '] the activity card must visibly show that a project search is running');
     assert.ok(activityText.includes('toggleMobileMenu') && activityText.includes('aria-expanded'), '[' + target.name + '] the activity card must name the actual search terms');
-    assert.match(activityText, /Search complete: 4 match\\(es\\).*checked 176 source file\\(s\\)/i, '[' + target.name + '] activity must report actual search counts and searched-file coverage');
+    assert.match(activityText, /Search complete: 4 match\(es\).*checked 176 source file\(s\)/i, '[' + target.name + '] activity must report actual search counts and searched-file coverage');
     assert.ok(activityText.toLowerCase().includes('reading src/menu.js') || activityText.toLowerCase().includes('reading src\\menu.js'), '[' + target.name + '] the assistant activity card must show the inspected file path');
     assert.ok(activityText.toLowerCase().includes('read src/menu.js completely') || activityText.toLowerCase().includes('read src\\menu.js completely'), '[' + target.name + '] the activity trace must describe the actual source-read outcome');
     assert.match(activityText, /Response ready/i, '[' + target.name + '] the activity card must show a finished state rather than a stuck spinner');
