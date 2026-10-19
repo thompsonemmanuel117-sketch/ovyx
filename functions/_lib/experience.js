@@ -1012,15 +1012,22 @@ const BROAD_ARCHETYPE_TRIGGERS = new Set([
 
 export function detectArchetype(prompt) {
   const q = clean(prompt).toLowerCase();
-  let best = { id: 'generic', hits: 0, specificity: 0 };
+  let best = { id: 'generic', specificHits: 0, specificWeight: 0, broadHits: 0 };
   for (const archetype of ARCHETYPES) {
     const matched = archetype.triggers.filter(trigger => triggerMatches(q, trigger));
-    const hits = matched.length;
-    const specificity = matched.reduce((total, trigger) => (
-      total + (BROAD_ARCHETYPE_TRIGGERS.has(trigger) ? 0 : trigger.length + 10)
-    ), 0);
-    if (hits > best.hits || (hits === best.hits && specificity > best.specificity)) {
-      best = { id: archetype.id, hits, specificity };
+    const specific = matched.filter(trigger => !BROAD_ARCHETYPE_TRIGGERS.has(trigger));
+    const broadHits = matched.length - specific.length;
+    const specificHits = specific.length;
+    const specificWeight = specific.reduce((total, trigger) => total + trigger.length + 10, 0);
+
+    // A clear industry signal outranks generic patterns such as "dashboard",
+    // "online store", or "marketplace", even when those generic words repeat.
+    if (
+      specificHits > best.specificHits ||
+      (specificHits === best.specificHits && specificWeight > best.specificWeight) ||
+      (specificHits === best.specificHits && specificWeight === best.specificWeight && broadHits > best.broadHits)
+    ) {
+      best = { id: archetype.id, specificHits, specificWeight, broadHits };
     }
   }
   return best.id;
