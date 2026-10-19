@@ -8,7 +8,7 @@ import {
 import { callModel } from '../../_lib/providers.js';
 import { buildStudioMultiPage } from '../../_lib/studio-multipage.js';
 import { validateOrRepairSinglePageBuild } from '../../_lib/studio-singlepage.js';
-import { WEB_STUDIO_SYSTEM_PROMPT, WEB_STUDIO_EXCELLENCE } from '../../_lib/prompts.js';
+import { WEB_STUDIO_SYSTEM_PROMPT, WEB_STUDIO_EXCELLENCE, WEB_STUDIO_RESEARCH_GUIDANCE } from '../../_lib/prompts.js';
 import { buildExperienceBrief, isWebStudioPrompt } from '../../_lib/experience.js';
 import { buildWebStudioSourceInspection, isScopedWebStudioEdit, normalizeScopedWebStudioFiles } from '../../_lib/webstudio-source.js';
 import { buildPromptContract, WEB_STUDIO_PROMPT_MAX_CHARS } from '../../_lib/prompt-contract.js';
@@ -145,6 +145,9 @@ export async function onRequestPost(context) {
       isWebStudio
         ? WEB_STUDIO_SYSTEM_PROMPT + '\n\n' + WEB_STUDIO_EXCELLENCE +
           '\n\nEXPERIENCE INTELLIGENCE:\n' + JSON.stringify(experience || {}) +
+          (payload.context?.webResearch && typeof payload.context.webResearch === 'object'
+            ? '\n\nWEB RESEARCH RULES:\n' + WEB_STUDIO_RESEARCH_GUIDANCE
+            : '') +
           (suppliedSystem ? '\n\nCLIENT STUDIO INSTRUCTIONS:\n' + suppliedSystem : '') +
           '\n\nAuthenticated user UID: ' + user.sub
         : suppliedSystem || `You are OVYX Brain, the authenticated project-aware AI assistant.

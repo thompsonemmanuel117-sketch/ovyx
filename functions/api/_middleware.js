@@ -12,6 +12,7 @@ import { resolveEntitlements } from './entitlements.js';
 
 const INTEGRATION_GATED_PATHS = new Set([
   '/api/ai/assistant',
+  '/api/ai/web-search',
   '/api/ai/gateway',
   '/api/ai/ovyx',
   '/api/generate',
@@ -23,6 +24,7 @@ const INTEGRATION_GATED_PATHS = new Set([
 
 const FEATURE_REQUIREMENTS_BY_PATH = new Map([
   ['/api/ai/assistant', ['aiGeneration']],
+  ['/api/ai/web-search', ['aiGeneration', 'webStudio']],
   ['/api/ai/gateway', ['aiGeneration']],
   ['/api/ai/ovyx', ['aiGeneration']],
   ['/api/generate', ['aiGeneration', 'github']],

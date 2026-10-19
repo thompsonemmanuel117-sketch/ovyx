@@ -14,6 +14,7 @@ try {
     page.setDefaultTimeout(15000);
     const errors = [];
     const feedbackCalls = [];
+    const researchCalls = [];
     page.on('pageerror', error => errors.push(error.message));
 
     await page.route('**/*', async route => {
@@ -25,6 +26,7 @@ try {
           contentType: 'text/html; charset=utf-8',
           body: `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>
           <input id="ws-chat-input" aria-label="Web Studio chat prompt">
+          <section id="view-webstudio"></section>
           <div id="ws-agent-thread"></div>
           <section id="view-faq" class="hidden"><form id="ovyx-help-support-form">
             <input id="ovyx-help-support-subject"><textarea id="ovyx-help-support-message"></textarea>
@@ -60,8 +62,52 @@ try {
             };
           </script>
           <script defer src="/assets/ovyx-webstudio-reliability.js?v=20261019-2"></script>
+          <script defer src="/assets/ovyx-webstudio-research.js?v=20261019-1"></script>
           </body></html>`,
         });
+        return;
+      }
+      if (url.pathname === '/api/ai/web-search') {
+        const payload = request.postDataJSON();
+        researchCalls.push({ method: request.method(), authorization: request.headers()['authorization'], payload });
+        const source = {
+          title: 'MDN: Navigation landmarks',
+          url: 'https://developer.mozilla.org/en-US/docs/Web/HTML/Element/nav',
+          domain: 'developer.mozilla.org',
+          favicon: 'https://www.google.com/s2/favicons?domain=developer.mozilla.org&sz=48',
+          snippet: 'Use navigation landmarks to identify groups of important links.',
+          description: 'The nav element represents a section of a page whose purpose is to provide navigation links.',
+          content: 'Use navigation landmarks to identify important navigation sections. Label multiple navigation landmarks clearly. Make interactive menus usable on keyboard, touch and desktop.',
+          readStatus: 'page_read',
+          engine: 'Fixture Search'
+        };
+        const research = {
+          status: 'complete',
+          query: payload.prompt,
+          queries: [payload.prompt, payload.prompt + ' official documentation'],
+          searchedAt: '2026-10-19T18:00:00.000Z',
+          resultCount: 4,
+          sourcesRead: 1,
+          sources: [source],
+          results: [source]
+        };
+        const events = [
+          ['connected', { ts: Date.now() }],
+          ['progress', { phase: 'search', status: 'running', title: 'Searching the web', detail: 'Search 1 of 2: ' + payload.prompt }],
+          ['source', { source }],
+          ['progress', { phase: 'read', status: 'running', title: 'Reading a source page', detail: 'Opening source 1 of 1: ' + source.title, source }],
+          ['complete', { ok: true, research }],
+          ['done', { ts: Date.now() }]
+        ].map(([event, data]) => 'event: ' + event + String.fromCharCode(10) + 'data: ' + JSON.stringify(data) + String.fromCharCode(10, 10)).join('');
+        await route.fulfill({
+          status: 200,
+          headers: { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-store' },
+          body: events
+        });
+        return;
+      }
+      if (url.hostname === 'www.google.com' && url.pathname === '/s2/favicons') {
+        await route.fulfill({ status: 200, contentType: 'image/svg+xml', body: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" fill="#d8b26a"/></svg>' });
         return;
       }
       if (url.pathname === '/api/ai/feedback') {
@@ -141,6 +187,58 @@ try {
     assert.equal(activeGraphContext.activeView, 'webstudio', '[' + target.name + '] Web Studio API context must identify the active view');
     assert.equal(activeGraphContext.hasEntryFile, true, '[' + target.name + '] source inspection must receive the active graph HTML');
     assert.equal(activeGraphContext.hasCssFile, true, '[' + target.name + '] source inspection must receive CSS source files too');
+
+    const readOnlyResearchMode = await page.evaluate(async () => {
+      window.WebStudio.setMode('build');
+      const input = document.getElementById('ws-chat-input');
+      input.value = 'Research how ChatGPT handles responsive navigation and suggest what changes I should make on my website';
+      await window.WebStudio.submitPrompt();
+      return { mode: window.WebStudio.mode, autoReadOnly: window.WebStudio.__ovyxAutoReadOnlyMode === true };
+    });
+    assert.equal(readOnlyResearchMode.mode, 'ask', '[' + target.name + '] research plus suggestions must stay read-only even when Build was selected');
+    assert.equal(readOnlyResearchMode.autoReadOnly, true, '[' + target.name + '] research-only routing should allow a later targeted edit to switch back to Build');
+
+    const explicitResearchApplyMode = await page.evaluate(async () => {
+      window.WebStudio.setMode('build');
+      const input = document.getElementById('ws-chat-input');
+      input.value = 'Research how ChatGPT handles responsive navigation and then add a keyboard-friendly menu to my website';
+      await window.WebStudio.submitPrompt();
+      return { mode: window.WebStudio.mode, autoReadOnly: window.WebStudio.__ovyxAutoReadOnlyMode === true };
+    });
+    assert.equal(explicitResearchApplyMode.mode, 'build', '[' + target.name + '] a clear request to research and apply a change must remain in Build');
+    assert.equal(explicitResearchApplyMode.autoReadOnly, false);
+
+    const webResearchRun = await page.evaluate(async () => {
+      window.WebStudio.setMode('ask');
+      window.__buildResponse = { ok: true, text: 'Here is a source-backed summary of accessible navigation patterns.' };
+      const result = await window.WebStudio.callAI({
+        mode: 'ask',
+        prompt: 'Search the web for how ChatGPT handles responsive navigation',
+        context: { activeView: 'webstudio' },
+      }, 7);
+      const activity = document.querySelector('.ovyx-ws-live-activity');
+      return {
+        responseReturned: !!result,
+        activeView: window.__lastCallAIPayload && window.__lastCallAIPayload.context.activeView,
+        researchStatus: window.__lastCallAIPayload && window.__lastCallAIPayload.context.webResearch && window.__lastCallAIPayload.context.webResearch.status,
+        researchedSource: window.__lastCallAIPayload && window.__lastCallAIPayload.context.webResearch && window.__lastCallAIPayload.context.webResearch.sources[0] && window.__lastCallAIPayload.context.webResearch.sources[0].url,
+        activityText: activity && activity.textContent,
+        activityState: activity && activity.getAttribute('data-state'),
+        hasSourceLink: !!(activity && activity.querySelector('.ovyx-ws-live-source[href="https://developer.mozilla.org/en-US/docs/Web/HTML/Element/nav"]')),
+        hasAnimatedLogo: !!(activity && activity.querySelector('.ovyx-ws-live-orbit')),
+      };
+    });
+    assert.equal(webResearchRun.responseReturned, true, '[' + target.name + '] research should continue into the Web Studio AI answer');
+    assert.equal(webResearchRun.activeView, 'webstudio', '[' + target.name + '] research context must stay within Web Studio');
+    assert.equal(webResearchRun.researchStatus, 'complete', '[' + target.name + '] the sourced research must be passed into the model request');
+    assert.equal(webResearchRun.researchedSource, 'https://developer.mozilla.org/en-US/docs/Web/HTML/Element/nav');
+    assert.match(webResearchRun.activityText, /Web research complete/, '[' + target.name + '] activity must settle only after source research finishes');
+    assert.equal(webResearchRun.activityState, 'success');
+    assert.equal(webResearchRun.hasSourceLink, true, '[' + target.name + '] the progress card should show the actual source link');
+    assert.equal(webResearchRun.hasAnimatedLogo, true, '[' + target.name + '] the progress card should show OVYX animation');
+    assert.equal(researchCalls.length, 1, '[' + target.name + '] an explicit web request must invoke the real server route');
+    assert.equal(researchCalls[0].authorization, 'Bearer test-token');
+    assert.match(researchCalls[0].payload.prompt, /ChatGPT handles responsive navigation/);
 
     const thumbs = page.locator('.ovyx-ws-feedback [data-ovyx-feedback-vote]');
     assert.equal(await thumbs.count(), 2, '[' + target.name + '] assistant response must show thumbs up and down');
