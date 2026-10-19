@@ -178,12 +178,12 @@ function collectProjectFiles(project, maxFiles = MAX_SEARCHABLE_PROJECT_FILES) {
     if (!collection) continue;
     const entries = Array.isArray(collection)
       ? collection.map(item => [
-          clean(item?.path || item?.file || item?.name, 240).replace(/^\\/+/, ''),
+          clean(item?.path || item?.file || item?.name, 240).replace(/^\/+/, ''),
           item,
         ])
       : (typeof collection === 'object' ? Object.entries(collection) : []);
     for (const [rawPath, value] of entries) {
-      const path = clean(rawPath, 240).replace(/^\\/+/, '');
+      const path = clean(rawPath, 240).replace(/^\/+/, '');
       if (!path || seen.has(path) || sensitivePath(path)) continue;
       const content = contentOf(value);
       if (content.length > MAX_PROJECT_FILE_BYTES || !SAFE_TEXT_EXTENSION.test(path)) continue;
