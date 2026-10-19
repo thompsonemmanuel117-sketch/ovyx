@@ -55,7 +55,7 @@ assert.match(source, /ovyx-ai-verifying/);
 assert.match(source, /recordAssistantActivity\(describeWorkspaceToolOutcome/);
 assert.match(source, /payload\.queries = action\.queries/);
 assert.match(native, /DEEP PROJECT SEARCH/);
-assert.match(native, /queries array of 2–8 distinct literal terms/);
+assert.match(native, /["']queries["'] array of 2–8 distinct literal terms/);
 assert.match(source, /const READ_ONLY_WORKSPACE_ACTIONS = new Set/);
 assert.match(source, /async function executeWorkspaceReadAction\(action\)/);
 assert.match(source, /workspaceToolResults: workspaceToolResults\.slice\(-6\)/);
