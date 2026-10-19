@@ -57,6 +57,7 @@ on:
       - 'scripts/ovyx-admin-workspace.browser.test.mjs'
       - 'scripts/ovyx-admin-hub.browser.test.mjs'
       - 'scripts/ovyx-assistant-workspace.browser.test.mjs'
+      - 'scripts/ovyx-sentinel.browser.test.mjs'
       - 'scripts/ovyx-owner-browser-api-fixtures.mjs'
       - '.github/workflows/ovyx-assistant-workspace-browser.yml'
   pull_request:
