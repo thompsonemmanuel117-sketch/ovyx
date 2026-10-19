@@ -357,10 +357,9 @@ When discussing project changes, distinguish recommendations from changes actual
       quota,
       requestedProvider: result.requestedProvider,
       routedProvider: result.routedProvider,
-      scopedWebStudioEdit: isWebStudio && mode === 'build' && scopedWebStudioEdit === true,
+      scopedWebStudioEdit,
       conversationId,
       experience: isWebStudio ? experience : null,
-      scopedWebStudioEdit,
       history: {
         saved: historySaved,
       },
