@@ -10,7 +10,7 @@ import { buildStudioMultiPage } from '../../_lib/studio-multipage.js';
 import { validateOrRepairSinglePageBuild } from '../../_lib/studio-singlepage.js';
 import { WEB_STUDIO_SYSTEM_PROMPT, WEB_STUDIO_EXCELLENCE } from '../../_lib/prompts.js';
 import { buildExperienceBrief, isWebStudioPrompt } from '../../_lib/experience.js';
-import { buildWebStudioSourceInspection, isScopedWebStudioEdit } from '../../_lib/webstudio-source.js';
+import { buildWebStudioSourceInspection, isScopedWebStudioEdit, normalizeScopedWebStudioFiles } from '../../_lib/webstudio-source.js';
 import { buildPromptContract, WEB_STUDIO_PROMPT_MAX_CHARS } from '../../_lib/prompt-contract.js';
 import { beginAIQuota, finalizeAIQuota, refundDailyPrompt } from '../../_lib/token-quota.js';
 import {
@@ -316,6 +316,15 @@ When discussing project changes, distinguish recommendations from changes actual
         if (Object.prototype.hasOwnProperty.call(structured, key)) {
           structuredFields[key] = structured[key];
         }
+      }
+    }
+    if (scopedWebStudioEdit) {
+      const proposedFiles = structured && (
+        structured.files || structured.fileEdits || (structured.patch && structured.patch.files)
+      ) || result.files || result.fileEdits || (result.patch && result.patch.files);
+      if (proposedFiles && typeof proposedFiles === 'object') {
+        const normalizedFiles = normalizeScopedWebStudioFiles(proposedFiles);
+        structuredFields.files = normalizedFiles;
       }
     }
     if (isWebStudio && mode === 'ask' && structured && typeof structured.text === 'string') {
