@@ -195,10 +195,6 @@ export async function probeApplicationShell(deploymentUrl, fetchImpl = globalThi
     { ...runtimes[index], label: spec.label, path: spec.path },
   ]));
   const quality = requiredRuntimes.quality;
-  const missingOrBroken = REQUIRED_RUNTIMES
-    .filter((spec, index) => !runtimes[index].ok)
-    .map(spec => spec.label);
-
   const ok = missingOrBroken.length === 0;
   const error = ok
     ? ''
