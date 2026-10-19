@@ -4,6 +4,13 @@ import {
   detectArchetype,
   isWebStudioPrompt
 } from '../functions/_lib/experience.js';
+import {
+  WEB_STUDIO_EXCELLENCE,
+  WEB_STUDIO_SYSTEM_PROMPT,
+  executePrompt,
+  planPrompt,
+  polishPrompt
+} from '../functions/_lib/prompts.js';
 
 const cases = [
   ['Build me a premium online fashion store with collection pages.', 'fashion'],
@@ -49,4 +56,50 @@ assert.equal(isWebStudioPrompt('How do hotel booking platforms work?'), false, '
 assert.equal(isWebStudioPrompt('Please create a marketplace for local artists.'), true);
 assert.equal(isWebStudioPrompt('Build a five-page site for my business.', 'web-studio-build'), true);
 
-console.log('OVYX experience intelligence tests passed for premium multi-industry website categories.');
+// Unknown categories are valid custom briefs, not unsupported requests.
+const openEndedPrompts = [
+  'Build an online community where independent musicians share unfinished tracks, find collaborators, and schedule listening sessions.',
+  'I need an online community where independent musicians can exchange drafts, request feedback and find collaborators.',
+  'Create a mobile-friendly tool for neighborhood equipment lending with member profiles, due dates, renewal requests, and overdue reminders.',
+  'Develop a digital platform for museum visitors to build accessible, multilingual self-guided tours with audio stops and map checkpoints.'
+];
+for (const prompt of openEndedPrompts) {
+  assert.equal(detectArchetype(prompt), 'generic', 'This deliberately novel brief should not be mislabelled as a predefined vertical: ' + prompt);
+  assert.equal(isWebStudioPrompt(prompt), true, 'Open-ended digital-product creation should route to the build experience: ' + prompt);
+  const brief = buildExperienceBrief(prompt);
+  assert.equal(brief.customizationMode, 'open-ended-custom-concept');
+  assert.equal(brief.blueprintRole, 'advisory-only; never a required category, allowlist, or template');
+  assert.ok(brief.customizationContract.some(rule => /never a list of supported or permitted categories/i.test(rule)));
+  assert.ok(brief.mustHave.some(rule => /core workflow/i.test(rule)), 'Custom concepts should prioritize the request-specific workflow.');
+  assert.ok(brief.architecture.sections.some(section => /core interface or workflow/i.test(section)), 'Custom concepts should not default to a marketing-hero sitemap.');
+}
+
+const novelBrief = openEndedPrompts[0];
+const novelExperience = buildExperienceBrief(novelBrief);
+assert.match(WEB_STUDIO_SYSTEM_PROMPT, /OPEN-ENDED CREATION POLICY/);
+assert.match(WEB_STUDIO_EXCELLENCE, /NO CLOSED CATEGORY LIST/);
+const plan = planPrompt({ prompt: novelBrief, tree: 'index.html', hints: '{}', experience: novelExperience });
+assert.match(plan, /FREE-FORM REQUEST RULES/);
+assert.match(plan, /the user's own description defines the product/i);
+const execution = executePrompt({
+  prompt: novelBrief,
+  plan: { summary: 'Build a custom community experience', siteMap: { pages: [] } },
+  files: 'index.html: existing project context',
+  hints: '{}',
+  experience: novelExperience,
+  allowDeletes: false,
+  allowWorkflowChanges: false
+});
+assert.match(execution, /REQUEST FIDELITY AND CUSTOM-CREATION RULES/);
+assert.match(execution, /must never restrict which ideas can be built/i);
+const polish = polishPrompt({
+  prompt: novelBrief,
+  plan: {},
+  experience: novelExperience,
+  files: 'index.html',
+  currentScore: 55,
+  hints: '{}'
+});
+assert.match(polish, /archetype or blueprint is advisory, not a template/i);
+
+console.log('OVYX experience intelligence tests passed for premium multi-industry and open-ended custom briefs.');
