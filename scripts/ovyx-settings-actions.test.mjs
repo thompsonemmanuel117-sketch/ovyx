@@ -242,6 +242,8 @@ assert.ok(headers.includes('/assets/ovyx-settings-billing-live.js'), 'Billing ru
 assert.ok(billingRuntime.includes("getJson('/api/payments/status')"), 'Billing must use authenticated server subscription status.');
 assert.ok(billingRuntime.includes("getJson('/api/tokens/balance')"), 'Billing must use the authenticated server token balance.');
 assert.ok(billingRuntime.includes("getJson('/api/payments/history')"), 'Billing must display payment history fetched from the server.');
+assert.ok(billingRuntime.includes('data-ovyx-legacy-quota-compat'), 'The server-backed Billing panel must satisfy legacy meter selectors without exposing local quota data.');
+assert.ok(billingRuntime.includes("'<span id=\"ovyx-bill-used\">0</span><span class=\"ovyx-billing-limit\">Legacy quota compatibility only</span>'"), 'Legacy usage-refresh compatibility nodes must stay hidden and must not overwrite visible server-backed usage.');
 assert.ok(billingRuntime.includes('No local browser history was substituted') || billingRuntime.includes('No browser-only balance or payment history is being presented as verified.'), 'Billing must not present local browser data as verified payment history.');
 assert.ok(paymentHistoryApi.includes('verifyFirebaseIdToken'), 'Payment history must authenticate the user.');
 assert.ok(paymentHistoryApi.includes('identity.user.uid'), 'Payment history identity must come from the verified token, never a query UID.');
