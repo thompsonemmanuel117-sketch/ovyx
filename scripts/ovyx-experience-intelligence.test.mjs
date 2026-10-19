@@ -59,6 +59,7 @@ assert.equal(isWebStudioPrompt('Build a five-page site for my business.', 'web-s
 // Unknown categories are valid custom briefs, not unsupported requests.
 const openEndedPrompts = [
   'Build an online community where independent musicians share unfinished tracks, find collaborators, and schedule listening sessions.',
+  'I need an online community where independent musicians can exchange drafts, request feedback and find collaborators.',
   'Create a mobile-friendly tool for neighborhood equipment lending with member profiles, due dates, renewal requests, and overdue reminders.',
   'Develop a digital platform for museum visitors to build accessible, multilingual self-guided tours with audio stops and map checkpoints.'
 ];
