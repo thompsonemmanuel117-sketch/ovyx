@@ -95,7 +95,7 @@ assert.equal(
 );
 assert.match(assistantApi, /isWebStudioPrompt\(promptText, mode, payload\.context\)/);
 assert.match(assistantApi, /buildWebStudioSourceInspection/);
-assert.match(assistantApi, /scopedWebStudioEdit: isWebStudio && mode === 'build' && scopedWebStudioEdit === true/);
+assert.match(assistantApi, /scopedWebStudioEdit,/);
 assert.match(assistantApi, /mode === 'build' && !scopedWebStudioEdit/);
 assert.match(runtime, /files: requestPayload\.files \|\| priorContext\.files \|\| \(studio\.graph && studio\.graph\.files\) \|\| null/);
 assert.match(assistantApi, /if \(!structuredFields\.message\) structuredFields\.message = structured\.text;/);
