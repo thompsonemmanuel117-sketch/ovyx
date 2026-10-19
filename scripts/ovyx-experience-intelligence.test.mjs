@@ -56,6 +56,20 @@ assert.equal(isWebStudioPrompt('How do hotel booking platforms work?'), false, '
 assert.equal(isWebStudioPrompt('Please create a marketplace for local artists.'), true);
 assert.equal(isWebStudioPrompt('Build a five-page site for my business.', 'web-studio-build'), true);
 
+// Existing-site edits should route correctly even if the user omits "website".
+const websiteEditRequests = [
+  'Add a skip link to this project.',
+  'Change the headline on this page.',
+  'Fix my mobile menu.',
+  'Improve the contrast of this layout.',
+  'Update the navigation on my site.',
+  'Remove that duplicate section from the current page.'
+];
+for (const prompt of websiteEditRequests) {
+  assert.equal(isWebStudioPrompt(prompt), true, 'Existing-page edit intent should route to Web Studio: ' + prompt);
+}
+assert.equal(isWebStudioPrompt('How can I improve my writing?'), false, 'Unrelated writing advice must not be routed into Web Studio editing.');
+
 // Unknown categories are valid custom briefs, not unsupported requests.
 const openEndedPrompts = [
   'Build an online community where independent musicians share unfinished tracks, find collaborators, and schedule listening sessions.',
