@@ -244,6 +244,14 @@ try {
     const savedCopy = await page.getByText(/The saved change was verified/i).innerText();
     assert.doesNotMatch(savedCopy, /server read-back verification/i, '[' + target.name + '] user-facing save feedback must avoid implementation-level wording');
 
+    const activity = panel.locator('.ovyx-native-activity');
+    await activity.locator('[data-stage]').waitFor({ state: 'attached' });
+    await page.locator('.ovyx-native-activity[data-completed="true"]').waitFor({ state: 'visible', timeout: 5000 });
+    const activityText = await activity.evaluate(node => String(node.textContent || ''));
+    assert.match(activityText, /Reading src\\/menu\\.js/i, '[' + target.name + '] the assistant activity card must show the inspected file path');
+    assert.match(activityText, /Read src\\/menu\\.js completely/i, '[' + target.name + '] the activity trace must describe the actual source-read outcome');
+    assert.match(activityText, /Response ready/i, '[' + target.name + '] the activity card must show a finished state rather than a stuck spinner');
+
     assert.deepEqual(
       workspaceCalls.map(call => call.operation),
       ['snapshot', 'diagnose', 'read_file', 'prepare_patch', 'apply_patch'],
