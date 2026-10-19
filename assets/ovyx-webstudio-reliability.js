@@ -472,15 +472,17 @@
       return /\b(?:build|create|generate|design|develop|launch)\s+(?:(?:me|us)\s+)?(?:(?:a|an|the|brand\s+new|new|complete|full|multi[- ]page|single[- ]page)\s+){0,2}(?:website|web\s+site|site|web\s+app|application|digital\s+product)\b/i.test(text);
     }
     function targetedEdit(text) {
-      return editAction(text) && !explicitNewBuild(text) && (
-        /\b(?:this|that|it|here|above|existing|current|selected|my\s+(?:site|website|page|project)|the\s+(?:website|site|page|project|layout|design|header|footer|hero|menu|navigation|button|form|section|card|font|typography|colors?|colou?rs?|spacing|logo|image|background|contrast)|website|site|page|project|layout|design|header|footer|hero|headline|heading|title|text|copy|menu|navigation|button|form|section|card|font|typography|colors?|colou?rs?|spacing|logo|image|background|contrast|padding|margin|responsive|mobile|desktop|tablet|accessibility|feature|component|style|stylesheet|skip\s+link|label|link|dropdown|sidebar|control|icon)\b/i.test(text)
+      var asksForAdvice = /\b(?:what\s+should\s+i\s+change|what\s+would\s+you\s+change|tell\s+me\s+what\s+to\s+change|what\s+do\s+you\s+recommend|recommend\s+changes|suggest\s+changes|should\s+i\s+change|how\s+can\s+i\s+improve|how\s+should\s+i)\b/i.test(text);
+      return !asksForAdvice && editAction(text) && !explicitNewBuild(text) && (
+        /\b(?:this|that|it|here|above|existing|current|selected|my\s+(?:site|website|page|project)|the\s+(?:website|site|page|project|layout|design|header|footer|hero|menu|navigation|button|form|section|card|font|typography|colors?|colou?rs?|spacing|logo|image|background|contrast|code|source|file|function|method|class)|website|site|page|project|layout|design|header|footer|hero|headline|heading|title|text|copy|menu|navigation|button|form|section|card|font|typography|colors?|colou?rs?|spacing|logo|image|background|contrast|padding|margin|responsive|mobile|desktop|tablet|accessibility|feature|functionality|component|style|stylesheet|skip\s+link|label|link|dropdown|sidebar|control|icon|file|files|source|code|function|method|class|variable|search|filter|sort|upload|download|table|chart)\b/i.test(text)
       );
     }
     function readOnlyFollowUp(text) {
+      var asksForAdvice = /\b(?:what\s+should\s+i\s+change|what\s+would\s+you\s+change|tell\s+me\s+what\s+to\s+change|what\s+do\s+you\s+recommend|recommend\s+changes|suggest\s+changes|should\s+i\s+change|how\s+can\s+i\s+improve|how\s+should\s+i)\b/i.test(text);
+      if (asksForAdvice) return true;
       var startsAsInspection = /^(?:(?:please|now|then)\s+)*(?:(?:can|could|would)\s+you\s+)?(?:search|find|locate|inspect|review|examine|audit|trace|verify|check|list|show|read|where\b|why\b|how\b|what\b|is\b|was\b|has\b|have\b|tell\s+me\b|recommend\b|suggest\b)/i.test(text);
       if (!startsAsInspection || explicitNewBuild(text)) return false;
-      var asksForAdvice = /\b(?:what\s+should\s+i\s+change|what\s+would\s+you\s+change|tell\s+me\s+what\s+to\s+change|what\s+do\s+you\s+recommend|recommend\s+changes|suggest\s+changes|should\s+i\s+change|how\s+can\s+i\s+improve|how\s+should\s+i)\b/i.test(text);
-      if (editAction(text) && !asksForAdvice) return false;
+      if (editAction(text)) return false;
       return /\b(?:project|website|site|page|file|files|source|code|menu|header|footer|section|button|font|layout|design|feature|already|implemented|working|done|css|html|javascript|function|component|app|it|this|that|the)\b/i.test(text);
     }
     async function routedSubmitPrompt() {
