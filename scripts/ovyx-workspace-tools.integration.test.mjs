@@ -139,6 +139,20 @@ try {
   assert.equal(searchFile.status, 200);
   assert.ok(searchFile.body.matches.some(match => match.path === 'index.html'), 'project search finds text in the owned saved source');
 
+  const batchedSearch = await call({
+    operation: 'search',
+    projectId,
+    queries: ['Original content', 'index.html', 'Original content'],
+  });
+  assert.equal(batchedSearch.status, 200, JSON.stringify(batchedSearch.body));
+  assert.deepEqual(batchedSearch.body.queries, ['Original content', 'index.html'], 'server should deduplicate batched terms without changing their order');
+  assert.equal(batchedSearch.body.queryCount, 2);
+  assert.equal(batchedSearch.body.filesSearched, 2);
+  assert.equal(batchedSearch.body.inventoryTruncated, false);
+  assert.equal(batchedSearch.body.byQuery[0].count, 1, 'the first literal term should report its own exact match count');
+  assert.equal(batchedSearch.body.byQuery[1].matches[0].matchType, 'path', 'the second literal term must search source file paths as well as content');
+  assert.equal(batchedSearch.body.totalMatches, 2);
+
   const redactedRead = await call({ operation: 'read_file', projectId, filePath: 'src/config.js' });
   assert.equal(redactedRead.status, 200);
   assert.equal(redactedRead.body.file.contentComplete, false, 'secret-redacted source can never be marked edit-ready');
