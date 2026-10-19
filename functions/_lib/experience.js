@@ -621,7 +621,7 @@ const ARCHETYPES = [
   },
   {
     id: 'restaurant',
-    triggers: ['restaurant', 'cafe', 'coffee', 'bar', 'bakery', 'food', 'dining', 'chef'],
+    triggers: ['restaurant', 'cafe', 'coffee', 'cocktail bar', 'wine bar', 'pub', 'bakery', 'food', 'dining', 'chef'],
     mission: 'Turn appetite and curiosity into a visit, reservation or order.',
     mustHave: [
       'menu discovery',
@@ -642,7 +642,7 @@ const ARCHETYPES = [
   },
   {
     id: 'saas',
-    triggers: ['saas', 'software', 'product', 'startup', 'ai tool', 'b2b'],
+    triggers: ['saas', 'software', 'startup', 'ai tool', 'b2b', 'saas platform', 'business software', 'developer tool'],
     mission: 'Make value obvious quickly, then move serious users toward activation.',
     mustHave: [
       'clear positioning',
@@ -1002,13 +1002,23 @@ function triggerMatches(prompt, trigger) {
   return prompt.split(/[^a-z0-9]+/).includes(trigger);
 }
 
+const BROAD_ARCHETYPE_TRIGGERS = new Set([
+  'online store', 'online shop', 'marketplace', 'storefront', 'retail store',
+  'shopping cart', 'cart', 'product',
+  'dashboard', 'analytics dashboard', 'data dashboard', 'admin panel',
+  'operations console', 'reporting dashboard', 'metrics dashboard',
+  'analytics portal', 'data visualization', 'agency', 'studio'
+]);
+
 export function detectArchetype(prompt) {
   const q = clean(prompt).toLowerCase();
   let best = { id: 'generic', hits: 0, specificity: 0 };
   for (const archetype of ARCHETYPES) {
     const matched = archetype.triggers.filter(trigger => triggerMatches(q, trigger));
     const hits = matched.length;
-    const specificity = matched.reduce((total, trigger) => total + trigger.length, 0);
+    const specificity = matched.reduce((total, trigger) => (
+      total + (BROAD_ARCHETYPE_TRIGGERS.has(trigger) ? 0 : trigger.length + 10)
+    ), 0);
     if (hits > best.hits || (hits === best.hits && specificity > best.specificity)) {
       best = { id: archetype.id, hits, specificity };
     }
