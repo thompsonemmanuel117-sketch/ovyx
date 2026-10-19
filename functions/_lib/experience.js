@@ -994,6 +994,14 @@ export function isWebStudioPrompt(prompt, mode = '') {
   const q = clean(prompt).toLowerCase();
   if (/(website|web site|landing page|marketing site|homepage|portfolio site|church site|hospital site|clinic site|restaurant site|web app|dashboard|saas app|storefront)/.test(q)) return true;
 
+  // Treat clear edit requests against an existing page or interface element as
+  // Web Studio work even when the user does not repeat the word "website".
+  // This catches concise requests like "fix my mobile menu" and "improve the
+  // contrast of this layout" without rerouting unrelated writing or Q&A tasks.
+  const changeAction = /\b(?:add|change|edit|update|fix|repair|improve|enhance|redesign|remove|delete|replace|refine|polish|optimi[sz]e|adjust|modify|implement|restyle|make|move|rearrange|resize|shrink|enlarge|increase|decrease|align|reposition)\b/i.test(q);
+  const existingWebArtifact = /\b(?:my|this|the|current|existing|selected|active|a|an|that|those|these)\s+(?:(?:[\w-]+\s+){0,2})(?:website|web site|site|web page|page|homepage|landing page|web app|app|project|layout|design|header|footer|hero|headline|heading|title|text|copy|navigation|nav|menu|button|form|section|component|card|grid|modal|dialog|tab|dropdown|sidebar|style|styling|stylesheet|css|html|script|link|image|font|typeface|typography|font size|colour|color|colours|colors|background|contrast|spacing|margin|padding|border|shadow|gradient|icon|logo|animation|transition|responsiveness|responsive|mobile|desktop|tablet|accessibility|seo|content|interaction|feature|control)\b/i.test(q);
+  if (changeAction && existingWebArtifact) return true;
+
   const explicitBuildAction = /\b(?:build|create|design|make|generate|develop|launch|craft|produce|turn|transform)\b/i.test(q);
   const naturalLanguageBuildRequest = /\b(?:i|we)\s+(?:want|need|would like|would love)\s+(?:to\s+(?:build|create|design|make|develop)\s+)?(?:a|an|the|my|some kind of|something like)\s*(?:website|site|web app|application|app|platform|portal|marketplace|online community|community|network|workspace|member area|customer portal|client portal|management system|booking system|interactive experience|digital product|web tool|tool|software product|creator platform|service platform|collaboration space|learning environment|resource hub)\b/i.test(q);
   if (!explicitBuildAction && !naturalLanguageBuildRequest) return false;

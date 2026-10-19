@@ -56,6 +56,31 @@ assert.equal(isWebStudioPrompt('How do hotel booking platforms work?'), false, '
 assert.equal(isWebStudioPrompt('Please create a marketplace for local artists.'), true);
 assert.equal(isWebStudioPrompt('Build a five-page site for my business.', 'web-studio-build'), true);
 
+// Existing-site edits should route correctly even if the user omits "website".
+const websiteEditRequests = [
+  'Add a skip link to this project.',
+  'Change the headline on this page.',
+  'Fix my mobile menu.',
+  'Improve the contrast of this layout.',
+  'Update the navigation on my site.',
+  'Remove that duplicate section from the current page.',
+  'Make the font larger.',
+  'Change the colors.',
+  'Add a button here.',
+  'Delete that section.',
+  'Make this layout mobile friendly.',
+  'Update the button color.',
+  'Reposition the logo.',
+  'Increase the spacing.',
+  'Move that card below the form.',
+  'Replace the hero image.',
+  'Change the typography on this page.'
+];
+for (const prompt of websiteEditRequests) {
+  assert.equal(isWebStudioPrompt(prompt), true, 'Existing-page edit intent should route to Web Studio: ' + prompt);
+}
+assert.equal(isWebStudioPrompt('How can I improve my writing?'), false, 'Unrelated writing advice must not be routed into Web Studio editing.');
+
 // Unknown categories are valid custom briefs, not unsupported requests.
 const openEndedPrompts = [
   'Build an online community where independent musicians share unfinished tracks, find collaborators, and schedule listening sessions.',
@@ -77,6 +102,12 @@ for (const prompt of openEndedPrompts) {
 const novelBrief = openEndedPrompts[0];
 const novelExperience = buildExperienceBrief(novelBrief);
 assert.match(WEB_STUDIO_SYSTEM_PROMPT, /OPEN-ENDED CREATION POLICY/);
+assert.match(WEB_STUDIO_SYSTEM_PROMPT, /EXISTING-SITE CHANGE REQUESTS \(NON-NEGOTIABLE\)/);
+assert.match(WEB_STUDIO_SYSTEM_PROMPT, /concrete delta to the current site—not as permission to rebuild from scratch/i);
+assert.match(WEB_STUDIO_SYSTEM_PROMPT, /Implement the requested change rather than replying with instructions only/i);
+assert.match(WEB_STUDIO_EXCELLENCE, /EXISTING-SITE EDITS — APPLY THE REQUESTED DELTA/);
+assert.match(WEB_STUDIO_EXCELLENCE, /Do not regenerate the whole site or replace unrelated pages/i);
+assert.match(WEB_STUDIO_EXCELLENCE, /Distinguish requests to discuss\/recommend changes from requests to apply them/i);
 assert.match(WEB_STUDIO_EXCELLENCE, /NO CLOSED CATEGORY LIST/);
 const plan = planPrompt({ prompt: novelBrief, tree: 'index.html', hints: '{}', experience: novelExperience });
 assert.match(plan, /FREE-FORM REQUEST RULES/);
