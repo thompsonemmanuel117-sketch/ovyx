@@ -333,6 +333,207 @@ const EXPERIENCE_ARCHITECTURES = {
       'tiny text and low-contrast dense tables'
     ]
   },
+  fintech: {
+    sections: [
+      'clear financial product positioning and the intended customer outcome',
+      'how the account, product or service works',
+      'fees, rates, eligibility and limitations only when supplied or computed from explicit inputs',
+      'privacy, security and risk information based on verified facts',
+      'transparent onboarding and account-access pathways',
+      'comparison or calculator tools with visible assumptions where useful',
+      'support, FAQs and clear next steps'
+    ],
+    interactionConcepts: [
+      'financial calculators that expose assumptions and update from user inputs',
+      'comparison controls that make trade-offs and fees understandable',
+      'account or transaction demonstrations clearly marked as sample data',
+      'accessible charts accompanied by meaningful text or tables',
+      'forms that validate sensitive inputs without pretending to open real accounts'
+    ],
+    motionChoreography: [
+      'quiet, precise transitions that support trust',
+      'immediate feedback for calculations and form state',
+      'reduced motion and strong focus visibility around financial actions'
+    ],
+    visualAvoid: [
+      'invented yields, interest rates, returns, balances or transaction histories',
+      'fake bank security seals, regulatory approvals or deposit-protection claims',
+      'dark patterns, urgency pressure or misleading financial advice',
+      'a real login or money transfer claim when no authenticated service is connected'
+    ]
+  },
+  hospitality: {
+    sections: [
+      'distinctive destination and hospitality-led introduction',
+      'room, suite or stay discovery',
+      'amenities and experience storytelling using supplied details',
+      'date, guest and availability selection when booking is requested',
+      'room detail and inclusions/exclusions',
+      'location, access and transport information when supplied',
+      'booking review, support and truthful confirmation state'
+    ],
+    interactionConcepts: [
+      'a date-and-guest selector with clear unavailable states',
+      'room or suite cards that open detailed amenities and image galleries',
+      'a booking review step that preserves dates and guest choices',
+      'mobile-first reservation controls with visible validation',
+      'sample rates and availability labelled as demonstration data unless connected'
+    ],
+    motionChoreography: [
+      'cinematic but restrained image transitions',
+      'tactile gallery and room-selection feedback',
+      'fast access to dates, rates and essential booking details'
+    ],
+    visualAvoid: [
+      'invented room rates, occupancy, amenities, ratings or availability',
+      'fake guest reviews or claims of awards and certifications',
+      'full-screen motion that delays the reservation journey',
+      'confirmation language before the booking provider confirms success'
+    ]
+  },
+  travel: {
+    sections: [
+      'destination or travel-purpose discovery',
+      'curated destination and itinerary pathways',
+      'tour, activity or package details with clear inclusions and exclusions',
+      'dates, travellers and preferences when relevant',
+      'practical travel information only when supplied or sourced',
+      'booking or enquiry review step',
+      'support, cancellation and next-step information when supplied'
+    ],
+    interactionConcepts: [
+      'destination filters that act on the displayed destinations',
+      'itinerary steps with duration and logistics only when grounded',
+      'traveller/date selections that persist while browsing',
+      'a comparison view for trips or packages where useful',
+      'booking states that clearly separate sample results from live availability'
+    ],
+    motionChoreography: [
+      'editorial transitions that communicate place and mood',
+      'lightweight map or itinerary reveals when data is available',
+      'reduced-motion support and immediate travel-control feedback'
+    ],
+    visualAvoid: [
+      'fabricated destinations, schedules, prices, visa guidance or travel restrictions',
+      'fake availability, ratings, map data or booking confirmations',
+      'hidden fees or unclear package inclusions',
+      'heavy media that blocks essential details on mobile'
+    ]
+  },
+  legal: {
+    sections: [
+      'clear practice focus and client audience',
+      'practice areas and services',
+      'team biographies and qualifications only when supplied',
+      'process and what a first consultation involves',
+      'client resources or frequently asked questions',
+      'consultation or enquiry pathway with appropriate privacy messaging',
+      'office and contact details only when supplied'
+    ],
+    interactionConcepts: [
+      'practice-area discovery that leads to relevant service information',
+      'a concise enquiry form with accessible validation',
+      'attorney profiles that use verified supplied biographies',
+      'clear consultation steps and realistic response expectations when supplied'
+    ],
+    motionChoreography: [
+      'restrained transitions that signal clarity and confidence',
+      'subtle focus and disclosure states',
+      'no animation that obscures legal information or form errors'
+    ],
+    visualAvoid: [
+      'invented lawyer credentials, case wins, client logos or success rates',
+      'guarantees of legal outcomes or unsupported legal advice',
+      'fake confidentiality, accreditation or regulatory claims',
+      'intimidating walls of text without accessible headings and summaries'
+    ]
+  },
+  marketplace: {
+    sections: [
+      'explain what is exchanged and who the platform serves',
+      'search and category discovery for real listing attributes',
+      'filterable listing results and useful no-result states',
+      'listing detail pages with seller/provider information when supplied',
+      'buyer and seller/provider pathways when relevant',
+      'enquiry, booking or purchase steps with honest integration state',
+      'trust, dispute, support and platform-policy information when supplied'
+    ],
+    interactionConcepts: [
+      'search, filters and sorting that actually change the visible results',
+      'listing details that preserve search and filter context',
+      'clear buyer/seller or customer/provider role selection where needed',
+      'saved-item or comparison interactions with visible state',
+      'transaction steps that never simulate payment, escrow or fulfilment as real'
+    ],
+    motionChoreography: [
+      'fast transitions between results and item details',
+      'immediate feedback when filters or roles change',
+      'subtle listing imagery and clear navigation continuity'
+    ],
+    visualAvoid: [
+      'invented sellers, reviews, transaction counts or verification badges',
+      'fake escrow, payments, messaging or identity checks',
+      'filters that only change their own styling',
+      'one generic repeated card layout for every platform role'
+    ]
+  },
+  automotive: {
+    sections: [
+      'vehicle or automotive-service discovery',
+      'search and filters for attributes present in the listing data',
+      'vehicle details with supplied specifications and image galleries',
+      'inspection, test-drive or enquiry pathway when relevant',
+      'dealer, service centre or seller information when supplied',
+      'financing, warranties and service claims only when supplied',
+      'contact and next steps'
+    ],
+    interactionConcepts: [
+      'filters for price, body type, make or model only where those data exist',
+      'vehicle comparison and detail navigation that preserves context',
+      'test-drive or service-request forms with honest pending states',
+      'clear distinction between sample inventory and connected live inventory'
+    ],
+    motionChoreography: [
+      'confident image-led transitions and practical galleries',
+      'immediate filter and comparison feedback',
+      'mobile-friendly controls for browsing vehicle details'
+    ],
+    visualAvoid: [
+      'invented vehicle specifications, prices, mileage, stock or warranty terms',
+      'fake financing approvals, inventory status or confirmed test drives',
+      'misleading comparison figures',
+      'slow full-screen effects that make inventory difficult to browse'
+    ]
+  },
+  events: {
+    sections: [
+      'event identity and audience',
+      'upcoming events or schedule using supplied dates',
+      'event detail with time, location and accessibility information when supplied',
+      'speakers, performers, agenda or programme when relevant',
+      'registration or ticket selection when requested',
+      'review and truthful registration/checkout state',
+      'attendee information, FAQs and support when supplied'
+    ],
+    interactionConcepts: [
+      'event filters that change the results shown',
+      'date and session selection with timezone clarity where relevant',
+      'accessible ticket or registration options with quantity validation',
+      'calendar export only when accurate event details are available',
+      'clear distinction between a local demo registration and a confirmed booking'
+    ],
+    motionChoreography: [
+      'energetic but purposeful transitions suited to the event brand',
+      'immediate feedback for schedule and ticket selections',
+      'reduced-motion support and no distracting countdown pressure'
+    ],
+    visualAvoid: [
+      'invented event dates, speakers, venue addresses or ticket inventory',
+      'fake registration success or ticket issuance',
+      'unverified sponsorship or attendance claims',
+      'motion that hides event details or purchase controls'
+    ]
+  },
   portfolio: {
     sections: [
       'identity hero',
@@ -420,7 +621,7 @@ const ARCHETYPES = [
   },
   {
     id: 'restaurant',
-    triggers: ['restaurant', 'cafe', 'coffee', 'bar', 'bakery', 'food', 'dining', 'chef'],
+    triggers: ['restaurant', 'cafe', 'coffee', 'cocktail bar', 'wine bar', 'pub', 'bakery', 'food', 'dining', 'chef'],
     mission: 'Turn appetite and curiosity into a visit, reservation or order.',
     mustHave: [
       'menu discovery',
@@ -441,7 +642,7 @@ const ARCHETYPES = [
   },
   {
     id: 'saas',
-    triggers: ['saas', 'software', 'product', 'startup', 'ai tool', 'b2b'],
+    triggers: ['saas', 'software', 'startup', 'ai tool', 'b2b', 'saas platform', 'business software', 'developer tool'],
     mission: 'Make value obvious quickly, then move serious users toward activation.',
     mustHave: [
       'clear positioning',
@@ -463,6 +664,26 @@ const ARCHETYPES = [
     motion: 'confident, crisp and purposeful; motion should explain product behavior'
   },
   {
+    id: 'fintech',
+    triggers: ['fintech', 'digital banking', 'banking', 'bank', 'credit union', 'wealth management', 'investment platform', 'trading platform', 'personal finance', 'financial services', 'loan application', 'insurance portal'],
+    mission: 'Make financial products understandable, transparent and safe to evaluate without inventing claims.',
+    mustHave: [
+      'clear product positioning and intended audience',
+      'transparent rates, fees and eligibility only when supplied',
+      'security/privacy information grounded in verified facts',
+      'onboarding or account-access pathway when requested',
+      'clear explanation of assumptions and limitations',
+      'support and next steps'
+    ],
+    delighters: [
+      'interactive calculators with explicit user-editable assumptions',
+      'accessible account/product comparisons',
+      'sample transactions clearly marked as demo data',
+      'readable charts with text or table alternatives'
+    ],
+    motion: 'precise, reassuring and restrained; feedback is immediate around financial controls'
+  },
+  {
     id: 'fashion',
     triggers: ['fashion brand', 'fashion label', 'clothing brand', 'fashion', 'apparel', 'lookbook', 'boutique', 'streetwear', 'couture', 'designer collection'],
     mission: 'Make the brand world memorable and make collection discovery feel intentional.',
@@ -481,6 +702,26 @@ const ARCHETYPES = [
       'strong typography and art direction without fake luxury signals'
     ],
     motion: 'editorial and tactile, but fast and accessible; product details remain usable with reduced motion'
+  },
+  {
+    id: 'marketplace',
+    triggers: ['marketplace platform', 'multi-vendor marketplace', 'multivendor marketplace', 'two-sided marketplace', 'seller marketplace', 'service marketplace', 'vendor directory', 'freelance marketplace', 'creator marketplace', 'marketplace'],
+    mission: 'Help distinct sides of a platform find each other and complete clear, trustworthy journeys.',
+    mustHave: [
+      'clear explanation of platform roles and value',
+      'searchable listings or service discovery',
+      'filters and sorting that reflect actual data',
+      'listing details and seller/provider information when supplied',
+      'buyer/seller or customer/provider paths when relevant',
+      'truthful enquiry, booking or transaction states'
+    ],
+    delighters: [
+      'role-aware onboarding and listing discovery',
+      'saved-item or compare interactions with visible state',
+      'seller/provider profile paths',
+      'useful empty, error and unavailable states'
+    ],
+    motion: 'efficient and state-driven; prioritise discovery, context preservation and trust'
   },
   {
     id: 'ecommerce',
@@ -504,7 +745,7 @@ const ARCHETYPES = [
   },
   {
     id: 'realEstate',
-    triggers: ['real estate', 'realty', 'property listing', 'property listings', 'property development', 'property management', 'estate agent', 'estate agency', 'realtor', 'homes for sale', 'commercial real estate', 'apartments for rent'],
+    triggers: ['real estate', 'real-estate', 'realty', 'property listing', 'property listings', 'property development', 'property management', 'estate agent', 'estate agency', 'realtor', 'homes for sale', 'commercial real estate', 'apartments for rent'],
     mission: 'Help visitors compare properties, understand the next step and enquire with confidence.',
     mustHave: [
       'property search/discovery',
@@ -521,6 +762,45 @@ const ARCHETYPES = [
       'mobile-friendly viewing requests'
     ],
     motion: 'calm, confident and comparison-friendly; state changes should be immediate'
+  },
+  {
+    id: 'hospitality',
+    triggers: ['hospitality', 'hotel', 'hotels', 'luxury hotel', 'boutique hotel', 'hotel booking', 'resort', 'lodging', 'guesthouse', 'inn', 'vacation rental', 'serviced apartment', 'bed and breakfast'],
+    mission: 'Turn a sense of place and stay into a clear, trustworthy guest journey.',
+    mustHave: [
+      'room or stay discovery',
+      'amenities and inclusions only when supplied',
+      'date/guest selection and honest availability states when booking is requested',
+      'room or property details',
+      'location and travel information when supplied',
+      'booking review and truthful confirmation state'
+    ],
+    delighters: [
+      'editorial room galleries and carefully paced imagery',
+      'date and guest controls designed for mobile',
+      'room comparison and amenity exploration',
+      'a booking flow that preserves selections'
+    ],
+    motion: 'premium, sensory and calm; booking controls remain fast and accessible'
+  },
+  {
+    id: 'travel',
+    triggers: ['travel', 'tourism', 'destination guide', 'travel agency', 'tour operator', 'tour package', 'tour packages', 'travel itinerary', 'travel guide', 'adventure travel', 'trip planner'],
+    mission: 'Help people discover a suitable trip, understand its details and plan the next step.',
+    mustHave: [
+      'destination and itinerary discovery',
+      'package or activity details with clear inclusions',
+      'date/traveller choices when relevant',
+      'practical travel details only when supplied',
+      'a booking or enquiry path with honest availability state'
+    ],
+    delighters: [
+      'destination filtering and itinerary storytelling',
+      'trip comparisons that preserve context',
+      'mobile-friendly traveller/date selection',
+      'map or route experiences only when grounded data are available'
+    ],
+    motion: 'editorial and lightweight; use motion to convey place without delaying trip details'
   },
   {
     id: 'booking',
@@ -561,6 +841,26 @@ const ARCHETYPES = [
       'responsive density that remains readable on mobile'
     ],
     motion: 'functional and restrained; use motion only to signal state or changes in data'
+  },
+  {
+    id: 'legal',
+    triggers: ['law firm', 'law office', 'legal practice', 'legal services', 'legal website', 'lawyer', 'attorney', 'solicitor', 'barrister'],
+    mission: 'Build confidence through clear practice information, verified credentials and an accessible enquiry path.',
+    mustHave: [
+      'practice areas and service information',
+      'team qualifications only when supplied',
+      'consultation or enquiry pathway',
+      'process and client expectations without unsupported promises',
+      'contact details only when supplied',
+      'appropriate privacy and informational disclaimers where relevant'
+    ],
+    delighters: [
+      'practice-area discovery',
+      'attorney profiles based on supplied biographies',
+      'clear consultation steps',
+      'accessible enquiry forms with useful validation'
+    ],
+    motion: 'confident, restrained and legible; motion never obscures important information'
   },
   {
     id: 'agency',
@@ -624,6 +924,46 @@ const ARCHETYPES = [
     motion: 'human and story-led; avoid exploitative or sensational presentation'
   },
   {
+    id: 'automotive',
+    triggers: ['automotive', 'car dealership', 'auto dealer', 'vehicle listings', 'car listings', 'cars for sale', 'used cars', 'vehicle showroom', 'auto service', 'car service centre'],
+    mission: 'Make vehicle or automotive-service discovery clear, detailed and action-oriented.',
+    mustHave: [
+      'vehicle or service discovery',
+      'filters matched to actual listing attributes',
+      'vehicle details using supplied facts only',
+      'inspection, test-drive or service enquiry when relevant',
+      'dealer or service contact details when supplied',
+      'financing and warranty claims only when supplied'
+    ],
+    delighters: [
+      'vehicle comparison and detail journeys',
+      'responsive image galleries',
+      'mobile-first test-drive/enquiry requests',
+      'clear demo-versus-live inventory state'
+    ],
+    motion: 'confident and practical; quick, useful feedback beats decorative animation'
+  },
+  {
+    id: 'events',
+    triggers: ['event website', 'event platform', 'conference', 'festival', 'concert', 'event registration', 'ticketing', 'ticket sales', 'event calendar', 'summit', 'exhibition'],
+    mission: 'Help audiences discover events, understand the programme and register with confidence.',
+    mustHave: [
+      'event schedule with supplied dates and details',
+      'event detail and programme where relevant',
+      'accessible registration or ticket path when requested',
+      'date/time and location clarity where supplied',
+      'truthful pending, success and error states',
+      'attendee support information when supplied'
+    ],
+    delighters: [
+      'filterable event discovery',
+      'accessible schedule/session selection',
+      'calendar actions based on verified dates',
+      'mobile ticket/registration flow'
+    ],
+    motion: 'energetic but accessible; no fabricated urgency or ticket availability'
+  },
+  {
     id: 'portfolio',
     triggers: ['portfolio', 'photographer', 'architect', 'designer', 'artist', 'developer portfolio'],
     mission: 'Make the work unmistakable and the person or studio memorable.',
@@ -652,17 +992,43 @@ export function isWebStudioPrompt(prompt, mode = '') {
   const m = clean(mode).toLowerCase();
   if (/^web-studio-(build|fix|plan|ask)$/.test(m)) return true;
   const q = clean(prompt).toLowerCase();
-  return /(website|web site|landing page|marketing site|homepage|portfolio site|church site|hospital site|clinic site|restaurant site|web app|dashboard|saas app|storefront)/.test(q);
+  if (/(website|web site|landing page|marketing site|homepage|portfolio site|church site|hospital site|clinic site|restaurant site|web app|dashboard|saas app|storefront)/.test(q)) return true;
+  const buildIntent = /\b(?:build|create|design|make|generate|develop|launch|craft|produce)\b/i.test(q);
+  return buildIntent && detectArchetype(q) !== 'generic';
 }
+
+function triggerMatches(prompt, trigger) {
+  if (trigger.includes(' ') || /[^a-z0-9]/i.test(trigger)) return prompt.includes(trigger);
+  return prompt.split(/[^a-z0-9]+/).includes(trigger);
+}
+
+const BROAD_ARCHETYPE_TRIGGERS = new Set([
+  'online store', 'online shop', 'marketplace', 'storefront', 'retail store',
+  'shopping cart', 'cart', 'product',
+  'dashboard', 'analytics dashboard', 'data dashboard', 'admin panel',
+  'operations console', 'reporting dashboard', 'metrics dashboard',
+  'analytics portal', 'data visualization', 'agency', 'studio'
+]);
 
 export function detectArchetype(prompt) {
   const q = clean(prompt).toLowerCase();
-  let best = { id: 'generic', hits: 0 };
+  let best = { id: 'generic', specificHits: 0, specificWeight: 0, broadHits: 0 };
   for (const archetype of ARCHETYPES) {
-    const hits = archetype.triggers.reduce((count, trigger) => (
-      q.includes(trigger) ? count + 1 : count
-    ), 0);
-    if (hits > best.hits) best = { id: archetype.id, hits };
+    const matched = archetype.triggers.filter(trigger => triggerMatches(q, trigger));
+    const specific = matched.filter(trigger => !BROAD_ARCHETYPE_TRIGGERS.has(trigger));
+    const broadHits = matched.length - specific.length;
+    const specificHits = specific.length;
+    const specificWeight = specific.reduce((total, trigger) => total + trigger.length + 10, 0);
+
+    // A clear industry signal outranks generic patterns such as "dashboard",
+    // "online store", or "marketplace", even when those generic words repeat.
+    if (
+      specificHits > best.specificHits ||
+      (specificHits === best.specificHits && specificWeight > best.specificWeight) ||
+      (specificHits === best.specificHits && specificWeight === best.specificWeight && broadHits > best.broadHits)
+    ) {
+      best = { id: archetype.id, specificHits, specificWeight, broadHits };
+    }
   }
   return best.id;
 }
