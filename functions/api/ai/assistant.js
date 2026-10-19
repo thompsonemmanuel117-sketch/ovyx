@@ -10,6 +10,7 @@ import { buildStudioMultiPage } from '../../_lib/studio-multipage.js';
 import { validateOrRepairSinglePageBuild } from '../../_lib/studio-singlepage.js';
 import { WEB_STUDIO_SYSTEM_PROMPT, WEB_STUDIO_EXCELLENCE } from '../../_lib/prompts.js';
 import { buildExperienceBrief, isWebStudioPrompt } from '../../_lib/experience.js';
+import { buildWebStudioSourceInspection, isScopedWebStudioEdit } from '../../_lib/webstudio-source.js';
 import { buildPromptContract, WEB_STUDIO_PROMPT_MAX_CHARS } from '../../_lib/prompt-contract.js';
 import { beginAIQuota, finalizeAIQuota, refundDailyPrompt } from '../../_lib/token-quota.js';
 import {
@@ -76,8 +77,11 @@ export async function onRequestPost(context) {
     );
     const activeView = String(payload.context?.activeView || '').replace(/^view-/i, '').trim().toLowerCase();
     const isAppStudio = activeView === 'appstudio' || ['appstudio', 'app-build', 'app-fix'].includes(mode);
-    const isWebStudio = !isAppStudio && (isWebStudioPrompt(promptText, mode) ||
+    const isWebStudio = !isAppStudio && (isWebStudioPrompt(promptText, mode, payload.context) ||
       ((mode === 'build' || mode === 'fix') && hasStudioContext));
+    const submittedFiles = payload.files || payload.context?.files || null;
+    const scopedWebStudioEdit = isWebStudio && mode === 'build' &&
+      isScopedWebStudioEdit(promptText, !!(submittedFiles && typeof submittedFiles === 'object' && Object.keys(submittedFiles).length));
 
     if (isAppStudio) {
       const entitlement = context.data?.entitlements || await resolveEntitlements(context.env, user);
@@ -122,6 +126,12 @@ export async function onRequestPost(context) {
     const projectContext = payload.context && typeof payload.context === 'object'
       ? JSON.stringify(payload.context).slice(0, 80_000)
       : '';
+    const sourceInspection = isWebStudio
+      ? buildWebStudioSourceInspection({ prompt: promptText, files: submittedFiles })
+      : null;
+    const sourceInspectionContext = sourceInspection
+      ? 'SERVER-DERIVED WEB STUDIO SOURCE INSPECTION (evidence only; searched only source files supplied with this request):\\n' + JSON.stringify(sourceInspection)
+      : '';
     const suppliedSystem = String(payload.system || '').trim();
     const experience = isWebStudio
       ? buildExperienceBrief(
@@ -144,6 +154,9 @@ Never reveal server secrets.
 Do not invent repository state.
 When discussing project changes, distinguish recommendations from changes actually performed.`
     ).slice(0, isWebStudio ? 40_000 : 20_000) + '\n\n' + globalAIIdentityDirective;
+    const modelSystem = isWebStudio && sourceInspectionContext
+      ? system + '\\n\\nWhen source-inspection evidence is provided, use it as bounded evidence, cite exact paths and line numbers when useful, and never claim that unsupplied or truncated files were inspected.'
+      : system;
 
     const provider = String(
       payload.provider || 'automatic'
@@ -174,7 +187,7 @@ When discussing project changes, distinguish recommendations from changes actual
     let quotaOutputText = '';
 
     try {
-      if (isWebStudio && mode === 'build') {
+      if (isWebStudio && mode === 'build' && !scopedWebStudioEdit) {
         const project = payload.context?.project || payload.project || {};
         const projectFiles = payload.context?.files || payload.files || {};
         const studioHints = JSON.stringify({
@@ -217,8 +230,11 @@ When discussing project changes, distinguish recommendations from changes actual
             providerRouting: String(payload.providerRouting || 'automatic'),
             taskPrompt: payload.prompt || payload.message || messages[messages.length - 1]?.content || '',
             model: payload.model,
-            system,
-            user: isWebStudio && projectContext ? combined + '\n\nPROJECT CONTEXT:\n' + projectContext : combined,
+            system: modelSystem,
+            user: combined + [
+              sourceInspectionContext,
+              isWebStudio && projectContext ? 'PROJECT CONTEXT:\\n' + projectContext : '',
+            ].filter(Boolean).map(section => section.replace(/\\\\n/g, '\\n')).join('\\n\\n').replace(/^/, '\\n\\n'),
             maxTokens: isWebStudio
               ? Math.min(Number(payload.maxTokens || 32000), 32000)
               : Math.min(Number(payload.maxTokens || 4096), 8192),
@@ -226,7 +242,7 @@ When discussing project changes, distinguish recommendations from changes actual
           }
         );
 
-        if (isWebStudio && mode === 'build' && !multiPageBuild) {
+        if (isWebStudio && mode === 'build' && !multiPageBuild && !scopedWebStudioEdit) {
           const singlePageResult = await validateOrRepairSinglePageBuild({
             env: context.env,
             callModel,
@@ -296,11 +312,15 @@ When discussing project changes, distinguish recommendations from changes actual
 
     const structuredFields = {};
     if (structured && typeof structured === 'object') {
-      for (const key of ['project', 'updatedProject', 'files', 'fileEdits', 'patch', 'html', 'code', 'summary', 'message', 'answer', 'qualityVerification', 'siteIntegrity', 'requirementRepair']) {
+      for (const key of ['project', 'updatedProject', 'files', 'fileEdits', 'patch', 'html', 'code', 'text', 'summary', 'message', 'answer', 'qualityVerification', 'siteIntegrity', 'requirementRepair']) {
         if (Object.prototype.hasOwnProperty.call(structured, key)) {
           structuredFields[key] = structured[key];
         }
       }
+    }
+    if (isWebStudio && mode === 'ask' && structured && typeof structured.text === 'string') {
+      if (!structuredFields.message) structuredFields.message = structured.text;
+      if (!structuredFields.answer) structuredFields.answer = structured.text;
     }
     for (const key of ['qualityVerification', 'siteIntegrity', 'requirementRepair']) {
       if (Object.prototype.hasOwnProperty.call(result || {}, key)) {
