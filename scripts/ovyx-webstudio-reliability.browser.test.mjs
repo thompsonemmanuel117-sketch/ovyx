@@ -24,6 +24,7 @@ try {
           status: 200,
           contentType: 'text/html; charset=utf-8',
           body: `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>
+          <input id="ws-chat-input" aria-label="Web Studio chat prompt">
           <div id="ws-agent-thread"></div>
           <section id="view-faq" class="hidden"><form id="ovyx-help-support-form">
             <input id="ovyx-help-support-subject"><textarea id="ovyx-help-support-message"></textarea>
@@ -41,7 +42,7 @@ try {
             window.OVYXAIService={async generate(payload){return window.__responseMode==='noop'?{ok:true,message:'I built your website'}:window.__homeResponse}};
             window.AIOrchestrator={async runSynthesis(mode='build'){return window.OVYXAIService.generate({mode,prompt:'Build it',project:window.KernelState.activeProject,context:{activeView:'home'}})}};
             window.WebStudio={
-              brain:'automatic',thread:[{id:'msg_test_123',role:'agent',text:'I finished reviewing the requested website.'}],
+              brain:'automatic',mode:'build',setMode(mode){this.mode=mode},async submitPrompt(){window.__submittedMode=this.mode;window.__submitCount=(window.__submitCount||0)+1;return true},thread:[{id:'msg_test_123',role:'agent',text:'I finished reviewing the requested website.'}],
               graph:null,
               ensureProjectGraph(){const p=window.KernelState.activeProject;if(!this.graph)this.graph=JSON.parse(JSON.stringify(p.ovyxGraph||{version:2,entry:'src/pages/Home.html',files:{'src/pages/Home.html':{type:'text/html',content:starter}}}));p.ovyxGraph=this.graph;return this.graph},
               snapshotGraph(){this.ensureProjectGraph();return JSON.parse(JSON.stringify(this.graph))},
@@ -80,6 +81,23 @@ try {
     assert.ok(response && response.status() < 400, '[' + target.name + '] app fixture failed to load');
     await page.waitForFunction(() => !!window.__OVYX_WEBSTUDIO_RELIABILITY_V1__);
     await page.waitForSelector('.ovyx-ws-feedback');
+
+    const followUpRouting = await page.evaluate(async () => {
+      const input = document.getElementById('ws-chat-input');
+      input.value = 'Search my project deeply for the mobile menu';
+      await window.WebStudio.submitPrompt();
+      const searchMode = window.__submittedMode;
+      input.value = 'Change the menu background';
+      await window.WebStudio.submitPrompt();
+      const editMode = window.__submittedMode;
+      window.WebStudio.setMode('ask'); // An explicit user choice must override the automatic mode.
+      input.value = 'Change the menu background';
+      await window.WebStudio.submitPrompt();
+      return { searchMode, editMode, manualAskMode: window.__submittedMode };
+    });
+    assert.equal(followUpRouting.searchMode, 'ask', '[' + target.name + '] a read-only project search should route to Ask automatically');
+    assert.equal(followUpRouting.editMode, 'build', '[' + target.name + '] a targeted edit after an automatic search should return to Build');
+    assert.equal(followUpRouting.manualAskMode, 'ask', '[' + target.name + '] a manually selected Ask mode must remain read-only');
     const thumbs = page.locator('.ovyx-ws-feedback [data-ovyx-feedback-vote]');
     assert.equal(await thumbs.count(), 2, '[' + target.name + '] assistant response must show thumbs up and down');
 
