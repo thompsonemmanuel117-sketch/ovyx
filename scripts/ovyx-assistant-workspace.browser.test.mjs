@@ -127,6 +127,54 @@ try {
           diagnostics: { projectId: 'project_123', projectName: snapshotProject.name, checkedPages: 1, checkedFiles: 1, issueCount: 0, issues: [], note: 'Mocked static diagnostics only.' },
           source: 'firestore-owned-project-document',
         };
+      } else if (payload.operation === 'search') {
+        responseBody = {
+          ok: true,
+          operation: 'search',
+          projectId: 'project_123',
+          projectName: snapshotProject.name,
+          query: 'toggleMobileMenu',
+          queries: Array.isArray(payload.queries) ? payload.queries : [],
+          count: 4,
+          totalMatches: 4,
+          filesSearched: 176,
+          matchedFileCount: 1,
+          inventoryTruncated: false,
+          resultsTruncated: false,
+          byQuery: [
+            {
+              query: 'toggleMobileMenu',
+              count: 1,
+              matchedFileCount: 1,
+              resultsTruncated: false,
+              matches: [{ query: 'toggleMobileMenu', path: 'src/menu.js', position: 14, matchType: 'content', snippet: originalSource.slice(0, 80) }],
+            },
+            {
+              query: 'aria-expanded',
+              count: 1,
+              matchedFileCount: 1,
+              resultsTruncated: false,
+              matches: [{ query: 'aria-expanded', path: 'src/menu.js', position: 82, matchType: 'content', snippet: originalSource.slice(55, 140) }],
+            },
+            {
+              query: 'hidden',
+              count: 2,
+              matchedFileCount: 1,
+              resultsTruncated: false,
+              matches: [
+                { query: 'hidden', path: 'src/menu.js', position: 68, matchType: 'content', snippet: originalSource.slice(40, 110) },
+                { query: 'hidden', path: 'src/menu.js', position: 79, matchType: 'content', snippet: originalSource.slice(65, 150) },
+              ],
+            },
+          ],
+          matches: [
+            { query: 'toggleMobileMenu', path: 'src/menu.js', position: 14, matchType: 'content', snippet: originalSource.slice(0, 80) },
+            { query: 'aria-expanded', path: 'src/menu.js', position: 82, matchType: 'content', snippet: originalSource.slice(55, 140) },
+            { query: 'hidden', path: 'src/menu.js', position: 68, matchType: 'content', snippet: originalSource.slice(40, 110) },
+            { query: 'hidden', path: 'src/menu.js', position: 79, matchType: 'content', snippet: originalSource.slice(65, 150) },
+          ],
+          revision: 'revision-1',
+        };
       } else if (payload.operation === 'read_file') {
         responseBody = {
           ok: true,
@@ -184,11 +232,22 @@ try {
       if (callNumber === 1) {
         responseBody = {
           ok: true,
-          text: 'I will inspect the saved menu module before proposing a repair.',
-          actions: [{ type: 'workspace_read_file', projectId: 'project_123', filePath: 'src/menu.js' }],
+          text: 'I will search related menu symbols and accessibility state across the saved project before selecting source to inspect.',
+          actions: [{
+            type: 'workspace_search',
+            projectId: 'project_123',
+            queries: ['toggleMobileMenu', 'aria-expanded', 'hidden'],
+          }],
           provider: 'ovyx-native',
         };
       } else if (callNumber === 2) {
+        responseBody = {
+          ok: true,
+          text: 'The search found the menu visibility handler and its ARIA state in src/menu.js. I will read the exact saved file before recommending a repair.',
+          actions: [{ type: 'workspace_read_file', projectId: 'project_123', filePath: 'src/menu.js' }],
+          provider: 'ovyx-native',
+        };
+      } else if (callNumber === 3) {
         responseBody = {
           ok: true,
           text: 'The saved handler toggles the hidden state but does not expose an open class for the mobile-menu styling. I have prepared a minimal repair.',
@@ -238,7 +297,7 @@ try {
       assert.match(dialog.message(), /Apply this change/i, `[${target.name}] source writes must require explicit approval`);
       await dialog.accept();
     });
-    await page.locator('#bot-chat-input').fill('Fix my mobile menu');
+    await page.locator('#bot-chat-input').fill('Search my project deeply for the mobile menu, study related source, and fix it');
     await page.locator('[data-ovyx-native-send]').click();
     await page.getByText(/The saved change was verified/i).waitFor({ state: 'visible', timeout: 20000 });
     const savedCopy = await page.getByText(/The saved change was verified/i).innerText();
@@ -249,19 +308,34 @@ try {
     await activity.waitFor({ state: 'attached', timeout: 5000 });
     await page.locator('.ovyx-native-activity[data-completed="true"]').waitFor({ state: 'visible', timeout: 5000 });
     const activityText = await activity.evaluate(node => String(node.textContent || ''));
+    assert.ok(activityText.toLowerCase().includes('searching saved project source for'), '[' + target.name + '] the activity card must visibly show that a project search is running');
+    assert.ok(activityText.includes('toggleMobileMenu') && activityText.includes('aria-expanded'), '[' + target.name + '] the activity card must name the actual search terms');
+    assert.match(activityText, /Search complete: 4 match\\(es\\).*checked 176 source file\\(s\\)/i, '[' + target.name + '] activity must report actual search counts and searched-file coverage');
     assert.ok(activityText.toLowerCase().includes('reading src/menu.js') || activityText.toLowerCase().includes('reading src\\menu.js'), '[' + target.name + '] the assistant activity card must show the inspected file path');
     assert.ok(activityText.toLowerCase().includes('read src/menu.js completely') || activityText.toLowerCase().includes('read src\\menu.js completely'), '[' + target.name + '] the activity trace must describe the actual source-read outcome');
     assert.match(activityText, /Response ready/i, '[' + target.name + '] the activity card must show a finished state rather than a stuck spinner');
 
     assert.deepEqual(
       workspaceCalls.map(call => call.operation),
-      ['snapshot', 'diagnose', 'read_file', 'prepare_patch', 'apply_patch'],
+      ['snapshot', 'diagnose', 'search', 'read_file', 'prepare_patch', 'apply_patch'],
       `[${target.name}] the assistant must execute the owned-project read and approved-write workflow in order`,
     );
     assert.equal(workspaceCalls.at(-1).confirm, true, `[${target.name}] apply_patch must carry explicit approval`);
     assert.equal(workspaceCalls.at(-1).expectedUpdateTime, 'revision-1', `[${target.name}] write must be tied to the preview revision`);
-    assert.equal(aiPayloads.length, 2, `[${target.name}] the native model should reason again after receiving tool results`);
-    const toolResults = aiPayloads[1]?.context?.workspaceToolResults || [];
+    assert.equal(aiPayloads.length, 3, `[${target.name}] the native model should reason again after search findings and source contents are returned`);
+    assert.deepEqual(workspaceCalls.find(call => call.operation === 'search')?.queries,
+      ['toggleMobileMenu', 'aria-expanded', 'hidden'],
+      `[${target.name}] the assistant should request multiple related literal search terms in one tool call`);
+    const searchRoundResults = aiPayloads[1]?.context?.workspaceToolResults || [];
+    const searchEvidence = searchRoundResults.find(item => item.type === 'workspace_search' && item.ok === true);
+    assert.ok(searchEvidence, `[${target.name}] the actual search response must be fed back into the next model round`);
+    assert.equal(searchEvidence.result?.filesSearched, 176, `[${target.name}] AI context must preserve searched-file coverage`);
+    assert.equal(searchEvidence.result?.totalMatches, 4, `[${target.name}] AI context must preserve the aggregate search result count`);
+    assert.ok(searchEvidence.result?.matches?.some(match => match.path === 'src/menu.js' && match.matchType === 'content'),
+      `[${target.name}] AI context must include evidence-backed source matches, not only summary counts`);
+    const toolResults = aiPayloads[2]?.context?.workspaceToolResults || [];
+    assert.ok(toolResults.some(item => item.type === 'workspace_search' && item.ok === true),
+      `[${target.name}] prior search findings must remain available after reading the exact file`);
     assert.ok(toolResults.some(item => item.type === 'workspace_read_file' && item.ok === true && item.result?.file?.content === originalSource),
       `[${target.name}] actual saved source must be fed back to the model before it proposes a patch`);
     assert.match(aiPayloads[0]?.context?.contextWarning || '', /optional live workspace scan/i,
