@@ -43,8 +43,9 @@ try {
       { timeout: 45000 },
     );
     await waitForRouteRestore(page);
-    await page.evaluate(() => window.Router.go('settings'));
-    await page.waitForFunction(() => window.KernelState?.activeView === 'settings', null, { timeout: 15000 });
+    // Match the canonical navigation path and route normalization used by the other Settings browser checks.
+    await page.evaluate(() => (window.OVYXRouteAuthority?.go || window.Router.go)('settings'));
+    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'settings', null, { timeout: 15000 });
     await page.locator('#view-settings').waitFor({ state: 'visible' });
 
     await page.evaluate(() => {
@@ -111,9 +112,9 @@ try {
       };
       window.__securityTestState.signOutCalls = 0;
       window.__securityToasts.length = 0;
-      window.Router.go('settings');
+      (window.OVYXRouteAuthority?.go || window.Router.go)('settings');
     });
-    await page.waitForFunction(() => window.KernelState?.activeView === 'settings', null, { timeout: 15000 });
+    await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'settings', null, { timeout: 15000 });
     await page.locator('#view-settings').waitFor({ state: 'visible' });
     await page.evaluate(() => window.OVYXSettings.show('security'));
     await button.waitFor({ state: 'visible' });
