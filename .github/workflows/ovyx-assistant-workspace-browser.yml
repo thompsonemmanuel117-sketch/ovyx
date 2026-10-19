@@ -48,6 +48,7 @@ on:
       - 'functions/api/app-studio/release-health.js'
       - 'scripts/ovyx-app-studio-release-health.test.mjs'
       - 'package.json'
+      - 'scripts/ovyx-static-verify.mjs'
       - 'scripts/ovyx-settings*.mjs'
       - 'assets/ovyx-admin-workspace.js'
       - 'assets/ovyx-admin-controls.js'
