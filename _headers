@@ -19,6 +19,9 @@
 /assets/ovyx-webstudio-apply-suggestions.js
   Cache-Control: no-store, no-cache, must-revalidate
 
+/assets/ovyx-settings-billing-live.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
 /assets/ovyx-webstudio-quality.js
   Cache-Control: no-store, no-cache, must-revalidate
 
