@@ -196,7 +196,7 @@ try {
     assert.match(await page.locator('[data-ovsx-diagnosis]').innerText(), /Historical diagnosis: previous saved check/i, '[' + target.name + '] the owner should be able to reopen a saved diagnosis');
 
     await page.locator('[data-ovsx="wake"]').click();
-    assert.match(await page.locator('[data-ovsx-status]').innerText(), /Wake word enabled/i);
+    assert.match(await page.locator('[data-ovsx-status]').innerText(), /Voice activation is on/i);
     await page.evaluate(() => {
       const item = [{ transcript: 'OVYX scan now' }];
       item.isFinal = true;
@@ -219,7 +219,7 @@ try {
     await page.locator('[data-ovsx-diagnosis]').waitFor({ state: 'visible' });
     assert.match(await page.locator('[data-ovsx-diagnosis]').innerText(), /AI incident diagnosis/i, '[' + target.name + '] the AI diagnostic result should be shown separately from a rule-based plan');
     assert.match(await page.locator('[data-ovsx-diagnosis]').innerText(), /schedule warning is evidence/i, '[' + target.name + '] the diagnostic result should be visible as plain text');
-    assert.match(await page.locator('[data-ovsx-diagnosis]').innerText(), /Diagnosis only. No source files, provider keys, Cloudflare settings, or deployments were changed/i, '[' + target.name + '] the UI must disclose the diagnosis-only boundary');
+    assert.match(await page.locator('[data-ovsx-diagnosis]').innerText(), /This is a read-only review\. No code, settings, credentials, or live releases were changed/i, '[' + target.name + '] the UI must disclose the diagnosis-only boundary');
     assert.match(await page.locator('[data-ovsx-diagnosis-history] summary').innerText(), /Previous diagnoses \(2\)/i, '[' + target.name + '] a newly saved diagnosis must join prior history');
 
     await page.locator('[data-ovsx="patch"]').click();
