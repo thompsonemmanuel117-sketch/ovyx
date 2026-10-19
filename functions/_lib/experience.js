@@ -745,7 +745,7 @@ const ARCHETYPES = [
   },
   {
     id: 'realEstate',
-    triggers: ['real estate', 'realty', 'property listing', 'property listings', 'property development', 'property management', 'estate agent', 'estate agency', 'realtor', 'homes for sale', 'commercial real estate', 'apartments for rent'],
+    triggers: ['real estate', 'real-estate', 'realty', 'property listing', 'property listings', 'property development', 'property management', 'estate agent', 'estate agency', 'realtor', 'homes for sale', 'commercial real estate', 'apartments for rent'],
     mission: 'Help visitors compare properties, understand the next step and enquire with confidence.',
     mustHave: [
       'property search/discovery',
