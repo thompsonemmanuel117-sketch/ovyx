@@ -28,21 +28,48 @@ assert.deepEqual(
 );
 
 
-const shellHtml = '<!doctype html><html><head><title>OVYX</title></head><body><main><h1>OVYX</h1></main><script defer src="/assets/ovyx-webstudio-quality.js?v=20261014-5"></script></body></html>';
+const shellHtml = '<!doctype html><html><head><title>OVYX</title></head><body><main><h1>OVYX</h1></main><script defer src="/assets/ovyx-webstudio-reliability.js?v=20261019-2"></script><script defer src="/assets/ovyx-webstudio-research.js?v=20261019-1"></script><script defer src="/assets/ovyx-webstudio-apply-suggestions.js?v=20261019-1"></script><script defer src="/assets/ovyx-webstudio-quality.js?v=20261018-7"></script></body></html>';
 const expectedQualitySource = 'function auditSources(report, pages, files, project) {} /* cross-page fragment link */ function publishVerifiedPreview() {}';
+const expectedRuntimeSources = {
+  '/assets/ovyx-webstudio-reliability.js': 'var __ovyxBuildArtifactGuard = true; function installFollowUpIntentRouter() {}',
+  '/assets/ovyx-webstudio-research.js': 'function runResearch() {} function addResearchContext() {} .ovyx-ws-live-activity',
+  '/assets/ovyx-webstudio-apply-suggestions.js': '/* OVYX_APPLY_SUGGESTIONS */ function applySuggestion() {} studio.submitPrompt()',
+  '/assets/ovyx-webstudio-quality.js': expectedQualitySource,
+};
 const healthyFetch = async input => {
   const url = new URL(input);
   if (url.pathname === '/') return new Response(shellHtml, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } });
-  if (url.pathname === '/assets/ovyx-webstudio-quality.js') return new Response(expectedQualitySource, { status: 200, headers: { 'content-type': 'text/javascript; charset=utf-8' } });
+  const source = expectedRuntimeSources[url.pathname];
+  if (source) return new Response(source, { status: 200, headers: { 'content-type': 'text/javascript; charset=utf-8' } });
   return new Response('', { status: 404 });
 };
 const healthyShell = await probeApplicationShell('https://production-fixture.pages.dev/', healthyFetch);
 assert.equal(healthyShell.ok, true, JSON.stringify(healthyShell));
 assert.equal(healthyShell.status, 'healthy');
 assert.equal(healthyShell.qualityRuntimeInjected, true);
-assert.equal(healthyShell.qualityRuntimeVersion, '20261014-5');
+assert.equal(healthyShell.qualityRuntimeVersion, '20261018-7');
 assert.equal(healthyShell.qualityRuntimeAssetOk, true);
 assert.equal(healthyShell.qualityRuntimeSignaturePresent, true);
+assert.equal(healthyShell.requiredRuntimes.reliability.ok, true);
+assert.equal(healthyShell.requiredRuntimes.research.ok, true);
+assert.equal(healthyShell.requiredRuntimes.applySuggestions.ok, true);
+assert.equal(healthyShell.requiredRuntimes.applySuggestions.version, '20261019-1');
+
+const missingApplyRuntime = await probeApplicationShell('https://production-fixture.pages.dev', async input => {
+  const url = new URL(input);
+  if (url.pathname === '/') {
+    return new Response(shellHtml.replace(/<script[^>]+ovyx-webstudio-apply-suggestions\.js[^>]*><\/script>/, ''), {
+      status: 200, headers: { 'content-type': 'text/html; charset=utf-8' },
+    });
+  }
+  const source = expectedRuntimeSources[url.pathname];
+  if (source) return new Response(source, { status: 200, headers: { 'content-type': 'text/javascript; charset=utf-8' } });
+  return new Response('', { status: 404 });
+});
+assert.equal(missingApplyRuntime.ok, false, 'A production shell missing the one-click Apply runtime must fail the deployment smoke test.');
+assert.equal(missingApplyRuntime.requiredRuntimes.applySuggestions.injected, false);
+assert.match(missingApplyRuntime.error, /missing the Web Studio Apply this suggestion script/i);
+
 
 let failedRootRequests = 0;
 const failedRoot = await probeApplicationShell('https://production-fixture.pages.dev', async () => {
