@@ -493,9 +493,15 @@
     function readOnlyFollowUp(text) {
       var asksForAdvice = /\b(?:what\s+should\s+i\s+change|what\s+would\s+you\s+change|tell\s+me\s+what\s+to\s+change|what\s+do\s+you\s+recommend|recommend\s+changes|suggest\s+changes|should\s+i\s+change|how\s+can\s+i\s+improve|how\s+should\s+i)\b/i.test(text);
       if (asksForAdvice) return true;
-      var startsAsInspection = /^(?:(?:please|now|then)\s+)*(?:(?:can|could|would)\s+you\s+)?(?:search|find|locate|inspect|review|examine|audit|trace|verify|check|list|show|read|where\b|why\b|how\b|what\b|is\b|was\b|has\b|have\b|tell\s+me\b|recommend\b|suggest\b)/i.test(text);
-      if (!startsAsInspection || explicitNewBuild(text)) return false;
-      if (editAction(text)) return false;
+      if (explicitNewBuild(text)) return false;
+      var explicitReadOnly = /\b(?:do\s+not|don't|dont|never)\s+(?:make\s+)?(?:any\s+)?(?:changes?|edits?|modifications?|fixes?|updates?)\b|\bread[-\s]+only\b|\bonly\s+(?:inspect|search|check|review|read|verify|list|show)\b|without\s+(?:editing|changing|modifying|writing)\b/i.test(text);
+      if (explicitReadOnly) return true;
+      var startsAsInspection = /^(?:(?:please|now|then|just)\s+)*(?:(?:can|could|would)\s+you\s+|i\s+(?:want|need)\s+you\s+to\s+)?(?:search|find|locate|inspect|review|examine|audit|trace|verify|check|list|show|read|where\b|why\b|how\b|what\b|is\b|are\b|was\b|were\b|has\b|have\b|did\b|does\b|do\b|tell\s+me\b|recommend\b|suggest\b)/i.test(text);
+      if (!startsAsInspection) return false;
+      var conditionalRepair = /\b(?:and|then|if\s+(?:not|missing|needed|it\s+isn't|it\s+is\s+not))\s+(?:please\s+)?(?:add|change|edit|update|fix|repair|apply|remove|delete|replace|improve|enhance|adjust|modify|restyle|reposition|resize|polish|implement)\b/i.test(text);
+      var statusQuestion = /\b(?:already|done|applied|changed|updated|fixed|added|implemented|working|exists?|present|saved|there)\b/i.test(text);
+      if (statusQuestion && !conditionalRepair) return true;
+      if (conditionalRepair || (editAction(text) && !statusQuestion)) return false;
       return /\b(?:project|website|site|page|file|files|source|code|menu|header|footer|section|button|font|layout|design|feature|already|implemented|working|done|css|html|javascript|function|component|app|it|this|that|the)\b/i.test(text);
     }
     async function routedSubmitPrompt() {
