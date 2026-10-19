@@ -202,7 +202,7 @@ export async function probeApplicationShell(deploymentUrl, fetchImpl = globalThi
   const ok = missingOrBroken.length === 0;
   const error = ok
     ? ''
-    : 'Web Studio production smoke check failed: ' + missingOrBroken.join('; ') + '.';
+    : runtimes.filter(runtime => !runtime.ok).map(runtime => runtime.error).filter(Boolean).join(' ');
   return {
     ok,
     status: ok ? 'healthy' : 'degraded',
