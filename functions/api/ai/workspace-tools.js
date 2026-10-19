@@ -23,6 +23,10 @@ const MAX_BACKUP_SOURCE_BYTES = 300_000;
 const MAX_MODEL_EDITABLE_SOURCE_BYTES = 4_000;
 const MAX_TOOL_READ_FILE_BYTES = 12_000;
 const MAX_PROJECT_DOCUMENT_BYTES = 850_000;
+const MAX_SEARCHABLE_PROJECT_FILES = 2_000;
+const MAX_SEARCH_QUERIES = 8;
+const MAX_SEARCH_RESULTS_PER_QUERY = 12;
+const MAX_SEARCH_RESULTS_TOTAL = 40;
 const SAFE_TEXT_EXTENSION = /\.(?:html?|css|mjs|cjs|js|jsx|ts|tsx|json|md|mdx|svg|xml|txt|vue|svelte|astro|yml|yaml|toml|php|py|sql|graphql|gql|webmanifest)$/i;
 const SENSITIVE_PATH = /(?:^|\/)(?:\.env(?:\.[^/]*)?|secrets?|credentials?|id_rsa|id_ed25519|service-account[^/]*|private[-_]?key[^/]*)$/i;
 const FILE_BUCKETS = [
@@ -165,29 +169,134 @@ function locateFile(project, path) {
   return null;
 }
 
-function allProjectFiles(project) {
+function collectProjectFiles(project, maxFiles = MAX_SEARCHABLE_PROJECT_FILES) {
   const result = [];
   const seen = new Set();
+  let inventoryTruncated = false;
   for (const chain of FILE_BUCKETS) {
     const collection = getCollection(project, chain);
     if (!collection) continue;
     const entries = Array.isArray(collection)
       ? collection.map(item => [
-          clean(item?.path || item?.file || item?.name, 240).replace(/^\/+/, ''),
+          clean(item?.path || item?.file || item?.name, 240).replace(/^\\/+/, ''),
           item,
         ])
       : (typeof collection === 'object' ? Object.entries(collection) : []);
     for (const [rawPath, value] of entries) {
-      const path = clean(rawPath, 240).replace(/^\/+/, '');
+      const path = clean(rawPath, 240).replace(/^\\/+/, '');
       if (!path || seen.has(path) || sensitivePath(path)) continue;
       const content = contentOf(value);
       if (content.length > MAX_PROJECT_FILE_BYTES || !SAFE_TEXT_EXTENSION.test(path)) continue;
+      if (result.length >= maxFiles) {
+        inventoryTruncated = true;
+        break;
+      }
       seen.add(path);
       result.push({ path, size: content.length, content });
     }
-    if (result.length >= 120) break;
+    if (inventoryTruncated) break;
   }
-  return result.slice(0, 120);
+  return { files: result, inventoryTruncated };
+}
+
+function allProjectFiles(project) {
+  return collectProjectFiles(project).files;
+}
+
+/**
+ * Search the saved project's complete bounded text-source inventory. Searches
+ * are literal and case-insensitive, include file paths as well as file bodies,
+ * and report when the bounded inventory or displayed result window was clipped.
+ */
+export function searchProjectSource(project, rawQueries, options = {}) {
+  const incoming = Array.isArray(rawQueries) ? rawQueries : [rawQueries];
+  const queries = [];
+  const seenQueries = new Set();
+  for (const raw of incoming) {
+    const query = clean(raw, 160).trim();
+    const key = query.toLowerCase();
+    if (query.length < 2 || seenQueries.has(key)) continue;
+    seenQueries.add(key);
+    queries.push(query);
+    if (queries.length >= MAX_SEARCH_QUERIES) break;
+  }
+
+  const maxFiles = Math.max(1, Math.min(MAX_SEARCHABLE_PROJECT_FILES, Number(options.maxFiles) || MAX_SEARCHABLE_PROJECT_FILES));
+  const maxResultsPerQuery = Math.max(1, Math.min(24, Number(options.maxResultsPerQuery) || MAX_SEARCH_RESULTS_PER_QUERY));
+  const inventory = collectProjectFiles(project, maxFiles);
+  const files = inventory.files;
+  const fileMatchesAcrossQueries = new Set();
+  let totalMatches = 0;
+
+  const byQuery = queries.map(query => {
+    const needle = query.toLowerCase();
+    const matches = [];
+    const matchedFiles = new Set();
+    let queryMatchCount = 0;
+
+    // Search paths first so a meaningful filename match cannot be crowded out
+    // by repeated literal occurrences in an early file.
+    for (const file of files) {
+      if (!file.path.toLowerCase().includes(needle)) continue;
+      queryMatchCount += 1;
+      totalMatches += 1;
+      matchedFiles.add(file.path);
+      fileMatchesAcrossQueries.add(file.path);
+      if (matches.length < maxResultsPerQuery) {
+        matches.push({
+          query,
+          path: file.path,
+          position: 0,
+          matchType: 'path',
+          snippet: 'File path matches: ' + file.path,
+        });
+      }
+    }
+
+    for (const file of files) {
+      const lower = file.content.toLowerCase();
+      let from = 0;
+      while ((from = lower.indexOf(needle, from)) >= 0) {
+        queryMatchCount += 1;
+        totalMatches += 1;
+        matchedFiles.add(file.path);
+        fileMatchesAcrossQueries.add(file.path);
+        if (matches.length < maxResultsPerQuery) {
+          const start = Math.max(0, from - 100);
+          const end = Math.min(file.content.length, from + query.length + 180);
+          matches.push({
+            query,
+            path: file.path,
+            position: from,
+            matchType: 'content',
+            snippet: textPreview(file.content.slice(start, end), 420),
+          });
+        }
+        from += Math.max(1, needle.length);
+      }
+    }
+
+    return {
+      query,
+      count: queryMatchCount,
+      matchedFileCount: matchedFiles.size,
+      resultsTruncated: queryMatchCount > matches.length,
+      matches,
+    };
+  });
+
+  const matches = byQuery.flatMap(entry => entry.matches).slice(0, MAX_SEARCH_RESULTS_TOTAL);
+  return {
+    filesSearched: files.length,
+    inventoryTruncated: inventory.inventoryTruncated,
+    queryCount: queries.length,
+    totalMatches,
+    matchedFileCount: fileMatchesAcrossQueries.size,
+    resultsTruncated: byQuery.some(entry => entry.resultsTruncated) ||
+      byQuery.reduce((sum, entry) => sum + entry.matches.length, 0) > matches.length,
+    byQuery,
+    matches,
+  };
 }
 
 export function validateOvyxSourcePath(value) {
@@ -393,24 +502,28 @@ async function handleTool(env, identity, body) {
 
   if (operation === 'search') {
     const found = await loadOwnedProject(env, uid, email, body.projectId);
-    const query = clean(body.query, 160).toLowerCase();
-    if (query.length < 2) fail('Enter at least two characters to search project files.', 400, 'SEARCH_QUERY_REQUIRED');
-    const matches = [];
-    for (const file of allProjectFiles(found.project)) {
-      const lower = file.content.toLowerCase();
-      let from = 0;
-      let count = 0;
-      while ((from = lower.indexOf(query, from)) >= 0 && count < 40) {
-        const start = Math.max(0, from - 100);
-        const end = Math.min(file.content.length, from + query.length + 180);
-        matches.push({ path: file.path, position: from, snippet: textPreview(file.content.slice(start, end), 420) });
-        count++;
-        from += query.length;
-        if (matches.length >= 16) break;
-      }
-      if (matches.length >= 16) break;
+    const rawQueries = Array.isArray(body.queries) ? body.queries : [body.query];
+    const queries = [];
+    const seenQueries = new Set();
+    for (const raw of rawQueries) {
+      const query = clean(raw, 160).trim();
+      const key = query.toLowerCase();
+      if (query.length < 2 || seenQueries.has(key)) continue;
+      seenQueries.add(key);
+      queries.push(query);
+      if (queries.length >= MAX_SEARCH_QUERIES) break;
     }
-    return { operation, projectId: found.id, query, count: matches.length, matches, revision: found.document.updateTime || null };
+    if (!queries.length) fail('Enter at least two characters to search project files.', 400, 'SEARCH_QUERY_REQUIRED');
+    const report = searchProjectSource(found.project, queries);
+    return {
+      operation,
+      projectId: found.id,
+      query: queries[0],
+      queries,
+      count: report.totalMatches,
+      ...report,
+      revision: found.document.updateTime || null,
+    };
   }
 
   if (operation === 'read_file') {
