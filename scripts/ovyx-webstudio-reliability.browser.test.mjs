@@ -59,7 +59,7 @@ try {
               diffFiles(a,b){const A=a?.files||{},B=b?.files||{};return [...new Set([...Object.keys(A),...Object.keys(B)])].filter(k=>String(A[k]?.content||'')!==String(B[k]?.content||''))},
             };
           </script>
-          <script defer src="/assets/ovyx-webstudio-reliability.js?v=20261019-1"></script>
+          <script defer src="/assets/ovyx-webstudio-reliability.js?v=20261019-2"></script>
           </body></html>`,
         });
         return;
