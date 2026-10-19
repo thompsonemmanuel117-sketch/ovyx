@@ -608,7 +608,19 @@
       }
       var value;
       try {
-        value = await originalSubmit.apply(this, arguments);
+        // The existing follow-up router may see "what changes I should make"
+        // inside a research-only question and switch back to Build. Temporarily
+        // suppress that one auto-switch while the underlying submission decides
+        // its mode, then restore the marker so a later explicit edit can switch.
+        var preserveResearchOnly = !!(task && task.hasResearch && !task.isEdit && studio.mode === 'ask');
+        var autoReadOnlyBeforeSubmit = studio.__ovyxAutoReadOnlyMode;
+        var pendingSubmit;
+        if (preserveResearchOnly) studio.__ovyxAutoReadOnlyMode = false;
+        try { pendingSubmit = originalSubmit.apply(this, arguments); }
+        finally {
+          if (preserveResearchOnly) studio.__ovyxAutoReadOnlyMode = autoReadOnlyBeforeSubmit;
+        }
+        value = await pendingSubmit;
         await finishTask(task, studio, value);
         return value;
       } catch (error) {
