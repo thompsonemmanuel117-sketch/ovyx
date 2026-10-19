@@ -125,7 +125,7 @@ try {
       catch (error) { return {rejected:true,message:error.message}; }
     });
     assert.equal(noOpStudioCall.rejected, true, '[' + target.name + '] in-studio AI acknowledgements without HTML must be rejected');
-    assert.match(noOpStudioCall.message, /did not produce a changed website HTML file/i);
+    assert.match(noOpStudioCall.message, /website draft was not updated.*existing preview remains unchanged/i);
 
     assert.deepEqual(errors, [], '[' + target.name + '] browser errors: ' + errors.join('; '));
     console.log('PASS Web Studio reliability ' + target.name + ': useful feedback controls, Help hand-off, no-op build rejection and verified HTML gate.');
