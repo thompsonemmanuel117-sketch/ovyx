@@ -63,7 +63,18 @@ const websiteEditRequests = [
   'Fix my mobile menu.',
   'Improve the contrast of this layout.',
   'Update the navigation on my site.',
-  'Remove that duplicate section from the current page.'
+  'Remove that duplicate section from the current page.',
+  'Make the font larger.',
+  'Change the colors.',
+  'Add a button here.',
+  'Delete that section.',
+  'Make this layout mobile friendly.',
+  'Update the button color.',
+  'Reposition the logo.',
+  'Increase the spacing.',
+  'Move that card below the form.',
+  'Replace the hero image.',
+  'Change the typography on this page.'
 ];
 for (const prompt of websiteEditRequests) {
   assert.equal(isWebStudioPrompt(prompt), true, 'Existing-page edit intent should route to Web Studio: ' + prompt);
