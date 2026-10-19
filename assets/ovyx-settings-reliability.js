@@ -1199,7 +1199,7 @@
     ensureExternalDataLayerControls();
     if (!document.documentElement.dataset.ovyxExternalDataLayerBound) {
       document.documentElement.dataset.ovyxExternalDataLayerBound = '1';
-      document.addEventListener('click', function (event) {
+      window.addEventListener('click', function (event) {
         const toggle = event.target && event.target.closest && event.target.closest('#ovyx-data-api-sync');
         if (!toggle) return;
         event.preventDefault(); event.stopPropagation(); event.stopImmediatePropagation();
@@ -1234,7 +1234,7 @@
         if (next) scheduleExternalProjectMetadataSync(120);
         else if (externalDataLayerTimer) { clearTimeout(externalDataLayerTimer); externalDataLayerTimer = null; }
       }, true);
-      document.addEventListener('click', function (event) {
+      window.addEventListener('click', function (event) {
         const save = event.target && event.target.closest && event.target.closest('#ovyx-data-save');
         if (!save) return;
         const input = document.querySelector('[data-settings-panel="workspace"] #ovyx-data-endpoint');
