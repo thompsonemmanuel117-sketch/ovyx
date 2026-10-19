@@ -79,7 +79,7 @@ try {
 
     await page.evaluate(() => window.__setProviderUser(null));
     await page.locator('#v59-model-select').selectOption('openai');
-    await page.waitForFunction(() => (window.__toasts || []).some(item => item.type === 'warning' && /Please sign in/.test(item.message)));
+    await page.waitForFunction(() => (window.__toasts || []).some(item => item.type === 'warning' && /Sign in to check AI availability/i.test(item.message)), null, { timeout: 15000 });
     assert.deepEqual(calls, ['gemini', 'anthropic'], '[' + target.name + '] signed-out selection must not call the availability API');
     assert.deepEqual(errors, [], '[' + target.name + '] provider availability browser errors: ' + errors.join('; '));
 
