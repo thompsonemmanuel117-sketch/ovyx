@@ -876,20 +876,20 @@
 <div class="v0-card rounded-xl p-4">
 <div class="text-[10px] font-mono text-zinc-500 uppercase font-bold">Total Projects</div>
 <div class="text-2xl font-bold text-white mt-1" id="adm-stat-projects">1</div>
-<div class="text-[9px] text-zinc-600 font-mono mt-1 font-bold">Local Virtual File Nodes</div>
+<div class="text-[9px] text-zinc-600 font-mono mt-1 font-bold">Workspace files</div>
 </div>
 <div class="v0-card rounded-xl p-4" id="adm-active-providers-card">
 <div class="flex items-start justify-between gap-3">
 <div>
-<div class="text-[10px] font-mono text-zinc-500 uppercase font-bold">Active Providers</div>
+<div class="text-[10px] font-mono text-zinc-500 uppercase font-bold">AI services</div>
 <div class="text-2xl font-bold text-zinc-400 mt-1" id="adm-stat-providers">CHECKING</div>
 </div>
-<button aria-label="Refresh active provider status" class="adm-health-refresh" id="adm-stat-providers-refresh" title="Refresh live provider status" type="button"><i class="fa-solid fa-rotate"></i></button>
+<button aria-label="Refresh AI service availability" class="adm-health-refresh" id="adm-stat-providers-refresh" title="Refresh AI service availability" type="button"><i class="fa-solid fa-rotate"></i></button>
 </div>
-<div class="text-[9px] text-zinc-600 font-mono mt-1 font-bold" id="adm-stat-providers-detail">Authenticated server check pending</div>
+<div class="text-[9px] text-zinc-600 font-mono mt-1 font-bold" id="adm-stat-providers-detail">Waiting for an availability check</div>
 </div>
 <div class="v0-card rounded-xl p-4">
-<div class="text-[10px] font-mono text-zinc-500 uppercase font-bold">Node Latency</div>
+<div class="text-[10px] font-mono text-zinc-500 uppercase font-bold">Response time</div>
 <div class="text-2xl font-bold text-brand-gold mt-1" id="adm-stat-latency">CHECKING</div>
 <div class="text-[9px] text-zinc-600 font-mono mt-1 font-bold">Website service</div>
 </div>
@@ -1020,14 +1020,14 @@
 <div class="space-y-1">
 <div class="flex items-center gap-2">
 <span class="text-xs font-mono font-extrabold text-white uppercase tracking-wider">Production Integration Switch</span>
-<span class="text-[9px] font-mono px-2 py-0.5 rounded border border-amber-500/30 text-amber-400 bg-amber-950/30 uppercase font-bold" id="master-switch-status-tag">INTEGRATION OFF</span>
+<span class="text-[9px] font-mono px-2 py-0.5 rounded border border-amber-500/30 text-amber-400 bg-amber-950/30 uppercase font-bold" id="master-switch-status-tag">PLATFORM SERVICES PAUSED</span>
 </div>
 <p class="text-xs text-zinc-400 max-w-xl leading-relaxed font-medium">
-                OFF = Integration paused. ON = Live production mode. This switch changes the runtime integration state; it does not deploy your project by itself.ntegration mode. This switch changes the integration mode; it does not deploy your project by itself. Ittime token decrementing and live edge billing).
+                Use this control to pause or enable platform services. This setting does not publish changes to your website.ntegration mode. This switch changes the integration mode; it does not deploy your project by itself. Ittime token decrementing and live edge billing).
               </p>
 </div>
 <button class="spring-btn px-5 py-2.5 rounded-xl border border-white/20 bg-ovyx-black text-xs font-mono font-extrabold text-white whitespace-nowrap" id="master-switch-toggle-btn" onclick="MasterProductionSwitch.toggle()">
-              Switch to Live State
+              Enable platform services
             </button>
 </div>
 <!-- Tier Price Settings -->
@@ -2026,7 +2026,7 @@
           localStorage.setItem('ovyx_master_production_live', this.isLive);
         } catch (e) {}
         this.renderUI();
-        showToast(`Master Switch: ${this.isLive ? 'PLATFORM SERVICES ACTIVE' : 'PLATFORM SERVICES PAUSED'}`, this.isLive ? 'success' : 'info');
+        showToast(`Platform services: ${this.isLive ? 'PLATFORM SERVICES ACTIVE' : 'PLATFORM SERVICES PAUSED'}`, this.isLive ? 'success' : 'info');
       },
       renderUI() {
         const headerBadge = document.getElementById('header-production-badge');
@@ -3348,7 +3348,7 @@
           if(typeof publish==='function'){
             const r=await Promise.race([Promise.resolve(publish({project:window.KernelState?.activeProject,files:this.graph.files,signal:controller.signal})),timeout]);
             if(r?.url)window.open(r.url,'_blank','noopener');
-            window.showToast?.('Deployment published.','success');
+            window.showToast?.('Website published.','success');
             return true;
           }
           const request=fetch('/api/deploy',{
@@ -3361,7 +3361,7 @@
           if(data?.url)window.open(data.url,'_blank','noopener');
           const project=window.KernelState?.activeProject;
           if(project){project.ovyxDeployments=Array.isArray(project.ovyxDeployments)?project.ovyxDeployments:[];project.ovyxDeployments.unshift({at:Date.now(),status:'published',url:data?.url||''});project.ovyxDeployments=project.ovyxDeployments.slice(0,20);window.ProjectStore?.save?.();}
-          window.showToast?.('Deployment published.','success');
+          window.showToast?.('Website published.','success');
           return true;
         }catch(e){
           const message=controller.signal.aborted?'Website publishing took too long. Check publishing status before trying again.':(e?.message||'Publishing is not available for this workspace yet.');
@@ -6506,7 +6506,7 @@ window.OVYXV58={syncDock,route:safeRoute,useTemplate,previewTemplate,featureLock
         this.isLive=next;
         try{localStorage.setItem('ovyx_master_production_live',String(next))}catch(e){console.warn('[OVYX runtime]',e)}
         originalRender?.();
-        toast(`Master Switch: ${next?'PLATFORM SERVICES ACTIVE':'PLATFORM SERVICES PAUSED'}`,next?'success':'info');
+        toast(`Platform services: ${next?'PLATFORM SERVICES ACTIVE':'PLATFORM SERVICES PAUSED'}`,next?'success':'info');
       }catch(e){
         console.error('[OVYX Phase 1] production state write failed',e);
         toast('Platform integration settings could not be saved. Please try again.','error');
@@ -7934,7 +7934,7 @@ window.OVYXShellCanonical={refreshOwnerAuthority,syncShell,syncDock};
         const data=await adminConfigRequest('POST',{action:'setProductionState',live:next});
         applyConfig(data);
         try{localStorage.setItem('ovyx_master_production_live',String(next))}catch(e){console.warn('[OVYX runtime]',e)}
-        toast(`Master Switch: ${next?'PLATFORM SERVICES ACTIVE':'PLATFORM SERVICES PAUSED'}`,next?'success':'info');
+        toast(`Platform services: ${next?'PLATFORM SERVICES ACTIVE':'PLATFORM SERVICES PAUSED'}`,next?'success':'info');
       }catch(error){
         console.error('[OVYX Step A] production state write failed',error);
         toast(error.message||'Production state could not be saved.','error');
