@@ -53,6 +53,9 @@ assert.equal(isWebStudioPrompt('Inspect the current project', 'ask', { activeVie
 assert.equal(isWebStudioPrompt('How can I improve my writing?', 'assistant', { activeView: 'assistant' }), false);
 assert.equal(hasWebStudioSourceTask('Inspect this project'), true);
 assert.equal(isScopedWebStudioEdit('Change the colors', true), true);
+assert.equal(isScopedWebStudioEdit('Change the headline', true), true);
+assert.equal(isScopedWebStudioEdit('Make the font larger', true), true);
+assert.equal(isScopedWebStudioEdit('Apply this', true), true);
 assert.equal(isScopedWebStudioEdit('Build a new website for a restaurant', true), false);
 
 const inspectedProject = buildWebStudioSourceInspection({
@@ -79,8 +82,11 @@ assert.equal(
 );
 assert.match(assistantApi, /isWebStudioPrompt\(promptText, mode, payload\.context\)/);
 assert.match(assistantApi, /buildWebStudioSourceInspection/);
+assert.match(assistantApi, /mode === 'build' && !scopedWebStudioEdit/);
+assert.match(runtime, /files: requestPayload\.files \|\| priorContext\.files \|\| null/);
 assert.match(assistantApi, /if \(!structuredFields\.message\) structuredFields\.message = structured\.text;/);
 assert.match(runtime, /activeView: 'webstudio'/);
+assert.match(fs.readFileSync('functions/_lib/prompts.js', 'utf8'), /Keep read-only Ask\/source-inspection requests read-only/);
 
 
 console.log('Web Studio reliability contracts passed: response feedback, support hand-off, verified-preview gate and safe provider diagnostics.');
