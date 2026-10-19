@@ -993,8 +993,14 @@ export function isWebStudioPrompt(prompt, mode = '') {
   if (/^web-studio-(build|fix|plan|ask)$/.test(m)) return true;
   const q = clean(prompt).toLowerCase();
   if (/(website|web site|landing page|marketing site|homepage|portfolio site|church site|hospital site|clinic site|restaurant site|web app|dashboard|saas app|storefront)/.test(q)) return true;
-  const buildIntent = /\b(?:build|create|design|make|generate|develop|launch|craft|produce)\b/i.test(q);
-  return buildIntent && detectArchetype(q) !== 'generic';
+
+  const buildIntent = /\b(?:build|create|design|make|generate|develop|launch|craft|produce|turn|transform)\b/i.test(q);
+  if (!buildIntent) return false;
+
+  // Known industry blueprints improve defaults, but they are not the boundary
+  // of what a customer may ask OVYX to create.
+  const customDigitalProductIntent = /\b(?:website|site|web app|application|app|platform|portal|marketplace|community|network|workspace|member area|customer portal|client portal|management system|booking system|interactive experience|digital product|web tool|tool|software product|online community|creator platform|service platform|collaboration space|learning environment|resource hub)\b/i.test(q);
+  return detectArchetype(q) !== 'generic' || customDigitalProductIntent;
 }
 
 function triggerMatches(prompt, trigger) {
@@ -1036,24 +1042,23 @@ export function detectArchetype(prompt) {
 function genericBlueprint() {
   return {
     id: 'generic',
-    mission: 'Create a memorable, useful and conversion-aware experience around the user’s actual goal.',
+    mission: 'Turn the user-defined concept into a distinctive, usable digital experience shaped by its intended audience and core workflow.',
     mustHave: [
-      'clear positioning',
-      'scannable information architecture',
-      'primary user journey',
-      'proof or trust content when supplied',
-      'responsive navigation',
-      'strong conversion or contact pathway',
-      'FAQ/objection handling when useful'
+      'project-specific information architecture derived from the user’s concept',
+      'the primary job-to-be-done and end-to-end core workflow',
+      'navigation, routes or task surfaces appropriate to the requested product',
+      'useful empty/loading/success/error states wherever interactions require them',
+      'responsive, accessible UI with content density suited to the actual task',
+      'help, trust, conversion or account patterns only when relevant to the request'
     ],
     delighters: [
-      'signature visual moment',
-      'scroll-linked storytelling',
-      'purposeful micro-interactions',
-      'adaptive CTA hierarchy',
-      'premium responsive behavior'
+      'signature art direction drawn from the project’s purpose and audience',
+      'a guided first-use path when the concept benefits from onboarding',
+      'a meaningful interaction that makes the core workflow easier',
+      'clear feedback when the user changes, saves, filters or submits information',
+      'mobile-specific convenience matched to the way the product will be used'
     ],
-    motion: 'subtle, coherent and performance-aware'
+    motion: 'purposeful, state-aware, accessible and performance-conscious'
   };
 }
 
@@ -1102,24 +1107,35 @@ export function buildExperienceBrief(prompt, context = {}) {
     brandDirection: brand
       ? 'Use the supplied brand profile as the visual authority.'
       : 'Infer a restrained, coherent visual direction from the request and avoid generic AI-template styling.',
+    blueprintRole: 'advisory-only; never a required category, allowlist, or template',
+    customizationMode: archetypeId === 'generic' ? 'open-ended-custom-concept' : 'domain-guided-custom-concept',
+    customizationContract: [
+      'The original user request is the source of truth; this blueprint is advisory guidance only.',
+      'Predefined industry archetypes are optional hints, never a list of supported or permitted categories.',
+      'For an unfamiliar or unmatched idea, derive the audience, information architecture, routes, data concepts, key workflows, visual direction and interaction states from the user’s own description.',
+      'Do not force marketing sections such as pricing, testimonials, FAQs or conversion banners onto a task-focused application unless they serve the stated goal.',
+      'For a recognized archetype, adapt selectively to the requested brand, audience, differentiators, features and constraints instead of copying a preset.'
+    ],
     architecture: EXPERIENCE_ARCHITECTURES[archetypeId] || {
       sections: [
-        'orientation hero',
-        'core value proposition',
-        'primary user journey',
-        'supporting proof or information',
-        'conversion/contact path',
-        'FAQ or next steps'
+        'entry point shaped around the user’s primary goal',
+        'the core interface or workflow explicitly requested',
+        'navigation between the product’s actual tasks or content areas',
+        'supporting information, tools or records that the workflow requires',
+        'loading, empty, validation, success and error states where relevant',
+        'help, settings or next steps only when they serve this concept'
       ],
       interactionConcepts: [
-        'one interaction that improves understanding',
-        'one interaction that improves conversion'
+        'a meaningful, testable interaction derived directly from the user’s described workflow',
+        'clear feedback for the important actions and state changes in this specific product'
       ],
       motionChoreography: [
-        'purposeful entry transitions',
-        'state-driven micro-interactions'
+        'purposeful transitions that clarify task or navigation changes',
+        'state-driven micro-interactions with reduced-motion support'
       ],
-      visualAvoid: []
+      visualAvoid: [
+        'forcing a generic marketing landing page, repeated card grid or irrelevant conversion sections onto a different kind of product'
+      ]
     },
     antiTemplateRules: GLOBAL_ANTI_TEMPLATE_RULES
   };
