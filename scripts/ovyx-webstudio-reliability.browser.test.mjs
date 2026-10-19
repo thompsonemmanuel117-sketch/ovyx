@@ -50,7 +50,7 @@ try {
               hasProjectWebsite(){return true},
               renderPreview(){window.__previewRenderCount=(window.__previewRenderCount||0)+1},
               renderThread(){const el=document.getElementById('ws-agent-thread');el.innerHTML=this.thread.map((m,i)=>'<div class="ovyx-ws-msg agent" data-ws-thread-index="'+i+'"><div class="ovyx-ws-msg-content"><div class="ovyx-ws-msg-body">'+m.text+'</div><div class="ovyx-ws-msg-actions" hidden><button type="button" class="ovyx-ws-msg-action">Copy Text</button></div></div></div>').join('')},
-              async callAI(payload){return window.__buildResponse},
+              async callAI(payload){window.__lastCallAIPayload=payload;return window.__buildResponse},
               pageToHtml(page){return '<!doctype html><html><body><main><h1>'+page.name+'</h1></main></body></html>'},
               applyAIResult(result){if(result.project){window.KernelState.activeProject=result.project;this.graph=null;this.ensureProjectGraph()}this.ensureProjectGraph();const files=result.files||result.fileEdits||result.patch?.files;if(files)Object.entries(files).forEach(([path,value])=>{const text=typeof value==='string'?value:(value?.content??value?.text);if(text!==undefined)this.graph.files[path]={type:/\.html?$/i.test(path)?'text/html':'text/plain',content:String(text)}});if(result.html)this.graph.files[this.entryFile()]={type:'text/html',content:result.html};if(result.code)this.graph.files[this.entryFile()]={type:'text/html',content:result.code};this.syncGraphToProject()},
               syncGraphToProject(){window.KernelState.activeProject.ovyxGraph=this.graph},
@@ -59,7 +59,7 @@ try {
               diffFiles(a,b){const A=a?.files||{},B=b?.files||{};return [...new Set([...Object.keys(A),...Object.keys(B)])].filter(k=>String(A[k]?.content||'')!==String(B[k]?.content||''))},
             };
           </script>
-          <script defer src="/assets/ovyx-webstudio-reliability.js?v=20261014-1"></script>
+          <script defer src="/assets/ovyx-webstudio-reliability.js?v=20261019-1"></script>
           </body></html>`,
         });
         return;
@@ -103,6 +103,24 @@ try {
     assert.equal(followUpRouting.searchMode, 'ask', '[' + target.name + '] a read-only project search should route to Ask automatically');
     assert.equal(followUpRouting.editMode, 'build', '[' + target.name + '] a targeted edit after an automatic search should return to Build');
     assert.equal(followUpRouting.manualAskMode, 'ask', '[' + target.name + '] a manually selected Ask mode must remain read-only');
+
+    const activeGraphContext = await page.evaluate(async () => {
+      const studio = window.WebStudio;
+      studio.ensureProjectGraph();
+      studio.graph.files['styles/site.css'] = { type: 'text/css', content: '.site { color: navy; }' };
+      window.__buildResponse = { ok: true, scopedWebStudioEdit: true, files: { 'styles/site.css': { type: 'text/css', content: '.site { color: teal; }' } } };
+      await studio.callAI({ mode: 'build', prompt: 'Change the colors' }, 3);
+      return {
+        activeView: window.__lastCallAIPayload.context.activeView,
+        hasEntryFile: !!window.__lastCallAIPayload.context.files['src/pages/Home.html'],
+        hasCssFile: !!window.__lastCallAIPayload.context.files['styles/site.css'],
+        activeProjectId: window.__lastCallAIPayload.context.project && window.__lastCallAIPayload.context.project.id,
+      };
+    });
+    assert.equal(activeGraphContext.activeView, 'webstudio', '[' + target.name + '] Web Studio API context must identify the active view');
+    assert.equal(activeGraphContext.hasEntryFile, true, '[' + target.name + '] source inspection must receive the active graph HTML');
+    assert.equal(activeGraphContext.hasCssFile, true, '[' + target.name + '] source inspection must receive CSS source files too');
+
     const thumbs = page.locator('.ovyx-ws-feedback [data-ovyx-feedback-vote]');
     assert.equal(await thumbs.count(), 2, '[' + target.name + '] assistant response must show thumbs up and down');
 
