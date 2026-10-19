@@ -245,7 +245,8 @@ try {
     assert.doesNotMatch(savedCopy, /server read-back verification/i, '[' + target.name + '] user-facing save feedback must avoid implementation-level wording');
 
     const activity = panel.locator('.ovyx-native-activity');
-    await activity.locator('[data-stage]').waitFor({ state: 'attached' });
+    // data-stage belongs to the activity card itself, not a nested child.
+    await activity.waitFor({ state: 'attached', timeout: 5000 });
     await page.locator('.ovyx-native-activity[data-completed="true"]').waitFor({ state: 'visible', timeout: 5000 });
     const activityText = await activity.evaluate(node => String(node.textContent || ''));
     assert.ok(activityText.toLowerCase().includes('reading src/menu.js') || activityText.toLowerCase().includes('reading src\\menu.js'), '[' + target.name + '] the assistant activity card must show the inspected file path');
