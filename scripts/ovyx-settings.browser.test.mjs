@@ -133,6 +133,116 @@ try {
       '[' + target.name + '] sync switch should reflect the off state after clicking.');
     const afterToggle = await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx.data.layer.v1') || '{}'));
     assert.equal(afterToggle.projectSync, false, '[' + target.name + '] sync switch should persist its state locally.');
+    // External metadata sync is a separate opt-in from built-in OVYX cloud sync.
+    // It requires an explicit external-origin confirmation and sends only bounded project metadata.
+    const metadataRequests = [];
+    await page.route('https://data-api.example.test/api/data/projects**', async route => {
+      const request = route.request();
+      const headers = await request.allHeaders();
+      if (request.method() === 'OPTIONS') {
+        await route.fulfill({
+          status: 204,
+          headers: {
+            'access-control-allow-origin': '*',
+            'access-control-allow-methods': 'POST, PUT, OPTIONS',
+            'access-control-allow-headers': 'authorization,content-type',
+            'access-control-max-age': '0',
+          },
+          body: '',
+        });
+        return;
+      }
+      metadataRequests.push({
+        method: request.method(),
+        url: request.url(),
+        headers,
+        body: request.postDataJSON(),
+      });
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'access-control-allow-origin': '*', 'cache-control': 'no-store' },
+        body: JSON.stringify({ ok: true, accepted: true }),
+      });
+    });
+    await page.evaluate(() => {
+      const state = window.KernelState;
+      window.__externalDataSyncOriginal = {
+        firebase: window.firebase,
+        activeProject: state && state.activeProject,
+        projects: state && state.projects,
+      };
+      const user = {
+        uid: 'external-data-sync-browser-user',
+        async getIdToken() { return 'test-external-data-sync-token'; },
+      };
+      Object.defineProperty(window, 'firebase', {
+        configurable: true,
+        writable: true,
+        value: { auth: () => ({ currentUser: user }) },
+      });
+      if (state) {
+        state.activeProject = {
+          id: 'external-sync-project-1',
+          name: 'Metadata Only Fixture',
+          description: 'This field is safe project metadata.',
+          status: 'draft',
+          framework: 'html',
+          updatedAt: '2026-10-19T00:00:00.000Z',
+          pages: [{ name: 'Home' }, { name: 'About' }],
+          files: { 'src/private.js': 'DO_NOT_UPLOAD_SECRET_SOURCE' },
+          secrets: { API_KEY: 'DO_NOT_UPLOAD_SECRET_VALUE' },
+        };
+      }
+    });
+    let approvalMessage = '';
+    page.once('dialog', async dialog => {
+      approvalMessage = dialog.message();
+      await dialog.accept();
+    });
+    const enableExternalSync = page.locator('#ovyx-data-api-sync');
+    await enableExternalSync.waitFor({ state: 'visible' });
+    await enableExternalSync.click();
+    await page.waitForFunction(
+      () => document.getElementById('ovyx-project-data-sync-status')?.textContent?.includes('sync succeeded'),
+      null,
+      { timeout: 15000 },
+    );
+    assert.match(approvalMessage, /data-api\.example\.test/i,
+      '[' + target.name + '] enabling a cross-origin endpoint must show the destination before sending authentication.');
+    assert.match(approvalMessage, /Firebase ID token/i,
+      '[' + target.name + '] external authentication sharing must be disclosed before consent.');
+    assert.equal(metadataRequests.length, 1, '[' + target.name + '] enabling sync should make one metadata write.');
+    assert.equal(metadataRequests[0].method, 'POST');
+    assert.equal(metadataRequests[0].url, endpoint + '/projects');
+    assert.equal(metadataRequests[0].headers.authorization, 'Bearer test-external-data-sync-token');
+    assert.equal(metadataRequests[0].headers.cookie, undefined,
+      '[' + target.name + '] external sync must omit third-party cookies.');
+    assert.deepEqual(Object.keys(metadataRequests[0].body.project).sort(),
+      ['description','framework','id','name','pageCount','schemaVersion','status','updatedAt'].sort(),
+      '[' + target.name + '] external sync must send bounded metadata only, never source files or secrets.');
+    assert.equal(metadataRequests[0].body.project.pageCount, 2);
+    assert.equal(JSON.stringify(metadataRequests[0].body).includes('DO_NOT_UPLOAD_SECRET'), false,
+      '[' + target.name + '] project files and secret-shaped fixture data must never be included.');
+    const externalSaved = await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx.data.layer.external.v1') || '{}'));
+    assert.equal(externalSaved.projectSync, true);
+    assert.equal(externalSaved.consentedOrigin, 'https://data-api.example.test');
+    assert.equal(await page.locator('#ovyx-data-sync').getAttribute('aria-checked'), 'false',
+      '[' + target.name + '] enabling external metadata sync must not enable built-in cloud sync.');
+
+    // Turn off the external integration so later reload/Settings tests never sync in the background.
+    await enableExternalSync.click();
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem('ovyx.data.layer.external.v1') || '{}').projectSync === false);
+    await page.evaluate(() => {
+      const original = window.__externalDataSyncOriginal;
+      if (!original) return;
+      Object.defineProperty(window, 'firebase', { configurable: true, writable: true, value: original.firebase });
+      if (window.KernelState) {
+        window.KernelState.activeProject = original.activeProject;
+        window.KernelState.projects = original.projects;
+      }
+      delete window.__externalDataSyncOriginal;
+    });
 
     // Reopening the panel must not duplicate its injected container or lose settings.
     await page.evaluate(() => window.OVYXSettings.show('appearance'));
