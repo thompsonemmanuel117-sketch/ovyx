@@ -26,8 +26,7 @@ try {
           contentType: 'text/html; charset=utf-8',
           body: `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>
           <input id="ws-chat-input" aria-label="Web Studio chat prompt">
-          <section id="view-webstudio"></section>
-          <div id="ws-agent-thread"></div>
+          <section id="view-webstudio"><div id="ws-agent-thread"></div></section>
           <section id="view-faq" class="hidden"><form id="ovyx-help-support-form">
             <input id="ovyx-help-support-subject"><textarea id="ovyx-help-support-message"></textarea>
           </form></section>
