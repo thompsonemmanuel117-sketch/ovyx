@@ -333,3 +333,79 @@ export async function sendAdminPushNotification(env, input = {}) {
     failed: results.filter(item => !item.ok).length,
   };
 }
+
+
+export const USER_PUSH_COLLECTION = 'ovyx_user_push_subscriptions';
+
+/**
+ * Deliver a broadcast only to users who explicitly opted in on this browser.
+ * Admin payment/security subscriptions stay isolated in ADMIN_PUSH_COLLECTION.
+ */
+export async function sendUserPushNotification(env, input = {}) {
+  const config = getAdminPushConfiguration(env);
+  if (!config.configured) {
+    return { configured: false, skipped: true, attempted: 0, accepted: 0, failed: 0, reason: config.reason };
+  }
+
+  const documents = [];
+  let pageToken = null;
+  let truncated = false;
+  for (let page = 0; page < 10; page += 1) {
+    const result = await listFirestoreDocuments(env, USER_PUSH_COLLECTION, 1000, pageToken);
+    documents.push(...(result.documents || []));
+    pageToken = result.nextPageToken || null;
+    if (!pageToken) break;
+    if (page === 9) truncated = true;
+  }
+
+  const subscriptions = documents.filter(item =>
+    item.active === true &&
+    typeof item.endpoint === 'string' &&
+    item.keys && typeof item.keys === 'object'
+  );
+
+  if (!subscriptions.length) {
+    return { configured: true, skipped: true, attempted: 0, accepted: 0, failed: 0, truncated };
+  }
+
+  const rawUrl = text(input.url || '/', 500);
+  const url = rawUrl.startsWith('/') && !rawUrl.startsWith('//') ? rawUrl : '/';
+  const payload = {
+    id: text(input.id || input.tag || 'ovyx-broadcast', 160),
+    type: 'broadcast',
+    title: text(input.title || 'OVYX Update', 120),
+    body: text(input.body || input.message || 'A new OVYX update is available.', 1200),
+    url,
+    tag: text(input.tag || input.id || 'ovyx-broadcast', 160),
+  };
+
+  const results = [];
+  for (let offset = 0; offset < subscriptions.length; offset += 20) {
+    const batch = subscriptions.slice(offset, offset + 20);
+    results.push(...await Promise.all(batch.map(async subscription => {
+      try {
+        const response = await sendToSubscription(env, config, subscription, payload);
+        if (response.status === 404 || response.status === 410) {
+          await setFirestoreDocument(env, USER_PUSH_COLLECTION, String(subscription.id || ''), {
+            active: false,
+            updatedAt: new Date().toISOString(),
+            inactiveReason: 'push_endpoint_expired',
+          }, { merge: true });
+          return { ok: false, status: response.status, expired: true };
+        }
+        return { ok: response.ok, status: response.status };
+      } catch (error) {
+        return { ok: false, status: Number(error?.status) || 0, code: String(error?.code || 'PUSH_DELIVERY_FAILED') };
+      }
+    })));
+  }
+  const accepted = results.filter(item => item.ok).length;
+  return {
+    configured: true,
+    skipped: false,
+    attempted: results.length,
+    accepted,
+    failed: results.length - accepted,
+    truncated,
+  };
+}

@@ -2,6 +2,7 @@
 
 const CACHE_NAME = 'ovyx-shell-v1';
 const SAFE_DEFAULT_PATH = '/';
+const OVYX_NOTIFICATION_ICON = '/assets/ovyx-notification-icon.svg';
 
 self.addEventListener('install', event => {
   event.waitUntil(self.skipWaiting());
@@ -45,6 +46,8 @@ self.addEventListener('push', event => {
   const options = {
     body,
     tag,
+    icon: OVYX_NOTIFICATION_ICON,
+    badge: OVYX_NOTIFICATION_ICON,
     renotify: false,
     data: {
       url: target,
