@@ -225,7 +225,7 @@
         '| --- | --- |',
         ...excluded.map(function (item) { return '| ' + String(item.path || 'unknown').replace(/\|/g, ' ').replace(/\r/g, ' ').replace(/\n/g, ' ') + ' | ' + String(item.reason || 'not exported').replace(/\|/g, ' ').replace(/\r/g, ' ').replace(/\n/g, ' ') + ' |'; }),
         '',
-        'If an omitted file is needed, recreate it locally or in your hosting provider's secret settings. Do not commit passwords, private keys, or real environment files to GitHub.',
+        'If an omitted file is needed, recreate it locally or in your hosting provider’s secret settings. Do not commit passwords, private keys, or real environment files to GitHub.',
         ''
       ].join('\n');
       output.push({ path: 'OVYX_EXPORT_EXCLUSIONS.md', bytes: utf8(exclusionReport) });
