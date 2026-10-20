@@ -53,6 +53,9 @@ try {
   assert.ok(first.browser.performance.maxDomNodes > 0, 'The diagnostic must count rendered DOM nodes.');
   assert.ok(first.checks.some(item => item.title === 'Isolated render processing budget' && item.status === 'pass'), 'The small fixture must pass its isolated processing/DOM budget.');
   assert.ok(first.checks.some(item => item.title === 'Horizontal overflow' && item.status === 'fail'), 'The inspector must detect a real mobile horizontal-overflow defect.');
+assert.ok(first.checks.find(item => item.title === 'Horizontal overflow')?.recommendation?.includes('Do not hide overflow globally'), 'The inspector must give a specific responsive-layout recommendation grounded in the overflow finding.');
+assert.ok(await page.locator('.ovyx-ws-quality-recommendation').count() > 0, 'The inspector must render actionable suggestions alongside findings.');
+assert.ok((await page.locator('.ovyx-ws-quality-recommendation').first().innerText()).includes('Suggested improvement'), 'Finding cards must label recommendations clearly.');
   assert.ok(first.checks.some(item => item.title === 'Live integration verification' && item.status === 'info'), 'The inspector must not claim live integrations were verified.');
   assert.ok(first.checks.some(item => item.group === 'Navigation' && item.title === 'Internal links and anchors' && item.status === 'pass'), 'A valid cross-page fragment must pass the browser source audit.');
   assert.equal(await page.locator('[data-quality-export]').isDisabled(), false, 'A completed inspection must enable report export.');
@@ -72,6 +75,7 @@ try {
   const exportedReport = JSON.parse(await fs.readFile(reportDownloadPath, 'utf8'));
   assert.equal(exportedReport.schemaVersion, 1, 'The exported report must declare its schema version.');
   assert.equal(exportedReport.projectName, 'Quality test site', 'The exported report must include the client-facing project label.');
+assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendation === 'string' && item.recommendation.length > 0), 'The exported report must preserve a suggested improvement for every check.');
   assert.equal(exportedReport.inspection.browser.pagesAvailable, 3, 'The exported report must summarize tested route coverage.');
   assert.equal(exportedReport.privacy.sourceFileContentsIncluded, false, 'The client handoff must not bundle project source files.');
   assert.ok(exportedReport.limitations.some(item => item.includes('Core Web Vitals')), 'The exported report must carry explicit verification limits.');
