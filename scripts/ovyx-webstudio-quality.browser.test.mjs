@@ -233,6 +233,7 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
   assert.ok(fullstackResult.files.includes('api/upgrade-1.js'), 'Confirming the upgrade must run the build agent and add backend implementation files.');
   assert.ok(fullstackResult.files.includes('FULL_STACK_SETUP.md'), 'The full-stack handoff guide must be generated.');
   assert.match(fullstackResult.status, /Full-stack implementation generated/);
+  await upgradePage.locator('#ovyx-ws-fullstack-upgrade-overlay .ovyx-ws-fs-primary').click();
   const projectDownloadPromise = upgradePage.waitForEvent('download');
   await upgradePage.locator('[data-ovyx-project-export]').click();
   const projectDownload = await projectDownloadPromise;
@@ -262,7 +263,6 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
   assert.ok(exportedEntries['OVYX_EXPORT_EXCLUSIONS.md']?.includes('private/id_rsa'), 'The archive must disclose credential files excluded from export.');
   assert.ok(!Object.keys(exportedEntries).some(name => /(^|\/)\.env$/i.test(name)), 'Actual environment files must not be included in the downloadable archive.');
   assert.ok(!Object.keys(exportedEntries).some(name => /(^|\/)id_rsa$/i.test(name)), 'Private-key files must not be included in the downloadable archive.');
-  await upgradePage.locator('#ovyx-ws-fullstack-upgrade-overlay .ovyx-ws-fs-primary').click();
   await upgradePage.evaluate(() => { window.__fullstackFailTests = true; });
   await upgradePage.locator('[data-ovyx-fullstack-upgrade]').click();
   await upgradePage.locator('[data-ovyx-fs-confirm]').click();
