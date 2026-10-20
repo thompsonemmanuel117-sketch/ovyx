@@ -7,6 +7,7 @@ import { chromium } from 'playwright';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const runtimePath = path.join(root, 'assets/ovyx-webstudio-quality.js');
 const fullstackRuntimePath = path.join(root, 'assets/ovyx-webstudio-fullstack-upgrade.js');
+const exportRuntimePath = path.join(root, 'assets/ovyx-webstudio-project-export.js');
 const researchRuntimePath = path.join(root, 'assets/ovyx-webstudio-research.js');
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -199,7 +200,14 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
   await upgradePage.setContent(upgradeFixture, { waitUntil: 'domcontentloaded' });
   await upgradePage.addScriptTag({ path: researchRuntimePath });
   await upgradePage.addScriptTag({ path: fullstackRuntimePath });
-  await upgradePage.waitForFunction(() => !!window.OVYXWebStudioFullStackUpgrade && document.querySelector('[data-ovyx-fullstack-upgrade]'));
+  await upgradePage.addScriptTag({ path: exportRuntimePath });
+  await upgradePage.waitForFunction(() => !!window.OVYXWebStudioFullStackUpgrade && !!window.OVYXWebStudioProjectExport && document.querySelector('[data-ovyx-fullstack-upgrade]') && document.querySelector('[data-ovyx-project-export]'));
+  await upgradePage.evaluate(() => {
+    window.WebStudio.graph.files['.env'] = { type: 'text/plain', content: 'STRIPE_SECRET_KEY=sk_live_do_not_export_this_secret_1234567890' };
+    window.WebStudio.graph.files['private/id_rsa'] = { type: 'text/plain', content: '-----BEGIN RSA PRIVATE KEY-----\\nprivate fixture secret\\n-----END RSA PRIVATE KEY-----' };
+    window.KernelState.activeProject.ovyxGraph = window.WebStudio.graph;
+  });
+  assert.equal(await upgradePage.locator('[data-ovyx-project-export]').count(), 1, 'The Code download action must be present in the Web Studio header.');
   assert.equal(await upgradePage.locator('[data-ovyx-fullstack-upgrade]').count(), 1, 'The persistent Full-stack action must be present in the Web Studio header.');
   await upgradePage.evaluate(() => window.WebStudio.submitPrompt());
   await upgradePage.locator('#ovyx-ws-fullstack-upgrade-overlay').waitFor({ state: 'visible', timeout: 5000 });
@@ -225,6 +233,34 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
   assert.ok(fullstackResult.files.includes('api/upgrade-1.js'), 'Confirming the upgrade must run the build agent and add backend implementation files.');
   assert.ok(fullstackResult.files.includes('FULL_STACK_SETUP.md'), 'The full-stack handoff guide must be generated.');
   assert.match(fullstackResult.status, /Full-stack implementation generated/);
+  const projectDownloadPromise = upgradePage.waitForEvent('download');
+  await upgradePage.locator('[data-ovyx-project-export]').click();
+  const projectDownload = await projectDownloadPromise;
+  assert.match(projectDownload.suggestedFilename(), /full-stack-upgrade-test-source-\\d{4}-\\d{2}-\\d{2}\\.zip/i, 'The website export must download as a named ZIP archive.');
+  const projectZipPath = await projectDownload.path();
+  assert.ok(projectZipPath, 'The project ZIP download must complete.');
+  const projectZip = await fs.readFile(projectZipPath);
+  const exportedEntries = {};
+  let zipOffset = 0;
+  while (zipOffset + 30 <= projectZip.length && projectZip.readUInt32LE(zipOffset) === 0x04034B50) {
+    const method = projectZip.readUInt16LE(zipOffset + 8);
+    const compressedSize = projectZip.readUInt32LE(zipOffset + 18);
+    const filenameLength = projectZip.readUInt16LE(zipOffset + 26);
+    const extraLength = projectZip.readUInt16LE(zipOffset + 28);
+    const filenameStart = zipOffset + 30;
+    const filename = projectZip.subarray(filenameStart, filenameStart + filenameLength).toString('utf8');
+    const dataStart = filenameStart + filenameLength + extraLength;
+    assert.equal(method, 0, 'The local ZIP exporter should use the supported stored-entry format.');
+    exportedEntries[filename] = projectZip.subarray(dataStart, dataStart + compressedSize).toString('utf8');
+    zipOffset = dataStart + compressedSize;
+  }
+  assert.ok(exportedEntries['index.html']?.includes('Existing website'), 'The download must preserve the existing website source.');
+  assert.ok(exportedEntries['api/upgrade-1.js']?.includes('onRequestGet'), 'The download must include the generated backend/API implementation.');
+  assert.ok(exportedEntries['FULL_STACK_SETUP.md']?.includes('backend services'), 'The download must include the backend setup guide.');
+  assert.ok(exportedEntries['README_OVYX_EXPORT.md']?.includes('GitHub repository'), 'The archive must explain how to place the complete project in GitHub.');
+  assert.ok(exportedEntries['OVYX_EXPORT_MANIFEST.json'], 'The archive must include a machine-readable export manifest.');
+  assert.ok(!Object.keys(exportedEntries).some(name => /(^|\\/)\\.env$/i.test(name)), 'Actual environment files must not be included in the downloadable archive.');
+  assert.ok(!Object.keys(exportedEntries).some(name => /(^|\\/)id_rsa$/i.test(name)), 'Private-key files must not be included in the downloadable archive.');
   await upgradePage.locator('#ovyx-ws-fullstack-upgrade-overlay .ovyx-ws-fs-primary').click();
   await upgradePage.evaluate(() => { window.__fullstackFailTests = true; });
   await upgradePage.locator('[data-ovyx-fullstack-upgrade]').click();
