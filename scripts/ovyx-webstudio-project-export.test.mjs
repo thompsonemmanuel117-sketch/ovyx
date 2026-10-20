@@ -14,6 +14,7 @@ assert.match(runtime, /0x06054B50/);
 assert.match(runtime, /FULL_STACK_SETUP\.md/);
 assert.match(runtime, /README_OVYX_EXPORT\.md/);
 assert.match(runtime, /OVYX_EXPORT_MANIFEST\.json/);
+assert.match(runtime, /OVYX_EXPORT_EXCLUSIONS\.md/);
 assert.match(runtime, /Backend\/API routes/);
 assert.match(runtime, /GitHub repository/);
 assert.match(runtime, /does not publish the website/);
