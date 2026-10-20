@@ -136,6 +136,11 @@
   function recommendationForFinding(item) {
     var title = text(item && item.title).toLowerCase();
     var group = text(item && item.group).toLowerCase();
+    var status = text(item && item.status).toLowerCase();
+    if (status === 'pass') return 'No corrective change is indicated; this check passed within the tested scope.';
+    if (status === 'info' && title.indexOf('integration') < 0 && title.indexOf('coverage') < 0 && title.indexOf('interactive controls') < 0 && title.indexOf('live form') < 0) {
+      return 'Informational result, not a confirmed defect. Review the stated limitation only if it affects the requested website workflow.';
+    }
 
     if (title.indexOf('page metadata and landmarks') >= 0 || title.indexOf('generated website files') >= 0) {
       return 'Update only the affected page files: add the missing document metadata or main landmark identified above, keep each page title descriptive, and preserve the existing route and page content.';
@@ -738,6 +743,9 @@
       '#'+ROOT_ID+' .status-info .ovyx-ws-quality-status{background:rgba(148,163,184,.12);color:#cbd5e1}',
       '#'+ROOT_ID+' .ovyx-ws-quality-item h4{font-size:11px;line-height:1.4;font-weight:700;color:#e5e7eb;margin:0}',
       '#'+ROOT_ID+' .ovyx-ws-quality-item p{font-size:10px;line-height:1.55;color:#a5adba;margin:0;white-space:pre-wrap;overflow-wrap:anywhere}',
+      '#'+ROOT_ID+' .ovyx-ws-quality-recommendation{margin-top:9px;padding:9px 10px;border-left:2px solid #c9a96e;border-radius:0 7px 7px 0;background:rgba(201,169,110,.075)}',
+      '#'+ROOT_ID+' .ovyx-ws-quality-recommendation strong{display:block;font-size:9px;line-height:1.4;letter-spacing:.04em;color:#e7c992;margin-bottom:4px}',
+      '#'+ROOT_ID+' .ovyx-ws-quality-recommendation p{font-size:10px;line-height:1.55;color:#c4cbd5;margin:0;white-space:pre-wrap;overflow-wrap:anywhere}',
       '#'+ROOT_ID+' .ovyx-ws-quality-file{font:9px/1.5 ui-monospace,monospace;color:#e7bd67;margin-top:4px;overflow-wrap:anywhere}',
       '#'+ROOT_ID+' .ovyx-ws-quality-note{font-size:9px;line-height:1.5;color:#828c9b;border-top:1px solid rgba(255,255,255,.08);padding-top:10px;margin:14px 0 0}',
       '#'+ROOT_ID+' .ovyx-ws-quality-footer{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;padding:13px 22px 17px;border-top:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.10)}',
@@ -992,15 +1000,17 @@
       detail.textContent = item.detail;
       card.appendChild(top);
       card.appendChild(detail);
-      var recommendation = document.createElement('div');
-      recommendation.className = 'ovyx-ws-quality-recommendation';
-      var recommendationTitle = document.createElement('strong');
-      recommendationTitle.textContent = 'Suggested improvement';
-      var recommendationText = document.createElement('p');
-      recommendationText.textContent = item.recommendation || recommendationForFinding(item);
-      recommendation.appendChild(recommendationTitle);
-      recommendation.appendChild(recommendationText);
-      card.appendChild(recommendation);
+      if (item.status === 'fail' || item.status === 'warn' || (item.status === 'info' && /integration|coverage|interactive controls|live form/i.test(item.title))) {
+        var recommendation = document.createElement('div');
+        recommendation.className = 'ovyx-ws-quality-recommendation';
+        var recommendationTitle = document.createElement('strong');
+        recommendationTitle.textContent = item.status === 'info' ? 'Verification note' : 'Suggested improvement';
+        var recommendationText = document.createElement('p');
+        recommendationText.textContent = item.recommendation || recommendationForFinding(item);
+        recommendation.appendChild(recommendationTitle);
+        recommendation.appendChild(recommendationText);
+        card.appendChild(recommendation);
+      }
       if (item.file) {
         var file = document.createElement('div');
         file.className = 'ovyx-ws-quality-file';
