@@ -45,6 +45,8 @@ assert.match(client, /Notification\.requestPermission/);
 assert.match(client, /pushManager\.subscribe/);
 assert.match(client, /\/api\/notifications\/push/);
 assert.match(client, /prefers-reduced-motion/);
+assert.match(client, /\.ovyx-welcome-card\{[^}]*pointer-events:none/);
+assert.match(client, /\.ovyx-welcome-dismiss\{[^}]*pointer-events:auto/);
 assert.match(worker, /icon: OVYX_NOTIFICATION_ICON/);
 assert.match(worker, /badge: OVYX_NOTIFICATION_ICON/);
 assert.match(worker, /notificationclick/);
