@@ -1192,7 +1192,7 @@ function inferPrimaryOutcome(prompt, archetypeId, context, profile) {
       /\b(?:agency|law firm|legal|consultant|consultancy|professional service|service business)\b/i.test(q)) {
     return { value: 'generate a relevant, qualified enquiry through a clear and trustworthy contact path', basis: 'inferred from the service or contact intent' };
   }
-  if (/\b(?:dashboard|web app|web application|workspace|management system|internal tool|admin panel|task management|productivity tool)\b/i.test(q)) {
+  if (/\b(?:dashboard|web app|web application|app|platform|portal|workspace|tool|management system|internal tool|admin panel|task management|productivity tool)\b/i.test(q)) {
     return { value: 'help users complete the core task accurately and recover clearly from errors', basis: 'inferred from the task-focused product type' };
   }
   return {
