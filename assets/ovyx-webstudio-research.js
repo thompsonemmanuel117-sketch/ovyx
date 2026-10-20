@@ -236,16 +236,29 @@
     var all = Array.from(new Set(Object.keys(before || {}).concat(Object.keys(after || {}))));
     return all.filter(function (path) { return fileText((before || {})[path]) !== fileText((after || {})[path]); }).sort();
   }
+  function hasPriorVerifiedBuild(studio) {
+    var project = window.KernelState && window.KernelState.activeProject || studio && studio.project || {};
+    return !!(project && (
+      project.ovyxBuildVerifiedAt ||
+      project.buildVerifiedAt ||
+      project.lastBuildVerifiedAt ||
+      project.verifiedBuildAt
+    ));
+  }
   function startTask(prompt, mode, studio, standalone) {
     if (!prompt) return null;
     var sourceBag = currentFiles(studio);
     var edit = isEditPrompt(prompt, mode);
+    // The verified-build marker is authoritative: new projects may already contain
+    // a starter HTML scaffold, which must not suppress the first-build offer.
+    var isInitialWebsiteBuild = String(mode || '').toLowerCase() === 'build' && !hasPriorVerifiedBuild(studio);
     activeTask = {
       id: ++taskSequence,
       prompt: prompt,
       mode: String(mode || 'ask').toLowerCase(),
       hasResearch: shouldSearchWeb(prompt),
       isEdit: edit,
+      isInitialWebsiteBuild: isInitialWebsiteBuild,
       baselineFiles: sourceBag,
       sources: [],
       changedPaths: [],
@@ -503,6 +516,13 @@
       stage(task, 'verify', 'Website update applied — review findings', details + (task.qualityError ? ' The quality review error was: ' + task.qualityError : ''), 'warning');
     } else {
       stage(task, 'verify', 'Website update verified', details, 'success');
+    }
+    if (task.isInitialWebsiteBuild && task.mode === 'build' && !task.qualityFailed && !failures.length && testResult && testResult.ok === true) {
+      try {
+        window.dispatchEvent(new CustomEvent('ovyx:webstudio-initial-site-built', {
+          detail: { changedPaths: task.changedPaths.slice(0, 80), sourceTestsPassed: true }
+        }));
+      } catch (_) {}
     }
   }
   function attachActivityToRenderer(studio) {

@@ -102,6 +102,7 @@ for (const prompt of openEndedPrompts) {
 const novelBrief = openEndedPrompts[0];
 const novelExperience = buildExperienceBrief(novelBrief);
 assert.match(WEB_STUDIO_SYSTEM_PROMPT, /OPEN-ENDED CREATION POLICY/);
+assert.match(WEB_STUDIO_SYSTEM_PROMPT, /DESIGN INTELLIGENCE AND FUNCTIONAL QA/);
 assert.match(WEB_STUDIO_SYSTEM_PROMPT, /EXISTING-SITE CHANGE REQUESTS \(NON-NEGOTIABLE\)/);
 assert.match(WEB_STUDIO_SYSTEM_PROMPT, /concrete delta to the current site—not as permission to rebuild from scratch/i);
 assert.match(WEB_STUDIO_SYSTEM_PROMPT, /Implement the requested change rather than replying with instructions only/i);
@@ -132,5 +133,40 @@ const polish = polishPrompt({
   hints: '{}'
 });
 assert.match(polish, /archetype or blueprint is advisory, not a template/i);
+
+assert.match(WEB_STUDIO_EXCELLENCE, /STRUCTURED DESIGN INTELLIGENCE/);
+assert.match(WEB_STUDIO_EXCELLENCE, /INTERACTION LEDGER AND ACCEPTANCE CHECKS/);
+assert.match(plan, /designIntelligence/);
+assert.match(execution, /end-to-end acceptance path/i);
+assert.match(polish, /interaction ledger and acceptance checks/i);
+
+const premiumPropertyBrief = buildExperienceBrief(
+  'Build a luxury real-estate website with high-end homes and a clear property enquiry path.',
+  {
+    audience: 'High-intent home buyers',
+    brandProfile: { personality: 'quietly confident and architectural', pricePositioning: 'premium homes' }
+  }
+);
+assert.equal(premiumPropertyBrief.designIntelligence.industryOrUseCase, 'realEstate');
+assert.equal(premiumPropertyBrief.designIntelligence.targetAudience, 'High-intent home buyers');
+assert.equal(premiumPropertyBrief.designIntelligence.brandPersonality.value, 'quietly confident and architectural');
+assert.equal(premiumPropertyBrief.designIntelligence.brandPersonality.basis, 'supplied brand context');
+assert.equal(premiumPropertyBrief.designIntelligence.pricePositioning.value, 'premium homes');
+assert.match(premiumPropertyBrief.designIntelligence.primaryOutcome.value, /qualified property enquiry/i);
+assert.ok(premiumPropertyBrief.designIntelligence.customerJourney.length >= 4);
+assert.ok(premiumPropertyBrief.qualityGates.some(rule => /business-specific workflows use real logic/i.test(rule)));
+assert.ok(premiumPropertyBrief.qualityGates.some(rule => /primary journey is checked/i.test(rule)));
+
+const bookingBrief = buildExperienceBrief('Create a boutique hotel website that lets visitors book a room.');
+assert.match(bookingBrief.designIntelligence.primaryOutcome.value, /booking or reservation/i);
+
+const taskBrief = buildExperienceBrief('Build a neighborhood equipment-lending management tool.');
+assert.match(taskBrief.designIntelligence.primaryOutcome.value, /core task/i);
+assert.match(taskBrief.designIntelligence.pricePositioning.value, /Not specified/i);
+
+const inferredLuxury = buildExperienceBrief('Create a premium fashion store with an elegant, minimal brand direction.');
+assert.match(inferredLuxury.designIntelligence.brandPersonality.value, /polished, confident and restrained/i);
+assert.match(inferredLuxury.designIntelligence.pricePositioning.value, /premium \/ luxury/i);
+assert.match(inferredLuxury.designIntelligence.brandPersonality.basis, /provisional/i);
 
 console.log('OVYX experience intelligence tests passed for premium multi-industry and open-ended custom briefs.');

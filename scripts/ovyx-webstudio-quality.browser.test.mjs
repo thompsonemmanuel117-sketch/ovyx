@@ -6,6 +6,9 @@ import { chromium } from 'playwright';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const runtimePath = path.join(root, 'assets/ovyx-webstudio-quality.js');
+const fullstackRuntimePath = path.join(root, 'assets/ovyx-webstudio-fullstack-upgrade.js');
+const exportRuntimePath = path.join(root, 'assets/ovyx-webstudio-project-export.js');
+const researchRuntimePath = path.join(root, 'assets/ovyx-webstudio-research.js');
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 const pageErrors = [];
@@ -51,8 +54,13 @@ try {
   assert.ok(first.checks.some(item => item.title === 'Visible keyboard focus indicators' && item.status === 'pass'), 'The accessible fixture must report visible focus cues.');
   assert.ok(first.browser.performance.samples > 0, 'The browser matrix must collect isolated render and DOM metrics.');
   assert.ok(first.browser.performance.maxDomNodes > 0, 'The diagnostic must count rendered DOM nodes.');
-  assert.ok(first.checks.some(item => item.title === 'Isolated render processing budget' && item.status === 'pass'), 'The small fixture must pass its isolated processing/DOM budget.');
+  assert.ok(first.checks.some(item => item.title === 'Page loading performance' && item.status === 'pass'), 'The small fixture must pass the inspector\'s current isolated render and DOM budget check.');
   assert.ok(first.checks.some(item => item.title === 'Horizontal overflow' && item.status === 'fail'), 'The inspector must detect a real mobile horizontal-overflow defect.');
+assert.ok(first.checks.find(item => item.title === 'Horizontal overflow')?.recommendation?.includes('Do not hide overflow globally'), 'The inspector must give a specific responsive-layout recommendation grounded in the overflow finding.');
+assert.ok(await page.locator('.ovyx-ws-quality-recommendation').count() > 0, 'The inspector must render actionable suggestions alongside findings.');
+assert.ok(await page.locator('[data-quality-repair-finding]').count() > 0, 'Actionable findings must offer a targeted apply control.');
+assert.ok((await page.locator('[data-quality-repair-finding]').first().innerText()).includes('Apply suggested fix'), 'Targeted apply controls must identify the action clearly.');
+assert.ok(await page.locator('.ovyx-ws-quality-recommendation strong').filter({ hasText: 'Suggested improvement' }).count() > 0, 'Defect finding cards must label recommendations clearly.');
   assert.ok(first.checks.some(item => item.title === 'Live integration verification' && item.status === 'info'), 'The inspector must not claim live integrations were verified.');
   assert.ok(first.checks.some(item => item.group === 'Navigation' && item.title === 'Internal links and anchors' && item.status === 'pass'), 'A valid cross-page fragment must pass the browser source audit.');
   assert.equal(await page.locator('[data-quality-export]').isDisabled(), false, 'A completed inspection must enable report export.');
@@ -72,6 +80,7 @@ try {
   const exportedReport = JSON.parse(await fs.readFile(reportDownloadPath, 'utf8'));
   assert.equal(exportedReport.schemaVersion, 1, 'The exported report must declare its schema version.');
   assert.equal(exportedReport.projectName, 'Quality test site', 'The exported report must include the client-facing project label.');
+assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendation === 'string' && item.recommendation.length > 0), 'The exported report must preserve a suggested improvement for every check.');
   assert.equal(exportedReport.inspection.browser.pagesAvailable, 3, 'The exported report must summarize tested route coverage.');
   assert.equal(exportedReport.privacy.sourceFileContentsIncluded, false, 'The client handoff must not bundle project source files.');
   assert.ok(exportedReport.limitations.some(item => item.includes('Core Web Vitals')), 'The exported report must carry explicit verification limits.');
@@ -174,7 +183,7 @@ try {
   assert.ok(largeReport.checks.some(item => item.group === 'Coverage' && item.title === 'Safe control interaction sampling' && item.status === 'info' && item.detail.includes('1 additional eligible control')), 'The report must disclose when the safe interaction sampling cap excludes controls.');
   const exportedLargeSummary = await page.evaluate(() => window.OVYXWebStudioQuality.getClientSummary());
   assert.ok(exportedLargeSummary.includes('1 skipped by the per-route safety cap'), 'The client-ready summary must disclose skipped safe control samples.');
-  assert.ok(largeReport.checks.some(item => item.group === 'Coverage' && item.title === 'Responsive browser matrix coverage' && item.status === 'pass' && item.detail.includes('all 18 generated HTML route')), 'The report must state its adaptive route coverage honestly.');
+  assert.ok(largeReport.checks.some(item => item.group === 'Coverage' && item.title === 'Desktop and mobile checks coverage' && item.status === 'pass' && item.detail.includes('Browser checks covered all 18 generated HTML route(s)')), 'The report must state its adaptive route coverage honestly.');
   assert.ok(largeReport.checks.some(item => item.group === 'Navigation' && item.title === 'Internal links and anchors' && item.status === 'fail' && item.detail.includes('cross-page fragment link')), 'A cross-page link to a missing destination id must fail the browser source audit.');
   assert.ok(largeReport.checks.some(item => item.group === 'Accessibility' && item.title === 'Accessible controls and imagery' && item.status === 'fail' && /label references a missing control id|aria-labelledby references a missing id|aria-describedby references a missing id/.test(item.detail)), 'The browser source audit must report dangling label/ARIA ID references.');
   assert.ok(largeReport.checks.some(item => item.group === 'Browser testing' && item.title === 'Horizontal overflow' && item.status !== 'fail'), 'The large-project fixture must not introduce a horizontal-overflow regression.');
@@ -184,7 +193,90 @@ try {
   assert.ok(largeReport.checks.some(item => item.group === 'Project assets' && item.title === 'External asset reachability' && item.status === 'info' && item.detail.includes('network access')), 'The report must state that external asset reachability was not verified in its network-blocked sandbox.');
   assert.ok(pageErrors.length === 0, 'Large-project route coverage must not create browser errors: ' + pageErrors.join('; '));
 
-  console.log('Web Studio quality browser tests passed: toolbar wiring, source, full core viewport matrix, adaptive browser coverage for all 18 routes, safe-control interaction smoke test, manual and automatic bounded repair, post-build quality gate, verified-preview release timing, rollback-aware verification, and truthful integration status.');
+  const upgradePage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const upgradePageErrors = [];
+  upgradePage.on('pageerror', error => upgradePageErrors.push(error.message));
+  const upgradeFixture = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Full-stack upgrade fixture</title></head><body><section id="view-webstudio" aria-hidden="false"><header><div class="ovyx-ws-header-actions"><button id="ws-preview-trigger" type="button">Preview</button></div></header><input id="ws-chat-input" value="Build a boutique hotel website with a reservation journey."></section><div id="ws-agent-thread"></div><script>window.KernelState={activeView:"webstudio",activeProject:{id:"fullstack-upgrade-test",name:"Full-stack upgrade test",ovyxGraph:null},projects:[]};window.KernelState.projects=[window.KernelState.activeProject];window.ProjectStore={save:function(){},renderHome:function(){},renderProjects:function(){}};window.__fullstackRuns=0;window.__fullstackFailTests=false;window.__fullstackPrompt="";window.WebStudio={mode:"build",callAI:async function(){return {text:"done"}},renderThread:function(){},submitPrompt:async function(){this.graph.files["index.html"].content += "<!-- first-build mutation -->";window.KernelState.activeProject.ovyxGraph=this.graph;window.KernelState.activeProject.ovyxBuildVerifiedAt=new Date().toISOString();return {ok:true}},requestEpoch:4,historyStack:[],historyPointer:-1,graph:{version:2,entry:"index.html",files:{"index.html":{type:"text/html",content:"<!doctype html><html><head><title>Project</title></head><body><main><h1>Existing website</h1><p>Preserve this page and its design.</p></main></body></html>"}}},snapshotGraph:function(){return JSON.parse(JSON.stringify(this.graph))},ensureProjectGraph:function(){},syncGraphToProject:function(){window.KernelState.activeProject.ovyxGraph=this.graph},renderPreview:function(){},render:function(){},runTests:async function(){return window.__fullstackFailTests?{ok:false,summary:"Intentional rollback test failure."}:{ok:true,summary:"Source tests passed."}},runBuildAgent:async function(prompt){window.__fullstackPrompt=String(prompt);window.__fullstackRuns++;this.graph.files["api/upgrade-"+window.__fullstackRuns+".js"]={type:"application/javascript",content:"export async function onRequestGet(){return new Response(JSON.stringify({ok:true}),{headers:{\\"content-type\\":\\"application/json\\"}})}"};this.graph.files["FULL_STACK_SETUP.md"]={type:"text/markdown",content:"# Full-stack setup\\n\\nConfigure the backend services listed in this guide."};window.KernelState.activeProject.ovyxGraph=this.graph;return {ok:true}}};window.KernelState.activeProject.ovyxGraph=window.WebStudio.graph;</script></body></html>';
+  await upgradePage.setContent(upgradeFixture, { waitUntil: 'domcontentloaded' });
+  await upgradePage.addScriptTag({ path: researchRuntimePath });
+  await upgradePage.addScriptTag({ path: fullstackRuntimePath });
+  await upgradePage.addScriptTag({ path: exportRuntimePath });
+  await upgradePage.waitForFunction(() => !!window.OVYXWebStudioFullStackUpgrade && !!window.OVYXWebStudioProjectExport && document.querySelector('[data-ovyx-fullstack-upgrade]') && document.querySelector('[data-ovyx-project-export]'));
+  await upgradePage.evaluate(() => {
+    window.WebStudio.graph.files['.env'] = { type: 'text/plain', content: 'STRIPE_SECRET_KEY=sk_live_do_not_export_this_secret_1234567890' };
+    window.WebStudio.graph.files['private/id_rsa'] = { type: 'text/plain', content: '-----BEGIN RSA PRIVATE KEY-----\\nprivate fixture secret\\n-----END RSA PRIVATE KEY-----' };
+    window.KernelState.activeProject.ovyxGraph = window.WebStudio.graph;
+  });
+  assert.equal(await upgradePage.locator('[data-ovyx-project-export]').count(), 1, 'The Code download action must be present in the Web Studio header.');
+  assert.equal(await upgradePage.locator('[data-ovyx-fullstack-upgrade]').count(), 1, 'The persistent Full-stack action must be present in the Web Studio header.');
+  await upgradePage.evaluate(() => window.WebStudio.submitPrompt());
+  await upgradePage.locator('#ovyx-ws-fullstack-upgrade-overlay').waitFor({ state: 'visible', timeout: 5000 });
+  assert.match(await upgradePage.locator('#ovyx-ws-fs-title').innerText(), /working system behind it/i, 'The automatic offer must explain the full-stack upgrade.');
+  assert.equal(await upgradePage.locator('[data-ovyx-fs-confirm]').innerText(), 'Yes — upgrade my website', 'The opt-in action must be clear and explicit.');
+  await upgradePage.locator('.ovyx-ws-fs-secondary').click();
+  assert.equal(await upgradePage.locator('#ovyx-ws-fullstack-upgrade-overlay').count(), 0, 'The user must be able to decline without changing their site.');
+  await upgradePage.locator('[data-ovyx-fullstack-upgrade]').click();
+  await upgradePage.evaluate(() => {
+    window.__originalFullStackQualityRun = window.OVYXWebStudioQuality && window.OVYXWebStudioQuality.run;
+    if (window.OVYXWebStudioQuality) window.OVYXWebStudioQuality.run = async function () { return { checks: [], status: 'pass' }; };
+  });
+  await upgradePage.locator('[data-ovyx-fs-confirm]').click();
+  await upgradePage.waitForFunction(() => document.querySelector('#ovyx-ws-fullstack-upgrade-overlay [data-status="complete"]'), null, { timeout: 15000 });
+  const fullstackResult = await upgradePage.evaluate(() => ({
+    prompt: window.__fullstackPrompt,
+    files: Object.keys(window.WebStudio.graph.files),
+    status: document.querySelector('#ovyx-ws-fullstack-upgrade-overlay [data-status="complete"]')?.innerText || ''
+  }));
+  assert.match(fullstackResult.prompt, /OVYX WEB STUDIO — FULL-STACK UPGRADE/);
+  assert.match(fullstackResult.prompt, /server-side API endpoints/);
+  assert.match(fullstackResult.prompt, /FULL_STACK_SETUP\.md/);
+  assert.ok(fullstackResult.files.includes('api/upgrade-1.js'), 'Confirming the upgrade must run the build agent and add backend implementation files.');
+  assert.ok(fullstackResult.files.includes('FULL_STACK_SETUP.md'), 'The full-stack handoff guide must be generated.');
+  assert.match(fullstackResult.status, /Full-stack implementation generated/);
+  await upgradePage.locator('#ovyx-ws-fullstack-upgrade-overlay .ovyx-ws-fs-primary').click();
+  const projectDownloadPromise = upgradePage.waitForEvent('download');
+  await upgradePage.locator('[data-ovyx-project-export]').click();
+  const projectDownload = await projectDownloadPromise;
+  assert.match(projectDownload.suggestedFilename(), /full-stack-upgrade-test-source-\d{4}-\d{2}-\d{2}\.zip/i, 'The website export must download as a named ZIP archive.');
+  const projectZipPath = await projectDownload.path();
+  assert.ok(projectZipPath, 'The project ZIP download must complete.');
+  const projectZip = await fs.readFile(projectZipPath);
+  const exportedEntries = {};
+  let zipOffset = 0;
+  while (zipOffset + 30 <= projectZip.length && projectZip.readUInt32LE(zipOffset) === 0x04034B50) {
+    const method = projectZip.readUInt16LE(zipOffset + 8);
+    const compressedSize = projectZip.readUInt32LE(zipOffset + 18);
+    const filenameLength = projectZip.readUInt16LE(zipOffset + 26);
+    const extraLength = projectZip.readUInt16LE(zipOffset + 28);
+    const filenameStart = zipOffset + 30;
+    const filename = projectZip.subarray(filenameStart, filenameStart + filenameLength).toString('utf8');
+    const dataStart = filenameStart + filenameLength + extraLength;
+    assert.equal(method, 0, 'The local ZIP exporter should use the supported stored-entry format.');
+    exportedEntries[filename] = projectZip.subarray(dataStart, dataStart + compressedSize).toString('utf8');
+    zipOffset = dataStart + compressedSize;
+  }
+  assert.ok(exportedEntries['index.html']?.includes('Existing website'), 'The download must preserve the existing website source.');
+  assert.ok(exportedEntries['api/upgrade-1.js']?.includes('onRequestGet'), 'The download must include the generated backend/API implementation.');
+  assert.ok(exportedEntries['FULL_STACK_SETUP.md']?.includes('backend services'), 'The download must include the backend setup guide.');
+  assert.ok(exportedEntries['README_OVYX_EXPORT.md']?.includes('GitHub repository'), 'The archive must explain how to place the complete project in GitHub.');
+  assert.ok(exportedEntries['OVYX_EXPORT_MANIFEST.json'], 'The archive must include a machine-readable export manifest.');
+  assert.ok(exportedEntries['OVYX_EXPORT_EXCLUSIONS.md']?.includes('private/id_rsa'), 'The archive must disclose credential files excluded from export.');
+  assert.ok(!Object.keys(exportedEntries).some(name => /(^|\/)\.env$/i.test(name)), 'Actual environment files must not be included in the downloadable archive.');
+  assert.ok(!Object.keys(exportedEntries).some(name => /(^|\/)id_rsa$/i.test(name)), 'Private-key files must not be included in the downloadable archive.');
+  await upgradePage.evaluate(() => { window.__fullstackFailTests = true; });
+  await upgradePage.locator('[data-ovyx-fullstack-upgrade]').click();
+  await upgradePage.locator('[data-ovyx-fs-confirm]').click();
+  await upgradePage.waitForFunction(() => document.querySelector('#ovyx-ws-fullstack-upgrade-overlay [data-status="failed"]'), null, { timeout: 15000 });
+  const rollbackResult = await upgradePage.evaluate(() => ({
+    unexpectedFilePresent: Object.prototype.hasOwnProperty.call(window.WebStudio.graph.files, 'api/upgrade-2.js'),
+    status: document.querySelector('#ovyx-ws-fullstack-upgrade-overlay [data-status="failed"]')?.innerText || ''
+  }));
+  assert.equal(rollbackResult.unexpectedFilePresent, false, 'A failed source verification must restore the last-known-good website snapshot.');
+  assert.match(rollbackResult.status, /previous project snapshot was restored/i);
+  assert.equal(upgradePageErrors.length, 0, 'Full-stack modal and upgrade interactions must not create browser errors: ' + upgradePageErrors.join('; '));
+
+  console.log('Web Studio full-stack upgrade browser tests passed: first-build offer, persistent action, opt-in generation, setup-guide handoff, truthful connection boundary, and rollback on failed source verification.');
+    console.log('Web Studio quality browser tests passed: toolbar wiring, source, full core viewport matrix, adaptive browser coverage for all 18 routes, safe-control interaction smoke test, manual and automatic bounded repair, post-build quality gate, verified-preview release timing, rollback-aware verification, and truthful integration status.');
 } finally {
   await browser.close();
 }
