@@ -21,6 +21,8 @@ assert.match(upgrade, /testResult\.ok === false/);
 assert.match(upgrade, /prefers-reduced-motion/);
 assert.match(upgrade, /role', 'dialog'/);
 assert.match(upgrade, /aria-modal', 'true'/);
+assert.match(upgrade, /window\.OVYXWebStudioFullStackUpgrade =/);
+assert.match(upgrade, /event\.key !== 'Tab'/);
 assert.match(upgrade, /ovyx\.webstudio\.fullstack\.upgrade\.v1\./);
 
 assert.match(research, /function hasMeaningfulWebsite\(files\)/);
