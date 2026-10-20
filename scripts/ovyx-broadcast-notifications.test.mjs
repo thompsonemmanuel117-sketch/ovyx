@@ -18,6 +18,8 @@ assert.match(broadcasts, /sendEmail === true/);
 assert.match(broadcasts, /inApp: \{ published: true, scope: 'global-inbox' \}/);
 assert.match(broadcasts, /emailProductUpdates/);
 assert.match(broadcasts, /emailSecurityAlerts/);
+assert.match(broadcasts, /settings', 'profile/);
+assert.match(broadcasts, /storedProfile\?\.displayName/);
 assert.match(broadcasts, /BROADCAST_LINK_INVALID/);
 assert.match(broadcasts, /preferenceCheckFailed/);
 assert.match(inbox, /unreadCount: notifications\.filter\(item => item\.unread\)\.length/);
