@@ -236,18 +236,22 @@
     var all = Array.from(new Set(Object.keys(before || {}).concat(Object.keys(after || {}))));
     return all.filter(function (path) { return fileText((before || {})[path]) !== fileText((after || {})[path]); }).sort();
   }
-  function hasMeaningfulWebsite(files) {
-    return Object.keys(files || {}).some(function (path) {
-      if (!/\.(?:html?|jsx?|tsx?|vue|svelte)$/i.test(path)) return false;
-      var source = fileText(files[path]).trim();
-      return source.length >= 350 && /<(?:html|body|main|header|nav|section|article|form|div)\b/i.test(source);
-    });
+  function hasPriorVerifiedBuild(studio) {
+    var project = window.KernelState && window.KernelState.activeProject || studio && studio.project || {};
+    return !!(project && (
+      project.ovyxBuildVerifiedAt ||
+      project.buildVerifiedAt ||
+      project.lastBuildVerifiedAt ||
+      project.verifiedBuildAt
+    ));
   }
   function startTask(prompt, mode, studio, standalone) {
     if (!prompt) return null;
     var sourceBag = currentFiles(studio);
     var edit = isEditPrompt(prompt, mode);
-    var isInitialWebsiteBuild = String(mode || '').toLowerCase() === 'build' && !hasMeaningfulWebsite(sourceBag);
+    // The verified-build marker is authoritative: new projects may already contain
+    // a starter HTML scaffold, which must not suppress the first-build offer.
+    var isInitialWebsiteBuild = String(mode || '').toLowerCase() === 'build' && !hasPriorVerifiedBuild(studio);
     activeTask = {
       id: ++taskSequence,
       prompt: prompt,
