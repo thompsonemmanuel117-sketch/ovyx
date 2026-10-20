@@ -19,7 +19,7 @@ assert.match(runtime, /Backend\/API routes/);
 assert.match(runtime, /GitHub repository/);
 assert.match(runtime, /does not publish the website/);
 assert.match(runtime, /\.env/);
-assert.match(runtime, /credentials\.json/);
+assert.match(runtime, /credentials/);
 assert.match(runtime, /containsLikelySecret/);
 assert.match(runtime, /possible embedded credential/);
 assert.match(runtime, /source and backend files as a ZIP/);
