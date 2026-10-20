@@ -236,16 +236,25 @@
     var all = Array.from(new Set(Object.keys(before || {}).concat(Object.keys(after || {}))));
     return all.filter(function (path) { return fileText((before || {})[path]) !== fileText((after || {})[path]); }).sort();
   }
+  function hasMeaningfulWebsite(files) {
+    return Object.keys(files || {}).some(function (path) {
+      if (!/\.(?:html?|jsx?|tsx?|vue|svelte)$/i.test(path)) return false;
+      var source = fileText(files[path]).trim();
+      return source.length >= 350 && /<(?:html|body|main|header|nav|section|article|form|div)\b/i.test(source);
+    });
+  }
   function startTask(prompt, mode, studio, standalone) {
     if (!prompt) return null;
     var sourceBag = currentFiles(studio);
     var edit = isEditPrompt(prompt, mode);
+    var isInitialWebsiteBuild = String(mode || '').toLowerCase() === 'build' && !hasMeaningfulWebsite(sourceBag);
     activeTask = {
       id: ++taskSequence,
       prompt: prompt,
       mode: String(mode || 'ask').toLowerCase(),
       hasResearch: shouldSearchWeb(prompt),
       isEdit: edit,
+      isInitialWebsiteBuild: isInitialWebsiteBuild,
       baselineFiles: sourceBag,
       sources: [],
       changedPaths: [],
@@ -504,6 +513,13 @@
     } else {
       stage(task, 'verify', 'Website update verified', details, 'success');
     }
+    if (task.isInitialWebsiteBuild && task.mode === 'build' && !task.qualityFailed && !failures.length && testResult && testResult.ok === true) {
+      try {
+        window.dispatchEvent(new CustomEvent('ovyx:webstudio-initial-site-built', {
+          detail: { changedPaths: task.changedPaths.slice(0, 80), sourceTestsPassed: true }
+        }));
+      } catch (_) {}
+    }
   }
   function attachActivityToRenderer(studio) {
     if (!studio || typeof studio.renderThread !== 'function' || studio.renderThread.__ovyxLiveActivityWrapper) return;
@@ -653,4 +669,15 @@
   else boot();
   window.addEventListener('ovyx:view-changed', function () { window.setTimeout(boot, 0); });
   window.addEventListener('firebase-auth-state-ready', function () { window.setTimeout(boot, 0); });
+  function loadFullStackUpgrade() {
+    if (window.OVYXWebStudioFullStackUpgrade || document.querySelector('script[data-ovyx-ws-fullstack-upgrade-loader]')) return;
+    var script = document.createElement('script');
+    script.src = '/assets/ovyx-webstudio-fullstack-upgrade.js';
+    script.async = true;
+    script.setAttribute('data-ovyx-ws-fullstack-upgrade-loader', '1');
+    script.onerror = function () { script.removeAttribute('data-ovyx-ws-fullstack-upgrade-loader'); };
+    (document.head || document.body || document.documentElement).appendChild(script);
+  }
+  loadFullStackUpgrade();
+  window.addEventListener('ovyx:view-changed', function () { window.setTimeout(loadFullStackUpgrade, 0); });
 })();
