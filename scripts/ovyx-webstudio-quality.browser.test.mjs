@@ -236,7 +236,7 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
   const projectDownloadPromise = upgradePage.waitForEvent('download');
   await upgradePage.locator('[data-ovyx-project-export]').click();
   const projectDownload = await projectDownloadPromise;
-  assert.match(projectDownload.suggestedFilename(), /full-stack-upgrade-test-source-\\d{4}-\\d{2}-\\d{2}\\.zip/i, 'The website export must download as a named ZIP archive.');
+  assert.match(projectDownload.suggestedFilename(), /full-stack-upgrade-test-source-\d{4}-\d{2}-\d{2}\.zip/i, 'The website export must download as a named ZIP archive.');
   const projectZipPath = await projectDownload.path();
   assert.ok(projectZipPath, 'The project ZIP download must complete.');
   const projectZip = await fs.readFile(projectZipPath);
