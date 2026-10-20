@@ -25,7 +25,9 @@ assert.match(upgrade, /window\.OVYXWebStudioFullStackUpgrade =/);
 assert.match(upgrade, /event\.key !== 'Tab'/);
 assert.match(upgrade, /ovyx\.webstudio\.fullstack\.upgrade\.v1\./);
 
-assert.match(research, /function hasMeaningfulWebsite\(files\)/);
+assert.match(research, /function hasPriorVerifiedBuild\(studio\)/);
+assert.match(research, /!hasPriorVerifiedBuild\(studio\)/);
+assert.match(research, /starter HTML scaffold/);
 assert.match(research, /isInitialWebsiteBuild: isInitialWebsiteBuild/);
 assert.match(research, /ovyx:webstudio-initial-site-built/);
 assert.match(research, /sourceTestsPassed: true/);
