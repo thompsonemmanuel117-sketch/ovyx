@@ -19,6 +19,9 @@
 /assets/ovyx-webstudio-fullstack-upgrade.js
   Cache-Control: no-store, no-cache, must-revalidate
 
+/assets/ovyx-webstudio-project-export.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
 /assets/ovyx-webstudio-apply-suggestions.js
   Cache-Control: no-store, no-cache, must-revalidate
 
