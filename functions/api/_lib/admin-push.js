@@ -5,6 +5,7 @@
 
 import {
   getFirestoreData,
+  getFirestoreDataAtPath,
   listFirestoreDocuments,
   setFirestoreDocument,
 } from './firebase-admin.js';
@@ -285,6 +286,30 @@ async function sendToSubscription(env, config, subscription, payload) {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+export const USER_PUSH_COLLECTION = 'ovyx_user_push_subscriptions';
+export async function sendUserPushNotification(env, input = {}) {
+ const config=getAdminPushConfiguration(env);
+ if(!config.configured)return{configured:false,attempted:0,delivered:0,failed:0,skipped:true,reason:config.reason};
+ const subscriptions=[];let token=null,pages=0;
+ do{const page=await listFirestoreDocuments(env,USER_PUSH_COLLECTION,1000,token);subscriptions.push(...(page.documents||[]).filter(x=>x.active===true&&typeof x.endpoint==='string'&&x.keys&&typeof x.keys==='object'&&String(x.ownerUid||'')));token=page.nextPageToken||null;pages++;}while(token&&pages<1000);
+ const preferenceUids=[...new Set(subscriptions.map(item=>String(item.ownerUid||'')).filter(Boolean))];
+ const prefRows=await Promise.all(preferenceUids.map(async uid=>{try{const data=await getFirestoreDataAtPath(env,['users',uid,'settings','preferences']);return{uid,enabled:data?.notifications?.pushAnnouncements===true};}catch{return{uid,enabled:false};}}));
+ const enabledUids=new Set(prefRows.filter(item=>item.enabled).map(item=>item.uid));
+ const optedInSubscriptions=subscriptions.filter(item=>enabledUids.has(String(item.ownerUid||'')));
+ const raw=text(input.url||'/',500);
+ const payload={id:text(input.id||input.tag||'ovyx-announcement',160),type:text(input.type||'announcement',80),title:text(input.title||'OVYX Update',120),body:text(input.body||input.message||'A new OVYX announcement is available.',1200),url:raw.startsWith('/')&&!raw.startsWith('//')?raw:'/',icon:'/assets/ovyx-mark.svg',badge:'/assets/ovyx-mark.svg',tag:text(input.tag||input.id||'ovyx-announcement',160)};
+ const results=[];
+ for(let i=0;i<optedInSubscriptions.length;i+=16){
+  results.push(...await Promise.all(optedInSubscriptions.slice(i,i+16).map(async sub=>{
+   try{const response=await sendToSubscription(env,config,sub,payload);
+    if(response.status===404||response.status===410){await setFirestoreDocument(env,USER_PUSH_COLLECTION,String(sub.id||''),{active:false,updatedAt:new Date().toISOString(),inactiveReason:'push_endpoint_expired'},{merge:true});return{ok:false,status:response.status};}
+    return{ok:response.ok,status:response.status};
+   }catch(error){return{ok:false,status:Number(error?.status)||0,code:String(error?.code||'PUSH_DELIVERY_FAILED')};}
+  })));
+ }
+ return{configured:true,optedInDevices:optedInSubscriptions.length,attempted:results.length,delivered:results.filter(x=>x.ok).length,failed:results.filter(x=>!x.ok).length,skipped:results.length===0};
 }
 
 export async function sendAdminPushNotification(env, input = {}) {

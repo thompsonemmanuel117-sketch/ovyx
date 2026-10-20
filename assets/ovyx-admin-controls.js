@@ -948,7 +948,12 @@
       const title = String($('v34-broadcast-title')?.value || 'OVYX Update').trim() || 'OVYX Update';
       const category = String($('v34-broadcast-category')?.value || 'product');
       const link = String($('v34-broadcast-link')?.value || '').trim();
-      const wantsEmail = $('v34-broadcast-email')?.checked === true;
+      const emailCheckbox = $('v34-broadcast-email');
+      if (emailCheckbox && emailCheckbox.dataset.ovyxDefaultApplied !== '1') {
+        emailCheckbox.checked = true;
+        emailCheckbox.dataset.ovyxDefaultApplied = '1';
+      }
+      const wantsEmail = emailCheckbox?.checked === true;
       if (!message) return statusText(status, 'Write an announcement before publishing.', 'error');
       if (link && !/^(?:https:\/\/|\/)/i.test(link)) return statusText(status, 'The optional link must be an HTTPS URL or a local OVYX path.', 'error');
       button.disabled = true;
@@ -956,9 +961,9 @@
       try {
         const result = await api('/api/admin/broadcasts', {
           method: 'POST',
-          body: JSON.stringify({ title: title, message: message, category: category, link: link })
+          body: JSON.stringify({ title: title, message: message, category: category, link: link, sendEmail: wantsEmail })
         });
-        statusText(status, 'Announcement published to signed-in OVYX users.' + (wantsEmail ? ' Email notifications were not sent by this action.' : ''), 'ok');
+        statusText(status, 'Announcement published to the OVYX inbox. ' + (wantsEmail ? 'Email delivery has been queued for accounts whose notification preferences allow it. ' : 'Email delivery was turned off for this broadcast. ') + 'Phone alerts are sent only to users who enabled them; final delivery counts are recorded on the broadcast.', 'ok');
         notify('In-app announcement published.', 'success');
         if ($('v34-broadcast-body')) $('v34-broadcast-body').value = '';
         const host = $('v34-broadcast-history');
@@ -966,7 +971,7 @@
           const entry = document.createElement('div'); entry.className = 'v34-history-item';
           const main = document.createElement('div');
           const heading = document.createElement('b'); heading.textContent = title;
-          const sub = document.createElement('small'); sub.textContent = message + ' · ' + category;
+          const sub = document.createElement('small'); sub.textContent = message + ' · ' + category + ' · Email: ' + (wantsEmail ? 'queued' : 'off') + ' · Phone alerts: opt-in devices';
           main.append(heading, sub);
           const time = document.createElement('time'); time.textContent = new Date().toLocaleString();
           entry.append(main, time); host.prepend(entry);

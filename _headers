@@ -67,3 +67,15 @@
 
 /assets/ovyx-app-studio-project-brain.js
   Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-notifications.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-auth-welcome.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-mark.svg
+  Cache-Control: public, max-age=3600
+
+/sw.js
+  Cache-Control: no-cache, no-store, must-revalidate

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192" role="img" aria-label="OVYX">
+  <defs><linearGradient id="ovyxGold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F8E4A8"/><stop offset=".52" stop-color="#E8B64F"/><stop offset="1" stop-color="#A97524"/></linearGradient></defs>
+  <rect width="192" height="192" rx="42" fill="#0B0D12"/>
+  <circle cx="96" cy="86" r="49" fill="none" stroke="url(#ovyxGold)" stroke-width="13"/>
+  <path d="M79 68 L113 104 M113 68 L79 104" fill="none" stroke="#F8E4A8" stroke-width="7" stroke-linecap="round"/>
+  <path d="M46 145 H146" stroke="#E8B64F" stroke-width="3" stroke-linecap="round" opacity=".65"/>
+  <text x="96" y="169" font-family="Arial,Helvetica,sans-serif" font-size="15" font-weight="800" letter-spacing="4" text-anchor="middle" fill="#F6D58B">OVYX</text>
+</svg>

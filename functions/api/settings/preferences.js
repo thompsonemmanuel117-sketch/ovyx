@@ -19,7 +19,8 @@ export const NOTIFICATION_DEFAULTS = Object.freeze({
   aiUsageWarnings: true,
   billing: true,
   emailProductUpdates: true,
-  emailSecurityAlerts: true
+  emailSecurityAlerts: true,
+  pushAnnouncements: false
 });
 const ALLOWED_KEYS = new Set(Object.keys(NOTIFICATION_DEFAULTS));
 const preferencePath = uid => ['users', uid, 'settings', 'preferences'];

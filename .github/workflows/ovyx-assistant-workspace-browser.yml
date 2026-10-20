@@ -5,6 +5,16 @@ on:
     branches:
       - main
     paths:
+      - 'assets/ovyx-notifications.js'
+      - 'assets/ovyx-auth-welcome.js'
+      - 'assets/ovyx-mark.svg'
+      - 'functions/api/notifications.js'
+      - 'functions/api/admin/broadcasts.js'
+      - 'functions/api/_lib/announcement-delivery.js'
+      - 'functions/api/_lib/admin-push.js'
+      - 'sw.js'
+      - 'scripts/ovyx-notifications.test.mjs'
+      - 'scripts/ovyx-notifications.browser.test.mjs'
       - 'index.html'
       - 'assets/ovyx-settings-reliability.js'
       - 'assets/ovyx-webstudio-reliability.js'
@@ -173,6 +183,9 @@ jobs:
 
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
+
+      - name: Exercise OVYX announcement delivery and welcome flow on desktop and mobile Chromium
+        run: node scripts/ovyx-notifications.browser.test.mjs
 
       - name: Start local Cloudflare Pages app
         run: |

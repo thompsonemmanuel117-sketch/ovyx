@@ -1,6 +1,7 @@
 import { jsonResponse, errorResponse, requestId, readJson } from '../_lib/http.js';
 import { verifyFirebaseIdToken, normalizeEmail } from '../../_lib/auth.js';
 import { isRootUser } from '../../_lib/brain/registry.js';
+import { deliverAnnouncementChannels } from '../_lib/announcement-delivery.js';
 import {
   listFirestoreDocuments,
   getFirestoreDataAtPath,
@@ -31,7 +32,9 @@ function normalizeAnnouncement(row) {
     published: row?.published === true,
     createdBy: row?.createdBy || null,
     createdAt: row?.createdAt || null,
-    updatedAt: row?.updatedAt || null
+    updatedAt: row?.updatedAt || null,
+    sendEmail: row?.sendEmail === true,
+    delivery: row?.delivery && typeof row.delivery === 'object' ? row.delivery : { inApp: { status: row?.published ? 'published' : 'draft' } }
   };
 }
 
@@ -104,6 +107,7 @@ export async function onRequestPost(context) {
 
     const announcementId = crypto.randomUUID().replace(/-/g, '').slice(0, 32);
     const now = new Date().toISOString();
+    const sendEmail = body?.sendEmail === true;
     const record = {
       title,
       body: message,
@@ -115,21 +119,21 @@ export async function onRequestPost(context) {
         email: String(auth.user?.email || '').toLowerCase()
       },
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
+      sendEmail,
+      delivery: { inApp: { status: 'published' }, email: { status: sendEmail ? 'queued' : 'not_requested', attempted: 0, sent: 0, failed: 0, skipped: 0 }, push: { status: 'queued', attempted: 0, delivered: 0, failed: 0 } }
     };
-
-    await setFirestoreDocumentAtPath(
-      context.env,
-      [COLLECTION, announcementId],
-      record,
-      { merge: false }
-    );
-
-    return jsonResponse(
-      { ok: true, broadcast: { id: announcementId, ...record }, delivery: 'global-inbox' },
-      201,
-      { 'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store' }
-    );
+    await setFirestoreDocumentAtPath(context.env, [COLLECTION, announcementId], record, { merge: false });
+    const origin = new URL(context.request.url).origin;
+    const dispatchTask = (async () => {
+      let delivery;
+      try { delivery = await deliverAnnouncementChannels(context.env, { id: announcementId, origin, announcement: { id: announcementId, ...record }, sendEmail }); }
+      catch { delivery = { inApp:{status:'published'}, email:{status:sendEmail?'failed':'not_requested',attempted:0,sent:0,failed:sendEmail?1:0,skipped:0}, push:{status:'failed',attempted:0,delivered:0,failed:1}, completedAt:new Date().toISOString() }; }
+      try { await setFirestoreDocumentAtPath(context.env, [COLLECTION, announcementId], { delivery, updatedAt: new Date().toISOString() }, { merge: true }); }
+      catch (error) { console.error('[OVYX BROADCAST STATUS]', String(error?.code || error?.message || 'status write failed').slice(0,120)); }
+    })();
+    if (typeof context.waitUntil === 'function') context.waitUntil(dispatchTask); else await dispatchTask;
+    return jsonResponse({ ok:true, broadcast:{id:announcementId,...record}, delivery:record.delivery }, 201, { 'X-OVYX-Request-ID':id, 'Cache-Control':'no-store' });
   } catch (error) {
     return errorResponse(
       error?.status || 500,

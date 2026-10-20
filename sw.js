@@ -42,8 +42,12 @@ self.addEventListener('push', event => {
   const body = String(payload.body || payload.message || payload.notification?.body || 'You have a new OVYX notification.').slice(0, 2000);
   const target = safeNavigationTarget(payload.url || payload.path || '/');
   const tag = String(payload.tag || payload.id || 'ovyx-notification').slice(0, 160);
+  const icon = safeNavigationTarget(payload.icon || '/assets/ovyx-mark.svg');
+  const badge = safeNavigationTarget(payload.badge || '/assets/ovyx-mark.svg');
   const options = {
     body,
+    icon,
+    badge,
     tag,
     renotify: false,
     data: {

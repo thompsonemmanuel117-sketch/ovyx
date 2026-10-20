@@ -1,129 +1,18 @@
-import { jsonResponse, errorResponse, requestId, readJson } from './_lib/http.js';
+import { jsonResponse, errorResponse, requestId, readJson, enforceSameOrigin } from './_lib/http.js';
 import { verifyFirebaseIdToken } from '../_lib/auth.js';
-import {
-  listFirestoreDocuments,
-  listFirestoreSubcollectionDocuments,
-  setFirestoreDocumentAtPath
-} from '../_lib/firebase-admin.js';
-
-const ANNOUNCEMENTS = 'ovyx_announcements';
-const MAX_BODY_BYTES = 8000;
-
-const clean = (value, max = 500) => String(value ?? '').trim().slice(0, max);
-
-function normalizeAnnouncement(row) {
-  return {
-    id: String(row?.id || ''),
-    title: clean(row?.title || 'OVYX Update', 120),
-    body: clean(row?.body || '', 4000),
-    category: ['product', 'account', 'security', 'maintenance'].includes(String(row?.category || '').toLowerCase())
-      ? String(row.category).toLowerCase()
-      : 'product',
-    link: clean(row?.link || '', 500),
-    published: row?.published === true,
-    createdAt: row?.createdAt || null
-  };
-}
-
-async function loadAnnouncements(env) {
-  const result = await listFirestoreDocuments(env, ANNOUNCEMENTS, 100);
-  return result.documents
-    .map(normalizeAnnouncement)
-    .filter(item => item.published)
-    .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
-}
-
-async function loadReadMap(env, uid) {
-  const rows = await listFirestoreSubcollectionDocuments(
-    env,
-    'users',
-    uid,
-    'notificationState',
-    100
-  );
-
-  const read = {};
-  for (const row of rows) {
-    const id = clean(row?.id, 160);
-    if (id && row?.data?.readAt) read[id] = row.data.readAt;
-  }
-  return read;
-}
-
-export async function onRequestGet(context) {
-  const id = requestId(context.request);
-  try {
-    const auth = await verifyFirebaseIdToken(context.request, context.env);
-    if (!auth.ok) return auth.response;
-
-    const [announcements, read] = await Promise.all([
-      loadAnnouncements(context.env),
-      loadReadMap(context.env, auth.user.uid)
-    ]);
-
-    const notifications = announcements.map(item => ({
-      ...item,
-      readAt: read[item.id] || null,
-      unread: !read[item.id]
-    }));
-
-    return jsonResponse(
-      {
-        ok: true,
-        notifications,
-        unreadCount: notifications.filter(item => item.unread).length
-      },
-      200,
-      { 'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store, max-age=0' }
-    );
-  } catch (error) {
-    return errorResponse(
-      error?.status || 503,
-      error?.code || 'NOTIFICATIONS_UNAVAILABLE',
-      error?.message || 'Notifications are temporarily unavailable.'
-    );
-  }
-}
-
-export async function onRequestPost(context) {
-  const id = requestId(context.request);
-  try {
-    const auth = await verifyFirebaseIdToken(context.request, context.env);
-    if (!auth.ok) return auth.response;
-
-    const body = await readJson(context.request, MAX_BODY_BYTES);
-    const action = clean(body?.action, 40).toLowerCase();
-    const notificationId = clean(body?.notificationId || body?.id, 160);
-
-    if (action !== 'read' || !notificationId || !/^[A-Za-z0-9_-]{1,160}$/.test(notificationId)) {
-      return errorResponse(400, 'INVALID_NOTIFICATION_ACTION', 'Choose a valid notification action.');
-    }
-
-    const readAt = new Date().toISOString();
-
-    await setFirestoreDocumentAtPath(
-      context.env,
-      ['users', auth.user.uid, 'notificationState', notificationId],
-      { readAt },
-      { merge: true }
-    );
-
-    return jsonResponse(
-      { ok: true, id: notificationId, readAt },
-      200,
-      { 'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store, max-age=0' }
-    );
-  } catch (error) {
-    return errorResponse(
-      error?.status || 500,
-      error?.code || 'NOTIFICATION_UPDATE_FAILED',
-      error?.message || 'Notification state could not be updated.'
-    );
-  }
-}
-
-export async function onRequest(context) {
-  if (context.request.method === 'GET') return onRequestGet(context);
-  if (context.request.method === 'POST') return onRequestPost(context);
-  return errorResponse(405, 'METHOD_NOT_ALLOWED', 'This action is not supported.');
-}
+import { getFirestoreDataAtPath, listFirestoreDocuments, listFirestoreSubcollectionDocuments, setFirestoreDocument, setFirestoreDocumentAtPath } from './_lib/firebase-admin.js';
+import { USER_PUSH_COLLECTION, adminPushSubscriptionId, getAdminPushConfiguration, validateAdminPushEndpoint } from './_lib/admin-push.js';
+const ANNOUNCEMENTS='ovyx_announcements';const clean=(v,max=500)=>String(v??'').trim().slice(0,max);
+function normalizeAnnouncement(r){return{id:String(r?.id||''),title:clean(r?.title||'OVYX Update',120),body:clean(r?.body||'',4000),category:['product','account','security','maintenance'].includes(String(r?.category||'').toLowerCase())?String(r.category).toLowerCase():'product',link:clean(r?.link||'',500),published:r?.published===true,createdAt:r?.createdAt||null};}
+async function loadAnnouncements(env){const r=await listFirestoreDocuments(env,ANNOUNCEMENTS,100);return r.documents.map(normalizeAnnouncement).filter(x=>x.published).sort((a,b)=>String(b.createdAt||'').localeCompare(String(a.createdAt||'')));}
+async function loadReadMap(env,uid){const rows=await listFirestoreSubcollectionDocuments(env,'users',uid,'notificationState',100);const read={};for(const row of rows){const id=clean(row?.id,160);if(id&&row?.data?.readAt)read[id]=row.data.readAt;}return read;}
+async function loadUserSubscriptions(env,uid){let token=null,pages=0;const owned=[];do{const p=await listFirestoreDocuments(env,USER_PUSH_COLLECTION,1000,token);owned.push(...(p.documents||[]).filter(r=>r.active===true&&String(r.ownerUid||'')===String(uid||'')));token=p.nextPageToken||null;pages++;}while(token&&pages<1000);return owned;}
+function validateUserPushSubscription(v){const endpoint=validateAdminPushEndpoint(v?.endpoint),p=clean(v?.keys?.p256dh,200),a=clean(v?.keys?.auth,120);if(!endpoint||! /^[A-Za-z0-9_-]{80,100}$/.test(p)||! /^[A-Za-z0-9_-]{20,50}$/.test(a))return null;try{const decode=s=>{const x=s.replace(/-/g,'+').replace(/_/g,'/');return new Uint8Array([...atob(x+'='.repeat((4-x.length%4)%4))].map(c=>c.charCodeAt(0)));};const pub=decode(p),secret=decode(a);if(pub.length!==65||pub[0]!==4||secret.length<16||secret.length>32)return null;}catch{return null;}return{endpoint,keys:{p256dh:p,auth:a}};}
+async function setPushPref(env,uid,enabled){const path=['users',uid,'settings','preferences'];const current=await getFirestoreDataAtPath(env,path)||{};await setFirestoreDocumentAtPath(env,path,{notifications:{...(current.notifications||{}),pushAnnouncements:enabled===true},updatedAt:new Date().toISOString(),updatedBy:uid},{merge:true});}
+export async function onRequestGet(c){const id=requestId(c.request);try{const auth=await verifyFirebaseIdToken(c.request,c.env);if(!auth.ok)return auth.response;const uid=String(auth.user.uid||auth.user.sub||'');const [items,read,subs]=await Promise.all([loadAnnouncements(c.env),loadReadMap(c.env,uid),loadUserSubscriptions(c.env,uid)]);const notifications=items.map(x=>({...x,readAt:read[x.id]||null,unread:!read[x.id]}));const cfg=getAdminPushConfiguration(c.env);return jsonResponse({ok:true,notifications,unreadCount:notifications.filter(x=>x.unread).length,push:{configured:cfg.configured===true,publicKey:cfg.configured?cfg.publicKey:null,subscribed:subs.length>0,activeDeviceCount:subs.length}},200,{'X-OVYX-Request-ID':id,'Cache-Control':'no-store, max-age=0'});}catch(e){return errorResponse(e?.status||503,e?.code||'NOTIFICATIONS_UNAVAILABLE',e?.message||'Notifications are temporarily unavailable.',id);}}
+export async function onRequestPost(c){const id=requestId(c.request);try{if(!enforceSameOrigin(c.request))return errorResponse(403,'ORIGIN_REJECTED','Cross-origin notification updates are not permitted.',id);const auth=await verifyFirebaseIdToken(c.request,c.env);if(!auth.ok)return auth.response;const uid=String(auth.user.uid||auth.user.sub||'');const body=await readJson(c.request,12000),action=clean(body?.action,40).toLowerCase();
+if(action==='read'){const nid=clean(body?.notificationId||body?.id,160);if(!nid||!/^[A-Za-z0-9_-]{1,160}$/.test(nid))return errorResponse(400,'INVALID_NOTIFICATION_ACTION','Choose a valid notification action.',id);const readAt=new Date().toISOString();await setFirestoreDocumentAtPath(c.env,['users',uid,'notificationState',nid],{readAt},{merge:true});return jsonResponse({ok:true,id:nid,readAt},200,{'X-OVYX-Request-ID':id,'Cache-Control':'no-store, max-age=0'});}
+if(action==='subscribe'){const cfg=getAdminPushConfiguration(c.env);if(!cfg.configured)return errorResponse(503,'VAPID_NOT_CONFIGURED','Phone notifications are not configured on this deployment. Add valid OVYX_VAPID_PUBLIC_KEY and OVYX_VAPID_PRIVATE_KEY secrets.',id);const sub=validateUserPushSubscription(body?.subscription);if(!sub)return errorResponse(400,'PUSH_SUBSCRIPTION_INVALID','The browser returned an invalid or unsupported push subscription.',id);const sid=await adminPushSubscriptionId(sub.endpoint),existing=await getFirestoreDataAtPath(c.env,[USER_PUSH_COLLECTION,sid]),now=new Date().toISOString();await setFirestoreDocument(c.env,USER_PUSH_COLLECTION,sid,{id:sid,endpoint:sub.endpoint,keys:sub.keys,ownerUid:uid,ownerEmail:clean(auth.user.email,320).toLowerCase(),active:true,createdAt:existing?.createdAt||now,updatedAt:now,inactiveReason:null},{merge:true});await setPushPref(c.env,uid,true);return jsonResponse({ok:true,action,subscribed:true,updatedAt:now},200,{'X-OVYX-Request-ID':id,'Cache-Control':'no-store, max-age=0'});}
+if(action==='unsubscribe'){const raw=clean(body?.endpoint,2048);if(raw){const endpoint=validateAdminPushEndpoint(raw);if(!endpoint)return errorResponse(400,'PUSH_ENDPOINT_INVALID','The push endpoint is invalid.',id);const sid=await adminPushSubscriptionId(endpoint),existing=await getFirestoreDataAtPath(c.env,[USER_PUSH_COLLECTION,sid]);if(!existing||String(existing.ownerUid||'')!==uid)return errorResponse(404,'PUSH_SUBSCRIPTION_NOT_FOUND','This device subscription was not found for the signed-in account.',id);await setFirestoreDocument(c.env,USER_PUSH_COLLECTION,sid,{active:false,updatedAt:new Date().toISOString(),inactiveReason:'user_unsubscribed'},{merge:true});}else{const owned=await loadUserSubscriptions(c.env,uid);await Promise.all(owned.map(x=>setFirestoreDocument(c.env,USER_PUSH_COLLECTION,String(x.id),{active:false,updatedAt:new Date().toISOString(),inactiveReason:'user_unsubscribed'},{merge:true})));}const rest=await loadUserSubscriptions(c.env,uid);await setPushPref(c.env,uid,rest.length>0);return jsonResponse({ok:true,action,subscribed:rest.length>0,updatedAt:new Date().toISOString()},200,{'X-OVYX-Request-ID':id,'Cache-Control':'no-store, max-age=0'});}
+return errorResponse(400,'INVALID_NOTIFICATION_ACTION','Supported notification actions are read, subscribe and unsubscribe.',id);}catch(e){return errorResponse(e?.status||500,e?.code||'NOTIFICATION_UPDATE_FAILED',e?.message||'Notification state could not be updated.',id);}}
+export async function onRequest(c){if(c.request.method==='GET')return onRequestGet(c);if(c.request.method==='POST')return onRequestPost(c);return errorResponse(405,'METHOD_NOT_ALLOWED','GET or POST is required.',requestId(c.request));}

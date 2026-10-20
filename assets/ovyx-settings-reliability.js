@@ -16,7 +16,8 @@
     aiUsageWarnings: true,
     billing: true,
     emailProductUpdates: true,
-    emailSecurityAlerts: true
+    emailSecurityAlerts: true,
+    pushAnnouncements: false
   });
   const TOGGLE_MAP = Object.freeze({
     'set-autosave': 'autosave',
