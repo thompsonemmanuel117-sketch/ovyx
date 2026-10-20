@@ -12,6 +12,11 @@ export async function onRequest(context) {
   if (!response.ok || !contentType.includes('text/html')) return response;
 
   return new HTMLRewriter()
+    .on('head', {
+      element(element) {
+        element.append('<link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#111827"><link rel="apple-touch-icon" href="/assets/ovyx-notification-icon.svg">', { html: true });
+      },
+    })
     .on('body', {
       element(element) {
         element.append(LAUNCH_SCRIPT, { html: true });
