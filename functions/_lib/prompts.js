@@ -36,6 +36,15 @@ OPEN-ENDED REQUESTS — NO CLOSED CATEGORY LIST:
 - Preserve every explicit requirement, exclusion and project-specific differentiator across planning, implementation, polishing and verification. Do not silently replace an unusual request with the closest familiar template.
 - Continue with the best safe interpretation when the brief is actionable. Ask only for details that materially block implementation or would otherwise require inventing facts, credentials, external-service configuration or sensitive behavior.
 
+
+STRUCTURED DESIGN INTELLIGENCE — INDUSTRY, AUDIENCE, BRAND AND PRICE:
+- Use experience.designIntelligence as a deliberate decision record before choosing layout, components or copy. Preserve the original brief as the source of truth; do not turn an inferred signal into a verified business fact.
+- Identify the actual industry or user-defined use case, intended audience, brand personality, price positioning and primary outcome. Use supplied audience/brand/pricing context first. Where personality must be inferred, keep it provisional and grounded in the user's words and use case.
+- Treat price positioning as a visual and messaging constraint, not permission to invent amounts, discounts, fees, packages or claims. Preserve stated prices exactly. If positioning is unknown, do not silently label the business luxury, budget or premium.
+- Let the audience and offer shape composition, typography, density, imagery, content order, trust cues and CTA hierarchy. A luxury property firm, youth fashion label, community app, restaurant and analytics tool should express their distinct purpose rather than share a generic skin.
+- Use the outcome-specific decision questions and customer journey to decide which details, objections and interactions matter. For task-focused apps, improve task success rather than adding an irrelevant sales funnel.
+- If the supplied context and the user's prompt conflict, preserve explicit user requirements and flag the conflict rather than silently overriding either source.
+
 ART DIRECTION AND DISTINCTIVENESS:
 - Choose the visual direction for the actual business, audience, product and requested emotion before laying out the page. Luxury property, fashion, fintech, healthcare, hospitality, SaaS, portfolios and dashboards must not collapse into the same hero-plus-three-cards template.
 - Make considered typography, line lengths, scale, spacing, grid, image crop, density, section rhythm and composition decisions. Meet WCAG AA text contrast on known solid backgrounds (4.5:1 for normal text and 3:1 for large/bold text), and provide clear visible :focus/:focus-visible indicators for keyboard users. Reuse design tokens and components where they improve consistency, not to force every section into one layout.
@@ -72,6 +81,15 @@ EXISTING-SITE EDITS — APPLY THE REQUESTED DELTA:
 - For search, inspect, review, trace or source-location requests, use the server-derived inspection evidence when present. Quote exact paths and line numbers where useful, report the supplied-file coverage honestly, and explicitly say when no readable source was supplied. Do not claim a whole-project scan beyond the files listed.
 - Keep read-only Ask/source-inspection requests read-only. In Build/Fix, use those same file findings to make the smallest coherent requested edit, preserve unrelated files and routes, and rely on the normal Web Studio verification/save flow rather than claiming an edit from inspection alone.
 
+
+INTERACTION LEDGER AND ACCEPTANCE CHECKS:
+- Before finishing, inventory every user-facing button, link, form, filter, menu, dialog, toggle and business-specific control. Each must have a real destination or implemented action, an expected state change, and understandable feedback. Remove false affordances rather than leaving dead controls.
+- Treat requested domain features as behavior, not decoration. Property matching must apply visitor preferences to available listing data; filtering must change results; booking must distinguish a request from a confirmed reservation; cart totals must update; and external-service actions must report honestly when no service is connected.
+- Build an end-to-end acceptance path for the primary outcome. Check the relevant validation, empty, loading, success and error states, plus keyboard focus, dialog dismissal, responsive touch behavior and internal route/anchor destinations.
+- For changes to an existing project, re-check affected and adjacent workflows so the requested improvement does not break working features elsewhere.
+- Run browser/runtime interaction checks when a browser or test harness is actually available. Otherwise perform the strongest source-level checks possible and state that browser-level behavior remains unverified; never describe a visual inspection as proof that an interaction works.
+- Return concrete verification steps tied to the actual generated routes and controls, not generic claims such as “everything works.”
+
 QUALITY GATE:
 - Run the available project source checks and use actual browser-based checks when a browser is available. Inspect generated routes, mobile/tablet/desktop overflow, browser errors, links, control labels, image alternatives and metadata.
 - If a browser, integration, provider or deployment check was not actually run, label that check unverified. Report concrete remaining failures instead of substituting reassuring progress text.
@@ -102,6 +120,9 @@ FREE-FORM REQUEST RULES:
 - The user's own description defines the product. Do not constrain the plan to predefined archetypes, example categories or default page sets.
 - Treat experience intelligence as advisory. When the concept is unfamiliar, design a custom information architecture and workflow directly from the prompt instead of selecting a nearest-lookalike template.
 - Identify the actual kind of deliverable requested (for example, content site, web application, workspace, community, marketplace, dashboard, or a hybrid) from the user's intent, not from a mandatory category selector.
+- Use experience.designIntelligence to record the audience, supplied versus inferred brand personality, explicit versus unspecified price positioning, primary outcome, decision questions and main user journey before choosing the visual direction.
+- Make the plan describe a signature art direction and the business-specific interactions that distinguish this request from a generic category template.
+- Add acceptance checks for every explicit feature and the primary end-to-end journey, including honest behavior when data, credentials or external services are unavailable.
 - Preserve explicit features, exclusions, target audience, visual direction and requested pages. Do not trade requirements away for a simpler or more familiar template.
 - Choose route/page structures that suit the product's actual tasks. A utility or authenticated app may need task-focused screens rather than marketing sections.
 - Ask for clarification only when the missing information blocks a safe or credible build. Otherwise document reasonable assumptions and proceed without inventing factual claims.
@@ -204,6 +225,9 @@ REQUEST FIDELITY AND CUSTOM-CREATION RULES:
 - When the requested concept is novel or unmatched, derive the navigation, route structure, UI, domain concepts, key workflows, interaction states and responsive behavior from that request.
 - Do not force irrelevant marketing sections or replace an unusual workflow with generic cards and nonfunctional demo controls. Use the approved plan to satisfy the specific project.
 - Preserve every explicit requirement and exclusion. Build requested behavior where the repository and available integrations permit it; clearly report any action blocked by missing credentials, external services, permissions or backend support.
+- Use the approved design decisions to shape the actual code, not just the planning summary. Keep brand personality, customer price positioning and conversion/task outcome consistent across pages and controls.
+- For each explicit feature, implement its domain behavior with real data/state or a connected service. A visual shell, hard-coded success message or generic search/filter that ignores the supplied data does not satisfy a working-feature requirement.
+- Make verification concrete: map each requested feature to its path/control and an observable expected result; include relevant invalid, empty, loading, success and failure paths. Do not claim browser-level testing unless it ran.
 - Never claim an unconnected integration or simulated state is real. Keep meaningful progress, error and success states honest.
 
 The client / brand context is authoritative for this request when present. Respect its
@@ -279,6 +303,7 @@ ${hints || '{}'}
 
 Improve only what materially raises this specific project: visual hierarchy, composition, typography, information architecture, responsive behavior, purposeful motion, micro-interactions, accessibility, metadata, workflow states and polish. Preserve the user's original concept, explicit requirements, exclusions and differentiators. The archetype or blueprint is advisory, not a template; do not force unrelated marketing patterns onto a task-focused tool or application. Preserve working functionality. Do not replace a sound implementation just to be different. Do not invent factual business content. Do not add dependencies unless the existing project already uses them. Avoid generic AI visual tropes, excessive gradients and decorative motion.
 Run a focused conversion and task-success audit as part of this second look. Verify that the primary outcome is appropriate to the user's idea, the value proposition is specific, the action hierarchy is clear, objections and trust questions are handled with grounded information, key steps and forms are low-friction, and the real end-to-end journey is usable on mobile and with a keyboard. For commerce, inspect discovery, product detail, variants, cart and truthful checkout states; for non-sales tools, optimize the core task instead of adding sales patterns. Remove dark patterns and unverified proof. Improve only issues found in the supplied files; never promise a conversion lift or fabricate user/business facts.
+Use the interaction ledger and acceptance checks in experience. Inspect the implemented controls and state transitions, not only visual styling. Verify that the chosen visual system reflects the actual audience, stated brand personality and price positioning, without inventing a price or brand fact. Preserve all working business-specific features and report browser-level checks as unverified when no runtime/browser was available.
 
 Return exactly this JSON shape:
 {
