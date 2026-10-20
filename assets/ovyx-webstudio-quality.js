@@ -746,6 +746,9 @@
       '#'+ROOT_ID+' .ovyx-ws-quality-recommendation{margin-top:9px;padding:9px 10px;border-left:2px solid #c9a96e;border-radius:0 7px 7px 0;background:rgba(201,169,110,.075)}',
       '#'+ROOT_ID+' .ovyx-ws-quality-recommendation strong{display:block;font-size:9px;line-height:1.4;letter-spacing:.04em;color:#e7c992;margin-bottom:4px}',
       '#'+ROOT_ID+' .ovyx-ws-quality-recommendation p{font-size:10px;line-height:1.55;color:#c4cbd5;margin:0;white-space:pre-wrap;overflow-wrap:anywhere}',
+      '#'+ROOT_ID+' .ovyx-ws-quality-apply-finding{display:inline-flex;align-items:center;justify-content:center;margin-top:8px;min-height:28px;padding:6px 10px;border:1px solid rgba(201,169,110,.35);border-radius:7px;background:rgba(201,169,110,.12);color:#f2d8a6;font-size:10px;font-weight:700;cursor:pointer}',
+      '#'+ROOT_ID+' .ovyx-ws-quality-apply-finding:hover{background:rgba(201,169,110,.2)}',
+      '#'+ROOT_ID+' .ovyx-ws-quality-apply-finding:focus-visible{outline:2px solid #f2d8a6;outline-offset:2px}',
       '#'+ROOT_ID+' .ovyx-ws-quality-file{font:9px/1.5 ui-monospace,monospace;color:#e7bd67;margin-top:4px;overflow-wrap:anywhere}',
       '#'+ROOT_ID+' .ovyx-ws-quality-note{font-size:9px;line-height:1.5;color:#828c9b;border-top:1px solid rgba(255,255,255,.08);padding-top:10px;margin:14px 0 0}',
       '#'+ROOT_ID+' .ovyx-ws-quality-footer{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;padding:13px 22px 17px;border-top:1px solid rgba(255,255,255,.08);background:rgba(0,0,0,.10)}',
@@ -984,7 +987,7 @@
     }
     var counts = countIssues(report);
     list.textContent = '';
-    report.checks.forEach(function (item) {
+    report.checks.forEach(function (item, findingIndex) {
       var card = document.createElement('article');
       card.className = 'ovyx-ws-quality-item status-' + item.status;
       var top = document.createElement('div');
@@ -1009,6 +1012,15 @@
         recommendationText.textContent = item.recommendation || recommendationForFinding(item);
         recommendation.appendChild(recommendationTitle);
         recommendation.appendChild(recommendationText);
+        if ((item.status === 'fail' || item.status === 'warn') && item.group !== 'Coverage') {
+          var applyButton = document.createElement('button');
+          applyButton.type = 'button';
+          applyButton.className = 'ovyx-ws-quality-apply-finding';
+          applyButton.setAttribute('data-quality-repair-finding', String(findingIndex));
+          applyButton.textContent = 'Apply suggested fix';
+          applyButton.setAttribute('aria-label', 'Apply suggested fix for ' + item.title);
+          recommendation.appendChild(applyButton);
+        }
         card.appendChild(recommendation);
       }
       if (item.file) {
@@ -1338,21 +1350,23 @@
     deferredPreviewRefresh = false;
     studio.renderPreview();
   }
-  function findingsForRepair(report) {
-    return (report && report.checks || []).filter(function (item) {
-      return (item.status === 'fail' || item.status === 'warn') && item.group !== 'Coverage';
+  function findingsForRepair(report, selectedIndex) {
+    var checks = report && report.checks || [];
+    var targeted = Number.isInteger(selectedIndex);
+    return checks.filter(function (item, index) {
+      return (!targeted || index === selectedIndex) && (item.status === 'fail' || item.status === 'warn') && item.group !== 'Coverage';
     }).slice(0, 35).map(function (item) {
       return '- [' + item.status.toUpperCase() + '] ' + item.group + ' — ' + item.title + (item.file ? ' (' + item.file + ')' : '') + '\n  Evidence: ' + item.detail.slice(0, 700) + '\n  Suggested improvement: ' + (item.recommendation || recommendationForFinding(item));
     });
   }
-  async function repairWithOVYX() {
+  async function repairWithOVYX(selectedIndex) {
     if (running) return;
     var studio = getStudio();
     if (!studio || typeof studio.runBuildAgent !== 'function' || !currentReport) {
       toast('Website creation and repair are not available right now. Please try again.', 'warning');
       return;
     }
-    var findings = findingsForRepair(currentReport);
+    var findings = findingsForRepair(currentReport, selectedIndex);
     if (!findings.length) {
       toast('No issues were found that require an automatic repair.', 'info');
       return;
@@ -1496,6 +1510,12 @@
       }
       if (event.target && event.target.closest && event.target.closest('[data-quality-copy-summary]')) {
         copyClientSummary();
+        return;
+      }
+      var targetedRepair = event.target && event.target.closest && event.target.closest('[data-quality-repair-finding]');
+      if (targetedRepair) {
+        var selectedFinding = Number(targetedRepair.getAttribute('data-quality-repair-finding'));
+        if (Number.isInteger(selectedFinding)) repairWithOVYX(selectedFinding);
         return;
       }
       if (event.target && event.target.closest && event.target.closest('[data-quality-repair]')) {
