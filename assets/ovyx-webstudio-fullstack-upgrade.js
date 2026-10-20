@@ -407,8 +407,26 @@
     window.setTimeout(function () { showModal(getStudio(), true); }, 150);
   });
   document.addEventListener('keydown', function (event) {
-    if (event.key === 'Escape' && document.getElementById(OVERLAY_ID)) closeModal();
+    var overlay = document.getElementById(OVERLAY_ID);
+    if (!overlay) return;
+    if (event.key === 'Escape') { closeModal(); return; }
+    if (event.key !== 'Tab') return;
+    var focusable = overlay.querySelectorAll('button:not([disabled]),a[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])');
+    if (!focusable.length) { event.preventDefault(); return; }
+    var first = focusable[0];
+    var last = focusable[focusable.length - 1];
+    if (event.shiftKey && (document.activeElement === first || document.activeElement === overlay.querySelector('.ovyx-ws-fs-dialog'))) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   });
+  window.OVYXWebStudioFullStackUpgrade = {
+    open: function () { showModal(getStudio(), false); },
+    version: '1.0.0'
+  };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
   window.addEventListener('ovyx:view-changed', function () { window.setTimeout(boot, 0); });
