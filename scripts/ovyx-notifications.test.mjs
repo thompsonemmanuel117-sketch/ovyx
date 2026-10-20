@@ -63,5 +63,7 @@ assert.match(middleware,/ovyx-auth-welcome\.js\?v=20261020-1/);
 assert.match(headers,/assets\/ovyx-notifications\.js/);
 assert.match(headers,/assets\/ovyx-auth-welcome\.js/);
 assert.match(adminControls,/sendEmail: wantsEmail/);
+assert.match(adminControls,/emailStatus/);
+assert.match(adminControls,/pendingDelivery/);
 assert.match(settingsRuntime,/pushAnnouncements: false/);
 console.log('OVYX notification contracts passed: secure inbox, opt-in push, branded email, delivery results and profile-name welcome flow.');

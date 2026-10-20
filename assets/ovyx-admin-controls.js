@@ -1188,11 +1188,30 @@
         const card = document.createElement('div'); card.className = 'ovyx-owner-live-card';
         const title = document.createElement('div'); title.className = 'ovyx-owner-live-label'; title.textContent = String(item.title || 'OVYX Update');
         const body = document.createElement('div'); body.className = 'ovyx-owner-live-detail'; body.textContent = String(item.body || '').slice(0, 500);
-        const meta = document.createElement('div'); meta.className = 'ovyx-owner-live-detail'; meta.textContent = String(item.category || 'product') + ' · ' + String(item.createdAt || '');
+        const meta = document.createElement('div'); meta.className = 'ovyx-owner-live-detail';
+        const delivery = item.delivery && typeof item.delivery === 'object' ? item.delivery : {};
+        const email = delivery.email && typeof delivery.email === 'object' ? delivery.email : {};
+        const push = delivery.push && typeof delivery.push === 'object' ? delivery.push : {};
+        const emailStatus = item.sendEmail === true
+          ? String(email.status || 'queued') + ' (' + Number(email.sent || 0) + '/' + Number(email.attempted || 0) + (Number(email.failed || 0) ? ', ' + Number(email.failed) + ' failed' : '') + ')'
+          : 'off';
+        const pushStatus = String(push.status || 'queued') + ' (' + Number(push.delivered || 0) + '/' + Number(push.attempted || 0) + (Number(push.failed || 0) ? ', ' + Number(push.failed) + ' failed' : '') + ')';
+        meta.textContent = String(item.category || 'product') + ' · ' + String(item.createdAt || '') + ' · Inbox: ' + String(delivery.inApp?.status || 'published') + ' · Email: ' + emailStatus + ' · Phone: ' + pushStatus;
         const button = document.createElement('button'); button.type = 'button'; button.className = 'ovyx-owner-live-button'; button.dataset.withdrawBroadcast = String(item.id || ''); button.textContent = 'Withdraw from users';
         card.append(title, body, meta, button); grid.appendChild(card);
       });
-      statusText($('ovyx-global-broadcast-status'), 'Loaded ' + items.length + ' active announcement(s).', 'ok');
+      const pendingDelivery = items.some(item => {
+        const delivery = item.delivery && typeof item.delivery === 'object' ? item.delivery : {};
+        return (item.sendEmail === true && (!delivery.email || ['queued', 'pending'].includes(String(delivery.email.status || '')))) ||
+          (!delivery.push || ['queued', 'pending'].includes(String(delivery.push.status || '')));
+      });
+      if (pendingDelivery && Number(loadBroadcastRegistry.pollCount || 0) < 6) {
+        loadBroadcastRegistry.pollCount = Number(loadBroadcastRegistry.pollCount || 0) + 1;
+        window.setTimeout(loadBroadcastRegistry, 2500);
+      } else if (!pendingDelivery) {
+        loadBroadcastRegistry.pollCount = 0;
+      }
+      statusText($('ovyx-global-broadcast-status'), 'Loaded ' + items.length + ' active announcement(s).' + (pendingDelivery ? ' Delivery results are still updating.' : ''), 'ok');
     } catch (error) {
       statusText($('ovyx-global-broadcast-status'), 'Announcements could not be loaded. Please try again.', 'error');
     }
