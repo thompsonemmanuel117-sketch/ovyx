@@ -55,6 +55,8 @@ try {
   assert.ok(first.checks.some(item => item.title === 'Horizontal overflow' && item.status === 'fail'), 'The inspector must detect a real mobile horizontal-overflow defect.');
 assert.ok(first.checks.find(item => item.title === 'Horizontal overflow')?.recommendation?.includes('Do not hide overflow globally'), 'The inspector must give a specific responsive-layout recommendation grounded in the overflow finding.');
 assert.ok(await page.locator('.ovyx-ws-quality-recommendation').count() > 0, 'The inspector must render actionable suggestions alongside findings.');
+assert.ok(await page.locator('[data-quality-repair-finding]').count() > 0, 'Actionable findings must offer a targeted apply control.');
+assert.ok((await page.locator('[data-quality-repair-finding]').first().innerText()).includes('Apply suggested fix'), 'Targeted apply controls must identify the action clearly.');
 assert.ok((await page.locator('.ovyx-ws-quality-recommendation').first().innerText()).includes('Suggested improvement'), 'Finding cards must label recommendations clearly.');
   assert.ok(first.checks.some(item => item.title === 'Live integration verification' && item.status === 'info'), 'The inspector must not claim live integrations were verified.');
   assert.ok(first.checks.some(item => item.group === 'Navigation' && item.title === 'Internal links and anchors' && item.status === 'pass'), 'A valid cross-page fragment must pass the browser source audit.');
