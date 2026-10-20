@@ -122,18 +122,29 @@ async function loadBroadcastEmailRecipients(env, category) {
   let skippedOptOut = 0;
   let preferenceCheckFailed = 0;
   const checked = await mapLimit(candidates, 16, async recipient => {
+    let storedPreferences;
+    let storedProfile = null;
     try {
-      const stored = await getFirestoreDataAtPath(env, ['users', recipient.uid, 'settings', 'preferences']);
-      if (stored?.notifications && stored.notifications[key] === false) {
-        skippedOptOut += 1;
-        return null;
-      }
-      return { uid: recipient.uid, email: recipient.email, displayName: recipient.displayName };
+      storedPreferences = await getFirestoreDataAtPath(env, ['users', recipient.uid, 'settings', 'preferences']);
     } catch (_) {
       // Never send a marketing/security broadcast if the stored opt-out state cannot be checked.
       preferenceCheckFailed += 1;
       return null;
     }
+    try {
+      storedProfile = await getFirestoreDataAtPath(env, ['users', recipient.uid, 'settings', 'profile']);
+    } catch (_) {
+      // The profile name is cosmetic; preference privacy remains authoritative.
+    }
+    if (storedPreferences?.notifications && storedPreferences.notifications[key] === false) {
+      skippedOptOut += 1;
+      return null;
+    }
+    return {
+      uid: recipient.uid,
+      email: recipient.email,
+      displayName: clean(storedProfile?.displayName || recipient.displayName, 80)
+    };
   });
   return {
     recipients: checked.filter(Boolean),
