@@ -133,6 +133,76 @@
       return a.path.localeCompare(b.path);
     });
   }
+  function recommendationForFinding(item) {
+    var title = text(item && item.title).toLowerCase();
+    var group = text(item && item.group).toLowerCase();
+
+    if (title.indexOf('page metadata and landmarks') >= 0 || title.indexOf('generated website files') >= 0) {
+      return 'Update only the affected page files: add the missing document metadata or main landmark identified above, keep each page title descriptive, and preserve the existing route and page content.';
+    }
+    if (title.indexOf('accessible controls and imagery') >= 0) {
+      return 'Fix the exact elements named in the findings: provide meaningful image alt text, unique IDs, valid ARIA references, associated form labels, and accessible names for controls and links. Keep existing behavior intact.';
+    }
+    if (title.indexOf('internal links and anchors') >= 0) {
+      return 'Replace each placeholder or broken destination with the intended generated route or an existing section ID. Preserve the visitor journey and verify every affected link after the edit.';
+    }
+    if (title.indexOf('stylesheet structure') >= 0) {
+      return 'Correct the reported CSS syntax or unbalanced braces in the named stylesheet only, then re-check the affected page styles at mobile and desktop widths.';
+    }
+    if (title.indexOf('fixed-width layout rules') >= 0 || title.indexOf('horizontal overflow') >= 0) {
+      return 'Inspect the specific overflowing element and its parent layout. Use fluid sizing, min-width: 0, max-width: 100%, responsive grid/flex rules, and safe text wrapping where appropriate. Do not hide overflow globally as a cosmetic workaround; re-test the affected route at 320px, 390px, tablet and desktop widths.';
+    }
+    if (title.indexOf('reduced-motion preference') >= 0) {
+      return 'Respect prefers-reduced-motion for non-essential animation and transitions while keeping all content and controls available when motion is reduced.';
+    }
+    if (title.indexOf('local asset references') >= 0 || title.indexOf('external asset reachability') >= 0) {
+      return 'Correct only the asset paths shown in the findings, confirm each local asset exists relative to the referencing file, and provide a deliberate visual fallback if a remote asset cannot load.';
+    }
+    if (title.indexOf('form delivery') >= 0 || title.indexOf('live form and transaction state') >= 0) {
+      return 'Connect the form to the actual configured submission handler if one exists. Validate inputs, preserve entered values after errors, and show truthful pending, success or failure feedback. If no delivery service is configured, disclose that boundary rather than displaying a fake success.';
+    }
+    if (title.indexOf('client-side secret exposure') >= 0) {
+      return 'Remove any real secret from browser-delivered files, rotate it if it was exposed, and move privileged access behind an authorized server-side integration. Do not replace the exposed value with another client-side secret.';
+    }
+    if (title.indexOf('safe interactive behavior smoke test') >= 0 || title.indexOf('interactive controls') >= 0) {
+      return 'Use the reported control labels to identify the affected component, wire its intended action to a real state change or destination, and provide visible feedback. Do not automatically trigger payment, deletion, booking, account or submission actions during a smoke test.';
+    }
+    if (title.indexOf('rendered text contrast sample') >= 0) {
+      return 'Adjust the reported text/background pair to meet the appropriate contrast target while preserving the brand palette where possible. Re-test the rendered color combination; do not rely on color alone to communicate state.';
+    }
+    if (title.indexOf('visible keyboard focus indicators') >= 0) {
+      return 'Add a clearly visible :focus-visible treatment to the affected keyboard-operable controls, ensure it is not clipped or covered, and verify keyboard navigation through the primary journey.';
+    }
+    if (title.indexOf('page loading performance') >= 0) {
+      return 'Use the report details to target the largest avoidable render costs first: right-size and compress oversized images, defer non-critical scripts, reduce unnecessary DOM work, and preserve above-the-fold content and core interactions. Treat sandbox timings as diagnostics, not production Core Web Vitals.';
+    }
+    if (title.indexOf('page runtime errors') >= 0 || title.indexOf('sandbox runtime and render completion') >= 0) {
+      return 'Fix the first reproducible runtime error and its affected dependency or selector in the named page/script. Re-run the affected route and the responsive inspection; do not suppress the error without fixing its cause.';
+    }
+    if (title.indexOf('page content presence') >= 0) {
+      return 'Restore the missing meaningful page content or repair the rendering path for the named route. Keep the route, navigation and intended page purpose intact.';
+    }
+    if (title.indexOf('existing web studio source tests') >= 0 || group.indexOf('source validation') >= 0) {
+      return 'Use the exact failing source-test output above to locate the responsible website file, fix the smallest relevant cause, and rerun the same test before accepting the repair.';
+    }
+    if (title.indexOf('live integration verification') >= 0 || title.indexOf('integration') >= 0) {
+      return 'This result marks a verification boundary, not a confirmed defect. Test the real provider or service in an authorized safe environment before claiming the integration works; keep unconnected behavior clearly labelled.';
+    }
+    if (title.indexOf('post-build quality gate') >= 0 || title.indexOf('repair verification') >= 0) {
+      return 'Review the remaining failing or warning findings above, address only the verified website files involved, then rerun the complete quality inspection. Keep the last known-good preview available until the re-check passes.';
+    }
+    if (title.indexOf('project stylesheets') >= 0) {
+      return 'A separate stylesheet is optional. If styles are embedded intentionally, no change is required; otherwise move shared styles into a clearly referenced stylesheet only when it improves maintainability without breaking the site.';
+    }
+    if (title.indexOf('coverage') >= 0 || group.indexOf('coverage') >= 0) {
+      return 'Use the reported coverage limits to decide what still needs manual review. Do not treat untested routes, controls or external integrations as passed.';
+    }
+    if (item && (item.status === 'fail' || item.status === 'warn')) {
+      return 'Inspect the specific evidence above and the named file, make the smallest safe change that resolves the observed issue, preserve neighboring features, and rerun the relevant check.';
+    }
+    return 'No corrective change is indicated by this result. Keep the limitation in mind and verify the relevant behavior separately if it matters to the project.';
+  }
+
   function addCheck(report, group, title, status, detail, file) {
     var normalized = ['pass', 'warn', 'fail', 'info'].indexOf(status) >= 0 ? status : 'info';
     report.checks.push({
@@ -140,7 +210,8 @@
       title: trim(title, 180),
       status: normalized,
       detail: trim(detail, 1200),
-      file: trim(file, 240)
+      file: trim(file, 240),
+      recommendation: recommendationForFinding({ group: group, title: title, status: normalized, detail: detail, file: file })
     });
   }
   function statusForFindings(count, isCritical) {
@@ -763,6 +834,7 @@
             title: trim(item.title, 180),
             status: text(item.status),
             detail: trim(item.detail, 1200),
+            recommendation: trim(item.recommendation || recommendationForFinding(item), 700),
             file: item.file ? trim(item.file, 240) : undefined
           };
         })
@@ -920,6 +992,15 @@
       detail.textContent = item.detail;
       card.appendChild(top);
       card.appendChild(detail);
+      var recommendation = document.createElement('div');
+      recommendation.className = 'ovyx-ws-quality-recommendation';
+      var recommendationTitle = document.createElement('strong');
+      recommendationTitle.textContent = 'Suggested improvement';
+      var recommendationText = document.createElement('p');
+      recommendationText.textContent = item.recommendation || recommendationForFinding(item);
+      recommendation.appendChild(recommendationTitle);
+      recommendation.appendChild(recommendationText);
+      card.appendChild(recommendation);
       if (item.file) {
         var file = document.createElement('div');
         file.className = 'ovyx-ws-quality-file';
@@ -1251,7 +1332,7 @@
     return (report && report.checks || []).filter(function (item) {
       return (item.status === 'fail' || item.status === 'warn') && item.group !== 'Coverage';
     }).slice(0, 35).map(function (item) {
-      return '- [' + item.status.toUpperCase() + '] ' + item.group + ' — ' + item.title + (item.file ? ' (' + item.file + ')' : '') + '\n  ' + item.detail.slice(0, 700);
+      return '- [' + item.status.toUpperCase() + '] ' + item.group + ' — ' + item.title + (item.file ? ' (' + item.file + ')' : '') + '\n  Evidence: ' + item.detail.slice(0, 700) + '\n  Suggested improvement: ' + (item.recommendation || recommendationForFinding(item));
     });
   }
   async function repairWithOVYX() {
@@ -1278,7 +1359,8 @@
       'For missing or inaccessible integrations, keep the limitation explicit rather than creating a fake success state.',
       'Re-run source validation after the repair; a real website file must change. If no safe repair can be made, preserve the existing website.',
       '',
-      'Verified findings from the completed quality report:',
+      'Verified findings from the completed quality report, each with a specific suggested improvement:',
+      'Use the recommendation as guidance, not as permission to invent facts. Trace each finding to the file and component it names; if evidence does not identify a safe target, leave it unchanged and report the limitation.',
       findings.join('\n'),
       '',
       'Use the actual project files supplied by Web Studio and make only the smallest changes needed.'
