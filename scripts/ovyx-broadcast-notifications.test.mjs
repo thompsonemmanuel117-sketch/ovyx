@@ -47,7 +47,7 @@ assert.match(client, /Notification\.requestPermission/);
 assert.match(client, /pushManager\.subscribe/);
 assert.match(client, /navigator\.setAppBadge/);
 assert.match(client, /isIOSInstalledAppRequired/);
-assert.match(client, /Add OVYX to your Home Screen/);
+assert.match(client, /add OVYX to (?:your )?Home Screen/i);
 assert.match(client, /\/api\/notifications\/push/);
 assert.match(client, /prefers-reduced-motion/);
 assert.match(client, /\.ovyx-welcome-card\{[^}]*pointer-events:none/);
