@@ -28,7 +28,7 @@ assert.match(research, /isInitialWebsiteBuild: isInitialWebsiteBuild/);
 assert.match(research, /ovyx:webstudio-initial-site-built/);
 assert.match(research, /sourceTestsPassed: true/);
 assert.match(middleware, /\/assets\/ovyx-webstudio-fullstack-upgrade\.js\?v=20261020-1/);
-assert.match(headers, /\/assets\/ovyx-webstudio-fullstack-upgrade\.js\\n  Cache-Control: no-store, no-cache, must-revalidate/);
+assert.match(headers, /\/assets\/ovyx-webstudio-fullstack-upgrade\.js\n  Cache-Control: no-store, no-cache, must-revalidate/);
 assert.doesNotThrow(() => new Function(upgrade), 'The full-stack upgrade browser runtime must parse as valid JavaScript.');
 assert.doesNotThrow(() => new Function(research), 'The Web Studio research runtime must parse as valid JavaScript.');
 
