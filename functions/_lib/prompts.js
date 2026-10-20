@@ -227,7 +227,7 @@ REQUEST FIDELITY AND CUSTOM-CREATION RULES:
 - Preserve every explicit requirement and exclusion. Build requested behavior where the repository and available integrations permit it; clearly report any action blocked by missing credentials, external services, permissions or backend support.
 - Use the approved design decisions to shape the actual code, not just the planning summary. Keep brand personality, customer price positioning and conversion/task outcome consistent across pages and controls.
 - For each explicit feature, implement its domain behavior with real data/state or a connected service. A visual shell, hard-coded success message or generic search/filter that ignores the supplied data does not satisfy a working-feature requirement.
-- Make verification concrete: map each requested feature to its path/control and an observable expected result; include relevant invalid, empty, loading, success and failure paths. Do not claim browser-level testing unless it ran.
+- Build an end-to-end acceptance path for the primary outcome and make verification concrete: map each requested feature to its path/control and an observable expected result; include relevant invalid, empty, loading, success and failure paths. Do not claim browser-level testing unless it ran.
 - Never claim an unconnected integration or simulated state is real. Keep meaningful progress, error and success states honest.
 
 The client / brand context is authoritative for this request when present. Respect its
