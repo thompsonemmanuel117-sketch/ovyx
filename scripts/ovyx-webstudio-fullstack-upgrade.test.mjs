@@ -3,6 +3,8 @@ import { readFile } from 'node:fs/promises';
 
 const upgrade = await readFile(new URL('../assets/ovyx-webstudio-fullstack-upgrade.js', import.meta.url), 'utf8');
 const research = await readFile(new URL('../assets/ovyx-webstudio-research.js', import.meta.url), 'utf8');
+const middleware = await readFile(new URL('../functions/_middleware.js', import.meta.url), 'utf8');
+const headers = await readFile(new URL('../_headers', import.meta.url), 'utf8');
 
 assert.match(upgrade, /Your design is the beginning\. Want the working system behind it\?/);
 assert.match(upgrade, /Yes — upgrade my website/);
@@ -25,7 +27,9 @@ assert.match(research, /function hasMeaningfulWebsite\(files\)/);
 assert.match(research, /isInitialWebsiteBuild: isInitialWebsiteBuild/);
 assert.match(research, /ovyx:webstudio-initial-site-built/);
 assert.match(research, /sourceTestsPassed: true/);
-assert.match(research, /\/assets\/ovyx-webstudio-fullstack-upgrade\.js/);
-assert.match(research, /data-ovyx-ws-fullstack-upgrade-loader/);
+assert.match(middleware, /\/assets\/ovyx-webstudio-fullstack-upgrade\.js\?v=20261020-1/);
+assert.match(headers, /\/assets\/ovyx-webstudio-fullstack-upgrade\.js\\n  Cache-Control: no-store, no-cache, must-revalidate/);
+assert.doesNotThrow(() => new Function(upgrade), 'The full-stack upgrade browser runtime must parse as valid JavaScript.');
+assert.doesNotThrow(() => new Function(research), 'The Web Studio research runtime must parse as valid JavaScript.');
 
 console.log('OVYX Web Studio full-stack upgrade offer, implementation contract, rollback safeguards, and first-build trigger tests passed.');
