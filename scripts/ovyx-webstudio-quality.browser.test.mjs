@@ -259,6 +259,7 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
   assert.ok(exportedEntries['FULL_STACK_SETUP.md']?.includes('backend services'), 'The download must include the backend setup guide.');
   assert.ok(exportedEntries['README_OVYX_EXPORT.md']?.includes('GitHub repository'), 'The archive must explain how to place the complete project in GitHub.');
   assert.ok(exportedEntries['OVYX_EXPORT_MANIFEST.json'], 'The archive must include a machine-readable export manifest.');
+  assert.ok(exportedEntries['OVYX_EXPORT_EXCLUSIONS.md']?.includes('private/id_rsa'), 'The archive must disclose credential files excluded from export.');
   assert.ok(!Object.keys(exportedEntries).some(name => /(^|\\/)\\.env$/i.test(name)), 'Actual environment files must not be included in the downloadable archive.');
   assert.ok(!Object.keys(exportedEntries).some(name => /(^|\\/)id_rsa$/i.test(name)), 'Private-key files must not be included in the downloadable archive.');
   await upgradePage.locator('#ovyx-ws-fullstack-upgrade-overlay .ovyx-ws-fs-primary').click();
