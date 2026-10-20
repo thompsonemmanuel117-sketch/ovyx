@@ -6,6 +6,7 @@ import { chromium } from 'playwright';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const runtimePath = path.join(root, 'assets/ovyx-webstudio-quality.js');
+const fullstackRuntimePath = path.join(root, 'assets/ovyx-webstudio-fullstack-upgrade.js');
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 const pageErrors = [];
@@ -190,7 +191,53 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
   assert.ok(largeReport.checks.some(item => item.group === 'Project assets' && item.title === 'External asset reachability' && item.status === 'info' && item.detail.includes('network access')), 'The report must state that external asset reachability was not verified in its network-blocked sandbox.');
   assert.ok(pageErrors.length === 0, 'Large-project route coverage must not create browser errors: ' + pageErrors.join('; '));
 
-  console.log('Web Studio quality browser tests passed: toolbar wiring, source, full core viewport matrix, adaptive browser coverage for all 18 routes, safe-control interaction smoke test, manual and automatic bounded repair, post-build quality gate, verified-preview release timing, rollback-aware verification, and truthful integration status.');
+  const upgradePage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const upgradePageErrors = [];
+  upgradePage.on('pageerror', error => upgradePageErrors.push(error.message));
+  const upgradeFixture = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Full-stack upgrade fixture</title></head><body><section id="view-webstudio" aria-hidden="false"><header><div class="ovyx-ws-header-actions"><button id="ws-preview-trigger" type="button">Preview</button></div></header></section><script>window.KernelState={activeView:"webstudio",activeProject:{id:"fullstack-upgrade-test",name:"Full-stack upgrade test",ovyxGraph:null},projects:[]};window.KernelState.projects=[window.KernelState.activeProject];window.ProjectStore={save:function(){},renderHome:function(){},renderProjects:function(){}};window.__fullstackRuns=0;window.__fullstackFailTests=false;window.__fullstackPrompt="";window.WebStudio={requestEpoch:4,historyStack:[],historyPointer:-1,graph:{version:2,entry:"index.html",files:{"index.html":{type:"text/html",content:"<!doctype html><html><head><title>Project</title></head><body><main><h1>Existing website</h1><p>Preserve this page and its design.</p></main></body></html>"}}},snapshotGraph:function(){return JSON.parse(JSON.stringify(this.graph))},ensureProjectGraph:function(){},syncGraphToProject:function(){window.KernelState.activeProject.ovyxGraph=this.graph},renderPreview:function(){},render:function(){},runTests:async function(){return window.__fullstackFailTests?{ok:false,summary:"Intentional rollback test failure."}:{ok:true,summary:"Source tests passed."}},runBuildAgent:async function(prompt){window.__fullstackPrompt=String(prompt);window.__fullstackRuns++;this.graph.files["api/upgrade-"+window.__fullstackRuns+".js"]={type:"application/javascript",content:"export async function onRequestGet(){return new Response(JSON.stringify({ok:true}),{headers:{\\"content-type\\":\\"application/json\\"}})}"};this.graph.files["FULL_STACK_SETUP.md"]={type:"text/markdown",content:"# Full-stack setup\\n\\nConfigure the backend services listed in this guide."};window.KernelState.activeProject.ovyxGraph=this.graph;return {ok:true}}};window.KernelState.activeProject.ovyxGraph=window.WebStudio.graph;</script></body></html>';
+  await upgradePage.setContent(upgradeFixture, { waitUntil: 'domcontentloaded' });
+  await upgradePage.addScriptTag({ path: fullstackRuntimePath });
+  await upgradePage.waitForFunction(() => !!window.OVYXWebStudioFullStackUpgrade && document.querySelector('[data-ovyx-fullstack-upgrade]'));
+  assert.equal(await upgradePage.locator('[data-ovyx-fullstack-upgrade]').count(), 1, 'The persistent Full-stack action must be present in the Web Studio header.');
+  await upgradePage.evaluate(() => window.dispatchEvent(new CustomEvent('ovyx:webstudio-initial-site-built', { detail: { sourceTestsPassed: true } })));
+  await upgradePage.locator('#ovyx-ws-fullstack-upgrade-overlay').waitFor({ state: 'visible', timeout: 5000 });
+  assert.match(await upgradePage.locator('#ovyx-ws-fs-title').innerText(), /working system behind it/i, 'The automatic offer must explain the full-stack upgrade.');
+  assert.equal(await upgradePage.locator('[data-ovyx-fs-confirm]').innerText(), 'Yes — upgrade my website', 'The opt-in action must be clear and explicit.');
+  await upgradePage.locator('.ovyx-ws-fs-secondary').click();
+  assert.equal(await upgradePage.locator('#ovyx-ws-fullstack-upgrade-overlay').count(), 0, 'The user must be able to decline without changing their site.');
+  await upgradePage.locator('[data-ovyx-fullstack-upgrade]').click();
+  await upgradePage.evaluate(() => {
+    window.__originalFullStackQualityRun = window.OVYXWebStudioQuality && window.OVYXWebStudioQuality.run;
+    if (window.OVYXWebStudioQuality) window.OVYXWebStudioQuality.run = async function () { return { checks: [], status: 'pass' }; };
+  });
+  await upgradePage.locator('[data-ovyx-fs-confirm]').click();
+  await upgradePage.waitForFunction(() => document.querySelector('#ovyx-ws-fullstack-upgrade-overlay [data-status="complete"]'), null, { timeout: 15000 });
+  const fullstackResult = await upgradePage.evaluate(() => ({
+    prompt: window.__fullstackPrompt,
+    files: Object.keys(window.WebStudio.graph.files),
+    status: document.querySelector('#ovyx-ws-fullstack-upgrade-overlay [data-status="complete"]')?.innerText || ''
+  }));
+  assert.match(fullstackResult.prompt, /OVYX WEB STUDIO — FULL-STACK UPGRADE/);
+  assert.match(fullstackResult.prompt, /server-side API endpoints/);
+  assert.match(fullstackResult.prompt, /FULL_STACK_SETUP\.md/);
+  assert.ok(fullstackResult.files.includes('api/upgrade-1.js'), 'Confirming the upgrade must run the build agent and add backend implementation files.');
+  assert.ok(fullstackResult.files.includes('FULL_STACK_SETUP.md'), 'The full-stack handoff guide must be generated.');
+  assert.match(fullstackResult.status, /Full-stack implementation generated/);
+  await upgradePage.locator('#ovyx-ws-fullstack-upgrade-overlay .ovyx-ws-fs-primary').click();
+  await upgradePage.evaluate(() => { window.__fullstackFailTests = true; });
+  await upgradePage.locator('[data-ovyx-fullstack-upgrade]').click();
+  await upgradePage.locator('[data-ovyx-fs-confirm]').click();
+  await upgradePage.waitForFunction(() => document.querySelector('#ovyx-ws-fullstack-upgrade-overlay [data-status="failed"]'), null, { timeout: 15000 });
+  const rollbackResult = await upgradePage.evaluate(() => ({
+    unexpectedFilePresent: Object.prototype.hasOwnProperty.call(window.WebStudio.graph.files, 'api/upgrade-2.js'),
+    status: document.querySelector('#ovyx-ws-fullstack-upgrade-overlay [data-status="failed"]')?.innerText || ''
+  }));
+  assert.equal(rollbackResult.unexpectedFilePresent, false, 'A failed source verification must restore the last-known-good website snapshot.');
+  assert.match(rollbackResult.status, /previous project snapshot was restored/i);
+  assert.equal(upgradePageErrors.length, 0, 'Full-stack modal and upgrade interactions must not create browser errors: ' + upgradePageErrors.join('; '));
+
+  console.log('Web Studio full-stack upgrade browser tests passed: first-build offer, persistent action, opt-in generation, setup-guide handoff, truthful connection boundary, and rollback on failed source verification.');
+    console.log('Web Studio quality browser tests passed: toolbar wiring, source, full core viewport matrix, adaptive browser coverage for all 18 routes, safe-control interaction smoke test, manual and automatic bounded repair, post-build quality gate, verified-preview release timing, rollback-aware verification, and truthful integration status.');
 } finally {
   await browser.close();
 }
