@@ -55,6 +55,8 @@ assert.match(pushRuntime,/Notification\.requestPermission/);
 assert.match(pushRuntime,/action: 'subscribe'/);
 assert.match(welcomeRuntime,/\/api\/settings\/profile/);
 assert.match(welcomeRuntime,/ovyx-welcome-overlay/);
+assert.match(welcomeRuntime,/pointer-events:none/);
+assert.match(welcomeRuntime,/},6000\)/);
 assert.match(welcomeRuntime,/sessionStorage/);
 assert.match(middleware,/ovyx-notifications\.js\?v=20261020-1/);
 assert.match(middleware,/ovyx-auth-welcome\.js\?v=20261020-1/);

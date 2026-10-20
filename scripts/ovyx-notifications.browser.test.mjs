@@ -37,6 +37,7 @@ try {
   await page.waitForFunction(()=>document.getElementById('ovyx-welcome-title')?.textContent.includes('Amara Workspace'));
   assert.equal(await page.locator('#ovyx-notification-count').textContent(),'1','['+target.name+'] unread badge count');
   assert.equal(await page.locator('#ovyx-welcome-title').textContent(),'Welcome back, Amara Workspace!','['+target.name+'] prefer saved workspace name');
+  assert.equal(await page.locator('#ovyx-welcome-overlay').evaluate(el=>getComputedStyle(el).pointerEvents),'none','['+target.name+'] welcome banner must not block workspace interactions');
   await page.locator('#ovyx-notification-toggle').click();await page.getByText('A new OVYX feature').waitFor();
   await page.locator('#ovyx-notification-device-action').click();
   await page.waitForFunction(()=>document.getElementById('ovyx-notification-device-action')?.textContent==='Turn off on this device');
