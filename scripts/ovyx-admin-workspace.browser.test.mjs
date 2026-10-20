@@ -252,7 +252,7 @@ try {
     await page.locator('#v34-broadcast-body').fill('A global message from the automated Owner Tools test.');
     await page.locator('#v34-broadcast-category').selectOption('product');
     await page.locator('#v34-broadcast-publish').click();
-    await page.waitForFunction(() => /Announcement published to signed-in OVYX users/.test(document.getElementById('v34-broadcast-status')?.textContent || ''), null, { timeout: 20000 });
+    await page.waitForFunction(() => /Broadcast saved to the in-app inbox/.test(document.getElementById('v34-broadcast-status')?.textContent || ''), null, { timeout: 20000 });
     assert.ok(ownerApiWrites.some(item => item.path === '/api/admin/broadcasts' && item.body.message === 'A global message from the automated Owner Tools test.'),
       '[' + target.name + '] Broadcast publish must use the protected server route.');
     await page.locator('#ovyx-global-broadcast-refresh').click();
