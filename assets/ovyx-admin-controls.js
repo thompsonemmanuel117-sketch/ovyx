@@ -939,6 +939,11 @@
     const button = $('v34-broadcast-publish');
     if (!button || button.dataset.serverOwnerBound === '1') return;
     button.dataset.serverOwnerBound = '1';
+    const emailToggle = $('v34-broadcast-email');
+    if (emailToggle && emailToggle.dataset.ovyxDefaulted !== '1') {
+      emailToggle.checked = true;
+      emailToggle.dataset.ovyxDefaulted = '1';
+    }
     button.addEventListener('click', async function (event) {
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -956,10 +961,39 @@
       try {
         const result = await api('/api/admin/broadcasts', {
           method: 'POST',
-          body: JSON.stringify({ title: title, message: message, category: category, link: link })
+          body: JSON.stringify({ title: title, message: message, category: category, link: link, sendEmail: wantsEmail, sendPush: true })
         });
-        statusText(status, 'Announcement published to signed-in OVYX users.' + (wantsEmail ? ' Email notifications were not sent by this action.' : ''), 'ok');
-        notify('In-app announcement published.', 'success');
+        const delivery = result.data?.delivery || {};
+        const push = delivery.push || {};
+        const email = delivery.email || {};
+        const messages = ['Broadcast saved to the in-app inbox.'];
+        let deliveryWarning = false;
+        if (push.configured !== true) {
+          messages.push('Phone push was not sent: ' + String(push.reason || 'VAPID push credentials are not configured.'));
+          deliveryWarning = true;
+        } else if (Number(push.attempted || 0) === 0) {
+          messages.push('No active phone subscriptions yet. Users can enable phone alerts from the notification bell.');
+        } else {
+          messages.push('Push service accepted ' + Number(push.accepted || 0) + ' of ' + Number(push.attempted || 0) + ' device notifications; ' + Number(push.failed || 0) + ' failed.');
+          if (Number(push.failed || 0) > 0) deliveryWarning = true;
+        }
+        if (wantsEmail) {
+          if (email.configured !== true) {
+            messages.push('Email was not sent: ' + String(email.reason || 'Email delivery is not configured.'));
+            deliveryWarning = true;
+          } else {
+            messages.push('Email provider accepted ' + Number(email.providerAcceptedCount || 0) + ' of ' + Number(email.attemptedCount || 0) + ' messages; provider acceptance does not confirm inbox delivery.');
+            if (Number(email.failedCount || 0) > 0 || Number(email.preferenceCheckFailed || 0) > 0 || email.truncated === true) deliveryWarning = true;
+            if (Number(email.skippedOptOut || 0) > 0) messages.push(Number(email.skippedOptOut) + ' account(s) were skipped because of email preferences.');
+            if (Number(email.preferenceCheckFailed || 0) > 0) messages.push(Number(email.preferenceCheckFailed) + ' account(s) were skipped because email preferences could not be checked.');
+            if (email.truncated === true) messages.push('The account list exceeded the single-broadcast limit; not every account was processed.');
+          }
+        } else {
+          messages.push('Email delivery was not selected for this broadcast.');
+        }
+        const summary = messages.join(' ');
+        statusText(status, summary, deliveryWarning ? 'warn' : 'ok');
+        notify('OVYX broadcast published. ' + summary, deliveryWarning ? 'warning' : 'success');
         if ($('v34-broadcast-body')) $('v34-broadcast-body').value = '';
         const host = $('v34-broadcast-history');
         if (host) {
