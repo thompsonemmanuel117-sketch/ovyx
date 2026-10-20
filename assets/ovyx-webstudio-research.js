@@ -669,15 +669,4 @@
   else boot();
   window.addEventListener('ovyx:view-changed', function () { window.setTimeout(boot, 0); });
   window.addEventListener('firebase-auth-state-ready', function () { window.setTimeout(boot, 0); });
-  function loadFullStackUpgrade() {
-    if (window.OVYXWebStudioFullStackUpgrade || document.querySelector('script[data-ovyx-ws-fullstack-upgrade-loader]')) return;
-    var script = document.createElement('script');
-    script.src = '/assets/ovyx-webstudio-fullstack-upgrade.js';
-    script.async = true;
-    script.setAttribute('data-ovyx-ws-fullstack-upgrade-loader', '1');
-    script.onerror = function () { script.removeAttribute('data-ovyx-ws-fullstack-upgrade-loader'); };
-    (document.head || document.body || document.documentElement).appendChild(script);
-  }
-  loadFullStackUpgrade();
-  window.addEventListener('ovyx:view-changed', function () { window.setTimeout(loadFullStackUpgrade, 0); });
 })();
