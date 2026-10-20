@@ -51,7 +51,7 @@ try {
   assert.ok(first.checks.some(item => item.title === 'Visible keyboard focus indicators' && item.status === 'pass'), 'The accessible fixture must report visible focus cues.');
   assert.ok(first.browser.performance.samples > 0, 'The browser matrix must collect isolated render and DOM metrics.');
   assert.ok(first.browser.performance.maxDomNodes > 0, 'The diagnostic must count rendered DOM nodes.');
-  assert.ok(first.checks.some(item => item.title === 'Isolated render processing budget' && item.status === 'pass'), 'The small fixture must pass its isolated processing/DOM budget.');
+  assert.ok(first.checks.some(item => item.title === 'Page loading performance' && item.status === 'pass'), 'The small fixture must pass the inspector\'s current isolated render and DOM budget check.');
   assert.ok(first.checks.some(item => item.title === 'Horizontal overflow' && item.status === 'fail'), 'The inspector must detect a real mobile horizontal-overflow defect.');
 assert.ok(first.checks.find(item => item.title === 'Horizontal overflow')?.recommendation?.includes('Do not hide overflow globally'), 'The inspector must give a specific responsive-layout recommendation grounded in the overflow finding.');
 assert.ok(await page.locator('.ovyx-ws-quality-recommendation').count() > 0, 'The inspector must render actionable suggestions alongside findings.');
