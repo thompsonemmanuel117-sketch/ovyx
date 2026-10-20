@@ -76,6 +76,18 @@ on:
       - 'functions/api/ai/workspace-tools.js'
       - 'functions/_lib/ovyx-native-ai.js'
       - 'functions/_middleware.js'
+      - 'functions/api/admin/broadcasts.js'
+      - 'functions/api/notifications.js'
+      - 'functions/api/notifications/**'
+      - 'functions/api/_lib/admin-push.js'
+      - 'functions/api/_lib/broadcast-mailer.js'
+      - 'assets/ovyx-account-notifications.js'
+      - 'assets/ovyx-admin-controls.js'
+      - 'assets/ovyx-logo.svg'
+      - 'assets/ovyx-notification-icon.svg'
+      - 'sw.js'
+      - 'scripts/ovyx-broadcast-notifications.test.mjs'
+      - 'scripts/ovyx-account-notifications.browser.test.mjs'
       - 'scripts/ovyx-assistant-workspace.browser.test.mjs'
       - 'assets/ovyx-app-studio-link-builder.js'
       - 'assets/ovyx-app-studio-premium-polish.js'
@@ -179,6 +191,11 @@ jobs:
           npx wrangler pages dev . --ip 127.0.0.1 --port 8788 > /tmp/ovyx-pages.log 2>&1 &
           echo $! > /tmp/ovyx-pages.pid
           curl --retry 30 --retry-connrefused --retry-delay 2 --fail http://127.0.0.1:8788/ -o /dev/null
+
+      - name: Exercise personalized welcome and broadcast notifications in desktop and mobile Chromium
+        run: node scripts/ovyx-account-notifications.browser.test.mjs
+        env:
+          OVYX_E2E_BASE_URL: http://127.0.0.1:8788
 
       - name: Exercise App Studio per-app Brand DNA in desktop and mobile Chromium
         run: node scripts/ovyx-brand-dna.browser.test.mjs
