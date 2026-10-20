@@ -2,7 +2,7 @@
 
 const CACHE_NAME = 'ovyx-shell-v1';
 const SAFE_DEFAULT_PATH = '/';
-const OVYX_NOTIFICATION_ICON = '/assets/ovyx-notification-icon.svg';
+const OVYX_NOTIFICATION_ICON = '/assets/ovyx-notification-icon.png';
 
 self.addEventListener('install', event => {
   event.waitUntil(self.skipWaiting());

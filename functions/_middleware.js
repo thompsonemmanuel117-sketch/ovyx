@@ -14,7 +14,7 @@ export async function onRequest(context) {
   return new HTMLRewriter()
     .on('head', {
       element(element) {
-        element.append('<link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#111827"><link rel="apple-touch-icon" href="/assets/ovyx-notification-icon.svg">', { html: true });
+        element.append('<link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#111827"><link rel="apple-touch-icon" href="/assets/ovyx-notification-icon.png">', { html: true });
       },
     })
     .on('body', {
