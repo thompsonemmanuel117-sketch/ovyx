@@ -106,10 +106,30 @@
   }
   function setStatus(message) { const node = $('#ovyx-notification-status'); if (node) node.textContent = clean(message, 500); }
   function setPushStatus(message) { const node = $('#ovyx-notification-push-status'); if (node) node.textContent = clean(message, 500); }
+  function updateOperatingSystemBadge(count) {
+    try {
+      if (count > 0 && typeof navigator.setAppBadge === 'function') {
+        Promise.resolve(navigator.setAppBadge(count)).catch(() => {});
+      } else if (count <= 0 && typeof navigator.clearAppBadge === 'function') {
+        Promise.resolve(navigator.clearAppBadge()).catch(() => {});
+      }
+    } catch (_) {}
+  }
+  function isIOSInstalledAppRequired() {
+    const ios = /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
+      (navigator.platform === 'MacIntel' && Number(navigator.maxTouchPoints || 0) > 1);
+    const standalone = navigator.standalone === true ||
+      (typeof window.matchMedia === 'function' && window.matchMedia('(display-mode: standalone)').matches);
+    return ios && !standalone;
+  }
   function setUnreadCount(value) {
-    const badge = $('#ovyx-notification-badge'); const bell = $('#ovyx-notification-bell'); if (!badge || !bell) return;
-    const count = Math.max(0, Math.floor(Number(value) || 0)); badge.textContent = count > 99 ? '99+' : count > 9 ? '9+' : String(count);
-    badge.classList.toggle('is-visible', count > 0); bell.setAttribute('aria-label', count ? 'Open notifications, ' + count + ' unread' : 'Open notifications');
+    const badge = $('#ovyx-notification-badge'); const bell = $('#ovyx-notification-bell');
+    const count = Math.max(0, Math.floor(Number(value) || 0));
+    updateOperatingSystemBadge(count);
+    if (!badge || !bell) return;
+    badge.textContent = count > 99 ? '99+' : count > 9 ? '9+' : String(count);
+    badge.classList.toggle('is-visible', count > 0);
+    bell.setAttribute('aria-label', count ? 'Open notifications, ' + count + ' unread' : 'Open notifications');
   }
   function formatDate(value) {
     if (!value) return 'Just announced'; const date = new Date(value);
@@ -158,6 +178,14 @@
   }
   async function refreshPushButton() {
     const button = $('#ovyx-notification-push-button'); if (!button) return;
+    if (isIOSInstalledAppRequired()) {
+      button.hidden = false;
+      button.disabled = true;
+      button.textContent = 'Add OVYX to Home Screen';
+      browserSubscription = null;
+      setPushStatus('On iPhone or iPad, add OVYX to your Home Screen and open that installed app before enabling phone alerts.');
+      return;
+    }
     if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) { button.hidden = true; setPushStatus('This browser does not support phone push notifications. In-app updates remain available.'); return; }
     button.hidden = false;
     try {
@@ -171,6 +199,7 @@
     const button = $('#ovyx-notification-push-button', root); if (pushBusy) return; pushBusy = true;
     if (button) { button.disabled = true; button.textContent = 'Enabling…'; }
     try {
+      if (isIOSInstalledAppRequired()) throw new Error('On iPhone or iPad, first add OVYX to your Home Screen and open the installed app, then enable phone alerts.');
       if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) throw new Error('This browser does not support push notifications. You can still read updates in OVYX.');
       const permission = Notification.permission === 'granted' ? 'granted' : await Notification.requestPermission();
       if (permission !== 'granted') throw new Error('Notification permission was not granted. Allow OVYX notifications in your browser to continue.');
