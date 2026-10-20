@@ -207,7 +207,7 @@
       project: clean(project && (project.name || project.title || project.slug) || 'OVYX website', 160),
       exportedAt: new Date().toISOString(),
       source: 'OVYX Web Studio current project graph',
-      fileCount: output.length + 2,
+      fileCount: output.length + 2 + (excluded.length ? 1 : 0),
       backendPathsDetected: backendPaths.slice(0, 100),
       setupGuideIncluded: hasSetup,
       environmentExampleIncluded: envExample,
@@ -215,6 +215,21 @@
     };
     output.push({ path: 'README_OVYX_EXPORT.md', bytes: utf8(readme) });
     output.push({ path: 'OVYX_EXPORT_MANIFEST.json', bytes: utf8(JSON.stringify(manifest, null, 2) + '\n') });
+    if (excluded.length) {
+      var exclusionReport = [
+        '# Files omitted from this export',
+        '',
+        'The following current-project files were not added to the ZIP. Some were omitted to avoid leaking credentials; others exceeded safety or size limits.',
+        '',
+        '| Path | Reason |',
+        '| --- | --- |',
+        ...excluded.map(function (item) { return '| ' + String(item.path || 'unknown').replace(/[|\\n\\r]/g, ' ') + ' | ' + String(item.reason || 'not exported').replace(/[|\\n\\r]/g, ' ') + ' |'; }),
+        '',
+        'If an omitted file is needed, recreate it locally or in your hosting provider's secret settings. Do not commit passwords, private keys, or real environment files to GitHub.',
+        ''
+      ].join('\\n');
+      output.push({ path: 'OVYX_EXPORT_EXCLUSIONS.md', bytes: utf8(exclusionReport) });
+    }
     return { files: output, excluded: excluded, slug: slugName };
   }
   function showMessage(message, kind) {
