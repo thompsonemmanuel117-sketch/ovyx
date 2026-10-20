@@ -1092,6 +1092,26 @@ export function buildExperienceBrief(prompt, context = {}) {
       'prefer progressive disclosure over visual clutter',
       'never invent business facts, prices, reviews, credentials, schedules or statistics'
     ],
+    conversionPrinciples: [
+      'derive one primary business or user outcome from the brief; for task-focused apps optimize task completion rather than forcing sales patterns',
+      'communicate a clear, specific value proposition and audience-relevant benefits early',
+      'create one primary action with useful secondary paths and accurate action labels',
+      'remove avoidable steps, fields, ambiguity, and mobile interaction friction while preserving user choice',
+      'resolve relevant decision objections with supplied facts, clear policies, and useful product or service details',
+      'place authentic proof and trust information near the decisions they support; never invent testimonials, metrics, credentials, inventory, guarantees, or claims',
+      'keep commerce totals, terms, variants, cart changes, and checkout state transparent',
+      'make forms accessible, minimal, easy to recover from, and honest about what submission does',
+      'use ethical persuasion only; no fake scarcity, hidden fees, deceptive consent, confirm-shaming, or false urgency',
+      'do not promise a conversion lift; treat design as one contributor and use real, privacy-respecting measurement only when supported'
+    ],
+    conversionAudit: [
+      'A new visitor can understand the offer or product purpose and intended audience within seconds.',
+      'The primary action is visually obvious, accurately labelled, functional, and reachable on mobile and by keyboard.',
+      'The path to the primary goal avoids unnecessary steps without hiding important terms or choices.',
+      'Important objections and trust questions are answered with grounded facts rather than invented proof.',
+      'Forms, cart, booking, signup, and confirmation states represent actual behavior honestly.',
+      'The design does not rely on dark patterns, fake reviews, pressure tactics, or unsupported results.'
+    ],
     mustHave: source.mustHave,
     delighters: source.delighters,
     motion: source.motion,
