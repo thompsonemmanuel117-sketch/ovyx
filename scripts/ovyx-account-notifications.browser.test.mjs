@@ -22,7 +22,7 @@ try {
     });
 
     await installOwnerBrowserApiFixtures(page, {
-      initialUser: { uid: 'ovyx-notification-user', email: 'maria.doe@example.test', displayName: 'Fixture Name', token: 'ovyx-notification-token' }
+      initialUser: { uid: 'ovyx-notification-user', email: 'maria.doe@example.test', displayName: ' ', token: 'ovyx-notification-token' }
     });
     // The fixture defaults blank names for other account tests; this workflow explicitly
     // verifies the email-local-name fallback for a brand-new email/password account.
