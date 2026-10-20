@@ -1,0 +1,25 @@
+{
+  "id": "/",
+  "name": "OVYX",
+  "short_name": "OVYX",
+  "description": "Your OVYX workspace for building and creating.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "background_color": "#0b1020",
+  "theme_color": "#111827",
+  "orientation": "any",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/assets/ovyx-notification-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
