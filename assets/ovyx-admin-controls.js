@@ -939,6 +939,11 @@
     const button = $('v34-broadcast-publish');
     if (!button || button.dataset.serverOwnerBound === '1') return;
     button.dataset.serverOwnerBound = '1';
+    const emailCheckbox = $('v34-broadcast-email');
+    if (emailCheckbox && emailCheckbox.dataset.ovyxDefaultApplied !== '1') {
+      emailCheckbox.checked = true;
+      emailCheckbox.dataset.ovyxDefaultApplied = '1';
+    }
     button.addEventListener('click', async function (event) {
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -948,12 +953,7 @@
       const title = String($('v34-broadcast-title')?.value || 'OVYX Update').trim() || 'OVYX Update';
       const category = String($('v34-broadcast-category')?.value || 'product');
       const link = String($('v34-broadcast-link')?.value || '').trim();
-      const emailCheckbox = $('v34-broadcast-email');
-      if (emailCheckbox && emailCheckbox.dataset.ovyxDefaultApplied !== '1') {
-        emailCheckbox.checked = true;
-        emailCheckbox.dataset.ovyxDefaultApplied = '1';
-      }
-      const wantsEmail = emailCheckbox?.checked === true;
+      const wantsEmail = $('v34-broadcast-email')?.checked === true;
       if (!message) return statusText(status, 'Write an announcement before publishing.', 'error');
       if (link && !/^(?:https:\/\/|\/)/i.test(link)) return statusText(status, 'The optional link must be an HTTPS URL or a local OVYX path.', 'error');
       button.disabled = true;

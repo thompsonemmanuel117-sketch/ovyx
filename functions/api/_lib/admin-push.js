@@ -295,7 +295,7 @@ export async function sendUserPushNotification(env, input = {}) {
  const subscriptions=[];let token=null,pages=0;
  do{const page=await listFirestoreDocuments(env,USER_PUSH_COLLECTION,1000,token);subscriptions.push(...(page.documents||[]).filter(x=>x.active===true&&typeof x.endpoint==='string'&&x.keys&&typeof x.keys==='object'&&String(x.ownerUid||'')));token=page.nextPageToken||null;pages++;}while(token&&pages<1000);
  const preferenceUids=[...new Set(subscriptions.map(item=>String(item.ownerUid||'')).filter(Boolean))];
- const prefRows=await Promise.all(preferenceUids.map(async uid=>{try{const data=await getFirestoreDataAtPath(env,['users',uid,'settings','preferences']);return{uid,enabled:data?.notifications?.pushAnnouncements===true};}catch{return{uid,enabled:false};}}));
+ const prefRows=[];for(let offset=0;offset<preferenceUids.length;offset+=16){prefRows.push(...await Promise.all(preferenceUids.slice(offset,offset+16).map(async uid=>{try{const data=await getFirestoreDataAtPath(env,['users',uid,'settings','preferences']);return{uid,enabled:data?.notifications?.pushAnnouncements===true};}catch{return{uid,enabled:false};}})));}
  const enabledUids=new Set(prefRows.filter(item=>item.enabled).map(item=>item.uid));
  const optedInSubscriptions=subscriptions.filter(item=>enabledUids.has(String(item.ownerUid||'')));
  const raw=text(input.url||'/',500);
