@@ -22,7 +22,7 @@ assert.ok(projectBranding.includes('async function loadProjectAssets(project)'),
 assert.ok(projectBranding.includes('function sourceLogoCandidates(graph, project, supplementalAssets)'), 'Framework component imports must be searched when the logo is not present in index.html.');
 assert.ok(projectBranding.includes('function graphAssetPath(fromPath, reference, files)'), 'The favicon resolver must support common public paths and source aliases.');
 assert.ok(projectBranding.includes("['ovyx:view-changed', 'ovyx:project-activated', 'ovyx:project-loaded', 'ovyx:project-saved',"), 'Project favicon correction must follow project activation and save lifecycle events.');
-assert.ok(projectBranding.includes("'ovyx:webstudio-initial-site-built', 'ovyx:webstudio-quality-report']"), 'Project favicon correction must follow site-build and quality-report events.');
+assert.ok(projectBranding.includes("'ovyx:webstudio-initial-site-built', 'ovyx:webstudio-quality-report',"), 'Project favicon correction must follow site-build and quality-report events.');
 assert.ok(!runtime.includes('<span data-ovyx-quality-label>Quality</span>'), 'The quality panel must not create a duplicate Quality toolbar button.');
 assert.ok(runtime.includes("open: function () { setOverlay(true); return true; }"), 'Code tools must be able to open the shared inspector without a header trigger.');
 assert.ok(navigationPolish.includes('body.ovyx-webstudio-active.ovyx-ws-mobile-nav-open #view-webstudio .ovyx-ws-header'), 'The Web Studio toolbar must hide behind the mobile navigation drawer.');
