@@ -14,7 +14,7 @@
     if (!link || String(link.tagName || '').toLowerCase() !== 'link') return false;
     return String(link.getAttribute('rel') || '')
       .toLowerCase()
-      .split(/\\s+/)
+      .split(/\s+/)
       .filter(Boolean)
       .indexOf('icon') >= 0;
   }
