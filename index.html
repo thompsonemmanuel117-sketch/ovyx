@@ -11721,10 +11721,10 @@ async function handleConvertToMobileApp(){
     console.warn('[OVYX App Studio conversion] latest Code sync failed:',error);
     throw new Error('The latest website code could not be synchronized. Save your Code changes and try converting again.');
   }
-  function cleanKey(key){return String(key||'').replace(/[^a-zA-Z0-9_$.-]/g,'_').slice(0,180)}
+  function cleanKey(key){return String(key||'').replace(/[^a-zA-Z0-9_$\.\/-]/g,'_').slice(0,180)}
   function cleanFilePath(value){
-    const raw=String(value||'').trim().replace(/\\\\/g,'/');
-    if(!raw||raw.startsWith('/')||/^[a-z]:/i.test(raw)||/[\\u0000-\\u001f\\u007f]/.test(raw))return '';
+    const raw=String(value||'').trim().replace(/\\/g,'/');
+    if(!raw||raw.startsWith('/')||/^[a-z]:/i.test(raw)||/[\u0000-\u001f\u007f]/.test(raw))return '';
     const parts=raw.split('/');
     if(parts.some(function(part){return !part||part==='.'||part==='..'||part==='__proto__'||part==='constructor'||part==='prototype'}))return '';
     return parts.join('/');
