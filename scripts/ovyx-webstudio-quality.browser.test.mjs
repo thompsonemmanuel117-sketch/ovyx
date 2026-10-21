@@ -298,7 +298,7 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
   assert.ok(websiteEntries['src/api/client.js']?.includes('loadStatus'), 'Website-only ZIP must preserve a frontend API client helper outside a server-route directory.');
   assert.ok(websiteEntries['README_OVYX_WEBSITE_EXPORT.md']?.includes('Backend/server implementation files'), 'Website-only ZIP must explain that backend source is excluded.');
   assert.ok(websiteEntries['OVYX_WEBSITE_EXPORT_MANIFEST.json'], 'Website-only ZIP must include its own export manifest.');
-  assert.ok(!Object.keys(websiteEntries).some(name => /(^|\/)api\//i.test(name)), 'Website-only ZIP must exclude backend API implementation paths.');
+  assert.ok(!Object.keys(websiteEntries).some(name => name.startsWith('api/')), 'Website-only ZIP must exclude backend API implementation paths.');
   assert.ok(!Object.keys(websiteEntries).some(name => /(^|\/)FULL_STACK_SETUP\.md$/i.test(name)), 'Website-only ZIP must exclude the backend handoff guide.');
   assert.ok(!Object.keys(websiteEntries).some(name => /(^|\/)\.env$/i.test(name)), 'Website-only ZIP must not include real environment files.');
 
