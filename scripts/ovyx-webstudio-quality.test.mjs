@@ -39,6 +39,7 @@ assert.ok(navigationPolish.includes('window.__OVYX_WS_NAV_HEADER_POLISH_V4__ = t
 assert.ok(projectBranding.includes('window.__OVYX_WS_PROJECT_BRANDING_V7__ = true'), 'The project branding runtime must use a matching V7 idempotence guard.');
 assert.ok(projectBranding.includes('function renderedCssBrandCandidates(doc, first, files)'), 'Favicon detection must inspect CSS backgrounds and pseudo-elements on brand-labelled preview nodes.');
 assert.ok(projectBranding.includes('function renderedPreviewIconCandidates(doc, first, files)'), 'An explicit favicon declared by the live project preview must be preferred to logo guessing.');
+assert.ok(projectBranding.includes('fromExplicitPreviewIcon: true'), 'A verified project-declared favicon must be marked as the highest-confidence favicon candidate.');
 assert.ok(settingsConnectionsVisibility.includes('function syncConnectionPanel(id)'), 'Settings must centralize active visibility for Universal Connections.');
 assert.ok(settingsConnectionsVisibility.includes("panel.classList.remove('is-v91-active')"), 'The visibility fix must remove the stale V91 class that makes Connections reappear on other tabs.');
 assert.ok(settingsConnectionsVisibility.includes("settings.show = wrappedShow"), 'Every Settings tab change must synchronize the Connections panel.');
