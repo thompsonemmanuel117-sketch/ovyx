@@ -33,6 +33,11 @@
     element.style.setProperty(property, value, 'important');
   }
 
+  function setAttributeIfChanged(element, name, value) {
+    if (!element) return;
+    if (element.getAttribute(name) !== value) element.setAttribute(name, value);
+  }
+
   function syncConnectionPanel(id) {
     var root = settingsRoot();
     if (!root || syncing) return;
@@ -53,15 +58,15 @@
         // V91 added this class and a !important display rule, but never removes
         // the class when another Settings tab opens. That overrides the hidden
         // attribute and leaves Universal Connections visible on every tab.
-        panel.classList.remove('is-v91-active');
-        panel.classList.toggle('active', active);
+        if (panel.classList.contains('is-v91-active')) panel.classList.remove('is-v91-active');
+        if (panel.classList.contains('active') !== active) panel.classList.toggle('active', active);
         panel.hidden = !active;
         setImportant(panel, 'display', active ? 'block' : 'none');
         setImportant(panel, 'visibility', active ? 'visible' : 'hidden');
         setImportant(panel, 'opacity', active ? '1' : '0');
         setImportant(panel, 'pointer-events', active ? 'auto' : 'none');
-        if (panel !== canonical) panel.setAttribute('aria-hidden', 'true');
-        else panel.setAttribute('aria-hidden', String(!active));
+        if (panel !== canonical) setAttributeIfChanged(panel, 'aria-hidden', 'true');
+        else setAttributeIfChanged(panel, 'aria-hidden', String(!active));
       });
 
       // If a buggy/legacy renderer accidentally nests the V91 form into another
