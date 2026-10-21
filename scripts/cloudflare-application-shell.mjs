@@ -72,13 +72,15 @@ const REQUIRED_RUNTIMES = [
     id: 'faviconLock',
     label: 'browser tab favicon lock',
     path: '/assets/ovyx-shell-favicon-lock.js',
-    signatures: ['__OVYX_SHELL_FAVICON_LOCK_V3__', '/ovyx-tab-v6.svg?v=20261021-6', 'window.OVYXShellFavicon'],
+    expectedVersion: '20261021-3',
+    signatures: ['__OVYX_SHELL_FAVICON_LOCK_V3__', '/ovyx-tab-v6.svg?v=20261021-6', 'window.OVYXShellFavicon', 'MutationObserver'],
   },
   {
     id: 'cancelSafety',
     label: 'Web Studio mobile Cancel and rollback',
     path: '/assets/ovyx-webstudio-cancel-safety.js',
-    signatures: ['__OVYX_WEBSTUDIO_CANCEL_SAFETY_V3__', 'function restoreProjectOnly', 'installBrowserFetchCancellation', 'ovyx.webstudio.rollback.snapshot.v3.'],
+    expectedVersion: '20261021-3',
+    signatures: ['__OVYX_WEBSTUDIO_CANCEL_SAFETY_V3__', 'function restoreProjectOnly', 'installBrowserFetchCancellation', 'ovyx.webstudio.rollback.snapshot.v3.', 'coordinator.cancel()', "button.id = 'ws-task-cancel'"],
   },
 ];
 
@@ -235,13 +237,15 @@ async function probeRuntime(origin, spec, scripts, fetchImpl) {
     !redirectedOffOrigin &&
     (contentType.includes('javascript') || contentType.includes('ecmascript'))
   );
-  const ok = assetOk && signaturePresent;
   const version = asset.searchParams.get('v');
+  const versionMatches = !spec.expectedVersion || version === spec.expectedVersion;
+  const ok = assetOk && signaturePresent && versionMatches;
 
   return {
     ok,
     injected: true,
     version: version ? version.slice(0, 80) : null,
+    versionMatches,
     httpStatus: response ? response.status : null,
     assetOk,
     contentType: contentType.slice(0, 100),
@@ -253,7 +257,9 @@ async function probeRuntime(origin, spec, scripts, fetchImpl) {
           ? 'The ' + spec.label + ' asset did not return a successful HTTP response.'
           : !contentType.includes('javascript') && !contentType.includes('ecmascript')
             ? 'The ' + spec.label + ' asset did not return a JavaScript content type.'
-            : 'The served ' + spec.label + ' asset is missing expected behavior signatures.'
+            : !versionMatches
+              ? 'The served ' + spec.label + ' asset is not using the expected cache-busting version.'
+              : 'The served ' + spec.label + ' asset is missing expected behavior signatures.'
     ),
   };
 }
