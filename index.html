@@ -11787,10 +11787,12 @@ async function handleConvertToMobileApp(){
   }
   function graphHtmlTrees(graph){
     const files=graph?.files&&typeof graph.files==='object'?graph.files:{};
-    return Object.keys(files).filter(function(path){return /\.(html?|xhtml)$/i.test(path)}).map(function(path){
-      const file=files[path]||{};
-      return {path:String(path),entry:Boolean(path===graph?.entry),content:typeof file.content==='string'?file.content:'',updatedAt:Number(file.updatedAt||0)};
-    });
+    return Object.keys(files).map(function(rawPath){
+      const path=cleanFilePath(rawPath);
+      if(!path||!/\.(html?|xhtml)$/i.test(path))return null;
+      const file=files[rawPath]||{};
+      return {path:path,entry:Boolean(path===cleanFilePath(graph?.entry)),content:typeof file.content==='string'?file.content:'',updatedAt:Number(file.updatedAt||0)};
+    }).filter(Boolean);
   }
   function collectComponentSchemas(){
     const candidates=[
@@ -11994,11 +11996,29 @@ window.OVYXWebStudioNavigation.bind();
     const savedGraph=payload?.website?.graph;
     if(liveGraph?.files&&Object.keys(liveGraph.files).length&&savedGraph?.files){
       if(String(liveGraph.entry||'')!==String(savedGraph.entry||''))return false;
-      const livePaths=Object.keys(liveGraph.files).sort(),savedPaths=Object.keys(savedGraph.files).sort();
+      // Compare the same safe relative files the conversion serializer retains.
+      // Invalid absolute/traversal paths are intentionally excluded from transfer.
+      function normalizedFiles(files){
+        const normalized=Object.create(null);
+        let duplicate=false;
+        Object.keys(files||{}).forEach(function(rawPath){
+          const raw=String(rawPath||'').trim().replace(/\\/g,'/');
+          if(!raw||raw.startsWith('/')||/^[a-z]:/i.test(raw)||/[\u0000-\u001f\u007f]/.test(raw))return;
+          const parts=raw.split('/');
+          if(parts.some(function(part){return !part||part==='.'||part==='..'||part==='__proto__'||part==='constructor'||part==='prototype'}))return;
+          const path=parts.join('/');
+          if(Object.prototype.hasOwnProperty.call(normalized,path)){duplicate=true;return;}
+          normalized[path]=files[rawPath];
+        });
+        return duplicate?null:normalized;
+      }
+      const liveFiles=normalizedFiles(liveGraph.files),savedFiles=normalizedFiles(savedGraph.files);
+      if(!liveFiles||!savedFiles)return false;
+      const livePaths=Object.keys(liveFiles).sort(),savedPaths=Object.keys(savedFiles).sort();
       if(livePaths.length!==savedPaths.length||livePaths.some((path,index)=>path!==savedPaths[index]))return false;
       for(const path of livePaths){
         const text=value=>typeof value==='string'?value:String(value?.content??value?.text??value?.source??value?.code??'');
-        if(text(liveGraph.files[path])!==text(savedGraph.files[path]))return false;
+        if(text(liveFiles[path])!==text(savedFiles[path]))return false;
       }
     }
     return true;
