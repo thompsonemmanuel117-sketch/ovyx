@@ -14,14 +14,21 @@ try {
     hasTouch: true,
   });
   const page = await context.newPage();
-  await page.setContent(`<!doctype html>
-    <html><head></head><body>
-      <div id="ws-chat-composer" aria-busy="true">
-        <textarea id="ws-chat-input"></textarea>
-        <button id="ws-chat-send" aria-busy="true" disabled>Send</button>
-      </div>
-      <div id="ws-mode-hint"></div>
-    </body></html>`);
+  // Use a real HTTP origin: about:blank has an opaque origin and blocks the
+  // project-scoped localStorage writes that this rollback regression must verify.
+  await page.route('http://ovyx-cancel.test/**', route => route.fulfill({
+    status: 200,
+    contentType: 'text/html; charset=utf-8',
+    body: `<!doctype html>
+      <html><head></head><body>
+        <div id="ws-chat-composer" aria-busy="true">
+          <textarea id="ws-chat-input"></textarea>
+          <button id="ws-chat-send" aria-busy="true" disabled>Send</button>
+        </div>
+        <div id="ws-mode-hint"></div>
+      </body></html>`,
+  }));
+  await page.goto('http://ovyx-cancel.test/');
 
   await page.evaluate(() => {
     const clone = value => JSON.parse(JSON.stringify(value));
