@@ -16,7 +16,7 @@ try{
  assert.equal(await panel.locator('[data-ovyx-search-result-path]').count(),0);
  assert.equal(await page.locator('#ovyx-code-save').innerText(),'Save');assert.equal(await page.locator('#ovyx-code-pages').innerText(),'Pages');
  const before=await page.locator('#editor-area').evaluate(node=>{const r=node.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height};});
- await trigger.click();await page.waitForFunction(()=>document.querySelector('#ovyx-code-search-panel')?.classList.contains('is-open'));
+ await trigger.click();await panel.waitFor({state:'visible'});
  assert.equal(await panel.isVisible(),true);assert.equal(await panel.locator('[data-ovyx-search-result-path]').count(),0);
  assert.match(await panel.locator('.ovyx-code-search-message').innerText(),/Start typing/i);
  const after=await page.locator('#editor-area').evaluate(node=>{const r=node.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height};});
@@ -28,16 +28,16 @@ try{
  await panel.locator('[data-ovyx-search-result-path="src/pages/About.html"]').click();await page.waitForFunction(()=>window.__openedFiles.length===1);
  assert.equal(await page.evaluate(()=>window.__openedFiles[0]),'src/pages/About.html');
  await page.waitForFunction(()=>document.querySelector('#ovyx-code-search-panel')?.hidden===true);
- await trigger.click();await page.waitForFunction(()=>document.querySelector('#ovyx-code-search-panel')?.classList.contains('is-open'));
+ await trigger.click();await panel.waitFor({state:'visible'});
  await searchInput.fill('does-not-exist');assert.equal(await panel.locator('[data-ovyx-search-result-path]').count(),0);
  assert.match(await panel.locator('.ovyx-code-search-message').innerText(),/No website files match/);
  await panel.locator('[aria-label="Cancel file search"]').click();await page.waitForFunction(()=>document.querySelector('#ovyx-code-search-panel')?.hidden===true);
  assert.equal(await searchInput.inputValue(),'');
- await page.keyboard.press('Control+p');await page.waitForFunction(()=>document.querySelector('#ovyx-code-search-panel')?.classList.contains('is-open'));
+ await page.keyboard.press('Control+p');await panel.waitFor({state:'visible'});
  await page.keyboard.press('Escape');await page.waitForFunction(()=>document.querySelector('#ovyx-code-search-panel')?.hidden===true);
  const logo=await page.locator('#ovyx-logo-fixture').evaluate(node=>{const w=node.closest('.sidebar-brand-logo');return{src:node.getAttribute('src'),imageAnimation:getComputedStyle(node).animationName,wrapperAnimation:getComputedStyle(w).animationName,wrapperTransform:getComputedStyle(w).transform,wrapperOverflow:getComputedStyle(w).overflow,safeClass:w.classList.contains('ovyx-sidebar-logo-clip-safe')};});
  assert.equal(logo.src,'/assets/ovyx-brand-mark.svg');assert.equal(logo.imageAnimation,'none');assert.equal(logo.wrapperAnimation,'none');assert.equal(logo.wrapperTransform,'none');assert.equal(logo.wrapperOverflow,'visible');assert.equal(logo.safeClass,true);
- await page.setViewportSize({width:390,height:844});await trigger.click();await page.waitForFunction(()=>document.querySelector('#ovyx-code-search-panel')?.classList.contains('is-open'));
+ await page.setViewportSize({width:390,height:844});await trigger.click();await panel.waitFor({state:'visible'});
  const mobile=await panel.evaluate(node=>({left:parseFloat(node.style.left),right:node.getBoundingClientRect().right,width:node.getBoundingClientRect().width}));
  assert.ok(mobile.left>=0&&mobile.right<=390);assert.ok(mobile.width<=366);assert.equal(pageErrors.length,0,pageErrors.join('; '));
  console.log('OVYX code workspace search and sidebar logo browser tests passed.');
