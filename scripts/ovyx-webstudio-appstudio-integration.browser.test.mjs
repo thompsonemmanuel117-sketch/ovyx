@@ -95,7 +95,7 @@ window.WebStudio = {
   mountFocusedCodeWorkspace:function(){ window.__codeOpenEvents.push({file:'(mount)', projectId:window.KernelState.activeProject.id}); return true; }
 };
 project.ovyxGraph = window.WebStudio.graph;
-window.addEventListener('ovyx:active-web-payload-ready', function(event){ window.__integrationEvents.push(event.detail); });
+window.addEventListener('ovyx:active-web-payload-ready', function(event){ window.__integrationEvents.push({ ...event.detail, globalPayloadAtEvent: !!window.OVYXActiveWebPayload, storagePayloadAtEvent: !!localStorage.getItem('ovyx_active_web_payload'), globalProjectAtEvent: window.OVYXActiveWebPayload?.source?.projectId || '' }); });
 window.Router = {
   go:function(view){
     window.KernelState.activeView = view;
@@ -162,7 +162,7 @@ try {
     event: window.__integrationEvents[0] || null,
     toast: window.__lastToast || null
   }; });
-  if (!transfer.persistedPayload) console.log('App Studio transfer persistence diagnostic: ' + JSON.stringify({memoryPayload:transfer.inMemoryPayload, persistedEvent:transfer.event?.persisted, eventBytes:transfer.event?.bytes, storageReadError:transfer.storageReadError, toast:transfer.toast}));
+  if (!transfer.persistedPayload) console.log('App Studio transfer persistence diagnostic: ' + JSON.stringify({memoryPayload:transfer.inMemoryPayload, persistedEvent:transfer.event?.persisted, eventBytes:transfer.event?.bytes, storageReadError:transfer.storageReadError, globalPayloadAtEvent:transfer.event?.globalPayloadAtEvent, storagePayloadAtEvent:transfer.event?.storagePayloadAtEvent, globalProjectAtEvent:transfer.event?.globalProjectAtEvent, pageErrors, toast:transfer.toast}));
   assert.ok(transfer.payload, 'The live conversion function must expose a reusable App Studio project payload.');
   assert.equal(transfer.payload.kind, 'web-to-mobile-app');
   assert.equal(transfer.payload.source.projectId, 'ovyx-integration-project-42');
