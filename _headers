@@ -90,3 +90,6 @@
   Cache-Control: no-store, no-cache, must-revalidate
 /assets/ovyx-webstudio-project-branding.js
   Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-webstudio-code-search.js
+  Cache-Control: no-store, no-cache, must-revalidate

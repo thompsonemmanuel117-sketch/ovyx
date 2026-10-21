@@ -5,6 +5,9 @@ on:
     paths:
       - 'assets/ovyx-webstudio-quality.js'
       - 'assets/ovyx-webstudio-navigation-polish.js'
+      - 'assets/ovyx-webstudio-code-search.js'
+      - 'scripts/ovyx-webstudio-code-search.test.mjs'
+      - 'scripts/ovyx-webstudio-code-search.browser.test.mjs'
       - 'assets/ovyx-webstudio-project-branding.js'
       - 'functions/_middleware.js'
       - 'scripts/ovyx-webstudio-quality.test.mjs'
@@ -16,6 +19,9 @@ on:
     paths:
       - 'assets/ovyx-webstudio-quality.js'
       - 'assets/ovyx-webstudio-navigation-polish.js'
+      - 'assets/ovyx-webstudio-code-search.js'
+      - 'scripts/ovyx-webstudio-code-search.test.mjs'
+      - 'scripts/ovyx-webstudio-code-search.browser.test.mjs'
       - 'assets/ovyx-webstudio-project-branding.js'
       - 'functions/_middleware.js'
       - 'scripts/ovyx-webstudio-quality.test.mjs'
@@ -50,3 +56,5 @@ jobs:
 
       - name: Test Web Studio quality inspector in Chromium
         run: node scripts/ovyx-webstudio-quality.browser.test.mjs
+      - name: Test code workspace search and sidebar logo in Chromium
+        run: node scripts/ovyx-webstudio-code-search.browser.test.mjs
