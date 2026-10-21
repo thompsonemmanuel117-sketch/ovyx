@@ -282,11 +282,13 @@ assert.ok(runtime.includes('function syncLocalProfileCache(profile, updatedAt, u
 assert.ok(html.includes("if(id==='appearance'){this.syncAppearance()}},")
   && !html.includes("this.syncAppearance();ThemeLab.apply()}"),
   'Opening Appearance must not overwrite canonical saved colours with a legacy Theme Lab preset.');
-assert.ok(middleware.includes('/assets/ovyx-webstudio-cancel-safety.js?v=20261021-1')
-  && cancelSafetyRuntime.includes("button.id = 'ws-task-cancel'")
-  && cancelSafetyRuntime.includes('studio.cancelActiveTask = function ()')
+assert.ok(middleware.includes('/assets/ovyx-webstudio-cancel-safety.js?v=20261021-1'),
+  'The app shell must load the shared Web Studio task-cancellation module.');
+assert.ok(cancelSafetyRuntime.includes("button.id = 'ws-task-cancel'"),
+  'The shared cancellation module must create one touch-friendly Cancel control.');
+assert.ok(cancelSafetyRuntime.includes('studio.cancelActiveTask = function ()')
   && cancelSafetyRuntime.includes('restoreProjectOnly(this, snapshot)'),
-  'The app shell must load one touch-friendly Cancel control that restores only the current task project.');
+  'Cancel must roll back only the active task project.');
 assert.ok(html.includes('rollbackAgentChanges(baseGraph,appliedGraph,originalProject)')
   && html.includes("this.rollbackAgentChanges(rollbackGraph,appliedGraph,rollbackProject)")
   && !html.includes("const restoredProjects=JSON.parse(JSON.stringify(rollbackState?.projects||[]))"),
