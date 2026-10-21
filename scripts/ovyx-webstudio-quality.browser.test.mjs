@@ -91,7 +91,7 @@ try {
   await brandingPage.evaluate(() => {
     const graph = { version: 2, entry: 'index.html', files: {
       'index.html': { type: 'text/html', content: '<!doctype html><html><head><title>ForgeOS React project</title><link rel="icon" href="/assets/ovyx-brand-mark.svg"></head><body><div id="root">React application root</div></body></html>' },
-      'src/App.jsx': { type: 'text/javascript', content: "import IndustrialLogo from './assets/industrial-logo.svg'; export function Header(){ return <a className=\\"navbar-brand\\"><img alt=\\"ForgeOS Industrial\\" src={IndustrialLogo}/></a>; }" },
+      'src/App.jsx': { type: 'text/javascript', content: "import IndustrialLogo from './assets/industrial-logo.svg'; export function Header(){ return <a className='navbar-brand'><img alt='ForgeOS Industrial' src={IndustrialLogo}/></a>; }" },
       'src/assets/industrial-logo.svg': { type: 'image/svg+xml', content: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#d8a93e" d="M24 3 45 24 24 45 3 24Z"/><circle cx="24" cy="24" r="8" fill="#111827"/></svg>' }
     }, updatedAt: 4 };
     window.WebStudio.graph = graph;
