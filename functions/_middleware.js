@@ -22,6 +22,7 @@ export async function onRequest(context) {
     })
     .on('head', {
       element(element) {
+        // Install the canonical icon guard before any application page scripts can run.
         element.prepend('<link id="ovyx-canonical-app-favicon" data-ovyx-canonical-favicon="true" rel="icon" type="image/svg+xml" href="/assets/ovyx-app-favicon.svg?v=20261021-2"><script src="/assets/ovyx-app-favicon-guard.js?v=20261021-2"></script>', { html: true });
         element.append('<link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#111827"><link rel="apple-touch-icon" href="/assets/ovyx-brand-mark.png">', { html: true });
       },
