@@ -175,6 +175,9 @@ try {
         studio.pendingBuild = true;
         studio.liveAiActive = true;
         studio.__ovyxActiveTaskMethod = 'runBuildAgent';
+        // Persist the disposable fixture through the real ProjectStore boundary so
+        // Cancel does not test a project that only exists in a transient object.
+        try { window.ProjectStore && window.ProjectStore.save && window.ProjectStore.save(); } catch (_) {}
         summary.activeProjectIdBeforeCancel = String(state.activeProject?.id || '');
         summary.projectCollectionEntryBeforeCancel = state.projects.find(project => String(project?.id || '') === testId)?.name || null;
         summary.visibleWhileRunning = button.hidden === false;
