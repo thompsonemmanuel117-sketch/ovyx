@@ -138,7 +138,24 @@ try {
     'The refreshed browser tab must still declare the current real OVYX logo.');
   assert.equal(afterRefresh.lockAtHeadStart, true, 'The favicon lock must reload with the refreshed shell.');
 
-  console.log('OVYX app-shell favicon browser test passed: root load, explicit fallback, late override resistance, and clean refresh.');
+  // A saved/refreshable nested route must not bypass the middleware simply
+  // because the URL is not the root slash.
+  const nestedResponse = await page.goto(new URL('/settings?faviconReloadTest=1', origin).href, {
+    waitUntil: 'domcontentloaded',
+    timeout: 30000,
+  });
+  assert.ok(nestedResponse && nestedResponse.status() < 500, 'The nested-route favicon probe must return an HTTP response.');
+  if ((nestedResponse.headers()['content-type'] || '').toLowerCase().includes('text/html')) {
+    await page.waitForFunction(() => !!window.OVYXShellFavicon, null, { timeout: 10000 });
+    const nestedIcon = await page.locator('head link[rel~="icon"]').evaluateAll(nodes =>
+      nodes.map(node => node.getAttribute('href')));
+    assert.deepEqual(nestedIcon, ['/assets/ovyx-brand-mark.svg?v=20261021-5'],
+      'An HTML route refresh must not fall back to the legacy favicon.');
+    assert.ok(/no-store|no-cache/.test(nestedResponse.headers()['cache-control'] || ''),
+      'Nested HTML responses must also carry no-cache protection.');
+  }
+
+  console.log('OVYX app-shell favicon browser test passed: root load, explicit fallback, late override resistance, clean refresh, and nested-route protection.');
 } finally {
   await browser.close();
 }
