@@ -1,8 +1,8 @@
 (function () {
   'use strict';
 
-  if (window.__OVYX_WS_PROJECT_BRANDING_V7__) return;
-  window.__OVYX_WS_PROJECT_BRANDING_V7__ = true;
+  if (window.__OVYX_WS_PROJECT_BRANDING_V8__) return;
+  window.__OVYX_WS_PROJECT_BRANDING_V8__ = true;
 
   var busy = false;
   var resolving = false;
@@ -46,7 +46,7 @@
 
   function enforceFaviconLink(element, href) {
     if (!element) return;
-    var rel = clean(element.getAttribute('rel')).split(/\\s+/).filter(Boolean);
+    var rel = clean(element.getAttribute('rel')).split(/\s+/).filter(Boolean);
     if (!rel.some(function (value) { return value.toLowerCase() === 'icon'; })) {
       rel.push('icon');
       element.setAttribute('rel', rel.join(' '));
@@ -504,6 +504,33 @@
     });
     return candidates;
   }
+  function renderedPreviewIconCandidates(doc, first, files) {
+    var candidates = [];
+    if (!doc || !doc.querySelectorAll) return candidates;
+    Array.prototype.slice.call(doc.querySelectorAll('link[rel]')).forEach(function (link) {
+      var rel = clean(link.getAttribute('rel')).toLowerCase().split(/\s+/);
+      if (rel.indexOf('icon') < 0) return;
+      var reference = clean(link.getAttribute('href'));
+      if (!reference || isPlatformLogo(reference)) return;
+
+      // A real project may intentionally use a compact favicon distinct from
+      // its visible wordmark. Prefer this explicit signal before inferring one.
+      var href = imageHref(first || '', reference, files);
+      if (!href && /^data:image\//i.test(reference)) href = reference;
+      if (!href && /^https?:\/\//i.test(reference)) href = reference;
+      if (!href) return;
+      candidates.push({
+        score: 240,
+        href: href,
+        asset: null,
+        pagePath: first || '',
+        fromLivePreview: true,
+        fromExplicitPreviewIcon: true
+      });
+    });
+    return candidates;
+  }
+
   function livePreviewBrandCandidates(graph, project, first, supplementalAssets) {
     var files = graph && graph.files || {};
     var candidates = [];
@@ -518,7 +545,8 @@
       try {
         var rendered = doc.documentElement.outerHTML;
         if (!rendered || !/<head\b/i.test(rendered) || !/<body\b/i.test(rendered)) return;
-        var found = listBrandCandidates(first || '', rendered, files, project, true, supplementalAssets);
+        var found = renderedPreviewIconCandidates(doc, first || '', files);
+        found = found.concat(listBrandCandidates(first || '', rendered, files, project, true, supplementalAssets));
         found = found.concat(renderedCssBrandCandidates(doc, first || '', files));
         found.forEach(function (candidate) {
           // Prefer the real, rendered site mark over a fallback asset or a
