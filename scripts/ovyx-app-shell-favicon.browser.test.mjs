@@ -123,13 +123,13 @@ try {
   await page.waitForFunction(() => !!window.OVYXShellFavicon, null, { timeout: 10000 });
   await page.waitForFunction(() => {
     const icons = Array.from(document.head.querySelectorAll('link[rel]')).filter(link =>
-      String(link.rel || '').toLowerCase().split(/\\s+/).includes('icon'));
+      String(link.rel || '').toLowerCase().split(/\s+/).includes('icon'));
     return icons.length === 1 &&
       icons[0].getAttribute('href') === '/assets/ovyx-brand-mark.svg?v=20261021-5';
   }, null, { timeout: 10000 });
   const afterRefresh = await page.evaluate(() => ({
     icons: Array.from(document.head.querySelectorAll('link[rel]')).filter(link =>
-      String(link.rel || '').toLowerCase().split(/\\s+/).includes('icon'))
+      String(link.rel || '').toLowerCase().split(/\s+/).includes('icon'))
       .map(link => ({ rel: link.getAttribute('rel'), href: link.getAttribute('href'), type: link.getAttribute('type') })),
     lockAtHeadStart: !!document.head.querySelector('script[src*="ovyx-shell-favicon-lock.js"]'),
   }));
