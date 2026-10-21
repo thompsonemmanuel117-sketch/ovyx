@@ -54,6 +54,18 @@ for (const path of [
 }
 
 assert.ok(brandProfileApi.includes("['users', identity.email, 'brand_profile', 'config']"), 'Brand Identity settings must use the canonical Firestore profile document.');
+const connectionGuardStart = html.indexOf('<script id="ovyx-settings-connections-visibility-guard-v2">');
+const connectionGuardEnd = html.indexOf('</script>', connectionGuardStart);
+const connectionVisibilityGuard = connectionGuardStart >= 0 && connectionGuardEnd > connectionGuardStart
+  ? html.slice(connectionGuardStart, connectionGuardEnd) : '';
+assert.ok(connectionVisibilityGuard, 'Settings must have the V2 connection visibility lifecycle guard.');
+assert.ok(!connectionVisibilityGuard.includes("settings.current='connections'"), 'Opening Settings or changing a category must never force the current category to Connections.');
+assert.ok(!connectionVisibilityGuard.includes("root.querySelectorAll('[data-settings-panel]').forEach"), 'The Connections guard must not hide every other Settings panel.');
+assert.ok(connectionVisibilityGuard.includes("panel.classList.toggle('is-v91-active',active)"), 'The special Connections surface must be visible only for its selected category.');
+assert.ok(connectionVisibilityGuard.includes("panel.style.removeProperty(property)"), 'Sticky inline visibility overrides must be removed on category changes.');
+assert.ok(!html.includes('id="ovyx-settings-connections-visibility-guard-v1"'), 'The forced Connections visibility guard must not remain in the application shell.');
+assert.ok(!html.includes("x.hidden=x.dataset.settingsPanel!==id;"), 'The Brand Identity/Connections wrappers must not leave ordinary Settings categories hidden after a switch.');
+assert.ok(!html.slice(0, connectionGuardStart).includes("panel.hidden=!active;"), 'Earlier connection renderers must not hide every non-connection panel through persistent hidden attributes.');
 assert.ok(agentGenerate.includes("['users', userEmail, 'brand_profile', 'config']"), 'The Engineering Agent must load the same canonical saved brand profile document.');
 assert.ok(gateway.includes("['users', userEmail, 'brand_profile', 'config']"), 'Web Studio fresh builds must automatically load saved branding when the request omits an in-session profile.');
 assert.ok(gateway.includes('logoConfigured: Boolean(brandProfile.logoDataUrl)'), 'Web Studio must receive compact brand metadata without embedding a large base64 logo into its text prompt.');
