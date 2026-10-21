@@ -384,7 +384,7 @@
       if (!doc || !doc.documentElement) return;
       try {
         var rendered = doc.documentElement.outerHTML;
-        if (!rendered || !/<head\\b/i.test(rendered) || !/<body\\b/i.test(rendered)) return;
+        if (!rendered || !/<head\b/i.test(rendered) || !/<body\b/i.test(rendered)) return;
         var found = listBrandCandidates(first || '', rendered, files, project, true, supplementalAssets);
         found.forEach(function (candidate) {
           // Prefer the real, rendered site mark over a fallback asset or a
