@@ -488,7 +488,8 @@
 
   boot();
   ['ovyx:view-changed', 'ovyx:project-activated', 'ovyx:project-loaded', 'ovyx:project-saved',
-    'ovyx:webstudio-initial-site-built', 'ovyx:webstudio-quality-report'].forEach(function (eventName) {
+    'ovyx:webstudio-initial-site-built', 'ovyx:webstudio-quality-report',
+    'firebase-auth-state-ready', 'ovyx-auth-state-ready'].forEach(function (eventName) {
     window.addEventListener(eventName, retryBoot);
   });
 })();
