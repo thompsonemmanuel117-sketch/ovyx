@@ -55,7 +55,9 @@ try {
   // OVYX platform mark or a guessed icon.
   await brandingPage.evaluate(() => {
     const graph = { version: 2, entry: 'index.html', files: {
-      'index.html': { type: 'text/html', content: '<!doctype html><html><head><title>Uploaded logo project</title><link rel="icon" href="/assets/ovyx-brand-mark.svg"></head><body><header><img class="company-logo" alt="Company logo" src="/uploads/industrial-crest.png"></header><main id="uploaded-logo-content">Keep this content</main></body></html>' }
+      'index.html': { type: 'text/html', content: '<!doctype html><html><head><title>Uploaded logo project</title><link rel="icon" href="/assets/ovyx-brand-mark.svg"></head><body><header><img class="company-logo" alt="Company logo" src="/uploads/industrial-crest.png"></header><main id="uploaded-logo-content">Keep this content</main></body></html>' },
+      // Binary image data is represented in the project graph but not as UTF-8 SVG source.
+      'uploads/industrial-crest.png': { type: 'image/png', content: 'binary PNG payload placeholder' }
     }, updatedAt: 3 };
     window.WebStudio.graph = graph;
     window.KernelState.activeProject.ovyxGraph = graph;

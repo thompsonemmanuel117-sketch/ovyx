@@ -1,8 +1,8 @@
 (function () {
   'use strict';
 
-  if (window.__OVYX_WS_PROJECT_BRANDING_V8__) return;
-  window.__OVYX_WS_PROJECT_BRANDING_V8__ = true;
+  if (window.__OVYX_WS_PROJECT_BRANDING_V9__) return;
+  window.__OVYX_WS_PROJECT_BRANDING_V9__ = true;
 
   var busy = false;
   var resolving = false;
@@ -272,9 +272,8 @@
       var data = svgDataUrl(assetText);
       if (data) return data;
     }
-    if (/\.(?:svg|png|jpe?g|webp|gif|ico|avif)(?:[?#]|$)/i.test(value)) {
-      return '/' + resolved.replace(/^public\//, '');
-    }
+    // Project graph paths are served by the generated site, not the OVYX app shell.
+    // Let the asset store resolve binary images instead of emitting a misleading root-relative URL.
     return '';
   }
   function svgHref(element) {
@@ -504,7 +503,7 @@
     });
     return candidates;
   }
-  function renderedPreviewIconCandidates(doc, first, files) {
+  function renderedPreviewIconCandidates(doc, first, files, project, supplementalAssets) {
     var candidates = [];
     if (!doc || !doc.querySelectorAll) return candidates;
     Array.prototype.slice.call(doc.querySelectorAll('link[rel]')).forEach(function (link) {
@@ -518,11 +517,14 @@
       var href = imageHref(first || '', reference, files);
       if (!href && /^data:image\//i.test(reference)) href = reference;
       if (!href && /^https?:\/\//i.test(reference)) href = reference;
-      if (!href) return;
+      var asset = !href ? matchingProjectAsset(project, reference, supplementalAssets) : null;
+      // Binary project assets may have metadata in the source graph but no
+      // textual bytes to inline. Resolve their real URL from the asset store.
+      if (!href && !asset) return;
       candidates.push({
         score: 240,
         href: href,
-        asset: null,
+        asset: asset,
         pagePath: first || '',
         fromLivePreview: true,
         fromExplicitPreviewIcon: true
@@ -545,7 +547,7 @@
       try {
         var rendered = doc.documentElement.outerHTML;
         if (!rendered || !/<head\b/i.test(rendered) || !/<body\b/i.test(rendered)) return;
-        var found = renderedPreviewIconCandidates(doc, first || '', files);
+        var found = renderedPreviewIconCandidates(doc, first || '', files, project, supplementalAssets);
         found = found.concat(listBrandCandidates(first || '', rendered, files, project, true, supplementalAssets));
         found = found.concat(renderedCssBrandCandidates(doc, first || '', files));
         found.forEach(function (candidate) {
