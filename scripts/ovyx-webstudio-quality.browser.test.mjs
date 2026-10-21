@@ -253,8 +253,15 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
     const codeHost = document.getElementById('ws-code-workspace-host');
     codeHost.innerHTML = '<div class="ovyx-ws-code-root"><header id="ovyx-code-project-header" style="display:flex;align-items:center;gap:10px"><button id="ovyx-code-back" type="button">Back</button><b>OVYX CODE</b><span id="ovyx-code-dirty">CLEAN</span><div style="flex:1"></div><button id="ovyx-code-download" type="button">Download</button></header></div>';
     window.__qualityVerifyCalls = 0;
+    window.__qualityOpenCalls = 0;
     window.__nextQualityReport = null;
     window.OVYXWebStudioQuality = {
+      open: function () {
+        window.__qualityOpenCalls += 1;
+        const panel = document.querySelector('#ovyx-ws-quality-root [data-quality-overlay]');
+        if (panel) { panel.hidden = false; panel.setAttribute('aria-hidden', 'false'); }
+        return true;
+      },
       run: async function () {
         window.__qualityVerifyCalls += 1;
         const report = window.__nextQualityReport || { projectId: 'fullstack-upgrade-test', finishedAt: new Date().toISOString(), status: 'pass', counts: { pass: 1, warn: 0, fail: 0 }, checks: [{ status: 'pass' }] };
@@ -285,6 +292,7 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
 
   assert.equal(await upgradePage.locator('#view-webstudio [data-ovyx-quality-trigger]').count(), 0, 'The Web Studio chat/header must not expose a second Quality button.');
   await upgradePage.locator('[data-ovyx-code-verify]').click();
+  assert.equal(await upgradePage.evaluate(() => window.__qualityOpenCalls), 1, 'Code Verify build must use the shared quality inspector open API.');
   assert.equal(await upgradePage.locator('#ovyx-ws-quality-root [data-quality-overlay]').isVisible(), true, 'Code Verify build must open the same quality inspector.');
   await upgradePage.waitForFunction(() => window.__qualityVerifyCalls === 1 && document.querySelector('[data-ovyx-code-verify]')?.getAttribute('data-quality-status') === 'pass');
   await upgradePage.evaluate(() => {
