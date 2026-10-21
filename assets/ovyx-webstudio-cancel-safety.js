@@ -91,11 +91,17 @@
     };
   }
 
-  function restoreProjectOnly(studio, snapshot) {
+  function restoreProjectOnly(studio, snapshot, targetWasActiveAtCancel) {
     const state = getState();
     if (!state || !snapshot || !snapshot.projectId || !snapshot.project) return false;
     const targetId = String(snapshot.projectId);
     const activeIdBeforeRestore = String(state.activeProject && state.activeProject.id || '');
+    // abortActiveAi() may update the active-project pointer. Decide whether to
+    // restore the task as active using the state from the instant Cancel was
+    // pressed, not the pointer after abort side effects.
+    const shouldRestoreAsActive = typeof targetWasActiveAtCancel === 'boolean'
+      ? targetWasActiveAtCancel
+      : activeIdBeforeRestore === targetId;
     const projects = Array.isArray(state.projects) ? state.projects.slice() : [];
     const existingIndex = projects.findIndex(project => String(project && project.id || '') === targetId);
     const savedProject = clone(snapshot.project);
@@ -104,7 +110,7 @@
 
     if (existingIndex >= 0) {
       projects[existingIndex] = savedProject;
-    } else if (activeIdBeforeRestore === targetId) {
+    } else if (shouldRestoreAsActive) {
       // A transient active project can be missing from the collection before its first save.
       projects.push(savedProject);
     } else {
@@ -113,7 +119,7 @@
     }
     state.projects = projects;
 
-    const targetIsStillActive = activeIdBeforeRestore === targetId;
+    const targetIsStillActive = shouldRestoreAsActive;
     if (targetIsStillActive) {
       state.activeProject = savedProject;
       studio.graph = clone(savedGraph);
@@ -205,13 +211,15 @@
       }
 
       const method = String(this.__ovyxActiveTaskMethod || 'current');
+      const stateAtCancel = getState();
+      const taskProjectWasActive = String(stateAtCancel && stateAtCancel.activeProject && stateAtCancel.activeProject.id || '') === String(snapshot.projectId);
       try { this.abortActiveAi && this.abortActiveAi(); } catch (_) {}
       this.requestEpoch = Number(this.requestEpoch || 0) + 1;
       this.aiFrozen = false;
       this.pendingBuild = false;
       this.liveAiActive = false;
 
-      const restored = restoreProjectOnly(this, snapshot);
+      const restored = restoreProjectOnly(this, snapshot, taskProjectWasActive);
       this.__ovyxTaskRollbackSnapshot = null;
       this.__ovyxActiveTaskMethod = '';
       syncCancelButton(this);
