@@ -57,6 +57,11 @@ assert.ok(app.includes("window.dispatchEvent(new CustomEvent('ovyx:active-web-pa
 assert.ok(app.includes('window.AppStudio?.hydrateFromWebPayload?.(payload)'));
 assert.ok(app.includes("const payloadKey='ovyx_active_web_payload'"));
 assert.ok(app.includes('function hydrateFromWebPayload(payload)'));
+assert.ok(app.includes('function normalizedFiles(files)'));
+assert.ok(app.includes('Invalid absolute/traversal paths are intentionally excluded from transfer.'));
+assert.ok(app.includes('const path=cleanFilePath(rawPath)'));
+assert.ok(app.includes('}).filter(Boolean);'));
+
 assert.ok(app.includes('window.AppStudio.hydrateFromWebPayload=hydrateFromWebPayload'));
 assert.ok(app.includes("window.addEventListener('ovyx:active-web-payload-ready'"));
 assert.ok(app.includes('function buildRequestPayload(buildIdValue,platforms)'));
