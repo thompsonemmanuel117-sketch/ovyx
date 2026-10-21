@@ -282,7 +282,7 @@ assert.ok(runtime.includes('function syncLocalProfileCache(profile, updatedAt, u
 assert.ok(html.includes("if(id==='appearance'){this.syncAppearance()}},")
   && !html.includes("this.syncAppearance();ThemeLab.apply()}"),
   'Opening Appearance must not overwrite canonical saved colours with a legacy Theme Lab preset.');
-assert.ok(middleware.includes('/assets/ovyx-webstudio-cancel-safety.js?v=20261021-2'),
+assert.ok(middleware.includes('/assets/ovyx-webstudio-cancel-safety.js?v=20261021-3'),
   'The app shell must load the shared Web Studio task-cancellation module.');
 assert.ok(cancelSafetyRuntime.includes("button.id = 'ws-task-cancel'"),
   'The shared cancellation module must create one touch-friendly Cancel control.');
@@ -292,6 +292,14 @@ assert.ok(cancelSafetyRuntime.includes('const cancelActiveTask = function ()')
 assert.ok(cancelSafetyRuntime.includes('__OVYX_WEBSTUDIO_TASK_SESSION_V2__')
   && cancelSafetyRuntime.includes('taskSession.snapshot'),
   'Rollback ownership must survive WebStudio object replacement during hydration or rendering.');
+assert.ok(cancelSafetyRuntime.includes('ovyx.webstudio.rollback.snapshot.v3.')
+  && cancelSafetyRuntime.includes('persistRollbackSnapshot(snapshot)')
+  && cancelSafetyRuntime.includes('readPersistedRollbackSnapshot(activeProjectId)'),
+  'The last-good project snapshot must be persisted in browser storage and recoverable even if the in-memory Studio session is lost.');
+assert.ok(cancelSafetyRuntime.includes('installBrowserRollbackCapture()')
+  && cancelSafetyRuntime.includes("document.addEventListener('pointerdown', armBeforeBrowserSubmit, true)")
+  && cancelSafetyRuntime.includes('installBrowserFetchCancellation()'),
+  'Mobile submission must snapshot in capture phase and connect the browser Cancel control to the active API request.');
 assert.ok(cancelSafetyRuntime.includes('window.setInterval(function ()')
   && cancelSafetyRuntime.includes('install(studio)'),
   'The cancellation guard must rebind after the app replaces its WebStudio controller or agent methods.');
