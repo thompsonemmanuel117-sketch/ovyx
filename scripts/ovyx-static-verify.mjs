@@ -434,8 +434,8 @@ if (!fs.existsSync(path.join(root, 'scripts/ovyx-workspace-tools.integration.tes
 const routeConfigPath = path.join(root, 'functions/_routes.json');
 if (fs.existsSync(routeConfigPath)) {
   const routeConfig = JSON.parse(fs.readFileSync(routeConfigPath, 'utf8'));
-  if (!Array.isArray(routeConfig.include) || !routeConfig.include.includes('/') || !routeConfig.include.includes('/api/*')) {
-    errors.push('functions/_routes.json: both the application shell and API routes must remain enabled.');
+  if (!Array.isArray(routeConfig.include) || !routeConfig.include.includes('/*') || !Array.isArray(routeConfig.exclude) || !routeConfig.exclude.includes('/assets/*')) {
+    errors.push('functions/_routes.json: root and nested application shell, API routes, and favicon handlers must remain enabled while static /assets/* files bypass Functions.');
   }
 }
 
