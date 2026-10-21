@@ -1,8 +1,8 @@
 (function () {
   'use strict';
 
-  if (window.__OVYX_WS_PROJECT_BRANDING_V10__) return;
-  window.__OVYX_WS_PROJECT_BRANDING_V10__ = true;
+  if (window.__OVYX_WS_PROJECT_BRANDING_V11__) return;
+  window.__OVYX_WS_PROJECT_BRANDING_V11__ = true;
 
   var busy = false;
   var resolving = false;
@@ -38,7 +38,7 @@
   }
   function isPlatformLogo(reference) {
     var value = clean(reference).split(/[?#]/)[0].replace(/\\/g, '/');
-    return /(?:^|\/)(?:ovyx-logo|ovyx-brand-mark|ovyx-brand-lockup|ovyx-notification-icon|ovyx-boot-logo)(?:\.(?:svg|png|jpe?g|webp|ico))?$/i.test(value);
+    return /(?:^|\/)(?:ovyx-app-favicon|ovyx-logo|ovyx-brand-mark|ovyx-brand-lockup|ovyx-notification-icon|ovyx-boot-logo)(?:\.(?:svg|png|jpe?g|webp|ico))?$/i.test(value);
   }
   function sanitizeSvg(source) {
     return String(source || '')
@@ -182,7 +182,7 @@
     var desc = elementDescription(element);
     var tag = String(element.tagName || '').toLowerCase();
     var reference = tag === 'img' ? clean(element.getAttribute('src') || element.getAttribute('data-src')) : '';
-    if (isPlatformLogo(reference) || /ovyx-(?:brand-mark|brand-lockup|logo|notification-icon|boot-logo)/i.test(desc)) return -100;
+    if (isPlatformLogo(reference) || /ovyx-(?:app-favicon|brand-mark|brand-lockup|logo|notification-icon|boot-logo)/i.test(desc)) return -100;
     var hasBrandSignal = /logo|wordmark|brand|identity|site[\s_.-]?mark|brand[\s_.-]?mark|favicon|monogram|emblem|symbol/i.test(desc);
     var inHeader = !!(element.closest && element.closest('header, nav, [role="banner"]'));
     if (!hasBrandSignal && !((tag === 'img' || tag === 'svg') && inHeader)) return -100;
