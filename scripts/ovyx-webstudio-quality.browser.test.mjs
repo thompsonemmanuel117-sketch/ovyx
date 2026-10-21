@@ -203,6 +203,7 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
   await upgradePage.addScriptTag({ path: exportRuntimePath });
   await upgradePage.waitForFunction(() => !!window.OVYXWebStudioFullStackUpgrade && !!window.OVYXWebStudioProjectExport && document.querySelector('[data-ovyx-fullstack-upgrade]') && document.querySelector('[data-ovyx-project-export]'));
   await upgradePage.evaluate(() => {
+    window.WebStudio.graph.files['src/api/client.js'] = { type: 'application/javascript', content: 'export async function loadStatus() { return fetch(\"/api/status\"); }' };
     window.WebStudio.graph.files['.env'] = { type: 'text/plain', content: 'STRIPE_SECRET_KEY=sk_live_do_not_export_this_secret_1234567890' };
     window.WebStudio.graph.files['private/id_rsa'] = { type: 'text/plain', content: '-----BEGIN RSA PRIVATE KEY-----\\nprivate fixture secret\\n-----END RSA PRIVATE KEY-----' };
     window.KernelState.activeProject.ovyxGraph = window.WebStudio.graph;
@@ -294,6 +295,7 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
   assert.match(websiteDownload.suggestedFilename(), /website-only-\d{4}-\d{2}-\d{2}\.zip/i, 'Website-only export must have a distinct filename.');
   const websiteEntries = await parseStoredExport(websiteDownload);
   assert.ok(websiteEntries['index.html']?.includes('Existing website'), 'Website-only ZIP must include the website entry file.');
+  assert.ok(websiteEntries['src/api/client.js']?.includes('loadStatus'), 'Website-only ZIP must preserve a frontend API client helper outside a server-route directory.');
   assert.ok(websiteEntries['README_OVYX_WEBSITE_EXPORT.md']?.includes('Backend/server implementation files'), 'Website-only ZIP must explain that backend source is excluded.');
   assert.ok(websiteEntries['OVYX_WEBSITE_EXPORT_MANIFEST.json'], 'Website-only ZIP must include its own export manifest.');
   assert.ok(!Object.keys(websiteEntries).some(name => /(^|\/)api\//i.test(name)), 'Website-only ZIP must exclude backend API implementation paths.');
@@ -311,6 +313,7 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
   assert.ok(backendEntries['README_OVYX_BACKEND_EXPORT.md']?.includes('Deploy separately'), 'Backend-only ZIP must include backend deployment instructions.');
   assert.ok(backendEntries['OVYX_BACKEND_EXPORT_MANIFEST.json'], 'Backend-only ZIP must include its own export manifest.');
   assert.ok(!Object.keys(backendEntries).some(name => name === 'index.html'), 'Backend-only ZIP must exclude frontend entry pages.');
+  assert.ok(!Object.keys(backendEntries).some(name => name === 'src/api/client.js'), 'Backend-only ZIP must not misclassify a frontend API client helper as a server implementation.');
   assert.ok(!Object.keys(backendEntries).some(name => /(^|\/)\.env$/i.test(name)), 'Backend-only ZIP must not include real environment files.');
   const backendManifest = JSON.parse(backendEntries['OVYX_BACKEND_EXPORT_MANIFEST.json']);
   assert.equal(backendManifest.exportMode, 'backend-only', 'The backend manifest must state the selected export mode.');
