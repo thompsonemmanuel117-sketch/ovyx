@@ -413,12 +413,27 @@ if (!fs.existsSync(path.join(root, 'scripts/ovyx-workspace-tools.integration.tes
   errors.push('OVYX assistant Stage 6: workspace persistence integration tests and desktop/mobile browser test workflow must be present.');
 }
 
-const routeConfigPath = path.join(root, 'functions/_routes.json');
-if (fs.existsSync(routeConfigPath)) {
+const routeConfigPath = path.join(root, '_routes.json');
+const misplacedRouteConfigPath = path.join(root, 'functions/_routes.json');
+if (!fs.existsSync(routeConfigPath)) {
+  errors.push('_routes.json: Cloudflare Pages routing config must exist at the project build-output root so favicon and shell middleware routes are actually deployed.');
+} else {
   const routeConfig = JSON.parse(fs.readFileSync(routeConfigPath, 'utf8'));
-  if (!Array.isArray(routeConfig.include) || !routeConfig.include.includes('/') || !routeConfig.include.includes('/api/*')) {
-    errors.push('functions/_routes.json: both the application shell and API routes must remain enabled.');
+  if (
+    Number(routeConfig.version) !== 1 ||
+    !Array.isArray(routeConfig.include) ||
+    !routeConfig.include.includes('/*') ||
+    !Array.isArray(routeConfig.exclude) ||
+    !routeConfig.exclude.includes('/assets/*') ||
+    !routeConfig.exclude.includes('/manifest.json') ||
+    routeConfig.exclude.includes('/favicon.ico') ||
+    routeConfig.exclude.includes('/ovyx-tab-v6.svg')
+  ) {
+    errors.push('_routes.json: include the shell, favicon, nested HTML and API paths; exclude static asset files only so the canonical favicon handler can run.');
   }
+}
+if (fs.existsSync(misplacedRouteConfigPath)) {
+  errors.push('functions/_routes.json: Pages routing rules belong in the root build-output directory as _routes.json, not inside functions/.');
 }
 
 const entitlementRoutePath = path.join(root, 'functions/api/entitlements.js');
