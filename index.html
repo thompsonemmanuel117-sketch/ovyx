@@ -11953,11 +11953,47 @@ window.OVYXWebStudioNavigation.bind();
   function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
   function clean(v){return String(v==null?'':v).trim();}
   function nowTime(){return new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});}
+  function payloadProjectId(payload){return String(payload?.source?.projectId||payload?.website?.project?.id||'')}
+  function payloadMatchesActiveProject(payload,project){
+    if(!payload?.website)return false;
+    const activeId=String(project?.id||'');
+    const payloadId=payloadProjectId(payload);
+    if(activeId&&payloadId!==activeId)return false;
+    const liveGraph=window.WebStudio?.graph||project?.ovyxGraph||project?.graph;
+    const savedGraph=payload?.website?.graph;
+    if(liveGraph?.files&&Object.keys(liveGraph.files).length&&savedGraph?.files){
+      if(String(liveGraph.entry||'')!==String(savedGraph.entry||''))return false;
+      const livePaths=Object.keys(liveGraph.files).sort(),savedPaths=Object.keys(savedGraph.files).sort();
+      if(livePaths.length!==savedPaths.length||livePaths.some((path,index)=>path!==savedPaths[index]))return false;
+      for(const path of livePaths){
+        const text=value=>typeof value==='string'?value:String(value?.content??value?.text??value?.source??value?.code??'');
+        if(text(liveGraph.files[path])!==text(savedGraph.files[path]))return false;
+      }
+    }
+    return true;
+  }
   function readPayload(){
-    if(window.OVYXActiveWebPayload?.website)return window.OVYXActiveWebPayload;
-    try{const raw=localStorage.getItem(payloadKey);if(raw)return JSON.parse(raw);}catch(e){console.warn('[OVYX App Studio] payload read failed',e)}
-    const project=window.KernelState?.activeProject;
-    if(project)return {version:1,kind:'current-project-fallback',source:{route:'current-project',projectId:String(project.id||''),projectName:String(project.name||'')},website:{project}};
+    const project=window.KernelState?.activeProject||null;
+    const candidates=[];
+    if(window.OVYXActiveWebPayload?.website)candidates.push(window.OVYXActiveWebPayload);
+    try{const raw=localStorage.getItem(payloadKey);if(raw){const stored=JSON.parse(raw);if(stored?.website)candidates.push(stored);}}catch(e){console.warn('[OVYX App Studio] payload read failed',e)}
+    for(const candidate of candidates){
+      if(payloadMatchesActiveProject(candidate,project)){
+        window.OVYXActiveWebPayload=candidate;
+        window.OVYXProjectContext=window.OVYXProjectContext||{};
+        window.OVYXProjectContext.activeWebPayload=candidate;
+        return candidate;
+      }
+    }
+    if(candidates.length){
+      // A prior project's transfer is never allowed to appear as the current project's app.
+      window.OVYXActiveWebPayload=null;
+      window.OVYXProjectContext=window.OVYXProjectContext||{};
+      window.OVYXProjectContext.activeWebPayload=null;
+      try{localStorage.removeItem(payloadKey)}catch(_){}
+    }
+    // Let the existing secure converter capture the current live project graph.
+    // A null result is intentional: onRoute() below performs the fresh handoff.
     return null;
   }
   function projectName(){return clean(state.payload?.source?.projectName||window.KernelState?.activeProject?.name||'')||'Untitled App';}
@@ -12191,17 +12227,35 @@ window.OVYXWebStudioNavigation.bind();
   }
   function failBuild(error){state.building=false;document.getElementById('as4-wizard-card')?.classList.remove('as4-hidden');window.showToast?.(error?.message||'App setup could not start.','error');}
   function hydrateFromWebPayload(payload){
+    const previousProjectId=payloadProjectId(state.payload);
+    const incomingProjectId=payloadProjectId(payload);
+    const projectChanged=!!(previousProjectId&&incomingProjectId&&previousProjectId!==incomingProjectId);
     if(payload)state.payload=payload;
+    if(projectChanged)state.displayName=projectName();
     if(state.mounted){
       state.sourceReady=!!state.payload?.website;
       const name=document.getElementById('as4-display-name');
-      if(name && (!name.value || name.value==='Untitled App')){name.value=projectName();state.displayName=projectName();}
+      if(name&&(projectChanged||!name.value||name.value==='Untitled App')){name.value=projectName();state.displayName=projectName();}
       const status=document.querySelector('#as4-shell .as4-status');if(status)status.outerHTML=sourceChipHtml();
       return true;
     }
     mount();return true;
   }
-  function onRoute(e){if(e?.detail?.view==='appstudio')hydrateFromWebPayload(readPayload())}
+  function onRoute(e){
+    if(e?.detail?.view!=='appstudio')return;
+    const payload=readPayload();
+    if(!payload&&window.KernelState?.activeProject&&typeof window.handleConvertToMobileApp==='function'&&!state.handoffInFlight){
+      state.handoffInFlight=true;
+      Promise.resolve().then(()=>window.handleConvertToMobileApp()).then(result=>{
+        if(result===false)hydrateFromWebPayload(null);
+      }).catch(error=>{
+        console.warn('[OVYX App Studio] stale project handoff refresh failed',error);
+        hydrateFromWebPayload(null);
+      }).finally(()=>{state.handoffInFlight=false});
+      return;
+    }
+    hydrateFromWebPayload(payload);
+  }
   window.OVYXAppStudioPhrase4={mount,hydrateFromWebPayload,generateBuild,state};
   try{window.AppStudio=window.AppStudio||{};window.AppStudio.hydrateFromWebPayload=hydrateFromWebPayload;}catch(_){ }
   window.addEventListener('ovyx:active-web-payload-ready',e=>{state.payload=readPayload()||e.detail?.payload||state.payload;if(window.KernelState?.activeView==='appstudio')hydrateFromWebPayload(state.payload)});
