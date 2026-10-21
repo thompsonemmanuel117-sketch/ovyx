@@ -457,6 +457,10 @@
     button.title = 'Running source, responsive, accessibility and safe-interaction checks…';
   }
   function openQualityPanel() {
+    var qualityApi = window.OVYXWebStudioQuality;
+    if (qualityApi && typeof qualityApi.open === 'function') {
+      try { return qualityApi.open() !== false; } catch (_) {}
+    }
     var qualityRoot = document.getElementById('ovyx-ws-quality-root');
     if (!qualityRoot) return false;
     var overlay = qualityRoot.querySelector('[data-quality-overlay]');
