@@ -1,8 +1,8 @@
 (function () {
   'use strict';
-  if (window.__OVYX_WEBSTUDIO_CODE_SEARCH_V3__) return;
-  window.__OVYX_WEBSTUDIO_CODE_SEARCH_V3__ = true;
-  var STYLE_ID='ovyx-webstudio-code-search-style-v3';
+  if (window.__OVYX_WEBSTUDIO_CODE_SEARCH_V4__) return;
+  window.__OVYX_WEBSTUDIO_CODE_SEARCH_V4__ = true;
+  var STYLE_ID='ovyx-webstudio-code-search-style-v4';
   var ATTRS=['data-file-path','data-ovyx-file-path','data-path','data-pathname','data-file','data-filename'];
   var panel=null,input=null,results=null,message=null,trigger=null,closeTimer=null;
   var MAX_RESULTS=60;
@@ -14,6 +14,10 @@
       '.ovyx-sidebar-logo-clip-safe{overflow:visible!important;clip-path:none!important;animation:none!important;transform:none!important;transition:none!important}',
       '.ovyx-sidebar-logo-ancestor-safe{overflow:visible!important;clip-path:none!important;contain:none!important;mask:none!important;-webkit-mask:none!important;animation:none!important;transform:none!important;transition:none!important}',
       '.ovyx-sidebar-logo-clip-safe img,.ovyx-sidebar-logo-clip-safe svg,.ovyx-sidebar-logo-clip-safe picture{display:block!important;object-fit:contain!important;object-position:center!important;overflow:visible!important;clip-path:none!important;animation:none!important;transform:none!important;transition:none!important}',
+      'html body #app-sidebar .ovyx-brand-mark.ovyx-brand-mark-svg,html body #mobile-drawer .ovyx-brand-mark.ovyx-brand-mark-svg{display:inline-flex!important;align-items:center!important;justify-content:center!important;overflow:visible!important;clip-path:none!important;contain:none!important;mask:none!important;-webkit-mask:none!important;transform:none!important;animation:none!important;transition:none!important}',
+      'html body #app-sidebar .ovyx-brand-mark.ovyx-brand-mark-svg .ovyx-brand-svg,html body #mobile-drawer .ovyx-brand-mark.ovyx-brand-mark-svg .ovyx-brand-svg{display:block!important;width:100%!important;height:100%!important;object-fit:contain!important;object-position:center!important;overflow:visible!important;clip-path:none!important;animation:none!important;animation-delay:0s!important;transform:none!important;transition:none!important;opacity:1!important}',
+      'html body #app-sidebar .ovyx-brand-mark.ovyx-brand-mark-svg .ovyx-brand-svg path,html body #mobile-drawer .ovyx-brand-mark.ovyx-brand-mark-svg .ovyx-brand-svg path{animation:none!important;animation-delay:0s!important;transition:none!important;transform:none!important;stroke-dasharray:none!important;stroke-dashoffset:0!important;stroke-opacity:1!important;opacity:1!important;visibility:visible!important}',
+      'html body #app-sidebar .ovyx-brand-mark.ovyx-brand-mark-svg .ovyx-brand-svg path+path,html body #mobile-drawer .ovyx-brand-mark.ovyx-brand-mark-svg .ovyx-brand-svg path+path{animation:none!important;animation-delay:0s!important;stroke-dasharray:none!important;stroke-dashoffset:0!important}',
       '[data-ovyx-code-search-trigger]{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:7px!important;flex:0 0 auto!important;min-height:34px!important;padding:7px 10px!important;border:1px solid rgba(255,255,255,.13)!important;border-radius:8px!important;background:rgba(255,255,255,.035)!important;color:#dce3ec!important;font:700 10px/1.2 Inter,system-ui,sans-serif!important;white-space:nowrap!important;cursor:pointer!important;transition:border-color .16s ease,background .16s ease,color .16s ease!important}',
       '[data-ovyx-code-search-trigger]:hover,[data-ovyx-code-search-trigger][aria-expanded=true]{border-color:rgba(232,182,79,.48)!important;background:rgba(232,182,79,.08)!important;color:#f4d89c!important}',
       '[data-ovyx-code-search-trigger]:focus-visible,.ovyx-code-search-close:focus-visible,.ovyx-code-search-result:focus-visible{outline:2px solid #e8b64f!important;outline-offset:2px!important}',
@@ -215,5 +219,5 @@
   window.addEventListener('resize',positionPanel);window.addEventListener('scroll',positionPanel,true);window.addEventListener('ovyx:view-changed',sync);window.addEventListener('firebase-auth-state-ready',sync);
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',sync,{once:true});else sync();
   if(document.body&&typeof MutationObserver==='function'){var observer=new MutationObserver(sync);observer.observe(document.body,{childList:true,subtree:true});}
-  window.OVYXWebStudioCodeSearch=Object.freeze({version:'1.2.0',refresh:sync,open:openPanel,close:closePanel,search:function(query){var q=String(query||'').trim().toLowerCase();if(!q)return[];return graphFiles().filter(function(file){return file.path.toLowerCase().indexOf(q)>=0;}).slice(0,MAX_RESULTS).map(function(file){return file.path;});}});
+  window.OVYXWebStudioCodeSearch=Object.freeze({version:'1.3.0',refresh:sync,open:openPanel,close:closePanel,search:function(query){var q=String(query||'').trim().toLowerCase();if(!q)return[];return graphFiles().filter(function(file){return file.path.toLowerCase().indexOf(q)>=0;}).slice(0,MAX_RESULTS).map(function(file){return file.path;});}});
 })();

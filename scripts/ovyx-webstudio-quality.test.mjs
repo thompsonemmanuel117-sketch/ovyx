@@ -17,7 +17,7 @@ assert.doesNotThrow(() => new Function(projectBranding), 'The project favicon br
 assert.ok(projectBranding.includes('async function findBrandHref(graph, project, paths, first)'), 'Favicon correction must discover the active project’s own logo in its source graph and uploaded assets.');
 assert.ok(projectBranding.includes('Project graph paths are served by the generated site, not the OVYX app shell.'), 'A binary image path must not be mistaken for an image hosted on the OVYX application origin.');
 assert.ok(!projectBranding.includes("return '/' + resolved.replace(/^public\\//, '');"), 'Binary project assets must resolve through project asset metadata rather than an OVYX-root-relative path.');
-assert.ok(projectBranding.includes('if (!href) { restoreTabFavicon(); return false; }'), 'If no project-owned logo is found, project HTML must remain unchanged and the tab favicon must be restored.');
+assert.ok(projectBranding.includes('if (!href) return false;'), 'If no project logo is found, the OVYX application browser tab is not changed.');
 assert.ok(projectBranding.includes('window.OVYXAssetStore?.url'), 'Project logos stored outside the text file graph must be resolved through the asset store.');
 assert.ok(projectBranding.includes('function rankedProjectLogoAssets(project, supplementalAssets)'), 'The favicon correction must consider explicitly named project logo/icon assets from the project graph and store.');
 assert.ok(projectBranding.includes('async function loadProjectAssets(project)'), 'The favicon correction must query uploaded asset metadata that may not be copied into the local project object.');
@@ -36,7 +36,7 @@ assert.ok(!navigationPolish.includes("header.inert ="), 'The navigation polish m
 assert.ok(navigationPolish.includes('removeMobileOverlayOverrides'), 'Mobile drawer overrides must be removed when navigation closes.');
 assert.ok(navigationPolish.includes("target.closest('#ovyx-desktop-sidebar-close')"), 'The existing desktop sidebar close control must also close the Web Studio drawer.');
 assert.ok(navigationPolish.includes('window.__OVYX_WS_NAV_HEADER_POLISH_V4__ = true'), 'The navigation runtime must use a matching V4 idempotence guard.');
-assert.ok(projectBranding.includes('window.__OVYX_WS_PROJECT_BRANDING_V9__ = true'), 'The project branding runtime must use a matching V8 idempotence guard.');
+assert.ok(projectBranding.includes('window.__OVYX_WS_PROJECT_BRANDING_V10__ = true'), 'The project branding runtime must use a matching V8 idempotence guard.');
 assert.ok(projectBranding.includes('function renderedCssBrandCandidates(doc, first, files)'), 'Favicon detection must inspect CSS backgrounds and pseudo-elements on brand-labelled preview nodes.');
 assert.ok(projectBranding.includes('function renderedPreviewIconCandidates(doc, first, files, project, supplementalAssets)'), 'A declared favicon from the live project preview must take priority over inferred logo candidates.');
 assert.ok(projectBranding.includes('fromExplicitPreviewIcon: true'), 'Explicit project favicon discovery must be marked as the highest-confidence candidate.');
@@ -44,10 +44,9 @@ assert.ok(projectBranding.includes("split(/\\s+/).filter(Boolean)"), 'Favicon re
 assert.ok(projectBranding.includes('function renderedPreviewIconCandidates(doc, first, files, project, supplementalAssets)'), 'A declared favicon from the live project preview must be preferred to inferred logo candidates.');
 assert.ok(projectBranding.includes('fromExplicitPreviewIcon: true'), 'An explicit project favicon must carry a high-confidence candidate marker.');
 assert.ok(projectBranding.includes('split(/\\s+/).filter(Boolean)'), 'Favicon rel parsing must correctly split multi-token values such as shortcut icon without creating a mutation loop.');
-assert.ok(projectBranding.includes('function enforceTabFaviconLinks()'), 'A competing favicon link must not override the active project logo.');
-assert.ok(projectBranding.includes('function observeTabFaviconHead()'), 'The active project favicon must be re-applied when icon links change.');
-assert.ok(projectBranding.includes('function syncTabFavicon(href, projectId)'), 'The selected project logo must update the active browser tab favicon.');
-assert.ok(projectBranding.includes('function restoreTabFavicon()'), 'The OVYX platform favicon must be restored when Web Studio or project branding is inactive.');
+assert.ok(!projectBranding.includes('syncTabFavicon('), 'Project logo detection must not replace the OVYX application tab favicon.');
+assert.ok(!projectBranding.includes('restoreTabFavicon('), 'Project branding must not mutate/restore application favicon links.');
+assert.ok(projectBranding.includes('function patchProjectGraph(context, href, paths)'), 'Project favicon changes remain scoped to generated website HTML.');
 
 for (const token of [
   'OVYX WEB STUDIO QUALITY CONTRACT',
@@ -106,7 +105,7 @@ for (const token of [
 assert.ok(middleware.includes('/assets/ovyx-webstudio-quality.js?v=20261021-1'), 'The quality inspector must load from the application-shell middleware.');
 assert.equal((middleware.match(/\/assets\/ovyx-webstudio-quality\.js\?v=20261021-1/g) || []).length, 1, 'The quality inspector must be injected exactly once per application shell.');
 assert.ok(middleware.includes('/assets/ovyx-webstudio-navigation-polish.js?v=20261021-4'), 'Navigation header behavior must load from the application shell with the updated cache key.');
-assert.ok(middleware.includes('/assets/ovyx-webstudio-project-branding.js?v=20261021-9'), 'Project branding correction must load from the application shell with the refreshed V8 resolver cache key.');
+assert.ok(middleware.includes('/assets/ovyx-webstudio-project-branding.js?v=20261021-10'), 'Project branding correction must load from the application shell with the refreshed V8 resolver cache key.');
 assert.ok(middleware.includes('<link rel="icon" type="image/svg+xml" href="/assets/ovyx-brand-mark.svg?v=20261021-1">'), 'The app shell must have an explicit browser favicon and avoid a stale implicit /favicon.ico.');
 assert.ok(middleware.includes('<link rel="icon" type="image/svg+xml" href="/assets/ovyx-brand-mark.svg?v=20261021-1">'), 'The app shell must declare an explicit browser favicon instead of relying on a stale implicit /favicon.ico.');
 assert.ok(/\/assets\/ovyx-webstudio-navigation-polish\.js\s+Cache-Control: no-store, no-cache, must-revalidate/.test(headers), 'Navigation header behavior must not be served from a stale cache.');

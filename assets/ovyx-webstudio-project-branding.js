@@ -1,137 +1,14 @@
 (function () {
   'use strict';
 
-  if (window.__OVYX_WS_PROJECT_BRANDING_V9__) return;
-  window.__OVYX_WS_PROJECT_BRANDING_V9__ = true;
+  if (window.__OVYX_WS_PROJECT_BRANDING_V10__) return;
+  window.__OVYX_WS_PROJECT_BRANDING_V10__ = true;
 
   var busy = false;
   var resolving = false;
   var scheduled = false;
   var attempts = 0;
   var uploadedAssetCache = Object.create(null);
-  var tabFaviconState = null;
-  var tabFaviconObserver = null;
-
-  function restoreTabFavicon() {
-    var saved = tabFaviconState;
-    if (!saved) return;
-    if (tabFaviconObserver) {
-      tabFaviconObserver.disconnect();
-      tabFaviconObserver = null;
-    }
-    saved.links.forEach(function (item) {
-      if (!item.element) return;
-      if (item.href === null) item.element.removeAttribute('href');
-      else item.element.setAttribute('href', item.href);
-      if (item.rel === null) item.element.removeAttribute('rel');
-      else item.element.setAttribute('rel', item.rel);
-    });
-    if (saved.createdLink && saved.createdLink.parentNode) {
-      saved.createdLink.parentNode.removeChild(saved.createdLink);
-    }
-    tabFaviconState = null;
-  }
-
-  function trackFaviconLink(element) {
-    var saved = tabFaviconState;
-    if (!element || !saved || element === saved.createdLink ||
-        element.hasAttribute('data-ovyx-project-favicon')) return;
-    if (saved.links.some(function (item) { return item.element === element; })) return;
-    saved.links.push({
-      element: element,
-      href: element.getAttribute('href'),
-      rel: element.getAttribute('rel')
-    });
-  }
-
-  function enforceFaviconLink(element, href) {
-    if (!element) return;
-    var rel = clean(element.getAttribute('rel')).split(/\s+/).filter(Boolean);
-    if (!rel.some(function (value) { return value.toLowerCase() === 'icon'; })) {
-      rel.push('icon');
-      element.setAttribute('rel', rel.join(' '));
-    }
-    if (element.getAttribute('href') !== href) element.setAttribute('href', href);
-  }
-
-  function enforceTabFaviconLinks() {
-    var saved = tabFaviconState;
-    var head = document.head;
-    var body = document.body;
-    if (!saved || !head || !body || !body.classList.contains('ovyx-webstudio-active')) return;
-
-    var links = Array.prototype.slice.call(head.querySelectorAll('link[rel~="icon"]'));
-    saved.links.forEach(function (item) {
-      if (item.element && item.element.isConnected && links.indexOf(item.element) < 0) {
-        links.push(item.element);
-      }
-    });
-    links.forEach(function (element) {
-      trackFaviconLink(element);
-      enforceFaviconLink(element, saved.href);
-    });
-
-    if (saved.createdLink) {
-      if (!saved.createdLink.parentNode) head.appendChild(saved.createdLink);
-      enforceFaviconLink(saved.createdLink, saved.href);
-    }
-  }
-
-  function observeTabFaviconHead() {
-    if (tabFaviconObserver || !document.head || typeof MutationObserver === 'undefined') return;
-    tabFaviconObserver = new MutationObserver(function () {
-      enforceTabFaviconLinks();
-    });
-    tabFaviconObserver.observe(document.head, {
-      subtree: true,
-      childList: true,
-      attributes: true,
-      attributeFilter: ['href', 'rel']
-    });
-  }
-
-  function syncTabFavicon(href, projectId) {
-    var body = document.body;
-    var head = document.head;
-    if (!href || !projectId || !body || !head ||
-        !body.classList.contains('ovyx-webstudio-active')) {
-      restoreTabFavicon();
-      return;
-    }
-
-    if (tabFaviconState && tabFaviconState.projectId !== projectId) {
-      restoreTabFavicon();
-    }
-
-    if (!tabFaviconState) {
-      var icons = Array.prototype.slice.call(head.querySelectorAll('link[rel~="icon"]'));
-      var createdLink = null;
-      if (!icons.length) {
-        createdLink = document.createElement('link');
-        createdLink.rel = 'icon';
-        createdLink.setAttribute('data-ovyx-project-favicon', 'true');
-        head.appendChild(createdLink);
-      }
-      tabFaviconState = {
-        projectId: projectId,
-        href: href,
-        links: icons.map(function (element) {
-          return {
-            element: element,
-            href: element.getAttribute('href'),
-            rel: element.getAttribute('rel')
-          };
-        }),
-        createdLink: createdLink
-      };
-    } else {
-      tabFaviconState.href = href;
-    }
-
-    enforceTabFaviconLinks();
-    observeTabFaviconHead();
-  }
-
   function clean(value) {
     return String(value == null ? '' : value).replace(/[\u0000-\u001f\u007f]/g, '').trim();
   }
@@ -691,22 +568,19 @@
   async function applyProjectBranding() {
     if (busy || resolving) return false;
     var context = activeContext();
-    if (!context) { restoreTabFavicon(); return false; }
+    if (!context) return false;
     var paths = fileList(context.graph);
-    if (!paths.length) { restoreTabFavicon(); return false; }
+    if (!paths.length) return false;
     var first = primaryPath(context.graph, context.project, paths);
     var ordered = first ? [first].concat(paths.filter(function (path) { return path !== first; })) : paths.slice();
     resolving = true;
     try {
       var href = await findBrandHref(context.graph, context.project, ordered, first);
-      if (!href) { restoreTabFavicon(); return false; }
+      if (!href) return false;
       var current = activeContext();
       if (!current || current.projectId !== context.projectId || current.graph !== context.graph) return false;
-      if (document.body && document.body.classList.contains('ovyx-webstudio-active')) {
-        syncTabFavicon(href, current.projectId);
-      } else {
-        restoreTabFavicon();
-      }
+      // Project favicon branding belongs to the generated site's HTML only.
+      // Never replace the favicon of the OVYX application browser tab.
       busy = true;
       try {
         return patchProjectGraph(context, href, paths) || true;

@@ -33,7 +33,7 @@ try {
   const projectIndex = '<!doctype html><html lang="en"><head><title>OVYX — Industrial</title><link rel="icon" href="/assets/ovyx-brand-mark.svg"></head><body><header><img class="brand-logo" alt="Industrial logo" src="assets/industrial-logo.svg"><h1>OVYX Industrial</h1></header><main id="keep-me">Keep this project content.</main></body></html>';
   const projectAbout = '<!doctype html><html lang="en"><head><title>About — Industrial</title><link rel="icon" href="/assets/ovyx-brand-mark.svg"></head><body><header><img class="brand-logo" alt="Industrial logo" src="assets/industrial-logo.svg"></header><main id="about-keep">Keep the about page too.</main></body></html>';
   const industrialLogo = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#d8a93e" d="M24 3 45 24 24 45 3 24Z"/><circle cx="24" cy="24" r="8" fill="#111827"/></svg>';
-  const brandingFixture = '<!doctype html><html lang="en"><head><title>Brand correction fixture</title></head><body><main>Branding runtime test.</main><script>document.body.classList.add("ovyx-webstudio-active");window.__projectSaveCount=0;window.KernelState={activeProject:{id:"industrial-project",name:"OVYX Industrial",pages:[{name:"Home",route:"/",__ovyxFile:"index.html"}],assets:[]},projects:[]};window.WebStudio={graph:{version:2,entry:"index.html",files:{"index.html":{type:"text/html",content:' + scriptJSON(projectIndex) + '},"about.html":{type:"text/html",content:' + scriptJSON(projectAbout) + '},"assets/industrial-logo.svg":{type:"image/svg+xml",content:' + scriptJSON(industrialLogo) + '}},updatedAt:1},syncGraphToProject:function(){window.KernelState.activeProject.ovyxGraph=this.graph}};window.KernelState.activeProject.ovyxGraph=window.WebStudio.graph;window.ProjectStore={save:function(){window.__projectSaveCount+=1}};</script></body></html>';
+  const brandingFixture = '<!doctype html><html lang="en"><head><title>Brand correction fixture</title><link rel="icon" id="qa-app-favicon" href="/assets/ovyx-app-favicon.svg"></head><body><main>Branding runtime test.</main><script>document.body.classList.add("ovyx-webstudio-active");window.__projectSaveCount=0;window.KernelState={activeProject:{id:"industrial-project",name:"OVYX Industrial",pages:[{name:"Home",route:"/",__ovyxFile:"index.html"}],assets:[]},projects:[]};window.WebStudio={graph:{version:2,entry:"index.html",files:{"index.html":{type:"text/html",content:' + scriptJSON(projectIndex) + '},"about.html":{type:"text/html",content:' + scriptJSON(projectAbout) + '},"assets/industrial-logo.svg":{type:"image/svg+xml",content:' + scriptJSON(industrialLogo) + '}},updatedAt:1},syncGraphToProject:function(){window.KernelState.activeProject.ovyxGraph=this.graph}};window.KernelState.activeProject.ovyxGraph=window.WebStudio.graph;window.ProjectStore={save:function(){window.__projectSaveCount+=1}};</script></body></html>';
   await brandingPage.setContent(brandingFixture, { waitUntil: 'domcontentloaded' });
   await brandingPage.addScriptTag({ path: projectBrandingPath });
   await brandingPage.waitForFunction(() => window.WebStudio.graph.files['index.html'].content.includes('data:image/svg+xml;charset=utf-8,'));
@@ -41,14 +41,14 @@ try {
     index: window.WebStudio.graph.files['index.html'].content,
     about: window.WebStudio.graph.files['about.html'].content,
     saveCount: window.__projectSaveCount,
-    tabFavicon: document.querySelector('link[rel~="icon"][data-ovyx-project-favicon]')?.getAttribute('href') || null
+    appTabFavicon: document.querySelector('#qa-app-favicon')?.getAttribute('href') || null
   }));
   assert.match(projectBranding.index, /data:image\/svg\+xml;charset=utf-8,/, 'The project favicon must use the logo SVG found in the project graph.');
   assert.match(projectBranding.index, /id="keep-me"/, 'Favicon correction must preserve the generated page content.');
   assert.match(projectBranding.about, /id="about-keep"/, 'The correction must preserve sibling project pages.');
   assert.doesNotMatch(projectBranding.index, /href="\/assets\/ovyx-brand-mark\.svg"/, 'A project page must not keep the OVYX platform mark as its favicon after a project-owned logo is found.');
   assert.equal(projectBranding.saveCount, 1, 'The changed project graph must be saved once.');
-  assert.ok(projectBranding.tabFavicon?.startsWith('data:image/svg+xml;charset=utf-8,'), 'The active Web Studio browser tab must use the real project SVG logo.');
+  assert.equal(projectBranding.appTabFavicon, '/assets/ovyx-app-favicon.svg', 'The OVYX application tab must keep its favicon while a project is open.');
 
   // Some project logos are stored as uploaded assets and are not part of the
   // UTF-8 source-file graph. Resolve the exact referenced asset URL, not the
@@ -82,13 +82,13 @@ try {
     saveCount: window.__projectSaveCount,
     requestedAsset: window.__requestedBrandAsset,
     listedProject: window.__listedBrandProject,
-    tabFavicon: document.querySelector('link[rel~="icon"][data-ovyx-project-favicon]')?.getAttribute('href') || null
+    appTabFavicon: document.querySelector('#qa-app-favicon')?.getAttribute('href') || null
   }));
   assert.match(uploadedBranding.html, /href="https:\/\/assets\.example\.test\/industrial-crest\.png"/, 'A project favicon must resolve the logo from the project asset store when it is not in the text graph.');
   assert.match(uploadedBranding.html, /id="uploaded-logo-content"/, 'Uploaded-asset favicon repair must preserve the rest of the page.');
   assert.equal(uploadedBranding.requestedAsset, 'industrial-crest.png', 'The correct project-owned logo asset must be resolved.');
   assert.equal(uploadedBranding.listedProject, 'industrial-project', 'The logo resolver must query uploaded assets by the active project ID.');
-  assert.equal(uploadedBranding.tabFavicon, 'https://assets.example.test/industrial-crest.png', 'The browser tab must use the real uploaded project logo URL.');
+  assert.equal(uploadedBranding.appTabFavicon, '/assets/ovyx-app-favicon.svg', 'An uploaded project logo must not replace the OVYX app favicon.');
   assert.equal(uploadedBranding.saveCount, 2, 'The uploaded-asset favicon correction must save the project graph.');
 
   // Component-based applications keep the visible logo inside JSX/TSX imports,
@@ -111,13 +111,13 @@ try {
     index: window.WebStudio.graph.files['index.html'].content,
     component: window.WebStudio.graph.files['src/App.jsx'].content,
     saveCount: window.__projectSaveCount,
-    tabFavicon: document.querySelector('link[rel~="icon"][data-ovyx-project-favicon]')?.getAttribute('href') || null
+    appTabFavicon: document.querySelector('#qa-app-favicon')?.getAttribute('href') || null
   }));
   assert.ok(componentBranding.index.includes('data:image/svg+xml;charset=utf-8,'), 'Favicon discovery must follow a brand logo imported from a React component.');
   assert.match(componentBranding.index, /id="root"/, 'The React project shell must be preserved.');
   assert.match(componentBranding.component, /IndustrialLogo/, 'Project source components must not be rewritten by favicon correction.');
   assert.equal(componentBranding.saveCount, 3, 'Component-logo favicon correction must persist the HTML graph.');
-  assert.ok(componentBranding.tabFavicon?.startsWith('data:image/svg+xml;charset=utf-8,'), 'A component-imported SVG logo must also update the browser tab.');
+  assert.equal(componentBranding.appTabFavicon, '/assets/ovyx-app-favicon.svg', 'A component-imported logo must not replace the OVYX app favicon.');
 
   // If a project has no detectable own logo, leave its favicon and files alone
   // rather than guessing or replacing it with another OVYX platform asset.
@@ -134,12 +134,12 @@ try {
   const noLogo = await brandingPage.evaluate(() => ({
     html: window.WebStudio.graph.files['index.html'].content,
     saveCount: window.__projectSaveCount,
-    tabFavicon: document.querySelector('link[rel~="icon"][data-ovyx-project-favicon]')?.getAttribute('href') || null
+    appTabFavicon: document.querySelector('#qa-app-favicon')?.getAttribute('href') || null
   }));
   assert.match(noLogo.html, /href="\/assets\/ovyx-brand-mark\.svg"/, 'A project without its own logo must not be assigned a guessed favicon.');
   assert.match(noLogo.html, /id="untouched"/, 'A project without a logo must remain unchanged.');
   assert.equal(noLogo.saveCount, 3, 'An unchanged project must not be saved as if it had been modified.');
-  assert.equal(noLogo.tabFavicon, null, 'A project without a verified logo must not keep the previous project favicon.');
+  assert.equal(noLogo.appTabFavicon, '/assets/ovyx-app-favicon.svg', 'A project without a logo must not change the OVYX app favicon.');
 
   // A real project may paint its logo in the running preview even if that
   // image is absent from the saved HTML shell and is not imported by source
@@ -172,11 +172,11 @@ try {
   );
   const previewBranding = await brandingPage.evaluate(() => ({
     html: window.WebStudio.graph.files['index.html'].content,
-    tabFavicon: document.querySelector('link[rel~="icon"][data-ovyx-project-favicon]')?.getAttribute('href') || null,
+    appTabFavicon: document.querySelector('#qa-app-favicon')?.getAttribute('href') || null,
     saveCount: window.__projectSaveCount
   }));
   assert.ok(previewBranding.html.includes('data:image/svg+xml;charset=utf-8,'), 'A logo only visible in the rendered preview must be persisted as the generated project favicon.');
-  assert.ok(previewBranding.tabFavicon?.startsWith('data:image/svg+xml;charset=utf-8,'), 'The actual rendered preview logo must be used for the active browser tab favicon.');
+  assert.equal(previewBranding.appTabFavicon, '/assets/ovyx-app-favicon.svg', 'A preview logo must not change the OVYX app favicon.');
   assert.equal(previewBranding.saveCount, 4, 'Live-preview logo detection must save the corrected project graph exactly once.');
 
   // Some production sites paint their logo through a CSS background or a
@@ -205,11 +205,11 @@ try {
   );
   const cssLogoBranding = await brandingPage.evaluate(() => ({
     html: window.WebStudio.graph.files['index.html'].content,
-    tabFavicon: document.querySelector('link[rel~="icon"][data-ovyx-project-favicon]')?.getAttribute('href') || null,
+    appTabFavicon: document.querySelector('#qa-app-favicon')?.getAttribute('href') || null,
     saveCount: window.__projectSaveCount
   }));
   assert.ok(cssLogoBranding.html.includes('data:image/svg+xml;charset=utf-8,'), 'A CSS pseudo-element logo visible only in the running preview must become the saved project favicon.');
-  assert.ok(cssLogoBranding.tabFavicon?.startsWith('data:image/svg+xml;charset=utf-8,'), 'A CSS-rendered project logo must update the actual browser tab favicon.');
+  assert.equal(cssLogoBranding.appTabFavicon, '/assets/ovyx-app-favicon.svg', 'A CSS-rendered logo must not change the OVYX app favicon.');
   assert.ok(cssLogoBranding.html.includes('id="css-logo-content"'), 'CSS-based favicon detection must preserve the project page content.');
   assert.equal(cssLogoBranding.saveCount, 5, 'CSS-based favicon detection must save the corrected project graph exactly once.');
 
@@ -235,24 +235,23 @@ try {
   });
   await brandingPage.waitForFunction(() => {
     const href = document.querySelector('link[rel~="icon"][data-ovyx-project-favicon]')?.getAttribute('href') || '';
-    return href.includes('%23ff0066') &&
-      window.WebStudio.graph.files['index.html'].content.includes('%23ff0066');
+    return window.WebStudio.graph.files['index.html'].content.includes('%23ff0066');
   }, null, { timeout: 5000 });
   const declaredIconBranding = await brandingPage.evaluate(() => {
-    const href = document.querySelector('link[rel~="icon"][data-ovyx-project-favicon]')?.getAttribute('href') || '';
+    const html = window.WebStudio.graph.files['index.html'].content;
+    const href = (html.match(/<link\b[^>]*rel="icon"[^>]*href="([^"]*)"/i) || [])[1] || '';
     let decoded = '';
     try { decoded = decodeURIComponent(href.slice(href.indexOf(',') + 1)); } catch (_) {}
-    return { href, decoded, html: window.WebStudio.graph.files['index.html'].content, saveCount: window.__projectSaveCount };
+    return { href, decoded, html, saveCount: window.__projectSaveCount, appTabFavicon: document.querySelector('#qa-app-favicon')?.getAttribute('href') || null };
   });
   assert.ok(declaredIconBranding.decoded.startsWith('<svg'), 'The declared icon must be read as actual SVG image data.');
+  assert.equal(declaredIconBranding.appTabFavicon, '/assets/ovyx-app-favicon.svg', 'A generated project icon must not replace the OVYX app icon.');
   assert.match(declaredIconBranding.decoded, /fill="#ff0066"/, 'The declared favicon must win over the larger project wordmark.');
   assert.doesNotMatch(declaredIconBranding.decoded, /width="240"/, 'The full wordmark must not replace the explicitly declared compact icon.');
   assert.ok(declaredIconBranding.html.includes('id="declared-icon-content"'), 'Favicon correction must preserve the project page content.');
   assert.equal(declaredIconBranding.saveCount, 6, 'The explicit project favicon must save the project graph exactly once.');
 
-  // Another script may append or change a favicon link after branding resolves.
-  // The active project logo must remain authoritative, then prior icon values
-  // must be restored after leaving Web Studio.
+  // Project favicon correction stays in generated-site HTML, never the OVYX app tab.
   await brandingPage.evaluate(() => {
     const competing = document.createElement('link');
     competing.id = 'qa-competing-favicon';
@@ -260,28 +259,24 @@ try {
     competing.href = '/assets/ovyx-brand-mark.svg';
     document.head.appendChild(competing);
   });
-  await brandingPage.waitForFunction(() => {
-    const expected = document.querySelector('link[data-ovyx-project-favicon]')?.getAttribute('href') || '';
-    const competing = document.getElementById('qa-competing-favicon');
-    return !!expected && expected.startsWith('data:image/svg+xml;charset=utf-8,') &&
-      competing?.getAttribute('href') === expected;
-  }, null, { timeout: 5000 });
-  const enforcedFavicon = await brandingPage.locator('#qa-competing-favicon').getAttribute('href');
-  assert.ok(enforcedFavicon?.startsWith('data:image/svg+xml;charset=utf-8,'), 'A later competing favicon link must not replace the actual project logo.');
-  const competingRel = await brandingPage.locator('#qa-competing-favicon').getAttribute('rel');
-  assert.equal(competingRel, 'shortcut icon', 'The favicon observer must preserve a valid multi-token rel value instead of repeatedly appending icon.');
-
+  await brandingPage.waitForTimeout(80);
+  const faviconIsolation = await brandingPage.evaluate(() => ({
+    appTabFavicon: document.querySelector('#qa-app-favicon')?.getAttribute('href') || null,
+    competingHref: document.querySelector('#qa-competing-favicon')?.getAttribute('href') || null,
+    competingRel: document.querySelector('#qa-competing-favicon')?.getAttribute('rel') || null,
+    injectedProjectIcons: document.querySelectorAll('link[data-ovyx-project-favicon]').length
+  }));
+  assert.equal(faviconIsolation.appTabFavicon, '/assets/ovyx-app-favicon.svg', 'The OVYX app favicon must be preserved.');
+  assert.equal(faviconIsolation.competingHref, '/assets/ovyx-brand-mark.svg', 'Independent favicon href must be preserved.');
+  assert.equal(faviconIsolation.competingRel, 'shortcut icon', 'Independent favicon rel must be preserved.');
+  assert.equal(faviconIsolation.injectedProjectIcons, 0, 'Project favicon links must not be injected into the OVYX application document.');
   await brandingPage.evaluate(() => {
     document.body.classList.remove('ovyx-webstudio-active');
     window.dispatchEvent(new CustomEvent('ovyx:view-changed', { detail: { view: 'home' } }));
   });
-  await brandingPage.waitForFunction(() =>
-    document.getElementById('qa-competing-favicon')?.getAttribute('href') === '/assets/ovyx-brand-mark.svg' &&
-    document.getElementById('qa-competing-favicon')?.getAttribute('rel') === 'shortcut icon' &&
-    !document.querySelector('link[data-ovyx-project-favicon]'),
-    null,
-    { timeout: 5000 }
-  );
+  await brandingPage.waitForTimeout(80);
+  assert.equal(await brandingPage.locator('#qa-app-favicon').getAttribute('href'), '/assets/ovyx-app-favicon.svg', 'Leaving Web Studio must not change the OVYX app favicon.');
+  assert.equal(await brandingPage.locator('#qa-competing-favicon').getAttribute('href'), '/assets/ovyx-brand-mark.svg', 'Unrelated favicon must not be rewritten.');
 
   await page.setContent(fixture, { waitUntil: 'domcontentloaded' });
   await page.addScriptTag({ path: runtimePath });
