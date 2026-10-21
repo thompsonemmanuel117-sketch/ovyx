@@ -1,8 +1,8 @@
 (function () {
   'use strict';
-  if (window.__OVYX_WEBSTUDIO_CODE_SEARCH_V5__) return;
-  window.__OVYX_WEBSTUDIO_CODE_SEARCH_V5__ = true;
-  var STYLE_ID='ovyx-webstudio-code-search-style-v5';
+  if (window.__OVYX_WEBSTUDIO_CODE_SEARCH_V6__) return;
+  window.__OVYX_WEBSTUDIO_CODE_SEARCH_V6__ = true;
+  var STYLE_ID='ovyx-webstudio-code-search-style-v6';
   var ATTRS=['data-file-path','data-ovyx-file-path','data-path','data-pathname','data-file','data-filename'];
   var panel=null,backdrop=null,input=null,results=null,message=null,trigger=null,closeTimer=null;
   var MAX_RESULTS=60;
@@ -21,6 +21,9 @@
       '[data-ovyx-code-search-trigger]{display:inline-flex!important;align-items:center!important;justify-content:center!important;gap:7px!important;flex:0 0 auto!important;min-height:34px!important;padding:7px 10px!important;border:1px solid rgba(255,255,255,.13)!important;border-radius:8px!important;background:rgba(255,255,255,.035)!important;color:#dce3ec!important;font:700 10px/1.2 Inter,system-ui,sans-serif!important;white-space:nowrap!important;cursor:pointer!important;transition:border-color .16s ease,background .16s ease,color .16s ease!important}',
       '[data-ovyx-code-search-trigger]:hover,[data-ovyx-code-search-trigger][aria-expanded=true]{border-color:rgba(232,182,79,.48)!important;background:rgba(232,182,79,.08)!important;color:#f4d89c!important}',
       '[data-ovyx-code-search-trigger]:focus-visible,.ovyx-code-search-close:focus-visible,.ovyx-code-search-result:focus-visible{outline:2px solid #e8b64f!important;outline-offset:2px!important}',
+      '.ovyx-ws-code-root.ovyx-code-focus-only .ovyx-code-tree{display:none!important;visibility:hidden!important;pointer-events:none!important}',
+      '.ovyx-ws-code-root.ovyx-code-focus-only>div>div[style*="grid-template-columns"]{grid-template-columns:minmax(0,1fr)!important}',
+      '.ovyx-ws-code-root.ovyx-code-focus-only .ovyx-code-panel-main{grid-column:1/-1!important;width:100%!important;min-width:0!important}',
       '.ovyx-code-search-backdrop{position:fixed;inset:0;z-index:2147483598;display:block;margin:0;padding:0;border:0;background:rgba(2,5,10,.64);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);opacity:0;visibility:hidden;pointer-events:none;cursor:default;transition:opacity .2s ease,visibility .2s ease}',
       '.ovyx-code-search-backdrop[hidden]{display:none!important}.ovyx-code-search-backdrop.is-open{opacity:1;visibility:visible;pointer-events:auto}',
       '.ovyx-code-search-drawer{position:fixed;z-index:2147483600;inset:0 auto 0 0;width:min(420px,100vw);height:100vh;height:100dvh;max-height:100dvh;display:flex;flex-direction:column;gap:12px;min-height:0;padding:16px;border:1px solid rgba(255,255,255,.14);border-left:0;border-top:0;border-bottom:0;border-radius:0 18px 18px 0;background:linear-gradient(150deg,rgba(20,23,28,.995),rgba(9,11,14,.995));color:#f3f5f8;box-shadow:20px 0 70px rgba(0,0,0,.42);font:500 12px/1.5 Inter,system-ui,sans-serif;opacity:0;visibility:hidden;transform:translate3d(-100%,0,0);transform-origin:left center;pointer-events:none;transition:opacity .2s ease,transform .2s ease,visibility .2s ease;overscroll-behavior:contain;overflow:hidden}',
@@ -95,22 +98,46 @@
     var bag=graph&&graph.files&&typeof graph.files==='object'?graph.files:{};
     return Object.keys(bag).map(function(raw){var path=safePath(raw);return path?{path:path,basename:path.split('/').pop()}:null;}).filter(Boolean).sort(function(a,b){return a.path.localeCompare(b.path);});
   }
+  function availableWorkspaceNode(node){
+    if(!node||!node.isConnected)return false;
+    var current=node;
+    while(current&&current.nodeType===1){
+      if(current.hidden||current.classList.contains('hidden')||current.getAttribute('aria-hidden')==='true')return false;
+      current=current.parentElement;
+    }
+    return true;
+  }
   function codeRoot(){
-    var root=document.querySelector('.ovyx-ws-code-root')||document.getElementById('ws-code-workspace-host')||
-      document.querySelector('[data-ovyx-code-workspace],[id*="code-workspace" i],[class*="code-workspace" i]');
-    if(root)return root;
-    // Older workspace layouts have the Save/Pages row but no semantic wrapper ID.
-    var control=document.querySelector('[data-ovyx-code-save],#ovyx-code-save,[data-ovyx-code-pages],#ovyx-code-pages,[data-ovyx-project-export-group],#ovyx-code-download');
-    if(!control)return null;
-    return control.closest('[data-ovyx-code-workspace],[id*="code-workspace" i],[class*="code-workspace" i]')||
-      (control.parentElement&&control.parentElement.parentElement)||control.parentElement;
+    var activeView=String(window.KernelState&&window.KernelState.activeView||'').toLowerCase();
+    if(activeView==='webstudio'){
+      var webStudioView=document.getElementById('view-webstudio');
+      var codeSurface=document.getElementById('ws-code-workspace');
+      var host=document.getElementById('ws-code-workspace-host');
+      if(!webStudioView||!codeSurface||codeSurface.hidden||!availableWorkspaceNode(webStudioView)||!host)return null;
+      var activeRoot=host.classList.contains('ovyx-ws-code-root')?host:host.querySelector('.ovyx-ws-code-root,[data-ovyx-code-workspace]');
+      return availableWorkspaceNode(activeRoot)?activeRoot:null;
+    }
+    if(activeView==='workspace'){
+      var workspace=document.getElementById('view-workspace');
+      if(!workspace||!availableWorkspaceNode(workspace))return null;
+      var workspaceRoot=workspace.querySelector('.ovyx-ws-code-root,[data-ovyx-code-workspace]')||workspace;
+      return availableWorkspaceNode(workspaceRoot)?workspaceRoot:null;
+    }
+    // Legacy layouts are supported only when their code workspace is actually visible.
+    // Never attach controls to a hidden Web Studio host while another view is active.
+    if(activeView)return null;
+    var candidates=Array.from(document.querySelectorAll('.ovyx-ws-code-root,[data-ovyx-code-workspace]'));
+    return candidates.find(availableWorkspaceNode)||null;
   }
   function codeHeader(root){
-    var header=document.getElementById('ovyx-code-project-header')||
-      (root&&root.querySelector('[data-ovyx-code-header],header'))||
-      document.querySelector('#ws-code-workspace-host header');
-    if(header)return header;
     if(!root)return null;
+    var header=root.querySelector('#ovyx-code-project-header,[data-ovyx-code-header]');
+    if(header)return header;
+    var download=root.querySelector('#ovyx-code-download');
+    if(download&&download.parentElement)return download.parentElement;
+    header=root.querySelector('header');
+    if(header)return header;
+    // Older workspace layouts have the Save/Pages row but no semantic wrapper ID.
     var selector='[data-ovyx-code-save],#ovyx-code-save,[data-ovyx-code-pages],#ovyx-code-pages,[data-ovyx-project-export-group],#ovyx-code-download';
     var controls=root.querySelectorAll(selector);
     for(var i=0;i<controls.length;i++){
@@ -199,7 +226,7 @@
   }
   function positionPanel(){
     if(!panel||panel.hidden)return;
-    var root=codeRoot();if(!root)return;var rect=root.getBoundingClientRect();
+    var root=codeRoot();if(!root){closePanel(false);return;}var rect=root.getBoundingClientRect();
     var left=Math.max(0,Math.min(window.innerWidth,rect.left)),top=Math.max(0,Math.min(window.innerHeight,rect.top));
     var visibleRight=Math.max(left,Math.min(window.innerWidth,rect.right)),visibleBottom=Math.max(top,Math.min(window.innerHeight,rect.bottom));
     var right=Math.max(0,window.innerWidth-visibleRight),bottom=Math.max(0,window.innerHeight-visibleBottom);
@@ -207,7 +234,8 @@
     if(backdrop){backdrop.style.left=left+'px';backdrop.style.top=top+'px';backdrop.style.right=right+'px';backdrop.style.bottom=bottom+'px';}
   }
   function openPanel(){
-    if(closeTimer)window.clearTimeout(closeTimer);closeTimer=null;if(!trigger)return;createPanel();panel.hidden=false;if(backdrop)backdrop.hidden=false;panel.setAttribute('aria-hidden','false');if(backdrop)backdrop.setAttribute('aria-hidden','false');trigger.setAttribute('aria-expanded','true');renderResults('');positionPanel();
+    var root=codeRoot();if(!trigger||!root||!root.contains(trigger))return;
+    if(closeTimer)window.clearTimeout(closeTimer);closeTimer=null;createPanel();panel.hidden=false;if(backdrop)backdrop.hidden=false;panel.setAttribute('aria-hidden','false');if(backdrop)backdrop.setAttribute('aria-hidden','false');trigger.setAttribute('aria-expanded','true');renderResults('');positionPanel();
     window.requestAnimationFrame(function(){if(panel&&!panel.hidden){panel.classList.add('is-open');if(backdrop)backdrop.classList.add('is-open');}});
     window.setTimeout(function(){if(input&&panel&&!panel.hidden)input.focus();},20);
   }
@@ -218,9 +246,15 @@
   }
   function sync(){
     addStyles();fixSidebarLogos();var root=codeRoot();
+    if(!root){if(panel&&!panel.hidden&&panel.classList.contains('is-open'))closePanel(false);return;}
     var header=codeHeader(root);
-    if(!root||!header)return;if(trigger&&!document.contains(trigger))trigger=null;
-    if(!trigger)trigger=ensureTrigger(header);else if(trigger.parentElement!==header)header.appendChild(trigger);createPanel();
+    if(!header){if(panel&&!panel.hidden&&panel.classList.contains('is-open'))closePanel(false);return;}
+    // Code is the main surface. Keep the original tree in the DOM but let the
+    // editor own the full width; the drawer is the temporary file navigator.
+    root.classList.add('ovyx-code-focus-only');
+    if(trigger&&!document.contains(trigger))trigger=null;
+    if(!trigger)trigger=ensureTrigger(header);else if(trigger.parentElement!==header)header.appendChild(trigger);
+    createPanel();
   }
   document.addEventListener('click',function(event){if(!panel||panel.hidden||!panel.classList.contains('is-open'))return;var target=event.target;if((trigger&&trigger.contains(target))||panel.contains(target)||(backdrop&&backdrop.contains(target)))return;closePanel(false);},true);
   document.addEventListener('keydown',function(event){
@@ -236,5 +270,5 @@
   window.addEventListener('resize',positionPanel);window.addEventListener('scroll',positionPanel,true);window.addEventListener('ovyx:view-changed',sync);window.addEventListener('firebase-auth-state-ready',sync);
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',sync,{once:true});else sync();
   if(document.body&&typeof MutationObserver==='function'){var observer=new MutationObserver(sync);observer.observe(document.body,{childList:true,subtree:true});}
-  window.OVYXWebStudioCodeSearch=Object.freeze({version:'1.4.0',refresh:sync,open:openPanel,close:closePanel,search:function(query){var q=String(query||'').trim().toLowerCase();if(!q)return[];return graphFiles().filter(function(file){return file.path.toLowerCase().indexOf(q)>=0;}).slice(0,MAX_RESULTS).map(function(file){return file.path;});}});
+  window.OVYXWebStudioCodeSearch=Object.freeze({version:'1.5.0',refresh:sync,open:openPanel,close:closePanel,search:function(query){var q=String(query||'').trim().toLowerCase();if(!q)return[];return graphFiles().filter(function(file){return file.path.toLowerCase().indexOf(q)>=0;}).slice(0,MAX_RESULTS).map(function(file){return file.path;});}});
 })();
