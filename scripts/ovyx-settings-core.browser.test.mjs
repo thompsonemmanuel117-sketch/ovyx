@@ -125,15 +125,38 @@ try {
       const otherBefore = otherSignature(original.projects);
       let summary = { available: true };
       try {
-        const baselineHtml = '<!doctype html><html><body>Project before task</body></html>';
-        const baselineGraph = { entry: 'index.html', files: {
-          'index.html': { type: 'text/html', content: baselineHtml }
-        }};
+        const baselineHtml = '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Cancel safety fixture</title></head><body><main><h1>Project before task</h1></main></body></html>';
+        const baselineGraph = {
+          version: 2,
+          entry: 'src/pages/Home.html',
+          files: {
+            'src/pages/Home.html': { type: 'text/html', content: baselineHtml, updatedAt: Date.now() },
+            'src/styles.css': { type: 'text/css', content: 'body{margin:0;font-family:Arial,sans-serif}', updatedAt: Date.now() },
+            'src/main.js': { type: 'text/javascript', content: '// Cancel safety fixture.\\n', updatedAt: Date.now() },
+            'package.json': { type: 'application/json', content: JSON.stringify({ name: 'cancel-safety-fixture', private: true, dependencies: {} }), updatedAt: Date.now() },
+          },
+          updatedAt: Date.now(),
+        };
         let baselineProject = {
-          id: testId, name: 'Baseline project', updatedAt: 100,
-          pages: [{ id: 'baseline-page', name: 'Home', slug: 'home', __ovyxFile: 'index.html',
-            source: baselineHtml, renderedHtml: baselineHtml, sections: [] }],
-          assets: [], ovyxGraph: clone(baselineGraph)
+          id: testId,
+          name: 'Baseline project',
+          description: 'Disposable local-only cancellation regression fixture.',
+          status: 'draft',
+          updatedAt: Date.now(),
+          pages: [{
+            id: 'baseline-page',
+            name: 'Home',
+            slug: '/',
+            sections: [{
+              id: 'baseline-section',
+              type: 'hero',
+              content: { heading: 'Project before task', subheading: 'Cancellation fixture.', cta: 'Preview' },
+              styles: { display: 'flex', minHeight: '220px', padding: '24px', color: '#ffffff', background: '#090a0d' },
+            }],
+          }],
+          assets: [],
+          revisions: [],
+          ovyxGraph: clone(baselineGraph),
         };
         state.projects = [...(original.projects || []), baselineProject];
         state.activeProject = baselineProject;
@@ -163,7 +186,7 @@ try {
 
         baselineProject.name = 'Partially changed project';
         baselineProject.pages.push({ id: 'temporary-page', name: 'Temporary page', slug: 'temporary' });
-        studio.graph.files['index.html'].content = '<!doctype html><html><body>Partial AI output</body></html>';
+        studio.graph.files['src/pages/Home.html'].content = '<!doctype html><html><body>Partial AI output</body></html>';
         baselineProject.ovyxGraph = clone(studio.graph);
 
         studio.renderThread();
@@ -179,8 +202,17 @@ try {
           projectId: testId, project: clone({
             ...baselineProject,
             name: 'Baseline project',
-            pages: [{ id: 'baseline-page', name: 'Home', slug: 'home', __ovyxFile: 'index.html',
-              source: baselineHtml, renderedHtml: baselineHtml, sections: [] }],
+            pages: [{
+              id: 'baseline-page',
+              name: 'Home',
+              slug: '/',
+              sections: [{
+                id: 'baseline-section',
+                type: 'hero',
+                content: { heading: 'Project before task', subheading: 'Cancellation fixture.', cta: 'Preview' },
+                styles: { display: 'flex', minHeight: '220px', padding: '24px', color: '#ffffff', background: '#090a0d' },
+              }],
+            }],
             ovyxGraph: baselineGraph
           }),
           graph: clone(baselineGraph), startedAt: Date.now()
@@ -202,12 +234,12 @@ try {
         summary.activeProjectIdAfterCancel = String(stateAfterCancel.activeProject?.id || '');
         summary.activeProjectNameAfterCancel = String(stateAfterCancel.activeProject?.name || '');
         summary.activePageIdsAfterCancel = (stateAfterCancel.activeProject?.pages || []).map(page => String(page?.id || ''));
-        summary.graphHtmlAfterCancel = String(studio.graph?.files?.['index.html']?.content || '').slice(0, 220);
+        summary.graphHtmlAfterCancel = String(studio.graph?.files?.['src/pages/Home.html']?.content || '').slice(0, 220);
         summary.projectCollectionEntry = (stateAfterCancel.projects || []).find(project => String(project?.id || '') === testId)?.name || null;
         summary.restoredActiveProject = stateAfterCancel.activeProject?.name === 'Baseline project'
           && (stateAfterCancel.activeProject?.pages || []).some(page => page.id === 'baseline-page')
           && !(stateAfterCancel.activeProject?.pages || []).some(page => page.id === 'temporary-page')
-          && String(studio.graph?.files?.['index.html']?.content || '').includes('Project before task');
+          && String(studio.graph?.files?.['src/pages/Home.html']?.content || '').includes('Project before task');
         summary.otherProjectsPreserved = otherSignature(stateAfterCancel.projects) === otherBefore;
         summary.cancelMethodReturnedSafely = studio.__ovyxTaskRollbackSnapshot == null;
       } finally {
