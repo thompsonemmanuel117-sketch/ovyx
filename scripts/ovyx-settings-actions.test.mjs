@@ -273,4 +273,21 @@ assert.ok(runtime.includes('consentedOrigin !== endpointUrl.origin'), 'Sync must
 assert.ok(runtime.includes('Only the bounded project metadata was sent.'), 'External sync status must accurately describe that only project metadata was sent.');
 assert.ok(runtime.includes("pageCount: Array.isArray(project.pages) ? Math.min(project.pages.length, 1000) : 0"), 'External sync must bound the project page count it sends.');
 
+// Regression contracts for the Settings/Profile split-brain and scoped Studio cancellation fixes.
+assert.ok(runtime.includes("const key = 'ovyx.profile.v2.user.' + String(user.uid)")
+  && runtime.includes("displayName ? { name: displayName } : {}")
+  && runtime.includes("workspaceName ? { workspace: workspaceName } : {}"),
+  'Server-backed Profile hydration must update the same UID-scoped cache used by the Profile renderer.');
+assert.ok(html.includes("if(id==='appearance'){this.syncAppearance()}},")
+  && !html.includes("this.syncAppearance();ThemeLab.apply()}"),
+  'Opening Appearance must not overwrite canonical saved colours with a legacy Theme Lab preset.');
+assert.ok(html.includes('id="ws-chat-cancel"')
+  && html.includes("this.cancelActiveAiRun()")
+  && html.includes("button.hidden=!busy"),
+  'Web Studio must expose a mobile-sized Cancel Run control only while an AI request is active.');
+assert.ok(html.includes('rollbackAgentChanges(baseGraph,appliedGraph,originalProject)')
+  && html.includes("this.rollbackAgentChanges(rollbackGraph,appliedGraph,rollbackProject)")
+  && !html.includes("const restoredProjects=JSON.parse(JSON.stringify(rollbackState?.projects||[]))"),
+  'Failed Build/Fix runs must restore only agent-touched files rather than replacing the entire project list.');
+
 console.log('OVYX Settings actions tests passed: server-backed profile and notifications, account and email-scoped cleanup, Brand Identity, live Universal Connection tests, session revocation, usage, workspace toggles, editor mode and AI routing.');
