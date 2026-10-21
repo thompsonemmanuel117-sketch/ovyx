@@ -95,7 +95,12 @@ window.WebStudio = {
   mountFocusedCodeWorkspace:function(){ window.__codeOpenEvents.push({file:'(mount)', projectId:window.KernelState.activeProject.id}); return true; }
 };
 project.ovyxGraph = window.WebStudio.graph;
-window.addEventListener('ovyx:active-web-payload-ready', function(event){ window.__integrationEvents.push({ ...event.detail, globalPayloadAtEvent: !!window.OVYXActiveWebPayload, storagePayloadAtEvent: !!localStorage.getItem('ovyx_active_web_payload'), globalProjectAtEvent: window.OVYXActiveWebPayload?.source?.projectId || '' }); });
+window.addEventListener('ovyx:active-web-payload-ready', function(event){
+  const payload=window.OVYXActiveWebPayload, live=window.WebStudio?.graph, saved=payload?.website?.graph;
+  const livePaths=Object.keys(live?.files||{}).sort(), savedPaths=Object.keys(saved?.files||{}).sort();
+  const text=value=>typeof value==='string'?value:String(value?.content??value?.text??value?.source??value?.code??'');
+  window.__integrationEvents.push({ ...event.detail, globalPayloadAtEvent: !!payload, storagePayloadAtEvent: !!localStorage.getItem('ovyx_active_web_payload'), globalProjectAtEvent: payload?.source?.projectId || '', activeProjectAtEvent:String(window.KernelState?.activeProject?.id||''), liveEntryAtEvent:String(live?.entry||''), savedEntryAtEvent:String(saved?.entry||''), livePathsAtEvent:livePaths, savedPathsAtEvent:savedPaths, contentMismatchesAtEvent:livePaths.filter(path=>savedPaths.includes(path)&&text(live.files[path])!==text(saved.files[path])), payloadAtEvent:payload });
+});
 window.Router = {
   go:function(view){
     window.KernelState.activeView = view;
@@ -152,7 +157,7 @@ try {
     catch (error) { storageReadError = String(error?.message || error); }
     const inMemoryPayload = window.OVYXActiveWebPayload || window.OVYXProjectContext?.activeWebPayload || null;
     return {
-    payload: persistedPayload || inMemoryPayload,
+    payload: persistedPayload || inMemoryPayload || window.__integrationEvents[0]?.payloadAtEvent || null,
     persistedPayload: persistedPayload,
     inMemoryPayload: !!inMemoryPayload,
     storageReadError,
@@ -162,8 +167,9 @@ try {
     event: window.__integrationEvents[0] || null,
     toast: window.__lastToast || null
   }; });
-  if (!transfer.persistedPayload) console.log('App Studio transfer persistence diagnostic: ' + JSON.stringify({memoryPayload:transfer.inMemoryPayload, persistedEvent:transfer.event?.persisted, eventBytes:transfer.event?.bytes, storageReadError:transfer.storageReadError, globalPayloadAtEvent:transfer.event?.globalPayloadAtEvent, storagePayloadAtEvent:transfer.event?.storagePayloadAtEvent, globalProjectAtEvent:transfer.event?.globalProjectAtEvent, pageErrors, toast:transfer.toast}));
+  if (!transfer.persistedPayload) console.log('App Studio transfer persistence diagnostic: ' + JSON.stringify({memoryPayload:transfer.inMemoryPayload, persistedEvent:transfer.event?.persisted, eventBytes:transfer.event?.bytes, storageReadError:transfer.storageReadError, globalPayloadAtEvent:transfer.event?.globalPayloadAtEvent, storagePayloadAtEvent:transfer.event?.storagePayloadAtEvent, globalProjectAtEvent:transfer.event?.globalProjectAtEvent, activeProjectAtEvent:transfer.event?.activeProjectAtEvent, liveEntryAtEvent:transfer.event?.liveEntryAtEvent, savedEntryAtEvent:transfer.event?.savedEntryAtEvent, livePathsAtEvent:transfer.event?.livePathsAtEvent, savedPathsAtEvent:transfer.event?.savedPathsAtEvent, contentMismatchesAtEvent:transfer.event?.contentMismatchesAtEvent, pageErrors, toast:transfer.toast}));
   assert.ok(transfer.payload, 'The live conversion function must expose a reusable App Studio project payload.');
+  assert.ok(transfer.persistedPayload, 'The live handoff must remain in storage after App Studio validates the same project. Diagnostics: ' + JSON.stringify({event:transfer.event,projectId:transfer.globalProjectId,toast:transfer.toast}));
   assert.equal(transfer.payload.kind, 'web-to-mobile-app');
   assert.equal(transfer.payload.source.projectId, 'ovyx-integration-project-42');
   assert.equal(transfer.payload.source.projectName, 'OVYX Shop Project');
