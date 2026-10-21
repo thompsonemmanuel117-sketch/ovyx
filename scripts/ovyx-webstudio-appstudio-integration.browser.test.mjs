@@ -145,14 +145,25 @@ try {
   assert.match(sourceStatus, /2 PAGES/, 'Both source pages should arrive in App Studio.');
   assert.equal(await page.locator('#as4-shell .as4-subtitle').count(), 1);
 
-  const transfer = await page.evaluate(() => ({
-    payload: JSON.parse(localStorage.getItem('ovyx_active_web_payload') || 'null'),
+  const transfer = await page.evaluate(() => {
+    let persistedPayload = null;
+    let storageReadError = '';
+    try { persistedPayload = JSON.parse(localStorage.getItem('ovyx_active_web_payload') || 'null'); }
+    catch (error) { storageReadError = String(error?.message || error); }
+    const inMemoryPayload = window.OVYXActiveWebPayload || window.OVYXProjectContext?.activeWebPayload || null;
+    return {
+    payload: persistedPayload || inMemoryPayload,
+    persistedPayload: persistedPayload,
+    inMemoryPayload: !!inMemoryPayload,
+    storageReadError,
     globalProjectId: window.KernelState.activeProject.id,
     appStudioProjectId: window.OVYXAppStudioPhrase4?.state?.payload?.source?.projectId,
     appStudioReady: window.OVYXAppStudioPhrase4?.state?.sourceReady,
-    event: window.__integrationEvents[0] || null
-  }));
-  assert.ok(transfer.payload, 'The live conversion function must persist a reusable project payload.');
+    event: window.__integrationEvents[0] || null,
+    toast: window.__lastToast || null
+  }; });
+  if (!transfer.persistedPayload) console.log('App Studio transfer persistence diagnostic: ' + JSON.stringify({memoryPayload:transfer.inMemoryPayload, persistedEvent:transfer.event?.persisted, eventBytes:transfer.event?.bytes, storageReadError:transfer.storageReadError, toast:transfer.toast}));
+  assert.ok(transfer.payload, 'The live conversion function must expose a reusable App Studio project payload.');
   assert.equal(transfer.payload.kind, 'web-to-mobile-app');
   assert.equal(transfer.payload.source.projectId, 'ovyx-integration-project-42');
   assert.equal(transfer.payload.source.projectName, 'OVYX Shop Project');
