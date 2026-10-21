@@ -1,8 +1,8 @@
 (function () {
   'use strict';
 
-  if (window.__OVYX_WS_PROJECT_BRANDING_V5__) return;
-  window.__OVYX_WS_PROJECT_BRANDING_V5__ = true;
+  if (window.__OVYX_WS_PROJECT_BRANDING_V6__) return;
+  window.__OVYX_WS_PROJECT_BRANDING_V6__ = true;
 
   var busy = false;
   var resolving = false;
@@ -371,6 +371,71 @@
     }
     return '';
   }
+  function backgroundImageReference(value) {
+    var match = String(value || '').match(/url\(\s*(?:"([^"]*)"|'([^']*)'|([^)]*?))\s*\)/i);
+    if (!match) return '';
+    var reference = clean(match[1] != null ? match[1] : match[2] != null ? match[2] : match[3]).replace(/^['"]|['"]$/g, '');
+    if (!reference || /^(?:blob:|javascript:)/i.test(reference)) return '';
+    return reference;
+  }
+  function elementBrandDescription(element) {
+    if (!element || element.nodeType !== 1) return '';
+    return [
+      element.tagName, element.getAttribute('alt'), element.getAttribute('title'),
+      element.getAttribute('aria-label'), element.getAttribute('class'),
+      element.getAttribute('id'), element.getAttribute('data-testid'),
+      element.getAttribute('data-brand')
+    ].map(clean).join(' ').toLowerCase();
+  }
+  function renderedCssBrandCandidates(doc, first, files) {
+    var candidates = [];
+    if (!doc || !doc.querySelectorAll || !doc.defaultView ||
+        typeof doc.defaultView.getComputedStyle !== 'function') return candidates;
+
+    // Some frameworks paint the actual site mark with CSS backgrounds or
+    // pseudo-elements instead of an <img> or inline <svg>. Only inspect nodes
+    // whose own labels/classes identify them as a brand/logo, avoiding generic
+    // page, hero, and header background images.
+    var selector = '[class], [id], [alt], [title], [aria-label], [data-testid], [data-brand]';
+    Array.prototype.slice.call(doc.querySelectorAll(selector)).forEach(function (element) {
+      var description = elementBrandDescription(element);
+      if (!/(?:logo|wordmark|brand|identity|site[\s_.-]?mark|favicon|monogram|emblem|symbol)/i.test(description)) return;
+
+      var stylePairs = [];
+      try {
+        stylePairs.push({ style: doc.defaultView.getComputedStyle(element), pseudo: false });
+        stylePairs.push({ style: doc.defaultView.getComputedStyle(element, '::before'), pseudo: true });
+        stylePairs.push({ style: doc.defaultView.getComputedStyle(element, '::after'), pseudo: true });
+      } catch (_) { return; }
+
+      stylePairs.forEach(function (pair) {
+        var style = pair.style;
+        if (!style) return;
+        var reference = backgroundImageReference(style.backgroundImage) ||
+          backgroundImageReference(style.content);
+        if (!reference) return;
+        var href = imageHref(first || '', reference, files);
+        if (!href) return;
+
+        var width = parseFloat(style.width);
+        var height = parseFloat(style.height);
+        var score = 155;
+        if (/\b(?:logo|wordmark|brand|identity|favicon|monogram|emblem|symbol)\b/i.test(description)) score += 12;
+        if (Number.isFinite(width) && width > 500) score -= 60;
+        if (Number.isFinite(height) && height > 220) score -= 60;
+        if (pair.pseudo) score += 2;
+        candidates.push({
+          score: score,
+          href: href,
+          asset: null,
+          pagePath: first || '',
+          fromLivePreview: true,
+          fromCssBackground: true
+        });
+      });
+    });
+    return candidates;
+  }
   function livePreviewBrandCandidates(graph, project, first, supplementalAssets) {
     var files = graph && graph.files || {};
     var candidates = [];
@@ -386,6 +451,7 @@
         var rendered = doc.documentElement.outerHTML;
         if (!rendered || !/<head\b/i.test(rendered) || !/<body\b/i.test(rendered)) return;
         var found = listBrandCandidates(first || '', rendered, files, project, true, supplementalAssets);
+        found = found.concat(renderedCssBrandCandidates(doc, first || '', files));
         found.forEach(function (candidate) {
           // Prefer the real, rendered site mark over a fallback asset or a
           // stale favicon reference embedded in source HTML.
