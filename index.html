@@ -11711,6 +11711,16 @@ async function handleConvertToMobileApp(){
   const now=Date.now();
   const project=window.KernelState?.activeProject||{};
   const W=window.WebStudio||{};
+  // Flush the current Code editor into the shared active project before taking
+  // the App Studio conversion snapshot. Editor updates are immediate in the
+  // graph, while the normal project/page save is debounced.
+  try{
+    if(typeof W.ensureProjectGraph==='function')W.ensureProjectGraph();
+    if(typeof W.syncGraphToProject==='function')W.syncGraphToProject(true);
+  }catch(error){
+    console.warn('[OVYX App Studio conversion] latest Code sync failed:',error);
+    throw new Error('The latest website code could not be synchronized. Save your Code changes and try converting again.');
+  }
   function cleanKey(key){return String(key||'').replace(/[^a-zA-Z0-9_$.-]/g,'_').slice(0,180)}
   function isSensitiveKey(key){return /(^|_)(api[_-]?key|access[_-]?token|auth[_-]?token|refresh[_-]?token|secret|password|passwd|authorization|private[_-]?key|service[_-]?account|credential)(_|$)/i.test(String(key||''))}
   function clone(value,seen,depth){
