@@ -91,6 +91,38 @@ try {
     await page.evaluate(() => window.Router.go('settings'));
     await page.locator('#view-settings').waitFor({ state: 'visible' });
 
+    // Regression: Universal Connections must only occupy its own Settings
+    // category and must release all special visibility state on every other tab.
+    const settingsCategories = await page.locator('#view-settings [data-settings-nav]').evaluateAll(nodes =>
+      Array.from(new Set(nodes.map(node => String(node.dataset.settingsNav || '').trim()).filter(Boolean)))
+    );
+    assert.ok(settingsCategories.includes('connections'), '[' + target.name + '] Universal Connections must remain available as a real Settings category.');
+    for (const category of settingsCategories) {
+      await page.evaluate(id => window.OVYXSettings.show(id), category);
+      await page.waitForTimeout(110);
+      const panelState = await page.evaluate(() => {
+        const root = document.getElementById('view-settings');
+        const connection = root?.querySelector('[data-settings-panel="connections"]');
+        const activeNav = root?.querySelector('[data-settings-nav].active');
+        return {
+          current: String(window.OVYXSettings?.current || ''),
+          activeNav: String(activeNav?.dataset.settingsNav || ''),
+          connectionHidden: !!connection?.hidden,
+          connectionActiveClass: !!connection?.classList.contains('is-v91-active'),
+          connectionDisplay: connection ? getComputedStyle(connection).display : 'missing',
+          connectionInlineDisplayPriority: connection?.style.getPropertyPriority('display') || ''
+        };
+      });
+      assert.equal(panelState.current, category, '[' + target.name + '] Selecting ' + category + ' must preserve that selected Settings category.');
+      assert.equal(panelState.activeNav, category, '[' + target.name + '] The active Settings nav must match ' + category + '.');
+      const connectionShouldShow = category === 'connections';
+      assert.equal(panelState.connectionHidden, !connectionShouldShow, '[' + target.name + '] Connections hidden state must match selection of ' + category + '.');
+      assert.equal(panelState.connectionActiveClass, connectionShouldShow, '[' + target.name + '] Connections must not remain active beneath ' + category + '.');
+      assert.equal(panelState.connectionDisplay !== 'none', connectionShouldShow, '[' + target.name + '] Universal Connections must not remain visible outside its own category.');
+      assert.equal(panelState.connectionInlineDisplayPriority, '', '[' + target.name + '] The Connections guard must not pin display with an inline !important override.');
+    }
+
+    await page.evaluate(() => window.OVYXSettings.show('appearance'));
     // Appearance: one click must have one canonical owner, one preview, and no premature storage write.
     await page.evaluate(() => window.OVYXSettings.show('appearance'));
     const appearance = page.locator('[data-settings-panel="appearance"]');
