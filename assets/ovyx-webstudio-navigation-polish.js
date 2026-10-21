@@ -1,10 +1,10 @@
 (function () {
   'use strict';
 
-  if (window.__OVYX_WS_NAV_HEADER_POLISH_V2__) return;
+  if (window.__OVYX_WS_NAV_HEADER_POLISH_V3__) return;
   window.__OVYX_WS_NAV_HEADER_POLISH_V2__ = true;
 
-  var STYLE_ID = 'ovyx-webstudio-navigation-header-polish-v2';
+  var STYLE_ID = 'ovyx-webstudio-navigation-header-polish-v3';
   var bodyObserver = null;
   var viewObserver = null;
   var triggerObserver = null;
@@ -13,7 +13,7 @@
   var lastNavigationState = null;
 
   var CSS = [
-    'body.ovyx-webstudio-active.ovyx-ws-nav-open #view-webstudio .ovyx-ws-header,body.ovyx-webstudio-active.ovyx-ws-mobile-nav-open #view-webstudio .ovyx-ws-header{display:none!important;visibility:hidden!important;pointer-events:none!important;height:0!important;min-height:0!important;border:0!important;padding:0!important;margin:0!important}',
+    'body.ovyx-webstudio-active.ovyx-ws-nav-open #view-webstudio .ovyx-ws-header,body.ovyx-webstudio-active.ovyx-ws-mobile-nav-open #view-webstudio .ovyx-ws-header{visibility:hidden!important;pointer-events:none!important}',
     '@media(max-width:767px){body.ovyx-webstudio-active.ovyx-ws-mobile-nav-open #mobile-drawer{position:fixed!important;inset-block:0!important;top:0!important;bottom:0!important;height:100dvh!important;min-height:100vh!important;max-height:100dvh!important;z-index:2147483001!important}body.ovyx-webstudio-active.ovyx-ws-mobile-nav-open #mobile-drawer-backdrop{position:fixed!important;inset:0!important;top:0!important;bottom:0!important;height:100dvh!important;min-height:100vh!important;max-height:100dvh!important;z-index:2147483000!important}}'
   ].join('\n');
 
@@ -44,6 +44,8 @@
     if (!header || !saved || saved.header !== header) return;
     if (saved.display) header.style.setProperty('display', saved.display, saved.displayPriority);
     else header.style.removeProperty('display');
+    if (saved.visibility) header.style.setProperty('visibility', saved.visibility, saved.visibilityPriority);
+    else header.style.removeProperty('visibility');
     if (saved.ariaHidden === null) header.removeAttribute('aria-hidden');
     else header.setAttribute('aria-hidden', saved.ariaHidden);
     header.inert = saved.inert;
@@ -63,14 +65,18 @@
           header: header,
           display: header.style.getPropertyValue('display'),
           displayPriority: header.style.getPropertyPriority('display'),
+          visibility: header.style.getPropertyValue('visibility'),
+          visibilityPriority: header.style.getPropertyPriority('visibility'),
           ariaHidden: header.getAttribute('aria-hidden'),
           inert: !!header.inert
         };
       }
-      // The direct style is intentional: this follows the real navigation
-      // button's aria-expanded state as well as the body classes, so a CSS
-      // race or a changed sidebar class cannot leave a floating chat header.
-      header.style.setProperty('display', 'none', 'important');
+      // Hide the chat toolbar visually behind navigation without removing
+      // its flex row from the shell. Keeping the original row height prevents
+      // the chat and preview panes from jumping or losing their alignment.
+      // Both the body classes and the real arrow's aria-expanded state are
+      // watched so the toolbar returns exactly as it was when navigation closes.
+      header.style.setProperty('visibility', 'hidden', 'important');
       header.setAttribute('aria-hidden', 'true');
       header.inert = true;
 
