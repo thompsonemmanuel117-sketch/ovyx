@@ -684,7 +684,6 @@
 <button class="ovyx-ws-tool" id="ws-brain-btn" title="Choose OVYX brain" type="button"><i aria-hidden="true" class="fa-solid fa-gear"></i><span id="ws-brain-label">Auto</span></button>
 <button class="ovyx-ws-tool" id="ws-context-btn" title="Project context" type="button"><i aria-hidden="true" class="fa-solid fa-code-branch"></i><span>Project</span></button>
 </div>
-<button aria-label="Cancel current run" class="ovyx-ws-cancel-run" hidden id="ws-chat-cancel" type="button"><i aria-hidden="true" class="fa-solid fa-stop"></i><span>Cancel run</span></button>
 <button aria-label="Send prompt" class="ovyx-ws-send" disabled="" id="ws-chat-send" type="button">↑</button>
 </div>
 </div>
@@ -2714,7 +2713,6 @@
         });
         input?.addEventListener('keydown', event => { if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') { event.preventDefault(); this.submitPrompt(); } });
         send?.addEventListener('click', () => this.submitPrompt());
-        document.getElementById('ws-chat-cancel')?.addEventListener('click', () => this.cancelActiveAiRun());
         document.getElementById('ws-attach-btn')?.addEventListener('click', () => document.getElementById('ws-attach-input')?.click());
         document.getElementById('ws-attach-input')?.addEventListener('change', event => this.setAttachments([...event.target.files || []]));
         document.getElementById('ws-brain-btn')?.addEventListener('click', () => {
@@ -2921,7 +2919,6 @@
         return `<svg class="ovyx-ws-agent-logo" viewBox="0 0 64 64" width="28" height="28" role="img" aria-label="OVYX Agent" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="${id}" x1="0" y1="1" x2="1" y2="0"><stop offset="0%" stop-color="#D69A2D"/><stop offset="55%" stop-color="#F59E0B"/><stop offset="100%" stop-color="#FFE29A"/></linearGradient></defs><path d="M32 5L55 18.5V45.5L32 59L9 45.5V18.5L32 5Z" fill="none" stroke="url(#${id})" stroke-width="6.5" stroke-linejoin="round"/><path d="M32 18L44 25V39L32 46L20 39V25L32 18Z" fill="none" stroke="url(#${id})" stroke-width="6.5" stroke-linejoin="round"/></svg>`;
       },
       renderThread(){
-        this.syncRunActions?.();
         const el=document.getElementById('ws-agent-thread');
         if(!el)return;
         /* Preserve the reader's position. Re-rendering used to force the chat to
@@ -2990,18 +2987,6 @@
       },
       isRequestCurrent(token){return Number(token)===Number(this.requestEpoch)&&!this.aiFrozen;},
       abortActiveAi(){try{this.activeAbortController?.abort?.()}catch(_){ }this.activeAbortController=null;},
-      syncRunActions(){
-        const button=document.getElementById('ws-chat-cancel');if(!button)return;
-        const busy=Boolean(this.pendingBuild);button.hidden=!busy;button.disabled=!busy;button.setAttribute('aria-hidden',String(!busy));
-      },
-      cancelActiveAiRun(){
-        if(!this.pendingBuild&&!this.activeAbortController)return false;
-        this.abortActiveAi();this.requestEpoch+=1;this.aiFrozen=true;this.pendingBuild=false;this.liveAiActive=false;
-        const hint=document.getElementById('ws-mode-hint');if(hint)hint.textContent='Run cancelled. Your existing project files were kept.';
-        this.syncRunActions();this.renderThread();
-        try{window.showToast?.('Run cancelled. Your existing project has been kept.','info')}catch(_){}
-        return true;
-      },
       prepareComposerForEdit(text){
         const input=document.getElementById('ws-chat-input');if(!input)return;
         input.value=String(text||'');input.style.height='auto';input.style.height=Math.min(Math.max(input.scrollHeight,82),220)+'px';
@@ -16134,13 +16119,6 @@ window.addEventListener('orientationchange',syncNavigation,{passive:true});
 @media(prefers-reduced-motion:reduce){.ovyx-toast,.ovyx-toast.is-leaving{animation:none;opacity:1;transform:none;filter:none}}
 </style>
 <script defer src="/assets/ovyx-settings-reliability.js?v=20261018-2"></script>
-<style id="ovyx-safe-run-cancel-style">
-#ws-chat-cancel{min-height:36px;align-items:center;justify-content:center;gap:7px;padding:0 11px;border:1px solid var(--border,rgba(255,255,255,.15));border-radius:10px;background:var(--card,#0B0D10);color:var(--text,#F8FAFC);font:700 11px Inter,system-ui,sans-serif;touch-action:manipulation}
-#ws-chat-cancel:not([hidden]){display:inline-flex}
-#ws-chat-cancel[hidden]{display:none!important}
-#ws-chat-cancel:disabled{opacity:.6;cursor:default}
-@media(max-width:767px){#ws-chat-cancel{min-height:44px;padding:0 10px;font-size:10px;white-space:nowrap}}
-</style>
 </body>
 </html>
 
