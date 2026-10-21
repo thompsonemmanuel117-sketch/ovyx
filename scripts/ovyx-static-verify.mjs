@@ -200,9 +200,12 @@ if (fs.existsSync(shellMiddlewarePath)) {
   if (
     !shellMiddleware.includes("assets/ovyx-launch-polish.js") ||
     !shellMiddleware.includes('new HTMLRewriter()') ||
-    !shellMiddleware.includes("url.pathname !== '/'")
+    !shellMiddleware.includes("url.pathname.toLowerCase().endsWith('/favicon.ico')") ||
+    !shellMiddleware.includes("if (!contentType.includes('text/html')) return response;") ||
+    !shellMiddleware.includes("headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')") ||
+    shellMiddleware.includes("url.pathname !== '/' && url.pathname !== '/index.html'")
   ) {
-    errors.push('functions/_middleware.js: launch runtime must be injected only into the application HTML shell.');
+    errors.push('functions/_middleware.js: the OVYX shell must enforce the canonical favicon, handle the browser favicon fallback, and rewrite uncached HTML routes without a root-only bypass.');
   }
 } else {
   errors.push('functions/_middleware.js: application-shell launch runtime middleware is missing.');
