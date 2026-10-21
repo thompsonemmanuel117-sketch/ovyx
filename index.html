@@ -11722,6 +11722,13 @@ async function handleConvertToMobileApp(){
     throw new Error('The latest website code could not be synchronized. Save your Code changes and try converting again.');
   }
   function cleanKey(key){return String(key||'').replace(/[^a-zA-Z0-9_$.-]/g,'_').slice(0,180)}
+  function cleanFilePath(value){
+    const raw=String(value||'').trim().replace(/\\\\/g,'/');
+    if(!raw||raw.startsWith('/')||/^[a-z]:/i.test(raw)||/[\\u0000-\\u001f\\u007f]/.test(raw))return '';
+    const parts=raw.split('/');
+    if(parts.some(function(part){return !part||part==='.'||part==='..'||part==='__proto__'||part==='constructor'||part==='prototype'}))return '';
+    return parts.join('/');
+  }
   function isSensitiveKey(key){return /(^|_)(api[_-]?key|access[_-]?token|auth[_-]?token|refresh[_-]?token|secret|password|passwd|authorization|private[_-]?key|service[_-]?account|credential)(_|$)/i.test(String(key||''))}
   function clone(value,seen,depth){
     if(value===null||typeof value!=='object'){
@@ -11737,7 +11744,31 @@ async function handleConvertToMobileApp(){
     const out={};
     Object.keys(value).forEach(function(key){
       if(isSensitiveKey(key))return;
-      try{out[cleanKey(key)]=clone(value[key],seen,depth+1)}catch(_){out[cleanKey(key)]='[OVYX_UNSERIALIZABLE]'}
+      const safeKey=cleanKey(key);
+      try{
+        // File names are project data, not object property labels. Preserve valid
+        // relative paths so src/pages/Home.html survives transfer into App Studio.
+        if(key==='files'&&value[key]&&typeof value[key]==='object'&&!Array.isArray(value[key])){
+          const fileMap=Object.create(null);
+          const sourceFiles=value[key];
+          if(seen.has(sourceFiles)){Object.defineProperty(out,safeKey,{value:'[OVYX_CIRCULAR_REFERENCE]',enumerable:true,configurable:true,writable:true});return;}
+          seen.add(sourceFiles);
+          Object.keys(sourceFiles).forEach(function(rawPath){
+            const path=cleanFilePath(rawPath);
+            if(!path)return;
+            try{
+              Object.defineProperty(fileMap,path,{value:clone(sourceFiles[rawPath],seen,depth+2),enumerable:true,configurable:true,writable:true});
+            }catch(_){
+              Object.defineProperty(fileMap,path,{value:'[OVYX_UNSERIALIZABLE]',enumerable:true,configurable:true,writable:true});
+            }
+          });
+          Object.defineProperty(out,safeKey,{value:fileMap,enumerable:true,configurable:true,writable:true});
+          return;
+        }
+        Object.defineProperty(out,safeKey,{value:clone(value[key],seen,depth+1),enumerable:true,configurable:true,writable:true});
+      }catch(_){
+        Object.defineProperty(out,safeKey,{value:'[OVYX_UNSERIALIZABLE]',enumerable:true,configurable:true,writable:true});
+      }
     });
     return out;
   }
