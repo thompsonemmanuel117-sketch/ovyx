@@ -111,7 +111,7 @@ try {
   await page.locator('#ws-sidebar-trigger').click();
   await page.waitForFunction(() => document.body.classList.contains('ovyx-ws-nav-open') && document.querySelector('#ws-sidebar-trigger')?.getAttribute('aria-expanded') === 'true');
   assert.equal(await page.locator('#view-webstudio .ovyx-ws-header').evaluate(el => getComputedStyle(el).display), 'none', 'The chat header must be fully hidden when the actual desktop project drawer opens.');
-  await page.locator('#ws-sidebar-trigger').click();
+  await page.keyboard.press('Escape');
   await page.waitForFunction(() => !document.body.classList.contains('ovyx-ws-nav-open') && document.querySelector('#ws-sidebar-trigger')?.getAttribute('aria-expanded') === 'false');
   assert.notEqual(await page.locator('#view-webstudio .ovyx-ws-header').evaluate(el => getComputedStyle(el).display), 'none', 'The chat header must return after the desktop drawer closes.');
 
@@ -126,7 +126,7 @@ try {
   const mobileBackdropBox = await page.locator('#mobile-drawer-backdrop').evaluate(el => ({ top: el.getBoundingClientRect().top, height: el.getBoundingClientRect().height }));
   assert.equal(mobileBackdropBox.top, 0, 'The mobile backdrop must cover the top edge as well.');
   assert.ok(mobileBackdropBox.height >= 843, 'The mobile backdrop must cover the full visible viewport.');
-  await page.locator('#ws-sidebar-trigger').click();
+  await page.keyboard.press('Escape');
   await page.waitForFunction(() => !document.body.classList.contains('ovyx-ws-mobile-nav-open') && document.querySelector('#ws-sidebar-trigger')?.getAttribute('aria-expanded') === 'false');
   assert.notEqual(await page.locator('#view-webstudio .ovyx-ws-header').evaluate(el => getComputedStyle(el).display), 'none', 'The chat header must return after the mobile drawer closes.');
   await page.setViewportSize({ width: 1440, height: 900 });
