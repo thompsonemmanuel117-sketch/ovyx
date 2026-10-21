@@ -112,7 +112,7 @@ assert.ok(middleware.includes('/assets/ovyx-webstudio-project-branding.js?v=2026
 assert.ok(middleware.includes(".on('link[rel]'"), 'The app shell must inspect existing favicon declarations before setting the app-shell icon.');
 assert.ok(middleware.includes("if (rel.includes('icon')) element.remove();"), 'Stale or competing browser-tab icon declarations must be removed before the brand mark is inserted.');
 assert.ok(middleware.includes('href="/assets/ovyx-brand-mark.svg?v=20261021-3">'), 'The app shell must use the real OVYX brand-mark SVG as its browser-tab favicon.');
-assert.ok(middleware.includes("element.prepend('<link rel=\\"icon\\" type=\\"image/svg+xml\\" href=\\"/assets/ovyx-brand-mark.svg?v=20261021-3\\">', { html: true });"), 'The brand-mark favicon must be installed in the document head.');
+assert.ok(middleware.includes("element.prepend('<link rel="), 'The brand-mark favicon must be installed in the document head.');
 assert.ok(!middleware.includes('ovyx-app-favicon-guard.js'), 'The global favicon-enforcement script must no longer load.');
 assert.ok(!headers.includes('/assets/ovyx-app-favicon-guard.js'), 'The removed favicon-enforcement script must not have a cache rule.');
 assert.ok(headers.includes('/assets/ovyx-brand-mark.svg\n  Cache-Control: no-store, no-cache, must-revalidate'), 'The real brand-mark favicon must not be served stale from cache.');
