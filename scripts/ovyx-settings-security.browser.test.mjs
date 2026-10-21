@@ -231,8 +231,11 @@ try {
     nextReply = {
       status: 200,
       body: {
-        ok: true, authenticated: true, revoked: true, reauthenticationRequired: true,
-        message: 'All Firebase refresh-token sessions were revoked.',
+        ok: true, authenticated: true, revoked: true,
+        revokedAt: Math.floor(Date.now() / 1000),
+        reauthenticationRequired: true,
+        message: 'All Firebase refresh-token sessions were revoked. Sign in again on this device to create a new session.',
+        authority: 'SERVER',
       },
     };
     responseWait = page.waitForResponse(r =>
