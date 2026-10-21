@@ -7,11 +7,13 @@ import { chromium } from 'playwright';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const runtimePath = path.join(root, 'assets/ovyx-webstudio-quality.js');
 const navigationPolishPath = path.join(root, 'assets/ovyx-webstudio-navigation-polish.js');
+const projectBrandingPath = path.join(root, 'assets/ovyx-webstudio-project-branding.js');
 const fullstackRuntimePath = path.join(root, 'assets/ovyx-webstudio-fullstack-upgrade.js');
 const exportRuntimePath = path.join(root, 'assets/ovyx-webstudio-project-export.js');
 const researchRuntimePath = path.join(root, 'assets/ovyx-webstudio-research.js');
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+const brandingPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
 const pageErrors = [];
 page.on('pageerror', error => pageErrors.push(error.message));
 
@@ -26,6 +28,42 @@ const scriptJSON = value => JSON.stringify(value).replace(/</g, '\\u003c');
 const fixture = '<!doctype html><html lang="en"><head><title>OVYX Web Studio quality fixture</title></head><body><section id="view-webstudio" aria-hidden="false"><header class="ovyx-ws-header"><div class="ovyx-ws-header-actions"><button id="ws-preview-trigger" type="button">Preview</button></div></header><div id="ws-inline-preview"><div id="ws-console-body"></div></div></section><script>window.KernelState={activeView:"webstudio",activeProject:{id:"quality-test-project",name:"Quality test site",description:"A test website",pages:[{name:"Home",route:"/",__ovyxFile:"src/pages/Home.html"},{name:"About",route:"/about/",__ovyxFile:"src/pages/About.html"},{name:"Contact",route:"/contact/",__ovyxFile:"src/pages/Contact.html"}],ovyxBuildState:"verified",ovyxBuildVerifiedAt:"2000-01-01T00:00:00.000Z"},projects:[]};window.KernelState.projects=[window.KernelState.activeProject];window.ProjectStore={save:function(){},renderHome:function(){},renderProjects:function(){}};window.__copiedQualitySummary=\"\";try{Object.defineProperty(navigator,\"clipboard\",{configurable:true,value:{writeText:async function(value){window.__copiedQualitySummary=String(value)}}})}catch(e){};window.__qualityRepairCalls=[];window.__qualityToasts=[];window.__previewPublishRecords=[];window.__qualityTimeline=[];window.addEventListener("ovyx:webstudio-build-stage",function(event){window.__qualityTimeline.push({kind:"stage",stage:event.detail&&event.detail.stage})});window.addEventListener("ovyx:webstudio-quality-report",function(event){var report=event.detail||{};window.__qualityTimeline.push({kind:"report",gatePassed:(report.checks||[]).some(function(item){return item.group==="Automatic build gate"&&item.status==="pass"})})});window.showToast=function(message,kind){window.__qualityToasts.push({message:String(message),kind:String(kind||"")})};window.WebStudio={graph:{version:2,entry:"src/pages/Home.html",files:{"src/pages/Home.html":{type:"text/html",content:""},"src/pages/About.html":{type:"text/html",content:""},"src/pages/Contact.html":{type:"text/html",content:""},"src/styles.css":{type:"text/css",content:""},"src/main.js":{type:"text/javascript",content:""}},updatedAt:Date.now()},requestEpoch:1,historyStack:[],historyPointer:-1,graphKeyPrefix:"quality-test.",ensureProjectGraph:function(){return this.graph},snapshotGraph:function(){return JSON.parse(JSON.stringify(this.graph))},diffFiles:function(a,b){var A=a&&a.files||{},B=b&&b.files||{};return Array.from(new Set(Object.keys(A).concat(Object.keys(B)))).filter(function(k){var av=typeof A[k]==="string"?A[k]:A[k]&&A[k].content||"";var bv=typeof B[k]==="string"?B[k]:B[k]&&B[k].content||"";return av!==bv})},runTests:function(){return {ok:true,summary:"Source checks passed.",details:"No source issues."}},syncGraphToProject:function(){window.KernelState.activeProject.ovyxGraph=this.graph},renderPreview:function(){var report=window.OVYXWebStudioQuality&&window.OVYXWebStudioQuality.getReport();var record={kind:"preview",aboutContent:this.graph.files["src/pages/About.html"].content,qualityPassed:!!report&&report.status==="pass",gatePassed:!!report&&(report.checks||[]).some(function(item){return item.group==="Automatic build gate"&&item.status==="pass"})};window.__previewPublishRecords.push(record);window.__qualityTimeline.push({kind:"preview",gatePassed:record.gatePassed})},render:function(){},runBuildAgent:async function(prompt,repair,token,attachments,rollback){window.__qualityRepairCalls.push({prompt:String(prompt),repair:repair===true,token:token});var about=this.graph.files["src/pages/About.html"];about.content=repair===true?about.content.replace("width:1100px;max-width:none","width:100%;max-width:100%"):about.content.replace("width:100%;max-width:100%","width:1100px;max-width:none");window.KernelState.activeProject.ovyxGraph=this.graph;window.KernelState.activeProject.ovyxBuildState="verified";window.KernelState.activeProject.ovyxBuildVerifiedAt=new Date(Date.now()+5).toISOString();this.renderPreview();return {ok:true}}};window.WebStudio.graph.files["src/pages/Home.html"].content=' + scriptJSON(home) + ';window.WebStudio.graph.files["src/pages/About.html"].content=' + scriptJSON(about) + ';window.WebStudio.graph.files["src/pages/Contact.html"].content=' + scriptJSON(contact) + ';window.WebStudio.graph.files["src/styles.css"].content=' + scriptJSON(css) + ';window.WebStudio.graph.files["src/main.js"].content=' + scriptJSON(js) + ';window.KernelState.activeProject.ovyxGraph=window.WebStudio.graph;</script></body></html>';
 
 try {
+  // A saved project's browser-tab icon must be derived from that project's
+  // own logo, never from OVYX's global application icon.
+  const projectIndex = '<!doctype html><html lang="en"><head><title>OVYX — Industrial</title><link rel="icon" href="/assets/ovyx-brand-mark.svg"></head><body><header><img class="brand-logo" alt="Industrial logo" src="assets/industrial-logo.svg"><h1>OVYX Industrial</h1></header><main id="keep-me">Keep this project content.</main></body></html>';
+  const projectAbout = '<!doctype html><html lang="en"><head><title>About — Industrial</title><link rel="icon" href="/assets/ovyx-brand-mark.svg"></head><body><header><img class="brand-logo" alt="Industrial logo" src="assets/industrial-logo.svg"></header><main id="about-keep">Keep the about page too.</main></body></html>';
+  const industrialLogo = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#d8a93e" d="M24 3 45 24 24 45 3 24Z"/><circle cx="24" cy="24" r="8" fill="#111827"/></svg>';
+  const brandingFixture = '<!doctype html><html lang="en"><head><title>Brand correction fixture</title></head><body><main>Branding runtime test.</main><script>window.__projectSaveCount=0;window.KernelState={activeProject:{id:"industrial-project",name:"OVYX Industrial",pages:[{name:"Home",route:"/",__ovyxFile:"index.html"}]},projects:[]};window.WebStudio={graph:{version:2,entry:"index.html",files:{"index.html":{type:"text/html",content:' + scriptJSON(projectIndex) + '},"about.html":{type:"text/html",content:' + scriptJSON(projectAbout) + '},"assets/industrial-logo.svg":{type:"image/svg+xml",content:' + scriptJSON(industrialLogo) + '}},updatedAt:1},syncGraphToProject:function(){window.KernelState.activeProject.ovyxGraph=this.graph}};window.KernelState.activeProject.ovyxGraph=window.WebStudio.graph;window.ProjectStore={save:function(){window.__projectSaveCount+=1}};</script></body></html>';
+  await brandingPage.setContent(brandingFixture, { waitUntil: 'domcontentloaded' });
+  await brandingPage.addScriptTag({ path: projectBrandingPath });
+  await brandingPage.waitForFunction(() => window.WebStudio.graph.files['index.html'].content.includes('data:image/svg+xml;charset=utf-8,'));
+  const projectBranding = await brandingPage.evaluate(() => ({
+    index: window.WebStudio.graph.files['index.html'].content,
+    about: window.WebStudio.graph.files['about.html'].content,
+    saveCount: window.__projectSaveCount
+  }));
+  assert.match(projectBranding.index, /data:image\/svg\+xml;charset=utf-8,/, 'The project favicon must use the logo SVG found in the project graph.');
+  assert.match(projectBranding.index, /id="keep-me"/, 'Favicon correction must preserve the generated page content.');
+  assert.match(projectBranding.about, /id="about-keep"/, 'The correction must preserve sibling project pages.');
+  assert.doesNotMatch(projectBranding.index, /href="\/assets\/ovyx-brand-mark\.svg"/, 'A project page must not keep the OVYX platform mark as its favicon after a project-owned logo is found.');
+  assert.equal(projectBranding.saveCount, 1, 'The changed project graph must be saved once.');
+
+  // If a project has no detectable own logo, leave its favicon and files alone
+  // rather than guessing or replacing it with another OVYX platform asset.
+  await brandingPage.evaluate(() => {
+    const graph = { version: 2, entry: 'index.html', files: {
+      'index.html': { type: 'text/html', content: '<!doctype html><html lang="en"><head><title>No logo</title><link rel="icon" href="/assets/ovyx-brand-mark.svg"></head><body><main id="untouched">No logo present.</main></body></html>' }
+    }, updatedAt: 2 };
+    window.WebStudio.graph = graph;
+    window.KernelState.activeProject.ovyxGraph = graph;
+    window.dispatchEvent(new Event('ovyx:project-loaded'));
+  });
+  await brandingPage.waitForTimeout(120);
+  const noLogo = await brandingPage.evaluate(() => ({ html: window.WebStudio.graph.files['index.html'].content, saveCount: window.__projectSaveCount }));
+  assert.match(noLogo.html, /href="\/assets\/ovyx-brand-mark\.svg"/, 'A project without its own logo must not be assigned a guessed favicon.');
+  assert.match(noLogo.html, /id="untouched"/, 'A project without a logo must remain unchanged.');
+  assert.equal(noLogo.saveCount, 1, 'An unchanged project must not be saved as if it had been modified.');
+
   await page.setContent(fixture, { waitUntil: 'domcontentloaded' });
   await page.addScriptTag({ path: runtimePath });
   await page.addScriptTag({ path: navigationPolishPath });
