@@ -126,7 +126,7 @@ assert.equal(externalAssetRequests, 0, 'The probe must reject cross-origin runti
 
 const missingCancelRuntime = await probeApplicationShell('https://production-fixture.pages.dev', async input => {
   const url = new URL(input);
-  if (url.pathname === '/') return new Response(shellHtml.replace(/<script[^>]+ovyx-webstudio-cancel-safety\\.js[^>]*><\\/script>/, ''), { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } });
+  if (url.pathname === '/') return new Response(shellHtml.replace(/<script[^>]+ovyx-webstudio-cancel-safety\.js[^>]*><\/script>/, ''), { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } });
   if (url.pathname === '/ovyx-tab-v6.svg' || url.pathname === '/favicon.ico') return healthyFetch(input);
   const source = expectedRuntimeSources[url.pathname];
   if (source) return new Response(source, { status: 200, headers: { 'content-type': 'text/javascript; charset=utf-8' } });
