@@ -384,7 +384,7 @@
     var candidates = [];
     if (!doc || !doc.querySelectorAll) return candidates;
     Array.prototype.slice.call(doc.querySelectorAll('link[rel]')).forEach(function (link) {
-      var rel = clean(link.getAttribute('rel')).toLowerCase().split(/\s+/);
+      var rel = clean(link.getAttribute('rel')).toLowerCase().split(/\s+/).filter(Boolean);
       if (rel.indexOf('icon') < 0) return;
       var reference = clean(link.getAttribute('href'));
       if (!reference || isPlatformLogo(reference)) return;
@@ -511,7 +511,7 @@
     if (!href || !/<head\b/i.test(html)) return html;
     var found = false;
     var next = html.replace(/<link\b[^>]*>/gi, function (tag) {
-      var rel = readAttribute(tag, 'rel').toLowerCase().split(/\s+/);
+      var rel = readAttribute(tag, 'rel').toLowerCase().split(/\s+/).filter(Boolean);
       if (rel.indexOf('icon') < 0) return tag;
       found = true;
       return setHref(tag, href);
