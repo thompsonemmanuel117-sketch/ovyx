@@ -282,19 +282,26 @@ assert.ok(runtime.includes('function syncLocalProfileCache(profile, updatedAt, u
 assert.ok(html.includes("if(id==='appearance'){this.syncAppearance()}},")
   && !html.includes("this.syncAppearance();ThemeLab.apply()}"),
   'Opening Appearance must not overwrite canonical saved colours with a legacy Theme Lab preset.');
-assert.ok(middleware.includes('/assets/ovyx-webstudio-cancel-safety.js?v=20261021-1'),
+assert.ok(middleware.includes('/assets/ovyx-webstudio-cancel-safety.js?v=20261021-2'),
   'The app shell must load the shared Web Studio task-cancellation module.');
 assert.ok(cancelSafetyRuntime.includes("button.id = 'ws-task-cancel'"),
   'The shared cancellation module must create one touch-friendly Cancel control.');
-assert.ok(cancelSafetyRuntime.includes('studio.cancelActiveTask = function ()')
-  && cancelSafetyRuntime.includes('restoreProjectOnly(this, snapshot, taskProjectWasActive)'),
-  'Cancel must roll back only the active task project.');
+assert.ok(cancelSafetyRuntime.includes('const cancelActiveTask = function ()')
+  && cancelSafetyRuntime.includes('restoreProjectOnly(activeStudio, snapshot, taskProjectWasActive)'),
+  'Cancel must restore only the affected task project through the currently active Studio instance.');
+assert.ok(cancelSafetyRuntime.includes('__OVYX_WEBSTUDIO_TASK_SESSION_V2__')
+  && cancelSafetyRuntime.includes('taskSession.snapshot'),
+  'Rollback ownership must survive WebStudio object replacement during hydration or rendering.');
+assert.ok(cancelSafetyRuntime.includes('window.setInterval(function ()')
+  && cancelSafetyRuntime.includes('install(studio)'),
+  'The cancellation guard must rebind after the app replaces its WebStudio controller or agent methods.');
 assert.ok(cancelSafetyRuntime.includes('function taskIsRunning(studio)')
   && cancelSafetyRuntime.includes('Number(studio.__ovyxTaskInFlightCount || 0) > 0'),
   'Cancel visibility must follow the tracked async task even if a mobile handler clears pendingBuild early.');
-assert.ok(cancelSafetyRuntime.includes('this.__ovyxTaskGeneration = Number(this.__ovyxTaskGeneration || 0) + 1')
-  && cancelSafetyRuntime.includes('activeController.abort()'),
-  'Cancel must invalidate stale promise callbacks and abort the captured controller even if the app helper drops its reference.');
+assert.ok(cancelSafetyRuntime.includes('taskSession.generation = Number(taskSession.generation || 0) + 1')
+  && cancelSafetyRuntime.includes('controllers.forEach(function (controller)')
+  && cancelSafetyRuntime.includes("candidate.abortActiveAi && candidate.abortActiveAi()"),
+  'Cancel must invalidate stale callbacks and abort every captured request controller, including when Studio was replaced.');
 assert.ok(cancelSafetyRuntime.includes('releaseComposerBusyState()')
   && cancelSafetyRuntime.includes("send.removeAttribute('aria-busy')"),
   'Cancel must release composer busy indicators instead of leaving the mobile UI stuck.');
