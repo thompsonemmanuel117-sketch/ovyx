@@ -237,7 +237,7 @@
     return null;
   }
   function readAttribute(tag, name) {
-    var match = tag.match(new RegExp('\\b' + name + '\\s*=\\s*(?:"([^"]*)"|\\'([^\\']*)\\'|([^\\s>]+))', 'i'));
+    var match = tag.match(new RegExp("\\b" + name + "\\s*=\\s*(?:\"([^\"]*)\"|'([^']*)'|([^\\s>]+))", "i"));
     return match ? (match[1] != null ? match[1] : match[2] != null ? match[2] : match[3] || '') : '';
   }
   function setHref(tag, href) {
