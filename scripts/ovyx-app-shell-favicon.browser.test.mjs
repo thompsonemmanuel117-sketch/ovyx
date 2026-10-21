@@ -37,7 +37,7 @@ try {
   });
   await page.waitForFunction(() => {
     const icons = Array.from(document.head.querySelectorAll('link[rel]')).filter(link =>
-      String(link.rel || '').toLowerCase().split(/\\s+/).includes('icon'));
+      String(link.rel || '').toLowerCase().split(/\s+/).includes('icon'));
     return icons.length === 1 &&
       icons[0].getAttribute('rel') === 'icon' &&
       icons[0].getAttribute('type') === 'image/svg+xml' &&
