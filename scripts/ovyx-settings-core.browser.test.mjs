@@ -91,6 +91,18 @@ try {
     await page.evaluate(() => window.Router.go('settings'));
     await page.locator('#view-settings').waitFor({ state: 'visible' });
 
+    // The visible Settings Profile panel must have one renderer and one set of
+    // identity fields; the retired form must not reappear after boot/refresh.
+    await page.evaluate(() => window.OVYXSettings.show('profile'));
+    await page.locator('#view-settings [data-settings-panel="profile"] #set-profile-name').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#view-settings [data-settings-panel="profile"]').count(), 1,
+      '[' + target.name + '] Settings must contain exactly one Profile panel.');
+    assert.equal(await page.locator('#view-settings [data-settings-panel="profile"] #set-profile-name').count(), 1,
+      '[' + target.name + '] Profile must expose exactly one canonical display-name field.');
+    assert.equal(await page.locator('#view-settings #set-profile-name-legacy').count(), 0,
+      '[' + target.name + '] Retired legacy Profile field must not compete with the current Profile renderer.');
+    await page.evaluate(() => window.OVYXSettings.show('general'));
+
     // Regression: Universal Connections must only occupy its own Settings
     // category and must release all special visibility state on every other tab.
     const settingsCategories = await page.locator('#view-settings [data-settings-nav]').evaluateAll(nodes =>
@@ -184,8 +196,13 @@ try {
       window.__settingsAppearanceCanonicalizedEvents.length = 0;
     });
     await appearance.locator('[data-mode="light"]').click();
+    await appearance.locator('[data-theme-hex="accent"]').fill('#12AB34');
+    await appearance.locator('[data-theme-hex="accent"]').dispatchEvent('change');
+    await page.waitForFunction(() => window.ThemeContext?.get?.().accentColor === '#12AB34', null, { timeout: 10000 });
     await appearance.locator('[data-appearance-save]').click();
-    await page.waitForFunction(() => window.ThemeContext?.isDirty?.() === false && window.ThemeContext?.getSaved?.().mode === 'light', null, { timeout: 15000 });
+    await page.waitForFunction(() => window.ThemeContext?.isDirty?.() === false
+      && window.ThemeContext?.getSaved?.().mode === 'light'
+      && window.ThemeContext?.getSaved?.().accentColor === '#12AB34', null, { timeout: 15000 });
     assert.equal((await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx-theme') || '{}'))).mode, 'light',
       '[' + target.name + '] Save Appearance must persist the preview.');
     events = await page.evaluate(() => ({
@@ -195,6 +212,14 @@ try {
     assert.equal(events.applied.filter(reason => reason === 'save').length, 1,
       '[' + target.name + '] Save Appearance must write/apply exactly once.');
 
+    // Reopening Appearance must read the saved canonical theme instead of
+    // forcing the previous Theme Lab preset over the user's custom colour.
+    await page.evaluate(() => window.OVYXSettings.show('privacy'));
+    await page.evaluate(() => window.OVYXSettings.show('appearance'));
+    await page.waitForFunction(() => window.ThemeContext?.isDirty?.() === false
+      && window.ThemeContext?.get?.().accentColor === '#12AB34', null, { timeout: 10000 });
+    assert.equal((await page.evaluate(() => JSON.parse(localStorage.getItem('ovyx-theme') || '{}'))).accentColor, '#12AB34',
+      '[' + target.name + '] Opening Appearance must preserve the saved custom accent.');
     await page.evaluate(() => window.OVYXSettings.show('privacy'));
     const resetButton = page.locator('[data-settings-panel="privacy"] [data-clear-appearance]');
     await resetButton.waitFor({ state: 'visible' });
