@@ -1,14 +1,68 @@
 (function () {
   'use strict';
 
-  if (window.__OVYX_WS_PROJECT_BRANDING_V3__) return;
-  window.__OVYX_WS_PROJECT_BRANDING_V2__ = true;
+  if (window.__OVYX_WS_PROJECT_BRANDING_V4__) return;
+  window.__OVYX_WS_PROJECT_BRANDING_V4__ = true;
 
   var busy = false;
   var resolving = false;
   var scheduled = false;
   var attempts = 0;
   var uploadedAssetCache = Object.create(null);
+  var tabFaviconState = null;
+
+  function restoreTabFavicon() {
+    var saved = tabFaviconState;
+    if (!saved) return;
+    saved.links.forEach(function (item) {
+      if (!item.element) return;
+      if (item.href === null) item.element.removeAttribute('href');
+      else item.element.setAttribute('href', item.href);
+    });
+    if (saved.createdLink && saved.createdLink.parentNode) {
+      saved.createdLink.parentNode.removeChild(saved.createdLink);
+    }
+    tabFaviconState = null;
+  }
+
+  function syncTabFavicon(href, projectId) {
+    var body = document.body;
+    var head = document.head;
+    if (!href || !projectId || !body || !head ||
+        !body.classList.contains('ovyx-webstudio-active')) {
+      restoreTabFavicon();
+      return;
+    }
+
+    if (tabFaviconState && tabFaviconState.projectId !== projectId) {
+      restoreTabFavicon();
+    }
+
+    if (!tabFaviconState) {
+      var icons = Array.prototype.slice.call(document.querySelectorAll('link[rel~="icon"]'));
+      var createdLink = null;
+      if (!icons.length) {
+        createdLink = document.createElement('link');
+        createdLink.rel = 'icon';
+        createdLink.setAttribute('data-ovyx-project-favicon', 'true');
+        head.appendChild(createdLink);
+      }
+      tabFaviconState = {
+        projectId: projectId,
+        links: icons.map(function (element) {
+          return { element: element, href: element.getAttribute('href') };
+        }),
+        createdLink: createdLink
+      };
+    }
+
+    if (tabFaviconState.createdLink) {
+      tabFaviconState.createdLink.setAttribute('href', href);
+    }
+    tabFaviconState.links.forEach(function (item) {
+      item.element.setAttribute('href', href);
+    });
+  }
 
   function clean(value) {
     return String(value == null ? '' : value).replace(/[\u0000-\u001f\u007f]/g, '').trim();
@@ -433,17 +487,22 @@
   async function applyProjectBranding() {
     if (busy || resolving) return false;
     var context = activeContext();
-    if (!context) return false;
+    if (!context) { restoreTabFavicon(); return false; }
     var paths = fileList(context.graph);
-    if (!paths.length) return false;
+    if (!paths.length) { restoreTabFavicon(); return false; }
     var first = primaryPath(context.graph, context.project, paths);
     var ordered = first ? [first].concat(paths.filter(function (path) { return path !== first; })) : paths.slice();
     resolving = true;
     try {
       var href = await findBrandHref(context.graph, context.project, ordered, first);
-      if (!href) return false;
+      if (!href) { restoreTabFavicon(); return false; }
       var current = activeContext();
       if (!current || current.projectId !== context.projectId || current.graph !== context.graph) return false;
+      if (document.body && document.body.classList.contains('ovyx-webstudio-active')) {
+        syncTabFavicon(href, current.projectId);
+      } else {
+        restoreTabFavicon();
+      }
       busy = true;
       try {
         return patchProjectGraph(context, href, paths) || true;
