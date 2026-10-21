@@ -227,6 +227,168 @@ try {
   assert.equal(overlapping.newerSnapshotReleasedOnCompletion, true, 'The current task snapshot must release once the current task completes.');
   assert.equal(overlapping.countAfterCompletion, 0, 'The task counter must return to zero on completion.');
 
+  // Browser-connected recovery path: no runBuildAgent/askAgent wrappers are
+  // provided. A real composer tap must snapshot the project in capture phase,
+  // track the outgoing same-origin API request, and let Cancel abort + restore it.
+  const browserFetchPage = await context.newPage();
+  await browserFetchPage.route('http://ovyx-cancel.test/**', route => route.fulfill({
+    status: 200,
+    contentType: 'text/html; charset=utf-8',
+    body: `<!doctype html>
+      <html><head></head><body>
+        <div id="ws-chat-composer" aria-busy="false">
+          <textarea id="ws-chat-input"></textarea>
+          <button id="ws-chat-send" type="button">Send</button>
+        </div>
+        <div id="ws-mode-hint"></div>
+      </body></html>`,
+  }));
+  await browserFetchPage.goto('http://ovyx-cancel.test/browser-fetch');
+  await browserFetchPage.evaluate(() => {
+    const clone = value => JSON.parse(JSON.stringify(value));
+    const baselineHtml = '<!doctype html><html><body><main>Browser last-good work</main></body></html>';
+    const graph = {
+      version: 2,
+      entry: 'src/pages/Home.html',
+      files: {
+        'src/pages/Home.html': { type: 'text/html', content: baselineHtml },
+        'src/styles.css': { type: 'text/css', content: 'body{margin:0}' },
+      },
+    };
+    const project = {
+      id: 'browser-fetch-rollback-project',
+      name: 'Browser baseline project',
+      description: 'Persisted before mobile send',
+      pages: [{ id: 'home', name: 'Home', slug: '/' }],
+      assets: [],
+      revisions: [],
+      ovyxGraph: clone(graph),
+    };
+    window.KernelState = { projects: [project], activeProject: project };
+    window.ProjectStore = { save() {} };
+    window.WebStudio = {
+      graph: clone(graph),
+      pendingBuild: false,
+      liveAiActive: false,
+      aiFrozen: false,
+      requestEpoch: 10,
+      graphKeyPrefix: 'ovyx.ws.graph.v2.',
+      project,
+      ensureProjectGraph() {},
+      snapshotGraph() { return clone(this.graph); },
+      renderPreview() {},
+      render() {},
+      renderCodeTree() {},
+      renderThread() {},
+      appendMessage() {},
+      abortActiveAi() {},
+    };
+    window.__browserApiStarted = false;
+    window.__browserApiAborted = false;
+    window.__browserApiSignal = null;
+    window.fetch = function (_input, init) {
+      window.__browserApiStarted = true;
+      window.__browserApiSignal = init && init.signal;
+      return new Promise((resolve, reject) => {
+        const signal = init && init.signal;
+        if (!signal) {
+          reject(new Error('The browser Cancel wrapper did not supply an abort signal.'));
+          return;
+        }
+        signal.addEventListener('abort', () => {
+          window.__browserApiAborted = true;
+          reject(new DOMException('Browser task cancelled', 'AbortError'));
+        }, { once: true });
+        window.__resolveBrowserApi = () => resolve(new Response('{"ok":true}', {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }));
+      });
+    };
+    document.getElementById('ws-chat-send').addEventListener('click', () => {
+      window.fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: document.getElementById('ws-chat-input').value }),
+      }).catch(() => {});
+    });
+  });
+  await browserFetchPage.addScriptTag({ path: runtimePath });
+  await browserFetchPage.locator('#ws-chat-input').fill('Build my site');
+  await browserFetchPage.locator('#ws-chat-send').tap();
+
+  await browserFetchPage.waitForFunction(() => window.__browserApiStarted === true
+    && document.getElementById('ws-task-cancel')?.hidden === false,
+  null, { timeout: 5000 });
+  const browserSnapshotBeforeCancel = await browserFetchPage.evaluate(() => {
+    const id = 'browser-fetch-rollback-project';
+    const record = JSON.parse(localStorage.getItem('ovyx.webstudio.rollback.snapshot.v3.' + id) || 'null');
+    return {
+      projectName: record?.project?.name || '',
+      graphHtml: record?.graph?.files?.['src/pages/Home.html']?.content || '',
+      activeProjectKey: localStorage.getItem('ovyx.webstudio.rollback.active-project.v3'),
+    };
+  });
+  assert.equal(browserSnapshotBeforeCancel.projectName, 'Browser baseline project',
+    'The browser capture-phase snapshot must persist before the AI response can modify the project.');
+  assert.match(browserSnapshotBeforeCancel.graphHtml, /Browser last-good work/,
+    'The browser snapshot must contain the pre-request graph.');
+  assert.equal(browserSnapshotBeforeCancel.activeProjectKey, 'browser-fetch-rollback-project',
+    'The browser must remember which project the rollback snapshot belongs to.');
+
+  await browserFetchPage.evaluate(() => {
+    const studio = window.WebStudio;
+    const project = window.KernelState.activeProject;
+    project.name = 'Browser partial AI result';
+    project.pages.push({ id: 'partial', name: 'AI partial page', slug: '/partial' });
+    studio.graph.files['src/pages/Home.html'].content = '<!doctype html><html><body>Partial browser AI result</body></html>';
+    project.ovyxGraph = JSON.parse(JSON.stringify(studio.graph));
+  });
+  await browserFetchPage.locator('#ws-task-cancel').tap();
+
+  const browserRollback = await browserFetchPage.evaluate(() => {
+    const studio = window.WebStudio;
+    const project = window.KernelState.activeProject;
+    const graphKey = studio.graphKeyPrefix + project.id;
+    let persistedGraph = {};
+    try { persistedGraph = JSON.parse(localStorage.getItem(graphKey) || '{}'); } catch (_) {}
+    return {
+      projectName: project.name,
+      studioProjectName: studio.project && studio.project.name,
+      pages: project.pages.map(page => page.id),
+      graphHtml: studio.graph.files['src/pages/Home.html'].content,
+      projectGraphHtml: project.ovyxGraph.files['src/pages/Home.html'].content,
+      persistedGraphHtml: persistedGraph.files?.['src/pages/Home.html']?.content || '',
+      requestAborted: window.__browserApiAborted,
+      signalAborted: !!(window.__browserApiSignal && window.__browserApiSignal.aborted),
+      cancelHidden: document.getElementById('ws-task-cancel').hidden,
+      activeSnapshotRemoved: localStorage.getItem('ovyx.webstudio.rollback.active-project.v3') == null,
+      snapshotRemoved: localStorage.getItem('ovyx.webstudio.rollback.snapshot.v3.browser-fetch-rollback-project') == null,
+      composerBusy: document.getElementById('ws-chat-composer').hasAttribute('aria-busy'),
+      sendBusy: document.getElementById('ws-chat-send').hasAttribute('aria-busy'),
+    };
+  });
+  assert.equal(browserRollback.projectName, 'Browser baseline project',
+    'Browser-connected Cancel must restore project metadata captured before sending.');
+  assert.equal(browserRollback.studioProjectName, 'Browser baseline project',
+    'Browser-connected Cancel must restore WebStudio.project as well as KernelState.');
+  assert.deepEqual(browserRollback.pages, ['home'],
+    'Browser-connected Cancel must remove partial pages created by the AI task.');
+  assert.match(browserRollback.graphHtml, /Browser last-good work/,
+    'Browser-connected Cancel must restore the in-memory graph.');
+  assert.match(browserRollback.projectGraphHtml, /Browser last-good work/,
+    'Browser-connected Cancel must restore the active project graph.');
+  assert.match(browserRollback.persistedGraphHtml, /Browser last-good work/,
+    'Browser-connected Cancel must restore the project-scoped browser storage graph.');
+  assert.equal(browserRollback.requestAborted, true, 'The outgoing browser API request must be aborted by Cancel.');
+  assert.equal(browserRollback.signalAborted, true, 'The outgoing request signal must be aborted.');
+  assert.equal(browserRollback.cancelHidden, true, 'Cancel must return to its idle state after rollback.');
+  assert.equal(browserRollback.activeSnapshotRemoved, true, 'The browser active-snapshot pointer must be cleared after rollback.');
+  assert.equal(browserRollback.snapshotRemoved, true, 'The consumed persistent browser snapshot must be removed after rollback.');
+  assert.equal(browserRollback.composerBusy, false, 'The mobile composer must not remain stuck busy after browser API cancellation.');
+  assert.equal(browserRollback.sendBusy, false, 'The send button must be restored after browser API cancellation.');
+
+  await browserFetchPage.close();
   await context.close();
   console.log('OVYX mobile cancellation browser test passed: real touch tap, project rollback, request abort, busy-state release, and stale-promise isolation.');
 } finally {
