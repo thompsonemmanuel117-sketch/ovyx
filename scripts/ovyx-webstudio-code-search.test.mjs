@@ -43,6 +43,13 @@ assert.ok(app.includes("window.Router?.go?.('webstudio')"));
 assert.ok(app.includes('Studio.openCodeEditor?.(target)'));
 // App Studio must receive the active, current Web Studio graph as a versioned payload.
 assert.ok(app.includes("const graph=clone(W?.graph||project?.ovyxGraph||{},new WeakSet(),0)"));
+const convertStart=app.indexOf('async function handleConvertToMobileApp()');
+const convertEnd=app.indexOf('window.handleConvertToMobileApp=handleConvertToMobileApp',convertStart);
+const convertFlow=app.slice(convertStart,convertEnd);
+assert.ok(convertFlow.includes("if(typeof W.ensureProjectGraph==='function')W.ensureProjectGraph()"));
+assert.ok(convertFlow.includes("if(typeof W.syncGraphToProject==='function')W.syncGraphToProject(true)"));
+assert.ok(convertFlow.indexOf('W.syncGraphToProject(true)')<convertFlow.indexOf("const graph=clone(W?.graph||project?.ovyxGraph||{},new WeakSet(),0)"),'App Studio must snapshot code only after the current Code graph and pages are synced.');
+assert.ok(convertFlow.indexOf('W.syncGraphToProject(true)')<convertFlow.indexOf("localStorage.setItem('ovyx_active_web_payload',serialized)"),'Persisted App Studio payload must contain the current code graph.');
 assert.ok(app.includes("source:{route:'web_studio'"));
 assert.ok(app.includes("target:{route:'app_studio',runtimeRoute:'appstudio',intent:'convert-web-to-mobile'}"));
 assert.ok(app.includes("localStorage.setItem('ovyx_active_web_payload',serialized)"));
