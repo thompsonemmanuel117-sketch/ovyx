@@ -8,6 +8,7 @@ on:
       - 'assets/ovyx-webstudio-quality.js'
       - 'assets/ovyx-webstudio-navigation-polish.js'
       - 'assets/ovyx-webstudio-project-branding.js'
+      - 'assets/ovyx-settings-connections-visibility-fix.js'
       - 'functions/_middleware.js'
       - 'scripts/ovyx-webstudio-quality.test.mjs'
       - 'scripts/ovyx-webstudio-quality.browser.test.mjs'
