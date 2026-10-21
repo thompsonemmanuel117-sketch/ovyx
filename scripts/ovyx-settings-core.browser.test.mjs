@@ -124,12 +124,15 @@ try {
       const otherBefore = otherSignature(original.projects);
       let summary = { available: true };
       try {
+        const baselineHtml = '<!doctype html><html><body>Project before task</body></html>';
         const baselineGraph = { entry: 'index.html', files: {
-          'index.html': { type: 'text/html', content: '<!doctype html><html><body>Project before task</body></html>' }
+          'index.html': { type: 'text/html', content: baselineHtml }
         }};
         const baselineProject = {
-          id: testId, name: 'Baseline project', updatedAt: 100, pages: [], assets: [],
-          ovyxGraph: clone(baselineGraph)
+          id: testId, name: 'Baseline project', updatedAt: 100,
+          pages: [{ id: 'baseline-page', name: 'Home', slug: 'home', __ovyxFile: 'index.html',
+            source: baselineHtml, renderedHtml: baselineHtml, sections: [] }],
+          assets: [], ovyxGraph: clone(baselineGraph)
         };
         state.projects = [...(original.projects || []), baselineProject];
         state.activeProject = baselineProject;
@@ -156,7 +159,8 @@ try {
         summary.abortCalled = abortCalled;
         summary.pendingAfterCancel = Boolean(studio.pendingBuild);
         summary.restoredActiveProject = state.activeProject?.name === 'Baseline project'
-          && (state.activeProject?.pages || []).length === 0
+          && (state.activeProject?.pages || []).some(page => page.id === 'baseline-page')
+          && !(state.activeProject?.pages || []).some(page => page.id === 'temporary-page')
           && String(studio.graph?.files?.['index.html']?.content || '').includes('Project before task');
         summary.otherProjectsPreserved = otherSignature(state.projects) === otherBefore;
         summary.cancelMethodReturnedSafely = studio.__ovyxTaskRollbackSnapshot == null;
@@ -185,7 +189,7 @@ try {
     assert.equal(cancelRun.hiddenAfterCancel, true, '[' + target.name + '] Cancel must hide after stopping the task.');
     assert.equal(cancelRun.abortCalled, true, '[' + target.name + '] Cancel must abort the active AI request.');
     assert.equal(cancelRun.pendingAfterCancel, false, '[' + target.name + '] Cancel must clear the active task state.');
-    assert.equal(cancelRun.restoredActiveProject, true, '[' + target.name + '] Cancel must restore the active project to its task-start snapshot.');
+    assert.equal(cancelRun.restoredActiveProject, true, '[' + target.name + '] Cancel must restore the active project to its task-start snapshot. Details: ' + JSON.stringify(cancelRun));
     assert.equal(cancelRun.otherProjectsPreserved, true, '[' + target.name + '] Cancel must preserve every other project.');
     assert.equal(cancelRun.cancelMethodReturnedSafely, true, '[' + target.name + '] Task rollback snapshot must be cleared after cancellation.');
 
