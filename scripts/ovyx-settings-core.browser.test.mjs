@@ -158,6 +158,11 @@ try {
         summary.hiddenAfterCancel = button.hidden;
         summary.abortCalled = abortCalled;
         summary.pendingAfterCancel = Boolean(studio.pendingBuild);
+        summary.activeProjectIdAfterCancel = String(state.activeProject?.id || '');
+        summary.activeProjectNameAfterCancel = String(state.activeProject?.name || '');
+        summary.activePageIdsAfterCancel = (state.activeProject?.pages || []).map(page => String(page?.id || ''));
+        summary.graphHtmlAfterCancel = String(studio.graph?.files?.['index.html']?.content || '').slice(0, 220);
+        summary.projectCollectionEntry = (state.projects || []).find(project => String(project?.id || '') === testId)?.name || null;
         summary.restoredActiveProject = state.activeProject?.name === 'Baseline project'
           && (state.activeProject?.pages || []).some(page => page.id === 'baseline-page')
           && !(state.activeProject?.pages || []).some(page => page.id === 'temporary-page')
