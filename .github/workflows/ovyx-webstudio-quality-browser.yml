@@ -58,3 +58,4 @@ jobs:
         run: node scripts/ovyx-webstudio-quality.browser.test.mjs
       - name: Test code workspace search and sidebar logo in Chromium
         run: node scripts/ovyx-webstudio-code-search.browser.test.mjs
+# Regression coverage: sidebar inline-SVG full-draw state and preservation of the OVYX app-tab favicon.
