@@ -5,7 +5,7 @@ const required = [
   'index.html',
   'assets/ovyx-launch-polish.js',
   'functions',
-  'functions/_routes.json',
+  '_routes.json',
   'package.json',
 ];
 
@@ -19,4 +19,4 @@ execFileSync(process.execPath, ['scripts/ovyx-static-verify.mjs'], {
   stdio: 'inherit',
 });
 
-console.log('OVYX Pages build preflight passed. The launch polish runtime is injected at the application-shell edge middleware; Cloudflare Pages configuration is managed by the dashboard.');
+console.log('OVYX Pages build preflight passed. The root _routes.json enables the application-shell middleware and favicon routes while excluding static assets; Cloudflare Pages environment configuration remains dashboard-managed.');
