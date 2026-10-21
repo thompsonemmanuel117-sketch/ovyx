@@ -11,7 +11,6 @@ on:
       - 'scripts/ovyx-webstudio-appstudio-integration.browser.test.mjs'
       - 'index.html'
       - 'assets/ovyx-webstudio-project-branding.js'
-      - 'assets/ovyx-app-favicon-guard.js'
       - 'assets/ovyx-app-favicon.svg'
       - '_headers'
       - 'manifest.json'
@@ -72,4 +71,4 @@ jobs:
         run: node scripts/ovyx-webstudio-code-search.browser.test.mjs
       - name: Test Web Studio to App Studio to Code integration in Chromium
         run: node scripts/ovyx-webstudio-appstudio-integration.browser.test.mjs
-# Regression coverage: sidebar inline-SVG full-draw state and preservation of the OVYX app-tab favicon.
+# Regression coverage: sidebar inline-SVG full-draw state and the OVYX brand-mark favicon fallback.

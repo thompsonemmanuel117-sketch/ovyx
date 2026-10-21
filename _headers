@@ -80,9 +80,6 @@
 /manifest.json
   Cache-Control: no-store, no-cache, must-revalidate
 
-/assets/ovyx-app-favicon-guard.js
-  Cache-Control: no-store, no-cache, must-revalidate
-
 /assets/ovyx-brand-mark.png
   Cache-Control: no-store, no-cache, must-revalidate
 
