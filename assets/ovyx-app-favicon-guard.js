@@ -164,7 +164,9 @@
     observer = new MutationObserver(function () {
       enforceCanonicalFavicon();
     });
-    observer.observe(document.documentElement, {
+    // Observe the Document rather than only <html>, so protection survives
+    // a script replacing the entire document element.
+    observer.observe(document, {
       subtree: true,
       childList: true,
       attributes: true,

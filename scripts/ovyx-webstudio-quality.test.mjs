@@ -19,6 +19,7 @@ assert.doesNotThrow(() => new Function(navigationPolish), 'The Web Studio naviga
 assert.doesNotThrow(() => new Function(projectBranding), 'The project favicon branding runtime must parse as valid JavaScript.');
 assert.doesNotThrow(() => new Function(appFaviconGuard), 'The app favicon guard must parse as valid JavaScript.');
 assert.ok(appFaviconGuard.includes('new MutationObserver'), 'The app favicon must be restored after later DOM mutations.');
+assert.ok(appFaviconGuard.includes('observer.observe(document, {'), 'The app favicon observer must survive replacement of the document root.');
 assert.ok(appFaviconGuard.includes('Node.prototype.removeChild'), 'Direct attempts to remove the canonical favicon node must be blocked.');
 assert.ok(appFaviconGuard.includes('Node.prototype.replaceChild'), 'Direct attempts to replace the canonical favicon node must be blocked.');
 assert.ok(appFaviconGuard.includes("lockLinkProperty('href', 'href')"), 'Direct changes to the canonical favicon href must be blocked.');

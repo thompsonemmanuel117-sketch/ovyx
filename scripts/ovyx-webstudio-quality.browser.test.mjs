@@ -79,6 +79,17 @@ try {
       canonical.getAttribute('href') === expected &&
       icons.length === 1;
   }, expectedAppFavicon);
+  await faviconGuardPage.evaluate(() => {
+    const oldRoot = document.documentElement;
+    const replacementRoot = document.createElement('html');
+    replacementRoot.innerHTML = '<head><title>Entire root replacement</title><link rel="icon" href="/root-replacement.ico"></head><body>Replacement body</body>';
+    oldRoot.replaceWith(replacementRoot);
+  });
+  await faviconGuardPage.waitForFunction(expected => {
+    const canonical = document.getElementById('ovyx-canonical-app-favicon');
+    const icons = Array.from(document.querySelectorAll('link[rel]')).filter(link => String(link.getAttribute('rel') || '').toLowerCase().split(/\\s+/).includes('icon'));
+    return canonical && canonical.getAttribute('href') === expected && icons.length === 1;
+  }, expectedAppFavicon);
   assert.equal(faviconGuardErrors.length, 0, 'Favicon guard must survive hostile DOM mutations without browser errors: ' + faviconGuardErrors.join('; '));
 
   // Generated-site favicons follow each site's own logo in saved HTML,
