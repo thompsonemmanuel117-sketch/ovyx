@@ -119,6 +119,7 @@ assert.ok(middleware.includes('/assets/ovyx-webstudio-project-branding.js?v=2026
 assert.ok(middleware.includes(".on('link[rel]'"), 'The app shell must inspect existing favicon declarations before setting the canonical app icon.');
 assert.ok(middleware.includes("if (rel.includes('icon')) element.remove();"), 'Conflicting browser-tab icon declarations must be removed before the OVYX favicon is appended.');
 assert.ok(middleware.includes('id="ovyx-canonical-app-favicon" data-ovyx-canonical-favicon="true" rel="icon" type="image/svg+xml" href="/assets/ovyx-app-favicon.svg?v=20261021-2">'), 'The app shell must declare one identifiable canonical OVYX browser-tab favicon.');
+assert.ok(middleware.includes("element.prepend('<link id=\"ovyx-canonical-app-favicon\""), 'The canonical favicon guard must be at the beginning of the head before other scripts.');
 assert.ok(middleware.includes('<script src="/assets/ovyx-app-favicon-guard.js?v=20261021-2"></script>'), 'The favicon guard must run in the head before other application scripts.');
 assert.ok(headers.includes('/assets/ovyx-app-favicon-guard.js\n  Cache-Control: no-store, no-cache, must-revalidate'), 'The favicon guard must not be served stale from cache.');
 assert.ok(headers.includes('/assets/ovyx-app-favicon.svg\n  Cache-Control: no-store, no-cache, must-revalidate'), 'The canonical favicon asset must not be served stale from cache.');
