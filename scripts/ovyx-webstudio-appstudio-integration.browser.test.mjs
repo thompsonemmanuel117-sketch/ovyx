@@ -85,7 +85,8 @@ window.WebStudio = {
       'src/main.js': {type:'text/javascript', content:"document.querySelector('#hero')?.setAttribute('data-ready','1')", updatedAt:70},
       'public/brand.svg': {type:'image/svg+xml', content:'<svg xmlns="http://www.w3.org/2000/svg"></svg>', updatedAt:60},
       '../private.txt': {type:'text/plain', content:'must be rejected', updatedAt:50},
-      '/root/private.txt': {type:'text/plain', content:'must be rejected', updatedAt:40}
+      '/root/private.txt': {type:'text/plain', content:'must be rejected', updatedAt:40},
+      '../untrusted.html': {type:'text/html', content:'<main>must not transfer</main>', updatedAt:30}
     }
   },
   activeCodeFile:'src/pages/Home.html',
@@ -184,7 +185,8 @@ try {
     'Route keys must not be rewritten into underscores during project serialization.');
   assert.equal(Object.keys(transfer.payload.website.graph.files).some(file => file.startsWith('/') || file.split('/').includes('..')), false,
     'Unsafe absolute and traversal file paths must be dropped while safe relative paths are preserved.');
-  assert.equal(transfer.payload.website.graphHtmlTrees.length, 2, 'HTML files from the same project graph must be included.');
+  assert.equal(transfer.payload.website.graphHtmlTrees.length, 2, 'HTML files from the same project graph must be included while unsafe paths are excluded.');
+  assert.equal(transfer.payload.website.graphHtmlTrees.some(file=>file.path.startsWith('/')||file.path.split('/').includes('..')),false,'HTML snapshots must not include unsafe source paths.');
   assert.equal(transfer.payload.website.compiledHtmlTrees.length, 2, 'Page structure and HTML snapshots must be handed off.');
   assert.equal(transfer.payload.website.project.id, 'ovyx-integration-project-42');
   assert.equal(transfer.globalProjectId, transfer.payload.source.projectId, 'Navigating between studios must not replace the active project.');
