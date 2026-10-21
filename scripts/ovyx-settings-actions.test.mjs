@@ -305,6 +305,9 @@ assert.ok(cancelSafetyRuntime.includes('taskSession.generation = Number(taskSess
 assert.ok(cancelSafetyRuntime.includes('releaseComposerBusyState()')
   && cancelSafetyRuntime.includes("send.removeAttribute('aria-busy')"),
   'Cancel must release composer busy indicators instead of leaving the mobile UI stuck.');
+assert.ok(cancelSafetyRuntime.includes('coordinator.cancel()')
+  && cancelSafetyRuntime.includes("safeAssign(studio, 'project', finalProject)"),
+  'The touch Cancel control must call the shared coordinator and restore both the project graph and the active Studio project reference.');
 assert.ok(html.includes('rollbackAgentChanges(baseGraph,appliedGraph,originalProject)')
   && html.includes("this.rollbackAgentChanges(rollbackGraph,appliedGraph,rollbackProject)")
   && !html.includes("const restoredProjects=JSON.parse(JSON.stringify(rollbackState?.projects||[]))"),
