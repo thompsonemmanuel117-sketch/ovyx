@@ -81,6 +81,8 @@
   }
   function elementScore(element) {
     var desc = elementDescription(element);
+    var markup = String(element && element.outerHTML || '').slice(0, 2500);
+    if (/\b(?:ovyx-brand-mark|ovyx-brand-lockup|ovyx-logo|ovyx-boot-logo|ovyx-notification-icon)\b/i.test(desc + ' ' + markup)) return -100;
     var score = 0;
     if (/\b(?:logo|wordmark|brand|identity|site-mark|brandmark)\b/.test(desc)) score += 14;
     if (/\b(?:avatar|profile|customer|product|hero|banner-image)\b/.test(desc)) score -= 10;
@@ -164,7 +166,7 @@
       project && project.ovyxGraph && project.ovyxGraph.files ? project.ovyxGraph : null;
     if (!project || !graph || !graph.files || typeof graph.files !== 'object') return false;
     var paths = fileList(graph);
-    if (!paths.length) return true;
+    if (!paths.length) return false;
     var first = primaryPath(graph, project, paths);
     var ordered = first ? [first].concat(paths.filter(function (path) { return path !== first; })) : paths.slice();
     var brandHref = null;
