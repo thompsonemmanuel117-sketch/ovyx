@@ -203,6 +203,7 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
   await upgradePage.addScriptTag({ path: exportRuntimePath });
   await upgradePage.waitForFunction(() => !!window.OVYXWebStudioFullStackUpgrade && !!window.OVYXWebStudioProjectExport && document.querySelector('[data-ovyx-fullstack-upgrade]') && document.querySelector('[data-ovyx-project-export]'));
   await upgradePage.evaluate(() => {
+    window.WebStudio.graph.files['src/api/client.js'] = { type: 'application/javascript', content: 'export async function loadStatus() { return fetch(\"/api/status\"); }' };
     window.WebStudio.graph.files['.env'] = { type: 'text/plain', content: 'STRIPE_SECRET_KEY=sk_live_do_not_export_this_secret_1234567890' };
     window.WebStudio.graph.files['private/id_rsa'] = { type: 'text/plain', content: '-----BEGIN RSA PRIVATE KEY-----\\nprivate fixture secret\\n-----END RSA PRIVATE KEY-----' };
     window.KernelState.activeProject.ovyxGraph = window.WebStudio.graph;
@@ -263,6 +264,61 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
   assert.ok(exportedEntries['OVYX_EXPORT_EXCLUSIONS.md']?.includes('private/id_rsa'), 'The archive must disclose credential files excluded from export.');
   assert.ok(!Object.keys(exportedEntries).some(name => /(^|\/)\.env$/i.test(name)), 'Actual environment files must not be included in the downloadable archive.');
   assert.ok(!Object.keys(exportedEntries).some(name => /(^|\/)id_rsa$/i.test(name)), 'Private-key files must not be included in the downloadable archive.');
+  async function parseStoredExport(download) {
+    const filePath = await download.path();
+    assert.ok(filePath, 'The selected export must finish downloading.');
+    const zip = await fs.readFile(filePath);
+    const entries = {};
+    let offset = 0;
+    while (offset + 30 <= zip.length && zip.readUInt32LE(offset) === 0x04034B50) {
+      const method = zip.readUInt16LE(offset + 8);
+      const size = zip.readUInt32LE(offset + 18);
+      const nameLength = zip.readUInt16LE(offset + 26);
+      const extraLength = zip.readUInt16LE(offset + 28);
+      const nameStart = offset + 30;
+      const name = zip.subarray(nameStart, nameStart + nameLength).toString('utf8');
+      const dataStart = nameStart + nameLength + extraLength;
+      assert.equal(method, 0, 'Export ZIPs use the stored-entry format.');
+      entries[name] = zip.subarray(dataStart, dataStart + size).toString('utf8');
+      offset = dataStart + size;
+    }
+    return entries;
+  }
+
+  await upgradePage.locator('[data-ovyx-project-export-menu-trigger]').click();
+  assert.equal(await upgradePage.locator('[data-ovyx-project-export-menu]').isVisible(), true, 'The advanced download menu must open.');
+  assert.equal(await upgradePage.locator('[data-ovyx-project-export-website-only]').count(), 1, 'The menu must expose the website-only option.');
+  assert.equal(await upgradePage.locator('[data-ovyx-project-export-backend-only]').count(), 1, 'The menu must expose the backend-only option.');
+  const websiteDownloadPromise = upgradePage.waitForEvent('download');
+  await upgradePage.locator('[data-ovyx-project-export-website-only]').click();
+  const websiteDownload = await websiteDownloadPromise;
+  assert.match(websiteDownload.suggestedFilename(), /website-only-\d{4}-\d{2}-\d{2}\.zip/i, 'Website-only export must have a distinct filename.');
+  const websiteEntries = await parseStoredExport(websiteDownload);
+  assert.ok(websiteEntries['index.html']?.includes('Existing website'), 'Website-only ZIP must include the website entry file.');
+  assert.ok(websiteEntries['src/api/client.js']?.includes('loadStatus'), 'Website-only ZIP must preserve a frontend API client helper outside a server-route directory.');
+  assert.ok(websiteEntries['README_OVYX_WEBSITE_EXPORT.md']?.includes('Backend/server implementation files'), 'Website-only ZIP must explain that backend source is excluded.');
+  assert.ok(websiteEntries['OVYX_WEBSITE_EXPORT_MANIFEST.json'], 'Website-only ZIP must include its own export manifest.');
+  assert.ok(!Object.keys(websiteEntries).some(name => name.startsWith('api/')), 'Website-only ZIP must exclude backend API implementation paths.');
+  assert.ok(!Object.keys(websiteEntries).some(name => /(^|\/)FULL_STACK_SETUP\.md$/i.test(name)), 'Website-only ZIP must exclude the backend handoff guide.');
+  assert.ok(!Object.keys(websiteEntries).some(name => /(^|\/)\.env$/i.test(name)), 'Website-only ZIP must not include real environment files.');
+
+  await upgradePage.locator('[data-ovyx-project-export-menu-trigger]').click();
+  const backendDownloadPromise = upgradePage.waitForEvent('download');
+  await upgradePage.locator('[data-ovyx-project-export-backend-only]').click();
+  const backendDownload = await backendDownloadPromise;
+  assert.match(backendDownload.suggestedFilename(), /backend-only-\d{4}-\d{2}-\d{2}\.zip/i, 'Backend-only export must have a distinct filename.');
+  const backendEntries = await parseStoredExport(backendDownload);
+  assert.ok(backendEntries['api/upgrade-1.js']?.includes('onRequestGet'), 'Backend-only ZIP must include the generated API implementation.');
+  assert.ok(backendEntries['FULL_STACK_SETUP.md']?.includes('backend services'), 'Backend-only ZIP must include the backend setup guide.');
+  assert.ok(backendEntries['README_OVYX_BACKEND_EXPORT.md']?.includes('Deploy separately'), 'Backend-only ZIP must include backend deployment instructions.');
+  assert.ok(backendEntries['OVYX_BACKEND_EXPORT_MANIFEST.json'], 'Backend-only ZIP must include its own export manifest.');
+  assert.ok(!Object.keys(backendEntries).some(name => name === 'index.html'), 'Backend-only ZIP must exclude frontend entry pages.');
+  assert.ok(!Object.keys(backendEntries).some(name => name === 'src/api/client.js'), 'Backend-only ZIP must not misclassify a frontend API client helper as a server implementation.');
+  assert.ok(!Object.keys(backendEntries).some(name => /(^|\/)\.env$/i.test(name)), 'Backend-only ZIP must not include real environment files.');
+  const backendManifest = JSON.parse(backendEntries['OVYX_BACKEND_EXPORT_MANIFEST.json']);
+  assert.equal(backendManifest.exportMode, 'backend-only', 'The backend manifest must state the selected export mode.');
+  assert.ok(backendManifest.frontendFilesExcludedByDesign >= 1, 'The backend manifest must disclose frontend files excluded by design.');
+
   await upgradePage.evaluate(() => { window.__fullstackFailTests = true; });
   await upgradePage.locator('[data-ovyx-fullstack-upgrade]').click();
   await upgradePage.locator('[data-ovyx-fs-confirm]').click();
