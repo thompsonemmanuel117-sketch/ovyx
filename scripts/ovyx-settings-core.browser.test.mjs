@@ -213,6 +213,8 @@ try {
       return summary;
     });
     assert.equal(cancelRun.available, true, '[' + target.name + '] The shared project-scoped Cancel module must be wired. Details: ' + JSON.stringify(cancelRun));
+    assert.equal(cancelRun.activeProjectIdBeforeCancel, '__ovyx_cancel_safety_browser_test__', '[' + target.name + '] Cancellation fixture must own the active project at click time. Details: ' + JSON.stringify(cancelRun));
+    assert.equal(cancelRun.projectCollectionEntryBeforeCancel, 'Partially changed project', '[' + target.name + '] Cancellation fixture must remain in the current project list at click time. Details: ' + JSON.stringify(cancelRun));
     assert.equal(cancelRun.visibleWhileRunning, true, '[' + target.name + '] Cancel must appear during an active task.');
     assert.equal(cancelRun.hiddenAfterCancel, true, '[' + target.name + '] Cancel must hide after stopping the task.');
     assert.equal(cancelRun.abortCalled, true, '[' + target.name + '] Cancel must abort the active AI request.');
