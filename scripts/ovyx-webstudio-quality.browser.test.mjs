@@ -245,7 +245,7 @@ try {
     try { decoded = decodeURIComponent(href.slice(href.indexOf(',') + 1)); } catch (_) {}
     return { href, decoded, html: window.WebStudio.graph.files['index.html'].content, saveCount: window.__projectSaveCount };
   });
-  assert.ok(declaredIconBranding.decoded.includes('id="') === false, 'The declared icon must be read as an SVG image, not accidentally treated as page markup.');
+  assert.match(declaredIconBranding.decoded, /<svg\\b/, 'The declared icon must be read as actual SVG image data, not project page markup.');
   assert.match(declaredIconBranding.decoded, /rect[^>]+fill="#ff0066"/, 'The explicitly declared project favicon must win over its larger wordmark.'); 
   assert.ok(declaredIconBranding.html.includes('id="declared-icon-content"'), 'Applying the declared icon must preserve the rest of the project page.');
   assert.equal(declaredIconBranding.saveCount, 6, 'The explicitly declared project icon must save the graph exactly once.');
