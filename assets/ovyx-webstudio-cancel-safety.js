@@ -1,7 +1,7 @@
 (function () {
   'use strict';
-  if (window.__OVYX_WEBSTUDIO_CANCEL_SAFETY_V2__) return;
-  window.__OVYX_WEBSTUDIO_CANCEL_SAFETY_V2__ = true;
+  if (window.__OVYX_WEBSTUDIO_CANCEL_SAFETY_V3__) return;
+  window.__OVYX_WEBSTUDIO_CANCEL_SAFETY_V3__ = true;
 
   const clone = value => {
     try { return JSON.parse(JSON.stringify(value)); }
@@ -20,11 +20,239 @@
     controllers: new Set(),
   });
   if (!(taskSession.controllers instanceof Set)) taskSession.controllers = new Set();
+  if (!Number.isFinite(Number(taskSession.fetchInFlightCount))) taskSession.fetchInFlightCount = 0;
+  if (typeof taskSession.armed !== 'boolean') taskSession.armed = false;
+  if (!Number.isFinite(Number(taskSession.armedAt))) taskSession.armedAt = 0;
+  const PERSISTED_SNAPSHOT_PREFIX = 'ovyx.webstudio.rollback.snapshot.v3.';
+  const PERSISTED_ACTIVE_PROJECT_KEY = 'ovyx.webstudio.rollback.active-project.v3';
   const knownStudios = new Set();
   const controllerFields = [
     'activeAbortController', 'abortController', 'aiAbortController',
     'requestAbortController', 'activeController', 'currentAbortController'
   ];
+
+  function safeStorageRead(key) {
+    try { return window.localStorage.getItem(key); } catch (_) { return null; }
+  }
+
+  function persistRollbackSnapshot(snapshot) {
+    if (!snapshot || !snapshot.projectId || !snapshot.project || !snapshot.graph) return false;
+    try {
+      const record = {
+        version: 3,
+        projectId: String(snapshot.projectId),
+        project: clone(snapshot.project),
+        graph: clone(snapshot.graph),
+        startedAt: Number(snapshot.startedAt || Date.now()),
+        savedAt: Date.now(),
+        origin: String(window.location && window.location.origin || '')
+      };
+      window.localStorage.setItem(PERSISTED_SNAPSHOT_PREFIX + record.projectId, JSON.stringify(record));
+      window.localStorage.setItem(PERSISTED_ACTIVE_PROJECT_KEY, record.projectId);
+      return true;
+    } catch (error) {
+      try { console.warn('[OVYX browser rollback] Unable to persist pre-task snapshot:', String(error && error.message || error).slice(0, 120)); } catch (_) {}
+      return false;
+    }
+  }
+
+  function readPersistedRollbackSnapshot(projectId) {
+    const requestedId = String(projectId || safeStorageRead(PERSISTED_ACTIVE_PROJECT_KEY) || '');
+    if (!requestedId) return null;
+    const raw = safeStorageRead(PERSISTED_SNAPSHOT_PREFIX + requestedId);
+    if (!raw) return null;
+    try {
+      const record = JSON.parse(raw);
+      if (
+        !record ||
+        Number(record.version) !== 3 ||
+        String(record.projectId || '') !== requestedId ||
+        !record.project ||
+        String(record.project.id || '') !== requestedId ||
+        !record.graph ||
+        typeof record.graph !== 'object'
+      ) return null;
+      // Do not restore a snapshot left behind by a task from a previous day.
+      if (Date.now() - Number(record.savedAt || record.startedAt || 0) > 24 * 60 * 60 * 1000) return null;
+      return {
+        projectId: requestedId,
+        project: clone(record.project),
+        graph: clone(record.graph),
+        startedAt: Number(record.startedAt || record.savedAt || Date.now()),
+        persistedAt: Number(record.savedAt || Date.now()),
+        restoredFromBrowserStorage: true
+      };
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function clearPersistedRollbackSnapshot(snapshot) {
+    if (!snapshot || !snapshot.projectId) return;
+    try {
+      const storageKey = PERSISTED_SNAPSHOT_PREFIX + String(snapshot.projectId);
+      const raw = window.localStorage.getItem(storageKey);
+      if (raw) {
+        const record = JSON.parse(raw);
+        // Only remove the snapshot owned by this run. A newer task may have
+        // already written a replacement for the same project.
+        if (Number(record.startedAt || 0) === Number(snapshot.startedAt || 0)) {
+          window.localStorage.removeItem(storageKey);
+          if (window.localStorage.getItem(PERSISTED_ACTIVE_PROJECT_KEY) === String(snapshot.projectId)) {
+            window.localStorage.removeItem(PERSISTED_ACTIVE_PROJECT_KEY);
+          }
+        }
+      }
+    } catch (_) {}
+  }
+
+  function installBrowserRollbackCapture() {
+    if (window.__OVYX_BROWSER_ROLLBACK_CAPTURE_V3__) return;
+    window.__OVYX_BROWSER_ROLLBACK_CAPTURE_V3__ = true;
+
+    function isComposerTrigger(target) {
+      if (!target || typeof target.closest !== 'function') return false;
+      if (target.closest('#ws-task-cancel')) return false;
+      return !!target.closest(
+        '#ws-chat-send, #ws-chat-composer button[type="submit"], #ws-chat-composer [data-send], #ws-chat-composer input[type="submit"]'
+      );
+    }
+
+    function armBeforeBrowserSubmit(event) {
+      if (event && event.type === 'keydown') {
+        if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
+        const target = event.target;
+        if (!target || !target.closest || !target.closest('#ws-chat-composer')) return;
+        if (target.matches && target.matches('button, input[type="button"], input[type="submit"]')) return;
+      } else if (event && event.type === 'submit') {
+        // A form submit is a valid send even when mobile keyboards trigger it.
+      } else if (!isComposerTrigger(event && event.target)) {
+        return;
+      }
+
+      const studio = getStudio();
+      if (!studio) return;
+      const now = Date.now();
+      const running = taskIsRunning(studio);
+      if (running && taskSession.snapshot) return;
+      if (
+        taskSession.armed &&
+        taskSession.snapshot &&
+        now - Number(taskSession.armedAt || 0) < 20000
+      ) return;
+
+      const snapshot = captureSnapshot(studio);
+      if (!snapshot) return;
+      taskSession.snapshot = snapshot;
+      taskSession.generation = Number(taskSession.generation || 0) + 1;
+      taskSession.inFlightCount = 0;
+      taskSession.fetchInFlightCount = 0;
+      taskSession.armed = true;
+      taskSession.armedAt = now;
+      taskSession.activeMethod = '';
+      taskSession.activeStudio = studio;
+      taskSession.controllers.clear();
+      persistRollbackSnapshot(snapshot);
+      syncSessionFields(studio);
+      ensureCancelButton(studio);
+      syncCancelButton(studio);
+    }
+
+    // Capture phase records the last-good browser-visible project before the
+    // app's own click/form handlers mutate state or dispatch the AI request.
+    document.addEventListener('pointerdown', armBeforeBrowserSubmit, true);
+    document.addEventListener('click', armBeforeBrowserSubmit, true);
+    document.addEventListener('submit', armBeforeBrowserSubmit, true);
+    document.addEventListener('keydown', armBeforeBrowserSubmit, true);
+  }
+
+  function installBrowserFetchCancellation() {
+    if (window.__OVYX_BROWSER_FETCH_ROLLBACK_V3__) return;
+    const originalFetch = window.fetch;
+    if (typeof originalFetch !== 'function') return;
+    window.__OVYX_BROWSER_FETCH_ROLLBACK_V3__ = true;
+
+    window.fetch = function (input, init) {
+      let requestUrl;
+      let method = String(init && init.method || '').toUpperCase();
+      try {
+        if (input instanceof Request) {
+          requestUrl = new URL(input.url, window.location.href);
+          if (!method) method = String(input.method || 'GET').toUpperCase();
+        } else {
+          requestUrl = new URL(String(input), window.location.href);
+          if (!method) method = 'GET';
+        }
+      } catch (_) {
+        return originalFetch.apply(this, arguments);
+      }
+
+      const isSameOriginApiWrite = requestUrl.origin === window.location.origin
+        && requestUrl.pathname.startsWith('/api/')
+        && method !== 'GET'
+        && method !== 'HEAD';
+      const hasArmedBrowserTask = !!(
+        taskSession.snapshot &&
+        (taskSession.armed || taskSession.activeMethod || Number(taskSession.inFlightCount || 0) > 0)
+      );
+      if (!isSameOriginApiWrite || !hasArmedBrowserTask) {
+        return originalFetch.apply(this, arguments);
+      }
+
+      if (taskSession.armed) {
+        taskSession.armed = false;
+        taskSession.activeMethod = taskSession.activeMethod || 'browser-api-request';
+      }
+      const generation = Number(taskSession.generation || 0);
+      const controller = new AbortController();
+      taskSession.controllers.add(controller);
+      const incomingSignal = (init && init.signal) || (input instanceof Request ? input.signal : null);
+      let combinedSignal = controller.signal;
+      if (incomingSignal) {
+        try {
+          combinedSignal = AbortSignal.any([incomingSignal, controller.signal]);
+        } catch (_) {
+          if (incomingSignal.aborted) controller.abort();
+          else incomingSignal.addEventListener('abort', () => controller.abort(), { once: true });
+        }
+      }
+      taskSession.fetchInFlightCount = Math.max(0, Number(taskSession.fetchInFlightCount || 0)) + 1;
+      syncAllSessionFields();
+      ensureCancelButton(getStudio());
+      syncCancelButton(getStudio());
+
+      let result;
+      try {
+        result = originalFetch.call(this, input, Object.assign({}, init || {}, { signal: combinedSignal }));
+      } catch (error) {
+        taskSession.controllers.delete(controller);
+        if (Number(taskSession.generation || 0) === generation) {
+          taskSession.fetchInFlightCount = Math.max(0, Number(taskSession.fetchInFlightCount || 0) - 1);
+        }
+        throw error;
+      }
+      return Promise.resolve(result).finally(function () {
+        taskSession.controllers.delete(controller);
+        if (Number(taskSession.generation || 0) !== generation) return;
+        taskSession.fetchInFlightCount = Math.max(0, Number(taskSession.fetchInFlightCount || 0) - 1);
+        const studio = getStudio();
+        const studioBusy = Array.from(knownStudios).some(candidate =>
+          !!(candidate && (candidate.pendingBuild || candidate.liveAiActive))
+        );
+        if (
+          taskSession.fetchInFlightCount === 0 &&
+          Number(taskSession.inFlightCount || 0) === 0 &&
+          !taskSession.armed &&
+          !studioBusy
+        ) {
+          clearTaskSession();
+        } else {
+          syncAllSessionFields();
+          syncCancelButton(studio);
+        }
+      });
+    };
+  }
 
   function safeAssign(target, property, value) {
     try { target[property] = value; return true; }
@@ -46,10 +274,15 @@
   }
 
   function clearTaskSession() {
+    const previousSnapshot = taskSession.snapshot;
+    clearPersistedRollbackSnapshot(previousSnapshot);
     taskSession.snapshot = null;
     taskSession.activeMethod = '';
     taskSession.activeStudio = null;
     taskSession.inFlightCount = 0;
+    taskSession.fetchInFlightCount = 0;
+    taskSession.armed = false;
+    taskSession.armedAt = 0;
     taskSession.controllers.clear();
     syncAllSessionFields();
   }
@@ -117,7 +350,7 @@
   }
 
   function taskIsRunning(studio) {
-    if (Number(taskSession.inFlightCount || 0) > 0) return true;
+    if (Number(taskSession.inFlightCount || 0) > 0 || Number(taskSession.fetchInFlightCount || 0) > 0) return true;
     if (studio && (studio.pendingBuild || studio.liveAiActive)) return true;
     for (const candidate of knownStudios) {
       if (candidate && (candidate.pendingBuild || candidate.liveAiActive)) return true;
@@ -160,22 +393,26 @@
         ? studio.snapshotGraph()
         : clone(studio.graph || project.ovyxGraph || {});
     } catch (_) { graph = clone(studio.graph || project.ovyxGraph || {}); }
-    return {
+    const snapshot = {
       projectId: String(project.id),
       project: clone(project),
       graph: clone(graph || {}),
       startedAt: Date.now()
     };
+    persistRollbackSnapshot(snapshot);
+    return snapshot;
   }
 
   function snapshotFromRepair(rollback) {
     if (!rollback || !rollback.projectId || !rollback.project || !rollback.graph) return null;
-    return {
+    const snapshot = {
       projectId: String(rollback.projectId),
       project: clone(rollback.project),
       graph: clone(rollback.graph),
       startedAt: Date.now()
     };
+    persistRollbackSnapshot(snapshot);
+    return snapshot;
   }
 
   function restoreProjectOnly(studio, snapshot, targetWasActiveAtCancel) {
@@ -278,20 +515,27 @@
       // The cancellation session is window-scoped, not bound to one controller
       // object. Web Studio may replace its object during hydration; retaining the
       // same task snapshot/generation prevents that replacement from orphaning Cancel.
-      if (!taskSession.snapshot || (!alreadyRunning && Number(taskSession.inFlightCount || 0) === 0)) {
+      if (!taskSession.snapshot || (!alreadyRunning && Number(taskSession.inFlightCount || 0) === 0 && !taskSession.armed)) {
         const fresh = repairSnapshot || captureSnapshot(this);
         if (fresh) {
+          if (taskSession.snapshot && taskSession.snapshot.projectId !== fresh.projectId) {
+            clearPersistedRollbackSnapshot(taskSession.snapshot);
+          }
           taskSession.snapshot = fresh;
           taskSession.generation = Number(taskSession.generation || 0) + 1;
           taskSession.inFlightCount = 0;
+          taskSession.fetchInFlightCount = 0;
           taskSession.controllers.clear();
           taskSession.activeStudio = this;
           ownsSnapshot = true;
         }
+      } else if (taskSession.armed && taskSession.snapshot) {
+        ownsSnapshot = true;
       }
 
       const snapshot = taskSession.snapshot;
       const generation = Number(taskSession.generation || 0);
+      taskSession.armed = false;
       taskSession.activeStudio = this;
       taskSession.activeMethod = methodName;
       taskSession.inFlightCount = Math.max(0, Number(taskSession.inFlightCount || 0)) + 1;
@@ -316,6 +560,7 @@
             snapshot &&
             taskSession.snapshot === snapshot &&
             taskSession.inFlightCount === 0 &&
+            Number(taskSession.fetchInFlightCount || 0) === 0 &&
             !activeTaskStillBusy
           ) {
             clearTaskSession();
@@ -363,10 +608,21 @@
       const cancelActiveTask = function () {
         // Read the shared snapshot: the active window.WebStudio object might not
         // be the same instance that started the request and captured the state.
-        const snapshot = taskSession.snapshot || this.__ovyxTaskRollbackSnapshot;
+        const activeProjectId = String(
+          getState() && getState().activeProject && getState().activeProject.id || ''
+        );
+        const snapshot = taskSession.snapshot
+          || this.__ovyxTaskRollbackSnapshot
+          || readPersistedRollbackSnapshot(activeProjectId);
         if (!snapshot) {
           syncCancelButton(this);
           return false;
+        }
+        if (!taskSession.snapshot) {
+          taskSession.snapshot = snapshot;
+          taskSession.generation = Number(taskSession.generation || 0) + 1;
+          taskSession.armed = false;
+          taskSession.activeMethod = 'browser-restored-snapshot';
         }
 
         const method = String(taskSession.activeMethod || this.__ovyxActiveTaskMethod || 'current');
@@ -388,6 +644,8 @@
         // over the restored snapshot even if window.WebStudio was replaced.
         taskSession.generation = Number(taskSession.generation || 0) + 1;
         taskSession.inFlightCount = 0;
+        taskSession.fetchInFlightCount = 0;
+        taskSession.armed = false;
         taskSession.activeStudio = null;
         studios.forEach(function (candidate) {
           if (!candidate || typeof candidate !== 'object') return;
@@ -477,6 +735,8 @@
   }
 
   function boot() {
+    installBrowserRollbackCapture();
+    installBrowserFetchCancellation();
     install(getStudio());
   }
 

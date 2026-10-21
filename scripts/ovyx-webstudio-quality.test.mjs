@@ -111,10 +111,13 @@ assert.ok(middleware.includes('/assets/ovyx-webstudio-navigation-polish.js?v=202
 assert.ok(middleware.includes('/assets/ovyx-webstudio-project-branding.js?v=20261021-11'), 'Project branding correction must load from the application shell with the refreshed V11 resolver cache key.');
 assert.ok(middleware.includes(".on('link[rel]'"), 'The app shell must inspect existing favicon declarations before setting the app-shell icon.');
 assert.ok(middleware.includes("if (rel.includes('icon')) element.remove();"), 'Stale or competing browser-tab icon declarations must be removed before the brand mark is inserted.');
-assert.ok(middleware.includes('href="/assets/ovyx-brand-mark.svg?v=20261021-5">'), 'The app shell must use the versioned real OVYX brand-mark SVG as its browser-tab favicon.');
+assert.ok(middleware.includes('href="/ovyx-tab-v6.svg?v=20261021-6">'), 'The app shell must use the versioned real OVYX brand-mark SVG as its browser-tab favicon.');
 assert.ok(middleware.includes("element.prepend('<link rel="), 'The brand-mark favicon must be installed in the document head.');
-assert.ok(middleware.includes('/assets/ovyx-shell-favicon-lock.js?v=20261021-2'), 'A dedicated shell favicon lock must be installed synchronously in the head before application scripts run.');
+assert.ok(middleware.includes('/assets/ovyx-shell-favicon-lock.js?v=20261021-3'), 'A dedicated shell favicon lock must be installed synchronously in the head before application scripts run.');
 assert.ok(middleware.includes("url.pathname.toLowerCase().endsWith('/favicon.ico')"), 'The browser implicit favicon route must serve the real OVYX mark instead of any legacy icon file.');
+assert.ok(middleware.includes("url.pathname === '/ovyx-tab-v6.svg'"), 'The favicon lock must use a fresh unique SVG route to avoid stale Chrome favicon cache entries.');
+assert.ok(middleware.includes("ovyx-webstudio-cancel-safety.js?v=20261021-3"), 'The shell must load the browser-persistent rollback runtime version.');
+
 assert.ok(middleware.includes("if (!contentType.includes('text/html')) return response;"), 'The favicon and application shell protections must run on HTML reloads beyond the root path.');
 assert.ok(!middleware.includes("url.pathname !== '/' && url.pathname !== '/index.html'"), 'Nested app routes must not bypass favicon replacement and cache protection.');
 assert.ok(middleware.includes("headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')"), 'The rewritten application shell must not restore a cached obsolete favicon reference.');
