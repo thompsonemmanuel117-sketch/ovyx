@@ -83,8 +83,9 @@
     var desc = elementDescription(element);
     var markup = String(element && element.outerHTML || '').slice(0, 2500);
     if (/\b(?:ovyx-brand-mark|ovyx-brand-lockup|ovyx-logo|ovyx-boot-logo|ovyx-notification-icon)\b/i.test(desc + ' ' + markup)) return -100;
-    var score = 0;
-    if (/\b(?:logo|wordmark|brand|identity|site-mark|brandmark)\b/.test(desc)) score += 14;
+    var hasBrandSignal = /\b(?:logo|wordmark|brand|identity|site-mark|brandmark)\b/.test(desc);
+    if (!hasBrandSignal) return -100;
+    var score = 14;
     if (/\b(?:avatar|profile|customer|product|hero|banner-image)\b/.test(desc)) score -= 10;
     if (element.closest && element.closest('header, nav, [role="banner"]')) score += 8;
     if (element.tagName && element.tagName.toLowerCase() === 'svg') score += 2;
