@@ -55,6 +55,7 @@ const fixture = `<!doctype html><html lang="en"><head><meta charset="utf-8"><met
 <script>
 window.__integrationEvents = [];
 window.__codeOpenEvents = [];
+window.__latestCodeSyncCount = 0;
 window.showToast = function(message, kind) { window.__lastToast = {message, kind}; };
 window.currentWebStudioSurface = function() { return 'split'; };
 window.snapshotState = function() { return {activePageIndex: 0, selectedNodeId: 'hero', thread: []}; };
@@ -92,6 +93,16 @@ window.WebStudio = {
   activeCodeFile:'src/pages/Home.html',
   entryFile:function(){ return this.graph.entry; },
   ensureProjectGraph:function(){ this.KernelGraph = this.graph; project.ovyxGraph=this.graph; return this.graph; },
+  syncGraphToProject:function(clearDirty){
+    if(clearDirty!==true)throw new Error('Conversion must commit the current Code state before snapshotting.');
+    window.__latestCodeSyncCount++;
+    for(const page of project.pages){
+      const file=this.graph.files[page.id==='home'?'src/pages/Home.html':'src/pages/About.html'];
+      if(file){page.html=file.content;page.source=file.content;page.renderedHtml=file.content;}
+    }
+    project.ovyxGraph=this.graph;
+    return true;
+  },
   openCodeEditor:function(file){ window.__codeOpenEvents.push({file, projectId:window.KernelState.activeProject.id}); return true; },
   mountFocusedCodeWorkspace:function(){ window.__codeOpenEvents.push({file:'(mount)', projectId:window.KernelState.activeProject.id}); return true; }
 };
@@ -163,6 +174,7 @@ try {
     inMemoryPayload: !!inMemoryPayload,
     storageReadError,
     globalProjectId: window.KernelState.activeProject.id,
+    latestCodeSyncCount: window.__latestCodeSyncCount,
     appStudioProjectId: window.OVYXAppStudioPhrase4?.state?.payload?.source?.projectId,
     appStudioReady: window.OVYXAppStudioPhrase4?.state?.sourceReady,
     event: window.__integrationEvents[0] || null,
@@ -189,6 +201,10 @@ try {
   assert.equal(transfer.payload.website.graphHtmlTrees.some(file=>file.path.startsWith('/')||file.path.split('/').includes('..')),false,'HTML snapshots must not include unsafe source paths.');
   assert.equal(transfer.payload.website.compiledHtmlTrees.length, 2, 'Page structure and HTML snapshots must be handed off.');
   assert.equal(transfer.payload.website.project.id, 'ovyx-integration-project-42');
+  assert.equal(transfer.latestCodeSyncCount, 1, 'Conversion must flush the Code graph before creating the App Studio payload.');
+  assert.equal(transfer.payload.website.project.pages[0].html.includes('Latest saved from Code workspace'), true, 'Page HTML must be synchronized with the live Code graph before transfer.');
+  assert.equal(transfer.payload.website.project.pages[0].source.includes('Latest saved from Code workspace'), true, 'The project source snapshot must match the current Code contents.');
+  assert.equal(transfer.payload.website.compiledHtmlTrees[0].html.html.includes('Latest saved from Code workspace'), true, 'App Studio must receive the latest page source rather than stale page HTML.');
   assert.equal(transfer.globalProjectId, transfer.payload.source.projectId, 'Navigating between studios must not replace the active project.');
   assert.equal(transfer.appStudioProjectId, transfer.payload.source.projectId, 'App Studio runtime state must hydrate from the same source project.');
   assert.equal(transfer.appStudioReady, true);
