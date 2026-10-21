@@ -57,24 +57,59 @@ try {
     }, updatedAt: 3 };
     window.WebStudio.graph = graph;
     window.KernelState.activeProject.ovyxGraph = graph;
-    window.KernelState.activeProject.assets = [{ id: 'industrial-crest', name: 'industrial-crest.png', contentType: 'image/png', storagePath: 'projects/industrial-project/industrial-crest.png' }];
+    window.KernelState.activeProject.assets = [];
     window.__requestedBrandAsset = '';
-    window.OVYXAssetStore = { url: async asset => {
-      window.__requestedBrandAsset = String(asset.name || '');
-      return 'https://assets.example.test/industrial-crest.png';
-    } };
+    window.__listedBrandProject = '';
+    window.OVYXAssetStore = {
+      list: async projectId => {
+        window.__listedBrandProject = String(projectId || '');
+        return [{ id: 'industrial-crest', name: 'industrial-crest.png', contentType: 'image/png', storagePath: 'projects/industrial-project/industrial-crest.png' }];
+      },
+      url: async asset => {
+        window.__requestedBrandAsset = String(asset.name || '');
+        return 'https://assets.example.test/industrial-crest.png';
+      }
+    };
     window.dispatchEvent(new Event('ovyx:project-loaded'));
   });
   await brandingPage.waitForFunction(() => window.WebStudio.graph.files['index.html'].content.includes('https://assets.example.test/industrial-crest.png'), null, { timeout: 5000 });
   const uploadedBranding = await brandingPage.evaluate(() => ({
     html: window.WebStudio.graph.files['index.html'].content,
     saveCount: window.__projectSaveCount,
-    requestedAsset: window.__requestedBrandAsset
+    requestedAsset: window.__requestedBrandAsset,
+    listedProject: window.__listedBrandProject
   }));
   assert.match(uploadedBranding.html, /href="https:\/\/assets\.example\.test\/industrial-crest\.png"/, 'A project favicon must resolve the logo from the project asset store when it is not in the text graph.');
   assert.match(uploadedBranding.html, /id="uploaded-logo-content"/, 'Uploaded-asset favicon repair must preserve the rest of the page.');
   assert.equal(uploadedBranding.requestedAsset, 'industrial-crest.png', 'The correct project-owned logo asset must be resolved.');
+  assert.equal(uploadedBranding.listedProject, 'industrial-project', 'The logo resolver must query uploaded assets by the active project ID.');
   assert.equal(uploadedBranding.saveCount, 2, 'The uploaded-asset favicon correction must save the project graph.');
+
+  // Component-based applications keep the visible logo inside JSX/TSX imports,
+  // not inside index.html. The resolver must follow the logo import back to the
+  // project-owned SVG and use it for the HTML favicon without rewriting source.
+  await brandingPage.evaluate(() => {
+    const graph = { version: 2, entry: 'index.html', files: {
+      'index.html': { type: 'text/html', content: '<!doctype html><html><head><title>ForgeOS React project</title><link rel="icon" href="/assets/ovyx-brand-mark.svg"></head><body><div id="root">React application root</div></body></html>' },
+      'src/App.jsx': { type: 'text/javascript', content: "import IndustrialLogo from './assets/industrial-logo.svg'; export function Header(){ return <a className=\\"navbar-brand\\"><img alt=\\"ForgeOS Industrial\\" src={IndustrialLogo}/></a>; }" },
+      'src/assets/industrial-logo.svg': { type: 'image/svg+xml', content: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#d8a93e" d="M24 3 45 24 24 45 3 24Z"/><circle cx="24" cy="24" r="8" fill="#111827"/></svg>' }
+    }, updatedAt: 4 };
+    window.WebStudio.graph = graph;
+    window.KernelState.activeProject.ovyxGraph = graph;
+    window.KernelState.activeProject.assets = [];
+    window.OVYXAssetStore = { list: async () => [], url: async () => '' };
+    window.dispatchEvent(new Event('ovyx:project-loaded'));
+  });
+  await brandingPage.waitForFunction(() => window.WebStudio.graph.files['index.html'].content.includes('data:image/svg+xml;charset=utf-8,'), null, { timeout: 5000 });
+  const componentBranding = await brandingPage.evaluate(() => ({
+    index: window.WebStudio.graph.files['index.html'].content,
+    component: window.WebStudio.graph.files['src/App.jsx'].content,
+    saveCount: window.__projectSaveCount
+  }));
+  assert.match(componentBranding.index, /data:image\\/svg\\+xml;charset=utf-8,/, 'Favicon discovery must follow a brand logo imported from a React component.');
+  assert.match(componentBranding.index, /id="root"/, 'The React project shell must be preserved.');
+  assert.match(componentBranding.component, /IndustrialLogo/, 'Project source components must not be rewritten by favicon correction.');
+  assert.equal(componentBranding.saveCount, 3, 'Component-logo favicon correction must persist the HTML graph.');
 
   // If a project has no detectable own logo, leave its favicon and files alone
   // rather than guessing or replacing it with another OVYX platform asset.
@@ -91,7 +126,7 @@ try {
   const noLogo = await brandingPage.evaluate(() => ({ html: window.WebStudio.graph.files['index.html'].content, saveCount: window.__projectSaveCount }));
   assert.match(noLogo.html, /href="\/assets\/ovyx-brand-mark\.svg"/, 'A project without its own logo must not be assigned a guessed favicon.');
   assert.match(noLogo.html, /id="untouched"/, 'A project without a logo must remain unchanged.');
-  assert.equal(noLogo.saveCount, 2, 'An unchanged project must not be saved as if it had been modified.');
+  assert.equal(noLogo.saveCount, 3, 'An unchanged project must not be saved as if it had been modified.');
 
   await page.setContent(fixture, { waitUntil: 'domcontentloaded' });
   await page.addScriptTag({ path: runtimePath });
