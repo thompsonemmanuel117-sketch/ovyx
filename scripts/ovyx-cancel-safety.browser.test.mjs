@@ -264,8 +264,33 @@ try {
       revisions: [],
       ovyxGraph: clone(graph),
     };
-    window.KernelState = { projects: [project], activeProject: project };
-    window.ProjectStore = { save() {} };
+    const untouchedProject = {
+      id: 'untouched-project',
+      name: 'A separate project that Cancel must preserve',
+      pages: [{ id: 'other-home', name: 'Home', slug: '/' }],
+      assets: [],
+      revisions: [],
+      ovyxGraph: { version: 2, entry: 'src/pages/Home.html', files: {
+        'src/pages/Home.html': { type: 'text/html', content: '<!doctype html><html><body>Separate project work</body></html>' },
+      } },
+    };
+    window.KernelState = { projects: [project, untouchedProject], activeProject: project };
+    // Mirror the real Foundation ProjectStore: its save method closes over the
+    // state object present when the store was created. The regression below
+    // replaces window.KernelState while a task is active to reproduce the stale
+    // store-closure race that an in-memory-only rollback can miss.
+    const storeOwnedState = window.KernelState;
+    const projectListStorageKey = 'ovyx.projects.v22.guest';
+    localStorage.setItem(projectListStorageKey, JSON.stringify(storeOwnedState.projects));
+    window.ProjectStore = {
+      save() {
+        const active = storeOwnedState.activeProject;
+        storeOwnedState.projects = storeOwnedState.projects.map(item =>
+          String(item && item.id || '') === String(active && active.id || '') ? active : item
+        );
+        localStorage.setItem(projectListStorageKey, JSON.stringify(storeOwnedState.projects));
+      },
+    };
     window.WebStudio = {
       graph: clone(graph),
       pendingBuild: false,
@@ -343,6 +368,14 @@ try {
     project.pages.push({ id: 'partial', name: 'AI partial page', slug: '/partial' });
     studio.graph.files['src/pages/Home.html'].content = '<!doctype html><html><body>Partial browser AI result</body></html>';
     project.ovyxGraph = JSON.parse(JSON.stringify(studio.graph));
+
+    // Mimic hydration replacing the global KernelState while the old
+    // ProjectStore still closes over the pre-replacement object.
+    const nextProjects = JSON.parse(JSON.stringify(window.KernelState.projects));
+    window.KernelState = {
+      projects: nextProjects,
+      activeProject: nextProjects.find(item => item.id === project.id) || null,
+    };
   });
   await browserFetchPage.locator('#ws-task-cancel').tap();
 
@@ -359,6 +392,10 @@ try {
       graphHtml: studio.graph.files['src/pages/Home.html'].content,
       projectGraphHtml: project.ovyxGraph.files['src/pages/Home.html'].content,
       persistedGraphHtml: persistedGraph.files?.['src/pages/Home.html']?.content || '',
+      persistedProjects: (() => {
+        try { return JSON.parse(localStorage.getItem('ovyx.projects.v22.guest') || '[]'); }
+        catch (_) { return []; }
+      })(),
       requestAborted: window.__browserApiAborted,
       signalAborted: !!(window.__browserApiSignal && window.__browserApiSignal.aborted),
       cancelHidden: document.getElementById('ws-task-cancel').hidden,
@@ -380,6 +417,18 @@ try {
     'Browser-connected Cancel must restore the active project graph.');
   assert.match(browserRollback.persistedGraphHtml, /Browser last-good work/,
     'Browser-connected Cancel must restore the project-scoped browser storage graph.');
+  const durableProject = browserRollback.persistedProjects.find(project => project.id === 'browser-fetch-rollback-project');
+  const durableOtherProject = browserRollback.persistedProjects.find(project => project.id === 'untouched-project');
+  assert.equal(durableProject?.name, 'Browser baseline project',
+    'Cancel must persist restored project metadata through the UID-scoped OVYX project-list cache, not only the graph cache.');
+  assert.deepEqual(durableProject?.pages?.map(page => page.id), ['home'],
+    'The persisted project list must not resurrect the partially generated page after refresh.');
+  assert.match(durableProject?.ovyxGraph?.files?.['src/pages/Home.html']?.content || '', /Browser last-good work/,
+    'The persisted project-list record must contain the restored source graph.');
+  assert.equal(durableOtherProject?.name, 'A separate project that Cancel must preserve',
+    'Rollback must keep other projects unchanged while repairing the task project.');
+  assert.equal(browserRollback.persistedProjects.length, 2,
+    'The UID-scoped project list must retain the same project count after Cancel.');
   assert.equal(browserRollback.requestAborted, true, 'The outgoing browser API request must be aborted by Cancel.');
   assert.equal(browserRollback.signalAborted, true, 'The outgoing request signal must be aborted.');
   assert.equal(browserRollback.cancelHidden, true, 'Cancel must return to its idle state after rollback.');
@@ -387,6 +436,30 @@ try {
   assert.equal(browserRollback.snapshotRemoved, true, 'The consumed persistent browser snapshot must be removed after rollback.');
   assert.equal(browserRollback.composerBusy, false, 'The mobile composer must not remain stuck busy after browser API cancellation.');
   assert.equal(browserRollback.sendBusy, false, 'The send button must be restored after browser API cancellation.');
+
+  // A refresh creates a new JavaScript context. The actual OVYX boot loader
+  // repopulates KernelState from this account-scoped list; verify the baseline
+  // project and graph are still what that next boot would load.
+  await browserFetchPage.reload();
+  const afterRefresh = await browserFetchPage.evaluate(() => {
+    const projects = JSON.parse(localStorage.getItem('ovyx.projects.v22.guest') || '[]');
+    const project = projects.find(item => item.id === 'browser-fetch-rollback-project');
+    const other = projects.find(item => item.id === 'untouched-project');
+    return {
+      projectName: project?.name || '',
+      pageIds: (project?.pages || []).map(page => page.id),
+      graphHtml: project?.ovyxGraph?.files?.['src/pages/Home.html']?.content || '',
+      otherProjectName: other?.name || '',
+    };
+  });
+  assert.equal(afterRefresh.projectName, 'Browser baseline project',
+    'A full browser refresh must not bring back the partial AI project metadata.');
+  assert.deepEqual(afterRefresh.pageIds, ['home'],
+    'A full browser refresh must not resurrect pages removed by Cancel.');
+  assert.match(afterRefresh.graphHtml, /Browser last-good work/,
+    'A full browser refresh must load the restored HTML graph from OVYX project storage.');
+  assert.equal(afterRefresh.otherProjectName, 'A separate project that Cancel must preserve',
+    'A refresh must preserve unrelated projects after a scoped rollback.');
 
   await browserFetchPage.close();
   await context.close();

@@ -415,6 +415,50 @@
     return snapshot;
   }
 
+  // ProjectStore.save() closes over the state object created by the foundation
+  // runtime. If hydration replaces window.KernelState, that method can persist an
+  // older object even when the visible workspace has just been restored. Write the
+  // authoritative live project list to the same UID-scoped cache used by OVYX's
+  // project loader, without calling a renderer/normalizer after rollback.
+  function persistAuthoritativeProjectList() {
+    const state = getState();
+    if (!state || !Array.isArray(state.projects)) return false;
+    try {
+      const user = window.firebase && window.firebase.auth && window.firebase.auth().currentUser;
+      const uid = String(user && user.uid || '').trim();
+      const email = String(user && user.email || '').trim().toLowerCase();
+      const cloudSync = window.ProjectCloudSync;
+      const key = cloudSync && typeof cloudSync.cacheKey === 'function'
+        ? cloudSync.cacheKey(email)
+        : uid
+          ? 'ovyx.projects.v22.user.' + uid
+          : 'ovyx.projects.v22.guest';
+      const serialized = JSON.stringify(state.projects);
+      window.localStorage.setItem(key, serialized);
+      // Preserve the cache writer's account scoping when available. The direct
+      // write above remains the fallback if this helper is absent or throws.
+      try {
+        if (cloudSync && typeof cloudSync.cache === 'function') {
+          cloudSync.cache(email, state.projects);
+        }
+      } catch (_) {}
+      // Signed-in projects are also synchronized server-side. Schedule this only
+      // after the restored state is durable locally, so a stale closure cannot
+      // overwrite the rollback snapshot in the user's cache.
+      try {
+        if (user && cloudSync && typeof cloudSync.scheduleSyncActive === 'function') {
+          cloudSync.scheduleSyncActive(280);
+        }
+      } catch (_) {}
+      return true;
+    } catch (error) {
+      try {
+        console.warn('[OVYX task rollback] Could not persist the restored project list:', String(error && error.message || error).slice(0, 160));
+      } catch (_) {}
+      return false;
+    }
+  }
+
   function restoreProjectOnly(studio, snapshot, targetWasActiveAtCancel) {
     const state = getState();
     if (!state || !snapshot || !snapshot.projectId || !snapshot.project) return false;
@@ -500,6 +544,10 @@
       // after this final authoritative in-memory restoration.
       reapplyFinalSnapshot();
     }
+
+    // Last write wins: persist the public state after every render and reapply,
+    // not through ProjectStore.save(), which may still own an older KernelState.
+    persistAuthoritativeProjectList();
     return true;
   }
 
