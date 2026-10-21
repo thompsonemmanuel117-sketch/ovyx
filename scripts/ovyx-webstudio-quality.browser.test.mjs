@@ -33,20 +33,22 @@ try {
   const projectIndex = '<!doctype html><html lang="en"><head><title>OVYX — Industrial</title><link rel="icon" href="/assets/ovyx-brand-mark.svg"></head><body><header><img class="brand-logo" alt="Industrial logo" src="assets/industrial-logo.svg"><h1>OVYX Industrial</h1></header><main id="keep-me">Keep this project content.</main></body></html>';
   const projectAbout = '<!doctype html><html lang="en"><head><title>About — Industrial</title><link rel="icon" href="/assets/ovyx-brand-mark.svg"></head><body><header><img class="brand-logo" alt="Industrial logo" src="assets/industrial-logo.svg"></header><main id="about-keep">Keep the about page too.</main></body></html>';
   const industrialLogo = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#d8a93e" d="M24 3 45 24 24 45 3 24Z"/><circle cx="24" cy="24" r="8" fill="#111827"/></svg>';
-  const brandingFixture = '<!doctype html><html lang="en"><head><title>Brand correction fixture</title></head><body><main>Branding runtime test.</main><script>window.__projectSaveCount=0;window.KernelState={activeProject:{id:"industrial-project",name:"OVYX Industrial",pages:[{name:"Home",route:"/",__ovyxFile:"index.html"}],assets:[]},projects:[]};window.WebStudio={graph:{version:2,entry:"index.html",files:{"index.html":{type:"text/html",content:' + scriptJSON(projectIndex) + '},"about.html":{type:"text/html",content:' + scriptJSON(projectAbout) + '},"assets/industrial-logo.svg":{type:"image/svg+xml",content:' + scriptJSON(industrialLogo) + '}},updatedAt:1},syncGraphToProject:function(){window.KernelState.activeProject.ovyxGraph=this.graph}};window.KernelState.activeProject.ovyxGraph=window.WebStudio.graph;window.ProjectStore={save:function(){window.__projectSaveCount+=1}};</script></body></html>';
+  const brandingFixture = '<!doctype html><html lang="en"><head><title>Brand correction fixture</title></head><body><main>Branding runtime test.</main><script>document.body.classList.add("ovyx-webstudio-active");window.__projectSaveCount=0;window.KernelState={activeProject:{id:"industrial-project",name:"OVYX Industrial",pages:[{name:"Home",route:"/",__ovyxFile:"index.html"}],assets:[]},projects:[]};window.WebStudio={graph:{version:2,entry:"index.html",files:{"index.html":{type:"text/html",content:' + scriptJSON(projectIndex) + '},"about.html":{type:"text/html",content:' + scriptJSON(projectAbout) + '},"assets/industrial-logo.svg":{type:"image/svg+xml",content:' + scriptJSON(industrialLogo) + '}},updatedAt:1},syncGraphToProject:function(){window.KernelState.activeProject.ovyxGraph=this.graph}};window.KernelState.activeProject.ovyxGraph=window.WebStudio.graph;window.ProjectStore={save:function(){window.__projectSaveCount+=1}};</script></body></html>';
   await brandingPage.setContent(brandingFixture, { waitUntil: 'domcontentloaded' });
   await brandingPage.addScriptTag({ path: projectBrandingPath });
   await brandingPage.waitForFunction(() => window.WebStudio.graph.files['index.html'].content.includes('data:image/svg+xml;charset=utf-8,'));
   const projectBranding = await brandingPage.evaluate(() => ({
     index: window.WebStudio.graph.files['index.html'].content,
     about: window.WebStudio.graph.files['about.html'].content,
-    saveCount: window.__projectSaveCount
+    saveCount: window.__projectSaveCount,
+    tabFavicon: document.querySelector('link[rel~="icon"][data-ovyx-project-favicon]')?.getAttribute('href') || null
   }));
   assert.match(projectBranding.index, /data:image\/svg\+xml;charset=utf-8,/, 'The project favicon must use the logo SVG found in the project graph.');
   assert.match(projectBranding.index, /id="keep-me"/, 'Favicon correction must preserve the generated page content.');
   assert.match(projectBranding.about, /id="about-keep"/, 'The correction must preserve sibling project pages.');
   assert.doesNotMatch(projectBranding.index, /href="\/assets\/ovyx-brand-mark\.svg"/, 'A project page must not keep the OVYX platform mark as its favicon after a project-owned logo is found.');
   assert.equal(projectBranding.saveCount, 1, 'The changed project graph must be saved once.');
+  assert.ok(projectBranding.tabFavicon?.startsWith('data:image/svg+xml;charset=utf-8,'), 'The active Web Studio browser tab must use the real project SVG logo.');
 
   // Some project logos are stored as uploaded assets and are not part of the
   // UTF-8 source-file graph. Resolve the exact referenced asset URL, not the
@@ -77,12 +79,14 @@ try {
     html: window.WebStudio.graph.files['index.html'].content,
     saveCount: window.__projectSaveCount,
     requestedAsset: window.__requestedBrandAsset,
-    listedProject: window.__listedBrandProject
+    listedProject: window.__listedBrandProject,
+    tabFavicon: document.querySelector('link[rel~="icon"][data-ovyx-project-favicon]')?.getAttribute('href') || null
   }));
   assert.match(uploadedBranding.html, /href="https:\/\/assets\.example\.test\/industrial-crest\.png"/, 'A project favicon must resolve the logo from the project asset store when it is not in the text graph.');
   assert.match(uploadedBranding.html, /id="uploaded-logo-content"/, 'Uploaded-asset favicon repair must preserve the rest of the page.');
   assert.equal(uploadedBranding.requestedAsset, 'industrial-crest.png', 'The correct project-owned logo asset must be resolved.');
   assert.equal(uploadedBranding.listedProject, 'industrial-project', 'The logo resolver must query uploaded assets by the active project ID.');
+  assert.equal(uploadedBranding.tabFavicon, 'https://assets.example.test/industrial-crest.png', 'The browser tab must use the real uploaded project logo URL.');
   assert.equal(uploadedBranding.saveCount, 2, 'The uploaded-asset favicon correction must save the project graph.');
 
   // Component-based applications keep the visible logo inside JSX/TSX imports,
@@ -104,12 +108,14 @@ try {
   const componentBranding = await brandingPage.evaluate(() => ({
     index: window.WebStudio.graph.files['index.html'].content,
     component: window.WebStudio.graph.files['src/App.jsx'].content,
-    saveCount: window.__projectSaveCount
+    saveCount: window.__projectSaveCount,
+    tabFavicon: document.querySelector('link[rel~="icon"][data-ovyx-project-favicon]')?.getAttribute('href') || null
   }));
   assert.ok(componentBranding.index.includes('data:image/svg+xml;charset=utf-8,'), 'Favicon discovery must follow a brand logo imported from a React component.');
   assert.match(componentBranding.index, /id="root"/, 'The React project shell must be preserved.');
   assert.match(componentBranding.component, /IndustrialLogo/, 'Project source components must not be rewritten by favicon correction.');
   assert.equal(componentBranding.saveCount, 3, 'Component-logo favicon correction must persist the HTML graph.');
+  assert.ok(componentBranding.tabFavicon?.startsWith('data:image/svg+xml;charset=utf-8,'), 'A component-imported SVG logo must also update the browser tab.');
 
   // If a project has no detectable own logo, leave its favicon and files alone
   // rather than guessing or replacing it with another OVYX platform asset.
@@ -123,10 +129,15 @@ try {
     window.dispatchEvent(new Event('ovyx:project-loaded'));
   });
   await brandingPage.waitForTimeout(120);
-  const noLogo = await brandingPage.evaluate(() => ({ html: window.WebStudio.graph.files['index.html'].content, saveCount: window.__projectSaveCount }));
+  const noLogo = await brandingPage.evaluate(() => ({
+    html: window.WebStudio.graph.files['index.html'].content,
+    saveCount: window.__projectSaveCount,
+    tabFavicon: document.querySelector('link[rel~="icon"][data-ovyx-project-favicon]')?.getAttribute('href') || null
+  }));
   assert.match(noLogo.html, /href="\/assets\/ovyx-brand-mark\.svg"/, 'A project without its own logo must not be assigned a guessed favicon.');
   assert.match(noLogo.html, /id="untouched"/, 'A project without a logo must remain unchanged.');
   assert.equal(noLogo.saveCount, 3, 'An unchanged project must not be saved as if it had been modified.');
+  assert.equal(noLogo.tabFavicon, null, 'A project without a verified logo must not keep the previous project favicon.');
 
   await page.setContent(fixture, { waitUntil: 'domcontentloaded' });
   await page.addScriptTag({ path: runtimePath });
@@ -142,8 +153,8 @@ try {
   assert.equal(await page.locator('[data-ovyx-quality-trigger]').count(), 0, 'The quality inspector must not add a duplicate Web Studio header control.');
   assert.notEqual(await page.locator('#view-webstudio .ovyx-ws-header').evaluate(el => getComputedStyle(el).display), 'none', 'The Web Studio header remains visible while project navigation is closed.');
 
-  // Desktop: the real arrow opens navigation, but must not remove/collapse the
-  // header row. The existing sidebar close control should close it cleanly.
+  // Desktop: the real arrow opens navigation without hiding or collapsing the
+  // header row. The existing sidebar close control and Escape must both restore the workspace.
   const desktopHeaderBefore = await page.locator('#view-webstudio .ovyx-ws-header').evaluate(el => ({
     display: getComputedStyle(el).display,
     height: el.getBoundingClientRect().height
@@ -155,7 +166,7 @@ try {
     visibility: getComputedStyle(el).visibility,
     height: el.getBoundingClientRect().height
   }));
-  assert.equal(desktopHeaderDuring.visibility, 'hidden', 'The desktop chat header must be covered while navigation is open.');
+  assert.notEqual(desktopHeaderDuring.visibility, 'hidden', 'Opening navigation must not hide the arrow and Preview toolbar.');
   assert.equal(desktopHeaderDuring.display, desktopHeaderBefore.display, 'Hiding navigation must not change the header display mode.');
   assert.equal(desktopHeaderDuring.height, desktopHeaderBefore.height, 'Hiding navigation must preserve the original header height and chat layout.');
   await page.locator('#ovyx-desktop-sidebar-close').click();
@@ -165,14 +176,20 @@ try {
     visibility: getComputedStyle(el).visibility,
     height: el.getBoundingClientRect().height
   }));
-  assert.notEqual(desktopHeaderAfter.visibility, 'hidden', 'The chat header must return after the desktop drawer closes.');
+  assert.notEqual(desktopHeaderAfter.visibility, 'hidden', 'The chat header must remain visible after the desktop drawer closes.');
   assert.equal(desktopHeaderAfter.display, desktopHeaderBefore.display, 'The header display mode must stay unchanged after closing navigation.');
   assert.equal(desktopHeaderAfter.height, desktopHeaderBefore.height, 'The chat layout height must be restored exactly.');
   assert.equal(await page.locator('#ws-preview-trigger').count(), 1, 'The original Preview button must remain present.');
+  await page.locator('#ws-sidebar-trigger').click();
+  await page.waitForFunction(() => document.body.classList.contains('ovyx-ws-nav-open'));
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !document.body.classList.contains('ovyx-ws-nav-open') && document.querySelector('#ws-sidebar-trigger')?.getAttribute('aria-expanded') === 'false');
+  assert.notEqual(await page.locator('#view-webstudio .ovyx-ws-header').evaluate(el => getComputedStyle(el).visibility), 'hidden', 'Escape cancellation must leave the header visible.');
+  assert.ok(await page.locator('#ws-preview-trigger').isVisible(), 'Preview must remain visible after cancelling navigation.');
   await page.locator('#ws-preview-trigger').click();
 
   // Mobile: no 54px header gap may remain above the drawer or backdrop, and
-  // the hidden toolbar must keep its original space so chat/preview do not jump.
+  // the toolbar must remain in its original space so chat/preview do not jump.
   await page.setViewportSize({ width: 390, height: 844 });
   const mobileHeaderBefore = await page.locator('#view-webstudio .ovyx-ws-header').evaluate(el => ({
     display: getComputedStyle(el).display,
@@ -185,7 +202,7 @@ try {
     visibility: getComputedStyle(el).visibility,
     height: el.getBoundingClientRect().height
   }));
-  assert.equal(mobileHeaderDuring.visibility, 'hidden', 'The chat header must be visually covered while the mobile project drawer opens.');
+  assert.notEqual(mobileHeaderDuring.visibility, 'hidden', 'Mobile navigation must not hide the header state or strand Preview after close.');
   assert.equal(mobileHeaderDuring.display, mobileHeaderBefore.display, 'Mobile navigation must not remove the header row from layout.');
   assert.equal(mobileHeaderDuring.height, mobileHeaderBefore.height, 'Mobile navigation must preserve the header row height.');
   const mobileDrawerBox = await page.locator('#mobile-drawer').evaluate(el => ({ top: el.getBoundingClientRect().top, height: el.getBoundingClientRect().height }));
@@ -196,7 +213,7 @@ try {
   assert.ok(mobileBackdropBox.height >= 843, 'The mobile backdrop must cover the full visible viewport.');
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => !document.body.classList.contains('ovyx-ws-mobile-nav-open') && document.querySelector('#ws-sidebar-trigger')?.getAttribute('aria-expanded') === 'false');
-  assert.notEqual(await page.locator('#view-webstudio .ovyx-ws-header').evaluate(el => getComputedStyle(el).display), 'none', 'The chat header must return after the mobile drawer closes.');
+  assert.notEqual(await page.locator('#view-webstudio .ovyx-ws-header').evaluate(el => getComputedStyle(el).visibility), 'hidden', 'The chat header must remain visible after the mobile drawer closes.');
   await page.setViewportSize({ width: 1440, height: 900 });
   assert.equal(await page.locator('[data-quality-export]').count(), 1, 'The inspector must provide one QA report export action.');
   assert.equal(await page.locator('[data-quality-copy-summary]').count(), 1, 'The inspector must provide one client-summary copy action.');

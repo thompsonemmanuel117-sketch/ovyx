@@ -6,6 +6,10 @@ on:
       - main
     paths:
       - 'assets/ovyx-webstudio-quality.js'
+      - 'assets/ovyx-webstudio-navigation-polish.js'
+      - 'assets/ovyx-webstudio-project-branding.js'
+      - 'functions/_middleware.js'
+      - 'scripts/ovyx-webstudio-quality.test.mjs'
       - 'scripts/ovyx-webstudio-quality.browser.test.mjs'
       - '.github/workflows/ovyx-webstudio-quality-browser.yml'
   workflow_dispatch:
