@@ -79,7 +79,7 @@
       // The composer should be usable immediately after Cancel. Respect an empty
       // prompt instead of leaving the send button stuck disabled by the old task.
       const input = document.querySelector('#ws-chat-input, #ws-chat-composer textarea, #ws-chat-composer input:not([type="hidden"])');
-      send.disabled = !String(input && input.value || '').trim();
+      send.disabled = input ? !String(input.value || '').trim() : false;
     }
   }
 
