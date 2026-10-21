@@ -2,7 +2,7 @@
   'use strict';
 
   if (window.__OVYX_WS_PROJECT_BRANDING_V6__) return;
-  window.__OVYX_WS_PROJECT_BRANDING_V6__ = true;
+  window.__OVYX_WS_PROJECT_BRANDING_V7__ = true;
 
   var busy = false;
   var resolving = false;
@@ -392,14 +392,16 @@
     if (!doc || !doc.querySelectorAll || !doc.defaultView ||
         typeof doc.defaultView.getComputedStyle !== 'function') return candidates;
 
-    // Some frameworks paint the actual site mark with CSS backgrounds or
-    // pseudo-elements instead of an <img> or inline <svg>. Only inspect nodes
-    // whose own labels/classes identify them as a brand/logo, avoiding generic
-    // page, hero, and header background images.
-    var selector = '[class], [id], [alt], [title], [aria-label], [data-testid], [data-brand]';
+    // Include inline-style nodes too. Brand-named nodes are preferred; an
+    // otherwise unnamed element qualifies only when it is a small mark inside
+    // a semantic header/nav/banner, which avoids mistaking hero backgrounds
+    // for a site logo.
+    var selector = '[class], [id], [alt], [title], [aria-label], [data-testid], [data-brand], [style]';
     Array.prototype.slice.call(doc.querySelectorAll(selector)).forEach(function (element) {
       var description = elementBrandDescription(element);
-      if (!/(?:logo|wordmark|brand|identity|site[\s_.-]?mark|favicon|monogram|emblem|symbol)/i.test(description)) return;
+      var hasBrandSignal = /(?:logo|wordmark|brand|identity|site[\s_.-]?mark|favicon|monogram|emblem|symbol)/i.test(description);
+      var inBrandRegion = !!(element.closest && element.closest('header, nav, [role="banner"]'));
+      if (!hasBrandSignal && !inBrandRegion) return;
 
       var stylePairs = [];
       try {
@@ -419,7 +421,9 @@
 
         var width = parseFloat(style.width);
         var height = parseFloat(style.height);
-        var score = 155;
+        if (!hasBrandSignal && (!inBrandRegion || !Number.isFinite(width) || !Number.isFinite(height) ||
+            width <= 0 || height <= 0 || width > 360 || height > 180)) return;
+        var score = hasBrandSignal ? 155 : 68;
         if (/\b(?:logo|wordmark|brand|identity|favicon|monogram|emblem|symbol)\b/i.test(description)) score += 12;
         if (Number.isFinite(width) && width > 500) score -= 60;
         if (Number.isFinite(height) && height > 220) score -= 60;
@@ -432,6 +436,32 @@
           fromLivePreview: true,
           fromCssBackground: true
         });
+      });
+    });
+    return candidates;
+  }
+  function renderedPreviewIconCandidates(doc, first, files) {
+    var candidates = [];
+    if (!doc || !doc.querySelectorAll) return candidates;
+    Array.prototype.slice.call(doc.querySelectorAll('link[rel]')).forEach(function (link) {
+      var rel = clean(link.getAttribute('rel')).toLowerCase().split(/\s+/);
+      if (rel.indexOf('icon') < 0) return;
+      var reference = clean(link.getAttribute('href'));
+      if (!reference || isPlatformLogo(reference)) return;
+
+      // A declared icon in the running site is a stronger signal than guessing
+      // from its full-size wordmark; use the project graph for local assets.
+      var href = imageHref(first || '', reference, files);
+      if (!href && /^data:image\//i.test(reference)) href = reference;
+      if (!href && /^https?:\/\//i.test(reference)) href = reference;
+      if (!href) return;
+      candidates.push({
+        score: 240,
+        href: href,
+        asset: null,
+        pagePath: first || '',
+        fromLivePreview: true,
+        fromExplicitPreviewIcon: true
       });
     });
     return candidates;
@@ -450,7 +480,7 @@
       try {
         var rendered = doc.documentElement.outerHTML;
         if (!rendered || !/<head\b/i.test(rendered) || !/<body\b/i.test(rendered)) return;
-        var found = listBrandCandidates(first || '', rendered, files, project, true, supplementalAssets);
+        var found = renderedPreviewIconCandidates(doc, first || '', files);\n        found = found.concat(listBrandCandidates(first || '', rendered, files, project, true, supplementalAssets));
         found = found.concat(renderedCssBrandCandidates(doc, first || '', files));
         found.forEach(function (candidate) {
           // Prefer the real, rendered site mark over a fallback asset or a
