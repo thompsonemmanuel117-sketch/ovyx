@@ -135,8 +135,28 @@
     catch (error) { console.warn('[OVYX task rollback]', String(error && error.message || error).slice(0, 160)); }
 
     if (targetIsStillActive) {
+      // Rendering is allowed to normalize the preview/UI, but the renderer must
+      // not become a second source of truth for a cancelled task. Reapply the
+      // exact task-start project+graph after render so generated page files or
+      // preview normalization cannot sneak partial AI changes back into storage.
       try { studio.renderPreview && studio.renderPreview(); } catch (_) {}
       try { studio.render && studio.render(); } catch (_) {}
+
+      const finalProject = clone(snapshot.project);
+      finalProject.ovyxGraph = clone(snapshot.graph || finalProject.ovyxGraph || {});
+      const latestProjects = Array.isArray(state.projects) ? state.projects.slice() : [];
+      const finalIndex = latestProjects.findIndex(project => String(project && project.id || '') === targetId);
+      if (finalIndex >= 0) latestProjects[finalIndex] = finalProject;
+      else latestProjects.push(finalProject);
+      state.projects = latestProjects;
+      state.activeProject = finalProject;
+      studio.graph = clone(savedGraph);
+      try {
+        const prefix = String(studio.graphKeyPrefix || 'ovyx.ws.graph.v2.');
+        localStorage.setItem(prefix + targetId, JSON.stringify(studio.graph));
+      } catch (_) {}
+      try { window.ProjectStore && window.ProjectStore.save && window.ProjectStore.save(); } catch (_) {}
+      try { studio.renderCodeTree && studio.renderCodeTree(); } catch (_) {}
     }
     return true;
   }
