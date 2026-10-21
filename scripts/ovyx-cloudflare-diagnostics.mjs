@@ -257,27 +257,51 @@ try {
   const lines = Array.isArray(logs?.data) ? logs.data : [];
   result.logErrors = findCloudflareLogErrors(lines, sanitizeLine);
   result.runtimeHealth = await probeApplicationHealth(deployment.url);
-  if (!result.runtimeHealth.ok) {
+
+  // Also probe the stable Pages project hostname users commonly bookmark.
+  // A deployment-specific hash URL being healthy does not prove the canonical
+  // browser/project link has switched to the same currently deployed release.
+  const canonicalHost = String(rawProjectInfo.subdomain || rawProjectInfo.domains?.[0] || '').trim();
+  let canonicalUrl = '';
+  try {
+    if (canonicalHost) canonicalUrl = new URL(/^https?:\/\//i.test(canonicalHost) ? canonicalHost : 'https://' + canonicalHost).origin;
+  } catch {}
+  let deploymentOrigin = '';
+  try { deploymentOrigin = new URL(deployment.url).origin; } catch {}
+  result.canonicalRuntimeHealth = canonicalUrl && canonicalUrl !== deploymentOrigin
+    ? await probeApplicationHealth(canonicalUrl)
+    : { ok: true, status: 'same-origin-or-unavailable', skipped: true, reason: 'No distinct canonical Pages hostname was returned.' };
+
+  function runtimeFailureReasons(health, label) {
+    if (!health || health.ok) return [];
     const reasons = [];
-    if (result.runtimeHealth.error) reasons.push(result.runtimeHealth.error);
+    if (health.error) reasons.push(health.error);
     else {
-      reasons.push('HTTP ' + String(result.runtimeHealth.httpStatus || 'n/a') + ', status ' + result.runtimeHealth.status);
-      if (result.runtimeHealth.firebaseProjectMatch === false) reasons.push('Firebase client/server project mismatch');
-      if (result.runtimeHealth.missingRequiredEnvironment?.length) reasons.push('variables not present: ' + result.runtimeHealth.missingRequiredEnvironment.join(', '));
-      if (result.runtimeHealth.emptyRequiredEnvironment?.length) reasons.push('variables present but empty: ' + result.runtimeHealth.emptyRequiredEnvironment.join(', '));
-      if (result.runtimeHealth.unavailableRequiredEnvironment?.length) reasons.push('bindings exist but runtime values are unavailable: ' + result.runtimeHealth.unavailableRequiredEnvironment.join(', '));
-      if (result.runtimeHealth.invalidRequiredEnvironment?.length) {
-        reasons.push('variables present but invalid: ' + result.runtimeHealth.invalidRequiredEnvironment
+      reasons.push('HTTP ' + String(health.httpStatus || 'n/a') + ', status ' + String(health.status || 'unknown'));
+      if (health.firebaseProjectMatch === false) reasons.push('Firebase client/server project mismatch');
+      if (health.missingRequiredEnvironment?.length) reasons.push('variables not present: ' + health.missingRequiredEnvironment.join(', '));
+      if (health.emptyRequiredEnvironment?.length) reasons.push('variables present but empty: ' + health.emptyRequiredEnvironment.join(', '));
+      if (health.unavailableRequiredEnvironment?.length) reasons.push('bindings exist but runtime values are unavailable: ' + health.unavailableRequiredEnvironment.join(', '));
+      if (health.invalidRequiredEnvironment?.length) {
+        reasons.push('variables present but invalid: ' + health.invalidRequiredEnvironment
           .map(item => item.key + ' (' + item.state + ': ' + item.reason + ')')
           .join(', '));
       }
-      if (result.runtimeHealth.applicationShell && !result.runtimeHealth.applicationShell.ok) {
-        const shell = result.runtimeHealth.applicationShell;
-        reasons.push('public application shell failed: ' + (shell.error || ('HTTP ' + String(shell.httpStatus || 'n/a') + ', quality inspector asset ' + (shell.qualityRuntimeAssetOk ? 'present' : 'unavailable'))));
+      if (health.applicationShell && !health.applicationShell.ok) {
+        const shell = health.applicationShell;
+        reasons.push(label + ' application shell failed: ' + (shell.error || ('HTTP ' + String(shell.httpStatus || 'n/a') + ', quality inspector asset ' + (shell.qualityRuntimeAssetOk ? 'present' : 'unavailable'))));
+        if (!shell.browserTabIcon?.ok) reasons.push(label + ' browser tab icon failure: ' + (shell.browserTabIcon?.error || 'icon probe did not pass.'));
+        if (!shell.requiredRuntimes?.cancelSafety?.ok) reasons.push(label + ' mobile Cancel/rollback runtime failure: ' + (shell.requiredRuntimes?.cancelSafety?.error || 'runtime was not verified.'));
+        if (!shell.requiredRuntimes?.faviconLock?.ok) reasons.push(label + ' favicon enforcement runtime failure: ' + (shell.requiredRuntimes?.faviconLock?.error || 'runtime was not verified.'));
       }
     }
-    result.apiErrors.push('Runtime health probe failed: ' + reasons.join('; '));
+    return reasons;
   }
+
+  const primaryReasons = runtimeFailureReasons(result.runtimeHealth, 'Deployment URL');
+  if (primaryReasons.length) result.apiErrors.push('Runtime health probe failed: ' + primaryReasons.join('; '));
+  const canonicalReasons = runtimeFailureReasons(result.canonicalRuntimeHealth, 'Canonical Pages URL');
+  if (canonicalReasons.length) result.apiErrors.push('Canonical Pages health probe failed: ' + canonicalReasons.join('; '));
 
   const stageStatus = String(deployment.latest_stage?.status || '').toLowerCase();
   const hasDeploymentFailure = ['failure', 'canceled'].includes(stageStatus);
@@ -307,6 +331,11 @@ try {
   console.log(`URL: ${deployment.url || 'n/a'}`);
   console.log(`Detected log errors: ${result.logErrors.length}`);
   console.log(`Runtime API health: ${result.runtimeHealth?.status || 'unknown'} (HTTP ${result.runtimeHealth?.httpStatus || 'n/a'})`);
+  const deploymentShell = result.runtimeHealth?.applicationShell;
+  console.log(`Deployment browser tab icon: ${deploymentShell?.browserTabIcon?.ok ? 'verified' : 'FAILED'}`);
+  console.log(`Deployment mobile Cancel/rollback runtime: ${deploymentShell?.requiredRuntimes?.cancelSafety?.ok ? 'verified' : 'FAILED'}`);
+  console.log(`Deployment favicon enforcement runtime: ${deploymentShell?.requiredRuntimes?.faviconLock?.ok ? 'verified' : 'FAILED'}`);
+  console.log(`Canonical Pages URL: ${canonicalUrl || 'n/a'} (${result.canonicalRuntimeHealth?.status || 'unknown'})`);
 
   if (result.logErrors.length) {
     console.log('--- Relevant Cloudflare log lines ---');
