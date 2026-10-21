@@ -40,6 +40,7 @@ try{
  await page.keyboard.press('Escape');await page.waitForFunction(()=>document.querySelector('#ovyx-code-search-panel')?.hidden===true);
  const logo=await page.locator('#ovyx-logo-fixture').evaluate(node=>{const w=node.closest('.sidebar-brand-logo');return{src:node.getAttribute('src'),imageAnimation:getComputedStyle(node).animationName,wrapperAnimation:getComputedStyle(w).animationName,wrapperTransform:getComputedStyle(w).transform,wrapperOverflow:getComputedStyle(w).overflow,safeClass:w.classList.contains('ovyx-sidebar-logo-clip-safe')};});
  assert.equal(logo.src,'/assets/ovyx-brand-mark.svg');assert.equal(logo.imageAnimation,'none');assert.equal(logo.wrapperAnimation,'none');assert.equal(logo.wrapperTransform,'none');assert.equal(logo.wrapperOverflow,'visible');assert.equal(logo.safeClass,true);
+ await page.locator('#app-sidebar').evaluate(node=>{node.hidden=true;});
  await page.setViewportSize({width:390,height:844});await trigger.click();await panel.waitFor({state:'visible'});
  const mobile=await panel.evaluate(node=>({left:parseFloat(node.style.left),right:node.getBoundingClientRect().right,width:node.getBoundingClientRect().width}));
  assert.ok(mobile.left>=0&&mobile.right<=390);assert.ok(mobile.width<=366);assert.equal(pageErrors.length,0,pageErrors.join('; '));
