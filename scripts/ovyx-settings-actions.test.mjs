@@ -287,7 +287,7 @@ assert.ok(middleware.includes('/assets/ovyx-webstudio-cancel-safety.js?v=2026102
 assert.ok(cancelSafetyRuntime.includes("button.id = 'ws-task-cancel'"),
   'The shared cancellation module must create one touch-friendly Cancel control.');
 assert.ok(cancelSafetyRuntime.includes('studio.cancelActiveTask = function ()')
-  && cancelSafetyRuntime.includes('restoreProjectOnly(this, snapshot)'),
+  && cancelSafetyRuntime.includes('restoreProjectOnly(this, snapshot, taskProjectWasActive)'),
   'Cancel must roll back only the active task project.');
 assert.ok(html.includes('rollbackAgentChanges(baseGraph,appliedGraph,originalProject)')
   && html.includes("this.rollbackAgentChanges(rollbackGraph,appliedGraph,rollbackProject)")
