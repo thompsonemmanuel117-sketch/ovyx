@@ -140,7 +140,20 @@
   }
 
   document.addEventListener('click', function (event) {
-    if (event.target && event.target.closest && event.target.closest('#ws-sidebar-trigger')) {
+    var target = event.target && event.target.closest ? event.target : null;
+    var sidebarClose = target && target.closest ? target.closest('#ovyx-desktop-sidebar-close') : null;
+    if (sidebarClose && document.body &&
+        document.body.classList.contains('ovyx-webstudio-active') &&
+        document.body.classList.contains('ovyx-ws-nav-open')) {
+      // Reuse the existing desktop sidebar close affordance while Web Studio
+      // is active. Outside the studio, its normal desktop-shell handler remains
+      // untouched; the drawer must not strand the hidden chat-header arrow.
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      window.OVYXWebStudioNavigation?.close?.();
+      return;
+    }
+    if (target && target.closest && target.closest('#ws-sidebar-trigger')) {
       window.setTimeout(syncHeader, 0);
     }
   }, true);
