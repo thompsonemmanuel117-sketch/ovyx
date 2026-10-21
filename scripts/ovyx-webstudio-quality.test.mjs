@@ -124,6 +124,7 @@ assert.ok(middleware.includes("element.prepend('<link id=\"ovyx-canonical-app-fa
 assert.ok(middleware.includes('<script src="/assets/ovyx-app-favicon-guard.js?v=20261021-2"></script>'), 'The favicon guard must run in the head before other application scripts.');
 assert.ok(headers.includes('/assets/ovyx-app-favicon-guard.js\n  Cache-Control: no-store, no-cache, must-revalidate'), 'The favicon guard must not be served stale from cache.');
 assert.ok(headers.includes('/assets/ovyx-app-favicon.svg\n  Cache-Control: no-store, no-cache, must-revalidate'), 'The canonical favicon asset must not be served stale from cache.');
+assert.ok(headers.includes('/manifest.json\n  Cache-Control: no-store, no-cache, must-revalidate'), 'The app manifest must not be served stale from cache.');
 assert.ok(appFavicon.startsWith('<svg xmlns=') && appFavicon.includes('<title id="title">OVYX</title>'), 'The dedicated OVYX favicon asset must exist as a valid SVG brand mark.');
 assert.ok(appManifest.icons.some(icon => icon.src === '/assets/ovyx-app-favicon.svg' && icon.type === 'image/svg+xml'), 'The app manifest must use the same dedicated OVYX favicon asset.');
 assert.ok(/\/assets\/ovyx-webstudio-navigation-polish\.js\s+Cache-Control: no-store, no-cache, must-revalidate/.test(headers), 'Navigation header behavior must not be served from a stale cache.');
