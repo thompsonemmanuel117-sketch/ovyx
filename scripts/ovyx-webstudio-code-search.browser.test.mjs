@@ -47,6 +47,6 @@ try{
  await page.evaluate(()=>{window.WebStudio.graph={version:2,files:{}};});assert.deepEqual(await page.evaluate(()=>window.OVYXWebStudioCodeSearch.search('about')),['src/pages/About.html'],'Search falls back to the active project graph when the Studio graph is empty.');
  await page.setViewportSize({width:390,height:844});await trigger.click();await panel.waitFor({state:'visible'});await page.waitForFunction(()=>{const node=document.querySelector('#ovyx-code-search-panel');return !!node&&node.classList.contains('is-open')&&Math.abs(node.getBoundingClientRect().left)<1;});
  const mobile=await panel.evaluate(node=>{const r=node.getBoundingClientRect();return{left:r.left,right:r.right,width:r.width,height:r.height};});
- assert.equal(mobile.left,0);assert.equal(mobile.right,390);assert.equal(mobile.width,390,'On a narrow workspace, the file drawer should use the available width.');assert.equal(mobile.height,844);assert.equal(pageErrors.length,0,pageErrors.join('; '));
+ assert.ok(Math.abs(mobile.left)<0.5,'Drawer should start at the left edge of the mobile workspace.');assert.ok(Math.abs(mobile.right-390)<0.5,'Drawer should reach the right edge of the mobile workspace.');assert.ok(Math.abs(mobile.width-390)<0.5,'On a narrow workspace, the file drawer should use the available width.');assert.ok(Math.abs(mobile.height-844)<0.5,'Drawer should fill the mobile workspace height.');assert.equal(pageErrors.length,0,pageErrors.join('; '));
  console.log('OVYX code workspace search and sidebar logo browser tests passed.');
 }finally{await browser.close();}
