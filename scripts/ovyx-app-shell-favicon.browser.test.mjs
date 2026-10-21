@@ -41,7 +41,7 @@ try {
     return icons.length === 1 &&
       icons[0].getAttribute('rel') === 'icon' &&
       icons[0].getAttribute('type') === 'image/svg+xml' &&
-      icons[0].getAttribute('href') === '/assets/ovyx-brand-mark.svg?v=20261021-4';
+      icons[0].getAttribute('href') === '/assets/ovyx-brand-mark.svg?v=20261021-5';
   }, null, { timeout: 10000 });
 
   const icons = await iconLinks.evaluateAll(nodes => nodes.map(node => ({
@@ -95,8 +95,50 @@ try {
   );
 
   assert.equal(await page.locator('script[src*="ovyx-shell-favicon-lock.js"]').count(), 1, 'The authoritative shell favicon lock must load exactly once.');
+  assert.ok(
+    /no-store|no-cache/.test(response.headers()['cache-control'] || ''),
+    'The HTML shell response must not reuse a cached page containing an old favicon reference.'
+  );
 
-  console.log('OVYX app-shell favicon browser test passed: real tab icon, successful SVG load, competing icon override resisted, and matching PWA icon.');
+  // The browser may request /favicon.ico implicitly when it has stored an older
+  // tab icon. That route must return the same actual OVYX brand mark as the link.
+  const implicitFavicon = await page.request.get(new URL('/favicon.ico', origin).href);
+  assert.equal(implicitFavicon.status(), 200, 'The fallback /favicon.ico request must never return a stale/404 icon.');
+  assert.ok(
+    (implicitFavicon.headers()['content-type'] || '').toLowerCase().includes('image/svg+xml'),
+    'The implicit favicon route must return a real SVG image.'
+  );
+  assert.ok(
+    /no-store|no-cache/.test(implicitFavicon.headers()['cache-control'] || ''),
+    'The implicit favicon must not be cached under the legacy /favicon.ico path.'
+  );
+  const fallbackSvg = await implicitFavicon.text();
+  assert.ok(fallbackSvg.includes('M32 5L55 18.5V45.5L32 59L9 45.5V18.5L32 5Z'),
+    'The fallback favicon route must return the same OVYX double-hexagon mark.');
+
+  // Reproduce the user's exact failure: reload the app after another icon was
+  // introduced, then require the same one-icon invariant from a fresh document.
+  const refreshed = await page.reload({ waitUntil: 'domcontentloaded', timeout: 30000 });
+  assert.ok(refreshed && refreshed.status() === 200, 'The app shell must refresh successfully.');
+  await page.waitForFunction(() => !!window.OVYXShellFavicon, null, { timeout: 10000 });
+  await page.waitForFunction(() => {
+    const icons = Array.from(document.head.querySelectorAll('link[rel]')).filter(link =>
+      String(link.rel || '').toLowerCase().split(/\\s+/).includes('icon'));
+    return icons.length === 1 &&
+      icons[0].getAttribute('href') === '/assets/ovyx-brand-mark.svg?v=20261021-5';
+  }, null, { timeout: 10000 });
+  const afterRefresh = await page.evaluate(() => ({
+    icons: Array.from(document.head.querySelectorAll('link[rel]')).filter(link =>
+      String(link.rel || '').toLowerCase().split(/\\s+/).includes('icon'))
+      .map(link => ({ rel: link.getAttribute('rel'), href: link.getAttribute('href'), type: link.getAttribute('type') })),
+    lockAtHeadStart: !!document.head.querySelector('script[src*="ovyx-shell-favicon-lock.js"]'),
+  }));
+  assert.equal(afterRefresh.icons.length, 1, 'A refresh must not resurrect a second/legacy favicon declaration.');
+  assert.equal(afterRefresh.icons[0].href, '/assets/ovyx-brand-mark.svg?v=20261021-5',
+    'The refreshed browser tab must still declare the current real OVYX logo.');
+  assert.equal(afterRefresh.lockAtHeadStart, true, 'The favicon lock must reload with the refreshed shell.');
+
+  console.log('OVYX app-shell favicon browser test passed: root load, explicit fallback, late override resistance, and clean refresh.');
 } finally {
   await browser.close();
 }
