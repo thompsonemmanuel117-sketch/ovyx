@@ -52,7 +52,7 @@ try {
   // rather than guessing or replacing it with another OVYX platform asset.
   await brandingPage.evaluate(() => {
     const graph = { version: 2, entry: 'index.html', files: {
-      'index.html': { type: 'text/html', content: '<!doctype html><html lang="en"><head><title>No logo</title><link rel="icon" href="/assets/ovyx-brand-mark.svg"></head><body><main id="untouched">No logo present.</main></body></html>' }
+      'index.html': { type: 'text/html', content: '<!doctype html><html lang="en"><head><title>No project logo</title><link rel="icon" href="/assets/ovyx-brand-mark.svg"></head><body><header><img class="ovyx-brand-mark" alt="OVYX platform logo" src="/assets/ovyx-brand-mark.svg"></header><main id="untouched">No project logo present.</main></body></html>' }
     }, updatedAt: 2 };
     window.WebStudio.graph = graph;
     window.KernelState.activeProject.ovyxGraph = graph;
