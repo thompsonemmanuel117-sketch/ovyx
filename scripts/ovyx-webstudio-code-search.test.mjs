@@ -28,7 +28,7 @@ assert.ok(runtime.includes('ovyx-sidebar-logo-ancestor-safe'));
 assert.ok(runtime.includes('html body #app-sidebar .ovyx-brand-mark.ovyx-brand-mark-svg .ovyx-brand-svg path'));
 assert.ok(runtime.includes('stroke-dasharray:none!important;stroke-dashoffset:0!important'));
 assert.ok(!runtime.includes('assets/ovyx-brand-mark.svg')&&!runtime.includes('assets/ovyx-logo.svg'));
-assert.ok(middleware.includes('/assets/ovyx-webstudio-code-search.js?v=20261021-6'));
+assert.ok(middleware.includes('/assets/ovyx-webstudio-code-search.js?v=20261021-7'));
 assert.match(headers,/\/assets\/ovyx-webstudio-code-search\.js[\s\S]{0,140}Cache-Control: no-store, no-cache, must-revalidate/);
 assert.ok(workflow.includes('assets/ovyx-webstudio-code-search.js'));
 assert.ok(workflow.includes('scripts/ovyx-webstudio-code-search.browser.test.mjs'));
