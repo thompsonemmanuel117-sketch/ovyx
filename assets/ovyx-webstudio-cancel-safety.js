@@ -102,7 +102,12 @@
         event.preventDefault();
         event.stopPropagation();
         const activeStudio = getStudio();
-        if (activeStudio && typeof activeStudio.cancelActiveTask === 'function') {
+        // Use the shared coordinator first so a touch arriving during controller
+        // replacement still reaches the saved task snapshot.
+        const coordinator = window.OVYXWebStudioCancelSafety;
+        if (coordinator && typeof coordinator.cancel === 'function') {
+          coordinator.cancel();
+        } else if (activeStudio && typeof activeStudio.cancelActiveTask === 'function') {
           activeStudio.cancelActiveTask();
         }
       });
@@ -491,8 +496,15 @@
     install: () => install(getStudio()),
     cancel: () => {
       const studio = getStudio();
-      if (studio && typeof studio.cancelActiveTask === 'function') return studio.cancelActiveTask();
-      const fallback = Array.from(knownStudios).find(candidate => typeof candidate.cancelActiveTask === 'function');
+      if (
+        studio &&
+        typeof studio.cancelActiveTask === 'function' &&
+        studio.cancelActiveTask.__ovyxCancelSafetyOwnerV2 === true
+      ) return studio.cancelActiveTask();
+      const fallback = Array.from(knownStudios).find(candidate =>
+        typeof candidate.cancelActiveTask === 'function' &&
+        candidate.cancelActiveTask.__ovyxCancelSafetyOwnerV2 === true
+      );
       return fallback ? fallback.cancelActiveTask() : false;
     }
   };
