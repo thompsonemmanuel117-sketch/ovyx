@@ -25,7 +25,7 @@ const js = 'var info=document.getElementById("info");var toggle=document.getElem
 
 const scriptJSON = value => JSON.stringify(value).replace(/</g, '\\u003c');
 
-const fixture = '<!doctype html><html lang="en"><head><title>OVYX Web Studio quality fixture</title></head><body><section id="view-webstudio" aria-hidden="false"><header class="ovyx-ws-header"><div class="ovyx-ws-header-actions"><button id="ws-preview-trigger" type="button">Preview</button></div></header><div id="ws-inline-preview"><div id="ws-console-body"></div></div></section><script>window.KernelState={activeView:"webstudio",activeProject:{id:"quality-test-project",name:"Quality test site",description:"A test website",pages:[{name:"Home",route:"/",__ovyxFile:"src/pages/Home.html"},{name:"About",route:"/about/",__ovyxFile:"src/pages/About.html"},{name:"Contact",route:"/contact/",__ovyxFile:"src/pages/Contact.html"}],ovyxBuildState:"verified",ovyxBuildVerifiedAt:"2000-01-01T00:00:00.000Z"},projects:[]};window.KernelState.projects=[window.KernelState.activeProject];window.ProjectStore={save:function(){},renderHome:function(){},renderProjects:function(){}};window.__copiedQualitySummary=\"\";try{Object.defineProperty(navigator,\"clipboard\",{configurable:true,value:{writeText:async function(value){window.__copiedQualitySummary=String(value)}}})}catch(e){};window.__qualityRepairCalls=[];window.__qualityToasts=[];window.__previewPublishRecords=[];window.__qualityTimeline=[];window.addEventListener("ovyx:webstudio-build-stage",function(event){window.__qualityTimeline.push({kind:"stage",stage:event.detail&&event.detail.stage})});window.addEventListener("ovyx:webstudio-quality-report",function(event){var report=event.detail||{};window.__qualityTimeline.push({kind:"report",gatePassed:(report.checks||[]).some(function(item){return item.group==="Automatic build gate"&&item.status==="pass"})})});window.showToast=function(message,kind){window.__qualityToasts.push({message:String(message),kind:String(kind||"")})};window.WebStudio={graph:{version:2,entry:"src/pages/Home.html",files:{"src/pages/Home.html":{type:"text/html",content:""},"src/pages/About.html":{type:"text/html",content:""},"src/pages/Contact.html":{type:"text/html",content:""},"src/styles.css":{type:"text/css",content:""},"src/main.js":{type:"text/javascript",content:""}},updatedAt:Date.now()},requestEpoch:1,historyStack:[],historyPointer:-1,graphKeyPrefix:"quality-test.",ensureProjectGraph:function(){return this.graph},snapshotGraph:function(){return JSON.parse(JSON.stringify(this.graph))},diffFiles:function(a,b){var A=a&&a.files||{},B=b&&b.files||{};return Array.from(new Set(Object.keys(A).concat(Object.keys(B)))).filter(function(k){var av=typeof A[k]==="string"?A[k]:A[k]&&A[k].content||"";var bv=typeof B[k]==="string"?B[k]:B[k]&&B[k].content||"";return av!==bv})},runTests:function(){return {ok:true,summary:"Source checks passed.",details:"No source issues."}},syncGraphToProject:function(){window.KernelState.activeProject.ovyxGraph=this.graph},renderPreview:function(){var report=window.OVYXWebStudioQuality&&window.OVYXWebStudioQuality.getReport();var record={kind:"preview",aboutContent:this.graph.files["src/pages/About.html"].content,qualityPassed:!!report&&report.status==="pass",gatePassed:!!report&&(report.checks||[]).some(function(item){return item.group==="Automatic build gate"&&item.status==="pass"})};window.__previewPublishRecords.push(record);window.__qualityTimeline.push({kind:"preview",gatePassed:record.gatePassed})},render:function(){},runBuildAgent:async function(prompt,repair,token,attachments,rollback){window.__qualityRepairCalls.push({prompt:String(prompt),repair:repair===true,token:token});var about=this.graph.files["src/pages/About.html"];about.content=repair===true?about.content.replace("width:1100px;max-width:none","width:100%;max-width:100%"):about.content.replace("width:100%;max-width:100%","width:1100px;max-width:none");window.KernelState.activeProject.ovyxGraph=this.graph;window.KernelState.activeProject.ovyxBuildState="verified";window.KernelState.activeProject.ovyxBuildVerifiedAt=new Date(Date.now()+5).toISOString();this.renderPreview();return {ok:true}}};window.WebStudio.graph.files["src/pages/Home.html"].content=' + scriptJSON(home) + ';window.WebStudio.graph.files["src/pages/About.html"].content=' + scriptJSON(about) + ';window.WebStudio.graph.files["src/pages/Contact.html"].content=' + scriptJSON(contact) + ';window.WebStudio.graph.files["src/styles.css"].content=' + scriptJSON(css) + ';window.WebStudio.graph.files["src/main.js"].content=' + scriptJSON(js) + ';window.KernelState.activeProject.ovyxGraph=window.WebStudio.graph;</script></body></html>';
+const fixture = '<!doctype html><html lang="en"><head><title>OVYX Web Studio quality fixture</title></head><body><section id="view-webstudio" aria-hidden="false"><header class="ovyx-ws-header"><div class="ovyx-ws-header-left"><button id="ws-sidebar-trigger" type="button" aria-expanded="false">Navigation</button></div><div class="ovyx-ws-header-actions"><button id="ws-preview-trigger" type="button">Preview</button></div></header><div id="ws-inline-preview"><div id="ws-console-body"></div></div></section><aside id="app-sidebar" hidden>Desktop project navigation fixture</aside><div id="mobile-drawer" hidden>Mobile project navigation fixture</div><div id="mobile-drawer-backdrop" class="hidden" hidden></div><script>window.KernelState={activeView:"webstudio",activeProject:{id:"quality-test-project",name:"Quality test site",description:"A test website",pages:[{name:"Home",route:"/",__ovyxFile:"src/pages/Home.html"},{name:"About",route:"/about/",__ovyxFile:"src/pages/About.html"},{name:"Contact",route:"/contact/",__ovyxFile:"src/pages/Contact.html"}],ovyxBuildState:"verified",ovyxBuildVerifiedAt:"2000-01-01T00:00:00.000Z"},projects:[]};window.KernelState.projects=[window.KernelState.activeProject];window.ProjectStore={save:function(){},renderHome:function(){},renderProjects:function(){}};window.__copiedQualitySummary=\"\";try{Object.defineProperty(navigator,\"clipboard\",{configurable:true,value:{writeText:async function(value){window.__copiedQualitySummary=String(value)}}})}catch(e){};window.__qualityRepairCalls=[];window.__qualityToasts=[];window.__previewPublishRecords=[];window.__qualityTimeline=[];window.addEventListener("ovyx:webstudio-build-stage",function(event){window.__qualityTimeline.push({kind:"stage",stage:event.detail&&event.detail.stage})});window.addEventListener("ovyx:webstudio-quality-report",function(event){var report=event.detail||{};window.__qualityTimeline.push({kind:"report",gatePassed:(report.checks||[]).some(function(item){return item.group==="Automatic build gate"&&item.status==="pass"})})});window.showToast=function(message,kind){window.__qualityToasts.push({message:String(message),kind:String(kind||"")})};window.WebStudio={graph:{version:2,entry:"src/pages/Home.html",files:{"src/pages/Home.html":{type:"text/html",content:""},"src/pages/About.html":{type:"text/html",content:""},"src/pages/Contact.html":{type:"text/html",content:""},"src/styles.css":{type:"text/css",content:""},"src/main.js":{type:"text/javascript",content:""}},updatedAt:Date.now()},requestEpoch:1,historyStack:[],historyPointer:-1,graphKeyPrefix:"quality-test.",ensureProjectGraph:function(){return this.graph},snapshotGraph:function(){return JSON.parse(JSON.stringify(this.graph))},diffFiles:function(a,b){var A=a&&a.files||{},B=b&&b.files||{};return Array.from(new Set(Object.keys(A).concat(Object.keys(B)))).filter(function(k){var av=typeof A[k]==="string"?A[k]:A[k]&&A[k].content||"";var bv=typeof B[k]==="string"?B[k]:B[k]&&B[k].content||"";return av!==bv})},runTests:function(){return {ok:true,summary:"Source checks passed.",details:"No source issues."}},syncGraphToProject:function(){window.KernelState.activeProject.ovyxGraph=this.graph},renderPreview:function(){var report=window.OVYXWebStudioQuality&&window.OVYXWebStudioQuality.getReport();var record={kind:"preview",aboutContent:this.graph.files["src/pages/About.html"].content,qualityPassed:!!report&&report.status==="pass",gatePassed:!!report&&(report.checks||[]).some(function(item){return item.group==="Automatic build gate"&&item.status==="pass"})};window.__previewPublishRecords.push(record);window.__qualityTimeline.push({kind:"preview",gatePassed:record.gatePassed})},render:function(){},runBuildAgent:async function(prompt,repair,token,attachments,rollback){window.__qualityRepairCalls.push({prompt:String(prompt),repair:repair===true,token:token});var about=this.graph.files["src/pages/About.html"];about.content=repair===true?about.content.replace("width:1100px;max-width:none","width:100%;max-width:100%"):about.content.replace("width:100%;max-width:100%","width:1100px;max-width:none");window.KernelState.activeProject.ovyxGraph=this.graph;window.KernelState.activeProject.ovyxBuildState="verified";window.KernelState.activeProject.ovyxBuildVerifiedAt=new Date(Date.now()+5).toISOString();this.renderPreview();return {ok:true}}};window.WebStudio.graph.files["src/pages/Home.html"].content=' + scriptJSON(home) + ';window.WebStudio.graph.files["src/pages/About.html"].content=' + scriptJSON(about) + ';window.WebStudio.graph.files["src/pages/Contact.html"].content=' + scriptJSON(contact) + ';window.WebStudio.graph.files["src/styles.css"].content=' + scriptJSON(css) + ';window.WebStudio.graph.files["src/main.js"].content=' + scriptJSON(js) + ';window.KernelState.activeProject.ovyxGraph=window.WebStudio.graph;</script></body></html>';
 
 try {
   // A saved project's browser-tab icon must be derived from that project's
@@ -33,7 +33,7 @@ try {
   const projectIndex = '<!doctype html><html lang="en"><head><title>OVYX — Industrial</title><link rel="icon" href="/assets/ovyx-brand-mark.svg"></head><body><header><img class="brand-logo" alt="Industrial logo" src="assets/industrial-logo.svg"><h1>OVYX Industrial</h1></header><main id="keep-me">Keep this project content.</main></body></html>';
   const projectAbout = '<!doctype html><html lang="en"><head><title>About — Industrial</title><link rel="icon" href="/assets/ovyx-brand-mark.svg"></head><body><header><img class="brand-logo" alt="Industrial logo" src="assets/industrial-logo.svg"></header><main id="about-keep">Keep the about page too.</main></body></html>';
   const industrialLogo = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#d8a93e" d="M24 3 45 24 24 45 3 24Z"/><circle cx="24" cy="24" r="8" fill="#111827"/></svg>';
-  const brandingFixture = '<!doctype html><html lang="en"><head><title>Brand correction fixture</title></head><body><main>Branding runtime test.</main><script>window.__projectSaveCount=0;window.KernelState={activeProject:{id:"industrial-project",name:"OVYX Industrial",pages:[{name:"Home",route:"/",__ovyxFile:"index.html"}]},projects:[]};window.WebStudio={graph:{version:2,entry:"index.html",files:{"index.html":{type:"text/html",content:' + scriptJSON(projectIndex) + '},"about.html":{type:"text/html",content:' + scriptJSON(projectAbout) + '},"assets/industrial-logo.svg":{type:"image/svg+xml",content:' + scriptJSON(industrialLogo) + '}},updatedAt:1},syncGraphToProject:function(){window.KernelState.activeProject.ovyxGraph=this.graph}};window.KernelState.activeProject.ovyxGraph=window.WebStudio.graph;window.ProjectStore={save:function(){window.__projectSaveCount+=1}};</script></body></html>';
+  const brandingFixture = '<!doctype html><html lang="en"><head><title>Brand correction fixture</title></head><body><main>Branding runtime test.</main><script>window.__projectSaveCount=0;window.KernelState={activeProject:{id:"industrial-project",name:"OVYX Industrial",pages:[{name:"Home",route:"/",__ovyxFile:"index.html"}],assets:[]},projects:[]};window.WebStudio={graph:{version:2,entry:"index.html",files:{"index.html":{type:"text/html",content:' + scriptJSON(projectIndex) + '},"about.html":{type:"text/html",content:' + scriptJSON(projectAbout) + '},"assets/industrial-logo.svg":{type:"image/svg+xml",content:' + scriptJSON(industrialLogo) + '}},updatedAt:1},syncGraphToProject:function(){window.KernelState.activeProject.ovyxGraph=this.graph}};window.KernelState.activeProject.ovyxGraph=window.WebStudio.graph;window.ProjectStore={save:function(){window.__projectSaveCount+=1}};</script></body></html>';
   await brandingPage.setContent(brandingFixture, { waitUntil: 'domcontentloaded' });
   await brandingPage.addScriptTag({ path: projectBrandingPath });
   await brandingPage.waitForFunction(() => window.WebStudio.graph.files['index.html'].content.includes('data:image/svg+xml;charset=utf-8,'));
@@ -48,6 +48,34 @@ try {
   assert.doesNotMatch(projectBranding.index, /href="\/assets\/ovyx-brand-mark\.svg"/, 'A project page must not keep the OVYX platform mark as its favicon after a project-owned logo is found.');
   assert.equal(projectBranding.saveCount, 1, 'The changed project graph must be saved once.');
 
+  // Some project logos are stored as uploaded assets and are not part of the
+  // UTF-8 source-file graph. Resolve the exact referenced asset URL, not the
+  // OVYX platform mark or a guessed icon.
+  await brandingPage.evaluate(() => {
+    const graph = { version: 2, entry: 'index.html', files: {
+      'index.html': { type: 'text/html', content: '<!doctype html><html><head><title>Uploaded logo project</title><link rel="icon" href="/assets/ovyx-brand-mark.svg"></head><body><header><img class="company-logo" alt="Company logo" src="/uploads/industrial-crest.png"></header><main id="uploaded-logo-content">Keep this content</main></body></html>' }
+    }, updatedAt: 3 };
+    window.WebStudio.graph = graph;
+    window.KernelState.activeProject.ovyxGraph = graph;
+    window.KernelState.activeProject.assets = [{ id: 'industrial-crest', name: 'industrial-crest.png', contentType: 'image/png', storagePath: 'projects/industrial-project/industrial-crest.png' }];
+    window.__requestedBrandAsset = '';
+    window.OVYXAssetStore = { url: async asset => {
+      window.__requestedBrandAsset = String(asset.name || '');
+      return 'https://assets.example.test/industrial-crest.png';
+    } };
+    window.dispatchEvent(new Event('ovyx:project-loaded'));
+  });
+  await brandingPage.waitForFunction(() => window.WebStudio.graph.files['index.html'].content.includes('https://assets.example.test/industrial-crest.png'), null, { timeout: 5000 });
+  const uploadedBranding = await brandingPage.evaluate(() => ({
+    html: window.WebStudio.graph.files['index.html'].content,
+    saveCount: window.__projectSaveCount,
+    requestedAsset: window.__requestedBrandAsset
+  }));
+  assert.match(uploadedBranding.html, /href="https:\/\/assets\.example\.test\/industrial-crest\.png"/, 'A project favicon must resolve the logo from the project asset store when it is not in the text graph.');
+  assert.match(uploadedBranding.html, /id="uploaded-logo-content"/, 'Uploaded-asset favicon repair must preserve the rest of the page.');
+  assert.equal(uploadedBranding.requestedAsset, 'industrial-crest.png', 'The correct project-owned logo asset must be resolved.');
+  assert.equal(uploadedBranding.saveCount, 2, 'The uploaded-asset favicon correction must save the project graph.');
+
   // If a project has no detectable own logo, leave its favicon and files alone
   // rather than guessing or replacing it with another OVYX platform asset.
   await brandingPage.evaluate(() => {
@@ -56,26 +84,52 @@ try {
     }, updatedAt: 2 };
     window.WebStudio.graph = graph;
     window.KernelState.activeProject.ovyxGraph = graph;
+    window.KernelState.activeProject.assets = [];
     window.dispatchEvent(new Event('ovyx:project-loaded'));
   });
   await brandingPage.waitForTimeout(120);
   const noLogo = await brandingPage.evaluate(() => ({ html: window.WebStudio.graph.files['index.html'].content, saveCount: window.__projectSaveCount }));
   assert.match(noLogo.html, /href="\/assets\/ovyx-brand-mark\.svg"/, 'A project without its own logo must not be assigned a guessed favicon.');
   assert.match(noLogo.html, /id="untouched"/, 'A project without a logo must remain unchanged.');
-  assert.equal(noLogo.saveCount, 1, 'An unchanged project must not be saved as if it had been modified.');
+  assert.equal(noLogo.saveCount, 2, 'An unchanged project must not be saved as if it had been modified.');
 
   await page.setContent(fixture, { waitUntil: 'domcontentloaded' });
   await page.addScriptTag({ path: runtimePath });
   await page.addScriptTag({ path: navigationPolishPath });
+  // Exercise the actual production project-navigation controller from the
+  // app shell, rather than manually changing body classes in the test.
+  const appShell = await fs.readFile(path.join(root, 'index.html'), 'utf8');
+  const navigationStart = appShell.indexOf('window.OVYXWebStudioNavigation=(function(){');
+  const navigationEnd = appShell.indexOf('})();', navigationStart);
+  assert.ok(navigationStart >= 0 && navigationEnd > navigationStart, 'The production project-navigation controller must be available to the regression test.');
+  await page.addScriptTag({ content: appShell.slice(navigationStart, navigationEnd + 5) + '\nwindow.OVYXWebStudioNavigation.bind();' });
   await page.waitForFunction(() => !!window.OVYXWebStudioQuality && document.querySelector('#ovyx-ws-quality-root [data-quality-run]'));
   assert.equal(await page.locator('[data-ovyx-quality-trigger]').count(), 0, 'The quality inspector must not add a duplicate Web Studio header control.');
   assert.notEqual(await page.locator('#view-webstudio .ovyx-ws-header').evaluate(el => getComputedStyle(el).display), 'none', 'The Web Studio header remains visible while project navigation is closed.');
-  await page.evaluate(() => document.body.classList.add('ovyx-webstudio-active', 'ovyx-ws-mobile-nav-open'));
-  assert.equal(await page.locator('#view-webstudio .ovyx-ws-header').evaluate(el => getComputedStyle(el).display), 'none', 'The Web Studio header must disappear while the mobile project drawer is open.');
-  await page.evaluate(() => document.body.classList.remove('ovyx-webstudio-active', 'ovyx-ws-mobile-nav-open'));
-  await page.evaluate(() => document.body.classList.add('ovyx-webstudio-active', 'ovyx-ws-nav-open'));
-  assert.equal(await page.locator('#view-webstudio .ovyx-ws-header').evaluate(el => getComputedStyle(el).display), 'none', 'The Web Studio header must disappear while desktop project navigation is open.');
-  await page.evaluate(() => document.body.classList.remove('ovyx-webstudio-active', 'ovyx-ws-nav-open'));
+
+  // Desktop: open and close using the real sidebar arrow, validating both states.
+  await page.locator('#ws-sidebar-trigger').click();
+  await page.waitForFunction(() => document.body.classList.contains('ovyx-ws-nav-open') && document.querySelector('#ws-sidebar-trigger')?.getAttribute('aria-expanded') === 'true');
+  assert.equal(await page.locator('#view-webstudio .ovyx-ws-header').evaluate(el => getComputedStyle(el).display), 'none', 'The chat header must be fully hidden when the actual desktop project drawer opens.');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !document.body.classList.contains('ovyx-ws-nav-open') && document.querySelector('#ws-sidebar-trigger')?.getAttribute('aria-expanded') === 'false');
+  assert.notEqual(await page.locator('#view-webstudio .ovyx-ws-header').evaluate(el => getComputedStyle(el).display), 'none', 'The chat header must return after the desktop drawer closes.');
+
+  // Mobile: no 54px header gap may remain above the drawer or backdrop.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.locator('#ws-sidebar-trigger').click();
+  await page.waitForFunction(() => document.body.classList.contains('ovyx-ws-mobile-nav-open') && document.querySelector('#ws-sidebar-trigger')?.getAttribute('aria-expanded') === 'true');
+  assert.equal(await page.locator('#view-webstudio .ovyx-ws-header').evaluate(el => getComputedStyle(el).display), 'none', 'The chat header must be hidden when the actual mobile project drawer opens.');
+  const mobileDrawerBox = await page.locator('#mobile-drawer').evaluate(el => ({ top: el.getBoundingClientRect().top, height: el.getBoundingClientRect().height }));
+  assert.equal(mobileDrawerBox.top, 0, 'The mobile project drawer must begin at the top edge with no header-height gap.');
+  assert.ok(mobileDrawerBox.height >= 843, 'The mobile project drawer must fill the visible viewport.');
+  const mobileBackdropBox = await page.locator('#mobile-drawer-backdrop').evaluate(el => ({ top: el.getBoundingClientRect().top, height: el.getBoundingClientRect().height }));
+  assert.equal(mobileBackdropBox.top, 0, 'The mobile backdrop must cover the top edge as well.');
+  assert.ok(mobileBackdropBox.height >= 843, 'The mobile backdrop must cover the full visible viewport.');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !document.body.classList.contains('ovyx-ws-mobile-nav-open') && document.querySelector('#ws-sidebar-trigger')?.getAttribute('aria-expanded') === 'false');
+  assert.notEqual(await page.locator('#view-webstudio .ovyx-ws-header').evaluate(el => getComputedStyle(el).display), 'none', 'The chat header must return after the mobile drawer closes.');
+  await page.setViewportSize({ width: 1440, height: 900 });
   assert.equal(await page.locator('[data-quality-export]').count(), 1, 'The inspector must provide one QA report export action.');
   assert.equal(await page.locator('[data-quality-copy-summary]').count(), 1, 'The inspector must provide one client-summary copy action.');
   assert.equal(await page.locator('[data-quality-export]').isDisabled(), true, 'Export must stay disabled until an inspection completes.');
