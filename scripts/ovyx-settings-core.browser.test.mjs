@@ -89,42 +89,94 @@ try {
 
     await waitForRouteRestore(page);
 
-    // Mobile-safe cancellation must abort only the active request and leave the
-    // project's pages/files and the list of projects exactly as they were.
+    // Mobile Cancel must roll back only the current task's project snapshot and
+    // preserve the other projects. Use temporary browser-local state and restore it
+    // after the assertion so this test cannot contaminate later Settings cases.
     const cancelRun = await page.evaluate(() => {
       const studio = window.WebStudio;
-      const button = document.getElementById('ws-chat-cancel');
-      if (!studio || typeof studio.cancelActiveAiRun !== 'function' || !button) return { available: false };
-      const snapshot = () => JSON.stringify({
-        active: window.KernelState?.activeProject || null,
-        projects: window.KernelState?.projects || [],
-      });
-      const before = snapshot();
-      window.__ovyxCancelAbortCalledV1 = false;
-      studio.pendingBuild = true;
-      studio.liveAiActive = true;
-      studio.activeAbortController = { abort() { window.__ovyxCancelAbortCalledV1 = true; } };
-      studio.renderThread();
-      const visibleWhileRunning = button.hidden === false;
-      const epochBefore = Number(studio.requestEpoch || 0);
-      button.click();
-      return {
-        available: true,
-        visibleWhileRunning,
-        hiddenAfterCancel: button.hidden,
-        abortCalled: window.__ovyxCancelAbortCalledV1,
-        pendingAfterCancel: Boolean(studio.pendingBuild),
-        epochAdvanced: Number(studio.requestEpoch || 0) > epochBefore,
-        projectUnchanged: snapshot() === before,
+      const button = document.getElementById('ws-task-cancel');
+      const state = window.KernelState;
+      if (!studio || typeof studio.cancelActiveTask !== 'function' || !button || !state) return { available: false };
+      const clone = value => JSON.parse(JSON.stringify(value));
+      const original = {
+        projects: state.projects,
+        activeProject: state.activeProject,
+        graph: studio.graph,
+        pendingBuild: studio.pendingBuild,
+        liveAiActive: studio.liveAiActive,
+        abort: studio.activeAbortController,
+        snapshot: studio.__ovyxTaskRollbackSnapshot,
+        method: studio.__ovyxActiveTaskMethod,
       };
+      const storage = Array.from({ length: localStorage.length }, (_, i) => {
+        const key = localStorage.key(i); return [key, key == null ? null : localStorage.getItem(key)];
+      }).filter(pair => pair[0] != null);
+      const testId = '__ovyx_cancel_safety_browser_test__';
+      const otherSignature = projects => JSON.stringify((projects || [])
+        .filter(project => String(project?.id || '') !== testId)
+        .map(project => ({ id: project.id, name: project.name, updatedAt: project.updatedAt,
+          pages: (project.pages || []).map(page => ({ id: page.id, name: page.name, slug: page.slug })) })));
+      const otherBefore = otherSignature(original.projects);
+      let summary = { available: true };
+      try {
+        const baselineGraph = { entry: 'index.html', files: {
+          'index.html': { type: 'text/html', content: '<!doctype html><html><body>Project before task</body></html>' }
+        }};
+        const baselineProject = {
+          id: testId, name: 'Baseline project', updatedAt: 100, pages: [], assets: [],
+          ovyxGraph: clone(baselineGraph)
+        };
+        state.projects = [...(original.projects || []), baselineProject];
+        state.activeProject = baselineProject;
+        studio.graph = clone(baselineGraph);
+        studio.pendingBuild = true;
+        studio.liveAiActive = true;
+        studio.requestEpoch = Number(studio.requestEpoch || 0) + 1;
+        let abortCalled = false;
+        studio.activeAbortController = { abort() { abortCalled = true; } };
+        studio.__ovyxTaskRollbackSnapshot = {
+          projectId: testId, project: clone(baselineProject), graph: clone(baselineGraph), startedAt: Date.now()
+        };
+        studio.__ovyxActiveTaskMethod = 'runBuildAgent';
+
+        baselineProject.name = 'Partially changed project';
+        baselineProject.pages.push({ id: 'temporary-page', name: 'Temporary page', slug: 'temporary' });
+        studio.graph.files['index.html'].content = '<!doctype html><html><body>Partial AI output</body></html>';
+        baselineProject.ovyxGraph = clone(studio.graph);
+
+        studio.renderThread();
+        summary.visibleWhileRunning = button.hidden === false;
+        button.click();
+        summary.hiddenAfterCancel = button.hidden;
+        summary.abortCalled = abortCalled;
+        summary.pendingAfterCancel = Boolean(studio.pendingBuild);
+        summary.restoredActiveProject = state.activeProject?.name === 'Baseline project'
+          && (state.activeProject?.pages || []).length === 0
+          && String(studio.graph?.files?.['index.html']?.content || '').includes('Project before task');
+        summary.otherProjectsPreserved = otherSignature(state.projects) === otherBefore;
+        summary.cancelMethodReturnedSafely = studio.__ovyxTaskRollbackSnapshot == null;
+      } finally {
+        state.projects = original.projects;
+        state.activeProject = original.activeProject;
+        studio.graph = original.graph;
+        studio.pendingBuild = original.pendingBuild;
+        studio.liveAiActive = original.liveAiActive;
+        studio.activeAbortController = original.abort;
+        studio.__ovyxTaskRollbackSnapshot = original.snapshot;
+        studio.__ovyxActiveTaskMethod = original.method;
+        localStorage.clear();
+        storage.forEach(([key, value]) => localStorage.setItem(key, value));
+      }
+      return summary;
     });
-    assert.equal(cancelRun.available, true, '[' + target.name + '] Web Studio Cancel Run must be wired. Details: ' + JSON.stringify(cancelRun));
-    assert.equal(cancelRun.visibleWhileRunning, true, '[' + target.name + '] Cancel Run must appear during an active request.');
-    assert.equal(cancelRun.hiddenAfterCancel, true, '[' + target.name + '] Cancel Run must hide after cancellation.');
-    assert.equal(cancelRun.abortCalled, true, '[' + target.name + '] Cancel Run must abort the current request.');
-    assert.equal(cancelRun.pendingAfterCancel, false, '[' + target.name + '] Cancellation must clear only the active-run state.');
-    assert.equal(cancelRun.epochAdvanced, true, '[' + target.name + '] Cancellation must invalidate the cancelled request.');
-    assert.equal(cancelRun.projectUnchanged, true, '[' + target.name + '] Cancel Run must not roll back or clear any project data.');
+    assert.equal(cancelRun.available, true, '[' + target.name + '] The shared project-scoped Cancel module must be wired. Details: ' + JSON.stringify(cancelRun));
+    assert.equal(cancelRun.visibleWhileRunning, true, '[' + target.name + '] Cancel must appear during an active task.');
+    assert.equal(cancelRun.hiddenAfterCancel, true, '[' + target.name + '] Cancel must hide after stopping the task.');
+    assert.equal(cancelRun.abortCalled, true, '[' + target.name + '] Cancel must abort the active AI request.');
+    assert.equal(cancelRun.pendingAfterCancel, false, '[' + target.name + '] Cancel must clear the active task state.');
+    assert.equal(cancelRun.restoredActiveProject, true, '[' + target.name + '] Cancel must restore the active project to its task-start snapshot.');
+    assert.equal(cancelRun.otherProjectsPreserved, true, '[' + target.name + '] Cancel must preserve every other project.');
+    assert.equal(cancelRun.cancelMethodReturnedSafely, true, '[' + target.name + '] Task rollback snapshot must be cleared after cancellation.');
 
     await page.evaluate(() => window.Router.go('settings'));
     await page.locator('#view-settings').waitFor({ state: 'visible' });
