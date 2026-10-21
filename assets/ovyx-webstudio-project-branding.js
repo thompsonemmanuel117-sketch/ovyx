@@ -1,13 +1,14 @@
 (function () {
   'use strict';
 
-  if (window.__OVYX_WS_PROJECT_BRANDING_V2__) return;
+  if (window.__OVYX_WS_PROJECT_BRANDING_V3__) return;
   window.__OVYX_WS_PROJECT_BRANDING_V2__ = true;
 
   var busy = false;
   var resolving = false;
   var scheduled = false;
   var attempts = 0;
+  var uploadedAssetCache = Object.create(null);
 
   function clean(value) {
     return String(value == null ? '' : value).replace(/[\u0000-\u001f\u007f]/g, '').trim();
@@ -58,10 +59,36 @@
   function assetBasename(value) {
     return clean(value).split(/[?#]/)[0].replace(/\\/g, '/').split('/').pop().toLowerCase();
   }
-  function projectAssets(project) {
-    return Array.isArray(project && project.assets) ? project.assets.filter(function (asset) {
-      return asset && typeof asset === 'object';
-    }) : [];
+  function projectAssets(project, supplemental) {
+    var rows = [];
+    [project && project.assets, supplemental].forEach(function (group) {
+      if (!Array.isArray(group)) return;
+      group.forEach(function (asset) {
+        if (!asset || typeof asset !== 'object') return;
+        var key = clean(asset.assetId || asset.id || asset.storagePath || asset.path || asset.name || asset.originalName);
+        var index = key ? rows.findIndex(function (item) {
+          return clean(item.assetId || item.id || item.storagePath || item.path || item.name || item.originalName) === key;
+        }) : -1;
+        if (index >= 0) rows[index] = Object.assign({}, rows[index], asset);
+        else rows.push(Object.assign({}, asset));
+      });
+    });
+    return rows;
+  }
+  async function loadProjectAssets(project) {
+    var local = projectAssets(project);
+    var projectId = clean(project && project.id);
+    if (!projectId || typeof window.OVYXAssetStore?.list !== 'function') return local;
+    var cached = uploadedAssetCache[projectId];
+    if (!cached) {
+      cached = Promise.resolve().then(function () {
+        return window.OVYXAssetStore.list(projectId);
+      }).then(function (remote) {
+        return projectAssets(project, Array.isArray(remote) ? remote : []);
+      }).catch(function () { return local; });
+      uploadedAssetCache[projectId] = cached;
+    }
+    try { return projectAssets(project, await cached); } catch (_) { return local; }
   }
   function assetMatchesReference(asset, reference) {
     if (!asset || isPlatformLogo(assetName(asset)) || isPlatformLogo(reference)) return false;
@@ -70,10 +97,34 @@
     var names = [asset.name, asset.originalName, asset.filename, asset.fileName, asset.path, asset.storagePath];
     return names.some(function (name) { return name && assetBasename(name) === wanted; });
   }
-  function matchingProjectAsset(project, reference) {
-    return projectAssets(project).find(function (asset) {
+  function matchingProjectAsset(project, reference, supplemental) {
+    return projectAssets(project, supplemental).find(function (asset) {
       return assetMatchesReference(asset, reference);
     }) || null;
+  }
+  function graphAssetPath(fromPath, reference, files) {
+    var value = clean(reference).split(/[?#]/)[0].replace(/\\/g, '/');
+    if (!value || /^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(value)) return '';
+    var candidates = [];
+    function add(path) {
+      path = normalizePath(path);
+      if (path && candidates.indexOf(path) < 0) candidates.push(path);
+    }
+    var resolved = resolveProjectPath(fromPath, value);
+    add(resolved);
+    if (value.charAt(0) === '/') add('public/' + value);
+    if (resolved) add('public/' + resolved);
+    if (/^(?:@|~)\//.test(value)) {
+      var aliasPath = value.slice(2);
+      add(aliasPath);
+      add('src/' + aliasPath);
+      add('src/assets/' + aliasPath.replace(/^assets\//, ''));
+      add('public/' + aliasPath);
+    }
+    for (var i = 0; i < candidates.length; i += 1) {
+      if (Object.prototype.hasOwnProperty.call(files || {}, candidates[i])) return candidates[i];
+    }
+    return resolved;
   }
   function imageHref(fromPath, reference, files) {
     var value = clean(reference);
@@ -89,16 +140,19 @@
       return value;
     }
     if (/^https?:\/\//i.test(value)) return value;
-    var resolved = resolveProjectPath(fromPath, value);
+    var resolved = graphAssetPath(fromPath, value, files);
     if (!resolved) return '';
     var asset = files[resolved];
     if (!asset) return '';
     var assetText = sourceOf(asset);
+    if (/^data:image\//i.test(assetText)) return assetText;
     if (/<svg\b/i.test(assetText)) {
       var data = svgDataUrl(assetText);
       if (data) return data;
     }
-    if (/\.(?:svg|png|jpe?g|webp|gif|ico|avif)(?:[?#]|$)/i.test(value)) return '/' + resolved;
+    if (/\.(?:svg|png|jpe?g|webp|gif|ico|avif)(?:[?#]|$)/i.test(value)) {
+      return '/' + resolved.replace(/^public\//, '');
+    }
     return '';
   }
   function svgHref(element) {
@@ -110,33 +164,43 @@
     return svgDataUrl(markup);
   }
   function elementDescription(element) {
-    return [
-      element.getAttribute('alt'), element.getAttribute('title'),
-      element.getAttribute('aria-label'), element.getAttribute('class'),
-      element.getAttribute('id'), element.getAttribute('src'),
-      element.getAttribute('data-src')
-    ].map(clean).join(' ').toLowerCase();
+    var parts = [];
+    var node = element;
+    var depth = 0;
+    while (node && depth < 4 && node.nodeType === 1) {
+      parts.push(
+        node.getAttribute('alt'), node.getAttribute('title'),
+        node.getAttribute('aria-label'), node.getAttribute('class'),
+        node.getAttribute('id'), node.getAttribute('src'),
+        node.getAttribute('data-src'), node.getAttribute('data-testid'),
+        node.getAttribute('data-brand')
+      );
+      node = node.parentElement;
+      depth += 1;
+    }
+    return parts.map(clean).join(' ').toLowerCase();
   }
   function elementScore(element, files) {
     var desc = elementDescription(element);
     var tag = String(element.tagName || '').toLowerCase();
     var reference = tag === 'img' ? clean(element.getAttribute('src') || element.getAttribute('data-src')) : '';
-    if (isPlatformLogo(reference)) return -100;
+    if (isPlatformLogo(reference) || /ovyx-(?:brand-mark|brand-lockup|logo|notification-icon|boot-logo)/i.test(desc)) return -100;
     var hasBrandSignal = /logo|wordmark|brand|identity|site[\s_.-]?mark|brand[\s_.-]?mark|favicon|monogram|emblem|symbol/i.test(desc);
     var inHeader = !!(element.closest && element.closest('header, nav, [role="banner"]'));
-    if (!hasBrandSignal && !(tag === 'img' && inHeader)) return -100;
+    if (!hasBrandSignal && !((tag === 'img' || tag === 'svg') && inHeader)) return -100;
 
     var score = hasBrandSignal ? 20 : 8;
     if (inHeader) score += 8;
     if (tag === 'img') score += 6;
-    if (tag === 'svg') score += 2;
+    if (tag === 'svg') score += 4;
     if (reference && /logo|wordmark|brand|identity|mark|favicon|icon/i.test(reference)) score += 8;
     if (reference) {
-      var resolved = resolveProjectPath('', reference);
+      var resolved = graphAssetPath('', reference, files);
       if (resolved && files[resolved]) score += 4;
     }
     var width = Number(element.getAttribute('width'));
-    if (Number.isFinite(width) && width > 0 && width <= 180) score += 4;
+    if (Number.isFinite(width) && width > 0 && width <= 18) score -= 6;
+    else if (Number.isFinite(width) && width >= 28 && width <= 180) score += 6;
     if (Number.isFinite(width) && width > 240) score -= 10;
     if (/\b(?:avatar|profile|headshot|customer|product|hero|banner|cover|gallery|thumbnail|portrait|background)\b/i.test(desc)) score -= 14;
     if (/^data:image\//i.test(reference)) score += 2;
@@ -161,19 +225,17 @@
     return paths.find(function (path) { return /(?:^|\/)index\.html?$/i.test(path); }) ||
       paths.find(function (path) { return /(?:^|\/)home\.html?$/i.test(path); }) || paths[0] || '';
   }
-  function listBrandCandidates(pagePath, html, files, project, primary) {
+  function listBrandCandidates(pagePath, html, files, project, primary, supplementalAssets) {
     if (!/<head\b/i.test(html) || !/<body\b/i.test(html)) return [];
     var doc;
     try { doc = new DOMParser().parseFromString(html, 'text/html'); } catch (_) { return []; }
-    var candidates = Array.prototype.slice.call(doc.querySelectorAll(
-      'img, header svg, nav svg, [role="banner"] svg, [class*="logo" i] svg, [id*="logo" i] svg, [class*="brand" i] img, [id*="brand" i] img, [class*="mark" i] svg, [id*="mark" i] svg'
-    )).map(function (element) {
+    var candidates = Array.prototype.slice.call(doc.querySelectorAll('img, svg')).map(function (element) {
       var score = elementScore(element, files);
       if (score <= 0) return null;
       var tag = String(element.tagName || '').toLowerCase();
       var reference = tag === 'img' ? clean(element.getAttribute('src') || element.getAttribute('data-src')) : '';
       var href = reference ? imageHref(pagePath, reference, files) : '';
-      var asset = !href && reference ? matchingProjectAsset(project, reference) : null;
+      var asset = !href && reference ? matchingProjectAsset(project, reference, supplementalAssets) : null;
       if (!href && !asset && tag === 'svg') href = svgHref(element);
       if (!href && !asset) return null;
       if (primary) score += 2;
@@ -181,8 +243,51 @@
     }).filter(Boolean);
     return candidates;
   }
-  function rankedProjectLogoAssets(project) {
-    return projectAssets(project).map(function (asset) {
+  function sourceLogoCandidates(graph, project, supplementalAssets) {
+    var files = graph && graph.files || {};
+    var candidates = [];
+    var sourcePattern = /\.(?:[cm]?[jt]sx?|vue|svelte)$/i;
+    var assetPattern = /["']([^"'\s]+\.(?:svg|png|jpe?g|webp|gif|ico|avif)(?:\?[^"'\s]*)?)["']/gi;
+    Object.keys(files).filter(function (path) { return sourcePattern.test(path); }).forEach(function (path) {
+      var text = sourceOf(files[path]);
+      if (!text || text.length > 900000) return;
+      var match;
+      assetPattern.lastIndex = 0;
+      while ((match = assetPattern.exec(text)) !== null) {
+        var reference = clean(match[1]);
+        if (!reference || isPlatformLogo(reference)) continue;
+        var context = text.slice(Math.max(0, match.index - 180), Math.min(text.length, assetPattern.lastIndex + 180));
+        var brandSignal = /logo|wordmark|brand|identity|favicon|monogram|emblem|(?:^|[-_.\s])mark(?:[-_.\s]|$)|site[-_.\s]?icon/i.test(reference + ' ' + context);
+        if (!brandSignal) continue;
+        var href = imageHref(path, reference, files);
+        var asset = !href ? matchingProjectAsset(project, reference, supplementalAssets) : null;
+        if (!href && !asset) continue;
+        var score = 24;
+        if (/logo|wordmark|brand|identity/i.test(reference)) score += 14;
+        if (/\.svg(?:[?#]|$)/i.test(reference)) score += 6;
+        if (/import\s+[^;\n]{0,100}\b(?:logo|brand|mark|identity)/i.test(context)) score += 8;
+        candidates.push({ score: score, href: href, asset: asset, pagePath: path });
+      }
+    });
+    return candidates;
+  }
+  function projectLogoReferences(project) {
+    var brand = project && project.brand && typeof project.brand === 'object' ? project.brand : {};
+    return [
+      project && project.logo,
+      project && project.logoUrl,
+      project && project.brandLogo,
+      project && project.logoAsset,
+      project && project.websiteLogo,
+      project && project.siteLogo,
+      brand.logo,
+      brand.logoUrl
+    ].map(clean).filter(function (reference) {
+      return !!reference && !isPlatformLogo(reference);
+    });
+  }
+  function rankedProjectLogoAssets(project, supplementalAssets) {
+    return projectAssets(project, supplementalAssets).map(function (asset) {
       var name = assetName(asset);
       if (!name || isPlatformLogo(name)) return null;
       var type = clean(asset.type || asset.contentType || asset.mimeType).toLowerCase();
@@ -214,9 +319,10 @@
   }
   async function findBrandHref(graph, project, paths, first) {
     var files = graph.files || {};
+    var supplementalAssets = await loadProjectAssets(project);
     var candidates = [];
     paths.forEach(function (path) {
-      var list = listBrandCandidates(path, sourceOf(files[path]), files, project, path === first);
+      var list = listBrandCandidates(path, sourceOf(files[path]), files, project, path === first, supplementalAssets);
       candidates = candidates.concat(list);
     });
     candidates.sort(function (a, b) { return b.score - a.score; });
@@ -226,10 +332,29 @@
       if (resolved) return resolved;
     }
 
-    // Uploaded project assets are stored separately from the source-file graph.
-    // Use an explicitly logo/brand/icon-named project image when page markup
-    // references it indirectly or the HTML has not finished hydrating yet.
-    var assetCandidates = rankedProjectLogoAssets(project);
+    // Framework-based websites frequently hold their visible logo reference
+    // in a React/Vue/Svelte component instead of the HTML shell.
+    var codeCandidates = sourceLogoCandidates(graph, project, supplementalAssets);
+    codeCandidates.sort(function (a, b) { return b.score - a.score; });
+    for (var codeIndex = 0; codeIndex < codeCandidates.length; codeIndex += 1) {
+      if (codeCandidates[codeIndex].href) return codeCandidates[codeIndex].href;
+      var codeAssetHref = await resolveAssetHref(codeCandidates[codeIndex].asset);
+      if (codeAssetHref) return codeAssetHref;
+    }
+
+    var projectReferences = projectLogoReferences(project);
+    for (var refIndex = 0; refIndex < projectReferences.length; refIndex += 1) {
+      var ref = projectReferences[refIndex];
+      var directHref = imageHref(first || '', ref, files);
+      if (directHref) return directHref;
+      var refAsset = matchingProjectAsset(project, ref, supplementalAssets);
+      var refHref = await resolveAssetHref(refAsset);
+      if (refHref) return refHref;
+    }
+
+    // Project asset records may be available from server storage even when
+    // older project state does not yet have them copied into project.assets.
+    var assetCandidates = rankedProjectLogoAssets(project, supplementalAssets);
     for (var j = 0; j < assetCandidates.length; j += 1) {
       var assetHref = await resolveAssetHref(assetCandidates[j].asset);
       if (assetHref) return assetHref;
@@ -334,6 +459,8 @@
   }
   function retryBoot() {
     attempts = 0;
+    var projectId = clean(window.KernelState?.activeProject?.id);
+    if (projectId) delete uploadedAssetCache[projectId];
     schedule();
     window.setTimeout(boot, 160);
   }
