@@ -253,20 +253,16 @@ try {
   // Regression: V91 left the Universal Connections panel visible with
   // !important styles even after another Settings tab became active. Exercise
   // the real visibility-fix runtime against that legacy DOM shape.
+  const settingsTabIds = ['general', 'profile', 'appearance', 'workspace', 'notifications', 'editor', 'shortcuts', 'ai', 'privacy', 'security', 'plan', 'usage', 'boosters', 'connections'];
   const settingsFixture = '<!doctype html><html><head><style>' +
     '#view-settings [data-settings-panel]{display:none!important}' +
     '#view-settings [data-settings-panel].active{display:block!important}' +
     '#view-settings [data-settings-panel].ovyx-v91-connection-panel{display:none!important;visibility:hidden!important;opacity:0!important}' +
     '#view-settings [data-settings-panel].ovyx-v91-connection-panel.is-v91-active{display:block!important;visibility:visible!important;opacity:1!important}' +
     '</style></head><body><section id="view-settings"><aside class="ovyx-settings-sidebar">' +
-    '<button data-settings-nav="workspace" class="active">Workspace</button>' +
-    '<button data-settings-nav="appearance">Appearance</button>' +
-    '<button data-settings-nav="ai">AI</button>' +
-    '<button data-settings-nav="connections">Connections</button>' +
+    settingsTabIds.map(id => '<button data-settings-nav="' + id + '"' + (id === 'workspace' ? ' class="active"' : '') + '>' + id + '</button>').join('') +
     '</aside><main id="ovyx-settings-main">' +
-    '<section data-settings-panel="workspace" class="active">Workspace settings</section>' +
-    '<section data-settings-panel="appearance" hidden>Appearance settings</section>' +
-    '<section data-settings-panel="ai" hidden>AI settings</section>' +
+    settingsTabIds.filter(id => id !== 'connections').map(id => '<section data-settings-panel="' + id + '"' + (id === 'workspace' ? ' class="active"' : ' hidden') + '>' + id + ' settings</section>').join('') +
     '<section data-settings-panel="connections" class="ovyx-v91-connection-panel is-v91-active" style="display:block!important;visibility:visible!important;opacity:1!important"><div class="ovyx-v91-conn-shell">Universal Connections fixture</div></section>' +
     '</main></section><script>' +
     'window.OVYXSettings={root:document.getElementById("view-settings"),current:"workspace",show:function(id){this.current=id;this.root.querySelectorAll("[data-settings-panel]").forEach(function(p){var active=p.dataset.settingsPanel===id;p.classList.toggle("active",active);p.hidden=!active});this.root.querySelectorAll("[data-settings-nav]").forEach(function(n){n.classList.toggle("active",n.dataset.settingsNav===id)});if(id==="connections"){var p=this.root.querySelector("[data-settings-panel=connections]");p.classList.add("is-v91-active");p.style.setProperty("display","block","important");p.style.setProperty("visibility","visible","important");p.style.setProperty("opacity","1","important")}return true}};' +
@@ -277,7 +273,7 @@ try {
     const p = document.querySelector('#view-settings [data-settings-panel="connections"]');
     return !!p && getComputedStyle(p).display === 'none' && p.hidden;
   }, null, { timeout: 5000 });
-  for (const id of ['workspace', 'appearance', 'ai']) {
+  for (const id of settingsTabIds.filter(id => id !== 'connections')) {
     await brandingPage.evaluate(id => window.OVYXSettings.show(id), id);
     await brandingPage.waitForFunction(() => {
       const p = document.querySelector('#view-settings [data-settings-panel="connections"]');
