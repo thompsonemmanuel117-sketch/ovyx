@@ -17,13 +17,19 @@ assert.doesNotThrow(() => new Function(projectBranding), 'The project favicon br
 assert.ok(projectBranding.includes('async function findBrandHref(graph, project, paths, first)'), 'Favicon correction must discover the active project’s own logo in its source graph and uploaded assets.');
 assert.ok(projectBranding.includes('if (!href) return false;'), 'If no project-owned logo is found, the current favicon must be left unchanged.');
 assert.ok(projectBranding.includes('window.OVYXAssetStore?.url'), 'Project logos stored outside the text file graph must be resolved through the asset store.');
-assert.ok(projectBranding.includes('function rankedProjectLogoAssets(project)'), 'The favicon correction must consider explicitly named project logo/icon assets.');
+assert.ok(projectBranding.includes('function rankedProjectLogoAssets(project, supplementalAssets)'), 'The favicon correction must consider explicitly named project logo/icon assets from the project graph and store.');
+assert.ok(projectBranding.includes('async function loadProjectAssets(project)'), 'The favicon correction must query uploaded asset metadata that may not be copied into the local project object.');
+assert.ok(projectBranding.includes('function sourceLogoCandidates(graph, project, supplementalAssets)'), 'Framework component imports must be searched when the logo is not present in index.html.');
+assert.ok(projectBranding.includes('function graphAssetPath(fromPath, reference, files)'), 'The favicon resolver must support common public paths and source aliases.');
 assert.ok(projectBranding.includes("['ovyx:view-changed', 'ovyx:project-activated', 'ovyx:project-loaded', 'ovyx:project-saved',"), 'Project favicon correction must follow project activation and save lifecycle events.');
 assert.ok(projectBranding.includes("'ovyx:webstudio-initial-site-built', 'ovyx:webstudio-quality-report']"), 'Project favicon correction must follow site-build and quality-report events.');
 assert.ok(!runtime.includes('<span data-ovyx-quality-label>Quality</span>'), 'The quality panel must not create a duplicate Quality toolbar button.');
 assert.ok(runtime.includes("open: function () { setOverlay(true); return true; }"), 'Code tools must be able to open the shared inspector without a header trigger.');
 assert.ok(navigationPolish.includes('body.ovyx-webstudio-active.ovyx-ws-mobile-nav-open #view-webstudio .ovyx-ws-header'), 'The Web Studio toolbar must hide behind the mobile navigation drawer.');
 assert.ok(navigationPolish.includes('body.ovyx-webstudio-active.ovyx-ws-nav-open #view-webstudio .ovyx-ws-header'), 'The Web Studio toolbar must hide behind desktop project navigation.');
+assert.ok(navigationPolish.includes("header.style.setProperty('visibility', 'hidden', 'important')"), 'The navigation overlay must hide the header without removing it from layout.');
+assert.ok(!navigationPolish.includes("header.style.setProperty('display', 'none', 'important')"), 'The navigation overlay must not collapse the chat header row.');
+assert.ok(navigationPolish.includes("target.closest('#ovyx-desktop-sidebar-close')"), 'The existing desktop sidebar close control must also close the Web Studio drawer.');
 
 for (const token of [
   'OVYX WEB STUDIO QUALITY CONTRACT',
@@ -81,8 +87,8 @@ for (const token of [
 
 assert.ok(middleware.includes('/assets/ovyx-webstudio-quality.js?v=20261021-1'), 'The quality inspector must load from the application-shell middleware.');
 assert.equal((middleware.match(/\/assets\/ovyx-webstudio-quality\.js\?v=20261021-1/g) || []).length, 1, 'The quality inspector must be injected exactly once per application shell.');
-assert.ok(middleware.includes('/assets/ovyx-webstudio-navigation-polish.js?v=20261021-2'), 'Navigation header behavior must load from the application shell with its current cache key.');
-assert.ok(middleware.includes('/assets/ovyx-webstudio-project-branding.js?v=20261021-2'), 'Project branding correction must load from the application shell with its current cache key.');
+assert.ok(middleware.includes('/assets/ovyx-webstudio-navigation-polish.js?v=20261021-3'), 'Navigation header behavior must load from the application shell with its current cache key.');
+assert.ok(middleware.includes('/assets/ovyx-webstudio-project-branding.js?v=20261021-3'), 'Project branding correction must load from the application shell with its current cache key.');
 assert.ok(/\/assets\/ovyx-webstudio-navigation-polish\.js\s+Cache-Control: no-store, no-cache, must-revalidate/.test(headers), 'Navigation header behavior must not be served from a stale cache.');
 assert.ok(/\/assets\/ovyx-webstudio-project-branding\.js\s+Cache-Control: no-store, no-cache, must-revalidate/.test(headers), 'Project branding correction must not be served from a stale cache.');
 assert.ok(headers.includes('/assets/ovyx-webstudio-quality.js\n  Cache-Control: no-store, no-cache, must-revalidate'), 'Quality inspection code must not be served from a stale cache.');
