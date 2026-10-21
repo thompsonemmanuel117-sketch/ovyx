@@ -211,13 +211,50 @@ try {
   assert.ok(cssLogoBranding.html.includes('id="css-logo-content"'), 'CSS-based favicon detection must preserve the project page content.');
   assert.equal(cssLogoBranding.saveCount, 5, 'CSS-based favicon detection must save the corrected project graph exactly once.');
 
+  // A generated site may intentionally declare a compact favicon different
+  // from the visible wordmark. Trust that explicit live-preview icon first.
+  await brandingPage.evaluate(async () => {
+    const declaredIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><rect x="4" y="4" width="40" height="40" rx="8" fill="#ff0066"/></svg>';
+    const fullWordmark = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 48"><rect width="240" height="48" fill="#d8a93e"/></svg>';
+    const graph = { version: 2, entry: 'index.html', files: {
+      'index.html': { type: 'text/html', content: '<!doctype html><html><head><title>Declared icon project</title><link rel="icon" href="/assets/ovyx-brand-mark.svg"></head><body><main id="declared-icon-content">Preserve this project.</main></body></html>' },
+      'assets/industrial-site-icon.svg': { type: 'image/svg+xml', content: declaredIcon },
+      'assets/industrial-wordmark.svg': { type: 'image/svg+xml', content: fullWordmark }
+    }, updatedAt: 7 };
+    window.WebStudio.graph = graph;
+    window.KernelState.activeProject.ovyxGraph = graph;
+    window.KernelState.activeProject.assets = [];
+    const frame = document.getElementById('ws-canvas-iframe');
+    await new Promise(resolve => {
+      frame.onload = resolve;
+      frame.srcdoc = '<!doctype html><html><head><link rel="shortcut icon" href="assets/industrial-site-icon.svg"></head><body><header><img class="company-logo" alt="Company brand logo" src="assets/industrial-wordmark.svg"></header><main>Running project</main></body></html>';
+    });
+    window.dispatchEvent(new Event('ovyx:preview-updated'));
+  });
+  await brandingPage.waitForFunction(() => {
+    const href = document.querySelector('link[rel~="icon"][data-ovyx-project-favicon]')?.getAttribute('href') || '';
+    return href.includes('%23ff0066') &&
+      window.WebStudio.graph.files['index.html'].content.includes('%23ff0066');
+  }, null, { timeout: 5000 });
+  const declaredIconBranding = await brandingPage.evaluate(() => {
+    const href = document.querySelector('link[rel~="icon"][data-ovyx-project-favicon]')?.getAttribute('href') || '';
+    let decoded = '';
+    try { decoded = decodeURIComponent(href.slice(href.indexOf(',') + 1)); } catch (_) {}
+    return { href, decoded, html: window.WebStudio.graph.files['index.html'].content, saveCount: window.__projectSaveCount };
+  });
+  assert.ok(declaredIconBranding.decoded.startsWith('<svg'), 'The declared icon must be read as actual SVG image data.');
+  assert.match(declaredIconBranding.decoded, /fill="#ff0066"/, 'The declared favicon must win over the larger project wordmark.');
+  assert.doesNotMatch(declaredIconBranding.decoded, /width="240"/, 'The full wordmark must not replace the explicitly declared compact icon.');
+  assert.ok(declaredIconBranding.html.includes('id="declared-icon-content"'), 'Favicon correction must preserve the project page content.');
+  assert.equal(declaredIconBranding.saveCount, 6, 'The explicit project favicon must save the project graph exactly once.');
+
   // Another script may append or change a favicon link after branding resolves.
   // The active project logo must remain authoritative, then prior icon values
   // must be restored after leaving Web Studio.
   await brandingPage.evaluate(() => {
     const competing = document.createElement('link');
     competing.id = 'qa-competing-favicon';
-    competing.rel = 'icon';
+    competing.rel = 'shortcut icon';
     competing.href = '/assets/ovyx-brand-mark.svg';
     document.head.appendChild(competing);
   });
@@ -229,6 +266,8 @@ try {
   }, null, { timeout: 5000 });
   const enforcedFavicon = await brandingPage.locator('#qa-competing-favicon').getAttribute('href');
   assert.ok(enforcedFavicon?.startsWith('data:image/svg+xml;charset=utf-8,'), 'A later competing favicon link must not replace the actual project logo.');
+  const competingRel = await brandingPage.locator('#qa-competing-favicon').getAttribute('rel');
+  assert.equal(competingRel, 'shortcut icon', 'The favicon observer must preserve a valid multi-token rel value instead of repeatedly appending icon.');
 
   await brandingPage.evaluate(() => {
     document.body.classList.remove('ovyx-webstudio-active');
@@ -236,6 +275,7 @@ try {
   });
   await brandingPage.waitForFunction(() =>
     document.getElementById('qa-competing-favicon')?.getAttribute('href') === '/assets/ovyx-brand-mark.svg' &&
+    document.getElementById('qa-competing-favicon')?.getAttribute('rel') === 'shortcut icon' &&
     !document.querySelector('link[data-ovyx-project-favicon]'),
     null,
     { timeout: 5000 }
