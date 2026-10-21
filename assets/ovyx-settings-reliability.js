@@ -211,19 +211,6 @@
     const workspace = $('set-workspace-name') || $('set-workspace-name-legacy');
     const displayName = String(profile?.displayName || '').trim();
     const workspaceName = String(profile?.workspaceName || '').trim();
-    // The server-backed account profile is authoritative for identity fields.
-    // Mirror those same fields into the profile renderer's UID-scoped cache so a
-    // refresh or delayed profile render cannot resurrect an older local identity.
-    const user = currentUser();
-    if (user && user.uid && (displayName || workspaceName)) {
-      const key = 'ovyx.profile.v2.user.' + String(user.uid);
-      const cached = safeJson(localStorage.getItem(key));
-      try {
-        localStorage.setItem(key, JSON.stringify(Object.assign({}, cached,
-          displayName ? { name: displayName } : {},
-          workspaceName ? { workspace: workspaceName } : {})));
-      } catch (_) {}
-    }
     if (name && document.activeElement !== name && displayName) name.value = displayName;
     if (workspace && document.activeElement !== workspace && workspaceName) workspace.value = workspaceName;
     if (displayName) {
