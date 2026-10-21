@@ -64,6 +64,19 @@
   function syncCancelButton(studio) {
     const button = document.getElementById('ws-task-cancel');
     if (!button) return;
+    // Some agent variants finish their wrapper call before the final UI flag
+    // is cleared. Keep the snapshot while those flags are active, then release
+    // an orphaned snapshot the next time the composer/thread is rendered.
+    if (
+      studio &&
+      studio.__ovyxTaskRollbackSnapshot &&
+      Number(studio.__ovyxTaskInFlightCount || 0) <= 0 &&
+      !studio.pendingBuild &&
+      !studio.liveAiActive
+    ) {
+      studio.__ovyxTaskRollbackSnapshot = null;
+      studio.__ovyxActiveTaskMethod = '';
+    }
     const busy = !!(studio && studio.__ovyxTaskRollbackSnapshot && taskIsRunning(studio));
     button.hidden = !busy;
     button.disabled = !busy;
@@ -245,7 +258,9 @@
             ownsSnapshot &&
             snapshot &&
             this.__ovyxTaskRollbackSnapshot === snapshot &&
-            this.__ovyxTaskInFlightCount === 0
+            this.__ovyxTaskInFlightCount === 0 &&
+            !this.pendingBuild &&
+            !this.liveAiActive
           ) {
             this.__ovyxTaskRollbackSnapshot = null;
             this.__ovyxActiveTaskMethod = '';
