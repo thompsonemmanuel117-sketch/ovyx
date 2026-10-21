@@ -1,7 +1,7 @@
 (function () {
   'use strict';
   if (window.__OVYX_WEBSTUDIO_CANCEL_SAFETY_V2__) return;
-  window.__OVYX_WEBSTUDIO_CANCEL_SAFETY_V1__ = true;
+  window.__OVYX_WEBSTUDIO_CANCEL_SAFETY_V2__ = true;
 
   const clone = value => {
     try { return JSON.parse(JSON.stringify(value)); }
