@@ -88,6 +88,44 @@ try {
     );
 
     await waitForRouteRestore(page);
+
+    // Mobile-safe cancellation must abort only the active request and leave the
+    // project's pages/files and the list of projects exactly as they were.
+    const cancelRun = await page.evaluate(() => {
+      const studio = window.WebStudio;
+      const button = document.getElementById('ws-chat-cancel');
+      if (!studio || typeof studio.cancelActiveAiRun !== 'function' || !button) return { available: false };
+      const snapshot = () => JSON.stringify({
+        active: window.KernelState?.activeProject || null,
+        projects: window.KernelState?.projects || [],
+      });
+      const before = snapshot();
+      window.__ovyxCancelAbortCalledV1 = false;
+      studio.pendingBuild = true;
+      studio.liveAiActive = true;
+      studio.activeAbortController = { abort() { window.__ovyxCancelAbortCalledV1 = true; } };
+      studio.renderThread();
+      const visibleWhileRunning = button.hidden === false;
+      const epochBefore = Number(studio.requestEpoch || 0);
+      button.click();
+      return {
+        available: true,
+        visibleWhileRunning,
+        hiddenAfterCancel: button.hidden,
+        abortCalled: window.__ovyxCancelAbortCalledV1,
+        pendingAfterCancel: Boolean(studio.pendingBuild),
+        epochAdvanced: Number(studio.requestEpoch || 0) > epochBefore,
+        projectUnchanged: snapshot() === before,
+      };
+    });
+    assert.equal(cancelRun.available, true, '[' + target.name + '] Web Studio Cancel Run must be wired. Details: ' + JSON.stringify(cancelRun));
+    assert.equal(cancelRun.visibleWhileRunning, true, '[' + target.name + '] Cancel Run must appear during an active request.');
+    assert.equal(cancelRun.hiddenAfterCancel, true, '[' + target.name + '] Cancel Run must hide after cancellation.');
+    assert.equal(cancelRun.abortCalled, true, '[' + target.name + '] Cancel Run must abort the current request.');
+    assert.equal(cancelRun.pendingAfterCancel, false, '[' + target.name + '] Cancellation must clear only the active-run state.');
+    assert.equal(cancelRun.epochAdvanced, true, '[' + target.name + '] Cancellation must invalidate the cancelled request.');
+    assert.equal(cancelRun.projectUnchanged, true, '[' + target.name + '] Cancel Run must not roll back or clear any project data.');
+
     await page.evaluate(() => window.Router.go('settings'));
     await page.locator('#view-settings').waitFor({ state: 'visible' });
 
