@@ -106,7 +106,7 @@ try {
     component: window.WebStudio.graph.files['src/App.jsx'].content,
     saveCount: window.__projectSaveCount
   }));
-  assert.match(componentBranding.index, /data:image\\/svg\\+xml;charset=utf-8,/, 'Favicon discovery must follow a brand logo imported from a React component.');
+  assert.ok(componentBranding.index.includes('data:image/svg+xml;charset=utf-8,'), 'Favicon discovery must follow a brand logo imported from a React component.');
   assert.match(componentBranding.index, /id="root"/, 'The React project shell must be preserved.');
   assert.match(componentBranding.component, /IndustrialLogo/, 'Project source components must not be rewritten by favicon correction.');
   assert.equal(componentBranding.saveCount, 3, 'Component-logo favicon correction must persist the HTML graph.');
