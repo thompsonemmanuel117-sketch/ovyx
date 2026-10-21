@@ -25,11 +25,16 @@ assert.ok(projectBranding.includes("['ovyx:view-changed', 'ovyx:project-activate
 assert.ok(projectBranding.includes("'ovyx:webstudio-initial-site-built', 'ovyx:webstudio-quality-report',"), 'Project favicon correction must follow site-build and quality-report events.');
 assert.ok(!runtime.includes('<span data-ovyx-quality-label>Quality</span>'), 'The quality panel must not create a duplicate Quality toolbar button.');
 assert.ok(runtime.includes("open: function () { setOverlay(true); return true; }"), 'Code tools must be able to open the shared inspector without a header trigger.');
-assert.ok(navigationPolish.includes('body.ovyx-webstudio-active.ovyx-ws-mobile-nav-open #view-webstudio .ovyx-ws-header'), 'The Web Studio toolbar must hide behind the mobile navigation drawer.');
-assert.ok(navigationPolish.includes('body.ovyx-webstudio-active.ovyx-ws-nav-open #view-webstudio .ovyx-ws-header'), 'The Web Studio toolbar must hide behind desktop project navigation.');
-assert.ok(navigationPolish.includes("header.style.setProperty('visibility', 'hidden', 'important')"), 'The navigation overlay must hide the header without removing it from layout.');
-assert.ok(!navigationPolish.includes("header.style.setProperty('display', 'none', 'important')"), 'The navigation overlay must not collapse the chat header row.');
+assert.ok(navigationPolish.includes('body.ovyx-webstudio-active.ovyx-ws-mobile-nav-open #mobile-drawer'), 'The mobile navigation drawer must cover the viewport without a 54px offset.');
+assert.ok(!navigationPolish.includes('.ovyx-ws-header{visibility:hidden'), 'The Web Studio toolbar must remain visible instead of hiding its arrow and Preview controls.');
+assert.ok(!navigationPolish.includes("header.style.setProperty('visibility'"), 'The navigation polish must never mutate header visibility.');
+assert.ok(!navigationPolish.includes("header.inert ="), 'The navigation polish must never make the arrow and Preview toolbar inert.');
+assert.ok(navigationPolish.includes('removeMobileOverlayOverrides'), 'Mobile drawer overrides must be removed when navigation closes.');
 assert.ok(navigationPolish.includes("target.closest('#ovyx-desktop-sidebar-close')"), 'The existing desktop sidebar close control must also close the Web Studio drawer.');
+assert.ok(navigationPolish.includes('window.__OVYX_WS_NAV_HEADER_POLISH_V4__ = true'), 'The navigation runtime must use a matching V4 idempotence guard.');
+assert.ok(projectBranding.includes('window.__OVYX_WS_PROJECT_BRANDING_V4__ = true'), 'The project branding runtime must use a matching V4 idempotence guard.');
+assert.ok(projectBranding.includes('function syncTabFavicon(href, projectId)'), 'The selected project logo must update the active browser tab favicon.');
+assert.ok(projectBranding.includes('function restoreTabFavicon()'), 'The OVYX platform favicon must be restored when Web Studio or project branding is inactive.');
 
 for (const token of [
   'OVYX WEB STUDIO QUALITY CONTRACT',
