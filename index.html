@@ -3128,7 +3128,7 @@
         }catch(e){
           if(!this.isRequestCurrent(token))return;
           if(e?.name==='AbortError')return;
-          try{this.rollbackAgentChanges(rollbackGraph,appliedGraph,rollbackProject)}catch(rollbackError){console.error('[OVYX Web Studio build rollback]',String(rollbackError?.message||rollbackError).slice(0,180))}
+          try{if(appliedGraph)this.rollbackAgentChanges(rollbackGraph,appliedGraph,rollbackProject)}catch(rollbackError){console.error('[OVYX Web Studio build rollback]',String(rollbackError?.message||rollbackError).slice(0,180))}
           this.status(e.message||'Build failed.','error');this.appendMessage(e.message||'OVYX could not complete the build.');
         }finally{if(this.isRequestCurrent(token)){this.pendingBuild=false;this.liveAiActive=false;this.renderThread()}}
       },
