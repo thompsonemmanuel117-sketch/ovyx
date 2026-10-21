@@ -1,9 +1,9 @@
 {
   "version": 1,
   "include": [
-    "/",
-    "/index.html",
-    "/api/*"
+    "/*"
   ],
-  "exclude": []
+  "exclude": [
+    "/assets/*"
+  ]
 }
