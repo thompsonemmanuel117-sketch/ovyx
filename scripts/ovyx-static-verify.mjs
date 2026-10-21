@@ -201,6 +201,7 @@ if (fs.existsSync(shellMiddlewarePath)) {
     !shellMiddleware.includes("assets/ovyx-launch-polish.js") ||
     !shellMiddleware.includes('new HTMLRewriter()') ||
     !shellMiddleware.includes("url.pathname.toLowerCase().endsWith('/favicon.ico')") ||
+    !shellMiddleware.includes("url.pathname === '/ovyx-tab-v6.svg'") ||
     !shellMiddleware.includes("if (!contentType.includes('text/html')) return response;") ||
     !shellMiddleware.includes("headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')") ||
     shellMiddleware.includes("url.pathname !== '/' && url.pathname !== '/index.html'")
