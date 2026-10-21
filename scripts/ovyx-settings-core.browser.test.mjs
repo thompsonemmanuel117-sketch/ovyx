@@ -153,6 +153,29 @@ try {
         baselineProject.ovyxGraph = clone(studio.graph);
 
         studio.renderThread();
+        // App-level background cloud sync may reconcile KernelState during this
+        // test. Re-establish the isolated task project synchronously immediately
+        // before dispatching Cancel, so the assertion tests cancellation rather
+        // than a race with unrelated project synchronization.
+        window.KernelState = state;
+        state.projects = [...(original.projects || []), baselineProject];
+        state.activeProject = baselineProject;
+        studio.graph = clone(baselineProject.ovyxGraph);
+        studio.__ovyxTaskRollbackSnapshot = {
+          projectId: testId, project: clone({
+            ...baselineProject,
+            name: 'Baseline project',
+            pages: [{ id: 'baseline-page', name: 'Home', slug: 'home', __ovyxFile: 'index.html',
+              source: baselineHtml, renderedHtml: baselineHtml, sections: [] }],
+            ovyxGraph: baselineGraph
+          }),
+          graph: clone(baselineGraph), startedAt: Date.now()
+        };
+        studio.pendingBuild = true;
+        studio.liveAiActive = true;
+        studio.__ovyxActiveTaskMethod = 'runBuildAgent';
+        summary.activeProjectIdBeforeCancel = String(state.activeProject?.id || '');
+        summary.projectCollectionEntryBeforeCancel = state.projects.find(project => String(project?.id || '') === testId)?.name || null;
         summary.visibleWhileRunning = button.hidden === false;
         button.click();
         summary.hiddenAfterCancel = button.hidden;
