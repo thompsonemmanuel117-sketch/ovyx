@@ -68,7 +68,121 @@ const REQUIRED_RUNTIMES = [
     path: '/assets/ovyx-webstudio-quality.js',
     signatures: ['function auditSources', 'cross-page fragment link', 'publishVerifiedPreview'],
   },
+  {
+    id: 'faviconLock',
+    label: 'browser tab favicon lock',
+    path: '/assets/ovyx-shell-favicon-lock.js',
+    signatures: ['__OVYX_SHELL_FAVICON_LOCK_V3__', '/ovyx-tab-v6.svg?v=20261021-6', 'window.OVYXShellFavicon'],
+  },
+  {
+    id: 'cancelSafety',
+    label: 'Web Studio mobile Cancel and rollback',
+    path: '/assets/ovyx-webstudio-cancel-safety.js',
+    signatures: ['__OVYX_WEBSTUDIO_CANCEL_SAFETY_V3__', 'function restoreProjectOnly', 'installBrowserFetchCancellation', 'ovyx.webstudio.rollback.snapshot.v3.'],
+  },
 ];
+
+function readTagAttributes(tag) {
+  const attributes = {};
+  const pattern = /([a-z][\w:-]*)\s*=\s*(["'])(.*?)\2/gi;
+  let match;
+  while ((match = pattern.exec(String(tag || '')))) {
+    attributes[match[1].toLowerCase()] = match[3];
+  }
+  return attributes;
+}
+
+async function probeIconEndpoint(origin, path, fetchImpl) {
+  const request = await getTextWithTimeout(fetchImpl, new URL(path, origin), 'image/svg+xml');
+  const response = request.response;
+  const contentType = response ? String(response.headers.get('content-type') || '').toLowerCase() : '';
+  const cacheControl = response ? String(response.headers.get('cache-control') || '').toLowerCase() : '';
+  let redirectedOffOrigin = false;
+  try {
+    redirectedOffOrigin = !!(response && response.url && new URL(response.url).origin !== origin);
+  } catch {
+    redirectedOffOrigin = true;
+  }
+  const brandMarkPresent = request.body.includes('M32 5L55 18.5V45.5L32 59L9 45.5V18.5L32 5Z');
+  const noStore = /no-store|no-cache/i.test(cacheControl)
+    && /(?:^|,)\s*max-age=0(?:\s*(?:,|$))/i.test(cacheControl);
+  const ok = !!(
+    response &&
+    response.status === 200 &&
+    !redirectedOffOrigin &&
+    contentType.includes('image/svg+xml') &&
+    request.body.trim().startsWith('<svg') &&
+    brandMarkPresent &&
+    noStore
+  );
+  let error = '';
+  if (!ok) {
+    error = request.error || (
+      redirectedOffOrigin
+        ? path + ' redirected away from the production origin.'
+        : !response || response.status !== 200
+          ? path + ' did not return HTTP 200.'
+          : !contentType.includes('image/svg+xml')
+            ? path + ' did not return an SVG content type.'
+            : !request.body.trim().startsWith('<svg') || !brandMarkPresent
+              ? path + ' did not return the expected OVYX double-hexagon SVG.'
+              : 'Cache-control protection is missing from ' + path + '.'
+    );
+  }
+  return {
+    ok,
+    path,
+    httpStatus: response ? response.status : null,
+    contentType: contentType.slice(0, 100),
+    cacheControl: cacheControl.slice(0, 160),
+    noStore,
+    brandMarkPresent,
+    error,
+  };
+}
+
+async function probeBrowserTabIcon(origin, html, fetchImpl) {
+  const links = [];
+  const pattern = /<link\b[^>]*>/gi;
+  let match;
+  while ((match = pattern.exec(String(html || '')))) {
+    const attributes = readTagAttributes(match[0]);
+    const rel = String(attributes.rel || '').toLowerCase().split(/\s+/).filter(Boolean);
+    if (rel.includes('icon')) links.push(attributes);
+  }
+
+  const canonicalHref = '/ovyx-tab-v6.svg?v=20261021-6';
+  const canonical = links.filter(link => {
+    try {
+      const url = new URL(link.href || '', origin);
+      return String(link.type || '').toLowerCase() === 'image/svg+xml'
+        && url.origin === origin
+        && url.pathname === '/ovyx-tab-v6.svg'
+        && url.searchParams.get('v') === '20261021-6';
+    } catch {
+      return false;
+    }
+  });
+  const tabIcon = await probeIconEndpoint(origin, canonicalHref, fetchImpl);
+  const faviconFallback = await probeIconEndpoint(origin, '/favicon.ico', fetchImpl);
+  const canonicalLinkOk = links.length === 1 && canonical.length === 1;
+  const ok = canonicalLinkOk && tabIcon.ok && faviconFallback.ok;
+  const errors = [];
+  if (!canonicalLinkOk) {
+    errors.push('The production shell must declare exactly one canonical OVYX favicon link at ' + canonicalHref + '.');
+  }
+  if (!tabIcon.ok && tabIcon.error) errors.push(tabIcon.error);
+  if (!faviconFallback.ok && faviconFallback.error) errors.push(faviconFallback.error);
+  return {
+    ok,
+    iconLinkCount: links.length,
+    canonicalHref: canonical.length === 1 ? canonicalHref : null,
+    canonicalLinkOk,
+    tabIcon,
+    faviconFallback,
+    error: errors.join(' '),
+  };
+}
 
 function findInjectedRuntimeUrls(html, origin) {
   const scripts = [];
@@ -189,16 +303,19 @@ export async function probeApplicationShell(deploymentUrl, fetchImpl = globalThi
 
   const html = shellRequest.body;
   const scripts = findInjectedRuntimeUrls(html, origin);
-  const runtimes = await Promise.all(REQUIRED_RUNTIMES.map(spec => probeRuntime(origin, spec, scripts, fetchImpl)));
+  const [runtimes, browserTabIcon] = await Promise.all([
+    Promise.all(REQUIRED_RUNTIMES.map(spec => probeRuntime(origin, spec, scripts, fetchImpl))),
+    probeBrowserTabIcon(origin, html, fetchImpl),
+  ]);
   const requiredRuntimes = Object.fromEntries(REQUIRED_RUNTIMES.map((spec, index) => [
     spec.id,
     { ...runtimes[index], label: spec.label, path: spec.path },
   ]));
   const quality = requiredRuntimes.quality;
-  const ok = runtimes.every(runtime => runtime.ok);
-  const error = ok
-    ? ''
-    : runtimes.filter(runtime => !runtime.ok).map(runtime => runtime.error).filter(Boolean).join(' ');
+  const ok = runtimes.every(runtime => runtime.ok) && browserTabIcon.ok;
+  const runtimeErrors = runtimes.filter(runtime => !runtime.ok).map(runtime => runtime.error).filter(Boolean);
+  if (!browserTabIcon.ok && browserTabIcon.error) runtimeErrors.push(browserTabIcon.error);
+  const error = ok ? '' : runtimeErrors.join(' ');
   return {
     ok,
     status: ok ? 'healthy' : 'degraded',
@@ -206,6 +323,7 @@ export async function probeApplicationShell(deploymentUrl, fetchImpl = globalThi
     contentType: contentType.slice(0, 100),
     htmlCharacters: html.length,
     requiredRuntimes,
+    browserTabIcon,
     qualityRuntimeInjected: !!quality.injected,
     qualityRuntimeVersion: quality.version,
     qualityRuntimeAssetOk: !!quality.assetOk,
