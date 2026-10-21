@@ -768,22 +768,7 @@
     ].join('\n');
     root.querySelector('style').textContent = css;
     var view = document.getElementById('view-webstudio');
-    var hosts = view ? view.querySelectorAll('.ovyx-ws-header-actions') : [];
-    if (hosts.length) {
-      hosts.forEach(function (host, index) {
-        if (host.querySelector('[data-ovyx-quality-trigger]')) return;
-        var trigger = document.createElement('button');
-        trigger.type = 'button';
-        trigger.className = 'ovyx-ws-header-button ovyx-ws-quality-trigger';
-        trigger.setAttribute('data-ovyx-quality-trigger', '1');
-        trigger.setAttribute('aria-haspopup', 'dialog');
-        trigger.setAttribute('aria-controls', ROOT_ID + '-dialog');
-        trigger.innerHTML = '<i class="fa-solid fa-shield-halved" aria-hidden="true"></i><span data-ovyx-quality-label>Quality</span><small data-ovyx-quality-dot aria-hidden="true">•</small>';
-        trigger.addEventListener('click', function (event) { event.preventDefault(); lastFocused = trigger; setOverlay(true); });
-        var preview = host.querySelector('#ws-preview-trigger');
-        if (preview) host.insertBefore(trigger, preview); else host.appendChild(trigger);
-      });
-    }
+    if (view) view.querySelectorAll('[data-ovyx-quality-trigger]').forEach(function (trigger) { trigger.remove(); });
     var dialog = root.querySelector('.ovyx-ws-quality-dialog');
     if (dialog) dialog.id = ROOT_ID + '-dialog';
     renderStages();
@@ -1554,21 +1539,7 @@
   }
   function addTriggers() {
     var view = document.getElementById('view-webstudio');
-    if (!view) return;
-    var hosts = view.querySelectorAll('.ovyx-ws-header-actions');
-    hosts.forEach(function (host) {
-      if (host.querySelector('[data-ovyx-quality-trigger]')) return;
-      var trigger = document.createElement('button');
-      trigger.type = 'button';
-      trigger.className = 'ovyx-ws-header-button ovyx-ws-quality-trigger';
-      trigger.setAttribute('data-ovyx-quality-trigger', '1');
-      trigger.setAttribute('aria-haspopup', 'dialog');
-      trigger.setAttribute('aria-controls', ROOT_ID + '-dialog');
-      trigger.innerHTML = '<i class="fa-solid fa-shield-halved" aria-hidden="true"></i><span data-ovyx-quality-label>Quality</span><small data-ovyx-quality-dot aria-hidden="true">•</small>';
-      trigger.addEventListener('click', function (event) { event.preventDefault(); lastFocused = trigger; setOverlay(true); });
-      var preview = host.querySelector('#ws-preview-trigger');
-      if (preview) host.insertBefore(trigger, preview); else host.appendChild(trigger);
-    });
+    if (view) view.querySelectorAll('[data-ovyx-quality-trigger]').forEach(function (trigger) { trigger.remove(); });
     syncBuildBadge();
   }
   function wrapBuildLifecycle(studio) {
@@ -1823,8 +1794,9 @@
         exportReport: function () { return downloadQualityReport(currentReport); },
         copySummary: copyClientSummary,
         getClientSummary: function () { return currentReport && currentReport.finishedAt ? clientSummary(currentReport) : ''; },
+        open: function () { setOverlay(true); return true; },
         close: function () { setOverlay(false); },
-        version: '1.1.0'
+        version: '1.2.0'
       };
     }
     return true;
