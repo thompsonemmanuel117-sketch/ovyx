@@ -72,9 +72,11 @@ try {
     await page.goto(baseURL, { waitUntil: 'domcontentloaded' });
     await page.locator('#ovyx-account-notifications-root').waitFor({ state: 'visible' });
     await page.locator('#ovyx-welcome-name').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('.ovyx-welcome-logo').getAttribute('src'), '/assets/ovyx-brand-mark.svg', '[' + target.name + '] welcome overlay must use canonical OVYX brand mark');
     assert.equal((await page.locator('#ovyx-welcome-name').textContent()).trim(), 'Maria Doe', '[' + target.name + '] new account should use the email name until a saved profile name exists');
     await page.locator('#ovyx-notification-bell').click();
     await page.locator('[data-ovyx-notification-id="broadcast-test-1"]').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('.ovyx-notice-head img').getAttribute('src'), '/assets/ovyx-brand-mark.svg', '[' + target.name + '] notification panel must use canonical OVYX brand mark');
     assert.equal((await page.locator('#ovyx-notification-badge').textContent()).trim(), '1', '[' + target.name + '] one unread broadcast should show a badge');
     await page.locator('[data-ovyx-notification-id="broadcast-test-1"]').click();
     await page.waitForFunction(() => window.location.hash === '#ovyx-broadcast-test');
