@@ -1,8 +1,8 @@
 (function () {
   'use strict';
 
-  if (window.__OVYX_WS_PROJECT_BRANDING_V4__) return;
-  window.__OVYX_WS_PROJECT_BRANDING_V4__ = true;
+  if (window.__OVYX_WS_PROJECT_BRANDING_V5__) return;
+  window.__OVYX_WS_PROJECT_BRANDING_V5__ = true;
 
   var busy = false;
   var resolving = false;
@@ -371,9 +371,49 @@
     }
     return '';
   }
+  function livePreviewBrandCandidates(graph, project, first, supplementalAssets) {
+    var files = graph && graph.files || {};
+    var candidates = [];
+    // The live preview is the strongest evidence of which logo the project
+    // actually renders. A logo may be injected at runtime or composed by a
+    // framework component and therefore be missing from its saved HTML shell.
+    ['ws-canvas-iframe', 'ws-mobile-preview-frame'].forEach(function (id) {
+      var frame = document.getElementById(id);
+      var doc = null;
+      try { doc = frame && frame.contentDocument; } catch (_) { doc = null; }
+      if (!doc || !doc.documentElement) return;
+      try {
+        var rendered = doc.documentElement.outerHTML;
+        if (!rendered || !/<head\\b/i.test(rendered) || !/<body\\b/i.test(rendered)) return;
+        var found = listBrandCandidates(first || '', rendered, files, project, true, supplementalAssets);
+        found.forEach(function (candidate) {
+          // Prefer the real, rendered site mark over a fallback asset or a
+          // stale favicon reference embedded in source HTML.
+          candidate.score += 80;
+          candidate.fromLivePreview = true;
+          candidates.push(candidate);
+        });
+      } catch (_) {
+        // A cross-origin or not-yet-loaded preview is optional evidence.
+      }
+    });
+    return candidates.sort(function (a, b) { return b.score - a.score; });
+  }
+
   async function findBrandHref(graph, project, paths, first) {
     var files = graph.files || {};
     var supplementalAssets = await loadProjectAssets(project);
+
+    // First inspect the currently rendered preview. This makes the favicon
+    // follow the visible logo even when a site is component-based, has a
+    // runtime-rendered header, or stores its markup outside index.html.
+    var liveCandidates = livePreviewBrandCandidates(graph, project, first, supplementalAssets);
+    for (var liveIndex = 0; liveIndex < liveCandidates.length; liveIndex += 1) {
+      if (liveCandidates[liveIndex].href) return liveCandidates[liveIndex].href;
+      var liveAssetHref = await resolveAssetHref(liveCandidates[liveIndex].asset);
+      if (liveAssetHref) return liveAssetHref;
+    }
+
     var candidates = [];
     paths.forEach(function (path) {
       var list = listBrandCandidates(path, sourceOf(files[path]), files, project, path === first, supplementalAssets);
@@ -547,7 +587,7 @@
 
   boot();
   ['ovyx:view-changed', 'ovyx:project-activated', 'ovyx:project-loaded', 'ovyx:project-saved',
-    'ovyx:webstudio-initial-site-built', 'ovyx:webstudio-quality-report',
+    'ovyx:preview-updated', 'ovyx:webstudio-initial-site-built', 'ovyx:webstudio-quality-report',
     'firebase-auth-state-ready', 'ovyx-auth-state-ready'].forEach(function (eventName) {
     window.addEventListener(eventName, retryBoot);
   });
