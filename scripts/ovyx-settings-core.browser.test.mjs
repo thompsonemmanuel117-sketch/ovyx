@@ -92,10 +92,10 @@ try {
     // Mobile Cancel must roll back only the current task's project snapshot and
     // preserve the other projects. Use temporary browser-local state and restore it
     // after the assertion so this test cannot contaminate later Settings cases.
-    const cancelRun = await page.evaluate(() => {
+    const cancelRun = await page.evaluate(async () => {
       const studio = window.WebStudio;
       const button = document.getElementById('ws-task-cancel');
-      const state = window.KernelState;
+      let state = window.KernelState;
       if (!studio || typeof studio.cancelActiveTask !== 'function' || !button || !state) return { available: false };
       const clone = value => JSON.parse(JSON.stringify(value));
       const original = {
@@ -129,7 +129,7 @@ try {
         const baselineGraph = { entry: 'index.html', files: {
           'index.html': { type: 'text/html', content: baselineHtml }
         }};
-        const baselineProject = {
+        let baselineProject = {
           id: testId, name: 'Baseline project', updatedAt: 100,
           pages: [{ id: 'baseline-page', name: 'Home', slug: 'home', __ovyxFile: 'index.html',
             source: baselineHtml, renderedHtml: baselineHtml, sections: [] }],
@@ -138,6 +138,19 @@ try {
         state.projects = [...(original.projects || []), baselineProject];
         state.activeProject = baselineProject;
         studio.graph = clone(baselineGraph);
+        // Register and reopen the temporary fixture through ProjectStore. A project
+        // that exists only in KernelState is not representative of a saved workspace:
+        // ProjectStore.save normalizes its own persisted list and may correctly drop it.
+        try { window.ProjectStore && window.ProjectStore.save && window.ProjectStore.save(); } catch (_) {}
+        try { if (window.ProjectStore?.open) await window.ProjectStore.open(testId); } catch (_) {}
+        state = window.KernelState || state;
+        baselineProject = state.activeProject && String(state.activeProject.id || '') === testId
+          ? state.activeProject
+          : ((state.projects || []).find(project => String(project?.id || '') === testId) || baselineProject);
+        state.projects = [...(state.projects || original.projects || []).filter(project => String(project?.id || '') !== testId), baselineProject];
+        state.activeProject = baselineProject;
+        studio.graph = clone(baselineGraph);
+        baselineProject.ovyxGraph = clone(baselineGraph);
         studio.pendingBuild = true;
         studio.liveAiActive = true;
         studio.requestEpoch = Number(studio.requestEpoch || 0) + 1;
@@ -175,9 +188,6 @@ try {
         studio.pendingBuild = true;
         studio.liveAiActive = true;
         studio.__ovyxActiveTaskMethod = 'runBuildAgent';
-        // Persist the disposable fixture through the real ProjectStore boundary so
-        // Cancel does not test a project that only exists in a transient object.
-        try { window.ProjectStore && window.ProjectStore.save && window.ProjectStore.save(); } catch (_) {}
         summary.activeProjectIdBeforeCancel = String(state.activeProject?.id || '');
         summary.projectCollectionEntryBeforeCancel = state.projects.find(project => String(project?.id || '') === testId)?.name || null;
         summary.visibleWhileRunning = button.hidden === false;
@@ -201,9 +211,10 @@ try {
         summary.otherProjectsPreserved = otherSignature(stateAfterCancel.projects) === otherBefore;
         summary.cancelMethodReturnedSafely = studio.__ovyxTaskRollbackSnapshot == null;
       } finally {
-        window.KernelState = original.kernelState;
-        state.projects = original.projects;
-        state.activeProject = original.activeProject;
+        const restoreState = original.kernelState || state;
+        window.KernelState = restoreState;
+        restoreState.projects = original.projects;
+        restoreState.activeProject = original.activeProject;
         studio.graph = original.graph;
         studio.pendingBuild = original.pendingBuild;
         studio.liveAiActive = original.liveAiActive;
