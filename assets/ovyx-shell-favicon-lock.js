@@ -3,10 +3,10 @@
 
   // The OVYX application shell owns its browser-tab icon. Website-specific
   // favicons are written into generated site files by Web Studio, never here.
-  if (window.__OVYX_SHELL_FAVICON_LOCK_V1__) return;
-  window.__OVYX_SHELL_FAVICON_LOCK_V1__ = true;
+  if (window.__OVYX_SHELL_FAVICON_LOCK_V2__) return;
+  window.__OVYX_SHELL_FAVICON_LOCK_V2__ = true;
 
-  var FAVICON_HREF = '/assets/ovyx-brand-mark.svg?v=20261021-4';
+  var FAVICON_HREF = '/assets/ovyx-brand-mark.svg?v=20261021-5';
   var observer = null;
   var enforcing = false;
 

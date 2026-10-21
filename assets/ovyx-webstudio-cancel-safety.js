@@ -1,7 +1,7 @@
 (function () {
   'use strict';
-  if (window.__OVYX_WEBSTUDIO_CANCEL_SAFETY_V1__) return;
-  window.__OVYX_WEBSTUDIO_CANCEL_SAFETY_V1__ = true;
+  if (window.__OVYX_WEBSTUDIO_CANCEL_SAFETY_V2__) return;
+  window.__OVYX_WEBSTUDIO_CANCEL_SAFETY_V2__ = true;
 
   const clone = value => {
     try { return JSON.parse(JSON.stringify(value)); }
@@ -9,7 +9,65 @@
   };
   const getStudio = () => window.WebStudio || null;
   const getState = () => window.KernelState || null;
-  const cancelStyleId = 'ovyx-webstudio-task-cancel-style-v1';
+  const cancelStyleId = 'ovyx-webstudio-task-cancel-style-v2';
+  const sessionKey = '__OVYX_WEBSTUDIO_TASK_SESSION_V2__';
+  const taskSession = window[sessionKey] || (window[sessionKey] = {
+    generation: 0,
+    inFlightCount: 0,
+    snapshot: null,
+    activeMethod: '',
+    activeStudio: null,
+    controllers: new Set(),
+  });
+  if (!(taskSession.controllers instanceof Set)) taskSession.controllers = new Set();
+  const knownStudios = new Set();
+  const controllerFields = [
+    'activeAbortController', 'abortController', 'aiAbortController',
+    'requestAbortController', 'activeController', 'currentAbortController'
+  ];
+
+  function safeAssign(target, property, value) {
+    try { target[property] = value; return true; }
+    catch (_) { return false; }
+  }
+
+  function syncSessionFields(studio) {
+    if (!studio || typeof studio !== 'object') return;
+    knownStudios.add(studio);
+    safeAssign(studio, '__ovyxTaskRollbackSnapshot', taskSession.snapshot);
+    safeAssign(studio, '__ovyxTaskGeneration', Number(taskSession.generation || 0));
+    safeAssign(studio, '__ovyxTaskInFlightCount', Number(taskSession.inFlightCount || 0));
+    safeAssign(studio, '__ovyxActiveTaskMethod', String(taskSession.activeMethod || ''));
+  }
+
+  function syncAllSessionFields() {
+    knownStudios.forEach(syncSessionFields);
+    syncSessionFields(getStudio());
+  }
+
+  function clearTaskSession() {
+    taskSession.snapshot = null;
+    taskSession.activeMethod = '';
+    taskSession.activeStudio = null;
+    taskSession.inFlightCount = 0;
+    taskSession.controllers.clear();
+    syncAllSessionFields();
+  }
+
+  function captureControllers(studio) {
+    if (!studio || typeof studio !== 'object') return;
+    controllerFields.forEach(function (field) {
+      let controller;
+      try { controller = studio[field]; } catch (_) { controller = null; }
+      if (controller && typeof controller.abort === 'function') taskSession.controllers.add(controller);
+    });
+  }
+
+  function setBusyFlags(studio, busy) {
+    if (!studio || typeof studio !== 'object') return;
+    studio.pendingBuild = !!busy && !!studio.pendingBuild;
+    studio.liveAiActive = !!busy && !!studio.liveAiActive;
+  }
 
   function ensureCancelStyle() {
     if (document.getElementById(cancelStyleId)) return;
@@ -44,7 +102,12 @@
         event.preventDefault();
         event.stopPropagation();
         const activeStudio = getStudio();
-        if (activeStudio && typeof activeStudio.cancelActiveTask === 'function') {
+        // Use the shared coordinator first so a touch arriving during controller
+        // replacement still reaches the saved task snapshot.
+        const coordinator = window.OVYXWebStudioCancelSafety;
+        if (coordinator && typeof coordinator.cancel === 'function') {
+          coordinator.cancel();
+        } else if (activeStudio && typeof activeStudio.cancelActiveTask === 'function') {
           activeStudio.cancelActiveTask();
         }
       });
@@ -54,30 +117,20 @@
   }
 
   function taskIsRunning(studio) {
-    return !!(studio && (
-      studio.pendingBuild ||
-      studio.liveAiActive ||
-      Number(studio.__ovyxTaskInFlightCount || 0) > 0
-    ));
+    if (Number(taskSession.inFlightCount || 0) > 0) return true;
+    if (studio && (studio.pendingBuild || studio.liveAiActive)) return true;
+    for (const candidate of knownStudios) {
+      if (candidate && (candidate.pendingBuild || candidate.liveAiActive)) return true;
+    }
+    return false;
   }
 
   function syncCancelButton(studio) {
     const button = document.getElementById('ws-task-cancel');
     if (!button) return;
-    // Some agent variants finish their wrapper call before the final UI flag
-    // is cleared. Keep the snapshot while those flags are active, then release
-    // an orphaned snapshot the next time the composer/thread is rendered.
-    if (
-      studio &&
-      studio.__ovyxTaskRollbackSnapshot &&
-      Number(studio.__ovyxTaskInFlightCount || 0) <= 0 &&
-      !studio.pendingBuild &&
-      !studio.liveAiActive
-    ) {
-      studio.__ovyxTaskRollbackSnapshot = null;
-      studio.__ovyxActiveTaskMethod = '';
-    }
-    const busy = !!(studio && studio.__ovyxTaskRollbackSnapshot && taskIsRunning(studio));
+    const currentStudio = studio || getStudio();
+    const snapshot = taskSession.snapshot || currentStudio && currentStudio.__ovyxTaskRollbackSnapshot;
+    const busy = !!(snapshot && taskIsRunning(currentStudio));
     button.hidden = !busy;
     button.disabled = !busy;
     button.setAttribute('aria-hidden', String(!busy));
@@ -98,7 +151,7 @@
 
   function captureSnapshot(studio) {
     const state = getState();
-    const project = state && state.activeProject;
+    const project = state && (state.activeProject || state.project) || studio && studio.project;
     if (!project || !project.id) return null;
     try { studio.ensureProjectGraph && studio.ensureProjectGraph(); } catch (_) {}
     let graph = null;
@@ -156,6 +209,7 @@
     const targetIsStillActive = shouldRestoreAsActive;
     if (targetIsStillActive) {
       state.activeProject = savedProject;
+      safeAssign(studio, 'project', savedProject);
       studio.graph = clone(savedGraph);
       try {
         const prefix = String(studio.graphKeyPrefix || 'ovyx.ws.graph.v2.');
@@ -190,6 +244,10 @@
         else latestProjects.push(finalProject);
         currentState.projects = latestProjects;
         currentState.activeProject = finalProject;
+        // Several Web Studio render/build paths read this.project directly rather
+        // than dereferencing KernelState. Restore both references, not just the
+        // shell state, so mobile preview and subsequent saves see the same project.
+        safeAssign(studio, 'project', finalProject);
         studio.graph = clone(savedGraph);
         try {
           const prefix = String(studio.graphKeyPrefix || 'ovyx.ws.graph.v2.');
@@ -210,39 +268,35 @@
 
   function installTaskTracker(studio, methodName) {
     const original = studio[methodName];
-    if (typeof original !== 'function' || original.__ovyxCancelSafetyWrapped) return;
+    if (typeof original !== 'function' || original.__ovyxCancelSafetyWrappedV2) return;
     const wrapped = function () {
       const args = Array.from(arguments);
       const repairSnapshot = methodName === 'runBuildAgent' ? snapshotFromRepair(args[4]) : null;
+      const alreadyRunning = taskIsRunning(this);
       let ownsSnapshot = false;
-      let generation = Number(this.__ovyxTaskGeneration || 0);
 
-      // Keep one immutable snapshot for the outer task. Some build flows nest
-      // askAgent/runBuildAgent calls; a nested call must not replace the user's
-      // last-good state or end the Cancel window while the outer task is running.
-      if (repairSnapshot) {
-        if (!this.__ovyxTaskRollbackSnapshot || !taskIsRunning(this)) {
-          this.__ovyxTaskRollbackSnapshot = repairSnapshot;
-          this.__ovyxTaskGeneration = generation + 1;
-          this.__ovyxTaskInFlightCount = 0;
-          generation = Number(this.__ovyxTaskGeneration);
-          ownsSnapshot = true;
-        }
-      } else if (!this.__ovyxTaskRollbackSnapshot || !taskIsRunning(this)) {
-        const fresh = captureSnapshot(this);
+      // The cancellation session is window-scoped, not bound to one controller
+      // object. Web Studio may replace its object during hydration; retaining the
+      // same task snapshot/generation prevents that replacement from orphaning Cancel.
+      if (!taskSession.snapshot || (!alreadyRunning && Number(taskSession.inFlightCount || 0) === 0)) {
+        const fresh = repairSnapshot || captureSnapshot(this);
         if (fresh) {
-          this.__ovyxTaskRollbackSnapshot = fresh;
-          this.__ovyxTaskGeneration = generation + 1;
-          this.__ovyxTaskInFlightCount = 0;
-          generation = Number(this.__ovyxTaskGeneration);
+          taskSession.snapshot = fresh;
+          taskSession.generation = Number(taskSession.generation || 0) + 1;
+          taskSession.inFlightCount = 0;
+          taskSession.controllers.clear();
+          taskSession.activeStudio = this;
           ownsSnapshot = true;
         }
       }
 
-      const snapshot = this.__ovyxTaskRollbackSnapshot;
-      generation = Number(this.__ovyxTaskGeneration || generation || 0);
-      this.__ovyxActiveTaskMethod = methodName;
-      this.__ovyxTaskInFlightCount = Math.max(0, Number(this.__ovyxTaskInFlightCount || 0)) + 1;
+      const snapshot = taskSession.snapshot;
+      const generation = Number(taskSession.generation || 0);
+      taskSession.activeStudio = this;
+      taskSession.activeMethod = methodName;
+      taskSession.inFlightCount = Math.max(0, Number(taskSession.inFlightCount || 0)) + 1;
+      syncSessionFields(this);
+      captureControllers(this);
       ensureCancelButton(this);
       syncCancelButton(this);
 
@@ -250,28 +304,34 @@
       const finish = () => {
         if (finished) return;
         finished = true;
-        // Cancel advances the generation. A late finally from the aborted task
-        // must never clear state belonging to a newer task or resurrect a spinner.
-        if (Number(this.__ovyxTaskGeneration || 0) === generation) {
-          this.__ovyxTaskInFlightCount = Math.max(0, Number(this.__ovyxTaskInFlightCount || 0) - 1);
+        // Cancellation or a newer task changes the shared generation. A late
+        // promise-finally callback from the previous task then becomes a no-op.
+        if (Number(taskSession.generation || 0) === generation) {
+          taskSession.inFlightCount = Math.max(0, Number(taskSession.inFlightCount || 0) - 1);
+          const activeTaskStillBusy = Array.from(knownStudios).some(candidate =>
+            !!(candidate && (candidate.pendingBuild || candidate.liveAiActive))
+          );
           if (
             ownsSnapshot &&
             snapshot &&
-            this.__ovyxTaskRollbackSnapshot === snapshot &&
-            this.__ovyxTaskInFlightCount === 0 &&
-            !this.pendingBuild &&
-            !this.liveAiActive
+            taskSession.snapshot === snapshot &&
+            taskSession.inFlightCount === 0 &&
+            !activeTaskStillBusy
           ) {
-            this.__ovyxTaskRollbackSnapshot = null;
-            this.__ovyxActiveTaskMethod = '';
+            clearTaskSession();
+          } else {
+            syncAllSessionFields();
           }
         }
-        syncCancelButton(this);
+        syncCancelButton(getStudio() || this);
       };
 
       let result;
-      try { result = original.apply(this, args); }
-      catch (error) {
+      try {
+        result = original.apply(this, args);
+        // The original method may create its AbortController synchronously.
+        captureControllers(this);
+      } catch (error) {
         finish();
         throw error;
       }
@@ -279,78 +339,135 @@
       if (result && typeof result.then === 'function') {
         return result.finally(finish);
       }
+      // Non-promise entry points are used by some event-driven builds. Their
+      // pending/live flags keep the snapshot available if the task continues.
       finish();
       return result;
     };
-    wrapped.__ovyxCancelSafetyWrapped = true;
+    wrapped.__ovyxCancelSafetyWrappedV2 = true;
     wrapped.__ovyxCancelSafetyOriginal = original;
     studio[methodName] = wrapped;
   }
 
   function install(studio) {
-    if (!studio || studio.__ovyxCancelSafetyInstalled) return;
-    studio.__ovyxCancelSafetyInstalled = true;
+    if (!studio || typeof studio !== 'object') return;
+    knownStudios.add(studio);
 
+    // Do not use a permanent early return just because this object was installed
+    // once. Core hydration can replace runBuildAgent/runFixAgent/askAgent later.
+    if (taskSession.snapshot) syncSessionFields(studio);
+    studio.__ovyxCancelSafetyInstalledV2 = true;
     ['runBuildAgent', 'runFixAgent', 'askAgent'].forEach(name => installTaskTracker(studio, name));
 
-    studio.cancelActiveTask = function () {
-      const snapshot = this.__ovyxTaskRollbackSnapshot;
-      // Snapshot presence is authoritative here. The pending flag can be cleared
-      // by an abort/rejection handler just before this handler runs on mobile.
-      if (!snapshot) {
-        syncCancelButton(this);
-        return false;
-      }
+    if (!studio.cancelActiveTask || !studio.cancelActiveTask.__ovyxCancelSafetyOwnerV2) {
+      const cancelActiveTask = function () {
+        // Read the shared snapshot: the active window.WebStudio object might not
+        // be the same instance that started the request and captured the state.
+        const snapshot = taskSession.snapshot || this.__ovyxTaskRollbackSnapshot;
+        if (!snapshot) {
+          syncCancelButton(this);
+          return false;
+        }
 
-      const method = String(this.__ovyxActiveTaskMethod || 'current');
-      const stateAtCancel = getState();
-      const taskProjectWasActive = String(stateAtCancel && stateAtCancel.activeProject && stateAtCancel.activeProject.id || '') === String(snapshot.projectId);
-      const activeController = this.activeAbortController;
+        const method = String(taskSession.activeMethod || this.__ovyxActiveTaskMethod || 'current');
+        const currentState = getState();
+        const taskProjectWasActive = String(
+          currentState && currentState.activeProject && currentState.activeProject.id || ''
+        ) === String(snapshot.projectId);
 
-      // Invalidate pending responses and old promise-finally handlers before
-      // aborting. Keep the controller reference because abortActiveAi may clear
-      // the field before invoking AbortController.abort().
-      this.__ovyxTaskGeneration = Number(this.__ovyxTaskGeneration || 0) + 1;
-      this.__ovyxTaskInFlightCount = 0;
-      this.requestEpoch = Number(this.requestEpoch || 0) + 1;
-      this.aiFrozen = false;
-      this.pendingBuild = false;
-      this.liveAiActive = false;
-      try { this.abortActiveAi && this.abortActiveAi(); } catch (_) {}
-      try { activeController && typeof activeController.abort === 'function' && activeController.abort(); } catch (_) {}
-      if (this.activeAbortController === activeController) this.activeAbortController = null;
+        const studios = new Set(knownStudios);
+        studios.add(this);
+        if (getStudio()) studios.add(getStudio());
+        studios.forEach(function (candidate) {
+          captureControllers(candidate);
+        });
+        const controllers = Array.from(taskSession.controllers);
 
-      const restored = restoreProjectOnly(this, snapshot, taskProjectWasActive);
-      this.__ovyxTaskRollbackSnapshot = null;
-      this.__ovyxActiveTaskMethod = '';
-      releaseComposerBusyState();
-      syncCancelButton(this);
+        // Invalidate the shared task generation first, then every controller
+        // instance that participated. This prevents stale responses from writing
+        // over the restored snapshot even if window.WebStudio was replaced.
+        taskSession.generation = Number(taskSession.generation || 0) + 1;
+        taskSession.inFlightCount = 0;
+        taskSession.activeStudio = null;
+        studios.forEach(function (candidate) {
+          if (!candidate || typeof candidate !== 'object') return;
+          safeAssign(candidate, '__ovyxTaskGeneration', taskSession.generation);
+          safeAssign(candidate, '__ovyxTaskInFlightCount', 0);
+          safeAssign(candidate, '__ovyxTaskRollbackSnapshot', snapshot);
+          safeAssign(candidate, '__ovyxActiveTaskMethod', method);
+          safeAssign(candidate, 'requestEpoch', Number(candidate.requestEpoch || 0) + 1);
+          safeAssign(candidate, 'aiFrozen', false);
+        });
 
-      const message = restored
-        ? 'Cancelled safely. This task was rolled back to its starting point. Your project and other projects are still here.'
-        : 'Cancelled safely. Your other projects were left untouched. The original project was not restored because it is no longer active.';
-      try { this.appendMessage && this.appendMessage('agent', message); }
-      catch (_) { try { this.renderThread && this.renderThread(); } catch (_) {} }
-      try {
-        const hint = document.getElementById('ws-mode-hint');
-        if (hint) hint.textContent = 'Task cancelled. Your existing project is preserved.';
-      } catch (_) {}
-      try { window.showToast && window.showToast('Task cancelled safely. Existing project work was preserved.', 'info'); } catch (_) {}
-      window.dispatchEvent(new CustomEvent('ovyx:webstudio-task-cancelled', {
-        detail: { projectId: snapshot.projectId, method, restored }
-      }));
-      return true;
-    };
+        // Abort through the app's own helper while its busy flags still show an
+        // active request, then directly abort captured controllers as a fallback.
+        // Captured references survive helpers that clear their controller fields.
+        studios.forEach(function (candidate) {
+          try { candidate.abortActiveAi && candidate.abortActiveAi(); } catch (_) {}
+        });
+        controllers.forEach(function (controller) {
+          try { controller && typeof controller.abort === 'function' && controller.abort(); } catch (_) {}
+        });
+        studios.forEach(function (candidate) {
+          safeAssign(candidate, 'pendingBuild', false);
+          safeAssign(candidate, 'liveAiActive', false);
+        });
+        studios.forEach(function (candidate) {
+          controllerFields.forEach(function (field) {
+            try {
+              if (candidate[field] && controllers.includes(candidate[field])) candidate[field] = null;
+            } catch (_) {}
+          });
+        });
+
+        const activeStudio = getStudio() || this;
+        const restored = restoreProjectOnly(activeStudio, snapshot, taskProjectWasActive);
+        clearTaskSession();
+        studios.forEach(function (candidate) {
+          if (!candidate) return;
+          safeAssign(candidate, '__ovyxTaskRollbackSnapshot', null);
+          safeAssign(candidate, '__ovyxActiveTaskMethod', '');
+          safeAssign(candidate, '__ovyxTaskGeneration', taskSession.generation);
+          safeAssign(candidate, '__ovyxTaskInFlightCount', 0);
+        });
+        releaseComposerBusyState();
+        syncCancelButton(activeStudio);
+
+        const message = restored
+          ? 'Cancelled safely. The affected project was restored to the state from before this task. Other projects were left untouched.'
+          : 'Cancelled safely. The original project remains saved and other projects were left untouched, but it is no longer the active workspace.';
+        try { activeStudio.appendMessage && activeStudio.appendMessage('agent', message); }
+        catch (_) { try { activeStudio.renderThread && activeStudio.renderThread(); } catch (_) {} }
+        try {
+          const hint = document.getElementById('ws-mode-hint');
+          if (hint) hint.textContent = restored
+            ? 'Task cancelled. The previous working state has been restored.'
+            : 'Task cancelled. Other projects were preserved.';
+        } catch (_) {}
+        try {
+          window.showToast && window.showToast(
+            restored ? 'Cancelled and restored the previous project state.' : 'Task cancelled. Other projects were preserved.',
+            restored ? 'success' : 'warning'
+          );
+        } catch (_) {}
+        window.dispatchEvent(new CustomEvent('ovyx:webstudio-task-cancelled', {
+          detail: { projectId: snapshot.projectId, method, restored }
+        }));
+        return true;
+      };
+      cancelActiveTask.__ovyxCancelSafetyOwnerV2 = true;
+      studio.cancelActiveTask = cancelActiveTask;
+    }
 
     const originalRenderThread = typeof studio.renderThread === 'function' ? studio.renderThread : null;
-    if (originalRenderThread && !originalRenderThread.__ovyxCancelSafetyWrapped) {
+    if (originalRenderThread && !originalRenderThread.__ovyxCancelSafetyWrappedV2) {
       const wrappedRenderThread = function () {
         const result = originalRenderThread.apply(this, arguments);
         ensureCancelButton(this);
         syncCancelButton(this);
         return result;
       };
-      wrappedRenderThread.__ovyxCancelSafetyWrapped = true;
+      wrappedRenderThread.__ovyxCancelSafetyWrappedV2 = true;
       wrappedRenderThread.__ovyxCancelSafetyOriginal = originalRenderThread;
       studio.renderThread = wrappedRenderThread;
     }
@@ -361,23 +478,34 @@
 
   function boot() {
     install(getStudio());
-    // A shell may load its Web Studio controller after the first DOM-ready event.
-    if (!getStudio()) {
-      const observer = new MutationObserver(function () {
-        const studio = getStudio();
-        if (!studio) return;
-        observer.disconnect();
-        install(studio);
-      });
-      observer.observe(document.documentElement, { childList: true, subtree: true });
-    }
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();
+
+  // Re-attach the guards if hydration replaces the global WebStudio object or
+  // another runtime overwrites an agent method after the first installation.
+  // A light idempotent check is safer than relying on a one-time DOM observer,
+  // because changing window.WebStudio does not necessarily mutate the DOM.
+  window.setInterval(function () {
+    const studio = getStudio();
+    if (studio) install(studio);
+  }, 400);
   window.addEventListener('pageshow', () => install(getStudio()), { passive: true });
   window.OVYXWebStudioCancelSafety = {
     install: () => install(getStudio()),
-    cancel: () => getStudio() && getStudio().cancelActiveTask && getStudio().cancelActiveTask()
+    cancel: () => {
+      const studio = getStudio();
+      if (
+        studio &&
+        typeof studio.cancelActiveTask === 'function' &&
+        studio.cancelActiveTask.__ovyxCancelSafetyOwnerV2 === true
+      ) return studio.cancelActiveTask();
+      const fallback = Array.from(knownStudios).find(candidate =>
+        typeof candidate.cancelActiveTask === 'function' &&
+        candidate.cancelActiveTask.__ovyxCancelSafetyOwnerV2 === true
+      );
+      return fallback ? fallback.cancelActiveTask() : false;
+    }
   };
 })();

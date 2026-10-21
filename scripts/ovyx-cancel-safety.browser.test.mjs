@@ -14,14 +14,21 @@ try {
     hasTouch: true,
   });
   const page = await context.newPage();
-  await page.setContent(`<!doctype html>
-    <html><head></head><body>
-      <div id="ws-chat-composer" aria-busy="true">
-        <textarea id="ws-chat-input"></textarea>
-        <button id="ws-chat-send" aria-busy="true" disabled>Send</button>
-      </div>
-      <div id="ws-mode-hint"></div>
-    </body></html>`);
+  // Use a real HTTP origin: about:blank has an opaque origin and blocks the
+  // project-scoped localStorage writes that this rollback regression must verify.
+  await page.route('http://ovyx-cancel.test/**', route => route.fulfill({
+    status: 200,
+    contentType: 'text/html; charset=utf-8',
+    body: `<!doctype html>
+      <html><head></head><body>
+        <div id="ws-chat-composer" aria-busy="true">
+          <textarea id="ws-chat-input"></textarea>
+          <button id="ws-chat-send" aria-busy="true" disabled>Send</button>
+        </div>
+        <div id="ws-mode-hint"></div>
+      </body></html>`,
+  }));
+  await page.goto('http://ovyx-cancel.test/');
 
   await page.evaluate(() => {
     const clone = value => JSON.parse(JSON.stringify(value));
@@ -89,6 +96,22 @@ try {
     window.__firstTrackedPromise = studio.runBuildAgent('Build this site');
     studio.pendingBuild = false;
     studio.liveAiActive = false;
+
+    // Reproduce the real boot/hydration race: the app replaces WebStudio and
+    // overwrites an agent method while the first request still owns a snapshot.
+    const replacement = Object.assign({}, studio);
+    replacement.runBuildAgent = function () {
+      this.pendingBuild = true;
+      this.liveAiActive = true;
+      let resolve;
+      const raw = new Promise(done => { resolve = done; });
+      window.__cancelResolvers.push(resolve);
+      window.__cancelRawPromises.push(raw);
+      return raw;
+    };
+    window.__replacedStudio = replacement;
+    window.WebStudio = replacement;
+
     const project = window.KernelState.activeProject;
     project.name = 'Partially overwritten project';
     project.pages.push({ id: 'temporary-page', name: 'Unexpected page', slug: '/temporary' });
@@ -98,6 +121,21 @@ try {
     window.__generationBeforeCancel = Number(studio.__ovyxTaskGeneration || 0);
   });
 
+  // Wait for the rebind guard to wrap the new controller/method before tapping Cancel.
+  await page.waitForFunction(() => !!window.__replacedStudio
+    && window.WebStudio === window.__replacedStudio
+    && window.WebStudio.runBuildAgent.__ovyxCancelSafetyWrappedV2 === true
+    && window.WebStudio.cancelActiveTask.__ovyxCancelSafetyOwnerV2 === true,
+  null, { timeout: 5000 });
+  await page.evaluate(() => {
+    const coordinator = window.OVYXWebStudioCancelSafety;
+    const originalCancel = coordinator.cancel.bind(coordinator);
+    window.__cancelCoordinatorCalls = 0;
+    coordinator.cancel = function () {
+      window.__cancelCoordinatorCalls += 1;
+      return originalCancel();
+    };
+  });
   const cancel = page.locator('#ws-task-cancel');
   await cancel.waitFor({ state: 'visible', timeout: 5000 });
   await cancel.tap();
@@ -109,15 +147,25 @@ try {
     return {
       cancelHidden: document.getElementById('ws-task-cancel').hidden,
       projectName: project && project.name,
+      studioProjectName: studio.project && studio.project.name,
       pageIds: (project && project.pages || []).map(page => page.id),
       html: studio.graph.files['src/pages/Home.html'].content,
       projectHtml: project && project.ovyxGraph.files['src/pages/Home.html'].content,
+      storedHtml: (() => {
+        try {
+          const saved = JSON.parse(localStorage.getItem(studio.graphKeyPrefix + project.id) || '{}');
+          return String(saved.files?.['src/pages/Home.html']?.content || '');
+        } catch (_) { return ''; }
+      })(),
       pendingBuild: !!studio.pendingBuild,
       liveAiActive: !!studio.liveAiActive,
       inFlightCount: Number(studio.__ovyxTaskInFlightCount || 0),
       snapshotCleared: studio.__ovyxTaskRollbackSnapshot == null,
       abortCount: window.__cancelAbortCount,
       controllerCleared: studio.activeAbortController == null,
+      rebindOwnedCurrentStudio: window.WebStudio.cancelActiveTask.__ovyxCancelSafetyOwnerV2 === true,
+      coordinatorCalls: Number(window.__cancelCoordinatorCalls || 0),
+      sharedSnapshotCleared: window.__OVYX_WEBSTUDIO_TASK_SESSION_V2__?.snapshot == null,
       epochAdvanced: Number(studio.requestEpoch || 0) > Number(window.__epochBeforeCancel || 0),
       generationAdvanced: Number(studio.__ovyxTaskGeneration || 0) > Number(window.__generationBeforeCancel || 0),
       sendBusy: document.getElementById('ws-chat-send').hasAttribute('aria-busy'),
@@ -127,15 +175,20 @@ try {
 
   assert.equal(rolledBack.cancelHidden, true, 'A successful mobile cancel must close its Cancel control.');
   assert.equal(rolledBack.projectName, 'Last good project state', 'Cancel must restore the project snapshot captured before the task.');
+  assert.equal(rolledBack.studioProjectName, 'Last good project state', 'Cancel must restore this.project as well as KernelState.activeProject.');
   assert.deepEqual(rolledBack.pageIds, ['home'], 'Cancel must remove partial pages created by the cancelled task.');
   assert.match(rolledBack.html, /Last good work/, 'Cancel must restore the original project graph, not only its project metadata.');
   assert.match(rolledBack.projectHtml, /Last good work/, 'Cancel must persist the restored graph back onto the active project.');
+  assert.match(rolledBack.storedHtml, /Last good work/, 'Cancel must write the restored graph to its project-scoped local storage key.');
   assert.equal(rolledBack.pendingBuild, false, 'Cancel must clear the stale pending-build flag.');
   assert.equal(rolledBack.liveAiActive, false, 'Cancel must clear the live-AI flag.');
   assert.equal(rolledBack.inFlightCount, 0, 'Cancel must immediately release its tracked in-flight task counter.');
   assert.equal(rolledBack.snapshotCleared, true, 'Cancel must release its rollback snapshot.');
   assert.equal(rolledBack.abortCount, 1, 'Cancel must abort the captured controller even if abortActiveAi clears its reference.');
   assert.equal(rolledBack.controllerCleared, true, 'Cancel must release the active abort-controller reference.');
+  assert.equal(rolledBack.rebindOwnedCurrentStudio, true, 'Cancel must be reattached to the replacement WebStudio instance.');
+  assert.equal(rolledBack.coordinatorCalls, 1, 'The touch Cancel control must dispatch through the shared cancellation coordinator.');
+  assert.equal(rolledBack.sharedSnapshotCleared, true, 'The shared rollback session must clear after restoring the project even when Studio was replaced.');
   assert.equal(rolledBack.epochAdvanced, true, 'Cancel must invalidate in-flight responses from the cancelled request.');
   assert.equal(rolledBack.generationAdvanced, true, 'Cancel must invalidate finally handlers from the cancelled task.');
   assert.equal(rolledBack.sendBusy, false, 'Cancel must clear the stuck busy state from the send control.');

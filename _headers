@@ -7,6 +7,11 @@
 /assets/ovyx-assistant-workspace.js
   Cache-Control: no-store, no-cache, must-revalidate
 
+/assets/ovyx-webstudio-cancel-safety.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-shell-favicon-lock.js
+  Cache-Control: no-store, no-cache, must-revalidate
 /assets/ovyx-sentinel.js
   Cache-Control: no-store, no-cache, must-revalidate
 
