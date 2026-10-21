@@ -22,7 +22,7 @@
       '[data-ovyx-code-search-trigger]:hover,[data-ovyx-code-search-trigger][aria-expanded=true]{border-color:rgba(232,182,79,.48)!important;background:rgba(232,182,79,.08)!important;color:#f4d89c!important}',
       '[data-ovyx-code-search-trigger]:focus-visible,.ovyx-code-search-close:focus-visible,.ovyx-code-search-result:focus-visible{outline:2px solid #e8b64f!important;outline-offset:2px!important}',
       '.ovyx-ws-code-root.ovyx-code-focus-only .ovyx-code-tree{display:none!important;visibility:hidden!important;pointer-events:none!important}',
-      '.ovyx-ws-code-root.ovyx-code-focus-only>div>div[style*="grid-template-columns"]{grid-template-columns:minmax(0,1fr)!important}',
+      '.ovyx-ws-code-root.ovyx-code-focus-only div[style*="grid-template-columns"]{grid-template-columns:minmax(0,1fr)!important}',
       '.ovyx-ws-code-root.ovyx-code-focus-only .ovyx-code-panel-main{grid-column:1/-1!important;width:100%!important;min-width:0!important}',
       '.ovyx-code-search-backdrop{position:fixed;inset:0;z-index:2147483598;display:block;margin:0;padding:0;border:0;background:rgba(2,5,10,.64);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);opacity:0;visibility:hidden;pointer-events:none;cursor:default;transition:opacity .2s ease,visibility .2s ease}',
       '.ovyx-code-search-backdrop[hidden]{display:none!important}.ovyx-code-search-backdrop.is-open{opacity:1;visibility:visible;pointer-events:auto}',
