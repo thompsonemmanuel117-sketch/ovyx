@@ -22,6 +22,7 @@ try{
  const after=await page.locator('#editor-area').evaluate(node=>{const r=node.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height};});
  assert.deepEqual(after,before,'The floating search must not move or resize the full-screen editor.');
  const searchInput=panel.locator('input[aria-label="Search website files"]');await searchInput.fill('about');
+ await page.waitForFunction(()=>document.querySelectorAll('#ovyx-code-search-results [data-ovyx-search-result-path]').length===1,null,{timeout:5000});
  assert.equal(await panel.locator('[data-ovyx-search-result-path]').count(),1);
  assert.equal(await panel.locator('[data-ovyx-search-result-path]').getAttribute('data-ovyx-search-result-path'),'src/pages/About.html');
  assert.match(await panel.locator('.ovyx-code-search-message').innerText(),/1 matching file/);
@@ -29,7 +30,9 @@ try{
  assert.equal(await page.evaluate(()=>window.__openedFiles[0]),'src/pages/About.html');
  await page.waitForFunction(()=>document.querySelector('#ovyx-code-search-panel')?.hidden===true);
  await trigger.click();await panel.waitFor({state:'visible'});
- await searchInput.fill('does-not-exist');assert.equal(await panel.locator('[data-ovyx-search-result-path]').count(),0);
+ await searchInput.fill('does-not-exist');
+ await page.waitForFunction(()=>document.querySelector('#ovyx-code-search-panel .ovyx-code-search-message')?.textContent.includes('No website files match'),null,{timeout:5000});
+ assert.equal(await panel.locator('[data-ovyx-search-result-path]').count(),0);
  assert.match(await panel.locator('.ovyx-code-search-message').innerText(),/No website files match/);
  await panel.locator('[aria-label="Cancel file search"]').click();await page.waitForFunction(()=>document.querySelector('#ovyx-code-search-panel')?.hidden===true);
  assert.equal(await searchInput.inputValue(),'');
