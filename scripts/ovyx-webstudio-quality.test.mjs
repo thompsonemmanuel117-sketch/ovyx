@@ -103,7 +103,10 @@ for (const token of [
 assert.ok(middleware.includes('/assets/ovyx-webstudio-quality.js?v=20261021-1'), 'The quality inspector must load from the application-shell middleware.');
 assert.equal((middleware.match(/\/assets\/ovyx-webstudio-quality\.js\?v=20261021-1/g) || []).length, 1, 'The quality inspector must be injected exactly once per application shell.');
 assert.ok(middleware.includes('/assets/ovyx-webstudio-navigation-polish.js?v=20261021-4'), 'Navigation header behavior must load from the application shell with the updated cache key.');
-assert.ok(middleware.includes('/assets/ovyx-webstudio-project-branding.js?v=20261021-6'), 'Project branding correction must load from the application shell with the refreshed CSS-logo resolver cache key.');
+assert.ok(middleware.includes('/assets/ovyx-webstudio-project-branding.js?v=20261021-7'), 'Project branding correction must load from the application shell with the refreshed V7 resolver cache key.');
+assert.ok(middleware.includes('/assets/ovyx-settings-connections-visibility-fix.js?v=20261021-1'), 'The Connections visibility fix must load after the settings shell and legacy visibility guard.');
+assert.ok(middleware.includes('<link rel="icon" type="image/svg+xml" href="/assets/ovyx-brand-mark.svg?v=20261021-1">'), 'The app shell must explicitly declare its intended browser favicon rather than rely on the implicit cached /favicon.ico path.');
+assert.ok(/\/assets\/ovyx-settings-connections-visibility-fix\.js\s+Cache-Control: no-store, no-cache, must-revalidate/.test(headers), 'The Settings visibility fix must not be served from stale cache.');
 assert.ok(/\/assets\/ovyx-webstudio-navigation-polish\.js\s+Cache-Control: no-store, no-cache, must-revalidate/.test(headers), 'Navigation header behavior must not be served from a stale cache.');
 assert.ok(/\/assets\/ovyx-webstudio-project-branding\.js\s+Cache-Control: no-store, no-cache, must-revalidate/.test(headers), 'Project branding correction must not be served from a stale cache.');
 assert.ok(headers.includes('/assets/ovyx-webstudio-quality.js\n  Cache-Control: no-store, no-cache, must-revalidate'), 'Quality inspection code must not be served from a stale cache.');
