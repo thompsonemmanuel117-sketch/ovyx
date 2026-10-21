@@ -372,7 +372,7 @@
     return '';
   }
   function backgroundImageReference(value) {
-    var match = String(value || '').match(/url\\(\\s*(?:"([^"]*)"|'([^']*)'|([^)]*?))\\s*\\)/i);
+    var match = String(value || '').match(/url\(\s*(?:"([^"]*)"|'([^']*)'|([^)]*?))\s*\)/i);
     if (!match) return '';
     var reference = clean(match[1] != null ? match[1] : match[2] != null ? match[2] : match[3]).replace(/^['"]|['"]$/g, '');
     if (!reference || /^(?:blob:|javascript:)/i.test(reference)) return '';
@@ -399,7 +399,7 @@
     var selector = '[class], [id], [alt], [title], [aria-label], [data-testid], [data-brand]';
     Array.prototype.slice.call(doc.querySelectorAll(selector)).forEach(function (element) {
       var description = elementBrandDescription(element);
-      if (!/(?:logo|wordmark|brand|identity|site[\\s_.-]?mark|favicon|monogram|emblem|symbol)/i.test(description)) return;
+      if (!/(?:logo|wordmark|brand|identity|site[\s_.-]?mark|favicon|monogram|emblem|symbol)/i.test(description)) return;
 
       var stylePairs = [];
       try {
@@ -420,7 +420,7 @@
         var width = parseFloat(style.width);
         var height = parseFloat(style.height);
         var score = 155;
-        if (/\\b(?:logo|wordmark|brand|identity|favicon|monogram|emblem|symbol)\\b/i.test(description)) score += 12;
+        if (/\b(?:logo|wordmark|brand|identity|favicon|monogram|emblem|symbol)\b/i.test(description)) score += 12;
         if (Number.isFinite(width) && width > 500) score -= 60;
         if (Number.isFinite(height) && height > 220) score -= 60;
         if (pair.pseudo) score += 2;
