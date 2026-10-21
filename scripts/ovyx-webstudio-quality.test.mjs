@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
 const runtime = fs.readFileSync('assets/ovyx-webstudio-quality.js', 'utf8');
+const navigationPolish = fs.readFileSync('assets/ovyx-webstudio-navigation-polish.js', 'utf8');
+const projectBranding = fs.readFileSync('assets/ovyx-webstudio-project-branding.js', 'utf8');
 const middleware = fs.readFileSync('functions/_middleware.js', 'utf8');
 const headers = fs.readFileSync('_headers', 'utf8');
 const packageJson = fs.readFileSync('package.json', 'utf8');
@@ -10,6 +12,15 @@ const assistant = fs.readFileSync('functions/api/ai/assistant.js', 'utf8');
 
 // Parsing this script does not execute it; browser behavior is exercised separately.
 assert.doesNotThrow(() => new Function(runtime), 'The Web Studio quality runtime must parse as valid JavaScript.');
+assert.doesNotThrow(() => new Function(navigationPolish), 'The Web Studio navigation header runtime must parse as valid JavaScript.');
+assert.doesNotThrow(() => new Function(projectBranding), 'The project favicon branding runtime must parse as valid JavaScript.');
+assert.ok(projectBranding.includes('function findBrandHref(pagePath, html, files)'), 'Favicon correction must discover the active project’s own logo.');
+assert.ok(projectBranding.includes('var brandHref = null;'), 'If no project-owned logo is found, the current favicon must be left unchanged.');
+assert.ok(projectBranding.includes("['ovyx:view-changed', 'ovyx:project-activated', 'ovyx:project-loaded', 'ovyx:webstudio-initial-site-built', 'ovyx:webstudio-quality-report']"), 'Project favicon correction must follow project activation and site-build lifecycle events.');
+assert.ok(!runtime.includes('<span data-ovyx-quality-label>Quality</span>'), 'The quality panel must not create a duplicate Quality toolbar button.');
+assert.ok(runtime.includes("open: function () { setOverlay(true); return true; }"), 'Code tools must be able to open the shared inspector without a header trigger.');
+assert.ok(navigationPolish.includes('body.ovyx-webstudio-active.ovyx-ws-mobile-nav-open #view-webstudio .ovyx-ws-header'), 'The Web Studio toolbar must hide behind the mobile navigation drawer.');
+assert.ok(navigationPolish.includes('body.ovyx-webstudio-active.ovyx-ws-nav-open #view-webstudio .ovyx-ws-header'), 'The Web Studio toolbar must hide behind desktop project navigation.');
 
 for (const token of [
   'OVYX WEB STUDIO QUALITY CONTRACT',
@@ -65,15 +76,23 @@ for (const token of [
   assert.ok(runtime.includes(token), 'Quality runtime is missing: ' + token);
 }
 
-assert.ok(middleware.includes('/assets/ovyx-webstudio-quality.js?v=20261018-7'), 'The quality inspector must load from the application-shell middleware.');
-assert.equal((middleware.match(/\/assets\/ovyx-webstudio-quality\.js\?v=20261018-7/g) || []).length, 1, 'The quality inspector must be injected exactly once per application shell.');
+assert.ok(middleware.includes('/assets/ovyx-webstudio-quality.js?v=20261021-1'), 'The quality inspector must load from the application-shell middleware.');
+assert.equal((middleware.match(/\/assets\/ovyx-webstudio-quality\.js\?v=20261021-1/g) || []).length, 1, 'The quality inspector must be injected exactly once per application shell.');
+assert.ok(middleware.includes('/assets/ovyx-webstudio-navigation-polish.js?v=20261021-1'), 'Navigation header behavior must load from the application shell.');
+assert.ok(middleware.includes('/assets/ovyx-webstudio-project-branding.js?v=20261021-1'), 'Project branding correction must load from the application shell.');
+assert.ok(/\/assets\/ovyx-webstudio-navigation-polish\.js\s+Cache-Control: no-store, no-cache, must-revalidate/.test(headers), 'Navigation header behavior must not be served from a stale cache.');
+assert.ok(/\/assets\/ovyx-webstudio-project-branding\.js\s+Cache-Control: no-store, no-cache, must-revalidate/.test(headers), 'Project branding correction must not be served from a stale cache.');
 assert.ok(headers.includes('/assets/ovyx-webstudio-quality.js\n  Cache-Control: no-store, no-cache, must-revalidate'), 'Quality inspection code must not be served from a stale cache.');
 assert.equal((headers.match(/\/assets\/ovyx-webstudio-quality\.js/g) || []).length, 1, 'Quality asset cache rules must appear exactly once.');
 assert.ok(packageJson.includes('scripts/ovyx-webstudio-quality.test.mjs'), 'The quality regression contract must run in npm test.');
 assert.ok(prompts.includes('ART DIRECTION AND DISTINCTIVENESS'), 'The server-side Web Studio agent must receive the premium design contract.');
+assert.ok(prompts.includes('project-specific favicon'), 'Web Studio must keep browser-tab icons aligned to the generated project logo.');
+assert.ok(prompts.includes('Never reuse the OVYX platform splash/sidebar mark as the website favicon unless the brief explicitly requests that brand'), 'Generated websites must not inherit the OVYX platform mark as their favicon by default.');
 assert.ok(prompts.includes('Make at most one bounded targeted repair pass'), 'The server-side Web Studio agent must use bounded repair passes.');
 assert.ok(prompts.includes('appropriate aria-expanded, aria-controls, aria-selected or aria-pressed state'), 'Web Studio prompts must require accessible state that browser checks can exercise.');
 assert.ok(prompts.includes('4.5:1 for normal text and 3:1 for large/bold text'), 'The generation contract must state readable text-contrast targets.');
+assert.ok(prompts.includes('project-specific favicon'), 'Web Studio must keep browser-tab icons aligned to the generated project logo.');
+assert.ok(prompts.includes('Never reuse the OVYX platform splash/sidebar mark as the website favicon unless the brief explicitly requests that brand'), 'Generated websites must not inherit the OVYX platform mark as their favicon by default.');
 assert.ok(assistant.includes('qualityContract: WEB_STUDIO_EXCELLENCE'), 'The real Web Studio route must pass its premium quality contract into the multi-page builder.');
 assert.ok(assistant.includes("validateOrRepairSinglePageBuild"), 'Single-page Web Studio builds must run the deterministic source/requirement checks.');
 assert.ok(assistant.includes('structuredFields[key] = result[key]'), 'Unparseable or file-less single-page responses must still expose an explicit not-evaluated QA status.');
