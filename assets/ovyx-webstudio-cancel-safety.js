@@ -165,10 +165,11 @@
       reapplyFinalSnapshot();
       try { window.ProjectStore && window.ProjectStore.save && window.ProjectStore.save(); } catch (_) {}
       try { studio.renderCodeTree && studio.renderCodeTree(); } catch (_) {}
-      // Reapply once more after all renderers so cancellation cannot be undone by
-      // a late state normalization. This remains scoped to the task's project ID.
+      // Reapply once more after all renderers and persistence normalization so a
+      // stale ProjectStore view cannot clear the active-project pointer. The prior
+      // save has already captured the task snapshot; do not run another normalizer
+      // after this final authoritative in-memory restoration.
       reapplyFinalSnapshot();
-      try { window.ProjectStore && window.ProjectStore.save && window.ProjectStore.save(); } catch (_) {}
     }
     return true;
   }
