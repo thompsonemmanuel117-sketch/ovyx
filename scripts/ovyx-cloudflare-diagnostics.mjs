@@ -264,7 +264,7 @@ try {
   const canonicalHost = String(rawProjectInfo.subdomain || rawProjectInfo.domains?.[0] || '').trim();
   let canonicalUrl = '';
   try {
-    if (canonicalHost) canonicalUrl = new URL(/^https?:\\/\\//i.test(canonicalHost) ? canonicalHost : 'https://' + canonicalHost).origin;
+    if (canonicalHost) canonicalUrl = new URL(/^https?:\/\//i.test(canonicalHost) ? canonicalHost : 'https://' + canonicalHost).origin;
   } catch {}
   let deploymentOrigin = '';
   try { deploymentOrigin = new URL(deployment.url).origin; } catch {}
