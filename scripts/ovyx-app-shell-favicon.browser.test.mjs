@@ -21,8 +21,28 @@ try {
     return icons.some(link => (link.getAttribute('href') || '').includes('/assets/ovyx-brand-mark.svg'));
   }, null, { timeout: 10000 });
 
-  // Let deferred application scripts run so a late favicon override is caught too.
-  await page.waitForTimeout(1000);
+  // Let deferred application scripts run, then simulate an old/late script
+  // trying to replace the tab icon. The shell lock must remove the competing
+  // declaration and restore the canonical OVYX diamond, not merely pass on load.
+  await page.waitForFunction(() => !!window.OVYXShellFavicon, null, { timeout: 10000 });
+  await page.waitForTimeout(350);
+  await page.evaluate(() => {
+    const competing = document.createElement('link');
+    competing.rel = 'shortcut icon';
+    competing.type = 'image/png';
+    competing.href = '/assets/ovyx-logo.svg?stale-favicon-regression';
+    document.head.appendChild(competing);
+    const canonical = document.querySelector('head link[rel~="icon"]');
+    if (canonical) canonical.href = '/assets/ovyx-logo.svg?mutated-favicon-regression';
+  });
+  await page.waitForFunction(() => {
+    const icons = Array.from(document.head.querySelectorAll('link[rel]')).filter(link =>
+      String(link.rel || '').toLowerCase().split(/\s+/).includes('icon'));
+    return icons.length === 1 &&
+      icons[0].getAttribute('rel') === 'icon' &&
+      icons[0].getAttribute('type') === 'image/svg+xml' &&
+      icons[0].getAttribute('href') === '/assets/ovyx-brand-mark.svg?v=20261021-4';
+  }, null, { timeout: 10000 });
 
   const icons = await iconLinks.evaluateAll(nodes => nodes.map(node => ({
     rel: node.getAttribute('rel'),
@@ -35,7 +55,7 @@ try {
   assert.equal(icons[0].type, 'image/svg+xml', 'The app-shell favicon must be the SVG brand mark.');
   assert.equal(
     icons[0].href,
-    '/assets/ovyx-brand-mark.svg?v=20261021-3',
+    '/assets/ovyx-brand-mark.svg?v=20261021-4',
     'The browser-tab favicon must resolve to the real OVYX brand-mark SVG cache key.'
   );
 
@@ -74,7 +94,9 @@ try {
     'The PWA manifest must use the same real OVYX brand mark.'
   );
 
-  console.log('OVYX app-shell favicon browser test passed: real tab icon, successful SVG load, no obsolete override, and matching PWA icon.');
+  assert.equal(await page.locator('script[src*="ovyx-shell-favicon-lock.js"]').count(), 1, 'The authoritative shell favicon lock must load exactly once.');
+
+  console.log('OVYX app-shell favicon browser test passed: real tab icon, successful SVG load, competing icon override resisted, and matching PWA icon.');
 } finally {
   await browser.close();
 }

@@ -11,6 +11,7 @@ on:
       - 'functions/_middleware.js'
       - 'scripts/ovyx-settings-actions.test.mjs'
       - 'scripts/ovyx-settings-core.browser.test.mjs'
+      - 'scripts/ovyx-cancel-safety.browser.test.mjs'
       - '.github/workflows/ovyx-settings-regression-browser.yml'
   pull_request:
     branches:
@@ -22,6 +23,7 @@ on:
       - 'functions/_middleware.js'
       - 'scripts/ovyx-settings-actions.test.mjs'
       - 'scripts/ovyx-settings-core.browser.test.mjs'
+      - 'scripts/ovyx-cancel-safety.browser.test.mjs'
       - '.github/workflows/ovyx-settings-regression-browser.yml'
   workflow_dispatch:
 
@@ -70,7 +72,9 @@ jobs:
       - name: Test Profile, Appearance and task-cancel safety in desktop and mobile Chromium
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8791
-        run: node scripts/ovyx-settings-core.browser.test.mjs
+        run: |
+          node scripts/ovyx-cancel-safety.browser.test.mjs
+          node scripts/ovyx-settings-core.browser.test.mjs
 
       - name: Print local Pages logs on failure
         if: failure()

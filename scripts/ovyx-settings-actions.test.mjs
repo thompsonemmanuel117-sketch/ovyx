@@ -289,6 +289,15 @@ assert.ok(cancelSafetyRuntime.includes("button.id = 'ws-task-cancel'"),
 assert.ok(cancelSafetyRuntime.includes('studio.cancelActiveTask = function ()')
   && cancelSafetyRuntime.includes('restoreProjectOnly(this, snapshot, taskProjectWasActive)'),
   'Cancel must roll back only the active task project.');
+assert.ok(cancelSafetyRuntime.includes('function taskIsRunning(studio)')
+  && cancelSafetyRuntime.includes('Number(studio.__ovyxTaskInFlightCount || 0) > 0'),
+  'Cancel visibility must follow the tracked async task even if a mobile handler clears pendingBuild early.');
+assert.ok(cancelSafetyRuntime.includes('this.__ovyxTaskGeneration = Number(this.__ovyxTaskGeneration || 0) + 1')
+  && cancelSafetyRuntime.includes('activeController.abort()'),
+  'Cancel must invalidate stale promise callbacks and abort the captured controller even if the app helper drops its reference.');
+assert.ok(cancelSafetyRuntime.includes('releaseComposerBusyState()')
+  && cancelSafetyRuntime.includes("send.removeAttribute('aria-busy')"),
+  'Cancel must release composer busy indicators instead of leaving the mobile UI stuck.');
 assert.ok(html.includes('rollbackAgentChanges(baseGraph,appliedGraph,originalProject)')
   && html.includes("this.rollbackAgentChanges(rollbackGraph,appliedGraph,rollbackProject)")
   && !html.includes("const restoredProjects=JSON.parse(JSON.stringify(rollbackState?.projects||[]))"),

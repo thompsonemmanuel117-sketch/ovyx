@@ -111,11 +111,13 @@ assert.ok(middleware.includes('/assets/ovyx-webstudio-navigation-polish.js?v=202
 assert.ok(middleware.includes('/assets/ovyx-webstudio-project-branding.js?v=20261021-11'), 'Project branding correction must load from the application shell with the refreshed V11 resolver cache key.');
 assert.ok(middleware.includes(".on('link[rel]'"), 'The app shell must inspect existing favicon declarations before setting the app-shell icon.');
 assert.ok(middleware.includes("if (rel.includes('icon')) element.remove();"), 'Stale or competing browser-tab icon declarations must be removed before the brand mark is inserted.');
-assert.ok(middleware.includes('href="/assets/ovyx-brand-mark.svg?v=20261021-3">'), 'The app shell must use the real OVYX brand-mark SVG as its browser-tab favicon.');
+assert.ok(middleware.includes('href="/assets/ovyx-brand-mark.svg?v=20261021-4">'), 'The app shell must use the versioned real OVYX brand-mark SVG as its browser-tab favicon.');
 assert.ok(middleware.includes("element.prepend('<link rel="), 'The brand-mark favicon must be installed in the document head.');
+assert.ok(middleware.includes('/assets/ovyx-shell-favicon-lock.js?v=20261021-1'), 'A dedicated shell favicon lock must keep the OVYX mark authoritative after late scripts run.');
 assert.ok(!middleware.includes('ovyx-app-favicon-guard.js'), 'The global favicon-enforcement script must no longer load.');
 assert.ok(!headers.includes('/assets/ovyx-app-favicon-guard.js'), 'The removed favicon-enforcement script must not have a cache rule.');
 assert.ok(headers.includes('/assets/ovyx-brand-mark.svg\n  Cache-Control: no-store, no-cache, must-revalidate'), 'The real brand-mark favicon must not be served stale from cache.');
+assert.ok(headers.includes('/assets/ovyx-shell-favicon-lock.js\n  Cache-Control: no-store, no-cache, must-revalidate'), 'The shell favicon lock must not be served stale from cache.');
 assert.ok(headers.includes('/manifest.json\n  Cache-Control: no-store, no-cache, must-revalidate'), 'The app manifest must not be served stale from cache.');
 assert.ok(brandMark.startsWith('<svg xmlns=') && brandMark.includes('<title id="title">OVYX</title>'), 'The real OVYX brand-mark asset must exist as a valid SVG logo.');
 assert.ok(appManifest.icons.some(icon => icon.src === '/assets/ovyx-brand-mark.svg' && icon.type === 'image/svg+xml'), 'The app manifest must use the real OVYX brand-mark asset.');

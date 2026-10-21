@@ -106,6 +106,9 @@ try {
         pendingBuild: studio.pendingBuild,
         liveAiActive: studio.liveAiActive,
         abort: studio.activeAbortController,
+        abortActiveAi: studio.abortActiveAi,
+        taskGeneration: studio.__ovyxTaskGeneration,
+        taskInFlightCount: studio.__ovyxTaskInFlightCount,
         snapshot: studio.__ovyxTaskRollbackSnapshot,
         method: studio.__ovyxActiveTaskMethod,
         thread: clone(studio.thread || []),
@@ -179,6 +182,9 @@ try {
         studio.requestEpoch = Number(studio.requestEpoch || 0) + 1;
         let abortCalled = false;
         studio.activeAbortController = { abort() { abortCalled = true; } };
+        // Simulate an app helper that clears its controller reference before the
+        // caller can inspect it. The cancellation module must still abort the captured request.
+        studio.abortActiveAi = function () { this.activeAbortController = null; };
         studio.__ovyxTaskRollbackSnapshot = {
           projectId: testId, project: clone(baselineProject), graph: clone(baselineGraph), startedAt: Date.now()
         };
@@ -223,10 +229,22 @@ try {
         summary.activeProjectIdBeforeCancel = String(state.activeProject?.id || '');
         summary.projectCollectionEntryBeforeCancel = state.projects.find(project => String(project?.id || '') === testId)?.name || null;
         summary.visibleWhileRunning = button.hidden === false;
-        button.click();
+        if (window.innerWidth <= 767 && typeof PointerEvent === 'function') {
+          const pointer = { bubbles: true, cancelable: true, pointerType: 'touch', pointerId: 17, isPrimary: true };
+          button.dispatchEvent(new PointerEvent('pointerdown', pointer));
+          button.dispatchEvent(new PointerEvent('pointerup', pointer));
+          button.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+        } else {
+          button.click();
+        }
         summary.hiddenAfterCancel = button.hidden;
         summary.abortCalled = abortCalled;
         summary.pendingAfterCancel = Boolean(studio.pendingBuild);
+        summary.taskInFlightCountAfterCancel = Number(studio.__ovyxTaskInFlightCount || 0);
+        summary.composerBusyAfterCancel = !!document.getElementById('ws-chat-composer')?.hasAttribute('aria-busy')
+          || !!document.getElementById('ws-chat-send')?.hasAttribute('aria-busy');
+        summary.controllerClearedAfterCancel = studio.activeAbortController == null;
+        summary.generationAdvanced = Number(studio.__ovyxTaskGeneration || 0) > Number(original.taskGeneration || 0);
         // Cancel/render can replace the global KernelState object. Assert the live
         // workspace state that the user actually sees, not a stale pre-render reference.
         const stateAfterCancel = window.KernelState || state;
@@ -251,6 +269,9 @@ try {
         studio.pendingBuild = original.pendingBuild;
         studio.liveAiActive = original.liveAiActive;
         studio.activeAbortController = original.abort;
+        studio.abortActiveAi = original.abortActiveAi;
+        studio.__ovyxTaskGeneration = original.taskGeneration;
+        studio.__ovyxTaskInFlightCount = original.taskInFlightCount;
         studio.__ovyxTaskRollbackSnapshot = original.snapshot;
         studio.__ovyxActiveTaskMethod = original.method;
         studio.thread = original.thread;
@@ -269,8 +290,12 @@ try {
     assert.equal(cancelRun.projectCollectionEntryBeforeCancel, 'Partially changed project', '[' + target.name + '] Cancellation fixture must remain in the current project list at click time. Details: ' + JSON.stringify(cancelRun));
     assert.equal(cancelRun.visibleWhileRunning, true, '[' + target.name + '] Cancel must appear during an active task.');
     assert.equal(cancelRun.hiddenAfterCancel, true, '[' + target.name + '] Cancel must hide after stopping the task.');
-    assert.equal(cancelRun.abortCalled, true, '[' + target.name + '] Cancel must abort the active AI request.');
+    assert.equal(cancelRun.abortCalled, true, '[' + target.name + '] Cancel must abort the captured AI request even if the app helper clears its reference.');
     assert.equal(cancelRun.pendingAfterCancel, false, '[' + target.name + '] Cancel must clear the active task state.');
+    assert.equal(cancelRun.taskInFlightCountAfterCancel, 0, '[' + target.name + '] Cancel must release the in-flight task counter.');
+    assert.equal(cancelRun.composerBusyAfterCancel, false, '[' + target.name + '] Cancel must clear stale busy indicators from the mobile composer.');
+    assert.equal(cancelRun.controllerClearedAfterCancel, true, '[' + target.name + '] Cancel must release the active abort-controller reference.');
+    assert.equal(cancelRun.generationAdvanced, true, '[' + target.name + '] Cancel must invalidate stale promise-finally callbacks.');
     assert.equal(cancelRun.restoredActiveProject, true, '[' + target.name + '] Cancel must restore the active project to its task-start snapshot. Details: ' + JSON.stringify(cancelRun));
     assert.equal(cancelRun.otherProjectsPreserved, true, '[' + target.name + '] Cancel must preserve every other project.');
     assert.equal(cancelRun.cancelMethodReturnedSafely, true, '[' + target.name + '] Task rollback snapshot must be cleared after cancellation.');
