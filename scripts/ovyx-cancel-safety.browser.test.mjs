@@ -131,9 +131,16 @@ try {
     return {
       cancelHidden: document.getElementById('ws-task-cancel').hidden,
       projectName: project && project.name,
+      studioProjectName: studio.project && studio.project.name,
       pageIds: (project && project.pages || []).map(page => page.id),
       html: studio.graph.files['src/pages/Home.html'].content,
       projectHtml: project && project.ovyxGraph.files['src/pages/Home.html'].content,
+      storedHtml: (() => {
+        try {
+          const saved = JSON.parse(localStorage.getItem(studio.graphKeyPrefix + project.id) || '{}');
+          return String(saved.files?.['src/pages/Home.html']?.content || '');
+        } catch (_) { return ''; }
+      })(),
       pendingBuild: !!studio.pendingBuild,
       liveAiActive: !!studio.liveAiActive,
       inFlightCount: Number(studio.__ovyxTaskInFlightCount || 0),
@@ -151,9 +158,11 @@ try {
 
   assert.equal(rolledBack.cancelHidden, true, 'A successful mobile cancel must close its Cancel control.');
   assert.equal(rolledBack.projectName, 'Last good project state', 'Cancel must restore the project snapshot captured before the task.');
+  assert.equal(rolledBack.studioProjectName, 'Last good project state', 'Cancel must restore this.project as well as KernelState.activeProject.');
   assert.deepEqual(rolledBack.pageIds, ['home'], 'Cancel must remove partial pages created by the cancelled task.');
   assert.match(rolledBack.html, /Last good work/, 'Cancel must restore the original project graph, not only its project metadata.');
   assert.match(rolledBack.projectHtml, /Last good work/, 'Cancel must persist the restored graph back onto the active project.');
+  assert.match(rolledBack.storedHtml, /Last good work/, 'Cancel must write the restored graph to its project-scoped local storage key.');
   assert.equal(rolledBack.pendingBuild, false, 'Cancel must clear the stale pending-build flag.');
   assert.equal(rolledBack.liveAiActive, false, 'Cancel must clear the live-AI flag.');
   assert.equal(rolledBack.inFlightCount, 0, 'Cancel must immediately release its tracked in-flight task counter.');
