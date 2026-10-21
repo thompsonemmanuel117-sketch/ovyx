@@ -99,6 +99,7 @@ try {
       if (!studio || typeof studio.cancelActiveTask !== 'function' || !button || !state) return { available: false };
       const clone = value => JSON.parse(JSON.stringify(value));
       const original = {
+        kernelState: window.KernelState,
         projects: state.projects,
         activeProject: state.activeProject,
         graph: studio.graph,
@@ -181,18 +182,23 @@ try {
         summary.hiddenAfterCancel = button.hidden;
         summary.abortCalled = abortCalled;
         summary.pendingAfterCancel = Boolean(studio.pendingBuild);
-        summary.activeProjectIdAfterCancel = String(state.activeProject?.id || '');
-        summary.activeProjectNameAfterCancel = String(state.activeProject?.name || '');
-        summary.activePageIdsAfterCancel = (state.activeProject?.pages || []).map(page => String(page?.id || ''));
+        // Cancel/render can replace the global KernelState object. Assert the live
+        // workspace state that the user actually sees, not a stale pre-render reference.
+        const stateAfterCancel = window.KernelState || state;
+        summary.globalStateChanged = stateAfterCancel !== state;
+        summary.activeProjectIdAfterCancel = String(stateAfterCancel.activeProject?.id || '');
+        summary.activeProjectNameAfterCancel = String(stateAfterCancel.activeProject?.name || '');
+        summary.activePageIdsAfterCancel = (stateAfterCancel.activeProject?.pages || []).map(page => String(page?.id || ''));
         summary.graphHtmlAfterCancel = String(studio.graph?.files?.['index.html']?.content || '').slice(0, 220);
-        summary.projectCollectionEntry = (state.projects || []).find(project => String(project?.id || '') === testId)?.name || null;
-        summary.restoredActiveProject = state.activeProject?.name === 'Baseline project'
-          && (state.activeProject?.pages || []).some(page => page.id === 'baseline-page')
-          && !(state.activeProject?.pages || []).some(page => page.id === 'temporary-page')
+        summary.projectCollectionEntry = (stateAfterCancel.projects || []).find(project => String(project?.id || '') === testId)?.name || null;
+        summary.restoredActiveProject = stateAfterCancel.activeProject?.name === 'Baseline project'
+          && (stateAfterCancel.activeProject?.pages || []).some(page => page.id === 'baseline-page')
+          && !(stateAfterCancel.activeProject?.pages || []).some(page => page.id === 'temporary-page')
           && String(studio.graph?.files?.['index.html']?.content || '').includes('Project before task');
-        summary.otherProjectsPreserved = otherSignature(state.projects) === otherBefore;
+        summary.otherProjectsPreserved = otherSignature(stateAfterCancel.projects) === otherBefore;
         summary.cancelMethodReturnedSafely = studio.__ovyxTaskRollbackSnapshot == null;
       } finally {
+        window.KernelState = original.kernelState;
         state.projects = original.projects;
         state.activeProject = original.activeProject;
         studio.graph = original.graph;
