@@ -65,6 +65,7 @@ const project = {
   id: 'ovyx-integration-project-42',
   name: 'OVYX Shop Project',
   description: 'Shared project for the integration test',
+  routes: {'/':'src/pages/Home.html','/about/':'src/pages/About.html'},
   apiKey: 'DO_NOT_TRANSFER_THIS_SECRET',
   pages: [
     {id:'home', name:'Home', slug:'home', html:'<main>Old HTML</main>', sections:[{id:'hero',type:'hero',content:{heading:'Home'}}]},
@@ -82,7 +83,9 @@ window.WebStudio = {
       'src/pages/About.html': {type:'text/html', content:'<!doctype html><html><body><main>About page from same project</main></body></html>', updatedAt:90},
       'src/styles.css': {type:'text/css', content:'body{font-family:Inter}#hero{color:#e8b64f}', updatedAt:80},
       'src/main.js': {type:'text/javascript', content:"document.querySelector('#hero')?.setAttribute('data-ready','1')", updatedAt:70},
-      'public/brand.svg': {type:'image/svg+xml', content:'<svg xmlns="http://www.w3.org/2000/svg"></svg>', updatedAt:60}
+      'public/brand.svg': {type:'image/svg+xml', content:'<svg xmlns="http://www.w3.org/2000/svg"></svg>', updatedAt:60},
+      '../private.txt': {type:'text/plain', content:'must be rejected', updatedAt:50},
+      '/root/private.txt': {type:'text/plain', content:'must be rejected', updatedAt:40}
     }
   },
   activeCodeFile:'src/pages/Home.html',
@@ -158,6 +161,12 @@ try {
   assert.equal(transfer.payload.website.graph.files['src/pages/Home.html'].content.includes('Latest saved from Code workspace'), true,
     'App Studio must receive the current Code graph contents, not an unrelated placeholder project.');
   assert.equal(transfer.payload.website.graph.files['src/styles.css'].content, 'body{font-family:Inter}#hero{color:#e8b64f}');
+  assert.equal(transfer.payload.website.project.ovyxGraph.files['src/pages/Home.html'].content.includes('Latest saved from Code workspace'), true,
+    'The active project snapshot must also preserve the same file paths as the standalone graph.');
+  assert.equal(transfer.payload.website.project.routes['/about/'], 'src/pages/About.html',
+    'Route keys must not be rewritten into underscores during project serialization.');
+  assert.equal(Object.keys(transfer.payload.website.graph.files).some(file => file.startsWith('/') || file.split('/').includes('..')), false,
+    'Unsafe absolute and traversal file paths must be dropped while safe relative paths are preserved.');
   assert.equal(transfer.payload.website.graphHtmlTrees.length, 2, 'HTML files from the same project graph must be included.');
   assert.equal(transfer.payload.website.compiledHtmlTrees.length, 2, 'Page structure and HTML snapshots must be handed off.');
   assert.equal(transfer.payload.website.project.id, 'ovyx-integration-project-42');
