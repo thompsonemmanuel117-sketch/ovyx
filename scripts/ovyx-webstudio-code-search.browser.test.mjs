@@ -16,7 +16,7 @@ try{
  assert.equal(await panel.locator('[data-ovyx-search-result-path]').count(),0);
  assert.equal(await page.locator('#ovyx-code-save').innerText(),'Save');assert.equal(await page.locator('#ovyx-code-pages').innerText(),'Pages');
  const before=await page.locator('#editor-area').evaluate(node=>{const r=node.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height};});
- await trigger.click();await panel.waitFor({state:'visible'});
+ await trigger.click();await panel.waitFor({state:'visible'});await page.waitForFunction(()=>{const node=document.querySelector('#ovyx-code-search-panel');return !!node&&node.classList.contains('is-open')&&Math.abs(node.getBoundingClientRect().left)<1;});
  assert.equal(await panel.isVisible(),true);assert.equal(await panel.locator('[data-ovyx-search-result-path]').count(),5,'Opening the drawer must list every current project file without requiring a query.');
  assert.match(await panel.locator('.ovyx-code-search-message').innerText(),/5 project files/i);
  const drawer=await panel.evaluate(node=>{const r=node.getBoundingClientRect();return{left:r.left,top:r.top,width:r.width,height:r.height,bottom:r.bottom};});
@@ -45,7 +45,7 @@ try{
  assert.deepEqual(await page.locator('#ovyx-logo-fixture path').evaluateAll(nodes=>nodes.map(node=>node.outerHTML)),originalLogoPaths,'Logo artwork markup must remain unchanged.');assert.equal(logo.svgAnimation,'none');assert.equal(logo.svgTransform,'none');assert.equal(logo.wrapperAnimation,'none');assert.equal(logo.wrapperTransform,'none');assert.equal(logo.wrapperOverflow,'visible');assert.equal(logo.safeClass,true);assert.equal(logo.outerOverflow,'visible','Logo ancestor must not clip artwork.');assert.equal(logo.outerClipPath,'none');assert.equal(logo.outerSafe,true);assert.equal(logo.paths.length,2);for(const p of logo.paths){assert.equal(p.animation,'none');assert.equal(p.dashArray,'none');assert.ok(p.dashOffset==='0px'||p.dashOffset==='0');assert.equal(p.visibility,'visible');assert.equal(p.opacity,'1');}
  await page.locator('#app-sidebar').evaluate(node=>{node.hidden=true;});
  await page.evaluate(()=>{window.WebStudio.graph={version:2,files:{}};});assert.deepEqual(await page.evaluate(()=>window.OVYXWebStudioCodeSearch.search('about')),['src/pages/About.html'],'Search falls back to the active project graph when the Studio graph is empty.');
- await page.setViewportSize({width:390,height:844});await trigger.click();await panel.waitFor({state:'visible'});
+ await page.setViewportSize({width:390,height:844});await trigger.click();await panel.waitFor({state:'visible'});await page.waitForFunction(()=>{const node=document.querySelector('#ovyx-code-search-panel');return !!node&&node.classList.contains('is-open')&&Math.abs(node.getBoundingClientRect().left)<1;});
  const mobile=await panel.evaluate(node=>{const r=node.getBoundingClientRect();return{left:r.left,right:r.right,width:r.width,height:r.height};});
  assert.equal(mobile.left,0);assert.equal(mobile.right,390);assert.equal(mobile.width,390,'On a narrow workspace, the file drawer should use the available width.');assert.equal(mobile.height,844);assert.equal(pageErrors.length,0,pageErrors.join('; '));
  console.log('OVYX code workspace search and sidebar logo browser tests passed.');
