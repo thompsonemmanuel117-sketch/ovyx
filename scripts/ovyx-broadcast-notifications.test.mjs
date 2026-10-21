@@ -63,7 +63,7 @@ assert.match(client, /\.ovyx-welcome-dismiss\{[^}]*pointer-events:auto/);
 assert.match(worker, /icon: OVYX_NOTIFICATION_ICON/);
 assert.ok(worker.includes("ovyx-brand-mark.png"));
 assert.ok(manifest.icons.some(icon => icon.src === '/assets/ovyx-brand-mark.png' && icon.type === 'image/png' && icon.sizes === '192x192'));
-assert.ok(manifest.icons.some(icon => icon.src === '/assets/ovyx-app-favicon.svg' && icon.type === 'image/svg+xml'));
+assert.ok(manifest.icons.some(icon => icon.src === '/assets/ovyx-brand-mark.svg' && icon.type === 'image/svg+xml'));
 assert.match(worker, /badge: OVYX_NOTIFICATION_ICON/);
 assert.match(worker, /notificationclick/);
 assert.match(middleware, /ovyx-account-notifications\.js\?v=20261021-2/);
