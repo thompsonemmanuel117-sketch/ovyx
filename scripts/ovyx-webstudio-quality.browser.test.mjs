@@ -211,6 +211,36 @@ try {
   assert.ok(cssLogoBranding.html.includes('id="css-logo-content"'), 'CSS-based favicon detection must preserve the project page content.');
   assert.equal(cssLogoBranding.saveCount, 5, 'CSS-based favicon detection must save the corrected project graph exactly once.');
 
+  // Another script may append or change a favicon link after branding resolves.
+  // The active project logo must remain authoritative, then prior icon values
+  // must be restored after leaving Web Studio.
+  await brandingPage.evaluate(() => {
+    const competing = document.createElement('link');
+    competing.id = 'qa-competing-favicon';
+    competing.rel = 'icon';
+    competing.href = '/assets/ovyx-brand-mark.svg';
+    document.head.appendChild(competing);
+  });
+  await brandingPage.waitForFunction(() => {
+    const expected = document.querySelector('link[data-ovyx-project-favicon]')?.getAttribute('href') || '';
+    const competing = document.getElementById('qa-competing-favicon');
+    return !!expected && expected.startsWith('data:image/svg+xml;charset=utf-8,') &&
+      competing?.getAttribute('href') === expected;
+  }, null, { timeout: 5000 });
+  const enforcedFavicon = await brandingPage.locator('#qa-competing-favicon').getAttribute('href');
+  assert.ok(enforcedFavicon?.startsWith('data:image/svg+xml;charset=utf-8,'), 'A later competing favicon link must not replace the actual project logo.');
+
+  await brandingPage.evaluate(() => {
+    document.body.classList.remove('ovyx-webstudio-active');
+    window.dispatchEvent(new CustomEvent('ovyx:view-changed', { detail: { view: 'home' } }));
+  });
+  await brandingPage.waitForFunction(() =>
+    document.getElementById('qa-competing-favicon')?.getAttribute('href') === '/assets/ovyx-brand-mark.svg' &&
+    !document.querySelector('link[data-ovyx-project-favicon]'),
+    null,
+    { timeout: 5000 }
+  );
+
   await page.setContent(fixture, { waitUntil: 'domcontentloaded' });
   await page.addScriptTag({ path: runtimePath });
   await page.addScriptTag({ path: navigationPolishPath });

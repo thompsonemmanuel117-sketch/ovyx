@@ -1,8 +1,8 @@
 (function () {
   'use strict';
 
-  if (window.__OVYX_WS_PROJECT_BRANDING_V6__) return;
-  window.__OVYX_WS_PROJECT_BRANDING_V6__ = true;
+  if (window.__OVYX_WS_PROJECT_BRANDING_V7__) return;
+  window.__OVYX_WS_PROJECT_BRANDING_V7__ = true;
 
   var busy = false;
   var resolving = false;
@@ -10,19 +10,84 @@
   var attempts = 0;
   var uploadedAssetCache = Object.create(null);
   var tabFaviconState = null;
+  var tabFaviconObserver = null;
 
   function restoreTabFavicon() {
     var saved = tabFaviconState;
     if (!saved) return;
+    if (tabFaviconObserver) {
+      tabFaviconObserver.disconnect();
+      tabFaviconObserver = null;
+    }
     saved.links.forEach(function (item) {
       if (!item.element) return;
       if (item.href === null) item.element.removeAttribute('href');
       else item.element.setAttribute('href', item.href);
+      if (item.rel === null) item.element.removeAttribute('rel');
+      else item.element.setAttribute('rel', item.rel);
     });
     if (saved.createdLink && saved.createdLink.parentNode) {
       saved.createdLink.parentNode.removeChild(saved.createdLink);
     }
     tabFaviconState = null;
+  }
+
+  function trackFaviconLink(element) {
+    var saved = tabFaviconState;
+    if (!element || !saved || element === saved.createdLink ||
+        element.hasAttribute('data-ovyx-project-favicon')) return;
+    if (saved.links.some(function (item) { return item.element === element; })) return;
+    saved.links.push({
+      element: element,
+      href: element.getAttribute('href'),
+      rel: element.getAttribute('rel')
+    });
+  }
+
+  function enforceFaviconLink(element, href) {
+    if (!element) return;
+    var rel = clean(element.getAttribute('rel')).split(/\\s+/).filter(Boolean);
+    if (!rel.some(function (value) { return value.toLowerCase() === 'icon'; })) {
+      rel.push('icon');
+      element.setAttribute('rel', rel.join(' '));
+    }
+    if (element.getAttribute('href') !== href) element.setAttribute('href', href);
+  }
+
+  function enforceTabFaviconLinks() {
+    var saved = tabFaviconState;
+    var head = document.head;
+    var body = document.body;
+    if (!saved || !head || !body || !body.classList.contains('ovyx-webstudio-active')) return;
+
+    var links = Array.prototype.slice.call(head.querySelectorAll('link[rel~="icon"]'));
+    saved.links.forEach(function (item) {
+      if (item.element && item.element.isConnected && links.indexOf(item.element) < 0) {
+        links.push(item.element);
+      }
+    });
+    links.forEach(function (element) {
+      trackFaviconLink(element);
+      enforceFaviconLink(element, saved.href);
+    });
+
+    if (saved.createdLink) {
+      if (!saved.createdLink.parentNode) head.appendChild(saved.createdLink);
+      enforceFaviconLink(saved.createdLink, saved.href);
+    }
+  }
+
+  function observeTabFaviconHead() {
+    if (tabFaviconObserver || !document.head || typeof MutationObserver === 'undefined') return;
+    tabFaviconObserver = new MutationObserver(function () {
+      enforceTabFaviconLinks();
+    });
+    tabFaviconObserver.observe(document.head, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ['href', 'rel']
+    });
   }
 
   function syncTabFavicon(href, projectId) {
@@ -39,7 +104,7 @@
     }
 
     if (!tabFaviconState) {
-      var icons = Array.prototype.slice.call(document.querySelectorAll('link[rel~="icon"]'));
+      var icons = Array.prototype.slice.call(head.querySelectorAll('link[rel~="icon"]'));
       var createdLink = null;
       if (!icons.length) {
         createdLink = document.createElement('link');
@@ -49,19 +114,22 @@
       }
       tabFaviconState = {
         projectId: projectId,
+        href: href,
         links: icons.map(function (element) {
-          return { element: element, href: element.getAttribute('href') };
+          return {
+            element: element,
+            href: element.getAttribute('href'),
+            rel: element.getAttribute('rel')
+          };
         }),
         createdLink: createdLink
       };
+    } else {
+      tabFaviconState.href = href;
     }
 
-    if (tabFaviconState.createdLink) {
-      tabFaviconState.createdLink.setAttribute('href', href);
-    }
-    tabFaviconState.links.forEach(function (item) {
-      item.element.setAttribute('href', href);
-    });
+    enforceTabFaviconLinks();
+    observeTabFaviconHead();
   }
 
   function clean(value) {

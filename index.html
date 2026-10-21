@@ -13251,7 +13251,7 @@ function installSettingsRepair(){
       main.querySelectorAll('[data-settings-panel]').forEach(panel=>{
         const active=panel.dataset.settingsPanel===id;
         panel.classList.toggle('active',active);
-        panel.hidden=!active;
+        
       });
       sidebar.querySelectorAll('[data-settings-nav]').forEach(button=>button.classList.toggle('active',button.dataset.settingsNav===id));
       if(id==='brand-identity')setTimeout(renderBrandPanel,0);
@@ -15897,42 +15897,77 @@ window.addEventListener('orientationchange',syncNavigation,{passive:true});
   window.addEventListener('ovyx:view-changed',()=>setTimeout(install,0),{passive:true});
 })();
 </script>
-<script id="ovyx-settings-connections-visibility-guard-v1">
+<script id="ovyx-settings-connections-visibility-guard-v2">
 (function(){
   'use strict';
-  if(window.__OVYX_SETTINGS_CONNECTIONS_VISIBILITY_GUARD__)return;
-  window.__OVYX_SETTINGS_CONNECTIONS_VISIBILITY_GUARD__=true;
-  function repair(){
-    const root=document.getElementById('view-settings');
-    const panel=root?.querySelector('[data-settings-panel="connections"]');
-    if(!root||!panel)return;
-    const settings=window.OVYXSettings;
-    if(settings)settings.current='connections';
-    root.querySelectorAll('[data-settings-panel]').forEach(p=>{
-      const active=p===panel;
-      p.classList.toggle('active',active);
-      p.hidden=!active;
-    });
-    root.querySelectorAll('[data-settings-nav]').forEach(n=>n.classList.toggle('active',n.dataset.settingsNav==='connections'));
-    panel.classList.add('ovyx-v91-connection-panel','active');
-    // Notify the existing Universal Connections renderer rather than building a second copy of the form.
-    window.dispatchEvent(new CustomEvent('ovyx-settings-rendered'));
-    // The renderer sets is-v91-active when it runs; keep a safe visible fallback if boot is still settling.
-    panel.hidden=false;
-    panel.style.setProperty('display','block','important');
-    panel.style.setProperty('visibility','visible','important');
-    panel.style.setProperty('opacity','1','important');
+  if(window.__OVYX_SETTINGS_CONNECTIONS_VISIBILITY_GUARD_V2__)return;
+  window.__OVYX_SETTINGS_CONNECTIONS_VISIBILITY_GUARD_V2__=true;
+  let queued=false;
+  let queuedInactive=false;
+
+  function settingsRoot(){return document.getElementById('view-settings');}
+  function connectionPanels(root){return Array.from(root?.querySelectorAll('[data-settings-panel="connections"]')||[]);}
+  function selectedId(root){
+    const current=String(window.OVYXSettings?.current||'').trim();
+    if(current)return current;
+    return String(root?.querySelector('[data-settings-nav].active')?.dataset.settingsNav||'').trim();
   }
-  document.addEventListener('click',event=>{
-    if(!event.target?.closest?.('#view-settings [data-settings-nav="connections"]'))return;
-    setTimeout(repair,30);
-  },true);
-  window.addEventListener('ovyx:view-changed',event=>{
-    if(String(event.detail?.view||'').replace(/^view-/,'')==='settings')setTimeout(()=>{
-      const current=window.OVYXSettings?.current;
-      if(current==='connections')repair();
-    },100);
-  },{passive:true});
+  function clearInlineVisibility(panel){
+    ['display','visibility','opacity'].forEach(property=>panel.style.removeProperty(property));
+  }
+  function reconcile(forceInactive){
+    const root=settingsRoot();
+    if(!root)return;
+    const panels=connectionPanels(root);
+    if(!panels.length)return;
+    const active=!forceInactive&&selectedId(root)==='connections';
+    panels.forEach(panel=>{
+      panel.classList.add('ovyx-v91-connection-panel');
+      clearInlineVisibility(panel);
+      panel.classList.toggle('active',active);
+      panel.classList.toggle('is-v91-active',active);
+      panel.hidden=!active;
+    });
+  }
+  function schedule(forceInactive){
+    queuedInactive=queuedInactive||forceInactive===true;
+    if(queued)return;
+    queued=true;
+    window.setTimeout(()=>{
+      queued=false;
+      const inactive=queuedInactive;
+      queuedInactive=false;
+      reconcile(inactive);
+    },80);
+  }
+  function wrapShow(){
+    const settings=window.OVYXSettings;
+    if(!settings||typeof settings.show!=='function'||settings.show.__OVYX_CONNECTION_VISIBILITY_V2__)return;
+    const original=settings.show;
+    const wrapped=function(){
+      const result=original.apply(this,arguments);
+      schedule(false);
+      return result;
+    };
+    wrapped.__OVYX_CONNECTION_VISIBILITY_V2__=true;
+    settings.show=wrapped;
+  }
+  function install(){
+    wrapShow();
+    document.addEventListener('click',event=>{
+      if(!event.target?.closest?.('#view-settings [data-settings-nav]'))return;
+      schedule(false);
+    },true);
+    window.addEventListener('ovyx-settings-rendered',()=>schedule(false),{passive:true});
+    window.addEventListener('ovyx:view-changed',event=>{
+      const view=String(event.detail?.view||'').replace(/^view-/,'');
+      schedule(!!view&&view!=='settings');
+    },{passive:true});
+    schedule(false);
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',install,{once:true});
+  else install();
+  [150,500,1200].forEach(delay=>setTimeout(wrapShow,delay));
 })();
 </script>
 <style id="ovyx-toast-motion-v2">
