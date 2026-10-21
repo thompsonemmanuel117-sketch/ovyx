@@ -68,6 +68,12 @@ const REQUIRED_RUNTIMES = [
     path: '/assets/ovyx-webstudio-quality.js',
     signatures: ['function auditSources', 'cross-page fragment link', 'publishVerifiedPreview'],
   },
+  {
+    id: 'cancelSafety',
+    label: 'mobile Web Studio cancel and rollback',
+    path: '/assets/ovyx-webstudio-cancel-safety.js',
+    signatures: ['OVYX_WEBSTUDIO_CANCEL_SAFETY_V3', 'PERSISTED_SNAPSHOT_PREFIX', 'installBrowserFetchCancellation', 'restoreProjectOnly'],
+  },
 ];
 
 function findInjectedRuntimeUrls(html, origin) {
@@ -144,6 +150,33 @@ async function probeRuntime(origin, spec, scripts, fetchImpl) {
   };
 }
 
+async function probeFaviconRoutes(origin, fetchImpl) {
+  const paths = [
+    { id: 'canonical', path: '/ovyx-tab-v6.svg?v=20261021-6' },
+    { id: 'fallback', path: '/favicon.ico' },
+  ];
+  const entries = await Promise.all(paths.map(async item => {
+    const request = await getTextWithTimeout(fetchImpl, new URL(item.path, origin), 'image/svg+xml');
+    const response = request.response;
+    const headers = response ? response.headers : null;
+    const contentType = String(headers && headers.get('content-type') || '').toLowerCase();
+    const cacheControl = String(headers && headers.get('cache-control') || '').toLowerCase();
+    const validSvg = !!(request.body && request.body.trim().startsWith('<svg') && request.body.includes('<title id="title">OVYX</title>'));
+    const noStore = /no-store|no-cache/.test(cacheControl);
+    const ok = !!(response && response.ok && contentType.includes('image/svg+xml') && validSvg && noStore);
+    return [item.id, {
+      ok,
+      path: item.path,
+      httpStatus: response ? response.status : null,
+      contentType: contentType.slice(0, 100),
+      noStore,
+      brandSignaturePresent: validSvg,
+      error: ok ? '' : request.error || 'The favicon route did not return the canonical OVYX SVG with no-cache headers.',
+    }];
+  }));
+  return Object.fromEntries(entries);
+}
+
 /**
  * Smoke-check the public Pages shell and the actual Web Studio runtimes used by
  * research, source-scoped editing, one-click suggestion application, and QA.
@@ -194,11 +227,13 @@ export async function probeApplicationShell(deploymentUrl, fetchImpl = globalThi
     spec.id,
     { ...runtimes[index], label: spec.label, path: spec.path },
   ]));
+  const faviconRoutes = await probeFaviconRoutes(origin, fetchImpl);
   const quality = requiredRuntimes.quality;
-  const ok = runtimes.every(runtime => runtime.ok);
-  const error = ok
-    ? ''
-    : runtimes.filter(runtime => !runtime.ok).map(runtime => runtime.error).filter(Boolean).join(' ');
+  const ok = runtimes.every(runtime => runtime.ok) && Object.values(faviconRoutes).every(route => route.ok);
+  const errors = [
+    ...runtimes.filter(runtime => !runtime.ok).map(runtime => runtime.error),
+    ...Object.values(faviconRoutes).filter(route => !route.ok).map(route => route.error),
+  ].filter(Boolean);
   return {
     ok,
     status: ok ? 'healthy' : 'degraded',
@@ -206,12 +241,13 @@ export async function probeApplicationShell(deploymentUrl, fetchImpl = globalThi
     contentType: contentType.slice(0, 100),
     htmlCharacters: html.length,
     requiredRuntimes,
+    faviconRoutes,
     qualityRuntimeInjected: !!quality.injected,
     qualityRuntimeVersion: quality.version,
     qualityRuntimeAssetOk: !!quality.assetOk,
     qualityRuntimeAssetHttpStatus: quality.httpStatus,
     qualityRuntimeAssetContentType: quality.contentType,
     qualityRuntimeSignaturePresent: !!quality.signaturePresent,
-    error,
+    error: errors.join(' '),
   };
 }
