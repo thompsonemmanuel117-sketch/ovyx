@@ -139,6 +139,44 @@ try {
   assert.equal(noLogo.saveCount, 3, 'An unchanged project must not be saved as if it had been modified.');
   assert.equal(noLogo.tabFavicon, null, 'A project without a verified logo must not keep the previous project favicon.');
 
+  // A real project may paint its logo in the running preview even if that
+  // image is absent from the saved HTML shell and is not imported by source
+  // files. The tab favicon must follow the actual rendered brand element.
+  await brandingPage.evaluate(async () => {
+    const graph = { version: 2, entry: 'index.html', files: {
+      'index.html': { type: 'text/html', content: '<!doctype html><html lang="en"><head><title>Preview-only logo</title><link rel="icon" href="/assets/ovyx-brand-mark.svg"></head><body><main id="preview-root">Rendered app shell without an inline logo</main></body></html>' },
+      'assets/industrial-logo.svg': { type: 'image/svg+xml', content: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#d8a93e" d="M24 3 45 24 24 45 3 24Z"/><circle cx="24" cy="24" r="8" fill="#111827"/></svg>' }
+    }, updatedAt: 5 };
+    window.WebStudio.graph = graph;
+    window.KernelState.activeProject.ovyxGraph = graph;
+    window.KernelState.activeProject.assets = [];
+    let frame = document.getElementById('ws-canvas-iframe');
+    if (!frame) {
+      frame = document.createElement('iframe');
+      frame.id = 'ws-canvas-iframe';
+      document.body.appendChild(frame);
+    }
+    await new Promise(resolve => {
+      frame.onload = resolve;
+      frame.srcdoc = '<!doctype html><html lang="en"><head><title>Preview</title></head><body><header><img class="brand-logo" alt="Industrial brand logo" src="assets/industrial-logo.svg"></header><main>Live preview</main></body></html>';
+    });
+    window.dispatchEvent(new Event('ovyx:preview-updated'));
+  });
+  await brandingPage.waitForFunction(() =>
+    window.WebStudio.graph.files['index.html'].content.includes('data:image/svg+xml;charset=utf-8,') &&
+    document.querySelector('link[rel~="icon"][data-ovyx-project-favicon]')?.getAttribute('href')?.startsWith('data:image/svg+xml;charset=utf-8,'),
+    null,
+    { timeout: 5000 }
+  );
+  const previewBranding = await brandingPage.evaluate(() => ({
+    html: window.WebStudio.graph.files['index.html'].content,
+    tabFavicon: document.querySelector('link[rel~="icon"][data-ovyx-project-favicon]')?.getAttribute('href') || null,
+    saveCount: window.__projectSaveCount
+  }));
+  assert.ok(previewBranding.html.includes('data:image/svg+xml;charset=utf-8,'), 'A logo only visible in the rendered preview must be persisted as the generated project favicon.');
+  assert.ok(previewBranding.tabFavicon?.startsWith('data:image/svg+xml;charset=utf-8,'), 'The actual rendered preview logo must be used for the active browser tab favicon.');
+  assert.equal(previewBranding.saveCount, 4, 'Live-preview logo detection must save the corrected project graph exactly once.');
+
   await page.setContent(fixture, { waitUntil: 'domcontentloaded' });
   await page.addScriptTag({ path: runtimePath });
   await page.addScriptTag({ path: navigationPolishPath });
