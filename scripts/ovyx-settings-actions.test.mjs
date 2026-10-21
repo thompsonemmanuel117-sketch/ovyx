@@ -296,7 +296,7 @@ assert.ok(cancelSafetyRuntime.includes('window.setInterval(function ()')
   && cancelSafetyRuntime.includes('install(studio)'),
   'The cancellation guard must rebind after the app replaces its WebStudio controller or agent methods.');
 assert.ok(cancelSafetyRuntime.includes('function taskIsRunning(studio)')
-  && cancelSafetyRuntime.includes('Number(studio.__ovyxTaskInFlightCount || 0) > 0'),
+  && cancelSafetyRuntime.includes('Number(taskSession.inFlightCount || 0) > 0'),
   'Cancel visibility must follow the tracked async task even if a mobile handler clears pendingBuild early.');
 assert.ok(cancelSafetyRuntime.includes('taskSession.generation = Number(taskSession.generation || 0) + 1')
   && cancelSafetyRuntime.includes('controllers.forEach(function (controller)')
