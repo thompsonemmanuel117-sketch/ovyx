@@ -147,8 +147,11 @@
   }
   function isBackendImplementationPath(rawPath) {
     var path = String(rawPath || '').replace(/\\/g, '/').replace(/^\/+/, '');
-    if (/(^|\/)(?:api|functions|server|backend|migrations|prisma|drizzle|convex|database|db)(?:\/|$)/i.test(path)) return true;
-    if (/(^|\/)supabase\/functions(?:\/|$)/i.test(path)) return true;
+    if (/^(?:api|functions|server|backend|migrations|prisma|drizzle|convex|database|db)(?:\/|$)/i.test(path)) return true;
+    if (/(^|\/)(?:server|backend|migrations|prisma|drizzle|convex|database|db)(?:\/|$)/i.test(path)) return true;
+    if (/(^|\/)(?:app|pages)\/api(?:\/|$)/i.test(path)) return true;
+    if (/^(?:packages|apps|services)\/api(?:\/|$)/i.test(path)) return true;
+    if (/^supabase\/functions(?:\/|$)/i.test(path)) return true;
     if (/(^|\/)(?:schema\.sql|schema\.prisma)$/i.test(path)) return true;
     if (/^(?:server|api|backend)\.(?:js|cjs|mjs|ts|cts|mts|py|go|rb|php)$/i.test(path)) return true;
     if (/^(?:app|main|manage|wsgi|asgi)\.(?:py|go|rb|php)$/i.test(path)) return true;
