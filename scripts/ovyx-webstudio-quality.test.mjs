@@ -34,8 +34,11 @@ assert.ok(!navigationPolish.includes("header.inert ="), 'The navigation polish m
 assert.ok(navigationPolish.includes('removeMobileOverlayOverrides'), 'Mobile drawer overrides must be removed when navigation closes.');
 assert.ok(navigationPolish.includes("target.closest('#ovyx-desktop-sidebar-close')"), 'The existing desktop sidebar close control must also close the Web Studio drawer.');
 assert.ok(navigationPolish.includes('window.__OVYX_WS_NAV_HEADER_POLISH_V4__ = true'), 'The navigation runtime must use a matching V4 idempotence guard.');
-assert.ok(projectBranding.includes('window.__OVYX_WS_PROJECT_BRANDING_V7__ = true'), 'The project branding runtime must use a matching V7 idempotence guard.');
+assert.ok(projectBranding.includes('window.__OVYX_WS_PROJECT_BRANDING_V8__ = true'), 'The project branding runtime must use a matching V8 idempotence guard.');
 assert.ok(projectBranding.includes('function renderedCssBrandCandidates(doc, first, files)'), 'Favicon detection must inspect CSS backgrounds and pseudo-elements on brand-labelled preview nodes.');
+assert.ok(projectBranding.includes('function renderedPreviewIconCandidates(doc, first, files)'), 'A declared favicon from the live project preview must take priority over inferred logo candidates.');
+assert.ok(projectBranding.includes('fromExplicitPreviewIcon: true'), 'Explicit project favicon discovery must be marked as the highest-confidence candidate.');
+assert.ok(projectBranding.includes("split(/\\s+/).filter(Boolean)"), 'Favicon rel parsing must split multi-token values like shortcut icon without a MutationObserver loop.');
 assert.ok(projectBranding.includes('function renderedPreviewIconCandidates(doc, first, files)'), 'A declared favicon from the live project preview must be preferred to inferred logo candidates.');
 assert.ok(projectBranding.includes('fromExplicitPreviewIcon: true'), 'An explicit project favicon must carry a high-confidence candidate marker.');
 assert.ok(projectBranding.includes('split(/\\s+/).filter(Boolean)'), 'Favicon rel parsing must correctly split multi-token values such as shortcut icon without creating a mutation loop.');
@@ -101,7 +104,8 @@ for (const token of [
 assert.ok(middleware.includes('/assets/ovyx-webstudio-quality.js?v=20261021-1'), 'The quality inspector must load from the application-shell middleware.');
 assert.equal((middleware.match(/\/assets\/ovyx-webstudio-quality\.js\?v=20261021-1/g) || []).length, 1, 'The quality inspector must be injected exactly once per application shell.');
 assert.ok(middleware.includes('/assets/ovyx-webstudio-navigation-polish.js?v=20261021-4'), 'Navigation header behavior must load from the application shell with the updated cache key.');
-assert.ok(middleware.includes('/assets/ovyx-webstudio-project-branding.js?v=20261021-7'), 'Project branding correction must load from the application shell with the refreshed CSS-logo resolver cache key.');
+assert.ok(middleware.includes('/assets/ovyx-webstudio-project-branding.js?v=20261021-8'), 'Project branding correction must load from the application shell with the refreshed V8 resolver cache key.');
+assert.ok(middleware.includes('<link rel="icon" type="image/svg+xml" href="/assets/ovyx-brand-mark.svg?v=20261021-1">'), 'The app shell must have an explicit browser favicon and avoid a stale implicit /favicon.ico.');
 assert.ok(middleware.includes('<link rel="icon" type="image/svg+xml" href="/assets/ovyx-brand-mark.svg?v=20261021-1">'), 'The app shell must declare an explicit browser favicon instead of relying on a stale implicit /favicon.ico.');
 assert.ok(/\/assets\/ovyx-webstudio-navigation-polish\.js\s+Cache-Control: no-store, no-cache, must-revalidate/.test(headers), 'Navigation header behavior must not be served from a stale cache.');
 assert.ok(/\/assets\/ovyx-webstudio-project-branding\.js\s+Cache-Control: no-store, no-cache, must-revalidate/.test(headers), 'Project branding correction must not be served from a stale cache.');
