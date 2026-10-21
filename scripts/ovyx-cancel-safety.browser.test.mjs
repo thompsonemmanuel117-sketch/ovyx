@@ -120,6 +120,15 @@ try {
     && window.WebStudio.runBuildAgent.__ovyxCancelSafetyWrappedV2 === true
     && window.WebStudio.cancelActiveTask.__ovyxCancelSafetyOwnerV2 === true,
   null, { timeout: 5000 });
+  await page.evaluate(() => {
+    const coordinator = window.OVYXWebStudioCancelSafety;
+    const originalCancel = coordinator.cancel.bind(coordinator);
+    window.__cancelCoordinatorCalls = 0;
+    coordinator.cancel = function () {
+      window.__cancelCoordinatorCalls += 1;
+      return originalCancel();
+    };
+  });
   const cancel = page.locator('#ws-task-cancel');
   await cancel.waitFor({ state: 'visible', timeout: 5000 });
   await cancel.tap();
@@ -148,6 +157,7 @@ try {
       abortCount: window.__cancelAbortCount,
       controllerCleared: studio.activeAbortController == null,
       rebindOwnedCurrentStudio: window.WebStudio.cancelActiveTask.__ovyxCancelSafetyOwnerV2 === true,
+      coordinatorCalls: Number(window.__cancelCoordinatorCalls || 0),
       sharedSnapshotCleared: window.__OVYX_WEBSTUDIO_TASK_SESSION_V2__?.snapshot == null,
       epochAdvanced: Number(studio.requestEpoch || 0) > Number(window.__epochBeforeCancel || 0),
       generationAdvanced: Number(studio.__ovyxTaskGeneration || 0) > Number(window.__generationBeforeCancel || 0),
@@ -170,6 +180,7 @@ try {
   assert.equal(rolledBack.abortCount, 1, 'Cancel must abort the captured controller even if abortActiveAi clears its reference.');
   assert.equal(rolledBack.controllerCleared, true, 'Cancel must release the active abort-controller reference.');
   assert.equal(rolledBack.rebindOwnedCurrentStudio, true, 'Cancel must be reattached to the replacement WebStudio instance.');
+  assert.equal(rolledBack.coordinatorCalls, 1, 'The touch Cancel control must dispatch through the shared cancellation coordinator.');
   assert.equal(rolledBack.sharedSnapshotCleared, true, 'The shared rollback session must clear after restoring the project even when Studio was replaced.');
   assert.equal(rolledBack.epochAdvanced, true, 'Cancel must invalidate in-flight responses from the cancelled request.');
   assert.equal(rolledBack.generationAdvanced, true, 'Cancel must invalidate finally handlers from the cancelled task.');
