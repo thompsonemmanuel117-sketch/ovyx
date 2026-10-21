@@ -480,7 +480,8 @@
       try {
         var rendered = doc.documentElement.outerHTML;
         if (!rendered || !/<head\b/i.test(rendered) || !/<body\b/i.test(rendered)) return;
-        var found = renderedPreviewIconCandidates(doc, first || '', files);\n        found = found.concat(listBrandCandidates(first || '', rendered, files, project, true, supplementalAssets));
+        var found = renderedPreviewIconCandidates(doc, first || '', files);
+        found = found.concat(listBrandCandidates(first || '', rendered, files, project, true, supplementalAssets));
         found = found.concat(renderedCssBrandCandidates(doc, first || '', files));
         found.forEach(function (candidate) {
           // Prefer the real, rendered site mark over a fallback asset or a
