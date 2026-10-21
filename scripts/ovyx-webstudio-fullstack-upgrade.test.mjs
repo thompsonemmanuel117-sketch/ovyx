@@ -6,10 +6,17 @@ const research = await readFile(new URL('../assets/ovyx-webstudio-research.js', 
 const middleware = await readFile(new URL('../functions/_middleware.js', import.meta.url), 'utf8');
 const headers = await readFile(new URL('../_headers', import.meta.url), 'utf8');
 
-assert.match(upgrade, /Your design is the beginning\. Want the working system behind it\?/);
+assert.match(upgrade, /Your website is ready\. Want to make it a working app\?/);
 assert.match(upgrade, /Yes — upgrade my website/);
 assert.match(upgrade, /Not now/);
 assert.match(upgrade, /data-ovyx-fullstack-upgrade/);
+assert.match(upgrade, /cleanupHeaderTriggers\(view\)/);
+assert.match(upgrade, /__OVYX_WS_FULLSTACK_HEADER_CLEANUP_V2__/);
+assert.doesNotMatch(upgrade, /function ensureButtons\(\)/, 'The persistent Full-stack header button should not be created.');
+assert.doesNotMatch(upgrade, /button\.appendChild\(element\('span', '', 'Full-stack'\)\)/, 'No permanent Full-stack toolbar label should be created.');
+assert.match(upgrade, /width:min\(100%,460px\);max-height:min\(82vh,540px\)/);
+assert.match(upgrade, /event\.detail\.sourceTestsPassed !== true/);
+assert.match(upgrade, /version: '2\.0\.0'/);
 assert.match(upgrade, /ovyx-ws-fullstack-upgrade-overlay/);
 assert.match(upgrade, /studio\.runBuildAgent\(buildPrompt\(\), true/);
 assert.match(upgrade, /FULL_STACK_SETUP\.md/);
@@ -31,9 +38,9 @@ assert.match(research, /starter HTML scaffold/);
 assert.match(research, /isInitialWebsiteBuild: isInitialWebsiteBuild/);
 assert.match(research, /ovyx:webstudio-initial-site-built/);
 assert.match(research, /sourceTestsPassed: true/);
-assert.match(middleware, /\/assets\/ovyx-webstudio-fullstack-upgrade\.js\?v=20261020-1/);
+assert.match(middleware, /\/assets\/ovyx-webstudio-fullstack-upgrade\.js\?v=20261021-2/);
 assert.match(headers, /\/assets\/ovyx-webstudio-fullstack-upgrade\.js\n  Cache-Control: no-store, no-cache, must-revalidate/);
 assert.doesNotThrow(() => new Function(upgrade), 'The full-stack upgrade browser runtime must parse as valid JavaScript.');
 assert.doesNotThrow(() => new Function(research), 'The Web Studio research runtime must parse as valid JavaScript.');
 
-console.log('OVYX Web Studio full-stack upgrade offer, implementation contract, rollback safeguards, and first-build trigger tests passed.');
+console.log('OVYX compact post-build full-stack offer, no permanent header button, rollback safeguards and verified-build trigger passed.');

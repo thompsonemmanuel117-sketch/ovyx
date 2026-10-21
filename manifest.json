@@ -16,13 +16,13 @@
   "prefer_related_applications": false,
   "icons": [
     {
-      "src": "/assets/ovyx-notification-icon.png",
+      "src": "/assets/ovyx-brand-mark.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/assets/ovyx-notification-icon.svg",
+      "src": "/assets/ovyx-brand-mark.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"

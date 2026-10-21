@@ -5,7 +5,7 @@
   const API_NOTIFICATIONS = '/api/notifications';
   const API_PUSH = '/api/notifications/push';
   const API_PROFILE = '/api/settings/profile';
-  const BRAND_ICON = '/assets/ovyx-notification-icon.svg';
+  const BRAND_ICON = '/assets/ovyx-brand-mark.svg';
   let activeUid = '';
   let authListener = null;
   let currentNotifications = [];

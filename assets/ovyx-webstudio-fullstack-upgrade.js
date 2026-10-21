@@ -1,7 +1,7 @@
 (function () {
   'use strict';
-  if (window.__OVYX_WS_FULLSTACK_UPGRADE_V1__) return;
-  window.__OVYX_WS_FULLSTACK_UPGRADE_V1__ = true;
+  if (window.__OVYX_WS_FULLSTACK_UPGRADE_V2__) return;
+  window.__OVYX_WS_FULLSTACK_UPGRADE_V2__ = true;
 
   var STYLE_ID = 'ovyx-ws-fullstack-upgrade-style-v1';
   var OVERLAY_ID = 'ovyx-ws-fullstack-upgrade-overlay';
@@ -59,33 +59,33 @@
     style.textContent = [
       '#'+OVERLAY_ID+'{position:fixed;inset:0;z-index:100100;background:rgba(3,5,8,.76);backdrop-filter:blur(12px);display:grid;place-items:center;padding:18px;overflow-y:auto}',
       '#'+OVERLAY_ID+'[hidden]{display:none!important}',
-      '#'+OVERLAY_ID+' .ovyx-ws-fs-dialog{position:relative;width:min(100%,620px);max-height:min(90vh,820px);overflow:auto;border:1px solid rgba(226,190,125,.3);border-radius:22px;background:radial-gradient(ellipse at 92% 0,rgba(197,156,85,.13),transparent 38%),linear-gradient(145deg,#171b22,#0b0e12 75%);box-shadow:0 26px 100px rgba(0,0,0,.55);color:#f2f3f5;font:500 13px/1.6 Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}',
-      '#'+OVERLAY_ID+' .ovyx-ws-fs-head{padding:26px 28px 14px;display:flex;gap:18px;align-items:flex-start}',
-      '#'+OVERLAY_ID+' .ovyx-ws-fs-mark{width:48px;height:48px;flex:0 0 48px;display:grid;place-items:center;border:1px solid rgba(232,197,130,.35);border-radius:15px;background:rgba(210,173,107,.1);color:#e9c989;font-size:23px}',
+      '#'+OVERLAY_ID+' .ovyx-ws-fs-dialog{position:relative;width:min(100%,460px);max-height:min(82vh,540px);overflow:auto;border:1px solid rgba(226,190,125,.3);border-radius:16px;background:radial-gradient(ellipse at 92% 0,rgba(197,156,85,.13),transparent 38%),linear-gradient(145deg,#171b22,#0b0e12 75%);box-shadow:0 26px 100px rgba(0,0,0,.55);color:#f2f3f5;font:500 13px/1.6 Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}',
+      '#'+OVERLAY_ID+' .ovyx-ws-fs-head{padding:17px 18px 8px;display:flex;gap:18px;align-items:flex-start}',
+      '#'+OVERLAY_ID+' .ovyx-ws-fs-mark{width:38px;height:38px;flex:0 0 38px;display:grid;place-items:center;border:1px solid rgba(232,197,130,.35);border-radius:11px;background:rgba(210,173,107,.1);color:#e9c989;font-size:19px}',
       '#'+OVERLAY_ID+' .ovyx-ws-fs-heading{flex:1;min-width:0}',
       '#'+OVERLAY_ID+' .ovyx-ws-fs-kicker{font-size:9px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#d7b978;margin-bottom:6px}',
-      '#'+OVERLAY_ID+' h2{font-size:clamp(21px,4vw,29px);line-height:1.16;letter-spacing:-.035em;margin:0;color:#fff;font-weight:750}',
-      '#'+OVERLAY_ID+' .ovyx-ws-fs-lead{font-size:12px;line-height:1.7;color:#b9c0cc;margin:10px 0 0}',
+      '#'+OVERLAY_ID+' h2{font-size:clamp(18px,3vw,22px);line-height:1.2;letter-spacing:-.035em;margin:0;color:#fff;font-weight:750}',
+      '#'+OVERLAY_ID+' .ovyx-ws-fs-lead{font-size:11px;line-height:1.5;color:#b9c0cc;margin:6px 0 0}',
       '#'+OVERLAY_ID+' .ovyx-ws-fs-close{flex:0 0 auto;border:0;border-radius:9px;width:34px;height:34px;background:rgba(255,255,255,.06);color:#cbd2dc;font-size:22px;cursor:pointer}',
-      '#'+OVERLAY_ID+' .ovyx-ws-fs-body{padding:8px 28px 22px}',
-      '#'+OVERLAY_ID+' .ovyx-ws-fs-benefits{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0 17px}',
-      '#'+OVERLAY_ID+' .ovyx-ws-fs-benefit{border:1px solid rgba(255,255,255,.09);border-radius:13px;padding:12px;background:rgba(255,255,255,.025);min-width:0}',
-      '#'+OVERLAY_ID+' .ovyx-ws-fs-benefit b{display:block;font-size:11px;color:#f2d9a5;margin-bottom:4px}',
-      '#'+OVERLAY_ID+' .ovyx-ws-fs-benefit span{display:block;color:#aeb7c4;font-size:10px;line-height:1.55}',
-      '#'+OVERLAY_ID+' .ovyx-ws-fs-note{padding:12px 13px;border-left:2px solid #c7a76a;background:rgba(199,167,106,.075);border-radius:0 10px 10px 0;color:#c2cad5;font-size:10px;line-height:1.65}',
+      '#'+OVERLAY_ID+' .ovyx-ws-fs-body{padding:5px 18px 12px}',
+      '#'+OVERLAY_ID+' .ovyx-ws-fs-benefits{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:9px 0 10px}',
+      '#'+OVERLAY_ID+' .ovyx-ws-fs-benefit{border:1px solid rgba(255,255,255,.09);border-radius:10px;padding:9px;background:rgba(255,255,255,.025);min-width:0}',
+      '#'+OVERLAY_ID+' .ovyx-ws-fs-benefit b{display:block;font-size:10px;color:#f2d9a5;margin-bottom:2px}',
+      '#'+OVERLAY_ID+' .ovyx-ws-fs-benefit span{display:block;color:#aeb7c4;font-size:9px;line-height:1.45}',
+      '#'+OVERLAY_ID+' .ovyx-ws-fs-note{padding:9px 10px;border-left:2px solid #c7a76a;background:rgba(199,167,106,.075);border-radius:0 10px 10px 0;color:#c2cad5;font-size:9px;line-height:1.5}',
       '#'+OVERLAY_ID+' .ovyx-ws-fs-note b{color:#f0d8a8}',
-      '#'+OVERLAY_ID+' .ovyx-ws-fs-actions{display:flex;flex-wrap:wrap;gap:9px;padding:18px 28px 24px;border-top:1px solid rgba(255,255,255,.08)}',
-      '#'+OVERLAY_ID+' .ovyx-ws-fs-primary,#'+OVERLAY_ID+' .ovyx-ws-fs-secondary{min-height:42px;border-radius:10px;padding:10px 15px;font:750 11px/1.3 Inter,system-ui,sans-serif;cursor:pointer}',
+      '#'+OVERLAY_ID+' .ovyx-ws-fs-actions{display:flex;flex-wrap:wrap;gap:7px;padding:12px 18px 16px;border-top:1px solid rgba(255,255,255,.08)}',
+      '#'+OVERLAY_ID+' .ovyx-ws-fs-primary,#'+OVERLAY_ID+' .ovyx-ws-fs-secondary{min-height:38px;border-radius:9px;padding:9px 12px;font:750 10px/1.3 Inter,system-ui,sans-serif;cursor:pointer}',
       '#'+OVERLAY_ID+' .ovyx-ws-fs-primary{flex:1 1 220px;border:1px solid #e1c184;background:linear-gradient(135deg,#f3ddb0,#c49b54);color:#17130b;box-shadow:0 6px 22px rgba(191,151,80,.13)}',
       '#'+OVERLAY_ID+' .ovyx-ws-fs-secondary{border:1px solid rgba(255,255,255,.13);background:rgba(255,255,255,.04);color:#d0d6df}',
       '#'+OVERLAY_ID+' button:focus-visible{outline:2px solid #f1d7a0;outline-offset:3px}',
-      '#'+OVERLAY_ID+' .ovyx-ws-fs-progress{padding:0 28px 24px;color:#cbd2dc;font-size:11px}',
+      '#'+OVERLAY_ID+' .ovyx-ws-fs-progress{padding:0 18px 16px;color:#cbd2dc;font-size:10px}',
       '#'+OVERLAY_ID+' .ovyx-ws-fs-progress[hidden]{display:none!important}',
       '#'+OVERLAY_ID+' .ovyx-ws-fs-spinner{display:inline-block;width:14px;height:14px;margin-right:8px;vertical-align:-3px;border:2px solid rgba(233,201,137,.26);border-top-color:#e9c989;border-radius:50%;animation:ovyxFsSpin .8s linear infinite}',
       '#view-webstudio .ovyx-ws-fullstack-trigger{display:inline-flex;align-items:center;gap:6px;border-color:rgba(224,190,126,.28)!important;color:#e9ce97!important}',
       '#view-webstudio .ovyx-ws-fullstack-trigger:focus-visible{outline:2px solid #e9ce97;outline-offset:2px}',
       '@keyframes ovyxFsSpin{to{transform:rotate(360deg)}}',
-      '@media(max-width:520px){#'+OVERLAY_ID+'{padding:10px}#'+OVERLAY_ID+' .ovyx-ws-fs-head{padding:20px 18px 10px;gap:12px}#'+OVERLAY_ID+' .ovyx-ws-fs-mark{width:40px;height:40px;flex-basis:40px;border-radius:12px}#'+OVERLAY_ID+' .ovyx-ws-fs-body{padding:8px 18px 18px}#'+OVERLAY_ID+' .ovyx-ws-fs-benefits{grid-template-columns:1fr}#'+OVERLAY_ID+' .ovyx-ws-fs-actions{padding:15px 18px 19px}#'+OVERLAY_ID+' .ovyx-ws-fs-progress{padding:0 18px 19px}}',
+      '@media(max-width:520px){#'+OVERLAY_ID+'{padding:10px}#'+OVERLAY_ID+' .ovyx-ws-fs-head{padding:14px 14px 7px;gap:10px}#'+OVERLAY_ID+' .ovyx-ws-fs-mark{width:34px;height:34px;flex-basis:34px;border-radius:10px}#'+OVERLAY_ID+' .ovyx-ws-fs-body{padding:5px 14px 10px}#'+OVERLAY_ID+' .ovyx-ws-fs-benefits{grid-template-columns:1fr;gap:6px;margin:7px 0 8px}#'+OVERLAY_ID+' .ovyx-ws-fs-benefit{padding:7px 8px}#'+OVERLAY_ID+' .ovyx-ws-fs-actions{padding:10px 14px 12px}#'+OVERLAY_ID+' .ovyx-ws-fs-progress{padding:0 14px 12px}}',
       '@media(prefers-reduced-motion:reduce){#'+OVERLAY_ID+' .ovyx-ws-fs-spinner{animation:none}}'
     ].join('\n');
     (document.head || document.documentElement).appendChild(style);
@@ -117,11 +117,11 @@
     var head = element('header', 'ovyx-ws-fs-head');
     head.appendChild(element('div', 'ovyx-ws-fs-mark', '↗'));
     var heading = element('div', 'ovyx-ws-fs-heading');
-    heading.appendChild(element('div', 'ovyx-ws-fs-kicker', 'OVYX WEB STUDIO · FULL-STACK MODE'));
-    var title = element('h2', '', 'Your design is the beginning. Want the working system behind it?');
+    heading.appendChild(element('div', 'ovyx-ws-fs-kicker', 'OVYX · WEBSITE BUILT'));
+    var title = element('h2', '', 'Your website is ready. Want to make it a working app?');
     title.id = 'ovyx-ws-fs-title';
     heading.appendChild(title);
-    var lead = element('p', 'ovyx-ws-fs-lead', 'Upgrade this website into an integration-ready web application. OVYX will inspect what you built and generate the backend structure and real workflow logic that fits the project—without throwing away your design.');
+    var lead = element('p', 'ovyx-ws-fs-lead', 'OVYX can add a project-specific backend, data workflows and account logic without throwing away your design.');
     lead.id = 'ovyx-ws-fs-lead';
     heading.appendChild(lead);
     head.appendChild(heading);
@@ -135,10 +135,10 @@
     var body = element('div', 'ovyx-ws-fs-body');
     var benefits = element('div', 'ovyx-ws-fs-benefits');
     [
-      ['Backend and APIs', 'Generate server-side endpoints and validation for the features this website actually needs.'],
-      ['Data and business logic', 'Add appropriate data models, persistence adapters and domain-specific workflows.'],
-      ['Accounts and permissions', 'Prepare authentication and authorization only where the product requires them.'],
-      ['Integration handoff', 'Create an environment-variable example and a clear setup guide for the backend services to connect.']
+      ['Backend + APIs', 'Server routes for your real features.'],
+      ['Data + workflows', 'Models, persistence and app logic.'],
+      ['Accounts + access', 'Authentication and permissions when needed.'],
+      ['Setup handoff', 'Environment examples and a clear setup guide.']
     ].forEach(function (item) {
       var card = element('div', 'ovyx-ws-fs-benefit');
       card.appendChild(element('b', '', item[0]));
@@ -149,7 +149,7 @@
     var note = element('div', 'ovyx-ws-fs-note');
     var noteLabel = element('b', '', 'Important: ');
     note.appendChild(noteLabel);
-    note.appendChild(document.createTextNode('OVYX can generate the code and connection points, but your database, auth, email, payments or other external services must still be connected and tested where needed. It will never invent credentials or pretend an unconnected service is live.'));
+    note.appendChild(document.createTextNode('External services still need real credentials, configuration and live testing. OVYX never invents credentials or claims an unconnected service is live.'));
     body.appendChild(note);
     dialog.appendChild(body);
 
@@ -366,27 +366,10 @@
       running = false;
     }
   }
-  function ensureButtons() {
-    var view = document.getElementById('view-webstudio');
+  function cleanupHeaderTriggers(view) {
     if (!view) return;
-    var hosts = view.querySelectorAll('.ovyx-ws-header-actions');
-    Array.prototype.forEach.call(hosts, function (host) {
-      if (host.querySelector('[' + BUTTON_ATTR + ']')) return;
-      var button = element('button', 'ovyx-ws-header-button ovyx-ws-fullstack-trigger');
-      button.type = 'button';
-      button.setAttribute(BUTTON_ATTR, '1');
-      button.setAttribute('aria-haspopup', 'dialog');
-      button.setAttribute('aria-label', 'Upgrade this website to full-stack functionality');
-      var icon = element('i', 'fa-solid fa-code');
-      icon.setAttribute('aria-hidden', 'true');
-      button.appendChild(icon);
-      button.appendChild(element('span', '', 'Full-stack'));
-      button.addEventListener('click', function (event) {
-        event.preventDefault();
-        showModal(getStudio(), false);
-      });
-      var preview = host.querySelector('#ws-preview-trigger');
-      if (preview) host.insertBefore(button, preview); else host.appendChild(button);
+    Array.prototype.forEach.call(view.querySelectorAll('[' + BUTTON_ATTR + '], .ovyx-ws-fullstack-trigger'), function (button) {
+      if (button && button.parentNode) button.parentNode.removeChild(button);
     });
   }
   function install() {
@@ -395,7 +378,13 @@
     if (!studio || !view) return false;
     studioRef = studio;
     ensureStyles();
-    ensureButtons();
+    cleanupHeaderTriggers(view);
+    if (!window.__OVYX_WS_FULLSTACK_HEADER_CLEANUP_V2__ && typeof MutationObserver === 'function') {
+      window.__OVYX_WS_FULLSTACK_HEADER_CLEANUP_V2__ = new MutationObserver(function () {
+        cleanupHeaderTriggers(view);
+      });
+      window.__OVYX_WS_FULLSTACK_HEADER_CLEANUP_V2__.observe(view, { childList: true, subtree: true });
+    }
     return true;
   }
   var attempts = 0;
@@ -403,7 +392,8 @@
     if (install()) return;
     if (attempts++ < 80) window.setTimeout(boot, 200);
   }
-  window.addEventListener('ovyx:webstudio-initial-site-built', function () {
+  window.addEventListener('ovyx:webstudio-initial-site-built', function (event) {
+    if (!event || !event.detail || event.detail.sourceTestsPassed !== true) return;
     window.setTimeout(function () { showModal(getStudio(), true); }, 150);
   });
   document.addEventListener('keydown', function (event) {
@@ -425,7 +415,7 @@
   });
   window.OVYXWebStudioFullStackUpgrade = {
     open: function () { showModal(getStudio(), false); },
-    version: '1.0.0'
+    version: '2.0.0'
   };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
   else boot();

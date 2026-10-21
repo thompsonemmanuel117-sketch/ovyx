@@ -201,7 +201,7 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
   await upgradePage.addScriptTag({ path: researchRuntimePath });
   await upgradePage.addScriptTag({ path: fullstackRuntimePath });
   await upgradePage.addScriptTag({ path: exportRuntimePath });
-  await upgradePage.waitForFunction(() => !!window.OVYXWebStudioFullStackUpgrade && !!window.OVYXWebStudioProjectExport && document.querySelector('[data-ovyx-fullstack-upgrade]'));
+  await upgradePage.waitForFunction(() => !!window.OVYXWebStudioFullStackUpgrade && !!window.OVYXWebStudioProjectExport && document.querySelector('#view-webstudio .ovyx-ws-header-actions'));
   await upgradePage.evaluate(() => {
     const codeHost = document.getElementById('ws-code-workspace-host');
     codeHost.innerHTML = '<div class="ovyx-ws-code-root"><header id="ovyx-code-project-header" style="display:flex;align-items:center;gap:10px"><button id="ovyx-code-back" type="button">Back</button><b>OVYX CODE</b><span id="ovyx-code-dirty">CLEAN</span><div style="flex:1"></div><button id="ovyx-code-download" type="button">Download</button></header></div>';
@@ -225,7 +225,16 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
   assert.equal(await upgradePage.locator('#ws-code-workspace-host [data-ovyx-project-export]').count(), 1, 'The existing Download action must be upgraded inside the project Code workspace.');
   assert.equal(await upgradePage.locator('#ws-code-workspace-host [data-ovyx-project-export]').innerText(), 'Download code', 'The Code workspace download action must have a clear label.');
   assert.equal(await upgradePage.locator('.ovyx-ws-header-actions [data-ovyx-project-export-group]').count(), 0, 'Download controls must not clutter the Web Studio chat/header area.');
-  assert.equal(await upgradePage.locator('[data-ovyx-fullstack-upgrade]').count(), 1, 'The persistent Full-stack action must remain available in the Web Studio header.');
+  assert.equal(await upgradePage.locator('#view-webstudio .ovyx-ws-header-actions [data-ovyx-fullstack-upgrade]').count(), 0, 'The Full-stack action must not remain in the Web Studio header.');
+  await upgradePage.evaluate(() => {
+    const toggle = document.createElement('button');
+    toggle.id = 'ws-sidebar-trigger';
+    toggle.type = 'button';
+    toggle.textContent = 'Sidebar';
+    document.querySelector('#view-webstudio .ovyx-ws-header-actions').prepend(toggle);
+  });
+  await upgradePage.locator('#ws-sidebar-trigger').click();
+  assert.equal(await upgradePage.locator('#view-webstudio .ovyx-ws-header-actions [data-ovyx-fullstack-upgrade]').count(), 0, 'Clicking the sidebar arrow must not surface a persistent Full-stack header action.');
 
   await upgradePage.locator('[data-ovyx-code-verify]').click();
   await upgradePage.waitForFunction(() => window.__qualityVerifyCalls === 1 && document.querySelector('[data-ovyx-code-verify]')?.getAttribute('data-quality-status') === 'pass');
@@ -242,11 +251,14 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
   await upgradePage.evaluate(() => { window.__nextQualityReport = null; });
   await upgradePage.evaluate(() => window.WebStudio.submitPrompt());
   await upgradePage.locator('#ovyx-ws-fullstack-upgrade-overlay').waitFor({ state: 'visible', timeout: 5000 });
-  assert.match(await upgradePage.locator('#ovyx-ws-fs-title').innerText(), /working system behind it/i, 'The automatic offer must explain the full-stack upgrade.');
+  assert.match(await upgradePage.locator('#ovyx-ws-fs-title').innerText(), /working app/i, 'The automatic offer must explain the post-build full-stack upgrade.');
+  const popupWidth = await upgradePage.locator('.ovyx-ws-fs-dialog').evaluate(el => el.getBoundingClientRect().width);
+  assert.ok(popupWidth <= 470, 'The completed-build offer should be a compact popup, not a large header control panel.');
   assert.equal(await upgradePage.locator('[data-ovyx-fs-confirm]').innerText(), 'Yes — upgrade my website', 'The opt-in action must be clear and explicit.');
   await upgradePage.locator('.ovyx-ws-fs-secondary').click();
   assert.equal(await upgradePage.locator('#ovyx-ws-fullstack-upgrade-overlay').count(), 0, 'The user must be able to decline without changing their site.');
-  await upgradePage.locator('[data-ovyx-fullstack-upgrade]').click();
+  await upgradePage.evaluate(() => window.OVYXWebStudioFullStackUpgrade.open());
+  await upgradePage.locator('#ovyx-ws-fullstack-upgrade-overlay').waitFor({ state: 'visible', timeout: 5000 });
   await upgradePage.evaluate(() => {
     window.__originalFullStackQualityRun = window.OVYXWebStudioQuality && window.OVYXWebStudioQuality.run;
     if (window.OVYXWebStudioQuality) window.OVYXWebStudioQuality.run = async function () { return { checks: [], status: 'pass' }; };
@@ -350,7 +362,8 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
   assert.ok(backendManifest.frontendFilesExcludedByDesign >= 1, 'The backend manifest must disclose frontend files excluded by design.');
 
   await upgradePage.evaluate(() => { window.__fullstackFailTests = true; });
-  await upgradePage.locator('[data-ovyx-fullstack-upgrade]').click();
+  await upgradePage.evaluate(() => window.OVYXWebStudioFullStackUpgrade.open());
+  await upgradePage.locator('#ovyx-ws-fullstack-upgrade-overlay').waitFor({ state: 'visible', timeout: 5000 });
   await upgradePage.locator('[data-ovyx-fs-confirm]').click();
   await upgradePage.waitForFunction(() => document.querySelector('#ovyx-ws-fullstack-upgrade-overlay [data-status="failed"]'), null, { timeout: 15000 });
   const rollbackResult = await upgradePage.evaluate(() => ({
