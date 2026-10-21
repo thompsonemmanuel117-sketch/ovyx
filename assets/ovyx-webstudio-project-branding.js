@@ -1,8 +1,8 @@
 (function () {
   'use strict';
 
-  if (window.__OVYX_WS_PROJECT_BRANDING_V7__) return;
-  window.__OVYX_WS_PROJECT_BRANDING_V7__ = true;
+  if (window.__OVYX_WS_PROJECT_BRANDING_V8__) return;
+  window.__OVYX_WS_PROJECT_BRANDING_V8__ = true;
 
   var busy = false;
   var resolving = false;
