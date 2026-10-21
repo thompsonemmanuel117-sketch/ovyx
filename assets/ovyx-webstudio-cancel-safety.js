@@ -53,13 +53,34 @@
     return button;
   }
 
+  function taskIsRunning(studio) {
+    return !!(studio && (
+      studio.pendingBuild ||
+      studio.liveAiActive ||
+      Number(studio.__ovyxTaskInFlightCount || 0) > 0
+    ));
+  }
+
   function syncCancelButton(studio) {
     const button = document.getElementById('ws-task-cancel');
     if (!button) return;
-    const busy = !!(studio && studio.pendingBuild && studio.__ovyxTaskRollbackSnapshot);
+    const busy = !!(studio && studio.__ovyxTaskRollbackSnapshot && taskIsRunning(studio));
     button.hidden = !busy;
     button.disabled = !busy;
     button.setAttribute('aria-hidden', String(!busy));
+  }
+
+  function releaseComposerBusyState() {
+    const send = document.getElementById('ws-chat-send');
+    const composer = document.getElementById('ws-chat-composer');
+    if (composer) composer.removeAttribute('aria-busy');
+    if (send) {
+      send.removeAttribute('aria-busy');
+      // The composer should be usable immediately after Cancel. Respect an empty
+      // prompt instead of leaving the send button stuck disabled by the old task.
+      const input = document.querySelector('#ws-chat-input, #ws-chat-composer textarea, #ws-chat-composer input:not([type="hidden"])');
+      send.disabled = !String(input && input.value || '').trim();
+    }
   }
 
   function captureSnapshot(studio) {
@@ -181,48 +202,69 @@
       const args = Array.from(arguments);
       const repairSnapshot = methodName === 'runBuildAgent' ? snapshotFromRepair(args[4]) : null;
       let ownsSnapshot = false;
+      let generation = Number(this.__ovyxTaskGeneration || 0);
 
+      // Keep one immutable snapshot for the outer task. Some build flows nest
+      // askAgent/runBuildAgent calls; a nested call must not replace the user's
+      // last-good state or end the Cancel window while the outer task is running.
       if (repairSnapshot) {
-        if (!this.__ovyxTaskRollbackSnapshot) this.__ovyxTaskRollbackSnapshot = repairSnapshot;
-      } else if (!this.pendingBuild || !this.__ovyxTaskRollbackSnapshot) {
+        if (!this.__ovyxTaskRollbackSnapshot || !taskIsRunning(this)) {
+          this.__ovyxTaskRollbackSnapshot = repairSnapshot;
+          this.__ovyxTaskGeneration = generation + 1;
+          this.__ovyxTaskInFlightCount = 0;
+          generation = Number(this.__ovyxTaskGeneration);
+          ownsSnapshot = true;
+        }
+      } else if (!this.__ovyxTaskRollbackSnapshot || !taskIsRunning(this)) {
         const fresh = captureSnapshot(this);
         if (fresh) {
           this.__ovyxTaskRollbackSnapshot = fresh;
+          this.__ovyxTaskGeneration = generation + 1;
+          this.__ovyxTaskInFlightCount = 0;
+          generation = Number(this.__ovyxTaskGeneration);
           ownsSnapshot = true;
         }
       }
 
       const snapshot = this.__ovyxTaskRollbackSnapshot;
+      generation = Number(this.__ovyxTaskGeneration || generation || 0);
       this.__ovyxActiveTaskMethod = methodName;
+      this.__ovyxTaskInFlightCount = Math.max(0, Number(this.__ovyxTaskInFlightCount || 0)) + 1;
       ensureCancelButton(this);
       syncCancelButton(this);
+
+      let finished = false;
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        // Cancel advances the generation. A late finally from the aborted task
+        // must never clear state belonging to a newer task or resurrect a spinner.
+        if (Number(this.__ovyxTaskGeneration || 0) === generation) {
+          this.__ovyxTaskInFlightCount = Math.max(0, Number(this.__ovyxTaskInFlightCount || 0) - 1);
+          if (
+            ownsSnapshot &&
+            snapshot &&
+            this.__ovyxTaskRollbackSnapshot === snapshot &&
+            this.__ovyxTaskInFlightCount === 0
+          ) {
+            this.__ovyxTaskRollbackSnapshot = null;
+            this.__ovyxActiveTaskMethod = '';
+          }
+        }
+        syncCancelButton(this);
+      };
 
       let result;
       try { result = original.apply(this, args); }
       catch (error) {
-        if (ownsSnapshot && this.__ovyxTaskRollbackSnapshot === snapshot) {
-          this.__ovyxTaskRollbackSnapshot = null;
-          this.__ovyxActiveTaskMethod = '';
-        }
-        syncCancelButton(this);
+        finish();
         throw error;
       }
 
       if (result && typeof result.then === 'function') {
-        return result.finally(() => {
-          if (ownsSnapshot && this.__ovyxTaskRollbackSnapshot === snapshot) {
-            this.__ovyxTaskRollbackSnapshot = null;
-            this.__ovyxActiveTaskMethod = '';
-          }
-          syncCancelButton(this);
-        });
+        return result.finally(finish);
       }
-
-      if (ownsSnapshot && this.__ovyxTaskRollbackSnapshot === snapshot) {
-        this.__ovyxTaskRollbackSnapshot = null;
-        this.__ovyxActiveTaskMethod = '';
-      }
-      syncCancelButton(this);
+      finish();
       return result;
     };
     wrapped.__ovyxCancelSafetyWrapped = true;
@@ -238,7 +280,9 @@
 
     studio.cancelActiveTask = function () {
       const snapshot = this.__ovyxTaskRollbackSnapshot;
-      if (!snapshot || !this.pendingBuild) {
+      // Snapshot presence is authoritative here. The pending flag can be cleared
+      // by an abort/rejection handler just before this handler runs on mobile.
+      if (!snapshot) {
         syncCancelButton(this);
         return false;
       }
@@ -246,15 +290,25 @@
       const method = String(this.__ovyxActiveTaskMethod || 'current');
       const stateAtCancel = getState();
       const taskProjectWasActive = String(stateAtCancel && stateAtCancel.activeProject && stateAtCancel.activeProject.id || '') === String(snapshot.projectId);
-      try { this.abortActiveAi && this.abortActiveAi(); } catch (_) {}
+      const activeController = this.activeAbortController;
+
+      // Invalidate pending responses and old promise-finally handlers before
+      // aborting. Keep the controller reference because abortActiveAi may clear
+      // the field before invoking AbortController.abort().
+      this.__ovyxTaskGeneration = Number(this.__ovyxTaskGeneration || 0) + 1;
+      this.__ovyxTaskInFlightCount = 0;
       this.requestEpoch = Number(this.requestEpoch || 0) + 1;
       this.aiFrozen = false;
       this.pendingBuild = false;
       this.liveAiActive = false;
+      try { this.abortActiveAi && this.abortActiveAi(); } catch (_) {}
+      try { activeController && typeof activeController.abort === 'function' && activeController.abort(); } catch (_) {}
+      if (this.activeAbortController === activeController) this.activeAbortController = null;
 
       const restored = restoreProjectOnly(this, snapshot, taskProjectWasActive);
       this.__ovyxTaskRollbackSnapshot = null;
       this.__ovyxActiveTaskMethod = '';
+      releaseComposerBusyState();
       syncCancelButton(this);
 
       const message = restored
