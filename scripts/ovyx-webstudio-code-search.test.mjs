@@ -4,6 +4,7 @@ const runtime=fs.readFileSync('assets/ovyx-webstudio-code-search.js','utf8');
 const middleware=fs.readFileSync('functions/_middleware.js','utf8');
 const headers=fs.readFileSync('_headers','utf8');
 const workflow=fs.readFileSync('.github/workflows/ovyx-webstudio-quality-browser.yml','utf8');
+const app=fs.readFileSync('index.html','utf8');
 assert.doesNotThrow(()=>new Function(runtime));
 assert.ok(runtime.includes('window.__OVYX_WEBSTUDIO_CODE_SEARCH_V6__'));
 assert.ok(runtime.includes('function graphFiles()'));
@@ -32,4 +33,25 @@ assert.ok(middleware.includes('/assets/ovyx-webstudio-code-search.js?v=20261021-
 assert.match(headers,/\/assets\/ovyx-webstudio-code-search\.js[\s\S]{0,140}Cache-Control: no-store, no-cache, must-revalidate/);
 assert.ok(workflow.includes('assets/ovyx-webstudio-code-search.js'));
 assert.ok(workflow.includes('scripts/ovyx-webstudio-code-search.browser.test.mjs'));
-console.log('OVYX code workspace search and sidebar logo static tests passed.');
+// Cross-studio integration: Web Studio and Code must mutate the same active project graph.
+assert.ok(app.includes('syncGraphToProject(clearDirty=true)'));
+assert.ok(app.includes('project.ovyxGraph=this.graph'));
+assert.ok(app.includes('window.ProjectStore?.save?.()'));
+assert.ok(app.includes("window.openWebStudioCode=function(path)"));
+assert.ok(app.includes("var activeRoute=String(window.KernelState?.activeView||'').toLowerCase()"));
+assert.ok(app.includes("window.Router?.go?.('webstudio')"));
+assert.ok(app.includes('Studio.openCodeEditor?.(target)'));
+// App Studio must receive the active, current Web Studio graph as a versioned payload.
+assert.ok(app.includes("const graph=clone(W?.graph||project?.ovyxGraph||{},new WeakSet(),0)"));
+assert.ok(app.includes("source:{route:'web_studio'"));
+assert.ok(app.includes("target:{route:'app_studio',runtimeRoute:'appstudio',intent:'convert-web-to-mobile'}"));
+assert.ok(app.includes("localStorage.setItem('ovyx_active_web_payload',serialized)"));
+assert.ok(app.includes("window.dispatchEvent(new CustomEvent('ovyx:active-web-payload-ready'"));
+assert.ok(app.includes('window.AppStudio?.hydrateFromWebPayload?.(payload)'));
+assert.ok(app.includes("const payloadKey='ovyx_active_web_payload'"));
+assert.ok(app.includes('function hydrateFromWebPayload(payload)'));
+assert.ok(app.includes('window.AppStudio.hydrateFromWebPayload=hydrateFromWebPayload'));
+assert.ok(app.includes("window.addEventListener('ovyx:active-web-payload-ready'"));
+assert.ok(app.includes('function buildRequestPayload(buildIdValue,platforms)'));
+assert.ok(app.includes("sourceProjectId:String(state.payload?.source?.projectId||window.KernelState?.activeProject?.id||'')"));
+console.log('OVYX Code workspace and Web/App Studio integration static tests passed.');
