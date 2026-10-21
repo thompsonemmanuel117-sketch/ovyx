@@ -17,8 +17,7 @@ try {
 
   const iconLinks = page.locator('head link[rel~="icon"]');
   await page.waitForFunction(() => {
-    const icons = Array.from(document.head.querySelectorAll('link[rel]'))
-      .filter(link => String(link.rel || '').toLowerCase().split(/\\s+/).includes('icon'));
+    const icons = Array.from(document.head.querySelectorAll('link[rel~="icon"]'));
     return icons.some(link => (link.getAttribute('href') || '').includes('/assets/ovyx-brand-mark.svg'));
   }, null, { timeout: 10000 });
 
@@ -34,9 +33,9 @@ try {
   assert.equal(icons.length, 1, 'The app shell must expose exactly one browser-tab favicon.');
   assert.equal(icons[0].rel, 'icon', 'The app-shell favicon must use the icon relation.');
   assert.equal(icons[0].type, 'image/svg+xml', 'The app-shell favicon must be the SVG brand mark.');
-  assert.match(
-    icons[0].href || '',
-    /^\\/assets\\/ovyx-brand-mark\\.svg\\?v=20261021-3$/,
+  assert.equal(
+    icons[0].href,
+    '/assets/ovyx-brand-mark.svg?v=20261021-3',
     'The browser-tab favicon must resolve to the real OVYX brand-mark SVG cache key.'
   );
 
@@ -54,9 +53,8 @@ try {
   const iconUrl = new URL(icons[0].href, origin).href;
   const iconResponse = await page.request.get(iconUrl);
   assert.equal(iconResponse.status(), 200, 'The actual favicon asset must be served successfully.');
-  assert.match(
-    iconResponse.headers()['content-type'] || '',
-    /image\\/svg\\+xml/i,
+  assert.ok(
+    (iconResponse.headers()['content-type'] || '').toLowerCase().includes('image/svg+xml'),
     'The actual favicon response must have an SVG content type.'
   );
 
