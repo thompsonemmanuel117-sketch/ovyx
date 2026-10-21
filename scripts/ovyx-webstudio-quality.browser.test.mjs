@@ -8,6 +8,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const runtimePath = path.join(root, 'assets/ovyx-webstudio-quality.js');
 const navigationPolishPath = path.join(root, 'assets/ovyx-webstudio-navigation-polish.js');
 const projectBrandingPath = path.join(root, 'assets/ovyx-webstudio-project-branding.js');
+const settingsConnectionsVisibilityPath = path.join(root, 'assets/ovyx-settings-connections-visibility-fix.js');
 const fullstackRuntimePath = path.join(root, 'assets/ovyx-webstudio-fullstack-upgrade.js');
 const exportRuntimePath = path.join(root, 'assets/ovyx-webstudio-project-export.js');
 const researchRuntimePath = path.join(root, 'assets/ovyx-webstudio-research.js');
@@ -210,6 +211,92 @@ try {
   assert.ok(cssLogoBranding.tabFavicon?.startsWith('data:image/svg+xml;charset=utf-8,'), 'A CSS-rendered project logo must update the actual browser tab favicon.');
   assert.ok(cssLogoBranding.html.includes('id="css-logo-content"'), 'CSS-based favicon detection must preserve the project page content.');
   assert.equal(cssLogoBranding.saveCount, 5, 'CSS-based favicon detection must save the corrected project graph exactly once.');
+
+
+  // If the running project explicitly declares a favicon, prefer that icon
+  // over inferring one from its full-size wordmark in the rendered header.
+  await brandingPage.evaluate(async () => {
+    const declaredIcon = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><rect x="4" y="4" width="40" height="40" rx="8" fill="#ff0066"/></svg>';
+    const fullWordmark = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 48"><rect width="240" height="48" fill="#d8a93e"/></svg>';
+    const graph = { version: 2, entry: 'index.html', files: {
+      'index.html': { type: 'text/html', content: '<!doctype html><html><head><title>Declared icon project</title><link rel="icon" href="/assets/ovyx-brand-mark.svg"></head><body><main id="declared-icon-content">Preserve this project.</main></body></html>' },
+      'assets/industrial-site-icon.svg': { type: 'image/svg+xml', content: declaredIcon },
+      'assets/industrial-wordmark.svg': { type: 'image/svg+xml', content: fullWordmark }
+    }, updatedAt: 7 };
+    window.WebStudio.graph = graph;
+    window.KernelState.activeProject.ovyxGraph = graph;
+    window.KernelState.activeProject.assets = [];
+    const frame = document.getElementById('ws-canvas-iframe');
+    await new Promise(resolve => {
+      frame.onload = resolve;
+      frame.srcdoc = '<!doctype html><html><head><link rel="icon" href="assets/industrial-site-icon.svg"></head><body><header><img class="company-logo" alt="Company brand logo" src="assets/industrial-wordmark.svg"></header><main>Running project</main></body></html>';
+    });
+    window.dispatchEvent(new Event('ovyx:preview-updated'));
+  });
+  await brandingPage.waitForFunction(() =>
+    window.WebStudio.graph.files['index.html'].content.includes('data:image/svg+xml;charset=utf-8,') &&
+    document.querySelector('link[rel~="icon"][data-ovyx-project-favicon]')?.getAttribute('href')?.startsWith('data:image/svg+xml;charset=utf-8,'),
+    null,
+    { timeout: 5000 }
+  );
+  const declaredIconBranding = await brandingPage.evaluate(() => {
+    const href = document.querySelector('link[rel~="icon"][data-ovyx-project-favicon]')?.getAttribute('href') || '';
+    let decoded = '';
+    try { decoded = decodeURIComponent(href.slice(href.indexOf(',') + 1)); } catch (_) {}
+    return { href, decoded, html: window.WebStudio.graph.files['index.html'].content, saveCount: window.__projectSaveCount };
+  });
+  assert.ok(declaredIconBranding.decoded.includes('id="') === false, 'The declared icon must be read as an SVG image, not accidentally treated as page markup.');
+  assert.match(declaredIconBranding.decoded, /rect[^>]+fill="#ff0066"/, 'The explicitly declared project favicon must win over its larger wordmark.'); 
+  assert.ok(declaredIconBranding.html.includes('id="declared-icon-content"'), 'Applying the declared icon must preserve the rest of the project page.');
+  assert.equal(declaredIconBranding.saveCount, 6, 'The explicitly declared project icon must save the graph exactly once.');
+
+  // Regression: V91 left the Universal Connections panel visible with
+  // !important styles even after another Settings tab became active. Exercise
+  // the real visibility-fix runtime against that legacy DOM shape.
+  const settingsFixture = '<!doctype html><html><head><style>' +
+    '#view-settings [data-settings-panel]{display:none!important}' +
+    '#view-settings [data-settings-panel].active{display:block!important}' +
+    '#view-settings [data-settings-panel].ovyx-v91-connection-panel{display:none!important;visibility:hidden!important;opacity:0!important}' +
+    '#view-settings [data-settings-panel].ovyx-v91-connection-panel.is-v91-active{display:block!important;visibility:visible!important;opacity:1!important}' +
+    '</style></head><body><section id="view-settings"><aside class="ovyx-settings-sidebar">' +
+    '<button data-settings-nav="workspace" class="active">Workspace</button>' +
+    '<button data-settings-nav="appearance">Appearance</button>' +
+    '<button data-settings-nav="ai">AI</button>' +
+    '<button data-settings-nav="connections">Connections</button>' +
+    '</aside><main id="ovyx-settings-main">' +
+    '<section data-settings-panel="workspace" class="active">Workspace settings</section>' +
+    '<section data-settings-panel="appearance" hidden>Appearance settings</section>' +
+    '<section data-settings-panel="ai" hidden>AI settings</section>' +
+    '<section data-settings-panel="connections" class="ovyx-v91-connection-panel is-v91-active" style="display:block!important;visibility:visible!important;opacity:1!important"><div class="ovyx-v91-conn-shell">Universal Connections fixture</div></section>' +
+    '</main></section><script>' +
+    'window.OVYXSettings={root:document.getElementById("view-settings"),current:"workspace",show:function(id){this.current=id;this.root.querySelectorAll("[data-settings-panel]").forEach(function(p){var active=p.dataset.settingsPanel===id;p.classList.toggle("active",active);p.hidden=!active});this.root.querySelectorAll("[data-settings-nav]").forEach(function(n){n.classList.toggle("active",n.dataset.settingsNav===id)});if(id==="connections"){var p=this.root.querySelector("[data-settings-panel=connections]");p.classList.add("is-v91-active");p.style.setProperty("display","block","important");p.style.setProperty("visibility","visible","important");p.style.setProperty("opacity","1","important")}return true}};' +
+    '</script></body></html>';
+  await brandingPage.setContent(settingsFixture, { waitUntil: 'domcontentloaded' });
+  await brandingPage.addScriptTag({ path: settingsConnectionsVisibilityPath });
+  await brandingPage.waitForFunction(() => {
+    const p = document.querySelector('#view-settings [data-settings-panel="connections"]');
+    return !!p && getComputedStyle(p).display === 'none' && p.hidden;
+  }, null, { timeout: 5000 });
+  for (const id of ['workspace', 'appearance', 'ai']) {
+    await brandingPage.evaluate(id => window.OVYXSettings.show(id), id);
+    await brandingPage.waitForFunction(() => {
+      const p = document.querySelector('#view-settings [data-settings-panel="connections"]');
+      return !!p && getComputedStyle(p).display === 'none' && p.hidden && !p.classList.contains('is-v91-active');
+    }, null, { timeout: 5000 });
+    assert.equal(await brandingPage.locator('#view-settings [data-settings-panel="connections"]').isVisible(), false, 'Universal Connections must not leak into the ' + id + ' Settings tab.');
+  }
+  await brandingPage.evaluate(() => window.OVYXSettings.show('connections'));
+  await brandingPage.waitForFunction(() => {
+    const p = document.querySelector('#view-settings [data-settings-panel="connections"]');
+    return !!p && !p.hidden && getComputedStyle(p).display !== 'none' && p.classList.contains('active');
+  }, null, { timeout: 5000 });
+  assert.equal(await brandingPage.locator('#view-settings [data-settings-panel="connections"]').isVisible(), true, 'Universal Connections must remain usable when its own Settings tab is selected.');
+  await brandingPage.evaluate(() => window.OVYXSettings.show('workspace'));
+  await brandingPage.waitForFunction(() => {
+    const p = document.querySelector('#view-settings [data-settings-panel="connections"]');
+    return !!p && p.hidden && getComputedStyle(p).display === 'none' && !p.classList.contains('is-v91-active');
+  }, null, { timeout: 5000 });
+  await brandingPage.waitForTimeout(60);
 
   await page.setContent(fixture, { waitUntil: 'domcontentloaded' });
   await page.addScriptTag({ path: runtimePath });
