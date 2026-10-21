@@ -233,15 +233,32 @@ try {
     await page.locator('#view-settings').waitFor({ state: 'visible' });
 
     // The visible Settings Profile panel must have one renderer and one set of
-    // identity fields; the retired form must not reappear after boot/refresh.
+    // identity fields. Verify first open, then a real refresh and re-hydration.
+    const assertSingleProfileRenderer = async stage => {
+      await page.locator('#view-settings [data-settings-panel="profile"] #set-profile-name').waitFor({ state: 'visible' });
+      assert.equal(await page.locator('#view-settings [data-settings-panel="profile"]').count(), 1,
+        '[' + target.name + '] ' + stage + ' must contain exactly one Profile panel.');
+      assert.equal(await page.locator('[data-settings-panel="profile"]').count(), 1,
+        '[' + target.name + '] ' + stage + ' must not mount another Profile panel outside Settings.');
+      assert.equal(await page.locator('#view-settings [data-settings-panel="profile"] #set-profile-name').count(), 1,
+        '[' + target.name + '] ' + stage + ' must expose exactly one canonical display-name field.');
+      assert.equal(await page.locator('#set-profile-name-legacy').count(), 0,
+        '[' + target.name + '] Retired legacy Profile fields must not compete with the current renderer.');
+    };
     await page.evaluate(() => window.OVYXSettings.show('profile'));
-    await page.locator('#view-settings [data-settings-panel="profile"] #set-profile-name').waitFor({ state: 'visible' });
-    assert.equal(await page.locator('#view-settings [data-settings-panel="profile"]').count(), 1,
-      '[' + target.name + '] Settings must contain exactly one Profile panel.');
-    assert.equal(await page.locator('#view-settings [data-settings-panel="profile"] #set-profile-name').count(), 1,
-      '[' + target.name + '] Profile must expose exactly one canonical display-name field.');
-    assert.equal(await page.locator('#view-settings #set-profile-name-legacy').count(), 0,
-      '[' + target.name + '] Retired legacy Profile field must not compete with the current Profile renderer.');
+    await assertSingleProfileRenderer('Initial Profile open');
+
+    await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
+    await page.waitForFunction(
+      () => typeof window.Router?.go === 'function'
+        && typeof window.OVYXSettings?.show === 'function'
+        && typeof window.ThemeContext?.get === 'function',
+      null,
+      { timeout: 45000 },
+    );
+    await waitForRouteRestore(page);
+    await page.evaluate(() => window.OVYXSettings.show('profile'));
+    await assertSingleProfileRenderer('Profile after refresh');
     await page.evaluate(() => window.OVYXSettings.show('general'));
 
     // Regression: Universal Connections must only occupy its own Settings
