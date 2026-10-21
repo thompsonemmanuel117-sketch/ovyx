@@ -7,6 +7,13 @@ const headers = await readFile(new URL('../_headers', import.meta.url), 'utf8');
 
 assert.match(runtime, /data-ovyx-project-export/);
 assert.match(runtime, /Download code/);
+assert.match(runtime, /ovyx-code-download/);
+assert.match(runtime, /data-ovyx-code-verify/);
+assert.match(runtime, /Verify build/);
+assert.match(runtime, /ovyx-webstudio-quality-report/);
+assert.match(runtime, /does not certify live integrations or production deployment/);
+assert.match(runtime, /data-ovyx-code-download-group/);
+assert.doesNotMatch(runtime, /querySelectorAll\('\.ovyx-ws-header-actions'\)/, 'Project download controls must not be mounted in the Web Studio chat/header area.');
 assert.match(runtime, /Website only/);
 assert.match(runtime, /Backend only/);
 assert.match(runtime, /data-ovyx-project-export-website-only/);
@@ -36,8 +43,8 @@ assert.match(runtime, /possible embedded credential/);
 assert.match(runtime, /complete website project, including frontend and backend/);
 assert.match(runtime, /MAX_TOTAL_BYTES/);
 assert.match(runtime, /window\.OVYXWebStudioProjectExport =/);
-assert.match(middleware, /\/assets\/ovyx-webstudio-project-export\.js\?v=20261021-3/);
+assert.match(middleware, /\/assets\/ovyx-webstudio-project-export\.js\?v=20261021-4/);
 assert.match(headers, /\/assets\/ovyx-webstudio-project-export\.js\n  Cache-Control: no-store, no-cache, must-revalidate/);
 assert.doesNotThrow(() => new Function(runtime), 'Project ZIP exporter must parse as valid JavaScript.');
 
-console.log('OVYX Web Studio complete-project, website-only and backend-only ZIP export; backend handoff; path guards; and credential exclusion contracts passed.');
+console.log('OVYX Web Studio Code-area placement, build-verification status, complete-project, website-only and backend-only ZIP export; backend handoff; path guards; and credential exclusion contracts passed.');
