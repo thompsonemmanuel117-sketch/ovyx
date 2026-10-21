@@ -144,19 +144,31 @@
 
       const finalProject = clone(snapshot.project);
       finalProject.ovyxGraph = clone(snapshot.graph || finalProject.ovyxGraph || {});
-      const latestProjects = Array.isArray(state.projects) ? state.projects.slice() : [];
-      const finalIndex = latestProjects.findIndex(project => String(project && project.id || '') === targetId);
-      if (finalIndex >= 0) latestProjects[finalIndex] = finalProject;
-      else latestProjects.push(finalProject);
-      state.projects = latestProjects;
-      state.activeProject = finalProject;
-      studio.graph = clone(savedGraph);
-      try {
-        const prefix = String(studio.graphKeyPrefix || 'ovyx.ws.graph.v2.');
-        localStorage.setItem(prefix + targetId, JSON.stringify(studio.graph));
-      } catch (_) {}
+      // The render/preview path may replace window.KernelState while normalizing
+      // project data. Re-resolve the live state every time we apply the snapshot;
+      // writing through the pre-render object can restore the graph but leave the
+      // actual workspace with an empty active-project pointer.
+      const reapplyFinalSnapshot = () => {
+        const currentState = getState() || state;
+        const latestProjects = Array.isArray(currentState.projects) ? currentState.projects.slice() : [];
+        const finalIndex = latestProjects.findIndex(project => String(project && project.id || '') === targetId);
+        if (finalIndex >= 0) latestProjects[finalIndex] = finalProject;
+        else latestProjects.push(finalProject);
+        currentState.projects = latestProjects;
+        currentState.activeProject = finalProject;
+        studio.graph = clone(savedGraph);
+        try {
+          const prefix = String(studio.graphKeyPrefix || 'ovyx.ws.graph.v2.');
+          localStorage.setItem(prefix + targetId, JSON.stringify(studio.graph));
+        } catch (_) {}
+      };
+      reapplyFinalSnapshot();
       try { window.ProjectStore && window.ProjectStore.save && window.ProjectStore.save(); } catch (_) {}
       try { studio.renderCodeTree && studio.renderCodeTree(); } catch (_) {}
+      // Reapply once more after all renderers so cancellation cannot be undone by
+      // a late state normalization. This remains scoped to the task's project ID.
+      reapplyFinalSnapshot();
+      try { window.ProjectStore && window.ProjectStore.save && window.ProjectStore.save(); } catch (_) {}
     }
     return true;
   }
