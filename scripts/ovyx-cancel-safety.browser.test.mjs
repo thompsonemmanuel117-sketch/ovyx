@@ -89,6 +89,22 @@ try {
     window.__firstTrackedPromise = studio.runBuildAgent('Build this site');
     studio.pendingBuild = false;
     studio.liveAiActive = false;
+
+    // Reproduce the real boot/hydration race: the app replaces WebStudio and
+    // overwrites an agent method while the first request still owns a snapshot.
+    const replacement = Object.assign({}, studio);
+    replacement.runBuildAgent = function () {
+      this.pendingBuild = true;
+      this.liveAiActive = true;
+      let resolve;
+      const raw = new Promise(done => { resolve = done; });
+      window.__cancelResolvers.push(resolve);
+      window.__cancelRawPromises.push(raw);
+      return raw;
+    };
+    window.__replacedStudio = replacement;
+    window.WebStudio = replacement;
+
     const project = window.KernelState.activeProject;
     project.name = 'Partially overwritten project';
     project.pages.push({ id: 'temporary-page', name: 'Unexpected page', slug: '/temporary' });
@@ -98,6 +114,12 @@ try {
     window.__generationBeforeCancel = Number(studio.__ovyxTaskGeneration || 0);
   });
 
+  // Wait for the rebind guard to wrap the new controller/method before tapping Cancel.
+  await page.waitForFunction(() => !!window.__replacedStudio
+    && window.WebStudio === window.__replacedStudio
+    && window.WebStudio.runBuildAgent.__ovyxCancelSafetyWrappedV2 === true
+    && window.WebStudio.cancelActiveTask.__ovyxCancelSafetyOwnerV2 === true,
+  null, { timeout: 5000 });
   const cancel = page.locator('#ws-task-cancel');
   await cancel.waitFor({ state: 'visible', timeout: 5000 });
   await cancel.tap();
@@ -118,6 +140,8 @@ try {
       snapshotCleared: studio.__ovyxTaskRollbackSnapshot == null,
       abortCount: window.__cancelAbortCount,
       controllerCleared: studio.activeAbortController == null,
+      rebindOwnedCurrentStudio: window.WebStudio.cancelActiveTask.__ovyxCancelSafetyOwnerV2 === true,
+      sharedSnapshotCleared: window.__OVYX_WEBSTUDIO_TASK_SESSION_V2__?.snapshot == null,
       epochAdvanced: Number(studio.requestEpoch || 0) > Number(window.__epochBeforeCancel || 0),
       generationAdvanced: Number(studio.__ovyxTaskGeneration || 0) > Number(window.__generationBeforeCancel || 0),
       sendBusy: document.getElementById('ws-chat-send').hasAttribute('aria-busy'),
@@ -136,6 +160,8 @@ try {
   assert.equal(rolledBack.snapshotCleared, true, 'Cancel must release its rollback snapshot.');
   assert.equal(rolledBack.abortCount, 1, 'Cancel must abort the captured controller even if abortActiveAi clears its reference.');
   assert.equal(rolledBack.controllerCleared, true, 'Cancel must release the active abort-controller reference.');
+  assert.equal(rolledBack.rebindOwnedCurrentStudio, true, 'Cancel must be reattached to the replacement WebStudio instance.');
+  assert.equal(rolledBack.sharedSnapshotCleared, true, 'The shared rollback session must clear after restoring the project even when Studio was replaced.');
   assert.equal(rolledBack.epochAdvanced, true, 'Cancel must invalidate in-flight responses from the cancelled request.');
   assert.equal(rolledBack.generationAdvanced, true, 'Cancel must invalidate finally handlers from the cancelled task.');
   assert.equal(rolledBack.sendBusy, false, 'Cancel must clear the stuck busy state from the send control.');
