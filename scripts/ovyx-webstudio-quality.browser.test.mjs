@@ -11,9 +11,13 @@ const projectBrandingPath = path.join(root, 'assets/ovyx-webstudio-project-brand
 const fullstackRuntimePath = path.join(root, 'assets/ovyx-webstudio-fullstack-upgrade.js');
 const exportRuntimePath = path.join(root, 'assets/ovyx-webstudio-project-export.js');
 const researchRuntimePath = path.join(root, 'assets/ovyx-webstudio-research.js');
+const faviconGuardPath = path.join(root, 'assets/ovyx-app-favicon-guard.js');
 const browser = await chromium.launch({ headless: true });
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 const brandingPage = await browser.newPage({ viewport: { width: 390, height: 844 } });
+const faviconGuardPage = await browser.newPage({ viewport: { width: 800, height: 600 } });
+const faviconGuardErrors = [];
+faviconGuardPage.on('pageerror', error => faviconGuardErrors.push(error.message));
 const pageErrors = [];
 page.on('pageerror', error => pageErrors.push(error.message));
 
@@ -28,6 +32,50 @@ const scriptJSON = value => JSON.stringify(value).replace(/</g, '\\u003c');
 const fixture = '<!doctype html><html lang="en"><head><title>OVYX Web Studio quality fixture</title></head><body><section id="view-webstudio" aria-hidden="false"><header class="ovyx-ws-header"><div class="ovyx-ws-header-left"><button id="ws-sidebar-trigger" type="button" aria-expanded="false">Navigation</button></div><div class="ovyx-ws-header-actions"><button id="ws-preview-trigger" type="button">Preview</button></div></header><div id="ws-inline-preview"><div id="ws-console-body"></div></div></section><aside id="app-sidebar" hidden><button id="ovyx-desktop-sidebar-close" type="button" aria-label="Collapse sidebar">Close</button>Desktop project navigation fixture</aside><div id="mobile-drawer" hidden>Mobile project navigation fixture</div><div id="mobile-drawer-backdrop" class="hidden" hidden></div><script>window.KernelState={activeView:"webstudio",activeProject:{id:"quality-test-project",name:"Quality test site",description:"A test website",pages:[{name:"Home",route:"/",__ovyxFile:"src/pages/Home.html"},{name:"About",route:"/about/",__ovyxFile:"src/pages/About.html"},{name:"Contact",route:"/contact/",__ovyxFile:"src/pages/Contact.html"}],ovyxBuildState:"verified",ovyxBuildVerifiedAt:"2000-01-01T00:00:00.000Z"},projects:[]};window.KernelState.projects=[window.KernelState.activeProject];window.ProjectStore={save:function(){},renderHome:function(){},renderProjects:function(){}};window.__copiedQualitySummary=\"\";try{Object.defineProperty(navigator,\"clipboard\",{configurable:true,value:{writeText:async function(value){window.__copiedQualitySummary=String(value)}}})}catch(e){};window.__qualityRepairCalls=[];window.__qualityToasts=[];window.__previewPublishRecords=[];window.__qualityTimeline=[];window.addEventListener("ovyx:webstudio-build-stage",function(event){window.__qualityTimeline.push({kind:"stage",stage:event.detail&&event.detail.stage})});window.addEventListener("ovyx:webstudio-quality-report",function(event){var report=event.detail||{};window.__qualityTimeline.push({kind:"report",gatePassed:(report.checks||[]).some(function(item){return item.group==="Automatic build gate"&&item.status==="pass"})})});window.showToast=function(message,kind){window.__qualityToasts.push({message:String(message),kind:String(kind||"")})};window.WebStudio={graph:{version:2,entry:"src/pages/Home.html",files:{"src/pages/Home.html":{type:"text/html",content:""},"src/pages/About.html":{type:"text/html",content:""},"src/pages/Contact.html":{type:"text/html",content:""},"src/styles.css":{type:"text/css",content:""},"src/main.js":{type:"text/javascript",content:""}},updatedAt:Date.now()},requestEpoch:1,historyStack:[],historyPointer:-1,graphKeyPrefix:"quality-test.",ensureProjectGraph:function(){return this.graph},snapshotGraph:function(){return JSON.parse(JSON.stringify(this.graph))},diffFiles:function(a,b){var A=a&&a.files||{},B=b&&b.files||{};return Array.from(new Set(Object.keys(A).concat(Object.keys(B)))).filter(function(k){var av=typeof A[k]==="string"?A[k]:A[k]&&A[k].content||"";var bv=typeof B[k]==="string"?B[k]:B[k]&&B[k].content||"";return av!==bv})},runTests:function(){return {ok:true,summary:"Source checks passed.",details:"No source issues."}},syncGraphToProject:function(){window.KernelState.activeProject.ovyxGraph=this.graph},renderPreview:function(){var report=window.OVYXWebStudioQuality&&window.OVYXWebStudioQuality.getReport();var record={kind:"preview",aboutContent:this.graph.files["src/pages/About.html"].content,qualityPassed:!!report&&report.status==="pass",gatePassed:!!report&&(report.checks||[]).some(function(item){return item.group==="Automatic build gate"&&item.status==="pass"})};window.__previewPublishRecords.push(record);window.__qualityTimeline.push({kind:"preview",gatePassed:record.gatePassed})},render:function(){},runBuildAgent:async function(prompt,repair,token,attachments,rollback){window.__qualityRepairCalls.push({prompt:String(prompt),repair:repair===true,token:token});var about=this.graph.files["src/pages/About.html"];about.content=repair===true?about.content.replace("width:1100px;max-width:none","width:100%;max-width:100%"):about.content.replace("width:100%;max-width:100%","width:1100px;max-width:none");window.KernelState.activeProject.ovyxGraph=this.graph;window.KernelState.activeProject.ovyxBuildState="verified";window.KernelState.activeProject.ovyxBuildVerifiedAt=new Date(Date.now()+5).toISOString();this.renderPreview();return {ok:true}}};window.WebStudio.graph.files["src/pages/Home.html"].content=' + scriptJSON(home) + ';window.WebStudio.graph.files["src/pages/About.html"].content=' + scriptJSON(about) + ';window.WebStudio.graph.files["src/pages/Contact.html"].content=' + scriptJSON(contact) + ';window.WebStudio.graph.files["src/styles.css"].content=' + scriptJSON(css) + ';window.WebStudio.graph.files["src/main.js"].content=' + scriptJSON(js) + ';window.KernelState.activeProject.ovyxGraph=window.WebStudio.graph;</script></body></html>';
 
 try {
+  // The application favicon must stay canonical despite competing scripts,
+  // property writes, direct removal attempts, and wholesale head replacement.
+  await faviconGuardPage.setContent('<!doctype html><html lang="en"><head><title>Favicon guard fixture</title><link rel="icon" href="/stale-favicon.ico"><link rel="shortcut icon" href="/another-stale-favicon.png"><link rel="apple-touch-icon" href="/apple-touch.png"></head><body></body></html>');
+  await faviconGuardPage.addScriptTag({ path: faviconGuardPath });
+  const expectedAppFavicon = '/assets/ovyx-app-favicon.svg?v=20261021-2';
+  await faviconGuardPage.waitForFunction(expected => {
+    const canonical = document.getElementById('ovyx-canonical-app-favicon');
+    const icons = Array.from(document.querySelectorAll('link[rel]')).filter(link => String(link.getAttribute('rel') || '').toLowerCase().split(/\s+/).includes('icon'));
+    return canonical &&
+      canonical.getAttribute('data-ovyx-canonical-favicon') === 'true' &&
+      canonical.getAttribute('rel') === 'icon' &&
+      canonical.getAttribute('href') === expected &&
+      icons.length === 1;
+  }, expectedAppFavicon);
+  await faviconGuardPage.evaluate(() => {
+    const canonical = document.getElementById('ovyx-canonical-app-favicon');
+    canonical.href = '/attacker-replacement.svg';
+    canonical.setAttribute('href', '/another-replacement.svg');
+    canonical.rel = 'stylesheet';
+    canonical.removeAttribute('href');
+    canonical.remove();
+    const competing = document.createElement('link');
+    competing.rel = 'shortcut icon';
+    competing.href = '/late-injected-icon.ico';
+    document.head.appendChild(competing);
+  });
+  await faviconGuardPage.waitForFunction(expected => {
+    const canonical = document.getElementById('ovyx-canonical-app-favicon');
+    const icons = Array.from(document.querySelectorAll('link[rel]')).filter(link => String(link.getAttribute('rel') || '').toLowerCase().split(/\s+/).includes('icon'));
+    return canonical && canonical.getAttribute('href') === expected && canonical.getAttribute('rel') === 'icon' && icons.length === 1;
+  }, expectedAppFavicon);
+  await faviconGuardPage.evaluate(() => {
+    document.head.innerHTML = '<title>Replaced head fixture</title><link rel="icon" href="/whole-head-replacement.ico">';
+  });
+  await faviconGuardPage.waitForFunction(expected => {
+    const canonical = document.getElementById('ovyx-canonical-app-favicon');
+    const icons = Array.from(document.querySelectorAll('link[rel]')).filter(link => String(link.getAttribute('rel') || '').toLowerCase().split(/\s+/).includes('icon'));
+    return canonical &&
+      canonical.getAttribute('data-ovyx-canonical-favicon') === 'true' &&
+      canonical.getAttribute('href') === expected &&
+      icons.length === 1;
+  }, expectedAppFavicon);
+  assert.equal(faviconGuardErrors.length, 0, 'Favicon guard must survive hostile DOM mutations without browser errors: ' + faviconGuardErrors.join('; '));
+
   // A saved project's browser-tab icon must be derived from that project's
   // own logo, never from OVYX's global application icon.
   const projectIndex = '<!doctype html><html lang="en"><head><title>OVYX — Industrial</title><link rel="icon" href="/assets/ovyx-brand-mark.svg"></head><body><header><img class="brand-logo" alt="Industrial logo" src="assets/industrial-logo.svg"><h1>OVYX Industrial</h1></header><main id="keep-me">Keep this project content.</main></body></html>';

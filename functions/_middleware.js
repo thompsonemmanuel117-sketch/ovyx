@@ -22,7 +22,7 @@ export async function onRequest(context) {
     })
     .on('head', {
       element(element) {
-        element.append('<link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#111827"><link rel="icon" type="image/svg+xml" href="/assets/ovyx-app-favicon.svg?v=20261021-1"><link rel="apple-touch-icon" href="/assets/ovyx-brand-mark.png">', { html: true });
+        element.append('<link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#111827"><link id="ovyx-canonical-app-favicon" data-ovyx-canonical-favicon="true" rel="icon" type="image/svg+xml" href="/assets/ovyx-app-favicon.svg?v=20261021-2"><script src="/assets/ovyx-app-favicon-guard.js?v=20261021-2"></script><link rel="apple-touch-icon" href="/assets/ovyx-brand-mark.png">', { html: true });
       },
     })
     .on('body', {
