@@ -15,7 +15,7 @@ assert.doesNotThrow(() => new Function(runtime), 'The Web Studio quality runtime
 assert.doesNotThrow(() => new Function(navigationPolish), 'The Web Studio navigation header runtime must parse as valid JavaScript.');
 assert.doesNotThrow(() => new Function(projectBranding), 'The project favicon branding runtime must parse as valid JavaScript.');
 assert.ok(projectBranding.includes('async function findBrandHref(graph, project, paths, first)'), 'Favicon correction must discover the active project’s own logo in its source graph and uploaded assets.');
-assert.ok(projectBranding.includes('if (!href) return false;'), 'If no project-owned logo is found, the current favicon must be left unchanged.');
+assert.ok(projectBranding.includes('if (!href) { restoreTabFavicon(); return false; }'), 'If no project-owned logo is found, project HTML must remain unchanged and the tab favicon must be restored.');
 assert.ok(projectBranding.includes('window.OVYXAssetStore?.url'), 'Project logos stored outside the text file graph must be resolved through the asset store.');
 assert.ok(projectBranding.includes('function rankedProjectLogoAssets(project, supplementalAssets)'), 'The favicon correction must consider explicitly named project logo/icon assets from the project graph and store.');
 assert.ok(projectBranding.includes('async function loadProjectAssets(project)'), 'The favicon correction must query uploaded asset metadata that may not be copied into the local project object.');
