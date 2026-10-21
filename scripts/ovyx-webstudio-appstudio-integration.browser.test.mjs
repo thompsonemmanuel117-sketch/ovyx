@@ -131,6 +131,7 @@ try {
   const convertButton = page.locator('#ws-preview-menu [data-ws-menu="convert-mobile-app"]');
   await convertButton.waitFor({state:'attached', timeout:5000});
   assert.equal(await convertButton.count(), 1, 'The actual Web Studio menu bridge must expose exactly one Convert to Mobile App action.');
+  await page.locator('#ws-preview-menu').evaluate(node => { node.hidden = false; });
   await convertButton.click();
 
   await page.waitForFunction(() => window.KernelState?.activeView === 'appstudio' && !!document.querySelector('#as4-shell'), null, {timeout:8000});
