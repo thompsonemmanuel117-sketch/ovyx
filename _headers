@@ -77,6 +77,9 @@
 /assets/ovyx-app-favicon.svg
   Cache-Control: no-store, no-cache, must-revalidate
 
+/manifest.json
+  Cache-Control: no-store, no-cache, must-revalidate
+
 /assets/ovyx-app-favicon-guard.js
   Cache-Control: no-store, no-cache, must-revalidate
 
