@@ -53,6 +53,11 @@ try {
     canonical.rel = 'stylesheet';
     canonical.removeAttribute('href');
     canonical.remove();
+    document.head.removeChild(canonical);
+    const replacement = document.createElement('link');
+    replacement.rel = 'icon';
+    replacement.href = '/replace-canonical.ico';
+    document.head.replaceChild(replacement, canonical);
     const competing = document.createElement('link');
     competing.rel = 'shortcut icon';
     competing.href = '/late-injected-icon.ico';
@@ -76,8 +81,8 @@ try {
   }, expectedAppFavicon);
   assert.equal(faviconGuardErrors.length, 0, 'Favicon guard must survive hostile DOM mutations without browser errors: ' + faviconGuardErrors.join('; '));
 
-  // A saved project's browser-tab icon must be derived from that project's
-  // own logo, never from OVYX's global application icon.
+  // Generated-site favicons follow each site's own logo in saved HTML,
+  // while the OVYX application tab keeps its separate, stable favicon.
   const projectIndex = '<!doctype html><html lang="en"><head><title>OVYX — Industrial</title><link rel="icon" href="/assets/ovyx-brand-mark.svg"></head><body><header><img class="brand-logo" alt="Industrial logo" src="assets/industrial-logo.svg"><h1>OVYX Industrial</h1></header><main id="keep-me">Keep this project content.</main></body></html>';
   const projectAbout = '<!doctype html><html lang="en"><head><title>About — Industrial</title><link rel="icon" href="/assets/ovyx-brand-mark.svg"></head><body><header><img class="brand-logo" alt="Industrial logo" src="assets/industrial-logo.svg"></header><main id="about-keep">Keep the about page too.</main></body></html>';
   const industrialLogo = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><path fill="#d8a93e" d="M24 3 45 24 24 45 3 24Z"/><circle cx="24" cy="24" r="8" fill="#111827"/></svg>';
@@ -191,7 +196,7 @@ try {
 
   // A real project may paint its logo in the running preview even if that
   // image is absent from the saved HTML shell and is not imported by source
-  // files. The tab favicon must follow the actual rendered brand element.
+  // files. Save the detected brand into generated-site HTML, not the app tab.
   await brandingPage.evaluate(async () => {
     const graph = { version: 2, entry: 'index.html', files: {
       'index.html': { type: 'text/html', content: '<!doctype html><html lang="en"><head><title>Preview-only logo</title><link rel="icon" href="/assets/ovyx-brand-mark.svg"></head><body><main id="preview-root">Rendered app shell without an inline logo</main></body></html>' },
@@ -213,8 +218,7 @@ try {
     window.dispatchEvent(new Event('ovyx:preview-updated'));
   });
   await brandingPage.waitForFunction(() =>
-    window.WebStudio.graph.files['index.html'].content.includes('data:image/svg+xml;charset=utf-8,') &&
-    document.querySelector('link[rel~="icon"][data-ovyx-project-favicon]')?.getAttribute('href')?.startsWith('data:image/svg+xml;charset=utf-8,'),
+    window.WebStudio.graph.files['index.html'].content.includes('data:image/svg+xml;charset=utf-8,'),
     null,
     { timeout: 5000 }
   );
@@ -246,8 +250,7 @@ try {
     window.dispatchEvent(new Event('ovyx:preview-updated'));
   });
   await brandingPage.waitForFunction(() =>
-    window.WebStudio.graph.files['index.html'].content.includes('data:image/svg+xml;charset=utf-8,') &&
-    document.querySelector('link[rel~="icon"][data-ovyx-project-favicon]')?.getAttribute('href')?.startsWith('data:image/svg+xml;charset=utf-8,'),
+    window.WebStudio.graph.files['index.html'].content.includes('data:image/svg+xml;charset=utf-8,'),
     null,
     { timeout: 5000 }
   );
@@ -282,7 +285,6 @@ try {
     window.dispatchEvent(new Event('ovyx:preview-updated'));
   });
   await brandingPage.waitForFunction(() => {
-    const href = document.querySelector('link[rel~="icon"][data-ovyx-project-favicon]')?.getAttribute('href') || '';
     return window.WebStudio.graph.files['index.html'].content.includes('%23ff0066');
   }, null, { timeout: 5000 });
   const declaredIconBranding = await brandingPage.evaluate(() => {

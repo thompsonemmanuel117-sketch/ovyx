@@ -20,6 +20,7 @@ assert.doesNotThrow(() => new Function(projectBranding), 'The project favicon br
 assert.doesNotThrow(() => new Function(appFaviconGuard), 'The app favicon guard must parse as valid JavaScript.');
 assert.ok(appFaviconGuard.includes('new MutationObserver'), 'The app favicon must be restored after later DOM mutations.');
 assert.ok(appFaviconGuard.includes('Node.prototype.removeChild'), 'Direct attempts to remove the canonical favicon node must be blocked.');
+assert.ok(appFaviconGuard.includes('Node.prototype.replaceChild'), 'Direct attempts to replace the canonical favicon node must be blocked.');
 assert.ok(appFaviconGuard.includes("lockLinkProperty('href', 'href')"), 'Direct changes to the canonical favicon href must be blocked.');
 
 assert.ok(projectBranding.includes('async function findBrandHref(graph, project, paths, first)'), 'Favicon correction must discover the active project’s own logo in its source graph and uploaded assets.');
