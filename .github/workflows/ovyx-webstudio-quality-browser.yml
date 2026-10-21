@@ -9,9 +9,11 @@ on:
       - 'scripts/ovyx-webstudio-code-search.test.mjs'
       - 'scripts/ovyx-webstudio-code-search.browser.test.mjs'
       - 'scripts/ovyx-webstudio-appstudio-integration.browser.test.mjs'
+      - 'scripts/ovyx-app-shell-favicon.browser.test.mjs'
       - 'index.html'
       - 'assets/ovyx-webstudio-project-branding.js'
-      - 'assets/ovyx-app-favicon.svg'
+      - 'assets/ovyx-brand-mark.svg'
+      - 'assets/ovyx-brand-mark.png'
       - '_headers'
       - 'manifest.json'
       - 'functions/_middleware.js'
@@ -28,10 +30,11 @@ on:
       - 'scripts/ovyx-webstudio-code-search.test.mjs'
       - 'scripts/ovyx-webstudio-code-search.browser.test.mjs'
       - 'scripts/ovyx-webstudio-appstudio-integration.browser.test.mjs'
+      - 'scripts/ovyx-app-shell-favicon.browser.test.mjs'
       - 'index.html'
       - 'assets/ovyx-webstudio-project-branding.js'
-      - 'assets/ovyx-app-favicon-guard.js'
-      - 'assets/ovyx-app-favicon.svg'
+      - 'assets/ovyx-brand-mark.svg'
+      - 'assets/ovyx-brand-mark.png'
       - '_headers'
       - 'manifest.json'
       - 'functions/_middleware.js'
@@ -65,10 +68,27 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
+      - name: Start local Cloudflare Pages app shell
+        run: |
+          npx wrangler pages dev . --ip 127.0.0.1 --port 8789 > /tmp/ovyx-pages-dev.log 2>&1 &
+          echo $! > /tmp/ovyx-pages-dev.pid
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8789/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/ovyx-pages-dev.log
+          exit 1
+      - name: Test app-shell favicon in Chromium against local Pages runtime
+        run: node scripts/ovyx-app-shell-favicon.browser.test.mjs
+
+      - name: Test Web Studio static regression contract
+        run: node scripts/ovyx-webstudio-quality.test.mjs
       - name: Test Web Studio quality inspector in Chromium
         run: node scripts/ovyx-webstudio-quality.browser.test.mjs
       - name: Test code workspace search and sidebar logo in Chromium
         run: node scripts/ovyx-webstudio-code-search.browser.test.mjs
       - name: Test Web Studio to App Studio to Code integration in Chromium
         run: node scripts/ovyx-webstudio-appstudio-integration.browser.test.mjs
-# Regression coverage: sidebar inline-SVG full-draw state and the OVYX brand-mark favicon fallback.
+# Regression coverage: sidebar inline-SVG full-draw state, brand-mark favicon fallback, and project/app favicon isolation.
