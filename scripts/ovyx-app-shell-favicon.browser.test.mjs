@@ -18,7 +18,7 @@ try {
   const iconLinks = page.locator('head link[rel~="icon"]');
   await page.waitForFunction(() => {
     const icons = Array.from(document.head.querySelectorAll('link[rel~="icon"]'));
-    return icons.some(link => (link.getAttribute('href') || '').includes('/assets/ovyx-brand-mark.svg'));
+    return icons.some(link => (link.getAttribute('href') || '').includes('/ovyx-tab-v6.svg'));
   }, null, { timeout: 10000 });
 
   // Let deferred application scripts run, then simulate an old/late script
@@ -41,7 +41,7 @@ try {
     return icons.length === 1 &&
       icons[0].getAttribute('rel') === 'icon' &&
       icons[0].getAttribute('type') === 'image/svg+xml' &&
-      icons[0].getAttribute('href') === '/assets/ovyx-brand-mark.svg?v=20261021-5';
+      icons[0].getAttribute('href') === '/ovyx-tab-v6.svg?v=20261021-6';
   }, null, { timeout: 10000 });
 
   const icons = await iconLinks.evaluateAll(nodes => nodes.map(node => ({
@@ -55,8 +55,8 @@ try {
   assert.equal(icons[0].type, 'image/svg+xml', 'The app-shell favicon must be the SVG brand mark.');
   assert.equal(
     icons[0].href,
-    '/assets/ovyx-brand-mark.svg?v=20261021-5',
-    'The browser-tab favicon must resolve to the real OVYX brand-mark SVG cache key.'
+    '/ovyx-tab-v6.svg?v=20261021-6',
+    'The browser-tab favicon must use the fresh OVYX tab-icon URL so Chrome cannot reuse the obsolete page favicon key.'
   );
 
   assert.equal(
@@ -94,7 +94,7 @@ try {
     'The PWA manifest must use the same real OVYX brand mark.'
   );
 
-  assert.equal(await page.locator('script[src*="ovyx-shell-favicon-lock.js"]').count(), 1, 'The authoritative shell favicon lock must load exactly once.');
+  assert.equal(await page.locator('script[src*="ovyx-shell-favicon-lock.js?v=20261021-3"]').count(), 1, 'The authoritative shell favicon lock must load exactly once.');
   assert.ok(
     /no-store|no-cache/.test(response.headers()['cache-control'] || ''),
     'The HTML shell response must not reuse a cached page containing an old favicon reference.'
@@ -125,7 +125,7 @@ try {
     const icons = Array.from(document.head.querySelectorAll('link[rel]')).filter(link =>
       String(link.rel || '').toLowerCase().split(/\s+/).includes('icon'));
     return icons.length === 1 &&
-      icons[0].getAttribute('href') === '/assets/ovyx-brand-mark.svg?v=20261021-5';
+      icons[0].getAttribute('href') === '/ovyx-tab-v6.svg?v=20261021-6';
   }, null, { timeout: 10000 });
   const afterRefresh = await page.evaluate(() => ({
     icons: Array.from(document.head.querySelectorAll('link[rel]')).filter(link =>
@@ -134,7 +134,7 @@ try {
     lockAtHeadStart: !!document.head.querySelector('script[src*="ovyx-shell-favicon-lock.js"]'),
   }));
   assert.equal(afterRefresh.icons.length, 1, 'A refresh must not resurrect a second/legacy favicon declaration.');
-  assert.equal(afterRefresh.icons[0].href, '/assets/ovyx-brand-mark.svg?v=20261021-5',
+  assert.equal(afterRefresh.icons[0].href, '/ovyx-tab-v6.svg?v=20261021-6',
     'The refreshed browser tab must still declare the current real OVYX logo.');
   assert.equal(afterRefresh.lockAtHeadStart, true, 'The favicon lock must reload with the refreshed shell.');
 
@@ -149,7 +149,7 @@ try {
     await page.waitForFunction(() => !!window.OVYXShellFavicon, null, { timeout: 10000 });
     const nestedIcon = await page.locator('head link[rel~="icon"]').evaluateAll(nodes =>
       nodes.map(node => node.getAttribute('href')));
-    assert.deepEqual(nestedIcon, ['/assets/ovyx-brand-mark.svg?v=20261021-5'],
+    assert.deepEqual(nestedIcon, ['/ovyx-tab-v6.svg?v=20261021-6'],
       'An HTML route refresh must not fall back to the legacy favicon.');
     assert.ok(/no-store|no-cache/.test(nestedResponse.headers()['cache-control'] || ''),
       'Nested HTML responses must also carry no-cache protection.');
