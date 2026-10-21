@@ -284,7 +284,7 @@ assert.ok(html.includes("if(id==='appearance'){this.syncAppearance()}},")
   'Opening Appearance must not overwrite canonical saved colours with a legacy Theme Lab preset.');
 assert.ok(middleware.includes('/assets/ovyx-webstudio-cancel-safety.js?v=20261021-1')
   && cancelSafetyRuntime.includes("button.id = 'ws-task-cancel'")
-  && cancelSafetyRuntime.includes('this.cancelActiveTask = function ()')
+  && cancelSafetyRuntime.includes('studio.cancelActiveTask = function ()')
   && cancelSafetyRuntime.includes('restoreProjectOnly(this, snapshot)'),
   'The app shell must load one touch-friendly Cancel control that restores only the current task project.');
 assert.ok(html.includes('rollbackAgentChanges(baseGraph,appliedGraph,originalProject)')
