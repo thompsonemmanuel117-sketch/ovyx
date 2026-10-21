@@ -26,13 +26,18 @@
     'requestAbortController', 'activeController', 'currentAbortController'
   ];
 
+  function safeAssign(target, property, value) {
+    try { target[property] = value; return true; }
+    catch (_) { return false; }
+  }
+
   function syncSessionFields(studio) {
     if (!studio || typeof studio !== 'object') return;
     knownStudios.add(studio);
-    studio.__ovyxTaskRollbackSnapshot = taskSession.snapshot;
-    studio.__ovyxTaskGeneration = Number(taskSession.generation || 0);
-    studio.__ovyxTaskInFlightCount = Number(taskSession.inFlightCount || 0);
-    studio.__ovyxActiveTaskMethod = String(taskSession.activeMethod || '');
+    safeAssign(studio, '__ovyxTaskRollbackSnapshot', taskSession.snapshot);
+    safeAssign(studio, '__ovyxTaskGeneration', Number(taskSession.generation || 0));
+    safeAssign(studio, '__ovyxTaskInFlightCount', Number(taskSession.inFlightCount || 0));
+    safeAssign(studio, '__ovyxActiveTaskMethod', String(taskSession.activeMethod || ''));
   }
 
   function syncAllSessionFields() {
@@ -376,24 +381,26 @@
         taskSession.activeStudio = null;
         studios.forEach(function (candidate) {
           if (!candidate || typeof candidate !== 'object') return;
-          candidate.__ovyxTaskGeneration = taskSession.generation;
-          candidate.__ovyxTaskInFlightCount = 0;
-          candidate.__ovyxTaskRollbackSnapshot = snapshot;
-          candidate.__ovyxActiveTaskMethod = method;
-          candidate.requestEpoch = Number(candidate.requestEpoch || 0) + 1;
-          candidate.aiFrozen = false;
-          candidate.pendingBuild = false;
-          candidate.liveAiActive = false;
+          safeAssign(candidate, '__ovyxTaskGeneration', taskSession.generation);
+          safeAssign(candidate, '__ovyxTaskInFlightCount', 0);
+          safeAssign(candidate, '__ovyxTaskRollbackSnapshot', snapshot);
+          safeAssign(candidate, '__ovyxActiveTaskMethod', method);
+          safeAssign(candidate, 'requestEpoch', Number(candidate.requestEpoch || 0) + 1);
+          safeAssign(candidate, 'aiFrozen', false);
         });
 
-        // Let each controller abort its own request before clearing references.
-        // Captured AbortControllers above are kept even when the helper clears a
-        // field before we get to the direct .abort() call.
+        // Abort through the app's own helper while its busy flags still show an
+        // active request, then directly abort captured controllers as a fallback.
+        // Captured references survive helpers that clear their controller fields.
         studios.forEach(function (candidate) {
           try { candidate.abortActiveAi && candidate.abortActiveAi(); } catch (_) {}
         });
         controllers.forEach(function (controller) {
           try { controller && typeof controller.abort === 'function' && controller.abort(); } catch (_) {}
+        });
+        studios.forEach(function (candidate) {
+          safeAssign(candidate, 'pendingBuild', false);
+          safeAssign(candidate, 'liveAiActive', false);
         });
         studios.forEach(function (candidate) {
           controllerFields.forEach(function (field) {
@@ -408,10 +415,10 @@
         clearTaskSession();
         studios.forEach(function (candidate) {
           if (!candidate) return;
-          candidate.__ovyxTaskRollbackSnapshot = null;
-          candidate.__ovyxActiveTaskMethod = '';
-          candidate.__ovyxTaskGeneration = taskSession.generation;
-          candidate.__ovyxTaskInFlightCount = 0;
+          safeAssign(candidate, '__ovyxTaskRollbackSnapshot', null);
+          safeAssign(candidate, '__ovyxActiveTaskMethod', '');
+          safeAssign(candidate, '__ovyxTaskGeneration', taskSession.generation);
+          safeAssign(candidate, '__ovyxTaskInFlightCount', 0);
         });
         releaseComposerBusyState();
         syncCancelButton(activeStudio);
