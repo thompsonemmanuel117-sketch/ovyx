@@ -107,6 +107,11 @@ try {
         abort: studio.activeAbortController,
         snapshot: studio.__ovyxTaskRollbackSnapshot,
         method: studio.__ovyxActiveTaskMethod,
+        thread: clone(studio.thread || []),
+        requestEpoch: studio.requestEpoch,
+        aiFrozen: studio.aiFrozen,
+        activeMessageIndex: studio.activeMessageIndex,
+        editingMessageIndex: studio.editingMessageIndex,
       };
       const storage = Array.from({ length: localStorage.length }, (_, i) => {
         const key = localStorage.key(i); return [key, key == null ? null : localStorage.getItem(key)];
@@ -164,6 +169,12 @@ try {
         studio.activeAbortController = original.abort;
         studio.__ovyxTaskRollbackSnapshot = original.snapshot;
         studio.__ovyxActiveTaskMethod = original.method;
+        studio.thread = original.thread;
+        studio.requestEpoch = original.requestEpoch;
+        studio.aiFrozen = original.aiFrozen;
+        studio.activeMessageIndex = original.activeMessageIndex;
+        studio.editingMessageIndex = original.editingMessageIndex;
+        try { studio.renderThread(); } catch (_) {}
         localStorage.clear();
         storage.forEach(([key, value]) => localStorage.setItem(key, value));
       }
