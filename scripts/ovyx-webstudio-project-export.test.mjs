@@ -36,7 +36,7 @@ assert.match(runtime, /possible embedded credential/);
 assert.match(runtime, /complete website project, including frontend and backend/);
 assert.match(runtime, /MAX_TOTAL_BYTES/);
 assert.match(runtime, /window\.OVYXWebStudioProjectExport =/);
-assert.match(middleware, /\/assets\/ovyx-webstudio-project-export\.js\?v=20261021-2/);
+assert.match(middleware, /\/assets\/ovyx-webstudio-project-export\.js\?v=20261021-3/);
 assert.match(headers, /\/assets\/ovyx-webstudio-project-export\.js\n  Cache-Control: no-store, no-cache, must-revalidate/);
 assert.doesNotThrow(() => new Function(runtime), 'Project ZIP exporter must parse as valid JavaScript.');
 
