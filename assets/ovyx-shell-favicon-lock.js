@@ -6,7 +6,7 @@
   if (window.__OVYX_SHELL_FAVICON_LOCK_V2__) return;
   window.__OVYX_SHELL_FAVICON_LOCK_V2__ = true;
 
-  var FAVICON_HREF = '/assets/ovyx-brand-mark.svg?v=20261021-5';
+  var FAVICON_HREF = '/ovyx-tab-v6.svg?v=20261021-6';
   var observer = null;
   var enforcing = false;
 
