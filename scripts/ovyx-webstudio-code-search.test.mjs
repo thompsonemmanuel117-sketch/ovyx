@@ -19,7 +19,7 @@ assert.ok(runtime.includes('var visibleMatches=matches;'));
 assert.ok(runtime.includes('function availableWorkspaceNode(node)'));
 assert.ok(runtime.includes("activeView==='webstudio'"));
 assert.ok(runtime.includes('ovyx-code-focus-only .ovyx-code-tree'));
-assert.ok(runtime.includes('grid-template-columns:minmax(0,1fr)!important'));
+assert.ok(runtime.includes('.ovyx-ws-code-root.ovyx-code-focus-only div[style*=\"grid-template-columns\"]{grid-template-columns:minmax(0,1fr)!important}'));
 assert.ok(runtime.includes('Never attach controls to a hidden Web Studio host while another view is active.'));
 assert.ok(runtime.includes('data-ovyx-code-search-trigger'));
 assert.ok(runtime.includes('function closePanel(returnFocus)'));
