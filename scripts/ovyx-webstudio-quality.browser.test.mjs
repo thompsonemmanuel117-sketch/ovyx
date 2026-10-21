@@ -239,6 +239,7 @@ assert.ok(exportedReport.inspection.checks.every(item => typeof item.recommendat
   });
   await upgradePage.locator('[data-ovyx-code-verify]').click();
   await upgradePage.waitForFunction(() => window.__qualityVerifyCalls === 3 && document.querySelector('[data-ovyx-code-verify]')?.getAttribute('data-quality-status') === 'fail');
+  await upgradePage.evaluate(() => { window.__nextQualityReport = null; });
   await upgradePage.evaluate(() => window.WebStudio.submitPrompt());
   await upgradePage.locator('#ovyx-ws-fullstack-upgrade-overlay').waitFor({ state: 'visible', timeout: 5000 });
   assert.match(await upgradePage.locator('#ovyx-ws-fs-title').innerText(), /working system behind it/i, 'The automatic offer must explain the full-stack upgrade.');
