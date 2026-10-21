@@ -106,8 +106,8 @@ assert.ok(middleware.includes('/assets/ovyx-webstudio-quality.js?v=20261021-1'),
 assert.equal((middleware.match(/\/assets\/ovyx-webstudio-quality\.js\?v=20261021-1/g) || []).length, 1, 'The quality inspector must be injected exactly once per application shell.');
 assert.ok(middleware.includes('/assets/ovyx-webstudio-navigation-polish.js?v=20261021-4'), 'Navigation header behavior must load from the application shell with the updated cache key.');
 assert.ok(middleware.includes('/assets/ovyx-webstudio-project-branding.js?v=20261021-10'), 'Project branding correction must load from the application shell with the refreshed V8 resolver cache key.');
-assert.ok(middleware.includes('<link rel="icon" type="image/svg+xml" href="/assets/ovyx-brand-mark.svg?v=20261021-1">'), 'The app shell must have an explicit browser favicon and avoid a stale implicit /favicon.ico.');
-assert.ok(middleware.includes('<link rel="icon" type="image/svg+xml" href="/assets/ovyx-brand-mark.svg?v=20261021-1">'), 'The app shell must declare an explicit browser favicon instead of relying on a stale implicit /favicon.ico.');
+assert.ok(middleware.includes('<link rel="icon" type="image/svg+xml" href="/assets/ovyx-brand-mark.svg?v=20261021-2">'), 'The app shell must have an explicit browser favicon and avoid a stale implicit /favicon.ico.');
+assert.ok(middleware.includes('<link rel="icon" type="image/svg+xml" href="/assets/ovyx-brand-mark.svg?v=20261021-2">'), 'The app shell must declare an explicit browser favicon instead of relying on a stale implicit /favicon.ico.');
 assert.ok(/\/assets\/ovyx-webstudio-navigation-polish\.js\s+Cache-Control: no-store, no-cache, must-revalidate/.test(headers), 'Navigation header behavior must not be served from a stale cache.');
 assert.ok(/\/assets\/ovyx-webstudio-project-branding\.js\s+Cache-Control: no-store, no-cache, must-revalidate/.test(headers), 'Project branding correction must not be served from a stale cache.');
 assert.ok(headers.includes('/assets/ovyx-webstudio-quality.js\n  Cache-Control: no-store, no-cache, must-revalidate'), 'Quality inspection code must not be served from a stale cache.');
