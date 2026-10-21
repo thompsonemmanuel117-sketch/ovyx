@@ -274,6 +274,21 @@ assert.ok(runtime.includes('consentedOrigin !== endpointUrl.origin'), 'Sync must
 assert.ok(runtime.includes('Only the bounded project metadata was sent.'), 'External sync status must accurately describe that only project metadata was sent.');
 assert.ok(runtime.includes("pageCount: Array.isArray(project.pages) ? Math.min(project.pages.length, 1000) : 0"), 'External sync must bound the project page count it sends.');
 
+// The Cloudflare Pages route table must be at the Pages build-output root. A similarly named file
+// inside functions/ is not the deployed routing contract and previously allowed these tests to pass
+// while the production router ignored the intended route list.
+assert.ok(fs.existsSync(new URL('../_routes.json', import.meta.url)),
+  'Cloudflare Pages routing rules must exist at the repository/build-output root.');
+const pagesRoutes = JSON.parse(read('_routes.json'));
+assert.ok(pagesRoutes.include.includes('/*'),
+  'The Pages function middleware must run for the shell, nested HTML routes, favicon fallback and canonical tab-icon URL.');
+assert.ok(pagesRoutes.exclude.includes('/assets/*') && pagesRoutes.exclude.includes('/manifest.json'),
+  'Static asset files must bypass the middleware to avoid unnecessary Function invocations.');
+assert.equal(fs.existsSync(new URL('../functions/_routes.json', import.meta.url)), false,
+  'Do not leave the route configuration under functions/ where Pages does not read it.');
+assert.ok(!pagesRoutes.exclude.includes('/favicon.ico') && !pagesRoutes.exclude.includes('/ovyx-tab-v6.svg'),
+  'The browser favicon endpoints must not be excluded from the middleware.');
+
 // Regression contracts for the Settings/Profile split-brain and scoped Studio cancellation fixes.
 assert.ok(runtime.includes('function syncLocalProfileCache(profile, updatedAt, user)')
   && runtime.includes('syncLocalProfileCache(profile, data.updatedAt, requestedUser)')
