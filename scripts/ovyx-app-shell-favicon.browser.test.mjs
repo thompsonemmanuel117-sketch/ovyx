@@ -55,7 +55,7 @@ try {
   assert.equal(icons[0].type, 'image/svg+xml', 'The app-shell favicon must be the SVG brand mark.');
   assert.equal(
     icons[0].href,
-    '/assets/ovyx-brand-mark.svg?v=20261021-4',
+    '/assets/ovyx-brand-mark.svg?v=20261021-5',
     'The browser-tab favicon must resolve to the real OVYX brand-mark SVG cache key.'
   );
 
