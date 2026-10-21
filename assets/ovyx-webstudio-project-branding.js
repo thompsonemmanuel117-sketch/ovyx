@@ -60,6 +60,7 @@
     var resolved = resolveProjectPath(fromPath, value);
     if (!resolved) return '';
     var asset = files[resolved];
+    if (!asset) return '';
     var assetText = sourceOf(asset);
     if (/<svg\b/i.test(assetText)) {
       var data = svgDataUrl(assetText);
