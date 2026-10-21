@@ -194,6 +194,24 @@ if (!fs.existsSync(launchPolishPath)) {
   }
 }
 
+const pagesRoutesPath = path.join(root, 'functions/_routes.json');
+if (!fs.existsSync(pagesRoutesPath)) {
+  errors.push('OVYX Pages routing: the route manifest must include the application shell and canonical favicon endpoints.');
+} else {
+  let pagesRoutes = {};
+  try { pagesRoutes = JSON.parse(fs.readFileSync(pagesRoutesPath, 'utf8')); } catch {}
+  const includes = Array.isArray(pagesRoutes.include) ? pagesRoutes.include : [];
+  const excludes = Array.isArray(pagesRoutes.exclude) ? pagesRoutes.exclude : [];
+  if (
+    !includes.includes('/*') ||
+    !excludes.includes('/assets/*') ||
+    includes.includes('/') && !includes.includes('/*') ||
+    includes.some(route => route === '/favicon.ico' || route === '/ovyx-tab-v6.svg')
+  ) {
+    errors.push('OVYX Pages routing: the middleware must cover root and nested HTML, /favicon.ico, /ovyx-tab-v6.svg and /api/* while allowing static /assets/* files to bypass Functions.');
+  }
+}
+
 const shellMiddlewarePath = path.join(root, 'functions/_middleware.js');
 if (fs.existsSync(shellMiddlewarePath)) {
   const shellMiddleware = fs.readFileSync(shellMiddlewarePath, 'utf8');
