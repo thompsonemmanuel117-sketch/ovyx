@@ -146,7 +146,7 @@
 
   function captureSnapshot(studio) {
     const state = getState();
-    const project = state && state.activeProject;
+    const project = state && (state.activeProject || state.project) || studio && studio.project;
     if (!project || !project.id) return null;
     try { studio.ensureProjectGraph && studio.ensureProjectGraph(); } catch (_) {}
     let graph = null;
@@ -204,6 +204,7 @@
     const targetIsStillActive = shouldRestoreAsActive;
     if (targetIsStillActive) {
       state.activeProject = savedProject;
+      safeAssign(studio, 'project', savedProject);
       studio.graph = clone(savedGraph);
       try {
         const prefix = String(studio.graphKeyPrefix || 'ovyx.ws.graph.v2.');
@@ -238,6 +239,10 @@
         else latestProjects.push(finalProject);
         currentState.projects = latestProjects;
         currentState.activeProject = finalProject;
+        // Several Web Studio render/build paths read this.project directly rather
+        // than dereferencing KernelState. Restore both references, not just the
+        // shell state, so mobile preview and subsequent saves see the same project.
+        safeAssign(studio, 'project', finalProject);
         studio.graph = clone(savedGraph);
         try {
           const prefix = String(studio.graphKeyPrefix || 'ovyx.ws.graph.v2.');
