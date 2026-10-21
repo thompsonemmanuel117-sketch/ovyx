@@ -73,6 +73,27 @@
       header.style.setProperty('display', 'none', 'important');
       header.setAttribute('aria-hidden', 'true');
       header.inert = true;
+
+      // The navigation owner sets a 54px offset with inline !important
+      // styles. A stylesheet alone cannot override those styles, which left
+      // the old chat-header gap visible even when the header itself was hidden.
+      var mobile = !!(window.matchMedia && window.matchMedia('(max-width: 767px)').matches);
+      if (mobile && document.body.classList.contains('ovyx-ws-mobile-nav-open')) {
+        var drawer = document.getElementById('mobile-drawer');
+        var backdrop = document.getElementById('mobile-drawer-backdrop');
+        if (drawer) {
+          drawer.style.setProperty('top', '0', 'important');
+          drawer.style.setProperty('bottom', '0', 'important');
+          drawer.style.setProperty('height', '100dvh', 'important');
+          drawer.style.setProperty('max-height', '100dvh', 'important');
+        }
+        if (backdrop) {
+          backdrop.style.setProperty('top', '0', 'important');
+          backdrop.style.setProperty('bottom', '0', 'important');
+          backdrop.style.setProperty('height', '100dvh', 'important');
+          backdrop.style.setProperty('max-height', '100dvh', 'important');
+        }
+      }
       lastNavigationState = true;
     } else {
       restoreHeader(header);
