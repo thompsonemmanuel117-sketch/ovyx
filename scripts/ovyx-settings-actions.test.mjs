@@ -7,6 +7,7 @@ import { normalizeAIPreferences, AI_PREFERENCE_DEFAULTS } from '../functions/api
 
 const read = path => fs.readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 const runtime = read('assets/ovyx-settings-reliability.js');
+const cancelSafetyRuntime = read('assets/ovyx-webstudio-cancel-safety.js');
 const qualityRuntime = read('assets/ovyx-webstudio-quality.js');
 const html = read('index.html');
 const coreBrowser = read('scripts/ovyx-settings-core.browser.test.mjs');
@@ -274,17 +275,18 @@ assert.ok(runtime.includes('Only the bounded project metadata was sent.'), 'Exte
 assert.ok(runtime.includes("pageCount: Array.isArray(project.pages) ? Math.min(project.pages.length, 1000) : 0"), 'External sync must bound the project page count it sends.');
 
 // Regression contracts for the Settings/Profile split-brain and scoped Studio cancellation fixes.
-assert.ok(runtime.includes("const key = 'ovyx.profile.v2.user.' + String(user.uid)")
-  && runtime.includes("displayName ? { name: displayName } : {}")
-  && runtime.includes("workspaceName ? { workspace: workspaceName } : {}"),
-  'Server-backed Profile hydration must update the same UID-scoped cache used by the Profile renderer.');
+assert.ok(runtime.includes('function syncLocalProfileCache(profile, updatedAt, user)')
+  && runtime.includes('syncLocalProfileCache(profile, data.updatedAt, requestedUser)')
+  && runtime.includes('String(currentUser().uid) !== String(requestedUser.uid)'),
+  'Server-backed Profile hydration must keep the renderer cache user-scoped and reject stale responses after account switching.');
 assert.ok(html.includes("if(id==='appearance'){this.syncAppearance()}},")
   && !html.includes("this.syncAppearance();ThemeLab.apply()}"),
   'Opening Appearance must not overwrite canonical saved colours with a legacy Theme Lab preset.');
-assert.ok(html.includes('id="ws-chat-cancel"')
-  && html.includes("this.cancelActiveAiRun()")
-  && html.includes("button.hidden=!busy"),
-  'Web Studio must expose a mobile-sized Cancel Run control only while an AI request is active.');
+assert.ok(middleware.includes('/assets/ovyx-webstudio-cancel-safety.js?v=20261021-1')
+  && cancelSafetyRuntime.includes("button.id = 'ws-task-cancel'")
+  && cancelSafetyRuntime.includes('this.cancelActiveTask = function ()')
+  && cancelSafetyRuntime.includes('restoreProjectOnly(this, snapshot)'),
+  'The app shell must load one touch-friendly Cancel control that restores only the current task project.');
 assert.ok(html.includes('rollbackAgentChanges(baseGraph,appliedGraph,originalProject)')
   && html.includes("this.rollbackAgentChanges(rollbackGraph,appliedGraph,rollbackProject)")
   && !html.includes("const restoredProjects=JSON.parse(JSON.stringify(rollbackState?.projects||[]))"),
