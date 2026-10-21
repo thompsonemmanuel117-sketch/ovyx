@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  if (window.__OVYX_WS_PROJECT_EXPORT_V1__) return;
+  if (window.__OVYX_WS_PROJECT_EXPORT_V2__) return;
   window.__OVYX_WS_PROJECT_EXPORT_V1__ = true;
 
   var BUTTON_ATTR = 'data-ovyx-project-export';
@@ -392,155 +392,295 @@
       showMessage((backendOnly ? 'Could not export backend-only ZIP: ' : websiteOnly ? 'Could not export website-only ZIP: ' : 'Could not export project ZIP: ') + clean(error && error.message || 'unknown export error', 300), 'error');
     }
   }
-  function ensureExportMenuStyles() {
-    if (document.getElementById('ovyx-ws-project-export-menu-styles')) return;
+  function ensureCodeControlsStyles() {
+    if (document.getElementById('ovyx-code-export-controls-styles')) return;
     var style = document.createElement('style');
-    style.id = 'ovyx-ws-project-export-menu-styles';
+    style.id = 'ovyx-code-export-controls-styles';
     style.textContent = [
-      '.ovyx-ws-project-export-group{position:relative;display:inline-flex;align-items:stretch;gap:0;vertical-align:middle}',
-      '.ovyx-ws-project-export-group>[data-ovyx-project-export]{border-top-right-radius:0!important;border-bottom-right-radius:0!important}',
-      '.ovyx-ws-project-export-menu-trigger{display:inline-flex;align-items:center;justify-content:center;min-width:34px;padding:0 10px!important;margin-left:-1px;border:1px solid rgba(148,163,184,.32)!important;border-top-left-radius:0!important;border-bottom-left-radius:0!important;background:rgba(15,23,42,.95)!important;color:#e2e8f0!important;cursor:pointer}',
-      '.ovyx-ws-project-export-menu-trigger:focus-visible,.ovyx-ws-project-export-menu-item:focus-visible{outline:2px solid #a5b4fc;outline-offset:2px}',
-      '.ovyx-ws-project-export-menu{position:absolute;right:0;top:calc(100% + 8px);z-index:10050;width:320px;max-width:calc(100vw - 32px);padding:12px;background:#0f172a;color:#f8fafc;border:1px solid rgba(148,163,184,.28);border-radius:14px;box-shadow:0 18px 48px rgba(2,6,23,.32)}',
-      '.ovyx-ws-project-export-menu[hidden]{display:none!important}',
-      '.ovyx-ws-project-export-menu-heading{display:block;margin:2px 8px 9px;color:#94a3b8;font-size:11px;font-weight:750;letter-spacing:.09em;text-transform:uppercase}',
-      '.ovyx-ws-project-export-menu-item{display:flex;width:100%;flex-direction:column;align-items:flex-start;gap:4px;padding:10px 11px;text-align:left;border:1px solid transparent;border-radius:9px;background:transparent;color:#f8fafc;cursor:pointer;font:inherit}',
-      '.ovyx-ws-project-export-menu-item:hover{background:rgba(148,163,184,.12);border-color:rgba(148,163,184,.16)}',
-      '.ovyx-ws-project-export-menu-item strong{font-size:13px;font-weight:700}',
-      '.ovyx-ws-project-export-menu-item span{font-size:11px;line-height:1.45;color:#cbd5e1;white-space:normal}',
-      '.ovyx-ws-project-export-menu-note{display:block;margin:9px 8px 1px;color:#94a3b8;font-size:10px;line-height:1.45}'
+      '.ovyx-code-download-group{position:relative;display:inline-flex;align-items:stretch;gap:0;vertical-align:middle;flex-shrink:0}',
+      '.ovyx-code-download-group>[data-ovyx-project-export]{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;border-top-right-radius:0!important;border-bottom-right-radius:0!important;border-top-left-radius:7px!important;border-bottom-left-radius:7px!important}',
+      '.ovyx-code-download-menu-trigger{display:inline-flex;align-items:center;justify-content:center;min-width:31px;padding:0 9px!important;margin-left:-1px;border:1px solid rgba(255,255,255,.12)!important;border-top-left-radius:0!important;border-bottom-left-radius:0!important;border-top-right-radius:7px!important;border-bottom-right-radius:7px!important;background:#15191e!important;color:#d5dbe2!important;cursor:pointer;font:800 8px Inter,sans-serif!important}',
+      '.ovyx-code-download-menu-trigger:hover{border-color:rgba(245,158,11,.4)!important;color:#fbbf24!important}',
+      '.ovyx-code-download-menu-trigger:focus-visible,.ovyx-code-download-menu-item:focus-visible,.ovyx-code-verify-trigger:focus-visible{outline:2px solid #fbbf24;outline-offset:2px}',
+      '.ovyx-code-download-menu{position:absolute;right:0;top:calc(100% + 8px);z-index:12000;width:310px;max-width:calc(100vw - 24px);max-height:min(65vh,440px);overflow:auto;padding:11px;background:#0b0d10;color:#f8fafc;border:1px solid rgba(255,255,255,.12);border-radius:12px;box-shadow:0 18px 48px rgba(0,0,0,.52)}',
+      '.ovyx-code-download-menu[hidden]{display:none!important}',
+      '.ovyx-code-download-menu-heading{display:block;margin:3px 8px 8px;color:#8f9aa7;font:800 8px/1.4 JetBrains Mono,monospace;letter-spacing:.09em;text-transform:uppercase}',
+      '.ovyx-code-download-menu-item{display:flex;width:100%;flex-direction:column;align-items:flex-start;gap:4px;padding:10px 10px;text-align:left;border:1px solid transparent;border-radius:8px;background:transparent;color:#f8fafc;cursor:pointer;font:inherit}',
+      '.ovyx-code-download-menu-item:hover{background:rgba(255,255,255,.045);border-color:rgba(245,158,11,.22)}',
+      '.ovyx-code-download-menu-item strong{font:800 10px/1.4 Inter,sans-serif}',
+      '.ovyx-code-download-menu-item span{font:500 10px/1.5 Inter,sans-serif;color:#9aa4b1;white-space:normal}',
+      '.ovyx-code-download-menu-note{display:block;margin:8px 8px 2px;color:#818b98;font:500 9px/1.5 Inter,sans-serif}',
+      '.ovyx-code-verify-trigger{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;padding:7px 9px!important;border:1px solid rgba(255,255,255,.1)!important;border-radius:7px;background:#111519!important;color:#dbe2ea!important;font:800 8px Inter,sans-serif!important;cursor:pointer;flex-shrink:0}',
+      '.ovyx-code-verify-trigger:hover{border-color:rgba(245,158,11,.35)!important;color:#f9d58a!important}',
+      '.ovyx-code-verify-trigger:disabled{opacity:.65;cursor:progress}',
+      '.ovyx-code-verify-status{font:800 7px JetBrains Mono,monospace;color:#87919d}',
+      '.ovyx-code-verify-trigger[data-quality-status="pass"] .ovyx-code-verify-status{color:#6ee7b7}',
+      '.ovyx-code-verify-trigger[data-quality-status="warn"] .ovyx-code-verify-status{color:#fbbf24}',
+      '.ovyx-code-verify-trigger[data-quality-status="fail"] .ovyx-code-verify-status{color:#fca5a5}',
+      '.ovyx-code-verify-trigger[data-quality-status="running"] .ovyx-code-verify-status{color:#93c5fd}',
+      '@media(max-width:520px){.ovyx-code-verify-status{display:none!important}.ovyx-code-download-menu{width:min(310px,calc(100vw - 24px))}}'
     ].join('');
     (document.head || document.documentElement).appendChild(style);
   }
-  function ensureButton() {
-    var view = document.getElementById('view-webstudio');
-    if (!view) return;
-    Array.prototype.forEach.call(view.querySelectorAll('.ovyx-ws-header-actions'), function (host) {
-      if (host.querySelector('[data-ovyx-project-export-group]')) return;
-      ensureExportMenuStyles();
-      var group = document.createElement('div');
-      group.className = 'ovyx-ws-project-export-group';
-      group.setAttribute('data-ovyx-project-export-group', '1');
-
-      var button = document.createElement('button');
-      button.type = 'button';
-      button.className = 'ovyx-ws-header-button ovyx-ws-project-export-trigger';
-      button.setAttribute(BUTTON_ATTR, '1');
-      button.setAttribute('aria-label', 'Download the complete website project, including frontend and backend, as a ZIP');
-      button.title = 'Download the complete website project: frontend and backend together';
-      var icon = document.createElement('i');
-      icon.className = 'fa-solid fa-file-arrow-down';
-      icon.setAttribute('aria-hidden', 'true');
-      button.appendChild(icon);
-      var label = document.createElement('span');
-      label.textContent = 'Download code';
-      button.appendChild(label);
-      button.addEventListener('click', function (event) {
-        event.preventDefault();
-        exportProject();
-      });
-
-      var toggle = document.createElement('button');
-      toggle.type = 'button';
-      toggle.className = 'ovyx-ws-project-export-menu-trigger';
-      toggle.setAttribute('data-ovyx-project-export-menu-trigger', '1');
-      toggle.setAttribute('aria-label', 'Advanced download options');
-      toggle.setAttribute('aria-haspopup', 'menu');
-      toggle.setAttribute('aria-expanded', 'false');
-      toggle.title = 'Advanced export options';
-      var chevron = document.createElement('i');
-      chevron.className = 'fa-solid fa-chevron-down';
-      chevron.setAttribute('aria-hidden', 'true');
-      toggle.appendChild(chevron);
-
-      var menu = document.createElement('div');
-      menu.className = 'ovyx-ws-project-export-menu';
-      menu.setAttribute('data-ovyx-project-export-menu', '1');
-      menu.setAttribute('role', 'menu');
-      menu.setAttribute('aria-label', 'Advanced download options');
+  function reportCounts(report) {
+    var checks = report && Array.isArray(report.checks) ? report.checks : [];
+    return checks.reduce(function (result, check) {
+      if (check && check.status === 'fail') result.fail += 1;
+      else if (check && check.status === 'warn') result.warn += 1;
+      else if (check && check.status === 'pass') result.pass += 1;
+      else result.info += 1;
+      return result;
+    }, { pass: 0, warn: 0, fail: 0, info: 0 });
+  }
+  function setVerificationState(button, report) {
+    if (!button) return;
+    var label = button.querySelector('[data-ovyx-code-verify-label]');
+    var state = button.querySelector('[data-ovyx-code-verify-status]');
+    var counts = report && report.counts || reportCounts(report);
+    var status = String(report && report.status || '').toLowerCase();
+    if (status !== 'fail' && status !== 'warn' && status !== 'pass') status = counts.fail ? 'fail' : counts.warn ? 'warn' : 'pass';
+    if (label) label.textContent = 'Verify build';
+    if (state) state.textContent = status === 'fail' ? 'BLOCKERS' : status === 'warn' ? 'WARNINGS' : 'PASS';
+    button.setAttribute('data-quality-status', status);
+    button.disabled = false;
+    button.setAttribute('aria-busy', 'false');
+    var statusText = status === 'fail' ? 'Blockers found' : status === 'warn' ? 'Passed with warnings' : 'Passed within tested scope';
+    button.title = statusText + ': ' + counts.pass + ' passed, ' + counts.warn + ' warnings, ' + counts.fail + ' failed. Click to run the checks again. This does not certify live integrations or production deployment.';
+  }
+  function setVerificationRunning(button) {
+    if (!button) return;
+    var state = button.querySelector('[data-ovyx-code-verify-status]');
+    button.disabled = true;
+    button.setAttribute('data-quality-status', 'running');
+    button.setAttribute('aria-busy', 'true');
+    if (state) state.textContent = 'CHECKING';
+    button.title = 'Running source, responsive, accessibility and safe-interaction checks…';
+  }
+  function openQualityPanel() {
+    var qualityRoot = document.getElementById('ovyx-ws-quality-root');
+    if (!qualityRoot) return false;
+    var overlay = qualityRoot.querySelector('[data-quality-overlay]');
+    var trigger = document.querySelector('#view-webstudio [data-ovyx-quality-trigger]');
+    if (trigger && !trigger.hidden) trigger.click();
+    else if (overlay) {
+      overlay.hidden = false;
+      overlay.setAttribute('aria-hidden', 'false');
+    }
+    return true;
+  }
+  function runProjectQuality(button) {
+    if (!button || button.disabled) return;
+    var qualityApi = window.OVYXWebStudioQuality;
+    if (!qualityApi || typeof qualityApi.run !== 'function') {
+      showMessage('The quality inspector is not ready yet. Reopen the Code area and try again.', 'warning');
+      return;
+    }
+    var qualityRoot = document.getElementById('ovyx-ws-quality-root');
+    var qualityRunButton = qualityRoot && qualityRoot.querySelector('[data-quality-run]');
+    if (qualityRunButton && qualityRunButton.disabled) return;
+    setVerificationRunning(button);
+    openQualityPanel();
+    if (qualityRunButton) qualityRunButton.disabled = true;
+    Promise.resolve().then(function () { return qualityApi.run(); })
+      .then(function (report) {
+        if (report) setVerificationState(button, report);
+        var counts = report && report.counts || reportCounts(report);
+        var status = String(report && report.status || (counts.fail ? 'fail' : counts.warn ? 'warn' : 'pass')).toLowerCase();
+        var detail = 'Quality review finished: ' + counts.pass + ' passed, ' + counts.warn + ' warnings, ' + counts.fail + ' failed. Live integrations and production hosting need separate verification.';
+        showMessage(detail, status === 'fail' ? 'error' : status === 'warn' ? 'warning' : 'success');
+      })
+      .catch(function (error) {
+        button.disabled = false;
+        button.setAttribute('aria-busy', 'false');
+        button.setAttribute('data-quality-status', 'fail');
+        var state = button.querySelector('[data-ovyx-code-verify-status]');
+        if (state) state.textContent = 'ERROR';
+        button.title = 'Quality inspection did not complete. Review the quality panel and retry.';
+        showMessage('Quality inspection could not complete: ' + clean(error && error.message || 'unknown inspection error', 240), 'error');
+      })
+      .finally(function () { if (qualityRunButton) qualityRunButton.disabled = false; });
+  }
+  function addMenuOption(menu, toggle, attr, titleText, descriptionText, handler) {
+    var option = document.createElement('button');
+    option.type = 'button';
+    option.className = 'ovyx-code-download-menu-item';
+    option.setAttribute('role', 'menuitem');
+    option.setAttribute(attr, '1');
+    var title = document.createElement('strong');
+    title.textContent = titleText;
+    option.appendChild(title);
+    var description = document.createElement('span');
+    description.textContent = descriptionText;
+    option.appendChild(description);
+    option.addEventListener('click', function (event) {
+      event.preventDefault();
       menu.hidden = true;
+      toggle.setAttribute('aria-expanded', 'false');
+      handler();
+    });
+    menu.appendChild(option);
+    return option;
+  }
+  function mountVerificationButton(parent, beforeNode) {
+    if (!parent || parent.querySelector('[data-ovyx-code-verify]')) return;
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'ovyx-code-verify-trigger';
+    button.setAttribute('data-ovyx-code-verify', '1');
+    button.setAttribute('aria-label', 'Verify this project build');
+    button.setAttribute('data-quality-status', 'idle');
+    var icon = document.createElement('i');
+    icon.className = 'fa-solid fa-shield-halved';
+    icon.setAttribute('aria-hidden', 'true');
+    button.appendChild(icon);
+    var label = document.createElement('span');
+    label.setAttribute('data-ovyx-code-verify-label', '1');
+    label.textContent = 'Verify build';
+    button.appendChild(label);
+    var state = document.createElement('small');
+    state.className = 'ovyx-code-verify-status';
+    state.setAttribute('data-ovyx-code-verify-status', '1');
+    state.textContent = 'NOT CHECKED';
+    button.appendChild(state);
+    button.title = 'Run source, responsive, accessibility and safe-interaction checks. Live integrations and production deployment are reported separately.';
+    button.addEventListener('click', function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      runProjectQuality(button);
+    });
+    parent.insertBefore(button, beforeNode || null);
+    try {
+      var currentProject = window.KernelState && window.KernelState.activeProject || {};
+      var report = window.OVYXWebStudioQuality && window.OVYXWebStudioQuality.getReport && window.OVYXWebStudioQuality.getReport();
+      if (report && report.finishedAt && (!report.projectId || !currentProject.id || String(report.projectId) === String(currentProject.id))) setVerificationState(button, report);
+    } catch (_) {}
+  }
+  function mountCodeControls() {
+    var download = document.getElementById('ovyx-code-download');
+    if (!download || !download.parentNode) return;
+    var existingGroup = download.closest('[data-ovyx-project-export-group]');
+    if (existingGroup) {
+      if (!existingGroup.querySelector('[data-ovyx-code-verify]')) mountVerificationButton(existingGroup.parentNode, existingGroup);
+      return;
+    }
+    ensureCodeControlsStyles();
+    var parent = download.parentNode;
+    var group = document.createElement('div');
+    group.className = 'ovyx-code-download-group';
+    group.setAttribute('data-ovyx-project-export-group', '1');
+    group.setAttribute('data-ovyx-code-download-group', '1');
+    parent.insertBefore(group, download);
+    group.appendChild(download);
+    download.setAttribute(BUTTON_ATTR, '1');
+    download.classList.add('ovyx-code-download-trigger');
+    download.setAttribute('aria-label', 'Download the complete website project, including frontend and backend, as a ZIP');
+    download.title = 'Download the complete website project: frontend and backend together';
+    download.textContent = 'Download code';
 
-      var heading = document.createElement('strong');
-      heading.className = 'ovyx-ws-project-export-menu-heading';
-      heading.textContent = 'Advanced download options';
-      menu.appendChild(heading);
+    var toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'ovyx-code-download-menu-trigger';
+    toggle.setAttribute('data-ovyx-project-export-menu-trigger', '1');
+    toggle.setAttribute('aria-label', 'Advanced download options');
+    toggle.setAttribute('aria-haspopup', 'menu');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.title = 'Advanced export options';
+    var chevron = document.createElement('i');
+    chevron.className = 'fa-solid fa-chevron-down';
+    chevron.setAttribute('aria-hidden', 'true');
+    toggle.appendChild(chevron);
 
-      function addMenuOption(attr, titleText, descriptionText, handler) {
-        var option = document.createElement('button');
-        option.type = 'button';
-        option.className = 'ovyx-ws-project-export-menu-item';
-        option.setAttribute('role', 'menuitem');
-        option.setAttribute(attr, '1');
-        var optionTitle = document.createElement('strong');
-        optionTitle.textContent = titleText;
-        option.appendChild(optionTitle);
-        var description = document.createElement('span');
-        description.textContent = descriptionText;
-        option.appendChild(description);
-        option.addEventListener('click', function (event) {
-          event.preventDefault();
+    var menu = document.createElement('div');
+    menu.className = 'ovyx-code-download-menu';
+    menu.setAttribute('data-ovyx-project-export-menu', '1');
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', 'Advanced download options');
+    menu.hidden = true;
+    var heading = document.createElement('strong');
+    heading.className = 'ovyx-code-download-menu-heading';
+    heading.textContent = 'Advanced download options';
+    menu.appendChild(heading);
+    var websiteOption = addMenuOption(menu, toggle, 'data-ovyx-project-export-website-only', 'Website only (.zip)', 'Frontend pages, browser scripts and styles. Backend/server implementation files are left out.', function () { exportProject({ mode: 'website-only' }); });
+    addMenuOption(menu, toggle, 'data-ovyx-project-export-backend-only', 'Backend only (.zip)', 'Advanced: API/server code, schemas, migrations and setup files. Frontend pages and styles are left out.', function () { exportProject({ mode: 'backend-only' }); });
+    var note = document.createElement('span');
+    note.className = 'ovyx-code-download-menu-note';
+    note.textContent = 'Use Download code for one complete ZIP with the website and backend together.';
+    menu.appendChild(note);
+
+    toggle.addEventListener('click', function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      menu.hidden = !menu.hidden;
+      toggle.setAttribute('aria-expanded', menu.hidden ? 'false' : 'true');
+      if (!menu.hidden) websiteOption.focus();
+    });
+    group.appendChild(toggle);
+    group.appendChild(menu);
+    mountVerificationButton(parent, group);
+  }
+  function installCodeEventHandlers() {
+    if (window.__OVYX_WS_CODE_EXPORT_EVENTS_V2__) return;
+    window.__OVYX_WS_CODE_EXPORT_EVENTS_V2__ = true;
+    document.addEventListener('click', function (event) {
+      var target = event.target && event.target.closest && event.target.closest('#ovyx-code-download');
+      if (!target) return;
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+      exportProject();
+    }, true);
+    document.addEventListener('click', function (event) {
+      document.querySelectorAll('[data-ovyx-project-export-group] [data-ovyx-project-export-menu]').forEach(function (menu) {
+        var group = menu.closest('[data-ovyx-project-export-group]');
+        var toggle = group && group.querySelector('[data-ovyx-project-export-menu-trigger]');
+        if (group && !group.contains(event.target)) {
           menu.hidden = true;
-          toggle.setAttribute('aria-expanded', 'false');
-          handler();
-        });
-        menu.appendChild(option);
-        return option;
-      }
-      var websiteOption = addMenuOption(
-        'data-ovyx-project-export-website-only',
-        'Website only (.zip)',
-        'Frontend pages, browser scripts and styles. Backend/server implementation files are left out.',
-        function () { exportProject({ mode: 'website-only' }); }
-      );
-      addMenuOption(
-        'data-ovyx-project-export-backend-only',
-        'Backend only (.zip)',
-        'Advanced: API/server code, schemas, migrations and setup files. Frontend pages and styles are left out.',
-        function () { exportProject({ mode: 'backend-only' }); }
-      );
-      var note = document.createElement('span');
-      note.className = 'ovyx-ws-project-export-menu-note';
-      note.textContent = 'Use Download code for one complete ZIP with the website and backend together.';
-      menu.appendChild(note);
-
-      toggle.addEventListener('click', function (event) {
-        event.preventDefault();
-        menu.hidden = !menu.hidden;
-        toggle.setAttribute('aria-expanded', menu.hidden ? 'false' : 'true');
-        if (!menu.hidden) websiteOption.focus();
-      });
-      group.appendChild(button);
-      group.appendChild(toggle);
-      group.appendChild(menu);
-      document.addEventListener('click', function (event) {
-        if (!group.contains(event.target)) {
-          menu.hidden = true;
-          toggle.setAttribute('aria-expanded', 'false');
+          if (toggle) toggle.setAttribute('aria-expanded', 'false');
         }
-      }, true);
-      document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape' && !menu.hidden) {
-          menu.hidden = true;
+      });
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key !== 'Escape') return;
+      document.querySelectorAll('[data-ovyx-project-export-group] [data-ovyx-project-export-menu]').forEach(function (menu) {
+        if (menu.hidden) return;
+        menu.hidden = true;
+        var group = menu.closest('[data-ovyx-project-export-group]');
+        var toggle = group && group.querySelector('[data-ovyx-project-export-menu-trigger]');
+        if (toggle) {
           toggle.setAttribute('aria-expanded', 'false');
           toggle.focus();
         }
       });
-      var fullstack = host.querySelector('[data-ovyx-fullstack-upgrade]');
-      var preview = host.querySelector('#ws-preview-trigger');
-      if (fullstack && fullstack.parentNode === host) host.insertBefore(group, fullstack.nextSibling);
-      else if (preview) host.insertBefore(group, preview);
-      else host.appendChild(group);
+    });
+    window.addEventListener('ovyx:webstudio-quality-report', function (event) {
+      var report = event && event.detail;
+      var currentProject = window.KernelState && window.KernelState.activeProject || {};
+      if (!report || (report.projectId && currentProject.id && String(report.projectId) !== String(currentProject.id))) return;
+      document.querySelectorAll('[data-ovyx-code-verify]').forEach(function (button) { setVerificationState(button, report); });
+    });
+    window.addEventListener('ovyx:webstudio-build-stage', function (event) {
+      var detail = event && event.detail || {};
+      var status = detail.stage === 'build-verified' ? 'pass' : detail.stage === 'build-failed' ? 'fail' : '';
+      if (!status) return;
+      document.querySelectorAll('[data-ovyx-code-verify]').forEach(function (button) {
+        button.setAttribute('data-quality-status', status);
+        var state = button.querySelector('[data-ovyx-code-verify-status]');
+        if (state) state.textContent = status === 'pass' ? 'PASS' : 'BLOCKERS';
+        button.disabled = false;
+        button.setAttribute('aria-busy', 'false');
+        button.title = String(detail.message || (status === 'pass' ? 'The automatic quality gate passed.' : 'The automatic quality gate rejected the build.')) + ' Live integrations and deployment still require separate verification.';
+      });
     });
   }
   function boot() {
-    ensureButton();
-    var attempts = 0;
-    if (!document.querySelector('#view-webstudio [' + BUTTON_ATTR + ']')) {
-      var timer = window.setInterval(function () {
-        ensureButton();
-        attempts += 1;
-        if (document.querySelector('#view-webstudio [' + BUTTON_ATTR + ']') || attempts >= 80) window.clearInterval(timer);
-      }, 200);
+    installCodeEventHandlers();
+    mountCodeControls();
+    if (!window.__OVYX_WS_PROJECT_EXPORT_OBSERVER_V2__ && document.body && typeof MutationObserver === 'function') {
+      window.__OVYX_WS_PROJECT_EXPORT_OBSERVER_V2__ = new MutationObserver(function () {
+        var button = document.getElementById('ovyx-code-download');
+        if (button && !button.closest('[data-ovyx-project-export-group]')) mountCodeControls();
+      });
+      window.__OVYX_WS_PROJECT_EXPORT_OBSERVER_V2__.observe(document.body, { childList: true, subtree: true });
     }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
@@ -548,5 +688,5 @@
   window.addEventListener('ovyx:view-changed', boot);
   window.addEventListener('firebase-auth-state-ready', boot);
   window.addEventListener('ovyx:webstudio-initial-site-built', function () { window.setTimeout(boot, 0); });
-  window.OVYXWebStudioProjectExport = { export: exportProject, version: '1.1.0', modes: ['complete', 'website-only', 'backend-only'] };
+  window.OVYXWebStudioProjectExport = { export: exportProject, version: '2.0.0', modes: ['complete', 'website-only', 'backend-only'] };
 })();
