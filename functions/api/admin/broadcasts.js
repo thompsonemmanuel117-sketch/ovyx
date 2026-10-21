@@ -244,7 +244,7 @@ export async function onRequestPost(context) {
           const email = await sendBroadcastEmails(context.env, {
             broadcast: { id: announcementId, title, body: message, category, link },
             recipients: recipientInfo.recipients,
-            logoUrl: new URL('/assets/ovyx-logo.png', origin).href,
+            logoUrl: new URL('/assets/ovyx-brand-lockup.png', origin).href,
             origin
           });
           return { ...email, preferenceCheckFailed: recipientInfo.preferenceCheckFailed,
