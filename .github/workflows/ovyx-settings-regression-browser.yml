@@ -1,0 +1,77 @@
+name: OVYX Settings Regression Browser Tests
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'index.html'
+      - 'assets/ovyx-settings-reliability.js'
+      - 'assets/ovyx-webstudio-cancel-safety.js'
+      - 'functions/_middleware.js'
+      - 'scripts/ovyx-settings-actions.test.mjs'
+      - 'scripts/ovyx-settings-core.browser.test.mjs'
+      - '.github/workflows/ovyx-settings-regression-browser.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'index.html'
+      - 'assets/ovyx-settings-reliability.js'
+      - 'assets/ovyx-webstudio-cancel-safety.js'
+      - 'functions/_middleware.js'
+      - 'scripts/ovyx-settings-actions.test.mjs'
+      - 'scripts/ovyx-settings-core.browser.test.mjs'
+      - '.github/workflows/ovyx-settings-regression-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  settings-regression-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install project dependencies
+        run: |
+          npm install --ignore-scripts
+          npm install --ignore-scripts --no-save playwright@^1.55.0
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start local Cloudflare Pages app shell
+        run: |
+          npx wrangler pages dev . --ip 127.0.0.1 --port 8791 > /tmp/ovyx-settings-pages.log 2>&1 &
+          echo $! > /tmp/ovyx-settings-pages.pid
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8791/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/ovyx-settings-pages.log
+          exit 1
+
+      - name: Verify static Profile, Appearance and scoped-cancel contracts
+        run: |
+          npm run validate
+          node scripts/ovyx-settings-actions.test.mjs
+
+      - name: Test Profile, Appearance and task-cancel safety in desktop and mobile Chromium
+        env:
+          OVYX_E2E_BASE_URL: http://127.0.0.1:8791
+        run: node scripts/ovyx-settings-core.browser.test.mjs
+
+      - name: Print local Pages logs on failure
+        if: failure()
+        run: cat /tmp/ovyx-settings-pages.log || true

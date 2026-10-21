@@ -223,14 +223,41 @@
       if (label) label.textContent = workspaceName;
     }
   }
+  function syncLocalProfileCache(profile, updatedAt, user) {
+    user = user || currentUser();
+    if (!user || !user.uid) return;
+    const key = 'ovyx.profile.v2.user.' + String(user.uid);
+    const cached = safeJson(localStorage.getItem(key));
+    const remoteName = String(profile && profile.displayName || '').trim();
+    const remoteWorkspace = String(profile && profile.workspaceName || '').trim();
+    // The server profile is canonical after a confirmed save. Before the first
+    // server save, preserve an existing local profile as a one-time migration
+    // source so a refresh does not replace a long-standing workspace name.
+    const name = remoteName || String(cached.name || user.displayName || 'Guest Account').trim();
+    const workspace = updatedAt
+      ? (remoteWorkspace || 'Creative Workspace')
+      : (String(cached.workspace || remoteWorkspace || 'Creative Workspace').trim());
+    try {
+      localStorage.setItem(key, JSON.stringify(Object.assign({}, cached, {
+        name: name || 'Guest Account',
+        workspace: workspace || 'Creative Workspace'
+      })));
+    } catch (_) {}
+  }
+
   async function loadProfile() {
     const panel = document.querySelector('[data-settings-panel="profile"]');
-    if (!panel || !currentUser()) return;
+    const requestedUser = currentUser();
+    if (!panel || !requestedUser || !requestedUser.uid) return;
     const status = addStatus(panel, 'ovyx-profile-server-status', 'Loading your saved profile…');
     try {
       const data = await api(PROFILE_ENDPOINT);
-      hydrateProfileForm(data.profile || {});
-      if (status) status.textContent = data.updatedAt ? 'Profile last saved ' + new Date(data.updatedAt).toLocaleString() : 'You have not saved a profile yet.';
+      // Never hydrate a different account if the user switches while this request is in flight.
+      if (!currentUser() || String(currentUser().uid) !== String(requestedUser.uid)) return;
+      const profile = data.profile || {};
+      syncLocalProfileCache(profile, data.updatedAt, requestedUser);
+      hydrateProfileForm(profile);
+      if (status) status.textContent = data.updatedAt ? 'Profile last saved ' + new Date(data.updatedAt).toLocaleString() : 'Your profile is ready.';
     } catch (error) {
       if (status) status.textContent = 'We could not load your saved profile. Please try again.';
     }
@@ -249,9 +276,7 @@
     try {
       const data = await api(PROFILE_ENDPOINT, jsonOptions('PUT', { profile: { displayName, workspaceName } }));
       const saved = data.profile || { displayName, workspaceName };
-      const key = 'ovyx.profile.v2.user.' + String(currentUser().uid);
-      const old = safeJson(localStorage.getItem(key));
-      try { localStorage.setItem(key, JSON.stringify(Object.assign({}, old, { name: saved.displayName, workspace: saved.workspaceName }))); } catch (_) {}
+      syncLocalProfileCache(saved, data.updatedAt || new Date().toISOString(), currentUser());
       document.querySelectorAll('#settings-display-name-text,#sidebar-user-display-name').forEach(el => { el.textContent = saved.displayName; });
       const heading = $('profile-name-heading');
       if (heading) heading.textContent = saved.displayName;
@@ -865,7 +890,31 @@
     if (settings && typeof settings.show === 'function' && !settings.__ovyxSettingsReliabilityV1) {
       const originalShow = settings.show.bind(settings);
       settings.show = function (id) {
-        const result = originalShow(id);
+        // Appearance has one source of truth: ThemeContext (the saved appearance
+        // plus its in-progress draft). The older Theme Lab renderer used to apply
+        // its active preset every time the tab opened, overwriting custom colours.
+        const lab = window.OVYXThemeLab;
+        const originalLabApply = lab && typeof lab.apply === 'function' ? lab.apply : null;
+        const protectAppearance = id === 'appearance' && !!window.ThemeContext
+          && typeof window.ThemeContext.apply === 'function' && !!originalLabApply;
+        if (protectAppearance) {
+          lab.apply = function () {
+            try { window.ThemeContext.apply(); } catch (_) {}
+            try { lab.renderState && lab.renderState(); } catch (_) {}
+          };
+        }
+        let result;
+        try {
+          result = originalShow(id);
+        } finally {
+          if (protectAppearance && lab) lab.apply = originalLabApply;
+        }
+
+        // Always reveal the same Profile renderer. The legacy shell markup is kept
+        // only as a migration fallback; it must never return as a second profile UI.
+        if (id === 'profile' && typeof window.OVYXProfile?.render === 'function') {
+          try { window.OVYXProfile.render(); } catch (_) {}
+        }
         if (id === 'profile') setTimeout(loadProfile, 0);
         if (id === 'notifications') setTimeout(loadNotifications, 0);
         if (id === 'usage') setTimeout(loadUsage, 0);

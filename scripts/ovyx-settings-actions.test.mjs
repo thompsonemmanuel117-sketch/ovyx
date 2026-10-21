@@ -7,6 +7,7 @@ import { normalizeAIPreferences, AI_PREFERENCE_DEFAULTS } from '../functions/api
 
 const read = path => fs.readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 const runtime = read('assets/ovyx-settings-reliability.js');
+const cancelSafetyRuntime = read('assets/ovyx-webstudio-cancel-safety.js');
 const qualityRuntime = read('assets/ovyx-webstudio-quality.js');
 const html = read('index.html');
 const coreBrowser = read('scripts/ovyx-settings-core.browser.test.mjs');
@@ -272,5 +273,25 @@ assert.ok(runtime.includes("credentials: 'omit'") && runtime.includes("cache: 'n
 assert.ok(runtime.includes('consentedOrigin !== endpointUrl.origin'), 'Sync must fail closed if the stored consent does not match the active endpoint origin.');
 assert.ok(runtime.includes('Only the bounded project metadata was sent.'), 'External sync status must accurately describe that only project metadata was sent.');
 assert.ok(runtime.includes("pageCount: Array.isArray(project.pages) ? Math.min(project.pages.length, 1000) : 0"), 'External sync must bound the project page count it sends.');
+
+// Regression contracts for the Settings/Profile split-brain and scoped Studio cancellation fixes.
+assert.ok(runtime.includes('function syncLocalProfileCache(profile, updatedAt, user)')
+  && runtime.includes('syncLocalProfileCache(profile, data.updatedAt, requestedUser)')
+  && runtime.includes('String(currentUser().uid) !== String(requestedUser.uid)'),
+  'Server-backed Profile hydration must keep the renderer cache user-scoped and reject stale responses after account switching.');
+assert.ok(html.includes("if(id==='appearance'){this.syncAppearance()}},")
+  && !html.includes("this.syncAppearance();ThemeLab.apply()}"),
+  'Opening Appearance must not overwrite canonical saved colours with a legacy Theme Lab preset.');
+assert.ok(middleware.includes('/assets/ovyx-webstudio-cancel-safety.js?v=20261021-1'),
+  'The app shell must load the shared Web Studio task-cancellation module.');
+assert.ok(cancelSafetyRuntime.includes("button.id = 'ws-task-cancel'"),
+  'The shared cancellation module must create one touch-friendly Cancel control.');
+assert.ok(cancelSafetyRuntime.includes('studio.cancelActiveTask = function ()')
+  && cancelSafetyRuntime.includes('restoreProjectOnly(this, snapshot, taskProjectWasActive)'),
+  'Cancel must roll back only the active task project.');
+assert.ok(html.includes('rollbackAgentChanges(baseGraph,appliedGraph,originalProject)')
+  && html.includes("this.rollbackAgentChanges(rollbackGraph,appliedGraph,rollbackProject)")
+  && !html.includes("const restoredProjects=JSON.parse(JSON.stringify(rollbackState?.projects||[]))"),
+  'Failed Build/Fix runs must restore only agent-touched files rather than replacing the entire project list.');
 
 console.log('OVYX Settings actions tests passed: server-backed profile and notifications, account and email-scoped cleanup, Brand Identity, live Universal Connection tests, session revocation, usage, workspace toggles, editor mode and AI routing.');

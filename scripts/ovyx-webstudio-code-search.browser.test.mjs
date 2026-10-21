@@ -23,7 +23,10 @@ try{
  assert.equal(await panel.isVisible(),true);assert.equal(await panel.locator('[data-ovyx-search-result-path]').count(),5,'Opening the drawer must list every current project file without requiring a query.');
  assert.match(await panel.locator('.ovyx-code-search-message').innerText(),/5 project files/i);
  const drawer=await panel.evaluate(node=>{const r=node.getBoundingClientRect();return{left:r.left,top:r.top,width:r.width,height:r.height,bottom:r.bottom};});
- assert.equal(drawer.left,0);assert.equal(drawer.top,0);assert.ok(drawer.width<=420);assert.equal(drawer.height,900,'File drawer must fill the workspace height.');
+ // Allow subpixel browser layout/animation rounding without relaxing the drawer bounds.
+ assert.ok(Math.abs(drawer.left)<0.5,'File drawer must be flush to the workspace left edge.');
+ assert.ok(Math.abs(drawer.top)<0.5,'File drawer must start at the top of the workspace.');
+ assert.ok(drawer.width<=420);assert.ok(Math.abs(drawer.height-900)<0.5,'File drawer must fill the workspace height.');
  assert.equal(await page.locator('.ovyx-code-search-backdrop').isVisible(),true);
  const after=await page.locator('#editor-area').evaluate(node=>{const r=node.getBoundingClientRect();return{x:r.x,y:r.y,width:r.width,height:r.height};});
  assert.deepEqual(after,before,'The drawer must overlay the full-width editor without moving or resizing it.');

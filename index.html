@@ -3071,7 +3071,10 @@
         const requestAttachments=Array.isArray(attachments)?attachments:this.attachmentPayload();
         const hadWebsite=this.hasProjectWebsite();
         const before=this.snapshotGraph();
-        const rollbackState=rollback||{projectId:String(window.KernelState?.activeProject?.id||''),project:JSON.parse(JSON.stringify(window.KernelState?.activeProject||{})),projects:JSON.parse(JSON.stringify(window.KernelState?.projects||[])),graph:before};
+        let rollbackGraph=repair&&rollback?.graph?JSON.parse(JSON.stringify(rollback.graph)):before;
+        let rollbackProject=repair&&rollback?.projectRef?rollback.projectRef:(window.KernelState?.activeProject||null);
+        let appliedGraph=null;
+        const rollbackState=rollback||{projectId:String(window.KernelState?.activeProject?.id||''),project:JSON.parse(JSON.stringify(window.KernelState?.activeProject||{})),projects:JSON.parse(JSON.stringify(window.KernelState?.projects||[])),projectRef:window.KernelState?.activeProject||null,graph:before};
         try{
           if(!repair)this.status('live');
           this.status('live');
@@ -3081,7 +3084,8 @@
           const result=await this.callAI({mode:'build',prompt:text,files:this.serializeGraphForAI(),project:this.compactProject(),attachments:requestAttachments},token);
           if(!this.isRequestCurrent(token))return;
           this.status('live');
-          this.applyAIResult(result);
+          if(!repair){rollbackProject=window.KernelState?.activeProject||rollbackProject;rollbackGraph=this.snapshotGraph();}
+          this.applyAIResult(result);appliedGraph=this.snapshotGraph();
           if(!this.isRequestCurrent(token))return;
           const returnedFiles=result?.files||result?.fileEdits||result?.patch?.files;
           const returnedHtmlPaths=Object.keys(returnedFiles||{}).filter(path=>{const p=String(path).toLowerCase();return (p.endsWith('.html')||p.endsWith('.htm'))&&!String(path).includes('\\')&&!String(path).split('/').some(part=>part==='..'||part==='.')&&String(typeof returnedFiles[path]==='string'?returnedFiles[path]:(returnedFiles[path]?.content??returnedFiles[path]?.text??'')).trim().length>80;});
@@ -3098,7 +3102,7 @@
           if(!test.ok){
             this.status('live','error');
             this.appendMessage('agent',test.summary);
-            if(!repair){this.pendingBuild=false;this.status('live');return this.runBuildAgent(`Repair the current project using these verified test failures:\n${test.details}`,true,token,requestAttachments,rollbackState)}
+            if(!repair){this.pendingBuild=false;this.status('live');return this.runBuildAgent(`Repair the current project using these verified test failures:\n${test.details}`,true,token,requestAttachments,{...rollbackState,projectRef:rollbackProject,graph:rollbackGraph})}
             throw new Error('Build completed with unresolved test failures.');
           }
           this.status('live','done');
@@ -3109,34 +3113,28 @@
         }catch(e){
           if(!this.isRequestCurrent(token))return;
           if(e?.name==='AbortError')return;
-          try{
-            const restoredProjects=JSON.parse(JSON.stringify(rollbackState?.projects||[]));
-            window.KernelState.projects=restoredProjects;
-            window.KernelState.activeProject=restoredProjects.find(p=>String(p?.id||'')===String(rollbackState?.projectId||''))||JSON.parse(JSON.stringify(rollbackState?.project||{}));
-            this.graph=JSON.parse(JSON.stringify(rollbackState?.graph||before));
-            if(window.KernelState.activeProject)this.graph&&(window.KernelState.activeProject.ovyxGraph=this.graph);
-            try{localStorage.setItem(this.graphKeyPrefix+(window.KernelState.activeProject?.id||'unknown'),JSON.stringify(this.graph))}catch(_){}
-            window.ProjectStore?.save?.();
-            this.renderPreview();
-          }catch(rollbackError){console.error('[OVYX Web Studio build rollback]',String(rollbackError?.message||rollbackError).slice(0,180))}
+          try{if(appliedGraph)this.rollbackAgentChanges(rollbackGraph,appliedGraph,rollbackProject)}catch(rollbackError){console.error('[OVYX Web Studio build rollback]',String(rollbackError?.message||rollbackError).slice(0,180))}
           this.status(e.message||'Build failed.','error');this.appendMessage(e.message||'OVYX could not complete the build.');
         }finally{if(this.isRequestCurrent(token)){this.pendingBuild=false;this.liveAiActive=false;this.renderThread()}}
       },
       async runFixAgent(text,token=this.requestEpoch,attachments=null){
         if(!this.isRequestCurrent(token))return;
         this.ensureProjectGraph();const requestAttachments=Array.isArray(attachments)?attachments:this.attachmentPayload();const test=this.runTests(true);const prompt=`Fix this issue in the current OVYX project.\nUser report: ${text}\nVerified diagnostics:\n${test.details}`;this.pendingBuild=true;this.status('live');
+        const before=this.snapshotGraph();let rollbackGraph=before;let rollbackProject=window.KernelState?.activeProject||null;let appliedGraph=null;
         try{
           if(!this.isRequestCurrent(token))return;
-          this.status('live');const before=this.snapshotGraph();
+          this.status('live');
           const result=await this.callAI({mode:'fix',prompt,files:this.serializeGraphForAI(),project:this.compactProject(),attachments:requestAttachments},token);
           if(!this.isRequestCurrent(token))return;
-          this.applyAIResult(result);this.status('live');
+          rollbackProject=window.KernelState?.activeProject||rollbackProject;rollbackGraph=this.snapshotGraph();
+          this.applyAIResult(result);appliedGraph=this.snapshotGraph();this.status('live');
           const after=this.runTests(false);if(!this.isRequestCurrent(token))return;
-          if(!after.ok){this.status('live','error');this.appendMessage('agent',after.summary);return}
+          if(!after.ok){this.rollbackAgentChanges(rollbackGraph,appliedGraph,rollbackProject);this.status(after.summary,'error');this.appendMessage('agent',after.summary);return}
           this.status('live','done');this.commitHistory('Fix',before,this.snapshotGraph());this.appendMessage('agent',String(result?.message||result?.summary||'The issue was repaired and verified.'));this.render();
         }catch(e){
           if(!this.isRequestCurrent(token))return;
           if(e?.name==='AbortError')return;
+          if(appliedGraph){try{this.rollbackAgentChanges(rollbackGraph,appliedGraph,rollbackProject)}catch(rollbackError){console.error('[OVYX Web Studio fix rollback]',String(rollbackError?.message||rollbackError).slice(0,180))}}
           this.status(e.message||'Fix failed.','error');this.appendMessage('agent',e.message||'OVYX could not repair the current project.');
         }finally{if(this.isRequestCurrent(token)){this.pendingBuild=false;this.liveAiActive=false;this.renderThread()}}
       },
@@ -3314,6 +3312,23 @@
       async runPlan(){if(!this.plan)return false;this.closeModal('plan');return this.runBuildAgent(`${this.plan.goal}\nImplementation plan:\n${(this.plan.tasks||[]).map((x,i)=>`${i+1}. ${x}`).join('\n')}`,false,this.requestEpoch,this.pendingPlanAttachments||[])},
       commitHistory(label,before,after){const p=window.KernelState?.activeProject;if(!p)return;const history=Array.isArray(p.ovyxHistory)?p.ovyxHistory:[];history.unshift({id:'wh_'+Date.now(),at:Date.now(),label,changedFiles:this.diffFiles(before,after),before,after});p.ovyxHistory=history.slice(0,50);Object.values(this.graph?.files||{}).forEach(f=>{if(f&&f.content!==undefined)f.editBaseContent=f.content});p.updatedAt=Date.now();try{localStorage.setItem(this.graphKeyPrefix+(p.id||'unknown'),JSON.stringify(this.graph))}catch(_){}window.ProjectStore?.save?.();},
       snapshotGraph(){this.ensureProjectGraph();return JSON.parse(JSON.stringify(this.graph||{}))},
+      rollbackAgentChanges(baseGraph,appliedGraph,originalProject){
+        const state=window.KernelState;if(!state||!baseGraph)return false;
+        if(originalProject&&state.activeProject!==originalProject){state.activeProject=originalProject;this.graph=null;}
+        if(!state.activeProject)return false;
+        const live=this.snapshotGraph(),baseFiles=baseGraph.files||{},appliedFiles=(appliedGraph||live).files||{},liveFiles=live.files||{};
+        const next=JSON.parse(JSON.stringify(live));next.files=JSON.parse(JSON.stringify(liveFiles));
+        const sameContent=(a,b)=>{if(a===undefined||a===null)return b===undefined||b===null;if(b===undefined||b===null)return false;return String(a.content??'')===String(b.content??'')&&String(a.type||'')===String(b.type||'')};
+        for(const path of new Set([...Object.keys(baseFiles),...Object.keys(appliedFiles)])){
+          if(sameContent(baseFiles[path],appliedFiles[path])||!sameContent(liveFiles[path],appliedFiles[path]))continue;
+          if(Object.prototype.hasOwnProperty.call(baseFiles,path))next.files[path]={...(liveFiles[path]||{}),type:baseFiles[path]?.type||liveFiles[path]?.type||this.mime(path),content:String(baseFiles[path]?.content??'')};
+          else delete next.files[path];
+        }
+        if(appliedGraph&&live.entry===appliedGraph.entry)next.entry=baseGraph.entry;
+        this.graph=next;this.syncGraphToProject(false);
+        try{localStorage.setItem(this.graphKeyPrefix+(state.activeProject?.id||'unknown'),JSON.stringify(this.graph))}catch(_){}
+        window.ProjectStore?.save?.();this.renderPreview();return true;
+      },
       diffFiles(a,b){const out=[];const A=a?.files||{},B=b?.files||{};const keys=new Set([...Object.keys(A),...Object.keys(B)]);keys.forEach(k=>{if(String(A[k]?.content||'')!==String(B[k]?.content||''))out.push(k)});return [...keys].filter(k=>String(A[k]?.content||'')!==String(B[k]?.content||'')).slice(0,20)},
       openHistory(){const p=window.KernelState?.activeProject;const host=document.getElementById('ws-history-content');if(!host)return;const items=Array.isArray(p?.ovyxHistory)?p.ovyxHistory:[];host.innerHTML=items.length?items.map(item=>`<div class="ovyx-ws-history-item"><div class="ovyx-ws-history-time">${new Date(item.at).toLocaleString()}</div><div><b>${this.escapeHtml(item.label)}</b><small>${this.escapeHtml((item.changedFiles||[]).join(', ')||'Project state')}</small></div><div class="ovyx-ws-history-actions"><button class="ovyx-ws-mini" data-history-preview="${item.id}">Preview</button><button class="ovyx-ws-mini" data-history-restore="${item.id}">Restore</button><button class="ovyx-ws-mini" data-history-duplicate="${item.id}">Duplicate</button></div></div>`).join(''):'<div style="padding:24px;color:var(--app-muted,#94A3B8);font:600 9px JetBrains Mono,monospace">No engineering checkpoints yet.</div>';
         host.querySelectorAll('[data-history-restore]').forEach(btn=>btn.onclick=()=>{const it=items.find(x=>x.id===btn.dataset.historyRestore);if(!it)return;this.graph=JSON.parse(JSON.stringify(it.after));window.KernelState.activeProject.ovyxGraph=this.graph;this.syncGraphToProject();this.render();window.showToast?.('Checkpoint restored.','success');});
@@ -4270,7 +4285,7 @@ const Settings={
  renderThemeCards(){const el=document.getElementById('ovyx-theme-grid');if(!el)return;const cards=Object.entries(presets).map(([id,t])=>this.themeCard(id,t)).join('')+Object.entries(ThemeLab.state.customThemes||{}).map(([id,t])=>this.themeCard(id,t)).join('');el.innerHTML=cards;this.bindThemeCards()},
  themeCard(id,t){return `<button class="ovyx-theme-card" data-theme="${esc7(id)}"><span class="ovyx-theme-preview" style="background:${esc7(t.bg)}"><span class="p1" style="background:${esc7(t.text)}"></span><span class="p2" style="background:${esc7(t.secondary)}"></span><span class="p3" style="background:${esc7(t.panel)};border:1px solid ${esc7(t.accent)}"></span></span><b>${esc7(t.name)}</b><small>${id.startsWith('custom_')?'Custom theme':'OVYX preset'}</small></button>`},
  bindThemeCards(){document.querySelectorAll('.ovyx-theme-card').forEach(b=>b.onclick=()=>ThemeLab.set(b.dataset.theme))},
- show(id){this.current=id;document.querySelectorAll('[data-settings-panel]').forEach(p=>p.classList.toggle('active',p.dataset.settingsPanel===id));document.querySelectorAll('[data-settings-nav]').forEach(n=>n.classList.toggle('active',n.dataset.settingsNav===id));if(id==='appearance'){this.syncAppearance();ThemeLab.apply()}},
+ show(id){this.current=id;document.querySelectorAll('[data-settings-panel]').forEach(p=>p.classList.toggle('active',p.dataset.settingsPanel===id));document.querySelectorAll('[data-settings-nav]').forEach(n=>n.classList.toggle('active',n.dataset.settingsNav===id));if(id==='appearance'){this.syncAppearance()}},
  syncAppearance(){const st=load(APPEAR,{mode:'dark',density:'balanced',scale:'balanced',motion:'full'}),root=this.root?.querySelector('.ovyx-settings-shell');if(!root)return;root.dataset.density=st.density||'balanced';root.dataset.scale=st.scale||'balanced';root.dataset.motion=st.motion||'full';document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('selected',b.dataset.mode===(st.mode||'dark')));['density','scale','motion'].forEach(k=>{const el=document.getElementById('set-'+k);if(el)el.value=st[k]||'balanced'})},
  bind(){this.root.addEventListener('click',e=>{const n=e.target.closest('[data-settings-nav]');if(n)this.show(n.dataset.settingsNav);const j=e.target.closest('[data-jump]');if(j)this.show(j.dataset.jump);/* Appearance mode clicks are handled by the canonical ThemeContext bridge. */});this.root.querySelector('#ovyx-settings-search').addEventListener('input',e=>this.search(e.target.value));['density','scale','motion'].forEach(k=>this.root.querySelector('#set-'+k)?.addEventListener('change',e=>{const st=load(APPEAR,{mode:'dark',density:'balanced',scale:'balanced',motion:'full'});st[k]=e.target.value;save(APPEAR,st);this.syncAppearance();toast(`${k[0].toUpperCase()+k.slice(1)} updated.`,'success')}));this.root.querySelector('[data-save-profile]')?.addEventListener('click',()=>{const n=this.root.querySelector('#set-profile-name')?.value.trim();const w=this.root.querySelector('#set-workspace-name')?.value.trim();if(n){document.querySelectorAll('#settings-display-name-text,#sidebar-user-display-name').forEach(x=>x.textContent=n)}if(w){document.getElementById('sidebar-workspace-label').textContent=w}toast('Profile settings saved for this runtime.','success')});this.root.querySelector('[data-clear-appearance]')?.addEventListener('click',()=>{localStorage.removeItem(APPEAR);ThemeLab.reset();this.syncAppearance();toast('Appearance reset without reloading the application.','success')});this.root.querySelector('[data-theme-save]')?.addEventListener('click',()=>ThemeLab.saveCustom());this.root.querySelector('[data-theme-duplicate]')?.addEventListener('click',()=>ThemeLab.duplicate());/* Theme Lab import is handled by the canonical Appearance import controller below. */this.root.querySelector('[data-theme-export]')?.addEventListener('click',()=>ThemeLab.export());this.root.querySelector('[data-theme-delete]')?.addEventListener('click',()=>ThemeLab.deleteActive());this.root.querySelectorAll('[data-theme-field]').forEach(i=>i.addEventListener('input',()=>ThemeLab.update(i.dataset.themeField,i.value)));this.root.querySelectorAll('[data-theme-hex]').forEach(i=>i.addEventListener('change',()=>{let v=i.value.trim();if(/^#[0-9a-f]{6}$/i.test(v))ThemeLab.update(i.dataset.themeHex,v);else toast('Use a 6-digit hex color such as #E8B64F.','error')}));this.root.addEventListener('input',e=>{const i=e.target.closest('[data-theme-field]');if(i){const h=this.root.querySelector(`[data-theme-hex="${i.dataset.themeField}"]`);if(h)h.value=i.value.toUpperCase()}});this.root.querySelector('#ovyx-settings-search').addEventListener('keydown',e=>{if(e.key==='Escape'){e.target.value='';this.search('')}})},
  search(q){const x=(q||'').trim().toLowerCase();document.querySelectorAll('[data-settings-nav]').forEach(n=>{const hay=n.textContent.toLowerCase();n.classList.toggle('ovyx-settings-hidden',!!x&&!hay.includes(x))});if(x){const hit=this.nav.find(v=>(v[0]+' '+v[1]+' '+v[2]).toLowerCase().includes(x));if(hit)this.show(hit[0])}},
