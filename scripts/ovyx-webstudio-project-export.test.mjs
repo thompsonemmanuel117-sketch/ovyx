@@ -10,7 +10,7 @@ assert.match(runtime, /Download code/);
 assert.match(runtime, /ovyx-code-download/);
 assert.match(runtime, /data-ovyx-code-verify/);
 assert.match(runtime, /Verify build/);
-assert.match(runtime, /ovyx-webstudio-quality-report/);
+assert.match(runtime, /ovyx:webstudio-quality-report/);
 assert.match(runtime, /does not certify live integrations or production deployment/);
 assert.match(runtime, /data-ovyx-code-download-group/);
 assert.doesNotMatch(runtime, /querySelectorAll\('\.ovyx-ws-header-actions'\)/, 'Project download controls must not be mounted in the Web Studio chat/header area.');
