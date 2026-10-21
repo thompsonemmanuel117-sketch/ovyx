@@ -11,7 +11,8 @@ on:
       - 'scripts/ovyx-webstudio-appstudio-integration.browser.test.mjs'
       - 'index.html'
       - 'assets/ovyx-webstudio-project-branding.js'
-      - 'assets/ovyx-app-favicon.svg'
+      - 'assets/ovyx-brand-mark.svg'
+      - 'assets/ovyx-brand-mark.png'
       - '_headers'
       - 'manifest.json'
       - 'functions/_middleware.js'
@@ -30,8 +31,8 @@ on:
       - 'scripts/ovyx-webstudio-appstudio-integration.browser.test.mjs'
       - 'index.html'
       - 'assets/ovyx-webstudio-project-branding.js'
-      - 'assets/ovyx-app-favicon-guard.js'
-      - 'assets/ovyx-app-favicon.svg'
+      - 'assets/ovyx-brand-mark.svg'
+      - 'assets/ovyx-brand-mark.png'
       - '_headers'
       - 'manifest.json'
       - 'functions/_middleware.js'
@@ -65,10 +66,12 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
+      - name: Test Web Studio static regression contract
+        run: node scripts/ovyx-webstudio-quality.test.mjs
       - name: Test Web Studio quality inspector in Chromium
         run: node scripts/ovyx-webstudio-quality.browser.test.mjs
       - name: Test code workspace search and sidebar logo in Chromium
         run: node scripts/ovyx-webstudio-code-search.browser.test.mjs
       - name: Test Web Studio to App Studio to Code integration in Chromium
         run: node scripts/ovyx-webstudio-appstudio-integration.browser.test.mjs
-# Regression coverage: sidebar inline-SVG full-draw state and the OVYX brand-mark favicon fallback.
+# Regression coverage: sidebar inline-SVG full-draw state, brand-mark favicon fallback, and project/app favicon isolation.
