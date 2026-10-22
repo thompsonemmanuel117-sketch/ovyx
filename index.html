@@ -10003,16 +10003,19 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
   var bootUntil=Date.now()+1800;
   function clean(v){var x=String(v||'home').replace(/^view-/,'').trim().toLowerCase();return ALIASES[x]||x||'home'}
   function currentRoute(){return clean(window.KernelState?.activeView||document.querySelector('#view-router-viewport>section:not(.hidden)')?.id||'home')}
-  function isVisible(el){if(!el)return false;try{var cs=getComputedStyle(el);return !el.hidden && cs.display!=='none' && cs.visibility!=='hidden' && cs.opacity!=='0' && (el.classList.contains('open')||!el.classList.contains('hidden')||el.getAttribute('aria-modal')==='true'||el.getAttribute('role')==='dialog')}catch(e){return false}}
+  function isVisible(el){if(!el)return false;try{if(el.hidden||el.getAttribute('aria-hidden')==='true'||el.hasAttribute('inert'))return false;var cs=getComputedStyle(el);return cs.display!=='none'&&cs.visibility!=='hidden'&&cs.opacity!=='0'&&(el.classList.contains('open')||!el.classList.contains('hidden')||el.getAttribute('aria-modal')==='true'||el.getAttribute('role')==='dialog'||(el.tagName==='DIALOG'&&el.open))}catch(e){return false}}
   function topOverlay(){
-    var ids=['ovyx-v655-support-backdrop','ovyx-v65-legal-modal','ovyx-v84-support-modal','cmd-palette-modal','rollback-revisions-modal','checkout-elements-modal','kernel-brain-bot-panel','v58-template-preview-modal','v55-preview-modal','ovyx-owner-console','ovyx-project-create-modal'];
+    var ids=['ovyx-v655-support-backdrop','ovyx-v65-legal-modal','ovyx-v84-support-modal','cmd-palette-modal','rollback-revisions-modal','checkout-elements-modal','kernel-brain-bot-panel','v58-template-preview-modal','v55-preview-modal','ovyx-owner-console','ovyx-project-create-modal','ws-plan-modal','ws-history-modal','ws-graph-modal','ws-deploy-modal','ws-diff-modal','ws-engineering-console'];
     var els=[];
     ids.forEach(function(id){var el=document.getElementById(id);if(isVisible(el))els.push(el)});
-    document.querySelectorAll('[role="dialog"][aria-modal="true"]').forEach(function(el){if(isVisible(el)&&!els.includes(el))els.push(el)});
+    var selector='[role="dialog"],[aria-modal="true"],dialog[open],[id$="-modal"].open,.modal.open,[class*="modal"].open,[data-ovyx-overlay].open,[data-overlay].open';
+    document.querySelectorAll(selector).forEach(function(el){if(isVisible(el)&&!els.includes(el))els.push(el)});
     if(!els.length)return null;
     els.sort(function(a,b){
       var za=parseInt(getComputedStyle(a).zIndex||'0',10)||0,zb=parseInt(getComputedStyle(b).zIndex||'0',10)||0;
-      return za-zb;
+      if(za!==zb)return za-zb;
+      if(a===b)return 0;
+      return a.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING?-1:1;
     });
     return els[els.length-1];
   }
@@ -10031,7 +10034,22 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
       if(id==='ovyx-owner-console'&&window.OvyxOwnerConsole?.close){window.OvyxOwnerConsole.close();return true}
       if(id==='ovyx-project-create-modal'&&typeof el._close==='function'){el._close();return true}
     }catch(e){console.warn('[OVYX V665 overlay close]',e)}
-    try{el.querySelector('[data-support-close],[data-support-cancel],[data-modal-cancel],[aria-label*="Close" i],[title*="Close" i],button')?.click()}catch(e){}
+    if(id==='ws-plan-modal'&&window.WebStudio?.closeModal){window.WebStudio.closeModal('plan');return true}
+    if(id==='ws-history-modal'&&window.WebStudio?.closeModal){window.WebStudio.closeModal('history');return true}
+    if(id==='ws-graph-modal'&&window.WebStudio?.closeModal){window.WebStudio.closeModal('graph');return true}
+    if(id==='ws-deploy-modal'&&window.WebStudio?.closeModal){window.WebStudio.closeModal('deploy');return true}
+    try{
+      var closeSelectors='[data-support-close],[data-modal-close],[data-close-modal],[data-modal-cancel],[data-support-cancel],[aria-label*="Close" i],[title*="Close" i]';
+      var closeControl=el.querySelector(closeSelectors);
+      if(!closeControl){
+        var controls=Array.from(el.querySelectorAll('button,[role="button"],a'));
+        closeControl=controls.find(function(btn){
+          var label=String(btn.getAttribute('aria-label')||btn.getAttribute('title')||btn.textContent||'').replace(/\\s+/g,' ').trim();
+          return /^(?:cancel|back|close|done|dismiss|×|✕|x)(?:\\s|$)/i.test(label);
+        });
+      }
+      if(closeControl){closeControl.click();if(!isVisible(el))return true}
+    }catch(e){}
     try{el.classList.remove('open','is-open');el.hidden=true;el.style.display='none';el.setAttribute('aria-hidden','true')}catch(e){}
     return true;
   }
@@ -10151,10 +10169,60 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
       try{window.Router?.go?.('home');return true}catch(_){return false}
     }
   }
+  var registeredBackHandlers=[];
+  function registerBackHandler(id,canHandle,handle,priority){
+    var key=String(id||'').trim();if(!key||typeof canHandle!=='function'||typeof handle!=='function')return function(){};
+    registeredBackHandlers=registeredBackHandlers.filter(function(item){return item.id!==key});
+    var entry={id:key,canHandle:canHandle,handle:handle,priority:Number(priority||0)};
+    registeredBackHandlers.push(entry);registeredBackHandlers.sort(function(a,b){return b.priority-a.priority});
+    return function(){registeredBackHandlers=registeredBackHandlers.filter(function(item){return item!==entry})};
+  }
+  function runRegisteredBackHandlers(source){
+    var list=registeredBackHandlers.slice();
+    for(var i=0;i<list.length;i++){
+      var item=list[i];
+      try{if(item.canHandle()&&item.handle({source:source||'back',route:currentRoute()})!==false)return true}catch(e){console.warn('[OVYX Back handler '+item.id+']',e)}
+    }
+    return false;
+  }
+  function currentSettingsPanel(){
+    var settings=window.OVYXSettings;
+    var active=document.querySelector('[data-settings-panel].active');
+    return String(settings?.current||active?.getAttribute('data-settings-panel')||'general').replace(/^view-/,'').trim().toLowerCase()||'general';
+  }
+  function routeHistoryState(route,base){
+    var r=clean(route||currentRoute());
+    var state=Object.assign({},base||history.state||{},{ovyxRoute:r,ovyxShell:true});
+    if(r==='settings')state.ovyxSettingsPanel=currentSettingsPanel();
+    else delete state.ovyxSettingsPanel;
+    return state;
+  }
+  function installSettingsHistory(){
+    var settings=window.OVYXSettings;
+    if(!settings||typeof settings.show!=='function'||settings.show.__OVYX_SETTINGS_HISTORY_WRAPPED__)return;
+    var original=settings.show;
+    var wrapped=function(id){
+      var before=currentSettingsPanel();
+      var next=String(id||'general').replace(/^view-/,'').trim().toLowerCase()||'general';
+      var result=original.apply(this,arguments);
+      if(!handlingPop&&clean(window.KernelState?.activeView||currentRoute())==='settings'
+        &&clean(history.state?.ovyxRoute||'')==='settings'&&before!==next
+        &&clean(history.state?.ovyxSettingsPanel||before)!==next){
+        try{history.pushState(routeHistoryState('settings',Object.assign({},history.state||{},{ovyxSettingsPanel:next})),document.title,location.href)}catch(e){console.warn('[OVYX settings history]',e)}
+      }
+      return result;
+    };
+    wrapped.__OVYX_SETTINGS_HISTORY_WRAPPED__=true;
+    wrapped.__OVYX_SETTINGS_HISTORY_ORIGINAL__=original;
+    settings.show=wrapped;
+  }
   window.OVYXNavigation=window.OVYXNavigation||{};
   window.OVYXNavigation.back=back;
   window.OVYXNavigation.closeTopOverlay=function(){var o=topOverlay();return o?closeOverlay(o):false};
   window.OVYXNavigation.current=currentRoute;
+  window.OVYXNavigation.registerBackHandler=registerBackHandler;
+  window.OVYXNavigation.unregisterBackHandler=function(id){var key=String(id||'');registeredBackHandlers=registeredBackHandlers.filter(function(item){return item.id!==key})};
+  window.OVYXNavigation.runBackHandlers=runRegisteredBackHandlers;
   function installHistory(){
     if(!window.history||!history.pushState)return;
     var current=currentRoute();
