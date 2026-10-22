@@ -221,7 +221,8 @@ if (!fs.existsSync(scopedRollbackPath)) {
     !scopedRollback.includes('__OVYX_SCOPED_ROLLBACK_V1__') ||
     !scopedRollback.includes('window.OVYXScopedRollback') ||
     !scopedRollback.includes('function restoreProject(snapshot)') ||
-    !scopedRollback.includes('restoreScheduled')
+    !scopedRollback.includes('restoreScheduled') ||
+    !scopedRollback.includes('projectSaveResult === false')
   ) {
     errors.push('assets/ovyx-scoped-rollback.js: shared rollback must restore only the active scope and preserve unrelated projects.');
   }
