@@ -212,6 +212,22 @@ if (fs.existsSync(shellMiddlewarePath)) {
   errors.push('functions/_middleware.js: application-shell launch runtime middleware is missing.');
 }
 
+const indexHtmlPath = path.join(root, 'index.html');
+if (fs.existsSync(indexHtmlPath)) {
+  const indexHtml = fs.readFileSync(indexHtmlPath, 'utf8');
+  const firebaseLoaderStart = indexHtml.indexOf('<script id="ovyx-firebase-runtime-loader">');
+  const firebaseAppCompatLoad = indexHtml.indexOf("await load(base+'firebase-app-compat.js',6000)", firebaseLoaderStart);
+  const firebaseDefaultAppInit = indexHtml.indexOf('firebase.initializeApp(config)', firebaseAppCompatLoad);
+  const firebaseAuthCompatLoad = indexHtml.indexOf("load(base+'firebase-auth-compat.js',6000)", firebaseAppCompatLoad);
+  if (
+    firebaseLoaderStart < 0 ||
+    firebaseAppCompatLoad < 0 ||
+    firebaseDefaultAppInit <= firebaseAppCompatLoad ||
+    firebaseAuthCompatLoad <= firebaseDefaultAppInit
+  ) {
+    errors.push('index.html: Firebase must initialize the default app immediately after firebase-app-compat loads, before auth/firestore/storage compat scripts load, so early shell handlers cannot throw app-compat/no-app errors.');
+  }
+}
 const scopedRollbackPath = path.join(root, 'assets/ovyx-scoped-rollback.js');
 if (!fs.existsSync(scopedRollbackPath)) {
   errors.push('assets/ovyx-scoped-rollback.js: app-wide scoped Cancel and modal rollback protection is missing.');
