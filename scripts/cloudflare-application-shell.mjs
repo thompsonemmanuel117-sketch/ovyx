@@ -94,7 +94,7 @@ const REQUIRED_RUNTIMES = [
       'restoreScheduled',
       'function handleHistoryPop(event)',
       "window.addEventListener('popstate', handleHistoryPop, true)",
-      'window.OVYXNavigation.back'
+      'function wrapNavigationBack()'
     ],
   },
 ];
