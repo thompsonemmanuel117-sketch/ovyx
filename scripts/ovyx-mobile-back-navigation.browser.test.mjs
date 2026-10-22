@@ -62,6 +62,33 @@ try {
     localStorage.removeItem('ovyx.ws.code-focus.v1');
     localStorage.removeItem('ovyx.ws.code-file.v1');
     localStorage.removeItem('ovyx.ws.code-focus-project.v1');
+    // Instrument browser history without changing its behavior. The route
+    // regression uses this log to distinguish a missing route entry from a
+    // document navigation that would destroy the SPA Back listener.
+    const historyOps = [];
+    const originalPushState = History.prototype.pushState;
+    const originalReplaceState = History.prototype.replaceState;
+    History.prototype.pushState = function (state, title, url) {
+      const result = originalPushState.apply(this, arguments);
+      historyOps.push({ op: 'push', route: state?.ovyxRoute || '', panel: state?.ovyxSettingsPanel || '', href: location.href, stack: String(new Error().stack || '').split('\\n').slice(1, 4) });
+      if (historyOps.length > 120) historyOps.shift();
+      window.__ovyxHistoryOps = historyOps;
+      return result;
+    };
+    History.prototype.replaceState = function (state, title, url) {
+      const result = originalReplaceState.apply(this, arguments);
+      historyOps.push({ op: 'replace', route: state?.ovyxRoute || '', panel: state?.ovyxSettingsPanel || '', href: location.href, stack: String(new Error().stack || '').split('\\n').slice(1, 4) });
+      if (historyOps.length > 120) historyOps.shift();
+      window.__ovyxHistoryOps = historyOps;
+      return result;
+    };
+    window.addEventListener('popstate', event => {
+      const current = JSON.parse(sessionStorage.getItem('__ovyxTestPopState') || '{"count":0,"states":[]}');
+      current.count += 1;
+      current.states.push(event.state || null);
+      if (current.states.length > 60) current.states.shift();
+      sessionStorage.setItem('__ovyxTestPopState', JSON.stringify(current));
+    });
   });
 
   const response = await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -108,7 +135,10 @@ try {
     state: window.history.state,
     route: window.KernelState?.activeView,
     popCount: Number(window.__ovyxBackTestPopCount || 0),
+    earlyPop: (() => { try { return JSON.parse(sessionStorage.getItem('__ovyxTestPopState') || '{"count":0,"states":[]}'); } catch (_) { return null; } })(),
+    historyOps: (window.__ovyxHistoryOps || []).slice(-30),
     href: window.location.href,
+    timeOrigin: performance.timeOrigin,
   }));
   console.log('[OVYX Back test] route history before Projects Back:', JSON.stringify(routeHistoryDebug));
   await triggerHistoryBack(page);
