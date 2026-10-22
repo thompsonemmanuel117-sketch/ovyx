@@ -3503,12 +3503,43 @@
       renderCodeTree(filter=''){
         const tree=document.getElementById('ovyx-code-tree');if(!tree)return;this.ensureProjectGraph();const q=String(filter||'').toLowerCase();const files=Object.keys(this.graph.files||{}).filter(f=>!q||f.toLowerCase().includes(q));tree.innerHTML=files.map(f=>`<button data-code-file="${this.escapeAttr(f)}" style="display:block;width:100%;border:0;background:transparent;color:#858B93;text-align:left;padding:7px 8px;border-radius:7px;font:700 8px JetBrains Mono;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${this.escapeHtml(f)}</button>`).join('');tree.querySelectorAll('[data-code-file]').forEach(b=>b.onclick=()=>this.openCodeFile(b.dataset.codeFile));},
       async loadMonacoForCode(){
-        if(this.monacoReady||this.monaco) return true;
-        if((window.__OVYX_EARLY_VIEWPORT__||document.documentElement.getAttribute('data-ovyx-viewport-mode'))==='mobile'){document.getElementById('ovyx-monaco-host').style.display='none';document.getElementById('ovyx-fallback-editor').style.display='block';return false}
+        const host=document.getElementById('ovyx-monaco-host');
+        const fallback=document.getElementById('ovyx-fallback-editor');
+        const showFallback=()=>{
+          if(host){host.style.setProperty('display','none','important');host.style.setProperty('pointer-events','none','important')}
+          if(fallback){fallback.hidden=false;fallback.style.setProperty('display','block','important');fallback.style.setProperty('position','relative','important');fallback.style.setProperty('z-index','2','important');fallback.style.setProperty('width','100%','important');fallback.style.setProperty('height','100%','important');fallback.style.setProperty('min-width','0','important');fallback.style.setProperty('min-height','0','important');fallback.style.setProperty('flex','1 1 auto','important');fallback.style.setProperty('pointer-events','auto','important');fallback.style.setProperty('cursor','text','important');fallback.style.setProperty('user-select','text','important');fallback.style.setProperty('-webkit-user-select','text','important')}
+          return false;
+        };
+        const bounded=(promise,ms,stage)=>new Promise((resolve,reject)=>{let settled=false;const timer=window.setTimeout(()=>{if(settled)return;settled=true;reject(new Error(stage+' timed out'))},ms);Promise.resolve(promise).then(value=>{if(settled)return;settled=true;window.clearTimeout(timer);resolve(value)},error=>{if(settled)return;settled=true;window.clearTimeout(timer);reject(error)})});
+        if((window.__OVYX_EARLY_VIEWPORT__||document.documentElement.getAttribute('data-ovyx-viewport-mode'))==='mobile')return showFallback();
+        if(this.monacoReady&&this.monaco?.editor?.create){
+          if(host){host.hidden=false;host.style.setProperty('display','block','important');host.style.setProperty('pointer-events','auto','important')}
+          if(fallback){fallback.hidden=true;fallback.style.setProperty('display','none','important')}
+          return true;
+        }
         try{
-          await new Promise((resolve,reject)=>{if(window.require?.config)return resolve();const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.55.1/min/vs/loader.min.js';s.onload=resolve;s.onerror=()=>reject(new Error('The code editor could not be loaded.'));document.head.appendChild(s)});
-          await new Promise((resolve,reject)=>{window.require.config({paths:{vs:'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.55.1/min/vs'}});window.require(['vs/editor/editor.main'],()=>resolve(),reject)});this.monacoReady=true;this.monaco=window.monaco;return true;
-        }catch(e){console.warn('[OVYX Code] Monaco unavailable, using fallback editor',e);document.getElementById('ovyx-monaco-host').style.display='none';document.getElementById('ovyx-fallback-editor').style.display='block';return false}
+          if(!(typeof window.require==='function'&&typeof window.require.config==='function')){
+            let loader=document.querySelector('script[data-ovyx-monaco-loader="1"]');
+            if(loader&&(loader.dataset.ovyxMonacoLoaderState==='error'||(loader.dataset.ovyxMonacoLoaderState==='loaded'&&!(typeof window.require==='function'&&typeof window.require.config==='function')))){loader.remove();loader=null}
+            if(!loader){loader=document.createElement('script');loader.src='https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.55.1/min/vs/loader.min.js';loader.dataset.ovyxMonacoLoader='1';loader.dataset.ovyxMonacoLoaderState='loading'}
+            await bounded(new Promise((resolve,reject)=>{
+              if(typeof window.require==='function'&&typeof window.require.config==='function'){loader.dataset.ovyxMonacoLoaderState='loaded';resolve();return}
+              const onLoad=()=>{loader.dataset.ovyxMonacoLoaderState='loaded';if(typeof window.require==='function'&&typeof window.require.config==='function')resolve();else reject(new Error('Monaco AMD loader did not initialize'))};
+              const onError=()=>{loader.dataset.ovyxMonacoLoaderState='error';reject(new Error('The code editor loader could not be downloaded'))};
+              loader.addEventListener('load',onLoad,{once:true});loader.addEventListener('error',onError,{once:true});
+              if(!loader.isConnected)document.head.appendChild(loader);
+              if(typeof window.require==='function'&&typeof window.require.config==='function')onLoad();
+            }),4200,'Monaco loader');
+          }
+          const req=window.require;
+          if(typeof req!=='function'||typeof req.config!=='function')throw new Error('Monaco AMD loader is unavailable');
+          await bounded(new Promise((resolve,reject)=>{try{req.config({paths:{vs:'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.55.1/min/vs'}});req(['vs/editor/editor.main'],()=>window.monaco?.editor?.create?resolve():reject(new Error('Monaco editor module did not initialize')),reject)}catch(error){reject(error)}}),6500,'Monaco editor module');
+          if(!window.monaco?.editor?.create)throw new Error('Monaco editor is unavailable after loading');
+          this.monacoReady=true;this.monaco=window.monaco;
+          if(host){host.hidden=false;host.style.setProperty('display','block','important');host.style.setProperty('pointer-events','auto','important')}
+          if(fallback){fallback.hidden=true;fallback.style.setProperty('display','none','important')}
+          return true;
+        }catch(e){console.warn('[OVYX Code] Monaco unavailable or delayed; using the editable fallback',e);return showFallback()}
       },
       openCodeFile(file){
         this.ensureProjectGraph();const safe=String(file||this.entryFile());const data=this.graph.files?.[safe];if(!data)return;if(data.editBaseContent===undefined)data.editBaseContent=String(data.content??'');this.activeCodeFile=safe;sessionStorage.setItem('ovyx.ws.focus-file',safe);if(!this.openCodeTabs.includes(safe))this.openCodeTabs.push(safe);const tabs=document.getElementById('ovyx-code-tabs');if(tabs){tabs.innerHTML=this.openCodeTabs.map(f=>`<button data-tab-file="${this.escapeAttr(f)}" style="height:100%;padding:0 10px;border:0;border-right:1px solid rgba(255,255,255,.06);background:${f===safe?'#171717':'transparent'};color:${f===safe?'#F0F0F0':'#7F858C'};font:800 7px JetBrains Mono;cursor:pointer;white-space:nowrap">${this.escapeHtml(f.split('/').pop())}${this.graph.files[f]?.dirty?' •':''}</button>`).join('');tabs.querySelectorAll('[data-tab-file]').forEach(b=>b.onclick=()=>this.openCodeFile(b.dataset.tabFile));}
@@ -16461,7 +16492,116 @@ body.ovyx-webstudio-active #view-webstudio .ovyx-ws-preview-stage {
 body.ovyx-webstudio-active #view-webstudio #ws-mobile-preview-frame {
   background: transparent !important;
 }
+/* Desktop Monaco must receive clicks across the whole editor, not only its gutter. */
+body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-workspace-host,
+body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-workspace-host #ovyx-monaco-host,
+body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-workspace-host .monaco-editor,
+body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-workspace-host .monaco-editor *,
+body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-workspace-host #ovyx-fallback-editor {
+  pointer-events: auto !important;
+}
+body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-workspace-host #ovyx-monaco-host {
+  position: relative !important;
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+}
+body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-workspace-host #ovyx-fallback-editor {
+  box-sizing: border-box !important;
+  position: relative !important;
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  max-width: none !important;
+  resize: none !important;
+  overflow: auto !important;
+  cursor: text !important;
+  touch-action: auto !important;
+  user-select: text !important;
+  -webkit-user-select: text !important;
+}
 </style>
+
+<script id="ovyx-code-dashboard-route-recovery-v1">
+(function(){
+  'use strict';
+  if(window.__OVYX_CODE_DASHBOARD_ROUTE_RECOVERY_V1__)return;
+  window.__OVYX_CODE_DASHBOARD_ROUTE_RECOVERY_V1__=true;
+  const normalize=value=>String(value||'home').replace(/^view-/,'').trim().toLowerCase()||'home';
+  const activeRoute=()=>normalize(window.KernelState?.activeView||document.querySelector('#view-router-viewport>section[aria-hidden="false"]')?.id||'home');
+  function hasVisibleModal(){
+    const candidates=document.querySelectorAll('[role="dialog"],[aria-modal="true"],dialog[open],.modal.open,.ovyx-modal.open,[data-ovyx-overlay].open');
+    for(const el of candidates){
+      if(!el?.isConnected||el.closest('#view-webstudio')||el.closest('#view-appstudio'))continue;
+      let hidden=false;
+      for(let p=el;p&&p!==document.documentElement;p=p.parentElement){
+        if(p.hidden||p.hasAttribute('inert')||p.getAttribute('aria-hidden')==='true'||p.classList?.contains('hidden')){hidden=true;break}
+        const style=getComputedStyle(p);if(style.display==='none'||style.visibility==='hidden'||style.opacity==='0'){hidden=true;break}
+      }
+      if(hidden)continue;
+      const rect=el.getBoundingClientRect();
+      if(rect.width>0&&rect.height>0)return true;
+    }
+    return false;
+  }
+  function reconcileHome(){
+    if(activeRoute()!=='home')return false;
+    try{window.MobileDrawer?.close?.()}catch(_){}
+    try{window.OVYXMobileShellAuthority?.close?.()}catch(_){}
+    const drawer=document.getElementById('mobile-drawer');
+    const backdrop=document.getElementById('mobile-drawer-backdrop');
+    if(drawer){drawer.classList.remove('open','is-open');drawer.classList.add('-translate-x-full');drawer.setAttribute('aria-hidden','true');drawer.inert=true;drawer.style.setProperty('pointer-events','none','important')}
+    if(backdrop){backdrop.hidden=true;backdrop.classList.add('hidden');backdrop.setAttribute('aria-hidden','true');backdrop.style.setProperty('display','none','important');backdrop.style.setProperty('visibility','hidden','important');backdrop.style.setProperty('opacity','0','important');backdrop.style.setProperty('pointer-events','none','important')}
+    document.body.classList.remove('ovyx-drawer-open','ovyx-mobile-drawer-open','ovyx-ws-nav-open','ovyx-ws-mobile-nav-open','ovyx-webstudio-active','ovyx-ws-preview-full','ovyx-ws-preview-collapsed','ovyx-ws-mobile-preview-open','ovyx-preview-expanded','ovyx-ws-chat-focus','ovyx-code-focused-route');
+    document.documentElement.classList.remove('ovyx-code-focused-route');
+    const studio=document.getElementById('view-webstudio');
+    if(studio){studio.setAttribute('data-ws-code-open','0');studio.classList.add('hidden');studio.setAttribute('aria-hidden','true')}
+    const code=document.getElementById('ws-code-workspace');
+    if(code){code.hidden=true;code.setAttribute('aria-hidden','true')}
+    const preview=document.getElementById('ws-mobile-preview');
+    if(preview){preview.hidden=true;preview.setAttribute('aria-hidden','true')}
+    ['ws-preview-menu','ws-mode-menu'].forEach(id=>{const menu=document.getElementById(id);if(menu){menu.hidden=true;menu.setAttribute('aria-hidden','true')}})
+    try{window.WebStudio?.closeDiffView?.()}catch(_){}
+    if(!hasVisibleModal()){
+      document.documentElement.style.removeProperty('overflow');
+      document.documentElement.style.removeProperty('overflow-y');
+      document.body.style.removeProperty('overflow');
+      document.body.style.removeProperty('overflow-y');
+    }
+    const root=document.getElementById('view-router-viewport');
+    if(root)root.style.setProperty('pointer-events','auto','important');
+    try{window.OVYXMobileShellAuthority?.sync?.()}catch(_){}
+    return true;
+  }
+  let scheduled=false;
+  function scheduleHomeReconcile(){
+    if(scheduled)return;
+    scheduled=true;
+    const run=()=>{scheduled=false;if(activeRoute()!=='home')return;reconcileHome();window.setTimeout(reconcileHome,80)};
+    if(typeof window.requestAnimationFrame==='function')window.requestAnimationFrame(run);else window.setTimeout(run,16);
+  }
+  const router=window.Router;
+  if(router&&typeof router.go==='function'&&!router.go.__OVYX_HOME_ROUTE_RECOVERY_V1__){
+    const baseGo=router.go;
+    const guardedGo=function(view){
+      const result=baseGo.apply(this,arguments);
+      if(normalize(view)==='home')scheduleHomeReconcile();
+      return result;
+    };
+    guardedGo.__OVYX_HOME_ROUTE_RECOVERY_V1__=true;
+    router.go=guardedGo;
+    window.Router=router;
+    window.switchView=guardedGo;
+  }
+  window.addEventListener('ovyx:view-changed',event=>{if(normalize(event?.detail?.view)==='home')scheduleHomeReconcile()},{passive:true});
+  window.addEventListener('pageshow',()=>scheduleHomeReconcile(),{passive:true});
+  window.OVYXDashboardRouteRecovery=Object.freeze({reconcile:reconcileHome});
+})();
+</script>
 
 </body>
 </html>
