@@ -3,7 +3,7 @@
   if (window.__OVYX_SCOPED_ROLLBACK_V1__) return;
   window.__OVYX_SCOPED_ROLLBACK_V1__ = true;
 
-  const VERSION = '20261022-11';
+  const VERSION = '20261022-12';
   const snapshots = new WeakMap();
   const visibility = new WeakMap();
   const inlineDisplayBeforeClose = new WeakMap();
@@ -11,6 +11,14 @@
   let pendingOpen = null;
   let restoring = false;
   let overlayHistoryOpen = false;
+  let scanScheduled = false;
+  let scanCount = 0;
+  let scheduledScanCount = 0;
+  let observerBatchCount = 0;
+  let lastScanDurationMs = 0;
+  let maxScanDurationMs = 0;
+  let observedScopes = new Set();
+  let observedScopeAncestors = new Set();
   let lastPopstateResult = {
     at: 0,
     handled: false,
@@ -94,7 +102,12 @@
     if (!scope || restoring || snapshots.has(scope)) return false;
     snapshots.set(scope, {
       fields: fieldsFor(scope),
-      project: projectOverride === undefined ? snapshotProject() : projectOverride,
+      // Most dialogs (settings, previews, menus, support, billing) only need
+      // their own form fields restored. Deep-copy the whole active project
+      // only for an editor scope whose Cancel semantics explicitly need it.
+      project: projectOverride !== undefined
+        ? projectOverride
+        : shouldRestoreProjectScope(scope) ? snapshotProject() : null,
       scopeId: String(scope.id || scope.dataset?.rollbackScope || scope.dataset?.settingsPanel || scope.tagName.toLowerCase()),
       route: route(),
       restoreScheduled: false
@@ -313,6 +326,21 @@
     return false;
   }
 
+  function shouldCaptureProjectBeforeOpen(button) {
+    if (!button) return false;
+    if (button.matches('[data-rollback-capture="project"], [data-rollback-project-open], [data-rollback-project="true"], [data-rollback-scope="project"]')) {
+      return true;
+    }
+    const identity = normalize([
+      button.id,
+      button.getAttribute('aria-label'),
+      button.getAttribute('title'),
+      button.getAttribute('onclick'),
+      button.textContent
+    ].filter(Boolean).join(' '));
+    return /\b(?:new|create|edit|open|manage|configure|duplicate)\s+(?:the\s+)?(?:active\s+)?(?:project|workspace)\b|\b(?:project|workspace)\s+(?:editor|settings|details|configuration)\b/.test(identity);
+  }
+
   function onClickCapture(event) {
     if (restoring || !event.target?.closest) return;
     const button = event.target.closest('button, a, [role="button"], [data-modal-cancel], [data-ovyx-cancel-back]');
@@ -323,7 +351,14 @@
       return;
     }
     if (skipOpenSnapshot(button)) return;
-    pendingOpen = { project: snapshotProject(), at: Date.now() };
+    // Keep the click/open correlation cheap. Large project graphs are snapshotted
+    // before a click only when that control declares (or clearly names) a
+    // project/workspace editor. If another project editor opens, scan() captures
+    // it once at the transition instead of cloning project state on every click.
+    pendingOpen = {
+      project: shouldCaptureProjectBeforeOpen(button) ? snapshotProject() : null,
+      at: Date.now()
+    };
     const current = pendingOpen;
     window.setTimeout(() => { if (pendingOpen === current) pendingOpen = null; }, 800);
   }
@@ -705,7 +740,18 @@
   }
 
   function scan() {
+    const startedAt = window.performance?.now?.() || Date.now();
     const candidates = Array.from(document.querySelectorAll(scopeSelector));
+    const scopes = new Set(candidates);
+    const ancestors = new Set();
+    candidates.forEach(scope => {
+      for (let parent = scope.parentElement; parent; parent = parent.parentElement) {
+        ancestors.add(parent);
+      }
+    });
+    observedScopes = scopes;
+    observedScopeAncestors = ancestors;
+
     let hasBackableOverlay = false;
     let openedBackableOverlayByClick = false;
     const userOpenPending = !!(pendingOpen && Date.now() - pendingOpen.at < 800);
@@ -717,7 +763,14 @@
       if (now && historySurface) hasBackableOverlay = true;
       if (now && was !== true && historySurface && userOpenPending) openedBackableOverlayByClick = true;
       if (now && was !== true && !snapshots.has(scope)) {
-        const project = userOpenPending && pendingOpen ? pendingOpen.project : snapshotProject();
+        const preClickProject = userOpenPending && pendingOpen ? pendingOpen.project : null;
+        // Dialogs that merely show settings or navigation UI must not clone the
+        // full project graph. Project/workspace editor scopes retain rollback;
+        // use their pre-click snapshot where available, otherwise snapshot only
+        // at the moment the editor actually opens.
+        const project = shouldRestoreProjectScope(scope)
+          ? (preClickProject || snapshotProject())
+          : null;
         capture(scope, project);
         if (userOpenPending) pendingOpen = null;
       }
@@ -728,6 +781,60 @@
     // owners, preventing duplicate or synthetic Back traversals on startup.
     if (openedBackableOverlayByClick && !overlayHistoryOpen) overlayHistoryOpen = pushOverlayHistoryEntry();
     if (!hasBackableOverlay) overlayHistoryOpen = false;
+
+    const endedAt = window.performance?.now?.() || Date.now();
+    const duration = Math.max(0, endedAt - startedAt);
+    scanCount += 1;
+    lastScanDurationMs = Math.round(duration * 100) / 100;
+    maxScanDurationMs = Math.max(maxScanDurationMs, lastScanDurationMs);
+  }
+
+  function scheduleScan() {
+    if (scanScheduled) return false;
+    scanScheduled = true;
+    scheduledScanCount += 1;
+    const run = function () {
+      scanScheduled = false;
+      scan();
+    };
+    if (typeof window.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(run);
+    } else {
+      window.setTimeout(run, 16);
+    }
+    return true;
+  }
+
+  function nodeContainsScope(node) {
+    if (!node || (node.nodeType !== 1 && node.nodeType !== 11)) return false;
+    try {
+      return node.matches?.(scopeSelector) === true ||
+        !!node.querySelector?.(scopeSelector);
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function mutationNeedsScan(mutation) {
+    if (!mutation) return false;
+    if (mutation.type === 'attributes') {
+      const target = mutation.target;
+      // A scope becoming visible, or any ancestor affecting its visibility,
+      // warrants a rescan. Unrelated card/button style churn does not.
+      return observedScopes.has(target) ||
+        observedScopeAncestors.has(target) ||
+        target?.matches?.(scopeSelector) === true;
+    }
+    if (mutation.type === 'childList') {
+      if (observedScopes.has(mutation.target)) return true;
+      for (const node of mutation.addedNodes || []) {
+        if (nodeContainsScope(node)) return true;
+      }
+      for (const node of mutation.removedNodes || []) {
+        if (nodeContainsScope(node)) return true;
+      }
+    }
+    return false;
   }
 
   function install() {
@@ -751,7 +858,10 @@
       const scope = findScope(event.target || document.activeElement);
       if (scope) restore(scope, 'escape');
     }, true);
-    const observer = new MutationObserver(scan);
+    const observer = new MutationObserver(mutations => {
+      observerBatchCount += 1;
+      if (mutations.some(mutationNeedsScan)) scheduleScan();
+    });
     observer.observe(document.documentElement, {
       subtree: true,
       childList: true,
@@ -776,6 +886,14 @@
     topOpenScope,
     closeLocalSurfaceForBack,
     diagnostics: () => ({ ...lastPopstateResult }),
+    performance: () => ({
+      scanCount,
+      scheduledScanCount,
+      observerBatchCount,
+      lastScanDurationMs,
+      maxScanDurationMs,
+      trackedScopes: observedScopes.size
+    }),
     restoreProject,
     snapshotProject
   };
