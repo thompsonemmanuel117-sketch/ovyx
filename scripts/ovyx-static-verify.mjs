@@ -331,6 +331,17 @@ if (fs.existsSync(webStudioShellPath)) {
   ) {
     errors.push('OVYX Web Studio: provider-specific builds must preserve operation mode and internal multi-page preview links must navigate to the matching page.');
   }
+  const previewFrameRuntime = webStudioShell.match(/setPreviewFrameDocument\(frame,source\)\{([\s\S]*?)\},\s*renderPreview\(/);
+  if (
+    !previewFrameRuntime ||
+    !previewFrameRuntime[1].includes('doc.open()') ||
+    !previewFrameRuntime[1].includes('doc.write(source)') ||
+    !previewFrameRuntime[1].includes('doc.close()') ||
+    !webStudioShell.includes('frames.forEach(frame=>this.setPreviewFrameDocument(frame,srcdoc))') ||
+    webStudioShell.includes('frames.forEach(frame=>{if(frame.srcdoc!==srcdoc)frame.srcdoc=srcdoc})')
+  ) {
+    errors.push('OVYX Web Studio: update preview iframe documents in-place rather than repeatedly navigating srcdoc; hidden iframe history must not consume the application Back stack.');
+  }
 }
 
 // Web Studio Stage 3: explicit prompt contracts, readiness questions, and
