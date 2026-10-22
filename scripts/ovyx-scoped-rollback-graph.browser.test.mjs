@@ -75,15 +75,32 @@ try {
         typeof window.OVYXScopedRollback?.snapshotProject === 'function'
         && typeof window.OVYXScopedRollback?.restoreProject === 'function'
         && typeof window.OVYXScopedRollback?.performance === 'function'
+        && window.__OVYX_SCOPED_ROLLBACK_INSTALLED_V1__ === true
       );
 
       const beforeHistory = await page.evaluate(() => history.length);
       await page.click('#open-project-editor');
-      await page.waitForFunction(() =>
-        !document.getElementById('project-editor').hidden
-        && window.WebStudio.graph.files['src/main.html'].content.includes('Mutated only in live graph')
-        && document.getElementById('visible-editor-content').textContent.includes('Mutated only in live graph')
-      );
+      try {
+        await page.waitForFunction(() =>
+          !document.getElementById('project-editor').hidden
+          && window.WebStudio.graph.files['src/main.html'].content.includes('Mutated only in live graph')
+          && document.getElementById('visible-editor-content').textContent.includes('Mutated only in live graph'),
+          null,
+          { timeout: 5000 }
+        );
+      } catch (error) {
+        const diagnostic = await page.evaluate(() => ({
+          installed: window.__OVYX_SCOPED_ROLLBACK_INSTALLED_V1__ === true,
+          hasStudio: !!window.WebStudio,
+          graphContent: window.WebStudio?.graph?.files?.['src/main.html']?.content || '',
+          visibleContent: document.getElementById('visible-editor-content')?.textContent || '',
+          modalHidden: document.getElementById('project-editor')?.hidden,
+          modalClass: document.getElementById('project-editor')?.className || '',
+          historyLength: history.length,
+          cloneAPI: typeof window.OVYXScopedRollback?.snapshotProject,
+        }));
+        throw new Error('Could not open the graph-only editor fixture: ' + JSON.stringify(diagnostic) + '; ' + error.message);
+      }
       await page.waitForFunction(before => history.length > before, beforeHistory);
 
       if (closeMethod === 'cancel') {
