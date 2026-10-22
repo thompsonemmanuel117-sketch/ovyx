@@ -29,10 +29,10 @@ assert.deepEqual(
 
 
 const iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><title id="title">OVYX</title><path d="M32 5L55 18.5V45.5L32 59L9 45.5V18.5L32 5Z"/></svg>';
-const shellHtml = '<!doctype html><html><head><title>OVYX</title><link rel="icon" type="image/svg+xml" href="/ovyx-tab-v6.svg?v=20261021-6"></head><body><main><h1>OVYX</h1></main><script src="/assets/ovyx-shell-favicon-lock.js?v=20261021-3"></script><script defer src="/assets/ovyx-webstudio-cancel-safety.js?v=20261022-2"></script><script defer src="/assets/ovyx-scoped-rollback.js?v=20261022-13"></script><script defer src="/assets/ovyx-webstudio-reliability.js?v=20261019-2"></script><script defer src="/assets/ovyx-webstudio-research.js?v=20261019-1"></script><script defer src="/assets/ovyx-webstudio-apply-suggestions.js?v=20261019-1"></script><script defer src="/assets/ovyx-webstudio-quality.js?v=20261018-7"></script></body></html>';
+const shellHtml = '<!doctype html><html><head><title>OVYX</title><link rel="icon" type="image/svg+xml" href="/ovyx-tab-v7.svg?v=20261022-7"></head><body><main><h1>OVYX</h1></main><script src="/assets/ovyx-shell-favicon-lock.js?v=20261021-3"></script><script defer src="/assets/ovyx-webstudio-cancel-safety.js?v=20261022-2"></script><script defer src="/assets/ovyx-scoped-rollback.js?v=20261022-13"></script><script defer src="/assets/ovyx-webstudio-reliability.js?v=20261019-2"></script><script defer src="/assets/ovyx-webstudio-research.js?v=20261019-1"></script><script defer src="/assets/ovyx-webstudio-apply-suggestions.js?v=20261019-1"></script><script defer src="/assets/ovyx-webstudio-quality.js?v=20261018-7"></script></body></html>';
 const expectedQualitySource = 'function auditSources(report, pages, files, project) {} /* cross-page fragment link */ function publishVerifiedPreview() {}';
 const expectedRuntimeSources = {
-  '/assets/ovyx-shell-favicon-lock.js': `window.__OVYX_SHELL_FAVICON_LOCK_V3__ = true; var href = "/ovyx-tab-v6.svg?v=20261021-6"; window.OVYXShellFavicon = {}; var observer = new MutationObserver();`,
+  '/assets/ovyx-shell-favicon-lock.js': `window.__OVYX_SHELL_FAVICON_LOCK_V3__ = true; var href = "/ovyx-tab-v7.svg?v=20261022-7"; window.OVYXShellFavicon = {}; var observer = new MutationObserver();`,
   '/assets/ovyx-webstudio-cancel-safety.js': `window.__OVYX_WEBSTUDIO_CANCEL_SAFETY_V3__ = true; function restoreProjectOnly() {} function installBrowserFetchCancellation() {} var key = "ovyx.webstudio.rollback.snapshot.v3."; button.id = 'ws-task-cancel'; coordinator.cancel();`,
   '/assets/ovyx-scoped-rollback.js': `window.__OVYX_SCOPED_ROLLBACK_V1__ = true; window.OVYXScopedRollback = { beforeClose() {}, restoreProject() {}, performance: () => ({scanCount: 0}) }; function restoreProject(snapshot) {} var restoreScheduled = false; function handleHistoryPop(event) {} function closeLocalSurfaceForBack() {} function cancelStudioTaskSafely() {} function wrapNavigationBack() {} function isHistoryOverlayScope(scope) {} function pushOverlayHistoryEntry() {} function topOpenScope() {} function shouldRestoreProjectScope(scope) {} function shouldCaptureProjectBeforeOpen(button) {} function scheduleScan() {} function mutationNeedsScan(mutation) {} let studioGraphChanged = false; // Re-resolve the public state and restoredEditorGraph: !!restoreStudio && !!originalGraph; if (restoreProjectCheckpoint) restoreProject(record.project); var selector = '.ovyx-ws-plan-modal'; var __OVYXV665_SUPPRESS_HISTORY = true; var reason = 'duplicate-route-entry-skipped'; window.addEventListener('popstate', handleHistoryPop, true);`,
   '/assets/ovyx-webstudio-reliability.js': 'var __ovyxBuildArtifactGuard = true; function installFollowUpIntentRouter() {}',
@@ -43,7 +43,7 @@ const expectedRuntimeSources = {
 const healthyFetch = async input => {
   const url = new URL(input);
   if (url.pathname === '/') return new Response(shellHtml, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } });
-  if (url.pathname === '/ovyx-tab-v6.svg' || url.pathname === '/favicon.ico') {
+  if (url.pathname === '/ovyx-tab-v7.svg' || url.pathname === '/favicon.ico') {
     return new Response(iconSvg, { status: 200, headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': 'no-store, no-cache, must-revalidate, max-age=0' } });
   }
   const source = expectedRuntimeSources[url.pathname];
@@ -118,7 +118,7 @@ let externalAssetRequests = 0;
 const crossOriginRuntime = await probeApplicationShell('https://production-fixture.pages.dev', async input => {
   const url = new URL(input);
   if (url.pathname === '/') return new Response('<html><script src="https://cdn.example.invalid/assets/ovyx-webstudio-quality.js?v=1"></script></html>', { status: 200, headers: { 'content-type': 'text/html' } });
-  if (url.pathname === '/ovyx-tab-v6.svg' || url.pathname === '/favicon.ico') {
+  if (url.pathname === '/ovyx-tab-v7.svg' || url.pathname === '/favicon.ico') {
     return new Response(iconSvg, { status: 200, headers: { 'content-type': 'image/svg+xml; charset=utf-8', 'cache-control': 'no-store, no-cache, must-revalidate, max-age=0' } });
   }
   externalAssetRequests += 1;
@@ -130,7 +130,7 @@ assert.equal(externalAssetRequests, 0, 'The probe must reject cross-origin runti
 const missingCancelRuntime = await probeApplicationShell('https://production-fixture.pages.dev', async input => {
   const url = new URL(input);
   if (url.pathname === '/') return new Response(shellHtml.replace(/<script[^>]+ovyx-webstudio-cancel-safety\.js[^>]*><\/script>/, ''), { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } });
-  if (url.pathname === '/ovyx-tab-v6.svg' || url.pathname === '/favicon.ico') return healthyFetch(input);
+  if (url.pathname === '/ovyx-tab-v7.svg' || url.pathname === '/favicon.ico') return healthyFetch(input);
   const source = expectedRuntimeSources[url.pathname];
   if (source) return new Response(source, { status: 200, headers: { 'content-type': 'text/javascript; charset=utf-8' } });
   return new Response('', { status: 404 });
@@ -149,7 +149,7 @@ assert.match(missingCancelRuntime.error, /missing the Web Studio mobile Cancel a
 const brokenFavicon = await probeApplicationShell('https://production-fixture.pages.dev', async input => {
   const url = new URL(input);
   if (url.pathname === '/') return new Response(shellHtml, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } });
-  if (url.pathname === '/ovyx-tab-v6.svg') return new Response('<svg><path d="M0 0Z"/></svg>', { status: 200, headers: { 'content-type': 'image/svg+xml', 'cache-control': 'no-store, no-cache, max-age=0' } });
+  if (url.pathname === '/ovyx-tab-v7.svg') return new Response('<svg><path d="M0 0Z"/></svg>', { status: 200, headers: { 'content-type': 'image/svg+xml', 'cache-control': 'no-store, no-cache, max-age=0' } });
   if (url.pathname === '/favicon.ico') return new Response('', { status: 404, headers: { 'content-type': 'text/plain' } });
   const source = expectedRuntimeSources[url.pathname];
   if (source) return new Response(source, { status: 200, headers: { 'content-type': 'text/javascript; charset=utf-8' } });
