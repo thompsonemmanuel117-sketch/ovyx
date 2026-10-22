@@ -73,11 +73,11 @@ const interactionFixEnd=app.indexOf('</style>',interactionFixStart);
 assert.ok(interactionFixEnd>interactionFixStart,'The interaction fix stylesheet must close correctly.');
 const interactionFix=app.slice(interactionFixStart,interactionFixEnd);
 assert.ok(interactionFix.includes('#view-webstudio[data-ws-code-open="1"] #ws-desktop-split-toggle'));
-assert.match(interactionFix,/display:\s*none\s*!important/,'The split handle must be hidden while Code Workspace is active.');
-assert.match(interactionFix,/pointer-events:\s*none\s*!important/,'The split handle must not capture input while Code Workspace is active.');
+assert.ok(interactionFix.includes('display: none !important;'), 'The split handle must be hidden while Code Workspace is active.');
+assert.ok(interactionFix.includes('pointer-events: none !important;'), 'The split handle must not capture input while Code Workspace is active.');
 assert.ok(interactionFix.includes('#ws-code-workspace-host .monaco-editor .overflow-guard'));
 assert.ok(interactionFix.includes('#ws-code-workspace-host #ovyx-fallback-editor'));
-assert.match(interactionFix,/background-color:\s*var\(--app-bg,\s*#050607\)\s*!important/,'Mobile preview backdrop must use the shared canvas background token.');
+assert.ok(interactionFix.includes('background-color: var(--app-bg, #050607) !important;'), 'Mobile preview backdrop must use the shared canvas background token.');
 assert.ok(interactionFix.includes('linear-gradient(var(--app-border, #1B222A) 1px, transparent 1px)'),'Mobile preview must share the canvas grid/border token.');
 // The two preview modes must continue to render the same generated website source.
 assert.ok(app.includes("const frames=[document.getElementById('ws-canvas-iframe'),document.getElementById('ws-mobile-preview-frame')].filter(Boolean)"));
