@@ -70,7 +70,8 @@ try {
     () => typeof window.Router?.go === 'function'
       && typeof window.OVYXNavigation?.back === 'function'
       && typeof window.WebStudio?.runBuildAgent === 'function'
-      && typeof window.OVYXWebStudioCancelSafety?.cancel === 'function',
+      && typeof window.OVYXWebStudioCancelSafety?.cancel === 'function'
+      && typeof window.OVYXScopedRollback?.beforeClose === 'function',
     null,
     { timeout: 45000 },
   );
@@ -269,6 +270,82 @@ try {
     window.ProjectStore?.save?.();
   });
 
+  // App-wide rollback coverage outside Web Studio: while the user is in
+  // App Studio, Back must close a local project-edit dialog and restore only
+  // that dialog's project checkpoint. It must not reset unrelated projects.
+  await page.evaluate(() => window.Router.go('appstudio'));
+  await waitForRoute(page, 'appstudio');
+  await page.waitForFunction(() => window.history.state?.ovyxRoute === 'appstudio', null, { timeout: 10000 });
+  await page.evaluate(() => {
+    const dialog = document.createElement('div');
+    dialog.id = 'ovyx-mobile-back-project-modal';
+    dialog.className = 'modal open';
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.style.cssText = 'position:fixed;inset:15%;z-index:2147483646;background:#080808;color:white;display:block';
+    dialog.innerHTML = '<label>Project title <input id="ovyx-back-test-project-title" value="Baseline title"></label><button type="button" data-modal-close>Close</button>';
+    document.body.appendChild(dialog);
+  });
+  await page.waitForTimeout(120);
+  await page.evaluate(() => {
+    const fixture = window.__ovyxBackTestFixture;
+    const project = window.KernelState.projects.find(item => item.id === fixture.id);
+    project.name = 'Dirty project name from cancelled dialog';
+    project.pages.push({ id: 'cancelled-page', name: 'Cancelled Page', slug: '/cancelled' });
+    const draft = {
+      id: 'ovyx-back-test-new-draft',
+      name: 'Temporary draft must be removed on Cancel',
+      pages: [{ id: 'draft-home', name: 'Home', slug: '/' }],
+      assets: [],
+      revisions: [],
+    };
+    window.KernelState.projects.push(draft);
+    window.KernelState.activeProject = draft;
+    const field = document.getElementById('ovyx-back-test-project-title');
+    if (field) field.value = 'Dirty field value';
+    window.ProjectStore?.save?.();
+  });
+  await triggerHistoryBack(page);
+  const globalRollback = await page.evaluate(() => {
+    const fixture = window.__ovyxBackTestFixture;
+    const state = window.KernelState;
+    const project = state.projects.find(item => item.id === fixture.id);
+    const other = state.projects.find(item => item.id === fixture.otherId);
+    return {
+      route: state.activeView,
+      modalOpen: (() => {
+        const dialog = document.getElementById('ovyx-mobile-back-project-modal');
+        return !!dialog && !dialog.hidden && getComputedStyle(dialog).display !== 'none' && dialog.classList.contains('open');
+      })(),
+      fieldValue: document.getElementById('ovyx-back-test-project-title')?.value || '',
+      activeProjectId: state.activeProject?.id || '',
+      projectName: project?.name || '',
+      pageIds: (project?.pages || []).map(item => item.id),
+      draftStillExists: state.projects.some(item => item.id === 'ovyx-back-test-new-draft'),
+      otherName: other?.name || '',
+      historyRoute: window.history.state?.ovyxRoute,
+    };
+  });
+  assert.equal(globalRollback.route, 'appstudio',
+    'Back from an App Studio dialog must stay in App Studio.');
+  assert.equal(globalRollback.modalOpen, false,
+    'Back must close the project-edit dialog in a non-Web-Studio surface.');
+  assert.equal(globalRollback.fieldValue, 'Baseline title',
+    'The dialog field must return to its saved pre-edit value.');
+  assert.equal(globalRollback.activeProjectId, 'ovyx-mobile-back-regression-project',
+    'Cancel rollback must restore the project that was active before the dialog opened.');
+  assert.equal(globalRollback.projectName, 'Back Safety Baseline Project',
+    'App-wide rollback must restore only the affected project metadata.');
+  assert.deepEqual(globalRollback.pageIds, ['home'],
+    'App-wide rollback must remove only the uncommitted page added inside the dialog.');
+  assert.equal(globalRollback.draftStillExists, false,
+    'A newly-created draft project owned by the cancelled dialog must be discarded.');
+  assert.equal(globalRollback.otherName, 'Unrelated Project Must Stay Untouched',
+    'App-wide rollback must preserve unrelated projects.');
+  assert.equal(globalRollback.historyRoute, 'appstudio',
+    'Closing the dialog must preserve the current route history entry.');
+
+  await page.evaluate(() => document.getElementById('ovyx-mobile-back-project-modal')?.remove());
   await page.evaluate(() => window.Router.go('webstudio'));
   await waitForRoute(page, 'webstudio');
   await page.waitForFunction(() => window.history.state?.ovyxRoute === 'webstudio', null, { timeout: 10000 });
