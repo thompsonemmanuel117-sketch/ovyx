@@ -19,6 +19,10 @@ const recoveryMatch=appShell.match(/<script id="ovyx-code-dashboard-route-recove
 assert.ok(recoveryMatch,'The production dashboard route-recovery runtime must be present.');
 const hitTestingMatch=appShell.match(/<style id="ovyx-code-workspace-hit-testing-v2">([\s\S]*?)<\/style>/i);
 const editorRecoveryMatch=appShell.match(/<script id="ovyx-code-workspace-editor-recovery-v2">([\s\S]*?)<\/script>/i);
+const dockSurfaceMatch=appShell.match(/<style id="ovyx-mobile-dock-opaque-background-v2">([\s\S]*?)<\/style>/i);
+assert.ok(dockSurfaceMatch,'The production mobile Home dock must define an explicit surface behind its navigation labels.');
+assert.match(dockSurfaceMatch[1],/background:\s*#070809!important/i,'The mobile Home dock must use the intended opaque dark surface.');
+assert.doesNotMatch(dockSurfaceMatch[1],/background(?:-color)?\s*:\s*transparent/i,'The mobile Home dock must not allow dashboard cards to bleed through its navigation labels.');
 assert.ok(hitTestingMatch,'The production Code Workspace hit-testing repair must be present.');
 assert.ok(editorRecoveryMatch,'The production editor initialization recovery must be present.');
 assert.match(hitTestingMatch[1],/#view-webstudio:not\(\.hidden\)\[data-ws-code-open="1"\]/i,
@@ -185,5 +189,34 @@ try{
     'Dashboard controls must receive clicks after navigating Home from a previously open drawer.');
   assert.deepEqual(homeErrors,[],'Returning to Home must not throw browser runtime errors.');
   await homePage.close();
-  console.log('OVYX Code Workspace timeout fallback and dashboard route recovery browser tests passed.');
+
+  // Real production-shell regression: the fixed mobile dock must remain opaque
+  // while the Home dashboard scrolls behind it, so card text cannot bleed into
+  // the Home / Build / New / Code / More navigation labels.
+  const dockPage=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});
+  try{
+    const response=await dockPage.goto('http://127.0.0.1:8789/',{waitUntil:'domcontentloaded',timeout:30000});
+    assert.ok(response&&response.ok(),'The real OVYX app shell must load for the mobile dock regression.');
+    await dockPage.waitForFunction(()=>!!document.querySelector('.v59-dashboard-shell')&&!!document.getElementById('ovyx-v52-bottom-bar'),
+      null,{timeout:30000});
+    await dockPage.evaluate(()=>window.OVYXMobileDockAuthority?.sync?.());
+    await dockPage.waitForFunction(()=>document.body.classList.contains('ovyx-v88-dock-home')
+      &&getComputedStyle(document.getElementById('ovyx-v52-bottom-bar')).display!=='none',
+      null,{timeout:30000});
+    const dockState=await dockPage.evaluate(()=>{
+      const dock=document.getElementById('ovyx-v52-bottom-bar');
+      const style=getComputedStyle(dock);
+      const shell=document.querySelector('.v59-dashboard-shell');
+      return {display:style.display,backgroundColor:style.backgroundColor,backgroundImage:style.backgroundImage,
+        height:parseFloat(style.height),dashboardBottomPadding:parseFloat(getComputedStyle(shell).paddingBottom)};
+    });
+    assert.equal(dockState.display,'grid','The mobile Home dock must remain visible on the Home dashboard.');
+    assert.equal(dockState.backgroundColor,'rgb(7, 8, 9)',
+      'The visible mobile dock must use its opaque dark background instead of letting the dashboard show through.');
+    assert.equal(dockState.backgroundImage,'none','The dock surface must not reintroduce a transparent background layer.');
+    assert.equal(dockState.height,64,'The dock surface fix must preserve the existing mobile navigation height.');
+    assert.ok(dockState.dashboardBottomPadding>=100,
+      'The Home dashboard must preserve enough scroll runway for content to clear the fixed dock.');
+  }finally{await dockPage.close();}
+  console.log('OVYX Code Workspace recovery and real mobile Home dock surface browser tests passed.');
 }finally{await browser.close();}
