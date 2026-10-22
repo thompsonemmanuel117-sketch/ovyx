@@ -9,24 +9,6 @@ on:
       - 'assets/ovyx-settings-reliability.js'
       - 'assets/ovyx-webstudio-cancel-safety.js'
       - 'assets/ovyx-scoped-rollback.js'
-      - '_routes.json'
-      - 'functions/_middleware.js'
-      - 'scripts/cloudflare-application-shell.mjs'
-      - 'scripts/ovyx-static-verify.mjs'
-      - 'scripts/ovyx-cloudflare-diagnostics.test.mjs'
-      - '_headers'
-      - 'scripts/ovyx-settings-actions.test.mjs'
-      - 'scripts/ovyx-settings-core.browser.test.mjs'
-      - 'scripts/ovyx-cancel-safety.browser.test.mjs'
-      - 'scripts/ovyx-mobile-back-navigation.browser.test.mjs'
-      - '.github/workflows/ovyx-settings-regression-browser.yml'
-  pull_request:
-    branches:
-      - main
-    paths:
-      - 'index.html'
-      - 'assets/ovyx-settings-reliability.js'
-      - 'assets/ovyx-webstudio-cancel-safety.js'
       - 'assets/ovyx-scoped-rollback.js'
       - '_routes.json'
       - 'functions/_middleware.js'
@@ -38,6 +20,32 @@ on:
       - 'scripts/ovyx-settings-core.browser.test.mjs'
       - 'scripts/ovyx-cancel-safety.browser.test.mjs'
       - 'scripts/ovyx-mobile-back-navigation.browser.test.mjs'
+      - 'scripts/ovyx-cloudflare-diagnostics.test.mjs'
+      - 'scripts/cloudflare-application-shell.mjs'
+      - 'scripts/ovyx-static-verify.mjs'
+      - '.github/workflows/ovyx-settings-regression-browser.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'index.html'
+      - 'assets/ovyx-settings-reliability.js'
+      - 'assets/ovyx-webstudio-cancel-safety.js'
+      - 'assets/ovyx-scoped-rollback.js'
+      - 'assets/ovyx-scoped-rollback.js'
+      - '_routes.json'
+      - 'functions/_middleware.js'
+      - 'scripts/cloudflare-application-shell.mjs'
+      - 'scripts/ovyx-static-verify.mjs'
+      - 'scripts/ovyx-cloudflare-diagnostics.test.mjs'
+      - '_headers'
+      - 'scripts/ovyx-settings-actions.test.mjs'
+      - 'scripts/ovyx-settings-core.browser.test.mjs'
+      - 'scripts/ovyx-cancel-safety.browser.test.mjs'
+      - 'scripts/ovyx-mobile-back-navigation.browser.test.mjs'
+      - 'scripts/ovyx-cloudflare-diagnostics.test.mjs'
+      - 'scripts/cloudflare-application-shell.mjs'
+      - 'scripts/ovyx-static-verify.mjs'
       - '.github/workflows/ovyx-settings-regression-browser.yml'
   workflow_dispatch:
 
