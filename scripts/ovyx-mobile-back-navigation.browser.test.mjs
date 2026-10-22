@@ -146,13 +146,74 @@ try {
   await page.evaluate(() => window.Router.go('settings'));
   await waitForRoute(page, 'settings');
   await page.waitForFunction(() => window.history.state?.ovyxRoute === 'settings', null, { timeout: 10000 });
+
+  // App-wide nested navigation: Settings categories must participate in the
+  // same Back history without leaving Settings or touching saved preferences.
+  await page.evaluate(() => {
+    window.OVYXSettings.show('general');
+    window.OVYXSettings.show('appearance');
+    window.OVYXSettings.show('profile');
+  });
+  assert.equal(await page.evaluate(() => window.OVYXSettings.current), 'profile',
+    'The nested Settings fixture must end on Profile.');
+  assert.equal(await page.evaluate(() => window.history.state?.ovyxSettingsPanel), 'profile',
+    'Each Settings category transition must get its own history entry.');
+  await triggerHistoryBack(page);
+  assert.equal(await page.evaluate(() => window.KernelState?.activeView), 'settings',
+    'Back through Settings must stay on the Settings route.');
+  assert.equal(await page.evaluate(() => window.OVYXSettings.current), 'appearance',
+    'Back must return from Profile to the previous Settings category.');
+  await triggerHistoryBack(page);
+  assert.equal(await page.evaluate(() => window.OVYXSettings.current), 'general',
+    'A second Back must return to the previous Settings category again.');
+
   await page.evaluate(() => window.Router.go('webstudio'));
   await waitForRoute(page, 'webstudio');
   await page.waitForFunction(() => window.history.state?.ovyxRoute === 'webstudio', null, { timeout: 10000 });
 
-  // Scenario 1: Android/browser Back while the mobile Preview is open must
+  // Scenario 1: the shared Back layer must dismiss an open dialog in any
+  // product area before it changes routes.
+  await page.evaluate(() => {
+    // These are disposable browser-only fixtures; close any boot-time dialogs
+    // so this scenario can assert the precise overlay it opens below.
+    for (let i = 0; i < 8 && window.OVYXNavigation.closeTopOverlay(); i += 1) {}
+    const dialog = document.createElement('div');
+    dialog.id = 'ovyx-mobile-back-regression-modal';
+    dialog.className = 'modal open';
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.style.cssText = 'position:fixed;inset:15%;z-index:2147483646;background:#080808;color:white;display:block';
+    dialog.innerHTML = '<div><p>Temporary test dialog</p><button type="button" data-modal-close>Close</button></div>';
+    document.body.appendChild(dialog);
+  });
+  await triggerHistoryBack(page);
+  const modalBack = await page.evaluate(() => ({
+    route: window.KernelState?.activeView,
+    modalOpen: !!document.getElementById('ovyx-mobile-back-regression-modal')
+      && !document.getElementById('ovyx-mobile-back-regression-modal').hidden
+      && getComputedStyle(document.getElementById('ovyx-mobile-back-regression-modal')).display !== 'none'
+      && document.getElementById('ovyx-mobile-back-regression-modal').classList.contains('open'),
+    historyRoute: window.history.state?.ovyxRoute,
+  }));
+  assert.equal(modalBack.route, 'webstudio',
+    'Back from a generic dialog must not leave the active workspace.');
+  assert.equal(modalBack.modalOpen, false,
+    'The shared Back layer must dismiss generic modal overlays across OVYX.');
+  assert.equal(modalBack.historyRoute, 'webstudio',
+    'Dismissing a generic dialog must re-establish the current route history entry.');
+
+  // Scenario 2: Android/browser Back while the mobile Preview is open must
   // close that local surface first. It must not route away from Web Studio.
   await page.evaluate(() => {
+    const dialog = document.getElementById('ovyx-mobile-back-regression-modal');
+    dialog?.remove();
+    const mode = document.getElementById('ws-mode-menu');
+    const menu = document.getElementById('ws-preview-menu');
+    if (mode) mode.hidden = true;
+    if (menu) menu.hidden = true;
+    const ws = document.getElementById('view-webstudio');
+    ws?.setAttribute('data-ws-code-open', '0');
+    document.body.classList.remove('ovyx-ws-nav-open', 'ovyx-ws-mobile-nav-open');
     const studio = window.WebStudio;
     const originalAbort = studio.abortActiveAi;
     window.__ovyxBackTestOriginalAbort = originalAbort;
@@ -199,7 +260,7 @@ try {
   assert.equal(await page.evaluate(() => window.KernelState?.activeView), 'webstudio',
     'Forward should restore Web Studio after the previous-view Back test.');
 
-  // Scenario 2: if Back is pressed while an AI build is actually in flight,
+  // Scenario 3: if Back is pressed while an AI build is actually in flight,
   // invoke the existing scoped cancellation coordinator and keep the user in
   // the workspace. The test AI call never reaches a provider or mutates a real project.
   await page.evaluate(() => {
