@@ -249,6 +249,49 @@ try{
       'At the end of mobile Home scrolling, the final tool card must sit fully above the fixed dock.');
     assert.equal(dockScrollState.shellOverflow,'visible',
       'The mobile Home section must not clip its own scrollable content.');
+
+    // A scrollTop assignment above only proves programmatic scrolling. Reproduce
+    // the user's finger gesture against the real mobile Home surface as well.
+    await dockPage.evaluate(()=>{document.getElementById('view-router-viewport').scrollTop=0;});
+    const gestureGeometry=await dockPage.evaluate(()=>{
+      const viewport=document.getElementById('view-router-viewport');
+      const dock=document.getElementById('ovyx-v52-bottom-bar');
+      const vr=viewport.getBoundingClientRect(),dr=dock.getBoundingClientRect();
+      return {
+        viewportTop:vr.top,viewportBottom:vr.bottom,viewportLeft:vr.left,viewportWidth:vr.width,
+        dockTop:dr.top,startY:Math.floor(Math.min(vr.bottom-160,dr.top-35)),
+        endY:Math.floor(Math.max(vr.top+90,Math.min(vr.bottom-160,dr.top-35)-300))
+      };
+    });
+    assert.ok(gestureGeometry.endY<gestureGeometry.startY,
+      'The mobile viewport must expose enough unblocked space to perform an upward scroll gesture.');
+    const touchSession=await dockPage.context().newCDPSession(dockPage);
+    try{
+      const x=Math.floor(gestureGeometry.viewportLeft+gestureGeometry.viewportWidth/2);
+      await touchSession.send('Input.dispatchTouchEvent',{
+        type:'touchStart',touchPoints:[{id:1,x,y:gestureGeometry.startY,radiusX:2,radiusY:2,force:1}]
+      });
+      for(let step=1;step<=5;step++){
+        const y=Math.floor(gestureGeometry.startY+
+          (gestureGeometry.endY-gestureGeometry.startY)*step/5);
+        await touchSession.send('Input.dispatchTouchEvent',{
+          type:'touchMove',touchPoints:[{id:1,x,y,radiusX:2,radiusY:2,force:1}]
+        });
+        await dockPage.waitForTimeout(20);
+      }
+      await touchSession.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+      await dockPage.waitForFunction(
+        ()=>document.getElementById('view-router-viewport')?.scrollTop>0,
+        null,{timeout:2500}
+      );
+    }finally{await touchSession.detach();}
+    const gestureScroll=await dockPage.evaluate(()=>({
+      scrollTop:document.getElementById('view-router-viewport').scrollTop,
+      scrollHeight:document.getElementById('view-router-viewport').scrollHeight,
+      clientHeight:document.getElementById('view-router-viewport').clientHeight
+    }));
+    assert.ok(gestureScroll.scrollTop>0,
+      'An upward finger swipe on mobile Home must scroll the dashboard down; programmatic scrollTop alone is not sufficient.');
   }finally{await dockPage.close();}
   console.log('OVYX Code Workspace recovery and real mobile Home dock surface browser tests passed.');
 }finally{await browser.close();}
