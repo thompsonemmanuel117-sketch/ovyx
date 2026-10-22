@@ -119,8 +119,8 @@ try{
     window.KernelState={activeView:'workspace',activeProject:{
       id:'desktop-preview-sync-fixture',name:'Desktop Preview Sync Fixture',
       pages:[
-        {name:'Home',__ovyxFile:'src/pages/Home.html',html:home,source:home,renderedHtml:home},
-        {name:'Pricing',__ovyxFile:'src/pages/Pricing.html',html:pricing,source:pricing,renderedHtml:pricing}
+        {name:'Home',__ovyxFile:'src/pages/Home.html',html:'<!doctype html><html><body>STALE Home projection</body></html>',source:'<!doctype html><html><body>STALE Home projection</body></html>',renderedHtml:'<!doctype html><html><body>STALE Home projection</body></html>'},
+        {name:'Pricing',__ovyxFile:'src/pages/Pricing.html',html:'<!doctype html><html><body>STALE Pricing projection</body></html>',source:'<!doctype html><html><body>STALE Pricing projection</body></html>',renderedHtml:'<!doctype html><html><body>STALE Pricing projection</body></html>'}
       ],
       ovyxGraph:window.fixtureEditor.graph
     }};
@@ -138,15 +138,19 @@ try{
   await page.evaluate(()=>{
     window.fixtureEditor.openCodeFile('src/pages/Pricing.html');
   });
+  await page.waitForFunction(()=>document.getElementById('ws-canvas-iframe')?.contentDocument?.body?.textContent?.includes('Pricing baseline'),null,{timeout:6000});
   const pageSelection=await page.evaluate(()=>({
     entry:window.fixtureEditor.graph.entry,
     activePageIndex:window.fixtureEditor.activePageIndex,
     activePageName:window.KernelState.activeProject.pages[window.fixtureEditor.activePageIndex]?.name,
+    projectPageHtml:window.KernelState.activeProject.pages[1]?.html||'',
     previewText:document.getElementById('ws-canvas-iframe')?.contentDocument?.body?.textContent||''
   }));
   assert.equal(pageSelection.entry,'src/pages/Pricing.html','Opening another HTML source must move Desktop preview to that page.');
   assert.equal(pageSelection.activePageIndex,1,'The selected Code Workspace HTML file must select the matching project page.');
   assert.equal(pageSelection.activePageName,'Pricing','Project page selection must follow the HTML file selected in Code Workspace.');
+  assert.match(pageSelection.projectPageHtml,/Pricing baseline/,'Opening a source file must refresh the stored project page from the shared graph immediately.');
+  assert.doesNotMatch(pageSelection.projectPageHtml,/STALE Pricing projection/,'Desktop preview must not keep a stale page copy when Code Workspace changes files.');
   const pricingSource='<!doctype html><html><head><title>Pricing Updated</title></head><body><h1>Desktop preview shares code</h1></body></html>';
   await page.evaluate(source=>window.fixtureEditor.updateCodeFromEditor('src/pages/Pricing.html',source),pricingSource);
   await page.waitForFunction(()=>document.getElementById('ws-canvas-iframe')?.contentDocument?.body?.textContent?.includes('Desktop preview shares code'),null,{timeout:6000});
@@ -356,40 +360,28 @@ try{
     });
     const touchSession=await dockPage.context().newCDPSession(dockPage);
     try{
-      const x=gestureGeometry.x;
-      await touchSession.send('Input.dispatchTouchEvent',{
-        type:'touchStart',touchPoints:[{id:1,x,y:gestureGeometry.startY,radiusX:2,radiusY:2,force:1}]
+      await touchSession.send('Input.synthesizeScrollGesture',{
+        x:gestureGeometry.x,y:gestureGeometry.startY,xDistance:0,yDistance:-320,
+        speed:700,gestureSourceType:'touch'
       });
-      for(let step=1;step<=12;step++){
-        const y=Math.floor(gestureGeometry.startY+
-          (gestureGeometry.endY-gestureGeometry.startY)*step/12);
-        await touchSession.send('Input.dispatchTouchEvent',{
-          type:'touchMove',touchPoints:[{id:1,x,y,radiusX:2,radiusY:2,force:1}]
+      await dockPage.waitForFunction(()=>document.getElementById('view-router-viewport')?.scrollTop>0,
+        null,{timeout:3500}).catch(async error=>{
+          const diag=await dockPage.evaluate(({x,y})=>{
+            const viewport=document.getElementById('view-router-viewport'),hit=document.elementFromPoint(x,y);
+            const describe=el=>{
+              if(!el)return null;
+              const cs=getComputedStyle(el),r=el.getBoundingClientRect();
+              return {tag:el.tagName,id:el.id,cls:String(el.className||'').toString().slice(0,100),
+                touchAction:cs.touchAction,pointerEvents:cs.pointerEvents,overflowY:cs.overflowY,
+                position:cs.position,zIndex:cs.zIndex,box:[Math.round(r.left),Math.round(r.top),Math.round(r.width),Math.round(r.height)]};
+            };
+            const ancestors=[];for(let n=hit;n&&ancestors.length<8;n=n.parentElement)ancestors.push(describe(n));
+            return {hit:describe(hit),ancestors,scroll:{top:viewport?.scrollTop,height:viewport?.scrollHeight,client:viewport?.clientHeight},
+              bodyOverflow:getComputedStyle(document.body).overflow,rootOverflow:getComputedStyle(document.documentElement).overflow,
+              touchEvents:window.__ovyxTouchProbe||[]};
+          },{x:gestureGeometry.x,y:gestureGeometry.startY});
+          throw new Error('Chromium synthesized mobile Home touch gesture did not scroll the routed viewport. '+JSON.stringify({gestureGeometry,diag,waitError:error.message}));
         });
-        await dockPage.waitForTimeout(16);
-      }
-      await touchSession.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-      await dockPage.waitForFunction(
-        ()=>document.getElementById('view-router-viewport')?.scrollTop>0,
-        null,{timeout:3500}
-      ).catch(async error=>{
-        const diag=await dockPage.evaluate(({x,y})=>{
-          const describe=el=>{
-            if(!el)return null;
-            const cs=getComputedStyle(el),r=el.getBoundingClientRect();
-            return {tag:el.tagName,id:el.id,cls:String(el.className||'').toString().slice(0,100),
-              touchAction:cs.touchAction,pointerEvents:cs.pointerEvents,overflowY:cs.overflowY,
-              position:cs.position,zIndex:cs.zIndex,box:[Math.round(r.left),Math.round(r.top),Math.round(r.width),Math.round(r.height)]};
-          };
-          const hit=document.elementFromPoint(x,y),ancestors=[];
-          for(let n=hit;n&&ancestors.length<8;n=n.parentElement)ancestors.push(describe(n));
-          const vp=document.getElementById('view-router-viewport');
-          return {hit:describe(hit),ancestors,scroll:{top:vp?.scrollTop,height:vp?.scrollHeight,client:vp?.clientHeight},
-            bodyOverflow:getComputedStyle(document.body).overflow,rootOverflow:getComputedStyle(document.documentElement).overflow,
-            touchEvents:window.__ovyxTouchProbe||[]};
-        },{x:gestureGeometry.x,y:gestureGeometry.startY});
-        throw new Error('Real mobile Home touch sequence did not scroll the routed viewport. '+JSON.stringify({gestureGeometry,diag,waitError:error.message}));
-      });
     }finally{await touchSession.detach();}
     const gestureScroll=await dockPage.evaluate(()=>({
       scrollTop:document.getElementById('view-router-viewport').scrollTop,
@@ -424,30 +416,26 @@ try{
     });
     const projectTouch=await dockPage.context().newCDPSession(dockPage);
     try{
-      await projectTouch.send('Input.dispatchTouchEvent',{
-        type:'touchStart',touchPoints:[{id:2,x:projectGesture.x,y:projectGesture.y,radiusX:2,radiusY:2,force:1}]
+      await projectTouch.send('Input.synthesizeScrollGesture',{
+        x:projectGesture.x,y:projectGesture.y,xDistance:0,yDistance:-320,
+        speed:700,gestureSourceType:'touch'
       });
-      for(let step=1;step<=12;step++){
-        const y=Math.floor(projectGesture.y-280*step/12);
-        await projectTouch.send('Input.dispatchTouchEvent',{
-          type:'touchMove',touchPoints:[{id:2,x:projectGesture.x,y,radiusX:2,radiusY:2,force:1}]
-        });
-        await dockPage.waitForTimeout(16);
-      }
-      await projectTouch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
-      await dockPage.waitForFunction(()=>document.getElementById('view-router-viewport')?.scrollTop>0,null,{timeout:3500})
-        .catch(async error=>{
+      await dockPage.waitForFunction(()=>document.getElementById('view-router-viewport')?.scrollTop>0,
+        null,{timeout:3500}).catch(async error=>{
           const diag=await dockPage.evaluate(({x,y})=>{
             const viewport=document.getElementById('view-router-viewport'),hit=document.elementFromPoint(x,y);
-            return {
-              hit:hit?{tag:hit.tagName,id:hit.id,cls:String(hit.className||'').toString().slice(0,100)}:null,
-              route:window.KernelState?.activeView||'',
-              scrollTop:viewport?.scrollTop,scrollHeight:viewport?.scrollHeight,clientHeight:viewport?.clientHeight,
-              overflowY:getComputedStyle(viewport).overflowY,touchAction:getComputedStyle(viewport).touchAction,
-              events:window.__ovyxTouchProbe||[]
+            const describe=el=>{
+              if(!el)return null;
+              const cs=getComputedStyle(el),r=el.getBoundingClientRect();
+              return {tag:el.tagName,id:el.id,cls:String(el.className||'').toString().slice(0,100),
+                touchAction:cs.touchAction,pointerEvents:cs.pointerEvents,overflowY:cs.overflowY,
+                box:[Math.round(r.left),Math.round(r.top),Math.round(r.width),Math.round(r.height)]};
             };
+            return {hit:describe(hit),route:window.KernelState?.activeView||'',
+              scrollTop:viewport?.scrollTop,scrollHeight:viewport?.scrollHeight,clientHeight:viewport?.clientHeight,
+              overflowY:getComputedStyle(viewport).overflowY,touchAction:getComputedStyle(viewport).touchAction};
           },{x:projectGesture.x,y:projectGesture.y});
-          throw new Error('Real mobile Projects touch sequence did not scroll the routed viewport. '+JSON.stringify({projectGesture,diag,waitError:error.message}));
+          throw new Error('Chromium synthesized mobile Projects touch gesture did not scroll the routed viewport. '+JSON.stringify({projectGesture,diag,waitError:error.message}));
         });
     }finally{await projectTouch.detach();}
     const allRoutesScroll=await dockPage.evaluate(()=>({

@@ -3634,7 +3634,12 @@
           if(fallback){fallback.value=String(data.content??'');fallback.oninput=()=>this.updateCodeFromEditor(safe,fallback.value);}
         }
         this.renderCodeTree();
-        if(selectedProjectPage && typeof this.renderPreview==='function')this.renderPreview();
+        if(selectedProjectPage){
+          /* Project pages and Code Workspace share one source of truth. Copy the selected graph file
+             into the active project page before painting Desktop preview, not only after typing. */
+          if(typeof this.syncGraphToProject==='function')this.syncGraphToProject(false);
+          if(typeof this.renderPreview==='function')this.renderPreview();
+        }
       },saveCodeFile(file){this.ensureProjectGraph();const safe=String(file||this.activeCodeFile||this.entryFile());if(this.graph.files?.[safe]){this.syncGraphToProject(true);const st=document.getElementById('ovyx-code-status-text');if(st)st.textContent='Saved '+safe;const dirty=document.getElementById('ovyx-code-dirty');if(dirty)dirty.textContent='CLEAN';this.openCodeFile(safe);window.showToast?.('Source saved.','success')}},
       handleCodeAction(action){
         const file=this.activeCodeFile||this.entryFile();const editor=this.monacoEditor;
@@ -17024,9 +17029,63 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
     }
     return false;
   }
+  function enforceMobileRouteScrollOwner(){
+    if(window.innerWidth>=768||!document.body)return false;
+    const route=String(window.KernelState?.activeView||'home').replace(/^view-/,'').trim().toLowerCase();
+    /* Web Studio owns its own split panes and editor scrollers; do not turn that fixed canvas into a page scroller. */
+    if(route==='webstudio'||route==='appstudio'||document.body.classList.contains('ovyx-webstudio-active'))return false;
+    const viewport=$('view-router-viewport');
+    if(!viewport)return false;
+    const app=$('app-container');
+    const main=viewport.parentElement;
+    [document.documentElement,document.body,app,main].filter(Boolean).forEach(el=>{
+      el.style.setProperty('touch-action','auto','important');
+    });
+    if(app){
+      app.style.setProperty('display','flex','important');
+      app.style.setProperty('flex-direction','column','important');
+      app.style.setProperty('height','100dvh','important');
+      app.style.setProperty('min-height','0','important');
+      app.style.setProperty('max-height','100dvh','important');
+      app.style.setProperty('overflow','hidden','important');
+    }
+    if(main){
+      main.style.setProperty('display','flex','important');
+      main.style.setProperty('flex-direction','column','important');
+      main.style.setProperty('flex','1 1 0%','important');
+      main.style.setProperty('height','auto','important');
+      main.style.setProperty('min-height','0','important');
+      main.style.setProperty('max-height','none','important');
+      main.style.setProperty('overflow','hidden','important');
+      main.style.setProperty('position','relative','important');
+    }
+    viewport.style.setProperty('display','block','important');
+    viewport.style.setProperty('position','relative','important');
+    viewport.style.setProperty('flex','1 1 0%','important');
+    viewport.style.setProperty('width','100%','important');
+    viewport.style.setProperty('height','0px','important');
+    viewport.style.setProperty('min-height','0','important');
+    viewport.style.setProperty('max-height','none','important');
+    viewport.style.setProperty('overflow-x','hidden','important');
+    viewport.style.setProperty('overflow-y','auto','important');
+    viewport.style.setProperty('overscroll-behavior-y','auto','important');
+    viewport.style.setProperty('-webkit-overflow-scrolling','touch','important');
+    viewport.style.setProperty('touch-action','pan-y pinch-zoom','important');
+    const active=viewport.querySelector(':scope > section[aria-hidden="false"]:not(.hidden)');
+    if(active&&!active.matches('#view-webstudio,#view-appstudio,#view-workspace,#view-master-auth')){
+      active.style.setProperty('box-sizing','border-box','important');
+      active.style.setProperty('height','auto','important');
+      active.style.setProperty('min-height','100%','important');
+      active.style.setProperty('max-height','none','important');
+      active.style.setProperty('overflow','visible','important');
+      active.style.setProperty('touch-action','pan-y pinch-zoom','important');
+    }
+    return true;
+  }
   function repair(){
     if(window.innerWidth>=768||!document.body)return false;
     if(realDrawerOpen()||visibleModalOpen())return false;
+    enforceMobileRouteScrollOwner();
     const drawer=$('mobile-drawer'),backdrop=$('mobile-drawer-backdrop');
     if(drawer&&(!isVisible(drawer)||drawer.getAttribute('aria-hidden')==='true')){
       drawer.classList.remove('open','is-open');
