@@ -16877,26 +16877,55 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
 </script>
 
 
-<style id="ovyx-mobile-dashboard-dock-clearance-v1">
-/* Keep the fixed Home dock from covering the final dashboard tools.
-   Clearance is applied to the real scroll content, not to body padding,
-   so Android Chrome cannot leave an extra blank strip below the app. */
+<style id="ovyx-mobile-dashboard-dock-clearance-v2">
+/* Home-only mobile scroll contract. The fixed dock stays fixed; the route viewport
+   gets a bounded flex size so the real page can scroll with touch input. */
 @media (max-width:767px) {
-  body.ovyx-v88-dock-home #view-router-viewport {
+  body.ovyx-v88-dock-home #app-container {
+    height:100dvh!important;
+    min-height:100dvh!important;
+    max-height:100dvh!important;
+    overflow:hidden!important;
+  }
+  body.ovyx-v88-dock-home #app-container > main {
+    display:flex!important;
+    flex:1 1 0%!important;
+    flex-direction:column!important;
+    height:auto!important;
+    min-height:0!important;
+    max-height:100%!important;
+    overflow:hidden!important;
+  }
+  body.ovyx-v88-dock-home #app-container > main > #view-router-viewport {
+    display:block!important;
+    position:relative!important;
+    flex:1 1 0%!important;
+    height:0!important;
+    min-height:0!important;
+    max-height:100%!important;
     overflow-x:hidden!important;
     overflow-y:auto!important;
-    overscroll-behavior-y:auto!important;
+    overscroll-behavior-y:contain!important;
     -webkit-overflow-scrolling:touch!important;
     touch-action:pan-y pinch-zoom!important;
+    scroll-padding-bottom:calc(184px + env(safe-area-inset-bottom, 0px))!important;
   }
   body.ovyx-v88-dock-home #view-home {
+    display:block!important;
+    position:relative!important;
+    box-sizing:border-box!important;
     height:auto!important;
     min-height:100%!important;
+    max-height:none!important;
     overflow:visible!important;
+    touch-action:pan-y pinch-zoom!important;
   }
   body.ovyx-v88-dock-home #view-home .v59-dashboard-shell {
     height:auto!important;
-    padding-bottom:calc(184px + env(safe-area-inset-bottom))!important;
+    min-height:0!important;
+    max-height:none!important;
+    overflow:visible!important;
+    padding-bottom:calc(184px + env(safe-area-inset-bottom, 0px))!important;
   }
 }
 </style>
