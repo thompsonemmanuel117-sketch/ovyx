@@ -63,7 +63,7 @@ try {
     isMobile: true,
     hasTouch: true,
   });
-  const page = await context.newPage();
+  let page = await context.newPage();
   page.setDefaultTimeout(20000);
   const pageErrors = [];
   page.on('pageerror', error => pageErrors.push(error.message));
@@ -544,11 +544,83 @@ try {
   assert.equal(modalBack.historyRoute, 'webstudio',
     'Dismissing a generic dialog must re-establish the current route history entry.');
 
+  // Use a fresh mobile document for native Back/Preview and task rollback. The
+  // app-wide overlay assertion above intentionally exercises its own pushed
+  // entry; keeping the next scenario in that stack would test duplicate test
+  // history entries rather than normal Android navigation.
+  await page.close();
+  page = await context.newPage();
+  page.setDefaultTimeout(20000);
+  page.on('pageerror', error => pageErrors.push(error.message));
+  await page.addInitScript(() => {
+    localStorage.setItem('ovyx.runtime.route.v18', 'home');
+    localStorage.setItem('ovyx.settings.last-view.v1', 'home');
+    localStorage.setItem('ovyx.runtime.session.v4', JSON.stringify({ route: 'home' }));
+    localStorage.removeItem('ovyx.webstudio.session.v5');
+    localStorage.removeItem('ovyx.webstudio.active.v5');
+    localStorage.removeItem('ovyx.ws.code-focus.v1');
+    localStorage.removeItem('ovyx.ws.code-file.v1');
+    localStorage.removeItem('ovyx.ws.code-focus-project.v1');
+    const historyOps = [];
+    const originalPushState = History.prototype.pushState;
+    const originalReplaceState = History.prototype.replaceState;
+    History.prototype.pushState = function (state, title, url) {
+      const result = originalPushState.apply(this, arguments);
+      historyOps.push({ op: 'push', route: state?.ovyxRoute || '', panel: state?.ovyxSettingsPanel || '', href: location.href });
+      if (historyOps.length > 120) historyOps.shift();
+      window.__ovyxHistoryOps = historyOps;
+      return result;
+    };
+    History.prototype.replaceState = function (state, title, url) {
+      const result = originalReplaceState.apply(this, arguments);
+      historyOps.push({ op: 'replace', route: state?.ovyxRoute || '', panel: state?.ovyxSettingsPanel || '', href: location.href });
+      if (historyOps.length > 120) historyOps.shift();
+      window.__ovyxHistoryOps = historyOps;
+      return result;
+    };
+    window.addEventListener('popstate', event => {
+      const current = JSON.parse(sessionStorage.getItem('__ovyxTestPopState') || '{"count":0,"states":[]}');
+      current.count += 1;
+      current.states.push(event.state || null);
+      if (current.states.length > 60) current.states.shift();
+      sessionStorage.setItem('__ovyxTestPopState', JSON.stringify(current));
+    }, true);
+  });
+  const previewResponse = await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  assert.ok(previewResponse && previewResponse.status() < 400, 'Fresh mobile Back test page failed to load.');
+  await page.waitForFunction(
+    () => typeof window.Router?.go === 'function'
+      && typeof window.OVYXNavigation?.back === 'function'
+      && typeof window.WebStudio?.runBuildAgent === 'function'
+      && typeof window.OVYXWebStudioCancelSafety?.cancel === 'function'
+      && typeof window.OVYXScopedRollback?.closeLocalSurfaceForBack === 'function',
+    null,
+    { timeout: 45000 },
+  );
+  await waitForBoot(page);
+  await waitForRoute(page, 'home');
+  await page.waitForTimeout(2000);
+  await page.evaluate(() => {
+    for (let i = 0; i < 8 && window.OVYXNavigation.closeTopOverlay(); i += 1) {}
+    window.__ovyxBackTestPopCount = 0;
+    window.__ovyxBackTestPopStates = [];
+    window.addEventListener('popstate', event => {
+      window.__ovyxBackTestPopCount = Number(window.__ovyxBackTestPopCount || 0) + 1;
+      window.__ovyxBackTestPopStates.push(event.state || null);
+    }, true);
+    window.__ovyxBackTestFixture = {
+      id: 'ovyx-mobile-back-regression-project',
+      otherId: 'ovyx-mobile-back-regression-other-project',
+      baselineHtml: '<!doctype html><html><body><main id="baseline-work">BASELINE WORK MUST SURVIVE</main></body></html>'
+    };
+  });
+  await page.evaluate(() => window.Router.go('webstudio'));
+  await waitForRoute(page, 'webstudio');
+  await page.waitForFunction(() => window.history.state?.ovyxRoute === 'webstudio', null, { timeout: 10000 });
+
   // Scenario 2: Android/browser Back while the mobile Preview is open must
   // close that local surface first. It must not route away from Web Studio.
   await page.evaluate(() => {
-    const dialog = document.getElementById('ovyx-mobile-back-regression-modal');
-    dialog?.remove();
     const mode = document.getElementById('ws-mode-menu');
     const menu = document.getElementById('ws-preview-menu');
     if (mode) mode.hidden = true;
@@ -557,18 +629,15 @@ try {
     ws?.setAttribute('data-ws-code-open', '0');
     document.body.classList.remove('ovyx-ws-nav-open', 'ovyx-ws-mobile-nav-open');
 
-    // Re-seed only the disposable regression project after Web Studio route
-    // hydration. Guest ProjectStore.save() is intentionally account-gated and
-    // can clear transient in-memory fixtures; use the same guest cache key that
-    // OVYX's project cache uses so the test models a genuinely saved project.
+    // Seed only disposable projects into the canonical guest cache after
+    // Web Studio hydration. The real guest save guard may reject save() calls.
     const clone = value => JSON.parse(JSON.stringify(value));
     const fixture = window.__ovyxBackTestFixture;
-    const baselineHtml = String(fixture?.baselineHtml || '<!doctype html><html><body>BASELINE WORK MUST SURVIVE</body></html>');
     const graph = {
       version: 2,
       entry: 'src/pages/Home.html',
       files: {
-        'src/pages/Home.html': { type: 'text/html', content: baselineHtml },
+        'src/pages/Home.html': { type: 'text/html', content: fixture.baselineHtml },
         'src/styles.css': { type: 'text/css', content: 'body{margin:0}' },
       },
     };
@@ -613,14 +682,8 @@ try {
     state.activeProject = baseline;
     window.WebStudio.project = baseline;
     window.WebStudio.graph = clone(graph);
-    try {
-      localStorage.setItem('ovyx.projects.v22.guest', JSON.stringify(state.projects));
-      localStorage.setItem('ovyx.graph.' + fixture.id, JSON.stringify(graph));
-    } catch (_) {}
-
-    history.pushState(Object.assign({}, history.state || {}, {
-      ovyxRoute: 'webstudio', ovyxShell: true, ovyxBackPreviewFixture: Date.now()
-    }), document.title, location.href);
+    localStorage.setItem('ovyx.projects.v22.guest', JSON.stringify(state.projects));
+    localStorage.setItem('ovyx.graph.' + fixture.id, JSON.stringify(graph));
     const studio = window.WebStudio;
     const originalAbort = studio.abortActiveAi;
     window.__ovyxBackTestOriginalAbort = originalAbort;
@@ -661,9 +724,9 @@ try {
     const studio = window.WebStudio;
     if (window.__ovyxBackTestOriginalAbort) studio.abortActiveAi = window.__ovyxBackTestOriginalAbort;
   });
-  await triggerHistoryBack(page, () => window.KernelState?.activeView === 'settings');
-  assert.equal(await page.evaluate(() => window.KernelState?.activeView), 'settings',
-    'The next Back should navigate to the previous app view after Preview has closed.');
+  await triggerHistoryBack(page, () => window.KernelState?.activeView === 'home');
+  assert.equal(await page.evaluate(() => window.KernelState?.activeView), 'home',
+    'The next Back should navigate to Home after Preview has closed.');
   await triggerHistoryForward(page, () => window.KernelState?.activeView === 'webstudio');
   assert.equal(await page.evaluate(() => window.KernelState?.activeView), 'webstudio',
     'Forward should restore Web Studio after the previous-view Back test.');
@@ -676,9 +739,6 @@ try {
     const clone = value => JSON.parse(JSON.stringify(value));
     const fixture = window.__ovyxBackTestFixture;
     const project = window.KernelState.projects.find(item => item.id === fixture.id);
-    history.pushState(Object.assign({}, history.state || {}, {
-      ovyxRoute: 'webstudio', ovyxShell: true, ovyxBackTaskFixture: Date.now()
-    }), document.title, location.href);
     window.KernelState.activeProject = project;
     studio.project = project;
     studio.graph = clone(project.ovyxGraph);
@@ -769,11 +829,10 @@ try {
   assert.equal(taskBack.historyRoute, 'webstudio',
     'The history entry must remain on Web Studio while the task snapshot is restored.');
 
-  // Once rollback finishes, Back should work as ordinary route navigation and
-  // leave the restored project available if the user returns later.
-  await triggerHistoryBack(page, () => window.KernelState?.activeView === 'settings');
-  assert.equal(await page.evaluate(() => window.KernelState?.activeView), 'settings',
-    'After the active task is safely rolled back, the next Back should leave Web Studio.');
+  // Once rollback finishes, the next Back should navigate home normally.
+  await triggerHistoryBack(page, () => window.KernelState?.activeView === 'home');
+  assert.equal(await page.evaluate(() => window.KernelState?.activeView), 'home',
+    'After the active task is safely rolled back, the next Back should leave Web Studio for Home.');
   const finalProject = await page.evaluate(() => ({
     name: window.KernelState?.projects?.find(item => item.id === window.__ovyxBackTestFixture.id)?.name,
     html: window.KernelState?.projects?.find(item => item.id === window.__ovyxBackTestFixture.id)?.ovyxGraph?.files?.['src/pages/Home.html']?.content || '',
