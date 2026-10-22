@@ -22,7 +22,9 @@ async function waitForRoute(page, expected) {
 
 async function triggerHistoryBack(page) {
   const count = await page.evaluate(() => Number(window.__ovyxBackTestPopCount || 0));
-  await page.evaluate(() => window.history.back());
+  // Use Playwright's browser-level history traversal to model the browser/
+  // Android Back gesture, not a page-side call to history.back().
+  await page.goBack({ waitUntil: 'domcontentloaded', timeout: 10000 });
   try {
     await page.waitForFunction(previous => Number(window.__ovyxBackTestPopCount || 0) > previous, count, {
       timeout: 10000,
@@ -45,7 +47,7 @@ async function triggerHistoryBack(page) {
 
 async function triggerHistoryForward(page) {
   const count = await page.evaluate(() => Number(window.__ovyxBackTestPopCount || 0));
-  await page.evaluate(() => window.history.forward());
+  await page.goForward({ waitUntil: 'domcontentloaded', timeout: 10000 });
   await page.waitForFunction(previous => Number(window.__ovyxBackTestPopCount || 0) > previous, count, {
     timeout: 10000,
   });
