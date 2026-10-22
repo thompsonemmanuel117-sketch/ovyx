@@ -90,8 +90,9 @@ jobs:
         run: |
           npm run validate
           node scripts/ovyx-settings-actions.test.mjs
+          node scripts/ovyx-cloudflare-diagnostics.test.mjs
 
-      - name: Test Profile, Appearance and task-cancel safety in desktop and mobile Chromium
+      - name: Test Profile, Appearance, app-wide rollback and mobile Back in Chromium
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8791
         run: |
