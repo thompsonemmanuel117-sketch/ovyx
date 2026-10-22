@@ -85,6 +85,14 @@ try {
   // open overlay first, so dismiss boot-time overlays before testing settings tabs.
   await page.evaluate(() => {
     for (let i = 0; i < 8 && window.OVYXNavigation.closeTopOverlay(); i += 1) {}
+    // Register the history observer before the first Back press. It belongs to
+    // the whole test session, not only to the later Web Studio fixture setup.
+    window.__ovyxBackTestPopCount = 0;
+    window.__ovyxBackTestPopStates = [];
+    window.addEventListener('popstate', event => {
+      window.__ovyxBackTestPopCount = Number(window.__ovyxBackTestPopCount || 0) + 1;
+      window.__ovyxBackTestPopStates.push(event.state || null);
+    });
   });
 
   // Verify the same route history works outside Web Studio as well.
@@ -158,12 +166,6 @@ try {
     studio.liveAiActive = false;
     studio.activeAbortController = null;
     window.__ovyxBackTestFixture = { id, otherId, baselineHtml };
-    window.__ovyxBackTestPopCount = 0;
-    window.__ovyxBackTestPopStates = [];
-    window.addEventListener('popstate', event => {
-      window.__ovyxBackTestPopCount = Number(window.__ovyxBackTestPopCount || 0) + 1;
-      window.__ovyxBackTestPopStates.push(event.state || null);
-    });
   });
 
   await page.evaluate(() => window.Router.go('settings'));
