@@ -34,7 +34,7 @@ const expectedQualitySource = 'function auditSources(report, pages, files, proje
 const expectedRuntimeSources = {
   '/assets/ovyx-shell-favicon-lock.js': `window.__OVYX_SHELL_FAVICON_LOCK_V3__ = true; var href = "/ovyx-tab-v6.svg?v=20261021-6"; window.OVYXShellFavicon = {}; var observer = new MutationObserver();`,
   '/assets/ovyx-webstudio-cancel-safety.js': `window.__OVYX_WEBSTUDIO_CANCEL_SAFETY_V3__ = true; function restoreProjectOnly() {} function installBrowserFetchCancellation() {} var key = "ovyx.webstudio.rollback.snapshot.v3."; button.id = 'ws-task-cancel'; coordinator.cancel();`,
-  '/assets/ovyx-scoped-rollback.js': `window.__OVYX_SCOPED_ROLLBACK_V1__ = true; window.OVYXScopedRollback = { beforeClose() {}, restoreProject() {} }; function restoreProject(snapshot) {} var restoreScheduled = false; function handleHistoryPop(event) {} window.addEventListener('popstate', handleHistoryPop, true); window.OVYXNavigation = { back() {} };`,
+  '/assets/ovyx-scoped-rollback.js': `window.__OVYX_SCOPED_ROLLBACK_V1__ = true; window.OVYXScopedRollback = { beforeClose() {}, restoreProject() {} }; function restoreProject(snapshot) {} var restoreScheduled = false; function handleHistoryPop(event) {} function wrapNavigationBack() {} window.addEventListener('popstate', handleHistoryPop, true);`,
   '/assets/ovyx-webstudio-reliability.js': 'var __ovyxBuildArtifactGuard = true; function installFollowUpIntentRouter() {}',
   '/assets/ovyx-webstudio-research.js': 'function runResearch() {} function addResearchContext() {} .ovyx-ws-live-activity',
   '/assets/ovyx-webstudio-apply-suggestions.js': '/* OVYX_APPLY_SUGGESTIONS */ function applySuggestion() {} studio.submitPrompt()',
