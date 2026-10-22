@@ -87,6 +87,20 @@ try {
     for (let i = 0; i < 8 && window.OVYXNavigation.closeTopOverlay(); i += 1) {}
   });
 
+  // Verify the same route history works outside Web Studio as well.
+  await page.evaluate(() => window.Router.go('appstudio'));
+  await waitForRoute(page, 'appstudio');
+  await page.waitForFunction(() => window.history.state?.ovyxRoute === 'appstudio', null, { timeout: 10000 });
+  await page.evaluate(() => window.Router.go('projects'));
+  await waitForRoute(page, 'projects');
+  await page.waitForFunction(() => window.history.state?.ovyxRoute === 'projects', null, { timeout: 10000 });
+  await triggerHistoryBack(page);
+  assert.equal(await page.evaluate(() => window.KernelState?.activeView), 'appstudio',
+    'Back from Projects must return to App Studio, not reset or skip the prior view.');
+  await triggerHistoryBack(page);
+  assert.equal(await page.evaluate(() => window.KernelState?.activeView), 'home',
+    'A second Back must return from App Studio to the previous Home view.');
+
   await page.evaluate(() => {
     const clone = value => JSON.parse(JSON.stringify(value));
     const baselineHtml = '<!doctype html><html><body><main id="baseline-work">BASELINE WORK MUST SURVIVE</main></body></html>';
