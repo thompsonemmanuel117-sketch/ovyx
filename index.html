@@ -2905,7 +2905,44 @@
 #view-appstudio #app-studio-clean-canvas{background:#000!important;inset:0!important;pointer-events:none!important;}
 #view-appstudio .studio-topbar,#view-appstudio .studio-dual-pane,#view-appstudio .studio-prompt-shell,#view-appstudio .studio-thinking,#view-appstudio .studio-viewport-stage,#view-appstudio .app-device-wrap,#view-appstudio .studio-right-pane,#view-appstudio #ovyx-appstudio-screenbar{display:none!important;}
 </style>
-<script id="ovyx-auto-ai-boot">(function(){if(window.__OVYX_AUTO_AI_BOOT__)return;window.__OVYX_AUTO_AI_BOOT__=true;const start=()=>{try{if(window.firebase?.auth?.().currentUser){window.OVYXAI=window.OVYXAI||{};window.OVYXAI.provider="automatic";window.OVYXAI.connected=true;}}catch(e){}};if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start,{once:true});else start();window.addEventListener("firebase-auth-ready",start,{passive:true});window.addEventListener("ovyx-auth-state-ready",start,{passive:true})})();<\/script></body>\n</html>`;
+<script id="ovyx-auto-ai-boot">(function(){if(window.__OVYX_AUTO_AI_BOOT__)return;window.__OVYX_AUTO_AI_BOOT__=true;const start=()=>{try{if(window.firebase?.auth?.().currentUser){window.OVYXAI=window.OVYXAI||{};window.OVYXAI.provider="automatic";window.OVYXAI.connected=true;}}catch(e){}};if(document.readyState==="loading")document.addEventListener("DOMContentLoaded",start,{once:true});else start();window.addEventListener("firebase-auth-ready",start,{passive:true});window.addEventListener("ovyx-auth-state-ready",start,{passive:true})})();<\/script>
+<!-- OVYX mobile dashboard dock clearance v1: keep home content scrollable above the fixed bottom navigation. -->
+<style id="ovyx-mobile-dock-clearance-v1">
+@media (max-width: 767px) {
+  html, body {
+    min-height: 100%;
+  }
+  #view-router-viewport {
+    box-sizing: border-box !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: contain !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding-bottom: calc(104px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  #view-home.v59-home-active,
+  #view-home {
+    box-sizing: border-box !important;
+    height: auto !important;
+    min-height: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+    overscroll-behavior: auto !important;
+  }
+  #view-home .v59-dashboard-shell {
+    box-sizing: border-box !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+    padding-bottom: calc(190px + env(safe-area-inset-bottom, 0px)) !important;
+  }
+  #ovyx-v52-bottom-bar {
+    bottom: max(9px, env(safe-area-inset-bottom, 0px)) !important;
+  }
+}
+</style>
+</body>\n</html>`;
       },
       renderSectionSource(section,index){
         const c=section?.content||{},s=section?.styles||{};const raw=[c.html,c.markup,c.rawHtml,section?.html].find(v=>typeof v==='string'&&v.trim());if(raw)return raw;
