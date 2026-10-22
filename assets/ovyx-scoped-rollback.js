@@ -6,6 +6,7 @@
   const VERSION = '20261022-2';
   const snapshots = new WeakMap();
   const visibility = new WeakMap();
+  const inlineDisplayBeforeClose = new WeakMap();
   const scopeSelector = '[data-rollback-scope], [role="dialog"], [aria-modal="true"], dialog, [id$="-modal"], .modal, .ovyx-modal';
   let pendingOpen = null;
   let restoring = false;
@@ -287,15 +288,34 @@
   }
 
   function topOpenScope() {
-    const candidates = Array.from(document.querySelectorAll(scopeSelector)).filter(visible);
-    candidates.sort((a, b) => {
+    const candidates = Array.from(document.querySelectorAll(scopeSelector));
+    candidates.forEach(restoreDisplayIfReopened);
+    const openCandidates = candidates.filter(visible);
+    openCandidates.sort((a, b) => {
       const za = Number.parseInt(getComputedStyle(a).zIndex || '0', 10) || 0;
       const zb = Number.parseInt(getComputedStyle(b).zIndex || '0', 10) || 0;
       if (za !== zb) return za - zb;
       const relation = a.compareDocumentPosition(b);
       return relation & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : relation & Node.DOCUMENT_POSITION_PRECEDING ? 1 : 0;
     });
-    return candidates[candidates.length - 1] || null;
+    return openCandidates[openCandidates.length - 1] || null;
+  }
+
+  function restoreDisplayIfReopened(scope) {
+    const previous = inlineDisplayBeforeClose.get(scope);
+    if (!previous || !scope || scope.hidden || scope.hasAttribute('inert') ||
+        scope.getAttribute('aria-hidden') === 'true') return false;
+    const opening = scope.classList?.contains('open') ||
+      scope.classList?.contains('is-open') ||
+      scope.getAttribute('aria-modal') === 'true' ||
+      scope.getAttribute('role') === 'dialog' ||
+      (scope.tagName === 'DIALOG' && scope.open) ||
+      scope.matches?.('[data-rollback-scope]');
+    if (!opening) return false;
+    if (previous.value) scope.style.setProperty('display', previous.value, previous.priority);
+    else scope.style.removeProperty('display');
+    inlineDisplayBeforeClose.delete(scope);
+    return true;
   }
 
   function closeScope(scope) {
@@ -304,12 +324,18 @@
       if (scope.tagName === 'DIALOG' && scope.open && typeof scope.close === 'function') {
         scope.close();
       } else {
+        if (!inlineDisplayBeforeClose.has(scope)) {
+          inlineDisplayBeforeClose.set(scope, {
+            value: scope.style.getPropertyValue('display'),
+            priority: scope.style.getPropertyPriority('display')
+          });
+        }
         scope.classList?.remove('open', 'is-open');
         scope.hidden = true;
         scope.setAttribute('aria-hidden', 'true');
-        // The hidden attribute is the semantic state; the inline display
-        // fallback covers legacy modals whose CSS ignores [hidden].
-        if (getComputedStyle(scope).display !== 'none') scope.style.setProperty('display', 'none', 'important');
+        // Some legacy modals use inline display styles that outrank [hidden].
+        // Preserve the original style and restore it if the same modal opens again.
+        scope.style.setProperty('display', 'none', 'important');
       }
       return true;
     } catch (error) {
@@ -383,6 +409,7 @@
   function scan() {
     const candidates = Array.from(document.querySelectorAll(scopeSelector));
     candidates.forEach(scope => {
+      restoreDisplayIfReopened(scope);
       const now = visible(scope);
       const was = visibility.get(scope);
       if (now && was !== true && !snapshots.has(scope)) {
