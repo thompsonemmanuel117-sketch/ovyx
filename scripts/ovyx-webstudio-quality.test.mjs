@@ -11,6 +11,7 @@ const appManifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
 const brandMark = fs.readFileSync('assets/ovyx-brand-mark.svg', 'utf8');
 const prompts = fs.readFileSync('functions/_lib/prompts.js', 'utf8');
 const assistant = fs.readFileSync('functions/api/ai/assistant.js', 'utf8');
+const appShell = fs.readFileSync('index.html', 'utf8');
 
 // Parsing this script does not execute it; browser behavior is exercised separately.
 assert.doesNotThrow(() => new Function(runtime), 'The Web Studio quality runtime must parse as valid JavaScript.');
@@ -184,4 +185,19 @@ assert.ok(runtime.includes('No missing or unresolved local asset references were
 assert.ok(runtime.includes('Their availability, licensing, latency and rendering were not verified'), 'The inspector must not claim external assets were tested when network access is blocked.');
 assert.ok(!runtime.includes('runBuildAgent(prompt, false'), 'Quality repairs must not start an unbounded normal build loop.');
 
+// Regression contract for the reported desktop Code Workspace click-blocker and mobile preview backdrop.
+const workspaceParityStart = appShell.indexOf('<style id="ovyx-code-workspace-interaction-preview-parity">');
+assert.ok(workspaceParityStart >= 0, 'The targeted Code Workspace/mobile-preview fix must be present in the application shell.');
+const workspaceParityEnd = appShell.indexOf('</style>', workspaceParityStart);
+assert.ok(workspaceParityEnd > workspaceParityStart, 'The targeted interaction stylesheet must be closed.');
+const workspaceParity = appShell.slice(workspaceParityStart, workspaceParityEnd);
+assert.ok(workspaceParity.includes('#view-webstudio[data-ws-code-open="1"] #ws-desktop-split-toggle'), 'The split control must be scoped to the Code Workspace-open state.');
+assert.match(workspaceParity, /display:\\s*none\\s*!important/, 'The split arrow must not appear over the code editor.');
+assert.match(workspaceParity, /pointer-events:\\s*none\\s*!important/, 'The split arrow must not intercept code-editor clicks.');
+assert.ok(workspaceParity.includes('#ws-code-workspace-host .monaco-editor .overflow-guard'), 'Monaco editing layers must retain pointer input.');
+assert.ok(workspaceParity.includes('#ws-code-workspace-host #ovyx-fallback-editor'), 'The fallback textarea must retain pointer input.');
+assert.match(workspaceParity, /background-color:\\s*var\\(--app-bg,\\s*#050607\\)\\s*!important/, 'The mobile preview backdrop must use the shared canvas theme background.');
+assert.ok(workspaceParity.includes('linear-gradient(var(--app-border, #1B222A) 1px, transparent 1px)'), 'Mobile and desktop preview backdrops must share the canvas grid/border token.');
+assert.ok(appShell.includes("const frames=[document.getElementById('ws-canvas-iframe'),document.getElementById('ws-mobile-preview-frame')].filter(Boolean)"), 'Desktop and mobile preview frames must both be included in preview refresh.');
+assert.ok(appShell.includes('frames.forEach(frame=>this.setPreviewFrameDocument(frame,srcdoc))'), 'Desktop and mobile preview frames must receive the same generated page document.');
 console.log('Web Studio quality contracts passed: build prompt, real source/browser checks, safe sandbox, and snapshot-protected repair.');
