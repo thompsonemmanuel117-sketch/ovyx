@@ -805,6 +805,22 @@ try {
   });
   assert.equal(await page.evaluate(() => document.body.classList.contains('ovyx-ws-mobile-preview-open')), true,
     'The mobile Preview fixture must open before the system Back test.');
+  const previewFrameHistory = await page.evaluate(() => {
+    const frame = document.getElementById('ws-canvas-iframe');
+    const studio = window.WebStudio;
+    const source = String(frame?.__ovyxPreviewSource || '');
+    if (!frame || !source || typeof studio?.setPreviewFrameDocument !== 'function') {
+      throw new Error('The Web Studio fixture did not mount a stable preview document.');
+    }
+    const before = history.length;
+    studio.setPreviewFrameDocument(frame, source + '\n<!-- OVYX preview history regression -->');
+    studio.setPreviewFrameDocument(frame, source);
+    return { before, after: history.length, sourceRestored: frame.__ovyxPreviewSource === source };
+  });
+  assert.equal(previewFrameHistory.after, previewFrameHistory.before,
+    'Updating a loaded preview must not create child-iframe history entries that steal the next Back press.');
+  assert.equal(previewFrameHistory.sourceRestored, true,
+    'The in-place preview history regression must restore the original preview source.');
   const previewHistoryEntry = await page.evaluate(() => ({
     before: Number(window.__ovyxBackTestPreviewHistoryBefore || 0),
     after: history.length,
