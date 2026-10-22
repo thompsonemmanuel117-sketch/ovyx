@@ -16582,7 +16582,12 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
           const isHome=section===home;
           section.classList.toggle('hidden',!isHome);
           section.setAttribute('aria-hidden',String(!isHome));
-          if(isHome)section.style.removeProperty('pointer-events');
+          if(isHome){
+            /* The active route must be interactive even if a previous transition left inert behind. */
+            home.inert=false;
+            home.removeAttribute('inert');
+            home.style.removeProperty('pointer-events');
+          }
         });
       }
     }
