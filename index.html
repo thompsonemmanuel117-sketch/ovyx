@@ -3254,41 +3254,20 @@
       setPreviewFrameDocument(frame,source){
         source=String(source??'');
         if(!frame||frame.__ovyxPreviewSource===source)return;
-        // Keep a stable child browsing context after its first load. Reassigning
-        // iframe.srcdoc navigates the child frame and adds joint-session-history
-        // steps; Android/Chrome Back can then consume those invisible steps
-        // without dispatching popstate to the OVYX dashboard. document.open()
-        // replaces the existing child document in-place instead.
-        if(frame.__ovyxPreviewLoading){
-          frame.__ovyxPreviewPendingSource=source;
-          frame.__ovyxPreviewPendingSet=true;
-          return;
-        }
-        if(frame.__ovyxPreviewLoaded){
-          try{
-            const doc=frame.contentDocument;
-            if(doc&&typeof doc.open==='function'){
-              doc.open();
-              doc.write(source);
-              doc.close();
-              frame.__ovyxPreviewSource=source;
-              return;
-            }
-          }catch(error){console.warn('[OVYX preview] Reusing preview document failed; replacing the frame once.',error)}
-        }
-        if(!source&&!frame.__ovyxPreviewSource&&!frame.hasAttribute('srcdoc')&&!frame.getAttribute('src'))return;
-        frame.__ovyxPreviewLoaded=false;
-        frame.__ovyxPreviewLoading=true;
-        frame.addEventListener('load',()=>{
-          frame.__ovyxPreviewLoading=false;
-          frame.__ovyxPreviewLoaded=true;
-          if(frame.__ovyxPreviewPendingSet){
-            const next=frame.__ovyxPreviewPendingSource;
-            frame.__ovyxPreviewPendingSource=undefined;
-            frame.__ovyxPreviewPendingSet=false;
-            if(next!==frame.__ovyxPreviewSource)this.setPreviewFrameDocument(frame,next);
+        // Reuse the existing same-origin child document. Reassigning srcdoc
+        // navigates an iframe and adds joint-session-history steps, so mobile
+        // Chrome can spend Back presses inside a hidden preview instead of
+        // returning to the previous OVYX route.
+        try{
+          const doc=frame.contentDocument;
+          if(doc&&typeof doc.open==='function'){
+            doc.open();
+            doc.write(source);
+            doc.close();
+            frame.__ovyxPreviewSource=source;
+            return;
           }
-        },{once:true});
+        }catch(error){console.warn('[OVYX preview] In-place update was unavailable; using the initial srcdoc fallback.',error)}
         frame.srcdoc=source;
         frame.__ovyxPreviewSource=source;
       },
