@@ -86,7 +86,7 @@ const REQUIRED_RUNTIMES = [
     id: 'scopedRollback',
     label: 'app-wide scoped Cancel and modal rollback',
     path: '/assets/ovyx-scoped-rollback.js',
-    expectedVersion: '20261022-12',
+    expectedVersion: '20261022-13',
     signatures: [
       '__OVYX_SCOPED_ROLLBACK_V1__',
       'window.OVYXScopedRollback',
@@ -103,6 +103,9 @@ const REQUIRED_RUNTIMES = [
       'function scheduleScan()',
       'function mutationNeedsScan(mutation)',
       'performance: () => ({',
+      'studioGraphChanged = false',
+      'Re-resolve the public state and',
+      'restoredEditorGraph: !!restoreStudio && !!originalGraph',
       '.ovyx-ws-plan-modal',
       '__OVYXV665_SUPPRESS_HISTORY',
       'duplicate-route-entry-skipped'

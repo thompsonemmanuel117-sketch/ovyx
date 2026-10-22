@@ -21,6 +21,7 @@ on:
       - 'scripts/ovyx-cancel-safety.browser.test.mjs'
       - 'scripts/ovyx-mobile-back-navigation.browser.test.mjs'
       - 'scripts/ovyx-scoped-rollback-performance.browser.test.mjs'
+      - 'scripts/ovyx-scoped-rollback-graph.browser.test.mjs'
       - 'scripts/ovyx-cloudflare-diagnostics.test.mjs'
       - 'scripts/cloudflare-application-shell.mjs'
       - 'scripts/ovyx-static-verify.mjs'
@@ -45,6 +46,7 @@ on:
       - 'scripts/ovyx-cancel-safety.browser.test.mjs'
       - 'scripts/ovyx-mobile-back-navigation.browser.test.mjs'
       - 'scripts/ovyx-scoped-rollback-performance.browser.test.mjs'
+      - 'scripts/ovyx-scoped-rollback-graph.browser.test.mjs'
       - 'scripts/ovyx-cloudflare-diagnostics.test.mjs'
       - 'scripts/cloudflare-application-shell.mjs'
       - 'scripts/ovyx-static-verify.mjs'
@@ -100,6 +102,7 @@ jobs:
         run: |
           node scripts/ovyx-cancel-safety.browser.test.mjs
           node scripts/ovyx-scoped-rollback-performance.browser.test.mjs
+          node scripts/ovyx-scoped-rollback-graph.browser.test.mjs
           node scripts/ovyx-mobile-back-navigation.browser.test.mjs
           node scripts/ovyx-settings-core.browser.test.mjs
 

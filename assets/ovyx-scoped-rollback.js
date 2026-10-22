@@ -3,7 +3,7 @@
   if (window.__OVYX_SCOPED_ROLLBACK_V1__) return;
   window.__OVYX_SCOPED_ROLLBACK_V1__ = true;
 
-  const VERSION = '20261022-12';
+  const VERSION = '20261022-13';
   const snapshots = new WeakMap();
   const visibility = new WeakMap();
   const inlineDisplayBeforeClose = new WeakMap();
@@ -65,13 +65,34 @@
     const state = window.KernelState;
     if (!state || !Array.isArray(state.projects)) return null;
     const projects = state.projects;
-    const active = state.activeProject && typeof state.activeProject === 'object' ? state.activeProject : null;
-    const id = String(active?.id || '');
+    const onStudioRoute = route() === 'webstudio';
+    const studio = onStudioRoute && window.WebStudio && typeof window.WebStudio === 'object'
+      ? window.WebStudio
+      : null;
+    const studioProject = studio?.project && typeof studio.project === 'object' ? studio.project : null;
+    const active = state.activeProject && typeof state.activeProject === 'object'
+      ? state.activeProject
+      : state.project && typeof state.project === 'object' ? state.project : null;
+    // On Web Studio, the visible editor is the freshest source for which project
+    // is being edited. KernelState may temporarily lag during hydration, and the
+    // editor graph can contain edits not yet copied into activeProject.ovyxGraph.
+    const id = String(studioProject?.id || active?.id || '');
     const index = id ? projects.findIndex(item => String(item?.id || '') === id) : -1;
+    const source = index >= 0
+      ? projects[index]
+      : String(studioProject?.id || '') === id ? studioProject
+        : String(active?.id || '') === id ? active : null;
+    const project = source ? clone(source) : null;
+    if (project && studio && String(studioProject?.id || '') === id &&
+        studio.graph && typeof studio.graph === 'object') {
+      // Capture the actual editable graph, not just the possibly stale project
+      // mirror. This is the baseline Cancel/Back must restore.
+      project.ovyxGraph = clone(studio.graph);
+    }
     return {
       route: route(),
       activeId: id,
-      project: index >= 0 ? clone(projects[index]) : active ? clone(active) : null,
+      project,
       projectIndex: index,
       projectIds: projects.map(item => String(item?.id || '')).filter(Boolean),
       // Keep references (not deep copies) to existing project records. If a
@@ -116,13 +137,13 @@
   }
 
   function restoreProject(snapshot) {
-    if (!snapshot) return false;
+    if (!snapshot || !snapshot.project) return false;
     const state = window.KernelState;
     if (!state || !Array.isArray(state.projects)) return false;
 
     const knownIds = new Set(snapshot.projectIds || []);
-    const currentId = String(state.activeProject?.id || '');
-    const originalId = String(snapshot.activeId || '');
+    const currentId = String(state.activeProject?.id || state.project?.id || '');
+    const originalId = String(snapshot.activeId || snapshot.project.id || '');
     let changed = false;
 
     // Discard an active project created during this scoped draft, but never
@@ -149,38 +170,55 @@
       changed = true;
     });
 
-    let original = null;
-    if (originalId && snapshot.project) {
-      original = clone(snapshot.project);
-      const index = state.projects.findIndex(item => String(item?.id || '') === originalId);
-      if (index >= 0) {
+    const original = clone(snapshot.project);
+    const originalGraph = original?.ovyxGraph && typeof original.ovyxGraph === 'object'
+      ? clone(original.ovyxGraph)
+      : null;
+    const index = originalId
+      ? state.projects.findIndex(item => String(item?.id || '') === originalId)
+      : -1;
+    if (originalId && index >= 0) {
+      try {
         if (JSON.stringify(state.projects[index]) !== JSON.stringify(original)) changed = true;
-        state.projects[index] = original;
-      } else {
-        const insertAt = Number.isInteger(snapshot.projectIndex)
-          ? Math.max(0, Math.min(snapshot.projectIndex, state.projects.length))
-          : state.projects.length;
-        state.projects.splice(insertAt, 0, original);
-        changed = true;
-      }
-      if (currentId !== originalId || !state.activeProject ||
-          JSON.stringify(state.activeProject) !== JSON.stringify(original)) {
-        state.activeProject = original;
-        changed = true;
-      }
-    } else if (!originalId && currentId && !knownIds.has(currentId)) {
-      state.activeProject = null;
+      } catch (_) { changed = true; }
+      state.projects[index] = original;
+    } else if (originalId) {
+      const insertAt = Number.isInteger(snapshot.projectIndex)
+        ? Math.max(0, Math.min(snapshot.projectIndex, state.projects.length))
+        : state.projects.length;
+      state.projects.splice(insertAt, 0, original);
       changed = true;
     }
 
-    if (!changed) return false;
-    if (original?.ovyxGraph) {
-      try { localStorage.setItem('ovyx.graph.' + originalId, JSON.stringify(original.ovyxGraph)); } catch (_) {}
+    // Work out whether the mounted editor is still showing the project whose
+    // baseline was captured. The editor graph is its own live state source.
+    const studio = route() === 'webstudio' && window.WebStudio && typeof window.WebStudio === 'object'
+      ? window.WebStudio
+      : null;
+    const studioProjectId = String(studio?.project?.id || '');
+    const restoreStudio = !!(studio && originalId &&
+      (studioProjectId === originalId || (!studioProjectId && currentId === originalId)));
+    let studioGraphChanged = false;
+    if (restoreStudio && originalGraph) {
+      try {
+        studioGraphChanged = JSON.stringify(studio.graph || {}) !== JSON.stringify(originalGraph) ||
+          JSON.stringify(studio.project?.ovyxGraph || {}) !== JSON.stringify(originalGraph);
+      } catch (_) { studioGraphChanged = true; }
+      changed = changed || studioGraphChanged;
     }
-    // ProjectStore.save is account-gated. In OVYX's guest path it returns
-    // false after intentionally clearing the in-memory list; that is valid for
-    // a guest "save" attempt, but must never erase an existing rollback snapshot.
-    const projectsBeforeSave = state.projects;
+
+    // IMPORTANT: graph-only editor changes count as changes. Previously this
+    // early return looked only at KernelState.projects/activeProject and could
+    // skip rollback entirely when WebStudio.graph had changed independently.
+    if (!changed) return false;
+
+    if (originalId && originalGraph) {
+      try { localStorage.setItem('ovyx.graph.' + originalId, JSON.stringify(originalGraph)); } catch (_) {}
+    }
+
+    // Retain a safe fallback if the legacy save path rejects a guest save or
+    // briefly clears the in-memory project array.
+    const projectsBeforeSave = state.projects.slice();
     const activeBeforeSave = state.activeProject;
     let projectSaveResult;
     try {
@@ -194,24 +232,103 @@
       state.activeProject = activeBeforeSave;
       console.warn('[OVYX scoped rollback] Preserved the in-memory project checkpoint after a rejected save.');
     }
-    // Restore editor-specific mirrors only when the restored project is the one
-    // whose workspace is already mounted. Other project workspaces are untouched.
-    if (originalId && route() === 'webstudio' && String(window.WebStudio?.project?.id || '') === originalId) {
+
+    // Mount the known-good editor graph before rendering, so the first render
+    // immediately paints the restored content rather than the mutated graph.
+    if (restoreStudio) {
       try {
-        if (original.ovyxGraph) window.WebStudio.graph = clone(original.ovyxGraph);
+        original.ovyxGraph = originalGraph ? clone(originalGraph) : original.ovyxGraph;
         window.WebStudio.project = original;
-        window.WebStudio.syncGraphToProject?.(true);
-        window.WebStudio.render?.();
-      } catch (error) { console.warn('[OVYX scoped rollback] Workspace mirror restore failed', error); }
+        if (originalGraph) window.WebStudio.graph = clone(originalGraph);
+        try { window.WebStudio.syncGraphToProject?.(true); } catch (error) {
+          console.warn('[OVYX scoped rollback] Graph mirror sync failed', error);
+        }
+        // The sync adapter may write from either mirror; the captured graph wins.
+        if (originalGraph) {
+          original.ovyxGraph = clone(originalGraph);
+          window.WebStudio.project = original;
+          window.WebStudio.graph = clone(originalGraph);
+        }
+        try { window.WebStudio.render?.(); } catch (error) {
+          console.warn('[OVYX scoped rollback] Workspace render failed', error);
+        }
+        try { window.WebStudio.renderPreview?.(); } catch (error) {
+          console.warn('[OVYX scoped rollback] Preview render failed', error);
+        }
+        try { window.WebStudio.renderCodeTree?.(); } catch (error) {
+          console.warn('[OVYX scoped rollback] Code tree render failed', error);
+        }
+      } catch (error) {
+        console.warn('[OVYX scoped rollback] Workspace mirror restore failed', error);
+      }
     }
+
     try { window.OvyxProjectsUI?.render?.(); } catch (_) {}
     try { window.ProjectStore?.renderProjects?.(); } catch (_) {}
+
+    // Renderers and ProjectStore methods can close over an older KernelState or
+    // normalize a stale graph back into memory. Re-resolve the public state and
+    // reapply the checkpoint LAST, after those callbacks have run.
+    try {
+      const liveState = window.KernelState && Array.isArray(window.KernelState.projects)
+        ? window.KernelState
+        : state;
+      let liveProjects = Array.isArray(liveState.projects) ? liveState.projects.slice() : [];
+      if (!liveProjects.length && projectsBeforeSave.length) liveProjects = projectsBeforeSave.slice();
+      if (originalId) {
+        const finalIndex = liveProjects.findIndex(item => String(item?.id || '') === originalId);
+        const finalProject = clone(original);
+        if (originalGraph) finalProject.ovyxGraph = clone(originalGraph);
+        if (finalIndex >= 0) liveProjects[finalIndex] = finalProject;
+        else liveProjects.splice(
+          Math.max(0, Math.min(Number(snapshot.projectIndex) || liveProjects.length, liveProjects.length)),
+          0,
+          finalProject
+        );
+        liveState.projects = liveProjects;
+        liveState.activeProject = finalProject;
+        if (restoreStudio) {
+          window.WebStudio.project = finalProject;
+          if (originalGraph) window.WebStudio.graph = clone(originalGraph);
+          try {
+            const prefix = String(window.WebStudio.graphKeyPrefix || 'ovyx.ws.graph.v2.');
+            if (originalGraph) {
+              const graphValue = JSON.stringify(originalGraph);
+              localStorage.setItem(prefix + originalId, graphValue);
+              localStorage.setItem('ovyx.graph.' + originalId, graphValue);
+              localStorage.setItem('ovyx.ws.graph.v2.' + originalId, graphValue);
+            }
+          } catch (_) {}
+        }
+      }
+      // Re-persist the final live project list rather than trusting a save
+      // callback whose closure may belong to the pre-hydration state object.
+      try {
+        const user = window.firebase && window.firebase.auth && window.firebase.auth().currentUser;
+        const uid = String(user?.uid || '').trim();
+        const email = String(user?.email || '').trim().toLowerCase();
+        const cloudSync = window.ProjectCloudSync;
+        const key = cloudSync && typeof cloudSync.cacheKey === 'function'
+          ? cloudSync.cacheKey(email)
+          : uid ? 'ovyx.projects.v22.user.' + uid : 'ovyx.projects.v22.guest';
+        localStorage.setItem(key, JSON.stringify(liveState.projects));
+        try { cloudSync?.cache?.(email, liveState.projects); } catch (_) {}
+        try {
+          if (user && typeof cloudSync?.scheduleSyncActive === 'function') cloudSync.scheduleSyncActive(280);
+        } catch (_) {}
+      } catch (error) {
+        console.warn('[OVYX scoped rollback] Final local persistence failed', error);
+      }
+    } catch (error) {
+      console.warn('[OVYX scoped rollback] Final checkpoint reapply failed', error);
+    }
+
     window.dispatchEvent(new CustomEvent('ovyx:scoped-rollback', {
-      detail: { scopeId: 'project', route: snapshot.route, projectId: originalId }
+      detail: { scopeId: 'project', route: snapshot.route, projectId: originalId,
+        restoredEditorGraph: !!restoreStudio && !!originalGraph }
     }));
     return true;
   }
-
   function shouldRestoreProjectScope(scope) {
     if (!scope) return false;
     // Full-project rollback is opt-in for project/workspace editing scopes.
