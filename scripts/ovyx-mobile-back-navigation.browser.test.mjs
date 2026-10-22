@@ -407,7 +407,7 @@ try {
     dialog.className = 'modal open';
     dialog.setAttribute('role', 'dialog');
     dialog.setAttribute('aria-modal', 'true');
-    dialog.style.cssText = 'position:fixed;inset:15%;z-index:2147483646;background:#080808;color:white;display:block';
+    dialog.style.cssText = 'position:fixed;inset:15%;z-index:2147483647;background:#080808;color:white;display:block';
     dialog.innerHTML = '<label>Project title <input id="ovyx-back-test-project-title" value="Baseline title"></label><button type="button" data-modal-close>Close</button>';
     document.body.appendChild(dialog);
   });
@@ -502,9 +502,17 @@ try {
     dialog.className = 'modal open';
     dialog.setAttribute('role', 'dialog');
     dialog.setAttribute('aria-modal', 'true');
-    dialog.style.cssText = 'position:fixed;inset:15%;z-index:2147483646;background:#080808;color:white;display:block';
+    dialog.style.cssText = 'position:fixed;inset:15%;z-index:2147483647;background:#080808;color:white;display:block';
     dialog.innerHTML = '<div><p>Temporary test dialog</p><button type="button" data-modal-close>Close</button></div>';
     document.body.appendChild(dialog);
+    const top = window.OVYXScopedRollback?.topOpenScope?.();
+    if (top !== dialog) {
+      throw new Error('The regression overlay is not the top rollback scope. Selected: '
+        + (top?.id || top?.className || top?.tagName || 'none')
+        + '; open scopes: ' + JSON.stringify([...document.querySelectorAll('[role="dialog"],[aria-modal="true"],dialog,[id$="-modal"],.modal,.ovyx-modal,[data-rollback-scope]')]
+          .filter(el => !el.hidden && el.getAttribute('aria-hidden') !== 'true' && getComputedStyle(el).display !== 'none')
+          .map(el => ({id:el.id,classes:String(el.className||''),z:getComputedStyle(el).zIndex,role:el.getAttribute('role')}))));
+    }
   });
   await triggerHistoryBack(page, () => {
     const d = document.getElementById('ovyx-mobile-back-regression-modal');
