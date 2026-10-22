@@ -21,14 +21,19 @@ async function waitForRoute(page, expected) {
 }
 
 async function triggerHistoryBack(page) {
-  const count = await page.evaluate(() => Number(window.__ovyxBackTestPopCount || 0));
+  const count = await page.evaluate(() => {
+    try { return Number(JSON.parse(sessionStorage.getItem('__ovyxTestPopState') || '{"count":0}').count || 0); }
+    catch (_) { return 0; }
+  });
   // Browser Back is a same-document history traversal in this SPA. Trigger
-  // the History API traversal and wait for its popstate signal; page.goBack()
-  // waits for document lifecycle milestones and can time out even when a
-  // same-document Back has been correctly consumed by an overlay.
+  // the History API traversal and wait for the early capture-phase popstate
+  // probe, which still records the gesture before OVYX consumes it for a modal.
   await page.evaluate(() => window.history.back());
   try {
-    await page.waitForFunction(previous => Number(window.__ovyxBackTestPopCount || 0) > previous, count, {
+    await page.waitForFunction(previous => {
+      try { return Number(JSON.parse(sessionStorage.getItem('__ovyxTestPopState') || '{"count":0}').count || 0) > previous; }
+      catch (_) { return false; }
+    }, count, {
       timeout: 10000,
     });
   } catch (error) {
@@ -48,9 +53,15 @@ async function triggerHistoryBack(page) {
 }
 
 async function triggerHistoryForward(page) {
-  const count = await page.evaluate(() => Number(window.__ovyxBackTestPopCount || 0));
+  const count = await page.evaluate(() => {
+    try { return Number(JSON.parse(sessionStorage.getItem('__ovyxTestPopState') || '{"count":0}').count || 0); }
+    catch (_) { return 0; }
+  });
   await page.evaluate(() => window.history.forward());
-  await page.waitForFunction(previous => Number(window.__ovyxBackTestPopCount || 0) > previous, count, {
+  await page.waitForFunction(previous => {
+    try { return Number(JSON.parse(sessionStorage.getItem('__ovyxTestPopState') || '{"count":0}').count || 0) > previous; }
+    catch (_) { return false; }
+  }, count, {
     timeout: 10000,
   });
   await page.waitForTimeout(60);
