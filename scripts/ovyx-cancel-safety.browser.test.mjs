@@ -369,12 +369,14 @@ try {
     studio.graph.files['src/pages/Home.html'].content = '<!doctype html><html><body>Partial browser AI result</body></html>';
     project.ovyxGraph = JSON.parse(JSON.stringify(studio.graph));
 
-    // Mimic hydration replacing the global KernelState while the old
-    // ProjectStore still closes over the pre-replacement object.
+    // Mimic the specific hydration failure that can make Cancel appear not
+    // to work: KernelState is replaced and its active pointer temporarily goes
+    // missing, while WebStudio.project still identifies the in-progress project.
+    // The rollback should recover that pointer without replacing other projects.
     const nextProjects = JSON.parse(JSON.stringify(window.KernelState.projects));
     window.KernelState = {
       projects: nextProjects,
-      activeProject: nextProjects.find(item => item.id === project.id) || null,
+      activeProject: null,
     };
   });
   await browserFetchPage.locator('#ws-task-cancel').tap();
