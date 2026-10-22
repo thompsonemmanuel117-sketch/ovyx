@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { findCloudflareLogErrors, isInformationalVcsLine } from './cloudflare-diagnostics-log-filter.mjs';
-import { probeApplicationShell } from './cloudflare-application-shell.mjs';
+import { probeApplicationShell, getProjectPublicOrigins } from './cloudflare-application-shell.mjs';
 
 const commitCheckout = 'HEAD is now at bba6b90 fix: harden provider availability error responses';
 assert.equal(isInformationalVcsLine(commitCheckout), true, 'Git checkout metadata must not be classified as a deployment error just because the commit subject contains the word error.');
@@ -28,12 +28,27 @@ assert.deepEqual(
 );
 
 
+const publicOrigins = getProjectPublicOrigins({
+  subdomain: 'forgeos-2k0.pages.dev',
+  domains: ['app.ovyx.example', 'https://workspace.ovyx.example/path'],
+});
+assert.deepEqual(publicOrigins, [
+  { origin: 'https://forgeos-2k0.pages.dev', kind: 'pages-subdomain', primary: true },
+  { origin: 'https://app.ovyx.example', kind: 'custom-domain', primary: false },
+  { origin: 'https://workspace.ovyx.example', kind: 'custom-domain', primary: false },
+], 'Production diagnostics must include the stable Pages URL and every attached custom domain.');
+assert.deepEqual(
+  getProjectPublicOrigins({ subdomain: 'forgeos-2k0' }),
+  [{ origin: 'https://forgeos-2k0.pages.dev', kind: 'pages-subdomain', primary: true }],
+  'A Cloudflare subdomain slug must be normalized to its stable pages.dev URL.',
+);
+
 const iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><title id="title">OVYX</title><path d="M32 5L55 18.5V45.5L32 59L9 45.5V18.5L32 5Z"/></svg>';
-const shellHtml = '<!doctype html><html><head><title>OVYX</title><link rel="icon" type="image/svg+xml" href="/ovyx-tab-v6.svg?v=20261021-6"></head><body><main><h1>OVYX</h1></main><script src="/assets/ovyx-shell-favicon-lock.js?v=20261021-3"></script><script defer src="/assets/ovyx-webstudio-cancel-safety.js?v=20261021-3"></script><script defer src="/assets/ovyx-webstudio-reliability.js?v=20261019-2"></script><script defer src="/assets/ovyx-webstudio-research.js?v=20261019-1"></script><script defer src="/assets/ovyx-webstudio-apply-suggestions.js?v=20261019-1"></script><script defer src="/assets/ovyx-webstudio-quality.js?v=20261018-7"></script></body></html>';
+const shellHtml = '<!doctype html><html><head><title>OVYX</title><link rel="icon" type="image/svg+xml" href="/ovyx-tab-v6.svg?v=20261021-6"></head><body><main><h1>OVYX</h1></main><script src="/assets/ovyx-shell-favicon-lock.js?v=20261021-3"></script><script defer src="/assets/ovyx-webstudio-cancel-safety.js?v=20261022-1"></script><script defer src="/assets/ovyx-webstudio-reliability.js?v=20261019-2"></script><script defer src="/assets/ovyx-webstudio-research.js?v=20261019-1"></script><script defer src="/assets/ovyx-webstudio-apply-suggestions.js?v=20261019-1"></script><script defer src="/assets/ovyx-webstudio-quality.js?v=20261018-7"></script></body></html>';
 const expectedQualitySource = 'function auditSources(report, pages, files, project) {} /* cross-page fragment link */ function publishVerifiedPreview() {}';
 const expectedRuntimeSources = {
   '/assets/ovyx-shell-favicon-lock.js': `window.__OVYX_SHELL_FAVICON_LOCK_V3__ = true; var href = "/ovyx-tab-v6.svg?v=20261021-6"; window.OVYXShellFavicon = {}; var observer = new MutationObserver();`,
-  '/assets/ovyx-webstudio-cancel-safety.js': `window.__OVYX_WEBSTUDIO_CANCEL_SAFETY_V3__ = true; function restoreProjectOnly() {} function installBrowserFetchCancellation() {} var key = "ovyx.webstudio.rollback.snapshot.v3."; button.id = 'ws-task-cancel'; coordinator.cancel();`,
+  '/assets/ovyx-webstudio-cancel-safety.js': `window.__OVYX_WEBSTUDIO_CANCEL_SAFETY_V4__ = true; function restoreProjectOnly() {} function installBrowserFetchCancellation() {} function isAiTaskApiWrite() {} function captureBrowserApiTaskSnapshot() {} var key = "ovyx.webstudio.rollback.snapshot.v3."; button.id = 'ws-task-cancel'; button.dataset.ovyxFloatingCancel = 'true'; coordinator.cancel();`,
   '/assets/ovyx-webstudio-reliability.js': 'var __ovyxBuildArtifactGuard = true; function installFollowUpIntentRouter() {}',
   '/assets/ovyx-webstudio-research.js': 'function runResearch() {} function addResearchContext() {} .ovyx-ws-live-activity',
   '/assets/ovyx-webstudio-apply-suggestions.js': '/* OVYX_APPLY_SUGGESTIONS */ function applySuggestion() {} studio.submitPrompt()',
@@ -63,7 +78,7 @@ assert.equal(healthyShell.requiredRuntimes.applySuggestions.version, '20261019-1
 assert.equal(healthyShell.requiredRuntimes.faviconLock.ok, true, 'The live app shell must serve the currently expected favicon lock runtime.');
 assert.equal(healthyShell.requiredRuntimes.faviconLock.version, '20261021-3');
 assert.equal(healthyShell.requiredRuntimes.cancelSafety.ok, true, 'The live app shell must serve the actual browser-connected Cancel/rollback runtime.');
-assert.equal(healthyShell.requiredRuntimes.cancelSafety.version, '20261021-3');
+assert.equal(healthyShell.requiredRuntimes.cancelSafety.version, '20261022-1');
 assert.equal(healthyShell.browserTabIcon.ok, true, JSON.stringify(healthyShell.browserTabIcon));
 assert.equal(healthyShell.browserTabIcon.iconLinkCount, 1);
 assert.equal(healthyShell.browserTabIcon.tabIcon.brandMarkPresent, true);
