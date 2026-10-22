@@ -10001,11 +10001,6 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
   var baseGo=null;
   var handlingPop=false;
   var bootUntil=Date.now()+1800;
-  // Track the last route we actually recorded, independent of history.state:
-  // other legacy router wrappers can replace history.state before this layer
-  // sees the route event, which otherwise collapses distinct views into one entry.
-  var lastHistoryRoute='';
-  var lastHistorySettingsPanel='';
   function clean(v){var x=String(v||'home').replace(/^view-/,'').trim().toLowerCase();return ALIASES[x]||x||'home'}
   function currentRoute(){return clean(window.KernelState?.activeView||document.querySelector('#view-router-viewport>section:not(.hidden)')?.id||'home')}
   function isVisible(el){if(!el)return false;try{if(el.hidden||el.getAttribute('aria-hidden')==='true'||el.hasAttribute('inert'))return false;var cs=getComputedStyle(el);return cs.display!=='none'&&cs.visibility!=='hidden'&&cs.opacity!=='0'&&(el.classList.contains('open')||!el.classList.contains('hidden')||el.getAttribute('aria-modal')==='true'||el.getAttribute('role')==='dialog'||(el.tagName==='DIALOG'&&el.open))}catch(e){return false}}
@@ -10149,16 +10144,10 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
     }catch(e){console.warn('[OVYX mobile Back rollback]',e)}
     return false;
   }
-  function syncLastHistoryRoute(route){
-    lastHistoryRoute=clean(route||currentRoute());
-    lastHistorySettingsPanel=lastHistoryRoute==='settings'?currentSettingsPanel():'';
-  }
   function keepCurrentRouteEntry(route){
     try{
       var state=history.state&&typeof history.state==='object'?history.state:{};
-      var next=clean(route||currentRoute());
-      history.pushState(routeHistoryState(next,state),document.title,location.href);
-      syncLastHistoryRoute(next);
+      history.pushState(routeHistoryState(route||currentRoute(),state),document.title,location.href);
     }catch(e){console.warn('[OVYX mobile Back history]',e)}
   }
   function back(){
@@ -10226,10 +10215,6 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
         &&clean(history.state?.ovyxSettingsPanel||before)!==next){
         try{history.pushState(routeHistoryState('settings',Object.assign({},history.state||{},{ovyxSettingsPanel:next})),document.title,location.href)}catch(e){console.warn('[OVYX settings history]',e)}
       }
-      if(clean(window.KernelState?.activeView||currentRoute())==='settings'){
-        lastHistoryRoute='settings';
-        lastHistorySettingsPanel=next;
-      }
       return result;
     };
     wrapped.__OVYX_SETTINGS_HISTORY_WRAPPED__=true;
@@ -10246,7 +10231,6 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
   function installHistory(){
     if(!window.history||!history.pushState)return;
     var current=currentRoute();
-    syncLastHistoryRoute(current);
     try{history.replaceState(routeHistoryState(current,history.state||{}),document.title,location.href)}catch(e){}
     installSettingsHistory();
     window.addEventListener('ovyx-settings-rendered',installSettingsHistory,{passive:true});
@@ -10257,10 +10241,9 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
         var result=baseGo(view);
         var after=currentRoute();
         if(after&&after!==before&&!handlingPop&&!window.__OVYXV665_SUPPRESS_HISTORY
-          && Date.now()>bootUntil&&lastHistoryRoute!==after){
-          try{history.pushState(routeHistoryState(after,history.state||{}),document.title,location.href)}catch(e){console.warn('[OVYX route history wrapper]',e)}
+          && Date.now()>bootUntil&&clean(history.state?.ovyxRoute||'')!==after){
+          try{history.pushState(routeHistoryState(after,history.state||{}),document.title,location.href)}catch(e){}
         }
-        if(after)syncLastHistoryRoute(after);
         return result;
       };
       wrapped.__OVYXV665Wrapped=true;
@@ -10273,33 +10256,18 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
     // canonical route-change event as the durable history source of truth.
     // Router.go's wrapper above avoids a duplicate push if this listener ran first.
     window.addEventListener('ovyx:view-changed',function(event){
+      if(handlingPop||window.__OVYXV665_SUPPRESS_HISTORY||Date.now()<=bootUntil)return;
       var route=clean(event&&event.detail&&event.detail.view||currentRoute());
       if(!route)return;
-      if(handlingPop){
-        syncLastHistoryRoute(route);
+      if(clean(history.state&&history.state.ovyxRoute||'')===route){
+        if(route==='settings'&&clean(history.state&&history.state.ovyxSettingsPanel||'')!==currentSettingsPanel()){
+          try{history.replaceState(routeHistoryState(route,history.state||{}),document.title,location.href)}catch(e){}
+        }
         return;
       }
-      if(window.__OVYXV665_SUPPRESS_HISTORY||Date.now()<=bootUntil){
-        syncLastHistoryRoute(route);
-        return;
-      }
-      var panel=route==='settings'?currentSettingsPanel():'';
-      // Use our tracked route rather than only history.state. A legacy route
-      // wrapper may have replaced the current entry's state before this event
-      // reaches us, even though the previous view is still one step back.
-      if(route!==lastHistoryRoute){
-        try{history.pushState(routeHistoryState(route,history.state||{}),document.title,location.href)}
-        catch(e){console.warn('[OVYX route history]',e)}
-        lastHistoryRoute=route;
-        lastHistorySettingsPanel=panel;
-        return;
-      }
-      if(route==='settings'&&panel!==lastHistorySettingsPanel
-        &&clean(history.state&&history.state.ovyxSettingsPanel||'')!==panel){
-        try{history.pushState(routeHistoryState(route,Object.assign({},history.state||{},{ovyxSettingsPanel:panel})),document.title,location.href)}
-        catch(e){console.warn('[OVYX settings-panel history]',e)}
-      }
-      lastHistorySettingsPanel=panel;
+      try{
+        history.pushState(routeHistoryState(route,history.state||{}),document.title,location.href);
+      }catch(e){console.warn('[OVYX route history]',e)}
     },false);
     window.addEventListener('popstate',function(){
       var overlay=topOverlay();
@@ -10337,10 +10305,7 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
         try{
           baseGo(route);
           if(route==='settings'&&targetSettingsPanel&&targetSettingsPanel!==currentSettingsPanel())window.OVYXSettings?.show?.(targetSettingsPanel);
-        }finally{
-          handlingPop=false;
-          syncLastHistoryRoute(currentRoute());
-        }
+        }finally{handlingPop=false}
       }
     },{passive:true});
   }
