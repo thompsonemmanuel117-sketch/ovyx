@@ -10008,7 +10008,7 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
     var ids=['ovyx-v655-support-backdrop','ovyx-v65-legal-modal','ovyx-v84-support-modal','cmd-palette-modal','rollback-revisions-modal','checkout-elements-modal','kernel-brain-bot-panel','v58-template-preview-modal','v55-preview-modal','ovyx-owner-console','ovyx-project-create-modal','ws-plan-modal','ws-history-modal','ws-graph-modal','ws-deploy-modal','ws-diff-modal','ws-engineering-console'];
     var els=[];
     ids.forEach(function(id){var el=document.getElementById(id);if(isVisible(el))els.push(el)});
-    var selector='[role="dialog"],[aria-modal="true"],dialog[open],[id$="-modal"].open,.modal.open,[class*="modal"].open,[data-ovyx-overlay].open,[data-overlay].open';
+    var selector='[role="dialog"][aria-modal="true"],[aria-modal="true"],dialog[open],[id$="-modal"].open,.modal.open,[class*="modal"].open,[data-ovyx-overlay].open,[data-overlay].open';
     document.querySelectorAll(selector).forEach(function(el){if(isVisible(el)&&!els.includes(el))els.push(el)});
     if(!els.length)return null;
     els.sort(function(a,b){
