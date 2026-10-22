@@ -121,8 +121,22 @@
     if (original?.ovyxGraph) {
       try { localStorage.setItem('ovyx.graph.' + originalId, JSON.stringify(original.ovyxGraph)); } catch (_) {}
     }
-    try { window.ProjectStore?.save?.(); } catch (error) {
+    // ProjectStore.save is account-gated. In OVYX's guest path it returns
+    // false after intentionally clearing the in-memory list; that is valid for
+    // a guest "save" attempt, but must never erase an existing rollback snapshot.
+    const projectsBeforeSave = state.projects;
+    const activeBeforeSave = state.activeProject;
+    let projectSaveResult;
+    try {
+      projectSaveResult = window.ProjectStore?.save?.();
+    } catch (error) {
       console.warn('[OVYX scoped rollback] ProjectStore save failed', error);
+    }
+    if (projectSaveResult === false ||
+        (projectsBeforeSave.length > 0 && Array.isArray(state.projects) && state.projects.length === 0)) {
+      state.projects = projectsBeforeSave;
+      state.activeProject = activeBeforeSave;
+      console.warn('[OVYX scoped rollback] Preserved the in-memory project checkpoint after a rejected save.');
     }
     // Restore editor-specific mirrors only when the restored project is the one
     // whose workspace is already mounted. Other project workspaces are untouched.
