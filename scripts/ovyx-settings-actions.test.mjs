@@ -297,7 +297,7 @@ assert.ok(runtime.includes('function syncLocalProfileCache(profile, updatedAt, u
 assert.ok(html.includes("if(id==='appearance'){this.syncAppearance()}},")
   && !html.includes("this.syncAppearance();ThemeLab.apply()}"),
   'Opening Appearance must not overwrite canonical saved colours with a legacy Theme Lab preset.');
-assert.ok(middleware.includes('/assets/ovyx-webstudio-cancel-safety.js?v=20261021-3'),
+assert.ok(middleware.includes('/assets/ovyx-webstudio-cancel-safety.js?v=20261022-1'),
   'The app shell must load the shared Web Studio task-cancellation module.');
 assert.ok(cancelSafetyRuntime.includes("button.id = 'ws-task-cancel'"),
   'The shared cancellation module must create one touch-friendly Cancel control.');

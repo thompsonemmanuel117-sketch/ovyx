@@ -675,9 +675,24 @@
 
         const method = String(taskSession.activeMethod || this.__ovyxActiveTaskMethod || 'current');
         const currentState = getState();
-        const taskProjectWasActive = String(
-          currentState && currentState.activeProject && currentState.activeProject.id || ''
-        ) === String(snapshot.projectId);
+        const stateActiveProjectId = String(
+          currentState && (
+            currentState.activeProject && currentState.activeProject.id ||
+            currentState.project && currentState.project.id
+          ) || ''
+        );
+        const currentStudio = getStudio() || this;
+        const studioProjectId = String(
+          currentStudio && currentStudio.project && currentStudio.project.id ||
+          taskSession.activeStudio && taskSession.activeStudio.project && taskSession.activeStudio.project.id ||
+          ''
+        );
+        // Hydration can temporarily replace KernelState and drop its active
+        // pointer even though WebStudio still owns the project that started this
+        // task. In that specific case, restore that project as active. If the
+        // user has already selected a different project, preserve that choice.
+        const taskProjectWasActive = stateActiveProjectId === String(snapshot.projectId)
+          || (!stateActiveProjectId && studioProjectId === String(snapshot.projectId));
 
         const studios = new Set(knownStudios);
         studios.add(this);
