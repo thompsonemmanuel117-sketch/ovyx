@@ -3,13 +3,14 @@
   if (window.__OVYX_SCOPED_ROLLBACK_V1__) return;
   window.__OVYX_SCOPED_ROLLBACK_V1__ = true;
 
-  const VERSION = '20261022-9';
+  const VERSION = '20261022-11';
   const snapshots = new WeakMap();
   const visibility = new WeakMap();
   const inlineDisplayBeforeClose = new WeakMap();
   const scopeSelector = '[data-rollback-scope], [role="dialog"], [aria-modal="true"], dialog, [id$="-modal"], .modal, .ovyx-modal, .ovyx-ws-plan-modal, .ovyx-ws-history-modal, .ovyx-preview-portal-modal, .ovyx-v655-support-shell, .ovyx-v84-support-modal';
   let pendingOpen = null;
   let restoring = false;
+  let overlayHistoryOpen = false;
   let lastPopstateResult = {
     at: 0,
     handled: false,
@@ -678,21 +679,55 @@
     navigation.back = wrapped;
   }
 
+  function isHistoryOverlayScope(scope) {
+    if (!scope) return false;
+    const dialogSelector = '[role="dialog"], [aria-modal="true"], dialog, [id$="-modal"], .modal, .ovyx-modal, .ovyx-ws-plan-modal, .ovyx-ws-history-modal, .ovyx-preview-portal-modal, .ovyx-v655-support-shell, .ovyx-v84-support-modal';
+    const isDialogSurface = scope.matches?.(dialogSelector) === true;
+    const isExplicitRollbackScope = scope.matches?.('[data-rollback-scope]') === true;
+    // Settings tabs own their own panel-history entries. A panel carrying an
+    // implementation-specific rollback marker is not automatically a modal.
+    if (scope.closest?.('#view-settings [data-settings-panel]') && !isDialogSurface) return false;
+    return isDialogSurface || isExplicitRollbackScope;
+  }
+
+  function pushOverlayHistoryEntry() {
+    try {
+      const state = history.state && typeof history.state === 'object' ? history.state : {};
+      history.pushState(Object.assign({}, state, {
+        ovyxRoute: route(),
+        ovyxShell: true
+      }), document.title, location.href);
+      return true;
+    } catch (error) {
+      console.warn('[OVYX scoped rollback] Could not add a browser Back entry for an overlay', error);
+      return false;
+    }
+  }
+
   function scan() {
     const candidates = Array.from(document.querySelectorAll(scopeSelector));
+    let hasBackableOverlay = false;
+    let openedBackableOverlayByClick = false;
+    const userOpenPending = !!(pendingOpen && Date.now() - pendingOpen.at < 800);
     candidates.forEach(scope => {
       restoreDisplayIfReopened(scope);
       const now = visible(scope);
       const was = visibility.get(scope);
+      const historySurface = isHistoryOverlayScope(scope);
+      if (now && historySurface) hasBackableOverlay = true;
+      if (now && was !== true && historySurface && userOpenPending) openedBackableOverlayByClick = true;
       if (now && was !== true && !snapshots.has(scope)) {
-        const project = pendingOpen && Date.now() - pendingOpen.at < 800
-          ? pendingOpen.project
-          : snapshotProject();
+        const project = userOpenPending && pendingOpen ? pendingOpen.project : snapshotProject();
         capture(scope, project);
-        if (pendingOpen) pendingOpen = null;
+        if (userOpenPending) pendingOpen = null;
       }
       visibility.set(scope, now);
     });
+    // Only user-opened dialog surfaces create a browser Back entry. Settings
+    // subpanels and boot-time/ambient dialogs are left to their existing route
+    // owners, preventing duplicate or synthetic Back traversals on startup.
+    if (openedBackableOverlayByClick && !overlayHistoryOpen) overlayHistoryOpen = pushOverlayHistoryEntry();
+    if (!hasBackableOverlay) overlayHistoryOpen = false;
   }
 
   function install() {
