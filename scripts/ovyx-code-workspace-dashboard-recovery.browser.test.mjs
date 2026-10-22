@@ -90,7 +90,7 @@ try{
     #dashboard-action{position:relative;z-index:1;width:180px;height:60px}
     .hidden{display:none!important}
   </style></head><body class="ovyx-drawer-open">
-    <div id="view-router-viewport"><section id="view-home" aria-hidden="false"><button id="dashboard-action">Dashboard action</button></section><section id="view-projects" class="hidden" aria-hidden="true"></section><section id="view-webstudio" class="hidden" aria-hidden="true"><section id="ws-code-workspace" hidden aria-hidden="true"></section><div id="ws-mobile-preview" hidden aria-hidden="true"></div><div id="ws-preview-menu" hidden></div><div id="ws-mode-menu" hidden></div></section></div>
+    <div id="view-router-viewport"><section id="view-home" aria-hidden="false"><button id="dashboard-action" onclick="window.dashboardClicks=(window.dashboardClicks||0)+1">Dashboard action</button></section><section id="view-projects" class="hidden" aria-hidden="true"></section><section id="view-webstudio" class="hidden" aria-hidden="true"><section id="ws-code-workspace" hidden aria-hidden="true"></section><div id="ws-mobile-preview" hidden aria-hidden="true"></div><div id="ws-preview-menu" hidden></div><div id="ws-mode-menu" hidden></div></section></div>
     <aside id="mobile-drawer" class="open" aria-hidden="false"></aside><div id="mobile-drawer-backdrop" aria-hidden="false"></div>
   </body></html>`);
   await homePage.evaluate(()=>{
@@ -116,9 +116,7 @@ try{
     &&getComputedStyle(document.getElementById('mobile-drawer-backdrop')).pointerEvents==='none'
     &&document.documentElement.style.overflow===''&&document.body.style.overflow==='');
   await homePage.locator('#dashboard-action').click();
-  assert.equal(await homePage.locator('#dashboard-action').getAttribute('data-clicked'),null);
-  await homePage.locator('#dashboard-action').evaluate(button=>button.dataset.clicked='yes');
-  assert.equal(await homePage.locator('#dashboard-action').getAttribute('data-clicked'),'yes',
+  assert.equal(await homePage.evaluate(()=>window.dashboardClicks),1,
     'Dashboard controls must receive clicks after navigating Home from a previously open drawer.');
   assert.deepEqual(homeErrors,[],'Returning to Home must not throw browser runtime errors.');
   await homePage.close();
