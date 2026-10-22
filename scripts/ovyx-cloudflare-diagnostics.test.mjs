@@ -139,10 +139,8 @@ assert.equal(missingCancelRuntime.ok, false, 'A production shell missing the mob
 
 const missingScopedRollback = await probeApplicationShell('https://production-fixture.pages.dev', async input => {
   const url = new URL(input);
-  if (url.pathname === '/') return new Response(shellHtml.replace(/<script[^>]+ovyx-scoped-rollback\\.js[^>]*><\\/script>/, ''), { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } });
-  if (url.pathname === '/ovyx-tab-v6.svg') return iconResponse();
-  if (url.pathname === '/favicon.ico') return iconResponse();
-  return assetResponse(url);
+  if (url.pathname === '/') return new Response(shellHtml.replace(/<script[^>]+ovyx-scoped-rollback\.js[^>]*><\/script>/, ''), { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } });
+  return healthyFetch(input);
 });
 assert.equal(missingScopedRollback.ok, false, 'A production shell missing app-wide scoped rollback must fail the deployment smoke test.');
 assert.equal(missingCancelRuntime.requiredRuntimes.cancelSafety.injected, false);
