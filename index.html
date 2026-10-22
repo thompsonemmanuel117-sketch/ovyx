@@ -16839,6 +16839,31 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
 })();
 </script>
 
+
+<style id="ovyx-mobile-dashboard-dock-clearance-v1">
+/* Keep the fixed Home dock from covering the final dashboard tools.
+   Clearance is applied to the real scroll content, not to body padding,
+   so Android Chrome cannot leave an extra blank strip below the app. */
+@media (max-width:767px) {
+  body.ovyx-v88-dock-home #view-router-viewport {
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    overscroll-behavior-y:auto!important;
+    -webkit-overflow-scrolling:touch!important;
+    touch-action:pan-y pinch-zoom!important;
+  }
+  body.ovyx-v88-dock-home #view-home {
+    height:auto!important;
+    min-height:100%!important;
+    overflow:visible!important;
+  }
+  body.ovyx-v88-dock-home #view-home .v59-dashboard-shell {
+    height:auto!important;
+    padding-bottom:calc(184px + env(safe-area-inset-bottom))!important;
+  }
+}
+</style>
+
 </body>
 </html>
 
