@@ -40,7 +40,8 @@ async function triggerHistoryBack(page, completed) {
       state: window.history.state,
       length: window.history.length,
       popCount: Number(window.__ovyxBackTestPopCount || 0),
-      ops: (window.__ovyxHistoryOps || []).slice(-20),
+      ops: (window.__ovyxHistoryOps || []).slice(-30),
+      routeTrace: (window.__ovyxRouteTrace || []).slice(-80),
       earlyPop: (() => { try { return JSON.parse(sessionStorage.getItem('__ovyxTestPopState') || '{"count":0,"states":[]}'); } catch (_) { return null; } })(),
       scopedRollback: window.OVYXScopedRollback?.diagnostics?.() || null,
       candidateOverlays: [...document.querySelectorAll('[role="dialog"],[aria-modal="true"],dialog,[id$="-modal"],.modal,.ovyx-modal,[data-rollback-scope]')]
@@ -105,12 +106,35 @@ try {
       window.__ovyxHistoryOps = historyOps;
       return result;
     };
+    const trace = [];
+    const recordTrace = entry => {
+      trace.push({ at: performance.now(), ...entry });
+      if (trace.length > 120) trace.shift();
+      window.__ovyxRouteTrace = trace;
+    };
+    window.addEventListener('ovyx:view-changed', event => {
+      recordTrace({
+        kind: 'view',
+        detail: event.detail?.view || '',
+        activeView: window.KernelState?.activeView || '',
+        historyRoute: window.history.state?.ovyxRoute || '',
+        historyPanel: window.history.state?.ovyxSettingsPanel || ''
+      });
+    }, true);
     window.addEventListener('popstate', event => {
       const current = JSON.parse(sessionStorage.getItem('__ovyxTestPopState') || '{"count":0,"states":[]}');
       current.count += 1;
       current.states.push(event.state || null);
       if (current.states.length > 60) current.states.shift();
       sessionStorage.setItem('__ovyxTestPopState', JSON.stringify(current));
+      recordTrace({
+        kind: 'popstate-capture',
+        eventRoute: event.state?.ovyxRoute || '',
+        eventPanel: event.state?.ovyxSettingsPanel || '',
+        activeView: window.KernelState?.activeView || '',
+        historyRoute: window.history.state?.ovyxRoute || '',
+        historyLength: window.history.length
+      });
     }, true);
   });
 
@@ -166,6 +190,14 @@ try {
   }));
   console.log('[OVYX Back test] route history before Projects Back:', JSON.stringify(routeHistoryDebug));
   await triggerHistoryBack(page, 'appstudio');
+  const firstBackTrace = await page.evaluate(() => ({
+    route: window.KernelState?.activeView || '',
+    state: window.history.state,
+    trace: (window.__ovyxRouteTrace || []).slice(-30),
+    ops: (window.__ovyxHistoryOps || []).slice(-20),
+    rollback: window.OVYXScopedRollback?.diagnostics?.() || null
+  }));
+  console.log('[OVYX Back test] after first Projects Back:', JSON.stringify(firstBackTrace));
   assert.equal(await page.evaluate(() => window.KernelState?.activeView), 'appstudio',
     'Back from Projects must return to App Studio, not reset or skip the prior view.');
   await triggerHistoryBack(page, 'home');
