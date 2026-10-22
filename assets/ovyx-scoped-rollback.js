@@ -579,6 +579,7 @@
   }
 
   function trimCurrentTransientEntry(expectedKey) {
+    if (transientTrimPending) return true;
     const state = history.state && typeof history.state === 'object' ? history.state : {};
     if (!state.ovyxTransientBack) return false;
     if (expectedKey && String(state.ovyxTransientKey || '') !== expectedKey) return false;
