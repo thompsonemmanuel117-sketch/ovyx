@@ -3,10 +3,16 @@
   if (window.__OVYX_SCOPED_ROLLBACK_V1__) return;
   window.__OVYX_SCOPED_ROLLBACK_V1__ = true;
 
-  const VERSION = '20261022-5';
+  const VERSION = '20261022-6';
   const snapshots = new WeakMap();
   const visibility = new WeakMap();
   const inlineDisplayBeforeClose = new WeakMap();
+  const transientElementKeys = new WeakMap();
+  let transientElementSequence = 0;
+  let lastTransientKey = '';
+  let transientTrimPending = false;
+  let transientTrimTimer = 0;
+  let transientTrimToken = 0;
   const scopeSelector = '[data-rollback-scope], [role="dialog"], [aria-modal="true"], dialog, [id$="-modal"], .modal, .ovyx-modal';
   let pendingOpen = null;
   let restoring = false;
@@ -352,15 +358,35 @@
     }
   }
 
-  function saveCurrentRouteEntry(stateHint) {
+  function saveCurrentRouteEntry(event) {
     try {
-      const state = history.state && typeof history.state === 'object'
-        ? history.state
-        : (stateHint && typeof stateHint === 'object' ? stateHint : {});
-      history.pushState(Object.assign({}, state, {
+      const state = event?.state && typeof event.state === 'object'
+        ? event.state
+        : (history.state && typeof history.state === 'object' ? history.state : {});
+      const next = Object.assign({}, state, {
         ovyxRoute: route(),
         ovyxShell: true
-      }), document.title, location.href);
+      });
+      const key = currentTransientKey();
+      if (key) {
+        next.ovyxTransientBack = true;
+        next.ovyxTransientKey = key;
+        next.ovyxTransientVersion = VERSION;
+      } else {
+        delete next.ovyxTransientBack;
+        delete next.ovyxTransientKey;
+        delete next.ovyxTransientVersion;
+      }
+      const poppedRoute = String(event?.state?.ovyxRoute || '').replace(/^view-/, '').trim().toLowerCase();
+      // If browser Back just popped an overlay marker, the popped entry already
+      // represents this same app route. Replace it, rather than creating a
+      // duplicate route entry that would make the next Back appear to do nothing.
+      if (event && poppedRoute && poppedRoute === route()) {
+        history.replaceState(next, document.title, location.href);
+      } else {
+        history.pushState(next, document.title, location.href);
+      }
+      lastTransientKey = key;
     } catch (error) {
       console.warn('[OVYX scoped rollback] Could not retain current route after overlay Back', error);
     }
@@ -450,6 +476,174 @@
     return false;
   }
 
+  function overlayHistoryKey(scope) {
+    if (!scope) return '';
+    const id = String(scope.id || scope.dataset?.rollbackScope || '').trim();
+    if (id) return 'overlay:' + id;
+    let key = transientElementKeys.get(scope);
+    if (!key) {
+      key = 'overlay:element-' + (++transientElementSequence);
+      transientElementKeys.set(scope, key);
+    }
+    return key;
+  }
+
+  function currentTransientKey() {
+    const current = route();
+    const body = document.body;
+    const ws = document.getElementById('view-webstudio');
+    if (current === 'webstudio') {
+      const modeMenu = document.getElementById('ws-mode-menu');
+      if (modeMenu && !modeMenu.hidden) return 'local:ws-mode-menu';
+      const previewMenu = document.getElementById('ws-preview-menu');
+      if (previewMenu && !previewMenu.hidden) return 'local:ws-preview-menu';
+      if (body.classList.contains('ovyx-ws-nav-open') || body.classList.contains('ovyx-ws-mobile-nav-open')) {
+        return 'local:ws-navigation';
+      }
+      if (ws?.getAttribute('data-ws-code-open') === '1') return 'local:ws-code';
+      if (body.classList.contains('ovyx-ws-mobile-preview-open')) return 'local:ws-mobile-preview';
+      if (body.classList.contains('ovyx-ws-preview-full')) return 'local:ws-preview-full';
+      if (body.classList.contains('ovyx-ws-chat-focus') ||
+          body.classList.contains('ovyx-ws-preview-collapsed') ||
+          ws?.classList.contains('ovyx-preview-expanded')) return 'local:ws-split';
+    } else {
+      const drawer = document.getElementById('mobile-drawer');
+      if (drawer && (
+        drawer.classList.contains('open') ||
+        drawer.classList.contains('is-open') ||
+        body.classList.contains('ovyx-drawer-open') ||
+        !drawer.classList.contains('-translate-x-full')
+      )) return 'local:mobile-drawer';
+    }
+    const scope = topOpenScope();
+    return scope ? overlayHistoryKey(scope) : '';
+  }
+
+  function transientKeyIsOpen(key) {
+    if (!key) return false;
+    const body = document.body;
+    const ws = document.getElementById('view-webstudio');
+    switch (key) {
+      case 'local:mobile-drawer': {
+        const drawer = document.getElementById('mobile-drawer');
+        return route() !== 'webstudio' && !!drawer && (
+          drawer.classList.contains('open') || drawer.classList.contains('is-open') ||
+          body.classList.contains('ovyx-drawer-open') || !drawer.classList.contains('-translate-x-full')
+        );
+      }
+      case 'local:ws-mode-menu': {
+        const el = document.getElementById('ws-mode-menu');
+        return route() === 'webstudio' && !!el && !el.hidden;
+      }
+      case 'local:ws-preview-menu': {
+        const el = document.getElementById('ws-preview-menu');
+        return route() === 'webstudio' && !!el && !el.hidden;
+      }
+      case 'local:ws-navigation':
+        return route() === 'webstudio' &&
+          (body.classList.contains('ovyx-ws-nav-open') || body.classList.contains('ovyx-ws-mobile-nav-open'));
+      case 'local:ws-code':
+        return route() === 'webstudio' && ws?.getAttribute('data-ws-code-open') === '1';
+      case 'local:ws-mobile-preview':
+        return route() === 'webstudio' && body.classList.contains('ovyx-ws-mobile-preview-open');
+      case 'local:ws-preview-full':
+        return route() === 'webstudio' && body.classList.contains('ovyx-ws-preview-full');
+      case 'local:ws-split':
+        return route() === 'webstudio' && (
+          body.classList.contains('ovyx-ws-chat-focus') ||
+          body.classList.contains('ovyx-ws-preview-collapsed') ||
+          ws?.classList.contains('ovyx-preview-expanded')
+        );
+      default:
+        if (!key.startsWith('overlay:')) return false;
+        return Array.from(document.querySelectorAll(scopeSelector))
+          .some(scope => visible(scope) && overlayHistoryKey(scope) === key);
+    }
+  }
+
+  function writeTransientEntry(key, replace) {
+    try {
+      const state = history.state && typeof history.state === 'object' ? history.state : {};
+      history[replace ? 'replaceState' : 'pushState'](Object.assign({}, state, {
+        ovyxRoute: route(),
+        ovyxShell: true,
+        ovyxTransientBack: true,
+        ovyxTransientKey: key,
+        ovyxTransientVersion: VERSION
+      }), document.title, location.href);
+      return true;
+    } catch (error) {
+      console.warn('[OVYX scoped rollback] Could not register transient Back entry', error);
+      return false;
+    }
+  }
+
+  function trimCurrentTransientEntry(expectedKey) {
+    const state = history.state && typeof history.state === 'object' ? history.state : {};
+    if (!state.ovyxTransientBack) return false;
+    if (expectedKey && String(state.ovyxTransientKey || '') !== expectedKey) return false;
+    // Only trim an overlay entry belonging to the current route. A route change
+    // owns its history state and must not be rolled back by a stale DOM mutation.
+    if (state.ovyxRoute && String(state.ovyxRoute).replace(/^view-/, '').toLowerCase() !== route()) return false;
+    transientTrimPending = true;
+    const token = ++transientTrimToken;
+    if (transientTrimTimer) clearTimeout(transientTrimTimer);
+    transientTrimTimer = window.setTimeout(() => {
+      if (token === transientTrimToken) transientTrimPending = false;
+      transientTrimTimer = 0;
+    }, 1200);
+    try {
+      history.back();
+      return true;
+    } catch (error) {
+      transientTrimPending = false;
+      if (transientTrimTimer) clearTimeout(transientTrimTimer);
+      transientTrimTimer = 0;
+      console.warn('[OVYX scoped rollback] Could not trim a dismissed transient history entry', error);
+      return false;
+    }
+  }
+
+  function syncTransientHistory() {
+    const key = currentTransientKey();
+    const state = history.state && typeof history.state === 'object' ? history.state : {};
+    if (key) {
+      if (state.ovyxTransientBack && String(state.ovyxTransientKey || '') === key) {
+        lastTransientKey = key;
+        return;
+      }
+      if (state.ovyxTransientBack && state.ovyxTransientKey) {
+        const oldKey = String(state.ovyxTransientKey);
+        if (!transientKeyIsOpen(oldKey)) {
+          // A surface was dismissed/replaced without using browser Back. Remove
+          // its marker first; once the traversal completes scan() registers the
+          // newly visible surface. This avoids stranded entries for closed modals.
+          lastTransientKey = key;
+          if (trimCurrentTransientEntry(oldKey)) return;
+          // The route itself has already changed; re-use its current entry rather
+          // than leaving a marker attached to a different route.
+          writeTransientEntry(key, true);
+          return;
+        }
+        // The previously marked surface is still open underneath this one, so
+        // this is a nested overlay and deserves its own stack entry.
+        writeTransientEntry(key, false);
+        lastTransientKey = key;
+        return;
+      }
+      writeTransientEntry(key, false);
+      lastTransientKey = key;
+      return;
+    }
+
+    const previousKey = lastTransientKey;
+    lastTransientKey = '';
+    if (state.ovyxTransientBack &&
+        (!state.ovyxRoute || String(state.ovyxRoute).replace(/^view-/, '').toLowerCase() === route())) {
+      trimCurrentTransientEntry(String(state.ovyxTransientKey || previousKey || ''));
+    }
+  }
+
   function hasActiveStudioTask() {
     if (route() !== 'webstudio') return false;
     const studio = window.WebStudio || {};
@@ -480,7 +674,7 @@
   }
 
   function consumeHistoryBack(event, reason, scope, closed) {
-    saveCurrentRouteEntry(event?.state);
+    saveCurrentRouteEntry(event);
     lastPopstateResult = {
       at: Date.now(),
       handled: true,
@@ -496,6 +690,23 @@
   }
 
   function handleHistoryPop(event) {
+    if (transientTrimPending) {
+      transientTrimPending = false;
+      transientTrimToken += 1;
+      if (transientTrimTimer) clearTimeout(transientTrimTimer);
+      transientTrimTimer = 0;
+      lastTransientKey = currentTransientKey();
+      lastPopstateResult = {
+        at: Date.now(),
+        handled: true,
+        reason: 'dismissed-transient-entry-trimmed',
+        route: route(),
+        scopeId: '',
+        closed: true
+      };
+      try { event?.stopImmediatePropagation?.(); event?.stopPropagation?.(); } catch (_) {}
+      return true;
+    }
     lastPopstateResult = {
       at: Date.now(),
       handled: false,
@@ -550,9 +761,15 @@
     if (!navigation || typeof navigation.back !== 'function' || navigation.back.__ovyxScopedRollbackWrapped) return;
     const original = navigation.back.bind(navigation);
     const wrapped = function () {
-      if (closeLocalSurfaceForBack()) return true;
+      const activeKey = currentTransientKey();
+      if (closeLocalSurfaceForBack()) {
+        trimCurrentTransientEntry(activeKey);
+        lastTransientKey = currentTransientKey();
+        return true;
+      }
       const scope = topOpenScope();
       if (scope) {
+        const scopeKey = overlayHistoryKey(scope);
         if (!snapshots.has(scope)) {
           const openingProject = pendingOpen && Date.now() - pendingOpen.at < 800
             ? pendingOpen.project
@@ -562,7 +779,8 @@
         }
         restore(scope, 'system-back');
         closeScope(scope);
-        saveCurrentRouteEntry();
+        trimCurrentTransientEntry(scopeKey);
+        lastTransientKey = currentTransientKey();
         return true;
       }
       return original.apply(this, arguments);
@@ -587,6 +805,7 @@
       }
       visibility.set(scope, now);
     });
+    syncTransientHistory();
   }
 
   function install() {
@@ -624,6 +843,7 @@
     window.addEventListener('popstate', handleHistoryPop, true);
     wrapNavigationBack();
     scan();
+    syncTransientHistory();
   }
 
   window.OVYXScopedRollback = {
