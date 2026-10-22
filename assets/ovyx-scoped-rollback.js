@@ -47,6 +47,15 @@
       project: index >= 0 ? clone(projects[index]) : active ? clone(active) : null,
       projectIndex: index,
       projectIds: projects.map(item => String(item?.id || '')).filter(Boolean),
+      // Keep in-memory snapshots of existing project records so an account-
+      // gated save or hydration reset cannot wipe unrelated project cards.
+      // Existing records are restored only if they disappeared; their newer
+      // content is never overwritten unless the project was the active scope.
+      projectList: projects.map((item, index) => ({
+        id: String(item?.id || ''),
+        index,
+        snapshot: clone(item)
+      })).filter(item => item.id),
       capturedAt: Date.now()
     };
   }
@@ -85,13 +94,30 @@
     const originalId = String(snapshot.activeId || '');
     let changed = false;
 
-    // If Cancel created a new draft project, remove only that newly-created
-    // active draft. Existing projects are never bulk-reset or deleted.
+    // Discard an active project created during this scoped draft, but never
+    // remove an older project just because account/session hydration replaced
+    // the in-memory collection.
     if (currentId && !knownIds.has(currentId)) {
       const length = state.projects.length;
       state.projects = state.projects.filter(item => String(item?.id || '') !== currentId);
       changed = changed || length !== state.projects.length;
     }
+
+    // An unrelated runtime (especially the guest save guard) may have cleared
+    // the whole project list while the modal/task was active. Reinsert only
+    // snapshot records whose IDs are now missing; do not roll back changes to
+    // any unrelated project that is still present.
+    (Array.isArray(snapshot.projectList) ? snapshot.projectList : []).forEach(record => {
+      const id = String(record?.id || record?.snapshot?.id || '');
+      if (!id || state.projects.some(item => String(item?.id || '') === id)) return;
+      const projectCopy = clone(record.snapshot);
+      if (!projectCopy || typeof projectCopy !== 'object') return;
+      const insertAt = Number.isInteger(record.index)
+        ? Math.max(0, Math.min(record.index, state.projects.length))
+        : state.projects.length;
+      state.projects.splice(insertAt, 0, projectCopy);
+      changed = true;
+    });
 
     let original = null;
     if (originalId && snapshot.project) {
