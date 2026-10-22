@@ -509,6 +509,11 @@ try {
     dialog.style.cssText = 'position:fixed;inset:15%;z-index:2147483647;background:#080808;color:white;display:block';
     dialog.innerHTML = '<div><p>Temporary test dialog</p><button type="button" data-modal-close>Close</button></div>';
     document.body.appendChild(dialog);
+    // Ensure this creates a fresh same-document Back target even after previous
+    // route/modal scenarios have rewritten the current history branch.
+    history.pushState(Object.assign({}, history.state || {}, {
+      ovyxRoute: 'webstudio', ovyxShell: true, ovyxBackOverlayFixture: Date.now()
+    }), document.title, location.href);
     const top = window.OVYXScopedRollback?.topOpenScope?.();
     if (top !== dialog) {
       throw new Error('The regression overlay is not the top rollback scope. Selected: '
@@ -550,6 +555,9 @@ try {
     const ws = document.getElementById('view-webstudio');
     ws?.setAttribute('data-ws-code-open', '0');
     document.body.classList.remove('ovyx-ws-nav-open', 'ovyx-ws-mobile-nav-open');
+    history.pushState(Object.assign({}, history.state || {}, {
+      ovyxRoute: 'webstudio', ovyxShell: true, ovyxBackPreviewFixture: Date.now()
+    }), document.title, location.href);
     const studio = window.WebStudio;
     const originalAbort = studio.abortActiveAi;
     window.__ovyxBackTestOriginalAbort = originalAbort;
@@ -605,6 +613,9 @@ try {
     const clone = value => JSON.parse(JSON.stringify(value));
     const fixture = window.__ovyxBackTestFixture;
     const project = window.KernelState.projects.find(item => item.id === fixture.id);
+    history.pushState(Object.assign({}, history.state || {}, {
+      ovyxRoute: 'webstudio', ovyxShell: true, ovyxBackTaskFixture: Date.now()
+    }), document.title, location.href);
     window.KernelState.activeProject = project;
     studio.project = project;
     studio.graph = clone(project.ovyxGraph);
