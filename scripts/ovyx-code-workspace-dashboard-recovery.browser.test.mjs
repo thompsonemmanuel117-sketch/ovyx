@@ -269,7 +269,7 @@ try{
        mistake the intentionally topmost startup layer for a scroll blocker. */
     await dockPage.waitForFunction(()=>!document.getElementById('ovyx-first-paint-curtain')
       &&!document.documentElement.hasAttribute('data-ovyx-stabilizing'),
-      null,{timeout:18000});
+      null,{timeout:5000});
     await dockPage.evaluate(()=>window.OVYXMobileDockAuthority?.sync?.());
     await dockPage.waitForFunction(()=>document.body.classList.contains('ovyx-v88-dock-home')
       &&getComputedStyle(document.getElementById('ovyx-v52-bottom-bar')).display!=='none',
