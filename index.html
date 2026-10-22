@@ -10143,7 +10143,7 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
   function keepCurrentRouteEntry(route){
     try{
       var state=history.state&&typeof history.state==='object'?history.state:{};
-      history.pushState(Object.assign({},state,{ovyxRoute:clean(route||currentRoute()),ovyxShell:true}),document.title,location.href);
+      history.pushState(routeHistoryState(route||currentRoute(),state),document.title,location.href);
     }catch(e){console.warn('[OVYX mobile Back history]',e)}
   }
   function back(){
@@ -10151,6 +10151,7 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
     if(overlay){closeOverlay(overlay);return true}
     var drawer=document.getElementById('mobile-drawer');
     if(drawer&&(drawer.classList.contains('open')||drawer.classList.contains('is-open')||document.body.classList.contains('ovyx-drawer-open'))){try{window.MobileDrawer?.close?.()}catch(e){};return true}
+    if(runRegisteredBackHandlers('back-button'))return true;
     var current=clean(window.KernelState?.activeView||currentRoute());
     if(current==='webstudio'&&closeWebStudioSurfaceForBack())return true;
     if(current==='webstudio'&&hasActiveWebStudioTask()){
@@ -10226,7 +10227,9 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
   function installHistory(){
     if(!window.history||!history.pushState)return;
     var current=currentRoute();
-    try{history.replaceState(Object.assign({},history.state||{},{ovyxRoute:current,ovyxShell:true}),document.title,location.href)}catch(e){}
+    try{history.replaceState(routeHistoryState(current,history.state||{}),document.title,location.href)}catch(e){}
+    installSettingsHistory();
+    window.addEventListener('ovyx-settings-rendered',installSettingsHistory,{passive:true});
     if(window.Router?.go && !window.Router.__OVYXV665Wrapped){
       baseGo=window.Router.go.bind(window.Router);
       var wrapped=function(view){
@@ -10235,7 +10238,7 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
         var after=currentRoute();
         if(after&&after!==before&&!handlingPop&&!window.__OVYXV665_SUPPRESS_HISTORY
           && Date.now()>bootUntil&&clean(history.state?.ovyxRoute||'')!==after){
-          try{history.pushState(Object.assign({},history.state||{},{ovyxRoute:after,ovyxShell:true}),document.title,location.href)}catch(e){}
+          try{history.pushState(routeHistoryState(after,history.state||{}),document.title,location.href)}catch(e){}
         }
         return result;
       };
@@ -10251,9 +10254,15 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
     window.addEventListener('ovyx:view-changed',function(event){
       if(handlingPop||window.__OVYXV665_SUPPRESS_HISTORY||Date.now()<=bootUntil)return;
       var route=clean(event&&event.detail&&event.detail.view||currentRoute());
-      if(!route||clean(history.state&&history.state.ovyxRoute||'')===route)return;
+      if(!route)return;
+      if(clean(history.state&&history.state.ovyxRoute||'')===route){
+        if(route==='settings'&&clean(history.state&&history.state.ovyxSettingsPanel||'')!==currentSettingsPanel()){
+          try{history.replaceState(routeHistoryState(route,history.state||{}),document.title,location.href)}catch(e){}
+        }
+        return;
+      }
       try{
-        history.pushState(Object.assign({},history.state||{},{ovyxRoute:route,ovyxShell:true}),document.title,location.href);
+        history.pushState(routeHistoryState(route,history.state||{}),document.title,location.href);
       }catch(e){console.warn('[OVYX route history]',e)}
     },false);
     window.addEventListener('popstate',function(){
@@ -10261,6 +10270,7 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
       if(overlay){closeOverlay(overlay);keepCurrentRouteEntry(currentRoute());return}
       var drawer=document.getElementById('mobile-drawer');
       if(drawer&&(drawer.classList.contains('open')||drawer.classList.contains('is-open')||document.body.classList.contains('ovyx-drawer-open'))){try{window.MobileDrawer?.close?.()}catch(e){};keepCurrentRouteEntry(currentRoute());return}
+      if(runRegisteredBackHandlers('popstate')){keepCurrentRouteEntry(currentRoute());return}
       var current=currentRoute();
       // Back should unwind Web Studio's topmost local surface before it leaves
       // the workspace. The next Back press can then navigate to the prior route.
@@ -10279,8 +10289,20 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
         return;
       }
       var route=clean(history.state?.ovyxRoute||'home');
+      var targetSettingsPanel=String(history.state?.ovyxSettingsPanel||'').trim().toLowerCase();
+      if(current==='settings'&&route==='settings'&&targetSettingsPanel&&targetSettingsPanel!==currentSettingsPanel()){
+        handlingPop=true;
+        try{window.OVYXSettings?.show?.(targetSettingsPanel)}finally{handlingPop=false}
+        return;
+      }
       if(!baseGo&&window.Router?.go)baseGo=window.Router.go.bind(window.Router);
-      if(baseGo){handlingPop=true;try{baseGo(route)}finally{handlingPop=false}}
+      if(baseGo){
+        handlingPop=true;
+        try{
+          baseGo(route);
+          if(route==='settings'&&targetSettingsPanel&&targetSettingsPanel!==currentSettingsPanel())window.OVYXSettings?.show?.(targetSettingsPanel);
+        }finally{handlingPop=false}
+      }
     },{passive:true});
   }
   function installCancelBack(){
