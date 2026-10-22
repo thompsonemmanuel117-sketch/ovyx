@@ -3,13 +3,14 @@
   if (window.__OVYX_SCOPED_ROLLBACK_V1__) return;
   window.__OVYX_SCOPED_ROLLBACK_V1__ = true;
 
-  const VERSION = '20261022-9';
+  const VERSION = '20261022-10';
   const snapshots = new WeakMap();
   const visibility = new WeakMap();
   const inlineDisplayBeforeClose = new WeakMap();
   const scopeSelector = '[data-rollback-scope], [role="dialog"], [aria-modal="true"], dialog, [id$="-modal"], .modal, .ovyx-modal, .ovyx-ws-plan-modal, .ovyx-ws-history-modal, .ovyx-preview-portal-modal, .ovyx-v655-support-shell, .ovyx-v84-support-modal';
   let pendingOpen = null;
   let restoring = false;
+  let overlayHistoryOpen = false;
   let lastPopstateResult = {
     at: 0,
     handled: false,
@@ -678,11 +679,27 @@
     navigation.back = wrapped;
   }
 
+  function pushOverlayHistoryEntry() {
+    try {
+      const state = history.state && typeof history.state === 'object' ? history.state : {};
+      history.pushState(Object.assign({}, state, {
+        ovyxRoute: route(),
+        ovyxShell: true
+      }), document.title, location.href);
+      return true;
+    } catch (error) {
+      console.warn('[OVYX scoped rollback] Could not add a browser Back entry for an overlay', error);
+      return false;
+    }
+  }
+
   function scan() {
     const candidates = Array.from(document.querySelectorAll(scopeSelector));
+    let hasOpenScope = false;
     candidates.forEach(scope => {
       restoreDisplayIfReopened(scope);
       const now = visible(scope);
+      if (now) hasOpenScope = true;
       const was = visibility.get(scope);
       if (now && was !== true && !snapshots.has(scope)) {
         const project = pendingOpen && Date.now() - pendingOpen.at < 800
@@ -693,6 +710,11 @@
       }
       visibility.set(scope, now);
     });
+    // Native/browser Back only emits popstate when there is a same-document
+    // history entry to traverse. Add one on the first visible-overlay edge,
+    // rather than relying on tests or individual overlay handlers to seed it.
+    if (hasOpenScope && !overlayHistoryOpen) pushOverlayHistoryEntry();
+    overlayHistoryOpen = hasOpenScope;
   }
 
   function install() {
