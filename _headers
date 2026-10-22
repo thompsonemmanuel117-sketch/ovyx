@@ -3,6 +3,9 @@
 
 /ovyx-tab-v6.svg
   Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: geolocation=(), microphone=(self), camera=()
 
 /ovyx-tab-v7.svg
   Cache-Control: no-store, no-cache, must-revalidate, max-age=0
