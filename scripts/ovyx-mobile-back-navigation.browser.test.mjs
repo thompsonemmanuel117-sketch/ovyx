@@ -20,21 +20,13 @@ async function waitForRoute(page, expected) {
   });
 }
 
-async function triggerHistoryBack(page) {
-  const count = await page.evaluate(() => {
-    try { return Number(JSON.parse(sessionStorage.getItem('__ovyxTestPopState') || '{"count":0}').count || 0); }
-    catch (_) { return 0; }
-  });
-  // Browser Back is a same-document history traversal in this SPA. Trigger
-  // the History API traversal and wait for the early capture-phase popstate
-  // probe, which still records the gesture before OVYX consumes it for a modal.
+async function triggerHistoryBack(page, completed) {
+  // Browser Back is a same-document history traversal in this SPA. Assert the
+  // expected UI transition, not a document-load event or a global event counter.
   await page.evaluate(() => window.history.back());
   try {
-    await page.waitForFunction(previous => {
-      try { return Number(JSON.parse(sessionStorage.getItem('__ovyxTestPopState') || '{"count":0}').count || 0) > previous; }
-      catch (_) { return false; }
-    }, count, {
-      timeout: 10000,
+    await page.waitForFunction(done => typeof done === 'function' && done(), completed, {
+      timeout: 15000,
     });
   } catch (error) {
     const diagnostic = await page.evaluate(() => ({
@@ -49,22 +41,15 @@ async function triggerHistoryBack(page) {
     })).catch(e => ({ diagnosticUnavailable: String(e) }));
     throw new Error(String(error.message || error) + ' | Back navigation diagnostic: ' + JSON.stringify(diagnostic));
   }
-  await page.waitForTimeout(60);
+  await page.waitForTimeout(80);
 }
 
-async function triggerHistoryForward(page) {
-  const count = await page.evaluate(() => {
-    try { return Number(JSON.parse(sessionStorage.getItem('__ovyxTestPopState') || '{"count":0}').count || 0); }
-    catch (_) { return 0; }
-  });
+async function triggerHistoryForward(page, completed) {
   await page.evaluate(() => window.history.forward());
-  await page.waitForFunction(previous => {
-    try { return Number(JSON.parse(sessionStorage.getItem('__ovyxTestPopState') || '{"count":0}').count || 0) > previous; }
-    catch (_) { return false; }
-  }, count, {
-    timeout: 10000,
+  await page.waitForFunction(done => typeof done === 'function' && done(), completed, {
+    timeout: 15000,
   });
-  await page.waitForTimeout(60);
+  await page.waitForTimeout(80);
 }
 
 const browser = await chromium.launch({ headless: true });
@@ -169,10 +154,10 @@ try {
     timeOrigin: performance.timeOrigin,
   }));
   console.log('[OVYX Back test] route history before Projects Back:', JSON.stringify(routeHistoryDebug));
-  await triggerHistoryBack(page);
+  await triggerHistoryBack(page, () => window.KernelState?.activeView === 'appstudio');
   assert.equal(await page.evaluate(() => window.KernelState?.activeView), 'appstudio',
     'Back from Projects must return to App Studio, not reset or skip the prior view.');
-  await triggerHistoryBack(page);
+  await triggerHistoryBack(page, () => window.KernelState?.activeView === 'home');
   assert.equal(await page.evaluate(() => window.KernelState?.activeView), 'home',
     'A second Back must return from App Studio to the previous Home view.');
 
@@ -256,7 +241,7 @@ try {
   assert.equal(settingHistoryBeforeBack.current, 'profile', 'The nested Settings fixture must end on Profile.');
   assert.equal(settingHistoryBeforeBack.state?.ovyxSettingsPanel, 'profile',
     'Each Settings category transition must get its own history entry.');
-  await triggerHistoryBack(page);
+  await triggerHistoryBack(page, () => window.KernelState?.activeView === 'settings' && window.OVYXSettings?.current === 'appearance');
   const settingHistoryAfterBack = await page.evaluate(() => ({
     length: window.history.length,
     state: window.history.state,
@@ -269,7 +254,7 @@ try {
     'Back through Settings must stay on the Settings route.');
   assert.equal(settingHistoryAfterBack.current, 'appearance',
     'Back must return from Profile to the previous Settings category. Actual: '+JSON.stringify(settingHistoryAfterBack));
-  await triggerHistoryBack(page);
+  await triggerHistoryBack(page, () => window.KernelState?.activeView === 'settings' && window.OVYXSettings?.current === 'general');
   assert.equal(await page.evaluate(() => window.OVYXSettings.current), 'general',
     'A second Back must return to the previous Settings category again.');
 
@@ -450,7 +435,18 @@ try {
     // Do not call the account-gated save in this guest fixture; its contract
     // is to clear guest projects, which is unrelated to cancelling this modal.
   });
-  await triggerHistoryBack(page);
+  await triggerHistoryBack(page, () => {
+    const d = document.getElementById('ovyx-mobile-back-project-modal');
+    const state = window.KernelState;
+    const f = window.__ovyxBackTestFixture;
+    const project = state?.projects?.find(item => item.id === f?.id);
+    return state?.activeView === 'appstudio'
+      && (!d || !d.classList.contains('open'))
+      && state?.activeProject?.id === f?.id
+      && project?.name === 'Back Safety Baseline Project'
+      && (project?.pages || []).length === 1
+      && !state.projects.some(item => item.id === 'ovyx-back-test-new-draft');
+  });
   const globalRollback = await page.evaluate(() => {
     const fixture = window.__ovyxBackTestFixture;
     const state = window.KernelState;
@@ -510,7 +506,11 @@ try {
     dialog.innerHTML = '<div><p>Temporary test dialog</p><button type="button" data-modal-close>Close</button></div>';
     document.body.appendChild(dialog);
   });
-  await triggerHistoryBack(page);
+  await triggerHistoryBack(page, () => {
+    const d = document.getElementById('ovyx-mobile-back-regression-modal');
+    return window.KernelState?.activeView === 'webstudio'
+      && (!d || !d.classList.contains('open'));
+  });
   const modalBack = await page.evaluate(() => ({
     route: window.KernelState?.activeView,
     modalOpen: !!document.getElementById('ovyx-mobile-back-regression-modal')
@@ -550,7 +550,8 @@ try {
   });
   assert.equal(await page.evaluate(() => document.body.classList.contains('ovyx-ws-mobile-preview-open')), true,
     'The mobile Preview fixture must open before the system Back test.');
-  await triggerHistoryBack(page);
+  await triggerHistoryBack(page, () => window.KernelState?.activeView === 'webstudio'
+  && !document.body.classList.contains('ovyx-ws-mobile-preview-open'));
   const previewBack = await page.evaluate(() => ({
     route: window.KernelState?.activeView,
     previewOpen: document.body.classList.contains('ovyx-ws-mobile-preview-open'),
@@ -577,10 +578,10 @@ try {
     const studio = window.WebStudio;
     if (window.__ovyxBackTestOriginalAbort) studio.abortActiveAi = window.__ovyxBackTestOriginalAbort;
   });
-  await triggerHistoryBack(page);
+  await triggerHistoryBack(page, () => window.KernelState?.activeView === 'settings');
   assert.equal(await page.evaluate(() => window.KernelState?.activeView), 'settings',
     'The next Back should navigate to the previous app view after Preview has closed.');
-  await triggerHistoryForward(page);
+  await triggerHistoryForward(page, () => window.KernelState?.activeView === 'webstudio');
   assert.equal(await page.evaluate(() => window.KernelState?.activeView), 'webstudio',
     'Forward should restore Web Studio after the previous-view Back test.');
 
@@ -618,7 +619,15 @@ try {
     window.ProjectStore?.save?.();
   });
 
-  await triggerHistoryBack(page);
+  await triggerHistoryBack(page, () => {
+    const studio = window.WebStudio;
+    const state = window.KernelState;
+    return state?.activeView === 'webstudio'
+      && !studio?.pendingBuild
+      && !studio?.liveAiActive
+      && Number(studio?.__ovyxTaskInFlightCount || 0) === 0
+      && Number(window.__OVYX_WEBSTUDIO_TASK_SESSION_V2__?.inFlightCount || 0) === 0;
+  });
   const taskBack = await page.evaluate(() => {
     const fixture = window.__ovyxBackTestFixture;
     const state = window.KernelState;
@@ -676,7 +685,7 @@ try {
 
   // Once rollback finishes, Back should work as ordinary route navigation and
   // leave the restored project available if the user returns later.
-  await triggerHistoryBack(page);
+  await triggerHistoryBack(page, () => window.KernelState?.activeView === 'settings');
   assert.equal(await page.evaluate(() => window.KernelState?.activeView), 'settings',
     'After the active task is safely rolled back, the next Back should leave Web Studio.');
   const finalProject = await page.evaluate(() => ({
