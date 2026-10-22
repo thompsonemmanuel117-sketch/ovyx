@@ -22,9 +22,11 @@ async function waitForRoute(page, expected) {
 
 async function triggerHistoryBack(page) {
   const count = await page.evaluate(() => Number(window.__ovyxBackTestPopCount || 0));
-  // Use Playwright's browser-level history traversal to model the browser/
-  // Android Back gesture, not a page-side call to history.back().
-  await page.goBack({ waitUntil: 'domcontentloaded', timeout: 10000 });
+  // Browser Back is a same-document history traversal in this SPA. Trigger
+  // the History API traversal and wait for its popstate signal; page.goBack()
+  // waits for document lifecycle milestones and can time out even when a
+  // same-document Back has been correctly consumed by an overlay.
+  await page.evaluate(() => window.history.back());
   try {
     await page.waitForFunction(previous => Number(window.__ovyxBackTestPopCount || 0) > previous, count, {
       timeout: 10000,
@@ -47,7 +49,7 @@ async function triggerHistoryBack(page) {
 
 async function triggerHistoryForward(page) {
   const count = await page.evaluate(() => Number(window.__ovyxBackTestPopCount || 0));
-  await page.goForward({ waitUntil: 'domcontentloaded', timeout: 10000 });
+  await page.evaluate(() => window.history.forward());
   await page.waitForFunction(previous => Number(window.__ovyxBackTestPopCount || 0) > previous, count, {
     timeout: 10000,
   });
@@ -103,7 +105,7 @@ try {
       current.states.push(event.state || null);
       if (current.states.length > 60) current.states.shift();
       sessionStorage.setItem('__ovyxTestPopState', JSON.stringify(current));
-    });
+    }, true);
   });
 
   const response = await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
@@ -135,7 +137,7 @@ try {
     window.addEventListener('popstate', event => {
       window.__ovyxBackTestPopCount = Number(window.__ovyxBackTestPopCount || 0) + 1;
       window.__ovyxBackTestPopStates.push(event.state || null);
-    });
+    }, true);
   });
 
   // Verify the same route history works outside Web Studio as well.
