@@ -16,16 +16,16 @@ const editorMethods=extractBetween(appShell,'async loadMonacoForCode(){','saveCo
 const syncProjectMethod=extractBetween(appShell,'syncGraphToProject(clearDirty=true){','pageToHtml(page){','production project/source synchronizer');
 const updateCodeMethod=extractBetween(appShell,'updateCodeFromEditor(file,content){','codeLanguage(file){','production editor change handler');
 const previewMethods=extractBetween(appShell,'buildPreviewDocument(page){','runtimeUrl(){','production Desktop preview renderer');
-const mobileScrollStyleMatch=appShell.match(/<style id="ovyx-mobile-scroll-contract-v3">([\\s\\S]*?)<\\/style>/i);
-const mobileScrollRecoveryMatch=appShell.match(/<script id="ovyx-mobile-scroll-recovery-v1">([\\s\\S]*?)<\\/script>/i);
+const mobileScrollStyleMatch=appShell.match(/<style id="ovyx-mobile-scroll-contract-v3">([\s\S]*?)<\/style>/i);
+const mobileScrollRecoveryMatch=appShell.match(/<script id="ovyx-mobile-scroll-recovery-v1">([\s\S]*?)<\/script>/i);
 assert.ok(mobileScrollStyleMatch,'The global mobile scroll contract must be present.');
 assert.match(mobileScrollStyleMatch[1],/overflow-y:auto!important/i,'The routed viewport must accept vertical scrolling.');
 assert.match(mobileScrollStyleMatch[1],/touch-action:pan-y pinch-zoom!important/i,'The routed viewport must permit native touch scrolling.');
-assert.doesNotMatch(mobileScrollStyleMatch[1],/body\\.ovyx-v88-dock-home\\s+#app-container/,'Mobile scrolling must not be limited to the Home dock state.');
+assert.doesNotMatch(mobileScrollStyleMatch[1],/body\.ovyx-v88-dock-home\s+#app-container/,'Mobile scrolling must not be limited to the Home dock state.');
 assert.ok(mobileScrollRecoveryMatch,'The mobile stale-scroll-lock recovery must be present.');
 assert.doesNotThrow(()=>new Function(mobileScrollRecoveryMatch[1]),'The mobile scroll recovery runtime must parse as JavaScript.');
 assert.match(editorMethods,/selectedProjectPage=true/,'Opening an HTML file must select the linked project page.');
-assert.match(editorMethods,/this\\.graph\\.entry=safe/,'HTML file selection must set the source used by Desktop preview.');
+assert.match(editorMethods,/this\.graph\.entry=safe/,'HTML file selection must set the source used by Desktop preview.');
 
 const cssMatch=appShell.match(/<style id="ovyx-code-workspace-interaction-preview-parity">([\s\S]*?)<\/style>/i);
 assert.ok(cssMatch,'The production Code Workspace interaction styles must be present.');
@@ -88,9 +88,9 @@ try{
       ensureProjectGraph(){return this.graph},
       escapeHtml(value){return String(value).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))},
       escapeAttr(value){return this.escapeHtml(value)},
-      escapeHtmlForStyle(value){return String(value??'').replace(/<\\//g,'<\\\\/')},
-      escapeScript(value){return String(value??'').replace(/<\\/script/gi,'<\\\\/script').replace(/<\\/style/gi,'<\\\\/style')},
-      escapeScriptAttr(value){return String(value??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'")},
+      escapeHtmlForStyle(value){return String(value??'')},
+      escapeScript(value){return String(value??'')},
+      escapeScriptAttr(value){return String(value??'')},
       pageToHtml(page){return '<!doctype html><html><head><title>'+String(page?.name||'OVYX')+'</title></head><body></body></html>'},
       codeLanguage(){return 'html'},
       renderCodeTree(){},
@@ -99,7 +99,7 @@ try{
       saveCodeFile(file){return true;},
       ${updateCodeMethod}
       ${previewMethods}
-      runtimeUrl(){return 'fixture://preview'};
+      runtimeUrl(){return 'fixture://preview'},
     };
   `});
   await page.route('**/cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.55.1/min/vs/loader.min.js',async()=>new Promise(()=>{}));
