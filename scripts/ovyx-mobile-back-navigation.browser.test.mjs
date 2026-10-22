@@ -550,9 +550,16 @@ try {
     dialog.setAttribute('aria-hidden', 'false');
     dialog.style.cssText = 'position:fixed;inset:15%;z-index:2147483647;background:rgba(0,0,0,.8);color:white;display:block';
     dialog.innerHTML = '<div class="ovyx-ws-modal-sheet" role="dialog" aria-modal="true" aria-label="Temporary test dialog"><p>Temporary test dialog</p><button type="button" data-modal-close>Close</button></div>';
+    const opener = document.createElement('button');
+    opener.type = 'button';
+    opener.id = 'ovyx-mobile-back-regression-open';
+    opener.textContent = 'Open temporary dialog';
+    opener.addEventListener('click', () => document.body.appendChild(dialog), { once: true });
+    document.body.appendChild(opener);
     window.__ovyxBackTestHistoryBeforeOverlay = history.length;
-    document.body.appendChild(dialog);
-    // Ensure the rollback runtime captures the overlay before a legitimate
+    opener.click();
+    opener.remove();
+    // Ensure the rollback runtime captures the overlay    // Ensure the rollback runtime captures the overlay before a legitimate
     // workspace update arrives independently while this non-project surface is open.
     // Closing this portal must not restore its ambient project snapshot.
     // The runtime, not the test fixture, must create the Back entry.
