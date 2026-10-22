@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { findCloudflareLogErrors } from './cloudflare-diagnostics-log-filter.mjs';
-import { probeApplicationShell } from './cloudflare-application-shell.mjs';
+import { probeApplicationShell, getProjectPublicOrigins } from './cloudflare-application-shell.mjs';
 
 const BASE = 'https://api.cloudflare.com/client/v4';
 const token = String(process.env.CLOUDFLARE_API_TOKEN || '').trim();
@@ -258,20 +258,9 @@ try {
   result.logErrors = findCloudflareLogErrors(lines, sanitizeLine);
   result.runtimeHealth = await probeApplicationHealth(deployment.url);
 
-  // Also probe the stable Pages project hostname users commonly bookmark.
-  // A deployment-specific hash URL being healthy does not prove the canonical
-  // browser/project link has switched to the same currently deployed release.
-  const canonicalHost = String(rawProjectInfo.subdomain || rawProjectInfo.domains?.[0] || '').trim();
-  let canonicalUrl = '';
-  try {
-    if (canonicalHost) canonicalUrl = new URL(/^https?:\/\//i.test(canonicalHost) ? canonicalHost : 'https://' + canonicalHost).origin;
-  } catch {}
-  let deploymentOrigin = '';
-  try { deploymentOrigin = new URL(deployment.url).origin; } catch {}
-  result.canonicalRuntimeHealth = canonicalUrl && canonicalUrl !== deploymentOrigin
-    ? await probeApplicationHealth(canonicalUrl)
-    : { ok: true, status: 'same-origin-or-unavailable', skipped: true, reason: 'No distinct canonical Pages hostname was returned.' };
-
+  // Probe every real public entrypoint, not only the unique deployment URL
+  // and first domain. Users can reach OVYX through the stable Pages hostname
+  // or any attached custom domain, each of which can have a separate stale icon.
   function runtimeFailureReasons(health, label) {
     if (!health || health.ok) return [];
     const reasons = [];
@@ -298,10 +287,50 @@ try {
     return reasons;
   }
 
-  const primaryReasons = runtimeFailureReasons(result.runtimeHealth, 'Deployment URL');
-  if (primaryReasons.length) result.apiErrors.push('Runtime health probe failed: ' + primaryReasons.join('; '));
-  const canonicalReasons = runtimeFailureReasons(result.canonicalRuntimeHealth, 'Canonical Pages URL');
-  if (canonicalReasons.length) result.apiErrors.push('Canonical Pages health probe failed: ' + canonicalReasons.join('; '));
+  const publicOrigins = environment === 'production' ? getProjectPublicOrigins(rawProjectInfo) : [];
+  const originProbes = await Promise.all(publicOrigins.map(async item => ({
+    item,
+    health: await probeApplicationHealth(item.origin),
+  })));
+  result.publicOriginHealth = originProbes.map(({ item, health }) => {
+    const shell = health.applicationShell || {};
+    const icon = shell.browserTabIcon || {};
+    const reasons = runtimeFailureReasons(health, item.primary ? 'Primary Pages hostname' : 'Configured custom domain');
+    return {
+      origin: item.origin,
+      kind: item.kind,
+      primary: item.primary,
+      ok: health.ok === true,
+      status: String(health.status || 'unknown').slice(0, 40),
+      httpStatus: health.httpStatus || null,
+      browserTabIconOk: icon.ok === true,
+      canonicalIconHttpStatus: icon.tabIcon?.httpStatus || null,
+      faviconFallbackHttpStatus: icon.faviconFallback?.httpStatus || null,
+      faviconLockRuntimeOk: shell.requiredRuntimes?.faviconLock?.ok === true,
+      cancelSafetyRuntimeOk: shell.requiredRuntimes?.cancelSafety?.ok === true,
+      cancelSafetyRuntimeVersion: shell.requiredRuntimes?.cancelSafety?.version || null,
+      error: reasons.join('; ').slice(0, 1200),
+    };
+  });
+
+  const primaryOrigin = originProbes.find(({ item }) => item.primary);
+  result.canonicalRuntimeHealth = primaryOrigin
+    ? primaryOrigin.health
+    : { ok: false, status: 'unavailable', error: 'Cloudflare Pages project did not expose its stable public subdomain.' };
+
+  if (environment === 'production' && !primaryOrigin) {
+    result.apiErrors.push('Cloudflare Pages project did not expose a stable primary subdomain; the bookmarked Pages URL could not be verified.');
+  }
+
+  const deploymentReasons = runtimeFailureReasons(result.runtimeHealth, 'Deployment URL');
+  if (deploymentReasons.length) result.apiErrors.push('Runtime health probe failed: ' + deploymentReasons.join('; '));
+
+  for (const check of result.publicOriginHealth) {
+    if (!check.ok) {
+      result.apiErrors.push('Public production origin check failed (' + check.kind + ', ' + check.origin + '): '
+        + (check.error || ('HTTP ' + String(check.httpStatus || 'n/a') + ', status ' + check.status)));
+    }
+  }
 
   const stageStatus = String(deployment.latest_stage?.status || '').toLowerCase();
   const hasDeploymentFailure = ['failure', 'canceled'].includes(stageStatus);
@@ -331,6 +360,17 @@ try {
   console.log(`URL: ${deployment.url || 'n/a'}`);
   console.log(`Detected log errors: ${result.logErrors.length}`);
   console.log(`Runtime API health: ${result.runtimeHealth?.status || 'unknown'} (HTTP ${result.runtimeHealth?.httpStatus || 'n/a'})`);
+  if (environment === 'production') {
+    if (!result.publicOriginHealth.length) console.log('Public production origins: none returned by Cloudflare.');
+    for (const check of result.publicOriginHealth) {
+      console.log('Public origin ' + check.origin + ' (' + check.kind + (check.primary ? ', primary' : '') + '): '
+        + (check.ok ? 'healthy' : 'FAILED')
+        + '; favicon ' + (check.browserTabIconOk ? 'OK' : 'FAILED')
+        + '; favicon lock ' + (check.faviconLockRuntimeOk ? 'OK' : 'FAILED')
+        + '; mobile Cancel runtime ' + (check.cancelSafetyRuntimeOk ? 'OK' : 'FAILED'));
+      if (check.error) console.log('Public origin finding: ' + check.error);
+    }
+  }
   const deploymentShell = result.runtimeHealth?.applicationShell;
   console.log(`Deployment browser tab icon: ${deploymentShell?.browserTabIcon?.ok ? 'verified' : 'FAILED'}`);
   console.log(`Deployment mobile Cancel/rollback runtime: ${deploymentShell?.requiredRuntimes?.cancelSafety?.ok ? 'verified' : 'FAILED'}`);
