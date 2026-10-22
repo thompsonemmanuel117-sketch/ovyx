@@ -682,6 +682,8 @@ try {
     state.activeProject = baseline;
     window.WebStudio.project = baseline;
     window.WebStudio.graph = clone(graph);
+    // Match the canonical graph key used by this isolated project fixture.
+    window.WebStudio.graphKeyPrefix = 'ovyx.graph.';
     localStorage.setItem('ovyx.projects.v22.guest', JSON.stringify(state.projects));
     localStorage.setItem('ovyx.graph.' + fixture.id, JSON.stringify(graph));
     const studio = window.WebStudio;
@@ -738,21 +740,52 @@ try {
     const studio = window.WebStudio;
     const clone = value => JSON.parse(JSON.stringify(value));
     const fixture = window.__ovyxBackTestFixture;
-    const project = window.KernelState.projects.find(item => item.id === fixture.id);
-    window.KernelState.activeProject = project;
+    const state = window.KernelState;
+    const project = state.projects.find(item => item.id === fixture.id);
+    if (!project) throw new Error('Disposable mobile Back project was not hydrated.');
+    state.activeProject = project;
     studio.project = project;
     studio.graph = clone(project.ovyxGraph);
-    studio.callAI = () => new Promise(() => {});
-    window.__ovyxBackTestTaskPromise = studio.runBuildAgent('Build only the disposable Back-navigation fixture.');
-    return true;
+    studio.graphKeyPrefix = 'ovyx.graph.';
+
+    // This local Pages environment has no signed-in provider entitlement, so
+    // invoking the real AI build method exits before an actual request starts.
+    // Install the same window-scoped task snapshot/busy/controller state that
+    // the existing cancel coordinator consumes, with no provider network call.
+    window.OVYXWebStudioCancelSafety?.install?.();
+    const session = window.__OVYX_WEBSTUDIO_TASK_SESSION_V2__
+      || (window.__OVYX_WEBSTUDIO_TASK_SESSION_V2__ = {
+        generation: 0, inFlightCount: 0, fetchInFlightCount: 0, snapshot: null,
+        activeMethod: '', activeStudio: null, controllers: new Set(), armed: false, armedAt: 0
+      });
+    if (!(session.controllers instanceof Set)) session.controllers = new Set();
+    const startedAt = Date.now();
+    const snapshot = {
+      projectId: String(project.id),
+      project: clone(project),
+      graph: clone(studio.graph),
+      startedAt
+    };
+    session.generation = Number(session.generation || 0) + 1;
+    session.inFlightCount = 1;
+    session.fetchInFlightCount = 0;
+    session.snapshot = snapshot;
+    session.activeMethod = 'runBuildAgent';
+    session.activeStudio = studio;
+    session.armed = false;
+    session.armedAt = 0;
+    session.controllers.clear();
+    const controller = new AbortController();
+    session.controllers.add(controller);
+    studio.activeAbortController = controller;
+    studio.pendingBuild = true;
+    studio.liveAiActive = true;
+    studio.__ovyxTaskRollbackSnapshot = snapshot;
+    studio.__ovyxTaskGeneration = session.generation;
+    studio.__ovyxTaskInFlightCount = 1;
+    studio.__ovyxActiveTaskMethod = 'runBuildAgent';
+    window.__ovyxBackTestController = controller;
   });
-  await page.waitForFunction(() => {
-    const studio = window.WebStudio;
-    const session = window.__OVYX_WEBSTUDIO_TASK_SESSION_V2__;
-    return !!(studio && (studio.pendingBuild || studio.liveAiActive)
-      && session?.snapshot
-      && Number(session.inFlightCount || 0) > 0);
-  }, null, { timeout: 10000 });
   await page.evaluate(() => {
     const clone = value => JSON.parse(JSON.stringify(value));
     const fixture = window.__ovyxBackTestFixture;
