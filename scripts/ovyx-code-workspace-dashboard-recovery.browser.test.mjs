@@ -65,6 +65,12 @@ try{
   const outcome=await page.evaluate(async()=>await window.fixtureEditor.loadMonacoForCode());
   assert.equal(outcome,false,'A stalled Monaco load must resolve to the editable fallback instead of waiting forever.');
   assert.ok(Date.now()-started<6500,'The fallback should become available within a bounded timeout.');
+  // setContent() creates an opaque origin in Chromium. Supply a scoped in-memory
+  // storage shim so the real production editor methods can be exercised there.
+  await page.evaluate(()=>{
+    const memoryStorage=()=>{const values=new Map();return {get length(){return values.size},key(index){return Array.from(values.keys())[index]??null},getItem(key){const k=String(key);return values.has(k)?values.get(k):null},setItem(key,value){values.set(String(key),String(value))},removeItem(key){values.delete(String(key))},clear(){values.clear()}}};
+    for(const key of ['localStorage','sessionStorage'])Object.defineProperty(window,key,{configurable:true,value:memoryStorage()});
+  });
   await page.evaluate(()=>window.fixtureEditor.openCodeFile('src/pages/Home.html'));
   const editor=page.locator('#ovyx-fallback-editor');
   await editor.waitFor({state:'visible'});
