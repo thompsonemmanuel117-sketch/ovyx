@@ -116,7 +116,7 @@ assert.ok(middleware.includes("element.prepend('<link rel="), 'The brand-mark fa
 assert.ok(middleware.includes('/assets/ovyx-shell-favicon-lock.js?v=20261021-3'), 'A dedicated shell favicon lock must be installed synchronously in the head before application scripts run.');
 assert.ok(middleware.includes("url.pathname.toLowerCase().endsWith('/favicon.ico')"), 'The browser implicit favicon route must serve the real OVYX mark instead of any legacy icon file.');
 assert.ok(middleware.includes("url.pathname === '/ovyx-tab-v6.svg'"), 'The favicon lock must use a fresh unique SVG route to avoid stale Chrome favicon cache entries.');
-assert.ok(middleware.includes("ovyx-webstudio-cancel-safety.js?v=20261022-1"), 'The shell must load the browser-persistent rollback runtime version.');
+assert.ok(middleware.includes("ovyx-webstudio-cancel-safety.js?v=20261022-2"), 'The shell must load the browser-persistent rollback runtime version.');
 
 assert.ok(middleware.includes("if (!contentType.includes('text/html')) return response;"), 'The favicon and application shell protections must run on HTML reloads beyond the root path.');
 assert.ok(!middleware.includes("url.pathname !== '/' && url.pathname !== '/index.html'"), 'Nested app routes must not bypass favicon replacement and cache protection.');
