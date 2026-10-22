@@ -820,6 +820,11 @@ try {
         return String(saved.files?.['src/pages/Home.html']?.content || '');
       } catch (_) { return ''; }
     })();
+    const persistedProjects = (() => {
+      try { return JSON.parse(localStorage.getItem('ovyx.projects.v22.guest') || '[]'); }
+      catch (_) { return []; }
+    })();
+    const persistedOther = persistedProjects.find(item => item.id === fixture.otherId);
     return {
       route: state?.activeView,
       projectId: state?.activeProject?.id,
@@ -829,6 +834,7 @@ try {
       projectHtml: project?.ovyxGraph?.files?.['src/pages/Home.html']?.content || '',
       persisted,
       otherName: other?.name,
+      persistedOtherName: persistedOther?.name,
       pendingBuild: !!studio?.pendingBuild,
       liveAiActive: !!studio?.liveAiActive,
       taskCount: Number(studio?.__ovyxTaskInFlightCount || 0),
@@ -853,7 +859,9 @@ try {
   assert.match(taskBack.persisted, /BASELINE WORK MUST SURVIVE/,
     'The last-good graph must be written to project storage during Back rollback.');
   assert.equal(taskBack.otherName, 'Unrelated Project Must Stay Untouched',
-    'Back rollback must not reset or rename another project.');
+    'Back rollback must preserve unrelated projects in memory.');
+  assert.equal(taskBack.persistedOtherName, 'Unrelated Project Must Stay Untouched',
+    'Back rollback must preserve unrelated projects in the saved project cache too.');
   assert.equal(taskBack.pendingBuild, false, 'The cancelled task must leave no pending-build flag.');
   assert.equal(taskBack.liveAiActive, false, 'The cancelled task must leave no live-AI flag.');
   assert.equal(taskBack.taskCount, 0, 'The cancelled task must release its tracked task count.');

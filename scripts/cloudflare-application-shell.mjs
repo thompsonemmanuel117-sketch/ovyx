@@ -79,7 +79,7 @@ const REQUIRED_RUNTIMES = [
     id: 'cancelSafety',
     label: 'Web Studio mobile Cancel and rollback',
     path: '/assets/ovyx-webstudio-cancel-safety.js',
-    expectedVersion: '20261022-1',
+    expectedVersion: '20261022-2',
     signatures: ['__OVYX_WEBSTUDIO_CANCEL_SAFETY_V3__', 'function restoreProjectOnly', 'installBrowserFetchCancellation', 'ovyx.webstudio.rollback.snapshot.v3.', 'coordinator.cancel()', "button.id = 'ws-task-cancel'"],
   },
   {

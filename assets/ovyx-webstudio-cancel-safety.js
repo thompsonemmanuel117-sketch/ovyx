@@ -486,6 +486,10 @@
       return false;
     }
     state.projects = projects;
+    // Preserve the full project list before a legacy save/render callback runs.
+    // Guest-mode persistence can replace KernelState and clear the list; a
+    // scoped cancellation must not delete unrelated projects in that race.
+    const projectListCheckpoint = projects.slice();
 
     const targetIsStillActive = shouldRestoreAsActive;
     if (targetIsStillActive) {
@@ -520,6 +524,12 @@
       const reapplyFinalSnapshot = () => {
         const currentState = getState() || state;
         const latestProjects = Array.isArray(currentState.projects) ? currentState.projects.slice() : [];
+        // Recover the old list only if a save/hydration callback cleared it
+        // wholesale. When the live list still exists, keep current changes and
+        // do not resurrect projects intentionally removed while the task ran.
+        if (latestProjects.length === 0 && projectListCheckpoint.length > 0) {
+          latestProjects.push(...projectListCheckpoint);
+        }
         const finalIndex = latestProjects.findIndex(project => String(project && project.id || '') === targetId);
         if (finalIndex >= 0) latestProjects[finalIndex] = finalProject;
         else latestProjects.push(finalProject);
