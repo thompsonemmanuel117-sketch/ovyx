@@ -115,7 +115,8 @@ try {
       && typeof window.OVYXNavigation?.back === 'function'
       && typeof window.WebStudio?.runBuildAgent === 'function'
       && typeof window.OVYXWebStudioCancelSafety?.cancel === 'function'
-      && typeof window.OVYXScopedRollback?.beforeClose === 'function',
+      && typeof window.OVYXScopedRollback?.beforeClose === 'function'
+      && typeof window.OVYXScopedRollback?.closeLocalSurfaceForBack === 'function',
     null,
     { timeout: 45000 },
   );
