@@ -40,7 +40,8 @@ async function triggerHistoryBack(page, completed) {
       state: window.history.state,
       length: window.history.length,
       popCount: Number(window.__ovyxBackTestPopCount || 0),
-      ops: (window.__ovyxHistoryOps || []).slice(-20),
+      ops: (window.__ovyxHistoryOps || []).slice(-30),
+      routeTrace: (window.__ovyxRouteTrace || []).slice(-80),
       earlyPop: (() => { try { return JSON.parse(sessionStorage.getItem('__ovyxTestPopState') || '{"count":0,"states":[]}'); } catch (_) { return null; } })(),
       scopedRollback: window.OVYXScopedRollback?.diagnostics?.() || null,
       candidateOverlays: [...document.querySelectorAll('[role="dialog"],[aria-modal="true"],dialog,[id$="-modal"],.modal,.ovyx-modal,[data-rollback-scope]')]
@@ -105,12 +106,35 @@ try {
       window.__ovyxHistoryOps = historyOps;
       return result;
     };
+    const trace = [];
+    const recordTrace = entry => {
+      trace.push({ at: performance.now(), ...entry });
+      if (trace.length > 120) trace.shift();
+      window.__ovyxRouteTrace = trace;
+    };
+    window.addEventListener('ovyx:view-changed', event => {
+      recordTrace({
+        kind: 'view',
+        detail: event.detail?.view || '',
+        activeView: window.KernelState?.activeView || '',
+        historyRoute: window.history.state?.ovyxRoute || '',
+        historyPanel: window.history.state?.ovyxSettingsPanel || ''
+      });
+    }, true);
     window.addEventListener('popstate', event => {
       const current = JSON.parse(sessionStorage.getItem('__ovyxTestPopState') || '{"count":0,"states":[]}');
       current.count += 1;
       current.states.push(event.state || null);
       if (current.states.length > 60) current.states.shift();
       sessionStorage.setItem('__ovyxTestPopState', JSON.stringify(current));
+      recordTrace({
+        kind: 'popstate-capture',
+        eventRoute: event.state?.ovyxRoute || '',
+        eventPanel: event.state?.ovyxSettingsPanel || '',
+        activeView: window.KernelState?.activeView || '',
+        historyRoute: window.history.state?.ovyxRoute || '',
+        historyLength: window.history.length
+      });
     }, true);
   });
 
@@ -166,6 +190,14 @@ try {
   }));
   console.log('[OVYX Back test] route history before Projects Back:', JSON.stringify(routeHistoryDebug));
   await triggerHistoryBack(page, 'appstudio');
+  const firstBackTrace = await page.evaluate(() => ({
+    route: window.KernelState?.activeView || '',
+    state: window.history.state,
+    trace: (window.__ovyxRouteTrace || []).slice(-30),
+    ops: (window.__ovyxHistoryOps || []).slice(-20),
+    rollback: window.OVYXScopedRollback?.diagnostics?.() || null
+  }));
+  console.log('[OVYX Back test] after first Projects Back:', JSON.stringify(firstBackTrace));
   assert.equal(await page.evaluate(() => window.KernelState?.activeView), 'appstudio',
     'Back from Projects must return to App Studio, not reset or skip the prior view.');
   await triggerHistoryBack(page, 'home');
@@ -509,12 +541,14 @@ try {
     // so this scenario can assert the precise overlay it opens below.
     for (let i = 0; i < 8 && window.OVYXNavigation.closeTopOverlay(); i += 1) {}
     const dialog = document.createElement('div');
-    dialog.id = 'ovyx-mobile-back-regression-modal';
-    dialog.className = 'modal open';
-    dialog.setAttribute('role', 'dialog');
-    dialog.setAttribute('aria-modal', 'true');
-    dialog.style.cssText = 'position:fixed;inset:15%;z-index:2147483647;background:#080808;color:white;display:block';
-    dialog.innerHTML = '<div><p>Temporary test dialog</p><button type="button" data-modal-close>Close</button></div>';
+    // Match the production Preview portal: the outer overlay root is not itself
+    // a role=dialog and has no "-modal" id suffix; the nested sheet does.
+    // Back must select/close the root, not leave the portal backdrop behind.
+    dialog.id = 'ovyx-mobile-back-regression-portal-root';
+    dialog.className = 'ovyx-preview-portal-modal open';
+    dialog.setAttribute('aria-hidden', 'false');
+    dialog.style.cssText = 'position:fixed;inset:15%;z-index:2147483647;background:rgba(0,0,0,.8);color:white;display:block';
+    dialog.innerHTML = '<div class="ovyx-ws-modal-sheet" role="dialog" aria-modal="true" aria-label="Temporary test dialog"><p>Temporary test dialog</p><button type="button" data-modal-close>Close</button></div>';
     document.body.appendChild(dialog);
     // Ensure this creates a fresh same-document Back target even after previous
     // route/modal scenarios have rewritten the current history branch.
@@ -531,16 +565,16 @@ try {
     }
   });
   await triggerHistoryBack(page, () => {
-    const d = document.getElementById('ovyx-mobile-back-regression-modal');
+    const d = document.getElementById('ovyx-mobile-back-regression-portal-root');
     return window.KernelState?.activeView === 'webstudio'
       && (!d || !d.classList.contains('open'));
   });
   const modalBack = await page.evaluate(() => ({
     route: window.KernelState?.activeView,
-    modalOpen: !!document.getElementById('ovyx-mobile-back-regression-modal')
-      && !document.getElementById('ovyx-mobile-back-regression-modal').hidden
-      && getComputedStyle(document.getElementById('ovyx-mobile-back-regression-modal')).display !== 'none'
-      && document.getElementById('ovyx-mobile-back-regression-modal').classList.contains('open'),
+    modalOpen: !!document.getElementById('ovyx-mobile-back-regression-portal-root')
+      && !document.getElementById('ovyx-mobile-back-regression-portal-root').hidden
+      && getComputedStyle(document.getElementById('ovyx-mobile-back-regression-portal-root')).display !== 'none'
+      && document.getElementById('ovyx-mobile-back-regression-portal-root').classList.contains('open'),
     historyRoute: window.history.state?.ovyxRoute,
   }));
   assert.equal(modalBack.route, 'webstudio',

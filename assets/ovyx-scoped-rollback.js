@@ -3,11 +3,11 @@
   if (window.__OVYX_SCOPED_ROLLBACK_V1__) return;
   window.__OVYX_SCOPED_ROLLBACK_V1__ = true;
 
-  const VERSION = '20261022-6';
+  const VERSION = '20261022-8';
   const snapshots = new WeakMap();
   const visibility = new WeakMap();
   const inlineDisplayBeforeClose = new WeakMap();
-  const scopeSelector = '[data-rollback-scope], [role="dialog"], [aria-modal="true"], dialog, [id$="-modal"], .modal, .ovyx-modal';
+  const scopeSelector = '[data-rollback-scope], [role="dialog"], [aria-modal="true"], dialog, [id$="-modal"], .modal, .ovyx-modal, .ovyx-ws-plan-modal, .ovyx-ws-history-modal, .ovyx-preview-portal-modal, .ovyx-v655-support-shell, .ovyx-v84-support-modal';
   let pendingOpen = null;
   let restoring = false;
   let lastPopstateResult = {
@@ -252,11 +252,17 @@
 
   function findScope(target) {
     if (!target?.closest) return null;
+    // Prefer the overlay/backdrop root over a nested role=dialog content sheet.
+    // Closing only a nested sheet leaves its backdrop open and causes the next
+    // Android Back press to be consumed by the same stale overlay again.
+    const explicit = target.closest('[data-rollback-scope]');
+    if (explicit) return explicit;
+    const overlayRoot = target.closest('.ovyx-ws-plan-modal, .ovyx-ws-history-modal, .ovyx-preview-portal-modal, .ovyx-v655-support-shell, .ovyx-v84-support-modal');
+    if (overlayRoot) return overlayRoot;
     // Settings panels have their own transactional Cancel semantics (notably
     // ThemeContext preview/Cancel). Do not let generic form rollback override
-    // those domain-specific handlers. Only explicit rollback scopes and true
-    // overlay containers are owned by this shared layer.
-    return target.closest('[data-rollback-scope], [role="dialog"], [aria-modal="true"], dialog, [id$="-modal"], .modal, .ovyx-modal');
+    // those domain-specific handlers. Only real dialog scopes are handled here.
+    return target.closest('[role="dialog"], [aria-modal="true"], dialog, [id$="-modal"], .modal, .ovyx-modal');
   }
 
   function labelOf(button) {
@@ -269,11 +275,11 @@
     const label = labelOf(button);
     if (/^(cancel|discard|revert)(\s|$)/.test(label)) return true;
     return /^(back|close|done|dismiss|×|✕|x)(\s|$)/.test(label) &&
-      !!button.closest('[role="dialog"], [aria-modal="true"], dialog, [id$="-modal"], .modal, .ovyx-modal, [data-rollback-scope]');
+      !!button.closest('[role="dialog"], [aria-modal="true"], dialog, [id$="-modal"], .modal, .ovyx-modal, .ovyx-ws-plan-modal, .ovyx-ws-history-modal, .ovyx-preview-portal-modal, .ovyx-v655-support-shell, .ovyx-v84-support-modal, [data-rollback-scope]');
   }
 
   function skipOpenSnapshot(button) {
-    if (!button || button.closest('[role="dialog"], [aria-modal="true"], dialog, [id$="-modal"], .modal, .ovyx-modal, [data-rollback-scope]')) return true;
+    if (!button || button.closest('[role="dialog"], [aria-modal="true"], dialog, [id$="-modal"], .modal, .ovyx-modal, .ovyx-ws-plan-modal, .ovyx-ws-history-modal, .ovyx-preview-portal-modal, .ovyx-v655-support-shell, .ovyx-v84-support-modal, [data-rollback-scope]')) return true;
     if (button.matches('[data-nav], [data-mobile-nav], [data-view], [data-settings-nav], [data-jump], a[href], [data-rollback-ignore]')) return true;
     const action = String(button.getAttribute('onclick') || '');
     if (/Router\.go|switchView|data-nav|data-mobile-nav/.test(action)) return true;
@@ -557,7 +563,14 @@
       if (targetPanel && targetPanel !== activePanel) {
         try {
           if (typeof window.OVYXSettings?.show === 'function') {
-            window.OVYXSettings.show(targetPanel);
+            const previousSuppression = window.__OVYXV665_SUPPRESS_HISTORY;
+            window.__OVYXV665_SUPPRESS_HISTORY = true;
+            try {
+              window.OVYXSettings.show(targetPanel);
+            } finally {
+              if (previousSuppression === undefined) delete window.__OVYXV665_SUPPRESS_HISTORY;
+              else window.__OVYXV665_SUPPRESS_HISTORY = previousSuppression;
+            }
             lastPopstateResult = { at: Date.now(), handled: true, reason: 'settings-panel-history-fallback',
               route: currentRoute, scopeId: targetPanel, closed: false };
             event?.stopImmediatePropagation?.();
@@ -567,7 +580,34 @@
         } catch (error) { console.warn('[OVYX settings Back fallback]', error); }
       }
     }
+    // Some older OVYX runtimes can leave adjacent same-route SPA entries
+    // behind even when the visible route didn't change. If Back lands on an
+    // earlier OVYX shell entry for the route already on screen, consume that
+    // duplicate silently and continue to the next distinct app route. This
+    // prevents a second Back press from appearing to do nothing on Projects,
+    // App Studio, or any other view. Only tagged OVYX shell states are skipped;
+    // external/document history entries are left to the browser.
+    if (targetRoute && targetRoute === currentRoute &&
+        event?.state?.ovyxShell === true) {
+      lastPopstateResult = {
+        at: Date.now(), handled: true, reason: 'duplicate-route-entry-skipped',
+        route: currentRoute, scopeId: '', closed: false
+      };
+      try { event?.stopImmediatePropagation?.(); event?.stopPropagation?.(); } catch (_) {}
+      window.setTimeout(() => {
+        try { window.history.back(); } catch (error) {
+          console.warn('[OVYX duplicate route Back]', error);
+        }
+      }, 0);
+      return true;
+    }
+
     if (targetRoute && targetRoute !== currentRoute && typeof window.Router?.go === 'function') {
+      const previousSuppression = window.__OVYXV665_SUPPRESS_HISTORY;
+      // The popped entry already represents targetRoute. Router.go is used only
+      // to reconcile the visible SPA route; it must not push a second identical
+      // history entry while its legacy/canonical wrappers emit view-changed.
+      window.__OVYXV665_SUPPRESS_HISTORY = true;
       try {
         window.Router.go(targetRoute);
         lastPopstateResult = { at: Date.now(), handled: true, reason: 'route-history-fallback',
@@ -575,7 +615,12 @@
         event?.stopImmediatePropagation?.();
         event?.stopPropagation?.();
         return true;
-      } catch (error) { console.warn('[OVYX route Back fallback]', error); }
+      } catch (error) {
+        console.warn('[OVYX route Back fallback]', error);
+      } finally {
+        if (previousSuppression === undefined) delete window.__OVYXV665_SUPPRESS_HISTORY;
+        else window.__OVYXV665_SUPPRESS_HISTORY = previousSuppression;
+      }
     }
     return false;
   }

@@ -86,7 +86,7 @@ const REQUIRED_RUNTIMES = [
     id: 'scopedRollback',
     label: 'app-wide scoped Cancel and modal rollback',
     path: '/assets/ovyx-scoped-rollback.js',
-    expectedVersion: '20261022-6',
+    expectedVersion: '20261022-8',
     signatures: [
       '__OVYX_SCOPED_ROLLBACK_V1__',
       'window.OVYXScopedRollback',
@@ -96,7 +96,11 @@ const REQUIRED_RUNTIMES = [
       'function closeLocalSurfaceForBack()',
       'function cancelStudioTaskSafely()',
       "window.addEventListener('popstate', handleHistoryPop, true)",
-      'function wrapNavigationBack()'
+      'function wrapNavigationBack()',
+      'function topOpenScope()',
+      '.ovyx-ws-plan-modal',
+      '__OVYXV665_SUPPRESS_HISTORY',
+      'duplicate-route-entry-skipped'
     ],
   },
 ];
