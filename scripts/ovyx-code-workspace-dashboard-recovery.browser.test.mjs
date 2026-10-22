@@ -152,7 +152,7 @@ try{
     #dashboard-action{position:relative;z-index:1;width:180px;height:60px}
     .hidden{display:none!important}
   </style></head><body class="ovyx-drawer-open">
-    <div id="view-router-viewport"><section id="view-home" class="hidden" aria-hidden="true"><button id="dashboard-action" onclick="window.dashboardClicks=(window.dashboardClicks||0)+1">Dashboard action</button></section><section id="view-projects" aria-hidden="false"></section><section id="view-webstudio" class="hidden" aria-hidden="true"><section id="ws-code-workspace" hidden aria-hidden="true"></section><div id="ws-mobile-preview" hidden aria-hidden="true"></div><div id="ws-preview-menu" hidden></div><div id="ws-mode-menu" hidden></div></section></div>
+    <div id="view-router-viewport"><section id="view-home" class="hidden" aria-hidden="true" inert style="pointer-events:none"><button id="dashboard-action" onclick="window.dashboardClicks=(window.dashboardClicks||0)+1">Dashboard action</button></section><section id="view-projects" aria-hidden="false"></section><section id="view-webstudio" class="hidden" aria-hidden="true"><section id="ws-code-workspace" hidden aria-hidden="true"></section><div id="ws-mobile-preview" hidden aria-hidden="true"></div><div id="ws-preview-menu" hidden></div><div id="ws-mode-menu" hidden></div></section></div>
     <aside id="mobile-drawer" class="open" aria-hidden="false"></aside><div id="mobile-drawer-backdrop" aria-hidden="false"></div>
   </body></html>`);
   await homePage.evaluate(()=>{
@@ -172,6 +172,8 @@ try{
   await homePage.evaluate(()=>window.Router.go('home'));
   await homePage.waitForFunction(()=>document.getElementById('view-home')?.classList.contains('hidden')===false
     &&document.getElementById('view-home')?.getAttribute('aria-hidden')==='false'
+    &&document.getElementById('view-home')?.inert===false
+    &&getComputedStyle(document.getElementById('view-home')).pointerEvents!=='none'
     &&document.getElementById('view-projects')?.classList.contains('hidden')===true
     &&document.getElementById('view-projects')?.getAttribute('aria-hidden')==='true'
     &&document.getElementById('mobile-drawer')?.getAttribute('aria-hidden')==='true'
