@@ -284,6 +284,66 @@ try {
   await page.evaluate(() => window.Router.go('appstudio'));
   await waitForRoute(page, 'appstudio');
   await page.waitForFunction(() => window.history.state?.ovyxRoute === 'appstudio', null, { timeout: 10000 });
+  // App Studio route hydration can replace the in-memory project collection.
+  // Re-seed only disposable browser fixtures after that hydration, then take
+  // the modal checkpoint from the stable, selected baseline project.
+  await page.evaluate(() => {
+    const clone = value => JSON.parse(JSON.stringify(value));
+    const fixture = window.__ovyxBackTestFixture;
+    const oldProjects = Array.isArray(window.KernelState?.projects) ? window.KernelState.projects : [];
+    const graph = {
+      version: 2,
+      entry: 'src/pages/Home.html',
+      files: {
+        'src/pages/Home.html': {
+          type: 'text/html',
+          content: String(fixture?.baselineHtml || '<!doctype html><html><body>BASELINE WORK MUST SURVIVE</body></html>'),
+        },
+        'src/styles.css': { type: 'text/css', content: 'body{margin:0}' },
+      },
+    };
+    const baseline = {
+      id: fixture.id,
+      name: 'Back Safety Baseline Project',
+      description: 'Disposable browser regression fixture.',
+      status: 'draft',
+      updatedAt: Date.now(),
+      pages: [{ id: 'home', name: 'Home', slug: '/', sections: [] }],
+      assets: [],
+      revisions: [],
+      ovyxGraph: clone(graph),
+    };
+    const other = {
+      id: fixture.otherId,
+      name: 'Unrelated Project Must Stay Untouched',
+      description: 'Second disposable fixture project.',
+      status: 'draft',
+      updatedAt: Date.now(),
+      pages: [{ id: 'other-home', name: 'Home', slug: '/', sections: [] }],
+      assets: [],
+      revisions: [],
+      ovyxGraph: {
+        version: 2,
+        entry: 'src/pages/Home.html',
+        files: {
+          'src/pages/Home.html': {
+            type: 'text/html',
+            content: '<!doctype html><html><body>UNRELATED PROJECT</body></html>',
+          },
+        },
+      },
+    };
+    window.KernelState.projects = [
+      baseline,
+      other,
+      ...oldProjects.filter(item => ![fixture.id, fixture.otherId, 'ovyx-back-test-new-draft'].includes(String(item?.id || ''))),
+    ];
+    window.KernelState.activeProject = baseline;
+    window.WebStudio.project = baseline;
+    window.WebStudio.graph = clone(graph);
+    try { localStorage.setItem('ovyx.graph.' + fixture.id, JSON.stringify(graph)); } catch (_) {}
+    try { window.ProjectStore?.save?.(); } catch (_) {}
+  });
   await page.evaluate(() => {
     const dialog = document.createElement('div');
     dialog.id = 'ovyx-mobile-back-project-modal';
