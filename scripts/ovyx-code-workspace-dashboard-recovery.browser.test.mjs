@@ -146,7 +146,7 @@ try{
     #dashboard-action{position:relative;z-index:1;width:180px;height:60px}
     .hidden{display:none!important}
   </style></head><body class="ovyx-drawer-open">
-    <div id="view-router-viewport"><section id="view-home" aria-hidden="false"><button id="dashboard-action" onclick="window.dashboardClicks=(window.dashboardClicks||0)+1">Dashboard action</button></section><section id="view-projects" class="hidden" aria-hidden="true"></section><section id="view-webstudio" class="hidden" aria-hidden="true"><section id="ws-code-workspace" hidden aria-hidden="true"></section><div id="ws-mobile-preview" hidden aria-hidden="true"></div><div id="ws-preview-menu" hidden></div><div id="ws-mode-menu" hidden></div></section></div>
+    <div id="view-router-viewport"><section id="view-home" class="hidden" aria-hidden="true"><button id="dashboard-action" onclick="window.dashboardClicks=(window.dashboardClicks||0)+1">Dashboard action</button></section><section id="view-projects" aria-hidden="false"></section><section id="view-webstudio" class="hidden" aria-hidden="true"><section id="ws-code-workspace" hidden aria-hidden="true"></section><div id="ws-mobile-preview" hidden aria-hidden="true"></div><div id="ws-preview-menu" hidden></div><div id="ws-mode-menu" hidden></div></section></div>
     <aside id="mobile-drawer" class="open" aria-hidden="false"></aside><div id="mobile-drawer-backdrop" aria-hidden="false"></div>
   </body></html>`);
   await homePage.evaluate(()=>{
@@ -155,10 +155,7 @@ try{
     window.OVYXMobileShellAuthority={close(){},sync(){}};
     window.Router={go(view){
       window.KernelState.activeView=String(view||'home');
-      document.querySelectorAll('#view-router-viewport>section').forEach(section=>{
-        const on=section.id==='view-'+window.KernelState.activeView;
-        section.classList.toggle('hidden',!on);section.setAttribute('aria-hidden',String(!on));
-      });
+      /* Simulate a navigation wrapper that updates the route but leaves the old view DOM state behind. */
       window.dispatchEvent(new CustomEvent('ovyx:view-changed',{detail:{view:window.KernelState.activeView}}));
       return true;
     }};
@@ -167,7 +164,11 @@ try{
   });
   await homePage.addScriptTag({content:recoveryMatch[1]});
   await homePage.evaluate(()=>window.Router.go('home'));
-  await homePage.waitForFunction(()=>document.getElementById('mobile-drawer')?.getAttribute('aria-hidden')==='true'
+  await homePage.waitForFunction(()=>document.getElementById('view-home')?.classList.contains('hidden')===false
+    &&document.getElementById('view-home')?.getAttribute('aria-hidden')==='false'
+    &&document.getElementById('view-projects')?.classList.contains('hidden')===true
+    &&document.getElementById('view-projects')?.getAttribute('aria-hidden')==='true'
+    &&document.getElementById('mobile-drawer')?.getAttribute('aria-hidden')==='true'
     &&document.getElementById('mobile-drawer-backdrop')?.hidden===true
     &&getComputedStyle(document.getElementById('mobile-drawer-backdrop')).pointerEvents==='none'
     &&document.documentElement.style.overflow===''&&document.body.style.overflow==='');
