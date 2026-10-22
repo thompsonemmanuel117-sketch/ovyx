@@ -230,8 +230,9 @@ if (!fs.existsSync(scopedRollbackPath)) {
     !scopedRollback.includes('.ovyx-ws-plan-modal') ||
     !scopedRollback.includes('__OVYXV665_SUPPRESS_HISTORY') ||
     !scopedRollback.includes('duplicate-route-entry-skipped') ||
+    !scopedRollback.includes('function isHistoryOverlayScope(scope)') ||
     !scopedRollback.includes('function pushOverlayHistoryEntry()') ||
-    !scopedRollback.includes('if (hasOpenScope && !overlayHistoryOpen) pushOverlayHistoryEntry()') ||
+    !scopedRollback.includes('if (openedBackableOverlayByClick && !overlayHistoryOpen) pushOverlayHistoryEntry()') ||
     !scopedRollback.includes('function topOpenScope()') ||
     !scopedRollback.includes('function shouldRestoreProjectScope(scope)') ||
     !scopedRollback.includes('if (restoreProjectCheckpoint) restoreProject(record.project)')
@@ -241,7 +242,7 @@ if (!fs.existsSync(scopedRollbackPath)) {
 }
 if (fs.existsSync(shellMiddlewarePath)) {
   const shellMiddleware = fs.readFileSync(shellMiddlewarePath, 'utf8');
-  if (!shellMiddleware.includes('ovyx-scoped-rollback.js?v=20261022-10')) {
+  if (!shellMiddleware.includes('ovyx-scoped-rollback.js?v=20261022-11')) {
     errors.push('functions/_middleware.js: every application-shell HTML response must inject the app-wide scoped rollback runtime.');
   }
 }
