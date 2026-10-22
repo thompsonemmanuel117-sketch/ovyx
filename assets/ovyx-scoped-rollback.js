@@ -3,10 +3,10 @@
   if (window.__OVYX_SCOPED_ROLLBACK_V1__) return;
   window.__OVYX_SCOPED_ROLLBACK_V1__ = true;
 
-  const VERSION = '20261022-1';
+  const VERSION = '20261022-2';
   const snapshots = new WeakMap();
   const visibility = new WeakMap();
-  const scopeSelector = '[data-rollback-scope], [role="dialog"], [aria-modal="true"], dialog, [id$="-modal"], .modal, .ovyx-modal, [data-settings-panel]';
+  const scopeSelector = '[data-rollback-scope], [role="dialog"], [aria-modal="true"], dialog, [id$="-modal"], .modal, .ovyx-modal';
   let pendingOpen = null;
   let restoring = false;
 
@@ -20,8 +20,17 @@
     .replace(/^view-/, '').trim().toLowerCase();
 
   function visible(scope) {
-    if (!scope || scope.hidden || scope.getAttribute('aria-hidden') === 'true' || scope.hasAttribute('inert')) return false;
-    if (scope.classList?.contains('hidden')) return false;
+    if (!scope || !scope.isConnected) return false;
+    // A modal inside a hidden route is not the top layer. Walk its ancestors
+    // so stale dialogs in inactive views cannot steal the next Back press.
+    for (let parent = scope; parent && parent !== document.documentElement; parent = parent.parentElement) {
+      if (parent.hidden || parent.hasAttribute('inert') || parent.getAttribute('aria-hidden') === 'true' ||
+          parent.classList?.contains('hidden')) return false;
+      try {
+        const parentStyle = getComputedStyle(parent);
+        if (parentStyle.display === 'none' || parentStyle.visibility === 'hidden') return false;
+      } catch (_) { return false; }
+    }
     try {
       const style = getComputedStyle(scope);
       if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
@@ -30,7 +39,7 @@
         scope.getAttribute('aria-modal') === 'true' ||
         scope.getAttribute('role') === 'dialog' ||
         (scope.tagName === 'DIALOG' && scope.open) ||
-        scope.matches?.('[data-settings-panel].active');
+        scope.matches?.('[data-rollback-scope]');
     } catch (_) { return false; }
   }
 
@@ -234,7 +243,11 @@
 
   function findScope(target) {
     if (!target?.closest) return null;
-    return target.closest('[data-rollback-scope], [role="dialog"], [aria-modal="true"], dialog, [id$="-modal"], .modal, .ovyx-modal, form, [data-settings-panel].active');
+    // Settings panels have their own transactional Cancel semantics (notably
+    // ThemeContext preview/Cancel). Do not let generic form rollback override
+    // those domain-specific handlers. Only explicit rollback scopes and true
+    // overlay containers are owned by this shared layer.
+    return target.closest('[data-rollback-scope], [role="dialog"], [aria-modal="true"], dialog, [id$="-modal"], .modal, .ovyx-modal');
   }
 
   function labelOf(button) {
@@ -271,6 +284,100 @@
     pendingOpen = { project: snapshotProject(), at: Date.now() };
     const current = pendingOpen;
     window.setTimeout(() => { if (pendingOpen === current) pendingOpen = null; }, 800);
+  }
+
+  function topOpenScope() {
+    const candidates = Array.from(document.querySelectorAll(scopeSelector)).filter(visible);
+    candidates.sort((a, b) => {
+      const za = Number.parseInt(getComputedStyle(a).zIndex || '0', 10) || 0;
+      const zb = Number.parseInt(getComputedStyle(b).zIndex || '0', 10) || 0;
+      if (za !== zb) return za - zb;
+      const relation = a.compareDocumentPosition(b);
+      return relation & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : relation & Node.DOCUMENT_POSITION_PRECEDING ? 1 : 0;
+    });
+    return candidates[candidates.length - 1] || null;
+  }
+
+  function closeScope(scope) {
+    if (!scope) return false;
+    try {
+      if (scope.tagName === 'DIALOG' && scope.open && typeof scope.close === 'function') {
+        scope.close();
+      } else {
+        scope.classList?.remove('open', 'is-open');
+        scope.hidden = true;
+        scope.setAttribute('aria-hidden', 'true');
+        // The hidden attribute is the semantic state; the inline display
+        // fallback covers legacy modals whose CSS ignores [hidden].
+        if (getComputedStyle(scope).display !== 'none') scope.style.setProperty('display', 'none', 'important');
+      }
+      return true;
+    } catch (error) {
+      console.warn('[OVYX scoped rollback] Could not close overlay', error);
+      return false;
+    }
+  }
+
+  function saveCurrentRouteEntry(stateHint) {
+    try {
+      const state = history.state && typeof history.state === 'object'
+        ? history.state
+        : (stateHint && typeof stateHint === 'object' ? stateHint : {});
+      history.pushState(Object.assign({}, state, {
+        ovyxRoute: route(),
+        ovyxShell: true
+      }), document.title, location.href);
+    } catch (error) {
+      console.warn('[OVYX scoped rollback] Could not retain current route after overlay Back', error);
+    }
+  }
+
+  function handleHistoryPop(event) {
+    if (restoring) return false;
+    const scope = topOpenScope();
+    if (!scope) return false;
+
+    if (!snapshots.has(scope)) {
+      const openingProject = pendingOpen && Date.now() - pendingOpen.at < 800
+        ? pendingOpen.project
+        : snapshotProject();
+      capture(scope, openingProject);
+      pendingOpen = null;
+    }
+
+    restore(scope, 'system-back');
+    closeScope(scope);
+    // A dialog Back belongs to the current view. Restore that route entry so a
+    // second Back navigates away normally instead of resetting the SPA.
+    saveCurrentRouteEntry(event?.state);
+    try { event?.stopImmediatePropagation?.(); event?.stopPropagation?.(); } catch (_) {}
+    return true;
+  }
+
+  function wrapNavigationBack() {
+    const navigation = window.OVYXNavigation;
+    if (!navigation || typeof navigation.back !== 'function' || navigation.back.__ovyxScopedRollbackWrapped) return;
+    const original = navigation.back.bind(navigation);
+    const wrapped = function () {
+      const scope = topOpenScope();
+      if (scope) {
+        if (!snapshots.has(scope)) {
+          const openingProject = pendingOpen && Date.now() - pendingOpen.at < 800
+            ? pendingOpen.project
+            : snapshotProject();
+          capture(scope, openingProject);
+          pendingOpen = null;
+        }
+        restore(scope, 'system-back');
+        closeScope(scope);
+        saveCurrentRouteEntry();
+        return true;
+      }
+      return original.apply(this, arguments);
+    };
+    wrapped.__ovyxScopedRollbackWrapped = true;
+    wrapped.__ovyxScopedRollbackOriginal = original;
+    navigation.back = wrapped;
   }
 
   function scan() {
@@ -317,6 +424,12 @@
       attributes: true,
       attributeFilter: ['class', 'hidden', 'open', 'style', 'aria-hidden', 'aria-modal', 'inert', 'data-state']
     });
+    // Capture phase runs before the shell's broader route popstate handler.
+    // Overlay Back is consumed here; ordinary app-route Back continues through
+    // the existing canonical OVYX router. Settings subpanel history also stays
+    // with the existing Settings route owner.
+    window.addEventListener('popstate', handleHistoryPop, true);
+    wrapNavigationBack();
     scan();
   }
 
@@ -325,6 +438,8 @@
     capture,
     restore,
     beforeClose: (scope, reason) => restore(scope, reason || 'system-back'),
+    handleHistoryPop,
+    topOpenScope,
     restoreProject,
     snapshotProject
   };
