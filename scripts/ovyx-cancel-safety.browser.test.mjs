@@ -462,8 +462,135 @@ try {
     'A refresh must preserve unrelated projects after a scoped rollback.');
 
   await browserFetchPage.close();
+
+  // Regression guard for the failure mode where a production redesign changes
+  // the composer IDs: the real generation API itself must arm the snapshot and
+  // expose a fixed mobile Cancel control even when there is no composer DOM.
+  const fallbackPage = await context.newPage();
+  await fallbackPage.route('http://ovyx-cancel.test/fallback/**', route => route.fulfill({
+    status: 200,
+    contentType: 'text/html; charset=utf-8',
+    body: '<!doctype html><html><head></head><body><main>Composer selector fallback</main></body></html>',
+  }));
+  await fallbackPage.goto('http://ovyx-cancel.test/fallback/no-composer');
+  await fallbackPage.evaluate(() => {
+    const clone = value => JSON.parse(JSON.stringify(value));
+    const graph = {
+      version: 2,
+      entry: 'src/pages/Home.html',
+      files: {
+        'src/pages/Home.html': { type: 'text/html', content: '<main>Fallback baseline</main>' },
+        'src/styles.css': { type: 'text/css', content: 'body{margin:0}' },
+      },
+    };
+    const project = {
+      id: 'no-composer-rollback-project',
+      name: 'Fallback baseline project',
+      description: 'Before the API request',
+      pages: [{ id: 'home', name: 'Home', slug: '/' }],
+      assets: [],
+      revisions: [],
+      ovyxGraph: clone(graph),
+    };
+    window.KernelState = { projects: [project], activeProject: project };
+    window.ProjectStore = { save() {} };
+    window.WebStudio = {
+      project,
+      graph: clone(graph),
+      graphKeyPrefix: 'ovyx.ws.graph.v2.',
+      pendingBuild: false,
+      liveAiActive: false,
+      aiFrozen: false,
+      requestEpoch: 1,
+      ensureProjectGraph() {},
+      snapshotGraph() { return clone(this.graph); },
+      abortActiveAi() {},
+      renderPreview() {},
+      render() {},
+      renderCodeTree() {},
+      renderThread() {},
+      appendMessage() {},
+    };
+    window.__fallbackFetchAborted = false;
+    window.__fallbackFetchSignal = null;
+    window.fetch = function (_input, init) {
+      const signal = init && init.signal;
+      window.__fallbackFetchSignal = signal || null;
+      return new Promise((_resolve, reject) => {
+        if (!signal) {
+          reject(new Error('Cancel fallback did not attach an AbortSignal.'));
+          return;
+        }
+        signal.addEventListener('abort', () => {
+          window.__fallbackFetchAborted = true;
+          reject(new DOMException('Cancelled from mobile fallback control', 'AbortError'));
+        }, { once: true });
+      });
+    };
+  });
+  await fallbackPage.addScriptTag({ path: runtimePath });
+  await fallbackPage.evaluate(() => {
+    window.__fallbackPendingTask = window.fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: 'Build without the expected composer IDs' }),
+    }).catch(error => { window.__fallbackFetchError = error && error.name || 'Error'; });
+  });
+  await fallbackPage.waitForFunction(() => {
+    const button = document.getElementById('ws-task-cancel');
+    return !!button && !button.hidden && button.dataset.ovyxFloatingCancel === 'true';
+  }, null, { timeout: 5000 });
+
+  const fallbackSnapshot = await fallbackPage.evaluate(() => {
+    const record = JSON.parse(localStorage.getItem('ovyx.webstudio.rollback.snapshot.v3.no-composer-rollback-project') || 'null');
+    return {
+      projectName: record?.project?.name || '',
+      html: record?.graph?.files?.['src/pages/Home.html']?.content || '',
+      activePointer: localStorage.getItem('ovyx.webstudio.rollback.active-project.v3'),
+      composerMissing: !document.getElementById('ws-chat-composer'),
+      sendMissing: !document.getElementById('ws-chat-send'),
+    };
+  });
+  assert.equal(fallbackSnapshot.projectName, 'Fallback baseline project',
+    'A generation API request must persist its baseline even when legacy send/composer selectors are absent.');
+  assert.match(fallbackSnapshot.html, /Fallback baseline/,
+    'Selector-independent cancellation must snapshot the pre-request graph.');
+  assert.equal(fallbackSnapshot.activePointer, 'no-composer-rollback-project',
+    'Selector-independent cancellation must remember the project to restore.');
+  assert.equal(fallbackSnapshot.composerMissing, true);
+  assert.equal(fallbackSnapshot.sendMissing, true);
+
+  await fallbackPage.evaluate(() => {
+    const studio = window.WebStudio;
+    const project = window.KernelState.activeProject;
+    project.name = 'Fallback partial result';
+    project.pages.push({ id: 'partial', name: 'Partial page', slug: '/partial' });
+    studio.graph.files['src/pages/Home.html'].content = '<main>Partial generated output</main>';
+    project.ovyxGraph = JSON.parse(JSON.stringify(studio.graph));
+  });
+  await fallbackPage.locator('#ws-task-cancel').tap();
+  await fallbackPage.waitForFunction(() => window.__fallbackFetchAborted === true, null, { timeout: 5000 });
+  const fallbackRollback = await fallbackPage.evaluate(() => ({
+    projectName: window.KernelState.activeProject.name,
+    studioProjectName: window.WebStudio.project && window.WebStudio.project.name,
+    pageIds: window.KernelState.activeProject.pages.map(page => page.id),
+    restoredHtml: window.WebStudio.graph.files['src/pages/Home.html'].content,
+    signalAborted: !!(window.__fallbackFetchSignal && window.__fallbackFetchSignal.aborted),
+    cancelHidden: document.getElementById('ws-task-cancel').hidden,
+    snapshotRemoved: localStorage.getItem('ovyx.webstudio.rollback.snapshot.v3.no-composer-rollback-project') == null,
+  }));
+  assert.equal(fallbackRollback.projectName, 'Fallback baseline project',
+    'Cancel must restore the original project when the app composer selector no longer matches.');
+  assert.equal(fallbackRollback.studioProjectName, 'Fallback baseline project');
+  assert.deepEqual(fallbackRollback.pageIds, ['home']);
+  assert.match(fallbackRollback.restoredHtml, /Fallback baseline/);
+  assert.equal(fallbackRollback.signalAborted, true, 'Cancel must abort the real API request from its fallback control.');
+  assert.equal(fallbackRollback.cancelHidden, true);
+  assert.equal(fallbackRollback.snapshotRemoved, true);
+
+  await fallbackPage.close();
   await context.close();
-  console.log('OVYX mobile cancellation browser test passed: real touch tap, project rollback, request abort, busy-state release, and stale-promise isolation.');
+  console.log('OVYX mobile cancellation browser test passed: touch rollback, API auto-snapshot, request abort, missing-composer fallback, and stale-promise isolation.');
 } finally {
   await browser.close();
 }
