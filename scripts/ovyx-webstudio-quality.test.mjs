@@ -211,9 +211,11 @@ assert.ok(monacoMethod.includes('using the editable fallback'), 'A stalled Monac
 assert.ok(monacoMethod.includes("fallback.style.setProperty('pointer-events','auto','important')"), 'Fallback editing must always accept pointer input.');
 assert.ok(monacoMethod.includes("fallback.style.setProperty('width','100%','important')"), 'Fallback editor must fill the available editor width.');
 assert.ok(appShell.includes('id="ovyx-code-dashboard-route-recovery-v1"'), 'The production shell must include route-safe dashboard recovery.');
-const dashboardRecovery = appShell.match(/<script id="ovyx-code-dashboard-route-recovery-v1">([\\s\\S]*?)<\\/script>/i);
-assert.ok(dashboardRecovery, 'Dashboard recovery script boundaries must be valid.');
-assert.doesNotThrow(() => new Function(dashboardRecovery[1]), 'Dashboard recovery runtime must parse as JavaScript.');
-assert.ok(dashboardRecovery[1].includes("if(normalize(view)==='home')scheduleHomeReconcile()"), 'Navigating Home must trigger drawer/overlay recovery.');
-assert.ok(dashboardRecovery[1].includes("document.body.style.removeProperty('overflow')"), 'A stale dashboard scroll lock must be released when no real modal remains.');
+const dashboardRecoveryStart = appShell.indexOf('<script id="ovyx-code-dashboard-route-recovery-v1">');
+const dashboardRecoveryEnd = appShell.indexOf('</script>', dashboardRecoveryStart);
+assert.ok(dashboardRecoveryStart >= 0 && dashboardRecoveryEnd > dashboardRecoveryStart, 'Dashboard recovery script boundaries must be valid.');
+const dashboardRecoverySource = appShell.slice(dashboardRecoveryStart + '<script id="ovyx-code-dashboard-route-recovery-v1">'.length, dashboardRecoveryEnd);
+assert.doesNotThrow(() => new Function(dashboardRecoverySource), 'Dashboard recovery runtime must parse as JavaScript.');
+assert.ok(dashboardRecoverySource.includes("if(normalize(view)==='home')scheduleHomeReconcile()"), 'Navigating Home must trigger drawer/overlay recovery.');
+assert.ok(dashboardRecoverySource.includes("document.body.style.removeProperty('overflow')"), 'A stale dashboard scroll lock must be released when no real modal remains.');
 console.log('Web Studio quality contracts passed: build prompt, real source/browser checks, safe sandbox, and snapshot-protected repair.');
