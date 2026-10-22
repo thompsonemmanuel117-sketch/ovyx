@@ -212,6 +212,34 @@ if (fs.existsSync(shellMiddlewarePath)) {
   errors.push('functions/_middleware.js: application-shell launch runtime middleware is missing.');
 }
 
+const scopedRollbackPath = path.join(root, 'assets/ovyx-scoped-rollback.js');
+if (!fs.existsSync(scopedRollbackPath)) {
+  errors.push('assets/ovyx-scoped-rollback.js: app-wide scoped Cancel and modal rollback protection is missing.');
+} else {
+  const scopedRollback = fs.readFileSync(scopedRollbackPath, 'utf8');
+  if (
+    !scopedRollback.includes('__OVYX_SCOPED_ROLLBACK_V1__') ||
+    !scopedRollback.includes('window.OVYXScopedRollback') ||
+    !scopedRollback.includes('function restoreProject(snapshot)') ||
+    !scopedRollback.includes('restoreScheduled')
+  ) {
+    errors.push('assets/ovyx-scoped-rollback.js: shared rollback must restore only the active scope and preserve unrelated projects.');
+  }
+}
+if (fs.existsSync(shellMiddlewarePath)) {
+  const shellMiddleware = fs.readFileSync(shellMiddlewarePath, 'utf8');
+  if (!shellMiddleware.includes('ovyx-scoped-rollback.js?v=20261022-1')) {
+    errors.push('functions/_middleware.js: every application-shell HTML response must inject the app-wide scoped rollback runtime.');
+  }
+}
+const shellHeadersPath = path.join(root, '_headers');
+if (fs.existsSync(shellHeadersPath)) {
+  const shellHeaders = fs.readFileSync(shellHeadersPath, 'utf8');
+  if (!/\/assets\/ovyx-scoped-rollback\.js\s+Cache-Control:\s*no-store, no-cache, must-revalidate/.test(shellHeaders)) {
+    errors.push('_headers: the app-wide scoped rollback asset must not be cached during rollout.');
+  }
+}
+
 const multiPageHelperPath = path.join(root, 'functions/_lib/multi-page.js');
 const multiPageOrchestratorPath = path.join(root, 'functions/_lib/orchestrator.js');
 const multiPagePromptsPath = path.join(root, 'functions/_lib/prompts.js');
@@ -479,6 +507,7 @@ for (const file of [
   path.join(root, 'scripts/ovyx-pages-build.mjs'),
   path.join(root, 'scripts/ovyx-cloudflare-diagnostics.mjs'),
   path.join(root, 'assets/ovyx-launch-polish.js'),
+  path.join(root, 'assets/ovyx-scoped-rollback.js'),
   path.join(root, 'functions/_lib/multi-page.js'),
   path.join(root, 'functions/_lib/orchestrator.js'),
   path.join(root, 'functions/_lib/prompts.js'),
