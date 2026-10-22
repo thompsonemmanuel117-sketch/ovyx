@@ -542,6 +542,41 @@
       }
       return consumeHistoryBack(event, cancelled ? 'active-task-scoped-rollback' : 'active-task-preserved', null, cancelled);
     }
+
+    // Route ownership can be split across legacy shell listeners. If another
+    // listener fails to complete a same-document Back traversal, handle the
+    // destination here instead of leaving the app on the old route or requiring
+    // repeated taps. This runs only after local overlays and task cancellation
+    // have had first priority.
+    const targetRoute = normalize(event?.state?.ovyxRoute || history.state?.ovyxRoute);
+    const currentRoute = route();
+    if (targetRoute === 'settings' && currentRoute === 'settings') {
+      const targetPanel = normalize(event?.state?.ovyxSettingsPanel || history.state?.ovyxSettingsPanel);
+      const activePanel = normalize(window.OVYXSettings?.current ||
+        document.querySelector('#view-settings [data-settings-panel].active')?.dataset?.settingsPanel || '');
+      if (targetPanel && targetPanel !== activePanel) {
+        try {
+          if (typeof window.OVYXSettings?.show === 'function') {
+            window.OVYXSettings.show(targetPanel);
+            lastPopstateResult = { at: Date.now(), handled: true, reason: 'settings-panel-history-fallback',
+              route: currentRoute, scopeId: targetPanel, closed: false };
+            event?.stopImmediatePropagation?.();
+            event?.stopPropagation?.();
+            return true;
+          }
+        } catch (error) { console.warn('[OVYX settings Back fallback]', error); }
+      }
+    }
+    if (targetRoute && targetRoute !== currentRoute && typeof window.Router?.go === 'function') {
+      try {
+        window.Router.go(targetRoute);
+        lastPopstateResult = { at: Date.now(), handled: true, reason: 'route-history-fallback',
+          route: targetRoute, scopeId: '', closed: false };
+        event?.stopImmediatePropagation?.();
+        event?.stopPropagation?.();
+        return true;
+      } catch (error) { console.warn('[OVYX route Back fallback]', error); }
+    }
     return false;
   }
 
