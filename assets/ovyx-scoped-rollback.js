@@ -725,8 +725,8 @@
     // Only user-opened dialog surfaces create a browser Back entry. Settings
     // subpanels and boot-time/ambient dialogs are left to their existing route
     // owners, preventing duplicate or synthetic Back traversals on startup.
-    if (openedBackableOverlayByClick && !overlayHistoryOpen) pushOverlayHistoryEntry();
-    overlayHistoryOpen = hasBackableOverlay;
+    if (openedBackableOverlayByClick && !overlayHistoryOpen) overlayHistoryOpen = pushOverlayHistoryEntry();
+    if (!hasBackableOverlay) overlayHistoryOpen = false;
   }
 
   function install() {
