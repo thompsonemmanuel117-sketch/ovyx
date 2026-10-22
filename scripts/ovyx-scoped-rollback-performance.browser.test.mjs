@@ -105,12 +105,13 @@ try {
 
     const beforeOpenHistory = await page.evaluate(() => history.length);
     await page.click('#open-project-editor');
-    await page.waitForFunction(() =>
+    await page.waitForFunction(beforeHistory =>
       document.getElementById('project-editor')?.hidden === false
       && document.getElementById('project-editor')?.getAttribute('aria-hidden') === 'false'
       && window.KernelState?.activeProject?.name === 'Mutated while opening'
-      && window.OVYXScopedRollback.performance().trackedScopes > 0,
-    );
+      && window.OVYXScopedRollback.performance().trackedScopes > 0
+      && history.length > beforeHistory,
+    beforeOpenHistory);
     const opened = await page.evaluate(() => ({
       clones: window.__projectCloneCount,
       historyLength: history.length,
