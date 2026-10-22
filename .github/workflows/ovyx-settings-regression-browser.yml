@@ -13,6 +13,7 @@ on:
       - 'scripts/ovyx-settings-actions.test.mjs'
       - 'scripts/ovyx-settings-core.browser.test.mjs'
       - 'scripts/ovyx-cancel-safety.browser.test.mjs'
+      - 'scripts/ovyx-mobile-back-navigation.browser.test.mjs'
       - '.github/workflows/ovyx-settings-regression-browser.yml'
   pull_request:
     branches:
@@ -26,6 +27,7 @@ on:
       - 'scripts/ovyx-settings-actions.test.mjs'
       - 'scripts/ovyx-settings-core.browser.test.mjs'
       - 'scripts/ovyx-cancel-safety.browser.test.mjs'
+      - 'scripts/ovyx-mobile-back-navigation.browser.test.mjs'
       - '.github/workflows/ovyx-settings-regression-browser.yml'
   workflow_dispatch:
 
@@ -76,6 +78,7 @@ jobs:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8791
         run: |
           node scripts/ovyx-cancel-safety.browser.test.mjs
+          node scripts/ovyx-mobile-back-navigation.browser.test.mjs
           node scripts/ovyx-settings-core.browser.test.mjs
 
       - name: Print local Pages logs on failure
