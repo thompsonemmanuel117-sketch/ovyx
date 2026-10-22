@@ -347,6 +347,8 @@ try {
   await page.evaluate(() => window.Router.go('appstudio'));
   await waitForRoute(page, 'appstudio');
   await page.waitForFunction(() => window.history.state?.ovyxRoute === 'appstudio', null, { timeout: 10000 });
+  // Let deferred route-mounted handlers settle before seeding disposable fixtures.
+  await page.waitForTimeout(300);
   // App Studio route hydration can replace the in-memory project collection.
   // Re-seed only disposable browser fixtures after that hydration, then take
   // the modal checkpoint from the stable, selected baseline project.
@@ -420,7 +422,11 @@ try {
   await page.waitForTimeout(120);
   await page.evaluate(() => {
     const fixture = window.__ovyxBackTestFixture;
-    const project = window.KernelState.projects.find(item => item.id === fixture.id);
+    const project = window.KernelState?.projects?.find(item => item.id === fixture.id);
+    if (!project) {
+      throw new Error('Disposable baseline project was replaced after App Studio route hydration. Project IDs: '
+        + JSON.stringify((window.KernelState?.projects || []).map(item => item?.id || '')));
+    }
     project.name = 'Dirty project name from cancelled dialog';
     project.pages.push({ id: 'cancelled-page', name: 'Cancelled Page', slug: '/cancelled' });
     const draft = {
