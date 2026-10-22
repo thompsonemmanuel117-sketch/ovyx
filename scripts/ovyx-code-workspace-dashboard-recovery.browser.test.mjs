@@ -424,10 +424,31 @@ try{
     });
     const projectTouch=await dockPage.context().newCDPSession(dockPage);
     try{
-      await projectTouch.send('Input.synthesizeScrollGesture',{
-        x:projectGesture.x,y:projectGesture.y,xDistance:0,yDistance:-280,speed:850,gestureSourceType:'touch'
+      await projectTouch.send('Input.dispatchTouchEvent',{
+        type:'touchStart',touchPoints:[{id:2,x:projectGesture.x,y:projectGesture.y,radiusX:2,radiusY:2,force:1}]
       });
-      await dockPage.waitForFunction(()=>document.getElementById('view-router-viewport')?.scrollTop>0,null,{timeout:3500});
+      for(let step=1;step<=12;step++){
+        const y=Math.floor(projectGesture.y-280*step/12);
+        await projectTouch.send('Input.dispatchTouchEvent',{
+          type:'touchMove',touchPoints:[{id:2,x:projectGesture.x,y,radiusX:2,radiusY:2,force:1}]
+        });
+        await dockPage.waitForTimeout(16);
+      }
+      await projectTouch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+      await dockPage.waitForFunction(()=>document.getElementById('view-router-viewport')?.scrollTop>0,null,{timeout:3500})
+        .catch(async error=>{
+          const diag=await dockPage.evaluate(({x,y})=>{
+            const viewport=document.getElementById('view-router-viewport'),hit=document.elementFromPoint(x,y);
+            return {
+              hit:hit?{tag:hit.tagName,id:hit.id,cls:String(hit.className||'').toString().slice(0,100)}:null,
+              route:window.KernelState?.activeView||'',
+              scrollTop:viewport?.scrollTop,scrollHeight:viewport?.scrollHeight,clientHeight:viewport?.clientHeight,
+              overflowY:getComputedStyle(viewport).overflowY,touchAction:getComputedStyle(viewport).touchAction,
+              events:window.__ovyxTouchProbe||[]
+            };
+          },{x:projectGesture.x,y:projectGesture.y});
+          throw new Error('Real mobile Projects touch sequence did not scroll the routed viewport. '+JSON.stringify({projectGesture,diag,waitError:error.message}));
+        });
     }finally{await projectTouch.detach();}
     const allRoutesScroll=await dockPage.evaluate(()=>({
       route:window.KernelState?.activeView||'',
