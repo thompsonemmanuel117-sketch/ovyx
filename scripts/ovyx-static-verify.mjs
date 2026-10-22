@@ -230,14 +230,16 @@ if (!fs.existsSync(scopedRollbackPath)) {
     !scopedRollback.includes('.ovyx-ws-plan-modal') ||
     !scopedRollback.includes('__OVYXV665_SUPPRESS_HISTORY') ||
     !scopedRollback.includes('duplicate-route-entry-skipped') ||
-    !scopedRollback.includes('function topOpenScope()')
+    !scopedRollback.includes('function topOpenScope()') ||
+    !scopedRollback.includes('function shouldRestoreProjectScope(scope)') ||
+    !scopedRollback.includes('if (restoreProjectCheckpoint) restoreProject(record.project)')
   ) {
     errors.push('assets/ovyx-scoped-rollback.js: shared rollback must restore only the active scope and preserve unrelated projects.');
   }
 }
 if (fs.existsSync(shellMiddlewarePath)) {
   const shellMiddleware = fs.readFileSync(shellMiddlewarePath, 'utf8');
-  if (!shellMiddleware.includes('ovyx-scoped-rollback.js?v=20261022-8')) {
+  if (!shellMiddleware.includes('ovyx-scoped-rollback.js?v=20261022-9')) {
     errors.push('functions/_middleware.js: every application-shell HTML response must inject the app-wide scoped rollback runtime.');
   }
 }
