@@ -556,7 +556,7 @@ try {
     // workspace update arrives independently while this non-project surface is open.
     // Closing this portal must not restore its ambient project snapshot.
     // The runtime, not the test fixture, must create the Back entry.
-    const top = window.OVYXScopedRollback?.topOpenScope?.();    const top = window.OVYXScopedRollback?.topOpenScope?.();
+    const top = window.OVYXScopedRollback?.topOpenScope?.();
     if (top !== dialog) {
       throw new Error('The regression overlay is not the top rollback scope. Selected: '
         + (top?.id || top?.className || top?.tagName || 'none')
