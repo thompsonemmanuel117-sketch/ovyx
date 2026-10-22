@@ -258,6 +258,9 @@ if (!fs.existsSync(scopedRollbackPath)) {
     !scopedRollback.includes('project: projectOverride !== undefined') ||
     !scopedRollback.includes('if (mutations.some(mutationNeedsScan)) scheduleScan()') ||
     !scopedRollback.includes('performance: () => ({') ||
+    !scopedRollback.includes('studioGraphChanged = false') ||
+    !scopedRollback.includes('Re-resolve the public state and') ||
+    !scopedRollback.includes('restoredEditorGraph: !!restoreStudio && !!originalGraph') ||
     !scopedRollback.includes('if (restoreProjectCheckpoint) restoreProject(record.project)')
   ) {
     errors.push('assets/ovyx-scoped-rollback.js: shared rollback must restore only the active scope and preserve unrelated projects.');
@@ -265,7 +268,7 @@ if (!fs.existsSync(scopedRollbackPath)) {
 }
 if (fs.existsSync(shellMiddlewarePath)) {
   const shellMiddleware = fs.readFileSync(shellMiddlewarePath, 'utf8');
-  if (!shellMiddleware.includes('ovyx-scoped-rollback.js?v=20261022-12')) {
+  if (!shellMiddleware.includes('ovyx-scoped-rollback.js?v=20261022-13')) {
     errors.push('functions/_middleware.js: every application-shell HTML response must inject the app-wide scoped rollback runtime.');
   }
 }
