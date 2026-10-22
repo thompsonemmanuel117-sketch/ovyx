@@ -73,7 +73,7 @@ const REQUIRED_RUNTIMES = [
     label: 'browser tab favicon lock',
     path: '/assets/ovyx-shell-favicon-lock.js',
     expectedVersion: '20261021-3',
-    signatures: ['__OVYX_SHELL_FAVICON_LOCK_V3__', '/ovyx-tab-v6.svg?v=20261021-6', 'window.OVYXShellFavicon', 'MutationObserver'],
+    signatures: ['__OVYX_SHELL_FAVICON_LOCK_V3__', '/ovyx-tab-v7.svg?v=20261022-7', 'window.OVYXShellFavicon', 'MutationObserver'],
   },
   {
     id: 'cancelSafety',
@@ -182,13 +182,13 @@ async function probeBrowserTabIcon(origin, html, fetchImpl) {
     if (rel.includes('icon')) links.push(attributes);
   }
 
-  const canonicalHref = '/ovyx-tab-v6.svg?v=20261021-6';
+  const canonicalHref = '/ovyx-tab-v7.svg?v=20261022-7';
   const canonical = links.filter(link => {
     try {
       const url = new URL(link.href || '', origin);
       return String(link.type || '').toLowerCase() === 'image/svg+xml'
         && url.origin === origin
-        && url.pathname === '/ovyx-tab-v6.svg'
+        && url.pathname === '/ovyx-tab-v7.svg'
         && url.searchParams.get('v') === '20261021-6';
     } catch {
       return false;
