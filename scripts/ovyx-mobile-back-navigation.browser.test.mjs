@@ -509,12 +509,14 @@ try {
     // so this scenario can assert the precise overlay it opens below.
     for (let i = 0; i < 8 && window.OVYXNavigation.closeTopOverlay(); i += 1) {}
     const dialog = document.createElement('div');
-    dialog.id = 'ovyx-mobile-back-regression-modal';
-    dialog.className = 'modal open';
-    dialog.setAttribute('role', 'dialog');
-    dialog.setAttribute('aria-modal', 'true');
-    dialog.style.cssText = 'position:fixed;inset:15%;z-index:2147483647;background:#080808;color:white;display:block';
-    dialog.innerHTML = '<div><p>Temporary test dialog</p><button type="button" data-modal-close>Close</button></div>';
+    // Match the production Preview portal: the outer overlay root is not itself
+    // a role=dialog and has no "-modal" id suffix; the nested sheet does.
+    // Back must select/close the root, not leave the portal backdrop behind.
+    dialog.id = 'ovyx-mobile-back-regression-portal-root';
+    dialog.className = 'ovyx-preview-portal-modal open';
+    dialog.setAttribute('aria-hidden', 'false');
+    dialog.style.cssText = 'position:fixed;inset:15%;z-index:2147483647;background:rgba(0,0,0,.8);color:white;display:block';
+    dialog.innerHTML = '<div class="ovyx-ws-modal-sheet" role="dialog" aria-modal="true" aria-label="Temporary test dialog"><p>Temporary test dialog</p><button type="button" data-modal-close>Close</button></div>';
     document.body.appendChild(dialog);
     // Ensure this creates a fresh same-document Back target even after previous
     // route/modal scenarios have rewritten the current history branch.
@@ -531,16 +533,16 @@ try {
     }
   });
   await triggerHistoryBack(page, () => {
-    const d = document.getElementById('ovyx-mobile-back-regression-modal');
+    const d = document.getElementById('ovyx-mobile-back-regression-portal-root');
     return window.KernelState?.activeView === 'webstudio'
       && (!d || !d.classList.contains('open'));
   });
   const modalBack = await page.evaluate(() => ({
     route: window.KernelState?.activeView,
-    modalOpen: !!document.getElementById('ovyx-mobile-back-regression-modal')
-      && !document.getElementById('ovyx-mobile-back-regression-modal').hidden
-      && getComputedStyle(document.getElementById('ovyx-mobile-back-regression-modal')).display !== 'none'
-      && document.getElementById('ovyx-mobile-back-regression-modal').classList.contains('open'),
+    modalOpen: !!document.getElementById('ovyx-mobile-back-regression-portal-root')
+      && !document.getElementById('ovyx-mobile-back-regression-portal-root').hidden
+      && getComputedStyle(document.getElementById('ovyx-mobile-back-regression-portal-root')).display !== 'none'
+      && document.getElementById('ovyx-mobile-back-regression-portal-root').classList.contains('open'),
     historyRoute: window.history.state?.ovyxRoute,
   }));
   assert.equal(modalBack.route, 'webstudio',
