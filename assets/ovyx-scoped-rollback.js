@@ -3,7 +3,7 @@
   if (window.__OVYX_SCOPED_ROLLBACK_V1__) return;
   window.__OVYX_SCOPED_ROLLBACK_V1__ = true;
 
-  const VERSION = '20261022-8';
+  const VERSION = '20261022-9';
   const snapshots = new WeakMap();
   const visibility = new WeakMap();
   const inlineDisplayBeforeClose = new WeakMap();
@@ -198,6 +198,27 @@
     return true;
   }
 
+  function shouldRestoreProjectScope(scope) {
+    if (!scope) return false;
+    // Full-project rollback is opt-in for project/workspace editing scopes.
+    // Dismissing a transient menu, preview portal, settings panel, or generic
+    // dialog must never rewind legitimate project changes that happened while
+    // that surface was open.
+    if (scope.matches?.('[data-rollback-scope="project"], [data-rollback-project="true"]') ||
+        scope.dataset?.rollbackScope === 'project' ||
+        scope.dataset?.rollbackProject === 'true') return true;
+    const identity = normalize([
+      scope.id,
+      typeof scope.className === 'string' ? scope.className : '',
+      scope.getAttribute('aria-label'),
+      scope.getAttribute('data-dialog-type')
+    ].filter(Boolean).join(' '));
+    if (/\\b(?:preview|menu|history|command|support|appearance|settings|security|profile|billing|notifications?|export|share|checkout)\\b/.test(identity)) {
+      return false;
+    }
+    return /\\b(?:project|workspace)\\b/.test(identity);
+  }
+
   function restore(scope, reason) {
     const record = scope && snapshots.get(scope);
     if (!record || restoring) return false;
@@ -231,11 +252,16 @@
       });
     } finally { restoring = false; }
 
+    // Capture the decision before the overlay is detached. Form controls are
+    // restored for this scope, but the project snapshot is only eligible when
+    // this is explicitly (or clearly by identity) a project/workspace editor.
+    const restoreProjectCheckpoint = shouldRestoreProjectScope(scope);
     // Run after the existing cancel/close handler so a legacy onClick cannot
     // overwrite the restored checkpoint later in the same event turn.
     window.setTimeout(() => {
-      try { restoreProject(record.project); }
-      finally {
+      try {
+        if (restoreProjectCheckpoint) restoreProject(record.project);
+      } finally {
         snapshots.delete(scope);
         window.dispatchEvent(new CustomEvent('ovyx:scoped-rollback', {
           detail: {
