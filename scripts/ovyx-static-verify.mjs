@@ -342,6 +342,13 @@ if (fs.existsSync(webStudioShellPath)) {
   ) {
     errors.push('OVYX Web Studio: update preview iframe documents in-place rather than repeatedly navigating srcdoc; hidden iframe history must not consume the application Back stack.');
   }
+  if (
+    !webStudioShell.includes('window.WebStudio.setPreviewFrameDocument(frame,String(html))') ||
+    !webStudioShell.includes('window.WebStudio.setPreviewFrameDocument(frame,html)') ||
+    !webStudioShell.includes('window.WebStudio.setPreviewFrameDocument(frame,previewHtml)')
+  ) {
+    errors.push('OVYX preview surfaces: recurring Template Forge, published-template, and Admin-template updates must reuse the stable preview-document writer instead of growing the joint browser history.');
+  }
 }
 
 // Web Studio Stage 3: explicit prompt contracts, readiness questions, and
