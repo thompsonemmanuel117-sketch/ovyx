@@ -17,11 +17,11 @@ const cssMatch=appShell.match(/<style id="ovyx-code-workspace-interaction-previe
 assert.ok(cssMatch,'The production Code Workspace interaction styles must be present.');
 const recoveryMatch=appShell.match(/<script id="ovyx-code-dashboard-route-recovery-v1">([\s\S]*?)<\/script>/i);
 assert.ok(recoveryMatch,'The production dashboard route-recovery runtime must be present.');
-const hitTestingMatch=appShell.match(/<style id="ovyx-code-workspace-hit-testing-v2">([\\s\\S]*?)<\\/style>/i);
-const editorRecoveryMatch=appShell.match(/<script id="ovyx-code-workspace-editor-recovery-v2">([\\s\\S]*?)<\\/script>/i);
+const hitTestingMatch=appShell.match(/<style id="ovyx-code-workspace-hit-testing-v2">([\s\S]*?)<\/style>/i);
+const editorRecoveryMatch=appShell.match(/<script id="ovyx-code-workspace-editor-recovery-v2">([\s\S]*?)<\/script>/i);
 assert.ok(hitTestingMatch,'The production Code Workspace hit-testing repair must be present.');
 assert.ok(editorRecoveryMatch,'The production editor initialization recovery must be present.');
-assert.match(hitTestingMatch[1],/z-index:\\s*2147483002/i,'The editor surface must sit above positioned workspace layers.');
+assert.match(hitTestingMatch[1],/z-index:\s*2147483002/i,'The editor surface must sit above positioned workspace layers.');
 assert.doesNotThrow(()=>new Function(editorRecoveryMatch[1]),'The production editor recovery runtime must parse as JavaScript.');
 
 assert.doesNotThrow(()=>new Function('return ({'+editorMethods+' saveCodeFile(file){return true;}});'),
