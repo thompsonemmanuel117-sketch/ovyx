@@ -43,6 +43,8 @@
         projectId: String(snapshot.projectId),
         project: clone(snapshot.project),
         graph: clone(snapshot.graph),
+        kernelActiveProjectIdAtStart: String(snapshot.kernelActiveProjectIdAtStart || ''),
+        studioProjectIdAtStart: String(snapshot.studioProjectIdAtStart || snapshot.projectId || ''),
         startedAt: Number(snapshot.startedAt || Date.now()),
         savedAt: Date.now(),
         origin: String(window.location && window.location.origin || '')
@@ -78,6 +80,8 @@
         projectId: requestedId,
         project: clone(record.project),
         graph: clone(record.graph),
+        kernelActiveProjectIdAtStart: String(record.kernelActiveProjectIdAtStart || ''),
+        studioProjectIdAtStart: String(record.studioProjectIdAtStart || record.projectId || ''),
         startedAt: Number(record.startedAt || record.savedAt || Date.now()),
         persistedAt: Number(record.savedAt || Date.now()),
         restoredFromBrowserStorage: true
@@ -394,19 +398,44 @@
 
   function captureSnapshot(studio) {
     const state = getState();
-    const project = state && (state.activeProject || state.project) || studio && studio.project;
+    const stateActive = state && (state.activeProject || state.project) || null;
+    const routeName = String(
+      state?.activeView ||
+      document.querySelector('#view-router-viewport > section:not(.hidden)')?.id ||
+      ''
+    ).replace(/^view-/, '').trim().toLowerCase();
+    // On the Web Studio route, the mounted editor owns the graph being changed.
+    // KernelState can temporarily point at a different project during hydration;
+    // never pair that project's metadata with the mounted editor's source graph.
+    const editorProject = routeName === 'webstudio' && studio?.project?.id
+      ? studio.project
+      : null;
+    const projectId = String(editorProject?.id || stateActive?.id || '');
+    if (!projectId) return null;
+    const projects = Array.isArray(state?.projects) ? state.projects : [];
+    const listedProject = projects.find(item => String(item?.id || '') === projectId) || null;
+    const stateProjectMatches = String(stateActive?.id || '') === projectId;
+    let project = listedProject || (stateProjectMatches ? stateActive : null) || editorProject;
     if (!project || !project.id) return null;
-    try { studio.ensureProjectGraph && studio.ensureProjectGraph(); } catch (_) {}
+
+    try { studio?.ensureProjectGraph?.(); } catch (_) {}
     let graph = null;
     try {
-      graph = typeof studio.snapshotGraph === 'function'
+      graph = typeof studio?.snapshotGraph === 'function'
         ? studio.snapshotGraph()
-        : clone(studio.graph || project.ovyxGraph || {});
-    } catch (_) { graph = clone(studio.graph || project.ovyxGraph || {}); }
+        : clone(studio?.graph || project.ovyxGraph || {});
+    } catch (_) { graph = clone(studio?.graph || project.ovyxGraph || {}); }
+    const projectSnapshot = clone(project);
+    if (!projectSnapshot || typeof projectSnapshot !== 'object') return null;
+    // Keep the model snapshot and the editor graph from the same instant. The
+    // editor graph is authoritative for source files while Web Studio is open.
+    if (graph && typeof graph === 'object') projectSnapshot.ovyxGraph = clone(graph);
     const snapshot = {
-      projectId: String(project.id),
-      project: clone(project),
+      projectId,
+      project: projectSnapshot,
       graph: clone(graph || {}),
+      kernelActiveProjectIdAtStart: String(state?.activeProject?.id || ''),
+      studioProjectIdAtStart: String(studio?.project?.id || projectId),
       // Project records are retained by reference in this in-memory checkpoint.
       // If guest-save hydration clears KernelState.projects, rollback can put
       // unrelated projects back without replacing their current in-place edits.
@@ -423,6 +452,8 @@
       projectId: String(rollback.projectId),
       project: clone(rollback.project),
       graph: clone(rollback.graph),
+      kernelActiveProjectIdAtStart: String(rollback.kernelActiveProjectIdAtStart || ''),
+      studioProjectIdAtStart: String(rollback.studioProjectIdAtStart || rollback.projectId),
       projectList: captureProjectListReferences(),
       startedAt: Date.now()
     };
@@ -740,8 +771,24 @@
         // pointer even though WebStudio still owns the project that started this
         // task. In that specific case, restore that project as active. If the
         // user has already selected a different project, preserve that choice.
-        const taskProjectWasActive = stateActiveProjectId === String(snapshot.projectId)
-          || (!stateActiveProjectId && studioProjectId === String(snapshot.projectId));
+        const snapshotProjectId = String(snapshot.projectId);
+        const kernelActiveAtStart = String(snapshot.kernelActiveProjectIdAtStart || '');
+        const studioProjectAtStart = String(snapshot.studioProjectIdAtStart || snapshotProjectId);
+        const editorStillOwnsTaskProject = studioProjectId === snapshotProjectId;
+        const kernelPointerHasNotMovedSinceStart = !!kernelActiveAtStart
+          && stateActiveProjectId === kernelActiveAtStart;
+        const startedWithSplitProjectPointers = studioProjectAtStart === snapshotProjectId
+          && !!kernelActiveAtStart
+          && kernelActiveAtStart !== snapshotProjectId;
+        // If the project pointers were already inconsistent when the task began,
+        // keep the mounted editor project as the task owner as long as the global
+        // active pointer has not changed since then. If it did change during the
+        // task, preserve the user's newer project selection.
+        const taskProjectWasActive = stateActiveProjectId === snapshotProjectId
+          || (!stateActiveProjectId && editorStillOwnsTaskProject)
+          || (startedWithSplitProjectPointers
+            && kernelPointerHasNotMovedSinceStart
+            && editorStillOwnsTaskProject);
 
         const studios = new Set(knownStudios);
         studios.add(this);
