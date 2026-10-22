@@ -505,6 +505,15 @@
       closed: false
     };
     if (restoring) return false;
+
+    // The foremost transient surface wins over a dialog that happens to be
+    // mounted behind it. In particular, a mobile Preview/Code/Settings drawer
+    // must close before an underlying modal can consume the same Back press.
+    // This ordering also matches the explicit OVYXNavigation.back control.
+    if (closeLocalSurfaceForBack()) {
+      return consumeHistoryBack(event, 'local-surface-close', null, true);
+    }
+
     const scope = topOpenScope();
     if (scope) {
       lastPopstateResult.scopeId = String(scope.id || scope.dataset?.rollbackScope || scope.className || scope.tagName || 'overlay');
@@ -525,11 +534,6 @@
         !!closed && !visible(scope));
     }
 
-    // Browser/Android Back must unwind local UI layers before it changes app
-    // routes. Keep this owner at capture phase so later legacy popstate handlers
-    // cannot turn a single Back into a route exit or broad reset.
-    if (closeLocalSurfaceForBack()) return consumeHistoryBack(event, 'local-surface-close', null, true);
-
     if (hasActiveStudioTask()) {
       const cancelled = cancelStudioTaskSafely();
       if (!cancelled) {
@@ -546,6 +550,7 @@
     if (!navigation || typeof navigation.back !== 'function' || navigation.back.__ovyxScopedRollbackWrapped) return;
     const original = navigation.back.bind(navigation);
     const wrapped = function () {
+      if (closeLocalSurfaceForBack()) return true;
       const scope = topOpenScope();
       if (scope) {
         if (!snapshots.has(scope)) {
