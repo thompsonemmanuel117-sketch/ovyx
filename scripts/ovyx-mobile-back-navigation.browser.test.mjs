@@ -411,6 +411,17 @@ try {
     // this temporary browser fixture before the Cancel assertion runs.
   });
   await page.evaluate(() => {
+    const fixture = window.__ovyxBackTestFixture;
+    const baseline = window.KernelState?.projects?.find(item => item.id === fixture?.id);
+    if (!baseline) {
+      throw new Error('App Studio rollback baseline is missing before modal open. Project IDs: '
+        + JSON.stringify((window.KernelState?.projects || []).map(item => item?.id || '')));
+    }
+    // The global rollback layer must snapshot the user's current project, not
+    // an empty active-project pointer left behind by App Studio's hydration.
+    window.KernelState.activeProject = baseline;
+    window.WebStudio.project = baseline;
+    window.WebStudio.graph = JSON.parse(JSON.stringify(baseline.ovyxGraph || {}));
     const dialog = document.createElement('div');
     dialog.id = 'ovyx-mobile-back-project-modal';
     dialog.className = 'modal open';
