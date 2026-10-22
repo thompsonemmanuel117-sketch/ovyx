@@ -9,6 +9,8 @@ on:
       - 'scripts/ovyx-webstudio-code-search.test.mjs'
       - 'scripts/ovyx-webstudio-code-search.browser.test.mjs'
       - 'scripts/ovyx-webstudio-appstudio-integration.browser.test.mjs'
+      - 'scripts/ovyx-code-workspace-dashboard-recovery.browser.test.mjs'
+      - 'scripts/ovyx-code-workspace-dashboard-recovery.browser.test.mjs'
       - 'scripts/ovyx-app-shell-favicon.browser.test.mjs'
       - 'index.html'
       - 'assets/ovyx-webstudio-project-branding.js'
@@ -95,4 +97,6 @@ jobs:
         run: node scripts/ovyx-webstudio-code-search.browser.test.mjs
       - name: Test Web Studio to App Studio to Code integration in Chromium
         run: node scripts/ovyx-webstudio-appstudio-integration.browser.test.mjs
+      - name: Test desktop Code Workspace editing and dashboard route recovery in Chromium
+        run: node scripts/ovyx-code-workspace-dashboard-recovery.browser.test.mjs
 # Regression coverage: sidebar inline-SVG full-draw state, brand-mark favicon fallback, and project/app favicon isolation.
