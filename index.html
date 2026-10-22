@@ -16075,9 +16075,26 @@ body.ovyx-webstudio-active #view-webstudio .ovyx-ws-response-toolbar .ovyx-ws-re
   window.__OVYX_FINAL_MOBILE_PREVIEW_ROUTING__=true;
   function physicalMobile(){return !!(window.matchMedia&&window.matchMedia('(max-width: 767px)').matches)}
   function openMobilePreview(){
-    document.body.classList.remove('ovyx-ws-preview-full','ovyx-ws-preview-collapsed','ovyx-ws-chat-focus');
+    const body=document.body;
+    const wasOpen=body.classList.contains('ovyx-ws-mobile-preview-open');
+    // Browser/Android Back must get a same-route history entry for this local
+    // Preview surface. Without it, Back can appear to freeze or jump straight
+    // out of Web Studio instead of first closing Preview.
+    if(!wasOpen && physicalMobile()){
+      try{
+        const current=history.state&&typeof history.state==='object'?history.state:{};
+        if(current.ovyxLocalSurface!=='webstudio-mobile-preview'){
+          history.pushState(Object.assign({},current,{
+            ovyxRoute:String(window.KernelState?.activeView||'webstudio').replace(/^view-/,'').trim().toLowerCase()||'webstudio',
+            ovyxShell:true,
+            ovyxLocalSurface:'webstudio-mobile-preview'
+          }),document.title,location.href);
+        }
+      }catch(error){console.warn('[OVYX mobile Preview history]',error)}
+    }
+    body.classList.remove('ovyx-ws-preview-full','ovyx-ws-preview-collapsed','ovyx-ws-chat-focus');
     try{window.WebStudio?.openMobilePreview?.()}catch(_){
-      document.body.classList.add('ovyx-ws-mobile-preview-open');
+      body.classList.add('ovyx-ws-mobile-preview-open');
       const overlay=document.getElementById('ws-mobile-preview');
       if(overlay){overlay.hidden=false;overlay.setAttribute('aria-hidden','false')}
     }
@@ -16091,6 +16108,16 @@ body.ovyx-webstudio-active #view-webstudio .ovyx-ws-response-toolbar .ovyx-ws-re
     if(overlay){overlay.hidden=true;overlay.setAttribute('aria-hidden','true')}
     const menu=document.getElementById('ws-preview-menu');if(menu)menu.hidden=true;
     const button=document.getElementById('ws-mobile-preview-menu-button');if(button)button.setAttribute('aria-expanded','false');
+    // When the user closes Preview with its visible close control (rather than
+    // browser Back), retire the surface marker from the current entry. Leave
+    // the route entry intact so the next Back still navigates normally.
+    try{
+      const current=history.state;
+      if(current&&typeof current==='object'&&current.ovyxLocalSurface==='webstudio-mobile-preview'){
+        const next=Object.assign({},current);delete next.ovyxLocalSurface;
+        history.replaceState(next,document.title,location.href);
+      }
+    }catch(error){console.warn('[OVYX mobile Preview history cleanup]',error)}
     try{window.persistStateNow?.('preview-close')}catch(_){}
   }
   document.addEventListener('click',function(event){
