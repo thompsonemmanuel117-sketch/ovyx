@@ -23,10 +23,26 @@ async function waitForRoute(page, expected) {
 async function triggerHistoryBack(page) {
   const count = await page.evaluate(() => Number(window.__ovyxBackTestPopCount || 0));
   await page.evaluate(() => window.history.back());
-  await page.waitForFunction(previous => Number(window.__ovyxBackTestPopCount || 0) > previous, count, {
-    timeout: 10000,
-  });
-  // Let every application listener and route render finish before reading state.
+  try {
+    await page.waitForFunction(previous => Number(window.__ovyxBackTestPopCount || 0) > previous, count, {
+      timeout: 10000,
+    });
+  } catch (error) {
+    const diagnostic = await page.evaluate(() => ({
+      route: window.KernelState?.activeView,
+      state: window.history.state,
+      length: window.history.length,
+      popCount: Number(window.__ovyxBackTestPopCount || 0),
+      ops: (window.__ovyxHistoryOps || []).slice(-20),
+      earlyPop: (() => { try { return JSON.parse(sessionStorage.getItem('__ovyxTestPopState') || '{"count":0,"states":[]}'); } catch (_) { return null; } })(),
+      backCalls: sessionStorage.getItem('__ovyxBackCalls'),
+      pageHide: sessionStorage.getItem('__ovyxLastPageHide'),
+      pageShow: sessionStorage.getItem('__ovyxLastPageShow'),
+      href: location.href,
+      timeOrigin: performance.timeOrigin,
+    })).catch(e => ({ diagnosticUnavailable: String(e) }));
+    throw new Error(String(error.message || error) + ' | Back navigation diagnostic: ' + JSON.stringify(diagnostic));
+  }
   await page.waitForTimeout(60);
 }
 
@@ -82,6 +98,23 @@ try {
       window.__ovyxHistoryOps = historyOps;
       return result;
     };
+    const originalBack = History.prototype.back;
+    History.prototype.back = function () {
+      try {
+        const prior = Number(sessionStorage.getItem('__ovyxBackCalls') || 0);
+        sessionStorage.setItem('__ovyxBackCalls', String(prior + 1));
+      } catch (_) {}
+      historyOps.push({ op: 'back-call', route: history.state?.ovyxRoute || '', href: location.href, stack: String(new Error().stack || '').split('\\n').slice(1, 4) });
+      if (historyOps.length > 120) historyOps.shift();
+      window.__ovyxHistoryOps = historyOps;
+      return originalBack.apply(this, arguments);
+    };
+    window.addEventListener('pagehide', event => {
+      try { sessionStorage.setItem('__ovyxLastPageHide', JSON.stringify({ at: Date.now(), persisted: !!event.persisted, route: history.state?.ovyxRoute || '' })); } catch (_) {}
+    });
+    window.addEventListener('pageshow', event => {
+      try { sessionStorage.setItem('__ovyxLastPageShow', JSON.stringify({ at: Date.now(), persisted: !!event.persisted, route: history.state?.ovyxRoute || '' })); } catch (_) {}
+    });
     window.addEventListener('popstate', event => {
       const current = JSON.parse(sessionStorage.getItem('__ovyxTestPopState') || '{"count":0,"states":[]}');
       current.count += 1;
