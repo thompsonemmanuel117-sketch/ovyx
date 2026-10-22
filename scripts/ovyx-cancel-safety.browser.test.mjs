@@ -227,6 +227,130 @@ try {
   assert.equal(overlapping.newerSnapshotReleasedOnCompletion, true, 'The current task snapshot must release once the current task completes.');
   assert.equal(overlapping.countAfterCompletion, 0, 'The task counter must return to zero on completion.');
 
+  // Regression: during hydration the global activeProject pointer can lag
+  // behind the project actually mounted in Web Studio. The rollback checkpoint
+  // must follow the mounted editor and still restore its graph if that mismatch
+  // does not change while the task is running.
+  await page.evaluate(() => {
+    const clone = value => JSON.parse(JSON.stringify(value));
+    const graph = {
+      version: 2,
+      entry: 'src/pages/Home.html',
+      files: {
+        'src/pages/Home.html': { type: 'text/html', content: '<main>Mounted editor baseline</main>' },
+        'src/styles.css': { type: 'text/css', content: 'body{color:white}' },
+      },
+    };
+    const editorProject = {
+      id: 'mounted-editor-project',
+      name: 'Mounted editor baseline project',
+      description: 'The project visibly open in Web Studio.',
+      pages: [{ id: 'home', name: 'Home', slug: '/' }],
+      assets: [],
+      ovyxGraph: clone(graph),
+    };
+    const unrelated = {
+      id: 'stale-kernel-active-project',
+      name: 'Unrelated current KernelState pointer',
+      description: 'Must not be mistaken for the mounted editor.',
+      pages: [{ id: 'other', name: 'Other', slug: '/' }],
+      assets: [],
+      ovyxGraph: { version: 2, entry: 'src/pages/Home.html', files: {
+        'src/pages/Home.html': { type: 'text/html', content: '<main>Untouched other project</main>' },
+      } },
+    };
+    window.KernelState = {
+      activeView: 'webstudio',
+      projects: [editorProject, unrelated],
+      // Deliberately reproduce the split pointer observed during hydration.
+      activeProject: unrelated,
+    };
+    window.__mismatchAbortCount = 0;
+    window.WebStudio = {
+      project: editorProject,
+      graph: clone(graph),
+      graphKeyPrefix: 'ovyx.graph.',
+      pendingBuild: false,
+      liveAiActive: false,
+      aiFrozen: false,
+      requestEpoch: 20,
+      ensureProjectGraph() {},
+      snapshotGraph() { return clone(this.graph); },
+      abortActiveAi() { this.activeAbortController = null; },
+      renderPreview() {},
+      render() {},
+      renderCodeTree() {},
+      renderThread() {},
+      appendMessage() {},
+      runBuildAgent() {
+        this.pendingBuild = true;
+        this.liveAiActive = true;
+        this.activeAbortController = { abort() { window.__mismatchAbortCount += 1; } };
+        return new Promise(resolve => { window.__mismatchTaskResolve = resolve; });
+      },
+      runFixAgent() { return Promise.resolve(); },
+      askAgent() { return Promise.resolve(); },
+    };
+  });
+  await page.waitForFunction(() => window.WebStudio?.runBuildAgent?.__ovyxCancelSafetyWrappedV2 === true
+    && window.WebStudio?.cancelActiveTask?.__ovyxCancelSafetyOwnerV2 === true,
+  null, { timeout: 5000 });
+  const mismatchBefore = await page.evaluate(() => {
+    const studio = window.WebStudio;
+    window.__mismatchTaskPromise = studio.runBuildAgent('Edit the mounted Web Studio project');
+    const target = studio.project;
+    target.name = 'Incorrect partial project name';
+    target.pages.push({ id: 'partial-page', name: 'Partial page', slug: '/partial' });
+    studio.graph.files['src/pages/Home.html'].content = '<main>PARTIAL GRAPH THAT MUST ROLL BACK</main>';
+    // Keep the kernel pointer on the unrelated project while the task runs.
+    return {
+      snapshotProjectId: window.__OVYX_WEBSTUDIO_TASK_SESSION_V2__?.snapshot?.projectId,
+      snapshotGraph: window.__OVYX_WEBSTUDIO_TASK_SESSION_V2__?.snapshot?.graph?.files?.['src/pages/Home.html']?.content,
+      kernelActiveId: window.KernelState.activeProject?.id,
+      studioProjectId: studio.project?.id,
+    };
+  });
+  assert.equal(mismatchBefore.snapshotProjectId, 'mounted-editor-project',
+    'The task snapshot must belong to the project visibly mounted in Web Studio, not a stale global active pointer.');
+  assert.match(mismatchBefore.snapshotGraph, /Mounted editor baseline/,
+    'The task snapshot must capture the mounted editor graph before the task mutates it.');
+  const mismatchCancelled = await page.evaluate(() => {
+    const didCancel = window.OVYXWebStudioCancelSafety.cancel();
+    const state = window.KernelState;
+    const studio = window.WebStudio;
+    const editor = state.projects.find(project => project.id === 'mounted-editor-project');
+    const unrelated = state.projects.find(project => project.id === 'stale-kernel-active-project');
+    return {
+      didCancel,
+      activeId: state.activeProject?.id,
+      editorName: editor?.name,
+      studioName: studio.project?.name,
+      editorPages: (editor?.pages || []).map(page => page.id),
+      graph: studio.graph?.files?.['src/pages/Home.html']?.content || '',
+      projectGraph: editor?.ovyxGraph?.files?.['src/pages/Home.html']?.content || '',
+      unrelatedName: unrelated?.name,
+      unrelatedHtml: unrelated?.ovyxGraph?.files?.['src/pages/Home.html']?.content,
+    };
+  });
+  assert.equal(mismatchCancelled.didCancel, true,
+    'Cancel must accept a task snapshot for the mounted editor even when KernelState pointed at another project.');
+  assert.equal(mismatchCancelled.activeId, 'mounted-editor-project',
+    'Rollback must reconcile a stale KernelState pointer when it never changed after task start.');
+  assert.equal(mismatchCancelled.editorName, 'Mounted editor baseline project',
+    'Cancel must restore the mounted project metadata from the pre-task checkpoint.');
+  assert.equal(mismatchCancelled.studioName, 'Mounted editor baseline project',
+    'Cancel must restore WebStudio.project as well as the saved project record.');
+  assert.deepEqual(mismatchCancelled.editorPages, ['home'],
+    'Cancel must remove pages added by the cancelled task.');
+  assert.match(mismatchCancelled.graph, /Mounted editor baseline/,
+    'Cancel must restore the actual mounted editor graph.');
+  assert.match(mismatchCancelled.projectGraph, /Mounted editor baseline/,
+    'Cancel must restore the project graph mirror.');
+  assert.equal(mismatchCancelled.unrelatedName, 'Unrelated current KernelState pointer',
+    'Reconciling active pointers must not mutate the unrelated project.');
+  assert.match(mismatchCancelled.unrelatedHtml, /Untouched other project/,
+    'The rollback must preserve unrelated project source files.');
+
   // Browser-connected recovery path: no runBuildAgent/askAgent wrappers are
   // provided. A real composer tap must snapshot the project in capture phase,
   // track the outgoing same-origin API request, and let Cancel abort + restore it.
