@@ -103,7 +103,7 @@ export async function onRequestGet(context) {
       updatedAt: config.updatedAt || null,
       source: 'server',
       checkedAt: new Date().toISOString()
-    }, 200, { 'X-OVYX-Request-ID': id });
+    }, 200, { 'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store, max-age=0' });
   } catch (error) {
     return jsonResponse({
       ok: false,
