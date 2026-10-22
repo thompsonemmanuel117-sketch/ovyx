@@ -108,8 +108,14 @@ if (!fs.existsSync(cloudflareShellSmokePath)) {
 }
 if (fs.existsSync(cloudflareDiagnosticsPath)) {
   const cloudflareDiagnostics = fs.readFileSync(cloudflareDiagnosticsPath, 'utf8');
-  if (!cloudflareDiagnostics.includes("probeApplicationShell(origin)") || !cloudflareDiagnostics.includes('applicationShell.ok')) {
-    errors.push('scripts/ovyx-cloudflare-diagnostics.mjs: production health must include a real application-shell/quality-runtime smoke test, not only API health.');
+  if (
+    !cloudflareDiagnostics.includes("probeApplicationShell(origin)") ||
+    !cloudflareDiagnostics.includes('applicationShell.ok') ||
+    !cloudflareDiagnostics.includes('getProjectPublicOrigins(rawProjectInfo)') ||
+    !cloudflareDiagnostics.includes('result.publicOriginHealth') ||
+    !cloudflareDiagnostics.includes('Public production origin check failed')
+  ) {
+    errors.push('scripts/ovyx-cloudflare-diagnostics.mjs: production health must verify the deployment URL, stable Pages hostname and every attached public domain, including the live favicon and Cancel runtime.');
   }
 }
 
