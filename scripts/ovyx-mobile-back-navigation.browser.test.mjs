@@ -723,7 +723,7 @@ try {
     const html = studio?.graph?.files?.['src/pages/Home.html']?.content || '';
     const persisted = (() => {
       try {
-        const saved = JSON.parse(localStorage.getItem((studio?.graphKeyPrefix || '__ovyx_cancel_test_graph_') + fixture.id) || '{}');
+        const saved = JSON.parse(localStorage.getItem('ovyx.graph.' + fixture.id) || '{}');
         return String(saved.files?.['src/pages/Home.html']?.content || '');
       } catch (_) { return ''; }
     })();
