@@ -217,6 +217,38 @@ try{
     assert.equal(dockState.height,64,'The dock surface fix must preserve the existing mobile navigation height.');
     assert.ok(dockState.dashboardBottomPadding>=100,
       'The Home dashboard must preserve enough scroll runway for content to clear the fixed dock.');
+
+    // The visible dock must not trap the final dashboard card underneath it.
+    const dockScrollState=await dockPage.evaluate(async()=>{
+      const viewport=document.getElementById('view-router-viewport');
+      const home=document.getElementById('view-home');
+      const dock=document.getElementById('ovyx-v52-bottom-bar');
+      const cards=Array.from(home?.querySelectorAll('.v59-tool-card')||[]);
+      viewport.scrollTop=viewport.scrollHeight;
+      await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+      const last=cards[cards.length-1];
+      const rect=last?.getBoundingClientRect();
+      const dockRect=dock?.getBoundingClientRect();
+      return {
+        viewportScrollHeight:viewport.scrollHeight,
+        viewportClientHeight:viewport.clientHeight,
+        viewportScrollTop:viewport.scrollTop,
+        lastCardCount:cards.length,
+        lastCardBottom:rect?.bottom??null,
+        dockTop:dockRect?.top??null,
+        shellOverflow:getComputedStyle(home).overflow
+      };
+    });
+    assert.ok(dockScrollState.lastCardCount>0,'The production Home dashboard must render its tool cards.');
+    assert.ok(dockScrollState.viewportScrollHeight>dockScrollState.viewportClientHeight,
+      'The Home viewport must be vertically scrollable on mobile.');
+    assert.ok(dockScrollState.viewportScrollTop>0,
+      'The Home viewport must reach its lower content instead of being held at the initial scroll position.');
+    assert.ok(dockScrollState.lastCardBottom!==null&&dockScrollState.dockTop!==null
+      &&dockScrollState.lastCardBottom<=dockScrollState.dockTop-8,
+      'At the end of mobile Home scrolling, the final tool card must sit fully above the fixed dock.');
+    assert.equal(dockScrollState.shellOverflow,'visible',
+      'The mobile Home section must not clip its own scrollable content.');
   }finally{await dockPage.close();}
   console.log('OVYX Code Workspace recovery and real mobile Home dock surface browser tests passed.');
 }finally{await browser.close();}
