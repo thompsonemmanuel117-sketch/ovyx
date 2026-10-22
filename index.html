@@ -3251,7 +3251,48 @@
       toWebContainerTree(files){const root={};Object.entries(files||{}).forEach(([path,file])=>{const parts=path.split('/').filter(Boolean);let node=root;parts.forEach((part,i)=>{if(i===parts.length-1)node[part]={file:{contents:String(file?.content??'')}};else{node[part]=node[part]||{directory:{}};node=node[part].directory;}})});return root;},
       async syncWebContainerFiles(){if(!this.webContainer)return;for(const [path,file] of Object.entries(this.graph.files||{})){try{await this.webContainer.fs.writeFile('/'+path,String(file?.content??''))}catch(e){this.runtimeLog.push({kind:'error',text:'Runtime sync failed for '+path+': '+(e.message||e)})}}},
       hasProjectWebsite(){const p=window.KernelState?.activeProject;if(!p)return false;const pages=Array.isArray(p.pages)?p.pages:[];const direct=pages.some(pg=>Array.isArray(pg?.sections)&&pg.sections.length>0||['html','renderedHtml','source','code','previewHtml'].some(k=>typeof pg?.[k]==='string'&&pg[k].trim()));if(direct)return true;try{const entry=this.graph?.files?.[this.graph?.entry||this.entryFile()]?.content||'';return /<body[^>]*>\s*<(?!\/body|script|style)/i.test(entry) && !/OVYX Page/i.test(entry);}catch(_){return false;}},
-      renderPreview(){this.ensureProjectGraph();const has=this.hasProjectWebsite();const empty=document.getElementById('ws-preview-empty');if(empty)empty.classList.toggle('hidden',has);const frames=[document.getElementById('ws-canvas-iframe'),document.getElementById('ws-mobile-preview-frame')].filter(Boolean);if(!has){frames.forEach(frame=>{frame.removeAttribute('src');frame.srcdoc='';});this.lastPreviewSource='';const url=document.getElementById('ws-preview-url');if(url)url.textContent='No project website';return;}if(this.projectNeedsRuntime()&&!this.webContainer&&!this.runtimeBootPromise)this.bootWebContainer();const page=this.getActivePage();const srcdoc=this.buildPreviewDocument(page);frames.forEach(frame=>{if(frame.srcdoc!==srcdoc)frame.srcdoc=srcdoc});this.lastPreviewSource=srcdoc;const url=document.getElementById('ws-preview-url');if(url)url.textContent=this.runtimeUrl();},
+      setPreviewFrameDocument(frame,source){
+        source=String(source??'');
+        if(!frame||frame.__ovyxPreviewSource===source)return;
+        // Keep a stable child browsing context after its first load. Reassigning
+        // iframe.srcdoc navigates the child frame and adds joint-session-history
+        // steps; Android/Chrome Back can then consume those invisible steps
+        // without dispatching popstate to the OVYX dashboard. document.open()
+        // replaces the existing child document in-place instead.
+        if(frame.__ovyxPreviewLoading){
+          frame.__ovyxPreviewPendingSource=source;
+          frame.__ovyxPreviewPendingSet=true;
+          return;
+        }
+        if(frame.__ovyxPreviewLoaded){
+          try{
+            const doc=frame.contentDocument;
+            if(doc&&typeof doc.open==='function'){
+              doc.open();
+              doc.write(source);
+              doc.close();
+              frame.__ovyxPreviewSource=source;
+              return;
+            }
+          }catch(error){console.warn('[OVYX preview] Reusing preview document failed; replacing the frame once.',error)}
+        }
+        if(!source&&!frame.__ovyxPreviewSource&&!frame.hasAttribute('srcdoc')&&!frame.getAttribute('src'))return;
+        frame.__ovyxPreviewLoaded=false;
+        frame.__ovyxPreviewLoading=true;
+        frame.addEventListener('load',()=>{
+          frame.__ovyxPreviewLoading=false;
+          frame.__ovyxPreviewLoaded=true;
+          if(frame.__ovyxPreviewPendingSet){
+            const next=frame.__ovyxPreviewPendingSource;
+            frame.__ovyxPreviewPendingSource=undefined;
+            frame.__ovyxPreviewPendingSet=false;
+            if(next!==frame.__ovyxPreviewSource)this.setPreviewFrameDocument(frame,next);
+          }
+        },{once:true});
+        frame.srcdoc=source;
+        frame.__ovyxPreviewSource=source;
+      },
+      renderPreview(){this.ensureProjectGraph();const has=this.hasProjectWebsite();const empty=document.getElementById('ws-preview-empty');if(empty)empty.classList.toggle('hidden',has);const frames=[document.getElementById('ws-canvas-iframe'),document.getElementById('ws-mobile-preview-frame')].filter(Boolean);if(!has){frames.forEach(frame=>{if(frame.__ovyxPreviewSource)this.setPreviewFrameDocument(frame,'');if(frame.getAttribute('src'))frame.removeAttribute('src')});this.lastPreviewSource='';const url=document.getElementById('ws-preview-url');if(url)url.textContent='No project website';return;}if(this.projectNeedsRuntime()&&!this.webContainer&&!this.runtimeBootPromise)this.bootWebContainer();const page=this.getActivePage();const srcdoc=this.buildPreviewDocument(page);frames.forEach(frame=>this.setPreviewFrameDocument(frame,srcdoc));this.lastPreviewSource=srcdoc;const url=document.getElementById('ws-preview-url');if(url)url.textContent=this.runtimeUrl();},
       runtimeUrl(){return this.graph?.runtime?.url||'localhost:5173/'},
       wrapPreviewFragment(fragment){return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{box-sizing:border-box}html,body{margin:0;padding:0;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}</style></head><body>${fragment}</body></html>`},
       escapeHtml(value){return String(value??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))},
