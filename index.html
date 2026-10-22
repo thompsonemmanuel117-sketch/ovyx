@@ -16417,6 +16417,52 @@ window.addEventListener('orientationchange',syncNavigation,{passive:true});
 @media(prefers-reduced-motion:reduce){.ovyx-toast,.ovyx-toast.is-leaving{animation:none;opacity:1;transform:none;filter:none}}
 </style>
 <script defer src="/assets/ovyx-settings-reliability.js?v=20261018-2"></script>
+
+<style id="ovyx-code-workspace-interaction-preview-parity">
+/* The split handle floats above the workspace; never let it cover the active code editor. */
+body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-desktop-split-toggle,
+body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] .ovyx-ws-split-toggle {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+/* Keep the editor surface and its actual editing layers able to receive pointer input. */
+body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-workspace,
+body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-workspace-host,
+body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-workspace-host.ovyx-ws-code-root,
+body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-workspace-host #ovyx-monaco-host,
+body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-workspace-host #ovyx-fallback-editor,
+body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-workspace-host .monaco-editor,
+body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-workspace-host .monaco-editor .overflow-guard {
+  pointer-events: auto !important;
+}
+body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-workspace-host .monaco-editor,
+body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-workspace-host #ovyx-fallback-editor {
+  cursor: text !important;
+}
+/* Match the mobile preview backdrop to the shared desktop preview canvas tokens. */
+body.ovyx-webstudio-active #view-webstudio .ovyx-ws-mobile-preview {
+  background-color: var(--app-bg, #050607) !important;
+  background-image:
+    linear-gradient(var(--app-border, #1B222A) 1px, transparent 1px),
+    linear-gradient(90deg, var(--app-border, #1B222A) 1px, transparent 1px) !important;
+  background-size: 24px 24px !important;
+  background-position: 0 0 !important;
+}
+body.ovyx-webstudio-active #view-webstudio .ovyx-ws-mobile-preview-stage,
+body.ovyx-webstudio-active #view-webstudio .ovyx-ws-preview-stage {
+  background-color: var(--app-bg, #050607) !important;
+  background-image:
+    linear-gradient(var(--app-border, #1B222A) 1px, transparent 1px),
+    linear-gradient(90deg, var(--app-border, #1B222A) 1px, transparent 1px) !important;
+  background-size: 24px 24px !important;
+  background-position: 0 0 !important;
+}
+body.ovyx-webstudio-active #view-webstudio #ws-mobile-preview-frame {
+  background: transparent !important;
+}
+</style>
+
 </body>
 </html>
 
