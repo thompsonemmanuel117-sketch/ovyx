@@ -36,6 +36,10 @@ async function triggerHistoryBack(page, completed) {
       popCount: Number(window.__ovyxBackTestPopCount || 0),
       ops: (window.__ovyxHistoryOps || []).slice(-20),
       earlyPop: (() => { try { return JSON.parse(sessionStorage.getItem('__ovyxTestPopState') || '{"count":0,"states":[]}'); } catch (_) { return null; } })(),
+      scopedRollback: window.OVYXScopedRollback?.diagnostics?.() || null,
+      candidateOverlays: [...document.querySelectorAll('[role="dialog"],[aria-modal="true"],dialog,[id$="-modal"],.modal,.ovyx-modal,[data-rollback-scope]')]
+        .filter(el => !el.hidden && el.getAttribute('aria-hidden') !== 'true' && getComputedStyle(el).display !== 'none')
+        .map(el => ({id:el.id,classes:String(el.className||''),z:getComputedStyle(el).zIndex,ariaHidden:el.getAttribute('aria-hidden'),hidden:el.hidden})),
       href: location.href,
       timeOrigin: performance.timeOrigin,
     })).catch(e => ({ diagnosticUnavailable: String(e) }));
