@@ -73,7 +73,7 @@ try {
   let page = await context.newPage();
   page.setDefaultTimeout(20000);
   const pageErrors = [];
-  page.on('pageerror', error => pageErrors.push(error.message));
+  page.on('pageerror', error => pageErrors.push(error.message + '\n' + String(error.stack || 'no stack')));
 
   await page.addInitScript(() => {
     // Start from a clean Home route so the test exercises only same-document
@@ -650,7 +650,7 @@ try {
   await page.close();
   page = await context.newPage();
   page.setDefaultTimeout(20000);
-  page.on('pageerror', error => pageErrors.push(error.message));
+  page.on('pageerror', error => pageErrors.push(error.message + '\n' + String(error.stack || 'no stack')));
   await page.addInitScript(() => {
     localStorage.setItem('ovyx.runtime.route.v18', 'home');
     localStorage.setItem('ovyx.settings.last-view.v1', 'home');
