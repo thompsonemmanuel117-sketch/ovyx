@@ -6,7 +6,7 @@
   const VERSION = '20261022-1';
   const snapshots = new WeakMap();
   const visibility = new WeakMap();
-  const scopeSelector = '[data-rollback-scope], [role="dialog"], [aria-modal="true"], dialog, [id$="-modal"], .modal, .ovyx-modal, form, [data-settings-panel]';
+  const scopeSelector = '[data-rollback-scope], [role="dialog"], [aria-modal="true"], dialog, [id$="-modal"], .modal, .ovyx-modal, [data-settings-panel]';
   let pendingOpen = null;
   let restoring = false;
 
@@ -47,15 +47,6 @@
       project: index >= 0 ? clone(projects[index]) : active ? clone(active) : null,
       projectIndex: index,
       projectIds: projects.map(item => String(item?.id || '')).filter(Boolean),
-      // Keep in-memory snapshots of existing project records so an account-
-      // gated save or hydration reset cannot wipe unrelated project cards.
-      // Existing records are restored only if they disappeared; their newer
-      // content is never overwritten unless the project was the active scope.
-      projectList: projects.map((item, index) => ({
-        id: String(item?.id || ''),
-        index,
-        snapshot: clone(item)
-      })).filter(item => item.id),
       capturedAt: Date.now()
     };
   }
@@ -102,22 +93,6 @@
       state.projects = state.projects.filter(item => String(item?.id || '') !== currentId);
       changed = changed || length !== state.projects.length;
     }
-
-    // An unrelated runtime (especially the guest save guard) may have cleared
-    // the whole project list while the modal/task was active. Reinsert only
-    // snapshot records whose IDs are now missing; do not roll back changes to
-    // any unrelated project that is still present.
-    (Array.isArray(snapshot.projectList) ? snapshot.projectList : []).forEach(record => {
-      const id = String(record?.id || record?.snapshot?.id || '');
-      if (!id || state.projects.some(item => String(item?.id || '') === id)) return;
-      const projectCopy = clone(record.snapshot);
-      if (!projectCopy || typeof projectCopy !== 'object') return;
-      const insertAt = Number.isInteger(record.index)
-        ? Math.max(0, Math.min(record.index, state.projects.length))
-        : state.projects.length;
-      state.projects.splice(insertAt, 0, projectCopy);
-      changed = true;
-    });
 
     let original = null;
     if (originalId && snapshot.project) {
