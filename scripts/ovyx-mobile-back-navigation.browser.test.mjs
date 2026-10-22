@@ -448,6 +448,7 @@ try {
     const dialog = document.createElement('div');
     dialog.id = 'ovyx-mobile-back-project-modal';
     dialog.className = 'modal open';
+    dialog.dataset.rollbackScope = 'project';
     dialog.setAttribute('role', 'dialog');
     dialog.setAttribute('aria-modal', 'true');
     dialog.style.cssText = 'position:fixed;inset:15%;z-index:2147483647;background:#080808;color:white;display:block';
@@ -550,6 +551,9 @@ try {
     dialog.style.cssText = 'position:fixed;inset:15%;z-index:2147483647;background:rgba(0,0,0,.8);color:white;display:block';
     dialog.innerHTML = '<div class="ovyx-ws-modal-sheet" role="dialog" aria-modal="true" aria-label="Temporary test dialog"><p>Temporary test dialog</p><button type="button" data-modal-close>Close</button></div>';
     document.body.appendChild(dialog);
+    // Ensure the rollback runtime captures the overlay before a legitimate
+    // workspace update arrives independently while this non-project surface is open.
+    // Closing this portal must not restore its ambient project snapshot.
     // Ensure this creates a fresh same-document Back target even after previous
     // route/modal scenarios have rewritten the current history branch.
     history.pushState(Object.assign({}, history.state || {}, {
@@ -563,6 +567,17 @@ try {
           .filter(el => !el.hidden && el.getAttribute('aria-hidden') !== 'true' && getComputedStyle(el).display !== 'none')
           .map(el => ({id:el.id,classes:String(el.className||''),z:getComputedStyle(el).zIndex,role:el.getAttribute('role')}))));
     }
+  });
+  await page.waitForTimeout(100);
+  const unrelatedProjectUpdate = await page.evaluate(() => {
+    const state = window.KernelState;
+    const project = state?.activeProject || state?.projects?.find(item => item?.id === window.WebStudio?.project?.id);
+    if (!project) throw new Error('No disposable active project is available for transient-overlay preservation.');
+    const name = 'Committed update must survive transient overlay dismissal';
+    project.name = name;
+    const listed = state.projects?.find(item => item?.id === project.id);
+    if (listed) listed.name = name;
+    return { id: String(project.id), name };
   });
   await triggerHistoryBack(page, () => {
     const d = document.getElementById('ovyx-mobile-back-regression-portal-root');
@@ -583,6 +598,42 @@ try {
     'The shared Back layer must dismiss generic modal overlays across OVYX.');
   assert.equal(modalBack.historyRoute, 'webstudio',
     'Dismissing a generic dialog must re-establish the current route history entry.');
+  const overlayProjectAfterBack = await page.evaluate(id =>
+    window.KernelState?.projects?.find(item => String(item?.id) === id)?.name ||
+    (String(window.KernelState?.activeProject?.id) === id ? window.KernelState.activeProject.name : ''),
+    unrelatedProjectUpdate.id);
+  assert.equal(overlayProjectAfterBack, unrelatedProjectUpdate.name,
+    'Closing a generic overlay must not restore an unrelated, newer project checkpoint.');
+
+  // Escape should dismiss through the owning surface handler and restore only
+  // the dialog fields, not ambient project state.
+  await page.evaluate(() => {
+    const dialog = document.createElement('div');
+    dialog.id = 'ovyx-back-escape-regression';
+    dialog.className = 'modal open';
+    dialog.setAttribute('role', 'dialog');
+    dialog.setAttribute('aria-modal', 'true');
+    dialog.style.cssText = 'position:fixed;inset:20%;z-index:2147483647;background:#080808;color:white;display:block';
+    dialog.innerHTML = '<label>Temporary value <input id="ovyx-back-escape-field" value="escape baseline"></label>';
+    document.body.appendChild(dialog);
+    document.addEventListener('keydown', function closeEscapeFixture(event) {
+      if (event.key !== 'Escape') return;
+      dialog.classList.remove('open');
+      dialog.hidden = true;
+      document.removeEventListener('keydown', closeEscapeFixture);
+    });
+  });
+  await page.waitForTimeout(100);
+  await page.evaluate(() => { document.getElementById('ovyx-back-escape-field').value = 'dirty escape value'; });
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => document.getElementById('ovyx-back-escape-regression')?.hidden === true);
+  await page.waitForFunction(() => document.getElementById('ovyx-back-escape-field')?.value === 'escape baseline');
+  const escapeProjectAfter = await page.evaluate(id =>
+    window.KernelState?.projects?.find(item => String(item?.id) === id)?.name ||
+    (String(window.KernelState?.activeProject?.id) === id ? window.KernelState.activeProject.name : ''),
+    unrelatedProjectUpdate.id);
+  assert.equal(escapeProjectAfter, unrelatedProjectUpdate.name,
+    'Escape from a generic dialog must not roll back ambient project changes.');
 
   // Use a fresh mobile document for native Back/Preview and task rollback. The
   // app-wide overlay assertion above intentionally exercises its own pushed
