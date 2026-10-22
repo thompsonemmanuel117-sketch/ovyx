@@ -51,6 +51,8 @@ assert.match(route, /listFirestoreDocuments\(context\.env, 'ovyx_templates'/);
 assert.match(route, /row\.published === true/);
 assert.match(route, /Cache-Control': 'no-store, max-age=0'/);
 assert.match(frontend, /fetch\('\/api\/templates\/published'/);
+assert.match(frontend, /locked=t\\.locked===true/, 'The gallery must respect server-computed capability locks.');
+assert.match(frontend, /if\\(t\\.locked===true\\|\\|/, 'The Use Template action must not bypass server-computed locks.');
 assert.match(ownerRoute, /async function requireRoot/);
 assert.match(ownerRoute, /ROOT_REQUIRED/);
 assert.match(ownerRoute, /setFirestoreDocumentAtPath\(context\.env, \['ovyx_templates', templateId\]/);
