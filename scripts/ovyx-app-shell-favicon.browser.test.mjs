@@ -18,7 +18,7 @@ try {
   const iconLinks = page.locator('head link[rel~="icon"]');
   await page.waitForFunction(() => {
     const icons = Array.from(document.head.querySelectorAll('link[rel~="icon"]'));
-    return icons.some(link => (link.getAttribute('href') || '').includes('/ovyx-tab-v6.svg'));
+    return icons.some(link => (link.getAttribute('href') || '').includes('/ovyx-tab-v7.svg'));
   }, null, { timeout: 10000 });
 
   // Let deferred application scripts run, then simulate an old/late script
@@ -41,7 +41,7 @@ try {
     return icons.length === 1 &&
       icons[0].getAttribute('rel') === 'icon' &&
       icons[0].getAttribute('type') === 'image/svg+xml' &&
-      icons[0].getAttribute('href') === '/ovyx-tab-v6.svg?v=20261021-6';
+      icons[0].getAttribute('href') === '/ovyx-tab-v7.svg?v=20261022-7';
   }, null, { timeout: 10000 });
 
   const icons = await iconLinks.evaluateAll(nodes => nodes.map(node => ({
@@ -55,7 +55,7 @@ try {
   assert.equal(icons[0].type, 'image/svg+xml', 'The app-shell favicon must be the SVG brand mark.');
   assert.equal(
     icons[0].href,
-    '/ovyx-tab-v6.svg?v=20261021-6',
+    '/ovyx-tab-v7.svg?v=20261022-7',
     'The browser-tab favicon must use the fresh OVYX tab-icon URL so Chrome cannot reuse the obsolete page favicon key.'
   );
 
@@ -81,10 +81,16 @@ try {
   const svg = await iconResponse.text();
   assert.ok(svg.startsWith('<svg xmlns='), 'The linked favicon must return valid SVG source.');
   assert.ok(svg.includes('<title id="title">OVYX</title>'), 'The linked SVG must carry the real OVYX brand title.');
+  assert.ok(svg.includes('translate(4.8 4.8) scale(1.85)'), 'The OVYX diamond must use the enlarged geometry inside the tab favicon.');
   assert.ok(
     svg.includes('M32 5L55 18.5V45.5L32 59L9 45.5V18.5L32 5Z'),
     'The linked SVG must contain the real OVYX double-hexagon brand-mark geometry.'
   );
+
+  const brandMarkResponse = await page.request.get(new URL('/assets/ovyx-brand-mark.svg', origin).href);
+  assert.equal(brandMarkResponse.status(), 200, 'The shared OVYX brand mark must load successfully.');
+  assert.ok((await brandMarkResponse.text()).includes('translate(4.8 4.8) scale(1.85)'),
+    'The PWA brand mark must match the enlarged canonical OVYX geometry.');
 
   const manifestResponse = await page.request.get(new URL('/manifest.json', origin).href);
   assert.equal(manifestResponse.status(), 200, 'The app manifest must load successfully.');
@@ -125,7 +131,7 @@ try {
     const icons = Array.from(document.head.querySelectorAll('link[rel]')).filter(link =>
       String(link.rel || '').toLowerCase().split(/\s+/).includes('icon'));
     return icons.length === 1 &&
-      icons[0].getAttribute('href') === '/ovyx-tab-v6.svg?v=20261021-6';
+      icons[0].getAttribute('href') === '/ovyx-tab-v7.svg?v=20261022-7';
   }, null, { timeout: 10000 });
   const afterRefresh = await page.evaluate(() => ({
     icons: Array.from(document.head.querySelectorAll('link[rel]')).filter(link =>
@@ -134,7 +140,7 @@ try {
     lockAtHeadStart: !!document.head.querySelector('script[src*="ovyx-shell-favicon-lock.js"]'),
   }));
   assert.equal(afterRefresh.icons.length, 1, 'A refresh must not resurrect a second/legacy favicon declaration.');
-  assert.equal(afterRefresh.icons[0].href, '/ovyx-tab-v6.svg?v=20261021-6',
+  assert.equal(afterRefresh.icons[0].href, '/ovyx-tab-v7.svg?v=20261022-7',
     'The refreshed browser tab must still declare the current real OVYX logo.');
   assert.equal(afterRefresh.lockAtHeadStart, true, 'The favicon lock must reload with the refreshed shell.');
 
@@ -149,7 +155,7 @@ try {
     await page.waitForFunction(() => !!window.OVYXShellFavicon, null, { timeout: 10000 });
     const nestedIcon = await page.locator('head link[rel~="icon"]').evaluateAll(nodes =>
       nodes.map(node => node.getAttribute('href')));
-    assert.deepEqual(nestedIcon, ['/ovyx-tab-v6.svg?v=20261021-6'],
+    assert.deepEqual(nestedIcon, ['/ovyx-tab-v7.svg?v=20261022-7'],
       'An HTML route refresh must not fall back to the legacy favicon.');
     assert.ok(/no-store|no-cache/.test(nestedResponse.headers()['cache-control'] || ''),
       'Nested HTML responses must also carry no-cache protection.');
