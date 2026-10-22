@@ -138,8 +138,10 @@ try {
     studio.activeAbortController = null;
     window.__ovyxBackTestFixture = { id, otherId, baselineHtml };
     window.__ovyxBackTestPopCount = 0;
-    window.addEventListener('popstate', () => {
+    window.__ovyxBackTestPopStates = [];
+    window.addEventListener('popstate', event => {
       window.__ovyxBackTestPopCount = Number(window.__ovyxBackTestPopCount || 0) + 1;
+      window.__ovyxBackTestPopStates.push(event.state || null);
     });
   });
 
@@ -154,15 +156,29 @@ try {
     window.OVYXSettings.show('appearance');
     window.OVYXSettings.show('profile');
   });
-  assert.equal(await page.evaluate(() => window.OVYXSettings.current), 'profile',
-    'The nested Settings fixture must end on Profile.');
-  assert.equal(await page.evaluate(() => window.history.state?.ovyxSettingsPanel), 'profile',
+  const settingHistoryBeforeBack = await page.evaluate(() => ({
+    length: window.history.length,
+    state: window.history.state,
+    current: window.OVYXSettings.current,
+    route: window.KernelState?.activeView,
+  }));
+  console.log('[OVYX Back test] Settings history before first Back:', JSON.stringify(settingHistoryBeforeBack));
+  assert.equal(settingHistoryBeforeBack.current, 'profile', 'The nested Settings fixture must end on Profile.');
+  assert.equal(settingHistoryBeforeBack.state?.ovyxSettingsPanel, 'profile',
     'Each Settings category transition must get its own history entry.');
   await triggerHistoryBack(page);
-  assert.equal(await page.evaluate(() => window.KernelState?.activeView), 'settings',
+  const settingHistoryAfterBack = await page.evaluate(() => ({
+    length: window.history.length,
+    state: window.history.state,
+    current: window.OVYXSettings.current,
+    route: window.KernelState?.activeView,
+    popped: window.__ovyxBackTestPopStates?.slice(-1)[0] || null,
+  }));
+  console.log('[OVYX Back test] Settings history after first Back:', JSON.stringify(settingHistoryAfterBack));
+  assert.equal(settingHistoryAfterBack.route, 'settings',
     'Back through Settings must stay on the Settings route.');
-  assert.equal(await page.evaluate(() => window.OVYXSettings.current), 'appearance',
-    'Back must return from Profile to the previous Settings category.');
+  assert.equal(settingHistoryAfterBack.current, 'appearance',
+    'Back must return from Profile to the previous Settings category. Actual: '+JSON.stringify(settingHistoryAfterBack));
   await triggerHistoryBack(page);
   assert.equal(await page.evaluate(() => window.OVYXSettings.current), 'general',
     'A second Back must return to the previous Settings category again.');
