@@ -4,7 +4,7 @@ import { chromium } from 'playwright';
 const baseURL = String(process.env.OVYX_E2E_BASE_URL || '').trim();
 if (!baseURL) throw new Error('OVYX_E2E_BASE_URL must point to the local or deployed OVYX Pages app.');
 
-async function waitForBootRoute(page, expected) {
+async function waitForBoot(page) {
   await page.waitForFunction(
     () => document.readyState === 'complete'
       && typeof window.__OVYX_BOOT_ROUTE === 'string'
@@ -12,6 +12,9 @@ async function waitForBootRoute(page, expected) {
     null,
     { timeout: 45000 },
   );
+}
+
+async function waitForRoute(page, expected) {
   await page.waitForFunction(route => window.KernelState?.activeView === route, expected, {
     timeout: 15000,
   });
@@ -71,7 +74,8 @@ try {
     null,
     { timeout: 45000 },
   );
-  await waitForBootRoute(page, 'home');
+  await waitForBoot(page);
+  await waitForRoute(page, 'home');
   // The existing history wrapper intentionally ignores the very early boot
   // window. Wait until normal user navigation is being recorded.
   await page.waitForTimeout(2000);
@@ -140,21 +144,22 @@ try {
   });
 
   await page.evaluate(() => window.Router.go('settings'));
-  await waitForBootRoute(page, 'settings');
+  await waitForRoute(page, 'settings');
   await page.waitForFunction(() => window.history.state?.ovyxRoute === 'settings', null, { timeout: 10000 });
   await page.evaluate(() => window.Router.go('webstudio'));
-  await waitForBootRoute(page, 'webstudio');
+  await waitForRoute(page, 'webstudio');
   await page.waitForFunction(() => window.history.state?.ovyxRoute === 'webstudio', null, { timeout: 10000 });
 
   // Scenario 1: Android/browser Back while the mobile Preview is open must
   // close that local surface first. It must not route away from Web Studio.
   await page.evaluate(() => {
     const studio = window.WebStudio;
-    const originalAbort = studio.abortActiveAi?.bind(studio);
+    const originalAbort = studio.abortActiveAi;
+    window.__ovyxBackTestOriginalAbort = originalAbort;
     window.__ovyxBackTestAbortCalls = 0;
     studio.abortActiveAi = function () {
       window.__ovyxBackTestAbortCalls += 1;
-      return originalAbort?.();
+      return originalAbort?.apply(this, arguments);
     };
     window.OVYXMobilePreviewRouting?.open?.();
   });
@@ -185,8 +190,7 @@ try {
   // was consumed by the nested Preview state instead of eating the whole route.
   await page.evaluate(() => {
     const studio = window.WebStudio;
-    const originalAbort = studio.abortActiveAi;
-    if (originalAbort) studio.abortActiveAi = originalAbort;
+    if (window.__ovyxBackTestOriginalAbort) studio.abortActiveAi = window.__ovyxBackTestOriginalAbort;
   });
   await triggerHistoryBack(page);
   assert.equal(await page.evaluate(() => window.KernelState?.activeView), 'settings',
