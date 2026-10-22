@@ -265,6 +265,11 @@ try{
     assert.ok(response&&response.ok(),'The real OVYX app shell must load for the mobile dock regression.');
     await dockPage.waitForFunction(()=>!!document.querySelector('.v59-dashboard-shell')&&!!document.getElementById('ovyx-v52-bottom-bar'),
       null,{timeout:30000});
+    /* The shell may paint before the full-page boot curtain is removed. Do not
+       mistake the intentionally topmost startup layer for a scroll blocker. */
+    await dockPage.waitForFunction(()=>!document.getElementById('ovyx-first-paint-curtain')
+      &&!document.documentElement.hasAttribute('data-ovyx-stabilizing'),
+      null,{timeout:18000});
     await dockPage.evaluate(()=>window.OVYXMobileDockAuthority?.sync?.());
     await dockPage.waitForFunction(()=>document.body.classList.contains('ovyx-v88-dock-home')
       &&getComputedStyle(document.getElementById('ovyx-v52-bottom-bar')).display!=='none',
