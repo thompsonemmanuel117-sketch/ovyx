@@ -32,7 +32,7 @@ const available = adaptTemplateForUser(template, 'pro', true);
 assert.equal(available.locked, false);
 assert.equal(available.title, 'Launch Page');
 assert.equal(available.theme[0], '#101010');
-assert.deepEqual(available.pages, [['Home', '/', [['hero', 'Build with OVYX'], ['section', 'Features']]]);
+assert.deepEqual(available.pages, [['Home', '/', [['hero', 'Build with OVYX'], ['section', 'Features']]]]);
 assert.equal(available.published, true);
 
 const disabledTemplates = adaptTemplateForUser(template, 'max', false);
