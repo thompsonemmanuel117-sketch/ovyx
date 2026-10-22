@@ -16618,10 +16618,10 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
 
 <!-- OVYX Code Workspace interaction repair v2: keep the editor above workspace siblings and recover if Monaco creation fails. -->
 <style id="ovyx-code-workspace-hit-testing-v2">
-body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] .ovyx-ws-workspace {
+#view-webstudio:not(.hidden)[data-ws-code-open="1"] .ovyx-ws-workspace {
   position: relative !important;
 }
-body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-workspace:not([hidden]) {
+#view-webstudio:not(.hidden)[data-ws-code-open="1"] #ws-code-workspace:not([hidden]) {
   position: absolute !important;
   inset: 0 !important;
   z-index: 2147483002 !important;
@@ -16632,17 +16632,17 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
   visibility: visible !important;
   opacity: 1 !important;
 }
-body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-workspace[hidden] {
+#view-webstudio:not(.hidden)[data-ws-code-open="1"] #ws-code-workspace[hidden] {
   display: none !important;
   pointer-events: none !important;
 }
-body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-chat-pane,
-body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-inline-preview,
-body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-desktop-split-toggle,
-body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] .ovyx-ws-split-toggle {
+#view-webstudio:not(.hidden)[data-ws-code-open="1"] #ws-chat-pane,
+#view-webstudio:not(.hidden)[data-ws-code-open="1"] #ws-inline-preview,
+#view-webstudio:not(.hidden)[data-ws-code-open="1"] #ws-desktop-split-toggle,
+#view-webstudio:not(.hidden)[data-ws-code-open="1"] .ovyx-ws-split-toggle {
   pointer-events: none !important;
 }
-body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-workspace-host {
+#view-webstudio:not(.hidden)[data-ws-code-open="1"] #ws-code-workspace-host {
   position: relative !important;
   z-index: 1 !important;
   display: block !important;
@@ -16653,15 +16653,15 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
   overflow: hidden !important;
   pointer-events: auto !important;
 }
-body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-workspace-host .ovyx-ws-code-root,
-body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-workspace-host .ovyx-code-panel-main,
-body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-workspace-host #ovyx-monaco-host,
-body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-workspace-host .monaco-editor,
-body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-workspace-host .monaco-editor .overflow-guard,
-body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-workspace-host #ovyx-fallback-editor {
+#view-webstudio:not(.hidden)[data-ws-code-open="1"] #ws-code-workspace-host .ovyx-ws-code-root,
+#view-webstudio:not(.hidden)[data-ws-code-open="1"] #ws-code-workspace-host .ovyx-code-panel-main,
+#view-webstudio:not(.hidden)[data-ws-code-open="1"] #ws-code-workspace-host #ovyx-monaco-host,
+#view-webstudio:not(.hidden)[data-ws-code-open="1"] #ws-code-workspace-host .monaco-editor,
+#view-webstudio:not(.hidden)[data-ws-code-open="1"] #ws-code-workspace-host .monaco-editor .overflow-guard,
+#view-webstudio:not(.hidden)[data-ws-code-open="1"] #ws-code-workspace-host #ovyx-fallback-editor {
   pointer-events: auto !important;
 }
-body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-workspace-host #ovyx-monaco-host {
+#view-webstudio:not(.hidden)[data-ws-code-open="1"] #ws-code-workspace-host #ovyx-monaco-host {
   position: relative !important;
   z-index: 2 !important;
   flex: 1 1 auto !important;
@@ -16670,7 +16670,7 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
   min-width: 0 !important;
   min-height: 0 !important;
 }
-body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-workspace-host #ovyx-fallback-editor {
+#view-webstudio:not(.hidden)[data-ws-code-open="1"] #ws-code-workspace-host #ovyx-fallback-editor {
   position: relative !important;
   z-index: 3 !important;
   box-sizing: border-box !important;
@@ -16694,8 +16694,11 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
   window.__OVYX_CODE_WORKSPACE_EDITOR_RECOVERY_V2__ = true;
 
   function studio() { return window.WebStudio || null; }
+  function currentRoute() {
+    return String(window.KernelState && window.KernelState.activeView || '').replace(/^view-/, '').trim().toLowerCase();
+  }
   function activeHost(W) {
-    var route = String(window.KernelState && window.KernelState.activeView || '').replace(/^view-/, '');
+    var route = currentRoute();
     if (route === 'webstudio' && document.getElementById('view-webstudio') &&
         document.getElementById('view-webstudio').getAttribute('data-ws-code-open') === '1') {
       return document.getElementById('ws-code-workspace-host');
@@ -16764,7 +16767,7 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
   }
   function repairVisibleSurface(W) {
     var view = document.getElementById('view-webstudio');
-    if (view && String(window.KernelState && window.KernelState.activeView || '') === 'webstudio' &&
+    if (view && currentRoute() === 'webstudio' &&
         view.getAttribute('data-ws-code-open') === '1') {
       var surface = document.getElementById('ws-code-workspace');
       if (surface) {
@@ -16794,6 +16797,7 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
         return result;
       } catch (error) {
         activateEditableFallback(this, file, error);
+        repairVisibleSurface(this);
         return false;
       }
     };
