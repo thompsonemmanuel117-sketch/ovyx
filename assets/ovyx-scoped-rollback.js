@@ -683,10 +683,11 @@
     if (!scope) return false;
     const dialogSelector = '[role="dialog"], [aria-modal="true"], dialog, [id$="-modal"], .modal, .ovyx-modal, .ovyx-ws-plan-modal, .ovyx-ws-history-modal, .ovyx-preview-portal-modal, .ovyx-v655-support-shell, .ovyx-v84-support-modal';
     const isDialogSurface = scope.matches?.(dialogSelector) === true;
+    const isExplicitRollbackScope = scope.matches?.('[data-rollback-scope]') === true;
     // Settings tabs own their own panel-history entries. A panel carrying an
     // implementation-specific rollback marker is not automatically a modal.
     if (scope.closest?.('#view-settings [data-settings-panel]') && !isDialogSurface) return false;
-    return isDialogSurface;
+    return isDialogSurface || isExplicitRollbackScope;
   }
 
   function pushOverlayHistoryEntry() {
@@ -718,7 +719,7 @@
       if (now && was !== true && !snapshots.has(scope)) {
         const project = userOpenPending && pendingOpen ? pendingOpen.project : snapshotProject();
         capture(scope, project);
-        if (userOpenPending && historySurface) pendingOpen = null;
+        if (userOpenPending) pendingOpen = null;
       }
       visibility.set(scope, now);
     });
