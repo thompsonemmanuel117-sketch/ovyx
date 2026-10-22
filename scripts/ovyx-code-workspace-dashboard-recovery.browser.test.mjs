@@ -13,6 +13,20 @@ function extractBetween(source,startText,endText,label){
   return source.slice(start,end);
 }
 const editorMethods=extractBetween(appShell,'async loadMonacoForCode(){','saveCodeFile(file){','production Code Workspace editor methods');
+const syncProjectMethod=extractBetween(appShell,'syncGraphToProject(clearDirty=true){','pageToHtml(page){','production project/source synchronizer');
+const updateCodeMethod=extractBetween(appShell,'updateCodeFromEditor(file,content){','codeLanguage(file){','production editor change handler');
+const previewMethods=extractBetween(appShell,'buildPreviewDocument(page){','runtimeUrl(){','production Desktop preview renderer');
+const mobileScrollStyleMatch=appShell.match(/<style id="ovyx-mobile-scroll-contract-v3">([\\s\\S]*?)<\\/style>/i);
+const mobileScrollRecoveryMatch=appShell.match(/<script id="ovyx-mobile-scroll-recovery-v1">([\\s\\S]*?)<\\/script>/i);
+assert.ok(mobileScrollStyleMatch,'The global mobile scroll contract must be present.');
+assert.match(mobileScrollStyleMatch[1],/overflow-y:auto!important/i,'The routed viewport must accept vertical scrolling.');
+assert.match(mobileScrollStyleMatch[1],/touch-action:pan-y pinch-zoom!important/i,'The routed viewport must permit native touch scrolling.');
+assert.doesNotMatch(mobileScrollStyleMatch[1],/body\\.ovyx-v88-dock-home\\s+#app-container/,'Mobile scrolling must not be limited to the Home dock state.');
+assert.ok(mobileScrollRecoveryMatch,'The mobile stale-scroll-lock recovery must be present.');
+assert.doesNotThrow(()=>new Function(mobileScrollRecoveryMatch[1]),'The mobile scroll recovery runtime must parse as JavaScript.');
+assert.match(editorMethods,/selectedProjectPage=true/,'Opening an HTML file must select the linked project page.');
+assert.match(editorMethods,/this\\.graph\\.entry=safe/,'HTML file selection must set the source used by Desktop preview.');
+
 const cssMatch=appShell.match(/<style id="ovyx-code-workspace-interaction-preview-parity">([\s\S]*?)<\/style>/i);
 assert.ok(cssMatch,'The production Code Workspace interaction styles must be present.');
 const recoveryMatch=appShell.match(/<script id="ovyx-code-dashboard-route-recovery-v1">([\s\S]*?)<\/script>/i);
@@ -57,22 +71,35 @@ try{
       <div id="ovyx-monaco-host"></div><textarea id="ovyx-fallback-editor" spellcheck="false"></textarea>
       </div><div id="ovyx-code-tree"></div><span id="ovyx-code-language"></span><span id="ovyx-code-file-state"></span>
     </div></div></section>
+    <iframe id="ws-canvas-iframe" style="display:none"></iframe><div id="ws-preview-empty" class="hidden"></div><div id="ws-preview-url"></div>
   </body></html>`);
   await page.addStyleTag({content:cssMatch[1]});
   await page.addScriptTag({content:`
     window.__OVYX_EARLY_VIEWPORT__='desktop';
     window.fixtureEditor={
-      graph:{version:1,entry:'src/pages/Home.html',files:{'src/pages/Home.html':{type:'text/html',content:'<!doctype html><html><body>baseline</body></html>'}}},
+      graph:{version:1,entry:'src/pages/Home.html',files:{
+        'src/pages/Home.html':{type:'text/html',content:'<!doctype html><html><head><title>Home</title></head><body>Home baseline</body></html>'},
+        'src/pages/Pricing.html':{type:'text/html',content:'<!doctype html><html><head><title>Pricing</title></head><body>Pricing baseline</body></html>'}
+      }},
+      graphKeyPrefix:'ovyx.ws.graph.v2.',activePageIndex:0,previewUpdateTimer:null,
       monacoReady:false,monaco:null,monacoModels:new Map(),openCodeTabs:[],activeCodeFile:'',
       entryFile(){return this.graph.entry},
+      getActivePage(){return window.KernelState?.activeProject?.pages?.[this.activePageIndex]||window.KernelState?.activeProject?.pages?.[0]||null},
       ensureProjectGraph(){return this.graph},
       escapeHtml(value){return String(value).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]))},
       escapeAttr(value){return this.escapeHtml(value)},
+      escapeHtmlForStyle(value){return String(value??'').replace(/<\\//g,'<\\\\/')},
+      escapeScript(value){return String(value??'').replace(/<\\/script/gi,'<\\\\/script').replace(/<\\/style/gi,'<\\\\/style')},
+      escapeScriptAttr(value){return String(value??'').replace(/\\/g,'\\\\').replace(/'/g,"\\'")},
+      pageToHtml(page){return '<!doctype html><html><head><title>'+String(page?.name||'OVYX')+'</title></head><body></body></html>'},
       codeLanguage(){return 'html'},
       renderCodeTree(){},
-      updateCodeFromEditor(file,content){this.graph.files[file].content=String(content)},
+      ${syncProjectMethod}
       ${editorMethods}
-      saveCodeFile(file){return true;}
+      saveCodeFile(file){return true;},
+      ${updateCodeMethod}
+      ${previewMethods}
+      runtimeUrl(){return 'fixture://preview'};
     };
   `});
   await page.route('**/cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.55.1/min/vs/loader.min.js',async()=>new Promise(()=>{}));
@@ -86,6 +113,18 @@ try{
     const memoryStorage=()=>{const values=new Map();return {get length(){return values.size},key(index){return Array.from(values.keys())[index]??null},getItem(key){const k=String(key);return values.has(k)?values.get(k):null},setItem(key,value){values.set(String(key),String(value))},removeItem(key){values.delete(String(key))},clear(){values.clear()}}};
     for(const key of ['localStorage','sessionStorage'])Object.defineProperty(window,key,{configurable:true,value:memoryStorage()});
   });
+  await page.evaluate(()=>{
+    const home=window.fixtureEditor.graph.files['src/pages/Home.html'].content;
+    const pricing=window.fixtureEditor.graph.files['src/pages/Pricing.html'].content;
+    window.KernelState={activeView:'workspace',activeProject:{
+      id:'desktop-preview-sync-fixture',name:'Desktop Preview Sync Fixture',
+      pages:[
+        {name:'Home',__ovyxFile:'src/pages/Home.html',html:home,source:home,renderedHtml:home},
+        {name:'Pricing',__ovyxFile:'src/pages/Pricing.html',html:pricing,source:pricing,renderedHtml:pricing}
+      ],
+      ovyxGraph:window.fixtureEditor.graph
+    }};
+  });
   await page.evaluate(()=>window.fixtureEditor.openCodeFile('src/pages/Home.html'));
   const editor=page.locator('#ovyx-fallback-editor');
   await editor.waitFor({state:'visible'});
@@ -95,7 +134,34 @@ try{
   await page.keyboard.type('<main>Desktop editing works</main>');
   const saved=await page.evaluate(()=>window.fixtureEditor.graph.files['src/pages/Home.html'].content);
   assert.match(saved,/Desktop editing works/,'Typing in the middle of the editor must update the active project source.');
-  assert.deepEqual(pageErrors,[],'The fallback editor must not throw browser runtime errors.');
+  await page.waitForTimeout(450);
+  await page.evaluate(()=>{
+    window.fixtureEditor.openCodeFile('src/pages/Pricing.html');
+  });
+  const pageSelection=await page.evaluate(()=>({
+    entry:window.fixtureEditor.graph.entry,
+    activePageIndex:window.fixtureEditor.activePageIndex,
+    activePageName:window.KernelState.activeProject.pages[window.fixtureEditor.activePageIndex]?.name,
+    previewText:document.getElementById('ws-canvas-iframe')?.contentDocument?.body?.textContent||''
+  }));
+  assert.equal(pageSelection.entry,'src/pages/Pricing.html','Opening another HTML source must move Desktop preview to that page.');
+  assert.equal(pageSelection.activePageIndex,1,'The selected Code Workspace HTML file must select the matching project page.');
+  assert.equal(pageSelection.activePageName,'Pricing','Project page selection must follow the HTML file selected in Code Workspace.');
+  const pricingSource='<!doctype html><html><head><title>Pricing Updated</title></head><body><h1>Desktop preview shares code</h1></body></html>';
+  await page.evaluate(source=>window.fixtureEditor.updateCodeFromEditor('src/pages/Pricing.html',source),pricingSource);
+  await page.waitForFunction(()=>document.getElementById('ws-canvas-iframe')?.contentDocument?.body?.textContent?.includes('Desktop preview shares code'),null,{timeout:6000});
+  const linkedState=await page.evaluate(()=>({
+    graph:window.fixtureEditor.graph.files['src/pages/Pricing.html'].content,
+    entry:window.fixtureEditor.graph.entry,
+    projectGraph:window.KernelState.activeProject.ovyxGraph?.files?.['src/pages/Pricing.html']?.content,
+    projectPage:window.KernelState.activeProject.pages[1]?.html,
+    preview:document.getElementById('ws-canvas-iframe')?.contentDocument?.body?.textContent||''
+  }));
+  assert.match(linkedState.graph,/Desktop preview shares code/,'The selected source file must retain the edited HTML.');
+  assert.match(linkedState.projectGraph,/Desktop preview shares code/,'The active project graph must receive the edited source.');
+  assert.match(linkedState.projectPage,/Desktop preview shares code/,'The matching project page must receive the edited source.');
+  assert.match(linkedState.preview,/Desktop preview shares code/,'The actual Desktop preview document must render the edited source.');
+  assert.deepEqual(pageErrors,[],'The fallback editor and live preview sync must not throw browser runtime errors.');
   await page.close();
 
   // Production overlay hit-testing regression: use the real editor-layer CSS and
@@ -268,21 +334,12 @@ try{
     const touchSession=await dockPage.context().newCDPSession(dockPage);
     try{
       const x=Math.floor(gestureGeometry.viewportLeft+gestureGeometry.viewportWidth/2);
-      await touchSession.send('Input.dispatchTouchEvent',{
-        type:'touchStart',touchPoints:[{id:1,x,y:gestureGeometry.startY,radiusX:2,radiusY:2,force:1}]
+      await touchSession.send('Input.synthesizeScrollGesture',{
+        x,y:gestureGeometry.startY,xDistance:0,yDistance:-300,speed:900,gestureSourceType:'touch'
       });
-      for(let step=1;step<=5;step++){
-        const y=Math.floor(gestureGeometry.startY+
-          (gestureGeometry.endY-gestureGeometry.startY)*step/5);
-        await touchSession.send('Input.dispatchTouchEvent',{
-          type:'touchMove',touchPoints:[{id:1,x,y,radiusX:2,radiusY:2,force:1}]
-        });
-        await dockPage.waitForTimeout(20);
-      }
-      await touchSession.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
       await dockPage.waitForFunction(
         ()=>document.getElementById('view-router-viewport')?.scrollTop>0,
-        null,{timeout:2500}
+        null,{timeout:3500}
       );
     }finally{await touchSession.detach();}
     const gestureScroll=await dockPage.evaluate(()=>({
@@ -292,6 +349,46 @@ try{
     }));
     assert.ok(gestureScroll.scrollTop>0,
       'An upward finger swipe on mobile Home must scroll the dashboard down; programmatic scrollTop alone is not sufficient.');
+
+    // The scroll contract must also work after leaving Home; this catches route
+    // layouts and stale document locks that the Home-only regression missed.
+    await dockPage.evaluate(()=>{
+      const projects=document.getElementById('view-projects');
+      if(!projects)throw new Error('The production Projects route is missing.');
+      window.Router?.go?.('projects');
+      const longContent=document.createElement('div');
+      longContent.id='ovyx-scroll-contract-projects-fixture';
+      longContent.style.cssText='height:1500px;width:100%;pointer-events:none;background:linear-gradient(#050607,#101010)';
+      projects.appendChild(longContent);
+    });
+    await dockPage.waitForFunction(()=>{
+      const viewport=document.getElementById('view-router-viewport');
+      const projects=document.getElementById('view-projects');
+      return viewport&&projects&&!projects.classList.contains('hidden')&&projects.getAttribute('aria-hidden')==='false'
+        &&viewport.scrollHeight>viewport.clientHeight;
+    },null,{timeout:8000});
+    await dockPage.evaluate(()=>{document.getElementById('view-router-viewport').scrollTop=0;});
+    const projectGesture=await dockPage.evaluate(()=>{
+      const viewport=document.getElementById('view-router-viewport');
+      const rect=viewport.getBoundingClientRect();
+      return {x:Math.floor(rect.left+rect.width/2),y:Math.floor(Math.min(rect.bottom-120,rect.top+rect.height*.72))};
+    });
+    const projectTouch=await dockPage.context().newCDPSession(dockPage);
+    try{
+      await projectTouch.send('Input.synthesizeScrollGesture',{
+        x:projectGesture.x,y:projectGesture.y,xDistance:0,yDistance:-280,speed:850,gestureSourceType:'touch'
+      });
+      await dockPage.waitForFunction(()=>document.getElementById('view-router-viewport')?.scrollTop>0,null,{timeout:3500});
+    }finally{await projectTouch.detach();}
+    const allRoutesScroll=await dockPage.evaluate(()=>({
+      route:window.KernelState?.activeView||'',
+      top:document.getElementById('view-router-viewport')?.scrollTop||0,
+      overflow:getComputedStyle(document.getElementById('view-router-viewport')).overflowY,
+      sectionOverflow:getComputedStyle(document.getElementById('view-projects')).overflow
+    }));
+    assert.ok(allRoutesScroll.top>0,'A non-Home route must respond to a real touch scroll gesture.');
+    assert.equal(allRoutesScroll.overflow,'auto','The routed canvas must remain the vertical scroll owner on normal screens.');
+    assert.equal(allRoutesScroll.sectionOverflow,'visible','A normal routed view must not clip its content.');
   }finally{await dockPage.close();}
   console.log('OVYX Code Workspace recovery and real mobile Home dock surface browser tests passed.');
 }finally{await browser.close();}
