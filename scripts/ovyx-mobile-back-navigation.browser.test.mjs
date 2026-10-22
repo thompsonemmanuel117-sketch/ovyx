@@ -624,7 +624,7 @@ try {
     });
   });
   await page.waitForTimeout(100);
-  await page.evaluate(() => { document.getElementById('ovyx-back-escape-field').value = 'dirty escape value'; });
+  await page.evaluate(() => { const field = document.getElementById('ovyx-back-escape-field'); field.value = 'dirty escape value'; field.focus(); });
   await page.keyboard.press('Escape');
   await page.waitForFunction(() => document.getElementById('ovyx-back-escape-regression')?.hidden === true);
   await page.waitForFunction(() => document.getElementById('ovyx-back-escape-field')?.value === 'escape baseline');
