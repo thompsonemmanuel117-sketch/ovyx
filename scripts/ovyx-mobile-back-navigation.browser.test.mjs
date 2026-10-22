@@ -204,6 +204,69 @@ try {
   assert.equal(await page.evaluate(() => window.OVYXSettings.current), 'general',
     'A second Back must return to the previous Settings category again.');
 
+  // Route hydration is allowed to replace the active-project pointer. Rebuild
+  // only the disposable regression fixtures and explicitly reselect the test
+  // project immediately before the Web Studio checks, so this test doesn't
+  // accidentally depend on a prior route's in-memory object identity.
+  await page.evaluate(() => {
+    const clone = value => JSON.parse(JSON.stringify(value));
+    const fixture = window.__ovyxBackTestFixture;
+    const oldProjects = Array.isArray(window.KernelState?.projects) ? window.KernelState.projects : [];
+    const baselineHtml = String(fixture?.baselineHtml || '');
+    const graph = {
+      version: 2,
+      entry: 'src/pages/Home.html',
+      files: {
+        'src/pages/Home.html': { type: 'text/html', content: baselineHtml },
+        'src/styles.css': { type: 'text/css', content: 'body{margin:0}' },
+      },
+    };
+    const project = {
+      id: fixture.id,
+      name: 'Back Safety Baseline Project',
+      description: 'Disposable browser regression fixture.',
+      status: 'draft',
+      updatedAt: Date.now(),
+      pages: [{ id: 'home', name: 'Home', slug: '/', sections: [] }],
+      assets: [],
+      revisions: [],
+      ovyxGraph: clone(graph),
+    };
+    const other = {
+      id: fixture.otherId,
+      name: 'Unrelated Project Must Stay Untouched',
+      description: 'Second disposable fixture project.',
+      status: 'draft',
+      updatedAt: Date.now(),
+      pages: [{ id: 'other-home', name: 'Home', slug: '/', sections: [] }],
+      assets: [],
+      revisions: [],
+      ovyxGraph: {
+        version: 2,
+        entry: 'src/pages/Home.html',
+        files: {
+          'src/pages/Home.html': {
+            type: 'text/html',
+            content: '<!doctype html><html><body>UNRELATED PROJECT</body></html>',
+          },
+        },
+      },
+    };
+    window.KernelState.projects = [
+      project,
+      other,
+      ...oldProjects.filter(item => ![fixture.id, fixture.otherId].includes(String(item?.id || ''))),
+    ];
+    window.KernelState.activeProject = project;
+    window.WebStudio.project = project;
+    window.WebStudio.graph = clone(graph);
+    window.WebStudio.pendingBuild = false;
+    window.WebStudio.liveAiActive = false;
+    window.WebStudio.activeAbortController = null;
+    localStorage.setItem('ovyx.graph.' + fixture.id, JSON.stringify(graph));
+    window.ProjectStore?.save?.();
+  });
+
   await page.evaluate(() => window.Router.go('webstudio'));
   await waitForRoute(page, 'webstudio');
   await page.waitForFunction(() => window.history.state?.ovyxRoute === 'webstudio', null, { timeout: 10000 });
