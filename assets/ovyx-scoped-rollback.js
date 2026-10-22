@@ -3,7 +3,7 @@
   if (window.__OVYX_SCOPED_ROLLBACK_V1__) return;
   window.__OVYX_SCOPED_ROLLBACK_V1__ = true;
 
-  const VERSION = '20261022-5';
+  const VERSION = '20261022-6';
   const snapshots = new WeakMap();
   const visibility = new WeakMap();
   const inlineDisplayBeforeClose = new WeakMap();
