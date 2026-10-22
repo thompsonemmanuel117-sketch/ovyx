@@ -10021,6 +10021,10 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
   }
   function closeOverlay(el){
     if(!el)return false;
+    // Let the app-wide scoped rollback restore only the draft owned by this
+    // overlay before legacy close handlers run. This is intentionally optional
+    // so a missing enhancement can never block navigation or close behavior.
+    try{window.OVYXScopedRollback?.beforeClose?.(el,'system-back')}catch(e){console.warn('[OVYX scoped rollback close]',e)}
     var id=el.id||'';
     try{
       if(id==='checkout-elements-modal'&&window.CheckoutElements?.closeModal){window.CheckoutElements.closeModal();return true}
