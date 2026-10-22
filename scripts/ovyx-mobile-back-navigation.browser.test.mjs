@@ -80,6 +80,13 @@ try {
   // window. Wait until normal user navigation is being recorded.
   await page.waitForTimeout(2000);
 
+  // Keep this history test deterministic: application boot may preserve an
+  // assistant/modal overlay from a device session. Back must close a genuinely
+  // open overlay first, so dismiss boot-time overlays before testing settings tabs.
+  await page.evaluate(() => {
+    for (let i = 0; i < 8 && window.OVYXNavigation.closeTopOverlay(); i += 1) {}
+  });
+
   await page.evaluate(() => {
     const clone = value => JSON.parse(JSON.stringify(value));
     const baselineHtml = '<!doctype html><html><body><main id="baseline-work">BASELINE WORK MUST SURVIVE</main></body></html>';
