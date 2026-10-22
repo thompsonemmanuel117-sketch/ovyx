@@ -407,7 +407,8 @@ try {
     window.WebStudio.project = baseline;
     window.WebStudio.graph = clone(graph);
     try { localStorage.setItem('ovyx.graph.' + fixture.id, JSON.stringify(graph)); } catch (_) {}
-    try { window.ProjectStore?.save?.(); } catch (_) {}
+    // Do not invoke ProjectStore.save here: its runtime hydration can replace
+    // this temporary browser fixture before the Cancel assertion runs.
   });
   await page.evaluate(() => {
     const dialog = document.createElement('div');
