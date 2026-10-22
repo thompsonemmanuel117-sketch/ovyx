@@ -233,7 +233,7 @@ if (!fs.existsSync(scopedRollbackPath)) {
 }
 if (fs.existsSync(shellMiddlewarePath)) {
   const shellMiddleware = fs.readFileSync(shellMiddlewarePath, 'utf8');
-  if (!shellMiddleware.includes('ovyx-scoped-rollback.js?v=20261022-4')) {
+  if (!shellMiddleware.includes('ovyx-scoped-rollback.js?v=20261022-5')) {
     errors.push('functions/_middleware.js: every application-shell HTML response must inject the app-wide scoped rollback runtime.');
   }
 }
