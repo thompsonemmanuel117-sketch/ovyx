@@ -3579,11 +3579,63 @@
         }catch(e){console.warn('[OVYX Code] Monaco unavailable or delayed; using the editable fallback',e);return showFallback()}
       },
       openCodeFile(file){
-        this.ensureProjectGraph();const safe=String(file||this.entryFile());const data=this.graph.files?.[safe];if(!data)return;if(data.editBaseContent===undefined)data.editBaseContent=String(data.content??'');this.activeCodeFile=safe;sessionStorage.setItem('ovyx.ws.focus-file',safe);if(!this.openCodeTabs.includes(safe))this.openCodeTabs.push(safe);const tabs=document.getElementById('ovyx-code-tabs');if(tabs){tabs.innerHTML=this.openCodeTabs.map(f=>`<button data-tab-file="${this.escapeAttr(f)}" style="height:100%;padding:0 10px;border:0;border-right:1px solid rgba(255,255,255,.06);background:${f===safe?'#171717':'transparent'};color:${f===safe?'#F0F0F0':'#7F858C'};font:800 7px JetBrains Mono;cursor:pointer;white-space:nowrap">${this.escapeHtml(f.split('/').pop())}${this.graph.files[f]?.dirty?' •':''}</button>`).join('');tabs.querySelectorAll('[data-tab-file]').forEach(b=>b.onclick=()=>this.openCodeFile(b.dataset.tabFile));}
-        const lang=this.codeLanguage(safe);const status=document.getElementById('ovyx-code-language');if(status)status.textContent=lang.toUpperCase();const sourceState=document.getElementById('ovyx-code-file-state');if(sourceState)sourceState.textContent=(data.dirty?'MODIFIED · ':'SOURCE OF TRUTH · ')+safe;
+        this.ensureProjectGraph();
+        const safe=String(file||this.entryFile());
+        const data=this.graph.files?.[safe];
+        if(!data)return;
+
+        /* Selecting an HTML source file must select the same page used by the
+           live Desktop preview. Keep non-HTML assets from changing the preview route. */
+        let selectedProjectPage=false;
+        if(/\.html?$/i.test(safe)){
+          const project=window.KernelState?.activeProject;
+          const pages=Array.isArray(project?.pages)?project.pages:[];
+          const slug=value=>String(value||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+          const base=safe.split('/').pop().replace(/\.html?$/i,'');
+          const pageIndex=pages.findIndex((page,index)=>
+            String(page?.__ovyxFile||'')===safe ||
+            safe===('src/pages/'+(slug(page?.name||('Page '+(index+1)))||('page-'+(index+1)))+'.html')
+          );
+          if(pageIndex>=0 || this.graph.entry===safe){
+            if(pageIndex>=0){this.activePageIndex=pageIndex;selectedProjectPage=true;}
+            this.graph.entry=safe;
+            this.graph.updatedAt=Date.now();
+            if(project)project.ovyxGraph=this.graph;
+            try{localStorage.setItem(this.graphKeyPrefix+(project?.id||'unknown'),JSON.stringify(this.graph))}catch(_){}
+          }
+        }
+
+        if(data.editBaseContent===undefined)data.editBaseContent=String(data.content??'');
+        this.activeCodeFile=safe;
+        sessionStorage.setItem('ovyx.ws.focus-file',safe);
+        if(!this.openCodeTabs.includes(safe))this.openCodeTabs.push(safe);
+        const tabs=document.getElementById('ovyx-code-tabs');
+        if(tabs){
+          tabs.innerHTML=this.openCodeTabs.map(f=>`<button data-tab-file="${this.escapeAttr(f)}" style="height:100%;padding:0 10px;border:0;border-right:1px solid rgba(255,255,255,.06);background:${f===safe?'#171717':'transparent'};color:${f===safe?'#F0F0F0':'#7F858C'};font:800 7px JetBrains Mono;cursor:pointer;white-space:nowrap">${this.escapeHtml(f.split('/').pop())}${this.graph.files[f]?.dirty?' •':''}</button>`).join('');
+          tabs.querySelectorAll('[data-tab-file]').forEach(b=>b.onclick=()=>this.openCodeFile(b.dataset.tabFile));
+        }
+        const lang=this.codeLanguage(safe);
+        const status=document.getElementById('ovyx-code-language');
+        if(status)status.textContent=lang.toUpperCase();
+        const sourceState=document.getElementById('ovyx-code-file-state');
+        if(sourceState)sourceState.textContent=(data.dirty?'MODIFIED · ':'SOURCE OF TRUTH · ')+safe;
         const host=document.getElementById('ovyx-monaco-host'),fallback=document.getElementById('ovyx-fallback-editor');
-        if(this.monacoReady&&this.monaco){let model=this.monacoModels.get(safe);if(!model){model=this.monaco.editor.createModel(String(data.content??''),lang,this.monaco.Uri.parse('file:///'+safe));this.monacoModels.set(safe,model);model.onDidChangeContent(()=>this.updateCodeFromEditor(safe,model.getValue()));}if(!this.monacoEditor){this.monacoEditor=this.monaco.editor.create(host,{model,theme:'vs-dark',automaticLayout:true,fontSize:12,lineNumbers:'on',minimap:{enabled:false},wordWrap:'on',smoothScrolling:true,folding:true,quickSuggestions:true,inlineSuggest:{enabled:true},tabSize:2,scrollBeyondLastLine:false});}else this.monacoEditor.setModel(model);}else{fallback.value=String(data.content??'');fallback.oninput=()=>this.updateCodeFromEditor(safe,fallback.value)}this.renderCodeTree();},
-      saveCodeFile(file){this.ensureProjectGraph();const safe=String(file||this.activeCodeFile||this.entryFile());if(this.graph.files?.[safe]){this.syncGraphToProject(true);const st=document.getElementById('ovyx-code-status-text');if(st)st.textContent='Saved '+safe;const dirty=document.getElementById('ovyx-code-dirty');if(dirty)dirty.textContent='CLEAN';this.openCodeFile(safe);window.showToast?.('Source saved.','success')}},
+        if(this.monacoReady&&this.monaco){
+          let model=this.monacoModels.get(safe);
+          if(!model){
+            model=this.monaco.editor.createModel(String(data.content??''),lang,this.monaco.Uri.parse('file:///'+safe));
+            this.monacoModels.set(safe,model);
+            model.onDidChangeContent(()=>this.updateCodeFromEditor(safe,model.getValue()));
+          }
+          if(!this.monacoEditor){
+            this.monacoEditor=this.monaco.editor.create(host,{model,theme:'vs-dark',automaticLayout:true,fontSize:12,lineNumbers:'on',minimap:{enabled:false},wordWrap:'on',smoothScrolling:true,folding:true,quickSuggestions:true,inlineSuggest:{enabled:true},tabSize:2,scrollBeyondLastLine:false});
+          }else this.monacoEditor.setModel(model);
+        }else{
+          if(fallback){fallback.value=String(data.content??'');fallback.oninput=()=>this.updateCodeFromEditor(safe,fallback.value);}
+        }
+        this.renderCodeTree();
+        if(selectedProjectPage && typeof this.renderPreview==='function')this.renderPreview();
+      },saveCodeFile(file){this.ensureProjectGraph();const safe=String(file||this.activeCodeFile||this.entryFile());if(this.graph.files?.[safe]){this.syncGraphToProject(true);const st=document.getElementById('ovyx-code-status-text');if(st)st.textContent='Saved '+safe;const dirty=document.getElementById('ovyx-code-dirty');if(dirty)dirty.textContent='CLEAN';this.openCodeFile(safe);window.showToast?.('Source saved.','success')}},
       handleCodeAction(action){
         const file=this.activeCodeFile||this.entryFile();const editor=this.monacoEditor;
         if(action==='save'){this.saveCodeFile(file);return;}if(action==='find'){editor?.getAction('actions.find')?.run();return;}
@@ -16877,59 +16929,151 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
 </script>
 
 
-<style id="ovyx-mobile-dashboard-dock-clearance-v2">
-/* Home-only mobile scroll contract. The fixed dock stays fixed; the route viewport
-   gets a bounded flex size so the real page can scroll with touch input. */
+<style id="ovyx-mobile-scroll-contract-v3">
+/* One mobile scroll owner for ordinary OVYX routes. The top bar stays fixed,
+   while the routed canvas receives the remaining viewport and real touch scroll. */
 @media (max-width:767px) {
-  body.ovyx-v88-dock-home #app-container {
-    height:100dvh!important;
-    min-height:100dvh!important;
-    max-height:100dvh!important;
+  html,body { width:100%!important; max-width:100%!important; overflow-x:hidden!important; }
+  #app-container {
+    display:flex!important; flex-direction:column!important;
+    height:100dvh!important; min-height:0!important; max-height:100dvh!important;
     overflow:hidden!important;
   }
-  body.ovyx-v88-dock-home #app-container > main {
-    display:flex!important;
-    flex:1 1 0%!important;
-    flex-direction:column!important;
-    height:auto!important;
-    min-height:0!important;
-    max-height:100%!important;
-    overflow:hidden!important;
+  #app-container > main {
+    display:flex!important; flex:1 1 0%!important; flex-direction:column!important;
+    height:auto!important; min-height:0!important; max-height:none!important;
+    overflow:hidden!important; position:relative!important;
   }
-  body.ovyx-v88-dock-home #app-container > main > #view-router-viewport {
-    display:block!important;
-    position:relative!important;
-    flex:1 1 0%!important;
-    height:0!important;
-    min-height:0!important;
-    max-height:100%!important;
-    overflow-x:hidden!important;
-    overflow-y:auto!important;
-    overscroll-behavior-y:contain!important;
-    -webkit-overflow-scrolling:touch!important;
+  #app-container > main > #view-router-viewport {
+    display:block!important; position:relative!important; flex:1 1 0%!important;
+    width:100%!important; min-width:0!important; min-height:0!important;
+    max-height:none!important; height:0!important;
+    overflow-x:hidden!important; overflow-y:auto!important;
+    overscroll-behavior-y:auto!important; -webkit-overflow-scrolling:touch!important;
     touch-action:pan-y pinch-zoom!important;
-    scroll-padding-bottom:calc(184px + env(safe-area-inset-bottom, 0px))!important;
+    scroll-padding-bottom:calc(84px + env(safe-area-inset-bottom, 0px))!important;
   }
-  body.ovyx-v88-dock-home #view-home {
-    display:block!important;
-    position:relative!important;
-    box-sizing:border-box!important;
-    height:auto!important;
-    min-height:100%!important;
-    max-height:none!important;
-    overflow:visible!important;
-    touch-action:pan-y pinch-zoom!important;
+  #view-router-viewport > section[aria-hidden="false"]:not(.hidden):not(#view-webstudio):not(#view-appstudio):not(#view-workspace):not(#view-master-auth) {
+    box-sizing:border-box!important; height:auto!important; min-height:100%!important;
+    max-height:none!important; overflow:visible!important; touch-action:pan-y pinch-zoom!important;
   }
-  body.ovyx-v88-dock-home #view-home .v59-dashboard-shell {
-    height:auto!important;
-    min-height:0!important;
-    max-height:none!important;
-    overflow:visible!important;
+  #view-home, #view-home.v59-home-active {
+    box-sizing:border-box!important; height:auto!important; min-height:100%!important;
+    max-height:none!important; overflow:visible!important; touch-action:pan-y pinch-zoom!important;
+  }
+  #view-home .v59-dashboard-shell {
+    box-sizing:border-box!important; height:auto!important; min-height:0!important;
+    max-height:none!important; overflow:visible!important;
     padding-bottom:calc(184px + env(safe-area-inset-bottom, 0px))!important;
+  }
+  #ovyx-v52-bottom-bar {
+    position:fixed!important; left:0!important; right:0!important; bottom:0!important;
+    height:64px!important; z-index:2147482000!important;
+  }
+  /* Web Studio/Code has its own fixed split/preview surfaces and internal scrollers. */
+  body.ovyx-webstudio-active #app-container {
+    height:100dvh!important; min-height:100dvh!important; max-height:100dvh!important;
+  }
+  body.ovyx-webstudio-active #app-container > main {
+    flex:1 1 auto!important; height:100dvh!important;
+    min-height:100dvh!important; max-height:100dvh!important; overflow:hidden!important;
+  }
+  body.ovyx-webstudio-active #app-container > main > #view-router-viewport {
+    flex:1 1 auto!important; height:100dvh!important;
+    min-height:100dvh!important; max-height:100dvh!important; overflow:hidden!important;
+    padding-bottom:0!important; touch-action:auto!important;
   }
 }
 </style>
 
+<script id="ovyx-mobile-scroll-recovery-v1">
+(function(){
+  'use strict';
+  if(window.__OVYX_MOBILE_SCROLL_RECOVERY_V1__)return;
+  window.__OVYX_MOBILE_SCROLL_RECOVERY_V1__=true;
+  const $=id=>document.getElementById(id);
+  function isVisible(el){
+    if(!el||!el.isConnected||el.hidden||el.hasAttribute('inert')||el.classList?.contains('hidden'))return false;
+    for(let n=el;n&&n!==document.documentElement;n=n.parentElement){
+      if(n.hidden||n.hasAttribute('inert')||n.classList?.contains('hidden')||n.getAttribute('aria-hidden')==='true')return false;
+      const cs=getComputedStyle(n);
+      if(cs.display==='none'||cs.visibility==='hidden'||cs.opacity==='0')return false;
+    }
+    const r=el.getBoundingClientRect();
+    return r.width>0&&r.height>0;
+  }
+  function realDrawerOpen(){
+    const d=$('mobile-drawer');
+    return !!(d&&isVisible(d)&&(d.getAttribute('aria-hidden')==='false'||d.classList.contains('open')||d.classList.contains('is-open')));
+  }
+  function visibleModalOpen(){
+    const selectors=[
+      '[role="dialog"]','[aria-modal="true"]','dialog[open]','.modal.open','.ovyx-modal.open',
+      '[data-ovyx-overlay].open','.v42-overlay:not(.hidden)','.v55-preview-modal.open',
+      '#cmd-palette-modal:not(.hidden)','#kernel-brain-bot-panel:not(.hidden)',
+      '#checkout-elements-modal:not(.hidden)','#ovyx-owner-console.open',
+      '#v58-template-preview-modal','#ovyx-project-create-modal.is-open',
+      '.ovyx-ws-code-diff-modal.open'
+    ].join(',');
+    for(const el of document.querySelectorAll(selectors)){
+      if(el.closest('#mobile-drawer'))continue;
+      if(isVisible(el))return true;
+    }
+    return false;
+  }
+  function repair(){
+    if(window.innerWidth>=768||!document.body)return false;
+    if(realDrawerOpen()||visibleModalOpen())return false;
+    const drawer=$('mobile-drawer'),backdrop=$('mobile-drawer-backdrop');
+    if(drawer&&(!isVisible(drawer)||drawer.getAttribute('aria-hidden')==='true')){
+      drawer.classList.remove('open','is-open');
+      drawer.classList.add('-translate-x-full');
+      drawer.setAttribute('aria-hidden','true');
+      drawer.inert=true;
+      drawer.style.setProperty('pointer-events','none','important');
+    }
+    if(backdrop&&(!isVisible(backdrop)||backdrop.getAttribute('aria-hidden')==='true')){
+      backdrop.hidden=true;
+      backdrop.classList.add('hidden');
+      backdrop.setAttribute('aria-hidden','true');
+      backdrop.style.setProperty('pointer-events','none','important');
+    }
+    document.body.classList.remove('ovyx-drawer-open','ovyx-mobile-drawer-open','ovyx-ws-mobile-nav-open');
+    document.body.dataset.ovyxDrawer='closed';
+    /* Never remove a lock while a real modal or drawer is open. */
+    document.documentElement.style.removeProperty('overflow');
+    document.documentElement.style.removeProperty('overflow-y');
+    document.body.style.removeProperty('overflow');
+    document.body.style.removeProperty('overflow-y');
+    return true;
+  }
+  function schedule(){
+    if(window.innerWidth>=768)return;
+    [0,80,320].forEach(delay=>window.setTimeout(()=>{try{repair()}catch(e){console.warn('[OVYX mobile scroll recovery]',e)}},delay));
+  }
+  const router=window.Router;
+  if(router&&typeof router.go==='function'&&!router.go.__OVYX_MOBILE_SCROLL_RECOVERY_V1__){
+    const base=router.go;
+    const guarded=function(){
+      const result=base.apply(this,arguments);
+      schedule();
+      return result;
+    };
+    guarded.__OVYX_MOBILE_SCROLL_RECOVERY_V1__=true;
+    router.go=guarded;
+    if(window.switchView===base)window.switchView=guarded;
+  }
+  window.addEventListener('ovyx:view-changed',schedule,{passive:true});
+  window.addEventListener('pageshow',schedule,{passive:true});
+  window.addEventListener('resize',schedule,{passive:true});
+  document.addEventListener('click',event=>{
+    if(event.target?.closest?.('[data-nav],[data-mobile-nav],[data-v52-bottom],#ovyx-v52-bottom-bar'))schedule();
+  },true);
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',schedule,{once:true});
+  else schedule();
+  window.OVYXMobileScrollRecovery=Object.freeze({repair:schedule});
+})();
+</script>
 </body>
 </html>
 
