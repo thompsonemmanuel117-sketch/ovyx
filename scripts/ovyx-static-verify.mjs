@@ -221,6 +221,8 @@ if (!fs.existsSync(scopedRollbackPath)) {
     !scopedRollback.includes('__OVYX_SCOPED_ROLLBACK_V1__') ||
     !scopedRollback.includes('window.OVYXScopedRollback') ||
     !scopedRollback.includes('function restoreProject(snapshot)') ||
+    !scopedRollback.includes('function closeLocalSurfaceForBack()') ||
+    !scopedRollback.includes('function cancelStudioTaskSafely()') ||
     !scopedRollback.includes('restoreScheduled') ||
     !scopedRollback.includes('projectSaveResult === false') ||
     !scopedRollback.includes('projectsBeforeSave = state.projects') ||
@@ -231,7 +233,7 @@ if (!fs.existsSync(scopedRollbackPath)) {
 }
 if (fs.existsSync(shellMiddlewarePath)) {
   const shellMiddleware = fs.readFileSync(shellMiddlewarePath, 'utf8');
-  if (!shellMiddleware.includes('ovyx-scoped-rollback.js?v=20261022-3')) {
+  if (!shellMiddleware.includes('ovyx-scoped-rollback.js?v=20261022-4')) {
     errors.push('functions/_middleware.js: every application-shell HTML response must inject the app-wide scoped rollback runtime.');
   }
 }
