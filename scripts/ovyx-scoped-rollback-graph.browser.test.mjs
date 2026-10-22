@@ -20,26 +20,6 @@ const fixture = [
   '<div id="project-editor" class="rollback-modal" data-rollback-scope="project" role="dialog" aria-modal="true" aria-hidden="true" hidden style="display:none">',
   '<p>Project editor</p><button id="cancel-project-editor" type="button" data-modal-cancel>Cancel</button>',
   '</div></main>',
-  '<script>',
-  'const cloneGraph = value => JSON.parse(JSON.stringify(value));',
-  'const baselineGraph = {version:1,entry:"src/main.html",files:{"src/main.html":{type:"text/html",content:"<main>Last-good graph baseline</main>"}}};',
-  'const project = {id:"graph-only-rollback-project",name:"Baseline project",description:"Graph-only fixture",pages:[],assets:[],ovyxGraph:cloneGraph(baselineGraph)};',
-  'window.KernelState = {activeView:"webstudio",projects:[project],activeProject:project};',
-  'function paintEditor(){document.getElementById("visible-editor-content").textContent=String(window.WebStudio.graph.files["src/main.html"].content||"");}',
-  'window.WebStudio = {project:project,graph:cloneGraph(baselineGraph),graphKeyPrefix:"ovyx.ws.graph.v2.",syncGraphToProject:function(){this.project.ovyxGraph=cloneGraph(this.graph);},render:paintEditor,renderPreview:paintEditor,renderCodeTree:function(){}};',
-  'window.ProjectStore = {save:function(){return true;},renderProjects:function(){}};',
-  'window.Router = {go:function(view){window.KernelState.activeView=String(view||"home");}};',
-  'paintEditor();',
-  'document.getElementById("open-project-editor").addEventListener("click",function(){',
-  '  // The visible Web Studio graph changes, but KernelState.activeProject and its graph mirror do not.',
-  '  window.WebStudio.graph.files["src/main.html"].content="<main>Mutated only in live graph</main>";',
-  '  paintEditor();',
-  '  const modal=document.getElementById("project-editor");modal.hidden=false;modal.classList.add("open");modal.setAttribute("aria-hidden","false");modal.style.display="block";',
-  '});',
-  'document.getElementById("cancel-project-editor").addEventListener("click",function(){',
-  '  const modal=document.getElementById("project-editor");modal.classList.remove("open");modal.hidden=true;modal.setAttribute("aria-hidden","true");modal.style.display="none";',
-  '});',
-  '</script>',
   '<script defer src="/assets/ovyx-scoped-rollback.js?v=20261022-13"></script>',
   '</body></html>',
 ].join('');
@@ -78,6 +58,44 @@ try {
         && window.__OVYX_SCOPED_ROLLBACK_INSTALLED_V1__ === true
       );
 
+      // Create the fixture state via Playwright's execution context instead of
+      // inline HTML. OVYX's production CSP intentionally blocks inline scripts,
+      // so relying on an inline fixture can leave WebStudio undefined.
+      await page.evaluate(() => {
+        const cloneGraph = value => JSON.parse(JSON.stringify(value));
+        const baselineGraph = { version: 1, entry: 'src/main.html',
+          files: { 'src/main.html': { type: 'text/html', content: '<main>Last-good graph baseline</main>' } } };
+        const project = { id: 'graph-only-rollback-project', name: 'Baseline project',
+          description: 'Graph-only fixture', pages: [], assets: [], ovyxGraph: cloneGraph(baselineGraph) };
+        window.KernelState = { activeView: 'webstudio', projects: [project], activeProject: project };
+        const paintEditor = () => {
+          const content = document.getElementById('visible-editor-content');
+          if (content) content.textContent = String(window.WebStudio?.graph?.files?.['src/main.html']?.content || '');
+        };
+        window.WebStudio = { project, graph: cloneGraph(baselineGraph), graphKeyPrefix: 'ovyx.ws.graph.v2.',
+          syncGraphToProject() { this.project.ovyxGraph = cloneGraph(this.graph); },
+          render: paintEditor, renderPreview: paintEditor, renderCodeTree() {} };
+        window.ProjectStore = { save() { return true; }, renderProjects() {} };
+        window.Router = { go(view) { window.KernelState.activeView = String(view || 'home'); } };
+        document.getElementById('open-project-editor').addEventListener('click', () => {
+          // Change only WebStudio.graph; leave KernelState.project mirror unchanged.
+          window.WebStudio.graph.files['src/main.html'].content = '<main>Mutated only in live graph</main>';
+          paintEditor();
+          const modal = document.getElementById('project-editor');
+          modal.hidden = false;
+          modal.classList.add('open');
+          modal.setAttribute('aria-hidden', 'false');
+          modal.style.display = 'block';
+        });
+        document.getElementById('cancel-project-editor').addEventListener('click', () => {
+          const modal = document.getElementById('project-editor');
+          modal.classList.remove('open');
+          modal.hidden = true;
+          modal.setAttribute('aria-hidden', 'true');
+          modal.style.display = 'none';
+        });
+        paintEditor();
+      });
       const beforeHistory = await page.evaluate(() => history.length);
       await page.click('#open-project-editor');
       try {
