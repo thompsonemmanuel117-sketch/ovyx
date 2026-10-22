@@ -586,9 +586,11 @@
     if (scope) {
       lastPopstateResult.scopeId = String(scope.id || scope.dataset?.rollbackScope || scope.className || scope.tagName || 'overlay');
       if (!snapshots.has(scope)) {
-        const openingProject = pendingOpen && Date.now() - pendingOpen.at < 800
-          ? pendingOpen.project
-          : snapshotProject();
+        const openingProject = shouldRestoreProjectScope(scope)
+          ? ((pendingOpen && Date.now() - pendingOpen.at < 800 && pendingOpen.project)
+            ? pendingOpen.project
+            : snapshotProject())
+          : null;
         capture(scope, openingProject);
         pendingOpen = null;
       }
@@ -696,9 +698,11 @@
       const scope = topOpenScope();
       if (scope) {
         if (!snapshots.has(scope)) {
-          const openingProject = pendingOpen && Date.now() - pendingOpen.at < 800
-            ? pendingOpen.project
-            : snapshotProject();
+          const openingProject = shouldRestoreProjectScope(scope)
+            ? ((pendingOpen && Date.now() - pendingOpen.at < 800 && pendingOpen.project)
+              ? pendingOpen.project
+              : snapshotProject())
+            : null;
           capture(scope, openingProject);
           pendingOpen = null;
         }
