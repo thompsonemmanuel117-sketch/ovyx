@@ -432,7 +432,8 @@ try {
     window.KernelState.activeProject = draft;
     const field = document.getElementById('ovyx-back-test-project-title');
     if (field) field.value = 'Dirty field value';
-    window.ProjectStore?.save?.();
+    // Do not call the account-gated save in this guest fixture; its contract
+    // is to clear guest projects, which is unrelated to cancelling this modal.
   });
   await triggerHistoryBack(page);
   const globalRollback = await page.evaluate(() => {
