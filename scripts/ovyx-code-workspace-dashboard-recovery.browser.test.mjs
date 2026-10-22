@@ -323,24 +323,46 @@ try{
       const viewport=document.getElementById('view-router-viewport');
       const dock=document.getElementById('ovyx-v52-bottom-bar');
       const vr=viewport.getBoundingClientRect(),dr=dock.getBoundingClientRect();
+      /* Start in the narrow empty gutter, not inside the prompt textarea or a
+         scrollable control that is allowed to consume its own touch gesture. */
+      const x=Math.floor(vr.left+Math.min(6,vr.width*0.02));
+      const startY=Math.floor(Math.min(vr.bottom-110,dr.top-90));
       return {
-        viewportTop:vr.top,viewportBottom:vr.bottom,viewportLeft:vr.left,viewportWidth:vr.width,
-        dockTop:dr.top,startY:Math.floor(Math.min(vr.bottom-160,dr.top-35)),
-        endY:Math.floor(Math.max(vr.top+90,Math.min(vr.bottom-160,dr.top-35)-300))
+        x,viewportTop:vr.top,viewportBottom:vr.bottom,viewportLeft:vr.left,viewportWidth:vr.width,
+        dockTop:dr.top,startY,endY:Math.floor(Math.max(vr.top+90,startY-300)),
+        hit:(document.elementFromPoint(x,startY)?.outerHTML||'').slice(0,220),
+        viewportTouch:getComputedStyle(viewport).touchAction,
+        viewportOverflow:getComputedStyle(viewport).overflowY
       };
     });
     assert.ok(gestureGeometry.endY<gestureGeometry.startY,
       'The mobile viewport must expose enough unblocked space to perform an upward scroll gesture.');
     const touchSession=await dockPage.context().newCDPSession(dockPage);
     try{
-      const x=Math.floor(gestureGeometry.viewportLeft+gestureGeometry.viewportWidth/2);
       await touchSession.send('Input.synthesizeScrollGesture',{
-        x,y:gestureGeometry.startY,xDistance:0,yDistance:-300,speed:900,gestureSourceType:'touch'
+        x:gestureGeometry.x,y:gestureGeometry.startY,xDistance:0,
+        yDistance:gestureGeometry.endY-gestureGeometry.startY,speed:900,gestureSourceType:'touch'
       });
       await dockPage.waitForFunction(
         ()=>document.getElementById('view-router-viewport')?.scrollTop>0,
         null,{timeout:3500}
-      );
+      ).catch(async error=>{
+        const diag=await dockPage.evaluate(({x,y})=>{
+          const describe=el=>{
+            if(!el)return null;
+            const cs=getComputedStyle(el),r=el.getBoundingClientRect();
+            return {tag:el.tagName,id:el.id,cls:String(el.className||'').toString().slice(0,100),
+              touchAction:cs.touchAction,pointerEvents:cs.pointerEvents,overflowY:cs.overflowY,
+              position:cs.position,zIndex:cs.zIndex,box:[Math.round(r.left),Math.round(r.top),Math.round(r.width),Math.round(r.height)]};
+          };
+          const hit=document.elementFromPoint(x,y),ancestors=[];
+          for(let n=hit;n&&ancestors.length<8;n=n.parentElement)ancestors.push(describe(n));
+          const vp=document.getElementById('view-router-viewport');
+          return {hit:describe(hit),ancestors,scroll:{top:vp?.scrollTop,height:vp?.scrollHeight,client:vp?.clientHeight},
+            bodyOverflow:getComputedStyle(document.body).overflow,rootOverflow:getComputedStyle(document.documentElement).overflow};
+        },{x:gestureGeometry.x,y:gestureGeometry.startY});
+        throw new Error('Real mobile Home swipe did not scroll the routed viewport. '+JSON.stringify({gestureGeometry,diag,waitError:error.message}));
+      });
     }finally{await touchSession.detach();}
     const gestureScroll=await dockPage.evaluate(()=>({
       scrollTop:document.getElementById('view-router-viewport').scrollTop,
@@ -371,7 +393,7 @@ try{
     const projectGesture=await dockPage.evaluate(()=>{
       const viewport=document.getElementById('view-router-viewport');
       const rect=viewport.getBoundingClientRect();
-      return {x:Math.floor(rect.left+rect.width/2),y:Math.floor(Math.min(rect.bottom-120,rect.top+rect.height*.72))};
+      return {x:Math.floor(rect.left+Math.min(6,rect.width*.02)),y:Math.floor(Math.min(rect.bottom-120,rect.top+rect.height*.72))};
     });
     const projectTouch=await dockPage.context().newCDPSession(dockPage);
     try{
