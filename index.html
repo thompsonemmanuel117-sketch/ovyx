@@ -10226,7 +10226,7 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
       var before=currentSettingsPanel();
       var next=String(id||'general').replace(/^view-/,'').trim().toLowerCase()||'general';
       var result=original.apply(this,arguments);
-      if(!handlingPop&&clean(window.KernelState?.activeView||currentRoute())==='settings'
+      if(!handlingPop&&!window.__OVYXV665_SUPPRESS_HISTORY&&clean(window.KernelState?.activeView||currentRoute())==='settings'
         &&clean(history.state?.ovyxRoute||'')==='settings'&&before!==next
         &&clean(history.state?.ovyxSettingsPanel||before)!==next){
         try{history.pushState(routeHistoryState('settings',Object.assign({},history.state||{},{ovyxSettingsPanel:next})),document.title,location.href)}catch(e){console.warn('[OVYX settings history]',e)}
