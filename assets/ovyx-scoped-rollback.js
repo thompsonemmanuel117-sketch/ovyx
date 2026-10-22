@@ -47,6 +47,14 @@
       project: index >= 0 ? clone(projects[index]) : active ? clone(active) : null,
       projectIndex: index,
       projectIds: projects.map(item => String(item?.id || '')).filter(Boolean),
+      // Keep references (not deep copies) to existing project records. If a
+      // guest save guard clears the array, these references let rollback put
+      // missing unrelated projects back without overwriting their newer edits.
+      projectList: projects.map((item, index) => ({
+        id: String(item?.id || ''),
+        index,
+        ref: item
+      })).filter(item => item.id),
       capturedAt: Date.now()
     };
   }
@@ -93,6 +101,21 @@
       state.projects = state.projects.filter(item => String(item?.id || '') !== currentId);
       changed = changed || length !== state.projects.length;
     }
+
+    // Restore any pre-existing project records that disappeared while the
+    // scoped dialog was active. Keep current records as-is; only reinsert IDs
+    // that are missing, using their existing object references.
+    (Array.isArray(snapshot.projectList) ? snapshot.projectList : []).forEach(record => {
+      const id = String(record?.id || record?.ref?.id || '');
+      const projectRef = record?.ref;
+      if (!id || !projectRef || typeof projectRef !== 'object' ||
+          state.projects.some(item => String(item?.id || '') === id)) return;
+      const insertAt = Number.isInteger(record.index)
+        ? Math.max(0, Math.min(record.index, state.projects.length))
+        : state.projects.length;
+      state.projects.splice(insertAt, 0, projectRef);
+      changed = true;
+    });
 
     let original = null;
     if (originalId && snapshot.project) {
