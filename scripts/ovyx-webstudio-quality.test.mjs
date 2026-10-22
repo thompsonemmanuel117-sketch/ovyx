@@ -200,4 +200,20 @@ assert.ok(workspaceParity.includes('background-color: var(--app-bg, #050607) !im
 assert.ok(workspaceParity.includes('linear-gradient(var(--app-border, #1B222A) 1px, transparent 1px)'), 'Mobile and desktop preview backdrops must share the canvas grid/border token.');
 assert.ok(appShell.includes("const frames=[document.getElementById('ws-canvas-iframe'),document.getElementById('ws-mobile-preview-frame')].filter(Boolean)"), 'Desktop and mobile preview frames must both be included in preview refresh.');
 assert.ok(appShell.includes('frames.forEach(frame=>this.setPreviewFrameDocument(frame,srcdoc))'), 'Desktop and mobile preview frames must receive the same generated page document.');
+// Regression contract: the desktop editor may not hang forever if Monaco's CDN/AMD callback stalls.
+const monacoMethodStart = appShell.indexOf('async loadMonacoForCode(){');
+const monacoMethodEnd = appShell.indexOf('saveCodeFile(file){', monacoMethodStart);
+assert.ok(monacoMethodStart >= 0 && monacoMethodEnd > monacoMethodStart, 'The production Code Workspace loader/editor methods must exist.');
+const monacoMethod = appShell.slice(monacoMethodStart, monacoMethodEnd);
+assert.ok(monacoMethod.includes("4200,'Monaco loader'"), 'Desktop Monaco loader requests must have a bounded timeout.');
+assert.ok(monacoMethod.includes("6500,'Monaco editor module'"), 'Desktop Monaco module initialization must have a bounded timeout.');
+assert.ok(monacoMethod.includes('using the editable fallback'), 'A stalled Monaco load must resolve into an editable textarea.');
+assert.ok(monacoMethod.includes("fallback.style.setProperty('pointer-events','auto','important')"), 'Fallback editing must always accept pointer input.');
+assert.ok(monacoMethod.includes("fallback.style.setProperty('width','100%','important')"), 'Fallback editor must fill the available editor width.');
+assert.ok(appShell.includes('id="ovyx-code-dashboard-route-recovery-v1"'), 'The production shell must include route-safe dashboard recovery.');
+const dashboardRecovery = appShell.match(/<script id="ovyx-code-dashboard-route-recovery-v1">([\\s\\S]*?)<\\/script>/i);
+assert.ok(dashboardRecovery, 'Dashboard recovery script boundaries must be valid.');
+assert.doesNotThrow(() => new Function(dashboardRecovery[1]), 'Dashboard recovery runtime must parse as JavaScript.');
+assert.ok(dashboardRecovery[1].includes("if(normalize(view)==='home')scheduleHomeReconcile()"), 'Navigating Home must trigger drawer/overlay recovery.');
+assert.ok(dashboardRecovery[1].includes("document.body.style.removeProperty('overflow')"), 'A stale dashboard scroll lock must be released when no real modal remains.');
 console.log('Web Studio quality contracts passed: build prompt, real source/browser checks, safe sandbox, and snapshot-protected repair.');
