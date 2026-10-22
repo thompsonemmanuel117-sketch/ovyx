@@ -16573,7 +16573,19 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
       document.body.style.removeProperty('overflow-y');
     }
     const root=document.getElementById('view-router-viewport');
-    if(root)root.style.setProperty('pointer-events','auto','important');
+    if(root){
+      root.style.setProperty('pointer-events','auto','important');
+      /* Route state is authoritative: repair a stale hidden/aria-hidden view as well as its overlays. */
+      const home=document.getElementById('view-home');
+      if(home&&home.parentElement===root){
+        root.querySelectorAll(':scope > section').forEach(section=>{
+          const isHome=section===home;
+          section.classList.toggle('hidden',!isHome);
+          section.setAttribute('aria-hidden',String(!isHome));
+          if(isHome)section.style.removeProperty('pointer-events');
+        });
+      }
+    }
     try{window.OVYXMobileShellAuthority?.sync?.()}catch(_){}
     return true;
   }
