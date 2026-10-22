@@ -1,6 +1,6 @@
 (function () {
   'use strict';
-  if (window.__OVYX_WEBSTUDIO_CANCEL_SAFETY_V3__) return;
+  if (window.__OVYX_WEBSTUDIO_CANCEL_SAFETY_V4__) return;
   window.__OVYX_WEBSTUDIO_CANCEL_SAFETY_V3__ = true;
 
   const clone = value => {
@@ -114,7 +114,7 @@
       if (!target || typeof target.closest !== 'function') return false;
       if (target.closest('#ws-task-cancel')) return false;
       return !!target.closest(
-        '#ws-chat-send, #ws-chat-composer button[type="submit"], #ws-chat-composer [data-send], #ws-chat-composer input[type="submit"]'
+        '#ws-chat-send, #ws-chat-composer button[type="submit"], #ws-chat-composer [data-send], #ws-chat-composer input[type="submit"], #ws-chat-composer button[aria-label*="send" i], #ws-chat-composer [data-testid*="send" i], [data-ws-send]'
       );
     }
 
@@ -166,6 +166,43 @@
     document.addEventListener('keydown', armBeforeBrowserSubmit, true);
   }
 
+  function isAiTaskApiWrite(requestUrl, method) {
+    if (!requestUrl || requestUrl.origin !== window.location.origin) return false;
+    if (method === 'GET' || method === 'HEAD') return false;
+    const pathname = String(requestUrl.pathname || '');
+    return pathname === '/api/generate'
+      || /^\/api\/ai\/(?:assistant|gateway)(?:\/|$)/.test(pathname)
+      || /^\/api\/mobile\/build(?:\/|$)/.test(pathname);
+  }
+
+  function captureBrowserApiTaskSnapshot() {
+    const studio = getStudio();
+    if (!studio) return false;
+
+    // Reuse a real active task's baseline, but never let an abandoned idle
+    // snapshot become the rollback target for a later AI request.
+    if (taskSession.snapshot && taskIsRunning(studio)) return true;
+    if (taskSession.snapshot) clearTaskSession();
+
+    const snapshot = captureSnapshot(studio);
+    if (!snapshot) return false;
+
+    taskSession.snapshot = snapshot;
+    taskSession.generation = Number(taskSession.generation || 0) + 1;
+    taskSession.inFlightCount = Math.max(0, Number(taskSession.inFlightCount || 0));
+    taskSession.fetchInFlightCount = 0;
+    taskSession.armed = true;
+    taskSession.armedAt = Date.now();
+    taskSession.activeMethod = 'browser-api-request';
+    taskSession.activeStudio = studio;
+    taskSession.controllers.clear();
+    persistRollbackSnapshot(snapshot);
+    syncSessionFields(studio);
+    ensureCancelButton(studio);
+    syncCancelButton(studio);
+    return true;
+  }
+
   function installBrowserFetchCancellation() {
     if (window.__OVYX_BROWSER_FETCH_ROLLBACK_V3__) return;
     const originalFetch = window.fetch;
@@ -191,6 +228,12 @@
         && requestUrl.pathname.startsWith('/api/')
         && method !== 'GET'
         && method !== 'HEAD';
+
+      // Do not depend exclusively on a DOM button ID being correct. If the
+      // app's send control changed during a redesign, capture the project
+      // immediately before its real generation/build API request instead.
+      if (isAiTaskApiWrite(requestUrl, method)) captureBrowserApiTaskSnapshot();
+
       const hasArmedBrowserTask = !!(
         taskSession.snapshot &&
         (taskSession.armed || taskSession.activeMethod || Number(taskSession.inFlightCount || 0) > 0)
@@ -318,9 +361,10 @@
 
   function ensureCancelButton(studio) {
     ensureCancelStyle();
-    const send = document.getElementById('ws-chat-send');
-    const composer = document.getElementById('ws-chat-composer');
-    if (!send || !composer) return null;
+    const composer = document.getElementById('ws-chat-composer')
+      || document.querySelector('[data-ws-chat-composer], [data-testid="ws-chat-composer"]');
+    const send = document.getElementById('ws-chat-send')
+      || document.querySelector('#ws-chat-composer button[type="submit"], #ws-chat-composer [data-send], #ws-chat-composer input[type="submit"], #ws-chat-composer button[aria-label*="send" i], #ws-chat-composer [data-testid*="send" i], [data-ws-send]');
     let button = document.getElementById('ws-task-cancel');
     if (!button) {
       button = document.createElement('button');
@@ -330,7 +374,6 @@
       button.setAttribute('aria-label', 'Cancel current task and restore project changes');
       button.setAttribute('title', 'Cancel this task and keep the rest of your project');
       button.hidden = true;
-      send.parentNode.insertBefore(button, send);
       button.addEventListener('click', function (event) {
         event.preventDefault();
         event.stopPropagation();
@@ -345,6 +388,30 @@
         }
       });
     }
+
+    // Prefer the native composer layout when its selectors are available.
+    // Otherwise use a fixed, touch-sized fallback instead of silently making
+    // rollback impossible because the app changed a container/button ID.
+    if (composer && send && send.parentNode) {
+      if (button.parentNode !== send.parentNode || button.nextElementSibling !== send) {
+        send.parentNode.insertBefore(button, send);
+      }
+      ['position', 'right', 'bottom', 'z-index'].forEach(name => button.style.removeProperty(name));
+      button.removeAttribute('data-ovyx-floating-cancel');
+    } else if (composer) {
+      if (button.parentNode !== composer) composer.appendChild(button);
+      ['position', 'right', 'bottom', 'z-index'].forEach(name => button.style.removeProperty(name));
+      button.removeAttribute('data-ovyx-floating-cancel');
+    } else {
+      const root = document.body || document.documentElement;
+      if (root && button.parentNode !== root) root.appendChild(button);
+      button.dataset.ovyxFloatingCancel = 'true';
+      button.style.position = 'fixed';
+      button.style.right = '16px';
+      button.style.bottom = '88px';
+      button.style.zIndex = '2147483647';
+    }
+
     syncCancelButton(studio);
     return button;
   }
