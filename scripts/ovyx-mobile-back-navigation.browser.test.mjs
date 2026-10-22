@@ -559,7 +559,7 @@ try {
     window.__ovyxBackTestHistoryBeforeOverlay = history.length;
     opener.click();
     opener.remove();
-    // Ensure the rollback runtime captures the overlay    // Ensure the rollback runtime captures the overlay before a legitimate
+    // Ensure the rollback runtime captures the overlay before a legitimate
     // workspace update arrives independently while this non-project surface is open.
     // Closing this portal must not restore its ambient project snapshot.
     // The runtime, not the test fixture, must create the Back entry.
