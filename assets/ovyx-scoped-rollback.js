@@ -10,6 +10,14 @@
   const scopeSelector = '[data-rollback-scope], [role="dialog"], [aria-modal="true"], dialog, [id$="-modal"], .modal, .ovyx-modal';
   let pendingOpen = null;
   let restoring = false;
+  let lastPopstateResult = {
+    at: 0,
+    handled: false,
+    reason: 'not-called',
+    route: '',
+    scopeId: '',
+    closed: false
+  };
 
   const clone = value => {
     try { return value == null ? value : JSON.parse(JSON.stringify(value)); }
@@ -359,9 +367,18 @@
   }
 
   function handleHistoryPop(event) {
+    lastPopstateResult = {
+      at: Date.now(),
+      handled: false,
+      reason: restoring ? 'rollback-already-running' : 'no-visible-overlay',
+      route: route(),
+      scopeId: '',
+      closed: false
+    };
     if (restoring) return false;
     const scope = topOpenScope();
     if (!scope) return false;
+    lastPopstateResult.scopeId = String(scope.id || scope.dataset?.rollbackScope || scope.className || scope.tagName || 'overlay');
 
     if (!snapshots.has(scope)) {
       const openingProject = pendingOpen && Date.now() - pendingOpen.at < 800
@@ -371,11 +388,21 @@
       pendingOpen = null;
     }
 
-    restore(scope, 'system-back');
-    closeScope(scope);
+    const restored = restore(scope, 'system-back');
+    const closed = closeScope(scope);
     // A dialog Back belongs to the current view. Restore that route entry so a
     // second Back navigates away normally instead of resetting the SPA.
     saveCurrentRouteEntry(event?.state);
+    lastPopstateResult = {
+      at: Date.now(),
+      handled: true,
+      reason: restored ? 'overlay-rollback-and-close' : 'overlay-close-no-snapshot-change',
+      route: route(),
+      scopeId: String(scope.id || scope.dataset?.rollbackScope || scope.className || scope.tagName || 'overlay'),
+      closed: !!closed && !visible(scope),
+      hidden: !!scope.hidden,
+      hasOpenClass: !!scope.classList?.contains('open')
+    };
     try { event?.stopImmediatePropagation?.(); event?.stopPropagation?.(); } catch (_) {}
     return true;
   }
@@ -467,6 +494,7 @@
     beforeClose: (scope, reason) => restore(scope, reason || 'system-back'),
     handleHistoryPop,
     topOpenScope,
+    diagnostics: () => ({ ...lastPopstateResult }),
     restoreProject,
     snapshotProject
   };
