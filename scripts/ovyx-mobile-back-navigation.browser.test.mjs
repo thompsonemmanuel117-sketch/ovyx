@@ -103,6 +103,14 @@ try {
   await page.evaluate(() => window.Router.go('projects'));
   await waitForRoute(page, 'projects');
   await page.waitForFunction(() => window.history.state?.ovyxRoute === 'projects', null, { timeout: 10000 });
+  const routeHistoryDebug = await page.evaluate(() => ({
+    length: window.history.length,
+    state: window.history.state,
+    route: window.KernelState?.activeView,
+    popCount: Number(window.__ovyxBackTestPopCount || 0),
+    href: window.location.href,
+  }));
+  console.log('[OVYX Back test] route history before Projects Back:', JSON.stringify(routeHistoryDebug));
   await triggerHistoryBack(page);
   assert.equal(await page.evaluate(() => window.KernelState?.activeView), 'appstudio',
     'Back from Projects must return to App Studio, not reset or skip the prior view.');
