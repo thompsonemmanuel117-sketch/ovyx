@@ -10003,7 +10003,23 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
   var bootUntil=Date.now()+1800;
   function clean(v){var x=String(v||'home').replace(/^view-/,'').trim().toLowerCase();return ALIASES[x]||x||'home'}
   function currentRoute(){return clean(window.KernelState?.activeView||document.querySelector('#view-router-viewport>section:not(.hidden)')?.id||'home')}
-  function isVisible(el){if(!el)return false;try{if(el.hidden||el.getAttribute('aria-hidden')==='true'||el.hasAttribute('inert'))return false;var cs=getComputedStyle(el);return cs.display!=='none'&&cs.visibility!=='hidden'&&cs.opacity!=='0'&&(el.classList.contains('open')||!el.classList.contains('hidden')||el.getAttribute('aria-modal')==='true'||el.getAttribute('role')==='dialog'||(el.tagName==='DIALOG'&&el.open))}catch(e){return false}}
+  function isVisible(el){
+    if(!el||!el.isConnected)return false;
+    // A dialog role alone must not make an overlay inside an inactive route
+    // count as open. Check all ancestors before evaluating modal semantics.
+    for(var node=el;node&&node!==document.documentElement;node=node.parentElement){
+      if(node.hidden||node.hasAttribute('inert')||node.getAttribute('aria-hidden')==='true'||node.classList?.contains('hidden'))return false;
+      try{var ancestorStyle=getComputedStyle(node);if(ancestorStyle.display==='none'||ancestorStyle.visibility==='hidden')return false}catch(e){return false}
+    }
+    try{
+      var cs=getComputedStyle(el);
+      if(cs.display==='none'||cs.visibility==='hidden'||cs.opacity==='0')return false;
+      return el.classList.contains('open')||el.classList.contains('is-open')||
+        el.getAttribute('aria-modal')==='true'||el.getAttribute('role')==='dialog'||
+        (el.tagName==='DIALOG'&&el.open)||el.matches?.('[data-rollback-scope]')||
+        !el.classList.contains('hidden');
+    }catch(e){return false}
+  }
   function topOverlay(){
     var ids=['ovyx-v655-support-backdrop','ovyx-v65-legal-modal','ovyx-v84-support-modal','cmd-palette-modal','rollback-revisions-modal','checkout-elements-modal','kernel-brain-bot-panel','v58-template-preview-modal','v55-preview-modal','ovyx-owner-console','ovyx-project-create-modal','ws-plan-modal','ws-history-modal','ws-graph-modal','ws-deploy-modal','ws-diff-modal','ws-engineering-console'];
     var els=[];
