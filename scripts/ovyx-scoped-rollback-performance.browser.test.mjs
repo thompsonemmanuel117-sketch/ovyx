@@ -26,7 +26,9 @@ const fixture = [
   'window.__normalActionCount = 0;',
   'const project = {id:"perf-project-1",name:"Baseline project",description:"Performance fixture",status:"draft",pages:[],assets:[],ovyxGraph:{version:1,entry:"src/main.html",files:{"src/main.html":{type:"text/html",content:"<main>Baseline</main>"}}}};',
   'project.toJSON = function(){ window.__projectCloneCount += 1; return {id:this.id,name:this.name,description:this.description,status:this.status,pages:this.pages,assets:this.assets,ovyxGraph:this.ovyxGraph}; };',
+  'const testClone = value => JSON.parse(JSON.stringify(value));',
   'window.KernelState = {activeView:"home",projects:[project],activeProject:project};',
+  'window.WebStudio = {project:project,graph:testClone(project.ovyxGraph),graphKeyPrefix:"ovyx.ws.graph.v2.",syncGraphToProject:function(){this.project.ovyxGraph=testClone(this.graph);},render:function(){},renderPreview:function(){},renderCodeTree:function(){}};',
   'window.ProjectStore = {save:function(){return true;},renderProjects:function(){}};',
   'window.Router = {go:function(route){window.KernelState.activeView=String(route||"home");}};',
   'document.getElementById("plain-action").addEventListener("click",function(){window.__normalActionCount += 1;});',
@@ -40,7 +42,7 @@ const fixture = [
   '  editor.classList.remove("open"); editor.hidden = true; editor.setAttribute("aria-hidden","true"); editor.style.display = "none";',
   '});',
   '</script>',
-  '<script defer src="/assets/ovyx-scoped-rollback.js?v=20261022-12"></script>',
+  '<script defer src="/assets/ovyx-scoped-rollback.js?v=20261022-13"></script>',
   '</body></html>',
 ].join('');
 
@@ -152,6 +154,42 @@ try {
     assert.equal(finalState.projectName, 'Baseline project',
       '[' + target.name + '] scoped Cancel must restore the pre-click project checkpoint.');
     assert.equal(finalState.hidden, true, '[' + target.name + '] Cancel must close the editor surface.');
+
+    // Reproduce the live failure: the editor graph changes, but the project
+    // object in KernelState remains unchanged. Rollback must not return early.
+    const graphOnlyRestore = await page.evaluate(() => {
+      const state = window.KernelState;
+      state.activeView = 'webstudio';
+      const project = state.activeProject;
+      const baseline = { version: 1, entry: 'src/main.html',
+        files: { 'src/main.html': { type: 'text/html', content: '<main>Graph last-good baseline</main>' } } };
+      project.ovyxGraph = JSON.parse(JSON.stringify(baseline));
+      state.projects = state.projects.map(item => item.id === project.id ? project : item);
+      window.WebStudio.project = project;
+      window.WebStudio.graph = JSON.parse(JSON.stringify(baseline));
+      const snapshot = window.OVYXScopedRollback.snapshotProject();
+      window.WebStudio.graph.files['src/main.html'].content = '<main>Changed only in the live editor graph</main>';
+      // Deliberately do not copy that mutation to KernelState.activeProject.
+      const restored = window.OVYXScopedRollback.restoreProject(snapshot);
+      const saved = JSON.parse(localStorage.getItem('ovyx.ws.graph.v2.' + project.id) || '{}');
+      return {
+        restored,
+        graphHTML: window.WebStudio.graph.files['src/main.html'].content,
+        projectHTML: window.KernelState.activeProject.ovyxGraph.files['src/main.html'].content,
+        listedHTML: window.KernelState.projects.find(item => item.id === project.id).ovyxGraph.files['src/main.html'].content,
+        storedHTML: saved.files?.['src/main.html']?.content || '',
+      };
+    });
+    assert.equal(graphOnlyRestore.restored, true,
+      '[' + target.name + '] graph-only divergence must trigger rollback even when project metadata is unchanged.');
+    assert.match(graphOnlyRestore.graphHTML, /Graph last-good baseline/,
+      '[' + target.name + '] rollback must restore the visible Web Studio graph.');
+    assert.match(graphOnlyRestore.projectHTML, /Graph last-good baseline/,
+      '[' + target.name + '] rollback must restore the active project graph mirror.');
+    assert.match(graphOnlyRestore.listedHTML, /Graph last-good baseline/,
+      '[' + target.name + '] rollback must restore the project-list graph mirror.');
+    assert.match(graphOnlyRestore.storedHTML, /Graph last-good baseline/,
+      '[' + target.name + '] rollback must persist the graph to the Web Studio graph cache.');
     assert.deepEqual(pageErrors, [], '[' + target.name + '] rollback performance test must not throw browser runtime errors.');
 
     console.log('[OVYX rollback performance] ' + target.name + ': ' + JSON.stringify({
