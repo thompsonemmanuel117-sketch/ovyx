@@ -25,9 +25,15 @@ async function triggerHistoryBack(page, completed) {
   // expected UI transition, not a document-load event or a global event counter.
   await page.evaluate(() => window.history.back());
   try {
-    await page.waitForFunction(completed, null, {
-      timeout: 15000,
-    });
+    if (typeof completed === 'string') {
+      // Route transitions use the same argument-based waiter as the rest of
+      // this suite; callback predicates remain for multi-condition rollback.
+      await waitForRoute(page, completed);
+    } else {
+      await page.waitForFunction(completed, null, {
+        timeout: 15000,
+      });
+    }
   } catch (error) {
     const diagnostic = await page.evaluate(() => ({
       route: window.KernelState?.activeView,
@@ -159,10 +165,10 @@ try {
     timeOrigin: performance.timeOrigin,
   }));
   console.log('[OVYX Back test] route history before Projects Back:', JSON.stringify(routeHistoryDebug));
-  await triggerHistoryBack(page, () => window.KernelState?.activeView === 'appstudio');
+  await triggerHistoryBack(page, 'appstudio');
   assert.equal(await page.evaluate(() => window.KernelState?.activeView), 'appstudio',
     'Back from Projects must return to App Studio, not reset or skip the prior view.');
-  await triggerHistoryBack(page, () => window.KernelState?.activeView === 'home');
+  await triggerHistoryBack(page, 'home');
   assert.equal(await page.evaluate(() => window.KernelState?.activeView), 'home',
     'A second Back must return from App Studio to the previous Home view.');
 
