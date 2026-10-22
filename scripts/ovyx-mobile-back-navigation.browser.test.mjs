@@ -764,6 +764,8 @@ try {
       projectId: String(project.id),
       project: clone(project),
       graph: clone(studio.graph),
+      projectList: state.projects.map((ref, index) => ({ id: String(ref?.id || ''), index, ref }))
+        .filter(record => record.id && record.ref),
       startedAt
     };
     session.generation = Number(session.generation || 0) + 1;
