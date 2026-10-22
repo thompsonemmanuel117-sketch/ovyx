@@ -3,7 +3,7 @@
   if (window.__OVYX_SCOPED_ROLLBACK_V1__) return;
   window.__OVYX_SCOPED_ROLLBACK_V1__ = true;
 
-  const VERSION = '20261022-7';
+  const VERSION = '20261022-8';
   const snapshots = new WeakMap();
   const visibility = new WeakMap();
   const inlineDisplayBeforeClose = new WeakMap();
@@ -580,6 +580,28 @@
         } catch (error) { console.warn('[OVYX settings Back fallback]', error); }
       }
     }
+    // Some older OVYX runtimes can leave adjacent same-route SPA entries
+    // behind even when the visible route didn't change. If Back lands on an
+    // earlier OVYX shell entry for the route already on screen, consume that
+    // duplicate silently and continue to the next distinct app route. This
+    // prevents a second Back press from appearing to do nothing on Projects,
+    // App Studio, or any other view. Only tagged OVYX shell states are skipped;
+    // external/document history entries are left to the browser.
+    if (targetRoute && targetRoute === currentRoute &&
+        event?.state?.ovyxShell === true) {
+      lastPopstateResult = {
+        at: Date.now(), handled: true, reason: 'duplicate-route-entry-skipped',
+        route: currentRoute, scopeId: '', closed: false
+      };
+      try { event?.stopImmediatePropagation?.(); event?.stopPropagation?.(); } catch (_) {}
+      window.setTimeout(() => {
+        try { window.history.back(); } catch (error) {
+          console.warn('[OVYX duplicate route Back]', error);
+        }
+      }, 0);
+      return true;
+    }
+
     if (targetRoute && targetRoute !== currentRoute && typeof window.Router?.go === 'function') {
       const previousSuppression = window.__OVYXV665_SUPPRESS_HISTORY;
       // The popped entry already represents targetRoute. Router.go is used only
