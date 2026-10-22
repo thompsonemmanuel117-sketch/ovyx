@@ -366,6 +366,135 @@
     }
   }
 
+  function closeLocalSurfaceForBack() {
+    const current = route();
+    const body = document.body;
+    const studio = window.WebStudio;
+    if (current !== 'webstudio') {
+      const drawer = document.getElementById('mobile-drawer');
+      if (drawer && (
+        drawer.classList.contains('open') ||
+        drawer.classList.contains('is-open') ||
+        body.classList.contains('ovyx-drawer-open') ||
+        !drawer.classList.contains('-translate-x-full')
+      )) {
+        try { window.MobileDrawer?.close?.(); } catch (_) {}
+        body.classList.remove('ovyx-drawer-open');
+        return true;
+      }
+      return false;
+    }
+
+    const modeMenu = document.getElementById('ws-mode-menu');
+    if (modeMenu && !modeMenu.hidden) {
+      try { studio?.closeModeMenu?.(); } catch (_) {}
+      modeMenu.hidden = true;
+      return true;
+    }
+    const previewMenu = document.getElementById('ws-preview-menu');
+    if (previewMenu && !previewMenu.hidden) {
+      try { studio?.closePreviewMenu?.(); } catch (_) {}
+      previewMenu.hidden = true;
+      return true;
+    }
+    if (body.classList.contains('ovyx-ws-nav-open') ||
+        body.classList.contains('ovyx-ws-mobile-nav-open')) {
+      try { window.OVYXWebStudioNavigation?.close?.(); } catch (_) {}
+      try { studio?.closeProjectNavigation?.(); } catch (_) {}
+      body.classList.remove('ovyx-ws-nav-open', 'ovyx-ws-mobile-nav-open');
+      return true;
+    }
+    const ws = document.getElementById('view-webstudio');
+    if (ws?.getAttribute('data-ws-code-open') === '1') {
+      const back = document.getElementById('ovyx-code-back');
+      if (back) {
+        try { back.click(); return true; } catch (_) {}
+      }
+      try { studio?.syncGraphToProject?.(true); } catch (_) {}
+      ws.setAttribute('data-ws-code-open', '0');
+      const code = document.getElementById('ws-code-workspace');
+      if (code) { code.hidden = true; code.setAttribute('aria-hidden', 'true'); }
+      document.documentElement.classList.remove('ovyx-code-focused-route');
+      try { studio?.render?.(); } catch (_) {}
+      try { window.persistStateNow?.('shared-back-close-code'); } catch (_) {}
+      return true;
+    }
+    if (body.classList.contains('ovyx-ws-mobile-preview-open')) {
+      try {
+        if (typeof window.OVYXMobilePreviewRouting?.close === 'function') window.OVYXMobilePreviewRouting.close();
+        else studio?.closeMobilePreview?.();
+      } catch (_) {}
+      body.classList.remove('ovyx-ws-mobile-preview-open', 'ovyx-ws-preview-full', 'ovyx-ws-preview-collapsed', 'ovyx-preview-expanded');
+      const preview = document.getElementById('ws-mobile-preview');
+      if (preview) { preview.hidden = true; preview.setAttribute('aria-hidden', 'true'); }
+      try { window.persistStateNow?.('shared-back-close-mobile-preview'); } catch (_) {}
+      return true;
+    }
+    if (body.classList.contains('ovyx-ws-preview-full')) {
+      try { studio?.returnToChat?.(); } catch (_) {}
+      body.classList.remove('ovyx-ws-preview-full');
+      body.classList.add('ovyx-ws-preview-collapsed');
+      try { window.persistStateNow?.('shared-back-close-preview'); } catch (_) {}
+      return true;
+    }
+    if (body.classList.contains('ovyx-ws-chat-focus') ||
+        body.classList.contains('ovyx-ws-preview-collapsed') ||
+        ws?.classList.contains('ovyx-preview-expanded')) {
+      try { studio?.returnToSplit?.(); } catch (_) {}
+      body.classList.remove('ovyx-ws-chat-focus', 'ovyx-ws-preview-collapsed', 'ovyx-ws-preview-full');
+      ws?.classList.remove('ovyx-preview-expanded');
+      try { studio?.updateDesktopSplitControls?.(); } catch (_) {}
+      try { window.persistStateNow?.('shared-back-restore-split'); } catch (_) {}
+      return true;
+    }
+    return false;
+  }
+
+  function hasActiveStudioTask() {
+    if (route() !== 'webstudio') return false;
+    const studio = window.WebStudio || {};
+    const session = window.__OVYX_WEBSTUDIO_TASK_SESSION_V2__ || {};
+    return !!(
+      studio.pendingBuild ||
+      studio.liveAiActive ||
+      Number(studio.__ovyxTaskInFlightCount || 0) > 0 ||
+      Number(session.inFlightCount || 0) > 0 ||
+      Number(session.fetchInFlightCount || 0) > 0
+    );
+  }
+
+  function cancelStudioTaskSafely() {
+    try {
+      const coordinator = window.OVYXWebStudioCancelSafety;
+      if (coordinator && typeof coordinator.cancel === 'function' && coordinator.cancel() === true) return true;
+    } catch (error) {
+      console.warn('[OVYX shared Back cancellation]', error);
+    }
+    try {
+      const studio = window.WebStudio;
+      if (studio && typeof studio.cancelActiveTask === 'function' && studio.cancelActiveTask() === true) return true;
+    } catch (error) {
+      console.warn('[OVYX shared Back rollback]', error);
+    }
+    return false;
+  }
+
+  function consumeHistoryBack(event, reason, scope, closed) {
+    saveCurrentRouteEntry(event?.state);
+    lastPopstateResult = {
+      at: Date.now(),
+      handled: true,
+      reason: String(reason || 'local-surface-close'),
+      route: route(),
+      scopeId: String(scope?.id || scope?.dataset?.rollbackScope || scope?.className || scope?.tagName || ''),
+      closed: !!closed,
+      hidden: !!scope?.hidden,
+      hasOpenClass: !!scope?.classList?.contains('open')
+    };
+    try { event?.stopImmediatePropagation?.(); event?.stopPropagation?.(); } catch (_) {}
+    return true;
+  }
+
   function handleHistoryPop(event) {
     lastPopstateResult = {
       at: Date.now(),
@@ -377,34 +506,39 @@
     };
     if (restoring) return false;
     const scope = topOpenScope();
-    if (!scope) return false;
-    lastPopstateResult.scopeId = String(scope.id || scope.dataset?.rollbackScope || scope.className || scope.tagName || 'overlay');
-
-    if (!snapshots.has(scope)) {
-      const openingProject = pendingOpen && Date.now() - pendingOpen.at < 800
-        ? pendingOpen.project
-        : snapshotProject();
-      capture(scope, openingProject);
-      pendingOpen = null;
+    if (scope) {
+      lastPopstateResult.scopeId = String(scope.id || scope.dataset?.rollbackScope || scope.className || scope.tagName || 'overlay');
+      if (!snapshots.has(scope)) {
+        const openingProject = pendingOpen && Date.now() - pendingOpen.at < 800
+          ? pendingOpen.project
+          : snapshotProject();
+        capture(scope, openingProject);
+        pendingOpen = null;
+      }
+      const restored = restore(scope, 'system-back');
+      const closed = closeScope(scope);
+      // A dialog Back belongs to the current view. Restore that route entry so a
+      // second Back navigates away normally instead of resetting the SPA.
+      return consumeHistoryBack(event,
+        restored ? 'overlay-rollback-and-close' : 'overlay-close-no-snapshot-change',
+        scope,
+        !!closed && !visible(scope));
     }
 
-    const restored = restore(scope, 'system-back');
-    const closed = closeScope(scope);
-    // A dialog Back belongs to the current view. Restore that route entry so a
-    // second Back navigates away normally instead of resetting the SPA.
-    saveCurrentRouteEntry(event?.state);
-    lastPopstateResult = {
-      at: Date.now(),
-      handled: true,
-      reason: restored ? 'overlay-rollback-and-close' : 'overlay-close-no-snapshot-change',
-      route: route(),
-      scopeId: String(scope.id || scope.dataset?.rollbackScope || scope.className || scope.tagName || 'overlay'),
-      closed: !!closed && !visible(scope),
-      hidden: !!scope.hidden,
-      hasOpenClass: !!scope.classList?.contains('open')
-    };
-    try { event?.stopImmediatePropagation?.(); event?.stopPropagation?.(); } catch (_) {}
-    return true;
+    // Browser/Android Back must unwind local UI layers before it changes app
+    // routes. Keep this owner at capture phase so later legacy popstate handlers
+    // cannot turn a single Back into a route exit or broad reset.
+    if (closeLocalSurfaceForBack()) return consumeHistoryBack(event, 'local-surface-close', null, true);
+
+    if (hasActiveStudioTask()) {
+      const cancelled = cancelStudioTaskSafely();
+      if (!cancelled) {
+        try { window.WebStudio?.persistState?.('shared-back-protect-work'); } catch (_) {}
+        try { window.showToast?.('OVYX kept your workspace open to protect this task. Use the task Cancel control when it is available.', 'warning'); } catch (_) {}
+      }
+      return consumeHistoryBack(event, cancelled ? 'active-task-scoped-rollback' : 'active-task-preserved', null, cancelled);
+    }
+    return false;
   }
 
   function wrapNavigationBack() {
@@ -494,6 +628,7 @@
     beforeClose: (scope, reason) => restore(scope, reason || 'system-back'),
     handleHistoryPop,
     topOpenScope,
+    closeLocalSurfaceForBack,
     diagnostics: () => ({ ...lastPopstateResult }),
     restoreProject,
     snapshotProject
