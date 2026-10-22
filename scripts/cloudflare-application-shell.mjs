@@ -82,6 +82,13 @@ const REQUIRED_RUNTIMES = [
     expectedVersion: '20261022-1',
     signatures: ['__OVYX_WEBSTUDIO_CANCEL_SAFETY_V3__', 'function restoreProjectOnly', 'installBrowserFetchCancellation', 'ovyx.webstudio.rollback.snapshot.v3.', 'coordinator.cancel()', "button.id = 'ws-task-cancel'"],
   },
+  {
+    id: 'scopedRollback',
+    label: 'app-wide scoped Cancel and modal rollback',
+    path: '/assets/ovyx-scoped-rollback.js',
+    expectedVersion: '20261022-1',
+    signatures: ['__OVYX_SCOPED_ROLLBACK_V1__', 'window.OVYXScopedRollback', 'function restoreProject(snapshot)', 'restoreScheduled'],
+  },
 ];
 
 function readTagAttributes(tag) {
