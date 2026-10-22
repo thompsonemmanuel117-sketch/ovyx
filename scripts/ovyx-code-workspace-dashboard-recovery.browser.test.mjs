@@ -17,6 +17,13 @@ const cssMatch=appShell.match(/<style id="ovyx-code-workspace-interaction-previe
 assert.ok(cssMatch,'The production Code Workspace interaction styles must be present.');
 const recoveryMatch=appShell.match(/<script id="ovyx-code-dashboard-route-recovery-v1">([\s\S]*?)<\/script>/i);
 assert.ok(recoveryMatch,'The production dashboard route-recovery runtime must be present.');
+const hitTestingMatch=appShell.match(/<style id="ovyx-code-workspace-hit-testing-v2">([\\s\\S]*?)<\\/style>/i);
+const editorRecoveryMatch=appShell.match(/<script id="ovyx-code-workspace-editor-recovery-v2">([\\s\\S]*?)<\\/script>/i);
+assert.ok(hitTestingMatch,'The production Code Workspace hit-testing repair must be present.');
+assert.ok(editorRecoveryMatch,'The production editor initialization recovery must be present.');
+assert.match(hitTestingMatch[1],/z-index:\\s*2147483002/i,'The editor surface must sit above positioned workspace layers.');
+assert.doesNotThrow(()=>new Function(editorRecoveryMatch[1]),'The production editor recovery runtime must parse as JavaScript.');
+
 assert.doesNotThrow(()=>new Function('return ({'+editorMethods+' saveCodeFile(file){return true;}});'),
   'The extracted production code-editor methods must parse as JavaScript.');
 assert.doesNotThrow(()=>new Function(recoveryMatch[1]),
@@ -82,6 +89,49 @@ try{
   assert.match(saved,/Desktop editing works/,'Typing in the middle of the editor must update the active project source.');
   assert.deepEqual(pageErrors,[],'The fallback editor must not throw browser runtime errors.');
   await page.close();
+
+  // Production overlay hit-testing regression: use the real editor-layer CSS and
+  // put a competing positioned layer over the workspace. The editor must win hit
+  // testing and remain editable even if Monaco initialization throws.
+  const surfacePage=await browser.newPage({viewport:{width:1280,height:800}});
+  const surfaceErrors=[];
+  surfacePage.on('pageerror',error=>surfaceErrors.push(error.message));
+  await surfacePage.setContent('<!doctype html><html><head><meta charset="utf-8"><style>*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:#050607;color:#f8fafc}body.ovyx-webstudio-active{overflow:hidden}#view-webstudio{position:relative;width:100%;height:100%;isolation:isolate}#ws-workspace{position:relative;isolation:isolate;width:100%;height:100%;overflow:hidden}.ovyx-ws-code-workspace{position:absolute;inset:0;z-index:40;display:none;grid-template-rows:28px minmax(0,1fr);overflow:hidden;background:#050607}.ovyx-ws-code-workspace[hidden]{display:none!important}.ovyx-ws-code-workspace-head{height:28px}.ovyx-ws-code-root{display:flex;flex-direction:column;height:100%}.ovyx-code-panel-main{position:relative;display:flex;flex-direction:column;flex:1;min-width:0;min-height:0}.ovyx-code-tree{width:160px}.fake-competing-layer{position:absolute;inset:0;z-index:2147483001;background:rgba(255,0,0,.01)}#ovyx-monaco-host{flex:1;min-height:0}#ovyx-fallback-editor{display:none;flex:1;min-height:0;background:#050607;color:#e7e7e7;padding:16px;border:0;outline:0;font:13px/1.6 monospace;resize:none}</style></head><body class="ovyx-webstudio-active"><section id="view-webstudio" data-ws-code-open="1"><main id="ws-workspace" class="ovyx-ws-workspace"><div id="ws-chat-pane" aria-hidden="true"></div><div id="ws-inline-preview" aria-hidden="true"></div><button id="ws-desktop-split-toggle" class="ovyx-ws-split-toggle" style="position:absolute;inset:0;z-index:2000">split</button><section id="ws-code-workspace" class="ovyx-ws-code-workspace"><div class="ovyx-ws-code-workspace-head">OVYX CODE</div><div id="ws-code-workspace-host"><div class="ovyx-ws-code-root"><aside class="ovyx-code-tree">files</aside><main class="ovyx-code-panel-main"><div id="ovyx-monaco-host"></div><textarea id="ovyx-fallback-editor" spellcheck="false"></textarea></main></div></div></section><div class="fake-competing-layer" id="high-layer"></div></main></section></body></html>');
+  await surfacePage.addStyleTag({content:cssMatch[1]});
+  await surfacePage.addStyleTag({content:hitTestingMatch[1]});
+  await surfacePage.evaluate(()=>{
+    window.KernelState={activeView:'webstudio'};
+    window.WebStudio={
+      activeCodeFile:'src/pages/Home.html',
+      graph:{files:{'src/pages/Home.html':{content:'baseline',dirty:false}}},
+      ensureProjectGraph(){return this.graph},
+      entryFile(){return 'src/pages/Home.html'},
+      updateCodeFromEditor(file,content){this.graph.files[file].content=String(content);this.graph.files[file].dirty=true},
+      openCodeFile(){throw new Error('simulated Monaco editor creation failure')},
+      async mountFocusedCodeWorkspace(){throw new Error('simulated editor mount failure')}
+    };
+    document.getElementById('ws-code-workspace').hidden=false;
+    document.getElementById('ws-code-workspace').setAttribute('aria-hidden','false');
+  });
+  await surfacePage.addScriptTag({content:editorRecoveryMatch[1]});
+  await surfacePage.evaluate(()=>window.WebStudio.openCodeFile('src/pages/Home.html'));
+  const surfaceEditor=surfacePage.locator('#ovyx-fallback-editor');
+  await surfaceEditor.waitFor({state:'visible'});
+  const surfaceBounds=await surfaceEditor.boundingBox();
+  assert.ok(surfaceBounds&&surfaceBounds.width>900&&surfaceBounds.height>500,
+    'The real overlay layout must give the editable surface the full workspace area.');
+  const hitTest=await surfacePage.evaluate(({x,y})=>{
+    const node=document.elementFromPoint(x,y);
+    return {id:node?.id||'',inside:!!node?.closest?.('#ovyx-fallback-editor')};
+  },{x:surfaceBounds.x+surfaceBounds.width*.7,y:surfaceBounds.y+surfaceBounds.height*.6});
+  assert.equal(hitTest.inside,true,
+    'The editor must receive pointer hits across its full area, above a competing workspace layer.');
+  await surfacePage.mouse.click(surfaceBounds.x+surfaceBounds.width*.7,surfaceBounds.y+surfaceBounds.height*.6);
+  await surfacePage.keyboard.type('Edit survives overlay');
+  assert.match(await surfacePage.evaluate(()=>window.WebStudio.graph.files['src/pages/Home.html'].content),
+    /Edit survives overlay/,'Typing after an editor initialization failure must still update project source.');
+  assert.deepEqual(surfaceErrors,[],'Editor recovery must not create uncaught browser errors.');
+  await surfacePage.close();
 
   // Dashboard regression: mimic the mobile drawer and scroll lock being left open
   // after selecting Home. The real route-recovery code must release the hit blocker.
