@@ -550,16 +550,13 @@ try {
     dialog.setAttribute('aria-hidden', 'false');
     dialog.style.cssText = 'position:fixed;inset:15%;z-index:2147483647;background:rgba(0,0,0,.8);color:white;display:block';
     dialog.innerHTML = '<div class="ovyx-ws-modal-sheet" role="dialog" aria-modal="true" aria-label="Temporary test dialog"><p>Temporary test dialog</p><button type="button" data-modal-close>Close</button></div>';
+    window.__ovyxBackTestHistoryBeforeOverlay = history.length;
     document.body.appendChild(dialog);
     // Ensure the rollback runtime captures the overlay before a legitimate
     // workspace update arrives independently while this non-project surface is open.
     // Closing this portal must not restore its ambient project snapshot.
-    // Ensure this creates a fresh same-document Back target even after previous
-    // route/modal scenarios have rewritten the current history branch.
-    history.pushState(Object.assign({}, history.state || {}, {
-      ovyxRoute: 'webstudio', ovyxShell: true, ovyxBackOverlayFixture: Date.now()
-    }), document.title, location.href);
-    const top = window.OVYXScopedRollback?.topOpenScope?.();
+    // The runtime, not the test fixture, must create the Back entry.
+    const top = window.OVYXScopedRollback?.topOpenScope?.();    const top = window.OVYXScopedRollback?.topOpenScope?.();
     if (top !== dialog) {
       throw new Error('The regression overlay is not the top rollback scope. Selected: '
         + (top?.id || top?.className || top?.tagName || 'none')
@@ -569,6 +566,18 @@ try {
     }
   });
   await page.waitForTimeout(100);
+  const overlayHistoryEntry = await page.evaluate(() => ({
+    before: Number(window.__ovyxBackTestHistoryBeforeOverlay || 0),
+    after: window.history.length,
+    route: window.history.state?.ovyxRoute || '',
+    activeRoute: window.KernelState?.activeView || '',
+  }));
+  assert.ok(overlayHistoryEntry.after > overlayHistoryEntry.before,
+    'Opening a real overlay must automatically create a browser history entry for Android/Chrome Back.');
+  assert.equal(overlayHistoryEntry.route, 'webstudio',
+    'The overlay Back entry must stay on the current OVYX route.');
+  assert.equal(overlayHistoryEntry.activeRoute, 'webstudio',
+    'Opening an overlay must not change the active route.');
   const unrelatedProjectUpdate = await page.evaluate(() => {
     const state = window.KernelState;
     const project = state?.activeProject || state?.projects?.find(item => item?.id === window.WebStudio?.project?.id);
@@ -636,9 +645,8 @@ try {
     'Escape from a generic dialog must not roll back ambient project changes.');
 
   // Use a fresh mobile document for native Back/Preview and task rollback. The
-  // app-wide overlay assertion above intentionally exercises its own pushed
-  // entry; keeping the next scenario in that stack would test duplicate test
-  // history entries rather than normal Android navigation.
+  // app-wide overlay assertion above verifies that the runtime creates its own
+  // history entry, and this new page keeps that stack isolated.
   await page.close();
   page = await context.newPage();
   page.setDefaultTimeout(20000);
