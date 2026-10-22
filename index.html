@@ -10003,21 +10003,44 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
   var bootUntil=Date.now()+1800;
   function clean(v){var x=String(v||'home').replace(/^view-/,'').trim().toLowerCase();return ALIASES[x]||x||'home'}
   function currentRoute(){return clean(window.KernelState?.activeView||document.querySelector('#view-router-viewport>section:not(.hidden)')?.id||'home')}
-  function isVisible(el){if(!el)return false;try{var cs=getComputedStyle(el);return !el.hidden && cs.display!=='none' && cs.visibility!=='hidden' && cs.opacity!=='0' && (el.classList.contains('open')||!el.classList.contains('hidden')||el.getAttribute('aria-modal')==='true'||el.getAttribute('role')==='dialog')}catch(e){return false}}
+  function isVisible(el){
+    if(!el||!el.isConnected)return false;
+    // A dialog role alone must not make an overlay inside an inactive route
+    // count as open. Check all ancestors before evaluating modal semantics.
+    for(var node=el;node&&node!==document.documentElement;node=node.parentElement){
+      if(node.hidden||node.hasAttribute('inert')||node.getAttribute('aria-hidden')==='true'||node.classList?.contains('hidden'))return false;
+      try{var ancestorStyle=getComputedStyle(node);if(ancestorStyle.display==='none'||ancestorStyle.visibility==='hidden')return false}catch(e){return false}
+    }
+    try{
+      var cs=getComputedStyle(el);
+      if(cs.display==='none'||cs.visibility==='hidden'||cs.opacity==='0')return false;
+      return el.classList.contains('open')||el.classList.contains('is-open')||
+        el.getAttribute('aria-modal')==='true'||el.getAttribute('role')==='dialog'||
+        (el.tagName==='DIALOG'&&el.open)||el.matches?.('[data-rollback-scope]')||
+        !el.classList.contains('hidden');
+    }catch(e){return false}
+  }
   function topOverlay(){
-    var ids=['ovyx-v655-support-backdrop','ovyx-v65-legal-modal','ovyx-v84-support-modal','cmd-palette-modal','rollback-revisions-modal','checkout-elements-modal','kernel-brain-bot-panel','v58-template-preview-modal','v55-preview-modal','ovyx-owner-console','ovyx-project-create-modal'];
+    var ids=['ovyx-v655-support-backdrop','ovyx-v65-legal-modal','ovyx-v84-support-modal','cmd-palette-modal','rollback-revisions-modal','checkout-elements-modal','kernel-brain-bot-panel','v58-template-preview-modal','v55-preview-modal','ovyx-owner-console','ovyx-project-create-modal','ws-plan-modal','ws-history-modal','ws-graph-modal','ws-deploy-modal','ws-diff-modal','ws-engineering-console'];
     var els=[];
     ids.forEach(function(id){var el=document.getElementById(id);if(isVisible(el))els.push(el)});
-    document.querySelectorAll('[role="dialog"][aria-modal="true"]').forEach(function(el){if(isVisible(el)&&!els.includes(el))els.push(el)});
+    var selector='[role="dialog"][aria-modal="true"],[aria-modal="true"],dialog[open],[id$="-modal"].open,.modal.open,[class*="modal"].open,[data-ovyx-overlay].open,[data-overlay].open';
+    document.querySelectorAll(selector).forEach(function(el){if(isVisible(el)&&!els.includes(el))els.push(el)});
     if(!els.length)return null;
     els.sort(function(a,b){
       var za=parseInt(getComputedStyle(a).zIndex||'0',10)||0,zb=parseInt(getComputedStyle(b).zIndex||'0',10)||0;
-      return za-zb;
+      if(za!==zb)return za-zb;
+      if(a===b)return 0;
+      return a.compareDocumentPosition(b)&Node.DOCUMENT_POSITION_FOLLOWING?-1:1;
     });
     return els[els.length-1];
   }
   function closeOverlay(el){
     if(!el)return false;
+    // Let the app-wide scoped rollback restore only the draft owned by this
+    // overlay before legacy close handlers run. This is intentionally optional
+    // so a missing enhancement can never block navigation or close behavior.
+    try{window.OVYXScopedRollback?.beforeClose?.(el,'system-back')}catch(e){console.warn('[OVYX scoped rollback close]',e)}
     var id=el.id||'';
     try{
       if(id==='checkout-elements-modal'&&window.CheckoutElements?.closeModal){window.CheckoutElements.closeModal();return true}
@@ -10031,40 +10054,211 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
       if(id==='ovyx-owner-console'&&window.OvyxOwnerConsole?.close){window.OvyxOwnerConsole.close();return true}
       if(id==='ovyx-project-create-modal'&&typeof el._close==='function'){el._close();return true}
     }catch(e){console.warn('[OVYX V665 overlay close]',e)}
-    try{el.querySelector('[data-support-close],[data-support-cancel],[data-modal-cancel],[aria-label*="Close" i],[title*="Close" i],button')?.click()}catch(e){}
+    if(id==='ws-plan-modal'&&window.WebStudio?.closeModal){window.WebStudio.closeModal('plan');return true}
+    if(id==='ws-history-modal'&&window.WebStudio?.closeModal){window.WebStudio.closeModal('history');return true}
+    if(id==='ws-graph-modal'&&window.WebStudio?.closeModal){window.WebStudio.closeModal('graph');return true}
+    if(id==='ws-deploy-modal'&&window.WebStudio?.closeModal){window.WebStudio.closeModal('deploy');return true}
+    try{
+      var closeSelectors='[data-support-close],[data-modal-close],[data-close-modal],[data-modal-cancel],[data-support-cancel],[aria-label*="Close" i],[title*="Close" i]';
+      var closeControl=el.querySelector(closeSelectors);
+      if(!closeControl){
+        var controls=Array.from(el.querySelectorAll('button,[role="button"],a'));
+        closeControl=controls.find(function(btn){
+          var label=String(btn.getAttribute('aria-label')||btn.getAttribute('title')||btn.textContent||'').replace(/\\s+/g,' ').trim();
+          return /^(?:cancel|back|close|done|dismiss|×|✕|x)(?:\\s|$)/i.test(label);
+        });
+      }
+      if(closeControl){closeControl.click();if(!isVisible(el))return true}
+    }catch(e){}
     try{el.classList.remove('open','is-open');el.hidden=true;el.style.display='none';el.setAttribute('aria-hidden','true')}catch(e){}
     return true;
+  }
+  function closeWebStudioSurfaceForBack(){
+    if(clean(window.KernelState?.activeView||currentRoute())!=='webstudio')return false;
+    var studio=window.WebStudio;
+    var body=document.body;
+    var ws=document.getElementById('view-webstudio');
+    var modeMenu=document.getElementById('ws-mode-menu');
+    if(modeMenu&&!modeMenu.hidden){
+      try{studio?.closeModeMenu?.()}catch(e){}
+      if(!modeMenu.hidden)modeMenu.hidden=true;
+      return true;
+    }
+    var previewMenu=document.getElementById('ws-preview-menu');
+    if(previewMenu&&!previewMenu.hidden){
+      try{studio?.closePreviewMenu?.()}catch(e){}
+      if(!previewMenu.hidden)previewMenu.hidden=true;
+      return true;
+    }
+    if(body.classList.contains('ovyx-ws-nav-open')||body.classList.contains('ovyx-ws-mobile-nav-open')){
+      try{window.OVYXWebStudioNavigation?.close?.()}catch(e){}
+      try{studio?.closeProjectNavigation?.()}catch(e){}
+      body.classList.remove('ovyx-ws-nav-open','ovyx-ws-mobile-nav-open');
+      return true;
+    }
+    if(ws?.getAttribute('data-ws-code-open')==='1'){
+      var codeBack=document.getElementById('ovyx-code-back');
+      if(codeBack){try{codeBack.click();return true}catch(e){}}
+      // Keep code edits when the editor's Back control is not mounted yet.
+      try{studio?.syncGraphToProject?.(true)}catch(e){}
+      ws.setAttribute('data-ws-code-open','0');
+      var code=document.getElementById('ws-code-workspace');
+      if(code){code.hidden=true;code.setAttribute('aria-hidden','true')}
+      document.documentElement.classList.remove('ovyx-code-focused-route');
+      try{studio?.render?.()}catch(e){}
+      try{window.persistStateNow?.('system-back-code-close')}catch(e){}
+      return true;
+    }
+    if(body.classList.contains('ovyx-ws-mobile-preview-open')){
+      try{
+        if(window.OVYXMobilePreviewRouting?.close)window.OVYXMobilePreviewRouting.close();
+        else studio?.closeMobilePreview?.();
+      }catch(e){}
+      body.classList.remove('ovyx-ws-mobile-preview-open','ovyx-ws-preview-full','ovyx-ws-preview-collapsed','ovyx-preview-expanded');
+      var mobilePreview=document.getElementById('ws-mobile-preview');
+      if(mobilePreview){mobilePreview.hidden=true;mobilePreview.setAttribute('aria-hidden','true')}
+      try{window.persistStateNow?.('system-back-preview-close')}catch(e){}
+      return true;
+    }
+    if(body.classList.contains('ovyx-ws-preview-full')){
+      try{studio?.returnToChat?.()}catch(e){}
+      body.classList.remove('ovyx-ws-preview-full');
+      body.classList.add('ovyx-ws-preview-collapsed');
+      try{window.persistStateNow?.('system-back-preview-close')}catch(e){}
+      return true;
+    }
+    if(body.classList.contains('ovyx-ws-chat-focus')||body.classList.contains('ovyx-ws-preview-collapsed')||ws?.classList.contains('ovyx-preview-expanded')){
+      try{studio?.returnToSplit?.()}catch(e){}
+      body.classList.remove('ovyx-ws-chat-focus','ovyx-ws-preview-collapsed','ovyx-ws-preview-full');
+      ws?.classList.remove('ovyx-preview-expanded');
+      try{studio?.updateDesktopSplitControls?.()}catch(e){}
+      try{window.persistStateNow?.('system-back-split-restore')}catch(e){}
+      return true;
+    }
+    return false;
+  }
+  function hasActiveWebStudioTask(){
+    if(clean(window.KernelState?.activeView||currentRoute())!=='webstudio')return false;
+    var studio=window.WebStudio||{};
+    var session=window.__OVYX_WEBSTUDIO_TASK_SESSION_V2__||{};
+    return !!(
+      studio.pendingBuild||
+      studio.liveAiActive||
+      Number(studio.__ovyxTaskInFlightCount||0)>0||
+      Number(session.inFlightCount||0)>0||
+      Number(session.fetchInFlightCount||0)>0
+    );
+  }
+  function cancelActiveWebStudioTaskSafely(){
+    try{
+      var coordinator=window.OVYXWebStudioCancelSafety;
+      if(coordinator&&typeof coordinator.cancel==='function'&&coordinator.cancel()===true)return true;
+    }catch(e){console.warn('[OVYX mobile Back cancellation]',e)}
+    try{
+      var studio=window.WebStudio;
+      if(studio&&typeof studio.cancelActiveTask==='function'&&studio.cancelActiveTask()===true)return true;
+    }catch(e){console.warn('[OVYX mobile Back rollback]',e)}
+    return false;
+  }
+  function keepCurrentRouteEntry(route){
+    try{
+      var state=history.state&&typeof history.state==='object'?history.state:{};
+      history.pushState(routeHistoryState(route||currentRoute(),state),document.title,location.href);
+    }catch(e){console.warn('[OVYX mobile Back history]',e)}
   }
   function back(){
     var overlay=topOverlay();
     if(overlay){closeOverlay(overlay);return true}
     var drawer=document.getElementById('mobile-drawer');
     if(drawer&&(drawer.classList.contains('open')||drawer.classList.contains('is-open')||document.body.classList.contains('ovyx-drawer-open'))){try{window.MobileDrawer?.close?.()}catch(e){};return true}
+    if(runRegisteredBackHandlers('back-button'))return true;
     var current=clean(window.KernelState?.activeView||currentRoute());
+    if(current==='webstudio'&&closeWebStudioSurfaceForBack())return true;
+    if(current==='webstudio'&&hasActiveWebStudioTask()){
+      var cancelled=cancelActiveWebStudioTaskSafely();
+      if(!cancelled){
+        try{window.WebStudio?.persistState?.('system-back-protect-work')}catch(e){}
+        try{window.showToast?.('OVYX kept your workspace open to protect the current task. Use the task Cancel control when it is available.','warning')}catch(e){}
+      }
+      return true;
+    }
     var stateRoute=clean(history.state?.ovyxRoute||'');
-    if(current==='webstudio' && (!stateRoute || stateRoute==='webstudio')){
+    if(current==='webstudio'&&(!stateRoute||stateRoute==='webstudio')){
       try{window.Router?.go?.('home');return true}catch(e){}
     }
     try{history.back();return true}catch(e){
       try{window.Router?.go?.('home');return true}catch(_){return false}
     }
   }
+  var registeredBackHandlers=[];
+  function registerBackHandler(id,canHandle,handle,priority){
+    var key=String(id||'').trim();if(!key||typeof canHandle!=='function'||typeof handle!=='function')return function(){};
+    registeredBackHandlers=registeredBackHandlers.filter(function(item){return item.id!==key});
+    var entry={id:key,canHandle:canHandle,handle:handle,priority:Number(priority||0)};
+    registeredBackHandlers.push(entry);registeredBackHandlers.sort(function(a,b){return b.priority-a.priority});
+    return function(){registeredBackHandlers=registeredBackHandlers.filter(function(item){return item!==entry})};
+  }
+  function runRegisteredBackHandlers(source){
+    var list=registeredBackHandlers.slice();
+    for(var i=0;i<list.length;i++){
+      var item=list[i];
+      try{if(item.canHandle()&&item.handle({source:source||'back',route:currentRoute()})!==false)return true}catch(e){console.warn('[OVYX Back handler '+item.id+']',e)}
+    }
+    return false;
+  }
+  function currentSettingsPanel(){
+    var settings=window.OVYXSettings;
+    var active=document.querySelector('[data-settings-panel].active');
+    return String(settings?.current||active?.getAttribute('data-settings-panel')||'general').replace(/^view-/,'').trim().toLowerCase()||'general';
+  }
+  function routeHistoryState(route,base){
+    var r=clean(route||currentRoute());
+    var state=Object.assign({},base||history.state||{},{ovyxRoute:r,ovyxShell:true});
+    if(r==='settings')state.ovyxSettingsPanel=currentSettingsPanel();
+    else delete state.ovyxSettingsPanel;
+    return state;
+  }
+  function installSettingsHistory(){
+    var settings=window.OVYXSettings;
+    if(!settings||typeof settings.show!=='function'||settings.show.__OVYX_SETTINGS_HISTORY_WRAPPED__)return;
+    var original=settings.show;
+    var wrapped=function(id){
+      var before=currentSettingsPanel();
+      var next=String(id||'general').replace(/^view-/,'').trim().toLowerCase()||'general';
+      var result=original.apply(this,arguments);
+      if(!handlingPop&&clean(window.KernelState?.activeView||currentRoute())==='settings'
+        &&clean(history.state?.ovyxRoute||'')==='settings'&&before!==next
+        &&clean(history.state?.ovyxSettingsPanel||before)!==next){
+        try{history.pushState(routeHistoryState('settings',Object.assign({},history.state||{},{ovyxSettingsPanel:next})),document.title,location.href)}catch(e){console.warn('[OVYX settings history]',e)}
+      }
+      return result;
+    };
+    wrapped.__OVYX_SETTINGS_HISTORY_WRAPPED__=true;
+    wrapped.__OVYX_SETTINGS_HISTORY_ORIGINAL__=original;
+    settings.show=wrapped;
+  }
   window.OVYXNavigation=window.OVYXNavigation||{};
   window.OVYXNavigation.back=back;
   window.OVYXNavigation.closeTopOverlay=function(){var o=topOverlay();return o?closeOverlay(o):false};
   window.OVYXNavigation.current=currentRoute;
+  window.OVYXNavigation.registerBackHandler=registerBackHandler;
+  window.OVYXNavigation.unregisterBackHandler=function(id){var key=String(id||'');registeredBackHandlers=registeredBackHandlers.filter(function(item){return item.id!==key})};
+  window.OVYXNavigation.runBackHandlers=runRegisteredBackHandlers;
   function installHistory(){
     if(!window.history||!history.pushState)return;
     var current=currentRoute();
-    try{history.replaceState(Object.assign({},history.state||{},{ovyxRoute:current,ovyxShell:true}),document.title,location.href)}catch(e){}
+    try{history.replaceState(routeHistoryState(current,history.state||{}),document.title,location.href)}catch(e){}
+    installSettingsHistory();
+    window.addEventListener('ovyx-settings-rendered',installSettingsHistory,{passive:true});
     if(window.Router?.go && !window.Router.__OVYXV665Wrapped){
       baseGo=window.Router.go.bind(window.Router);
       var wrapped=function(view){
         var before=currentRoute();
         var result=baseGo(view);
         var after=currentRoute();
-        if(after&&after!==before&&!handlingPop&&!window.__OVYXV665_SUPPRESS_HISTORY && Date.now()>bootUntil){
-          try{history.pushState(Object.assign({},history.state||{},{ovyxRoute:after,ovyxShell:true}),document.title,location.href)}catch(e){}
+        if(after&&after!==before&&!handlingPop&&!window.__OVYXV665_SUPPRESS_HISTORY
+          && Date.now()>bootUntil&&clean(history.state?.ovyxRoute||'')!==after){
+          try{history.pushState(routeHistoryState(after,history.state||{}),document.title,location.href)}catch(e){}
         }
         return result;
       };
@@ -10073,14 +10267,62 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
       window.switchView=wrapped;
       window.Router.__OVYXV665Wrapped=true;
     }
+    // Router.go is wrapped by multiple legacy and canonical OVYX runtimes.
+    // A later wrapper may replace the function we wrapped above, so mirror the
+    // canonical route-change event as the durable history source of truth.
+    // Router.go's wrapper above avoids a duplicate push if this listener ran first.
+    window.addEventListener('ovyx:view-changed',function(event){
+      if(handlingPop||window.__OVYXV665_SUPPRESS_HISTORY||Date.now()<=bootUntil)return;
+      var route=clean(event&&event.detail&&event.detail.view||currentRoute());
+      if(!route)return;
+      if(clean(history.state&&history.state.ovyxRoute||'')===route){
+        if(route==='settings'&&clean(history.state&&history.state.ovyxSettingsPanel||'')!==currentSettingsPanel()){
+          try{history.replaceState(routeHistoryState(route,history.state||{}),document.title,location.href)}catch(e){}
+        }
+        return;
+      }
+      try{
+        history.pushState(routeHistoryState(route,history.state||{}),document.title,location.href);
+      }catch(e){console.warn('[OVYX route history]',e)}
+    },false);
     window.addEventListener('popstate',function(){
       var overlay=topOverlay();
-      if(overlay){closeOverlay(overlay);try{history.pushState(Object.assign({},history.state||{},{ovyxRoute:currentRoute(),ovyxShell:true}),document.title,location.href)}catch(e){};return}
+      if(overlay){closeOverlay(overlay);keepCurrentRouteEntry(currentRoute());return}
       var drawer=document.getElementById('mobile-drawer');
-      if(drawer&&(drawer.classList.contains('open')||drawer.classList.contains('is-open')||document.body.classList.contains('ovyx-drawer-open'))){try{window.MobileDrawer?.close?.()}catch(e){};try{history.pushState(Object.assign({},history.state||{},{ovyxRoute:currentRoute(),ovyxShell:true}),document.title,location.href)}catch(e){};return}
+      if(drawer&&(drawer.classList.contains('open')||drawer.classList.contains('is-open')||document.body.classList.contains('ovyx-drawer-open'))){try{window.MobileDrawer?.close?.()}catch(e){};keepCurrentRouteEntry(currentRoute());return}
+      if(runRegisteredBackHandlers('popstate')){keepCurrentRouteEntry(currentRoute());return}
+      var current=currentRoute();
+      // Back should unwind Web Studio's topmost local surface before it leaves
+      // the workspace. The next Back press can then navigate to the prior route.
+      if(current==='webstudio'&&closeWebStudioSurfaceForBack()){keepCurrentRouteEntry(current);return}
+      // A running AI operation owns a project-scoped rollback snapshot. Route
+      // exit calls abortActiveAi(), which is not the same as safe task rollback.
+      // Route system Back through that coordinator first and keep the workspace
+      // mounted so only this task is reverted; never reset the whole project.
+      if(current==='webstudio'&&hasActiveWebStudioTask()){
+        var cancelled=cancelActiveWebStudioTaskSafely();
+        if(!cancelled){
+          try{window.WebStudio?.persistState?.('system-back-protect-work')}catch(e){}
+          try{window.showToast?.('OVYX kept your workspace open to protect the current task. Use the task Cancel control when it is available.','warning')}catch(e){}
+        }
+        keepCurrentRouteEntry(current);
+        return;
+      }
       var route=clean(history.state?.ovyxRoute||'home');
+      var targetSettingsPanel=String(history.state?.ovyxSettingsPanel||'').trim().toLowerCase();
+      if(current==='settings'&&route==='settings'&&targetSettingsPanel&&targetSettingsPanel!==currentSettingsPanel()){
+        handlingPop=true;
+        try{window.OVYXSettings?.show?.(targetSettingsPanel)}finally{handlingPop=false}
+        return;
+      }
       if(!baseGo&&window.Router?.go)baseGo=window.Router.go.bind(window.Router);
-      if(baseGo){handlingPop=true;try{baseGo(route)}finally{handlingPop=false}}
+      if(baseGo){
+        handlingPop=true;
+        try{
+          baseGo(route);
+          if(route==='settings'&&targetSettingsPanel&&targetSettingsPanel!==currentSettingsPanel())window.OVYXSettings?.show?.(targetSettingsPanel);
+        }finally{handlingPop=false}
+      }
     },{passive:true});
   }
   function installCancelBack(){

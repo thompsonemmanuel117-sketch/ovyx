@@ -8,11 +8,21 @@ on:
       - 'index.html'
       - 'assets/ovyx-settings-reliability.js'
       - 'assets/ovyx-webstudio-cancel-safety.js'
+      - 'assets/ovyx-scoped-rollback.js'
+      - 'assets/ovyx-scoped-rollback.js'
       - '_routes.json'
       - 'functions/_middleware.js'
+      - 'scripts/cloudflare-application-shell.mjs'
+      - 'scripts/ovyx-static-verify.mjs'
+      - 'scripts/ovyx-cloudflare-diagnostics.test.mjs'
+      - '_headers'
       - 'scripts/ovyx-settings-actions.test.mjs'
       - 'scripts/ovyx-settings-core.browser.test.mjs'
       - 'scripts/ovyx-cancel-safety.browser.test.mjs'
+      - 'scripts/ovyx-mobile-back-navigation.browser.test.mjs'
+      - 'scripts/ovyx-cloudflare-diagnostics.test.mjs'
+      - 'scripts/cloudflare-application-shell.mjs'
+      - 'scripts/ovyx-static-verify.mjs'
       - '.github/workflows/ovyx-settings-regression-browser.yml'
   pull_request:
     branches:
@@ -21,11 +31,21 @@ on:
       - 'index.html'
       - 'assets/ovyx-settings-reliability.js'
       - 'assets/ovyx-webstudio-cancel-safety.js'
+      - 'assets/ovyx-scoped-rollback.js'
+      - 'assets/ovyx-scoped-rollback.js'
       - '_routes.json'
       - 'functions/_middleware.js'
+      - 'scripts/cloudflare-application-shell.mjs'
+      - 'scripts/ovyx-static-verify.mjs'
+      - 'scripts/ovyx-cloudflare-diagnostics.test.mjs'
+      - '_headers'
       - 'scripts/ovyx-settings-actions.test.mjs'
       - 'scripts/ovyx-settings-core.browser.test.mjs'
       - 'scripts/ovyx-cancel-safety.browser.test.mjs'
+      - 'scripts/ovyx-mobile-back-navigation.browser.test.mjs'
+      - 'scripts/ovyx-cloudflare-diagnostics.test.mjs'
+      - 'scripts/cloudflare-application-shell.mjs'
+      - 'scripts/ovyx-static-verify.mjs'
       - '.github/workflows/ovyx-settings-regression-browser.yml'
   workflow_dispatch:
 
@@ -70,12 +90,14 @@ jobs:
         run: |
           npm run validate
           node scripts/ovyx-settings-actions.test.mjs
+          node scripts/ovyx-cloudflare-diagnostics.test.mjs
 
-      - name: Test Profile, Appearance and task-cancel safety in desktop and mobile Chromium
+      - name: Test Profile, Appearance, app-wide rollback and mobile Back in Chromium
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8791
         run: |
           node scripts/ovyx-cancel-safety.browser.test.mjs
+          node scripts/ovyx-mobile-back-navigation.browser.test.mjs
           node scripts/ovyx-settings-core.browser.test.mjs
 
       - name: Print local Pages logs on failure

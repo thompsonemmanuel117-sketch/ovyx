@@ -29,11 +29,12 @@ assert.deepEqual(
 
 
 const iconSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128"><title id="title">OVYX</title><path d="M32 5L55 18.5V45.5L32 59L9 45.5V18.5L32 5Z"/></svg>';
-const shellHtml = '<!doctype html><html><head><title>OVYX</title><link rel="icon" type="image/svg+xml" href="/ovyx-tab-v6.svg?v=20261021-6"></head><body><main><h1>OVYX</h1></main><script src="/assets/ovyx-shell-favicon-lock.js?v=20261021-3"></script><script defer src="/assets/ovyx-webstudio-cancel-safety.js?v=20261022-1"></script><script defer src="/assets/ovyx-webstudio-reliability.js?v=20261019-2"></script><script defer src="/assets/ovyx-webstudio-research.js?v=20261019-1"></script><script defer src="/assets/ovyx-webstudio-apply-suggestions.js?v=20261019-1"></script><script defer src="/assets/ovyx-webstudio-quality.js?v=20261018-7"></script></body></html>';
+const shellHtml = '<!doctype html><html><head><title>OVYX</title><link rel="icon" type="image/svg+xml" href="/ovyx-tab-v6.svg?v=20261021-6"></head><body><main><h1>OVYX</h1></main><script src="/assets/ovyx-shell-favicon-lock.js?v=20261021-3"></script><script defer src="/assets/ovyx-webstudio-cancel-safety.js?v=20261022-2"></script><script defer src="/assets/ovyx-scoped-rollback.js?v=20261022-5"></script><script defer src="/assets/ovyx-webstudio-reliability.js?v=20261019-2"></script><script defer src="/assets/ovyx-webstudio-research.js?v=20261019-1"></script><script defer src="/assets/ovyx-webstudio-apply-suggestions.js?v=20261019-1"></script><script defer src="/assets/ovyx-webstudio-quality.js?v=20261018-7"></script></body></html>';
 const expectedQualitySource = 'function auditSources(report, pages, files, project) {} /* cross-page fragment link */ function publishVerifiedPreview() {}';
 const expectedRuntimeSources = {
   '/assets/ovyx-shell-favicon-lock.js': `window.__OVYX_SHELL_FAVICON_LOCK_V3__ = true; var href = "/ovyx-tab-v6.svg?v=20261021-6"; window.OVYXShellFavicon = {}; var observer = new MutationObserver();`,
   '/assets/ovyx-webstudio-cancel-safety.js': `window.__OVYX_WEBSTUDIO_CANCEL_SAFETY_V3__ = true; function restoreProjectOnly() {} function installBrowserFetchCancellation() {} var key = "ovyx.webstudio.rollback.snapshot.v3."; button.id = 'ws-task-cancel'; coordinator.cancel();`,
+  '/assets/ovyx-scoped-rollback.js': `window.__OVYX_SCOPED_ROLLBACK_V1__ = true; window.OVYXScopedRollback = { beforeClose() {}, restoreProject() {} }; function restoreProject(snapshot) {} var restoreScheduled = false; function handleHistoryPop(event) {} function closeLocalSurfaceForBack() {} function cancelStudioTaskSafely() {} function wrapNavigationBack() {} window.addEventListener('popstate', handleHistoryPop, true);`,
   '/assets/ovyx-webstudio-reliability.js': 'var __ovyxBuildArtifactGuard = true; function installFollowUpIntentRouter() {}',
   '/assets/ovyx-webstudio-research.js': 'function runResearch() {} function addResearchContext() {} .ovyx-ws-live-activity',
   '/assets/ovyx-webstudio-apply-suggestions.js': '/* OVYX_APPLY_SUGGESTIONS */ function applySuggestion() {} studio.submitPrompt()',
@@ -63,7 +64,9 @@ assert.equal(healthyShell.requiredRuntimes.applySuggestions.version, '20261019-1
 assert.equal(healthyShell.requiredRuntimes.faviconLock.ok, true, 'The live app shell must serve the currently expected favicon lock runtime.');
 assert.equal(healthyShell.requiredRuntimes.faviconLock.version, '20261021-3');
 assert.equal(healthyShell.requiredRuntimes.cancelSafety.ok, true, 'The live app shell must serve the actual browser-connected Cancel/rollback runtime.');
-assert.equal(healthyShell.requiredRuntimes.cancelSafety.version, '20261022-1');
+assert.equal(healthyShell.requiredRuntimes.cancelSafety.version, '20261022-2');
+assert.equal(healthyShell.requiredRuntimes.scopedRollback.ok, true, 'The app-wide scoped rollback runtime must be present in every HTML shell.');
+assert.equal(healthyShell.requiredRuntimes.scopedRollback.version, '20261022-5');
 assert.equal(healthyShell.browserTabIcon.ok, true, JSON.stringify(healthyShell.browserTabIcon));
 assert.equal(healthyShell.browserTabIcon.iconLinkCount, 1);
 assert.equal(healthyShell.browserTabIcon.tabIcon.brandMarkPresent, true);
@@ -133,6 +136,13 @@ const missingCancelRuntime = await probeApplicationShell('https://production-fix
   return new Response('', { status: 404 });
 });
 assert.equal(missingCancelRuntime.ok, false, 'A production shell missing the mobile Cancel runtime must fail the deployment smoke test.');
+
+const missingScopedRollback = await probeApplicationShell('https://production-fixture.pages.dev', async input => {
+  const url = new URL(input);
+  if (url.pathname === '/') return new Response(shellHtml.replace(/<script[^>]+ovyx-scoped-rollback\.js[^>]*><\/script>/, ''), { status: 200, headers: { 'content-type': 'text/html; charset=utf-8' } });
+  return healthyFetch(input);
+});
+assert.equal(missingScopedRollback.ok, false, 'A production shell missing app-wide scoped rollback must fail the deployment smoke test.');
 assert.equal(missingCancelRuntime.requiredRuntimes.cancelSafety.injected, false);
 assert.match(missingCancelRuntime.error, /missing the Web Studio mobile Cancel and rollback script/i);
 

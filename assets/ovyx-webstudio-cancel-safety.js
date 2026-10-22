@@ -382,6 +382,16 @@
     }
   }
 
+  function captureProjectListReferences() {
+    const state = getState();
+    if (!state || !Array.isArray(state.projects)) return [];
+    return state.projects.map((ref, index) => ({
+      id: String(ref && ref.id || ''),
+      index,
+      ref
+    })).filter(record => record.id && record.ref && typeof record.ref === 'object');
+  }
+
   function captureSnapshot(studio) {
     const state = getState();
     const project = state && (state.activeProject || state.project) || studio && studio.project;
@@ -397,6 +407,10 @@
       projectId: String(project.id),
       project: clone(project),
       graph: clone(graph || {}),
+      // Project records are retained by reference in this in-memory checkpoint.
+      // If guest-save hydration clears KernelState.projects, rollback can put
+      // unrelated projects back without replacing their current in-place edits.
+      projectList: captureProjectListReferences(),
       startedAt: Date.now()
     };
     persistRollbackSnapshot(snapshot);
@@ -409,6 +423,7 @@
       projectId: String(rollback.projectId),
       project: clone(rollback.project),
       graph: clone(rollback.graph),
+      projectList: captureProjectListReferences(),
       startedAt: Date.now()
     };
     persistRollbackSnapshot(snapshot);
@@ -470,7 +485,31 @@
     const shouldRestoreAsActive = typeof targetWasActiveAtCancel === 'boolean'
       ? targetWasActiveAtCancel
       : activeIdBeforeRestore === targetId;
-    const projects = Array.isArray(state.projects) ? state.projects.slice() : [];
+    let projects = Array.isArray(state.projects) ? state.projects.slice() : [];
+    if (projects.length === 0) {
+      // The task-start checkpoint is the first recovery source. If a task was
+      // restored from browser storage after refresh (and no reference list was
+      // retained), fall back to OVYX's same UID-scoped local project cache.
+      const retained = Array.isArray(snapshot.projectList)
+        ? snapshot.projectList.slice().sort((a, b) => Number(a?.index || 0) - Number(b?.index || 0))
+          .map(record => record?.ref).filter(project => project && typeof project === 'object' && project.id)
+        : [];
+      if (retained.length) {
+        projects = retained;
+      } else {
+        try {
+          const user = window.firebase && window.firebase.auth && window.firebase.auth().currentUser;
+          const uid = String(user && user.uid || '').trim();
+          const email = String(user && user.email || '').trim().toLowerCase();
+          const cloudSync = window.ProjectCloudSync;
+          const key = cloudSync && typeof cloudSync.cacheKey === 'function'
+            ? cloudSync.cacheKey(email)
+            : uid ? 'ovyx.projects.v22.user.' + uid : 'ovyx.projects.v22.guest';
+          const cached = JSON.parse(window.localStorage.getItem(key) || '[]');
+          if (Array.isArray(cached)) projects = cached;
+        } catch (_) {}
+      }
+    }
     const existingIndex = projects.findIndex(project => String(project && project.id || '') === targetId);
     const savedProject = clone(snapshot.project);
     const savedGraph = clone(snapshot.graph || savedProject.ovyxGraph || {});
@@ -486,6 +525,10 @@
       return false;
     }
     state.projects = projects;
+    // Preserve the full project list before a legacy save/render callback runs.
+    // Guest-mode persistence can replace KernelState and clear the list; a
+    // scoped cancellation must not delete unrelated projects in that race.
+    const projectListCheckpoint = projects.slice();
 
     const targetIsStillActive = shouldRestoreAsActive;
     if (targetIsStillActive) {
@@ -520,6 +563,12 @@
       const reapplyFinalSnapshot = () => {
         const currentState = getState() || state;
         const latestProjects = Array.isArray(currentState.projects) ? currentState.projects.slice() : [];
+        // Recover the old list only if a save/hydration callback cleared it
+        // wholesale. When the live list still exists, keep current changes and
+        // do not resurrect projects intentionally removed while the task ran.
+        if (latestProjects.length === 0 && projectListCheckpoint.length > 0) {
+          latestProjects.push(...projectListCheckpoint);
+        }
         const finalIndex = latestProjects.findIndex(project => String(project && project.id || '') === targetId);
         if (finalIndex >= 0) latestProjects[finalIndex] = finalProject;
         else latestProjects.push(finalProject);
