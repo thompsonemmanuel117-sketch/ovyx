@@ -14445,13 +14445,22 @@ function installWebStudioSurface(){
   (async function(){
     try{
       await load(base+'firebase-app-compat.js',6000);
+      // Initialize the default app as soon as firebase-app-compat is ready.
+      // The auth/firestore/storage compat scripts load asynchronously; waiting
+      // for all of them before initializeApp leaves a race where DOMContentLoaded
+      // handlers can call firebase.auth() while the namespace exists but has no
+      // default app. That throws FirebaseError (app-compat/no-app) and aborts
+      // otherwise-independent shell startup handlers.
+      if(!window.firebase||typeof firebase.initializeApp!=='function') {
+        throw new Error('The account service could not start. Refresh the page and try again.');
+      }
+      if(!firebase.apps||!firebase.apps.length)firebase.initializeApp(config);
       await Promise.all([
         load(base+'firebase-auth-compat.js',6000),
         load(base+'firebase-firestore-compat.js',6000),
         load(base+'firebase-storage-compat.js',6000)
       ]);
-      if(!window.firebase||!firebase.initializeApp)throw new Error('The account service could not start. Refresh the page and try again.');
-      if(!firebase.apps||!firebase.apps.length)firebase.initializeApp(config);
+      if(typeof firebase.auth!=='function')throw new Error('The authentication service could not start. Refresh the page and try again.');
       finish(true);
     }catch(error){
       console.warn('[OVYX Firebase] Cloud SDK unavailable; the application remains usable without pretending authentication is active.',error);
