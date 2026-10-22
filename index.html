@@ -10165,7 +10165,8 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
         var before=currentRoute();
         var result=baseGo(view);
         var after=currentRoute();
-        if(after&&after!==before&&!handlingPop&&!window.__OVYXV665_SUPPRESS_HISTORY && Date.now()>bootUntil){
+        if(after&&after!==before&&!handlingPop&&!window.__OVYXV665_SUPPRESS_HISTORY
+          && Date.now()>bootUntil&&clean(history.state?.ovyxRoute||'')!==after){
           try{history.pushState(Object.assign({},history.state||{},{ovyxRoute:after,ovyxShell:true}),document.title,location.href)}catch(e){}
         }
         return result;
@@ -10175,6 +10176,18 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
       window.switchView=wrapped;
       window.Router.__OVYXV665Wrapped=true;
     }
+    // Router.go is wrapped by multiple legacy and canonical OVYX runtimes.
+    // A later wrapper may replace the function we wrapped above, so mirror the
+    // canonical route-change event as the durable history source of truth.
+    // Router.go's wrapper above avoids a duplicate push if this listener ran first.
+    window.addEventListener('ovyx:view-changed',function(event){
+      if(handlingPop||window.__OVYXV665_SUPPRESS_HISTORY||Date.now()<=bootUntil)return;
+      var route=clean(event&&event.detail&&event.detail.view||currentRoute());
+      if(!route||clean(history.state&&history.state.ovyxRoute||'')===route)return;
+      try{
+        history.pushState(Object.assign({},history.state||{},{ovyxRoute:route,ovyxShell:true}),document.title,location.href);
+      }catch(e){console.warn('[OVYX route history]',e)}
+    },false);
     window.addEventListener('popstate',function(){
       var overlay=topOverlay();
       if(overlay){closeOverlay(overlay);keepCurrentRouteEntry(currentRoute());return}
