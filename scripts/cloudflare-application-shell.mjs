@@ -12,6 +12,38 @@ function normalizedOrigin(value) {
   }
 }
 
+/**
+ * Derive the public production origins a real user may have bookmarked.
+ * Cloudflare's per-deployment URL (for example, <hash>.<project>.pages.dev)
+ * is not the same address as the stable <project>.pages.dev hostname or a
+ * configured custom domain. Health checks must cover those public entrypoints.
+ */
+export function getProjectPublicOrigins(projectInfo = {}) {
+  const origins = [];
+  const add = (value, kind, primary = false) => {
+    let host = String(value || '').trim();
+    if (!host) return;
+    if (!/^https?:\/\//i.test(host)) {
+      if (!host.includes('.')) host += '.pages.dev';
+      host = 'https://' + host;
+    }
+    const origin = normalizedOrigin(host);
+    if (!origin) return;
+    const existing = origins.find(item => item.origin === origin);
+    if (existing) {
+      if (primary) existing.primary = true;
+      return;
+    }
+    origins.push({ origin, kind, primary });
+  };
+
+  add(projectInfo.subdomain, 'pages-subdomain', true);
+  const domains = Array.isArray(projectInfo.domains) ? projectInfo.domains : [];
+  for (const domain of domains) add(domain, 'custom-domain', false);
+
+  return origins;
+}
+
 async function getTextWithTimeout(fetchImpl, url, accept) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
