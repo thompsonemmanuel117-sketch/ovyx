@@ -212,6 +212,22 @@ if (fs.existsSync(shellMiddlewarePath)) {
   errors.push('functions/_middleware.js: application-shell launch runtime middleware is missing.');
 }
 
+const indexHtmlPath = path.join(root, 'index.html');
+if (fs.existsSync(indexHtmlPath)) {
+  const indexHtml = fs.readFileSync(indexHtmlPath, 'utf8');
+  const firebaseLoaderStart = indexHtml.indexOf('<script id="ovyx-firebase-runtime-loader">');
+  const firebaseAppCompatLoad = indexHtml.indexOf("await load(base+'firebase-app-compat.js',6000)", firebaseLoaderStart);
+  const firebaseDefaultAppInit = indexHtml.indexOf('firebase.initializeApp(config)', firebaseAppCompatLoad);
+  const firebaseAuthCompatLoad = indexHtml.indexOf("load(base+'firebase-auth-compat.js',6000)", firebaseAppCompatLoad);
+  if (
+    firebaseLoaderStart < 0 ||
+    firebaseAppCompatLoad < 0 ||
+    firebaseDefaultAppInit <= firebaseAppCompatLoad ||
+    firebaseAuthCompatLoad <= firebaseDefaultAppInit
+  ) {
+    errors.push('index.html: Firebase must initialize the default app immediately after firebase-app-compat loads, before auth/firestore/storage compat scripts load, so early shell handlers cannot throw app-compat/no-app errors.');
+  }
+}
 const scopedRollbackPath = path.join(root, 'assets/ovyx-scoped-rollback.js');
 if (!fs.existsSync(scopedRollbackPath)) {
   errors.push('assets/ovyx-scoped-rollback.js: app-wide scoped Cancel and modal rollback protection is missing.');
@@ -236,6 +252,12 @@ if (!fs.existsSync(scopedRollbackPath)) {
     !scopedRollback.includes('if (!hasBackableOverlay) overlayHistoryOpen = false') ||
     !scopedRollback.includes('function topOpenScope()') ||
     !scopedRollback.includes('function shouldRestoreProjectScope(scope)') ||
+    !scopedRollback.includes('function shouldCaptureProjectBeforeOpen(button)') ||
+    !scopedRollback.includes('function scheduleScan()') ||
+    !scopedRollback.includes('function mutationNeedsScan(mutation)') ||
+    !scopedRollback.includes('project: projectOverride !== undefined') ||
+    !scopedRollback.includes('if (mutations.some(mutationNeedsScan)) scheduleScan()') ||
+    !scopedRollback.includes('performance: () => ({') ||
     !scopedRollback.includes('if (restoreProjectCheckpoint) restoreProject(record.project)')
   ) {
     errors.push('assets/ovyx-scoped-rollback.js: shared rollback must restore only the active scope and preserve unrelated projects.');
@@ -243,7 +265,7 @@ if (!fs.existsSync(scopedRollbackPath)) {
 }
 if (fs.existsSync(shellMiddlewarePath)) {
   const shellMiddleware = fs.readFileSync(shellMiddlewarePath, 'utf8');
-  if (!shellMiddleware.includes('ovyx-scoped-rollback.js?v=20261022-11')) {
+  if (!shellMiddleware.includes('ovyx-scoped-rollback.js?v=20261022-12')) {
     errors.push('functions/_middleware.js: every application-shell HTML response must inject the app-wide scoped rollback runtime.');
   }
 }
@@ -308,6 +330,24 @@ if (fs.existsSync(webStudioShellPath)) {
     !webStudioShell.includes('navigatePreviewRoute(rawPath)')
   ) {
     errors.push('OVYX Web Studio: provider-specific builds must preserve operation mode and internal multi-page preview links must navigate to the matching page.');
+  }
+  const previewFrameRuntime = webStudioShell.match(/setPreviewFrameDocument\(frame,source\)\{([\s\S]*?)\},\s*renderPreview\(/);
+  if (
+    !previewFrameRuntime ||
+    !previewFrameRuntime[1].includes('doc.open()') ||
+    !previewFrameRuntime[1].includes('doc.write(source)') ||
+    !previewFrameRuntime[1].includes('doc.close()') ||
+    !webStudioShell.includes('frames.forEach(frame=>this.setPreviewFrameDocument(frame,srcdoc))') ||
+    webStudioShell.includes('frames.forEach(frame=>{if(frame.srcdoc!==srcdoc)frame.srcdoc=srcdoc})')
+  ) {
+    errors.push('OVYX Web Studio: update preview iframe documents in-place rather than repeatedly navigating srcdoc; hidden iframe history must not consume the application Back stack.');
+  }
+  if (
+    !webStudioShell.includes('window.WebStudio.setPreviewFrameDocument(frame,String(html))') ||
+    !webStudioShell.includes('window.WebStudio.setPreviewFrameDocument(frame,html)') ||
+    !webStudioShell.includes('window.WebStudio.setPreviewFrameDocument(frame,previewHtml)')
+  ) {
+    errors.push('OVYX preview surfaces: recurring Template Forge, published-template, and Admin-template updates must reuse the stable preview-document writer instead of growing the joint browser history.');
   }
 }
 

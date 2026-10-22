@@ -3251,7 +3251,27 @@
       toWebContainerTree(files){const root={};Object.entries(files||{}).forEach(([path,file])=>{const parts=path.split('/').filter(Boolean);let node=root;parts.forEach((part,i)=>{if(i===parts.length-1)node[part]={file:{contents:String(file?.content??'')}};else{node[part]=node[part]||{directory:{}};node=node[part].directory;}})});return root;},
       async syncWebContainerFiles(){if(!this.webContainer)return;for(const [path,file] of Object.entries(this.graph.files||{})){try{await this.webContainer.fs.writeFile('/'+path,String(file?.content??''))}catch(e){this.runtimeLog.push({kind:'error',text:'Runtime sync failed for '+path+': '+(e.message||e)})}}},
       hasProjectWebsite(){const p=window.KernelState?.activeProject;if(!p)return false;const pages=Array.isArray(p.pages)?p.pages:[];const direct=pages.some(pg=>Array.isArray(pg?.sections)&&pg.sections.length>0||['html','renderedHtml','source','code','previewHtml'].some(k=>typeof pg?.[k]==='string'&&pg[k].trim()));if(direct)return true;try{const entry=this.graph?.files?.[this.graph?.entry||this.entryFile()]?.content||'';return /<body[^>]*>\s*<(?!\/body|script|style)/i.test(entry) && !/OVYX Page/i.test(entry);}catch(_){return false;}},
-      renderPreview(){this.ensureProjectGraph();const has=this.hasProjectWebsite();const empty=document.getElementById('ws-preview-empty');if(empty)empty.classList.toggle('hidden',has);const frames=[document.getElementById('ws-canvas-iframe'),document.getElementById('ws-mobile-preview-frame')].filter(Boolean);if(!has){frames.forEach(frame=>{frame.removeAttribute('src');frame.srcdoc='';});this.lastPreviewSource='';const url=document.getElementById('ws-preview-url');if(url)url.textContent='No project website';return;}if(this.projectNeedsRuntime()&&!this.webContainer&&!this.runtimeBootPromise)this.bootWebContainer();const page=this.getActivePage();const srcdoc=this.buildPreviewDocument(page);frames.forEach(frame=>{if(frame.srcdoc!==srcdoc)frame.srcdoc=srcdoc});this.lastPreviewSource=srcdoc;const url=document.getElementById('ws-preview-url');if(url)url.textContent=this.runtimeUrl();},
+      setPreviewFrameDocument(frame,source){
+        source=String(source??'');
+        if(!frame||frame.__ovyxPreviewSource===source)return;
+        // Reuse the existing same-origin child document. Reassigning srcdoc
+        // navigates an iframe and adds joint-session-history steps, so mobile
+        // Chrome can spend Back presses inside a hidden preview instead of
+        // returning to the previous OVYX route.
+        try{
+          const doc=frame.contentDocument;
+          if(doc&&typeof doc.open==='function'){
+            doc.open();
+            doc.write(source);
+            doc.close();
+            frame.__ovyxPreviewSource=source;
+            return;
+          }
+        }catch(error){console.warn('[OVYX preview] In-place update was unavailable; using the initial srcdoc fallback.',error)}
+        frame.srcdoc=source;
+        frame.__ovyxPreviewSource=source;
+      },
+      renderPreview(){this.ensureProjectGraph();const has=this.hasProjectWebsite();const empty=document.getElementById('ws-preview-empty');if(empty)empty.classList.toggle('hidden',has);const frames=[document.getElementById('ws-canvas-iframe'),document.getElementById('ws-mobile-preview-frame')].filter(Boolean);if(!has){frames.forEach(frame=>{if(frame.__ovyxPreviewSource)this.setPreviewFrameDocument(frame,'');if(frame.getAttribute('src'))frame.removeAttribute('src')});this.lastPreviewSource='';const url=document.getElementById('ws-preview-url');if(url)url.textContent='No project website';return;}if(this.projectNeedsRuntime()&&!this.webContainer&&!this.runtimeBootPromise)this.bootWebContainer();const page=this.getActivePage();const srcdoc=this.buildPreviewDocument(page);frames.forEach(frame=>this.setPreviewFrameDocument(frame,srcdoc));this.lastPreviewSource=srcdoc;const url=document.getElementById('ws-preview-url');if(url)url.textContent=this.runtimeUrl();},
       runtimeUrl(){return this.graph?.runtime?.url||'localhost:5173/'},
       wrapPreviewFragment(fragment){return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{box-sizing:border-box}html,body{margin:0;padding:0;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif}</style></head><body>${fragment}</body></html>`},
       escapeHtml(value){return String(value??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))},
@@ -5740,7 +5760,7 @@ function templatePreviewHTML(prompt){
 }
 function initTemplateForge(){
  const input=document.getElementById('template-forge-prompt'),frame=document.getElementById('template-forge-frame'),btn=document.getElementById('template-forge-build'),status=document.getElementById('template-forge-status');if(!input||!frame||!btn||btn.dataset.v52Bound==='1')return;
- const render=async()=>{const q=input.value.trim()||'A premium dark website with a cinematic hero and responsive sections';status.textContent='Generating preview…';document.getElementById('template-forge-preview-label').textContent=q.slice(0,42)+'…';let usedLiveAI=false;try{if(window.OVYXAIService?.generate&&window.firebase?.auth?.().currentUser){const result=await window.OVYXAIService.generate({mode:'template-preview',prompt:q});const html=result?.html||result?.preview?.html||result?.previewHtml||result?.project?.previewHtml||result?.code?.html;if(html){frame.srcdoc=String(html);usedLiveAI=true}}}catch(e){console.warn('[OVYX Template Forge] live AI unavailable:',e)}if(!usedLiveAI)frame.srcdoc=templatePreviewHTML(q);status.textContent=usedLiveAI?'Live AI preview ready · refine in Web Studio':'Preview ready · local blueprint mode';};
+ const render=async()=>{const q=input.value.trim()||'A premium dark website with a cinematic hero and responsive sections';status.textContent='Generating preview…';document.getElementById('template-forge-preview-label').textContent=q.slice(0,42)+'…';let usedLiveAI=false;try{if(window.OVYXAIService?.generate&&window.firebase?.auth?.().currentUser){const result=await window.OVYXAIService.generate({mode:'template-preview',prompt:q});const html=result?.html||result?.preview?.html||result?.previewHtml||result?.project?.previewHtml||result?.code?.html;if(html){if(typeof window.WebStudio?.setPreviewFrameDocument==='function')window.WebStudio.setPreviewFrameDocument(frame,String(html));else frame.srcdoc=String(html);usedLiveAI=true}}}catch(e){console.warn('[OVYX Template Forge] live AI unavailable:',e)}if(!usedLiveAI){const html=templatePreviewHTML(q);if(typeof window.WebStudio?.setPreviewFrameDocument==='function')window.WebStudio.setPreviewFrameDocument(frame,html);else frame.srcdoc=html};status.textContent=usedLiveAI?'Live AI preview ready · refine in Web Studio':'Preview ready · local blueprint mode';};
  btn.dataset.v52Bound='1';btn.addEventListener('click',render);input.addEventListener('keydown',e=>{if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();render()}});document.querySelectorAll('[data-forge-prompt]').forEach(b=>b.addEventListener('click',()=>{input.value=b.dataset.forgePrompt;render()}));render();
 }
 function patchTemplateStore(){
@@ -9319,7 +9339,7 @@ function builtProject(template){
 function renderUserTemplates(){
   try{window.OVYXV655?.fetchPublishedTemplates?.()}catch(e){console.warn('[OVYX runtime]',e)}
 }
-function previewUserTemplate(t){if(!t)return;const back=document.createElement('div');back.className='ovyx-v65-template-preview-modal';back.innerHTML='<div class="ovyx-v65-template-preview-shell"><button type="button" data-close-preview>Close</button><iframe title="OVYX template preview" style="width:100%;height:100%;border:0"></iframe></div>';document.body.appendChild(back);const frame=back.querySelector('iframe');const theme=t.theme||['#050607','#e8b64f'];frame.srcdoc=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{box-sizing:border-box}body{margin:0;font-family:Inter,Arial,sans-serif;background:${theme[0]};color:#fff}main{max-width:960px;margin:auto;padding:60px 24px}.hero{padding:72px 10px}.hero h1{font-size:54px;line-height:1.03;max-width:700px}.hero p{color:#aeb7c2;max-width:620px;line-height:1.7}.btn{display:inline-block;margin-top:22px;padding:13px 18px;border-radius:9px;background:${theme[1]};color:#080808;font-weight:800}.card{margin-top:34px;padding:24px;border:1px solid rgba(255,255,255,.12);border-radius:16px;background:rgba(255,255,255,.035)}</style></head><body><main><section class="hero"><div style="color:${theme[1]};font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase">OVYX TEMPLATE</div><h1>${esc(t.name)}</h1><p>${esc(t.desc)}</p><span class="btn">${esc(t.pages?.[0]?.[2]?.[0]?.[1]?.cta||'Start Building')}</span><div class="card"><b>Designed for a clean OVYX workflow</b><p>${esc(t.desc)}</p></div></section></main></body></html>`;back.querySelector('[data-close-preview]').onclick=()=>back.remove();back.addEventListener('click',e=>{if(e.target===back)back.remove()});}
+function previewUserTemplate(t){if(!t)return;const back=document.createElement('div');back.className='ovyx-v65-template-preview-modal';back.innerHTML='<div class="ovyx-v65-template-preview-shell"><button type="button" data-close-preview>Close</button><iframe title="OVYX template preview" style="width:100%;height:100%;border:0"></iframe></div>';document.body.appendChild(back);const frame=back.querySelector('iframe');const theme=t.theme||['#050607','#e8b64f'];const previewHtml=`<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{box-sizing:border-box}body{margin:0;font-family:Inter,Arial,sans-serif;background:${theme[0]};color:#fff}main{max-width:960px;margin:auto;padding:60px 24px}.hero{padding:72px 10px}.hero h1{font-size:54px;line-height:1.03;max-width:700px}.hero p{color:#aeb7c2;max-width:620px;line-height:1.7}.btn{display:inline-block;margin-top:22px;padding:13px 18px;border-radius:9px;background:${theme[1]};color:#080808;font-weight:800}.card{margin-top:34px;padding:24px;border:1px solid rgba(255,255,255,.12);border-radius:16px;background:rgba(255,255,255,.035)}</style></head><body><main><section class="hero"><div style="color:${theme[1]};font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase">OVYX TEMPLATE</div><h1>${esc(t.name)}</h1><p>${esc(t.desc)}</p><span class="btn">${esc(t.pages?.[0]?.[2]?.[0]?.[1]?.cta||'Start Building')}</span><div class="card"><b>Designed for a clean OVYX workflow</b><p>${esc(t.desc)}</p></div></section></main></body></html>`;if(typeof window.WebStudio?.setPreviewFrameDocument==='function')window.WebStudio.setPreviewFrameDocument(frame,previewHtml);else frame.srcdoc=previewHtml;back.querySelector('[data-close-preview]').onclick=()=>back.remove();back.addEventListener('click',e=>{if(e.target===back)back.remove()});}
 function useUserTemplate(t,current){if(!t)return;if(!tierAllows(t.tier,current)){toast(`${t.name} is included with ${String(t.tier).toUpperCase()} or higher.`,'warn');if(t.tier==='pro'||t.tier==='max')Router.go('pricing');return;}const p=t.admin?.project||null;const project=p||builtProject(t);const state=window.KernelState;if(!state)return;state.projects=Array.isArray(state.projects)?state.projects:[];state.projects.unshift(project);state.activeProject=project;try{localStorage.setItem('ovyx.projects.v21',JSON.stringify(state.projects));}catch(e){console.warn('[OVYX runtime]',e)}try{window.ProjectStore?.renderHome?.();window.ProjectStore?.renderProjects?.();}catch(e){console.warn('[OVYX runtime]',e)};toast(`${t.name} added to your Projects.`,'success');Router.go('webstudio');try{window.WebStudio?.render?.()}catch(e){console.warn('[OVYX runtime]',e)}}
 /* Replace the sparse public gallery after the old V43/V58 renderers have run. */
 function schedulePublicTemplates(){setTimeout(()=>window.OVYXV655?.fetchPublishedTemplates?.(),80);}
@@ -11438,7 +11458,7 @@ function mountTemplateFactory(){
   form.parentNode.insertBefore(box,form);
   const brief=document.getElementById('v53-template-brief'),status=document.getElementById('v53-template-factory-status'),file=document.getElementById('v53-template-media'),preview=document.getElementById('v53-template-media-preview');box.querySelectorAll('[data-v53-brief]').forEach(b=>{b.className='v53-template-factory-actions button secondary';b.style.cssText='height:26px;padding:0 8px;border-radius:7px;border:1px solid rgba(255,255,255,.08);background:#0d0d0e;color:#888;font:800 7px Inter,sans-serif';b.onclick=()=>brief.value=b.dataset.v53Brief});let previewUrl='';
   file.onchange=()=>{const f=file.files?.[0];if(previewUrl){try{URL.revokeObjectURL(previewUrl)}catch{};previewUrl=''}if(!f){preview.textContent='Drop a screenshot or short video to guide the template direction.';return}previewUrl=URL.createObjectURL(f);preview.innerHTML=f.type.startsWith('video/')?`<video src="${previewUrl}" muted autoplay loop playsinline preload="auto" disablepictureinpicture controls="false" aria-label="Template video reference preview"></video>`:`<img src="${previewUrl}" alt="Template reference">`;const media=preview.querySelector('video');if(media){media.defaultPlaybackRate=1;media.playbackRate=1;media.muted=true;media.loop=true;media.autoplay=true;media.playsInline=true;media.controls=false;media.preload='auto';media.dataset.ovyxMediaStable='1';const playNow=()=>{try{media.defaultPlaybackRate=1;media.playbackRate=1;media.play().catch(()=>{})}catch{}};media.addEventListener('loadedmetadata',playNow,{once:true,passive:true});media.addEventListener('canplay',playNow,{once:true,passive:true});playNow();}status.textContent=`Reference loaded · ${f.name}`};
-  async function generate(){const prompt=brief.value.trim();if(!prompt){status.textContent='Write a template brief first.';brief.focus();return null}status.textContent='AI is translating the brief into an editable blueprint…';let ast=null,html='';try{const result=await window.OVYXAIService?.generate?.({mode:'template-blueprint',prompt,context:{kind:'admin-template-factory',requirements:['editable AST','responsive pages','reusable sections','production-safe HTML/CSS'],visualReferenceAttached:!!file.files?.length}});ast=result?.ast||result?.blueprint||result?.schema||result?.project?.ast||null;html=result?.html||result?.previewHtml||result?.preview?.html||''}catch(e){console.warn('[OVYX V86 template AI]',e)}if(!ast)ast=fallbackTemplateAST(prompt);const astField=document.getElementById('v43-template-ast');if(astField)astField.value=JSON.stringify(ast,null,2);if(html){let frame=document.getElementById('v53-admin-template-preview');if(!frame){frame=document.createElement('iframe');frame.id='v53-admin-template-preview';frame.title='Generated OVYX template preview';frame.style='width:calc(100% - 32px);height:min(68dvh,560px);min-height:440px;margin:14px 16px 16px;border:1px solid rgba(255,255,255,.09);border-radius:14px;background:#050505';box.appendChild(frame)}frame.srcdoc=html}status.textContent='Blueprint ready · review the generated structure, then publish.';return ast}
+  async function generate(){const prompt=brief.value.trim();if(!prompt){status.textContent='Write a template brief first.';brief.focus();return null}status.textContent='AI is translating the brief into an editable blueprint…';let ast=null,html='';try{const result=await window.OVYXAIService?.generate?.({mode:'template-blueprint',prompt,context:{kind:'admin-template-factory',requirements:['editable AST','responsive pages','reusable sections','production-safe HTML/CSS'],visualReferenceAttached:!!file.files?.length}});ast=result?.ast||result?.blueprint||result?.schema||result?.project?.ast||null;html=result?.html||result?.previewHtml||result?.preview?.html||''}catch(e){console.warn('[OVYX V86 template AI]',e)}if(!ast)ast=fallbackTemplateAST(prompt);const astField=document.getElementById('v43-template-ast');if(astField)astField.value=JSON.stringify(ast,null,2);if(html){let frame=document.getElementById('v53-admin-template-preview');if(!frame){frame=document.createElement('iframe');frame.id='v53-admin-template-preview';frame.title='Generated OVYX template preview';frame.style='width:calc(100% - 32px);height:min(68dvh,560px);min-height:440px;margin:14px 16px 16px;border:1px solid rgba(255,255,255,.09);border-radius:14px;background:#050505';box.appendChild(frame)}if(typeof window.WebStudio?.setPreviewFrameDocument==='function')window.WebStudio.setPreviewFrameDocument(frame,html);else frame.srcdoc=html}status.textContent='Blueprint ready · review the generated structure, then publish.';return ast}
   document.getElementById('v53-template-factory-generate').onclick=generate;document.getElementById('v53-template-factory-publish').onclick=async()=>{const ast=await generate();if(!ast)return;const media=await uploadTemplateReference(file.files?.[0]);if(media){const prev=document.getElementById('v43-template-preview');if(prev)prev.value=media;status.textContent='Blueprint ready · reference uploaded · publishing…'}else if(file.files?.length){status.textContent='Blueprint ready · local reference attached; Storage upload was not confirmed.'}document.getElementById('v43-template-publish')?.click()};
 }
 function initRequestedFixes(){setTimeout(ensureBoosterCTA,0);setTimeout(ensureBoosterCTA,150);setTimeout(ensureBoosterCTA,700);patchLegal();if(document.getElementById('view-admin-template-hub'))mountTemplateFactory()}
@@ -14445,13 +14465,22 @@ function installWebStudioSurface(){
   (async function(){
     try{
       await load(base+'firebase-app-compat.js',6000);
+      // Initialize the default app as soon as firebase-app-compat is ready.
+      // The auth/firestore/storage compat scripts load asynchronously; waiting
+      // for all of them before initializeApp leaves a race where DOMContentLoaded
+      // handlers can call firebase.auth() while the namespace exists but has no
+      // default app. That throws FirebaseError (app-compat/no-app) and aborts
+      // otherwise-independent shell startup handlers.
+      if(!window.firebase||typeof firebase.initializeApp!=='function') {
+        throw new Error('The account service could not start. Refresh the page and try again.');
+      }
+      if(!firebase.apps||!firebase.apps.length)firebase.initializeApp(config);
       await Promise.all([
         load(base+'firebase-auth-compat.js',6000),
         load(base+'firebase-firestore-compat.js',6000),
         load(base+'firebase-storage-compat.js',6000)
       ]);
-      if(!window.firebase||!firebase.initializeApp)throw new Error('The account service could not start. Refresh the page and try again.');
-      if(!firebase.apps||!firebase.apps.length)firebase.initializeApp(config);
+      if(typeof firebase.auth!=='function')throw new Error('The authentication service could not start. Refresh the page and try again.');
       finish(true);
     }catch(error){
       console.warn('[OVYX Firebase] Cloud SDK unavailable; the application remains usable without pretending authentication is active.',error);
@@ -16066,9 +16095,26 @@ body.ovyx-webstudio-active #view-webstudio .ovyx-ws-response-toolbar .ovyx-ws-re
   window.__OVYX_FINAL_MOBILE_PREVIEW_ROUTING__=true;
   function physicalMobile(){return !!(window.matchMedia&&window.matchMedia('(max-width: 767px)').matches)}
   function openMobilePreview(){
-    document.body.classList.remove('ovyx-ws-preview-full','ovyx-ws-preview-collapsed','ovyx-ws-chat-focus');
+    const body=document.body;
+    const wasOpen=body.classList.contains('ovyx-ws-mobile-preview-open');
+    // Browser/Android Back must get a same-route history entry for this local
+    // Preview surface. Without it, Back can appear to freeze or jump straight
+    // out of Web Studio instead of first closing Preview.
+    if(!wasOpen && physicalMobile()){
+      try{
+        const current=history.state&&typeof history.state==='object'?history.state:{};
+        if(current.ovyxLocalSurface!=='webstudio-mobile-preview'){
+          history.pushState(Object.assign({},current,{
+            ovyxRoute:String(window.KernelState?.activeView||'webstudio').replace(/^view-/,'').trim().toLowerCase()||'webstudio',
+            ovyxShell:true,
+            ovyxLocalSurface:'webstudio-mobile-preview'
+          }),document.title,location.href);
+        }
+      }catch(error){console.warn('[OVYX mobile Preview history]',error)}
+    }
+    body.classList.remove('ovyx-ws-preview-full','ovyx-ws-preview-collapsed','ovyx-ws-chat-focus');
     try{window.WebStudio?.openMobilePreview?.()}catch(_){
-      document.body.classList.add('ovyx-ws-mobile-preview-open');
+      body.classList.add('ovyx-ws-mobile-preview-open');
       const overlay=document.getElementById('ws-mobile-preview');
       if(overlay){overlay.hidden=false;overlay.setAttribute('aria-hidden','false')}
     }
@@ -16082,6 +16128,16 @@ body.ovyx-webstudio-active #view-webstudio .ovyx-ws-response-toolbar .ovyx-ws-re
     if(overlay){overlay.hidden=true;overlay.setAttribute('aria-hidden','true')}
     const menu=document.getElementById('ws-preview-menu');if(menu)menu.hidden=true;
     const button=document.getElementById('ws-mobile-preview-menu-button');if(button)button.setAttribute('aria-expanded','false');
+    // When the user closes Preview with its visible close control (rather than
+    // browser Back), retire the surface marker from the current entry. Leave
+    // the route entry intact so the next Back still navigates normally.
+    try{
+      const current=history.state;
+      if(current&&typeof current==='object'&&current.ovyxLocalSurface==='webstudio-mobile-preview'){
+        const next=Object.assign({},current);delete next.ovyxLocalSurface;
+        history.replaceState(next,document.title,location.href);
+      }
+    }catch(error){console.warn('[OVYX mobile Preview history cleanup]',error)}
     try{window.persistStateNow?.('preview-close')}catch(_){}
   }
   document.addEventListener('click',function(event){
