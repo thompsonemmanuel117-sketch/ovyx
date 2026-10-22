@@ -86,7 +86,7 @@ const REQUIRED_RUNTIMES = [
     id: 'scopedRollback',
     label: 'app-wide scoped Cancel and modal rollback',
     path: '/assets/ovyx-scoped-rollback.js',
-    expectedVersion: '20261022-2',
+    expectedVersion: '20261022-3',
     signatures: [
       '__OVYX_SCOPED_ROLLBACK_V1__',
       'window.OVYXScopedRollback',
