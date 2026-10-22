@@ -342,12 +342,33 @@ try{
     });
     assert.ok(gestureGeometry.endY<gestureGeometry.startY,
       'The mobile viewport must expose enough unblocked space to perform an upward scroll gesture.');
+    await dockPage.evaluate(()=>{
+      const probe=[];
+      window.__ovyxTouchProbe=probe;
+      const record=e=>{
+        if(probe.length<120)probe.push({type:e.type,target:(e.target?.id||e.target?.className||e.target?.tagName||'').toString().slice(0,100),
+          cancelable:e.cancelable,defaultPrevented:e.defaultPrevented,trust:e.isTrusted});
+      };
+      ['touchstart','touchmove','touchend','pointerdown','pointermove','pointerup','scroll'].forEach(type=>{
+        document.addEventListener(type,record,{capture:true,passive:true});
+        document.addEventListener(type,record,{capture:false,passive:true});
+      });
+    });
     const touchSession=await dockPage.context().newCDPSession(dockPage);
     try{
-      await touchSession.send('Input.synthesizeScrollGesture',{
-        x:gestureGeometry.x,y:gestureGeometry.startY,xDistance:0,
-        yDistance:gestureGeometry.endY-gestureGeometry.startY,speed:900,gestureSourceType:'touch'
+      const x=gestureGeometry.x;
+      await touchSession.send('Input.dispatchTouchEvent',{
+        type:'touchStart',touchPoints:[{id:1,x,y:gestureGeometry.startY,radiusX:2,radiusY:2,force:1}]
       });
+      for(let step=1;step<=12;step++){
+        const y=Math.floor(gestureGeometry.startY+
+          (gestureGeometry.endY-gestureGeometry.startY)*step/12);
+        await touchSession.send('Input.dispatchTouchEvent',{
+          type:'touchMove',touchPoints:[{id:1,x,y,radiusX:2,radiusY:2,force:1}]
+        });
+        await dockPage.waitForTimeout(16);
+      }
+      await touchSession.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
       await dockPage.waitForFunction(
         ()=>document.getElementById('view-router-viewport')?.scrollTop>0,
         null,{timeout:3500}
@@ -364,9 +385,10 @@ try{
           for(let n=hit;n&&ancestors.length<8;n=n.parentElement)ancestors.push(describe(n));
           const vp=document.getElementById('view-router-viewport');
           return {hit:describe(hit),ancestors,scroll:{top:vp?.scrollTop,height:vp?.scrollHeight,client:vp?.clientHeight},
-            bodyOverflow:getComputedStyle(document.body).overflow,rootOverflow:getComputedStyle(document.documentElement).overflow};
+            bodyOverflow:getComputedStyle(document.body).overflow,rootOverflow:getComputedStyle(document.documentElement).overflow,
+            touchEvents:window.__ovyxTouchProbe||[]};
         },{x:gestureGeometry.x,y:gestureGeometry.startY});
-        throw new Error('Real mobile Home swipe did not scroll the routed viewport. '+JSON.stringify({gestureGeometry,diag,waitError:error.message}));
+        throw new Error('Real mobile Home touch sequence did not scroll the routed viewport. '+JSON.stringify({gestureGeometry,diag,waitError:error.message}));
       });
     }finally{await touchSession.detach();}
     const gestureScroll=await dockPage.evaluate(()=>({
