@@ -58,7 +58,7 @@ async function triggerHistoryForward(page, completed) {
 
 const browser = await chromium.launch({ headless: true });
 try {
-  const context = await browser.newContext({
+  let context = await browser.newContext({
     viewport: { width: 390, height: 844 },
     isMobile: true,
     hasTouch: true,
@@ -549,6 +549,15 @@ try {
   // entry; keeping the next scenario in that stack would test duplicate test
   // history entries rather than normal Android navigation.
   await page.close();
+  // A new Page in the same BrowserContext can retain a session-history relationship
+  // with the pages used above in some Chromium environments. Use a new context as
+  // well, so system Back is guaranteed to traverse this test's own route stack.
+  await context.close();
+  context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+  });
   page = await context.newPage();
   page.setDefaultTimeout(20000);
   page.on('pageerror', error => pageErrors.push(error.message));
