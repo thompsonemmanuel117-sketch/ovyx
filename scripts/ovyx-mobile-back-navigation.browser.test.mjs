@@ -556,6 +556,68 @@ try {
     const ws = document.getElementById('view-webstudio');
     ws?.setAttribute('data-ws-code-open', '0');
     document.body.classList.remove('ovyx-ws-nav-open', 'ovyx-ws-mobile-nav-open');
+
+    // Re-seed only the disposable regression project after Web Studio route
+    // hydration. Guest ProjectStore.save() is intentionally account-gated and
+    // can clear transient in-memory fixtures; use the same guest cache key that
+    // OVYX's project cache uses so the test models a genuinely saved project.
+    const clone = value => JSON.parse(JSON.stringify(value));
+    const fixture = window.__ovyxBackTestFixture;
+    const baselineHtml = String(fixture?.baselineHtml || '<!doctype html><html><body>BASELINE WORK MUST SURVIVE</body></html>');
+    const graph = {
+      version: 2,
+      entry: 'src/pages/Home.html',
+      files: {
+        'src/pages/Home.html': { type: 'text/html', content: baselineHtml },
+        'src/styles.css': { type: 'text/css', content: 'body{margin:0}' },
+      },
+    };
+    const baseline = {
+      id: fixture.id,
+      name: 'Back Safety Baseline Project',
+      description: 'Disposable browser regression fixture.',
+      status: 'draft',
+      updatedAt: Date.now(),
+      pages: [{ id: 'home', name: 'Home', slug: '/', sections: [] }],
+      assets: [],
+      revisions: [],
+      ovyxGraph: clone(graph),
+    };
+    const other = {
+      id: fixture.otherId,
+      name: 'Unrelated Project Must Stay Untouched',
+      description: 'Second disposable fixture project.',
+      status: 'draft',
+      updatedAt: Date.now(),
+      pages: [{ id: 'other-home', name: 'Home', slug: '/', sections: [] }],
+      assets: [],
+      revisions: [],
+      ovyxGraph: {
+        version: 2,
+        entry: 'src/pages/Home.html',
+        files: {
+          'src/pages/Home.html': {
+            type: 'text/html',
+            content: '<!doctype html><html><body>UNRELATED PROJECT</body></html>',
+          },
+        },
+      },
+    };
+    const state = window.KernelState || (window.KernelState = {});
+    const oldProjects = Array.isArray(state.projects) ? state.projects : [];
+    state.projects = [
+      baseline,
+      other,
+      ...oldProjects.filter(item => ![fixture.id, fixture.otherId].includes(String(item?.id || ''))),
+    ];
+    state.activeProject = baseline;
+    window.WebStudio.project = baseline;
+    window.WebStudio.graph = clone(graph);
+    try {
+      localStorage.setItem('ovyx.projects.v22.guest', JSON.stringify(state.projects));
+      localStorage.setItem('ovyx.graph.' + fixture.id, JSON.stringify(graph));
+    } catch (_) {}
+
     history.pushState(Object.assign({}, history.state || {}, {
       ovyxRoute: 'webstudio', ovyxShell: true, ovyxBackPreviewFixture: Date.now()
     }), document.title, location.href);
