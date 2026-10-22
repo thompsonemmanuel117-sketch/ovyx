@@ -25,7 +25,7 @@ async function triggerHistoryBack(page, completed) {
   // expected UI transition, not a document-load event or a global event counter.
   await page.evaluate(() => window.history.back());
   try {
-    await page.waitForFunction(done => typeof done === 'function' && done(), completed, {
+    await page.waitForFunction(completed, null, {
       timeout: 15000,
     });
   } catch (error) {
@@ -46,9 +46,9 @@ async function triggerHistoryBack(page, completed) {
 
 async function triggerHistoryForward(page, completed) {
   await page.evaluate(() => window.history.forward());
-  await page.waitForFunction(done => typeof done === 'function' && done(), completed, {
-    timeout: 15000,
-  });
+    await page.waitForFunction(completed, null, {
+      timeout: 15000,
+    });
   await page.waitForTimeout(80);
 }
 
