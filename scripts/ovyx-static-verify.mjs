@@ -232,7 +232,8 @@ if (!fs.existsSync(scopedRollbackPath)) {
     !scopedRollback.includes('duplicate-route-entry-skipped') ||
     !scopedRollback.includes('function isHistoryOverlayScope(scope)') ||
     !scopedRollback.includes('function pushOverlayHistoryEntry()') ||
-    !scopedRollback.includes('if (openedBackableOverlayByClick && !overlayHistoryOpen) pushOverlayHistoryEntry()') ||
+    !scopedRollback.includes('if (openedBackableOverlayByClick && !overlayHistoryOpen) overlayHistoryOpen = pushOverlayHistoryEntry()') ||
+    !scopedRollback.includes('if (!hasBackableOverlay) overlayHistoryOpen = false') ||
     !scopedRollback.includes('function topOpenScope()') ||
     !scopedRollback.includes('function shouldRestoreProjectScope(scope)') ||
     !scopedRollback.includes('if (restoreProjectCheckpoint) restoreProject(record.project)')
