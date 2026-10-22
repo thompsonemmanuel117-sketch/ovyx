@@ -800,10 +800,23 @@ try {
       window.__ovyxBackTestAbortCalls += 1;
       return originalAbort?.apply(this, arguments);
     };
+    window.__ovyxBackTestPreviewHistoryBefore = history.length;
     window.OVYXMobilePreviewRouting?.open?.();
   });
   assert.equal(await page.evaluate(() => document.body.classList.contains('ovyx-ws-mobile-preview-open')), true,
     'The mobile Preview fixture must open before the system Back test.');
+  const previewHistoryEntry = await page.evaluate(() => ({
+    before: Number(window.__ovyxBackTestPreviewHistoryBefore || 0),
+    after: history.length,
+    route: history.state?.ovyxRoute || '',
+    localSurface: history.state?.ovyxLocalSurface || '',
+  }));
+  assert.equal(previewHistoryEntry.after, previewHistoryEntry.before + 1,
+    'Opening mobile Preview must add exactly one same-route history entry for the first Back press.');
+  assert.equal(previewHistoryEntry.route, 'webstudio',
+    'Opening mobile Preview must preserve the active Web Studio route in history.');
+  assert.equal(previewHistoryEntry.localSurface, 'webstudio-mobile-preview',
+    'The current history entry must identify mobile Preview as the top local surface.');
   await triggerHistoryBack(page, () => window.KernelState?.activeView === 'webstudio'
   && !document.body.classList.contains('ovyx-ws-mobile-preview-open'));
   const previewBack = await page.evaluate(() => ({
