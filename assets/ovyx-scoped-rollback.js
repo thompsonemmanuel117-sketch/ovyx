@@ -213,10 +213,10 @@
       scope.getAttribute('aria-label'),
       scope.getAttribute('data-dialog-type')
     ].filter(Boolean).join(' '));
-    if (/\\b(?:preview|menu|history|command|support|appearance|settings|security|profile|billing|notifications?|export|share|checkout)\\b/.test(identity)) {
+    if (/\b(?:preview|menu|history|command|support|appearance|settings|security|profile|billing|notifications?|export|share|checkout)\b/.test(identity)) {
       return false;
     }
-    return /\\b(?:project|workspace)\\b/.test(identity);
+    return /\b(?:project|workspace)\b/.test(identity);
   }
 
   function restore(scope, reason) {
