@@ -71,7 +71,7 @@ export function readCloudflareEvaluationPublicSettings(project) {
     if (!definition || String(definition.type || '').toLowerCase() !== 'plain_text') continue;
     if (typeof definition.value !== 'string') continue;
     const value = definition.value.trim();
-    if (value && value.length <= 2048 && !/[\\r\\n\\0]/.test(value)) result[name] = value;
+    if (value && value.length <= 2048 && !/[\r\n\0]/.test(value)) result[name] = value;
   }
   return result;
 }
