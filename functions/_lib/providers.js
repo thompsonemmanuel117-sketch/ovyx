@@ -812,6 +812,76 @@ function classifyCloudflareWorkersAiFailure(error) {
   return { status: null, code: 'AI_PROVIDER_UNKNOWN_ERROR' };
 }
 
+
+const CLOUDFLARE_WORKERS_AI_SYSTEM_CHAR_BUDGET = 10_000;
+const CLOUDFLARE_WORKERS_AI_USER_CHAR_BUDGET = 20_000;
+const CLOUDFLARE_WORKERS_AI_OUTPUT_TOKEN_BUDGET = 8_192;
+
+function truncatePromptPreservingEdges(value, limit, headRatio = 0.68) {
+  const text = String(value ?? '');
+  if (text.length <= limit) return text;
+  const notice = '\n\n[Middle of prompt abbreviated to fit the selected AI model context window.]\n\n';
+  const available = Math.max(0, limit - notice.length);
+  const headSize = Math.min(available, Math.floor(available * headRatio));
+  const tailSize = Math.max(0, available - headSize);
+  return text.slice(0, headSize) + notice + (tailSize ? text.slice(-tailSize) : '');
+}
+
+function compactWorkersAiUserPrompt(value, limit) {
+  const text = String(value ?? '');
+  if (text.length <= limit) return text;
+
+  const briefMarker = /ORIGINAL USER BRIEF(?:\s*\([^)]{0,180}\))?\s*:/i.exec(text);
+  if (!briefMarker) return truncatePromptPreservingEdges(text, limit, 0.58);
+
+  const briefStart = briefMarker.index + briefMarker[0].length;
+  const routeIndex = text.toLowerCase().indexOf('full website route manifest', briefStart);
+  const briefEnd = routeIndex >= 0 ? routeIndex : Math.min(text.length, briefStart + 9000);
+  const brief = text.slice(briefStart, briefEnd).trim();
+  const briefBudget = Math.min(6_000, Math.floor(limit * 0.31));
+  const keptBrief = truncatePromptPreservingEdges(brief, briefBudget, 0.75);
+  const label = text.slice(briefMarker.index, briefStart);
+  const routeSection = routeIndex >= 0
+    ? text.slice(routeIndex, Math.min(text.length, routeIndex + 2_000))
+    : '';
+  const noteBefore = '\n\n[Other prompt context abbreviated; the original user brief is retained below.]\n';
+  const noteAfter = '\n\n[Additional intermediate context omitted; the final staged-file context is retained below.]\n';
+  const suffixBudget = Math.min(6_500, Math.floor(limit * 0.33));
+  const reserved = noteBefore.length + noteAfter.length + label.length + keptBrief.length + routeSection.length + suffixBudget;
+  const prefixBudget = Math.max(0, limit - reserved);
+  const prefix = text.slice(0, Math.min(5_000, prefixBudget, briefMarker.index));
+  const suffix = suffixBudget ? text.slice(-suffixBudget) : '';
+  let compact = prefix + noteBefore + label + keptBrief +
+    (routeSection ? '\n\n' + routeSection : '') + noteAfter + suffix;
+
+  // Extremely long/custom marker labels are not expected, but the final guard
+  // keeps the runtime request within budget even if the prompt format changes.
+  if (compact.length > limit) {
+    compact = truncatePromptPreservingEdges(compact, limit, 0.58);
+  }
+  return compact;
+}
+
+function prepareWorkersAiRequest(options = {}) {
+  const requestedTokens = Number(options.maxTokens);
+  const safeRequestedTokens = Number.isFinite(requestedTokens) && requestedTokens > 0
+    ? Math.floor(requestedTokens)
+    : CLOUDFLARE_WORKERS_AI_OUTPUT_TOKEN_BUDGET;
+  return {
+    ...options,
+    system: truncatePromptPreservingEdges(
+      options.system,
+      CLOUDFLARE_WORKERS_AI_SYSTEM_CHAR_BUDGET,
+      0.72,
+    ),
+    user: compactWorkersAiUserPrompt(
+      options.user,
+      CLOUDFLARE_WORKERS_AI_USER_CHAR_BUDGET,
+    ),
+    maxTokens: Math.min(safeRequestedTokens, CLOUDFLARE_WORKERS_AI_OUTPUT_TOKEN_BUDGET),
+  };
+}
+
 async function callCloudflareWorkersAI(
   env,
   {
@@ -1260,10 +1330,10 @@ export async function callModel(
             'cloudflare-workers-ai'
           ? await callCloudflareWorkersAI(
               env,
-              {
+              prepareWorkersAiRequest({
                 ...options,
                 model,
-              }
+              })
             )
           : null;
 
