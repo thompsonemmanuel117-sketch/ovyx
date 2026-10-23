@@ -713,7 +713,7 @@ function classifyCloudflareWorkersAiFailure(error) {
     '3040': { status: 429, code: 'AI_PROVIDER_RATE_LIMITED' },
   };
   const documented = documentedCodes[internalCode];
-  if (status === null && documented) status = documented.status;
+  if (documented) status = documented.status;
   const modelFailure = /(?:invalid|unknown|unsupported|not found|does not exist).{0,60}model|model.{0,60}(?:invalid|unknown|unsupported|not found|does not exist)/i.test(message);
   const billingFailure = /payment required|billing|insufficient (?:credits?|balance)|credits? exhausted|payment method|payment required/i.test(message);
   const authFailure = /unauthori[sz]ed|invalid (?:api )?key|authentication failed|invalid token/i.test(message);
