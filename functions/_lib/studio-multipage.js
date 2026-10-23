@@ -576,12 +576,9 @@ async function buildStudioMultiPageOnce(options) {
               content: repairedFiles[path],
             })));
             const normalizedRepair = normalizeSharedAssetReferences(candidate, siteMap);
-            candidate = normalizedRepair.staged;
+            const normalizedCandidate = normalizedRepair.staged;
             sharedAssetPagesRepaired += normalizedRepair.repairedPages;
-            const normalizedPolish = normalizeSharedAssetReferences(candidate, siteMap);
-        const normalizedCandidate = normalizedPolish.staged;
-        sharedAssetPagesRepaired += normalizedPolish.repairedPages;
-        const candidateChecks = validateStagedSite(normalizedCandidate, prompt, siteMap);
+            const candidateChecks = validateStagedSite(normalizedCandidate, prompt, siteMap);
             const changedPaths = repairedPaths.filter(path => String(repairedFiles[path]) !== String(baselineByPath.get(path) || ''));
 
             if (!changedPaths.length) {
@@ -593,7 +590,7 @@ async function buildStudioMultiPageOnce(options) {
             ) {
               requirementRepair.status = 'rejected';
             } else {
-              staged = candidate;
+              staged = normalizedCandidate;
               checks = candidateChecks;
               requirementRepair.status = 'applied';
               requirementRepair.filesUpdated = changedPaths.length;
@@ -692,7 +689,10 @@ async function buildStudioMultiPageOnce(options) {
           action: existingFiles[path] || baselineStaged.some(item => item.path === path) ? 'update' : 'create',
           content: polishedFiles[path],
         })));
-        const candidateChecks = validateStagedSite(candidate, prompt, siteMap);
+        const normalizedPolish = normalizeSharedAssetReferences(candidate, siteMap);
+        const normalizedCandidate = normalizedPolish.staged;
+        sharedAssetPagesRepaired += normalizedPolish.repairedPages;
+        const candidateChecks = validateStagedSite(normalizedCandidate, prompt, siteMap);
         const changedPaths = polishedPaths.filter(path => String(polishedFiles[path]) !== String(baselineByPath.get(path) || ''));
         if (!changedPaths.length) {
           qualityPolish.status = 'unchanged';
