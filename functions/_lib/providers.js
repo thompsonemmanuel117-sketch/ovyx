@@ -684,12 +684,41 @@ function classifyCloudflareWorkersAiFailure(error) {
       break;
     }
   }
-  const code = String(error?.code || error?.error?.code || '').toUpperCase();
+  const code = String(error?.code || error?.error?.code || error?.cause?.code || '').toUpperCase();
+  const rawInternalCode = [
+    error?.code, error?.error?.code, error?.cause?.code,
+    error?.errors?.[0]?.code, error?.error?.errors?.[0]?.code,
+  ].map(value => String(value ?? '').trim()).find(value => /^\d{3,5}$/.test(value)) || '';
+  const embeddedInternalCode = message.match(/\b(5007|5004|3039|3003|5018|5016|3023|3041|5035|5019|5005|3042|3006|3007|3008|3036|3040)\b/);
+  const internalCode = rawInternalCode || (embeddedInternalCode ? embeddedInternalCode[1] : '');
+  // Cloudflare's documented Workers AI binding codes. See
+  // https://developers.cloudflare.com/workers-ai/platform/errors/
+  const documentedCodes = {
+    '5007': { status: 400, code: 'AI_PROVIDER_UNSUPPORTED' },
+    '5004': { status: 400, code: 'AI_PROVIDER_REQUEST_FAILED' },
+    '3039': { status: 400, code: 'AI_PROVIDER_REQUEST_FAILED' },
+    '3003': { status: 400, code: 'AI_PROVIDER_REQUEST_FAILED' },
+    '5018': { status: 403, code: 'AI_PROVIDER_PERMISSION_DENIED' },
+    '5016': { status: 403, code: 'AI_PROVIDER_PERMISSION_DENIED' },
+    '3023': { status: 403, code: 'AI_PROVIDER_PERMISSION_DENIED' },
+    '3041': { status: 403, code: 'AI_PROVIDER_PERMISSION_DENIED' },
+    '5035': { status: 403, code: 'AI_PROVIDER_PLAN_REQUIRED' },
+    '5019': { status: 405, code: 'AI_PROVIDER_REQUEST_FAILED' },
+    '5005': { status: 405, code: 'AI_PROVIDER_UNSUPPORTED' },
+    '3042': { status: 404, code: 'AI_PROVIDER_UNSUPPORTED' },
+    '3006': { status: 413, code: 'AI_PROVIDER_REQUEST_FAILED' },
+    '3007': { status: 408, code: 'AI_PROVIDER_TIMEOUT' },
+    '3008': { status: 408, code: 'AI_PROVIDER_TIMEOUT' },
+    '3036': { status: 429, code: 'AI_PROVIDER_RATE_LIMITED' },
+    '3040': { status: 429, code: 'AI_PROVIDER_RATE_LIMITED' },
+  };
+  const documented = documentedCodes[internalCode];
+  if (documented) status = documented.status;
   const modelFailure = /(?:invalid|unknown|unsupported|not found|does not exist).{0,60}model|model.{0,60}(?:invalid|unknown|unsupported|not found|does not exist)/i.test(message);
   const billingFailure = /payment required|billing|insufficient (?:credits?|balance)|credits? exhausted|payment method|payment required/i.test(message);
   const authFailure = /unauthori[sz]ed|invalid (?:api )?key|authentication failed|invalid token/i.test(message);
-  const permissionFailure = /forbidden|permission denied|not authorized|access denied/i.test(message);
-  const quotaFailure = /rate.?limit|too many requests|quota|resource exhausted|limit exceeded/i.test(message);
+  const permissionFailure = /forbidden|permission denied|not authorized|access denied|account is not allowed/i.test(message);
+  const quotaFailure = /rate.?limit|too many requests|quota|resource exhausted|limit exceeded|daily free allocation|out of capacity/i.test(message);
   const timeoutFailure = /timed?\s*out|timeout|deadline exceeded/i.test(message);
   const networkFailure = /failed to fetch|network error|connection reset|socket hang up|connection refused/i.test(message);
 
@@ -704,17 +733,18 @@ function classifyCloudflareWorkersAiFailure(error) {
     else if (/bad request|invalid request|invalid argument|invalid parameter/i.test(message)) status = 400;
   }
 
+  if (documented?.code === 'AI_PROVIDER_PLAN_REQUIRED') return { status: documented.status, code: documented.code };
   if (billingFailure || status === 402) return { status: 402, code: 'AI_PROVIDER_BILLING_REQUIRED' };
   if (authFailure || status === 401) return { status: 401, code: 'AI_PROVIDER_AUTH_FAILED' };
   if (permissionFailure || status === 403) return { status: 403, code: 'AI_PROVIDER_PERMISSION_DENIED' };
-  if (modelFailure || code === 'AI_PROVIDER_UNSUPPORTED' || status === 404) {
+  if (modelFailure || code === 'AI_PROVIDER_UNSUPPORTED' || status === 404 || documented?.code === 'AI_PROVIDER_UNSUPPORTED') {
     return { status: status ?? 404, code: 'AI_PROVIDER_UNSUPPORTED' };
   }
   if (quotaFailure || status === 429) return { status: 429, code: 'AI_PROVIDER_RATE_LIMITED' };
   if (timeoutFailure || code === 'AI_PROVIDER_TIMEOUT' || status === 408 || status === 504) {
-    return { status: 504, code: 'AI_PROVIDER_TIMEOUT' };
+    return { status, code: 'AI_PROVIDER_TIMEOUT' };
   }
-  if (status !== null) return { status, code: 'AI_PROVIDER_REQUEST_FAILED' };
+  if (status !== null) return { status, code: documented?.code || 'AI_PROVIDER_REQUEST_FAILED' };
   if (networkFailure || error?.name === 'TypeError') return { status: null, code: 'AI_PROVIDER_NETWORK_ERROR' };
   return { status: null, code: 'AI_PROVIDER_UNKNOWN_ERROR' };
 }
@@ -976,6 +1006,7 @@ function summarizeProviderFailure(error) {
   else if (code === 'AI_PROVIDER_EMPTY_RESPONSE' || /returned an empty response/i.test(message)) kind = 'empty-response';
   else if (code === 'AI_INVALID_JSON' || /invalid structured json/i.test(message)) kind = 'invalid-response';
   else if (code === 'AI_PROVIDER_BILLING_REQUIRED' || status === 402) kind = 'payment-or-billing-required';
+  else if (code === 'AI_PROVIDER_PLAN_REQUIRED') kind = 'plan-required';
   else if (code === 'AI_PROVIDER_AUTH_FAILED' || status === 401 || /invalid api key|unauthorized|authentication failed/i.test(message)) kind = 'authentication-rejected';
   else if (code === 'AI_PROVIDER_PERMISSION_DENIED' || status === 403 || /permission denied|access denied|not authorized/i.test(message)) kind = 'permission-denied';
   else if (code === 'AI_PROVIDER_UNSUPPORTED' || status === 404 || /model .* not found|model not found|endpoint not found|no such model/i.test(message)) kind = 'model-or-endpoint-not-found';
