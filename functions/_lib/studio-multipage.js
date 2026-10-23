@@ -684,15 +684,15 @@ async function buildStudioMultiPageOnce(options) {
       if (invalidPolish) {
         qualityPolish.status = 'rejected';
       } else {
-        const candidate = mergeStagedChanges(baselineStaged, polishedPaths.map(path => ({
+        let candidate = mergeStagedChanges(baselineStaged, polishedPaths.map(path => ({
           path,
           action: existingFiles[path] || baselineStaged.some(item => item.path === path) ? 'update' : 'create',
           content: polishedFiles[path],
         })));
         const normalizedPolish = normalizeSharedAssetReferences(candidate, siteMap);
-        const normalizedCandidate = normalizedPolish.staged;
+        candidate = normalizedPolish.staged;
         sharedAssetPagesRepaired += normalizedPolish.repairedPages;
-        const candidateChecks = validateStagedSite(normalizedCandidate, prompt, siteMap);
+        const candidateChecks = validateStagedSite(candidate, prompt, siteMap);
         const changedPaths = polishedPaths.filter(path => String(polishedFiles[path]) !== String(baselineByPath.get(path) || ''));
         if (!changedPaths.length) {
           qualityPolish.status = 'unchanged';
@@ -703,7 +703,7 @@ async function buildStudioMultiPageOnce(options) {
         ) {
           qualityPolish.status = 'rejected';
         } else {
-          staged = normalizedCandidate;
+          staged = candidate;
           checks = candidateChecks;
           qualityPolish.status = 'applied';
           qualityPolish.filesUpdated = changedPaths.length;
