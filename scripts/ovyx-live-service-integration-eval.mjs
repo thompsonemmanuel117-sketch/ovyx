@@ -94,7 +94,46 @@ function assessRecord(row,env){
   const location=firstValue(row,[env.OVYX_EVAL_LISTING_LOCATION_FIELD,'address','location','area','city','locality'].filter(Boolean));
   const status=firstValue(row,[env.OVYX_EVAL_LISTING_STATUS_FIELD,'status','listingStatus','state'].filter(Boolean));
   const active=status!==null&&ACTIVE_STATUS.has(String(status).toLowerCase().replace(/[_-]+/g,' ').trim());
-  return {hasStableId:id!==null,hasTitle:title!==null,hasLocation:location!==null,hasStatus:status!==null,activeStatus:active};
+  return {
+    hasStableId:id!==null,hasTitle:title!==null,hasLocation:location!==null,hasStatus:status!==null,activeStatus:active,
+    title:title===null?null:String(title).slice(0,300),location:location===null?null:String(location).slice(0,300),
+  };
+}
+function normalizeListingText(value){
+  return String(value||'').normalize('NFKD').toLowerCase().replace(/\p{Diacritic}/gu,'').replace(/[^\p{L}\p{N}]+/gu,'');
+}
+async function readJson(file,fallback={}){
+  try{return JSON.parse(await fs.readFile(file,'utf8'));}catch{return fallback;}
+}
+async function findRenderedLiveListings(records){
+  const browser=await readJson(BROWSER_REPORT,{results:[]});
+  const browserSites=new Map((browser.results||[]).map(site=>[site.site,site]));
+  let folders=[];
+  try{folders=(await fs.readdir(OUT,{withFileTypes:true})).filter(entry=>entry.isDirectory());}catch{}
+  let listingSiteFound=false, renderedRecordPageMatches=0, listingPagesInspected=0;
+  for(const folder of folders){
+    const metadata=await readJson(path.join(OUT,folder.name,'ovyx-live-generation.json'),{});
+    if(metadata.industry!=='real-estate')continue;
+    const site=browserSites.get(folder.name);
+    if(!site)continue;
+    const manifest=metadata.siteMap?.pages||[];
+    const candidates=manifest.filter(page=>/\b(?:property|properties|listing|listings|available homes|homes for sale|rental)\b/i.test(String(page.title||'')+' '+String(page.path||'')));
+    const paths=new Set(candidates.map(page=>String(page.path||'').replace(/^\/+/,'').toLowerCase()));
+    const results=(site.pages||[]).filter(page=>page.viewport==='mobile-390'&&paths.has(String(page.page||'').replace(/^\/+/,'').toLowerCase()));
+    if(results.length)listingSiteFound=true;
+    for(const page of results){
+      listingPagesInspected++;
+      const visible=normalizeListingText(page.metrics?.visibleText||'');
+      if(!visible)continue;
+      const matched=records.some(record=>{
+        if(!record.title||!record.location)return false;
+        const title=normalizeListingText(record.title),location=normalizeListingText(record.location);
+        return title.length>=4&&location.length>=3&&visible.includes(title)&&visible.includes(location);
+      });
+      if(matched)renderedRecordPageMatches++;
+    }
+  }
+  return {listingSiteFound,listingPagesInspected,renderedRecordPageMatches};
 }
 async function evaluateListings(env){
   const endpoint=String(env.OVYX_EVAL_LISTINGS_API_URL||'').trim();
