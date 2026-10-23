@@ -140,12 +140,32 @@ function getConfiguredModel(
   const requestedLower =
     requestedText.toLowerCase();
 
-  const compatibleWithRoute =
-    provider === 'groq'
-      ? requestedText.toLowerCase().startsWith('openai/')
-      : provider === 'cloudflare-workers-ai'
-      ? requestedText.toLowerCase().startsWith('@cf/')
-      : true;
+  // A single OVYX_EVAL_MODEL value may be Cloudflare-specific (for example
+  // "@cf/meta/llama-3.3-70b-instruct-fp8-fast"). Automatic routing must not send
+  // that vendor's model ID to Gemini, Claude, OpenAI or DeepSeek. Use an override
+  // only when its model family is compatible with the provider being attempted.
+  const compatibleWithRoute = (() => {
+    switch (provider) {
+      case 'gemini':
+        return /^gemini(?:[-/])/i.test(requestedText);
+      case 'claude':
+        return /^claude(?:[-/])/i.test(requestedText);
+      case 'deepseek':
+        return /^deepseek(?:[-/])/i.test(requestedText);
+      case 'openai':
+        return /^(?:gpt[-/]|o[134](?:[-/]|$)|codex[-/]|chatgpt[-/])/i.test(requestedText);
+      case 'groq':
+        return requestedText.toLowerCase().startsWith('openai/');
+      case 'openrouter':
+        // OpenRouter model IDs use the provider/model form; Cloudflare binding
+        // IDs are not OpenRouter model IDs.
+        return /^[a-z0-9._-]+\/[a-z0-9._:/-]+$/i.test(requestedText);
+      case 'cloudflare-workers-ai':
+        return /^@cf\/[a-z0-9._/-]+$/i.test(requestedText);
+      default:
+        return false;
+    }
+  })();
 
   return requestedText &&
     !generic.has(
