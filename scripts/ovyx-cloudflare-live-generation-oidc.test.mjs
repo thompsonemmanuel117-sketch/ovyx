@@ -68,6 +68,7 @@ for (const [label, override] of [
   ['wrong issuer', { iss: 'https://attacker.invalid' }],
   ['expired', { exp: now - 1 }],
   ['not-yet-valid', { nbf: now + 120 }],
+  ['malformed not-before', { nbf: 'not-a-time' }],
   ['too long lived', { exp: now + 3600 }],
   ['missing token id', { jti: '' }],
 ]) {
@@ -77,6 +78,9 @@ for (const [label, override] of [
 }
 assert.equal((await verifyGithubOidcToken('not.a.jwt', { fetchImpl, nowSeconds: now })).ok, false);
 assert.equal((await verifyGithubOidcToken('', { fetchImpl, nowSeconds: now })).ok, false);
+const tamperedParts = validToken.split('.');
+tamperedParts[2] = b64url('this-is-not-the-rsa-signature');
+assert.equal((await verifyGithubOidcToken(tamperedParts.join('.'), { fetchImpl, nowSeconds: now })).ok, false, 'valid claims with a forged signature must be rejected');
 
 const unauthorized = await handleLiveGenerationRequest(
   new Request('https://forgeos-2k0.pages.dev/api/internal/live-generation-eval', {
@@ -111,12 +115,12 @@ const unknownCase = await handleLiveGenerationRequest(
   new Request('https://forgeos-2k0.pages.dev/api/internal/live-generation-eval', {
     method: 'POST',
     headers: { authorization: 'Bearer ' + validToken, 'content-type': 'application/json' },
-    body: JSON.stringify({ caseId: 'arbitrary-user-prompt', prompt: 'Try to call an unlimited model.' }),
+    body: JSON.stringify({ caseId: 'nigeria-lagos-real-estate', prompt: 'Try to override the fixed evaluation with an arbitrary prompt.' }),
   }),
   {},
   { fetchImpl, nowSeconds: now },
 );
 assert.equal(unknownCase.status, 400, 'only allow-listed test case IDs are accepted');
-assert.equal((await unknownCase.json()).error, 'EVALUATION_CASE_NOT_ALLOWED');
+assert.equal((await unknownCase.json()).error, 'EVALUATION_CASE_NOT_ALLOWED', 'arbitrary prompts are rejected before provider selection or any billable call');
 
 console.log('Cloudflare live-generation OIDC route rejects wrong signatures/claims, untrusted workflow refs, cross-origin requests, missing credentials and arbitrary generation prompts.');
