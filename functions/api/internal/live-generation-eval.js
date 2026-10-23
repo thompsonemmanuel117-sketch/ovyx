@@ -304,6 +304,7 @@ async function readBoundedJson(request) {
 
 const SAFE_PROVIDER_FAILURE_KINDS = new Set([
   'not-configured',
+  'payment-or-billing-required',
   'authentication-rejected',
   'permission-denied',
   'model-or-endpoint-not-found',

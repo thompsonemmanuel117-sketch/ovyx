@@ -44,6 +44,7 @@ assert.deepEqual(safeLiveGenerationProviderAttempts({
   providerAttempts: [
     { provider: 'gemini', kind: 'authentication-rejected', status: 401, message: 'DO_NOT_LEAK', secret: 'DO_NOT_LEAK' },
     { provider: 'claude', kind: 'rate-limited-or-quota', status: 429 },
+    { provider: 'openai', kind: 'payment-or-billing-required', status: 402 },
     { provider: 'attacker-provider', kind: 'provider-error', status: 500 },
     { provider: 'openai', kind: 'exfiltrate', status: 200 },
     { provider: 'deepseek', kind: 'provider-server-error', status: 503 },
@@ -51,6 +52,7 @@ assert.deepEqual(safeLiveGenerationProviderAttempts({
 }), [
   { provider: 'gemini', kind: 'authentication-rejected', status: 401 },
   { provider: 'claude', kind: 'rate-limited-or-quota', status: 429 },
+  { provider: 'openai', kind: 'payment-or-billing-required', status: 402 },
   { provider: 'deepseek', kind: 'provider-server-error', status: 503 },
 ], 'provider diagnostics must keep only allow-listed provider/kind/status data and never echo messages or secret fields');
 
