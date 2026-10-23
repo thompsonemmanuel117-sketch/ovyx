@@ -1,0 +1,109 @@
+name: OVYX Owner Controls Regression
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'assets/ovyx-admin-controls.js'
+      - 'assets/ovyx-admin-workspace.js'
+      - 'functions/api/admin/**'
+      - 'functions/api/entitlements.js'
+      - 'functions/api/plans.js'
+      - 'functions/api/templates/published.js'
+      - 'functions/api/_lib/payments/**'
+      - 'functions/_lib/token-quota.js'
+      - 'functions/_lib/providers.js'
+      - 'functions/_lib/brain/registry.js'
+      - 'functions/_lib/firebase-admin.js'
+      - 'scripts/ovyx-owner-controls-live.test.mjs'
+      - 'scripts/ovyx-owner-browser-api-fixtures.mjs'
+      - 'scripts/ovyx-admin-workspace.browser.test.mjs'
+      - 'scripts/ovyx-admin-workspace.test.mjs'
+      - 'scripts/ovyx-admin-hub.test.mjs'
+      - 'scripts/ovyx-published-templates.test.mjs'
+      - 'index.html'
+      - 'functions/_middleware.js'
+      - '_headers'
+      - 'package.json'
+      - '.github/workflows/ovyx-owner-controls-browser.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'assets/ovyx-admin-controls.js'
+      - 'assets/ovyx-admin-workspace.js'
+      - 'functions/api/admin/**'
+      - 'functions/api/entitlements.js'
+      - 'functions/api/plans.js'
+      - 'functions/api/templates/published.js'
+      - 'functions/api/_lib/payments/**'
+      - 'functions/_lib/token-quota.js'
+      - 'functions/_lib/providers.js'
+      - 'functions/_lib/brain/registry.js'
+      - 'functions/_lib/firebase-admin.js'
+      - 'scripts/ovyx-owner-controls-live.test.mjs'
+      - 'scripts/ovyx-owner-browser-api-fixtures.mjs'
+      - 'scripts/ovyx-admin-workspace.browser.test.mjs'
+      - 'scripts/ovyx-admin-workspace.test.mjs'
+      - 'scripts/ovyx-admin-hub.test.mjs'
+      - 'scripts/ovyx-published-templates.test.mjs'
+      - 'index.html'
+      - 'functions/_middleware.js'
+      - '_headers'
+      - 'package.json'
+      - '.github/workflows/ovyx-owner-controls-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  owner-controls:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install project dependencies
+        run: npm install --ignore-scripts
+
+      - name: Run owner controls and server entitlement contracts
+        run: |
+          node scripts/ovyx-owner-controls-live.test.mjs
+          node scripts/ovyx-admin-workspace.test.mjs
+          node scripts/ovyx-admin-hub.test.mjs
+          node scripts/ovyx-published-templates.test.mjs
+
+      - name: Install Chromium test dependency
+        run: |
+          npm install --ignore-scripts --no-save playwright@^1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Start local Cloudflare Pages app shell
+        run: |
+          npx wrangler pages dev . --ip 127.0.0.1 --port 8793 > /tmp/ovyx-owner-pages.log 2>&1 &
+          echo $! > /tmp/ovyx-owner-pages.pid
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8793/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/ovyx-owner-pages.log
+          exit 1
+
+      - name: Test Owner Control actions in desktop and mobile Chromium
+        env:
+          OVYX_E2E_BASE_URL: http://127.0.0.1:8793
+        run: node scripts/ovyx-admin-workspace.browser.test.mjs
+
+      - name: Print local Pages logs on failure
+        if: failure()
+        run: cat /tmp/ovyx-owner-pages.log || true
