@@ -195,7 +195,7 @@ function settingsFromRequest(raw) {
     enquiryUrl: settings.externalEnquiryAuthorized === true ? enquiry : null,
   };
 }
-function chooseProvider(env, requested) {
+export function chooseProvider(env, requested) {
   const aliases = { anthropic: 'claude', claude: 'claude', chatgpt: 'openai', gpt: 'openai', cloudflare: 'cloudflare-workers-ai', 'workers-ai': 'cloudflare-workers-ai' };
   const canonical = value => aliases[String(value || '').trim().toLowerCase()] || String(value || '').trim().toLowerCase();
   const configured = provider => {
@@ -212,11 +212,12 @@ function chooseProvider(env, requested) {
   };
   const provider = canonical(requested || 'automatic');
   if (provider !== 'automatic') return configured(provider) ? provider : null;
-  const supported = new Set(['gemini', 'deepseek', 'claude', 'openai', 'groq', 'openrouter', 'cloudflare-workers-ai']);
-  const configuredOrder = String(env.OVYX_AI_PROVIDER_ORDER || env.AI_PROVIDER_ORDER || 'gemini,deepseek,claude,openai,groq,openrouter,cloudflare-workers-ai')
-    .split(',').map(canonical).filter(item => supported.has(item)).filter((item, index, all) => all.indexOf(item) === index);
-  const fallback = ['gemini', 'deepseek', 'claude', 'openai', 'groq', 'openrouter', 'cloudflare-workers-ai'];
-  return [...configuredOrder, ...fallback.filter(item => !configuredOrder.includes(item))].find(configured) || null;
+  // Let OVYX's established provider router choose and fall back among configured
+  // Cloudflare runtime providers, instead of pinning the request to the first
+  // non-empty secret and failing when that provider is temporarily unavailable.
+  return ['gemini', 'deepseek', 'claude', 'openai', 'groq', 'openrouter', 'cloudflare-workers-ai'].some(configured)
+    ? 'automatic'
+    : null;
 }
 function safePath(value) {
   const path = String(value || '').trim().replace(/\\/g, '/').replace(/^\/+/, '');
@@ -308,10 +309,12 @@ export async function handleLiveGenerationRequest(request, env, options = {}) {
     return Response.json({ ok: false, error: 'NO_CONFIGURED_AI_PROVIDER' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
   }
   const publicSettings = settingsFromRequest(payload.publicSettings);
-  const prompt = buildEvaluationPrompt(caseItem, publicSettings);
   const qaContract = publicSettings.enquiryUrl
     ? QA_CONTRACT + '\n\nPUBLIC CONTACT FORM SEPARATION: The primary customer form must target the exact owner-approved public endpoint supplied for this isolated QA run. The separate QA-only form targets only ' + QA_ENDPOINT + '. Do not include secrets in any generated file. All test requests to the public endpoint must use source:"OVYX QA", test:true and dryRun:false. Only an explicit delivery receipt counts as delivered.'
     : QA_CONTRACT + '\n\nNO PUBLIC ENQUIRY ENDPOINT IS CONFIGURED. Do not invent or infer a destination. Include an honest setup state for real enquiries. Test the isolated QA-only form locally; it is not a client-contact integration.';
+  // Keep the same QA-only form requirements in the main brief and the production
+  // quality contract so requirement planning and generation agree about them.
+  const prompt = buildEvaluationPrompt(caseItem, publicSettings) + '\n\n' + qaContract;
   const model = String(payload.model || '').trim().slice(0, 140);
   const context = {
     ...caseItem.market,
