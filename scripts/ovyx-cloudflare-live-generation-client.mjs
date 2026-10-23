@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { readCloudflareEvaluationPublicSettings, summarizeCloudflareRuntimeConfig } from './ovyx-cloudflare-runtime-config-inventory.mjs';
+import { isTrustedGithubOidcRequestHostname } from './ovyx-github-oidc-url.mjs';
 
 const REPOSITORY = 'thompsonemmanuel117-sketch/ovyx';
 const AUDIENCE = 'ovyx-live-site-evaluation';
@@ -101,14 +102,16 @@ async function getOidcToken() {
     url = new URL(rawUrl);
     const protocolOk = url.protocol === 'https:';
     const hostname = url.hostname.toLowerCase().replace(/\.$/, '');
-    const hostOk = hostname === 'pipelines.actions.githubusercontent.com';
+    const hostOk = isTrustedGithubOidcRequestHostname(hostname);
     const noCredentials = !url.username && !url.password;
     const noFragment = !url.hash;
+    const standardPort = !url.port;
     const failedChecks = [
       !protocolOk && 'protocol-not-https',
       !hostOk && 'hostname-not-allowlisted',
       !noCredentials && 'url-contains-credentials',
       !noFragment && 'url-contains-fragment',
+      !standardPort && 'nonstandard-port-not-allowed',
     ].filter(Boolean);
     if (failedChecks.length) {
       // Never print the complete URL, query string, or request-token value.
