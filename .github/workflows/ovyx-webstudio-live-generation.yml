@@ -101,6 +101,10 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OVYX_EVAL_LISTINGS_API_URL: ${{ secrets.OVYX_EVAL_LISTINGS_API_URL }}
           OVYX_EVAL_REAL_ENQUIRY_URL: ${{ secrets.OVYX_EVAL_REAL_ENQUIRY_URL }}
+          OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL: ${{ vars.OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL }}
+          OVYX_EVAL_PUBLIC_ENQUIRY_URL: ${{ vars.OVYX_EVAL_PUBLIC_ENQUIRY_URL }}
+          OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE: ${{ vars.OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE }}
+          OVYX_EVAL_ENQUIRY_TEST_RECIPIENT: ${{ secrets.OVYX_EVAL_ENQUIRY_TEST_RECIPIENT }}
         run: node scripts/ovyx-webstudio-live-generation-eval.mjs
       - name: Record that real generation was blocked by missing credentials
         if: steps.provider.outputs.available != 'true'
@@ -113,7 +117,10 @@ jobs:
         id: browser
         continue-on-error: true
         env:
-          OVYX_EVAL_LISTINGS_API_URL: ${{ secrets.OVYX_EVAL_LISTINGS_API_URL }}
+          OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL: ${{ vars.OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL }}
+          OVYX_EVAL_PUBLIC_ENQUIRY_URL: ${{ vars.OVYX_EVAL_PUBLIC_ENQUIRY_URL }}
+          OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE: ${{ vars.OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE }}
+          OVYX_EVAL_ENQUIRY_TEST_RECIPIENT: ${{ secrets.OVYX_EVAL_ENQUIRY_TEST_RECIPIENT }}
         run: node scripts/ovyx-webstudio-generated-site-browser-eval.mjs artifacts/webstudio-generated-sites artifacts/webstudio-evaluation-report/browser
       - name: Evaluate configured real listing and enquiry services
         if: always()
@@ -121,6 +128,7 @@ jobs:
         continue-on-error: true
         env:
           OVYX_EVAL_LISTINGS_API_URL: ${{ secrets.OVYX_EVAL_LISTINGS_API_URL }}
+          OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL: ${{ vars.OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL }}
           OVYX_EVAL_LISTINGS_API_TOKEN: ${{ secrets.OVYX_EVAL_LISTINGS_API_TOKEN }}
           OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY: ${{ vars.OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY }}
           OVYX_EVAL_LISTINGS_JSON_PATH: ${{ vars.OVYX_EVAL_LISTINGS_JSON_PATH }}
@@ -149,8 +157,11 @@ jobs:
           AUDIT_OUTCOME: ${{ steps.audit.outcome }}
           INTEGRATION_OUTCOME: ${{ steps.integration.outcome }}
           LISTINGS_SOURCE_URL: ${{ secrets.OVYX_EVAL_LISTINGS_API_URL }}
+          LISTINGS_PUBLIC_URL: ${{ vars.OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL }}
           ENQUIRY_TARGET_URL: ${{ secrets.OVYX_EVAL_REAL_ENQUIRY_URL }}
+          PUBLIC_ENQUIRY_URL: ${{ vars.OVYX_EVAL_PUBLIC_ENQUIRY_URL }}
           ENQUIRY_PROBE_ENABLED: ${{ vars.OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE }}
+          ENQUIRY_TEST_RECIPIENT: ${{ secrets.OVYX_EVAL_ENQUIRY_TEST_RECIPIENT }}
         run: |
           node --input-type=module <<'NODE'
           import fs from 'node:fs/promises';
@@ -171,11 +182,15 @@ jobs:
           if (browser.status !== 'browser-evaluated' || !browser.evaluatedSites) failures.push(['browser report', browser.status || 'missing']);
           if (!audit.sitesFound || audit.status === 'not-run-no-generated-sites' || audit.sites?.some(site => site.status === 'needs-attention')) failures.push(['acceptance report', audit.status || 'missing or has blockers']);
           if (!process.env.LISTINGS_SOURCE_URL) failures.push(['real property listings', 'blocked-no-authoritative-listing-feed-configured']);
+          else if (!process.env.LISTINGS_PUBLIC_URL) failures.push(['public generated-site listing feed', 'blocked-no-public-browser-safe-listing-endpoint-configured']);
           else if (integration.listings?.realListingsConfirmed !== true) failures.push(['configured property feed', integration.listings?.status || 'no confirmed live listings rendered on the generated site']);
           if (!process.env.ENQUIRY_TARGET_URL) failures.push(['real enquiry integration', 'blocked-no-owner-approved-enquiry-endpoint-configured']);
-          else if (String(process.env.ENQUIRY_PROBE_ENABLED).toLowerCase() !== 'true') failures.push(['real enquiry integration', 'blocked-external-probe-not-explicitly-authorized']);
-          else if (integration.enquiry?.endpointAcceptedTestPayload !== true) failures.push(['real enquiry submission', integration.enquiry?.status || 'test payload not accepted']);
-          else if (integration.enquiry?.realEnquiryDeliveryConfirmed !== true) failures.push(['real enquiry delivery', 'endpoint accepted the test but did not report a confirmed delivery receipt']);
+          if (!process.env.PUBLIC_ENQUIRY_URL) failures.push(['generated-site enquiry form', 'blocked-no-public-client-safe-enquiry-endpoint-configured']);
+          if (String(process.env.ENQUIRY_PROBE_ENABLED).toLowerCase() !== 'true') failures.push(['real enquiry integration', 'blocked-external-probe-not-explicitly-authorized']);
+          if (!process.env.ENQUIRY_TEST_RECIPIENT) failures.push(['real enquiry integration', 'blocked-no-owner-controlled-test-recipient-configured']);
+          if (integration.enquiry?.endpointAcceptedTestPayload !== true) failures.push(['server-side enquiry submission', integration.enquiry?.status || 'test payload not accepted']);
+          if (integration.enquiry?.realEnquiryDeliveryConfirmed !== true) failures.push(['server-side enquiry delivery', 'endpoint accepted the test but did not report a confirmed delivery receipt']);
+          if (!browser.results?.length || browser.results.some(site => site.publicEnquiryDeliveryConfirmed !== true)) failures.push(['generated-site public enquiry route', 'at least one generated site did not show an explicit delivery receipt for the safe test submission']);
           if (failures.length) {
             console.error(JSON.stringify({status:'needs-attention',failures,realListingsConfirmed:false,realEnquiryDeliveryConfirmed:false,humanVisualReviewCompleted:false,humanEditorialReviewCompleted:false},null,2));
             process.exitCode = 1;
