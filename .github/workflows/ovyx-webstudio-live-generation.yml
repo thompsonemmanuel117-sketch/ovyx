@@ -144,6 +144,9 @@ jobs:
           GENERATION_OUTCOME: ${{ steps.generate.outcome }}
           BROWSER_OUTCOME: ${{ steps.browser.outcome }}
           AUDIT_OUTCOME: ${{ steps.audit.outcome }}
+          LISTINGS_SOURCE_URL: ${{ vars.OVYX_EVAL_LISTINGS_API_URL }}
+          ENQUIRY_TARGET_URL: ${{ vars.OVYX_EVAL_REAL_ENQUIRY_URL }}
+          ENQUIRY_PROBE_ENABLED: ${{ vars.OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE }}
         run: |
           node --input-type=module <<'NODE'
           import fs from 'node:fs/promises';
@@ -157,8 +160,12 @@ jobs:
           let audit = {};
           try { browser = JSON.parse(await fs.readFile('artifacts/webstudio-evaluation-report/browser/browser-report.json', 'utf8')); } catch {}
           try { audit = JSON.parse(await fs.readFile('artifacts/webstudio-evaluation-report/acceptance-report.json', 'utf8')); } catch {}
+          let integration = {};
+          try { integration = JSON.parse(await fs.readFile('artifacts/webstudio-evaluation-report/integration-report.json', 'utf8')); } catch {}
           if (browser.status !== 'browser-evaluated' || !browser.evaluatedSites) failures.push(['browser report', browser.status || 'missing']);
           if (!audit.sitesFound || audit.status === 'not-run-no-generated-sites' || audit.sites?.some(site => site.status === 'needs-attention')) failures.push(['acceptance report', audit.status || 'missing or has blockers']);
+          if (process.env.LISTINGS_SOURCE_URL && integration.listings?.realListingsConfirmed !== true) failures.push(['configured property feed', integration.listings?.status || 'no confirmed live listings/site wiring']);
+          if (process.env.ENQUIRY_TARGET_URL && String(process.env.ENQUIRY_PROBE_ENABLED).toLowerCase() === 'true' && integration.enquiry?.endpointAcceptedTestPayload !== true) failures.push(['opted-in real enquiry endpoint probe', integration.enquiry?.status || 'test payload not accepted']);
           if (failures.length) {
             console.error(JSON.stringify({status:'needs-attention',failures,realListingsConfirmed:false,realEnquiryDeliveryConfirmed:false,humanVisualReviewCompleted:false,humanEditorialReviewCompleted:false},null,2));
             process.exitCode = 1;
