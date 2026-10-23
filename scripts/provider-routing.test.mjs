@@ -408,6 +408,32 @@ try {
     );
   }
 
+  // Cloudflare SDK/runtime wrappers may nest documented status/codes.
+  const nestedWorkersAiFailureCases = [
+    [{ code: 'WRAPPER_ERROR', response: { data: { errors: [{ code: 5035, message: 'Workers AI model requires a paid plan' }] } } }, 'plan-required', 403],
+    [{ response: { status: 503, data: { errors: [{ code: 3036, message: 'Daily free allocation has been used' }] } } }, 'rate-limited-or-quota', 429],
+    [{ cause: { errors: [{ code: 5007, message: 'No such model' }] } }, 'model-or-endpoint-not-found', 400],
+    [{ response: { status: 408, statusText: 'Request timed out' } }, 'timeout', 408],
+  ];
+  for (const [privateError, kind, status] of nestedWorkersAiFailureCases) {
+    await assert.rejects(
+      () => callModel(
+        { AI: { run: async () => { throw Object.assign(new Error('wrapper error; SECRET_NEVER_LEAK'), privateError); } } },
+        { provider: 'automatic', model: 'automatic', system: 'test', user: 'hello', maxTokens: 32 },
+      ),
+      error => {
+        assert.equal(error.code, 'AI_PROVIDER_UNAVAILABLE');
+        assert.deepEqual(error.providerAttempts, [
+          { provider: 'cloudflare-workers-ai', kind, status },
+        ]);
+        assert.equal(error.message.includes('SECRET_NEVER_LEAK'), false);
+        assert.equal(error.message.includes('paid plan'), false);
+        return true;
+      },
+      'nested Workers AI error structures must map to safe categories without exposing raw data',
+    );
+  }
+
   // A stuck Workers AI binding must fail within its configured server-side budget,
   // not hold the entire live generation request until the edge closes the socket.
   await assert.rejects(

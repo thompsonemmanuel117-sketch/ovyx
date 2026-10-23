@@ -671,28 +671,88 @@ async function callOpenRouter(
   };
 }
 
-function classifyCloudflareWorkersAiFailure(error) {
-  // Inspect the private SDK error only to derive a small, safe diagnostic.
-  // The raw message, nested payload, request data and credentials are never returned.
-  const message = String(error?.message || error?.error?.message || error?.cause?.message || '').slice(0, 1600).toLowerCase();
-  const statusCandidates = [error?.status, error?.statusCode, error?.response?.status, error?.cause?.status];
-  let status = null;
-  for (const value of statusCandidates) {
-    const number = Number(value);
-    if (Number.isInteger(number) && number >= 400 && number <= 599) {
-      status = number;
-      break;
+function collectCloudflareWorkersAiFailureEvidence(root) {
+  const messages = [];
+  const codes = [];
+  const statuses = [];
+  const names = [];
+  const queue = [{ value: root, key: 'root', depth: 0 }];
+  const seen = new Set();
+  const messageKeys = new Set(['message', 'detail', 'reason', 'statusText', 'error_description', 'cause', 'error', 'errors']);
+  const nestedKeys = new Set([
+    'cause', 'error', 'errors', 'response', 'data', 'body', 'details',
+    'metadata', 'originalError', 'upstreamError', 'info',
+  ]);
+  const codeKeys = new Set(['code', 'errorCode', 'internalCode']);
+  const statusKeys = new Set(['status', 'statusCode', 'httpStatus']);
+  let visited = 0;
+
+  while (queue.length && visited < 36) {
+    const item = queue.shift();
+    const value = item.value;
+    const key = String(item.key || '');
+    const depth = Number(item.depth || 0);
+    visited += 1;
+
+    if (typeof value === 'string') {
+      if (messageKeys.has(key) && value.length) messages.push(value.slice(0, 1600));
+      if (key === 'body' && value.length <= 12_000 && /^[\s]*[\[{]/.test(value)) {
+        try { queue.push({ value: JSON.parse(value), key: 'body', depth: depth + 1 }); } catch {}
+      }
+      continue;
+    }
+    if (!value || typeof value !== 'object' || seen.has(value) || depth > 4) continue;
+    seen.add(value);
+
+    for (const field of ['name', 'message', 'detail', 'reason', 'statusText', 'error_description']) {
+      try {
+        const text = value[field];
+        if (field === 'name' && typeof text === 'string' && text.length <= 100) names.push(text);
+        if (field !== 'name' && typeof text === 'string' && text.length) messages.push(text.slice(0, 1600));
+      } catch {}
+    }
+    for (const field of statusKeys) {
+      try {
+        const candidate = Number(value[field]);
+        if (Number.isInteger(candidate) && candidate >= 400 && candidate <= 599) statuses.push(candidate);
+      } catch {}
+    }
+    for (const field of codeKeys) {
+      try {
+        const candidate = String(value[field] ?? '').trim();
+        if (candidate && candidate.length <= 80) codes.push(candidate.toUpperCase());
+      } catch {}
+    }
+
+    if (depth >= 4) continue;
+    for (const field of nestedKeys) {
+      let child;
+      try { child = value[field]; } catch { continue; }
+      if (child === null || child === undefined) continue;
+      if (Array.isArray(child)) {
+        for (const entry of child.slice(0, 5)) queue.push({ value: entry, key: field, depth: depth + 1 });
+      } else if (typeof child === 'object' || typeof child === 'string') {
+        queue.push({ value: child, key: field, depth: depth + 1 });
+      }
     }
   }
-  const code = String(error?.code || error?.error?.code || error?.cause?.code || '').toUpperCase();
-  const rawInternalCode = [
-    error?.code, error?.error?.code, error?.cause?.code,
-    error?.errors?.[0]?.code, error?.error?.errors?.[0]?.code,
-  ].map(value => String(value ?? '').trim()).find(value => /^\d{3,5}$/.test(value)) || '';
-  const embeddedInternalCode = message.match(/\b(5007|5004|3039|3003|5018|5016|3023|3041|5035|5019|5005|3042|3006|3007|3008|3036|3040)\b/);
-  const internalCode = rawInternalCode || (embeddedInternalCode ? embeddedInternalCode[1] : '');
-  // Cloudflare's documented Workers AI binding codes. See
-  // https://developers.cloudflare.com/workers-ai/platform/errors/
+
+  return { message: messages.join(' ').slice(0, 8000).toLowerCase(), codes, statuses, names };
+}
+
+function classifyCloudflareWorkersAiFailure(error) {
+  // Cloudflare's binding can wrap its code/status/message in nested error
+  // objects. Inspect a bounded set of known fields for classification only.
+  // Never return or log raw messages, bodies, request data or credentials.
+  const evidence = collectCloudflareWorkersAiFailureEvidence(error);
+  const message = evidence.message;
+  const knownInternalCodes = new Set([
+    '5007', '5004', '3039', '3003', '5018', '5016', '3023', '3041',
+    '5035', '5019', '5005', '3042', '3006', '3007', '3008', '3036', '3040',
+  ]);
+  const internalCode = evidence.codes.find(value => knownInternalCodes.has(value)) ||
+    (message.match(/\b(5007|5004|3039|3003|5018|5016|3023|3041|5035|5019|5005|3042|3006|3007|3008|3036|3040)\b/) || [])[1] ||
+    '';
   const documentedCodes = {
     '5007': { status: 400, code: 'AI_PROVIDER_UNSUPPORTED' },
     '5004': { status: 400, code: 'AI_PROVIDER_REQUEST_FAILED' },
@@ -713,17 +773,20 @@ function classifyCloudflareWorkersAiFailure(error) {
     '3040': { status: 429, code: 'AI_PROVIDER_RATE_LIMITED' },
   };
   const documented = documentedCodes[internalCode];
-  if (documented) status = documented.status;
+  let status = evidence.statuses[0] ?? null;
+  const code = evidence.codes.find(value => /^AI_PROVIDER_[A-Z0-9_]+$/.test(value)) || '';
   const modelFailure = /(?:invalid|unknown|unsupported|not found|does not exist).{0,60}model|model.{0,60}(?:invalid|unknown|unsupported|not found|does not exist)/i.test(message);
-  const billingFailure = /payment required|billing|insufficient (?:credits?|balance)|credits? exhausted|payment method|payment required/i.test(message);
+  const billingFailure = /payment required|billing|insufficient (?:credits?|balance)|credits? exhausted|payment method/i.test(message);
   const authFailure = /unauthori[sz]ed|invalid (?:api )?key|authentication failed|invalid token/i.test(message);
   const permissionFailure = /forbidden|permission denied|not authorized|access denied|account is not allowed/i.test(message);
   const quotaFailure = /rate.?limit|too many requests|quota|resource exhausted|limit exceeded|daily free allocation|out of capacity/i.test(message);
   const timeoutFailure = /timed?\s*out|timeout|deadline exceeded/i.test(message);
   const networkFailure = /failed to fetch|network error|connection reset|socket hang up|connection refused/i.test(message);
+  const errorNames = evidence.names.map(value => value.toLowerCase());
 
+  if (documented) status = documented.status;
   if (status === null) {
-    if (code === 'AI_PROVIDER_TIMEOUT' || timeoutFailure) status = 504;
+    if (code === 'AI_PROVIDER_TIMEOUT' || timeoutFailure || errorNames.includes('timeouterror') || errorNames.includes('aborterror')) status = 504;
     else if (billingFailure) status = 402;
     else if (authFailure) status = 401;
     else if (permissionFailure) status = 403;
@@ -733,19 +796,19 @@ function classifyCloudflareWorkersAiFailure(error) {
     else if (/bad request|invalid request|invalid argument|invalid parameter/i.test(message)) status = 400;
   }
 
-  if (documented?.code === 'AI_PROVIDER_PLAN_REQUIRED') return { status: documented.status, code: documented.code };
-  if (billingFailure || status === 402) return { status: 402, code: 'AI_PROVIDER_BILLING_REQUIRED' };
-  if (authFailure || status === 401) return { status: 401, code: 'AI_PROVIDER_AUTH_FAILED' };
-  if (permissionFailure || status === 403) return { status: 403, code: 'AI_PROVIDER_PERMISSION_DENIED' };
-  if (modelFailure || code === 'AI_PROVIDER_UNSUPPORTED' || status === 404 || documented?.code === 'AI_PROVIDER_UNSUPPORTED') {
+  if (documented?.code === 'AI_PROVIDER_PLAN_REQUIRED' || code === 'AI_PROVIDER_PLAN_REQUIRED') return { status: status ?? 403, code: 'AI_PROVIDER_PLAN_REQUIRED' };
+  if (documented?.code === 'AI_PROVIDER_UNSUPPORTED' || modelFailure || code === 'AI_PROVIDER_UNSUPPORTED' || status === 404) {
     return { status: status ?? 404, code: 'AI_PROVIDER_UNSUPPORTED' };
   }
-  if (quotaFailure || status === 429) return { status: 429, code: 'AI_PROVIDER_RATE_LIMITED' };
-  if (timeoutFailure || code === 'AI_PROVIDER_TIMEOUT' || status === 408 || status === 504) {
-    return { status, code: 'AI_PROVIDER_TIMEOUT' };
+  if (billingFailure || code === 'AI_PROVIDER_BILLING_REQUIRED' || status === 402) return { status: 402, code: 'AI_PROVIDER_BILLING_REQUIRED' };
+  if (authFailure || code === 'AI_PROVIDER_AUTH_FAILED' || status === 401) return { status: 401, code: 'AI_PROVIDER_AUTH_FAILED' };
+  if (permissionFailure || code === 'AI_PROVIDER_PERMISSION_DENIED' || status === 403) return { status: 403, code: 'AI_PROVIDER_PERMISSION_DENIED' };
+  if (quotaFailure || code === 'AI_PROVIDER_RATE_LIMITED' || status === 429) return { status: 429, code: 'AI_PROVIDER_RATE_LIMITED' };
+  if (timeoutFailure || code === 'AI_PROVIDER_TIMEOUT' || status === 408 || status === 504 || errorNames.includes('timeouterror') || errorNames.includes('aborterror')) {
+    return { status: status ?? 504, code: 'AI_PROVIDER_TIMEOUT' };
   }
   if (status !== null) return { status, code: documented?.code || 'AI_PROVIDER_REQUEST_FAILED' };
-  if (networkFailure || error?.name === 'TypeError') return { status: null, code: 'AI_PROVIDER_NETWORK_ERROR' };
+  if (networkFailure || code === 'AI_PROVIDER_NETWORK_ERROR' || errorNames.includes('typeerror')) return { status: null, code: 'AI_PROVIDER_NETWORK_ERROR' };
   return { status: null, code: 'AI_PROVIDER_UNKNOWN_ERROR' };
 }
 
