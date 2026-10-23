@@ -24,11 +24,11 @@ The live generation matrix creates four separate multi-page sites:
 
 The browser QA runs actual generated files in Chromium at 320, 390, 768, 1024 and 1440 pixels; saves default and post-interaction screenshots; checks routes, overflow, resource failures, labels, obvious placeholder copy, standalone button behavior and the required QA form. A button is not counted as functional merely because it exists. The generated-site acceptance report separately identifies checks that still need a human editorial or visual review.
 
-## Optional real-property-feed verification
+## Required real-property-feed verification for full acceptance
 
-Configure these Actions variables/secrets only for the actual owner-approved source:
+Configure these Actions variables/secrets for the actual owner-approved source. The full live-acceptance workflow deliberately fails until a real listing source is configured and its records are shown in the generated property page:
 
-- Variable `OVYX_EVAL_LISTINGS_API_URL`: an HTTPS JSON listing endpoint.
+- Secret `OVYX_EVAL_LISTINGS_API_URL`: an HTTPS JSON listing endpoint. Store the complete URL as a secret because some vendors encode access tokens in the path.
 - Optional secret `OVYX_EVAL_LISTINGS_API_TOKEN`: bearer token used only by the server-side evaluator; never sent into generated browser code.
 - Variable `OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY`: set to `authoritative` only when the endpoint is the real source of record.
 - Optional variable `OVYX_EVAL_LISTINGS_JSON_PATH`: dotted path to the array when the response is not a direct array or a recognized `listings`, `properties`, or `results` field.
@@ -36,14 +36,14 @@ Configure these Actions variables/secrets only for the actual owner-approved sou
 
 Every returned record must have a stable identifier, title, location and explicit active status. The evaluator checks the returned records and browser evidence that a real record is rendered on the generated property-listings route. A URL existing, sample card, source response alone or unconfigured environment variable does not prove that real listings work. If the source returns more than 1,000 records, narrow the feed to a bounded test query before confirmation.
 
-## Optional enquiry-delivery verification
+## Required enquiry-delivery verification for full acceptance
 
-Set these only after confirming that the endpoint and test recipient belong to the project owner:
+Set these only after confirming that the endpoint and test recipient belong to the project owner. The live-acceptance workflow fails until the external enquiry probe is explicitly approved and returns an explicit delivery receipt:
 
-- Variable `OVYX_EVAL_REAL_ENQUIRY_URL`: an HTTPS POST endpoint that accepts the documented QA JSON test payload.
+- Secret `OVYX_EVAL_REAL_ENQUIRY_URL`: an HTTPS POST endpoint that accepts the documented QA JSON test payload. Store the complete URL as a secret; webhook paths may be credentials.
 - Optional secret `OVYX_EVAL_REAL_ENQUIRY_TOKEN`: bearer token for that endpoint.
 - Variable `OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE`: set to `true` to authorize sending the explicit integration-test payload. Without this opt-in, the evaluator makes no external POST.
-- Variable `OVYX_EVAL_ENQUIRY_TEST_RECIPIENT`: owner-controlled test recipient; never use a real customer's contact details.
+- Secret `OVYX_EVAL_ENQUIRY_TEST_RECIPIENT`: owner-controlled test recipient; never use a real customer's contact details.
 - Optional secret `OVYX_EVAL_ENQUIRY_TEST_PAYLOAD_JSON`: endpoint-specific additional test fields, if required.
 
 The endpoint must return a successful JSON acknowledgement such as `{ "ok": true }`, `{ "accepted": true }` or `{ "success": true }`. To satisfy the strict delivery gate it must also return an explicit delivery receipt, such as `{ "ok": true, "deliveryStatus": "delivered" }` or `{ "ok": true, "delivered": true }`. A `queued` or `accepted` response does not qualify. This records an endpoint-reported delivery receipt; independently verifying the recipient inbox or WhatsApp/social recipient still depends on a trustworthy provider-specific status contract. Never test an endpoint that could create a live customer enquiry without owner approval and a test recipient.
