@@ -671,6 +671,54 @@ async function callOpenRouter(
   };
 }
 
+function classifyCloudflareWorkersAiFailure(error) {
+  // Inspect the private SDK error only to derive a small, safe diagnostic.
+  // The raw message, nested payload, request data and credentials are never returned.
+  const message = String(error?.message || error?.error?.message || error?.cause?.message || '').slice(0, 1600).toLowerCase();
+  const statusCandidates = [error?.status, error?.statusCode, error?.response?.status, error?.cause?.status];
+  let status = null;
+  for (const value of statusCandidates) {
+    const number = Number(value);
+    if (Number.isInteger(number) && number >= 400 && number <= 599) {
+      status = number;
+      break;
+    }
+  }
+  const code = String(error?.code || error?.error?.code || '').toUpperCase();
+  const modelFailure = /(?:invalid|unknown|unsupported|not found|does not exist).{0,60}model|model.{0,60}(?:invalid|unknown|unsupported|not found|does not exist)/i.test(message);
+  const billingFailure = /payment required|billing|insufficient (?:credits?|balance)|credits? exhausted|payment method|payment required/i.test(message);
+  const authFailure = /unauthori[sz]ed|invalid (?:api )?key|authentication failed|invalid token/i.test(message);
+  const permissionFailure = /forbidden|permission denied|not authorized|access denied/i.test(message);
+  const quotaFailure = /rate.?limit|too many requests|quota|resource exhausted|limit exceeded/i.test(message);
+  const timeoutFailure = /timed?\s*out|timeout|deadline exceeded/i.test(message);
+  const networkFailure = /failed to fetch|network error|connection reset|socket hang up|connection refused/i.test(message);
+
+  if (status === null) {
+    if (code === 'AI_PROVIDER_TIMEOUT' || timeoutFailure) status = 504;
+    else if (billingFailure) status = 402;
+    else if (authFailure) status = 401;
+    else if (permissionFailure) status = 403;
+    else if (modelFailure) status = /not found|does not exist|unknown model/i.test(message) ? 404 : 400;
+    else if (quotaFailure) status = 429;
+    else if (/overload|temporarily unavailable|service unavailable|internal server error/i.test(message)) status = 503;
+    else if (/bad request|invalid request|invalid argument|invalid parameter/i.test(message)) status = 400;
+  }
+
+  if (billingFailure || status === 402) return { status: 402, code: 'AI_PROVIDER_BILLING_REQUIRED' };
+  if (authFailure || status === 401) return { status: 401, code: 'AI_PROVIDER_AUTH_FAILED' };
+  if (permissionFailure || status === 403) return { status: 403, code: 'AI_PROVIDER_PERMISSION_DENIED' };
+  if (modelFailure || code === 'AI_PROVIDER_UNSUPPORTED' || status === 404) {
+    return { status: status ?? 404, code: 'AI_PROVIDER_UNSUPPORTED' };
+  }
+  if (quotaFailure || status === 429) return { status: 429, code: 'AI_PROVIDER_RATE_LIMITED' };
+  if (timeoutFailure || code === 'AI_PROVIDER_TIMEOUT' || status === 408 || status === 504) {
+    return { status: 504, code: 'AI_PROVIDER_TIMEOUT' };
+  }
+  if (status !== null) return { status, code: 'AI_PROVIDER_REQUEST_FAILED' };
+  if (networkFailure || error?.name === 'TypeError') return { status: null, code: 'AI_PROVIDER_NETWORK_ERROR' };
+  return { status: null, code: 'AI_PROVIDER_UNKNOWN_ERROR' };
+}
+
 async function callCloudflareWorkersAI(
   env,
   {
@@ -709,17 +757,12 @@ async function callCloudflareWorkersAI(
       'Cloudflare Workers AI'
     );
   } catch (error) {
-    const rawStatus = Number(error?.status);
-    const status = Number.isInteger(rawStatus) && rawStatus >= 400 && rawStatus <= 599 ? rawStatus : null;
+    const classification = classifyCloudflareWorkersAiFailure(error);
     const safeError = new Error('Cloudflare Workers AI request failed.');
-    if (status !== null) {
-      safeError.status = status;
-      safeError.code = 'AI_PROVIDER_REQUEST_FAILED';
-    } else if (error?.name === 'AbortError' || error?.name === 'TimeoutError' || error?.name === 'TypeError') {
-      safeError.name = error.name;
-    } else if (String(error?.code || '').toUpperCase() === 'AI_PROVIDER_TIMEOUT') {
-      safeError.code = 'AI_PROVIDER_TIMEOUT';
-    }
+    if (classification.status !== null) safeError.status = classification.status;
+    safeError.code = classification.code;
+    if (classification.code === 'AI_PROVIDER_NETWORK_ERROR' || error?.name === 'TypeError') safeError.name = 'TypeError';
+    if (classification.code === 'AI_PROVIDER_TIMEOUT' || error?.name === 'AbortError' || error?.name === 'TimeoutError') safeError.name = 'TimeoutError';
     throw safeError;
   }
 
@@ -932,13 +975,14 @@ function summarizeProviderFailure(error) {
   else if (code === 'AI_PROVIDER_TIMEOUT' || error?.name === 'AbortError' || error?.name === 'TimeoutError' || status === 408 || status === 504) kind = 'timeout';
   else if (code === 'AI_PROVIDER_EMPTY_RESPONSE' || /returned an empty response/i.test(message)) kind = 'empty-response';
   else if (code === 'AI_INVALID_JSON' || /invalid structured json/i.test(message)) kind = 'invalid-response';
-  else if (status === 401 || /invalid api key|unauthorized|authentication failed/i.test(message)) kind = 'authentication-rejected';
-  else if (status === 403 || /permission denied|access denied|not authorized/i.test(message)) kind = 'permission-denied';
-  else if (status === 404 || /model .* not found|model not found|endpoint not found|no such model/i.test(message)) kind = 'model-or-endpoint-not-found';
-  else if (status === 429 || /quota|rate.?limit|resource exhausted/i.test(message)) kind = 'rate-limited-or-quota';
+  else if (code === 'AI_PROVIDER_BILLING_REQUIRED' || status === 402) kind = 'payment-or-billing-required';
+  else if (code === 'AI_PROVIDER_AUTH_FAILED' || status === 401 || /invalid api key|unauthorized|authentication failed/i.test(message)) kind = 'authentication-rejected';
+  else if (code === 'AI_PROVIDER_PERMISSION_DENIED' || status === 403 || /permission denied|access denied|not authorized/i.test(message)) kind = 'permission-denied';
+  else if (code === 'AI_PROVIDER_UNSUPPORTED' || status === 404 || /model .* not found|model not found|endpoint not found|no such model/i.test(message)) kind = 'model-or-endpoint-not-found';
+  else if (code === 'AI_PROVIDER_RATE_LIMITED' || status === 429 || /quota|rate.?limit|resource exhausted/i.test(message)) kind = 'rate-limited-or-quota';
   else if (status !== null && status >= 500) kind = 'provider-server-error';
   else if (status !== null && status >= 400) kind = 'request-rejected';
-  else if (error?.name === 'TypeError') kind = 'network-error';
+  else if (code === 'AI_PROVIDER_NETWORK_ERROR' || error?.name === 'TypeError') kind = 'network-error';
   return { kind, status };
 }
 
