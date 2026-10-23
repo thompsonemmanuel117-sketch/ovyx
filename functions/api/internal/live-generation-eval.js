@@ -403,17 +403,25 @@ export async function handleLiveGenerationRequest(request, env, options = {}) {
   const isProviderPreflight = operation === 'provider-preflight';
   const allowedKeys = isProviderPreflight
     ? new Set(['operation', 'provider', 'model'])
-    : new Set(['caseId', 'provider', 'model', 'publicSettings']);
+    : new Set(['caseId', 'provider', 'model', 'publicSettings', 'preferredProvider', 'providerRouting']);
   const requestedProvider = String(payload?.provider || 'automatic').trim().toLowerCase();
+  const requestedPreferredProvider = String(payload?.preferredProvider || '').trim().toLowerCase();
+  const providerRouting = String(payload?.providerRouting || 'automatic').trim().toLowerCase();
   const allowedPreflightProviders = new Set([
     'automatic', 'gemini', 'claude', 'anthropic', 'deepseek', 'openai',
-    'groq', 'openrouter', 'cloudflare-workers-ai', 'cloudflare', 'workers-ai',
+    'chatgpt', 'gpt', 'groq', 'openrouter', 'cloudflare-workers-ai', 'cloudflare', 'workers-ai',
   ]);
+  const allowedProviderRouting = new Set(['automatic', 'preferred-first', 'provider-priority']);
   if (!payload || typeof payload !== 'object' || Array.isArray(payload) ||
       Object.keys(payload).some(key => !allowedKeys.has(key)) ||
       (isProviderPreflight
         ? (!allowedPreflightProviders.has(requestedProvider) || Object.hasOwn(payload, 'caseId'))
-        : (operation !== 'generate-site' || !Object.hasOwn(CASES, String(payload.caseId || ''))))) {
+        : (operation !== 'generate-site' ||
+          !Object.hasOwn(CASES, String(payload.caseId || '')) ||
+          (Object.hasOwn(payload, 'preferredProvider') &&
+            (!allowedPreflightProviders.has(requestedPreferredProvider) || requestedPreferredProvider === 'automatic')) ||
+          !allowedProviderRouting.has(providerRouting) ||
+          (providerRouting === 'preferred-first' && !requestedPreferredProvider))) ) {
     return Response.json({ ok: false, error: 'EVALUATION_CASE_NOT_ALLOWED' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
   }
   const caseItem = isProviderPreflight ? null : CASES[payload.caseId];
@@ -486,11 +494,13 @@ export async function handleLiveGenerationRequest(request, env, options = {}) {
   const experience = buildExperienceBrief(prompt + '\n\n' + qaContract, context);
   let generated;
   try {
-    generated = await buildStudioMultiPage({
+    generated = await (options.buildStudioMultiPage || buildStudioMultiPage)({
       env: { ...env, OVYX_WEBSTUDIO_MAX_PAGES: '8', OVYX_WEBSTUDIO_MAX_BATCH_FILES: '6', OVYX_WEBSTUDIO_POLISH_ENABLED: env.OVYX_WEBSTUDIO_POLISH_ENABLED || 'true' },
       callModel,
       provider,
       model: model || undefined,
+      preferredProvider: requestedPreferredProvider || undefined,
+      providerRouting,
       authUser: null,
       prompt,
       project: { name: caseItem.title, pages: [] },
