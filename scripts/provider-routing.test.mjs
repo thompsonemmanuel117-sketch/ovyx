@@ -367,16 +367,16 @@ try {
   const boundedPayload = capturedWorkersAiCalls[0].payload;
   const boundedSystem = boundedPayload.messages.find(message => message.role === 'system')?.content || '';
   const boundedUser = boundedPayload.messages.find(message => message.role === 'user')?.content || '';
-  assert.ok(boundedSystem.length <= 10_000, 'Only the Cloudflare Workers AI system prompt must be reduced to its context budget.');
+  assert.ok(boundedSystem.length <= 8_000, 'Only the Cloudflare Workers AI system prompt must be reduced to its context budget.');
   assert.match(boundedSystem, /SYSTEM_START/, 'The beginning of the system prompt must survive compaction.');
   assert.match(boundedSystem, /SYSTEM_END/, 'The ending of the system prompt must survive compaction.');
-  assert.ok(boundedUser.length <= 20_000, 'The Cloudflare Workers AI user prompt must stay under its context budget.');
+  assert.ok(boundedUser.length <= 14_000, 'The Cloudflare Workers AI user prompt must stay under its context budget.');
   assert.match(boundedUser, /USER_START/, 'The beginning of the user request must survive compaction.');
   assert.match(boundedUser, /ORIGINAL USER BRIEF \(preserve the specific requirements in this request\):/i);
   assert.ok(boundedUser.includes(originalBriefText), 'The full core user brief must survive compaction.');
   assert.match(boundedUser, /FULL WEBSITE ROUTE MANIFEST/, 'The route-manifest context cue must remain available.');
   assert.match(boundedUser, /USER_END/, 'The trailing context must survive compaction.');
-  assert.equal(boundedPayload.max_tokens, 8_192, 'Cloudflare Workers AI completion tokens must be capped below the model context limit.');
+  assert.equal(boundedPayload.max_tokens, 6_144, 'Cloudflare Workers AI output must leave more room for long multi-page input prompts.');
   assert.equal(boundedPayload.temperature, 0.2);
 
   // Small readiness/chat requests are passed through without unnecessary truncation.
@@ -389,6 +389,7 @@ try {
   assert.equal(shortPayload.messages.find(message => message.role === 'system')?.content, 'short system');
   assert.equal(shortPayload.messages.find(message => message.role === 'user')?.content, 'short user');
   assert.equal(shortPayload.max_tokens, 32, 'Small readiness prompts must keep their original output budget.');
+  assert.ok(shortPayload.max_tokens <= 6_144);
 
   // The production Web Studio contract is larger than the Workers AI adapter's
   // system budget. Compaction must retain the middle design/editorial rules,
@@ -409,7 +410,7 @@ try {
   );
   const qualityPayload = capturedWorkersAiCalls[0].payload;
   const compactedQualityContract = qualityPayload.messages.find(message => message.role === 'system')?.content || '';
-  assert.ok(compactedQualityContract.length <= 10_000, 'The compacted system contract must stay within the bounded system budget.');
+  assert.ok(compactedQualityContract.length <= 8_000, 'The compacted system contract must stay within the bounded system budget.');
   assert.match(compactedQualityContract, /ART DIRECTION AND DISTINCTIVENESS/,
     'The front of the contract must retain the art-direction section.');
   assert.match(compactedQualityContract, /EDITORIAL COPY/,
