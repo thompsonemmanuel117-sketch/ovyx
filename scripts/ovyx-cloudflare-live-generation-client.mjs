@@ -13,6 +13,47 @@ const CASE_IDS = [
   'us-independent-fashion',
   'japan-product-software',
 ];
+
+const ALLOWED_GENERATION_PROVIDERS = new Set([
+  'gemini', 'claude', 'deepseek', 'openai', 'groq', 'openrouter', 'cloudflare-workers-ai',
+]);
+
+function normalizeProviderName(value) {
+  const provider = String(value || '').trim().toLowerCase();
+  if (provider === 'anthropic') return 'claude';
+  if (provider === 'chatgpt' || provider === 'gpt') return 'openai';
+  if (provider === 'cloudflare' || provider === 'workers-ai') return 'cloudflare-workers-ai';
+  return provider;
+}
+
+export function resolveProviderFromPreflight(requestedProvider, requestedModel, readiness) {
+  const selectedProvider = normalizeProviderName(readiness?.provider);
+  const requested = normalizeProviderName(requestedProvider || 'automatic');
+  if (!ALLOWED_GENERATION_PROVIDERS.has(selectedProvider)) {
+    throw new Error('Provider readiness check did not return a supported, concrete provider. Full website generation was stopped.');
+  }
+  if (requested !== 'automatic' && requested !== selectedProvider) {
+    throw new Error('Provider readiness check returned a different provider than the explicit selection. Full website generation was stopped.');
+  }
+  const selectedModel = String(readiness?.model || requestedModel || '').trim().slice(0, 140);
+  return { provider: selectedProvider, model: selectedModel };
+}
+
+export function buildLiveGenerationPayload(caseId, requestedProvider, requestedModel, integrationSettings, readiness) {
+  const selected = resolveProviderFromPreflight(requestedProvider, requestedModel, readiness);
+  return {
+    caseId,
+    provider: String(requestedProvider || 'automatic').trim().toLowerCase(),
+    model: String(requestedModel || '').trim().slice(0, 140),
+    // Keep Automatic's normal fallback available, but put the provider that just
+    // passed a real request first. This prevents repeatedly paying for known-bad
+    // vendor routes before trying the currently healthy Cloudflare binding.
+    preferredProvider: selected.provider,
+    providerRouting: 'preferred-first',
+    publicSettings: integrationSettings,
+  };
+}
+
 const MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
 const DEPLOYMENT_WAIT_MS = 15 * 60 * 1000;
 let cloudflareRuntimeConfigInventory = { aiProviderKeyNames: [], propertyIntegrationVariableNames: [], enquiryAndSocialVariableNames: [] };
@@ -364,18 +405,21 @@ async function preflightProvider(origin, provider, model) {
       : '';
     throw new Error('AI provider readiness check failed before full website generation. Fix the reported provider authentication, billing, quota, or runtime issue before retrying' + attempts + '.');
   }
+
+  const selected = resolveProviderFromPreflight(provider, model, body);
   console.log(JSON.stringify({
     event: 'live-provider-preflight-passed',
-    provider: String(body.provider || provider).slice(0, 40),
-    model: String(body.model || model || '').slice(0, 140) || null,
+    provider: selected.provider,
+    model: selected.model || null,
     status: 'ready',
-    note: 'A short real model response was received before full site generation.',
+    note: 'A short real model response was received; this provider will be prioritized for all full website requests in this run.',
   }));
+  return selected;
 }
-async function generateOne(origin, provider, model, integrationSettings, caseId) {
+async function generateOne(origin, provider, model, integrationSettings, caseId, preflightSelection = { provider, model }) {
   // Mint a fresh short-lived token immediately before each billable generation.
   const token = await getOidcToken();
-  const payload = { caseId, provider, model, publicSettings: integrationSettings };
+  const payload = buildLiveGenerationPayload(caseId, provider, model, integrationSettings, preflightSelection);
   let response;
   try {
     response = await fetch(origin + ROUTE, {
@@ -427,10 +471,17 @@ async function main() {
   const model = String(process.env.OVYX_EVAL_MODEL || '').trim();
   const settings = publicSettings();
   await writeWorkflowOutputs(settings);
-  await preflightProvider(origin, provider, model);
+  const preflightSelection = await preflightProvider(origin, provider, model);
   const sites = [];
   for (const caseId of CASE_IDS) {
-    const site = await generateOne(origin, provider, model, settings, caseId);
+    const site = await generateOne(
+      origin,
+      provider,
+      model,
+      settings,
+      caseId,
+      preflightSelection,
+    );
     sites.push(site);
     console.log(JSON.stringify({ event: 'cloudflare-live-site-generated', id: site.id, industry: site.industry, country: site.country, provider: site.provider, model: site.model, pageCount: site.pageCount }));
   }
