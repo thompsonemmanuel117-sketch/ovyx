@@ -18,6 +18,13 @@ try{
   process.env.OVYX_EVAL_ENQUIRY_TEST_RECIPIENT='ovyx-owner-test@example.invalid';
   const configured=module.publicIntegrationSettings();
   assert.equal(configured.listingsUrl.href,'https://feed.example.invalid/v1/properties');
+  const liveCopy={'index.html':'<main><h1>Live listings available now</h1><p>Explore verified property listings around Lagos.</p></main>'};
+  assert.equal(module.inventoryHonesty({industry:'real-estate'},liveCopy,false).passesHonestyGate,false,
+    'copy must not claim active inventory when no public feed is configured');
+  const configuredFeedCopy=module.inventoryHonesty({industry:'real-estate'},liveCopy,true);
+  assert.equal(configuredFeedCopy.passesHonestyGate,true,
+    'configured feed should avoid a false copy-only failure while the separate live integration audit verifies actual records');
+  assert.equal(configuredFeedCopy.status,'public-feed-configured-inventory-awaiting-live-integration-proof');
   assert.equal(configured.enquiryUrl.href,'https://forms.example.invalid/ovyx-qa');
   const generatedPrompt=module.makeEvaluationPrompt({
     industry:'real-estate',
