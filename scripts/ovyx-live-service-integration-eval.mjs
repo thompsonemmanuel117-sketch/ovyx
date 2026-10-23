@@ -223,6 +223,9 @@ async function findFiles(dir,pattern,prefix=''){
   for(const e of entries){if(e.name.startsWith('.')||e.name==='node_modules')continue;const rel=prefix?prefix+'/'+e.name:e.name;const absolute=path.join(dir,e.name);if(e.isDirectory())found.push(...await findFiles(absolute,pattern,rel));else if(e.isFile()&&pattern.test(rel))found.push(absolute);}
   return found;
 }
+export function buildEnquiryTestPayload(testRecipient, extra={}){
+  return {...extra,name:'OVYX automated integration test',email:String(testRecipient||'').trim(),subject:'OVYX integration test — no action needed',message:'This is a pre-authorized OVYX integration-test enquiry, not a customer lead. Please deliver it only to the owner-controlled QA test recipient.',source:'OVYX QA',test:true,dryRun:false};
+}
 export function assessEnquiryAcknowledgement(httpStatus, data){
   const body=data&&typeof data==='object'?data:{};
   const nested=body.data&&typeof body.data==='object'?body.data:{};
@@ -253,7 +256,7 @@ async function evaluateEnquiry(env){
     try{extra=JSON.parse(env.OVYX_EVAL_ENQUIRY_TEST_PAYLOAD_JSON);}catch{return {status:'invalid-test-payload-json',endpointConfigured:true,probeSent:false,endpointAcceptedTestPayload:false,realEnquiryDeliveryConfirmed:false};}
     if(!extra||typeof extra!=='object'||Array.isArray(extra))return {status:'invalid-test-payload-json',endpointConfigured:true,probeSent:false,endpointAcceptedTestPayload:false,realEnquiryDeliveryConfirmed:false};
   }
-  const payload={...extra,name:'OVYX automated integration test',email:testRecipient,subject:'OVYX integration test — no action needed',message:'This is a pre-authorized OVYX integration-test enquiry, not a customer lead. Please do not act on it.',source:'OVYX QA',test:true,dryRun:true};
+  const payload=buildEnquiryTestPayload(testRecipient,extra);
   const response=await requestJson(endpoint,{method:'POST',token:String(env.OVYX_EVAL_REAL_ENQUIRY_TOKEN||'').trim(),payload});
   if(!response.ok)return {status:'test-request-failed',endpointConfigured:true,endpoint:displayEndpoint(endpoint),probeSent:true,httpStatus:response.status||null,error:response.error||'request-failed',endpointAcceptedTestPayload:false,realEnquiryDeliveryConfirmed:false,note:'The QA payload was attempted but accepted delivery was not confirmed.'};
   const data=response.json||{};
