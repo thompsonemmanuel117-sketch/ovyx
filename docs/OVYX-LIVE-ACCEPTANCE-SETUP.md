@@ -58,17 +58,19 @@ No existing Cloudflare keys need to be renamed, removed or replaced. Add new var
 
 ## 5. Production troubleshooting record
 
-The latest trusted production acceptance run on 2026-10-23 ([run 117](https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/39975790548)) did not generate the first test website; the browser and acceptance reports therefore correctly show zero real sites tested. The sanitized diagnostics recorded:
+The latest trusted production acceptance run on 2026-10-23 ([run 139](https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/40038323568)) stopped at provider preflight before sending any full website briefs. Its sanitized diagnostics recorded:
 
 | Provider | Latest observed result | Recovery action |
 | --- | --- | --- |
-| DeepSeek | HTTP 402 — payment/billing required | Check provider billing/credit balance and enable API usage for the configured account. |
-| Claude / Anthropic | HTTP 401 — authentication rejected | Check or replace the production Anthropic key in Cloudflare secrets. Do not paste the key into GitHub or chat. |
-| OpenAI | HTTP 401 — authentication rejected | Check or replace the production OpenAI key in Cloudflare secrets. Do not paste the key into GitHub or chat. |
-| Gemini | HTTP 429 — rate limited/quota | Check the Gemini project's active quota, billing and request limits. A retry was already attempted; do not repeat the billable acceptance run until capacity is available. |
-| Cloudflare Workers AI | Failure still lacked a safe HTTP status in this run | Verify the production `AI` binding, account entitlement/usage and runtime logs. Do not blindly change the configured model ID. |
+| DeepSeek | HTTP 402 — payment/billing required | Check the provider account's billing/credit balance and ensure API usage is enabled for the configured account. |
+| Claude / Anthropic | HTTP 401 — authentication rejected | Verify that the production `ANTHROPIC_API_KEY` belongs to the intended account and remains active. Replace it in Cloudflare only after independently verifying the correct credential; never paste it into GitHub or chat. |
+| OpenAI | HTTP 401 — authentication rejected | Verify that the production `OPENAI_API_KEY` belongs to the intended account and remains active. Replace it in Cloudflare only after independently verifying the correct credential; never paste it into GitHub or chat. |
+| Gemini | HTTP 429 — rate limited/quota | Check the Gemini project's active quota, billing and rate limits. Do not rerun preflight repeatedly while the account remains rate-limited. |
+| Cloudflare Workers AI | HTTP 429 — rate limited/quota | Check Workers AI account usage, plan/entitlement and current limits. The `AI` binding is present, but that does not guarantee capacity is available. Avoid repeated test calls until the quota window or account limit is resolved. |
 
-These results are provider-access/runtime failures, not evidence that a site was generated. The production secret *names* being present does not mean the credentials are valid, paid, entitled or within quota. Run live generation again only after at least one provider has been verified healthy; choose that provider explicitly in the manual workflow where possible to avoid calls to known-broken providers.
+The production Pages inventory in run 139 reports these API-key variable **names** in both production and preview: `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `DEEPSEEK_API_KEY`, and `OPENAI_API_KEY`. It also reports the Cloudflare Workers AI `AI` binding as configured. No unrecognized provider-credential variable names were detected. `GROQ_API_KEY` and `OPENROUTER_API_KEY` are not present in the inventory; those providers cannot be used until their valid keys are added under the exact expected names. Nothing in this check reads or emits secret values.
+
+These are real account/runtime failures despite the expected key names being present. A secret name is not proof that the credential is valid, paid, entitled or within quota. The latest production run after the model-family routing fix still failed preflight, so website generation has **not** been verified as recovered. Do not start another billable generation run until at least one provider has been independently made healthy; use the manual workflow's explicit provider choice when testing that provider.
 
 The same run also confirmed that these owner-controlled acceptance settings were absent: authoritative browser-safe property feed, declaration that the feed is authoritative, public enquiry endpoint, explicit authorization for the external QA probe, and an owner-controlled QA test recipient. The existing `RESEND_API_KEY` and `RESEND_FROM_EMAIL` setting names do not by themselves prove that a public endpoint or a controlled test recipient is configured.
 
