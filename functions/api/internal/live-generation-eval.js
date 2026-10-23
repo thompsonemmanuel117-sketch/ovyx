@@ -320,7 +320,7 @@ export function safeLiveGenerationFailureDetail(error) {
       const kind = allowedKinds.has(String(item?.kind || '')) ? String(item.kind) : 'request-failed';
       const statusNumber = Number(item?.status);
       const status = Number.isInteger(statusNumber) && statusNumber >= 400 && statusNumber <= 599 ? statusNumber : null;
-      return provider + (status ? '-http-' + status : '-' + kind);
+      return provider + (status ? '-' + status : '-' + kind);
     });
     return ('ai-provider-unavailable' + (labels.length ? '-' + labels.join('-') : '')).slice(0, 80);
   }
