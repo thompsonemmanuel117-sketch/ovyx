@@ -3,9 +3,7 @@
 import { getFirestoreData } from '../_lib/firebase-admin.js';
 import { authenticateRequest } from '../_lib/firebase.js';
 import { jsonResponse, errorResponse, requestId } from './_lib/http.js';
-import { isRootUser } from '../_lib/brain/registry.js';
-
-const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
+import { ROOT_EMAIL } from '../_lib/brain/registry.js';
 
 const PAID_STATES = new Set([
   'trialing',
@@ -55,10 +53,8 @@ function normalizeTimestamp(value) {
 }
 
 function isRootIdentity(user) {
-  if (isRootUser(user)) {
-    return true;
-  }
-
+  // Only the canonical, Firebase-verified account email grants root bypass.
+  // Firestore profile roles, plan flags, and browser state are never root authority.
   return normalizeEmail(user?.email) === ROOT_EMAIL;
 }
 
