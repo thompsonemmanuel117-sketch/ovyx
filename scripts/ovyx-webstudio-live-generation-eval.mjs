@@ -60,7 +60,7 @@ function httpsEndpoint(value) {
     return url;
   } catch { return null; }
 }
-function publicIntegrationSettings() {
+export function publicIntegrationSettings() {
   const suppliedListingsUrl = httpsEndpoint(process.env.OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL || '');
   const listingsDeclaredAuthoritative = String(process.env.OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY || '').trim().toLowerCase() === 'authoritative';
   const listingsUrl = listingsDeclaredAuthoritative ? suppliedListingsUrl : null;
