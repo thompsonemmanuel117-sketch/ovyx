@@ -101,9 +101,9 @@ async function cloudflareProjectOrigin() {
 export function isTrustedGithubOidcRequestUrl(rawUrl) {
   let url;
   try { url = new URL(String(rawUrl || '')); } catch { return false; }
-  const hostname = url.hostname.toLowerCase().replace(/\\.$/, '');
+  const hostname = url.hostname.toLowerCase().replace(/\.$/, '');
   const hostOk = hostname === 'pipelines.actions.githubusercontent.com' ||
-    /^run-actions-\\d+-[a-z0-9]+(?:-[a-z0-9]+)*\\.actions\\.githubusercontent\\.com$/.test(hostname);
+    /^run-actions-\d+-[a-z0-9]+(?:-[a-z0-9]+)*\.actions\.githubusercontent\.com$/.test(hostname);
   return url.protocol === 'https:' && hostOk && !url.username && !url.password && !url.hash && !url.port;
 }
 
@@ -116,7 +116,7 @@ async function getOidcToken() {
     const protocolOk = url.protocol === 'https:';
     const hostname = url.hostname.toLowerCase().replace(/\.$/, '');
     const hostOk = hostname === 'pipelines.actions.githubusercontent.com' ||
-      /^run-actions-\\d+-[a-z0-9]+(?:-[a-z0-9]+)*\\.actions\\.githubusercontent\\.com$/.test(hostname);
+      /^run-actions-\d+-[a-z0-9]+(?:-[a-z0-9]+)*\.actions\.githubusercontent\.com$/.test(hostname);
     const noCredentials = !url.username && !url.password;
     const noFragment = !url.hash;
     const standardPort = !url.port;
