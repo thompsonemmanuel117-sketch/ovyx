@@ -343,10 +343,9 @@ async function callGemini(
   if (
     !response.ok
   ) {
-    throw new Error(
-      data?.error
-        ?.message ||
-        `Gemini HTTP ${response.status}`
+    throw Object.assign(
+      new Error('Gemini HTTP ' + response.status),
+      { status: response.status, code: 'AI_PROVIDER_REQUEST_FAILED' }
     );
   }
 
@@ -437,10 +436,9 @@ async function callClaude(
   if (
     !response.ok
   ) {
-    throw new Error(
-      data?.error
-        ?.message ||
-        `Anthropic HTTP ${response.status}`
+    throw Object.assign(
+      new Error('Anthropic HTTP ' + response.status),
+      { status: response.status, code: 'AI_PROVIDER_REQUEST_FAILED' }
     );
   }
 
@@ -507,7 +505,7 @@ async function callDeepSeek(
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw Object.assign(
-      new Error(data?.error?.message || data?.message || 'DeepSeek HTTP ' + response.status),
+      new Error('DeepSeek HTTP ' + response.status),
       { status: response.status, code: 'AI_PROVIDER_REQUEST_FAILED' }
     );
   }
@@ -566,9 +564,9 @@ async function callGroq(
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(
-      data?.error?.message ||
-        ('Groq HTTP ' + response.status)
+    throw Object.assign(
+      new Error('Groq HTTP ' + response.status),
+      { status: response.status, code: 'AI_PROVIDER_REQUEST_FAILED' }
     );
   }
 
@@ -625,7 +623,7 @@ async function callOpenRouter(
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     throw Object.assign(
-      new Error(data?.error?.message || data?.message || 'OpenRouter HTTP ' + response.status),
+      new Error('OpenRouter HTTP ' + response.status),
       { status: response.status, code: 'AI_PROVIDER_REQUEST_FAILED' }
     );
   }
@@ -719,9 +717,9 @@ async function callOpenAI(
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(
-      data?.error?.message ||
-      'OpenAI HTTP ' + response.status
+    throw Object.assign(
+      new Error('OpenAI HTTP ' + response.status),
+      { status: response.status, code: 'AI_PROVIDER_REQUEST_FAILED' }
     );
   }
 
@@ -867,6 +865,24 @@ export function providerOrder(env, requested, taskContext = '', globalOrder = nu
   return ordered;
 }
 
+function providerFailureDiagnostic(provider, error) {
+  const allowedProviders = new Set(['gemini', 'deepseek', 'claude', 'openai', 'groq', 'openrouter', 'cloudflare-workers-ai']);
+  const safeProvider = allowedProviders.has(String(provider || '')) ? String(provider) : 'unknown';
+  const statusValue = Number(error?.status);
+  const status = Number.isInteger(statusValue) && statusValue >= 400 && statusValue <= 599
+    ? statusValue
+    : null;
+  const sourceCode = String(error?.code || '').toUpperCase();
+  let kind = 'request-failed';
+  if (status) kind = 'http-error';
+  else if (sourceCode === 'AI_PROVIDER_TIMEOUT' || error?.name === 'AbortError' || error?.name === 'TimeoutError') kind = 'timeout';
+  else if (sourceCode === 'AI_PROVIDER_EMPTY_RESPONSE') kind = 'empty-response';
+  else if (sourceCode === 'AI_PROVIDER_NOT_CONFIGURED') kind = 'not-configured';
+  else if (error?.name === 'TypeError') kind = 'network-error';
+  else if (sourceCode === 'AI_INVALID_JSON') kind = 'invalid-response';
+  return { provider: safeProvider, kind, ...(status ? { status } : {}) };
+}
+
 export async function callModel(
   env,
   options = {}
@@ -877,6 +893,7 @@ export async function callModel(
   // An account-selected Universal Connection is exclusive. Never silently bill a
   // platform provider after a user's own connection failed or could not be verified.
   const errors = [];
+  const providerFailures = [];
   if (options.authUser && !/^connection:/i.test(requestedRaw)) {
     let activeBrainId = null;
     try {
@@ -1065,12 +1082,9 @@ export async function callModel(
         routedProvider: requested === 'automatic' ? result.provider : routedProvider,
       };
     } catch (err) {
-      errors.push(
-        `${provider}: ${
-          err?.message ||
-          err
-        }`
-      );
+      const diagnostic = providerFailureDiagnostic(provider, err);
+      providerFailures.push(diagnostic);
+      errors.push(diagnostic.provider + ': ' + (diagnostic.status ? 'HTTP ' + diagnostic.status : diagnostic.kind));
     }
   }
 
@@ -1094,6 +1108,7 @@ export async function callModel(
         status: 503,
         code: notConfigured ? 'AI_PROVIDER_NOT_CONFIGURED' : 'AI_PROVIDER_UNAVAILABLE',
         provider: normalizeRequestedProvider(requested, env),
+        providerFailures,
       }
     );
   }
@@ -1108,6 +1123,7 @@ export async function callModel(
       {
         status: 503,
         code: 'AI_PROVIDER_UNAVAILABLE',
+        providerFailures,
       }
     );
 
