@@ -85,6 +85,9 @@ for (const token of [
   'report.browser.pagesTested += 1',
   'initialRenderMs',
   'domNodes',
+  'Editorial copy and placeholder text',
+  'copyIssues',
+  'lorem\\s+ipsum',
   'Rendered text contrast sample',
   'Visible keyboard focus indicators',
   'Safe interactive behavior smoke test',
@@ -135,6 +138,8 @@ assert.ok(headers.includes('/assets/ovyx-webstudio-quality.js\n  Cache-Control: 
 assert.equal((headers.match(/\/assets\/ovyx-webstudio-quality\.js/g) || []).length, 1, 'Quality asset cache rules must appear exactly once.');
 assert.ok(packageJson.includes('scripts/ovyx-webstudio-quality.test.mjs'), 'The quality regression contract must run in npm test.');
 assert.ok(prompts.includes('ART DIRECTION AND DISTINCTIVENESS'), 'The server-side Web Studio agent must receive the premium design contract.');
+assert.ok(prompts.includes('EDITORIAL COPY AND TYPOGRAPHY QUALITY GATE'), 'Web Studio must enforce mature, proofread copy across generated pages.');
+assert.ok(prompts.includes('Remove awkward phrasing, AI-sounding filler'), 'Web Studio must explicitly reject generic or immature generated copy.');
 assert.ok(prompts.includes('project-specific favicon'), 'Web Studio must keep browser-tab icons aligned to the generated project logo.');
 assert.ok(prompts.includes('Never reuse the OVYX platform splash/sidebar mark as the website favicon unless the brief explicitly requests that brand'), 'Generated websites must not inherit the OVYX platform mark as their favicon by default.');
 assert.ok(prompts.includes('Make at most one bounded targeted repair pass'), 'The server-side Web Studio agent must use bounded repair passes.');

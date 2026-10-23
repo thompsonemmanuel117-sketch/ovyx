@@ -21,7 +21,14 @@
     "Existing unrelated pages and working features are preserved on targeted edits",
     "Remaining untested provider, deployment, and live-integration behavior is reported as unverified",
     "Rendered text on known solid backgrounds meets WCAG AA contrast targets, and keyboard-focusable controls have visible focus cues.",
-    "Sandbox reports DOM size and initial document/inline-script processing as diagnostics without misrepresenting them as real-world Core Web Vitals."
+    "Sandbox reports DOM size and initial document/inline-script processing as diagnostics without misrepresenting them as real-world Core Web Vitals.",
+    "Visual assets are relevant, have deliberate crops and fallbacks, and are not fabricated or left broken.",
+    "Rendered screenshots at 320, 390, 768, 1024 and 1440 widths are saved for supplied generated-site artifacts.",
+    "Market locale, language, currency and time zone follow explicit brief/context; unspecified markets remain undecided.",
+    "Real property search/matching uses available listing fields; demo inventory and unconfigured WhatsApp/backend integrations are labelled honestly.",
+    "Reports separate source evidence, browser behavior, visual review, live integration verification and deployment verification.",
+    "Visible copy is proofread, mature, specific and audience-appropriate; placeholder text, filler, repetitive generic slogans and unsupported superlatives are removed.",
+    "Typography has a coherent scale, readable line length and line-height, consistent hierarchy, and no clipped or overlapping text at required viewport widths."
   ],
   "siteCategories": [
     {
@@ -173,6 +180,41 @@
         "database connection",
         "data freshness",
         "authorization"
+      ]
+    },
+    {
+      "id": "international-property-marketplace",
+      "category": "International property marketplace",
+      "prompt": "Build a multi-page property marketplace for buyers in the United Kingdom and Nigeria. Ask users to select their market, format GBP and NGN correctly, filter listings by location, budget and property type using actual available data, provide property detail pages and an enquiry path, and clearly label demo listings if no live inventory feed is connected. Use distinctive architectural photography, intentional image crops, responsive layouts and restrained editorial art direction.",
+      "mustExercise": [
+        "market selector or explicit market context",
+        "locale-aware currency display",
+        "property search and filters",
+        "honest demo inventory state",
+        "responsive image-led listing cards"
+      ],
+      "integrationTruth": [
+        "live inventory",
+        "property matching",
+        "lead persistence",
+        "WhatsApp delivery"
+      ]
+    },
+    {
+      "id": "animated-restaurant-experience",
+      "category": "Asset-rich animated restaurant",
+      "prompt": "Build an original, visually distinctive restaurant website with high-quality food imagery, a memorable hero composition, purposeful motion, menu browsing, responsive navigation and a reservation-request journey. Use supplied/licensed assets or honest designed fallbacks; never fabricate image URLs or claim a booking succeeded without a connected service. Respect reduced-motion preferences and make primary actions usable on mobile.",
+      "mustExercise": [
+        "image asset strategy",
+        "hero and menu visual hierarchy",
+        "reduced-motion behavior",
+        "mobile interaction journey",
+        "reservation integration truth"
+      ],
+      "integrationTruth": [
+        "image availability and rights",
+        "reservation persistence",
+        "live booking provider"
       ]
     }
   ],

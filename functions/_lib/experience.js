@@ -1,3 +1,6 @@
+import { buildMarketContext } from './market-context.js';
+import { buildVisualAssetPlan } from './visual-asset-plan.js';
+
 /**
  * OVYX Experience Intelligence
  *
@@ -1317,6 +1320,8 @@ export function buildExperienceBrief(prompt, context = {}) {
     mustHave: source.mustHave,
     delighters: source.delighters,
     motion: source.motion,
+    marketContext: buildMarketContext(prompt, context),
+    visualAssetPlan: buildVisualAssetPlan(prompt, context, archetypeId),
     signatureMoments: [
       'one memorable above-the-fold composition',
       'one interactive or motion-led storytelling moment',
