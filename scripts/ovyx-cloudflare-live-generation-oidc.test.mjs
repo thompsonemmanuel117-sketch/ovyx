@@ -206,4 +206,87 @@ const unknownCase = await handleLiveGenerationRequest(
 assert.equal(unknownCase.status, 400, 'only allow-listed test case IDs are accepted');
 assert.equal((await unknownCase.json()).error, 'EVALUATION_CASE_NOT_ALLOWED', 'arbitrary prompts are rejected before provider selection or any billable call');
 
-console.log('Cloudflare live-generation OIDC route rejects wrong signatures/claims, untrusted workflow refs, cross-origin requests, missing credentials and arbitrary generation prompts.');
+const preflightCall = { count: 0, input: null };
+const providerPreflightReady = await handleLiveGenerationRequest(
+  new Request('https://forgeos-2k0.pages.dev/api/internal/live-generation-eval', {
+    method: 'POST',
+    headers: { authorization: 'Bearer ' + validToken, 'content-type': 'application/json' },
+    body: JSON.stringify({ operation: 'provider-preflight', provider: 'gemini', model: 'test-model' }),
+  }),
+  { GEMINI_API_KEY: 'configured-test-key' },
+  {
+    fetchImpl,
+    nowSeconds: now,
+    getProductionIntegrationState: async () => ({ live: true }),
+    callModel: async (_env, input) => {
+      preflightCall.count += 1;
+      preflightCall.input = input;
+      return { text: 'OVYX_PROVIDER_READY', provider: 'gemini', model: 'test-model' };
+    },
+  },
+);
+assert.equal(providerPreflightReady.status, 200, 'the allow-listed provider preflight should confirm a real model response');
+assert.deepEqual(await providerPreflightReady.json(), {
+  ok: true,
+  operation: 'provider-preflight',
+  readiness: 'ready',
+  provider: 'gemini',
+  model: 'test-model',
+});
+assert.equal(preflightCall.count, 1, 'one bounded preflight model request must run before full website generation');
+assert.equal(preflightCall.input.provider, 'gemini', 'an explicit provider preflight must not borrow another provider');
+assert.equal(preflightCall.input.maxTokens, 8, 'the preflight must use a minimal output budget');
+assert.equal(preflightCall.input.timeoutMs, 25_000, 'the preflight must have a bounded provider timeout');
+assert.match(preflightCall.input.system, /provider readiness check/i);
+assert.doesNotMatch(preflightCall.input.user, /website|property|restaurant|fashion|country/i,
+  'the preflight must not force a website category or country into OVYX generation');
+
+const preflightSecretFailure = Object.assign(new Error('PRIVATE_TOKEN_SHOULD_NEVER_LEAK'), {
+  code: 'AI_PROVIDER_UNAVAILABLE',
+  providerAttempts: [
+    { provider: 'gemini', kind: 'rate-limited-or-quota', status: 429, secret: 'PRIVATE_TOKEN_SHOULD_NEVER_LEAK' },
+    { provider: 'attacker', kind: 'exfiltrate', status: 200 },
+  ],
+});
+const providerPreflightBlocked = await handleLiveGenerationRequest(
+  new Request('https://forgeos-2k0.pages.dev/api/internal/live-generation-eval', {
+    method: 'POST',
+    headers: { authorization: 'Bearer ' + validToken, 'content-type': 'application/json' },
+    body: JSON.stringify({ operation: 'provider-preflight', provider: 'gemini' }),
+  }),
+  { GEMINI_API_KEY: 'configured-test-key' },
+  {
+    fetchImpl,
+    nowSeconds: now,
+    getProductionIntegrationState: async () => ({ live: true }),
+    callModel: async () => { throw preflightSecretFailure; },
+  },
+);
+assert.equal(providerPreflightBlocked.status, 503, 'a failed provider preflight must stop before website generation');
+const blockedBody = await providerPreflightBlocked.json();
+assert.equal(blockedBody.ok, false);
+assert.equal(blockedBody.error, 'AI_PROVIDER_PREFLIGHT_FAILED');
+assert.equal(blockedBody.detail, 'ai-provider-unavailable');
+assert.deepEqual(blockedBody.providerAttempts, [{ provider: 'gemini', kind: 'rate-limited-or-quota', status: 429 }]);
+assert.equal(JSON.stringify(blockedBody).includes('PRIVATE_TOKEN_SHOULD_NEVER_LEAK'), false,
+  'provider preflight errors must not expose private provider messages, tokens, or arbitrary fields');
+
+let arbitraryPreflightCalled = false;
+const arbitraryPreflight = await handleLiveGenerationRequest(
+  new Request('https://forgeos-2k0.pages.dev/api/internal/live-generation-eval', {
+    method: 'POST',
+    headers: { authorization: 'Bearer ' + validToken, 'content-type': 'application/json' },
+    body: JSON.stringify({ operation: 'provider-preflight', provider: 'gemini', prompt: 'Run a full website build here.' }),
+  }),
+  { GEMINI_API_KEY: 'configured-test-key' },
+  {
+    fetchImpl,
+    nowSeconds: now,
+    getProductionIntegrationState: async () => ({ live: true }),
+    callModel: async () => { arbitraryPreflightCalled = true; return { text: 'should never be reached' }; },
+  },
+);
+assert.equal(arbitraryPreflight.status, 400, 'preflight requests must not allow arbitrary prompts or generation settings');
+assert.equal(arbitraryPreflightCalled, false, 'invalid preflight requests must be rejected before provider calls');
+
+console.log('Cloudflare live-generation OIDC route rejects unsafe requests and proves a bounded provider preflight before full generation.');
