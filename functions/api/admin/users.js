@@ -80,7 +80,8 @@ async function readRegistryPage(context, id) {
     const planState = clean(user.planTierState, 80).toLowerCase();
     const storedPlan = clean(user.planTier ?? user.tier ?? user.plan ?? 'free', 30).toLowerCase();
     const expiresAtMs = timestampMs(user.expiresAt);
-    const rootUser = email === ROOT_EMAIL || ['ROOT_SUPERUSER', 'OWNER', 'ADMIN'].includes(role);
+    // Only the canonical owner email gets root plan/bypass treatment in the registry view.
+    const rootUser = email === ROOT_EMAIL;
     const terminalState = ['expired', 'refunded', 'chargeback', 'suspended', 'canceled'].includes(planState);
     const paidAccessActive = VALID_TIERS.has(storedPlan) && storedPlan !== 'free' &&
       ['active', 'trialing'].includes(planState) && expiresAtMs !== null && expiresAtMs > checkedAtMs;
