@@ -1156,8 +1156,13 @@ export function providerOrder(env, requested, taskContext = '', globalOrder = nu
   // Use the existing task classifier, then the configured order as fallback.
   // Unlike the historical implementation, never try an unconfigured provider.
   const preferred = normalizeConfiguredProvider(preferredProvider);
-  const userPreferred = SUPPORTED_PROVIDERS.includes(preferred) && preferred !== 'cloudflare-workers-ai' ? [preferred] : [];
   const routing = String(providerRouting || 'automatic').trim().toLowerCase();
+  // Workers AI stays the ordinary last-resort fallback. Only elevate it when a
+  // trusted preflight explicitly requested preferred-first for that proven provider.
+  const userPreferred = SUPPORTED_PROVIDERS.includes(preferred) &&
+    (preferred !== 'cloudflare-workers-ai' || routing === 'preferred-first')
+    ? [preferred]
+    : [];
   const preferredFirst = routing === 'preferred-first' ? userPreferred : [];
   const preferredFallback = routing === 'provider-priority' || routing === 'preferred-first' ? [] : userPreferred;
   const priorities = [
