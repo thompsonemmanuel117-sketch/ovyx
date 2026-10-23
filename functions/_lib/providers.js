@@ -877,7 +877,7 @@ function providerFailureDiagnostic(provider, error) {
   if (status) kind = 'http-error';
   else if (sourceCode === 'AI_PROVIDER_TIMEOUT' || error?.name === 'AbortError' || error?.name === 'TimeoutError') kind = 'timeout';
   else if (sourceCode === 'AI_PROVIDER_EMPTY_RESPONSE') kind = 'empty-response';
-  else if (sourceCode === 'AI_PROVIDER_NOT_CONFIGURED') kind = 'not-configured';
+  else if (sourceCode === 'AI_PROVIDER_NOT_CONFIGURED' || /not configured|missing server secret|binding is not configured/i.test(String(error?.message || ''))) kind = 'not-configured';
   else if (error?.name === 'TypeError') kind = 'network-error';
   else if (sourceCode === 'AI_INVALID_JSON') kind = 'invalid-response';
   return { provider: safeProvider, kind, ...(status ? { status } : {}) };
@@ -1101,7 +1101,7 @@ export async function callModel(
       'cloudflare-workers-ai': 'Cloudflare Workers AI',
     };
     const providerLabel = labels[requested] || requested.replace(/[-_]+/g, ' ').replace(/^./, letter => letter.toUpperCase());
-    const notConfigured = errors.some(item => /not configured|missing server secret|binding is not configured/i.test(item));
+    const notConfigured = providerFailures.some(item => item.kind === 'not-configured');
     throw Object.assign(
       new Error(providerLabel + ' is not available right now. Try OVYX Auto or choose another available AI option.'),
       {
