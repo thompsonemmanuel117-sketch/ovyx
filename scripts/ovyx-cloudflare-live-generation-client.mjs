@@ -337,7 +337,7 @@ async function generateOne(origin, provider, model, integrationSettings, caseId)
     const code = String(body.error || 'LIVE_GENERATION_FAILED').slice(0, 100);
     const detail = /^[a-z0-9-]{1,80}$/.test(String(body.detail || '')) ? ', ' + body.detail : '';
     const allowedProviders = new Set(['gemini', 'claude', 'deepseek', 'openai', 'groq', 'openrouter', 'cloudflare-workers-ai']);
-    const allowedKinds = new Set(['not-configured', 'payment-or-billing-required', 'authentication-rejected', 'permission-denied', 'model-or-endpoint-not-found', 'request-rejected', 'rate-limited-or-quota', 'provider-server-error', 'timeout', 'network-error', 'empty-response', 'invalid-response', 'provider-error']);
+    const allowedKinds = new Set(['not-configured', 'plan-required', 'payment-or-billing-required', 'authentication-rejected', 'permission-denied', 'model-or-endpoint-not-found', 'request-rejected', 'rate-limited-or-quota', 'provider-server-error', 'timeout', 'network-error', 'empty-response', 'invalid-response', 'provider-error']);
     const providerAttempts = (Array.isArray(body.providerAttempts) ? body.providerAttempts : []).slice(0, 7)
       .filter(item => allowedProviders.has(String(item?.provider || '')) && allowedKinds.has(String(item?.kind || '')))
       .map(item => ({
