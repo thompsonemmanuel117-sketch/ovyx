@@ -353,7 +353,20 @@ export function safeLiveGenerationFailureDetail(error) {
 
 export async function handleLiveGenerationRequest(request, env, options = {}) {
   if (request.method !== 'POST') {
-    return Response.json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, { status: 405, headers: { Allow: 'POST', 'Cache-Control': 'no-store' } });
+    // GitHub's trusted live-acceptance workflow uses this no-cost GET response
+    // to prove the canonical Pages alias serves the expected deployed revision
+    // before invoking billable model generation. These reserved Cloudflare
+    // metadata values are non-secret and avoid exposing config or credentials.
+    const commitSha = String(env?.CF_PAGES_COMMIT_SHA || '').trim().toLowerCase();
+    const branch = String(env?.CF_PAGES_BRANCH || '').trim();
+    return Response.json({
+      ok: false,
+      error: 'METHOD_NOT_ALLOWED',
+      deployment: {
+        commitSha: /^[a-f0-9]{40}$/.test(commitSha) ? commitSha : '',
+        branch: /^[A-Za-z0-9._/-]{1,100}$/.test(branch) ? branch : '',
+      },
+    }, { status: 405, headers: { Allow: 'POST', 'Cache-Control': 'no-store' } });
   }
   const origin = request.headers.get('origin');
   if (origin && origin !== new URL(request.url).origin) {
