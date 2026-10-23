@@ -83,9 +83,14 @@ async function getOidcToken() {
   let url;
   try {
     url = new URL(rawUrl);
+    if (url.protocol !== 'https:' ||
+        url.hostname.toLowerCase() !== 'pipelines.actions.githubusercontent.com' ||
+        url.username || url.password || url.hash) {
+      throw new Error('Untrusted OIDC request URL.');
+    }
     url.searchParams.set('audience', AUDIENCE);
   } catch {
-    throw new Error('GitHub Actions did not provide a valid OIDC request URL.');
+    throw new Error('GitHub Actions did not provide a trusted HTTPS OIDC request URL.');
   }
   let response;
   try {
