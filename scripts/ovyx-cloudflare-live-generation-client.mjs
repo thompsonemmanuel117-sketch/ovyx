@@ -13,6 +13,7 @@ const CASE_IDS = [
 ];
 const MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
 const DEPLOYMENT_WAIT_MS = 15 * 60 * 1000;
+let cloudflareRuntimeConfigInventory = { aiProviderKeyNames: [], propertyIntegrationVariableNames: [], enquiryAndSocialVariableNames: [] };
 
 function required(name) {
   const value = String(process.env[name] || '').trim();
@@ -51,6 +52,34 @@ async function readJsonResponse(response) {
   try { return text ? JSON.parse(text) : {}; }
   catch { throw new Error('Cloudflare live-generation endpoint returned invalid JSON.'); }
 }
+function collectRuntimeVariableNames(project) {
+  const names = new Set();
+  const inspect = node => {
+    if (!node || typeof node !== 'object') return;
+    if (Array.isArray(node)) {
+      for (const item of node) inspect(item);
+      return;
+    }
+    for (const [key, value] of Object.entries(node)) {
+      if (key === 'env_vars' && value && typeof value === 'object' && !Array.isArray(value)) {
+        for (const [name, definition] of Object.entries(value)) {
+          const type = String(definition?.type || '').toLowerCase();
+          if (['plain_text', 'secret_text'].includes(type)) names.add(String(name).slice(0, 120));
+        }
+        continue;
+      }
+      inspect(value);
+    }
+  };
+  inspect(project);
+  const list = [...names].sort();
+  return {
+    aiProviderKeyNames: list.filter(name => /^(?:GEMINI|ANTHROPIC|DEEPSEEK|OPENAI|GROQ|OPENROUTER)_API_KEY$/.test(name)),
+    propertyIntegrationVariableNames: list.filter(name => /PROPERTY|LISTING|REALTY|REAL_ESTATE|ZILLOW|ZOOPLA/i.test(name)),
+    enquiryAndSocialVariableNames: list.filter(name => /ENQUIR|CONTACT|RESEND|SMTP|EMAIL|SENDGRID|MAILGUN|WHATSAPP|TWILIO|SOCIAL|WEBHOOK|FORM/i.test(name)),
+  };
+}
+
 async function cloudflareProjectOrigin() {
   const token = required('CLOUDFLARE_API_TOKEN');
   const accountId = required('CLOUDFLARE_ACCOUNT_ID');
@@ -71,6 +100,8 @@ async function cloudflareProjectOrigin() {
   if (!response.ok || payload.success !== true || !payload.result) {
     throw new Error('Cloudflare Pages project lookup failed with HTTP ' + response.status + '. Check the existing Pages Read configuration.');
   }
+  cloudflareRuntimeConfigInventory = collectRuntimeVariableNames(payload.result);
+  console.log(JSON.stringify({ event: 'cloudflare-runtime-config-presence', ...cloudflareRuntimeConfigInventory }));
   const subdomain = String(payload.result.subdomain || '').trim().toLowerCase();
   if (!subdomain || !/^[a-z0-9][a-z0-9-]*\.pages\.dev$/.test(subdomain)) {
     throw new Error('Cloudflare did not return a valid canonical Pages subdomain for this project.');
@@ -250,6 +281,7 @@ async function main() {
     generatedAt: new Date().toISOString(),
     sites,
     realSitesGenerated: sites.length,
+    cloudflareRuntimeConfigInventory,
     realListingsConfirmed: false,
     realEnquiryDeliveryConfirmed: false,
     limits: [
