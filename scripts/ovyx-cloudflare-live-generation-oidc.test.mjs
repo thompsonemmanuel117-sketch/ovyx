@@ -37,7 +37,7 @@ assert.equal(safeLiveGenerationFailureDetail(Object.assign(new Error('No raw pro
     { provider: 'openai', kind: 'timeout' },
     { provider: 'attacker-controlled-name', kind: 'unknown', status: 999 },
   ],
-})), 'ai-provider-unavailable-gemini-http-401-claude-http-429-openai-timeout-provider-request-failed');
+})), 'ai-provider-unavailable-gemini-401-claude-429-openai-timeout-provider-request-failed');
 assert.equal(safeLiveGenerationFailureDetail(Object.assign(new Error('No secret should leak'), {
   code: 'AI_PROVIDER_NOT_CONFIGURED',
 })), 'ai-provider-not-configured');
