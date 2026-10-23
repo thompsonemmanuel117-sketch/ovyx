@@ -93,6 +93,20 @@ async function cloudflareProjectOrigin() {
   }
   return 'https://' + subdomain;
 }
+// GitHub-hosted Actions can issue OIDC requests from either the stable pipelines
+// host or a region-specific runner host such as
+// run-actions-3-azure-eastus.actions.githubusercontent.com. Restrict the latter
+// to the exact runner-host naming pattern, HTTPS, no credentials/fragments, and
+// the default HTTPS port; never allow arbitrary subdomains or lookalike suffixes.
+export function isTrustedGithubOidcRequestUrl(rawUrl) {
+  let url;
+  try { url = new URL(String(rawUrl || '')); } catch { return false; }
+  const hostname = url.hostname.toLowerCase().replace(/\\.$/, '');
+  const hostOk = hostname === 'pipelines.actions.githubusercontent.com' ||
+    /^run-actions-\\d+-[a-z0-9]+(?:-[a-z0-9]+)*\\.actions\\.githubusercontent\\.com$/.test(hostname);
+  return url.protocol === 'https:' && hostOk && !url.username && !url.password && !url.hash && !url.port;
+}
+
 async function getOidcToken() {
   const rawUrl = required('ACTIONS_ID_TOKEN_REQUEST_URL');
   const requestToken = required('ACTIONS_ID_TOKEN_REQUEST_TOKEN');
@@ -101,14 +115,17 @@ async function getOidcToken() {
     url = new URL(rawUrl);
     const protocolOk = url.protocol === 'https:';
     const hostname = url.hostname.toLowerCase().replace(/\.$/, '');
-    const hostOk = hostname === 'pipelines.actions.githubusercontent.com';
+    const hostOk = hostname === 'pipelines.actions.githubusercontent.com' ||
+      /^run-actions-\\d+-[a-z0-9]+(?:-[a-z0-9]+)*\\.actions\\.githubusercontent\\.com$/.test(hostname);
     const noCredentials = !url.username && !url.password;
     const noFragment = !url.hash;
+    const standardPort = !url.port;
     const failedChecks = [
       !protocolOk && 'protocol-not-https',
       !hostOk && 'hostname-not-allowlisted',
       !noCredentials && 'url-contains-credentials',
       !noFragment && 'url-contains-fragment',
+      !standardPort && 'nonstandard-port-not-allowed',
     ].filter(Boolean);
     if (failedChecks.length) {
       // Never print the complete URL, query string, or request-token value.
