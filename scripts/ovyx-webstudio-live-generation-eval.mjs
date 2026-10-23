@@ -111,7 +111,7 @@ function summarizeContent(files) {
   return Object.entries(files).map(([file, content]) => file + '\n' + String(content || '')).join('\n\n');
 }
 
-function inventoryHonesty(caseItem, files, liveFeedConfigured = false) {
+export function inventoryHonesty(caseItem, files, liveFeedConfigured = false) {
   if (caseItem.industry !== 'real-estate') return { status: 'not-applicable' };
   const source = summarizeContent(files);
   const honestEmptyState = /(?:live inventory|listing feed|property feed|inventory feed).{0,100}(?:not connected|not configured|connect|unavailable|not yet)|(?:connect|configure).{0,100}(?:listing|property|inventory).{0,100}(?:feed|source|api)|no live (?:property )?listings/i.test(source);
@@ -120,11 +120,12 @@ function inventoryHonesty(caseItem, files, liveFeedConfigured = false) {
   const claimsLiveWithoutProof = !liveFeedConfigured && /\b(?:verified listing|live listings?|available now|real-time listings?|current inventory)\b/i.test(source) && !/\b(?:not connected|not configured|sample|demo|illustrative)\b/i.test(source);
   return {
     status: claimsLiveWithoutProof ? 'fail-unverified-live-inventory-claim'
-      : listingLanguage && !(honestEmptyState || labelledExamples) ? 'fail-inventory-provenance-missing'
+      : listingLanguage && !liveFeedConfigured && !(honestEmptyState || labelledExamples) ? 'fail-inventory-provenance-missing'
+      : liveFeedConfigured && listingLanguage ? 'public-feed-configured-inventory-awaiting-live-integration-proof'
       : honestEmptyState ? 'honest-empty-state-live-feed-not-configured'
       : labelledExamples ? 'illustrative-data-labelled'
       : 'no-live-inventory-evidence',
-    passesHonestyGate: !claimsLiveWithoutProof && (!listingLanguage || honestEmptyState || labelledExamples),
+    passesHonestyGate: !claimsLiveWithoutProof && (liveFeedConfigured || !listingLanguage || honestEmptyState || labelledExamples),
     realListingsConfirmed: false,
     reason: liveFeedConfigured
       ? 'A public listing feed is configured for this generation. This copy check does not independently prove the feed is authoritative, reachable, or correctly rendered; only the separate live-service integration audit can confirm real listings.'
