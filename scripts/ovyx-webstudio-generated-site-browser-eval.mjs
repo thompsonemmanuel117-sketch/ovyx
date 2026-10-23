@@ -218,6 +218,23 @@ async function exerciseButtons(page, baseUrl, route) {
   await page.goto(baseUrl + route, { waitUntil: 'domcontentloaded', timeout: 7000 }).catch(() => {});
   return { tested: output.filter(item => !String(item.status).startsWith('skipped')).length, skipped: output.filter(item => String(item.status).startsWith('skipped')).length, results: output };
 }
+export function assessPublicEnquiryReceipt(httpStatus,data){
+  const body=data&&typeof data==='object'?data:{};
+  const nested=body.data&&typeof body.data==='object'?body.data:{};
+  const delivery=body.delivery&&typeof body.delivery==='object'?body.delivery:{};
+  const nestedDelivery=nested.delivery&&typeof nested.delivery==='object'?nested.delivery:{};
+  const state=String(body.deliveryStatus||body.messageStatus||delivery.status||nested.deliveryStatus||nested.messageStatus||nestedDelivery.status||'').trim().toLowerCase().replace(/[\\s_-]+/g,' ');
+  const explicitDelivery=body.delivered===true||body.messageDelivered===true||delivery.delivered===true
+    ||nested.delivered===true||nested.messageDelivered===true||nestedDelivery.delivered===true
+    ||['delivered','delivery confirmed','delivered to recipient'].includes(state);
+  const httpOk=Number(httpStatus)>=200&&Number(httpStatus)<300;
+  const acceptedByBody=body.ok===true||body.accepted===true||body.success===true||body.queued===true
+    ||String(body.status||'').toLowerCase()==='accepted'||nested.ok===true||nested.accepted===true
+    ||nested.success===true||nested.queued===true||String(nested.status||'').toLowerCase()==='accepted'||explicitDelivery;
+  return {endpointAcceptedTestPayload:httpOk&&acceptedByBody,explicitDeliveryReceipt:explicitDelivery,
+    realEnquiryDeliveryConfirmed:httpOk&&acceptedByBody&&explicitDelivery,deliveryStatusReported:state||null};
+}
+
 async function exercisePublicEnquiryForms(page) {
   if (!PUBLIC_ENQUIRY || !ENQUIRY_TEST_RECIPIENT) {
     return { status: 'not-configured-or-not-opted-in', requestObserved: false, endpointAcceptedTestPayload: false, explicitDeliveryReceipt: false, realEnquiryDeliveryConfirmed: false, note: 'No public enquiry URL, owner-controlled test recipient, and explicit probe approval were all present.' };
@@ -258,12 +275,11 @@ async function exercisePublicEnquiryForms(page) {
     await responsePromise;
     await page.waitForTimeout(250).catch(()=>{});
     const status=response?response.status():null;
-    const obj=responseBody&&typeof responseBody==='object'?responseBody:{};
-    const nested=obj.delivery&&typeof obj.delivery==='object'?obj.delivery:{};
-    const deliveryStatus=String(obj.deliveryStatus||obj.messageStatus||nested.status||'').trim().toLowerCase().replace(/[\s_-]+/g,' ');
-    const explicitDelivery=obj.delivered===true||obj.messageDelivered===true||nested.delivered===true||['delivered','delivery confirmed','delivered to recipient'].includes(deliveryStatus);
-    const endpointAccepted=Boolean(response&&status>=200&&status<300&&(obj.ok===true||obj.accepted===true||obj.success===true||obj.queued===true||obj.delivered===true||String(obj.status||'').toLowerCase()==='accepted'));
-    const deliveryConfirmed=endpointAccepted&&explicitDelivery;
+    const receipt=assessPublicEnquiryReceipt(status,responseBody);
+    const deliveryStatus=receipt.deliveryStatusReported;
+    const explicitDelivery=receipt.explicitDeliveryReceipt;
+    const endpointAccepted=receipt.endpointAcceptedTestPayload;
+    const deliveryConfirmed=receipt.realEnquiryDeliveryConfirmed;
     results.push({
       status:deliveryConfirmed?'endpoint-reported-delivery-confirmed':endpointAccepted?'endpoint-accepted-test-payload-delivery-unverified':response?'endpoint-did-not-confirm-test-acceptance':'external-enquiry-request-not-observed',
       requestObserved:Boolean(response),httpStatus:status,endpointAcceptedTestPayload:endpointAccepted,explicitDeliveryReceipt:explicitDelivery,
