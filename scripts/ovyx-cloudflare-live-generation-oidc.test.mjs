@@ -36,8 +36,10 @@ const jwk = await cryptoApi.subtle.exportKey('jwk', keys.publicKey);
 jwk.kid = 'ovyx-eval-test-key';
 jwk.use = 'sig';
 jwk.alg = 'RS256';
-const fetchImpl = async url => {
+const fetchImpl = async (url, init = {}) => {
   assert.equal(String(url), 'https://token.actions.githubusercontent.com/.well-known/jwks');
+  assert.equal(init.redirect, 'follow', 'the public JWKS fetch supports legitimate redirects');
+  assert.ok(init.signal, 'JWKS requests must have a bounded timeout');
   return new Response(JSON.stringify({ keys: [jwk] }), {
     status: 200,
     headers: { 'content-type': 'application/json' },
@@ -84,6 +86,22 @@ assert.equal(chooseProvider({AI:{run:async()=>({response:'ok'})}}, 'automatic'),
   'the existing Cloudflare Workers AI binding is a valid no-vendor-key path');
 
 const validToken = await signToken();
+const untrustedJwksFetcher = async () => {
+  const response = new Response(JSON.stringify({ keys: [jwk] }), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+  });
+  Object.defineProperty(response, 'url', { value: 'https://attacker.invalid/keys' });
+  return response;
+};
+const untrustedJwks = await verifyGithubOidcToken(validToken, {
+  fetchImpl: untrustedJwksFetcher,
+  nowSeconds: now,
+});
+assert.equal(untrustedJwks.ok, false, 'keys served from an untrusted redirect destination must be rejected');
+assert.equal(untrustedJwks.reason, 'jwks-unavailable');
+assert.equal(untrustedJwks.detail, 'jwks-final-url-untrusted');
+
 const verified = await verifyGithubOidcToken(validToken, { fetchImpl, nowSeconds: now });
 assert.equal(verified.ok, true, 'a valid signature and exact trusted main workflow claims are accepted');
 assert.equal(verified.claims.repository, 'thompsonemmanuel117-sketch/ovyx');
