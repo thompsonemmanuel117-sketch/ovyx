@@ -241,14 +241,14 @@ function rewriteTagAssetReference(tag, attribute, pagePath, assetPath) {
 function insertSharedAssetTag(source, tag, target) {
   const text = String(source || '');
   if (target === 'head') {
-    if (/<\/head\s*>/i.test(text)) return text.replace(/<\/head\s*>/i, match => '\\n' + tag + match);
-    if (/<head\b[^>]*>/i.test(text)) return text.replace(/<head\b[^>]*>/i, match => match + '\\n' + tag);
+    if (/<\/head\s*>/i.test(text)) return text.replace(/<\/head\s*>/i, match => '\n' + tag + match);
+    if (/<head\b[^>]*>/i.test(text)) return text.replace(/<head\b[^>]*>/i, match => match + '\n' + tag);
     if (/<html\b[^>]*>/i.test(text)) return text.replace(/<html\b[^>]*>/i, match => match + '<head>' + tag + '</head>');
     return '<!doctype html><html><head>' + tag + '</head><body>' + text + '</body></html>';
   }
-  if (/<\/body\s*>/i.test(text)) return text.replace(/<\/body\s*>/i, match => '\\n' + tag + match);
-  if (/<body\b[^>]*>/i.test(text)) return text.replace(/<body\b[^>]*>/i, match => match + '\\n' + tag);
-  return text + '\\n' + tag;
+  if (/<\/body\s*>/i.test(text)) return text.replace(/<\/body\s*>/i, match => '\n' + tag + match);
+  if (/<body\b[^>]*>/i.test(text)) return text.replace(/<body\b[^>]*>/i, match => match + '\n' + tag);
+  return text + '\n' + tag;
 }
 
 function normalizeSharedAssetReferences(staged, siteMap) {
@@ -835,16 +835,16 @@ export async function buildStudioMultiPage(options = {}) {
       .filter(Boolean)
       .slice(0, 12);
     const recoveryInstruction = [
-      'BOUNDED WEBSITE-GENERATION RECOVERY: the previous generation attempt failed a deterministic output/quality check.',
+      'BOUNDED WEBSITE-GENERATION RECOVERY: the previous model output failed a deterministic build or quality check.',
       'Retry the full build once. Preserve the complete original user brief and every explicitly requested page, feature, language, market and interaction.',
       'Return strict valid JSON for every phase, generate every required file, and ensure the output satisfies the existing structural and prompt-requirement checks.',
       'Every HTML page under src/pages must load each supplied shared src/styles.css and src/main.js using correct local relative paths such as ../styles.css and ../main.js. Do not use placeholder links or omit shared assets.',
       requirementIssues.length ? 'The prior deterministic requirement checks reported: ' + requirementIssues.join(' | ') : '',
-    ].filter(Boolean).join('\\n\\n');
+    ].filter(Boolean).join('\n\n');
 
     let recoveryContext;
     if (typeof options.context === 'string') {
-      recoveryContext = options.context + '\\n\\n' + recoveryInstruction;
+      recoveryContext = options.context + '\n\n' + recoveryInstruction;
     } else {
       recoveryContext = JSON.stringify({
         existingContext: options.context && typeof options.context === 'object' ? options.context : {},
@@ -854,7 +854,7 @@ export async function buildStudioMultiPage(options = {}) {
     const retryOptions = {
       ...options,
       qualityContract: [String(options.qualityContract || '').trim(), recoveryInstruction]
-        .filter(Boolean).join('\\n\\n'),
+        .filter(Boolean).join('\n\n'),
       context: recoveryContext,
       _ovyxGenerationRecoveryAttempt: 1,
     };
