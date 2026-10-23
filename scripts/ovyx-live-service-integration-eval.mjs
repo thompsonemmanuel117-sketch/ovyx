@@ -62,7 +62,7 @@ async function requestJson(rawUrl,{method='GET',token='',payload=null,allowLocal
     let response;
     try{
       response=await fetch(parsed.url,{method,headers,body:payload===null?undefined:JSON.stringify(payload),signal:controller.signal,redirect:'manual'});
-    }catch(error){return {ok:false,error:error.name==='AbortError'?'request-timeout':String(error.message||error).slice(0,180)};}
+    }catch(error){const message=String(error.message||error).replace(parsed.url.href,'[configured endpoint]').replace(parsed.url.pathname,'/[redacted-path]');return {ok:false,error:error.name==='AbortError'?'request-timeout':message.slice(0,180)};}
     if(response.status>=300&&response.status<400)return {ok:false,status:response.status,error:'redirect-not-followed-for-safety'};
     const text=await readBounded(response).catch(error=>'__READ_ERROR__:'+String(error.message||error));
     if(text.startsWith('__READ_ERROR__:'))return {ok:false,status:response.status,error:text.slice(16,220)};
