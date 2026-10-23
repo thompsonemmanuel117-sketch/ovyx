@@ -8,6 +8,7 @@ const MAX_RESPONSE_BYTES=5_000_000;
 const TIMEOUT_MS=15000;
 const SECRET_QUERY=/(?:api[-_]?key|token|secret|auth|credential|password|access[-_]?key)/i;
 const ACTIVE_STATUS=new Set(['active','published','available','live','for sale','for rent','listed','open']);
+const INACTIVE_STATUS=new Set(['inactive','sold','rented','leased','withdrawn','unavailable','archived','deleted','expired','off market','closed','draft','unpublished']);
 
 function safeEndpoint(raw,{allowLocal=false}={}){
   let url;
@@ -94,10 +95,33 @@ function assessRecord(row,env){
   const title=firstValue(row,[env.OVYX_EVAL_LISTING_TITLE_FIELD,'title','name','headline'].filter(Boolean));
   const location=firstValue(row,[env.OVYX_EVAL_LISTING_LOCATION_FIELD,'address','location','area','city','locality'].filter(Boolean));
   const status=firstValue(row,[env.OVYX_EVAL_LISTING_STATUS_FIELD,'status','listingStatus','state'].filter(Boolean));
-  const active=status!==null&&ACTIVE_STATUS.has(String(status).toLowerCase().replace(/[_-]+/g,' ').trim());
+  const normalizedStatus=status===null?'':String(status).toLowerCase().replace(/[_-]+/g,' ').trim();
+  const active=ACTIVE_STATUS.has(normalizedStatus);
+  const inactive=INACTIVE_STATUS.has(normalizedStatus);
   return {
-    hasStableId:id!==null,hasTitle:title!==null,hasLocation:location!==null,hasStatus:status!==null,activeStatus:active,
+    hasStableId:id!==null,hasTitle:title!==null,hasLocation:location!==null,hasStatus:status!==null,
+    activeStatus:active,inactiveStatus:inactive,statusClass:active?'active':inactive?'inactive':'unknown',
     title:title===null?null:String(title).slice(0,300),location:location===null?null:String(location).slice(0,300),
+  };
+}
+export function summarizeListingEvidence(assessments,{authoritative=false,inspectedAllRecords=false,websiteFeedWiringVerified=false,renderedEvidence={}}={}){
+  const activeRecords=assessments.filter(r=>r.activeStatus);
+  const inactiveRecords=assessments.filter(r=>r.inactiveStatus);
+  const recordsWithExplicitStatus=assessments.filter(r=>r.hasStatus).length;
+  const recordsWithKnownStatus=assessments.filter(r=>r.hasStatus&&(r.activeStatus||r.inactiveStatus)).length;
+  const usableRecordCount=assessments.filter(r=>r.hasStableId&&r.hasTitle&&r.hasLocation).length;
+  const activeRecordsWithRequiredFields=activeRecords.filter(r=>r.hasStableId&&r.hasTitle&&r.hasLocation).length;
+  const inactiveRecordPageMatches=Number(renderedEvidence.inactiveRecordPageMatches||0);
+  const renderedRecordPageMatches=Number(renderedEvidence.renderedRecordPageMatches||0);
+  const confirmed=authoritative&&inspectedAllRecords&&assessments.length>0
+    &&recordsWithExplicitStatus===assessments.length&&recordsWithKnownStatus===assessments.length
+    &&activeRecords.length>0&&activeRecordsWithRequiredFields===activeRecords.length
+    &&websiteFeedWiringVerified&&renderedRecordPageMatches>0&&inactiveRecordPageMatches===0;
+  return {
+    usableRecordCount,recordsWithExplicitStatus,recordsWithKnownStatus,
+    liveStatusRecordCount:activeRecords.length,inactiveStatusRecordCount:inactiveRecords.length,
+    activeRecordsWithRequiredFields,renderedRecordPageMatches,inactiveRecordPageMatches,
+    realListingsConfirmed:confirmed,
   };
 }
 function normalizeListingText(value){
@@ -106,12 +130,17 @@ function normalizeListingText(value){
 async function readJson(file,fallback={}){
   try{return JSON.parse(await fs.readFile(file,'utf8'));}catch{return fallback;}
 }
-async function findRenderedLiveListings(records){
+async function findRenderedLiveListings(activeRecords,inactiveRecords=[]){
   const browser=await readJson(BROWSER_REPORT,{results:[]});
   const browserSites=new Map((browser.results||[]).map(site=>[site.site,site]));
   let folders=[];
   try{folders=(await fs.readdir(OUT,{withFileTypes:true})).filter(entry=>entry.isDirectory());}catch{}
-  let listingSiteFound=false, renderedRecordPageMatches=0, listingPagesInspected=0;
+  let listingSiteFound=false,renderedRecordPageMatches=0,inactiveRecordPageMatches=0,listingPagesInspected=0;
+  const recordMatchesVisibleText=(record,visible)=>{
+    if(!record.title||!record.location)return false;
+    const title=normalizeListingText(record.title),location=normalizeListingText(record.location);
+    return title.length>=4&&location.length>=3&&visible.includes(title)&&visible.includes(location);
+  };
   for(const folder of folders){
     const metadata=await readJson(path.join(OUT,folder.name,'ovyx-live-generation.json'),{});
     if(metadata.industry!=='real-estate')continue;
@@ -119,22 +148,19 @@ async function findRenderedLiveListings(records){
     if(!site)continue;
     const manifest=metadata.siteMap?.pages||[];
     const candidates=manifest.filter(page=>/\b(?:property|properties|listing|listings|available homes|homes for sale|rental)\b/i.test(String(page.title||'')+' '+String(page.path||'')));
-    const paths=new Set(candidates.map(page=>String(page.path||'').replace(/^\/+/,'').toLowerCase()));
-    const results=(site.pages||[]).filter(page=>page.viewport==='mobile-390'&&paths.has(String(page.page||'').replace(/^\/+/,'').toLowerCase()));
+    const paths=new Set(candidates.map(page=>String(page.path||'').replace(/^\/+/, '').toLowerCase()));
+    const results=(site.pages||[]).filter(page=>page.viewport==='mobile-390'&&paths.has(String(page.page||'').replace(/^\/+/, '').toLowerCase()));
     if(results.length)listingSiteFound=true;
     for(const page of results){
       listingPagesInspected++;
       const visible=normalizeListingText(page.metrics?.visibleText||'');
       if(!visible)continue;
-      const matched=records.some(record=>{
-        if(!record.title||!record.location)return false;
-        const title=normalizeListingText(record.title),location=normalizeListingText(record.location);
-        return title.length>=4&&location.length>=3&&visible.includes(title)&&visible.includes(location);
-      });
-      if(matched)renderedRecordPageMatches++;
+      if(activeRecords.some(record=>recordMatchesVisibleText(record,visible)))renderedRecordPageMatches++;
+      // An inactive property's identifying title and location must not be visible on the active listing page.
+      if(inactiveRecords.some(record=>recordMatchesVisibleText(record,visible)))inactiveRecordPageMatches++;
     }
   }
-  return {listingSiteFound,listingPagesInspected,renderedRecordPageMatches};
+  return {listingSiteFound,listingPagesInspected,renderedRecordPageMatches,inactiveRecordPageMatches};
 }
 async function evaluateListings(env){
   const endpoint=String(env.OVYX_EVAL_LISTINGS_API_URL||'').trim();
@@ -146,9 +172,6 @@ async function evaluateListings(env){
   const records=findListings(response.json,env.OVYX_EVAL_LISTINGS_JSON_PATH);
   if(!records)return {status:'listing-array-not-found',endpoint:displayEndpoint(endpoint),sourceHttpStatus:response.status,recordsReceived:0,usableRecordCount:0,liveStatusRecordCount:0,realListingsConfirmed:false,websiteFeedWiringVerified:false,note:'Configure OVYX_EVAL_LISTINGS_JSON_PATH to the array that contains listing records.'};
   const assessments=records.slice(0,1000).map(row=>assessRecord(row,env));
-  const usable=assessments.filter(r=>r.hasStableId&&r.hasTitle&&r.hasLocation).length;
-  const withStatus=assessments.filter(r=>r.hasStatus).length;
-  const live=assessments.filter(r=>r.hasStableId&&r.hasTitle&&r.hasLocation&&r.activeStatus).length;
   let websiteFeedWiringVerified=false;
   // The private source URL may differ from the public browser-safe feed URL.
   // Never require or embed a private endpoint in generated client-side code.
@@ -167,10 +190,16 @@ async function evaluateListings(env){
       if(endpointReferenced&&requestPrimitive){websiteFeedWiringVerified=true;break;}
     }
   }
-  const renderedEvidence=await findRenderedLiveListings(assessments.filter(record=>record.activeStatus&&record.title&&record.location));
+  const activeRecords=assessments.filter(record=>record.activeStatus&&record.title&&record.location);
+  const inactiveRecords=assessments.filter(record=>record.inactiveStatus&&record.title&&record.location);
+  const renderedEvidence=await findRenderedLiveListings(activeRecords,inactiveRecords);
   const authoritative=String(env.OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY||'').trim().toLowerCase()==='authoritative';
   const inspectedAllRecords=records.length<=1000&&assessments.length===records.length;
-  const confirmed=authoritative&&inspectedAllRecords&&records.length>0&&live===records.length&&withStatus===records.length&&usable===records.length&&websiteFeedWiringVerified&&renderedEvidence.renderedRecordPageMatches>0;
+  const listingProof=summarizeListingEvidence(assessments,{authoritative,inspectedAllRecords,websiteFeedWiringVerified,renderedEvidence});
+  const usable=listingProof.usableRecordCount;
+  const withStatus=listingProof.recordsWithExplicitStatus;
+  const live=listingProof.liveStatusRecordCount;
+  const confirmed=listingProof.realListingsConfirmed;
   return {
     status:confirmed?'authoritative-live-records-verified-in-rendered-property-listings-page'
       :records.length===0?'source-returned-no-listings'
@@ -179,12 +208,14 @@ async function evaluateListings(env){
       :usable===Math.min(records.length,1000)?'records-usable-live-status-or-site-wiring-not-proven':'records-fail-required-field-validation',
     endpointConfigured:true,endpoint:displayEndpoint(endpoint),sourceHttpStatus:response.status,
     recordsReceived:records.length,recordsInspected:assessments.length,inspectedAllRecords,usableRecordCount:usable,
-    recordsWithExplicitStatus:withStatus,liveStatusRecordCount:live,
+    recordsWithExplicitStatus:withStatus,recordsWithKnownStatus:listingProof.recordsWithKnownStatus,
+    liveStatusRecordCount:live,inactiveStatusRecordCount:listingProof.inactiveStatusRecordCount,
+    activeRecordsWithRequiredFields:listingProof.activeRecordsWithRequiredFields,
     authoritativeSourceDeclared:authoritative,websiteFeedWiringVerified,
     listingSiteFound:renderedEvidence.listingSiteFound,listingPagesInspected:renderedEvidence.listingPagesInspected,
-    renderedRecordPageMatches:renderedEvidence.renderedRecordPageMatches,
+    renderedRecordPageMatches:renderedEvidence.renderedRecordPageMatches,inactiveRecordPageMatches:renderedEvidence.inactiveRecordPageMatches,
     realListingsConfirmed:confirmed,
-    note:'A configured endpoint returning JSON does not alone prove authenticity. Confirmation requires a declared authoritative source, validation of every record (up to 1000), stable IDs/titles/locations, explicit active statuses, executable request code alongside the endpoint reference, and at least one active feed record visibly rendered on a generated property-listings route in Chromium. More than 1000 records require a bounded query before confirmation.',
+    note:'A configured endpoint returning JSON does not alone prove authenticity. Confirmation requires a declared authoritative source; every inspected record must have a recognized explicit active or inactive status; every active record must have a stable ID, title, and location; executable request code must reference the public feed; at least one active record must be visible on a generated property-listings route in Chromium; and inactive records must not appear on that active listing page. More than 1000 records require a bounded query before confirmation.',
   };
 }
 async function findFiles(dir,pattern,prefix=''){
