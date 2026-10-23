@@ -1,16 +1,16 @@
 import { authenticateRequest } from '../../_lib/firebase.js';
 import { getFirestoreData, setFirestoreDocument } from '../../_lib/firebase-admin.js';
-import { isRootUser } from '../../_lib/brain/registry.js';
+import { ROOT_EMAIL } from '../../_lib/brain/registry.js';
 import { readJson, jsonResponse, requestId, enforceSameOrigin } from '../_lib/http.js';
 
-const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 const clean = (v, n = 400) => String(v ?? '').trim().slice(0, n);
 
 function isRootAdmin(user) {
   if (!user) return false;
+  // Root operations are bound to the authenticated canonical owner account.
+  // A token/profile role string alone must not grant owner-level access.
   const email = clean(user.email, 320).toLowerCase();
-  if (email === ROOT_EMAIL.toLowerCase() || isRootUser(user)) return true;
-  return clean(user.role, 80).toUpperCase() === 'ROOT_SUPERUSER';
+  return email === ROOT_EMAIL.toLowerCase();
 }
 
 function positive(value, label) {
