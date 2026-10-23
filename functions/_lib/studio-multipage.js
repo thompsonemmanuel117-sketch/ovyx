@@ -215,7 +215,7 @@ function isLocalAssetReference(value) {
 }
 
 function tagReferencesAsset(tag, attribute, assetPath) {
-  const matcher = new RegExp("\\b(" + attribute + "\\s*=\\s*)([\\"'])(.*?)\\2", "i");
+  const matcher = new RegExp("\\b(" + attribute + "\\s*=\\s*)([\"'])(.*?)\\2", "i");
   const match = String(tag || '').match(matcher);
   if (!match || !isLocalAssetReference(match[3])) return false;
   const rawPath = match[3].split(/[?#]/, 1)[0];
@@ -225,7 +225,7 @@ function tagReferencesAsset(tag, attribute, assetPath) {
 }
 
 function rewriteTagAssetReference(tag, attribute, pagePath, assetPath) {
-  const matcher = new RegExp("\\b(" + attribute + "\\s*=\\s*)([\\"'])(.*?)\\2", "i");
+  const matcher = new RegExp("\\b(" + attribute + "\\s*=\\s*)([\"'])(.*?)\\2", "i");
   return String(tag || '').replace(matcher, (whole, prefix, quote, raw) => {
     if (!isLocalAssetReference(raw)) return whole;
     const rawPath = String(raw).split(/[?#]/, 1)[0];
