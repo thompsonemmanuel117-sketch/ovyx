@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
-import { handleLiveGenerationRequest, verifyGithubOidcToken } from '../functions/api/internal/live-generation-eval.js';
+import { chooseProvider, handleLiveGenerationRequest, verifyGithubOidcToken } from '../functions/api/internal/live-generation-eval.js';
 
 const cryptoApi = globalThis.crypto || webcrypto;
 const now = Math.floor(Date.now() / 1000);
@@ -50,6 +50,15 @@ async function signToken(overrides = {}) {
   );
   return signingInput + '.' + Buffer.from(new Uint8Array(signature)).toString('base64url');
 }
+
+assert.equal(chooseProvider({}, 'automatic'), null, 'automatic routing must not claim a provider exists if Cloudflare has no configured key or AI binding.');
+assert.equal(chooseProvider({GEMINI_API_KEY:'configured-test-key'}, 'automatic'), 'automatic',
+  'automatic routing must use OVYX’s provider-selection/fallback logic instead of pinning the first key');
+assert.equal(chooseProvider({DEEPSEEK_API_KEY:'configured-test-key'}, 'deepseek'), 'deepseek');
+assert.equal(chooseProvider({GEMINI_API_KEY:'configured-test-key'}, 'openai'), null,
+  'an explicitly selected provider must not silently borrow another provider key');
+assert.equal(chooseProvider({AI:{run:async()=>({response:'ok'})}}, 'automatic'), 'automatic',
+  'the existing Cloudflare Workers AI binding is a valid no-vendor-key path');
 
 const validToken = await signToken();
 const verified = await verifyGithubOidcToken(validToken, { fetchImpl, nowSeconds: now });
