@@ -189,6 +189,17 @@ const badMethod = await handleLiveGenerationRequest(
   { fetchImpl, nowSeconds: now },
 );
 assert.equal(badMethod.status, 405, 'readiness probes are no-cost and never start generation');
+const badMethodBody = await badMethod.json();
+assert.deepEqual(badMethodBody.deployment, { commitSha: '', branch: '' }, 'local/no-metadata readiness must fail closed without revealing unrelated configuration');
+const deploymentAwareProbe = await handleLiveGenerationRequest(
+  new Request('https://forgeos-2k0.pages.dev/api/internal/live-generation-eval', { method: 'GET' }),
+  { CF_PAGES_COMMIT_SHA: 'A'.repeat(40), CF_PAGES_BRANCH: 'main' },
+  { fetchImpl, nowSeconds: now },
+);
+assert.deepEqual((await deploymentAwareProbe.json()).deployment, {
+  commitSha: 'a'.repeat(40),
+  branch: 'main',
+}, 'readiness response exposes only the deployed commit SHA and branch for exact-version verification');
 
 const unknownCase = await handleLiveGenerationRequest(
   new Request('https://forgeos-2k0.pages.dev/api/internal/live-generation-eval', {
