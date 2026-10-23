@@ -7,6 +7,7 @@ const project = {
     production: {
       env_vars: {
         GEMINI_API_KEY: { type: 'secret_text', value: 'SENTINEL_GEMINI_KEY_MUST_NEVER_APPEAR' },
+        GROQ_API_TOKEN: { type: 'secret_text', value: 'SENTINEL_GROQ_ALIAS_KEY_MUST_NEVER_APPEAR' },
         RESEND_API_KEY: { type: 'secret_text', value: 'SENTINEL_RESEND_KEY_MUST_NEVER_APPEAR' },
         PROPERTY_LISTING_API_TOKEN: { type: 'secret_text', value: 'SENTINEL_PROPERTY_TOKEN_MUST_NEVER_APPEAR' },
         OVYX_PUBLIC_CONTACT_URL: { type: 'plain_text', value: 'https://contact.example.invalid/route' },
@@ -18,6 +19,7 @@ const project = {
     preview: {
       env_vars: {
         OPENAI_API_KEY: { type: 'secret_text', value: 'SENTINEL_OPENAI_KEY_MUST_NEVER_APPEAR' },
+        OPENROUTER_SECRET_KEY: { type: 'secret_text', value: 'SENTINEL_OPENROUTER_ALIAS_KEY_MUST_NEVER_APPEAR' },
         WHATSAPP_ACCESS_TOKEN: { type: 'secret_text', value: 'SENTINEL_WHATSAPP_TOKEN_MUST_NEVER_APPEAR' },
       },
     },
@@ -26,6 +28,12 @@ const project = {
 
 const report = summarizeCloudflareRuntimeConfig(project);
 assert.deepEqual(report.aiProviderKeyNames, ['GEMINI_API_KEY', 'OPENAI_API_KEY']);
+assert.deepEqual(report.productionAiProviderKeyNames, ['GEMINI_API_KEY']);
+assert.deepEqual(report.previewAiProviderKeyNames, ['OPENAI_API_KEY']);
+assert.deepEqual(report.productionUnrecognizedAiProviderCredentialVariableNames, ['GROQ_API_TOKEN'],
+  'Production aliases should be visible by name only so the owner can detect naming mismatches safely.');
+assert.deepEqual(report.previewUnrecognizedAiProviderCredentialVariableNames, ['OPENROUTER_SECRET_KEY'],
+  'Preview provider aliases must be labelled separately from production.');
 assert.deepEqual(report.propertyIntegrationVariableNames, ['PROPERTY_LISTING_API_TOKEN']);
 assert.deepEqual(report.enquiryAndSocialVariableNames, [
   'OVYX_PUBLIC_CONTACT_URL',
@@ -66,6 +74,8 @@ assert.equal(JSON.stringify(evaluationSettings).includes('preview-feed.example.i
 const serialized = JSON.stringify(report);
 for (const marker of [
   'SENTINEL_GEMINI_KEY_MUST_NEVER_APPEAR',
+  'SENTINEL_GROQ_ALIAS_KEY_MUST_NEVER_APPEAR',
+  'SENTINEL_OPENROUTER_ALIAS_KEY_MUST_NEVER_APPEAR',
   'SENTINEL_RESEND_KEY_MUST_NEVER_APPEAR',
   'SENTINEL_PROPERTY_TOKEN_MUST_NEVER_APPEAR',
   'SENTINEL_ENCRYPTION_KEY_MUST_NEVER_APPEAR',
