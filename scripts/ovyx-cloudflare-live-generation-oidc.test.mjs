@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
-import { chooseProvider, handleLiveGenerationRequest, safeLiveGenerationFailureDetail, verifyGithubOidcToken } from '../functions/api/internal/live-generation-eval.js';
+import { chooseProvider, handleLiveGenerationRequest, safeLiveGenerationFailureDetail, safeLiveGenerationProviderAttempts, verifyGithubOidcToken } from '../functions/api/internal/live-generation-eval.js';
 import { isTrustedGithubOidcRequestUrl } from './ovyx-github-oidc-url.mjs';
 
 // Cover the exact GitHub-hosted runner hostname reported by the production
@@ -39,6 +39,20 @@ assert.equal(safeLiveGenerationFailureDetail(Object.assign(new Error('timeout de
   name: 'TimeoutError',
 })), 'upstream-timeout');
 assert.equal(safeLiveGenerationFailureDetail(new Error('private message / key=DO_NOT_LEAK')), 'generation-error');
+
+assert.deepEqual(safeLiveGenerationProviderAttempts({
+  providerAttempts: [
+    { provider: 'gemini', kind: 'authentication-rejected', status: 401, message: 'DO_NOT_LEAK', secret: 'DO_NOT_LEAK' },
+    { provider: 'claude', kind: 'rate-limited-or-quota', status: 429 },
+    { provider: 'attacker-provider', kind: 'provider-error', status: 500 },
+    { provider: 'openai', kind: 'exfiltrate', status: 200 },
+    { provider: 'deepseek', kind: 'provider-server-error', status: 503 },
+  ],
+}), [
+  { provider: 'gemini', kind: 'authentication-rejected', status: 401 },
+  { provider: 'claude', kind: 'rate-limited-or-quota', status: 429 },
+  { provider: 'deepseek', kind: 'provider-server-error', status: 503 },
+], 'provider diagnostics must keep only allow-listed provider/kind/status data and never echo messages or secret fields');
 
 const cryptoApi = globalThis.crypto || webcrypto;
 const now = Math.floor(Date.now() / 1000);
