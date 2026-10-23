@@ -38,7 +38,7 @@ try {
   const flawed=report.sites.find(s=>s.site==='fixture-bad-copy');
   assert.ok(clean&&flawed);
   assert.equal(clean.status,'automated-checks-run-human-review-and-real-integration-verification-pending');
-  assert.equal(clean.categories.enquiry.status,'qa-only-local-post-tested-real-delivery-unverified');
+  assert.equal(clean.categories.enquiry.status,'qa-only-local-post-tested-real-destination-not-configured');
   assert.equal(clean.categories.inventory.status,'live-feed-not-configured');
   assert.equal(clean.claims.realListingsConfirmed,false);
   assert.equal(clean.claims.realEnquiryDeliveryConfirmed,false);
