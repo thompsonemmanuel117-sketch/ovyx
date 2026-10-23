@@ -347,6 +347,20 @@ export function safeLiveGenerationFailureDetail(error) {
   if (code === 'AI_PROVIDER_NOT_CONFIGURED') return 'ai-provider-not-configured';
   if (code === 'AI_PROVIDER_UNSUPPORTED') return 'ai-provider-unsupported';
   if (code === 'AI_PROVIDER_UNAVAILABLE') return 'ai-provider-unavailable';
+  const safeWebStudioFailureDetails = {
+    WEBSTUDIO_PAGE_LIMIT: 'webstudio-page-limit',
+    WEBSTUDIO_SITEMAP_INVALID: 'webstudio-sitemap-invalid',
+    WEBSTUDIO_SITEMAP_INCOMPLETE: 'webstudio-sitemap-incomplete',
+    WEBSTUDIO_BATCH_PLAN_FAILED: 'webstudio-batch-plan-failed',
+    WEBSTUDIO_BATCH_EMPTY: 'webstudio-batch-empty',
+    WEBSTUDIO_BATCH_FILE_LIMIT: 'webstudio-batch-file-limit',
+    WEBSTUDIO_PATH_NOT_ALLOWED: 'webstudio-path-not-allowed',
+    WEBSTUDIO_EMPTY_FILE: 'webstudio-empty-file',
+    WEBSTUDIO_BATCH_MISSING_FILES: 'webstudio-batch-missing-files',
+    WEBSTUDIO_SITE_VALIDATION_FAILED: 'webstudio-site-validation-failed',
+    WEBSTUDIO_PROMPT_REQUIREMENT_MISSING: 'webstudio-prompt-requirement-missing',
+  };
+  if (safeWebStudioFailureDetails[code]) return safeWebStudioFailureDetails[code];
   if (code === 'PROMPT_REQUIRED') return 'prompt-required';
   if (error?.name === 'AbortError' || error?.name === 'TimeoutError') return 'upstream-timeout';
   if (error?.name === 'TypeError') return 'upstream-network-error';
@@ -536,6 +550,10 @@ export async function handleLiveGenerationRequest(request, env, options = {}) {
     generatedAt: new Date().toISOString(),
     siteMap: generated.siteMap || null,
     totalPages: generated.totalPages || generated.siteMap?.pages?.length || null,
+    generationRecovery: generated.generationRecovery || { status: 'not-needed' },
+    sharedAssetPagesRepaired: Number.isFinite(Number(generated.sharedAssetPagesRepaired))
+      ? Math.max(0, Math.min(250, Math.floor(Number(generated.sharedAssetPagesRepaired))))
+      : 0,
     generatedFiles: Object.keys(safeFiles),
     inventoryHonesty: honesty,
     evidenceLimits: [

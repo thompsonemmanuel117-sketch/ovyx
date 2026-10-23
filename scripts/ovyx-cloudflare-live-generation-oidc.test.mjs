@@ -39,6 +39,13 @@ assert.equal(safeLiveGenerationFailureDetail(Object.assign(new Error('timeout de
   name: 'TimeoutError',
 })), 'upstream-timeout');
 assert.equal(safeLiveGenerationFailureDetail(new Error('private message / key=DO_NOT_LEAK')), 'generation-error');
+assert.equal(safeLiveGenerationFailureDetail(Object.assign(new Error('model output content must remain private'), {
+  code: 'WEBSTUDIO_BATCH_MISSING_FILES',
+})), 'webstudio-batch-missing-files');
+assert.equal(safeLiveGenerationFailureDetail(Object.assign(new Error('generated user copy must remain private'), {
+  code: 'WEBSTUDIO_PROMPT_REQUIREMENT_MISSING',
+})), 'webstudio-prompt-requirement-missing',
+  'builder diagnostics should expose a safe allow-listed category instead of collapsing every model-output failure to generation-error');
 
 assert.deepEqual(safeLiveGenerationProviderAttempts({
   providerAttempts: [
