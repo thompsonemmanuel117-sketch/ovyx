@@ -106,11 +106,13 @@ export async function verifyGithubOidcToken(token, options = {}) {
     (Array.isArray(claims?.aud) && claims.aud.length === 1 && claims.aud[0] === EXPECTED_AUDIENCE);
   if (claims?.iss !== EXPECTED_ISSUER || !audienceMatches) return { ok: false, reason: 'issuer-or-audience-invalid' };
 
-  const issued = Number(claims.iat), expires = Number(claims.exp), notBefore = Number(claims.nbf || 0);
+  const issued = Number(claims.iat), expires = Number(claims.exp);
+  const hasNotBefore = claims.nbf !== undefined && claims.nbf !== null;
+  const notBefore = hasNotBefore ? Number(claims.nbf) : null;
   if (!Number.isFinite(issued) || !Number.isFinite(expires) ||
       issued > nowSeconds + 60 || expires <= nowSeconds ||
       expires <= issued || expires - issued > MAX_TOKEN_LIFETIME_SECONDS ||
-      (notBefore && (!Number.isFinite(notBefore) || notBefore > nowSeconds + 60))) {
+      (hasNotBefore && (!Number.isFinite(notBefore) || notBefore > nowSeconds + 60))) {
     return { ok: false, reason: 'token-time-invalid' };
   }
   if (
@@ -131,7 +133,16 @@ export async function verifyGithubOidcToken(token, options = {}) {
   } catch {
     return { ok: false, reason: 'jwks-unavailable' };
   }
-  const jwk = jwks.find(item => item?.kid === header.kid && item?.kty === 'RSA' && item?.use !== 'enc');
+  let jwk = jwks.find(item => item?.kid === header.kid && item?.kty === 'RSA' && item?.use !== 'enc');
+  if (!jwk) {
+    // GitHub may rotate signing keys while this isolate still has a cached JWKS.
+    jwksCache = null;
+    jwksCacheExpiresAt = 0;
+    try {
+      jwks = await getGithubJwks(fetchImpl, nowSeconds);
+      jwk = jwks.find(item => item?.kid === header.kid && item?.kty === 'RSA' && item?.use !== 'enc');
+    } catch { return { ok: false, reason: 'jwks-unavailable' }; }
+  }
   if (!jwk) return { ok: false, reason: 'signing-key-not-found' };
 
   try {
@@ -201,9 +212,11 @@ function chooseProvider(env, requested) {
   };
   const provider = canonical(requested || 'automatic');
   if (provider !== 'automatic') return configured(provider) ? provider : null;
+  const supported = new Set(['gemini', 'deepseek', 'claude', 'openai', 'groq', 'openrouter', 'cloudflare-workers-ai']);
   const configuredOrder = String(env.OVYX_AI_PROVIDER_ORDER || env.AI_PROVIDER_ORDER || 'gemini,deepseek,claude,openai,groq,openrouter,cloudflare-workers-ai')
-    .split(',').map(canonical).filter((item, index, all) => all.indexOf(item) === index);
-  return configuredOrder.find(configured) || null;
+    .split(',').map(canonical).filter(item => supported.has(item)).filter((item, index, all) => all.indexOf(item) === index);
+  const fallback = ['gemini', 'deepseek', 'claude', 'openai', 'groq', 'openrouter', 'cloudflare-workers-ai'];
+  return [...configuredOrder, ...fallback.filter(item => !configuredOrder.includes(item))].find(configured) || null;
 }
 function safePath(value) {
   const path = String(value || '').trim().replace(/\\/g, '/').replace(/^\/+/, '');
