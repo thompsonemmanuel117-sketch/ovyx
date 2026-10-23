@@ -9,11 +9,11 @@ const OUT = path.resolve(process.argv[3] || 'artifacts/webstudio-evaluation-repo
 const VIEWPORTS = [{name:'mobile-320',width:320,height:700},{name:'mobile-390',width:390,height:844},{name:'tablet-768',width:768,height:1024},{name:'laptop-1024',width:1024,height:768},{name:'desktop-1440',width:1440,height:900}];
 const MIME = {'.html':'text/html; charset=utf-8','.htm':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.avif':'image/avif','.gif':'image/gif','.woff':'font/woff','.woff2':'font/woff2','.ttf':'font/ttf','.otf':'font/otf','.json':'application/json; charset=utf-8'};
 const QA_ENDPOINT = '/.well-known/ovyx-qa-enquiry';
-const LISTING_FEED_ORIGIN = (() => {
+const LISTING_FEED = (() => {
   try {
     const url = new URL(String(process.env.OVYX_EVAL_LISTINGS_API_URL || ''));
-    return url.protocol === 'https:' ? url.origin : '';
-  } catch { return ''; }
+    return url.protocol === 'https:' ? { origin: url.origin, pathname: url.pathname } : null;
+  } catch { return null; }
 })();
 
 async function walk(dir,prefix='') {
@@ -276,7 +276,7 @@ async function main() {
               let target;
               try{target=new URL(raw);}catch{return route.abort('blockedbyclient');}
               if(['data:','blob:','about:'].includes(target.protocol)||target.origin===baseOrigin)return route.continue();
-              const safeListingRequest=Boolean(LISTING_FEED_ORIGIN)&&target.protocol==='https:'&&target.origin===LISTING_FEED_ORIGIN&&['GET','HEAD','OPTIONS'].includes(request.method())&&['fetch','xhr'].includes(request.resourceType());
+              const safeListingRequest=Boolean(LISTING_FEED)&&target.protocol==='https:'&&target.origin===LISTING_FEED.origin&&target.pathname===LISTING_FEED.pathname&&['GET','HEAD','OPTIONS'].includes(request.method())&&['fetch','xhr'].includes(request.resourceType());
               if(safeListingRequest)return route.continue();
               blockedExternalRequests.push({url:raw.slice(0,300),method:request.method(),resourceType:request.resourceType()});
               return route.abort('blockedbyclient');
