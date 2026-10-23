@@ -9,7 +9,7 @@ assert.equal(lagos.locale, 'en-NG');
 assert.equal(lagos.currency, 'NGN');
 assert.equal(lagos.timeZone, 'Africa/Lagos');
 assert.ok(lagos.implementationRules.some(rule => /WhatsApp is a contact link/i.test(rule)));
-assert.equal(formatMarketCurrency(33500, lagos), 'NGN 33,500.00');
+assert.equal(formatMarketCurrency(33500, lagos), '₦33,500.00');
 
 const us = buildMarketContext('Build a property site for buyers in the United States.');
 assert.equal(us.country, 'United States');
