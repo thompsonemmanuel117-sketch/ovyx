@@ -57,6 +57,8 @@ function httpsEndpoint(value) {
   try {
     const url = new URL(String(value || '').trim());
     if (url.protocol !== 'https:' || url.username || url.password) return null;
+    if ([...url.searchParams.keys()].some(key => /(?:api[-_]?key|access[-_]?key|token|secret|auth|signature|credential|password)/i.test(key))) return null;
+    if (/(?:^|\.)localhost$/i.test(url.hostname) || /\.(?:local|internal)$/i.test(url.hostname)) return null;
     return url;
   } catch { return null; }
 }
