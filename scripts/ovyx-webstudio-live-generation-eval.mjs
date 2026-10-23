@@ -73,7 +73,7 @@ function publicIntegrationSettings() {
     enquiryProbeEnabled: probeEnabled && Boolean(recipient),
   };
 }
-function makeEvaluationPrompt(caseItem, publicSettings) {
+export function makeEvaluationPrompt(caseItem, publicSettings) {
   let prompt = caseItem.prompt;
   if (caseItem.industry === 'real-estate' && publicSettings.listingsUrl) {
     prompt = prompt
