@@ -487,7 +487,7 @@ export async function handleLiveGenerationRequest(request, env, options = {}) {
   let generated;
   try {
     generated = await buildStudioMultiPage({
-      env: { ...env, OVYX_WEBSTUDIO_MAX_PAGES: '5', OVYX_WEBSTUDIO_MAX_BATCH_FILES: '6', OVYX_WEBSTUDIO_POLISH_ENABLED: env.OVYX_WEBSTUDIO_POLISH_ENABLED || 'true' },
+      env: { ...env, OVYX_WEBSTUDIO_MAX_PAGES: '8', OVYX_WEBSTUDIO_MAX_BATCH_FILES: '6', OVYX_WEBSTUDIO_POLISH_ENABLED: env.OVYX_WEBSTUDIO_POLISH_ENABLED || 'true' },
       callModel,
       provider,
       model: model || undefined,
