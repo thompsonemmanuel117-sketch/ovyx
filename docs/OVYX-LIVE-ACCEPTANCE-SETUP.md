@@ -16,8 +16,8 @@ Optional Actions variable: `OVYX_EVAL_MODEL`. Leave blank to use the existing pr
 
 The manual workflow also has an `operation` selector:
 - `preflight-only`: sends only the small provider readiness request, writes `provider-preflight-report.json`, and skips all website generation, browser tests, listing checks, and enquiry-delivery probes. Use this first when checking whether a provider has recovered.
-- `full-acceptance`: runs the four-site generation and the usual browser/integration/audit gates after preflight succeeds. This remains the default for manual runs.
-A preflight-only success proves only that the selected route returned a short real model response. It is not a substitute for full acceptance evidence.
+- `full-acceptance`: runs the four-site generation and the usual browser/integration/audit gates after preflight succeeds. You must explicitly select this mode; the safe default is `preflight-only`.
+Push-triggered live workflow runs are also preflight-only: they never start four-site generation merely because a provider is healthy. A preflight-only success proves only that the selected route returned a short real model response. It is not a substitute for full acceptance evidence.
 
 ## 2. Authoritative property records
 
@@ -84,7 +84,7 @@ Do not bypass the gates, fabricate listing data, count the local QA form as real
 ## 6. Run and review the evidence
 
 1. Merge only after the targeted code and regression checks pass. A PR run intentionally does not call production generation or send test enquiries.
-2. A trusted `main` push or a manual workflow run on `main` starts with a provider-readiness preflight through the existing production Cloudflare runtime. The preflight sends a fixed, very short text request with a maximum of eight output tokens; it can incur small provider usage charges. In the manual workflow, choose `preflight-only` to stop after that request, or `full-acceptance` to proceed to the four-site run. Select a specific provider to check only that route. A `preflight-only` run stores `provider-preflight-report.json` and skips site generation, browser tests, real listing checks, and enquiry-delivery probes.
+2. A trusted `main` push or a manual workflow run on `main` starts with a provider-readiness preflight through the existing production Cloudflare runtime. The preflight sends a fixed, very short text request with a maximum of eight output tokens; it can incur small provider usage charges. Push-triggered runs and the manual workflow default to `preflight-only`, so they stop after that request. Only explicitly selecting `full-acceptance` in a manual run proceeds to the four-site run. Select a specific provider to check only that route. A `preflight-only` run stores `provider-preflight-report.json` and skips site generation, browser tests, real listing checks, and enquiry-delivery probes.
 3. If preflight fails, the client stops before sending any full website briefs and prints only allow-listed provider names, failure categories, and HTTP statuses. Fix the underlying authentication, billing, quota, model/runtime, or account configuration before retrying; do not treat a configured secret name as proof that the credential works.
 4. If preflight succeeds in `full-acceptance` mode, the client proceeds with the four current evaluation examples through OVYX's production multi-page builder. A successful preflight-only run never counts as full acceptance. The preflight is only a provider-reachability check; it does not certify arbitrary-brief handling, site quality, listing provenance, enquiry delivery or human review.
 5. Download the `ovyx-live-generation-evidence` artifact. It contains the generated website files, screenshots, browser report, integration report and acceptance audit when those artifacts were actually produced.
