@@ -26,6 +26,8 @@ try{
     'configured feed should avoid a false copy-only failure while the separate live integration audit verifies actual records');
   assert.equal(configuredFeedCopy.status,'public-feed-configured-inventory-awaiting-live-integration-proof');
   assert.equal(configured.enquiryUrl.href,'https://forms.example.invalid/ovyx-qa');
+  assert.match(module.makeEvaluationPrompt({industry:'saas',prompt:'A site prompt.'},configured),/dryRun:false/);
+  assert.doesNotMatch(module.makeEvaluationPrompt({industry:'saas',prompt:'A site prompt.'},configured),/dryRun:true/);
   const generatedPrompt=module.makeEvaluationPrompt({
     industry:'real-estate',
     prompt:'No real property inventory feed or client contact details are supplied. Show a clear honest live-inventory-not-connected empty state, or only visibly labelled illustrative sample cards.'
