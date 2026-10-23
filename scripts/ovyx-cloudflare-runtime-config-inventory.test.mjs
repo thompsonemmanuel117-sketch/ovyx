@@ -1,5 +1,41 @@
 import assert from 'node:assert/strict';
-import { readCloudflareEvaluationPublicSettings, summarizeCloudflareRuntimeConfig } from './ovyx-cloudflare-runtime-config-inventory.mjs';
+import { findSuccessfulProductionDeployment, readCloudflareEvaluationPublicSettings, summarizeCloudflareRuntimeConfig } from './ovyx-cloudflare-runtime-config-inventory.mjs';
+
+const expectedCommit = 'a'.repeat(40);
+const successfulDeployment = {
+  id: 'deploy-current-main',
+  environment: 'production',
+  is_skipped: false,
+  deployment_trigger: {
+    type: 'github:push',
+    metadata: { branch: 'main', commit_hash: expectedCommit },
+  },
+  latest_stage: { name: 'deploy', status: 'success' },
+};
+const staleProduction = {
+  ...successfulDeployment,
+  id: 'deploy-stale-main',
+  deployment_trigger: { type: 'github:push', metadata: { branch: 'main', commit_hash: 'b'.repeat(40) } },
+};
+const previewMatch = { ...successfulDeployment, id: 'deploy-preview', environment: 'preview' };
+const skippedMatch = { ...successfulDeployment, id: 'deploy-skipped', is_skipped: true };
+const buildingMatch = { ...successfulDeployment, id: 'deploy-building', latest_stage: { name: 'build', status: 'active' } };
+const failedMatch = { ...successfulDeployment, id: 'deploy-failed', latest_stage: { name: 'deploy', status: 'failure' } };
+assert.deepEqual(findSuccessfulProductionDeployment([staleProduction, successfulDeployment], expectedCommit), {
+  id: 'deploy-current-main',
+  commitSha: expectedCommit,
+  branch: 'main',
+  environment: 'production',
+  stage: 'deploy',
+  status: 'success',
+}, 'a successful production deployment must match the exact expected main commit, not just the latest readiness response');
+assert.equal(findSuccessfulProductionDeployment([staleProduction], expectedCommit), null, 'stale production commits must not be accepted');
+assert.equal(findSuccessfulProductionDeployment([previewMatch], expectedCommit), null, 'preview deployments must not satisfy production readiness');
+assert.equal(findSuccessfulProductionDeployment([skippedMatch], expectedCommit), null, 'skipped deployments must not satisfy production readiness');
+assert.equal(findSuccessfulProductionDeployment([buildingMatch], expectedCommit), null, 'a build in progress must not satisfy production readiness');
+assert.equal(findSuccessfulProductionDeployment([failedMatch], expectedCommit), null, 'a failed deploy must not satisfy production readiness');
+assert.equal(findSuccessfulProductionDeployment([successfulDeployment], 'not-a-commit'), null, 'invalid expected commit strings must fail closed');
+assert.equal(findSuccessfulProductionDeployment(null, expectedCommit), null, 'malformed deployment lists must fail closed');
 
 const project = {
   subdomain: 'forgeos-2k0',
