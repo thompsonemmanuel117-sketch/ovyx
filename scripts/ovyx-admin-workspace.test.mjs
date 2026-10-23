@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { resolveEntitlements } from '../functions/api/entitlements.js';
 import { ROOT_EMAIL } from '../functions/_lib/brain/registry.js';
+import { resolveRole } from '../functions/api/admin/rbac.js';
 
 const read = path => fs.readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 const runtime = read('assets/ovyx-admin-workspace.js');
@@ -29,8 +30,11 @@ assert.ok(runtime.includes("role === ROOT_ROLE"), 'Admin Workspace must require 
 assert.ok(runtime.includes("const ROOT_EMAIL = 'ovyxsupportteam@gmail.com'"), 'Admin Workspace must pin the canonical owner email.');
 assert.ok(runtime.includes('!!user?.uid && !!data?.uid') && runtime.includes('actualEmail === expectedEmail'), 'Admin Workspace must fail closed if the entitlement response does not match the signed-in Firebase identity.');
 assert.ok(runtime.includes('actualEmail === ROOT_EMAIL') && runtime.includes('data?.bypass === true'), 'Admin Workspace must require the server-confirmed root identity and owner bypass flag.');
-assert.ok(rbac.includes("import { resolveEntitlements } from '../entitlements.js'"), 'RBAC must use the canonical server entitlement resolver.');
-assert.doesNotMatch(rbac, /profile\?\.role\s*===?\s*['"]ROOT_SUPERUSER['"]|role === 'ROOT_SUPERUSER' \|\|/, 'A stored profile role must never mint ROOT_SUPERUSER access.');
+assert.ok(rbac.includes("import { ROOT_EMAIL } from '../../_lib/brain/registry.js'"), 'RBAC must use the canonical owner email.');
+assert.match(rbac, /if \(role === 'MAX_USER' \|\| role === 'PRO_USER'\)/, 'Non-root paid tier labels remain supported.');
+assert.doesNotMatch(rbac, /role === 'ROOT_SUPERUSER' \|\|/, 'A stored profile role must never mint ROOT_SUPERUSER access.');
+assert.equal(resolveRole({ role: 'ROOT_SUPERUSER', planTier: 'free' }, 'ordinary-user@example.com'), 'FREE_USER', 'A stored ROOT_SUPERUSER profile role must not elevate an ordinary user.');
+assert.equal(resolveRole({}, ROOT_EMAIL), 'ROOT_SUPERUSER', 'Only the canonical owner email may resolve to ROOT_SUPERUSER.');
 assert.ok(entitlementsSource.includes('Only the canonical, Firebase-verified account email grants root bypass.'), 'Root bypass must be tied to the canonical verified owner identity.');
 assert.ok(apiMiddleware.includes("'PRODUCTION_INTEGRATIONS_PAUSED'"), 'The owner-controlled global integration kill switch must remain an explicit safety boundary.');
 
