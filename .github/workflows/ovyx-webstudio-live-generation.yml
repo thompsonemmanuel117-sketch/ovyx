@@ -68,7 +68,7 @@ jobs:
       - name: Install Playwright and Chromium
         run: |
           npm install --ignore-scripts --no-save playwright@^1.55.0
-          npx playwright install --with-deps chromium
+          npx playwright install chromium
       - name: Run project regression tests
         run: npm test
       - name: Run browser evaluator and acceptance-audit tests
