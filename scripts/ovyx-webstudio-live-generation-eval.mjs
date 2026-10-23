@@ -61,7 +61,9 @@ function httpsEndpoint(value) {
   } catch { return null; }
 }
 function publicIntegrationSettings() {
-  const listingsUrl = httpsEndpoint(process.env.OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL || '');
+  const suppliedListingsUrl = httpsEndpoint(process.env.OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL || '');
+  const listingsDeclaredAuthoritative = String(process.env.OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY || '').trim().toLowerCase() === 'authoritative';
+  const listingsUrl = listingsDeclaredAuthoritative ? suppliedListingsUrl : null;
   const enquiryUrl = httpsEndpoint(process.env.OVYX_EVAL_PUBLIC_ENQUIRY_URL || '');
   const probeEnabled = String(process.env.OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE || '').trim().toLowerCase() === 'true';
   const recipient = String(process.env.OVYX_EVAL_ENQUIRY_TEST_RECIPIENT || '').trim();
