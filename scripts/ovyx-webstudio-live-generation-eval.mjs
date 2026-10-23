@@ -53,6 +53,39 @@ const QA_CONTRACT = [
   '6. Provide semantic HTML, English/Japanese language metadata matching the market, title, meta description, viewport, accessible contrast, visible keyboard focus, responsive design and prefers-reduced-motion support.',
 ].join('\n');
 
+function httpsEndpoint(value) {
+  try {
+    const url = new URL(String(value || '').trim());
+    if (url.protocol !== 'https:' || url.username || url.password) return null;
+    return url;
+  } catch { return null; }
+}
+function publicIntegrationSettings() {
+  const listingsUrl = httpsEndpoint(process.env.OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL || '');
+  const enquiryUrl = httpsEndpoint(process.env.OVYX_EVAL_PUBLIC_ENQUIRY_URL || '');
+  const probeEnabled = String(process.env.OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE || '').trim().toLowerCase() === 'true';
+  const recipient = String(process.env.OVYX_EVAL_ENQUIRY_TEST_RECIPIENT || '').trim();
+  return {
+    listingsUrl,
+    enquiryUrl: probeEnabled && recipient ? enquiryUrl : null,
+    enquiryProbeEnabled: probeEnabled && Boolean(recipient),
+  };
+}
+function makeEvaluationPrompt(caseItem, publicSettings) {
+  let prompt = caseItem.prompt;
+  if (caseItem.industry === 'real-estate' && publicSettings.listingsUrl) {
+    prompt = prompt
+      .replace('No real property inventory feed or client contact details are supplied.', 'The owner has supplied a public, browser-readable HTTPS property-feed endpoint for this evaluation.')
+      .replace('Show a clear honest live-inventory-not-connected empty state, or only visibly labelled illustrative sample cards.', 'Fetch the supplied property feed at ' + publicSettings.listingsUrl.href + ' using the browser fetch API, then render only active records returned by that endpoint, preserving each stable record identifier and source fields. Implement loading, empty, error, and stale states. Do not use mock listings as a fallback to a failed source. The feed endpoint is explicitly approved for public browser access and must not contain secrets.');
+  }
+  if (publicSettings.enquiryUrl) {
+    prompt += '\n\nPUBLIC QA ENQUIRY INTEGRATION (owner-approved test endpoint): Use the following public, browser-safe HTTPS URL as the primary Contact page form action: ' + publicSettings.enquiryUrl.href + '. POST a JSON payload with name, email, subject, message, source:"OVYX QA", test:true and dryRun:true. Do not put bearer tokens, private webhook URLs, or server secrets in the generated files. Keep the visitor-entered fields accessible and validated; disable submit while pending, preserve fields on errors, and report success only when the response has an explicit delivery receipt (delivered:true or deliveryStatus:"delivered"). An HTTP 2xx or queued/accepted response alone is not final delivery. This is an isolated QA evaluation — use only the configured test recipient and do not solicit or send messages to real customers.';
+  } else {
+    prompt += '\n\nNO PUBLIC ENQUIRY ENDPOINT IS CONFIGURED FOR THIS RUN. Do not invent or infer a recipient. Include an honest setup state for the real enquiry action. The isolated QA-only form described below may be tested locally, but it is not a client-contact integration.';
+  }
+  return prompt;
+}
+
 function providerConfigured() {
   return REQUIRED_KEY && String(process.env[REQUIRED_KEY] || '').trim();
 }
@@ -146,10 +179,12 @@ export async function runLiveGenerationEvaluation() {
   const runReport = { status: 'running', provider: PROVIDER, model: MODEL || null, generatedAt: new Date().toISOString(), sites: [], realListingsConfirmed: false, realEnquiryDeliveryConfirmed: false };
   await fs.writeFile(path.join(OUT, 'live-generation-report.json'), JSON.stringify(runReport, null, 2) + '\n');
 
+  const publicSettings = publicIntegrationSettings();
   for (const caseItem of CASES) {
-    const context = { ...caseItem.market, market: { ...caseItem.market }, industry: caseItem.industry, country: caseItem.market.country, locale: caseItem.market.locale, currency: caseItem.market.currency, language: caseItem.market.language, timeZone: caseItem.market.timeZone, evaluationArtifact: true, qaOnlyEnquiryEndpoint: QA_ENDPOINT, realInventorySourceConfigured: Boolean(process.env.OVYX_EVAL_LISTINGS_API_URL), realEnquiryDestinationConfigured: Boolean(process.env.OVYX_EVAL_REAL_ENQUIRY_URL) };
-    const experience = buildExperienceBrief(caseItem.prompt + '\n\n' + QA_CONTRACT, context);
-    const prompt = caseItem.prompt + '\n\n' + QA_CONTRACT;
+    const sitePrompt = makeEvaluationPrompt(caseItem, publicSettings);
+    const context = { ...caseItem.market, market: { ...caseItem.market }, industry: caseItem.industry, country: caseItem.market.country, locale: caseItem.market.locale, currency: caseItem.market.currency, language: caseItem.market.language, timeZone: caseItem.market.timeZone, evaluationArtifact: true, qaOnlyEnquiryEndpoint: QA_ENDPOINT, publicListingsEndpointConfigured: Boolean(publicSettings.listingsUrl), publicEnquiryEndpointConfigured: Boolean(publicSettings.enquiryUrl), realInventorySourceConfigured: Boolean(process.env.OVYX_EVAL_LISTINGS_API_URL), realEnquiryDestinationConfigured: Boolean(process.env.OVYX_EVAL_REAL_ENQUIRY_URL) };
+    const experience = buildExperienceBrief(sitePrompt + '\n\n' + QA_CONTRACT, context);
+    const prompt = sitePrompt + '\n\n' + QA_CONTRACT;
     const generated = await buildStudioMultiPage({
       env: {
         ...process.env,
