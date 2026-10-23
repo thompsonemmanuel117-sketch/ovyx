@@ -1,6 +1,29 @@
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
 import { chooseProvider, handleLiveGenerationRequest, verifyGithubOidcToken } from '../functions/api/internal/live-generation-eval.js';
+import { isTrustedGithubOidcRequestUrl } from './ovyx-cloudflare-live-generation-client.mjs';
+
+// Cover the exact GitHub-hosted runner hostname reported by the production
+// workflow. Preserve a strict host allowlist rather than broadly trusting URLs.
+assert.equal(isTrustedGithubOidcRequestUrl('https://pipelines.actions.githubusercontent.com/_apis/idtoken/request?api-version=2.0'), true,
+  'the stable GitHub Actions OIDC host remains supported');
+assert.equal(isTrustedGithubOidcRequestUrl('https://run-actions-3-azure-eastus.actions.githubusercontent.com/50//idtoken/request?api-version=2.0'), true,
+  'GitHub regional hosted-runner OIDC hosts must be accepted');
+assert.equal(isTrustedGithubOidcRequestUrl('https://run-actions-12-azure-northcentralus.actions.githubusercontent.com/50//idtoken/request?api-version=2.0'), true,
+  'regional runner names with multi-part locations must be accepted');
+for (const url of [
+  'http://run-actions-3-azure-eastus.actions.githubusercontent.com/idtoken',
+  'https://run-actions-3-azure-eastus.actions.githubusercontent.com.evil.invalid/idtoken',
+  'https://evil.run-actions-3-azure-eastus.actions.githubusercontent.com/idtoken',
+  'https://run-actions-eastus.actions.githubusercontent.com/idtoken',
+  'https://run-actions-3-azure-eastus.actions.githubusercontent.com:8443/idtoken',
+  'https://user@run-actions-3-azure-eastus.actions.githubusercontent.com/idtoken',
+  'https://run-actions-3-azure-eastus.actions.githubusercontent.com/idtoken#fragment',
+  'https://pipelines.actions.githubusercontent.com.evil.invalid/idtoken',
+  'not a URL',
+]) {
+  assert.equal(isTrustedGithubOidcRequestUrl(url), false, 'unsafe OIDC request URL must be rejected: ' + url);
+}
 
 const cryptoApi = globalThis.crypto || webcrypto;
 const now = Math.floor(Date.now() / 1000);
