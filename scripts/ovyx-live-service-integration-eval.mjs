@@ -110,24 +110,34 @@ async function evaluateListings(env){
   const withStatus=assessments.filter(r=>r.hasStatus).length;
   const live=assessments.filter(r=>r.hasStableId&&r.hasTitle&&r.hasLocation&&r.activeStatus).length;
   let websiteFeedWiringVerified=false;
-  const htmlFiles=await findFiles(OUT,/\.html?$/i);
-  for(const file of htmlFiles){
-    const content=await fs.readFile(file,'utf8').catch(()=>'');
-    if(content.includes(new URL(endpoint).origin)||content.includes(new URL(endpoint).pathname)){websiteFeedWiringVerified=true;break;}
+  const endpointUrl=new URL(endpoint);
+  // A literal URL in page copy is not enough. Require the endpoint to appear in an executable
+  // HTML/JS source alongside an actual request primitive, and inspect the full returned set.
+  const applicationFiles=await findFiles(OUT,/\.(?:html?|js|mjs)$/i);
+  for(const file of applicationFiles){
+    let source=await fs.readFile(file,'utf8').catch(()=>'');
+    source=source
+      .replace(/<!--[\s\S]*?-->/g,' ')
+      .replace(/\/\*[\s\S]*?\*\//g,' ')
+      .replace(/(^|[^:])\/\/[^\n\r]*/g,'$1 ');
+    const endpointReferenced=source.includes(endpointUrl.origin)||source.includes(endpointUrl.href)||source.includes(endpointUrl.pathname);
+    const requestPrimitive=/\bfetch\s*\(|\baxios\.(?:get|post|put|request)\s*\(|\bXMLHttpRequest\b|\.open\s*\(\s*["'](?:GET|POST)["']/i.test(source);
+    if(endpointReferenced&&requestPrimitive){websiteFeedWiringVerified=true;break;}
   }
   const authoritative=String(env.OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY||'').trim().toLowerCase()==='authoritative';
-  const confirmed=authoritative&&records.length>0&&live===Math.min(records.length,1000)&&withStatus===Math.min(records.length,1000)&&usable===Math.min(records.length,1000);
+  const inspectedAllRecords=records.length<=1000&&assessments.length===records.length;
+  const confirmed=authoritative&&inspectedAllRecords&&records.length>0&&live===records.length&&withStatus===records.length&&usable===records.length;
   return {
     status:confirmed&&websiteFeedWiringVerified?'authoritative-feed-live-records-and-site-reference-detected'
       :confirmed?'authoritative-feed-returned-live-records-but-site-wiring-unverified'
       :records.length===0?'source-returned-no-listings'
       :usable===Math.min(records.length,1000)?'records-usable-live-status-or-authority-not-proven':'records-fail-required-field-validation',
     endpointConfigured:true,endpoint:displayEndpoint(endpoint),sourceHttpStatus:response.status,
-    recordsReceived:records.length,recordsInspected:assessments.length,usableRecordCount:usable,
+    recordsReceived:records.length,recordsInspected:assessments.length,inspectedAllRecords,usableRecordCount:usable,
     recordsWithExplicitStatus:withStatus,liveStatusRecordCount:live,
     authoritativeSourceDeclared:authoritative,websiteFeedWiringVerified,
     realListingsConfirmed:confirmed&&websiteFeedWiringVerified,
-    note:'A configured endpoint returning JSON does not alone prove authenticity. Confirmation is limited to the declared authoritative source, stable record identifiers, title/location fields, an explicit active status, and detected endpoint references in the generated artifact.',
+    note:'A configured endpoint returning JSON does not alone prove authenticity. Confirmation requires a declared authoritative source, inspection of the complete bounded result set, stable record identifiers, title/location fields, explicit active statuses, and a source-code request primitive alongside the endpoint reference. If the source returns more than 1000 records, confirmation is withheld until an explicit bounded query is used.',
   };
 }
 async function findFiles(dir,pattern,prefix=''){
