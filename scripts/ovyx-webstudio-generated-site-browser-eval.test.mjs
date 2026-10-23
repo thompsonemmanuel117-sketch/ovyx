@@ -4,6 +4,12 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { assessPublicEnquiryReceipt } from './ovyx-webstudio-generated-site-browser-eval.mjs';
+
+assert.equal(assessPublicEnquiryReceipt(202,{ok:true}).realEnquiryDeliveryConfirmed,false,'HTTP success without a delivery receipt must not confirm delivery.');
+assert.equal(assessPublicEnquiryReceipt(202,{status:'queued'}).realEnquiryDeliveryConfirmed,false,'Queued is not delivered.');
+assert.equal(assessPublicEnquiryReceipt(202,{data:{delivered:true,deliveryStatus:'delivered'}}).realEnquiryDeliveryConfirmed,true,'Explicit nested provider delivery receipts must be recognized consistently.');
+assert.equal(assessPublicEnquiryReceipt(500,{delivered:true}).realEnquiryDeliveryConfirmed,false,'A delivery marker on a failed HTTP response must not pass.');
 
 const root = await fs.mkdtemp(path.join(os.tmpdir(), 'ovyx-generated-site-fixture-'));
 const out = path.join(root, 'report');
