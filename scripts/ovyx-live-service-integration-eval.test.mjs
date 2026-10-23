@@ -17,6 +17,12 @@ for(const key of keys)delete process.env[key];
 process.env.OVYX_INTEGRATION_REPORT_OUT=path.join(root,'integration.json');
 try{
   const module=await import('./ovyx-live-service-integration-eval.mjs?contract-test');
+  assert.deepEqual(
+    module.assessEnquiryAcknowledgement(202,{ok:true}),
+    {endpointAcceptedTestPayload:true,explicitDeliveryReceipt:false,realEnquiryDeliveryConfirmed:false,deliveryStatusReported:null}
+  );
+  assert.equal(module.assessEnquiryAcknowledgement(202,{ok:true,deliveryStatus:'delivered'}).realEnquiryDeliveryConfirmed,true);
+  assert.equal(module.assessEnquiryAcknowledgement(202,{ok:true,status:'queued'}).realEnquiryDeliveryConfirmed,false);
   const absent=await module.runLiveServiceIntegrationEvaluation(process.env);
   assert.equal(absent.listings.status,'not-configured');
   assert.equal(absent.listings.realListingsConfirmed,false);
