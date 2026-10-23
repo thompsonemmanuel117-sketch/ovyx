@@ -302,6 +302,22 @@ async function readBoundedJson(request) {
   return JSON.parse(new TextDecoder().decode(merged));
 }
 
+export function safeLiveGenerationFailureDetail(error) {
+  const code = String(error?.code || '').toUpperCase();
+  const status = Number(error?.status);
+  const hasHttpStatus = Number.isInteger(status) && status >= 400 && status <= 599;
+  if (code === 'AI_PROVIDER_REQUEST_FAILED') {
+    return 'ai-provider-request-failed' + (hasHttpStatus ? '-http-' + status : '');
+  }
+  if (code === 'AI_PROVIDER_NOT_CONFIGURED') return 'ai-provider-not-configured';
+  if (code === 'AI_PROVIDER_UNSUPPORTED') return 'ai-provider-unsupported';
+  if (code === 'AI_PROVIDER_UNAVAILABLE') return 'ai-provider-unavailable';
+  if (code === 'PROMPT_REQUIRED') return 'prompt-required';
+  if (error?.name === 'AbortError' || error?.name === 'TimeoutError') return 'upstream-timeout';
+  if (error?.name === 'TypeError') return 'upstream-network-error';
+  return 'generation-error';
+}
+
 export async function handleLiveGenerationRequest(request, env, options = {}) {
   if (request.method !== 'POST') {
     return Response.json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, { status: 405, headers: { Allow: 'POST', 'Cache-Control': 'no-store' } });
@@ -393,11 +409,21 @@ export async function handleLiveGenerationRequest(request, env, options = {}) {
       context: JSON.stringify({ ...context, experience }),
       qualityContract: WEB_STUDIO_EXCELLENCE + '\n\n' + qaContract,
     });
-  } catch {
-    return Response.json({ ok: false, error: 'LIVE_SITE_GENERATION_FAILED', caseId: caseItem.id }, { status: 502, headers: { 'Cache-Control': 'no-store' } });
+  } catch (error) {
+    return Response.json({
+      ok: false,
+      error: 'LIVE_SITE_GENERATION_FAILED',
+      caseId: caseItem.id,
+      detail: safeLiveGenerationFailureDetail(error),
+    }, { status: 502, headers: { 'Cache-Control': 'no-store' } });
   }
   if (!generated || generated.ok !== true) {
-    return Response.json({ ok: false, error: 'LIVE_SITE_GENERATION_FAILED', caseId: caseItem.id }, { status: 502, headers: { 'Cache-Control': 'no-store' } });
+    return Response.json({
+      ok: false,
+      error: 'LIVE_SITE_GENERATION_FAILED',
+      caseId: caseItem.id,
+      detail: generated ? 'builder-result-not-ok' : 'builder-returned-empty-result',
+    }, { status: 502, headers: { 'Cache-Control': 'no-store' } });
   }
   const files = generated.files && typeof generated.files === 'object' ? generated.files : {};
   const entries = Object.entries(files);
