@@ -99,14 +99,36 @@ async function getOidcToken() {
   let url;
   try {
     url = new URL(rawUrl);
-    if (url.protocol !== 'https:' ||
-        url.hostname.toLowerCase() !== 'pipelines.actions.githubusercontent.com' ||
-        url.username || url.password || url.hash) {
-      throw new Error('Untrusted OIDC request URL.');
+    const protocolOk = url.protocol === 'https:';
+    const hostname = url.hostname.toLowerCase().replace(/\.$/, '');
+    const hostOk = hostname === 'pipelines.actions.githubusercontent.com';
+    const noCredentials = !url.username && !url.password;
+    const noFragment = !url.hash;
+    const failedChecks = [
+      !protocolOk && 'protocol-not-https',
+      !hostOk && 'hostname-not-allowlisted',
+      !noCredentials && 'url-contains-credentials',
+      !noFragment && 'url-contains-fragment',
+    ].filter(Boolean);
+    if (failedChecks.length) {
+      // Never print the complete URL, query string, or request-token value.
+      console.error(JSON.stringify({
+        event: 'oidc-request-url-rejected',
+        protocol: url.protocol,
+        hostname,
+        checks: failedChecks,
+        hasUsername: Boolean(url.username),
+        hasPassword: Boolean(url.password),
+        hasFragment: Boolean(url.hash),
+      }));
+      throw new Error('OIDC request URL validation failed: ' + failedChecks.join(', ') + '.');
     }
     url.searchParams.set('audience', AUDIENCE);
-  } catch {
-    throw new Error('GitHub Actions did not provide a trusted HTTPS OIDC request URL.');
+  } catch (error) {
+    const message = String(error?.message || '');
+    if (message.startsWith('OIDC request URL validation failed:')) throw error;
+    // Do not echo the input URL or raw URL-parser errors.
+    throw new Error('GitHub Actions did not provide a parseable trusted HTTPS OIDC request URL.');
   }
   let response;
   try {
