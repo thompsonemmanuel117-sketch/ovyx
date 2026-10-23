@@ -813,9 +813,12 @@ function classifyCloudflareWorkersAiFailure(error) {
 }
 
 
-const CLOUDFLARE_WORKERS_AI_SYSTEM_CHAR_BUDGET = 10_000;
-const CLOUDFLARE_WORKERS_AI_USER_CHAR_BUDGET = 20_000;
-const CLOUDFLARE_WORKERS_AI_OUTPUT_TOKEN_BUDGET = 8_192;
+// The selected Cloudflare model has a 24k-token context window. Reserve ample
+// room for its generated files and provider/template overhead by bounding both
+// inputs together and capping output lower than the former 8,192-token ceiling.
+const CLOUDFLARE_WORKERS_AI_SYSTEM_CHAR_BUDGET = 8_000;
+const CLOUDFLARE_WORKERS_AI_USER_CHAR_BUDGET = 14_000;
+const CLOUDFLARE_WORKERS_AI_OUTPUT_TOKEN_BUDGET = 6_144;
 
 const CLOUDFLARE_WORKERS_AI_WEB_STUDIO_PRIORITY_CONTRACT = [
   'OPEN-ENDED BRIEF: Treat the original user brief as the source of truth. Support arbitrary concepts, industries and countries; never force a category or market, nor replace a novel request with a familiar template. Preserve every explicit page, feature, exclusion and workflow.',
