@@ -9,12 +9,19 @@ const OUT = path.resolve(process.argv[3] || 'artifacts/webstudio-evaluation-repo
 const VIEWPORTS = [{name:'mobile-320',width:320,height:700},{name:'mobile-390',width:390,height:844},{name:'tablet-768',width:768,height:1024},{name:'laptop-1024',width:1024,height:768},{name:'desktop-1440',width:1440,height:900}];
 const MIME = {'.html':'text/html; charset=utf-8','.htm':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.avif':'image/avif','.gif':'image/gif','.woff':'font/woff','.woff2':'font/woff2','.ttf':'font/ttf','.otf':'font/otf','.json':'application/json; charset=utf-8'};
 const QA_ENDPOINT = '/.well-known/ovyx-qa-enquiry';
-const LISTING_FEED = (() => {
+function publicEndpoint(raw, allowQuery = false) {
   try {
-    const url = new URL(String(process.env.OVYX_EVAL_LISTINGS_API_URL || ''));
-    return url.protocol === 'https:' ? { origin: url.origin, pathname: url.pathname } : null;
+    const url = new URL(String(raw || ''));
+    if (url.protocol !== 'https:' || url.username || url.password) return null;
+    if (!allowQuery && [...url.searchParams.keys()].some(key => /(?:api[-_]?key|token|secret|auth|signature|credential|password)/i.test(key))) return null;
+    return { origin: url.origin, pathname: url.pathname, href: url.href };
   } catch { return null; }
-})();
+}
+const LISTING_FEED = publicEndpoint(process.env.OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL);
+const PUBLIC_ENQUIRY = String(process.env.OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE || '').trim().toLowerCase() === 'true'
+  ? publicEndpoint(process.env.OVYX_EVAL_PUBLIC_ENQUIRY_URL)
+  : null;
+const ENQUIRY_TEST_RECIPIENT = String(process.env.OVYX_EVAL_ENQUIRY_TEST_RECIPIENT || '').trim();
 
 async function walk(dir,prefix='') {
   const entries=await fs.readdir(dir,{withFileTypes:true}); const files=[];
@@ -211,6 +218,67 @@ async function exerciseButtons(page, baseUrl, route) {
   await page.goto(baseUrl + route, { waitUntil: 'domcontentloaded', timeout: 7000 }).catch(() => {});
   return { tested: output.filter(item => !String(item.status).startsWith('skipped')).length, skipped: output.filter(item => String(item.status).startsWith('skipped')).length, results: output };
 }
+async function exercisePublicEnquiryForms(page) {
+  if (!PUBLIC_ENQUIRY || !ENQUIRY_TEST_RECIPIENT) {
+    return { status: 'not-configured-or-not-opted-in', requestObserved: false, endpointAcceptedTestPayload: false, explicitDeliveryReceipt: false, realEnquiryDeliveryConfirmed: false, note: 'No public enquiry URL, owner-controlled test recipient, and explicit probe approval were all present.' };
+  }
+  const forms=page.locator('form');
+  const count=await forms.count().catch(()=>0);
+  const results=[];
+  for(let index=0;index<count;index++){
+    const form=forms.nth(index);
+    const details=await form.evaluate(f=>({action:f.getAttribute('action')||'',method:(f.getAttribute('method')||'get').toLowerCase()})).catch(()=>({}));
+    let formUrl;
+    try{formUrl=new URL(details.action,page.url());}catch{continue;}
+    if(formUrl.origin!==PUBLIC_ENQUIRY.origin||formUrl.pathname!==PUBLIC_ENQUIRY.pathname||details.method!=='post')continue;
+    const fields=form.locator('input,select,textarea');
+    for(let j=0;j<await fields.count();j++){
+      const field=fields.nth(j);
+      const info=await field.evaluate(el=>({tag:el.tagName.toLowerCase(),type:(el.type||'').toLowerCase(),disabled:!!el.disabled,value:el.value||'',name:(el.name||'').toLowerCase(),options:el.tagName==='SELECT'?Array.from(el.options).filter(o=>!o.disabled&&o.value).map(o=>o.value):[]}));
+      if(info.disabled||['hidden','submit','button','reset','file','image'].includes(info.type))continue;
+      if(info.type==='checkbox'||info.type==='radio'){if(info.type==='checkbox')await field.check({force:true}).catch(()=>{});continue;}
+      if(info.tag==='select'){if(info.options.length)await field.selectOption(info.options[0]).catch(()=>{});continue;}
+      if(info.value)continue;
+      const value=info.type==='email'||info.name.includes('email')?ENQUIRY_TEST_RECIPIENT
+        :info.type==='tel'?'+15555550123'
+        :info.type==='url'?'https://example.invalid'
+        :info.type==='number'?'1'
+        :/name/.test(info.name)?'OVYX Automated QA Test'
+        :/subject/.test(info.name)?'OVYX QA integration test — no action needed'
+        :/message|comment|note/.test(info.name)?'OVYX automated integration test; no action needed. test=true; dryRun=true.'
+        :'OVYX QA integration test';
+      await field.fill(value).catch(()=>{});
+    }
+    let response=null,responseBody=null,requestError=null;
+    const responsePromise=page.waitForResponse(candidate=>candidate.url().split('#')[0]===PUBLIC_ENQUIRY.href.split('#')[0]&&candidate.request().method()==='POST',{timeout:10000}).then(async candidate=>{
+      response=candidate;
+      try{responseBody=await candidate.json();}catch{responseBody=null;}
+      return candidate;
+    }).catch(error=>{requestError=String(error.message||error).slice(0,180);return null;});
+    await form.evaluate(f=>{if(typeof f.requestSubmit==='function')f.requestSubmit();else f.dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));}).catch(error=>{requestError=String(error.message||error).slice(0,180);});
+    await responsePromise;
+    await page.waitForTimeout(250).catch(()=>{});
+    const status=response?response.status():null;
+    const obj=responseBody&&typeof responseBody==='object'?responseBody:{};
+    const nested=obj.delivery&&typeof obj.delivery==='object'?obj.delivery:{};
+    const deliveryStatus=String(obj.deliveryStatus||obj.messageStatus||nested.status||'').trim().toLowerCase().replace(/[\s_-]+/g,' ');
+    const explicitDelivery=obj.delivered===true||obj.messageDelivered===true||nested.delivered===true||['delivered','delivery confirmed','delivered to recipient'].includes(deliveryStatus);
+    const endpointAccepted=Boolean(response&&status>=200&&status<300&&(obj.ok===true||obj.accepted===true||obj.success===true||obj.queued===true||obj.delivered===true||String(obj.status||'').toLowerCase()==='accepted'));
+    const deliveryConfirmed=endpointAccepted&&explicitDelivery;
+    results.push({
+      status:deliveryConfirmed?'endpoint-reported-delivery-confirmed':endpointAccepted?'endpoint-accepted-test-payload-delivery-unverified':response?'endpoint-did-not-confirm-test-acceptance':'external-enquiry-request-not-observed',
+      requestObserved:Boolean(response),httpStatus:status,endpointAcceptedTestPayload:endpointAccepted,explicitDeliveryReceipt:explicitDelivery,
+      realEnquiryDeliveryConfirmed:deliveryConfirmed,deliveryStatusReported:deliveryStatus||null,requestError,
+      responseFields:Object.keys(obj).slice(0,20),
+      note:'This was an owner-authorized QA payload only. A local test report cannot independently prove inbox receipt; only an explicit endpoint delivery receipt is recorded as provider-reported delivery.',
+    });
+  }
+  if(!results.length)return {status:'public-enquiry-form-not-found',requestObserved:false,endpointAcceptedTestPayload:false,explicitDeliveryReceipt:false,realEnquiryDeliveryConfirmed:false,note:'No form targeting the exact approved public endpoint was present in the rendered page.'};
+  const confirmed=results.some(item=>item.realEnquiryDeliveryConfirmed);
+  const accepted=results.some(item=>item.endpointAcceptedTestPayload);
+  return {status:confirmed?'endpoint-reported-delivery-confirmed':accepted?'endpoint-accepted-test-payload-delivery-unverified':'public-enquiry-test-failed',requestObserved:results.some(item=>item.requestObserved),endpointAcceptedTestPayload:accepted,explicitDeliveryReceipt:confirmed,realEnquiryDeliveryConfirmed:confirmed,attempts:results};
+}
+
 async function exerciseQAForms(page) {
   const records=[];
   const forms=page.locator('form');
@@ -277,7 +345,8 @@ async function main() {
               try{target=new URL(raw);}catch{return route.abort('blockedbyclient');}
               if(['data:','blob:','about:'].includes(target.protocol)||target.origin===baseOrigin)return route.continue();
               const safeListingRequest=Boolean(LISTING_FEED)&&target.protocol==='https:'&&target.origin===LISTING_FEED.origin&&target.pathname===LISTING_FEED.pathname&&['GET','HEAD','OPTIONS'].includes(request.method())&&['fetch','xhr'].includes(request.resourceType());
-              if(safeListingRequest)return route.continue();
+              const safeEnquiryRequest=Boolean(PUBLIC_ENQUIRY)&&Boolean(ENQUIRY_TEST_RECIPIENT)&&target.protocol==='https:'&&target.origin===PUBLIC_ENQUIRY.origin&&target.pathname===PUBLIC_ENQUIRY.pathname&&['POST','OPTIONS'].includes(request.method())&&['fetch','xhr'].includes(request.resourceType());
+              if(safeListingRequest||safeEnquiryRequest)return route.continue();
               blockedExternalRequests.push({url:raw.slice(0,300),method:request.method(),resourceType:request.resourceType()});
               return route.abort('blockedbyclient');
             });
