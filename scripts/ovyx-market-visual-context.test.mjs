@@ -45,7 +45,7 @@ assert.equal(brief.visualAssetPlan.imageHeavy, true);
 assert.equal(brief.visualAssetPlan.motionRequested, true);
 
 const gateway = await fs.readFile(new URL('../functions/api/ai/gateway.js', import.meta.url), 'utf8');
-assert.match(gateway, /marketContext:\\s*experience\\?\.marketContext/);
-assert.match(gateway, /visualAssetPlan:\\s*experience\\?\.visualAssetPlan/);
-assert.match(gateway, /designIntelligence:\\s*experience\\?\.designIntelligence/);
+assert.match(gateway, /marketContext:\s*experience\?\.marketContext/);
+assert.match(gateway, /visualAssetPlan:\s*experience\?\.visualAssetPlan/);
+assert.match(gateway, /designIntelligence:\s*experience\?\.designIntelligence/);
 console.log('OVYX market context and visual asset planning tests passed through the production multi-page gateway.');
