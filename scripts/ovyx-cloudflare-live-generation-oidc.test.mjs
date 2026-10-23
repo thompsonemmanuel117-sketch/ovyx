@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
 import { chooseProvider, handleLiveGenerationRequest, verifyGithubOidcToken } from '../functions/api/internal/live-generation-eval.js';
-import { isTrustedGithubOidcRequestUrl } from './ovyx-cloudflare-live-generation-client.mjs';
+import { isTrustedGithubOidcRequestUrl } from './ovyx-github-oidc-url.mjs';
 
 // Cover the exact GitHub-hosted runner hostname reported by the production
 // workflow. Preserve a strict host allowlist rather than broadly trusting URLs.
