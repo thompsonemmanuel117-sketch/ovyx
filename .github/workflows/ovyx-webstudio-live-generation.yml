@@ -112,6 +112,8 @@ jobs:
         if: always() && steps.provider.outputs.available == 'true'
         id: browser
         continue-on-error: true
+        env:
+          OVYX_EVAL_LISTINGS_API_URL: ${{ vars.OVYX_EVAL_LISTINGS_API_URL }}
         run: node scripts/ovyx-webstudio-generated-site-browser-eval.mjs artifacts/webstudio-generated-sites artifacts/webstudio-evaluation-report/browser
       - name: Evaluate configured real listing and enquiry services
         if: always()
