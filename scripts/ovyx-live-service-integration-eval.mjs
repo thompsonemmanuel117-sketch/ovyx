@@ -150,19 +150,22 @@ async function evaluateListings(env){
   const withStatus=assessments.filter(r=>r.hasStatus).length;
   const live=assessments.filter(r=>r.hasStableId&&r.hasTitle&&r.hasLocation&&r.activeStatus).length;
   let websiteFeedWiringVerified=false;
-  const endpointUrl=new URL(endpoint);
-  // A literal URL in page copy is not enough. Require the endpoint to appear in an executable
-  // HTML/JS source alongside an actual request primitive, and inspect the full returned set.
+  // The private source URL may differ from the public browser-safe feed URL.
+  // Never require or embed a private endpoint in generated client-side code.
+  const clientEndpoint=safeEndpoint(env.OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL);
+  const endpointUrl=clientEndpoint&&clientEndpoint.ok?clientEndpoint.url:null;
   const applicationFiles=await findFiles(OUT,/\.(?:html?|js|mjs)$/i);
-  for(const file of applicationFiles){
-    let source=await fs.readFile(file,'utf8').catch(()=>'');
-    source=source
-      .replace(/<!--[\s\S]*?-->/g,' ')
-      .replace(/\/\*[\s\S]*?\*\//g,' ')
-      .replace(/(^|[^:])\/\/[^\n\r]*/g,'$1 ');
-    const endpointReferenced=source.includes(endpointUrl.origin)||source.includes(endpointUrl.href)||source.includes(endpointUrl.pathname);
-    const requestPrimitive=/\bfetch\s*\(|\baxios\.(?:get|post|put|request)\s*\(|\bXMLHttpRequest\b|\.open\s*\(\s*["'](?:GET|POST)["']/i.test(source);
-    if(endpointReferenced&&requestPrimitive){websiteFeedWiringVerified=true;break;}
+  if(endpointUrl){
+    for(const file of applicationFiles){
+      let source=await fs.readFile(file,'utf8').catch(()=>'');
+      source=source
+        .replace(/<!--[\s\S]*?-->/g,' ')
+        .replace(/\/\*[\s\S]*?\*\//g,' ')
+        .replace(/(^|[^:])\/\/[^\n\r]*/g,'$1 ');
+      const endpointReferenced=source.includes(endpointUrl.origin)||source.includes(endpointUrl.href)||source.includes(endpointUrl.pathname);
+      const requestPrimitive=/\bfetch\s*\(|\baxios\.(?:get|post|put|request)\s*\(|\bXMLHttpRequest\b|\.open\s*\(\s*["'](?:GET|POST)["']/i.test(source);
+      if(endpointReferenced&&requestPrimitive){websiteFeedWiringVerified=true;break;}
+    }
   }
   const renderedEvidence=await findRenderedLiveListings(assessments.filter(record=>record.activeStatus&&record.title&&record.location));
   const authoritative=String(env.OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY||'').trim().toLowerCase()==='authoritative';
