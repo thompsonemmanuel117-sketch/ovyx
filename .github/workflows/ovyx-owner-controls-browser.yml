@@ -84,7 +84,7 @@ jobs:
       - name: Install Chromium test dependency
         run: |
           npm install --ignore-scripts --no-save playwright@^1.55.0
-          npx playwright install --with-deps chromium
+          npx playwright install chromium
 
       - name: Start local Cloudflare Pages app shell
         run: |
