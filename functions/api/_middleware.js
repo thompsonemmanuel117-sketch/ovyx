@@ -35,6 +35,12 @@ const FEATURE_REQUIREMENTS_BY_PATH = new Map([
 ]);
 
 
+// This exact internal route verifies GitHub Actions OIDC itself. Do not try to
+// parse its bearer token as a Firebase ID token in the shared API middleware.
+export function usesRouteLevelOidcAuthentication(pathname) {
+  return String(pathname || '') === '/api/internal/live-generation-eval';
+}
+
 export async function onRequest(context) {
   const req = context.request;
   const url = new URL(req.url);
@@ -58,14 +64,16 @@ export async function onRequest(context) {
 
     let user = null;
 
-    try {
-      user = await authenticateRequest(req, context.env);
-    } catch (err) {
-      if (req.headers.has('authorization')) {
-        return withCors(
-          errorResponse(401, err.code || 'AUTH_INVALID', err.message || 'Authentication failed.', id),
-          req
-        );
+    if (!usesRouteLevelOidcAuthentication(url.pathname)) {
+      try {
+        user = await authenticateRequest(req, context.env);
+      } catch (err) {
+        if (req.headers.has('authorization')) {
+          return withCors(
+            errorResponse(401, err.code || 'AUTH_INVALID', err.message || 'Authentication failed.', id),
+            req
+          );
+        }
       }
     }
 
