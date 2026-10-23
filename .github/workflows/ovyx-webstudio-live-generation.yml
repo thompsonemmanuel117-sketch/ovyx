@@ -1,0 +1,153 @@
+name: OVYX Live Website Generation and Acceptance Evidence
+on:
+  workflow_dispatch:
+    inputs:
+      provider:
+        description: AI provider to use for real website generation
+        required: true
+        type: choice
+        options:
+          - gemini
+          - claude
+          - deepseek
+          - openai
+        default: gemini
+  pull_request:
+    branches: [main]
+    paths:
+      - 'functions/_lib/prompts.js'
+      - 'functions/_lib/studio-multipage.js'
+      - 'functions/_lib/market-context.js'
+      - 'functions/_lib/visual-asset-plan.js'
+      - 'scripts/ovyx-webstudio-live-generation-eval.mjs'
+      - 'scripts/ovyx-webstudio-acceptance-audit.mjs'
+      - 'scripts/ovyx-webstudio-generated-site-browser-eval.mjs'
+      - '.github/workflows/ovyx-webstudio-live-generation.yml'
+permissions:
+  contents: read
+jobs:
+  live-generation-evidence:
+    name: Live AI generation and five-viewport QA
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout OVYX
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install project dependencies
+        run: npm install --ignore-scripts
+      - name: Install Playwright and Chromium
+        run: |
+          npm install --ignore-scripts --no-save playwright@^1.55.0
+          npx playwright install --with-deps chromium
+      - name: Run project regression tests
+        run: npm test
+      - name: Run browser evaluator and acceptance-audit tests
+        run: |
+          node scripts/ovyx-webstudio-generated-site-browser-eval.test.mjs
+          node scripts/ovyx-webstudio-acceptance-audit.test.mjs
+          node scripts/ovyx-webstudio-live-generation-eval-contract.test.mjs
+      - name: Select a configured real AI provider
+        id: provider
+        shell: bash
+        env:
+          REQUESTED_PROVIDER: ${{ github.event_name == 'workflow_dispatch' && inputs.provider || '' }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          provider="$REQUESTED_PROVIDER"
+          if [ -z "$provider" ]; then
+            if [ -n "$GEMINI_API_KEY" ]; then provider=gemini
+            elif [ -n "$ANTHROPIC_API_KEY" ]; then provider=claude
+            elif [ -n "$DEEPSEEK_API_KEY" ]; then provider=deepseek
+            elif [ -n "$OPENAI_API_KEY" ]; then provider=openai
+            fi
+          fi
+          case "$provider" in
+            gemini) key="$GEMINI_API_KEY" ;;
+            claude) key="$ANTHROPIC_API_KEY" ;;
+            deepseek) key="$DEEPSEEK_API_KEY" ;;
+            openai) key="$OPENAI_API_KEY" ;;
+            *) key="" ;;
+          esac
+          if [ -n "$key" ]; then available=true; else available=false; fi
+          echo "name=$provider" >> "$GITHUB_OUTPUT"
+          echo "available=$available" >> "$GITHUB_OUTPUT"
+          if [ "$available" != "true" ]; then
+            echo "::warning::LIVE GENERATION BLOCKED, NOT PASSED: no usable AI provider secret is configured for the selected provider. Configure the appropriate repository Actions secret to run real AI generation."
+          else
+            echo "A real provider is configured for the live-generation run."
+          fi
+      - name: Generate four real model-produced websites
+        id: generate
+        if: steps.provider.outputs.available == 'true'
+        continue-on-error: true
+        env:
+          OVYX_EVAL_PROVIDER: ${{ steps.provider.outputs.name }}
+          OVYX_EVAL_MODEL: ${{ vars.OVYX_EVAL_MODEL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OVYX_EVAL_LISTINGS_API_URL: ${{ vars.OVYX_EVAL_LISTINGS_API_URL }}
+          OVYX_EVAL_REAL_ENQUIRY_URL: ${{ vars.OVYX_EVAL_REAL_ENQUIRY_URL }}
+        run: node scripts/ovyx-webstudio-live-generation-eval.mjs
+      - name: Record that real generation was blocked by missing credentials
+        if: steps.provider.outputs.available != 'true'
+        shell: bash
+        run: |
+          mkdir -p artifacts/webstudio-generated-sites artifacts/webstudio-evaluation-report
+          node --input-type=module -e "import fs from 'node:fs/promises'; await fs.writeFile('artifacts/webstudio-generated-sites/live-generation-report.json', JSON.stringify({status:'blocked-no-provider-secret-not-a-pass', realSitesGenerated:0, realListingsConfirmed:false, realEnquiryDeliveryConfirmed:false, reason:'No configured AI provider secret was available to generate real model output. Configure GEMINI_API_KEY, ANTHROPIC_API_KEY, DEEPSEEK_API_KEY, or OPENAI_API_KEY in repository Actions secrets and rerun.'}, null, 2)+'\\n')"
+      - name: Inspect model-generated sites in Chromium at five widths
+        if: always() && steps.provider.outputs.available == 'true'
+        id: browser
+        continue-on-error: true
+        run: node scripts/ovyx-webstudio-generated-site-browser-eval.mjs artifacts/webstudio-generated-sites artifacts/webstudio-evaluation-report/browser
+      - name: Audit copy, routes, visuals and integration claims
+        if: always()
+        id: audit
+        continue-on-error: true
+        run: node scripts/ovyx-webstudio-acceptance-audit.mjs artifacts/webstudio-generated-sites artifacts/webstudio-evaluation-report/browser/browser-report.json artifacts/webstudio-evaluation-report/acceptance-report.json
+      - name: Enforce honest quality gates when live generation ran
+        if: always() && steps.provider.outputs.available == 'true'
+        env:
+          GENERATION_OUTCOME: ${{ steps.generate.outcome }}
+          BROWSER_OUTCOME: ${{ steps.browser.outcome }}
+          AUDIT_OUTCOME: ${{ steps.audit.outcome }}
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs/promises';
+          const checks = [
+            ['generation step', process.env.GENERATION_OUTCOME],
+            ['browser step', process.env.BROWSER_OUTCOME],
+            ['acceptance audit step', process.env.AUDIT_OUTCOME],
+          ];
+          const failures = checks.filter(([, outcome]) => outcome !== 'success');
+          let browser = {};
+          let audit = {};
+          try { browser = JSON.parse(await fs.readFile('artifacts/webstudio-evaluation-report/browser/browser-report.json', 'utf8')); } catch {}
+          try { audit = JSON.parse(await fs.readFile('artifacts/webstudio-evaluation-report/acceptance-report.json', 'utf8')); } catch {}
+          if (browser.status !== 'browser-evaluated' || !browser.evaluatedSites) failures.push(['browser report', browser.status || 'missing']);
+          if (!audit.sitesFound || audit.status === 'not-run-no-generated-sites' || audit.sites?.some(site => site.status === 'needs-attention')) failures.push(['acceptance report', audit.status || 'missing or has blockers']);
+          if (failures.length) {
+            console.error(JSON.stringify({status:'needs-attention',failures,realListingsConfirmed:false,realEnquiryDeliveryConfirmed:false,humanVisualReviewCompleted:false,humanEditorialReviewCompleted:false},null,2));
+            process.exitCode = 1;
+          } else {
+            console.log(JSON.stringify({status:'automated-checks-run-human-review-and-real-integration-verification-pending',browserSites:browser.evaluatedSites,reportSites:audit.sitesFound,realListingsConfirmed:false,realEnquiryDeliveryConfirmed:false,humanVisualReviewCompleted:false,humanEditorialReviewCompleted:false},null,2));
+          }
+          NODE
+      - name: Preserve all screenshots and reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ovyx-live-generation-evidence
+          path: |
+            artifacts/webstudio-generated-sites/
+            artifacts/webstudio-evaluation-report/
+          if-no-files-found: warn
+          retention-days: 30
