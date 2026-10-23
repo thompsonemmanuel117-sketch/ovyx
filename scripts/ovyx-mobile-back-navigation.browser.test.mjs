@@ -65,7 +65,7 @@ async function triggerHistoryForward(page, completed) {
 
 const browser = await chromium.launch({ headless: true });
 try {
-  const context = await browser.newContext({
+  let context = await browser.newContext({
     viewport: { width: 390, height: 844 },
     isMobile: true,
     hasTouch: true,
@@ -655,6 +655,15 @@ try {
   // app-wide overlay assertion above verifies that the runtime creates its own
   // history entry, and this new page keeps that stack isolated.
   await page.close();
+  // A new Page in the same BrowserContext can retain a session-history relationship
+  // with the pages used above in some Chromium environments. Use a new context as
+  // well, so system Back is guaranteed to traverse this test's own route stack.
+  await context.close();
+  context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    isMobile: true,
+    hasTouch: true,
+  });
   page = await context.newPage();
   page.setDefaultTimeout(20000);
   page.on('pageerror', error => pageErrors.push(error.message + '\n' + String(error.stack || 'no stack')));
