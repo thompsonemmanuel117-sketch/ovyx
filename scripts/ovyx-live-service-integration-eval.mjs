@@ -163,20 +163,24 @@ async function evaluateListings(env){
     const requestPrimitive=/\bfetch\s*\(|\baxios\.(?:get|post|put|request)\s*\(|\bXMLHttpRequest\b|\.open\s*\(\s*["'](?:GET|POST)["']/i.test(source);
     if(endpointReferenced&&requestPrimitive){websiteFeedWiringVerified=true;break;}
   }
+  const renderedEvidence=await findRenderedLiveListings(assessments.filter(record=>record.activeStatus&&record.title&&record.location));
   const authoritative=String(env.OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY||'').trim().toLowerCase()==='authoritative';
   const inspectedAllRecords=records.length<=1000&&assessments.length===records.length;
-  const confirmed=authoritative&&inspectedAllRecords&&records.length>0&&live===records.length&&withStatus===records.length&&usable===records.length;
+  const confirmed=authoritative&&inspectedAllRecords&&records.length>0&&live===records.length&&withStatus===records.length&&usable===records.length&&websiteFeedWiringVerified&&renderedEvidence.renderedRecordPageMatches>0;
   return {
-    status:confirmed&&websiteFeedWiringVerified?'authoritative-feed-live-records-and-site-reference-detected'
-      :confirmed?'authoritative-feed-returned-live-records-but-site-wiring-unverified'
+    status:confirmed?'authoritative-live-records-verified-in-rendered-property-listings-page'
       :records.length===0?'source-returned-no-listings'
-      :usable===Math.min(records.length,1000)?'records-usable-live-status-or-authority-not-proven':'records-fail-required-field-validation',
+      :renderedEvidence.renderedRecordPageMatches>0?'live-records-rendered-but-source-or-full-feed-proof-incomplete'
+      :websiteFeedWiringVerified?'configured-feed-request-detected-but-live-records-not-verified-in-rendered-site'
+      :usable===Math.min(records.length,1000)?'records-usable-live-status-or-site-wiring-not-proven':'records-fail-required-field-validation',
     endpointConfigured:true,endpoint:displayEndpoint(endpoint),sourceHttpStatus:response.status,
     recordsReceived:records.length,recordsInspected:assessments.length,inspectedAllRecords,usableRecordCount:usable,
     recordsWithExplicitStatus:withStatus,liveStatusRecordCount:live,
     authoritativeSourceDeclared:authoritative,websiteFeedWiringVerified,
-    realListingsConfirmed:confirmed&&websiteFeedWiringVerified,
-    note:'A configured endpoint returning JSON does not alone prove authenticity. Confirmation requires a declared authoritative source, inspection of the complete bounded result set, stable record identifiers, title/location fields, explicit active statuses, and a source-code request primitive alongside the endpoint reference. If the source returns more than 1000 records, confirmation is withheld until an explicit bounded query is used.',
+    listingSiteFound:renderedEvidence.listingSiteFound,listingPagesInspected:renderedEvidence.listingPagesInspected,
+    renderedRecordPageMatches:renderedEvidence.renderedRecordPageMatches,
+    realListingsConfirmed:confirmed,
+    note:'A configured endpoint returning JSON does not alone prove authenticity. Confirmation requires a declared authoritative source, validation of every record (up to 1000), stable IDs/titles/locations, explicit active statuses, executable request code alongside the endpoint reference, and at least one active feed record visibly rendered on a generated property-listings route in Chromium. More than 1000 records require a bounded query before confirmation.',
   };
 }
 async function findFiles(dir,pattern,prefix=''){
