@@ -140,12 +140,14 @@ jobs:
         id: audit
         continue-on-error: true
         run: node scripts/ovyx-webstudio-acceptance-audit.mjs artifacts/webstudio-generated-sites artifacts/webstudio-evaluation-report/browser/browser-report.json artifacts/webstudio-evaluation-report/acceptance-report.json artifacts/webstudio-evaluation-report/integration-report.json
-      - name: Enforce honest quality gates when live generation ran
-        if: always() && steps.provider.outputs.available == 'true'
+      - name: Enforce honest quality gates and block incomplete live evidence
+        if: always()
         env:
+          PROVIDER_AVAILABLE: ${{ steps.provider.outputs.available }}
           GENERATION_OUTCOME: ${{ steps.generate.outcome }}
           BROWSER_OUTCOME: ${{ steps.browser.outcome }}
           AUDIT_OUTCOME: ${{ steps.audit.outcome }}
+          INTEGRATION_OUTCOME: ${{ steps.integration.outcome }}
           LISTINGS_SOURCE_URL: ${{ vars.OVYX_EVAL_LISTINGS_API_URL }}
           ENQUIRY_TARGET_URL: ${{ vars.OVYX_EVAL_REAL_ENQUIRY_URL }}
           ENQUIRY_PROBE_ENABLED: ${{ vars.OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE }}
@@ -158,6 +160,8 @@ jobs:
             ['acceptance audit step', process.env.AUDIT_OUTCOME],
           ];
           const failures = checks.filter(([, outcome]) => outcome !== 'success');
+          if (process.env.PROVIDER_AVAILABLE !== 'true') failures.push(['real AI generation', 'blocked-no-provider-secret-not-a-pass']);
+          if (process.env.INTEGRATION_OUTCOME !== 'success') failures.push(['listing/enquiry service evaluation', process.env.INTEGRATION_OUTCOME || 'not-run']);
           let browser = {};
           let audit = {};
           try { browser = JSON.parse(await fs.readFile('artifacts/webstudio-evaluation-report/browser/browser-report.json', 'utf8')); } catch {}
