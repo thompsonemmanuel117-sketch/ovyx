@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { onRequest } from '../functions/api/_middleware.js';
+import { onRequest, usesRouteLevelOidcAuthentication } from '../functions/api/_middleware.js';
 
 async function call(request) {
   return onRequest({
@@ -31,4 +31,31 @@ async function call(request) {
   assert.equal(response.status, 204, 'preflight requests must return 204');
 }
 
-console.log('API middleware HTTP helper regression tests passed.');
+{
+  assert.equal(usesRouteLevelOidcAuthentication('/api/internal/live-generation-eval'), true,
+    'only the dedicated acceptance endpoint may use its own GitHub OIDC verifier');
+  assert.equal(usesRouteLevelOidcAuthentication('/api/internal/live-generation-eval/'), false,
+    'a path variant must not inherit the OIDC middleware exception');
+  assert.equal(usesRouteLevelOidcAuthentication('/api/ai/gateway'), false,
+    'normal AI endpoints must continue to require Firebase authentication');
+  const request = new Request('https://ovyx.test/api/internal/live-generation-eval', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer a-github-oidc-token' },
+  });
+  const response = await call(request);
+  assert.equal(response.status, 200,
+    'the exact OIDC route must reach its dedicated downstream signature verifier instead of treating its JWT as Firebase');
+  assert.deepEqual(await response.json(), { ok: true });
+}
+
+{
+  const request = new Request('https://ovyx.test/api/internal/live-generation-eval/', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer a-github-oidc-token' },
+  });
+  const response = await call(request);
+  assert.equal(response.status, 401,
+    'trailing-slash variants must not bypass standard Firebase authentication');
+}
+
+console.log('API middleware HTTP helpers and route-scoped OIDC handoff tests passed.');
