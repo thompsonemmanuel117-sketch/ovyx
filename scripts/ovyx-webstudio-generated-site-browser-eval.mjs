@@ -116,6 +116,27 @@ async function inspectPage(page) {
     };
   });
 }
+async function testInternalLinks(page, links) {
+  const checked=[];
+  const current=new URL(page.url());
+  const candidates=[...new Map((links||[]).map(item=>[item.href,item])).values()].slice(0,50);
+  for(const item of candidates){
+    let url;try{url=new URL(item.href,current);}catch{checked.push({href:item.href,status:'invalid-url'});continue;}
+    if(url.origin!==current.origin)continue;
+    if(url.hash&&url.pathname===current.pathname&&url.search===current.search){
+      let targetExists=false;
+      try{targetExists=await page.evaluate(fragment=>{let id=fragment;try{id=decodeURIComponent(fragment.replace(/^#/,'').replace(/\+/g,' '));}catch{}return !!document.getElementById(id)||!!document.querySelector('[name="'+CSS.escape(id)+'"]');},url.hash);}catch{}
+      if(!targetExists)checked.push({href:item.href,status:'missing-fragment-target'});
+      else checked.push({href:item.href,status:'fragment-target-found'});
+      continue;
+    }
+    try{
+      const response=await page.request.get(url.href.split('#')[0],{timeout:6000,maxRedirects:3});
+      checked.push({href:item.href,httpStatus:response.status(),status:response.ok()?'reachable-local-route':'local-route-http-error'});
+    }catch(error){checked.push({href:item.href,status:'local-route-request-failed',error:String(error.message||error).slice(0,160)});}
+  }
+  return checked;
+}
 async function exerciseQAForms(page) {
   const records=[];
   const forms=page.locator('form');
@@ -182,15 +203,16 @@ async function main() {
             try{await page.goto('http://127.0.0.1:'+port+route,{waitUntil:'networkidle',timeout:12000});}
             catch(e){navigationError=String(e.message||e).slice(0,250);try{await page.goto('http://127.0.0.1:'+port+route,{waitUntil:'domcontentloaded',timeout:6000});}catch{}}
             const metrics=await inspectPage(page);
+            const internalLinkChecks=vp.width===390?await testInternalLinks(page,metrics.internalLinks):[];
             const formInteractions=vp.width===390?await exerciseQAForms(page):[];
             const screenshot=relative.replace(/[^a-z0-9_-]+/gi,'_')+'__'+vp.name+'.png';
             await page.screenshot({path:path.join(output,screenshot),fullPage:true,animations:'disabled',timeout:12000}).catch(()=>{});
-            checks.push({page:relative,route,viewport:vp.name,metrics,pageErrors:errors,consoleErrors,failedRequests,navigationError,formInteractions,screenshot});
+            checks.push({page:relative,route,viewport:vp.name,metrics,pageErrors:errors,consoleErrors,failedRequests,navigationError,internalLinkChecks,formInteractions,screenshot});
             await page.close();
           }
         }
       } finally {await new Promise(resolve=>server.close(resolve));}
-      const failures=checks.filter(c=>c.navigationError||c.metrics?.horizontalOverflow||c.metrics?.brokenImages?.length||c.metrics?.copyIssues?.length||c.metrics?.deadLinks?.length||c.metrics?.unlabeledControls?.length||c.pageErrors.length||c.consoleErrors.length||c.failedRequests.length||c.formInteractions.some(f=>f.classification!=='qa-only-local-form-post-and-success-ui-verified'));
+      const failures=checks.filter(c=>c.navigationError||c.metrics?.horizontalOverflow||c.metrics?.brokenImages?.length||c.metrics?.copyIssues?.length||c.metrics?.deadLinks?.length||c.metrics?.unlabeledControls?.length||c.pageErrors.length||c.consoleErrors.length||c.failedRequests.length||c.internalLinkChecks.some(link=>['invalid-url','missing-fragment-target','local-route-http-error','local-route-request-failed'].includes(link.status))||c.formInteractions.some(f=>f.classification!=='qa-only-local-form-post-and-success-ui-verified'));
       const formResults=checks.flatMap(c=>c.formInteractions||[]);
       results.push({
         site:site.name,status:failures.length?'needs-attention':html.length>12?'pass-with-limited-route-sample':'browser-checked-no-obvious-blockers',
