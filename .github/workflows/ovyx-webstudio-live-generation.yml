@@ -22,6 +22,10 @@ on:
       - 'scripts/ovyx-webstudio-live-generation-eval.mjs'
       - 'scripts/ovyx-webstudio-acceptance-audit.mjs'
       - 'scripts/ovyx-webstudio-generated-site-browser-eval.mjs'
+      - 'scripts/ovyx-live-service-integration-eval.mjs'
+      - 'scripts/ovyx-live-service-integration-eval.test.mjs'
+      - 'scripts/ovyx-webstudio-acceptance-audit.test.mjs'
+      - 'scripts/ovyx-webstudio-live-generation-eval-contract.test.mjs'
       - '.github/workflows/ovyx-webstudio-live-generation.yml'
 permissions:
   contents: read
@@ -50,6 +54,7 @@ jobs:
           node scripts/ovyx-webstudio-generated-site-browser-eval.test.mjs
           node scripts/ovyx-webstudio-acceptance-audit.test.mjs
           node scripts/ovyx-webstudio-live-generation-eval-contract.test.mjs
+          node scripts/ovyx-live-service-integration-eval.test.mjs
       - name: Select a configured real AI provider
         id: provider
         shell: bash
@@ -108,11 +113,31 @@ jobs:
         id: browser
         continue-on-error: true
         run: node scripts/ovyx-webstudio-generated-site-browser-eval.mjs artifacts/webstudio-generated-sites artifacts/webstudio-evaluation-report/browser
+      - name: Evaluate configured real listing and enquiry services
+        if: always()
+        id: integration
+        continue-on-error: true
+        env:
+          OVYX_EVAL_LISTINGS_API_URL: ${{ vars.OVYX_EVAL_LISTINGS_API_URL }}
+          OVYX_EVAL_LISTINGS_API_TOKEN: ${{ secrets.OVYX_EVAL_LISTINGS_API_TOKEN }}
+          OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY: ${{ vars.OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY }}
+          OVYX_EVAL_LISTINGS_JSON_PATH: ${{ vars.OVYX_EVAL_LISTINGS_JSON_PATH }}
+          OVYX_EVAL_LISTING_ID_FIELD: ${{ vars.OVYX_EVAL_LISTING_ID_FIELD }}
+          OVYX_EVAL_LISTING_TITLE_FIELD: ${{ vars.OVYX_EVAL_LISTING_TITLE_FIELD }}
+          OVYX_EVAL_LISTING_LOCATION_FIELD: ${{ vars.OVYX_EVAL_LISTING_LOCATION_FIELD }}
+          OVYX_EVAL_LISTING_STATUS_FIELD: ${{ vars.OVYX_EVAL_LISTING_STATUS_FIELD }}
+          OVYX_EVAL_REAL_ENQUIRY_URL: ${{ vars.OVYX_EVAL_REAL_ENQUIRY_URL }}
+          OVYX_EVAL_REAL_ENQUIRY_TOKEN: ${{ secrets.OVYX_EVAL_REAL_ENQUIRY_TOKEN }}
+          OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE: ${{ vars.OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE }}
+          OVYX_EVAL_ENQUIRY_TEST_RECIPIENT: ${{ vars.OVYX_EVAL_ENQUIRY_TEST_RECIPIENT }}
+          OVYX_EVAL_ENQUIRY_TEST_PAYLOAD_JSON: ${{ secrets.OVYX_EVAL_ENQUIRY_TEST_PAYLOAD_JSON }}
+          OVYX_INTEGRATION_REPORT_OUT: artifacts/webstudio-evaluation-report/integration-report.json
+        run: node scripts/ovyx-live-service-integration-eval.mjs
       - name: Audit copy, routes, visuals and integration claims
         if: always()
         id: audit
         continue-on-error: true
-        run: node scripts/ovyx-webstudio-acceptance-audit.mjs artifacts/webstudio-generated-sites artifacts/webstudio-evaluation-report/browser/browser-report.json artifacts/webstudio-evaluation-report/acceptance-report.json
+        run: node scripts/ovyx-webstudio-acceptance-audit.mjs artifacts/webstudio-generated-sites artifacts/webstudio-evaluation-report/browser/browser-report.json artifacts/webstudio-evaluation-report/acceptance-report.json artifacts/webstudio-evaluation-report/integration-report.json
       - name: Enforce honest quality gates when live generation ran
         if: always() && steps.provider.outputs.available == 'true'
         env:
