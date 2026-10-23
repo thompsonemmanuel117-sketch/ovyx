@@ -428,6 +428,33 @@ async function main() {
   const settings = publicSettings();
   await writeWorkflowOutputs(settings);
   await preflightProvider(origin, provider, model);
+  if (process.env.OVYX_EVAL_PREFLIGHT_ONLY === 'true') {
+    const report = {
+      schemaVersion: 1,
+      status: 'provider-preflight-passed-no-sites-generated',
+      preflightOnly: true,
+      checkedAt: new Date().toISOString(),
+      requestedProvider: provider,
+      configuredModel: model || null,
+      realSitesGenerated: 0,
+      cloudflareRuntimeConfigInventory,
+      realListingsConfirmed: false,
+      realEnquiryDeliveryConfirmed: false,
+      humanVisualReviewCompleted: false,
+      humanEditorialReviewCompleted: false,
+      note: 'A short real model response succeeded. This report does not certify website generation, listing data, enquiry delivery, or human review.',
+    };
+    await fs.writeFile(path.join(OUTPUT, 'provider-preflight-report.json'), JSON.stringify(report, null, 2) + '\n');
+    console.log(JSON.stringify({
+      event: 'live-provider-preflight-only-complete',
+      provider,
+      model: model || null,
+      status: 'ready',
+      realSitesGenerated: 0,
+      note: 'Provider readiness was verified; no full website briefs were sent.',
+    }));
+    return;
+  }
   const sites = [];
   for (const caseId of CASE_IDS) {
     const site = await generateOne(origin, provider, model, settings, caseId);
