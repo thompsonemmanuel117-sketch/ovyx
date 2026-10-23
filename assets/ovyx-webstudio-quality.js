@@ -184,6 +184,9 @@
     if (title.indexOf('page runtime errors') >= 0 || title.indexOf('sandbox runtime and render completion') >= 0) {
       return 'Fix the first reproducible runtime error and its affected dependency or selector in the named page/script. Re-run the affected route and the responsive inspection; do not suppress the error without fixing its cause.';
     }
+    if (title.indexOf('editorial copy and placeholder text') >= 0) {
+      return 'Replace the detected template phrase with accurate, audience-specific copy. Proofread visible headings, paragraphs, labels and calls to action for natural wording, grammar and consistent terminology; do not invent business facts. Then review typography and text wrapping at mobile and desktop sizes.';
+    }
     if (title.indexOf('page content presence') >= 0) {
       return 'Restore the missing meaningful page content or repair the rendering path for the named route. Keep the route, navigation and intended page purpose intact.';
     }
@@ -262,6 +265,7 @@
     }
     addCheck(report, 'Project artifacts', 'Generated website files', 'pass', pages.length + ' website page(s) are available for review.');
     var metadataIssues = [];
+    var copyIssues = [];
     var accessibilityIssues = [];
     var routeIssues = [];
     var resourceIssues = [];
@@ -321,6 +325,19 @@
       if (!viewport || !/width\s*=\s*device-width/i.test(text(viewport && viewport.getAttribute('content')))) metadataIssues.push(page.path + ': missing a responsive viewport meta tag.');
       if (!doc.querySelector('main, [role="main"]')) metadataIssues.push(page.path + ': no main landmark was found.');
       if (!doc.querySelector('h1')) metadataIssues.push(page.path + ': no primary <h1> heading was found.');
+      var copyBody = doc.body ? doc.body.cloneNode(true) : null;
+      if (copyBody) copyBody.querySelectorAll('script,style,noscript,template,svg,iframe').forEach(function (node) { node.remove(); });
+      var visibleCopy = text(copyBody && copyBody.textContent).replace(/\s+/g, ' ').trim();
+      var copyPatterns = [
+        { label: 'lorem ipsum placeholder', pattern: /\blorem\s+ipsum\b/i },
+        { label: 'unfinished placeholder', pattern: /\b(?:insert|replace|add)\s+(?:your\s+)?(?:text|copy|content|image|logo|company name|business name)\s+here\b/i },
+        { label: 'bracketed content placeholder', pattern: /\[\s*(?:your|insert|replace|add)\s+(?:business|company|brand|product|text|content|image)\b[^\]]{0,80}\]/i },
+        { label: 'generic brand placeholder', pattern: /\b(?:your company name|your business name|your brand name|company name goes here|brand name goes here)\b/i },
+        { label: 'unfinished marker', pattern: /\b(?:TODO|FIXME)\b/i }
+      ];
+      copyPatterns.forEach(function (rule) {
+        if (rule.pattern.test(visibleCopy)) copyIssues.push(page.path + ': detected ' + rule.label + '.');
+      });
       var idCounts = Object.create(null);
       doc.querySelectorAll('[id]').forEach(function (node) {
         var id = text(node.id).trim();
@@ -455,6 +472,7 @@
         if (target && !files[target]) resourceIssues.push(page.path + ': local stylesheet "' + trim(ref, 120) + '" is not present in the file graph.');
       });
     });
+    addCheck(report, 'Content quality', 'Editorial copy and placeholder text', statusForFindings(copyIssues.length, false), copyIssues.length ? copyIssues.slice(0, 50).join('\n') : 'No common template-placeholder phrases were detected in visible page copy. This heuristic does not replace a full human proofread.');
     addCheck(report, 'SEO and document structure', 'Page metadata and landmarks', statusForFindings(metadataIssues.length, false), metadataIssues.length ? metadataIssues.slice(0, 35).join('\n') : 'Every generated HTML page has a title, language, mobile viewport, main landmark, primary heading and doctype.');
     addCheck(report, 'Accessibility', 'Accessible controls and imagery', statusForFindings(accessibilityIssues.length, true), accessibilityIssues.length ? accessibilityIssues.slice(0, 50).join('\n') : 'No missing image alt attributes, duplicate IDs, unlabeled form controls or unnamed buttons and links were found in the generated HTML.');
     addCheck(report, 'Navigation', 'Internal links and anchors', statusForFindings(routeIssues.length, true), routeIssues.length ? routeIssues.slice(0, 50).join('\n') : 'No placeholder links, missing href attributes or broken generated-page and fragment links were found.');
