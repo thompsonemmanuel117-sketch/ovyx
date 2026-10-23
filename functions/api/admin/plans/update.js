@@ -1,9 +1,8 @@
-import { authenticateRequest, hasAdminClaim } from '../../../_lib/firebase.js';
+import { authenticateRequest } from '../../../_lib/firebase.js';
 import { getFirestoreData, setFirestoreDocument } from '../../../_lib/firebase-admin.js';
-import { isRootUser } from '../../../_lib/brain/registry.js';
+import { ROOT_EMAIL } from '../../../_lib/brain/registry.js';
 import { readJson, jsonResponse, requestId } from '../../_lib/http.js';
 
-const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
 const ALLOWED_TIERS = new Set(['free', 'pro', 'max']);
 const ALLOWED_FEATURES = new Set(['webStudio','advancedWebStudio','appStudio','gameStudio','aiGeneration','github','cloudflareDeploy','teamWorkspace','templates']);
 const ALLOWED_GATES = new Set(['webstudio','advancedwebstudio','appstudio','gamestudio','aigeneration','github','cloudflaredeploy','teamworkspace','workspace','templates','admin-identity']);
@@ -22,10 +21,9 @@ function cleanNumber(value,label){
 }
 function isAdmin(user){
   if(!user)return false;
-  const email=String(user.email||'').trim().toLowerCase();
-  if(email===ROOT_EMAIL.toLowerCase())return true;
-  if(isRootUser(user))return true;
-  return String(user.role||'').trim().toUpperCase()==='ROOT_SUPERUSER';
+  // Only the authenticated canonical owner email may change platform-wide plans and gates.
+  // Firebase/profile role labels are not substitutes for the owner identity.
+  return String(user.email||'').trim().toLowerCase()===ROOT_EMAIL.toLowerCase();
 }
 function normalizeFeatures(value){
   if(!Array.isArray(value))return [];
