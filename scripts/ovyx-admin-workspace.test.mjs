@@ -6,6 +6,7 @@ import { ROOT_EMAIL } from '../functions/_lib/brain/registry.js';
 const read = path => fs.readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 const runtime = read('assets/ovyx-admin-workspace.js');
 const middleware = read('functions/_middleware.js');
+const apiMiddleware = read('functions/api/_middleware.js');
 const rbac = read('functions/api/admin/rbac.js');
 const entitlementsSource = read('functions/api/entitlements.js');
 const headers = read('_headers');
@@ -31,7 +32,7 @@ assert.ok(runtime.includes('actualEmail === ROOT_EMAIL') && runtime.includes('da
 assert.ok(rbac.includes("import { resolveEntitlements } from '../entitlements.js'"), 'RBAC must use the canonical server entitlement resolver.');
 assert.doesNotMatch(rbac, /profile\?\.role\s*===?\s*['"]ROOT_SUPERUSER['"]|role === 'ROOT_SUPERUSER' \|\|/, 'A stored profile role must never mint ROOT_SUPERUSER access.');
 assert.ok(entitlementsSource.includes('Only the canonical, Firebase-verified account email grants root bypass.'), 'Root bypass must be tied to the canonical verified owner identity.');
-assert.ok(middleware.includes("'PRODUCTION_INTEGRATIONS_PAUSED'"), 'The owner-controlled global integration kill switch must remain an explicit safety boundary.');
+assert.ok(apiMiddleware.includes("'PRODUCTION_INTEGRATIONS_PAUSED'"), 'The owner-controlled global integration kill switch must remain an explicit safety boundary.');
 
 const rootEntitlements = await resolveEntitlements({}, { uid: 'ovyx-root-owner-contract-test', email: ROOT_EMAIL });
 assert.equal(rootEntitlements.role, 'ROOT_SUPERUSER', 'The configured owner identity must resolve to ROOT_SUPERUSER.');
