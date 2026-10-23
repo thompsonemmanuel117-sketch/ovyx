@@ -139,6 +139,7 @@ function makeBatchPrompt(prompt, plan, siteMap, batch, stagedChanges, existingFi
     'Return strict JSON only, without Markdown fences.',
     'Output shape: {"summary":"...","files":{"src/pages/Home.html":"complete HTML document","src/styles.css":"complete stylesheet","src/main.js":"complete JavaScript"}}.',
     'Every value in files must be complete final UTF-8 file content, not a diff, filename list or summary.',
+    'Pages live at src/pages/<Page>.html while shared files live at src/styles.css and src/main.js. From each page, reference shared assets with correct relative paths such as ../styles.css and ../main.js; never assume shared files are beside page files.',
     'Batch ' + batch.index + ' of ' + batch.total + '; kind: ' + batch.kind + '; maximum distinct output files: ' + batch.maxChangedFiles + '.',
     'PROMPT REQUIREMENT CONTRACT JSON:\n' + JSON.stringify(promptContract || {}),
     'REQUIRED TARGET FILES JSON:\n' + JSON.stringify(batch.targetFiles),
@@ -197,6 +198,93 @@ function selectBoundedPolishTargets(staged, siteMap, limit, maxFileChars, maxTot
     totalChars += content.length;
   }
   return selected;
+}
+
+function sharedAssetRelativePath(pagePath, assetPath) {
+  const from = String(pagePath || '').split('/').slice(0, -1).filter(Boolean);
+  const to = String(assetPath || '').split('/').filter(Boolean);
+  let common = 0;
+  while (common < from.length && common < to.length && from[common] === to[common]) common += 1;
+  const relative = [...Array(from.length - common).fill('..'), ...to.slice(common)].join('/');
+  return relative || to[to.length - 1] || '';
+}
+
+function isLocalAssetReference(value) {
+  const raw = String(value || '').trim();
+  return !!raw && !/^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(raw);
+}
+
+function tagReferencesAsset(tag, attribute, assetPath) {
+  const matcher = new RegExp('\\b(' + attribute + '\\s*=\\s*)(["\\'])(.*?)\\2', 'i');
+  const match = String(tag || '').match(matcher);
+  if (!match || !isLocalAssetReference(match[3])) return false;
+  const rawPath = match[3].split(/[?#]/, 1)[0].replace(/\\\\/g, '/');
+  const expected = String(assetPath || '').split('/').filter(Boolean).pop() || '';
+  const actual = rawPath.split('/').filter(Boolean).pop() || '';
+  return !!expected && actual.toLowerCase() === expected.toLowerCase();
+}
+
+function rewriteTagAssetReference(tag, attribute, pagePath, assetPath) {
+  const matcher = new RegExp('\\b(' + attribute + '\\s*=\\s*)(["\\'])(.*?)\\2', 'i');
+  return String(tag || '').replace(matcher, (whole, prefix, quote, raw) => {
+    if (!isLocalAssetReference(raw)) return whole;
+    const rawPath = String(raw).split(/[?#]/, 1)[0].replace(/\\\\/g, '/');
+    const expected = String(assetPath || '').split('/').filter(Boolean).pop() || '';
+    const actual = rawPath.split('/').filter(Boolean).pop() || '';
+    if (!expected || actual.toLowerCase() !== expected.toLowerCase()) return whole;
+    const suffix = String(raw).slice(String(raw).split(/[?#]/, 1)[0].length);
+    const next = sharedAssetRelativePath(pagePath, assetPath) + suffix;
+    return prefix + quote + next + quote;
+  });
+}
+
+function insertIntoDocument(source, tag, closingTag, openingTag) {
+  if (new RegExp(closingTag, 'i').test(source)) {
+    return source.replace(new RegExp(closingTag, 'i'), tag + '\\n' + closingTag.replace(/\\/g, ''));
+  }
+  const open = new RegExp(openingTag, 'i');
+  if (open.test(source)) return source.replace(open, match => match + '\\n' + tag);
+  if (/<html\\b[^>]*>/i.test(source)) {
+    return source.replace(/<html\\b[^>]*>/i, match => match + (closingTag.toLowerCase().includes('head') ? '<head>' + tag + '</head>' : '<body>' + tag + '</body>'));
+  }
+  return closingTag.toLowerCase().includes('head') ? '<!doctype html><html><head>' + tag + '</head>' + source + '</html>' : source + '\\n' + tag;
+}
+
+function normalizeSharedAssetReferences(staged, siteMap) {
+  const available = new Set((Array.isArray(staged) ? staged : []).map(item => item && item.path).filter(Boolean));
+  const sharedAssets = (Array.isArray(siteMap?.sharedFiles) ? siteMap.sharedFiles : [])
+    .map(item => String(item?.path || '').trim())
+    .filter(path => available.has(path) && /\\.(?:css|js)$/i.test(path));
+  let repairedPages = 0;
+  const next = (Array.isArray(staged) ? staged : []).map(item => {
+    const pagePath = String(item?.path || '');
+    if (!/\\.html?$/i.test(pagePath) || !Array.isArray(siteMap?.pages) ||
+        !siteMap.pages.some(page => String(page?.path || '') === pagePath) ||
+        typeof item.content !== 'string') return item;
+    const original = item.content;
+    let content = original;
+    for (const assetPath of sharedAssets) {
+      if (/\\.css$/i.test(assetPath)) {
+        content = content.replace(/<link\\b[^>]*>/gi, tag => rewriteTagAssetReference(tag, 'href', pagePath, assetPath));
+        const linkTags = content.match(/<link\\b[^>]*>/gi) || [];
+        if (!linkTags.some(tag => tagReferencesAsset(tag, 'href', assetPath))) {
+          const rel = sharedAssetRelativePath(pagePath, assetPath);
+          content = insertIntoDocument(content, '<link rel="stylesheet" href="' + rel + '">', '<\\/head\\s*>', '<head\\b[^>]*>');
+        }
+      } else if (/\\.js$/i.test(assetPath)) {
+        content = content.replace(/<script\\b[^>]*>/gi, tag => rewriteTagAssetReference(tag, 'src', pagePath, assetPath));
+        const scriptTags = content.match(/<script\\b[^>]*>/gi) || [];
+        if (!scriptTags.some(tag => tagReferencesAsset(tag, 'src', assetPath))) {
+          const rel = sharedAssetRelativePath(pagePath, assetPath);
+          content = insertIntoDocument(content, '<script src="' + rel + '" defer></script>', '<\\/body\\s*>', '<body\\b[^>]*>');
+        }
+      }
+    }
+    if (content === original) return item;
+    repairedPages += 1;
+    return { ...item, content };
+  });
+  return { staged: next, repairedPages };
 }
 
 function validateStagedSite(staged, prompt, siteMap) {
@@ -277,7 +365,7 @@ function projectPages(project, siteMap) {
   });
 }
 
-export async function buildStudioMultiPage(options) {
+async function buildStudioMultiPageOnce(options) {
   const env = options.env;
   const callModel = options.callModel;
   const provider = options.provider || 'automatic';
@@ -364,6 +452,7 @@ export async function buildStudioMultiPage(options) {
   }
 
   let staged = [];
+  let sharedAssetPagesRepaired = 0;
   let lastResult = planResult;
   for (const batch of batches) {
     const input = makeBatchPrompt(prompt, plan, siteMap, batch, staged, existingFiles, extraContext, promptContract);
@@ -402,6 +491,10 @@ export async function buildStudioMultiPage(options) {
       content: generated[path],
     })));
   }
+
+  const initialAssetNormalization = normalizeSharedAssetReferences(staged, siteMap);
+  staged = initialAssetNormalization.staged;
+  sharedAssetPagesRepaired += initialAssetNormalization.repairedPages;
 
   // Validate the first complete version before the optional polish pass. A failed
   // polish must never overwrite this baseline or turn a valid build into a failure.
@@ -481,7 +574,13 @@ export async function buildStudioMultiPage(options) {
               action: existingFiles[path] || staged.some(item => item.path === path) ? 'update' : 'create',
               content: repairedFiles[path],
             })));
-            const candidateChecks = validateStagedSite(candidate, prompt, siteMap);
+            const normalizedRepair = normalizeSharedAssetReferences(candidate, siteMap);
+            candidate = normalizedRepair.staged;
+            sharedAssetPagesRepaired += normalizedRepair.repairedPages;
+            const normalizedPolish = normalizeSharedAssetReferences(candidate, siteMap);
+        const normalizedCandidate = normalizedPolish.staged;
+        sharedAssetPagesRepaired += normalizedPolish.repairedPages;
+        const candidateChecks = validateStagedSite(normalizedCandidate, prompt, siteMap);
             const changedPaths = repairedPaths.filter(path => String(repairedFiles[path]) !== String(baselineByPath.get(path) || ''));
 
             if (!changedPaths.length) {
@@ -603,7 +702,7 @@ export async function buildStudioMultiPage(options) {
         ) {
           qualityPolish.status = 'rejected';
         } else {
-          staged = candidate;
+          staged = normalizedCandidate;
           checks = candidateChecks;
           qualityPolish.status = 'applied';
           qualityPolish.filesUpdated = changedPaths.length;
@@ -681,5 +780,104 @@ export async function buildStudioMultiPage(options) {
     quotaOutputText: outputs.join('\n\n'),
     totalPages: pageCount,
     batchCount: batches.length,
+    sharedAssetPagesRepaired,
   };
+}
+
+
+const RETRYABLE_WEBSTUDIO_OUTPUT_FAILURES = new Set([
+  'WEBSTUDIO_SITEMAP_INVALID',
+  'WEBSTUDIO_SITEMAP_INCOMPLETE',
+  'WEBSTUDIO_BATCH_PLAN_FAILED',
+  'WEBSTUDIO_BATCH_EMPTY',
+  'WEBSTUDIO_BATCH_FILE_LIMIT',
+  'WEBSTUDIO_PATH_NOT_ALLOWED',
+  'WEBSTUDIO_EMPTY_FILE',
+  'WEBSTUDIO_BATCH_MISSING_FILES',
+  'WEBSTUDIO_SITE_VALIDATION_FAILED',
+  'WEBSTUDIO_PROMPT_REQUIREMENT_MISSING',
+]);
+
+function combineUsageRecords(...records) {
+  let usage = {};
+  let found = false;
+  for (const record of records) {
+    if (!record || typeof record !== 'object') continue;
+    const next = usageAdd(usage, record);
+    usage = next.total;
+    found = found || next.found;
+  }
+  if (!found) return null;
+  return {
+    prompt_tokens: usage.prompt_tokens || 0,
+    completion_tokens: usage.completion_tokens || 0,
+    total_tokens: usage.total_tokens === undefined
+      ? ((usage.prompt_tokens || 0) + (usage.completion_tokens || 0))
+      : usage.total_tokens,
+  };
+}
+
+export async function buildStudioMultiPage(options = {}) {
+  try {
+    return await buildStudioMultiPageOnce(options);
+  } catch (firstError) {
+    const failureCode = String(firstError?.code || '').toUpperCase();
+    if (
+      options?._ovyxGenerationRecoveryAttempt === 1 ||
+      !RETRYABLE_WEBSTUDIO_OUTPUT_FAILURES.has(failureCode)
+    ) {
+      throw firstError;
+    }
+
+    const requirementIssues = (firstError?.requirementVerification?.issues || [])
+      .map(issue => String(issue?.message || '').trim())
+      .filter(Boolean)
+      .slice(0, 12);
+    const recoveryInstruction = [
+      'BOUNDED WEBSITE-GENERATION RECOVERY: the previous generation attempt failed a deterministic output/quality check.',
+      'Retry the full build once. Preserve the complete original user brief and every explicitly requested page, feature, language, market and interaction.',
+      'Return strict valid JSON for every phase, generate every required file, and ensure the output satisfies the existing structural and prompt-requirement checks.',
+      'Every HTML page under src/pages must load each supplied shared src/styles.css and src/main.js using correct local relative paths such as ../styles.css and ../main.js. Do not use placeholder links or omit shared assets.',
+      requirementIssues.length ? 'The prior deterministic requirement checks reported: ' + requirementIssues.join(' | ') : '',
+    ].filter(Boolean).join('\\n\\n');
+
+    let recoveryContext;
+    if (typeof options.context === 'string') {
+      recoveryContext = options.context + '\\n\\n' + recoveryInstruction;
+    } else {
+      recoveryContext = JSON.stringify({
+        existingContext: options.context && typeof options.context === 'object' ? options.context : {},
+        boundedGenerationRecovery: { failureCode, instruction: recoveryInstruction },
+      });
+    }
+    const retryOptions = {
+      ...options,
+      qualityContract: [String(options.qualityContract || '').trim(), recoveryInstruction]
+        .filter(Boolean).join('\\n\\n'),
+      context: recoveryContext,
+      _ovyxGenerationRecoveryAttempt: 1,
+    };
+
+    try {
+      const recovered = await buildStudioMultiPageOnce(retryOptions);
+      if (!recovered) throw firstError;
+      const combinedUsage = combineUsageRecords(firstError?.partialUsage, recovered.rawUsage);
+      return {
+        ...recovered,
+        ...(combinedUsage ? { rawUsage: combinedUsage } : {}),
+        generationRecovery: {
+          status: 'recovered-after-one-bounded-retry',
+          firstFailureCode: failureCode,
+        },
+      };
+    } catch (retryError) {
+      const combinedPartialUsage = combineUsageRecords(firstError?.partialUsage, retryError?.partialUsage);
+      if (combinedPartialUsage) retryError.partialUsage = combinedPartialUsage;
+      retryError.generationRecovery = {
+        status: 'retry-failed',
+        firstFailureCode: failureCode,
+      };
+      throw retryError;
+    }
+  }
 }
