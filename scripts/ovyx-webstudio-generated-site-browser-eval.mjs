@@ -162,18 +162,18 @@ async function interactionSnapshot(page) {
 async function exerciseButtons(page, baseUrl, route) {
   const output = [];
   const buttons = page.locator('button,[role="button"]');
-  const count = Math.min(await buttons.count().catch(() => 0), 20);
+  const candidates = await buttons.evaluateAll(elements => elements.map(el => {
+    const rect = el.getBoundingClientRect();
+    return {
+      text: (el.innerText || el.getAttribute('aria-label') || '').trim().slice(0,100),
+      type: (el.getAttribute('type') || '').toLowerCase(),
+      disabled: !!el.disabled, inForm: !!el.closest('form'), hasHref: !!el.closest('a'),
+      visible: rect.width > 0 && rect.height > 0 && getComputedStyle(el).visibility !== 'hidden',
+    };
+  })).catch(() => []);
+  const count = Math.min(candidates.length, 20);
   for (let index = 0; index < count; index++) {
-    const button = buttons.nth(index);
-    const info = await button.evaluate(el => {
-      const rect = el.getBoundingClientRect();
-      return {
-        text: (el.innerText || el.getAttribute('aria-label') || '').trim().slice(0,100),
-        type: (el.getAttribute('type') || '').toLowerCase(),
-        disabled: !!el.disabled, inForm: !!el.closest('form'), hasHref: !!el.closest('a'),
-        visible: rect.width > 0 && rect.height > 0 && getComputedStyle(el).visibility !== 'hidden',
-      };
-    }).catch(() => null);
+    const info = candidates[index];
     if (!info) continue;
     if (!info.visible || info.disabled || info.inForm || info.hasHref || info.type === 'submit') {
       output.push({ index, text: info.text, status: 'skipped-not-a-safe-standalone-button' });
