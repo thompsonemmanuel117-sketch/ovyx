@@ -188,6 +188,22 @@ async function findFiles(dir,pattern,prefix=''){
   for(const e of entries){if(e.name.startsWith('.')||e.name==='node_modules')continue;const rel=prefix?prefix+'/'+e.name:e.name;const absolute=path.join(dir,e.name);if(e.isDirectory())found.push(...await findFiles(absolute,pattern,rel));else if(e.isFile()&&pattern.test(rel))found.push(absolute);}
   return found;
 }
+export function assessEnquiryAcknowledgement(httpStatus, data){
+  const body=data&&typeof data==='object'?data:{};
+  const nested=body.data&&typeof body.data==='object'?body.data:{};
+  const delivery=body.delivery&&typeof body.delivery==='object'?body.delivery:{};
+  const nestedDelivery=nested.delivery&&typeof nested.delivery==='object'?nested.delivery:{};
+  const state=String(body.deliveryStatus||body.messageStatus||delivery.status||nested.deliveryStatus||nested.messageStatus||nestedDelivery.status||'').trim().toLowerCase().replace(/[\s_-]+/g,' ');
+  const explicitlyDelivered=body.delivered===true||body.messageDelivered===true||delivery.delivered===true||nested.delivered===true||nested.messageDelivered===true||nestedDelivery.delivered===true||['delivered','delivery confirmed','delivered to recipient'].includes(state);
+  const acceptedByBody=body.ok===true||body.accepted===true||body.success===true||body.queued===true||String(body.status||'').toLowerCase()==='accepted'||explicitlyDelivered;
+  const httpOk=Number(httpStatus)>=200&&Number(httpStatus)<300;
+  return {
+    endpointAcceptedTestPayload:httpOk&&acceptedByBody,
+    explicitDeliveryReceipt:explicitlyDelivered,
+    realEnquiryDeliveryConfirmed:httpOk&&acceptedByBody&&explicitlyDelivered,
+    deliveryStatusReported:state||null,
+  };
+}
 async function evaluateEnquiry(env){
   const endpoint=String(env.OVYX_EVAL_REAL_ENQUIRY_URL||'').trim();
   if(!endpoint)return {status:'not-configured',endpointConfigured:false,probeSent:false,endpointAcceptedTestPayload:false,realEnquiryDeliveryConfirmed:false,note:'No client-approved enquiry destination was configured.'};
@@ -206,16 +222,22 @@ async function evaluateEnquiry(env){
   const response=await requestJson(endpoint,{method:'POST',token:String(env.OVYX_EVAL_REAL_ENQUIRY_TOKEN||'').trim(),payload});
   if(!response.ok)return {status:'test-request-failed',endpointConfigured:true,endpoint:displayEndpoint(endpoint),probeSent:true,httpStatus:response.status||null,error:response.error||'request-failed',endpointAcceptedTestPayload:false,realEnquiryDeliveryConfirmed:false,note:'The QA payload was attempted but accepted delivery was not confirmed.'};
   const data=response.json||{};
-  const affirmative=data.ok===true||data.accepted===true||data.success===true||data.queued===true||String(data.status||'').toLowerCase()==='accepted';
-  const httpAccepted=response.status>=200&&response.status<300;
-  const accepted=httpAccepted&&affirmative;
+  const acknowledgement=assessEnquiryAcknowledgement(response.status,data);
   return {
-    status:accepted?'endpoint-accepted-test-payload-delivery-unverified':'endpoint-did-not-confirm-test-acceptance',
+    status:acknowledgement.realEnquiryDeliveryConfirmed?'endpoint-reported-delivery-confirmed'
+      :acknowledgement.endpointAcceptedTestPayload?'endpoint-accepted-test-payload-delivery-unverified'
+      :'endpoint-did-not-confirm-test-acceptance',
     endpointConfigured:true,endpoint:displayEndpoint(endpoint),probeSent:true,httpStatus:response.status,
     acknowledgementShape:response.json?Object.keys(response.json).slice(0,30):[],
-    endpointAcceptedTestPayload:accepted,
-    realEnquiryDeliveryConfirmed:false,
-    note:accepted?'Endpoint explicitly acknowledged a QA payload. This proves acceptance by the configured endpoint only, not mailbox delivery, WhatsApp/social delivery, lead persistence or that a generated page is correctly wired to it.':'The endpoint did not return an explicit JSON acceptance acknowledgement; real delivery remains unverified.',
+    endpointAcceptedTestPayload:acknowledgement.endpointAcceptedTestPayload,
+    explicitDeliveryReceipt:acknowledgement.explicitDeliveryReceipt,
+    deliveryStatusReported:acknowledgement.deliveryStatusReported,
+    realEnquiryDeliveryConfirmed:acknowledgement.realEnquiryDeliveryConfirmed,
+    note:acknowledgement.realEnquiryDeliveryConfirmed
+      ?'The configured endpoint explicitly reported delivery for the owner-authorized test payload. This is endpoint-reported evidence; independently verifying the recipient inbox still depends on that provider and its receipt contract.'
+      :acknowledgement.endpointAcceptedTestPayload
+        ?'The endpoint acknowledged a QA payload but did not explicitly report delivery; mailbox/WhatsApp/social delivery remains unverified.'
+        :'The endpoint did not return an explicit JSON acceptance acknowledgement; delivery remains unverified.',
   };
 }
 export async function runLiveServiceIntegrationEvaluation(env=process.env){
