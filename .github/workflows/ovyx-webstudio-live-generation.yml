@@ -196,7 +196,15 @@ jobs:
             console.error(JSON.stringify({status:'needs-attention',failures,realListingsConfirmed:false,realEnquiryDeliveryConfirmed:false,humanVisualReviewCompleted:false,humanEditorialReviewCompleted:false},null,2));
             process.exitCode = 1;
           } else {
-            console.log(JSON.stringify({status:'automated-checks-run-human-review-and-real-integration-verification-pending',browserSites:browser.evaluatedSites,reportSites:audit.sitesFound,realListingsConfirmed:false,realEnquiryDeliveryConfirmed:false,humanVisualReviewCompleted:false,humanEditorialReviewCompleted:false},null,2));
+            console.log(JSON.stringify({
+              status:'automated-checks-run-human-review-and-real-integration-verification-pending',
+              browserSites:browser.evaluatedSites,
+              reportSites:audit.sitesFound,
+              realListingsConfirmed:integration.listings?.realListingsConfirmed===true,
+              realEnquiryDeliveryConfirmed:integration.enquiry?.realEnquiryDeliveryConfirmed===true&&browser.results.length>0&&browser.results.every(site=>site.publicEnquiryDeliveryConfirmed===true),
+              humanVisualReviewCompleted:false,
+              humanEditorialReviewCompleted:false
+            },null,2));
           }
           NODE
       - name: Preserve all screenshots and reports
