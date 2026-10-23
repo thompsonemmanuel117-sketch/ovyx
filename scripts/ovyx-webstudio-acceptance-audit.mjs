@@ -28,10 +28,11 @@ function hasFieldLabel(formHtml,field) {
   }
   return false;
 }
-export async function auditGeneratedSites(root=ROOT,browserReportPath=BROWSER_REPORT,outPath=OUT){
+export async function auditGeneratedSites(root=ROOT,browserReportPath=BROWSER_REPORT,outPath=OUT,integrationReportPath=path.resolve('artifacts/webstudio-evaluation-report/integration-report.json')){
   let rootEntries=[];try{rootEntries=await fs.readdir(root,{withFileTypes:true});}catch{}
   const sites=rootEntries.filter(e=>e.isDirectory()&&!e.name.startsWith('.'));
   const browser=await readJson(browserReportPath,{status:'not-run',evaluatedSites:0,results:[]});
+  const integrations=await readJson(integrationReportPath,{listings:{status:'not-configured',realListingsConfirmed:false},enquiry:{status:'not-configured',endpointAcceptedTestPayload:false,realEnquiryDeliveryConfirmed:false}});
   const browserByName=new Map((browser.results||[]).map(r=>[r.site,r]));
   const audited=[];
   for(const entry of sites){
@@ -89,8 +90,8 @@ export async function auditGeneratedSites(root=ROOT,browserReportPath=BROWSER_RE
       copy:{status:issues.some(i=>i.category==='copy'&&i.severity==='blocker')?'needs-attention':'heuristic-checked-human-proofread-pending',humanEditorialReviewCompleted:false},
       visuals:{status:visualScreenshots>=Math.min(htmlFiles.length,12)*5&&actualScreenshots>=visualScreenshots?'screenshots-captured-human-visual-review-pending':'screenshot-coverage-incomplete',screenshotsReported:visualScreenshots,screenshotsOnDisk:actualScreenshots,humanVisualReviewCompleted:false},
       interactions:{status:issues.some(i=>i.category==='interactions'&&i.severity==='blocker')?'needs-attention':'markup-checked-behavior-not-fully-proven'},
-      enquiry:{status:browserSite?.formInteractionStatus==='qa-local-post-tested'?'qa-only-local-post-tested-real-delivery-unverified':'real-enquiry-delivery-unverified',realEnquiryDeliveryConfirmed:false},
-      inventory:{status:metadata.industry==='real-estate'?(metadata.liveInventorySourceConfigured?'feed-configured-but-records-not-independently-verified':'live-feed-not-configured'):'not-applicable',realListingsConfirmed:false},
+      enquiry:{status:integrations.enquiry?.endpointAcceptedTestPayload?'endpoint-accepted-test-payload-delivery-unverified':integrations.enquiry?.status||'not-configured',qaOnlyFormStatus:browserSite?.formInteractionStatus||'not-tested',realEnquiryDeliveryConfirmed:false},
+      inventory:{status:metadata.industry!=='real-estate'?'not-applicable':integrations.listings?.realListingsConfirmed?'authoritative-feed-active-records-and-site-wiring-verified':integrations.listings?.endpointConfigured?'source-configured-but-listings-or-site-wiring-not-confirmed':'live-feed-not-configured',sourceStatus:integrations.listings?.status||'not-configured',realListingsConfirmed:integrations.listings?.realListingsConfirmed===true},
       responsive:{status:browserSite&&[320,390,768,1024,1440].every(v=>browserSite.viewportWidths?.includes(v))?'five-viewports-checked':'responsive-evidence-incomplete'},
     };
     const blockers=issues.filter(i=>i.severity==='blocker').length,warnings=issues.filter(i=>i.severity==='warning').length;
@@ -105,7 +106,7 @@ export async function auditGeneratedSites(root=ROOT,browserReportPath=BROWSER_RE
     schemaVersion:1,generatedAt:new Date().toISOString(),
     status:!audited.length?'not-run-no-generated-sites':audited.some(s=>s.status==='needs-attention')?'needs-attention':'automated-checks-run-human-review-and-real-integration-verification-pending',
     sitesFound:sites.length,sites:audited,
-    globalClaims:{realListingsConfirmed:false,realEnquiryDeliveryConfirmed:false,humanVisualReviewCompleted:false,humanEditorialReviewCompleted:false},
+    globalClaims:{realListingsConfirmed:audited.length>0&&audited.filter(s=>s.industry==='real-estate').length>0&&audited.filter(s=>s.industry==='real-estate').every(s=>s.categories.inventory.realListingsConfirmed===true),realEnquiryDeliveryConfirmed:false,humanVisualReviewCompleted:false,humanEditorialReviewCompleted:false},
     note:'Automated heuristics cannot certify copy excellence, visual originality, actual listing authenticity or external enquiry delivery. Human review and explicit real-service tests remain separate evidence gates.',
   };
   await fs.mkdir(path.dirname(outPath),{recursive:true});
