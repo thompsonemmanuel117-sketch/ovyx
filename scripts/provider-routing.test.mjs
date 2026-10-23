@@ -160,6 +160,13 @@ globalThis.fetch = async (input, init = {}) => {
     }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   }
 
+  if (url.includes('api.groq.com/openai/v1/chat/completions')) {
+    return new Response(JSON.stringify({
+      choices: [{ message: { content: 'Groq test passed' } }],
+      usage: { prompt_tokens: 2, completion_tokens: 2 },
+    }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  }
+
   if (url.includes('openrouter.ai/api/v1/chat/completions')) {
     return new Response(JSON.stringify({
       model: 'openai/gpt-4o-mini',
@@ -261,6 +268,81 @@ try {
   assert.equal(requests.at(-1).url, 'https://api.openai.com/v1/responses');
   assert.equal(requests.at(-1).authorization, 'Bearer test-openai-key');
   assert.equal(requests.at(-1).body.model, 'gpt-6.1-sol', 'OpenAI fallback must use the supported cost-balanced model.');
+
+  // The live acceptance workflow's OVYX_EVAL_MODEL currently names a Cloudflare
+  // @cf/... model. That override must never be sent to other providers during
+  // Automatic fallback; each adapter should fall back to its own configured model.
+  const incompatibleGlobalModel = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
+  const incompatibleModelCases = [
+    {
+      provider: 'gemini',
+      env: { GEMINI_API_KEY: 'test-gemini-key' },
+      expectedProvider: 'gemini',
+      check(request) {
+        assert.match(request.url, /models\/gemini-3\.8-flash:generateContent$/,
+          'Gemini should use its own compatible fallback when the global model is a Cloudflare ID.');
+      },
+    },
+    {
+      provider: 'deepseek',
+      env: { DEEPSEEK_API_KEY: 'test-deepseek-key' },
+      expectedProvider: 'deepseek',
+      check(request) {
+        assert.equal(request.body.model, 'deepseek-flash',
+          'DeepSeek should use its own compatible fallback when the global model is a Cloudflare ID.');
+      },
+    },
+    {
+      provider: 'claude',
+      env: { ANTHROPIC_API_KEY: 'test-anthropic-key' },
+      expectedProvider: 'claude',
+      check(request) {
+        assert.equal(request.body.model, 'claude-opus-5',
+          'Claude should use its own compatible fallback when the global model is a Cloudflare ID.');
+      },
+    },
+    {
+      provider: 'openai',
+      env: { OPENAI_API_KEY: 'test-openai-key' },
+      expectedProvider: 'openai',
+      check(request) {
+        assert.equal(request.body.model, 'gpt-6.1-sol',
+          'OpenAI should use its own compatible fallback when the global model is a Cloudflare ID.');
+      },
+    },
+    {
+      provider: 'groq',
+      env: { GROQ_API_KEY: 'test-groq-key' },
+      expectedProvider: 'groq',
+      check(request) {
+        assert.equal(request.body.model, 'openai/gpt-oss-20b',
+          'Groq should use its own compatible fallback when the global model is a Cloudflare ID.');
+      },
+    },
+    {
+      provider: 'openrouter',
+      env: { OPENROUTER_API_KEY: 'test-openrouter-key', OPENROUTER_MODEL: 'openai/gpt-4o-mini' },
+      expectedProvider: 'openrouter',
+      check(request) {
+        assert.equal(request.body.model, 'openai/gpt-4o-mini',
+          'OpenRouter should use its configured provider/model ID, not a Cloudflare binding model ID.');
+      },
+    },
+  ];
+  for (const testCase of incompatibleModelCases) {
+    requests.length = 0;
+    const modelResult = await callModel(testCase.env, {
+      provider: testCase.provider,
+      model: incompatibleGlobalModel,
+      system: 'test',
+      user: 'hello',
+      maxTokens: 32,
+    });
+    assert.equal(modelResult.provider, testCase.expectedProvider);
+    assert.equal(requests.length, 1, testCase.provider + ' should make one request when its fixture succeeds.');
+    testCase.check(requests.at(-1));
+  }
+
 
   requests.length = 0;
   await assert.rejects(
