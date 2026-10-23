@@ -687,18 +687,26 @@ async function callCloudflareWorkersAI(
   }
 
   let result;
+  const configuredTimeout = Number(env?.OVYX_WORKERS_AI_TIMEOUT_MS);
+  const timeoutMs = Number.isFinite(configuredTimeout) && configuredTimeout >= 50
+    ? Math.min(60_000, configuredTimeout)
+    : 45_000;
   try {
-    result = await env.AI.run(
-      model,
-      {
-        messages: [
-          { role: 'system', content: system },
-          { role: 'user', content: user },
-        ],
-        max_tokens: maxTokens,
-        temperature: 0.2,
-        stream: false,
-      }
+    result = await withTimeout(
+      env.AI.run(
+        model,
+        {
+          messages: [
+            { role: 'system', content: system },
+            { role: 'user', content: user },
+          ],
+          max_tokens: maxTokens,
+          temperature: 0.2,
+          stream: false,
+        }
+      ),
+      timeoutMs,
+      'Cloudflare Workers AI'
     );
   } catch (error) {
     const rawStatus = Number(error?.status);
