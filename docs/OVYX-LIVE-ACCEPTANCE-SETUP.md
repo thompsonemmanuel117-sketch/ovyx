@@ -2,7 +2,7 @@
 
 The live acceptance workflow intentionally does not fabricate successful evidence. It generates four model-produced websites, checks them in Chromium at 320, 390, 768, 1024 and 1440 pixels, evaluates the property source and enquiry destination, and produces screenshots plus JSON reports. The workflow stays blocked until real services and delivery evidence are available.
 
-Configure values in **Repository → Settings → Secrets and variables → Actions**. Never commit credentials into source code or put them in a public URL.
+Keep AI/provider, property-source and enquiry-service credentials in **Cloudflare Workers & Pages → your OVYX Pages project → Settings → Variables and Secrets**. The live evaluator reads only the specific approved public/plain-text acceptance settings described below. GitHub Actions variables are supported as a fallback for public URLs and approvals; GitHub is never given an AI-provider key or private service token. Never commit credentials into source code or put them in a public URL.
 
 ## 1. AI provider keys stay in Cloudflare
 
@@ -16,7 +16,7 @@ Optional Actions variable: `OVYX_EVAL_MODEL`. Leave blank to use the existing pr
 
 ## 2. Authoritative property records
 
-Actions **variables**:
+Cloudflare production plain-text variables (preferred) or Actions **variables** (fallback):
 
 - `OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL`: HTTPS JSON feed that the generated property website can fetch from a browser. It must return records without an API key embedded in the URL, and support the site's browser request/CORS requirements.
 - `OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY`: set to `authoritative` only after the owner confirms that the feed is the real source of record.
@@ -25,11 +25,13 @@ Actions **variables**:
 
 **Do not put private listing-source URLs, bearer tokens or vendor API keys in GitHub Actions.** The live workflow reads the browser-safe public feed as its source for verification. When the real property system requires authentication, put that token in Cloudflare Secrets and expose a restricted, read-only public-safe proxy from the OVYX Cloudflare runtime; only the safe proxy URL belongs in the Actions variable.
 
+The client reads only the allow-listed names above from the Cloudflare **production** `plain_text` configuration; preview settings and all `secret_text` values are ignored. The client writes only sanitized public URLs, field paths and approval flags to workflow outputs so the browser/integration steps use exactly the same resolved settings as generation. It never sends provider keys, listing tokens, enquiry tokens or recipient addresses to the generated-site endpoint.
+
 The evaluator recognizes active statuses `active`, `published`, `available`, `live`, `for sale`, `for rent`, `listed`, and `open`. It recognizes inactive statuses `inactive`, `sold`, `rented`, `leased`, `withdrawn`, `unavailable`, `archived`, `deleted`, `expired`, `off market`, `closed`, `draft`, and `unpublished`. Unknown status values block confirmation until they are normalized. Confirmation requires the full feed (up to 1,000 records) to have recognized statuses, every active record to have a stable ID/title/location, the generated site to request the configured feed, at least one active record to be visible on the generated property page, and no inactive record to appear as active.
 
 ## 3. Owner-approved enquiry delivery
 
-Actions **variables**:
+Cloudflare production plain-text variables (preferred) or Actions **variables** (fallback):
 
 - `OVYX_EVAL_PUBLIC_ENQUIRY_URL`: owner-approved HTTPS browser-safe form destination. Do not include a credential-bearing query string or private webhook token.
 - `OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE`: must be exactly `true` before external delivery tests are allowed.
