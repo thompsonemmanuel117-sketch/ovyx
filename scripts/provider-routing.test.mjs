@@ -353,6 +353,33 @@ try {
     'Workers AI failures should expose only safe classification and status metadata',
   );
 
+  // Workers AI SDK errors are reduced to allow-listed categories and status only.
+  const workersAiFailureCases = [
+    ['Payment required: account credits exhausted; secret=NEVER_PRINT', 'payment-or-billing-required', 402],
+    ['Authentication failed: API key invalid; secret=NEVER_PRINT', 'authentication-rejected', 401],
+    ['Invalid model name: model was not found; secret=NEVER_PRINT', 'model-or-endpoint-not-found', 404],
+    ['Rate limit exceeded; secret=NEVER_PRINT', 'rate-limited-or-quota', 429],
+    ['Service temporarily unavailable; secret=NEVER_PRINT', 'provider-server-error', 503],
+  ];
+  for (const [privateMessage, kind, status] of workersAiFailureCases) {
+    await assert.rejects(
+      () => callModel(
+        { AI: { run: async () => { throw new Error(privateMessage); } } },
+        { provider: 'automatic', model: 'automatic', system: 'test', user: 'hello', maxTokens: 32 },
+      ),
+      error => {
+        assert.equal(error.code, 'AI_PROVIDER_UNAVAILABLE');
+        assert.deepEqual(error.providerAttempts, [
+          { provider: 'cloudflare-workers-ai', kind, status },
+        ]);
+        assert.equal(error.message.includes('NEVER_PRINT'), false);
+        assert.equal(error.message.includes(privateMessage), false);
+        return true;
+      },
+      'Workers AI failures must map to safe categories without disclosing provider messages',
+    );
+  }
+
   // A stuck Workers AI binding must fail within its configured server-side budget,
   // not hold the entire live generation request until the edge closes the socket.
   await assert.rejects(
