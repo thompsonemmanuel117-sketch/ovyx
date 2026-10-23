@@ -11,6 +11,7 @@ on:
       - 'scripts/ovyx-market-visual-context.test.mjs'
       - 'scripts/ovyx-webstudio-evaluation-cases.json'
       - 'scripts/ovyx-webstudio-generated-site-browser-eval.mjs'
+      - 'scripts/ovyx-webstudio-generated-site-browser-eval.test.mjs'
       - '.github/workflows/ovyx-webstudio-generated-sites.yml'
   push:
     branches: [main]
@@ -42,6 +43,8 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Test market and visual asset planning
         run: node scripts/ovyx-market-visual-context.test.mjs
+      - name: Generated-site browser evaluator fixture smoke test
+        run: node scripts/ovyx-webstudio-generated-site-browser-eval.test.mjs
       - name: Run static generated-site evaluation
         run: node scripts/ovyx-webstudio-evaluation-runner.mjs --root artifacts/webstudio-generated-sites --out artifacts/webstudio-evaluation-report/static-report.json
       - name: Run browser checks on supplied generated sites
