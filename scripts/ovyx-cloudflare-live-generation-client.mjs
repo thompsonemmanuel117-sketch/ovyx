@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { summarizeCloudflareRuntimeConfig } from './ovyx-cloudflare-runtime-config-inventory.mjs';
+import { readCloudflareEvaluationPublicSettings, summarizeCloudflareRuntimeConfig } from './ovyx-cloudflare-runtime-config-inventory.mjs';
 
 const REPOSITORY = 'thompsonemmanuel117-sketch/ovyx';
 const AUDIENCE = 'ovyx-live-site-evaluation';
@@ -15,6 +15,7 @@ const CASE_IDS = [
 const MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
 const DEPLOYMENT_WAIT_MS = 15 * 60 * 1000;
 let cloudflareRuntimeConfigInventory = { aiProviderKeyNames: [], propertyIntegrationVariableNames: [], enquiryAndSocialVariableNames: [] };
+let cloudflareRuntimePublicSettings = {};
 
 function required(name) {
   const value = String(process.env[name] || '').trim();
@@ -74,7 +75,18 @@ async function cloudflareProjectOrigin() {
     throw new Error('Cloudflare Pages project lookup failed with HTTP ' + response.status + '. Check the existing Pages Read configuration.');
   }
   cloudflareRuntimeConfigInventory = summarizeCloudflareRuntimeConfig(payload.result);
-  console.log(JSON.stringify({ event: 'cloudflare-runtime-config-presence', ...cloudflareRuntimeConfigInventory }));
+  cloudflareRuntimePublicSettings = readCloudflareEvaluationPublicSettings(payload.result);
+  console.log(JSON.stringify({
+    event: 'cloudflare-runtime-config-presence',
+    ...cloudflareRuntimeConfigInventory,
+    publicAcceptanceSettings: {
+      listingsUrlConfigured: Boolean(cloudflareRuntimePublicSettings.OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL),
+      listingsAuthorityDeclared: String(cloudflareRuntimePublicSettings.OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY || '').toLowerCase() === 'authoritative',
+      enquiryUrlConfigured: Boolean(cloudflareRuntimePublicSettings.OVYX_EVAL_PUBLIC_ENQUIRY_URL),
+      externalEnquiryProbeOptedIn: String(cloudflareRuntimePublicSettings.OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE || '').toLowerCase() === 'true',
+      source: 'cloudflare-production-plain-text-allow-list',
+    },
+  }));
   const subdomain = String(payload.result.subdomain || '').trim().toLowerCase();
   if (!subdomain || !/^[a-z0-9][a-z0-9-]*\.pages\.dev$/.test(subdomain)) {
     throw new Error('Cloudflare did not return a valid canonical Pages subdomain for this project.');
@@ -147,20 +159,90 @@ function safeGeneratedPath(raw) {
   }
   return value;
 }
+function fromCloudflareOrActions(name) {
+  if (Object.prototype.hasOwnProperty.call(cloudflareRuntimePublicSettings, name)) {
+    return { value: String(cloudflareRuntimePublicSettings[name] || '').trim(), source: 'cloudflare-production' };
+  }
+  const value = String(process.env[name] || '').trim();
+  return { value, source: value ? 'github-actions-variable' : 'not-configured' };
+}
+function safePublicHttpsUrl(raw) {
+  try {
+    const url = new URL(String(raw || '').trim());
+    if (url.protocol !== 'https:' || url.username || url.password) return '';
+    if ([...url.searchParams.keys()].some(key => /(?:api[-_]?key|access[-_]?key|token|secret|auth|signature|credential|password)/i.test(key))) return '';
+    if (/(?:^|\\.)localhost$/i.test(url.hostname) || /\\.(?:local|internal)$/i.test(url.hostname)) return '';
+    return url.href;
+  } catch { return ''; }
+}
+function safeFieldPath(raw) {
+  const value = String(raw || '').trim();
+  return value.length <= 200 && /^[A-Za-z0-9_]+(?:\\.[A-Za-z0-9_]+)*$/.test(value) ? value : '';
+}
+async function writeWorkflowOutputs(settings) {
+  const target = String(process.env.GITHUB_OUTPUT || '').trim();
+  if (!target) return;
+  const outputs = {
+    listings_url: settings.listingsUrl,
+    listings_source_authority: settings.listingsAuthoritative ? 'authoritative' : '',
+    listings_json_path: settings.listingJsonPath,
+    listing_id_field: settings.listingIdField,
+    listing_title_field: settings.listingTitleField,
+    listing_location_field: settings.listingLocationField,
+    listing_status_field: settings.listingStatusField,
+    enquiry_url: settings.enquiryUrl,
+    external_enquiry_authorized: settings.externalEnquiryAuthorized ? 'true' : 'false',
+  };
+  const text = Object.entries(outputs)
+    .map(([key, value]) => key + '=' + String(value || '').replace(/[\\r\\n]/g, '') + '\\n')
+    .join('');
+  await fs.appendFile(target, text, 'utf8');
+}
 function publicSettings() {
-  const listingsUrl = String(process.env.OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL || '').trim();
-  const enquiryUrl = String(process.env.OVYX_EVAL_PUBLIC_ENQUIRY_URL || '').trim();
-  const listingsAuthoritative = String(process.env.OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY || '').trim().toLowerCase() === 'authoritative';
-  const externalEnquiryAuthorized = String(process.env.OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE || '').trim().toLowerCase() === 'true' &&
-    Boolean(String(process.env.OVYX_EVAL_ENQUIRY_TEST_RECIPIENT || '').trim());
-  // Only public, browser-safe URLs and boolean approvals are sent to Cloudflare.
-  // Private feed tokens, enquiry tokens, provider keys, and recipient addresses stay out of this request.
-  return {
+  const listingUrlSetting = fromCloudflareOrActions('OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL');
+  const enquiryUrlSetting = fromCloudflareOrActions('OVYX_EVAL_PUBLIC_ENQUIRY_URL');
+  const authoritySetting = fromCloudflareOrActions('OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY');
+  const probeSetting = fromCloudflareOrActions('OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE');
+  const listingsUrl = safePublicHttpsUrl(listingUrlSetting.value);
+  const enquiryUrl = safePublicHttpsUrl(enquiryUrlSetting.value);
+  const listingsAuthoritative = listingsUrl.length > 0 && authoritySetting.value.toLowerCase() === 'authoritative';
+  const recipientConfigured = Boolean(String(process.env.OVYX_EVAL_ENQUIRY_TEST_RECIPIENT || '').trim());
+  const externalEnquiryAuthorized = probeSetting.value.toLowerCase() === 'true' && recipientConfigured && Boolean(enquiryUrl);
+  const field = name => safeFieldPath(fromCloudflareOrActions(name).value);
+  const settings = {
     listingsUrl,
     listingsAuthoritative,
+    listingJsonPath: field('OVYX_EVAL_LISTINGS_JSON_PATH'),
+    listingIdField: field('OVYX_EVAL_LISTING_ID_FIELD'),
+    listingTitleField: field('OVYX_EVAL_LISTING_TITLE_FIELD'),
+    listingLocationField: field('OVYX_EVAL_LISTING_LOCATION_FIELD'),
+    listingStatusField: field('OVYX_EVAL_LISTING_STATUS_FIELD'),
     enquiryUrl,
     externalEnquiryAuthorized,
   };
+  // Pass only sanitized public URLs, field paths, and approvals to the Pages
+  // route and downstream browser/integration steps. No AI keys, private feed
+  // tokens, enquiry tokens, or test-recipient address are read from Cloudflare
+  // project metadata or sent back to the workflow.
+  console.log(JSON.stringify({
+    event: 'live-acceptance-public-settings',
+    listingsUrlConfigured: Boolean(listingsUrl),
+    listingsUrlRejected: Boolean(listingUrlSetting.value && !listingsUrl),
+    listingsAuthoritative,
+    enquiryUrlConfigured: Boolean(enquiryUrl),
+    enquiryUrlRejected: Boolean(enquiryUrlSetting.value && !enquiryUrl),
+    externalEnquiryAuthorized,
+    sources: {
+      listingsUrl: listingUrlSetting.source,
+      listingsAuthority: authoritySetting.source,
+      enquiryUrl: enquiryUrlSetting.source,
+      externalEnquiryOptIn: probeSetting.source,
+    },
+  }));
+  void writeWorkflowOutputs(settings).catch(() => {
+    console.error('Could not publish sanitized public acceptance settings to the workflow outputs.');
+  });
+  return settings;
 }
 async function writeGeneratedSite(caseId, responseBody) {
   const files = responseBody.files;
@@ -242,6 +324,7 @@ async function main() {
   const provider = String(process.env.OVYX_EVAL_PROVIDER || 'automatic').trim().toLowerCase();
   const model = String(process.env.OVYX_EVAL_MODEL || '').trim();
   const settings = publicSettings();
+  await writeWorkflowOutputs(settings);
   const sites = [];
   for (const caseId of CASE_IDS) {
     const site = await generateOne(origin, provider, model, settings, caseId);
