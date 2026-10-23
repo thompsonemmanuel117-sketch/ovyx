@@ -352,6 +352,24 @@ try {
     },
     'Workers AI failures should expose only safe classification and status metadata',
   );
+
+  // A stuck Workers AI binding must fail within its configured server-side budget,
+  // not hold the entire live generation request until the edge closes the socket.
+  await assert.rejects(
+    () => callModel(
+      { AI: { run: async () => new Promise(() => {}) }, OVYX_WORKERS_AI_TIMEOUT_MS: '100' },
+      { provider: 'automatic', model: 'automatic', system: 'test', user: 'hello', maxTokens: 32 },
+    ),
+    error => {
+      assert.equal(error.code, 'AI_PROVIDER_UNAVAILABLE');
+      assert.deepEqual(error.providerAttempts, [
+        { provider: 'cloudflare-workers-ai', kind: 'timeout', status: 504 },
+      ]);
+      assert.equal(error.message.includes('DO_NOT_LEAK'), false);
+      return true;
+    },
+    'Workers AI hanging calls should time out and expose only a safe timeout category',
+  );
 } finally {
   globalThis.fetch = originalFetch;
 }
