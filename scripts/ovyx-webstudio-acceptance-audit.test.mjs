@@ -20,10 +20,10 @@ await fs.writeFile(path.join(good,'ovyx-live-generation.json'),JSON.stringify({
 }));
 await fs.writeFile(path.join(bad,'index.html'),'<!doctype html><html><head><title>Bad</title></head><body><h1>Lorem ipsum</h1><a href="#">Click here</a></body></html>');
 await fs.writeFile(path.join(bad,'ovyx-live-generation.json'),JSON.stringify({industry:'generic',siteMap:{pages:[{title:'Home',path:'index.html',url:'/'}]}}));
-const pages=widthNames=>widthNames.map((name,index)=>({page:index?'contact.html':'index.html',route:index?'/contact/':'/',viewport:name,screenshot:(index?'contact':'home')+'-'+name+'.png'}));
 const widths=[320,390,768,1024,1440];
+const pages=()=>['index.html','contact.html'].flatMap((file,index)=>widths.map(width=>({page:file,route:index?'/contact/':'/',viewport:String(width),screenshot:(index?'contact':'home')+'-'+width+'.png'})));
 const results=[
- {site:'fixture-real-estate',status:'browser-checked-no-obvious-blockers',viewportWidths:widths,qaLocalPosts:1,formInteractionStatus:'qa-local-post-tested',pages:pages(widths.flatMap(w=>[String(w)]))},
+ {site:'fixture-real-estate',status:'browser-checked-no-obvious-blockers',viewportWidths:widths,qaLocalPosts:1,formInteractionStatus:'qa-local-post-tested',pages:pages()},
  {site:'fixture-bad-copy',status:'needs-attention',viewportWidths:widths,qaLocalPosts:0,formInteractionStatus:'no-qa-form-submission-tested',pages:widths.map(w=>({page:'index.html',viewport:String(w),screenshot:'bad-'+w+'.png'}))}
 ];
 await fs.mkdir(path.join(browser,'fixture-real-estate'),{recursive:true});
