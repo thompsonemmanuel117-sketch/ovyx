@@ -380,6 +380,34 @@ try {
     );
   }
 
+  // Cover documented numeric Workers AI binding codes as well as readable messages.
+  const workersAiInternalCodeCases = [
+    [{ code: 5007, message: 'Workers AI internal failure' }, 'model-or-endpoint-not-found', 400],
+    [{ code: 3042, message: 'Workers AI internal failure' }, 'model-or-endpoint-not-found', 404],
+    [{ code: 5035, message: 'Workers AI internal failure' }, 'plan-required', 403],
+    [{ code: 3036, message: 'Workers AI internal failure' }, 'rate-limited-or-quota', 429],
+    [{ code: 3040, message: 'Workers AI internal failure' }, 'rate-limited-or-quota', 429],
+    [{ message: 'Cloudflare Workers AI returned code 3007: unrelated private text' }, 'timeout', 408],
+  ];
+  for (const [privateError, kind, status] of workersAiInternalCodeCases) {
+    await assert.rejects(
+      () => callModel(
+        { AI: { run: async () => { throw Object.assign(new Error('private error must not leak'), privateError); } } },
+        { provider: 'automatic', model: 'automatic', system: 'test', user: 'hello', maxTokens: 32 },
+      ),
+      error => {
+        assert.equal(error.code, 'AI_PROVIDER_UNAVAILABLE');
+        assert.deepEqual(error.providerAttempts, [
+          { provider: 'cloudflare-workers-ai', kind, status },
+        ]);
+        assert.equal(error.message.includes('private error must not leak'), false);
+        assert.equal(error.message.includes('unrelated private text'), false);
+        return true;
+      },
+      'documented Workers AI internal codes must map to safe diagnostic categories',
+    );
+  }
+
   // A stuck Workers AI binding must fail within its configured server-side budget,
   // not hold the entire live generation request until the edge closes the socket.
   await assert.rejects(
