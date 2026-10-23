@@ -351,7 +351,7 @@ async function main() {
                 let payload=null;
                 try{payload=request.postDataJSON();}catch{}
                 const recipient=String(payload?.email||payload?.recipient||'').trim().toLowerCase();
-                const markedQA=payload?.test===true&&payload?.dryRun===true&&String(payload?.source||'').trim()==='OVYX QA';
+                const markedQA=payload?.test===true&&payload?.dryRun===false&&String(payload?.source||'').trim()==='OVYX QA';
                 const QAIdentity=/^OVYX(?: automated)? QA/i.test(String(payload?.name||'').trim());
                 const QAMessage=/OVYX.*(?:test|QA)|no action needed/i.test(String(payload?.message||payload?.subject||''));
                 safeEnquiryRequest=Boolean(markedQA&&QAIdentity&&QAMessage&&recipient===ENQUIRY_TEST_RECIPIENT.toLowerCase());
