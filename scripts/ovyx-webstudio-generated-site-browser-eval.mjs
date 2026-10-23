@@ -101,7 +101,7 @@ async function inspectPage(page) {
       try{const u=new URL(a.href,location.href);return u.origin!==location.origin&&/^https?:$/i.test(u.protocol);}catch{return false;}
     }).map(a=>({text:(a.innerText||a.getAttribute('aria-label')||'').trim().slice(0,100),href:a.href.slice(0,400)})).slice(0,50);
     const forms=Array.from(document.forms).map(f=>({action:f.getAttribute('action')||'',method:(f.getAttribute('method')||'get').toLowerCase(),fieldCount:f.querySelectorAll('input,select,textarea').length,hasRequired:Array.from(f.querySelectorAll('input,select,textarea')).some(el=>el.required),hasSubmit:!!f.querySelector('button[type="submit"],input[type="submit"],button:not([type])')}));
-    const buttons=Array.from(document.querySelectorAll('button,[role="button"]')).map(b=>({text:(b.innerText||b.getAttribute('aria-label')||'').trim().slice(0,100),type:b.getAttribute('type')||'',disabled:!!b.disabled,hasHref:!!b.closest('a'),hasInlineHandler:!!(b.getAttribute('onclick')||b.getAttribute('onchange'))}));
+    const buttons=Array.from(document.querySelectorAll('button,[role="button"]')).map((b,index)=>{const rect=b.getBoundingClientRect();return {index,text:(b.innerText||b.getAttribute('aria-label')||'').trim().slice(0,100),type:b.getAttribute('type')||'',disabled:!!b.disabled,hasHref:!!b.closest('a'),inForm:!!b.closest('form'),visible:rect.width>0&&rect.height>0&&getComputedStyle(b).visibility!=='hidden',hasInlineHandler:!!(b.getAttribute('onclick')||b.getAttribute('onchange'))};});
     return {
       title:document.title,lang:document.documentElement.lang||'',viewportWidth:innerWidth,documentWidth:document.documentElement.scrollWidth,
       horizontalOverflow:document.documentElement.scrollWidth>innerWidth+2||(document.body&&document.body.scrollWidth>innerWidth+2),
@@ -137,6 +137,72 @@ async function testInternalLinks(page, links) {
     }catch(error){checked.push({href:item.href,status:'local-route-request-failed',error:String(error.message||error).slice(0,160)});}
   }
   return checked;
+}
+async function interactionSnapshot(page) {
+  return await page.evaluate(() => ({
+    url: location.href,
+    text: ((document.body && document.body.innerText) || '').replace(/\s+/g, ' ').trim().slice(0, 12000),
+    scrollY: Math.round(window.scrollY),
+    dialogs: document.querySelectorAll('dialog[open],[role="dialog"]:not([hidden])').length,
+    states: Array.from(document.querySelectorAll('button,[role="button"],[aria-expanded],[aria-pressed],[aria-selected],details,dialog,input,select,textarea')).slice(0,120).map(el => ({
+      tag: el.tagName.toLowerCase(), id: el.id || '', name: el.getAttribute('name') || '',
+      expanded: el.getAttribute('aria-expanded'), pressed: el.getAttribute('aria-pressed'),
+      selected: el.getAttribute('aria-selected'), hidden: !!el.hidden, open: !!el.open,
+      checked: 'checked' in el ? !!el.checked : null, value: 'value' in el ? String(el.value).slice(0,120) : null,
+      text: (el.innerText || el.getAttribute('aria-label') || '').trim().slice(0,120),
+    })),
+  }));
+}
+async function exerciseButtons(page, baseUrl, route) {
+  const output = [];
+  const buttons = page.locator('button,[role="button"]');
+  const count = Math.min(await buttons.count().catch(() => 0), 20);
+  for (let index = 0; index < count; index++) {
+    const button = buttons.nth(index);
+    const info = await button.evaluate(el => {
+      const rect = el.getBoundingClientRect();
+      return {
+        text: (el.innerText || el.getAttribute('aria-label') || '').trim().slice(0,100),
+        type: (el.getAttribute('type') || '').toLowerCase(),
+        disabled: !!el.disabled, inForm: !!el.closest('form'), hasHref: !!el.closest('a'),
+        visible: rect.width > 0 && rect.height > 0 && getComputedStyle(el).visibility !== 'hidden',
+      };
+    }).catch(() => null);
+    if (!info) continue;
+    if (!info.visible || info.disabled || info.inForm || info.hasHref || info.type === 'submit') {
+      output.push({ index, text: info.text, status: 'skipped-not-a-safe-standalone-button' });
+      continue;
+    }
+    try {
+      await page.goto(baseUrl + route, { waitUntil: 'domcontentloaded', timeout: 7000 });
+      const fresh = page.locator('button,[role="button"]').nth(index);
+      await fresh.scrollIntoViewIfNeeded({ timeout: 1500 });
+      const before = await interactionSnapshot(page);
+      let popupOpened = false;
+      const popupHandler = popup => { popupOpened = true; popup.close().catch(() => {}); };
+      page.on('popup', popupHandler);
+      let clickError = '';
+      try { await fresh.click({ timeout: 1800 }); }
+      catch (error) { clickError = String(error.message || error).slice(0,180); }
+      await page.waitForTimeout(180).catch(() => {});
+      page.off('popup', popupHandler);
+      const after = await interactionSnapshot(page).catch(() => null);
+      const changed = !!after && (
+        before.url !== after.url ||
+        before.text !== after.text ||
+        Math.abs(before.scrollY - after.scrollY) > 12 ||
+        before.dialogs !== after.dialogs ||
+        JSON.stringify(before.states) !== JSON.stringify(after.states)
+      );
+      output.push({
+        index, text: info.text, clickError: clickError || null,
+        status: clickError ? 'click-failed' : popupOpened ? 'popup-opened' : changed ? 'observable-state-change' : 'no-observable-state-change',
+      });
+    } catch (error) {
+      output.push({ index, text: info.text, status: 'interaction-test-error', error: String(error.message || error).slice(0,180) });
+    }
+  }
+  return { tested: output.filter(item => !String(item.status).startsWith('skipped')).length, skipped: output.filter(item => String(item.status).startsWith('skipped')).length, results: output };
 }
 async function exerciseQAForms(page) {
   const records=[];
