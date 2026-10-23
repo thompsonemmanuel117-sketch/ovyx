@@ -15,6 +15,14 @@ on:
   push:
     branches: [main]
     paths:
+      # Any production AI provider, multi-page builder, or website-quality
+      # prompt/context change must trigger trusted live acceptance on main.
+      - 'functions/_lib/providers.js'
+      - 'functions/_lib/studio-multipage.js'
+      - 'functions/_lib/prompts.js'
+      - 'functions/_lib/experience.js'
+      - 'functions/_lib/market-context.js'
+      - 'functions/_lib/visual-asset-plan.js'
       - 'functions/api/internal/live-generation-eval.js'
       - 'scripts/ovyx-cloudflare-live-generation-client.mjs'
       - 'scripts/ovyx-cloudflare-live-generation-oidc.test.mjs'
@@ -28,6 +36,10 @@ on:
   pull_request:
     branches: [main]
     paths:
+      - 'functions/_lib/providers.js'
+      - 'functions/_lib/experience.js'
+      - 'scripts/provider-routing.test.mjs'
+      - 'scripts/ovyx-webstudio-generated-site-browser-eval.test.mjs'
       - 'functions/_lib/prompts.js'
       - 'functions/api/internal/live-generation-eval.js'
       - 'functions/_lib/studio-multipage.js'
