@@ -385,24 +385,66 @@ export async function handleLiveGenerationRequest(request, env, options = {}) {
   } catch {
     return Response.json({ ok: false, error: 'INVALID_JSON_OR_BODY_TOO_LARGE' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
   }
+  const operation = String(payload?.operation || 'generate-site').trim().toLowerCase();
+  const isProviderPreflight = operation === 'provider-preflight';
+  const allowedKeys = isProviderPreflight
+    ? new Set(['operation', 'provider', 'model'])
+    : new Set(['caseId', 'provider', 'model', 'publicSettings']);
+  const requestedProvider = String(payload?.provider || 'automatic').trim().toLowerCase();
+  const allowedPreflightProviders = new Set([
+    'automatic', 'gemini', 'claude', 'anthropic', 'deepseek', 'openai',
+    'groq', 'openrouter', 'cloudflare-workers-ai', 'cloudflare', 'workers-ai',
+  ]);
   if (!payload || typeof payload !== 'object' || Array.isArray(payload) ||
-      Object.keys(payload).some(key => !['caseId', 'provider', 'model', 'publicSettings'].includes(key)) ||
-      !Object.hasOwn(CASES, String(payload.caseId || ''))) {
+      Object.keys(payload).some(key => !allowedKeys.has(key)) ||
+      (isProviderPreflight
+        ? (!allowedPreflightProviders.has(requestedProvider) || Object.hasOwn(payload, 'caseId'))
+        : (operation !== 'generate-site' || !Object.hasOwn(CASES, String(payload.caseId || ''))))) {
     return Response.json({ ok: false, error: 'EVALUATION_CASE_NOT_ALLOWED' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
   }
-  const caseItem = CASES[payload.caseId];
+  const caseItem = isProviderPreflight ? null : CASES[payload.caseId];
   let integrationState;
   try {
-    integrationState = await getProductionIntegrationState(env);
+    integrationState = await (options.getProductionIntegrationState || getProductionIntegrationState)(env);
   } catch {
     return Response.json({ ok: false, error: 'INTEGRATION_STATE_UNAVAILABLE' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
   }
   if (integrationState?.live !== true) {
     return Response.json({ ok: false, error: 'PRODUCTION_INTEGRATIONS_PAUSED' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
   }
-  const provider = chooseProvider(env, payload.provider || 'automatic');
+  const provider = chooseProvider(env, requestedProvider);
   if (!provider) {
     return Response.json({ ok: false, error: 'NO_CONFIGURED_AI_PROVIDER' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
+  }
+  const model = String(payload.model || '').trim().slice(0, 140);
+  if (isProviderPreflight) {
+    try {
+      const result = await (options.callModel || callModel)(env, {
+        provider: requestedProvider,
+        model: model || undefined,
+        system: 'OVYX provider readiness check. Reply with exactly OVYX_PROVIDER_READY and nothing else.',
+        user: 'Reply with exactly OVYX_PROVIDER_READY.',
+        temperature: 0,
+        maxTokens: 8,
+        timeoutMs: 25_000,
+      });
+      const text = String(result?.text || '').trim();
+      if (!text) throw Object.assign(new Error('Provider returned an empty readiness response.'), { code: 'AI_PROVIDER_UNAVAILABLE' });
+      return Response.json({
+        ok: true,
+        operation: 'provider-preflight',
+        readiness: 'ready',
+        provider: String(result?.provider || (requestedProvider === 'automatic' ? 'automatic' : provider)).slice(0, 40),
+        model: String(result?.model || model || '').slice(0, 140) || null,
+      }, { status: 200, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
+    } catch (error) {
+      return Response.json({
+        ok: false,
+        error: 'AI_PROVIDER_PREFLIGHT_FAILED',
+        detail: safeLiveGenerationFailureDetail(error),
+        providerAttempts: safeLiveGenerationProviderAttempts(error),
+      }, { status: 503, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
+    }
   }
   const publicSettings = settingsFromRequest(payload.publicSettings);
   const qaContract = publicSettings.enquiryUrl
@@ -411,7 +453,6 @@ export async function handleLiveGenerationRequest(request, env, options = {}) {
   // Keep the same QA-only form requirements in the main brief and the production
   // quality contract so requirement planning and generation agree about them.
   const prompt = buildEvaluationPrompt(caseItem, publicSettings) + '\n\n' + qaContract;
-  const model = String(payload.model || '').trim().slice(0, 140);
   const context = {
     ...caseItem.market,
     market: { ...caseItem.market },
