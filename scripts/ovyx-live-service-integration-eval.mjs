@@ -32,7 +32,8 @@ function safeEndpoint(raw,{allowLocal=false}={}){
   return {ok:true,url};
 }
 function displayEndpoint(url){
-  try{const u=new URL(url);return u.origin+u.pathname;}catch{return '';}
+  // Paths often contain unguessable webhook tokens; reports retain host-level evidence only.
+  try{const u=new URL(url);return u.origin+(u.pathname==='/'?'':'/<redacted-path>');}catch{return '';}
 }
 async function readBounded(response){
   const reader=response.body?.getReader();
