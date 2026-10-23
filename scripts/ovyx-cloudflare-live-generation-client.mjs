@@ -120,8 +120,10 @@ async function waitForEndpoint(origin) {
       // This route deliberately answers GET with 405 before authentication. It
       // is a safe readiness probe and does not trigger a model call.
       if (response.status === 405 && body.error === 'METHOD_NOT_ALLOWED') return;
-    } catch (error) {
-      if (error?.name !== 'AbortError' && /Missing required|Cloudflare/.test(String(error.message || ''))) throw error;
+    } catch {
+      // During a deployment the old Pages version may serve HTML/404 instead
+      // of this route. Treat all readiness-probe failures as "not ready yet";
+      // only the later single POST can start generation or incur model cost.
     }
     if (attempt % 6 === 0) console.log('Waiting for the current Cloudflare Pages deployment to expose the acceptance endpoint (readiness checks only).');
     await new Promise(resolve => setTimeout(resolve, Math.min(10_000, 2_000 + attempt * 500)));
@@ -193,7 +195,9 @@ async function writeGeneratedSite(caseId, responseBody) {
     realEnquiryDeliveryConfirmed: false,
   };
 }
-async function generateOne(origin, token, provider, model, integrationSettings, caseId) {
+async function generateOne(origin, provider, model, integrationSettings, caseId) {
+  // Mint a fresh short-lived token immediately before each billable generation.
+  const token = await getOidcToken();
   const payload = { caseId, provider, model, publicSettings: integrationSettings };
   let response;
   try {
@@ -226,13 +230,12 @@ async function main() {
   await fs.mkdir(OUTPUT, { recursive: true });
   const origin = await cloudflareProjectOrigin();
   await waitForEndpoint(origin);
-  const token = await getOidcToken();
   const provider = String(process.env.OVYX_EVAL_PROVIDER || 'automatic').trim().toLowerCase();
   const model = String(process.env.OVYX_EVAL_MODEL || '').trim();
   const settings = publicSettings();
   const sites = [];
   for (const caseId of CASE_IDS) {
-    const site = await generateOne(origin, token, provider, model, settings, caseId);
+    const site = await generateOne(origin, provider, model, settings, caseId);
     sites.push(site);
     console.log(JSON.stringify({ event: 'cloudflare-live-site-generated', id: site.id, industry: site.industry, country: site.country, provider: site.provider, model: site.model, pageCount: site.pageCount }));
   }
