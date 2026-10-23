@@ -99,7 +99,7 @@ export async function auditGeneratedSites(root=ROOT,browserReportPath=BROWSER_RE
       site:entry.name,industry:metadata.industry||null,country:metadata.market?.country||null,
       status:blockers?'needs-attention':'automated-checks-run-human-review-and-real-integration-verification-pending',
       pageCount:htmlFiles.length,blockers,warnings,issues,categories,
-      claims:{realListingsConfirmed:false,realEnquiryDeliveryConfirmed:false,humanVisualReviewCompleted:false,humanEditorialReviewCompleted:false},
+      claims:{realListingsConfirmed:categories.inventory.realListingsConfirmed===true,realEnquiryDeliveryConfirmed:false,humanVisualReviewCompleted:false,humanEditorialReviewCompleted:false},
     });
   }
   const report={
