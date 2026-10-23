@@ -208,6 +208,7 @@ async function exerciseButtons(page, baseUrl, route) {
       output.push({ index, text: info.text, status: 'interaction-test-error', error: String(error.message || error).slice(0,180) });
     }
   }
+  await page.goto(baseUrl + route, { waitUntil: 'domcontentloaded', timeout: 7000 }).catch(() => {});
   return { tested: output.filter(item => !String(item.status).startsWith('skipped')).length, skipped: output.filter(item => String(item.status).startsWith('skipped')).length, results: output };
 }
 async function exerciseQAForms(page) {
@@ -288,12 +289,14 @@ async function main() {
             catch(e){navigationError=String(e.message||e).slice(0,250);try{await page.goto('http://127.0.0.1:'+port+route,{waitUntil:'domcontentloaded',timeout:6000});}catch{}}
             const metrics=await inspectPage(page);
             if(vp.width!==390)delete metrics.visibleText;
+            const screenshot=relative.replace(/[^a-z0-9_-]+/gi,'_')+'__'+vp.name+'.png';
+            await page.screenshot({path:path.join(output,screenshot),fullPage:true,animations:'disabled',timeout:12000}).catch(()=>{});
             const internalLinkChecks=vp.width===390?await testInternalLinks(page,metrics.internalLinks):[];
             const buttonInteractions=vp.width===390?await exerciseButtons(page,baseOrigin,route):{tested:0,skipped:0,results:[]};
             const formInteractions=vp.width===390?await exerciseQAForms(page):[];
-            const screenshot=relative.replace(/[^a-z0-9_-]+/gi,'_')+'__'+vp.name+'.png';
-            await page.screenshot({path:path.join(output,screenshot),fullPage:true,animations:'disabled',timeout:12000}).catch(()=>{});
-            checks.push({page:relative,route,viewport:vp.name,metrics,pageErrors:errors,consoleErrors,failedRequests,blockedExternalRequests,navigationError,internalLinkChecks,buttonInteractions,formInteractions,screenshot});
+            const interactionScreenshot=vp.width===390?relative.replace(/[^a-z0-9_-]+/gi,'_')+'__mobile-390__post-interactions.png':null;
+            if(interactionScreenshot)await page.screenshot({path:path.join(output,interactionScreenshot),fullPage:true,animations:'disabled',timeout:12000}).catch(()=>{});
+            checks.push({page:relative,route,viewport:vp.name,metrics,pageErrors:errors,consoleErrors,failedRequests,blockedExternalRequests,navigationError,internalLinkChecks,buttonInteractions,formInteractions,screenshot,interactionScreenshot});
             await page.close();
           }
         }
