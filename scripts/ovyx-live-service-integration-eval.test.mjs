@@ -23,6 +23,11 @@ try{
   );
   assert.equal(module.assessEnquiryAcknowledgement(202,{ok:true,deliveryStatus:'delivered'}).realEnquiryDeliveryConfirmed,true);
   assert.equal(module.assessEnquiryAcknowledgement(202,{ok:true,status:'queued'}).realEnquiryDeliveryConfirmed,false);
+  const qaPayload=module.buildEnquiryTestPayload('ovyx-owner-test@example.invalid');
+  assert.equal(qaPayload.test,true);
+  assert.equal(qaPayload.dryRun,false,'a no-send dry run must never be accepted as delivery evidence');
+  assert.equal(qaPayload.email,'ovyx-owner-test@example.invalid');
+  assert.equal(qaPayload.source,'OVYX QA');
 
   const activeListing={hasStableId:true,hasTitle:true,hasLocation:true,hasStatus:true,activeStatus:true,inactiveStatus:false,title:'Active Apartment',location:'Lagos Island'};
   const soldListing={hasStableId:true,hasTitle:true,hasLocation:true,hasStatus:true,activeStatus:false,inactiveStatus:true,title:'Sold Duplex',location:'Lekki Phase 1'};
