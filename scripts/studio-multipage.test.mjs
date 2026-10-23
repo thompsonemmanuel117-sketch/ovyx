@@ -50,6 +50,7 @@ const plannedPages = [
 ];
 
 const calls = [];
+let polishAssertionStage = 'not-entered';
 const callModel = async (_env, options) => {
   calls.push(options);
   if (String(options.user).includes('WEBSITE ARCHITECTURE PLANNING PHASE')) {
@@ -68,16 +69,21 @@ const callModel = async (_env, options) => {
   }
 
   if (String(options.user).includes('BOUNDED WEBSITE POLISH PHASE')) {
+    polishAssertionStage = 'current-file-manifest';
     const match = String(options.user).match(/POLISH CURRENT FILE CONTENTS JSON:\n([\s\S]*?)\n\nPOLISH ALLOWLIST JSON:/);
     assert(match, 'Polish prompt must supply complete target files and an explicit allowlist.');
     const files = JSON.parse(match[1]);
+    polishAssertionStage = 'route-manifest';
     assert.ok(String(options.user).includes('FULL WEBSITE ROUTE MANIFEST JSON'), 'Polish must preserve site-wide route awareness.');
+    polishAssertionStage = 'prompt-requirement-contract';
     assert.ok(String(options.user).includes('PROMPT REQUIREMENT CONTRACT JSON'), 'Polish must preserve the original requirements.');
     files['src/styles.css'] = String(files['src/styles.css'] || '').replace('outline-offset:3px', 'outline-offset:4px');
     if (files['src/pages/Contact.html']) {
       files['src/pages/Contact.html'] = files['src/pages/Contact.html'].replace('href="/missing-route/"', 'href="/menu/"');
     }
+    polishAssertionStage = 'integrity-finding-cue';
     assert.ok(String(options.user).includes('INTERNAL_ROUTE_UNMAPPED'), 'The polish prompt must identify the broken route found before polishing.');
+    polishAssertionStage = 'polish-result-returned';
     return {
       text: JSON.stringify({ summary: 'Bounded polish complete', files }),
       provider: 'gemini',
@@ -152,7 +158,7 @@ assert.equal(result.totalPages, 5);
 assert.equal(result.rawUsage.prompt_tokens, 11 + 19 * 3 + 5);
 assert.equal(result.rawUsage.completion_tokens, 7 + 31 * 3 + 9);
 assert.equal(calls.length, 5, 'The five-page site should use one planning call, three file-sized batches, and one bounded polish call.');
-assert.equal(result.qualityPolish.status, 'applied');
+assert.equal(result.qualityPolish.status, 'applied', 'Polish should be applied; last validation point was ' + polishAssertionStage + '; result=' + JSON.stringify(result.qualityPolish));
 assert.equal(result.qualityPolish.filesUpdated, 2);
 assert.ok(result.files['src/styles.css'].includes('outline-offset:4px'), 'The verified polish result should be applied.');
 assert.ok(result.files['src/pages/Contact.html'].includes('href="/menu/"'), 'The integrity-targeted polish should repair the broken internal route.');
