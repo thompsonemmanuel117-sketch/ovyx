@@ -550,6 +550,10 @@ export async function handleLiveGenerationRequest(request, env, options = {}) {
     generatedAt: new Date().toISOString(),
     siteMap: generated.siteMap || null,
     totalPages: generated.totalPages || generated.siteMap?.pages?.length || null,
+    generationRecovery: generated.generationRecovery || { status: 'not-needed' },
+    sharedAssetPagesRepaired: Number.isFinite(Number(generated.sharedAssetPagesRepaired))
+      ? Math.max(0, Math.min(250, Math.floor(Number(generated.sharedAssetPagesRepaired))))
+      : 0,
     generatedFiles: Object.keys(safeFiles),
     inventoryHonesty: honesty,
     evidenceLimits: [
