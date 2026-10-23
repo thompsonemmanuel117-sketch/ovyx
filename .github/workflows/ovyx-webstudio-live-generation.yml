@@ -102,9 +102,9 @@ jobs:
         id: browser
         continue-on-error: true
         env:
-          OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL: ${{ vars.OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL }}
-          OVYX_EVAL_PUBLIC_ENQUIRY_URL: ${{ vars.OVYX_EVAL_PUBLIC_ENQUIRY_URL }}
-          OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE: ${{ vars.OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE }}
+          OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL: ${{ steps.generate.outputs.listings_url }}
+          OVYX_EVAL_PUBLIC_ENQUIRY_URL: ${{ steps.generate.outputs.enquiry_url }}
+          OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE: ${{ steps.generate.outputs.external_enquiry_authorized }}
           OVYX_EVAL_ENQUIRY_TEST_RECIPIENT: ${{ secrets.OVYX_EVAL_ENQUIRY_TEST_RECIPIENT }}
         run: node scripts/ovyx-webstudio-generated-site-browser-eval.mjs artifacts/webstudio-generated-sites artifacts/webstudio-evaluation-report/browser
       - name: Evaluate configured real listing and enquiry services
@@ -112,16 +112,16 @@ jobs:
         id: integration
         continue-on-error: true
         env:
-          OVYX_EVAL_LISTINGS_API_URL: ${{ vars.OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL }}
-          OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL: ${{ vars.OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL }}
-          OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY: ${{ vars.OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY }}
-          OVYX_EVAL_LISTINGS_JSON_PATH: ${{ vars.OVYX_EVAL_LISTINGS_JSON_PATH }}
-          OVYX_EVAL_LISTING_ID_FIELD: ${{ vars.OVYX_EVAL_LISTING_ID_FIELD }}
-          OVYX_EVAL_LISTING_TITLE_FIELD: ${{ vars.OVYX_EVAL_LISTING_TITLE_FIELD }}
-          OVYX_EVAL_LISTING_LOCATION_FIELD: ${{ vars.OVYX_EVAL_LISTING_LOCATION_FIELD }}
-          OVYX_EVAL_LISTING_STATUS_FIELD: ${{ vars.OVYX_EVAL_LISTING_STATUS_FIELD }}
-          OVYX_EVAL_REAL_ENQUIRY_URL: ${{ vars.OVYX_EVAL_PUBLIC_ENQUIRY_URL }}
-          OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE: ${{ vars.OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE }}
+          OVYX_EVAL_LISTINGS_API_URL: ${{ steps.generate.outputs.listings_url }}
+          OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL: ${{ steps.generate.outputs.listings_url }}
+          OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY: ${{ steps.generate.outputs.listings_source_authority }}
+          OVYX_EVAL_LISTINGS_JSON_PATH: ${{ steps.generate.outputs.listings_json_path }}
+          OVYX_EVAL_LISTING_ID_FIELD: ${{ steps.generate.outputs.listing_id_field }}
+          OVYX_EVAL_LISTING_TITLE_FIELD: ${{ steps.generate.outputs.listing_title_field }}
+          OVYX_EVAL_LISTING_LOCATION_FIELD: ${{ steps.generate.outputs.listing_location_field }}
+          OVYX_EVAL_LISTING_STATUS_FIELD: ${{ steps.generate.outputs.listing_status_field }}
+          OVYX_EVAL_REAL_ENQUIRY_URL: ${{ steps.generate.outputs.enquiry_url }}
+          OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE: ${{ steps.generate.outputs.external_enquiry_authorized }}
           OVYX_EVAL_ENQUIRY_TEST_RECIPIENT: ${{ secrets.OVYX_EVAL_ENQUIRY_TEST_RECIPIENT }}
           OVYX_INTEGRATION_REPORT_OUT: artifacts/webstudio-evaluation-report/integration-report.json
         run: node scripts/ovyx-live-service-integration-eval.mjs
@@ -137,11 +137,11 @@ jobs:
           BROWSER_OUTCOME: ${{ steps.browser.outcome }}
           AUDIT_OUTCOME: ${{ steps.audit.outcome }}
           INTEGRATION_OUTCOME: ${{ steps.integration.outcome }}
-          LISTINGS_SOURCE_URL: ${{ vars.OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL }}
-          LISTINGS_PUBLIC_URL: ${{ vars.OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL }}
-          ENQUIRY_TARGET_URL: ${{ vars.OVYX_EVAL_PUBLIC_ENQUIRY_URL }}
-          PUBLIC_ENQUIRY_URL: ${{ vars.OVYX_EVAL_PUBLIC_ENQUIRY_URL }}
-          ENQUIRY_PROBE_ENABLED: ${{ vars.OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE }}
+          LISTINGS_SOURCE_URL: ${{ steps.generate.outputs.listings_url }}
+          LISTINGS_PUBLIC_URL: ${{ steps.generate.outputs.listings_url }}
+          ENQUIRY_TARGET_URL: ${{ steps.generate.outputs.enquiry_url }}
+          PUBLIC_ENQUIRY_URL: ${{ steps.generate.outputs.enquiry_url }}
+          ENQUIRY_PROBE_ENABLED: ${{ steps.generate.outputs.external_enquiry_authorized }}
           ENQUIRY_TEST_RECIPIENT: ${{ secrets.OVYX_EVAL_ENQUIRY_TEST_RECIPIENT }}
         run: |
           node --input-type=module <<'NODE'
