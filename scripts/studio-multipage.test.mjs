@@ -128,6 +128,8 @@ const result = await buildStudioMultiPage({
   env: {},
   callModel,
   provider: 'automatic',
+  preferredProvider: 'cloudflare-workers-ai',
+  providerRouting: 'preferred-first',
   authUser: { sub: 'test-user' },
   mode: 'build',
   prompt: 'Build a five-page restaurant website with a home page, menu, about, reservations, and contact.',
@@ -158,6 +160,10 @@ assert.equal(result.totalPages, 5);
 assert.equal(result.rawUsage.prompt_tokens, 11 + 19 * 3 + 5);
 assert.equal(result.rawUsage.completion_tokens, 7 + 31 * 3 + 9);
 assert.equal(calls.length, 5, 'The five-page site should use one planning call, three file-sized batches, and one bounded polish call.');
+assert.ok(calls.every(call => call.preferredProvider === 'cloudflare-workers-ai'),
+  'Every planning, page-batch and polish request must retain the provider selected by the readiness check.');
+assert.ok(calls.every(call => call.providerRouting === 'preferred-first'),
+  'Every build phase must use preferred-first routing after a successful live provider preflight.');
 assert.equal(result.qualityPolish.status, 'applied', 'Polish should be applied; last validation point was ' + polishAssertionStage + '; result=' + JSON.stringify(result.qualityPolish));
 assert.equal(result.qualityPolish.filesUpdated, 2);
 assert.ok(result.files['src/styles.css'].includes('outline-offset:4px'), 'The verified polish result should be applied.');
