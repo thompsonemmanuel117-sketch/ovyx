@@ -56,7 +56,25 @@ For an enquiry destination that requires credentials, use an owner-controlled HT
 
 No existing Cloudflare keys need to be renamed, removed or replaced. Add new variables/secrets only when the owner has confirmed the real source/destination and required access policy.
 
-## 5. Run and review the evidence
+## 5. Production troubleshooting record
+
+The trusted production run on 2026-10-23 ([run 110](https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/39972242156)) did not generate the first test website, so the browser and acceptance reports correctly show zero real sites tested. The sanitized provider diagnostics recorded:
+
+| Provider | Observed result | Recovery action |
+| --- | --- | --- |
+| DeepSeek | HTTP 402 — request rejected | Check the provider account's billing/credit status and that the configured account can make API requests. |
+| Claude / Anthropic | HTTP 401 — authentication rejected | Reissue or correct the Anthropic API key in Cloudflare production secrets; never paste it into GitHub or chat. |
+| OpenAI | HTTP 401 — authentication rejected | Reissue or correct the OpenAI API key in Cloudflare production secrets; never paste it into GitHub or chat. |
+| Gemini | HTTP 504 — provider request timed out | Verify the production Gemini key, project/quota status and current API availability; rerun only after one working provider is confirmed. |
+| Cloudflare Workers AI | Provider error without a safe status | Check the production `AI` binding, account entitlement/usage limits and the Workers AI runtime error details. The configured model ID is currently listed by Cloudflare as supported, so do not change it blindly. |
+
+These results are provider-access/runtime failures, not evidence that the website generator successfully produced a site. A configured secret name or a healthy application-shell probe does not prove that a provider key can generate content. Use the next run's sanitized provider diagnostics to confirm recovery.
+
+The same run also confirmed that these owner-controlled acceptance settings were absent: authoritative browser-safe property feed, declaration that the feed is authoritative, public enquiry endpoint, explicit authorization for the external QA probe, and an owner-controlled QA test recipient. The existing `RESEND_API_KEY` and `RESEND_FROM_EMAIL` setting names do not by themselves prove that a public endpoint or a controlled test recipient is configured.
+
+Do not bypass the gates, fabricate listing data, count the local QA form as real delivery, or set the human-review fields to true without actual sign-off.
+
+## 6. Run and review the evidence
 
 1. Merge only after the targeted code and regression checks pass. A PR run intentionally does not call production generation or send test enquiries.
 2. A trusted `main` push or a manual workflow run on `main` triggers the live acceptance job. The client waits until the new Cloudflare Pages route is deployed before making the four fixed generation requests.
