@@ -26,7 +26,9 @@
     "Rendered screenshots at 320, 390, 768, 1024 and 1440 widths are saved for supplied generated-site artifacts.",
     "Market locale, language, currency and time zone follow explicit brief/context; unspecified markets remain undecided.",
     "Real property search/matching uses available listing fields; demo inventory and unconfigured WhatsApp/backend integrations are labelled honestly.",
-    "Reports separate source evidence, browser behavior, visual review, live integration verification and deployment verification."
+    "Reports separate source evidence, browser behavior, visual review, live integration verification and deployment verification.",
+    "Visible copy is proofread, mature, specific and audience-appropriate; placeholder text, filler, repetitive generic slogans and unsupported superlatives are removed.",
+    "Typography has a coherent scale, readable line length and line-height, consistent hierarchy, and no clipped or overlapping text at required viewport widths."
   ],
   "siteCategories": [
     {
