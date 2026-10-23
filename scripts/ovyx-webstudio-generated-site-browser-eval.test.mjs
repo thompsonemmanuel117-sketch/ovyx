@@ -29,6 +29,11 @@ assert.equal(good.status, 'browser-checked-no-obvious-blockers');
 assert.equal(good.htmlRoutes, 2);
 assert.equal(good.testedRoutes, 2);
 assert.equal(good.pages.length, 10, 'Both routes should be checked at all five mobile, tablet and desktop widths.');
+assert.equal(good.qaFormMissing, false, 'The QA-only enquiry form must submit successfully to the isolated receiver.');
+assert.equal(good.qaLocalPosts, 1);
+assert.equal(good.buttonsTested, 1, 'The standalone contact button should be actively clicked in the browser.');
+assert.equal(good.noOpButtons, 0, 'The contact button must change a visible/semantic UI state.');
+assert.ok(good.buttonInteractionResults.some(item => item.status === 'observable-state-change'), 'Browser evidence must record an observable button interaction.');
 assert.equal(bad.status, 'needs-attention', 'Placeholder copy must be a reported quality issue.');
 assert.equal(bad.pages.length, 5, 'The placeholder page should be inspected at all five widths.');
 for (const page of good.pages) {
