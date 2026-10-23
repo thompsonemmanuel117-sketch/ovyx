@@ -47,6 +47,33 @@ export function summarizeCloudflareRuntimeConfig(project) {
 }
 
 
+// Select only a completed, non-skipped production deployment built from the
+// exact trusted main commit currently being evaluated. A successful HTTP readiness
+// probe against a stale Pages deployment is not sufficient evidence.
+export function findSuccessfulProductionDeployment(deployments, expectedCommitSha) {
+  const expected = String(expectedCommitSha || '').trim().toLowerCase();
+  if (!/^[a-f0-9]{40}$/.test(expected) || !Array.isArray(deployments)) return null;
+  const deployment = deployments.find(item => {
+    const sha = String(item?.deployment_trigger?.metadata?.commit_hash || '').trim().toLowerCase();
+    const branch = String(item?.deployment_trigger?.metadata?.branch || '').trim();
+    return item?.environment === 'production' &&
+      item?.is_skipped !== true &&
+      sha === expected &&
+      branch === 'main' &&
+      item?.latest_stage?.name === 'deploy' &&
+      item?.latest_stage?.status === 'success';
+  });
+  if (!deployment) return null;
+  return {
+    id: String(deployment.id || '').slice(0, 100),
+    commitSha: expected,
+    branch: 'main',
+    environment: 'production',
+    stage: 'deploy',
+    status: 'success',
+  };
+}
+
 const PUBLIC_EVALUATION_VARIABLES = Object.freeze([
   'OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL',
   'OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY',
