@@ -17,10 +17,41 @@ import {
   normalizeEmail
 } from '../../_lib/auth.js';
 
+import { getFirestoreDocument } from '../../_lib/firebase-admin.js';
 import { ROOT_EMAIL } from '../../_lib/brain/registry.js';
-import { resolveEntitlements } from '../entitlements.js';
 
 
+
+const CAPABILITIES = Object.freeze({
+  FREE_USER: Object.freeze({
+    webStudio: false, advancedWebStudio: false, appStudio: false, gameStudio: false,
+    aiGeneration: true, github: true, cloudflareDeploy: false, teamWorkspace: false
+  }),
+  PRO_USER: Object.freeze({
+    webStudio: true, advancedWebStudio: true, appStudio: false, gameStudio: false,
+    aiGeneration: true, github: true, cloudflareDeploy: true, teamWorkspace: false
+  }),
+  MAX_USER: Object.freeze({
+    webStudio: true, advancedWebStudio: true, appStudio: true, gameStudio: true,
+    aiGeneration: true, github: true, cloudflareDeploy: true, teamWorkspace: true
+  }),
+  ROOT_SUPERUSER: Object.freeze({
+    webStudio: true, advancedWebStudio: true, appStudio: true, gameStudio: true,
+    aiGeneration: true, github: true, cloudflareDeploy: true, teamWorkspace: true
+  })
+});
+
+export function resolveRole(profile, email) {
+  if (normalizeEmail(email) === ROOT_EMAIL) return 'ROOT_SUPERUSER';
+  const role = String(profile?.role || '').trim().toUpperCase();
+  // Plan labels may be stored in the user profile, but ROOT_SUPERUSER is never
+  // accepted from a profile. Root authority requires the canonical verified email.
+  if (role === 'MAX_USER' || role === 'PRO_USER') return role;
+  const plan = String(profile?.planTier ?? profile?.tier ?? profile?.plan ?? 'free').trim().toLowerCase();
+  if (plan === 'max' || plan === 'maximum') return 'MAX_USER';
+  if (plan === 'pro' || plan === 'professional') return 'PRO_USER';
+  return 'FREE_USER';
+}
 
 export async function onRequestPost(context) {
   const request = context.request;
@@ -53,14 +84,12 @@ export async function onRequestPost(context) {
   }
 
   try {
-    // Use the same server-authoritative entitlement resolver as the rest of OVYX.
-    // The verified root email bypasses subscription and feature-plan gates; a stored
-    // profile.role value must never mint ROOT_SUPERUSER access.
-    const entitlements = await resolveEntitlements(context.env, auth.user);
-    const isRoot = normalizeEmail(auth.user.email) === ROOT_EMAIL;
-    const tier = String(entitlements?.planTier || 'free').trim().toLowerCase();
-    const role = isRoot ? 'ROOT_SUPERUSER' : tier === 'max' ? 'MAX_USER' : tier === 'pro' ? 'PRO_USER' : 'FREE_USER';
-    const allowed = entitlements?.capabilities?.[capability] === true;
+    let profile = null;
+    if (normalizeEmail(auth.user.email) !== ROOT_EMAIL) {
+      profile = await getFirestoreDocument(context.env, 'users', auth.user.uid);
+    }
+    const role = resolveRole(profile, auth.user.email);
+    const allowed = CAPABILITIES[role]?.[capability] === true;
 
     return jsonResponse(
       {
