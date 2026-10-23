@@ -171,13 +171,13 @@ function safePublicHttpsUrl(raw) {
     const url = new URL(String(raw || '').trim());
     if (url.protocol !== 'https:' || url.username || url.password) return '';
     if ([...url.searchParams.keys()].some(key => /(?:api[-_]?key|access[-_]?key|token|secret|auth|signature|credential|password)/i.test(key))) return '';
-    if (/(?:^|\\.)localhost$/i.test(url.hostname) || /\\.(?:local|internal)$/i.test(url.hostname)) return '';
+    if (/(?:^|\.)localhost$/i.test(url.hostname) || /\.(?:local|internal)$/i.test(url.hostname)) return '';
     return url.href;
   } catch { return ''; }
 }
 function safeFieldPath(raw) {
   const value = String(raw || '').trim();
-  return value.length <= 200 && /^[A-Za-z0-9_]+(?:\\.[A-Za-z0-9_]+)*$/.test(value) ? value : '';
+  return value.length <= 200 && /^[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*$/.test(value) ? value : '';
 }
 async function writeWorkflowOutputs(settings) {
   const target = String(process.env.GITHUB_OUTPUT || '').trim();
@@ -194,7 +194,7 @@ async function writeWorkflowOutputs(settings) {
     external_enquiry_authorized: settings.externalEnquiryAuthorized ? 'true' : 'false',
   };
   const text = Object.entries(outputs)
-    .map(([key, value]) => key + '=' + String(value || '').replace(/[\\r\\n]/g, '') + '\\n')
+    .map(([key, value]) => key + '=' + String(value || '').replace(/[\r\n]/g, '') + '\n')
     .join('');
   await fs.appendFile(target, text, 'utf8');
 }
@@ -239,9 +239,6 @@ function publicSettings() {
       externalEnquiryOptIn: probeSetting.source,
     },
   }));
-  void writeWorkflowOutputs(settings).catch(() => {
-    console.error('Could not publish sanitized public acceptance settings to the workflow outputs.');
-  });
   return settings;
 }
 async function writeGeneratedSite(caseId, responseBody) {
