@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { readCloudflareEvaluationPublicSettings, summarizeCloudflareRuntimeConfig } from './ovyx-cloudflare-runtime-config-inventory.mjs';
 import { isTrustedGithubOidcRequestHostname } from './ovyx-github-oidc-url.mjs';
 
@@ -504,8 +505,11 @@ async function main() {
   console.log(JSON.stringify({ status: 'generated-awaiting-browser-and-integration-audits', realSitesGenerated: sites.length, sites: sites.map(site => site.id) }, null, 2));
 }
 
-main().catch(error => {
-  // Never print request headers, OIDC tokens, or Cloudflare API response bodies.
-  console.error('OVYX Cloudflare-backed live generation failed:', String(error?.message || 'Unknown failure').slice(0, 500));
-  process.exitCode = 1;
-});
+const invokedPath = process.argv[1] ? pathToFileURL(path.resolve(process.argv[1])).href : '';
+if (invokedPath === import.meta.url) {
+  main().catch(error => {
+    // Never print request headers, OIDC tokens, or Cloudflare API response bodies.
+    console.error('OVYX Cloudflare-backed live generation failed:', String(error?.message || 'Unknown failure').slice(0, 500));
+    process.exitCode = 1;
+  });
+}
