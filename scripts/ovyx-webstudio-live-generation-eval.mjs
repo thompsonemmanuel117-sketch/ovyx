@@ -88,6 +88,11 @@ export function makeEvaluationPrompt(caseItem, publicSettings) {
   return prompt;
 }
 
+export function qualityContractFor(publicSettings) {
+  if (!publicSettings?.enquiryUrl) return QA_CONTRACT;
+  return QA_CONTRACT + '\n\nPUBLIC CONTACT FORM SEPARATION: The Contact page must contain two separate forms. The primary customer contact form MUST target the exact owner-approved public endpoint described above. The separately labelled QA-only form MUST target only /.well-known/ovyx-qa-enquiry. Do not confuse one form with the other, do not redirect the primary customer form to the local QA route, and never add secrets to either form or generated JavaScript. Include the public form only for this pre-authorized QA run; all submitted values must be clearly marked test=true and dryRun=true.';
+}
+
 function providerConfigured() {
   return REQUIRED_KEY && String(process.env[REQUIRED_KEY] || '').trim();
 }
@@ -182,11 +187,12 @@ export async function runLiveGenerationEvaluation() {
   await fs.writeFile(path.join(OUT, 'live-generation-report.json'), JSON.stringify(runReport, null, 2) + '\n');
 
   const publicSettings = publicIntegrationSettings();
+  const qaContract = qualityContractFor(publicSettings);
   for (const caseItem of CASES) {
     const sitePrompt = makeEvaluationPrompt(caseItem, publicSettings);
     const context = { ...caseItem.market, market: { ...caseItem.market }, industry: caseItem.industry, country: caseItem.market.country, locale: caseItem.market.locale, currency: caseItem.market.currency, language: caseItem.market.language, timeZone: caseItem.market.timeZone, evaluationArtifact: true, qaOnlyEnquiryEndpoint: QA_ENDPOINT, publicListingsEndpointConfigured: Boolean(publicSettings.listingsUrl), publicEnquiryEndpointConfigured: Boolean(publicSettings.enquiryUrl), realInventorySourceConfigured: Boolean(process.env.OVYX_EVAL_LISTINGS_API_URL), realEnquiryDestinationConfigured: Boolean(process.env.OVYX_EVAL_REAL_ENQUIRY_URL) };
-    const experience = buildExperienceBrief(sitePrompt + '\n\n' + QA_CONTRACT, context);
-    const prompt = sitePrompt + '\n\n' + QA_CONTRACT;
+    const experience = buildExperienceBrief(sitePrompt + '\n\n' + qaContract, context);
+    const prompt = sitePrompt + '\n\n' + qaContract;
     const generated = await buildStudioMultiPage({
       env: {
         ...process.env,
@@ -202,7 +208,7 @@ export async function runLiveGenerationEvaluation() {
       files: {},
       mode: 'build',
       context: JSON.stringify({ ...context, experience }),
-      qualityContract: WEB_STUDIO_EXCELLENCE + '\n\n' + QA_CONTRACT,
+      qualityContract: WEB_STUDIO_EXCELLENCE + '\n\n' + qaContract,
     });
     if (!generated || generated.ok !== true) {
       throw Object.assign(new Error(caseItem.id + ': production multi-page generation returned no successful result.'), { code: 'LIVE_GENERATION_EMPTY_RESULT' });
