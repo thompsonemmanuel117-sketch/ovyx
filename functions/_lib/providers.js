@@ -817,6 +817,56 @@ const CLOUDFLARE_WORKERS_AI_SYSTEM_CHAR_BUDGET = 10_000;
 const CLOUDFLARE_WORKERS_AI_USER_CHAR_BUDGET = 20_000;
 const CLOUDFLARE_WORKERS_AI_OUTPUT_TOKEN_BUDGET = 8_192;
 
+const CLOUDFLARE_WORKERS_AI_WEB_STUDIO_PRIORITY_CONTRACT = [
+  'OPEN-ENDED BRIEF: Treat the original user brief as the source of truth. Support arbitrary concepts, industries and countries; never force a category or market, nor replace a novel request with a familiar template. Preserve every explicit page, feature, exclusion and workflow.',
+  'DISTINCT ART DIRECTION: Choose a visual idea for the real audience and use case. Use deliberate composition, hierarchy, typography, spacing rhythm, surface treatment, colour and relevant imagery/graphics. Build a cohesive, complete experience; avoid generic hero-plus-three-cards layouts, excessive blank space, arbitrary decoration and repeated template sections.',
+  'EDITORIAL COPY: Write mature, natural, proofread and audience-specific copy. Use useful headings, concise labels, specific CTAs, correct spelling/grammar, descriptive document titles and meaningful meta descriptions. Remove AI filler, repeated slogans, empty superlatives, placeholders, TODOs and unsupported claims. Do not invent prices, testimonials, addresses, availability, credentials or business facts.',
+  'VISUAL ASSETS AND RESPONSIVE QUALITY: Use supplied/project-owned assets first. Never fabricate remote image URLs or leave broken references. Keep local links to CSS/JS/assets correct relative to every HTML file path; ensure shared styles and scripts actually load. Design and review 320, 390, 768, 1024 and 1440 pixel widths; prevent overflow, clipping and overlap. Use keyboard-visible focus, accessible labels, readable contrast and prefers-reduced-motion support.',
+  'FUNCTIONAL COMPLETENESS: Build the full user journey, not just a hero. Every visible button, link, form, navigation item, menu, filter, tab and toggle must have a real destination or behavior with observable state/feedback. Keep HTML semantic and controls keyboard-usable. Include useful empty, loading, validation and error states. Do not leave inert controls or fake success states.',
+  'TRUTHFUL INTEGRATIONS: Never claim live listings, inventory, bookings, payment, data persistence, email/message delivery or external connections unless supplied/configured and actually verified. Without a real listing feed, use an honest empty state or clearly labelled illustrative samples. Without a confirmed enquiry endpoint, state the true setup boundary. Never invent endpoints, recipients or credentials and never expose secrets in browser code.',
+  'QUALITY AND OUTPUT: Preserve the approved sitemap and every explicit requirement. Generate complete, non-empty files with valid JSON matching the existing output contract. Audit routes, fragments, local assets, page metadata, interactions and responsive behavior before returning. If a requirement cannot be truthfully met, report it as pending rather than claiming success.',
+].join('\n');
+
+function compactWorkersAiSystemPrompt(value, limit) {
+  const text = String(value ?? '');
+  if (text.length <= limit) return text;
+
+  const webStudioMarkers = [
+    'ART DIRECTION AND DISTINCTIVENESS:',
+    'EDITORIAL COPY AND TYPOGRAPHY QUALITY GATE:',
+    'FUNCTIONAL COMPLETENESS AND TRUTHFULNESS:',
+    'INTERACTION LEDGER AND ACCEPTANCE CHECKS:',
+  ];
+  const isWebStudioQualityContract = webStudioMarkers.every(marker => text.includes(marker));
+  if (!isWebStudioQualityContract) {
+    return truncatePromptPreservingEdges(text, limit, 0.56);
+  }
+
+  // A blind first/last slice removes the middle editorial and visual standards
+  // from OVYX's 21k-character design contract. Keep the role/open-ended brief,
+  // a compact summary of each acceptance-critical section, and the final QA
+  // instructions. This protects output quality within the model's context cap.
+  const notice = '\n\n[The long Web Studio contract was compacted; the priority-preserved requirements below remain mandatory.]\n\n';
+  const tailNotice = '\n\n[Original final system/QA instructions preserved below.]\n\n';
+  const tailBudget = Math.min(1_200, Math.floor(limit * 0.12));
+  const tail = text.slice(-tailBudget);
+  const prefixBudget = Math.max(
+    1_000,
+    Math.min(5_200, limit - notice.length - CLOUDFLARE_WORKERS_AI_WEB_STUDIO_PRIORITY_CONTRACT.length - tailNotice.length - tail.length),
+  );
+  const prefix = text.slice(0, prefixBudget);
+  let compact = prefix + notice + CLOUDFLARE_WORKERS_AI_WEB_STUDIO_PRIORITY_CONTRACT + tailNotice + tail;
+  if (compact.length > limit) {
+    const excess = compact.length - limit;
+    const safePrefix = text.slice(0, Math.max(1_000, prefixBudget - excess));
+    compact = safePrefix + notice + CLOUDFLARE_WORKERS_AI_WEB_STUDIO_PRIORITY_CONTRACT + tailNotice + tail;
+  }
+  if (compact.length > limit) {
+    throw new Error('Cloudflare Workers AI Web Studio system prompt could not fit its configured context budget.');
+  }
+  return compact;
+}
+
 function truncatePromptPreservingEdges(value, limit, headRatio = 0.68) {
   const text = String(value ?? '');
   if (text.length <= limit) return text;
@@ -869,10 +919,9 @@ function prepareWorkersAiRequest(options = {}) {
     : CLOUDFLARE_WORKERS_AI_OUTPUT_TOKEN_BUDGET;
   return {
     ...options,
-    system: truncatePromptPreservingEdges(
+    system: compactWorkersAiSystemPrompt(
       options.system,
       CLOUDFLARE_WORKERS_AI_SYSTEM_CHAR_BUDGET,
-      0.72,
     ),
     user: compactWorkersAiUserPrompt(
       options.user,
