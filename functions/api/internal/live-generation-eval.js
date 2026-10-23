@@ -302,6 +302,39 @@ async function readBoundedJson(request) {
   return JSON.parse(new TextDecoder().decode(merged));
 }
 
+const SAFE_PROVIDER_FAILURE_KINDS = new Set([
+  'not-configured',
+  'authentication-rejected',
+  'permission-denied',
+  'model-or-endpoint-not-found',
+  'request-rejected',
+  'rate-limited-or-quota',
+  'provider-server-error',
+  'timeout',
+  'network-error',
+  'empty-response',
+  'invalid-response',
+  'provider-error',
+]);
+
+export function safeLiveGenerationProviderAttempts(error) {
+  const allowedProviders = new Set(['gemini', 'claude', 'deepseek', 'openai', 'groq', 'openrouter', 'cloudflare-workers-ai']);
+  const input = Array.isArray(error?.providerAttempts) ? error.providerAttempts : [];
+  const result = [];
+  for (const item of input.slice(0, 7)) {
+    const provider = String(item?.provider || '');
+    const kind = String(item?.kind || '');
+    const status = Number(item?.status);
+    if (!allowedProviders.has(provider) || !SAFE_PROVIDER_FAILURE_KINDS.has(kind)) continue;
+    result.push({
+      provider,
+      kind,
+      ...(Number.isInteger(status) && status >= 400 && status <= 599 ? { status } : {}),
+    });
+  }
+  return result;
+}
+
 export function safeLiveGenerationFailureDetail(error) {
   const code = String(error?.code || '').toUpperCase();
   const status = Number(error?.status);
@@ -415,6 +448,7 @@ export async function handleLiveGenerationRequest(request, env, options = {}) {
       error: 'LIVE_SITE_GENERATION_FAILED',
       caseId: caseItem.id,
       detail: safeLiveGenerationFailureDetail(error),
+      providerAttempts: safeLiveGenerationProviderAttempts(error),
     }, { status: 502, headers: { 'Cache-Control': 'no-store' } });
   }
   if (!generated || generated.ok !== true) {

@@ -340,13 +340,10 @@ async function callGemini(
         () => ({})
       );
 
-  if (
-    !response.ok
-  ) {
-    throw new Error(
-      data?.error
-        ?.message ||
-        `Gemini HTTP ${response.status}`
+  if (!response.ok) {
+    throw Object.assign(
+      new Error(data?.error?.message || `Gemini HTTP ${response.status}`),
+      { status: response.status, code: 'AI_PROVIDER_REQUEST_FAILED' }
     );
   }
 
@@ -434,13 +431,10 @@ async function callClaude(
         () => ({})
       );
 
-  if (
-    !response.ok
-  ) {
-    throw new Error(
-      data?.error
-        ?.message ||
-        `Anthropic HTTP ${response.status}`
+  if (!response.ok) {
+    throw Object.assign(
+      new Error(data?.error?.message || `Anthropic HTTP ${response.status}`),
+      { status: response.status, code: 'AI_PROVIDER_REQUEST_FAILED' }
     );
   }
 
@@ -566,9 +560,9 @@ async function callGroq(
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(
-      data?.error?.message ||
-        ('Groq HTTP ' + response.status)
+    throw Object.assign(
+      new Error(data?.error?.message || ('Groq HTTP ' + response.status)),
+      { status: response.status, code: 'AI_PROVIDER_REQUEST_FAILED' }
     );
   }
 
@@ -719,9 +713,9 @@ async function callOpenAI(
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(
-      data?.error?.message ||
-      'OpenAI HTTP ' + response.status
+    throw Object.assign(
+      new Error(data?.error?.message || 'OpenAI HTTP ' + response.status),
+      { status: response.status, code: 'AI_PROVIDER_REQUEST_FAILED' }
     );
   }
 
@@ -867,6 +861,30 @@ export function providerOrder(env, requested, taskContext = '', globalOrder = nu
   return ordered;
 }
 
+function summarizeProviderFailure(error) {
+  const code = String(error?.code || '').toUpperCase();
+  const message = String(error?.message || '');
+  const statusValue = Number(error?.status);
+  const match = message.match(/\bHTTP\s+(\d{3})\b/i);
+  const parsedStatus = match ? Number(match[1]) : NaN;
+  const status = Number.isInteger(statusValue) && statusValue >= 400 && statusValue <= 599
+    ? statusValue
+    : Number.isInteger(parsedStatus) && parsedStatus >= 400 && parsedStatus <= 599 ? parsedStatus : null;
+  let kind = 'provider-error';
+  if (code === 'AI_PROVIDER_NOT_CONFIGURED' || /not configured|missing server secret|binding is not configured/i.test(message)) kind = 'not-configured';
+  else if (code === 'AI_PROVIDER_TIMEOUT' || error?.name === 'AbortError' || error?.name === 'TimeoutError' || status === 408 || status === 504) kind = 'timeout';
+  else if (code === 'AI_PROVIDER_EMPTY_RESPONSE' || /returned an empty response/i.test(message)) kind = 'empty-response';
+  else if (code === 'AI_INVALID_JSON' || /invalid structured json/i.test(message)) kind = 'invalid-response';
+  else if (status === 401 || /invalid api key|unauthorized|authentication failed/i.test(message)) kind = 'authentication-rejected';
+  else if (status === 403 || /permission denied|access denied|not authorized/i.test(message)) kind = 'permission-denied';
+  else if (status === 404 || /model .* not found|model not found|endpoint not found|no such model/i.test(message)) kind = 'model-or-endpoint-not-found';
+  else if (status === 429 || /quota|rate.?limit|resource exhausted/i.test(message)) kind = 'rate-limited-or-quota';
+  else if (status !== null && status >= 500) kind = 'provider-server-error';
+  else if (status !== null && status >= 400) kind = 'request-rejected';
+  else if (error?.name === 'TypeError') kind = 'network-error';
+  return { kind, status };
+}
+
 export async function callModel(
   env,
   options = {}
@@ -877,6 +895,7 @@ export async function callModel(
   // An account-selected Universal Connection is exclusive. Never silently bill a
   // platform provider after a user's own connection failed or could not be verified.
   const errors = [];
+  const providerAttempts = [];
   if (options.authUser && !/^connection:/i.test(requestedRaw)) {
     let activeBrainId = null;
     try {
@@ -1065,6 +1084,12 @@ export async function callModel(
         routedProvider: requested === 'automatic' ? result.provider : routedProvider,
       };
     } catch (err) {
+      const summary = summarizeProviderFailure(err);
+      providerAttempts.push({
+        provider,
+        kind: summary.kind,
+        ...(summary.status === null ? {} : { status: summary.status }),
+      });
       errors.push(
         `${provider}: ${
           err?.message ||
@@ -1094,6 +1119,7 @@ export async function callModel(
         status: 503,
         code: notConfigured ? 'AI_PROVIDER_NOT_CONFIGURED' : 'AI_PROVIDER_UNAVAILABLE',
         provider: normalizeRequestedProvider(requested, env),
+        providerAttempts,
       }
     );
   }
@@ -1108,6 +1134,7 @@ export async function callModel(
       {
         status: 503,
         code: 'AI_PROVIDER_UNAVAILABLE',
+        providerAttempts,
       }
     );
 
