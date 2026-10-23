@@ -71,6 +71,8 @@ assert.ok(suite.acceptanceCriteria.length >= 9, 'Evaluation must cover more than
 assert.ok(suite.acceptanceCriteria.some(item => /integration/i.test(item) && /unverified/i.test(item)), 'Live integrations must be evaluated truthfully.');
 assert.ok(suite.acceptanceCriteria.some(item => /unrelated pages/i.test(item)), 'Targeted edits must check preservation of existing functionality.');
 assert.ok(suite.acceptanceCriteria.some(item => /horizontal overflow/i.test(item)), 'Responsive quality must be evaluated.');
+assert.ok(suite.acceptanceCriteria.some(item => /mature, specific/i.test(item) && /placeholder/i.test(item)), 'Editorial copy quality must be an explicit acceptance criterion.');
+assert.ok(suite.acceptanceCriteria.some(item => /typography/i.test(item) && /clipped or overlapping/i.test(item)), 'Responsive typography must be an explicit acceptance criterion.');
 for (const item of suite.siteCategories) {
   assert.ok(item.prompt.length > 150, item.id + ' needs a meaningful repeatable prompt.');
   assert.ok(Array.isArray(item.mustExercise) && item.mustExercise.length >= 4, item.id + ' needs concrete interaction coverage.');
@@ -81,4 +83,4 @@ for (const item of suite.failureScenarios) {
   assert.ok(Array.isArray(item.expected) && item.expected.length >= 3, item.id + ' needs concrete expected behavior.');
 }
 
-console.log('Web Studio evaluation suite validated: nine site categories, nine failure/regression cases, responsive matrix, integration truthfulness, and existing-feature preservation.');
+console.log('Web Studio evaluation suite validated: eleven site categories, nine failure/regression cases, responsive matrix, integration truthfulness, and existing-feature preservation.');
