@@ -77,9 +77,11 @@ Do not bypass the gates, fabricate listing data, count the local QA form as real
 ## 6. Run and review the evidence
 
 1. Merge only after the targeted code and regression checks pass. A PR run intentionally does not call production generation or send test enquiries.
-2. A trusted `main` push or a manual workflow run on `main` triggers the live acceptance job. The client waits until the new Cloudflare Pages route is deployed before making the four fixed generation requests.
-3. Download the `ovyx-live-generation-evidence` artifact. It contains the generated website files, screenshots, browser report, integration report and acceptance audit.
-4. Resolve every blocker and rerun until the live gates pass. Inspect all four markets and all screenshot sets; automated checks do not replace editorial judgement.
-5. Keep `humanVisualReviewCompleted` and `humanEditorialReviewCompleted` false until an actual human review has been performed and recorded.
+2. A trusted `main` push or a manual workflow run on `main` starts with a provider-readiness preflight through the existing production Cloudflare runtime. The preflight sends a fixed, very short text request with a maximum of eight output tokens; it can incur small provider usage charges. It does not ask for or generate a website. In automatic mode, OVYX may try more than one configured provider until one responds; a manual run can select one provider to check only that provider.
+3. If preflight fails, the client stops before sending any of the four full website briefs and prints only allow-listed provider names, failure categories, and HTTP statuses. Fix the underlying authentication, billing, quota, model/runtime, or account configuration before retrying; do not treat a configured secret name as proof that the credential works.
+4. If preflight succeeds, the client proceeds with the four current evaluation examples through OVYX's production multi-page builder. The preflight is only a provider-reachability check; it does not certify arbitrary-brief handling, site quality, listing provenance, enquiry delivery or human review.
+5. Download the `ovyx-live-generation-evidence` artifact. It contains the generated website files, screenshots, browser report, integration report and acceptance audit when those artifacts were actually produced.
+6. Resolve every blocker and rerun until the live gates pass. Inspect the generated sites and screenshot sets; automated checks do not replace editorial judgement.
+7. Keep `humanVisualReviewCompleted` and `humanEditorialReviewCompleted` false until an actual human review has been performed and recorded.
 
-A successful fixture/unit-test run is not live generation, verified listing data, delivered enquiries or human visual review. Those claims must be backed by artifacts from the trusted main workflow and evidence from the owner-approved source/delivery systems.
+A successful fixture/unit-test run or provider preflight is not live website generation, verified listing data, delivered enquiries or human visual review. Those claims must be backed by artifacts from the trusted main workflow and evidence from the owner-approved source/delivery systems.
