@@ -99,6 +99,11 @@ assert.doesNotMatch(source.html, /const auth=window\.firebase\?\.auth\(\);/, 'Fi
 
 assert.match(source.switchState, /getProductionIntegrationState/);
 assert.match(source.controlApi, /action === 'setProductionState'/);
+assert.match(source.controlApi, /return email === ROOT_EMAIL\.toLowerCase\(\);/, 'Global admin controls must require the canonical owner email.');
+assert.doesNotMatch(source.controlApi, /user\.role[^\n]{0,100}ROOT_SUPERUSER/, 'A user role label must not grant global admin control.');
+assert.match(source.planUpdate, /return String\(user\.email\|\|''\)\.trim\(\)\.toLowerCase\(\)===ROOT_EMAIL\.toLowerCase\(\)/, 'Plan and feature gate management must require the canonical owner email.');
+assert.doesNotMatch(source.planUpdate, /user\.role[^\n]{0,100}ROOT_SUPERUSER/, 'A user role label must not grant plan administrator access.');
+assert.match(source.usersApi, /const rootUser = email === ROOT_EMAIL;/, 'Only the canonical owner account must be treated as root in the account registry.');
 assert.match(source.controlApi, /action === 'saveSettings'/);
 assert.match(source.runtime, /function patchProductionSwitch/);
 assert.match(source.runtime, /function mountProductionControlPanel/);
