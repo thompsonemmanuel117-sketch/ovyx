@@ -4,6 +4,7 @@
   // The server entitlement endpoint is the authority. This runtime never
   // unlocks Admin from local storage, email text alone, or a preview flag.
   const ROOT_ROLE = 'ROOT_SUPERUSER';
+  const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
   const MODULES = Object.freeze([
     { route: 'admin-overview', label: 'System Overview', detail: 'Platform health and service status', icon: 'fa-gauge-high' },
     { route: 'admin-pricing', label: 'Pricing & Plans', detail: 'Plans, quotas, and feature gates', icon: 'fa-tags' },
@@ -126,9 +127,15 @@
     if (!response.ok) throw new Error('ADMIN_ENTITLEMENTS_HTTP_' + response.status);
     const data = await response.json();
     const role = safeRole(data?.role || data?.entitlements?.role);
-    const sameIdentity = !data?.uid || !user?.uid || String(data.uid) === String(user.uid);
-    const isRoot = role === ROOT_ROLE &&
-      (data?.owner === true || data?.isRoot === true || data?.admin === true) &&
+    const expectedEmail = String(user?.email || '').trim().toLowerCase();
+    const actualEmail = String(data?.email || '').trim().toLowerCase();
+    // Fail closed unless the server response matches this exact authenticated Firebase user.
+    const sameIdentity = !!user?.uid && !!data?.uid &&
+      String(data.uid) === String(user.uid) &&
+      !!expectedEmail && actualEmail === expectedEmail;
+    const isRoot = role === ROOT_ROLE && actualEmail === ROOT_EMAIL &&
+      data?.owner === true && data?.isRoot === true &&
+      data?.admin === true && data?.bypass === true &&
       sameIdentity;
     return { data, isRoot };
   }
