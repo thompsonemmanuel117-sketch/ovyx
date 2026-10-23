@@ -343,10 +343,22 @@ async function main() {
               let target;
               try{target=new URL(raw);}catch{return route.abort('blockedbyclient');}
               if(['data:','blob:','about:'].includes(target.protocol)||target.origin===baseOrigin)return route.continue();
-              const safeListingRequest=Boolean(LISTING_FEED)&&target.protocol==='https:'&&target.origin===LISTING_FEED.origin&&target.pathname===LISTING_FEED.pathname&&['GET','HEAD','OPTIONS'].includes(request.method())&&['fetch','xhr'].includes(request.resourceType());
-              const safeEnquiryRequest=Boolean(PUBLIC_ENQUIRY)&&Boolean(ENQUIRY_TEST_RECIPIENT)&&target.protocol==='https:'&&target.origin===PUBLIC_ENQUIRY.origin&&target.pathname===PUBLIC_ENQUIRY.pathname&&['POST','OPTIONS'].includes(request.method())&&['fetch','xhr'].includes(request.resourceType());
+              const safeListingRequest=Boolean(LISTING_FEED)&&target.protocol==='https:'&&target.origin===LISTING_FEED.origin&&target.pathname===LISTING_FEED.pathname&&target.search===LISTING_FEED.search&&['GET','HEAD','OPTIONS'].includes(request.method())&&['fetch','xhr'].includes(request.resourceType());
+              const safeEnquiryTarget=Boolean(PUBLIC_ENQUIRY)&&Boolean(ENQUIRY_TEST_RECIPIENT)&&target.protocol==='https:'&&target.origin===PUBLIC_ENQUIRY.origin&&target.pathname===PUBLIC_ENQUIRY.pathname&&target.search===PUBLIC_ENQUIRY.search&&['POST','OPTIONS'].includes(request.method())&&['fetch','xhr'].includes(request.resourceType());
+              let safeEnquiryRequest=false;
+              if(safeEnquiryTarget&&request.method()==='OPTIONS')safeEnquiryRequest=true;
+              else if(safeEnquiryTarget&&request.method()==='POST'){
+                let payload=null;
+                try{payload=request.postDataJSON();}catch{}
+                const recipient=String(payload?.email||payload?.recipient||'').trim().toLowerCase();
+                const markedQA=payload?.test===true&&payload?.dryRun===true&&String(payload?.source||'').trim()==='OVYX QA';
+                const QAIdentity=/^OVYX(?: automated)? QA/i.test(String(payload?.name||'').trim());
+                const QAMessage=/OVYX.*(?:test|QA)|no action needed/i.test(String(payload?.message||payload?.subject||''));
+                safeEnquiryRequest=Boolean(markedQA&&QAIdentity&&QAMessage&&recipient===ENQUIRY_TEST_RECIPIENT.toLowerCase());
+                if(!safeEnquiryRequest)blockedExternalRequests.push({url:raw.slice(0,300),method:request.method(),resourceType:request.resourceType(),reason:'blocked: public enquiry payload did not prove it was an owner-approved QA-only submission'});
+              }
               if(safeListingRequest||safeEnquiryRequest)return route.continue();
-              blockedExternalRequests.push({url:raw.slice(0,300),method:request.method(),resourceType:request.resourceType()});
+              if(!safeEnquiryTarget)blockedExternalRequests.push({url:raw.slice(0,300),method:request.method(),resourceType:request.resourceType()});
               return route.abort('blockedbyclient');
             });
             page.on('pageerror',e=>errors.push(String(e.message||e).slice(0,250)));
