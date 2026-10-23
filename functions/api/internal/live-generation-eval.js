@@ -311,7 +311,19 @@ export function safeLiveGenerationFailureDetail(error) {
   }
   if (code === 'AI_PROVIDER_NOT_CONFIGURED') return 'ai-provider-not-configured';
   if (code === 'AI_PROVIDER_UNSUPPORTED') return 'ai-provider-unsupported';
-  if (code === 'AI_PROVIDER_UNAVAILABLE') return 'ai-provider-unavailable';
+  if (code === 'AI_PROVIDER_UNAVAILABLE') {
+    const allowedProviders = new Set(['gemini', 'deepseek', 'claude', 'openai', 'groq', 'openrouter', 'cloudflare-workers-ai']);
+    const allowedKinds = new Set(['http-error', 'timeout', 'empty-response', 'not-configured', 'network-error', 'invalid-response', 'request-failed']);
+    const failures = Array.isArray(error?.providerFailures) ? error.providerFailures : [];
+    const labels = failures.slice(0, 4).map(item => {
+      const provider = allowedProviders.has(String(item?.provider || '')) ? String(item.provider) : 'provider';
+      const kind = allowedKinds.has(String(item?.kind || '')) ? String(item.kind) : 'request-failed';
+      const statusNumber = Number(item?.status);
+      const status = Number.isInteger(statusNumber) && statusNumber >= 400 && statusNumber <= 599 ? statusNumber : null;
+      return provider + (status ? '-http-' + status : '-' + kind);
+    });
+    return ('ai-provider-unavailable' + (labels.length ? '-' + labels.join('-') : '')).slice(0, 80);
+  }
   if (code === 'PROMPT_REQUIRED') return 'prompt-required';
   if (error?.name === 'AbortError' || error?.name === 'TimeoutError') return 'upstream-timeout';
   if (error?.name === 'TypeError') return 'upstream-network-error';
