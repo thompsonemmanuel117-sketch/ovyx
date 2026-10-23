@@ -246,14 +246,10 @@ async function waitForEndpoint(origin, expectedCommitSha) {
       if (response.status === 405 && body.error === 'METHOD_NOT_ALLOWED') {
         const deployedSha = String(body.deployment?.commitSha || '').trim().toLowerCase();
         const deployedBranch = String(body.deployment?.branch || '').trim();
-        if (deployedSha && deployedSha !== expectedCommitSha.toLowerCase()) {
-          // A deployment older than the API's matching deployment record may still
-          // be serving on the canonical alias. Keep waiting instead of spending tokens.
-        } else if (deployedBranch && deployedBranch !== 'main') {
-          // Never call a preview deployment, even if its handler responds correctly.
-        } else {
-          return;
-        }
+        // Fail closed: no generation call until the canonical URL proves it is
+        // serving the exact main SHA whose successful production deploy was read
+        // through Cloudflare's API. Missing metadata is not treated as a match.
+        if (deployedSha === expectedCommitSha.toLowerCase() && deployedBranch === 'main') return;
       }
     } catch {
       // During a deployment the old Pages version may serve HTML/404 instead
