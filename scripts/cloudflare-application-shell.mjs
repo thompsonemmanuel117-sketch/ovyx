@@ -189,7 +189,7 @@ async function probeBrowserTabIcon(origin, html, fetchImpl) {
       return String(link.type || '').toLowerCase() === 'image/svg+xml'
         && url.origin === origin
         && url.pathname === '/ovyx-tab-v7.svg'
-        && url.searchParams.get('v') === '20261021-6';
+        && url.searchParams.get('v') === '20261022-7';
     } catch {
       return false;
     }
