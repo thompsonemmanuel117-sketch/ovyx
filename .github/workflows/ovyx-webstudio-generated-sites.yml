@@ -1,0 +1,57 @@
+name: OVYX Generated Website Evidence
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'functions/_lib/market-context.js'
+      - 'functions/_lib/visual-asset-plan.js'
+      - 'functions/_lib/experience.js'
+      - 'functions/_lib/prompts.js'
+      - 'scripts/ovyx-market-visual-context.test.mjs'
+      - 'scripts/ovyx-webstudio-evaluation-cases.json'
+      - 'scripts/ovyx-webstudio-generated-site-browser-eval.mjs'
+      - '.github/workflows/ovyx-webstudio-generated-sites.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'functions/_lib/market-context.js'
+      - 'functions/_lib/visual-asset-plan.js'
+      - 'functions/_lib/experience.js'
+      - 'functions/_lib/prompts.js'
+      - 'scripts/ovyx-market-visual-context.test.mjs'
+      - 'scripts/ovyx-webstudio-evaluation-cases.json'
+      - 'scripts/ovyx-webstudio-generated-site-browser-eval.mjs'
+      - '.github/workflows/ovyx-webstudio-generated-sites.yml'
+permissions:
+  contents: read
+jobs:
+  generation-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install project dependencies
+        run: npm install --ignore-scripts
+      - name: Install Chromium test dependency
+        run: npm install --ignore-scripts --no-save playwright@^1.55.0
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Test market and visual asset planning
+        run: node scripts/ovyx-market-visual-context.test.mjs
+      - name: Run static generated-site evaluation
+        run: node scripts/ovyx-webstudio-evaluation-runner.mjs --root artifacts/webstudio-generated-sites --out artifacts/webstudio-evaluation-report/static-report.json
+      - name: Run browser checks on supplied generated sites
+        if: always()
+        run: node scripts/ovyx-webstudio-generated-site-browser-eval.mjs artifacts/webstudio-generated-sites artifacts/webstudio-evaluation-report/browser
+      - name: Upload evaluation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ovyx-generated-website-evaluation
+          path: artifacts/webstudio-evaluation-report/
+          if-no-files-found: warn
+          retention-days: 30
