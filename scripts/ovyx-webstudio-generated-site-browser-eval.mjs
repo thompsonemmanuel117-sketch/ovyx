@@ -212,14 +212,16 @@ async function main() {
           }
         }
       } finally {await new Promise(resolve=>server.close(resolve));}
-      const failures=checks.filter(c=>c.navigationError||c.metrics?.horizontalOverflow||c.metrics?.brokenImages?.length||c.metrics?.copyIssues?.length||c.metrics?.deadLinks?.length||c.metrics?.unlabeledControls?.length||c.pageErrors.length||c.consoleErrors.length||c.failedRequests.length||c.internalLinkChecks.some(link=>['invalid-url','missing-fragment-target','local-route-http-error','local-route-request-failed'].includes(link.status))||c.formInteractions.some(f=>f.classification!=='qa-only-local-form-post-and-success-ui-verified'));
       const formResults=checks.flatMap(c=>c.formInteractions||[]);
+      const qaFormMissing=formResults.length===0;
+      const failures=checks.filter(c=>c.navigationError||c.metrics?.horizontalOverflow||c.metrics?.brokenImages?.length||c.metrics?.copyIssues?.length||c.metrics?.deadLinks?.length||c.metrics?.unlabeledControls?.length||c.pageErrors.length||c.consoleErrors.length||c.failedRequests.length||c.internalLinkChecks.some(link=>['invalid-url','missing-fragment-target','local-route-http-error','local-route-request-failed'].includes(link.status))||c.formInteractions.some(f=>f.classification!=='qa-only-local-form-post-and-success-ui-verified'));
+      if(qaFormMissing)failures.push({page:'site-level',reason:'Required QA-only enquiry form did not submit to the isolated test receiver.'});
       results.push({
         site:site.name,status:failures.length?'needs-attention':html.length>12?'pass-with-limited-route-sample':'browser-checked-no-obvious-blockers',
         htmlRoutes:html.length,testedRoutes:Math.min(html.length,12),routeSampleLimited:html.length>12,
         viewportWidths:VIEWPORTS.map(v=>v.width),failingChecks:failures.length,
         formInteractionStatus:formResults.length?(formResults.every(f=>f.classification==='qa-only-local-form-post-and-success-ui-verified')?'qa-local-post-tested':'qa-form-test-has-findings'):'no-qa-form-submission-tested',
-        qaLocalPosts:formResults.length,realEnquiryDeliveryConfirmed:false,
+        qaLocalPosts:formResults.length,qaFormMissing,realEnquiryDeliveryConfirmed:false,
         realInventoryFeedConfigured:metadata.liveInventorySourceConfigured===true,
         realListingsConfirmed:metadata.inventoryHonesty?.realListingsConfirmed===true,
         pages:checks,
