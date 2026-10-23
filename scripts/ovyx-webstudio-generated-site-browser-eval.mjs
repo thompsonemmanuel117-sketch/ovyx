@@ -238,7 +238,6 @@ async function exercisePublicEnquiryForms(page) {
       if(info.disabled||['hidden','submit','button','reset','file','image'].includes(info.type))continue;
       if(info.type==='checkbox'||info.type==='radio'){if(info.type==='checkbox')await field.check({force:true}).catch(()=>{});continue;}
       if(info.tag==='select'){if(info.options.length)await field.selectOption(info.options[0]).catch(()=>{});continue;}
-      if(info.value)continue;
       const value=info.type==='email'||info.name.includes('email')?ENQUIRY_TEST_RECIPIENT
         :info.type==='tel'?'+15555550123'
         :info.type==='url'?'https://example.invalid'
@@ -362,27 +361,38 @@ async function main() {
             await page.screenshot({path:path.join(output,screenshot),fullPage:true,animations:'disabled',timeout:12000}).catch(()=>{});
             const internalLinkChecks=vp.width===390?await testInternalLinks(page,metrics.internalLinks):[];
             const buttonInteractions=vp.width===390?await exerciseButtons(page,baseOrigin,route):{tested:0,skipped:0,results:[]};
+            const publicEnquiryInteractions=vp.width===390&&PUBLIC_ENQUIRY&&ENQUIRY_TEST_RECIPIENT&&metrics.forms.some(form=>{try{const u=new URL(form.action,page.url());return u.origin===PUBLIC_ENQUIRY.origin&&u.pathname===PUBLIC_ENQUIRY.pathname&&form.method==='post';}catch{return false;}})
+              ?await exercisePublicEnquiryForms(page)
+              :{status:PUBLIC_ENQUIRY&&ENQUIRY_TEST_RECIPIENT?'public-enquiry-form-not-on-this-route':'not-configured-or-not-opted-in',requestObserved:false,endpointAcceptedTestPayload:false,explicitDeliveryReceipt:false,realEnquiryDeliveryConfirmed:false};
             const formInteractions=vp.width===390?await exerciseQAForms(page):[];
             const interactionScreenshot=vp.width===390?relative.replace(/[^a-z0-9_-]+/gi,'_')+'__mobile-390__post-interactions.png':null;
             if(interactionScreenshot)await page.screenshot({path:path.join(output,interactionScreenshot),fullPage:true,animations:'disabled',timeout:12000}).catch(()=>{});
-            checks.push({page:relative,route,viewport:vp.name,metrics,pageErrors:errors,consoleErrors,failedRequests,blockedExternalRequests,navigationError,internalLinkChecks,buttonInteractions,formInteractions,screenshot,interactionScreenshot});
+            checks.push({page:relative,route,viewport:vp.name,metrics,pageErrors:errors,consoleErrors,failedRequests,blockedExternalRequests,navigationError,internalLinkChecks,buttonInteractions,publicEnquiryInteractions,formInteractions,screenshot,interactionScreenshot});
             await page.close();
           }
         }
       } finally {await new Promise(resolve=>server.close(resolve));}
       const formResults=checks.flatMap(c=>c.formInteractions||[]);
+      const publicEnquiryChecks=checks.filter(c=>c.viewport==='mobile-390').map(c=>({page:c.page,...(c.publicEnquiryInteractions||{})}));
+      const publicEnquiryFormObserved=publicEnquiryChecks.some(item=>item.requestObserved===true);
+      const publicEnquiryDeliveryConfirmed=publicEnquiryChecks.some(item=>item.realEnquiryDeliveryConfirmed===true);
+      const publicEnquiryFailure=Boolean(PUBLIC_ENQUIRY&&ENQUIRY_TEST_RECIPIENT)&&!publicEnquiryDeliveryConfirmed;
       const buttonResults=checks.filter(c=>c.viewport==='mobile-390').flatMap(c=>c.buttonInteractions?.results||[]);
       const qaFormMissing=formResults.length===0;
       const noOpButtons=buttonResults.filter(item=>['no-observable-state-change','click-failed','interaction-test-error'].includes(item.status));
       const externalRequests=checks.flatMap(c=>c.blockedExternalRequests||[]);
       const failures=checks.filter(c=>c.navigationError||c.metrics?.horizontalOverflow||c.metrics?.brokenImages?.length||c.metrics?.copyIssues?.length||c.metrics?.deadLinks?.length||c.metrics?.unlabeledControls?.length||c.pageErrors.length||c.consoleErrors.length||c.failedRequests.length||c.blockedExternalRequests.length||c.internalLinkChecks.some(link=>['invalid-url','missing-fragment-target','local-route-http-error','local-route-request-failed'].includes(link.status))||c.buttonInteractions?.results?.some(item=>['no-observable-state-change','click-failed','interaction-test-error'].includes(item.status))||c.formInteractions.some(f=>f.classification!=='qa-only-local-form-post-and-success-ui-verified'));
       if(qaFormMissing)failures.push({page:'site-level',reason:'Required QA-only enquiry form did not submit to the isolated test receiver.'});
+      if(publicEnquiryFailure)failures.push({page:'site-level',reason:'Owner-approved public enquiry form did not return an explicit delivery receipt.'});
       results.push({
         site:site.name,status:failures.length?'needs-attention':html.length>12?'pass-with-limited-route-sample':'browser-checked-no-obvious-blockers',
         htmlRoutes:html.length,testedRoutes:Math.min(html.length,12),routeSampleLimited:html.length>12,
         viewportWidths:VIEWPORTS.map(v=>v.width),failingChecks:failures.length,
         formInteractionStatus:formResults.length?(formResults.every(f=>f.classification==='qa-only-local-form-post-and-success-ui-verified')?'qa-local-post-tested':'qa-form-test-has-findings'):'no-qa-form-submission-tested',
-        qaLocalPosts:formResults.length,qaFormMissing,realEnquiryDeliveryConfirmed:false,
+        qaLocalPosts:formResults.length,qaFormMissing,
+        publicEnquiryEndpointConfigured:Boolean(PUBLIC_ENQUIRY),publicEnquiryFormObserved,publicEnquiryDeliveryConfirmed,
+        publicEnquiryStatus:publicEnquiryChecks.some(item=>item.status==='endpoint-reported-delivery-confirmed')?'endpoint-reported-delivery-confirmed':publicEnquiryFormObserved?'public-form-submitted-without-confirmed-delivery':PUBLIC_ENQUIRY?'configured-public-form-not-observed':'not-configured-or-not-opted-in',
+        publicEnquiryChecks,realEnquiryDeliveryConfirmed:publicEnquiryDeliveryConfirmed,
         buttonsTested:buttonResults.filter(item=>!String(item.status).startsWith('skipped')).length,
         noOpButtons:noOpButtons.length,buttonInteractionResults:buttonResults,
         blockedExternalRequests:externalRequests.length,realInventoryFeedConfigured:metadata.liveInventorySourceConfigured===true,
@@ -400,7 +410,11 @@ async function main() {
     schemaVersion:2,generatedAt:new Date().toISOString(),
     status:results.some(r=>r.status==='needs-attention')?'needs-attention':'browser-evaluated',
     sitesFound:sites.length,evaluatedSites:results.length,viewportWidths:VIEWPORTS.map(v=>v.width),results,
-    verifiedClaims:{realListingsConfirmed:false,realEnquiryDeliveryConfirmed:false,humanVisualReviewCompleted:false,humanEditorialReviewCompleted:false},
+    verifiedClaims:{
+      realListingsConfirmed:false,
+      realEnquiryDeliveryConfirmed:PUBLIC_ENQUIRY&&ENQUIRY_TEST_RECIPIENT&&results.length>0&&results.every(site=>site.publicEnquiryDeliveryConfirmed===true),
+      humanVisualReviewCompleted:false,humanEditorialReviewCompleted:false,
+    },
     note:'Browser checks detect common visible blockers and test QA-only POST forms. They do not fully proofread grammar, style, factual accuracy, subjective premium design, or live payment, booking, messaging, social, production-data or external service integration.',
   };
   await fs.writeFile(path.join(OUT,'browser-report.json'),JSON.stringify(report,null,2)+'\n');
