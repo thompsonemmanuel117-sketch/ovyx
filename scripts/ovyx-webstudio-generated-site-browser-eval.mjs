@@ -111,6 +111,7 @@ async function inspectPage(page) {
       imagesMissingAlt:Array.from(document.images).filter(i=>!i.hasAttribute('alt')).length,
       missingDocumentDescription:!document.querySelector('meta[name="description"]'),
       reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches,
+      visibleText:visibleText.slice(0,25000),
       copyIssues:copyRules.filter(rule=>rule[1].test(visibleText)).map(rule=>rule[0]),
       deadLinks,internalLinks:internalLinks.slice(0,100),externalLinks,forms,unlabeledControls,buttons,
     };
@@ -203,6 +204,7 @@ async function main() {
             try{await page.goto('http://127.0.0.1:'+port+route,{waitUntil:'networkidle',timeout:12000});}
             catch(e){navigationError=String(e.message||e).slice(0,250);try{await page.goto('http://127.0.0.1:'+port+route,{waitUntil:'domcontentloaded',timeout:6000});}catch{}}
             const metrics=await inspectPage(page);
+            if(vp.width!==390)delete metrics.visibleText;
             const internalLinkChecks=vp.width===390?await testInternalLinks(page,metrics.internalLinks):[];
             const formInteractions=vp.width===390?await exerciseQAForms(page):[];
             const screenshot=relative.replace(/[^a-z0-9_-]+/gi,'_')+'__'+vp.name+'.png';
