@@ -921,7 +921,7 @@ if (
     !evaluationCases.includes('interrupted-build') ||
     !evaluationCases.includes('missing-integration') ||
     !evaluationCases.includes('secret-exposure') ||
-    !evaluationTest.includes('nine site categories') ||
+    !evaluationTest.includes('eleven site categories') ||
     !qualityWorkflow.includes('npx playwright install --with-deps chromium') ||
     !qualityWorkflow.includes('scripts/ovyx-webstudio-quality.browser.test.mjs')
   ) {
