@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
-import { chooseProvider, handleLiveGenerationRequest, verifyGithubOidcToken } from '../functions/api/internal/live-generation-eval.js';
+import { chooseProvider, handleLiveGenerationRequest, safeLiveGenerationFailureDetail, verifyGithubOidcToken } from '../functions/api/internal/live-generation-eval.js';
 import { isTrustedGithubOidcRequestUrl } from './ovyx-github-oidc-url.mjs';
 
 // Cover the exact GitHub-hosted runner hostname reported by the production
@@ -24,6 +24,21 @@ for (const url of [
 ]) {
   assert.equal(isTrustedGithubOidcRequestUrl(url), false, 'unsafe OIDC request URL must be rejected: ' + url);
 }
+
+assert.equal(safeLiveGenerationFailureDetail(Object.assign(new Error('Provider error may contain sensitive payload'), {
+  code: 'AI_PROVIDER_REQUEST_FAILED',
+  status: 429,
+})), 'ai-provider-request-failed-http-429');
+assert.equal(safeLiveGenerationFailureDetail(Object.assign(new Error('No secret should leak'), {
+  code: 'AI_PROVIDER_NOT_CONFIGURED',
+})), 'ai-provider-not-configured');
+assert.equal(safeLiveGenerationFailureDetail(Object.assign(new Error('network details must stay private'), {
+  name: 'TypeError',
+})), 'upstream-network-error');
+assert.equal(safeLiveGenerationFailureDetail(Object.assign(new Error('timeout details must stay private'), {
+  name: 'TimeoutError',
+})), 'upstream-timeout');
+assert.equal(safeLiveGenerationFailureDetail(new Error('private message / key=DO_NOT_LEAK')), 'generation-error');
 
 const cryptoApi = globalThis.crypto || webcrypto;
 const now = Math.floor(Date.now() / 1000);
