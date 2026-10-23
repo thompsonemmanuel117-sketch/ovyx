@@ -5,11 +5,14 @@ const workflow = await readFile(new URL('../.github/workflows/ovyx-webstudio-liv
 const client = await readFile(new URL('./ovyx-cloudflare-live-generation-client.mjs', import.meta.url), 'utf8');
 
 // Keep the small provider check separate from the four potentially billable builds.
-assert.match(workflow, /operation:\s*\n\s+description: Run only a small provider readiness check or the full four-site acceptance\s*\n\s+required: true\s*\n\s+type: choice\s*\n\s+options:\s*\n\s+- preflight-only\s*\n\s+- full-acceptance\s*\n\s+default: full-acceptance/);
-assert.match(workflow, /OVYX_EVAL_PREFLIGHT_ONLY:\s*\$\{\{\s*github\.event_name == 'workflow_dispatch' && inputs\.operation == 'preflight-only' && 'true' \|\| 'false'\s*\}\}/);
+assert.match(workflow, /operation:\s*\n\s+description: Run only a small provider readiness check or the full four-site acceptance\s*\n\s+required: true\s*\n\s+type: choice\s*\n\s+options:\s*\n\s+- preflight-only\s*\n\s+- full-acceptance\s*\n\s+default: preflight-only/);
+assert.match(workflow, /OVYX_EVAL_PREFLIGHT_ONLY:\s*\$\{\{\s*github\.event_name != 'workflow_dispatch' \|\| inputs\.operation == 'preflight-only'\s*\}\}/);
+assert.match(workflow, /default: preflight-only/);
+assert.match(workflow, /if: github\.ref == 'refs\/heads\/main' && \(github\.event_name == 'push' \|\| \(github\.event_name == 'workflow_dispatch' && inputs\.operation == 'preflight-only'\)\)/);
+const fullAcceptanceCondition = /if: always\(\) && github\.event_name == 'workflow_dispatch' && inputs\.operation == 'full-acceptance' && github\.ref == 'refs\/heads\/main'/g;
+assert.equal((workflow.match(fullAcceptanceCondition) || []).length, 4,
+  'browser, listing, enquiry and audit gates must run only after explicit full-acceptance dispatch');
 assert.match(workflow, /Enforce provider-only preflight result[\s\S]*?GENERATION_OUTCOME: \$\{\{ steps\.generate\.outcome \}\}/);
-assert.match(workflow, /if: always\(\) && github\.event_name != 'pull_request' && github\.ref == 'refs\/heads\/main' && \(github\.event_name != 'workflow_dispatch' \|\| inputs\.operation != 'preflight-only'\)/,
-  'browser, integration and audit steps must skip in preflight-only mode');
 
 const guard = client.indexOf("if (process.env.OVYX_EVAL_PREFLIGHT_ONLY === 'true')");
 const sitesLoop = client.indexOf('  const sites = [];', guard);
