@@ -45,6 +45,8 @@ const requiredCategories = [
   'agency',
   'portfolio',
   'data-dashboard',
+  'international-property-marketplace',
+  'animated-restaurant-experience',
 ];
 const requiredFailureCases = [
   'vague-prompt',
@@ -59,7 +61,7 @@ const requiredFailureCases = [
 ];
 
 assert.equal(suite.version, 1, 'Evaluation fixture version must be explicit.');
-assert.equal(suite.siteCategories.length, 9, 'The evaluation set must cover all nine website categories.');
+assert.equal(suite.siteCategories.length, 11, 'The evaluation set must cover all eleven website categories.');
 assert.equal(suite.failureScenarios.length, 9, 'The evaluation set must cover all nine failure/regression scenarios.');
 assert.deepEqual(suite.siteCategories.map(item => item.id).sort(), [...requiredCategories].sort(), 'Every requested site category must have one unique evaluation prompt.');
 assert.deepEqual(suite.failureScenarios.map(item => item.id).sort(), [...requiredFailureCases].sort(), 'Every high-risk or failure case must have explicit expected behavior.');
