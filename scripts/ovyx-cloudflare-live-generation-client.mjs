@@ -335,7 +335,8 @@ async function generateOne(origin, provider, model, integrationSettings, caseId)
   const body = await readJsonResponse(response);
   if (!response.ok || body.ok !== true) {
     const code = String(body.error || 'LIVE_GENERATION_FAILED').slice(0, 100);
-    throw new Error('Cloudflare generation for ' + caseId + ' returned HTTP ' + response.status + ' (' + code + ').');
+    const detail = /^[a-z0-9-]{1,80}$/.test(String(body.detail || '')) ? ', ' + body.detail : '';
+    throw new Error('Cloudflare generation for ' + caseId + ' returned HTTP ' + response.status + ' (' + code + detail + ').');
   }
   return writeGeneratedSite(caseId, body);
 }
