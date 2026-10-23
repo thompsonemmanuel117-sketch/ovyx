@@ -12,10 +12,22 @@ on:
           - deepseek
           - openai
         default: gemini
+  push:
+    branches: [main]
+    paths:
+      - 'functions/api/internal/live-generation-eval.js'
+      - 'scripts/ovyx-cloudflare-live-generation-client.mjs'
+      - 'scripts/ovyx-cloudflare-live-generation-oidc.test.mjs'
+      - 'scripts/ovyx-webstudio-live-generation-eval.mjs'
+      - 'scripts/ovyx-webstudio-acceptance-audit.mjs'
+      - 'scripts/ovyx-webstudio-generated-site-browser-eval.mjs'
+      - 'scripts/ovyx-live-service-integration-eval.mjs'
+      - '.github/workflows/ovyx-webstudio-live-generation.yml'
   pull_request:
     branches: [main]
     paths:
       - 'functions/_lib/prompts.js'
+      - 'functions/api/internal/live-generation-eval.js'
       - 'functions/_lib/studio-multipage.js'
       - 'functions/_lib/market-context.js'
       - 'functions/_lib/visual-asset-plan.js'
@@ -26,6 +38,9 @@ on:
       - 'scripts/ovyx-live-service-integration-eval.test.mjs'
       - 'scripts/ovyx-webstudio-acceptance-audit.test.mjs'
       - 'scripts/ovyx-webstudio-live-generation-eval-contract.test.mjs'
+      - 'scripts/ovyx-cloudflare-live-generation-client.mjs'
+      - 'scripts/ovyx-cloudflare-live-generation-oidc.test.mjs'
+      - 'docs/OVYX-LIVE-ACCEPTANCE-SETUP.md'
       - '.github/workflows/ovyx-webstudio-live-generation.yml'
 permissions:
   contents: read
@@ -33,6 +48,9 @@ jobs:
   live-generation-evidence:
     name: Live AI generation and five-viewport QA
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     timeout-minutes: 90
     steps:
       - name: Checkout OVYX
@@ -55,66 +73,28 @@ jobs:
           node scripts/ovyx-webstudio-acceptance-audit.test.mjs
           node scripts/ovyx-webstudio-live-generation-eval-contract.test.mjs
           node scripts/ovyx-live-service-integration-eval.test.mjs
-      - name: Select a configured real AI provider
-        id: provider
-        shell: bash
-        env:
-          REQUESTED_PROVIDER: ${{ github.event_name == 'workflow_dispatch' && inputs.provider || '' }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: |
-          provider="$REQUESTED_PROVIDER"
-          if [ -z "$provider" ]; then
-            if [ -n "$GEMINI_API_KEY" ]; then provider=gemini
-            elif [ -n "$ANTHROPIC_API_KEY" ]; then provider=claude
-            elif [ -n "$DEEPSEEK_API_KEY" ]; then provider=deepseek
-            elif [ -n "$OPENAI_API_KEY" ]; then provider=openai
-            fi
-          fi
-          case "$provider" in
-            gemini) key="$GEMINI_API_KEY" ;;
-            claude) key="$ANTHROPIC_API_KEY" ;;
-            deepseek) key="$DEEPSEEK_API_KEY" ;;
-            openai) key="$OPENAI_API_KEY" ;;
-            *) key="" ;;
-          esac
-          if [ -n "$key" ]; then available=true; else available=false; fi
-          echo "name=$provider" >> "$GITHUB_OUTPUT"
-          echo "available=$available" >> "$GITHUB_OUTPUT"
-          if [ "$available" != "true" ]; then
-            echo "::warning::LIVE GENERATION BLOCKED, NOT PASSED: no usable AI provider secret is configured for the selected provider. Configure the appropriate repository Actions secret to run real AI generation."
-          else
-            echo "A real provider is configured for the live-generation run."
-          fi
-      - name: Generate four real model-produced websites
+          node scripts/ovyx-cloudflare-live-generation-oidc.test.mjs
+      - name: Generate four real AI websites using the existing Cloudflare runtime keys
         id: generate
-        if: steps.provider.outputs.available == 'true'
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         continue-on-error: true
         env:
-          OVYX_EVAL_PROVIDER: ${{ steps.provider.outputs.name }}
+          OVYX_EVAL_PROVIDER: ${{ github.event_name == 'workflow_dispatch' && inputs.provider || 'automatic' }}
           OVYX_EVAL_MODEL: ${{ vars.OVYX_EVAL_MODEL }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OVYX_EVAL_LISTINGS_API_URL: ${{ secrets.OVYX_EVAL_LISTINGS_API_URL }}
-          OVYX_EVAL_REAL_ENQUIRY_URL: ${{ secrets.OVYX_EVAL_REAL_ENQUIRY_URL }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_PAGES_PROJECT: ${{ secrets.CLOUDFLARE_PAGES_PROJECT }}
           OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL: ${{ vars.OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL }}
           OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY: ${{ vars.OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY }}
           OVYX_EVAL_PUBLIC_ENQUIRY_URL: ${{ vars.OVYX_EVAL_PUBLIC_ENQUIRY_URL }}
           OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE: ${{ vars.OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE }}
           OVYX_EVAL_ENQUIRY_TEST_RECIPIENT: ${{ secrets.OVYX_EVAL_ENQUIRY_TEST_RECIPIENT }}
-        run: node scripts/ovyx-webstudio-live-generation-eval.mjs
-      - name: Record that real generation was blocked by missing credentials
-        if: steps.provider.outputs.available != 'true'
-        shell: bash
-        run: |
-          mkdir -p artifacts/webstudio-generated-sites artifacts/webstudio-evaluation-report
-          node --input-type=module -e "import fs from 'node:fs/promises'; await fs.writeFile('artifacts/webstudio-generated-sites/live-generation-report.json', JSON.stringify({status:'blocked-no-provider-secret-not-a-pass', realSitesGenerated:0, realListingsConfirmed:false, realEnquiryDeliveryConfirmed:false, reason:'No configured AI provider secret was available to generate real model output. Configure GEMINI_API_KEY, ANTHROPIC_API_KEY, DEEPSEEK_API_KEY, or OPENAI_API_KEY in repository Actions secrets and rerun.'}, null, 2)+'\\n')"
+        run: node scripts/ovyx-cloudflare-live-generation-client.mjs
+      - name: State why PR runs do not use production credentials
+        if: github.event_name == 'pull_request'
+        run: echo "PR regression tests ran. Live generation and external enquiry probes run only on trusted main/workflow_dispatch events through the short-lived OIDC verifier; provider API keys stay in Cloudflare."
       - name: Inspect model-generated sites in Chromium at five widths
-        if: always() && steps.provider.outputs.available == 'true'
+        if: always() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         id: browser
         continue-on-error: true
         env:
@@ -124,42 +104,38 @@ jobs:
           OVYX_EVAL_ENQUIRY_TEST_RECIPIENT: ${{ secrets.OVYX_EVAL_ENQUIRY_TEST_RECIPIENT }}
         run: node scripts/ovyx-webstudio-generated-site-browser-eval.mjs artifacts/webstudio-generated-sites artifacts/webstudio-evaluation-report/browser
       - name: Evaluate configured real listing and enquiry services
-        if: always()
+        if: always() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         id: integration
         continue-on-error: true
         env:
-          OVYX_EVAL_LISTINGS_API_URL: ${{ secrets.OVYX_EVAL_LISTINGS_API_URL }}
+          OVYX_EVAL_LISTINGS_API_URL: ${{ vars.OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL }}
           OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL: ${{ vars.OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL }}
-          OVYX_EVAL_LISTINGS_API_TOKEN: ${{ secrets.OVYX_EVAL_LISTINGS_API_TOKEN }}
           OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY: ${{ vars.OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY }}
           OVYX_EVAL_LISTINGS_JSON_PATH: ${{ vars.OVYX_EVAL_LISTINGS_JSON_PATH }}
           OVYX_EVAL_LISTING_ID_FIELD: ${{ vars.OVYX_EVAL_LISTING_ID_FIELD }}
           OVYX_EVAL_LISTING_TITLE_FIELD: ${{ vars.OVYX_EVAL_LISTING_TITLE_FIELD }}
           OVYX_EVAL_LISTING_LOCATION_FIELD: ${{ vars.OVYX_EVAL_LISTING_LOCATION_FIELD }}
           OVYX_EVAL_LISTING_STATUS_FIELD: ${{ vars.OVYX_EVAL_LISTING_STATUS_FIELD }}
-          OVYX_EVAL_REAL_ENQUIRY_URL: ${{ secrets.OVYX_EVAL_REAL_ENQUIRY_URL }}
-          OVYX_EVAL_REAL_ENQUIRY_TOKEN: ${{ secrets.OVYX_EVAL_REAL_ENQUIRY_TOKEN }}
+          OVYX_EVAL_REAL_ENQUIRY_URL: ${{ vars.OVYX_EVAL_PUBLIC_ENQUIRY_URL }}
           OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE: ${{ vars.OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE }}
           OVYX_EVAL_ENQUIRY_TEST_RECIPIENT: ${{ secrets.OVYX_EVAL_ENQUIRY_TEST_RECIPIENT }}
-          OVYX_EVAL_ENQUIRY_TEST_PAYLOAD_JSON: ${{ secrets.OVYX_EVAL_ENQUIRY_TEST_PAYLOAD_JSON }}
           OVYX_INTEGRATION_REPORT_OUT: artifacts/webstudio-evaluation-report/integration-report.json
         run: node scripts/ovyx-live-service-integration-eval.mjs
       - name: Audit copy, routes, visuals and integration claims
-        if: always()
+        if: always() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         id: audit
         continue-on-error: true
         run: node scripts/ovyx-webstudio-acceptance-audit.mjs artifacts/webstudio-generated-sites artifacts/webstudio-evaluation-report/browser/browser-report.json artifacts/webstudio-evaluation-report/acceptance-report.json artifacts/webstudio-evaluation-report/integration-report.json
       - name: Enforce honest quality gates and block incomplete live evidence
-        if: always()
+        if: always() && github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         env:
-          PROVIDER_AVAILABLE: ${{ steps.provider.outputs.available }}
           GENERATION_OUTCOME: ${{ steps.generate.outcome }}
           BROWSER_OUTCOME: ${{ steps.browser.outcome }}
           AUDIT_OUTCOME: ${{ steps.audit.outcome }}
           INTEGRATION_OUTCOME: ${{ steps.integration.outcome }}
-          LISTINGS_SOURCE_URL: ${{ secrets.OVYX_EVAL_LISTINGS_API_URL }}
+          LISTINGS_SOURCE_URL: ${{ vars.OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL }}
           LISTINGS_PUBLIC_URL: ${{ vars.OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL }}
-          ENQUIRY_TARGET_URL: ${{ secrets.OVYX_EVAL_REAL_ENQUIRY_URL }}
+          ENQUIRY_TARGET_URL: ${{ vars.OVYX_EVAL_PUBLIC_ENQUIRY_URL }}
           PUBLIC_ENQUIRY_URL: ${{ vars.OVYX_EVAL_PUBLIC_ENQUIRY_URL }}
           ENQUIRY_PROBE_ENABLED: ${{ vars.OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE }}
           ENQUIRY_TEST_RECIPIENT: ${{ secrets.OVYX_EVAL_ENQUIRY_TEST_RECIPIENT }}
@@ -167,12 +143,11 @@ jobs:
           node --input-type=module <<'NODE'
           import fs from 'node:fs/promises';
           const checks = [
-            ['generation step', process.env.GENERATION_OUTCOME],
+            ['Cloudflare-backed generation step', process.env.GENERATION_OUTCOME],
             ['browser step', process.env.BROWSER_OUTCOME],
             ['acceptance audit step', process.env.AUDIT_OUTCOME],
           ];
           const failures = checks.filter(([, outcome]) => outcome !== 'success');
-          if (process.env.PROVIDER_AVAILABLE !== 'true') failures.push(['real AI generation', 'blocked-no-provider-secret-not-a-pass']);
           if (process.env.INTEGRATION_OUTCOME !== 'success') failures.push(['listing/enquiry service evaluation', process.env.INTEGRATION_OUTCOME || 'not-run']);
           let browser = {};
           let audit = {};
@@ -182,10 +157,10 @@ jobs:
           try { integration = JSON.parse(await fs.readFile('artifacts/webstudio-evaluation-report/integration-report.json', 'utf8')); } catch {}
           if (browser.status !== 'browser-evaluated' || !browser.evaluatedSites) failures.push(['browser report', browser.status || 'missing']);
           if (!audit.sitesFound || audit.status === 'not-run-no-generated-sites' || audit.sites?.some(site => site.status === 'needs-attention')) failures.push(['acceptance report', audit.status || 'missing or has blockers']);
-          if (!process.env.LISTINGS_SOURCE_URL) failures.push(['real property listings', 'blocked-no-authoritative-listing-feed-configured']);
+          if (!process.env.LISTINGS_SOURCE_URL) failures.push(['real property listings', 'blocked-no-authoritative-public-listing-feed-configured']);
           else if (!process.env.LISTINGS_PUBLIC_URL) failures.push(['public generated-site listing feed', 'blocked-no-public-browser-safe-listing-endpoint-configured']);
           else if (integration.listings?.realListingsConfirmed !== true) failures.push(['configured property feed', integration.listings?.status || 'no confirmed live listings rendered on the generated site']);
-          if (!process.env.ENQUIRY_TARGET_URL) failures.push(['real enquiry integration', 'blocked-no-owner-approved-enquiry-endpoint-configured']);
+          if (!process.env.ENQUIRY_TARGET_URL) failures.push(['real enquiry integration', 'blocked-no-owner-approved-public-enquiry-endpoint-configured']);
           if (!process.env.PUBLIC_ENQUIRY_URL) failures.push(['generated-site enquiry form', 'blocked-no-public-client-safe-enquiry-endpoint-configured']);
           if (String(process.env.ENQUIRY_PROBE_ENABLED).toLowerCase() !== 'true') failures.push(['real enquiry integration', 'blocked-external-probe-not-explicitly-authorized']);
           if (!process.env.ENQUIRY_TEST_RECIPIENT) failures.push(['real enquiry integration', 'blocked-no-owner-controlled-test-recipient-configured']);
