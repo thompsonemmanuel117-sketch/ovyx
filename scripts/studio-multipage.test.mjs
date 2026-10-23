@@ -103,7 +103,11 @@ const callModel = async (_env, options) => {
         return '<a href="' + href + '">' + page.title + '</a>';
       }).join('') + (title === 'Contact' ? '<a href="/missing-route/">Broken route</a>' : '');
       const primaryAction = title.toLowerCase() === 'reservations' ? '<button type="button">Reserve a table</button>' : '';
-      files[target.path] = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="' + title + ' page"><title>' + title + ' | Test Restaurant</title><link rel="stylesheet" href="../styles.css"></head><body><nav aria-label="Main navigation">' + links + '</nav><main><h1>' + title + '</h1><p>Purposeful content for the ' + slug + ' page.</p>' + primaryAction + '</main><script src="../main.js"></script></body></html>';
+      // Deliberately model the two common AI mistakes: basenames without the
+      // parent path, and pages that forget to include the shared assets entirely.
+      const stylesRef = title === 'About' ? '' : '<link rel="stylesheet" href="styles.css">';
+      const scriptRef = title === 'About' ? '' : '<script src="main.js"></script>';
+      files[target.path] = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="' + title + ' page"><title>' + title + ' | Test Restaurant</title>' + stylesRef + '</head><body><nav aria-label="Main navigation">' + links + '</nav><main><h1>' + title + '</h1><p>Purposeful content for the ' + slug + ' page.</p>' + primaryAction + '</main>' + scriptRef + '</body></html>';
     }
   }
   return {
@@ -139,6 +143,11 @@ assert(result.files['src/pages/Home.html'].includes('<h1>Home</h1>'));
 assert(result.files['src/pages/Menu.html'].includes('<h1>Menu</h1>'));
 assert(result.files['src/styles.css'].includes('box-sizing:border-box'));
 assert(result.files['src/main.js'].includes('aria-label'));
+assert.match(result.files['src/pages/Home.html'], /href="\.\.\/styles\.css"/, 'A basename-only shared stylesheet URL must be repaired to the correct src/pages-relative path.');
+assert.match(result.files['src/pages/Home.html'], /src="\.\.\/main\.js"/, 'A basename-only shared script URL must be repaired to the correct src/pages-relative path.');
+assert.match(result.files['src/pages/About.html'], /href="\.\.\/styles\.css"/, 'A page that omits the shared stylesheet must receive the required stylesheet reference.');
+assert.match(result.files['src/pages/About.html'], /src="\.\.\/main\.js"/, 'A page that omits the shared script must receive the required script reference.');
+assert.ok(result.sharedAssetPagesRepaired >= 1, 'Asset normalization should report repaired generated pages.');
 assert.equal(result.totalPages, 5);
 assert.equal(result.rawUsage.prompt_tokens, 11 + 19 * 3 + 5);
 assert.equal(result.rawUsage.completion_tokens, 7 + 31 * 3 + 9);
@@ -238,6 +247,52 @@ const rejectedRequirementRepair = await buildStudioMultiPage({
 assert.ok(rejectedRequirementRepair, 'An incomplete site with an unauthorized repair must not be marked ready.');
 assert.equal(rejectedRequirementRepair.code, 'WEBSTUDIO_PROMPT_REQUIREMENT_MISSING');
 assert.equal(rejectedRequirementRepair.requirementRepair.status, 'rejected');
+
+// A malformed model-generated batch gets exactly one bounded full-build retry.
+// The first attempt omits a required shared file; the second attempt must rebuild
+// all pages cleanly, preserve usage accounting, and keep the original quality contract.
+let dropFirstRequiredFile = true;
+const retryCallHistory = [];
+const retryingCallModel = async (_env, options) => {
+  retryCallHistory.push(options);
+  const answer = await callModel(_env, options);
+  const user = String(options.user || '');
+  if (dropFirstRequiredFile && user.includes('REQUIRED TARGET FILES JSON:') && !user.includes('BOUNDED WEBSITE POLISH PHASE')) {
+    const match = user.match(/REQUIRED TARGET FILES JSON:\n([\s\S]*?)\n\nREQUIRED TARGET PATHS JSON:/);
+    assert(match, 'Retry fixture must receive the required-file manifest.');
+    const targets = JSON.parse(match[1]);
+    const payload = JSON.parse(answer.text);
+    const omitted = targets.find(target => target.path === 'src/styles.css') || targets[0];
+    delete payload.files[omitted.path];
+    dropFirstRequiredFile = false;
+    return { ...answer, text: JSON.stringify(payload) };
+  }
+  return answer;
+};
+const retryBuild = await buildStudioMultiPage({
+  env: {},
+  callModel: retryingCallModel,
+  provider: 'automatic',
+  authUser: { sub: 'retry-test-user' },
+  mode: 'build',
+  prompt: 'Build a five-page restaurant website with Home, Menu, About, Reservations, and Contact pages.',
+  project: { id: 'project-bounded-retry', name: 'Restaurant', pages: [] },
+  files: {},
+  qualityContract: 'OVYX_TEST_WEBSITE_QUALITY_CONTRACT: preserve original requirements and validate every generated file.',
+});
+assert.ok(retryBuild, 'A malformed first batch should recover instead of abandoning the requested website.');
+assert.equal(retryBuild.generationRecovery.status, 'recovered-after-one-bounded-retry');
+assert.equal(retryBuild.generationRecovery.firstFailureCode, 'WEBSTUDIO_BATCH_MISSING_FILES');
+assert.equal(retryBuild.siteMap.pages.length, 5);
+assert.equal(Object.keys(retryBuild.files).filter(path => path.startsWith('src/pages/')).length, 5);
+assert.ok(retryBuild.rawUsage.total_tokens > 0, 'The successful retry must report usage from both failed and successful attempts when available.');
+assert.equal(retryCallHistory.filter(item => String(item.user).includes('WEBSITE ARCHITECTURE PLANNING PHASE')).length, 2,
+  'The recovery is bounded to one clean full-build retry.');
+assert.ok(retryCallHistory.some(item => String(item.system).includes('BOUNDED WEBSITE-GENERATION RECOVERY')),
+  'The second attempt must receive the explicit recovery instructions.');
+assert.ok(retryBuild.files['src/pages/Home.html'].includes('href="../styles.css"'));
+assert.ok(retryBuild.files['src/pages/About.html'].includes('src="../main.js"'));
+
 assert.equal(rejectedRequirementRepair.requirementVerification.ok, false);
 
 const omissionModel = async (env, options) => {
