@@ -111,13 +111,13 @@ function summarizeContent(files) {
   return Object.entries(files).map(([file, content]) => file + '\n' + String(content || '')).join('\n\n');
 }
 
-function inventoryHonesty(caseItem, files) {
+function inventoryHonesty(caseItem, files, liveFeedConfigured = false) {
   if (caseItem.industry !== 'real-estate') return { status: 'not-applicable' };
   const source = summarizeContent(files);
   const honestEmptyState = /(?:live inventory|listing feed|property feed|inventory feed).{0,100}(?:not connected|not configured|connect|unavailable|not yet)|(?:connect|configure).{0,100}(?:listing|property|inventory).{0,100}(?:feed|source|api)|no live (?:property )?listings/i.test(source);
   const labelledExamples = /(?:illustrative sample|sample propert|sample listing|demo listing|example listing|not live inventory|sample data|demo data)/i.test(source);
   const listingLanguage = /\b(?:property listings?|real estate|bedrooms?|rental properties|properties for sale)\b/i.test(source);
-  const claimsLiveWithoutProof = /\b(?:verified listing|live listings?|available now|real-time listings?|current inventory)\b/i.test(source) && !/\b(?:not connected|not configured|sample|demo|illustrative)\b/i.test(source);
+  const claimsLiveWithoutProof = !liveFeedConfigured && /\b(?:verified listing|live listings?|available now|real-time listings?|current inventory)\b/i.test(source) && !/\b(?:not connected|not configured|sample|demo|illustrative)\b/i.test(source);
   return {
     status: claimsLiveWithoutProof ? 'fail-unverified-live-inventory-claim'
       : listingLanguage && !(honestEmptyState || labelledExamples) ? 'fail-inventory-provenance-missing'
@@ -126,11 +126,13 @@ function inventoryHonesty(caseItem, files) {
       : 'no-live-inventory-evidence',
     passesHonestyGate: !claimsLiveWithoutProof && (!listingLanguage || honestEmptyState || labelledExamples),
     realListingsConfirmed: false,
-    reason: 'This evaluation has no real property-feed endpoint. It can verify that generated copy does not misrepresent sample inventory, but cannot confirm a live listing source.',
+    reason: liveFeedConfigured
+      ? 'A public listing feed is configured for this generation. This copy check does not independently prove the feed is authoritative, reachable, or correctly rendered; only the separate live-service integration audit can confirm real listings.'
+      : 'This evaluation has no public property-feed endpoint. It can verify that generated copy does not misrepresent sample inventory, but cannot confirm a live listing source.',
   };
 }
 
-async function writeSite(caseItem, generated) {
+async function writeSite(caseItem, generated, publicSettings) {
   const destination = path.join(OUT, caseItem.id);
   await fs.rm(destination, { recursive: true, force: true });
   await fs.mkdir(destination, { recursive: true });
@@ -153,6 +155,7 @@ async function writeSite(caseItem, generated) {
     industry: caseItem.industry,
     market: caseItem.market,
     liveInventorySourceConfigured: Boolean(process.env.OVYX_EVAL_LISTINGS_API_URL),
+    publicListingsEndpointConfigured: Boolean(publicSettings?.listingsUrl),
     enquiryDeliveryConfigured: Boolean(process.env.OVYX_EVAL_REAL_ENQUIRY_URL),
     qaOnlyEnquiryEndpoint: QA_ENDPOINT,
     provider: generated.provider || PROVIDER,
@@ -161,7 +164,7 @@ async function writeSite(caseItem, generated) {
     siteMap: generated.siteMap || null,
     totalPages: generated.totalPages || generated.siteMap?.pages?.length || null,
     generatedFiles: entries.map(([name]) => name),
-    inventoryHonesty: inventoryHonesty(caseItem, files),
+    inventoryHonesty: inventoryHonesty(caseItem, files, Boolean(publicSettings?.listingsUrl)),
     evidenceLimits: [
       'This is a live provider-generated site artifact, not a hand-written browser fixture.',
       'Browser and local QA endpoint checks do not prove delivery to a real email, WhatsApp, social, booking, payment, or customer-data endpoint.',
@@ -215,7 +218,7 @@ export async function runLiveGenerationEvaluation() {
     if (!generated || generated.ok !== true) {
       throw Object.assign(new Error(caseItem.id + ': production multi-page generation returned no successful result.'), { code: 'LIVE_GENERATION_EMPTY_RESULT' });
     }
-    const metadata = await writeSite(caseItem, generated);
+    const metadata = await writeSite(caseItem, generated, publicSettings);
     runReport.sites.push({
       id: caseItem.id, industry: caseItem.industry, country: caseItem.market.country,
       status: metadata.inventoryHonesty.passesHonestyGate === false ? 'needs-attention' : 'generated',
