@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { summarizeCloudflareRuntimeConfig } from './ovyx-cloudflare-runtime-config-inventory.mjs';
+import { readCloudflareEvaluationPublicSettings, summarizeCloudflareRuntimeConfig } from './ovyx-cloudflare-runtime-config-inventory.mjs';
 
 const project = {
   subdomain: 'forgeos-2k0',
@@ -32,6 +32,37 @@ assert.deepEqual(report.enquiryAndSocialVariableNames, [
   'RESEND_API_KEY',
   'WHATSAPP_ACCESS_TOKEN',
 ]);
+const evaluationSettings = readCloudflareEvaluationPublicSettings({
+  deployment_configs: {
+    production: {
+      env_vars: {
+        OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL: { type: 'plain_text', value: 'https://public-feed.example.invalid/properties' },
+        OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY: { type: 'plain_text', value: 'authoritative' },
+        OVYX_EVAL_PUBLIC_ENQUIRY_URL: { type: 'plain_text', value: 'https://forms.example.invalid/submit' },
+        OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE: { type: 'plain_text', value: 'true' },
+        OVYX_EVAL_LISTINGS_API_TOKEN: { type: 'secret_text', value: 'SENTINEL_FEED_TOKEN_MUST_NEVER_APPEAR' },
+        OVYX_EVAL_ENQUIRY_TEST_RECIPIENT: { type: 'secret_text', value: 'SENTINEL_OWNER_RECIPIENT_MUST_NEVER_APPEAR' },
+        GEMINI_API_KEY: { type: 'secret_text', value: 'SENTINEL_PROVIDER_KEY_MUST_NEVER_APPEAR' },
+      },
+    },
+    preview: {
+      env_vars: {
+        OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL: { type: 'plain_text', value: 'https://preview-feed.example.invalid/properties' },
+        OVYX_EVAL_PUBLIC_ENQUIRY_URL: { type: 'plain_text', value: 'https://preview-forms.example.invalid/submit' },
+      },
+    },
+  },
+});
+assert.deepEqual(evaluationSettings, {
+  OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL: 'https://public-feed.example.invalid/properties',
+  OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY: 'authoritative',
+  OVYX_EVAL_PUBLIC_ENQUIRY_URL: 'https://forms.example.invalid/submit',
+  OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE: 'true',
+}, 'Only explicitly allow-listed production plain-text acceptance settings should be read.');
+assert.equal(JSON.stringify(evaluationSettings).includes('SENTINEL_FEED_TOKEN_MUST_NEVER_APPEAR'), false);
+assert.equal(JSON.stringify(evaluationSettings).includes('SENTINEL_OWNER_RECIPIENT_MUST_NEVER_APPEAR'), false);
+assert.equal(JSON.stringify(evaluationSettings).includes('SENTINEL_PROVIDER_KEY_MUST_NEVER_APPEAR'), false);
+assert.equal(JSON.stringify(evaluationSettings).includes('preview-feed.example.invalid'), false);
 const serialized = JSON.stringify(report);
 for (const marker of [
   'SENTINEL_GEMINI_KEY_MUST_NEVER_APPEAR',
