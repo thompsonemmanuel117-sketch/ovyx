@@ -39,6 +39,39 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = PROVIDER_REQUEST_
 }
 
 
+const GEMINI_RETRYABLE_HTTP_STATUSES = new Set([408, 429, 500, 502, 503, 504]);
+async function fetchGeminiWithRetry(url, options = {}) {
+  const maxAttempts = 3;
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    let response;
+    try {
+      response = await fetchWithTimeout(url, options);
+    } catch (error) {
+      const transient = error?.code === 'AI_PROVIDER_TIMEOUT' ||
+        error?.name === 'AbortError' ||
+        error?.name === 'TypeError';
+      if (!transient || attempt >= maxAttempts - 1) throw error;
+    }
+    if (response) {
+      if (!GEMINI_RETRYABLE_HTTP_STATUSES.has(response.status) || attempt >= maxAttempts - 1) {
+        return response;
+      }
+      // Discard the transient response body before the bounded retry.
+      try { await response.body?.cancel(); } catch {}
+    }
+    // Google's direct REST guidance recommends bounded exponential backoff
+    // for 429/5xx. Never retry auth, billing, permission, or malformed-request
+    // failures, and never loop indefinitely on an unhealthy provider.
+    const baseDelay = 750 * (2 ** attempt);
+    const jitter = Math.floor(Math.random() * 250);
+    await new Promise(resolve => setTimeout(resolve, baseDelay + jitter));
+  }
+  throw Object.assign(new Error('Gemini retry budget was exhausted.'), {
+    status: 503,
+    code: 'AI_PROVIDER_UNAVAILABLE',
+  });
+}
+
 function getConfiguredModel(
   env,
   provider,
@@ -313,7 +346,7 @@ async function callGemini(
   };
 
   const response =
-    await fetchWithTimeout(
+    await fetchGeminiWithRetry(
       url,
       {
         method:
@@ -653,18 +686,34 @@ async function callCloudflareWorkersAI(
     );
   }
 
-  const result = await env.AI.run(
-    model,
-    {
-      messages: [
-        { role: 'system', content: system },
-        { role: 'user', content: user },
-      ],
-      max_tokens: maxTokens,
-      temperature: 0.2,
-      stream: false,
+  let result;
+  try {
+    result = await env.AI.run(
+      model,
+      {
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+        max_tokens: maxTokens,
+        temperature: 0.2,
+        stream: false,
+      }
+    );
+  } catch (error) {
+    const rawStatus = Number(error?.status);
+    const status = Number.isInteger(rawStatus) && rawStatus >= 400 && rawStatus <= 599 ? rawStatus : null;
+    const safeError = new Error('Cloudflare Workers AI request failed.');
+    if (status !== null) {
+      safeError.status = status;
+      safeError.code = 'AI_PROVIDER_REQUEST_FAILED';
+    } else if (error?.name === 'AbortError' || error?.name === 'TimeoutError' || error?.name === 'TypeError') {
+      safeError.name = error.name;
+    } else if (String(error?.code || '').toUpperCase() === 'AI_PROVIDER_TIMEOUT') {
+      safeError.code = 'AI_PROVIDER_TIMEOUT';
     }
-  );
+    throw safeError;
+  }
 
   const text = extractText(result);
 
