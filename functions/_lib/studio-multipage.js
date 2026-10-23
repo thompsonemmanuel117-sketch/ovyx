@@ -218,7 +218,7 @@ function tagReferencesAsset(tag, attribute, assetPath) {
   const matcher = new RegExp('\\b(' + attribute + '\\s*=\\s*)(["\\'])(.*?)\\2', 'i');
   const match = String(tag || '').match(matcher);
   if (!match || !isLocalAssetReference(match[3])) return false;
-  const rawPath = match[3].split(/[?#]/, 1)[0].replace(/\\\\/g, '/');
+  const rawPath = match[3].split(/[?#]/, 1)[0];
   const expected = String(assetPath || '').split('/').filter(Boolean).pop() || '';
   const actual = rawPath.split('/').filter(Boolean).pop() || '';
   return !!expected && actual.toLowerCase() === expected.toLowerCase();
@@ -228,55 +228,56 @@ function rewriteTagAssetReference(tag, attribute, pagePath, assetPath) {
   const matcher = new RegExp('\\b(' + attribute + '\\s*=\\s*)(["\\'])(.*?)\\2', 'i');
   return String(tag || '').replace(matcher, (whole, prefix, quote, raw) => {
     if (!isLocalAssetReference(raw)) return whole;
-    const rawPath = String(raw).split(/[?#]/, 1)[0].replace(/\\\\/g, '/');
+    const rawPath = String(raw).split(/[?#]/, 1)[0];
     const expected = String(assetPath || '').split('/').filter(Boolean).pop() || '';
     const actual = rawPath.split('/').filter(Boolean).pop() || '';
     if (!expected || actual.toLowerCase() !== expected.toLowerCase()) return whole;
-    const suffix = String(raw).slice(String(raw).split(/[?#]/, 1)[0].length);
+    const suffix = String(raw).slice(rawPath.length);
     const next = sharedAssetRelativePath(pagePath, assetPath) + suffix;
     return prefix + quote + next + quote;
   });
 }
 
-function insertIntoDocument(source, tag, closingTag, openingTag) {
-  if (new RegExp(closingTag, 'i').test(source)) {
-    return source.replace(new RegExp(closingTag, 'i'), tag + '\\n' + closingTag.replace(/\\/g, ''));
+function insertSharedAssetTag(source, tag, target) {
+  const text = String(source || '');
+  if (target === 'head') {
+    if (/<\/head\s*>/i.test(text)) return text.replace(/<\/head\s*>/i, match => '\\n' + tag + match);
+    if (/<head\b[^>]*>/i.test(text)) return text.replace(/<head\b[^>]*>/i, match => match + '\\n' + tag);
+    if (/<html\b[^>]*>/i.test(text)) return text.replace(/<html\b[^>]*>/i, match => match + '<head>' + tag + '</head>');
+    return '<!doctype html><html><head>' + tag + '</head><body>' + text + '</body></html>';
   }
-  const open = new RegExp(openingTag, 'i');
-  if (open.test(source)) return source.replace(open, match => match + '\\n' + tag);
-  if (/<html\\b[^>]*>/i.test(source)) {
-    return source.replace(/<html\\b[^>]*>/i, match => match + (closingTag.toLowerCase().includes('head') ? '<head>' + tag + '</head>' : '<body>' + tag + '</body>'));
-  }
-  return closingTag.toLowerCase().includes('head') ? '<!doctype html><html><head>' + tag + '</head>' + source + '</html>' : source + '\\n' + tag;
+  if (/<\/body\s*>/i.test(text)) return text.replace(/<\/body\s*>/i, match => '\\n' + tag + match);
+  if (/<body\b[^>]*>/i.test(text)) return text.replace(/<body\b[^>]*>/i, match => match + '\\n' + tag);
+  return text + '\\n' + tag;
 }
 
 function normalizeSharedAssetReferences(staged, siteMap) {
   const available = new Set((Array.isArray(staged) ? staged : []).map(item => item && item.path).filter(Boolean));
   const sharedAssets = (Array.isArray(siteMap?.sharedFiles) ? siteMap.sharedFiles : [])
     .map(item => String(item?.path || '').trim())
-    .filter(path => available.has(path) && /\\.(?:css|js)$/i.test(path));
+    .filter(path => available.has(path) && /\.(?:css|js)$/i.test(path));
   let repairedPages = 0;
   const next = (Array.isArray(staged) ? staged : []).map(item => {
     const pagePath = String(item?.path || '');
-    if (!/\\.html?$/i.test(pagePath) || !Array.isArray(siteMap?.pages) ||
+    if (!/\.html?$/i.test(pagePath) || !Array.isArray(siteMap?.pages) ||
         !siteMap.pages.some(page => String(page?.path || '') === pagePath) ||
         typeof item.content !== 'string') return item;
     const original = item.content;
     let content = original;
     for (const assetPath of sharedAssets) {
-      if (/\\.css$/i.test(assetPath)) {
-        content = content.replace(/<link\\b[^>]*>/gi, tag => rewriteTagAssetReference(tag, 'href', pagePath, assetPath));
-        const linkTags = content.match(/<link\\b[^>]*>/gi) || [];
+      if (/\.css$/i.test(assetPath)) {
+        content = content.replace(/<link\b[^>]*>/gi, tag => rewriteTagAssetReference(tag, 'href', pagePath, assetPath));
+        const linkTags = content.match(/<link\b[^>]*>/gi) || [];
         if (!linkTags.some(tag => tagReferencesAsset(tag, 'href', assetPath))) {
           const rel = sharedAssetRelativePath(pagePath, assetPath);
-          content = insertIntoDocument(content, '<link rel="stylesheet" href="' + rel + '">', '<\\/head\\s*>', '<head\\b[^>]*>');
+          content = insertSharedAssetTag(content, '<link rel="stylesheet" href="' + rel + '">', 'head');
         }
-      } else if (/\\.js$/i.test(assetPath)) {
-        content = content.replace(/<script\\b[^>]*>/gi, tag => rewriteTagAssetReference(tag, 'src', pagePath, assetPath));
-        const scriptTags = content.match(/<script\\b[^>]*>/gi) || [];
+      } else if (/\.js$/i.test(assetPath)) {
+        content = content.replace(/<script\b[^>]*>/gi, tag => rewriteTagAssetReference(tag, 'src', pagePath, assetPath));
+        const scriptTags = content.match(/<script\b[^>]*>/gi) || [];
         if (!scriptTags.some(tag => tagReferencesAsset(tag, 'src', assetPath))) {
           const rel = sharedAssetRelativePath(pagePath, assetPath);
-          content = insertIntoDocument(content, '<script src="' + rel + '" defer></script>', '<\\/body\\s*>', '<body\\b[^>]*>');
+          content = insertSharedAssetTag(content, '<script src="' + rel + '" defer></script>', 'body');
         }
       }
     }
