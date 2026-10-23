@@ -157,6 +157,8 @@ assert.ok(/'\\n\\nEXPERIENCE INTELLIGENCE:\\n'/.test(assistant), 'The experience
 assert.ok(/'\\n\\nCLIENT STUDIO INSTRUCTIONS:\\n'/.test(assistant), 'Client studio instructions must be separated with real line breaks for the model.');
 assert.ok(/'\\n\\nAuthenticated user UID: '/.test(assistant), 'The authenticated-user context must be appended using real line breaks.');
 const multipage = fs.readFileSync('functions/_lib/studio-multipage.js', 'utf8');
+const liveGenerationEval = fs.readFileSync('functions/api/internal/live-generation-eval.js', 'utf8');
+assert.ok(liveGenerationEval.includes("OVYX_WEBSTUDIO_MAX_PAGES: '8'"), 'Live evaluation must allow a bounded number of valid supporting pages beyond the four requested core pages without disabling the page ceiling.');
 const integrity = fs.readFileSync('functions/_lib/site-integrity.js', 'utf8');
 assert.ok(multipage.includes('OVYX WEB STUDIO BOUNDED WEBSITE POLISH PHASE'), 'Multi-page builds must receive a bounded final design-polish pass.');
 assert.ok(multipage.includes('selectBoundedPolishTargets'), 'Polish context must be budgeted to protect large builds and provider limits.');
