@@ -106,6 +106,7 @@ assert.deepEqual(
 const originalFetch = globalThis.fetch;
 const requests = [];
 let rejectGemini = false;
+let geminiTransientStatuses = [];
 globalThis.fetch = async (input, init = {}) => {
   const url = String(input);
   const headers = new Headers(init.headers || {});
@@ -121,6 +122,13 @@ globalThis.fetch = async (input, init = {}) => {
     if (rejectGemini) {
       return new Response(JSON.stringify({ error: { message: 'test credential rejected' } }), {
         status: 401,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (geminiTransientStatuses.length) {
+      const status = geminiTransientStatuses.shift();
+      return new Response(JSON.stringify({ error: { message: 'temporary test service failure' } }), {
+        status,
         headers: { 'Content-Type': 'application/json' },
       });
     }
@@ -175,6 +183,36 @@ try {
   assert.equal(result.text, 'Gemini test passed');
   assert.equal(requests.at(-1).geminiKey, 'test-gemini-key');
   assert.equal(requests.at(-1).url.includes('test-gemini-key'), false);
+
+  // A transient Gemini 503 is retried once and recovers without switching providers.
+  requests.length = 0;
+  geminiTransientStatuses = [503];
+  result = await callModel(
+    { GEMINI_API_KEY: 'test-gemini-key' },
+    { provider: 'gemini', model: 'gemini-3.8-flash', system: 'test', user: 'hello', maxTokens: 32 },
+  );
+  assert.equal(result.provider, 'gemini');
+  assert.equal(result.text, 'Gemini test passed');
+  assert.equal(requests.length, 2, 'one transient 503 should cause exactly one bounded retry');
+  assert.ok(requests.every(item => item.url.includes('generativelanguage.googleapis.com')));
+  assert.deepEqual(geminiTransientStatuses, []);
+
+  // Repeated transient server errors stop after the bounded third attempt.
+  requests.length = 0;
+  geminiTransientStatuses = [503, 503, 503];
+  await assert.rejects(
+    () => callModel(
+      { GEMINI_API_KEY: 'test-gemini-key' },
+      { provider: 'gemini', model: 'gemini-3.8-flash', system: 'test', user: 'hello', maxTokens: 32 },
+    ),
+    error => {
+      assert.equal(error.code, 'AI_PROVIDER_UNAVAILABLE');
+      assert.deepEqual(error.providerAttempts, [{ provider: 'gemini', kind: 'provider-server-error', status: 503 }]);
+      return true;
+    },
+  );
+  assert.equal(requests.length, 3, 'transient retries must stop after three total attempts');
+  geminiTransientStatuses = [];
 
   // Verify the current Gemini fallback when no model environment variable is set.
   result = await callModel(
