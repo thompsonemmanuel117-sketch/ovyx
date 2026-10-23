@@ -39,4 +39,4 @@ for (const page of good.pages) {
 }
 assert.ok(bad.pages.every(page => page.metrics.copyIssues.includes('lorem ipsum')), 'Obvious lorem ipsum copy must be detected at every width.');
 await fs.rm(root, { recursive: true, force: true });
-console.log('Generated-site browser evaluator passed its two-route, three-viewport screenshot smoke test.');
+console.log('Generated-site browser evaluator passed its two-route, five-viewport screenshot smoke test.');
