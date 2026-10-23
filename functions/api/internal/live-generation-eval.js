@@ -71,15 +71,46 @@ function decodeBase64Url(value) {
 function decodeJsonPart(value) {
   return JSON.parse(new TextDecoder().decode(decodeBase64Url(value)));
 }
+function jwksFailure(code) {
+  return Object.assign(new Error('GitHub OIDC signing keys are unavailable.'), { code });
+}
+
+function trustedJwksResponseUrl(rawUrl) {
+  let url;
+  try { url = new URL(String(rawUrl || JWKS_URL)); } catch { return false; }
+  return url.protocol === 'https:' &&
+    url.hostname.toLowerCase().replace(/\.$/, '') === 'token.actions.githubusercontent.com' &&
+    !url.username && !url.password && !url.port;
+}
+
+function safeJwksFailureDetail(error) {
+  const code = String(error?.code || '');
+  if (/^jwks-http-[1-5]\d\d$/.test(code)) return code;
+  if (['jwks-fetch-failed', 'jwks-final-url-untrusted', 'jwks-invalid-json', 'jwks-empty-key-set'].includes(code)) return code;
+  return 'jwks-fetch-failed';
+}
+
 async function getGithubJwks(fetchImpl, nowSeconds) {
   if (jwksCache && jwksCacheExpiresAt > nowSeconds) return jwksCache;
-  const response = await fetchImpl(JWKS_URL, {
-    headers: { Accept: 'application/json' },
-    redirect: 'error',
-  });
-  if (!response.ok) throw new Error('GitHub OIDC signing keys are unavailable.');
-  const data = await response.json();
-  if (!Array.isArray(data?.keys) || !data.keys.length) throw new Error('GitHub OIDC signing keys are unavailable.');
+  let response;
+  try {
+    // Some network edges redirect this public metadata request. Follow HTTPS
+    // redirects, but accept keys only if the final response still comes from
+    // GitHub's exact OIDC issuer host. No bearer token is sent to this endpoint.
+    response = await fetchImpl(JWKS_URL, {
+      headers: { Accept: 'application/json' },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(8_000),
+    });
+  } catch {
+    throw jwksFailure('jwks-fetch-failed');
+  }
+  if (!trustedJwksResponseUrl(response.url || JWKS_URL)) throw jwksFailure('jwks-final-url-untrusted');
+  if (!response.ok) throw jwksFailure('jwks-http-' + String(response.status));
+  let data;
+  try { data = await response.json(); }
+  catch { throw jwksFailure('jwks-invalid-json'); }
+  if (!Array.isArray(data?.keys) || !data.keys.length) throw jwksFailure('jwks-empty-key-set');
   jwksCache = data.keys;
   jwksCacheExpiresAt = nowSeconds + 10 * 60;
   return jwksCache;
@@ -131,8 +162,8 @@ export async function verifyGithubOidcToken(token, options = {}) {
   let jwks;
   try {
     jwks = await getGithubJwks(fetchImpl, nowSeconds);
-  } catch {
-    return { ok: false, reason: 'jwks-unavailable' };
+  } catch (error) {
+    return { ok: false, reason: 'jwks-unavailable', detail: safeJwksFailureDetail(error) };
   }
   let jwk = jwks.find(item => item?.kid === header.kid && item?.kty === 'RSA' && item?.use !== 'enc');
   if (!jwk) {
@@ -142,7 +173,7 @@ export async function verifyGithubOidcToken(token, options = {}) {
     try {
       jwks = await getGithubJwks(fetchImpl, nowSeconds);
       jwk = jwks.find(item => item?.kid === header.kid && item?.kty === 'RSA' && item?.use !== 'enc');
-    } catch { return { ok: false, reason: 'jwks-unavailable' }; }
+    } catch (error) { return { ok: false, reason: 'jwks-unavailable', detail: safeJwksFailureDetail(error) }; }
   }
   if (!jwk) return { ok: false, reason: 'signing-key-not-found' };
 
@@ -284,7 +315,11 @@ export async function handleLiveGenerationRequest(request, env, options = {}) {
   if (!match) return Response.json({ ok: false, error: 'AUTH_REQUIRED' }, { status: 401, headers: { 'Cache-Control': 'no-store' } });
   const verified = await verifyGithubOidcToken(match[1], options);
   if (!verified.ok) {
-    return Response.json({ ok: false, error: verified.reason === 'jwks-unavailable' ? 'AUTH_VERIFIER_UNAVAILABLE' : 'AUTH_NOT_AUTHORIZED' }, {
+    return Response.json({
+      ok: false,
+      error: verified.reason === 'jwks-unavailable' ? 'AUTH_VERIFIER_UNAVAILABLE' : 'AUTH_NOT_AUTHORIZED',
+      ...(verified.reason === 'jwks-unavailable' && verified.detail ? { detail: verified.detail } : {}),
+    }, {
       status: verified.reason === 'jwks-unavailable' ? 503 : 403,
       headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' },
     });
