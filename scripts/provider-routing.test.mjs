@@ -106,6 +106,7 @@ assert.deepEqual(
 const originalFetch = globalThis.fetch;
 const requests = [];
 let rejectGemini = false;
+let rejectAllProviders = false;
 globalThis.fetch = async (input, init = {}) => {
   const url = String(input);
   const headers = new Headers(init.headers || {});
@@ -116,6 +117,13 @@ globalThis.fetch = async (input, init = {}) => {
     geminiKey: headers.get('x-goog-api-key'),
     body: JSON.parse(String(init.body || '{}')),
   });
+
+  if (rejectAllProviders && ['generativelanguage.googleapis.com', 'api.anthropic.com', 'api.openai.com', 'api.deepseek.com', 'api.groq.com', 'openrouter.ai'].some(host => url.includes(host))) {
+    return new Response(JSON.stringify({ error: { message: 'private provider detail DO_NOT_EXPOSE' } }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
 
   if (url.includes('generativelanguage.googleapis.com')) {
     if (rejectGemini) {
@@ -270,6 +278,33 @@ try {
   assert.equal(requests.length, 1, 'Rejected Gemini must not trigger a DeepSeek request.');
   assert.match(requests[0].url, /generativelanguage\.googleapis\.com/);
   rejectGemini = false;
+
+  // Automatic records safe statuses, never raw vendor messages, when all configured providers fail.
+  requests.length = 0;
+  rejectAllProviders = true;
+  await assert.rejects(
+    () => callModel(
+      {
+        GEMINI_API_KEY: 'test-gemini-key',
+        ANTHROPIC_API_KEY: 'test-anthropic-key',
+        OPENAI_API_KEY: 'test-openai-key',
+        DEEPSEEK_API_KEY: 'test-deepseek-key',
+        OVYX_AI_PROVIDER_ORDER: 'gemini,claude,openai,deepseek',
+      },
+      { provider: 'automatic', model: 'automatic', system: 'test', user: 'Build a website', maxTokens: 32 },
+    ),
+    error => {
+      assert.equal(error.code, 'AI_PROVIDER_UNAVAILABLE');
+      assert.ok(Array.isArray(error.providerFailures), 'aggregate failure includes provider diagnostics');
+      assert.deepEqual(error.providerFailures.map(item => item.provider), ['gemini', 'claude', 'openai', 'deepseek']);
+      assert.ok(error.providerFailures.every(item => item.kind === 'http-error' && item.status === 401));
+      assert.doesNotMatch(error.message, /DO_NOT_EXPOSE|private provider detail/i);
+      return true;
+    },
+    'Automatic provider failure reporting must preserve only safe provider/status diagnostics.',
+  );
+  assert.equal(requests.length, 4, 'Automatic attempts each configured provider once.');
+  rejectAllProviders = false;
 
   // Automatic is intentionally different: it can skip missing keys and use the next configured provider.
   requests.length = 0;
