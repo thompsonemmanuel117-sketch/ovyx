@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
 import { chooseProvider, handleLiveGenerationRequest, safeLiveGenerationFailureDetail, safeLiveGenerationProviderAttempts, verifyGithubOidcToken } from '../functions/api/internal/live-generation-eval.js';
 import { isTrustedGithubOidcRequestUrl } from './ovyx-github-oidc-url.mjs';
+import { buildLiveGenerationPayload, resolveProviderFromPreflight } from './ovyx-cloudflare-live-generation-client.mjs';
 
 // Cover the exact GitHub-hosted runner hostname reported by the production
 // workflow. Preserve a strict host allowlist rather than broadly trusting URLs.
@@ -168,6 +169,37 @@ for (const [label, override] of [
 }
 assert.equal((await verifyGithubOidcToken('not.a.jwt', { fetchImpl, nowSeconds: now })).ok, false);
 assert.equal((await verifyGithubOidcToken('', { fetchImpl, nowSeconds: now })).ok, false);
+
+// A successful preflight must select a concrete, allow-listed provider, then
+// tell the live generator to prioritize that provider without removing normal
+// fallback options in Automatic mode.
+const preflightSelection = resolveProviderFromPreflight('automatic', '', {
+  provider: 'cloudflare-workers-ai',
+  model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+});
+assert.deepEqual(preflightSelection, {
+  provider: 'cloudflare-workers-ai',
+  model: '@cf/meta/llama-3.3-70b-instruct-fp8-fast',
+});
+const livePayload = buildLiveGenerationPayload(
+  'nigeria-lagos-real-estate',
+  'automatic',
+  '',
+  {},
+  preflightSelection,
+);
+assert.equal(livePayload.provider, 'automatic', 'Automatic mode must retain its fallback route.');
+assert.equal(livePayload.preferredProvider, 'cloudflare-workers-ai', 'The preflight-proven provider must be placed first for each full request.');
+assert.equal(livePayload.providerRouting, 'preferred-first');
+assert.equal(livePayload.model, '', 'An Automatic fallback must keep provider-specific default model selection.');
+assert.equal(livePayload.caseId, 'nigeria-lagos-real-estate');
+assert.throws(() => resolveProviderFromPreflight('automatic', '', { provider: 'attacker-provider', model: 'fake' }),
+  /supported, concrete provider/, 'the client must reject a provider name outside the allowlist');
+assert.throws(() => resolveProviderFromPreflight('gemini', '', { provider: 'cloudflare-workers-ai', model: 'fake' }),
+  /different provider/, 'a successful explicit-provider preflight must not silently change the user-selected provider');
+assert.throws(() => resolveProviderFromPreflight('automatic', '', { provider: 'automatic', model: '' }),
+  /supported, concrete provider/, 'Automatic preflight must identify the actual provider that answered');
+
 const tamperedParts = validToken.split('.');
 tamperedParts[2] = b64url('this-is-not-the-rsa-signature');
 assert.equal((await verifyGithubOidcToken(tamperedParts.join('.'), { fetchImpl, nowSeconds: now })).ok, false, 'valid claims with a forged signature must be rejected');
