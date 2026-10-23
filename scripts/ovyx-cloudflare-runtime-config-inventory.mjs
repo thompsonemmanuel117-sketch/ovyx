@@ -10,6 +10,22 @@ const AI_PROVIDER_KEYS = new Set([
 const PROPERTY_PATTERN = /PROPERTY|LISTING|REALTY|REAL_ESTATE|ZILLOW|ZOOPLA/i;
 const ENQUIRY_PATTERN = /ENQUIR|CONTACT|RESEND|SMTP|EMAIL|SENDGRID|MAILGUN|WHATSAPP|TWILIO|SOCIAL|WEBHOOK|FORM/i;
 
+function environmentVariableNames(environmentConfig) {
+  const variables = environmentConfig?.env_vars;
+  if (!variables || typeof variables !== 'object' || Array.isArray(variables)) return [];
+  return Object.entries(variables)
+    .filter(([, definition]) => ['plain_text', 'secret_text'].includes(String(definition?.type || '').toLowerCase()))
+    .map(([name]) => String(name).slice(0, 120))
+    .sort();
+}
+
+function isUnrecognizedAiProviderCredentialName(name) {
+  const variableName = String(name || '').toUpperCase();
+  const providerName = /(?:^|_)(?:GEMINI|ANTHROPIC|CLAUDE|DEEPSEEK|OPENAI|GROQ|OPENROUTER|WORKERS_AI|CLOUDFLARE_AI)(?:_|$)/.test(variableName);
+  const credentialName = /(?:API[_-]?(?:KEY|TOKEN)|ACCESS[_-]?TOKEN|SECRET|CREDENTIAL)/.test(variableName);
+  return providerName && credentialName && !AI_PROVIDER_KEYS.has(variableName);
+}
+
 // Deliberately returns variable *names only*. The Cloudflare Pages project API
 // can include secret values in its JSON response. Never copy values into this
 // inventory, logs, generated artifacts, or error messages.
@@ -39,8 +55,15 @@ export function summarizeCloudflareRuntimeConfig(project) {
 
   inspect(project);
   const all = [...names].sort();
+  const productionNames = environmentVariableNames(project?.deployment_configs?.production);
+  const previewNames = environmentVariableNames(project?.deployment_configs?.preview);
   return {
+    // Backwards-compatible union, then explicit environment-scoped name lists.
     aiProviderKeyNames: all.filter(name => AI_PROVIDER_KEYS.has(name)),
+    productionAiProviderKeyNames: productionNames.filter(name => AI_PROVIDER_KEYS.has(name)),
+    previewAiProviderKeyNames: previewNames.filter(name => AI_PROVIDER_KEYS.has(name)),
+    productionUnrecognizedAiProviderCredentialVariableNames: productionNames.filter(isUnrecognizedAiProviderCredentialName),
+    previewUnrecognizedAiProviderCredentialVariableNames: previewNames.filter(isUnrecognizedAiProviderCredentialName),
     propertyIntegrationVariableNames: all.filter(name => PROPERTY_PATTERN.test(name)),
     enquiryAndSocialVariableNames: all.filter(name => ENQUIRY_PATTERN.test(name)),
   };
