@@ -29,6 +29,15 @@ assert.equal(safeLiveGenerationFailureDetail(Object.assign(new Error('Provider e
   code: 'AI_PROVIDER_REQUEST_FAILED',
   status: 429,
 })), 'ai-provider-request-failed-http-429');
+assert.equal(safeLiveGenerationFailureDetail(Object.assign(new Error('No raw provider output may escape'), {
+  code: 'AI_PROVIDER_UNAVAILABLE',
+  providerFailures: [
+    { provider: 'gemini', kind: 'http-error', status: 401 },
+    { provider: 'claude', kind: 'http-error', status: 429 },
+    { provider: 'openai', kind: 'timeout' },
+    { provider: 'attacker-controlled-name', kind: 'unknown', status: 999 },
+  ],
+})), 'ai-provider-unavailable-gemini-http-401-claude-http-429-openai-timeout-provider-request-failed');
 assert.equal(safeLiveGenerationFailureDetail(Object.assign(new Error('No secret should leak'), {
   code: 'AI_PROVIDER_NOT_CONFIGURED',
 })), 'ai-provider-not-configured');
