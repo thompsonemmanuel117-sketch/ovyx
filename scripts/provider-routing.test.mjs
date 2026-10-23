@@ -332,6 +332,26 @@ try {
   assert.equal(result.provider, 'cloudflare-workers-ai');
   assert.equal(result.text, 'Cloudflare Workers AI test passed');
   assert.equal(requests.length, 0, 'Workers AI binding should be called without a vendor HTTP key.');
+
+  // Preserve a safe HTTP status from a failing Workers AI binding for diagnostics.
+  const throttledWorkersAI = {
+    run: async () => { throw Object.assign(new Error('private provider payload must not leak'), { status: 429 }); },
+  };
+  await assert.rejects(
+    () => callModel(
+      { AI: throttledWorkersAI },
+      { provider: 'automatic', model: 'automatic', system: 'test', user: 'hello', maxTokens: 32 },
+    ),
+    error => {
+      assert.equal(error.code, 'AI_PROVIDER_UNAVAILABLE');
+      assert.deepEqual(error.providerAttempts, [
+        { provider: 'cloudflare-workers-ai', kind: 'rate-limited-or-quota', status: 429 },
+      ]);
+      assert.equal(error.message.includes('private provider payload'), false);
+      return true;
+    },
+    'Workers AI failures should expose only safe classification and status metadata',
+  );
 } finally {
   globalThis.fetch = originalFetch;
 }
