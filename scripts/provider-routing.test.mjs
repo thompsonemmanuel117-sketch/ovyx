@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { callModel, providerOrder } from '../functions/_lib/providers.js';
+import { WEB_STUDIO_EXCELLENCE } from '../functions/_lib/prompts.js';
 
 assert.deepEqual(
   providerOrder({ OVYX_AI_PROVIDER_ORDER: 'gemini,deepseek,claude,openai' }, 'gemini'),
@@ -366,16 +367,16 @@ try {
   const boundedPayload = capturedWorkersAiCalls[0].payload;
   const boundedSystem = boundedPayload.messages.find(message => message.role === 'system')?.content || '';
   const boundedUser = boundedPayload.messages.find(message => message.role === 'user')?.content || '';
-  assert.ok(boundedSystem.length <= 10_000, 'Only the Cloudflare Workers AI system prompt must be reduced to its context budget.');
+  assert.ok(boundedSystem.length <= 8_000, 'Only the Cloudflare Workers AI system prompt must be reduced to its context budget.');
   assert.match(boundedSystem, /SYSTEM_START/, 'The beginning of the system prompt must survive compaction.');
   assert.match(boundedSystem, /SYSTEM_END/, 'The ending of the system prompt must survive compaction.');
-  assert.ok(boundedUser.length <= 20_000, 'The Cloudflare Workers AI user prompt must stay under its context budget.');
+  assert.ok(boundedUser.length <= 14_000, 'The Cloudflare Workers AI user prompt must stay under its context budget.');
   assert.match(boundedUser, /USER_START/, 'The beginning of the user request must survive compaction.');
   assert.match(boundedUser, /ORIGINAL USER BRIEF \(preserve the specific requirements in this request\):/i);
   assert.ok(boundedUser.includes(originalBriefText), 'The full core user brief must survive compaction.');
   assert.match(boundedUser, /FULL WEBSITE ROUTE MANIFEST/, 'The route-manifest context cue must remain available.');
   assert.match(boundedUser, /USER_END/, 'The trailing context must survive compaction.');
-  assert.equal(boundedPayload.max_tokens, 8_192, 'Cloudflare Workers AI completion tokens must be capped below the model context limit.');
+  assert.equal(boundedPayload.max_tokens, 6_144, 'Cloudflare Workers AI output must leave more room for long multi-page input prompts.');
   assert.equal(boundedPayload.temperature, 0.2);
 
   // Small readiness/chat requests are passed through without unnecessary truncation.
@@ -388,6 +389,44 @@ try {
   assert.equal(shortPayload.messages.find(message => message.role === 'system')?.content, 'short system');
   assert.equal(shortPayload.messages.find(message => message.role === 'user')?.content, 'short user');
   assert.equal(shortPayload.max_tokens, 32, 'Small readiness prompts must keep their original output budget.');
+  assert.ok(shortPayload.max_tokens <= 6_144);
+
+  // The production Web Studio contract is larger than the Workers AI adapter's
+  // system budget. Compaction must retain the middle design/editorial rules,
+  // not just the beginning and end of the text.
+  capturedWorkersAiCalls.length = 0;
+  const fullWebStudioContract = WEB_STUDIO_EXCELLENCE +
+    '\n\nTEST_QA_TAIL_SENTINEL: preserve final evaluator-specific instructions.';
+  assert.ok(fullWebStudioContract.length > 10_000, 'The fixture must exercise the long-contract compaction path.');
+  await callModel(
+    { AI: capturingWorkersAI },
+    {
+      provider: 'automatic',
+      model: 'automatic',
+      system: fullWebStudioContract,
+      user: 'Build a custom worldwide marine-robot marketplace. Preserve the exact brief; do not force a category or country.',
+      maxTokens: 1_000,
+    },
+  );
+  const qualityPayload = capturedWorkersAiCalls[0].payload;
+  const compactedQualityContract = qualityPayload.messages.find(message => message.role === 'system')?.content || '';
+  assert.ok(compactedQualityContract.length <= 8_000, 'The compacted system contract must stay within the bounded system budget.');
+  assert.match(compactedQualityContract, /ART DIRECTION AND DISTINCTIVENESS/,
+    'The front of the contract must retain the art-direction section.');
+  assert.match(compactedQualityContract, /EDITORIAL COPY/,
+    'The compactor must preserve the middle editorial-copy gate that the old edge-only slice discarded.');
+  assert.match(compactedQualityContract, /VISUAL ASSETS AND RESPONSIVE QUALITY/,
+    'The compactor must retain asset and responsive requirements.');
+  assert.match(compactedQualityContract, /FUNCTIONAL COMPLETENESS/,
+    'The compactor must retain functional-completeness requirements.');
+  assert.match(compactedQualityContract, /TRUTHFUL INTEGRATIONS/,
+    'The compactor must retain the no-fake-integration requirements.');
+  assert.match(compactedQualityContract, /arbitrary concepts, industries and countries/,
+    'OVYX must keep its open-ended creation policy under Workers AI compaction.');
+  assert.match(compactedQualityContract, /TEST_QA_TAIL_SENTINEL/,
+    'Final evaluator-specific instructions must survive compaction.');
+  assert.equal(qualityPayload.max_tokens, 1_000);
+
 
   // Preserve a safe HTTP status from a failing Workers AI binding for diagnostics.
   const throttledWorkersAI = {
