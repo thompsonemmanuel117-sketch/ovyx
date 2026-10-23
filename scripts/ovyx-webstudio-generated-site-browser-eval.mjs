@@ -9,6 +9,12 @@ const OUT = path.resolve(process.argv[3] || 'artifacts/webstudio-evaluation-repo
 const VIEWPORTS = [{name:'mobile-320',width:320,height:700},{name:'mobile-390',width:390,height:844},{name:'tablet-768',width:768,height:1024},{name:'laptop-1024',width:1024,height:768},{name:'desktop-1440',width:1440,height:900}];
 const MIME = {'.html':'text/html; charset=utf-8','.htm':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.png':'image/png','.jpg':'image/jpeg','.jpeg':'image/jpeg','.webp':'image/webp','.avif':'image/avif','.gif':'image/gif','.woff':'font/woff','.woff2':'font/woff2','.ttf':'font/ttf','.otf':'font/otf','.json':'application/json; charset=utf-8'};
 const QA_ENDPOINT = '/.well-known/ovyx-qa-enquiry';
+const LISTING_FEED_ORIGIN = (() => {
+  try {
+    const url = new URL(String(process.env.OVYX_EVAL_LISTINGS_API_URL || ''));
+    return url.protocol === 'https:' ? url.origin : '';
+  } catch { return ''; }
+})();
 
 async function walk(dir,prefix='') {
   const entries=await fs.readdir(dir,{withFileTypes:true}); const files=[];
@@ -262,7 +268,18 @@ async function main() {
           const route=routeEntry?.url||('/'+relative.split('/').map(encodeURIComponent).join('/'));
           for(const vp of VIEWPORTS){
             const page=await browser.newPage({viewport:{width:vp.width,height:vp.height},reducedMotion:'reduce'});
-            const errors=[],consoleErrors=[],failedRequests=[];
+            const errors=[],consoleErrors=[],failedRequests=[],blockedExternalRequests=[];
+            const baseOrigin='http://127.0.0.1:'+port;
+            await page.route('**/*',async route=>{
+              const request=route.request(),raw=request.url();
+              let target;
+              try{target=new URL(raw);}catch{return route.abort('blockedbyclient');}
+              if(['data:','blob:','about:'].includes(target.protocol)||target.origin===baseOrigin)return route.continue();
+              const safeListingRequest=Boolean(LISTING_FEED_ORIGIN)&&target.protocol==='https:'&&target.origin===LISTING_FEED_ORIGIN&&['GET','HEAD','OPTIONS'].includes(request.method())&&['fetch','xhr'].includes(request.resourceType());
+              if(safeListingRequest)return route.continue();
+              blockedExternalRequests.push({url:raw.slice(0,300),method:request.method(),resourceType:request.resourceType()});
+              return route.abort('blockedbyclient');
+            });
             page.on('pageerror',e=>errors.push(String(e.message||e).slice(0,250)));
             page.on('console',m=>{if(m.type()==='error')consoleErrors.push(String(m.text()||'').slice(0,300));});
             page.on('requestfailed',r=>{if(/\.(?:png|jpe?g|webp|avif|gif|svg|css|m?js|woff2?|ttf|otf)(?:[?#]|$)/i.test(r.url())||r.url().includes(QA_ENDPOINT))failedRequests.push({url:r.url().slice(0,250),error:r.failure()?.errorText||''});});
@@ -272,17 +289,21 @@ async function main() {
             const metrics=await inspectPage(page);
             if(vp.width!==390)delete metrics.visibleText;
             const internalLinkChecks=vp.width===390?await testInternalLinks(page,metrics.internalLinks):[];
+            const buttonInteractions=vp.width===390?await exerciseButtons(page,baseOrigin,route):{tested:0,skipped:0,results:[]};
             const formInteractions=vp.width===390?await exerciseQAForms(page):[];
             const screenshot=relative.replace(/[^a-z0-9_-]+/gi,'_')+'__'+vp.name+'.png';
             await page.screenshot({path:path.join(output,screenshot),fullPage:true,animations:'disabled',timeout:12000}).catch(()=>{});
-            checks.push({page:relative,route,viewport:vp.name,metrics,pageErrors:errors,consoleErrors,failedRequests,navigationError,internalLinkChecks,formInteractions,screenshot});
+            checks.push({page:relative,route,viewport:vp.name,metrics,pageErrors:errors,consoleErrors,failedRequests,blockedExternalRequests,navigationError,internalLinkChecks,buttonInteractions,formInteractions,screenshot});
             await page.close();
           }
         }
       } finally {await new Promise(resolve=>server.close(resolve));}
       const formResults=checks.flatMap(c=>c.formInteractions||[]);
+      const buttonResults=checks.filter(c=>c.viewport==='mobile-390').flatMap(c=>c.buttonInteractions?.results||[]);
       const qaFormMissing=formResults.length===0;
-      const failures=checks.filter(c=>c.navigationError||c.metrics?.horizontalOverflow||c.metrics?.brokenImages?.length||c.metrics?.copyIssues?.length||c.metrics?.deadLinks?.length||c.metrics?.unlabeledControls?.length||c.pageErrors.length||c.consoleErrors.length||c.failedRequests.length||c.internalLinkChecks.some(link=>['invalid-url','missing-fragment-target','local-route-http-error','local-route-request-failed'].includes(link.status))||c.formInteractions.some(f=>f.classification!=='qa-only-local-form-post-and-success-ui-verified'));
+      const noOpButtons=buttonResults.filter(item=>['no-observable-state-change','click-failed','interaction-test-error'].includes(item.status));
+      const externalRequests=checks.flatMap(c=>c.blockedExternalRequests||[]);
+      const failures=checks.filter(c=>c.navigationError||c.metrics?.horizontalOverflow||c.metrics?.brokenImages?.length||c.metrics?.copyIssues?.length||c.metrics?.deadLinks?.length||c.metrics?.unlabeledControls?.length||c.pageErrors.length||c.consoleErrors.length||c.failedRequests.length||c.blockedExternalRequests.length||c.internalLinkChecks.some(link=>['invalid-url','missing-fragment-target','local-route-http-error','local-route-request-failed'].includes(link.status))||c.buttonInteractions?.results?.some(item=>['no-observable-state-change','click-failed','interaction-test-error'].includes(item.status))||c.formInteractions.some(f=>f.classification!=='qa-only-local-form-post-and-success-ui-verified'));
       if(qaFormMissing)failures.push({page:'site-level',reason:'Required QA-only enquiry form did not submit to the isolated test receiver.'});
       results.push({
         site:site.name,status:failures.length?'needs-attention':html.length>12?'pass-with-limited-route-sample':'browser-checked-no-obvious-blockers',
@@ -290,7 +311,9 @@ async function main() {
         viewportWidths:VIEWPORTS.map(v=>v.width),failingChecks:failures.length,
         formInteractionStatus:formResults.length?(formResults.every(f=>f.classification==='qa-only-local-form-post-and-success-ui-verified')?'qa-local-post-tested':'qa-form-test-has-findings'):'no-qa-form-submission-tested',
         qaLocalPosts:formResults.length,qaFormMissing,realEnquiryDeliveryConfirmed:false,
-        realInventoryFeedConfigured:metadata.liveInventorySourceConfigured===true,
+        buttonsTested:buttonResults.filter(item=>!String(item.status).startsWith('skipped')).length,
+        noOpButtons:noOpButtons.length,buttonInteractionResults:buttonResults,
+        blockedExternalRequests:externalRequests.length,realInventoryFeedConfigured:metadata.liveInventorySourceConfigured===true,
         realListingsConfirmed:metadata.inventoryHonesty?.realListingsConfirmed===true,
         pages:checks,
         caveats:[
