@@ -336,7 +336,22 @@ async function generateOne(origin, provider, model, integrationSettings, caseId)
   if (!response.ok || body.ok !== true) {
     const code = String(body.error || 'LIVE_GENERATION_FAILED').slice(0, 100);
     const detail = /^[a-z0-9-]{1,80}$/.test(String(body.detail || '')) ? ', ' + body.detail : '';
-    throw new Error('Cloudflare generation for ' + caseId + ' returned HTTP ' + response.status + ' (' + code + detail + ').');
+    const allowedProviders = new Set(['gemini', 'claude', 'deepseek', 'openai', 'groq', 'openrouter', 'cloudflare-workers-ai']);
+    const allowedKinds = new Set(['not-configured', 'authentication-rejected', 'permission-denied', 'model-or-endpoint-not-found', 'request-rejected', 'rate-limited-or-quota', 'provider-server-error', 'timeout', 'network-error', 'empty-response', 'invalid-response', 'provider-error']);
+    const providerAttempts = (Array.isArray(body.providerAttempts) ? body.providerAttempts : []).slice(0, 7)
+      .filter(item => allowedProviders.has(String(item?.provider || '')) && allowedKinds.has(String(item?.kind || '')))
+      .map(item => ({
+        provider: String(item.provider),
+        kind: String(item.kind),
+        ...(Number.isInteger(Number(item.status)) && Number(item.status) >= 400 && Number(item.status) <= 599 ? { status: Number(item.status) } : {}),
+      }));
+    if (providerAttempts.length) {
+      console.error(JSON.stringify({ event: 'live-generation-provider-diagnostics', caseId, providerAttempts }));
+    }
+    const attempts = providerAttempts.length
+      ? ', attempts=' + providerAttempts.map(item => item.provider + ':' + item.kind + (item.status ? '-http-' + item.status : '')).join('|')
+      : '';
+    throw new Error('Cloudflare generation for ' + caseId + ' returned HTTP ' + response.status + ' (' + code + detail + attempts + ').');
   }
   return writeGeneratedSite(caseId, body);
 }
