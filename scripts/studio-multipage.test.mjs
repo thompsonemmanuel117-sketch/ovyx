@@ -374,3 +374,28 @@ assert.equal(safeAfterRejectedPolish.qualityPolish.integrityAfter, 1, 'A rejecte
 assert.equal(safeAfterRejectedPolish.rawUsage.total_tokens, 18 + 50 * 3 + 5);
 
 console.log('Web Studio multi-page integration tests passed.');
+
+
+// Provider authentication, billing, quota, and network failures must not be
+// re-issued by the structural-output recovery path; the router already owns
+// provider fallback and another full build could add unnecessary provider cost.
+let providerFailureCalls = 0;
+const upstreamFailure = Object.assign(new Error('private provider response must never leak'), {
+  status: 503,
+  code: 'AI_PROVIDER_UNAVAILABLE',
+});
+const providerFailureBuild = await buildStudioMultiPage({
+  env: {},
+  callModel: async () => {
+    providerFailureCalls += 1;
+    throw upstreamFailure;
+  },
+  provider: 'automatic',
+  mode: 'build',
+  prompt: 'Build a four-page website with Home, Services, About, and Contact pages.',
+  project: { id: 'project-provider-failure', name: 'Service', pages: [] },
+  files: {},
+}).then(() => null, error => error);
+assert.ok(providerFailureBuild, 'An upstream AI failure must still be surfaced.');
+assert.equal(providerFailureBuild.code, 'AI_PROVIDER_UNAVAILABLE');
+assert.equal(providerFailureCalls, 1, 'The output-recovery retry must not repeat provider auth/billing/quota/network failures.');
