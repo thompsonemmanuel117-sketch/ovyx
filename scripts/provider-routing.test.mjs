@@ -104,6 +104,28 @@ assert.deepEqual(
   'Provider-priority routing must not promote a personal provider over the global owner order.'
 );
 
+assert.deepEqual(
+  providerOrder(
+    { AI: { run: async () => ({ response: 'ready' }) }, GEMINI_API_KEY: 'g' },
+    'automatic',
+    'Build a website',
+    null,
+    'cloudflare-workers-ai',
+    'preferred-first',
+  ),
+  ['cloudflare-workers-ai', 'gemini'],
+  'A real Workers AI binding that just passed preflight must be prioritized for full generation when preferred-first is explicitly requested.',
+);
+assert.deepEqual(
+  providerOrder(
+    { AI: { run: async () => ({ response: 'ready' }) }, GEMINI_API_KEY: 'g' },
+    'automatic',
+    'Build a website',
+  ),
+  ['gemini', 'cloudflare-workers-ai'],
+  'Without explicit preferred-first routing, Workers AI must remain the final fallback.',
+);
+
 const originalFetch = globalThis.fetch;
 const requests = [];
 let rejectGemini = false;
