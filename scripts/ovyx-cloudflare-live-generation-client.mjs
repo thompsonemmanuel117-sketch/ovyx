@@ -308,6 +308,70 @@ async function writeGeneratedSite(caseId, responseBody) {
     realEnquiryDeliveryConfirmed: false,
   };
 }
+function safePreflightProviderAttempts(input) {
+  const providers = new Set(['gemini', 'claude', 'deepseek', 'openai', 'groq', 'openrouter', 'cloudflare-workers-ai']);
+  const kinds = new Set([
+    'not-configured', 'plan-required', 'payment-or-billing-required', 'authentication-rejected',
+    'permission-denied', 'model-or-endpoint-not-found', 'request-rejected', 'rate-limited-or-quota',
+    'provider-server-error', 'timeout', 'network-error', 'empty-response', 'invalid-response', 'provider-error',
+  ]);
+  return (Array.isArray(input) ? input : []).slice(0, 7)
+    .filter(item => providers.has(String(item?.provider || '')) && kinds.has(String(item?.kind || '')))
+    .map(item => ({
+      provider: String(item.provider),
+      kind: String(item.kind),
+      ...(Number.isInteger(Number(item.status)) && Number(item.status) >= 400 && Number(item.status) <= 599
+        ? { status: Number(item.status) }
+        : {}),
+    }));
+}
+async function preflightProvider(origin, provider, model) {
+  // A tiny real model request identifies invalid credentials, exhausted quota,
+  // billing failures and runtime/provider errors before full website prompts run.
+  // It can incur a small provider charge; never call it from PR/fixture jobs.
+  const token = await getOidcToken();
+  let response;
+  try {
+    response = await fetch(origin + ROUTE, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + token,
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ operation: 'provider-preflight', provider, model }),
+      redirect: 'error',
+      signal: timeout(180_000),
+    });
+  } catch (error) {
+    throw new Error('AI provider preflight failed at the transport layer (' +
+      (error?.name === 'AbortError' ? 'timeout' : 'network error') +
+      '). No full website generation was started. Inspect the sanitized workflow logs before retrying.');
+  }
+  const body = await readJsonResponse(response);
+  if (!response.ok || body.ok !== true || body.operation !== 'provider-preflight' || body.readiness !== 'ready') {
+    const detail = /^[a-z0-9-]{1,80}$/.test(String(body.detail || '')) ? String(body.detail) : '';
+    const providerAttempts = safePreflightProviderAttempts(body.providerAttempts);
+    console.error(JSON.stringify({
+      event: 'live-provider-preflight-failed',
+      status: response.status,
+      error: String(body.error || 'AI_PROVIDER_PREFLIGHT_FAILED').slice(0, 60).replace(/[^a-z0-9_-]/gi, ''),
+      ...(detail ? { detail } : {}),
+      ...(providerAttempts.length ? { providerAttempts } : {}),
+    }));
+    const attempts = providerAttempts.length
+      ? ' (' + providerAttempts.map(item => item.provider + ':' + item.kind + (item.status ? '-http-' + item.status : '')).join('|') + ')'
+      : '';
+    throw new Error('AI provider readiness check failed before full website generation. Fix the reported provider authentication, billing, quota, or runtime issue before retrying' + attempts + '.');
+  }
+  console.log(JSON.stringify({
+    event: 'live-provider-preflight-passed',
+    provider: String(body.provider || provider).slice(0, 40),
+    model: String(body.model || model || '').slice(0, 140) || null,
+    status: 'ready',
+    note: 'A short real model response was received before full site generation.',
+  }));
+}
 async function generateOne(origin, provider, model, integrationSettings, caseId) {
   // Mint a fresh short-lived token immediately before each billable generation.
   const token = await getOidcToken();
@@ -363,6 +427,7 @@ async function main() {
   const model = String(process.env.OVYX_EVAL_MODEL || '').trim();
   const settings = publicSettings();
   await writeWorkflowOutputs(settings);
+  await preflightProvider(origin, provider, model);
   const sites = [];
   for (const caseId of CASE_IDS) {
     const site = await generateOne(origin, provider, model, settings, caseId);
