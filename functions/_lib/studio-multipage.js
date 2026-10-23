@@ -461,7 +461,7 @@ async function buildStudioMultiPageOnce(options) {
     let result;
     try {
       result = await callModel(env, {
-        provider, model, authUser, taskPrompt: prompt,
+        provider, model, authUser, preferredProvider, providerRouting, taskPrompt: prompt,
         system: [String(options.qualityContract || '').trim(), 'You are OVYX Web Studio, a senior frontend engineer and UX architect. Follow the batch instructions exactly. Return strict JSON with complete file contents.'].filter(Boolean).join('\n\n'),
         user: input,
         maxTokens: cap(env, 'OVYX_WEBSTUDIO_BATCH_TOKENS', 18000),
