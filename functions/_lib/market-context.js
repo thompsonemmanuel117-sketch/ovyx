@@ -32,7 +32,7 @@ export function buildMarketContext(prompt = '', context = {}) {
   const supplied = context && typeof context === 'object' ? context : {};
   const market = supplied.market && typeof supplied.market === 'object' ? supplied.market : {};
   const combined = [brief, supplied.country, supplied.region, supplied.locale, supplied.currency, supplied.language, supplied.timeZone, supplied.timezone, market.country, market.region, market.locale, market.currency, market.language, market.timeZone, market.timezone].map(v => typeof v === 'string' ? v : '').join(' ');
-  const countryHint = clean(market.country || supplied.country || supplied.region, 100);
+  const countryHint = clean(market.country || supplied.country, 100);
   const profile = PROFILES.find(item => countryHint ? countryHint.toLowerCase().includes(item.country.toLowerCase()) || item.re.test(countryHint) : item.re.test(combined));
   const locale = localeValue(market.locale || supplied.locale) || profile?.locale || '';
   const currency = currencyValue(market.currency || supplied.currency) || profile?.currency || '';
