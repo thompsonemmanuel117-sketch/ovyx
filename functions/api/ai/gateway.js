@@ -272,6 +272,15 @@ export async function onRequestPost(context) {
         const project = payload.context?.project || payload.project || {};
         const projectFiles = payload.context?.files || payload.files || {};
         const studioHints = JSON.stringify({
+          // Keep deterministic experience context early because the multi-page builder bounds
+          // the context forwarded into every model phase.
+          marketContext: experience?.marketContext || null,
+          visualAssetPlan: experience?.visualAssetPlan || null,
+          designIntelligence: experience?.designIntelligence || null,
+          experiencePrinciples: experience?.experiencePrinciples || [],
+          qualityGates: experience?.qualityGates || [],
+          contentRules: experience?.contentRules || [],
+          primaryOutcome: experience?.designIntelligence?.primaryOutcome || null,
           activeView: payload.context?.activeView || '',
           brandProfile: brandProfile && typeof brandProfile === 'object' ? {
             colors: brandProfile.colors && typeof brandProfile.colors === 'object' ? brandProfile.colors : {},
