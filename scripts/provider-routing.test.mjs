@@ -333,6 +333,62 @@ try {
   assert.equal(result.text, 'Cloudflare Workers AI test passed');
   assert.equal(requests.length, 0, 'Workers AI binding should be called without a vendor HTTP key.');
 
+  // Large website prompts must fit Workers AI's smaller context window without
+  // losing the original brief, initial constraints, route-manifest cue or final file context.
+  const capturedWorkersAiCalls = [];
+  const capturingWorkersAI = {
+    run: async (model, payload) => {
+      capturedWorkersAiCalls.push({ model, payload });
+      return { response: 'Cloudflare Workers AI bounded prompt passed', usage: { prompt_tokens: 2, completion_tokens: 4 } };
+    },
+  };
+  const oversizedSystem = 'SYSTEM_START: preserve the core quality contract.\n' +
+    'Detailed quality policy. '.repeat(1800) +
+    '\nSYSTEM_END: preserve the specialist role and final safeguards.';
+  const originalBriefText = 'Build an unusual worldwide marine-robot marketplace with multilingual listings, route planning, accessibility, and distinct user workflows.';
+  const oversizedUser = 'USER_START: keep this task header.\n' +
+    'Initial build constraints and requested files. '.repeat(180) +
+    '\nORIGINAL USER BRIEF (preserve the specific requirements in this request):\n' +
+    originalBriefText + '\n' +
+    'Detailed requirements from the original brief. '.repeat(420) +
+    '\nFULL WEBSITE ROUTE MANIFEST JSON:\nHome /, Browse /browse/, Robot details /robots/, Seller workspace /seller/. ' +
+    'Manifest details. '.repeat(180) +
+    '\nSTAGED FILE TAIL: retain the final file context. ' +
+    'Existing CSS and page-code context. '.repeat(300) +
+    '\nUSER_END: preserve this trailing context marker.';
+  const boundedResult = await callModel(
+    { AI: capturingWorkersAI },
+    { provider: 'automatic', model: 'automatic', system: oversizedSystem, user: oversizedUser, maxTokens: 18_000 },
+  );
+  assert.equal(boundedResult.provider, 'cloudflare-workers-ai');
+  assert.equal(boundedResult.text, 'Cloudflare Workers AI bounded prompt passed');
+  assert.equal(capturedWorkersAiCalls.length, 1);
+  const boundedPayload = capturedWorkersAiCalls[0].payload;
+  const boundedSystem = boundedPayload.messages.find(message => message.role === 'system')?.content || '';
+  const boundedUser = boundedPayload.messages.find(message => message.role === 'user')?.content || '';
+  assert.ok(boundedSystem.length <= 10_000, 'Only the Cloudflare Workers AI system prompt must be reduced to its context budget.');
+  assert.match(boundedSystem, /SYSTEM_START/, 'The beginning of the system prompt must survive compaction.');
+  assert.match(boundedSystem, /SYSTEM_END/, 'The ending of the system prompt must survive compaction.');
+  assert.ok(boundedUser.length <= 20_000, 'The Cloudflare Workers AI user prompt must stay under its context budget.');
+  assert.match(boundedUser, /USER_START/, 'The beginning of the user request must survive compaction.');
+  assert.match(boundedUser, /ORIGINAL USER BRIEF \(preserve the specific requirements in this request\):/i);
+  assert.ok(boundedUser.includes(originalBriefText), 'The full core user brief must survive compaction.');
+  assert.match(boundedUser, /FULL WEBSITE ROUTE MANIFEST/, 'The route-manifest context cue must remain available.');
+  assert.match(boundedUser, /USER_END/, 'The trailing context must survive compaction.');
+  assert.equal(boundedPayload.max_tokens, 8_192, 'Cloudflare Workers AI completion tokens must be capped below the model context limit.');
+  assert.equal(boundedPayload.temperature, 0.2);
+
+  // Small readiness/chat requests are passed through without unnecessary truncation.
+  capturedWorkersAiCalls.length = 0;
+  await callModel(
+    { AI: capturingWorkersAI },
+    { provider: 'automatic', model: 'automatic', system: 'short system', user: 'short user', maxTokens: 32 },
+  );
+  const shortPayload = capturedWorkersAiCalls[0].payload;
+  assert.equal(shortPayload.messages.find(message => message.role === 'system')?.content, 'short system');
+  assert.equal(shortPayload.messages.find(message => message.role === 'user')?.content, 'short user');
+  assert.equal(shortPayload.max_tokens, 32, 'Small readiness prompts must keep their original output budget.');
+
   // Preserve a safe HTTP status from a failing Workers AI binding for diagnostics.
   const throttledWorkersAI = {
     run: async () => { throw Object.assign(new Error('private provider payload must not leak'), { status: 429 }); },
