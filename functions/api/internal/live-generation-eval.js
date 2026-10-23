@@ -2,6 +2,7 @@ import { buildStudioMultiPage } from '../../_lib/studio-multipage.js';
 import { callModel } from '../../_lib/providers.js';
 import { buildExperienceBrief } from '../../_lib/experience.js';
 import { WEB_STUDIO_EXCELLENCE } from '../../_lib/prompts.js';
+import { getProductionIntegrationState } from '../../_lib/integration-state.js';
 
 const EXPECTED_ISSUER = 'https://token.actions.githubusercontent.com';
 const EXPECTED_AUDIENCE = 'ovyx-live-site-evaluation';
@@ -304,6 +305,15 @@ export async function handleLiveGenerationRequest(request, env, options = {}) {
     return Response.json({ ok: false, error: 'EVALUATION_CASE_NOT_ALLOWED' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
   }
   const caseItem = CASES[payload.caseId];
+  let integrationState;
+  try {
+    integrationState = await getProductionIntegrationState(env);
+  } catch {
+    return Response.json({ ok: false, error: 'INTEGRATION_STATE_UNAVAILABLE' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
+  }
+  if (integrationState?.live !== true) {
+    return Response.json({ ok: false, error: 'PRODUCTION_INTEGRATIONS_PAUSED' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
+  }
   const provider = chooseProvider(env, payload.provider || 'automatic');
   if (!provider) {
     return Response.json({ ok: false, error: 'NO_CONFIGURED_AI_PROVIDER' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
