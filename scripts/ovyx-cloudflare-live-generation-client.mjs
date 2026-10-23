@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { readCloudflareEvaluationPublicSettings, summarizeCloudflareRuntimeConfig } from './ovyx-cloudflare-runtime-config-inventory.mjs';
+import { findSuccessfulProductionDeployment, readCloudflareEvaluationPublicSettings, summarizeCloudflareRuntimeConfig } from './ovyx-cloudflare-runtime-config-inventory.mjs';
 import { isTrustedGithubOidcRequestHostname } from './ovyx-github-oidc-url.mjs';
 
 const REPOSITORY = 'thompsonemmanuel117-sketch/ovyx';
@@ -92,7 +92,84 @@ async function cloudflareProjectOrigin() {
   if (!subdomain || !/^[a-z0-9][a-z0-9-]*\.pages\.dev$/.test(subdomain)) {
     throw new Error('Cloudflare did not return a valid canonical Pages subdomain for this project.');
   }
-  return 'https://' + subdomain;
+  return {
+    origin: 'https://' + subdomain,
+    apiToken: token,
+    accountId,
+    projectName,
+  };
+}
+async function waitForCurrentProductionDeployment(project, expectedCommitSha) {
+  const expected = String(expectedCommitSha || '').trim().toLowerCase();
+  if (!/^[a-f0-9]{40}$/.test(expected)) {
+    throw new Error('GitHub did not provide the expected 40-character commit SHA. No generation requests were sent.');
+  }
+  const deploymentsUrl = 'https://api.cloudflare.com/client/v4/accounts/' +
+    encodeURIComponent(project.accountId) + '/pages/projects/' +
+    encodeURIComponent(project.projectName) + '/deployments?env=production&per_page=10';
+  const deadline = Date.now() + DEPLOYMENT_WAIT_MS;
+  let attempt = 0;
+  let lastObservation = 'no matching production deployment found';
+  while (Date.now() < deadline) {
+    attempt += 1;
+    let response;
+    try {
+      response = await fetch(deploymentsUrl, {
+        headers: { Authorization: 'Bearer ' + project.apiToken, Accept: 'application/json' },
+        redirect: 'error',
+        signal: timeout(15_000),
+      });
+    } catch {
+      lastObservation = 'Cloudflare deployment-list request failed at the transport layer';
+      response = null;
+    }
+    if (response) {
+      if (response.status === 401 || response.status === 403) {
+        throw new Error('Cloudflare refused the Pages deployments read. Verify the existing CLOUDFLARE_API_TOKEN has Pages Read permission. No generation requests were sent.');
+      }
+      let body = {};
+      try { body = await readJsonResponse(response, 100_000); }
+      catch { lastObservation = 'Cloudflare deployment-list response was not valid JSON'; }
+      if (response.ok && body.success === true && Array.isArray(body.result)) {
+        const matched = findSuccessfulProductionDeployment(body.result, expected);
+        if (matched) {
+          console.log(JSON.stringify({
+            event: 'cloudflare-production-deployment-verified',
+            deploymentId: matched.id,
+            commitSha: matched.commitSha,
+            branch: matched.branch,
+            environment: matched.environment,
+            status: matched.status,
+          }));
+          return matched;
+        }
+        const production = body.result.find(item => item?.environment === 'production' && item?.is_skipped !== true);
+        const metadata = production?.deployment_trigger?.metadata || {};
+        const stage = production?.latest_stage || {};
+        const safeSha = String(metadata.commit_hash || '').trim().toLowerCase();
+        lastObservation = production
+          ? 'latest production commit ' + ( /^[a-f0-9]{7,40}$/.test(safeSha) ? safeSha.slice(0, 12) : 'unknown') +
+            ', branch ' + (/^[A-Za-z0-9._/-]{1,80}$/.test(String(metadata.branch || '')) ? String(metadata.branch) : 'unknown') +
+            ', stage ' + (/^[a-z_-]{1,40}$/.test(String(stage.name || '')) ? String(stage.name) : 'unknown') +
+            '/' + (/^[a-z_-]{1,40}$/.test(String(stage.status || '')) ? String(stage.status) : 'unknown')
+          : 'Cloudflare returned no non-skipped production deployment';
+      } else if (!response.ok && response.status < 500) {
+        throw new Error('Cloudflare deployment-list verification failed with HTTP ' + response.status + '. Check the Pages project name and Pages Read permission. No generation requests were sent.');
+      } else if (response.status >= 500) {
+        lastObservation = 'Cloudflare deployment-list API returned HTTP ' + response.status;
+      }
+    }
+    if (attempt % 3 === 0) {
+      console.log(JSON.stringify({
+        event: 'waiting-for-current-cloudflare-production-deployment',
+        expectedCommitSha: expected,
+        observation: lastObservation,
+      }));
+    }
+    await new Promise(resolve => setTimeout(resolve, Math.min(10_000, 2_000 + attempt * 500)));
+  }
+  throw new Error('Cloudflare production has not exposed a successful non-skipped deployment of the exact main commit ' +
+    expected + ' within the deployment wait window (' + lastObservation + '). No generation requests were sent.');
 }
 async function getOidcToken() {
   const rawUrl = required('ACTIONS_ID_TOKEN_REQUEST_URL');
@@ -150,7 +227,7 @@ async function getOidcToken() {
   }
   return token;
 }
-async function waitForEndpoint(origin) {
+async function waitForEndpoint(origin, expectedCommitSha) {
   const deadline = Date.now() + DEPLOYMENT_WAIT_MS;
   let attempt = 0;
   while (Date.now() < deadline) {
@@ -164,8 +241,20 @@ async function waitForEndpoint(origin) {
       });
       const body = await readJsonResponse(response, 30_000);
       // This route deliberately answers GET with 405 before authentication. It
-      // is a safe readiness probe and does not trigger a model call.
-      if (response.status === 405 && body.error === 'METHOD_NOT_ALLOWED') return;
+      // is a safe readiness probe and does not trigger a model call. If the
+      // deployed function exposes its build metadata, reject stale/mismatched code.
+      if (response.status === 405 && body.error === 'METHOD_NOT_ALLOWED') {
+        const deployedSha = String(body.deployment?.commitSha || '').trim().toLowerCase();
+        const deployedBranch = String(body.deployment?.branch || '').trim();
+        if (deployedSha && deployedSha !== expectedCommitSha.toLowerCase()) {
+          // A deployment older than the API's matching deployment record may still
+          // be serving on the canonical alias. Keep waiting instead of spending tokens.
+        } else if (deployedBranch && deployedBranch !== 'main') {
+          // Never call a preview deployment, even if its handler responds correctly.
+        } else {
+          return;
+        }
+      }
     } catch {
       // During a deployment the old Pages version may serve HTML/404 instead
       // of this route. Treat all readiness-probe failures as "not ready yet";
@@ -357,15 +446,17 @@ async function generateOne(origin, provider, model, integrationSettings, caseId)
 }
 async function main() {
   await fs.mkdir(OUTPUT, { recursive: true });
-  const origin = await cloudflareProjectOrigin();
-  await waitForEndpoint(origin);
+  const cloudflare = await cloudflareProjectOrigin();
+  const expectedCommitSha = required('GITHUB_SHA');
+  await waitForCurrentProductionDeployment(cloudflare, expectedCommitSha);
+  await waitForEndpoint(cloudflare.origin, expectedCommitSha);
   const provider = String(process.env.OVYX_EVAL_PROVIDER || 'automatic').trim().toLowerCase();
   const model = String(process.env.OVYX_EVAL_MODEL || '').trim();
   const settings = publicSettings();
   await writeWorkflowOutputs(settings);
   const sites = [];
   for (const caseId of CASE_IDS) {
-    const site = await generateOne(origin, provider, model, settings, caseId);
+    const site = await generateOne(cloudflare.origin, provider, model, settings, caseId);
     sites.push(site);
     console.log(JSON.stringify({ event: 'cloudflare-live-site-generated', id: site.id, industry: site.industry, country: site.country, provider: site.provider, model: site.model, pageCount: site.pageCount }));
   }
