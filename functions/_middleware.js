@@ -5,6 +5,12 @@ const LAUNCH_SCRIPT = '<script defer src="/assets/ovyx-account-notifications.js?
 export async function onRequest(context) {
   const url = new URL(context.request.url);
 
+  // Keep the opt-in browser-local AI lab isolated from the main shell injections.
+  // It must not load the provider-dependent workspace scripts or rewrite its CSP/headers.
+  if (url.pathname.replace(/\\/+$/, '').toLowerCase() === '/local-ai-lab.html') {
+    return context.next();
+  }
+
   // Browser engines often fall back to /favicon.ico, including on reloads and
   // nested SPA paths. Never let an obsolete static file or cached default icon
   // answer that request: serve the same canonical OVYX mark directly.
