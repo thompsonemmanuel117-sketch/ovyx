@@ -35,6 +35,20 @@ The official WebLLM `v0.2.86` source registry lists `Qwen3.5-4B-q4f16_1-MLC`, `Q
 - [ ] If the 4B model does not fit target device resources, manually compare 2B and 0.8B; never automatically choose another model or a cloud provider as a fallback.
 - [ ] Confirm the device-local diagnostic record matches real observed runs. Fix any download, cache, cancellation, performance, privacy or misleading-status problems found before marking Stage 3 complete.
 
+## Physical-device acceptance procedure
+
+CI cannot substitute for a real GPU or a real Android/desktop device. Before closing Stage 3, run this checklist on at least one actual desktop browser and one actual Android browser, and keep the device results separate:
+
+1. Open the deployed OVYX origin with the path `/local-ai-lab.html` over HTTPS. This is the isolated lab; do not use the main assistant or Web Studio for this check.
+2. Record the device class, OS, browser/version and whether the page reports WebGPU availability. Do not record a unique device identifier.
+3. On a WebGPU-capable desktop, explicitly select **Qwen3.5 4B** first if the device has enough storage and memory. Press **Download and start local AI**, wait for a completed load, then send a short harmless prompt and confirm a real streamed response. If it fails, record the exact error; do not silently switch model or use a hosted fallback.
+4. On Android, begin with **Qwen3.5 0.8B** only if WebGPU is available and the device has sufficient storage; test 4B only if the device can reasonably support its roughly 3.87 GB estimated GPU memory requirement. If WebGPU is unavailable, explicitly select the separate CPU/WASM option and record that as a compatibility-path result, not a WebGPU pass.
+5. Test Stop during a response, unload/reload the page, and confirm the page behaves honestly on warm cache. Do not repeatedly download the multi-gigabyte model just to rerun the same test.
+6. Press **Prepare local test record** after the observed run. Copy the JSON from the page and retain it as evidence. It must not contain prompts, answers, project files, credentials or unique device fingerprints. The page does not send this record automatically.
+7. For failure recovery, record at least one deliberate low-storage or failed-download case if safe to reproduce; confirm the error is visible, retry is available, and no prompt is sent to a hosted inference provider.
+
+**Stage 3 exit rule:** a successful CPU/WASM CI run is useful evidence, but does not satisfy the Qwen3.5 WebGPU or physical-device gates. Mark a device/model as passed only when a genuine response and its sanitized local diagnostic record are available.
+
 ## Free/independence definition
 
 This path aims to avoid per-prompt hosted model API charges after model files are downloaded. It is not unlimited compute or universally free in every sense: users spend data/storage to download weights and their device spends memory, GPU/CPU, battery and time. Unsupported browsers must be told honestly and must not silently send prompts to a hosted provider.
