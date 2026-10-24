@@ -1,6 +1,6 @@
 # OVYX AI — Stage 3: Browser-local inference prototype
 
-**Status:** Prototype implementation in progress; genuine model/device acceptance still pending  
+**Status:** Prototype implementation in progress; genuine WebGPU and target-device acceptance still pending. A separate CPU/WASM feasibility experiment has produced a genuine local response, but that experiment is not yet integrated into the user-facing lab.  
 **Branch:** `feat/stage-3-browser-local-ai-prototype`  
 **Scope:** A small isolated page to prove real browser-local model loading and inference before any main-shell route is migrated.
 
@@ -21,9 +21,10 @@ The official WebLLM `v0.2.86` source registry lists `Qwen3.5-4B-q4f16_1-MLC`, `Q
 ## Open Stage 3 acceptance gates
 
 - [x] Current static contract and mocked-browser regression workflow passes on desktop and mobile viewports, including the 0.8B model configuration and privacy-safe diagnostics export (GitHub Actions run [40099426120](https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/40099426120), code commit `5beb2aa45504fd8f37f4057f25f07114618c62f8`). These tests validate UI and isolation contracts, not real inference.
-- [ ] In a real browser, an explicit model load downloads files, reports actual progress and completes without mock fixtures. Use the user-triggered diagnostic record to save measurements; never share prompts, answers, or project data.
+- [x] A separate evaluation-only browser run generated a genuine answer with `onnx-community/Qwen2.5-0.5B-Instruct`, Transformers.js 4.3.1 and CPU/WASM, with no hosted inference API request observed. Evidence: [CPU/WASM feasibility workflow run](https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/40100961503). This is **not** the Stage 2 Qwen3.5 model and is not integrated into the local-AI lab; it proves a CPU runtime is technically feasible, not that the selected model passes.
+- [ ] In the user-facing local AI lab, a real browser model load downloads files, reports actual progress and completes without mock fixtures. The first automated WebGPU attempt selected Qwen3.5-0.8B and failed during shader compilation in the headless CI GPU adapter; see [real WebGPU smoke run](https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/40100482123). This is an environment/model-runtime compatibility failure, not evidence that the model fails on every real device. Use the device-local diagnostic record for target-device measurements; never share prompts, answers, or project data.
 - [ ] A genuine prompt gets a response from the local model. Record browser/device/OS, GPU/WebGPU status, runtime version, selected model, download duration/size, time to first token, total response time and any memory/device errors.
-- [ ] Reopening/reloading reuses the valid model cache; cleared/evicted cache, interrupted download, low storage and failed network downloads recover clearly.
+- [ ] Reopening/reloading the user-facing lab reuses the valid model cache; cleared/evicted cache, interrupted download, low storage and failed network downloads recover clearly. The separate CPU feasibility run is currently a one-shot evaluation and does not prove this lab's cache behavior.
 - [ ] Cancellation works during download/initialization and during generation; no stuck state or endless spinner.
 - [ ] Network capture shows prompt text and project data do not leave the browser for any hosted inference endpoint. Model/runtime artifact downloads are allowed, but prompts must not be sent to those hosts.
 - [ ] Test on at least one actual target desktop and one actual target Android/mobile browser; a mocked Chromium test alone is insufficient.

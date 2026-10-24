@@ -1,0 +1,66 @@
+name: OVYX CPU-only Local Inference Feasibility
+
+on:
+  push:
+    branches:
+      - '**'
+    paths:
+      - 'scripts/ovyx-local-ai-cpu-inference.smoke.mjs'
+      - '.github/workflows/ovyx-cpu-local-inference-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cpu-wasm-inference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install project dependencies
+        run: |
+          npm install --ignore-scripts
+          npm install --ignore-scripts --no-save playwright@^1.55.0
+
+      - name: Install Chromium and Linux dependencies
+        run: npx playwright install --with-deps chromium
+
+      - name: Start local Cloudflare Pages app
+        run: |
+          npx wrangler pages dev . --ip 127.0.0.1 --port 8795 > /tmp/ovyx-cpu-local-smoke-pages.log 2>&1 &
+          echo $! > /tmp/ovyx-cpu-local-smoke-pages.pid
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:8795/local-ai-lab.html >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/ovyx-cpu-local-smoke-pages.log
+          exit 1
+
+      - name: Test a genuine Qwen2.5 CPU/WASM response without inference APIs
+        env:
+          OVYX_E2E_BASE_URL: http://127.0.0.1:8795
+          OVYX_CPU_SMOKE_REPORT: /tmp/ovyx-cpu-local-ai-smoke.json
+        run: node scripts/ovyx-local-ai-cpu-inference.smoke.mjs
+
+      - name: Upload sanitized CPU feasibility record
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ovyx-cpu-local-inference-record
+          path: /tmp/ovyx-cpu-local-ai-smoke.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Print local Pages logs on failure
+        if: failure()
+        run: cat /tmp/ovyx-cpu-local-smoke-pages.log || true
