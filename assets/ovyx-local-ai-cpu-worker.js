@@ -17,9 +17,9 @@ async function hashModelUrl(url) {
 }
 
 function modelContentType(url) {
-  if (/\\.json$/i.test(url.pathname)) return 'application/json';
-  if (/\\.wasm$/i.test(url.pathname)) return 'application/wasm';
-  if (/\\.(?:txt|vocab|merges)$/i.test(url.pathname)) return 'text/plain; charset=utf-8';
+  if (/\.json$/i.test(url.pathname)) return 'application/json';
+  if (/\.wasm$/i.test(url.pathname)) return 'application/wasm';
+  if (/\.(?:txt|vocab|merges)$/i.test(url.pathname)) return 'text/plain; charset=utf-8';
   return 'application/octet-stream';
 }
 
@@ -108,7 +108,7 @@ function installModelFetchCache() {
         });
       }).catch(error => {
         const reason = String(error?.name || 'CacheError') + ': ' +
-          String(error?.message || 'cache write rejected').replace(/https?:\\/\\/\\S+/gi, '[asset URL]').slice(0, 120);
+          String(error?.message || 'cache write rejected').replace(/https?:\/\/\S+/gi, '[asset URL]').slice(0, 120);
         self.postMessage({
           type: 'cache-warning',
           message: 'The browser could not persist one local model file (' + reason + '). This device may need to download it again after reload.',
