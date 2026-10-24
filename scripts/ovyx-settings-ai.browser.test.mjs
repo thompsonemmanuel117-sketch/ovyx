@@ -187,6 +187,17 @@ try {
     await panel.locator('#set-ai-budget').selectOption('maximum');
     await panel.locator('[data-ai-pref="contextPage"]').setChecked(false);
     await panel.locator('[data-ai-pref="contextGithub"]').setChecked(false);
+    const modeBeforeSave = await page.evaluate(() => ({
+      selected: document.querySelector('[data-settings-panel="ai"] [data-ai-mode].selected')?.dataset?.aiMode || null,
+      pressed: document.querySelector('[data-settings-panel="ai"] [data-ai-mode="quality"]')?.getAttribute('aria-pressed') || null,
+      allModes: Array.from(document.querySelectorAll('[data-settings-panel="ai"] [data-ai-mode]')).map(button => ({
+        mode: button.dataset.aiMode, selected: button.classList.contains('selected'), pressed: button.getAttribute('aria-pressed')
+      })),
+      status: document.getElementById('ovyx-ai-preference-status')?.textContent || '',
+      globalMode: window.OVYXAI?.mode || null,
+      stored: localStorage.getItem(window.OVYXAIStorageKey?.() || '') || null
+    }));
+    console.log('[OVYX AI mode before save]', target.name, JSON.stringify(modeBeforeSave));
 
     // Count writes only after the individual controls have been set.
     await page.evaluate(key => {
