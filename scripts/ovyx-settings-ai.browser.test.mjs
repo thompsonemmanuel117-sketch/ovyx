@@ -45,6 +45,7 @@ try {
       },
     });
     const aiPreferenceRequests = [];
+    let failNextPreferencePut = false;
     let serverPreferences = {
       mode: 'balanced', model: 'automatic', provider: 'gemini',
       explain: true, preserve: true, confirmDestructive: false,
@@ -59,6 +60,15 @@ try {
         authorization: (await request.allHeaders()).authorization || '',
         body,
       });
+      if (request.method() === 'PUT' && failNextPreferencePut) {
+        failNextPreferencePut = false;
+        await route.fulfill({
+          status: 503,
+          contentType: 'application/json',
+          body: JSON.stringify({ ok: false, code: 'AI_PREFERENCES_WRITE_UNCONFIRMED', message: 'Test server could not confirm preferences.' }),
+        });
+        return;
+      }
       if (request.method() === 'PUT') serverPreferences = { ...serverPreferences, ...(body?.preferences || {}) };
       await route.fulfill({
         status: request.method() === 'GET' || request.method() === 'PUT' ? 200 : 405,
@@ -122,7 +132,7 @@ try {
     await panel.locator('#set-ai-model').selectOption('automatic');
     await panel.locator('details.ovyx-ai-advanced summary').click();
     await panel.locator('#set-ai-routing').selectOption('preferred-first');
-    await panel.locator('#set-ai-fallback').selectOption('next');
+    await panel.locator('#set-ai-fallback').selectOption('stop');
     await panel.locator('#set-ai-context-limit').selectOption('conservative');
     await panel.locator('#set-ai-budget').selectOption('maximum');
     await panel.locator('[data-ai-pref="contextPage"]').setChecked(false);
@@ -153,7 +163,7 @@ try {
     assert.equal(saved.preferences.provider, 'openai');
     assert.equal(saved.preferences.model, 'automatic');
     assert.equal(saved.preferences.routing, 'preferred-first');
-    assert.equal(saved.preferences.fallback, 'next');
+    assert.equal(saved.preferences.fallback, 'stop');
     assert.equal(saved.preferences.contextLimit, 'conservative');
     assert.equal(saved.preferences.budget, 'maximum');
     assert.equal(saved.preferences.contextPage, false);
@@ -192,6 +202,8 @@ try {
     const sent = aiRequests[0];
     assert.equal(sent.preferredProvider, 'openai',
       '[' + target.name + '] preferred provider must reach the authenticated AI backend, not remain local-only.');
+    assert.equal(sent.fallback, 'stop',
+      '[' + target.name + '] fallback policy must reach the authenticated AI backend.');
     assert.equal(sent.providerRouting, 'preferred-first',
       '[' + target.name + '] model routing must reach the authenticated AI backend.');
     assert.equal(sent.model, 'automatic');
@@ -238,6 +250,21 @@ try {
     assert.equal(reset.removes, 0, '[' + target.name + '] an account-backed Reset must save verified defaults rather than only deleting local state.');
     assert.equal(serverPreferences.provider, 'gemini', '[' + target.name + '] Reset must update the account preferences at the server boundary.');
     assert.equal(serverPreferences.routing, 'automatic');
+    assert.equal(serverPreferences.fallback, 'next');
+
+    // A failed write must not be reported as saved or optimistically replace
+    // the last server-confirmed local preferences.
+    await panel.locator('#set-provider').selectOption('openai');
+    failNextPreferencePut = true;
+    await panel.locator('#set-ai-save').click();
+    await page.waitForFunction(
+      () => document.getElementById('ovyx-ai-preference-status')?.textContent?.includes('not confirmed as saved'),
+      null,
+      { timeout: 10000 },
+    );
+    const afterFailedSave = await page.evaluate(key => JSON.parse(localStorage.getItem(key) || '{}'), key);
+    assert.equal(afterFailedSave.provider, 'gemini', '[' + target.name + '] A failed account save must keep the last confirmed local preferences.');
+    assert.equal(serverPreferences.provider, 'gemini', '[' + target.name + '] A failed account save must not mutate server preferences.');
     assert.deepEqual(pageErrors, [], '[' + target.name + '] AI Preferences should not throw browser errors.');
     await context.close();
   }
