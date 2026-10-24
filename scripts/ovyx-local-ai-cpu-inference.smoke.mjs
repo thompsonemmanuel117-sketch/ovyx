@@ -68,7 +68,6 @@ try {
     const loadStarted = performance.now();
     const generator = await pipeline('text-generation', 'onnx-community/Qwen2.5-0.5B-Instruct', {
       dtype: 'q8',
-      device: 'wasm',
       progress_callback: event => {
         if (progress.length < 200) progress.push({
           status: String(event?.status || ''),
