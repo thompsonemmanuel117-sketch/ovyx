@@ -33,6 +33,8 @@
     'Do not claim you executed code, tested a site, inspected files, or used tools unless the user supplied the evidence in this conversation.',
     'This prototype has no project access and cannot run tools. Do not pretend otherwise.',
   ].join(' ');
+  const LOAD_INACTIVITY_TIMEOUT_MS = 180000;
+  const GENERATION_INACTIVITY_TIMEOUT_MS = 120000;
 
   const el = (id) => document.getElementById(id);
   const modelSelect = el('model-choice');
@@ -63,6 +65,7 @@
   let loadEpoch = 0;
   let generationEpoch = 0;
   let cancelLoadReject = null;
+  let loadWatchdog = 0;
   let conversation = [];
   let emptyChatNode = el('chat-empty');
 
@@ -87,8 +90,23 @@
     if (!visible) progressBar.value = 0;
   }
 
+  function clearLoadWatchdog() {
+    if (loadWatchdog) window.clearTimeout(loadWatchdog);
+    loadWatchdog = 0;
+  }
+
+  function armLoadWatchdog(epoch) {
+    clearLoadWatchdog();
+    loadWatchdog = window.setTimeout(() => {
+      if (!loading || epoch !== loadEpoch) return;
+      cancelLoading();
+      setStatus('Local model setup stopped after 3 minutes without progress. Check network or storage and retry. No provider fallback was used.', 'error');
+    }, LOAD_INACTIVITY_TIMEOUT_MS);
+  }
+
   function updateProgress(report) {
     if (!loading) return;
+    armLoadWatchdog(loadEpoch);
     const text = String(report?.text || 'Preparing the local model…').slice(0, 220);
     progressNote.textContent = text;
     const progress = Number(report?.progress);
@@ -97,6 +115,20 @@
     } else {
       progressBar.value = 0;
     }
+  }
+
+  function withGenerationInactivityTimeout(promise, message) {
+    let timer = 0;
+    const timeout = new Promise((resolve, reject) => {
+      timer = window.setTimeout(() => {
+        const error = new Error(message);
+        error.code = 'LOCAL_GENERATION_IDLE_TIMEOUT';
+        reject(error);
+      }, GENERATION_INACTIVITY_TIMEOUT_MS);
+    });
+    return Promise.race([Promise.resolve(promise), timeout]).finally(() => {
+      if (timer) window.clearTimeout(timer);
+    });
   }
 
   function refreshControls() {
@@ -237,6 +269,7 @@
   function cancelLoading() {
     if (!loading) return;
     loadEpoch += 1;
+    clearLoadWatchdog();
     loading = false;
     const reject = cancelLoadReject;
     cancelLoadReject = null;
@@ -265,6 +298,7 @@
     const model = MODELS[key];
     const thisLoad = ++loadEpoch;
     loading = true;
+    armLoadWatchdog(thisLoad);
     showProgress(true, 'Loading the pinned WebLLM runtime; no model response is possible yet…');
     setStatus('Starting local initialization. The selected model files may be large; cancel is available.', 'warn');
     refreshControls();
@@ -331,6 +365,7 @@
       }
       engine = readyEngine;
       loadedModelKey = key;
+      clearLoadWatchdog();
       loading = false;
       cancelLoadReject = null;
       showProgress(false);
@@ -342,6 +377,7 @@
       promptInput.focus();
     } catch (error) {
       if (thisLoad !== loadEpoch) return;
+      clearLoadWatchdog();
       loading = false;
       cancelLoadReject = null;
       try { localWorker?.terminate(); } catch (_) {}
@@ -358,6 +394,7 @@
       refreshControls();
     } finally {
       if (thisLoad === loadEpoch) {
+        clearLoadWatchdog();
         cancelLoadReject = null;
         if (loading && !engine) {
           loading = false;
@@ -414,16 +451,25 @@
     setStatus('Generating on the selected local model. No external inference API is used by this prototype.', 'ok');
 
     try {
-      const stream = await engine.chat.completions.create({
-        messages: buildMessages(prompt),
-        stream: true,
-        temperature: 0.6,
-        top_p: 0.9,
-        max_tokens: 768,
-      });
+      const stream = await withGenerationInactivityTimeout(
+        engine.chat.completions.create({
+          messages: buildMessages(prompt),
+          stream: true,
+          temperature: 0.6,
+          top_p: 0.9,
+          max_tokens: 768,
+        }),
+        'The local model did not start responding within 2 minutes.',
+      );
+      const iterator = stream[Symbol.asyncIterator]();
       let answer = '';
-      for await (const chunk of stream) {
-        if (thisGeneration !== generationEpoch) break;
+      while (thisGeneration === generationEpoch) {
+        const next = await withGenerationInactivityTimeout(
+          iterator.next(),
+          'The local model stopped producing tokens for 2 minutes.',
+        );
+        if (next.done) break;
+        const chunk = next.value;
         const delta = chunk?.choices?.[0]?.delta?.content;
         if (typeof delta === 'string' && delta) {
           answer += delta;
@@ -443,7 +489,21 @@
         setStatus(stopRequested ? 'Local generation stopped.' : 'The local model returned an empty answer.', stopRequested ? 'warn' : 'error');
       }
     } catch (error) {
-      if (thisGeneration === generationEpoch && !stopRequested) {
+      if (thisGeneration === generationEpoch && error?.code === 'LOCAL_GENERATION_IDLE_TIMEOUT') {
+        // If a stream stalls, terminate the worker so the UI can recover instead of
+        // leaving the user with a spinner. A retry must explicitly reload the model.
+        try { engine?.interruptGenerate?.(); } catch (_) {}
+        try { worker?.terminate(); } catch (_) {}
+        engine = null;
+        worker = null;
+        loadedModelKey = '';
+        assistantBody.textContent = 'Local generation timed out. The model was unloaded so you can retry safely.';
+        setStatus(
+          (stopRequested ? 'The local stream did not stop in time. ' : 'The local model stopped responding. ') +
+          'OVYX unloaded the local worker after 2 minutes without progress. Reload the model to retry; no hosted fallback was used.',
+          'error'
+        );
+      } else if (thisGeneration === generationEpoch && !stopRequested) {
         assistantBody.textContent = 'Local generation failed. No hosted AI fallback was attempted.';
         setStatus('Local generation failed: ' + getErrorMessage(error), 'error');
       }
