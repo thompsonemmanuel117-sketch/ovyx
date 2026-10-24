@@ -12,6 +12,33 @@ function extractBetween(source,startText,endText,label){
   assert.ok(start>=0&&end>start,'Could not extract '+label+' from the production app shell.');
   return source.slice(start,end);
 }
+
+// Dispatch an actual touchStart/touchMove/touchEnd sequence through Chromium's
+// touch input path. synthesizeScrollGesture emitted pointermove but no touchmove
+// in headless CI, so it could not reliably prove the production touch-scroll path.
+async function dispatchFingerSwipe(session,page,{x,startY,endY}){
+  const distance=endY-startY;
+  const steps=Math.max(12,Math.min(24,Math.ceil(Math.abs(distance)/18)));
+  const point=(y)=>({x:Math.round(x),y:Math.round(y),id:1,force:1});
+  await session.send('Input.dispatchTouchEvent',{
+    type:'touchStart',
+    touchPoints:[point(startY)]
+  });
+  try{
+    for(let step=1;step<=steps;step++){
+      const y=startY+(distance*step/steps);
+      await session.send('Input.dispatchTouchEvent',{
+        type:'touchMove',
+        touchPoints:[point(y)]
+      });
+      // Yield to Chromium's input/scroll pipeline between moves instead of
+      // injecting every point in one compositor task.
+      await page.waitForTimeout(12);
+    }
+  }finally{
+    await session.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+  }
+}
 const editorMethods=extractBetween(appShell,'async loadMonacoForCode(){','saveCodeFile(file){','production Code Workspace editor methods');
 const syncProjectMethod=extractBetween(appShell,'syncGraphToProject(clearDirty=true){','pageToHtml(page){','production project/source synchronizer');
 const updateCodeMethod=extractBetween(appShell,'updateCodeFromEditor(file,content){','codeLanguage(file){','production editor change handler');
@@ -360,9 +387,8 @@ try{
     });
     const touchSession=await dockPage.context().newCDPSession(dockPage);
     try{
-      await touchSession.send('Input.synthesizeScrollGesture',{
-        x:gestureGeometry.x,y:gestureGeometry.startY,xDistance:0,yDistance:-320,
-        speed:700,gestureSourceType:'touch'
+      await dispatchFingerSwipe(touchSession,dockPage,{
+        x:gestureGeometry.x,startY:gestureGeometry.startY,endY:gestureGeometry.endY
       });
       await dockPage.waitForFunction(()=>document.getElementById('view-router-viewport')?.scrollTop>0,
         null,{timeout:3500}).catch(async error=>{
@@ -416,9 +442,8 @@ try{
     });
     const projectTouch=await dockPage.context().newCDPSession(dockPage);
     try{
-      await projectTouch.send('Input.synthesizeScrollGesture',{
-        x:projectGesture.x,y:projectGesture.y,xDistance:0,yDistance:-320,
-        speed:700,gestureSourceType:'touch'
+      await dispatchFingerSwipe(projectTouch,dockPage,{
+        x:projectGesture.x,startY:projectGesture.y,endY:Math.max(gestureGeometry.viewportTop+90,projectGesture.y-300)
       });
       await dockPage.waitForFunction(()=>document.getElementById('view-router-viewport')?.scrollTop>0,
         null,{timeout:3500}).catch(async error=>{
