@@ -127,13 +127,14 @@
     clearLoadWatchdog();
     loadWatchdog = window.setTimeout(() => {
       if (!loading || epoch !== loadEpoch) return;
+      const elapsedMs = activeLoadMetrics
+        ? Math.round(performance.now() - activeLoadMetrics.startedAt)
+        : (diagnosticsState.modelLoad?.durationMs ?? null);
       cancelLoading();
       if (diagnosticsState.modelLoad) {
         diagnosticsState.modelLoad.status = 'timeout';
         diagnosticsState.modelLoad.finishedAt = new Date().toISOString();
-        diagnosticsState.modelLoad.durationMs = activeLoadMetrics
-          ? Math.round(performance.now() - activeLoadMetrics.startedAt)
-          : null;
+        diagnosticsState.modelLoad.durationMs = elapsedMs;
       }
       diagnosticsState.lastError = { at: new Date().toISOString(), stage: 'model-load', message: 'No model initialization progress for 3 minutes.' };
       setStatus('Local model setup stopped after 3 minutes without progress. Check network or storage and retry. No provider fallback was used.', 'error');
