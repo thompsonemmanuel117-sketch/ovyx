@@ -459,7 +459,7 @@
         estimatedAvailableBytes: available,
         modelCacheChecked: false,
         persistentStorageGranted: persistent,
-        runtime: 'Transformers.js browser cache + WASM cache',
+        runtime: 'Transformers.js + Origin Private File System (OPFS) model cache + WASM cache',
       };
       if (available !== null && available < model.sizeBytes + 180_000_000) {
         throw new Error(
@@ -524,13 +524,25 @@
         diagnosticsState.modelLoad.lastReportedProgressPercent = 100;
       }
       let cacheNames = [];
+      let opfsModelAssetCount = 0;
       try { cacheNames = await caches.keys(); } catch (_) {}
+      try {
+        const root = await navigator.storage.getDirectory();
+        for await (const [name, handle] of root.entries()) {
+          if (!name.endsWith('.meta') || handle.kind !== 'file') continue;
+          try {
+            const metadata = JSON.parse(await (await handle.getFile()).text());
+            if (String(metadata.urlPath || '').includes('/' + model.id + '/')) opfsModelAssetCount += 1;
+          } catch (_) {}
+        }
+      } catch (_) {}
       diagnosticsState.storage = {
         ...(diagnosticsState.storage || {}),
         modelCacheChecked: true,
         browserCacheApiAvailable: typeof caches !== 'undefined',
         cacheNameCount: cacheNames.length,
         cacheNames: cacheNames.map(String).slice(0, 10),
+        opfsModelAssetCount,
       };
       activeLoadMetrics = null;
       diagnosticsState.lastError = null;
