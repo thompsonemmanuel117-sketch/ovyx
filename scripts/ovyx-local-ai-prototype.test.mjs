@@ -110,6 +110,10 @@ assert.match(cpuWorker, /dtype:\s*'q8'/);
 assert.match(cpuWorker, /env\.useBrowserCache\s*=\s*true/);
 assert.match(cpuWorker, /env\.useWasmCache\s*=\s*true/);
 assert.match(cpuWorker, /callback_function\(text\)/);
+assert.match(cpuWorker, /let TextStreamerClass = null/);
+assert.match(cpuWorker, /TextStreamerClass = RuntimeTextStreamer/);
+assert.match(cpuWorker, /new TextStreamerClass\(generator\.tokenizer/);
+assert.match(cpuWorker, /Unable to add response to browser cache/i);
 assert.doesNotMatch(cpuWorker, /\/api\/ai\/|\/api\/generate|api\.openai\.com|generativelanguage\.googleapis\.com|api\.anthropic\.com|api\.deepseek\.com|api\.groq\.com|openrouter\.ai\/api/i,
   'the CPU/WASM worker may not reference hosted inference endpoints');
 assert.match(realLabSmoke, /baseURL \+ '\/local-ai-lab\.html'/);
