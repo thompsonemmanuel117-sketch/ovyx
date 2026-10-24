@@ -232,10 +232,11 @@ try {
     return JSON.parse(await page.locator('#diagnostics-output').inputValue());
   })();
   assert.equal(finalDiagnostics.selectedModel.runtime, '@huggingface/transformers@4.3.1 · ONNX Runtime WASM');
-  assert.equal(finalDiagnostics.recentGenerationMetrics.length, 3);
+  assert.equal(firstDiagnostics.recentGenerationMetrics.length, 1);
+  assert.equal(firstDiagnostics.recentGenerationMetrics[0].status, 'complete');
+  assert.equal(finalDiagnostics.recentGenerationMetrics.length, 2);
   assert.equal(finalDiagnostics.recentGenerationMetrics[0].status, 'complete');
-  assert.equal(finalDiagnostics.recentGenerationMetrics[1].status, 'complete');
-  assert.equal(finalDiagnostics.recentGenerationMetrics[2].status, 'stopped-with-partial');
+  assert.equal(finalDiagnostics.recentGenerationMetrics[1].status, 'stopped-with-partial');
   for (const prompt of prompts) {
     assert.ok(!JSON.stringify(finalDiagnostics).includes(prompt), 'Diagnostics must never contain prompt text.');
   }
@@ -290,13 +291,13 @@ try {
         cacheNames: secondCache.cacheNames,
         modelWeightEntries: secondCache.modelWeightEntries,
       },
-      stopGenerationStatus: finalDiagnostics.recentGenerationMetrics[2].status,
+      stopGenerationStatus: finalDiagnostics.recentGenerationMetrics[1].status,
     },
     networkAudit: {
       externalHostsObserved: [...externalHosts].sort(),
       forbiddenInferenceRequests: forbiddenRequests,
       promptEgressCount,
-      externalRequestCount: externalHosts.size,
+      externalHostCount: externalHosts.size,
       failedRequestCount: failedRequests.length,
       note: 'Report contains no prompt text, response text, credentials, request bodies, full URLs or query strings.',
     },
