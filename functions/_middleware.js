@@ -5,9 +5,11 @@ const LAUNCH_SCRIPT = '<script defer src="/assets/ovyx-account-notifications.js?
 export async function onRequest(context) {
   const url = new URL(context.request.url);
 
-  // Keep the opt-in browser-local AI lab isolated from the main shell injections.
-  // It must not load the provider-dependent workspace scripts or rewrite its CSP/headers.
-  if (url.pathname.replace(/\/+$/, '').toLowerCase() === '/local-ai-lab.html') {
+  // Keep the opt-in browser-local AI lab isolated from main-shell injections.
+  // Cloudflare Pages may canonicalize /local-ai-lab.html to /local-ai-lab, so
+  // bypass both paths. Never inject provider-dependent app scripts into this lab.
+  const normalizedPath = url.pathname.replace(/\/+$/, '').toLowerCase();
+  if (normalizedPath === '/local-ai-lab.html' || normalizedPath === '/local-ai-lab') {
     return context.next();
   }
 
