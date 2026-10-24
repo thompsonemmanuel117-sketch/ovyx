@@ -382,8 +382,10 @@
   }
 
   function buildMessages(prompt) {
-    // Keep only a small, bounded in-memory history for the 4K context window.
-    const recent = conversation.slice(-8).map((item) => ({
+    // The current prompt was added to conversation before this function runs.
+    // Exclude that last turn here so it is sent exactly once.
+    const prior = conversation.slice(0, -1).slice(-8);
+    const recent = prior.map((item) => ({
       role: item.role,
       content: String(item.content || '').slice(-2200),
     }));
