@@ -169,17 +169,33 @@
       error.code = body?.code || 'AI_PREFERENCES_REQUEST_FAILED';
       throw error;
     }
-    return normalize(body.preferences);
+    return {
+      preferences: normalize(body.preferences),
+      updatedAt: body.updatedAt || null
+    };
   }
 
   async function loadPreferences(force) {
     const current = user();
     const uid = String(current?.uid || '');
     if (!uid) return readLocal();
+    if (loadingPromise && loadingUid === uid) return loadingPromise;
     if (!force && loadedUid === uid && cachedPreferences) return cachedPreferences;
-    if (!force && loadingPromise && loadingUid === uid) return loadingPromise;
     loadingUid = uid;
-    loadingPromise = requestPreferences('GET').then(preferences => {
+    loadingPromise = requestPreferences('GET').then(async serverState => {
+      let preferences = serverState.preferences;
+      if (!serverState.updatedAt) {
+        let legacy = null;
+        try {
+          legacy = JSON.parse(localStorage.getItem(storageKey()) || 'null');
+        } catch (_) {}
+        if (legacy && typeof legacy === 'object' && !Array.isArray(legacy) && Object.keys(legacy).length) {
+          // Preserve this account's old device-only settings the first time the
+          // server preference document is created; never overwrite newer server data.
+          const migrated = await requestPreferences('PUT', normalize(legacy));
+          preferences = migrated.preferences;
+        }
+      }
       if (String(user()?.uid || '') === uid) {
         writeLocal(preferences);
         cachedPreferences = preferences;
@@ -248,7 +264,8 @@
       return;
     }
     try {
-      const serverPreferences = await requestPreferences('PUT', normalize(next));
+      const savedState = await requestPreferences('PUT', normalize(next));
+      const serverPreferences = savedState.preferences;
       const localSaved = writeLocal(serverPreferences);
       cachedPreferences = serverPreferences;
       loadedUid = String(user()?.uid || '');
