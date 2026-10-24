@@ -129,9 +129,15 @@ try {
 
     await page.evaluate(() => window.Router.go('settings'));
     await page.locator('#view-settings').waitFor({ state: 'visible' });
-    // Simulate preferences saved on this device by the older client before the
-    // account-backed endpoint existed. The first account load must migrate them.
-    await page.evaluate(() => localStorage.setItem(window.OVYXAIStorageKey(), JSON.stringify({
+    // Simulate preferences saved by the older client under this known account.
+    // Use the explicit scoped key so the test does not depend on whether auth UI
+    // callbacks have refreshed a helper function between app boot and this step.
+    await page.waitForFunction(
+      () => window.firebase?.auth?.().currentUser?.uid === 'settings-ai-browser-user',
+      null,
+      { timeout: 10000 },
+    );
+    await page.evaluate(() => localStorage.setItem('ovyx.ai.preferences.v1.user.settings-ai-browser-user', JSON.stringify({
       mode: 'fast',
       provider: 'deepseek',
       model: 'automatic',
