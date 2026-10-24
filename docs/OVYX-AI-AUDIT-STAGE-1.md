@@ -139,7 +139,9 @@ Test intent varies: unit/contract tests often use fake model responses and brows
 
 ## 8. Stage 1 completion criteria
 
-This inventory identifies the main user-facing AI surfaces, inference/search routes, model families/configuration names, quota/history implementation, action/tool safety layers and test suites. **The full Stage 1 is not yet fully closed** until the remaining UI event-binding trace, adapter import/use trace, and modality (image/audio) trace are completed and the current test/build state is recorded. These are the next targeted checks; they should not require paid production generation runs.
+**Status: COMPLETE — Stage 1 source-level inventory.** The main-shell AI controls and routing branches have now been traced alongside the native workspace assistant, Web Studio research, Agent Mode, backend routes/adapters, model/environment settings, quotas/history, workspace tools, and test contracts. The critical mismatches and migration dependencies are recorded below. No runtime code, production provider settings, or secrets were changed.
+
+This is a code-and-test inventory, not a live-provider acceptance result. I did not claim a fresh successful real-model response or a real website generation. The latest known live acceptance run remains a separate failure at Gemini readiness (HTTP 429) with zero real websites generated. Live inference checks should stay separate and controlled.
 
 ## Primary source files
 
@@ -173,3 +175,48 @@ This inventory identifies the main user-facing AI surfaces, inference/search rou
 - The main `index.html` is about 2 MB and the available repository-file reader returned no text for it, so I cannot honestly claim a line-by-line trace of every inline UI handler from that file yet. The route/surface inventory above is grounded in readable source files and tests, but the main-shell event-binding trace remains open.
 - No dedicated `functions/api/image*`, `functions/api/audio*`, `functions/api/voice*` or transcription route appears in the current API tree. This only establishes that there is no obvious dedicated route by those names; image/audio capability may be supplied through other UI or third-party services and must not be assumed migrated or absent without a focused reference trace.
 
+
+
+## 10. Main-shell control-to-route trace (current `index.html`)
+
+- **Home build composer:** `#prompt-home-input` + `#v59-build` calls `runBuild()`. The selected value in `#v59-model-select` is saved as `ovyx_selected_ai_brain` in browser local storage. The build flow creates a local draft project graph when needed, records a Web Studio handoff (`window.__OVYX_HOME_TO_WEBSTUDIO__`) with prompt/provider/attachments, and routes into Web Studio rather than proving a website was generated on the home screen.
+- **Home provider selector:** `automatic`, `openai`, `anthropic`, `deepseek`, `gemini`. In the shared `secureGenerate` client, automatic requests go to `POST /api/ai/assistant`; explicit named-provider requests go to `POST /api/ai/gateway`. Both then use the shared server-side model routing system. This selector does not directly call `/api/ai/ovyx`.
+- **General AI service payload:** `secureGenerate` sends prompt/messages, mode, context, project/files/attachments, a model value (defaulting to `automatic`), optional provider/routing fields and system instructions. The automatic branch sets `preferredProvider` to an empty string and `providerRouting` to `automatic` unless the caller explicitly supplies those fields.
+- **Provider selection guard:** `patchAIBrain` is designed to keep an explicit provider exclusive and leave automatic routing to the server. It presents failures clearly rather than quietly claiming a different provider answered. The home selector itself exposes four provider names; Groq, OpenRouter and Cloudflare Workers AI are supported in server routing/diagnostics but not listed in that selector.
+- **Microphone button:** `#v59-mic` uses browser `SpeechRecognition` / `webkitSpeechRecognition` to place a transcript into the prompt box. This is browser speech-to-text input, not evidence of OVYX-hosted transcription or text-to-speech.
+- **File/photo/scan inputs:** the home composer accepts file attachments and image capture inputs; these are attached to the build request/context. No dedicated API route for image generation, voice synthesis, audio generation or transcription appears in the current function tree. Do not count image uploads as model-generated images or browser speech input as an OVYX voice engine.
+- **Native workspace assistant:** `assets/ovyx-assistant-workspace.js` posts to `/api/ai/ovyx`; it has conversation UI actions such as copy/export conversation, project/history/asset navigation, workspace inspect/search/read/diagnose, approved edits and undo/revision review. It is a separate path from the home composer and general provider selector.
+- **Web Studio research:** `assets/ovyx-webstudio-research.js` calls `POST /api/ai/web-search`. It uses configured search integrations and is separate from text-model inference.
+- **Agent Mode:** the application endpoint registry includes `/api/generate`, which invokes the repository agent workflow and shared model adapters. This is not the same request path as the home composer.
+- **Diagnostics and feedback:** admin status uses `/api/ai/status`; selected-provider availability uses `/api/ai/provider-availability`; the native assistant and Web Studio reliability components can submit feedback to `/api/ai/feedback`. Status/probe responses must not be treated as successful prompt generation.
+
+## 11. Confirmed source/configuration mismatches to fix before migration
+
+### P1 — AI Preferences UI and persistence contract disagree
+
+- The current main-shell AI preferences code in `index.html` uses `AI_KEY = 'ovyx.ai.preferences.v1'` and local storage (with a per-user key when signed in). Its `aiSave` helper writes only to local storage.
+- The current main shell contains no literal call to `/api/settings/ai`, while `functions/api/settings/ai.js` implements server-authoritative account-scoped GET/PUT persistence and `scripts/ovyx-settings-ai.browser.test.mjs` explicitly expects GET/PUT calls to that endpoint.
+- The visible AI settings panel shows balanced/fast/quality modes, provider/model, context toggles and advanced routing/fallback/context/budget controls. But the current main-shell `aiApply` / Save handler only applies/saves the model, provider and six boolean toggles; it does not read or persist the advanced selects. The mode click handler saves locally. Static inspection therefore finds a mismatch between the UI implementation, server API, and browser-test contract. The browser test has not been run against a live app as part of this audit, so this is not presented as a newly observed runtime failure.
+- The current general `secureGenerate` request also defaults to `payload.model || 'automatic'`, `preferredProvider || ''` and `providerRouting || 'automatic'`. It does not, by itself, apply the saved model/routing/budget/context choices from `window.OVYXAI`. This means the settings values cannot be assumed to affect real requests without tracing/repairing the integration.
+- **Recommended next action:** make one shared AI-preferences client that loads from `/api/settings/ai`, displays server-confirmed saved values, saves and verifies them, and passes relevant model/provider/mode/routing/context preferences into the request contract. Add regression coverage for both UI persistence and the exact payload sent to the AI route. Do this before replacing the backend engines; it prevents an AI migration from inheriting silent preference loss.
+
+### P2 — Provider labels and model identifiers are inconsistent
+
+- The home provider selector calls OpenAI “GPT-3.5”.
+- Another admin/runtime label calls OpenAI “GPT-4o Mini”, while the shared provider routing fallback currently uses the code default `gpt-6.1-sol` unless an environment model override is configured.
+- Claude is variously labeled “Claude”, “Claude Sonnet 4.6” and the shared router's fallback is `claude-opus-5`; the AI preferences list also contains `claude-opus-5`.
+- This does not prove the production model is any one of those identifiers—the environment may override them. It proves the UI and source defaults are inconsistent. Consolidate labels behind a server-returned model/capability registry, then only display the model actually routed in the response. Never claim a specific model merely from a UI label.
+
+### P3 — Duplicate/legacy AI routing and tool-adapter paths
+
+- `functions/api/ai/assistant.js` and `functions/api/ai/gateway.js` both classify assistant/Web/App Studio modes, call the shared `callModel`, save chat turns and handle quota. Their overlap should be mapped by callers and regression tests before one is retired.
+- Provider adapter implementations exist in `functions/_lib/providers.js`, `functions/_lib/brain/providers.js`, `functions/api/_lib/brain/providers.js`, and `functions/api/_lib/providers.js`. The shared main generation routes use `functions/_lib/providers.js`; the nested/legacy tools route and API adapter still need import-use verification before removal.
+- `functions/api/api/ai/tools.js` is nested under an extra `api/` directory and thus has a different path from the `/api/ai/tools` path referenced by the older `index-updated.html`. The current `index.html` has no `/api/ai/tools` reference. Treat this as legacy/path-risk evidence, not an active current-shell dependency, until it is verified through deployment routing.
+
+## 12. Safe checks and current evidence boundary
+
+A GitHub Actions check on this audit PR passed the **Provider-specific routing tests**, **Static verification**, **Production build preflight**, and **Wrangler validation** steps (run `40064515002`). This confirms those checks passed against the branch at that point; it does not mean that live providers generated answers or that real websites were accepted. This latest report update changes documentation only.
+
+The full `npm test` script includes native-AI output/action tests, provider routing/status tests, assistant runtime tests, prompt-contract checks, Web Studio evaluation/reliability/quality tests and runtime configuration inventory tests. Browser acceptance scripts exist separately; notably, `scripts/ovyx-settings-ai.browser.test.mjs` expects the server-persisted preference behavior described above. A green static/build check must not replace running the relevant browser regression.
+
+**Stage 1 deliverable is complete as an inventory.** The audit now says what the active source paths do, which dependencies the local-AI migration must replace, what must remain (quota, history, auth, safe tool operations, research as a separate capability), and which existing UI/configuration mismatches should be fixed first. The next recommended work is to resolve the AI Preferences request contract before starting Stage 2 model selection and prototype integration.
