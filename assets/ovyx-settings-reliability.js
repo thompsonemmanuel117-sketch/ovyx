@@ -587,6 +587,15 @@
     if (!panel) return;
     const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
     const prefs = Object.assign({}, AI_PREFERENCE_DEFAULTS, safeJson(localStorage.getItem(key)));
+    const mode = ['balanced', 'fast', 'quality'].includes(String(prefs.mode || ''))
+      ? String(prefs.mode) : 'balanced';
+    panel.querySelectorAll('[data-ai-mode]').forEach(button => {
+      const selected = button.dataset.aiMode === mode;
+      button.classList.toggle('selected', selected);
+      button.setAttribute('aria-pressed', String(selected));
+    });
+    const modeChip = panel.querySelector('.ovyx-health-chip');
+    if (modeChip) modeChip.textContent = mode.toUpperCase();
     ['explain','preserve','confirmDestructive','contextFiles','contextPage','contextGithub'].forEach(name => {
       const input = panel.querySelector('[data-ai-pref="' + name + '"]');
       if (input) input.checked = !!prefs[name];
