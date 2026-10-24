@@ -103,6 +103,32 @@ assert.deepEqual(
   ['deepseek', 'gemini', 'openai'],
   'Provider-priority routing must not promote a personal provider over the global owner order.'
 );
+assert.deepEqual(
+  providerOrder(
+    { GEMINI_API_KEY: 'g', DEEPSEEK_API_KEY: 'd', OPENAI_API_KEY: 'o' },
+    'automatic',
+    'Build a website',
+    ['deepseek', 'gemini'],
+    'openai',
+    'preferred-first',
+    'stop'
+  ),
+  ['openai'],
+  'Stop fallback mode must try only the preferred-first configured provider.'
+);
+assert.deepEqual(
+  providerOrder(
+    { AI: { run() {} } },
+    'automatic',
+    'Build a website',
+    [],
+    'openai',
+    'preferred-first',
+    'stop'
+  ),
+  ['cloudflare-workers-ai'],
+  'Stop mode must still use Workers AI when it is the only configured engine.'
+);
 
 const originalFetch = globalThis.fetch;
 const requests = [];
