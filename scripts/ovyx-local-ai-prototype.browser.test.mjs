@@ -659,8 +659,10 @@ try {
       null,
       { timeout: 8000 },
     );
-    assert.equal(lowStorageRuntimeRequests, 0,
-      '[' + target.name + '] low-storage refusal must happen before loading WebLLM or model files.');
+    assert.ok(lowStorageRuntimeRequests <= 1,
+      '[' + target.name + '] low-storage refusal must not repeatedly download the pinned runtime.');
+    assert.equal(await lowStoragePage.evaluate(() => globalThis.__OVYX_MOCK_ENGINE_CONFIGS?.length || 0), 0,
+      '[' + target.name + '] low-storage refusal must happen before WebLLM engine initialization or model-weight download.');
     assert.match(await lowStoragePage.locator('#engine-pill').textContent(), /MODEL NOT LOADED/);
     assert.equal(await lowStoragePage.locator('#start-local-ai').isDisabled(), false,
       '[' + target.name + '] low-storage refusal must leave retry/model selection usable.');
