@@ -118,6 +118,32 @@ assert.deepEqual(
 );
 assert.deepEqual(
   providerOrder(
+    { GEMINI_API_KEY: 'g', DEEPSEEK_API_KEY: 'd', OPENAI_API_KEY: 'o' },
+    'automatic',
+    'Build a website',
+    ['deepseek', 'gemini'],
+    'openai',
+    'automatic',
+    'stop'
+  ),
+  ['openai'],
+  'Stop mode must make the personal preference exclusive instead of falling through task or owner order.'
+);
+assert.deepEqual(
+  providerOrder(
+    { AI: { run() {} } },
+    'automatic',
+    'Build a website',
+    [],
+    '',
+    'automatic',
+    'stop'
+  ),
+  ['cloudflare-workers-ai'],
+  'Stop mode may still use Workers AI when no personal preference exists and it is the only configured engine.'
+);
+assert.deepEqual(
+  providerOrder(
     { AI: { run() {} } },
     'automatic',
     'Build a website',
@@ -126,8 +152,8 @@ assert.deepEqual(
     'preferred-first',
     'stop'
   ),
-  ['cloudflare-workers-ai'],
-  'Stop mode must still use Workers AI when it is the only configured engine.'
+  ['openai'],
+  'Stop mode must not silently switch to Workers AI when the preferred provider is not configured.'
 );
 
 const originalFetch = globalThis.fetch;
