@@ -74,6 +74,16 @@ assert.match(client, /slice\(0, 2500\)/);
 assert.match(client, /Qwen3\.5-4B-q4f16_1-MLC/);
 assert.match(client, /resolve\/44b4246/);
 assert.match(client, /Qwen3\.5-2B-q4f32_1-MLC/);
+assert.match(client, /Qwen3\.5-0\.8B-q4f16_1-MLC/,
+  'a lower-resource local model must be available for target devices that cannot load 2B/4B candidates');
+assert.match(client, /resolve\/0ec1389/);
+assert.match(client, /447 MB/);
+assert.match(client, /prepareDiagnosticRecord/);
+assert.match(client, /recentGenerationMetrics/);
+assert.match(client, /navigator\.clipboard\.writeText/);
+assert.match(page, /id="prepare-diagnostics"/);
+assert.match(page, /id="diagnostics-output"/);
+assert.match(page, /never prompts, answers, project data or credentials/i);
 assert.match(client, /resolve\/d835e5c/);
 assert.match(client, /2\.59 GB/);
 assert.match(client, /v0_2_86/);
