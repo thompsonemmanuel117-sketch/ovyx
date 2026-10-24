@@ -219,7 +219,8 @@ try {
         const result = await window.OVYXAIService.generate({
           mode: 'assistant',
           prompt: 'Confirm the active generation preferences.',
-          provider: 'automatic',
+          // No per-request provider is chosen here; account preferences must
+          // supply the preference without making it an exclusive provider call.
           model: 'automatic',
           files: { 'src/main.js': 'x'.repeat(130000) },
           page: { id: 'settings-ai-page', name: 'Settings AI Test Page' },
