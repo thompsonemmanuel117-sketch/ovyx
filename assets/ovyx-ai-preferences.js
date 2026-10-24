@@ -212,6 +212,21 @@
     return loadingPromise;
   }
 
+  function setPanelBusy(panel, busy) {
+    const selector = '[data-ai-mode],#set-ai-model,#set-provider,#set-ai-routing,#set-ai-fallback,#set-ai-context-limit,#set-ai-budget,[data-ai-pref],#set-ai-save,#set-ai-reset';
+    panel.querySelectorAll(selector).forEach(control => {
+      if (busy) {
+        if (control.dataset.ovyxPreviousDisabled === undefined) {
+          control.dataset.ovyxPreviousDisabled = String(!!control.disabled);
+        }
+        control.disabled = true;
+      } else if (control.dataset.ovyxPreviousDisabled !== undefined) {
+        control.disabled = control.dataset.ovyxPreviousDisabled === 'true';
+        delete control.dataset.ovyxPreviousDisabled;
+      }
+    });
+  }
+
   async function loadForPanel(panel) {
     if (!panel?.isConnected) return;
     ensureStatus(panel);
@@ -224,6 +239,7 @@
       setStatus(panel, 'Using settings saved on this device. Sign in to sync AI preferences to your OVYX account.', 'local');
       return;
     }
+    setPanelBusy(panel, true);
     setStatus(panel, 'Loading AI preferences from your OVYX account…', 'loading');
     try {
       const preferences = await loadPreferences(true);
@@ -239,6 +255,8 @@
       applyControls(panel, local);
       setStatus(panel, 'Could not verify account preferences. Showing saved device settings; changes will not be reported as saved until the server confirms them.', 'error');
       console.warn('[OVYX AI preferences] Account load failed:', error?.message || error);
+    } finally {
+      if (panel.isConnected) setPanelBusy(panel, false);
     }
   }
 
