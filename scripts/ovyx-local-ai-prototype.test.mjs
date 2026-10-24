@@ -56,12 +56,14 @@ assert.doesNotMatch(client, /\/api\/ai\/|\/api\/generate|api\.openai\.com|genera
 assert.doesNotMatch(worker, /\/api\/ai\/|\/api\/generate|api\.openai\.com|generativelanguage\.googleapis\.com|api\.anthropic\.com|api\.deepseek\.com|openrouter\.ai\/api/i);
 assert.match(worker, /@mlc-ai\/web-llm@0\.2\.86/);
 
-const startHandler = client.indexOf("startButton.addEventListener('click'");
+const startFunction = client.indexOf('async function startLocalModel()');
 const runtimeImport = client.indexOf('await import(RUNTIME_URL)');
-assert.ok(startHandler >= 0 && runtimeImport > startHandler,
-  'runtime import must be inside the user-triggered local model start path');
-assert.doesNotMatch(client.slice(0, runtimeImport), /CreateWebWorkerMLCEngine\(/,
-  'no model initialization is allowed before explicit opt-in');
+assert.ok(startFunction >= 0 && runtimeImport > startFunction,
+  'runtime import must live inside the local model start function');
+assert.match(client, /startButton\.addEventListener\('click',\s*\(\)\s*=>\s*\{\s*void startLocalModel\(\);/,
+  'the local model start function must only be invoked through explicit user action');
+assert.doesNotMatch(client.slice(0, startFunction), /CreateWebWorkerMLCEngine\(/,
+  'no model initialization is allowed during page startup');
 assert.ok(!/window\.OVYXAIService|firebase\.auth|localStorage\.setItem/.test(client),
   'isolated lab must not borrow main OVYX account/auth/request/storage code');
 
