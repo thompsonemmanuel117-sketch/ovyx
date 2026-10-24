@@ -103,7 +103,7 @@ async function readCacheEvidence(page) {
         try { path = new URL(request.url).pathname; } catch (_) {}
         const fileName = path.split('/').slice(-2).join('/');
         if (fileName && result.cacheKeyFileNames.length < 12) result.cacheKeyFileNames.push(fileName);
-        if (/model_quantized\.onnx/i.test(path)) {
+        if (/\/(?:model|model_[a-z0-9]+)\.onnx$/i.test(path)) {
           result.modelWeightEntries += 1;
           result.modelWeightUrls.push(fileName);
         }
@@ -133,7 +133,7 @@ try {
     for (const prompt of prompts) {
       if (request.url().includes(prompt) || postData.includes(prompt)) promptEgressCount += 1;
     }
-    if (/model_quantized\.onnx/i.test(parts.path)) {
+    if (/\/(?:model|model_[a-z0-9]+)\.onnx$/i.test(parts.path)) {
       if (currentPhase === 'first-load') firstLoadWeightRequests += 1;
       if (currentPhase === 'reload-load') reloadWeightRequests += 1;
     }
