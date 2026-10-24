@@ -71,7 +71,7 @@ assert.match(client, /initProgressCallback/);
 assert.match(client, /engine\.chat\.completions\.create/);
 assert.match(client, /stream:\s*true/);
 assert.match(client, /engine\.interruptGenerate\(\)/);
-assert.match(client, /currentEngine\.unload/);
+assert.match(client, /currentEngine\?\.unload/);
 assert.match(client, /conversation\.slice\(0,\s*-1\)\.slice\(-8\)/,
   'the current prompt must not be duplicated in the local conversation request');
 assert.match(client, /max_tokens:\s*768/);
