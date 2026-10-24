@@ -81,12 +81,34 @@ function installModelFetchCache() {
     }
     let url;
     try { url = new URL(request.url); } catch (_) { return nativeFetch(input, init); }
+    const isModelRepoAsset =
+      (url.hostname === 'huggingface.co' || url.hostname.endsWith('.huggingface.co'))
+      && url.pathname.includes('/' + MODEL_ID + '/');
+    if (!isModelRepoAsset) return nativeFetch(input, init);
+
+    // Transformers.js can probe resolve/main even when pipeline() receives a
+    // pinned revision. Never let that mutable alias reach the network.
+    if (url.pathname.includes('/resolve/main/')) {
+      url.pathname = url.pathname.replace('/resolve/main/', '/resolve/' + MODEL_REVISION + '/');
+      request = new Request(url.href, {
+        method: request.method,
+        headers: request.headers,
+        mode: request.mode,
+        credentials: request.credentials,
+        cache: request.cache,
+        redirect: request.redirect,
+        referrer: request.referrer,
+        referrerPolicy: request.referrerPolicy,
+        integrity: request.integrity,
+        signal: request.signal,
+      });
+      url = new URL(request.url);
+    }
+
     const isPinnedModelAsset =
       request.method === 'GET'
-      && !request.headers.has('range')
-      && (url.hostname === 'huggingface.co' || url.hostname.endsWith('.huggingface.co'))
-      && url.pathname.includes('/' + MODEL_ID + '/');
-    if (!isPinnedModelAsset) return nativeFetch(input, init);
+      && !request.headers.has('range');
+    if (!isPinnedModelAsset) return nativeFetch(request);
 
     try {
       const cached = await readCachedModelAsset(url);
@@ -98,7 +120,7 @@ function installModelFetchCache() {
       // Missing or incomplete files are treated as cache misses.
     }
 
-    const response = await nativeFetch(input, init);
+    const response = await nativeFetch(request);
     if (response.ok && response.status === 200 && !response.headers.has('content-range')) {
       const clone = response.clone();
       const write = persistModelAsset(url, clone).then(() => {
