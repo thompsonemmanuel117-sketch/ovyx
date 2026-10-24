@@ -111,6 +111,10 @@
 
   function applyControls(panel, value) {
     const preferences = normalize(value);
+    window.OVYXAI = {
+      ...(window.OVYXAI && typeof window.OVYXAI === 'object' ? window.OVYXAI : {}),
+      ...preferences
+    };
     panel.querySelectorAll('[data-ai-mode]').forEach(button => {
       button.classList.toggle('selected', button.dataset.aiMode === preferences.mode);
       button.setAttribute('aria-pressed', String(button.dataset.aiMode === preferences.mode));
@@ -434,8 +438,12 @@
   function buildGenerationPayload(payload, preferences) {
     const result = { ...payload };
     const effective = normalize(preferences);
-    const requestedProvider = String(payload.provider || payload.requestedProvider || window.OVYXAI?.provider || 'automatic').trim().toLowerCase() || 'automatic';
+    const explicitProviderChoice = String(payload.provider || payload.requestedProvider || '').trim().toLowerCase();
+    const requestedProvider = explicitProviderChoice || 'automatic';
     const isAutomatic = requestedProvider === 'automatic' || requestedProvider === 'auto';
+    // The legacy global may mirror a saved preference; it is not a per-request
+    // explicit selection. Force automatic unless the caller actually chose one.
+    if (!explicitProviderChoice) result.provider = 'automatic';
     result.preferredProvider = payload.preferredProvider || (isAutomatic ? effective.provider : '');
     result.providerRouting = effective.routing;
     result.fallback = effective.fallback;
