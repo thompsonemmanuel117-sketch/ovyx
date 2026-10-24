@@ -7,6 +7,57 @@ let generator = null;
 let TextStreamerClass = null;
 let loading = false;
 let generating = false;
+const MODEL_CACHE_NAME = 'ovyx-local-ai-cpu-model-v1';
+let modelFetchCacheInstalled = false;
+
+function installModelFetchCache() {
+  if (modelFetchCacheInstalled || typeof globalThis.fetch !== 'function' || typeof caches === 'undefined') return;
+  const nativeFetch = globalThis.fetch.bind(globalThis);
+  globalThis.fetch = async (input, init) => {
+    let request;
+    try {
+      request = input instanceof Request ? new Request(input, init) : new Request(input, init);
+    } catch (_) {
+      return nativeFetch(input, init);
+    }
+    let url;
+    try { url = new URL(request.url); } catch (_) { return nativeFetch(input, init); }
+    const isPinnedModelAsset =
+      request.method === 'GET'
+      && !request.headers.has('range')
+      && (url.hostname === 'huggingface.co' || url.hostname.endsWith('.huggingface.co'))
+      && url.pathname.includes('/' + MODEL_ID + '/');
+    if (!isPinnedModelAsset) return nativeFetch(input, init);
+
+    let cache;
+    try {
+      cache = await caches.open(MODEL_CACHE_NAME);
+      const cached = await cache.match(request, { ignoreVary: true });
+      if (cached) {
+        self.postMessage({ type: 'cache-hit', file: url.pathname.split('/').slice(-2).join('/').slice(0, 120) });
+        return cached;
+      }
+    } catch (_) {
+      // Cache access is an optimization; allow the original network request.
+    }
+
+    const response = await nativeFetch(input, init);
+    if (response.ok && response.status === 200 && !response.headers.has('content-range')) {
+      try {
+        // Await the cloned response write so a completed load cannot race a
+        // reload before the model asset has been committed to Cache Storage.
+        await cache?.put(request, response.clone());
+      } catch (_) {
+        self.postMessage({
+          type: 'cache-warning',
+          message: 'The browser could not persist one local model file. This device may need to download it again after reload.',
+        });
+      }
+    }
+    return response;
+  };
+  modelFetchCacheInstalled = true;
+}
 
 function safeMessage(error) {
   return String(error?.message || error || 'CPU/WASM local inference failed.')
@@ -38,6 +89,7 @@ self.addEventListener('message', async event => {
     }
     loading = true;
     try {
+      installModelFetchCache();
       const { pipeline, TextStreamer: RuntimeTextStreamer, env, LogLevel } = await import(TRANSFORMERS_URL);
       if (typeof pipeline !== 'function' || typeof RuntimeTextStreamer !== 'function') {
         throw new Error('The pinned Transformers.js runtime does not export the text-generation pipeline or TextStreamer API.');
@@ -57,7 +109,9 @@ self.addEventListener('message', async event => {
       };
       env.allowRemoteModels = true;
       env.allowLocalModels = false;
-      env.useBrowserCache = true;
+      // The explicit Cache API wrapper above persists full model files by their pinned URL.
+      // Disable the library's separate cache path, which failed to store these assets in CI.
+      env.useBrowserCache = false;
       env.useWasmCache = true;
       env.logLevel = LogLevel.WARNING;
       generator = await pipeline('text-generation', MODEL_ID, {
