@@ -43,7 +43,21 @@
       files: 'https://huggingface.co/mlc-ai/Qwen3.5-0.8B-q4f16_1-MLC',
       artifactUrl: 'https://huggingface.co/mlc-ai/Qwen3.5-0.8B-q4f16_1-MLC/resolve/0ec1389',
     }),
+    'qwen25-05b-cpu': Object.freeze({
+      id: 'onnx-community/Qwen2.5-0.5B-Instruct',
+      label: 'Qwen2.5 0.5B CPU/WASM',
+      runtime: 'cpu-wasm',
+      revision: 'cc5cc01a65cc3ff17bdb73a7de33d879f62599b0',
+      sizeBytes: 512_000_000,
+      sizeLabel: 'about 512 MB of q8 model weights',
+      vramMB: null,
+      vramLabel: 'No GPU memory requirement',
+      context: 4096,
+      card: 'https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct',
+      files: 'https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct',
+    }),
   });
+  const CPU_RUNTIME_LABEL = '@huggingface/transformers@4.3.1 · ONNX Runtime WASM';
   const SYSTEM_PROMPT = [
     'You are OVYX Local AI, a helpful assistant running on the user’s own device.',
     'Be honest about uncertainty. For code, explain the concrete fix and preserve existing structure when possible.',
@@ -86,6 +100,8 @@
   let gpuAvailable = false;
   let engine = null;
   let worker = null;
+  let cpuReady = false;
+  let activeCpuGeneration = null;
   let loadedModelKey = '';
   let loading = false;
   let generating = false;
@@ -99,6 +115,14 @@
 
   function selectedModelKey() {
     return MODELS[modelSelect.value] ? modelSelect.value : 'qwen35-4b';
+  }
+
+  function isCpuModelKey(key) {
+    return MODELS[key]?.runtime === 'cpu-wasm';
+  }
+
+  function modelIsLoaded(key = loadedModelKey) {
+    return Boolean(key && (isCpuModelKey(key) ? cpuReady : engine));
   }
 
   function setStatus(message, kind = 'info') {
@@ -170,9 +194,10 @@
   }
 
   function refreshControls() {
-    const modelLoaded = Boolean(engine && loadedModelKey);
+    const modelLoaded = modelIsLoaded();
+    const selectedCpu = isCpuModelKey(selectedModelKey());
     startButton.classList.toggle('hidden', modelLoaded);
-    startButton.disabled = !gpuAvailable || loading || generating || modelLoaded;
+    startButton.disabled = (!selectedCpu && !gpuAvailable) || loading || generating || modelLoaded;
     cancelButton.classList.toggle('hidden', !loading);
     cancelButton.disabled = !loading;
     unloadButton.classList.toggle('hidden', !modelLoaded);
@@ -190,7 +215,18 @@
   }
 
   function updateModelDetails() {
-    const model = MODELS[selectedModelKey()];
+    const key = selectedModelKey();
+    const model = MODELS[key];
+    if (isCpuModelKey(key)) {
+      modelDetails.textContent =
+        model.label + ' · Apache-2.0\n' +
+        'Runtime: Transformers.js 4.3.1 + ONNX Runtime WASM (CPU only)\n' +
+        'Approximate q8 model weights: 512 MB, plus tokenizer/runtime/cache overhead\n' +
+        'No WebGPU or GPU memory is required. CPU generation will be slower and this smaller model is not yet quality-certified.\n' +
+        'Pinned model revision: ' + model.revision + '\n' +
+        'Model files: ' + model.files;
+      return;
+    }
     modelDetails.textContent =
       model.label + ' · Apache-2.0\n' +
       'Approximate model files: ' + model.sizeLabel + '\n' +
@@ -237,7 +273,7 @@
       return;
     }
     if (!navigator.gpu || typeof navigator.gpu.requestAdapter !== 'function') {
-      setStatus('WebGPU is not available in this browser. This prototype does not silently switch to a hosted AI service. CPU/WASM support remains a separate evaluation item.', 'error');
+      setStatus('WebGPU is not available in this browser. Choose the explicit CPU/WASM model to test local inference without a GPU. OVYX will not switch models or send prompts to a cloud provider automatically.', 'error');
       refreshControls();
       return;
     }
@@ -250,7 +286,7 @@
       if (gpuAvailable) {
         setStatus('WebGPU is detected. This does not prove enough GPU memory is available; the model load itself must pass. No model has been downloaded.', 'ok');
       } else {
-        setStatus('The browser did not provide a usable WebGPU adapter. No model was downloaded and no hosted fallback will run.', 'error');
+        setStatus('The browser did not provide a usable WebGPU adapter. No WebGPU model was downloaded; choose CPU/WASM explicitly to try the separate local model.', 'error');
       }
     } catch (error) {
       setStatus('WebGPU compatibility check failed: ' + getErrorMessage(error) + ' No model was downloaded.', 'error');
@@ -367,6 +403,8 @@
     worker = null;
     try { currentWorker?.terminate(); } catch (_) {}
     engine = null;
+    cpuReady = false;
+    activeCpuGeneration = null;
     loadedModelKey = '';
     if (typeof reject === 'function') {
       reject(new Error('Model initialization was cancelled by the user.'));
@@ -376,16 +414,171 @@
     refreshControls();
   }
 
-  async function startLocalModel() {
-    if (loading || generating || engine) return;
-    if (!gpuAvailable) {
-      setStatus('No usable WebGPU adapter is available. No remote inference fallback will be attempted.', 'error');
+  async function startCpuLocalModel(key, model) {
+    if (!window.isSecureContext) {
+      setStatus('CPU/WASM local inference requires HTTPS or localhost. No model files were requested.', 'error');
       refreshControls();
       return;
     }
+    const thisLoad = ++loadEpoch;
+    activeLoadMetrics = { modelKey: key, modelId: model.id, startedAt: performance.now() };
+    diagnosticsState.runtime = CPU_RUNTIME_LABEL;
+    diagnosticsState.modelLoad = {
+      modelKey: key,
+      modelId: model.id,
+      modelLabel: model.label,
+      approximateDownloadBytes: model.sizeBytes,
+      estimatedGpuMemoryMB: null,
+      contextTokens: model.context,
+      startedAt: new Date().toISOString(),
+      status: 'loading',
+      lastReportedProgressPercent: 0,
+      runtime: CPU_RUNTIME_LABEL,
+      device: 'wasm',
+    };
+    diagnosticsState.lastError = null;
+    loading = true;
+    cpuReady = false;
+    armLoadWatchdog(thisLoad);
+    showProgress(true, 'Preparing the pinned Transformers.js runtime; the q8 model downloads only after this explicit action…');
+    setStatus('Starting the separately selected CPU/WASM model. No GPU is required and no hosted inference fallback will be used.', 'warn');
+    refreshControls();
 
+    let localWorker = null;
+    try {
+      let estimate = null;
+      try { estimate = await navigator.storage?.estimate?.(); } catch (_) {}
+      const quota = Number(estimate?.quota);
+      const usage = Number(estimate?.usage);
+      const available = Number.isFinite(quota) && quota > 0 && Number.isFinite(usage) ? Math.max(0, quota - usage) : null;
+      let persistent = false;
+      try { persistent = Boolean(await navigator.storage?.persist?.()); } catch (_) {}
+      diagnosticsState.storage = {
+        quotaBytes: Number.isFinite(quota) ? quota : null,
+        usageBytes: Number.isFinite(usage) ? usage : null,
+        estimatedAvailableBytes: available,
+        modelCacheChecked: false,
+        persistentStorageGranted: persistent,
+        runtime: 'Transformers.js browser cache + WASM cache',
+      };
+      if (available !== null && available < model.sizeBytes + 180_000_000) {
+        throw new Error(
+          'This browser estimates only ' + (available / 1e6).toFixed(0) +
+          ' MB of free site storage; the selected q8 weights need about 512 MB plus runtime/cache overhead. Free storage or choose another explicitly listed model.'
+        );
+      }
+      if (thisLoad !== loadEpoch) return;
+
+      localWorker = new Worker('/assets/ovyx-local-ai-cpu-worker.js', { type: 'module', name: 'ovyx-local-ai-cpu-worker' });
+      worker = localWorker;
+      const cancellationPromise = new Promise((_, reject) => { cancelLoadReject = reject; });
+      const readyPromise = new Promise((resolve, reject) => {
+        let settled = false;
+        const cleanup = () => {
+          localWorker.removeEventListener('message', onMessage);
+          localWorker.removeEventListener('error', onError);
+        };
+        const finish = (fn, value) => {
+          if (settled) return;
+          settled = true;
+          cleanup();
+          fn(value);
+        };
+        const onMessage = event => {
+          if (thisLoad !== loadEpoch) return;
+          const data = event.data || {};
+          if (data.type === 'progress') updateProgress({ progress: data.progress, text: data.text });
+          if (data.type === 'ready' && data.modelId === model.id && data.revision === model.revision) finish(resolve, data);
+          if (data.type === 'error') finish(reject, new Error('CPU/WASM ' + String(data.stage || 'model') + ' setup failed: ' + String(data.message || 'Unknown worker error.')));
+        };
+        const onError = event => {
+          finish(reject, new Error('CPU/WASM worker failed to start or load its runtime: ' + getErrorMessage(event?.message || 'Worker error.')));
+          event.preventDefault?.();
+        };
+        localWorker.addEventListener('message', onMessage);
+        localWorker.addEventListener('error', onError);
+        localWorker.postMessage({ type: 'load' });
+      });
+
+      await Promise.race([readyPromise, cancellationPromise]);
+      if (thisLoad !== loadEpoch) {
+        try { localWorker?.terminate(); } catch (_) {}
+        return;
+      }
+      cpuReady = true;
+      loadedModelKey = key;
+      if (diagnosticsState.modelLoad && activeLoadMetrics) {
+        diagnosticsState.modelLoad.status = 'ready';
+        diagnosticsState.modelLoad.finishedAt = new Date().toISOString();
+        diagnosticsState.modelLoad.durationMs = Math.round(performance.now() - activeLoadMetrics.startedAt);
+        diagnosticsState.modelLoad.lastReportedProgressPercent = 100;
+      }
+      let cacheNames = [];
+      try { cacheNames = await caches.keys(); } catch (_) {}
+      diagnosticsState.storage = {
+        ...(diagnosticsState.storage || {}),
+        modelCacheChecked: true,
+        browserCacheApiAvailable: typeof caches !== 'undefined',
+        cacheNameCount: cacheNames.length,
+        cacheNames: cacheNames.map(String).slice(0, 10),
+      };
+      activeLoadMetrics = null;
+      diagnosticsState.lastError = null;
+      clearLoadWatchdog();
+      loading = false;
+      cancelLoadReject = null;
+      showProgress(false);
+      setStatus(
+        'The ' + model.label + ' model loaded in this browser and runs on CPU/WASM. Prompts stay in the local worker; this lab does not call OVYX AI routes or hosted model-inference APIs. This small model still needs the Stage 4 quality benchmark.',
+        'ok'
+      );
+      refreshControls();
+      promptInput.focus();
+    } catch (error) {
+      if (thisLoad !== loadEpoch) return;
+      clearLoadWatchdog();
+      loading = false;
+      cancelLoadReject = null;
+      try { localWorker?.terminate(); } catch (_) {}
+      if (worker === localWorker) worker = null;
+      engine = null;
+      cpuReady = false;
+      loadedModelKey = '';
+      if (diagnosticsState.modelLoad && activeLoadMetrics) {
+        diagnosticsState.modelLoad.status = 'failed';
+        diagnosticsState.modelLoad.finishedAt = new Date().toISOString();
+        diagnosticsState.modelLoad.durationMs = Math.round(performance.now() - activeLoadMetrics.startedAt);
+      }
+      diagnosticsState.lastError = { at: new Date().toISOString(), stage: 'cpu-wasm-model-load', message: getErrorMessage(error) };
+      activeLoadMetrics = null;
+      showProgress(false);
+      setStatus('CPU/WASM model initialization failed. Nothing was sent to a hosted AI provider. ' + getErrorMessage(error) + ' Retry is available; no other model will be selected automatically.', 'error');
+      refreshControls();
+    } finally {
+      if (thisLoad === loadEpoch) {
+        clearLoadWatchdog();
+        cancelLoadReject = null;
+        if (loading && !modelIsLoaded()) {
+          loading = false;
+          refreshControls();
+        }
+      }
+    }
+  }
+
+  async function startLocalModel() {
+    if (loading || generating || modelIsLoaded()) return;
     const key = selectedModelKey();
     const model = MODELS[key];
+    if (isCpuModelKey(key)) {
+      await startCpuLocalModel(key, model);
+      return;
+    }
+    if (!gpuAvailable) {
+      setStatus('No usable WebGPU adapter is available. Choose a supported WebGPU model or explicitly select CPU/WASM; no remote inference fallback will be attempted.', 'error');
+      refreshControls();
+      return;
+    }
     const thisLoad = ++loadEpoch;
     activeLoadMetrics = { modelKey: key, modelId: model.id, startedAt: performance.now() };
     diagnosticsState.modelLoad = {
@@ -467,7 +660,9 @@
         return;
       }
       engine = readyEngine;
+      cpuReady = false;
       loadedModelKey = key;
+      diagnosticsState.runtime = '@mlc-ai/web-llm@0.2.86';
       if (diagnosticsState.modelLoad && activeLoadMetrics) {
         diagnosticsState.modelLoad.status = 'ready';
         diagnosticsState.modelLoad.finishedAt = new Date().toISOString();
@@ -494,6 +689,7 @@
       try { localWorker?.terminate(); } catch (_) {}
       if (worker === localWorker) worker = null;
       engine = null;
+      cpuReady = false;
       loadedModelKey = '';
       if (diagnosticsState.modelLoad && activeLoadMetrics) {
         diagnosticsState.modelLoad.status = 'failed';
@@ -523,16 +719,26 @@
   }
 
   async function unloadLocalModel() {
-    if (!engine || generating || loading) return;
+    if (!modelIsLoaded() || generating || loading) return;
+    const currentKey = loadedModelKey;
+    const cpuModel = isCpuModelKey(currentKey);
     const currentEngine = engine;
     const currentWorker = worker;
     engine = null;
     worker = null;
+    cpuReady = false;
     loadedModelKey = '';
     refreshControls();
-    try { await currentEngine.unload?.(); } catch (_) {}
+    if (!cpuModel) {
+      try { await currentEngine?.unload?.(); } catch (_) {}
+    }
     try { currentWorker?.terminate(); } catch (_) {}
-    setStatus('Model unloaded from active GPU memory. Browser-cached files are kept for a faster retry; use browser site-data controls if you need to remove the cache.', 'ok');
+    setStatus(
+      cpuModel
+        ? 'Model unloaded from the CPU/WASM worker. Browser-cached model/runtime files are kept for a faster retry; use browser site-data controls if you need to remove the cache.'
+        : 'Model unloaded from active GPU memory. Browser-cached files are kept for a faster retry; use browser site-data controls if you need to remove the cache.',
+      'ok'
+    );
     refreshControls();
   }
 
@@ -552,9 +758,48 @@
     return [{ role: 'system', content: SYSTEM_PROMPT }, ...recent, { role: 'user', content: prompt }];
   }
 
+  function requestCpuGeneration(messages, generationId, onText) {
+    const targetWorker = worker;
+    if (!targetWorker || !cpuReady) return Promise.reject(new Error('CPU/WASM worker is not ready.'));
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const cleanup = () => {
+        targetWorker.removeEventListener('message', onMessage);
+        targetWorker.removeEventListener('error', onError);
+        if (activeCpuGeneration?.generationId === generationId) activeCpuGeneration = null;
+      };
+      const finish = (fn, value) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        fn(value);
+      };
+      const onMessage = event => {
+        const data = event.data || {};
+        if (Number(data.generationId) !== generationId) return;
+        if (data.type === 'token') {
+          const piece = String(data.text || '');
+          if (piece) onText(piece);
+          return;
+        }
+        if (data.type === 'complete') finish(resolve, { outputCharacters: Number(data.outputCharacters) || 0 });
+        if (data.type === 'error') finish(reject, new Error('CPU/WASM generation failed: ' + String(data.message || 'Unknown worker error.')));
+      };
+      const onError = event => finish(reject, new Error('CPU/WASM worker stopped unexpectedly: ' + getErrorMessage(event?.message || 'Worker error.')));
+      activeCpuGeneration = {
+        generationId,
+        finish(value) { finish(resolve, value || { stopped: true }); },
+        fail(error) { finish(reject, error instanceof Error ? error : new Error(String(error || 'CPU/WASM generation failed.'))); },
+      };
+      targetWorker.addEventListener('message', onMessage);
+      targetWorker.addEventListener('error', onError);
+      targetWorker.postMessage({ type: 'generate', generationId, messages, maxNewTokens: 384 });
+    });
+  }
+
   async function sendPrompt(event) {
     event?.preventDefault?.();
-    if (!engine || generating || loading) return;
+    if (!modelIsLoaded() || generating || loading) return;
     const prompt = String(promptInput.value || '').trim().slice(0, 2500);
     if (!prompt) return;
 
@@ -565,9 +810,12 @@
     generating = true;
     stopRequested = false;
     const thisGeneration = ++generationEpoch;
+    const modelAtStart = MODELS[loadedModelKey];
     const generationMetrics = {
       modelKey: loadedModelKey,
-      modelId: MODELS[loadedModelKey]?.id || '',
+      modelId: modelAtStart?.id || '',
+      modelLabel: modelAtStart?.label || '',
+      runtime: isCpuModelKey(loadedModelKey) ? CPU_RUNTIME_LABEL : '@mlc-ai/web-llm@0.2.86',
       startedAt: new Date().toISOString(),
       startedAtMonotonic: performance.now(),
       promptCharacters: prompt.length,
@@ -580,33 +828,48 @@
     setStatus('Generating on the selected local model. No external inference API is used by this prototype.', 'ok');
 
     try {
-      const stream = await withGenerationInactivityTimeout(
-        engine.chat.completions.create({
-          messages: buildMessages(prompt),
-          stream: true,
-          temperature: 0.6,
-          top_p: 0.9,
-          max_tokens: 768,
-        }),
-        'The local model did not start responding within 2 minutes.',
-      );
-      const iterator = stream[Symbol.asyncIterator]();
       let answer = '';
-      while (thisGeneration === generationEpoch) {
-        const next = await withGenerationInactivityTimeout(
-          iterator.next(),
-          'The local model stopped producing tokens for 2 minutes.',
+      if (isCpuModelKey(generationMetrics.modelKey)) {
+        await withGenerationInactivityTimeout(
+          requestCpuGeneration(buildMessages(prompt), thisGeneration, piece => {
+            if (thisGeneration !== generationEpoch || !piece) return;
+            if (generationMetrics.firstTokenMs === null) {
+              generationMetrics.firstTokenMs = Math.round(performance.now() - generationMetrics.startedAtMonotonic);
+            }
+            answer += piece;
+            assistantBody.textContent = answer;
+            chatLog.scrollTop = chatLog.scrollHeight;
+          }),
+          'The CPU/WASM model did not finish generating a response within 2 minutes.',
         );
-        if (next.done) break;
-        const chunk = next.value;
-        const delta = chunk?.choices?.[0]?.delta?.content;
-        if (typeof delta === 'string' && delta) {
-          if (generationMetrics.firstTokenMs === null) {
-            generationMetrics.firstTokenMs = Math.round(performance.now() - generationMetrics.startedAtMonotonic);
+      } else {
+        const stream = await withGenerationInactivityTimeout(
+          engine.chat.completions.create({
+            messages: buildMessages(prompt),
+            stream: true,
+            temperature: 0.6,
+            top_p: 0.9,
+            max_tokens: 768,
+          }),
+          'The local model did not start responding within 2 minutes.',
+        );
+        const iterator = stream[Symbol.asyncIterator]();
+        while (thisGeneration === generationEpoch) {
+          const next = await withGenerationInactivityTimeout(
+            iterator.next(),
+            'The local model stopped producing tokens for 2 minutes.',
+          );
+          if (next.done) break;
+          const chunk = next.value;
+          const delta = chunk?.choices?.[0]?.delta?.content;
+          if (typeof delta === 'string' && delta) {
+            if (generationMetrics.firstTokenMs === null) {
+              generationMetrics.firstTokenMs = Math.round(performance.now() - generationMetrics.startedAtMonotonic);
+            }
+            answer += delta;
+            assistantBody.textContent = answer;
+            chatLog.scrollTop = chatLog.scrollHeight;
           }
-          answer += delta;
-          assistantBody.textContent = answer;
-          chatLog.scrollTop = chatLog.scrollHeight;
         }
       }
       if (thisGeneration === generationEpoch && answer.trim()) {
@@ -614,25 +877,39 @@
         generationMetrics.outputCharacters = answer.length;
         conversation.push({ role: 'assistant', content: answer.slice(0, 7000) });
         if (stopRequested) {
-          setStatus('The local response was stopped. Partial text is retained in this page memory only.', 'warn');
+          const cpuWasTerminated = isCpuModelKey(generationMetrics.modelKey);
+          setStatus(
+            cpuWasTerminated
+              ? 'CPU response stopped. Its worker was terminated to release CPU time; start the model again to continue. Cached model files may be reused.'
+              : 'The local response was stopped. Partial text is retained in this page memory only.',
+            'warn'
+          );
         } else {
-          setStatus('Local response received from ' + MODELS[loadedModelKey].label + '. This is a prototype result, not yet a quality acceptance result.', 'ok');
+          setStatus('Local response received from ' + (generationMetrics.modelLabel || generationMetrics.modelId) + '. This is a prototype result, not yet a quality acceptance result.', 'ok');
         }
       } else if (thisGeneration === generationEpoch) {
         generationMetrics.status = stopRequested ? 'stopped-empty' : 'empty';
         assistantBody.textContent = stopRequested ? 'Response stopped before any text was generated.' : 'The local model returned no text. Try a shorter prompt or retry.';
-        setStatus(stopRequested ? 'Local generation stopped.' : 'The local model returned an empty answer.', stopRequested ? 'warn' : 'error');
+        setStatus(
+          stopRequested && isCpuModelKey(generationMetrics.modelKey)
+            ? 'CPU response stopped and the worker was released. Start the model again to continue.'
+            : (stopRequested ? 'Local generation stopped.' : 'The local model returned an empty answer.'),
+          stopRequested ? 'warn' : 'error'
+        );
       }
     } catch (error) {
       if (thisGeneration === generationEpoch && error?.code === 'LOCAL_GENERATION_IDLE_TIMEOUT') {
         // If a stream stalls, terminate the worker so the UI can recover instead of
         // leaving the user with a spinner. A retry must explicitly reload the model.
         try { engine?.interruptGenerate?.(); } catch (_) {}
+        try { activeCpuGeneration?.finish({ stopped: true }); } catch (_) {}
         try { worker?.terminate(); } catch (_) {}
         generationMetrics.status = 'timeout';
         diagnosticsState.lastError = { at: new Date().toISOString(), stage: 'generation', code: error.code, message: getErrorMessage(error) };
         engine = null;
         worker = null;
+        cpuReady = false;
+        activeCpuGeneration = null;
         loadedModelKey = '';
         assistantBody.textContent = 'Local generation timed out. The model was unloaded so you can retry safely.';
         setStatus(
@@ -662,9 +939,21 @@
   }
 
   function stopGeneration() {
-    if (!generating || !engine) return;
+    if (!generating) return;
     stopRequested = true;
     setStatus('Stopping local generation…', 'warn');
+    if (isCpuModelKey(loadedModelKey)) {
+      try { activeCpuGeneration?.finish({ stopped: true }); } catch (_) {}
+      const currentWorker = worker;
+      worker = null;
+      cpuReady = false;
+      engine = null;
+      loadedModelKey = '';
+      try { currentWorker?.terminate(); } catch (_) {}
+      refreshControls();
+      return;
+    }
+    if (!engine) return;
     try {
       engine.interruptGenerate();
     } catch (error) {
@@ -690,7 +979,7 @@
     const report = {
       schemaVersion: 1,
       createdAt: new Date().toISOString(),
-      runtime: diagnosticsState.runtime,
+      runtime: modelIsLoaded() ? diagnosticsState.runtime : (isCpuModelKey(selectedModelKey()) ? CPU_RUNTIME_LABEL : '@mlc-ai/web-llm@0.2.86'),
       environment: {
         userAgent: navigator.userAgent || 'unknown',
         platform: navigator.platform || 'unknown',
@@ -707,9 +996,11 @@
         modelId: model.id,
         label: model.label,
         approximateDownloadBytes: model.sizeBytes,
+        runtime: isCpuModelKey(selectedModelKey()) ? CPU_RUNTIME_LABEL : '@mlc-ai/web-llm@0.2.86',
+        executionDevice: isCpuModelKey(selectedModelKey()) ? 'wasm' : 'webgpu',
         estimatedGpuMemoryMB: model.vramMB,
         configuredContextTokens: model.context,
-        loadedInPage: Boolean(engine && loadedModelKey),
+        loadedInPage: modelIsLoaded(),
         activeModelId: loadedModelKey ? (MODELS[loadedModelKey]?.id || '') : '',
       },
       storage,
@@ -752,6 +1043,14 @@
 
   modelSelect.addEventListener('change', () => {
     updateModelDetails();
+    const key = selectedModelKey();
+    if (isCpuModelKey(key)) {
+      setStatus('CPU/WASM selected explicitly. It does not require WebGPU and will load only when you press Download and start local AI.', 'ok');
+    } else if (gpuAvailable) {
+      setStatus('WebGPU is detected. The selected model must still pass its own runtime, shader and memory checks.', 'ok');
+    } else {
+      setStatus('WebGPU is not available. Choose CPU/WASM explicitly or use this selected WebGPU model on a compatible device. OVYX will not switch automatically.', 'error');
+    }
     refreshControls();
   });
   startButton.addEventListener('click', () => { void startLocalModel(); });
@@ -763,6 +1062,7 @@
   clearButton.addEventListener('click', clearChat);
   prepareDiagnosticsButton?.addEventListener('click', () => { void prepareDiagnosticRecord(); });
   window.addEventListener('pagehide', () => {
+    try { activeCpuGeneration?.finish({ stopped: true }); } catch (_) {}
     try { worker?.terminate(); } catch (_) {}
   });
 
