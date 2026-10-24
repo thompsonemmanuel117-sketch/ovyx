@@ -200,6 +200,7 @@ Never fill measured fields with estimates. Use `null` and `not tested` until obs
 ## Current blockers and handoff
 
 - Stage 2 selection is complete: Qwen3.5-4B q4f16_1 MLC is the first candidate, with 2B as a low-resource comparison.
-- Stage 3 remains open: latest mocked desktop/mobile Chromium run failed because the Cancel control disappeared/become unclickable during initialization. The mock does not prove a real model load or inference.
-- Real 2.39 GB download, genuine answer, cache lifecycle, physical target Android/desktop tests, cold/warm timing and network-capture evidence are not yet recorded.
-- Therefore **Stage 4 has a fixed plan and prompt suite, but no empirical quality result yet**. Run the suite only after Stage 3 produces a genuine local answer. Do not connect the lab to main OVYX AI routes or migrate any provider-dependent feature based on mock results.
+- Stage 3 remains open. The latest merged desktop/mobile Chromium contract run passes, including the Cancel control and the CPU/WASM path. A separate genuine CPU/WASM lab acceptance run proves a local Qwen2.5-0.5B response, persistent OPFS weight reuse after reload, active-generation Stop, and no prompt egress to hosted inference.
+- The Stage 2 primary candidate Qwen3.5-4B q4f16_1 MLC has NOT passed genuine WebGPU load/inference. The latest available WebGPU smoke failed in headless Chromium during shader validation (depthwise_conv1d_kernel); this does not prove failure on every physical GPU, but it is a real failed test and must remain visible.
+- Recovery from interrupted/failed downloads, cache eviction and low storage, plus real target Android and desktop-device acceptance, still need evidence. The CI CPU/WASM model is a compatibility path, not a quality-certified replacement for the Stage 2 candidate.
+- Therefore **Stage 4 has a fixed plan and prompt suite, but no empirical intelligence-quality result yet**. Run the benchmark after the intended target device has a genuine successful local model response. Do not connect the lab to main OVYX AI routes or migrate provider-dependent features based on mocked results.
