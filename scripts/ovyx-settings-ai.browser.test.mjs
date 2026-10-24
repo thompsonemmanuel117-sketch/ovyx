@@ -47,6 +47,7 @@ try {
     });
     const aiPreferenceRequests = [];
     let failNextPreferencePut = false;
+    let serverUpdatedAt = null;
     let serverPreferences = {
       mode: 'balanced', model: 'automatic', provider: 'gemini',
       explain: true, preserve: true, confirmDestructive: false,
@@ -70,7 +71,10 @@ try {
         });
         return;
       }
-      if (request.method() === 'PUT') serverPreferences = { ...serverPreferences, ...(body?.preferences || {}) };
+      if (request.method() === 'PUT') {
+        serverPreferences = { ...serverPreferences, ...(body?.preferences || {}) };
+        serverUpdatedAt = '2026-10-24T05:00:00.000Z';
+      }
       await route.fulfill({
         status: request.method() === 'GET' || request.method() === 'PUT' ? 200 : 405,
         contentType: 'application/json',
@@ -78,7 +82,7 @@ try {
         body: JSON.stringify({
           ok: true,
           preferences: serverPreferences,
-          updatedAt: '2026-10-19T20:00:00.000Z',
+          updatedAt: serverUpdatedAt,
           authority: 'SERVER',
           scope: 'account',
         }),
@@ -125,6 +129,17 @@ try {
 
     await page.evaluate(() => window.Router.go('settings'));
     await page.locator('#view-settings').waitFor({ state: 'visible' });
+    // Simulate preferences saved on this device by the older client before the
+    // account-backed endpoint existed. The first account load must migrate them.
+    await page.evaluate(() => localStorage.setItem(window.OVYXAIStorageKey(), JSON.stringify({
+      mode: 'fast',
+      provider: 'deepseek',
+      model: 'automatic',
+      routing: 'automatic',
+      fallback: 'next',
+      contextLimit: 'automatic',
+      budget: 'automatic',
+    })));
     await page.evaluate(() => window.OVYXSettings.show('ai'));
     const panel = page.locator('[data-settings-panel="ai"]');
     await panel.locator('#set-ai-save').waitFor({ state: 'visible' });
@@ -133,6 +148,9 @@ try {
       null,
       { timeout: 10000 },
     );
+    assert.equal(serverPreferences.mode, 'fast', '[' + target.name + '] legacy local preferences must migrate when the account has no saved preferences.');
+    assert.equal(serverPreferences.provider, 'deepseek', '[' + target.name + '] migration must preserve the account user’s existing local provider preference.');
+    assert.ok(aiPreferenceRequests.some(request => request.method === 'PUT'), '[' + target.name + '] legacy migration must create the account-scoped preference document.');
 
     const key = await page.evaluate(() => window.OVYXAIStorageKey());
     await page.evaluate(key => localStorage.removeItem(key), key);
