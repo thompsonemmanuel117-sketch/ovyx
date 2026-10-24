@@ -27,7 +27,7 @@ assert.match(page, /Download and start local AI/);
 assert.match(page, /Nothing is downloaded until you press the explicit start button/i);
 assert.match(page, /assets\/ovyx-local-ai-prototype\.js/);
 assert.match(page, /option value="qwen25-05b-cpu"/, 'the CPU/WASM model must be explicitly selectable rather than a silent fallback');
-assert.match(page, /OVYX will not switch models or send prompts to a cloud provider automatically/i);
+assert.match(page, /OVYX never switches models or sends prompts to a cloud provider automatically/i);
 assert.doesNotMatch(page, /ovyx-assistant-workspace\.js|assets\/ovyx-launch-polish\.js|index\.html/);
 
 const middlewarePathCheck = "const normalizedPath = url.pathname.replace(/\\/+$/, '').toLowerCase();";
