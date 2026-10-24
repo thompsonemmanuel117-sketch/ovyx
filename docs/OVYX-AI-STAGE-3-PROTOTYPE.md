@@ -6,20 +6,21 @@
 
 ## What is implemented
 
-- Dedicated `/local-ai-lab.html`; it must be excluded from the normal Pages Functions middleware so the main OVYX shell does not silently inject provider-dependent app scripts.
-- WebLLM is pinned to `@mlc-ai/web-llm@0.2.86`. It is dynamically imported only after a person explicitly activates “Download and start local AI”.
-- The selected Qwen3.5-4B q4f16_1 model is the primary candidate (approx. 2.39 GB files, registry reports approx. 3.87 GB GPU memory). Qwen3.5-2B q4f16_1 is a manually selected lower-resource comparison (approx. 1.08 GB files, approx. 2.25 GB GPU memory).
-- The page checks WebGPU and site-storage estimates, checks the pinned runtime registry/cache, displays runtime initialization progress, supports cancellation, allows retry, streams model output, supports interrupt/unload and keeps a bounded in-memory conversation.
-- The dedicated prototype has no OVYX API calls, account auth, project context, saved chat history, project write tools or hosted model fallback. The current main OVYX engine and its safety controls remain untouched.
-- Local model artifacts/runtime are downloaded only after user opt-in. Public file/runtime hosts provide code/model artifacts; prompts must remain local.
+- Dedicated `/local-ai-lab.html` is explicitly excluded from the main Pages middleware under both the `.html` URL and Cloudflare's canonical extensionless `/local-ai-lab` route. Both URL forms carry the COOP/COEP isolation headers; the main OVYX shell must not inject provider-dependent workspace scripts.
+- WebLLM is pinned to `@mlc-ai/web-llm@0.2.86`. Runtime code is dynamically imported only after the person explicitly activates “Download and start local AI”.
+- Qwen3.5-4B `q4f16_1` is the primary candidate (about 2.39 GB model files; WebLLM registry estimates about 3.87 GB GPU memory). Qwen3.5-2B `q4f16_1` is an optional manual comparison (about 1.08 GB files; registry estimates about 2.25 GB GPU memory).
+- The official WebLLM registry includes both selected model IDs. The prototype pins Qwen model-artifact revisions (`44b4246` for 4B and `dd74e9c` for 2B) and the compiled MLC library to repository commit `00fe7a40e57e5e8eb9fef87526a4bf28ad5846c0`; it passes the same pinned app configuration to cache checks and engine initialization.
+- The page checks WebGPU and site-storage estimates, checks runtime registration/cache, displays progress, supports cancel/retry, streams response tokens, supports interrupt/unload, and bounds the in-memory conversation and prompt context.
+- The dedicated prototype has no OVYX AI API calls, account auth, project context, saved server-side history, project write tools or hosted inference fallback. Existing main OVYX AI routes and their safeguards remain untouched.
+- Runtime/model artifacts are downloaded only after explicit opt-in. Public runtime/model hosts may serve the code and weights; prompts must remain local.
 
 ## Compatibility evidence
 
-The official WebLLM `v0.2.86` source registry lists `Qwen3.5-4B-q4f16_1-MLC` and references `web-llm-models/v0_2_86/base/Qwen3.5-4B-q4f16_1_cs1k-webgpu.wasm`; that versioned WASM path exists in the official MLC binary library tree. Registry values show a 4,096-token configured context and approximately 3.87 GB GPU memory. Source/asset compatibility alone is not proof of a successfully loaded model or good quality.
+The official WebLLM `v0.2.86` source registry lists `Qwen3.5-4B-q4f16_1-MLC` and `Qwen3.5-2B-q4f16_1-MLC`. The pinned 4B model-library path is `web-llm-models/v0_2_86/base/Qwen3.5-4B-q4f16_1_cs1k-webgpu.wasm`, which exists in the official MLC binary library tree at the pinned commit. The registry records a 4,096-token configured context and about 3.87 GB GPU memory for the 4B model. The browser contract test checks that the app config passed to WebLLM carries the expected pinned artifact/library URLs. This is source/config and mocked-browser evidence only—not a real successful model download/load, answer, latency measurement or quality result.
 
 ## Open Stage 3 acceptance gates
 
-- [ ] Static contract and real-browser regression passes on desktop and mobile viewports.
+- [ ] Current static contract and mocked-browser regression workflow passes on desktop and mobile viewports. These tests validate UI and isolation contracts, not real inference.
 - [ ] In a real browser, an explicit model load downloads files, reports actual progress and completes without mock fixtures.
 - [ ] A genuine prompt gets a response from the local model. Record browser/device/OS, GPU/WebGPU status, runtime version, selected model, download duration/size, time to first token, total response time and any memory/device errors.
 - [ ] Reopening/reloading reuses the valid model cache; cleared/evicted cache, interrupted download, low storage and failed network downloads recover clearly.
