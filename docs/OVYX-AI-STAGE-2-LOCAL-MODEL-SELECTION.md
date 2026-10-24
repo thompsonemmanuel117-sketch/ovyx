@@ -30,7 +30,11 @@ Prototype against the open-source **MLC-LLM / WebLLM** path and its model/runtim
 - Higher-resource comparison: [MLC Qwen3.5-9B q4f16_1, 5.06 GB](https://huggingface.co/mlc-ai/Qwen3.5-9B-q4f16_1-MLC)
 - Runtime reference: [MLC WebLLM project](https://github.com/mlc-ai/web-llm) and [MLC models catalogue](https://huggingface.co/mlc-ai/models)
 
-Do **not** assume all three sizes are supported by the same installed WebLLM version or compile configuration just because quantized artifacts exist. Stage 3 must pin and verify the actual runtime version, model config, and browser support. If the first model/runtime pair is incompatible, stop and fix the compatibility issue or select a verified MLC model; do not silently substitute a paid provider.
+**Important runtime-compatibility caveat:** the upstream [WebLLM project](https://github.com/mlc-ai/web-llm) says its built-in `prebuiltAppConfig.model_list` supports only a subset of the full MLC model catalogue; its documented built-in Qwen family currently names Qwen2 sizes. The Qwen3.5-4B MLC artifact exists and is labelled for MLC/WebLLM use by community/MLC artifact metadata, but that is **not proof it is available in the prebuilt WebLLM registry**. It may require a verified custom model record/build and compatible kernels/runtime. Stage 3 must inspect the exact pinned runtime's model list/config and run a real model-load smoke test before selecting this as the integrated model.
+
+To avoid blocking the project on a custom compilation, keep this known-WebLLM-artifact alternative ready for the first integration smoke test: [`mlc-ai/Qwen3-4B-q4f16_1-MLC`](https://huggingface.co/mlc-ai/Qwen3-4B-q4f16_1-MLC), listed at about 2.28 GB and explicitly described by its artifact card for MLC-LLM and WebLLM use. This Qwen3 checkpoint is a **compatibility fallback model, not a cloud-provider fallback**. Compare its output quality in Stage 4. Do not assume it is prebuilt into every WebLLM version either; confirm `prebuiltAppConfig.model_list` for the pinned version.
+
+Do **not** assume all three Qwen3.5 sizes are supported by the same installed WebLLM version or compile configuration merely because quantized artifacts exist. If the first model/runtime pair is incompatible, stop and fix compatibility or select the verified local Qwen3 alternative; do not silently substitute a paid provider.
 
 ## Constraints we must tell the truth about
 
@@ -56,7 +60,7 @@ References:
 
 The following must pass before any current AI path is migrated:
 
-- [ ] Pin a reproducible WebLLM/MLC runtime version and verify Qwen3.5-4B actually loads in supported Chromium desktop and Android/mobile browsers. Model-card availability alone is not runtime proof.
+- [ ] Pin a reproducible WebLLM/MLC runtime version; inspect `prebuiltAppConfig.model_list`; determine whether Qwen3.5-4B needs a custom record/build; verify actual load in supported Chromium desktop and Android/mobile browsers. If that fails, test the Qwen3-4B MLC local alternative. Artifact availability alone is not runtime proof.
 - [ ] Show capability, required download size, model-download progress, cache status, cancel, retry, and low-storage/network errors.
 - [ ] Verify model cache reuse after reload and handle cleared/evicted storage gracefully.
 - [ ] Stream tokens without UI freezes; test cancel while downloading, initializing, and generating.
@@ -68,4 +72,4 @@ The following must pass before any current AI path is migrated:
 
 ## Stage exit decision
 
-Stage 2 may be considered selected when this decision record is committed. It is **not** permission to replace the current routes. Stage 3 is a reversible, isolated local-inference prototype; Stage 4 measures real output quality. If the 4B model fails the website-generation bar, retain the evidence and compare the 9B local option and the larger self-hosted coder model before any migration.
+**Stage 2 status: COMPLETE — candidate selected and recorded.** It is **not** permission to replace the current routes. Stage 3 is a reversible, isolated local-inference prototype; Stage 4 measures real output quality. If the 4B model fails the website-generation bar, retain the evidence and compare the 9B local option and the larger self-hosted coder model before any migration.
