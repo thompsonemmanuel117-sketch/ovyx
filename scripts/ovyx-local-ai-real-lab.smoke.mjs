@@ -94,33 +94,57 @@ async function waitForCpuAnswer(page, label) {
 
 async function readCacheEvidence(page) {
   return page.evaluate(async () => {
-    if (typeof caches === 'undefined') {
-      return { cacheApiAvailable: false, cacheNames: [], cacheEntryCount: 0, cacheKeyFileNames: [], modelWeightEntries: 0, modelWeightUrls: [] };
-    }
-    const names = await caches.keys().catch(() => []);
     const result = {
-      cacheApiAvailable: true,
-      cacheNames: names.map(String).slice(0, 20),
+      cacheApiAvailable: typeof caches !== 'undefined',
+      cacheNames: [],
       cacheEntryCount: 0,
       cacheKeyFileNames: [],
       modelWeightEntries: 0,
       modelWeightUrls: [],
+      opfsAvailable: false,
+      opfsEntryCount: 0,
+      opfsModelWeightEntries: 0,
+      opfsModelWeightUrls: [],
     };
-    for (const name of names) {
-      let entries = [];
-      try { entries = await (await caches.open(name)).keys(); } catch (_) {}
-      result.cacheEntryCount += entries.length;
-      for (const request of entries) {
-        let path = '';
-        try { path = new URL(request.url).pathname; } catch (_) {}
-        const fileName = path.split('/').slice(-2).join('/');
-        if (fileName && result.cacheKeyFileNames.length < 12) result.cacheKeyFileNames.push(fileName);
-        if (/\/(?:model|model_[a-z0-9]+)\.onnx$/i.test(path)) {
-          result.modelWeightEntries += 1;
-          result.modelWeightUrls.push(fileName);
+    if (typeof caches !== 'undefined') {
+      const names = await caches.keys().catch(() => []);
+      result.cacheNames = names.map(String).slice(0, 20);
+      for (const name of names) {
+        let entries = [];
+        try { entries = await (await caches.open(name)).keys(); } catch (_) {}
+        result.cacheEntryCount += entries.length;
+        for (const request of entries) {
+          let path = '';
+          try { path = new URL(request.url).pathname; } catch (_) {}
+          const fileName = path.split('/').slice(-2).join('/');
+          if (fileName && result.cacheKeyFileNames.length < 12) result.cacheKeyFileNames.push(fileName);
+          if (/\/(?:model|model_[a-z0-9]+)\.onnx$/i.test(path)) {
+            result.modelWeightEntries += 1;
+            result.modelWeightUrls.push(fileName);
+          }
         }
       }
     }
+    try {
+      if (typeof navigator.storage?.getDirectory === 'function') {
+        const root = await navigator.storage.getDirectory();
+        result.opfsAvailable = true;
+        for await (const [name, handle] of root.entries()) {
+          result.opfsEntryCount += 1;
+          if (!name.endsWith('.meta') || handle.kind !== 'file') continue;
+          try {
+            const metadata = JSON.parse(await (await handle.getFile()).text());
+            const path = String(metadata.urlPath || '');
+            if (/\/(?:model|model_[a-z0-9]+)\.onnx$/i.test(path)) {
+              result.opfsModelWeightEntries += 1;
+              result.opfsModelWeightUrls.push(path.split('/').slice(-2).join('/'));
+            }
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+    result.modelWeightEntries += result.opfsModelWeightEntries;
+    result.modelWeightUrls.push(...result.opfsModelWeightUrls);
     return result;
   });
 }
@@ -192,6 +216,7 @@ try {
     cacheNames: firstCache.cacheNames,
     cacheEntryCount: firstCache.cacheEntryCount,
     cachedWeightKeyCount: firstCache.modelWeightEntries,
+    opfsModelWeightEntries: firstCache.opfsModelWeightEntries,
     cachedFileNameSamples: firstCache.cacheKeyFileNames.slice(0, 8),
   }));
   assert.ok(firstCache.cacheApiAvailable, 'Browser Cache API is unavailable; local model caching cannot be verified.');
@@ -235,11 +260,12 @@ try {
   await waitForCpuReady(page, 'Reload/cache load');
   const reloadLoadDurationMs = Date.now() - reloadStartedAt;
   const secondCache = await readCacheEvidence(page);
-  assert.ok(secondCache.cacheEntryCount > 0, 'Browser Cache Storage must remain populated after a page reload.');
+  assert.ok(secondCache.opfsAvailable && secondCache.opfsModelWeightEntries > 0, 'OPFS must retain the ONNX model weight after a page reload.');
   console.log('Browser cache evidence after reload: ' + JSON.stringify({
     cacheNames: secondCache.cacheNames,
     cacheEntryCount: secondCache.cacheEntryCount,
     cachedWeightKeyCount: secondCache.modelWeightEntries,
+    opfsModelWeightEntries: secondCache.opfsModelWeightEntries,
     cachedFileNameSamples: secondCache.cacheKeyFileNames.slice(0, 8),
   }));
   assert.equal(reloadWeightRequests, 0,
