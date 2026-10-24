@@ -215,6 +215,12 @@ try {
   })();
   assert.equal(firstDiagnostics.selectedModel.modelId, 'onnx-community/Qwen2.5-0.5B-Instruct');
   assert.equal(firstDiagnostics.selectedModel.executionDevice, 'wasm');
+  console.log('Sanitized cache diagnostics: ' + JSON.stringify({
+    cacheNames: firstDiagnostics.storage?.cacheNames,
+    cacheEntryCount: firstDiagnostics.storage?.cacheEntryCount,
+    cacheWarnings: firstDiagnostics.storage?.cacheWarnings || [],
+    storageEstimateBytes: firstDiagnostics.storage?.estimatedAvailableBytes ?? null,
+  }));
   assert.ok(firstDiagnostics.recentGenerationMetrics.some(item => item.status === 'complete'));
   assert.ok(!JSON.stringify(firstDiagnostics).includes(prompts[0]),
     'Diagnostics must not contain prompt text.');
