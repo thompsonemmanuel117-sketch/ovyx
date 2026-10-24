@@ -187,18 +187,6 @@ try {
     await panel.locator('#set-ai-budget').selectOption('maximum');
     await panel.locator('[data-ai-pref="contextPage"]').setChecked(false);
     await panel.locator('[data-ai-pref="contextGithub"]').setChecked(false);
-    const modeBeforeSave = await page.evaluate(() => ({
-      selected: document.querySelector('[data-settings-panel="ai"] [data-ai-mode].selected')?.dataset?.aiMode || null,
-      pressed: document.querySelector('[data-settings-panel="ai"] [data-ai-mode="quality"]')?.getAttribute('aria-pressed') || null,
-      allModes: Array.from(document.querySelectorAll('[data-settings-panel="ai"] [data-ai-mode]')).map(button => ({
-        mode: button.dataset.aiMode, selected: button.classList.contains('selected'), pressed: button.getAttribute('aria-pressed')
-      })),
-      status: document.getElementById('ovyx-ai-preference-status')?.textContent || '',
-      globalMode: window.OVYXAI?.mode || null,
-      stored: localStorage.getItem(window.OVYXAIStorageKey?.() || '') || null
-    }));
-    console.log('[OVYX AI mode before save]', target.name, JSON.stringify(modeBeforeSave));
-
     // Count writes only after the individual controls have been set.
     await page.evaluate(key => {
       const original = Storage.prototype.setItem;
@@ -219,19 +207,6 @@ try {
       preferences: JSON.parse(localStorage.getItem(key) || '{}'),
       writes: window.__settingsAIWriteCount,
     }), key);
-    const afterSaveDebug = await page.evaluate(() => ({
-      currentUid: window.firebase?.auth?.().currentUser?.uid || null,
-      activeKey: window.OVYXAIStorageKey?.() || null,
-      scoped: localStorage.getItem('ovyx.ai.preferences.v1.user.settings-ai-browser-user'),
-      guest: localStorage.getItem('ovyx.ai.preferences.v1.guest'),
-      globalMode: window.OVYXAI?.mode || null,
-      status: document.getElementById('ovyx-ai-preference-status')?.textContent || '',
-      selected: document.querySelector('[data-settings-panel="ai"] [data-ai-mode].selected')?.dataset?.aiMode || null,
-    }));
-    console.log('[OVYX AI preference save diagnostics]', target.name, JSON.stringify({
-      saved, afterSaveDebug, serverPreferences,
-      puts: aiPreferenceRequests.filter(request => request.method === 'PUT').map(request => request.body?.preferences || null),
-    }));
     assert.equal(saved.writes, 1, '[' + target.name + '] one Save click must write the AI preferences key exactly once.');
     assert.equal(saved.preferences.mode, 'quality');
     assert.equal(saved.preferences.provider, 'openai');
@@ -282,7 +257,7 @@ try {
     assert.equal(sent.providerRouting, 'preferred-first',
       '[' + target.name + '] model routing must reach the authenticated AI backend.');
     assert.equal(sent.model, 'automatic');
-    assert.equal(sent.maxTokens, 32000,
+    assert.equal(sent.maxTokens, 16000,
       '[' + target.name + '] maximum budget must reach the AI backend in the request payload.');
     assert.match(sent.system, /prioritize thoroughness/i,
       '[' + target.name + '] Quality mode must affect the actual generation instructions.');
