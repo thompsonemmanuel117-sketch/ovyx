@@ -10,7 +10,7 @@
 | Stage 1 — AI source and dependency audit | **Complete** | PR #243 merged. Audit covers routes, providers, model identifiers, quota/history, safety and known evidence gaps. |
 | AI Preferences foundation | **Complete** | PR #244 merged as `d48d7d6a70efb1a9f54fd155b5cc7d64ab5c232e`. Account-scoped load/save/reset and settings-to-request propagation passed desktop/mobile browser tests and pre-merge checks. |
 | Stage 2 — first local-model selection | **Complete** | PR #246 merged as `a4a114a188fac0943cc2c5b535261d59004c3133`. Qwen3.5-4B `q4f16_1` MLC selected as a **prototype candidate**, not yet integrated or quality-certified. |
-| Stage 3 — local browser inference prototype | **Not started** | Pin the runtime and verify that the selected model actually loads on supported browsers/devices. Add explicit opt-in download, progress/cancel/retry, valid cache reuse, token streaming, cancellation, bounded memory/context and clear unsupported/low-storage errors. |
+| Stage 3 — local browser inference prototype | **In progress — isolated prototype on branch** | `local-ai-lab.html` and `assets/ovyx-local-ai-prototype.js` now provide explicit start, WebGPU checks, model/cache checks, progress, cancel/unload and streamed local chat. The 2B comparison is optional/explicit. Must pass the dedicated browser contract, then produce real responses with actual WebGPU/model files on target desktop and Android/mobile browsers. Mocked-engine tests do not close Stage 3. |
 | Stage 4 — local intelligence benchmarks | **Not started** | Compare real outputs against a fixed suite: coding/debugging, single-page and multi-page websites, app scaffolding, project edits, bug repair and UI interactions. Record real outputs, latency, failures, browser builds, viewport screenshots and device class. No claim of equivalent intelligence until measured. |
 | Stage 5 onward — reusable intelligence, project tools, staged feature migration | **Not started** | Migrate only after Stage 3/4 gates. Keep each feature reversible and retain existing paths until actual acceptance tests pass. |
 | External-provider and duplicate-adapter retirement | **Blocked by migration** | Trace all callers/imports and production paths, then show no active feature depends on the old route before removing any adapter/secret. Never remove credentials as a shortcut. |
@@ -55,6 +55,13 @@ These are ongoing release gates, not optional cleanups:
 - Do not launch billable full-generation acceptance or real external enquiry/email probes as a routine CI side effect. Use the documented preflight, then explicit owner-approved acceptance.
 - Keep current hosted AI routes available until each migrated feature has passed the same or stronger end-to-end tests. No wholesale removal or route switch before evidence.
 - A workflow that is green because it used mocked responses, fixtures, or `preflight-only` does not count as proof of production generation/delivery.
+
+## Stage 3 prototype evidence log
+
+- Branch: `feat/stage-3-browser-local-ai-prototype`; current work is intentionally isolated from the main OVYX chat and generation routes.
+- Model/runtime source check: official WebLLM `v0.2.86` registry contains the Qwen3.5-4B model ID; the matching versioned WASM path exists in the official MLC binary library repository. This is not a real load/inference test.
+- The lab does not call OVYX AI routes, does not attach project/account context, and does not silently switch to a hosted model. It currently keeps prototype chat history in page memory only.
+- Still unproven: real 2.39 GB download/cache lifecycle, genuine inference, answer quality, speed, memory, cancellation during actual inference, browser network-capture evidence, and compatibility on supported physical Android/mobile and desktop devices. Keep Stage 3 open until these are tested.
 
 ## Evidence log
 
