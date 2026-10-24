@@ -351,6 +351,25 @@ try {
     assert.equal(serverPreferences.routing, 'automatic');
     assert.equal(serverPreferences.fallback, 'next');
 
+    // Automatic budget must preserve the caller's existing allowance rather
+    // than clamping Web Studio generation to the ordinary assistant default.
+    const automaticBudget = await page.evaluate(async () => {
+      try {
+        await window.OVYXAIService.generate({
+          mode: 'assistant',
+          prompt: 'Verify automatic generation budget compatibility.',
+          provider: 'automatic',
+          maxTokens: 24000,
+        });
+        return { ok: true };
+      } catch (error) {
+        return { ok: false, message: String(error?.message || error) };
+      }
+    });
+    assert.equal(automaticBudget.ok, true, '[' + target.name + '] automatic-budget request should complete: ' + automaticBudget.message);
+    assert.equal(aiRequests.at(-1).maxTokens, 24000,
+      '[' + target.name + '] automatic budget must preserve a caller-specified Web Studio budget.');
+
     // A failed write must not be reported as saved or optimistically replace
     // the last server-confirmed local preferences.
     await panel.locator('#set-provider').selectOption('openai');
