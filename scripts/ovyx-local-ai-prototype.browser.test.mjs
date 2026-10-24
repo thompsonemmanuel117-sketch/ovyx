@@ -476,10 +476,10 @@ try {
     const cpuPageResponse = await cpuPage.goto(baseURL + '/local-ai-lab.html', { waitUntil: 'domcontentloaded' });
     assert.ok(cpuPageResponse && cpuPageResponse.status() === 200,
       '[' + target.name + '] CPU test local AI lab did not load.');
-    await cpuPage.waitForFunction(
-      () => document.getElementById('device-status')?.textContent?.includes('WebGPU is not available'),
-      null,
-      { timeout: 8000 },
+    assert.equal(
+      await cpuPage.evaluate(() => typeof navigator.gpu === 'undefined'),
+      true,
+      '[' + target.name + '] CPU route test must run with WebGPU genuinely absent.',
     );
     await cpuPage.locator('#model-choice').selectOption('qwen25-05b-cpu');
     assert.equal(await cpuPage.locator('#start-local-ai').isDisabled(), false,
