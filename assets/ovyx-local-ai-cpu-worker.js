@@ -42,6 +42,27 @@ async function readCachedModelAsset(url) {
   });
 }
 
+async function readCachedModelRangeProbe(url) {
+  const root = await navigator.storage.getDirectory();
+  const key = await hashModelUrl(url);
+  const metadataHandle = await root.getFileHandle(key + '.meta', { create: false });
+  const metadata = JSON.parse(await (await metadataHandle.getFile()).text());
+  if (metadata.version !== MODEL_CACHE_VERSION || metadata.urlPath !== url.pathname) return null;
+  const dataHandle = await root.getFileHandle(key + '.bin', { create: false });
+  const dataFile = await dataHandle.getFile();
+  if (!Number.isFinite(metadata.sizeBytes) || metadata.sizeBytes <= 0 || dataFile.size !== metadata.sizeBytes) return null;
+  return new Response(dataFile.slice(0, 1).stream(), {
+    status: 206,
+    statusText: 'Partial Content',
+    headers: {
+      'content-type': String(metadata.contentType || modelContentType(url)),
+      'content-length': '1',
+      'content-range': 'bytes 0-0/' + dataFile.size,
+      'accept-ranges': 'bytes',
+    },
+  });
+}
+
 async function persistModelAsset(url, response) {
   if (!response.body) throw new Error('Model response has no readable body.');
   const root = await navigator.storage.getDirectory();
@@ -107,7 +128,19 @@ function installModelFetchCache() {
       url = new URL(request.url);
     }
 
-    const cacheableRequest = request.method === 'GET' && !request.headers.has('range');
+    const range = request.headers.get('range');
+    if (request.method === 'GET' && /^bytes=0-0$/i.test(String(range || ''))) {
+      try {
+        const cachedProbe = await readCachedModelRangeProbe(url);
+        if (cachedProbe) {
+          self.postMessage({ type: 'cache-hit', file: url.pathname.split('/').slice(-2).join('/').slice(0, 120) });
+          return cachedProbe;
+        }
+      } catch (_) {
+        // The initial one-byte probe must go to the model host until weights are cached.
+      }
+    }
+    const cacheableRequest = request.method === 'GET' && !range;
     if (!cacheableRequest) return nativeFetch(request);
     const cacheKey = await hashModelUrl(url);
 
