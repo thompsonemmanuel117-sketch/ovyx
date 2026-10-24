@@ -9,6 +9,7 @@ const page = read('local-ai-lab.html');
 const client = read('assets/ovyx-local-ai-prototype.js');
 const worker = read('assets/ovyx-local-ai-worker.js');
 const cpuWorker = read('assets/ovyx-local-ai-cpu-worker.js');
+const realLabSmoke = read('scripts/ovyx-local-ai-real-lab.smoke.mjs');
 const routes = JSON.parse(read('_routes.json'));
 const headers = read('_headers');
 const middleware = read('functions/_middleware.js');
@@ -17,6 +18,7 @@ for (const [file, source] of [
   ['assets/ovyx-local-ai-prototype.js', client],
   ['assets/ovyx-local-ai-worker.js', worker],
   ['assets/ovyx-local-ai-cpu-worker.js', cpuWorker],
+  ['scripts/ovyx-local-ai-real-lab.smoke.mjs', realLabSmoke],
 ]) {
   assert.ok(source.length > 100, file + ' must not be empty');
   execFileSync(process.execPath, ['--check', path.join(root, file)], { stdio: 'pipe' });
@@ -110,6 +112,13 @@ assert.match(cpuWorker, /env\.useWasmCache\s*=\s*true/);
 assert.match(cpuWorker, /callback_function\(text\)/);
 assert.doesNotMatch(cpuWorker, /\/api\/ai\/|\/api\/generate|api\.openai\.com|generativelanguage\.googleapis\.com|api\.anthropic\.com|api\.deepseek\.com|api\.groq\.com|openrouter\.ai\/api/i,
   'the CPU/WASM worker may not reference hosted inference endpoints');
+assert.match(realLabSmoke, /baseURL \+ '\/local-ai-lab\.html'/);
+assert.match(realLabSmoke, /selectOption\('qwen25-05b-cpu'\)/,
+  'real CPU acceptance must use the user-facing lab and explicit CPU/WASM selection');
+assert.match(realLabSmoke, /reloadWeightRequests/);
+assert.match(realLabSmoke, /forbiddenRequests/);
+assert.match(realLabSmoke, /promptEgressCount/);
+assert.match(realLabSmoke, /CPU response stopped/i);
 
 const startFunction = client.indexOf('async function startLocalModel()');
 const runtimeImport = client.indexOf('await import(RUNTIME_URL)');
