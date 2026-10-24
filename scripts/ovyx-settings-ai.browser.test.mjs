@@ -33,6 +33,7 @@ try {
     page.setDefaultTimeout(20000);
     const pageErrors = [];
     const aiRequests = [];
+    const gatewayRequests = [];
     page.on('pageerror', error => {
       if (/Settings|OVYXAI|secureGenerate|ReferenceError/i.test(error.message)) pageErrors.push(error.message);
     });
@@ -92,6 +93,19 @@ try {
           ok: true,
           text: 'Mock AI response for Settings preferences verification.',
           provider: 'gemini',
+          model: 'mock-test-model',
+        }),
+      });
+    });
+    await page.route('**/api/ai/gateway', async route => {
+      gatewayRequests.push(route.request().postDataJSON());
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          text: 'Mock gateway response for Settings preferences verification.',
+          provider: 'openai',
           model: 'mock-test-model',
         }),
       });
@@ -218,6 +232,30 @@ try {
       '[' + target.name + '] disabled current-page context must be omitted from the request.');
     assert.equal(sent.context.github, undefined,
       '[' + target.name + '] disabled GitHub context must be omitted from the request.');
+
+    // Explicit provider choice must remain exclusive, while shared preferences
+    // for routing, fallback, mode and budget still travel to the gateway route.
+    const gatewayGeneration = await page.evaluate(async () => {
+      try {
+        const result = await window.OVYXAIService.generate({
+          mode: 'assistant',
+          prompt: 'Confirm explicit-provider preferences.',
+          provider: 'openai',
+          model: 'automatic',
+        });
+        return { ok: true, result };
+      } catch (error) {
+        return { ok: false, message: String(error?.message || error) };
+      }
+    });
+    assert.equal(gatewayGeneration.ok, true, '[' + target.name + '] mocked gateway request should complete: ' + gatewayGeneration.message);
+    assert.equal(gatewayRequests.length, 1, '[' + target.name + '] explicit provider choice must use the gateway route.');
+    assert.equal(gatewayRequests[0].provider, 'openai');
+    assert.equal(gatewayRequests[0].providerRouting, 'preferred-first');
+    assert.equal(gatewayRequests[0].fallback, 'stop');
+    assert.equal(gatewayRequests[0].model, 'automatic');
+    assert.equal(gatewayRequests[0].maxTokens, 16000);
+    assert.match(gatewayRequests[0].system, /prioritize thoroughness/i);
 
     // Reset must remove the stored override once and restore the real UI defaults.
     await page.evaluate(key => {
