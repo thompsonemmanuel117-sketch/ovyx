@@ -43,6 +43,10 @@
   let loadingUid = '';
   let pendingPreferences = null;
   let pendingPreferencesUid = '';
+  // Keep the most recent mode click separately from generic control-change snapshots.
+  // Some legacy settings events can race and re-copy an older mode while selects change.
+  let selectedModeDraft = '';
+  let selectedModeDraftUid = '';
   let preferencesEditRevision = 0;
   let showWrapped = false;
   let generateWrapped = false;
@@ -352,6 +356,10 @@
   }
 
   async function persistFromPanel(panel, next, reset) {
+    const uid = String(user()?.uid || '');
+    if (!reset && selectedModeDraftUid === uid && ENUMS.mode.includes(selectedModeDraft)) {
+      next = { ...normalize(next), mode: selectedModeDraft };
+    }
     const save = panel.querySelector('#set-ai-save');
     const resetButton = panel.querySelector('#set-ai-reset');
     const activeButton = reset ? resetButton : save;
@@ -363,6 +371,8 @@
       const savedLocally = writeLocal(local);
       pendingPreferences = null;
       pendingPreferencesUid = '';
+      selectedModeDraft = '';
+      selectedModeDraftUid = '';
       preferencesEditRevision += 1;
       cachedPreferences = local;
       loadedUid = '';
@@ -384,6 +394,8 @@
       const localSaved = writeLocal(serverPreferences);
       pendingPreferences = null;
       pendingPreferencesUid = '';
+      selectedModeDraft = '';
+      selectedModeDraftUid = '';
       preferencesEditRevision += 1;
       cachedPreferences = serverPreferences;
       loadedUid = String(user()?.uid || '');
@@ -431,6 +443,8 @@
         event.stopImmediatePropagation();
         const mode = String(control.dataset.aiMode || '');
         if (!ENUMS.mode.includes(mode)) return;
+        selectedModeDraft = mode;
+        selectedModeDraftUid = String(user()?.uid || '');
         panel.querySelectorAll('[data-ai-mode]').forEach(button => {
           const selected = button === control;
           button.classList.toggle('selected', selected);
@@ -526,12 +540,15 @@
       result.model = effective.model || 'automatic';
     }
 
-    const budgetCaps = { efficient: 2048, automatic: 4096, maximum: 16000 };
+    // Automatic preserves the caller's existing per-mode token allowance. Only
+    // explicit Efficient/Maximum settings apply a user cap, preventing the default
+    // preference from shrinking Web Studio's established multi-stage build budget.
+    const budgetCaps = { efficient: 2048, automatic: Number.MAX_SAFE_INTEGER, maximum: 32000 };
     const budgetCap = budgetCaps[effective.budget] || budgetCaps.automatic;
     const requestedMax = Number(payload.maxTokens);
     result.maxTokens = Number.isFinite(requestedMax) && requestedMax > 0
       ? Math.min(Math.floor(requestedMax), budgetCap)
-      : budgetCap;
+      : (effective.budget === 'maximum' ? 16000 : effective.budget === 'efficient' ? 2048 : 4096);
 
     const additions = [];
     if (effective.mode === 'quality') {
