@@ -26,11 +26,14 @@ assert.match(page, /Nothing is downloaded until you press the explicit start but
 assert.match(page, /assets\/ovyx-local-ai-prototype\.js/);
 assert.doesNotMatch(page, /ovyx-assistant-workspace\.js|assets\/ovyx-launch-polish\.js|index\.html/);
 
-const middlewareMarker = "if (url.pathname.replace(/\\/+$/, '').toLowerCase() === '/local-ai-lab.html') {";
-assert.ok(middleware.includes(middlewareMarker),
-  'global HTML middleware must explicitly bypass the isolated local AI lab');
-assert.ok(routes.exclude.includes('/local-ai-lab.html'),
-  '_routes.json must keep the prototype outside the main OVYX app middleware');
+const middlewarePathCheck = "const normalizedPath = url.pathname.replace(/\\/+$/, '').toLowerCase();";
+assert.ok(middleware.includes(middlewarePathCheck)
+    && middleware.includes("normalizedPath === '/local-ai-lab.html'")
+    && middleware.includes("normalizedPath === '/local-ai-lab'"),
+  'global HTML middleware must bypass both the file URL and Cloudflare canonical extensionless local AI lab route');
+assert.ok(routes.exclude.includes('/local-ai-lab.html')
+    && routes.exclude.includes('/local-ai-lab'),
+  '_routes.json must keep both local AI lab URL forms outside the main OVYX app middleware');
 assert.match(headers, /\/local-ai-lab\.html[\s\S]*?Cross-Origin-Opener-Policy:\s*same-origin/i,
   'local lab must enable origin isolation for the WASM/WebGPU runtime');
 assert.match(headers, /\/local-ai-lab\.html[\s\S]*?Cross-Origin-Embedder-Policy:\s*require-corp/i);
