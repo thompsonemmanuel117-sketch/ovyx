@@ -548,6 +548,80 @@ try {
     const cpuOverflow = await cpuPage.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
     assert.equal(cpuOverflow, false, '[' + target.name + '] CPU/WASM UI must not create horizontal overflow.');
     await cpuContext.close();
+
+    // The CPU path must also be cancellable while its model is still loading,
+    // not only after generation starts. Hold the fake runtime in initialization
+    // until the user clicks Cancel and assert that the worker is released.
+    const cancelCpuContext = await browser.newContext({ viewport: target.viewport });
+    const cancelCpuPage = await cancelCpuContext.newPage();
+    cancelCpuPage.setDefaultTimeout(15000);
+    const cancelCpuErrors = [];
+    const cancelCpuWorkerResponses = [];
+    await cancelCpuContext.addInitScript(() => {
+      Object.defineProperty(navigator, 'gpu', {
+        configurable: true,
+        value: undefined,
+      });
+      Object.defineProperty(navigator, 'storage', {
+        configurable: true,
+        value: {
+          estimate: async () => ({ quota: 10_000_000_000, usage: 0 }),
+          persist: async () => true,
+        },
+      });
+    });
+    cancelCpuContext.on('response', async response => {
+      if (response.url().includes('/assets/ovyx-local-ai-cpu-worker.js')) {
+        cancelCpuWorkerResponses.push(response.status());
+      }
+    });
+    cancelCpuPage.on('pageerror', error => cancelCpuErrors.push(error.message));
+    const heldCpuRuntimeFixture = [
+      'export const env = {};',
+      'export const LogLevel = { WARNING: 2 };',
+      'export class TextStreamer { constructor(tokenizer, options = {}) { this.tokenizer = tokenizer; this.options = options; } }',
+      'export async function pipeline(task, modelId, options = {}) {',
+      '  options.progress_callback?.({ status: "progress_total", progress: 20, file: "model_quantized.onnx" });',
+      '  await new Promise(() => {});',
+      '}',
+    ].join('\\n');
+    await cancelCpuContext.route(/https:\\/\\/cdn\\.jsdelivr\\.net\\/npm\\/@huggingface\\/transformers@4\\.3\\.1(?:$|\\?)/, async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/javascript; charset=utf-8',
+        headers: {
+          'access-control-allow-origin': '*',
+          'cross-origin-resource-policy': 'cross-origin',
+          'cache-control': 'no-store',
+        },
+        body: heldCpuRuntimeFixture,
+      });
+    });
+    const cancelCpuPageResponse = await cancelCpuPage.goto(baseURL + '/local-ai-lab.html', { waitUntil: 'domcontentloaded' });
+    assert.ok(cancelCpuPageResponse && cancelCpuPageResponse.status() === 200,
+      '[' + target.name + '] CPU cancellation test lab did not load.');
+    await cancelCpuPage.locator('#model-choice').selectOption('qwen25-05b-cpu');
+    await cancelCpuPage.locator('#start-local-ai').click();
+    await cancelCpuPage.locator('#cancel-local-ai').waitFor({ state: 'visible' });
+    await cancelCpuPage.waitForFunction(
+      () => (document.getElementById('progress-note')?.textContent || '').includes('CPU/WASM model download and preparation'),
+      null,
+      { timeout: 8000 },
+    );
+    assert.equal(cancelCpuWorkerResponses.length, 1,
+      '[' + target.name + '] CPU worker should be active before cancellation.');
+    await cancelCpuPage.locator('#cancel-local-ai').click();
+    await cancelCpuPage.waitForFunction(
+      () => (document.getElementById('device-status')?.textContent || '').includes('Cancelled.'),
+      null,
+      { timeout: 8000 },
+    );
+    assert.match(await cancelCpuPage.locator('#engine-pill').textContent(), /MODEL NOT LOADED/,
+      '[' + target.name + '] cancelling CPU model initialization must release the worker and leave no ready model.');
+    assert.equal(await cancelCpuPage.locator('#cancel-local-ai').isHidden(), true);
+    assert.equal(await cancelCpuPage.locator('#start-local-ai').isDisabled(), false);
+    assert.deepEqual(cancelCpuErrors, [], '[' + target.name + '] CPU load cancellation must not cause browser errors.');
+    await cancelCpuContext.close();
   }
   console.log('OVYX local AI browser contract passed on desktop/mobile for mocked WebLLM and explicit CPU/WASM paths. This is wiring evidence only; genuine model acceptance comes from the real CPU smoke workflow.');
 } finally {
