@@ -280,7 +280,7 @@ try {
     // The stream may settle immediately and skip the transient “Stopping…”
     // status. Assert the final stopped state instead of a timing-sensitive message.
     await page.waitForFunction(
-      () => document.getElementById('device-status')?.textContent?.includes('Local response was stopped'),
+      () => /local response was stopped/i.test(document.getElementById('device-status')?.textContent || ''),
       null,
       { timeout: 5000 },
     );
