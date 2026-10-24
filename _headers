@@ -135,3 +135,4 @@
 
 /assets/ovyx-local-ai-worker.js
   Cache-Control: no-store, no-cache, must-revalidate
+  Cross-Origin-Resource-Policy: same-origin
