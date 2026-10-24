@@ -58,6 +58,7 @@ try {
     const consoleErrors = [];
     const workerErrors = [];
     const failedRequests = [];
+    const workerResponses = [];
     let runtimeRequests = 0;
 
     await context.addInitScript(() => {
@@ -86,6 +87,18 @@ try {
       method: request.method(),
       failure: request.failure()?.errorText || 'unknown',
     }));
+    context.on('response', async response => {
+      if (response.url().includes('/assets/ovyx-local-ai-worker.js')) {
+        let responseHeaders = {};
+        try { responseHeaders = await response.allHeaders(); } catch (_) {}
+        workerResponses.push({
+          url: response.url(),
+          status: response.status(),
+          headers: responseHeaders,
+          redirectedFrom: response.request().redirectedFrom()?.url() || null,
+        });
+      }
+    });
     page.on('pageerror', error => pageErrors.push(error.message));
     page.on('console', message => {
       if (message.type() === 'error') consoleErrors.push(message.text());
@@ -161,7 +174,7 @@ try {
     });
     assert.equal(loadingState.cancelHidden, false,
       '[' + target.name + '] cancellation control should stay visible during model initialization. State: '
-      + JSON.stringify({ ...loadingState, runtimeRequests, pageErrors, consoleErrors, workerErrors, failedRequests }));
+      + JSON.stringify({ ...loadingState, runtimeRequests, pageErrors, consoleErrors, workerErrors, failedRequests, workerResponses }));
     assert.equal(loadingState.cancelDisabled, false,
       '[' + target.name + '] cancellation control should be enabled during model initialization. State: '
       + JSON.stringify({ ...loadingState, runtimeRequests, pageErrors, consoleErrors, workerErrors, failedRequests }));
