@@ -382,20 +382,25 @@
   }
 
   function buildMessages(prompt) {
-    // The current prompt was added to conversation before this function runs.
-    // Exclude that last turn here so it is sent exactly once.
+    // A 4K context must cover system text, the current prompt, history and output.
+    // Keep the history to a total character budget and add the current prompt once.
     const prior = conversation.slice(0, -1).slice(-8);
-    const recent = prior.map((item) => ({
-      role: item.role,
-      content: String(item.content || '').slice(-2200),
-    }));
+    let remaining = 1800;
+    const recent = [];
+    for (const item of prior.slice().reverse()) {
+      if (remaining <= 0) break;
+      const content = String(item.content || '').slice(-Math.min(900, remaining));
+      if (!content) continue;
+      recent.unshift({ role: item.role, content });
+      remaining -= content.length;
+    }
     return [{ role: 'system', content: SYSTEM_PROMPT }, ...recent, { role: 'user', content: prompt }];
   }
 
   async function sendPrompt(event) {
     event?.preventDefault?.();
     if (!engine || generating || loading) return;
-    const prompt = String(promptInput.value || '').trim().slice(0, 3500);
+    const prompt = String(promptInput.value || '').trim().slice(0, 2500);
     if (!prompt) return;
 
     promptInput.value = '';
