@@ -697,6 +697,13 @@
           contextFiles: true, contextPage: true, contextGithub: true,
           routing: 'automatic', fallback: 'next', contextLimit: 'automatic', budget: 'automatic'
         }, safeJson(localStorage.getItem(key)));
+        const visibleMode = String(
+          panel && (
+            panel.querySelector('[data-ai-mode].selected')?.dataset?.aiMode ||
+            panel.querySelector('[data-ai-mode][aria-pressed="true"]')?.dataset?.aiMode
+          ) || window.OVYXAI?.mode || prefs.mode || 'balanced'
+        );
+        prefs.mode = ['balanced', 'fast', 'quality'].includes(visibleMode) ? visibleMode : 'balanced';
         prefs.provider = String(panel && panel.querySelector('#set-provider') && panel.querySelector('#set-provider').value || 'gemini');
         const selectedModel = String(panel && panel.querySelector('#set-ai-model') && panel.querySelector('#set-ai-model').value || 'automatic');
         prefs.model = selectedModel === 'automatic' || (MODELS_BY_PROVIDER[prefs.provider] || []).includes(selectedModel) ? selectedModel : 'automatic';
@@ -774,6 +781,8 @@
         const validRouting = ['automatic','preferred-first','provider-priority'].includes(String(prefs.routing || 'automatic'))
           ? String(prefs.routing || 'automatic') : 'automatic';
         payload.providerRouting = validRouting;
+        payload.fallback = ['automatic', 'next', 'stop'].includes(String(prefs.fallback || 'next'))
+          ? String(prefs.fallback || 'next') : 'next';
         if ((!payload.model || String(payload.model).toLowerCase() === 'automatic') && prefs.model && String(prefs.model).toLowerCase() !== 'automatic') {
           payload.model = String(prefs.model);
           // A concrete model is provider-specific. Pin this request to its chosen provider
