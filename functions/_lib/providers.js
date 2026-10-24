@@ -1189,9 +1189,14 @@ export function providerOrder(env, requested, taskContext = '', globalOrder = nu
   ];
   const ordered = [...new Set(priorities)].filter(provider => isProviderConfigured(env, provider));
 
-  // A user may explicitly disable automatic failover. Keep the first configured
-  // route, but still allow Workers AI below when it is the only configured engine.
-  if (String(fallback || 'automatic').trim().toLowerCase() === 'stop' && ordered.length) {
+  // Stop mode means the user's preferred provider is exclusive for automatic
+  // requests, even if its secret is missing. Let the normal adapter produce the
+  // existing safe not-configured error instead of silently selecting another vendor.
+  const stopOnFailure = String(fallback || 'automatic').trim().toLowerCase() === 'stop';
+  if (stopOnFailure && userPreferred.length && routing !== 'provider-priority') {
+    return userPreferred.slice(0, 1);
+  }
+  if (stopOnFailure && ordered.length) {
     return ordered.slice(0, 1);
   }
 
