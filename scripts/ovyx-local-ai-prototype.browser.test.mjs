@@ -35,13 +35,20 @@ const runtimeFixture = [
   "      create(options) {",
   "        const generationNumber = ++mockGenerationCount;",
   "        globalThis.__OVYX_MOCK_MESSAGES = options.messages;",
+  "        globalThis.__OVYX_MOCK_GENERATION_HELD = false;",
   "        interrupted = false;",
   "        return (async function* () {",
   "          yield { choices: [{ delta: { content: 'Mock local test-fixture response' } }] };",
   "          if (generationNumber === 1) {",
   "            await new Promise((resolve) => setTimeout(resolve, 450));",
   "          } else {",
-  "            await new Promise((resolve) => { releaseHeldGeneration = resolve; });",
+  "            await new Promise((resolve) => {",
+  "              if (interrupted) resolve();",
+  "              else {",
+  "                releaseHeldGeneration = resolve;",
+  "                globalThis.__OVYX_MOCK_GENERATION_HELD = true;",
+  "              }",
+  "            });",
   "          }",
   "          if (!interrupted) yield { choices: [{ delta: { content: ' (not real model evidence).' } }] };",
   "        })();",
@@ -260,6 +267,11 @@ try {
     await page.locator('#local-prompt').fill(stopPrompt);
     await page.locator('#send-local-prompt').click();
     await page.locator('#stop-generation').waitFor({ state: 'visible' });
+    await page.waitForFunction(
+      () => globalThis.__OVYX_MOCK_GENERATION_HELD === true,
+      null,
+      { timeout: 5000 },
+    );
     await page.locator('#stop-generation').click();
     await page.waitForFunction(
       () => document.getElementById('device-status')?.textContent?.includes('Local response was stopped'),
