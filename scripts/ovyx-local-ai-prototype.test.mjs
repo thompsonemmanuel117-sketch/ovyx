@@ -10,6 +10,7 @@ const client = read('assets/ovyx-local-ai-prototype.js');
 const worker = read('assets/ovyx-local-ai-worker.js');
 const routes = JSON.parse(read('_routes.json'));
 const headers = read('_headers');
+const middleware = read('functions/_middleware.js');
 
 for (const [file, source] of [
   ['assets/ovyx-local-ai-prototype.js', client],
@@ -25,6 +26,9 @@ assert.match(page, /Nothing is downloaded until you press the explicit start but
 assert.match(page, /assets\/ovyx-local-ai-prototype\.js/);
 assert.doesNotMatch(page, /ovyx-assistant-workspace\.js|assets\/ovyx-launch-polish\.js|index\.html/);
 
+const middlewareMarker = "if (url.pathname.replace(/\\/+$/, '').toLowerCase() === '/local-ai-lab.html') {";
+assert.ok(middleware.includes(middlewareMarker),
+  'global HTML middleware must explicitly bypass the isolated local AI lab');
 assert.ok(routes.exclude.includes('/local-ai-lab.html'),
   '_routes.json must keep the prototype outside the main OVYX app middleware');
 assert.match(headers, /\/local-ai-lab\.html[\s\S]*?Cross-Origin-Opener-Policy:\s*same-origin/i,
