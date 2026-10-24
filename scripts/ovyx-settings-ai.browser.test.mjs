@@ -158,6 +158,11 @@ try {
       response.url().includes('/api/settings/ai') && response.request().method() === 'GET');
     await page.evaluate(() => window.OVYXSettings.show('ai'));
     await refreshPreferences;
+    await page.waitForFunction(
+      () => document.getElementById('ovyx-ai-preference-status')?.textContent?.includes('AI preferences loaded from your OVYX account.'),
+      null,
+      { timeout: 10000 },
+    );
     await panel.locator('[data-ai-mode="quality"]').waitFor({ state: 'visible' });
     await panel.locator('[data-ai-mode="quality"]').click();
     await panel.locator('#set-provider').selectOption('openai');
