@@ -1,7 +1,7 @@
 # OVYX AI — Stage 3: Browser-local inference prototype
 
 **Status:** The isolated CPU/WASM path now passes genuine end-to-end CI acceptance: model download, real local response, persistent OPFS weight reuse after reload, generation stop and no prompt egress. Desktop/mobile browser regressions also cover CPU-load cancellation. Stage 3 remains open for real target-device validation and a genuine WebGPU/Qwen3.5 load.  
-**Current status:** The core prototype is merged into `main`. Stage 3 recovery acceptance is being extended on `test/stage3-recovery-acceptance`; this test-only work does not migrate any main OVYX AI route.  
+**Current status:** The core prototype and the Stage 3 recovery-regression update are merged into `main`. Desktop/mobile mocked tests and genuine CPU/WASM inference acceptance pass. Stage 3 remains open for genuine WebGPU/Qwen3.5 inference on compatible hardware, physical-device checks, and genuine model-weight/cache-recovery acceptance. No main OVYX AI route has been migrated.  
 **Original prototype branch:** `feat/stage-3-browser-local-ai-prototype`  
 **Scope:** A small isolated page to prove real browser-local model loading and inference before any main-shell route is migrated.
 
