@@ -144,9 +144,10 @@
       hasPending ? pendingPreferences : (cachedPreferences || readLocal())
     );
     const chosenMode = panel.querySelector('[data-ai-mode].selected')?.dataset?.aiMode;
-    // Once the mode has been changed in this unsaved draft, the old renderer's
-    // selected class must not overwrite it while other fields are edited.
-    if (!hasPending && chosenMode && ENUMS.mode.includes(chosenMode)) base.mode = chosenMode;
+    // The visible selected control is the final source of truth for mode. Keep
+    // it authoritative even if another settings-change event has refreshed the
+    // pending object from an older local draft during a legacy panel re-render.
+    if (chosenMode && ENUMS.mode.includes(chosenMode)) base.mode = chosenMode;
     for (const [key, id] of Object.entries(SELECT_IDS)) {
       const control = panel.querySelector('#' + id);
       if (control && ENUMS[key].includes(String(control.value))) base[key] = String(control.value);
