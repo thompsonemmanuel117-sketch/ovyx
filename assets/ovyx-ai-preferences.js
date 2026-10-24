@@ -41,6 +41,9 @@
   let cachedPreferences = null;
   let loadingPromise = null;
   let loadingUid = '';
+  let pendingPreferences = null;
+  let pendingPreferencesUid = '';
+  let preferencesEditRevision = 0;
   let showWrapped = false;
   let generateWrapped = false;
 
@@ -135,7 +138,12 @@
   }
 
   function controlsToPreferences(panel) {
-    const base = normalize(readLocal());
+    const uid = String(user()?.uid || '');
+    const base = normalize(
+      pendingPreferences && pendingPreferencesUid === uid
+        ? pendingPreferences
+        : (cachedPreferences || readLocal())
+    );
     const chosenMode = panel.querySelector('[data-ai-mode].selected')?.dataset?.aiMode;
     if (chosenMode && ENUMS.mode.includes(chosenMode)) base.mode = chosenMode;
     for (const [key, id] of Object.entries(SELECT_IDS)) {
@@ -147,6 +155,18 @@
       if (control) base[key] = !!control.checked;
     }
     return normalize(base);
+  }
+
+  function rememberPendingPreferences(panel) {
+    if (!panel?.isConnected) return;
+    pendingPreferences = controlsToPreferences(panel);
+    pendingPreferencesUid = String(user()?.uid || '');
+    preferencesEditRevision += 1;
+    window.OVYXAI = {
+      ...(window.OVYXAI && typeof window.OVYXAI === 'object' ? window.OVYXAI : {}),
+      ...pendingPreferences
+    };
+    setStatus(panel, 'You have unsaved AI preference changes. Save to apply them to your OVYX account.', 'draft');
   }
 
   function preferencesAbortError() {
@@ -296,11 +316,23 @@
       setStatus(panel, 'Using settings saved on this device. Sign in to sync AI preferences to your OVYX account.', 'local');
       return;
     }
+    const uid = String(user()?.uid || '');
+    if (pendingPreferences && pendingPreferencesUid === uid) {
+      applyControls(panel, pendingPreferences);
+      setStatus(panel, 'You have unsaved AI preference changes. Save to apply them to your OVYX account.', 'draft');
+      return;
+    }
+    const revisionAtStart = preferencesEditRevision;
     setPanelBusy(panel, true);
     setStatus(panel, 'Loading AI preferences from your OVYX account…', 'loading');
     try {
       const preferences = await loadPreferences(true);
       if (!panel.isConnected) return;
+      if (revisionAtStart !== preferencesEditRevision && pendingPreferences && pendingPreferencesUid === String(user()?.uid || '')) {
+        applyControls(panel, pendingPreferences);
+        setStatus(panel, 'You have unsaved AI preference changes. Save to apply them to your OVYX account.', 'draft');
+        return;
+      }
       applyControls(panel, preferences);
       setStatus(panel, 'AI preferences loaded from your OVYX account.', 'ok');
     } catch (error) {
@@ -327,6 +359,9 @@
     if (!String(user()?.uid || '')) {
       const local = normalize(next);
       const savedLocally = writeLocal(local);
+      pendingPreferences = null;
+      pendingPreferencesUid = '';
+      preferencesEditRevision += 1;
       cachedPreferences = local;
       loadedUid = '';
       window.OVYXAISettingsPreferences = local;
@@ -339,9 +374,15 @@
       return;
     }
     try {
-      const savedState = await requestPreferences('PUT', normalize(next));
+      pendingPreferences = normalize(next);
+      pendingPreferencesUid = String(user()?.uid || '');
+      preferencesEditRevision += 1;
+      const savedState = await requestPreferences('PUT', pendingPreferences);
       const serverPreferences = savedState.preferences;
       const localSaved = writeLocal(serverPreferences);
+      pendingPreferences = null;
+      pendingPreferencesUid = '';
+      preferencesEditRevision += 1;
       cachedPreferences = serverPreferences;
       loadedUid = String(user()?.uid || '');
       window.OVYXAISettingsPreferences = serverPreferences;
@@ -366,6 +407,15 @@
     // The legacy Settings renderer replaces the whole AI panel asynchronously.
     // Delegation keeps Save/Reset/mode clicks reliable across those re-renders
     // and prevents the legacy local-only handlers from racing account-backed state.
+    document.addEventListener('change', event => {
+      const origin = event.target;
+      const control = origin instanceof Element
+        ? origin.closest('#set-ai-model, #set-provider, #set-ai-routing, #set-ai-fallback, #set-ai-context-limit, #set-ai-budget, [data-ai-pref]')
+        : null;
+      const panel = control?.closest('[data-settings-panel="ai"]');
+      if (!control || !panel || control.disabled) return;
+      rememberPendingPreferences(panel);
+    }, true);
     document.addEventListener('click', event => {
       const origin = event.target;
       const control = origin instanceof Element
@@ -386,6 +436,18 @@
         });
         const chip = panel.querySelector('.ovyx-health-chip');
         if (chip) chip.textContent = mode.toUpperCase();
+        pendingPreferences = {
+          ...normalize(pendingPreferences && pendingPreferencesUid === String(user()?.uid || '')
+            ? pendingPreferences
+            : (cachedPreferences || readLocal())),
+          mode
+        };
+        pendingPreferencesUid = String(user()?.uid || '');
+        preferencesEditRevision += 1;
+        window.OVYXAI = {
+          ...(window.OVYXAI && typeof window.OVYXAI === 'object' ? window.OVYXAI : {}),
+          ...pendingPreferences
+        };
         setStatus(panel, 'Mode changed. Select Save AI Preferences to keep this choice on your account.', 'info');
         return;
       }
