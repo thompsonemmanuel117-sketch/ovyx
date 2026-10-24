@@ -488,6 +488,16 @@
           if (thisLoad !== loadEpoch) return;
           const data = event.data || {};
           if (data.type === 'progress') updateProgress({ progress: data.progress, text: data.text });
+          if (data.type === 'cache-warning') {
+            const warnings = Array.isArray(diagnosticsState.storage?.cacheWarnings)
+              ? diagnosticsState.storage.cacheWarnings
+              : [];
+            diagnosticsState.storage = {
+              ...(diagnosticsState.storage || {}),
+              cacheWarnings: [...warnings, String(data.message || 'A model asset could not be cached.')].slice(-5),
+            };
+            progressNote.textContent = String(data.message || 'Browser model cache warning.');
+          }
           if (data.type === 'ready' && data.modelId === model.id && data.revision === model.revision) finish(resolve, data);
           if (data.type === 'error') finish(reject, new Error('CPU/WASM ' + String(data.stage || 'model') + ' setup failed: ' + String(data.message || 'Unknown worker error.')));
         };
