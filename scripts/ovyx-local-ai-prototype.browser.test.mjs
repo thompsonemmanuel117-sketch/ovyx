@@ -19,7 +19,12 @@ const runtimeFixture = [
   "  globalThis.__OVYX_MOCK_ENGINE_CONFIGS = globalThis.__OVYX_MOCK_ENGINE_CONFIGS || [];",
   "  globalThis.__OVYX_MOCK_ENGINE_CONFIGS.push({ modelId, appConfig: engineConfig.appConfig });",
   "  engineConfig.initProgressCallback?.({ progress: 0.22, text: 'Mock initialization progress - test fixture only' });",
-  "  await new Promise((resolve) => setTimeout(resolve, 700));",
+  "  if (globalThis.__OVYX_MOCK_HOLD_FIRST_INIT) {",
+  "    globalThis.__OVYX_MOCK_HOLD_FIRST_INIT = false;",
+  "    await new Promise((resolve) => { globalThis.__OVYX_MOCK_RELEASE_INIT = resolve; });",
+  "  } else {",
+  "    await new Promise((resolve) => setTimeout(resolve, 700));",
+  "  }",
   "  engineConfig.initProgressCallback?.({ progress: 0.9, text: 'Mock initialization finished - test fixture only' });",
   "  let interrupted = false;",
   "  return {",
@@ -53,6 +58,9 @@ try {
     let runtimeRequests = 0;
 
     await context.addInitScript(() => {
+      // Hold the first fake initialization open until the test cancels it.
+      // This removes the race between a quick mock response and the Cancel click.
+      globalThis.__OVYX_MOCK_HOLD_FIRST_INIT = true;
       Object.defineProperty(navigator, 'gpu', {
         configurable: true,
         value: { requestAdapter: async () => ({ requestDevice: async () => ({}) }) },
