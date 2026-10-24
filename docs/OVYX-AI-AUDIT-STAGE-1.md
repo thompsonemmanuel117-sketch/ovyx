@@ -162,3 +162,14 @@ This inventory identifies the main user-facing AI surfaces, inference/search rou
 - `assets/ovyx-webstudio-research.js`
 - `docs/OVYX-NATIVE-AI.md`
 - `docs/AI-COST-ROUTING.md`
+
+
+## 9. Additional settings and frontend trace findings
+
+- `functions/api/settings/ai.js` persists account-scoped preferences for `mode` (`balanced|fast|quality`), `model` (`automatic` plus four named provider models), `provider` (`gemini|anthropic|deepseek|openai`), routing/fallback, context inclusion, and budget/context limits.
+- These preference options do not enumerate Groq, OpenRouter or Cloudflare Workers AI, although the shared router and admin status code support those options. This may be intentional legacy UI compatibility, but it is a configuration-surface mismatch to review before replacing the provider selector.
+- The settings preference defaults use `provider: gemini`, while the native workspace assistant explicitly sends `provider: 'native-ovyx-ai'` in its feedback/context payload and calls `/api/ai/ovyx`. Do not assume the account's selected provider/model preference controls the native workspace path without tracing the relevant browser service.
+- `assets/ovyx-assistant-workspace.js` clearly calls `/api/ai/ovyx`. Browser tests for Settings expect the AI preference UI to call `/api/settings/ai` and `/api/ai/assistant`. The older `index-updated.html` has a separate client wrapper pointing to `/api/ai/gateway` and `/api/ai/tools`; it should not be assumed to be the currently deployed main shell.
+- The main `index.html` is about 2 MB and the available repository-file reader returned no text for it, so I cannot honestly claim a line-by-line trace of every inline UI handler from that file yet. The route/surface inventory above is grounded in readable source files and tests, but the main-shell event-binding trace remains open.
+- No dedicated `functions/api/image*`, `functions/api/audio*`, `functions/api/voice*` or transcription route appears in the current API tree. This only establishes that there is no obvious dedicated route by those names; image/audio capability may be supplied through other UI or third-party services and must not be assumed migrated or absent without a focused reference trace.
+
