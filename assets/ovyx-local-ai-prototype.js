@@ -374,7 +374,9 @@
         cancelLoadReject = reject;
       });
       localWorker.addEventListener('error', (event) => {
-        const error = new Error('The local inference worker failed to start. Check WebGPU support, the runtime download, and available memory.');
+        const workerReason = String(event?.message || '').replace(/\s+/g, ' ').slice(0, 220);
+        const detail = workerReason ? ' Browser worker detail: ' + workerReason : '';
+        const error = new Error('The local inference worker failed to start. Check WebGPU support, the runtime download, and available memory.' + detail);
         if (loading && thisLoad === loadEpoch && typeof cancelLoadReject === 'function') {
           cancelLoadReject(error);
         } else {
