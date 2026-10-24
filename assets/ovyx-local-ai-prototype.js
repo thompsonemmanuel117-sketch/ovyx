@@ -410,7 +410,7 @@
       reject(new Error('Model initialization was cancelled by the user.'));
     }
     showProgress(false);
-    setStatus('Cancelled. No prompt was sent to an AI provider. Fully downloaded model files may remain in the browser cache, so retrying can reuse completed assets.', 'warn');
+    setStatus('Cancelled. No prompt was sent to an AI provider. Fully downloaded model files may remain in local browser storage, so retrying can reuse completed assets.', 'warn');
     refreshControls();
   }
 
