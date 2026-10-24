@@ -154,6 +154,20 @@ try {
       null,
       { timeout: 10000 },
     );
+    const migrationDebug = await page.evaluate(() => ({
+      uid: window.firebase?.auth?.().currentUser?.uid || null,
+      key: window.OVYXAIStorageKey?.() || null,
+      scoped: localStorage.getItem('ovyx.ai.preferences.v1.user.settings-ai-browser-user'),
+      guest: localStorage.getItem('ovyx.ai.preferences.v1.guest'),
+      status: document.getElementById('ovyx-ai-preference-status')?.textContent || '',
+      client: window.OVYXAISettingsPreferences || null,
+    }));
+    console.log('[OVYX AI preference migration debug]', target.name, JSON.stringify({
+      migrationDebug,
+      serverPreferences,
+      serverUpdatedAt,
+      requests: aiPreferenceRequests,
+    }));
     assert.equal(serverPreferences.mode, 'fast', '[' + target.name + '] legacy local preferences must migrate when the account has no saved preferences.');
     assert.equal(serverPreferences.provider, 'deepseek', '[' + target.name + '] migration must preserve the account user’s existing local provider preference.');
     assert.ok(aiPreferenceRequests.some(request => request.method === 'PUT'), '[' + target.name + '] legacy migration must create the account-scoped preference document.');
