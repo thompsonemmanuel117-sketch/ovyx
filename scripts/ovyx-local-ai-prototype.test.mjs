@@ -117,6 +117,8 @@ assert.match(cpuWorker, /url\.pathname\.replace\('\/resolve\/main\//,
 assert.match(cpuWorker, /navigator\.storage\.getDirectory\(\)/);
 assert.match(cpuWorker, /persistModelAsset\(url, clone\)/);
 assert.match(cpuWorker, /await response\.body\.pipeTo\(writable\)/);
+assert.match(cpuWorker, /readCachedModelRangeProbe\(url\)/,
+  'the CPU worker must serve the runtime’s one-byte range probe from the cached model instead of re-downloading metadata');
 assert.match(cpuWorker, /await flushModelCacheWrites\(\)/);
 assert.match(cpuWorker, /env\.useBrowserCache\s*=\s*false/,
   'CPU model assets must use the explicit cache wrapper rather than the unreliable library cache path');
