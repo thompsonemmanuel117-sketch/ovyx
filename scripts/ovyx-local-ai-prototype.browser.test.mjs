@@ -277,45 +277,27 @@ try {
       { timeout: 5000 },
     );
     await page.locator('#stop-generation').click();
-    try {
-      await page.waitForFunction(
-        () => document.getElementById('device-status')?.textContent?.includes('Stopping local generation'),
-        null,
-        { timeout: 3000 },
-      );
-    } catch (error) {
-      const immediateStopState = await page.evaluate(() => ({
-        status: document.getElementById('device-status')?.textContent,
-        stopButtonHidden: document.getElementById('stop-generation')?.classList.contains('hidden'),
-        stopButtonDisabled: document.getElementById('stop-generation')?.disabled,
-        interruptCalled: globalThis.__OVYX_MOCK_INTERRUPT_CALLED,
-        generationHeld: globalThis.__OVYX_MOCK_GENERATION_HELD,
-        generationReleased: globalThis.__OVYX_MOCK_GENERATION_RELEASED,
-        readyState: document.getElementById('engine-pill')?.textContent,
-      }));
-      throw new Error('Stop click did not produce the expected stopping state: '
-        + JSON.stringify(immediateStopState)
-        + ' Page errors: ' + JSON.stringify({ pageErrors, consoleErrors, workerErrors })
-        + ' Original wait error: ' + String(error?.message || error));
-    }
-    try {
-      await page.waitForFunction(
-        () => document.getElementById('device-status')?.textContent?.includes('Local response was stopped'),
-        null,
-        { timeout: 3000 },
-      );
-    } catch (error) {
-      const stopState = await page.evaluate(() => ({
-        status: document.getElementById('device-status')?.textContent,
-        engine: document.getElementById('engine-pill')?.textContent,
-        stopButtonHidden: document.getElementById('stop-generation')?.classList.contains('hidden'),
-        interruptCalled: globalThis.__OVYX_MOCK_INTERRUPT_CALLED,
-        generationHeld: globalThis.__OVYX_MOCK_GENERATION_HELD,
-        generationReleased: globalThis.__OVYX_MOCK_GENERATION_RELEASED,
-      }));
-      throw new Error('Local stream did not settle after Stop: ' + JSON.stringify(stopState)
-        + ' Original wait error: ' + String(error?.message || error));
-    }
+    // The stream may settle immediately and skip the transient “Stopping…”
+    // status. Assert the final stopped state instead of a timing-sensitive message.
+    await page.waitForFunction(
+      () => document.getElementById('device-status')?.textContent?.includes('Local response was stopped'),
+      null,
+      { timeout: 5000 },
+    );
+    const stoppedState = await page.evaluate(() => ({
+      interruptCalled: globalThis.__OVYX_MOCK_INTERRUPT_CALLED,
+      generationReleased: globalThis.__OVYX_MOCK_GENERATION_RELEASED,
+      stopButtonHidden: document.getElementById('stop-generation')?.classList.contains('hidden'),
+      engineReady: document.getElementById('engine-pill')?.textContent?.includes('LOCAL MODEL READY'),
+    }));
+    assert.equal(stoppedState.interruptCalled, true,
+      '[' + target.name + '] Stop must call the local engine interrupt API.');
+    assert.equal(stoppedState.generationReleased, true,
+      '[' + target.name + '] Stop must release a held local stream.');
+    assert.equal(stoppedState.stopButtonHidden, true,
+      '[' + target.name + '] Stop control must hide after the stream settles.');
+    assert.equal(stoppedState.engineReady, true,
+      '[' + target.name + '] cancelling one response must preserve the loaded local model.');
 
     await page.locator('#unload-local-ai').click();
     await page.waitForFunction(
