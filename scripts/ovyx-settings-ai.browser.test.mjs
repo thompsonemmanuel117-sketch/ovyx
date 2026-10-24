@@ -282,7 +282,7 @@ try {
     assert.equal(sent.providerRouting, 'preferred-first',
       '[' + target.name + '] model routing must reach the authenticated AI backend.');
     assert.equal(sent.model, 'automatic');
-    assert.equal(sent.maxTokens, 16000,
+    assert.equal(sent.maxTokens, 32000,
       '[' + target.name + '] maximum budget must reach the AI backend in the request payload.');
     assert.match(sent.system, /prioritize thoroughness/i,
       '[' + target.name + '] Quality mode must affect the actual generation instructions.');
