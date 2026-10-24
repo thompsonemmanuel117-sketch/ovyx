@@ -6,7 +6,6 @@ on:
       - main
     paths:
       - 'index.html'
-      - 'assets/ovyx-ai-preferences.js'
       - 'assets/ovyx-settings-reliability.js'
       - 'assets/ovyx-webstudio-reliability.js'
       - 'functions/api/settings/**'
@@ -136,7 +135,6 @@ on:
       - 'scripts/ovyx-webstudio-reliability.test.mjs'
       - 'scripts/ovyx-webstudio-reliability.browser.test.mjs'
       - 'index.html'
-      - 'assets/ovyx-ai-preferences.js'
       - 'scripts/ovyx-settings-shortcuts.browser.test.mjs'
       - 'assets/ovyx-settings-reliability.js'
       - 'functions/api/settings/profile.js'
