@@ -623,7 +623,7 @@ try {
     assert.deepEqual(cancelCpuErrors, [], '[' + target.name + '] CPU load cancellation must not cause browser errors.');
     await cancelCpuContext.close();
 
-    // A low-storage WebGPU device must fail before downloading the runtime/model.
+    // A low-storage WebGPU device may fetch the pinned runtime, but must refuse before engine initialization or model-weight download.
     const lowStorageContext = await browser.newContext({ viewport: target.viewport });
     const lowStoragePage = await lowStorageContext.newPage();
     lowStoragePage.setDefaultTimeout(12000);
