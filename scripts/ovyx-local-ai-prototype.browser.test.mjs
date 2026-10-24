@@ -436,6 +436,7 @@ try {
 
     const cpuRuntimeFixture = [
       'export const env = {};',
+      'export const LogLevel = { WARNING: 2 };',
       'export class TextStreamer { constructor(tokenizer, options = {}) { this.tokenizer = tokenizer; this.options = options; } }',
       'export async function pipeline(task, modelId, options = {}) {',
       '  if (task !== "text-generation" || modelId !== "onnx-community/Qwen2.5-0.5B-Instruct") throw new Error("Unexpected CPU fixture model.");',
