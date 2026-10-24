@@ -55,6 +55,8 @@ try {
     page.setDefaultTimeout(15000);
     const requests = [];
     const pageErrors = [];
+    const consoleErrors = [];
+    const workerErrors = [];
     let runtimeRequests = 0;
 
     await context.addInitScript(() => {
@@ -79,6 +81,15 @@ try {
       postData: request.postData() || '',
     }));
     page.on('pageerror', error => pageErrors.push(error.message));
+    page.on('console', message => {
+      if (message.type() === 'error') consoleErrors.push(message.text());
+    });
+    page.on('worker', localWorker => {
+      localWorker.on('pageerror', error => workerErrors.push(error.message));
+      localWorker.on('console', message => {
+        if (message.type() === 'error') workerErrors.push(message.text());
+      });
+    });
 
     await context.route(/https:\/\/esm\.run\/@mlc-ai\/web-llm@0\.2\.86(?:$|\?)/, async route => {
       runtimeRequests += 1;
@@ -116,6 +127,21 @@ try {
       { timeout: 10000 },
     );
 
+    const loadingState = await page.evaluate(() => ({
+      cancelHidden: document.getElementById('cancel-local-ai')?.classList.contains('hidden'),
+      cancelDisabled: document.getElementById('cancel-local-ai')?.disabled,
+      startDisabled: document.getElementById('start-local-ai')?.disabled,
+      status: document.getElementById('device-status')?.textContent,
+      progress: document.getElementById('progress-note')?.textContent,
+      holdFlag: globalThis.__OVYX_MOCK_HOLD_FIRST_INIT,
+      released: typeof globalThis.__OVYX_MOCK_RELEASE_INIT === 'function',
+    }));
+    assert.equal(loadingState.cancelHidden, false,
+      '[' + target.name + '] cancellation control should stay visible during model initialization. State: '
+      + JSON.stringify({ ...loadingState, pageErrors, consoleErrors, workerErrors }));
+    assert.equal(loadingState.cancelDisabled, false,
+      '[' + target.name + '] cancellation control should be enabled during model initialization. State: '
+      + JSON.stringify({ ...loadingState, pageErrors, consoleErrors, workerErrors }));
     await page.locator('#cancel-local-ai').click();
     await page.waitForFunction(
       () => document.getElementById('device-status')?.textContent?.includes('Cancelled.'),
