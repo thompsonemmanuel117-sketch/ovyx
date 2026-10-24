@@ -1,0 +1,72 @@
+name: OVYX Real Local Inference Smoke Test
+
+on:
+  push:
+    branches:
+      - 'test/stage3-real-webgpu-smoke'
+    paths:
+      - 'local-ai-lab.html'
+      - 'assets/ovyx-local-ai-prototype.js'
+      - 'assets/ovyx-local-ai-worker.js'
+      - 'scripts/ovyx-local-ai-real-inference.smoke.mjs'
+      - '.github/workflows/ovyx-real-local-inference-smoke.yml'
+      - '_headers'
+      - '_routes.json'
+      - 'functions/_middleware.js'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-local-inference:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install project dependencies
+        run: |
+          npm install --ignore-scripts
+          npm install --ignore-scripts --no-save playwright@^1.55.0
+
+      - name: Install Chromium and Linux dependencies
+        run: npx playwright install --with-deps chromium
+
+      - name: Start local Cloudflare Pages app
+        run: |
+          npx wrangler pages dev . --ip 127.0.0.1 --port 8794 > /tmp/ovyx-local-ai-real-smoke-pages.log 2>&1 &
+          echo $! > /tmp/ovyx-local-ai-real-smoke-pages.pid
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent http://127.0.0.1:8794/local-ai-lab.html >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/ovyx-local-ai-real-smoke-pages.log
+          exit 1
+
+      - name: Load real model weights, generate a genuine local answer, and verify cache/privacy
+        env:
+          OVYX_E2E_BASE_URL: http://127.0.0.1:8794
+          OVYX_REAL_SMOKE_REPORT: /tmp/ovyx-real-local-ai-smoke.json
+        run: node scripts/ovyx-local-ai-real-inference.smoke.mjs
+
+      - name: Upload sanitized device/runtime record
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ovyx-real-local-ai-smoke-record
+          path: /tmp/ovyx-real-local-ai-smoke.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Print local Pages logs on failure
+        if: failure()
+        run: cat /tmp/ovyx-local-ai-real-smoke-pages.log || true
