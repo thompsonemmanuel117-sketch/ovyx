@@ -1,0 +1,427 @@
+(function () {
+  'use strict';
+  if (window.__OVYX_AI_PREFERENCES_V1__) return;
+  window.__OVYX_AI_PREFERENCES_V1__ = true;
+
+  const DEFAULTS = Object.freeze({
+    mode: 'balanced',
+    model: 'automatic',
+    provider: 'gemini',
+    explain: true,
+    preserve: true,
+    confirmDestructive: false,
+    contextFiles: true,
+    contextPage: true,
+    contextGithub: true,
+    routing: 'automatic',
+    fallback: 'next',
+    contextLimit: 'automatic',
+    budget: 'automatic'
+  });
+  const ENUMS = Object.freeze({
+    mode: ['balanced', 'fast', 'quality'],
+    model: ['automatic', 'gemini-3.8-flash', 'claude-opus-5', 'deepseek-flash', 'gpt-6.1-sol'],
+    provider: ['gemini', 'anthropic', 'deepseek', 'openai'],
+    routing: ['automatic', 'preferred-first', 'provider-priority'],
+    fallback: ['automatic', 'next', 'stop'],
+    contextLimit: ['automatic', 'conservative', 'expanded'],
+    budget: ['automatic', 'efficient', 'maximum']
+  });
+  const BOOLEAN_KEYS = ['explain', 'preserve', 'confirmDestructive', 'contextFiles', 'contextPage', 'contextGithub'];
+  const SELECT_IDS = Object.freeze({
+    model: 'set-ai-model',
+    provider: 'set-provider',
+    routing: 'set-ai-routing',
+    fallback: 'set-ai-fallback',
+    contextLimit: 'set-ai-context-limit',
+    budget: 'set-ai-budget'
+  });
+
+  let loadedUid = '';
+  let cachedPreferences = null;
+  let loadingPromise = null;
+  let loadingUid = '';
+  let showWrapped = false;
+  let generateWrapped = false;
+
+  function user() {
+    try { return window.firebase?.auth?.().currentUser || null; } catch (_) { return null; }
+  }
+
+  function storageKey() {
+    try {
+      if (typeof window.OVYXAIStorageKey === 'function') return window.OVYXAIStorageKey();
+    } catch (_) {}
+    const current = user();
+    return current?.uid
+      ? 'ovyx.ai.preferences.v1.user.' + String(current.uid)
+      : 'ovyx.ai.preferences.v1.guest';
+  }
+
+  function normalize(value) {
+    const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+    const result = {};
+    for (const key of BOOLEAN_KEYS) {
+      result[key] = typeof source[key] === 'boolean' ? source[key] : DEFAULTS[key];
+    }
+    for (const [key, options] of Object.entries(ENUMS)) {
+      result[key] = options.includes(String(source[key] ?? ''))
+        ? String(source[key])
+        : DEFAULTS[key];
+    }
+    return result;
+  }
+
+  function readLocal() {
+    try { return normalize(JSON.parse(localStorage.getItem(storageKey()) || '{}')); }
+    catch (_) { return { ...DEFAULTS }; }
+  }
+
+  function writeLocal(preferences) {
+    try {
+      localStorage.setItem(storageKey(), JSON.stringify(preferences));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function setStatus(panel, message, kind) {
+    const status = panel?.querySelector('#ovyx-ai-preference-status');
+    if (!status) return;
+    status.textContent = message;
+    status.dataset.state = kind || 'info';
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+  }
+
+  function ensureStatus(panel) {
+    let status = panel.querySelector('#ovyx-ai-preference-status');
+    if (status) return status;
+    status = document.createElement('p');
+    status.id = 'ovyx-ai-preference-status';
+    status.setAttribute('role', 'status');
+    status.setAttribute('aria-live', 'polite');
+    status.style.cssText = 'margin:10px 20px;padding:9px 11px;border:1px solid var(--ov-line,rgba(255,255,255,.12));border-radius:8px;color:var(--ov-muted,#a1a1aa);font:500 10px/1.5 Inter,system-ui,sans-serif;overflow-wrap:anywhere;';
+    const actions = panel.querySelector('.ovyx-theme-actions');
+    if (actions) panel.insertBefore(status, actions);
+    else panel.appendChild(status);
+    return status;
+  }
+
+  function applyControls(panel, value) {
+    const preferences = normalize(value);
+    panel.querySelectorAll('[data-ai-mode]').forEach(button => {
+      button.classList.toggle('selected', button.dataset.aiMode === preferences.mode);
+      button.setAttribute('aria-pressed', String(button.dataset.aiMode === preferences.mode));
+    });
+    const chip = panel.querySelector('.ovyx-health-chip');
+    if (chip) chip.textContent = preferences.mode.toUpperCase();
+    for (const [key, id] of Object.entries(SELECT_IDS)) {
+      const control = panel.querySelector('#' + id);
+      if (control) control.value = preferences[key];
+    }
+    for (const key of BOOLEAN_KEYS) {
+      const control = panel.querySelector('[data-ai-pref="' + key + '"]');
+      if (control) {
+        control.checked = preferences[key];
+        control.setAttribute('aria-checked', String(preferences[key]));
+      }
+    }
+  }
+
+  function controlsToPreferences(panel) {
+    const base = normalize(readLocal());
+    const chosenMode = panel.querySelector('[data-ai-mode].selected')?.dataset?.aiMode;
+    if (chosenMode && ENUMS.mode.includes(chosenMode)) base.mode = chosenMode;
+    for (const [key, id] of Object.entries(SELECT_IDS)) {
+      const control = panel.querySelector('#' + id);
+      if (control && ENUMS[key].includes(String(control.value))) base[key] = String(control.value);
+    }
+    for (const key of BOOLEAN_KEYS) {
+      const control = panel.querySelector('[data-ai-pref="' + key + '"]');
+      if (control) base[key] = !!control.checked;
+    }
+    return normalize(base);
+  }
+
+  async function requestPreferences(method, preferences) {
+    const current = user();
+    if (!current || typeof current.getIdToken !== 'function') {
+      throw new Error('Sign in to load and save AI preferences to your OVYX account.');
+    }
+    const token = await current.getIdToken();
+    const response = await fetch('/api/settings/ai', {
+      method,
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + token
+      },
+      ...(method === 'PUT' ? { body: JSON.stringify({ preferences }) } : {})
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok || body?.ok !== true || !body?.preferences || body?.authority !== 'SERVER') {
+      const error = new Error(body?.message || 'OVYX could not confirm your account AI preferences.');
+      error.status = response.status;
+      error.code = body?.code || 'AI_PREFERENCES_REQUEST_FAILED';
+      throw error;
+    }
+    return normalize(body.preferences);
+  }
+
+  async function loadPreferences(force) {
+    const current = user();
+    const uid = String(current?.uid || '');
+    if (!uid) return readLocal();
+    if (!force && loadedUid === uid && cachedPreferences) return cachedPreferences;
+    if (!force && loadingPromise && loadingUid === uid) return loadingPromise;
+    loadingUid = uid;
+    loadingPromise = requestPreferences('GET').then(preferences => {
+      if (String(user()?.uid || '') === uid) {
+        writeLocal(preferences);
+        cachedPreferences = preferences;
+        loadedUid = uid;
+        window.OVYXAISettingsPreferences = preferences;
+      }
+      return preferences;
+    }).finally(() => {
+      if (loadingUid === uid) {
+        loadingPromise = null;
+        loadingUid = '';
+      }
+    });
+    return loadingPromise;
+  }
+
+  async function loadForPanel(panel) {
+    if (!panel?.isConnected) return;
+    ensureStatus(panel);
+    setStatus(panel, 'Loading AI preferences from your OVYX account…', 'loading');
+    try {
+      const preferences = await loadPreferences(true);
+      if (!panel.isConnected) return;
+      applyControls(panel, preferences);
+      setStatus(panel, 'AI preferences loaded from your OVYX account.', 'ok');
+    } catch (error) {
+      if (!panel.isConnected) return;
+      const local = readLocal();
+      cachedPreferences = local;
+      loadedUid = '';
+      window.OVYXAISettingsPreferences = local;
+      applyControls(panel, local);
+      setStatus(panel, 'Could not verify account preferences. Showing saved device settings; changes will not be reported as saved until the server confirms them.', 'error');
+      console.warn('[OVYX AI preferences] Account load failed:', error?.message || error);
+    }
+  }
+
+  async function persistFromPanel(panel, next, reset) {
+    const save = panel.querySelector('#set-ai-save');
+    const resetButton = panel.querySelector('#set-ai-reset');
+    const activeButton = reset ? resetButton : save;
+    if (activeButton?.disabled) return;
+    if (activeButton) activeButton.disabled = true;
+    setStatus(panel, reset ? 'Resetting AI preferences…' : 'Saving AI preferences…', 'loading');
+    try {
+      const serverPreferences = await requestPreferences('PUT', normalize(next));
+      const localSaved = writeLocal(serverPreferences);
+      cachedPreferences = serverPreferences;
+      loadedUid = String(user()?.uid || '');
+      window.OVYXAISettingsPreferences = serverPreferences;
+      applyControls(panel, serverPreferences);
+      setStatus(panel, reset
+        ? 'Preferences reset and saved to your OVYX account.'
+        : (localSaved ? 'Preferences saved to your OVYX account.' : 'Preferences saved to your OVYX account, but this device could not update its local cache.'),
+      localSaved ? 'ok' : 'warning');
+    } catch (error) {
+      setStatus(panel, 'Preferences were not confirmed as saved. ' + String(error?.message || 'Please retry.'), 'error');
+      console.warn('[OVYX AI preferences] Save failed:', error?.message || error);
+    } finally {
+      if (activeButton?.isConnected) activeButton.disabled = false;
+    }
+  }
+
+  function replaceButton(button, handler) {
+    if (!button || button.dataset.ovyxAccountPreferencesBound === '1') return button;
+    const replacement = button.cloneNode(true);
+    replacement.dataset.ovyxAccountPreferencesBound = '1';
+    button.replaceWith(replacement);
+    replacement.addEventListener('click', handler);
+    return replacement;
+  }
+
+  function bindPanel(panel) {
+    if (!panel?.isConnected) return;
+    ensureStatus(panel);
+    panel.querySelectorAll('[data-ai-mode]').forEach(button => {
+      if (button.dataset.ovyxAccountPreferencesBound === '1') return;
+      const replacement = button.cloneNode(true);
+      replacement.dataset.ovyxAccountPreferencesBound = '1';
+      button.replaceWith(replacement);
+      replacement.addEventListener('click', () => {
+        panel.querySelectorAll('[data-ai-mode]').forEach(item => {
+          const selected = item === replacement;
+          item.classList.toggle('selected', selected);
+          item.setAttribute('aria-pressed', String(selected));
+        });
+        const chip = panel.querySelector('.ovyx-health-chip');
+        if (chip) chip.textContent = String(replacement.dataset.aiMode || 'balanced').toUpperCase();
+        setStatus(panel, 'Mode changed. Select Save AI Preferences to keep this choice on your account.', 'info');
+      });
+    });
+
+    replaceButton(panel.querySelector('#set-ai-save'), () => {
+      void persistFromPanel(panel, controlsToPreferences(panel), false);
+    });
+    replaceButton(panel.querySelector('#set-ai-reset'), () => {
+      void persistFromPanel(panel, { ...DEFAULTS }, true);
+    });
+  }
+
+  function wrapSettings() {
+    const settings = window.OVYXSettings;
+    if (!settings || typeof settings.show !== 'function') {
+      window.setTimeout(wrapSettings, 50);
+      return;
+    }
+    if (!showWrapped) {
+      const originalShow = settings.show.bind(settings);
+      settings.show = function (id) {
+        const result = originalShow(id);
+        if (String(id || '').toLowerCase() === 'ai') {
+          window.setTimeout(() => {
+            const panel = document.querySelector('[data-settings-panel="ai"]');
+            if (!panel) return;
+            bindPanel(panel);
+            void loadForPanel(panel);
+          }, 40);
+        }
+        return result;
+      };
+      showWrapped = true;
+    }
+  }
+
+  function capFileValue(value, maxChars) {
+    if (typeof value === 'string') return value.slice(0, maxChars);
+    if (Array.isArray(value)) return value.map(item => capFileValue(item, maxChars));
+    if (!value || typeof value !== 'object') return value;
+    const result = {};
+    for (const [key, item] of Object.entries(value)) {
+      if (typeof item === 'string') {
+        result[key] = item.length > maxChars ? item.slice(0, maxChars) : item;
+      } else if (item && typeof item === 'object') {
+        result[key] = capFileValue(item, maxChars);
+      } else {
+        result[key] = item;
+      }
+    }
+    return result;
+  }
+
+  function buildGenerationPayload(payload, preferences) {
+    const result = { ...payload };
+    const effective = normalize(preferences);
+    const requestedProvider = String(payload.provider || payload.requestedProvider || window.OVYXAI?.provider || 'automatic').trim().toLowerCase() || 'automatic';
+    const isAutomatic = requestedProvider === 'automatic' || requestedProvider === 'auto';
+    result.preferredProvider = payload.preferredProvider || (isAutomatic ? effective.provider : '');
+    result.providerRouting = effective.routing;
+    result.fallback = effective.fallback;
+    if (!payload.model || payload.model === 'automatic') {
+      result.model = effective.model || 'automatic';
+    }
+
+    const budgetCaps = { efficient: 2048, automatic: 4096, maximum: 16000 };
+    const budgetCap = budgetCaps[effective.budget] || budgetCaps.automatic;
+    const requestedMax = Number(payload.maxTokens);
+    result.maxTokens = Number.isFinite(requestedMax) && requestedMax > 0
+      ? Math.min(Math.floor(requestedMax), budgetCap)
+      : budgetCap;
+
+    const additions = [];
+    if (effective.mode === 'quality') {
+      additions.push('AI PREFERENCE — QUALITY: Prioritize thoroughness and complete reasoning. Be methodical, verify important details, and prefer a complete high-quality result over a short answer.');
+    } else if (effective.mode === 'fast') {
+      additions.push('AI PREFERENCE — FAST: Prioritize speed and concise output. Focus on the highest-value answer with minimal unnecessary explanation.');
+    } else {
+      additions.push('AI PREFERENCE — BALANCED: Balance output quality and completeness with response speed.');
+    }
+    if (effective.explain) additions.push('AI PREFERENCE — EXPLANATIONS: Briefly explain major structural or code changes and their important consequences.');
+    if (effective.preserve) additions.push('AI PREFERENCE — PRESERVE: Prefer focused changes to the existing project and preserve working structure unless the request requires rebuilding.');
+    if (effective.confirmDestructive) additions.push('AI PREFERENCE — DESTRUCTIVE CHANGES: Explain the impact and request user confirmation before destructive changes. Never bypass server-side authorization or tool safety checks.');
+    result.system = [String(payload.system || '').trim(), ...additions].filter(Boolean).join('\n\n');
+
+    const context = { ...(payload.context && typeof payload.context === 'object' ? payload.context : {}) };
+    const maxFileChars = effective.contextLimit === 'conservative' ? 120000
+      : effective.contextLimit === 'expanded' ? 240000
+        : 180000;
+    let files = payload.files || context.files || null;
+    if (effective.contextFiles && files && typeof files === 'object') {
+      files = capFileValue(files, maxFileChars);
+      result.files = files;
+      context.files = files;
+    } else {
+      delete result.files;
+      delete context.files;
+    }
+
+    if (effective.contextPage) {
+      if (!context.currentPage && payload.page) context.currentPage = payload.page;
+    } else {
+      delete context.currentPage;
+      delete context.page;
+      delete context.selectedElement;
+    }
+
+    if (!effective.contextGithub) {
+      delete context.github;
+      delete context.githubRepository;
+      delete context.repository;
+    }
+
+    result.context = context;
+    return result;
+  }
+
+  async function effectivePreferences() {
+    const current = user();
+    const uid = String(current?.uid || '');
+    if (!uid) return readLocal();
+    if (loadedUid === uid && cachedPreferences) return cachedPreferences;
+    try { return await loadPreferences(false); }
+    catch (_) { return readLocal(); }
+  }
+
+  function wrapGenerate() {
+    const service = window.OVYXAIService;
+    if (!service || typeof service.generate !== 'function') {
+      window.setTimeout(wrapGenerate, 50);
+      return;
+    }
+    if (generateWrapped) return;
+    const originalGenerate = service.generate.bind(service);
+    service.generate = async function (payload = {}, options = {}) {
+      const preferences = await effectivePreferences();
+      const request = buildGenerationPayload(payload && typeof payload === 'object' ? payload : {}, preferences);
+      return originalGenerate(request, options);
+    };
+    service.__ovyxSettingsPreferencesV1 = true;
+    generateWrapped = true;
+  }
+
+  function init() {
+    wrapSettings();
+    wrapGenerate();
+  }
+
+  if (document.readyState === 'complete') window.setTimeout(init, 0);
+  else window.addEventListener('load', () => window.setTimeout(init, 0), { once: true });
+
+  window.OVYXAISettingsPreferencesClient = Object.freeze({
+    defaults: { ...DEFAULTS },
+    async reload() { return loadPreferences(true); },
+    getCurrent() { return normalize(cachedPreferences || readLocal()); }
+  });
+})();
