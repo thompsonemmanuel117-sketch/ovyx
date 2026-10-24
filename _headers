@@ -139,3 +139,10 @@
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Embedder-Policy: require-corp
   Cross-Origin-Resource-Policy: same-origin
+
+/assets/ovyx-local-ai-cpu-worker.js
+  Content-Type: text/javascript; charset=utf-8
+  Cache-Control: no-store, no-cache, must-revalidate
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
+  Cross-Origin-Resource-Policy: same-origin

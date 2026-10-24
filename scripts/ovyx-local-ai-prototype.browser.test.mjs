@@ -395,8 +395,235 @@ try {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
     assert.equal(overflow, false, '[' + target.name + '] prototype must not create horizontal page overflow.');
     await context.close();
+
+    // CPU/WASM route: a separate isolated browser with WebGPU deliberately absent.
+    // The Transformers.js module is mocked here for fast UI/worker contract checks;
+    // genuine weights and inference are exercised by the separate real CPU smoke workflow.
+    const cpuContext = await browser.newContext({ viewport: target.viewport });
+    const cpuPage = await cpuContext.newPage();
+    cpuPage.setDefaultTimeout(15000);
+    const cpuRequests = [];
+    const cpuErrors = [];
+    const cpuWorkerResponses = [];
+    let cpuRuntimeRequests = 0;
+
+    await cpuContext.addInitScript(() => {
+      Object.defineProperty(navigator, 'gpu', { configurable: true, value: undefined });
+      Object.defineProperty(navigator, 'storage', {
+        configurable: true,
+        value: {
+          estimate: async () => ({ quota: 8_000_000_000, usage: 0 }),
+          persist: async () => true,
+        },
+      });
+    });
+    cpuContext.on('request', request => cpuRequests.push({
+      url: request.url(),
+      method: request.method(),
+      postData: request.postData() || '',
+    }));
+    cpuContext.on('response', async response => {
+      if (response.url().includes('/assets/ovyx-local-ai-cpu-worker.js')) {
+        let headers = {};
+        try { headers = await response.allHeaders(); } catch (_) {}
+        cpuWorkerResponses.push({ status: response.status(), headers });
+      }
+    });
+    cpuPage.on('pageerror', error => cpuErrors.push(error.message));
+    cpuPage.on('console', message => {
+      if (message.type() === 'error') cpuErrors.push(message.text());
+    });
+
+    const cpuRuntimeFixture = [
+      'export const env = {};',
+      'export const LogLevel = { WARNING: 2 };',
+      'export class TextStreamer { constructor(tokenizer, options = {}) { this.tokenizer = tokenizer; this.options = options; } }',
+      'export async function pipeline(task, modelId, options = {}) {',
+      '  if (task !== "text-generation" || modelId !== "onnx-community/Qwen2.5-0.5B-Instruct") throw new Error("Unexpected CPU fixture model.");',
+      '  options.progress_callback?.({ status: "progress_total", progress: 42, file: "model_quantized.onnx" });',
+      '  let generationCount = 0;',
+      '  const run = async (messages, generationOptions = {}) => {',
+      '    generationCount += 1;',
+      '    const streamer = generationOptions.streamer;',
+      '    if (generationCount === 1) {',
+      '      streamer?.options?.callback_function?.("CPU fixture response.");',
+      '      return [{ generated_text: [...messages, { role: "assistant", content: "CPU fixture response." }] }];',
+      '    }',
+      '    streamer?.options?.callback_function?.("Partial CPU response.");',
+      '    await new Promise(resolve => setTimeout(resolve, 60000));',
+      '    streamer?.options?.callback_function?.(" should never complete.");',
+      '    return [{ generated_text: [...messages, { role: "assistant", content: "Partial CPU response." }] }];',
+      '  };',
+      '  run.tokenizer = {};',
+      '  return run;',
+      '}',
+    ].join('\n');
+
+    await cpuContext.route(/https:\/\/cdn\.jsdelivr\.net\/npm\/@huggingface\/transformers@4\.3\.1(?:$|\?)/, async route => {
+      cpuRuntimeRequests += 1;
+      assert.equal(route.request().method(), 'GET', 'CPU runtime fixture must only be fetched with GET.');
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/javascript; charset=utf-8',
+        headers: {
+          'access-control-allow-origin': '*',
+          'cross-origin-resource-policy': 'cross-origin',
+          'cache-control': 'no-store',
+        },
+        body: cpuRuntimeFixture,
+      });
+    });
+
+    const cpuPageResponse = await cpuPage.goto(baseURL + '/local-ai-lab.html', { waitUntil: 'domcontentloaded' });
+    assert.ok(cpuPageResponse && cpuPageResponse.status() === 200,
+      '[' + target.name + '] CPU test local AI lab did not load.');
+    assert.equal(
+      await cpuPage.evaluate(() => typeof navigator.gpu === 'undefined'),
+      true,
+      '[' + target.name + '] CPU route test must run with WebGPU genuinely absent.',
+    );
+    await cpuPage.locator('#model-choice').selectOption('qwen25-05b-cpu');
+    assert.equal(await cpuPage.locator('#start-local-ai').isDisabled(), false,
+      '[' + target.name + '] explicit CPU/WASM start must remain available without WebGPU.');
+    await cpuPage.locator('#start-local-ai').click();
+    await cpuPage.waitForFunction(
+      () => document.getElementById('device-status')?.textContent?.includes('model loaded in this browser and runs on CPU/WASM'),
+      null,
+      { timeout: 10000 },
+    );
+    assert.equal(cpuRuntimeRequests, 1, '[' + target.name + '] the pinned CPU runtime should only load after explicit user action.');
+    assert.equal(cpuWorkerResponses.length, 1, '[' + target.name + '] same-origin CPU worker must load once.');
+    assert.equal(cpuWorkerResponses[0].status, 200);
+    assert.match(cpuWorkerResponses[0].headers['cache-control'] || '', /no-store/i);
+    assert.match(cpuWorkerResponses[0].headers['cross-origin-embedder-policy'] || '', /require-corp/i);
+    assert.match(cpuWorkerResponses[0].headers['cross-origin-resource-policy'] || '', /same-origin/i);
+
+    const cpuPrompt = 'Reply briefly with a local CPU test response.';
+    await cpuPage.locator('#local-prompt').fill(cpuPrompt);
+    await cpuPage.locator('#send-local-prompt').click();
+    await cpuPage.waitForFunction(
+      () => [...document.querySelectorAll('.message.assistant .message-body')]
+        .some(node => node.textContent?.includes('CPU fixture response.')),
+      null,
+      { timeout: 8000 },
+    );
+
+    const cpuStopPrompt = 'Start a response that I will stop.';
+    await cpuPage.locator('#local-prompt').fill(cpuStopPrompt);
+    await cpuPage.locator('#send-local-prompt').click();
+    await cpuPage.locator('#stop-generation').waitFor({ state: 'visible' });
+    await cpuPage.waitForFunction(
+      () => [...document.querySelectorAll('.message.assistant .message-body')]
+        .some(node => node.textContent?.includes('Partial CPU response.')),
+      null,
+      { timeout: 8000 },
+    );
+    await cpuPage.locator('#stop-generation').click();
+    await cpuPage.waitForFunction(
+      () => document.getElementById('device-status')?.textContent?.includes('CPU response stopped.'),
+      null,
+      { timeout: 8000 },
+    );
+    assert.match(await cpuPage.locator('#engine-pill').textContent(), /MODEL NOT LOADED/,
+      '[' + target.name + '] stopping CPU generation must terminate its worker and release model state.');
+    assert.equal(await cpuPage.locator('#start-local-ai').isDisabled(), false);
+
+    assert.equal(cpuRuntimeRequests, 1);
+    assert.ok(cpuRequests.some(request => new URL(request.url).host === 'cdn.jsdelivr.net'),
+      '[' + target.name + '] CPU runtime should be fetched from its explicit pinned CDN.');
+    const forbiddenCpuRequests = cpuRequests.filter(request => {
+      const url = new URL(request.url);
+      return ['api.openai.com', 'generativelanguage.googleapis.com', 'api.anthropic.com',
+        'api.deepseek.com', 'api.groq.com', 'openrouter.ai'].includes(url.hostname)
+        || /\/api\/ai(?:\/|$)|\/api\/generate(?:\/|$)|\/v1\/(?:chat\/completions|responses)(?:\/|$)/i.test(url.pathname)
+        || request.url.includes(cpuPrompt) || request.postData.includes(cpuPrompt)
+        || request.url.includes(cpuStopPrompt) || request.postData.includes(cpuStopPrompt);
+    });
+    assert.deepEqual(forbiddenCpuRequests, [],
+      '[' + target.name + '] CPU/WASM prompts must not leave the browser or hit hosted inference APIs.');
+    assert.ok(cpuRequests.filter(request => !request.url.startsWith(baseURL)).every(request =>
+      new URL(request.url).host === 'cdn.jsdelivr.net' && request.method === 'GET'),
+    '[' + target.name + '] mocked CPU route should only contact the pinned runtime module host.');
+    assert.deepEqual(cpuErrors, [], '[' + target.name + '] CPU/WASM UI/worker must not emit browser errors.');
+    const cpuOverflow = await cpuPage.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
+    assert.equal(cpuOverflow, false, '[' + target.name + '] CPU/WASM UI must not create horizontal overflow.');
+    await cpuContext.close();
+
+    // The CPU path must also be cancellable while its model is still loading,
+    // not only after generation starts. Hold the fake runtime in initialization
+    // until the user clicks Cancel and assert that the worker is released.
+    const cancelCpuContext = await browser.newContext({ viewport: target.viewport });
+    const cancelCpuPage = await cancelCpuContext.newPage();
+    cancelCpuPage.setDefaultTimeout(15000);
+    const cancelCpuErrors = [];
+    const cancelCpuWorkerResponses = [];
+    await cancelCpuContext.addInitScript(() => {
+      Object.defineProperty(navigator, 'gpu', {
+        configurable: true,
+        value: undefined,
+      });
+      Object.defineProperty(navigator, 'storage', {
+        configurable: true,
+        value: {
+          estimate: async () => ({ quota: 10_000_000_000, usage: 0 }),
+          persist: async () => true,
+        },
+      });
+    });
+    cancelCpuContext.on('response', async response => {
+      if (response.url().includes('/assets/ovyx-local-ai-cpu-worker.js')) {
+        cancelCpuWorkerResponses.push(response.status());
+      }
+    });
+    cancelCpuPage.on('pageerror', error => cancelCpuErrors.push(error.message));
+    const heldCpuRuntimeFixture = [
+      'export const env = {};',
+      'export const LogLevel = { WARNING: 2 };',
+      'export class TextStreamer { constructor(tokenizer, options = {}) { this.tokenizer = tokenizer; this.options = options; } }',
+      'export async function pipeline(task, modelId, options = {}) {',
+      '  options.progress_callback?.({ status: "progress_total", progress: 20, file: "model_quantized.onnx" });',
+      '  await new Promise(() => {});',
+      '}',
+    ].join('\n');
+    await cancelCpuContext.route(/https:\/\/cdn\.jsdelivr\.net\/npm\/@huggingface\/transformers@4\.3\.1(?:$|\?)/, async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/javascript; charset=utf-8',
+        headers: {
+          'access-control-allow-origin': '*',
+          'cross-origin-resource-policy': 'cross-origin',
+          'cache-control': 'no-store',
+        },
+        body: heldCpuRuntimeFixture,
+      });
+    });
+    const cancelCpuPageResponse = await cancelCpuPage.goto(baseURL + '/local-ai-lab.html', { waitUntil: 'domcontentloaded' });
+    assert.ok(cancelCpuPageResponse && cancelCpuPageResponse.status() === 200,
+      '[' + target.name + '] CPU cancellation test lab did not load.');
+    await cancelCpuPage.locator('#model-choice').selectOption('qwen25-05b-cpu');
+    await cancelCpuPage.locator('#start-local-ai').click();
+    await cancelCpuPage.locator('#cancel-local-ai').waitFor({ state: 'visible' });
+    await cancelCpuPage.waitForFunction(
+      () => (document.getElementById('progress-note')?.textContent || '').includes('CPU/WASM model download and preparation'),
+      null,
+      { timeout: 8000 },
+    );
+    assert.equal(cancelCpuWorkerResponses.length, 1,
+      '[' + target.name + '] CPU worker should be active before cancellation.');
+    await cancelCpuPage.locator('#cancel-local-ai').click();
+    await cancelCpuPage.waitForFunction(
+      () => (document.getElementById('device-status')?.textContent || '').includes('Cancelled.'),
+      null,
+      { timeout: 8000 },
+    );
+    assert.match(await cancelCpuPage.locator('#engine-pill').textContent(), /MODEL NOT LOADED/,
+      '[' + target.name + '] cancelling CPU model initialization must release the worker and leave no ready model.');
+    assert.equal(await cancelCpuPage.locator('#cancel-local-ai').isHidden(), true);
+    assert.equal(await cancelCpuPage.locator('#start-local-ai').isDisabled(), false);
+    assert.deepEqual(cancelCpuErrors, [], '[' + target.name + '] CPU load cancellation must not cause browser errors.');
+    await cancelCpuContext.close();
   }
-  console.log('OVYX local AI prototype browser contract passed on desktop/mobile with a mocked engine. This proves UI/privacy wiring only; it is not genuine model-load or intelligence evidence.');
+  console.log('OVYX local AI browser contract passed on desktop/mobile for mocked WebLLM and explicit CPU/WASM paths. This is wiring evidence only; genuine model acceptance comes from the real CPU smoke workflow.');
 } finally {
   await browser.close();
 }

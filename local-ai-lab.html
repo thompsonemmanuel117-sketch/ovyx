@@ -72,8 +72,10 @@
         <select id="model-choice">
           <option value="qwen35-4b">Qwen3.5 4B · 2.39 GB download · higher resource</option>
           <option value="qwen35-2b">Qwen3.5 2B q4f32_1 · 1.08 GB · medium resource</option>
-          <option value="qwen35-08b">Qwen3.5 0.8B q4f16_1 · 447 MB · lowest resource</option>
+          <option value="qwen35-08b">Qwen3.5 0.8B q4f16_1 · 447 MB · lowest-resource WebGPU model</option>
+          <option value="qwen25-05b-cpu">Qwen2.5 0.5B · about 512 MB weights · CPU/WASM experiment</option>
         </select>
+        <p class="small">CPU/WASM is a separate, smaller experimental model for devices that cannot run the WebGPU model. OVYX never switches models or sends prompts to a cloud provider automatically if a model fails.</p>
         <div class="details" id="model-details">
           <strong>Qwen3.5 4B · Apache-2.0</strong><br>
           Approximate model files: 2.39 GB<br>
@@ -95,7 +97,7 @@
         </div>
         <p class="small">The diagnostic record helps verify a genuine run on this device. It includes model/runtime, capability, storage and timing measurements—but never prompts, answers, project data or credentials. It is prepared only when you press the button and is not sent automatically.</p>
         <textarea id="diagnostics-output" class="hidden" rows="12" readonly aria-label="Local AI diagnostic record" spellcheck="false"></textarea>
-        <p class="small">The model cache uses your browser's local Cache API. Clearing browser data or storage pressure may remove the cached files; OVYX will detect and recover from that on retry.</p>
+        <p class="small">The model cache uses browser-managed storage. Clearing browser data or storage pressure may remove cached files; OVYX will detect failed loads and let you retry explicitly. Both model/runtime options are loaded only after you choose one and press Start.</p>
       </section>
       <section class="panel" aria-labelledby="chat-heading">
         <div class="chat-head">

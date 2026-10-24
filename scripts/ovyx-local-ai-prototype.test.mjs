@@ -8,6 +8,8 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 const page = read('local-ai-lab.html');
 const client = read('assets/ovyx-local-ai-prototype.js');
 const worker = read('assets/ovyx-local-ai-worker.js');
+const cpuWorker = read('assets/ovyx-local-ai-cpu-worker.js');
+const realLabSmoke = read('scripts/ovyx-local-ai-real-lab.smoke.mjs');
 const routes = JSON.parse(read('_routes.json'));
 const headers = read('_headers');
 const middleware = read('functions/_middleware.js');
@@ -15,6 +17,8 @@ const middleware = read('functions/_middleware.js');
 for (const [file, source] of [
   ['assets/ovyx-local-ai-prototype.js', client],
   ['assets/ovyx-local-ai-worker.js', worker],
+  ['assets/ovyx-local-ai-cpu-worker.js', cpuWorker],
+  ['scripts/ovyx-local-ai-real-lab.smoke.mjs', realLabSmoke],
 ]) {
   assert.ok(source.length > 100, file + ' must not be empty');
   execFileSync(process.execPath, ['--check', path.join(root, file)], { stdio: 'pipe' });
@@ -24,6 +28,8 @@ assert.match(page, /STAGE 3 · ISOLATED PROTOTYPE/);
 assert.match(page, /Download and start local AI/);
 assert.match(page, /Nothing is downloaded until you press the explicit start button/i);
 assert.match(page, /assets\/ovyx-local-ai-prototype\.js/);
+assert.match(page, /option value="qwen25-05b-cpu"/, 'the CPU/WASM model must be explicitly selectable rather than a silent fallback');
+assert.match(page, /OVYX never switches models or sends prompts to a cloud provider automatically/i);
 assert.doesNotMatch(page, /ovyx-assistant-workspace\.js|assets\/ovyx-launch-polish\.js|index\.html/);
 
 const middlewarePathCheck = "const normalizedPath = url.pathname.replace(/\\/+$/, '').toLowerCase();";
@@ -44,6 +50,10 @@ assert.match(headers, /\/assets\/ovyx-local-ai-worker\.js[\s\S]*?Cross-Origin-Op
 assert.match(headers, /\/assets\/ovyx-local-ai-worker\.js[\s\S]*?Cross-Origin-Embedder-Policy:\s*require-corp/i);
 assert.match(headers, /\/assets\/ovyx-local-ai-worker\.js[\s\S]*?Cross-Origin-Resource-Policy:\s*same-origin/i,
   'same-origin local worker must retain an explicit resource policy under the lab COEP policy');
+assert.match(headers, /\/assets\/ovyx-local-ai-cpu-worker\.js[\s\S]*?Cache-Control:\s*no-store/i);
+assert.match(headers, /\/assets\/ovyx-local-ai-cpu-worker\.js[\s\S]*?Content-Type:\s*text\/javascript; charset=utf-8/i);
+assert.match(headers, /\/assets\/ovyx-local-ai-cpu-worker\.js[\s\S]*?Cross-Origin-Embedder-Policy:\s*require-corp/i);
+assert.match(headers, /\/assets\/ovyx-local-ai-cpu-worker\.js[\s\S]*?Cross-Origin-Resource-Policy:\s*same-origin/i);
 
 assert.match(client, /https:\/\/esm\.run\/@mlc-ai\/web-llm@0\.2\.86/);
 assert.match(client, /const webllm = await import\(RUNTIME_URL\)/);
@@ -61,7 +71,7 @@ assert.match(client, /initProgressCallback/);
 assert.match(client, /engine\.chat\.completions\.create/);
 assert.match(client, /stream:\s*true/);
 assert.match(client, /engine\.interruptGenerate\(\)/);
-assert.match(client, /currentEngine\.unload/);
+assert.match(client, /currentEngine\?\.unload/);
 assert.match(client, /conversation\.slice\(0,\s*-1\)\.slice\(-8\)/,
   'the current prompt must not be duplicated in the local conversation request');
 assert.match(client, /max_tokens:\s*768/);
@@ -92,11 +102,52 @@ assert.doesNotMatch(client, /\/api\/ai\/|\/api\/generate|api\.openai\.com|genera
   'the prototype may not reference hosted model-inference or OVYX AI routes');
 assert.doesNotMatch(worker, /\/api\/ai\/|\/api\/generate|api\.openai\.com|generativelanguage\.googleapis\.com|api\.anthropic\.com|api\.deepseek\.com|openrouter\.ai\/api/i);
 assert.match(worker, /@mlc-ai\/web-llm@0\.2\.86/);
+assert.match(cpuWorker, /@huggingface\/transformers@4\.3\.1/);
+assert.match(cpuWorker, /onnx-community\/Qwen2\.5-0\.5B-Instruct/);
+assert.match(cpuWorker, /revision:\s*MODEL_REVISION/);
+assert.match(cpuWorker, /device:\s*'wasm'/);
+assert.match(cpuWorker, /dtype:\s*'q8'/);
+assert.match(cpuWorker, /MODEL_CACHE_VERSION\s*=\s*1/);
+assert.match(cpuWorker, /url\.origin \+ url\.pathname/,
+  'cache identity must ignore non-content download query parameters so reloads reuse the same pinned model asset');
+assert.match(cpuWorker, /url\.pathname\.includes\('\/resolve\/main\/'\)/,
+  'the CPU worker must recognize mutable main aliases');
+assert.match(cpuWorker, /url\.pathname\.replace\('\/resolve\/main\//,
+  'the CPU worker must pin mutable model aliases before network access');
+assert.match(cpuWorker, /navigator\.storage\.getDirectory\(\)/);
+assert.match(cpuWorker, /persistModelAsset\(url, response\.clone\(\)\)/);
+assert.match(cpuWorker, /await response\.body\.pipeTo\(writable\)/);
+assert.match(cpuWorker, /readCachedModelRangeProbe\(url\)/,
+  'the CPU worker must serve the runtime’s one-byte range probe from the cached model instead of re-downloading metadata');
+assert.match(cpuWorker, /await flushModelCacheWrites\(\)/);
+assert.match(cpuWorker, /env\.useBrowserCache\s*=\s*false/,
+  'CPU model assets must use the explicit cache wrapper rather than the unreliable library cache path');
+assert.match(cpuWorker, /env\.useWasmCache\s*=\s*true/);
+assert.match(cpuWorker, /callback_function\(text\)/);
+assert.match(cpuWorker, /let TextStreamerClass = null/);
+assert.match(cpuWorker, /TextStreamerClass = RuntimeTextStreamer/);
+assert.match(cpuWorker, /new TextStreamerClass\(generator\.tokenizer/);
+assert.match(cpuWorker, /Unable to add response to browser cache/i);
+assert.doesNotMatch(cpuWorker, /\/api\/ai\/|\/api\/generate|api\.openai\.com|generativelanguage\.googleapis\.com|api\.anthropic\.com|api\.deepseek\.com|api\.groq\.com|openrouter\.ai\/api/i,
+  'the CPU/WASM worker may not reference hosted inference endpoints');
+assert.match(realLabSmoke, /baseURL \+ '\/local-ai-lab\.html'/);
+assert.match(realLabSmoke, /selectOption\('qwen25-05b-cpu'\)/,
+  'real CPU acceptance must use the user-facing lab and explicit CPU/WASM selection');
+assert.match(realLabSmoke, /reloadWeightRequests/);
+assert.match(realLabSmoke, /forbiddenRequests/);
+assert.match(realLabSmoke, /promptEgressCount/);
+assert.match(realLabSmoke, /CPU response stopped/i);
 
 const startFunction = client.indexOf('async function startLocalModel()');
 const runtimeImport = client.indexOf('await import(RUNTIME_URL)');
 assert.ok(startFunction >= 0 && runtimeImport > startFunction,
-  'runtime import must live inside the local model start function');
+  'WebLLM runtime import must live inside the explicit local model start function');
+assert.match(client, /if \(isCpuModelKey\(key\)\) \{\s*await startCpuLocalModel\(key, model\);/,
+  'CPU/WASM runtime must be selected by the user, not by a failed WebGPU model');
+assert.match(client, /new Worker\('\/assets\/ovyx-local-ai-cpu-worker\.js'/);
+assert.match(client, /requestCpuGeneration\(buildMessages\(prompt\)/);
+assert.match(client, /CPU response stopped\. Its worker was terminated/);
+assert.match(client, /revision:\s*'cc5cc01a65cc3ff17bdb73a7de33d879f62599b0'/);
 assert.match(client, /startButton\.addEventListener\('click',\s*\(\)\s*=>\s*\{\s*void startLocalModel\(\);/,
   'the local model start function must only be invoked through explicit user action');
 assert.doesNotMatch(client.slice(0, startFunction), /CreateWebWorkerMLCEngine\(/,

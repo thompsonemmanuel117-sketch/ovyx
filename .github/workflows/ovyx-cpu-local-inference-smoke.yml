@@ -1,11 +1,16 @@
-name: OVYX CPU-only Local Inference Feasibility
+name: OVYX Real CPU/WASM Local-AI Lab Acceptance
 
 on:
   push:
     branches:
       - '**'
     paths:
-      - 'scripts/ovyx-local-ai-cpu-inference.smoke.mjs'
+      - 'local-ai-lab.html'
+      - 'assets/ovyx-local-ai-prototype.js'
+      - 'assets/ovyx-local-ai-cpu-worker.js'
+      - '_headers'
+      - '_routes.json'
+      - 'scripts/ovyx-local-ai-real-lab.smoke.mjs'
       - '.github/workflows/ovyx-cpu-local-inference-smoke.yml'
   workflow_dispatch:
 
@@ -46,11 +51,11 @@ jobs:
           cat /tmp/ovyx-cpu-local-smoke-pages.log
           exit 1
 
-      - name: Test a genuine Qwen2.5 CPU/WASM response without inference APIs
+      - name: Test genuine CPU/WASM inference through the user-facing local-AI lab
         env:
           OVYX_E2E_BASE_URL: http://127.0.0.1:8795
           OVYX_CPU_SMOKE_REPORT: /tmp/ovyx-cpu-local-ai-smoke.json
-        run: node scripts/ovyx-local-ai-cpu-inference.smoke.mjs
+        run: node scripts/ovyx-local-ai-real-lab.smoke.mjs
 
       - name: Upload sanitized CPU feasibility record
         if: always()
