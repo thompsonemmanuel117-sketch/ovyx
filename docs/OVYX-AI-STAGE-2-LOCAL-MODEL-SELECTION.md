@@ -27,6 +27,7 @@ Prototype against the open-source **MLC-LLM / WebLLM** path and its model/runtim
 
 - 4B candidate: [MLC Qwen3.5-4B q4f16_1, 2.39 GB](https://huggingface.co/mlc-ai/Qwen3.5-4B-q4f16_1-MLC)
 - Lower-resource comparison: [MLC Qwen3.5-2B q4f32_1, 1.08 GB](https://huggingface.co/mlc-ai/Qwen3.5-2B-q4f32_1-MLC)
+- Smallest browser-local comparison: [MLC Qwen3.5-0.8B q4f16_1, about 447 MB](https://huggingface.co/mlc-ai/Qwen3.5-0.8B-q4f16_1-MLC); the pinned WebLLM `v0.2.86` registry estimates about 1.63 GB GPU memory for this record.
 - Higher-resource comparison: [MLC Qwen3.5-9B q4f16_1, 5.06 GB](https://huggingface.co/mlc-ai/Qwen3.5-9B-q4f16_1-MLC)
 - Runtime reference: [MLC WebLLM project](https://github.com/mlc-ai/web-llm) and [MLC models catalogue](https://huggingface.co/mlc-ai/models)
 
