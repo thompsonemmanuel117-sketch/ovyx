@@ -5,7 +5,11 @@ on:
     branches:
       - '**'
     paths:
-      - 'scripts/ovyx-local-ai-cpu-inference.smoke.mjs'
+      - 'local-ai-lab.html'
+      - 'assets/ovyx-local-ai-prototype.js'
+      - 'assets/ovyx-local-ai-cpu-worker.js'
+      - '_headers'
+      - '_routes.json'
       - 'scripts/ovyx-local-ai-real-lab.smoke.mjs'
       - '.github/workflows/ovyx-cpu-local-inference-smoke.yml'
   workflow_dispatch:
