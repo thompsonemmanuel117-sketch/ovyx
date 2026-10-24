@@ -1,7 +1,7 @@
 # OVYX AI — Stage 3: Browser-local inference prototype
 
 **Status:** The isolated CPU/WASM path now passes genuine end-to-end CI acceptance: model download, real local response, persistent OPFS weight reuse after reload, generation stop and no prompt egress. Desktop/mobile browser regressions also cover CPU-load cancellation. Stage 3 remains open for real target-device validation and a genuine WebGPU/Qwen3.5 load.  
-**Current development branch:** `feat/stage3-cpu-wasm-local-lab`  
+**Current status:** The core prototype is merged into `main`. Stage 3 recovery acceptance is being extended on `test/stage3-recovery-acceptance`; this test-only work does not migrate any main OVYX AI route.  
 **Original prototype branch:** `feat/stage-3-browser-local-ai-prototype`  
 **Scope:** A small isolated page to prove real browser-local model loading and inference before any main-shell route is migrated.
 
@@ -28,12 +28,27 @@ The official WebLLM `v0.2.86` source registry lists `Qwen3.5-4B-q4f16_1-MLC`, `Q
 - [ ] The separate WebGPU path passes a real load and inference test on a compatible browser/device. The first automated WebGPU attempt selected Qwen3.5-0.8B and failed during shader compilation in the headless CI GPU adapter; see [real WebGPU smoke run](https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/40100482123). This is an environment/model-runtime compatibility failure, not evidence that the model fails on every real device. Do not hide this failure or silently switch models.
 - [x] A genuine prompt gets a response from the local CPU/WASM model in the user-facing lab; the sanitized CI report records browser/OS, runtime, selected model and timing without storing prompts or answers. Physical-device metrics remain open below.
 - [x] Reloading the user-facing lab reuses the complete OPFS-cached ONNX weight without another full model-weight GET (verified in [run 40106098693](https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/40106098693)).
-- [ ] Recovery from cleared/evicted cache, interrupted download, low storage and failed network downloads still needs explicit acceptance tests.
+- [x] Desktop/mobile browser contract tests now verify the low-storage guard prevents engine/model-weight initialization and that a transient CPU runtime download failure stays local, shows a failure state, and recovers only after explicit retry. This is mocked recovery evidence, not proof of real model-weight recovery.
+- [ ] Interrupted/failed model-weight download and cache eviction/cleared-cache recovery still need genuine acceptance tests; low-storage behaviour also needs confirmation on physical devices.
 - [x] Cancellation is covered for CPU model initialization in desktop/mobile browser regression tests and for active CPU generation in the real-lab acceptance run; no stuck state was observed in those runs.
 - [x] Real-lab network capture found no prompt egress and no hosted inference endpoint call during CPU/WASM inference. Model/runtime artifact downloads are allowed; prompts remain local in the tested workflow.
 - [ ] Test on at least one actual target desktop and one actual target Android/mobile browser; a mocked Chromium test alone is insufficient.
 - [ ] If the 4B model does not fit target device resources, manually compare 2B and 0.8B; never automatically choose another model or a cloud provider as a fallback.
 - [ ] Confirm the device-local diagnostic record matches real observed runs. Fix any download, cache, cancellation, performance, privacy or misleading-status problems found before marking Stage 3 complete.
+
+## Physical-device acceptance procedure
+
+CI cannot substitute for a real GPU or a real Android/desktop device. Before closing Stage 3, run this checklist on at least one actual desktop browser and one actual Android browser, and keep the device results separate:
+
+1. Open the deployed OVYX origin with the path `/local-ai-lab.html` over HTTPS. This is the isolated lab; do not use the main assistant or Web Studio for this check.
+2. Record the device class, OS, browser/version and whether the page reports WebGPU availability. Do not record a unique device identifier.
+3. On a WebGPU-capable desktop, explicitly select **Qwen3.5 4B** first if the device has enough storage and memory. Press **Download and start local AI**, wait for a completed load, then send a short harmless prompt and confirm a real streamed response. If it fails, record the exact error; do not silently switch model or use a hosted fallback.
+4. On Android, begin with **Qwen3.5 0.8B** only if WebGPU is available and the device has sufficient storage; test 4B only if the device can reasonably support its roughly 3.87 GB estimated GPU memory requirement. If WebGPU is unavailable, explicitly select the separate CPU/WASM option and record that as a compatibility-path result, not a WebGPU pass.
+5. Test Stop during a response, unload/reload the page, and confirm the page behaves honestly on warm cache. Do not repeatedly download the multi-gigabyte model just to rerun the same test.
+6. Press **Prepare local test record** after the observed run. Copy the JSON from the page and retain it as evidence. It must not contain prompts, answers, project files, credentials or unique device fingerprints. The page does not send this record automatically.
+7. For failure recovery, record at least one deliberate low-storage or failed-download case if safe to reproduce; confirm the error is visible, retry is available, and no prompt is sent to a hosted inference provider.
+
+**Stage 3 exit rule:** a successful CPU/WASM CI run is useful evidence, but does not satisfy the Qwen3.5 WebGPU or physical-device gates. Mark a device/model as passed only when a genuine response and its sanitized local diagnostic record are available.
 
 ## Free/independence definition
 
