@@ -181,7 +181,23 @@ try {
     assert.equal(await page.locator('#cancel-local-ai').isVisible(), true,
       '[' + target.name + '] cancellation control should be rendered and clickable during model initialization. State: '
       + JSON.stringify({ ...loadingState, runtimeRequests, pageErrors, consoleErrors, workerErrors, failedRequests }));
-    await page.locator('#cancel-local-ai').click();
+    try {
+      await page.locator('#cancel-local-ai').click({ timeout: 3000 });
+    } catch (error) {
+      const afterCancelBecameUnavailable = await page.evaluate(() => ({
+        status: document.getElementById('device-status')?.textContent,
+        progress: document.getElementById('progress-note')?.textContent,
+        engine: document.getElementById('engine-pill')?.textContent,
+        loadingPill: document.getElementById('engine-pill')?.textContent?.includes('LOADING LOCALLY'),
+        cancelHidden: document.getElementById('cancel-local-ai')?.classList.contains('hidden'),
+        cancelDisabled: document.getElementById('cancel-local-ai')?.disabled,
+        holdFlag: globalThis.__OVYX_MOCK_HOLD_FIRST_INIT,
+        released: typeof globalThis.__OVYX_MOCK_RELEASE_INIT === 'function',
+      }));
+      throw new Error('Cancel control disappeared or became unclickable during mocked initialization: '
+        + JSON.stringify({ ...afterCancelBecameUnavailable, runtimeRequests, pageErrors, consoleErrors, workerErrors, failedRequests, workerResponses })
+        + ' Original click error: ' + String(error?.message || error));
+    }
     await page.waitForFunction(
       () => document.getElementById('device-status')?.textContent?.includes('Cancelled.'),
       null,
