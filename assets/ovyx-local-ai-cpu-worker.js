@@ -44,13 +44,26 @@ function installModelFetchCache() {
     const response = await nativeFetch(input, init);
     if (response.ok && response.status === 200 && !response.headers.has('content-range')) {
       try {
-        // Await the cloned response write so a completed load cannot race a
-        // reload before the model asset has been committed to Cache Storage.
-        await cache?.put(request, response.clone());
-      } catch (_) {
+        // Fetch exposes a decoded response body, while CDN metadata can retain
+        // Vary/content-encoding/content-length headers that make a cloned body
+        // invalid to persist. Store the pinned model bytes with safe metadata.
+        // The request URL itself remains the exact cache key.
+        const clone = response.clone();
+        const headers = new Headers();
+        const contentType = clone.headers.get('content-type');
+        if (contentType) headers.set('content-type', contentType);
+        const cacheableResponse = new Response(clone.body, {
+          status: 200,
+          statusText: 'OK',
+          headers,
+        });
+        await cache?.put(request, cacheableResponse);
+      } catch (error) {
+        const reason = String(error?.name || 'CacheError') + ': ' +
+          String(error?.message || 'cache write rejected').replace(/https?:\/\/\S+/gi, '[asset URL]').slice(0, 120);
         self.postMessage({
           type: 'cache-warning',
-          message: 'The browser could not persist one local model file. This device may need to download it again after reload.',
+          message: 'The browser could not persist one local model file (' + reason + '). This device may need to download it again after reload.',
         });
       }
     }
