@@ -7,7 +7,7 @@ export async function onRequest(context) {
 
   // Keep the opt-in browser-local AI lab isolated from the main shell injections.
   // It must not load the provider-dependent workspace scripts or rewrite its CSP/headers.
-  if (url.pathname.replace(/\\/+$/, '').toLowerCase() === '/local-ai-lab.html') {
+  if (url.pathname.replace(/\/+$/, '').toLowerCase() === '/local-ai-lab.html') {
     return context.next();
   }
 
