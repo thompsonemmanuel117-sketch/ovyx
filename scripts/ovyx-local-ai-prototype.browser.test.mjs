@@ -277,11 +277,27 @@ try {
       { timeout: 5000 },
     );
     await page.locator('#stop-generation').click();
-    await page.waitForFunction(
-      () => document.getElementById('device-status')?.textContent?.includes('Stopping local generation'),
-      null,
-      { timeout: 3000 },
-    );
+    try {
+      await page.waitForFunction(
+        () => document.getElementById('device-status')?.textContent?.includes('Stopping local generation'),
+        null,
+        { timeout: 3000 },
+      );
+    } catch (error) {
+      const immediateStopState = await page.evaluate(() => ({
+        status: document.getElementById('device-status')?.textContent,
+        stopButtonHidden: document.getElementById('stop-generation')?.classList.contains('hidden'),
+        stopButtonDisabled: document.getElementById('stop-generation')?.disabled,
+        interruptCalled: globalThis.__OVYX_MOCK_INTERRUPT_CALLED,
+        generationHeld: globalThis.__OVYX_MOCK_GENERATION_HELD,
+        generationReleased: globalThis.__OVYX_MOCK_GENERATION_RELEASED,
+        readyState: document.getElementById('engine-pill')?.textContent,
+      }));
+      throw new Error('Stop click did not produce the expected stopping state: '
+        + JSON.stringify(immediateStopState)
+        + ' Page errors: ' + JSON.stringify({ pageErrors, consoleErrors, workerErrors })
+        + ' Original wait error: ' + String(error?.message || error));
+    }
     try {
       await page.waitForFunction(
         () => document.getElementById('device-status')?.textContent?.includes('Local response was stopped'),
