@@ -301,6 +301,9 @@ export async function validateOrRepairSinglePageBuild(options) {
       try {
         const repairResult = await options.callModel(options.env, {
           provider: options.provider || 'automatic',
+          preferredProvider: options.preferredProvider || '',
+          providerRouting: options.providerRouting || 'automatic',
+          fallback: options.fallback || 'automatic',
           model: options.model,
           authUser: options.authUser,
           taskPrompt: prompt,
