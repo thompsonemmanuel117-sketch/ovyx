@@ -31,6 +31,18 @@
       files: 'https://huggingface.co/mlc-ai/Qwen3.5-2B-q4f32_1-MLC',
       artifactUrl: 'https://huggingface.co/mlc-ai/Qwen3.5-2B-q4f32_1-MLC/resolve/d835e5c',
     }),
+    'qwen35-08b': Object.freeze({
+      id: 'Qwen3.5-0.8B-q4f16_1-MLC',
+      label: 'Qwen3.5 0.8B',
+      sizeBytes: 447_000_000,
+      sizeLabel: '447 MB',
+      vramMB: 1629.49,
+      vramLabel: '1.63 GB',
+      context: 4096,
+      card: 'https://huggingface.co/Qwen/Qwen3.5-0.8B',
+      files: 'https://huggingface.co/mlc-ai/Qwen3.5-0.8B-q4f16_1-MLC',
+      artifactUrl: 'https://huggingface.co/mlc-ai/Qwen3.5-0.8B-q4f16_1-MLC/resolve/0ec1389',
+    }),
   });
   const SYSTEM_PROMPT = [
     'You are OVYX Local AI, a helpful assistant running on the user’s own device.',
