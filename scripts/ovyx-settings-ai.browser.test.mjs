@@ -173,6 +173,11 @@ try {
     );
     await panel.locator('[data-ai-mode="quality"]').waitFor({ state: 'visible' });
     await panel.locator('[data-ai-mode="quality"]').click();
+    await page.waitForFunction(
+      () => document.querySelector('[data-settings-panel="ai"] [data-ai-mode="quality"]')?.getAttribute('aria-pressed') === 'true',
+      null,
+      { timeout: 5000 },
+    );
     await panel.locator('#set-provider').selectOption('openai');
     await panel.locator('#set-ai-model').selectOption('automatic');
     await panel.locator('details.ovyx-ai-advanced summary').click();
