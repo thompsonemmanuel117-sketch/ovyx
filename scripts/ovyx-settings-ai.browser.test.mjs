@@ -38,6 +38,19 @@ try {
       if (/Settings|OVYXAI|secureGenerate|ReferenceError/i.test(error.message)) pageErrors.push(error.message);
     });
 
+    // Seed the prior device-only preference document before any OVYX
+    // scripts run, just as it would exist for a returning account after deploy.
+    await page.addInitScript(() => {
+      localStorage.setItem('ovyx.ai.preferences.v1.user.settings-ai-browser-user', JSON.stringify({
+        mode: 'fast',
+        provider: 'deepseek',
+        model: 'automatic',
+        routing: 'automatic',
+        fallback: 'next',
+        contextLimit: 'automatic',
+        budget: 'automatic',
+      }));
+    });
     await installOwnerBrowserApiFixtures(page, {
       initialUser: {
         uid: 'settings-ai-browser-user',
@@ -129,23 +142,12 @@ try {
 
     await page.evaluate(() => window.Router.go('settings'));
     await page.locator('#view-settings').waitFor({ state: 'visible' });
-    // Simulate preferences saved by the older client under this known account.
-    // Use the explicit scoped key so the test does not depend on whether auth UI
-    // callbacks have refreshed a helper function between app boot and this step.
+    // Wait for the authenticated account to be installed before opening settings.
     await page.waitForFunction(
       () => window.firebase?.auth?.().currentUser?.uid === 'settings-ai-browser-user',
       null,
       { timeout: 10000 },
     );
-    await page.evaluate(() => localStorage.setItem('ovyx.ai.preferences.v1.user.settings-ai-browser-user', JSON.stringify({
-      mode: 'fast',
-      provider: 'deepseek',
-      model: 'automatic',
-      routing: 'automatic',
-      fallback: 'next',
-      contextLimit: 'automatic',
-      budget: 'automatic',
-    })));
     await page.evaluate(() => window.OVYXSettings.show('ai'));
     const panel = page.locator('[data-settings-panel="ai"]');
     await panel.locator('#set-ai-save').waitFor({ state: 'visible' });
@@ -154,20 +156,6 @@ try {
       null,
       { timeout: 10000 },
     );
-    const migrationDebug = await page.evaluate(() => ({
-      uid: window.firebase?.auth?.().currentUser?.uid || null,
-      key: window.OVYXAIStorageKey?.() || null,
-      scoped: localStorage.getItem('ovyx.ai.preferences.v1.user.settings-ai-browser-user'),
-      guest: localStorage.getItem('ovyx.ai.preferences.v1.guest'),
-      status: document.getElementById('ovyx-ai-preference-status')?.textContent || '',
-      client: window.OVYXAISettingsPreferences || null,
-    }));
-    console.log('[OVYX AI preference migration debug]', target.name, JSON.stringify({
-      migrationDebug,
-      serverPreferences,
-      serverUpdatedAt,
-      requests: aiPreferenceRequests,
-    }));
     assert.equal(serverPreferences.mode, 'fast', '[' + target.name + '] legacy local preferences must migrate when the account has no saved preferences.');
     assert.equal(serverPreferences.provider, 'deepseek', '[' + target.name + '] migration must preserve the account user’s existing local provider preference.');
     assert.ok(aiPreferenceRequests.some(request => request.method === 'PUT'), '[' + target.name + '] legacy migration must create the account-scoped preference document.');
