@@ -182,7 +182,7 @@ try {
     await panel.locator('#set-ai-model').selectOption('automatic');
     await panel.locator('details.ovyx-ai-advanced summary').click();
     await panel.locator('#set-ai-routing').selectOption('preferred-first');
-    await panel.locator('#set-ai-fallback').selectOption('stop');
+    await panel.locator('#set-ai-fallback').selectOption('next');
     await panel.locator('#set-ai-context-limit').selectOption('conservative');
     await panel.locator('#set-ai-budget').selectOption('maximum');
     await panel.locator('[data-ai-pref="contextPage"]').setChecked(false);
@@ -212,7 +212,7 @@ try {
     assert.equal(saved.preferences.provider, 'openai');
     assert.equal(saved.preferences.model, 'automatic');
     assert.equal(saved.preferences.routing, 'preferred-first');
-    assert.equal(saved.preferences.fallback, 'stop');
+    assert.equal(saved.preferences.fallback, 'next');
     assert.equal(saved.preferences.contextLimit, 'conservative');
     assert.equal(saved.preferences.budget, 'maximum');
     assert.equal(saved.preferences.contextPage, false);
@@ -252,7 +252,7 @@ try {
     const sent = aiRequests[0];
     assert.equal(sent.preferredProvider, 'openai',
       '[' + target.name + '] preferred provider must reach the authenticated AI backend, not remain local-only.');
-    assert.equal(sent.fallback, 'stop',
+    assert.equal(sent.fallback, 'next',
       '[' + target.name + '] fallback policy must reach the authenticated AI backend.');
     assert.equal(sent.providerRouting, 'preferred-first',
       '[' + target.name + '] model routing must reach the authenticated AI backend.');
@@ -288,7 +288,7 @@ try {
     assert.equal(gatewayRequests.length, 1, '[' + target.name + '] explicit provider choice must use the gateway route.');
     assert.equal(gatewayRequests[0].provider, 'openai');
     assert.equal(gatewayRequests[0].providerRouting, 'preferred-first');
-    assert.equal(gatewayRequests[0].fallback, 'stop');
+    assert.equal(gatewayRequests[0].fallback, 'next');
     assert.equal(gatewayRequests[0].model, 'automatic');
     assert.equal(gatewayRequests[0].maxTokens, 16000);
     assert.match(gatewayRequests[0].system, /prioritize thoroughness/i);
