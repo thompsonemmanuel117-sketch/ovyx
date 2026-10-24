@@ -5,6 +5,7 @@
   ],
   "exclude": [
     "/assets/*",
-    "/manifest.json"
+    "/manifest.json",
+    "/local-ai-lab.html"
   ]
 }
