@@ -199,6 +199,15 @@
   async function loadForPanel(panel) {
     if (!panel?.isConnected) return;
     ensureStatus(panel);
+    if (!String(user()?.uid || '')) {
+      const local = readLocal();
+      cachedPreferences = local;
+      loadedUid = '';
+      window.OVYXAISettingsPreferences = local;
+      applyControls(panel, local);
+      setStatus(panel, 'Using settings saved on this device. Sign in to sync AI preferences to your OVYX account.', 'local');
+      return;
+    }
     setStatus(panel, 'Loading AI preferences from your OVYX account…', 'loading');
     try {
       const preferences = await loadPreferences(true);
@@ -224,6 +233,20 @@
     if (activeButton?.disabled) return;
     if (activeButton) activeButton.disabled = true;
     setStatus(panel, reset ? 'Resetting AI preferences…' : 'Saving AI preferences…', 'loading');
+    if (!String(user()?.uid || '')) {
+      const local = normalize(next);
+      const savedLocally = writeLocal(local);
+      cachedPreferences = local;
+      loadedUid = '';
+      window.OVYXAISettingsPreferences = local;
+      applyControls(panel, local);
+      setStatus(panel, savedLocally
+        ? (reset ? 'Preferences reset on this device. Sign in to sync defaults to your OVYX account.' : 'Preferences saved on this device. Sign in to sync them to your OVYX account.')
+        : 'The browser could not save these preferences locally. Check device storage and retry.',
+      savedLocally ? 'local' : 'error');
+      if (activeButton?.isConnected) activeButton.disabled = false;
+      return;
+    }
     try {
       const serverPreferences = await requestPreferences('PUT', normalize(next));
       const localSaved = writeLocal(serverPreferences);
@@ -283,25 +306,24 @@
   function wrapSettings() {
     const settings = window.OVYXSettings;
     if (!settings || typeof settings.show !== 'function') {
-      window.setTimeout(wrapSettings, 50);
+      console.warn('[OVYX AI preferences] Settings module was not available at initialization.');
       return;
     }
-    if (!showWrapped) {
-      const originalShow = settings.show.bind(settings);
-      settings.show = function (id) {
-        const result = originalShow(id);
-        if (String(id || '').toLowerCase() === 'ai') {
-          window.setTimeout(() => {
-            const panel = document.querySelector('[data-settings-panel="ai"]');
-            if (!panel) return;
-            bindPanel(panel);
-            void loadForPanel(panel);
-          }, 40);
-        }
-        return result;
-      };
-      showWrapped = true;
-    }
+    if (showWrapped) return;
+    const originalShow = settings.show.bind(settings);
+    settings.show = function (id) {
+      const result = originalShow(id);
+      if (String(id || '').toLowerCase() === 'ai') {
+        window.setTimeout(() => {
+          const panel = document.querySelector('[data-settings-panel="ai"]');
+          if (!panel) return;
+          bindPanel(panel);
+          void loadForPanel(panel);
+        }, 40);
+      }
+      return result;
+    };
+    showWrapped = true;
   }
 
   function capFileValue(value, maxChars) {
@@ -397,7 +419,7 @@
   function wrapGenerate() {
     const service = window.OVYXAIService;
     if (!service || typeof service.generate !== 'function') {
-      window.setTimeout(wrapGenerate, 50);
+      console.warn('[OVYX AI preferences] AI generation service was not available at initialization.');
       return;
     }
     if (generateWrapped) return;
