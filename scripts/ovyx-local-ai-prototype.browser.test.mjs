@@ -584,7 +584,7 @@ try {
       '  options.progress_callback?.({ status: "progress_total", progress: 20, file: "model_quantized.onnx" });',
       '  await new Promise(() => {});',
       '}',
-    ].join('\\n');
+    ].join('\n');
     await cancelCpuContext.route(/https:\\/\\/cdn\\.jsdelivr\\.net\\/npm\\/@huggingface\\/transformers@4\\.3\\.1(?:$|\\?)/, async route => {
       await route.fulfill({
         status: 200,
