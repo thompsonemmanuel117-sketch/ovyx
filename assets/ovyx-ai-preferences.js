@@ -145,44 +145,97 @@
     return normalize(base);
   }
 
-  async function requestPreferences(method, preferences) {
+  function preferencesAbortError() {
+    return Object.assign(new Error('Waiting for AI preferences was cancelled.'), {
+      name: 'AbortError',
+      code: 'AI_PREFERENCES_CANCELLED'
+    });
+  }
+
+  function awaitWithSignal(promise, signal) {
+    if (!signal) return Promise.resolve(promise);
+    if (signal.aborted) return Promise.reject(preferencesAbortError());
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const cleanup = () => signal.removeEventListener('abort', onAbort);
+      const finish = (callback, value) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        callback(value);
+      };
+      const onAbort = () => finish(reject, preferencesAbortError());
+      signal.addEventListener('abort', onAbort, { once: true });
+      Promise.resolve(promise).then(
+        value => finish(resolve, value),
+        error => finish(reject, error)
+      );
+    });
+  }
+
+  async function requestPreferences(method, preferences, externalSignal = null) {
     const current = user();
     if (!current || typeof current.getIdToken !== 'function') {
       throw new Error('Sign in to load and save AI preferences to your OVYX account.');
     }
+    if (externalSignal?.aborted) throw preferencesAbortError();
     const token = await current.getIdToken();
-    const response = await fetch('/api/settings/ai', {
-      method,
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: {
-        Accept: 'application/json',
-        'Content-Type': 'application/json',
-        Authorization: 'Bearer ' + token
-      },
-      ...(method === 'PUT' ? { body: JSON.stringify({ preferences }) } : {})
-    });
-    const body = await response.json().catch(() => ({}));
-    if (!response.ok || body?.ok !== true || !body?.preferences || body?.authority !== 'SERVER') {
-      const error = new Error(body?.message || 'OVYX could not confirm your account AI preferences.');
-      error.status = response.status;
-      error.code = body?.code || 'AI_PREFERENCES_REQUEST_FAILED';
+    if (externalSignal?.aborted) throw preferencesAbortError();
+    const controller = new AbortController();
+    let timedOut = false;
+    const timeoutMs = method === 'GET' ? 5000 : 15000;
+    const timeoutId = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, timeoutMs);
+    const abortRequest = () => controller.abort();
+    externalSignal?.addEventListener('abort', abortRequest, { once: true });
+    try {
+      const response = await fetch('/api/settings/ai', {
+        method,
+        credentials: 'same-origin',
+        cache: 'no-store',
+        signal: controller.signal,
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + token
+        },
+        ...(method === 'PUT' ? { body: JSON.stringify({ preferences }) } : {})
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok || body?.ok !== true || !body?.preferences || body?.authority !== 'SERVER') {
+        const error = new Error(body?.message || 'OVYX could not confirm your account AI preferences.');
+        error.status = response.status;
+        error.code = body?.code || 'AI_PREFERENCES_REQUEST_FAILED';
+        throw error;
+      }
+      return {
+        preferences: normalize(body.preferences),
+        updatedAt: body.updatedAt || null
+      };
+    } catch (error) {
+      if (externalSignal?.aborted) throw preferencesAbortError();
+      if (timedOut) {
+        throw Object.assign(new Error('OVYX AI preferences request timed out.'), {
+          code: 'AI_PREFERENCES_TIMEOUT'
+        });
+      }
       throw error;
+    } finally {
+      clearTimeout(timeoutId);
+      externalSignal?.removeEventListener('abort', abortRequest);
     }
-    return {
-      preferences: normalize(body.preferences),
-      updatedAt: body.updatedAt || null
-    };
   }
 
-  async function loadPreferences(force) {
+  async function loadPreferences(force, externalSignal = null) {
     const current = user();
     const uid = String(current?.uid || '');
     if (!uid) return readLocal();
-    if (loadingPromise && loadingUid === uid) return loadingPromise;
+    if (loadingPromise && loadingUid === uid) return awaitWithSignal(loadingPromise, externalSignal);
     if (!force && loadedUid === uid && cachedPreferences) return cachedPreferences;
     loadingUid = uid;
-    loadingPromise = requestPreferences('GET').then(async serverState => {
+    loadingPromise = requestPreferences('GET', undefined, externalSignal).then(async serverState => {
       let preferences = serverState.preferences;
       if (!serverState.updatedAt) {
         let legacy = null;
@@ -192,7 +245,7 @@
         if (legacy && typeof legacy === 'object' && !Array.isArray(legacy) && Object.keys(legacy).length) {
           // Preserve this account's old device-only settings the first time the
           // server preference document is created; never overwrite newer server data.
-          const migrated = await requestPreferences('PUT', normalize(legacy));
+          const migrated = await requestPreferences('PUT', normalize(legacy), externalSignal);
           preferences = migrated.preferences;
         }
       }
@@ -209,7 +262,7 @@
         loadingUid = '';
       }
     });
-    return loadingPromise;
+    return awaitWithSignal(loadingPromise, externalSignal);
   }
 
   function setPanelBusy(panel, busy) {
@@ -442,12 +495,12 @@
     return result;
   }
 
-  async function effectivePreferences() {
+  async function effectivePreferences(externalSignal = null) {
     const current = user();
     const uid = String(current?.uid || '');
     if (!uid) return readLocal();
     if (loadedUid === uid && cachedPreferences) return cachedPreferences;
-    try { return await loadPreferences(false); }
+    try { return await loadPreferences(false, externalSignal); }
     catch (_) { return readLocal(); }
   }
 
@@ -460,7 +513,7 @@
     if (generateWrapped) return;
     const originalGenerate = service.generate.bind(service);
     service.generate = async function (payload = {}, options = {}) {
-      const preferences = await effectivePreferences();
+      const preferences = await effectivePreferences(options?.signal || null);
       const request = buildGenerationPayload(payload && typeof payload === 'object' ? payload : {}, preferences);
       return originalGenerate(request, options);
     };
