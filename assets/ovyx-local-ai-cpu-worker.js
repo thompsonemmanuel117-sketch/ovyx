@@ -1,0 +1,120 @@
+// Stage 3 CPU/WASM worker. It is created only after explicit user action.
+// Prompts and generated text stay inside this worker and are never sent as network bodies.
+const TRANSFORMERS_URL = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.1';
+const MODEL_ID = 'onnx-community/Qwen2.5-0.5B-Instruct';
+const MODEL_REVISION = 'cc5cc01a65cc3ff17bdb73a7de33d879f62599b0';
+let generator = null;
+let loading = false;
+let generating = false;
+
+function safeMessage(error) {
+  return String(error?.message || error || 'CPU/WASM local inference failed.')
+    .replace(/\s+/g, ' ')
+    .slice(0, 420);
+}
+
+function sendProgress(info) {
+  let progress = Number(info?.progress);
+  if (Number.isFinite(progress) && progress > 1) progress /= 100;
+  if (!Number.isFinite(progress) || progress < 0 || progress > 1) progress = 0;
+  const label = String(info?.file || info?.name || 'local model assets').slice(0, 120);
+  const stage = String(info?.status || 'loading').slice(0, 40);
+  self.postMessage({
+    type: 'progress',
+    progress,
+    text: stage === 'progress_total'
+      ? 'CPU/WASM model download and preparation: ' + Math.round(progress * 100) + '%'
+      : 'Preparing CPU/WASM model assets (' + stage + '): ' + label,
+  });
+}
+
+self.addEventListener('message', async event => {
+  const data = event.data || {};
+  if (data.type === 'load') {
+    if (loading || generator) {
+      self.postMessage({ type: generator ? 'ready' : 'error', modelId: MODEL_ID, message: 'CPU model is already loaded or loading.' });
+      return;
+    }
+    loading = true;
+    try {
+      const { pipeline, TextStreamer, env } = await import(TRANSFORMERS_URL);
+      env.allowRemoteModels = true;
+      env.allowLocalModels = false;
+      env.useBrowserCache = true;
+      env.useWasmCache = true;
+      env.logLevel = 'error';
+      generator = await pipeline('text-generation', MODEL_ID, {
+        revision: MODEL_REVISION,
+        device: 'wasm',
+        dtype: 'q8',
+        progress_callback: sendProgress,
+      });
+      self.postMessage({
+        type: 'ready',
+        modelId: MODEL_ID,
+        revision: MODEL_REVISION,
+        runtime: '@huggingface/transformers@4.3.1',
+        device: 'wasm',
+      });
+    } catch (error) {
+      generator = null;
+      self.postMessage({ type: 'error', stage: 'load', message: safeMessage(error) });
+    } finally {
+      loading = false;
+    }
+    return;
+  }
+
+  if (data.type === 'generate') {
+    if (!generator) {
+      self.postMessage({ type: 'error', generationId: data.generationId, stage: 'generation', message: 'Load the CPU/WASM model before generating.' });
+      return;
+    }
+    if (generating) {
+      self.postMessage({ type: 'error', generationId: data.generationId, stage: 'generation', message: 'The CPU model is already generating a response.' });
+      return;
+    }
+    generating = true;
+    const generationId = Number(data.generationId);
+    let outputCharacters = 0;
+    try {
+      const messages = Array.isArray(data.messages) ? data.messages.slice(-10) : [];
+      if (!messages.length || !messages.some(item => item?.role === 'user' && String(item?.content || '').trim())) {
+        throw new Error('A non-empty user prompt is required.');
+      }
+      const streamer = new TextStreamer(generator.tokenizer, {
+        skip_prompt: true,
+        skip_special_tokens: true,
+        callback_function(text) {
+          const piece = String(text || '');
+          if (!piece) return;
+          outputCharacters += piece.length;
+          self.postMessage({ type: 'token', generationId, text: piece });
+        },
+      });
+      const output = await generator(messages, {
+        max_new_tokens: Math.max(1, Math.min(384, Number(data.maxNewTokens) || 256)),
+        do_sample: false,
+        temperature: 0,
+        streamer,
+      });
+      const candidate = output?.[0]?.generated_text;
+      const outputText = typeof candidate === 'string'
+        ? candidate
+        : Array.isArray(candidate)
+          ? candidate.filter(item => item?.role === 'assistant').map(item => String(item.content || '')).join(' ')
+          : '';
+      if (!outputCharacters) outputCharacters = String(outputText || '').length;
+      self.postMessage({ type: 'complete', generationId, outputCharacters });
+    } catch (error) {
+      self.postMessage({ type: 'error', generationId, stage: 'generation', message: safeMessage(error) });
+    } finally {
+      generating = false;
+    }
+  }
+});
+
+self.addEventListener('unhandledrejection', event => {
+  event.preventDefault();
+  self.postMessage({ type: 'error', stage: 'worker', message: safeMessage(event.reason) });
+});
