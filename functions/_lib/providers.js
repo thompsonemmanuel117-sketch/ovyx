@@ -1159,7 +1159,7 @@ async function readGlobalProviderOrder(env) {
   return [...normalized];
 }
 
-export function providerOrder(env, requested, taskContext = '', globalOrder = null, preferredProvider = '', providerRouting = 'automatic') {
+export function providerOrder(env, requested, taskContext = '', globalOrder = null, preferredProvider = '', providerRouting = 'automatic', fallback = 'automatic') {
   const selection = String(requested || 'automatic').trim().toLowerCase();
   if (selection && selection !== 'automatic') {
     // An explicit choice is exclusive even when its key is missing.
@@ -1188,6 +1188,17 @@ export function providerOrder(env, requested, taskContext = '', globalOrder = nu
     'gemini', 'deepseek', 'claude', 'openai', 'groq', 'openrouter',
   ];
   const ordered = [...new Set(priorities)].filter(provider => isProviderConfigured(env, provider));
+
+  // Stop mode means the user's preferred provider is exclusive for automatic
+  // requests, even if its secret is missing. Let the normal adapter produce the
+  // existing safe not-configured error instead of silently selecting another vendor.
+  const stopOnFailure = String(fallback || 'automatic').trim().toLowerCase() === 'stop';
+  if (stopOnFailure && userPreferred.length && routing !== 'provider-priority') {
+    return userPreferred.slice(0, 1);
+  }
+  if (stopOnFailure && ordered.length) {
+    return ordered.slice(0, 1);
+  }
 
   // Workers AI is an optional final fallback and requires a real binding.
   if (env?.AI && typeof env.AI.run === 'function' && !ordered.includes('cloudflare-workers-ai')) {
@@ -1325,7 +1336,8 @@ export async function callModel(
     String(options.taskPrompt || options.user || ''),
     globalOrder,
     options.preferredProvider,
-    options.providerRouting
+    options.providerRouting,
+    options.fallback
   );
   if (requested === 'automatic' && availableProviders.length === 0) {
     throw Object.assign(

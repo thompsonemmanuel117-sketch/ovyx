@@ -374,6 +374,7 @@ async function buildStudioMultiPageOnce(options) {
   const authUser = options.authUser;
   const preferredProvider = options.preferredProvider || '';
   const providerRouting = options.providerRouting || 'automatic';
+  const fallback = options.fallback || 'automatic';
   const prompt = String(options.prompt || '');
   const promptContract = buildPromptContract(prompt);
   const project = options.project || {};
@@ -393,7 +394,7 @@ async function buildStudioMultiPageOnce(options) {
   let planResult;
   try {
     planResult = await callModel(env, {
-      provider, model, authUser, preferredProvider, providerRouting, taskPrompt: prompt,
+      provider, model, authUser, preferredProvider, providerRouting, fallback, taskPrompt: prompt,
       system: [String(options.qualityContract || '').trim(), 'You are an expert website information architect. Return JSON only with a realistic route-by-route sitemap. Do not generate site code in this planning phase.'].filter(Boolean).join('\n\n'),
       user: planInput,
       maxTokens: cap(env, 'OVYX_WEBSTUDIO_PLAN_TOKENS', 7000),
@@ -461,7 +462,7 @@ async function buildStudioMultiPageOnce(options) {
     let result;
     try {
       result = await callModel(env, {
-        provider, model, authUser, taskPrompt: prompt,
+        provider, model, authUser, preferredProvider, providerRouting, fallback, taskPrompt: prompt,
         system: [String(options.qualityContract || '').trim(), 'You are OVYX Web Studio, a senior frontend engineer and UX architect. Follow the batch instructions exactly. Return strict JSON with complete file contents.'].filter(Boolean).join('\n\n'),
         user: input,
         maxTokens: cap(env, 'OVYX_WEBSTUDIO_BATCH_TOKENS', 18000),
@@ -544,6 +545,7 @@ async function buildStudioMultiPageOnce(options) {
             authUser,
             preferredProvider,
             providerRouting,
+            fallback,
             taskPrompt: prompt,
             system: [
               String(options.qualityContract || '').trim(),
@@ -657,6 +659,7 @@ async function buildStudioMultiPageOnce(options) {
         authUser,
         preferredProvider,
         providerRouting,
+        fallback,
         taskPrompt: prompt,
         system: [
           String(options.qualityContract || '').trim(),

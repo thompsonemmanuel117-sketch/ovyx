@@ -103,6 +103,58 @@ assert.deepEqual(
   ['deepseek', 'gemini', 'openai'],
   'Provider-priority routing must not promote a personal provider over the global owner order.'
 );
+assert.deepEqual(
+  providerOrder(
+    { GEMINI_API_KEY: 'g', DEEPSEEK_API_KEY: 'd', OPENAI_API_KEY: 'o' },
+    'automatic',
+    'Build a website',
+    ['deepseek', 'gemini'],
+    'openai',
+    'preferred-first',
+    'stop'
+  ),
+  ['openai'],
+  'Stop fallback mode must try only the preferred-first configured provider.'
+);
+assert.deepEqual(
+  providerOrder(
+    { GEMINI_API_KEY: 'g', DEEPSEEK_API_KEY: 'd', OPENAI_API_KEY: 'o' },
+    'automatic',
+    'Build a website',
+    ['deepseek', 'gemini'],
+    'openai',
+    'automatic',
+    'stop'
+  ),
+  ['openai'],
+  'Stop mode must make the personal preference exclusive instead of falling through task or owner order.'
+);
+assert.deepEqual(
+  providerOrder(
+    { AI: { run() {} } },
+    'automatic',
+    'Build a website',
+    [],
+    '',
+    'automatic',
+    'stop'
+  ),
+  ['cloudflare-workers-ai'],
+  'Stop mode may still use Workers AI when no personal preference exists and it is the only configured engine.'
+);
+assert.deepEqual(
+  providerOrder(
+    { AI: { run() {} } },
+    'automatic',
+    'Build a website',
+    [],
+    'openai',
+    'preferred-first',
+    'stop'
+  ),
+  ['openai'],
+  'Stop mode must not silently switch to Workers AI when the preferred provider is not configured.'
+);
 
 const originalFetch = globalThis.fetch;
 const requests = [];

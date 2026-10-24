@@ -587,6 +587,15 @@
     if (!panel) return;
     const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
     const prefs = Object.assign({}, AI_PREFERENCE_DEFAULTS, safeJson(localStorage.getItem(key)));
+    const mode = ['balanced', 'fast', 'quality'].includes(String(prefs.mode || ''))
+      ? String(prefs.mode) : 'balanced';
+    panel.querySelectorAll('[data-ai-mode]').forEach(button => {
+      const selected = button.dataset.aiMode === mode;
+      button.classList.toggle('selected', selected);
+      button.setAttribute('aria-pressed', String(selected));
+    });
+    const modeChip = panel.querySelector('.ovyx-health-chip');
+    if (modeChip) modeChip.textContent = mode.toUpperCase();
     ['explain','preserve','confirmDestructive','contextFiles','contextPage','contextGithub'].forEach(name => {
       const input = panel.querySelector('[data-ai-pref="' + name + '"]');
       if (input) input.checked = !!prefs[name];
@@ -697,6 +706,13 @@
           contextFiles: true, contextPage: true, contextGithub: true,
           routing: 'automatic', fallback: 'next', contextLimit: 'automatic', budget: 'automatic'
         }, safeJson(localStorage.getItem(key)));
+        const visibleMode = String(
+          panel && (
+            panel.querySelector('[data-ai-mode].selected')?.dataset?.aiMode ||
+            panel.querySelector('[data-ai-mode][aria-pressed="true"]')?.dataset?.aiMode
+          ) || window.OVYXAI?.mode || prefs.mode || 'balanced'
+        );
+        prefs.mode = ['balanced', 'fast', 'quality'].includes(visibleMode) ? visibleMode : 'balanced';
         prefs.provider = String(panel && panel.querySelector('#set-provider') && panel.querySelector('#set-provider').value || 'gemini');
         const selectedModel = String(panel && panel.querySelector('#set-ai-model') && panel.querySelector('#set-ai-model').value || 'automatic');
         prefs.model = selectedModel === 'automatic' || (MODELS_BY_PROVIDER[prefs.provider] || []).includes(selectedModel) ? selectedModel : 'automatic';
@@ -715,20 +731,31 @@
           const saved = await api(AI_PREFERENCES_ENDPOINT, jsonOptions('PUT', { preferences: prefs }));
           if (saved?.authority !== 'SERVER' || !saved.preferences) throw new Error('The server did not confirm the saved preferences.');
           savedPreferences = Object.assign({}, AI_PREFERENCE_DEFAULTS, saved.preferences);
+          localStorage.setItem(key, JSON.stringify(savedPreferences));
+          window.OVYXAI = Object.assign({}, window.OVYXAI || {}, savedPreferences);
         } catch (error) {
           serverError = String(error?.message || 'account preference sync failed');
+          // When signed in, do not treat a failed account write as a successful
+          // device save. Keep the last-known local/account preference values so
+          // the next AI request cannot silently use settings the server rejected.
+          if (currentUser()) {
+            savedPreferences = Object.assign({}, AI_PREFERENCE_DEFAULTS, safeJson(localStorage.getItem(key)));
+          } else {
+            try { localStorage.setItem(key, JSON.stringify(prefs)); } catch (_) {}
+          }
         }
-        localStorage.setItem(key, JSON.stringify(savedPreferences));
-        window.OVYXAI = Object.assign({}, window.OVYXAI || {}, savedPreferences);
+        if (!serverError || !currentUser()) {
+          window.OVYXAI = Object.assign({}, window.OVYXAI || {}, savedPreferences);
+        }
         syncAISettingsControls();
         const status = addStatus(panel, 'ovyx-ai-preference-status', 'AI preference status');
         if (status) {
           status.textContent = serverError
-            ? 'Preferences saved on this device only. Account sync could not be verified: ' + serverError
+            ? 'Preferences were not confirmed as saved to your OVYX account. Previous settings remain active: ' + serverError
             : 'Preferences saved to your OVYX account and verified by the server.';
           status.dataset.state = serverError ? 'warning' : 'ok';
         }
-        notify(serverError ? 'AI preferences were saved locally, but account sync needs attention.' : 'AI preferences saved to your OVYX account.', serverError ? 'warning' : 'success');
+        notify(serverError ? 'AI preference save was not confirmed. Previous account settings remain active.' : 'AI preferences saved to your OVYX account.', serverError ? 'warning' : 'success');
       } catch (error) {
         notify(error.message || 'AI preferences could not be saved.', 'error');
       }
@@ -774,6 +801,8 @@
         const validRouting = ['automatic','preferred-first','provider-priority'].includes(String(prefs.routing || 'automatic'))
           ? String(prefs.routing || 'automatic') : 'automatic';
         payload.providerRouting = validRouting;
+        payload.fallback = ['automatic', 'next', 'stop'].includes(String(prefs.fallback || 'next'))
+          ? String(prefs.fallback || 'next') : 'next';
         if ((!payload.model || String(payload.model).toLowerCase() === 'automatic') && prefs.model && String(prefs.model).toLowerCase() !== 'automatic') {
           payload.model = String(prefs.model);
           // A concrete model is provider-specific. Pin this request to its chosen provider

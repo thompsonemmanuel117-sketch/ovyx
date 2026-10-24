@@ -50,7 +50,7 @@
 
 /assets/ovyx-additional-ai-provider-diagnostics.js
   Cache-Control: no-store, no-cache, must-revalidate
-
+  Cache-Control: no-store, no-cache, must-revalidate
 /assets/ovyx-provider-availability.js
   Cache-Control: no-store, no-cache, must-revalidate
 

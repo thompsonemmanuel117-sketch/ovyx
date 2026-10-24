@@ -33,10 +33,24 @@ try {
     page.setDefaultTimeout(20000);
     const pageErrors = [];
     const aiRequests = [];
+    const gatewayRequests = [];
     page.on('pageerror', error => {
       if (/Settings|OVYXAI|secureGenerate|ReferenceError/i.test(error.message)) pageErrors.push(error.message);
     });
 
+    // Seed the prior device-only preference document before any OVYX
+    // scripts run, just as it would exist for a returning account after deploy.
+    await page.addInitScript(() => {
+      localStorage.setItem('ovyx.ai.preferences.v1.user.settings-ai-browser-user', JSON.stringify({
+        mode: 'fast',
+        provider: 'deepseek',
+        model: 'automatic',
+        routing: 'automatic',
+        fallback: 'next',
+        contextLimit: 'automatic',
+        budget: 'automatic',
+      }));
+    });
     await installOwnerBrowserApiFixtures(page, {
       initialUser: {
         uid: 'settings-ai-browser-user',
@@ -45,6 +59,8 @@ try {
       },
     });
     const aiPreferenceRequests = [];
+    let failNextPreferencePut = false;
+    let serverUpdatedAt = null;
     let serverPreferences = {
       mode: 'balanced', model: 'automatic', provider: 'gemini',
       explain: true, preserve: true, confirmDestructive: false,
@@ -59,7 +75,19 @@ try {
         authorization: (await request.allHeaders()).authorization || '',
         body,
       });
-      if (request.method() === 'PUT') serverPreferences = { ...serverPreferences, ...(body?.preferences || {}) };
+      if (request.method() === 'PUT' && failNextPreferencePut) {
+        failNextPreferencePut = false;
+        await route.fulfill({
+          status: 503,
+          contentType: 'application/json',
+          body: JSON.stringify({ ok: false, code: 'AI_PREFERENCES_WRITE_UNCONFIRMED', message: 'Test server could not confirm preferences.' }),
+        });
+        return;
+      }
+      if (request.method() === 'PUT') {
+        serverPreferences = { ...serverPreferences, ...(body?.preferences || {}) };
+        serverUpdatedAt = '2026-10-24T05:00:00.000Z';
+      }
       await route.fulfill({
         status: request.method() === 'GET' || request.method() === 'PUT' ? 200 : 405,
         contentType: 'application/json',
@@ -67,7 +95,7 @@ try {
         body: JSON.stringify({
           ok: true,
           preferences: serverPreferences,
-          updatedAt: '2026-10-19T20:00:00.000Z',
+          updatedAt: serverUpdatedAt,
           authority: 'SERVER',
           scope: 'account',
         }),
@@ -82,6 +110,19 @@ try {
           ok: true,
           text: 'Mock AI response for Settings preferences verification.',
           provider: 'gemini',
+          model: 'mock-test-model',
+        }),
+      });
+    });
+    await page.route('**/api/ai/gateway', async route => {
+      gatewayRequests.push(route.request().postDataJSON());
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          text: 'Mock gateway response for Settings preferences verification.',
+          provider: 'openai',
           model: 'mock-test-model',
         }),
       });
@@ -101,6 +142,12 @@ try {
 
     await page.evaluate(() => window.Router.go('settings'));
     await page.locator('#view-settings').waitFor({ state: 'visible' });
+    // Wait for the authenticated account to be installed before opening settings.
+    await page.waitForFunction(
+      () => window.firebase?.auth?.().currentUser?.uid === 'settings-ai-browser-user',
+      null,
+      { timeout: 10000 },
+    );
     await page.evaluate(() => window.OVYXSettings.show('ai'));
     const panel = page.locator('[data-settings-panel="ai"]');
     await panel.locator('#set-ai-save').waitFor({ state: 'visible' });
@@ -109,6 +156,9 @@ try {
       null,
       { timeout: 10000 },
     );
+    assert.equal(serverPreferences.mode, 'fast', '[' + target.name + '] legacy local preferences must migrate when the account has no saved preferences.');
+    assert.equal(serverPreferences.provider, 'deepseek', '[' + target.name + '] migration must preserve the account user’s existing local provider preference.');
+    assert.ok(aiPreferenceRequests.some(request => request.method === 'PUT'), '[' + target.name + '] legacy migration must create the account-scoped preference document.');
 
     const key = await page.evaluate(() => window.OVYXAIStorageKey());
     await page.evaluate(key => localStorage.removeItem(key), key);
@@ -116,8 +166,18 @@ try {
       response.url().includes('/api/settings/ai') && response.request().method() === 'GET');
     await page.evaluate(() => window.OVYXSettings.show('ai'));
     await refreshPreferences;
+    await page.waitForFunction(
+      () => document.getElementById('ovyx-ai-preference-status')?.textContent?.includes('AI preferences loaded from your OVYX account.'),
+      null,
+      { timeout: 10000 },
+    );
     await panel.locator('[data-ai-mode="quality"]').waitFor({ state: 'visible' });
     await panel.locator('[data-ai-mode="quality"]').click();
+    await page.waitForFunction(
+      () => document.querySelector('[data-settings-panel="ai"] [data-ai-mode="quality"]')?.getAttribute('aria-pressed') === 'true',
+      null,
+      { timeout: 5000 },
+    );
     await panel.locator('#set-provider').selectOption('openai');
     await panel.locator('#set-ai-model').selectOption('automatic');
     await panel.locator('details.ovyx-ai-advanced summary').click();
@@ -127,7 +187,6 @@ try {
     await panel.locator('#set-ai-budget').selectOption('maximum');
     await panel.locator('[data-ai-pref="contextPage"]').setChecked(false);
     await panel.locator('[data-ai-pref="contextGithub"]').setChecked(false);
-
     // Count writes only after the individual controls have been set.
     await page.evaluate(key => {
       const original = Storage.prototype.setItem;
@@ -172,7 +231,8 @@ try {
         const result = await window.OVYXAIService.generate({
           mode: 'assistant',
           prompt: 'Confirm the active generation preferences.',
-          provider: 'automatic',
+          // No per-request provider is chosen here; account preferences must
+          // supply the preference without making it an exclusive provider call.
           model: 'automatic',
           files: { 'src/main.js': 'x'.repeat(130000) },
           page: { id: 'settings-ai-page', name: 'Settings AI Test Page' },
@@ -192,6 +252,8 @@ try {
     const sent = aiRequests[0];
     assert.equal(sent.preferredProvider, 'openai',
       '[' + target.name + '] preferred provider must reach the authenticated AI backend, not remain local-only.');
+    assert.equal(sent.fallback, 'next',
+      '[' + target.name + '] fallback policy must reach the authenticated AI backend.');
     assert.equal(sent.providerRouting, 'preferred-first',
       '[' + target.name + '] model routing must reach the authenticated AI backend.');
     assert.equal(sent.model, 'automatic');
@@ -206,6 +268,30 @@ try {
       '[' + target.name + '] disabled current-page context must be omitted from the request.');
     assert.equal(sent.context.github, undefined,
       '[' + target.name + '] disabled GitHub context must be omitted from the request.');
+
+    // Explicit provider choice must remain exclusive, while shared preferences
+    // for routing, fallback, mode and budget still travel to the gateway route.
+    const gatewayGeneration = await page.evaluate(async () => {
+      try {
+        const result = await window.OVYXAIService.generate({
+          mode: 'assistant',
+          prompt: 'Confirm explicit-provider preferences.',
+          provider: 'openai',
+          model: 'automatic',
+        });
+        return { ok: true, result };
+      } catch (error) {
+        return { ok: false, message: String(error?.message || error) };
+      }
+    });
+    assert.equal(gatewayGeneration.ok, true, '[' + target.name + '] mocked gateway request should complete: ' + gatewayGeneration.message);
+    assert.equal(gatewayRequests.length, 1, '[' + target.name + '] explicit provider choice must use the gateway route.');
+    assert.equal(gatewayRequests[0].provider, 'openai');
+    assert.equal(gatewayRequests[0].providerRouting, 'preferred-first');
+    assert.equal(gatewayRequests[0].fallback, 'next');
+    assert.equal(gatewayRequests[0].model, 'automatic');
+    assert.equal(gatewayRequests[0].maxTokens, 16000);
+    assert.match(gatewayRequests[0].system, /prioritize thoroughness/i);
 
     // Reset must remove the stored override once and restore the real UI defaults.
     await page.evaluate(key => {
@@ -238,6 +324,49 @@ try {
     assert.equal(reset.removes, 0, '[' + target.name + '] an account-backed Reset must save verified defaults rather than only deleting local state.');
     assert.equal(serverPreferences.provider, 'gemini', '[' + target.name + '] Reset must update the account preferences at the server boundary.');
     assert.equal(serverPreferences.routing, 'automatic');
+    assert.equal(serverPreferences.fallback, 'next');
+    // The UI updates selected values before the asynchronous save handler's
+    // finally block re-enables its button; wait for that boundary before the
+    // next simulated user action.
+    await page.locator('[data-settings-panel="ai"] #set-ai-reset').waitFor({ state: 'visible' });
+    await page.waitForFunction(
+      () => !document.querySelector('[data-settings-panel="ai"] #set-ai-reset')?.disabled,
+      null,
+      { timeout: 10000 },
+    );
+
+    // Automatic budget must preserve the caller's existing allowance rather
+    // than clamping Web Studio generation to the ordinary assistant default.
+    const automaticBudget = await page.evaluate(async () => {
+      try {
+        await window.OVYXAIService.generate({
+          mode: 'assistant',
+          prompt: 'Verify automatic generation budget compatibility.',
+          provider: 'automatic',
+          maxTokens: 24000,
+        });
+        return { ok: true };
+      } catch (error) {
+        return { ok: false, message: String(error?.message || error) };
+      }
+    });
+    assert.equal(automaticBudget.ok, true, '[' + target.name + '] automatic-budget request should complete: ' + automaticBudget.message);
+    assert.equal(aiRequests.at(-1).maxTokens, 24000,
+      '[' + target.name + '] automatic budget must preserve a caller-specified Web Studio budget.');
+
+    // A failed write must not be reported as saved or optimistically replace
+    // the last server-confirmed local preferences.
+    await panel.locator('#set-provider').selectOption('openai');
+    failNextPreferencePut = true;
+    await panel.locator('#set-ai-save').click();
+    await page.waitForFunction(
+      () => document.getElementById('ovyx-ai-preference-status')?.textContent?.includes('not confirmed as saved'),
+      null,
+      { timeout: 10000 },
+    );
+    const afterFailedSave = await page.evaluate(key => JSON.parse(localStorage.getItem(key) || '{}'), key);
+    assert.equal(afterFailedSave.provider, 'gemini', '[' + target.name + '] A failed account save must keep the last confirmed local preferences.');
+    assert.equal(serverPreferences.provider, 'gemini', '[' + target.name + '] A failed account save must not mutate server preferences.');
     assert.deepEqual(pageErrors, [], '[' + target.name + '] AI Preferences should not throw browser errors.');
     await context.close();
   }
