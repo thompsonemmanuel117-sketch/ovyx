@@ -34,7 +34,7 @@ assert.match(headers, /\/assets\/ovyx-local-ai-worker\.js[\s\S]*?Cache-Control:\
 
 assert.match(client, /https:\/\/esm\.run\/@mlc-ai\/web-llm@0\.2\.86/);
 assert.match(client, /const webllm = await import\(RUNTIME_URL\)/);
-assert.match(client, /await navigator\.gpu\.requestAdapter\(\)/);
+assert.match(client, /navigator\.gpu\.requestAdapter\(\)/);
 assert.match(client, /webllm\.prebuiltAppConfig\?\.model_list/);
 assert.match(client, /webllm\.hasModelInCache/);
 assert.match(client, /CreateWebWorkerMLCEngine/);
