@@ -363,9 +363,12 @@
   async function persistFromPanel(panel, next, reset) {
     const uid = String(user()?.uid || '');
     const globalDraft = window.__OVYX_AI_MODE_DRAFT;
-    const pinnedMode = globalDraft?.uid === uid && ENUMS.mode.includes(globalDraft.mode)
-      ? globalDraft.mode
-      : (selectedModeDraftUid === uid && ENUMS.mode.includes(selectedModeDraft) ? selectedModeDraft : '');
+    const visibleMode = document.querySelector('[data-settings-panel="ai"] [data-ai-mode].selected')?.dataset?.aiMode;
+    const pinnedMode = visibleMode && ENUMS.mode.includes(visibleMode)
+      ? visibleMode
+      : (globalDraft?.uid === uid && ENUMS.mode.includes(globalDraft.mode)
+        ? globalDraft.mode
+        : (selectedModeDraftUid === uid && ENUMS.mode.includes(selectedModeDraft) ? selectedModeDraft : ''));
     if (!reset && pinnedMode) next = { ...normalize(next), mode: pinnedMode };
     const save = panel.querySelector('#set-ai-save');
     const resetButton = panel.querySelector('#set-ai-reset');
