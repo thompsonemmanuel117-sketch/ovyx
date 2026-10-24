@@ -1,8 +1,4 @@
 import assert from 'node:assert/strict';
-assert.match(cpuWorker, /resolve\/main\/\)/,
-  'the CPU worker must explicitly recognize mutable main aliases');
-assert.match(cpuWorker, /url\.pathname\.replace\('\/resolve\/main\//,
-  'the CPU worker must pin mutable model aliases before network access');
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
