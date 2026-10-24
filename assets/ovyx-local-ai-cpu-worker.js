@@ -69,6 +69,8 @@ async function persistModelAsset(url, response) {
   await metadataWriter.close();
 }
 
+const inFlightModelAssets = new Map();
+
 function installModelFetchCache() {
   if (modelFetchCacheInstalled || typeof globalThis.fetch !== 'function') return;
   const nativeFetch = globalThis.fetch.bind(globalThis);
@@ -105,10 +107,9 @@ function installModelFetchCache() {
       url = new URL(request.url);
     }
 
-    const isPinnedModelAsset =
-      request.method === 'GET'
-      && !request.headers.has('range');
-    if (!isPinnedModelAsset) return nativeFetch(request);
+    const cacheableRequest = request.method === 'GET' && !request.headers.has('range');
+    if (!cacheableRequest) return nativeFetch(request);
+    const cacheKey = await hashModelUrl(url);
 
     try {
       const cached = await readCachedModelAsset(url);
@@ -120,26 +121,58 @@ function installModelFetchCache() {
       // Missing or incomplete files are treated as cache misses.
     }
 
-    const response = await nativeFetch(request);
-    if (response.ok && response.status === 200 && !response.headers.has('content-range')) {
-      const clone = response.clone();
-      const write = persistModelAsset(url, clone).then(() => {
-        self.postMessage({
-          type: 'cache-write-complete',
-          file: url.pathname.split('/').slice(-2).join('/').slice(0, 120),
-        });
-      }).catch(error => {
-        const reason = String(error?.name || 'CacheError') + ': ' +
-          String(error?.message || 'cache write rejected').replace(/https?:\/\/\S+/gi, '[asset URL]').slice(0, 120);
-        self.postMessage({
-          type: 'cache-warning',
-          message: 'The browser could not persist one local model file (' + reason + '). This device may need to download it again after reload.',
-        });
-      });
-      pendingModelCacheWrites.add(write);
-      write.finally(() => pendingModelCacheWrites.delete(write));
+    // Some model runtimes request the same weight through both a default alias
+    // and the pinned revision during initialization. Share one network response
+    // and one OPFS write rather than downloading the same large weight twice.
+    const existing = inFlightModelAssets.get(cacheKey);
+    if (existing) {
+      const sharedResponse = await existing.responsePromise;
+      return sharedResponse.clone();
     }
-    return response;
+
+    let resolveSharedResponse;
+    let rejectSharedResponse;
+    const responsePromise = new Promise((resolve, reject) => {
+      resolveSharedResponse = resolve;
+      rejectSharedResponse = reject;
+    });
+    responsePromise.catch(() => {});
+    const entry = { responsePromise, writePromise: null };
+    inFlightModelAssets.set(cacheKey, entry);
+
+    try {
+      const response = await nativeFetch(request);
+      const sharedResponse = response.clone();
+      resolveSharedResponse(sharedResponse);
+      if (response.ok && response.status === 200 && !response.headers.has('content-range')) {
+        const write = persistModelAsset(url, response.clone()).then(() => {
+          self.postMessage({
+            type: 'cache-write-complete',
+            file: url.pathname.split('/').slice(-2).join('/').slice(0, 120),
+          });
+        }).catch(error => {
+          const reason = String(error?.name || 'CacheError') + ': ' +
+            String(error?.message || 'cache write rejected').replace(/https?:\/\/\S+/gi, '[asset URL]').slice(0, 120);
+          self.postMessage({
+            type: 'cache-warning',
+            message: 'The browser could not persist one local model file (' + reason + '). This device may need to download it again after reload.',
+          });
+        });
+        entry.writePromise = write;
+        pendingModelCacheWrites.add(write);
+        write.finally(() => {
+          pendingModelCacheWrites.delete(write);
+          if (inFlightModelAssets.get(cacheKey) === entry) inFlightModelAssets.delete(cacheKey);
+        });
+      } else if (inFlightModelAssets.get(cacheKey) === entry) {
+        inFlightModelAssets.delete(cacheKey);
+      }
+      return response;
+    } catch (error) {
+      rejectSharedResponse(error);
+      if (inFlightModelAssets.get(cacheKey) === entry) inFlightModelAssets.delete(cacheKey);
+      throw error;
+    }
   };
   modelFetchCacheInstalled = true;
 }
