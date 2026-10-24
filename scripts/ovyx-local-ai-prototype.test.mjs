@@ -46,7 +46,8 @@ assert.match(client, /currentEngine\.unload/);
 assert.match(client, /conversation\.slice\(0,\s*-1\)\.slice\(-8\)/,
   'the current prompt must not be duplicated in the local conversation request');
 assert.match(client, /max_tokens:\s*768/);
-assert.match(client, /slice\(-2200\)/);
+assert.match(client, /let remaining = 1800/);
+assert.match(client, /slice\(0, 2500\)/);
 assert.match(client, /Qwen3\.5-4B-q4f16_1-MLC/);
 assert.match(client, /Qwen3\.5-2B-q4f16_1-MLC/);
 assert.match(client, /v0_2_86/);
