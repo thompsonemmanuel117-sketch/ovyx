@@ -7,11 +7,70 @@ let generator = null;
 let TextStreamerClass = null;
 let loading = false;
 let generating = false;
-const MODEL_CACHE_NAME = 'ovyx-local-ai-cpu-model-v1';
+const MODEL_CACHE_VERSION = 1;
+const pendingModelCacheWrites = new Set();
 let modelFetchCacheInstalled = false;
 
+async function hashModelUrl(url) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(url.href));
+  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+function modelContentType(url) {
+  if (/\\.json$/i.test(url.pathname)) return 'application/json';
+  if (/\\.wasm$/i.test(url.pathname)) return 'application/wasm';
+  if (/\\.(?:txt|vocab|merges)$/i.test(url.pathname)) return 'text/plain; charset=utf-8';
+  return 'application/octet-stream';
+}
+
+async function readCachedModelAsset(url) {
+  const root = await navigator.storage.getDirectory();
+  const key = await hashModelUrl(url);
+  const metadataHandle = await root.getFileHandle(key + '.meta', { create: false });
+  const metadataFile = await metadataHandle.getFile();
+  const metadata = JSON.parse(await metadataFile.text());
+  if (metadata.version !== MODEL_CACHE_VERSION || metadata.urlPath !== url.pathname) return null;
+  const dataHandle = await root.getFileHandle(key + '.bin', { create: false });
+  const dataFile = await dataHandle.getFile();
+  if (!Number.isFinite(metadata.sizeBytes) || metadata.sizeBytes <= 0 || dataFile.size !== metadata.sizeBytes) return null;
+  return new Response(dataFile.stream(), {
+    status: 200,
+    headers: {
+      'content-type': String(metadata.contentType || modelContentType(url)),
+      'content-length': String(dataFile.size),
+    },
+  });
+}
+
+async function persistModelAsset(url, response) {
+  if (!response.body) throw new Error('Model response has no readable body.');
+  const root = await navigator.storage.getDirectory();
+  const key = await hashModelUrl(url);
+  const dataHandle = await root.getFileHandle(key + '.bin', { create: true });
+  const writable = await dataHandle.createWritable();
+  try {
+    await response.body.pipeTo(writable);
+  } catch (error) {
+    try { await writable.abort(); } catch (_) {}
+    throw error;
+  }
+  const dataFile = await dataHandle.getFile();
+  if (!dataFile.size) throw new Error('Model asset cache write completed with an empty file.');
+  const metadata = {
+    version: MODEL_CACHE_VERSION,
+    urlPath: url.pathname,
+    sizeBytes: dataFile.size,
+    contentType: modelContentType(url),
+    savedAt: new Date().toISOString(),
+  };
+  const metadataHandle = await root.getFileHandle(key + '.meta', { create: true });
+  const metadataWriter = await metadataHandle.createWritable();
+  await metadataWriter.write(JSON.stringify(metadata));
+  await metadataWriter.close();
+}
+
 function installModelFetchCache() {
-  if (modelFetchCacheInstalled || typeof globalThis.fetch !== 'function' || typeof caches === 'undefined') return;
+  if (modelFetchCacheInstalled || typeof globalThis.fetch !== 'function') return;
   const nativeFetch = globalThis.fetch.bind(globalThis);
   globalThis.fetch = async (input, init) => {
     let request;
@@ -29,47 +88,42 @@ function installModelFetchCache() {
       && url.pathname.includes('/' + MODEL_ID + '/');
     if (!isPinnedModelAsset) return nativeFetch(input, init);
 
-    let cache;
     try {
-      cache = await caches.open(MODEL_CACHE_NAME);
-      const cached = await cache.match(request, { ignoreVary: true });
+      const cached = await readCachedModelAsset(url);
       if (cached) {
         self.postMessage({ type: 'cache-hit', file: url.pathname.split('/').slice(-2).join('/').slice(0, 120) });
         return cached;
       }
     } catch (_) {
-      // Cache access is an optimization; allow the original network request.
+      // Missing or incomplete files are treated as cache misses.
     }
 
     const response = await nativeFetch(input, init);
     if (response.ok && response.status === 200 && !response.headers.has('content-range')) {
-      try {
-        // Fetch exposes a decoded response body, while CDN metadata can retain
-        // Vary/content-encoding/content-length headers that make a cloned body
-        // invalid to persist. Store the pinned model bytes with safe metadata.
-        // The request URL itself remains the exact cache key.
-        const clone = response.clone();
-        const headers = new Headers();
-        const contentType = clone.headers.get('content-type');
-        if (contentType) headers.set('content-type', contentType);
-        const cacheableResponse = new Response(clone.body, {
-          status: 200,
-          statusText: 'OK',
-          headers,
+      const clone = response.clone();
+      const write = persistModelAsset(url, clone).then(() => {
+        self.postMessage({
+          type: 'cache-write-complete',
+          file: url.pathname.split('/').slice(-2).join('/').slice(0, 120),
         });
-        await cache?.put(request, cacheableResponse);
-      } catch (error) {
+      }).catch(error => {
         const reason = String(error?.name || 'CacheError') + ': ' +
-          String(error?.message || 'cache write rejected').replace(/https?:\/\/\S+/gi, '[asset URL]').slice(0, 120);
+          String(error?.message || 'cache write rejected').replace(/https?:\\/\\/\\S+/gi, '[asset URL]').slice(0, 120);
         self.postMessage({
           type: 'cache-warning',
           message: 'The browser could not persist one local model file (' + reason + '). This device may need to download it again after reload.',
         });
-      }
+      });
+      pendingModelCacheWrites.add(write);
+      write.finally(() => pendingModelCacheWrites.delete(write));
     }
     return response;
   };
   modelFetchCacheInstalled = true;
+}
+
+async function flushModelCacheWrites() {
+  await Promise.allSettled(Array.from(pendingModelCacheWrites));
 }
 
 function safeMessage(error) {
