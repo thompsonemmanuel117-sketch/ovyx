@@ -43,11 +43,25 @@ self.addEventListener('message', async event => {
         throw new Error('The pinned Transformers.js runtime does not export the text-generation pipeline or TextStreamer API.');
       }
       TextStreamerClass = RuntimeTextStreamer;
+      // Expose only the known cache-write warning. The underlying warning can
+      // include file/storage details but never prompts or generated response text.
+      const previousWarn = console.warn.bind(console);
+      console.warn = (...args) => {
+        const message = String(args[0] || '');
+        if (/Unable to add response to browser cache/i.test(message)) {
+          self.postMessage({
+            type: 'cache-warning',
+            message: 'The browser could not store a downloaded model asset in its cache. A reload may download that asset again.',
+          });
+        }
+        // Keep routine library warnings quiet in this isolated prototype worker.
+      };
       env.allowRemoteModels = true;
       env.allowLocalModels = false;
       env.useBrowserCache = true;
       env.useWasmCache = true;
-      env.logLevel = 'error';
+      env.logLevel = 'warn';
+      void previousWarn;
       generator = await pipeline('text-generation', MODEL_ID, {
         revision: MODEL_REVISION,
         device: 'wasm',
