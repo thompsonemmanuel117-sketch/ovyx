@@ -622,8 +622,116 @@ try {
     assert.equal(await cancelCpuPage.locator('#start-local-ai').isDisabled(), false);
     assert.deepEqual(cancelCpuErrors, [], '[' + target.name + '] CPU load cancellation must not cause browser errors.');
     await cancelCpuContext.close();
+
+    // A low-storage WebGPU device must fail before downloading the runtime/model.
+    const lowStorageContext = await browser.newContext({ viewport: target.viewport });
+    const lowStoragePage = await lowStorageContext.newPage();
+    lowStoragePage.setDefaultTimeout(12000);
+    let lowStorageRuntimeRequests = 0;
+    await lowStorageContext.addInitScript(() => {
+      Object.defineProperty(navigator, 'gpu', {
+        configurable: true,
+        value: { requestAdapter: async () => ({ requestDevice: async () => ({}) }) },
+      });
+      Object.defineProperty(navigator, 'storage', {
+        configurable: true,
+        value: {
+          estimate: async () => ({ quota: 600_000_000, usage: 0 }),
+          persist: async () => true,
+        },
+      });
+    });
+    await lowStorageContext.route(/https:\/\/esm\.run\/@mlc-ai\/web-llm@0\.2\.86(?:$|\?)/, async route => {
+      lowStorageRuntimeRequests += 1;
+      await route.fulfill({ status: 200, contentType: 'text/javascript', body: runtimeFixture });
+    });
+    const lowStorageResponse = await lowStoragePage.goto(baseURL + '/local-ai-lab.html', { waitUntil: 'domcontentloaded' });
+    assert.ok(lowStorageResponse && lowStorageResponse.status() === 200,
+      '[' + target.name + '] low-storage test lab did not load.');
+    await lowStoragePage.waitForFunction(
+      () => document.getElementById('device-status')?.textContent?.includes('WebGPU is detected'),
+      null,
+      { timeout: 8000 },
+    );
+    await lowStoragePage.locator('#start-local-ai').click();
+    await lowStoragePage.waitForFunction(
+      () => /free site storage/i.test(document.getElementById('device-status')?.textContent || ''),
+      null,
+      { timeout: 8000 },
+    );
+    assert.equal(lowStorageRuntimeRequests, 0,
+      '[' + target.name + '] low-storage refusal must happen before loading WebLLM or model files.');
+    assert.match(await lowStoragePage.locator('#engine-pill').textContent(), /MODEL NOT LOADED/);
+    assert.equal(await lowStoragePage.locator('#start-local-ai').isDisabled(), false,
+      '[' + target.name + '] low-storage refusal must leave retry/model selection usable.');
+    await lowStorageContext.close();
+
+    // A transient CPU runtime network failure must be visible, stay local, and
+    // recover only after the user explicitly retries.
+    const retryContext = await browser.newContext({ viewport: target.viewport });
+    const retryPage = await retryContext.newPage();
+    retryPage.setDefaultTimeout(15000);
+    let retryRuntimeRequests = 0;
+    const retryErrors = [];
+    await retryContext.addInitScript(() => {
+      Object.defineProperty(navigator, 'gpu', { configurable: true, value: undefined });
+      Object.defineProperty(navigator, 'storage', {
+        configurable: true,
+        value: { estimate: async () => ({ quota: 3_000_000_000, usage: 0 }), persist: async () => true },
+      });
+    });
+    retryPage.on('pageerror', error => retryErrors.push(error.message));
+    const retryCpuRuntimeFixture = [
+      'export const env = {};',
+      'export const LogLevel = { WARNING: 2 };',
+      'export class TextStreamer { constructor(tokenizer, options = {}) { this.tokenizer = tokenizer; this.options = options; } }',
+      'export async function pipeline(task, modelId, options = {}) {',
+      '  if (task !== "text-generation" || modelId !== "onnx-community/Qwen2.5-0.5B-Instruct") throw new Error("Unexpected retry fixture model.");',
+      '  options.progress_callback?.({ status: "progress_total", progress: 100, file: "model_quantized.onnx" });',
+      '  const run = async (messages) => [{ generated_text: [...messages, { role: "assistant", content: "Retry fixture response." }] }];',
+      '  run.tokenizer = {};',
+      '  return run;',
+      '}',
+    ].join('\\n');
+    await retryContext.route(/https:\/\/cdn\.jsdelivr\.net\/npm\/@huggingface\/transformers@4\.3\.1(?:$|\?)/, async route => {
+      retryRuntimeRequests += 1;
+      if (retryRuntimeRequests === 1) {
+        await route.fulfill({ status: 503, contentType: 'text/plain', body: 'Simulated transient runtime download failure.' });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/javascript; charset=utf-8',
+        headers: { 'access-control-allow-origin': '*', 'cross-origin-resource-policy': 'cross-origin', 'cache-control': 'no-store' },
+        body: retryCpuRuntimeFixture,
+      });
+    });
+    const retryResponse = await retryPage.goto(baseURL + '/local-ai-lab.html', { waitUntil: 'domcontentloaded' });
+    assert.ok(retryResponse && retryResponse.status() === 200,
+      '[' + target.name + '] retry test lab did not load.');
+    await retryPage.locator('#model-choice').selectOption('qwen25-05b-cpu');
+    await retryPage.locator('#start-local-ai').click();
+    await retryPage.waitForFunction(
+      () => /CPU\/WASM model initialization failed/i.test(document.getElementById('device-status')?.textContent || ''),
+      null,
+      { timeout: 10000 },
+    );
+    assert.match(await retryPage.locator('#device-status').textContent(), /Nothing was sent to a hosted AI provider/i);
+    assert.match(await retryPage.locator('#engine-pill').textContent(), /MODEL NOT LOADED/);
+    assert.equal(await retryPage.locator('#start-local-ai').isDisabled(), false,
+      '[' + target.name + '] runtime failure must leave explicit retry available.');
+    await retryPage.locator('#start-local-ai').click();
+    await retryPage.waitForFunction(
+      () => document.getElementById('device-status')?.textContent?.includes('model loaded in this browser and runs on CPU/WASM'),
+      null,
+      { timeout: 10000 },
+    );
+    assert.equal(retryRuntimeRequests, 2,
+      '[' + target.name + '] retry must re-fetch the failed runtime and only succeed after explicit retry.');
+    assert.deepEqual(retryErrors, [], '[' + target.name + '] failed-runtime recovery must not throw uncaught page errors.');
+    await retryContext.close();
   }
-  console.log('OVYX local AI browser contract passed on desktop/mobile for mocked WebLLM and explicit CPU/WASM paths. This is wiring evidence only; genuine model acceptance comes from the real CPU smoke workflow.');
+  console.log('OVYX local AI browser contract passed on desktop/mobile, including cancellation, low-storage refusal and explicit recovery after a transient CPU runtime download failure. Genuine model acceptance is reported separately by the real CPU smoke workflow.');
 } finally {
   await browser.close();
 }
