@@ -33,7 +33,7 @@ try {
       const authorization = String(route.request().headers().authorization || '');
       const isRoot = authorization === 'Bearer ovyx-admin-root-test-token';
       const body = isRoot
-        ? { ok: true, uid: 'ovyx-admin-root-fixture', email: 'ovyxsupportteam@gmail.com', role: 'ROOT_SUPERUSER', owner: true, admin: true, isRoot: true, entitlements: { role: 'ROOT_SUPERUSER', owner: true, admin: true } }
+        ? { ok: true, uid: 'ovyx-admin-root-fixture', email: 'ovyxsupportteam@gmail.com', role: 'ROOT_SUPERUSER', owner: true, admin: true, isRoot: true, bypass: true, entitlements: { role: 'ROOT_SUPERUSER', owner: true, admin: true, bypass: true } }
         : { ok: true, uid: 'ovyx-admin-free-fixture', email: 'free-user@example.test', role: 'FREE_USER', owner: false, admin: false, isRoot: false, entitlements: { role: 'FREE_USER', owner: false, admin: false } };
       await route.fulfill({ status: 200, contentType: 'application/json', headers: { 'Cache-Control': 'no-store' }, body: JSON.stringify(body) });
     });
