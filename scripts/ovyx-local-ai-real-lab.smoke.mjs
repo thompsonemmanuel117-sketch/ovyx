@@ -178,6 +178,7 @@ try {
           phase: currentPhase,
           method: request.method(),
           host: parts.host,
+          range: request.headers().range || null,
           path: parts.path.slice(-180),
         });
       }
