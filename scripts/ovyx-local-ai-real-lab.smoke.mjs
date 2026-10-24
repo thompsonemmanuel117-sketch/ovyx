@@ -18,6 +18,7 @@ const forbiddenRequests = [];
 let promptEgressCount = 0;
 let firstLoadWeightRequests = 0;
 let reloadWeightRequests = 0;
+const modelWeightRequestDetails = [];
 let currentPhase = 'startup';
 let reportModel = null;
 let browser = null;
@@ -171,9 +172,17 @@ try {
     }
     // Count only GETs of ONNX weight files. HEAD/metadata probes do not
     // download model bytes and must not be mistaken for a cache miss.
-    if (request.method() === 'GET' && /\/(?:model|model_[a-z0-9]+)\.onnx$/i.test(parts.path)) {
-      if (currentPhase === 'first-load') firstLoadWeightRequests += 1;
-      if (currentPhase === 'reload-load') reloadWeightRequests += 1;
+    if (/\/(?:model|model_[a-z0-9]+)\.onnx$/i.test(parts.path)) {
+      if (modelWeightRequestDetails.length < 20) {
+        modelWeightRequestDetails.push({
+          phase: currentPhase,
+          method: request.method(),
+          host: parts.host,
+          path: parts.path.slice(-180),
+        });
+      }
+      if (request.method() === 'GET' && currentPhase === 'first-load') firstLoadWeightRequests += 1;
+      if (request.method() === 'GET' && currentPhase === 'reload-load') reloadWeightRequests += 1;
     }
   });
   context.on('requestfailed', request => {
@@ -269,6 +278,7 @@ try {
     opfsModelWeightEntries: secondCache.opfsModelWeightEntries,
     cachedFileNameSamples: secondCache.cacheKeyFileNames.slice(0, 8),
   }));
+  console.log('Sanitized model-weight network requests: ' + JSON.stringify(modelWeightRequestDetails));
   assert.equal(reloadWeightRequests, 0,
     'The model weight URL was requested again after reload despite a populated browser cache; reuse is not proven.');
   currentPhase = 'reload-generation';
