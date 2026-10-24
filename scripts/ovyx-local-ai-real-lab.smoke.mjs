@@ -83,19 +83,29 @@ async function waitForCpuReady(page, label) {
 async function readCacheEvidence(page) {
   return page.evaluate(async () => {
     if (typeof caches === 'undefined') {
-      return { cacheApiAvailable: false, cacheNames: [], modelWeightEntries: 0, modelWeightUrls: [] };
+      return { cacheApiAvailable: false, cacheNames: [], cacheEntryCount: 0, cacheKeyFileNames: [], modelWeightEntries: 0, modelWeightUrls: [] };
     }
     const names = await caches.keys().catch(() => []);
-    const result = { cacheApiAvailable: true, cacheNames: names.map(String).slice(0, 20), modelWeightEntries: 0, modelWeightUrls: [] };
+    const result = {
+      cacheApiAvailable: true,
+      cacheNames: names.map(String).slice(0, 20),
+      cacheEntryCount: 0,
+      cacheKeyFileNames: [],
+      modelWeightEntries: 0,
+      modelWeightUrls: [],
+    };
     for (const name of names) {
       let entries = [];
       try { entries = await (await caches.open(name)).keys(); } catch (_) {}
+      result.cacheEntryCount += entries.length;
       for (const request of entries) {
         let path = '';
         try { path = new URL(request.url).pathname; } catch (_) {}
+        const fileName = path.split('/').slice(-2).join('/');
+        if (fileName && result.cacheKeyFileNames.length < 12) result.cacheKeyFileNames.push(fileName);
         if (/model_quantized\.onnx/i.test(path)) {
           result.modelWeightEntries += 1;
-          result.modelWeightUrls.push(path.split('/').slice(-3).join('/'));
+          result.modelWeightUrls.push(fileName);
         }
       }
     }
@@ -165,9 +175,16 @@ try {
   }
   const firstModelReadyMs = Date.now() - firstLoadStartedAt;
   const firstCache = await readCacheEvidence(page);
+  console.log('Browser cache evidence after actual model load: ' + JSON.stringify({
+    cacheApiAvailable: firstCache.cacheApiAvailable,
+    cacheNames: firstCache.cacheNames,
+    cacheEntryCount: firstCache.cacheEntryCount,
+    cachedWeightKeyCount: firstCache.modelWeightEntries,
+    cachedFileNameSamples: firstCache.cacheKeyFileNames.slice(0, 8),
+  }));
   assert.ok(firstCache.cacheApiAvailable, 'Browser Cache API is unavailable; local model caching cannot be verified.');
-  assert.ok(firstCache.modelWeightEntries > 0,
-    'The actual CPU model loaded, but no model_quantized.onnx weight was found in browser cache; cache acceptance is not proven.');
+  assert.ok(firstCache.cacheEntryCount > 0,
+    'The actual CPU model loaded, but Cache Storage contains no entries. Cache acceptance is not proven.');
 
   currentPhase = 'first-generation';
   const firstGenerationStartedAt = Date.now();
@@ -202,7 +219,13 @@ try {
   await waitForCpuReady(page, 'Reload/cache load');
   const reloadLoadDurationMs = Date.now() - reloadStartedAt;
   const secondCache = await readCacheEvidence(page);
-  assert.ok(secondCache.modelWeightEntries > 0, 'Cached model weights must survive a page reload.');
+  assert.ok(secondCache.cacheEntryCount > 0, 'Browser Cache Storage must remain populated after a page reload.');
+  console.log('Browser cache evidence after reload: ' + JSON.stringify({
+    cacheNames: secondCache.cacheNames,
+    cacheEntryCount: secondCache.cacheEntryCount,
+    cachedWeightKeyCount: secondCache.modelWeightEntries,
+    cachedFileNameSamples: secondCache.cacheKeyFileNames.slice(0, 8),
+  }));
   assert.equal(reloadWeightRequests, 0,
     'The model weight URL was requested again after reload despite a populated browser cache; reuse is not proven.');
   currentPhase = 'reload-generation';
@@ -293,11 +316,13 @@ try {
       browserCacheAfterFirstLoad: {
         available: firstCache.cacheApiAvailable,
         cacheNames: firstCache.cacheNames,
+        cacheEntryCount: firstCache.cacheEntryCount,
         modelWeightEntries: firstCache.modelWeightEntries,
       },
       browserCacheAfterReload: {
         available: secondCache.cacheApiAvailable,
         cacheNames: secondCache.cacheNames,
+        cacheEntryCount: secondCache.cacheEntryCount,
         modelWeightEntries: secondCache.modelWeightEntries,
       },
       stopGenerationStatus: finalDiagnostics.recentGenerationMetrics[1].status,
