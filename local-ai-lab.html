@@ -89,6 +89,11 @@
           <div id="progress-note" class="progress-note">Waiting for the local runtime…</div>
         </div>
         <p id="device-status" class="status" role="status" aria-live="polite" data-kind="warn">Checking WebGPU support. No model download has started.</p>
+        <div class="row" style="margin-top:8px">
+          <button id="prepare-diagnostics" type="button">Prepare local test record</button>
+        </div>
+        <p class="small">The diagnostic record helps verify a genuine run on this device. It includes model/runtime, capability, storage and timing measurements—but never prompts, answers, project data or credentials. It is prepared only when you press the button and is not sent automatically.</p>
+        <textarea id="diagnostics-output" class="hidden" rows="12" readonly aria-label="Local AI diagnostic record" spellcheck="false"></textarea>
         <p class="small">The model cache uses your browser's local Cache API. Clearing browser data or storage pressure may remove the cached files; OVYX will detect and recover from that on retry.</p>
       </section>
       <section class="panel" aria-labelledby="chat-heading">
