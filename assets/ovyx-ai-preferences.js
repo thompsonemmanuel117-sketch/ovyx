@@ -139,13 +139,14 @@
 
   function controlsToPreferences(panel) {
     const uid = String(user()?.uid || '');
+    const hasPending = !!pendingPreferences && pendingPreferencesUid === uid;
     const base = normalize(
-      pendingPreferences && pendingPreferencesUid === uid
-        ? pendingPreferences
-        : (cachedPreferences || readLocal())
+      hasPending ? pendingPreferences : (cachedPreferences || readLocal())
     );
     const chosenMode = panel.querySelector('[data-ai-mode].selected')?.dataset?.aiMode;
-    if (chosenMode && ENUMS.mode.includes(chosenMode)) base.mode = chosenMode;
+    // Once the mode has been changed in this unsaved draft, the old renderer's
+    // selected class must not overwrite it while other fields are edited.
+    if (!hasPending && chosenMode && ENUMS.mode.includes(chosenMode)) base.mode = chosenMode;
     for (const [key, id] of Object.entries(SELECT_IDS)) {
       const control = panel.querySelector('#' + id);
       if (control && ENUMS[key].includes(String(control.value))) base[key] = String(control.value);
