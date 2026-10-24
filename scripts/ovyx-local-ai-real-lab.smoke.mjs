@@ -80,6 +80,18 @@ async function waitForCpuReady(page, label) {
   }
 }
 
+async function waitForCpuAnswer(page, label) {
+  await page.waitForFunction(() => {
+    const status = document.getElementById('device-status')?.textContent || '';
+    return /Local response received from Qwen2\.5 0\.5B CPU\/WASM/i.test(status)
+      || /Local generation failed:|local stream did not stop|stopped responding|returned no text/i.test(status);
+  }, null, { timeout: 5 * 60 * 1000 });
+  const status = String(await page.locator('#device-status').textContent() || '');
+  if (!/Local response received from Qwen2\.5 0\.5B CPU\/WASM/i.test(status)) {
+    throw new Error(label + ' failed in the integrated CPU/WASM lab: ' + safeError(status));
+  }
+}
+
 async function readCacheEvidence(page) {
   return page.evaluate(async () => {
     if (typeof caches === 'undefined') {
@@ -190,9 +202,7 @@ try {
   const firstGenerationStartedAt = Date.now();
   await page.locator('#local-prompt').fill(prompts[0]);
   await page.locator('#send-local-prompt').click();
-  await page.waitForFunction(() =>
-    /Local response received from Qwen2\.5 0\.5B CPU\/WASM/i.test(document.getElementById('device-status')?.textContent || ''),
-  null, { timeout: 5 * 60 * 1000 });
+  await waitForCpuAnswer(page, 'First generation');
   const firstAnswer = String(await page.locator('.message.assistant .message-body').last().textContent() || '').trim();
   assert.ok(firstAnswer.length > 0, 'The user-facing CPU/WASM lab returned no genuine response text.');
   const firstGenerationDurationMs = Date.now() - firstGenerationStartedAt;
@@ -232,9 +242,7 @@ try {
   const secondGenerationStartedAt = Date.now();
   await page.locator('#local-prompt').fill(prompts[1]);
   await page.locator('#send-local-prompt').click();
-  await page.waitForFunction(() =>
-    /Local response received from Qwen2\.5 0\.5B CPU\/WASM/i.test(document.getElementById('device-status')?.textContent || ''),
-  null, { timeout: 5 * 60 * 1000 });
+  await waitForCpuAnswer(page, 'Cached reload generation');
   const secondAnswer = String(await page.locator('.message.assistant .message-body').last().textContent() || '').trim();
   assert.ok(secondAnswer.length > 0, 'Cached CPU/WASM reload produced no response.');
   const secondGenerationDurationMs = Date.now() - secondGenerationStartedAt;
