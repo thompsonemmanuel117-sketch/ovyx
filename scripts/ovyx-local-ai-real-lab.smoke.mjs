@@ -169,7 +169,9 @@ try {
     for (const prompt of prompts) {
       if (request.url().includes(prompt) || postData.includes(prompt)) promptEgressCount += 1;
     }
-    if (/\/(?:model|model_[a-z0-9]+)\.onnx$/i.test(parts.path)) {
+    // Count only GETs of ONNX weight files. HEAD/metadata probes do not
+    // download model bytes and must not be mistaken for a cache miss.
+    if (request.method() === 'GET' && /\/(?:model|model_[a-z0-9]+)\.onnx$/i.test(parts.path)) {
       if (currentPhase === 'first-load') firstLoadWeightRequests += 1;
       if (currentPhase === 'reload-load') reloadWeightRequests += 1;
     }
