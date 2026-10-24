@@ -107,11 +107,11 @@ assert.match(cpuWorker, /onnx-community\/Qwen2\.5-0\.5B-Instruct/);
 assert.match(cpuWorker, /revision:\s*MODEL_REVISION/);
 assert.match(cpuWorker, /device:\s*'wasm'/);
 assert.match(cpuWorker, /dtype:\s*'q8'/);
-assert.match(cpuWorker, /MODEL_CACHE_NAME\s*=\s*'ovyx-local-ai-cpu-model-v1'/);
-assert.match(cpuWorker, /installModelFetchCache\(\)/);
-assert.match(cpuWorker, /await cache\?\.put\(request, cacheableResponse\)/);
-assert.match(cpuWorker, /new Response\(clone\.body,\s*\{\s*status:\s*200/);
-assert.match(cpuWorker, /const cached = await cache\.match\(request, \{ ignoreVary: true \}\)/);
+assert.match(cpuWorker, /MODEL_CACHE_VERSION\s*=\s*1/);
+assert.match(cpuWorker, /navigator\.storage\.getDirectory\(\)/);
+assert.match(cpuWorker, /persistModelAsset\(url, clone\)/);
+assert.match(cpuWorker, /await response\.body\.pipeTo\(writable\)/);
+assert.match(cpuWorker, /await flushModelCacheWrites\(\)/);
 assert.match(cpuWorker, /env\.useBrowserCache\s*=\s*false/,
   'CPU model assets must use the explicit cache wrapper rather than the unreliable library cache path');
 assert.match(cpuWorker, /env\.useWasmCache\s*=\s*true/);
