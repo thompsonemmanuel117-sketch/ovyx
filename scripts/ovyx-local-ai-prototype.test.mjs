@@ -109,7 +109,8 @@ assert.match(cpuWorker, /device:\s*'wasm'/);
 assert.match(cpuWorker, /dtype:\s*'q8'/);
 assert.match(cpuWorker, /MODEL_CACHE_NAME\s*=\s*'ovyx-local-ai-cpu-model-v1'/);
 assert.match(cpuWorker, /installModelFetchCache\(\)/);
-assert.match(cpuWorker, /await cache\.put\(request, response\.clone\(\)\)/);
+assert.match(cpuWorker, /await cache\?\.put\(request, cacheableResponse\)/);
+assert.match(cpuWorker, /new Response\(clone\.body,\s*\{\s*status:\s*200/);
 assert.match(cpuWorker, /const cached = await cache\.match\(request, \{ ignoreVary: true \}\)/);
 assert.match(cpuWorker, /env\.useBrowserCache\s*=\s*false/,
   'CPU model assets must use the explicit cache wrapper rather than the unreliable library cache path');
