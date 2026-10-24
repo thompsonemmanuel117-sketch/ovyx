@@ -38,6 +38,8 @@ assert.match(headers, /\/local-ai-lab\.html[\s\S]*?Cross-Origin-Opener-Policy:\s
   'local lab must enable origin isolation for the WASM/WebGPU runtime');
 assert.match(headers, /\/local-ai-lab\.html[\s\S]*?Cross-Origin-Embedder-Policy:\s*require-corp/i);
 assert.match(headers, /\/assets\/ovyx-local-ai-worker\.js[\s\S]*?Cache-Control:\s*no-store/i);
+assert.match(headers, /\/assets\/ovyx-local-ai-worker\.js[\s\S]*?Cross-Origin-Resource-Policy:\s*same-origin/i,
+  'same-origin local worker must remain loadable under the lab COEP policy');
 
 assert.match(client, /https:\/\/esm\.run\/@mlc-ai\/web-llm@0\.2\.86/);
 assert.match(client, /const webllm = await import\(RUNTIME_URL\)/);
