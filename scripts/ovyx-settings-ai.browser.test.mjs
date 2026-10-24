@@ -219,6 +219,19 @@ try {
       preferences: JSON.parse(localStorage.getItem(key) || '{}'),
       writes: window.__settingsAIWriteCount,
     }), key);
+    const afterSaveDebug = await page.evaluate(() => ({
+      currentUid: window.firebase?.auth?.().currentUser?.uid || null,
+      activeKey: window.OVYXAIStorageKey?.() || null,
+      scoped: localStorage.getItem('ovyx.ai.preferences.v1.user.settings-ai-browser-user'),
+      guest: localStorage.getItem('ovyx.ai.preferences.v1.guest'),
+      globalMode: window.OVYXAI?.mode || null,
+      status: document.getElementById('ovyx-ai-preference-status')?.textContent || '',
+      selected: document.querySelector('[data-settings-panel="ai"] [data-ai-mode].selected')?.dataset?.aiMode || null,
+    }));
+    console.log('[OVYX AI preference save diagnostics]', target.name, JSON.stringify({
+      saved, afterSaveDebug, serverPreferences,
+      puts: aiPreferenceRequests.filter(request => request.method === 'PUT').map(request => request.body?.preferences || null),
+    }));
     assert.equal(saved.writes, 1, '[' + target.name + '] one Save click must write the AI preferences key exactly once.');
     assert.equal(saved.preferences.mode, 'quality');
     assert.equal(saved.preferences.provider, 'openai');
