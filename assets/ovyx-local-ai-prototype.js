@@ -763,7 +763,10 @@
     if (!targetWorker || !cpuReady) return Promise.reject(new Error('CPU/WASM worker is not ready.'));
     return new Promise((resolve, reject) => {
       let settled = false;
+      let idleTimer = 0;
       const cleanup = () => {
+        if (idleTimer) clearTimeout(idleTimer);
+        idleTimer = 0;
         targetWorker.removeEventListener('message', onMessage);
         targetWorker.removeEventListener('error', onError);
         if (activeCpuGeneration?.generationId === generationId) activeCpuGeneration = null;
@@ -774,12 +777,23 @@
         cleanup();
         fn(value);
       };
+      const armIdleTimer = () => {
+        if (idleTimer) clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => {
+          const error = new Error('The CPU/WASM model stopped producing tokens for 2 minutes.');
+          error.code = 'LOCAL_GENERATION_IDLE_TIMEOUT';
+          finish(reject, error);
+        }, GENERATION_INACTIVITY_TIMEOUT_MS);
+      };
       const onMessage = event => {
         const data = event.data || {};
         if (Number(data.generationId) !== generationId) return;
         if (data.type === 'token') {
           const piece = String(data.text || '');
-          if (piece) onText(piece);
+          if (piece) {
+            armIdleTimer();
+            onText(piece);
+          }
           return;
         }
         if (data.type === 'complete') finish(resolve, { outputCharacters: Number(data.outputCharacters) || 0 });
@@ -793,7 +807,8 @@
       };
       targetWorker.addEventListener('message', onMessage);
       targetWorker.addEventListener('error', onError);
-      targetWorker.postMessage({ type: 'generate', generationId, messages, maxNewTokens: 384 });
+      armIdleTimer();
+      targetWorker.postMessage({ type: 'generate', generationId, messages, maxNewTokens: 128 });
     });
   }
 
@@ -830,18 +845,15 @@
     try {
       let answer = '';
       if (isCpuModelKey(generationMetrics.modelKey)) {
-        await withGenerationInactivityTimeout(
-          requestCpuGeneration(buildMessages(prompt), thisGeneration, piece => {
-            if (thisGeneration !== generationEpoch || !piece) return;
-            if (generationMetrics.firstTokenMs === null) {
-              generationMetrics.firstTokenMs = Math.round(performance.now() - generationMetrics.startedAtMonotonic);
-            }
-            answer += piece;
-            assistantBody.textContent = answer;
-            chatLog.scrollTop = chatLog.scrollHeight;
-          }),
-          'The CPU/WASM model did not finish generating a response within 2 minutes.',
-        );
+        await requestCpuGeneration(buildMessages(prompt), thisGeneration, piece => {
+          if (thisGeneration !== generationEpoch || !piece) return;
+          if (generationMetrics.firstTokenMs === null) {
+            generationMetrics.firstTokenMs = Math.round(performance.now() - generationMetrics.startedAtMonotonic);
+          }
+          answer += piece;
+          assistantBody.textContent = answer;
+          chatLog.scrollTop = chatLog.scrollHeight;
+        });
       } else {
         const stream = await withGenerationInactivityTimeout(
           engine.chat.completions.create({
