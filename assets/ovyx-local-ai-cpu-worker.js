@@ -187,6 +187,7 @@ self.addEventListener('message', async event => {
         dtype: 'q8',
         progress_callback: sendProgress,
       });
+      await flushModelCacheWrites();
       self.postMessage({
         type: 'ready',
         modelId: MODEL_ID,
