@@ -20,7 +20,7 @@ The official WebLLM `v0.2.86` source registry lists `Qwen3.5-4B-q4f16_1-MLC` and
 
 ## Open Stage 3 acceptance gates
 
-- [ ] Current static contract and mocked-browser regression workflow passes on desktop and mobile viewports. These tests validate UI and isolation contracts, not real inference.
+- [x] Current static contract and mocked-browser regression workflow passes on desktop and mobile viewports (GitHub Actions run [40098583799](https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/40098583799), commit `3dd5210a3f3f762775954cd1a9f7d6f1bc9a3043`). These tests validate UI and isolation contracts, not real inference.
 - [ ] In a real browser, an explicit model load downloads files, reports actual progress and completes without mock fixtures.
 - [ ] A genuine prompt gets a response from the local model. Record browser/device/OS, GPU/WebGPU status, runtime version, selected model, download duration/size, time to first token, total response time and any memory/device errors.
 - [ ] Reopening/reloading reuses the valid model cache; cleared/evicted cache, interrupted download, low storage and failed network downloads recover clearly.
