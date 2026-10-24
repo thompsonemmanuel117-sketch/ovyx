@@ -692,7 +692,7 @@ try {
       '  run.tokenizer = {};',
       '  return run;',
       '}',
-    ].join('\\n');
+    ].join('\n');
     await retryContext.route(/https:\/\/cdn\.jsdelivr\.net\/npm\/@huggingface\/transformers@4\.3\.1(?:$|\?)/, async route => {
       retryRuntimeRequests += 1;
       if (retryRuntimeRequests === 1) {
