@@ -190,15 +190,17 @@ This is a code-and-test inventory, not a live-provider acceptance result. I did 
 - **Agent Mode:** the application endpoint registry includes `/api/generate`, which invokes the repository agent workflow and shared model adapters. This is not the same request path as the home composer.
 - **Diagnostics and feedback:** admin status uses `/api/ai/status`; selected-provider availability uses `/api/ai/provider-availability`; the native assistant and Web Studio reliability components can submit feedback to `/api/ai/feedback`. Status/probe responses must not be treated as successful prompt generation.
 
-## 11. Confirmed source/configuration mismatches to fix before migration
+## 11. Stage 1 findings and current resolution status
 
-### P1 — AI Preferences UI and persistence contract disagree
+### P1 — AI Preferences account persistence and request propagation — RESOLVED
 
-- The current main-shell AI preferences code in `index.html` uses `AI_KEY = 'ovyx.ai.preferences.v1'` and local storage (with a per-user key when signed in). Its `aiSave` helper writes only to local storage.
-- The current main shell contains no literal call to `/api/settings/ai`, while `functions/api/settings/ai.js` implements server-authoritative account-scoped GET/PUT persistence and `scripts/ovyx-settings-ai.browser.test.mjs` explicitly expects GET/PUT calls to that endpoint.
-- The visible AI settings panel shows balanced/fast/quality modes, provider/model, context toggles and advanced routing/fallback/context/budget controls. But the current main-shell `aiApply` / Save handler only applies/saves the model, provider and six boolean toggles; it does not read or persist the advanced selects. The mode click handler saves locally. Static inspection therefore finds a mismatch between the UI implementation, server API, and browser-test contract. The browser test has not been run against a live app as part of this audit, so this is not presented as a newly observed runtime failure.
-- The current general `secureGenerate` request also defaults to `payload.model || 'automatic'`, `preferredProvider || ''` and `providerRouting || 'automatic'`. It does not, by itself, apply the saved model/routing/budget/context choices from `window.OVYXAI`. This means the settings values cannot be assumed to affect real requests without tracing/repairing the integration.
-- **Recommended next action:** make one shared AI-preferences client that loads from `/api/settings/ai`, displays server-confirmed saved values, saves and verifies them, and passes relevant model/provider/mode/routing/context preferences into the request contract. Add regression coverage for both UI persistence and the exact payload sent to the AI route. Do this before replacing the backend engines; it prevents an AI migration from inheriting silent preference loss.
+The Stage 1 source snapshot correctly identified a mismatch: preferences were saved locally and several advanced settings did not consistently reach generation. That finding was resolved by **PR #244**, merged into `main` as `d48d7d6a70efb1a9f54fd155b5cc7d64ab5c232e`.
+
+- Signed-in preferences now use the authenticated, account-scoped `/api/settings/ai` GET/PUT contract. UI messaging distinguishes server-confirmed settings from local-only settings and does not claim a failed account write succeeded.
+- The current generation request wrapper propagates mode, provider/model selection, budget and context preferences to the assistant/gateway request. Routing and fallback policy are passed through website generation follow-up stages and bounded repair calls.
+- The desktop/mobile AI Preferences browser test passed on the final PR head; provider-routing, static verification, build preflight, Wrangler, settings regressions, owner-controls, Web Studio browser quality, and the combined assistant-workspace browser suite also passed before merge.
+- These tests verify the application contract and mocked/browser boundary. They do **not** prove that any specific external provider is currently healthy, that the selected model is running locally, or that real websites have passed full live acceptance.
+- **Do not reopen this item unless a new failing test or source trace identifies a regression.** The next AI milestone is browser-local inference, starting with the Stage 2 model-selection record.
 
 ### P2 — Provider labels and model identifiers are inconsistent
 
@@ -213,10 +215,15 @@ This is a code-and-test inventory, not a live-provider acceptance result. I did 
 - Provider adapter implementations exist in `functions/_lib/providers.js`, `functions/_lib/brain/providers.js`, `functions/api/_lib/brain/providers.js`, and `functions/api/_lib/providers.js`. The shared main generation routes use `functions/_lib/providers.js`; the nested/legacy tools route and API adapter still need import-use verification before removal.
 - `functions/api/api/ai/tools.js` is nested under an extra `api/` directory and thus has a different path from the `/api/ai/tools` path referenced by the older `index-updated.html`. The current `index.html` has no `/api/ai/tools` reference. Treat this as legacy/path-risk evidence, not an active current-shell dependency, until it is verified through deployment routing.
 
-## 12. Safe checks and current evidence boundary
+## 12. Safe checks and current evidence boundary — updated 2026-10-24
 
-A GitHub Actions check on this audit PR passed the **Provider-specific routing tests**, **Static verification**, **Production build preflight**, and **Wrangler validation** steps (run `40064515002`). This confirms those checks passed against the branch at that point; it does not mean that live providers generated answers or that real websites were accepted. This latest report update changes documentation only.
+Evidence updated 2026-10-24:
 
-The full `npm test` script includes native-AI output/action tests, provider routing/status tests, assistant runtime tests, prompt-contract checks, Web Studio evaluation/reliability/quality tests and runtime configuration inventory tests. Browser acceptance scripts exist separately; notably, `scripts/ovyx-settings-ai.browser.test.mjs` expects the server-persisted preference behavior described above. A green static/build check must not replace running the relevant browser regression.
+- **Stage 1 inventory:** PR #243 merged as `e3c4ed3f911a957c930d0337a2b18eb4419c3e0d`.
+- **AI Preferences foundation:** PR #244 merged as `d48d7d6a70efb1a9f54fd155b5cc7d64ab5c232e`. The final PR head passed Provider-specific routing tests, static verification, production build preflight, Wrangler validation, Settings Regression Browser Tests, Owner Controls Regression, Web Studio browser quality, Live AI generation and five-viewport QA workflow, and the combined desktop/mobile Assistant Workspace Browser Tests. The AI Preferences browser test specifically passed in desktop and mobile Chromium. The live workflow's green PR/push result is not evidence of real production website generation because that workflow's push mode is preflight-only; the post-merge live acceptance workflow on main later failed and must be read separately.
+- **Stage 2 model selection:** PR #246 merged as `a4a114a188fac0943cc2c5b535261d59004c3133`. Its model decision record is `docs/OVYX-AI-STAGE-2-LOCAL-MODEL-SELECTION.md`.
+- A post-merge `OVYX Agent Verify`, `OVYX Settings Regression Browser Tests`, and `OVYX Owner Controls Regression` pass was observed on merge SHA `d48d7d6a70efb1a9f54fd155b5cc7d64ab5c232e`; other post-merge workflows were still running or separately blocked at the time this note was updated. Do not infer the last post-merge workflows passed until their actual conclusions are checked.
 
-**Stage 1 deliverable is complete as an inventory.** The audit now says what the active source paths do, which dependencies the local-AI migration must replace, what must remain (quota, history, auth, safe tool operations, research as a separate capability), and which existing UI/configuration mismatches should be fixed first. The next recommended work is to resolve the AI Preferences request contract before starting Stage 2 model selection and prototype integration.
+The full `npm test` script includes native-AI output/action tests, provider routing/status tests, assistant runtime tests, prompt-contract checks, Web Studio evaluation/reliability/quality tests and runtime configuration inventory tests. Passing static/build/browser-contract checks does not replace full live generation acceptance.
+
+**Stage 1 inventory is complete; its P1 AI Preferences finding is resolved. Stage 2 model selection is recorded and merged.** Next is Stage 3: a reversible, isolated browser-local inference prototype using the selected MLC/Qwen candidate. Do not migrate or retire the existing AI routes until Stage 3/4 prove runtime compatibility, no-external-prompt leakage, model quality, and safe behavior on supported desktop/mobile devices.
