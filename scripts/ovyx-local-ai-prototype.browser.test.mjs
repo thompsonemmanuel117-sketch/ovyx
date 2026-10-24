@@ -585,7 +585,7 @@ try {
       '  await new Promise(() => {});',
       '}',
     ].join('\n');
-    await cancelCpuContext.route(/https:\\/\\/cdn\\.jsdelivr\\.net\\/npm\\/@huggingface\\/transformers@4\\.3\\.1(?:$|\\?)/, async route => {
+    await cancelCpuContext.route(/https:\/\/cdn\.jsdelivr\.net\/npm\/@huggingface\/transformers@4\.3\.1(?:$|\?)/, async route => {
       await route.fulfill({
         status: 200,
         contentType: 'text/javascript; charset=utf-8',
