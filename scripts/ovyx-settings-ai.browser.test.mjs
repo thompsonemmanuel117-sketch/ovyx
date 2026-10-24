@@ -325,6 +325,15 @@ try {
     assert.equal(serverPreferences.provider, 'gemini', '[' + target.name + '] Reset must update the account preferences at the server boundary.');
     assert.equal(serverPreferences.routing, 'automatic');
     assert.equal(serverPreferences.fallback, 'next');
+    // The UI updates selected values before the asynchronous save handler's
+    // finally block re-enables its button; wait for that boundary before the
+    // next simulated user action.
+    await page.locator('[data-settings-panel="ai"] #set-ai-reset').waitFor({ state: 'visible' });
+    await page.waitForFunction(
+      () => !document.querySelector('[data-settings-panel="ai"] #set-ai-reset')?.disabled,
+      null,
+      { timeout: 10000 },
+    );
 
     // Automatic budget must preserve the caller's existing allowance rather
     // than clamping Web Studio generation to the ordinary assistant default.
