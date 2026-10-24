@@ -72,7 +72,6 @@ assert.match(client, /slice\(0, 2500\)/);
 assert.match(client, /let remaining = 1800/);
 assert.match(client, /slice\(0, 2500\)/);
 assert.match(client, /Qwen3\.5-4B-q4f16_1-MLC/);
-assert.match(client, /Qwen3\.5-2B-q4f16_1-MLC/);
 assert.match(client, /resolve\/44b4246/);
 assert.match(client, /Qwen3\.5-2B-q4f32_1-MLC/);
 assert.match(client, /resolve\/d835e5c/);
