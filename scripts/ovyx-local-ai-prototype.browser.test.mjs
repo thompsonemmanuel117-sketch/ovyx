@@ -57,6 +57,7 @@ try {
     const pageErrors = [];
     const consoleErrors = [];
     const workerErrors = [];
+    const failedRequests = [];
     let runtimeRequests = 0;
 
     await context.addInitScript(() => {
@@ -79,6 +80,11 @@ try {
       url: request.url(),
       method: request.method(),
       postData: request.postData() || '',
+    }));
+    context.on('requestfailed', request => failedRequests.push({
+      url: request.url(),
+      method: request.method(),
+      failure: request.failure()?.errorText || 'unknown',
     }));
     page.on('pageerror', error => pageErrors.push(error.message));
     page.on('console', message => {
@@ -138,10 +144,10 @@ try {
     }));
     assert.equal(loadingState.cancelHidden, false,
       '[' + target.name + '] cancellation control should stay visible during model initialization. State: '
-      + JSON.stringify({ ...loadingState, pageErrors, consoleErrors, workerErrors }));
+      + JSON.stringify({ ...loadingState, runtimeRequests, pageErrors, consoleErrors, workerErrors, failedRequests }));
     assert.equal(loadingState.cancelDisabled, false,
       '[' + target.name + '] cancellation control should be enabled during model initialization. State: '
-      + JSON.stringify({ ...loadingState, pageErrors, consoleErrors, workerErrors }));
+      + JSON.stringify({ ...loadingState, runtimeRequests, pageErrors, consoleErrors, workerErrors, failedRequests }));
     await page.locator('#cancel-local-ai').click();
     await page.waitForFunction(
       () => document.getElementById('device-status')?.textContent?.includes('Cancelled.'),
