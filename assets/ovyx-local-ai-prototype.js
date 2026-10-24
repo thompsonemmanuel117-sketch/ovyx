@@ -3,6 +3,9 @@
 
   // Stage 3 only: no application AI route, account token, or provider API is used here.
   const RUNTIME_URL = 'https://esm.run/@mlc-ai/web-llm@0.2.86';
+  // Pin the model data revision and matching MLC binary-library repository
+  // commit separately from the npm package. This avoids mutable "main" URLs.
+  const MLC_BINARY_COMMIT = '00fe7a40e57e5e8eb9fef87526a4bf28ad5846c0';
   const MODELS = Object.freeze({
     'qwen35-4b': Object.freeze({
       id: 'Qwen3.5-4B-q4f16_1-MLC',
@@ -14,6 +17,7 @@
       context: 4096,
       card: 'https://huggingface.co/Qwen/Qwen3.5-4B',
       files: 'https://huggingface.co/mlc-ai/Qwen3.5-4B-q4f16_1-MLC',
+      artifactUrl: 'https://huggingface.co/mlc-ai/Qwen3.5-4B-q4f16_1-MLC/resolve/44b4246',
     }),
     'qwen35-2b': Object.freeze({
       id: 'Qwen3.5-2B-q4f16_1-MLC',
@@ -25,6 +29,7 @@
       context: 4096,
       card: 'https://huggingface.co/Qwen/Qwen3.5-2B',
       files: 'https://huggingface.co/mlc-ai/Qwen3.5-2B-q4f16_1-MLC',
+      artifactUrl: 'https://huggingface.co/mlc-ai/Qwen3.5-2B-q4f16_1-MLC/resolve/dd74e9c',
     }),
   });
   const SYSTEM_PROMPT = [
@@ -220,11 +225,43 @@
     refreshControls();
   }
 
-  async function checkStorage(webllm, model) {
+  function buildPinnedAppConfig(webllm, model) {
+    const baseConfig = webllm.prebuiltAppConfig;
+    const registered = baseConfig?.model_list?.find((item) => item.model_id === model.id);
+    if (!registered) {
+      throw new Error('The pinned WebLLM 0.2.86 registry does not register ' + model.id + '. Stop here and fix model/runtime compatibility; do not substitute a hosted model.');
+    }
+    const libraryFile = String(registered.model_lib || '').split('/').pop();
+    if (!libraryFile || !libraryFile.startsWith(model.id.replace(/-MLC$/, '').replace(/-q4f(?:16|32)_1$/, ''))) {
+      // Model names and compiled kernels should remain paired. Do not derive a
+      // library URL from an unrelated model record.
+      throw new Error('The registered model-library filename did not match the selected local model.');
+    }
+    const modelLibraryUrl =
+      'https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/' +
+      MLC_BINARY_COMMIT + '/web-llm-models/v0_2_86/base/' + libraryFile;
+    const pinnedRecord = {
+      ...registered,
+      model: model.artifactUrl,
+      model_lib: modelLibraryUrl,
+      overrides: { ...(registered.overrides || {}), context_window_size: model.context, max_history_size: 1 },
+    };
+    const appConfig = {
+      ...baseConfig,
+      model_list: (Array.isArray(baseConfig?.model_list) ? baseConfig.model_list : [])
+        .map((item) => item.model_id === model.id ? pinnedRecord : item),
+    };
+    if (!appConfig.model_list.some((item) => item.model_id === model.id && item.model === model.artifactUrl)) {
+      throw new Error('The selected local model could not be pinned in WebLLM configuration.');
+    }
+    return { appConfig, record: pinnedRecord };
+  }
+
+  async function checkStorage(webllm, model, appConfig) {
     let cachedWeights = false;
     let cacheWasChecked = false;
     try {
-      cachedWeights = await webllm.hasModelInCache(model.id, webllm.prebuiltAppConfig);
+      cachedWeights = await webllm.hasModelInCache(model.id, appConfig);
       cacheWasChecked = true;
     } catch (_) {
       // If cache inspection is unsupported, the pinned runtime's loader remains authoritative.
@@ -309,17 +346,14 @@
       // Runtime code is not even fetched until the user presses the explicit Start button.
       const webllm = await import(RUNTIME_URL);
       if (thisLoad !== loadEpoch) return;
-      const record = webllm.prebuiltAppConfig?.model_list?.find((item) => item.model_id === model.id);
-      if (!record) {
-        throw new Error('The pinned WebLLM runtime does not register ' + model.id + '. Stop here and fix the runtime/model compatibility; do not substitute a hosted model.');
-      }
-      if (!String(record.model_lib || '').includes('v0_2_86')) {
-        throw new Error('The model library version does not match the pinned WebLLM 0.2.86 runtime. No model request was started.');
+      const { appConfig, record } = buildPinnedAppConfig(webllm, model);
+      if (!String(record.model_lib || '').includes(MLC_BINARY_COMMIT + '/web-llm-models/v0_2_86/base/')) {
+        throw new Error('The compiled model library is not pinned to the expected WebLLM 0.2.86-compatible artifact revision.');
       }
       if (!gpuAdapter) {
         throw new Error('The WebGPU adapter was lost before model loading started.');
       }
-      const storage = await checkStorage(webllm, model);
+      const storage = await checkStorage(webllm, model, appConfig);
       if (thisLoad !== loadEpoch) return;
       const storageNotes = [
         storage.cachedWeights ? 'Model weights appear to be cached.' : 'Model weights are not cached and will be downloaded after this explicit action.',
@@ -353,6 +387,7 @@
         localWorker,
         model.id,
         {
+          appConfig,
           initProgressCallback(report) {
             if (thisLoad === loadEpoch) updateProgress(report);
           },
