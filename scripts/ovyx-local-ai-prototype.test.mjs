@@ -115,7 +115,7 @@ assert.match(cpuWorker, /url\.pathname\.includes\('\/resolve\/main\/'\)/,
 assert.match(cpuWorker, /url\.pathname\.replace\('\/resolve\/main\//,
   'the CPU worker must pin mutable model aliases before network access');
 assert.match(cpuWorker, /navigator\.storage\.getDirectory\(\)/);
-assert.match(cpuWorker, /persistModelAsset\(url, clone\)/);
+assert.match(cpuWorker, /persistModelAsset\(url, response\.clone\(\)\)/);
 assert.match(cpuWorker, /await response\.body\.pipeTo\(writable\)/);
 assert.match(cpuWorker, /readCachedModelRangeProbe\(url\)/,
   'the CPU worker must serve the runtime’s one-byte range probe from the cached model instead of re-downloading metadata');
