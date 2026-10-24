@@ -4,4 +4,171 @@ import { chromium } from 'playwright';
 const baseURL = String(process.env.OVYX_E2E_BASE_URL || '').trim().replace(/\/+$/, '');
 if (!baseURL) throw new Error('OVYX_E2E_BASE_URL must point to the local or deployed OVYX Pages app.');
 
-const runtimeFixture = String.raw
+const runtimeFixture = [
+  "export const prebuiltAppConfig = { model_list: [",
+  "  { model_id: 'Qwen3.5-4B-q4f16_1-MLC', model_lib: 'https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_86/base/Qwen3.5-4B-q4f16_1_cs1k-webgpu.wasm' },",
+  "  { model_id: 'Qwen3.5-2B-q4f16_1-MLC', model_lib: 'https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_86/base/Qwen3.5-2B-q4f16_1_cs1k-webgpu.wasm' }",
+  "] };",
+  "export async function hasModelInCache() { return false; }",
+  "export class WebWorkerMLCEngineHandler { onmessage() {} }",
+  "export async function CreateWebWorkerMLCEngine(worker, modelId, engineConfig = {}) {",
+  "  engineConfig.initProgressCallback?.({ progress: 0.22, text: 'Mock initialization progress - test fixture only' });",
+  "  await new Promise((resolve) => setTimeout(resolve, 700));",
+  "  engineConfig.initProgressCallback?.({ progress: 0.9, text: 'Mock initialization finished - test fixture only' });",
+  "  let interrupted = false;",
+  "  return {",
+  "    modelId,",
+  "    chat: { completions: {",
+  "      async *create(options) {",
+  "        globalThis.__OVYX_MOCK_MESSAGES = options.messages;",
+  "        interrupted = false;",
+  "        yield { choices: [{ delta: { content: 'Mock local test-fixture response' } }] };",
+  "        await new Promise((resolve) => setTimeout(resolve, 450));",
+  "        if (!interrupted) yield { choices: [{ delta: { content: ' (not real model evidence).' } }] };",
+  "      }",
+  "    } },",
+  "    interruptGenerate() { interrupted = true; },",
+  "    async unload() {}",
+  "  };",
+  "}"
+].join('\n');
+
+const browser = await chromium.launch({ headless: true });
+try {
+  for (const target of [
+    { name: 'desktop', viewport: { width: 1280, height: 900 } },
+    { name: 'mobile', viewport: { width: 390, height: 844 } },
+  ]) {
+    const context = await browser.newContext({ viewport: target.viewport });
+    const page = await context.newPage();
+    page.setDefaultTimeout(15000);
+    const requests = [];
+    const pageErrors = [];
+    let runtimeRequests = 0;
+
+    await context.addInitScript(() => {
+      Object.defineProperty(navigator, 'gpu', {
+        configurable: true,
+        value: { requestAdapter: async () => ({ requestDevice: async () => ({}) }) },
+      });
+      Object.defineProperty(navigator, 'storage', {
+        configurable: true,
+        value: {
+          estimate: async () => ({ quota: 10_000_000_000, usage: 0 }),
+          persist: async () => true,
+        },
+      });
+    });
+    context.on('request', (request) => requests.push({
+      url: request.url(),
+      method: request.method(),
+      postData: request.postData() || '',
+    }));
+    page.on('pageerror', error => pageErrors.push(error.message));
+
+    await context.route(/https:\/\/esm\.run\/@mlc-ai\/web-llm@0\.2\.86(?:$|\?)/, async route => {
+      runtimeRequests += 1;
+      assert.equal(route.request().method(), 'GET', 'runtime fixture must be fetched with GET only');
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/javascript; charset=utf-8',
+        headers: {
+          'access-control-allow-origin': '*',
+          'cross-origin-resource-policy': 'cross-origin',
+          'cache-control': 'no-store',
+        },
+        body: runtimeFixture,
+      });
+    });
+
+    const response = await page.goto(baseURL + '/local-ai-lab.html', { waitUntil: 'domcontentloaded' });
+    assert.ok(response && response.status() === 200, '[' + target.name + '] local AI lab did not load.');
+    await page.waitForFunction(
+      () => document.getElementById('device-status')?.textContent?.includes('WebGPU is detected'),
+      null,
+      { timeout: 8000 },
+    );
+
+    assert.equal(runtimeRequests, 0, '[' + target.name + '] runtime must not download before explicit user opt-in.');
+    assert.equal(await page.locator('#start-local-ai').isDisabled(), false);
+    const pageContent = await page.content();
+    assert.doesNotMatch(pageContent, /ovyx-assistant-workspace\.js|ovyx-launch-polish\.js/,
+      '[' + target.name + '] isolated lab must not receive main-app shell injection.');
+
+    await page.locator('#start-local-ai').click();
+    await page.waitForFunction(
+      () => document.getElementById('progress-note')?.textContent?.includes('Mock initialization progress - test fixture only'),
+      null,
+      { timeout: 10000 },
+    );
+
+    await page.locator('#cancel-local-ai').click();
+    await page.waitForFunction(
+      () => document.getElementById('device-status')?.textContent?.includes('Cancelled.'),
+      null,
+      { timeout: 5000 },
+    );
+    assert.match(await page.locator('#engine-pill').textContent(), /MODEL NOT LOADED/);
+    assert.equal(await page.locator('#start-local-ai').isDisabled(), false);
+
+    await page.locator('#start-local-ai').click();
+    await page.waitForFunction(
+      () => document.getElementById('device-status')?.textContent?.includes('model loaded in this browser'),
+      null,
+      { timeout: 15000 },
+    );
+    assert.match(await page.locator('#engine-pill').textContent(), /LOCAL MODEL READY/);
+
+    const prompt = 'Tell me exactly one short line about responsive layout.';
+    await page.locator('#local-prompt').fill(prompt);
+    await page.locator('#send-local-prompt').click();
+    await page.getByText(/Mock local test-fixture response/).waitFor();
+    await page.waitForFunction(
+      () => [...document.querySelectorAll('.message.assistant .message-body')]
+        .some(node => node.textContent?.includes('(not real model evidence).')),
+      null,
+      { timeout: 10000 },
+    );
+
+    const seenMessages = await page.evaluate(() => globalThis.__OVYX_MOCK_MESSAGES || []);
+    assert.equal(seenMessages.filter(item => item.role === 'user' && item.content === prompt).length, 1,
+      '[' + target.name + '] current prompt must appear exactly once in local inference messages.');
+
+    const stopPrompt = 'Start a local response that I will stop.';
+    await page.locator('#local-prompt').fill(stopPrompt);
+    await page.locator('#send-local-prompt').click();
+    await page.locator('#stop-generation').waitFor({ state: 'visible' });
+    await page.locator('#stop-generation').click();
+    await page.waitForFunction(
+      () => document.getElementById('device-status')?.textContent?.includes('Local response was stopped'),
+      null,
+      { timeout: 10000 },
+    );
+
+    await page.locator('#unload-local-ai').click();
+    await page.waitForFunction(
+      () => document.getElementById('engine-pill')?.textContent?.includes('MODEL NOT LOADED'),
+      null,
+      { timeout: 5000 },
+    );
+
+    // This fixture delivers runtime JS only. It deliberately does not download
+    // model weights; tests of this mock do not count as genuine local inference.
+    assert.ok(runtimeRequests >= 2, '[' + target.name + '] main and worker should use the pinned runtime after opt-in.');
+    assert.deepEqual(pageErrors, [], '[' + target.name + '] local AI lab should not throw browser errors.');
+    assert.ok(requests.every(request => !/\/api\/ai\/|\/api\/generate(?:\?|$)/.test(request.url)),
+      '[' + target.name + '] isolated lab must not call main OVYX AI routes.');
+    assert.ok(requests.every(request => !request.url.includes(prompt) && !request.postData.includes(prompt) &&
+      !request.url.includes(stopPrompt) && !request.postData.includes(stopPrompt)),
+      '[' + target.name + '] prompts must not be placed in network URLs or request bodies.');
+    assert.ok(requests.filter(request => !request.url.startsWith(baseURL)).every(request =>
+      new URL(request.url).host === 'esm.run' && request.method === 'GET'),
+    '[' + target.name + '] only the pinned runtime module host is allowed during mocked local inference.');
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2);
+    assert.equal(overflow, false, '[' + target.name + '] prototype must not create horizontal page overflow.');
+    await context.close();
+  }
+  console.log('OVYX local AI prototype browser contract passed on desktop/mobile with a mocked engine. This proves UI/privacy wiring only; it is not genuine model-load or intelligence evidence.');
+} finally {
+  await browser.close();
+}
