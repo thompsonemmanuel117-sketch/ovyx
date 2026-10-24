@@ -731,20 +731,31 @@
           const saved = await api(AI_PREFERENCES_ENDPOINT, jsonOptions('PUT', { preferences: prefs }));
           if (saved?.authority !== 'SERVER' || !saved.preferences) throw new Error('The server did not confirm the saved preferences.');
           savedPreferences = Object.assign({}, AI_PREFERENCE_DEFAULTS, saved.preferences);
+          localStorage.setItem(key, JSON.stringify(savedPreferences));
+          window.OVYXAI = Object.assign({}, window.OVYXAI || {}, savedPreferences);
         } catch (error) {
           serverError = String(error?.message || 'account preference sync failed');
+          // When signed in, do not treat a failed account write as a successful
+          // device save. Keep the last-known local/account preference values so
+          // the next AI request cannot silently use settings the server rejected.
+          if (currentUser()) {
+            savedPreferences = Object.assign({}, AI_PREFERENCE_DEFAULTS, safeJson(localStorage.getItem(key)));
+          } else {
+            try { localStorage.setItem(key, JSON.stringify(prefs)); } catch (_) {}
+          }
         }
-        localStorage.setItem(key, JSON.stringify(savedPreferences));
-        window.OVYXAI = Object.assign({}, window.OVYXAI || {}, savedPreferences);
+        if (!serverError || !currentUser()) {
+          window.OVYXAI = Object.assign({}, window.OVYXAI || {}, savedPreferences);
+        }
         syncAISettingsControls();
         const status = addStatus(panel, 'ovyx-ai-preference-status', 'AI preference status');
         if (status) {
           status.textContent = serverError
-            ? 'Preferences saved on this device only. Account sync could not be verified: ' + serverError
+            ? 'Preferences were not confirmed as saved to your OVYX account. Previous settings remain active: ' + serverError
             : 'Preferences saved to your OVYX account and verified by the server.';
           status.dataset.state = serverError ? 'warning' : 'ok';
         }
-        notify(serverError ? 'AI preferences were saved locally, but account sync needs attention.' : 'AI preferences saved to your OVYX account.', serverError ? 'warning' : 'success');
+        notify(serverError ? 'AI preference save was not confirmed. Previous account settings remain active.' : 'AI preferences saved to your OVYX account.', serverError ? 'warning' : 'success');
       } catch (error) {
         notify(error.message || 'AI preferences could not be saved.', 'error');
       }
