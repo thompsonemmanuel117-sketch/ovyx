@@ -74,7 +74,9 @@ assert.match(client, /slice\(0, 2500\)/);
 assert.match(client, /Qwen3\.5-4B-q4f16_1-MLC/);
 assert.match(client, /Qwen3\.5-2B-q4f16_1-MLC/);
 assert.match(client, /resolve\/44b4246/);
-assert.match(client, /resolve\/dd74e9c/);
+assert.match(client, /Qwen3\.5-2B-q4f32_1-MLC/);
+assert.match(client, /resolve\/d835e5c/);
+assert.match(client, /2\.59 GB/);
 assert.match(client, /v0_2_86/);
 
 assert.doesNotMatch(client, /\/api\/ai\/|\/api\/generate|api\.openai\.com|generativelanguage\.googleapis\.com|api\.anthropic\.com|api\.deepseek\.com|api\.groq\.com|openrouter\.ai\/api|api\.tavily\.com/i,

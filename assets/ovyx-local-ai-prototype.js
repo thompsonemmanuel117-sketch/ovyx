@@ -20,16 +20,16 @@
       artifactUrl: 'https://huggingface.co/mlc-ai/Qwen3.5-4B-q4f16_1-MLC/resolve/44b4246',
     }),
     'qwen35-2b': Object.freeze({
-      id: 'Qwen3.5-2B-q4f16_1-MLC',
+      id: 'Qwen3.5-2B-q4f32_1-MLC',
       label: 'Qwen3.5 2B',
       sizeBytes: 1_080_000_000,
       sizeLabel: '1.08 GB',
-      vramMB: 2245.44,
-      vramLabel: '2.25 GB',
+      vramMB: 2591.55,
+      vramLabel: '2.59 GB',
       context: 4096,
       card: 'https://huggingface.co/Qwen/Qwen3.5-2B',
-      files: 'https://huggingface.co/mlc-ai/Qwen3.5-2B-q4f16_1-MLC',
-      artifactUrl: 'https://huggingface.co/mlc-ai/Qwen3.5-2B-q4f16_1-MLC/resolve/dd74e9c',
+      files: 'https://huggingface.co/mlc-ai/Qwen3.5-2B-q4f32_1-MLC',
+      artifactUrl: 'https://huggingface.co/mlc-ai/Qwen3.5-2B-q4f32_1-MLC/resolve/d835e5c',
     }),
   });
   const SYSTEM_PROMPT = [

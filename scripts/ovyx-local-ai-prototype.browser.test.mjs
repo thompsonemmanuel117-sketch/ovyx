@@ -7,7 +7,7 @@ if (!baseURL) throw new Error('OVYX_E2E_BASE_URL must point to the local or depl
 const runtimeFixture = [
   "export const prebuiltAppConfig = { model_list: [",
   "  { model_id: 'Qwen3.5-4B-q4f16_1-MLC', model_lib: 'https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_86/base/Qwen3.5-4B-q4f16_1_cs1k-webgpu.wasm' },",
-  "  { model_id: 'Qwen3.5-2B-q4f16_1-MLC', model_lib: 'https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_86/base/Qwen3.5-2B-q4f16_1_cs1k-webgpu.wasm' }",
+  "  { model_id: 'Qwen3.5-2B-q4f32_1-MLC', model_lib: 'https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_86/base/Qwen3.5-2B-q4f32_1_cs1k-webgpu.wasm' }",
   "] };",
   "export async function hasModelInCache(modelId, appConfig) {",
   "  globalThis.__OVYX_MOCK_CACHE_CONFIGS = globalThis.__OVYX_MOCK_CACHE_CONFIGS || [];",
@@ -299,6 +299,32 @@ try {
     assert.equal(stoppedState.engineReady, true,
       '[' + target.name + '] cancelling one response must preserve the loaded local model.');
 
+    await page.locator('#unload-local-ai').click();
+    await page.waitForFunction(
+      () => document.getElementById('engine-pill')?.textContent?.includes('MODEL NOT LOADED'),
+      null,
+      { timeout: 5000 },
+    );
+
+    // Confirm the smaller comparison uses its own pinned q4f32_1 model and library.
+    await page.locator('#model-choice').selectOption('qwen35-2b');
+    await page.locator('#start-local-ai').click();
+    await page.waitForFunction(
+      () => document.getElementById('device-status')?.textContent?.includes('model loaded in this browser'),
+      null,
+      { timeout: 15000 },
+    );
+    const smallerModelConfig = await page.evaluate(() => ({
+      cache: globalThis.__OVYX_MOCK_CACHE_CONFIGS?.at(-1),
+      engine: globalThis.__OVYX_MOCK_ENGINE_CONFIGS?.at(-1),
+    }));
+    assert.equal(smallerModelConfig.cache?.modelId, 'Qwen3.5-2B-q4f32_1-MLC');
+    assert.equal(smallerModelConfig.engine?.modelId, 'Qwen3.5-2B-q4f32_1-MLC');
+    const smallerRecord = smallerModelConfig.engine?.appConfig?.model_list?.find(
+      item => item.model_id === 'Qwen3.5-2B-q4f32_1-MLC',
+    );
+    assert.match(smallerRecord?.model || '', /Qwen3\.5-2B-q4f32_1-MLC\/resolve\/d835e5c$/);
+    assert.match(smallerRecord?.model_lib || '', /00fe7a40e57e5e8eb9fef87526a4bf28ad5846c0\/web-llm-models\/v0_2_86\/base\/Qwen3\.5-2B-q4f32_1_cs1k-webgpu\.wasm$/);
     await page.locator('#unload-local-ai').click();
     await page.waitForFunction(
       () => document.getElementById('engine-pill')?.textContent?.includes('MODEL NOT LOADED'),
