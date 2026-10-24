@@ -133,20 +133,40 @@ try {
       { timeout: 10000 },
     );
 
-    const loadingState = await page.evaluate(() => ({
-      cancelHidden: document.getElementById('cancel-local-ai')?.classList.contains('hidden'),
-      cancelDisabled: document.getElementById('cancel-local-ai')?.disabled,
-      startDisabled: document.getElementById('start-local-ai')?.disabled,
-      status: document.getElementById('device-status')?.textContent,
-      progress: document.getElementById('progress-note')?.textContent,
-      holdFlag: globalThis.__OVYX_MOCK_HOLD_FIRST_INIT,
-      released: typeof globalThis.__OVYX_MOCK_RELEASE_INIT === 'function',
-    }));
+    const loadingState = await page.evaluate(() => {
+      const button = document.getElementById('cancel-local-ai');
+      const style = button ? getComputedStyle(button) : null;
+      const rect = button?.getBoundingClientRect();
+      const parent = button?.parentElement;
+      const parentStyle = parent ? getComputedStyle(parent) : null;
+      const parentRect = parent?.getBoundingClientRect();
+      return {
+        cancelHidden: button?.classList.contains('hidden'),
+        cancelDisabled: button?.disabled,
+        cancelComputedDisplay: style?.display,
+        cancelVisibility: style?.visibility,
+        cancelOpacity: style?.opacity,
+        cancelRect: rect ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height, top: rect.top, bottom: rect.bottom } : null,
+        cancelClientRects: button?.getClientRects().length,
+        rowDisplay: parentStyle?.display,
+        rowVisibility: parentStyle?.visibility,
+        rowRect: parentRect ? { x: parentRect.x, y: parentRect.y, width: parentRect.width, height: parentRect.height, top: parentRect.top, bottom: parentRect.bottom } : null,
+        viewport: { width: innerWidth, height: innerHeight, scrollY },
+        startDisabled: document.getElementById('start-local-ai')?.disabled,
+        status: document.getElementById('device-status')?.textContent,
+        progress: document.getElementById('progress-note')?.textContent,
+        holdFlag: globalThis.__OVYX_MOCK_HOLD_FIRST_INIT,
+        released: typeof globalThis.__OVYX_MOCK_RELEASE_INIT === 'function',
+      };
+    });
     assert.equal(loadingState.cancelHidden, false,
       '[' + target.name + '] cancellation control should stay visible during model initialization. State: '
       + JSON.stringify({ ...loadingState, runtimeRequests, pageErrors, consoleErrors, workerErrors, failedRequests }));
     assert.equal(loadingState.cancelDisabled, false,
       '[' + target.name + '] cancellation control should be enabled during model initialization. State: '
+      + JSON.stringify({ ...loadingState, runtimeRequests, pageErrors, consoleErrors, workerErrors, failedRequests }));
+    assert.equal(await page.locator('#cancel-local-ai').isVisible(), true,
+      '[' + target.name + '] cancellation control should be rendered and clickable during model initialization. State: '
       + JSON.stringify({ ...loadingState, runtimeRequests, pageErrors, consoleErrors, workerErrors, failedRequests }));
     await page.locator('#cancel-local-ai').click();
     await page.waitForFunction(
