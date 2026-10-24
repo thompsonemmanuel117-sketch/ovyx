@@ -1159,7 +1159,7 @@ async function readGlobalProviderOrder(env) {
   return [...normalized];
 }
 
-export function providerOrder(env, requested, taskContext = '', globalOrder = null, preferredProvider = '', providerRouting = 'automatic') {
+export function providerOrder(env, requested, taskContext = '', globalOrder = null, preferredProvider = '', providerRouting = 'automatic', fallback = 'automatic') {
   const selection = String(requested || 'automatic').trim().toLowerCase();
   if (selection && selection !== 'automatic') {
     // An explicit choice is exclusive even when its key is missing.
@@ -1188,6 +1188,12 @@ export function providerOrder(env, requested, taskContext = '', globalOrder = nu
     'gemini', 'deepseek', 'claude', 'openai', 'groq', 'openrouter',
   ];
   const ordered = [...new Set(priorities)].filter(provider => isProviderConfigured(env, provider));
+
+  // A user may explicitly disable automatic failover. Keep the first configured
+  // route, but still allow Workers AI below when it is the only configured engine.
+  if (String(fallback || 'automatic').trim().toLowerCase() === 'stop' && ordered.length) {
+    return ordered.slice(0, 1);
+  }
 
   // Workers AI is an optional final fallback and requires a real binding.
   if (env?.AI && typeof env.AI.run === 'function' && !ordered.includes('cloudflare-workers-ai')) {
@@ -1325,7 +1331,8 @@ export async function callModel(
     String(options.taskPrompt || options.user || ''),
     globalOrder,
     options.preferredProvider,
-    options.providerRouting
+    options.providerRouting,
+    options.fallback
   );
   if (requested === 'automatic' && availableProviders.length === 0) {
     throw Object.assign(
