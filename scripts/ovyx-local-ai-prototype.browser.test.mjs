@@ -9,9 +9,15 @@ const runtimeFixture = [
   "  { model_id: 'Qwen3.5-4B-q4f16_1-MLC', model_lib: 'https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_86/base/Qwen3.5-4B-q4f16_1_cs1k-webgpu.wasm' },",
   "  { model_id: 'Qwen3.5-2B-q4f16_1-MLC', model_lib: 'https://raw.githubusercontent.com/mlc-ai/binary-mlc-llm-libs/main/web-llm-models/v0_2_86/base/Qwen3.5-2B-q4f16_1_cs1k-webgpu.wasm' }",
   "] };",
-  "export async function hasModelInCache() { return false; }",
+  "export async function hasModelInCache(modelId, appConfig) {",
+  "  globalThis.__OVYX_MOCK_CACHE_CONFIGS = globalThis.__OVYX_MOCK_CACHE_CONFIGS || [];",
+  "  globalThis.__OVYX_MOCK_CACHE_CONFIGS.push({ modelId, appConfig });",
+  "  return false;",
+  "}",
   "export class WebWorkerMLCEngineHandler { onmessage() {} }",
   "export async function CreateWebWorkerMLCEngine(worker, modelId, engineConfig = {}) {",
+  "  globalThis.__OVYX_MOCK_ENGINE_CONFIGS = globalThis.__OVYX_MOCK_ENGINE_CONFIGS || [];",
+  "  globalThis.__OVYX_MOCK_ENGINE_CONFIGS.push({ modelId, appConfig: engineConfig.appConfig });",
   "  engineConfig.initProgressCallback?.({ progress: 0.22, text: 'Mock initialization progress - test fixture only' });",
   "  await new Promise((resolve) => setTimeout(resolve, 700));",
   "  engineConfig.initProgressCallback?.({ progress: 0.9, text: 'Mock initialization finished - test fixture only' });",
@@ -118,6 +124,17 @@ try {
       { timeout: 15000 },
     );
     assert.match(await page.locator('#engine-pill').textContent(), /LOCAL MODEL READY/);
+    const pinnedRuntimeConfig = await page.evaluate(() => ({
+      cache: globalThis.__OVYX_MOCK_CACHE_CONFIGS?.at(-1),
+      engine: globalThis.__OVYX_MOCK_ENGINE_CONFIGS?.at(-1),
+    }));
+    assert.equal(pinnedRuntimeConfig.cache?.modelId, 'Qwen3.5-4B-q4f16_1-MLC');
+    assert.equal(pinnedRuntimeConfig.engine?.modelId, 'Qwen3.5-4B-q4f16_1-MLC');
+    const pinnedRecord = pinnedRuntimeConfig.engine?.appConfig?.model_list?.find(
+      item => item.model_id === 'Qwen3.5-4B-q4f16_1-MLC',
+    );
+    assert.match(pinnedRecord?.model || '', /Qwen3\.5-4B-q4f16_1-MLC\/resolve\/44b4246$/);
+    assert.match(pinnedRecord?.model_lib || '', /00fe7a40e57e5e8eb9fef87526a4bf28ad5846c0\/web-llm-models\/v0_2_86\/base\/Qwen3\.5-4B-q4f16_1_cs1k-webgpu\.wasm$/);
 
     const prompt = 'Tell me exactly one short line about responsive layout.';
     await page.locator('#local-prompt').fill(prompt);
