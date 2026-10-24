@@ -325,6 +325,27 @@ try {
     );
     assert.match(smallerRecord?.model || '', /Qwen3\.5-2B-q4f32_1-MLC\/resolve\/d835e5c$/);
     assert.match(smallerRecord?.model_lib || '', /00fe7a40e57e5e8eb9fef87526a4bf28ad5846c0\/web-llm-models\/v0_2_86\/base\/Qwen3\.5-2B-q4f32_1_cs1k-webgpu\.wasm$/);
+
+    // Diagnostics are explicitly user-requested and omit prompt/answer text.
+    await page.locator('#prepare-diagnostics').click();
+    await page.locator('#diagnostics-output').waitFor({ state: 'visible' });
+    const diagnosticText = await page.locator('#diagnostics-output').inputValue();
+    const diagnosticRecord = JSON.parse(diagnosticText);
+    assert.equal(diagnosticRecord.runtime, '@mlc-ai/web-llm@0.2.86');
+    assert.equal(diagnosticRecord.environment.webGPUAdapterAvailable, true);
+    assert.equal(diagnosticRecord.selectedModel.modelId, 'Qwen3.5-2B-q4f32_1-MLC');
+    assert.equal(diagnosticRecord.selectedModel.loadedInPage, true);
+    assert.equal(diagnosticRecord.modelLoad.status, 'ready');
+    assert.equal(diagnosticRecord.recentGenerationMetrics.length, 2);
+    assert.equal(diagnosticRecord.recentGenerationMetrics[0].status, 'complete');
+    assert.equal(diagnosticRecord.recentGenerationMetrics[1].status, 'stopped-with-partial');
+    assert.ok(Number.isFinite(diagnosticRecord.recentGenerationMetrics[0].firstTokenMs));
+    assert.ok(Number.isFinite(diagnosticRecord.recentGenerationMetrics[0].totalDurationMs));
+    assert.ok(!diagnosticText.includes(prompt), '[' + target.name + '] diagnostics must never contain submitted prompt text.');
+    assert.ok(!diagnosticText.includes(stopPrompt), '[' + target.name + '] diagnostics must never contain stopped prompt text.');
+    assert.ok(!diagnosticText.includes('Mock local test-fixture response'), '[' + target.name + '] diagnostics must never contain answer text.');
+    assert.match(diagnosticRecord.privacy, /not sent to OVYX|not sent automatically/i);
+
     await page.locator('#unload-local-ai').click();
     await page.waitForFunction(
       () => document.getElementById('engine-pill')?.textContent?.includes('MODEL NOT LOADED'),
