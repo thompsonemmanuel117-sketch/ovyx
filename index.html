@@ -17002,6 +17002,45 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
   if(window.__OVYX_MOBILE_SCROLL_RECOVERY_V1__)return;
   window.__OVYX_MOBILE_SCROLL_RECOVERY_V1__=true;
   const $=id=>document.getElementById(id);
+  // Delayed route-recovery repairs must never rewrite touch-action/overflow while
+  // Chromium or a real handset is processing a finger gesture.
+  const activePointers=new Set();
+  let activeTouches=0;
+  let repairPending=false;
+  let deferredRepairTimer=0;
+  const hasActiveGesture=()=>activePointers.size>0||activeTouches>0;
+  function deferRepairUntilGestureEnds(){
+    if(!repairPending||hasActiveGesture())return;
+    if(deferredRepairTimer)window.clearTimeout(deferredRepairTimer);
+    deferredRepairTimer=window.setTimeout(()=>{
+      deferredRepairTimer=0;
+      if(hasActiveGesture())return;
+      repairPending=false;
+      try{repair()}catch(e){console.warn('[OVYX mobile scroll recovery]',e)}
+    },180);
+  }
+  function pointerDown(event){
+    if(event?.pointerId!==undefined)activePointers.add(event.pointerId);
+    if(deferredRepairTimer){window.clearTimeout(deferredRepairTimer);deferredRepairTimer=0}
+  }
+  function pointerEnd(event){
+    if(event?.pointerId!==undefined)activePointers.delete(event.pointerId);
+    deferRepairUntilGestureEnds();
+  }
+  function touchStart(event){
+    activeTouches=Math.max(1,Number(event?.touches?.length)||1);
+    if(deferredRepairTimer){window.clearTimeout(deferredRepairTimer);deferredRepairTimer=0}
+  }
+  function touchEnd(event){
+    activeTouches=Math.max(0,Number(event?.touches?.length)||0);
+    deferRepairUntilGestureEnds();
+  }
+  document.addEventListener('pointerdown',pointerDown,{capture:true,passive:true});
+  document.addEventListener('pointerup',pointerEnd,{capture:true,passive:true});
+  document.addEventListener('pointercancel',pointerEnd,{capture:true,passive:true});
+  document.addEventListener('touchstart',touchStart,{capture:true,passive:true});
+  document.addEventListener('touchend',touchEnd,{capture:true,passive:true});
+  document.addEventListener('touchcancel',touchEnd,{capture:true,passive:true});
   function isVisible(el){
     if(!el||!el.isConnected||el.hidden||el.hasAttribute('inert')||el.classList?.contains('hidden'))return false;
     for(let n=el;n&&n!==document.documentElement;n=n.parentElement){
@@ -17086,6 +17125,7 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
   }
   function repair(){
     if(window.innerWidth>=768||!document.body)return false;
+    if(hasActiveGesture()){repairPending=true;return false;}
     if(realDrawerOpen()||visibleModalOpen())return false;
     enforceMobileRouteScrollOwner();
     const drawer=$('mobile-drawer'),backdrop=$('mobile-drawer-backdrop');
