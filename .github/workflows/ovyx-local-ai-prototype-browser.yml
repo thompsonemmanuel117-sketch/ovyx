@@ -1,0 +1,82 @@
+name: OVYX Local AI Prototype Browser Tests
+
+on:
+  push:
+    branches:
+      - "**"
+    paths:
+      - 'local-ai-lab.html'
+      - 'assets/ovyx-local-ai-prototype.js'
+      - 'assets/ovyx-local-ai-worker.js'
+      - 'scripts/ovyx-local-ai-prototype.test.mjs'
+      - 'scripts/ovyx-local-ai-prototype.browser.test.mjs'
+      - '_headers'
+      - '_routes.json'
+      - 'package.json'
+      - '.github/workflows/ovyx-local-ai-prototype-browser.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'local-ai-lab.html'
+      - 'assets/ovyx-local-ai-prototype.js'
+      - 'assets/ovyx-local-ai-worker.js'
+      - 'scripts/ovyx-local-ai-prototype.test.mjs'
+      - 'scripts/ovyx-local-ai-prototype.browser.test.mjs'
+      - '_headers'
+      - '_routes.json'
+      - 'package.json'
+      - '.github/workflows/ovyx-local-ai-prototype-browser.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  local-ai-prototype-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install project dependencies
+        run: |
+          npm install --ignore-scripts
+          npm install --ignore-scripts --no-save playwright@^1.55.0
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Start local Cloudflare Pages app
+        run: |
+          npx wrangler pages dev . --ip 127.0.0.1 --port 8793 > /tmp/ovyx-local-ai-pages.log 2>&1 &
+          echo $! > /tmp/ovyx-local-ai-pages.pid
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8793/local-ai-lab.html >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/ovyx-local-ai-pages.log
+          exit 1
+
+      - name: Verify syntax, repository contracts and production preflight
+        run: |
+          npm run validate
+          npm run build
+          node scripts/ovyx-local-ai-prototype.test.mjs
+
+      - name: Verify isolated local AI lab in desktop and mobile Chromium
+        env:
+          OVYX_E2E_BASE_URL: http://127.0.0.1:8793
+        run: node scripts/ovyx-local-ai-prototype.browser.test.mjs
+
+      - name: Print local Pages logs on failure
+        if: failure()
+        run: cat /tmp/ovyx-local-ai-pages.log || true

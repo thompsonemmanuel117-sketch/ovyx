@@ -5,6 +5,14 @@ const LAUNCH_SCRIPT = '<script defer src="/assets/ovyx-account-notifications.js?
 export async function onRequest(context) {
   const url = new URL(context.request.url);
 
+  // Keep the opt-in browser-local AI lab isolated from main-shell injections.
+  // Cloudflare Pages may canonicalize /local-ai-lab.html to /local-ai-lab, so
+  // bypass both paths. Never inject provider-dependent app scripts into this lab.
+  const normalizedPath = url.pathname.replace(/\/+$/, '').toLowerCase();
+  if (normalizedPath === '/local-ai-lab.html' || normalizedPath === '/local-ai-lab') {
+    return context.next();
+  }
+
   // Browser engines often fall back to /favicon.ico, including on reloads and
   // nested SPA paths. Never let an obsolete static file or cached default icon
   // answer that request: serve the same canonical OVYX mark directly.

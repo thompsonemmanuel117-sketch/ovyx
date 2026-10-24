@@ -10,20 +10,20 @@
 | Stage 1 — AI source and dependency audit | **Complete** | PR #243 merged. Audit covers routes, providers, model identifiers, quota/history, safety and known evidence gaps. |
 | AI Preferences foundation | **Complete** | PR #244 merged as `d48d7d6a70efb1a9f54fd155b5cc7d64ab5c232e`. Account-scoped load/save/reset and settings-to-request propagation passed desktop/mobile browser tests and pre-merge checks. |
 | Stage 2 — first local-model selection | **Complete** | PR #246 merged as `a4a114a188fac0943cc2c5b535261d59004c3133`. Qwen3.5-4B `q4f16_1` MLC selected as a **prototype candidate**, not yet integrated or quality-certified. |
-| Stage 3 — local browser inference prototype | **Not started** | Pin the runtime and verify that the selected model actually loads on supported browsers/devices. Add explicit opt-in download, progress/cancel/retry, valid cache reuse, token streaming, cancellation, bounded memory/context and clear unsupported/low-storage errors. |
-| Stage 4 — local intelligence benchmarks | **Not started** | Compare real outputs against a fixed suite: coding/debugging, single-page and multi-page websites, app scaffolding, project edits, bug repair and UI interactions. Record real outputs, latency, failures, browser builds, viewport screenshots and device class. No claim of equivalent intelligence until measured. |
+| Stage 3 — local browser inference prototype | **In progress — isolated prototype on branch** | `local-ai-lab.html` and `assets/ovyx-local-ai-prototype.js` provide explicit start, WebGPU/storage checks, progress, cancel/unload, bounded streaming chat and no hosted inference fallback. The lab route remains isolated under both `/local-ai-lab.html` and `/local-ai-lab`. Model artifacts and the v0.2.86-compatible WASM are pinned to revisions. The lab now offers manual 4B, 2B and 0.8B candidates, and a user-triggered diagnostic record that records browser/GPU capability, storage and timing without prompts/answers. Static/build and mocked desktop/mobile contract checks pass in [run 40099426120](https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/40099426120). Still required: genuine model download/load, a real prompt response, cache/recovery checks, network capture and at least one actual target desktop and Android/mobile browser. Mocked tests do not close Stage 3. |
+| Stage 4 — local intelligence benchmarks | **Protocol prepared; real runs blocked by Stage 3** | PR #248 merged `docs/OVYX-AI-STAGE-4-BENCHMARK-PROTOCOL.md` with a fixed 12-case suite, scoring rubric, hard-fail privacy/safety gates, latency/device record and go/no-go criteria. No model scores are recorded. Run the suite only after a genuine local answer is proven on a target device. |
 | Stage 5 onward — reusable intelligence, project tools, staged feature migration | **Not started** | Migrate only after Stage 3/4 gates. Keep each feature reversible and retain existing paths until actual acceptance tests pass. |
 | External-provider and duplicate-adapter retirement | **Blocked by migration** | Trace all callers/imports and production paths, then show no active feature depends on the old route before removing any adapter/secret. Never remove credentials as a shortcut. |
 
 ### Stage 3/4 non-negotiable gates
 
 - Local-only inference must not silently fall back to Gemini, OpenAI, Anthropic, DeepSeek, Groq, OpenRouter or Cloudflare Workers AI. The UI must truthfully state which engine answered.
-- Do not automatically download the approximately 2.39 GB candidate. The user must explicitly choose to download/run it and see size, progress, cancellation and cache status.
+- Do not automatically download any model (about 2.39 GB for 4B, 1.08 GB for 2B, or 447 MB for 0.8B). The user must explicitly choose to download/run it and see size, progress, cancellation and cache status.
 - Detect WebGPU/runtime incompatibility and memory/storage limitations. Do not leave the interface spinning indefinitely, freeze the main UI, or repeatedly download a valid cached model.
 - Test with browser network capture that prompts, project source, attachments and history do not reach a remote inference endpoint in local-only mode. Public model hosting may deliver model files; it must not receive user prompts.
 - Preserve sign-in and server authorization, quota/accounting policy, conversation history, safe project path/tool allowlists, destructive confirmation, cancellation, undo/rollback and recovery. If local usage has different cost/quota semantics, document and test it explicitly rather than bypassing controls.
-- Validate model license and required notices when downloading/redistributing any model artifacts. The upstream WebLLM built-in list is a subset of MLC models and its documented Qwen family names Qwen2; Qwen3.5-4B may need a custom model record/build. Pin and verify the actual MLC/WebLLM runtime/model config; a model page alone is not proof of runtime compatibility. If incompatible, test the Qwen3-4B MLC artifact as a local-only alternative. Neither model may silently switch to a remote provider.
-- If the 4B model is too weak, compare the 2B lower-resource option and 9B higher-resource option using the same test prompts. Treat large coding-specialized models as desktop/self-hosted candidates, not automatic mobile downloads.
+- Validate model license and preserve required notices when distributing model artifacts. WebLLM `v0.2.86` source explicitly registers the Qwen3.5-4B `q4f16_1` and Qwen3.5-2B variants in its prebuilt model list; the Stage 3 client pins the chosen model artifact revisions and the version-compatible compiled MLC library commit. This supports model/runtime configuration compatibility but does not prove real load success. If a real load fails, diagnose the model/runtime/device reason and test a local-only alternative such as the Qwen3-4B MLC artifact. Never silently switch to a remote provider.
+- If the 4B model is too large for a device, manually compare 2B and 0.8B local options. If the 4B model is too weak, compare a 9B higher-resource option and a larger self-hosted coder model using the same test prompts. Treat large coding-specialized models as desktop/self-hosted candidates, not automatic mobile downloads.
 - “Free” for this goal means avoiding per-prompt external inference charges when local inference runs on the user's own device; it does not mean unlimited speed, memory, battery, context, intelligence or every-device compatibility.
 
 ## Existing OVYX issues not to forget
@@ -56,11 +56,19 @@ These are ongoing release gates, not optional cleanups:
 - Keep current hosted AI routes available until each migrated feature has passed the same or stronger end-to-end tests. No wholesale removal or route switch before evidence.
 - A workflow that is green because it used mocked responses, fixtures, or `preflight-only` does not count as proof of production generation/delivery.
 
+## Stage 3 prototype evidence log
+
+- Branch: `feat/stage-3-browser-local-ai-prototype`; current work is intentionally isolated from the main OVYX chat and generation routes.
+- Model/runtime source check: official WebLLM `v0.2.86` registry contains the Qwen3.5-4B model ID; the matching versioned WASM path exists in the official MLC binary library repository. This is not a real load/inference test.
+- The lab does not call OVYX AI routes, does not attach project/account context, and does not silently switch to a hosted model. It currently keeps prototype chat history in page memory only.
+- Still unproven: real download/cache lifecycle for the selected model, genuine inference, answer quality, speed, memory, cancellation during actual inference, browser network-capture evidence, and compatibility on supported physical Android/mobile and desktop devices. Keep Stage 3 open until these are tested.
+
 ## Evidence log
 
 - Stage 1 audit PR #243: merged, audit source commit `e3c4ed3f911a957c930d0337a2b18eb4419c3e0d`.
 - AI Preferences PR #244: merged, `d48d7d6a70efb1a9f54fd155b5cc7d64ab5c232e`; desktop/mobile Preferences tests and pre-merge checks passed.
 - Stage 2 selection PR #246: merged, `a4a114a188fac0943cc2c5b535261d59004c3133`.
 - Stage 2 selection document: `docs/OVYX-AI-STAGE-2-LOCAL-MODEL-SELECTION.md`.
+- Stage 4 benchmark protocol PR #248: merged at `81101827b7e0d6b4d0260a574bce332e4175bdb7`; protocol prepared only—no empirical model scores or device results are claimed.
 - Live acceptance configuration and gates: `docs/OVYX-LIVE-ACCEPTANCE-SETUP.md`.
 - On merge SHA `d48d7d6a70efb1a9f54fd155b5cc7d64ab5c232e`, post-merge Agent Verify, Settings Regression Browser Tests, Owner Controls, Cloudflare Diagnostics, Web Studio browser quality, and Assistant Workspace Browser Tests all completed successfully. The separate Live Website Generation and Acceptance Evidence run `40086196880` failed at provider-only preflight with the categories recorded above; full website generation and browser/integration probes were not run.

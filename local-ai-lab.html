@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark light">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <meta name="description" content="Isolated OVYX browser-local AI prototype. Prompts are processed locally after you load the selected model.">
+  <title>OVYX Local AI Lab · Stage 3</title>
+  <style>
+    :root { color-scheme: dark; --bg:#080a0f; --panel:#11151d; --panel2:#171d28; --text:#f4f6fb; --muted:#a8b1c2; --line:#2a3342; --accent:#f3b744; --good:#8fe0b4; --warn:#ffd28a; --bad:#ff9f9f; font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:radial-gradient(1000px 480px at 10% -20%,#232b3b 0%,transparent 65%),var(--bg); color:var(--text); min-height:100vh; }
+    main { width:min(100%,980px); margin:0 auto; padding:clamp(16px,4vw,34px); }
+    .top { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px; margin-bottom:24px; }
+    .brand { font-size:13px; letter-spacing:.18em; font-weight:900; }
+    .stage { font-size:11px; color:var(--accent); letter-spacing:.12em; font-weight:800; border:1px solid #755a27; padding:7px 10px; border-radius:999px; }
+    h1 { font-size:clamp(30px,5vw,52px); line-height:1.03; letter-spacing:-.04em; margin:0 0 14px; max-width:760px; }
+    .lede { color:var(--muted); max-width:760px; line-height:1.7; font-size:15px; margin:0 0 22px; }
+    .notice { border:1px solid var(--line); border-left:3px solid var(--accent); padding:13px 15px; border-radius:10px; color:#e0e5ef; background:#10141c; line-height:1.6; font-size:13px; margin-bottom:18px; }
+    .grid { display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1.12fr); gap:16px; align-items:start; }
+    .panel { background:linear-gradient(160deg,#141925,#0e1118); border:1px solid var(--line); border-radius:16px; padding:18px; min-width:0; }
+    .panel h2 { font-size:16px; margin:0 0 15px; letter-spacing:-.01em; }
+    label { display:block; font-size:12px; font-weight:750; color:#d9e0ec; margin-bottom:7px; }
+    select,textarea,input,button { font:inherit; }
+    select,textarea { width:100%; background:#080b10; color:var(--text); border:1px solid #384456; border-radius:9px; padding:11px 12px; outline-offset:2px; }
+    textarea { min-height:92px; max-height:240px; resize:vertical; line-height:1.55; }
+    button { min-height:42px; border-radius:9px; border:1px solid #475365; padding:10px 13px; cursor:pointer; color:var(--text); background:#1a202c; font-size:12px; font-weight:800; }
+    button.primary { background:var(--accent); color:#17130a; border-color:var(--accent); }
+    button.danger { border-color:#824646; color:#ffd0d0; }
+    button:disabled { opacity:.45; cursor:not-allowed; }
+    .row { display:flex; gap:9px; flex-wrap:wrap; align-items:center; }
+    .row > button { flex:1; }
+    .details { padding:13px; margin:12px 0 15px; border:1px solid var(--line); background:#0b0e14; border-radius:10px; font-size:12px; line-height:1.65; color:var(--muted); white-space:pre-line; overflow-wrap:anywhere; }
+    .details strong { color:var(--text); }
+    .status { font-size:12px; line-height:1.6; color:var(--muted); overflow-wrap:anywhere; margin:12px 0 0; min-height:38px; }
+    .status[data-kind="ok"] { color:var(--good); }
+    .status[data-kind="warn"] { color:var(--warn); }
+    .status[data-kind="error"] { color:var(--bad); }
+    .progress-wrap { display:none; margin-top:14px; }
+    progress { width:100%; height:9px; accent-color:var(--accent); }
+    .progress-note { color:var(--muted); font-size:11px; line-height:1.5; overflow-wrap:anywhere; }
+    .chat { display:flex; flex-direction:column; gap:12px; min-height:250px; max-height:48vh; overflow:auto; padding:11px; background:#080b10; border:1px solid var(--line); border-radius:12px; margin-bottom:13px; }
+    .empty { color:#7e899b; font-size:12px; line-height:1.65; margin:auto 0; padding:14px 2px; }
+    .message { max-width:100%; border:1px solid var(--line); border-radius:10px; padding:10px 12px; white-space:pre-wrap; overflow-wrap:anywhere; font-size:13px; line-height:1.65; }
+    .message.user { background:#1b2635; border-color:#35475f; margin-left:10%; }
+    .message.assistant { background:#151a24; margin-right:5%; }
+    .message .role { display:block; font-size:9px; font-weight:900; letter-spacing:.12em; color:var(--accent); margin-bottom:5px; }
+    .chat-head { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-bottom:11px; }
+    .pill { border:1px solid var(--line); border-radius:999px; padding:5px 8px; color:var(--muted); font-size:10px; font-weight:750; }
+    .small { color:var(--muted); font-size:11px; line-height:1.65; }
+    .foot { margin-top:18px; border-top:1px solid var(--line); padding-top:14px; font-size:11px; line-height:1.75; color:#8e98aa; }
+    .foot a { color:#f6cd73; }
+    .hidden { display:none!important; }
+    @media(max-width:760px) { .grid { grid-template-columns:1fr; } .chat { max-height:44vh; } .panel { padding:15px; } }
+    @media(prefers-reduced-motion:reduce) { * { scroll-behavior:auto!important; transition:none!important; } }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="top">
+      <div class="brand">OVYX / LOCAL INTELLIGENCE</div>
+      <div class="stage">STAGE 3 · ISOLATED PROTOTYPE</div>
+    </div>
+    <h1>Run the model on your own device.</h1>
+    <p class="lede">This is a separate test lab for OVYX's own browser-local AI. It does not replace the main OVYX assistant or website-generation routes. Nothing is downloaded until you press the explicit start button.</p>
+    <div class="notice"><strong>Honest status:</strong> local inference can avoid per-prompt hosted AI charges, but it is not unlimited computing. Models use device memory, storage, battery and data for the initial download. We have not yet certified output quality or compatibility on every phone/computer.</div>
+    <div class="grid">
+      <section class="panel" aria-labelledby="model-heading">
+        <h2 id="model-heading">1. Prepare this device</h2>
+        <label for="model-choice">Model to test</label>
+        <select id="model-choice">
+          <option value="qwen35-4b">Qwen3.5 4B · 2.39 GB download · higher resource</option>
+          <option value="qwen35-2b">Qwen3.5 2B q4f32_1 · 1.08 GB · medium resource</option>
+          <option value="qwen35-08b">Qwen3.5 0.8B q4f16_1 · 447 MB · lowest resource</option>
+        </select>
+        <div class="details" id="model-details">
+          <strong>Qwen3.5 4B · Apache-2.0</strong><br>
+          Approximate model files: 2.39 GB<br>
+          WebLLM estimated GPU memory requirement: 3.87 GB<br>
+          Context window configured for this browser build: 4,096 tokens
+        </div>
+        <div class="row">
+          <button id="start-local-ai" class="primary">Download and start local AI</button>
+          <button id="cancel-local-ai" class="danger hidden" type="button">Cancel</button>
+          <button id="unload-local-ai" class="hidden" type="button">Unload model</button>
+        </div>
+        <div class="progress-wrap" id="progress-wrap">
+          <progress id="load-progress" max="100" value="0"></progress>
+          <div id="progress-note" class="progress-note">Waiting for the local runtime…</div>
+        </div>
+        <p id="device-status" class="status" role="status" aria-live="polite" data-kind="warn">Checking WebGPU support. No model download has started.</p>
+        <div class="row" style="margin-top:8px">
+          <button id="prepare-diagnostics" type="button">Prepare local test record</button>
+        </div>
+        <p class="small">The diagnostic record helps verify a genuine run on this device. It includes model/runtime, capability, storage and timing measurements—but never prompts, answers, project data or credentials. It is prepared only when you press the button and is not sent automatically.</p>
+        <textarea id="diagnostics-output" class="hidden" rows="12" readonly aria-label="Local AI diagnostic record" spellcheck="false"></textarea>
+        <p class="small">The model cache uses your browser's local Cache API. Clearing browser data or storage pressure may remove the cached files; OVYX will detect and recover from that on retry.</p>
+      </section>
+      <section class="panel" aria-labelledby="chat-heading">
+        <div class="chat-head">
+          <h2 id="chat-heading" style="margin:0">2. Test a genuine local answer</h2>
+          <span id="engine-pill" class="pill">MODEL NOT LOADED</span>
+        </div>
+        <div id="chat-log" class="chat" role="log" aria-live="polite" aria-relevant="additions text">
+          <p id="chat-empty" class="empty">Load a model first. Then send a real prompt and watch the response stream from the browser-local engine.</p>
+        </div>
+        <form id="prompt-form">
+          <label for="local-prompt">Your prompt</label>
+          <textarea id="local-prompt" maxlength="2500" placeholder="Example: Explain how you would debug a responsive navigation menu, then give a small safe code example." disabled></textarea>
+          <div class="row" style="margin-top:9px">
+            <button id="send-local-prompt" class="primary" type="submit" disabled>Send to local model</button>
+            <button id="stop-generation" class="danger hidden" type="button">Stop response</button>
+            <button id="clear-chat" type="button">Clear chat</button>
+          </div>
+        </form>
+        <p class="small">This prototype keeps the conversation in page memory only. It does not load your OVYX projects, save account history or run project-editing tools. Those integrations remain for later stages.</p>
+      </section>
+    </div>
+    <div class="foot">
+      <strong>Privacy boundary:</strong> the chosen runtime and public model files must be fetched to run the model. The prototype code sends prompts to the local WebLLM engine, not to OVYX AI APIs or hosted model-inference endpoints. Stage 3 still requires network-capture and real-device tests before this can be treated as accepted.<br>
+      Runtime: <a href="https://github.com/mlc-ai/web-llm/releases/tag/v0.2.86" rel="noreferrer">WebLLM 0.2.86</a> · Model: <a href="https://huggingface.co/Qwen/Qwen3.5-4B" rel="noreferrer">Qwen3.5 model card and license</a> · <a href="https://huggingface.co/mlc-ai/Qwen3.5-4B-q4f16_1-MLC" rel="noreferrer">quantized model files</a>
+    </div>
+  </main>
+  <script src="/assets/ovyx-local-ai-prototype.js" defer></script>
+</body>
+</html>

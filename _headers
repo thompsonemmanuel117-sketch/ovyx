@@ -119,3 +119,23 @@
 
 /assets/ovyx-webstudio-code-search.js
   Cache-Control: no-store, no-cache, must-revalidate
+
+/local-ai-lab.html
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
+
+/local-ai-lab
+  Cache-Control: no-store, no-cache, must-revalidate, max-age=0
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
+
+/assets/ovyx-local-ai-prototype.js
+  Cache-Control: no-store, no-cache, must-revalidate
+
+/assets/ovyx-local-ai-worker.js
+  Content-Type: text/javascript; charset=utf-8
+  Cache-Control: no-store, no-cache, must-revalidate
+  Cross-Origin-Opener-Policy: same-origin
+  Cross-Origin-Embedder-Policy: require-corp
+  Cross-Origin-Resource-Policy: same-origin
