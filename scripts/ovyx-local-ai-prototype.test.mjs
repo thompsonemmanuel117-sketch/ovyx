@@ -108,6 +108,8 @@ assert.match(cpuWorker, /revision:\s*MODEL_REVISION/);
 assert.match(cpuWorker, /device:\s*'wasm'/);
 assert.match(cpuWorker, /dtype:\s*'q8'/);
 assert.match(cpuWorker, /MODEL_CACHE_VERSION\s*=\s*1/);
+assert.match(cpuWorker, /url\.origin \+ url\.pathname/,
+  'cache identity must ignore non-content download query parameters so reloads reuse the same pinned model asset');
 assert.match(cpuWorker, /navigator\.storage\.getDirectory\(\)/);
 assert.match(cpuWorker, /persistModelAsset\(url, clone\)/);
 assert.match(cpuWorker, /await response\.body\.pipeTo\(writable\)/);
