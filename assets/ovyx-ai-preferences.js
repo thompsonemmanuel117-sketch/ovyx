@@ -148,10 +148,15 @@
       hasPending ? pendingPreferences : (cachedPreferences || readLocal())
     );
     const chosenMode = panel.querySelector('[data-ai-mode].selected')?.dataset?.aiMode;
-    // The visible selected control is the final source of truth for mode. Keep
-    // it authoritative even if another settings-change event has refreshed the
-    // pending object from an older local draft during a legacy panel re-render.
-    if (chosenMode && ENUMS.mode.includes(chosenMode)) base.mode = chosenMode;
+    const globalDraft = window.__OVYX_AI_MODE_DRAFT;
+    const explicitMode = globalDraft?.uid === uid && ENUMS.mode.includes(globalDraft.mode)
+      ? globalDraft.mode
+      : (selectedModeDraftUid === uid && ENUMS.mode.includes(selectedModeDraft)
+        ? selectedModeDraft
+        : chosenMode);
+    // Explicit mode clicks are pinned at window-capture phase so another
+    // settings renderer cannot overwrite the choice while other controls change.
+    if (explicitMode && ENUMS.mode.includes(explicitMode)) base.mode = explicitMode;
     for (const [key, id] of Object.entries(SELECT_IDS)) {
       const control = panel.querySelector('#' + id);
       if (control && ENUMS[key].includes(String(control.value))) base[key] = String(control.value);
@@ -357,9 +362,11 @@
 
   async function persistFromPanel(panel, next, reset) {
     const uid = String(user()?.uid || '');
-    if (!reset && selectedModeDraftUid === uid && ENUMS.mode.includes(selectedModeDraft)) {
-      next = { ...normalize(next), mode: selectedModeDraft };
-    }
+    const globalDraft = window.__OVYX_AI_MODE_DRAFT;
+    const pinnedMode = globalDraft?.uid === uid && ENUMS.mode.includes(globalDraft.mode)
+      ? globalDraft.mode
+      : (selectedModeDraftUid === uid && ENUMS.mode.includes(selectedModeDraft) ? selectedModeDraft : '');
+    if (!reset && pinnedMode) next = { ...normalize(next), mode: pinnedMode };
     const save = panel.querySelector('#set-ai-save');
     const resetButton = panel.querySelector('#set-ai-reset');
     const activeButton = reset ? resetButton : save;
@@ -373,6 +380,7 @@
       pendingPreferencesUid = '';
       selectedModeDraft = '';
       selectedModeDraftUid = '';
+      if (window.__OVYX_AI_MODE_DRAFT?.uid === String(user()?.uid || '')) delete window.__OVYX_AI_MODE_DRAFT;
       preferencesEditRevision += 1;
       cachedPreferences = local;
       loadedUid = '';
@@ -396,6 +404,7 @@
       pendingPreferencesUid = '';
       selectedModeDraft = '';
       selectedModeDraftUid = '';
+      if (window.__OVYX_AI_MODE_DRAFT?.uid === String(user()?.uid || '')) delete window.__OVYX_AI_MODE_DRAFT;
       preferencesEditRevision += 1;
       cachedPreferences = serverPreferences;
       loadedUid = String(user()?.uid || '');
@@ -418,6 +427,19 @@
   function installDelegatedSettingsEvents() {
     if (delegatedSettingsEventsBound) return;
     delegatedSettingsEventsBound = true;
+    // Capture before legacy document/panel listeners can stop or replace this
+    // event. This preserves the user's explicit choice across duplicate/rerendered panels.
+    window.addEventListener('click', event => {
+      const origin = event.target;
+      const control = origin instanceof Element ? origin.closest('[data-ai-mode]') : null;
+      if (!control) return;
+      const mode = String(control.dataset.aiMode || '');
+      if (!ENUMS.mode.includes(mode)) return;
+      const uid = String(user()?.uid || '');
+      selectedModeDraft = mode;
+      selectedModeDraftUid = uid;
+      window.__OVYX_AI_MODE_DRAFT = { uid, mode };
+    }, true);
     // The legacy Settings renderer replaces the whole AI panel asynchronously.
     // Delegation keeps Save/Reset/mode clicks reliable across those re-renders
     // and prevents the legacy local-only handlers from racing account-backed state.
