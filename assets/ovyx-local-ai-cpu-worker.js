@@ -12,7 +12,7 @@ const pendingModelCacheWrites = new Set();
 let modelFetchCacheInstalled = false;
 
 async function hashModelUrl(url) {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(url.href));
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(url.origin + url.pathname));
   return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
 }
 
