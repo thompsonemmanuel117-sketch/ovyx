@@ -219,9 +219,8 @@ try {
     opfsModelWeightEntries: firstCache.opfsModelWeightEntries,
     cachedFileNameSamples: firstCache.cacheKeyFileNames.slice(0, 8),
   }));
-  assert.ok(firstCache.cacheApiAvailable, 'Browser Cache API is unavailable; local model caching cannot be verified.');
-  assert.ok(firstCache.cacheEntryCount > 0,
-    'The actual CPU model loaded, but Cache Storage contains no entries. Cache acceptance is not proven.');
+  assert.ok(firstCache.opfsAvailable && firstCache.opfsModelWeightEntries > 0,
+    'The actual CPU model loaded, but OPFS has no complete ONNX model weight file. Cache acceptance is not proven.');
 
   currentPhase = 'first-generation';
   const firstGenerationStartedAt = Date.now();
@@ -251,7 +250,7 @@ try {
     'Diagnostics must not contain prompt text.');
 
   // Reload the same lab origin and explicitly select the same CPU model. The
-  // Cache API should satisfy model weights locally instead of downloading them again.
+  // OPFS should satisfy model weights locally instead of downloading them again.
   currentPhase = 'reload-load';
   const reloadStartedAt = Date.now();
   await page.reload({ waitUntil: 'domcontentloaded', timeout: 90000 });
