@@ -358,41 +358,52 @@
     }
   }
 
-  function replaceButton(button, handler) {
-    if (!button || button.dataset.ovyxAccountPreferencesBound === '1') return button;
-    const replacement = button.cloneNode(true);
-    replacement.dataset.ovyxAccountPreferencesBound = '1';
-    button.replaceWith(replacement);
-    replacement.addEventListener('click', handler);
-    return replacement;
+  let delegatedSettingsEventsBound = false;
+
+  function installDelegatedSettingsEvents() {
+    if (delegatedSettingsEventsBound) return;
+    delegatedSettingsEventsBound = true;
+    // The legacy Settings renderer replaces the whole AI panel asynchronously.
+    // Delegation keeps Save/Reset/mode clicks reliable across those re-renders
+    // and prevents the legacy local-only handlers from racing account-backed state.
+    document.addEventListener('click', event => {
+      const origin = event.target;
+      const control = origin instanceof Element
+        ? origin.closest('[data-ai-mode], #set-ai-save, #set-ai-reset')
+        : null;
+      const panel = control?.closest('[data-settings-panel="ai"]');
+      if (!control || !panel) return;
+
+      if (control.matches('[data-ai-mode]')) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        const mode = String(control.dataset.aiMode || '');
+        if (!ENUMS.mode.includes(mode)) return;
+        panel.querySelectorAll('[data-ai-mode]').forEach(button => {
+          const selected = button === control;
+          button.classList.toggle('selected', selected);
+          button.setAttribute('aria-pressed', String(selected));
+        });
+        const chip = panel.querySelector('.ovyx-health-chip');
+        if (chip) chip.textContent = mode.toUpperCase();
+        setStatus(panel, 'Mode changed. Select Save AI Preferences to keep this choice on your account.', 'info');
+        return;
+      }
+
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      if (control.id === 'set-ai-save') {
+        void persistFromPanel(panel, controlsToPreferences(panel), false);
+      } else if (control.id === 'set-ai-reset') {
+        void persistFromPanel(panel, { ...DEFAULTS }, true);
+      }
+    }, true);
   }
 
   function bindPanel(panel) {
     if (!panel?.isConnected) return;
     ensureStatus(panel);
-    panel.querySelectorAll('[data-ai-mode]').forEach(button => {
-      if (button.dataset.ovyxAccountPreferencesBound === '1') return;
-      const replacement = button.cloneNode(true);
-      replacement.dataset.ovyxAccountPreferencesBound = '1';
-      button.replaceWith(replacement);
-      replacement.addEventListener('click', () => {
-        panel.querySelectorAll('[data-ai-mode]').forEach(item => {
-          const selected = item === replacement;
-          item.classList.toggle('selected', selected);
-          item.setAttribute('aria-pressed', String(selected));
-        });
-        const chip = panel.querySelector('.ovyx-health-chip');
-        if (chip) chip.textContent = String(replacement.dataset.aiMode || 'balanced').toUpperCase();
-        setStatus(panel, 'Mode changed. Select Save AI Preferences to keep this choice on your account.', 'info');
-      });
-    });
-
-    replaceButton(panel.querySelector('#set-ai-save'), () => {
-      void persistFromPanel(panel, controlsToPreferences(panel), false);
-    });
-    replaceButton(panel.querySelector('#set-ai-reset'), () => {
-      void persistFromPanel(panel, { ...DEFAULTS }, true);
-    });
+    installDelegatedSettingsEvents();
   }
 
   function wrapSettings() {
@@ -530,6 +541,7 @@
   }
 
   function init() {
+    installDelegatedSettingsEvents();
     wrapSettings();
     wrapGenerate();
   }
