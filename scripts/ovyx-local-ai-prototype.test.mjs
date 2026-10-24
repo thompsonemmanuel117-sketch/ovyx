@@ -42,7 +42,13 @@ assert.match(headers, /\/assets\/ovyx-local-ai-worker\.js[\s\S]*?Cache-Control:\
 assert.match(client, /https:\/\/esm\.run\/@mlc-ai\/web-llm@0\.2\.86/);
 assert.match(client, /const webllm = await import\(RUNTIME_URL\)/);
 assert.match(client, /navigator\.gpu\.requestAdapter\(\)/);
-assert.match(client, /webllm\.prebuiltAppConfig\?\.model_list/);
+assert.match(client, /const baseConfig = webllm\.prebuiltAppConfig/);
+assert.match(client, /buildPinnedAppConfig\(webllm, model\)/);
+assert.match(client, /const MLC_BINARY_COMMIT = '[0-9a-f]{40}'/);
+assert.match(client, /model: model\.artifactUrl/);
+assert.match(client, /hasModelInCache\(model\.id, appConfig\)/);
+assert.match(client, /CreateWebWorkerMLCEngine/);
+assert.match(client, /appConfig,/);
 assert.match(client, /webllm\.hasModelInCache/);
 assert.match(client, /CreateWebWorkerMLCEngine/);
 assert.match(client, /initProgressCallback/);
@@ -61,6 +67,8 @@ assert.match(client, /let remaining = 1800/);
 assert.match(client, /slice\(0, 2500\)/);
 assert.match(client, /Qwen3\.5-4B-q4f16_1-MLC/);
 assert.match(client, /Qwen3\.5-2B-q4f16_1-MLC/);
+assert.match(client, /resolve\/44b4246/);
+assert.match(client, /resolve\/dd74e9c/);
 assert.match(client, /v0_2_86/);
 
 assert.doesNotMatch(client, /\/api\/ai\/|\/api\/generate|api\.openai\.com|generativelanguage\.googleapis\.com|api\.anthropic\.com|api\.deepseek\.com|api\.groq\.com|openrouter\.ai\/api|api\.tavily\.com/i,
