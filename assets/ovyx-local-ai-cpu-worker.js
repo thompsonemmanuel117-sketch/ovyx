@@ -4,6 +4,7 @@ const TRANSFORMERS_URL = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers
 const MODEL_ID = 'onnx-community/Qwen2.5-0.5B-Instruct';
 const MODEL_REVISION = 'cc5cc01a65cc3ff17bdb73a7de33d879f62599b0';
 let generator = null;
+let TextStreamerClass = null;
 let loading = false;
 let generating = false;
 
@@ -37,7 +38,11 @@ self.addEventListener('message', async event => {
     }
     loading = true;
     try {
-      const { pipeline, TextStreamer, env } = await import(TRANSFORMERS_URL);
+      const { pipeline, TextStreamer: RuntimeTextStreamer, env } = await import(TRANSFORMERS_URL);
+      if (typeof pipeline !== 'function' || typeof RuntimeTextStreamer !== 'function') {
+        throw new Error('The pinned Transformers.js runtime does not export the text-generation pipeline or TextStreamer API.');
+      }
+      TextStreamerClass = RuntimeTextStreamer;
       env.allowRemoteModels = true;
       env.allowLocalModels = false;
       env.useBrowserCache = true;
@@ -58,6 +63,7 @@ self.addEventListener('message', async event => {
       });
     } catch (error) {
       generator = null;
+      TextStreamerClass = null;
       self.postMessage({ type: 'error', stage: 'load', message: safeMessage(error) });
     } finally {
       loading = false;
@@ -82,7 +88,8 @@ self.addEventListener('message', async event => {
       if (!messages.length || !messages.some(item => item?.role === 'user' && String(item?.content || '').trim())) {
         throw new Error('A non-empty user prompt is required.');
       }
-      const streamer = new TextStreamer(generator.tokenizer, {
+      if (typeof TextStreamerClass !== 'function') throw new Error('The local TextStreamer is unavailable. Reload the CPU/WASM model and retry.');
+      const streamer = new TextStreamerClass(generator.tokenizer, {
         skip_prompt: true,
         skip_special_tokens: true,
         callback_function(text) {
