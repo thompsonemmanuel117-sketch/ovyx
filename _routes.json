@@ -6,6 +6,7 @@
   "exclude": [
     "/assets/*",
     "/manifest.json",
-    "/local-ai-lab.html"
+    "/local-ai-lab.html",
+    "/local-ai-lab"
   ]
 }
