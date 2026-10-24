@@ -38,14 +38,13 @@ self.addEventListener('message', async event => {
     }
     loading = true;
     try {
-      const { pipeline, TextStreamer: RuntimeTextStreamer, env } = await import(TRANSFORMERS_URL);
+      const { pipeline, TextStreamer: RuntimeTextStreamer, env, LogLevel } = await import(TRANSFORMERS_URL);
       if (typeof pipeline !== 'function' || typeof RuntimeTextStreamer !== 'function') {
         throw new Error('The pinned Transformers.js runtime does not export the text-generation pipeline or TextStreamer API.');
       }
       TextStreamerClass = RuntimeTextStreamer;
       // Expose only the known cache-write warning. The underlying warning can
       // include file/storage details but never prompts or generated response text.
-      const previousWarn = console.warn.bind(console);
       console.warn = (...args) => {
         const message = String(args[0] || '');
         if (/Unable to add response to browser cache/i.test(message)) {
@@ -60,8 +59,7 @@ self.addEventListener('message', async event => {
       env.allowLocalModels = false;
       env.useBrowserCache = true;
       env.useWasmCache = true;
-      env.logLevel = 'warn';
-      void previousWarn;
+      env.logLevel = LogLevel.WARNING;
       generator = await pipeline('text-generation', MODEL_ID, {
         revision: MODEL_REVISION,
         device: 'wasm',
