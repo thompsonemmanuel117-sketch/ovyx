@@ -36,6 +36,8 @@ const runtimeFixture = [
   "        const generationNumber = ++mockGenerationCount;",
   "        globalThis.__OVYX_MOCK_MESSAGES = options.messages;",
   "        globalThis.__OVYX_MOCK_GENERATION_HELD = false;",
+  "        globalThis.__OVYX_MOCK_INTERRUPT_CALLED = false;",
+  "        globalThis.__OVYX_MOCK_GENERATION_RELEASED = false;",
   "        interrupted = false;",
   "        return (async function* () {",
   "          yield { choices: [{ delta: { content: 'Mock local test-fixture response' } }] };",
@@ -55,10 +57,12 @@ const runtimeFixture = [
   "      }",
   "    } },",
   "    interruptGenerate() {",
+  "      globalThis.__OVYX_MOCK_INTERRUPT_CALLED = true;",
   "      interrupted = true;",
   "      if (typeof releaseHeldGeneration === 'function') {",
   "        const release = releaseHeldGeneration;",
   "        releaseHeldGeneration = null;",
+  "        globalThis.__OVYX_MOCK_GENERATION_RELEASED = true;",
   "        release();",
   "      }",
   "    },",
@@ -274,10 +278,28 @@ try {
     );
     await page.locator('#stop-generation').click();
     await page.waitForFunction(
-      () => document.getElementById('device-status')?.textContent?.includes('Local response was stopped'),
+      () => document.getElementById('device-status')?.textContent?.includes('Stopping local generation'),
       null,
-      { timeout: 10000 },
+      { timeout: 3000 },
     );
+    try {
+      await page.waitForFunction(
+        () => document.getElementById('device-status')?.textContent?.includes('Local response was stopped'),
+        null,
+        { timeout: 3000 },
+      );
+    } catch (error) {
+      const stopState = await page.evaluate(() => ({
+        status: document.getElementById('device-status')?.textContent,
+        engine: document.getElementById('engine-pill')?.textContent,
+        stopButtonHidden: document.getElementById('stop-generation')?.classList.contains('hidden'),
+        interruptCalled: globalThis.__OVYX_MOCK_INTERRUPT_CALLED,
+        generationHeld: globalThis.__OVYX_MOCK_GENERATION_HELD,
+        generationReleased: globalThis.__OVYX_MOCK_GENERATION_RELEASED,
+      }));
+      throw new Error('Local stream did not settle after Stop: ' + JSON.stringify(stopState)
+        + ' Original wait error: ' + String(error?.message || error));
+    }
 
     await page.locator('#unload-local-ai').click();
     await page.waitForFunction(
