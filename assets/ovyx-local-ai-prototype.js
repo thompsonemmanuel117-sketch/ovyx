@@ -58,6 +58,17 @@
   const stopButton = el('stop-generation');
   const clearButton = el('clear-chat');
   const modelDetails = el('model-details');
+  const prepareDiagnosticsButton = el('prepare-diagnostics');
+  const diagnosticsOutput = el('diagnostics-output');
+
+  const diagnosticsState = {
+    runtime: '@mlc-ai/web-llm@0.2.86',
+    modelLoad: null,
+    storage: {},
+    generations: [],
+    lastError: null,
+  };
+  let activeLoadMetrics = null;
 
   let gpuAdapter = null;
   let gpuAvailable = false;
@@ -105,6 +116,14 @@
     loadWatchdog = window.setTimeout(() => {
       if (!loading || epoch !== loadEpoch) return;
       cancelLoading();
+      if (diagnosticsState.modelLoad) {
+        diagnosticsState.modelLoad.status = 'timeout';
+        diagnosticsState.modelLoad.finishedAt = new Date().toISOString();
+        diagnosticsState.modelLoad.durationMs = activeLoadMetrics
+          ? Math.round(performance.now() - activeLoadMetrics.startedAt)
+          : null;
+      }
+      diagnosticsState.lastError = { at: new Date().toISOString(), stage: 'model-load', message: 'No model initialization progress for 3 minutes.' };
       setStatus('Local model setup stopped after 3 minutes without progress. Check network or storage and retry. No provider fallback was used.', 'error');
     }, LOAD_INACTIVITY_TIMEOUT_MS);
   }
@@ -117,6 +136,7 @@
     const progress = Number(report?.progress);
     if (Number.isFinite(progress) && progress >= 0 && progress <= 1) {
       progressBar.value = Math.round(progress * 100);
+      if (diagnosticsState.modelLoad) diagnosticsState.modelLoad.lastReportedProgressPercent = Math.round(progress * 100);
     } else {
       progressBar.value = 0;
     }
@@ -274,6 +294,13 @@
       const usage = Number(estimate?.usage);
       if (Number.isFinite(quota) && quota > 0 && Number.isFinite(usage)) {
         const available = Math.max(0, quota - usage);
+        diagnosticsState.storage = {
+          quotaBytes: quota,
+          usageBytes: usage,
+          estimatedAvailableBytes: available,
+          modelCacheChecked: cacheWasChecked,
+          modelWeightsCached: cachedWeights,
+        };
         // Leave room for the runtime, model metadata, tokenizer and browser bookkeeping.
         const required = (cachedWeights ? 0 : model.sizeBytes) + 350_000_000;
         if (available < required) {
@@ -295,6 +322,13 @@
     try {
       persistent = Boolean(await navigator.storage?.persist?.());
     } catch (_) {}
+    diagnosticsState.storage = {
+      ...(diagnosticsState.storage || {}),
+      modelCacheChecked: cacheWasChecked,
+      modelWeightsCached: cachedWeights,
+      persistentStorageGranted: persistent,
+      storageWarning: storageWarning || '',
+    };
     return {
       cachedWeights,
       cacheWasChecked,
@@ -310,6 +344,12 @@
     loading = false;
     const reject = cancelLoadReject;
     cancelLoadReject = null;
+    if (diagnosticsState.modelLoad && activeLoadMetrics) {
+      diagnosticsState.modelLoad.status = 'cancelled';
+      diagnosticsState.modelLoad.finishedAt = new Date().toISOString();
+      diagnosticsState.modelLoad.durationMs = Math.round(performance.now() - activeLoadMetrics.startedAt);
+    }
+    activeLoadMetrics = null;
     const currentWorker = worker;
     worker = null;
     try { currentWorker?.terminate(); } catch (_) {}
@@ -334,6 +374,19 @@
     const key = selectedModelKey();
     const model = MODELS[key];
     const thisLoad = ++loadEpoch;
+    activeLoadMetrics = { modelKey: key, modelId: model.id, startedAt: performance.now() };
+    diagnosticsState.modelLoad = {
+      modelKey: key,
+      modelId: model.id,
+      modelLabel: model.label,
+      approximateDownloadBytes: model.sizeBytes,
+      estimatedGpuMemoryMB: model.vramMB,
+      contextTokens: model.context,
+      startedAt: new Date().toISOString(),
+      status: 'loading',
+      lastReportedProgressPercent: 0,
+    };
+    diagnosticsState.lastError = null;
     loading = true;
     armLoadWatchdog(thisLoad);
     showProgress(true, 'Loading the pinned WebLLM runtime; no model response is possible yet…');
@@ -402,6 +455,14 @@
       }
       engine = readyEngine;
       loadedModelKey = key;
+      if (diagnosticsState.modelLoad && activeLoadMetrics) {
+        diagnosticsState.modelLoad.status = 'ready';
+        diagnosticsState.modelLoad.finishedAt = new Date().toISOString();
+        diagnosticsState.modelLoad.durationMs = Math.round(performance.now() - activeLoadMetrics.startedAt);
+        diagnosticsState.modelLoad.lastReportedProgressPercent = 100;
+      }
+      activeLoadMetrics = null;
+      diagnosticsState.lastError = null;
       clearLoadWatchdog();
       loading = false;
       cancelLoadReject = null;
@@ -421,6 +482,13 @@
       if (worker === localWorker) worker = null;
       engine = null;
       loadedModelKey = '';
+      if (diagnosticsState.modelLoad && activeLoadMetrics) {
+        diagnosticsState.modelLoad.status = 'failed';
+        diagnosticsState.modelLoad.finishedAt = new Date().toISOString();
+        diagnosticsState.modelLoad.durationMs = Math.round(performance.now() - activeLoadMetrics.startedAt);
+      }
+      diagnosticsState.lastError = { at: new Date().toISOString(), stage: 'model-load', message: getErrorMessage(error) };
+      activeLoadMetrics = null;
       showProgress(false);
       setStatus(
         'Local model initialization failed. Nothing was sent to a hosted AI provider. ' +
@@ -484,6 +552,17 @@
     generating = true;
     stopRequested = false;
     const thisGeneration = ++generationEpoch;
+    const generationMetrics = {
+      modelKey: loadedModelKey,
+      modelId: MODELS[loadedModelKey]?.id || '',
+      startedAt: new Date().toISOString(),
+      startedAtMonotonic: performance.now(),
+      promptCharacters: prompt.length,
+      firstTokenMs: null,
+      totalDurationMs: null,
+      outputCharacters: 0,
+      status: 'running',
+    };
     refreshControls();
     setStatus('Generating on the selected local model. No external inference API is used by this prototype.', 'ok');
 
@@ -509,12 +588,17 @@
         const chunk = next.value;
         const delta = chunk?.choices?.[0]?.delta?.content;
         if (typeof delta === 'string' && delta) {
+          if (generationMetrics.firstTokenMs === null) {
+            generationMetrics.firstTokenMs = Math.round(performance.now() - generationMetrics.startedAtMonotonic);
+          }
           answer += delta;
           assistantBody.textContent = answer;
           chatLog.scrollTop = chatLog.scrollHeight;
         }
       }
       if (thisGeneration === generationEpoch && answer.trim()) {
+        generationMetrics.status = stopRequested ? 'stopped-with-partial' : 'complete';
+        generationMetrics.outputCharacters = answer.length;
         conversation.push({ role: 'assistant', content: answer.slice(0, 7000) });
         if (stopRequested) {
           setStatus('The local response was stopped. Partial text is retained in this page memory only.', 'warn');
@@ -522,6 +606,7 @@
           setStatus('Local response received from ' + MODELS[loadedModelKey].label + '. This is a prototype result, not yet a quality acceptance result.', 'ok');
         }
       } else if (thisGeneration === generationEpoch) {
+        generationMetrics.status = stopRequested ? 'stopped-empty' : 'empty';
         assistantBody.textContent = stopRequested ? 'Response stopped before any text was generated.' : 'The local model returned no text. Try a shorter prompt or retry.';
         setStatus(stopRequested ? 'Local generation stopped.' : 'The local model returned an empty answer.', stopRequested ? 'warn' : 'error');
       }
@@ -531,6 +616,8 @@
         // leaving the user with a spinner. A retry must explicitly reload the model.
         try { engine?.interruptGenerate?.(); } catch (_) {}
         try { worker?.terminate(); } catch (_) {}
+        generationMetrics.status = 'timeout';
+        diagnosticsState.lastError = { at: new Date().toISOString(), stage: 'generation', code: error.code, message: getErrorMessage(error) };
         engine = null;
         worker = null;
         loadedModelKey = '';
@@ -541,10 +628,17 @@
           'error'
         );
       } else if (thisGeneration === generationEpoch && !stopRequested) {
+        generationMetrics.status = 'failed';
+        diagnosticsState.lastError = { at: new Date().toISOString(), stage: 'generation', code: String(error?.code || ''), message: getErrorMessage(error) };
         assistantBody.textContent = 'Local generation failed. No hosted AI fallback was attempted.';
         setStatus('Local generation failed: ' + getErrorMessage(error), 'error');
       }
     } finally {
+      generationMetrics.totalDurationMs = Math.round(performance.now() - generationMetrics.startedAtMonotonic);
+      delete generationMetrics.startedAtMonotonic;
+      if (generationMetrics.status === 'running') generationMetrics.status = stopRequested ? 'stopped' : 'failed';
+      diagnosticsState.generations.push(generationMetrics);
+      diagnosticsState.generations = diagnosticsState.generations.slice(-10);
       if (thisGeneration === generationEpoch) {
         generating = false;
         stopRequested = false;
@@ -562,6 +656,76 @@
       engine.interruptGenerate();
     } catch (error) {
       setStatus('Could not interrupt the local stream: ' + getErrorMessage(error), 'error');
+    }
+  }
+
+
+  async function prepareDiagnosticRecord() {
+    const model = MODELS[selectedModelKey()];
+    const storage = { ...(diagnosticsState.storage || {}) };
+    try {
+      const estimate = await navigator.storage?.estimate?.();
+      if (Number.isFinite(Number(estimate?.quota))) storage.quotaBytes = Number(estimate.quota);
+      if (Number.isFinite(Number(estimate?.usage))) storage.usageBytes = Number(estimate.usage);
+      if (Number.isFinite(storage.quotaBytes) && Number.isFinite(storage.usageBytes)) {
+        storage.estimatedAvailableBytes = Math.max(0, storage.quotaBytes - storage.usageBytes);
+      }
+    } catch (_) {
+      storage.estimateUnavailable = true;
+    }
+
+    const report = {
+      schemaVersion: 1,
+      createdAt: new Date().toISOString(),
+      runtime: diagnosticsState.runtime,
+      environment: {
+        userAgent: navigator.userAgent || 'unknown',
+        platform: navigator.platform || 'unknown',
+        secureContext: Boolean(window.isSecureContext),
+        crossOriginIsolated: Boolean(window.crossOriginIsolated),
+        webGPUApiPresent: Boolean(navigator.gpu),
+        webGPUAdapterAvailable: Boolean(gpuAvailable && gpuAdapter),
+        hardwareConcurrency: Number(navigator.hardwareConcurrency) || null,
+        deviceMemoryGB: Number(navigator.deviceMemory) || null,
+        viewport: { width: window.innerWidth, height: window.innerHeight },
+      },
+      selectedModel: {
+        key: selectedModelKey(),
+        modelId: model.id,
+        label: model.label,
+        approximateDownloadBytes: model.sizeBytes,
+        estimatedGpuMemoryMB: model.vramMB,
+        configuredContextTokens: model.context,
+        loadedInPage: Boolean(engine && loadedModelKey),
+        activeModelId: loadedModelKey ? (MODELS[loadedModelKey]?.id || '') : '',
+      },
+      storage,
+      modelLoad: diagnosticsState.modelLoad,
+      recentGenerationMetrics: diagnosticsState.generations.slice(-10).map(item => ({
+        modelKey: item.modelKey,
+        modelId: item.modelId,
+        startedAt: item.startedAt,
+        promptCharacters: item.promptCharacters,
+        firstTokenMs: item.firstTokenMs,
+        totalDurationMs: item.totalDurationMs,
+        outputCharacters: item.outputCharacters,
+        status: item.status,
+      })),
+      lastError: diagnosticsState.lastError,
+      privacy: 'Prepared locally on request. No prompts, response text, project data or credentials are included. This record is not sent to OVYX or any other service automatically.',
+    };
+
+    const serialized = JSON.stringify(report, null, 2);
+    diagnosticsOutput.value = serialized;
+    diagnosticsOutput.classList.remove('hidden');
+    diagnosticsOutput.hidden = false;
+    try {
+      await navigator.clipboard.writeText(serialized);
+      setStatus('Diagnostic record copied. It contains device/runtime measurements only—not prompts or answers—and was not sent anywhere.', 'ok');
+    } catch (_) {
+      setStatus('Diagnostic record is ready below. Copy it manually; it contains no prompt or answer text and was not sent anywhere.', 'info');
+      diagnosticsOutput.focus();
+      diagnosticsOutput.select();
     }
   }
 
@@ -584,6 +748,7 @@
   promptInput.addEventListener('input', refreshControls);
   stopButton.addEventListener('click', stopGeneration);
   clearButton.addEventListener('click', clearChat);
+  prepareDiagnosticsButton?.addEventListener('click', () => { void prepareDiagnosticRecord(); });
   window.addEventListener('pagehide', () => {
     try { worker?.terminate(); } catch (_) {}
   });
