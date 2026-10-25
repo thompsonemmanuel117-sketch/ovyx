@@ -86,8 +86,14 @@ export async function onRequestPost(context) {
     const submittedFiles = payload.files || payload.context?.files || null;
     const scopedWebStudioEdit = isWebStudio && mode === 'build' &&
       isScopedWebStudioEdit(promptText, !!(submittedFiles && typeof submittedFiles === 'object' && Object.keys(submittedFiles).length));
-    webStudioFallbackEligible = isWebStudio;
-    const useUniversalConnectionAfterCloudflareLimit = isWebStudio && payload.useUniversalConnectionAfterCloudflareLimit === true;
+    const isWebStudioFallbackRequest = !isAppStudio && (
+      activeView === 'webstudio' ||
+      /^web-studio-(build|fix|plan|ask)$/.test(mode) ||
+      (['build', 'fix'].includes(mode) && hasStudioContext)
+    );
+    webStudioFallbackEligible = isWebStudioFallbackRequest;
+    const useUniversalConnectionAfterCloudflareLimit =
+      isWebStudioFallbackRequest && payload.useUniversalConnectionAfterCloudflareLimit === true;
     const routeCallModel = async (env, options = {}) => {
       const response = await callModel(env, {
         ...options,

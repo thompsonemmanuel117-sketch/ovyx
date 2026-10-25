@@ -93,8 +93,14 @@ export async function onRequestPost(context) {
     const isAppStudio = activeView === 'appstudio' || ['appstudio', 'app-build', 'app-fix'].includes(mode);
     const isWebStudio = !isAppStudio && (isWebStudioPrompt(promptText, mode) ||
       ((mode === 'build' || mode === 'fix') && hasStudioContext));
-    webStudioFallbackEligible = isWebStudio;
-    const useUniversalConnectionAfterCloudflareLimit = isWebStudio && payload.useUniversalConnectionAfterCloudflareLimit === true;
+    const isWebStudioFallbackRequest = !isAppStudio && (
+      activeView === 'webstudio' ||
+      /^web-studio-(build|fix|plan|ask)$/.test(mode) ||
+      (['build', 'fix'].includes(mode) && hasStudioContext)
+    );
+    webStudioFallbackEligible = isWebStudioFallbackRequest;
+    const useUniversalConnectionAfterCloudflareLimit =
+      isWebStudioFallbackRequest && payload.useUniversalConnectionAfterCloudflareLimit === true;
     const routeCallModel = async (env, options = {}) => {
       const response = await callModel(env, {
         ...options,

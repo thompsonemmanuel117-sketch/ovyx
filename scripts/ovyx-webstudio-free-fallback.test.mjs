@@ -15,6 +15,10 @@ const assistantRoute = readFileSync(new URL('../functions/api/ai/assistant.js', 
 const gatewayRoute = readFileSync(new URL('../functions/api/ai/gateway.js', import.meta.url), 'utf8');
 assert.match(assistantRoute, /webStudioUserConnectionFallback === true/);
 assert.match(gatewayRoute, /webStudioUserConnectionFallback === true/);
+assert.match(assistantRoute, /const isWebStudioFallbackRequest = !isAppStudio/);
+assert.match(gatewayRoute, /const isWebStudioFallbackRequest = !isAppStudio/);
+assert.match(assistantRoute, /useUniversalConnectionAfterCloudflareLimit =\s*isWebStudioFallbackRequest/);
+assert.match(gatewayRoute, /useUniversalConnectionAfterCloudflareLimit =\s*isWebStudioFallbackRequest/);
 assert.match(assistantRoute, /countedAgainstOvyxMonthlyTokens: false/);
 assert.match(gatewayRoute, /countedAgainstOvyxDailyPromptAllowance: false/);
 console.log('OVYX Web Studio daily-limit popup and opt-in routing checks passed.');
