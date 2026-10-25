@@ -9,6 +9,7 @@ import {
 } from './_lib/http.js';
 
 import { resolveEntitlements } from './entitlements.js';
+import { hasActivePaidAiEntitlement, isCloudflareFreeOnlyMode } from '../_lib/cloudflare-free-ai.js';
 
 const INTEGRATION_GATED_PATHS = new Set([
   '/api/ai/assistant',
@@ -20,6 +21,10 @@ const INTEGRATION_GATED_PATHS = new Set([
   '/api/payments/create',
   '/api/github/repos',
   '/api/workspace/activate'
+]);
+
+const CLOUDFLARE_FREE_AI_PATHS = new Set([
+  '/api/ai/assistant', '/api/ai/gateway', '/api/ai/ovyx', '/api/ai/web-search', '/api/generate', '/api/api/ai/tools',
 ]);
 
 const FEATURE_REQUIREMENTS_BY_PATH = new Map([
@@ -106,6 +111,25 @@ export async function onRequest(context) {
       const denied = requiredFeatures.filter(feature => resolved?.capabilities?.[feature] !== true);
       if (denied.length) {
         return withCors(errorResponse(403, 'FEATURE_NOT_INCLUDED', 'This account does not currently have access to: ' + denied.join(', ') + '. The owner-controlled plan configuration is authoritative.', id), req);
+      }
+    }
+
+    if (CLOUDFLARE_FREE_AI_PATHS.has(url.pathname)) {
+      if (!user) return withCors(errorResponse(401, 'AUTH_REQUIRED', 'Sign in before using OVYX AI.', id), req);
+      if (!isCloudflareFreeOnlyMode(context.env)) {
+        return withCors(errorResponse(503, 'OVYX_AI_ENGINE_MODE_NOT_CONFIGURED', 'OVYX AI is paused while its free-only engine is configured. No paid AI provider will be used.', id), req);
+      }
+      let aiEntitlements = context.data?.entitlements;
+      if (!aiEntitlements) {
+        try {
+          aiEntitlements = await resolveEntitlements(context.env, user);
+          context.data.entitlements = aiEntitlements;
+        } catch {
+          return withCors(errorResponse(503, 'FEATURE_ACCESS_UNAVAILABLE', 'OVYX could not verify your subscription safely. Please retry later.', id), req);
+        }
+      }
+      if (!hasActivePaidAiEntitlement(aiEntitlements)) {
+        return withCors(errorResponse(403, 'ACTIVE_PAID_SUBSCRIPTION_REQUIRED', 'An active PRO or MAX subscription is required to use OVYX AI generation.', id), req);
       }
     }
 

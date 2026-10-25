@@ -1,3 +1,4 @@
+import { isCloudflareFreeOnlyMode, isLegacyProviderRoutingEnabled, runCloudflareFreeInference, OVYX_CLOUDFLARE_FREE_MODEL } from './cloudflare-free-ai.js';
 import {
   callUserUniversalConnection,
   getActiveBrainConnectionId,
@@ -961,37 +962,46 @@ async function callCloudflareWorkersAI(
     user,
     model,
     maxTokens,
+    authUser,
   }
 ) {
   if (!env.AI || typeof env.AI.run !== 'function') {
-    throw new Error(
-      'Cloudflare Workers AI binding is not configured. Bind a Pages Functions AI resource as AI.'
-    );
+    throw Object.assign(new Error('OVYX AI is not connected yet. Please try again later.'), {
+      status: 503, code: 'OVYX_NATIVE_AI_NOT_CONFIGURED',
+    });
   }
 
+  const freeOnly = isCloudflareFreeOnlyMode(env);
+  const selectedModel = freeOnly ? OVYX_CLOUDFLARE_FREE_MODEL : model;
   let result;
   const configuredTimeout = Number(env?.OVYX_WORKERS_AI_TIMEOUT_MS);
   const timeoutMs = Number.isFinite(configuredTimeout) && configuredTimeout >= 50
     ? Math.min(60_000, configuredTimeout)
     : 45_000;
   try {
-    result = await withTimeout(
-      env.AI.run(
-        model,
-        {
-          messages: [
-            { role: 'system', content: system },
-            { role: 'user', content: user },
-          ],
-          max_tokens: maxTokens,
-          temperature: 0.2,
-          stream: false,
-        }
-      ),
-      timeoutMs,
-      'Cloudflare Workers AI'
-    );
+    if (freeOnly) {
+      const guarded = await runCloudflareFreeInference(env, { authUser, system, user, maxTokens, timeoutMs });
+      result = guarded.result;
+    } else {
+      result = await withTimeout(
+        env.AI.run(
+          selectedModel,
+          {
+            messages: [
+              { role: 'system', content: system },
+              { role: 'user', content: user },
+            ],
+            max_tokens: maxTokens,
+            temperature: 0.2,
+            stream: false,
+          }
+        ),
+        timeoutMs,
+        'Cloudflare Workers AI'
+      );
+    }
   } catch (error) {
+    if (freeOnly && String(error?.code || '').startsWith('OVYX_AI_')) throw error;
     const classification = classifyCloudflareWorkersAiFailure(error);
     const safeError = new Error('Cloudflare Workers AI request failed.');
     if (classification.status !== null) safeError.status = classification.status;
@@ -1011,9 +1021,9 @@ async function callCloudflareWorkersAI(
 
   return {
     text,
-    model,
+    model: selectedModel,
     provider: 'cloudflare-workers-ai',
-    rawUsage: result?.usage || null,
+    rawUsage: result?.usage || result?.result?.usage || null,
   };
 }
 async function callOpenAI(
@@ -1239,6 +1249,22 @@ export async function callModel(
 ) {
   const requestedRaw = String(options.provider || 'automatic').trim();
   const requested = requestedRaw.toLowerCase();
+
+  // Production routing is fail-closed. In free-only mode, ignore browser-supplied
+  // provider/model selections and route exclusively through the guarded CF engine.
+  if (isCloudflareFreeOnlyMode(env)) {
+    const result = await callCloudflareWorkersAI(env, {
+      ...options,
+      model: OVYX_CLOUDFLARE_FREE_MODEL,
+      authUser: options.authUser || null,
+    });
+    return { ...result, requestedProvider: 'cloudflare-workers-ai', routedProvider: 'cloudflare-workers-ai' };
+  }
+  if (!isLegacyProviderRoutingEnabled(env)) {
+    throw Object.assign(new Error('OVYX AI engine mode is not configured. No AI provider was called.'), {
+      status: 503, code: 'OVYX_AI_ENGINE_MODE_NOT_CONFIGURED',
+    });
+  }
 
   // An account-selected Universal Connection is exclusive. Never silently bill a
   // platform provider after a user's own connection failed or could not be verified.
