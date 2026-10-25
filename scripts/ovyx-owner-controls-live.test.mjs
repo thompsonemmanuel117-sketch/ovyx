@@ -98,6 +98,20 @@ assert.match(source.html, /function injectAdminOps\(\)\{var v=\$\('view-admin-br
 assert.doesNotMatch(source.html, /const auth=window\.firebase\?\.auth\(\);/, 'Firebase mock/runtime initialization must not call a non-function auth property.');
 
 assert.match(source.switchState, /getProductionIntegrationState/);
+const productionSwitchStart = source.html.indexOf('/* ---- Production Integration Switch ---- */');
+const productionSwitchEnd = source.html.indexOf('/* ---- Universal payment gateway + payment method selector ---- */', productionSwitchStart);
+assert.ok(productionSwitchStart >= 0 && productionSwitchEnd > productionSwitchStart, 'The production integration switch runtime must remain present.');
+const productionSwitch = source.html.slice(productionSwitchStart, productionSwitchEnd);
+assert.match(productionSwitch, /let productionStateLoad=null/);
+assert.match(productionSwitch, /const owner=window\.OVYXServerOwner/);
+assert.match(productionSwitch, /if\(!authorized\)return null/);
+assert.ok(
+  productionSwitch.indexOf('if(!authorized)return null') < productionSwitch.indexOf('const docs=await readSystemDocuments()'),
+  'Owner-only system settings must not be read until server-verified owner access is confirmed.',
+);
+assert.match(productionSwitch, /try\{authorized=await owner\.refresh\(\)===true;\}catch\{authorized=false;\}/);
+assert.ok(productionSwitch.includes("window.addEventListener('ovyx-owner-state'"), 'The status must retry when the authenticated owner is confirmed after startup.');
+assert.ok(productionSwitch.includes("toast('Platform integration status could not be loaded. Please try again.','error')"), 'A real settings read failure must still be visible to the authorized owner.');
 assert.match(source.controlApi, /action === 'setProductionState'/);
 assert.match(source.controlApi, /return email === ROOT_EMAIL\.toLowerCase\(\);/, 'Global admin controls must require the canonical owner email.');
 assert.doesNotMatch(source.controlApi, /user\.role[^\n]{0,100}ROOT_SUPERUSER/, 'A user role label must not grant global admin control.');
