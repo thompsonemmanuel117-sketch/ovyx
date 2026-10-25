@@ -201,8 +201,11 @@ try {
   });
   assert.ok(firstNavigation && firstNavigation.status() === 200, 'Local AI lab did not load.');
   await page.locator('#model-choice').selectOption('qwen25-05b-cpu');
+  assert.equal(await page.locator('#start-local-ai').isDisabled(), true,
+    'CPU/WASM model loading must remain blocked until download consent is given.');
+  await page.locator('#allow-model-download').check();
   assert.equal(await page.locator('#start-local-ai').isDisabled(), false,
-    'Explicit CPU/WASM model must be startable whether or not WebGPU is detected.');
+    'Explicit CPU/WASM model must be startable after consent whether or not WebGPU is detected.');
 
   currentPhase = 'first-load';
   const firstLoadStartedAt = Date.now();
@@ -267,6 +270,7 @@ try {
   const reloadStartedAt = Date.now();
   await page.reload({ waitUntil: 'domcontentloaded', timeout: 90000 });
   await page.locator('#model-choice').selectOption('qwen25-05b-cpu');
+  await page.locator('#allow-model-download').check();
   await page.locator('#start-local-ai').click();
   await waitForCpuReady(page, 'Reload/cache load');
   const reloadLoadDurationMs = Date.now() - reloadStartedAt;
