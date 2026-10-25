@@ -1247,6 +1247,52 @@ function summarizeProviderFailure(error) {
   return { kind, status };
 }
 
+export async function callSelectedUniversalBrain(env, options = {}, dependencies = {}) {
+  const lookupBrain = dependencies.getActiveBrainConnectionId || getActiveBrainConnectionId;
+  const callConnection = dependencies.callUserUniversalConnection || callUserUniversalConnection;
+  let connectionId = null;
+  try {
+    connectionId = await withTimeout(
+      lookupBrain(env, options.authUser),
+      UNIVERSAL_LOOKUP_TIMEOUT_MS,
+      'Universal Connection lookup'
+    );
+  } catch {
+    throw Object.assign(
+      new Error('OVYX could not verify your selected AI Brain. No other AI provider was used; retry after your connection settings are available.'),
+      { status: 503, code: 'UNIVERSAL_CONNECTION_SELECTION_FAILED' }
+    );
+  }
+  if (!connectionId) return null;
+
+  try {
+    const result = await withTimeout(
+      callConnection(env, {
+        connectionId,
+        authUser: options.authUser,
+        system: options.system,
+        user: options.user,
+        model: options.model,
+        maxTokens: options.maxTokens,
+        requireAIProtocol: true,
+      }),
+      PROVIDER_REQUEST_TIMEOUT_MS,
+      'Universal Connection'
+    );
+    return {
+      ...result,
+      requestedProvider: String(options.provider || 'automatic').trim().toLowerCase() || 'automatic',
+      routedProvider: 'universal-connection',
+      activeBrainConnectionId: connectionId,
+    };
+  } catch (error) {
+    throw Object.assign(
+      new Error('Your selected Universal Connection AI Brain failed. OVYX did not switch to another AI provider. ' + String(error?.message || 'Connection request failed.').slice(0, 260)),
+      { status: error?.status || 503, code: error?.code || 'UNIVERSAL_CONNECTION_FAILED' }
+    );
+  }
+}
+
 export async function callModel(
   env,
   options = {}
@@ -1257,6 +1303,21 @@ export async function callModel(
   // Production routing is fail-closed. In free-only mode, ignore browser-supplied
   // provider/model selections and route exclusively through the guarded CF engine.
   if (isCloudflareFreeOnlyMode(env)) {
+    // An account's explicitly selected AI Brain is used for ordinary assistant
+    // requests only. Web Studio stays Cloudflare-first and can use the selected
+    // connection only through its explicit post-limit confirmation; App Studio
+    // stays on its existing plan-gated platform route.
+    if (
+      options.authUser &&
+      options.useSelectedUniversalBrain === true &&
+      options.webStudioRequest !== true &&
+      options.appStudioRequest !== true &&
+      (!requested || requested === 'automatic')
+    ) {
+      const selectedBrain = await callSelectedUniversalBrain(env, options);
+      if (selectedBrain) return selectedBrain;
+    }
+
     if (options.webStudioRequest === true && options.useUniversalConnectionAfterCloudflareLimit === true) {
       if (!options.authUser) throw Object.assign(new Error('Sign in before using your Universal Connection.'), { status: 401, code: 'AUTH_REQUIRED' });
       if (options.forcePersonalConnectionForPlanQuota !== true && !(await isCloudflareFreeAllowanceExhausted(env))) {

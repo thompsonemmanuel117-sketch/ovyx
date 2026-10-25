@@ -98,8 +98,14 @@ export async function onRequestPost(context) {
       const response = await callModel(env, {
         ...options,
         authUser: user,
+        // These task boundaries are server-derived, never trusted from the client.
+        // A selected AI Brain can serve ordinary assistant chats, while Web Studio
+        // remains Cloudflare-first and requires explicit fallback consent. App Studio
+        // stays behind its existing entitlement gate and platform routing.
+        webStudioRequest: isWebStudio,
+        appStudioRequest: isAppStudio,
+        useSelectedUniversalBrain: !isWebStudio && !isAppStudio,
         ...(useUniversalConnectionAfterCloudflareLimit ? {
-          webStudioRequest: true,
           useUniversalConnectionAfterCloudflareLimit: true,
           forcePersonalConnectionForPlanQuota: usingPersonalConnectionForPlanQuota,
         } : {}),

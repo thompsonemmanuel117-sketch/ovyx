@@ -26,10 +26,25 @@ A user can select one active Universal Connection Brain through:
 - `POST /api/settings/connections` with `{ "action": "use-ai", "id": "<connection-id>" }`
 - `POST /api/settings/connections` with `{ "action": "clear-ai" }`
 
-The selection is stored in that user's authenticated workspace profile as `activeBrainConnectionId`. When a selection exists, Automatic routes exclusively through that connection. If it cannot be verified or fails, OVYX reports the failure instead of silently switching to platform-owned keys or another provider. Choose `clear-ai` to return to platform Automatic routing.
+The selection is stored in that user's authenticated workspace profile as `activeBrainConnectionId`.
+
+- **Ordinary OVYX AI Assistant chats:** Automatic uses the selected AI Brain exclusively. If the connection cannot be verified or fails, OVYX reports the failure rather than silently switching to Cloudflare or another provider.
+- **Web Studio website builds:** Cloudflare Workers AI remains the default. A selected connection is used for a website build only when the user explicitly chooses to continue with their own Universal Connection after the Cloudflare free allowance or included plan quota requires it.
+- **App Studio:** the server-side plan entitlement is checked before generation. The Universal Connection selection does not unlock App Studio or bypass its plan gate.
+
+Choose `clear-ai` to return ordinary assistant chats to platform Automatic routing. Explicit provider selection and the production Cloudflare-free-only guard still cannot activate a platform-paid provider.
 
 A key is not interchangeable between providers: put a Gemini key on a Gemini connection or in `GEMINI_API_KEY`; a DeepSeek key on a DeepSeek-compatible connection or in `DEEPSEEK_API_KEY`; an Anthropic key on an Anthropic connection or in `ANTHROPIC_API_KEY`; and an OpenAI key on an OpenAI connection or in `OPENAI_API_KEY`. For a custom OpenAI-compatible endpoint, configure `OPENAI_BASE_URL` and its matching secret. Do not put one provider's key into an unrelated provider secret.
 
+
+## Connection purpose and supported behavior
+
+OVYX does not treat every arbitrary endpoint as an AI model. The saved connection type and protocol determine the safe behavior:
+
+- `ai` with `openai-chat`, `anthropic-messages`, or `gemini-generate-content`: can be tested and, after explicit selection, used as the account's AI Brain or as the explicitly confirmed Web Studio continuation provider.
+- `http`, `webhook`, `database`, and `tool` using `http-json`: are stored as account-owned HTTP integrations and can be tested with the read-only health check. They are not automatically invoked as an AI Brain or silently wired to listings/enquiry workflows; a feature-specific adapter and an explicit purpose mapping are required before OVYX sends business data to them.
+
+Connection ownership is verified for each request, credentials remain encrypted and server-side, and a failed selected Brain does not fall back to a platform-owned key. Do not place secrets in URLs or in public generated-site code.
 ## Platform Automatic routing
 
 With no active user Universal Connection selection, OVYX tries the providers in `OVYX_AI_PROVIDER_ORDER` (or the supported default order), skipping providers that are not configured. If Cloudflare Workers AI is bound to the Pages Functions environment as `AI`, it is appended as the final Automatic fallback. An explicitly chosen provider does not silently fall back to another one.

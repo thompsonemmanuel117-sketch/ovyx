@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import {
   applyConnectionAuth,
   buildUniversalConnectionPayload,
@@ -11,6 +12,11 @@ assert.equal(supportsAIProtocol('openai-chat'), true);
 assert.equal(supportsAIProtocol('anthropic-messages'), true);
 assert.equal(supportsAIProtocol('gemini-generate-content'), true);
 assert.equal(supportsAIProtocol('http-json'), false);
+const universalSource = readFileSync(new URL('../functions/_lib/universal-connections.js', import.meta.url), 'utf8');
+assert.match(universalSource, /requireAIProtocol = true/,
+  'A generic HTTP, webhook, database or tool connection must not be treated as an AI Brain by default.');
+assert.match(universalSource, /if \(requireAIProtocol && !supportsAIProtocol\(record\.protocol\)\)/,
+  'Universal Connection invocation must validate the selected protocol before sending AI prompts.');
 assert.equal(universalConnectionEndpoint({ protocol: 'openai-chat', endpoint: 'https://api.deepseek.com' }), 'https://api.deepseek.com/chat/completions');
 assert.equal(universalConnectionEndpoint({ protocol: 'anthropic-messages', endpoint: 'https://api.anthropic.com' }), 'https://api.anthropic.com/v1/messages');
 assert.equal(universalConnectionEndpoint({ protocol: 'anthropic-messages', endpoint: 'https://api.anthropic.com/v1' }), 'https://api.anthropic.com/v1/messages');
