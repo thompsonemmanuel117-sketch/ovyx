@@ -10,6 +10,7 @@ const INPUT_NEURONS_PER_MILLION = 4119;
 const OUTPUT_NEURONS_PER_MILLION = 34868;
 const RATE_RETRIES = 6;
 const BUDGET_RETRIES = 16;
+const DAILY_BUDGET_LEDGER_ID = 'ovyx-workers-ai-budget';
 
 function isRetryableBudgetError(error) {
   const status = Number(error?.status);
@@ -183,17 +184,17 @@ export async function reserveCloudflareFreeUserMinute(env, user) {
 }
 
 /**
- * The shared safety ledger lives in system/config alongside existing OVYX
- * settings. If that document has never been created, initialize only the
- * budget fields with Firestore's createDocument API. Creation is atomic: a
- * concurrent request gets ALREADY_EXISTS and re-reads the winning document.
- * Permission, credential, and service failures still fail closed.
+ * Keep the high-contention AI usage ledger separate from system/config.
+ * system/config also stores plans and general OVYX settings, so writing the
+ * usage counter there made independent requests contend on an unrelated global
+ * document. The ledger is created atomically and seeded from the existing
+ * same-day counters exactly once; all normal OVYX settings remain untouched.
  */
 async function getDailyBudgetLedger(env) {
   for (let attempt = 0; attempt < BUDGET_RETRIES; attempt += 1) {
     let raw;
     try {
-      raw = await getFirestoreDocument(env, 'system', 'config');
+      raw = await getFirestoreDocument(env, 'system', DAILY_BUDGET_LEDGER_ID);
     } catch (error) {
       if (isRetryableBudgetError(error) && attempt + 1 < BUDGET_RETRIES) {
         await waitForBudgetRetry(attempt);
@@ -203,13 +204,41 @@ async function getDailyBudgetLedger(env) {
     }
     if (raw) return raw;
 
+    // One-time, read-only migration from the prior ledger fields in system/config.
+    // A failed read must not initialize the new counter as zero, because doing
+    // so could accidentally grant more than the already-used daily allowance.
+    let legacyRaw;
     try {
-      await createFirestoreDocumentIfAbsent(env, 'system', 'config', {
-        _ovyxWorkersAiDayUtc: utcDayKey(),
-        _ovyxWorkersAiConsumedNeurons: 0,
-        _ovyxWorkersAiReservedNeurons: 0,
-        _ovyxWorkersAiRequestCount: 0,
-      });
+      legacyRaw = await getFirestoreDocument(env, 'system', 'config');
+    } catch (error) {
+      if (isRetryableBudgetError(error) && attempt + 1 < BUDGET_RETRIES) {
+        await waitForBudgetRetry(attempt);
+        continue;
+      }
+      throw budgetLedgerUnavailable(error, 'OVYX could not safely migrate its existing daily AI allowance. Please retry later.');
+    }
+
+    const legacy = legacyRaw ? (firestoreDocumentToJs(legacyRaw) || {}) : {};
+    const day = utcDayKey();
+    const sameDay = String(legacy._ovyxWorkersAiDayUtc || '') === day;
+    const initial = {
+      _ovyxWorkersAiDayUtc: day,
+      _ovyxWorkersAiConsumedNeurons: sameDay ? Math.max(0, Number(legacy._ovyxWorkersAiConsumedNeurons) || 0) : 0,
+      _ovyxWorkersAiReservedNeurons: sameDay ? Math.max(0, Number(legacy._ovyxWorkersAiReservedNeurons) || 0) : 0,
+      _ovyxWorkersAiRequestCount: sameDay ? Math.max(0, Number(legacy._ovyxWorkersAiRequestCount) || 0) : 0,
+    };
+    if (sameDay && String(legacy._ovyxWorkersAiCloudflareExhaustedDayUtc || '') === day) {
+      initial._ovyxWorkersAiCloudflareExhaustedDayUtc = day;
+      if (legacy._ovyxWorkersAiCloudflareExhaustionReason) {
+        initial._ovyxWorkersAiCloudflareExhaustionReason = String(legacy._ovyxWorkersAiCloudflareExhaustionReason).slice(0, 80);
+      }
+      if (legacy._ovyxWorkersAiCloudflareExhaustedAt) {
+        initial._ovyxWorkersAiCloudflareExhaustedAt = String(legacy._ovyxWorkersAiCloudflareExhaustedAt).slice(0, 80);
+      }
+    }
+
+    try {
+      await createFirestoreDocumentIfAbsent(env, 'system', DAILY_BUDGET_LEDGER_ID, initial);
     } catch (error) {
       if (isRetryableBudgetError(error) && attempt + 1 < BUDGET_RETRIES) {
         await waitForBudgetRetry(attempt);
@@ -219,7 +248,7 @@ async function getDailyBudgetLedger(env) {
     }
   }
 
-  throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX could not safely initialize its daily free AI allowance. Please retry later.');
+  throw fail(503, 'OVYX_AI_BUDGET_LEDGER_CONFLICT_EXHAUSTED', 'OVYX could not safely initialize its daily free AI allowance after bounded retries. Please retry later.');
 }
 
 async function reserveDailyBudget(env, estimate) {
@@ -233,7 +262,7 @@ async function reserveDailyBudget(env, estimate) {
     const reserved = sameDay ? Math.max(0, Number(config._ovyxWorkersAiReservedNeurons) || 0) : 0;
     if (consumed + reserved + estimate > cap) {
       try {
-        await setFirestoreDocumentIfCurrent(env, 'system', 'config', {
+        await setFirestoreDocumentIfCurrent(env, 'system', DAILY_BUDGET_LEDGER_ID, {
           _ovyxWorkersAiCloudflareExhaustedDayUtc: day,
           _ovyxWorkersAiCloudflareExhaustionReason: 'ovyx-safety-budget',
           _ovyxWorkersAiCloudflareExhaustedAt: new Date().toISOString(),
@@ -248,7 +277,7 @@ async function reserveDailyBudget(env, estimate) {
       throw fail(429, 'OVYX_AI_NEURON_BUDGET_EXHAUSTED', 'OVYX has reached its protected daily AI allowance. Please try again after the daily reset.');
     }
     try {
-      await setFirestoreDocumentIfCurrent(env, 'system', 'config', {
+      await setFirestoreDocumentIfCurrent(env, 'system', DAILY_BUDGET_LEDGER_ID, {
         _ovyxWorkersAiDayUtc: day,
         _ovyxWorkersAiConsumedNeurons: consumed,
         _ovyxWorkersAiReservedNeurons: reserved + estimate,
@@ -271,7 +300,7 @@ async function settleDailyBudget(env, reservation, actual) {
   for (let attempt = 0; attempt < BUDGET_RETRIES; attempt += 1) {
     let raw;
     try {
-      raw = await getFirestoreDocument(env, 'system', 'config');
+      raw = await getFirestoreDocument(env, 'system', DAILY_BUDGET_LEDGER_ID);
     } catch (error) {
       if (isRetryableBudgetError(error) && attempt + 1 < BUDGET_RETRIES) {
         await waitForBudgetRetry(attempt);
@@ -285,7 +314,7 @@ async function settleDailyBudget(env, reservation, actual) {
     const reserved = Math.max(0, Number(config._ovyxWorkersAiReservedNeurons) || 0);
     const consumed = Math.max(0, Number(config._ovyxWorkersAiConsumedNeurons) || 0);
     try {
-      await setFirestoreDocumentIfCurrent(env, 'system', 'config', {
+      await setFirestoreDocumentIfCurrent(env, 'system', DAILY_BUDGET_LEDGER_ID, {
         _ovyxWorkersAiReservedNeurons: Math.max(0, reserved - reservation.estimate),
         _ovyxWorkersAiConsumedNeurons: consumed + Math.max(0, actual),
       }, raw.updateTime);
@@ -345,7 +374,7 @@ async function recordCloudflareFreeExhaustion(env, reason) {
     const config = firestoreDocumentToJs(raw) || {};
     if (String(config._ovyxWorkersAiCloudflareExhaustedDayUtc || '') === day) return;
     try {
-      await setFirestoreDocumentIfCurrent(env, 'system', 'config', {
+      await setFirestoreDocumentIfCurrent(env, 'system', DAILY_BUDGET_LEDGER_ID, {
         _ovyxWorkersAiCloudflareExhaustedDayUtc: day,
         _ovyxWorkersAiCloudflareExhaustionReason: String(reason || 'free-allowance-exhausted').slice(0, 80),
         _ovyxWorkersAiCloudflareExhaustedAt: new Date().toISOString(),
