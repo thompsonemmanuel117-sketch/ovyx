@@ -266,9 +266,9 @@ assert.ok(rejectedRequirementRepair, 'An incomplete site with an unauthorized re
 assert.equal(rejectedRequirementRepair.code, 'WEBSTUDIO_PROMPT_REQUIREMENT_MISSING');
 assert.equal(rejectedRequirementRepair.requirementRepair.status, 'rejected');
 
-// A malformed model-generated batch gets exactly one bounded full-build retry.
-// The first attempt omits a required shared file; the second attempt must rebuild
-// all pages cleanly, preserve usage accounting, and keep the original quality contract.
+// An unusable model-generated batch gets exactly one bounded full-build retry.
+// Single-file batches mean omitting their only required file becomes an empty
+// response; the second attempt must rebuild all pages cleanly and preserve usage.
 let dropFirstRequiredFile = true;
 const retryCallHistory = [];
 const retryingCallModel = async (_env, options) => {
@@ -300,7 +300,7 @@ const retryBuild = await buildStudioMultiPage({
 });
 assert.ok(retryBuild, 'A malformed first batch should recover instead of abandoning the requested website.');
 assert.equal(retryBuild.generationRecovery.status, 'recovered-after-one-bounded-retry');
-assert.equal(retryBuild.generationRecovery.firstFailureCode, 'WEBSTUDIO_BATCH_MISSING_FILES');
+assert.equal(retryBuild.generationRecovery.firstFailureCode, 'WEBSTUDIO_BATCH_EMPTY');
 assert.equal(retryBuild.siteMap.pages.length, 5);
 assert.equal(Object.keys(retryBuild.files).filter(path => path.startsWith('src/pages/')).length, 5);
 assert.ok(retryBuild.rawUsage.total_tokens > 0, 'The successful retry must report usage from both failed and successful attempts when available.');
