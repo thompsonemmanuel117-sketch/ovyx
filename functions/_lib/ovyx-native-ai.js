@@ -212,6 +212,8 @@ export async function generateOvyxNativeAI(env, {
         authUser,
         messages: [{ role: 'system', content: systemText }, ...normalizedMessages],
         maxTokens: 2800,
+        // This native assistant contract always expects a JSON text/actions object.
+        jsonMode: true,
       });
       output = guarded.result;
     } else {
