@@ -456,7 +456,7 @@ assert.ok(safeAfterRejectedPolish.files['src/pages/Home.html'].includes('<h1>Hom
 assert.equal(safeAfterRejectedPolish.files['src/private.html'], undefined, 'Unapproved polish paths must never be committed into the staged build.');
 assert.equal(safeAfterRejectedPolish.requirementVerification.ok, true);
 assert.equal(safeAfterRejectedPolish.qualityPolish.integrityAfter, 1, 'A rejected polish must preserve the original integrity findings without introducing another defect.');
-assert.equal(safeAfterRejectedPolish.rawUsage.total_tokens, 18 + 50 * 3 + 5);
+assert.equal(safeAfterRejectedPolish.rawUsage.total_tokens, 18 + 50 * 5 + 5, 'Rejected polish accounting must include all five bounded file batches.');
 
 console.log('Web Studio multi-page integration tests passed.');
 
