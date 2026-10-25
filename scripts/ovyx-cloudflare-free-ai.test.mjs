@@ -15,7 +15,7 @@ import {
   compactCloudflareFreeMessages,
 } from '../functions/_lib/cloudflare-free-ai.js';
 
-assert.equal(OVYX_CLOUDFLARE_FREE_MODEL, '@cf/qwen/qwen3-30b-a3b-fp8');
+assert.equal(OVYX_CLOUDFLARE_FREE_MODEL, '@cf/meta/llama-3.1-8b-instruct-fp8-fast');
 assert.equal(OVYX_CLOUDFLARE_FREE_MAX_OUTPUT_TOKENS, 4096);
 assert.equal(OVYX_CLOUDFLARE_FREE_DEFAULT_DAILY_BUDGET, 7000);
 assert.equal(OVYX_CLOUDFLARE_FREE_MAX_DAILY_BUDGET, 8000);
