@@ -1,4 +1,4 @@
-import { isCloudflareFreeAllowanceExhausted, isCloudflareFreeOnlyMode, isLegacyProviderRoutingEnabled, reserveCloudflareFreeUserMinute, runCloudflareFreeInference, OVYX_CLOUDFLARE_FREE_MODEL } from './cloudflare-free-ai.js';
+import { isCloudflareFreeAllowanceExhausted, isCloudflareWorkersAIGuardedMode, isLegacyProviderRoutingEnabled, reserveCloudflareFreeUserMinute, runCloudflareFreeInference, OVYX_CLOUDFLARE_FREE_MODEL } from './cloudflare-free-ai.js';
 import {
   callUserUniversalConnection,
   getActiveBrainConnectionId,
@@ -973,8 +973,8 @@ async function callCloudflareWorkersAI(
     });
   }
 
-  const freeOnly = isCloudflareFreeOnlyMode(env);
-  const selectedModel = freeOnly ? OVYX_CLOUDFLARE_FREE_MODEL : model;
+  const guardedMode = isCloudflareWorkersAIGuardedMode(env);
+  const selectedModel = guardedMode ? OVYX_CLOUDFLARE_FREE_MODEL : model;
   let result;
   let guardedInferenceText = null;
   const configuredTimeout = Number(env?.OVYX_WORKERS_AI_TIMEOUT_MS);
@@ -982,7 +982,7 @@ async function callCloudflareWorkersAI(
     ? Math.min(60_000, configuredTimeout)
     : 45_000;
   try {
-    if (freeOnly) {
+    if (guardedMode) {
       const guarded = await runCloudflareFreeInference(env, { authUser, system, user, maxTokens, timeoutMs, disableThinking });
       result = guarded.result;
       guardedInferenceText = guarded.text;
@@ -1005,7 +1005,7 @@ async function callCloudflareWorkersAI(
       );
     }
   } catch (error) {
-    if (freeOnly && String(error?.code || '').startsWith('OVYX_AI_')) throw error;
+    if (guardedMode && String(error?.code || '').startsWith('OVYX_AI_')) throw error;
     const classification = classifyCloudflareWorkersAiFailure(error);
     const safeError = new Error('Cloudflare Workers AI request failed.');
     if (classification.status !== null) safeError.status = classification.status;
@@ -1015,12 +1015,12 @@ async function callCloudflareWorkersAI(
     throw safeError;
   }
 
-  const text = freeOnly ? String(guardedInferenceText || '').trim() : extractText(result);
+  const text = guardedMode ? String(guardedInferenceText || '').trim() : extractText(result);
 
   if (!text) {
     throw Object.assign(new Error('Cloudflare Workers AI returned an empty response.'), {
       status: 503,
-      code: freeOnly ? 'OVYX_AI_CLOUDFLARE_EMPTY_RESPONSE' : 'AI_PROVIDER_EMPTY_RESPONSE',
+      code: guardedMode ? 'OVYX_AI_CLOUDFLARE_EMPTY_RESPONSE' : 'AI_PROVIDER_EMPTY_RESPONSE',
     });
   }
 
@@ -1303,7 +1303,7 @@ export async function callModel(
 
   // Production routing is fail-closed. In free-only mode, ignore browser-supplied
   // provider/model selections and route exclusively through the guarded CF engine.
-  if (isCloudflareFreeOnlyMode(env)) {
+  if (isCloudflareWorkersAIGuardedMode(env)) {
     // An account's explicitly selected AI Brain is used for ordinary assistant
     // requests only. Web Studio stays Cloudflare-first and can use the selected
     // connection only through its explicit post-limit confirmation; App Studio

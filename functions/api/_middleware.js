@@ -9,7 +9,7 @@ import {
 } from './_lib/http.js';
 
 import { resolveEntitlements } from './entitlements.js';
-import { hasActivePaidAiEntitlement, isCloudflareFreeOnlyMode } from '../_lib/cloudflare-free-ai.js';
+import { hasActivePaidAiEntitlement, isCloudflareWorkersAIGuardedMode } from '../_lib/cloudflare-free-ai.js';
 
 const INTEGRATION_GATED_PATHS = new Set([
   '/api/ai/assistant',
@@ -116,8 +116,8 @@ export async function onRequest(context) {
 
     if (CLOUDFLARE_FREE_AI_PATHS.has(url.pathname)) {
       if (!user) return withCors(errorResponse(401, 'AUTH_REQUIRED', 'Sign in before using OVYX AI.', id), req);
-      if (!isCloudflareFreeOnlyMode(context.env)) {
-        return withCors(errorResponse(503, 'OVYX_AI_ENGINE_MODE_NOT_CONFIGURED', 'OVYX AI is paused while its free-only engine is configured. No paid AI provider will be used.', id), req);
+      if (!isCloudflareWorkersAIGuardedMode(context.env)) {
+        return withCors(errorResponse(503, 'OVYX_AI_ENGINE_MODE_NOT_CONFIGURED', 'OVYX AI is paused because its guarded Cloudflare Workers AI mode is not configured. No alternate AI provider will be used.', id), req);
       }
       let aiEntitlements = context.data?.entitlements;
       if (!aiEntitlements) {

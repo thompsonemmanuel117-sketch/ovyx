@@ -370,6 +370,7 @@ export function safeLiveGenerationFailureDetail(error) {
     OVYX_AI_BUDGET_LEDGER_PERMISSION_DENIED: 'cloudflare-ai-budget-ledger-permission-denied',
     OVYX_AI_BUDGET_LEDGER_BAD_REQUEST: 'cloudflare-ai-budget-ledger-bad-request',
     OVYX_AI_BUDGET_LEDGER_CONFLICT_EXHAUSTED: 'cloudflare-ai-budget-ledger-conflict-exhausted',
+    OVYX_AI_PAID_BUDGET_NOT_CONFIGURED: 'cloudflare-ai-paid-budget-not-configured',
     OVYX_AI_NEURON_BUDGET_EXHAUSTED: 'cloudflare-ai-neuron-budget-exhausted',
     OVYX_AI_CLOUDFLARE_QUOTA_EXHAUSTED: 'cloudflare-ai-daily-quota-exhausted',
     OVYX_AI_CLOUDFLARE_RATE_LIMITED: 'cloudflare-ai-rate-limited',
