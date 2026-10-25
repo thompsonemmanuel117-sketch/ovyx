@@ -67,6 +67,8 @@ function safeBatchResponseDiagnostics({ batch, responseText, parsed, rawGenerate
   const returnedPaths = Object.keys(rawGenerated || {});
   return {
     batchIndex: Number.isInteger(batch?.index) ? Math.max(0, Math.min(50, batch.index)) : 0,
+    retryAttempted: false,
+    recoveryCallFailed: false,
     expectedKinds: [...new Set((batch?.allowedPaths || []).map(safeFileKind))].slice(0, 4),
     responseLength: Math.max(0, Math.min(200000, trimmed.length)),
     parsedJson: !!parsed && typeof parsed === 'object',
