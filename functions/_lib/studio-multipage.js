@@ -128,6 +128,34 @@ function makeSiteMap(raw, limit) {
   return { siteMap: result.siteMap, overflow: Math.max(overflow, result.overflow) };
 }
 
+function splitBatchesForBoundedModelOutput(batches, maximumTargets = 2) {
+  const targetLimit = Math.max(1, Math.min(2, Math.floor(Number(maximumTargets) || 2)));
+  const split = [];
+  for (const batch of Array.isArray(batches) ? batches : []) {
+    const targets = Array.isArray(batch?.targetFiles) ? batch.targetFiles : [];
+    for (let offset = 0; offset < targets.length; offset += targetLimit) {
+      const targetFiles = targets.slice(offset, offset + targetLimit);
+      const targetPaths = targetFiles.map(item => item.path).filter(Boolean);
+      if (!targetPaths.length) continue;
+      split.push({
+        ...batch,
+        targetFiles,
+        targetPaths,
+        targetPages: (Array.isArray(batch.targetPages) ? batch.targetPages : [])
+          .filter(page => targetPaths.includes(page.path)),
+        // Each model call must produce only its explicit one-or-two-file manifest.
+        // Shared CSS/JS are created in their own foundation batch and reused later.
+        allowedPaths: targetPaths,
+        maxChangedFiles: targetPaths.length,
+        maxAdditionalChanges: 0,
+        index: split.length + 1,
+        total: 0,
+      });
+    }
+  }
+  return split.map((batch, index) => ({ ...batch, index: index + 1, total: split.length }));
+}
+
 function usageAdd(total, rawUsage) {
   const keys = {
     prompt_tokens: ['prompt_tokens', 'promptTokenCount', 'input_tokens', 'inputTokenCount', 'inputTokens'],
@@ -534,7 +562,10 @@ async function buildStudioMultiPageOnce(options) {
   }
   if (siteMap.pages.length < 2) return null;
 
-  const batches = createSiteBuildBatches(siteMap, fileLimit);
+  // Cloudflare free-only inference is capped at a bounded response size.
+  // Keep each generation response to at most two required files so a valid HTML,
+  // CSS or JS file cannot be lost because a larger JSON batch was truncated.
+  const batches = splitBatchesForBoundedModelOutput(createSiteBuildBatches(siteMap, fileLimit), 2);
   if (!batches.length) {
     throw accountingError(Object.assign(new Error('OVYX could not turn the page plan into build batches.'), { status: 502, code: 'WEBSTUDIO_BATCH_PLAN_FAILED' }), usage, hasUsage, inputs, outputs);
   }
@@ -566,7 +597,7 @@ async function buildStudioMultiPageOnce(options) {
     const paths = Object.keys(generated);
     const allowed = new Set(batch.allowedPaths);
     if (!paths.length) throw accountingError(Object.assign(new Error('Web Studio batch ' + batch.index + ' returned no usable file contents. The site was not marked complete.'), { status: 502, code: 'WEBSTUDIO_BATCH_EMPTY' }), usage, hasUsage, inputs, outputs);
-    if (paths.length > fileLimit) throw accountingError(Object.assign(new Error('Web Studio batch ' + batch.index + ' returned too many files. Retry the build.'), { status: 502, code: 'WEBSTUDIO_BATCH_FILE_LIMIT' }), usage, hasUsage, inputs, outputs);
+    if (paths.length > batch.maxChangedFiles) throw accountingError(Object.assign(new Error('Web Studio batch ' + batch.index + ' returned more files than its bounded target manifest. Retry the build.'), { status: 502, code: 'WEBSTUDIO_BATCH_FILE_LIMIT' }), usage, hasUsage, inputs, outputs);
     for (const path of paths) {
       if (!allowed.has(path)) throw accountingError(Object.assign(new Error('Web Studio attempted an unplanned output path: ' + path), { status: 502, code: 'WEBSTUDIO_PATH_NOT_ALLOWED' }), usage, hasUsage, inputs, outputs);
       if (!String(generated[path]).trim()) throw accountingError(Object.assign(new Error('Web Studio returned empty content for ' + path), { status: 502, code: 'WEBSTUDIO_EMPTY_FILE' }), usage, hasUsage, inputs, outputs);

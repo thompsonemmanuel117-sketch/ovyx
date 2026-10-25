@@ -155,9 +155,21 @@ assert.match(result.files['src/pages/About.html'], /href="\.\.\/styles\.css"/, '
 assert.match(result.files['src/pages/About.html'], /src="\.\.\/main\.js"/, 'A page that omits the shared script must receive the required script reference.');
 assert.ok(result.sharedAssetPagesRepaired >= 1, 'Asset normalization should report repaired generated pages.');
 assert.equal(result.totalPages, 5);
-assert.equal(result.rawUsage.prompt_tokens, 11 + 19 * 3 + 5);
-assert.equal(result.rawUsage.completion_tokens, 7 + 31 * 3 + 9);
-assert.equal(calls.length, 5, 'The five-page site should use one planning call, three file-sized batches, and one bounded polish call.');
+assert.equal(result.rawUsage.prompt_tokens, 11 + 19 * 5 + 5);
+assert.equal(result.rawUsage.completion_tokens, 7 + 31 * 5 + 9);
+assert.equal(calls.length, 7, 'The five-page site should use one planning call, five bounded two-file-or-smaller batches, and one bounded polish call.');
+assert.equal(result.batchCount, 5, 'Every generated file batch must stay within the two-file response budget.');
+const targetBatchCalls = calls.filter(call => String(call.user).includes('REQUIRED TARGET FILES JSON:'));
+assert.equal(targetBatchCalls.length, 5);
+for (const call of targetBatchCalls) {
+  const manifest = String(call.user).match(/REQUIRED TARGET FILES JSON:\n([\s\S]*?)\n\nREQUIRED TARGET PATHS JSON:/);
+  const allowed = String(call.user).match(/ALLOWED OUTPUT PATHS JSON:\n([\s\S]*?)\n\nALREADY GENERATED PATHS JSON:/);
+  assert(manifest && allowed, 'Every batch must carry a bounded target and allowlist.');
+  const targets = JSON.parse(manifest[1]);
+  const allowedPaths = JSON.parse(allowed[1]);
+  assert.ok(targets.length > 0 && targets.length <= 2, 'Every batch manifest must contain at most two required files.');
+  assert.deepEqual(allowedPaths, targets.map(item => item.path), 'The model must only return the files explicitly assigned to this batch.');
+}
 assert.equal(result.qualityPolish.status, 'applied', 'Polish should be applied; last validation point was ' + polishAssertionStage + '; result=' + JSON.stringify(result.qualityPolish));
 assert.equal(result.qualityPolish.filesUpdated, 2);
 assert.ok(result.files['src/styles.css'].includes('outline-offset:4px'), 'The verified polish result should be applied.');
@@ -228,7 +240,7 @@ assert.equal(repairedRequirementBuild.requirementRepair.issuesAfter.length, 0);
 assert.ok(repairedRequirementBuild.files['src/pages/Reservations.html'].includes('Reserve a table'));
 assert.equal(repairedRequirementBuild.files['src/private.html'], undefined, 'The requirement repair must not introduce unapproved paths.');
 assert.ok(repairCalls[0].user.includes('REPAIR ALLOWLIST JSON'));
-assert.equal(repairedRequirementBuild.rawUsage.total_tokens, 18 + 50 * 3 + 8 + 14, 'The repair call must be included in usage accounting.');
+assert.equal(repairedRequirementBuild.rawUsage.total_tokens, 18 + 50 * 5 + 8 + 14, 'Usage accounting must include all five bounded file batches plus the requirement-repair and polish calls.');
 assert.ok(repairedRequirementBuild.summary.includes('bounded requirement-repair pass was applied'));
 
 const rejectedRequirementRepair = await buildStudioMultiPage({
@@ -444,7 +456,7 @@ assert.ok(safeAfterRejectedPolish.files['src/pages/Home.html'].includes('<h1>Hom
 assert.equal(safeAfterRejectedPolish.files['src/private.html'], undefined, 'Unapproved polish paths must never be committed into the staged build.');
 assert.equal(safeAfterRejectedPolish.requirementVerification.ok, true);
 assert.equal(safeAfterRejectedPolish.qualityPolish.integrityAfter, 1, 'A rejected polish must preserve the original integrity findings without introducing another defect.');
-assert.equal(safeAfterRejectedPolish.rawUsage.total_tokens, 18 + 50 * 3 + 5);
+assert.equal(safeAfterRejectedPolish.rawUsage.total_tokens, 18 + 50 * 5 + 5, 'Rejected polish accounting must include all five bounded file batches.');
 
 console.log('Web Studio multi-page integration tests passed.');
 
