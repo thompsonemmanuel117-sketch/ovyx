@@ -116,6 +116,17 @@ const callModel = async (_env, options) => {
       files[target.path] = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="' + title + ' page"><title>' + title + ' | Test Restaurant</title>' + stylesRef + '</head><body><nav aria-label="Main navigation">' + links + '</nav><main><h1>' + title + '</h1><p>Purposeful content for the ' + slug + ' page.</p>' + primaryAction + '</main>' + scriptRef + '</body></html>';
     }
   }
+  // Some models wrap a complete HTML document in malformed JSON by
+  // failing to escape the document's attribute quotes. The builder should
+  // recover only the complete HTML document for the one approved target.
+  if (targets.length === 1 && targets[0].path === 'src/pages/Home.html') {
+    return {
+      text: '{"files":[{"path":"src/pages/Home.html","content":' + files[targets[0].path] + '}]}',
+      provider: 'gemini',
+      model: 'test-model',
+      rawUsage: { prompt_tokens: 19, completion_tokens: 31, total_tokens: 50 },
+    };
+  }
   // The model may use alternate path/content property names; file extraction
   // must recognize these, then the target allowlist still validates the path.
   if (targets.length === 1 && targets[0].path === 'src/styles.css') {
