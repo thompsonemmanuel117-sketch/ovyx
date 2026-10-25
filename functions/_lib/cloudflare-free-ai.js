@@ -328,6 +328,37 @@ function safeProviderError(error) {
   return fail(503, 'OVYX_AI_CLOUDFLARE_UNAVAILABLE', 'Cloudflare AI is temporarily unavailable. OVYX will not switch to a paid AI provider.');
 }
 
+function emptyOutputFailureCode(result) {
+  const candidate = result?.result && typeof result.result === 'object'
+    ? result.result
+    : result;
+  const choices = candidate && typeof candidate === 'object' && Array.isArray(candidate.choices)
+    ? candidate.choices
+    : null;
+
+  if (choices) {
+    if (choices.length === 0) return 'OVYX_AI_CLOUDFLARE_CHOICES_EMPTY';
+    const first = choices[0] && typeof choices[0] === 'object' ? choices[0] : {};
+    const message = first.message && typeof first.message === 'object'
+      ? first.message
+      : first.delta && typeof first.delta === 'object' ? first.delta : {};
+    const content = message.content ?? first.text ?? message.text;
+    if (typeof message.reasoning_content === 'string' && message.reasoning_content.trim() && !content) {
+      return 'OVYX_AI_CLOUDFLARE_REASONING_ONLY';
+    }
+    if (Object.prototype.hasOwnProperty.call(message, 'content')) {
+      return 'OVYX_AI_CLOUDFLARE_MESSAGE_CONTENT_UNSUPPORTED';
+    }
+    return 'OVYX_AI_CLOUDFLARE_CHOICES_NO_TEXT';
+  }
+
+  if (candidate && typeof candidate === 'object' &&
+      ['response', 'output_text', 'text'].some(key => Object.prototype.hasOwnProperty.call(candidate, key))) {
+    return 'OVYX_AI_CLOUDFLARE_EMPTY_RESPONSE';
+  }
+  return 'OVYX_AI_CLOUDFLARE_RESPONSE_SHAPE_UNSUPPORTED';
+}
+
 export async function runCloudflareFreeInference(env, {
   authUser = null, messages = null, system = '', user = '', maxTokens = 1024, timeoutMs = 45000, disableThinking = false,
 } = {}) {
@@ -368,9 +399,9 @@ export async function runCloudflareFreeInference(env, {
   }
   const text = outputText(result);
   if (!text) {
-    throw Object.assign(new Error('Cloudflare Workers AI returned an empty response.'), {
+    throw Object.assign(new Error('Cloudflare Workers AI returned no usable final text response.'), {
       status: 503,
-      code: 'OVYX_AI_CLOUDFLARE_EMPTY_RESPONSE',
+      code: emptyOutputFailureCode(result),
     });
   }
   const usage = tokenCounts(result?.usage || result?.result?.usage, bounded, text);
