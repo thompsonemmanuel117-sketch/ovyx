@@ -175,8 +175,15 @@ async function getGoogleAccessToken(env) {
   );
 
   if (!response.ok) {
-    throw new Error(
-      `Google OAuth token exchange failed (${response.status}).`
+    // Keep status metadata so the guarded Firestore budget ledger can retry
+    // transient OAuth service errors and classify permanent authorization
+    // failures without logging response bodies or credentials.
+    throw Object.assign(
+      new Error(`Google OAuth token exchange failed (${response.status}).`),
+      {
+        status: response.status,
+        code: 'GOOGLE_OAUTH_TOKEN_EXCHANGE_FAILED',
+      }
     );
   }
 
