@@ -2,7 +2,7 @@
 
 ## Production rule
 
-OVYX production AI routes use **Cloudflare Workers AI only**. They do not call Gemini, OpenAI, Anthropic, DeepSeek, Groq, OpenRouter, or a customer's Universal Connection as a fallback. They never accept API keys from browser requests. If Cloudflare AI is unavailable, the request fails safely and the UI may offer a retry later.
+OVYX production AI routes use **Cloudflare Workers AI first**. They never call OVYX's platform-paid provider keys as a fallback and never accept API keys from browser requests. If the Cloudflare daily free allocation or OVYX's protected daily Neuron budget is confirmed exhausted, Web Studio may offer a user-controlled retry through that member's own active Universal Connection. No other feature gets this fallback, and temporary rate limits, timeouts, configuration errors or general provider outages do not trigger it.
 
 This is deliberately fail-closed. If the engine mode is absent or incorrect, central AI routing refuses to call any provider, and public AI endpoints return a configuration error. The old provider-router is available to tests and isolated maintenance only when both `OVYX_AI_ENGINE_MODE=legacy-provider-routing` and `OVYX_ALLOW_PAID_PROVIDER_ROUTING=true` are set. **Do not set those variables in production.**
 
@@ -34,7 +34,10 @@ The gate covers the main assistant, OVYX native AI, AI gateway, web research, Ag
 
 - All inference passes through the Cloudflare `AI` binding on the server.
 - Public AI routes require `OVYX_AI_ENGINE_MODE=cloudflare-free-only`; a missing binding, missing budget ledger, unavailable entitlement store, per-member rate limit, or budget cap returns a clear error.
-- No silent paid-provider, Universal Connection, or local-model fallback is allowed in free-only mode.
+- There is no silent platform-paid-provider or local-model fallback. A member's own Universal Connection is allowed only for Web Studio after daily free AI capacity is confirmed exhausted, and only after explicit user consent in the Web Studio popup.
+- The preference is remembered in the current browser tab only until the UTC day changes. Cloudflare is still tried first while its daily allowance is available; a personal connection is not called early.
+- Universal Connection routing requires the authenticated user's own active AI-compatible connection. OVYX verifies owner UID/email, active state and supported AI protocol; credentials stay encrypted on the server and are never returned to the browser.
+- Universal Connection slot caps are enforced server-side: Free 3 active connections, Pro 5, Max unlimited, and expired/canceled/unverified paid subscriptions fall back to the Free cap.
 - Existing authentication, project authorization, request validation, per-user quota accounting, history, and safe-write checks remain in the existing routes.
 - The per-user request counter and global Neuron ledger use Firestore update-time compare-and-swap writes to reduce double reservation under concurrent requests.
 - A timeout or failure after dispatch conservatively retains reserved capacity until the next UTC reset, because inference might have run before the failure reached OVYX.

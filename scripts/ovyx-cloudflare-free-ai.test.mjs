@@ -8,6 +8,8 @@ import {
   isCloudflareFreeOnlyMode,
   isLegacyProviderRoutingEnabled,
   hasActivePaidAiEntitlement,
+  isCloudflareDailyFreeLimitError,
+  isCloudflareFreeQuotaError,
   estimateCloudflareFreeNeurons,
   compactCloudflareFreeMessages,
 } from '../functions/_lib/cloudflare-free-ai.js';
@@ -27,6 +29,11 @@ assert.equal(hasActivePaidAiEntitlement({ planTier: 'max', planTierState: 'cance
 assert.equal(hasActivePaidAiEntitlement({ planTier: 'pro', planTierState: 'active', accessActive: true, expiresAt: now - 1 }, now), false);
 assert.equal(hasActivePaidAiEntitlement({ planTier: 'free', planTierState: 'active', accessActive: true, expiresAt: now + 60000 }, now), false);
 assert.equal(hasActivePaidAiEntitlement({ role: 'ROOT_SUPERUSER', bypass: true }, now), true);
+assert.equal(isCloudflareDailyFreeLimitError({ code: '3036', status: 429 }), true);
+assert.equal(isCloudflareDailyFreeLimitError({ message: 'Used up your daily free allocation of 10,000 neurons' }), true);
+assert.equal(isCloudflareDailyFreeLimitError({ status: 429, message: 'temporary rate limit' }), false);
+assert.equal(isCloudflareFreeQuotaError({ code: 'OVYX_AI_NEURON_BUDGET_EXHAUSTED' }), true);
+assert.equal(isCloudflareFreeQuotaError({ code: 'OVYX_AI_CLOUDFLARE_RATE_LIMITED' }), false);
 
 const sample = [{ role: 'system', content: 'Safe instructions.' }, { role: 'user', content: 'Build a responsive site.' }];
 assert.ok(estimateCloudflareFreeNeurons(sample, 256) > 0);

@@ -1256,7 +1256,12 @@ export async function callModel(
     if (options.webStudioRequest === true && options.useUniversalConnectionAfterCloudflareLimit === true) {
       if (!options.authUser) throw Object.assign(new Error('Sign in before using your Universal Connection.'), { status: 401, code: 'AUTH_REQUIRED' });
       if (!(await isCloudflareFreeAllowanceExhausted(env))) {
-        throw Object.assign(new Error('OVYX has not confirmed that its daily free AI allowance is exhausted. Retry the normal Web Studio request first.'), { status: 409, code: 'OVYX_WEBSTUDIO_FALLBACK_NOT_AVAILABLE' });
+        const result = await callCloudflareWorkersAI(env, {
+          ...options,
+          model: OVYX_CLOUDFLARE_FREE_MODEL,
+          authUser: options.authUser,
+        });
+        return { ...result, requestedProvider: 'cloudflare-workers-ai', routedProvider: 'cloudflare-workers-ai' };
       }
       let connectionId = null;
       try {

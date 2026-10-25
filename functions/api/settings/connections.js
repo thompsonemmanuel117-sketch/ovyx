@@ -15,7 +15,8 @@ import {
 } from '../../_lib/universal-connections.js';
 
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
-const LIMITS = Object.freeze({ free: 3, pro: 5, max: Infinity });
+export const UNIVERSAL_CONNECTION_LIMITS = Object.freeze({ free: 3, pro: 5, max: Infinity });
+const LIMITS = UNIVERSAL_CONNECTION_LIMITS;
 
 function clean(value, max = 400) {
   return String(value ?? '').trim().slice(0, max);

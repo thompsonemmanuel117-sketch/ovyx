@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+assert.match(html, /ovyx-webstudio-free-ai-fallback-v1/);
+assert.match(html, /requiresUniversalConnectionFallback/);
+assert.match(html, /useUniversalConnectionAfterCloudflareLimit/);
+assert.match(html, /Continue with my own key/);
+assert.match(html, /Open Settings & connections/);
+assert.match(html, /This applies only to Web Studio/);
+assert.match(html, /ovyx\.webstudio\.personal-connection-fallback\.v1/);
+assert.match(html, /secureGenerate\(\{\.\.\.payload,useUniversalConnectionAfterCloudflareLimit:true\}/);
+assert.match(html, /fallbackFeature==='webStudio'/);
+console.log('OVYX Web Studio daily-limit popup and opt-in routing checks passed.');
