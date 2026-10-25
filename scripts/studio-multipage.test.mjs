@@ -133,7 +133,7 @@ const callModel = async (_env, options) => {
   // planned target, then still runs all normal validators and route checks.
   if (targets.length === 1 && targets[0].path === 'src/pages/Menu.html') {
     return {
-      text: '```html\\n' + files[targets[0].path] + '\\n```',
+      text: '```html\n' + files[targets[0].path] + '\n```',
       provider: 'gemini',
       model: 'test-model',
       rawUsage: { prompt_tokens: 19, completion_tokens: 31, total_tokens: 50 },
