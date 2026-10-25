@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { chooseProvider, handleLiveGenerationRequest, safeLiveGenerationFailureDetail, safeLiveGenerationProviderAttempts, safeLiveGenerationOutputDiagnostics, verifyGithubOidcToken } from '../functions/api/internal/live-generation-eval.js';
 import { isTrustedGithubOidcRequestUrl } from './ovyx-github-oidc-url.mjs';
 
@@ -78,6 +79,11 @@ assert.deepEqual(safeOutputDiagnostics, {
 assert.equal(JSON.stringify(safeOutputDiagnostics).includes('DO_NOT_LEAK'), false,
   'Output-shape diagnostics must not expose raw model output or unknown response keys.');
 assert.equal(safeLiveGenerationOutputDiagnostics(new Error('nothing attached')), null);
+const generationClientSource = readFileSync(new URL('./ovyx-cloudflare-live-generation-client.mjs', import.meta.url), 'utf8');
+assert.match(generationClientSource, /function safeOutputShapeDiagnostics\(/);
+assert.match(generationClientSource, /live-generation-output-shape-diagnostics/);
+assert.doesNotMatch(generationClientSource, /console\.log\(JSON\.stringify\(\{[^\n]*rawResponseText/i,
+  'Live generation logs must never serialize raw model output into diagnostics.');
 
 for (const [code, expected] of [
   ['OVYX_AI_ENGINE_MODE_NOT_CONFIGURED', 'cloudflare-engine-mode-not-configured'],
