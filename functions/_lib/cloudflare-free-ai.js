@@ -1,4 +1,4 @@
-import { getFirestoreDocument, firestoreDocumentToJs, setFirestoreDocumentIfCurrent } from './firebase-admin.js';
+import { createFirestoreDocumentIfAbsent, getFirestoreDocument, firestoreDocumentToJs, setFirestoreDocumentIfCurrent } from './firebase-admin.js';
 
 export const OVYX_CLOUDFLARE_FREE_MODEL = '@cf/qwen/qwen3-30b-a3b-fp8';
 export const OVYX_CLOUDFLARE_FREE_MAX_OUTPUT_TOKENS = 4096;
@@ -147,14 +147,44 @@ export async function reserveCloudflareFreeUserMinute(env, user) {
   await reserveUserMinute(env, user);
 }
 
+/**
+ * The shared safety ledger lives in system/config alongside existing OVYX
+ * settings. If that document has never been created, initialize only the
+ * budget fields with Firestore's createDocument API. Creation is atomic: a
+ * concurrent request gets ALREADY_EXISTS and re-reads the winning document.
+ * Permission, credential, and service failures still fail closed.
+ */
+async function getDailyBudgetLedger(env) {
+  for (let attempt = 0; attempt < BUDGET_RETRIES; attempt += 1) {
+    let raw;
+    try {
+      raw = await getFirestoreDocument(env, 'system', 'config');
+    } catch {
+      throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX could not safely check its daily free AI allowance. Please retry later.');
+    }
+    if (raw) return raw;
+
+    try {
+      await createFirestoreDocumentIfAbsent(env, 'system', 'config', {
+        _ovyxWorkersAiDayUtc: utcDayKey(),
+        _ovyxWorkersAiConsumedNeurons: 0,
+        _ovyxWorkersAiReservedNeurons: 0,
+        _ovyxWorkersAiRequestCount: 0,
+      });
+    } catch (error) {
+      if (error?.status === 409 || error?.code === 'FIRESTORE_DOCUMENT_ALREADY_EXISTS') continue;
+      throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX could not safely initialize its daily free AI allowance. Please retry later.');
+    }
+  }
+
+  throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX could not safely initialize its daily free AI allowance. Please retry later.');
+}
+
 async function reserveDailyBudget(env, estimate) {
   const day = utcDayKey();
   const cap = dailyBudget(env);
   for (let attempt = 0; attempt < BUDGET_RETRIES; attempt += 1) {
-    let raw;
-    try { raw = await getFirestoreDocument(env, 'system', 'config'); }
-    catch { throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX could not safely check its daily free AI allowance. Please retry later.'); }
-    if (!raw) throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX daily AI budget storage is not initialized. AI generation is paused until the account configuration is available.');
+    const raw = await getDailyBudgetLedger(env);
     const config = firestoreDocumentToJs(raw) || {};
     const sameDay = String(config._ovyxWorkersAiDayUtc || '') === day;
     const consumed = sameDay ? Math.max(0, Number(config._ovyxWorkersAiConsumedNeurons) || 0) : 0;
@@ -233,10 +263,7 @@ export function isWebStudioUniversalConnectionFallbackTrigger(error) {
 async function recordCloudflareFreeExhaustion(env, reason) {
   const day = utcDayKey();
   for (let attempt = 0; attempt < BUDGET_RETRIES; attempt += 1) {
-    let raw;
-    try { raw = await getFirestoreDocument(env, 'system', 'config'); }
-    catch { throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX could not safely record the daily AI stop. Please retry later.'); }
-    if (!raw) throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX daily AI budget storage is not initialized. AI generation is paused until the account configuration is available.');
+    const raw = await getDailyBudgetLedger(env);
     const config = firestoreDocumentToJs(raw) || {};
     if (String(config._ovyxWorkersAiCloudflareExhaustedDayUtc || '') === day) return;
     try {
@@ -254,10 +281,7 @@ async function recordCloudflareFreeExhaustion(env, reason) {
   throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX could not safely record the daily AI stop. Please retry later.');
 }
 export async function isCloudflareFreeAllowanceExhausted(env) {
-  let raw;
-  try { raw = await getFirestoreDocument(env, 'system', 'config'); }
-  catch { throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX could not verify the daily Cloudflare AI stop. Please retry later.'); }
-  if (!raw) throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX daily AI budget storage is not initialized. Please retry later.');
+  const raw = await getDailyBudgetLedger(env);
   const config = firestoreDocumentToJs(raw) || {};
   const day = utcDayKey();
   if (String(config._ovyxWorkersAiCloudflareExhaustedDayUtc || '') === day) return true;
