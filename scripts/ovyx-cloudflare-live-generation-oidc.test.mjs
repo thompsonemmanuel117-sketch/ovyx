@@ -3,6 +3,7 @@ import { webcrypto } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { chooseProvider, handleLiveGenerationRequest, safeLiveGenerationFailureDetail, safeLiveGenerationProviderAttempts, safeLiveGenerationOutputDiagnostics, verifyGithubOidcToken } from '../functions/api/internal/live-generation-eval.js';
 import { isTrustedGithubOidcRequestUrl } from './ovyx-github-oidc-url.mjs';
+import { selectLiveAcceptanceCases } from './ovyx-live-acceptance-cases.mjs';
 
 // Cover the exact GitHub-hosted runner hostname reported by the production
 // workflow. Preserve a strict host allowlist rather than broadly trusting URLs.
@@ -183,6 +184,34 @@ async function signToken(overrides = {}) {
   return signingInput + '.' + Buffer.from(new Uint8Array(signature)).toString('base64url');
 }
 
+const noListingFeedPlan = selectLiveAcceptanceCases({});
+assert.deepEqual(noListingFeedPlan.caseIds, [
+  'nigeria-baby-products',
+  'uk-independent-restaurant',
+  'us-independent-fashion',
+  'japan-product-software',
+], 'When no authoritative property feed exists, still generate four real non-property acceptance sites.');
+assert.deepEqual(noListingFeedPlan.skippedCases, [{
+  id: 'nigeria-lagos-real-estate',
+  reason: 'no-authoritative-public-listing-feed-configured',
+  substitute: 'nigeria-baby-products',
+}], 'The property case must be reported as skipped rather than presented as tested.');
+const authoritativeListingPlan = selectLiveAcceptanceCases({
+  OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL: 'https://listings.example.test/api/properties',
+  OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY: 'authoritative',
+});
+assert.deepEqual(authoritativeListingPlan.caseIds, [
+  'nigeria-lagos-real-estate',
+  'uk-independent-restaurant',
+  'us-independent-fashion',
+  'japan-product-software',
+], 'Only an explicitly authoritative HTTPS feed enables the live-property case.');
+assert.deepEqual(authoritativeListingPlan.skippedCases, []);
+assert.equal(selectLiveAcceptanceCases({
+  OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL: 'http://listings.example.test/api/properties',
+  OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY: 'authoritative',
+}).caseIds[0], 'nigeria-baby-products', 'An unsafe non-HTTPS listing endpoint must not enable property acceptance.');
+
 assert.equal(chooseProvider({}, 'automatic'), null, 'automatic routing must not claim a provider exists if Cloudflare has no configured key or AI binding.');
 assert.equal(chooseProvider({GEMINI_API_KEY:'configured-test-key'}, 'automatic'), 'automatic',
   'automatic routing must use OVYX’s provider-selection/fallback logic instead of pinning the first key');
@@ -279,6 +308,19 @@ const unknownCase = await handleLiveGenerationRequest(
 );
 assert.equal(unknownCase.status, 400, 'only allow-listed test case IDs are accepted');
 assert.equal((await unknownCase.json()).error, 'EVALUATION_CASE_NOT_ALLOWED', 'arbitrary prompts are rejected before provider selection or any billable call');
+
+const babyProductsCase = await handleLiveGenerationRequest(
+  new Request('https://forgeos-2k0.pages.dev/api/internal/live-generation-eval', {
+    method: 'POST',
+    headers: { authorization: 'Bearer ' + validToken, 'content-type': 'application/json' },
+    body: JSON.stringify({ caseId: 'nigeria-baby-products' }),
+  }),
+  {},
+  { fetchImpl, nowSeconds: now, getProductionIntegrationState: async () => ({ live: false }) },
+);
+assert.equal(babyProductsCase.status, 503,
+  'the non-property substitute case must be allowlisted but still respect the production integration pause');
+assert.equal((await babyProductsCase.json()).error, 'PRODUCTION_INTEGRATIONS_PAUSED');
 
 const preflightCall = { count: 0, input: null };
 const providerPreflightReady = await handleLiveGenerationRequest(

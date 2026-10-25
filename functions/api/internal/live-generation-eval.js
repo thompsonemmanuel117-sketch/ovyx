@@ -27,6 +27,13 @@ const CASES = Object.freeze({
     title: 'Lagos property advisory',
     prompt: 'Create a four-page multi-page website for a thoughtful, design-led Lagos property advisory: Home, Property Listings, About, Contact. Audience: home buyers and renters in Lagos, Nigeria. Market rules: English (Nigeria), NGN / ₦, Africa/Lagos. Art direction: calm architectural editorial, strong serif/sans contrast, warm stone and dark ink, asymmetrical composition, refined real-estate photography treatment and a clear one-thumb mobile enquiry journey. No real property inventory feed or client contact details are supplied. Do not invent real property addresses, listing prices, availability, agents, testimonials, coordinates or verification badges. Show a clear honest live-inventory-not-connected empty state, or only visibly labelled illustrative sample cards.',
   },
+  'nigeria-baby-products': {
+    id: 'nigeria-baby-products',
+    industry: 'baby-products',
+    market: { country: 'Nigeria', locale: 'en-NG', currency: 'NGN', language: 'en', timeZone: 'Africa/Lagos' },
+    title: 'Baby products and parenting essentials',
+    prompt: 'Create a four-page multi-page website for a baby-products and parenting essentials shop serving families in Nigeria: Home, Shop, Helpful Guides, Contact. Market: English (Nigeria), NGN / ₦, Africa/Lagos. Art direction: warm, reassuring, contemporary family retail; clear product categories, calm spacing, accessible mobile shopping and helpful guide navigation. No real product feed, live stock, verified safety certifications, product prices, delivery promises, testimonials, checkout, business address or client contact details are supplied. Use only visibly labelled illustrative sample products and demo prices if needed for layout; never claim that sample items are available to buy or that checkout is connected. Do not make medical, safety, or developmental claims about baby products. Use honest setup/empty states for missing inventory and contact details.',
+  },
   'uk-independent-restaurant': {
     id: 'uk-independent-restaurant',
     industry: 'restaurant',
