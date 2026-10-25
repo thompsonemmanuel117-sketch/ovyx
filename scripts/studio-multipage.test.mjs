@@ -221,7 +221,7 @@ for (const call of targetBatchCalls) {
   assert.deepEqual(allowedPaths, targets.map(item => item.path), 'The model must only return the files explicitly assigned to this batch.');
   assert.ok(call.system.includes('Follow the exact response contract specified for this single-file batch.'),
     'The high-priority system contract must enforce the response format for this exact target.');
-  if (/\\.css$/i.test(String(targets[0].path || ''))) {
+  if (/\.css$/i.test(String(targets[0].path || ''))) {
     assert.ok(call.user.includes('CSS-ONLY RESPONSE OVERRIDE') && call.user.includes('raw CSS source only'),
       'The CSS batch must request raw stylesheet output to avoid truncation and malformed JSON quoting.');
     assert.ok(call.system.includes('CSS-ONLY RESPONSE OVERRIDE'),
