@@ -128,8 +128,8 @@ function makeSiteMap(raw, limit) {
   return { siteMap: result.siteMap, overflow: Math.max(overflow, result.overflow) };
 }
 
-function splitBatchesForBoundedModelOutput(batches, maximumTargets = 2) {
-  const targetLimit = Math.max(1, Math.min(2, Math.floor(Number(maximumTargets) || 2)));
+function splitBatchesForBoundedModelOutput(batches, maximumTargets = 1) {
+  const targetLimit = Math.max(1, Math.min(1, Math.floor(Number(maximumTargets) || 1)));
   const split = [];
   for (const batch of Array.isArray(batches) ? batches : []) {
     const targets = Array.isArray(batch?.targetFiles) ? batch.targetFiles : [];
@@ -143,8 +143,8 @@ function splitBatchesForBoundedModelOutput(batches, maximumTargets = 2) {
         targetPaths,
         targetPages: (Array.isArray(batch.targetPages) ? batch.targetPages : [])
           .filter(page => targetPaths.includes(page.path)),
-        // Each model call must produce only its explicit one-or-two-file manifest.
-        // Shared CSS/JS are created in their own foundation batch and reused later.
+        // Each model call must produce exactly one explicitly required file.
+        // Shared CSS/JS are created in their own foundation batches and reused later.
         allowedPaths: targetPaths,
         maxChangedFiles: targetPaths.length,
         maxAdditionalChanges: 0,
@@ -563,9 +563,10 @@ async function buildStudioMultiPageOnce(options) {
   if (siteMap.pages.length < 2) return null;
 
   // Cloudflare free-only inference is capped at a bounded response size.
-  // Keep each generation response to at most two required files so a valid HTML,
-  // CSS or JS file cannot be lost because a larger JSON batch was truncated.
-  const batches = splitBatchesForBoundedModelOutput(createSiteBuildBatches(siteMap, fileLimit), 2);
+  // Keep each generation response to one required file. The free-only inference
+  // path has a strict output-token cap, and even two complete files can produce
+  // truncated JSON. Shared CSS/JS and every page are generated in separate calls.
+  const batches = splitBatchesForBoundedModelOutput(createSiteBuildBatches(siteMap, fileLimit), 1);
   if (!batches.length) {
     throw accountingError(Object.assign(new Error('OVYX could not turn the page plan into build batches.'), { status: 502, code: 'WEBSTUDIO_BATCH_PLAN_FAILED' }), usage, hasUsage, inputs, outputs);
   }
