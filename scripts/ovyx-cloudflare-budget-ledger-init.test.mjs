@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { generateKeyPairSync } from 'node:crypto';
 import { createFirestoreDocumentIfAbsent } from '../functions/_lib/firebase-admin.js';
 import { runCloudflareFreeInference } from '../functions/_lib/cloudflare-free-ai.js';
+import { callModel } from '../functions/_lib/providers.js';
 
 const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048, publicExponent: 0x10001 });
 const privateKeyPem = privateKey.export({ type: 'pkcs8', format: 'pem' });
@@ -16,12 +17,19 @@ const env = {
 let storedDocument = null;
 let version = 0;
 let modelCalls = 0;
+let responseShape = 'legacy-response';
 let createCalls = 0;
 const originalFetch = globalThis.fetch;
 
 env.AI = {
   run: async () => {
     modelCalls += 1;
+    if (responseShape === 'chat-completion') {
+      return {
+        choices: [{ message: { role: 'assistant', content: 'OVYX_CHOICES_READY' } }],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+      };
+    }
     return { response: 'OVYX_PROVIDER_READY', usage: { input_tokens: 1, output_tokens: 1 } };
   },
 };
@@ -95,6 +103,19 @@ try {
   assert.equal(storedDocument._ovyxWorkersAiReservedNeurons.integerValue, '0');
   assert.ok(Number(storedDocument._ovyxWorkersAiConsumedNeurons.integerValue) > 0);
   assert.equal(createCalls, 1, 'ledger document should be initialized once, not overwritten');
+
+  // Exercise the exact chat-completion response shape used by current Workers AI
+  // models through the production provider wrapper, not just the low-level helper.
+  responseShape = 'chat-completion';
+  const chatResult = await callModel(env, {
+    provider: 'automatic',
+    system: 'Reply with exactly OVYX_CHOICES_READY.',
+    user: 'Reply with exactly OVYX_CHOICES_READY.',
+    maxTokens: 8,
+  });
+  assert.equal(chatResult.text, 'OVYX_CHOICES_READY');
+  assert.equal(chatResult.provider, 'cloudflare-workers-ai');
+  assert.equal(modelCalls, 2, 'both supported model response shapes should be consumed');
 
   await assert.rejects(
     () => createFirestoreDocumentIfAbsent(env, 'system', 'config', {

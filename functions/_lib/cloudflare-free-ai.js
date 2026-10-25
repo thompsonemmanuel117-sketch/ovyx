@@ -243,9 +243,27 @@ async function settleDailyBudget(env, reservation, actual) {
 
 function outputText(result) {
   if (typeof result === 'string') return result;
-  if (typeof result?.response === 'string') return result.response;
-  if (typeof result?.output_text === 'string') return result.output_text;
-  if (typeof result?.text === 'string') return result.text;
+  if (!result || typeof result !== 'object') return '';
+  if (typeof result.response === 'string') return result.response;
+  if (typeof result.output_text === 'string') return result.output_text;
+  if (typeof result.text === 'string') return result.text;
+
+  // Current Workers AI chat models return OpenAI-style choices/message/content,
+  // while older models may return a top-level response/text field. Accept both
+  // shapes so a valid model reply is not mistaken for an empty inference.
+  const choice = Array.isArray(result.choices) ? result.choices[0] : null;
+  if (choice) {
+    const content = choice.message?.content ?? choice.delta?.content ?? choice.text;
+    if (typeof content === 'string') return content;
+    const nestedContent = outputText(content);
+    if (nestedContent) return nestedContent;
+  }
+
+  // Some Workers AI adapters wrap the model's result object one level deeper.
+  if (result.result && result.result !== result) return outputText(result.result);
+  if (result.message && result.message !== result) return outputText(result.message);
+  if (result.content && result.content !== result) return outputText(result.content);
+  if (result.output && result.output !== result) return outputText(result.output);
   return '';
 }
 
