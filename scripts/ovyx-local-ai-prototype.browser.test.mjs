@@ -456,7 +456,7 @@ try {
       'export class TextStreamer { constructor(tokenizer, options = {}) { this.tokenizer = tokenizer; this.options = options; } }',
       'export async function pipeline(task, modelId, options = {}) {',
       '  if (task !== "text-generation" || !["onnx-community/Qwen2.5-0.5B-Instruct", "onnx-community/SmolLM2-135M-Instruct-ONNX"].includes(modelId)) throw new Error("Unexpected CPU fixture model.");',
-      '  if (modelId === "onnx-community/SmolLM2-135M-Instruct-ONNX" && (options.revision !== "b8a5c0f183b78c55955a5364f610c36668b5e681" || options.dtype !== "q8")) throw new Error("Data-saver model revision or q8 dtype is not pinned.");
+      '  if (modelId === "onnx-community/SmolLM2-135M-Instruct-ONNX" && (options.revision !== "b8a5c0f183b78c55955a5364f610c36668b5e681" || options.dtype !== "q8")) throw new Error("Data-saver model revision or q8 dtype is not pinned.");'
       '  options.progress_callback?.({ status: "progress_total", progress: 42, file: "model_quantized.onnx" });',
       '  let generationCount = 0;',
       '  const run = async (messages, generationOptions = {}) => {',
