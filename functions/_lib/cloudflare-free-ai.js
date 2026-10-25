@@ -9,7 +9,7 @@ export const OVYX_CLOUDFLARE_FREE_USER_REQUESTS_PER_MINUTE = 18;
 const INPUT_NEURONS_PER_MILLION = 4119;
 const OUTPUT_NEURONS_PER_MILLION = 34868;
 const RATE_RETRIES = 6;
-const BUDGET_RETRIES = 16;
+const BUDGET_RETRIES = 24;
 const DAILY_BUDGET_LEDGER_ID = 'ovyx-workers-ai-budget';
 
 function isRetryableBudgetError(error) {
@@ -24,7 +24,10 @@ function isRetryableBudgetError(error) {
 async function waitForBudgetRetry(attempt) {
   // Bounded exponential backoff with jitter gives concurrent website batches
   // time to finish updating the shared Firestore ledger without bypassing it.
-  const delayMs = Math.min(750, 40 * (2 ** Math.min(attempt, 4))) + Math.floor(Math.random() * 40);
+  const ceilingMs = Math.min(750, 40 * (2 ** Math.min(attempt, 4)));
+  // Use full jitter, not a nearly fixed delay. Concurrent website-generation
+  // batches otherwise retry in lockstep and repeatedly collide on updateTime.
+  const delayMs = Math.floor(Math.random() * (ceilingMs + 1));
   await new Promise(resolve => setTimeout(resolve, delayMs));
 }
 
@@ -292,7 +295,7 @@ async function reserveDailyBudget(env, estimate) {
       throw budgetLedgerUnavailable(error, 'OVYX could not safely reserve its daily free AI allowance. Please retry later.');
     }
   }
-  throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX could not safely reserve its daily free AI allowance. Please retry later.');
+  throw fail(503, 'OVYX_AI_BUDGET_LEDGER_CONFLICT_EXHAUSTED', 'OVYX could not safely reserve its daily free AI allowance after bounded concurrent-write retries. Please retry later.');
 }
 
 async function settleDailyBudget(env, reservation, actual) {

@@ -196,6 +196,25 @@ try {
   assert.equal(nestedChatResult.provider, 'cloudflare-workers-ai');
   assert.equal(modelCalls, 3, 'nested chat-completion output should be consumed');
 
+  // A full site build can launch more simultaneous model batches than the
+  // original short retry window tolerated. Simulate 18 concurrent ledger CAS
+  // conflicts and prove a later bounded retry can reserve without bypassing
+  // the shared budget or touching system/config.
+  conflictWritesRemaining = 18;
+  responseShape = 'legacy-response';
+  const contendedResult = await callModel(env, {
+    provider: 'automatic',
+    system: 'Reply with exactly OVYX_PROVIDER_READY.',
+    user: 'Reply with exactly OVYX_PROVIDER_READY.',
+    maxTokens: 8,
+  });
+  assert.equal(contendedResult.text, 'OVYX_PROVIDER_READY');
+  assert.equal(contendedResult.provider, 'cloudflare-workers-ai');
+  assert.equal(conflictWritesRemaining, 0, 'the budget reservation should recover from 18 bounded conditional-write conflicts');
+  assert.equal(modelCalls, 4, 'the model should run once after the shared reservation succeeds');
+  assert.deepEqual(documents.get(legacyKey).fields, legacyFields,
+    'contention retries must leave shared OVYX configuration unchanged');
+
   responseShape = 'reasoning-only';
   await assert.rejects(
     () => runCloudflareFreeInference(env, {
