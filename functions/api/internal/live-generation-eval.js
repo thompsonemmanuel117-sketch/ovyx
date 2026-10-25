@@ -347,6 +347,18 @@ export function safeLiveGenerationFailureDetail(error) {
   if (code === 'AI_PROVIDER_NOT_CONFIGURED') return 'ai-provider-not-configured';
   if (code === 'AI_PROVIDER_UNSUPPORTED') return 'ai-provider-unsupported';
   if (code === 'AI_PROVIDER_UNAVAILABLE') return 'ai-provider-unavailable';
+  const safeCloudflareFailureDetails = {
+    OVYX_AI_ENGINE_MODE_NOT_CONFIGURED: 'cloudflare-engine-mode-not-configured',
+    OVYX_NATIVE_AI_NOT_CONFIGURED: 'cloudflare-ai-binding-not-configured',
+    OVYX_AI_BUDGET_LEDGER_UNAVAILABLE: 'cloudflare-ai-budget-ledger-unavailable',
+    OVYX_AI_NEURON_BUDGET_EXHAUSTED: 'cloudflare-ai-neuron-budget-exhausted',
+    OVYX_AI_CLOUDFLARE_QUOTA_EXHAUSTED: 'cloudflare-ai-daily-quota-exhausted',
+    OVYX_AI_CLOUDFLARE_RATE_LIMITED: 'cloudflare-ai-rate-limited',
+    OVYX_AI_MODEL_NOT_AVAILABLE_ON_FREE_PLAN: 'cloudflare-model-not-available-on-free-plan',
+    OVYX_AI_CLOUDFLARE_UNAVAILABLE: 'cloudflare-ai-unavailable',
+    OVYX_AI_TIMEOUT: 'cloudflare-ai-timeout',
+  };
+  if (safeCloudflareFailureDetails[code]) return safeCloudflareFailureDetails[code];
   const safeWebStudioFailureDetails = {
     WEBSTUDIO_PAGE_LIMIT: 'webstudio-page-limit',
     WEBSTUDIO_SITEMAP_INVALID: 'webstudio-sitemap-invalid',

@@ -39,6 +39,21 @@ assert.equal(safeLiveGenerationFailureDetail(Object.assign(new Error('timeout de
   name: 'TimeoutError',
 })), 'upstream-timeout');
 assert.equal(safeLiveGenerationFailureDetail(new Error('private message / key=DO_NOT_LEAK')), 'generation-error');
+for (const [code, expected] of [
+  ['OVYX_AI_ENGINE_MODE_NOT_CONFIGURED', 'cloudflare-engine-mode-not-configured'],
+  ['OVYX_NATIVE_AI_NOT_CONFIGURED', 'cloudflare-ai-binding-not-configured'],
+  ['OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'cloudflare-ai-budget-ledger-unavailable'],
+  ['OVYX_AI_NEURON_BUDGET_EXHAUSTED', 'cloudflare-ai-neuron-budget-exhausted'],
+  ['OVYX_AI_CLOUDFLARE_QUOTA_EXHAUSTED', 'cloudflare-ai-daily-quota-exhausted'],
+  ['OVYX_AI_CLOUDFLARE_RATE_LIMITED', 'cloudflare-ai-rate-limited'],
+  ['OVYX_AI_MODEL_NOT_AVAILABLE_ON_FREE_PLAN', 'cloudflare-model-not-available-on-free-plan'],
+  ['OVYX_AI_CLOUDFLARE_UNAVAILABLE', 'cloudflare-ai-unavailable'],
+  ['OVYX_AI_TIMEOUT', 'cloudflare-ai-timeout'],
+]) {
+  assert.equal(safeLiveGenerationFailureDetail(Object.assign(new Error('private provider details must not leak'), { code })), expected,
+    'known Cloudflare runtime failures should expose only a safe diagnostic category: ' + code);
+}
+
 assert.equal(safeLiveGenerationFailureDetail(Object.assign(new Error('model output content must remain private'), {
   code: 'WEBSTUDIO_BATCH_MISSING_FILES',
 })), 'webstudio-batch-missing-files');
