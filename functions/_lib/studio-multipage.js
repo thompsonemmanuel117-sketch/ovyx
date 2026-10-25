@@ -85,7 +85,6 @@ function deterministicFallbackSiteMapTitles(prompt, explicitPages = []) {
 
   // Some common requested pages are meaningful but not yet in the prompt
   // contract's generic page alias table. Recover these from exact phrase matches.
-  if (realEstate && /\bproperty\s+listings?\b/i.test(source)) add('Property Listings');
   if (/\bhow\s+it\s+works\b/i.test(source)) add('How It Works');
   if (/\bmaterials\s*(?:&|and)\s*fit\b/i.test(source)) add('Materials & Fit');
 
@@ -93,7 +92,7 @@ function deterministicFallbackSiteMapTitles(prompt, explicitPages = []) {
   const homeIndex = titles.findIndex(title => /^home(?:page)?$/i.test(title));
   if (homeIndex > 0) titles.unshift(titles.splice(homeIndex, 1)[0]);
 
-  if (realEstate && titles.some(title => /^home(?:page)?$/i.test(title)) &&
+  if (realEstate && /\bproperty\s+listings?\b/i.test(source) &&
       !titles.some(title => aliases(title) === 'propertylistings')) {
     titles.splice(1, 0, 'Property Listings');
   }
