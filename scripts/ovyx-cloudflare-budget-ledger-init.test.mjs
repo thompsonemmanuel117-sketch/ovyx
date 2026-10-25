@@ -47,13 +47,13 @@ env.AI = {
     }
     if (responseShape === 'json-mode') {
       return {
-        response: JSON.stringify({ summary: 'structured output ready' }),
+        response: { summary: 'structured output ready' },
         usage: { prompt_tokens: 5, completion_tokens: 4, total_tokens: 9 },
       };
     }
     if (responseShape === 'native-assistant-json') {
       return {
-        response: JSON.stringify({ text: 'OVYX native assistant is connected.', actions: [] }),
+        response: { text: 'OVYX native assistant is connected.', actions: [] },
         usage: { prompt_tokens: 6, completion_tokens: 7, total_tokens: 13 },
       };
     }
@@ -147,6 +147,8 @@ try {
   });
   assert.equal(chatResult.text, 'OVYX_CHOICES_READY');
   assert.equal(chatResult.provider, 'cloudflare-workers-ai');
+  assert.equal(lastAIOptions.response_format, undefined,
+    'ordinary Cloudflare assistant chat should not be forced into JSON Mode');
   assert.equal(modelCalls, 2, 'top-level chat-completion output should be consumed');
 
   responseShape = 'nested-chat-completion';
@@ -158,6 +160,8 @@ try {
   });
   assert.equal(nestedChatResult.text, 'OVYX_NESTED_CHOICES_READY');
   assert.equal(nestedChatResult.provider, 'cloudflare-workers-ai');
+  assert.equal(lastAIOptions.response_format, undefined,
+    'ordinary nested assistant chat should retain natural text output');
   assert.equal(modelCalls, 3, 'nested chat-completion output should be consumed');
 
   responseShape = 'json-mode';
