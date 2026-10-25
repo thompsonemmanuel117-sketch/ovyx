@@ -9,7 +9,7 @@ export const OVYX_CLOUDFLARE_FREE_USER_REQUESTS_PER_MINUTE = 18;
 const INPUT_NEURONS_PER_MILLION = 4119;
 const OUTPUT_NEURONS_PER_MILLION = 34868;
 const RATE_RETRIES = 6;
-const BUDGET_RETRIES = 8;
+const BUDGET_RETRIES = 16;
 
 function isRetryableBudgetError(error) {
   const status = Number(error?.status);
@@ -21,10 +21,22 @@ function isRetryableBudgetError(error) {
 }
 
 async function waitForBudgetRetry(attempt) {
-  // Bounded exponential backoff with jitter prevents concurrent OVYX requests
-  // from repeatedly colliding on the shared Firestore budget document.
-  const delayMs = Math.min(250, 25 * (attempt + 1)) + Math.floor(Math.random() * 25);
+  // Bounded exponential backoff with jitter gives concurrent website batches
+  // time to finish updating the shared Firestore ledger without bypassing it.
+  const delayMs = Math.min(750, 40 * (2 ** Math.min(attempt, 4))) + Math.floor(Math.random() * 40);
   await new Promise(resolve => setTimeout(resolve, delayMs));
+}
+
+function budgetLedgerUnavailable(error, message) {
+  const status = Number(error?.status);
+  let code = 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE';
+  if (status === 401) code = 'OVYX_AI_BUDGET_LEDGER_AUTH_FAILED';
+  else if (status === 403) code = 'OVYX_AI_BUDGET_LEDGER_PERMISSION_DENIED';
+  else if (status === 400) code = 'OVYX_AI_BUDGET_LEDGER_BAD_REQUEST';
+  else if (status === 409 || status === 412 || error?.code === 'FIRESTORE_PRECONDITION_FAILED') {
+    code = 'OVYX_AI_BUDGET_LEDGER_CONFLICT_EXHAUSTED';
+  }
+  return fail(503, code, message);
 }
 
 function fail(status, code, message) {
@@ -187,7 +199,7 @@ async function getDailyBudgetLedger(env) {
         await waitForBudgetRetry(attempt);
         continue;
       }
-      throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX could not safely check its daily free AI allowance. Please retry later.');
+      throw budgetLedgerUnavailable(error, 'OVYX could not safely check its daily free AI allowance. Please retry later.');
     }
     if (raw) return raw;
 
@@ -203,7 +215,7 @@ async function getDailyBudgetLedger(env) {
         await waitForBudgetRetry(attempt);
         continue;
       }
-      throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX could not safely initialize its daily free AI allowance. Please retry later.');
+      throw budgetLedgerUnavailable(error, 'OVYX could not safely initialize its daily free AI allowance. Please retry later.');
     }
   }
 
@@ -231,7 +243,7 @@ async function reserveDailyBudget(env, estimate) {
           await waitForBudgetRetry(attempt);
           continue;
         }
-        throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX could not safely record the daily AI stop. Please retry later.');
+        throw budgetLedgerUnavailable(error, 'OVYX could not safely record the daily AI stop. Please retry later.');
       }
       throw fail(429, 'OVYX_AI_NEURON_BUDGET_EXHAUSTED', 'OVYX has reached its protected daily AI allowance. Please try again after the daily reset.');
     }
@@ -248,7 +260,7 @@ async function reserveDailyBudget(env, estimate) {
         await waitForBudgetRetry(attempt);
         continue;
       }
-      throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX could not safely reserve its daily free AI allowance. Please retry later.');
+      throw budgetLedgerUnavailable(error, 'OVYX could not safely reserve its daily free AI allowance. Please retry later.');
     }
   }
   throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX could not safely reserve its daily free AI allowance. Please retry later.');
@@ -341,7 +353,7 @@ async function recordCloudflareFreeExhaustion(env, reason) {
       return;
     } catch (error) {
       if (error?.status === 409 || error?.code === 'FIRESTORE_PRECONDITION_FAILED') continue;
-      throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX could not safely record the daily AI stop. Please retry later.');
+      throw budgetLedgerUnavailable(error, 'OVYX could not safely record the daily AI stop. Please retry later.');
     }
   }
   throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX could not safely record the daily AI stop. Please retry later.');
