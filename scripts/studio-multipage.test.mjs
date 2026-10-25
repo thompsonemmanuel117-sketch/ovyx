@@ -169,6 +169,10 @@ for (const call of targetBatchCalls) {
   const allowedPaths = JSON.parse(allowed[1]);
   assert.equal(targets.length, 1, 'Every batch manifest must contain exactly one required file.');
   assert.deepEqual(allowedPaths, targets.map(item => item.path), 'The model must only return the files explicitly assigned to this batch.');
+  assert.ok(call.system.includes('SINGLE-FILE BATCH CONTRACT OVERRIDES GENERAL MULTI-FILE EXAMPLES'),
+    'The high-priority system contract must explicitly constrain this call to one target file.');
+  assert.ok(call.user.includes('"files":[{"path":"EXACT TARGET PATH FROM THE MANIFEST"'),
+    'The batch prompt schema must agree with the general Web Studio files-array contract.');
 }
 assert.equal(result.qualityPolish.status, 'applied', 'Polish should be applied; last validation point was ' + polishAssertionStage + '; result=' + JSON.stringify(result.qualityPolish));
 assert.equal(result.qualityPolish.filesUpdated, 2);
