@@ -218,7 +218,7 @@ function outputText(result) {
 
 export function isCloudflareDailyFreeLimitError(error) {
   const signature = String(error?.code || '') + ' ' + String(error?.message || '');
-  return /\\b3036\\b|used up your daily free allocation|daily free allocation of 10,000|10,000 neurons/i.test(signature);
+  return /\b3036\b|used up your daily free allocation|daily free allocation of 10,000|10,000 neurons/i.test(signature);
 }
 export function isCloudflareFreeQuotaError(error) {
   return ['OVYX_AI_NEURON_BUDGET_EXHAUSTED', 'OVYX_AI_CLOUDFLARE_QUOTA_EXHAUSTED'].includes(String(error?.code || ''));
