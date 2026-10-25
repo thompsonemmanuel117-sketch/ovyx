@@ -6,6 +6,7 @@ import { callModel } from '../functions/_lib/providers.js';
 
 const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048, publicExponent: 0x10001 });
 const privateKeyPem = privateKey.export({ type: 'pkcs8', format: 'pem' });
+const today = new Date().toISOString().slice(0, 10);
 const env = {
   FIREBASE_SERVICE_ACCOUNT_JSON: JSON.stringify({
     client_email: 'ovyx-budget-ledger-test@example.invalid',
@@ -14,8 +15,8 @@ const env = {
   }),
   OVYX_AI_ENGINE_MODE: 'cloudflare-free-only',
 };
-let storedDocument = null;
-let version = 0;
+const LEDGER_ID = 'ovyx-workers-ai-budget';
+const documents = new Map();
 let modelCalls = 0;
 let lastAIOptions = null;
 let responseShape = 'legacy-response';
@@ -24,6 +25,31 @@ let ledgerReadFailuresRemaining = 1;
 let conflictWritesRemaining = 3;
 let conditionalWriteFailureStatus = null;
 const originalFetch = globalThis.fetch;
+
+function firestoreInt(value) { return { integerValue: String(value) }; }
+function firestoreString(value) { return { stringValue: String(value) }; }
+function documentKey(path) { return path.split('/').filter(Boolean).slice(-2).join('/'); }
+function getDoc(urlPath) {
+  const match = urlPath.match(/\/documents\/(system)\/([^/]+)$/);
+  return match ? documents.get(match[1] + '/' + decodeURIComponent(match[2])) : null;
+}
+function makeFirestoreDocument(key, stored) {
+  return {
+    name: 'projects/ovyx-budget-ledger-test/databases/(default)/documents/' + key,
+    fields: stored.fields,
+    updateTime: 'v' + stored.version,
+  };
+}
+const legacyKey = 'system/config';
+const legacyFields = {
+  tokenQuotas: { mapValue: { fields: { free: firestoreInt(50000), pro: firestoreInt(500000) } } },
+  _ovyxWorkersAiDayUtc: firestoreString(today),
+  _ovyxWorkersAiConsumedNeurons: firestoreInt(42),
+  _ovyxWorkersAiReservedNeurons: firestoreInt(0),
+  _ovyxWorkersAiRequestCount: firestoreInt(7),
+  unrelatedExistingSetting: firestoreString('preserve-this-existing-config'),
+};
+documents.set(legacyKey, { fields: structuredClone(legacyFields), version: 1 });
 
 env.AI = {
   run: async (_model, options) => {
@@ -57,13 +83,6 @@ function okJson(value, status = 200) {
     headers: { 'content-type': 'application/json' },
   });
 }
-function makeFirestoreDocument() {
-  return {
-    name: 'projects/ovyx-budget-ledger-test/databases/(default)/documents/system/config',
-    fields: storedDocument,
-    updateTime: `v${version}`,
-  };
-}
 
 try {
   globalThis.fetch = async (input, init = {}) => {
@@ -76,45 +95,49 @@ try {
     assert.equal(url.origin, 'https://firestore.googleapis.com');
     assert.match(url.pathname, /\/projects\/ovyx-budget-ledger-test\/databases\/\(default\)\/documents/);
 
-    if (init.method === 'GET' && url.pathname.endsWith('/system/config')) {
-      if (ledgerReadFailuresRemaining > 0) {
+    if (init.method === 'GET' && /\/documents\/system\/[^/]+$/.test(url.pathname)) {
+      const key = documentKey(url.pathname);
+      if (key === 'system/' + LEDGER_ID && ledgerReadFailuresRemaining > 0) {
         ledgerReadFailuresRemaining -= 1;
         return okJson({ error: { status: 'UNAVAILABLE' } }, 503);
       }
-      return storedDocument ? okJson(makeFirestoreDocument()) : new Response('', { status: 404 });
+      const stored = getDoc(url.pathname);
+      return stored ? okJson(makeFirestoreDocument(key, stored)) : new Response(null, { status: 404 });
     }
 
-    if (init.method === 'POST' && url.pathname.endsWith('/documents/system') && url.searchParams.get('documentId') === 'config') {
+    if (init.method === 'POST' && url.pathname.endsWith('/documents/system') && url.searchParams.has('documentId')) {
+      const id = String(url.searchParams.get('documentId'));
+      const key = 'system/' + id;
       createCalls += 1;
-      if (storedDocument) {
-        return okJson({ error: { status: 'ALREADY_EXISTS' } }, 409);
-      }
-      storedDocument = JSON.parse(init.body).fields;
-      version += 1;
-      return okJson(makeFirestoreDocument());
+      if (documents.has(key)) return okJson({ error: { status: 'ALREADY_EXISTS' } }, 409);
+      const stored = { fields: JSON.parse(init.body).fields || {}, version: 1 };
+      documents.set(key, stored);
+      return okJson(makeFirestoreDocument(key, stored));
     }
 
-    if (init.method === 'PATCH' && url.pathname.endsWith('/system/config')) {
-      if (conditionalWriteFailureStatus !== null) {
+    if (init.method === 'PATCH' && /\/documents\/system\/[^/]+$/.test(url.pathname)) {
+      const key = documentKey(url.pathname);
+      const stored = documents.get(key);
+      if (key === 'system/' + LEDGER_ID && conditionalWriteFailureStatus !== null) {
         const status = conditionalWriteFailureStatus;
         conditionalWriteFailureStatus = null;
         return okJson({ error: { status: 'PERMISSION_DENIED' } }, status);
       }
-      if (!storedDocument || url.searchParams.get('currentDocument.updateTime') !== `v${version}`) {
+      if (!stored || url.searchParams.get('currentDocument.updateTime') !== 'v' + stored.version) {
         return okJson({ error: { status: 'ABORTED' } }, 409);
       }
-      if (conflictWritesRemaining > 0) {
+      if (key === 'system/' + LEDGER_ID && conflictWritesRemaining > 0) {
         conflictWritesRemaining -= 1;
-        version += 1; // Simulate another legitimate writer updating the document.
+        stored.version += 1; // Simulate another ledger-only writer, without touching system/config.
         return okJson({ error: { status: 'ABORTED' } }, 409);
       }
       const patch = JSON.parse(init.body).fields || {};
-      for (const key of url.searchParams.getAll('updateMask.fieldPaths')) {
-        if (Object.prototype.hasOwnProperty.call(patch, key)) storedDocument[key] = patch[key];
-        else delete storedDocument[key];
+      for (const fieldPath of url.searchParams.getAll('updateMask.fieldPaths')) {
+        if (Object.prototype.hasOwnProperty.call(patch, fieldPath)) stored.fields[fieldPath] = patch[fieldPath];
+        else delete stored.fields[fieldPath];
       }
-      version += 1;
-      return okJson(makeFirestoreDocument());
+      stored.version += 1;
+      return okJson(makeFirestoreDocument(key, stored));
     }
 
     throw new Error('Unexpected mocked request: ' + init.method + ' ' + url.pathname);
@@ -134,16 +157,23 @@ try {
   assert.equal(lastAIOptions.reasoning_effort, undefined, 'do not pass model-specific reasoning fields to the selected non-reasoning model');
   assert.equal(lastAIOptions.temperature, 0, 'the bounded readiness probe should be deterministic');
   assert.equal(modelCalls, 1, 'a single successful guarded model inference should run after reservation');
-  assert.ok(storedDocument, 'missing system/config document should be created atomically');
-  assert.equal(ledgerReadFailuresRemaining, 0, 'a transient Firestore ledger read failure should be retried safely');
-  assert.equal(conflictWritesRemaining, 0, 'concurrent Firestore update conflicts should be retried with bounded backoff');
-  assert.equal(storedDocument._ovyxWorkersAiDayUtc.stringValue, new Date().toISOString().slice(0, 10));
-  assert.equal(storedDocument._ovyxWorkersAiReservedNeurons.integerValue, '0');
-  assert.ok(Number(storedDocument._ovyxWorkersAiConsumedNeurons.integerValue) > 0);
-  assert.equal(createCalls, 1, 'ledger document should be initialized once, not overwritten');
 
-  // Exercise the exact chat-completion response shape used by current Workers AI
-  // models through the production provider wrapper, not just the low-level helper.
+  const ledgerKey = 'system/' + LEDGER_ID;
+  const ledger = documents.get(ledgerKey);
+  assert.ok(ledger, 'the dedicated usage ledger should be created atomically');
+  assert.equal(ledgerReadFailuresRemaining, 0, 'a transient ledger read failure should be retried safely');
+  assert.equal(conflictWritesRemaining, 0, 'concurrent ledger update conflicts should be retried with bounded backoff');
+  assert.equal(ledger.fields._ovyxWorkersAiDayUtc.stringValue, today);
+  assert.equal(Number(ledger.fields._ovyxWorkersAiConsumedNeurons.integerValue) > 42, true,
+    'the new ledger should preserve the previous same-day usage before adding current inference');
+  assert.equal(ledger.fields._ovyxWorkersAiReservedNeurons.integerValue, '0');
+  assert.equal(ledger.fields._ovyxWorkersAiRequestCount.integerValue, '8',
+    'the migration should carry forward the existing same-day request count');
+  assert.equal(createCalls, 1, 'the dedicated ledger should only be initialized once');
+  assert.deepEqual(documents.get(legacyKey).fields, legacyFields,
+    'migration and AI accounting must not mutate shared system/config or its existing quota settings');
+
+  // Exercise model response shapes through the production provider router.
   responseShape = 'chat-completion';
   const chatResult = await callModel(env, {
     provider: 'automatic',
@@ -178,8 +208,8 @@ try {
   );
 
   await assert.rejects(
-    () => createFirestoreDocumentIfAbsent(env, 'system', 'config', {
-      _ovyxWorkersAiDayUtc: new Date().toISOString().slice(0, 10),
+    () => createFirestoreDocumentIfAbsent(env, 'system', LEDGER_ID, {
+      _ovyxWorkersAiDayUtc: today,
       _ovyxWorkersAiConsumedNeurons: 0,
       _ovyxWorkersAiReservedNeurons: 0,
       _ovyxWorkersAiRequestCount: 0,
@@ -189,13 +219,14 @@ try {
   assert.equal(createCalls, 2);
 
   conditionalWriteFailureStatus = 403;
+  const beforeDeniedWrite = structuredClone(ledger.fields);
   await assert.rejects(
-    () => setFirestoreDocumentIfCurrent(env, 'system', 'config', { _ovyxLedgerTestField: 'not-written' }, `v${version}`),
+    () => setFirestoreDocumentIfCurrent(env, 'system', LEDGER_ID, { _ovyxLedgerTestField: 'not-written' }, 'v' + ledger.version),
     error => error?.code === 'FIRESTORE_CONDITIONAL_WRITE_FAILED' && error?.status === 403,
     'Firestore permission failures must preserve their safe HTTP status instead of looking retryable',
   );
-  assert.equal(storedDocument._ovyxLedgerTestField, undefined, 'a denied ledger write must not mutate stored fields');
-  console.log('OVYX Cloudflare AI budget ledger atomic initialization test passed.');
+  assert.deepEqual(ledger.fields, beforeDeniedWrite, 'a denied ledger write must not mutate the dedicated ledger fields');
+  console.log('OVYX Cloudflare AI isolated budget-ledger initialization test passed.');
 } finally {
   globalThis.fetch = originalFetch;
 }
