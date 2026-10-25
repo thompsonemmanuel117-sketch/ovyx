@@ -423,7 +423,10 @@ function planPrompt(prompt, project, paths, requireMulti, limit, extraContext, p
 }
 
 function makeBatchPrompt(prompt, plan, siteMap, batch, stagedChanges, existingFiles, extraContext, promptContract) {
-  const cssOnly = batch.targetPaths.length === 1 && /\.css$/i.test(String(batch.targetPaths[0] || ''));
+  const targetExtension = String(batch.targetPaths[0] || '').split('.').pop().toLowerCase();
+  const cssOnly = batch.targetPaths.length === 1 && targetExtension === 'css';
+  const javascriptOnly = batch.targetPaths.length === 1 && ['js', 'mjs'].includes(targetExtension);
+  const rawSourceOnly = cssOnly || javascriptOnly;
   const context = buildSiteBatchContext({
     baseContext: 'APPROVED SITE MAP:\n' + JSON.stringify(plan) + '\n\nBRAND / CLIENT CONTEXT:\n' + String(extraContext || '').slice(0, 6000) + '\n\nORIGINAL USER BRIEF (preserve the specific requirements in this request):\n' + String(prompt || ''),
     stagedChanges,
@@ -434,14 +437,16 @@ function makeBatchPrompt(prompt, plan, siteMap, batch, stagedChanges, existingFi
   });
   return [
     'OVYX WEB STUDIO MULTI-PAGE IMPLEMENTATION BATCH.',
-    cssOnly
-      ? 'CSS-ONLY RESPONSE OVERRIDE: Return only the complete raw CSS stylesheet for the single approved src/styles.css target. Do not wrap it in JSON, Markdown fences, or prose. Preserve quoted CSS values and finish every rule with balanced braces.'
+    rawSourceOnly
+      ? (cssOnly
+          ? 'CSS-ONLY RESPONSE OVERRIDE: Return only the complete raw CSS stylesheet for the single approved src/styles.css target. Do not wrap it in JSON, Markdown fences, or prose. Preserve quoted CSS values and finish every rule with balanced braces.'
+          : 'JAVASCRIPT-ONLY RESPONSE OVERRIDE: Return only complete raw JavaScript source for the single approved src/main.js target. Do not wrap it in JSON, Markdown fences, or prose. Keep the code syntactically complete.')
       : 'Return strict JSON only, without Markdown fences.',
-    cssOnly
-      ? 'Output shape: raw CSS source only; the server will bind it to the single approved target path after balanced-CSS validation.'
+    rawSourceOnly
+      ? 'Output shape: raw ' + (cssOnly ? 'CSS' : 'JavaScript') + ' source only; the server will bind it to the single approved target path after source validation.'
       : 'Output shape: {"summary":"...","files":[{"path":"EXACT TARGET PATH FROM THE MANIFEST","language":"html|css|javascript","content":"complete file content"}]}.',
-    cssOnly
-      ? 'Return complete final UTF-8 CSS source, not a diff, filename list, JSON envelope, or summary.'
+    rawSourceOnly
+      ? 'Return complete final UTF-8 ' + (cssOnly ? 'CSS' : 'JavaScript') + ' source, not a diff, filename list, JSON envelope, or summary.'
       : 'Every value in files must be complete final UTF-8 file content, not a diff, filename list or summary.',
     'Pages live at src/pages/<Page>.html while shared files live at src/styles.css and src/main.js. From each page, reference shared assets with correct relative paths such as ../styles.css and ../main.js; never assume shared files are beside page files.',
     'Batch ' + batch.index + ' of ' + batch.total + '; kind: ' + batch.kind + '; maximum distinct output files: ' + batch.maxChangedFiles + '.',
@@ -808,7 +813,9 @@ async function buildStudioMultiPageOnce(options) {
           'You are OVYX Web Studio, a senior frontend engineer and UX architect. Follow the exact response contract specified for this single-file batch.',
           batch.targetPaths.length === 1 && /\.css$/i.test(String(batch.targetPaths[0] || ''))
             ? 'CSS-ONLY RESPONSE OVERRIDE: return only complete raw CSS source for src/styles.css. Do not wrap CSS in JSON, Markdown fences, or prose. All braces must be balanced.'
-            : 'SINGLE-FILE JSON CONTRACT: return strict JSON with a files array containing exactly one object for the exact target path in REQUIRED TARGET FILES JSON. Do not return any unrequested file or substitute Home.html for a CSS or JavaScript target.',
+            : batch.targetPaths.length === 1 && /\.(?:js|mjs)$/i.test(String(batch.targetPaths[0] || ''))
+              ? 'JAVASCRIPT-ONLY RESPONSE OVERRIDE: return only complete raw JavaScript source for the exact approved src/main.js target. Do not wrap it in JSON, Markdown fences, or prose.'
+              : 'SINGLE-FILE JSON CONTRACT: return strict JSON with a files array containing exactly one object for the exact target path in REQUIRED TARGET FILES JSON. Do not return any unrequested file or substitute Home.html for a CSS or JavaScript target.',
         ].filter(Boolean).join('\n\n'),
         user: input,
         maxTokens: cap(env, 'OVYX_WEBSTUDIO_BATCH_TOKENS', 18000),
