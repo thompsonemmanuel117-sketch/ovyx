@@ -51,6 +51,7 @@ const plannedPages = [
 
 const calls = [];
 let polishAssertionStage = 'not-entered';
+let malformedHomeEnvelopeServed = false;
 const callModel = async (_env, options) => {
   calls.push(options);
   if (String(options.user).includes('WEBSITE ARCHITECTURE PLANNING PHASE')) {
@@ -116,6 +117,23 @@ const callModel = async (_env, options) => {
       files[target.path] = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="' + title + ' page"><title>' + title + ' | Test Restaurant</title>' + stylesRef + '</head><body><nav aria-label="Main navigation">' + links + '</nav><main><h1>' + title + '</h1><p>Purposeful content for the ' + slug + ' page.</p>' + primaryAction + '</main>' + scriptRef + '</body></html>';
     }
   }
+  // Reproduce the production failure: raw HTML is placed inside a JSON file
+  // envelope without escaping its attribute quotes, so JSON.parse must fail.
+  // The guarded recovery may extract only the complete, explicitly requested
+  // HTML document; normal site validation still decides whether the build passes.
+  if (targets.length === 1 && targets[0].path === 'src/pages/Home.html') {
+    const malformedEnvelope = '{"summary":"Batch complete","files":[{"path":"' +
+      targets[0].path + '","content":"' + files[targets[0].path] + '"}]}';
+    assert.throws(() => JSON.parse(malformedEnvelope), SyntaxError,
+      'Fixture must remain malformed JSON with a complete HTML document embedded inside.');
+    malformedHomeEnvelopeServed = true;
+    return {
+      text: malformedEnvelope,
+      provider: 'cloudflare-workers-ai',
+      model: '@cf/meta/llama-3.1-8b-instruct-fp8-fast',
+      rawUsage: { prompt_tokens: 19, completion_tokens: 31, total_tokens: 50 },
+    };
+  }
   // The model may use alternate path/content property names; file extraction
   // must recognize these, then the target allowlist still validates the path.
   if (targets.length === 1 && targets[0].path === 'src/styles.css') {
@@ -169,6 +187,7 @@ assert.equal(result.siteMap.pages.length, 5);
 assert.equal(result.project.pages.length, 5);
 assert.equal(Object.keys(result.files).filter(path => path.startsWith('src/pages/')).length, 5);
 assert(result.files['src/pages/Home.html'].includes('<h1>Home</h1>'));
+assert.equal(malformedHomeEnvelopeServed, true, 'The fixture must exercise malformed JSON wrapped HTML recovery.');
 assert(result.files['src/pages/Menu.html'].includes('<h1>Menu</h1>'));
 assert(result.files['src/styles.css'].includes('box-sizing:border-box'));
 assert(result.files['src/main.js'].includes('aria-label'));
