@@ -49,5 +49,5 @@ assert.match(helperSource, /OVYX_AI_NEURON_BUDGET_EXHAUSTED/);
 assert.match(providerSource, /isCloudflareFreeOnlyMode\(env\)/);
 assert.match(providerSource, /OVYX_AI_ENGINE_MODE_NOT_CONFIGURED/);
 assert.match(middlewareSource, /ACTIVE_PAID_SUBSCRIPTION_REQUIRED/);
-assert.match(middlewareSource, /cloudflare-free-only/);
+assert.match(middlewareSource, /isCloudflareFreeOnlyMode/);
 console.log('OVYX Cloudflare free-only guard tests passed.');
