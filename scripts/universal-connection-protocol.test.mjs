@@ -13,6 +13,50 @@ assert.equal(supportsAIProtocol('anthropic-messages'), true);
 assert.equal(supportsAIProtocol('gemini-generate-content'), true);
 assert.equal(supportsAIProtocol('http-json'), false);
 const universalSource = readFileSync(new URL('../functions/_lib/universal-connections.js', import.meta.url), 'utf8');
+const connectionsRouteSource = readFileSync(new URL('../functions/api/settings/connections.js', import.meta.url), 'utf8');
+
+// Protect the original connection-management capabilities against accidental
+// deletion while purpose-scoped Brain/Web Studio routing evolves.
+for (const name of [
+  'encryptSecret',
+  'publicConnection',
+  'buildConnectionRecord',
+  'getConnection',
+  'getActiveBrainConnectionId',
+  'callUserUniversalConnection',
+  'testUserConnection',
+]) {
+  assert.match(
+    universalSource,
+    new RegExp('export\\s+(?:async\\s+)?function\\s+' + name + '\\b'),
+    'The existing Universal Connection runtime export must remain available: ' + name,
+  );
+}
+assert.match(universalSource, /let encryptedSecret = existing\?\.encryptedSecret \|\| null/,
+  'Editing connection metadata without supplying a new key must preserve the saved encrypted credential.');
+assert.match(universalSource, /delete copy\.encryptedSecret/);
+assert.match(universalSource, /delete copy\.secret/,
+  'Credentials must remain hidden from connection list and detail responses.');
+assert.match(universalSource, /name: 'AES-GCM'/,
+  'Saved credentials must remain authenticated-encrypted at rest.');
+for (const method of [
+  /request\.method === 'GET'/,
+  /request\.method === 'DELETE'/,
+  /request\.method !== 'POST' && request\.method !== 'PUT'/,
+]) {
+  assert.match(connectionsRouteSource, method,
+    'Listing, deleting, creating, and updating connections must remain available.');
+}
+assert.match(connectionsRouteSource, /buildConnectionRecord/,
+  'The existing create/update path must remain available.');
+assert.match(connectionsRouteSource, /deleteFirestoreDocumentAtPath/,
+  'The existing delete path must remain available.');
+assert.match(connectionsRouteSource, /action === 'test'/,
+  'The existing connection health-test action must remain available.');
+for (const action of ['use-ai', 'clear-ai', 'use-webstudio', 'clear-webstudio']) {
+  assert.ok(connectionsRouteSource.includes("action === '" + action + "'"),
+    'The account purpose-selection action must remain available: ' + action);
+}
 assert.match(universalSource, /requireAIProtocol = true/,
   'A generic HTTP, webhook, database or tool connection must not be treated as an AI Brain by default.');
 assert.match(universalSource, /if \(requireAIProtocol && !supportsAIProtocol\(record\.protocol\)\)/,
