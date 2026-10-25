@@ -24,6 +24,8 @@ let createCalls = 0;
 let ledgerReadFailuresRemaining = 1;
 let conflictWritesRemaining = 3;
 let conditionalWriteFailureStatus = null;
+let oauthFailuresRemaining = 1;
+let oauthCalls = 0;
 const originalFetch = globalThis.fetch;
 
 function firestoreInt(value) { return { integerValue: String(value) }; }
@@ -89,6 +91,11 @@ try {
     const url = new URL(String(input));
 
     if (url.origin === 'https://oauth2.googleapis.com' && url.pathname === '/token') {
+      oauthCalls += 1;
+      if (oauthFailuresRemaining > 0) {
+        oauthFailuresRemaining -= 1;
+        return okJson({ error: { error: 'temporarily_unavailable' } }, 503);
+      }
       return okJson({ access_token: 'test-only-fake-access-token', expires_in: 3600 });
     }
 
@@ -162,6 +169,8 @@ try {
   const ledger = documents.get(ledgerKey);
   assert.ok(ledger, 'the dedicated usage ledger should be created atomically');
   assert.equal(ledgerReadFailuresRemaining, 0, 'a transient ledger read failure should be retried safely');
+  assert.equal(oauthFailuresRemaining, 0, 'a transient Google OAuth token failure should be retried safely');
+  assert.ok(oauthCalls >= 2, 'the OAuth regression must prove a retry after the first HTTP 503');
   assert.equal(conflictWritesRemaining, 0, 'concurrent ledger update conflicts should be retried with bounded backoff');
   assert.equal(ledger.fields._ovyxWorkersAiDayUtc.stringValue, today);
   assert.equal(Number(ledger.fields._ovyxWorkersAiConsumedNeurons.integerValue) > 42, true,
