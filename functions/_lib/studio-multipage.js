@@ -219,7 +219,7 @@ function makeBatchPrompt(prompt, plan, siteMap, batch, stagedChanges, existingFi
   return [
     'OVYX WEB STUDIO MULTI-PAGE IMPLEMENTATION BATCH.',
     'Return strict JSON only, without Markdown fences.',
-    'Output shape: {"summary":"...","files":{"src/pages/Home.html":"complete HTML document","src/styles.css":"complete stylesheet","src/main.js":"complete JavaScript"}}.',
+    'Output shape: {"summary":"...","files":[{"path":"EXACT TARGET PATH FROM THE MANIFEST","language":"html|css|javascript","content":"complete file content"}]}.',
     'Every value in files must be complete final UTF-8 file content, not a diff, filename list or summary.',
     'Pages live at src/pages/<Page>.html while shared files live at src/styles.css and src/main.js. From each page, reference shared assets with correct relative paths such as ../styles.css and ../main.js; never assume shared files are beside page files.',
     'Batch ' + batch.index + ' of ' + batch.total + '; kind: ' + batch.kind + '; maximum distinct output files: ' + batch.maxChangedFiles + '.',
@@ -581,7 +581,11 @@ async function buildStudioMultiPageOnce(options) {
     try {
       result = await callModel(env, {
         provider, model, authUser, preferredProvider, providerRouting, fallback, taskPrompt: prompt,
-        system: [String(options.qualityContract || '').trim(), 'You are OVYX Web Studio, a senior frontend engineer and UX architect. Follow the batch instructions exactly. Return strict JSON with complete file contents.'].filter(Boolean).join('\n\n'),
+        system: [
+          String(options.qualityContract || '').trim(),
+          'You are OVYX Web Studio, a senior frontend engineer and UX architect. Follow the batch instructions exactly. Return strict JSON with complete file contents.',
+          'SINGLE-FILE BATCH CONTRACT OVERRIDES GENERAL MULTI-FILE EXAMPLES: return JSON with "files" as an array containing exactly one object for the exact path in REQUIRED TARGET FILES JSON. Do not return another page, CSS, JavaScript, or any other file unless it is that exact target. Never substitute Home.html for a CSS or JavaScript target.',
+        ].filter(Boolean).join('\n\n'),
         user: input,
         maxTokens: cap(env, 'OVYX_WEBSTUDIO_BATCH_TOKENS', 18000),
       });
