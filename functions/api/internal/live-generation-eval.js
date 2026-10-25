@@ -354,7 +354,7 @@ export function safeLiveGenerationFailureDetail(error) {
   if (code === 'AI_PROVIDER_NOT_CONFIGURED') return 'ai-provider-not-configured';
   if (code === 'AI_PROVIDER_UNSUPPORTED') return 'ai-provider-unsupported';
   if (code === 'AI_PROVIDER_UNAVAILABLE') return 'ai-provider-unavailable';
-  const ledgerHttpFailure = code.match(/^OVYX_AI_BUDGET_LEDGER_(READ|MIGRATION|INITIALIZE|STOP|RESERVATION|UNKNOWN)_HTTP_(5\\d\\d)$/);
+  const ledgerHttpFailure = code.match(/^OVYX_AI_BUDGET_LEDGER_(READ|MIGRATION|INITIALIZE|STOP|RESERVATION|UNKNOWN)_HTTP_(5[0-9][0-9])$/);
   if (ledgerHttpFailure) {
     return 'cloudflare-ai-budget-ledger-' + ledgerHttpFailure[1].toLowerCase() + '-http-' + ledgerHttpFailure[2];
   }
