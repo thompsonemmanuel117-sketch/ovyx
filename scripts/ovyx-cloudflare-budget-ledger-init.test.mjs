@@ -19,6 +19,13 @@ let modelCalls = 0;
 let createCalls = 0;
 const originalFetch = globalThis.fetch;
 
+env.AI = {
+  run: async () => {
+    modelCalls += 1;
+    return { response: 'OVYX_PROVIDER_READY', usage: { input_tokens: 1, output_tokens: 1 } };
+  },
+};
+
 function okJson(value, status = 200) {
   return new Response(JSON.stringify(value), {
     status,
@@ -82,7 +89,7 @@ try {
 
   assert.equal(result.model, '@cf/qwen/qwen3-30b-a3b-fp8');
   assert.equal(result.result.response, 'OVYX_PROVIDER_READY');
-  assert.equal(modelCalls, 0, 'modelCalls remains zero until the explicit AI binding below is supplied');
+  assert.equal(modelCalls, 1, 'a single successful guarded model inference should run after reservation');
   assert.ok(storedDocument, 'missing system/config document should be created atomically');
   assert.equal(storedDocument._ovyxWorkersAiDayUtc.stringValue, new Date().toISOString().slice(0, 10));
   assert.equal(storedDocument._ovyxWorkersAiReservedNeurons.integerValue, '0');
