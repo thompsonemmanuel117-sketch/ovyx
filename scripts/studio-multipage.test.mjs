@@ -116,6 +116,17 @@ const callModel = async (_env, options) => {
       files[target.path] = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="' + title + ' page"><title>' + title + ' | Test Restaurant</title>' + stylesRef + '</head><body><nav aria-label="Main navigation">' + links + '</nav><main><h1>' + title + '</h1><p>Purposeful content for the ' + slug + ' page.</p>' + primaryAction + '</main>' + scriptRef + '</body></html>';
     }
   }
+  // One target deliberately returns direct HTML rather than the JSON envelope.
+  // The single-file contract must safely recover that known target and still run
+  // the ordinary shared-asset and structural validators.
+  if (targets.length === 1 && targets[0].path === 'src/pages/Menu.html') {
+    return {
+      text: files[targets[0].path],
+      provider: 'gemini',
+      model: 'test-model',
+      rawUsage: { prompt_tokens: 19, completion_tokens: 31, total_tokens: 50 },
+    };
+  }
   return {
     text: JSON.stringify({ summary: 'Batch complete', files }),
     provider: 'gemini',
