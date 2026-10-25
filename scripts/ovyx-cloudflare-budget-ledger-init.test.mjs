@@ -24,6 +24,12 @@ const originalFetch = globalThis.fetch;
 env.AI = {
   run: async () => {
     modelCalls += 1;
+    if (responseShape === 'nested-chat-completion') {
+      return {
+        result: { choices: [{ message: { role: 'assistant', content: 'OVYX_NESTED_CHOICES_READY' } }] },
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+      };
+    }
     if (responseShape === 'chat-completion') {
       return {
         choices: [{ message: { role: 'assistant', content: 'OVYX_CHOICES_READY' } }],
@@ -115,7 +121,18 @@ try {
   });
   assert.equal(chatResult.text, 'OVYX_CHOICES_READY');
   assert.equal(chatResult.provider, 'cloudflare-workers-ai');
-  assert.equal(modelCalls, 2, 'both supported model response shapes should be consumed');
+  assert.equal(modelCalls, 2, 'top-level chat-completion output should be consumed');
+
+  responseShape = 'nested-chat-completion';
+  const nestedChatResult = await callModel(env, {
+    provider: 'automatic',
+    system: 'Reply with exactly OVYX_NESTED_CHOICES_READY.',
+    user: 'Reply with exactly OVYX_NESTED_CHOICES_READY.',
+    maxTokens: 8,
+  });
+  assert.equal(nestedChatResult.text, 'OVYX_NESTED_CHOICES_READY');
+  assert.equal(nestedChatResult.provider, 'cloudflare-workers-ai');
+  assert.equal(modelCalls, 3, 'nested chat-completion output should be consumed');
 
   await assert.rejects(
     () => createFirestoreDocumentIfAbsent(env, 'system', 'config', {
