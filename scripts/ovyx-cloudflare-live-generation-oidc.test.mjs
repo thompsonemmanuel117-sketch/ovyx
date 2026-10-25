@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
-import { chooseProvider, handleLiveGenerationRequest, safeLiveGenerationFailureDetail, safeLiveGenerationProviderAttempts, verifyGithubOidcToken } from '../functions/api/internal/live-generation-eval.js';
+import { chooseProvider, handleLiveGenerationRequest, safeLiveGenerationFailureDetail, safeLiveGenerationProviderAttempts, safeLiveGenerationOutputDiagnostics, verifyGithubOidcToken } from '../functions/api/internal/live-generation-eval.js';
 import { isTrustedGithubOidcRequestUrl } from './ovyx-github-oidc-url.mjs';
 
 // Cover the exact GitHub-hosted runner hostname reported by the production
@@ -39,6 +39,45 @@ assert.equal(safeLiveGenerationFailureDetail(Object.assign(new Error('timeout de
   name: 'TimeoutError',
 })), 'upstream-timeout');
 assert.equal(safeLiveGenerationFailureDetail(new Error('private message / key=DO_NOT_LEAK')), 'generation-error');
+
+const safeOutputDiagnostics = safeLiveGenerationOutputDiagnostics({
+  outputDiagnostics: {
+    responseCharacters: 4096,
+    parsedJson: true,
+    rootKeys: ['files', 'DO_NOT_LEAK_PRIVATE_KEY', 'html'],
+    fileContainerKind: 'object',
+    fileContainerEntries: 1,
+    extractedFileCount: 0,
+    startsWithJsonObject: true,
+    endsWithJsonObject: false,
+    containsMarkdownFence: false,
+    containsHtmlDocument: false,
+    endsWithHtmlDocument: false,
+    batchIndex: 2,
+    batchTotal: 7,
+    targetFileExtension: 'html',
+    rawResponseText: 'DO_NOT_LEAK_GENERATED_CONTENT',
+  },
+});
+assert.deepEqual(safeOutputDiagnostics, {
+  responseCharacters: 4096,
+  parsedJson: true,
+  rootKeys: ['files', 'other', 'html'],
+  fileContainerKind: 'object',
+  fileContainerEntries: 1,
+  extractedFileCount: 0,
+  startsWithJsonObject: true,
+  endsWithJsonObject: false,
+  containsMarkdownFence: false,
+  containsHtmlDocument: false,
+  endsWithHtmlDocument: false,
+  batchIndex: 2,
+  batchTotal: 7,
+  targetFileExtension: 'html',
+});
+assert.equal(JSON.stringify(safeOutputDiagnostics).includes('DO_NOT_LEAK'), false,
+  'Output-shape diagnostics must never expose raw model output or unknown response keys.');
+assert.equal(safeLiveGenerationOutputDiagnostics(new Error('nothing attached')), null);
 for (const [code, expected] of [
   ['OVYX_AI_ENGINE_MODE_NOT_CONFIGURED', 'cloudflare-engine-mode-not-configured'],
   ['OVYX_NATIVE_AI_NOT_CONFIGURED', 'cloudflare-ai-binding-not-configured'],
