@@ -74,12 +74,13 @@
         <h2 id="model-heading">1. Prepare this device</h2>
         <label for="model-choice">Model to test</label>
         <select id="model-choice">
-          <option value="qwen35-4b">Qwen3.5 4B · 2.39 GB download · higher resource</option>
-          <option value="qwen35-2b">Qwen3.5 2B q4f32_1 · 1.08 GB · medium resource</option>
+          <option value="smollm2-135m-cpu" selected>SmolLM2 135M Data Saver · about 136 MB weights · CPU/WASM · weakest model</option>
+          <option value="qwen25-05b-cpu">Qwen2.5 0.5B · about 512 MB weights · CPU/WASM · stronger candidate</option>
           <option value="qwen35-08b">Qwen3.5 0.8B q4f16_1 · 447 MB · lowest-resource WebGPU model</option>
-          <option value="qwen25-05b-cpu">Qwen2.5 0.5B · about 512 MB weights · CPU/WASM experiment</option>
+          <option value="qwen35-2b">Qwen3.5 2B q4f32_1 · 1.08 GB · medium resource</option>
+          <option value="qwen35-4b">Qwen3.5 4B · 2.39 GB download · higher resource</option>
         </select>
-        <p class="small">CPU/WASM is a separate, smaller experimental model for devices that cannot run the WebGPU model. OVYX never switches models or sends prompts to a cloud provider automatically if a model fails.</p>
+        <p class="small">Data-saver option is selected by default and uses about 136 MB of q8 weights, plus runtime/tokenizer files. It is much less intelligent than larger models and is for low-data experiments, not yet approved for full website generation. Choose a larger model only if you have enough data. OVYX never switches models or sends prompts to a cloud provider automatically if a model fails.</p>
         <div class="details" id="model-details">
           <strong>Qwen3.5 4B · Apache-2.0</strong><br>
           Approximate model files: 2.39 GB<br>
