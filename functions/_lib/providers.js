@@ -2,6 +2,7 @@ import { isCloudflareFreeAllowanceExhausted, isCloudflareFreeOnlyMode, isLegacyP
 import {
   callUserUniversalConnection,
   getActiveBrainConnectionId,
+  getActiveWebStudioConnectionId,
 } from './universal-connections.js';
 import { getFirestoreData } from './firebase-admin.js';
 
@@ -1330,12 +1331,12 @@ export async function callModel(
       }
       let connectionId = null;
       try {
-        connectionId = await withTimeout(getActiveBrainConnectionId(env, options.authUser), UNIVERSAL_LOOKUP_TIMEOUT_MS, 'Universal Connection lookup');
+        connectionId = await withTimeout(getActiveWebStudioConnectionId(env, options.authUser), UNIVERSAL_LOOKUP_TIMEOUT_MS, 'Web Studio connection lookup');
       } catch {
-        throw Object.assign(new Error('OVYX could not verify your selected Universal Connection. Open Settings & connections and retry.'), { status: 503, code: 'OVYX_WEBSTUDIO_UNIVERSAL_CONNECTION_NOT_READY' });
+        throw Object.assign(new Error('OVYX could not verify the connection assigned to Web Studio. Open Settings & connections and retry.'), { status: 503, code: 'OVYX_WEBSTUDIO_UNIVERSAL_CONNECTION_NOT_READY' });
       }
       if (!connectionId) {
-        throw Object.assign(new Error('No active Universal Connection AI Brain is selected. Open Settings & connections, add your own provider key, test it, and select “Use for AI requests”.'), { status: 409, code: 'OVYX_WEBSTUDIO_UNIVERSAL_CONNECTION_NOT_READY' });
+        throw Object.assign(new Error('No active Universal Connection is assigned to Web Studio. Open Settings & connections, add and test your own AI connection, then select “Use for Web Studio”. This is separate from your AI Brain selection.'), { status: 409, code: 'OVYX_WEBSTUDIO_UNIVERSAL_CONNECTION_NOT_READY' });
       }
       await reserveCloudflareFreeUserMinute(env, options.authUser);
       const result = await withTimeout(
