@@ -104,6 +104,7 @@ export async function onRequestPost(context) {
         // stays behind its existing entitlement gate and platform routing.
         webStudioRequest: isWebStudio,
         appStudioRequest: isAppStudio,
+        useSelectedUniversalBrain: !isWebStudio && !isAppStudio,
         ...(useUniversalConnectionAfterCloudflareLimit ? {
           useUniversalConnectionAfterCloudflareLimit: true,
           forcePersonalConnectionForPlanQuota: usingPersonalConnectionForPlanQuota,
