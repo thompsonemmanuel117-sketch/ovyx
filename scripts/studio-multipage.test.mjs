@@ -221,8 +221,17 @@ for (const call of targetBatchCalls) {
   assert.deepEqual(allowedPaths, targets.map(item => item.path), 'The model must only return the files explicitly assigned to this batch.');
   assert.ok(call.system.includes('SINGLE-FILE BATCH CONTRACT OVERRIDES GENERAL MULTI-FILE EXAMPLES'),
     'The high-priority system contract must explicitly constrain this call to one target file.');
-  assert.ok(call.user.includes('"files":[{"path":"EXACT TARGET PATH FROM THE MANIFEST"'),
-    'The batch prompt schema must agree with the general Web Studio files-array contract.');
+  if (/\\.css$/i.test(String(targets[0].path || ''))) {
+    assert.ok(call.user.includes('CSS-ONLY RESPONSE OVERRIDE') && call.user.includes('raw CSS source only'),
+      'The CSS batch must request raw stylesheet output to avoid truncation and malformed JSON quoting.');
+    assert.ok(call.system.includes('CSS-ONLY RESPONSE OVERRIDE'),
+      'The high-priority system contract must enforce raw CSS for the CSS target.');
+  } else {
+    assert.ok(call.user.includes('"files":[{"path":"EXACT TARGET PATH FROM THE MANIFEST"'),
+      'Non-CSS batch prompts must retain the strict JSON files-array contract.');
+    assert.ok(call.system.includes('SINGLE-FILE JSON CONTRACT'),
+      'The high-priority system contract must constrain non-CSS batches to one JSON target.');
+  }
 }
 assert.equal(result.qualityPolish.status, 'applied', 'Polish should be applied; last validation point was ' + polishAssertionStage + '; result=' + JSON.stringify(result.qualityPolish));
 assert.equal(result.qualityPolish.filesUpdated, 2);
