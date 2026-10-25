@@ -183,6 +183,8 @@ assert(result.summary.includes('5 distinct website pages'));
 assert(calls.every(call => call.system.includes('OVYX_TEST_WEBSITE_QUALITY_CONTRACT')), 'Every sitemap-planning and page-generation call must receive the Web Studio quality contract.');
 assert(calls[0].system.includes('realistic route-by-route sitemap'), 'The planning-specific instructions must remain present alongside the quality contract.');
 assert(calls.slice(1).every(call => call.system.includes('senior frontend engineer')), 'The page-generation role instructions must remain present alongside the quality contract.');
+assert(calls.every(call => call.jsonMode === true),
+  'Sitemap, one-file generation batches, and bounded polish must request provider-enforced JSON output.');
 assert(result.quotaInputText.includes('FULL WEBSITE ROUTE MANIFEST'));
 assert(result.quotaOutputText.length > 0);
 
