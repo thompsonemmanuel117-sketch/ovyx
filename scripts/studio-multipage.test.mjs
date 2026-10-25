@@ -264,10 +264,30 @@ const makeBookingOmissionModel = repairHandler => async (_env, options) => {
   if (user.includes('BOUNDED REQUIREMENT REPAIR PHASE')) return repairHandler(options);
   const result = await callModel(_env, options);
   if (user.includes('REQUIRED TARGET FILES JSON:') && !user.includes('BOUNDED WEBSITE POLISH PHASE')) {
-    const payload = JSON.parse(result.text);
-    for (const path of Object.keys(payload.files || {})) {
-      if (/Reservations\.html$/i.test(path)) {
-        payload.files[path] = String(payload.files[path]).replace('<button type="button">Reserve a table</button>', '');
+    let payload;
+    try {
+      payload = JSON.parse(String(result.text || ''));
+    } catch {
+      // The Menu.html fixture intentionally returns raw fenced HTML. Preserve
+      // it unchanged so this test wrapper doesn't fail before the production
+      // output-recovery path can validate and accept it.
+      return result;
+    }
+    if (!payload || !payload.files) return result;
+    if (Array.isArray(payload.files)) {
+      payload.files = payload.files.map(item => {
+        const path = String(item?.path || item?.filePath || item?.file || '');
+        if (!/Reservations\.html$/i.test(path)) return item;
+        const contentKey = ['content', 'contents', 'text', 'source', 'code'].find(key => typeof item?.[key] === 'string');
+        return contentKey
+          ? { ...item, [contentKey]: item[contentKey].replace('<button type="button">Reserve a table</button>', '') }
+          : item;
+      });
+    } else if (typeof payload.files === 'object') {
+      for (const path of Object.keys(payload.files)) {
+        if (/Reservations\.html$/i.test(path)) {
+          payload.files[path] = String(payload.files[path]).replace('<button type="button">Reserve a table</button>', '');
+        }
       }
     }
     return { ...result, text: JSON.stringify(payload) };
@@ -349,9 +369,23 @@ const retryingCallModel = async (_env, options) => {
     const match = user.match(/REQUIRED TARGET FILES JSON:\n([\s\S]*?)\n\nREQUIRED TARGET PATHS JSON:/);
     assert(match, 'Retry fixture must receive the required-file manifest.');
     const targets = JSON.parse(match[1]);
-    const payload = JSON.parse(answer.text);
-    const omitted = targets.find(target => target.path === 'src/styles.css') || targets[0];
-    delete payload.files[omitted.path];
+    let payload;
+    try {
+      payload = JSON.parse(String(answer.text || ''));
+    } catch {
+      // Let intentionally raw single-file HTML flow through untouched. The
+      // next JSON batch can be manipulated to exercise the bounded retry.
+      return answer;
+    }
+    if (!payload || !payload.files) return answer;
+    const targetPath = String(targets[0]?.path || '');
+    if (Array.isArray(payload.files)) {
+      payload.files = payload.files.filter(item =>
+        String(item?.path || item?.filePath || item?.file || '') !== targetPath
+      );
+    } else if (typeof payload.files === 'object') {
+      delete payload.files[targetPath];
+    }
     dropFirstRequiredFile = false;
     return { ...answer, text: JSON.stringify(payload) };
   }
