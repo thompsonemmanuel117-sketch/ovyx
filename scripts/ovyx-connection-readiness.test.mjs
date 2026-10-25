@@ -44,4 +44,23 @@ assert.ok(connectionLib.includes("method: 'GET'") && connectionLib.includes("'OV
 assert.ok(connectionLib.includes('delete copy.encryptedSecret') && connectionLib.includes('delete copy.secret'),
   'Public connection records must never return saved credentials.');
 
-console.log('Universal Connection readiness tests passed: auto-check AI connections, gate AI Brain selection, persist status, and preserve secrets.');
+// Brain and Web Studio continuation must be assigned independently. A key
+// assigned for one purpose is never silently reused for the other.
+assert.ok(ui.includes("data-v91-use-webstudio"), 'The settings UI must expose an explicit Web Studio assignment action.');
+assert.ok(ui.includes("activeWebStudioConnectionId"), 'The UI must distinguish the selected Brain from the Web Studio connection.');
+assert.ok(ui.includes("JSON.stringify({action:'test',id:btn.dataset.v91UseWebstudio})"),
+  'Web Studio assignment must test the chosen connection first.');
+assert.ok(ui.includes("JSON.stringify({action:'use-webstudio',id:btn.dataset.v91UseWebstudio})"),
+  'Web Studio assignment must be explicit and account-scoped.');
+assert.ok(ui.includes("JSON.stringify({action:'clear-webstudio'})"),
+  'Users must be able to clear the separate Web Studio assignment.');
+assert.ok(api.includes("action === 'use-webstudio'") && api.includes("action === 'clear-webstudio'"),
+  'The server must support separately assigning and clearing the Web Studio connection.');
+assert.ok(api.includes("activeWebStudioConnectionId: state.activeWebStudioConnectionId"),
+  'The authenticated connection list must return the Web Studio assignment separately.');
+assert.ok(connectionLib.includes("export async function getActiveWebStudioConnectionId"),
+  'Runtime routing needs an account-scoped getter for the separate Web Studio assignment.');
+assert.ok(connectionLib.includes('canUseForWebStudio: copy.active === true && supportsAI'),
+  'Only active supported AI protocols can be assigned to Web Studio.');
+
+console.log('Universal Connection readiness tests passed: AI Brain and Web Studio selections are separate, checked and secret-safe.');

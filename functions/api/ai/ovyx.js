@@ -31,14 +31,6 @@ export async function onRequestPost(context) {
       return errorResponse('Please enter a message for OVYX AI.', 400, 'PROMPT_REQUIRED');
     }
 
-    if (!context.env?.AI || typeof context.env.AI.run !== 'function') {
-      return errorResponse(
-        "OVYX AI isn't available right now. Please try again later or choose another available AI option.",
-        503,
-        'OVYX_NATIVE_AI_NOT_CONFIGURED'
-      );
-    }
-
     const requestPrompt = String(payload.prompt || payload.message || messages[messages.length - 1]?.content || '').trim();
     const conversationId = resolveConversationId(payload.conversationId);
     const id = requestId(context.request);
@@ -97,10 +89,10 @@ export async function onRequestPost(context) {
         messages,
         result: {
           ...result,
-          requestedProvider: 'ovyx-native',
+          requestedProvider: result.provider || 'ovyx-native',
         },
         requestId: id,
-        requestedProvider: 'ovyx-native',
+        requestedProvider: result.provider || 'ovyx-native',
       });
       historySaved = true;
     } catch (historyError) {
@@ -113,13 +105,15 @@ export async function onRequestPost(context) {
       message: result.text,
       answer: result.text,
       actions: result.actions,
-      provider: 'ovyx-native',
+      provider: result.provider || 'ovyx-native',
+      routedProvider: result.routedProvider || 'cloudflare-workers-ai',
+      personalConnectionUsed: result.personalConnectionUsed === true,
       model: result.model,
       usage: result.rawUsage,
       quota,
       conversationId,
       native: true,
-      externalApiKeysRequired: false,
+      externalApiKeysRequired: result.personalConnectionUsed === true,
       history: { saved: historySaved },
     });
   } catch (error) {

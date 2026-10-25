@@ -116,6 +116,29 @@ const callModel = async (_env, options) => {
       files[target.path] = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="' + title + ' page"><title>' + title + ' | Test Restaurant</title>' + stylesRef + '</head><body><nav aria-label="Main navigation">' + links + '</nav><main><h1>' + title + '</h1><p>Purposeful content for the ' + slug + ' page.</p>' + primaryAction + '</main>' + scriptRef + '</body></html>';
     }
   }
+  // The model may use alternate path/content property names; file extraction
+  // must recognize these, then the target allowlist still validates the path.
+  if (targets.length === 1 && targets[0].path === 'src/styles.css') {
+    return {
+      text: JSON.stringify({
+        files: [{ filePath: targets[0].path, contents: files[targets[0].path] }],
+      }),
+      provider: 'gemini',
+      model: 'test-model',
+      rawUsage: { prompt_tokens: 19, completion_tokens: 31, total_tokens: 50 },
+    };
+  }
+  // One single-file batch deliberately returns complete raw HTML rather than
+  // the JSON files envelope. The server may recover this only for the exact
+  // planned target, then still runs all normal validators and route checks.
+  if (targets.length === 1 && targets[0].path === 'src/pages/Menu.html') {
+    return {
+      text: '```html\n' + files[targets[0].path] + '\n```',
+      provider: 'gemini',
+      model: 'test-model',
+      rawUsage: { prompt_tokens: 19, completion_tokens: 31, total_tokens: 50 },
+    };
+  }
   return {
     text: JSON.stringify({ summary: 'Batch complete', files }),
     provider: 'gemini',
@@ -198,7 +221,18 @@ const extraOutputModel = async (env, options) => {
   if (String(options.user).includes('REQUIRED TARGET FILES JSON:') &&
       !String(options.user).includes('BOUNDED WEBSITE POLISH PHASE') &&
       !String(options.user).includes('BOUNDED REQUIREMENT REPAIR PHASE')) {
-    const parsed = JSON.parse(response.text);
+    let parsed;
+    try {
+      parsed = JSON.parse(String(response.text || ''));
+    } catch {
+      // Keep raw single-file HTML/CSS/JS fixture responses intact so the
+      // output-recovery path itself is exercised instead of the test wrapper
+      // failing while trying to augment a non-JSON response.
+      return response;
+    }
+    if (!parsed || !parsed.files || typeof parsed.files !== 'object' || Array.isArray(parsed.files)) {
+      return response;
+    }
     parsed.files['src/pages/Unrequested-Model-Output.html'] =
       '<!doctype html><html><head><title>Unrequested</title></head><body>Must not be saved</body></html>';
     return { ...response, text: JSON.stringify(parsed) };
@@ -230,10 +264,30 @@ const makeBookingOmissionModel = repairHandler => async (_env, options) => {
   if (user.includes('BOUNDED REQUIREMENT REPAIR PHASE')) return repairHandler(options);
   const result = await callModel(_env, options);
   if (user.includes('REQUIRED TARGET FILES JSON:') && !user.includes('BOUNDED WEBSITE POLISH PHASE')) {
-    const payload = JSON.parse(result.text);
-    for (const path of Object.keys(payload.files || {})) {
-      if (/Reservations\.html$/i.test(path)) {
-        payload.files[path] = String(payload.files[path]).replace('<button type="button">Reserve a table</button>', '');
+    let payload;
+    try {
+      payload = JSON.parse(String(result.text || ''));
+    } catch {
+      // The Menu.html fixture intentionally returns raw fenced HTML. Preserve
+      // it unchanged so this test wrapper doesn't fail before the production
+      // output-recovery path can validate and accept it.
+      return result;
+    }
+    if (!payload || !payload.files) return result;
+    if (Array.isArray(payload.files)) {
+      payload.files = payload.files.map(item => {
+        const path = String(item?.path || item?.filePath || item?.file || '');
+        if (!/Reservations\.html$/i.test(path)) return item;
+        const contentKey = ['content', 'contents', 'text', 'source', 'code'].find(key => typeof item?.[key] === 'string');
+        return contentKey
+          ? { ...item, [contentKey]: item[contentKey].replace('<button type="button">Reserve a table</button>', '') }
+          : item;
+      });
+    } else if (typeof payload.files === 'object') {
+      for (const path of Object.keys(payload.files)) {
+        if (/Reservations\.html$/i.test(path)) {
+          payload.files[path] = String(payload.files[path]).replace('<button type="button">Reserve a table</button>', '');
+        }
       }
     }
     return { ...result, text: JSON.stringify(payload) };
@@ -315,9 +369,23 @@ const retryingCallModel = async (_env, options) => {
     const match = user.match(/REQUIRED TARGET FILES JSON:\n([\s\S]*?)\n\nREQUIRED TARGET PATHS JSON:/);
     assert(match, 'Retry fixture must receive the required-file manifest.');
     const targets = JSON.parse(match[1]);
-    const payload = JSON.parse(answer.text);
-    const omitted = targets.find(target => target.path === 'src/styles.css') || targets[0];
-    delete payload.files[omitted.path];
+    let payload;
+    try {
+      payload = JSON.parse(String(answer.text || ''));
+    } catch {
+      // Let intentionally raw single-file HTML flow through untouched. The
+      // next JSON batch can be manipulated to exercise the bounded retry.
+      return answer;
+    }
+    if (!payload || !payload.files) return answer;
+    const targetPath = String(targets[0]?.path || '');
+    if (Array.isArray(payload.files)) {
+      payload.files = payload.files.filter(item =>
+        String(item?.path || item?.filePath || item?.file || '') !== targetPath
+      );
+    } else if (typeof payload.files === 'object') {
+      delete payload.files[targetPath];
+    }
     dropFirstRequiredFile = false;
     return { ...answer, text: JSON.stringify(payload) };
   }

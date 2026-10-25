@@ -385,6 +385,46 @@ export function safeLiveGenerationFailureDetail(error) {
   return 'generation-error';
 }
 
+const SAFE_OUTPUT_ROOT_KEYS = new Set([
+  'summary', 'files', 'fileEdits', 'patch', 'html', 'code',
+  'siteMap', 'text', 'response', 'output', 'output_text', 'content', 'message',
+]);
+const SAFE_OUTPUT_EXTENSIONS = new Set(['html', 'htm', 'css', 'js', 'mjs', 'other']);
+const SAFE_OUTPUT_CONTAINER_KINDS = new Set(['absent', 'object', 'array', 'other']);
+
+export function safeLiveGenerationOutputDiagnostics(error) {
+  const input = error?.outputDiagnostics;
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
+  const integer = (value, maximum) => {
+    const number = Number(value);
+    return Number.isSafeInteger(number) ? Math.max(0, Math.min(maximum, number)) : 0;
+  };
+  const keys = Array.isArray(input.rootKeys)
+    ? [...new Set(input.rootKeys.slice(0, 12).map(value => {
+        const key = String(value || '');
+        return SAFE_OUTPUT_ROOT_KEYS.has(key) || key === 'other' ? key : 'other';
+      }))]
+    : [];
+  const containerKind = String(input.fileContainerKind || 'absent');
+  const extension = String(input.targetFileExtension || 'other').toLowerCase();
+  return {
+    responseCharacters: integer(input.responseCharacters, 200_000),
+    parsedJson: input.parsedJson === true,
+    rootKeys: keys,
+    fileContainerKind: SAFE_OUTPUT_CONTAINER_KINDS.has(containerKind) ? containerKind : 'other',
+    fileContainerEntries: integer(input.fileContainerEntries, 100),
+    extractedFileCount: integer(input.extractedFileCount, 100),
+    startsWithJsonObject: input.startsWithJsonObject === true,
+    endsWithJsonObject: input.endsWithJsonObject === true,
+    containsMarkdownFence: input.containsMarkdownFence === true,
+    containsHtmlDocument: input.containsHtmlDocument === true,
+    endsWithHtmlDocument: input.endsWithHtmlDocument === true,
+    batchIndex: integer(input.batchIndex, 100),
+    batchTotal: integer(input.batchTotal, 100),
+    targetFileExtension: SAFE_OUTPUT_EXTENSIONS.has(extension) ? extension : 'other',
+  };
+}
+
 export async function handleLiveGenerationRequest(request, env, options = {}) {
   if (request.method !== 'POST') {
     return Response.json({ ok: false, error: 'METHOD_NOT_ALLOWED' }, { status: 405, headers: { Allow: 'POST', 'Cache-Control': 'no-store' } });
@@ -521,12 +561,14 @@ export async function handleLiveGenerationRequest(request, env, options = {}) {
       qualityContract: WEB_STUDIO_EXCELLENCE + '\n\n' + qaContract,
     });
   } catch (error) {
+    const outputDiagnostics = safeLiveGenerationOutputDiagnostics(error);
     return Response.json({
       ok: false,
       error: 'LIVE_SITE_GENERATION_FAILED',
       caseId: caseItem.id,
       detail: safeLiveGenerationFailureDetail(error),
       providerAttempts: safeLiveGenerationProviderAttempts(error),
+      ...(outputDiagnostics ? { outputDiagnostics } : {}),
     }, { status: 502, headers: { 'Cache-Control': 'no-store' } });
   }
   if (!generated || generated.ok !== true) {

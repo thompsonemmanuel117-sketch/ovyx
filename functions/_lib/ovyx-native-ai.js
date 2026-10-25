@@ -1,4 +1,5 @@
 import { isCloudflareFreeOnlyMode, runCloudflareFreeInference, OVYX_CLOUDFLARE_FREE_MODEL } from './cloudflare-free-ai.js';
+import { callSelectedUniversalBrain } from './providers.js';
 /**
  * OVYX-native workspace intelligence, powered by the Cloudflare Workers AI
  * binding. No Gemini/OpenAI/Anthropic/DeepSeek API key is used on this path.
@@ -123,13 +124,15 @@ function nativeActions(value) {
 
 export function parseOvyxNativeModelOutput(output) {
   const raw = clean(
-    output?.response ??
-    output?.result?.response ??
-    output?.text ??
-    output?.output_text ??
-    output?.result?.text ??
-    output?.choices?.[0]?.message?.content ??
-    '',
+    typeof output === 'string'
+      ? output
+      : output?.response ??
+        output?.result?.response ??
+        output?.text ??
+        output?.output_text ??
+        output?.result?.text ??
+        output?.choices?.[0]?.message?.content ??
+        '',
     30000
   );
   const candidate = raw.replace(/^\`\`\`(?:json)?\s*/i, '').replace(/\s*\`\`\`$/, '').trim();
@@ -156,14 +159,8 @@ export async function generateOvyxNativeAI(env, {
   context = null,
   model = '',
   authUser = null,
+  universalBrainDependencies = null,
 } = {}) {
-  if (!env?.AI || typeof env.AI.run !== 'function') {
-    throw Object.assign(
-      new Error('OVYX AI is not connected to its native engine yet. Add a Cloudflare Workers AI binding named AI to the OVYX Pages project and redeploy. No third-party API key is needed.'),
-      { status: 503, code: 'OVYX_NATIVE_AI_NOT_CONFIGURED' }
-    );
-  }
-
   const normalizedMessages = normalizeOvyxNativeMessages(messages, prompt);
   if (!normalizedMessages.length) {
     throw Object.assign(new Error('Please enter a message for OVYX AI.'), {
@@ -206,14 +203,44 @@ export async function generateOvyxNativeAI(env, {
   ].filter(Boolean).join('\n\n').slice(0, 74000);
 
   let output;
+  let rawUsage = null;
+  let selectedBrainResult = null;
   try {
-    if (freeOnly) {
+    // This endpoint powers ordinary OVYX assistant conversations. If the
+    // authenticated account explicitly selected an AI Brain, use that owned
+    // connection exclusively; a failed/invalid selection must not fall back
+    // silently to Cloudflare. Web Studio uses its separate assignment through
+    // the explicit post-limit continuation route, and App Studio remains on
+    // its own entitlement-gated API route.
+    if (authUser) {
+      selectedBrainResult = await callSelectedUniversalBrain(env, {
+        provider: 'automatic',
+        authUser,
+        system: systemText,
+        user: normalizedMessages.map(message => message.role.toUpperCase() + ': ' + message.content).join('\n\n'),
+        model,
+        maxTokens: 2800,
+      }, universalBrainDependencies || undefined);
+    }
+
+    if (selectedBrainResult) {
+      output = selectedBrainResult.text;
+      rawUsage = selectedBrainResult.rawUsage || null;
+    } else if (!env?.AI || typeof env.AI.run !== 'function') {
+      throw Object.assign(
+        new Error('OVYX AI is not connected to its native engine yet. Add a Cloudflare Workers AI binding named AI to the OVYX Pages project and redeploy, or select an active AI Brain in Universal Connections.'),
+        { status: 503, code: 'OVYX_NATIVE_AI_NOT_CONFIGURED' }
+      );
+    } else if (freeOnly) {
       const guarded = await runCloudflareFreeInference(env, {
         authUser,
         messages: [{ role: 'system', content: systemText }, ...normalizedMessages],
         maxTokens: 2800,
       });
-      output = guarded.result;
+      // The shared guard has already extracted and validated the model text;
+      // do not reinterpret the vendor-specific raw response a second time.
+      output = guarded.text;
+      rawUsage = guarded.result?.usage || guarded.result?.result?.usage || null;
     } else {
       output = await env.AI.run(selectedModel, {
         messages: [
@@ -223,9 +250,14 @@ export async function generateOvyxNativeAI(env, {
         temperature: 0.2,
         max_tokens: 2800,
       });
+      rawUsage = output?.usage || output?.result?.usage || null;
     }
   } catch (cause) {
-    if (freeOnly && String(cause?.code || '').startsWith('OVYX_AI_')) throw cause;
+    const code = String(cause?.code || '');
+    if (code.startsWith('OVYX_AI_') ||
+        code.startsWith('OVYX_NATIVE_AI_') ||
+        code.startsWith('UNIVERSAL_CONNECTION_') ||
+        code.startsWith('CONNECTION_')) throw cause;
     throw Object.assign(
       new Error('OVYX native AI could not complete this message. Please try again.'),
       { status: 502, code: 'OVYX_NATIVE_AI_REQUEST_FAILED', cause }
@@ -240,8 +272,10 @@ export async function generateOvyxNativeAI(env, {
   }
   return {
     ...parsed,
-    provider: 'ovyx-native',
-    model: selectedModel,
-    rawUsage: output?.usage || output?.result?.usage || null,
+    provider: selectedBrainResult ? 'universal-connection' : 'ovyx-native',
+    routedProvider: selectedBrainResult ? 'universal-connection' : 'cloudflare-workers-ai',
+    personalConnectionUsed: Boolean(selectedBrainResult),
+    model: selectedBrainResult?.model || selectedModel,
+    rawUsage,
   };
 }

@@ -17,6 +17,10 @@ assert.match(universalSource, /requireAIProtocol = true/,
   'A generic HTTP, webhook, database or tool connection must not be treated as an AI Brain by default.');
 assert.match(universalSource, /if \(requireAIProtocol && !supportsAIProtocol\(record\.protocol\)\)/,
   'Universal Connection invocation must validate the selected protocol before sending AI prompts.');
+assert.match(universalSource, /export async function getActiveWebStudioConnectionId/,
+  'Web Studio continuation must have its own account-scoped connection selection.');
+assert.match(universalSource, /canUseForWebStudio: copy\.active === true && supportsAI/,
+  'Only active AI-protocol connections may be assigned to Web Studio.');
 assert.equal(universalConnectionEndpoint({ protocol: 'openai-chat', endpoint: 'https://api.deepseek.com' }), 'https://api.deepseek.com/chat/completions');
 assert.equal(universalConnectionEndpoint({ protocol: 'anthropic-messages', endpoint: 'https://api.anthropic.com' }), 'https://api.anthropic.com/v1/messages');
 assert.equal(universalConnectionEndpoint({ protocol: 'anthropic-messages', endpoint: 'https://api.anthropic.com/v1' }), 'https://api.anthropic.com/v1/messages');

@@ -96,6 +96,8 @@ assert.match(assistantSource, /appStudioRequest: isAppStudio/);
 assert.match(assistantSource, /useSelectedUniversalBrain: !isWebStudio && !isAppStudio/);
 assert.match(assistantSource, /useUniversalConnectionAfterCloudflareLimit: true/);
 assert.match(docs, /Ordinary OVYX AI Assistant chats/);
-assert.match(docs, /explicitly chooses to continue with their own Universal Connection/);
+assert.match(docs, /activeWebStudioConnectionId/);
+assert.match(docs, /user explicitly confirms continuing with their own connection/);
+assert.match(docs, /Assigning a Brain alone does not authorize Web Studio to use it/);
 
 console.log('Selected Universal AI Brain routing tests passed: owner-scoped, exclusive on failure, Web Studio fallback consent preserved, App Studio gate unchanged.');

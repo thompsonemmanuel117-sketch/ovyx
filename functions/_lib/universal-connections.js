@@ -214,10 +214,10 @@ export function publicConnection(record, id) {
   copy.healthUrl = redactSensitiveEndpoint(copy.healthUrl);
   copy.hasSecret = !!record?.encryptedSecret;
   copy.requiresSecret = copy.authMode !== 'none';
+  const supportsAI = AI_PROTOCOLS.has(clean(copy.protocol, 40).toLowerCase());
   copy.capabilities = {
-    canUseAsBrain:
-      copy.active === true &&
-      AI_PROTOCOLS.has(clean(copy.protocol, 40).toLowerCase())
+    canUseAsBrain: copy.active === true && supportsAI,
+    canUseForWebStudio: copy.active === true && supportsAI,
   };
   return copy;
 }
@@ -588,6 +588,15 @@ export async function getActiveBrainConnectionId(env, user) {
   if (!uid) return null;
   const profile = await getFirestoreDataAtPath(env, ['users', uid]);
   const id = clean(profile?.activeBrainConnectionId, 100);
+  if (!id || !/^[A-Za-z0-9_-]{1,100}$/.test(id)) return null;
+  return id;
+}
+
+export async function getActiveWebStudioConnectionId(env, user) {
+  const { uid } = ownerOf(user);
+  if (!uid) return null;
+  const profile = await getFirestoreDataAtPath(env, ['users', uid]);
+  const id = clean(profile?.activeWebStudioConnectionId, 100);
   if (!id || !/^[A-Za-z0-9_-]{1,100}$/.test(id)) return null;
   return id;
 }

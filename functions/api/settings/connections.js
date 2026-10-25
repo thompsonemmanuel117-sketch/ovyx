@@ -87,7 +87,8 @@ async function loadContext(env, uid, email) {
     limit,
     connections,
     active,
-    activeBrainConnectionId: clean(profile?.activeBrainConnectionId, 100) || null
+    activeBrainConnectionId: clean(profile?.activeBrainConnectionId, 100) || null,
+    activeWebStudioConnectionId: clean(profile?.activeWebStudioConnectionId, 100) || null
   };
 }
 
@@ -229,6 +230,7 @@ async function onRequest(context) {
         activeCount: state.active.length,
         totalCount: state.connections.length,
         activeBrainConnectionId: state.activeBrainConnectionId,
+        activeWebStudioConnectionId: state.activeWebStudioConnectionId,
         connections: state.connections.map(item => publicConnection(item, item.id))
       });
     }
@@ -283,11 +285,14 @@ async function onRequest(context) {
         throw error;
       }
 
-      if (state.activeBrainConnectionId === id) {
+      const clearSelections = {};
+      if (state.activeBrainConnectionId === id) clearSelections.activeBrainConnectionId = null;
+      if (state.activeWebStudioConnectionId === id) clearSelections.activeWebStudioConnectionId = null;
+      if (Object.keys(clearSelections).length) {
         await setFirestoreDocumentAtPath(
           context.env,
           ['users', auth.uid],
-          { activeBrainConnectionId: null },
+          clearSelections,
           { merge: true }
         );
       }
@@ -297,9 +302,9 @@ async function onRequest(context) {
         deleted: true,
         id,
         activeBrainConnectionId:
-          state.activeBrainConnectionId === id
-            ? null
-            : state.activeBrainConnectionId,
+          state.activeBrainConnectionId === id ? null : state.activeBrainConnectionId,
+        activeWebStudioConnectionId:
+          state.activeWebStudioConnectionId === id ? null : state.activeWebStudioConnectionId,
         activeCount:
           reservation?.count ??
           state.active.length
@@ -330,27 +335,14 @@ async function onRequest(context) {
       }
 
       const id = connectionId(body?.id);
-      const record = await getFirestoreDataAtPath(
-        context.env,
-        [...base, id]
-      );
+      const record = await getFirestoreDataAtPath(context.env, [...base, id]);
 
       if (!record || record.ownerUid !== auth.uid || record.ownerEmail !== auth.email) {
-        return errorResponse(
-          404,
-          'CONNECTION_NOT_FOUND',
-          'This connection is no longer available.'
-        );
+        return errorResponse(404, 'CONNECTION_NOT_FOUND', 'This connection is no longer available.');
       }
-
       if (record.active !== true) {
-        return errorResponse(
-          409,
-          'CONNECTION_INACTIVE',
-          'Activate this connection before using it as the AI Brain.'
-        );
+        return errorResponse(409, 'CONNECTION_INACTIVE', 'Activate this connection before using it as the AI Brain.');
       }
-
       if (!supportsAIProtocol(record.protocol)) {
         return errorResponse(
           400,
@@ -365,10 +357,49 @@ async function onRequest(context) {
         { activeBrainConnectionId: id },
         { merge: true }
       );
-
       return jsonResponse({
         ok: true,
         activeBrainConnectionId: id,
+        connection: publicConnection(record, id)
+      });
+    }
+
+    if (action === 'use-webstudio' || action === 'clear-webstudio') {
+      if (action === 'clear-webstudio') {
+        await setFirestoreDocumentAtPath(
+          context.env,
+          ['users', auth.uid],
+          { activeWebStudioConnectionId: null },
+          { merge: true }
+        );
+        return jsonResponse({ ok: true, activeWebStudioConnectionId: null });
+      }
+
+      const id = connectionId(body?.id);
+      const record = await getFirestoreDataAtPath(context.env, [...base, id]);
+      if (!record || record.ownerUid !== auth.uid || record.ownerEmail !== auth.email) {
+        return errorResponse(404, 'CONNECTION_NOT_FOUND', 'This connection is no longer available.');
+      }
+      if (record.active !== true) {
+        return errorResponse(409, 'CONNECTION_INACTIVE', 'Activate this connection before assigning it to Web Studio.');
+      }
+      if (!supportsAIProtocol(record.protocol)) {
+        return errorResponse(
+          400,
+          'CONNECTION_NOT_AI_PROTOCOL',
+          'Choose an active connection using a supported AI chat protocol to assign it to Web Studio.'
+        );
+      }
+
+      await setFirestoreDocumentAtPath(
+        context.env,
+        ['users', auth.uid],
+        { activeWebStudioConnectionId: id },
+        { merge: true }
+      );
+      return jsonResponse({
+        ok: true,
+        activeWebStudioConnectionId: id,
         connection: publicConnection(record, id)
       });
     }
@@ -497,34 +528,28 @@ async function onRequest(context) {
         [...base, id]
       );
 
-    let activeBrainConnectionId =
-      state.activeBrainConnectionId;
-
-    if (
-      activeBrainConnectionId === id &&
-      (!record.active || !supportsAIProtocol(record.protocol))
-    ) {
+    let activeBrainConnectionId = state.activeBrainConnectionId;
+    let activeWebStudioConnectionId = state.activeWebStudioConnectionId;
+    const clearInvalidSelections = {};
+    if (activeBrainConnectionId === id && (!record.active || !supportsAIProtocol(record.protocol))) {
       activeBrainConnectionId = null;
-      await setFirestoreDocumentAtPath(
-        context.env,
-        ['users', auth.uid],
-        { activeBrainConnectionId: null },
-        { merge: true }
-      );
+      clearInvalidSelections.activeBrainConnectionId = null;
+    }
+    if (activeWebStudioConnectionId === id && (!record.active || !supportsAIProtocol(record.protocol))) {
+      activeWebStudioConnectionId = null;
+      clearInvalidSelections.activeWebStudioConnectionId = null;
+    }
+    if (Object.keys(clearInvalidSelections).length) {
+      await setFirestoreDocumentAtPath(context.env, ['users', auth.uid], clearInvalidSelections, { merge: true });
     }
 
-    if (
-      body?.useAsBrain === true &&
-      record.active === true &&
-      supportsAIProtocol(record.protocol)
-    ) {
+    if (body?.useAsBrain === true && record.active === true && supportsAIProtocol(record.protocol)) {
       activeBrainConnectionId = id;
-      await setFirestoreDocumentAtPath(
-        context.env,
-        ['users', auth.uid],
-        { activeBrainConnectionId: id },
-        { merge: true }
-      );
+      await setFirestoreDocumentAtPath(context.env, ['users', auth.uid], { activeBrainConnectionId: id }, { merge: true });
+    }
+    if (body?.useForWebStudio === true && record.active === true && supportsAIProtocol(record.protocol)) {
+      activeWebStudioConnectionId = id;
+      await setFirestoreDocumentAtPath(context.env, ['users', auth.uid], { activeWebStudioConnectionId: id }, { merge: true });
     }
 
     return jsonResponse({
@@ -538,6 +563,7 @@ async function onRequest(context) {
           ? null
           : limit,
       activeBrainConnectionId,
+      activeWebStudioConnectionId,
       activeCount:
         reservation?.count ??
         state.active.length

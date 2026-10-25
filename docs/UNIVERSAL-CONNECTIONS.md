@@ -26,13 +26,14 @@ A user can select one active Universal Connection Brain through:
 - `POST /api/settings/connections` with `{ "action": "use-ai", "id": "<connection-id>" }`
 - `POST /api/settings/connections` with `{ "action": "clear-ai" }`
 
-The selection is stored in that user's authenticated workspace profile as `activeBrainConnectionId`.
+The AI Brain selection is stored in the authenticated workspace profile as `activeBrainConnectionId`. Web Studio continuation is a separate assignment stored as `activeWebStudioConnectionId`.
 
-- **Ordinary OVYX AI Assistant chats:** Automatic uses the selected AI Brain exclusively. If the connection cannot be verified or fails, OVYX reports the failure rather than silently switching to Cloudflare or another provider.
-- **Web Studio website builds:** Cloudflare Workers AI remains the default. A selected connection is used for a website build only when the user explicitly chooses to continue with their own Universal Connection after the Cloudflare free allowance or included plan quota requires it.
-- **App Studio:** the server-side plan entitlement is checked before generation. The Universal Connection selection does not unlock App Studio or bypass its plan gate.
+- **Ordinary OVYX AI Assistant chats:** Automatic uses the selected AI Brain exclusively. If that selected connection cannot be verified or fails, OVYX reports the failure instead of silently switching to Cloudflare or another provider.
+- **Web Studio website builds:** Cloudflare Workers AI remains the default. The user's assigned Web Studio connection is considered only after Cloudflare/included quota requires a fallback **and the user explicitly confirms continuing with their own connection**. Assigning a Brain alone does not authorize Web Studio to use it.
+- **App Studio:** the server-side plan entitlement is checked before generation. Neither assignment unlocks App Studio or bypasses its plan gate.
+- **Other tools and integrations:** an HTTP, webhook, database, or generic tool connection is not automatically treated as a model or connected to property listings, enquiries, social actions, or other business functions. Each requires a feature-specific adapter and an explicit purpose assignment before OVYX sends data to it.
 
-Choose `clear-ai` to return ordinary assistant chats to platform Automatic routing. Explicit provider selection and the production Cloudflare-free-only guard still cannot activate a platform-paid provider.
+Use `action: "use-ai"` / `action: "clear-ai"` to select or clear the assistant Brain. Use `action: "use-webstudio"` / `action: "clear-webstudio"` to separately assign or clear Web Studio continuation. Removing or disabling a connection clears any matching assignments. The Cloudflare free-only guard and platform plan gates remain enforced.
 
 A key is not interchangeable between providers: put a Gemini key on a Gemini connection or in `GEMINI_API_KEY`; a DeepSeek key on a DeepSeek-compatible connection or in `DEEPSEEK_API_KEY`; an Anthropic key on an Anthropic connection or in `ANTHROPIC_API_KEY`; and an OpenAI key on an OpenAI connection or in `OPENAI_API_KEY`. For a custom OpenAI-compatible endpoint, configure `OPENAI_BASE_URL` and its matching secret. Do not put one provider's key into an unrelated provider secret.
 
@@ -51,6 +52,6 @@ With no active user Universal Connection selection, OVYX tries the providers in 
 
 ## Connection security and tests
 
-Connection ownership is checked against both the authenticated UID and workspace email. Local/private targets are rejected. Credential-bearing connections and AI protocols require HTTPS. Listing responses expose only safe metadata such as `hasSecret` and `capabilities.canUseAsBrain`, never the credential.
+Connection ownership is checked against both the authenticated UID and workspace email. Local/private targets are rejected. Credential-bearing connections and AI protocols require HTTPS. Listing responses expose only safe metadata such as `hasSecret`, `capabilities.canUseAsBrain`, and `capabilities.canUseForWebStudio`, never the credential.
 
 The Test action performs a non-generation health check against a model-list/health endpoint where supported; it does not intentionally make a paid AI generation request. A successful test means the check endpoint responded, not that every model or billing feature is available.
