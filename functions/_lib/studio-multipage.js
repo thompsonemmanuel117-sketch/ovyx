@@ -612,19 +612,21 @@ async function buildStudioMultiPageOnce(options) {
 
   let staged = [];
   let sharedAssetPagesRepaired = 0;
+  let recoveredBatchCount = 0;
   let lastResult = planResult;
   for (const batch of batches) {
     const input = makeBatchPrompt(prompt, plan, siteMap, batch, staged, existingFiles, extraContext, promptContract);
     inputs.push(input);
+    const batchSystem = [
+      String(options.qualityContract || '').trim(),
+      'You are OVYX Web Studio, a senior frontend engineer and UX architect. Follow the batch instructions exactly. Return strict JSON with complete file contents.',
+      'SINGLE-FILE BATCH CONTRACT OVERRIDES GENERAL MULTI-FILE EXAMPLES: return JSON with "files" as an array containing exactly one object for the exact path in REQUIRED TARGET FILES JSON. Do not return another page, CSS, JavaScript, or any other file unless it is that exact target. Never substitute Home.html for a CSS or JavaScript target.',
+    ].filter(Boolean).join('\n\n');
     let result;
     try {
       result = await callModel(env, {
         provider, model, authUser, preferredProvider, providerRouting, fallback, taskPrompt: prompt,
-        system: [
-          String(options.qualityContract || '').trim(),
-          'You are OVYX Web Studio, a senior frontend engineer and UX architect. Follow the batch instructions exactly. Return strict JSON with complete file contents.',
-          'SINGLE-FILE BATCH CONTRACT OVERRIDES GENERAL MULTI-FILE EXAMPLES: return JSON with "files" as an array containing exactly one object for the exact path in REQUIRED TARGET FILES JSON. Do not return another page, CSS, JavaScript, or any other file unless it is that exact target. Never substitute Home.html for a CSS or JavaScript target.',
-        ].filter(Boolean).join('\n\n'),
+        system: batchSystem,
         user: input,
         maxTokens: cap(env, 'OVYX_WEBSTUDIO_BATCH_TOKENS', 18000),
       });
@@ -633,31 +635,79 @@ async function buildStudioMultiPageOnce(options) {
     }
     lastResult = result;
     outputs.push(String(result && result.text || ''));
-    const nextUsage = usageAdd(usage, result && result.rawUsage);
+    let nextUsage = usageAdd(usage, result && result.rawUsage);
     usage = nextUsage.total;
     hasUsage = hasUsage || nextUsage.found;
 
-    const responseText = String(result && result.text || '');
-    const parsedResponse = parseJSON(responseText);
-    const rawGenerated = outputFiles(parsedResponse);
     const allowed = new Set(batch.allowedPaths);
-    const batchDiagnostics = safeBatchResponseDiagnostics({
-      batch,
-      responseText,
-      parsed: parsedResponse,
-      rawGenerated,
-      allowed,
+    let responseText = String(result && result.text || '');
+    let parsedResponse = parseJSON(responseText);
+    let rawGenerated = outputFiles(parsedResponse);
+    let batchDiagnostics = safeBatchResponseDiagnostics({
+      batch, responseText, parsed: parsedResponse, rawGenerated, allowed,
     });
-    // Models sometimes include helpful shared CSS/JS or another page even when
-    // this bounded batch requests one file. Never stage those extras: keep only
-    // exact allowlisted targets, then verify every required target below.
-    // This is safer and more robust than failing a valid target because the model
-    // mentioned an unrequested file; unapproved paths are discarded, never written.
-    const generated = Object.fromEntries(
+    let generated = Object.fromEntries(
       Object.entries(rawGenerated).filter(([path]) => allowed.has(path))
     );
-    const paths = Object.keys(generated);
-    if (!paths.length) throw accountingError(Object.assign(new Error('Web Studio batch ' + batch.index + ' returned no usable contents for its approved target. The site was not marked complete.'), { status: 502, code: 'WEBSTUDIO_BATCH_EMPTY', batchDiagnostics }), usage, hasUsage, inputs, outputs);
+    let paths = Object.keys(generated);
+
+    // If a model ignores the exact target manifest or emits an unusable shape,
+    // retry just this one file with a compact, high-priority recovery prompt.
+    // This avoids restarting the entire multi-page build and keeps the retry
+    // bounded to one extra model call with a smaller output budget.
+    if (!paths.length) {
+      const target = batch.targetFiles[0] || { path: batch.targetPaths[0] || '', title: '', goal: '' };
+      const recoveryInput = [
+        'OVYX SINGLE-FILE BATCH RECOVERY. The prior response did not include a usable file for the approved target.',
+        'Return strict JSON only with this exact schema: {"summary":"...","files":[{"path":"EXACT TARGET PATH","language":"html|css|javascript","content":"complete file contents"}]}.',
+        'Create exactly one complete file at the exact approved path. Do not substitute a homepage, do not include any other files, and do not add Markdown fences or explanations.',
+        'REQUIRED TARGET FILES JSON:\n' + JSON.stringify(batch.targetFiles),
+        'REQUIRED TARGET PATHS JSON:\n' + JSON.stringify(batch.targetPaths),
+        'ALLOWED OUTPUT PATHS JSON:\n' + JSON.stringify(batch.allowedPaths),
+        'ALREADY GENERATED PATHS JSON:\n' + JSON.stringify(staged.map(item => item.path)),
+        'FULL WEBSITE ROUTE MANIFEST JSON:\n' + JSON.stringify(siteMap.pages.map(page => ({ title: page.title, path: page.path, url: page.url, goal: page.goal }))),
+        'ORIGINAL USER BRIEF (preserve the specific requirements in this request):\n' + String(prompt || '').slice(0, 4500),
+        'EXACT FILE PURPOSE:\n' + String(target.goal || target.title || target.path || 'Create the approved target file.').slice(0, 600),
+        'Keep the file concise but polished and complete. Never invent facts, external integrations, secrets or unapproved routes.',
+      ].join('\n\n');
+      inputs.push(recoveryInput);
+      let recoveryResult;
+      try {
+        recoveryResult = await callModel(env, {
+          provider, model, authUser, preferredProvider, providerRouting, fallback, taskPrompt: prompt,
+          system: [
+            String(options.qualityContract || '').trim(),
+            'You are OVYX Web Studio. This is a bounded recovery for one missing target file.',
+            'The exact path in REQUIRED TARGET FILES JSON is mandatory. Return only a strict JSON object with a files array containing exactly one entry for that exact path. No other file or prose.',
+          ].filter(Boolean).join('\n\n'),
+          user: recoveryInput,
+          maxTokens: Math.min(cap(env, 'OVYX_WEBSTUDIO_BATCH_TOKENS', 18000), 3072),
+        });
+      } catch (error) {
+        error.batchDiagnostics = { ...batchDiagnostics, retryAttempted: true, recoveryCallFailed: true };
+        throw accountingError(error, usage, hasUsage, inputs, outputs);
+      }
+      lastResult = recoveryResult;
+      outputs.push(String(recoveryResult && recoveryResult.text || ''));
+      nextUsage = usageAdd(usage, recoveryResult && recoveryResult.rawUsage);
+      usage = nextUsage.total;
+      hasUsage = hasUsage || nextUsage.found;
+      responseText = String(recoveryResult && recoveryResult.text || '');
+      parsedResponse = parseJSON(responseText);
+      rawGenerated = outputFiles(parsedResponse);
+      batchDiagnostics = {
+        ...safeBatchResponseDiagnostics({ batch, responseText, parsed: parsedResponse, rawGenerated, allowed }),
+        retryAttempted: true,
+        recoveryCallFailed: false,
+      };
+      generated = Object.fromEntries(
+        Object.entries(rawGenerated).filter(([path]) => allowed.has(path))
+      );
+      paths = Object.keys(generated);
+      if (paths.length) recoveredBatchCount += 1;
+    }
+
+    if (!paths.length) throw accountingError(Object.assign(new Error('Web Studio batch ' + batch.index + ' returned no usable contents for its approved target after one bounded recovery attempt. The site was not marked complete.'), { status: 502, code: 'WEBSTUDIO_BATCH_EMPTY', batchDiagnostics }), usage, hasUsage, inputs, outputs);
     if (paths.length > batch.maxChangedFiles) throw accountingError(Object.assign(new Error('Web Studio batch ' + batch.index + ' exceeded its approved target limit after filtering. Retry the build.'), { status: 502, code: 'WEBSTUDIO_BATCH_FILE_LIMIT' }), usage, hasUsage, inputs, outputs);
     for (const path of paths) {
       if (!String(generated[path]).trim()) throw accountingError(Object.assign(new Error('Web Studio returned empty content for ' + path), { status: 502, code: 'WEBSTUDIO_EMPTY_FILE' }), usage, hasUsage, inputs, outputs);
@@ -965,6 +1015,7 @@ async function buildStudioMultiPageOnce(options) {
     quotaOutputText: outputs.join('\n\n'),
     totalPages: pageCount,
     batchCount: batches.length,
+    recoveredBatchCount,
     sharedAssetPagesRepaired,
   };
 }
@@ -974,7 +1025,6 @@ const RETRYABLE_WEBSTUDIO_OUTPUT_FAILURES = new Set([
   'WEBSTUDIO_SITEMAP_INVALID',
   'WEBSTUDIO_SITEMAP_INCOMPLETE',
   'WEBSTUDIO_BATCH_PLAN_FAILED',
-  'WEBSTUDIO_BATCH_EMPTY',
   'WEBSTUDIO_BATCH_FILE_LIMIT',
   'WEBSTUDIO_PATH_NOT_ALLOWED',
   'WEBSTUDIO_EMPTY_FILE',
