@@ -106,13 +106,16 @@ jobs:
           node scripts/ovyx-live-service-integration-eval.test.mjs
           node scripts/ovyx-cloudflare-live-generation-oidc.test.mjs
           node scripts/ovyx-cloudflare-preflight-only.test.mjs
+      # Default main pushes run only the tiny provider check. A trusted main
+      # commit titled with [OVYX_FULL_ACCEPTANCE_ONCE] opts into the bounded
+      # four-site acceptance exactly once; normal pushes remain preflight-only.
       - name: Generate four real AI websites using the existing Cloudflare runtime keys
         id: generate
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         continue-on-error: true
         env:
           OVYX_EVAL_PROVIDER: ${{ github.event_name == 'workflow_dispatch' && inputs.provider || 'automatic' }}
-          OVYX_EVAL_PREFLIGHT_ONLY: ${{ github.event_name != 'workflow_dispatch' || inputs.operation == 'preflight-only' }}
+          OVYX_EVAL_PREFLIGHT_ONLY: ${{ (github.event_name != 'workflow_dispatch' && !contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]')) || (github.event_name == 'workflow_dispatch' && inputs.operation == 'preflight-only') }}
           OVYX_EVAL_MODEL: ${{ vars.OVYX_EVAL_MODEL }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -124,7 +127,7 @@ jobs:
           OVYX_EVAL_ENQUIRY_TEST_RECIPIENT: ${{ secrets.OVYX_EVAL_ENQUIRY_TEST_RECIPIENT }}
         run: node scripts/ovyx-cloudflare-live-generation-client.mjs
       - name: Enforce provider-only preflight result
-        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.operation == 'preflight-only'))
+        if: github.ref == 'refs/heads/main' && ((github.event_name == 'push' && !contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]')) || (github.event_name == 'workflow_dispatch' && inputs.operation == 'preflight-only'))
         env:
           GENERATION_OUTCOME: ${{ steps.generate.outcome }}
         run: |
@@ -137,7 +140,7 @@ jobs:
         if: github.event_name == 'pull_request'
         run: echo "PR regression tests ran. Live generation and external enquiry probes run only on trusted main/workflow_dispatch events through the short-lived OIDC verifier; provider API keys stay in Cloudflare."
       - name: Inspect model-generated sites in Chromium at five widths
-        if: always() && github.event_name == 'workflow_dispatch' && inputs.operation == 'full-acceptance' && github.ref == 'refs/heads/main'
+        if: always() && github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && inputs.operation == 'full-acceptance') || (github.event_name == 'push' && contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]')))
         id: browser
         continue-on-error: true
         env:
@@ -147,7 +150,7 @@ jobs:
           OVYX_EVAL_ENQUIRY_TEST_RECIPIENT: ${{ secrets.OVYX_EVAL_ENQUIRY_TEST_RECIPIENT }}
         run: node scripts/ovyx-webstudio-generated-site-browser-eval.mjs artifacts/webstudio-generated-sites artifacts/webstudio-evaluation-report/browser
       - name: Evaluate configured real listing and enquiry services
-        if: always() && github.event_name == 'workflow_dispatch' && inputs.operation == 'full-acceptance' && github.ref == 'refs/heads/main'
+        if: always() && github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && inputs.operation == 'full-acceptance') || (github.event_name == 'push' && contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]')))
         id: integration
         continue-on-error: true
         env:
@@ -165,12 +168,12 @@ jobs:
           OVYX_INTEGRATION_REPORT_OUT: artifacts/webstudio-evaluation-report/integration-report.json
         run: node scripts/ovyx-live-service-integration-eval.mjs
       - name: Audit copy, routes, visuals and integration claims
-        if: always() && github.event_name == 'workflow_dispatch' && inputs.operation == 'full-acceptance' && github.ref == 'refs/heads/main'
+        if: always() && github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && inputs.operation == 'full-acceptance') || (github.event_name == 'push' && contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]')))
         id: audit
         continue-on-error: true
         run: node scripts/ovyx-webstudio-acceptance-audit.mjs artifacts/webstudio-generated-sites artifacts/webstudio-evaluation-report/browser/browser-report.json artifacts/webstudio-evaluation-report/acceptance-report.json artifacts/webstudio-evaluation-report/integration-report.json
       - name: Enforce honest quality gates and block incomplete live evidence
-        if: always() && github.event_name == 'workflow_dispatch' && inputs.operation == 'full-acceptance' && github.ref == 'refs/heads/main'
+        if: always() && github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && inputs.operation == 'full-acceptance') || (github.event_name == 'push' && contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]')))
         env:
           GENERATION_OUTCOME: ${{ steps.generate.outcome }}
           BROWSER_OUTCOME: ${{ steps.browser.outcome }}
