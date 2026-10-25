@@ -1309,6 +1309,7 @@ export async function callModel(
     // stays on its existing plan-gated platform route.
     if (
       options.authUser &&
+      options.useSelectedUniversalBrain === true &&
       options.webStudioRequest !== true &&
       options.appStudioRequest !== true &&
       (!requested || requested === 'automatic')
