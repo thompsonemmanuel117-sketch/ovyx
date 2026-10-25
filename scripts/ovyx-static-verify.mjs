@@ -431,7 +431,7 @@ if (!fs.existsSync(nativeAssistantPath) || !fs.existsSync(nativeAssistantRoutePa
     !nativeRoute.includes('generateOvyxNativeAI') ||
     !nativeRoute.includes('beginAIQuota(context.env, user)') ||
     !nativeRoute.includes('finalizeAIQuota(') ||
-    !nativeRoute.includes('OVYX_NATIVE_AI_NOT_CONFIGURED') ||
+    !nativeAssistant.includes('OVYX_NATIVE_AI_NOT_CONFIGURED') ||
     !nativeClient.includes('/api/ai/ovyx') ||
     !nativeClient.includes('data-ovyx-native-more') ||
     !nativeClient.includes('workspace-copilot-native') ||
