@@ -23,9 +23,12 @@ on:
   push:
     branches: [main]
     paths:
-      # Any production AI provider, multi-page builder, or website-quality
-      # prompt/context change must trigger trusted live acceptance on main.
+      # Any production AI provider or shared free-only budget guard, multi-page
+      # builder, or website-quality prompt/context change must trigger trusted
+      # live acceptance on main.
       - 'functions/_lib/providers.js'
+      - 'functions/_lib/cloudflare-free-ai.js'
+      - 'functions/_lib/firebase-admin.js'
       - 'functions/_lib/studio-multipage.js'
       - 'functions/_lib/prompts.js'
       - 'functions/_lib/experience.js'
@@ -46,6 +49,8 @@ on:
     branches: [main]
     paths:
       - 'functions/_lib/providers.js'
+      - 'functions/_lib/cloudflare-free-ai.js'
+      - 'functions/_lib/firebase-admin.js'
       - 'functions/_lib/experience.js'
       - 'scripts/provider-routing.test.mjs'
       - 'scripts/ovyx-webstudio-generated-site-browser-eval.test.mjs'
