@@ -413,6 +413,8 @@ async function generateOne(origin, provider, model, integrationSettings, caseId)
         caseId,
         diagnostics: {
           batchIndex: safeInt(diagnosticInput.batchIndex, 50),
+          retryAttempted: diagnosticInput.retryAttempted === true,
+          recoveryCallFailed: diagnosticInput.recoveryCallFailed === true,
           expectedKinds: safeKinds(diagnosticInput.expectedKinds),
           responseLength: safeInt(diagnosticInput.responseLength, 200000),
           parsedJson: diagnosticInput.parsedJson === true,
