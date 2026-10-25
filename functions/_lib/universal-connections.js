@@ -594,7 +594,7 @@ export async function getActiveBrainConnectionId(env, user) {
 
 export async function callUserUniversalConnection(
   env,
-  { connectionId, authUser, system, user, model, maxTokens, requireAIProtocol = false }
+  { connectionId, authUser, system, user, model, maxTokens, requireAIProtocol = true }
 ) {
   const { record, id } = await getConnection(env, authUser, connectionId);
 
