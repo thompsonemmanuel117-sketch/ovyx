@@ -37,17 +37,17 @@ function outputFilesFromBatchResponse(text, batch) {
   // complete document; all normal site, route, prompt-contract, and integrity
   // validation still runs before any generated site can be accepted.
   const targets = Array.isArray(batch?.targetFiles) ? batch.targetFiles : [];
-  if (targets.length !== 1 || !/\\.html?$/i.test(String(targets[0]?.path || ''))) return files;
+  if (targets.length !== 1 || !/\.html?$/i.test(String(targets[0]?.path || ''))) return files;
   let raw = String(text || '').trim();
-  raw = raw.replace(/^\x60{3}(?:html)?\\s*/i, '').replace(/\\s*\x60{3}$/, '').trim();
-  const start = raw.search(/<!doctype\\s+html\\b|<html\\b/i);
+  raw = raw.replace(/^\x60{3}(?:html)?\s*/i, '').replace(/\s*\x60{3}$/, '').trim();
+  const start = raw.search(/<!doctype\s+html\b|<html\b/i);
   if (start < 0) return files;
   raw = raw.slice(start);
-  const close = raw.search(/<\\/html\\s*>/i);
-  if (close < 0) return files;
-  raw = raw.slice(0, close + raw.match(/<\\/html\\s*>/i)[0].length).trim();
-  if (raw.length > 120000 || !/<html\\b/i.test(raw) || !/<head\\b/i.test(raw) ||
-      !/<body\\b/i.test(raw) || !/<\\/body\\s*>/i.test(raw)) return files;
+  const closeMatch = raw.match(/<\/html\s*>/i);
+  if (!closeMatch) return files;
+  raw = raw.slice(0, raw.indexOf(closeMatch[0]) + closeMatch[0].length).trim();
+  if (raw.length > 120000 || !/<html\b/i.test(raw) || !/<head\b/i.test(raw) ||
+      !/<body\b/i.test(raw) || !/<\/body\s*>/i.test(raw)) return files;
   return { [String(targets[0].path)]: raw };
 }
 
