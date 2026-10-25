@@ -384,7 +384,12 @@ export async function runCloudflareFreeInference(env, {
       max_tokens: outputTokens,
       temperature: disableThinking ? 0 : 0.2,
       stream: false,
-      ...(disableThinking ? { chat_template_kwargs: { enable_thinking: false } } : {}),
+      ...(disableThinking ? {
+        chat_template_kwargs: { enable_thinking: false },
+        // Some Workers AI reasoning models also honor this explicit disable
+        // signal. Unsupported models may ignore it; output validation remains strict.
+        reasoning_effort: null,
+      } : {}),
     }));
     result = await new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(Object.assign(new Error('AI request timed out.'), { name: 'TimeoutError', status: 504 })), timeout);
