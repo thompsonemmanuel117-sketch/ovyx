@@ -72,6 +72,78 @@ function outputFiles(value) {
   return out;
 }
 
+function recoverCssFromMalformedEnvelope(rawText) {
+  const raw = String(rawText || '');
+  // Recover only a complete CSS string explicitly located in a file-content
+  // field. This handles JSON wrappers broken by unescaped CSS quotes without
+  // treating arbitrary JSON/object text as stylesheet source.
+  const marker = /"(?:content|contents|css|source|code)"\\s*:\\s*"/i.exec(raw);
+  if (!marker) return null;
+  const start = marker.index + marker[0].length;
+  let depth = 0;
+  let started = false;
+  let quote = '';
+  let escaped = false;
+  let comment = false;
+
+  for (let index = start; index < raw.length; index += 1) {
+    const character = raw[index];
+    const next = raw[index + 1];
+
+    if (comment) {
+      if (character === '*' && next === '/') {
+        comment = false;
+        index += 1;
+      }
+      continue;
+    }
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (character === '\\\\') {
+      escaped = true;
+      continue;
+    }
+    if (quote) {
+      if (character === quote) quote = '';
+      continue;
+    }
+    if (character === '/' && next === '*') {
+      comment = true;
+      index += 1;
+      continue;
+    }
+    if (character === '"' || character === "'") {
+      quote = character;
+      continue;
+    }
+    if (character === '{') {
+      depth += 1;
+      started = true;
+      continue;
+    }
+    if (character === '}') {
+      depth -= 1;
+      if (depth < 0) return null;
+      if (started && depth === 0) {
+        const tail = raw.slice(index + 1);
+        // At the end of a CSS value, the next quote is the malformed JSON
+        // string delimiter, followed by an object/array delimiter.
+        if (/^\\s*(?:"\\s*[,}\\]]|[,}\\]])/.test(tail) || /^\\s*$/.test(tail)) {
+          return raw.slice(start, index + 1)
+            .replace(/\\\\n/g, '\\n')
+            .replace(/\\\\r/g, '\\r')
+            .replace(/\\\\t/g, '\\t')
+            .replace(/\\\\"/g, '"')
+            .replace(/\\\\\\\\/g, '\\\\');
+        }
+      }
+    }
+  }
+  return null;
+}
+
 function recoverSingleFileContent(rawText, targetPath, parsedOutput = null) {
   const target = String(targetPath || '');
   const extension = (target.split('.').pop() || '').toLowerCase();
@@ -99,6 +171,10 @@ function recoverSingleFileContent(rawText, targetPath, parsedOutput = null) {
       }
     }
     if (!raw || raw.length > 120_000) continue;
+    if (/^[{[]/.test(raw) && extension === 'css') {
+      const recoveredCss = recoverCssFromMalformedEnvelope(raw);
+      if (typeof recoveredCss === 'string' && recoveredCss.trim()) return recoveredCss;
+    }
     // HTML can be recoverable even when a model wraps it in invalid JSON
     // (for example, unescaped attribute quotes inside a content string).
     // Keep JSON-looking response rejection for CSS/JS; HTML still requires a
