@@ -57,7 +57,7 @@ function recoverSingleFileContent(rawText, targetPath) {
   const extension = (target.split('.').pop() || '').toLowerCase();
   if (!['html', 'htm', 'css', 'js', 'mjs'].includes(extension)) return null;
   let raw = String(rawText || '').trim();
-  if (!raw || /^[{[]/.test(raw)) return null;
+  if (!raw || raw.startsWith('{') || raw.startsWith('[')) return null;
 
   const fence = String.fromCharCode(96).repeat(3);
   if (raw.startsWith(fence) && raw.endsWith(fence)) {
