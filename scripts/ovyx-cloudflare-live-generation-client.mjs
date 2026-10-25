@@ -308,6 +308,42 @@ async function writeGeneratedSite(caseId, responseBody) {
     realEnquiryDeliveryConfirmed: false,
   };
 }
+function safeOutputShapeDiagnostics(input) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) return null;
+  const integer = (value, maximum) => {
+    const number = Number(value);
+    return Number.isSafeInteger(number) ? Math.max(0, Math.min(maximum, number)) : 0;
+  };
+  const rootKeysAllowed = new Set([
+    'summary', 'files', 'fileEdits', 'patch', 'html', 'code',
+    'siteMap', 'text', 'response', 'output', 'content', 'message', 'other',
+  ]);
+  const rootKeys = Array.isArray(input.rootKeys)
+    ? [...new Set(input.rootKeys.slice(0, 12).map(value => {
+        const key = String(value || '');
+        return rootKeysAllowed.has(key) ? key : 'other';
+      }))]
+    : [];
+  const containerKind = String(input.fileContainerKind || 'absent');
+  const extension = String(input.targetFileExtension || 'other').toLowerCase();
+  return {
+    responseCharacters: integer(input.responseCharacters, 200000),
+    parsedJson: input.parsedJson === true,
+    rootKeys,
+    fileContainerKind: ['absent', 'object', 'array', 'other'].includes(containerKind) ? containerKind : 'other',
+    fileContainerEntries: integer(input.fileContainerEntries, 100),
+    extractedFileCount: integer(input.extractedFileCount, 100),
+    startsWithJsonObject: input.startsWithJsonObject === true,
+    endsWithJsonObject: input.endsWithJsonObject === true,
+    containsMarkdownFence: input.containsMarkdownFence === true,
+    containsHtmlDocument: input.containsHtmlDocument === true,
+    endsWithHtmlDocument: input.endsWithHtmlDocument === true,
+    batchIndex: integer(input.batchIndex, 100),
+    batchTotal: integer(input.batchTotal, 100),
+    targetFileExtension: ['html', 'htm', 'css', 'js', 'mjs', 'other'].includes(extension) ? extension : 'other',
+  };
+}
+
 function safePreflightProviderAttempts(input) {
   const providers = new Set(['gemini', 'claude', 'deepseek', 'openai', 'groq', 'openrouter', 'cloudflare-workers-ai']);
   const kinds = new Set([
@@ -411,6 +447,10 @@ async function generateOne(origin, provider, model, integrationSettings, caseId)
       }));
     if (providerAttempts.length) {
       console.error(JSON.stringify({ event: 'live-generation-provider-diagnostics', caseId, providerAttempts }));
+    }
+    const outputDiagnostics = safeOutputShapeDiagnostics(body.outputDiagnostics);
+    if (outputDiagnostics) {
+      console.error(JSON.stringify({ event: 'live-generation-output-shape-diagnostics', caseId, outputDiagnostics }));
     }
     const attempts = providerAttempts.length
       ? ', attempts=' + providerAttempts.map(item => item.provider + ':' + item.kind + (item.status ? '-http-' + item.status : '')).join('|')
