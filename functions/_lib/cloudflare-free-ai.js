@@ -155,7 +155,19 @@ async function reserveDailyBudget(env, estimate) {
     const sameDay = String(config._ovyxWorkersAiDayUtc || '') === day;
     const consumed = sameDay ? Math.max(0, Number(config._ovyxWorkersAiConsumedNeurons) || 0) : 0;
     const reserved = sameDay ? Math.max(0, Number(config._ovyxWorkersAiReservedNeurons) || 0) : 0;
-    if (consumed + reserved + estimate > cap) throw fail(429, 'OVYX_AI_NEURON_BUDGET_EXHAUSTED', 'OVYX has reached its protected daily AI allowance. Please try again after the daily reset.');
+    if (consumed + reserved + estimate > cap) {
+      try {
+        await setFirestoreDocumentIfCurrent(env, 'system', 'config', {
+          _ovyxWorkersAiCloudflareExhaustedDayUtc: day,
+          _ovyxWorkersAiCloudflareExhaustionReason: 'ovyx-safety-budget',
+          _ovyxWorkersAiCloudflareExhaustedAt: new Date().toISOString(),
+        }, raw.updateTime);
+      } catch (error) {
+        if (error?.status === 409 || error?.code === 'FIRESTORE_PRECONDITION_FAILED') continue;
+        throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX could not safely record the daily AI stop. Please retry later.');
+      }
+      throw fail(429, 'OVYX_AI_NEURON_BUDGET_EXHAUSTED', 'OVYX has reached its protected daily AI allowance. Please try again after the daily reset.');
+    }
     try {
       await setFirestoreDocumentIfCurrent(env, 'system', 'config', {
         _ovyxWorkersAiDayUtc: day,
@@ -203,11 +215,59 @@ function outputText(result) {
   return '';
 }
 
+
+export function isCloudflareDailyFreeLimitError(error) {
+  const signature = String(error?.code || '') + ' ' + String(error?.message || '');
+  return /\\b3036\\b|used up your daily free allocation|daily free allocation of 10,000|10,000 neurons/i.test(signature);
+}
+export function isCloudflareFreeQuotaError(error) {
+  return ['OVYX_AI_NEURON_BUDGET_EXHAUSTED', 'OVYX_AI_CLOUDFLARE_QUOTA_EXHAUSTED'].includes(String(error?.code || ''));
+}
+async function recordCloudflareFreeExhaustion(env, reason) {
+  const day = utcDayKey();
+  for (let attempt = 0; attempt < BUDGET_RETRIES; attempt += 1) {
+    let raw;
+    try { raw = await getFirestoreDocument(env, 'system', 'config'); }
+    catch { throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX could not safely record the daily AI stop. Please retry later.'); }
+    if (!raw) throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX daily AI budget storage is not initialized. AI generation is paused until the account configuration is available.');
+    const config = firestoreDocumentToJs(raw) || {};
+    if (String(config._ovyxWorkersAiCloudflareExhaustedDayUtc || '') === day) return;
+    try {
+      await setFirestoreDocumentIfCurrent(env, 'system', 'config', {
+        _ovyxWorkersAiCloudflareExhaustedDayUtc: day,
+        _ovyxWorkersAiCloudflareExhaustionReason: String(reason || 'free-allowance-exhausted').slice(0, 80),
+        _ovyxWorkersAiCloudflareExhaustedAt: new Date().toISOString(),
+      }, raw.updateTime);
+      return;
+    } catch (error) {
+      if (error?.status === 409 || error?.code === 'FIRESTORE_PRECONDITION_FAILED') continue;
+      throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX could not safely record the daily AI stop. Please retry later.');
+    }
+  }
+  throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX could not safely record the daily AI stop. Please retry later.');
+}
+export async function isCloudflareFreeAllowanceExhausted(env) {
+  let raw;
+  try { raw = await getFirestoreDocument(env, 'system', 'config'); }
+  catch { throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX could not verify the daily Cloudflare AI stop. Please retry later.'); }
+  if (!raw) throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX daily AI budget storage is not initialized. Please retry later.');
+  const config = firestoreDocumentToJs(raw) || {};
+  const day = utcDayKey();
+  if (String(config._ovyxWorkersAiCloudflareExhaustedDayUtc || '') === day) return true;
+  if (String(config._ovyxWorkersAiDayUtc || '') !== day) return false;
+  const used = Math.max(0, Number(config._ovyxWorkersAiConsumedNeurons) || 0) +
+    Math.max(0, Number(config._ovyxWorkersAiReservedNeurons) || 0);
+  return used >= dailyBudget(env);
+}
+
 function safeProviderError(error) {
   const status = Number(error?.status);
   const signature = String(error?.code || '') + ' ' + String(error?.message || '');
-  if (status === 429 || /3036|daily free allocation|10,000 neurons/i.test(signature)) {
+  if (isCloudflareDailyFreeLimitError(error)) {
     return fail(429, 'OVYX_AI_CLOUDFLARE_QUOTA_EXHAUSTED', 'Cloudflare has reached its daily free AI allowance. OVYX will not switch to a paid AI provider.');
+  }
+  if (status === 429) {
+    return fail(503, 'OVYX_AI_CLOUDFLARE_RATE_LIMITED', 'Cloudflare AI is temporarily at capacity or rate-limited. Please retry later; OVYX will not switch to a paid AI provider.');
   }
   if (status === 403 && /5035|paid plan|requires.*paid/i.test(signature)) {
     return fail(503, 'OVYX_AI_MODEL_NOT_AVAILABLE_ON_FREE_PLAN', 'The selected OVYX AI model is not available on the free Cloudflare plan. No paid AI provider was used.');
@@ -223,6 +283,9 @@ export async function runCloudflareFreeInference(env, {
 } = {}) {
   if (!isCloudflareFreeOnlyMode(env)) throw fail(503, 'OVYX_AI_ENGINE_MODE_NOT_CONFIGURED', 'OVYX free-only AI mode is not enabled.');
   if (!env?.AI || typeof env.AI.run !== 'function') throw fail(503, 'OVYX_NATIVE_AI_NOT_CONFIGURED', 'OVYX AI is not connected yet. Please try again later.');
+  if (await isCloudflareFreeAllowanceExhausted(env)) {
+    throw fail(429, 'OVYX_AI_CLOUDFLARE_QUOTA_EXHAUSTED', 'OVYX has reached its protected daily Cloudflare AI capacity. No platform-paid provider was used.');
+  }
   const source = Array.isArray(messages)
     ? messages
     : [...(system ? [{ role: 'system', content: String(system) }] : []), { role: 'user', content: String(user || '') }];
@@ -243,6 +306,9 @@ export async function runCloudflareFreeInference(env, {
       pending.then(value => { clearTimeout(timer); resolve(value); }, error => { clearTimeout(timer); reject(error); });
     });
   } catch (error) {
+    if (isCloudflareDailyFreeLimitError(error)) {
+      await recordCloudflareFreeExhaustion(env, 'cloudflare-daily-free-allocation');
+    }
     // A dispatched request may consume inference even if a timeout is observed.
     throw safeProviderError(error);
   }

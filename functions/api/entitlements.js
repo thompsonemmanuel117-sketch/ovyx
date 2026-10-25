@@ -25,7 +25,7 @@ const TIER_RANK = Object.freeze({
 const DEFAULT_FREE_CAPABILITIES = Object.freeze({
   webStudio: true,
   advancedWebStudio: false,
-  appStudio: true,
+  appStudio: false,
   gameStudio: false,
   // Free includes a small AI allowance; the server quota engine enforces its limits.
   aiGeneration: true,

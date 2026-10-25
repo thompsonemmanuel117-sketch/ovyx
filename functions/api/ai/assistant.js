@@ -6,6 +6,7 @@ import {
   requestId,
 } from '../../_lib/http.js';
 import { callModel } from '../../_lib/providers.js';
+import { isCloudflareFreeOnlyMode, isCloudflareFreeQuotaError } from '../../_lib/cloudflare-free-ai.js';
 import { buildStudioMultiPage } from '../../_lib/studio-multipage.js';
 import { validateOrRepairSinglePageBuild } from '../../_lib/studio-singlepage.js';
 import { WEB_STUDIO_SYSTEM_PROMPT, WEB_STUDIO_EXCELLENCE, WEB_STUDIO_RESEARCH_GUIDANCE } from '../../_lib/prompts.js';
@@ -54,6 +55,7 @@ function cleanMessages(payload) {
 }
 
 export async function onRequestPost(context) {
+  let webStudioFallbackEligible = false;
   try {
     const user = assertAuthenticated(
       context.data?.user
@@ -82,6 +84,13 @@ export async function onRequestPost(context) {
     const submittedFiles = payload.files || payload.context?.files || null;
     const scopedWebStudioEdit = isWebStudio && mode === 'build' &&
       isScopedWebStudioEdit(promptText, !!(submittedFiles && typeof submittedFiles === 'object' && Object.keys(submittedFiles).length));
+    webStudioFallbackEligible = isWebStudio;
+    const useUniversalConnectionAfterCloudflareLimit = isWebStudio && payload.useUniversalConnectionAfterCloudflareLimit === true;
+    const routeCallModel = (env, options = {}) => callModel(env, {
+      ...options,
+      authUser: user,
+      ...(useUniversalConnectionAfterCloudflareLimit ? { webStudioRequest: true, useUniversalConnectionAfterCloudflareLimit: true } : {}),
+    });
 
     if (isAppStudio) {
       const entitlement = context.data?.entitlements || await resolveEntitlements(context.env, user);
@@ -202,7 +211,7 @@ When discussing project changes, distinguish recommendations from changes actual
 
         const generated = await buildStudioMultiPage({
           env: context.env,
-          callModel,
+          callModel: routeCallModel,
           provider: String(payload.provider || 'automatic').toLowerCase(),
           preferredProvider: String(payload.preferredProvider || ''),
           providerRouting: String(payload.providerRouting || 'automatic'),
@@ -226,7 +235,7 @@ When discussing project changes, distinguish recommendations from changes actual
       }
 
       if (!result) {
-        result = await callModel(
+        result = await routeCallModel(
           context.env,
           {
             provider: String(payload.provider || 'automatic').toLowerCase(),
@@ -250,7 +259,7 @@ When discussing project changes, distinguish recommendations from changes actual
         if (isWebStudio && mode === 'build' && !multiPageBuild && !scopedWebStudioEdit) {
           const singlePageResult = await validateOrRepairSinglePageBuild({
             env: context.env,
-            callModel,
+            callModel: routeCallModel,
             result,
             provider: String(payload.provider || 'automatic').toLowerCase(),
             preferredProvider: String(payload.preferredProvider || ''),
@@ -373,10 +382,16 @@ When discussing project changes, distinguish recommendations from changes actual
       },
     });
   } catch (err) {
-    return errorResponse(
-      err.message || 'Assistant unavailable.',
-      err.status || 500,
-      err.code || 'AI_ASSISTANT_FAILED'
-    );
+    if (webStudioFallbackEligible && isCloudflareFreeOnlyMode(context.env) && isCloudflareFreeQuotaError(err)) {
+      return Response.json({
+        ok: false, error: err.code, code: err.code,
+        message: 'OVYX’s protected daily free AI capacity is used up. Web Studio can continue with your own active Universal Connection; OVYX will not silently use a paid platform key.',
+        requiresUniversalConnectionFallback: true, fallbackFeature: 'webStudio',
+      }, { status: err.status || 429, headers: {
+        'Cache-Control': 'no-store, max-age=0', 'X-Content-Type-Options': 'nosniff',
+        'X-OVYX-Request-ID': requestId(context.request),
+      } });
+    }
+    return errorResponse(err.message || 'Assistant unavailable.', err.status || 500, err.code || 'AI_ASSISTANT_FAILED');
   }
 }

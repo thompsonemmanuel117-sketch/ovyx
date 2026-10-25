@@ -29,13 +29,19 @@ function emailOf(user) {
   return clean(user?.email, 320).toLowerCase();
 }
 
-function activeTier(profile, userEmail) {
-  if (userEmail === ROOT_EMAIL) return 'max';
+export function resolveConnectionTier(profile = {}, userEmail = '', now = Date.now()) {
+  const email = clean(userEmail, 320).toLowerCase();
+  if (email === ROOT_EMAIL) return 'max';
   const state = clean(profile?.planTierState, 60).toLowerCase();
-  if (['expired', 'refunded', 'chargeback', 'suspended', 'canceled'].includes(state)) return 'free';
+  if (!['active', 'trialing'].includes(state)) return 'free';
+  const rawExpiry = profile?.expiresAt;
+  const numericExpiry = Number(rawExpiry);
+  const expiresAt = Number.isFinite(numericExpiry) && numericExpiry > 0 ? numericExpiry : (rawExpiry ? Date.parse(String(rawExpiry)) : NaN);
+  if (!Number.isFinite(expiresAt) || expiresAt <= now) return 'free';
   const tier = clean(profile?.planTier || profile?.tier || profile?.plan || 'free', 20).toLowerCase();
   return ['pro', 'max'].includes(tier) ? tier : 'free';
 }
+function activeTier(profile, userEmail) { return resolveConnectionTier(profile, userEmail); }
 
 function limitFor(tier) {
   return LIMITS[tier] ?? 3;

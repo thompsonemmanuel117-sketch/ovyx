@@ -6,6 +6,7 @@ import {
   requestId,
 } from '../../_lib/http.js';
 import { callModel } from '../../_lib/providers.js';
+import { isCloudflareFreeOnlyMode, isCloudflareFreeQuotaError } from '../../_lib/cloudflare-free-ai.js';
 import { buildStudioMultiPage } from '../../_lib/studio-multipage.js';
 import { WEB_STUDIO_SYSTEM_PROMPT, WEB_STUDIO_EXCELLENCE } from '../../_lib/prompts.js';
 import { buildExperienceBrief, isWebStudioPrompt } from '../../_lib/experience.js';
@@ -35,6 +36,7 @@ function parseStructured(text) {
 
 
 export async function onRequestPost(context) {
+  let webStudioFallbackEligible = false;
   try {
     const user = assertAuthenticated(
       context.data?.user
@@ -89,6 +91,13 @@ export async function onRequestPost(context) {
     const isAppStudio = activeView === 'appstudio' || ['appstudio', 'app-build', 'app-fix'].includes(mode);
     const isWebStudio = !isAppStudio && (isWebStudioPrompt(promptText, mode) ||
       ((mode === 'build' || mode === 'fix') && hasStudioContext));
+    webStudioFallbackEligible = isWebStudio;
+    const useUniversalConnectionAfterCloudflareLimit = isWebStudio && payload.useUniversalConnectionAfterCloudflareLimit === true;
+    const routeCallModel = (env, options = {}) => callModel(env, {
+      ...options,
+      authUser: user,
+      ...(useUniversalConnectionAfterCloudflareLimit ? { webStudioRequest: true, useUniversalConnectionAfterCloudflareLimit: true } : {}),
+    });
 
     // A request-scoped app brand always wins over the user's saved default.
     // Fresh Web Studio builds and all App Studio requests can fall back to the
@@ -295,7 +304,7 @@ export async function onRequestPost(context) {
 
         const generated = await buildStudioMultiPage({
           env: context.env,
-          callModel,
+          callModel: routeCallModel,
           provider: String(payload.provider || 'automatic').toLowerCase(),
           preferredProvider: String(payload.preferredProvider || ''),
           providerRouting: String(payload.providerRouting || 'automatic'),
@@ -319,7 +328,7 @@ export async function onRequestPost(context) {
       }
 
       if (!result) {
-        result = await callModel(
+        result = await routeCallModel(
           context.env,
           {
             provider: String(payload.provider || 'automatic').toLowerCase(),
@@ -447,10 +456,16 @@ export async function onRequestPost(context) {
       },
     });
   } catch (err) {
-    return errorResponse(
-      err.status || 500,
-      err.code || 'AI_GATEWAY_FAILED',
-      err.message || 'AI gateway unavailable.'
-    );
+    if (webStudioFallbackEligible && isCloudflareFreeOnlyMode(context.env) && isCloudflareFreeQuotaError(err)) {
+      return Response.json({
+        ok: false, error: err.code, code: err.code,
+        message: 'OVYX’s protected daily free AI capacity is used up. Web Studio can continue with your own active Universal Connection; OVYX will not silently use a paid platform key.',
+        requiresUniversalConnectionFallback: true, fallbackFeature: 'webStudio',
+      }, { status: err.status || 429, headers: {
+        'Cache-Control': 'no-store, max-age=0', 'X-Content-Type-Options': 'nosniff',
+        'X-OVYX-Request-ID': requestId(context.request),
+      } });
+    }
+    return errorResponse(err.status || 500, err.code || 'AI_GATEWAY_FAILED', err.message || 'AI gateway unavailable.');
   }
       }

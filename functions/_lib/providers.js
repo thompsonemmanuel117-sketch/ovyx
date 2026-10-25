@@ -1,4 +1,4 @@
-import { isCloudflareFreeOnlyMode, isLegacyProviderRoutingEnabled, runCloudflareFreeInference, OVYX_CLOUDFLARE_FREE_MODEL } from './cloudflare-free-ai.js';
+import { isCloudflareFreeAllowanceExhausted, isCloudflareFreeOnlyMode, isLegacyProviderRoutingEnabled, runCloudflareFreeInference, OVYX_CLOUDFLARE_FREE_MODEL } from './cloudflare-free-ai.js';
 import {
   callUserUniversalConnection,
   getActiveBrainConnectionId,
@@ -1253,6 +1253,35 @@ export async function callModel(
   // Production routing is fail-closed. In free-only mode, ignore browser-supplied
   // provider/model selections and route exclusively through the guarded CF engine.
   if (isCloudflareFreeOnlyMode(env)) {
+    if (options.webStudioRequest === true && options.useUniversalConnectionAfterCloudflareLimit === true) {
+      if (!options.authUser) throw Object.assign(new Error('Sign in before using your Universal Connection.'), { status: 401, code: 'AUTH_REQUIRED' });
+      if (!(await isCloudflareFreeAllowanceExhausted(env))) {
+        throw Object.assign(new Error('OVYX has not confirmed that its daily free AI allowance is exhausted. Retry the normal Web Studio request first.'), { status: 409, code: 'OVYX_WEBSTUDIO_FALLBACK_NOT_AVAILABLE' });
+      }
+      let connectionId = null;
+      try {
+        connectionId = await withTimeout(getActiveBrainConnectionId(env, options.authUser), UNIVERSAL_LOOKUP_TIMEOUT_MS, 'Universal Connection lookup');
+      } catch {
+        throw Object.assign(new Error('OVYX could not verify your selected Universal Connection. Open Settings & connections and retry.'), { status: 503, code: 'OVYX_WEBSTUDIO_UNIVERSAL_CONNECTION_NOT_READY' });
+      }
+      if (!connectionId) {
+        throw Object.assign(new Error('No active Universal Connection AI Brain is selected. Open Settings & connections, add your own provider key, test it, and select “Use for AI requests”.'), { status: 409, code: 'OVYX_WEBSTUDIO_UNIVERSAL_CONNECTION_NOT_READY' });
+      }
+      const result = await withTimeout(
+        callUserUniversalConnection(env, {
+          connectionId,
+          authUser: options.authUser,
+          system: options.system,
+          user: options.user,
+          model: options.model,
+          maxTokens: options.maxTokens,
+          requireAIProtocol: true,
+        }),
+        PROVIDER_REQUEST_TIMEOUT_MS,
+        'Your Universal Connection'
+      );
+      return { ...result, requestedProvider: 'universal-connection', routedProvider: 'universal-connection', webStudioUserConnectionFallback: true };
+    }
     const result = await callCloudflareWorkersAI(env, {
       ...options,
       model: OVYX_CLOUDFLARE_FREE_MODEL,
