@@ -360,7 +360,7 @@ function emptyOutputFailureCode(result) {
 }
 
 export async function runCloudflareFreeInference(env, {
-  authUser = null, messages = null, system = '', user = '', maxTokens = 1024, timeoutMs = 45000, disableThinking = false,
+  authUser = null, messages = null, system = '', user = '', maxTokens = 1024, timeoutMs = 45000, disableThinking = false, jsonMode = false,
 } = {}) {
   if (!isCloudflareFreeOnlyMode(env)) throw fail(503, 'OVYX_AI_ENGINE_MODE_NOT_CONFIGURED', 'OVYX free-only AI mode is not enabled.');
   if (!env?.AI || typeof env.AI.run !== 'function') throw fail(503, 'OVYX_NATIVE_AI_NOT_CONFIGURED', 'OVYX AI is not connected yet. Please try again later.');
@@ -386,6 +386,9 @@ export async function runCloudflareFreeInference(env, {
       max_tokens: outputTokens,
       temperature: disableThinking ? 0 : 0.2,
       stream: false,
+      // Structured file/action workflows opt into Workers AI JSON Mode; ordinary
+      // conversational requests retain the model's normal text response format.
+      ...(jsonMode ? { response_format: { type: 'json_object' } } : {}),
       ...(usesQwen3ReasoningControls ? {
         chat_template_kwargs: { enable_thinking: false },
         reasoning_effort: null,
