@@ -29,16 +29,18 @@ function cleanFiles(value) {
 function outputFiles(value) {
   const files = value && (value.files || value.fileEdits || (value.patch && value.patch.files));
   const out = {};
+  const cleanPath = path => String(path || '').trim().replace(/^[/]+/, '');
   if (Array.isArray(files)) {
     files.forEach(item => {
-      const path = String((item && (item.path || item.file)) || '').trim().replace(/^\\/+/, '');
+      const path = cleanPath(item && (item.path || item.file));
       const content = item && (item.content || item.text || item.source || item.code);
       if (path && typeof content === 'string') out[path] = content;
     });
   } else if (files && typeof files === 'object') {
     Object.entries(files).forEach(([path, item]) => {
       const content = typeof item === 'string' ? item : item && (item.content || item.text || item.source || item.code);
-      if (path && typeof content === 'string') out[String(path).replace(/^\\/+/, '')] = content;
+      const cleaned = cleanPath(path);
+      if (cleaned && typeof content === 'string') out[cleaned] = content;
     });
   }
   if (!Object.keys(out).length && value && typeof value.html === 'string') out['src/pages/Home.html'] = value.html;
@@ -55,11 +57,20 @@ function recoverSingleFileContent(rawText, targetPath) {
   const extension = (target.split('.').pop() || '').toLowerCase();
   if (!['html', 'htm', 'css', 'js', 'mjs'].includes(extension)) return null;
   let raw = String(rawText || '').trim();
-  if (!raw || /^[\\[{]/.test(raw)) return null;
-  raw = raw.replace(/^\\u0060{3}(?:html?|css|javascript|js|mjs)?\\s*/i, '').replace(/\\s*\\u0060{3}$/, '').trim();
+  if (!raw || /^[{[]/.test(raw)) return null;
+
+  const fence = String.fromCharCode(96).repeat(3);
+  if (raw.startsWith(fence) && raw.endsWith(fence)) {
+    raw = raw.slice(fence.length, -fence.length).trim();
+    const newline = raw.indexOf('\n');
+    const firstLine = (newline < 0 ? raw : raw.slice(0, newline)).trim().toLowerCase();
+    if (['html', 'htm', 'css', 'javascript', 'js', 'mjs'].includes(firstLine)) {
+      raw = newline < 0 ? '' : raw.slice(newline + 1).trim();
+    }
+  }
 
   if (extension === 'html' || extension === 'htm') {
-    const startMatch = /<!doctype\\s+html\\b|<html\\b/i.exec(raw);
+    const startMatch = /<!doctype\s+html\b|<html\b/i.exec(raw);
     if (!startMatch) return null;
     const close = raw.toLowerCase().lastIndexOf('</html>');
     if (close < startMatch.index) return null;
@@ -75,7 +86,7 @@ function recoverSingleFileContent(rawText, targetPath) {
     }
     return depth === 0 ? raw : null;
   }
-  if (!/(?:^|[;\\n])\\s*(?:(?:const|let|var|function|class|export|import|document|window|globalThis)\\b|['"]use strict['"]|[A-Za-z_$][\\w$]*\\s*=>)/m.test(raw)) return null;
+  if (!/(?:^|[;\n])\s*(?:(?:const|let|var|function|class|export|import|document|window|globalThis)\b|['"]use strict['"]|[A-Za-z_$][\w$]*\s*=>)/m.test(raw)) return null;
   return raw;
 }
 
@@ -111,11 +122,11 @@ function batchOutputShapeDiagnostics(rawText, parsed, generated, batch) {
     fileContainerKind,
     fileContainerEntries: Math.min(fileContainerEntries, 100),
     extractedFileCount: Math.min(Object.keys(generated || {}).length, 100),
-    startsWithJsonObject: /^\\s*\\{/.test(raw),
-    endsWithJsonObject: /\\}\\s*$/.test(raw),
+    startsWithJsonObject: /^\s*\{/.test(raw),
+    endsWithJsonObject: /\}\s*$/.test(raw),
     containsMarkdownFence: raw.includes(String.fromCharCode(96).repeat(3)),
-    containsHtmlDocument: /<!doctype\\s+html|<html\\b/i.test(raw),
-    endsWithHtmlDocument: /<\\/html\\s*>\\s*$/i.test(raw),
+    containsHtmlDocument: /<!doctype\s+html|<html\b/i.test(raw),
+    endsWithHtmlDocument: raw.toLowerCase().trimEnd().endsWith('</html>'),
     batchIndex: Math.max(0, Math.min(100, Number(batch?.index) || 0)),
     batchTotal: Math.max(0, Math.min(100, Number(batch?.total) || 0)),
     targetFileExtension: ['html', 'htm', 'css', 'js', 'mjs'].includes(targetExtension) ? targetExtension : 'other',
