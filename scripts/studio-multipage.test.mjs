@@ -428,6 +428,72 @@ const singlePage = await buildStudioMultiPage({
 });
 assert.equal(singlePage, null);
 
+
+// Some production models return one complete HTML document directly rather than
+// the requested JSON file manifest. Recover that single allow-listed HTML file,
+// then keep the normal whole-site validation in place.
+const rawHtmlRecoveryCalls = [];
+const rawHtmlRecoveryModel = async (_env, options) => {
+  rawHtmlRecoveryCalls.push(options);
+  if (String(options.user).includes('WEBSITE ARCHITECTURE PLANNING PHASE')) {
+    return {
+      text: JSON.stringify({
+        summary: 'Two-page portfolio sitemap',
+        siteMap: {
+          architecture: 'Two full HTML routes sharing CSS and JavaScript.',
+          pages: [
+            { title: 'Home', goal: 'Introduce the portfolio.' },
+            { title: 'About', goal: 'Explain the portfolio background.' },
+          ],
+        },
+      }),
+      provider: 'cloudflare-workers-ai',
+      model: 'test-model',
+      rawUsage: { prompt_tokens: 10, completion_tokens: 10, total_tokens: 20 },
+    };
+  }
+  const match = String(options.user).match(/REQUIRED TARGET FILES JSON:\n([\s\S]*?)\n\nREQUIRED TARGET PATHS JSON:/);
+  assert(match, 'Raw HTML recovery test must have an explicit target-file manifest.');
+  const targets = JSON.parse(match[1]);
+  const files = {};
+  for (const target of targets) {
+    if (/\.html?$/i.test(target.path)) {
+      const title = target.path.includes('About') ? 'About' : 'Home';
+      const href = title === 'Home' ? '/about/' : '/';
+      const linkTitle = title === 'Home' ? 'About' : 'Home';
+      return {
+        text: '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="' + title + ' portfolio page"><title>' + title + ' | Portfolio</title><link rel="stylesheet" href="../styles.css"></head><body><nav aria-label="Main navigation"><a href="' + href + '">' + linkTitle + '</a></nav><main><h1>' + title + '</h1><p>Thoughtful portfolio content for visitors.</p></main><script src="../main.js"></script></body></html>',
+        provider: 'cloudflare-workers-ai',
+        model: 'test-model',
+        rawUsage: { prompt_tokens: 15, completion_tokens: 35, total_tokens: 50 },
+      };
+    }
+    if (target.path === 'src/styles.css') files[target.path] = '*,*::before,*::after{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif}main{max-width:70rem;margin:auto;padding:2rem}nav{padding:1rem}';
+    else if (target.path === 'src/main.js') files[target.path] = "document.documentElement.dataset.ready='true';";
+  }
+  return {
+    text: JSON.stringify({ summary: 'Shared foundation file', files }),
+    provider: 'cloudflare-workers-ai',
+    model: 'test-model',
+    rawUsage: { prompt_tokens: 15, completion_tokens: 20, total_tokens: 35 },
+  };
+};
+const rawHtmlRecoveryBuild = await buildStudioMultiPage({
+  env: { OVYX_WEBSTUDIO_POLISH_ENABLED: 'false' },
+  callModel: rawHtmlRecoveryModel,
+  provider: 'cloudflare-workers-ai',
+  mode: 'build',
+  prompt: 'Build a two-page portfolio website with Home and About pages.',
+  project: { id: 'project-raw-html-recovery', name: 'Portfolio', pages: [] },
+  files: {},
+});
+assert.ok(rawHtmlRecoveryBuild, 'A complete raw HTML response should recover a one-file model batch.');
+assert.equal(rawHtmlRecoveryBuild.totalPages, 2);
+assert.ok(rawHtmlRecoveryBuild.files['src/pages/Home.html']?.includes('<h1>Home</h1>'));
+assert.ok(rawHtmlRecoveryBuild.files['src/pages/About.html']?.includes('<h1>About</h1>'));
+assert.equal(rawHtmlRecoveryBuild.requirementVerification?.ok, true, JSON.stringify(rawHtmlRecoveryBuild.requirementVerification));
+assert.ok(rawHtmlRecoveryCalls.length >= 5, 'The test should exercise planning, shared assets, and both HTML routes.');
+
 // An unapproved polish path must not damage an already validated baseline.
 const rejectPolishModel = async (_env, options) => {
   if (String(options.user).includes('BOUNDED WEBSITE POLISH PHASE')) {
