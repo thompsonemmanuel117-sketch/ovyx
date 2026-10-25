@@ -552,6 +552,49 @@ export async function createFirestoreDocument(
 }
 
 
+/**
+ * Atomically creates a document only when its ID does not already exist.
+ * Unlike setFirestoreDocument(), this cannot replace an existing global config
+ * document when a first-run initializer races with another request.
+ */
+export async function createFirestoreDocumentIfAbsent(
+  env,
+  collection,
+  documentId,
+  data
+) {
+  const serviceAccount = parseServiceAccount(env);
+  const accessToken = await getGoogleAccessToken(env);
+  const params = new URLSearchParams({ documentId: String(documentId) });
+  const url = `${firestoreBaseUrl(serviceAccount.project_id)}/${encodeURIComponent(collection)}?${params.toString()}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(firestoreDocument(data)),
+  });
+
+  if (response.status === 409) {
+    throw Object.assign(
+      new Error('Firestore document already exists.'),
+      { status: 409, code: 'FIRESTORE_DOCUMENT_ALREADY_EXISTS' }
+    );
+  }
+
+  if (!response.ok) {
+    const text = await response.text();
+    console.error('[OVYX FIRESTORE CREATE IF ABSENT]', response.status, text.slice(0, 500));
+    throw Object.assign(
+      new Error(`Firestore document creation failed (${response.status}).`),
+      { status: response.status, code: 'FIRESTORE_DOCUMENT_CREATE_FAILED' }
+    );
+  }
+
+  return response.json();
+}
+
 export async function setFirestoreDocumentIfCurrent(
   env,
   collection,
