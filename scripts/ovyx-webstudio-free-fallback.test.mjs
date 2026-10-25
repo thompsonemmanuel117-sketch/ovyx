@@ -11,4 +11,10 @@ assert.match(html, /used your included monthly AI tokens and daily OVYX prompts/
 assert.match(html, /ovyx\.webstudio\.personal-connection-fallback\.v1/);
 assert.match(html, /secureGenerate\(\{\.\.\.payload,useUniversalConnectionAfterCloudflareLimit:true\}/);
 assert.match(html, /fallbackFeature==='webStudio'/);
+const assistantRoute = readFileSync(new URL('../functions/api/ai/assistant.js', import.meta.url), 'utf8');
+const gatewayRoute = readFileSync(new URL('../functions/api/ai/gateway.js', import.meta.url), 'utf8');
+assert.match(assistantRoute, /webStudioUserConnectionFallback === true/);
+assert.match(gatewayRoute, /webStudioUserConnectionFallback === true/);
+assert.match(assistantRoute, /countedAgainstOvyxMonthlyTokens: false/);
+assert.match(gatewayRoute, /countedAgainstOvyxDailyPromptAllowance: false/);
 console.log('OVYX Web Studio daily-limit popup and opt-in routing checks passed.');

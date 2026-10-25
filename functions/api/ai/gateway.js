@@ -38,6 +38,7 @@ function parseStructured(text) {
 export async function onRequestPost(context) {
   let webStudioFallbackEligible = false;
   let usingPersonalConnectionForPlanQuota = false;
+  let usedPersonalConnectionFallback = false;
   try {
     const user = assertAuthenticated(
       context.data?.user
@@ -94,15 +95,19 @@ export async function onRequestPost(context) {
       ((mode === 'build' || mode === 'fix') && hasStudioContext));
     webStudioFallbackEligible = isWebStudio;
     const useUniversalConnectionAfterCloudflareLimit = isWebStudio && payload.useUniversalConnectionAfterCloudflareLimit === true;
-    const routeCallModel = (env, options = {}) => callModel(env, {
-      ...options,
-      authUser: user,
-      ...(useUniversalConnectionAfterCloudflareLimit ? {
-        webStudioRequest: true,
-        useUniversalConnectionAfterCloudflareLimit: true,
-        forcePersonalConnectionForPlanQuota: usingPersonalConnectionForPlanQuota,
-      } : {}),
-    });
+    const routeCallModel = async (env, options = {}) => {
+      const response = await callModel(env, {
+        ...options,
+        authUser: user,
+        ...(useUniversalConnectionAfterCloudflareLimit ? {
+          webStudioRequest: true,
+          useUniversalConnectionAfterCloudflareLimit: true,
+          forcePersonalConnectionForPlanQuota: usingPersonalConnectionForPlanQuota,
+        } : {}),
+      });
+      if (response?.webStudioUserConnectionFallback === true) usedPersonalConnectionFallback = true;
+      return response;
+    };
 
     // A request-scoped app brand always wins over the user's saved default.
     // Fresh Web Studio builds and all App Studio requests can fall back to the
@@ -364,7 +369,11 @@ export async function onRequestPost(context) {
         quotaOutputText = result.text || '';
       }
     } catch (providerError) {
-      if (!usingPersonalConnectionForPlanQuota) {
+      if (usedPersonalConnectionFallback && !usingPersonalConnectionForPlanQuota) {
+        // Do not charge member-owned provider usage to OVYX. Restore a daily OVYX prompt if
+        // one was reserved before the Cloudflare limit caused this request to use the member key.
+        await refundDailyPrompt(context.env, quotaReservation);
+      } else if (!usingPersonalConnectionForPlanQuota) {
         if (providerError?.partialUsage) {
           await finalizeAIQuota(
             context.env,
@@ -406,10 +415,10 @@ export async function onRequestPost(context) {
       }
     }
 
-    const quota = usingPersonalConnectionForPlanQuota
+    const quota = (usingPersonalConnectionForPlanQuota || usedPersonalConnectionFallback)
       ? {
           mode: 'universal-connection',
-          includedQuotaExhausted: true,
+          includedQuotaExhausted: usingPersonalConnectionForPlanQuota,
           countedAgainstOvyxMonthlyTokens: false,
           countedAgainstOvyxDailyPromptAllowance: false,
           providerBilledDirectly: true,
@@ -421,6 +430,10 @@ export async function onRequestPost(context) {
           quotaInputText,
           quotaOutputText || result.text || ''
         );
+
+    if (usedPersonalConnectionFallback && !usingPersonalConnectionForPlanQuota) {
+      await refundDailyPrompt(context.env, quotaReservation);
+    }
 
     let historySaved = false;
 
