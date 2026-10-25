@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { generateKeyPairSync } from 'node:crypto';
-import { createFirestoreDocumentIfAbsent } from '../functions/_lib/firebase-admin.js';
+import { createFirestoreDocumentIfAbsent, setFirestoreDocumentIfCurrent } from '../functions/_lib/firebase-admin.js';
 import { runCloudflareFreeInference } from '../functions/_lib/cloudflare-free-ai.js';
 import { callModel } from '../functions/_lib/providers.js';
 
@@ -22,6 +22,7 @@ let responseShape = 'legacy-response';
 let createCalls = 0;
 let ledgerReadFailuresRemaining = 1;
 let conflictWritesRemaining = 3;
+let conditionalWriteFailureStatus = null;
 const originalFetch = globalThis.fetch;
 
 env.AI = {
@@ -94,6 +95,11 @@ try {
     }
 
     if (init.method === 'PATCH' && url.pathname.endsWith('/system/config')) {
+      if (conditionalWriteFailureStatus !== null) {
+        const status = conditionalWriteFailureStatus;
+        conditionalWriteFailureStatus = null;
+        return okJson({ error: { status: 'PERMISSION_DENIED' } }, status);
+      }
       if (!storedDocument || url.searchParams.get('currentDocument.updateTime') !== `v${version}`) {
         return okJson({ error: { status: 'ABORTED' } }, 409);
       }
@@ -181,6 +187,14 @@ try {
     error => error?.code === 'FIRESTORE_DOCUMENT_ALREADY_EXISTS' && error?.status === 409,
   );
   assert.equal(createCalls, 2);
+
+  conditionalWriteFailureStatus = 403;
+  await assert.rejects(
+    () => setFirestoreDocumentIfCurrent(env, 'system', 'config', { _ovyxLedgerTestField: 'not-written' }, `v${version}`),
+    error => error?.code === 'FIRESTORE_CONDITIONAL_WRITE_FAILED' && error?.status === 403,
+    'Firestore permission failures must preserve their safe HTTP status instead of looking retryable',
+  );
+  assert.equal(storedDocument._ovyxLedgerTestField, undefined, 'a denied ledger write must not mutate stored fields');
   console.log('OVYX Cloudflare AI budget ledger atomic initialization test passed.');
 } finally {
   globalThis.fetch = originalFetch;
