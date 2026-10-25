@@ -120,6 +120,78 @@ assert.deepEqual(parsedReadTools.actions, [
 
 assert.equal(result.rawUsage.total_tokens, 35);
 
+// The native assistant should honor an account-owned AI Brain even when the
+// Cloudflare AI binding is not present, and parse the provider's text format.
+let selectedBrainCalls = 0;
+const selectedBrain = await generateOvyxNativeAI(
+  { OVYX_AI_ENGINE_MODE: 'cloudflare-free-only' },
+  {
+    prompt: 'Explain my current project.',
+    system: 'Keep answers useful.',
+    context: { activeProject: { id: 'p-2', name: 'Selected Brain project' } },
+    authUser: { uid: 'owner-123', sub: 'owner-123', email: 'owner@example.test' },
+    universalBrainDependencies: {
+      getActiveBrainConnectionId: async (_env, authUser) => {
+        assert.equal(authUser.uid, 'owner-123');
+        selectedBrainCalls += 1;
+        return 'owner-brain-1';
+      },
+      callUserUniversalConnection: async (_env, input) => {
+        assert.equal(input.connectionId, 'owner-brain-1');
+        assert.equal(input.requireAIProtocol, true);
+        assert.match(input.system, /Selected Brain project/);
+        return {
+          text: JSON.stringify({
+            text: 'The selected account Brain is responding.',
+            actions: [{ type: 'navigate', route: 'settings' }],
+          }),
+          provider: 'connection:owner-brain-1',
+          routedProvider: 'universal-connection',
+          model: 'gemini-2.5-flash',
+          rawUsage: { prompt_tokens: 10, completion_tokens: 7, total_tokens: 17 },
+        };
+      },
+    },
+  },
+);
+assert.equal(selectedBrain.text, 'The selected account Brain is responding.');
+assert.deepEqual(selectedBrain.actions, [{ type: 'navigate', route: 'settings' }]);
+assert.equal(selectedBrain.provider, 'universal-connection');
+assert.equal(selectedBrain.routedProvider, 'universal-connection');
+assert.equal(selectedBrain.personalConnectionUsed, true);
+assert.equal(selectedBrain.model, 'gemini-2.5-flash');
+assert.equal(selectedBrain.rawUsage.total_tokens, 17);
+assert.equal(selectedBrainCalls, 1);
+
+// If the selected Brain fails, the native assistant must fail closed rather
+// than silently trying Cloudflare or another platform provider.
+await assert.rejects(
+  () => generateOvyxNativeAI(
+    { OVYX_AI_ENGINE_MODE: 'cloudflare-free-only' },
+    {
+      prompt: 'Continue with my selected Brain.',
+      authUser: { uid: 'owner-123', sub: 'owner-123', email: 'owner@example.test' },
+      universalBrainDependencies: {
+        getActiveBrainConnectionId: async () => 'owner-brain-1',
+        callUserUniversalConnection: async () => {
+          throw Object.assign(new Error('provider unreachable'), {
+            status: 503,
+            code: 'CONNECTION_UPSTREAM_FAILED',
+          });
+        },
+      },
+    },
+  ),
+  error => error.code === 'CONNECTION_UPSTREAM_FAILED' &&
+    /did not switch to another AI provider/.test(error.message),
+);
+
+assert.equal(
+  parseOvyxNativeModelOutput(JSON.stringify({ text: 'Normalized model text', actions: [] })).text,
+  'Normalized model text',
+  'The native response parser must accept normalized raw text from the free-only Cloudflare guard.',
+);
+
 await assert.rejects(
   generateOvyxNativeAI({}, { prompt: 'Hello' }),
   error => error.code === 'OVYX_NATIVE_AI_NOT_CONFIGURED' && error.status === 503
