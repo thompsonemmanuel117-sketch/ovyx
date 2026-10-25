@@ -356,6 +356,7 @@ export function safeLiveGenerationFailureDetail(error) {
     OVYX_AI_CLOUDFLARE_RATE_LIMITED: 'cloudflare-ai-rate-limited',
     OVYX_AI_MODEL_NOT_AVAILABLE_ON_FREE_PLAN: 'cloudflare-model-not-available-on-free-plan',
     OVYX_AI_CLOUDFLARE_UNAVAILABLE: 'cloudflare-ai-unavailable',
+    OVYX_AI_CLOUDFLARE_EMPTY_RESPONSE: 'cloudflare-ai-empty-response',
     OVYX_AI_TIMEOUT: 'cloudflare-ai-timeout',
   };
   if (safeCloudflareFailureDetails[code]) return safeCloudflareFailureDetails[code];
