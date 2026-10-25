@@ -348,6 +348,8 @@ export function safeLiveGenerationBatchDiagnostics(error) {
   const int = (value, max) => Number.isInteger(value) ? Math.max(0, Math.min(max, value)) : 0;
   return {
     batchIndex: int(input.batchIndex, 50),
+    retryAttempted: input.retryAttempted === true,
+    recoveryCallFailed: input.recoveryCallFailed === true,
     expectedKinds: safeKinds(input.expectedKinds),
     responseLength: int(input.responseLength, 200000),
     parsedJson: input.parsedJson === true,
