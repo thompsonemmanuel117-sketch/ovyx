@@ -155,8 +155,8 @@ assert.match(client, /new Worker\('\/assets\/ovyx-local-ai-cpu-worker\.js'/);
 assert.match(client, /requestCpuGeneration\(buildMessages\(prompt\)/);
 assert.match(client, /CPU response stopped\. Its worker was terminated/);
 assert.match(client, /revision:\s*'cc5cc01a65cc3ff17bdb73a7de33d879f62599b0'/);
-assert.match(client, /startButton\.addEventListener\('click',\s*\(\)\s*=>\s*\{\s*void startLocalModel\(\);/,
-  'the local model start function must only be invoked through explicit user action');
+assert.match(client, /startButton\.addEventListener\('click',\s*\(\)\s*=>\s*\{\s*if\s*\(!downloadConsent\.checked\)/,
+  'the Start handler must enforce explicit data-download consent before model initialization');
 assert.doesNotMatch(client.slice(0, startFunction), /CreateWebWorkerMLCEngine\(/,
   'no model initialization is allowed during page startup');
 assert.ok(!/window\.OVYXAIService|firebase\.auth|localStorage\.setItem/.test(client),
