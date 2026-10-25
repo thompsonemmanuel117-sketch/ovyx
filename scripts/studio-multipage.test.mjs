@@ -116,6 +116,18 @@ const callModel = async (_env, options) => {
       files[target.path] = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="' + title + ' page"><title>' + title + ' | Test Restaurant</title>' + stylesRef + '</head><body><nav aria-label="Main navigation">' + links + '</nav><main><h1>' + title + '</h1><p>Purposeful content for the ' + slug + ' page.</p>' + primaryAction + '</main>' + scriptRef + '</body></html>';
     }
   }
+  // The model may use alternate path/content property names; file extraction
+  // must recognize these, then the target allowlist still validates the path.
+  if (targets.length === 1 && targets[0].path === 'src/styles.css') {
+    return {
+      text: JSON.stringify({
+        files: [{ filePath: targets[0].path, contents: files[targets[0].path] }],
+      }),
+      provider: 'gemini',
+      model: 'test-model',
+      rawUsage: { prompt_tokens: 19, completion_tokens: 31, total_tokens: 50 },
+    };
+  }
   // One single-file batch deliberately returns complete raw HTML rather than
   // the JSON files envelope. The server may recover this only for the exact
   // planned target, then still runs all normal validators and route checks.
