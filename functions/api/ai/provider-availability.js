@@ -1,3 +1,4 @@
+import { isCloudflareFreeOnlyMode } from '../../_lib/cloudflare-free-ai.js';
 import { assertAuthenticated } from '../../_lib/firebase.js';
 import { requestId } from '../_lib/http.js';
 
@@ -87,6 +88,22 @@ export async function onRequestGet(context) {
   const id = requestId(context.request);
   try {
     assertAuthenticated(context.data?.user);
+    if (isCloudflareFreeOnlyMode(context.env)) {
+      const connected = Boolean(context.env?.AI && typeof context.env.AI.run === 'function');
+      return statusResponse(id, {
+        ok: connected,
+        provider: 'cloudflare-workers-ai',
+        label: 'Cloudflare Workers AI',
+        status: connected ? 'READY' : 'NOT_CONFIGURED',
+        configured: connected,
+        connected,
+        engineMode: 'cloudflare-free-only',
+        externalApiKeysRequired: false,
+        message: connected
+          ? 'OVYX AI is using its Cloudflare free-only engine.'
+          : 'OVYX AI is waiting for its Cloudflare Workers AI binding.',
+      });
+    }
     const url = new URL(context.request.url);
     let provider = String(url.searchParams.get('provider') || '').trim().toLowerCase();
     if (provider === 'claude') provider = 'anthropic';

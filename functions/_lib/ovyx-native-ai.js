@@ -1,3 +1,4 @@
+import { isCloudflareFreeOnlyMode, runCloudflareFreeInference, OVYX_CLOUDFLARE_FREE_MODEL } from './cloudflare-free-ai.js';
 /**
  * OVYX-native workspace intelligence, powered by the Cloudflare Workers AI
  * binding. No Gemini/OpenAI/Anthropic/DeepSeek API key is used on this path.
@@ -154,6 +155,7 @@ export async function generateOvyxNativeAI(env, {
   system = '',
   context = null,
   model = '',
+  authUser = null,
 } = {}) {
   if (!env?.AI || typeof env.AI.run !== 'function') {
     throw Object.assign(
@@ -169,11 +171,14 @@ export async function generateOvyxNativeAI(env, {
     });
   }
 
-  const selectedModel = /^@cf\/[A-Za-z0-9_./-]{3,180}$/.test(clean(model, 180))
-    ? clean(model, 180)
-    : ( /^@cf\/[A-Za-z0-9_./-]{3,180}$/.test(clean(env.OVYX_AI_MODEL, 180))
-        ? clean(env.OVYX_AI_MODEL, 180)
-        : OVYX_NATIVE_DEFAULT_MODEL );
+  const freeOnly = isCloudflareFreeOnlyMode(env);
+  const selectedModel = freeOnly
+    ? OVYX_CLOUDFLARE_FREE_MODEL
+    : (/^@cf\/[A-Za-z0-9_./-]{3,180}$/.test(clean(model, 180))
+        ? clean(model, 180)
+        : (/^@cf\/[A-Za-z0-9_./-]{3,180}$/.test(clean(env.OVYX_AI_MODEL, 180))
+            ? clean(env.OVYX_AI_MODEL, 180)
+            : OVYX_NATIVE_DEFAULT_MODEL));
 
   const ovyxKnowledge = [
     'IDENTITY: You are OVYX AI, the native assistant built specifically for the OVYX creative workspace. You are not a generic provider selector.',
@@ -202,15 +207,25 @@ export async function generateOvyxNativeAI(env, {
 
   let output;
   try {
-    output = await env.AI.run(selectedModel, {
-      messages: [
-        { role: 'system', content: systemText },
-        ...normalizedMessages,
-      ],
-      temperature: 0.2,
-      max_tokens: 2800,
-    });
+    if (freeOnly) {
+      const guarded = await runCloudflareFreeInference(env, {
+        authUser,
+        messages: [{ role: 'system', content: systemText }, ...normalizedMessages],
+        maxTokens: 2800,
+      });
+      output = guarded.result;
+    } else {
+      output = await env.AI.run(selectedModel, {
+        messages: [
+          { role: 'system', content: systemText },
+          ...normalizedMessages,
+        ],
+        temperature: 0.2,
+        max_tokens: 2800,
+      });
+    }
   } catch (cause) {
+    if (freeOnly && String(cause?.code || '').startsWith('OVYX_AI_')) throw cause;
     throw Object.assign(
       new Error('OVYX native AI could not complete this message. Please try again.'),
       { status: 502, code: 'OVYX_NATIVE_AI_REQUEST_FAILED', cause }

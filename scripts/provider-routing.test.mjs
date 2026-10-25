@@ -1,5 +1,19 @@
 import assert from 'node:assert/strict';
-import { callModel, providerOrder } from '../functions/_lib/providers.js';
+import { callModel as callModelImplementation, providerOrder } from '../functions/_lib/providers.js';
+
+const callModel = (env, options) => callModelImplementation({
+  ...env,
+  OVYX_AI_ENGINE_MODE: 'legacy-provider-routing',
+  OVYX_ALLOW_PAID_PROVIDER_ROUTING: 'true',
+}, options);
+
+await assert.rejects(
+  callModelImplementation({ GEMINI_API_KEY: 'must-not-be-used' }, {
+    provider: 'gemini', system: 'test', user: 'hello', maxTokens: 16,
+  }),
+  error => error.code === 'OVYX_AI_ENGINE_MODE_NOT_CONFIGURED',
+  'production routing must not call a paid provider when engine mode is unset',
+);
 import { WEB_STUDIO_EXCELLENCE } from '../functions/_lib/prompts.js';
 
 assert.deepEqual(

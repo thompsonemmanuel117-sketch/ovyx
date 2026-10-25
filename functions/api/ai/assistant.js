@@ -6,6 +6,7 @@ import {
   requestId,
 } from '../../_lib/http.js';
 import { callModel } from '../../_lib/providers.js';
+import { isCloudflareFreeOnlyMode, isWebStudioUniversalConnectionFallbackTrigger } from '../../_lib/cloudflare-free-ai.js';
 import { buildStudioMultiPage } from '../../_lib/studio-multipage.js';
 import { validateOrRepairSinglePageBuild } from '../../_lib/studio-singlepage.js';
 import { WEB_STUDIO_SYSTEM_PROMPT, WEB_STUDIO_EXCELLENCE, WEB_STUDIO_RESEARCH_GUIDANCE } from '../../_lib/prompts.js';
@@ -54,6 +55,9 @@ function cleanMessages(payload) {
 }
 
 export async function onRequestPost(context) {
+  let webStudioFallbackEligible = false;
+  let usingPersonalConnectionForPlanQuota = false;
+  let usedPersonalConnectionFallback = false;
   try {
     const user = assertAuthenticated(
       context.data?.user
@@ -82,6 +86,27 @@ export async function onRequestPost(context) {
     const submittedFiles = payload.files || payload.context?.files || null;
     const scopedWebStudioEdit = isWebStudio && mode === 'build' &&
       isScopedWebStudioEdit(promptText, !!(submittedFiles && typeof submittedFiles === 'object' && Object.keys(submittedFiles).length));
+    const isWebStudioFallbackRequest = !isAppStudio && (
+      activeView === 'webstudio' ||
+      /^web-studio-(build|fix|plan|ask)$/.test(mode) ||
+      (['build', 'fix'].includes(mode) && hasStudioContext)
+    );
+    webStudioFallbackEligible = isWebStudioFallbackRequest;
+    const useUniversalConnectionAfterCloudflareLimit =
+      isWebStudioFallbackRequest && payload.useUniversalConnectionAfterCloudflareLimit === true;
+    const routeCallModel = async (env, options = {}) => {
+      const response = await callModel(env, {
+        ...options,
+        authUser: user,
+        ...(useUniversalConnectionAfterCloudflareLimit ? {
+          webStudioRequest: true,
+          useUniversalConnectionAfterCloudflareLimit: true,
+          forcePersonalConnectionForPlanQuota: usingPersonalConnectionForPlanQuota,
+        } : {}),
+      });
+      if (response?.webStudioUserConnectionFallback === true) usedPersonalConnectionFallback = true;
+      return response;
+    };
 
     if (isAppStudio) {
       const entitlement = context.data?.entitlements || await resolveEntitlements(context.env, user);
@@ -180,7 +205,18 @@ When discussing project changes, distinguish recommendations from changes actual
       context.request
     );
 
-    const quotaReservation = await beginAIQuota(context.env, user);
+    let quotaReservation = null;
+    try {
+      quotaReservation = await beginAIQuota(context.env, user);
+    } catch (quotaError) {
+      if (isWebStudio && useUniversalConnectionAfterCloudflareLimit && quotaError?.code === 'DAILY_RATION_EXHAUSTED') {
+        // Included monthly tokens and daily OVYX prompts are exhausted. Web Studio can
+        // continue only through the member's own selected provider after explicit consent.
+        usingPersonalConnectionForPlanQuota = true;
+      } else {
+        throw quotaError;
+      }
+    }
 
     let result;
     let multiPageBuild = false;
@@ -202,7 +238,7 @@ When discussing project changes, distinguish recommendations from changes actual
 
         const generated = await buildStudioMultiPage({
           env: context.env,
-          callModel,
+          callModel: routeCallModel,
           provider: String(payload.provider || 'automatic').toLowerCase(),
           preferredProvider: String(payload.preferredProvider || ''),
           providerRouting: String(payload.providerRouting || 'automatic'),
@@ -226,7 +262,7 @@ When discussing project changes, distinguish recommendations from changes actual
       }
 
       if (!result) {
-        result = await callModel(
+        result = await routeCallModel(
           context.env,
           {
             provider: String(payload.provider || 'automatic').toLowerCase(),
@@ -250,7 +286,7 @@ When discussing project changes, distinguish recommendations from changes actual
         if (isWebStudio && mode === 'build' && !multiPageBuild && !scopedWebStudioEdit) {
           const singlePageResult = await validateOrRepairSinglePageBuild({
             env: context.env,
-            callModel,
+            callModel: routeCallModel,
             result,
             provider: String(payload.provider || 'automatic').toLowerCase(),
             preferredProvider: String(payload.preferredProvider || ''),
@@ -272,29 +308,47 @@ When discussing project changes, distinguish recommendations from changes actual
         }
       }
     } catch (providerError) {
-      if (providerError?.partialUsage) {
-        await finalizeAIQuota(
-          context.env,
-          quotaReservation,
-          providerError.partialUsage,
-          providerError.quotaInputText || quotaInputText,
-          providerError.quotaOutputText || ''
-        ).catch(quotaError => {
-          console.error('[OVYX PARTIAL AI USAGE]', quotaError?.message || quotaError);
-        });
-      } else {
+      if (usedPersonalConnectionFallback && !usingPersonalConnectionForPlanQuota) {
+        // Do not charge member-owned provider usage to OVYX. Restore a daily OVYX prompt if
+        // one was reserved before the Cloudflare limit caused this request to use the member key.
         await refundDailyPrompt(context.env, quotaReservation);
+      } else if (!usingPersonalConnectionForPlanQuota) {
+        if (providerError?.partialUsage) {
+          await finalizeAIQuota(
+            context.env,
+            quotaReservation,
+            providerError.partialUsage,
+            providerError.quotaInputText || quotaInputText,
+            providerError.quotaOutputText || ''
+          ).catch(quotaError => {
+            console.error('[OVYX PARTIAL AI USAGE]', quotaError?.message || quotaError);
+          });
+        } else {
+          await refundDailyPrompt(context.env, quotaReservation);
+        }
       }
       throw providerError;
     }
 
-    const quota = await finalizeAIQuota(
-      context.env,
-      quotaReservation,
-      result.rawUsage || null,
-      quotaInputText,
-      quotaOutputText || result.text || ''
-    );
+    const quota = (usingPersonalConnectionForPlanQuota || usedPersonalConnectionFallback)
+      ? {
+          mode: 'universal-connection',
+          includedQuotaExhausted: usingPersonalConnectionForPlanQuota,
+          countedAgainstOvyxMonthlyTokens: false,
+          countedAgainstOvyxDailyPromptAllowance: false,
+          providerBilledDirectly: true,
+        }
+      : await finalizeAIQuota(
+          context.env,
+          quotaReservation,
+          result.rawUsage || null,
+          quotaInputText,
+          quotaOutputText || result.text || ''
+        );
+
+    if (usedPersonalConnectionFallback && !usingPersonalConnectionForPlanQuota) {
+      await refundDailyPrompt(context.env, quotaReservation);
+    }
 
     let historySaved = false;
 
@@ -373,10 +427,20 @@ When discussing project changes, distinguish recommendations from changes actual
       },
     });
   } catch (err) {
-    return errorResponse(
-      err.message || 'Assistant unavailable.',
-      err.status || 500,
-      err.code || 'AI_ASSISTANT_FAILED'
-    );
+    if (webStudioFallbackEligible && isCloudflareFreeOnlyMode(context.env) && isWebStudioUniversalConnectionFallbackTrigger(err)) {
+      const memberQuotaExhausted = err.code === 'DAILY_RATION_EXHAUSTED';
+      return Response.json({
+        ok: false, error: err.code, code: err.code,
+        fallbackReason: err.code,
+        message: memberQuotaExhausted
+          ? 'Your included monthly AI tokens and daily OVYX prompts are exhausted. Web Studio can continue with your own active Universal Connection; other plan features remain locked by your subscription.'
+          : 'OVYX has reached its protected daily free AI capacity. Web Studio can continue with your own active Universal Connection; OVYX will not silently use a paid platform key.',
+        requiresUniversalConnectionFallback: true, fallbackFeature: 'webStudio',
+      }, { status: err.status || 429, headers: {
+        'Cache-Control': 'no-store, max-age=0', 'X-Content-Type-Options': 'nosniff',
+        'X-OVYX-Request-ID': requestId(context.request),
+      } });
+    }
+    return errorResponse(err.message || 'Assistant unavailable.', err.status || 500, err.code || 'AI_ASSISTANT_FAILED');
   }
 }

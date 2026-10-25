@@ -1,3 +1,4 @@
+import { isCloudflareFreeOnlyMode } from '../_lib/cloudflare-free-ai.js';
 'use strict';
 
 import { assertAuthenticated } from '../_lib/firebase.js';
@@ -41,6 +42,9 @@ export async function onRequest(context) {
     const user = assertAuthenticated(context.data?.user);
     if (!authorized(user)) {
       return errorResponse(403, 'ADMIN_REQUIRED', 'Admin authorization is required.', id);
+    }
+    if (isCloudflareFreeOnlyMode(context.env)) {
+      return errorResponse(409, 'PROVIDER_TESTS_DISABLED_IN_FREE_ONLY_MODE', 'OVYX uses Cloudflare AI only in this mode. Third-party provider checks are disabled.', id);
     }
 
     const url = new URL(context.request.url);

@@ -1,3 +1,4 @@
+import { isCloudflareFreeOnlyMode } from '../../_lib/cloudflare-free-ai.js';
 import { assertAuthenticated } from '../../_lib/firebase.js';
 import { errorResponse, requestId } from '../_lib/http.js';
 
@@ -159,6 +160,38 @@ export async function onRequestGet(context) {
         'Admin authorization is required.',
         id,
       );
+    }
+
+    if (isCloudflareFreeOnlyMode(context.env)) {
+      const workersAi = Boolean(context.env?.AI && typeof context.env.AI.run === 'function');
+      const disabled = (provider, label) => ({
+        provider, label, status: 'DISABLED_BY_FREE_ONLY_MODE', configured: false, connected: false,
+      });
+      return Response.json({
+        ok: true,
+        status: workersAi ? 'READY' : 'DEGRADED',
+        authority: 'SERVER',
+        engineMode: 'cloudflare-free-only',
+        externalApiKeysRequired: false,
+        providers: [
+          disabled('gemini', 'Gemini'),
+          disabled('deepseek', 'DeepSeek'),
+          disabled('openai', 'OpenAI'),
+          disabled('anthropic', 'Claude'),
+        ],
+        additionalProviders: [
+          disabled('groq', 'Groq'),
+          disabled('openrouter', 'OpenRouter'),
+        ],
+        cloudflare: {
+          workersAiBinding: workersAi,
+          edgeRuntime: 'CLOUDFLARE_PAGES_FUNCTION',
+        },
+        checkedAt: new Date().toISOString(),
+      }, {
+        status: 200,
+        headers: { 'Cache-Control': 'no-store', 'X-OVYX-Request-ID': id },
+      });
     }
 
     const [results, additionalProviders] = await Promise.all([

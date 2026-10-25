@@ -594,7 +594,7 @@ export async function getActiveBrainConnectionId(env, user) {
 
 export async function callUserUniversalConnection(
   env,
-  { connectionId, authUser, system, user, model, maxTokens }
+  { connectionId, authUser, system, user, model, maxTokens, requireAIProtocol = false }
 ) {
   const { record, id } = await getConnection(env, authUser, connectionId);
 
@@ -602,6 +602,12 @@ export async function callUserUniversalConnection(
     throw Object.assign(
       new Error('This Universal Connection type cannot act as an AI Brain.'),
       { status: 400, code: 'CONNECTION_NOT_AI_CAPABLE' }
+    );
+  }
+  if (requireAIProtocol && !supportsAIProtocol(record.protocol)) {
+    throw Object.assign(
+      new Error('Choose an active Universal Connection using a supported AI chat protocol.'),
+      { status: 409, code: 'CONNECTION_NOT_AI_CAPABLE' }
     );
   }
 

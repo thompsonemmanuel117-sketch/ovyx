@@ -80,6 +80,8 @@ function makeContext(method, options = {}) {
     env: options.env || {
       FIREBASE_PROJECT_ID: projectId,
       FIREBASE_WEB_API_KEY: 'fake-test-web-api-key',
+      OVYX_AI_ENGINE_MODE: 'legacy-provider-routing',
+      OVYX_ALLOW_PAID_PROVIDER_ROUTING: 'true',
       AI: {
         async run(model, input) {
           aiCalls.push({ model, input });

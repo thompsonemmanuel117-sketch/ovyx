@@ -59,6 +59,7 @@ export async function onRequestPost(context) {
           files: payload.files || null,
         },
         model: payload.model,
+        authUser: user,
       });
     } catch (aiError) {
       if (aiError?.partialUsage) {

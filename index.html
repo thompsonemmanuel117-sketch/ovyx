@@ -3921,6 +3921,61 @@
     if(PROVIDERS.includes(v))return v;
     return 'automatic';
   }
+  /* Cloudflare free-limit fallback is opt-in, Web Studio only, and never uses OVYX-owned provider keys. */
+  const WEBSTUDIO_FALLBACK_CONSENT_KEY='ovyx.webstudio.personal-connection-fallback.v1';
+  function isLikelyWebStudioPayload(payload,context){
+    const view=String(context?.activeView||payload?.context?.activeView||'').replace(/^view-/i,'').trim().toLowerCase();
+    if(view)return view==='webstudio'||view==='web-studio';
+    if(document.body?.classList?.contains('ovyx-webstudio-active'))return true;
+    const mode=String(payload?.mode||'').trim().toLowerCase();
+    return ['build','fix'].includes(mode)&&!!(payload?.project||payload?.files||context?.project||context?.files);
+  }
+  function webStudioFallbackConsentKey(user){
+    const uid=String(user?.uid||user?.email||'account').replace(/[^A-Za-z0-9._@-]/g,'').slice(0,180)||'account';
+    return WEBSTUDIO_FALLBACK_CONSENT_KEY+'.'+uid;
+  }
+  function hasWebStudioFallbackConsent(user){
+    try{return sessionStorage.getItem(webStudioFallbackConsentKey(user))===new Date().toISOString().slice(0,10);}catch(_){return false;}
+  }
+  function rememberWebStudioFallbackConsent(user){
+    try{sessionStorage.setItem(webStudioFallbackConsentKey(user),new Date().toISOString().slice(0,10));}catch(_){}
+  }
+  function askWebStudioPersonalConnectionFallback(fallbackReason){
+    return new Promise(resolve=>{
+      if(!document.body){resolve('cancel');return;}
+      const styleId='ovyx-webstudio-free-ai-fallback-v1-style';
+      if(!document.getElementById(styleId)){
+        const style=document.createElement('style');style.id=styleId;
+        style.textContent='#ovyx-ws-free-ai-fallback-v1{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:18px;background:rgba(2,6,12,.76);backdrop-filter:blur(8px);font:500 14px/1.5 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#f8fafc}#ovyx-ws-free-ai-fallback-v1 *{box-sizing:border-box}#ovyx-ws-free-ai-fallback-v1 .panel{width:min(100%,440px);background:#101722;border:1px solid #354256;border-radius:20px;padding:23px;box-shadow:0 24px 80px #0009}#ovyx-ws-free-ai-fallback-v1 h2{font-size:20px;line-height:1.25;margin:0 0 10px;font-weight:750;color:#fff}#ovyx-ws-free-ai-fallback-v1 p{margin:0 0 13px;color:#cbd5e1}#ovyx-ws-free-ai-fallback-v1 .note{font-size:12px;color:#94a3b8;margin-bottom:19px}#ovyx-ws-free-ai-fallback-v1 .actions{display:grid;gap:9px}#ovyx-ws-free-ai-fallback-v1 button{width:100%;min-height:44px;border-radius:11px;border:1px solid #475569;background:#1e293b;color:#f8fafc;font:650 14px system-ui;padding:11px 14px;cursor:pointer}#ovyx-ws-free-ai-fallback-v1 button.primary{background:#f3d68a;color:#17140d;border-color:#f3d68a}#ovyx-ws-free-ai-fallback-v1 button.secondary{background:transparent}#ovyx-ws-free-ai-fallback-v1 button:focus-visible{outline:3px solid #7dd3fc;outline-offset:3px}@media(max-width:420px){#ovyx-ws-free-ai-fallback-v1 .panel{padding:19px;border-radius:16px}}';
+        document.head?.appendChild(style);
+      }
+      document.getElementById('ovyx-ws-free-ai-fallback-v1')?.remove();
+      const overlay=document.createElement('div');overlay.id='ovyx-ws-free-ai-fallback-v1';overlay.setAttribute('role','presentation');
+      const panel=document.createElement('section');panel.className='panel';panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-labelledby','ovyx-ws-free-ai-fallback-title');
+      const title=document.createElement('h2');title.id='ovyx-ws-free-ai-fallback-title';title.textContent='Today’s free AI limit is reached';
+      const message=document.createElement('p');
+      if(fallbackReason==='DAILY_RATION_EXHAUSTED'){
+        message.textContent='You’ve used your included monthly AI tokens and daily OVYX prompts. You can continue in Web Studio with your own active Universal Connection; your provider may bill you directly.';
+      }else if(fallbackReason==='OVYX_AI_NEURON_BUDGET_EXHAUSTED'){
+        message.textContent='OVYX has reached its protected shared free-AI safety limit for today. It stops early to protect the shared allowance; you can continue in Web Studio with your own active Universal Connection.';
+      }else{
+        message.textContent='Cloudflare’s daily free AI allowance has been used up. OVYX will not switch to a platform-paid key or charge you behind your back.';
+      }
+      const note=document.createElement('p');note.className='note';note.textContent='This applies only to Web Studio. Your own provider may charge according to its pricing. The choice lasts in this tab until the UTC daily reset.';
+      const actions=document.createElement('div');actions.className='actions';
+      const finish=choice=>{overlay.remove();document.removeEventListener('keydown',onKey);resolve(choice);};
+      const onKey=event=>{if(event.key==='Escape')finish('cancel');};
+      const addButton=(label,choice,className)=>{const button=document.createElement('button');button.type='button';button.textContent=label;if(className)button.className=className;button.addEventListener('click',()=>finish(choice));actions.appendChild(button);return button;};
+      addButton('Continue with my own key','use-connection','primary');
+      addButton('Open Settings & connections','settings','');
+      addButton('Not now','cancel','secondary');
+      panel.append(title,message,note,actions);overlay.appendChild(panel);
+      overlay.addEventListener('click',event=>{if(event.target===overlay)finish('cancel');});
+      document.addEventListener('keydown',onKey);
+      document.body.appendChild(overlay);
+      actions.querySelector('button')?.focus();
+    });
+  }
   async function secureGenerate(payload={},options={}){
     const externalSignal=options?.signal||null;
     const controller=new AbortController();
@@ -3957,6 +4012,8 @@
       const project=payload.project||null;
       const files=payload.files||null;
       const context={...(payload.context||{}),project:project||payload.context?.project||null,files:files||payload.context?.files||null,attachments:attachments.length?attachments:(payload.context?.attachments||[])};
+      const useUniversalConnectionAfterCloudflareLimit=payload.useUniversalConnectionAfterCloudflareLimit===true||
+        (isLikelyWebStudioPayload(payload,context)&&hasWebStudioFallbackConsent(user));
       if(!messages.length||!String(messages[0]?.content||'').trim())throw new Error('AI prompt is empty.');
       let r;
       if(requested==='automatic'){
@@ -3978,7 +4035,8 @@
             context,
             system:payload.system||'You are OVYX Brain. Work as a senior, project-aware engineering agent. Inspect context, preserve working architecture, produce structured implementation-ready output, and self-audit syntax and integration details before responding.',
             tool:payload.tool||null,
-            toolResult:payload.toolResult||null
+            toolResult:payload.toolResult||null,
+            useUniversalConnectionAfterCloudflareLimit
           })
         });
       }else{
@@ -4001,6 +4059,7 @@
             maxTokens:payload.maxTokens||4096,
             tool:payload.tool||null,
             toolResult:payload.toolResult||null,
+            useUniversalConnectionAfterCloudflareLimit,
             project,
             files,
             attachments,
@@ -4011,6 +4070,18 @@
       const data=await r.json().catch(error=>{if(signal.aborted)throw error;return {};});
       if(signal.aborted)throw abortError();
       if(!r.ok){
+        if(data.requiresUniversalConnectionFallback===true&&data.fallbackFeature==='webStudio'&&payload.useUniversalConnectionAfterCloudflareLimit!==true){
+          const choice=await askWebStudioPersonalConnectionFallback(data.fallbackReason||data.code);
+          if(choice==='use-connection'){
+            rememberWebStudioFallbackConsent(user);
+            return await secureGenerate({...payload,useUniversalConnectionAfterCloudflareLimit:true},options);
+          }
+          if(choice==='settings'){
+            rememberWebStudioFallbackConsent(user);
+            try{window.Router?.go?.('settings');}catch(_){}
+            throw Object.assign(new Error('Open Settings & connections, add your own AI provider key, test it, and select “Use for AI requests”. Your choice to use your own connection after the free limit is remembered in this tab until the next UTC reset.'),{code:'OVYX_WEBSTUDIO_CONNECTION_SETUP_REQUIRED',status:409});
+          }
+        }
         const message=data.message||data.error||'The AI request could not be completed. Please try again.';
         throw Object.assign(new Error(message),{code:data.code||(requested==='automatic'?'AI_ASSISTANT_FAILED':'AI_GATEWAY_FAILED'),status:r.status});
       }
