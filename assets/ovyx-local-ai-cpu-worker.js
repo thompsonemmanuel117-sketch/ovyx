@@ -1,8 +1,21 @@
 // Stage 3 CPU/WASM worker. It is created only after explicit user action.
 // Prompts and generated text stay inside this worker and are never sent as network bodies.
 const TRANSFORMERS_URL = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.1';
-const MODEL_ID = 'onnx-community/Qwen2.5-0.5B-Instruct';
-const MODEL_REVISION = 'cc5cc01a65cc3ff17bdb73a7de33d879f62599b0';
+const MODEL_CONFIGS = Object.freeze({
+  'qwen25-05b-cpu': Object.freeze({
+    id: 'onnx-community/Qwen2.5-0.5B-Instruct',
+    revision: 'cc5cc01a65cc3ff17bdb73a7de33d879f62599b0',
+    dtype: 'q8',
+  }),
+  'smollm2-135m-cpu': Object.freeze({
+    id: 'onnx-community/SmolLM2-135M-Instruct-ONNX',
+    revision: 'b8a5c0f183b78c55955a5364f610c36668b5e681',
+    dtype: 'q8',
+  }),
+});
+let activeModel = null;
+let activeModelId = '';
+let activeModelRevision = '';
 let generator = null;
 let TextStreamerClass = null;
 let loading = false;
@@ -106,13 +119,13 @@ function installModelFetchCache() {
     try { url = new URL(request.url); } catch (_) { return nativeFetch(input, init); }
     const isModelRepoAsset =
       (url.hostname === 'huggingface.co' || url.hostname.endsWith('.huggingface.co'))
-      && url.pathname.includes('/' + MODEL_ID + '/');
+      && url.pathname.includes('/' + activeModelId + '/');
     if (!isModelRepoAsset) return nativeFetch(input, init);
 
     // Transformers.js can probe resolve/main even when pipeline() receives a
     // pinned revision. Never let that mutable alias reach the network.
     if (url.pathname.includes('/resolve/main/')) {
-      url.pathname = url.pathname.replace('/resolve/main/', '/resolve/' + MODEL_REVISION + '/');
+      url.pathname = url.pathname.replace('/resolve/main/', '/resolve/' + activeModelRevision + '/');
       request = new Request(url.href, {
         method: request.method,
         headers: request.headers,
@@ -239,9 +252,17 @@ self.addEventListener('message', async event => {
   const data = event.data || {};
   if (data.type === 'load') {
     if (loading || generator) {
-      self.postMessage({ type: generator ? 'ready' : 'error', modelId: MODEL_ID, message: 'CPU model is already loaded or loading.' });
+      self.postMessage({ type: generator ? 'ready' : 'error', modelId: activeModelId, revision: activeModelRevision, message: 'CPU model is already loaded or loading.' });
       return;
     }
+    const model = MODEL_CONFIGS[String(data.modelKey || '')];
+    if (!model) {
+      self.postMessage({ type: 'error', stage: 'load', message: 'Choose a supported CPU/WASM model from the local-AI lab before loading.' });
+      return;
+    }
+    activeModel = model;
+    activeModelId = model.id;
+    activeModelRevision = model.revision;
     loading = true;
     try {
       installModelFetchCache();
@@ -269,17 +290,17 @@ self.addEventListener('message', async event => {
       env.useBrowserCache = false;
       env.useWasmCache = true;
       env.logLevel = LogLevel.WARNING;
-      generator = await pipeline('text-generation', MODEL_ID, {
-        revision: MODEL_REVISION,
+      generator = await pipeline('text-generation', activeModel.id, {
+        revision: activeModel.revision,
         device: 'wasm',
-        dtype: 'q8',
+        dtype: activeModel.dtype,
         progress_callback: sendProgress,
       });
       await flushModelCacheWrites();
       self.postMessage({
         type: 'ready',
-        modelId: MODEL_ID,
-        revision: MODEL_REVISION,
+        modelId: activeModel.id,
+        revision: activeModel.revision,
         runtime: '@huggingface/transformers@4.3.1',
         device: 'wasm',
       });
