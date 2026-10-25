@@ -87,11 +87,13 @@ await assert.rejects(
 const providerSource = readFileSync(new URL('../functions/_lib/providers.js', import.meta.url), 'utf8');
 const assistantSource = readFileSync(new URL('../functions/api/ai/assistant.js', import.meta.url), 'utf8');
 const docs = readFileSync(new URL('../docs/UNIVERSAL-CONNECTIONS.md', import.meta.url), 'utf8');
+assert.match(providerSource, /options\.useSelectedUniversalBrain === true/);
 assert.match(providerSource, /options\.webStudioRequest !== true/);
 assert.match(providerSource, /options\.appStudioRequest !== true/);
 assert.match(providerSource, /OVYX_WEBSTUDIO_UNIVERSAL_CONNECTION_NOT_READY/);
 assert.match(assistantSource, /webStudioRequest: isWebStudio/);
 assert.match(assistantSource, /appStudioRequest: isAppStudio/);
+assert.match(assistantSource, /useSelectedUniversalBrain: !isWebStudio && !isAppStudio/);
 assert.match(assistantSource, /useUniversalConnectionAfterCloudflareLimit: true/);
 assert.match(docs, /Ordinary OVYX AI Assistant chats/);
 assert.match(docs, /explicitly chooses to continue with their own Universal Connection/);
