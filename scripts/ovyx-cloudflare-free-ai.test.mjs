@@ -53,11 +53,11 @@ assert.equal(compacted[compacted.length - 1].content, 'latest user prompt');
 // Long Web Studio prompts must retain both their opening contract and ending
 // project context. Tail-only truncation can discard the required JSON schema and
 // target file allowlist, causing a valid Cloudflare response to become unusable.
-const longPrompt = 'REQUIRED_OUTPUT_CONTRACT_AT_START\\n' +
+const longPrompt = 'REQUIRED_OUTPUT_CONTRACT_AT_START\n' +
   'x'.repeat(12000) +
-  '\\nMIDDLE_ONLY_SENTINEL_SHOULD_BE_TRUNCATED\\n' +
+  '\nMIDDLE_ONLY_SENTINEL_SHOULD_BE_TRUNCATED\n' +
   'y'.repeat(12000) +
-  '\\nREQUIRED_TARGET_PATHS_AT_END';
+  '\nREQUIRED_TARGET_PATHS_AT_END';
 const boundedLongPrompt = compactCloudflareFreeMessages([
   { role: 'system', content: 'System rules.' },
   { role: 'user', content: longPrompt },
