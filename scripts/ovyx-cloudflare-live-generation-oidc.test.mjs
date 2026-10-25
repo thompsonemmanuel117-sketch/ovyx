@@ -263,9 +263,9 @@ assert.deepEqual(await providerPreflightReady.json(), {
 });
 assert.equal(preflightCall.count, 1, 'one bounded preflight model request must run before full website generation');
 assert.equal(preflightCall.input.provider, 'gemini', 'an explicit provider preflight must not borrow another provider');
-assert.equal(preflightCall.input.maxTokens, 512, 'the reasoning-capable model needs a bounded but usable final-answer budget');
-assert.equal(preflightCall.input.disableThinking, true, 'the tiny readiness probe must disable Qwen3 thinking to avoid empty final answers');
-assert.match(preflightCall.input.user, /^\/no_think\n/, 'the Qwen3 readiness prompt should explicitly request a final answer without reasoning');
+assert.equal(preflightCall.input.maxTokens, 32, 'the non-reasoning readiness model should use a small output budget');
+assert.equal(preflightCall.input.disableThinking, true, 'the readiness probe should request deterministic inference without enabling reasoning');
+assert.equal(preflightCall.input.user, 'Reply with exactly OVYX_PROVIDER_READY.', 'the readiness prompt should be a plain final-answer request');
 assert.equal(preflightCall.input.timeoutMs, 25_000, 'the preflight must have a bounded provider timeout');
 assert.match(preflightCall.input.system, /provider readiness check/i);
 assert.doesNotMatch(preflightCall.input.user, /website|property|restaurant|fashion|country/i,

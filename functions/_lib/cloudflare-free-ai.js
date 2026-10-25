@@ -1,13 +1,13 @@
 import { createFirestoreDocumentIfAbsent, getFirestoreDocument, firestoreDocumentToJs, setFirestoreDocumentIfCurrent } from './firebase-admin.js';
 
-export const OVYX_CLOUDFLARE_FREE_MODEL = '@cf/qwen/qwen3-30b-a3b-fp8';
+export const OVYX_CLOUDFLARE_FREE_MODEL = '@cf/meta/llama-3.1-8b-instruct-fp8-fast';
 export const OVYX_CLOUDFLARE_FREE_MAX_OUTPUT_TOKENS = 4096;
 export const OVYX_CLOUDFLARE_FREE_DEFAULT_DAILY_BUDGET = 7000;
 export const OVYX_CLOUDFLARE_FREE_MAX_DAILY_BUDGET = 8000;
 export const OVYX_CLOUDFLARE_FREE_USER_REQUESTS_PER_MINUTE = 18;
 
-const INPUT_NEURONS_PER_MILLION = 4625;
-const OUTPUT_NEURONS_PER_MILLION = 30475;
+const INPUT_NEURONS_PER_MILLION = 4119;
+const OUTPUT_NEURONS_PER_MILLION = 34868;
 const RATE_RETRIES = 6;
 const BUDGET_RETRIES = 8;
 
@@ -379,15 +379,15 @@ export async function runCloudflareFreeInference(env, {
   let result;
   const timeout = Math.max(50, Math.min(60000, Number(timeoutMs) || 45000));
   try {
+    const usesQwen3ReasoningControls =
+      disableThinking && OVYX_CLOUDFLARE_FREE_MODEL === '@cf/qwen/qwen3-30b-a3b-fp8';
     const pending = Promise.resolve(env.AI.run(OVYX_CLOUDFLARE_FREE_MODEL, {
       messages: bounded,
       max_tokens: outputTokens,
       temperature: disableThinking ? 0 : 0.2,
       stream: false,
-      ...(disableThinking ? {
+      ...(usesQwen3ReasoningControls ? {
         chat_template_kwargs: { enable_thinking: false },
-        // Some Workers AI reasoning models also honor this explicit disable
-        // signal. Unsupported models may ignore it; output validation remains strict.
         reasoning_effort: null,
       } : {}),
     }));
