@@ -542,7 +542,8 @@ try {
     );
     assert.match(await cpuPage.locator('#engine-pill').textContent(), /MODEL NOT LOADED/,
       '[' + target.name + '] stopping CPU generation must terminate its worker and release model state.');
-    assert.equal(await cpuPage.locator('#start-local-ai').isDisabled(), false);
+    assert.equal(await cpuPage.locator('#start-local-ai').isDisabled(), true,
+      '[' + target.name + '] stopping a CPU response must require renewed download/load consent.');
 
     assert.equal(cpuRuntimeRequests, 1);
     assert.ok(cpuRequests.some(request => new URL(request.url).host === 'cdn.jsdelivr.net'),
@@ -636,7 +637,8 @@ try {
     assert.match(await cancelCpuPage.locator('#engine-pill').textContent(), /MODEL NOT LOADED/,
       '[' + target.name + '] cancelling CPU model initialization must release the worker and leave no ready model.');
     assert.equal(await cancelCpuPage.locator('#cancel-local-ai').isHidden(), true);
-    assert.equal(await cancelCpuPage.locator('#start-local-ai').isDisabled(), false);
+    assert.equal(await cancelCpuPage.locator('#start-local-ai').isDisabled(), true,
+      '[' + target.name + '] cancelling CPU initialization must clear the previous consent.');
     assert.deepEqual(cancelCpuErrors, [], '[' + target.name + '] CPU load cancellation must not cause browser errors.');
     await cancelCpuContext.close();
 
@@ -682,8 +684,8 @@ try {
     assert.equal(await lowStoragePage.evaluate(() => globalThis.__OVYX_MOCK_ENGINE_CONFIGS?.length || 0), 0,
       '[' + target.name + '] low-storage refusal must happen before WebLLM engine initialization or model-weight download.');
     assert.match(await lowStoragePage.locator('#engine-pill').textContent(), /MODEL NOT LOADED/);
-    assert.equal(await lowStoragePage.locator('#start-local-ai').isDisabled(), false,
-      '[' + target.name + '] low-storage refusal must leave retry/model selection usable.');
+    assert.equal(await lowStoragePage.locator('#start-local-ai').isDisabled(), true,
+      '[' + target.name + '] low-storage refusal must require renewed consent before retry.');
     await lowStorageContext.close();
 
     // A transient CPU runtime network failure must be visible, stay local, and
