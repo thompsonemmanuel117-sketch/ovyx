@@ -98,8 +98,13 @@ function recoverSingleFileContent(rawText, targetPath, parsedOutput = null) {
         raw = newline < 0 ? '' : raw.slice(newline + 1).trim();
       }
     }
-    if (!raw || raw.length > 120_000 || /^[{[]/.test(raw)) continue;
+    if (!raw || raw.length > 120_000) continue;
 
+    // A model can wrap a complete HTML page in a malformed JSON envelope (for
+    // example, by failing to escape quotes inside the file's content field).
+    // For HTML targets, recover only the bounded, complete HTML document; the
+    // planned target path remains the sole allowlisted destination. Keep the
+    // JSON-wrapper rejection for CSS/JS, where extracting a fragment is riskier.
     if (extension === 'html' || extension === 'htm') {
       const startMatch = /<!doctype\s+html\b|<html\b/i.exec(raw);
       if (!startMatch) continue;
@@ -112,6 +117,8 @@ function recoverSingleFileContent(rawText, targetPath, parsedOutput = null) {
           /<\/body\s*>/i.test(document)) return document;
       continue;
     }
+
+    if (/^[{[]/.test(raw)) continue;
 
     if (extension === 'css') {
       if (!raw.includes('{') || !raw.includes('}')) continue;
@@ -170,6 +177,8 @@ function batchOutputShapeDiagnostics(rawText, parsed, generated, batch) {
     endsWithJsonObject: /\}\s*$/.test(raw),
     containsMarkdownFence: raw.includes(fenceForShapeDiagnostics()),
     containsHtmlDocument: /<!doctype\s+html|<html\b/i.test(raw),
+    containsHtmlClosingTag: /<\/html\s*>/i.test(raw),
+    containsBodyClosingTag: /<\/body\s*>/i.test(raw),
     endsWithHtmlDocument: raw.toLowerCase().trimEnd().endsWith('</html>'),
     batchIndex: Math.max(0, Math.min(100, Number(batch?.index) || 0)),
     batchTotal: Math.max(0, Math.min(100, Number(batch?.total) || 0)),
