@@ -561,7 +561,7 @@
             const assetPath = String(metadata.urlPath || '');
             if (assetPath.includes('/' + model.id + '/')) {
               opfsModelAssetCount += 1;
-              if (/(?:^|\\/)(?:model|model_[a-z0-9]+)\\.onnx$/i.test(assetPath)) opfsModelWeightCached = true;
+              if (/(?:^|\/)(?:model|model_[a-z0-9]+)\.onnx$/i.test(assetPath)) opfsModelWeightCached = true;
             }
           } catch (_) {}
         }
