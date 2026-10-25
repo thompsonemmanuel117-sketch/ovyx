@@ -480,6 +480,7 @@ async function buildStudioMultiPageOnce(options) {
       system: [String(options.qualityContract || '').trim(), 'You are an expert website information architect. Return JSON only with a realistic route-by-route sitemap. Do not generate site code in this planning phase.'].filter(Boolean).join('\n\n'),
       user: planInput,
       maxTokens: cap(env, 'OVYX_WEBSTUDIO_PLAN_TOKENS', 7000),
+      jsonMode: true,
     });
   } catch (error) {
     throw accountingError(error, usage, hasUsage, inputs, outputs);
@@ -584,6 +585,7 @@ async function buildStudioMultiPageOnce(options) {
         system: [String(options.qualityContract || '').trim(), 'You are OVYX Web Studio, a senior frontend engineer and UX architect. Follow the batch instructions exactly. Return strict JSON with complete file contents.'].filter(Boolean).join('\n\n'),
         user: input,
         maxTokens: cap(env, 'OVYX_WEBSTUDIO_BATCH_TOKENS', 18000),
+        jsonMode: true,
       });
     } catch (error) {
       throw accountingError(error, usage, hasUsage, inputs, outputs);
@@ -671,6 +673,7 @@ async function buildStudioMultiPageOnce(options) {
             ].filter(Boolean).join('\n\n'),
             user: repairInput,
             maxTokens: Math.max(1000, Math.min(18000, cap(env, 'OVYX_WEBSTUDIO_REQUIREMENT_REPAIR_TOKENS', 12000))),
+            jsonMode: true,
           });
           outputs.push(String(repairResult && repairResult.text || ''));
           const repairUsage = usageAdd(usage, repairResult && repairResult.rawUsage);
@@ -785,6 +788,7 @@ async function buildStudioMultiPageOnce(options) {
         ].filter(Boolean).join('\n\n'),
         user: polishInput,
         maxTokens: Math.max(1000, Math.min(18000, cap(env, 'OVYX_WEBSTUDIO_POLISH_TOKENS', 12000))),
+        jsonMode: true,
       });
       lastResult = polishResult;
       outputs.push(String(polishResult && polishResult.text || ''));
