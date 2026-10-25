@@ -41,6 +41,16 @@ assert.equal(safeLiveGenerationFailureDetail(Object.assign(new Error('timeout de
   name: 'TimeoutError',
 })), 'upstream-timeout');
 assert.equal(safeLiveGenerationFailureDetail(new Error('private message / key=DO_NOT_LEAK')), 'generation-error');
+assert.equal(
+  safeLiveGenerationFailureDetail(Object.assign(new Error('internal Firestore detail'), { code: 'OVYX_AI_BUDGET_LEDGER_RESERVATION_HTTP_502' })),
+  'cloudflare-ai-budget-ledger-reservation-http-502',
+  'budget ledger diagnostics should expose only the safe phase and HTTP status',
+);
+assert.equal(
+  safeLiveGenerationFailureDetail(Object.assign(new Error('internal network detail'), { code: 'OVYX_AI_BUDGET_LEDGER_READ_NETWORK_ERROR' })),
+  'cloudflare-ai-budget-ledger-read-network-error',
+  'network failures should be distinguished without exposing provider details',
+);
 
 const safeOutputDiagnostics = safeLiveGenerationOutputDiagnostics({
   outputDiagnostics: {
