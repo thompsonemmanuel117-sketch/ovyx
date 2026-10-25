@@ -964,6 +964,7 @@ async function callCloudflareWorkersAI(
     maxTokens,
     authUser,
     disableThinking = false,
+    jsonMode = false,
   }
 ) {
   if (!env.AI || typeof env.AI.run !== 'function') {
@@ -982,7 +983,7 @@ async function callCloudflareWorkersAI(
     : 45_000;
   try {
     if (freeOnly) {
-      const guarded = await runCloudflareFreeInference(env, { authUser, system, user, maxTokens, timeoutMs, disableThinking });
+      const guarded = await runCloudflareFreeInference(env, { authUser, system, user, maxTokens, timeoutMs, disableThinking, jsonMode });
       result = guarded.result;
       guardedInferenceText = guarded.text;
     } else {
