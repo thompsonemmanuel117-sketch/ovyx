@@ -1255,7 +1255,7 @@ export async function callModel(
   if (isCloudflareFreeOnlyMode(env)) {
     if (options.webStudioRequest === true && options.useUniversalConnectionAfterCloudflareLimit === true) {
       if (!options.authUser) throw Object.assign(new Error('Sign in before using your Universal Connection.'), { status: 401, code: 'AUTH_REQUIRED' });
-      if (!(await isCloudflareFreeAllowanceExhausted(env))) {
+      if (options.forcePersonalConnectionForPlanQuota !== true && !(await isCloudflareFreeAllowanceExhausted(env))) {
         const result = await callCloudflareWorkersAI(env, {
           ...options,
           model: OVYX_CLOUDFLARE_FREE_MODEL,

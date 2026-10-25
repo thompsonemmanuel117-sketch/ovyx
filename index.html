@@ -3940,7 +3940,7 @@
   function rememberWebStudioFallbackConsent(user){
     try{sessionStorage.setItem(webStudioFallbackConsentKey(user),new Date().toISOString().slice(0,10));}catch(_){}
   }
-  function askWebStudioPersonalConnectionFallback(){
+  function askWebStudioPersonalConnectionFallback(fallbackReason){
     return new Promise(resolve=>{
       if(!document.body){resolve('cancel');return;}
       const styleId='ovyx-webstudio-free-ai-fallback-v1-style';
@@ -3953,7 +3953,14 @@
       const overlay=document.createElement('div');overlay.id='ovyx-ws-free-ai-fallback-v1';overlay.setAttribute('role','presentation');
       const panel=document.createElement('section');panel.className='panel';panel.setAttribute('role','dialog');panel.setAttribute('aria-modal','true');panel.setAttribute('aria-labelledby','ovyx-ws-free-ai-fallback-title');
       const title=document.createElement('h2');title.id='ovyx-ws-free-ai-fallback-title';title.textContent='Today’s free AI limit is reached';
-      const message=document.createElement('p');message.textContent='Cloudflare’s shared free AI allowance has been used up for today. OVYX will not switch to a platform-paid key or charge you behind your back.';
+      const message=document.createElement('p');
+      if(fallbackReason==='DAILY_RATION_EXHAUSTED'){
+        message.textContent='You’ve used your included monthly AI tokens and daily OVYX prompts. You can continue in Web Studio with your own active Universal Connection; your provider may bill you directly.';
+      }else if(fallbackReason==='OVYX_AI_NEURON_BUDGET_EXHAUSTED'){
+        message.textContent='OVYX has reached its protected shared free-AI safety limit for today. It stops early to protect the shared allowance; you can continue in Web Studio with your own active Universal Connection.';
+      }else{
+        message.textContent='Cloudflare’s daily free AI allowance has been used up. OVYX will not switch to a platform-paid key or charge you behind your back.';
+      }
       const note=document.createElement('p');note.className='note';note.textContent='This applies only to Web Studio. Your own provider may charge according to its pricing. The choice lasts in this tab until the UTC daily reset.';
       const actions=document.createElement('div');actions.className='actions';
       const finish=choice=>{overlay.remove();document.removeEventListener('keydown',onKey);resolve(choice);};
@@ -4064,7 +4071,7 @@
       if(signal.aborted)throw abortError();
       if(!r.ok){
         if(data.requiresUniversalConnectionFallback===true&&data.fallbackFeature==='webStudio'&&payload.useUniversalConnectionAfterCloudflareLimit!==true){
-          const choice=await askWebStudioPersonalConnectionFallback();
+          const choice=await askWebStudioPersonalConnectionFallback(data.fallbackReason||data.code);
           if(choice==='use-connection'){
             rememberWebStudioFallbackConsent(user);
             return await secureGenerate({...payload,useUniversalConnectionAfterCloudflareLimit:true},options);

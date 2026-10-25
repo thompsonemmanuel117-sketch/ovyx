@@ -7,6 +7,7 @@ assert.match(html, /useUniversalConnectionAfterCloudflareLimit/);
 assert.match(html, /Continue with my own key/);
 assert.match(html, /Open Settings & connections/);
 assert.match(html, /This applies only to Web Studio/);
+assert.match(html, /used your included monthly AI tokens and daily OVYX prompts/);
 assert.match(html, /ovyx\.webstudio\.personal-connection-fallback\.v1/);
 assert.match(html, /secureGenerate\(\{\.\.\.payload,useUniversalConnectionAfterCloudflareLimit:true\}/);
 assert.match(html, /fallbackFeature==='webStudio'/);

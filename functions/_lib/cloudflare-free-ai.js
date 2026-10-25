@@ -223,6 +223,9 @@ export function isCloudflareDailyFreeLimitError(error) {
 export function isCloudflareFreeQuotaError(error) {
   return ['OVYX_AI_NEURON_BUDGET_EXHAUSTED', 'OVYX_AI_CLOUDFLARE_QUOTA_EXHAUSTED'].includes(String(error?.code || ''));
 }
+export function isWebStudioUniversalConnectionFallbackTrigger(error) {
+  return isCloudflareFreeQuotaError(error) || String(error?.code || '') === 'DAILY_RATION_EXHAUSTED';
+}
 async function recordCloudflareFreeExhaustion(env, reason) {
   const day = utcDayKey();
   for (let attempt = 0; attempt < BUDGET_RETRIES; attempt += 1) {

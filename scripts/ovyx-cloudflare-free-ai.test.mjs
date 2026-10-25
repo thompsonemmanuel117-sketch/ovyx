@@ -10,6 +10,7 @@ import {
   hasActivePaidAiEntitlement,
   isCloudflareDailyFreeLimitError,
   isCloudflareFreeQuotaError,
+  isWebStudioUniversalConnectionFallbackTrigger,
   estimateCloudflareFreeNeurons,
   compactCloudflareFreeMessages,
 } from '../functions/_lib/cloudflare-free-ai.js';
@@ -34,6 +35,8 @@ assert.equal(isCloudflareDailyFreeLimitError({ message: 'Used up your daily free
 assert.equal(isCloudflareDailyFreeLimitError({ status: 429, message: 'temporary rate limit' }), false);
 assert.equal(isCloudflareFreeQuotaError({ code: 'OVYX_AI_NEURON_BUDGET_EXHAUSTED' }), true);
 assert.equal(isCloudflareFreeQuotaError({ code: 'OVYX_AI_CLOUDFLARE_RATE_LIMITED' }), false);
+assert.equal(isWebStudioUniversalConnectionFallbackTrigger({ code: 'DAILY_RATION_EXHAUSTED' }), true);
+assert.equal(isWebStudioUniversalConnectionFallbackTrigger({ code: 'ACTIVE_PAID_SUBSCRIPTION_REQUIRED' }), false);
 
 const sample = [{ role: 'system', content: 'Safe instructions.' }, { role: 'user', content: 'Build a responsive site.' }];
 assert.ok(estimateCloudflareFreeNeurons(sample, 256) > 0);

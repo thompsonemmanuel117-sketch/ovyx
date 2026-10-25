@@ -6,7 +6,7 @@ import {
   requestId,
 } from '../../_lib/http.js';
 import { callModel } from '../../_lib/providers.js';
-import { isCloudflareFreeOnlyMode, isCloudflareFreeQuotaError } from '../../_lib/cloudflare-free-ai.js';
+import { isCloudflareFreeOnlyMode, isWebStudioUniversalConnectionFallbackTrigger } from '../../_lib/cloudflare-free-ai.js';
 import { buildStudioMultiPage } from '../../_lib/studio-multipage.js';
 import { WEB_STUDIO_SYSTEM_PROMPT, WEB_STUDIO_EXCELLENCE } from '../../_lib/prompts.js';
 import { buildExperienceBrief, isWebStudioPrompt } from '../../_lib/experience.js';
@@ -37,6 +37,7 @@ function parseStructured(text) {
 
 export async function onRequestPost(context) {
   let webStudioFallbackEligible = false;
+  let usingPersonalConnectionForPlanQuota = false;
   try {
     const user = assertAuthenticated(
       context.data?.user
@@ -96,7 +97,11 @@ export async function onRequestPost(context) {
     const routeCallModel = (env, options = {}) => callModel(env, {
       ...options,
       authUser: user,
-      ...(useUniversalConnectionAfterCloudflareLimit ? { webStudioRequest: true, useUniversalConnectionAfterCloudflareLimit: true } : {}),
+      ...(useUniversalConnectionAfterCloudflareLimit ? {
+        webStudioRequest: true,
+        useUniversalConnectionAfterCloudflareLimit: true,
+        forcePersonalConnectionForPlanQuota: usingPersonalConnectionForPlanQuota,
+      } : {}),
     });
 
     // A request-scoped app brand always wins over the user's saved default.
@@ -267,7 +272,18 @@ export async function onRequestPost(context) {
       context.request
     );
 
-    const quotaReservation = await beginAIQuota(context.env, user);
+    let quotaReservation = null;
+    try {
+      quotaReservation = await beginAIQuota(context.env, user);
+    } catch (quotaError) {
+      if (isWebStudio && useUniversalConnectionAfterCloudflareLimit && quotaError?.code === 'DAILY_RATION_EXHAUSTED') {
+        // Included monthly tokens and daily OVYX prompts are exhausted. Web Studio can
+        // continue only through the member's own selected provider after explicit consent.
+        usingPersonalConnectionForPlanQuota = true;
+      } else {
+        throw quotaError;
+      }
+    }
 
     let result;
     let multiPageBuild = false;
@@ -348,18 +364,20 @@ export async function onRequestPost(context) {
         quotaOutputText = result.text || '';
       }
     } catch (providerError) {
-      if (providerError?.partialUsage) {
-        await finalizeAIQuota(
-          context.env,
-          quotaReservation,
-          providerError.partialUsage,
-          providerError.quotaInputText || quotaInputText,
-          providerError.quotaOutputText || ''
-        ).catch(quotaError => {
-          console.error('[OVYX PARTIAL AI USAGE]', quotaError?.message || quotaError);
-        });
-      } else {
-        await refundDailyPrompt(context.env, quotaReservation);
+      if (!usingPersonalConnectionForPlanQuota) {
+        if (providerError?.partialUsage) {
+          await finalizeAIQuota(
+            context.env,
+            quotaReservation,
+            providerError.partialUsage,
+            providerError.quotaInputText || quotaInputText,
+            providerError.quotaOutputText || ''
+          ).catch(quotaError => {
+            console.error('[OVYX PARTIAL AI USAGE]', quotaError?.message || quotaError);
+          });
+        } else {
+          await refundDailyPrompt(context.env, quotaReservation);
+        }
       }
       throw providerError;
     }
@@ -388,13 +406,21 @@ export async function onRequestPost(context) {
       }
     }
 
-    const quota = await finalizeAIQuota(
-      context.env,
-      quotaReservation,
-      result.rawUsage || null,
-      quotaInputText,
-      quotaOutputText || result.text || ''
-    );
+    const quota = usingPersonalConnectionForPlanQuota
+      ? {
+          mode: 'universal-connection',
+          includedQuotaExhausted: true,
+          countedAgainstOvyxMonthlyTokens: false,
+          countedAgainstOvyxDailyPromptAllowance: false,
+          providerBilledDirectly: true,
+        }
+      : await finalizeAIQuota(
+          context.env,
+          quotaReservation,
+          result.rawUsage || null,
+          quotaInputText,
+          quotaOutputText || result.text || ''
+        );
 
     let historySaved = false;
 
@@ -456,10 +482,14 @@ export async function onRequestPost(context) {
       },
     });
   } catch (err) {
-    if (webStudioFallbackEligible && isCloudflareFreeOnlyMode(context.env) && isCloudflareFreeQuotaError(err)) {
+    if (webStudioFallbackEligible && isCloudflareFreeOnlyMode(context.env) && isWebStudioUniversalConnectionFallbackTrigger(err)) {
+      const memberQuotaExhausted = err.code === 'DAILY_RATION_EXHAUSTED';
       return Response.json({
         ok: false, error: err.code, code: err.code,
-        message: 'OVYX’s protected daily free AI capacity is used up. Web Studio can continue with your own active Universal Connection; OVYX will not silently use a paid platform key.',
+        fallbackReason: err.code,
+        message: memberQuotaExhausted
+          ? 'Your included monthly AI tokens and daily OVYX prompts are exhausted. Web Studio can continue with your own active Universal Connection; other plan features remain locked by your subscription.'
+          : 'OVYX has reached its protected daily free AI capacity. Web Studio can continue with your own active Universal Connection; OVYX will not silently use a paid platform key.',
         requiresUniversalConnectionFallback: true, fallbackFeature: 'webStudio',
       }, { status: err.status || 429, headers: {
         'Cache-Control': 'no-store, max-age=0', 'X-Content-Type-Options': 'nosniff',
