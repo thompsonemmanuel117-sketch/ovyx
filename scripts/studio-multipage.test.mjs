@@ -240,7 +240,7 @@ assert.equal(repairedRequirementBuild.requirementRepair.issuesAfter.length, 0);
 assert.ok(repairedRequirementBuild.files['src/pages/Reservations.html'].includes('Reserve a table'));
 assert.equal(repairedRequirementBuild.files['src/private.html'], undefined, 'The requirement repair must not introduce unapproved paths.');
 assert.ok(repairCalls[0].user.includes('REPAIR ALLOWLIST JSON'));
-assert.equal(repairedRequirementBuild.rawUsage.total_tokens, 18 + 50 * 3 + 8 + 14, 'The repair call must be included in usage accounting.');
+assert.equal(repairedRequirementBuild.rawUsage.total_tokens, 18 + 50 * 5 + 8 + 14, 'Usage accounting must include all five bounded file batches plus the requirement-repair and polish calls.');
 assert.ok(repairedRequirementBuild.summary.includes('bounded requirement-repair pass was applied'));
 
 const rejectedRequirementRepair = await buildStudioMultiPage({
