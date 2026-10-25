@@ -49,6 +49,11 @@ for (const [code, expected] of [
   ['OVYX_AI_MODEL_NOT_AVAILABLE_ON_FREE_PLAN', 'cloudflare-model-not-available-on-free-plan'],
   ['OVYX_AI_CLOUDFLARE_UNAVAILABLE', 'cloudflare-ai-unavailable'],
   ['OVYX_AI_CLOUDFLARE_EMPTY_RESPONSE', 'cloudflare-ai-empty-response'],
+  ['OVYX_AI_CLOUDFLARE_CHOICES_EMPTY', 'cloudflare-ai-empty-choices'],
+  ['OVYX_AI_CLOUDFLARE_CHOICES_NO_TEXT', 'cloudflare-ai-choices-no-text'],
+  ['OVYX_AI_CLOUDFLARE_REASONING_ONLY', 'cloudflare-ai-reasoning-only'],
+  ['OVYX_AI_CLOUDFLARE_MESSAGE_CONTENT_UNSUPPORTED', 'cloudflare-ai-message-content-unsupported'],
+  ['OVYX_AI_CLOUDFLARE_RESPONSE_SHAPE_UNSUPPORTED', 'cloudflare-ai-response-shape-unsupported'],
   ['OVYX_AI_TIMEOUT', 'cloudflare-ai-timeout'],
 ]) {
   assert.equal(safeLiveGenerationFailureDetail(Object.assign(new Error('private provider details must not leak'), { code })), expected,
@@ -260,6 +265,7 @@ assert.equal(preflightCall.count, 1, 'one bounded preflight model request must r
 assert.equal(preflightCall.input.provider, 'gemini', 'an explicit provider preflight must not borrow another provider');
 assert.equal(preflightCall.input.maxTokens, 64, 'the preflight needs enough output tokens for a usable response');
 assert.equal(preflightCall.input.disableThinking, true, 'the tiny readiness probe must disable Qwen3 thinking to avoid empty final answers');
+assert.match(preflightCall.input.user, /^\/no_think\n/, 'the Qwen3 readiness prompt should explicitly request a final answer without reasoning');
 assert.equal(preflightCall.input.timeoutMs, 25_000, 'the preflight must have a bounded provider timeout');
 assert.match(preflightCall.input.system, /provider readiness check/i);
 assert.doesNotMatch(preflightCall.input.user, /website|property|restaurant|fashion|country/i,
