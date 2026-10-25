@@ -45,6 +45,116 @@ function outputFiles(value) {
   if (!Object.keys(out).length && value && typeof value.code === 'string') out['src/pages/Home.html'] = value.code;
   return out;
 }
+
+function recoverSingleFileContent(rawText, targetPath, parsedOutput = null) {
+  const target = String(targetPath || '');
+  const extension = (target.split('.').pop() || '').toLowerCase();
+  if (!['html', 'htm', 'css', 'js', 'mjs'].includes(extension)) return null;
+
+  const candidates = [];
+  if (typeof parsedOutput === 'string') candidates.push(parsedOutput);
+  if (parsedOutput && typeof parsedOutput === 'object' && !Array.isArray(parsedOutput)) {
+    for (const key of ['html', 'code', 'text', 'response', 'output_text', 'content', 'output']) {
+      if (typeof parsedOutput[key] === 'string') candidates.push(parsedOutput[key]);
+    }
+  }
+  candidates.push(String(rawText || ''));
+
+  const fence = String.fromCharCode(96).repeat(3);
+  for (const candidate of candidates) {
+    let raw = String(candidate || '').trim();
+    if (!raw || raw.length > 200_000) continue;
+    if (raw.startsWith(fence) && raw.endsWith(fence)) {
+      raw = raw.slice(fence.length, -fence.length).trim();
+      const newline = raw.indexOf('\n');
+      const firstLine = (newline < 0 ? raw : raw.slice(0, newline)).trim().toLowerCase();
+      if (['html', 'htm', 'css', 'javascript', 'js', 'mjs'].includes(firstLine)) {
+        raw = newline < 0 ? '' : raw.slice(newline + 1).trim();
+      }
+    }
+    if (!raw || raw.length > 120_000 || /^[{[]/.test(raw)) continue;
+
+    if (extension === 'html' || extension === 'htm') {
+      const startMatch = /<!doctype\s+html\b|<html\b/i.exec(raw);
+      if (!startMatch) continue;
+      const close = raw.toLowerCase().lastIndexOf('</html>');
+      if (close < startMatch.index) continue;
+      const document = raw.slice(startMatch.index, close + '</html>'.length).trim();
+      if (document.length <= 120_000 &&
+          /<head\b/i.test(document) &&
+          /<body\b/i.test(document) &&
+          /<\/body\s*>/i.test(document)) return document;
+      continue;
+    }
+
+    if (extension === 'css') {
+      if (!raw.includes('{') || !raw.includes('}')) continue;
+      let depth = 0;
+      let balanced = true;
+      for (const character of raw) {
+        if (character === '{') depth += 1;
+        if (character === '}') depth -= 1;
+        if (depth < 0) { balanced = false; break; }
+      }
+      if (balanced && depth === 0) return raw;
+      continue;
+    }
+
+    if (/(?:^|[;\n])\s*(?:(?:const|let|var|function|class|export|import|document|window|globalThis)\b|['"]use strict['"]|[A-Za-z_$][\w$]*\s*=>)/m.test(raw)) {
+      return raw;
+    }
+  }
+  return null;
+}
+
+const SAFE_OUTPUT_ROOT_KEYS = new Set([
+  'summary', 'files', 'fileEdits', 'patch', 'html', 'code',
+  'siteMap', 'text', 'response', 'output', 'output_text', 'content', 'message',
+]);
+
+function batchOutputShapeDiagnostics(rawText, parsed, generated, batch) {
+  const raw = String(rawText || '');
+  const rootKeys = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+    ? [...new Set(Object.keys(parsed).map(key => SAFE_OUTPUT_ROOT_KEYS.has(key) ? key : 'other'))].slice(0, 12)
+    : [];
+  const container = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+    ? (parsed.files ?? parsed.fileEdits ?? parsed.patch?.files)
+    : undefined;
+  const fileContainerKind = Array.isArray(container)
+    ? 'array'
+    : container && typeof container === 'object'
+      ? 'object'
+      : container === undefined || container === null
+        ? 'absent'
+        : 'other';
+  const fileContainerEntries = Array.isArray(container)
+    ? container.length
+    : container && typeof container === 'object'
+      ? Object.keys(container).length
+      : 0;
+  const targetExtension = (String(batch?.targetPaths?.[0] || '').split('.').pop() || '').toLowerCase();
+  return {
+    responseCharacters: Math.min(raw.length, 200_000),
+    parsedJson: Boolean(parsed && typeof parsed === 'object' && !Array.isArray(parsed)),
+    rootKeys,
+    fileContainerKind,
+    fileContainerEntries: Math.min(fileContainerEntries, 100),
+    extractedFileCount: Math.min(Object.keys(generated || {}).length, 100),
+    startsWithJsonObject: /^\s*\{/.test(raw),
+    endsWithJsonObject: /\}\s*$/.test(raw),
+    containsMarkdownFence: raw.includes(fenceForShapeDiagnostics()),
+    containsHtmlDocument: /<!doctype\s+html|<html\b/i.test(raw),
+    endsWithHtmlDocument: raw.toLowerCase().trimEnd().endsWith('</html>'),
+    batchIndex: Math.max(0, Math.min(100, Number(batch?.index) || 0)),
+    batchTotal: Math.max(0, Math.min(100, Number(batch?.total) || 0)),
+    targetFileExtension: ['html', 'htm', 'css', 'js', 'mjs'].includes(targetExtension) ? targetExtension : 'other',
+  };
+}
+
+function fenceForShapeDiagnostics() {
+  return String.fromCharCode(96).repeat(3);
+}
+
 function deterministicFallbackSiteMapTitles(prompt, explicitPages = []) {
   const source = String(prompt || '').toLowerCase();
   const realEstate = /\b(?:real estate|realty|property advisory|property listings?|home buyers?|renters?)\b/i.test(source);
@@ -598,18 +708,33 @@ async function buildStudioMultiPageOnce(options) {
     usage = nextUsage.total;
     hasUsage = hasUsage || nextUsage.found;
 
-    const rawGenerated = outputFiles(parseJSON(result && result.text));
+    const rawBatchText = String(result && result.text || '');
+    const parsedBatchOutput = parseJSON(rawBatchText);
+    const rawGenerated = outputFiles(parsedBatchOutput);
     const allowed = new Set(batch.allowedPaths);
     // Models sometimes include helpful shared CSS/JS or another page even when
     // this bounded batch requests one file. Never stage those extras: keep only
     // exact allowlisted targets, then verify every required target below.
     // This is safer and more robust than failing a valid target because the model
     // mentioned an unrequested file; unapproved paths are discarded, never written.
-    const generated = Object.fromEntries(
+    let generated = Object.fromEntries(
       Object.entries(rawGenerated).filter(([path]) => allowed.has(path))
     );
+    if (!Object.keys(generated).length && batch.targetPaths.length === 1) {
+      const recoveredContent = recoverSingleFileContent(rawBatchText, batch.targetPaths[0], parsedBatchOutput);
+      if (typeof recoveredContent === 'string' && recoveredContent.trim()) {
+        generated = { [batch.targetPaths[0]]: recoveredContent };
+      }
+    }
     const paths = Object.keys(generated);
-    if (!paths.length) throw accountingError(Object.assign(new Error('Web Studio batch ' + batch.index + ' returned no usable contents for its approved target. The site was not marked complete.'), { status: 502, code: 'WEBSTUDIO_BATCH_EMPTY' }), usage, hasUsage, inputs, outputs);
+    if (!paths.length) {
+      const outputDiagnostics = batchOutputShapeDiagnostics(rawBatchText, parsedBatchOutput, generated, batch);
+      throw accountingError(Object.assign(new Error('Web Studio batch ' + batch.index + ' returned no usable contents for its approved target. The site was not marked complete.'), {
+        status: 502,
+        code: 'WEBSTUDIO_BATCH_EMPTY',
+        outputDiagnostics,
+      }), usage, hasUsage, inputs, outputs);
+    }
     if (paths.length > batch.maxChangedFiles) throw accountingError(Object.assign(new Error('Web Studio batch ' + batch.index + ' exceeded its approved target limit after filtering. Retry the build.'), { status: 502, code: 'WEBSTUDIO_BATCH_FILE_LIMIT' }), usage, hasUsage, inputs, outputs);
     for (const path of paths) {
       if (!String(generated[path]).trim()) throw accountingError(Object.assign(new Error('Web Studio returned empty content for ' + path), { status: 502, code: 'WEBSTUDIO_EMPTY_FILE' }), usage, hasUsage, inputs, outputs);
