@@ -122,14 +122,20 @@ function nativeActions(value) {
 }
 
 export function parseOvyxNativeModelOutput(output) {
-  const raw = clean(
+  const rawValue =
     output?.response ??
     output?.result?.response ??
     output?.text ??
     output?.output_text ??
     output?.result?.text ??
     output?.choices?.[0]?.message?.content ??
-    '',
+    '';
+  // Workers AI JSON Mode may return the parsed JSON object under response
+  // instead of a JSON-encoded string. Normalize either form before parsing.
+  const raw = clean(
+    typeof rawValue === 'string' ? rawValue
+      : rawValue && typeof rawValue === 'object' ? JSON.stringify(rawValue)
+        : '',
     30000
   );
   const candidate = raw.replace(/^\`\`\`(?:json)?\s*/i, '').replace(/\s*\`\`\`$/, '').trim();
