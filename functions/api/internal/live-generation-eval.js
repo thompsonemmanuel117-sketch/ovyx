@@ -357,6 +357,11 @@ export function safeLiveGenerationFailureDetail(error) {
     OVYX_AI_MODEL_NOT_AVAILABLE_ON_FREE_PLAN: 'cloudflare-model-not-available-on-free-plan',
     OVYX_AI_CLOUDFLARE_UNAVAILABLE: 'cloudflare-ai-unavailable',
     OVYX_AI_CLOUDFLARE_EMPTY_RESPONSE: 'cloudflare-ai-empty-response',
+    OVYX_AI_CLOUDFLARE_CHOICES_EMPTY: 'cloudflare-ai-empty-choices',
+    OVYX_AI_CLOUDFLARE_CHOICES_NO_TEXT: 'cloudflare-ai-choices-no-text',
+    OVYX_AI_CLOUDFLARE_REASONING_ONLY: 'cloudflare-ai-reasoning-only',
+    OVYX_AI_CLOUDFLARE_MESSAGE_CONTENT_UNSUPPORTED: 'cloudflare-ai-message-content-unsupported',
+    OVYX_AI_CLOUDFLARE_RESPONSE_SHAPE_UNSUPPORTED: 'cloudflare-ai-response-shape-unsupported',
     OVYX_AI_TIMEOUT: 'cloudflare-ai-timeout',
   };
   if (safeCloudflareFailureDetails[code]) return safeCloudflareFailureDetails[code];
@@ -450,7 +455,7 @@ export async function handleLiveGenerationRequest(request, env, options = {}) {
         provider: requestedProvider,
         model: model || undefined,
         system: 'OVYX provider readiness check. Reply with exactly OVYX_PROVIDER_READY and nothing else.',
-        user: 'Reply with exactly OVYX_PROVIDER_READY.',
+        user: '/no_think\nReply with exactly OVYX_PROVIDER_READY.',
         temperature: 0,
         maxTokens: 64,
         timeoutMs: 25_000,
