@@ -651,7 +651,9 @@ export async function setFirestoreDocumentIfCurrent(
     );
     throw Object.assign(
       new Error(`Firestore conditional write failed (${response.status}).`),
-      { status: 503, code: 'FIRESTORE_CONDITIONAL_WRITE_FAILED' }
+      // Preserve the HTTP status for safe retry-vs-configuration diagnosis.
+      // Never include the provider response body in the thrown error.
+      { status: response.status, code: 'FIRESTORE_CONDITIONAL_WRITE_FAILED' }
     );
   }
 
