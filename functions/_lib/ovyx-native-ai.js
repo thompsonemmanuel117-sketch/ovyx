@@ -255,6 +255,7 @@ export async function generateOvyxNativeAI(env, {
   } catch (cause) {
     const code = String(cause?.code || '');
     if (code.startsWith('OVYX_AI_') ||
+        code.startsWith('OVYX_NATIVE_AI_') ||
         code.startsWith('UNIVERSAL_CONNECTION_') ||
         code.startsWith('CONNECTION_')) throw cause;
     throw Object.assign(
