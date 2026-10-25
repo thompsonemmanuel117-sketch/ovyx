@@ -3,6 +3,7 @@ import { generateKeyPairSync } from 'node:crypto';
 import { createFirestoreDocumentIfAbsent } from '../functions/_lib/firebase-admin.js';
 import { runCloudflareFreeInference } from '../functions/_lib/cloudflare-free-ai.js';
 import { callModel } from '../functions/_lib/providers.js';
+import { generateOvyxNativeAI } from '../functions/_lib/ovyx-native-ai.js';
 
 const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048, publicExponent: 0x10001 });
 const privateKeyPem = privateKey.export({ type: 'pkcs8', format: 'pem' });
@@ -42,6 +43,18 @@ env.AI = {
       return {
         choices: [{ message: { role: 'assistant', content: 'OVYX_CHOICES_READY' } }],
         usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
+      };
+    }
+    if (responseShape === 'json-mode') {
+      return {
+        response: JSON.stringify({ summary: 'structured output ready' }),
+        usage: { prompt_tokens: 5, completion_tokens: 4, total_tokens: 9 },
+      };
+    }
+    if (responseShape === 'native-assistant-json') {
+      return {
+        response: JSON.stringify({ text: 'OVYX native assistant is connected.', actions: [] }),
+        usage: { prompt_tokens: 6, completion_tokens: 7, total_tokens: 13 },
       };
     }
     return { response: 'OVYX_PROVIDER_READY', usage: { input_tokens: 1, output_tokens: 1 } };
@@ -146,6 +159,30 @@ try {
   assert.equal(nestedChatResult.text, 'OVYX_NESTED_CHOICES_READY');
   assert.equal(nestedChatResult.provider, 'cloudflare-workers-ai');
   assert.equal(modelCalls, 3, 'nested chat-completion output should be consumed');
+
+  responseShape = 'json-mode';
+  const jsonModeResult = await callModel(env, {
+    provider: 'automatic',
+    system: 'Return a JSON object with a summary.',
+    user: 'Return a JSON object with a summary.',
+    maxTokens: 64,
+    jsonMode: true,
+  });
+  assert.deepEqual(JSON.parse(jsonModeResult.text), { summary: 'structured output ready' });
+  assert.deepEqual(lastAIOptions.response_format, { type: 'json_object' },
+    'the guarded Cloudflare inference path should pass JSON Mode only when the caller opts in');
+  assert.equal(modelCalls, 4);
+
+  responseShape = 'native-assistant-json';
+  const nativeAssistantResult = await generateOvyxNativeAI(env, {
+    prompt: 'Help me open my project settings.',
+    context: { activeProject: { id: 'proj-test', name: 'Test website' } },
+  });
+  assert.equal(nativeAssistantResult.text, 'OVYX native assistant is connected.');
+  assert.deepEqual(nativeAssistantResult.actions, []);
+  assert.deepEqual(lastAIOptions.response_format, { type: 'json_object' },
+    'the native OVYX assistant must request structured JSON for its text/actions contract');
+  assert.equal(modelCalls, 5);
 
   responseShape = 'reasoning-only';
   await assert.rejects(
