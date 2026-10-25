@@ -45,6 +45,60 @@ function outputFiles(value) {
   if (!Object.keys(out).length && value && typeof value.code === 'string') out['src/pages/Home.html'] = value.code;
   return out;
 }
+function deterministicFallbackSiteMapTitles(prompt, explicitPages = []) {
+  const source = String(prompt || '').toLowerCase();
+  const realEstate = /\b(?:real estate|realty|property advisory|property listings?|home buyers?|renters?)\b/i.test(source);
+  const restaurant = /\b(?:restaurant|cafe|café|dining|menu|food service)\b/i.test(source);
+  const fashion = /\b(?:fashion|clothing|apparel|materials\s*(?:&|and)\s*fit|fashion label)\b/i.test(source);
+  const software = /\b(?:saas|software|workflow|software product|app platform|product website)\b/i.test(source);
+  const defaults = realEstate
+    ? ['Home', 'Property Listings', 'About', 'Contact']
+    : restaurant
+      ? ['Home', 'Menu', 'About', 'Contact']
+      : fashion
+        ? ['Home', 'Collections', 'About', 'Contact']
+        : software
+          ? ['Home', 'Product', 'Features', 'Contact']
+          : ['Home', 'About', 'Services', 'Contact'];
+
+  const titles = [];
+  const key = value => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const aliases = value => {
+    const normalized = key(value);
+    return normalized === 'ourstory' ? 'about'
+      : normalized === 'homepages' ? 'home'
+      : normalized === 'collection' ? 'collections'
+      : normalized === 'propertylisting' ? 'propertylistings'
+      : normalized;
+  };
+  const add = title => {
+    const value = String(title || '').trim().slice(0, 100);
+    const canonical = aliases(value);
+    if (!value || !canonical || titles.some(item => aliases(item) === canonical)) return;
+    titles.push(value);
+  };
+
+  const requested = Array.isArray(explicitPages)
+    ? explicitPages.map(value => String(value || '').trim()).filter(Boolean)
+    : [];
+  for (const title of (requested.length >= 2 ? requested : defaults)) add(title);
+
+  // Some common requested pages are meaningful but not yet in the prompt
+  // contract's generic page alias table. Recover these from exact phrase matches.
+  if (/\bhow\s+it\s+works\b/i.test(source)) add('How It Works');
+  if (/\bmaterials\s*(?:&|and)\s*fit\b/i.test(source)) add('Materials & Fit');
+
+  if (!titles.some(title => /^home(?:page)?$/i.test(title))) titles.unshift('Home');
+  const homeIndex = titles.findIndex(title => /^home(?:page)?$/i.test(title));
+  if (homeIndex > 0) titles.unshift(titles.splice(homeIndex, 1)[0]);
+
+  if (realEstate && /\bproperty\s+listings?\b/i.test(source) &&
+      !titles.some(title => aliases(title) === 'propertylistings')) {
+    titles.splice(1, 0, 'Property Listings');
+  }
+  return titles;
+}
+
 function makeSiteMap(raw, limit) {
   if (!raw || !Array.isArray(raw.pages)) return { siteMap: null, overflow: 0 };
   const overflow = Math.max(0, raw.pages.length - limit), pages = [], seen = new Set();
@@ -408,16 +462,48 @@ async function buildStudioMultiPageOnce(options) {
   usage = firstUsage.total;
   hasUsage = hasUsage || firstUsage.found;
 
-  const plan = parseJSON(planResult && planResult.text);
-  const normalized = makeSiteMap(plan && plan.siteMap, pageLimit);
-  const siteMap = normalized.siteMap;
+  let plan = parseJSON(planResult && planResult.text);
+  let normalized = makeSiteMap(plan && plan.siteMap, pageLimit);
+  let siteMap = normalized.siteMap;
+  let siteMapRecovery = null;
 
   if (normalized.overflow > 0) {
     throw accountingError(Object.assign(new Error('The website exceeds the configured page ceiling of ' + pageLimit + '. Increase OVYX_WEBSTUDIO_MAX_PAGES to allow a larger site; no pages were silently dropped.'), { status: 413, code: 'WEBSTUDIO_PAGE_LIMIT' }), usage, hasUsage, inputs, outputs);
   }
   if (!siteMap || !siteMap.pages.length) {
     if (!requireMulti) return null;
-    throw accountingError(Object.assign(new Error('OVYX could not create a valid multi-page plan. No project files were changed; include the requested page names and retry.'), { status: 502, code: 'WEBSTUDIO_SITEMAP_INVALID' }), usage, hasUsage, inputs, outputs);
+
+    // An invalid model-generated sitemap is recoverable from the original
+    // brief's explicit page manifest and known industry conventions. This avoids
+    // abandoning a whole site because one planning response was malformed.
+    // Normal file, prompt-contract, route-integrity and quality checks still run.
+    const fallbackTitles = deterministicFallbackSiteMapTitles(prompt, promptContract.explicitPages);
+    if (fallbackTitles.length > pageLimit) {
+      throw accountingError(Object.assign(new Error('The brief requires ' + fallbackTitles.length + ' pages, but the configured page ceiling is ' + pageLimit + '. No requested pages were silently dropped.'), { status: 413, code: 'WEBSTUDIO_PAGE_LIMIT' }), usage, hasUsage, inputs, outputs);
+    }
+    const fallbackRaw = {
+      architecture: 'Deterministic sitemap recovery from the original user brief after an invalid model plan.',
+      pages: fallbackTitles.map(title => ({
+        title,
+        goal: /^home(?:page)?$/i.test(title)
+          ? 'Main landing page; orient visitors and link to every requested route.'
+          : /property\s+listings?/i.test(title)
+            ? 'Present only feed-backed inventory or clearly labelled illustrative listings; never invent live property facts.'
+            : 'Fulfil the page purpose requested in the original brief without inventing business facts or integration status.',
+      })),
+      sharedFiles: [
+        { path: 'src/styles.css', purpose: 'Shared responsive styles and reusable components.' },
+        { path: 'src/main.js', purpose: 'Shared navigation and interactive behavior.' },
+      ],
+      foundationPaths: ['src/pages/Home.html', 'src/styles.css', 'src/main.js'],
+    };
+    normalized = makeSiteMap(fallbackRaw, pageLimit);
+    siteMap = normalized.siteMap;
+    if (!siteMap || !siteMap.pages.length || normalized.overflow > 0) {
+      throw accountingError(Object.assign(new Error('OVYX could not safely recover the requested page plan. No project files were changed; retry after simplifying the page list.'), { status: 502, code: 'WEBSTUDIO_SITEMAP_INVALID' }), usage, hasUsage, inputs, outputs);
+    }
+    plan = { summary: 'Recovered the sitemap deterministically from the original brief after an invalid model planning response.', siteMap: fallbackRaw };
+    siteMapRecovery = 'deterministic-fallback-after-invalid-model-plan';
   }
   // Recover omitted requested routes deterministically instead of silently accepting
   // a sitemap that dropped an explicitly named page.
@@ -762,8 +848,11 @@ async function buildStudioMultiPageOnce(options) {
   const repairNote = requirementRepair.status === 'applied'
     ? ' One bounded requirement-repair pass was applied and passed the same structural, prompt-contract, and no-new-integrity-defect checks.'
     : '';
-  const summary = 'Built ' + pageCount + ' distinct website pages in ' + batches.length + ' verified batches.' + repairNote + polishNote + integrityNote;
-  const message = 'Your multi-page website is ready in Web Studio. ' + pageCount + ' pages were generated and structurally checked.' + repairNote + polishNote + integrityNote;
+  const sitemapRecoveryNote = siteMapRecovery
+    ? ' The model sitemap was invalid, so OVYX recovered the requested page structure from your original brief and then ran the usual file, requirement and route checks.'
+    : '';
+  const summary = 'Built ' + pageCount + ' distinct website pages in ' + batches.length + ' verified batches.' + sitemapRecoveryNote + repairNote + polishNote + integrityNote;
+  const message = 'Your multi-page website is ready in Web Studio. ' + pageCount + ' pages were generated and structurally checked.' + sitemapRecoveryNote + repairNote + polishNote + integrityNote;
   return {
     ok: true,
     text: JSON.stringify({ summary, message }),
@@ -775,6 +864,7 @@ async function buildStudioMultiPageOnce(options) {
     qualityPolish,
     project: updatedProject,
     siteMap,
+    siteMapRecovery,
     provider: (lastResult && lastResult.provider) || (planResult && planResult.provider),
     model: (lastResult && lastResult.model) || (planResult && planResult.model),
     requestedProvider: (lastResult && lastResult.requestedProvider) || (planResult && planResult.requestedProvider) || provider,
