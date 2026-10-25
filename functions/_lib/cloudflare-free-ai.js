@@ -4,6 +4,7 @@ export const OVYX_CLOUDFLARE_FREE_MODEL = '@cf/meta/llama-3.1-8b-instruct-fp8-fa
 export const OVYX_CLOUDFLARE_FREE_MAX_OUTPUT_TOKENS = 4096;
 export const OVYX_CLOUDFLARE_FREE_DEFAULT_DAILY_BUDGET = 7000;
 export const OVYX_CLOUDFLARE_FREE_MAX_DAILY_BUDGET = 8000;
+export const OVYX_CLOUDFLARE_PAID_MAX_DAILY_BUDGET = 15000;
 export const OVYX_CLOUDFLARE_FREE_USER_REQUESTS_PER_MINUTE = 18;
 
 const INPUT_NEURONS_PER_MILLION = 4119;
@@ -62,6 +63,14 @@ function fail(status, code, message) {
 
 export function isCloudflareFreeOnlyMode(env) {
   return String(env?.OVYX_AI_ENGINE_MODE || '').trim().toLowerCase() === 'cloudflare-free-only';
+}
+
+export function isCloudflarePaidCappedMode(env) {
+  return String(env?.OVYX_AI_ENGINE_MODE || '').trim().toLowerCase() === 'cloudflare-paid-capped';
+}
+
+export function isCloudflareWorkersAIGuardedMode(env) {
+  return isCloudflareFreeOnlyMode(env) || isCloudflarePaidCappedMode(env);
 }
 
 export function isLegacyProviderRoutingEnabled(env) {
@@ -153,10 +162,22 @@ function utcDayKey() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function dailyBudget(env) {
-  const configured = Number(env?.OVYX_WORKERS_AI_DAILY_NEURON_BUDGET);
+export function getCloudflareWorkersAiDailyNeuronBudget(env) {
+  const raw = String(env?.OVYX_WORKERS_AI_DAILY_NEURON_BUDGET ?? '').trim();
+  const configured = Number(raw);
+  if (isCloudflarePaidCappedMode(env)) {
+    if (!raw || !Number.isSafeInteger(configured) || configured < 100) {
+      throw fail(503, 'OVYX_AI_PAID_BUDGET_NOT_CONFIGURED',
+        'Cloudflare paid-capped AI mode requires an explicit OVYX_WORKERS_AI_DAILY_NEURON_BUDGET of at least 100 neurons.');
+    }
+    return Math.min(configured, OVYX_CLOUDFLARE_PAID_MAX_DAILY_BUDGET);
+  }
   if (!Number.isSafeInteger(configured) || configured < 100) return OVYX_CLOUDFLARE_FREE_DEFAULT_DAILY_BUDGET;
   return Math.min(configured, OVYX_CLOUDFLARE_FREE_MAX_DAILY_BUDGET);
+}
+
+function dailyBudget(env) {
+  return getCloudflareWorkersAiDailyNeuronBudget(env);
 }
 
 function userId(user) {
@@ -407,7 +428,15 @@ export async function isCloudflareFreeAllowanceExhausted(env) {
   const raw = await getDailyBudgetLedger(env);
   const config = firestoreDocumentToJs(raw) || {};
   const day = utcDayKey();
-  if (String(config._ovyxWorkersAiCloudflareExhaustedDayUtc || '') === day) return true;
+  const markedExhaustedToday = String(config._ovyxWorkersAiCloudflareExhaustedDayUtc || '') === day;
+  const reason = String(config._ovyxWorkersAiCloudflareExhaustionReason || '');
+  // Only a stop caused by OVYX's former free-mode cap can be reopened in
+  // explicit paid-capped mode. A real Cloudflare account-allocation stop stays
+  // fail-closed until the next UTC-day reset.
+  const legacySafetyStopCanReopen = isCloudflarePaidCappedMode(env) &&
+    reason === 'ovyx-safety-budget' &&
+    markedExhaustedToday;
+  if (markedExhaustedToday && !legacySafetyStopCanReopen) return true;
   if (String(config._ovyxWorkersAiDayUtc || '') !== day) return false;
   const used = Math.max(0, Number(config._ovyxWorkersAiConsumedNeurons) || 0) +
     Math.max(0, Number(config._ovyxWorkersAiReservedNeurons) || 0);
@@ -418,7 +447,7 @@ function safeProviderError(error) {
   const status = Number(error?.status);
   const signature = String(error?.code || '') + ' ' + String(error?.message || '');
   if (isCloudflareDailyFreeLimitError(error)) {
-    return fail(429, 'OVYX_AI_CLOUDFLARE_QUOTA_EXHAUSTED', 'Cloudflare has reached its daily free AI allowance. OVYX will not switch to a paid AI provider.');
+    return fail(429, 'OVYX_AI_CLOUDFLARE_QUOTA_EXHAUSTED', 'Cloudflare has rejected this request because its current AI allocation or billing limit was reached. OVYX will not call an external AI provider.');
   }
   if (status === 429) {
     return fail(503, 'OVYX_AI_CLOUDFLARE_RATE_LIMITED', 'Cloudflare AI is temporarily at capacity or rate-limited. Please retry later; OVYX will not switch to a paid AI provider.');
@@ -466,10 +495,15 @@ function emptyOutputFailureCode(result) {
 export async function runCloudflareFreeInference(env, {
   authUser = null, messages = null, system = '', user = '', maxTokens = 1024, timeoutMs = 45000, disableThinking = false,
 } = {}) {
-  if (!isCloudflareFreeOnlyMode(env)) throw fail(503, 'OVYX_AI_ENGINE_MODE_NOT_CONFIGURED', 'OVYX free-only AI mode is not enabled.');
+  if (!isCloudflareWorkersAIGuardedMode(env)) throw fail(503, 'OVYX_AI_ENGINE_MODE_NOT_CONFIGURED', 'OVYX guarded Cloudflare AI mode is not enabled.');
   if (!env?.AI || typeof env.AI.run !== 'function') throw fail(503, 'OVYX_NATIVE_AI_NOT_CONFIGURED', 'OVYX AI is not connected yet. Please try again later.');
+  // Validate the paid cap before reading/updating budget state or dispatching inference.
+  const configuredDailyBudget = dailyBudget(env);
   if (await isCloudflareFreeAllowanceExhausted(env)) {
-    throw fail(429, 'OVYX_AI_CLOUDFLARE_QUOTA_EXHAUSTED', 'OVYX has reached its protected daily Cloudflare AI capacity. No platform-paid provider was used.');
+    throw fail(429, 'OVYX_AI_CLOUDFLARE_QUOTA_EXHAUSTED',
+      isCloudflarePaidCappedMode(env)
+        ? 'OVYX has reached its configured daily Cloudflare AI budget. No external AI provider was used.'
+        : 'OVYX has reached its protected daily Cloudflare AI capacity. No external AI provider was used.');
   }
   const source = Array.isArray(messages)
     ? messages
@@ -481,10 +515,12 @@ export async function runCloudflareFreeInference(env, {
   await reserveUserMinute(env, authUser);
   const reservation = await reserveDailyBudget(env, estimate);
   let result;
+  let inferenceDispatched = false;
   const timeout = Math.max(50, Math.min(60000, Number(timeoutMs) || 45000));
   try {
     const usesQwen3ReasoningControls =
       disableThinking && OVYX_CLOUDFLARE_FREE_MODEL === '@cf/qwen/qwen3-30b-a3b-fp8';
+    inferenceDispatched = true;
     const pending = Promise.resolve(env.AI.run(OVYX_CLOUDFLARE_FREE_MODEL, {
       messages: bounded,
       max_tokens: outputTokens,
@@ -500,22 +536,39 @@ export async function runCloudflareFreeInference(env, {
       pending.then(value => { clearTimeout(timer); resolve(value); }, error => { clearTimeout(timer); reject(error); });
     });
   } catch (error) {
+    // A dispatched request can consume inference even when it errors or times
+    // out. Convert the reservation to a conservative consumed amount so it does
+    // not remain stuck forever and artificially drain future capacity.
+    if (inferenceDispatched) await settleDailyBudget(env, reservation, estimate);
     if (isCloudflareDailyFreeLimitError(error)) {
       await recordCloudflareFreeExhaustion(env, 'cloudflare-daily-free-allocation');
     }
-    // A dispatched request may consume inference even if a timeout is observed.
     throw safeProviderError(error);
   }
   const text = outputText(result);
+  const rawUsage = result?.usage || result?.result?.usage;
+  const usage = tokenCounts(rawUsage, bounded, text);
+  const reportedOutputFields = ['completion_tokens', 'output_tokens', 'candidatesTokenCount', 'outputTokenCount', 'outputTokens'];
+  const hasReportedOutputUsage = !!rawUsage && reportedOutputFields.some(key => {
+    const value = rawUsage[key];
+    return value !== undefined && value !== null && Number.isFinite(Number(value)) && Number(value) >= 0;
+  });
+  // If output text is unusable and output usage is missing, consume the full
+  // reservation conservatively rather than releasing it as a zero-token result.
+  const settlement = !text && !hasReportedOutputUsage
+    ? estimate
+    : neuronsForTokens(usage.input, usage.output);
+  await settleDailyBudget(env, reservation, settlement);
   if (!text) {
     throw Object.assign(new Error('Cloudflare Workers AI returned no usable final text response.'), {
       status: 503,
       code: emptyOutputFailureCode(result),
     });
   }
-  const usage = tokenCounts(result?.usage || result?.result?.usage, bounded, text);
-  await settleDailyBudget(env, reservation, neuronsForTokens(usage.input, usage.output));
-  // Return the already-validated text alongside the raw usage/result metadata so
-  // higher-level callers do not have to re-interpret model-specific response shapes.
-  return { result, text, model: OVYX_CLOUDFLARE_FREE_MODEL, estimatedNeurons: estimate, dailyBudgetNeurons: dailyBudget(env), maxOutputTokens: outputTokens };
+  return {
+    result, text, model: OVYX_CLOUDFLARE_FREE_MODEL, estimatedNeurons: estimate,
+    dailyBudgetNeurons: configuredDailyBudget,
+    budgetMode: isCloudflarePaidCappedMode(env) ? 'paid-capped' : 'free-only',
+    maxOutputTokens: outputTokens,
+  };
 }
