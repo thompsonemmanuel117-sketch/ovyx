@@ -105,16 +105,16 @@ try {
 
   const result = await runCloudflareFreeInference(env, {
     messages: [{ role: 'user', content: 'Reply with exactly OVYX_PROVIDER_READY.' }],
-    maxTokens: 512,
+    maxTokens: 32,
     timeoutMs: 2000,
     disableThinking: true,
   });
 
-  assert.equal(result.model, '@cf/qwen/qwen3-30b-a3b-fp8');
+  assert.equal(result.model, '@cf/meta/llama-3.1-8b-instruct-fp8-fast');
   assert.equal(result.result.response, 'OVYX_PROVIDER_READY');
-  assert.equal(lastAIOptions.max_tokens, 512, 'the reasoning-capable readiness call should receive a bounded but usable output budget');
-  assert.deepEqual(lastAIOptions.chat_template_kwargs, { enable_thinking: false }, 'readiness-sized inference should explicitly disable thinking');
-  assert.equal(lastAIOptions.reasoning_effort, null, 'readiness-sized inference should explicitly request no reasoning where supported');
+  assert.equal(lastAIOptions.max_tokens, 32, 'the non-reasoning readiness call should stay inexpensive and bounded');
+  assert.equal(lastAIOptions.chat_template_kwargs, undefined, 'do not pass Qwen-specific parameters to the selected non-reasoning model');
+  assert.equal(lastAIOptions.reasoning_effort, undefined, 'do not pass model-specific reasoning fields to the selected non-reasoning model');
   assert.equal(lastAIOptions.temperature, 0, 'the bounded readiness probe should be deterministic');
   assert.equal(modelCalls, 1, 'a single successful guarded model inference should run after reservation');
   assert.ok(storedDocument, 'missing system/config document should be created atomically');
@@ -150,8 +150,8 @@ try {
   responseShape = 'reasoning-only';
   await assert.rejects(
     () => runCloudflareFreeInference(env, {
-      messages: [{ role: 'user', content: '/no_think Reply with exactly OVYX_PROVIDER_READY.' }],
-      maxTokens: 64,
+      messages: [{ role: 'user', content: 'Reply with exactly OVYX_PROVIDER_READY.' }],
+      maxTokens: 32,
       timeoutMs: 2000,
       disableThinking: true,
     }),
