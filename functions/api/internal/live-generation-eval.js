@@ -455,13 +455,12 @@ export async function handleLiveGenerationRequest(request, env, options = {}) {
         provider: requestedProvider,
         model: model || undefined,
         system: 'OVYX provider readiness check. Reply with exactly OVYX_PROVIDER_READY and nothing else.',
-        user: '/no_think\nReply with exactly OVYX_PROVIDER_READY.',
+        user: 'Reply with exactly OVYX_PROVIDER_READY.',
         temperature: 0,
-        maxTokens: 512,
+        maxTokens: 32,
         timeoutMs: 25_000,
-        // Qwen3 can spend a small response budget emitting reasoning metadata
-        // even when thinking is disabled. Keep the probe bounded, allow enough
-        // room for a final answer, and apply no-reasoning controls only here.
+        // The protected free-only route uses a non-reasoning instruction model;
+        // keep readiness inexpensive and deterministic.
         disableThinking: true,
       });
       const text = String(result?.text || '').trim();
