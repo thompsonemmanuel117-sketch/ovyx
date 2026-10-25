@@ -225,6 +225,10 @@ try {
     'contention retries must leave shared OVYX configuration unchanged');
 
   responseShape = 'reasoning-only';
+  const beforeReasoningUsage = {
+    consumed: Number(ledger.fields._ovyxWorkersAiConsumedNeurons.integerValue),
+    reserved: Number(ledger.fields._ovyxWorkersAiReservedNeurons.integerValue),
+  };
   await assert.rejects(
     () => runCloudflareFreeInference(env, {
       messages: [{ role: 'user', content: 'Reply with exactly OVYX_PROVIDER_READY.' }],
@@ -234,6 +238,49 @@ try {
     }),
     error => error?.code === 'OVYX_AI_CLOUDFLARE_REASONING_ONLY',
   );
+  assert.equal(
+    Number(ledger.fields._ovyxWorkersAiReservedNeurons.integerValue),
+    beforeReasoningUsage.reserved,
+    'an unusable model response must release its reservation rather than draining future requests',
+  );
+  assert.ok(
+    Number(ledger.fields._ovyxWorkersAiConsumedNeurons.integerValue) > beforeReasoningUsage.consumed,
+    'an unusable response with reported token usage must still account for incurred inference',
+  );
+
+  // Paid-capped mode is opt-in and may reopen a same-day stop created only by
+  // OVYX's old free-mode guard when a larger explicit budget is configured.
+  env.OVYX_AI_ENGINE_MODE = 'cloudflare-paid-capped';
+  const previousBudget = env.OVYX_WORKERS_AI_DAILY_NEURON_BUDGET;
+  delete env.OVYX_WORKERS_AI_DAILY_NEURON_BUDGET;
+  const callsBeforeMissingBudget = modelCalls;
+  await assert.rejects(
+    () => runCloudflareFreeInference(env, {
+      messages: [{ role: 'user', content: 'Do not dispatch without a budget.' }],
+      maxTokens: 32,
+      timeoutMs: 2000,
+    }),
+    error => error?.code === 'OVYX_AI_PAID_BUDGET_NOT_CONFIGURED',
+  );
+  assert.equal(modelCalls, callsBeforeMissingBudget, 'paid-capped mode must not call a model until an explicit daily cap is set');
+  env.OVYX_WORKERS_AI_DAILY_NEURON_BUDGET = '12000';
+  ledger.fields._ovyxWorkersAiCloudflareExhaustedDayUtc = firestoreString(today);
+  ledger.fields._ovyxWorkersAiCloudflareExhaustionReason = firestoreString('ovyx-safety-budget');
+  ledger.version += 1;
+  responseShape = 'legacy-response';
+  const paidCappedResult = await runCloudflareFreeInference(env, {
+    messages: [{ role: 'user', content: 'Reply with exactly OVYX_PROVIDER_READY.' }],
+    maxTokens: 32,
+    timeoutMs: 2000,
+    disableThinking: true,
+  });
+  assert.equal(paidCappedResult.text, 'OVYX_PROVIDER_READY');
+  assert.equal(paidCappedResult.dailyBudgetNeurons, 12000);
+  assert.equal(paidCappedResult.budgetMode, 'paid-capped');
+  assert.equal(modelCalls, callsBeforeMissingBudget + 1, 'paid-capped mode should make one guarded Cloudflare request under the explicit cap');
+  env.OVYX_AI_ENGINE_MODE = 'cloudflare-free-only';
+  if (previousBudget === undefined) delete env.OVYX_WORKERS_AI_DAILY_NEURON_BUDGET;
+  else env.OVYX_WORKERS_AI_DAILY_NEURON_BUDGET = previousBudget;
 
   await assert.rejects(
     () => createFirestoreDocumentIfAbsent(env, 'system', LEDGER_ID, {
