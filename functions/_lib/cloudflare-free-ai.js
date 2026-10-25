@@ -362,7 +362,15 @@ export async function runCloudflareFreeInference(env, {
     throw safeProviderError(error);
   }
   const text = outputText(result);
+  if (!text) {
+    throw Object.assign(new Error('Cloudflare Workers AI returned an empty response.'), {
+      status: 503,
+      code: 'OVYX_AI_CLOUDFLARE_EMPTY_RESPONSE',
+    });
+  }
   const usage = tokenCounts(result?.usage || result?.result?.usage, bounded, text);
   await settleDailyBudget(env, reservation, neuronsForTokens(usage.input, usage.output));
-  return { result, model: OVYX_CLOUDFLARE_FREE_MODEL, estimatedNeurons: estimate, dailyBudgetNeurons: dailyBudget(env), maxOutputTokens: outputTokens };
+  // Return the already-validated text alongside the raw usage/result metadata so
+  // higher-level callers do not have to re-interpret model-specific response shapes.
+  return { result, text, model: OVYX_CLOUDFLARE_FREE_MODEL, estimatedNeurons: estimate, dailyBudgetNeurons: dailyBudget(env), maxOutputTokens: outputTokens };
 }
