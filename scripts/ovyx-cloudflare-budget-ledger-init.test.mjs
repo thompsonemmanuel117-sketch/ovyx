@@ -26,6 +26,12 @@ env.AI = {
   run: async (_model, options) => {
     modelCalls += 1;
     lastAIOptions = options;
+    if (responseShape === 'reasoning-only') {
+      return {
+        choices: [{ message: { role: 'assistant', content: null, reasoning_content: 'private reasoning text must not leak' } }],
+        usage: { prompt_tokens: 1, completion_tokens: 64, total_tokens: 65 },
+      };
+    }
     if (responseShape === 'nested-chat-completion') {
       return {
         result: { choices: [{ message: { role: 'assistant', content: 'OVYX_NESTED_CHOICES_READY' } }] },
@@ -139,6 +145,17 @@ try {
   assert.equal(nestedChatResult.text, 'OVYX_NESTED_CHOICES_READY');
   assert.equal(nestedChatResult.provider, 'cloudflare-workers-ai');
   assert.equal(modelCalls, 3, 'nested chat-completion output should be consumed');
+
+  responseShape = 'reasoning-only';
+  await assert.rejects(
+    () => runCloudflareFreeInference(env, {
+      messages: [{ role: 'user', content: '/no_think Reply with exactly OVYX_PROVIDER_READY.' }],
+      maxTokens: 64,
+      timeoutMs: 2000,
+      disableThinking: true,
+    }),
+    error => error?.code === 'OVYX_AI_CLOUDFLARE_REASONING_ONLY',
+  );
 
   await assert.rejects(
     () => createFirestoreDocumentIfAbsent(env, 'system', 'config', {
