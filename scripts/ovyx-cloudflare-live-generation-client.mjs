@@ -400,6 +400,36 @@ async function generateOne(origin, provider, model, integrationSettings, caseId)
   if (!response.ok || body.ok !== true) {
     const code = String(body.error || 'LIVE_GENERATION_FAILED').slice(0, 100);
     const detail = /^[a-z0-9-]{1,80}$/.test(String(body.detail || '')) ? ', ' + body.detail : '';
+    const diagnosticInput = body.diagnostics && typeof body.diagnostics === 'object' ? body.diagnostics : null;
+    if (diagnosticInput) {
+      const allowedKinds = new Set(['html', 'css', 'javascript', 'json', 'other']);
+      const allowedContainers = new Set(['array', 'object', 'string', 'missing']);
+      const safeKinds = value => Array.isArray(value)
+        ? [...new Set(value.map(item => String(item)).filter(item => allowedKinds.has(item)))].slice(0, 4)
+        : [];
+      const safeInt = (value, max) => Number.isInteger(value) ? Math.max(0, Math.min(max, value)) : 0;
+      console.error(JSON.stringify({
+        event: 'live-generation-batch-diagnostics',
+        caseId,
+        diagnostics: {
+          batchIndex: safeInt(diagnosticInput.batchIndex, 50),
+          expectedKinds: safeKinds(diagnosticInput.expectedKinds),
+          responseLength: safeInt(diagnosticInput.responseLength, 200000),
+          parsedJson: diagnosticInput.parsedJson === true,
+          filesContainer: allowedContainers.has(diagnosticInput.filesContainer) ? diagnosticInput.filesContainer : 'missing',
+          hasFileEdits: diagnosticInput.hasFileEdits === true,
+          hasPatchFiles: diagnosticInput.hasPatchFiles === true,
+          hasTopLevelCode: diagnosticInput.hasTopLevelCode === true,
+          hasTopLevelHtml: diagnosticInput.hasTopLevelHtml === true,
+          rawFileCount: safeInt(diagnosticInput.rawFileCount, 50),
+          returnedKinds: safeKinds(diagnosticInput.returnedKinds),
+          matchingTargetCount: safeInt(diagnosticInput.matchingTargetCount, 50),
+          responseStartsJson: diagnosticInput.responseStartsJson === true,
+          responseEndsJson: diagnosticInput.responseEndsJson === true,
+          responseLooksTruncated: diagnosticInput.responseLooksTruncated === true,
+        },
+      }));
+    }
     const allowedProviders = new Set(['gemini', 'claude', 'deepseek', 'openai', 'groq', 'openrouter', 'cloudflare-workers-ai']);
     const allowedKinds = new Set(['not-configured', 'plan-required', 'payment-or-billing-required', 'authentication-rejected', 'permission-denied', 'model-or-endpoint-not-found', 'request-rejected', 'rate-limited-or-quota', 'provider-server-error', 'timeout', 'network-error', 'empty-response', 'invalid-response', 'provider-error']);
     const providerAttempts = (Array.isArray(body.providerAttempts) ? body.providerAttempts : []).slice(0, 7)
