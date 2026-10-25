@@ -290,11 +290,14 @@ const retryingCallModel = async (_env, options) => {
     const match = user.match(/REQUIRED TARGET FILES JSON:\n([\s\S]*?)\n\nREQUIRED TARGET PATHS JSON:/);
     assert(match, 'Retry fixture must receive the required-file manifest.');
     const targets = JSON.parse(match[1]);
-    const payload = JSON.parse(answer.text);
-    const omitted = targets.find(target => target.path === 'src/styles.css') || targets[0];
-    delete payload.files[omitted.path];
+    assert.equal(targets.length, 1, 'Each retry fixture batch must have exactly one approved target.');
     dropFirstRequiredFile = false;
-    return { ...answer, text: JSON.stringify(payload) };
+    // Return a valid envelope with no file contents; the retry path must recover
+    // without trying to JSON-parse a raw-code response from another batch.
+    return {
+      ...answer,
+      text: JSON.stringify({ summary: 'Intentionally empty single-file batch', files: {} }),
+    };
   }
   return answer;
 };
