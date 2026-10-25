@@ -26,6 +26,31 @@ function cleanFiles(value) {
   }
   return out;
 }
+function outputFilesFromBatchResponse(text, batch) {
+  const parsed = parseJSON(text);
+  const files = outputFiles(parsed);
+  if (Object.keys(files).length) return files;
+
+  // Some instruction-following models emit the requested HTML document directly
+  // instead of wrapping it in the JSON file manifest. Recover only when this
+  // batch has exactly one allow-listed HTML target and the response contains a
+  // complete document; all normal site, route, prompt-contract, and integrity
+  // validation still runs before any generated site can be accepted.
+  const targets = Array.isArray(batch?.targetFiles) ? batch.targetFiles : [];
+  if (targets.length !== 1 || !/\\.html?$/i.test(String(targets[0]?.path || ''))) return files;
+  let raw = String(text || '').trim();
+  raw = raw.replace(/^\x60{3}(?:html)?\\s*/i, '').replace(/\\s*\x60{3}$/, '').trim();
+  const start = raw.search(/<!doctype\\s+html\\b|<html\\b/i);
+  if (start < 0) return files;
+  raw = raw.slice(start);
+  const close = raw.search(/<\\/html\\s*>/i);
+  if (close < 0) return files;
+  raw = raw.slice(0, close + raw.match(/<\\/html\\s*>/i)[0].length).trim();
+  if (raw.length > 120000 || !/<html\\b/i.test(raw) || !/<head\\b/i.test(raw) ||
+      !/<body\\b/i.test(raw) || !/<\\/body\\s*>/i.test(raw)) return files;
+  return { [String(targets[0].path)]: raw };
+}
+
 function outputFiles(value) {
   const files = value && (value.files || value.fileEdits || (value.patch && value.patch.files));
   const out = {};
@@ -594,7 +619,7 @@ async function buildStudioMultiPageOnce(options) {
     usage = nextUsage.total;
     hasUsage = hasUsage || nextUsage.found;
 
-    const generated = outputFiles(parseJSON(result && result.text));
+    const generated = outputFilesFromBatchResponse(result && result.text, batch);
     const paths = Object.keys(generated);
     const allowed = new Set(batch.allowedPaths);
     if (!paths.length) throw accountingError(Object.assign(new Error('Web Studio batch ' + batch.index + ' returned no usable file contents. The site was not marked complete.'), { status: 502, code: 'WEBSTUDIO_BATCH_EMPTY' }), usage, hasUsage, inputs, outputs);
