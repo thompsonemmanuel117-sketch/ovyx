@@ -53,6 +53,7 @@ const calls = [];
 let polishAssertionStage = 'not-entered';
 let malformedHomeEnvelopeServed = false;
 let malformedCssEnvelopeServed = false;
+let rawJsResponseServed = false;
 const callModel = async (_env, options) => {
   calls.push(options);
   if (String(options.user).includes('WEBSITE ARCHITECTURE PLANNING PHASE')) {
@@ -152,6 +153,17 @@ const callModel = async (_env, options) => {
       rawUsage: { prompt_tokens: 19, completion_tokens: 31, total_tokens: 50 },
     };
   }
+  if (targets.length === 1 && targets[0].path === 'src/main.js') {
+    // The production model should return raw JavaScript for this target rather
+    // than truncating/invalidating a JSON wrapper around quoted source code.
+    rawJsResponseServed = true;
+    return {
+      text: files[targets[0].path],
+      provider: 'cloudflare-workers-ai',
+      model: '@cf/meta/llama-3.1-8b-instruct-fp8-fast',
+      rawUsage: { prompt_tokens: 19, completion_tokens: 31, total_tokens: 50 },
+    };
+  }
   // One single-file batch deliberately returns complete raw HTML rather than
   // the JSON files envelope. The server may recover this only for the exact
   // planned target, then still runs all normal validators and route checks.
@@ -195,6 +207,7 @@ assert.equal(Object.keys(result.files).filter(path => path.startsWith('src/pages
 assert(result.files['src/pages/Home.html'].includes('<h1>Home</h1>'));
 assert.equal(malformedHomeEnvelopeServed, true, 'The fixture must exercise malformed JSON wrapped HTML recovery.');
 assert.equal(malformedCssEnvelopeServed, true, 'The fixture must exercise malformed JSON wrapped CSS recovery.');
+assert.equal(rawJsResponseServed, true, 'The fixture must exercise raw JavaScript target output.');
 assert(result.files['src/pages/Menu.html'].includes('<h1>Menu</h1>'));
 assert(result.files['src/styles.css'].includes('box-sizing:border-box'));
 assert(result.files['src/styles.css'].includes('content:"OVYX CSS recovery"'), 'Recovered CSS must retain its complete quoted content rule.');
@@ -226,11 +239,16 @@ for (const call of targetBatchCalls) {
       'The CSS batch must request raw stylesheet output to avoid truncation and malformed JSON quoting.');
     assert.ok(call.system.includes('CSS-ONLY RESPONSE OVERRIDE'),
       'The high-priority system contract must enforce raw CSS for the CSS target.');
+  } else if (/\.(?:js|mjs)$/i.test(String(targets[0].path || ''))) {
+    assert.ok(call.user.includes('JAVASCRIPT-ONLY RESPONSE OVERRIDE') && call.user.includes('raw JavaScript source only'),
+      'The JavaScript batch must request raw source instead of a fragile JSON wrapper.');
+    assert.ok(call.system.includes('JAVASCRIPT-ONLY RESPONSE OVERRIDE'),
+      'The high-priority system contract must enforce raw JavaScript for the JS target.');
   } else {
     assert.ok(call.user.includes('"files":[{"path":"EXACT TARGET PATH FROM THE MANIFEST"'),
-      'Non-CSS batch prompts must retain the strict JSON files-array contract.');
+      'HTML batches must retain the strict JSON files-array contract.');
     assert.ok(call.system.includes('SINGLE-FILE JSON CONTRACT'),
-      'The high-priority system contract must constrain non-CSS batches to one JSON target.');
+      'The high-priority system contract must constrain HTML batches to one JSON target.');
   }
 }
 assert.equal(result.qualityPolish.status, 'applied', 'Polish should be applied; last validation point was ' + polishAssertionStage + '; result=' + JSON.stringify(result.qualityPolish));
