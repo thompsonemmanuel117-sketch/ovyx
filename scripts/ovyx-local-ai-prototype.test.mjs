@@ -26,6 +26,13 @@ for (const [file, source] of [
 
 assert.match(page, /STAGE 3 · ISOLATED PROTOTYPE/);
 assert.match(page, /Download and start local AI/);
+assert.match(page, /allow-model-download/);
+assert.match(page, /Data-saver check/);
+assert.match(page, /Use Wi-Fi if your data is limited/i);
+assert.match(client, /function updateDownloadGuard\(\)/);
+assert.match(client, /!downloadConsent\.checked/);
+assert.match(client, /opfsModelWeightCached/);
+assert.match(client, /could not confirm that the full model weights were saved in persistent browser storage/i);
 assert.match(page, /Nothing is downloaded until you press the explicit start button/i);
 assert.match(page, /assets\/ovyx-local-ai-prototype\.js/);
 assert.match(page, /option value="qwen25-05b-cpu"/, 'the CPU/WASM model must be explicitly selectable rather than a silent fallback');
@@ -148,8 +155,8 @@ assert.match(client, /new Worker\('\/assets\/ovyx-local-ai-cpu-worker\.js'/);
 assert.match(client, /requestCpuGeneration\(buildMessages\(prompt\)/);
 assert.match(client, /CPU response stopped\. Its worker was terminated/);
 assert.match(client, /revision:\s*'cc5cc01a65cc3ff17bdb73a7de33d879f62599b0'/);
-assert.match(client, /startButton\.addEventListener\('click',\s*\(\)\s*=>\s*\{\s*void startLocalModel\(\);/,
-  'the local model start function must only be invoked through explicit user action');
+assert.match(client, /startButton\.addEventListener\('click',\s*\(\)\s*=>\s*\{\s*if\s*\(!downloadConsent\.checked\)/,
+  'the Start handler must enforce explicit data-download consent before model initialization');
 assert.doesNotMatch(client.slice(0, startFunction), /CreateWebWorkerMLCEngine\(/,
   'no model initialization is allowed during page startup');
 assert.ok(!/window\.OVYXAIService|firebase\.auth|localStorage\.setItem/.test(client),

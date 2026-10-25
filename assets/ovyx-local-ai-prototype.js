@@ -69,6 +69,8 @@
 
   const el = (id) => document.getElementById(id);
   const modelSelect = el('model-choice');
+  const downloadConsent = el('allow-model-download');
+  const downloadGuardNote = el('data-guard-heading');
   const startButton = el('start-local-ai');
   const cancelButton = el('cancel-local-ai');
   const unloadButton = el('unload-local-ai');
@@ -193,11 +195,33 @@
     });
   }
 
+  function updateDownloadGuard() {
+    const key = selectedModelKey();
+    const model = MODELS[key];
+    const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+    const effectiveType = String(connection?.effectiveType || '').toLowerCase();
+    const connectionType = String(connection?.type || '').toLowerCase();
+    const constrained = Boolean(connection?.saveData)
+      || connectionType === 'cellular'
+      || ['slow-2g', '2g', '3g'].includes(effectiveType);
+    const size = model.sizeBytes >= 1_000_000_000
+      ? (model.sizeBytes / 1_000_000_000).toFixed(2) + ' GB'
+      : Math.round(model.sizeBytes / 1_000_000) + ' MB';
+    const connectionNote = constrained
+      ? ' Your browser reports a mobile-data, data-saver or slow connection. We strongly recommend waiting for Wi-Fi.'
+      : (connection
+        ? ' Browser connection hints do not indicate a slow/data-saver connection, but they cannot guarantee this is Wi-Fi.'
+        : ' This browser cannot reliably tell whether the connection is metered; check your connection manually.');
+    downloadGuardNote.textContent = 'Selected: ' + model.label + ' · approximately ' + size +
+      ' of model files, plus runtime, tokenizer and supporting assets. If these files are not cached—or browser storage was cleared/evicted—they may need to download again.' +
+      connectionNote + ' The model is not loaded until you check the confirmation and press Start.';
+  }
+
   function refreshControls() {
     const modelLoaded = modelIsLoaded();
     const selectedCpu = isCpuModelKey(selectedModelKey());
     startButton.classList.toggle('hidden', modelLoaded);
-    startButton.disabled = (!selectedCpu && !gpuAvailable) || loading || generating || modelLoaded;
+    startButton.disabled = (!selectedCpu && !gpuAvailable) || loading || generating || modelLoaded || !downloadConsent.checked;
     cancelButton.classList.toggle('hidden', !loading);
     cancelButton.disabled = !loading;
     unloadButton.classList.toggle('hidden', !modelLoaded);
@@ -393,6 +417,7 @@
     loading = false;
     const reject = cancelLoadReject;
     cancelLoadReject = null;
+    downloadConsent.checked = false;
     if (diagnosticsState.modelLoad && activeLoadMetrics) {
       diagnosticsState.modelLoad.status = 'cancelled';
       diagnosticsState.modelLoad.finishedAt = new Date().toISOString();
@@ -525,6 +550,7 @@
       }
       let cacheNames = [];
       let opfsModelAssetCount = 0;
+      let opfsModelWeightCached = false;
       try { cacheNames = await caches.keys(); } catch (_) {}
       try {
         const root = await navigator.storage.getDirectory();
@@ -532,7 +558,11 @@
           if (!name.endsWith('.meta') || handle.kind !== 'file') continue;
           try {
             const metadata = JSON.parse(await (await handle.getFile()).text());
-            if (String(metadata.urlPath || '').includes('/' + model.id + '/')) opfsModelAssetCount += 1;
+            const assetPath = String(metadata.urlPath || '');
+            if (assetPath.includes('/' + model.id + '/')) {
+              opfsModelAssetCount += 1;
+              if (/(?:^|\/)(?:model|model_[a-z0-9]+)\.onnx$/i.test(assetPath)) opfsModelWeightCached = true;
+            }
           } catch (_) {}
         }
       } catch (_) {}
@@ -543,6 +573,7 @@
         cacheNameCount: cacheNames.length,
         cacheNames: cacheNames.map(String).slice(0, 10),
         opfsModelAssetCount,
+        opfsModelWeightCached,
       };
       activeLoadMetrics = null;
       diagnosticsState.lastError = null;
@@ -550,9 +581,21 @@
       loading = false;
       cancelLoadReject = null;
       showProgress(false);
+      downloadConsent.checked = false;
+      const cpuCacheWarnings = Array.isArray(diagnosticsState.storage?.cacheWarnings)
+        ? diagnosticsState.storage.cacheWarnings
+        : [];
+      const cpuCacheConfirmed = Boolean(diagnosticsState.storage?.opfsModelWeightCached);
+      const cpuCacheMessage = !cpuCacheConfirmed
+        ? ' OVYX could not confirm that the full model weights were saved in persistent browser storage, so a later visit may download them again. Do not retry on limited mobile data until this is resolved or you are on Wi-Fi.'
+        : (diagnosticsState.storage?.persistentStorageGranted
+          ? ' The model weights were found in local storage for reuse.'
+          : ' The model weights were found in local storage, but the browser did not grant persistent-storage protection and may evict them.');
       setStatus(
-        'The ' + model.label + ' model loaded in this browser and runs on CPU/WASM. Prompts stay in the local worker; this lab does not call OVYX AI routes or hosted model-inference APIs. This small model still needs the Stage 4 quality benchmark.',
-        'ok'
+        'The ' + model.label + ' model loaded in this browser and runs on CPU/WASM. Prompts stay in the local worker; this lab does not call OVYX AI routes or hosted model-inference APIs. This small model still needs the Stage 4 quality benchmark.' +
+        (cpuCacheWarnings.length ? ' Browser cache warning: ' + cpuCacheWarnings[cpuCacheWarnings.length - 1] : '') +
+        cpuCacheMessage,
+        cpuCacheConfirmed && diagnosticsState.storage?.persistentStorageGranted && !cpuCacheWarnings.length ? 'ok' : 'warn'
       );
       refreshControls();
       promptInput.focus();
@@ -574,6 +617,7 @@
       diagnosticsState.lastError = { at: new Date().toISOString(), stage: 'cpu-wasm-model-load', message: getErrorMessage(error) };
       activeLoadMetrics = null;
       showProgress(false);
+      downloadConsent.checked = false;
       setStatus('CPU/WASM model initialization failed. Nothing was sent to a hosted AI provider. ' + getErrorMessage(error) + ' Retry is available; no other model will be selected automatically.', 'error');
       refreshControls();
     } finally {
@@ -691,15 +735,24 @@
         diagnosticsState.modelLoad.durationMs = Math.round(performance.now() - activeLoadMetrics.startedAt);
         diagnosticsState.modelLoad.lastReportedProgressPercent = 100;
       }
+      let webGpuCacheConfirmed = false;
+      try { webGpuCacheConfirmed = Boolean(await webllm.hasModelInCache(model.id, appConfig)); } catch (_) {}
       activeLoadMetrics = null;
       diagnosticsState.lastError = null;
       clearLoadWatchdog();
       loading = false;
       cancelLoadReject = null;
       showProgress(false);
+      downloadConsent.checked = false;
+      const webGpuCacheMessage = !webGpuCacheConfirmed
+        ? ' OVYX could not confirm that model files are stored for reuse; a later visit may download them again. Do not retry on limited mobile data until cache behavior is resolved or you are on Wi-Fi.'
+        : (storage.persistent
+          ? ' Model files are detected in the browser cache for reuse.'
+          : ' Model files are detected in cache, but browser storage persistence was not granted and the browser may evict them.');
       setStatus(
-        'The ' + model.label + ' model loaded in this browser. Prompts now go to the local WebLLM engine; no OVYX hosted AI route or model-provider fallback is used by this lab. Record the device, browser, response quality and speed before accepting this model.',
-        'ok'
+        'The ' + model.label + ' model loaded in this browser. Prompts now go to the local WebLLM engine; no OVYX hosted AI route or model-provider fallback is used by this lab. Record the device, browser, response quality and speed before accepting this model.' +
+        webGpuCacheMessage,
+        webGpuCacheConfirmed && storage.persistent ? 'ok' : 'warn'
       );
       refreshControls();
       promptInput.focus();
@@ -721,6 +774,7 @@
       diagnosticsState.lastError = { at: new Date().toISOString(), stage: 'model-load', message: getErrorMessage(error) };
       activeLoadMetrics = null;
       showProgress(false);
+      downloadConsent.checked = false;
       setStatus(
         'Local model initialization failed. Nothing was sent to a hosted AI provider. ' +
         getErrorMessage(error) +
@@ -1076,7 +1130,9 @@
   }
 
   modelSelect.addEventListener('change', () => {
+    downloadConsent.checked = false;
     updateModelDetails();
+    updateDownloadGuard();
     const key = selectedModelKey();
     if (isCpuModelKey(key)) {
       setStatus('CPU/WASM selected explicitly. It does not require WebGPU and will load only when you press Download and start local AI.', 'ok');
@@ -1087,7 +1143,16 @@
     }
     refreshControls();
   });
-  startButton.addEventListener('click', () => { void startLocalModel(); });
+  downloadConsent.addEventListener('change', refreshControls);
+  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  connection?.addEventListener?.('change', updateDownloadGuard);
+  startButton.addEventListener('click', () => {
+    if (!downloadConsent.checked) {
+      setStatus('Model loading is blocked until you confirm the selected model download size and current connection. Use Wi-Fi if your data is limited.', 'warn');
+      return;
+    }
+    void startLocalModel();
+  });
   cancelButton.addEventListener('click', cancelLoading);
   unloadButton.addEventListener('click', () => { void unloadLocalModel(); });
   promptForm.addEventListener('submit', (event) => { void sendPrompt(event); });
@@ -1101,6 +1166,7 @@
   });
 
   updateModelDetails();
+  updateDownloadGuard();
   refreshControls();
   void checkWebGPU();
 })();
