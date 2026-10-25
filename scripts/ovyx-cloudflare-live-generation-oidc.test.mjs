@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
-import { chooseProvider, handleLiveGenerationRequest, safeLiveGenerationFailureDetail, safeLiveGenerationProviderAttempts, verifyGithubOidcToken } from '../functions/api/internal/live-generation-eval.js';
+import { chooseProvider, handleLiveGenerationRequest, safeLiveGenerationBatchDiagnostics, safeLiveGenerationFailureDetail, safeLiveGenerationProviderAttempts, verifyGithubOidcToken } from '../functions/api/internal/live-generation-eval.js';
 import { isTrustedGithubOidcRequestUrl } from './ovyx-github-oidc-url.mjs';
 
 // Cover the exact GitHub-hosted runner hostname reported by the production
@@ -38,6 +38,47 @@ assert.equal(safeLiveGenerationFailureDetail(Object.assign(new Error('network de
 assert.equal(safeLiveGenerationFailureDetail(Object.assign(new Error('timeout details must stay private'), {
   name: 'TimeoutError',
 })), 'upstream-timeout');
+
+const safeBatchDiagnostics = safeLiveGenerationBatchDiagnostics({
+  batchDiagnostics: {
+    batchIndex: 3,
+    expectedKinds: ['css', 'not-a-kind'],
+    responseLength: 999999,
+    parsedJson: true,
+    filesContainer: 'array',
+    hasFileEdits: false,
+    hasPatchFiles: false,
+    hasTopLevelCode: true,
+    hasTopLevelHtml: false,
+    rawFileCount: 2,
+    returnedKinds: ['html', 'javascript', 'private-secret'],
+    matchingTargetCount: 0,
+    responseStartsJson: true,
+    responseEndsJson: false,
+    responseLooksTruncated: true,
+    rawResponse: 'PRIVATE_SECRET_MUST_NOT_LEAK',
+  },
+});
+assert.deepEqual(safeBatchDiagnostics, {
+  batchIndex: 3,
+  expectedKinds: ['css'],
+  responseLength: 200000,
+  parsedJson: true,
+  filesContainer: 'array',
+  hasFileEdits: false,
+  hasPatchFiles: false,
+  hasTopLevelCode: true,
+  hasTopLevelHtml: false,
+  rawFileCount: 2,
+  returnedKinds: ['html', 'javascript'],
+  matchingTargetCount: 0,
+  responseStartsJson: true,
+  responseEndsJson: false,
+  responseLooksTruncated: true,
+});
+assert.equal(JSON.stringify(safeBatchDiagnostics).includes('PRIVATE_SECRET_MUST_NOT_LEAK'), false,
+  'batch diagnostics must never expose raw model output or secret-like content');
+assert.equal(safeLiveGenerationBatchDiagnostics(new Error('no batch metadata')), null);
 assert.equal(safeLiveGenerationFailureDetail(new Error('private message / key=DO_NOT_LEAK')), 'generation-error');
 for (const [code, expected] of [
   ['OVYX_AI_ENGINE_MODE_NOT_CONFIGURED', 'cloudflare-engine-mode-not-configured'],
