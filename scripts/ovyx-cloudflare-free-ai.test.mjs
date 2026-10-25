@@ -50,6 +50,24 @@ const compacted = compactCloudflareFreeMessages([
 assert.ok(compacted.reduce((sum, item) => sum + item.content.length, 0) <= 12000);
 assert.equal(compacted[compacted.length - 1].content, 'latest user prompt');
 
+// Long Web Studio prompts must retain both their opening contract and ending
+// project context. Tail-only truncation can discard the required JSON schema and
+// target file allowlist, causing a valid Cloudflare response to become unusable.
+const longPrompt = 'REQUIRED_OUTPUT_CONTRACT_AT_START\\n' +
+  'x'.repeat(12000) +
+  '\\nMIDDLE_ONLY_SENTINEL_SHOULD_BE_TRUNCATED\\n' +
+  'y'.repeat(12000) +
+  '\\nREQUIRED_TARGET_PATHS_AT_END';
+const boundedLongPrompt = compactCloudflareFreeMessages([
+  { role: 'system', content: 'System rules.' },
+  { role: 'user', content: longPrompt },
+], 10000);
+assert.equal(boundedLongPrompt.length, 2);
+assert.ok(boundedLongPrompt[1].content.startsWith('REQUIRED_OUTPUT_CONTRACT_AT_START'), 'long prompt compaction must preserve task/output instructions');
+assert.ok(boundedLongPrompt[1].content.endsWith('REQUIRED_TARGET_PATHS_AT_END'), 'long prompt compaction must preserve required target/context details');
+assert.ok(!boundedLongPrompt[1].content.includes('MIDDLE_ONLY_SENTINEL_SHOULD_BE_TRUNCATED'), 'middle content should be shortened rather than consuming the prompt budget');
+assert.ok(boundedLongPrompt.reduce((sum, item) => sum + item.content.length, 0) <= 10000);
+
 const helperSource = readFileSync(new URL('../functions/_lib/cloudflare-free-ai.js', import.meta.url), 'utf8');
 const providerSource = readFileSync(new URL('../functions/_lib/providers.js', import.meta.url), 'utf8');
 const middlewareSource = readFileSync(new URL('../functions/api/_middleware.js', import.meta.url), 'utf8');
