@@ -309,6 +309,19 @@ const unknownCase = await handleLiveGenerationRequest(
 assert.equal(unknownCase.status, 400, 'only allow-listed test case IDs are accepted');
 assert.equal((await unknownCase.json()).error, 'EVALUATION_CASE_NOT_ALLOWED', 'arbitrary prompts are rejected before provider selection or any billable call');
 
+const babyProductsCase = await handleLiveGenerationRequest(
+  new Request('https://forgeos-2k0.pages.dev/api/internal/live-generation-eval', {
+    method: 'POST',
+    headers: { authorization: 'Bearer ' + validToken, 'content-type': 'application/json' },
+    body: JSON.stringify({ caseId: 'nigeria-baby-products' }),
+  }),
+  {},
+  { fetchImpl, nowSeconds: now, getProductionIntegrationState: async () => ({ live: false }) },
+);
+assert.equal(babyProductsCase.status, 503,
+  'the non-property substitute case must be allowlisted but still respect the production integration pause');
+assert.equal((await babyProductsCase.json()).error, 'PRODUCTION_INTEGRATIONS_PAUSED');
+
 const preflightCall = { count: 0, input: null };
 const providerPreflightReady = await handleLiveGenerationRequest(
   new Request('https://forgeos-2k0.pages.dev/api/internal/live-generation-eval', {
