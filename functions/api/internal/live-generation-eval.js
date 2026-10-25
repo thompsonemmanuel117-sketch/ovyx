@@ -354,6 +354,14 @@ export function safeLiveGenerationFailureDetail(error) {
   if (code === 'AI_PROVIDER_NOT_CONFIGURED') return 'ai-provider-not-configured';
   if (code === 'AI_PROVIDER_UNSUPPORTED') return 'ai-provider-unsupported';
   if (code === 'AI_PROVIDER_UNAVAILABLE') return 'ai-provider-unavailable';
+  const ledgerHttpFailure = code.match(/^OVYX_AI_BUDGET_LEDGER_(READ|MIGRATION|INITIALIZE|STOP|RESERVATION|UNKNOWN)_HTTP_(5[0-9][0-9])$/);
+  if (ledgerHttpFailure) {
+    return 'cloudflare-ai-budget-ledger-' + ledgerHttpFailure[1].toLowerCase() + '-http-' + ledgerHttpFailure[2];
+  }
+  const ledgerNetworkFailure = code.match(/^OVYX_AI_BUDGET_LEDGER_(READ|MIGRATION|INITIALIZE|STOP|RESERVATION|UNKNOWN)_NETWORK_ERROR$/);
+  if (ledgerNetworkFailure) {
+    return 'cloudflare-ai-budget-ledger-' + ledgerNetworkFailure[1].toLowerCase() + '-network-error';
+  }
   const safeCloudflareFailureDetails = {
     OVYX_AI_ENGINE_MODE_NOT_CONFIGURED: 'cloudflare-engine-mode-not-configured',
     OVYX_NATIVE_AI_NOT_CONFIGURED: 'cloudflare-ai-binding-not-configured',

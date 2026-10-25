@@ -31,15 +31,28 @@ async function waitForBudgetRetry(attempt) {
   await new Promise(resolve => setTimeout(resolve, delayMs));
 }
 
-function budgetLedgerUnavailable(error, message) {
+function budgetLedgerUnavailable(error, message, phase = 'unknown') {
   const status = Number(error?.status);
+  const safePhase = ['read', 'migration', 'initialize', 'stop', 'reservation'].includes(phase) ? phase : 'unknown';
   let code = 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE';
   if (status === 401) code = 'OVYX_AI_BUDGET_LEDGER_AUTH_FAILED';
   else if (status === 403) code = 'OVYX_AI_BUDGET_LEDGER_PERMISSION_DENIED';
   else if (status === 400) code = 'OVYX_AI_BUDGET_LEDGER_BAD_REQUEST';
   else if (status === 409 || status === 412 || error?.code === 'FIRESTORE_PRECONDITION_FAILED') {
     code = 'OVYX_AI_BUDGET_LEDGER_CONFLICT_EXHAUSTED';
+  } else if (status >= 500 && status <= 599) {
+    code = 'OVYX_AI_BUDGET_LEDGER_' + safePhase.toUpperCase() + '_HTTP_' + status;
+  } else if (error?.name === 'TypeError') {
+    code = 'OVYX_AI_BUDGET_LEDGER_' + safePhase.toUpperCase() + '_NETWORK_ERROR';
   }
+  // Log only the phase, safe error code/status and error class; never provider
+  // output, OAuth assertions, credential values, or connection secrets.
+  console.error('[OVYX AI BUDGET LEDGER]', JSON.stringify({
+    phase: safePhase,
+    status: Number.isInteger(status) && status >= 400 && status <= 599 ? status : null,
+    code: String(error?.code || '').slice(0, 80),
+    name: String(error?.name || 'Error').slice(0, 40),
+  }));
   return fail(503, code, message);
 }
 
@@ -203,7 +216,7 @@ async function getDailyBudgetLedger(env) {
         await waitForBudgetRetry(attempt);
         continue;
       }
-      throw budgetLedgerUnavailable(error, 'OVYX could not safely check its daily free AI allowance. Please retry later.');
+      throw budgetLedgerUnavailable(error, 'OVYX could not safely check its daily free AI allowance. Please retry later.', 'read');
     }
     if (raw) return raw;
 
@@ -218,7 +231,7 @@ async function getDailyBudgetLedger(env) {
         await waitForBudgetRetry(attempt);
         continue;
       }
-      throw budgetLedgerUnavailable(error, 'OVYX could not safely migrate its existing daily AI allowance. Please retry later.');
+      throw budgetLedgerUnavailable(error, 'OVYX could not safely migrate its existing daily AI allowance. Please retry later.', 'migration');
     }
 
     const legacy = legacyRaw ? (firestoreDocumentToJs(legacyRaw) || {}) : {};
@@ -247,7 +260,7 @@ async function getDailyBudgetLedger(env) {
         await waitForBudgetRetry(attempt);
         continue;
       }
-      throw budgetLedgerUnavailable(error, 'OVYX could not safely initialize its daily free AI allowance. Please retry later.');
+      throw budgetLedgerUnavailable(error, 'OVYX could not safely initialize its daily free AI allowance. Please retry later.', 'initialize');
     }
   }
 
@@ -275,7 +288,7 @@ async function reserveDailyBudget(env, estimate) {
           await waitForBudgetRetry(attempt);
           continue;
         }
-        throw budgetLedgerUnavailable(error, 'OVYX could not safely record the daily AI stop. Please retry later.');
+        throw budgetLedgerUnavailable(error, 'OVYX could not safely record the daily AI stop. Please retry later.', 'stop');
       }
       throw fail(429, 'OVYX_AI_NEURON_BUDGET_EXHAUSTED', 'OVYX has reached its protected daily AI allowance. Please try again after the daily reset.');
     }
@@ -292,7 +305,7 @@ async function reserveDailyBudget(env, estimate) {
         await waitForBudgetRetry(attempt);
         continue;
       }
-      throw budgetLedgerUnavailable(error, 'OVYX could not safely reserve its daily free AI allowance. Please retry later.');
+      throw budgetLedgerUnavailable(error, 'OVYX could not safely reserve its daily free AI allowance. Please retry later.', 'reservation');
     }
   }
   throw fail(503, 'OVYX_AI_BUDGET_LEDGER_CONFLICT_EXHAUSTED', 'OVYX could not safely reserve its daily free AI allowance after bounded concurrent-write retries. Please retry later.');
