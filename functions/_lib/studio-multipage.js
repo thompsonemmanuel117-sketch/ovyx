@@ -78,9 +78,9 @@ function safeBatchResponseDiagnostics({ batch, responseText, parsed, rawGenerate
     rawFileCount: Math.max(0, Math.min(50, returnedPaths.length)),
     returnedKinds: [...new Set(returnedPaths.map(safeFileKind))].slice(0, 4),
     matchingTargetCount: returnedPaths.filter(path => allowed.has(path)).length,
-    responseStartsJson: /^[\\[{]/.test(trimmed),
-    responseEndsJson: /[\\]}]$/.test(trimmed),
-    responseLooksTruncated: /^[\\[{]/.test(trimmed) && !/[\\]}]$/.test(trimmed),
+    responseStartsJson: trimmed.startsWith('{') || trimmed.startsWith('['),
+    responseEndsJson: trimmed.endsWith('}') || trimmed.endsWith(']'),
+    responseLooksTruncated: (trimmed.startsWith('{') || trimmed.startsWith('[')) && !(trimmed.endsWith('}') || trimmed.endsWith(']')),
   };
 }
 
