@@ -11,6 +11,22 @@ const OUTPUT_NEURONS_PER_MILLION = 34868;
 const RATE_RETRIES = 6;
 const BUDGET_RETRIES = 8;
 
+function isRetryableBudgetError(error) {
+  const status = Number(error?.status);
+  return error?.code === 'FIRESTORE_PRECONDITION_FAILED' ||
+    error?.code === 'FIRESTORE_DOCUMENT_ALREADY_EXISTS' ||
+    status === 409 || status === 412 ||
+    [408, 425, 429, 500, 502, 503, 504].includes(status) ||
+    error?.name === 'TypeError';
+}
+
+async function waitForBudgetRetry(attempt) {
+  // Bounded exponential backoff with jitter prevents concurrent OVYX requests
+  // from repeatedly colliding on the shared Firestore budget document.
+  const delayMs = Math.min(250, 25 * (attempt + 1)) + Math.floor(Math.random() * 25);
+  await new Promise(resolve => setTimeout(resolve, delayMs));
+}
+
 function fail(status, code, message) {
   return Object.assign(new Error(message), { status, code });
 }
@@ -166,7 +182,11 @@ async function getDailyBudgetLedger(env) {
     let raw;
     try {
       raw = await getFirestoreDocument(env, 'system', 'config');
-    } catch {
+    } catch (error) {
+      if (isRetryableBudgetError(error) && attempt + 1 < BUDGET_RETRIES) {
+        await waitForBudgetRetry(attempt);
+        continue;
+      }
       throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX could not safely check its daily free AI allowance. Please retry later.');
     }
     if (raw) return raw;
@@ -179,7 +199,10 @@ async function getDailyBudgetLedger(env) {
         _ovyxWorkersAiRequestCount: 0,
       });
     } catch (error) {
-      if (error?.status === 409 || error?.code === 'FIRESTORE_DOCUMENT_ALREADY_EXISTS') continue;
+      if (isRetryableBudgetError(error) && attempt + 1 < BUDGET_RETRIES) {
+        await waitForBudgetRetry(attempt);
+        continue;
+      }
       throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX could not safely initialize its daily free AI allowance. Please retry later.');
     }
   }
@@ -204,7 +227,10 @@ async function reserveDailyBudget(env, estimate) {
           _ovyxWorkersAiCloudflareExhaustedAt: new Date().toISOString(),
         }, raw.updateTime);
       } catch (error) {
-        if (error?.status === 409 || error?.code === 'FIRESTORE_PRECONDITION_FAILED') continue;
+        if (isRetryableBudgetError(error) && attempt + 1 < BUDGET_RETRIES) {
+          await waitForBudgetRetry(attempt);
+          continue;
+        }
         throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX could not safely record the daily AI stop. Please retry later.');
       }
       throw fail(429, 'OVYX_AI_NEURON_BUDGET_EXHAUSTED', 'OVYX has reached its protected daily AI allowance. Please try again after the daily reset.');
@@ -218,7 +244,10 @@ async function reserveDailyBudget(env, estimate) {
       }, raw.updateTime);
       return { day, estimate };
     } catch (error) {
-      if (error?.status === 409 || error?.code === 'FIRESTORE_PRECONDITION_FAILED') continue;
+      if (isRetryableBudgetError(error) && attempt + 1 < BUDGET_RETRIES) {
+        await waitForBudgetRetry(attempt);
+        continue;
+      }
       throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX could not safely reserve its daily free AI allowance. Please retry later.');
     }
   }
@@ -229,7 +258,15 @@ async function settleDailyBudget(env, reservation, actual) {
   if (!reservation) return;
   for (let attempt = 0; attempt < BUDGET_RETRIES; attempt += 1) {
     let raw;
-    try { raw = await getFirestoreDocument(env, 'system', 'config'); } catch { return; }
+    try {
+      raw = await getFirestoreDocument(env, 'system', 'config');
+    } catch (error) {
+      if (isRetryableBudgetError(error) && attempt + 1 < BUDGET_RETRIES) {
+        await waitForBudgetRetry(attempt);
+        continue;
+      }
+      return;
+    }
     if (!raw) return;
     const config = firestoreDocumentToJs(raw) || {};
     if (String(config._ovyxWorkersAiDayUtc || '') !== reservation.day) return;
@@ -242,7 +279,10 @@ async function settleDailyBudget(env, reservation, actual) {
       }, raw.updateTime);
       return;
     } catch (error) {
-      if (error?.status === 409 || error?.code === 'FIRESTORE_PRECONDITION_FAILED') continue;
+      if (isRetryableBudgetError(error) && attempt + 1 < BUDGET_RETRIES) {
+        await waitForBudgetRetry(attempt);
+        continue;
+      }
       return;
     }
   }

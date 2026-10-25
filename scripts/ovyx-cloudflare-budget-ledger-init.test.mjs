@@ -20,6 +20,8 @@ let modelCalls = 0;
 let lastAIOptions = null;
 let responseShape = 'legacy-response';
 let createCalls = 0;
+let ledgerReadFailuresRemaining = 1;
+let conflictWritesRemaining = 3;
 const originalFetch = globalThis.fetch;
 
 env.AI = {
@@ -74,6 +76,10 @@ try {
     assert.match(url.pathname, /\/projects\/ovyx-budget-ledger-test\/databases\/\(default\)\/documents/);
 
     if (init.method === 'GET' && url.pathname.endsWith('/system/config')) {
+      if (ledgerReadFailuresRemaining > 0) {
+        ledgerReadFailuresRemaining -= 1;
+        return okJson({ error: { status: 'UNAVAILABLE' } }, 503);
+      }
       return storedDocument ? okJson(makeFirestoreDocument()) : new Response('', { status: 404 });
     }
 
@@ -89,6 +95,11 @@ try {
 
     if (init.method === 'PATCH' && url.pathname.endsWith('/system/config')) {
       if (!storedDocument || url.searchParams.get('currentDocument.updateTime') !== `v${version}`) {
+        return okJson({ error: { status: 'ABORTED' } }, 409);
+      }
+      if (conflictWritesRemaining > 0) {
+        conflictWritesRemaining -= 1;
+        version += 1; // Simulate another legitimate writer updating the document.
         return okJson({ error: { status: 'ABORTED' } }, 409);
       }
       const patch = JSON.parse(init.body).fields || {};
@@ -118,6 +129,8 @@ try {
   assert.equal(lastAIOptions.temperature, 0, 'the bounded readiness probe should be deterministic');
   assert.equal(modelCalls, 1, 'a single successful guarded model inference should run after reservation');
   assert.ok(storedDocument, 'missing system/config document should be created atomically');
+  assert.equal(ledgerReadFailuresRemaining, 0, 'a transient Firestore ledger read failure should be retried safely');
+  assert.equal(conflictWritesRemaining, 0, 'concurrent Firestore update conflicts should be retried with bounded backoff');
   assert.equal(storedDocument._ovyxWorkersAiDayUtc.stringValue, new Date().toISOString().slice(0, 10));
   assert.equal(storedDocument._ovyxWorkersAiReservedNeurons.integerValue, '0');
   assert.ok(Number(storedDocument._ovyxWorkersAiConsumedNeurons.integerValue) > 0);

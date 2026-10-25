@@ -356,8 +356,9 @@ export async function getFirestoreDocument(
   }
 
   if (!response.ok) {
-    throw new Error(
-      `Firestore document read failed (${response.status}).`
+    throw Object.assign(
+      new Error(`Firestore document read failed (${response.status}).`),
+      { status: response.status, code: 'FIRESTORE_READ_FAILED' }
     );
   }
 
