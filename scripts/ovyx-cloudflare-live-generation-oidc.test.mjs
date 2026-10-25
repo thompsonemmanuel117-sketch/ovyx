@@ -258,7 +258,8 @@ assert.deepEqual(await providerPreflightReady.json(), {
 });
 assert.equal(preflightCall.count, 1, 'one bounded preflight model request must run before full website generation');
 assert.equal(preflightCall.input.provider, 'gemini', 'an explicit provider preflight must not borrow another provider');
-assert.equal(preflightCall.input.maxTokens, 8, 'the preflight must use a minimal output budget');
+assert.equal(preflightCall.input.maxTokens, 64, 'the preflight needs enough output tokens for a usable response');
+assert.equal(preflightCall.input.disableThinking, true, 'the tiny readiness probe must disable Qwen3 thinking to avoid empty final answers');
 assert.equal(preflightCall.input.timeoutMs, 25_000, 'the preflight must have a bounded provider timeout');
 assert.match(preflightCall.input.system, /provider readiness check/i);
 assert.doesNotMatch(preflightCall.input.user, /website|property|restaurant|fashion|country/i,
