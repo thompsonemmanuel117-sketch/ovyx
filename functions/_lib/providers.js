@@ -974,6 +974,7 @@ async function callCloudflareWorkersAI(
   const freeOnly = isCloudflareFreeOnlyMode(env);
   const selectedModel = freeOnly ? OVYX_CLOUDFLARE_FREE_MODEL : model;
   let result;
+  let guardedInferenceText = null;
   const configuredTimeout = Number(env?.OVYX_WORKERS_AI_TIMEOUT_MS);
   const timeoutMs = Number.isFinite(configuredTimeout) && configuredTimeout >= 50
     ? Math.min(60_000, configuredTimeout)
@@ -982,6 +983,7 @@ async function callCloudflareWorkersAI(
     if (freeOnly) {
       const guarded = await runCloudflareFreeInference(env, { authUser, system, user, maxTokens, timeoutMs });
       result = guarded.result;
+      guardedInferenceText = guarded.text;
     } else {
       result = await withTimeout(
         env.AI.run(
@@ -1011,12 +1013,13 @@ async function callCloudflareWorkersAI(
     throw safeError;
   }
 
-  const text = extractText(result);
+  const text = freeOnly ? String(guardedInferenceText || '').trim() : extractText(result);
 
   if (!text) {
-    throw new Error(
-      'Cloudflare Workers AI returned an empty response.'
-    );
+    throw Object.assign(new Error('Cloudflare Workers AI returned an empty response.'), {
+      status: 503,
+      code: freeOnly ? 'OVYX_AI_CLOUDFLARE_EMPTY_RESPONSE' : 'AI_PROVIDER_EMPTY_RESPONSE',
+    });
   }
 
   return {
