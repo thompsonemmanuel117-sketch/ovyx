@@ -77,7 +77,7 @@ function recoverCssFromMalformedEnvelope(rawText) {
   // Recover only a complete CSS string explicitly located in a file-content
   // field. This handles JSON wrappers broken by unescaped CSS quotes without
   // treating arbitrary JSON/object text as stylesheet source.
-  const marker = /"(?:content|contents|css|source|code)"\\s*:\\s*"/i.exec(raw);
+  const marker = /"(?:content|contents|css|source|code)"\s*:\s*"/i.exec(raw);
   if (!marker) return null;
   const start = marker.index + marker[0].length;
   let depth = 0;
@@ -101,7 +101,7 @@ function recoverCssFromMalformedEnvelope(rawText) {
       escaped = false;
       continue;
     }
-    if (character === '\\\\') {
+    if (character === '\\') {
       escaped = true;
       continue;
     }
@@ -130,13 +130,11 @@ function recoverCssFromMalformedEnvelope(rawText) {
         const tail = raw.slice(index + 1);
         // At the end of a CSS value, the next quote is the malformed JSON
         // string delimiter, followed by an object/array delimiter.
-        if (/^\\s*(?:"\\s*[,}\\]]|[,}\\]])/.test(tail) || /^\\s*$/.test(tail)) {
+        if (/^\s*(?:"\s*[,}\]]|[,}\]])/.test(tail) || /^\s*$/.test(tail)) {
           return raw.slice(start, index + 1)
-            .replace(/\\\\n/g, '\\n')
-            .replace(/\\\\r/g, '\\r')
-            .replace(/\\\\t/g, '\\t')
-            .replace(/\\\\"/g, '"')
-            .replace(/\\\\\\\\/g, '\\\\');
+            .replace(/\\n/g, '\n')
+            .replace(/\\r/g, '\r')
+            .replace(/\\t/g, '\t');
         }
       }
     }
