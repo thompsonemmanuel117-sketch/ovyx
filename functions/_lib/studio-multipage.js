@@ -31,20 +31,97 @@ function outputFiles(value) {
   const out = {};
   if (Array.isArray(files)) {
     files.forEach(item => {
-      const path = String((item && (item.path || item.file)) || '').trim().replace(/^\/+/, '');
+      const path = String((item && (item.path || item.file)) || '').trim().replace(/^\\/+/, '');
       const content = item && (item.content || item.text || item.source || item.code);
       if (path && typeof content === 'string') out[path] = content;
     });
   } else if (files && typeof files === 'object') {
     Object.entries(files).forEach(([path, item]) => {
       const content = typeof item === 'string' ? item : item && (item.content || item.text || item.source || item.code);
-      if (path && typeof content === 'string') out[String(path).replace(/^\/+/, '')] = content;
+      if (path && typeof content === 'string') out[String(path).replace(/^\\/+/, '')] = content;
     });
   }
   if (!Object.keys(out).length && value && typeof value.html === 'string') out['src/pages/Home.html'] = value.html;
   if (!Object.keys(out).length && value && typeof value.code === 'string') out['src/pages/Home.html'] = value.code;
   return out;
 }
+
+// A single-file batch has one server-selected output path. When the model emits
+// direct code (or a fenced code block) instead of the required JSON envelope,
+// recover only code that clearly matches that target's file type. The normal
+// site validators still inspect every recovered file before accepting a build.
+function recoverSingleFileContent(rawText, targetPath) {
+  const target = String(targetPath || '');
+  const extension = (target.split('.').pop() || '').toLowerCase();
+  if (!['html', 'htm', 'css', 'js', 'mjs'].includes(extension)) return null;
+  let raw = String(rawText || '').trim();
+  if (!raw || /^[\\[{]/.test(raw)) return null;
+  raw = raw.replace(/^\\u0060{3}(?:html?|css|javascript|js|mjs)?\\s*/i, '').replace(/\\s*\\u0060{3}$/, '').trim();
+
+  if (extension === 'html' || extension === 'htm') {
+    const startMatch = /<!doctype\\s+html\\b|<html\\b/i.exec(raw);
+    if (!startMatch) return null;
+    const close = raw.toLowerCase().lastIndexOf('</html>');
+    if (close < startMatch.index) return null;
+    return raw.slice(startMatch.index, close + '</html>'.length).trim();
+  }
+  if (extension === 'css') {
+    if (!raw.includes('{') || !raw.includes('}')) return null;
+    let depth = 0;
+    for (const character of raw) {
+      if (character === '{') depth += 1;
+      if (character === '}') depth -= 1;
+      if (depth < 0) return null;
+    }
+    return depth === 0 ? raw : null;
+  }
+  if (!/(?:^|[;\\n])\\s*(?:(?:const|let|var|function|class|export|import|document|window|globalThis)\\b|['"]use strict['"]|[A-Za-z_$][\\w$]*\\s*=>)/m.test(raw)) return null;
+  return raw;
+}
+
+const SAFE_OUTPUT_ROOT_KEYS = new Set([
+  'summary', 'files', 'fileEdits', 'patch', 'html', 'code',
+  'siteMap', 'text', 'response', 'output', 'content', 'message',
+]);
+function batchOutputShapeDiagnostics(rawText, parsed, generated, batch) {
+  const raw = String(rawText || '');
+  const rootKeys = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+    ? [...new Set(Object.keys(parsed).map(key => SAFE_OUTPUT_ROOT_KEYS.has(key) ? key : 'other'))].slice(0, 12)
+    : [];
+  const container = parsed && typeof parsed === 'object'
+    ? (parsed.files ?? parsed.fileEdits ?? parsed.patch?.files)
+    : undefined;
+  const fileContainerKind = Array.isArray(container)
+    ? 'array'
+    : container && typeof container === 'object'
+      ? 'object'
+      : container === undefined || container === null
+        ? 'absent'
+        : 'other';
+  const fileContainerEntries = Array.isArray(container)
+    ? container.length
+    : container && typeof container === 'object'
+      ? Object.keys(container).length
+      : 0;
+  const targetExtension = (String(batch?.targetPaths?.[0] || '').split('.').pop() || '').toLowerCase();
+  return {
+    responseCharacters: Math.min(raw.length, 200_000),
+    parsedJson: Boolean(parsed && typeof parsed === 'object' && !Array.isArray(parsed)),
+    rootKeys,
+    fileContainerKind,
+    fileContainerEntries: Math.min(fileContainerEntries, 100),
+    extractedFileCount: Math.min(Object.keys(generated || {}).length, 100),
+    startsWithJsonObject: /^\\s*\\{/.test(raw),
+    endsWithJsonObject: /\\}\\s*$/.test(raw),
+    containsMarkdownFence: raw.includes(String.fromCharCode(96).repeat(3)),
+    containsHtmlDocument: /<!doctype\\s+html|<html\\b/i.test(raw),
+    endsWithHtmlDocument: /<\\/html\\s*>\\s*$/i.test(raw),
+    batchIndex: Math.max(0, Math.min(100, Number(batch?.index) || 0)),
+    batchTotal: Math.max(0, Math.min(100, Number(batch?.total) || 0)),
+    targetFileExtension: ['html', 'htm', 'css', 'js', 'mjs'].includes(targetExtension) ? targetExtension : 'other',
+  };
+}
+
 function deterministicFallbackSiteMapTitles(prompt, explicitPages = []) {
   const source = String(prompt || '').toLowerCase();
   const realEstate = /\b(?:real estate|realty|property advisory|property listings?|home buyers?|renters?)\b/i.test(source);
@@ -594,10 +671,25 @@ async function buildStudioMultiPageOnce(options) {
     usage = nextUsage.total;
     hasUsage = hasUsage || nextUsage.found;
 
-    const generated = outputFiles(parseJSON(result && result.text));
-    const paths = Object.keys(generated);
+    const rawBatchText = String(result && result.text || '');
+    const parsedBatchOutput = parseJSON(rawBatchText);
+    let generated = outputFiles(parsedBatchOutput);
     const allowed = new Set(batch.allowedPaths);
-    if (!paths.length) throw accountingError(Object.assign(new Error('Web Studio batch ' + batch.index + ' returned no usable file contents. The site was not marked complete.'), { status: 502, code: 'WEBSTUDIO_BATCH_EMPTY' }), usage, hasUsage, inputs, outputs);
+    if (!Object.keys(generated).length && batch.targetPaths.length === 1) {
+      const recoveredContent = recoverSingleFileContent(rawBatchText, batch.targetPaths[0]);
+      if (typeof recoveredContent === 'string' && recoveredContent.trim()) {
+        generated = { [batch.targetPaths[0]]: recoveredContent };
+      }
+    }
+    const paths = Object.keys(generated);
+    if (!paths.length) {
+      const outputDiagnostics = batchOutputShapeDiagnostics(rawBatchText, parsedBatchOutput, generated, batch);
+      throw accountingError(Object.assign(new Error('Web Studio batch ' + batch.index + ' returned no usable file contents. The site was not marked complete.'), {
+        status: 502,
+        code: 'WEBSTUDIO_BATCH_EMPTY',
+        outputDiagnostics,
+      }), usage, hasUsage, inputs, outputs);
+    }
     if (paths.length > batch.maxChangedFiles) throw accountingError(Object.assign(new Error('Web Studio batch ' + batch.index + ' returned more files than its bounded target manifest. Retry the build.'), { status: 502, code: 'WEBSTUDIO_BATCH_FILE_LIMIT' }), usage, hasUsage, inputs, outputs);
     for (const path of paths) {
       if (!allowed.has(path)) throw accountingError(Object.assign(new Error('Web Studio attempted an unplanned output path: ' + path), { status: 502, code: 'WEBSTUDIO_PATH_NOT_ALLOWED' }), usage, hasUsage, inputs, outputs);
