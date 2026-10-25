@@ -594,13 +594,20 @@ async function buildStudioMultiPageOnce(options) {
     usage = nextUsage.total;
     hasUsage = hasUsage || nextUsage.found;
 
-    const generated = outputFiles(parseJSON(result && result.text));
-    const paths = Object.keys(generated);
+    const rawGenerated = outputFiles(parseJSON(result && result.text));
     const allowed = new Set(batch.allowedPaths);
-    if (!paths.length) throw accountingError(Object.assign(new Error('Web Studio batch ' + batch.index + ' returned no usable file contents. The site was not marked complete.'), { status: 502, code: 'WEBSTUDIO_BATCH_EMPTY' }), usage, hasUsage, inputs, outputs);
-    if (paths.length > batch.maxChangedFiles) throw accountingError(Object.assign(new Error('Web Studio batch ' + batch.index + ' returned more files than its bounded target manifest. Retry the build.'), { status: 502, code: 'WEBSTUDIO_BATCH_FILE_LIMIT' }), usage, hasUsage, inputs, outputs);
+    // Models sometimes include helpful shared CSS/JS or another page even when
+    // this bounded batch requests one file. Never stage those extras: keep only
+    // exact allowlisted targets, then verify every required target below.
+    // This is safer and more robust than failing a valid target because the model
+    // mentioned an unrequested file; unapproved paths are discarded, never written.
+    const generated = Object.fromEntries(
+      Object.entries(rawGenerated).filter(([path]) => allowed.has(path))
+    );
+    const paths = Object.keys(generated);
+    if (!paths.length) throw accountingError(Object.assign(new Error('Web Studio batch ' + batch.index + ' returned no usable contents for its approved target. The site was not marked complete.'), { status: 502, code: 'WEBSTUDIO_BATCH_EMPTY' }), usage, hasUsage, inputs, outputs);
+    if (paths.length > batch.maxChangedFiles) throw accountingError(Object.assign(new Error('Web Studio batch ' + batch.index + ' exceeded its approved target limit after filtering. Retry the build.'), { status: 502, code: 'WEBSTUDIO_BATCH_FILE_LIMIT' }), usage, hasUsage, inputs, outputs);
     for (const path of paths) {
-      if (!allowed.has(path)) throw accountingError(Object.assign(new Error('Web Studio attempted an unplanned output path: ' + path), { status: 502, code: 'WEBSTUDIO_PATH_NOT_ALLOWED' }), usage, hasUsage, inputs, outputs);
       if (!String(generated[path]).trim()) throw accountingError(Object.assign(new Error('Web Studio returned empty content for ' + path), { status: 502, code: 'WEBSTUDIO_EMPTY_FILE' }), usage, hasUsage, inputs, outputs);
     }
     const missing = batch.targetPaths.filter(path => !paths.includes(path));
