@@ -45,6 +45,45 @@ function outputFiles(value) {
   if (!Object.keys(out).length && value && typeof value.code === 'string') out['src/pages/Home.html'] = value.code;
   return out;
 }
+function safeFileKind(path) {
+  const extension = String(path || '').split('.').pop().toLowerCase();
+  if (extension === 'html' || extension === 'htm') return 'html';
+  if (extension === 'css') return 'css';
+  if (['js', 'mjs', 'jsx', 'ts', 'tsx'].includes(extension)) return 'javascript';
+  if (extension === 'json') return 'json';
+  return 'other';
+}
+
+function safeBatchResponseDiagnostics({ batch, responseText, parsed, rawGenerated, allowed }) {
+  const trimmed = String(responseText || '').trim();
+  const filesValue = parsed && typeof parsed === 'object' ? parsed.files : null;
+  const filesContainer = Array.isArray(filesValue)
+    ? 'array'
+    : filesValue && typeof filesValue === 'object'
+      ? 'object'
+      : typeof filesValue === 'string'
+        ? 'string'
+        : 'missing';
+  const returnedPaths = Object.keys(rawGenerated || {});
+  return {
+    batchIndex: Number.isInteger(batch?.index) ? Math.max(0, Math.min(50, batch.index)) : 0,
+    expectedKinds: [...new Set((batch?.allowedPaths || []).map(safeFileKind))].slice(0, 4),
+    responseLength: Math.max(0, Math.min(200000, trimmed.length)),
+    parsedJson: !!parsed && typeof parsed === 'object',
+    filesContainer,
+    hasFileEdits: !!(parsed && typeof parsed === 'object' && parsed.fileEdits),
+    hasPatchFiles: !!(parsed && typeof parsed === 'object' && parsed.patch && parsed.patch.files),
+    hasTopLevelCode: !!(parsed && typeof parsed.code === 'string'),
+    hasTopLevelHtml: !!(parsed && typeof parsed.html === 'string'),
+    rawFileCount: Math.max(0, Math.min(50, returnedPaths.length)),
+    returnedKinds: [...new Set(returnedPaths.map(safeFileKind))].slice(0, 4),
+    matchingTargetCount: returnedPaths.filter(path => allowed.has(path)).length,
+    responseStartsJson: /^[\\[{]/.test(trimmed),
+    responseEndsJson: /[\\]}]$/.test(trimmed),
+    responseLooksTruncated: /^[\\[{]/.test(trimmed) && !/[\\]}]$/.test(trimmed),
+  };
+}
+
 function deterministicFallbackSiteMapTitles(prompt, explicitPages = []) {
   const source = String(prompt || '').toLowerCase();
   const realEstate = /\b(?:real estate|realty|property advisory|property listings?|home buyers?|renters?)\b/i.test(source);
@@ -598,8 +637,17 @@ async function buildStudioMultiPageOnce(options) {
     usage = nextUsage.total;
     hasUsage = hasUsage || nextUsage.found;
 
-    const rawGenerated = outputFiles(parseJSON(result && result.text));
+    const responseText = String(result && result.text || '');
+    const parsedResponse = parseJSON(responseText);
+    const rawGenerated = outputFiles(parsedResponse);
     const allowed = new Set(batch.allowedPaths);
+    const batchDiagnostics = safeBatchResponseDiagnostics({
+      batch,
+      responseText,
+      parsed: parsedResponse,
+      rawGenerated,
+      allowed,
+    });
     // Models sometimes include helpful shared CSS/JS or another page even when
     // this bounded batch requests one file. Never stage those extras: keep only
     // exact allowlisted targets, then verify every required target below.
@@ -609,7 +657,7 @@ async function buildStudioMultiPageOnce(options) {
       Object.entries(rawGenerated).filter(([path]) => allowed.has(path))
     );
     const paths = Object.keys(generated);
-    if (!paths.length) throw accountingError(Object.assign(new Error('Web Studio batch ' + batch.index + ' returned no usable contents for its approved target. The site was not marked complete.'), { status: 502, code: 'WEBSTUDIO_BATCH_EMPTY' }), usage, hasUsage, inputs, outputs);
+    if (!paths.length) throw accountingError(Object.assign(new Error('Web Studio batch ' + batch.index + ' returned no usable contents for its approved target. The site was not marked complete.'), { status: 502, code: 'WEBSTUDIO_BATCH_EMPTY', batchDiagnostics }), usage, hasUsage, inputs, outputs);
     if (paths.length > batch.maxChangedFiles) throw accountingError(Object.assign(new Error('Web Studio batch ' + batch.index + ' exceeded its approved target limit after filtering. Retry the build.'), { status: 502, code: 'WEBSTUDIO_BATCH_FILE_LIMIT' }), usage, hasUsage, inputs, outputs);
     for (const path of paths) {
       if (!String(generated[path]).trim()) throw accountingError(Object.assign(new Error('Web Studio returned empty content for ' + path), { status: 502, code: 'WEBSTUDIO_EMPTY_FILE' }), usage, hasUsage, inputs, outputs);
