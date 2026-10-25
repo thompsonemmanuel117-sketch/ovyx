@@ -6711,20 +6711,40 @@ window.OVYXV58={syncDock,route:safeRoute,useTemplate,previewTemplate,featureLock
   if(PS&&!PS.__phase1Firestore){
     PS.__phase1Firestore=true;
     const originalRender=PS.renderUI?.bind(PS);
+    let productionStateLoad=null;
     PS.loadFirestoreState=async function(){
-      try{
-        const docs=await readSystemDocuments();
-        if(typeof docs.config.liveDeploy==='boolean') this.isLive=docs.config.liveDeploy;
-        else if(typeof docs.config.productionLive==='boolean') this.isLive=docs.config.productionLive;
-        try{localStorage.setItem('ovyx_master_production_live',String(this.isLive))}catch(e){console.warn('[OVYX runtime]',e)}
-        originalRender?.();
-        return docs;
-      }catch(e){
-        console.error('[OVYX Phase 1] production state read failed',e);
-        toast('Platform integration status could not be loaded. Please try again.','error');
-        return null;
-      }
+      if(productionStateLoad)return productionStateLoad;
+      productionStateLoad=(async()=>{
+        try{
+          // The switch reads owner-only Firestore state. Verify the owner first so
+          // normal users and signed-out visitors never trigger an authorization toast.
+          const owner=window.OVYXServerOwner;
+          let authorized=owner?.active===true;
+          if(!authorized&&typeof owner?.refresh==='function'){
+            try{authorized=await owner.refresh()===true;}catch{authorized=false;}
+          }
+          if(!authorized)return null;
+          const docs=await readSystemDocuments();
+          if(typeof docs.config.liveDeploy==='boolean') this.isLive=docs.config.liveDeploy;
+          else if(typeof docs.config.productionLive==='boolean') this.isLive=docs.config.productionLive;
+          try{localStorage.setItem('ovyx_master_production_live',String(this.isLive))}catch(e){console.warn('[OVYX runtime]',e)}
+          originalRender?.();
+          return docs;
+        }catch(e){
+          console.error('[OVYX Phase 1] production state read failed',e);
+          toast('Platform integration status could not be loaded. Please try again.','error');
+          return null;
+        }finally{
+          productionStateLoad=null;
+        }
+      })();
+      return productionStateLoad;
     };
+    // The first load may happen before Firebase has restored the signed-in user.
+    // Refresh the protected status after the server confirms the owner identity.
+    window.addEventListener('ovyx-owner-state',e=>{
+      if(e.detail?.owner===true)void PS.loadFirestoreState?.();
+    });
     PS.toggle=async function(){
       const next=!this.isLive;
       const btn=document.getElementById('master-switch-toggle-btn');
