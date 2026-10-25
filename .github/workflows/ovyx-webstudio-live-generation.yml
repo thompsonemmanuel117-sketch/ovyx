@@ -106,9 +106,10 @@ jobs:
           node scripts/ovyx-live-service-integration-eval.test.mjs
           node scripts/ovyx-cloudflare-live-generation-oidc.test.mjs
           node scripts/ovyx-cloudflare-preflight-only.test.mjs
-      # Default main pushes run only the tiny provider check. A trusted main
-      # commit titled with [OVYX_FULL_ACCEPTANCE_ONCE] opts into the bounded
-      # four-site acceptance exactly once; normal pushes remain preflight-only.
+      # Default main pushes run only the tiny provider check. After substantive
+      # generation fixes, one trusted main commit titled with
+      # [OVYX_FULL_ACCEPTANCE_ONCE] opts into a bounded full acceptance exactly
+      # once; normal pushes remain preflight-only to control inference spend.
       - name: Generate four real AI websites using the existing Cloudflare runtime keys
         id: generate
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
