@@ -98,7 +98,12 @@ function recoverSingleFileContent(rawText, targetPath, parsedOutput = null) {
         raw = newline < 0 ? '' : raw.slice(newline + 1).trim();
       }
     }
-    if (!raw || raw.length > 120_000 || /^[{[]/.test(raw)) continue;
+    if (!raw || raw.length > 120_000) continue;
+    // HTML can be recoverable even when a model wraps it in invalid JSON
+    // (for example, unescaped attribute quotes inside a content string).
+    // Keep JSON-looking response rejection for CSS/JS; HTML still requires a
+    // complete document and passes the same allowlist and site validators.
+    if (/^[{[]/.test(raw) && extension !== 'html' && extension !== 'htm') continue;
 
     if (extension === 'html' || extension === 'htm') {
       const startMatch = /<!doctype\s+html\b|<html\b/i.exec(raw);
