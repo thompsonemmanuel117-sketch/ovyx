@@ -337,6 +337,34 @@ export function safeLiveGenerationProviderAttempts(error) {
   return result;
 }
 
+export function safeLiveGenerationBatchDiagnostics(error) {
+  const input = error?.batchDiagnostics;
+  if (!input || typeof input !== 'object') return null;
+  const allowedKinds = new Set(['html', 'css', 'javascript', 'json', 'other']);
+  const allowedContainers = new Set(['array', 'object', 'string', 'missing']);
+  const safeKinds = value => Array.isArray(value)
+    ? [...new Set(value.map(item => String(item)).filter(item => allowedKinds.has(item)))].slice(0, 4)
+    : [];
+  const int = (value, max) => Number.isInteger(value) ? Math.max(0, Math.min(max, value)) : 0;
+  return {
+    batchIndex: int(input.batchIndex, 50),
+    expectedKinds: safeKinds(input.expectedKinds),
+    responseLength: int(input.responseLength, 200000),
+    parsedJson: input.parsedJson === true,
+    filesContainer: allowedContainers.has(input.filesContainer) ? input.filesContainer : 'missing',
+    hasFileEdits: input.hasFileEdits === true,
+    hasPatchFiles: input.hasPatchFiles === true,
+    hasTopLevelCode: input.hasTopLevelCode === true,
+    hasTopLevelHtml: input.hasTopLevelHtml === true,
+    rawFileCount: int(input.rawFileCount, 50),
+    returnedKinds: safeKinds(input.returnedKinds),
+    matchingTargetCount: int(input.matchingTargetCount, 50),
+    responseStartsJson: input.responseStartsJson === true,
+    responseEndsJson: input.responseEndsJson === true,
+    responseLooksTruncated: input.responseLooksTruncated === true,
+  };
+}
+
 export function safeLiveGenerationFailureDetail(error) {
   const code = String(error?.code || '').toUpperCase();
   const status = Number(error?.status);
@@ -527,6 +555,7 @@ export async function handleLiveGenerationRequest(request, env, options = {}) {
       caseId: caseItem.id,
       detail: safeLiveGenerationFailureDetail(error),
       providerAttempts: safeLiveGenerationProviderAttempts(error),
+      ...(safeLiveGenerationBatchDiagnostics(error) ? { diagnostics: safeLiveGenerationBatchDiagnostics(error) } : {}),
     }, { status: 502, headers: { 'Cache-Control': 'no-store' } });
   }
   if (!generated || generated.ok !== true) {
