@@ -27,22 +27,48 @@ function cleanFiles(value) {
   return out;
 }
 function outputFiles(value) {
-  const files = value && (value.files || value.fileEdits || (value.patch && value.patch.files));
   const out = {};
-  if (Array.isArray(files)) {
-    files.forEach(item => {
-      const path = String((item && (item.path || item.file)) || '').trim().replace(/^\/+/, '');
-      const content = item && (item.content || item.text || item.source || item.code);
-      if (path && typeof content === 'string') out[path] = content;
-    });
-  } else if (files && typeof files === 'object') {
-    Object.entries(files).forEach(([path, item]) => {
-      const content = typeof item === 'string' ? item : item && (item.content || item.text || item.source || item.code);
-      if (path && typeof content === 'string') out[String(path).replace(/^\/+/, '')] = content;
-    });
+  const sources = [value, value?.output, value?.result, value?.data]
+    .filter(item => item && typeof item === 'object' && !Array.isArray(item));
+
+  const contentOf = item => {
+    if (typeof item === 'string') return item;
+    if (!item || typeof item !== 'object') return null;
+    for (const key of ['content', 'contents', 'text', 'source', 'sourceCode', 'code', 'html', 'body', 'fileContent']) {
+      if (typeof item[key] === 'string') return item[key];
+    }
+    return null;
+  };
+  const pathOf = item => String(
+    item && (item.path || item.file || item.filePath || item.file_path || item.filename || item.targetPath)
+      || ''
+  ).trim().replace(/^\/+/, '');
+
+  for (const source of sources) {
+    const files = source.files || source.fileEdits || source.projectFiles || source.generatedFiles || source.patch?.files;
+    if (Array.isArray(files)) {
+      files.forEach(item => {
+        const path = pathOf(item);
+        const content = contentOf(item);
+        if (path && typeof content === 'string') out[path] = content;
+      });
+    } else if (files && typeof files === 'object') {
+      Object.entries(files).forEach(([path, item]) => {
+        const content = contentOf(item);
+        const cleanedPath = String(path || '').trim().replace(/^\/+/, '');
+        if (cleanedPath && typeof content === 'string') out[cleanedPath] = content;
+      });
+    }
   }
-  if (!Object.keys(out).length && value && typeof value.html === 'string') out['src/pages/Home.html'] = value.html;
-  if (!Object.keys(out).length && value && typeof value.code === 'string') out['src/pages/Home.html'] = value.code;
+
+  if (!Object.keys(out).length) {
+    for (const source of sources) {
+      const html = source.html;
+      const code = source.code || source.sourceCode;
+      if (typeof html === 'string') { out['src/pages/Home.html'] = html; break; }
+      if (typeof code === 'string') { out['src/pages/Home.html'] = code; break; }
+    }
+  }
   return out;
 }
 
