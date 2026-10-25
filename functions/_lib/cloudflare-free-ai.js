@@ -246,8 +246,11 @@ function outputText(result) {
   if (Array.isArray(result)) return result.map(outputText).join('');
   if (!result || typeof result !== 'object') return '';
   if (typeof result.response === 'string') return result.response;
+  if (result.response && typeof result.response === 'object') return JSON.stringify(result.response);
   if (typeof result.output_text === 'string') return result.output_text;
+  if (result.output_text && typeof result.output_text === 'object') return JSON.stringify(result.output_text);
   if (typeof result.text === 'string') return result.text;
+  if (result.text && typeof result.text === 'object') return JSON.stringify(result.text);
 
   // Current Workers AI chat models return OpenAI-style choices/message/content,
   // while older models may return a top-level response/text field. Accept both
