@@ -452,8 +452,11 @@ export async function handleLiveGenerationRequest(request, env, options = {}) {
         system: 'OVYX provider readiness check. Reply with exactly OVYX_PROVIDER_READY and nothing else.',
         user: 'Reply with exactly OVYX_PROVIDER_READY.',
         temperature: 0,
-        maxTokens: 8,
+        maxTokens: 64,
         timeoutMs: 25_000,
+        // Qwen3 supports reasoning, but an 8-token readiness request can stop
+        // before the final answer. Disable thinking for this tiny probe only.
+        disableThinking: true,
       });
       const text = String(result?.text || '').trim();
       if (!text) throw Object.assign(new Error('Provider returned an empty readiness response.'), { code: 'AI_PROVIDER_UNAVAILABLE' });

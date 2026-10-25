@@ -17,13 +17,15 @@ const env = {
 let storedDocument = null;
 let version = 0;
 let modelCalls = 0;
+let lastAIOptions = null;
 let responseShape = 'legacy-response';
 let createCalls = 0;
 const originalFetch = globalThis.fetch;
 
 env.AI = {
-  run: async () => {
+  run: async (_model, options) => {
     modelCalls += 1;
+    lastAIOptions = options;
     if (responseShape === 'nested-chat-completion') {
       return {
         result: { choices: [{ message: { role: 'assistant', content: 'OVYX_NESTED_CHOICES_READY' } }] },
@@ -97,12 +99,16 @@ try {
 
   const result = await runCloudflareFreeInference(env, {
     messages: [{ role: 'user', content: 'Reply with exactly OVYX_PROVIDER_READY.' }],
-    maxTokens: 8,
+    maxTokens: 64,
     timeoutMs: 2000,
+    disableThinking: true,
   });
 
   assert.equal(result.model, '@cf/qwen/qwen3-30b-a3b-fp8');
   assert.equal(result.result.response, 'OVYX_PROVIDER_READY');
+  assert.equal(lastAIOptions.max_tokens, 64, 'the readiness-sized call should receive a bounded output budget');
+  assert.deepEqual(lastAIOptions.chat_template_kwargs, { enable_thinking: false }, 'readiness-sized inference should explicitly disable thinking');
+  assert.equal(lastAIOptions.temperature, 0, 'the bounded readiness probe should be deterministic');
   assert.equal(modelCalls, 1, 'a single successful guarded model inference should run after reservation');
   assert.ok(storedDocument, 'missing system/config document should be created atomically');
   assert.equal(storedDocument._ovyxWorkersAiDayUtc.stringValue, new Date().toISOString().slice(0, 10));
