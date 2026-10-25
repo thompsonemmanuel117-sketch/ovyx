@@ -186,6 +186,38 @@ assert(calls.slice(1).every(call => call.system.includes('senior frontend engine
 assert(result.quotaInputText.includes('FULL WEBSITE ROUTE MANIFEST'));
 assert(result.quotaOutputText.length > 0);
 
+// Some smaller models return the approved target plus unsolicited shared files.
+// Those extras must never be staged, but they must not invalidate a complete,
+// valid approved target either.
+const extraOutputModel = async (env, options) => {
+  const response = await callModel(env, options);
+  if (String(options.user).includes('REQUIRED TARGET FILES JSON:') &&
+      !String(options.user).includes('BOUNDED WEBSITE POLISH PHASE') &&
+      !String(options.user).includes('BOUNDED REQUIREMENT REPAIR PHASE')) {
+    const parsed = JSON.parse(response.text);
+    parsed.files['src/pages/Unrequested-Model-Output.html'] =
+      '<!doctype html><html><head><title>Unrequested</title></head><body>Must not be saved</body></html>';
+    return { ...response, text: JSON.stringify(parsed) };
+  }
+  return response;
+};
+const filteredOutputBuild = await buildStudioMultiPage({
+  env: { OVYX_WEBSTUDIO_POLISH_ENABLED: 'false' },
+  callModel: extraOutputModel,
+  provider: 'automatic',
+  authUser: { sub: 'test-user' },
+  mode: 'build',
+  prompt: 'Build a five-page restaurant website with a home page, menu, about, reservations, and contact.',
+  project: { id: 'project-filter-extra', name: 'Restaurant', description: 'Restaurant site', pages: [], assets: [] },
+  files: {},
+  context: {},
+  qualityContract: 'OVYX_TEST_WEBSITE_QUALITY_CONTRACT: preserve target manifests and functional behavior.',
+});
+assert(filteredOutputBuild, 'A valid target must still build when the model adds unrequested files.');
+assert.equal(filteredOutputBuild.files['src/pages/Unrequested-Model-Output.html'], undefined,
+  'Unrequested model output must never enter the staged project.');
+assert.equal(Object.keys(filteredOutputBuild.files).some(path => /Unrequested-Model-Output/i.test(path)), false);
+
 // A planning model may omit a named route. Web Studio must recover the
 // explicit user requirement before generating files, rather than silently ship
 // a smaller website.
