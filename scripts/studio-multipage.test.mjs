@@ -301,6 +301,73 @@ assert.ok(retryBuild.files['src/pages/About.html'].includes('src="../main.js"'))
 
 assert.equal(rejectedRequirementRepair.requirementVerification.ok, false);
 
+// A malformed sitemap response must not abandon the whole multi-page build.
+// OVYX recovers the requested routes deterministically, then validates all files and links.
+const invalidPlanCalls = [];
+const fallbackExpectedPages = ['Home', 'Property Listings', 'About', 'Contact'];
+const fallbackNav = fallbackExpectedPages.map(title => ({
+  title,
+  href: title === 'Home' ? '/' : '/' + title.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '/',
+}));
+const invalidSitemapRecoveryModel = async (_env, options) => {
+  invalidPlanCalls.push(options);
+  const user = String(options.user || '');
+  if (user.includes('WEBSITE ARCHITECTURE PLANNING PHASE')) {
+    return {
+      text: 'The model did not return valid sitemap JSON.',
+      provider: 'cloudflare-workers-ai',
+      model: '@cf/meta/llama-3.1-8b-instruct-fp8-fast',
+      rawUsage: { prompt_tokens: 120, completion_tokens: 12, total_tokens: 132 },
+    };
+  }
+  if (user.includes('BOUNDED WEBSITE POLISH PHASE')) {
+    throw new Error('The fallback test disables the optional polish pass.');
+  }
+  const match = user.match(/REQUIRED TARGET FILES JSON:\n([\s\S]*?)\n\nREQUIRED TARGET PATHS JSON:/);
+  assert(match, 'Recovered sitemap batch must include the expected target manifest.');
+  const targets = JSON.parse(match[1]);
+  const files = {};
+  for (const target of targets) {
+    if (target.path === 'src/styles.css') {
+      files[target.path] = '*,*::before,*::after{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;color:#202020;background:#f7f4ef}nav{display:flex;flex-wrap:wrap;gap:1rem;padding:1rem}main{max-width:72rem;margin:auto;padding:2rem}a:focus-visible{outline:3px solid #76513a;outline-offset:3px}@media(max-width:600px){main{padding:1rem}nav{gap:.6rem}}';
+    } else if (target.path === 'src/main.js') {
+      files[target.path] = "document.documentElement.dataset.ready = 'true';";
+    } else {
+      const title = String(target.title || 'Page');
+      const links = fallbackNav.map(link => '<a href="' + link.href + '">' + link.title + '</a>').join('');
+      files[target.path] = '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="' + title + ' information"><title>' + title + '</title><link rel="stylesheet" href="../styles.css"><script src="../main.js" defer></script></head><body><nav aria-label="Main navigation">' + links + '</nav><main><h1>' + title + '</h1><p>Information for visitors, with facts and availability confirmed by the property advisory.</p></main></body></html>';
+    }
+  }
+  return {
+    text: JSON.stringify({ summary: 'Batch generated', files }),
+    provider: 'cloudflare-workers-ai',
+    model: '@cf/meta/llama-3.1-8b-instruct-fp8-fast',
+    rawUsage: { prompt_tokens: 180, completion_tokens: 260, total_tokens: 440 },
+  };
+};
+const invalidPlanFallbackBuild = await buildStudioMultiPage({
+  env: { OVYX_WEBSTUDIO_POLISH_ENABLED: 'false' },
+  callModel: invalidSitemapRecoveryModel,
+  provider: 'automatic',
+  authUser: { sub: 'invalid-plan-recovery-test' },
+  mode: 'build',
+  prompt: 'Build a four-page multi-page property advisory website in Nigeria: Home, Property Listings, About, Contact. No live property feed or client contact details are connected; do not invent live property facts.',
+  project: { id: 'project-invalid-plan-recovery', name: 'Property Advisory', pages: [] },
+  files: {},
+  qualityContract: 'OVYX_TEST_WEBSITE_QUALITY_CONTRACT: preserve honest listing states and validate every internal route.',
+});
+assert.ok(invalidPlanFallbackBuild, 'A malformed sitemap response should recover instead of abandoning the multi-page build.');
+assert.equal(invalidPlanFallbackBuild.siteMapRecovery, 'deterministic-fallback-after-invalid-model-plan');
+assert.deepEqual(invalidPlanFallbackBuild.siteMap.pages.map(page => page.title), fallbackExpectedPages);
+assert.equal(Object.keys(invalidPlanFallbackBuild.files).filter(path => path.startsWith('src/pages/') && path.endsWith('.html')).length, 4);
+assert.equal(invalidPlanFallbackBuild.requirementVerification?.ok, true, JSON.stringify(invalidPlanFallbackBuild.requirementVerification));
+assert.equal(invalidPlanFallbackBuild.qualityPolish.status, 'disabled');
+assert.ok(invalidPlanFallbackBuild.summary.includes('recovered the requested page structure'));
+assert.equal(invalidPlanCalls.filter(item => String(item.user).includes('WEBSITE ARCHITECTURE PLANNING PHASE')).length, 1,
+  'Deterministic sitemap recovery must avoid a second billable planning retry.');
+assert.ok(invalidPlanFallbackBuild.rawUsage.total_tokens >= 132,
+  'Usage accounting must include the invalid planning response and generated files.');
+
 const omissionModel = async (env, options) => {
   if (String(options.user).includes('WEBSITE ARCHITECTURE PLANNING PHASE')) {
     return {
