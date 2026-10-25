@@ -143,6 +143,10 @@ async function reserveUserMinute(env, user) {
   throw fail(503, 'OVYX_AI_RATE_LIMIT_STATE_UNAVAILABLE', 'OVYX could not safely reserve your AI request limit. Please retry.');
 }
 
+export async function reserveCloudflareFreeUserMinute(env, user) {
+  await reserveUserMinute(env, user);
+}
+
 async function reserveDailyBudget(env, estimate) {
   const day = utcDayKey();
   const cap = dailyBudget(env);

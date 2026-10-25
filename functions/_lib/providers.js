@@ -1,4 +1,4 @@
-import { isCloudflareFreeAllowanceExhausted, isCloudflareFreeOnlyMode, isLegacyProviderRoutingEnabled, runCloudflareFreeInference, OVYX_CLOUDFLARE_FREE_MODEL } from './cloudflare-free-ai.js';
+import { isCloudflareFreeAllowanceExhausted, isCloudflareFreeOnlyMode, isLegacyProviderRoutingEnabled, reserveCloudflareFreeUserMinute, runCloudflareFreeInference, OVYX_CLOUDFLARE_FREE_MODEL } from './cloudflare-free-ai.js';
 import {
   callUserUniversalConnection,
   getActiveBrainConnectionId,
@@ -1272,6 +1272,7 @@ export async function callModel(
       if (!connectionId) {
         throw Object.assign(new Error('No active Universal Connection AI Brain is selected. Open Settings & connections, add your own provider key, test it, and select “Use for AI requests”.'), { status: 409, code: 'OVYX_WEBSTUDIO_UNIVERSAL_CONNECTION_NOT_READY' });
       }
+      await reserveCloudflareFreeUserMinute(env, options.authUser);
       const result = await withTimeout(
         callUserUniversalConnection(env, {
           connectionId,

@@ -55,6 +55,8 @@ const providerSource = readFileSync(new URL('../functions/_lib/providers.js', im
 const middlewareSource = readFileSync(new URL('../functions/api/_middleware.js', import.meta.url), 'utf8');
 assert.match(helperSource, /setFirestoreDocumentIfCurrent/);
 assert.match(helperSource, /OVYX_AI_BUDGET_LEDGER_UNAVAILABLE/);
+assert.match(helperSource, /reserveCloudflareFreeUserMinute/);
+assert.match(providerSource, /reserveCloudflareFreeUserMinute\(env, options\.authUser\)/);
 assert.match(helperSource, /OVYX_AI_NEURON_BUDGET_EXHAUSTED/);
 assert.match(providerSource, /isCloudflareFreeOnlyMode\(env\)/);
 assert.match(providerSource, /OVYX_AI_ENGINE_MODE_NOT_CONFIGURED/);
