@@ -269,7 +269,7 @@ try {
   currentPhase = 'reload-load';
   const reloadStartedAt = Date.now();
   await page.reload({ waitUntil: 'domcontentloaded', timeout: 90000 });
-  await page.locator('#model-choice').selectOption('qwen25-05b-cpu');
+  await page.locator('#model-choice').selectOption('smollm2-135m-cpu');
   await page.locator('#allow-model-download').check();
   await page.locator('#start-local-ai').click();
   await waitForCpuReady(page, 'Reload/cache load');
