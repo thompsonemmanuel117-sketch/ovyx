@@ -1,6 +1,7 @@
 import { verifyFirebaseIdToken } from '../_lib/auth.js';
 import { errorResponse, jsonResponse, readJson, getRequestId } from '../_lib/http.js';
 import { callModel } from '../../_lib/providers.js';
+import { isCloudflareFreeOnlyMode } from '../../_lib/cloudflare-free-ai.js';
 import { isSentinelAdmin } from '../../_lib/ovyx-sentinel.js';
 
 const MAX_MESSAGES = 10;
@@ -131,7 +132,7 @@ export async function onRequestPost(context) {
       user: userText,
       model: 'automatic',
       maxTokens: 1100,
-      authUser: user,
+      authUser: isCloudflareFreeOnlyMode(context.env) ? user : undefined,
     });
     return jsonResponse({
       ok: true,
