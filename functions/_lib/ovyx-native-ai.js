@@ -123,13 +123,15 @@ function nativeActions(value) {
 
 export function parseOvyxNativeModelOutput(output) {
   const raw = clean(
-    output?.response ??
-    output?.result?.response ??
-    output?.text ??
-    output?.output_text ??
-    output?.result?.text ??
-    output?.choices?.[0]?.message?.content ??
-    '',
+    typeof output === 'string'
+      ? output
+      : output?.response ??
+        output?.result?.response ??
+        output?.text ??
+        output?.output_text ??
+        output?.result?.text ??
+        output?.choices?.[0]?.message?.content ??
+        '',
     30000
   );
   const candidate = raw.replace(/^\`\`\`(?:json)?\s*/i, '').replace(/\s*\`\`\`$/, '').trim();
@@ -206,6 +208,7 @@ export async function generateOvyxNativeAI(env, {
   ].filter(Boolean).join('\n\n').slice(0, 74000);
 
   let output;
+  let guardedRawUsage = null;
   try {
     if (freeOnly) {
       const guarded = await runCloudflareFreeInference(env, {
@@ -213,7 +216,10 @@ export async function generateOvyxNativeAI(env, {
         messages: [{ role: 'system', content: systemText }, ...normalizedMessages],
         maxTokens: 2800,
       });
-      output = guarded.result;
+      // Use the shared guard's normalized text rather than re-interpreting
+      // a model-specific raw response shape in the assistant layer.
+      output = guarded.text;
+      guardedRawUsage = guarded.result?.usage || guarded.result?.result?.usage || null;
     } else {
       output = await env.AI.run(selectedModel, {
         messages: [
@@ -242,6 +248,6 @@ export async function generateOvyxNativeAI(env, {
     ...parsed,
     provider: 'ovyx-native',
     model: selectedModel,
-    rawUsage: output?.usage || output?.result?.usage || null,
+    rawUsage: guardedRawUsage || output?.usage || output?.result?.usage || null,
   };
 }
