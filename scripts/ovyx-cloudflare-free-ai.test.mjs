@@ -5,7 +5,11 @@ import {
   OVYX_CLOUDFLARE_FREE_MAX_OUTPUT_TOKENS,
   OVYX_CLOUDFLARE_FREE_DEFAULT_DAILY_BUDGET,
   OVYX_CLOUDFLARE_FREE_MAX_DAILY_BUDGET,
+  OVYX_CLOUDFLARE_PAID_MAX_DAILY_BUDGET,
   isCloudflareFreeOnlyMode,
+  isCloudflarePaidCappedMode,
+  isCloudflareWorkersAIGuardedMode,
+  getCloudflareWorkersAiDailyNeuronBudget,
   isLegacyProviderRoutingEnabled,
   hasActivePaidAiEntitlement,
   isCloudflareDailyFreeLimitError,
@@ -19,8 +23,28 @@ assert.equal(OVYX_CLOUDFLARE_FREE_MODEL, '@cf/meta/llama-3.1-8b-instruct-fp8-fas
 assert.equal(OVYX_CLOUDFLARE_FREE_MAX_OUTPUT_TOKENS, 4096);
 assert.equal(OVYX_CLOUDFLARE_FREE_DEFAULT_DAILY_BUDGET, 7000);
 assert.equal(OVYX_CLOUDFLARE_FREE_MAX_DAILY_BUDGET, 8000);
+assert.equal(OVYX_CLOUDFLARE_PAID_MAX_DAILY_BUDGET, 15000);
 assert.equal(isCloudflareFreeOnlyMode({ OVYX_AI_ENGINE_MODE: 'cloudflare-free-only' }), true);
 assert.equal(isCloudflareFreeOnlyMode({ OVYX_AI_ENGINE_MODE: 'legacy-provider-routing' }), false);
+assert.equal(isCloudflarePaidCappedMode({ OVYX_AI_ENGINE_MODE: 'cloudflare-paid-capped' }), true);
+assert.equal(isCloudflarePaidCappedMode({ OVYX_AI_ENGINE_MODE: 'cloudflare-free-only' }), false);
+assert.equal(isCloudflareWorkersAIGuardedMode({ OVYX_AI_ENGINE_MODE: 'cloudflare-free-only' }), true);
+assert.equal(isCloudflareWorkersAIGuardedMode({ OVYX_AI_ENGINE_MODE: 'cloudflare-paid-capped' }), true);
+assert.equal(isCloudflareWorkersAIGuardedMode({ OVYX_AI_ENGINE_MODE: 'legacy-provider-routing' }), false);
+assert.throws(
+  () => getCloudflareWorkersAiDailyNeuronBudget({ OVYX_AI_ENGINE_MODE: 'cloudflare-paid-capped' }),
+  error => error?.code === 'OVYX_AI_PAID_BUDGET_NOT_CONFIGURED',
+  'paid-capped mode must require an explicitly configured budget',
+);
+assert.equal(getCloudflareWorkersAiDailyNeuronBudget({
+  OVYX_AI_ENGINE_MODE: 'cloudflare-paid-capped', OVYX_WORKERS_AI_DAILY_NEURON_BUDGET: '12000',
+}), 12000);
+assert.equal(getCloudflareWorkersAiDailyNeuronBudget({
+  OVYX_AI_ENGINE_MODE: 'cloudflare-paid-capped', OVYX_WORKERS_AI_DAILY_NEURON_BUDGET: '99999',
+}), 15000, 'paid usage must remain bounded by OVYX hard cap');
+assert.equal(getCloudflareWorkersAiDailyNeuronBudget({
+  OVYX_AI_ENGINE_MODE: 'cloudflare-free-only', OVYX_WORKERS_AI_DAILY_NEURON_BUDGET: '99999',
+}), 8000, 'free mode must retain the existing lower cap');
 assert.equal(isLegacyProviderRoutingEnabled({ OVYX_AI_ENGINE_MODE: 'legacy-provider-routing' }), false);
 assert.equal(isLegacyProviderRoutingEnabled({ OVYX_AI_ENGINE_MODE: 'legacy-provider-routing', OVYX_ALLOW_PAID_PROVIDER_ROUTING: 'true' }), true);
 
@@ -76,8 +100,8 @@ assert.match(helperSource, /OVYX_AI_BUDGET_LEDGER_UNAVAILABLE/);
 assert.match(helperSource, /reserveCloudflareFreeUserMinute/);
 assert.match(providerSource, /reserveCloudflareFreeUserMinute\(env, options\.authUser\)/);
 assert.match(helperSource, /OVYX_AI_NEURON_BUDGET_EXHAUSTED/);
-assert.match(providerSource, /isCloudflareFreeOnlyMode\(env\)/);
+assert.match(providerSource, /isCloudflareWorkersAIGuardedMode\(env\)/);
 assert.match(providerSource, /OVYX_AI_ENGINE_MODE_NOT_CONFIGURED/);
 assert.match(middlewareSource, /ACTIVE_PAID_SUBSCRIPTION_REQUIRED/);
-assert.match(middlewareSource, /isCloudflareFreeOnlyMode/);
+assert.match(middlewareSource, /isCloudflareWorkersAIGuardedMode/);
 console.log('OVYX Cloudflare free-only guard tests passed.');
