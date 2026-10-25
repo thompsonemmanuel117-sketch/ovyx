@@ -97,6 +97,11 @@ try {
         configurable: true,
         value: { requestAdapter: async () => ({ requestDevice: async () => ({}) }) },
       });
+      // Simulate Android/mobile-data hints so the data warning is exercised deterministically.
+      Object.defineProperty(navigator, 'connection', {
+        configurable: true,
+        value: { type: 'cellular', effectiveType: '4g', saveData: true, addEventListener() {} },
+      });
       Object.defineProperty(navigator, 'storage', {
         configurable: true,
         value: {
@@ -162,11 +167,16 @@ try {
     );
 
     assert.equal(runtimeRequests, 0, '[' + target.name + '] runtime must not download before explicit user opt-in.');
-    assert.equal(await page.locator('#start-local-ai').isDisabled(), false);
+    assert.equal(await page.locator('#start-local-ai').isDisabled(), true,
+      '[' + target.name + '] model load must remain blocked until download consent is checked.');
+    assert.match(await page.locator('#data-guard-heading').textContent(), /2\.39 GB/);
+    assert.match(await page.locator('#data-guard-heading').textContent(), /reports a mobile-data/i);
     const pageContent = await page.content();
     assert.doesNotMatch(pageContent, /ovyx-assistant-workspace\.js|ovyx-launch-polish\.js/,
       '[' + target.name + '] isolated lab must not receive main-app shell injection.');
 
+    await page.locator('#allow-model-download').check();
+    assert.equal(await page.locator('#start-local-ai').isDisabled(), false);
     await page.locator('#start-local-ai').click();
     await page.waitForFunction(
       () => document.getElementById('progress-note')?.textContent?.includes('Mock initialization progress - test fixture only'),
@@ -232,8 +242,9 @@ try {
       { timeout: 5000 },
     );
     assert.match(await page.locator('#engine-pill').textContent(), /MODEL NOT LOADED/);
-    assert.equal(await page.locator('#start-local-ai').isDisabled(), false);
-
+    assert.equal(await page.locator('#start-local-ai').isDisabled(), true,
+      '[' + target.name + '] cancellation must clear download consent before retry.');
+    await page.locator('#allow-model-download').check();
     await page.locator('#start-local-ai').click();
     await page.waitForFunction(
       () => document.getElementById('device-status')?.textContent?.includes('model loaded in this browser'),
@@ -309,6 +320,7 @@ try {
 
     // Confirm the smaller comparison uses its own pinned q4f32_1 model and library.
     await page.locator('#model-choice').selectOption('qwen35-2b');
+    await page.locator('#allow-model-download').check();
     await page.locator('#start-local-ai').click();
     await page.waitForFunction(
       () => document.getElementById('device-status')?.textContent?.includes('model loaded in this browser'),
@@ -356,6 +368,7 @@ try {
 
     // Check the smallest manually selectable model, without any silent fallback.
     await page.locator('#model-choice').selectOption('qwen35-08b');
+    await page.locator('#allow-model-download').check();
     await page.locator('#start-local-ai').click();
     await page.waitForFunction(
       () => document.getElementById('device-status')?.textContent?.includes('model loaded in this browser'),
@@ -483,8 +496,11 @@ try {
       '[' + target.name + '] CPU route test must run with WebGPU genuinely absent.',
     );
     await cpuPage.locator('#model-choice').selectOption('qwen25-05b-cpu');
+    assert.equal(await cpuPage.locator('#start-local-ai').isDisabled(), true,
+      '[' + target.name + '] CPU/WASM start must require download consent even without WebGPU.');
+    await cpuPage.locator('#allow-model-download').check();
     assert.equal(await cpuPage.locator('#start-local-ai').isDisabled(), false,
-      '[' + target.name + '] explicit CPU/WASM start must remain available without WebGPU.');
+      '[' + target.name + '] explicit CPU/WASM start must remain available without WebGPU after consent.');
     await cpuPage.locator('#start-local-ai').click();
     await cpuPage.waitForFunction(
       () => document.getElementById('device-status')?.textContent?.includes('model loaded in this browser and runs on CPU/WASM'),
@@ -601,6 +617,7 @@ try {
     assert.ok(cancelCpuPageResponse && cancelCpuPageResponse.status() === 200,
       '[' + target.name + '] CPU cancellation test lab did not load.');
     await cancelCpuPage.locator('#model-choice').selectOption('qwen25-05b-cpu');
+    await cancelCpuPage.locator('#allow-model-download').check();
     await cancelCpuPage.locator('#start-local-ai').click();
     await cancelCpuPage.locator('#cancel-local-ai').waitFor({ state: 'visible' });
     await cancelCpuPage.waitForFunction(
@@ -653,6 +670,7 @@ try {
       null,
       { timeout: 8000 },
     );
+    await lowStoragePage.locator('#allow-model-download').check();
     await lowStoragePage.locator('#start-local-ai').click();
     await lowStoragePage.waitForFunction(
       () => /free site storage/i.test(document.getElementById('device-status')?.textContent || ''),
@@ -712,6 +730,7 @@ try {
     assert.ok(retryResponse && retryResponse.status() === 200,
       '[' + target.name + '] retry test lab did not load.');
     await retryPage.locator('#model-choice').selectOption('qwen25-05b-cpu');
+    await retryPage.locator('#allow-model-download').check();
     await retryPage.locator('#start-local-ai').click();
     await retryPage.waitForFunction(
       () => /CPU\/WASM model initialization failed/i.test(document.getElementById('device-status')?.textContent || ''),
@@ -720,8 +739,11 @@ try {
     );
     assert.match(await retryPage.locator('#device-status').textContent(), /Nothing was sent to a hosted AI provider/i);
     assert.match(await retryPage.locator('#engine-pill').textContent(), /MODEL NOT LOADED/);
+    assert.equal(await retryPage.locator('#start-local-ai').isDisabled(), true,
+      '[' + target.name + '] runtime failure must require renewed consent before retry.');
+    await retryPage.locator('#allow-model-download').check();
     assert.equal(await retryPage.locator('#start-local-ai').isDisabled(), false,
-      '[' + target.name + '] runtime failure must leave explicit retry available.');
+      '[' + target.name + '] runtime failure must leave explicit retry available after renewed consent.');
     await retryPage.locator('#start-local-ai').click();
     await retryPage.waitForFunction(
       () => document.getElementById('device-status')?.textContent?.includes('model loaded in this browser and runs on CPU/WASM'),
