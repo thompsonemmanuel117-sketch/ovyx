@@ -61,7 +61,14 @@ export function compactCloudflareFreeMessages(messages, limit = 28000) {
     const item = conversation[index];
     const take = Math.min(remaining, item.role === 'user' ? 9000 : 2500);
     if (take <= 0) break;
-    kept.push({ role: item.role, content: item.content.slice(-take) });
+    // Keep the task contract at the beginning and the relevant project/context
+    // details at the end. Taking only the tail can discard required JSON schema,
+    // target file allowlists, or the user's original instructions in long Web Studio
+    // prompts, making a valid provider response unusable downstream.
+    kept.push({
+      role: item.role,
+      content: truncatePreservingEdges(item.content, take, item.role === 'user' ? 0.62 : 0.68),
+    });
     remaining -= take;
   }
   kept.reverse();
