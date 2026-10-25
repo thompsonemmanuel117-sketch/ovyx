@@ -3,6 +3,7 @@ import { webcrypto } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { chooseProvider, handleLiveGenerationRequest, safeLiveGenerationFailureDetail, safeLiveGenerationProviderAttempts, safeLiveGenerationOutputDiagnostics, verifyGithubOidcToken } from '../functions/api/internal/live-generation-eval.js';
 import { isTrustedGithubOidcRequestUrl } from './ovyx-github-oidc-url.mjs';
+import { selectLiveAcceptanceCases } from './ovyx-live-acceptance-cases.mjs';
 
 // Cover the exact GitHub-hosted runner hostname reported by the production
 // workflow. Preserve a strict host allowlist rather than broadly trusting URLs.
