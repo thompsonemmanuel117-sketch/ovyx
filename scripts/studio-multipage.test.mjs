@@ -221,7 +221,18 @@ const extraOutputModel = async (env, options) => {
   if (String(options.user).includes('REQUIRED TARGET FILES JSON:') &&
       !String(options.user).includes('BOUNDED WEBSITE POLISH PHASE') &&
       !String(options.user).includes('BOUNDED REQUIREMENT REPAIR PHASE')) {
-    const parsed = JSON.parse(response.text);
+    let parsed;
+    try {
+      parsed = JSON.parse(String(response.text || ''));
+    } catch {
+      // Keep raw single-file HTML/CSS/JS fixture responses intact so the
+      // output-recovery path itself is exercised instead of the test wrapper
+      // failing while trying to augment a non-JSON response.
+      return response;
+    }
+    if (!parsed || !parsed.files || typeof parsed.files !== 'object' || Array.isArray(parsed.files)) {
+      return response;
+    }
     parsed.files['src/pages/Unrequested-Model-Output.html'] =
       '<!doctype html><html><head><title>Unrequested</title></head><body>Must not be saved</body></html>';
     return { ...response, text: JSON.stringify(parsed) };
