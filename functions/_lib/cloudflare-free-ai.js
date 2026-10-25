@@ -243,6 +243,7 @@ async function settleDailyBudget(env, reservation, actual) {
 
 function outputText(result) {
   if (typeof result === 'string') return result;
+  if (Array.isArray(result)) return result.map(outputText).join('');
   if (!result || typeof result !== 'object') return '';
   if (typeof result.response === 'string') return result.response;
   if (typeof result.output_text === 'string') return result.output_text;
@@ -328,7 +329,7 @@ function safeProviderError(error) {
 }
 
 export async function runCloudflareFreeInference(env, {
-  authUser = null, messages = null, system = '', user = '', maxTokens = 1024, timeoutMs = 45000,
+  authUser = null, messages = null, system = '', user = '', maxTokens = 1024, timeoutMs = 45000, disableThinking = false,
 } = {}) {
   if (!isCloudflareFreeOnlyMode(env)) throw fail(503, 'OVYX_AI_ENGINE_MODE_NOT_CONFIGURED', 'OVYX free-only AI mode is not enabled.');
   if (!env?.AI || typeof env.AI.run !== 'function') throw fail(503, 'OVYX_NATIVE_AI_NOT_CONFIGURED', 'OVYX AI is not connected yet. Please try again later.');
@@ -348,7 +349,11 @@ export async function runCloudflareFreeInference(env, {
   const timeout = Math.max(50, Math.min(60000, Number(timeoutMs) || 45000));
   try {
     const pending = Promise.resolve(env.AI.run(OVYX_CLOUDFLARE_FREE_MODEL, {
-      messages: bounded, max_tokens: outputTokens, temperature: 0.2, stream: false,
+      messages: bounded,
+      max_tokens: outputTokens,
+      temperature: disableThinking ? 0 : 0.2,
+      stream: false,
+      ...(disableThinking ? { chat_template_kwargs: { enable_thinking: false } } : {}),
     }));
     result = await new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(Object.assign(new Error('AI request timed out.'), { name: 'TimeoutError', status: 504 })), timeout);
