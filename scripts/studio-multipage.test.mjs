@@ -52,6 +52,7 @@ const plannedPages = [
 const calls = [];
 let polishAssertionStage = 'not-entered';
 let malformedHomeEnvelopeServed = false;
+let malformedCssEnvelopeServed = false;
 const callModel = async (_env, options) => {
   calls.push(options);
   if (String(options.user).includes('WEBSITE ARCHITECTURE PLANNING PHASE')) {
@@ -99,7 +100,7 @@ const callModel = async (_env, options) => {
   const files = {};
   for (const target of targets) {
     if (target.path === 'src/styles.css') {
-      files[target.path] = '*,*::before,*::after{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#faf7f0;color:#27211b}nav{display:flex;gap:1rem;flex-wrap:wrap;padding:1rem}main{max-width:70rem;margin:auto;padding:2rem}a:focus-visible,button:focus-visible{outline:3px solid #b66b32;outline-offset:3px}';
+      files[target.path] = '*,*::before,*::after{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#faf7f0;color:#27211b}nav{display:flex;gap:1rem;flex-wrap:wrap;padding:1rem}main{max-width:70rem;margin:auto;padding:2rem}a:focus-visible,button:focus-visible{outline:3px solid #b66b32;outline-offset:3px}body::after{content:"OVYX CSS recovery";}';
     } else if (target.path === 'src/main.js') {
       files[target.path] = "document.querySelectorAll('a[href^=\\\"/\\\"]').forEach(function(link){link.setAttribute('aria-label',link.textContent.trim())});";
     } else {
@@ -137,12 +138,17 @@ const callModel = async (_env, options) => {
   // The model may use alternate path/content property names; file extraction
   // must recognize these, then the target allowlist still validates the path.
   if (targets.length === 1 && targets[0].path === 'src/styles.css') {
+    // Reproduce a CSS file whose inner quotes break the model's JSON envelope.
+    // Recovery must return only the complete balanced stylesheet for this target.
+    const malformedCssEnvelope = '{"summary":"Batch complete","files":[{"filePath":"' +
+      targets[0].path + '","contents":"' + files[targets[0].path] + '"}]}';
+    assert.throws(() => JSON.parse(malformedCssEnvelope), SyntaxError,
+      'Fixture must model a CSS stylesheet whose content quotes break the JSON envelope.');
+    malformedCssEnvelopeServed = true;
     return {
-      text: JSON.stringify({
-        files: [{ filePath: targets[0].path, contents: files[targets[0].path] }],
-      }),
-      provider: 'gemini',
-      model: 'test-model',
+      text: malformedCssEnvelope,
+      provider: 'cloudflare-workers-ai',
+      model: '@cf/meta/llama-3.1-8b-instruct-fp8-fast',
       rawUsage: { prompt_tokens: 19, completion_tokens: 31, total_tokens: 50 },
     };
   }
@@ -188,8 +194,10 @@ assert.equal(result.project.pages.length, 5);
 assert.equal(Object.keys(result.files).filter(path => path.startsWith('src/pages/')).length, 5);
 assert(result.files['src/pages/Home.html'].includes('<h1>Home</h1>'));
 assert.equal(malformedHomeEnvelopeServed, true, 'The fixture must exercise malformed JSON wrapped HTML recovery.');
+assert.equal(malformedCssEnvelopeServed, true, 'The fixture must exercise malformed JSON wrapped CSS recovery.');
 assert(result.files['src/pages/Menu.html'].includes('<h1>Menu</h1>'));
 assert(result.files['src/styles.css'].includes('box-sizing:border-box'));
+assert(result.files['src/styles.css'].includes('content:"OVYX CSS recovery"'), 'Recovered CSS must retain its complete quoted content rule.');
 assert(result.files['src/main.js'].includes('aria-label'));
 assert.match(result.files['src/pages/Home.html'], /href="\.\.\/styles\.css"/, 'A basename-only shared stylesheet URL must be repaired to the correct src/pages-relative path.');
 assert.match(result.files['src/pages/Home.html'], /src="\.\.\/main\.js"/, 'A basename-only shared script URL must be repaired to the correct src/pages-relative path.');
