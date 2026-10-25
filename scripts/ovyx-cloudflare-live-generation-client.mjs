@@ -2,17 +2,12 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { readCloudflareEvaluationPublicSettings, summarizeCloudflareRuntimeConfig } from './ovyx-cloudflare-runtime-config-inventory.mjs';
 import { isTrustedGithubOidcRequestHostname } from './ovyx-github-oidc-url.mjs';
+import { selectLiveAcceptanceCases } from './ovyx-live-acceptance-cases.mjs';
 
 const REPOSITORY = 'thompsonemmanuel117-sketch/ovyx';
 const AUDIENCE = 'ovyx-live-site-evaluation';
 const ROUTE = '/api/internal/live-generation-eval';
 const OUTPUT = path.resolve(process.env.OVYX_LIVE_EVAL_OUT || 'artifacts/webstudio-generated-sites');
-const CASE_IDS = [
-  'nigeria-lagos-real-estate',
-  'uk-independent-restaurant',
-  'us-independent-fashion',
-  'japan-product-software',
-];
 const MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
 const DEPLOYMENT_WAIT_MS = 15 * 60 * 1000;
 let cloudflareRuntimeConfigInventory = { aiProviderKeyNames: [], propertyIntegrationVariableNames: [], enquiryAndSocialVariableNames: [] };
@@ -494,8 +489,18 @@ async function main() {
     }));
     return;
   }
+  const caseSelection = selectLiveAcceptanceCases(cloudflareRuntimePublicSettings);
+  for (const skipped of caseSelection.skippedCases) {
+    console.log(JSON.stringify({
+      event: 'live-acceptance-case-skipped',
+      id: skipped.id,
+      reason: skipped.reason,
+      substitute: skipped.substitute,
+      note: 'The property case is skipped when no authoritative feed is configured; the separate integration gate still reports live inventory as unverified.',
+    }));
+  }
   const sites = [];
-  for (const caseId of CASE_IDS) {
+  for (const caseId of caseSelection.caseIds) {
     const site = await generateOne(origin, provider, model, settings, caseId);
     sites.push(site);
     console.log(JSON.stringify({ event: 'cloudflare-live-site-generated', id: site.id, industry: site.industry, country: site.country, provider: site.provider, model: site.model, pageCount: site.pageCount }));
@@ -506,6 +511,7 @@ async function main() {
     generatedAt: new Date().toISOString(),
     sites,
     realSitesGenerated: sites.length,
+    skippedCases: caseSelection.skippedCases,
     cloudflareRuntimeConfigInventory,
     realListingsConfirmed: false,
     realEnquiryDeliveryConfirmed: false,
@@ -516,7 +522,12 @@ async function main() {
       'Human visual and editorial review remain separate from automated browser heuristics.',
     ],
   }, null, 2) + '\n');
-  console.log(JSON.stringify({ status: 'generated-awaiting-browser-and-integration-audits', realSitesGenerated: sites.length, sites: sites.map(site => site.id) }, null, 2));
+  console.log(JSON.stringify({
+    status: 'generated-awaiting-browser-and-integration-audits',
+    realSitesGenerated: sites.length,
+    sites: sites.map(site => site.id),
+    skippedCases: caseSelection.skippedCases,
+  }, null, 2));
 }
 
 main().catch(error => {
