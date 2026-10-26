@@ -8,6 +8,7 @@ import { findExactCommitDeployment } from './ovyx-cloudflare-deployment-target.m
 const REPOSITORY = 'thompsonemmanuel117-sketch/ovyx';
 const AUDIENCE = 'ovyx-live-site-evaluation';
 const ROUTE = '/api/internal/live-generation-eval';
+const SITE_SMOKE = process.env.OVYX_EVAL_SITE_SMOKE === 'true';
 const OUTPUT = path.resolve(process.env.OVYX_LIVE_EVAL_OUT || 'artifacts/webstudio-generated-sites');
 const MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
 const DEPLOYMENT_WAIT_MS = 15 * 60 * 1000;
@@ -463,6 +464,7 @@ async function generateOne(origin, provider, model, integrationSettings, caseId)
   // Mint a fresh short-lived token immediately before each billable generation.
   const token = await getOidcToken();
   const payload = { caseId, provider, model, publicSettings: integrationSettings };
+  if (SITE_SMOKE) payload.profile = 'stage4-budgeted-smoke';
   let response;
   try {
     response = await fetch(origin + ROUTE, {
@@ -516,9 +518,37 @@ async function main() {
   await waitForEndpoint(origin);
   const provider = String(process.env.OVYX_EVAL_PROVIDER || 'automatic').trim().toLowerCase();
   const model = String(process.env.OVYX_EVAL_MODEL || '').trim();
-  const settings = publicSettings();
+  if (SITE_SMOKE && provider !== 'cloudflare-workers-ai') {
+    throw new Error('Stage 4 site smoke is locked to cloudflare-workers-ai; other providers are not allowed.');
+  }
+  const discoveredSettings = publicSettings();
+  const settings = SITE_SMOKE ? {
+    ...discoveredSettings,
+    listingsUrl: '',
+    listingsAuthoritative: false,
+    listingJsonPath: '',
+    listingIdField: '',
+    listingTitleField: '',
+    listingLocationField: '',
+    listingStatusField: '',
+    enquiryUrl: '',
+    externalEnquiryAuthorized: false,
+  } : discoveredSettings;
   await writeWorkflowOutputs(settings);
-  await preflightProvider(origin, provider, model);
+  if (SITE_SMOKE) {
+    console.log(JSON.stringify({
+      event: 'stage4-site-smoke-budgeted-profile',
+      provider,
+      requestedSites: 1,
+      caseId: 'nigeria-baby-products',
+      preflightSkippedToAvoidAnExtraBudgetedInference: true,
+      publicListingsProbe: false,
+      publicEnquiryProbe: false,
+      note: 'A single fixed two-page QA artifact will be generated; this is not full Stage 4 acceptance.',
+    }));
+  } else {
+    await preflightProvider(origin, provider, model);
+  }
   if (process.env.OVYX_EVAL_PREFLIGHT_ONLY === 'true') {
     const report = {
       schemaVersion: 1,
@@ -546,7 +576,9 @@ async function main() {
     }));
     return;
   }
-  const caseSelection = selectLiveAcceptanceCases(cloudflareRuntimePublicSettings);
+  const caseSelection = SITE_SMOKE
+    ? { caseIds: ['nigeria-baby-products'], skippedCases: [] }
+    : selectLiveAcceptanceCases(cloudflareRuntimePublicSettings);
   for (const skipped of caseSelection.skippedCases) {
     console.log(JSON.stringify({
       event: 'live-acceptance-case-skipped',
@@ -564,7 +596,9 @@ async function main() {
   }
   await fs.writeFile(path.join(OUTPUT, 'live-generation-report.json'), JSON.stringify({
     schemaVersion: 1,
-    status: 'generated-awaiting-browser-and-integration-audits',
+    status: SITE_SMOKE ? 'stage4-site-smoke-generated-awaiting-browser-and-human-review' : 'generated-awaiting-browser-and-integration-audits',
+    evaluationMode: SITE_SMOKE ? 'stage4-budgeted-single-site-smoke' : 'full-acceptance',
+    fullStage4Acceptance: false,
     generatedAt: new Date().toISOString(),
     sites,
     realSitesGenerated: sites.length,
@@ -580,7 +614,9 @@ async function main() {
     ],
   }, null, 2) + '\n');
   console.log(JSON.stringify({
-    status: 'generated-awaiting-browser-and-integration-audits',
+    status: SITE_SMOKE ? 'stage4-site-smoke-generated-awaiting-browser-and-human-review' : 'generated-awaiting-browser-and-integration-audits',
+    evaluationMode: SITE_SMOKE ? 'stage4-budgeted-single-site-smoke' : 'full-acceptance',
+    fullStage4Acceptance: false,
     realSitesGenerated: sites.length,
     sites: sites.map(site => site.id),
     skippedCases: caseSelection.skippedCases,
