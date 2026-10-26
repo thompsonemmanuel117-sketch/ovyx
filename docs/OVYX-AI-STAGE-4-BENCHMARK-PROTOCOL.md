@@ -12,7 +12,7 @@ The website-build task goes through the real Web Studio mode=build route. Return
 
 ## Live-run safeguards
 
-The trusted full-acceptance workflow now queries Cloudflare Pages deployment metadata and waits for a successful **production** deployment whose source branch is `main` and whose commit SHA exactly matches the run's source revision. If Cloudflare has not deployed that revision within the bounded wait, or its deployment fails/is skipped, the workflow stops before live AI generation. This check reads only deployment metadata; it does not read, print or change runtime secrets, provider routing, budgets, or Universal Connection settings.
+A push explicitly tagged for a one-time full acceptance uses `cloudflare-workers-ai` rather than automatic multi-provider routing, so the Stage 4 acceptance path cannot choose a different AI vendor. The trusted full-acceptance workflow also queries Cloudflare Pages deployment metadata and waits for a successful **production** deployment whose source branch is `main` and whose commit SHA exactly matches the run's source revision. If Cloudflare has not deployed that revision within the bounded wait, or its deployment fails/is skipped, the workflow stops before live AI generation. This check reads only deployment metadata; it does not read, print or change runtime secrets, provider routing, budgets, or Universal Connection settings.
 
 The benchmark makes real authenticated requests, consumes the signed-in account's OVYX AI allowance and writes benchmark turns into separate benchmark conversations in that account's chat history. Run it only when an authorized operator explicitly approves this use.
 
