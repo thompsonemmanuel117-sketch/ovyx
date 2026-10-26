@@ -41,7 +41,8 @@ function budgetLedgerUnavailable(error, message, phase = 'unknown') {
   else if (status === 400) code = 'OVYX_AI_BUDGET_LEDGER_BAD_REQUEST';
   else if (status === 409 || status === 412 || error?.code === 'FIRESTORE_PRECONDITION_FAILED') {
     code = 'OVYX_AI_BUDGET_LEDGER_CONFLICT_EXHAUSTED';
-  } else if (status >= 500 && status <= 599) {
+  } else if ([408, 425, 429].includes(status) || (status >= 500 && status <= 599)) {
+    // Keep a safe operation phase for transient Firestore throttling, timeout and server errors.
     code = 'OVYX_AI_BUDGET_LEDGER_' + safePhase.toUpperCase() + '_HTTP_' + status;
   } else if (error?.name === 'TypeError') {
     code = 'OVYX_AI_BUDGET_LEDGER_' + safePhase.toUpperCase() + '_NETWORK_ERROR';
@@ -418,22 +419,25 @@ async function recordCloudflareFreeExhaustion(env, reason) {
       }, raw.updateTime);
       return;
     } catch (error) {
-      if (error?.status === 409 || error?.code === 'FIRESTORE_PRECONDITION_FAILED') {
-        // Many simultaneous Workers AI requests may all receive the account's
-        // free-quota response at once. They then race to persist the same
-        // exhausted-day marker. Apply the same bounded jittered retry used by
-        // reservation/settlement so a burst does not turn a quota response
-        // into a misleading generic "budget ledger unavailable" failure.
+      // The provider may already have rejected inference because its daily allocation
+      // is exhausted. Use the same retry policy as reservations for Firestore conflicts,
+      // rate limits, transient server failures and network errors.
+      if (isRetryableBudgetError(error)) {
         if (attempt + 1 < BUDGET_RETRIES) {
           await waitForBudgetRetry(attempt);
           continue;
         }
-      } else {
-        throw budgetLedgerUnavailable(error, 'OVYX could not safely record the daily AI stop. Please retry later.', 'stop');
+        if (error?.status === 409 || error?.status === 412 || error?.code === 'FIRESTORE_PRECONDITION_FAILED') {
+          throw fail(503, 'OVYX_AI_BUDGET_LEDGER_CONFLICT_EXHAUSTED',
+            'OVYX could not safely record the daily AI stop after bounded concurrent-write retries. Please retry later.');
+        }
       }
+      // Preserve the safe stop-marker phase so live acceptance can distinguish
+      // Firestore throttling from model quota, without logging tokens or credentials.
+      throw budgetLedgerUnavailable(error, 'OVYX could not safely record the daily AI stop. Please retry later.', 'stop');
     }
   }
-  throw fail(503, 'OVYX_AI_BUDGET_LEDGER_CONFLICT_EXHAUSTED', 'OVYX could not safely record the daily AI stop after bounded concurrent-write retries. Please retry later.');
+  throw fail(503, 'OVYX_AI_BUDGET_LEDGER_CONFLICT_EXHAUSTED', 'OVYX could not safely record the daily AI stop after bounded retries. Please retry later.');
 }
 export async function isCloudflareFreeAllowanceExhausted(env) {
   const raw = await getDailyBudgetLedger(env);
