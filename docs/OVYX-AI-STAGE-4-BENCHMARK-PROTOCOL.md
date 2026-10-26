@@ -28,6 +28,27 @@ Ordinary pushes to `main` now resolve the exact successful Cloudflare Pages depl
 
 Choose the operation based on the evidence needed: manual `preflight-only` runs one small real provider request; `stage4-site-smoke` starts directly with one bounded two-page Cloudflare-generated site without an extra readiness inference; `full-acceptance` performs the separate explicit multi-site process. None of these operations bypasses the daily guard, silently changes provider, or retries a failed billable generation.
 
+## Owner integration setup checklist
+
+The live listing/enquiry gate is intentionally fail-closed. Configure these under GitHub **Settings → Secrets and variables → Actions** only after the relevant service owner authorizes them.
+
+**Repository variables for the public listing feed:**
+- `OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL`: an HTTPS, browser-readable feed URL with no credentials or secret query parameters.
+- `OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY=authoritative`: explicit declaration that the feed is the owner-approved source of truth.
+- `OVYX_EVAL_LISTINGS_JSON_PATH`: optional dotted path to the feed's record array (for example, `data.items`).
+- `OVYX_EVAL_LISTING_ID_FIELD`, `OVYX_EVAL_LISTING_TITLE_FIELD`, `OVYX_EVAL_LISTING_LOCATION_FIELD`, `OVYX_EVAL_LISTING_STATUS_FIELD`: dotted field paths for stable source IDs, titles, locations and explicit active/inactive status.
+
+The feed must return real records and stable identifiers. Generated sites must show only records the feed marks active, handle loading/empty/error states, and never substitute mock listings when the feed fails. A configured URL alone is not proof; the integration audit must see real active records rendered by the site.
+
+**Repository variables and secret for controlled enquiry delivery:**
+- `OVYX_EVAL_PUBLIC_ENQUIRY_URL`: the owner-approved HTTPS endpoint used by the generated public Contact form.
+- `OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE=true`: explicit opt-in to send a controlled QA-marked test.
+- `OVYX_EVAL_ENQUIRY_TEST_RECIPIENT`: a GitHub Actions **secret** naming an owner-controlled QA inbox/recipient.
+
+The endpoint must route QA payloads marked `source:"OVYX QA"`, `test:true`, `dryRun:false` only to that test recipient, and return an explicit delivery receipt (such as `delivered:true` or `deliveryStatus:"delivered"`). HTTP 2xx, queued, or accepted by itself is not delivery proof. Never include keys, private webhook URLs, recipient addresses or auth headers in generated browser files. Run the external enquiry probe only after the endpoint owner approves the test.
+
+These settings are not currently configured in production. Do not substitute the GitHub account email, a guessed feed, a placeholder domain, or a fabricated receipt. Until both service audits pass, live listings and real enquiry delivery stay open acceptance gates.
+
 ## Live-run safeguards
 
 A push explicitly tagged for a one-time full acceptance uses `cloudflare-workers-ai` rather than automatic multi-provider routing, so the Stage 4 acceptance path cannot choose a different AI vendor. The trusted full-acceptance workflow also queries Cloudflare Pages deployment metadata and waits for a successful **production** deployment whose source branch is `main` and whose commit SHA exactly matches the run's source revision. If Cloudflare has not deployed that revision within the bounded wait, or its deployment fails/is skipped, the workflow stops before live AI generation. This check reads only deployment metadata; it does not read, print or change runtime secrets, provider routing, budgets, or Universal Connection settings.
