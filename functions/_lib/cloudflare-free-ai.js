@@ -53,6 +53,13 @@ function budgetLedgerUnavailable(error, message, phase = 'unknown') {
     code = 'OVYX_AI_BUDGET_LEDGER_' + safePhase.toUpperCase() + '_HTTP_' + status;
   } else if (error?.name === 'TypeError') {
     code = 'OVYX_AI_BUDGET_LEDGER_' + safePhase.toUpperCase() + '_NETWORK_ERROR';
+  } else if (error?.code === 'FIRESTORE_READ_TRANSPORT_FAILED' &&
+      ['dns', 'timeout', 'socket', 'tls', 'network-unreachable', 'invalid-url', 'network'].includes(String(error?.transportClass || ''))) {
+    // The bucket is allow-listed by the Firestore helper; expose only a broad
+    // class so live acceptance can distinguish DNS/TLS/socket/timeouts without
+    // surfacing raw fetch messages, URLs, project ids, or credentials.
+    code = 'OVYX_AI_BUDGET_LEDGER_' + safePhase.toUpperCase() + '_TRANSPORT_' +
+      String(error.transportClass).replace(/[^a-z-]/g, '').toUpperCase().replace(/-/g, '_');
   } else {
     // Keep a small allowlist of known internal dependency codes. Never pass
     // arbitrary upstream message text into the public acceptance report.

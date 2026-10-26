@@ -52,6 +52,20 @@ assert.equal(
   'network failures should be distinguished without exposing provider details',
 );
 
+for (const [code, expected] of [
+  ['OVYX_AI_BUDGET_LEDGER_READ_TRANSPORT_DNS', 'cloudflare-ai-budget-ledger-read-transport-dns'],
+  ['OVYX_AI_BUDGET_LEDGER_READ_TRANSPORT_TIMEOUT', 'cloudflare-ai-budget-ledger-read-transport-timeout'],
+  ['OVYX_AI_BUDGET_LEDGER_READ_TRANSPORT_SOCKET', 'cloudflare-ai-budget-ledger-read-transport-socket'],
+  ['OVYX_AI_BUDGET_LEDGER_READ_TRANSPORT_TLS', 'cloudflare-ai-budget-ledger-read-transport-tls'],
+  ['OVYX_AI_BUDGET_LEDGER_READ_TRANSPORT_NETWORK_UNREACHABLE', 'cloudflare-ai-budget-ledger-read-transport-network-unreachable'],
+  ['OVYX_AI_BUDGET_LEDGER_READ_TRANSPORT_INVALID_URL', 'cloudflare-ai-budget-ledger-read-transport-invalid-url'],
+  ['OVYX_AI_BUDGET_LEDGER_READ_TRANSPORT_NETWORK', 'cloudflare-ai-budget-ledger-read-transport-network'],
+]) {
+  assert.equal(safeLiveGenerationFailureDetail(Object.assign(new Error('private transport details must not leak'), { code })), expected,
+    'Firestore transport error mapping must expose only an allow-listed failure category');
+}
+
+
 const safeOutputDiagnostics = safeLiveGenerationOutputDiagnostics({
   outputDiagnostics: {
     responseCharacters: 4096,
