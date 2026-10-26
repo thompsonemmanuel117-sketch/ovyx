@@ -22,6 +22,7 @@ const headers = read('_headers');
 const deletionApi = read('functions/api/account/delete.js');
 const brandProfileApi = read('functions/api/settings/brand-profile.js');
 const connectionsApi = read('functions/api/settings/connections.js');
+const adminControlApi = read('functions/api/admin/control.js');
 const revokeSessionsApi = read('functions/api/api/auth/revoke-sessions.js');
 const providers = read('functions/_lib/providers.js');
 const assistant = read('functions/api/ai/assistant.js');
@@ -55,6 +56,21 @@ for (const path of [
 }
 
 assert.ok(brandProfileApi.includes("['users', identity.email, 'brand_profile', 'config']"), 'Brand Identity settings must use the canonical Firestore profile document.');
+
+const phase1AdminStart = html.indexOf('<script id="ovyx-phase1-admin-payment-authority">');
+const phase1AdminEnd = html.indexOf('</script>', phase1AdminStart);
+assert.ok(phase1AdminStart >= 0 && phase1AdminEnd > phase1AdminStart, 'The production/admin authority runtime must exist.');
+const phase1AdminRuntime = html.slice(phase1AdminStart, phase1AdminEnd);
+assert.ok(phase1AdminRuntime.includes("fetch('/api/admin/control'"), 'Production state reads/writes must use the authenticated server-side admin control endpoint.');
+assert.ok(phase1AdminRuntime.includes("return adminControlRequest('GET')"), 'The production switch must read authoritative state through the server endpoint.');
+assert.ok(phase1AdminRuntime.includes("action:'setProductionState'"), 'The production switch must save state through the server-side action.');
+assert.ok(phase1AdminRuntime.includes("action:'setAdminOverride'"), 'Legacy admin override writes must also use the server-side control endpoint.');
+assert.doesNotMatch(phase1AdminRuntime, /firestore\\.collection\\(['"]system['"]\\)/, 'The browser must never read or write protected global system documents directly.');
+assert.ok(adminControlApi.includes("const user = context.data?.user || await authenticateRequest(context.request, context.env);")
+  && adminControlApi.includes('if (!isRootAdmin(user))'), 'The server endpoint must authenticate the caller and require the canonical root account.');
+assert.ok(adminControlApi.includes("const environment = live ? 'live' : 'sandbox';")
+  && adminControlApi.includes('environment,\n        updatedAt'), 'The production switch must persist a consistent live/sandbox environment.');
+
 const connectionGuardStart = html.indexOf('<script id="ovyx-settings-connections-visibility-guard-v2">');
 const connectionGuardEnd = html.indexOf('</script>', connectionGuardStart);
 const connectionVisibilityGuard = connectionGuardStart >= 0 && connectionGuardEnd > connectionGuardStart
