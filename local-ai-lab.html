@@ -128,23 +128,7 @@
             <button id="clear-chat" type="button">Clear chat</button>
           </div>
         </form>
-        <section class="details" aria-labelledby="stage4-benchmark-heading" style="white-space:normal">
-          <strong id="stage4-benchmark-heading">Stage 4 · Intelligence benchmark</strong>
-          <p class="small">Run the fixed 12-task suite against the model already loaded on this device. The report records per-task answers, time to first visible text, total duration, browser-exposed memory/storage estimates and objective checks for arithmetic and strict JSON. It does not switch providers, retry failed answers automatically or upload results.</p>
-          <label for="stage4-reliability-probes">
-            <input id="stage4-reliability-probes" type="checkbox" checked>
-            Include three predeclared consistency repeats and one recovery-reasoning probe (more time and battery).
-          </label>
-          <div class="row" style="margin-top:10px">
-            <button id="run-stage4-benchmark" class="primary" type="button" disabled>Run Stage 4 benchmark</button>
-            <button id="stop-stage4-benchmark" class="danger hidden" type="button">Stop benchmark</button>
-            <button id="export-stage4-benchmark" type="button" disabled>Export results JSON</button>
-          </div>
-          <p id="stage4-benchmark-status" class="status" role="status" aria-live="polite" data-kind="warn">Load a local model before starting. Official Stage 4 acceptance still requires manual scoring, generated-site checks, network capture and target-device evidence.</p>
-          <textarea id="stage4-benchmark-output" class="hidden" rows="12" readonly aria-label="Stage 4 benchmark report" spellcheck="false"></textarea>
-          <p class="small">The report contains model outputs and stays in this page until you explicitly export it. Peak GPU memory and exact token counts are not reliably exposed by browsers and are reported as unavailable, not guessed. The in-page runner cannot prove network isolation or execute generated source.</p>
-        </section>
-        <p class="small">This prototype keeps the conversation in page memory only. It does not load your OVYX projects, save account history or run project-editing tools. Those integrations remain for later stages.</p> It does not load your OVYX projects, save account history or run project-editing tools. Those integrations remain for later stages.</p>
+        <p class="small">This prototype keeps the conversation in page memory only. It does not load your OVYX projects, save account history or run project-editing tools. Those integrations remain for later stages.</p>
       </section>
     </div>
     <div class="foot">
@@ -153,6 +137,5 @@
     </div>
   </main>
   <script src="/assets/ovyx-local-ai-prototype.js" defer></script>
-  <script src="/assets/ovyx-local-ai-stage4-benchmark.js" defer></script>
 </body>
 </html>
