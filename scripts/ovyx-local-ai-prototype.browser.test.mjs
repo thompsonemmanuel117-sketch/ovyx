@@ -673,6 +673,10 @@ try {
     const lowStorageResponse = await lowStoragePage.goto(baseURL + '/local-ai-lab.html', { waitUntil: 'domcontentloaded' });
     assert.ok(lowStorageResponse && lowStorageResponse.status() === 200,
       '[' + target.name + '] low-storage test lab did not load.');
+    // The data-saver change makes SmolLM2 the selected default. This case
+    // specifically tests the larger WebGPU path's pre-inference storage guard,
+    // so select the intended model rather than relying on the default.
+    await lowStoragePage.locator('#model-choice').selectOption('qwen35-4b');
     await lowStoragePage.waitForFunction(
       () => document.getElementById('device-status')?.textContent?.includes('WebGPU is detected'),
       null,
