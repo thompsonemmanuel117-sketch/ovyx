@@ -264,10 +264,10 @@ jobs:
           let audit = {};
           try { browser = JSON.parse(await fs.readFile(reportDir + '/browser/browser-report.json', 'utf8')); } catch {}
           try { audit = JSON.parse(await fs.readFile(reportDir + '/acceptance-report.json', 'utf8')); } catch {}
-          const generatedFiles = await fs.readdir('artifacts/webstudio-generated-sites/nigeria-baby-products').catch(() => []);
+          const generatedFiles = await fs.readdir('artifacts/webstudio-generated-sites/nigeria-baby-products', { recursive: true }).catch(() => []);
           const failures = [];
           if (process.env.GENERATION_OUTCOME !== 'success') failures.push(['single-site generation', process.env.GENERATION_OUTCOME || 'not-run']);
-          if (!generatedFiles.some(name => /\.html?$/i.test(name))) failures.push(['real generated HTML files', 'missing']);
+          if (!generatedFiles.some(name => /\.html?$/i.test(String(name)))) failures.push(['real generated HTML files', 'missing']);
           if (process.env.BROWSER_OUTCOME !== 'success' || browser.status !== 'browser-evaluated' || !Array.isArray(browser.evaluatedSites) || browser.evaluatedSites.length !== 1) {
             failures.push(['isolated Chromium browser evaluation', browser.status || process.env.BROWSER_OUTCOME || 'missing']);
           }
