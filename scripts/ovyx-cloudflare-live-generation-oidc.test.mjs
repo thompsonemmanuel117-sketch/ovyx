@@ -399,7 +399,9 @@ assert.equal(budgetAvailableBody.operation, 'budget-status');
 assert.equal(budgetAvailableBody.status, 'available');
 assert.equal(budgetAvailableBody.inferencePerformed, false);
 assert.equal(budgetAvailableBody.providerReadinessVerified, false, 'an internal ledger read must not imply provider readiness');
-assert.match(budgetAvailableBody.resetsAtUtc, /^\\d{4}-\\d{2}-\\d{2}T00:00:00\\.000Z$/);
+assert.equal(typeof budgetAvailableBody.resetsAtUtc, 'string');
+assert.equal(budgetAvailableBody.resetsAtUtc.endsWith('T00:00:00.000Z'), true,
+  'the reported daily reset must be the next UTC midnight');
 assert.equal(budgetLedgerReads, 1, 'budget status should read the OVYX budget ledger exactly once');
 assert.equal(budgetStatusModelCalls, 0, 'budget status must not call the model');
 
