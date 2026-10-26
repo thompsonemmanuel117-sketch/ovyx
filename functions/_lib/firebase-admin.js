@@ -378,20 +378,35 @@ export async function getFirestoreDocument(
   documentId
 ) {
   const serviceAccount = parseServiceAccount(env);
-  const accessToken =
-    await getGoogleAccessToken(env);
+  let accessToken;
+  try {
+    accessToken = await getGoogleAccessToken(env);
+  } catch (error) {
+    if (error?.code || (Number.isInteger(error?.status) && error.status >= 400 && error.status <= 599)) throw error;
+    throw Object.assign(new Error('Firebase access-token acquisition failed.'), {
+      code: 'FIREBASE_ACCESS_TOKEN_ACQUISITION_FAILED'
+    });
+  }
 
   const url =
-    `${firestoreBaseUrl(serviceAccount.project_id)}/` +
-    `${encodeURIComponent(collection)}/` +
-    `${encodeURIComponent(documentId)}`;
+    `${firestoreBaseUrl(serviceAccount.project_id)}` +
+    `/${encodeURIComponent(collection)}` +
+    `/${encodeURIComponent(documentId)}`;
 
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      Authorization: `Bearer ${accessToken}`
-    }
-  });
+  let response;
+  try {
+    response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${accessToken}`
+      }
+    });
+  } catch (error) {
+    if (error?.code || (Number.isInteger(error?.status) && error.status >= 400 && error.status <= 599)) throw error;
+    throw Object.assign(new Error('Firestore document read transport failed.'), {
+      code: 'FIRESTORE_READ_TRANSPORT_FAILED'
+    });
+  }
 
   if (response.status === 404) {
     return null;
@@ -404,7 +419,13 @@ export async function getFirestoreDocument(
     );
   }
 
-  return response.json();
+  try {
+    return await response.json();
+  } catch {
+    throw Object.assign(new Error('Firestore document read returned invalid JSON.'), {
+      code: 'FIRESTORE_READ_INVALID_JSON'
+    });
+  }
 }
 
 export async function getFirestoreData(
