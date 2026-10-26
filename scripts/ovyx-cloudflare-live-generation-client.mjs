@@ -660,6 +660,10 @@ async function main() {
       note: 'Routine source/deployment checks do not use the daily AI allowance. Run an explicit workflow operation to make a real model call.',
     }));
   } else {
+    // Before any explicitly requested inference, consult OVYX's own daily
+    // ledger. If it is exhausted or unreadable, stop without spending another
+    // model request. This is not a provider-readiness check.
+    await checkBudgetStatus(origin);
     await preflightProvider(origin, provider, model);
   }
   if (process.env.OVYX_EVAL_PREFLIGHT_ONLY === 'true') {
