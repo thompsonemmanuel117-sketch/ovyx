@@ -41,8 +41,10 @@ function budgetLedgerUnavailable(error, message, phase = 'unknown') {
   else if (status === 400) code = 'OVYX_AI_BUDGET_LEDGER_BAD_REQUEST';
   else if (status === 409 || status === 412 || error?.code === 'FIRESTORE_PRECONDITION_FAILED') {
     code = 'OVYX_AI_BUDGET_LEDGER_CONFLICT_EXHAUSTED';
-  } else if ([408, 425, 429].includes(status) || (status >= 500 && status <= 599)) {
-    // Keep a safe operation phase for transient Firestore throttling, timeout and server errors.
+  } else if (Number.isInteger(status) && status >= 400 && status <= 599) {
+    // Preserve any otherwise-unclassified HTTP status (e.g. 404) in the safe
+    // operation phase. Do not collapse an actionable Firestore response into
+    // the generic ledger error, and never include the response body.
     code = 'OVYX_AI_BUDGET_LEDGER_' + safePhase.toUpperCase() + '_HTTP_' + status;
   } else if (error?.name === 'TypeError') {
     code = 'OVYX_AI_BUDGET_LEDGER_' + safePhase.toUpperCase() + '_NETWORK_ERROR';
