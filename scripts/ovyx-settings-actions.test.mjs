@@ -62,7 +62,7 @@ const phase1AdminEnd = html.indexOf('</script>', phase1AdminStart);
 assert.ok(phase1AdminStart >= 0 && phase1AdminEnd > phase1AdminStart, 'The production/admin authority runtime must exist.');
 const phase1AdminRuntime = html.slice(phase1AdminStart, phase1AdminEnd);
 assert.ok(phase1AdminRuntime.includes("fetch('/api/admin/control'"), 'Production state reads/writes must use the authenticated server-side admin control endpoint.');
-assert.ok(phase1AdminRuntime.includes("return adminControlRequest('GET')"), 'The production switch must read authoritative state through the server endpoint.');
+assert.ok(phase1AdminRuntime.includes("const data=await adminControlRequest('GET')"), 'The production switch must read authoritative state through the server endpoint.');
 assert.ok(phase1AdminRuntime.includes("action:'setProductionState'"), 'The production switch must save state through the server-side action.');
 assert.ok(phase1AdminRuntime.includes("action:'setAdminOverride'"), 'Legacy admin override writes must also use the server-side control endpoint.');
 assert.ok(!phase1AdminRuntime.includes("firestore.collection('system')")
