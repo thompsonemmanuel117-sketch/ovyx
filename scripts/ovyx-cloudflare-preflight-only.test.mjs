@@ -30,4 +30,15 @@ assert.ok(generateCall > sitesLoop, 'the normal site-generation loop remains aft
 assert.match(client, /status: 'provider-preflight-passed-no-sites-generated'/);
 assert.match(client, /realSitesGenerated: 0/);
 
+assert.match(client, /findExactCommitDeployment/);
+assert.match(client, /process\.env\.GITHUB_SHA/);
+assert.match(client, /cloudflare-pages-exact-commit-deployment-selected/);
+assert.match(client, /No successful production Cloudflare Pages deployment matching this exact GitHub commit was found/);
+assert.doesNotMatch(client, /return 'https:\/\/' \+ subdomain/,
+  'website acceptance must never fall back to the stable canonical hostname when an old release might still be serving');
+const deploymentTargetTest = await readFile(new URL('./ovyx-cloudflare-deployment-target.test.mjs', import.meta.url), 'utf8');
+assert.match(deploymentTargetTest, /older deployment must never be selected/);
+assert.match(deploymentTargetTest, /stable canonical hostname is not an acceptable deployment-specific target/);
+
+
 console.log('OVYX provider preflight-only safety tests passed.');
