@@ -236,6 +236,9 @@ assert.equal(chooseProvider({GEMINI_API_KEY:'configured-test-key'}, 'openai'), n
 assert.equal(chooseProvider({AI:{run:async()=>({response:'ok'})}}, 'automatic'), 'automatic',
   'the existing Cloudflare Workers AI binding is a valid no-vendor-key path');
 
+assert.equal(chooseProvider({AI:{run:async()=>({response:'ok'})}}, 'cloudflare-workers-ai'), 'cloudflare-workers-ai',
+  'the manually selected Cloudflare Workers AI option must resolve only to the configured AI binding');
+
 const validToken = await signToken();
 const untrustedJwksFetcher = async () => {
   const response = new Response(JSON.stringify({ keys: [jwk] }), {
