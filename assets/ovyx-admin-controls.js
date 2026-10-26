@@ -1150,12 +1150,28 @@
         return { config: config, controls: { masterAdminOverride: this.adminOverride } };
       };
     }
-    if (sw && owner() && !sw.__ovyxGlobalStateLoaded) {
-      sw.__ovyxGlobalStateLoaded = true;
-      sw.loadFirestoreState().catch(error => {
-        sw.__ovyxGlobalStateLoaded = false;
-        statusText($('ovyx-global-integration-status'), 'Platform integration status could not be loaded. Please try again.', 'error');
-      });
+    if (sw && owner() && !sw.__ovyxGlobalStateLoaded && !sw.__ovyxGlobalStatePromise) {
+      // Firebase auth can resolve after the server-confirmed owner event. Keep
+      // startup idempotent and avoid turning that normal race into an ACTION FAILED toast.
+      sw.__ovyxGlobalStatePromise = Promise.resolve()
+        .then(() => {
+          if (!owner() || !currentUser()) {
+            throw Object.assign(new Error('Owner authentication is still initializing.'), { code: 'OVYX_OWNER_AUTH_PENDING' });
+          }
+          return sw.loadFirestoreState();
+        })
+        .then(() => { sw.__ovyxGlobalStateLoaded = true; })
+        .catch(error => {
+          sw.__ovyxGlobalStateLoaded = false;
+          const status = $('ovyx-global-integration-status');
+          if (!owner() || !currentUser() || error?.code === 'OVYX_OWNER_AUTH_PENDING') {
+            statusText(status, 'Waiting for verified owner authentication…', 'neutral');
+            return;
+          }
+          // Preserve a real owner-facing failure; never suppress a genuine API/config error.
+          statusText(status, 'Platform integration status could not be loaded. Please try again.', 'error');
+        })
+        .finally(() => { sw.__ovyxGlobalStatePromise = null; });
     }
   }
 
