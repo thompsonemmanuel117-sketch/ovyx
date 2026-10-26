@@ -26,6 +26,8 @@ assert.match(workflow, /Enforce routine no-inference check or explicit provider 
 assert.ok(workflow.includes("OVYX_EVAL_SKIP_LIVE_INFERENCE: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]') }}"),
   'ordinary main pushes must select the no-inference path while explicit full acceptance retains model calls');
 assert.match(client, /const SKIP_LIVE_INFERENCE = process\.env\.OVYX_EVAL_SKIP_LIVE_INFERENCE === 'true'/);
+assert.match(client, /if \(SKIP_LIVE_INFERENCE && !SITE_SMOKE && process\.env\.OVYX_EVAL_PREFLIGHT_ONLY !== 'true'\)/,
+  'no-inference mode must be rejected for a generation run outside routine preflight-only checks');
 assert.match(client, /routine-push-inference-skipped[\s\S]*?liveInferencePerformed: false[\s\S]*?await preflightProvider\(origin, provider, model\)/);
 assert.match(client, /status: skippedInference \? 'deployment-and-config-verified-no-ai-inference' : 'provider-preflight-passed-no-sites-generated'/);
 assert.match(client, /liveInferencePerformed: !skippedInference/);
