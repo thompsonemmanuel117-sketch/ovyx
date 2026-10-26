@@ -25,6 +25,7 @@ let createCalls = 0;
 let ledgerReadFailuresRemaining = 1;
 let conflictWritesRemaining = 3;
 let conditionalWriteFailureStatus = null;
+let exhaustionConflictWritesRemaining = 0;
 let oauthFailuresRemaining = 1;
 let oauthCalls = 0;
 const originalFetch = globalThis.fetch;
@@ -58,6 +59,16 @@ env.AI = {
   run: async (_model, options) => {
     modelCalls += 1;
     lastAIOptions = options;
+    if (responseShape === 'quota-exhausted') {
+      // Simulate Cloudflare's account-level free allocation rejection. The
+      // production error path must persist a shared stop marker even when
+      // other requests are updating the same Firestore ledger concurrently.
+      exhaustionConflictWritesRemaining = 18;
+      throw Object.assign(
+        new Error('Cloudflare has used up your daily free allocation of 10,000 neurons.'),
+        { status: 429, code: 'CLOUDFLARE_AI_QUOTA_EXHAUSTED' },
+      );
+    }
     if (responseShape === 'reasoning-only') {
       return {
         choices: [{ message: { role: 'assistant', content: null, reasoning_content: 'private reasoning text must not leak' } }],
@@ -134,12 +145,19 @@ try {
       if (!stored || url.searchParams.get('currentDocument.updateTime') !== 'v' + stored.version) {
         return okJson({ error: { status: 'ABORTED' } }, 409);
       }
+      const patch = JSON.parse(init.body).fields || {};
+      if (key === 'system/' + LEDGER_ID &&
+          Object.prototype.hasOwnProperty.call(patch, '_ovyxWorkersAiCloudflareExhaustedDayUtc') &&
+          exhaustionConflictWritesRemaining > 0) {
+        exhaustionConflictWritesRemaining -= 1;
+        stored.version += 1; // Simulate competing owners of the exhausted-day marker.
+        return okJson({ error: { status: 'ABORTED' } }, 409);
+      }
       if (key === 'system/' + LEDGER_ID && conflictWritesRemaining > 0) {
         conflictWritesRemaining -= 1;
         stored.version += 1; // Simulate another ledger-only writer, without touching system/config.
         return okJson({ error: { status: 'ABORTED' } }, 409);
       }
-      const patch = JSON.parse(init.body).fields || {};
       for (const fieldPath of url.searchParams.getAll('updateMask.fieldPaths')) {
         if (Object.prototype.hasOwnProperty.call(patch, fieldPath)) stored.fields[fieldPath] = patch[fieldPath];
         else delete stored.fields[fieldPath];
@@ -282,6 +300,34 @@ try {
   env.OVYX_AI_ENGINE_MODE = 'cloudflare-free-only';
   if (previousBudget === undefined) delete env.OVYX_WORKERS_AI_DAILY_NEURON_BUDGET;
   else env.OVYX_WORKERS_AI_DAILY_NEURON_BUDGET = previousBudget;
+
+  // Reproduce the production case: Cloudflare rejects a site-generation call
+  // with its daily free allocation message while concurrent calls collide on
+  // recording the one-per-day stop marker. The quota response must stay truthful
+  // and the marker must eventually persist after bounded jittered retries.
+  const savedLedgerFields = structuredClone(ledger.fields);
+  const savedLedgerVersion = ledger.version;
+  delete ledger.fields._ovyxWorkersAiCloudflareExhaustedDayUtc;
+  delete ledger.fields._ovyxWorkersAiCloudflareExhaustionReason;
+  delete ledger.fields._ovyxWorkersAiCloudflareExhaustedAt;
+  ledger.version += 1;
+  responseShape = 'quota-exhausted';
+  await assert.rejects(
+    () => runCloudflareFreeInference(env, {
+      messages: [{ role: 'user', content: 'This request simulates a Cloudflare free-allocation rejection.' }],
+      maxTokens: 32,
+      timeoutMs: 2000,
+      disableThinking: true,
+    }),
+    error => error?.code === 'OVYX_AI_CLOUDFLARE_QUOTA_EXHAUSTED',
+    'the quota error must not be replaced by a generic budget-ledger unavailable response when recording the stop succeeds',
+  );
+  assert.equal(exhaustionConflictWritesRemaining, 0, 'the exhausted-day marker writer must recover from 18 bounded conditional-write conflicts');
+  assert.equal(ledger.fields._ovyxWorkersAiCloudflareExhaustedDayUtc.stringValue, today);
+  assert.equal(ledger.fields._ovyxWorkersAiCloudflareExhaustionReason.stringValue, 'cloudflare-daily-free-allocation');
+  ledger.fields = savedLedgerFields;
+  ledger.version = savedLedgerVersion;
+  responseShape = 'legacy-response';
 
   await assert.rejects(
     () => createFirestoreDocumentIfAbsent(env, 'system', LEDGER_ID, {
