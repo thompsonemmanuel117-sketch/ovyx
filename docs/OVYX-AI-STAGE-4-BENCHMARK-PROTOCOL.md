@@ -22,6 +22,12 @@ The workflow also exposes a manual `stage4-site-smoke` operation for obtaining o
 
 This operation is a cost-aware way to secure the first actual site for human and device review. It is not a substitute for the full acceptance workflow or the authenticated 12-task assistant benchmark.
 
+## Quota-preserving routine CI
+
+Ordinary pushes to `main` now resolve the exact successful Cloudflare Pages deployment, inspect only the approved runtime configuration inventory, and verify that the internal evaluation route is reachable. They do **not** send a model prompt and therefore do not consume the protected daily AI allowance. Their report status is `deployment-and-config-verified-no-ai-inference`; it deliberately makes no provider-readiness or model-quality claim.
+
+Choose the operation based on the evidence needed: manual `preflight-only` runs one small real provider request; `stage4-site-smoke` starts directly with one bounded two-page Cloudflare-generated site without an extra readiness inference; `full-acceptance` performs the separate explicit multi-site process. None of these operations bypasses the daily guard, silently changes provider, or retries a failed billable generation.
+
 ## Live-run safeguards
 
 A push explicitly tagged for a one-time full acceptance uses `cloudflare-workers-ai` rather than automatic multi-provider routing, so the Stage 4 acceptance path cannot choose a different AI vendor. The trusted full-acceptance workflow also queries Cloudflare Pages deployment metadata and waits for a successful **production** deployment whose source branch is `main` and whose commit SHA exactly matches the run's source revision. If Cloudflare has not deployed that revision within the bounded wait, or its deployment fails/is skipped, the workflow stops before live AI generation. This check reads only deployment metadata; it does not read, print or change runtime secrets, provider routing, budgets, or Universal Connection settings.
