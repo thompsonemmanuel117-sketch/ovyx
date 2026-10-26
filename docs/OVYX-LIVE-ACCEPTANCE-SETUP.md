@@ -63,24 +63,21 @@ No existing Cloudflare keys need to be renamed, removed or replaced. Add new var
 
 ## 5. Production troubleshooting record
 
-The latest trusted production acceptance run on 2026-10-23 ([run 139](https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/40038323568)) stopped at provider preflight before sending any full website briefs. Its sanitized diagnostics recorded:
+### Current verified status — 2026-10-26
 
-| Provider | Latest observed result | Recovery action |
-| --- | --- | --- |
-| DeepSeek | HTTP 402 — payment/billing required | Check the provider account's billing/credit balance and ensure API usage is enabled for the configured account. |
-| Claude / Anthropic | HTTP 401 — authentication rejected | Verify that the production `ANTHROPIC_API_KEY` belongs to the intended account and remains active. Replace it in Cloudflare only after independently verifying the correct credential; never paste it into GitHub or chat. |
-| OpenAI | HTTP 401 — authentication rejected | Verify that the production `OPENAI_API_KEY` belongs to the intended account and remains active. Replace it in Cloudflare only after independently verifying the correct credential; never paste it into GitHub or chat. |
-| Gemini | HTTP 429 — rate limited/quota | Check the Gemini project's active quota, billing and rate limits. Do not rerun preflight repeatedly while the account remains rate-limited. |
-| Cloudflare Workers AI | HTTP 429 — rate limited/quota | Check Workers AI account usage, plan/entitlement and current limits. The `AI` binding is present, but that does not guarantee capacity is available. Avoid repeated test calls until the quota window or account limit is resolved. |
+The latest trusted production run is [run 40239042247, attempt 2](https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/40239042247). Its first attempt was blocked by Cloudflare's shared daily AI quota. After retrying, the preflight succeeded with a real short response from `@cf/meta/llama-3.1-8b-instruct-fp8-fast`.
 
-The production Pages inventory in run 139 reports these API-key variable **names** in both production and preview: `GEMINI_API_KEY`, `ANTHROPIC_API_KEY`, `DEEPSEEK_API_KEY`, and `OPENAI_API_KEY`. It also reports the Cloudflare Workers AI `AI` binding as configured. No unrecognized provider-credential variable names were detected. `GROQ_API_KEY` and `OPENROUTER_API_KEY` are not present in the inventory; those providers cannot be used until their valid keys are added under the exact expected names. Nothing in this check reads or emits secret values.
+The successful attempt explicitly reported `realSitesGenerated: 0` because it ran in `preflight-only` mode. It proves that the Cloudflare Workers AI inference path responded; it does **not** prove four websites were generated, browser-checked, visually reviewed, or accepted.
 
-These are real account/runtime failures despite the expected key names being present. A secret name is not proof that the credential is valid, paid, entitled or within quota. The latest production run after the model-family routing fix still failed preflight, so website generation has **not** been verified as recovered. Do not start another billable generation run until at least one provider has been independently made healthy; use the manual workflow's explicit provider choice when testing that provider.
+That run also reported the following live-acceptance settings as not configured:
 
-The same run also confirmed that these owner-controlled acceptance settings were absent: authoritative browser-safe property feed, declaration that the feed is authoritative, public enquiry endpoint, explicit authorization for the external QA probe, and an owner-controlled QA test recipient. The existing `RESEND_API_KEY` and `RESEND_FROM_EMAIL` setting names do not by themselves prove that a public endpoint or a controlled test recipient is configured.
+- An authoritative public listings/property feed and its authority declaration.
+- An owner-approved public enquiry destination.
+- Explicit authorization for the external enquiry-delivery probe and a dedicated test recipient.
 
-Do not bypass the gates, fabricate listing data, count the local QA form as real delivery, or set the human-review fields to true without actual sign-off.
+Until those services are deliberately configured and tested, the evaluator must keep live-inventory and enquiry-delivery acceptance open. Do not invent listing records, label demo data as live, or claim that an enquiry was delivered without a verified receipt.
 
+Earlier production attempts did encounter real quota/rate-limit failures. A configured secret name does not prove that the provider is authenticated, entitled, or within quota. Continue to use `preflight-only` to check provider recovery. Select `full-acceptance` only when the model budget and intended external test effects have been reviewed; never enable `cloudflare-paid-capped` merely to make an acceptance run pass.
 ## 6. Run and review the evidence
 
 1. Merge only after the targeted code and regression checks pass. A PR run intentionally does not call production generation or send test enquiries.
