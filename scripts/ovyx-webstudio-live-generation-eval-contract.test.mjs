@@ -29,6 +29,9 @@ for (const [cause, expected] of [
   ['FIREBASE_SERVICE_ACCOUNT_INVALID_JSON', 'firebase-service-account-invalid-json'],
   ['FIREBASE_SERVICE_ACCOUNT_MISSING_FIELDS', 'firebase-service-account-missing-fields'],
   ['FIREBASE_JWT_SIGNING_FAILED', 'firebase-jwt-signing-failed'],
+  ['FIREBASE_ACCESS_TOKEN_ACQUISITION_FAILED', 'firebase-access-token-acquisition-failed'],
+  ['FIRESTORE_READ_TRANSPORT_FAILED', 'firestore-read-transport-failed'],
+  ['FIRESTORE_READ_INVALID_JSON', 'firestore-read-invalid-json'],
 ]) {
   assert.equal(
     safeLiveGenerationFailureDetail(Object.assign(new Error('private details must never be exposed'), {
