@@ -23,6 +23,22 @@ assert.equal(
   'cloudflare-ai-budget-ledger-read-cause-google-oauth-token-exchange-failed',
   'Known dependency failures should retain only an allowlisted cause identifier.'
 );
+
+for (const [cause, expected] of [
+  ['FIREBASE_SERVICE_ACCOUNT_NOT_CONFIGURED', 'firebase-service-account-not-configured'],
+  ['FIREBASE_SERVICE_ACCOUNT_INVALID_JSON', 'firebase-service-account-invalid-json'],
+  ['FIREBASE_SERVICE_ACCOUNT_MISSING_FIELDS', 'firebase-service-account-missing-fields'],
+  ['FIREBASE_JWT_SIGNING_FAILED', 'firebase-jwt-signing-failed'],
+]) {
+  assert.equal(
+    safeLiveGenerationFailureDetail(Object.assign(new Error('private details must never be exposed'), {
+      code: 'OVYX_AI_BUDGET_LEDGER_READ_CAUSE_' + cause
+    })),
+    'cloudflare-ai-budget-ledger-read-cause-' + expected,
+    'The live acceptance report should identify safe Firebase credential failures without revealing error messages or key material.'
+  );
+}
+
 assert.ok(liveGenerationRoute.includes("OVYX_WEBSTUDIO_MAX_PAGES: '8'"), 'The live-evaluation harness should use a bounded eight-page ceiling so the model can include useful supporting pages without silently truncating its plan.');
 
 const keys=['GEMINI_API_KEY','ANTHROPIC_API_KEY','DEEPSEEK_API_KEY','OPENAI_API_KEY','OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL','OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY','OVYX_EVAL_PUBLIC_ENQUIRY_URL','OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE','OVYX_EVAL_ENQUIRY_TEST_RECIPIENT'];
