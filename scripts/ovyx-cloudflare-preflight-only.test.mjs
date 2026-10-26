@@ -43,6 +43,8 @@ assert.match(client, /async function checkBudgetStatus\(origin\)/);
 assert.match(client, /JSON\.stringify\(\{ operation: 'budget-status' \}\)/);
 assert.match(client, /stage4-budget-status-report\.json/);
 assert.match(client, /budget-exhausted-no-inference/);
+assert.ok(client.includes("await checkBudgetStatus(origin);\n    await preflightProvider(origin, provider, model);"),
+  'explicit model preflights and full-acceptance inference must check the protected daily ledger before calling a model');
 const mainStart = client.indexOf('async function main()');
 const smokeBranch = client.indexOf('if (SITE_SMOKE) {', mainStart);
 const budgetCheck = client.indexOf('await checkBudgetStatus(origin);', smokeBranch);
