@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { generateKeyPairSync } from 'node:crypto';
-import { createFirestoreDocumentIfAbsent, setFirestoreDocumentIfCurrent } from '../functions/_lib/firebase-admin.js';
+import { classifyFirestoreReadTransportFailure, createFirestoreDocumentIfAbsent, setFirestoreDocumentIfCurrent } from '../functions/_lib/firebase-admin.js';
 import { runCloudflareFreeInference } from '../functions/_lib/cloudflare-free-ai.js';
 import { callModel } from '../functions/_lib/providers.js';
 
@@ -33,6 +33,36 @@ let oauthFailuresRemaining = 1;
 let oauthMissingTokenResponsesRemaining = 1;
 let oauthCalls = 0;
 const originalFetch = globalThis.fetch;
+const originalConsoleError = console.error;
+const ledgerTransportLogs = [];
+console.error = (...args) => {
+  const line = args.map(value => typeof value === 'string' ? value : JSON.stringify(value)).join(' ');
+  if (line.includes('[OVYX FIRESTORE READ TRANSPORT]')) ledgerTransportLogs.push(line);
+  originalConsoleError(...args);
+};
+
+assert.deepEqual(
+  classifyFirestoreReadTransportFailure(new TypeError('fetch failed', {
+    cause: Object.assign(new Error('private hostname details must not leak'), { code: 'ENOTFOUND' }),
+  })),
+  { errorName: 'TypeError', causeName: 'Error', causeCode: 'ENOTFOUND', failureClass: 'dns' },
+  'DNS failures should be reduced to a safe transport category',
+);
+assert.deepEqual(
+  classifyFirestoreReadTransportFailure(new TypeError('fetch failed', {
+    cause: Object.assign(new Error('private socket details must not leak'), { code: 'ECONNRESET' }),
+  })),
+  { errorName: 'TypeError', causeName: 'Error', causeCode: 'ECONNRESET', failureClass: 'socket' },
+  'socket failures should be reduced to an allow-listed transport category',
+);
+assert.equal(
+  classifyFirestoreReadTransportFailure(new TypeError('network fetch failed', {
+    cause: Object.assign(new Error('PRIVATE_SECRET'), { code: 'UNTRUSTED_INTERNAL_CODE' }),
+  })).failureClass,
+  'network',
+  'unknown transport codes must map to a safe generic network category',
+);
+
 
 function firestoreInt(value) { return { integerValue: String(value) }; }
 function firestoreString(value) { return { stringValue: String(value) }; }
@@ -130,8 +160,11 @@ try {
       }
       if (key === 'system/' + LEDGER_ID && ledgerTransportFailuresRemaining > 0) {
         ledgerTransportFailuresRemaining -= 1;
-        // firebase-admin wraps a fetch rejection as FIRESTORE_READ_TRANSPORT_FAILED.
-        throw new TypeError('simulated Firestore connection reset');
+        // firebase-admin wraps the fetch rejection; only its safe class/code may
+        // appear in diagnostics, not the underlying hostname/message.
+        throw new TypeError('private transport message must not leak', {
+          cause: Object.assign(new Error('private network hostname must not leak'), { code: 'ECONNRESET' }),
+        });
       }
       const stored = getDoc(url.pathname);
       return stored ? okJson(makeFirestoreDocument(key, stored)) : new Response(null, { status: 404 });
@@ -208,6 +241,10 @@ try {
   assert.ok(ledger, 'the dedicated usage ledger should be created atomically');
   assert.equal(ledgerReadFailuresRemaining, 0, 'a transient ledger HTTP 503 should be retried safely');
   assert.equal(ledgerTransportFailuresRemaining, 0, 'a wrapped Firestore read transport failure should be classified as transient and retried safely');
+  assert.ok(ledgerTransportLogs.some(line => line.includes('"failureClass":"socket"') && line.includes('"causeCode":"ECONNRESET"')),
+    'the dedicated AI ledger log should expose an allow-listed socket failure category');
+  assert.equal(ledgerTransportLogs.join('\n').includes('private network hostname'), false,
+    'Firestore transport diagnostics must never contain raw hostnames/messages');
   assert.equal(oauthFailuresRemaining, 0, 'a transient Google OAuth token failure should be retried safely');
   assert.equal(oauthMissingTokenResponsesRemaining, 0, 'a malformed successful Google OAuth response should be retried once before failing closed');
   assert.ok(oauthCalls >= 3, 'the OAuth regression must cover an HTTP 503 retry and a successful-status response with no access token');
@@ -375,4 +412,5 @@ try {
   console.log('OVYX Cloudflare AI isolated budget-ledger initialization test passed.');
 } finally {
   globalThis.fetch = originalFetch;
+  console.error = originalConsoleError;
 }
