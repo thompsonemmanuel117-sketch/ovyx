@@ -39,7 +39,7 @@ assert.match(workflow, /stage4-site-smoke-gate-report\.json/);
 assert.match(client, /const SITE_SMOKE = process\.env\.OVYX_EVAL_SITE_SMOKE === 'true'/);
 assert.match(client, /preflightSkippedToAvoidAnExtraBudgetedInference/);
 assert.match(client, /stage4-budgeted-smoke/);
-assert.match(client, /async function checkBudgetStatus\(origin\)/);
+assert.match(client, /async function checkBudgetStatus\(origin, options = \{\}\)/);
 assert.match(client, /JSON\.stringify\(\{ operation: 'budget-status' \}\)/);
 assert.match(client, /stage4-budget-status-report\.json/);
 assert.match(client, /budget-exhausted-no-inference/);
