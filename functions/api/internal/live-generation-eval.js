@@ -3,6 +3,7 @@ import { callModel } from '../../_lib/providers.js';
 import { buildExperienceBrief } from '../../_lib/experience.js';
 import { WEB_STUDIO_EXCELLENCE } from '../../_lib/prompts.js';
 import { getProductionIntegrationState } from '../../_lib/integration-state.js';
+import { isCloudflareFreeAllowanceExhausted } from '../../_lib/cloudflare-free-ai.js';
 
 const EXPECTED_ISSUER = 'https://token.actions.githubusercontent.com';
 const EXPECTED_AUDIENCE = 'ovyx-live-site-evaluation';
@@ -492,9 +493,12 @@ export async function handleLiveGenerationRequest(request, env, options = {}) {
   }
   const operation = String(payload?.operation || 'generate-site').trim().toLowerCase();
   const isProviderPreflight = operation === 'provider-preflight';
-  const allowedKeys = isProviderPreflight
-    ? new Set(['operation', 'provider', 'model'])
-    : new Set(['caseId', 'provider', 'model', 'publicSettings', 'profile']);
+  const isBudgetStatus = operation === 'budget-status';
+  const allowedKeys = isBudgetStatus
+    ? new Set(['operation'])
+    : isProviderPreflight
+      ? new Set(['operation', 'provider', 'model'])
+      : new Set(['caseId', 'provider', 'model', 'publicSettings', 'profile']);
   const requestedProvider = String(payload?.provider || 'automatic').trim().toLowerCase();
   const isBudgetedStage4Smoke = payload?.profile === 'stage4-budgeted-smoke' &&
     payload?.caseId === 'nigeria-baby-products' &&
@@ -506,10 +510,43 @@ export async function handleLiveGenerationRequest(request, env, options = {}) {
   ]);
   if (!payload || typeof payload !== 'object' || Array.isArray(payload) ||
       Object.keys(payload).some(key => !allowedKeys.has(key)) ||
-      (isProviderPreflight
-        ? (!allowedPreflightProviders.has(requestedProvider) || Object.hasOwn(payload, 'caseId'))
-        : (operation !== 'generate-site' || !Object.hasOwn(CASES, String(payload.caseId || '')) || !profileIsAllowed))) {
+      (isBudgetStatus
+        ? false
+        : isProviderPreflight
+          ? (!allowedPreflightProviders.has(requestedProvider) || Object.hasOwn(payload, 'caseId'))
+          : (operation !== 'generate-site' || !Object.hasOwn(CASES, String(payload.caseId || '')) || !profileIsAllowed))) {
     return Response.json({ ok: false, error: 'EVALUATION_CASE_NOT_ALLOWED' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
+  }
+  if (isBudgetStatus) {
+    try {
+      const exhausted = await (options.isCloudflareFreeAllowanceExhausted || isCloudflareFreeAllowanceExhausted)(env);
+      const checkedAt = new Date();
+      const resetsAtUtc = new Date(Date.UTC(
+        checkedAt.getUTCFullYear(),
+        checkedAt.getUTCMonth(),
+        checkedAt.getUTCDate() + 1,
+      )).toISOString();
+      return Response.json({
+        ok: true,
+        operation: 'budget-status',
+        budget: 'ovyx-cloudflare-daily',
+        status: exhausted ? 'exhausted' : 'available',
+        checkedAt: checkedAt.toISOString(),
+        resetsAtUtc,
+        inferencePerformed: false,
+        providerReadinessVerified: false,
+        note: 'This checks OVYX’s protected daily budget ledger only. It does not call a model or prove external Cloudflare allocation/provider availability.',
+      }, { status: 200, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
+    } catch (error) {
+      return Response.json({
+        ok: false,
+        operation: 'budget-status',
+        error: 'BUDGET_STATUS_UNAVAILABLE',
+        detail: safeLiveGenerationFailureDetail(error),
+        inferencePerformed: false,
+        providerReadinessVerified: false,
+      }, { status: 503, headers: { 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' } });
+    }
   }
   const caseItem = isProviderPreflight ? null : CASES[payload.caseId];
   const buildCaseItem = isBudgetedStage4Smoke ? {
