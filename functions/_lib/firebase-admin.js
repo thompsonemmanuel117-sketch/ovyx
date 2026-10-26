@@ -43,7 +43,12 @@ function base64UrlDecodeToBytes(value) {
 }
 
 function pemToArrayBuffer(pem) {
+  // Cloudflare secret editors may preserve JSON-escaped newline sequences
+  // as literal backslash-n pairs. Normalize them the same way as /api/health
+  // before base64 decoding, or a healthy-looking service account fails when
+  // the first Firestore/OAuth request tries to sign its JWT.
   const normalized = String(pem)
+    .replace(/\\n/g, '\n')
     .replace(/-----BEGIN PRIVATE KEY-----/g, '')
     .replace(/-----END PRIVATE KEY-----/g, '')
     .replace(/\s+/g, '');
