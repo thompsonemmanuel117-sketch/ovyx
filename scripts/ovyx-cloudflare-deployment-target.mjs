@@ -1,6 +1,6 @@
 const COMMIT_SHA = /^[a-f0-9]{40}$/i;
 const PROJECT_SUBDOMAIN = /^[a-z0-9][a-z0-9-]*\.pages\.dev$/i;
-const DEPLOYMENT_ID = /^[a-f0-9]{8}-[a-f0-9-]{27,}$/i;
+const DEPLOYMENT_ID = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 
 export function normalizePagesSubdomain(value) {
   const host = String(value || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
