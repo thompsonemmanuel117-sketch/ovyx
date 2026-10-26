@@ -43,7 +43,8 @@ const generateCall = client.indexOf('await generateOne(origin, provider, model, 
 assert.ok(guard > 0, 'client must recognize preflight-only mode');
 assert.ok(sitesLoop > guard, 'the no-generation guard must run before the generation loop');
 assert.ok(generateCall > sitesLoop, 'the normal site-generation loop remains after the guard');
-assert.match(client, /status: 'provider-preflight-passed-no-sites-generated'/);
+assert.ok(client.includes("'provider-preflight-passed-no-sites-generated'"),
+  'the explicit live preflight mode must keep its own distinct status');
 assert.match(client, /realSitesGenerated: 0/);
 
 assert.match(client, /findExactCommitDeployment/);
