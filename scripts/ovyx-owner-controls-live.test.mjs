@@ -104,11 +104,13 @@ assert.ok(productionSwitchStart >= 0 && productionSwitchEnd > productionSwitchSt
 const productionSwitch = source.html.slice(productionSwitchStart, productionSwitchEnd);
 assert.match(productionSwitch, /let productionStateLoad=null/);
 assert.match(productionSwitch, /const owner=window\.OVYXServerOwner/);
-assert.match(productionSwitch, /if\(!authorized\)return null/);
+assert.match(productionSwitch, /if\(!authorized \|\| !auth\(\)\?\.currentUser\)return null/);
 assert.ok(
-  productionSwitch.indexOf('if(!authorized)return null') < productionSwitch.indexOf('const docs=await readSystemDocuments()'),
-  'Owner-only system settings must not be read until server-verified owner access is confirmed.',
+  productionSwitch.indexOf('if(!authorized || !auth()?.currentUser)return null') < productionSwitch.indexOf('const docs=await readSystemDocuments()'),
+  'Owner-only system settings must not be read until server-verified owner access and Firebase auth restoration are confirmed.',
 );
+assert.ok(productionSwitch.includes('firebaseAuth.onAuthStateChanged?.(user=>'),
+  'The production integration status must retry when Firebase restores the signed-in user after the owner state event.');
 assert.match(productionSwitch, /try\{authorized=await owner\.refresh\(\)===true;\}catch\{authorized=false;\}/);
 assert.ok(productionSwitch.includes("window.addEventListener('ovyx-owner-state'"), 'The status must retry when the authenticated owner is confirmed after startup.');
 assert.ok(productionSwitch.includes("toast('Platform integration status could not be loaded. Please try again.','error')"), 'A real settings read failure must still be visible to the authorized owner.');
