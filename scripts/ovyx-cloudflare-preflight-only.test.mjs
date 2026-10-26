@@ -4,8 +4,8 @@ import { readFile } from 'node:fs/promises';
 const workflow = await readFile(new URL('../.github/workflows/ovyx-webstudio-live-generation.yml', import.meta.url), 'utf8');
 const client = await readFile(new URL('./ovyx-cloudflare-live-generation-client.mjs', import.meta.url), 'utf8');
 
-// Keep the small provider check separate from the four potentially billable builds.
-assert.match(workflow, /operation:\s*\n\s+description: Run only a small provider readiness check or the full four-site acceptance\s*\n\s+required: true\s*\n\s+type: choice\s*\n\s+options:\s*\n\s+- preflight-only\s*\n\s+- full-acceptance\s*\n\s+default: preflight-only/);
+// Keep provider readiness, the budgeted one-site smoke, and full acceptance separate.
+assert.match(workflow, /operation:\s*\n\s+description: Run a small readiness check, one budgeted site smoke, or full four-site acceptance\s*\n\s+required: true\s*\n\s+type: choice\s*\n\s+options:\s*\n\s+- preflight-only\s*\n\s+- stage4-site-smoke\s*\n\s+- full-acceptance\s*\n\s+default: preflight-only/);
 assert.ok(workflow.includes("OVYX_EVAL_PREFLIGHT_ONLY: ${{ (github.event_name != 'workflow_dispatch' && !contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]')) || (github.event_name == 'workflow_dispatch' && inputs.operation == 'preflight-only') }}"), 'ordinary pushes must stay preflight-only, unless an explicit one-time acceptance marker is present');
 assert.match(workflow, /default: preflight-only/);
 
@@ -16,10 +16,19 @@ assert.ok(providerSelector.includes('- automatic'),
   'operators must be able to test OVYX automatic routing when they explicitly choose it');
 
 assert.ok(workflow.includes("if: github.ref == 'refs/heads/main' && ((github.event_name == 'push' && !contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]')) || (github.event_name == 'workflow_dispatch' && inputs.operation == 'preflight-only'))"), 'the provider-only enforcement step must not run for the one-time full-acceptance push');
+const siteEvidenceCondition = /if: always\(\) && github\.ref == 'refs\/heads\/main' && \(\(github\.event_name == 'workflow_dispatch' && \(inputs\.operation == 'full-acceptance' \|\| inputs\.operation == 'stage4-site-smoke'\)\) \|\| \(github\.event_name == 'push' && contains\(github\.event\.head_commit\.message, '\[OVYX_FULL_ACCEPTANCE_ONCE\]'\)\)\)/g;
+assert.equal((workflow.match(siteEvidenceCondition) || []).length, 3,
+  'browser, integration reporting and audit must run for full acceptance and explicitly requested site smoke');
 const fullAcceptanceCondition = /if: always\(\) && github\.ref == 'refs\/heads\/main' && \(\(github\.event_name == 'workflow_dispatch' && inputs\.operation == 'full-acceptance'\) \|\| \(github\.event_name == 'push' && contains\(github\.event\.head_commit\.message, '\[OVYX_FULL_ACCEPTANCE_ONCE\]'\)\)\)/g;
-assert.equal((workflow.match(fullAcceptanceCondition) || []).length, 4,
-  'browser, listing, enquiry and audit gates must run only after explicit full-acceptance dispatch');
+assert.equal((workflow.match(fullAcceptanceCondition) || []).length, 1,
+  'the strict listing/enquiry completion gate must remain exclusive to full acceptance');
 assert.match(workflow, /Enforce provider-only preflight result[\s\S]*?GENERATION_OUTCOME: \$\{\{ steps\.generate\.outcome \}\}/);
+assert.match(workflow, /OVYX_EVAL_SITE_SMOKE: .*inputs\.operation == 'stage4-site-smoke'/);
+assert.match(workflow, /stage4-site-smoke-gate-report\.json/);
+
+assert.match(client, /const SITE_SMOKE = process\.env\.OVYX_EVAL_SITE_SMOKE === 'true'/);
+assert.match(client, /preflightSkippedToAvoidAnExtraBudgetedInference/);
+assert.match(client, /stage4-budgeted-smoke/);
 
 const guard = client.indexOf("if (process.env.OVYX_EVAL_PREFLIGHT_ONLY === 'true')");
 const sitesLoop = client.indexOf('  const sites = [];', guard);

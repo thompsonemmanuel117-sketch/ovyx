@@ -494,8 +494,12 @@ export async function handleLiveGenerationRequest(request, env, options = {}) {
   const isProviderPreflight = operation === 'provider-preflight';
   const allowedKeys = isProviderPreflight
     ? new Set(['operation', 'provider', 'model'])
-    : new Set(['caseId', 'provider', 'model', 'publicSettings']);
+    : new Set(['caseId', 'provider', 'model', 'publicSettings', 'profile']);
   const requestedProvider = String(payload?.provider || 'automatic').trim().toLowerCase();
+  const isBudgetedStage4Smoke = payload?.profile === 'stage4-budgeted-smoke' &&
+    payload?.caseId === 'nigeria-baby-products' &&
+    requestedProvider === 'cloudflare-workers-ai';
+  const profileIsAllowed = !Object.hasOwn(payload || {}, 'profile') || isBudgetedStage4Smoke;
   const allowedPreflightProviders = new Set([
     'automatic', 'gemini', 'claude', 'anthropic', 'deepseek', 'openai',
     'groq', 'openrouter', 'cloudflare-workers-ai', 'cloudflare', 'workers-ai',
@@ -504,10 +508,15 @@ export async function handleLiveGenerationRequest(request, env, options = {}) {
       Object.keys(payload).some(key => !allowedKeys.has(key)) ||
       (isProviderPreflight
         ? (!allowedPreflightProviders.has(requestedProvider) || Object.hasOwn(payload, 'caseId'))
-        : (operation !== 'generate-site' || !Object.hasOwn(CASES, String(payload.caseId || ''))))) {
+        : (operation !== 'generate-site' || !Object.hasOwn(CASES, String(payload.caseId || '')) || !profileIsAllowed))) {
     return Response.json({ ok: false, error: 'EVALUATION_CASE_NOT_ALLOWED' }, { status: 400, headers: { 'Cache-Control': 'no-store' } });
   }
   const caseItem = isProviderPreflight ? null : CASES[payload.caseId];
+  const buildCaseItem = isBudgetedStage4Smoke ? {
+    ...caseItem,
+    title: 'Stage 4 budgeted smoke website',
+    prompt: 'Create exactly TWO linked pages for a fictional Nigerian baby-products shop: Home and Contact. Use English (Nigeria), naira where illustrative currency is necessary, accessible semantic HTML, clearly labelled illustrative content, and a calm, polished mobile-first visual system. The Contact page must contain the isolated QA-only enquiry form described in the evaluation contract. Do not invent products as available for purchase, real business contacts, live stock, safety certifications, shipping promises, or medical/developmental claims. Keep shared styling concise and use only local CSS/SVG; no external assets or trackers. This is a budgeted smoke artifact for engineering/human review, not a publishable client site or full acceptance result.',
+  } : caseItem;
   let integrationState;
   try {
     integrationState = await (options.getProductionIntegrationState || getProductionIntegrationState)(env);
@@ -560,16 +569,16 @@ export async function handleLiveGenerationRequest(request, env, options = {}) {
     : QA_CONTRACT + '\n\nNO PUBLIC ENQUIRY ENDPOINT IS CONFIGURED. Do not invent or infer a destination. Include an honest setup state for real enquiries. Test the isolated QA-only form locally; it is not a client-contact integration.';
   // Keep the same QA-only form requirements in the main brief and the production
   // quality contract so requirement planning and generation agree about them.
-  const prompt = buildEvaluationPrompt(caseItem, publicSettings) + '\n\n' + qaContract;
+  const prompt = buildEvaluationPrompt(buildCaseItem, publicSettings) + '\n\n' + qaContract;
   const context = {
-    ...caseItem.market,
-    market: { ...caseItem.market },
-    industry: caseItem.industry,
-    country: caseItem.market.country,
-    locale: caseItem.market.locale,
-    currency: caseItem.market.currency,
-    language: caseItem.market.language,
-    timeZone: caseItem.market.timeZone,
+    ...buildCaseItem.market,
+    market: { ...buildCaseItem.market },
+    industry: buildCaseItem.industry,
+    country: buildCaseItem.market.country,
+    locale: buildCaseItem.market.locale,
+    currency: buildCaseItem.market.currency,
+    language: buildCaseItem.market.language,
+    timeZone: buildCaseItem.market.timeZone,
     evaluationArtifact: true,
     qaOnlyEnquiryEndpoint: QA_ENDPOINT,
     publicListingsEndpointConfigured: Boolean(publicSettings.listingsUrl),
@@ -580,18 +589,29 @@ export async function handleLiveGenerationRequest(request, env, options = {}) {
   const experience = buildExperienceBrief(prompt + '\n\n' + qaContract, context);
   let generated;
   try {
+    const builderEnv = {
+      ...env,
+      OVYX_WEBSTUDIO_MAX_PAGES: isBudgetedStage4Smoke ? '2' : '8',
+      OVYX_WEBSTUDIO_MAX_BATCH_FILES: isBudgetedStage4Smoke ? '3' : '6',
+      OVYX_WEBSTUDIO_POLISH_ENABLED: isBudgetedStage4Smoke ? 'false' : (env.OVYX_WEBSTUDIO_POLISH_ENABLED || 'true'),
+      ...(isBudgetedStage4Smoke ? {
+        OVYX_WEBSTUDIO_PLAN_TOKENS: '1600',
+        OVYX_WEBSTUDIO_BATCH_TOKENS: '4200',
+        OVYX_WEBSTUDIO_REQUIREMENT_REPAIR_TOKENS: '1200',
+      } : {}),
+    };
     generated = await buildStudioMultiPage({
-      env: { ...env, OVYX_WEBSTUDIO_MAX_PAGES: '8', OVYX_WEBSTUDIO_MAX_BATCH_FILES: '6', OVYX_WEBSTUDIO_POLISH_ENABLED: env.OVYX_WEBSTUDIO_POLISH_ENABLED || 'true' },
+      env: builderEnv,
       callModel,
       provider,
       model: model || undefined,
       authUser: null,
       prompt,
-      project: { name: caseItem.title, pages: [] },
+      project: { name: buildCaseItem.title, pages: [] },
       files: {},
       mode: 'build',
       context: JSON.stringify({ ...context, experience }),
-      qualityContract: WEB_STUDIO_EXCELLENCE + '\n\n' + qaContract,
+      qualityContract: isBudgetedStage4Smoke ? qaContract : WEB_STUDIO_EXCELLENCE + '\n\n' + qaContract,
     });
   } catch (error) {
     const outputDiagnostics = safeLiveGenerationOutputDiagnostics(error);
@@ -634,8 +654,9 @@ export async function handleLiveGenerationRequest(request, env, options = {}) {
   }
   const metadata = {
     id: caseItem.id,
-    title: caseItem.title,
-    industry: caseItem.industry,
+    title: buildCaseItem.title,
+    industry: buildCaseItem.industry,
+    evaluationProfile: isBudgetedStage4Smoke ? 'stage4-budgeted-smoke' : 'full-acceptance',
     market: caseItem.market,
     liveInventorySourceConfigured: Boolean(publicSettings.listingsUrl),
     publicListingsEndpointConfigured: Boolean(publicSettings.listingsUrl),

@@ -42,7 +42,13 @@ for (const [cause, expected] of [
   );
 }
 
-assert.ok(liveGenerationRoute.includes("OVYX_WEBSTUDIO_MAX_PAGES: '8'"), 'The live-evaluation harness should use a bounded eight-page ceiling so the model can include useful supporting pages without silently truncating its plan.');
+assert.ok(liveGenerationRoute.includes("OVYX_WEBSTUDIO_MAX_PAGES: isBudgetedStage4Smoke ? '2' : '8'"),
+  'the full acceptance path keeps its eight-page ceiling; only the guarded site smoke is limited to two pages');
+assert.ok(liveGenerationRoute.includes("payload?.profile === 'stage4-budgeted-smoke'"));
+assert.ok(liveGenerationRoute.includes("requestedProvider === 'cloudflare-workers-ai'"));
+assert.ok(liveGenerationRoute.includes("OVYX_WEBSTUDIO_POLISH_ENABLED: isBudgetedStage4Smoke ? 'false'"));
+assert.ok(liveGenerationRoute.includes("OVYX_WEBSTUDIO_BATCH_TOKENS: '4200'"));
+assert.ok(liveGenerationRoute.includes("evaluationProfile: isBudgetedStage4Smoke ? 'stage4-budgeted-smoke' : 'full-acceptance'"));
 
 const keys=['GEMINI_API_KEY','ANTHROPIC_API_KEY','DEEPSEEK_API_KEY','OPENAI_API_KEY','OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL','OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY','OVYX_EVAL_PUBLIC_ENQUIRY_URL','OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE','OVYX_EVAL_ENQUIRY_TEST_RECIPIENT'];
 const saved=Object.fromEntries([...keys,'OVYX_EVAL_PROVIDER','OVYX_EVAL_MODEL'].map(key=>[key,process.env[key]]));

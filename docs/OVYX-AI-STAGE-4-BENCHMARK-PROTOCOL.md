@@ -10,6 +10,18 @@ The explicit live runner calls the authenticated OVYX endpoint /api/ai/assistant
 
 The website-build task goes through the real Web Studio mode=build route. Returned files are saved to an isolated artifacts/ovyx-stage4-cloudflare-ai/<run-id>/generated-sites/cedar-crumb directory and passed to OVYX's existing static website evaluator. A separate Playwright pass is opt-in and uses the existing isolated local test server; its default browser policy blocks external requests. Public listings and enquiry probes are disabled in the browser-evaluation child process.
 
+## Budgeted one-site smoke operation
+
+The workflow also exposes a manual `stage4-site-smoke` operation for obtaining one real generated artifact before spending the larger allowance needed for full acceptance. Select it from the [OVYX live-generation workflow](https://github.com/thompsonemmanuel117-sketch/ovyx/actions/workflows/ovyx-webstudio-live-generation.yml) on `main`.
+
+- It is fixed to the allow-listed Nigeria baby-products evaluation case and `cloudflare-workers-ai`; the public endpoint rejects caller-supplied profiles, different case IDs, and non-Cloudflare profile requests.
+- It creates only two linked pages, caps planning/batch/repair output tokens, disables the optional design-polish inference, and skips the separate tiny provider preflight so that the actual site build is the first inference request. These are smoke-only limits; the normal full-acceptance ceiling and generation settings remain unchanged.
+- It forces public listings and enquiry probes off and keeps the site’s isolated QA-only form separate from real client integrations. It does not read, expose, or change provider keys, account entitlements, the global daily budget, production routing, or Universal Connection.
+- It still verifies that the run’s exact source SHA has a successful production Cloudflare Pages deployment before sending a generation request. The output artifact is labelled `stage4-budgeted-single-site-smoke`. A successful smoke gate says only that one artifact was generated and evaluated in Chromium and is **awaiting human review**; it explicitly leaves the 12-task benchmark, four-site acceptance, live integrations and device review incomplete.
+- If the protected daily budget is exhausted, the generation fails and the report records that result. The smoke operation does not retry a failed generation or bypass the quota guard.
+
+This operation is a cost-aware way to secure the first actual site for human and device review. It is not a substitute for the full acceptance workflow or the authenticated 12-task assistant benchmark.
+
 ## Live-run safeguards
 
 A push explicitly tagged for a one-time full acceptance uses `cloudflare-workers-ai` rather than automatic multi-provider routing, so the Stage 4 acceptance path cannot choose a different AI vendor. The trusted full-acceptance workflow also queries Cloudflare Pages deployment metadata and waits for a successful **production** deployment whose source branch is `main` and whose commit SHA exactly matches the run's source revision. If Cloudflare has not deployed that revision within the bounded wait, or its deployment fails/is skipped, the workflow stops before live AI generation. This check reads only deployment metadata; it does not read, print or change runtime secrets, provider routing, budgets, or Universal Connection settings.

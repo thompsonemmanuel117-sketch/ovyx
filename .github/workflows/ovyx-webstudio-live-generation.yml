@@ -3,11 +3,12 @@ on:
   workflow_dispatch:
     inputs:
       operation:
-        description: Run only a small provider readiness check or the full four-site acceptance
+        description: Run a small readiness check, one budgeted site smoke, or full four-site acceptance
         required: true
         type: choice
         options:
           - preflight-only
+          - stage4-site-smoke
           - full-acceptance
         default: preflight-only
       provider:
@@ -120,7 +121,7 @@ jobs:
       # Do not benchmark production while Cloudflare Pages is still deploying this commit.
       # If the source revision is missing or the deployment fails, fail closed before any live inference.
       - name: Verify successful production deployment of this exact source revision
-        if: github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && inputs.operation == 'full-acceptance') || (github.event_name == 'push' && contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]')))
+        if: github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && (inputs.operation == 'full-acceptance' || inputs.operation == 'stage4-site-smoke')) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]')))
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -134,7 +135,8 @@ jobs:
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         continue-on-error: true
         env:
-          OVYX_EVAL_PROVIDER: ${{ github.event_name == 'workflow_dispatch' && inputs.provider || (github.event_name == 'push' && contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]') && 'cloudflare-workers-ai') || 'automatic' }}
+          OVYX_EVAL_PROVIDER: ${{ (github.event_name == 'workflow_dispatch' && inputs.operation == 'stage4-site-smoke') && 'cloudflare-workers-ai' || (github.event_name == 'workflow_dispatch' && inputs.provider) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]') && 'cloudflare-workers-ai') || 'automatic' }}
+          OVYX_EVAL_SITE_SMOKE: ${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'stage4-site-smoke' }}
           OVYX_EVAL_PREFLIGHT_ONLY: ${{ (github.event_name != 'workflow_dispatch' && !contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]')) || (github.event_name == 'workflow_dispatch' && inputs.operation == 'preflight-only') }}
           OVYX_EVAL_MODEL: ${{ vars.OVYX_EVAL_MODEL }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
@@ -160,7 +162,7 @@ jobs:
         if: github.event_name == 'pull_request'
         run: echo "PR regression tests ran. Live generation and external enquiry probes run only on trusted main/workflow_dispatch events through the short-lived OIDC verifier; provider API keys stay in Cloudflare."
       - name: Inspect model-generated sites in Chromium at five widths
-        if: always() && github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && inputs.operation == 'full-acceptance') || (github.event_name == 'push' && contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]')))
+        if: always() && github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && (inputs.operation == 'full-acceptance' || inputs.operation == 'stage4-site-smoke')) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]')))
         id: browser
         continue-on-error: true
         env:
@@ -170,7 +172,7 @@ jobs:
           OVYX_EVAL_ENQUIRY_TEST_RECIPIENT: ${{ secrets.OVYX_EVAL_ENQUIRY_TEST_RECIPIENT }}
         run: node scripts/ovyx-webstudio-generated-site-browser-eval.mjs artifacts/webstudio-generated-sites artifacts/webstudio-evaluation-report/browser
       - name: Evaluate configured real listing and enquiry services
-        if: always() && github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && inputs.operation == 'full-acceptance') || (github.event_name == 'push' && contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]')))
+        if: always() && github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && (inputs.operation == 'full-acceptance' || inputs.operation == 'stage4-site-smoke')) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]')))
         id: integration
         continue-on-error: true
         env:
@@ -188,7 +190,7 @@ jobs:
           OVYX_INTEGRATION_REPORT_OUT: artifacts/webstudio-evaluation-report/integration-report.json
         run: node scripts/ovyx-live-service-integration-eval.mjs
       - name: Audit copy, routes, visuals and integration claims
-        if: always() && github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && inputs.operation == 'full-acceptance') || (github.event_name == 'push' && contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]')))
+        if: always() && github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && (inputs.operation == 'full-acceptance' || inputs.operation == 'stage4-site-smoke')) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]')))
         id: audit
         continue-on-error: true
         run: node scripts/ovyx-webstudio-acceptance-audit.mjs artifacts/webstudio-generated-sites artifacts/webstudio-evaluation-report/browser/browser-report.json artifacts/webstudio-evaluation-report/acceptance-report.json artifacts/webstudio-evaluation-report/integration-report.json
@@ -247,6 +249,48 @@ jobs:
               humanEditorialReviewCompleted:false
             },null,2));
           }
+          NODE
+      - name: Enforce Stage 4 single-site smoke evidence without claiming full acceptance
+        if: always() && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.operation == 'stage4-site-smoke'
+        env:
+          GENERATION_OUTCOME: ${{ steps.generate.outcome }}
+          BROWSER_OUTCOME: ${{ steps.browser.outcome }}
+          AUDIT_OUTCOME: ${{ steps.audit.outcome }}
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs/promises';
+          const reportDir = 'artifacts/webstudio-evaluation-report';
+          let browser = {};
+          let audit = {};
+          try { browser = JSON.parse(await fs.readFile(reportDir + '/browser/browser-report.json', 'utf8')); } catch {}
+          try { audit = JSON.parse(await fs.readFile(reportDir + '/acceptance-report.json', 'utf8')); } catch {}
+          const generatedFiles = await fs.readdir('artifacts/webstudio-generated-sites/nigeria-baby-products', { recursive: true }).catch(() => []);
+          const failures = [];
+          if (process.env.GENERATION_OUTCOME !== 'success') failures.push(['single-site generation', process.env.GENERATION_OUTCOME || 'not-run']);
+          if (!generatedFiles.some(name => /\.html?$/i.test(String(name)))) failures.push(['real generated HTML files', 'missing']);
+          if (process.env.BROWSER_OUTCOME !== 'success' || browser.status !== 'browser-evaluated' || !Array.isArray(browser.evaluatedSites) || browser.evaluatedSites.length !== 1) {
+            failures.push(['isolated Chromium browser evaluation', browser.status || process.env.BROWSER_OUTCOME || 'missing']);
+          }
+          if (process.env.AUDIT_OUTCOME !== 'success' || !audit.sitesFound || audit.status === 'not-run-no-generated-sites' || audit.sites?.some(site => site.status === 'needs-attention')) {
+            failures.push(['single-site acceptance audit', audit.status || process.env.AUDIT_OUTCOME || 'missing or has blockers']);
+          }
+          const result = {
+            status: failures.length ? 'stage4-site-smoke-needs-attention' : 'stage4-site-smoke-browser-verified-awaiting-human-review',
+            evaluationMode: 'stage4-budgeted-single-site-smoke',
+            fullStage4Acceptance: false,
+            sitesFound: audit.sitesFound || 0,
+            browserSites: Array.isArray(browser.evaluatedSites) ? browser.evaluatedSites.length : 0,
+            realListingsConfirmed: false,
+            realEnquiryDeliveryConfirmed: false,
+            humanVisualReviewCompleted: false,
+            humanEditorialReviewCompleted: false,
+            failures,
+            note: 'This bounded smoke creates one isolated QA artifact only. It does not pass the 12-task benchmark, full four-site acceptance, authoritative listings/enquiry checks, or human and target-device reviews.',
+          };
+          await fs.mkdir(reportDir, { recursive: true });
+          await fs.writeFile(reportDir + '/stage4-site-smoke-gate-report.json', JSON.stringify(result, null, 2) + '\n');
+          console.log(JSON.stringify(result, null, 2));
+          if (failures.length) process.exitCode = 1;
           NODE
       - name: Preserve all screenshots and reports
         if: always()
