@@ -120,6 +120,10 @@ assert.doesNotMatch(source.planUpdate, /user\.role[^\n]{0,100}ROOT_SUPERUSER/, '
 assert.match(source.usersApi, /const rootUser = email === ROOT_EMAIL;/, 'Only the canonical owner account must be treated as root in the account registry.');
 assert.match(source.controlApi, /action === 'saveSettings'/);
 assert.match(source.runtime, /function patchProductionSwitch/);
+assert.match(source.runtime, /__ovyxGlobalStatePromise/, 'Concurrent owner status startup reads must share one in-flight request.');
+assert.match(source.runtime, /OVYX_OWNER_AUTH_PENDING/, 'Auth initialization races must be handled without a misleading integration failure.');
+assert.match(source.runtime, /Waiting for verified owner authentication/, 'The UI should wait quietly for verified owner auth instead of showing a false failure.');
+assert.match(source.runtime, /if \(!owner\(\) \|\| !currentUser\(\) \|\| error\?\.code === 'OVYX_OWNER_AUTH_PENDING'\)/, 'Only real failures for a still-authenticated owner should show the error state.');
 assert.match(source.runtime, /function mountProductionControlPanel/);
 assert.match(source.runtime, /api\('\/api\/admin\/control'/);
 
