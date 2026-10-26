@@ -418,11 +418,22 @@ async function recordCloudflareFreeExhaustion(env, reason) {
       }, raw.updateTime);
       return;
     } catch (error) {
-      if (error?.status === 409 || error?.code === 'FIRESTORE_PRECONDITION_FAILED') continue;
-      throw budgetLedgerUnavailable(error, 'OVYX could not safely record the daily AI stop. Please retry later.');
+      if (error?.status === 409 || error?.code === 'FIRESTORE_PRECONDITION_FAILED') {
+        // Many simultaneous Workers AI requests may all receive the account's
+        // free-quota response at once. They then race to persist the same
+        // exhausted-day marker. Apply the same bounded jittered retry used by
+        // reservation/settlement so a burst does not turn a quota response
+        // into a misleading generic "budget ledger unavailable" failure.
+        if (attempt + 1 < BUDGET_RETRIES) {
+          await waitForBudgetRetry(attempt);
+          continue;
+        }
+      } else {
+        throw budgetLedgerUnavailable(error, 'OVYX could not safely record the daily AI stop. Please retry later.', 'stop');
+      }
     }
   }
-  throw fail(503, 'OVYX_AI_BUDGET_LEDGER_UNAVAILABLE', 'OVYX could not safely record the daily AI stop. Please retry later.');
+  throw fail(503, 'OVYX_AI_BUDGET_LEDGER_CONFLICT_EXHAUSTED', 'OVYX could not safely record the daily AI stop after bounded concurrent-write retries. Please retry later.');
 }
 export async function isCloudflareFreeAllowanceExhausted(env) {
   const raw = await getDailyBudgetLedger(env);

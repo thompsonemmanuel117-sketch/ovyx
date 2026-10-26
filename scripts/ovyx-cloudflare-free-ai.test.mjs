@@ -97,6 +97,17 @@ const providerSource = readFileSync(new URL('../functions/_lib/providers.js', im
 const middlewareSource = readFileSync(new URL('../functions/api/_middleware.js', import.meta.url), 'utf8');
 assert.match(helperSource, /setFirestoreDocumentIfCurrent/);
 assert.match(helperSource, /OVYX_AI_BUDGET_LEDGER_UNAVAILABLE/);
+
+const exhaustionMarkerStart = helperSource.indexOf('async function recordCloudflareFreeExhaustion');
+const exhaustionMarkerEnd = helperSource.indexOf('export async function isCloudflareFreeAllowanceExhausted', exhaustionMarkerStart);
+assert.ok(exhaustionMarkerStart >= 0 && exhaustionMarkerEnd > exhaustionMarkerStart,
+  'the Cloudflare daily-quota stop marker writer must remain independently testable');
+const exhaustionMarkerSource = helperSource.slice(exhaustionMarkerStart, exhaustionMarkerEnd);
+assert.match(exhaustionMarkerSource, /await waitForBudgetRetry\(attempt\)/,
+  'concurrent quota-exhaustion marker writes must use bounded jittered retries instead of a tight conflict loop');
+assert.match(exhaustionMarkerSource, /OVYX_AI_BUDGET_LEDGER_CONFLICT_EXHAUSTED/,
+  'persistent stop-marker contention must report a conflict-exhausted condition rather than a generic unavailable error');
+
 assert.match(helperSource, /reserveCloudflareFreeUserMinute/);
 assert.match(providerSource, /reserveCloudflareFreeUserMinute\(env, options\.authUser\)/);
 assert.match(helperSource, /OVYX_AI_NEURON_BUDGET_EXHAUSTED/);
