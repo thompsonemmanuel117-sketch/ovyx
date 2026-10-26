@@ -15,11 +15,13 @@ on:
         required: true
         type: choice
         options:
+          - cloudflare-workers-ai
+          - automatic
           - gemini
           - claude
           - deepseek
           - openai
-        default: gemini
+        default: cloudflare-workers-ai
   push:
     branches: [main]
     paths:
