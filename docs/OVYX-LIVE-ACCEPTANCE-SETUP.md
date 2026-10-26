@@ -65,21 +65,16 @@ No existing Cloudflare keys need to be renamed, removed or replaced. Add new var
 
 ### Current verified status — 2026-10-26
 
-The full-acceptance attempt at [run 40364547863](https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/40364547863), using main commit `020eb693463f5ef44300f4231b3c3c2c6d65a506), received a real model response during preflight but failed its first full site-generation request. The returned failure was `cloudflare-ai-budget-ledger-unavailable`; no real generated-site artifacts were produced and the browser/artifact acceptance gates correctly remained open.
+The latest trusted production acceptance attempt is [run 40405991196](https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/40405991196), on main commit `c633d71f4e5ded70bb8a628ed9b3bc2b154cc292`.
 
-A follow-up source investigation found that `recordCloudflareFreeExhaustion` retried HTTP 409 / Firestore precondition conflicts in a tight loop without the bounded jitter already used by the other ledger operations. A simultaneous burst of Workers AI requests that hit the account's daily free allocation could therefore fail to persist the shared exhaustion marker and replace the underlying quota error with a generic ledger error. That path was fixed and regression-tested in [commit 18f6e062](https://github.com/thompsonemmanuel117-sketch/ovyx/commit/18f6e062fe20e08bc4c3d0b94f4e41d8ab7e5d06).
+- **Provider preflight passed:** the deployed Cloudflare Workers AI runtime returned a real short response from `@cf/meta/llama-3.1-8b-instruct-fp8-fast`.
+- **Full site generation did not pass:** the first generation request returned HTTP 502 because reading the shared `system/ovyx-workers-ai-budget` Firestore document hit a socket reset (`ECONNRESET`, surfaced as `FIRESTORE_READ_TRANSPORT_FAILED`). No real site files were produced, so the browser evaluator correctly reported `not-run-no-real-artifacts`.
+- A rerun of earlier commit `3ad8d516` also failed at the budget-ledger stage. These failures must not be reclassified as model-quality failures or bypassed by turning off the shared daily budget.
+- The current production diagnostic confirms that the Pages deployment itself is healthy, but that health check does not prove Firestore read connectivity or service-account authorization.
 
-The latest post-fix provider check, [run 40366125186](https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/40366125186), returned a real short response from `@cf/meta/llama-3.1-8b-instruct-fp8-fast`. It ran in `preflight-only` mode and explicitly reported `realSitesGenerated: 0`; it is provider readiness evidence, not a website-generation pass. A fresh full-acceptance retry is the next evidence gate.
+The live listings and enquiry settings also remain unconfigured: no authoritative public property feed is declared, no owner-approved public enquiry endpoint is configured, the external enquiry probe is disabled, and no owner-controlled test recipient is set. Those integration gates must remain open until the owner configures real endpoints and authorizes the controlled test delivery. Human visual and editorial review also remains outstanding.
 
-The production Cloudflare diagnostic for current main commit `708ad6464f9cdd190114c43ad2fa43a92b4d2a9f` reports a healthy deployment, a configured Workers AI binding, a configured Firebase service-account shape, and no deployment-log errors. Service-account authentication itself remains unverified by the health endpoint.
-
-The live-acceptance public settings remain unconfigured:
-
-- An authoritative listings/property source and its client-safe public feed endpoint.
-- An owner-approved enquiry destination and a client-safe submission endpoint.
-- Explicit authorization for the external enquiry probe and a dedicated owner-controlled test recipient.
-
-Even if full website generation and visual/browser checks pass, those missing integrations must remain open until the owner configures and verifies them. Do not expose credentials, invent listing records, or claim enquiry delivery without a confirmed receipt. The free-only AI cap stays enabled; do not enable paid-capped billing just to force an acceptance pass.
+**Next fix:** diagnose and restore reliable Firestore budget-ledger reads while preserving the daily cap; then rerun full acceptance against the exact deployed commit. Do not enable paid-capped mode or weaken the budget guard just to get a green run.
 ## 6. Run and review the evidence
 
 1. Merge only after the targeted code and regression checks pass. A PR run intentionally does not call production generation or send test enquiries.
