@@ -8,6 +8,13 @@ const client = await readFile(new URL('./ovyx-cloudflare-live-generation-client.
 assert.match(workflow, /operation:\s*\n\s+description: Run only a small provider readiness check or the full four-site acceptance\s*\n\s+required: true\s*\n\s+type: choice\s*\n\s+options:\s*\n\s+- preflight-only\s*\n\s+- full-acceptance\s*\n\s+default: preflight-only/);
 assert.ok(workflow.includes("OVYX_EVAL_PREFLIGHT_ONLY: ${{ (github.event_name != 'workflow_dispatch' && !contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]')) || (github.event_name == 'workflow_dispatch' && inputs.operation == 'preflight-only') }}"), 'ordinary pushes must stay preflight-only, unless an explicit one-time acceptance marker is present');
 assert.match(workflow, /default: preflight-only/);
+
+const providerSelector = workflow.slice(workflow.indexOf('      provider:'), workflow.indexOf('\n  push:', workflow.indexOf('      provider:')));
+assert.ok(providerSelector.includes('- cloudflare-workers-ai') && providerSelector.includes('default: cloudflare-workers-ai'),
+  'the manual full-acceptance selector must offer the existing Cloudflare Workers AI runtime as its safe default, not a stale third-party provider');
+assert.ok(providerSelector.includes('- automatic'),
+  'operators must be able to test OVYX automatic routing when they explicitly choose it');
+
 assert.ok(workflow.includes("if: github.ref == 'refs/heads/main' && ((github.event_name == 'push' && !contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]')) || (github.event_name == 'workflow_dispatch' && inputs.operation == 'preflight-only'))"), 'the provider-only enforcement step must not run for the one-time full-acceptance push');
 const fullAcceptanceCondition = /if: always\(\) && github\.ref == 'refs\/heads\/main' && \(\(github\.event_name == 'workflow_dispatch' && inputs\.operation == 'full-acceptance'\) \|\| \(github\.event_name == 'push' && contains\(github\.event\.head_commit\.message, '\[OVYX_FULL_ACCEPTANCE_ONCE\]'\)\)\)/g;
 assert.equal((workflow.match(fullAcceptanceCondition) || []).length, 4,
