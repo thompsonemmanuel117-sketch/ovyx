@@ -514,6 +514,9 @@ async function generateOne(origin, provider, model, integrationSettings, caseId)
   return writeGeneratedSite(caseId, body);
 }
 async function main() {
+  if (SKIP_LIVE_INFERENCE && !SITE_SMOKE && process.env.OVYX_EVAL_PREFLIGHT_ONLY !== 'true') {
+    throw new Error('OVYX_EVAL_SKIP_LIVE_INFERENCE is only valid for routine preflight-only checks; refusing a generation run without the provider readiness gate.');
+  }
   await fs.mkdir(OUTPUT, { recursive: true });
   const origin = await cloudflareProjectOrigin();
   await waitForEndpoint(origin);
