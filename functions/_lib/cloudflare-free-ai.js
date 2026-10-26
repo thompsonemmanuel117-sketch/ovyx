@@ -17,6 +17,11 @@ function isRetryableBudgetError(error) {
   const status = Number(error?.status);
   return error?.code === 'FIRESTORE_PRECONDITION_FAILED' ||
     error?.code === 'FIRESTORE_DOCUMENT_ALREADY_EXISTS' ||
+    // firebase-admin deliberately wraps a fetch/network exception in a stable
+    // code so callers don't need to inspect raw transport errors. Treat this
+    // specific read-transport failure as transient and retry within the same
+    // bounded ledger loop; never initialize a new ledger or bypass its cap.
+    error?.code === 'FIRESTORE_READ_TRANSPORT_FAILED' ||
     status === 409 || status === 412 ||
     [408, 425, 429, 500, 502, 503, 504].includes(status) ||
     error?.name === 'TypeError';
