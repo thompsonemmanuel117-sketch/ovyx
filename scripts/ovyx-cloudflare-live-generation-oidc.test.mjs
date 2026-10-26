@@ -377,6 +377,95 @@ const allowedSmokeButPaused = await handleLiveGenerationRequest(
 assert.equal(allowedSmokeButPaused.status, 503, 'the allowed profile must respect the existing production integration pause');
 assert.equal((await allowedSmokeButPaused.json()).error, 'PRODUCTION_INTEGRATIONS_PAUSED');
 
+let budgetLedgerReads = 0;
+let budgetStatusModelCalls = 0;
+const budgetAvailableResponse = await handleLiveGenerationRequest(
+  new Request('https://forgeos-2k0.pages.dev/api/internal/live-generation-eval', {
+    method: 'POST',
+    headers: { authorization: 'Bearer ' + validToken, 'content-type': 'application/json' },
+    body: JSON.stringify({ operation: 'budget-status' }),
+  }),
+  {},
+  {
+    fetchImpl,
+    nowSeconds: now,
+    isCloudflareFreeAllowanceExhausted: async () => { budgetLedgerReads += 1; return false; },
+    callModel: async () => { budgetStatusModelCalls += 1; throw new Error('Budget status must never call a model.'); },
+  },
+);
+assert.equal(budgetAvailableResponse.status, 200, 'budget-status should return a no-inference ledger result');
+const budgetAvailableBody = await budgetAvailableResponse.json();
+assert.equal(budgetAvailableBody.operation, 'budget-status');
+assert.equal(budgetAvailableBody.status, 'available');
+assert.equal(budgetAvailableBody.inferencePerformed, false);
+assert.equal(budgetAvailableBody.providerReadinessVerified, false, 'an internal ledger read must not imply provider readiness');
+assert.match(budgetAvailableBody.resetsAtUtc, /^\\d{4}-\\d{2}-\\d{2}T00:00:00\\.000Z$/);
+assert.equal(budgetLedgerReads, 1, 'budget status should read the OVYX budget ledger exactly once');
+assert.equal(budgetStatusModelCalls, 0, 'budget status must not call the model');
+
+const budgetExhaustedResponse = await handleLiveGenerationRequest(
+  new Request('https://forgeos-2k0.pages.dev/api/internal/live-generation-eval', {
+    method: 'POST',
+    headers: { authorization: 'Bearer ' + validToken, 'content-type': 'application/json' },
+    body: JSON.stringify({ operation: 'budget-status' }),
+  }),
+  {},
+  {
+    fetchImpl,
+    nowSeconds: now,
+    isCloudflareFreeAllowanceExhausted: async () => true,
+    callModel: async () => { budgetStatusModelCalls += 1; throw new Error('Budget status must never call a model.'); },
+  },
+);
+assert.equal(budgetExhaustedResponse.status, 200, 'a successfully read exhausted state is data, not a route error');
+const budgetExhaustedBody = await budgetExhaustedResponse.json();
+assert.equal(budgetExhaustedBody.status, 'exhausted');
+assert.equal(budgetExhaustedBody.inferencePerformed, false);
+assert.equal(budgetStatusModelCalls, 0);
+
+let privateBudgetReadError = false;
+const budgetUnavailableResponse = await handleLiveGenerationRequest(
+  new Request('https://forgeos-2k0.pages.dev/api/internal/live-generation-eval', {
+    method: 'POST',
+    headers: { authorization: 'Bearer ' + validToken, 'content-type': 'application/json' },
+    body: JSON.stringify({ operation: 'budget-status' }),
+  }),
+  {},
+  {
+    fetchImpl,
+    nowSeconds: now,
+    isCloudflareFreeAllowanceExhausted: async () => {
+      throw Object.assign(new Error('PRIVATE_FIRESTORE_DETAIL'), {
+        code: 'OVYX_AI_BUDGET_LEDGER_READ_CAUSE_FIRESTORE_READ_TRANSPORT_FAILED',
+      });
+    },
+    callModel: async () => { privateBudgetReadError = true; return { text: 'must not run' }; },
+  },
+);
+assert.equal(budgetUnavailableResponse.status, 503, 'a failed budget-ledger read must fail closed');
+const budgetUnavailableBody = await budgetUnavailableResponse.json();
+assert.equal(budgetUnavailableBody.error, 'BUDGET_STATUS_UNAVAILABLE');
+assert.equal(budgetUnavailableBody.detail, 'cloudflare-ai-budget-ledger-read-cause-firestore-read-transport-failed');
+assert.equal(JSON.stringify(budgetUnavailableBody).includes('PRIVATE_FIRESTORE_DETAIL'), false, 'budget errors must not expose private ledger details');
+assert.equal(privateBudgetReadError, false, 'a failed budget-ledger read must stop before any model call');
+
+let unsafeBudgetStatusRead = false;
+const unsafeBudgetStatus = await handleLiveGenerationRequest(
+  new Request('https://forgeos-2k0.pages.dev/api/internal/live-generation-eval', {
+    method: 'POST',
+    headers: { authorization: 'Bearer ' + validToken, 'content-type': 'application/json' },
+    body: JSON.stringify({ operation: 'budget-status', provider: 'cloudflare-workers-ai' }),
+  }),
+  {},
+  {
+    fetchImpl,
+    nowSeconds: now,
+    isCloudflareFreeAllowanceExhausted: async () => { unsafeBudgetStatusRead = true; return false; },
+  },
+);
+assert.equal(unsafeBudgetStatus.status, 400, 'budget-status must reject provider selection and all extra caller-controlled options');
+assert.equal(unsafeBudgetStatusRead, false, 'invalid budget-status requests must be rejected before reading the ledger');
+
 const babyProductsCase = await handleLiveGenerationRequest(
   new Request('https://forgeos-2k0.pages.dev/api/internal/live-generation-eval', {
     method: 'POST',
