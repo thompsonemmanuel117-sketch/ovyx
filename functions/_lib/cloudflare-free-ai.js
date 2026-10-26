@@ -37,6 +37,28 @@ async function waitForBudgetRetry(attempt) {
   await new Promise(resolve => setTimeout(resolve, delayMs));
 }
 
+/*
+ * Web Studio can dispatch several Cloudflare AI batches concurrently in one
+ * Worker isolate. Serialize only the short budget-ledger/accounting operations
+ * in this isolate so they do not all read and conditionally update the same
+ * Firestore document at once. Model inference itself remains concurrent.
+ *
+ * This is not a distributed lock: other isolates still coordinate through
+ * Firestore updateTime preconditions and the existing bounded retry loop.
+ */
+let budgetOperationTail = Promise.resolve();
+async function withBudgetOperationLock(operation) {
+  const previous = budgetOperationTail;
+  let release;
+  budgetOperationTail = new Promise(resolve => { release = resolve; });
+  await previous;
+  try {
+    return await operation();
+  } finally {
+    release();
+  }
+}
+
 function budgetLedgerUnavailable(error, message, phase = 'unknown') {
   const status = Number(error?.status);
   const safePhase = ['read', 'migration', 'initialize', 'stop', 'reservation'].includes(phase) ? phase : 'unknown';
@@ -381,7 +403,7 @@ async function reserveDailyBudget(env, estimate) {
   throw fail(503, 'OVYX_AI_BUDGET_LEDGER_CONFLICT_EXHAUSTED', 'OVYX could not safely reserve its daily free AI allowance after bounded concurrent-write retries. Please retry later.');
 }
 
-async function settleDailyBudget(env, reservation, actual) {
+async function settleDailyBudgetUnlocked(env, reservation, actual) {
   if (!reservation) return;
   for (let attempt = 0; attempt < BUDGET_RETRIES; attempt += 1) {
     let raw;
@@ -413,6 +435,10 @@ async function settleDailyBudget(env, reservation, actual) {
       return;
     }
   }
+}
+
+async function settleDailyBudget(env, reservation, actual) {
+  return withBudgetOperationLock(() => settleDailyBudgetUnlocked(env, reservation, actual));
 }
 
 function outputText(result) {
@@ -453,7 +479,7 @@ export function isCloudflareFreeQuotaError(error) {
 export function isWebStudioUniversalConnectionFallbackTrigger(error) {
   return isCloudflareFreeQuotaError(error) || String(error?.code || '') === 'DAILY_RATION_EXHAUSTED';
 }
-async function recordCloudflareFreeExhaustion(env, reason) {
+async function recordCloudflareFreeExhaustionUnlocked(env, reason) {
   const day = utcDayKey();
   for (let attempt = 0; attempt < BUDGET_RETRIES; attempt += 1) {
     const raw = await getDailyBudgetLedger(env);
@@ -487,6 +513,10 @@ async function recordCloudflareFreeExhaustion(env, reason) {
   }
   throw fail(503, 'OVYX_AI_BUDGET_LEDGER_CONFLICT_EXHAUSTED', 'OVYX could not safely record the daily AI stop after bounded retries. Please retry later.');
 }
+async function recordCloudflareFreeExhaustion(env, reason) {
+  return withBudgetOperationLock(() => recordCloudflareFreeExhaustionUnlocked(env, reason));
+}
+
 export async function isCloudflareFreeAllowanceExhausted(env) {
   const raw = await getDailyBudgetLedger(env);
   const config = firestoreDocumentToJs(raw) || {};
@@ -560,23 +590,32 @@ export async function runCloudflareFreeInference(env, {
 } = {}) {
   if (!isCloudflareWorkersAIGuardedMode(env)) throw fail(503, 'OVYX_AI_ENGINE_MODE_NOT_CONFIGURED', 'OVYX guarded Cloudflare AI mode is not enabled.');
   if (!env?.AI || typeof env.AI.run !== 'function') throw fail(503, 'OVYX_NATIVE_AI_NOT_CONFIGURED', 'OVYX AI is not connected yet. Please try again later.');
-  // Validate the paid cap before reading/updating budget state or dispatching inference.
+  // Validate and reserve in one isolate-local critical section. This avoids
+  // concurrent Web Studio batches stampeding the shared ledger read/CAS path;
+  // the Firestore conditional-write contract remains the cross-isolate authority.
   const configuredDailyBudget = dailyBudget(env);
-  if (await isCloudflareFreeAllowanceExhausted(env)) {
-    throw fail(429, 'OVYX_AI_CLOUDFLARE_QUOTA_EXHAUSTED',
-      isCloudflarePaidCappedMode(env)
-        ? 'OVYX has reached its configured daily Cloudflare AI budget. No external AI provider was used.'
-        : 'OVYX has reached its protected daily Cloudflare AI capacity. No external AI provider was used.');
-  }
-  const source = Array.isArray(messages)
-    ? messages
-    : [...(system ? [{ role: 'system', content: String(system) }] : []), { role: 'user', content: String(user || '') }];
-  const bounded = compactCloudflareFreeMessages(source);
-  if (!bounded.some(item => item.role === 'user' && item.content.trim())) throw fail(400, 'PROMPT_REQUIRED', 'Please enter a message for OVYX AI.');
-  const outputTokens = Math.min(OVYX_CLOUDFLARE_FREE_MAX_OUTPUT_TOKENS, Math.max(1, Math.ceil(Number(maxTokens) || 1024)));
-  const estimate = estimateCloudflareFreeNeurons(bounded, outputTokens);
-  await reserveUserMinute(env, authUser);
-  const reservation = await reserveDailyBudget(env, estimate);
+  const budgeted = await withBudgetOperationLock(async () => {
+    // Preserve the protected daily stop check before any inference dispatch.
+    if (await isCloudflareFreeAllowanceExhausted(env)) {
+      throw fail(429, 'OVYX_AI_CLOUDFLARE_QUOTA_EXHAUSTED',
+        isCloudflarePaidCappedMode(env)
+          ? 'OVYX has reached its configured daily Cloudflare AI budget. No external AI provider was used.'
+          : 'OVYX has reached its protected daily Cloudflare AI capacity. No external AI provider was used.');
+    }
+    const source = Array.isArray(messages)
+      ? messages
+      : [...(system ? [{ role: 'system', content: String(system) }] : []), { role: 'user', content: String(user || '') }];
+    const bounded = compactCloudflareFreeMessages(source);
+    if (!bounded.some(item => item.role === 'user' && item.content.trim())) {
+      throw fail(400, 'PROMPT_REQUIRED', 'Please enter a message for OVYX AI.');
+    }
+    const outputTokens = Math.min(OVYX_CLOUDFLARE_FREE_MAX_OUTPUT_TOKENS, Math.max(1, Math.ceil(Number(maxTokens) || 1024)));
+    const estimate = estimateCloudflareFreeNeurons(bounded, outputTokens);
+    await reserveUserMinute(env, authUser);
+    const reservation = await reserveDailyBudget(env, estimate);
+    return { bounded, outputTokens, estimate, reservation };
+  });
+  const { bounded, outputTokens, estimate, reservation } = budgeted;
   let result;
   let inferenceDispatched = false;
   const timeout = Math.max(50, Math.min(60000, Number(timeoutMs) || 45000));
