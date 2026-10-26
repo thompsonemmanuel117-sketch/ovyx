@@ -6600,29 +6600,43 @@ window.OVYXV58={syncDock,route:safeRoute,useTemplate,previewTemplate,featureLock
     if(!response.ok||String(data?.role||'').toUpperCase()!==ROOT_ROLE) throw new Error('ROOT_SUPERUSER authorization is required.');
     return {user:u,token,entitlements:data};
   }
+  async function adminControlRequest(method,payload){
+    const {token}=await requireRoot();
+    const headers={Accept:'application/json',Authorization:`Bearer ${token}`};
+    const options={method,headers,credentials:'same-origin',cache:'no-store'};
+    if(payload){
+      headers['Content-Type']='application/json';
+      try{headers['X-Request-ID']=crypto.randomUUID()}catch{}
+      options.body=JSON.stringify(payload);
+    }
+    const response=await fetch('/api/admin/control',options);
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok||data?.ok!==true){
+      throw Object.assign(new Error(data?.error||data?.message||'Administrative integration settings are temporarily unavailable.'),{
+        status:response.status,
+        code:data?.code||'ADMIN_CONTROL_FAILED'
+      });
+    }
+    return data;
+  }
   async function readSystemDocuments(){
-    const firestore=db();
-    if(!firestore) throw new Error('Admin settings are temporarily unavailable. Please try again later.');
-    await requireRoot();
-    const [configSnap,controlsSnap]=await Promise.all([
-      firestore.collection('system').doc('config').get(),
-      firestore.collection('system').doc('admin_controls').get()
-    ]);
-    return {
-      config:configSnap.exists?(configSnap.data()||{}):{},
-      controls:controlsSnap.exists?(controlsSnap.data()||{}):{}
-    };
+    const data=await adminControlRequest('GET');
+    const config=data?.config&&typeof data.config==='object'?data.config:{};
+    return {config,controls:{masterAdminOverride:config.masterAdminOverride===true}};
   }
   async function writeSystemDocument(docId,payload){
-    const firestore=db();
-    if(!firestore) throw new Error('Admin settings are temporarily unavailable. Please try again later.');
-    const {user}=await requireRoot();
-    await firestore.collection('system').doc(docId).set({
-      ...payload,
-      updatedBy:user.uid,
-      updatedByEmail:user.email||null,
-      updatedAt:window.firebase.firestore.FieldValue.serverTimestamp()
-    },{merge:true});
+    let body;
+    if(docId==='admin_controls'){
+      body={action:'setAdminOverride',enabled:payload?.masterAdminOverride===true};
+    }else if(docId==='config'&&(typeof payload?.liveDeploy==='boolean'||typeof payload?.productionLive==='boolean')){
+      const live=typeof payload.liveDeploy==='boolean'?payload.liveDeploy:payload.productionLive;
+      body={action:'setProductionState',live,environment:live?'live':'sandbox'};
+    }else if(docId==='config'&&payload?.pricing&&payload?.gating){
+      body={action:'saveSettings',pricing:payload.pricing,gating:payload.gating,environment:payload.environment};
+    }else{
+      throw Object.assign(new Error('This administrative configuration change is not supported.'),{status:400,code:'ADMIN_ACTION_NOT_ALLOWED'});
+    }
+    return adminControlRequest('POST',body);
   }
   /* ---- Master Admin Override: Firestore is authoritative; localStorage is only a UI cache. ---- */
   const AC=window.AdminConfigurator;
@@ -6723,7 +6737,7 @@ window.OVYXV58={syncDock,route:safeRoute,useTemplate,previewTemplate,featureLock
           if(!authorized&&typeof owner?.refresh==='function'){
             try{authorized=await owner.refresh()===true;}catch{authorized=false;}
           }
-          if(!authorized)return null;
+          if(!authorized || !auth()?.currentUser)return null;
           const docs=await readSystemDocuments();
           if(typeof docs.config.liveDeploy==='boolean') this.isLive=docs.config.liveDeploy;
           else if(typeof docs.config.productionLive==='boolean') this.isLive=docs.config.productionLive;
@@ -6731,6 +6745,11 @@ window.OVYXV58={syncDock,route:safeRoute,useTemplate,previewTemplate,featureLock
           originalRender?.();
           return docs;
         }catch(e){
+          // Auth restoration is asynchronous. Do not surface a failure toast for a
+          // signed-out/initializing session; a verified owner auth event retries below.
+          if(window.OVYXServerOwner?.active!==true || !auth()?.currentUser || e?.code==='OVYX_OWNER_AUTH_PENDING'){
+            return null;
+          }
           console.error('[OVYX Phase 1] production state read failed',e);
           toast('Platform integration status could not be loaded. Please try again.','error');
           return null;
@@ -6743,8 +6762,19 @@ window.OVYXV58={syncDock,route:safeRoute,useTemplate,previewTemplate,featureLock
     // The first load may happen before Firebase has restored the signed-in user.
     // Refresh the protected status after the server confirms the owner identity.
     window.addEventListener('ovyx-owner-state',e=>{
-      if(e.detail?.owner===true)void PS.loadFirestoreState?.();
+      if(e.detail?.owner===true && auth()?.currentUser)void PS.loadFirestoreState?.();
     });
+    // Retry when Firebase restores the owner session, even if the owner-state
+    // event arrived first. The server endpoint remains the source of truth.
+    try{
+      const firebaseAuth=auth();
+      if(firebaseAuth && !PS.__phase1AuthRetry){
+        PS.__phase1AuthRetry=true;
+        firebaseAuth.onAuthStateChanged?.(user=>{
+          if(user && window.OVYXServerOwner?.active===true)void PS.loadFirestoreState?.();
+        });
+      }
+    }catch(e){console.warn('[OVYX Phase 1] owner auth retry listener unavailable',e)}
     PS.toggle=async function(){
       const next=!this.isLive;
       const btn=document.getElementById('master-switch-toggle-btn');

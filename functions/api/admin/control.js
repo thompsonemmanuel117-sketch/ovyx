@@ -122,13 +122,21 @@ export async function onRequestPost(context) {
 
     if (action === 'setProductionState') {
       const live = payload.live === true;
+      const environment = live ? 'live' : 'sandbox';
+      const updatedAt = new Date().toISOString();
+      const updatedBy = clean(user.sub || user.email, 200);
       await setFirestoreDocument(context.env, 'system', 'config', {
         liveDeploy: live,
         productionLive: live,
-        updatedAt: new Date().toISOString(),
-        updatedBy: clean(user.sub || user.email, 200)
+        environment,
+        updatedAt,
+        updatedBy
       }, { merge: true });
-      return jsonResponse({ ok: true, config: { ...current, liveDeploy: live, productionLive: live } }, 200, { 'X-OVYX-Request-ID': id });
+      return jsonResponse({
+        ok: true,
+        config: { ...current, liveDeploy: live, productionLive: live, environment, updatedAt, updatedBy },
+        authority: 'SERVER_ADMIN'
+      }, 200, { 'X-OVYX-Request-ID': id, 'Cache-Control': 'no-store, max-age=0' });
     }
 
     return jsonResponse({ ok: false, error: 'This administrative control is not registered.', code: 'ADMIN_ACTION_NOT_ALLOWED' }, 400, { 'X-OVYX-Request-ID': id });
