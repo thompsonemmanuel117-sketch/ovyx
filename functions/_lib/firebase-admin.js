@@ -74,26 +74,33 @@ async function signJwtRS256(header, payload, privateKeyPem) {
 
   const signingInput = `${headerPart}.${payloadPart}`;
 
-  const cryptoKey = await crypto.subtle.importKey(
-    'pkcs8',
-    pemToArrayBuffer(privateKeyPem),
-    {
-      name: 'RSASSA-PKCS1-v1_5',
-      hash: 'SHA-256'
-    },
-    false,
-    ['sign']
-  );
+  try {
+    const cryptoKey = await crypto.subtle.importKey(
+      'pkcs8',
+      pemToArrayBuffer(privateKeyPem),
+      {
+        name: 'RSASSA-PKCS1-v1_5',
+        hash: 'SHA-256'
+      },
+      false,
+      ['sign']
+    );
 
-  const signature = await crypto.subtle.sign(
-    'RSASSA-PKCS1-v1_5',
-    cryptoKey,
-    new TextEncoder().encode(signingInput)
-  );
+    const signature = await crypto.subtle.sign(
+      'RSASSA-PKCS1-v1_5',
+      cryptoKey,
+      new TextEncoder().encode(signingInput)
+    );
 
-  return `${signingInput}.${base64UrlEncode(
-    new Uint8Array(signature)
-  )}`;
+    return `${signingInput}.${base64UrlEncode(
+      new Uint8Array(signature)
+    )}`;
+  } catch {
+    // Never expose key material or platform-specific crypto error text.
+    throw Object.assign(new Error('Firebase service-account JWT signing failed.'), {
+      code: 'FIREBASE_JWT_SIGNING_FAILED'
+    });
+  }
 }
 
 function parseServiceAccount(env) {
@@ -102,9 +109,9 @@ function parseServiceAccount(env) {
     env?.FIREBASE_SERVICE_ACCOUNT;
 
   if (!raw) {
-    throw new Error(
-      'FIREBASE_SERVICE_ACCOUNT_JSON is not configured.'
-    );
+    throw Object.assign(new Error('FIREBASE_SERVICE_ACCOUNT_JSON is not configured.'), {
+      code: 'FIREBASE_SERVICE_ACCOUNT_NOT_CONFIGURED'
+    });
   }
 
   let account;
@@ -115,9 +122,9 @@ function parseServiceAccount(env) {
         ? JSON.parse(raw)
         : raw;
   } catch {
-    throw new Error(
-      'FIREBASE_SERVICE_ACCOUNT_JSON is invalid JSON.'
-    );
+    throw Object.assign(new Error('FIREBASE_SERVICE_ACCOUNT_JSON is invalid JSON.'), {
+      code: 'FIREBASE_SERVICE_ACCOUNT_INVALID_JSON'
+    });
   }
 
   if (
@@ -126,9 +133,9 @@ function parseServiceAccount(env) {
     !account.private_key ||
     !account.project_id
   ) {
-    throw new Error(
-      'Firebase service account is missing required fields.'
-    );
+    throw Object.assign(new Error('Firebase service account is missing required fields.'), {
+      code: 'FIREBASE_SERVICE_ACCOUNT_MISSING_FIELDS'
+    });
   }
 
   return account;
