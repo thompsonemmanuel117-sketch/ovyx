@@ -1,6 +1,6 @@
 # OVYX AI — Stage 4: Local Intelligence Benchmark Protocol
 
-**Status:** Benchmark plan and fixed test suite prepared; empirical model results are **blocked until Stage 3 produces a genuine local answer on a real target device**. This document records the procedure; it is not evidence that Qwen has passed.
+**Status (2026-10-26):** The fixed 12-task suite is ready and a preliminary genuine CPU/WASM baseline now exists for the small SmolLM2-135M data-saver model in headless CI ([run #40366405361](https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/40366405361)). That run measured load/response/cache/privacy behavior only; it did **not** score all 12 tasks. Official Stage 4 acceptance for the Stage 2 Qwen3.5 candidate remains open until a genuine target-device WebGPU run and scored task suite exist.
 
 **Scope:** Test the model selected in Stage 2 and its smaller local comparison using identical prompts and acceptance rules. Keep all existing OVYX AI routes unchanged. Never use a hosted model as a silent substitute.
 
@@ -9,6 +9,26 @@
 Stage 4 measures whether the model is actually useful for OVYX, not whether it produces fluent-sounding prose. First complete Stage 3's working local load, cancellation, cache, and no-prompt-egress gates. Then run this fixed suite against **Qwen3.5-4B q4f16_1 MLC**. On the same supported devices, run **Qwen3.5-2B q4f16_1 MLC** as the low-resource comparison. Evaluate Qwen3.5-9B only on a device that has enough memory and storage; do not make it a normal mobile download. A coding-specialized large model may be tested separately on OVYX-controlled hardware, with hosting cost stated separately.
 
 Use the same task text and context for each candidate. Do not alter a prompt after seeing a model's answer. Log a failure rather than retrying until a pleasing answer appears; one retry may be recorded as recovery evidence, but not substituted for the first result. Avoid executing generated code or opening generated sites with unrestricted network access.
+
+## Preliminary baseline evidence (not a Stage 4 pass)
+
+**Model:** `onnx-community/SmolLM2-135M-Instruct-ONNX`, q8, `@huggingface/transformers@4.3.1 · ONNX Runtime WASM`, pinned revision `b8a5c0f183b78c55955a5364f610c36668b5e681`.
+
+**Environment:** Headless Chromium on Linux x86_64, 4 logical cores exposed, 16 GB reported browser device-memory estimate; WebGPU API present but no adapter; viewport 1280×900. This is a CI emulation profile, not an actual user's handset or desktop.
+
+| Measurement | Recorded result |
+|---|---:|
+| First model load | 5,484 ms |
+| First sample response | 2,430 ms |
+| Reload/warm model load | 1,443 ms |
+| Second sample response | 1,043 ms |
+| Genuine local answers | 2 |
+| Model-weight GET after reload | 0 |
+| Prompt egress detected | 0 |
+| Hosted inference endpoint calls detected | 0 |
+| Generation stop | Passed |
+
+Evidence: [real CPU/WASM acceptance run #40366405361](https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/40366405361). The model returned genuine text and passed its load/cache/stop/privacy checks, but its answers were not scored against T01–T12. The baseline is therefore **not** evidence that SmolLM2 meets the 3.0/4 target, builds the T04 website, or competes with Qwen3.5. Record every future score and failed task; do not infer quality from latency or fluent wording.
 
 ## Fixed task suite
 
