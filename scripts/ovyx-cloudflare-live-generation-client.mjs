@@ -3,6 +3,7 @@ import path from 'node:path';
 import { readCloudflareEvaluationPublicSettings, summarizeCloudflareRuntimeConfig } from './ovyx-cloudflare-runtime-config-inventory.mjs';
 import { isTrustedGithubOidcRequestHostname } from './ovyx-github-oidc-url.mjs';
 import { selectLiveAcceptanceCases } from './ovyx-live-acceptance-cases.mjs';
+import { findExactCommitDeployment } from './ovyx-cloudflare-deployment-target.mjs';
 
 const REPOSITORY = 'thompsonemmanuel117-sketch/ovyx';
 const AUDIENCE = 'ovyx-live-site-evaluation';
@@ -54,11 +55,16 @@ async function cloudflareProjectOrigin() {
   const token = required('CLOUDFLARE_API_TOKEN');
   const accountId = required('CLOUDFLARE_ACCOUNT_ID');
   const projectName = required('CLOUDFLARE_PAGES_PROJECT');
-  const url = 'https://api.cloudflare.com/client/v4/accounts/' + encodeURIComponent(accountId) +
+  const expectedCommit = String(process.env.GITHUB_SHA || '').trim().toLowerCase();
+  if (!/^[a-f0-9]{40}$/.test(expectedCommit)) {
+    throw new Error('GitHub Actions did not provide a full commit SHA; refusing to run website acceptance against an unverified release.');
+  }
+
+  const projectUrl = 'https://api.cloudflare.com/client/v4/accounts/' + encodeURIComponent(accountId) +
     '/pages/projects/' + encodeURIComponent(projectName);
-  let response;
+  let projectResponse;
   try {
-    response = await fetch(url, {
+    projectResponse = await fetch(projectUrl, {
       headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
       redirect: 'error',
       signal: timeout(15_000),
@@ -66,12 +72,14 @@ async function cloudflareProjectOrigin() {
   } catch {
     throw new Error('Could not securely resolve the configured Cloudflare Pages project.');
   }
-  const payload = await readJsonResponse(response);
-  if (!response.ok || payload.success !== true || !payload.result) {
-    throw new Error('Cloudflare Pages project lookup failed with HTTP ' + response.status + '. Check the existing Pages Read configuration.');
+  const projectPayload = await readJsonResponse(projectResponse);
+  if (!projectResponse.ok || projectPayload.success !== true || !projectPayload.result) {
+    throw new Error('Cloudflare Pages project lookup failed with HTTP ' + projectResponse.status + '. Check the existing Pages Read configuration.');
   }
-  cloudflareRuntimeConfigInventory = summarizeCloudflareRuntimeConfig(payload.result);
-  cloudflareRuntimePublicSettings = readCloudflareEvaluationPublicSettings(payload.result);
+
+  const project = projectPayload.result;
+  cloudflareRuntimeConfigInventory = summarizeCloudflareRuntimeConfig(project);
+  cloudflareRuntimePublicSettings = readCloudflareEvaluationPublicSettings(project);
   console.log(JSON.stringify({
     event: 'cloudflare-runtime-config-presence',
     ...cloudflareRuntimeConfigInventory,
@@ -83,11 +91,60 @@ async function cloudflareProjectOrigin() {
       source: 'cloudflare-production-plain-text-allow-list',
     },
   }));
-  const subdomain = String(payload.result.subdomain || '').trim().toLowerCase();
-  if (!subdomain || !/^[a-z0-9][a-z0-9-]*\.pages\.dev$/.test(subdomain)) {
+
+  const subdomain = String(project.subdomain || '').trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9-]*\.pages\.dev$/.test(subdomain)) {
     throw new Error('Cloudflare did not return a valid canonical Pages subdomain for this project.');
   }
-  return 'https://' + subdomain;
+
+  // Do not infer release freshness from the stable project hostname. It can
+  // continue serving an old deployment while a new Pages build is completing.
+  // Pin the evaluator to the deployment whose commit hash exactly matches this
+  // GitHub Actions run, and fail closed instead of testing stale production code.
+  const deploymentsUrl = 'https://api.cloudflare.com/client/v4/accounts/' + encodeURIComponent(accountId) +
+    '/pages/projects/' + encodeURIComponent(projectName) + '/deployments?env=production&page=1&per_page=25';
+  const deadline = Date.now() + DEPLOYMENT_WAIT_MS;
+  let attempt = 0;
+  while (Date.now() < deadline) {
+    attempt += 1;
+    let response;
+    try {
+      response = await fetch(deploymentsUrl, {
+        headers: { Authorization: 'Bearer ' + token, Accept: 'application/json' },
+        redirect: 'error',
+        signal: timeout(15_000),
+      });
+    } catch {
+      throw new Error('Could not securely inspect Cloudflare production deployments for this commit.');
+    }
+    const payload = await readJsonResponse(response);
+    if (!response.ok || payload.success !== true || !Array.isArray(payload.result)) {
+      throw new Error('Cloudflare production deployment lookup failed with HTTP ' + response.status + '. Check the existing Pages Read configuration.');
+    }
+    const target = findExactCommitDeployment(payload.result, expectedCommit, subdomain);
+    if (target) {
+      console.log(JSON.stringify({
+        event: 'cloudflare-pages-exact-commit-deployment-selected',
+        commit: expectedCommit,
+        deploymentId: target.id,
+        origin: target.origin,
+        stage: target.stage,
+      }));
+      return target.origin;
+    }
+
+    if (attempt % 6 === 0) {
+      console.log(JSON.stringify({
+        event: 'cloudflare-pages-exact-commit-deployment-pending',
+        commit: expectedCommit,
+        attempts: attempt,
+        note: 'Waiting for the successful production deployment for this exact GitHub commit; the canonical hostname will not be used as a fallback.',
+      }));
+    }
+    await new Promise(resolve => setTimeout(resolve, Math.min(10_000, 2_000 + attempt * 500)));
+  }
+
+  throw new Error('No successful production Cloudflare Pages deployment matching this exact GitHub commit was found. Website acceptance was stopped rather than testing an older release.');
 }
 async function getOidcToken() {
   const rawUrl = required('ACTIONS_ID_TOKEN_REQUEST_URL');
