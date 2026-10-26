@@ -5,7 +5,7 @@ const workflow = await readFile(new URL('../.github/workflows/ovyx-webstudio-liv
 const client = await readFile(new URL('./ovyx-cloudflare-live-generation-client.mjs', import.meta.url), 'utf8');
 
 // Keep provider readiness, the budgeted one-site smoke, and full acceptance separate.
-assert.match(workflow, /operation:\s*\n\s+description: Run a small readiness check, one budgeted site smoke, or full four-site acceptance\s*\n\s+required: true\s*\n\s+type: choice\s*\n\s+options:\s*\n\s+- preflight-only\s*\n\s+- full-acceptance\s*\n\s+default: preflight-only/);
+assert.match(workflow, /operation:\s*\n\s+description: Run a small readiness check, one budgeted site smoke, or full four-site acceptance\s*\n\s+required: true\s*\n\s+type: choice\s*\n\s+options:\s*\n\s+- preflight-only\s*\n\s+- stage4-site-smoke\s*\n\s+- full-acceptance\s*\n\s+default: preflight-only/);
 assert.ok(workflow.includes("OVYX_EVAL_PREFLIGHT_ONLY: ${{ (github.event_name != 'workflow_dispatch' && !contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]')) || (github.event_name == 'workflow_dispatch' && inputs.operation == 'preflight-only') }}"), 'ordinary pushes must stay preflight-only, unless an explicit one-time acceptance marker is present');
 assert.match(workflow, /default: preflight-only/);
 
