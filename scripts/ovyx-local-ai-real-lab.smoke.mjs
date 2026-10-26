@@ -84,11 +84,11 @@ async function waitForCpuReady(page, label) {
 async function waitForCpuAnswer(page, label) {
   await page.waitForFunction(() => {
     const status = document.getElementById('device-status')?.textContent || '';
-    return /Local response received from Qwen2\.5 0\.5B CPU\/WASM/i.test(status)
+    return /Local response received from SmolLM2 135M Data Saver CPU\/WASM/i.test(status)
       || /Local generation failed:|local stream did not stop|stopped responding|returned no text/i.test(status);
   }, null, { timeout: 5 * 60 * 1000 });
   const status = String(await page.locator('#device-status').textContent() || '');
-  if (!/Local response received from Qwen2\.5 0\.5B CPU\/WASM/i.test(status)) {
+  if (!/Local response received from SmolLM2 135M Data Saver CPU\/WASM/i.test(status)) {
     throw new Error(label + ' failed in the integrated CPU/WASM lab: ' + safeError(status));
   }
 }
@@ -200,7 +200,7 @@ try {
     timeout: 90000,
   });
   assert.ok(firstNavigation && firstNavigation.status() === 200, 'Local AI lab did not load.');
-  await page.locator('#model-choice').selectOption('qwen25-05b-cpu');
+  await page.locator('#model-choice').selectOption('smollm2-135m-cpu');
   assert.equal(await page.locator('#start-local-ai').isDisabled(), true,
     'CPU/WASM model loading must remain blocked until download consent is given.');
   await page.locator('#allow-model-download').check();
@@ -210,7 +210,7 @@ try {
   currentPhase = 'first-load';
   const firstLoadStartedAt = Date.now();
   await page.locator('#start-local-ai').click();
-  console.log('Real CPU/WASM smoke: loading selected Qwen2.5 0.5B model in the actual local-AI lab.');
+  console.log('Real CPU/WASM smoke: loading selected SmolLM2 135M data-saver model in the actual local-AI lab.');
   const progressTimer = setInterval(async () => {
     try {
       const status = String(await page.locator('#device-status').textContent() || '');
@@ -252,7 +252,7 @@ try {
     await page.locator('#diagnostics-output').waitFor({ state: 'visible' });
     return JSON.parse(await page.locator('#diagnostics-output').inputValue());
   })();
-  assert.equal(firstDiagnostics.selectedModel.modelId, 'onnx-community/Qwen2.5-0.5B-Instruct');
+  assert.equal(firstDiagnostics.selectedModel.modelId, 'onnx-community/SmolLM2-135M-Instruct-ONNX');
   assert.equal(firstDiagnostics.selectedModel.executionDevice, 'wasm');
   console.log('Sanitized cache diagnostics: ' + JSON.stringify({
     cacheNames: firstDiagnostics.storage?.cacheNames,
@@ -269,7 +269,7 @@ try {
   currentPhase = 'reload-load';
   const reloadStartedAt = Date.now();
   await page.reload({ waitUntil: 'domcontentloaded', timeout: 90000 });
-  await page.locator('#model-choice').selectOption('qwen25-05b-cpu');
+  await page.locator('#model-choice').selectOption('smollm2-135m-cpu');
   await page.locator('#allow-model-download').check();
   await page.locator('#start-local-ai').click();
   await waitForCpuReady(page, 'Reload/cache load');
@@ -356,11 +356,11 @@ try {
       viewport: finalDiagnostics.environment.viewport,
     },
     model: {
-      id: 'onnx-community/Qwen2.5-0.5B-Instruct',
+      id: 'onnx-community/SmolLM2-135M-Instruct-ONNX',
       runtime: '@huggingface/transformers@4.3.1 · ONNX Runtime WASM',
       dtype: 'q8',
       executionDevice: 'wasm',
-      revision: 'cc5cc01a65cc3ff17bdb73a7de33d879f62599b0',
+      revision: 'b8a5c0f183b78c55955a5364f610c36668b5e681',
       genuineAnswersReceived: 2,
       answerCharacterCounts: [firstAnswer.length, secondAnswer.length],
       firstLoadDurationMs: firstModelReadyMs,

@@ -35,7 +35,9 @@ assert.match(client, /opfsModelWeightCached/);
 assert.match(client, /could not confirm that the full model weights were saved in persistent browser storage/i);
 assert.match(page, /Nothing is downloaded until you press the explicit start button/i);
 assert.match(page, /assets\/ovyx-local-ai-prototype\.js/);
-assert.match(page, /option value="qwen25-05b-cpu"/, 'the CPU/WASM model must be explicitly selectable rather than a silent fallback');
+assert.match(page, /option value="smollm2-135m-cpu" selected/, 'the smallest data-saver model must be the explicit default selection, without auto-download');
+assert.match(page, /about 136 MB weights/, 'the data-saver option must disclose its approximate weight size');
+assert.match(page, /option value="qwen25-05b-cpu"/, 'the larger CPU/WASM model must remain explicitly selectable rather than a silent fallback');
 assert.match(page, /OVYX never switches models or sends prompts to a cloud provider automatically/i);
 assert.doesNotMatch(page, /ovyx-assistant-workspace\.js|assets\/ovyx-launch-polish\.js|index\.html/);
 
@@ -111,7 +113,12 @@ assert.doesNotMatch(worker, /\/api\/ai\/|\/api\/generate|api\.openai\.com|genera
 assert.match(worker, /@mlc-ai\/web-llm@0\.2\.86/);
 assert.match(cpuWorker, /@huggingface\/transformers@4\.3\.1/);
 assert.match(cpuWorker, /onnx-community\/Qwen2\.5-0\.5B-Instruct/);
-assert.match(cpuWorker, /revision:\s*MODEL_REVISION/);
+assert.match(cpuWorker, /onnx-community\/SmolLM2-135M-Instruct-ONNX/);
+assert.match(cpuWorker, /b8a5c0f183b78c55955a5364f610c36668b5e681/);
+assert.match(client, /sizeBytes: 136_000_000/);
+assert.match(client, /SmolLM2 135M Data Saver CPU\/WASM/);
+assert.match(cpuWorker, /revision:\s*activeModel\.revision/);
+assert.match(cpuWorker, /b8a5c0f183b78c55955a5364f610c36668b5e681/);
 assert.match(cpuWorker, /device:\s*'wasm'/);
 assert.match(cpuWorker, /dtype:\s*'q8'/);
 assert.match(cpuWorker, /MODEL_CACHE_VERSION\s*=\s*1/);
@@ -138,7 +145,7 @@ assert.match(cpuWorker, /Unable to add response to browser cache/i);
 assert.doesNotMatch(cpuWorker, /\/api\/ai\/|\/api\/generate|api\.openai\.com|generativelanguage\.googleapis\.com|api\.anthropic\.com|api\.deepseek\.com|api\.groq\.com|openrouter\.ai\/api/i,
   'the CPU/WASM worker may not reference hosted inference endpoints');
 assert.match(realLabSmoke, /baseURL \+ '\/local-ai-lab\.html'/);
-assert.match(realLabSmoke, /selectOption\('qwen25-05b-cpu'\)/,
+assert.match(realLabSmoke, /selectOption\('smollm2-135m-cpu'\)/,
   'real CPU acceptance must use the user-facing lab and explicit CPU/WASM selection');
 assert.match(realLabSmoke, /reloadWeightRequests/);
 assert.match(realLabSmoke, /forbiddenRequests/);

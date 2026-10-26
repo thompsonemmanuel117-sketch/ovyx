@@ -160,6 +160,9 @@ try {
 
     const response = await page.goto(baseURL + '/local-ai-lab.html', { waitUntil: 'domcontentloaded' });
     assert.ok(response && response.status() === 200, '[' + target.name + '] local AI lab did not load.');
+    // The data-saver option is the default, but this WebGPU contract test
+    // explicitly opts into the larger model it is intended to exercise.
+    await page.locator('#model-choice').selectOption('qwen35-4b');
     await page.waitForFunction(
       () => document.getElementById('device-status')?.textContent?.includes('WebGPU is detected'),
       null,
@@ -452,7 +455,8 @@ try {
       'export const LogLevel = { WARNING: 2 };',
       'export class TextStreamer { constructor(tokenizer, options = {}) { this.tokenizer = tokenizer; this.options = options; } }',
       'export async function pipeline(task, modelId, options = {}) {',
-      '  if (task !== "text-generation" || modelId !== "onnx-community/Qwen2.5-0.5B-Instruct") throw new Error("Unexpected CPU fixture model.");',
+      '  if (task !== "text-generation" || !["onnx-community/Qwen2.5-0.5B-Instruct", "onnx-community/SmolLM2-135M-Instruct-ONNX"].includes(modelId)) throw new Error("Unexpected CPU fixture model.");',
+      '  if (modelId === "onnx-community/SmolLM2-135M-Instruct-ONNX" && (options.revision !== "b8a5c0f183b78c55955a5364f610c36668b5e681" || options.dtype !== "q8")) throw new Error("Data-saver model revision or q8 dtype is not pinned.");',
       '  options.progress_callback?.({ status: "progress_total", progress: 42, file: "model_quantized.onnx" });',
       '  let generationCount = 0;',
       '  const run = async (messages, generationOptions = {}) => {',
@@ -495,9 +499,11 @@ try {
       true,
       '[' + target.name + '] CPU route test must run with WebGPU genuinely absent.',
     );
-    await cpuPage.locator('#model-choice').selectOption('qwen25-05b-cpu');
+    await cpuPage.locator('#model-choice').selectOption('smollm2-135m-cpu');
     assert.equal(await cpuPage.locator('#start-local-ai').isDisabled(), true,
       '[' + target.name + '] CPU/WASM start must require download consent even without WebGPU.');
+    assert.match(await cpuPage.locator('#data-guard-heading').textContent(), /136 MB/i,
+      '[' + target.name + '] data-saver selection must show the smaller model weight size.');
     await cpuPage.locator('#allow-model-download').check();
     assert.equal(await cpuPage.locator('#start-local-ai').isDisabled(), false,
       '[' + target.name + '] explicit CPU/WASM start must remain available without WebGPU after consent.');
@@ -667,6 +673,10 @@ try {
     const lowStorageResponse = await lowStoragePage.goto(baseURL + '/local-ai-lab.html', { waitUntil: 'domcontentloaded' });
     assert.ok(lowStorageResponse && lowStorageResponse.status() === 200,
       '[' + target.name + '] low-storage test lab did not load.');
+    // The data-saver change makes SmolLM2 the selected default. This case
+    // specifically tests the larger WebGPU path's pre-inference storage guard,
+    // so select the intended model rather than relying on the default.
+    await lowStoragePage.locator('#model-choice').selectOption('qwen35-4b');
     await lowStoragePage.waitForFunction(
       () => document.getElementById('device-status')?.textContent?.includes('WebGPU is detected'),
       null,

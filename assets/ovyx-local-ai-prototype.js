@@ -56,6 +56,19 @@
       card: 'https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct',
       files: 'https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct',
     }),
+    'smollm2-135m-cpu': Object.freeze({
+      id: 'onnx-community/SmolLM2-135M-Instruct-ONNX',
+      label: 'SmolLM2 135M Data Saver CPU/WASM',
+      runtime: 'cpu-wasm',
+      revision: 'b8a5c0f183b78c55955a5364f610c36668b5e681',
+      sizeBytes: 136_000_000,
+      sizeLabel: 'about 136 MB of q8 model weights',
+      vramMB: null,
+      vramLabel: 'No GPU memory requirement',
+      context: 2048,
+      card: 'https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct',
+      files: 'https://huggingface.co/onnx-community/SmolLM2-135M-Instruct-ONNX',
+    }),
   });
   const CPU_RUNTIME_LABEL = '@huggingface/transformers@4.3.1 · ONNX Runtime WASM';
   const SYSTEM_PROMPT = [
@@ -116,7 +129,7 @@
   let emptyChatNode = el('chat-empty');
 
   function selectedModelKey() {
-    return MODELS[modelSelect.value] ? modelSelect.value : 'qwen35-4b';
+    return MODELS[modelSelect.value] ? modelSelect.value : 'smollm2-135m-cpu';
   }
 
   function isCpuModelKey(key) {
@@ -245,8 +258,8 @@
       modelDetails.textContent =
         model.label + ' · Apache-2.0\n' +
         'Runtime: Transformers.js 4.3.1 + ONNX Runtime WASM (CPU only)\n' +
-        'Approximate q8 model weights: 512 MB, plus tokenizer/runtime/cache overhead\n' +
-        'No WebGPU or GPU memory is required. CPU generation will be slower and this smaller model is not yet quality-certified.\n' +
+        'Approximate q8 model weights: ' + model.sizeLabel.replace(/^about /, '') + ', plus tokenizer/runtime/cache overhead\n' +
+        'No WebGPU or GPU memory is required. CPU generation will be slower; the 135M data-saver model is much less capable than larger models and is not quality-certified for website generation.\n' +
         'Pinned model revision: ' + model.revision + '\n' +
         'Model files: ' + model.files;
       return;
@@ -489,7 +502,7 @@
       if (available !== null && available < model.sizeBytes + 180_000_000) {
         throw new Error(
           'This browser estimates only ' + (available / 1e6).toFixed(0) +
-          ' MB of free site storage; the selected q8 weights need about 512 MB plus runtime/cache overhead. Free storage or choose another explicitly listed model.'
+          ' MB of free site storage; the selected model needs ' + model.sizeLabel + ' plus runtime/cache overhead. Free storage or choose another explicitly listed model.'
         );
       }
       if (thisLoad !== loadEpoch) return;
@@ -532,7 +545,7 @@
         };
         localWorker.addEventListener('message', onMessage);
         localWorker.addEventListener('error', onError);
-        localWorker.postMessage({ type: 'load' });
+        localWorker.postMessage({ type: 'load', modelKey: key });
       });
 
       await Promise.race([readyPromise, cancellationPromise]);
