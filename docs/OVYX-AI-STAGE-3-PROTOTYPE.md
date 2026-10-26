@@ -21,6 +21,10 @@
 
 The official WebLLM `v0.2.86` source registry lists `Qwen3.5-4B-q4f16_1-MLC`, `Qwen3.5-2B-q4f32_1-MLC` and `Qwen3.5-0.8B-q4f16_1-MLC`. The pinned 4B model-library path is `web-llm-models/v0_2_86/base/Qwen3.5-4B-q4f16_1_cs1k-webgpu.wasm`, which exists in the official MLC binary library tree at the pinned commit. The registry records a 4,096-token configured context and about 3.87 GB GPU memory for the 4B model. The browser contract test checks that the app config passed to WebLLM carries the expected pinned artifact/library URLs. This is source/config and mocked-browser evidence only—not a real successful model download/load, answer, latency measurement or quality result.
 
+### Additional data-saver evidence — 2026-10-26
+
+The [real CPU/WASM acceptance run #40366405361](https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/40366405361) now verifies the default `SmolLM2-135M-Instruct-ONNX` data-saver option through the user-facing lab with genuine local answers. Its sanitized report records an initial model load of 5,484 ms, first/second answer durations of 2,430 ms and 1,043 ms, a 1,443 ms warm reload, zero model-weight GETs after reload, a successful generation stop, and zero prompt egress/hosted inference requests. The run used headless Linux Chromium with WASM CPU execution; the WebGPU API was present but no adapter was available. This is a repeatable low-data CPU baseline—not physical Android/desktop acceptance, the Qwen3.5 target-model proof, or a quality score.
+
 ## Open Stage 3 acceptance gates
 
 - [x] Current desktop/mobile regression workflow passes, including the 0.8B model configuration, privacy-safe diagnostics, and CPU initialization cancellation (GitHub Actions run [40106223918](https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/40106223918)). The older [run 40099426120](https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/40099426120) also established the original UI/isolation contract. Mocked browser tests do not replace physical-device evidence.
