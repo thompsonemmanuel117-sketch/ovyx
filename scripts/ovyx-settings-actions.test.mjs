@@ -68,6 +68,14 @@ assert.ok(phase1AdminRuntime.includes("action:'setAdminOverride'"), 'Legacy admi
 assert.ok(!phase1AdminRuntime.includes("firestore.collection('system')")
   && !phase1AdminRuntime.includes('firestore.collection("system")'),
   'The browser must never read or write protected global system documents directly.');
+
+assert.ok(phase1AdminRuntime.includes("if(!authorized || !auth()?.currentUser)return null;")
+  && phase1AdminRuntime.includes('firebaseAuth.onAuthStateChanged'),
+  'The legacy owner status loader must wait for restored Firebase auth and retry after authentication resolves.');
+assert.ok(phase1AdminRuntime.includes("window.OVYXServerOwner?.active!==true || !auth()?.currentUser")
+  && phase1AdminRuntime.includes("e?.code==='OVYX_OWNER_AUTH_PENDING'"),
+  'Pending or absent authentication must not show the owner-only integration failure toast; genuine authenticated failures remain visible.');
+
 assert.ok(adminControlApi.includes("const user = context.data?.user || await authenticateRequest(context.request, context.env);")
   && adminControlApi.includes('if (!isRootAdmin(user))'), 'The server endpoint must authenticate the caller and require the canonical root account.');
 assert.ok(adminControlApi.includes("const environment = live ? 'live' : 'sandbox';")
