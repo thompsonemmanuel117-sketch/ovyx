@@ -3,6 +3,7 @@ import { readFile } from 'node:fs/promises';
 
 const workflow = await readFile(new URL('../.github/workflows/ovyx-webstudio-live-generation.yml', import.meta.url), 'utf8');
 const client = await readFile(new URL('./ovyx-cloudflare-live-generation-client.mjs', import.meta.url), 'utf8');
+const route = await readFile(new URL('../functions/api/internal/live-generation-eval.js', import.meta.url), 'utf8');
 
 // Keep provider readiness, the budgeted one-site smoke, and full acceptance separate.
 assert.match(workflow, /operation:\s*\n\s+description: Run a small readiness check, one budgeted site smoke, or full four-site acceptance\s*\n\s+required: true\s*\n\s+type: choice\s*\n\s+options:\s*\n\s+- preflight-only\s*\n\s+- stage4-site-smoke\s*\n\s+- full-acceptance\s*\n\s+default: preflight-only/);
@@ -38,6 +39,25 @@ assert.match(workflow, /stage4-site-smoke-gate-report\.json/);
 assert.match(client, /const SITE_SMOKE = process\.env\.OVYX_EVAL_SITE_SMOKE === 'true'/);
 assert.match(client, /preflightSkippedToAvoidAnExtraBudgetedInference/);
 assert.match(client, /stage4-budgeted-smoke/);
+assert.match(client, /async function checkBudgetStatus\(origin\)/);
+assert.match(client, /JSON\.stringify\(\{ operation: 'budget-status' \}\)/);
+assert.match(client, /stage4-budget-status-report\.json/);
+assert.match(client, /budget-exhausted-no-inference/);
+const mainStart = client.indexOf('async function main()');
+const smokeBranch = client.indexOf('if (SITE_SMOKE) {', mainStart);
+const budgetCheck = client.indexOf('await checkBudgetStatus(origin);', smokeBranch);
+const generateLoop = client.indexOf('const sites = [];', mainStart);
+const generateCall = client.indexOf('await generateOne(origin, provider, model, settings, caseId);', generateLoop);
+assert.ok(smokeBranch > mainStart && budgetCheck > smokeBranch && generateLoop > budgetCheck && generateCall > generateLoop,
+  'the site smoke must check the guarded budget ledger before reaching its generation loop');
+const budgetOperation = route.indexOf("const isBudgetStatus = operation === 'budget-status'");
+const budgetHandler = route.indexOf('if (isBudgetStatus) {', budgetOperation);
+const integrationStateRead = route.indexOf('let integrationState;', budgetHandler);
+assert.ok(budgetOperation >= 0 && budgetHandler > budgetOperation && integrationStateRead > budgetHandler,
+  'budget status must return before production integration/provider selection');
+assert.match(route, /providerReadinessVerified: false/);
+assert.match(route, /inferencePerformed: false/);
+assert.match(route, /isCloudflareFreeAllowanceExhausted/);
 
 const guard = client.indexOf("if (process.env.OVYX_EVAL_PREFLIGHT_ONLY === 'true')");
 const sitesLoop = client.indexOf('  const sites = [];', guard);
