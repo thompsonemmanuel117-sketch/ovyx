@@ -29,6 +29,7 @@ let exhaustionConflictWritesRemaining = 0;
 let exhaustionTransientFailuresRemaining = 0;
 const exhaustionTransientFailureStatus = 429;
 let oauthFailuresRemaining = 1;
+let oauthMissingTokenResponsesRemaining = 1;
 let oauthCalls = 0;
 const originalFetch = globalThis.fetch;
 
@@ -109,6 +110,10 @@ try {
       if (oauthFailuresRemaining > 0) {
         oauthFailuresRemaining -= 1;
         return okJson({ error: { error: 'temporarily_unavailable' } }, 503);
+      }
+      if (oauthMissingTokenResponsesRemaining > 0) {
+        oauthMissingTokenResponsesRemaining -= 1;
+        return okJson({ token_type: 'Bearer' }, 200);
       }
       return okJson({ access_token: 'test-only-fake-access-token', expires_in: 3600 });
     }
@@ -197,7 +202,8 @@ try {
   assert.ok(ledger, 'the dedicated usage ledger should be created atomically');
   assert.equal(ledgerReadFailuresRemaining, 0, 'a transient ledger read failure should be retried safely');
   assert.equal(oauthFailuresRemaining, 0, 'a transient Google OAuth token failure should be retried safely');
-  assert.ok(oauthCalls >= 2, 'the OAuth regression must prove a retry after the first HTTP 503');
+  assert.equal(oauthMissingTokenResponsesRemaining, 0, 'a malformed successful Google OAuth response should be retried once before failing closed');
+  assert.ok(oauthCalls >= 3, 'the OAuth regression must cover an HTTP 503 retry and a successful-status response with no access token');
   assert.equal(conflictWritesRemaining, 0, 'concurrent ledger update conflicts should be retried with bounded backoff');
   assert.equal(ledger.fields._ovyxWorkersAiDayUtc.stringValue, today);
   assert.equal(Number(ledger.fields._ovyxWorkersAiConsumedNeurons.integerValue) > 42, true,
