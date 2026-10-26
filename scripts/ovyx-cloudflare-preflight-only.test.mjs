@@ -49,8 +49,8 @@ const mainStart = client.indexOf('async function main()');
 const smokeBranch = client.indexOf('if (SITE_SMOKE) {', mainStart);
 const budgetCheck = client.indexOf('await checkBudgetStatus(origin);', smokeBranch);
 const generateLoop = client.indexOf('const sites = [];', mainStart);
-const generateCall = client.indexOf('await generateOne(origin, provider, model, settings, caseId);', generateLoop);
-assert.ok(smokeBranch > mainStart && budgetCheck > smokeBranch && generateLoop > budgetCheck && generateCall > generateLoop,
+const smokeGenerationCall = client.indexOf('await generateOne(origin, provider, model, settings, caseId);', generateLoop);
+assert.ok(smokeBranch > mainStart && budgetCheck > smokeBranch && generateLoop > budgetCheck && smokeGenerationCall > generateLoop,
   'the site smoke must check the guarded budget ledger before reaching its generation loop');
 const budgetOperation = route.indexOf("const isBudgetStatus = operation === 'budget-status'");
 const budgetHandler = route.indexOf('if (isBudgetStatus) {', budgetOperation);
