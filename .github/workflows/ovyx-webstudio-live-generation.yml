@@ -46,6 +46,7 @@ on:
       - 'scripts/ovyx-webstudio-acceptance-audit.mjs'
       - 'scripts/ovyx-webstudio-generated-site-browser-eval.mjs'
       - 'scripts/ovyx-live-service-integration-eval.mjs'
+      - 'docs/OVYX-LIVE-ACCEPTANCE-SETUP.md'
       - '.github/workflows/ovyx-webstudio-live-generation.yml'
   pull_request:
     branches: [main]
