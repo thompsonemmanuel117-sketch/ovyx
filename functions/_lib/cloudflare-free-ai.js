@@ -48,6 +48,31 @@ function budgetLedgerUnavailable(error, message, phase = 'unknown') {
     code = 'OVYX_AI_BUDGET_LEDGER_' + safePhase.toUpperCase() + '_HTTP_' + status;
   } else if (error?.name === 'TypeError') {
     code = 'OVYX_AI_BUDGET_LEDGER_' + safePhase.toUpperCase() + '_NETWORK_ERROR';
+  } else {
+    // Keep a small allowlist of known internal dependency codes. Never pass
+    // arbitrary upstream message text into the public acceptance report.
+    const safeCauseCodes = new Set([
+      'GOOGLE_OAUTH_TOKEN_EXCHANGE_FAILED',
+      'FIRESTORE_READ_FAILED',
+      'FIRESTORE_DOCUMENT_CREATE_FAILED',
+      'FIRESTORE_CONDITIONAL_WRITE_FAILED',
+      'FIRESTORE_PRECONDITION_REQUIRED',
+      'FIRESTORE_DOCUMENT_ALREADY_EXISTS',
+      'FIRESTORE_PRECONDITION_FAILED',
+    ]);
+    const cause = String(error?.code || '').toUpperCase();
+    if (safeCauseCodes.has(cause)) {
+      code = 'OVYX_AI_BUDGET_LEDGER_' + safePhase.toUpperCase() + '_CAUSE_' + cause;
+    } else {
+      const safeErrorNames = new Set([
+        'ERROR', 'DATAERROR', 'OPERATIONERROR', 'INVALIDACCESSERROR',
+        'NOTSUPPORTEDERROR', 'SYNTAXERROR', 'RANGEERROR', 'REFERENCEERROR',
+        'DOMEXCEPTION', 'ABORTERROR', 'TIMEOUTERROR'
+      ]);
+      const name = String(error?.name || 'Error').toUpperCase();
+      code = 'OVYX_AI_BUDGET_LEDGER_' + safePhase.toUpperCase() + '_ERROR_' +
+        (safeErrorNames.has(name) ? name : 'UNKNOWN');
+    }
   }
   // Log only the phase, safe error code/status and error class; never provider
   // output, OAuth assertions, credential values, or connection secrets.
