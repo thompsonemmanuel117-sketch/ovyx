@@ -50,3 +50,12 @@ Record latency p50/p95 and failures before finalizing the latency go/no-go thres
 ## Current state
 
 The runner and offline contract tests are tooling, not proof that Cloudflare AI has passed. The live run requires an authorized Firebase ID token and explicit approval to consume the account's live AI allowance. Stage 4 remains incomplete until the live task outputs are scored, generated-site quality is reviewed, consistency/recovery evidence is examined, and actual target-device evidence is recorded.
+
+### Production evidence check — 2026-10-26
+
+- The repository's current CI regression suite passed on the commit that added the Cloudflare-only Stage 4 runner, and the Stage 4 offline contract is part of `npm test`. This validates the harness contracts; it does not create empirical model scores.
+- The trusted production full-acceptance run [40405991196](https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/40405991196) received a real response from the Cloudflare Workers AI model during preflight. The first real website-generation request then failed before producing an HTML artifact because the shared Firestore AI-budget ledger read hit a socket reset (`ECONNRESET`). The report correctly marks the generated-site browser review as not run when no real artifacts exist.
+- No authorized `OVYX_STAGE4_FIREBASE_ID_TOKEN` was available to this runner, so the 12-task authenticated `/api/ai/assistant` benchmark has not been executed. Never paste a live token into GitHub source or a chat transcript.
+- Real-device browser responsiveness, human 0–4 scoring, and site-level editorial review remain uncollected. They cannot be marked complete based on unit tests, a successful provider preflight, or a failed generation attempt.
+
+The next technical gate is to restore reliable Firestore budget-ledger reads without bypassing the daily cap; then an authorized operator must run the 12-task Cloudflare-only benchmark and review its generated-site evidence.
