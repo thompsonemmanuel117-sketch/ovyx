@@ -382,7 +382,7 @@ export async function getFirestoreDocument(
   try {
     accessToken = await getGoogleAccessToken(env);
   } catch (error) {
-    if (error?.code || (Number.isInteger(error?.status) && error.status >= 400 && error.status <= 599)) throw error;
+    if ((Number.isInteger(error?.status) && error.status >= 400 && error.status <= 599) || ['GOOGLE_OAUTH_TOKEN_EXCHANGE_FAILED', 'GOOGLE_OAUTH_ACCESS_TOKEN_MISSING', 'GOOGLE_OAUTH_RESPONSE_INVALID', 'FIREBASE_SERVICE_ACCOUNT_NOT_CONFIGURED', 'FIREBASE_SERVICE_ACCOUNT_INVALID_JSON', 'FIREBASE_SERVICE_ACCOUNT_MISSING_FIELDS', 'FIREBASE_JWT_SIGNING_FAILED'].includes(String(error?.code || ''))) throw error;
     throw Object.assign(new Error('Firebase access-token acquisition failed.'), {
       code: 'FIREBASE_ACCESS_TOKEN_ACQUISITION_FAILED'
     });
@@ -402,7 +402,7 @@ export async function getFirestoreDocument(
       }
     });
   } catch (error) {
-    if (error?.code || (Number.isInteger(error?.status) && error.status >= 400 && error.status <= 599)) throw error;
+    if ((Number.isInteger(error?.status) && error.status >= 400 && error.status <= 599) || ['FIREBASE_ACCESS_TOKEN_ACQUISITION_FAILED', 'FIREBASE_SERVICE_ACCOUNT_NOT_CONFIGURED', 'FIREBASE_SERVICE_ACCOUNT_INVALID_JSON', 'FIREBASE_SERVICE_ACCOUNT_MISSING_FIELDS', 'FIREBASE_JWT_SIGNING_FAILED', 'GOOGLE_OAUTH_TOKEN_EXCHANGE_FAILED', 'GOOGLE_OAUTH_ACCESS_TOKEN_MISSING', 'GOOGLE_OAUTH_RESPONSE_INVALID'].includes(String(error?.code || ''))) throw error;
     throw Object.assign(new Error('Firestore document read transport failed.'), {
       code: 'FIRESTORE_READ_TRANSPORT_FAILED'
     });
