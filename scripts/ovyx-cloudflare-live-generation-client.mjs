@@ -9,6 +9,7 @@ const REPOSITORY = 'thompsonemmanuel117-sketch/ovyx';
 const AUDIENCE = 'ovyx-live-site-evaluation';
 const ROUTE = '/api/internal/live-generation-eval';
 const SITE_SMOKE = process.env.OVYX_EVAL_SITE_SMOKE === 'true';
+const SKIP_LIVE_INFERENCE = process.env.OVYX_EVAL_SKIP_LIVE_INFERENCE === 'true';
 const OUTPUT = path.resolve(process.env.OVYX_LIVE_EVAL_OUT || 'artifacts/webstudio-generated-sites');
 const MAX_RESPONSE_BYTES = 8 * 1024 * 1024;
 const DEPLOYMENT_WAIT_MS = 15 * 60 * 1000;
@@ -546,14 +547,25 @@ async function main() {
       publicEnquiryProbe: false,
       note: 'A single fixed two-page QA artifact will be generated; this is not full Stage 4 acceptance.',
     }));
+  } else if (SKIP_LIVE_INFERENCE) {
+    console.log(JSON.stringify({
+      event: 'routine-push-inference-skipped',
+      provider,
+      model: model || null,
+      liveInferencePerformed: false,
+      realSitesGenerated: 0,
+      note: 'Routine source/deployment checks do not use the daily AI allowance. Run an explicit workflow operation to make a real model call.',
+    }));
   } else {
     await preflightProvider(origin, provider, model);
   }
   if (process.env.OVYX_EVAL_PREFLIGHT_ONLY === 'true') {
+    const skippedInference = SKIP_LIVE_INFERENCE === true;
     const report = {
       schemaVersion: 1,
-      status: 'provider-preflight-passed-no-sites-generated',
+      status: skippedInference ? 'deployment-and-config-verified-no-ai-inference' : 'provider-preflight-passed-no-sites-generated',
       preflightOnly: true,
+      liveInferencePerformed: !skippedInference,
       checkedAt: new Date().toISOString(),
       requestedProvider: provider,
       configuredModel: model || null,
@@ -563,16 +575,21 @@ async function main() {
       realEnquiryDeliveryConfirmed: false,
       humanVisualReviewCompleted: false,
       humanEditorialReviewCompleted: false,
-      note: 'A short real model response succeeded. This report does not certify website generation, listing data, enquiry delivery, or human review.',
+      note: skippedInference
+        ? 'The exact production deployment and allowed runtime configuration were checked. No model inference was requested, so this report makes no claim about provider readiness. It does not certify website generation, listing data, enquiry delivery, or human review.'
+        : 'A short real model response succeeded. This report does not certify website generation, listing data, enquiry delivery, or human review.',
     };
     await fs.writeFile(path.join(OUTPUT, 'provider-preflight-report.json'), JSON.stringify(report, null, 2) + '\n');
     console.log(JSON.stringify({
-      event: 'live-provider-preflight-only-complete',
+      event: skippedInference ? 'routine-push-deployment-check-complete' : 'live-provider-preflight-only-complete',
       provider,
       model: model || null,
-      status: 'ready',
+      status: skippedInference ? 'deployment-and-config-verified-no-ai-inference' : 'ready',
+      liveInferencePerformed: !skippedInference,
       realSitesGenerated: 0,
-      note: 'Provider readiness was verified; no full website briefs were sent.',
+      note: skippedInference
+        ? 'Routine push verified deployment/configuration only; no AI allowance was consumed.'
+        : 'Provider readiness was verified; no full website briefs were sent.',
     }));
     return;
   }
