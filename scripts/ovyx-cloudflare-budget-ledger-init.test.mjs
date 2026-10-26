@@ -10,7 +10,8 @@ const today = new Date().toISOString().slice(0, 10);
 const env = {
   FIREBASE_SERVICE_ACCOUNT_JSON: JSON.stringify({
     client_email: 'ovyx-budget-ledger-test@example.invalid',
-    private_key: privateKeyPem,
+    // Mirror the JSON-escaped private-key representation that /api/health accepts.
+    private_key: privateKeyPem.replace(/\n/g, '\\n'),
     project_id: 'ovyx-budget-ledger-test',
   }),
   OVYX_AI_ENGINE_MODE: 'cloudflare-free-only',
