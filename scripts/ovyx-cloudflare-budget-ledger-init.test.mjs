@@ -23,6 +23,7 @@ let lastAIOptions = null;
 let responseShape = 'legacy-response';
 let createCalls = 0;
 let ledgerReadFailuresRemaining = 1;
+let ledgerTransportFailuresRemaining = 1;
 let conflictWritesRemaining = 3;
 let conditionalWriteFailureStatus = null;
 let exhaustionConflictWritesRemaining = 0;
@@ -127,6 +128,11 @@ try {
         ledgerReadFailuresRemaining -= 1;
         return okJson({ error: { status: 'UNAVAILABLE' } }, 503);
       }
+      if (key === 'system/' + LEDGER_ID && ledgerTransportFailuresRemaining > 0) {
+        ledgerTransportFailuresRemaining -= 1;
+        // firebase-admin wraps a fetch rejection as FIRESTORE_READ_TRANSPORT_FAILED.
+        throw new TypeError('simulated Firestore connection reset');
+      }
       const stored = getDoc(url.pathname);
       return stored ? okJson(makeFirestoreDocument(key, stored)) : new Response(null, { status: 404 });
     }
@@ -200,7 +206,8 @@ try {
   const ledgerKey = 'system/' + LEDGER_ID;
   const ledger = documents.get(ledgerKey);
   assert.ok(ledger, 'the dedicated usage ledger should be created atomically');
-  assert.equal(ledgerReadFailuresRemaining, 0, 'a transient ledger read failure should be retried safely');
+  assert.equal(ledgerReadFailuresRemaining, 0, 'a transient ledger HTTP 503 should be retried safely');
+  assert.equal(ledgerTransportFailuresRemaining, 0, 'a wrapped Firestore read transport failure should be classified as transient and retried safely');
   assert.equal(oauthFailuresRemaining, 0, 'a transient Google OAuth token failure should be retried safely');
   assert.equal(oauthMissingTokenResponsesRemaining, 0, 'a malformed successful Google OAuth response should be retried once before failing closed');
   assert.ok(oauthCalls >= 3, 'the OAuth regression must cover an HTTP 503 retry and a successful-status response with no access token');
