@@ -113,7 +113,7 @@ jobs:
           node scripts/ovyx-cloudflare-preflight-only.test.mjs
       # Default main pushes run only the tiny provider check. After substantive
       # generation fixes, one trusted main commit titled with
-      # [OVYX_FULL_ACCEPTANCE_ONCE] opts into one bounded four-site acceptance after the latest production fix is deployed
+      # [OVYX_FULL_ACCEPTANCE_ONCE] opts into one bounded four-site acceptance after the latest Firebase read-stage diagnostic is deployed
       # once; normal pushes remain preflight-only to control inference spend.
       - name: Generate four real AI websites using the existing Cloudflare runtime keys
         id: generate
