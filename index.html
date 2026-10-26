@@ -6600,29 +6600,43 @@ window.OVYXV58={syncDock,route:safeRoute,useTemplate,previewTemplate,featureLock
     if(!response.ok||String(data?.role||'').toUpperCase()!==ROOT_ROLE) throw new Error('ROOT_SUPERUSER authorization is required.');
     return {user:u,token,entitlements:data};
   }
+  async function adminControlRequest(method,payload){
+    const {token}=await requireRoot();
+    const headers={Accept:'application/json',Authorization:`Bearer ${token}`};
+    const options={method,headers,credentials:'same-origin',cache:'no-store'};
+    if(payload){
+      headers['Content-Type']='application/json';
+      try{headers['X-Request-ID']=crypto.randomUUID()}catch{}
+      options.body=JSON.stringify(payload);
+    }
+    const response=await fetch('/api/admin/control',options);
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok||data?.ok!==true){
+      throw Object.assign(new Error(data?.error||data?.message||'Administrative integration settings are temporarily unavailable.'),{
+        status:response.status,
+        code:data?.code||'ADMIN_CONTROL_FAILED'
+      });
+    }
+    return data;
+  }
   async function readSystemDocuments(){
-    const firestore=db();
-    if(!firestore) throw new Error('Admin settings are temporarily unavailable. Please try again later.');
-    await requireRoot();
-    const [configSnap,controlsSnap]=await Promise.all([
-      firestore.collection('system').doc('config').get(),
-      firestore.collection('system').doc('admin_controls').get()
-    ]);
-    return {
-      config:configSnap.exists?(configSnap.data()||{}):{},
-      controls:controlsSnap.exists?(controlsSnap.data()||{}):{}
-    };
+    const data=await adminControlRequest('GET');
+    const config=data?.config&&typeof data.config==='object'?data.config:{};
+    return {config,controls:{masterAdminOverride:config.masterAdminOverride===true}};
   }
   async function writeSystemDocument(docId,payload){
-    const firestore=db();
-    if(!firestore) throw new Error('Admin settings are temporarily unavailable. Please try again later.');
-    const {user}=await requireRoot();
-    await firestore.collection('system').doc(docId).set({
-      ...payload,
-      updatedBy:user.uid,
-      updatedByEmail:user.email||null,
-      updatedAt:window.firebase.firestore.FieldValue.serverTimestamp()
-    },{merge:true});
+    let body;
+    if(docId==='admin_controls'){
+      body={action:'setAdminOverride',enabled:payload?.masterAdminOverride===true};
+    }else if(docId==='config'&&(typeof payload?.liveDeploy==='boolean'||typeof payload?.productionLive==='boolean')){
+      const live=typeof payload.liveDeploy==='boolean'?payload.liveDeploy:payload.productionLive;
+      body={action:'setProductionState',live,environment:live?'live':'sandbox'};
+    }else if(docId==='config'&&payload?.pricing&&payload?.gating){
+      body={action:'saveSettings',pricing:payload.pricing,gating:payload.gating,environment:payload.environment};
+    }else{
+      throw Object.assign(new Error('This administrative configuration change is not supported.'),{status:400,code:'ADMIN_ACTION_NOT_ALLOWED'});
+    }
+    return adminControlRequest('POST',body);
   }
   /* ---- Master Admin Override: Firestore is authoritative; localStorage is only a UI cache. ---- */
   const AC=window.AdminConfigurator;
