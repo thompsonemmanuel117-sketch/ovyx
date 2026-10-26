@@ -372,6 +372,54 @@ export function firestoreDocumentToJs(document) {
   return result;
 }
 
+const SAFE_FIRESTORE_TRANSPORT_CODES = new Set([
+  'ENOTFOUND', 'EAI_AGAIN', 'ERR_NAME_NOT_RESOLVED',
+  'ETIMEDOUT', 'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_HEADERS_TIMEOUT',
+  'ECONNRESET', 'ECONNREFUSED', 'EHOSTUNREACH', 'ENETUNREACH', 'EPIPE', 'UND_ERR_SOCKET',
+  'ERR_TLS_CERT_ALTNAME_INVALID', 'CERT_HAS_EXPIRED', 'DEPTH_ZERO_SELF_SIGNED_CERT',
+  'ERR_INVALID_URL', 'UND_ERR_RESPONSE_STATUS'
+]);
+
+const SAFE_FIRESTORE_TRANSPORT_CLASSES = new Set([
+  'dns', 'timeout', 'socket', 'tls', 'network-unreachable', 'invalid-url', 'network', 'unknown'
+]);
+
+export function classifyFirestoreReadTransportFailure(error) {
+  const chain = [];
+  let current = error;
+  for (let depth = 0; current && depth < 4; depth += 1) {
+    chain.push(current);
+    current = current?.cause;
+  }
+  const codes = chain.map(item => String(item?.code || '').toUpperCase());
+  const messages = chain.map(item => String(item?.message || '').slice(0, 300)).join(' ').toLowerCase();
+  const code = codes.find(value => SAFE_FIRESTORE_TRANSPORT_CODES.has(value)) || null;
+  let failureClass = 'unknown';
+  if (codes.some(value => ['ENOTFOUND', 'EAI_AGAIN', 'ERR_NAME_NOT_RESOLVED'].includes(value)) || /dns|name resolution|name not resolved|could not resolve/i.test(messages)) {
+    failureClass = 'dns';
+  } else if (codes.some(value => value.startsWith('ERR_TLS') || ['CERT_HAS_EXPIRED', 'DEPTH_ZERO_SELF_SIGNED_CERT'].includes(value)) || /certificate|\btls\b|\bssl\b/i.test(messages)) {
+    failureClass = 'tls';
+  } else if (codes.some(value => ['ETIMEDOUT', 'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_HEADERS_TIMEOUT'].includes(value)) || /timed? ?out|timeout/i.test(messages)) {
+    failureClass = 'timeout';
+  } else if (codes.some(value => ['ECONNRESET', 'ECONNREFUSED', 'EHOSTUNREACH', 'ENETUNREACH', 'EPIPE', 'UND_ERR_SOCKET'].includes(value)) || /socket|connection reset|connection refused/i.test(messages)) {
+    failureClass = codes.some(value => ['EHOSTUNREACH', 'ENETUNREACH'].includes(value)) || /network is unreachable|host unreachable/i.test(messages)
+      ? 'network-unreachable' : 'socket';
+  } else if (codes.includes('ERR_INVALID_URL') || /invalid url|invalid url string/i.test(messages)) {
+    failureClass = 'invalid-url';
+  } else if (error?.name === 'TypeError' || /fetch failed|network request failed/i.test(messages)) {
+    failureClass = 'network';
+  }
+  if (!SAFE_FIRESTORE_TRANSPORT_CLASSES.has(failureClass)) failureClass = 'unknown';
+  const safeName = name => ['TypeError', 'Error', 'AbortError', 'TimeoutError', 'DOMException'].includes(String(name || ''))
+    ? String(name) : 'Other';
+  return {
+    errorName: safeName(error?.name),
+    causeName: safeName(chain[1]?.name),
+    causeCode: code,
+    failureClass,
+  };
+}
+
 export async function getFirestoreDocument(
   env,
   collection,
@@ -403,8 +451,20 @@ export async function getFirestoreDocument(
     });
   } catch (error) {
     if ((Number.isInteger(error?.status) && error.status >= 400 && error.status <= 599) || ['FIREBASE_ACCESS_TOKEN_ACQUISITION_FAILED', 'FIREBASE_SERVICE_ACCOUNT_NOT_CONFIGURED', 'FIREBASE_SERVICE_ACCOUNT_INVALID_JSON', 'FIREBASE_SERVICE_ACCOUNT_MISSING_FIELDS', 'FIREBASE_JWT_SIGNING_FAILED', 'GOOGLE_OAUTH_TOKEN_EXCHANGE_FAILED', 'GOOGLE_OAUTH_ACCESS_TOKEN_MISSING', 'GOOGLE_OAUTH_RESPONSE_INVALID'].includes(String(error?.code || ''))) throw error;
+    const transport = classifyFirestoreReadTransportFailure(error);
+    // Only emit an allow-listed classification for the dedicated AI usage
+    // ledger. Never log a document ID, project URL, token, or raw fetch error.
+    if (collection === 'system' && documentId === 'ovyx-workers-ai-budget') {
+      console.error('[OVYX FIRESTORE READ TRANSPORT]', JSON.stringify({
+        stage: 'document-read',
+        target: 'workers-ai-budget-ledger',
+        host: 'firestore.googleapis.com',
+        ...transport,
+      }));
+    }
     throw Object.assign(new Error('Firestore document read transport failed.'), {
-      code: 'FIRESTORE_READ_TRANSPORT_FAILED'
+      code: 'FIRESTORE_READ_TRANSPORT_FAILED',
+      transportClass: transport.failureClass,
     });
   }
 
