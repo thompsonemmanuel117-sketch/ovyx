@@ -26,6 +26,8 @@ let ledgerReadFailuresRemaining = 1;
 let conflictWritesRemaining = 3;
 let conditionalWriteFailureStatus = null;
 let exhaustionConflictWritesRemaining = 0;
+let exhaustionTransientFailuresRemaining = 0;
+const exhaustionTransientFailureStatus = 429;
 let oauthFailuresRemaining = 1;
 let oauthCalls = 0;
 const originalFetch = globalThis.fetch;
@@ -146,6 +148,12 @@ try {
         return okJson({ error: { status: 'ABORTED' } }, 409);
       }
       const patch = JSON.parse(init.body).fields || {};
+      if (key === 'system/' + LEDGER_ID &&
+          Object.prototype.hasOwnProperty.call(patch, '_ovyxWorkersAiCloudflareExhaustedDayUtc') &&
+          exhaustionTransientFailuresRemaining > 0) {
+        exhaustionTransientFailuresRemaining -= 1;
+        return okJson({ error: { status: 'RESOURCE_EXHAUSTED' } }, exhaustionTransientFailureStatus);
+      }
       if (key === 'system/' + LEDGER_ID &&
           Object.prototype.hasOwnProperty.call(patch, '_ovyxWorkersAiCloudflareExhaustedDayUtc') &&
           exhaustionConflictWritesRemaining > 0) {
@@ -312,6 +320,8 @@ try {
   delete ledger.fields._ovyxWorkersAiCloudflareExhaustedAt;
   ledger.version += 1;
   responseShape = 'quota-exhausted';
+  // Simulate transient Firestore rate limiting while the stop marker is written.
+  exhaustionTransientFailuresRemaining = 2;
   await assert.rejects(
     () => runCloudflareFreeInference(env, {
       messages: [{ role: 'user', content: 'This request simulates a Cloudflare free-allocation rejection.' }],
@@ -323,6 +333,7 @@ try {
     'the quota error must not be replaced by a generic budget-ledger unavailable response when recording the stop succeeds',
   );
   assert.equal(exhaustionConflictWritesRemaining, 0, 'the exhausted-day marker writer must recover from 18 bounded conditional-write conflicts');
+  assert.equal(exhaustionTransientFailuresRemaining, 0, 'the exhausted-day marker writer must retry transient Firestore 429 responses');
   assert.equal(ledger.fields._ovyxWorkersAiCloudflareExhaustedDayUtc.stringValue, today);
   assert.equal(ledger.fields._ovyxWorkersAiCloudflareExhaustionReason.stringValue, 'cloudflare-daily-free-allocation');
   ledger.fields = savedLedgerFields;
