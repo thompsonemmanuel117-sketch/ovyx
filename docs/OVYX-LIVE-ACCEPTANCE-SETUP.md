@@ -65,19 +65,21 @@ No existing Cloudflare keys need to be renamed, removed or replaced. Add new var
 
 ### Current verified status — 2026-10-26
 
-The latest trusted production run is [run 40239042247, attempt 2](https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/40239042247). Its first attempt was blocked by Cloudflare's shared daily AI quota. After retrying, the preflight succeeded with a real short response from `@cf/meta/llama-3.1-8b-instruct-fp8-fast`.
+The full-acceptance attempt at [run 40364547863](https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/40364547863), using main commit `020eb693463f5ef44300f4231b3c3c2c6d65a506), received a real model response during preflight but failed its first full site-generation request. The returned failure was `cloudflare-ai-budget-ledger-unavailable`; no real generated-site artifacts were produced and the browser/artifact acceptance gates correctly remained open.
 
-The successful attempt explicitly reported `realSitesGenerated: 0` because it ran in `preflight-only` mode. It proves that the Cloudflare Workers AI inference path responded; it does **not** prove four websites were generated, browser-checked, visually reviewed, or accepted.
+A follow-up source investigation found that `recordCloudflareFreeExhaustion` retried HTTP 409 / Firestore precondition conflicts in a tight loop without the bounded jitter already used by the other ledger operations. A simultaneous burst of Workers AI requests that hit the account's daily free allocation could therefore fail to persist the shared exhaustion marker and replace the underlying quota error with a generic ledger error. That path was fixed and regression-tested in [commit 18f6e062](https://github.com/thompsonemmanuel117-sketch/ovyx/commit/18f6e062fe20e08bc4c3d0b94f4e41d8ab7e5d06).
 
-That run also reported the following live-acceptance settings as not configured:
+The latest post-fix provider check, [run 40366125186](https://github.com/thompsonemmanuel117-sketch/ovyx/actions/runs/40366125186), returned a real short response from `@cf/meta/llama-3.1-8b-instruct-fp8-fast`. It ran in `preflight-only` mode and explicitly reported `realSitesGenerated: 0`; it is provider readiness evidence, not a website-generation pass. A fresh full-acceptance retry is the next evidence gate.
 
-- An authoritative public listings/property feed and its authority declaration.
-- An owner-approved public enquiry destination.
-- Explicit authorization for the external enquiry-delivery probe and a dedicated test recipient.
+The production Cloudflare diagnostic for current main commit `708ad6464f9cdd190114c43ad2fa43a92b4d2a9f` reports a healthy deployment, a configured Workers AI binding, a configured Firebase service-account shape, and no deployment-log errors. Service-account authentication itself remains unverified by the health endpoint.
 
-Until those services are deliberately configured and tested, the evaluator must keep live-inventory and enquiry-delivery acceptance open. Do not invent listing records, label demo data as live, or claim that an enquiry was delivered without a verified receipt.
+The live-acceptance public settings remain unconfigured:
 
-Earlier production attempts did encounter real quota/rate-limit failures. A configured secret name does not prove that the provider is authenticated, entitled, or within quota. Continue to use `preflight-only` to check provider recovery. Select `full-acceptance` only when the model budget and intended external test effects have been reviewed; never enable `cloudflare-paid-capped` merely to make an acceptance run pass.
+- An authoritative listings/property source and its client-safe public feed endpoint.
+- An owner-approved enquiry destination and a client-safe submission endpoint.
+- Explicit authorization for the external enquiry probe and a dedicated owner-controlled test recipient.
+
+Even if full website generation and visual/browser checks pass, those missing integrations must remain open until the owner configures and verifies them. Do not expose credentials, invent listing records, or claim enquiry delivery without a confirmed receipt. The free-only AI cap stays enabled; do not enable paid-capped billing just to force an acceptance pass.
 ## 6. Run and review the evidence
 
 1. Merge only after the targeted code and regression checks pass. A PR run intentionally does not call production generation or send test enquiries.
