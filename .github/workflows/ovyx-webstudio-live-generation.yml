@@ -53,6 +53,8 @@ on:
     paths:
       - 'functions/_lib/providers.js'
       - 'functions/_lib/cloudflare-free-ai.js'
+      - 'scripts/ovyx-cloudflare-budget-ledger-init.test.mjs'
+      - 'functions/_lib/cloudflare-free-ai.js'
       - 'functions/_lib/firebase-admin.js'
       - 'functions/_lib/experience.js'
       - 'scripts/provider-routing.test.mjs'
