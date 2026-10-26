@@ -461,7 +461,7 @@ async function preflightProvider(origin, provider, model) {
     note: 'A short real model response was received before full site generation.',
   }));
 }
-async function checkBudgetStatus(origin) {
+async function checkBudgetStatus(origin, options = {}) {
   // Read OVYX's guarded Firestore ledger before spending an inference call. This
   // detects an OVYX-side exhausted budget only; it does not assert Cloudflare
   // provider readiness or bypass either the internal or external quota.
@@ -469,6 +469,17 @@ async function checkBudgetStatus(origin) {
   const checkedAt = new Date().toISOString();
   const writeReport = async report => {
     await fs.writeFile(reportPath, JSON.stringify(report, null, 2) + '\n');
+  };
+  const unavailable = async (report, errorMessage) => {
+    await writeReport(report);
+    console.log(JSON.stringify({
+      event: 'stage4-budget-status-unavailable',
+      status: report.status,
+      detail: report.detail,
+      inferencePerformed: false,
+    }));
+    if (options.failClosed === false) return report;
+    throw new Error(errorMessage);
   };
   let token;
   let response;
@@ -496,15 +507,14 @@ async function checkBudgetStatus(origin) {
       detail: error?.name === 'AbortError' ? 'budget-status-timeout' : 'budget-status-transport-error',
       note: 'The quota ledger could not be checked safely; no model request was made. The smoke is stopped rather than guessing.',
     };
-    await writeReport(report);
-    throw new Error('OVYX budget status could not be checked safely; the smoke stopped before any model inference.');
+    return await unavailable(report, 'OVYX budget status could not be checked safely; explicit inference stopped before any model call.');
   }
 
   let body;
   try {
     body = await readJsonResponse(response);
   } catch {
-    await writeReport({
+    return await unavailable({
       schemaVersion: 1,
       operation: 'budget-status',
       status: 'budget-status-unavailable-no-inference',
@@ -513,15 +523,14 @@ async function checkBudgetStatus(origin) {
       providerReadinessVerified: false,
       detail: 'invalid-budget-status-response',
       note: 'The budget-status response was not valid JSON; no model request was made.',
-    });
-    throw new Error('OVYX budget status returned an invalid response; the smoke stopped before any model inference.');
+    }, 'OVYX budget status returned an invalid response; explicit inference stopped before any model call.');
   }
   const validStatus = response.ok && body.ok === true &&
     body.operation === 'budget-status' && ['available', 'exhausted'].includes(body.status) &&
     body.inferencePerformed === false;
   if (!validStatus) {
     const detail = /^[a-z0-9-]{1,80}$/.test(String(body.detail || '')) ? String(body.detail) : '';
-    await writeReport({
+    return await unavailable({
       schemaVersion: 1,
       operation: 'budget-status',
       status: 'budget-status-unavailable-no-inference',
@@ -531,8 +540,7 @@ async function checkBudgetStatus(origin) {
       httpStatus: response.status,
       detail: detail || 'budget-status-rejected',
       note: 'The guarded budget check did not return an authoritative budget status; no model request was made.',
-    });
-    throw new Error('OVYX protected budget status was not available; the smoke stopped before any model inference.');
+    }, 'OVYX protected budget status was not available; explicit inference stopped before any model call.');
   }
 
   const report = {
@@ -554,7 +562,7 @@ async function checkBudgetStatus(origin) {
     providerReadinessVerified: false,
     resetsAtUtc: report.resetsAtUtc || null,
   }));
-  if (body.status === 'exhausted') {
+  if (body.status === 'exhausted' && options.stopIfExhausted !== false) {
     throw new Error('OVYX protected daily AI budget is still exhausted; Stage 4 smoke stopped before any model call. The ledger reports next UTC reset at ' + (report.resetsAtUtc || 'the next UTC day') + '.');
   }
   return report;
@@ -638,8 +646,9 @@ async function main() {
     externalEnquiryAuthorized: false,
   } : discoveredSettings;
   await writeWorkflowOutputs(settings);
+  let budgetStatusReport = null;
   if (SITE_SMOKE) {
-    await checkBudgetStatus(origin);
+    budgetStatusReport = await checkBudgetStatus(origin);
     console.log(JSON.stringify({
       event: 'stage4-site-smoke-budgeted-profile',
       provider,
@@ -651,19 +660,23 @@ async function main() {
       note: 'A single fixed two-page QA artifact will be generated; this is not full Stage 4 acceptance.',
     }));
   } else if (SKIP_LIVE_INFERENCE) {
+    // Routine pushes use the same no-inference ledger check for diagnostics, but
+    // do not fail CI just because the budget is exhausted or temporarily unreadable.
+    budgetStatusReport = await checkBudgetStatus(origin, { failClosed: false, stopIfExhausted: false });
     console.log(JSON.stringify({
       event: 'routine-push-inference-skipped',
       provider,
       model: model || null,
       liveInferencePerformed: false,
       realSitesGenerated: 0,
+      budgetLedgerStatus: budgetStatusReport?.status || 'budget-status-unavailable-no-inference',
       note: 'Routine source/deployment checks do not use the daily AI allowance. Run an explicit workflow operation to make a real model call.',
     }));
   } else {
     // Before any explicitly requested inference, consult OVYX's own daily
     // ledger. If it is exhausted or unreadable, stop without spending another
     // model request. This is not a provider-readiness check.
-    await checkBudgetStatus(origin);
+    budgetStatusReport = await checkBudgetStatus(origin);
     await preflightProvider(origin, provider, model);
   }
   if (process.env.OVYX_EVAL_PREFLIGHT_ONLY === 'true') {
@@ -674,6 +687,9 @@ async function main() {
       preflightOnly: true,
       liveInferencePerformed: !skippedInference,
       checkedAt: new Date().toISOString(),
+      budgetLedgerStatus: budgetStatusReport?.status || 'not-checked',
+      budgetLedgerCheckedAt: budgetStatusReport?.checkedAt || null,
+      budgetLedgerResetsAtUtc: budgetStatusReport?.resetsAtUtc || null,
       requestedProvider: provider,
       configuredModel: model || null,
       realSitesGenerated: 0,
