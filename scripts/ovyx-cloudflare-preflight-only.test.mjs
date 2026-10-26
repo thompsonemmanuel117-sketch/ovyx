@@ -22,7 +22,14 @@ assert.equal((workflow.match(siteEvidenceCondition) || []).length, 3,
 const fullAcceptanceCondition = /if: always\(\) && github\.ref == 'refs\/heads\/main' && \(\(github\.event_name == 'workflow_dispatch' && inputs\.operation == 'full-acceptance'\) \|\| \(github\.event_name == 'push' && contains\(github\.event\.head_commit\.message, '\[OVYX_FULL_ACCEPTANCE_ONCE\]'\)\)\)/g;
 assert.equal((workflow.match(fullAcceptanceCondition) || []).length, 1,
   'the strict listing/enquiry completion gate must remain exclusive to full acceptance');
-assert.match(workflow, /Enforce provider-only preflight result[\s\S]*?GENERATION_OUTCOME: \$\{\{ steps\.generate\.outcome \}\}/);
+assert.match(workflow, /Enforce routine no-inference check or explicit provider preflight result[\s\S]*?GENERATION_OUTCOME: \$\{\{ steps\.generate\.outcome \}\}/);
+assert.ok(workflow.includes("OVYX_EVAL_SKIP_LIVE_INFERENCE: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]') }}"),
+  'ordinary main pushes must select the no-inference path while explicit full acceptance retains model calls');
+assert.match(client, /const SKIP_LIVE_INFERENCE = process\.env\.OVYX_EVAL_SKIP_LIVE_INFERENCE === 'true'/);
+assert.match(client, /routine-push-inference-skipped[\s\S]*?liveInferencePerformed: false[\s\S]*?await preflightProvider\(origin, provider, model\)/);
+assert.match(client, /status: skippedInference \? 'deployment-and-config-verified-no-ai-inference' : 'provider-preflight-passed-no-sites-generated'/);
+assert.match(client, /liveInferencePerformed: !skippedInference/);
+assert.match(workflow, /Routine push deployment\/configuration check passed\. No AI inference was requested/);
 assert.match(workflow, /OVYX_EVAL_SITE_SMOKE: .*inputs\.operation == 'stage4-site-smoke'/);
 assert.match(workflow, /stage4-site-smoke-gate-report\.json/);
 
