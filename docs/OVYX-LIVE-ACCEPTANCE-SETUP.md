@@ -12,7 +12,7 @@ Keep the existing values under **Cloudflare Workers & Pages → your OVYX Pages 
 
 The workflow's Cloudflare API settings (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_PAGES_PROJECT`) are the existing control-plane settings used to discover the canonical Pages hostname. The API token needs Pages Read for project lookup. Do not place model-provider keys in these GitHub settings. OIDC access is restricted to this repository ID, the `main` ref, and this exact workflow file; pull-request and feature-branch tokens are rejected.
 
-Optional Actions variable: `OVYX_EVAL_MODEL`. Leave blank to use the existing provider adapter's model configuration. The manual workflow's provider selector chooses which *Cloudflare-configured* provider to use; it does not accept or store a key.
+Optional Actions variable: `OVYX_EVAL_MODEL`. Leave blank to use the existing provider adapter's model configuration. The manual workflow's provider selector chooses which *Cloudflare-configured* provider to use; it does not accept or store a key. The selector now offers `cloudflare-workers-ai` directly and defaults to that existing Cloudflare `AI` binding, alongside an explicit `automatic` routing option. This avoids making the previously rate-limited Gemini route the default acceptance target when the production Cloudflare Workers AI route has successfully answered a real readiness prompt.
 
 The manual workflow also has an `operation` selector:
 - `preflight-only`: sends only the small provider readiness request, writes `provider-preflight-report.json`, and skips all website generation, browser tests, listing checks, and enquiry-delivery probes. Use this first when checking whether a provider has recovered.
