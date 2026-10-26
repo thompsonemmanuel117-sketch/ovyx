@@ -8,6 +8,11 @@ assert.equal(
   'cloudflare-ai-budget-ledger-stop-http-429',
   'The acceptance report must preserve the safe stop-marker phase and Firestore throttling status.'
 );
+assert.equal(
+  safeLiveGenerationFailureDetail(Object.assign(new Error('test'), { code: 'OVYX_AI_BUDGET_LEDGER_STOP_HTTP_404', status: 503 })),
+  'cloudflare-ai-budget-ledger-stop-http-404',
+  'The acceptance report must preserve otherwise-unclassified HTTP statuses rather than collapsing them into a generic ledger error.'
+);
 assert.ok(liveGenerationRoute.includes("OVYX_WEBSTUDIO_MAX_PAGES: '8'"), 'The live-evaluation harness should use a bounded eight-page ceiling so the model can include useful supporting pages without silently truncating its plan.');
 
 const keys=['GEMINI_API_KEY','ANTHROPIC_API_KEY','DEEPSEEK_API_KEY','OPENAI_API_KEY','OVYX_EVAL_LISTINGS_PUBLIC_BROWSER_URL','OVYX_EVAL_LISTINGS_SOURCE_AUTHORITY','OVYX_EVAL_PUBLIC_ENQUIRY_URL','OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE','OVYX_EVAL_ENQUIRY_TEST_RECIPIENT'];
