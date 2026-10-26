@@ -114,10 +114,10 @@ jobs:
           node scripts/ovyx-live-service-integration-eval.test.mjs
           node scripts/ovyx-cloudflare-live-generation-oidc.test.mjs
           node scripts/ovyx-cloudflare-preflight-only.test.mjs
-      # Default main pushes run only the tiny provider check. After substantive
-      # generation fixes, one trusted main commit titled with
-      # [OVYX_FULL_ACCEPTANCE_ONCE] opts into one bounded four-site acceptance after the latest Firebase read-stage diagnostic is deployed
-      # once; normal pushes remain preflight-only to control inference spend.
+      # Routine main pushes check the deployed source/configuration and do NOT make an AI call.
+      # A manual preflight-only dispatch intentionally makes one small model call.
+      # A stage4-site-smoke dispatch spends allowance on one bounded real site; full acceptance
+      # is opt-in through the explicit operation or one-time [OVYX_FULL_ACCEPTANCE_ONCE] marker.
       # Do not benchmark production while Cloudflare Pages is still deploying this commit.
       # If the source revision is missing or the deployment fails, fail closed before any live inference.
       - name: Verify successful production deployment of this exact source revision
@@ -130,7 +130,7 @@ jobs:
           OVYX_CF_DEPLOY_GATE_TIMEOUT_MS: '720000'
         run: node scripts/ovyx-cloudflare-production-deployment-gate.mjs
 
-      - name: Generate four real AI websites using the existing Cloudflare runtime keys
+      - name: Check deployed runtime and run only the explicitly selected live AI operation
         id: generate
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         continue-on-error: true
@@ -138,6 +138,7 @@ jobs:
           OVYX_EVAL_PROVIDER: ${{ (github.event_name == 'workflow_dispatch' && inputs.operation == 'stage4-site-smoke') && 'cloudflare-workers-ai' || (github.event_name == 'workflow_dispatch' && inputs.provider) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]') && 'cloudflare-workers-ai') || 'automatic' }}
           OVYX_EVAL_SITE_SMOKE: ${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'stage4-site-smoke' }}
           OVYX_EVAL_PREFLIGHT_ONLY: ${{ (github.event_name != 'workflow_dispatch' && !contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]')) || (github.event_name == 'workflow_dispatch' && inputs.operation == 'preflight-only') }}
+          OVYX_EVAL_SKIP_LIVE_INFERENCE: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]') }}
           OVYX_EVAL_MODEL: ${{ vars.OVYX_EVAL_MODEL }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -148,16 +149,21 @@ jobs:
           OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE: ${{ vars.OVYX_EVAL_ENABLE_EXTERNAL_ENQUIRY_PROBE }}
           OVYX_EVAL_ENQUIRY_TEST_RECIPIENT: ${{ secrets.OVYX_EVAL_ENQUIRY_TEST_RECIPIENT }}
         run: node scripts/ovyx-cloudflare-live-generation-client.mjs
-      - name: Enforce provider-only preflight result
+      - name: Enforce routine no-inference check or explicit provider preflight result
         if: github.ref == 'refs/heads/main' && ((github.event_name == 'push' && !contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]')) || (github.event_name == 'workflow_dispatch' && inputs.operation == 'preflight-only'))
         env:
           GENERATION_OUTCOME: ${{ steps.generate.outcome }}
+          SKIP_LIVE_INFERENCE: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]') }}
         run: |
           if [ "$GENERATION_OUTCOME" != "success" ]; then
-            echo "Provider-only preflight failed. Full website generation and browser/integration probes were not run."
+            echo "Routine deployment/configuration check or explicitly requested provider preflight failed."
             exit 1
           fi
-          echo "Provider-only preflight passed. No websites were generated."
+          if [ "$SKIP_LIVE_INFERENCE" = "true" ]; then
+            echo "Routine push deployment/configuration check passed. No AI inference was requested; the daily allowance was not used."
+          else
+            echo "Explicit provider preflight passed. No websites were generated."
+          fi
       - name: State why PR runs do not use production credentials
         if: github.event_name == 'pull_request'
         run: echo "PR regression tests ran. Live generation and external enquiry probes run only on trusted main/workflow_dispatch events through the short-lived OIDC verifier; provider API keys stay in Cloudflare."
