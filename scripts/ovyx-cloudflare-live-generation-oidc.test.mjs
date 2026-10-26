@@ -341,6 +341,42 @@ const unknownCase = await handleLiveGenerationRequest(
 assert.equal(unknownCase.status, 400, 'only allow-listed test case IDs are accepted');
 assert.equal((await unknownCase.json()).error, 'EVALUATION_CASE_NOT_ALLOWED', 'arbitrary prompts are rejected before provider selection or any billable call');
 
+const untrustedSmokeProfile = await handleLiveGenerationRequest(
+  new Request('https://forgeos-2k0.pages.dev/api/internal/live-generation-eval', {
+    method: 'POST',
+    headers: { authorization: 'Bearer ' + validToken, 'content-type': 'application/json' },
+    body: JSON.stringify({ caseId: 'nigeria-baby-products', provider: 'cloudflare-workers-ai', profile: 'arbitrary-profile' }),
+  }),
+  {},
+  { fetchImpl, nowSeconds: now },
+);
+assert.equal(untrustedSmokeProfile.status, 400, 'caller-defined profiles must be rejected before provider selection or any billable call');
+assert.equal((await untrustedSmokeProfile.json()).error, 'EVALUATION_CASE_NOT_ALLOWED');
+
+const smokeWithWrongProvider = await handleLiveGenerationRequest(
+  new Request('https://forgeos-2k0.pages.dev/api/internal/live-generation-eval', {
+    method: 'POST',
+    headers: { authorization: 'Bearer ' + validToken, 'content-type': 'application/json' },
+    body: JSON.stringify({ caseId: 'nigeria-baby-products', provider: 'gemini', profile: 'stage4-budgeted-smoke' }),
+  }),
+  { GEMINI_API_KEY: 'configured-test-key' },
+  { fetchImpl, nowSeconds: now },
+);
+assert.equal(smokeWithWrongProvider.status, 400, 'the smoke profile must fail closed for non-Cloudflare providers');
+assert.equal((await smokeWithWrongProvider.json()).error, 'EVALUATION_CASE_NOT_ALLOWED');
+
+const allowedSmokeButPaused = await handleLiveGenerationRequest(
+  new Request('https://forgeos-2k0.pages.dev/api/internal/live-generation-eval', {
+    method: 'POST',
+    headers: { authorization: 'Bearer ' + validToken, 'content-type': 'application/json' },
+    body: JSON.stringify({ caseId: 'nigeria-baby-products', provider: 'cloudflare-workers-ai', profile: 'stage4-budgeted-smoke' }),
+  }),
+  { AI: { run: async () => ({ response: 'unused' }) } },
+  { fetchImpl, nowSeconds: now, getProductionIntegrationState: async () => ({ live: false }) },
+);
+assert.equal(allowedSmokeButPaused.status, 503, 'the allowed profile must respect the existing production integration pause');
+assert.equal((await allowedSmokeButPaused.json()).error, 'PRODUCTION_INTEGRATIONS_PAUSED');
+
 const babyProductsCase = await handleLiveGenerationRequest(
   new Request('https://forgeos-2k0.pages.dev/api/internal/live-generation-eval', {
     method: 'POST',
