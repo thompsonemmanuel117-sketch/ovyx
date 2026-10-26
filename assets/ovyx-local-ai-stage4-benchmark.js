@@ -42,7 +42,7 @@ function publish(decision='incomplete'){
 }
 async function metadata(){
  let storageEstimate=null;
- try{const x=await navigator.storage?.estimate?.();if(x&&Number.isFinite(Number(x.quota))&&Number.isFinite(Number(x.usage)))storageEstimate={quotaBytes:Number(x.quota),usageBytes:Number(x.usage),estimatedAvailableBytes:Math.max(0,Number(x.quota)-Number(x.usage)};}catch(_){}
+ try{const x=await navigator.storage?.estimate?.();if(x&&Number.isFinite(Number(x.quota))&&Number.isFinite(Number(x.usage)))storageEstimate={quotaBytes:Number(x.quota),usageBytes:Number(x.usage),estimatedAvailableBytes:Math.max(0,Number(x.quota)-Number(x.usage))};}catch(_){}
  return{environment:{userAgent:navigator.userAgent||'unknown',platform:navigator.platform||'unknown',secureContext:Boolean(window.isSecureContext),webGPUApiPresent:Boolean(navigator.gpu),hardwareConcurrency:Number(navigator.hardwareConcurrency)||null,deviceMemoryGB:Number(navigator.deviceMemory)||null,viewport:{width:Number(innerWidth)||null,height:Number(innerHeight)||null}},storageEstimate,jsHeapBytesAtStart:(typeof performance.memory?.usedJSHeapSize==='number')?performance.memory.usedJSHeapSize:null};
 }
 async function waitForResponse(beforeCount,start){
