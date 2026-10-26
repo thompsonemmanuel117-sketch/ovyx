@@ -295,13 +295,13 @@ async function main(){
     if(allCore&&env.OVYX_STAGE4_INCLUDE_RELIABILITY===CONFIRM){
       for(const taskId of ['T01','T05','T11']){
         const task=suite.tasks.find(item=>item.id===taskId),original=report.tasks.find(item=>item.id===taskId),prompt=task.prompts[0];
-        const repeat=await requestCloudflareAssistant({baseUrl,token,timeoutMs:90_000,payload:makeRequestPayload({task,prompt,conversationId:'stage4_'+id+'_'+taskId.toLowerCase()+'_repeat')});
+        const repeat=await requestCloudflareAssistant({baseUrl,token,timeoutMs:90_000,payload:makeRequestPayload({task,prompt,conversationId:'stage4_'+id+'_'+taskId.toLowerCase()+'_repeat'})});
         const answer=scrub(repeat.payload?.text||repeat.payload?.answer||'',token),checks=objectiveChecks(taskId,answer);
         report.consistencyProbes.push({taskId,status:repeat.status,httpStatus:repeat.httpStatus,model:repeat.model,provider:repeat.provider,routedProvider:repeat.routedProvider,totalMs:repeat.totalMs,headersReceivedMs:repeat.headersReceivedMs,firstRunObjectiveChecks:original.objectiveChecks,repeatObjectiveChecks:checks,objectiveChecksAgree:repeat.status==='complete'&&JSON.stringify(original.objectiveChecks)===JSON.stringify(checks),scoreUsesOriginalRunOnly:true,answer});
         if(repeat.status!=='complete')break;
       }
       if(report.consistencyProbes.length===3&&report.consistencyProbes.every(item=>item.status==='complete')){
-        const recovery=await requestCloudflareAssistant({baseUrl,token,timeoutMs:90_000,payload:makeRequestPayload({task:{id:'R01'},prompt:RECOVERY_PROMPT,conversationId:'stage4_'+id+'_recovery')});
+        const recovery=await requestCloudflareAssistant({baseUrl,token,timeoutMs:90_000,payload:makeRequestPayload({task:{id:'R01'},prompt:RECOVERY_PROMPT,conversationId:'stage4_'+id+'_recovery'})});
         report.recoveryProbe={status:recovery.status,httpStatus:recovery.httpStatus,provider:recovery.provider,routedProvider:recovery.routedProvider,model:recovery.model,totalMs:recovery.totalMs,headersReceivedMs:recovery.headersReceivedMs,answer:scrub(recovery.payload?.text||recovery.payload?.answer||'',token),score0to4:null,note:'Human review required; this supplements the malformed-request-then-valid-task recovery check.'};
       }
     }else{
