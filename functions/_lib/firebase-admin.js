@@ -163,41 +163,64 @@ async function getGoogleAccessToken(env) {
     serviceAccount.private_key
   );
 
-  const response = await fetch(
-    'https://oauth2.googleapis.com/token',
-    {
-      method: 'POST',
-      headers: {
-        'content-type':
-          'application/x-www-form-urlencoded'
-      },
-      body: new URLSearchParams({
-        grant_type:
-          'urn:ietf:params:oauth:grant-type:jwt-bearer',
-        assertion
-      })
-    }
-  );
-
-  if (!response.ok) {
-    // Keep status metadata so the guarded Firestore budget ledger can retry
-    // transient OAuth service errors and classify permanent authorization
-    // failures without logging response bodies or credentials.
-    throw Object.assign(
-      new Error(`Google OAuth token exchange failed (${response.status}).`),
+  let data = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const response = await fetch(
+      'https://oauth2.googleapis.com/token',
       {
-        status: response.status,
-        code: 'GOOGLE_OAUTH_TOKEN_EXCHANGE_FAILED',
+        method: 'POST',
+        headers: {
+          'content-type':
+            'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+          grant_type:
+            'urn:ietf:params:oauth:grant-type:jwt-bearer',
+          assertion
+        })
       }
+    );
+
+    if (!response.ok) {
+      // Keep status metadata so the guarded Firestore budget ledger can retry
+      // transient OAuth service errors and classify permanent authorization
+      // failures without logging response bodies or credentials.
+      throw Object.assign(
+        new Error(`Google OAuth token exchange failed (${response.status}).`),
+        {
+          status: response.status,
+          code: 'GOOGLE_OAUTH_TOKEN_EXCHANGE_FAILED',
+        }
+      );
+    }
+
+    let candidate = null;
+    try { candidate = await response.json(); } catch (_) {}
+    const accessToken = typeof candidate?.access_token === 'string'
+      ? candidate.access_token.trim()
+      : '';
+    if (accessToken) {
+      data = { ...candidate, access_token: accessToken };
+      break;
+    }
+
+    // A successful HTTP status without a usable access token is an upstream
+    // response-shape anomaly. Retry it once only; never log or return the
+    // response body, and fail closed if the response stays malformed.
+    if (attempt === 0) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      continue;
+    }
+    throw Object.assign(
+      new Error('Google OAuth response did not contain a usable access token.'),
+      { code: candidate ? 'GOOGLE_OAUTH_ACCESS_TOKEN_MISSING' : 'GOOGLE_OAUTH_RESPONSE_INVALID' }
     );
   }
 
-  const data = await response.json();
-
-  if (!data.access_token) {
-    throw new Error(
-      'Google OAuth response did not contain an access token.'
-    );
+  if (!data?.access_token) {
+    throw Object.assign(new Error('Google OAuth response did not contain a usable access token.'), {
+      code: 'GOOGLE_OAUTH_ACCESS_TOKEN_MISSING'
+    });
   }
 
   cachedAccessToken = data.access_token;

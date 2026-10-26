@@ -53,6 +53,8 @@ function budgetLedgerUnavailable(error, message, phase = 'unknown') {
     // arbitrary upstream message text into the public acceptance report.
     const safeCauseCodes = new Set([
       'GOOGLE_OAUTH_TOKEN_EXCHANGE_FAILED',
+      'GOOGLE_OAUTH_ACCESS_TOKEN_MISSING',
+      'GOOGLE_OAUTH_RESPONSE_INVALID',
       'FIRESTORE_READ_FAILED',
       'FIRESTORE_DOCUMENT_CREATE_FAILED',
       'FIRESTORE_CONDITIONAL_WRITE_FAILED',
