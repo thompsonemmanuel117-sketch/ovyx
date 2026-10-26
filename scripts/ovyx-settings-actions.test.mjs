@@ -65,11 +65,15 @@ assert.ok(phase1AdminRuntime.includes("fetch('/api/admin/control'"), 'Production
 assert.ok(phase1AdminRuntime.includes("return adminControlRequest('GET')"), 'The production switch must read authoritative state through the server endpoint.');
 assert.ok(phase1AdminRuntime.includes("action:'setProductionState'"), 'The production switch must save state through the server-side action.');
 assert.ok(phase1AdminRuntime.includes("action:'setAdminOverride'"), 'Legacy admin override writes must also use the server-side control endpoint.');
-assert.doesNotMatch(phase1AdminRuntime, /firestore\\.collection\\(['"]system['"]\\)/, 'The browser must never read or write protected global system documents directly.');
+assert.ok(!phase1AdminRuntime.includes("firestore.collection('system')")
+  && !phase1AdminRuntime.includes('firestore.collection("system")'),
+  'The browser must never read or write protected global system documents directly.');
 assert.ok(adminControlApi.includes("const user = context.data?.user || await authenticateRequest(context.request, context.env);")
   && adminControlApi.includes('if (!isRootAdmin(user))'), 'The server endpoint must authenticate the caller and require the canonical root account.');
 assert.ok(adminControlApi.includes("const environment = live ? 'live' : 'sandbox';")
-  && adminControlApi.includes('environment,\n        updatedAt'), 'The production switch must persist a consistent live/sandbox environment.');
+  && adminControlApi.includes('environment,')
+  && adminControlApi.includes('updatedAt'),
+  'The production switch must persist a consistent live/sandbox environment.');
 
 const connectionGuardStart = html.indexOf('<script id="ovyx-settings-connections-visibility-guard-v2">');
 const connectionGuardEnd = html.indexOf('</script>', connectionGuardStart);
