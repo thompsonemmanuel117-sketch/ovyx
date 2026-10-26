@@ -35,6 +35,9 @@ let oauthCalls = 0;
 const originalFetch = globalThis.fetch;
 const originalConsoleError = console.error;
 const ledgerTransportLogs = [];
+let measureLedgerReadConcurrency = false;
+let activeLedgerReads = 0;
+let maxConcurrentLedgerReads = 0;
 console.error = (...args) => {
   const line = args.map(value => typeof value === 'string' ? value : JSON.stringify(value)).join(' ');
   if (line.includes('[OVYX FIRESTORE READ TRANSPORT]')) ledgerTransportLogs.push(line);
@@ -154,20 +157,32 @@ try {
 
     if (init.method === 'GET' && /\/documents\/system\/[^/]+$/.test(url.pathname)) {
       const key = documentKey(url.pathname);
-      if (key === 'system/' + LEDGER_ID && ledgerReadFailuresRemaining > 0) {
-        ledgerReadFailuresRemaining -= 1;
-        return okJson({ error: { status: 'UNAVAILABLE' } }, 503);
+      const trackConcurrency = key === 'system/' + LEDGER_ID && measureLedgerReadConcurrency;
+      if (trackConcurrency) {
+        activeLedgerReads += 1;
+        maxConcurrentLedgerReads = Math.max(maxConcurrentLedgerReads, activeLedgerReads);
       }
-      if (key === 'system/' + LEDGER_ID && ledgerTransportFailuresRemaining > 0) {
-        ledgerTransportFailuresRemaining -= 1;
-        // firebase-admin wraps the fetch rejection; only its safe class/code may
-        // appear in diagnostics, not the underlying hostname/message.
-        throw new TypeError('private transport message must not leak', {
-          cause: Object.assign(new Error('private network hostname must not leak'), { code: 'ECONNRESET' }),
-        });
+      try {
+        // Keep each mocked ledger read in flight long enough for Promise.all to
+        // expose a read stampede if the production-local operation lock is absent.
+        if (trackConcurrency) await new Promise(resolve => setTimeout(resolve, 5));
+        if (key === 'system/' + LEDGER_ID && ledgerReadFailuresRemaining > 0) {
+          ledgerReadFailuresRemaining -= 1;
+          return okJson({ error: { status: 'UNAVAILABLE' } }, 503);
+        }
+        if (key === 'system/' + LEDGER_ID && ledgerTransportFailuresRemaining > 0) {
+          ledgerTransportFailuresRemaining -= 1;
+          // firebase-admin wraps the fetch rejection; only its safe class/code may
+          // appear in diagnostics, not the underlying hostname/message.
+          throw new TypeError('private transport message must not leak', {
+            cause: Object.assign(new Error('private network hostname must not leak'), { code: 'ECONNRESET' }),
+          });
+        }
+        const stored = getDoc(url.pathname);
+        return stored ? okJson(makeFirestoreDocument(key, stored)) : new Response(null, { status: 404 });
+      } finally {
+        if (trackConcurrency) activeLedgerReads -= 1;
       }
-      const stored = getDoc(url.pathname);
-      return stored ? okJson(makeFirestoreDocument(key, stored)) : new Response(null, { status: 404 });
     }
 
     if (init.method === 'POST' && url.pathname.endsWith('/documents/system') && url.searchParams.has('documentId')) {
@@ -389,6 +404,48 @@ try {
   ledger.fields = savedLedgerFields;
   ledger.version = savedLedgerVersion;
   responseShape = 'legacy-response';
+
+  // Parallel Web Studio batches were causing many calls to read and CAS-update
+  // the same Firestore budget document at once. Verify that the isolate-local
+  // lock serializes only ledger I/O, while all model responses still complete.
+  const concurrentCount = 6;
+  const savedConcurrentFields = structuredClone(ledger.fields);
+  const savedConcurrentVersion = ledger.version;
+  delete ledger.fields._ovyxWorkersAiCloudflareExhaustedDayUtc;
+  delete ledger.fields._ovyxWorkersAiCloudflareExhaustionReason;
+  delete ledger.fields._ovyxWorkersAiCloudflareExhaustedAt;
+  ledger.version += 1;
+  measureLedgerReadConcurrency = true;
+  activeLedgerReads = 0;
+  maxConcurrentLedgerReads = 0;
+  const modelCallsBeforeConcurrentBatch = modelCalls;
+  try {
+    const concurrentResults = await Promise.all(Array.from({ length: concurrentCount }, (_, index) =>
+      runCloudflareFreeInference(env, {
+        messages: [{ role: 'user', content: 'Concurrent guarded batch ' + index + ': reply with exactly OVYX_PROVIDER_READY.' }],
+        maxTokens: 16,
+        timeoutMs: 2000,
+        disableThinking: true,
+      })
+    ));
+    assert.equal(concurrentResults.length, concurrentCount);
+    assert.ok(concurrentResults.every(item => item.text === 'OVYX_PROVIDER_READY'),
+      'all parallel guarded requests should receive a real-shaped Cloudflare fixture response');
+    assert.equal(modelCalls, modelCallsBeforeConcurrentBatch + concurrentCount,
+      'ledger serialization must not serialize or drop model responses');
+    assert.equal(maxConcurrentLedgerReads, 1,
+      'same-isolate budget checks, reservations and settlements must not stampede the shared Firestore ledger');
+    assert.equal(Number(ledger.fields._ovyxWorkersAiReservedNeurons.integerValue), 0,
+      'concurrent completion must settle all budget reservations');
+    assert.equal(Number(ledger.fields._ovyxWorkersAiRequestCount.integerValue),
+      Number(savedConcurrentFields._ovyxWorkersAiRequestCount.integerValue) + concurrentCount,
+      'every admitted parallel request must be reserved exactly once');
+  } finally {
+    measureLedgerReadConcurrency = false;
+    activeLedgerReads = 0;
+    ledger.fields = savedConcurrentFields;
+    ledger.version = savedConcurrentVersion;
+  }
 
   await assert.rejects(
     () => createFirestoreDocumentIfAbsent(env, 'system', LEDGER_ID, {
