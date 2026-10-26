@@ -362,6 +362,14 @@ export function safeLiveGenerationFailureDetail(error) {
   if (ledgerNetworkFailure) {
     return 'cloudflare-ai-budget-ledger-' + ledgerNetworkFailure[1].toLowerCase() + '-network-error';
   }
+  const ledgerCause = code.match(/^OVYX_AI_BUDGET_LEDGER_(READ|MIGRATION|INITIALIZE|STOP|RESERVATION|UNKNOWN)_CAUSE_(GOOGLE_OAUTH_TOKEN_EXCHANGE_FAILED|FIRESTORE_READ_FAILED|FIRESTORE_DOCUMENT_CREATE_FAILED|FIRESTORE_CONDITIONAL_WRITE_FAILED|FIRESTORE_PRECONDITION_REQUIRED|FIRESTORE_DOCUMENT_ALREADY_EXISTS|FIRESTORE_PRECONDITION_FAILED)$/);
+  if (ledgerCause) {
+    return 'cloudflare-ai-budget-ledger-' + ledgerCause[1].toLowerCase() + '-cause-' + ledgerCause[2].toLowerCase().replace(/_/g, '-');
+  }
+  const ledgerStatusless = code.match(/^OVYX_AI_BUDGET_LEDGER_(READ|MIGRATION|INITIALIZE|STOP|RESERVATION|UNKNOWN)_ERROR_(ERROR|DATAERROR|OPERATIONERROR|INVALIDACCESSERROR|NOTSUPPORTEDERROR|SYNTAXERROR|RANGEERROR|REFERENCEERROR|DOMEXCEPTION|ABORTERROR|TIMEOUTERROR|UNKNOWN)$/);
+  if (ledgerStatusless) {
+    return 'cloudflare-ai-budget-ledger-' + ledgerStatusless[1].toLowerCase() + '-error-' + ledgerStatusless[2].toLowerCase();
+  }
   const safeCloudflareFailureDetails = {
     OVYX_AI_ENGINE_MODE_NOT_CONFIGURED: 'cloudflare-engine-mode-not-configured',
     OVYX_NATIVE_AI_NOT_CONFIGURED: 'cloudflare-ai-binding-not-configured',
