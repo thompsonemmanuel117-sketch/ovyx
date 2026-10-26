@@ -461,6 +461,105 @@ async function preflightProvider(origin, provider, model) {
     note: 'A short real model response was received before full site generation.',
   }));
 }
+async function checkBudgetStatus(origin) {
+  // Read OVYX's guarded Firestore ledger before spending an inference call. This
+  // detects an OVYX-side exhausted budget only; it does not assert Cloudflare
+  // provider readiness or bypass either the internal or external quota.
+  const reportPath = path.join(OUTPUT, 'stage4-budget-status-report.json');
+  const checkedAt = new Date().toISOString();
+  const writeReport = async report => {
+    await fs.writeFile(reportPath, JSON.stringify(report, null, 2) + '\n');
+  };
+  let token;
+  let response;
+  try {
+    token = await getOidcToken();
+    response = await fetch(origin + ROUTE, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + token,
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ operation: 'budget-status' }),
+      redirect: 'error',
+      signal: timeout(60_000),
+    });
+  } catch (error) {
+    const report = {
+      schemaVersion: 1,
+      operation: 'budget-status',
+      status: 'budget-status-unavailable-no-inference',
+      checkedAt,
+      inferencePerformed: false,
+      providerReadinessVerified: false,
+      detail: error?.name === 'AbortError' ? 'budget-status-timeout' : 'budget-status-transport-error',
+      note: 'The quota ledger could not be checked safely; no model request was made. The smoke is stopped rather than guessing.',
+    };
+    await writeReport(report);
+    throw new Error('OVYX budget status could not be checked safely; the smoke stopped before any model inference.');
+  }
+
+  let body;
+  try {
+    body = await readJsonResponse(response);
+  } catch {
+    await writeReport({
+      schemaVersion: 1,
+      operation: 'budget-status',
+      status: 'budget-status-unavailable-no-inference',
+      checkedAt,
+      inferencePerformed: false,
+      providerReadinessVerified: false,
+      detail: 'invalid-budget-status-response',
+      note: 'The budget-status response was not valid JSON; no model request was made.',
+    });
+    throw new Error('OVYX budget status returned an invalid response; the smoke stopped before any model inference.');
+  }
+  const validStatus = response.ok && body.ok === true &&
+    body.operation === 'budget-status' && ['available', 'exhausted'].includes(body.status) &&
+    body.inferencePerformed === false;
+  if (!validStatus) {
+    const detail = /^[a-z0-9-]{1,80}$/.test(String(body.detail || '')) ? String(body.detail) : '';
+    await writeReport({
+      schemaVersion: 1,
+      operation: 'budget-status',
+      status: 'budget-status-unavailable-no-inference',
+      checkedAt,
+      inferencePerformed: false,
+      providerReadinessVerified: false,
+      httpStatus: response.status,
+      detail: detail || 'budget-status-rejected',
+      note: 'The guarded budget check did not return an authoritative budget status; no model request was made.',
+    });
+    throw new Error('OVYX protected budget status was not available; the smoke stopped before any model inference.');
+  }
+
+  const report = {
+    schemaVersion: 1,
+    operation: 'budget-status',
+    status: body.status === 'exhausted' ? 'budget-exhausted-no-inference' : 'budget-available-no-inference',
+    checkedAt: body.checkedAt || checkedAt,
+    resetsAtUtc: String(body.resetsAtUtc || ''),
+    budget: 'ovyx-cloudflare-daily',
+    inferencePerformed: false,
+    providerReadinessVerified: false,
+    note: 'This reports OVYX internal daily-ledger state only. It is not proof that Cloudflare will accept the next model request.',
+  };
+  await writeReport(report);
+  console.log(JSON.stringify({
+    event: 'stage4-budget-status-checked',
+    status: body.status,
+    inferencePerformed: false,
+    providerReadinessVerified: false,
+    resetsAtUtc: report.resetsAtUtc || null,
+  }));
+  if (body.status === 'exhausted') {
+    throw new Error('OVYX protected daily AI budget is still exhausted; Stage 4 smoke stopped before any model call. The ledger reports next UTC reset at ' + (report.resetsAtUtc || 'the next UTC day') + '.');
+  }
+  return report;
+}
+
 async function generateOne(origin, provider, model, integrationSettings, caseId) {
   // Mint a fresh short-lived token immediately before each billable generation.
   const token = await getOidcToken();
@@ -540,6 +639,7 @@ async function main() {
   } : discoveredSettings;
   await writeWorkflowOutputs(settings);
   if (SITE_SMOKE) {
+    await checkBudgetStatus(origin);
     console.log(JSON.stringify({
       event: 'stage4-site-smoke-budgeted-profile',
       provider,
