@@ -27,7 +27,7 @@ This operation is a cost-aware way to secure the first actual site for human and
 
 Ordinary pushes to `main` now resolve the exact successful Cloudflare Pages deployment, inspect only the approved runtime configuration inventory, and verify that the internal evaluation route is reachable. They do **not** send a model prompt and therefore do not consume the protected daily AI allowance. Their report status is `deployment-and-config-verified-no-ai-inference`; it deliberately makes no provider-readiness or model-quality claim.
 
-Choose the operation based on the evidence needed: manual `preflight-only` runs one small real provider request; `stage4-site-smoke` starts directly with one bounded two-page Cloudflare-generated site without an extra readiness inference; `full-acceptance` performs the separate explicit multi-site process. None of these operations bypasses the daily guard, silently changes provider, or retries a failed billable generation.
+Choose the operation based on the evidence needed: manual `preflight-only` first reads the protected ledger without inference, then makes one small real provider request only if the ledger is available; `stage4-site-smoke` uses the same no-inference ledger read and then starts one bounded two-page Cloudflare-generated site without an extra readiness inference; `full-acceptance` performs the separate explicit multi-site process after its protected-ledger check and provider preflight. If the ledger is exhausted or cannot be read, explicit operations stop before inference and preserve a safe status report. None of these operations bypasses the daily guard, silently changes provider, or retries a failed billable generation.
 
 ## Owner integration setup checklist
 
