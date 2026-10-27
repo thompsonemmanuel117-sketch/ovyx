@@ -1807,7 +1807,14 @@
     syncVisibility();
     if (!window.OVYXWebStudioQuality) {
       window.OVYXWebStudioQuality = {
-        run: performInspection,
+        run: function () {
+          if (running) return Promise.reject(new Error('A Web Studio quality check is already running.'));
+          running = true;
+          return performInspection().finally(function () {
+            running = false;
+            renderFindings(currentReport);
+          });
+        },
         getReport: function () { return clone(currentReport); },
         exportReport: function () { return downloadQualityReport(currentReport); },
         copySummary: copyClientSummary,
