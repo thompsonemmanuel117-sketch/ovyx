@@ -758,7 +758,10 @@ async function buildStudioMultiPageOnce(options) {
   let siteMapRecovery = null;
 
   if (env.OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST_ONLY === 'true') {
-    const restrictedPlan = restrictSiteMapToExplicitPages(plan && plan.siteMap, promptContract.explicitPages, pageLimit);
+    const configuredManifest = String(env.OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST || '')
+      .split('|').map(value => value.trim()).filter(Boolean);
+    const explicitManifest = configuredManifest.length ? configuredManifest : promptContract.explicitPages;
+    const restrictedPlan = restrictSiteMapToExplicitPages(plan && plan.siteMap, explicitManifest, pageLimit);
     if (restrictedPlan) {
       normalized = makeSiteMap(restrictedPlan, pageLimit);
       siteMap = normalized.siteMap;
