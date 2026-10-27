@@ -691,7 +691,7 @@ function resolveGeneratedLocalReference(fromFile, reference) {
   return normalized.join('/');
 }
 
-export export function normalizeStage4QaContactForm(staged, siteMap) {
+export function normalizeStage4QaContactForm(staged, siteMap) {
   const source = Array.isArray(staged) ? staged : [];
   const pages = Array.isArray(siteMap && siteMap.pages) ? siteMap.pages : [];
   const contactPage = pages.find(page => /contact|enquir|inquir/i.test(String(page && page.title || '')));
@@ -701,29 +701,29 @@ export export function normalizeStage4QaContactForm(staged, siteMap) {
   if (!htmlItem || typeof htmlItem.content !== 'string') return source;
 
   let html = htmlItem.content;
-  const formPattern = /<form\\b[^>]*>/i;
+  const formPattern = /<form\b[^>]*>/i;
   const formMatch = html.match(formPattern);
   if (formMatch) {
     const opening = formMatch[0]
-      .replace(/\\s+method\\s*=\\s*(["'])[^"']*\\1/i, '')
-      .replace(/\\s+action\\s*=\\s*(["'])[^"']*\\1/i, '');
+      .replace(/\s+method\s*=\s*(["'])[^"']*\1/i, '')
+      .replace(/\s+action\s*=\s*(["'])[^"']*\1/i, '');
     html = html.replace(formPattern, opening.slice(0, -1) + ' method="post" action="/.well-known/ovyx-qa-enquiry">');
   } else {
-    const scripts = source.filter(item => /\\.(?:js|mjs)$/i.test(String(item && item.path || '')));
-    const existingSubmitId = scripts.map(item => String(item.content || '').match(/getElementById\\s*\\(\\s*(["'])([^"']+)\\1\\s*\\)\\s*\\.addEventListener\\s*\\(\\s*(["'])submit\\3/i)?.[2]).find(Boolean);
+    const scripts = source.filter(item => /\.(?:js|mjs)$/i.test(String(item && item.path || '')));
+    const existingSubmitId = scripts.map(item => String(item.content || '').match(/getElementById\s*\(\s*(["'])([^"']+)\1\s*\)\s*\.addEventListener\s*\(\s*(["'])submit\3/i)?.[2]).find(Boolean);
     const id = String(existingSubmitId || 'ovyx-qa-contact-form').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 80) || 'ovyx-qa-contact-form';
     const markup = '<form id="' + id + '" method="post" action="/.well-known/ovyx-qa-enquiry" aria-label="QA-only enquiry form">' +
       '<label for="' + id + '-name">Name</label><input id="' + id + '-name" name="name" autocomplete="name" required>' +
       '<label for="' + id + '-email">Email</label><input id="' + id + '-email" name="email" type="email" autocomplete="email" required>' +
       '<label for="' + id + '-message">Message</label><textarea id="' + id + '-message" name="message" required></textarea>' +
       '<button type="submit">Send test enquiry</button><p data-ovyx-qa-status role="status" aria-live="polite"></p></form>';
-    if (/<\\/main\\s*>/i.test(html)) html = html.replace(/<\\/main\\s*>/i, markup + '</main>');
-    else if (/<\\/body\\s*>/i.test(html)) html = html.replace(/<\\/body\\s*>/i, markup + '</body>');
+    if (/<\/main\s*>/i.test(html)) html = html.replace(/<\/main\s*>/i, markup + '</main>');
+    else if (/<\/body\s*>/i.test(html)) html = html.replace(/<\/body\s*>/i, markup + '</body>');
     else html += markup;
-    const handlerExists = scripts.some(item => /fetch\\s*\\(\\s*(["'])\\/\\.well-known\\/ovyx-qa-enquiry\\1/.test(String(item.content || '')));
+    const handlerExists = scripts.some(item => /fetch\s*\(\s*(["'])\/\.well-known\/ovyx-qa-enquiry\1/.test(String(item.content || '')));
     if (!handlerExists) {
-      const handler = "\\n;(()=>{const f=document.getElementById('" + id + "');if(!f||f.dataset.ovyxQaBound)return;f.dataset.ovyxQaBound='true';f.addEventListener('submit',async e=>{e.preventDefault();const b=f.querySelector('button[type=submit]');const s=f.querySelector('[data-ovyx-qa-status]');if(b)b.disabled=true;try{const r=await fetch('/.well-known/ovyx-qa-enquiry',{method:'POST',body:new FormData(f)});if(!r.ok)throw new Error('QA submission rejected');if(s)s.textContent='Your test enquiry was received.';f.reset();}catch{if(s)s.textContent='Unable to submit the test enquiry. Please try again.';}finally{if(b)b.disabled=false;}});})();\\n";
-      const scriptIndex = source.findIndex(item => /\\.(?:js|mjs)$/i.test(String(item && item.path || '')));
+      const handler = "\n;(()=>{const f=document.getElementById('" + id + "');if(!f||f.dataset.ovyxQaBound)return;f.dataset.ovyxQaBound='true';f.addEventListener('submit',async e=>{e.preventDefault();const b=f.querySelector('button[type=submit]');const s=f.querySelector('[data-ovyx-qa-status]');if(b)b.disabled=true;try{const r=await fetch('/.well-known/ovyx-qa-enquiry',{method:'POST',body:new FormData(f)});if(!r.ok)throw new Error('QA submission rejected');if(s)s.textContent='Your test enquiry was received.';f.reset();}catch{if(s)s.textContent='Unable to submit the test enquiry. Please try again.';}finally{if(b)b.disabled=false;}});})();\n";
+      const scriptIndex = source.findIndex(item => /\.(?:js|mjs)$/i.test(String(item && item.path || '')));
       if (scriptIndex >= 0) source[scriptIndex] = { ...source[scriptIndex], content: String(source[scriptIndex].content || '') + handler };
     }
   }
