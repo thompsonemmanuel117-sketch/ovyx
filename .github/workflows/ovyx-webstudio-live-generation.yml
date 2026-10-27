@@ -274,7 +274,14 @@ jobs:
           const failures = [];
           if (process.env.GENERATION_OUTCOME !== 'success') failures.push(['single-site generation', process.env.GENERATION_OUTCOME || 'not-run']);
           if (!generatedFiles.some(name => /\.html?$/i.test(String(name)))) failures.push(['real generated HTML files', 'missing']);
-          if (process.env.BROWSER_OUTCOME !== 'success' || browser.status !== 'browser-evaluated' || !Array.isArray(browser.evaluatedSites) || browser.evaluatedSites.length !== 1) {
+          const evaluatedSiteCount = Number.isSafeInteger(browser.evaluatedSites)
+            ? browser.evaluatedSites
+            : Array.isArray(browser.evaluatedSites)
+              ? browser.evaluatedSites.length
+              : Array.isArray(browser.results)
+                ? browser.results.length
+                : 0;
+          if (process.env.BROWSER_OUTCOME !== 'success' || browser.status !== 'browser-evaluated' || evaluatedSiteCount !== 1) {
             failures.push(['isolated Chromium browser evaluation', browser.status || process.env.BROWSER_OUTCOME || 'missing']);
           }
           if (process.env.AUDIT_OUTCOME !== 'success' || !audit.sitesFound || audit.status === 'not-run-no-generated-sites' || audit.sites?.some(site => site.status === 'needs-attention')) {
