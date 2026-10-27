@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { webcrypto } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { chooseProvider, handleLiveGenerationRequest, safeLiveGenerationFailureDetail, safeLiveGenerationProviderAttempts, safeLiveGenerationOutputDiagnostics, safeLiveGenerationValidationCategories, verifyGithubOidcToken } from '../functions/api/internal/live-generation-eval.js';
@@ -126,6 +128,10 @@ assert.deepEqual(
   'validation categories are limited to structural validation failures',
 );
 const generationClientSource = readFileSync(new URL('./ovyx-cloudflare-live-generation-client.mjs', import.meta.url), 'utf8');
+const generationClientPath = fileURLToPath(new URL('./ovyx-cloudflare-live-generation-client.mjs', import.meta.url));
+const generationClientSyntax = spawnSync(process.execPath, ['--check', generationClientPath], { encoding: 'utf8' });
+assert.equal(generationClientSyntax.status, 0,
+  'the live-generation client must parse before any protected workflow can spend AI allowance: ' + generationClientSyntax.stderr);
 assert.match(generationClientSource, /function safeOutputShapeDiagnostics\(/);
 assert.match(generationClientSource, /live-generation-output-shape-diagnostics/);
 assert.doesNotMatch(generationClientSource, /console\.log\(JSON\.stringify\(\{[^\n]*rawResponseText/i,
