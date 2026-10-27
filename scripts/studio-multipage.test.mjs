@@ -140,6 +140,14 @@ assert.ok(
   qaFormRepair.staged[0].content.includes('method="post" action="/.well-known/ovyx-qa-enquiry"'),
   'the protected smoke must force the isolated QA-only POST action rather than retain a missing or external destination',
 );
+assert.deepEqual(
+  validateStage4BrowserRuntime(qaFormRepair.staged, {
+    pages: [{ title: 'Contact', path: 'src/pages/Contact.html', url: '/contact/' }],
+  }),
+  [],
+  'the deterministic repair must produce a Contact form that passes the strict browser contract when its handler lives in main.js',
+);
+
 assert.equal(
   repairStage4SmokeQaFormAttributes(qaFormRepairFixture, {
     pages: [{ title: 'Contact', path: 'src/pages/Contact.html', url: '/contact/' }],
