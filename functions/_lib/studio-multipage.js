@@ -640,10 +640,10 @@ function normalizeSharedAssetReferences(staged, siteMap) {
   return { staged: next, repairedPages };
 }
 
-function validateStagedSite(staged, prompt, siteMap) {
+function validateStagedSite(staged, prompt, siteMap, explicitPages = null) {
   const validation = validateChanges(staged.map(item => ({ ...item, action: 'update' })), { allowDeletes: false });
   const outputFilesByPath = Object.fromEntries(staged.map(item => [item.path, item.content]));
-  const requirementVerification = verifyPromptContractOutput(prompt, outputFilesByPath, siteMap);
+  const requirementVerification = verifyPromptContractOutput(prompt, outputFilesByPath, siteMap, { explicitPages: Array.isArray(explicitPages) ? explicitPages : undefined });
   const integrity = auditWebsiteIntegrity(outputFilesByPath, siteMap);
   return { validation, outputFilesByPath, requirementVerification, integrity };
 }
@@ -929,7 +929,7 @@ async function buildStudioMultiPageOnce(options) {
 
   // Validate the first complete version before the optional polish pass. A failed
   // polish must never overwrite this baseline or turn a valid build into a failure.
-  let checks = validateStagedSite(staged, prompt, siteMap);
+  let checks = validateStagedSite(staged, prompt, siteMap, explicitPagesForReconciliation);
   if (checks.validation.length) {
     throw accountingError(Object.assign(new Error('Generated website failed structural validation: ' + checks.validation.slice(0, 4).join(' | ')), { status: 422, code: 'WEBSTUDIO_SITE_VALIDATION_FAILED' }), usage, hasUsage, inputs, outputs);
   }
@@ -1009,7 +1009,7 @@ async function buildStudioMultiPageOnce(options) {
             const normalizedRepair = normalizeSharedAssetReferences(candidate, siteMap);
             const normalizedCandidate = normalizedRepair.staged;
             sharedAssetPagesRepaired += normalizedRepair.repairedPages;
-            const candidateChecks = validateStagedSite(normalizedCandidate, prompt, siteMap);
+            const candidateChecks = validateStagedSite(normalizedCandidate, prompt, siteMap, explicitPagesForReconciliation);
             const changedPaths = repairedPaths.filter(path => String(repairedFiles[path]) !== String(baselineByPath.get(path) || ''));
 
             if (!changedPaths.length) {
@@ -1124,7 +1124,7 @@ async function buildStudioMultiPageOnce(options) {
         const normalizedPolish = normalizeSharedAssetReferences(candidate, siteMap);
         candidate = normalizedPolish.staged;
         sharedAssetPagesRepaired += normalizedPolish.repairedPages;
-        const candidateChecks = validateStagedSite(candidate, prompt, siteMap);
+        const candidateChecks = validateStagedSite(candidate, prompt, siteMap, explicitPagesForReconciliation);
         const changedPaths = polishedPaths.filter(path => String(polishedFiles[path]) !== String(baselineByPath.get(path) || ''));
         if (!changedPaths.length) {
           qualityPolish.status = 'unchanged';
