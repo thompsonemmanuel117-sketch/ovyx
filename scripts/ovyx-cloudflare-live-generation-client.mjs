@@ -620,6 +620,12 @@ async function generateOne(origin, provider, model, integrationSettings, caseId)
     if (validationCategories.length) {
       console.error(JSON.stringify({ event: 'live-generation-validation-diagnostics', caseId, validationCategories }));
     }
+    const validationCategories = Array.isArray(body.validationCategories)
+      ? [...new Set(body.validationCategories.filter(value => /^[a-z0-9-]{1,80}$/.test(String(value || '')))].slice(0, 12))
+      : [];
+    if (validationCategories.length) {
+      console.error(JSON.stringify({ event: 'live-generation-validation-diagnostics', caseId, validationCategories }));
+    }
     const outputDiagnostics = safeOutputShapeDiagnostics(body.outputDiagnostics);
     if (outputDiagnostics) {
       console.error(JSON.stringify({ event: 'live-generation-output-shape-diagnostics', caseId, outputDiagnostics }));
