@@ -860,6 +860,9 @@
     if (type === 'workspace_diagnose') {
       return { stage: 'diagnosing', message: 'Checking saved project files for structural and source-level issues.' };
     }
+    if (type === 'workspace_quality_check') {
+      return { stage: 'diagnosing', message: 'Running Web Studio source, link, responsive, runtime and safe interaction checks. No source will be changed.' };
+    }
     return { stage: 'inspecting', message: 'Inspecting the saved project inventory, pages and source files.' };
   }
 
@@ -887,6 +890,13 @@
     }
     if (result.operation === 'diagnose') {
       return 'Project diagnostics returned ' + Number(result.diagnostics?.issues?.length || 0) + ' issue(s) to review.';
+    }
+    if (result.operation === 'webstudio_quality_check') {
+      const browser = result.browser || {};
+      return 'Web Studio quality report ' + String(result.status || 'incomplete') + ': ' +
+        Number(result.counts?.fail || 0) + ' fail(s), ' + Number(result.counts?.warn || 0) + ' warning(s); ' +
+        Number(browser.completed || 0) + '/' + Number(browser.total || 0) + ' viewport checks completed. ' +
+        'Live external integrations and form delivery were not tested.';
     }
     return 'Project inspection completed.';
   }
@@ -971,6 +981,7 @@
 
   const READ_ONLY_WORKSPACE_ACTIONS = new Set([
     'workspace_inspect', 'workspace_read_file', 'workspace_search', 'workspace_diagnose',
+    'workspace_quality_check',
   ]);
 
   function workspaceToolActionKey(action) {
@@ -1059,11 +1070,139 @@
     return response;
   }
 
+  function redactQualityText(value, limit = 420) {
+    return String(value || '')
+      .replace(/\b(Bearer)\s+[A-Za-z0-9._~+/-]{12,}=*/gi, '$1 [REDACTED]')
+      .replace(/\b(api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|private[_-]?key|secret)\b\s*([:=])\s*(['"]?)[^\s'",;}]+/gi, '$1$2[REDACTED]')
+      .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, '[REDACTED PRIVATE KEY]')
+      .replace(/\s+/g, ' ').trim().slice(0, limit);
+  }
+
+  async function runWorkspaceQualityCheck(projectId) {
+    const activeId = String(window.KernelState?.activeProject?.id || window.ProjectStore?.current?.id || '');
+    if (!projectId || activeId !== projectId) {
+      return {
+        operation: 'webstudio_quality_check',
+        ok: false,
+        error: 'The requested project is not the currently active project. Open that exact project in Web Studio, then run the quality check again. No project was changed.',
+      };
+    }
+
+    if (String(window.KernelState?.activeView || '').replace(/^view-/, '').toLowerCase() !== 'webstudio') {
+      window.Router?.go?.('webstudio');
+    }
+
+    let inspector = null;
+    for (let attempt = 0; attempt < 60; attempt += 1) {
+      inspector = window.OVYXWebStudioQuality;
+      if (inspector && typeof inspector.run === 'function') break;
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    if (!inspector || typeof inspector.run !== 'function') {
+      return {
+        operation: 'webstudio_quality_check',
+        ok: false,
+        error: 'The Web Studio quality inspector did not become available. No source was changed. Open Web Studio and retry the check.',
+      };
+    }
+
+    const raw = await inspector.run();
+    const report = raw && typeof raw === 'object' ? raw : inspector.getReport?.();
+    if (!report || typeof report !== 'object' || !report.finishedAt) {
+      return {
+        operation: 'webstudio_quality_check',
+        ok: false,
+        error: 'The quality inspector did not return a completed report. Do not treat this check as a pass.',
+      };
+    }
+
+    if (String(report.projectId || '') !== projectId) {
+      return {
+        operation: 'webstudio_quality_check',
+        ok: false,
+        error: 'The quality inspector report belongs to a different project or has no matching project identity. The report was not used as evidence.',
+      };
+    }
+
+    const browser = report.browser && typeof report.browser === 'object' ? report.browser : {};
+    const graph = window.WebStudio?.graph || {};
+    const dirtySignals = [
+      ['WebStudio.graph.isDirty', graph.isDirty],
+      ['WebStudio.graph.dirty', graph.dirty],
+      ['WebStudio.hasUnsavedChanges', window.WebStudio?.hasUnsavedChanges],
+      ['KernelState.hasUnsavedChanges', window.KernelState?.hasUnsavedChanges],
+      ['activeProject.isDirty', window.KernelState?.activeProject?.isDirty],
+      ['activeProject.dirty', window.KernelState?.activeProject?.dirty],
+    ].filter(([, value]) => typeof value === 'boolean');
+    const sourceState = dirtySignals.some(([, value]) => value === true)
+      ? 'unsaved-changes'
+      : (dirtySignals.length ? 'clean-or-saved' : 'unknown');
+    const checks = (Array.isArray(report.checks) ? report.checks : []).slice(0, 40).map(item => ({
+      group: redactQualityText(item.group, 80),
+      title: redactQualityText(item.title, 140),
+      status: ['pass', 'fail', 'warn', 'info'].includes(String(item.status)) ? String(item.status) : 'info',
+      detail: redactQualityText(item.detail, 700),
+      ...(item.file ? { file: redactQualityText(item.file, 240) } : {}),
+    }));
+    const complete = Number(browser.completed) === Number(browser.total) && Number(browser.total) > 0;
+    const result = {
+      operation: 'webstudio_quality_check',
+      projectId,
+      projectName: redactQualityText(report.projectName, 160),
+      status: redactQualityText(report.status || 'incomplete', 40),
+      finishedAt: report.finishedAt,
+      sourceState,
+      dirtySignals: dirtySignals.map(([source, value]) => ({ source, value })),
+      complete,
+      checks,
+      counts: report.counts && typeof report.counts === 'object' ? {
+        pass: Number(report.counts.pass || 0),
+        warn: Number(report.counts.warn || 0),
+        fail: Number(report.counts.fail || 0),
+      } : null,
+      browser: {
+        total: Number(browser.total || 0),
+        completed: Number(browser.completed || 0),
+        pagesTested: Number(browser.pagesTested || 0),
+        pagesAvailable: Number(browser.pagesAvailable || 0),
+        widths: Array.isArray(browser.widths) ? browser.widths.map(Number).filter(Number.isFinite).slice(0, 8) : [],
+        runtimeErrors: (Array.isArray(browser.runtimeErrors) ? browser.runtimeErrors : []).slice(0, 12).map(item => redactQualityText(item, 220)),
+        interactions: browser.interactions && typeof browser.interactions === 'object' ? {
+          candidates: Number(browser.interactions.candidates || 0),
+          tested: Number(browser.interactions.tested || 0),
+          responded: Number(browser.interactions.responded || 0),
+          skipped: Number(browser.interactions.skipped || 0),
+          pagesProbed: Number(browser.interactions.pagesProbed || 0),
+          noOp: (Array.isArray(browser.interactions.noOp) ? browser.interactions.noOp : []).slice(0, 12).map(item => redactQualityText(item, 220)),
+        } : null,
+      },
+      notes: (Array.isArray(report.notes) ? report.notes : []).slice(0, 12).map(item => redactQualityText(item, 240)),
+      limitations: [
+        'The browser checks run in an isolated sandbox with network access and form submissions blocked.',
+        'A source or viewport check does not prove live external integrations, deployment, payments, authentication, or form delivery.',
+      ],
+    };
+    return {
+      operation: 'webstudio_quality_check',
+      ok: complete,
+      result,
+      ...(!complete ? { error: 'The quality report is incomplete; browser checks did not all finish.' } : {}),
+    };
+  }
+
   async function executeWorkspaceReadAction(action) {
     const projectId = String(action?.projectId || '');
     let operation = '';
     const payload = { projectId };
     if (!projectId) return { type: action?.type || 'workspace-tool', ok: false, error: 'A project ID is required. No project was changed.' };
+    if (action.type === 'workspace_quality_check') {
+      try {
+        const checked = await runWorkspaceQualityCheck(projectId);
+        return { type: action.type, ok: checked.ok === true, result: checked.result || checked, ...(checked.error ? { error: checked.error } : {}) };
+      } catch (error) {
+        return { type: action.type, ok: false, error: 'Web Studio quality checks could not complete: ' + String(error?.message || 'unknown error').slice(0, 300) + '. No source was changed.' };
+      }
+    }
     if (action.type === 'workspace_inspect') operation = 'inspect';
     else if (action.type === 'workspace_diagnose') operation = 'diagnose';
     else if (action.type === 'workspace_read_file') {
@@ -1592,7 +1731,7 @@
         contextWarning: context.contextWarning || null,
         assistantPolicy: 'OVYX native workspace assistant. Use authenticated read-only workspace tools when source evidence is missing. Context scanning is optional: use saved serverWorkspace data and serverDiagnostics when available, and always use the local snapshot as a fallback when deeper scans are unavailable. Any source edit requires a real file preview plus explicit user approval; only report a saved edit when the server confirms read-back verification.',
       };
-      const assistantSystem = 'Answer as OVYX AI. Inspect the authenticated saved project context when supplied. For deep project searches, use workspace_search with 2–8 related literal terms in queries, then inspect and read the exact relevant files. Follow cross-references when the user asks for a deep study; report searched-file and match counts plus any incomplete scan honestly. When necessary, request workspace_inspect, workspace_read_file, workspace_search, or workspace_diagnose and wait for their actual returned results before diagnosing or proposing a code edit. Never claim that code changed unless a server-confirmed workspace_patch action returned verified=true. A source edit must be reviewed and explicitly approved in the UI before it is written. For website builds, preserve the existing Web Studio generation workflow.';
+      const assistantSystem = 'Answer as OVYX AI. Inspect the authenticated saved project context when supplied. For deep project searches, use workspace_search with 2–8 related literal terms in queries, then inspect and read the exact relevant files. Follow cross-references when the user asks for a deep study; report searched-file and match counts plus any incomplete scan honestly. When necessary, request workspace_inspect, workspace_read_file, workspace_search, or workspace_diagnose and wait for their actual returned results before diagnosing or proposing a code edit. Never claim that code changed unless a server-confirmed workspace_patch action returned verified=true. A source edit must be reviewed and explicitly approved in the UI before it is written. For website builds, preserve the existing Web Studio generation workflow. When the user asks for website validation, request workspace_quality_check for the active project and use its returned report. Do not claim a pass unless its report is complete and its actual findings support that conclusion. Distinguish sandboxed checks from live external integrations, which are not verified.';
       const workspaceToolResults = [];
       const executedToolKeys = new Set();
       const conversationMessages = [
