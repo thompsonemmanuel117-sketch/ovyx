@@ -117,7 +117,7 @@ assert.match(imageHelper, /reserveDailyBudget\(env, estimate, snapshot\)/);
 assert.match(imageHelper, /settleDailyBudget\(env, reservation, estimate\)/);
 assert.match(imageHelper, /reserveUserMinute\(env, authUser\)/);
 assert.match(imageClient, /fetch\('\/api\/ai\/image-generation'/);
-assert.match(imageClient, /Authorization: 'Bearer ' \+ token/);
+assert.match(imageClient, /['\"]Authorization['\"]: 'Bearer ' \\+ token/);
 assert.match(imageClient, /ovyx-image-gen-download/);
 assert.match(middleware, /ovyx-image-generation\.js\?v=20261027-1/);
 assert.match(nativeAI, /You are OVYX AI/);
