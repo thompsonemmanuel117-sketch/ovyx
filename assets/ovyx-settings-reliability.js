@@ -6,7 +6,18 @@
   const PROFILE_ENDPOINT = '/api/settings/profile';
   const NOTIFICATIONS_ENDPOINT = '/api/settings/preferences';
   const AI_PREFERENCES_ENDPOINT = '/api/settings/ai';
-  const AI_PREFERENCE_DEFAULTS = Object.freeze({ mode: 'balanced', model: 'automatic', provider: 'gemini', explain: true, preserve: true, confirmDestructive: false, contextFiles: true, contextPage: true, contextGithub: true, routing: 'automatic', fallback: 'next', contextLimit: 'automatic', budget: 'automatic' });
+  const AI_PREFERENCE_DEFAULTS = Object.freeze({ mode: 'balanced', model: 'automatic', provider: 'automatic', explain: true, preserve: true, confirmDestructive: false, contextFiles: true, contextPage: true, contextGithub: true, routing: 'automatic', fallback: 'automatic', contextLimit: 'automatic', budget: 'automatic' });
+  function canonicalAIPreferences(value) {
+    const prefs = Object.assign({}, AI_PREFERENCE_DEFAULTS, value && typeof value === 'object' ? value : {});
+    prefs.mode = ['balanced', 'fast', 'quality'].includes(String(prefs.mode || '')) ? String(prefs.mode) : 'balanced';
+    prefs.provider = 'automatic';
+    prefs.model = 'automatic';
+    prefs.routing = 'automatic';
+    prefs.fallback = 'automatic';
+    prefs.contextLimit = ['automatic', 'conservative', 'expanded'].includes(String(prefs.contextLimit || '')) ? String(prefs.contextLimit) : 'automatic';
+    prefs.budget = ['automatic', 'efficient', 'maximum'].includes(String(prefs.budget || '')) ? String(prefs.budget) : 'automatic';
+    return prefs;
+  }
   const QUOTA_ENDPOINT = '/api/tokens/balance';
   const NOTIFICATION_DEFAULTS = Object.freeze({
     projectActivity: true,
@@ -586,38 +597,27 @@
     const panel = document.querySelector('[data-settings-panel="ai"]');
     if (!panel) return;
     const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
-    const prefs = Object.assign({}, AI_PREFERENCE_DEFAULTS, safeJson(localStorage.getItem(key)));
-    const mode = ['balanced', 'fast', 'quality'].includes(String(prefs.mode || ''))
-      ? String(prefs.mode) : 'balanced';
+    const prefs = canonicalAIPreferences(safeJson(localStorage.getItem(key)));
+    const mode = prefs.mode;
     panel.querySelectorAll('[data-ai-mode]').forEach(button => {
       const selected = button.dataset.aiMode === mode;
       button.classList.toggle('selected', selected);
       button.setAttribute('aria-pressed', String(selected));
     });
     const modeChip = panel.querySelector('.ovyx-health-chip');
-    if (modeChip) modeChip.textContent = mode.toUpperCase();
+    if (modeChip) modeChip.textContent = mode === 'fast' ? 'QUICK' : mode === 'quality' ? 'DEEP' : 'EVERYDAY';
     ['explain','preserve','confirmDestructive','contextFiles','contextPage','contextGithub'].forEach(name => {
       const input = panel.querySelector('[data-ai-pref="' + name + '"]');
       if (input) input.checked = !!prefs[name];
     });
     const values = {
-      'set-provider': prefs.provider || 'gemini',
-      'set-ai-routing': prefs.routing || 'automatic',
-      'set-ai-fallback': prefs.fallback || 'next',
-      'set-ai-context-limit': prefs.contextLimit || 'automatic',
-      'set-ai-budget': prefs.budget || 'automatic'
+      'set-ai-context-limit': prefs.contextLimit,
+      'set-ai-budget': prefs.budget
     };
     Object.keys(values).forEach(id => {
       const select = panel.querySelector('#' + id);
       if (select && Array.from(select.options).some(option => option.value === values[id])) select.value = values[id];
     });
-    syncModelOptions(values['set-provider'], panel);
-    const model = panel.querySelector('#set-ai-model');
-    const preferredModel = String(prefs.model || 'automatic');
-    if (model && Array.from(model.options).some(option => option.value === preferredModel)) {
-      model.value = preferredModel;
-      syncModelOptions(values['set-provider'], panel);
-    }
   }
   let aiPreferencesLoadPromise = null;
   function setAIPreferenceStatus(message, state) {
@@ -635,17 +635,37 @@
     aiPreferencesLoadPromise = (async function () {
       try {
         const data = await api(AI_PREFERENCES_ENDPOINT);
-        let preferences = Object.assign({}, AI_PREFERENCE_DEFAULTS, data.preferences || {});
-        if (!data.updatedAt && Object.keys(cached).length) {
-          const migrated = Object.assign({}, AI_PREFERENCE_DEFAULTS, cached);
-          const saved = await api(AI_PREFERENCES_ENDPOINT, jsonOptions('PUT', { preferences: migrated }));
-          if (saved?.authority !== 'SERVER' || !saved.preferences) throw new Error('The server did not confirm migration of the saved AI preferences.');
-          preferences = Object.assign({}, AI_PREFERENCE_DEFAULTS, saved.preferences);
-          setAIPreferenceStatus('Existing AI preferences were migrated to your account and verified by the server.', 'ok');
+        const remote = Object.assign({}, AI_PREFERENCE_DEFAULTS, data.preferences || {});
+        const legacyLocal = !data.updatedAt && Object.keys(cached).length > 0;
+        const cachedHasLegacyOverrides = ['provider','model','routing','fallback'].some(name =>
+          String(cached[name] ?? AI_PREFERENCE_DEFAULTS[name]) !== 'automatic'
+        );
+        let preferences = canonicalAIPreferences(legacyLocal ? cached : remote);
+        const remoteHasLegacyOverrides = ['provider','model','routing','fallback'].some(name =>
+          String(remote[name] ?? AI_PREFERENCE_DEFAULTS[name]) !== String(preferences[name])
+        );
+        const needsLegacyNormalization = cachedHasLegacyOverrides || remoteHasLegacyOverrides;
+        if (legacyLocal || needsLegacyNormalization) {
+          const saved = await api(AI_PREFERENCES_ENDPOINT, jsonOptions('PUT', { preferences }));
+          if (saved?.authority !== 'SERVER' || !saved.preferences) {
+            throw new Error('The server did not confirm the OVYX-managed AI preferences.');
+          }
+          preferences = canonicalAIPreferences(saved.preferences);
+          const stillLegacy = ['provider','model','routing','fallback'].some(name =>
+            String(saved.preferences[name] ?? AI_PREFERENCE_DEFAULTS[name]) !== String(preferences[name])
+          );
+          if (stillLegacy) throw new Error('The server returned legacy provider overrides instead of OVYX-managed routing.');
+          setAIPreferenceStatus(
+            legacyLocal
+              ? 'Saved preferences were migrated to your OVYX account and verified. OVYX now manages provider selection.'
+              : 'Old provider/model overrides were removed and OVYX-managed routing was verified by the server.',
+            'ok'
+          );
         } else {
           setAIPreferenceStatus(data.updatedAt
-            ? 'AI preferences loaded from your OVYX account.'
-            : 'No account AI preferences have been saved yet. Your device preferences are ready to save.', 'info');
+            ? 'AI preferences loaded from your OVYX account. OVYX manages the configured AI engine.'
+            : 'No account AI preferences have been saved yet. Your OVYX mode and safety preferences are ready to save.',
+            'info');
         }
         localStorage.setItem(key, JSON.stringify(preferences));
         window.OVYXAI = Object.assign({}, window.OVYXAI || {}, preferences);
@@ -700,12 +720,7 @@
       try {
         const panel = document.querySelector('[data-settings-panel="ai"]');
         const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
-        const prefs = Object.assign({
-          mode: 'balanced', model: 'automatic', provider: 'gemini',
-          explain: true, preserve: true, confirmDestructive: false,
-          contextFiles: true, contextPage: true, contextGithub: true,
-          routing: 'automatic', fallback: 'next', contextLimit: 'automatic', budget: 'automatic'
-        }, safeJson(localStorage.getItem(key)));
+        let prefs = canonicalAIPreferences(safeJson(localStorage.getItem(key)));
         const visibleMode = String(
           panel && (
             panel.querySelector('[data-ai-mode].selected')?.dataset?.aiMode ||
@@ -713,33 +728,29 @@
           ) || window.OVYXAI?.mode || prefs.mode || 'balanced'
         );
         prefs.mode = ['balanced', 'fast', 'quality'].includes(visibleMode) ? visibleMode : 'balanced';
-        prefs.provider = String(panel && panel.querySelector('#set-provider') && panel.querySelector('#set-provider').value || 'gemini');
-        const selectedModel = String(panel && panel.querySelector('#set-ai-model') && panel.querySelector('#set-ai-model').value || 'automatic');
-        prefs.model = selectedModel === 'automatic' || (MODELS_BY_PROVIDER[prefs.provider] || []).includes(selectedModel) ? selectedModel : 'automatic';
-        if (selectedModel !== prefs.model) notify('The selected model is not supported by this AI option. Automatic model selection was saved instead.', 'info');
-        prefs.routing = String(panel && panel.querySelector('#set-ai-routing') && panel.querySelector('#set-ai-routing').value || 'automatic');
-        prefs.fallback = String(panel && panel.querySelector('#set-ai-fallback') && panel.querySelector('#set-ai-fallback').value || 'next');
         prefs.contextLimit = String(panel && panel.querySelector('#set-ai-context-limit') && panel.querySelector('#set-ai-context-limit').value || 'automatic');
         prefs.budget = String(panel && panel.querySelector('#set-ai-budget') && panel.querySelector('#set-ai-budget').value || 'automatic');
         ['explain','preserve','confirmDestructive','contextFiles','contextPage','contextGithub'].forEach(name => {
           const input = panel && panel.querySelector('[data-ai-pref="' + name + '"]');
           if (input) prefs[name] = !!input.checked;
         });
+        prefs = canonicalAIPreferences(prefs);
         let serverError = '';
         let savedPreferences = prefs;
         try {
           const saved = await api(AI_PREFERENCES_ENDPOINT, jsonOptions('PUT', { preferences: prefs }));
           if (saved?.authority !== 'SERVER' || !saved.preferences) throw new Error('The server did not confirm the saved preferences.');
-          savedPreferences = Object.assign({}, AI_PREFERENCE_DEFAULTS, saved.preferences);
+          savedPreferences = canonicalAIPreferences(saved.preferences);
+          const stillLegacy = ['provider','model','routing','fallback'].some(name =>
+            String(saved.preferences[name] ?? AI_PREFERENCE_DEFAULTS[name]) !== String(savedPreferences[name])
+          );
+          if (stillLegacy) throw new Error('The server did not confirm OVYX-managed provider routing.');
           localStorage.setItem(key, JSON.stringify(savedPreferences));
           window.OVYXAI = Object.assign({}, window.OVYXAI || {}, savedPreferences);
         } catch (error) {
           serverError = String(error?.message || 'account preference sync failed');
-          // When signed in, do not treat a failed account write as a successful
-          // device save. Keep the last-known local/account preference values so
-          // the next AI request cannot silently use settings the server rejected.
           if (currentUser()) {
-            savedPreferences = Object.assign({}, AI_PREFERENCE_DEFAULTS, safeJson(localStorage.getItem(key)));
+            savedPreferences = canonicalAIPreferences(safeJson(localStorage.getItem(key)));
           } else {
             try { localStorage.setItem(key, JSON.stringify(prefs)); } catch (_) {}
           }
@@ -748,7 +759,7 @@
           window.OVYXAI = Object.assign({}, window.OVYXAI || {}, savedPreferences);
         }
         syncAISettingsControls();
-        const status = addStatus(panel, 'ovyx-ai-preference-status', 'AI preference status');
+        const status = addStatus(document.querySelector('[data-settings-panel="ai"]'), 'ovyx-ai-preference-status', 'AI preference save status');
         if (status) {
           status.textContent = serverError
             ? 'Preferences were not confirmed as saved to your OVYX account. Previous settings remain active: ' + serverError
@@ -767,11 +778,15 @@
       try {
         const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
         let serverError = '';
-        let defaults = Object.assign({}, AI_PREFERENCE_DEFAULTS);
+        let defaults = canonicalAIPreferences(AI_PREFERENCE_DEFAULTS);
         try {
           const saved = await api(AI_PREFERENCES_ENDPOINT, jsonOptions('PUT', { preferences: defaults }));
           if (saved?.authority !== 'SERVER' || !saved.preferences) throw new Error('The server did not confirm the reset.');
-          defaults = Object.assign({}, AI_PREFERENCE_DEFAULTS, saved.preferences);
+          defaults = canonicalAIPreferences(saved.preferences);
+          const stillLegacy = ['provider','model','routing','fallback'].some(name =>
+            String(saved.preferences[name] ?? AI_PREFERENCE_DEFAULTS[name]) !== String(defaults[name])
+          );
+          if (stillLegacy) throw new Error('The server did not confirm OVYX-managed routing defaults.');
           localStorage.setItem(key, JSON.stringify(defaults));
           window.OVYXAI = Object.assign({}, window.OVYXAI || {}, defaults);
         } catch (error) {
@@ -796,32 +811,25 @@
       service.generate = async function (payload, options) {
         payload = Object.assign({}, payload || {});
         const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
-        const prefs = Object.assign({}, safeJson(localStorage.getItem(key)), window.OVYXAI || {});
+        const prefs = canonicalAIPreferences(Object.assign({}, safeJson(localStorage.getItem(key)), window.OVYXAI || {}));
         const requestedProvider = String(payload.provider || '').trim().toLowerCase();
-        const validRouting = ['automatic','preferred-first','provider-priority'].includes(String(prefs.routing || 'automatic'))
-          ? String(prefs.routing || 'automatic') : 'automatic';
-        payload.providerRouting = validRouting;
-        payload.fallback = ['automatic', 'next', 'stop'].includes(String(prefs.fallback || 'next'))
-          ? String(prefs.fallback || 'next') : 'next';
-        if ((!payload.model || String(payload.model).toLowerCase() === 'automatic') && prefs.model && String(prefs.model).toLowerCase() !== 'automatic') {
-          payload.model = String(prefs.model);
-          // A concrete model is provider-specific. Pin this request to its chosen provider
-          // rather than sending a Claude model ID to Gemini (or vice versa).
-          if ((!requestedProvider || requestedProvider === 'automatic' || requestedProvider === 'auto') && prefs.provider) {
-            payload.provider = String(prefs.provider).toLowerCase();
-          }
+        // Only a provider explicitly passed by the calling feature may choose a
+        // provider. Saved account preferences no longer silently pin requests to
+        // Gemini/Claude/OpenAI or a model-specific routing path.
+        const suppliedPreferred = String(payload.preferredProvider || '').trim().toLowerCase();
+        const explicitProvider = requestedProvider && !['automatic', 'auto'].includes(requestedProvider);
+        if (!explicitProvider) {
+          payload.provider = 'automatic';
+          if (!suppliedPreferred) delete payload.preferredProvider;
+          if (!payload.model || String(payload.model).toLowerCase() === 'automatic') payload.model = 'automatic';
         }
-        if ((!requestedProvider || requestedProvider === 'automatic' || requestedProvider === 'auto') && prefs.provider) {
-          payload.preferredProvider = String(prefs.provider).toLowerCase();
-          if (prefs.fallback === 'stop') payload.provider = String(prefs.provider).toLowerCase();
-        }
+        if (!payload.providerRouting) payload.providerRouting = 'automatic';
+        if (!payload.fallback) payload.fallback = 'automatic';
         const instructions = [];
         if (prefs.mode === 'fast') instructions.push('Generation preference: prioritize concise, low-latency iterations.');
         if (prefs.mode === 'quality') instructions.push('Generation preference: prioritize thoroughness, completeness and careful validation.');
         if (prefs.explain) instructions.push('Briefly explain significant changes that are actually completed.');
         if (prefs.preserve) instructions.push('Preserve existing project structure and unrelated working code unless the user explicitly requests a restructure.');
-        if (prefs.routing && prefs.routing !== 'automatic') instructions.push('Preferred routing strategy: ' + String(prefs.routing) + '.');
-        if (prefs.fallback === 'stop') instructions.push('When the selected provider fails, report the failure rather than pretending success.');
         if (prefs.contextFiles === false) {
           delete payload.files;
           if (payload.project && typeof payload.project === 'object') {

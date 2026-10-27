@@ -105,7 +105,7 @@ assert.deepEqual(
   { ...NOTIFICATION_DEFAULTS, projectActivity: false },
   'Notification preference parsing must accept only known boolean fields.'
 );
-assert.ok(html.includes('/assets/ovyx-settings-reliability.js?v=20261018-2'), 'The audited Settings runtime must load in the application shell.');
+assert.ok(html.includes('/assets/ovyx-settings-reliability.js?v=20261027-3'), 'The audited Settings runtime must load in the application shell.');
 assert.ok(html.includes('autosaveRecoveryEnabled'), 'Turning autosave off must remove saved recovery snapshots rather than merely change the toggle label.');
 assert.ok(html.includes("layer.innerHTML=`"), 'The Data Layer renderer must append to its own container instead of replacing the Workspace panel.');
 assert.ok(!html.includes("if(!p)return;const c=dbCfg();p.innerHTML=`"), 'The Data Layer renderer must not erase normal Workspace preferences.');
@@ -179,9 +179,20 @@ for (const section of ['general','profile','appearance','workspace','notificatio
   assert.ok(html.includes("['" + section + "'"), 'Settings navigation must retain the ' + section + ' section.');
 }
 assert.match(html, /id="set-editor-mode"/, 'Default editor mode select must have the same ID the handler reads.');
-for (const id of ['set-ai-routing','set-ai-fallback','set-ai-context-limit','set-ai-budget']) {
-  assert.ok(html.includes('id="' + id + '"'), 'Advanced AI preference must have a stable id: ' + id);
+for (const id of ['set-ai-context-limit','set-ai-budget']) {
+  assert.ok(html.includes('id="' + id + '"'), 'Advanced context/budget preference must have a stable id: ' + id);
 }
+for (const id of ['set-provider','set-ai-model','set-ai-routing','set-ai-fallback']) {
+  assert.equal(html.includes('id="' + id + '"'), false, 'Stage 8 must remove the confusing provider/model/routing selector: ' + id);
+}
+assert.ok(html.includes('OVYX Everyday') && html.includes('OVYX Quick') && html.includes('OVYX Deep'),
+  'The user-facing AI settings must use clearly named OVYX modes.');
+assert.ok(html.includes('id="v59-ai-mode-select"'), 'The home composer must select an OVYX response mode.');
+assert.equal(html.includes('id="v59-model-select"'), false, 'The home composer must not expose a third-party provider selector.');
+assert.ok(html.includes("const requested='automatic'") && html.includes("W.brain='automatic'"),
+  'Home builds and Web Studio handoff must remain on server-managed provider routing.');
+assert.ok(html.includes('window.OVYXAITrust?.syncModeSelector?.()'),
+  'The home mode selector must follow the saved OVYX preference instead of restoring a legacy provider choice.');
 
 for (const requirement of [
   "api(PROFILE_ENDPOINT, jsonOptions('PUT'",
@@ -204,9 +215,11 @@ for (const requirement of [
   '#ws-select-inspector',
   '__ovyxShouldPauseLivePreviewV1',
   '__ovyxRawRenderPreviewV1',
-  'payload.preferredProvider',
+  "payload.provider = 'automatic'",
+  'canonicalAIPreferences',
   'payload.providerRouting',
-  'payload.provider = String(prefs.provider).toLowerCase()',
+  "if (prefs.mode === 'fast') instructions.push('Generation preference: prioritize concise, low-latency iterations.')",
+  "if (prefs.mode === 'quality') instructions.push('Generation preference: prioritize thoroughness, completeness and careful validation.')",
   'limitContextFiles',
   'set-editor-mode'
 ]) assert.ok(runtime.includes(requirement), 'Settings runtime must have real behavior for: ' + requirement);
@@ -260,9 +273,9 @@ assert.deepEqual(
   'Unknown AI preference enums and non-boolean toggles must fall back to safe defaults.'
 );
 assert.deepEqual(
-  normalizeAIPreferences({ provider: 'openai', model: 'gpt-6.1-sol', explain: false, contextFiles: false }),
-  { ...AI_PREFERENCE_DEFAULTS, provider: 'openai', model: 'gpt-6.1-sol', explain: false, contextFiles: false },
-  'Supported AI preferences must survive server normalization.'
+  normalizeAIPreferences({ provider: 'openai', model: 'gpt-6.1-sol', routing: 'preferred-first', fallback: 'next', explain: false, contextFiles: false }),
+  { ...AI_PREFERENCE_DEFAULTS, explain: false, contextFiles: false },
+  'Stage 8 must migrate legacy provider/model/routing/fallback selections to OVYX-managed routing while preserving actual user safety/context preferences.'
 );
 assert.ok(aiPreferencesApi.includes('verifyFirebaseIdToken'), 'AI preference reads and writes must authenticate a Firebase identity.');
 assert.ok(aiPreferencesApi.includes('enforceSameOrigin'), 'AI preference writes must reject cross-origin requests.');

@@ -478,7 +478,7 @@ if (!fs.existsSync(nativeAssistantPath) || !fs.existsSync(nativeAssistantRoutePa
     !fs.readFileSync(nativeAssistantPath, 'utf8').includes("'workspace_undo'") ||
     !workspaceToolsIntegrationTest.includes("operation: 'read_file'") ||
     !workspaceToolsTest.includes('Recovery must have a distinct preview operation.') ||
-    !shellMiddleware.includes('assets/ovyx-assistant-workspace.js?v=20261027-2')
+    !shellMiddleware.includes('assets/ovyx-assistant-workspace.js?v=20261027-4')
   ) {
     errors.push('OVYX native assistant: safe recovery, review-before-write, truthful progress states, tests or cache-busted shell injection is incomplete.');
   }
@@ -612,7 +612,7 @@ if (fs.existsSync(html)) {
   if (
     !providerChoiceRouter ||
     !providerChoiceRouter[1].includes('failoverUsed:false') ||
-    !providerChoiceRouter[1].includes('Try OVYX Auto or choose another available AI option.') ||
+    !providerChoiceRouter[1].includes('Check AI readiness and retry; it will not silently switch providers.') ||
     /for\s*\(const provider of order\)/.test(providerChoiceRouter[1])
   ) {
     errors.push('index.html: explicitly selected AI providers must not silently fail over, and must explain how to continue when unavailable.');
@@ -817,6 +817,19 @@ if (
   const endpoint = fs.readFileSync(providerAvailabilityPath, 'utf8');
   const client = fs.readFileSync(providerAvailabilityClientPath, 'utf8');
   const shellMiddleware = fs.existsSync(shellMiddlewarePath) ? fs.readFileSync(shellMiddlewarePath, 'utf8') : '';
+  const appHtmlForAiModes = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const homeBuildStart = appHtmlForAiModes.indexOf('function runBuild(){');
+  const homeBuildEnd = appHtmlForAiModes.indexOf('runBuild.__ovyxFinal=true', homeBuildStart);
+  const homeBuildSource = homeBuildStart >= 0 && homeBuildEnd > homeBuildStart
+    ? appHtmlForAiModes.slice(homeBuildStart, homeBuildEnd)
+    : '';
+  const homeModesReady = appHtmlForAiModes.includes('id="v59-ai-mode-select"') &&
+    !appHtmlForAiModes.includes('id="v59-model-select"') &&
+    homeBuildSource.includes("const requested='automatic'") &&
+    homeBuildSource.includes("W.brain='automatic'");
+  if (!homeModesReady) {
+    errors.push('OVYX AI modes: the home composer must expose OVYX Everyday/Quick/Deep, remove the old provider selector, and use managed server routing for builds.');
+  }
   const headersPath = path.join(root, '_headers');
   const headers = fs.existsSync(headersPath) ? fs.readFileSync(headersPath, 'utf8') : '';
   if (
@@ -837,7 +850,7 @@ if (
     !headers.includes('/assets/ovyx-provider-availability.js') ||
     !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/provider-availability.test.mjs')
   ) {
-    errors.push('OVYX provider availability: checks must be authenticated, time-bounded, no-store, secret-safe, same-origin and connected to the provider selector.');
+    errors.push('OVYX provider availability: probes must be authenticated, time-bounded, no-store, secret-safe and same-origin; the home composer must use OVYX modes instead of provider-specific choices.');
   }
 }
 
