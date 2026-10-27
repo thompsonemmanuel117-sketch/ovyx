@@ -43,7 +43,7 @@ assert.match(researchKnowledge, /production secrets are configured/);
 const modalities = buildOvyxProjectKnowledge('Does OVYX support image generation and voice transcription?');
 assert.match(modalities, /image uploads, stock\/visual asset references or a visual asset plan/i);
 assert.match(modalities, /SpeechRecognition/);
-assert.match(modalities, /Do not describe image uploads, stock\/visual asset references or a visual asset plan as AI image generation/i);
+assert.match(modalities, /(?:Do not describe image uploads.*as|image uploads.*are not).*AI image generation/i, 'Image uploads and visual asset references must never be mistaken for generated images.');
 
 const general = buildOvyxProjectKnowledge('Hello, thank you.');
 assert.match(general, /IMPORTANT SCOPE BOUNDARY/);
