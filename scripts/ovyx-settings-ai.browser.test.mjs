@@ -163,6 +163,26 @@ try {
     assert.equal(serverPreferences.fallback, 'automatic');
     assert.ok(aiPreferenceRequests.some(request => request.method === 'PUT'), '[' + target.name + '] legacy migration must create the account-scoped preference document.');
 
+    // The same named OVYX mode control in the home composer must save through
+    // the account preference endpoint, not just update a browser-only selector.
+    await page.evaluate(() => window.Router.go('home'));
+    await page.locator('#view-home').waitFor({ state: 'visible' });
+    const homeMode = page.locator('#v59-ai-mode-select');
+    await homeMode.waitFor({ state: 'visible' });
+    await homeMode.selectOption('quality');
+    await page.waitForFunction(() => window.OVYXAI?.mode === 'quality', null, { timeout: 10000 });
+    assert.equal(serverPreferences.mode, 'quality', '[' + target.name + '] home mode change must be saved to the account.');
+    assert.ok(aiPreferenceRequests.some(request => request.method === 'PUT' && request.body?.preferences?.mode === 'quality'),
+      '[' + target.name + '] home mode must use the verified settings API.');
+    await homeMode.selectOption('fast');
+    await page.waitForFunction(() => window.OVYXAI?.mode === 'fast', null, { timeout: 10000 });
+    assert.equal(serverPreferences.mode, 'fast', '[' + target.name + '] home mode changes must stay synchronized with account settings.');
+    assert.equal(serverPreferences.provider, 'automatic', '[' + target.name + '] home mode must not select a provider.');
+    await page.evaluate(() => window.Router.go('settings'));
+    await page.locator('#view-settings').waitFor({ state: 'visible' });
+    await page.evaluate(() => window.OVYXSettings.show('ai'));
+    await page.locator('[data-settings-panel="ai"] #set-ai-save').waitFor({ state: 'visible' });
+
     const key = await page.evaluate(() => window.OVYXAIStorageKey());
     await page.evaluate(key => localStorage.removeItem(key), key);
     const refreshPreferences = page.waitForResponse(response =>
