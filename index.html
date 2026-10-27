@@ -593,7 +593,7 @@
 </div>
 <button class="v59-build-btn" id="v59-build" type="button"><span>Build</span><i class="fa-solid fa-arrow-up"></i></button>
 </div>
-<div class="v59-routing-note" id="v59-routing-note"><i class="fa-solid fa-route"></i><span>OVYX Everyday selected · OVYX manages AI routing. Usage and safety limits remain active.</span></div>
+<div class="v59-routing-note" id="v59-routing-note" role="status" aria-live="polite"><i class="fa-solid fa-route"></i><span>OVYX Everyday selected · OVYX manages AI routing. Usage and safety limits remain active.</span></div>
 <div class="v59-home-ai-status"><span class="ovyx-ai-readiness-chip" data-ovyx-ai-readiness="welcome" data-state="checking" role="status" aria-live="polite">OVYX AI · Checking setup…</span></div>
 <div class="v59-add-menu" hidden="" id="v59-add-menu">
 <button data-v59-add="files" type="button"><i class="fa-regular fa-folder-open"></i><span><b>Upload files</b><small>Attach documents and project references</small></span></button>
@@ -5243,7 +5243,7 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
   window.OVYXAIService=window.OVYXAIService||{
     async generate(payload){
       const ep=endpoints().aiEndpoint;
-      if(!ep)throw Error('AI is not available right now. Try OVYX Auto or choose another option.');
+      if(!ep)throw Error('OVYX AI is not available from this view. Check the AI readiness status and try again.');
       const u=window.firebase?.auth?.().currentUser;
       if(!u)throw Error('Sign in before using the live AI service.');
       const token=await u.getIdToken();
@@ -8376,14 +8376,16 @@ function cleanHelp(){window.OVYXHelpExtra=[];const extra=document.getElementById
 {q:'How do I create and manage a project?',a:'Use New Project to create one, Projects to reopen it, and project actions to duplicate, rename or delete it.',cat:'Projects'},
 {q:'What is Web Studio?',a:'Web Studio is the visual web-building workspace with responsive preview, canvas, inspector, pages and blueprint tools.',cat:'Web Studio'},
 {q:'What is App Studio?',a:'App Studio provides the application-oriented builder and schema workflows available in the current OVYX build.',cat:'App Studio'},
-{q:'How does OVYX AI work?',a:'OVYX checks your account access before sending AI requests to the selected AI service.',cat:'AI'},
+{q:'What can OVYX AI help me do?',a:'OVYX AI can answer questions, help inspect your saved project, and propose code edits for your review. Web Studio and App Studio handle website and app generation. Web Studio also has online research and image generation when those tools are configured and included in your account. Voice activation depends on your browser microphone and speech support. Not every tool is available on every account or device.',cat:'AI'},
+{q:'How does OVYX AI work?',a:'OVYX uses its configured Cloudflare AI engine by default. If you explicitly select your own AI Brain, ordinary assistant chats use that connection and report a failure rather than silently changing providers. OVYX checks account access and usage limits. A “configured” readiness status means setup was found; it does not prove that the next live request will succeed.',cat:'AI'},
+{q:'What do OVYX Everyday, Quick and Deep mean?',a:'Everyday is balanced for ordinary tasks, Quick favors concise responses, and Deep allows more detail for difficult questions and coding. These modes do not choose a provider or increase usage limits.',cat:'AI'},
 {q:'How do locked features and plans work?',a:'OVYX uses a shared access registry. When an administrator changes the minimum plan for a feature, the plan catalogue updates automatically.',cat:'Plans'},
 {q:'Does changing a lock automatically change the subscription price?',a:'No. Access changes update plan inclusions automatically; pricing remains an explicit admin setting so OVYX never invents or silently changes a charge.',cat:'Plans'},
 {q:'How does Billing work?',a:'Plans show the configured price and the current access catalog. A purchase is considered active only after the payment backend verifies it.',cat:'Billing'},
 {q:'How does Theme Lab and Light Mode work?',a:'Open Settings → Appearance. Theme Lab and Light Mode both use the canonical ThemeContext and support preview, save and cancel behavior.',cat:'Appearance'},
 {q:'How are project assets stored?',a:'Project assets use the authenticated asset layer. The actual file belongs in Storage while lightweight ownership metadata is kept with the project asset record.',cat:'Data'},
 {q:'How do I set up an external service?',a:'External services use approved access. Keep private credentials secure and do not share them in support messages.',cat:'Integrations'},
-{q:'Why might a service show unavailable?',a:'A service is marked ready only after its availability check succeeds. If setup is incomplete or a service is unavailable, OVYX shows its current status without simulating success.',cat:'Troubleshooting'},
+{q:'Why might AI show unavailable?',a:'The readiness check looks at setup only; it does not send a model request. A real request can still fail if the service is offline, the connection needs attention, or the account has reached a limit. Check the displayed recovery message, sign-in, AI settings and Plan & Usage. OVYX will not silently switch providers to get around a limit.',cat:'Troubleshooting'},
 {q:'What should I do when a page hangs?',a:'Return to Home and reopen the page, then review the Help report. If the issue continues, contact Support with the report summary. Do not include passwords or access credentials.',cat:'Troubleshooting'},
 {q:'How do I contact support?',a:'Use the Help Center Support action. OVYX can prepare a concise diagnostic summary so support can see the current view, plan and browser context.',cat:'Support'}
 ];window.FAQSystem&&(window.FAQSystem.items=concise,window.FAQSystem.activeFilter='All',setTimeout(()=>window.FAQSystem.init?.(),0));}
@@ -11501,7 +11503,7 @@ window.addEventListener('pageshow',()=>setTimeout(install,0),{passive:true});
         if(code.startsWith('UNIVERSAL_CONNECTION')||/selected AI Brain|Universal Connection/i.test(message))throw e;
         const labels={gemini:'Gemini',deepseek:'DeepSeek',anthropic:'Claude',openai:'OpenAI',groq:'Groq','cloudflare-workers-ai':'Native AI service'};
         const label=labels[normalized]||normalized.replace(/[-_]+/g,' ').replace(/^./,c=>c.toUpperCase())+' AI';
-        const friendly=new Error(label+' is not available right now. Try OVYX Auto or choose another available AI option.');
+        const friendly=new Error('OVYX could not complete this request through the configured AI route. Check AI readiness and retry; it will not silently switch providers.');
         friendly.code=code||'AI_PROVIDER_UNAVAILABLE';friendly.status=Number(e?.status)||503;friendly.provider=normalized;
         throw friendly;
       }
