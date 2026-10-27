@@ -17,7 +17,7 @@ assert.match(pkg, /node scripts\/ovyx-stage7-project-awareness\.test\.mjs/);
 assert.match(nativeAI, /'platform_repo_investigate'/);
 assert.match(nativeAI, /question = clean\(item\.question, 1200\)/);
 assert.match(nativeAI, /root-admin access/);
-assert.match(nativeAI, /maximum of three readable source files/);
+assert.match(nativeAI, /at most three readable source files/);
 assert.match(nativeAI, /source-level question/);
 assert.match(client, /'platform_repo_investigate'/);
 assert.match(client, /fetch\('\/api\/admin\/guardian-repo'/);
