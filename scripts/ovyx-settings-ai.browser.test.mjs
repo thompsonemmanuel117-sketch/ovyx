@@ -253,7 +253,7 @@ try {
     assert.equal(aiRequests.length, 1, '[' + target.name + '] one generation should make one assistant request.');
     const sent = aiRequests[0];
     assert.equal(sent.provider, undefined, '[' + target.name + '] automatic assistant calls leave provider selection to the server instead of sending a client-selected provider.');
-    assert.equal(sent.preferredProvider, undefined, '[' + target.name + '] old saved provider preferences must not be injected into requests.');
+    assert.equal(sent.preferredProvider, '', '[' + target.name + '] automatic assistant calls must not inherit the saved provider preference.');
     assert.equal(sent.fallback, 'automatic', '[' + target.name + '] fallback must be server-managed rather than inherited from a removed selector.');
     assert.equal(sent.providerRouting, 'automatic', '[' + target.name + '] routing must be server-managed rather than inherited from a removed selector.');
     assert.equal(sent.model, 'automatic');
