@@ -66,6 +66,8 @@ const QA_CONTRACT = [
   '4. Do not load remote images, fonts, stylesheets, scripts, analytics or icon libraries. Use authored local CSS/SVG or self-contained HTML.',
   '5. Every visible navigation link and CTA needs a meaningful destination or visible behavior. No href="#", javascript: links, dead buttons, placeholders, or fabricated live business data.',
   '6. Provide semantic HTML, market-matched language metadata, title, meta description, viewport, accessible contrast, visible keyboard focus, responsive design and prefers-reduced-motion support.',
+  '7. Browser JavaScript must run directly in a real browser: use window.document, never import or instantiate jsdom/JSDOM, Node modules, require, process, or server-only APIs. A shared script must guard optional page-specific elements before attaching event listeners.',
+  '8. Each requested HTML file must contain exactly one complete document, use unescaped valid HTML attributes, and match its requested page title and route. Never append another document or a model/JSON wrapper to the file.',
 ].join('\n');
 
 function decodeBase64Url(value) {
