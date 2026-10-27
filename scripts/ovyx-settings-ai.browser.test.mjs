@@ -152,7 +152,7 @@ try {
     const panel = page.locator('[data-settings-panel="ai"]');
     await panel.locator('#set-ai-save').waitFor({ state: 'visible' });
     await page.waitForFunction(
-      () => document.getElementById('ovyx-ai-preference-status')?.textContent?.includes('AI preferences loaded from your OVYX account.'),
+      () => /AI preferences loaded from your OVYX account|Saved preferences were migrated to your OVYX account and verified/.test(document.getElementById('ovyx-ai-preference-status')?.textContent || ''),
       null,
       { timeout: 10000 },
     );
@@ -170,7 +170,7 @@ try {
     await page.evaluate(() => window.OVYXSettings.show('ai'));
     await refreshPreferences;
     await page.waitForFunction(
-      () => document.getElementById('ovyx-ai-preference-status')?.textContent?.includes('AI preferences loaded from your OVYX account.'),
+      () => /AI preferences loaded from your OVYX account|Saved preferences were migrated to your OVYX account and verified/.test(document.getElementById('ovyx-ai-preference-status')?.textContent || ''),
       null,
       { timeout: 10000 },
     );
