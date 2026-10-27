@@ -142,6 +142,45 @@ function recoverCssFromMalformedEnvelope(rawText) {
   return null;
 }
 
+export function extractFirstHtmlDocument(rawText, targetPath = '') {
+  const raw = String(rawText || '');
+  const starts = [...raw.matchAll(/<!doctype\s+html\b|<html\b/gi)]
+    .map(match => match.index).filter(Number.isInteger);
+  const candidates = [];
+  const targetBase = String(targetPath || '').split('/').pop().replace(/\.html?$/i, '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const targetIsContact = /contact|enquir|inquir/i.test(targetBase);
+
+  for (const start of starts) {
+    const tail = raw.slice(start);
+    const closeMatch = /<\/html\s*>/i.exec(tail);
+    if (!closeMatch) continue;
+    let document = tail.slice(0, closeMatch.index + closeMatch[0].length).trim();
+    document = document.replace(/<[^>]*>/g, tag => tag.replace(/\\(["'])/g, '$1'));
+    const doctypeCount = (document.match(/<!doctype\s+html\b/gi) || []).length;
+    const htmlCount = (document.match(/<html\b/gi) || []).length;
+    if (doctypeCount > 1 || htmlCount !== 1 ||
+        !/<head\b/i.test(document) || !/<body\b/i.test(document) || !/<\/body\s*>/i.test(document)) continue;
+    const title = document.match(/<title\b[^>]*>([\s\S]*?)<\/title\s*>/i)?.[1] || '';
+    const heading = document.match(/<h1\b[^>]*>([\s\S]*?)<\/h1\s*>/i)?.[1] || '';
+    const normalizedTitle = title.toLowerCase().replace(/[^a-z0-9]+/g, '');
+    const normalizedHeading = heading.toLowerCase().replace(/<[^>]*>/g, '').replace(/[^a-z0-9]+/g, '');
+    let score = 0;
+    if (targetBase && normalizedTitle.startsWith(targetBase)) score += 100;
+    if (targetBase && normalizedHeading.startsWith(targetBase)) score += 50;
+    if (targetIsContact && /(?:contact|enquir|inquir|getintouch)/.test(normalizedTitle + normalizedHeading)) score += 100;
+    if (!targetIsContact && targetBase === 'home' && /^(?:home|welcome)/.test(normalizedHeading)) score += 25;
+    if (!candidates.some(item => item.document === document)) candidates.push({ document, score, start });
+  }
+
+  if (!candidates.length) return null;
+  if (targetPath) {
+    candidates.sort((a, b) => b.score - a.score || a.start - b.start);
+    if (candidates[0].score > 0) return candidates[0].document;
+  }
+  candidates.sort((a, b) => a.start - b.start);
+  return candidates[0].document;
+}
+
 function recoverSingleFileContent(rawText, targetPath, parsedOutput = null) {
   const target = String(targetPath || '');
   const extension = (target.split('.').pop() || '').toLowerCase();
@@ -180,15 +219,8 @@ function recoverSingleFileContent(rawText, targetPath, parsedOutput = null) {
     if (/^[{[]/.test(raw) && extension !== 'html' && extension !== 'htm') continue;
 
     if (extension === 'html' || extension === 'htm') {
-      const startMatch = /<!doctype\s+html\b|<html\b/i.exec(raw);
-      if (!startMatch) continue;
-      const close = raw.toLowerCase().lastIndexOf('</html>');
-      if (close < startMatch.index) continue;
-      const document = raw.slice(startMatch.index, close + '</html>'.length).trim();
-      if (document.length <= 120_000 &&
-          /<head\b/i.test(document) &&
-          /<body\b/i.test(document) &&
-          /<\/body\s*>/i.test(document)) return document;
+      const document = extractFirstHtmlDocument(raw, target);
+      if (document && document.length <= 120_000) return document;
       continue;
     }
 
@@ -640,8 +672,90 @@ function normalizeSharedAssetReferences(staged, siteMap) {
   return { staged: next, repairedPages };
 }
 
-function validateStagedSite(staged, prompt, siteMap, explicitPages = null) {
+function resolveGeneratedLocalReference(fromFile, reference) {
+  const value = String(reference || '').split(/[?#]/, 1)[0].trim();
+  if (!value || /^(?:[a-z][a-z0-9+.-]*:|\/\/|data:|blob:|#)/i.test(value)) return '';
+  const base = String(fromFile || '').replace(/\\/g, '/').split('/').slice(0, -1);
+  const parts = value.startsWith('/') ? value.slice(1).split('/') : base.concat(value.split('/'));
+  const normalized = [];
+  for (const part of parts) {
+    if (!part || part === '.') continue;
+    if (part === '..') { if (normalized.length) normalized.pop(); else return ''; continue; }
+    normalized.push(part);
+  }
+  return normalized.join('/');
+}
+
+export function validateStage4BrowserRuntime(staged, siteMap) {
+  const errors = [];
+  const files = Object.fromEntries((Array.isArray(staged) ? staged : [])
+    .filter(item => item && typeof item.path === 'string' && typeof item.content === 'string')
+    .map(item => [item.path.replace(/\\/g, '/'), item.content]));
+  const htmlEntries = Object.entries(files).filter(([name]) => /\.html?$/i.test(name));
+  const titleKey = value => String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const pages = Array.isArray(siteMap?.pages) ? siteMap.pages : [];
+  const pageByPath = new Map(pages.map(page => [String(page.path || '').replace(/\\/g, '/'), page]));
+  const referencedScripts = new Map();
+
+  for (const [file, html] of htmlEntries) {
+    const doctypeCount = (html.match(/<!doctype\s+html\b/gi) || []).length;
+    const htmlCount = (html.match(/<html\b/gi) || []).length;
+    if (doctypeCount !== 1 || htmlCount !== 1) errors.push(file + ': expected exactly one HTML document; do not append another page or a JSON envelope.');
+    if (/<[^>]*\\["']/.test(html)) errors.push(file + ': HTML attributes contain escaped quotes and will not parse correctly in a browser.');
+    if (!/<html\b[^>]*\blang\s*=\s*["'][^"']+["']/i.test(html)) errors.push(file + ': add a valid html lang attribute.');
+    if (!/<meta\b[^>]*\bname\s*=\s*["']viewport["'][^>]*>/i.test(html)) errors.push(file + ': add a viewport meta tag for mobile devices.');
+    if (!/<meta\b[^>]*\bname\s*=\s*["']description["'][^>]*>/i.test(html)) errors.push(file + ': add a meta description.');
+    const title = html.match(/<title\b[^>]*>([\s\S]*?)<\/title\s*>/i)?.[1] || '';
+    const page = pageByPath.get(file);
+    if (page?.title && !titleKey(title).startsWith(titleKey(page.title))) {
+      errors.push(file + ': page title does not match the requested "' + page.title + '" route.');
+    }
+    for (const match of html.matchAll(/<script\b[^>]*\bsrc\s*=\s*(["'])(.*?)\1[^>]*>/gi)) {
+      const scriptPath = resolveGeneratedLocalReference(file, match[2]);
+      if (scriptPath && files[scriptPath] !== undefined) {
+        const users = referencedScripts.get(scriptPath) || [];
+        users.push({ file, html });
+        referencedScripts.set(scriptPath, users);
+      }
+    }
+  }
+
+  for (const [scriptPath, script] of Object.entries(files).filter(([name]) => /\.(?:js|mjs)$/i.test(name))) {
+    if (/\b(?:from|import\s*\()\s*['"]jsdom['"]|new\s+JSDOM\b|\brequire\s*\(\s*['"]jsdom['"]/.test(script)) {
+      errors.push(scriptPath + ': browser JavaScript must not import or instantiate jsdom.');
+    }
+    const references = [...script.matchAll(/getElementById\s*\(\s*['"]([^'"]+)['"]\s*\)\s*\.addEventListener\s*\(/g)];
+    for (const reference of references) {
+      const id = reference[1];
+      for (const user of referencedScripts.get(scriptPath) || []) {
+        const hasDoubleQuotedId = user.html.includes('id="' + id + '"');
+        const hasSingleQuotedId = user.html.includes("id='" + id + "'");
+        if (!hasDoubleQuotedId && !hasSingleQuotedId) {
+          errors.push(scriptPath + ': event handler for "' + id + '" is loaded on ' + user.file + ' where that element does not exist.');
+        }
+      }
+    }
+  }
+
+  for (const [file, html] of htmlEntries) {
+    const page = pageByPath.get(file);
+    if (page && /contact|enquir|inquir/i.test(String(page.title || ''))) {
+      const form = html.match(/<form\b[^>]*>/i)?.[0] || '';
+      if (!form || !/\bmethod\s*=\s*["']post["']/i.test(form) ||
+          !/\baction\s*=\s*["']\/\.well-known\/ovyx-qa-enquiry["']/i.test(form)) {
+        errors.push(file + ': the isolated QA contact form must use method="post" and action="/.well-known/ovyx-qa-enquiry".');
+      }
+      if (!/fetch\s*\(\s*['"]\/\.well-known\/ovyx-qa-enquiry['"]/.test(html)) {
+        errors.push(file + ': the isolated QA form must submit to its local QA receiver and display a response state.');
+      }
+    }
+  }
+  return [...new Set(errors)];
+}
+
+function validateStagedSite(staged, prompt, siteMap, explicitPages = null, strictBrowserRuntime = false) {
   const validation = validateChanges(staged.map(item => ({ ...item, action: 'update' })), { allowDeletes: false });
+  if (strictBrowserRuntime) validation.push(...validateStage4BrowserRuntime(staged, siteMap));
   const outputFilesByPath = Object.fromEntries(staged.map(item => [item.path, item.content]));
   const requirementVerification = verifyPromptContractOutput(prompt, outputFilesByPath, siteMap, { explicitPages: Array.isArray(explicitPages) ? explicitPages : undefined });
   const integrity = auditWebsiteIntegrity(outputFilesByPath, siteMap);
@@ -766,6 +880,7 @@ async function buildStudioMultiPageOnce(options) {
   let siteMapRecovery = null;
 
   const explicitPagesForReconciliation = resolveExplicitPageManifest(env, promptContract.explicitPages);
+  const strictBrowserRuntime = env.OVYX_WEBSTUDIO_ENFORCE_BROWSER_RUNTIME === 'true';
   if (env.OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST_ONLY === 'true') {
     const restrictedPlan = restrictSiteMapToExplicitPages(plan && plan.siteMap, explicitPagesForReconciliation, pageLimit);
     if (restrictedPlan) {
@@ -929,9 +1044,9 @@ async function buildStudioMultiPageOnce(options) {
 
   // Validate the first complete version before the optional polish pass. A failed
   // polish must never overwrite this baseline or turn a valid build into a failure.
-  let checks = validateStagedSite(staged, prompt, siteMap, explicitPagesForReconciliation);
+  let checks = validateStagedSite(staged, prompt, siteMap, explicitPagesForReconciliation, strictBrowserRuntime);
   if (checks.validation.length) {
-    throw accountingError(Object.assign(new Error('Generated website failed structural validation: ' + checks.validation.slice(0, 4).join(' | ')), { status: 422, code: 'WEBSTUDIO_SITE_VALIDATION_FAILED' }), usage, hasUsage, inputs, outputs);
+    throw accountingError(Object.assign(new Error('Generated website failed structural validation: ' + checks.validation.slice(0, 8).join(' | ')), { status: 422, code: 'WEBSTUDIO_SITE_VALIDATION_FAILED', validationIssues: checks.validation.slice(0, 16), requirementVerification: checks.requirementVerification }), usage, hasUsage, inputs, outputs);
   }
   let requirementRepair = {
     status: checks.requirementVerification.ok ? 'not-needed' : 'pending',
@@ -1009,7 +1124,7 @@ async function buildStudioMultiPageOnce(options) {
             const normalizedRepair = normalizeSharedAssetReferences(candidate, siteMap);
             const normalizedCandidate = normalizedRepair.staged;
             sharedAssetPagesRepaired += normalizedRepair.repairedPages;
-            const candidateChecks = validateStagedSite(normalizedCandidate, prompt, siteMap, explicitPagesForReconciliation);
+            const candidateChecks = validateStagedSite(normalizedCandidate, prompt, siteMap, explicitPagesForReconciliation, strictBrowserRuntime);
             const changedPaths = repairedPaths.filter(path => String(repairedFiles[path]) !== String(baselineByPath.get(path) || ''));
 
             if (!changedPaths.length) {
@@ -1124,7 +1239,7 @@ async function buildStudioMultiPageOnce(options) {
         const normalizedPolish = normalizeSharedAssetReferences(candidate, siteMap);
         candidate = normalizedPolish.staged;
         sharedAssetPagesRepaired += normalizedPolish.repairedPages;
-        const candidateChecks = validateStagedSite(candidate, prompt, siteMap, explicitPagesForReconciliation);
+        const candidateChecks = validateStagedSite(candidate, prompt, siteMap, explicitPagesForReconciliation, strictBrowserRuntime);
         const changedPaths = polishedPaths.filter(path => String(polishedFiles[path]) !== String(baselineByPath.get(path) || ''));
         if (!changedPaths.length) {
           qualityPolish.status = 'unchanged';
@@ -1266,6 +1381,8 @@ export async function buildStudioMultiPage(options = {}) {
       throw firstError;
     }
 
+    const validationIssues = (Array.isArray(firstError?.validationIssues) ? firstError.validationIssues : [])
+      .map(issue => String(issue || '').trim()).filter(Boolean).slice(0, 16);
     const requirementIssues = (firstError?.requirementVerification?.issues || [])
       .map(issue => String(issue?.message || '').trim())
       .filter(Boolean)
@@ -1275,6 +1392,7 @@ export async function buildStudioMultiPage(options = {}) {
       'Retry the full build once. Preserve the complete original user brief and every explicitly requested page, feature, language, market and interaction.',
       'Return strict valid JSON for every phase, generate every required file, and ensure the output satisfies the existing structural and prompt-requirement checks.',
       'Every HTML page under src/pages must load each supplied shared src/styles.css and src/main.js using correct local relative paths such as ../styles.css and ../main.js. Do not use placeholder links or omit shared assets.',
+      validationIssues.length ? 'STRICT GENERATED BROWSER VALIDATION ERRORS (fix all before returning files): ' + validationIssues.join(' | ') : '',
       requirementIssues.length ? 'The prior deterministic requirement checks reported: ' + requirementIssues.join(' | ') : '',
     ].filter(Boolean).join('\n\n');
 

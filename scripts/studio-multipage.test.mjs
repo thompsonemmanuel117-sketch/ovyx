@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { buildStudioMultiPage, restrictSiteMapToExplicitPages, resolveExplicitPageManifest } from '../functions/_lib/studio-multipage.js';
+import { buildStudioMultiPage, restrictSiteMapToExplicitPages, resolveExplicitPageManifest, extractFirstHtmlDocument, validateStage4BrowserRuntime } from '../functions/_lib/studio-multipage.js';
 import { auditWebsiteIntegrity } from '../functions/_lib/site-integrity.js';
  
 assert.deepEqual(
@@ -54,6 +54,48 @@ assert.match(
   'recovered explicit routes must remain identified as user-requested',
 );
 
+
+
+const malformedHtmlEnvelope = String.raw`<!DOCTYPE html>
+<html lang=\"en-NG\">
+<head><title>Home - Nursery Essentials</title><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><meta name=\"description\" content=\"Sample description\"></head>
+<body><main><h1>Home</h1></main></body>
+</html>
+}
+{"summary":"Batch output","files":[{"path":"src/pages/Contact.html","content":"<!DOCTYPE html><html><head><title>Contact</title></head><body><h1>Contact</h1></body></html>"}]}`;
+const recoveredHtmlDocument = extractFirstHtmlDocument(malformedHtmlEnvelope);
+assert.ok(recoveredHtmlDocument, 'malformed model envelopes should recover the first complete HTML document');
+assert.match(recoveredHtmlDocument, /<html lang="en-NG">/);
+assert.equal((recoveredHtmlDocument.match(/<!doctype\s+html/gi) || []).length, 1, 'HTML recovery must not attach a later document or JSON envelope');
+assert.equal((recoveredHtmlDocument.match(/<html\b/gi) || []).length, 1, 'HTML recovery must keep exactly one document shell');
+assert.doesNotMatch(recoveredHtmlDocument, /"summary"|"Contact"/, 'the trailing model wrapper and the wrong page must not leak into visible HTML');
+const recoveredContactDocument = extractFirstHtmlDocument(malformedHtmlEnvelope, 'src/pages/Contact.html');
+assert.ok((recoveredContactDocument || '').includes('<title>Contact</title>'), 'page-specific recovery must select the embedded Contact document instead of reusing Home.html content');
+
+const strictSmokeErrors = validateStage4BrowserRuntime([
+  {
+    path: 'src/pages/Home.html',
+    content: String.raw`<!doctype html><html lang=\"en-NG\"><head><title>Contact - Nursery Essentials</title><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><meta name=\"description\" content=\"Sample\"><script src=\"../main.js\"></script></head><body><h1>Home</h1></body></html>`,
+  },
+  {
+    path: 'src/pages/Contact.html',
+    content: '<!doctype html><html lang="en-NG"><head><title>Contact</title><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Sample"><script src="../main.js"></script></head><body><h1>Contact</h1></body></html>',
+  },
+  {
+    path: 'src/main.js',
+    content: "import { JSDOM } from 'jsdom';\ndocument.getElementById('enquiry-form').addEventListener('submit', () => {});",
+  },
+], {
+  pages: [
+    { title: 'Home', path: 'src/pages/Home.html', url: '/' },
+    { title: 'Contact', path: 'src/pages/Contact.html', url: '/contact/' },
+  ],
+});
+assert.ok(strictSmokeErrors.some(error => /escaped quotes/.test(error)), 'strict smoke validation must catch malformed HTML attribute escaping');
+assert.ok(strictSmokeErrors.some(error => /page title does not match/.test(error)), 'strict smoke validation must catch Home and Contact documents being swapped');
+assert.ok(strictSmokeErrors.some(error => /jsdom/.test(error)), 'strict smoke validation must reject a Node-only jsdom dependency in browser code');
+assert.ok(strictSmokeErrors.some(error => /enquiry-form/.test(error)), 'strict smoke validation must catch shared scripts binding elements absent from a route');
+assert.ok(strictSmokeErrors.some(error => /isolated QA contact form/.test(error)), 'strict smoke validation must require the local QA form on the Contact route');
 
 
 const integritySiteMap = {
