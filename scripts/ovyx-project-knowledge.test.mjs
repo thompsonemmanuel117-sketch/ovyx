@@ -32,7 +32,9 @@ assert.match(userProjectKnowledge, /do not read this GitHub repository|not a gen
 
 const sourceBoundaryKnowledge = buildOvyxProjectKnowledge('Inspect the OVYX codebase repository and tell me which file implements this feature.');
 assert.match(sourceBoundaryKnowledge, /OVYX_GUARDIAN_GITHUB_READ_TOKEN/);
-assert.match(sourceBoundaryKnowledge, /normal native chat.{0,2}s workspace tools do not call that investigator automatically/i);
+assert.match(sourceBoundaryKnowledge, /platform_repo_investigate/);
+assert.match(sourceBoundaryKnowledge, /root-admin access/);
+assert.match(sourceBoundaryKnowledge, /bounded live source investigation|bounded investigation/i);
 assert.match(sourceBoundaryKnowledge, /Never claim an OVYX GitHub source scan occurred/);
 
 const researchKnowledge = buildOvyxProjectKnowledge('Research this topic online and cite web search sources.');
