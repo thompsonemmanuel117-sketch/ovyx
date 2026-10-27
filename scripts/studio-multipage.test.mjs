@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { buildStudioMultiPage, restrictSiteMapToExplicitPages, resolveExplicitPageManifest, extractFirstHtmlDocument, validateStage4BrowserRuntime } from '../functions/_lib/studio-multipage.js';
+import { buildStudioMultiPage, restrictSiteMapToExplicitPages, resolveExplicitPageManifest, extractFirstHtmlDocument, normalizeStage4QaContactForm, validateStage4BrowserRuntime } from '../functions/_lib/studio-multipage.js';
 import { auditWebsiteIntegrity } from '../functions/_lib/site-integrity.js';
  
 assert.deepEqual(
@@ -55,6 +55,47 @@ assert.match(
 );
 
 
+
+const qaFormFixture = [
+  {
+    path: 'src/pages/Home.html',
+    content: '<!doctype html><html lang="en-NG"><head><title>Home</title><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Home"><script src="../main.js"></script></head><body><main><h1>Home</h1></main></body></html>',
+  },
+  {
+    path: 'src/pages/Contact.html',
+    content: '<!doctype html><html lang="en-NG"><head><title>Contact</title><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Contact"><script src="../main.js"></script></head><body><main><h1>Contact</h1><form id="contact-form" method="get" action="/contact"><label for="name">Name</label><input id="name" name="name" required><button type="submit">Send</button></form></main></body></html>',
+  },
+  {
+    path: 'src/main.js',
+    content: "const form = document.getElementById('contact-form'); if (form) form.addEventListener('submit', async event => { event.preventDefault(); const response = await fetch('/.well-known/ovyx-qa-enquiry', { method: 'POST', body: new FormData(form) }); });",
+  },
+];
+const qaFormManifest = { pages: [
+  { title: 'Home', path: 'src/pages/Home.html', url: '/' },
+  { title: 'Contact', path: 'src/pages/Contact.html', url: '/contact/' },
+] };
+const normalizedQaForm = normalizeStage4QaContactForm(qaFormFixture, qaFormManifest);
+const normalizedContactHtml = normalizedQaForm.find(item => item.path === 'src/pages/Contact.html').content;
+assert.ok(normalizedContactHtml.includes('method="post" action="/.well-known/ovyx-qa-enquiry"'),
+  'the isolated smoke normalizer must correct only the QA form method and action');
+assert.deepEqual(
+  validateStage4BrowserRuntime(normalizedQaForm, qaFormManifest),
+  [],
+  'the normalized smoke form must pass the same strict browser-runtime validator',
+);
+const missingQaFormFixture = [
+  { ...qaFormFixture[0] },
+  { path: 'src/pages/Contact.html', content: '<!doctype html><html lang="en-NG"><head><title>Contact</title><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Contact"><script src="../main.js"></script></head><body><main><h1>Contact</h1></main></body></html>' },
+  { path: 'src/main.js', content: "window.addEventListener('load', () => {});" },
+];
+const insertedQaForm = normalizeStage4QaContactForm(missingQaFormFixture, qaFormManifest);
+const insertedContactHtml = insertedQaForm.find(item => item.path === 'src/pages/Contact.html').content;
+assert.ok(insertedContactHtml.includes('method="post" action="/.well-known/ovyx-qa-enquiry"'),
+  'the isolated smoke must recover a missing QA form rather than drop the required route');
+assert.ok(insertedQaForm.find(item => item.path === 'src/main.js').content.includes("fetch('/.well-known/ovyx-qa-enquiry'"),
+  'a recovered QA form must include a local submit handler');
+assert.deepEqual(validateStage4BrowserRuntime(insertedQaForm, qaFormManifest), [],
+  'the recovered QA form must pass the same strict browser-runtime validator');
 
 const malformedHtmlEnvelope = String.raw`<!DOCTYPE html>
 <html lang=\"en-NG\">
