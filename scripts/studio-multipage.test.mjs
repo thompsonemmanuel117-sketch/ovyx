@@ -70,7 +70,7 @@ assert.equal((recoveredHtmlDocument.match(/<!doctype\s+html/gi) || []).length, 1
 assert.equal((recoveredHtmlDocument.match(/<html\b/gi) || []).length, 1, 'HTML recovery must keep exactly one document shell');
 assert.doesNotMatch(recoveredHtmlDocument, /"summary"|"Contact"/, 'the trailing model wrapper and the wrong page must not leak into visible HTML');
 const recoveredContactDocument = extractFirstHtmlDocument(malformedHtmlEnvelope, 'src/pages/Contact.html');
-assert.match(recoveredContactDocument || '', /<title>Contact<\\/title>/i, 'page-specific recovery must select the embedded Contact document instead of reusing Home.html content');
+assert.ok((recoveredContactDocument || '').includes('<title>Contact</title>'), 'page-specific recovery must select the embedded Contact document instead of reusing Home.html content');
 
 const strictSmokeErrors = validateStage4BrowserRuntime([
   {
