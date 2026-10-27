@@ -750,7 +750,13 @@ export function validateStage4BrowserRuntime(staged, siteMap) {
           !/\baction\s*=\s*["']\/\.well-known\/ovyx-qa-enquiry["']/i.test(form)) {
         errors.push(file + ': the isolated QA contact form must use method="post" and action="/.well-known/ovyx-qa-enquiry".');
       }
-      if (!/fetch\s*\(\s*['"]\/\.well-known\/ovyx-qa-enquiry['"]/.test(html)) {
+      const linkedScriptContent = [...referencedScripts.entries()]
+        .filter(([, users]) => users.some(user => user.file === file))
+        .map(([scriptPath]) => String(files[scriptPath] || ''))
+        .join('\n');
+      const hasLocalQaFetch = /fetch\s*\(\s*['"]\/\.well-known\/ovyx-qa-enquiry['"]/.test(html) ||
+        /fetch\s*\(\s*['"]\/\.well-known\/ovyx-qa-enquiry['"]/.test(linkedScriptContent);
+      if (!hasLocalQaFetch) {
         errors.push(file + ': the isolated QA form must submit to its local QA receiver and display a response state.');
       }
     }
