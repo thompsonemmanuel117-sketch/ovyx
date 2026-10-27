@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { buildStudioMultiPage, restrictSiteMapToExplicitPages, resolveExplicitPageManifest, extractFirstHtmlDocument, validateStage4BrowserRuntime, repairStage4SmokeQaFormAttributes } from '../functions/_lib/studio-multipage.js';
+import { buildStudioMultiPage, restrictSiteMapToExplicitPages, resolveExplicitPageManifest, extractFirstHtmlDocument, validateStage4BrowserRuntime, repairStage4SmokeQaFormAttributes, repairStage4SmokeQaFormBehavior } from '../functions/_lib/studio-multipage.js';
 import { auditWebsiteIntegrity } from '../functions/_lib/site-integrity.js';
  
 assert.deepEqual(
@@ -155,6 +155,25 @@ assert.equal(
   false,
   'regular user builds must not receive smoke-only QA form rewrites',
 );
+
+const qaBehaviorRepair = repairStage4SmokeQaFormBehavior(qaFormRepairFixture, {
+  pages: [{ title: 'Contact', path: 'src/pages/Contact.html', url: '/contact/' }],
+}, true);
+assert.equal(qaBehaviorRepair.repaired, true, 'the protected smoke should repair the form submit handler when generated JavaScript is miswired');
+assert.match(qaBehaviorRepair.staged.find(item => item.path === 'src/main.js').content, /form\.addEventListener\('submit'/,
+  'the protected smoke must attach the submit handler directly to the QA form');
+assert.match(qaBehaviorRepair.staged.find(item => item.path === 'src/main.js').content, /fetch\('\/\.well-known\/ovyx-qa-enquiry'/,
+  'the protected smoke must post only to the isolated local QA receiver');
+assert.match(qaBehaviorRepair.staged.find(item => item.path === 'src/main.js').content, /Test submission received by the local QA receiver/,
+  'the protected smoke must show an explicit accessible success state without claiming real email delivery');
+assert.equal(
+  repairStage4SmokeQaFormBehavior(qaFormRepairFixture, {
+    pages: [{ title: 'Contact', path: 'src/pages/Contact.html', url: '/contact/' }],
+  }, false).repaired,
+  false,
+  'regular user builds must not receive smoke-only QA handler replacement',
+);
+
 
 
 

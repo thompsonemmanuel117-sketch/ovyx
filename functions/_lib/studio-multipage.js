@@ -713,6 +713,62 @@ export function repairStage4SmokeQaFormAttributes(staged, siteMap, enabled = fal
   return { staged: next, repaired };
 }
 
+export function repairStage4SmokeQaFormBehavior(staged, siteMap, enabled = false) {
+  const source = Array.isArray(staged) ? staged : [];
+  if (!enabled) return { staged: source, repaired: false };
+  const contactPage = (Array.isArray(siteMap?.pages) ? siteMap.pages : [])
+    .find(page => /contact|enquir|inquir/i.test(String(page?.title || '')));
+  if (!contactPage?.path) return { staged: source, repaired: false };
+  const contact = source.find(item =>
+    String(item?.path || '').replace(/\\/g, '/') === String(contactPage.path).replace(/\\/g, '/') &&
+    typeof item?.content === 'string' &&
+    /<form\b/i.test(item.content)
+  );
+  if (!contact) return { staged: source, repaired: false };
+  const scriptPath = 'src/main.js';
+  const script = [
+    "document.addEventListener('DOMContentLoaded', () => {",
+    "  const form = document.querySelector('form[action=\"/.well-known/ovyx-qa-enquiry\"]');",
+    "  if (!form) return;",
+    "  let status = form.parentElement && form.parentElement.querySelector('#result, [data-qa-form-status]');",
+    "  if (!status) {",
+    "    status = document.createElement('p');",
+    "    status.id = 'qa-form-status';",
+    "    form.insertAdjacentElement('afterend', status);",
+    "  }",
+    "  status.setAttribute('role', 'status');",
+    "  status.setAttribute('aria-live', 'polite');",
+    "  const submit = form.querySelector('button[type=\"submit\"], input[type=\"submit\"]');",
+    "  form.addEventListener('submit', async event => {",
+    "    event.preventDefault();",
+    "    if (submit) submit.disabled = true;",
+    "    status.textContent = 'Sending test submission…';",
+    "    try {",
+    "      const response = await fetch('/.well-known/ovyx-qa-enquiry', { method: 'POST', body: new FormData(form) });",
+    "      if (!response.ok) throw new Error('QA receiver rejected the test submission');",
+    "      status.textContent = 'Test submission received by the local QA receiver. No email or customer lead was sent.';",
+    "      form.reset();",
+    "    } catch {",
+    "      status.textContent = 'Test submission failed. Please retry; no customer enquiry was sent.';",
+    "    } finally {",
+    "      if (submit) submit.disabled = false;",
+    "    }",
+    "  });",
+    "});",
+    "",
+  ].join('\n');
+  const existing = source.find(item => String(item?.path || '').replace(/\\/g, '/') === scriptPath);
+  if (!existing) return { staged: source, repaired: false };
+  const repaired = existing.content !== script;
+  if (!repaired) return { staged: source, repaired: false };
+  return {
+    staged: source.map(item => String(item?.path || '').replace(/\\/g, '/') === scriptPath
+      ? { ...item, content: script }
+      : item),
+    repaired: true,
+  };
+}
+
 export function validateStage4BrowserRuntime(staged, siteMap) {
   const errors = [];
   const files = Object.fromEntries((Array.isArray(staged) ? staged : [])
@@ -1079,10 +1135,14 @@ async function buildStudioMultiPageOnce(options) {
   sharedAssetPagesRepaired += initialAssetNormalization.repairedPages;
 
   let stage4SmokeQaFormAttributesRepaired = false;
+  let stage4SmokeQaFormBehaviorRepaired = false;
   if (env.OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST_ONLY === 'true') {
     const qaFormRepair = repairStage4SmokeQaFormAttributes(staged, siteMap, true);
     staged = qaFormRepair.staged;
     stage4SmokeQaFormAttributesRepaired = qaFormRepair.repaired;
+    const qaBehaviorRepair = repairStage4SmokeQaFormBehavior(staged, siteMap, true);
+    staged = qaBehaviorRepair.staged;
+    stage4SmokeQaFormBehaviorRepaired = qaBehaviorRepair.repaired;
   }
 
   // Validate the first complete version before the optional polish pass. A failed
@@ -1377,6 +1437,7 @@ async function buildStudioMultiPageOnce(options) {
     batchCount: batches.length,
     sharedAssetPagesRepaired,
     stage4SmokeQaFormAttributesRepaired,
+    stage4SmokeQaFormBehaviorRepaired,
   };
 }
 

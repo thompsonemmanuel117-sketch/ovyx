@@ -49,6 +49,8 @@ assert.ok(liveGenerationRoute.includes("OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST_ON
   'only the fixed budgeted smoke may narrow model-inferred routes to its explicit two-page manifest');
 assert.ok(liveGenerationRoute.includes("stage4SmokeQaFormAttributesRepaired: isBudgetedStage4Smoke && generated.stage4SmokeQaFormAttributesRepaired === true"),
   'live smoke evidence must explicitly report whether its local QA form contract required deterministic repair');
+assert.ok(liveGenerationRoute.includes("stage4SmokeQaFormBehaviorRepaired: isBudgetedStage4Smoke && generated.stage4SmokeQaFormBehaviorRepaired === true"),
+  'live smoke evidence must disclose whether the QA submit handler was repaired deterministically');
 assert.match(liveGenerationWorkflow, /const browserSiteCount = Array\.isArray\(browser\.evaluatedSites\)[\s\S]*Number\.isSafeInteger\(browser\.evaluatedSites\)[\s\S]*Array\.isArray\(browser\.results\)/,
   'the smoke gate must accept both the browser evaluator’s current numeric evaluatedSites count and legacy array-shaped evidence');
 assert.ok(liveGenerationWorkflow.includes('browserSiteCount !== 1') && liveGenerationWorkflow.includes('browserSites: browserSiteCount'),
