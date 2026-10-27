@@ -1116,7 +1116,27 @@
       };
     }
 
+    if (String(report.projectId || '') !== projectId) {
+      return {
+        operation: 'webstudio_quality_check',
+        ok: false,
+        error: 'The quality inspector report belongs to a different project or has no matching project identity. The report was not used as evidence.',
+      };
+    }
+
     const browser = report.browser && typeof report.browser === 'object' ? report.browser : {};
+    const graph = window.WebStudio?.graph || {};
+    const dirtySignals = [
+      ['WebStudio.graph.isDirty', graph.isDirty],
+      ['WebStudio.graph.dirty', graph.dirty],
+      ['WebStudio.hasUnsavedChanges', window.WebStudio?.hasUnsavedChanges],
+      ['KernelState.hasUnsavedChanges', window.KernelState?.hasUnsavedChanges],
+      ['activeProject.isDirty', window.KernelState?.activeProject?.isDirty],
+      ['activeProject.dirty', window.KernelState?.activeProject?.dirty],
+    ].filter(([, value]) => typeof value === 'boolean');
+    const sourceState = dirtySignals.some(([, value]) => value === true)
+      ? 'unsaved-changes'
+      : (dirtySignals.length ? 'clean-or-saved' : 'unknown');
     const checks = (Array.isArray(report.checks) ? report.checks : []).slice(0, 40).map(item => ({
       group: redactQualityText(item.group, 80),
       title: redactQualityText(item.title, 140),
@@ -1131,6 +1151,8 @@
       projectName: redactQualityText(report.projectName, 160),
       status: redactQualityText(report.status || 'incomplete', 40),
       finishedAt: report.finishedAt,
+      sourceState,
+      dirtySignals: dirtySignals.map(([source, value]) => ({ source, value })),
       complete,
       checks,
       counts: report.counts && typeof report.counts === 'object' ? {
