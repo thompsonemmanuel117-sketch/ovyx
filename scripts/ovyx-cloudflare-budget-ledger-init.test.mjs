@@ -253,8 +253,8 @@ try {
   assert.equal(lastAIOptions.reasoning_effort, undefined, 'do not pass model-specific reasoning fields to the selected non-reasoning model');
   assert.equal(lastAIOptions.temperature, 0, 'the bounded readiness probe should be deterministic');
   assert.equal(modelCalls, 1, 'a single successful guarded model inference should run after reservation');
-  assert.equal(ledgerReadCalls - ledgerReadsBeforeFirstInference, 5,
-    'the guarded inference must reuse its initial ledger snapshot for reservation instead of repeating a redundant ledger read');
+  assert.equal(ledgerReadCalls - ledgerReadsBeforeFirstInference, 8,
+    'the guarded inference must reuse its initial ledger snapshot; this fixture includes two transient read failures, atomic ledger initialization, and three compare-and-set conflict retries');
 
   const ledgerKey = 'system/' + LEDGER_ID;
   const ledger = documents.get(ledgerKey);
