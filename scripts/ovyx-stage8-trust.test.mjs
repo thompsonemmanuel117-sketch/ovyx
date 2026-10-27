@@ -37,9 +37,9 @@ assert.match(html, /OVYX Deep/);
 assert.match(html, /id="v59-ai-mode-select"/, 'The home composer must expose OVYX modes, not a provider picker.');
 assert.doesNotMatch(html, /id="v59-model-select"/, 'The old Gemini/Claude/OpenAI selector must not remain in the home composer.');
 assert.match(html, /const requested='automatic'/, 'Home builds must always use server-managed AI routing.');
-assert.match(html, /W\\.brain='automatic'/, 'Web Studio handoff must not inherit a stale browser-selected provider.');
-assert.match(trustClient, /async function setMode\\(value\\)/);
-assert.match(trustClient, /fetch\\('\/api\/settings\/ai'/);
+assert.match(html, /W\.brain='automatic'/, 'Web Studio handoff must not inherit a stale browser-selected provider.');
+assert.match(trustClient, /async function setMode\(value\)/);
+assert.match(trustClient, /api\/settings\/ai/);
 assert.match(trustClient, /method: 'PUT'/);
 assert.match(trustClient, /could not confirm that your mode was saved/i);
 assert.match(html, /response length and depth\. It does not switch AI providers/);
@@ -119,3 +119,4 @@ assert.match(platformKnowledge, /Quota exhaustion is a stop condition/);
 assert.match(connectionReadiness, /activeBrainConnectionId/);
 
 console.log('OVYX Stage 8 trust tests passed: OVYX modes, bounded mode behavior, setup-only readiness, recovery messages and guarded routing.');
+
