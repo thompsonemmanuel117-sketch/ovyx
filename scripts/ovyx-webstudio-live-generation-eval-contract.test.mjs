@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import { safeLiveGenerationFailureDetail } from '../functions/api/internal/live-generation-eval.js';
 
 const liveGenerationRoute = fs.readFileSync('functions/api/internal/live-generation-eval.js', 'utf8');
+const liveGenerationWorkflow = fs.readFileSync('.github/workflows/ovyx-webstudio-live-generation.yml', 'utf8');
 assert.equal(
   safeLiveGenerationFailureDetail(Object.assign(new Error('test'), { code: 'OVYX_AI_BUDGET_LEDGER_STOP_HTTP_429', status: 503 })),
   'cloudflare-ai-budget-ledger-stop-http-429',
@@ -42,6 +43,10 @@ for (const [cause, expected] of [
   );
 }
 
+assert.match(liveGenerationWorkflow, /const evaluatedSiteCount = Number\\.isSafeInteger\\(browser\\.evaluatedSites\\)/,
+  'the smoke gate must accept the browser evaluator’s actual numeric evaluatedSites count');
+assert.match(liveGenerationWorkflow, /evaluatedSiteCount !== 1/,
+  'the smoke gate must still require exactly one fully browser-evaluated generated site');
 assert.ok(liveGenerationRoute.includes("OVYX_WEBSTUDIO_MAX_PAGES: isBudgetedStage4Smoke ? '2' : '8'"),
   'the full acceptance path keeps its eight-page ceiling; only the guarded site smoke is limited to two pages');
 assert.ok(liveGenerationRoute.includes("OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST_ONLY: isBudgetedStage4Smoke ? 'true' : 'false'"),
