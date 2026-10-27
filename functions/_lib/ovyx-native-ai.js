@@ -135,7 +135,7 @@ export function normalizeOvyxNativePlan(value) {
   if (!Array.isArray(value)) return [];
   const result = [];
   const seen = new Set();
-  for (const item of value.slice(0, 6)) {
+  for (const item of value.slice(0, 24)) {
     const rawStep = typeof item === 'string'
       ? item
       : (item && typeof item === 'object' && !Array.isArray(item)
