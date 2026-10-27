@@ -48,7 +48,7 @@ A source change must target the correct owner's existing file, use complete elig
 
 ## Specialized capabilities: don't pretend they're interchangeable
 
-- **Image generation:** this audit did not establish a verified end-to-end server-side image-generation route. Image uploads, stock/visual references, image URLs and visual-asset planning are not the same as generating a new image with an image model.
+- **Image generation:** Web Studio now exposes an authenticated image generator in `assets/ovyx-image-generation.js`. It calls `POST /api/ai/image-generation`, which enforces Firebase authentication, the Web Studio entitlement, OVYX AI quota and the shared guarded Cloudflare daily neuron ledger before using `@cf/black-forest-labs/flux-1-schnell`. The route caps prompt length, uses four diffusion steps, validates the returned base64 image and does not save the image automatically; users can download it and upload it to project assets. Production inference still requires live acceptance with available Cloudflare allowance.
 - **Voice:** `assets/ovyx-sentinel.js` uses browser-native `SpeechRecognition`/`webkitSpeechRecognition` and `speechSynthesis`. This is not proof of a Cloudflare-native server-side transcription or voice-generation service.
 - **Other tools:** search, image creation, audio, third-party integrations, payments, authentication and deployment need their own adapter, consent, quotas, output validation and live acceptance tests. A text model cannot replace those capabilities merely by receiving different prompt wording.
 
