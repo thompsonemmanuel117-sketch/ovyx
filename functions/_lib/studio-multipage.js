@@ -757,10 +757,12 @@ async function buildStudioMultiPageOnce(options) {
   let siteMap = normalized.siteMap;
   let siteMapRecovery = null;
 
+  let explicitPagesForReconciliation = promptContract.explicitPages;
   if (env.OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST_ONLY === 'true') {
     const configuredManifest = String(env.OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST || '')
       .split('|').map(value => value.trim()).filter(Boolean);
     const explicitManifest = configuredManifest.length ? configuredManifest : promptContract.explicitPages;
+    explicitPagesForReconciliation = explicitManifest;
     const restrictedPlan = restrictSiteMapToExplicitPages(plan && plan.siteMap, explicitManifest, pageLimit);
     if (restrictedPlan) {
       normalized = makeSiteMap(restrictedPlan, pageLimit);
@@ -812,7 +814,7 @@ async function buildStudioMultiPageOnce(options) {
   // a sitemap that dropped an explicitly named page.
   const pageKey = value => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
   const plannedPageKeys = new Set(siteMap.pages.map(page => pageKey(page.title)));
-  for (const title of promptContract.explicitPages) {
+  for (const title of explicitPagesForReconciliation) {
     const key = pageKey(title);
     if (!key || plannedPageKeys.has(key)) continue;
     if (siteMap.pages.length >= pageLimit) {
