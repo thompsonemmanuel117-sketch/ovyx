@@ -31,7 +31,7 @@ The Stage 7 contract test verifies that these separate routes and controls remai
 
 ## Separate modality audit — not automatically migrated
 
-Research/search, image generation, voice/transcription/speech, and other advanced tools are not migrated by changing a text model route. This repo audit did not establish an end-to-end, independently verified Cloudflare-native replacement for those modalities. They remain explicitly out of scope for the text-model migration until their dedicated routes and integrations are traced, and their required binding/API, consent, data retention, quotas, output format, and failure handling are verified individually. Do not claim live capability or test success based on prompt instructions alone.
+Research/search, image generation, voice/transcription/speech, and other advanced tools are not migrated by changing a text model route. The frontend's currently referenced API paths do not include dedicated `/api/research`, `/api/image`, or `/api/voice` endpoints. The existing microphone control uses browser `SpeechRecognition` / `webkitSpeechRecognition` for voice input; this is browser-native recognition, not a Cloudflare AI voice service. The asset store accepts image/audio uploads, but that is not image/audio generation. Web Studio includes research guidance in prompts, but prompt text alone is not proof of live web retrieval. No end-to-end, independently verified Cloudflare-native replacement for these modalities was established in this audit. Keep them out of the migrated capability list until dedicated routes/integrations, required bindings/APIs, consent, data retention, quotas, output formats, and failure handling are traced and tested.
 
 ## Regression coverage
 
@@ -41,16 +41,16 @@ It is registered in `npm test` alongside existing ordinary-chat, provider-routin
 
 ## Acceptance checklist
 
-1. Sign in and send a normal chat message. Confirm the assistant responds and the provider/model metadata is truthful.
-2. Send a multi-turn follow-up. Confirm conversation history remains available.
-3. Ask the assistant to inspect a saved project. Confirm it uses the authenticated workspace tools and does not invent file contents.
-4. If a Universal Connection is explicitly selected for ordinary assistant chat, confirm its failure is surfaced without silent provider switching.
-5. Exhaust the Cloudflare/plan allowance in a controlled test environment and confirm Web Studio stops with a quota error instead of offering or automatically using another provider.
-6. Test with the Cloudflare AI quota exhausted in a controlled test environment. Confirm the guarded route stops cleanly; do not raise the budget or bypass the stop.
-7. Run the coding/reasoning agent in the configured Cloudflare guarded mode. Confirm a requested external provider in the client payload does not override the guarded server route.
-8. Generate a small website/app and confirm its existing validation and repair-preview controls still work.
-9. Confirm quality inspection itself never changes source; edits still require a preview and explicit approval.
-10. Keep research, image, voice and other modality acceptance as separate follow-up tests.
+1. Sign in and send a normal chat message. Confirm the assistant responds and provider/model metadata is truthful.
+2. Send a multi-turn follow-up and confirm conversation history is preserved.
+3. Ask the assistant to inspect a saved project; confirm it uses authenticated workspace tools and does not invent file contents.
+4. If an account explicitly selects a Universal Connection for ordinary assistant chat, confirm failure is surfaced without silent provider switching.
+5. In a controlled test environment, exhaust the Cloudflare/plan allowance. Confirm Web Studio stops with a quota error and does not offer or automatically use another provider. Do not raise the budget or bypass the stop.
+6. Run coding/reasoning in guarded Cloudflare mode. Confirm a client-supplied external provider/model cannot override the server route.
+7. Generate a small website and an App Studio project. Confirm each existing validation, entitlement, quota, preview and repair control still works.
+8. Confirm website quality inspection is read-only; edits still require preview and explicit approval.
+9. Keep research, image, voice and other modality live acceptance separate until their actual implementation paths are identified and tested.
+10. Run the complete `npm test`, static verification, production build preflight and Wrangler validation. Manual live Cloudflare inference and Stage 4 benchmark remain separate evidence requirements.
 
 ## Completion boundary
 
