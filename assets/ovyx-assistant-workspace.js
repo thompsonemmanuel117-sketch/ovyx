@@ -762,7 +762,7 @@
     if (!steps.length) return;
     recordAssistantActivity('Proposed task plan (these steps are not proof of completion):');
     steps.forEach((item, index) => {
-      const step = String(item.step || '').replace(/\\s+/g, ' ').trim().slice(0, 220);
+      const step = String(item.step || '').replace(/\s+/g, ' ').trim().slice(0, 220);
       if (step) recordAssistantActivity((index + 1) + '. ' + step);
     });
   }
