@@ -1,8 +1,7 @@
-import { isCloudflareFreeAllowanceExhausted, isCloudflareWorkersAIGuardedMode, isLegacyProviderRoutingEnabled, reserveCloudflareFreeUserMinute, runCloudflareFreeInference, OVYX_CLOUDFLARE_FREE_MODEL } from './cloudflare-free-ai.js';
+import { isCloudflareWorkersAIGuardedMode, isLegacyProviderRoutingEnabled, runCloudflareFreeInference, OVYX_CLOUDFLARE_FREE_MODEL } from './cloudflare-free-ai.js';
 import {
   callUserUniversalConnection,
   getActiveBrainConnectionId,
-  getActiveWebStudioConnectionId,
 } from './universal-connections.js';
 import { getFirestoreData } from './firebase-admin.js';
 
@@ -1305,9 +1304,8 @@ export async function callModel(
   // provider/model selections and route exclusively through the guarded CF engine.
   if (isCloudflareWorkersAIGuardedMode(env)) {
     // An account's explicitly selected AI Brain is used for ordinary assistant
-    // requests only. Web Studio stays Cloudflare-first and can use the selected
-    // connection only through its explicit post-limit confirmation; App Studio
-    // stays on its existing plan-gated platform route.
+    // requests only. Website/app generation stays on the guarded platform route;
+    // quota exhaustion is a hard stop and never opens a provider-switch escape hatch.
     if (
       options.authUser &&
       options.useSelectedUniversalBrain === true &&
@@ -1319,41 +1317,6 @@ export async function callModel(
       if (selectedBrain) return selectedBrain;
     }
 
-    if (options.webStudioRequest === true && options.useUniversalConnectionAfterCloudflareLimit === true) {
-      if (!options.authUser) throw Object.assign(new Error('Sign in before using your Universal Connection.'), { status: 401, code: 'AUTH_REQUIRED' });
-      if (options.forcePersonalConnectionForPlanQuota !== true && !(await isCloudflareFreeAllowanceExhausted(env))) {
-        const result = await callCloudflareWorkersAI(env, {
-          ...options,
-          model: OVYX_CLOUDFLARE_FREE_MODEL,
-          authUser: options.authUser,
-        });
-        return { ...result, requestedProvider: 'cloudflare-workers-ai', routedProvider: 'cloudflare-workers-ai' };
-      }
-      let connectionId = null;
-      try {
-        connectionId = await withTimeout(getActiveWebStudioConnectionId(env, options.authUser), UNIVERSAL_LOOKUP_TIMEOUT_MS, 'Web Studio connection lookup');
-      } catch {
-        throw Object.assign(new Error('OVYX could not verify the connection assigned to Web Studio. Open Settings & connections and retry.'), { status: 503, code: 'OVYX_WEBSTUDIO_UNIVERSAL_CONNECTION_NOT_READY' });
-      }
-      if (!connectionId) {
-        throw Object.assign(new Error('No active Universal Connection is assigned to Web Studio. Open Settings & connections, add and test your own AI connection, then select “Use for Web Studio”. This is separate from your AI Brain selection.'), { status: 409, code: 'OVYX_WEBSTUDIO_UNIVERSAL_CONNECTION_NOT_READY' });
-      }
-      await reserveCloudflareFreeUserMinute(env, options.authUser);
-      const result = await withTimeout(
-        callUserUniversalConnection(env, {
-          connectionId,
-          authUser: options.authUser,
-          system: options.system,
-          user: options.user,
-          model: options.model,
-          maxTokens: options.maxTokens,
-          requireAIProtocol: true,
-        }),
-        PROVIDER_REQUEST_TIMEOUT_MS,
-        'Your Universal Connection'
-      );
-      return { ...result, requestedProvider: 'universal-connection', routedProvider: 'universal-connection', webStudioUserConnectionFallback: true };
-    }
     const result = await callCloudflareWorkersAI(env, {
       ...options,
       model: OVYX_CLOUDFLARE_FREE_MODEL,
