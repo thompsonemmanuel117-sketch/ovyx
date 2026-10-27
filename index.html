@@ -582,20 +582,18 @@
 <input accept="image/*" capture="environment" hidden="" id="v59-camera-photo" type="file"/>
 <input accept="image/*" capture="environment" hidden="" id="v59-camera-scan" type="file"/>
 <button aria-label="Use microphone" class="v59-icon-btn" id="v59-mic" title="Use microphone" type="button"><i class="fa-solid fa-microphone"></i></button>
-<div class="v59-model-wrap">
-<span class="v59-model-label">BRAIN</span>
-<select aria-label="Choose AI brain" id="v59-model-select">
-<option value="automatic">OVYX Auto</option>
-<option value="openai">OpenAI · GPT-3.5</option>
-<option value="anthropic">Claude</option>
-<option value="deepseek">DeepSeek</option>
-<option value="gemini">Gemini</option>
+<div class="v59-model-wrap" aria-label="OVYX AI response mode">
+<span class="v59-model-label">OVYX MODE</span>
+<select aria-label="Choose OVYX response mode" id="v59-ai-mode-select">
+<option value="balanced">OVYX Everyday</option>
+<option value="fast">OVYX Quick</option>
+<option value="quality">OVYX Deep</option>
 </select>
 </div>
 </div>
 <button class="v59-build-btn" id="v59-build" type="button"><span>Build</span><i class="fa-solid fa-arrow-up"></i></button>
 </div>
-<div class="v59-routing-note" id="v59-routing-note"><i class="fa-solid fa-route"></i><span>OVYX Auto · routes your request through the best available model.</span></div>
+<div class="v59-routing-note" id="v59-routing-note"><i class="fa-solid fa-route"></i><span>OVYX Everyday selected · OVYX manages AI routing. Usage and safety limits remain active.</span></div>
 <div class="v59-add-menu" hidden="" id="v59-add-menu">
 <button data-v59-add="files" type="button"><i class="fa-regular fa-folder-open"></i><span><b>Upload files</b><small>Attach documents and project references</small></span></button>
 <button data-v59-add="photo" type="button"><i class="fa-solid fa-camera"></i><span><b>Take photo</b><small>Use your device camera</small></span></button>
@@ -11431,7 +11429,7 @@ window.addEventListener('pageshow',()=>setTimeout(install,0),{passive:true});
     if(!text){window.showToast?.('Describe what you want to build first.','info');input?.focus();return Promise.resolve(null)}
     const signedIn=!!(window.firebase?.auth?.()?.currentUser);
     if(!signedIn){try{window.OVYXDeepRepair?.requireAuth?.('AI build')}catch(_){};window.showToast?.('Sign in before starting an AI build.','info');return Promise.resolve(null)}
-    const requested=$('v59-model-select')?.value||'automatic';
+    const requested='automatic';
     const attachmentFiles=[...(media.images||[]).map(x=>x.file||x),...(media.files||[]).map(x=>x.file||x)].filter(Boolean);
     /* A build must always have a real project graph to mutate. When a new account has
        no project yet, create the same local-first draft shape used by the foundation runtime. */
@@ -11457,8 +11455,7 @@ window.addEventListener('pageshow',()=>setTimeout(install,0),{passive:true});
         await new Promise(r=>setTimeout(r,80));
         const W=window.WebStudio;if(!W)throw new Error('Web Studio failed to initialize.');
         try{W.ensureProjectGraph?.()}catch(_){}
-        const brain=requested==='openai'?'openai':requested==='anthropic'?'anthropic':requested==='deepseek'?'deepseek':requested==='gemini'?'gemini':'automatic';
-        W.brain=brain;
+        W.brain='automatic';
         if(attachmentFiles.length&&typeof W.setAttachments==='function')await W.setAttachments(attachmentFiles);
         const chat=$('ws-chat-input');if(chat){chat.value=text;chat.dispatchEvent(new Event('input',{bubbles:true}));}
         if(typeof W.submitPrompt!=='function')throw new Error('Web Studio prompt engine is unavailable.');
@@ -11534,7 +11531,7 @@ window.addEventListener('pageshow',()=>setTimeout(install,0),{passive:true});
   function onChange(e){
     const id=e.target?.id;
     if(id==='v59-file-input'||id==='v59-camera-photo'||id==='v59-camera-scan'){addFiles(e.target.files||[]);e.target.value='';return}
-    if(id==='v59-model-select'){const value=e.target.value||'automatic';try{localStorage.setItem('ovyx_selected_ai_brain',value)}catch{};const note=$('v59-routing-note'),labels={automatic:'OVYX Auto',openai:'OpenAI · GPT-3.5',anthropic:'Claude',deepseek:'DeepSeek',gemini:'Gemini'};if(note)note.innerHTML=`<i class="fa-solid fa-route"></i><span>${labels[value]||'OVYX Auto'} selected · OVYX will use this option for your request. If it is unavailable, choose OVYX Auto or another available option.</span>`;return}
+    if(id==='v59-ai-mode-select'){return}
   }
   function onInput(e){
     if(e.target?.id==='prompt-home-input'){const el=e.target;el.style.height='auto';el.style.height=Math.min(Math.max(el.scrollHeight,112),300)+'px';}
@@ -11544,7 +11541,7 @@ window.addEventListener('pageshow',()=>setTimeout(install,0),{passive:true});
   function boot(){
     try{window.OVYXInstallTokenBooster?.()}catch(e){console.warn('[OVYX token booster]',e)}
     patchAIBrain();
-    const sel=$('v59-model-select');if(sel){try{sel.value=localStorage.getItem('ovyx_selected_ai_brain')||sel.value||'automatic'}catch{}}
+    window.OVYXAITrust?.syncModeSelector?.();try{localStorage.removeItem('ovyx_selected_ai_brain')}catch{}
     document.addEventListener('click',onClick,{capture:true,passive:false});
     document.addEventListener('click',closeMenuOutside,{passive:true});
     document.addEventListener('change',onChange,{passive:true});
