@@ -417,6 +417,51 @@
 
   async function nativeGenerate(payload = {}, options = {}) {
     const prompt = String(payload.prompt || payload.message || '').trim();
+    const preferredMode = (() => {
+      const allowed = new Set(['balanced', 'fast', 'quality']);
+      try {
+        const key = typeof window.OVYXAIStorageKey === 'function' ? window.OVYXAIStorageKey() : '';
+        const saved = key ? JSON.parse(localStorage.getItem(key) || '{}') : {};
+        const candidate = String(window.OVYXAI?.mode || saved.mode || 'balanced').trim().toLowerCase();
+        return allowed.has(candidate) ? candidate : 'balanced';
+      } catch (_) {
+        const candidate = String(window.OVYXAI?.mode || 'balanced').trim().toLowerCase();
+        return allowed.has(candidate) ? candidate : 'balanced';
+      }
+    })();
+    function friendlyAiRecoveryMessage(data, httpStatus) {
+      const code = String(data?.code || data?.errorCode || data?.error || '').trim().toUpperCase();
+      const messages = {
+        PROMPT_REQUIRED: 'Enter a message for OVYX AI, then try again.',
+        OVYX_NATIVE_AI_NOT_CONFIGURED: 'OVYX cannot find an available AI engine in this deployment. No AI answer was generated. Ask the platform administrator to check Cloudflare Workers AI setup or your selected AI Brain in Settings → External Services & Plan Limits.',
+        OVYX_AI_CLOUDFLARE_QUOTA_EXHAUSTED: 'OVYX has reached its protected Cloudflare AI allowance. It stopped this request instead of switching providers or creating an unexpected charge. Check AI Usage/Plan and try again after the allowance resets.',
+        OVYX_AI_NEURON_BUDGET_EXHAUSTED: 'OVYX has reached its protected AI usage budget. It stopped this request instead of switching providers. Check AI Usage/Plan and try again after the allowance resets.',
+        DAILY_RATION_EXHAUSTED: 'Your included AI allowance is used up for now. OVYX stopped safely and did not switch providers. Check AI Usage/Plan or try again after your allowance resets.',
+        OVYX_AI_CLOUDFLARE_RATE_LIMITED: 'Cloudflare AI is temporarily limiting requests. OVYX did not switch providers. Wait a little and try again.',
+        OVYX_AI_ENGINE_MODE_NOT_CONFIGURED: 'The OVYX AI engine is not configured correctly. No alternative provider was called. Ask the platform administrator to check the AI setup.',
+        UNIVERSAL_CONNECTION_SELECTION_FAILED: 'OVYX could not verify your selected AI Brain. It did not switch to another provider. Open Settings → External Services & Plan Limits, test your connection, then retry or clear the selected AI Brain.',
+        CONNECTION_UPSTREAM_FAILED: 'Your selected AI Brain did not respond. OVYX did not switch to another provider. Use Test in Settings → External Services & Plan Limits, then retry.',
+        CONNECTION_NOT_FOUND: 'Your selected AI Brain could not be found. Open Settings → External Services & Plan Limits and select a working connection or clear the selection.',
+        CONNECTION_INACTIVE: 'Your selected AI Brain is inactive. Re-enable and test it in Settings → External Services & Plan Limits, or clear the selection.',
+        CONNECTION_EMPTY_RESPONSE: 'Your selected AI Brain returned an empty answer. Check its connection settings and try again.',
+        AI_PROVIDER_TIMEOUT: 'The AI request took too long. Your project was not changed by this message. Try again; for a very large task, split it into smaller steps.',
+        OVYX_NATIVE_AI_TIMEOUT: 'OVYX AI took too long to respond. Try again, or split a large request into smaller steps.',
+        AI_PROVIDER_RATE_LIMITED: 'The AI service is receiving too many requests right now. Wait a little and try again.',
+        AI_PROVIDER_UNAVAILABLE: 'The AI service is temporarily unavailable. OVYX did not silently switch providers. Try again in a moment.',
+        OVYX_NATIVE_AI_REQUEST_FAILED: 'OVYX could not complete the AI request. Check the AI readiness indicator and retry. Your saved project was not changed by this message.',
+        OVYX_NATIVE_AI_EMPTY_RESPONSE: 'The AI service returned an empty answer. Try again with a more specific request.',
+        FEATURE_NOT_INCLUDED: 'This feature is not included in your current OVYX plan. Open Plan & Usage to review access; OVYX has not bypassed the plan gate.',
+        AI_READINESS_CHECK_FAILED: 'OVYX could not check AI setup. No AI request was sent. Check your connection and try again.'
+      };
+      if (messages[code]) return messages[code];
+      if (httpStatus === 401) return 'Your sign-in session may have expired. Sign in again, then retry your request.';
+      if (httpStatus === 403) return 'OVYX blocked this request because the required permission or plan access is missing. Check your account and feature access.';
+      if (httpStatus === 429) return 'OVYX has reached a usage or request limit. It stopped safely instead of switching providers. Check AI Usage/Plan and retry when the limit allows.';
+      if (httpStatus === 502 || httpStatus === 503 || httpStatus === 504) return 'The AI service could not complete this request right now. Check the AI readiness indicator and retry in a moment.';
+      const raw = String(data?.message || '').trim().slice(0, 320);
+      if (raw && !/(?:api[_-]?key|secret|bearer\\s+[A-Za-z0-9._~-]{12,}|sk-[A-Za-z0-9]{16,}|https?:\\/\\/[^\\s]*(?:token|key)=)/i.test(raw)) return raw;
+      return 'OVYX AI could not complete this request. Check AI readiness and try again. If it keeps failing, share the error code with the platform administrator.';
+    }
     const conversational = !/workspace-copilot-advanced/i.test(String(payload.mode || ''));
     const sentMessages = Array.isArray(payload.messages)
       ? payload.messages.filter(m => m && (m.role === 'user' || m.role === 'assistant')).slice(-12)
@@ -442,6 +487,7 @@
         },
         body: JSON.stringify({
           prompt,
+          mode: preferredMode,
           messages: nextMessages,
           system: String(payload.system || '').slice(0, 7000),
           context: payload.context || {},
@@ -452,7 +498,7 @@
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw Object.assign(new Error(data?.message || data?.error || 'OVYX AI is unavailable right now.'), {
+        throw Object.assign(new Error(friendlyAiRecoveryMessage(data, response.status)), {
           status: response.status, code: data?.code || 'OVYX_NATIVE_AI_FAILED',
         });
       }
@@ -482,7 +528,8 @@
     body.textContent = 'Your OVYX workspace assistant. Ask questions about your work, find files and settings, review usage, or get help with next steps. OVYX AI can guide you to the right tools and prepare supported actions.';
     const footer = document.createElement('div');
     footer.style.cssText = 'margin-top:10px;color:#7c8998;font-size:10px;font-weight:600;';
-    footer.textContent = 'OVYX AI · Ready to use';
+    footer.dataset.ovyxAiReadiness = 'welcome';
+    footer.textContent = 'OVYX AI · Checking setup…';
     const welcomeHead = document.createElement('div');
     welcomeHead.className = 'ovyx-native-welcome-brand';
     welcomeHead.append(makeBotAvatar(), strong);
@@ -507,7 +554,7 @@
       label.classList.add('ovyx-native-title');
       const subtitle = document.createElement('span');
       subtitle.className = 'ovyx-native-subtitle';
-      subtitle.innerHTML = '<i class="ovyx-native-status-dot" aria-hidden="true"></i><span>Workspace assistant · Ready to help</span>';
+      subtitle.innerHTML = '<i class="ovyx-native-status-dot" aria-hidden="true"></i><span>Workspace assistant</span><span class="ovyx-ai-readiness-chip" data-ovyx-ai-readiness="assistant" data-state="checking" aria-live="polite">Checking AI setup…</span>';
       const copy = document.createElement('div');
       copy.className = 'ovyx-native-brand-copy';
       label.replaceWith(copy);
