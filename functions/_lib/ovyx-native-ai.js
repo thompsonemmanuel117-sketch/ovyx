@@ -113,6 +113,11 @@ function nativeActions(value) {
       if (/^[A-Za-z0-9_-]{1,120}$/.test(projectId) && safeFile) result.push({ type, projectId, filePath });
       continue;
     }
+    if (type === 'platform_repo_investigate') {
+      const question = clean(item.question, 1200).trim();
+      if (question.length >= 4) result.push({ type, question });
+      continue;
+    }
     if (type === 'workspace_patch') {
       const projectId = clean(item.projectId, 120);
       const filePath = clean(item.filePath || item.path, 240).replace(/^\/+/, '');
