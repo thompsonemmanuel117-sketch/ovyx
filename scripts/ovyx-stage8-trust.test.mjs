@@ -3,11 +3,12 @@ import { readFile } from 'node:fs/promises';
 import { generateOvyxNativeAI, normalizeOvyxNativeMode } from '../functions/_lib/ovyx-native-ai.js';
 
 const read = path => readFile(new URL(path, import.meta.url), 'utf8');
-const [packageSource, html, settingsClient, nativeClient, chatRoute, readinessRoute, trustClient, middleware, connectionReadiness] = await Promise.all([
+const [packageSource, html, settingsClient, nativeClient, platformKnowledge, chatRoute, readinessRoute, trustClient, middleware, connectionReadiness] = await Promise.all([
   read('../package.json'),
   read('../index.html'),
   read('../assets/ovyx-assistant-workspace.js'),
   read('../functions/_lib/ovyx-native-ai.js'),
+  read('../functions/_lib/ovyx-project-knowledge.js'),
   read('../functions/api/ai/ovyx.js'),
   read('../functions/api/ai/readiness.js'),
   read('../assets/ovyx-ai-trust.js'),
@@ -31,7 +32,7 @@ for (const obsolete of [
 assert.match(html, /OVYX Everyday/);
 assert.match(html, /OVYX Quick/);
 assert.match(html, /OVYX Deep/);
-assert.match(html, /These modes change response depth, not providers/);
+assert.match(html, /response length and depth\. It does not switch AI providers/);
 assert.match(html, /data-ovyx-ai-readiness="settings"/);
 assert.match(html, /data-ai-readiness-refresh/);
 assert.match(html, /provider:'automatic'/);
@@ -92,7 +93,7 @@ assert.match(settingsClient, /protected Cloudflare AI allowance/);
 assert.match(settingsClient, /Settings → External Services & Plan Limits/);
 assert.match(chatRoute, /mode: payload\.mode/);
 assert.match(chatRoute, /mode: result\.mode/);
-assert.match(nativeClient, /Quota exhaustion is a stop condition/);
+assert.match(platformKnowledge, /Quota exhaustion is a stop condition/);
 assert.match(connectionReadiness, /activeBrainConnectionId/);
 
 console.log('OVYX Stage 8 trust tests passed: OVYX modes, bounded mode behavior, setup-only readiness, recovery messages and guarded routing.');
