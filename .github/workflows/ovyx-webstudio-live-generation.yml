@@ -117,11 +117,11 @@ jobs:
       # Routine main pushes check the deployed source/configuration and do NOT make an AI call.
       # A manual preflight-only dispatch intentionally makes one small model call.
       # A stage4-site-smoke dispatch spends allowance on one bounded real site; full acceptance
-      # is opt-in through the explicit operation or one-time [OVYX_FULL_ACCEPTANCE_ONCE] marker.
+      # is opt-in through the explicit operation or one-time [OVYX_FULL_ACCEPTANCE_ONCE]/[OVYX_STAGE4_SITE_SMOKE_ONCE] marker.
       # Do not benchmark production while Cloudflare Pages is still deploying this commit.
       # If the source revision is missing or the deployment fails, fail closed before any live inference.
       - name: Verify successful production deployment of this exact source revision
-        if: github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && (inputs.operation == 'full-acceptance' || inputs.operation == 'stage4-site-smoke')) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]')))
+        if: github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && (inputs.operation == 'full-acceptance' || inputs.operation == 'stage4-site-smoke')) || (github.event_name == 'push' && (contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]') || contains(github.event.head_commit.message, '[OVYX_STAGE4_SITE_SMOKE_ONCE]'))))
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -135,10 +135,10 @@ jobs:
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
         continue-on-error: true
         env:
-          OVYX_EVAL_PROVIDER: ${{ (github.event_name == 'workflow_dispatch' && inputs.operation == 'stage4-site-smoke') && 'cloudflare-workers-ai' || (github.event_name == 'workflow_dispatch' && inputs.provider) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]') && 'cloudflare-workers-ai') || 'automatic' }}
-          OVYX_EVAL_SITE_SMOKE: ${{ github.event_name == 'workflow_dispatch' && inputs.operation == 'stage4-site-smoke' }}
-          OVYX_EVAL_PREFLIGHT_ONLY: ${{ (github.event_name != 'workflow_dispatch' && !contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]')) || (github.event_name == 'workflow_dispatch' && inputs.operation == 'preflight-only') }}
-          OVYX_EVAL_SKIP_LIVE_INFERENCE: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]') }}
+          OVYX_EVAL_PROVIDER: ${{ (github.event_name == 'workflow_dispatch' && inputs.operation == 'stage4-site-smoke') && 'cloudflare-workers-ai' || (github.event_name == 'workflow_dispatch' && inputs.provider) || (github.event_name == 'push' && (contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]') || contains(github.event.head_commit.message, '[OVYX_STAGE4_SITE_SMOKE_ONCE]')) && 'cloudflare-workers-ai') || 'automatic' }}
+          OVYX_EVAL_SITE_SMOKE: ${{ (github.event_name == 'workflow_dispatch' && inputs.operation == 'stage4-site-smoke') || (github.event_name == 'push' && contains(github.event.head_commit.message, '[OVYX_STAGE4_SITE_SMOKE_ONCE]')) }}
+          OVYX_EVAL_PREFLIGHT_ONLY: ${{ (github.event_name != 'workflow_dispatch' && !contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]') && !contains(github.event.head_commit.message, '[OVYX_STAGE4_SITE_SMOKE_ONCE]')) || (github.event_name == 'workflow_dispatch' && inputs.operation == 'preflight-only') }}
+          OVYX_EVAL_SKIP_LIVE_INFERENCE: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]') && !contains(github.event.head_commit.message, '[OVYX_STAGE4_SITE_SMOKE_ONCE]') }}
           OVYX_EVAL_MODEL: ${{ vars.OVYX_EVAL_MODEL }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -150,10 +150,10 @@ jobs:
           OVYX_EVAL_ENQUIRY_TEST_RECIPIENT: ${{ secrets.OVYX_EVAL_ENQUIRY_TEST_RECIPIENT }}
         run: node scripts/ovyx-cloudflare-live-generation-client.mjs
       - name: Enforce routine no-inference check or explicit provider preflight result
-        if: github.ref == 'refs/heads/main' && ((github.event_name == 'push' && !contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]')) || (github.event_name == 'workflow_dispatch' && inputs.operation == 'preflight-only'))
+        if: github.ref == 'refs/heads/main' && ((github.event_name == 'push' && !contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]') && !contains(github.event.head_commit.message, '[OVYX_STAGE4_SITE_SMOKE_ONCE]')) || (github.event_name == 'workflow_dispatch' && inputs.operation == 'preflight-only'))
         env:
           GENERATION_OUTCOME: ${{ steps.generate.outcome }}
-          SKIP_LIVE_INFERENCE: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]') }}
+          SKIP_LIVE_INFERENCE: ${{ github.event_name == 'push' && !contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]') && !contains(github.event.head_commit.message, '[OVYX_STAGE4_SITE_SMOKE_ONCE]') }}
         run: |
           if [ "$GENERATION_OUTCOME" != "success" ]; then
             echo "Routine deployment/configuration check or explicitly requested provider preflight failed."
@@ -168,7 +168,7 @@ jobs:
         if: github.event_name == 'pull_request'
         run: echo "PR regression tests ran. Live generation and external enquiry probes run only on trusted main/workflow_dispatch events through the short-lived OIDC verifier; provider API keys stay in Cloudflare."
       - name: Inspect model-generated sites in Chromium at five widths
-        if: always() && github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && (inputs.operation == 'full-acceptance' || inputs.operation == 'stage4-site-smoke')) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]')))
+        if: always() && github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && (inputs.operation == 'full-acceptance' || inputs.operation == 'stage4-site-smoke')) || (github.event_name == 'push' && (contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]') || contains(github.event.head_commit.message, '[OVYX_STAGE4_SITE_SMOKE_ONCE]'))))
         id: browser
         continue-on-error: true
         env:
@@ -178,7 +178,7 @@ jobs:
           OVYX_EVAL_ENQUIRY_TEST_RECIPIENT: ${{ secrets.OVYX_EVAL_ENQUIRY_TEST_RECIPIENT }}
         run: node scripts/ovyx-webstudio-generated-site-browser-eval.mjs artifacts/webstudio-generated-sites artifacts/webstudio-evaluation-report/browser
       - name: Evaluate configured real listing and enquiry services
-        if: always() && github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && (inputs.operation == 'full-acceptance' || inputs.operation == 'stage4-site-smoke')) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]')))
+        if: always() && github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && (inputs.operation == 'full-acceptance' || inputs.operation == 'stage4-site-smoke')) || (github.event_name == 'push' && (contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]') || contains(github.event.head_commit.message, '[OVYX_STAGE4_SITE_SMOKE_ONCE]'))))
         id: integration
         continue-on-error: true
         env:
@@ -196,7 +196,7 @@ jobs:
           OVYX_INTEGRATION_REPORT_OUT: artifacts/webstudio-evaluation-report/integration-report.json
         run: node scripts/ovyx-live-service-integration-eval.mjs
       - name: Audit copy, routes, visuals and integration claims
-        if: always() && github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && (inputs.operation == 'full-acceptance' || inputs.operation == 'stage4-site-smoke')) || (github.event_name == 'push' && contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]')))
+        if: always() && github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && (inputs.operation == 'full-acceptance' || inputs.operation == 'stage4-site-smoke')) || (github.event_name == 'push' && (contains(github.event.head_commit.message, '[OVYX_FULL_ACCEPTANCE_ONCE]') || contains(github.event.head_commit.message, '[OVYX_STAGE4_SITE_SMOKE_ONCE]'))))
         id: audit
         continue-on-error: true
         run: node scripts/ovyx-webstudio-acceptance-audit.mjs artifacts/webstudio-generated-sites artifacts/webstudio-evaluation-report/browser/browser-report.json artifacts/webstudio-evaluation-report/acceptance-report.json artifacts/webstudio-evaluation-report/integration-report.json
@@ -257,7 +257,7 @@ jobs:
           }
           NODE
       - name: Enforce Stage 4 single-site smoke evidence without claiming full acceptance
-        if: always() && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.operation == 'stage4-site-smoke'
+        if: always() && github.ref == 'refs/heads/main' && ((github.event_name == 'workflow_dispatch' && inputs.operation == 'stage4-site-smoke') || (github.event_name == 'push' && contains(github.event.head_commit.message, '[OVYX_STAGE4_SITE_SMOKE_ONCE]')))
         env:
           GENERATION_OUTCOME: ${{ steps.generate.outcome }}
           BROWSER_OUTCOME: ${{ steps.browser.outcome }}
