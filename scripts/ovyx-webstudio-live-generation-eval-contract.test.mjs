@@ -46,6 +46,8 @@ assert.ok(liveGenerationRoute.includes("OVYX_WEBSTUDIO_MAX_PAGES: isBudgetedStag
   'the full acceptance path keeps its eight-page ceiling; only the guarded site smoke is limited to two pages');
 assert.ok(liveGenerationRoute.includes("OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST_ONLY: isBudgetedStage4Smoke ? 'true' : 'false'"),
   'only the fixed budgeted smoke may narrow model-inferred routes to its explicit two-page manifest');
+assert.ok(liveGenerationRoute.includes("stage4SmokeQaFormAttributesRepaired: isBudgetedStage4Smoke && generated.stage4SmokeQaFormAttributesRepaired === true"),
+  'live smoke evidence must explicitly report whether its local QA form contract required deterministic repair');
 assert.ok(liveGenerationRoute.includes("OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST: isBudgetedStage4Smoke ? 'Home|Contact' : ''"),
   'the Stage 4 smoke must pass a fixed Home/Contact manifest so appended QA instructions cannot inflate the page count');
 assert.ok(liveGenerationRoute.includes("OVYX_WEBSTUDIO_ENFORCE_BROWSER_RUNTIME: isBudgetedStage4Smoke ? 'true' : 'false'"),
