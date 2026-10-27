@@ -906,7 +906,7 @@ async function buildStudioMultiPageOnce(options) {
     // brief's explicit page manifest and known industry conventions. This avoids
     // abandoning a whole site because one planning response was malformed.
     // Normal file, prompt-contract, route-integrity and quality checks still run.
-    const fallbackTitles = deterministicFallbackSiteMapTitles(prompt, promptContract.explicitPages);
+    const fallbackTitles = deterministicFallbackSiteMapTitles(prompt, explicitPagesForReconciliation);
     if (fallbackTitles.length > pageLimit) {
       throw accountingError(Object.assign(new Error('The brief requires ' + fallbackTitles.length + ' pages, but the configured page ceiling is ' + pageLimit + '. No requested pages were silently dropped.'), { status: 413, code: 'WEBSTUDIO_PAGE_LIMIT' }), usage, hasUsage, inputs, outputs);
     }
