@@ -66,7 +66,7 @@ assert.match(providerRouter, /return \{ \.\.\.result, requestedProvider: 'cloudf
 assert.match(orchestrator, /Multi-page website generated in verified batches/);
 assert.match(chatClient, /workspace_quality_check/);
 assert.match(chatClient, /No source was changed/);
-assert.match(chatClient, /preview.*explicit approval|explicit approval.*preview/i);
+assert.match(chatClient, /preview.*explicit (?:user )?approval|explicit (?:user )?approval.*preview/i);
 
 // Specialized modalities are intentionally not declared migrated by a text
 // model contract. They require their own capability and regression audit.
