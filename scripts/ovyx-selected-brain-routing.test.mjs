@@ -90,7 +90,7 @@ const docs = readFileSync(new URL('../docs/UNIVERSAL-CONNECTIONS.md', import.met
 assert.match(providerSource, /options\.useSelectedUniversalBrain === true/);
 assert.match(providerSource, /options\.webStudioRequest !== true/);
 assert.match(providerSource, /options\.appStudioRequest !== true/);
-assert.match(providerSource, /OVYX_WEBSTUDIO_UNIVERSAL_CONNECTION_NOT_READY/);
+assert.doesNotMatch(providerSource, /getActiveWebStudioConnectionId|OVYX_WEBSTUDIO_UNIVERSAL_CONNECTION_NOT_READY/);
 assert.match(assistantSource, /webStudioRequest: isWebStudio/);
 assert.match(assistantSource, /appStudioRequest: isAppStudio/);
 assert.match(assistantSource, /useSelectedUniversalBrain: !isWebStudio && !isAppStudio/);
