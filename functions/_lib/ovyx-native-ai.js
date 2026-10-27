@@ -13,7 +13,7 @@ const ALLOWED_ROUTES = new Set([
 ]);
 const ALLOWED_ACTIONS = new Set([
   'refresh_context', 'run_project_scan', 'open_history',
-  'open_assets', 'open_sections', 'open_preview', 'navigate', 'open_project', 'workspace_inspect', 'workspace_read_file', 'workspace_search', 'workspace_diagnose', 'workspace_quality_check', 'workspace_patch', 'workspace_undo'
+  'open_assets', 'open_sections', 'open_preview', 'navigate', 'open_project', 'workspace_inspect', 'workspace_read_file', 'workspace_search', 'workspace_diagnose', 'workspace_quality_check', 'workspace_patch', 'workspace_undo', 'platform_repo_investigate'
 ]);
 
 function clean(value, max = 12000) {
