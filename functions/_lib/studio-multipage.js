@@ -730,7 +730,7 @@ export function normalizeStage4QaContactForm(staged, siteMap) {
   return source.map(item => item === htmlItem ? { ...item, content: html } : item);
 }
 
-function validateStage4BrowserRuntime(staged, siteMap) {
+export function validateStage4BrowserRuntime(staged, siteMap) {
   const errors = [];
   const files = Object.fromEntries((Array.isArray(staged) ? staged : [])
     .filter(item => item && typeof item.path === 'string' && typeof item.content === 'string')
