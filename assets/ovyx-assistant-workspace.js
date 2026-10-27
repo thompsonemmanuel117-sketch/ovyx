@@ -407,6 +407,11 @@
       ...value,
       text: String(value.text || value.answer || value.message || '').trim(),
       actions: Array.isArray(value.actions) ? value.actions : [],
+      plan: Array.isArray(value.plan) ? value.plan.slice(0, 6).filter(item => item && typeof item === 'object' && typeof item.step === 'string').map(item => ({
+        step: String(item.step).slice(0, 220),
+        kind: String(item.kind || 'other').slice(0, 32),
+        ...(typeof item.tool === 'string' ? { tool: item.tool.slice(0, 50) } : {}),
+      })) : [],
     };
   }
 
@@ -748,6 +753,18 @@
     item.textContent = detail;
     list.appendChild(item);
     while (list.children.length > 14) list.firstElementChild?.remove();
+  }
+
+  function recordAssistantPlan(plan) {
+    const steps = Array.isArray(plan)
+      ? plan.filter(item => item && typeof item.step === 'string').slice(0, 6)
+      : [];
+    if (!steps.length) return;
+    recordAssistantActivity('Proposed task plan (these steps are not proof of completion):');
+    steps.forEach((item, index) => {
+      const step = String(item.step || '').replace(/\s+/g, ' ').trim().slice(0, 220);
+      if (step) recordAssistantActivity((index + 1) + '. ' + step);
+    });
   }
 
   function setAssistantActivityStage(stage, message, options = {}) {
@@ -1587,6 +1604,7 @@
       let toolCallCount = 0;
       let toolRounds = 0;
       let showedToolProgress = false;
+      let assistantPlanRecorded = false;
       let toolLimitReached = false;
 
       // Real bounded agent loop: request a read-only tool, execute it through the
@@ -1604,6 +1622,11 @@
           },
           system: assistantSystem,
         });
+
+        if (!assistantPlanRecorded) {
+          recordAssistantPlan(result.plan);
+          assistantPlanRecorded = true;
+        }
 
         const readActions = (Array.isArray(result.actions) ? result.actions : [])
           .filter(action => READ_ONLY_WORKSPACE_ACTIONS.has(String(action?.type || '')));
