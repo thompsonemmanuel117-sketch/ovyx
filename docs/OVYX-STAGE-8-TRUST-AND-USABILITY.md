@@ -17,7 +17,7 @@ AI Preferences now offers:
 - **OVYX Quick** — concise answers and smaller tasks (up to 900 output tokens).
 - **OVYX Deep** — more room for complex reasoning and code review (up to 2,800 output tokens).
 
-The server accepts only the three known values and safely normalizes invalid input to Everyday. The mode changes response instructions and the bounded output-token budget; it does not select a third-party provider, raise the daily neuron allowance, or bypass quota rules. The settings UI removes obsolete preferred-provider, model, provider-priority and fallback selectors. It keeps the existing user's safety and project-context preferences. Existing stored provider/model preferences are normalized to server-selected routing (`automatic`).
+The server accepts only the three known values and safely normalizes invalid input to Everyday. The mode changes response instructions and the bounded output-token budget; it does not select a third-party provider, raise the daily neuron allowance, or bypass quota rules. The settings UI removes obsolete preferred-provider, model, provider-priority and fallback selectors. The Home composer now uses the same **OVYX Everyday / Quick / Deep** names instead of a Gemini/Claude/OpenAI selector; changing a Home mode is verified against the authenticated account preference API and updates the shared mode state. Home builds always hand off to Web Studio with managed routing, even if old browser storage contains a legacy provider choice. It keeps the existing user's safety and project-context preferences. Existing stored provider/model preferences are normalized to server-selected routing (`automatic`).
 
 Web Studio and App Studio generation still use their separate workflows. Selecting OVYX Deep does not replace the site/app generation workflow or weaken entitlements, preview/approval controls, or source validation.
 
@@ -48,8 +48,8 @@ Ordinary assistant failures are mapped to plain-language guidance for common con
 
 ## User acceptance checklist
 
-1. Open Settings → AI Preferences. Confirm Gemini/Claude/OpenAI provider and model drop-downs are gone from the user preferences.
-2. Select **OVYX Everyday**, save, leave Settings, and return. Confirm Everyday remains selected.
+1. Open Home. Confirm the old Gemini/Claude/OpenAI **BRAIN** selector is gone and the composer offers **OVYX Everyday**, **OVYX Quick**, and **OVYX Deep**. Change a mode and confirm it saves to the signed-in account. Open Settings → AI Preferences and confirm the same mode is selected.
+2. Confirm the Settings page has no provider/model/provider-priority/fallback selector. Select **OVYX Everyday**, save, leave Settings, and return. Confirm Everyday remains selected.
 3. Send a normal chat message. Confirm the result shows truthful provider metadata and works as usual.
 4. Select **OVYX Quick**, send the same short question, and confirm it returns a shorter answer. Select **OVYX Deep** and ask a multi-step question; confirm it has a larger response budget. These modes should not switch providers.
 5. Open the assistant and check the readiness badge. It must say **configured — not live-tested**, not promise that a live AI call succeeded.
