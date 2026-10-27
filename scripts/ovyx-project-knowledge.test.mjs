@@ -35,7 +35,7 @@ assert.match(sourceBoundaryKnowledge, /OVYX_GUARDIAN_GITHUB_READ_TOKEN/);
 assert.match(sourceBoundaryKnowledge, /platform_repo_investigate/);
 assert.match(sourceBoundaryKnowledge, /root-admin access/);
 assert.match(sourceBoundaryKnowledge, /bounded live source investigation|bounded investigation/i);
-assert.match(sourceBoundaryKnowledge, /Never claim an OVYX GitHub source scan occurred/);
+assert.match(sourceBoundaryKnowledge, /Never claim source was inspected unless actual investigator results are present/);
 
 const researchKnowledge = buildOvyxProjectKnowledge('Research this topic online and cite web search sources.');
 assert.match(researchKnowledge, /POST \/api\/ai\/web-search/);
