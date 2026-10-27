@@ -44,23 +44,22 @@ assert.ok(connectionLib.includes("method: 'GET'") && connectionLib.includes("'OV
 assert.ok(connectionLib.includes('delete copy.encryptedSecret') && connectionLib.includes('delete copy.secret'),
   'Public connection records must never return saved credentials.');
 
-// Brain and Web Studio continuation must be assigned independently. A key
-// assigned for one purpose is never silently reused for the other.
-assert.ok(ui.includes("data-v91-use-webstudio"), 'The settings UI must expose an explicit Web Studio assignment action.');
-assert.ok(ui.includes("activeWebStudioConnectionId"), 'The UI must distinguish the selected Brain from the Web Studio connection.');
-assert.ok(ui.includes("JSON.stringify({action:'test',id:btn.dataset.v91UseWebstudio})"),
-  'Web Studio assignment must test the chosen connection first.');
-assert.ok(ui.includes("JSON.stringify({action:'use-webstudio',id:btn.dataset.v91UseWebstudio})"),
-  'Web Studio assignment must be explicit and account-scoped.');
-assert.ok(ui.includes("JSON.stringify({action:'clear-webstudio'})"),
-  'Users must be able to clear the separate Web Studio assignment.');
+// Ordinary assistant Brain selection remains explicit and account-scoped.
+// Web Studio must not offer a connection assignment that can be used to escape
+// OVYX's protected Cloudflare/plan quota. Legacy assignment fields/actions remain
+// available for existing profile compatibility but are not exposed in the UI.
+assert.ok(ui.includes("data-v91-use-brain"), 'The settings UI must expose an explicit AI Brain assignment action.');
+assert.ok(ui.includes("activeBrainConnectionId"), 'The UI must identify the selected AI Brain.');
+assert.ok(!ui.includes("data-v91-use-webstudio"), 'The UI must not offer a Web Studio quota-fallback assignment.');
+assert.ok(!ui.includes("activeWebStudioConnectionId"), 'The UI must not present a legacy Web Studio assignment as an active routing option.');
+assert.ok(!ui.includes("Use for Web Studio"), 'The UI must not promise a Web Studio provider continuation.');
 assert.ok(api.includes("action === 'use-webstudio'") && api.includes("action === 'clear-webstudio'"),
-  'The server must support separately assigning and clearing the Web Studio connection.');
+  'Legacy Web Studio assignment actions remain accepted for compatibility with existing clients.');
 assert.ok(api.includes("activeWebStudioConnectionId: state.activeWebStudioConnectionId"),
-  'The authenticated connection list must return the Web Studio assignment separately.');
+  'The authenticated API may retain the legacy assignment field for profile compatibility.');
 assert.ok(connectionLib.includes("export async function getActiveWebStudioConnectionId"),
-  'Runtime routing needs an account-scoped getter for the separate Web Studio assignment.');
+  'The account-scoped legacy assignment reader remains available for compatibility and cleanup.');
 assert.ok(connectionLib.includes('canUseForWebStudio: copy.active === true && supportsAI'),
-  'Only active supported AI protocols can be assigned to Web Studio.');
+  'Legacy assignment validation must still reject inactive or unsupported AI connections.');
 
 console.log('Universal Connection readiness tests passed: AI Brain and Web Studio selections are separate, checked and secret-safe.');
