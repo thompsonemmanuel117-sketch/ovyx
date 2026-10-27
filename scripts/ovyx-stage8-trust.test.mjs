@@ -96,6 +96,39 @@ assert.equal(invalid.result.mode, 'balanced');
 assert.match(quick.captured.input.messages[0].content, /OVYX Quick mode/);
 assert.match(deep.captured.input.messages[0].content, /OVYX Deep mode/);
 
+// The same mode budget must also be honored when the user explicitly selected
+// an account-owned Universal Connection Brain.
+async function capturedSelectedBrainMode(mode) {
+  let capturedMaxTokens = null;
+  const result = await generateOvyxNativeAI({ OVYX_AI_ENGINE_MODE: 'cloudflare-free-only' }, {
+    prompt: 'Explain the selected project.',
+    mode,
+    authUser: { uid: 'stage8-mode-owner', sub: 'stage8-mode-owner', email: 'stage8-mode-owner@example.test' },
+    universalBrainDependencies: {
+      getActiveBrainConnectionId: async () => 'stage8-owned-brain',
+      callUserUniversalConnection: async (_env, input) => {
+        capturedMaxTokens = input.maxTokens;
+        return {
+          text: JSON.stringify({ text: 'The selected Brain answered.', actions: [] }),
+          provider: 'connection:stage8-owned-brain',
+          routedProvider: 'universal-connection',
+          model: 'mock-selected-brain',
+          rawUsage: { total_tokens: 5 }
+        };
+      }
+    }
+  });
+  return { capturedMaxTokens, result };
+}
+const selectedQuick = await capturedSelectedBrainMode('fast');
+const selectedEveryday = await capturedSelectedBrainMode('balanced');
+const selectedDeep = await capturedSelectedBrainMode('quality');
+assert.equal(selectedQuick.capturedMaxTokens, 900);
+assert.equal(selectedEveryday.capturedMaxTokens, 1800);
+assert.equal(selectedDeep.capturedMaxTokens, 2800);
+assert.equal(selectedQuick.result.routedProvider, 'universal-connection');
+assert.equal(selectedDeep.result.mode, 'quality');
+
 // Readiness is a setup-only check and must not call model inference or suggest
 // that configuration presence proves live provider success.
 assert.match(readinessRoute, /liveInferenceTested: false/);
