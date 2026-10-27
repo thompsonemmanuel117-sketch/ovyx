@@ -81,7 +81,8 @@ assert.match(readinessRoute, /getActiveBrainConnectionId/);
 assert.match(readinessRoute, /Cache-Control.*no-store/);
 assert.match(trustClient, /\/api\/ai\/readiness/);
 assert.match(trustClient, /not live-tested/);
-assert.match(trustClient, /Check again/);
+assert.match(html, /Check again/);
+assert.match(trustClient, /data-ai-readiness-refresh/);
 assert.match(trustClient, /No AI request is sent and no AI usage is spent/);
 assert.match(middleware, /ovyx-ai-trust\.js\?v=/);
 
