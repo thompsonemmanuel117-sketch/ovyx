@@ -137,7 +137,7 @@ assert.deepEqual(parsedPlatformRepo.actions, [
 assert.equal(Object.hasOwn(parsedPlatformRepo.actions[1], 'projectId'), false, 'the repository tool must not accept a client-selected repository or project ID');
 assert.match(captured.input.messages[0].content, /platform_repo_investigate/);
 assert.match(captured.input.messages[0].content, /root-admin access/);
-assert.match(captured.input.messages[0].content, /maximum of three readable source files/);
+assert.match(captured.input.messages[0].content, /at most three readable source files/);
 
 assert.equal(result.rawUsage.total_tokens, 35);
 
