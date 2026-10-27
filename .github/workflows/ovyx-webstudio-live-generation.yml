@@ -271,10 +271,15 @@ jobs:
           try { browser = JSON.parse(await fs.readFile(reportDir + '/browser/browser-report.json', 'utf8')); } catch {}
           try { audit = JSON.parse(await fs.readFile(reportDir + '/acceptance-report.json', 'utf8')); } catch {}
           const generatedFiles = await fs.readdir('artifacts/webstudio-generated-sites/nigeria-baby-products', { recursive: true }).catch(() => []);
+          const browserSiteCount = Array.isArray(browser.evaluatedSites)
+            ? browser.evaluatedSites.length
+            : Number.isSafeInteger(browser.evaluatedSites) && browser.evaluatedSites >= 0
+              ? browser.evaluatedSites
+              : Array.isArray(browser.results) ? browser.results.length : 0;
           const failures = [];
           if (process.env.GENERATION_OUTCOME !== 'success') failures.push(['single-site generation', process.env.GENERATION_OUTCOME || 'not-run']);
           if (!generatedFiles.some(name => /\.html?$/i.test(String(name)))) failures.push(['real generated HTML files', 'missing']);
-          if (process.env.BROWSER_OUTCOME !== 'success' || browser.status !== 'browser-evaluated' || !Array.isArray(browser.evaluatedSites) || browser.evaluatedSites.length !== 1) {
+          if (process.env.BROWSER_OUTCOME !== 'success' || browser.status !== 'browser-evaluated' || browserSiteCount !== 1) {
             failures.push(['isolated Chromium browser evaluation', browser.status || process.env.BROWSER_OUTCOME || 'missing']);
           }
           if (process.env.AUDIT_OUTCOME !== 'success' || !audit.sitesFound || audit.status === 'not-run-no-generated-sites' || audit.sites?.some(site => site.status === 'needs-attention')) {
@@ -285,7 +290,7 @@ jobs:
             evaluationMode: 'stage4-budgeted-single-site-smoke',
             fullStage4Acceptance: false,
             sitesFound: audit.sitesFound || 0,
-            browserSites: Array.isArray(browser.evaluatedSites) ? browser.evaluatedSites.length : 0,
+            browserSites: browserSiteCount,
             realListingsConfirmed: false,
             realEnquiryDeliveryConfirmed: false,
             humanVisualReviewCompleted: false,
