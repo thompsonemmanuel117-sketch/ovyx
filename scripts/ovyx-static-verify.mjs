@@ -817,6 +817,19 @@ if (
   const endpoint = fs.readFileSync(providerAvailabilityPath, 'utf8');
   const client = fs.readFileSync(providerAvailabilityClientPath, 'utf8');
   const shellMiddleware = fs.existsSync(shellMiddlewarePath) ? fs.readFileSync(shellMiddlewarePath, 'utf8') : '';
+  const appHtmlForAiModes = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+  const homeBuildStart = appHtmlForAiModes.indexOf('function runBuild(){');
+  const homeBuildEnd = appHtmlForAiModes.indexOf('runBuild.__ovyxFinal=true', homeBuildStart);
+  const homeBuildSource = homeBuildStart >= 0 && homeBuildEnd > homeBuildStart
+    ? appHtmlForAiModes.slice(homeBuildStart, homeBuildEnd)
+    : '';
+  const homeModesReady = appHtmlForAiModes.includes('id="v59-ai-mode-select"') &&
+    !appHtmlForAiModes.includes('id="v59-model-select"') &&
+    homeBuildSource.includes("const requested='automatic'") &&
+    homeBuildSource.includes("W.brain='automatic'");
+  if (!homeModesReady) {
+    errors.push('OVYX AI modes: the home composer must expose OVYX Everyday/Quick/Deep, remove the old provider selector, and use managed server routing for builds.');
+  }
   const headersPath = path.join(root, '_headers');
   const headers = fs.existsSync(headersPath) ? fs.readFileSync(headersPath, 'utf8') : '';
   if (
@@ -837,7 +850,7 @@ if (
     !headers.includes('/assets/ovyx-provider-availability.js') ||
     !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/provider-availability.test.mjs')
   ) {
-    errors.push('OVYX provider availability: checks must be authenticated, time-bounded, no-store, secret-safe, same-origin and connected to the provider selector.');
+    errors.push('OVYX provider availability: probes must be authenticated, time-bounded, no-store, secret-safe and same-origin; the home composer must use OVYX modes instead of provider-specific choices.');
   }
 }
 
