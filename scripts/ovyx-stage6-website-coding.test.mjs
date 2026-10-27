@@ -46,7 +46,9 @@ assert.match(inspector, /window\.OVYXWebStudioQuality =/);
 assert.match(middleware, /ovyx-webstudio-quality\.js/);
 assert.match(workspaceTools, /function diagnoseProject\(/, 'Existing saved-project diagnostics must remain available.');
 
-const category = { id: 'agency', name: 'Agency website', requirements: [] };
+const suite = JSON.parse(await readFile(new URL('../scripts/ovyx-webstudio-evaluation-cases.json', import.meta.url), 'utf8'));
+const category = suite.siteCategories.find(item => item.id === 'agency');
+assert.ok(category, 'The artifact evaluator fixture must include an agency category.');
 const site = evaluateSiteFiles({
   'index.html': '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Sample</title><link rel="stylesheet" href="missing.css"></head><body><main><h1>Sample website</h1><a href="#not-here">Jump</a><img src="missing.png" alt="Sample"></main></body></html>',
 }, category);
