@@ -497,11 +497,12 @@ function planPrompt(prompt, project, paths, requireMulti, limit, extraContext, p
   ].join('\n\n');
 }
 
-function makeBatchPrompt(prompt, plan, siteMap, batch, stagedChanges, existingFiles, extraContext, promptContract) {
+function makeBatchPrompt(prompt, plan, siteMap, batch, stagedChanges, existingFiles, extraContext, promptContract, stage4Smoke = false) {
   const targetExtension = String(batch.targetPaths[0] || '').split('.').pop().toLowerCase();
   const cssOnly = batch.targetPaths.length === 1 && targetExtension === 'css';
   const javascriptOnly = batch.targetPaths.length === 1 && ['js', 'mjs'].includes(targetExtension);
   const rawSourceOnly = cssOnly || javascriptOnly;
+  const compactSmokeHtmlTarget = stage4Smoke && (targetExtension === 'html' || targetExtension === 'htm');
   const context = buildSiteBatchContext({
     baseContext: 'APPROVED SITE MAP:\n' + JSON.stringify(plan) + '\n\nBRAND / CLIENT CONTEXT:\n' + String(extraContext || '').slice(0, 6000) + '\n\nORIGINAL USER BRIEF (preserve the specific requirements in this request):\n' + String(prompt || ''),
     stagedChanges,
@@ -535,6 +536,10 @@ function makeBatchPrompt(prompt, plan, siteMap, batch, stagedChanges, existingFi
     'Preserve the shared design language. Reuse staged CSS/JS; update shared files only when truly required.',
     'Do not invent facts or output placeholder copy, dead controls, secrets or files outside the allowlist.',
     'Do not output more than ' + batch.maxChangedFiles + ' files.',
+    ...(compactSmokeHtmlTarget ? [
+      'STAGE 4 SMOKE COMPACT HTML CONTRACT: This is the protected two-page engineering smoke, not a full client brief. Keep this HTML file at or below 2,800 characters. Return one complete, simple semantic document only: metadata, one h1, short content, navigation links and the required page-specific controls. Reuse ../styles.css and ../main.js; do not inline CSS, JavaScript, SVG illustrations, long copy, or duplicate shared components. Close every HTML tag and the document. The final page must remain genuinely usable and pass the same validators; never replace required behavior with fake success.',
+      'For src/pages/Contact.html, include the labelled required name, email and message fields and a submit button. Preserve method="post" and action="/.well-known/ovyx-qa-enquiry"; main.js must handle the fetch, pending/disabled state, success only on response.ok, and an accessible error state. Do not send real enquiries or use a remote service.',
+    ] : []),
     '',
     context,
   ].join('\n\n');
@@ -971,7 +976,7 @@ async function buildStudioMultiPageOnce(options) {
   let sharedAssetPagesRepaired = 0;
   let lastResult = planResult;
   for (const batch of batches) {
-    const input = makeBatchPrompt(prompt, plan, siteMap, batch, staged, existingFiles, extraContext, promptContract);
+    const input = makeBatchPrompt(prompt, plan, siteMap, batch, staged, existingFiles, extraContext, promptContract, env?.OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST_ONLY === 'true');
     inputs.push(input);
     let result;
     try {
@@ -985,6 +990,9 @@ async function buildStudioMultiPageOnce(options) {
             : batch.targetPaths.length === 1 && /\.(?:js|mjs)$/i.test(String(batch.targetPaths[0] || ''))
               ? 'JAVASCRIPT-ONLY RESPONSE OVERRIDE: return only complete raw JavaScript source for the exact approved src/main.js target. Do not wrap it in JSON, Markdown fences, or prose.'
               : 'SINGLE-FILE JSON CONTRACT: return strict JSON with a files array containing exactly one object for the exact target path in REQUIRED TARGET FILES JSON. Do not return any unrequested file or substitute Home.html for a CSS or JavaScript target.',
+          env?.OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST_ONLY === 'true' && /\.html?$/i.test(String(batch.targetPaths[0] || ''))
+            ? 'STAGE 4 SMOKE: keep this one HTML file at or below 2,800 characters, use only the approved shared CSS and JS, avoid inline code and long content, and output fully closed valid HTML inside the required JSON envelope.'
+            : '',
         ].filter(Boolean).join('\n\n'),
         user: input,
         maxTokens: cap(env, 'OVYX_WEBSTUDIO_BATCH_TOKENS', 18000),
@@ -1387,11 +1395,16 @@ export async function buildStudioMultiPage(options = {}) {
       .map(issue => String(issue?.message || '').trim())
       .filter(Boolean)
       .slice(0, 12);
+    const stage4SmokeRecovery = options?.env?.OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST_ONLY === 'true' &&
+      failureCode === 'WEBSTUDIO_BATCH_EMPTY'
+      ? 'STAGE 4 SMOKE RECOVERY: the previous single-file HTML response could not be extracted, most likely because the JSON-wrapped document was too long or truncated. On this one bounded smoke only, keep the requested HTML page under 2,800 characters, use the existing shared stylesheet and script instead of inline code, simplify decorative content, keep all required controls functional, and explicitly close body and html. Return exactly one complete target file in valid JSON. Do not weaken any validators.'
+      : '';
     const recoveryInstruction = [
       'BOUNDED WEBSITE-GENERATION RECOVERY: the previous model output failed a deterministic build or quality check.',
       'Retry the full build once. Preserve the complete original user brief and every explicitly requested page, feature, language, market and interaction.',
       'Return strict valid JSON for every phase, generate every required file, and ensure the output satisfies the existing structural and prompt-requirement checks.',
       'Every HTML page under src/pages must load each supplied shared src/styles.css and src/main.js using correct local relative paths such as ../styles.css and ../main.js. Do not use placeholder links or omit shared assets.',
+      stage4SmokeRecovery,
       validationIssues.length ? 'STRICT GENERATED BROWSER VALIDATION ERRORS (fix all before returning files): ' + validationIssues.join(' | ') : '',
       requirementIssues.length ? 'The prior deterministic requirement checks reported: ' + requirementIssues.join(' | ') : '',
     ].filter(Boolean).join('\n\n');
