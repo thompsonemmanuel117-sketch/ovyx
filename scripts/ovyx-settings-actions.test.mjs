@@ -187,6 +187,12 @@ for (const id of ['set-provider','set-ai-model','set-ai-routing','set-ai-fallbac
 }
 assert.ok(html.includes('OVYX Everyday') && html.includes('OVYX Quick') && html.includes('OVYX Deep'),
   'The user-facing AI settings must use clearly named OVYX modes.');
+assert.ok(html.includes('id="v59-ai-mode-select"'), 'The home composer must select an OVYX response mode.');
+assert.equal(html.includes('id="v59-model-select"'), false, 'The home composer must not expose a third-party provider selector.');
+assert.ok(html.includes("const requested='automatic'") && html.includes("W.brain='automatic'"),
+  'Home builds and Web Studio handoff must remain on server-managed provider routing.');
+assert.ok(html.includes('window.OVYXAITrust?.syncModeSelector?.()'),
+  'The home mode selector must follow the saved OVYX preference instead of restoring a legacy provider choice.');
 
 for (const requirement of [
   "api(PROFILE_ENDPOINT, jsonOptions('PUT'",
