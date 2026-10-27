@@ -26,7 +26,7 @@ assert.deepEqual(plan[0], {
 }, 'Model-supplied completion/status claims are never passed through.');
 assert.equal(plan[1].tool, 'workspace_read_file');
 assert.equal(plan[2].tool, undefined, 'An arbitrary tool name must be stripped from the plan.');
-assert.deepEqual(plan[3], {
+assert.deepEqual(plan[4], {
   step: 'Untrusted kind is normalized',
   kind: 'other',
 }, 'Unrecognized plan kinds and tool names are normalized away.');
