@@ -141,7 +141,7 @@ export function normalizeOvyxNativePlan(value) {
       : (item && typeof item === 'object' && !Array.isArray(item)
           ? (item.step ?? item.label ?? item.description)
           : '');
-    const step = clean(rawStep, 220).replace(/[\\u0000-\\u001f\\u007f]/g, ' ').replace(/\\s+/g, ' ').trim();
+    const step = clean(rawStep, 220).replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim();
     const key = step.toLowerCase();
     if (!step || seen.has(key)) continue;
     seen.add(key);
