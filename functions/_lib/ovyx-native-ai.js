@@ -47,7 +47,7 @@ export function normalizeOvyxNativeMessages(messages, prompt) {
 function nativeActions(value) {
   if (!Array.isArray(value)) return [];
   const result = [];
-  for (const item of value.slice(0, 6)) {
+  for (const item of value.slice(0, 24)) {
     if (!item || typeof item !== 'object') continue;
     const type = clean(item.type, 50).toLowerCase();
     if (!ALLOWED_ACTIONS.has(type)) continue;
