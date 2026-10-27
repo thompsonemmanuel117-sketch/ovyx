@@ -132,7 +132,9 @@ const parsedPlatformRepo = parseOvyxNativeModelOutput({
 });
 assert.deepEqual(parsedPlatformRepo.actions, [
   { type: 'platform_repo_investigate', question: 'Which file implements native assistant project knowledge?' },
-], 'platform source investigation must be allowlisted, question-bounded and unable to accept arbitrary commands or project IDs');
+  { type: 'platform_repo_investigate', question: 'Which file?' },
+], 'platform source investigation must be allowlisted and question-bounded; unrelated fields and arbitrary commands must not be carried through');
+assert.equal(Object.hasOwn(parsedPlatformRepo.actions[1], 'projectId'), false, 'the repository tool must not accept a client-selected repository or project ID');
 assert.match(captured.input.messages[0].content, /platform_repo_investigate/);
 assert.match(captured.input.messages[0].content, /root-admin access/);
 assert.match(captured.input.messages[0].content, /maximum of three readable source files/);
