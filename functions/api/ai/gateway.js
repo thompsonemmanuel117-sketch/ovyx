@@ -92,9 +92,6 @@ export async function onRequestPost(context) {
     const routeCallModel = (env, options = {}) => callModel(env, {
       ...options,
       authUser: user,
-      webStudioRequest: isWebStudio,
-      appStudioRequest: isAppStudio,
-      useSelectedUniversalBrain: !isWebStudio && !isAppStudio,
     });
 
     // A request-scoped app brand always wins over the user's saved default.
