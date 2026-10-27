@@ -314,6 +314,14 @@ function deterministicFallbackSiteMapTitles(prompt, explicitPages = []) {
   return titles;
 }
 
+export function resolveExplicitPageManifest(env, promptContractPages) {
+  const requestedPages = Array.isArray(promptContractPages) ? promptContractPages : [];
+  if (env?.OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST_ONLY !== 'true') return requestedPages;
+  const configuredManifest = String(env.OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST || '')
+    .split('|').map(value => value.trim()).filter(Boolean);
+  return configuredManifest.length ? configuredManifest : requestedPages;
+}
+
 export function restrictSiteMapToExplicitPages(raw, explicitPages, limit) {
   if (!raw || !Array.isArray(raw.pages) || !Array.isArray(explicitPages)) return null;
   const ceiling = Number(limit);
@@ -757,13 +765,9 @@ async function buildStudioMultiPageOnce(options) {
   let siteMap = normalized.siteMap;
   let siteMapRecovery = null;
 
-  let explicitPagesForReconciliation = promptContract.explicitPages;
+  const explicitPagesForReconciliation = resolveExplicitPageManifest(env, promptContract.explicitPages);
   if (env.OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST_ONLY === 'true') {
-    const configuredManifest = String(env.OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST || '')
-      .split('|').map(value => value.trim()).filter(Boolean);
-    const explicitManifest = configuredManifest.length ? configuredManifest : promptContract.explicitPages;
-    explicitPagesForReconciliation = explicitManifest;
-    const restrictedPlan = restrictSiteMapToExplicitPages(plan && plan.siteMap, explicitManifest, pageLimit);
+    const restrictedPlan = restrictSiteMapToExplicitPages(plan && plan.siteMap, explicitPagesForReconciliation, pageLimit);
     if (restrictedPlan) {
       normalized = makeSiteMap(restrictedPlan, pageLimit);
       siteMap = normalized.siteMap;
