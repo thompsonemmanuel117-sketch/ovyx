@@ -68,6 +68,17 @@ assert.match(chatClient, /workspace_quality_check/);
 assert.match(chatClient, /No source was changed/);
 assert.match(chatClient, /preview.*explicit (?:user )?approval|explicit (?:user )?approval.*preview/i);
 
+// Quota exhaustion must never trigger a Universal Connection escape hatch.
+// This is checked here as well as by the focused Web Studio quota-stop suite.
+const guardedRouter = await read('../functions/_lib/providers.js');
+const assistantRoute = await read('../functions/api/ai/assistant.js');
+const gatewayRoute = await read('../functions/api/ai/gateway.js');
+assert.doesNotMatch(guardedRouter, /useUniversalConnectionAfterCloudflareLimit|webStudioUserConnectionFallback/);
+assert.doesNotMatch(assistantRoute, /requiresUniversalConnectionFallback|useUniversalConnectionAfterCloudflareLimit/);
+assert.doesNotMatch(gatewayRoute, /requiresUniversalConnectionFallback|useUniversalConnectionAfterCloudflareLimit/);
+const page = await read('../index.html');
+assert.doesNotMatch(page, /Continue with my own key|Use for Web Studio|data-v91-use-webstudio|activeWebStudioConnectionId/);
+
 // Specialized modalities are intentionally not declared migrated by a text
 // model contract. They require their own capability and regression audit.
 assert.match(nativeAI, /You are OVYX AI/);

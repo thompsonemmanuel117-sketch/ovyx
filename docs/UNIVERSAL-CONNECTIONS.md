@@ -26,14 +26,14 @@ A user can select one active Universal Connection Brain through:
 - `POST /api/settings/connections` with `{ "action": "use-ai", "id": "<connection-id>" }`
 - `POST /api/settings/connections` with `{ "action": "clear-ai" }`
 
-The AI Brain selection is stored in the authenticated workspace profile as `activeBrainConnectionId`. Web Studio continuation is a separate assignment stored as `activeWebStudioConnectionId`.
+The AI Brain selection is stored in the authenticated workspace profile as `activeBrainConnectionId`. The `activeWebStudioConnectionId` field may remain in existing profiles for compatibility, but it is not used to bypass OVYX's Cloudflare AI quota.
 
 - **Ordinary OVYX AI Assistant chats:** Automatic uses the selected AI Brain exclusively. If that selected connection cannot be verified or fails, OVYX reports the failure instead of silently switching to Cloudflare or another provider.
-- **Web Studio website builds:** Cloudflare Workers AI remains the default. The user's assigned Web Studio connection is considered only after Cloudflare/included quota requires a fallback **and the user explicitly confirms continuing with their own connection**. Assigning a Brain alone does not authorize Web Studio to use it.
+- **Web Studio website builds:** Cloudflare Workers AI is the guarded platform route. Quota exhaustion is a hard stop: the request returns the quota error. OVYX does not switch to a personal or platform-paid provider to evade that limit.
 - **App Studio:** the server-side plan entitlement is checked before generation. Neither assignment unlocks App Studio or bypasses its plan gate.
 - **Other tools and integrations:** an HTTP, webhook, database, or generic tool connection is not automatically treated as a model or connected to property listings, enquiries, social actions, or other business functions. Each requires a feature-specific adapter and an explicit purpose assignment before OVYX sends data to it.
 
-Use `action: "use-ai"` / `action: "clear-ai"` to select or clear the assistant Brain. Use `action: "use-webstudio"` / `action: "clear-webstudio"` to separately assign or clear Web Studio continuation. Removing or disabling a connection clears any matching assignments. The Cloudflare free-only guard and platform plan gates remain enforced.
+Use `action: "use-ai"` / `action: "clear-ai"` to select or clear the assistant Brain. Legacy `action: "use-webstudio"` / `action: "clear-webstudio"` assignment data is retained for profile compatibility, but the UI no longer offers that assignment and guarded routes ignore it. It cannot be used as a quota fallback. Removing or disabling a connection clears any matching legacy assignment. The Cloudflare free-only guard and platform plan gates remain enforced.
 
 A key is not interchangeable between providers: put a Gemini key on a Gemini connection or in `GEMINI_API_KEY`; a DeepSeek key on a DeepSeek-compatible connection or in `DEEPSEEK_API_KEY`; an Anthropic key on an Anthropic connection or in `ANTHROPIC_API_KEY`; and an OpenAI key on an OpenAI connection or in `OPENAI_API_KEY`. For a custom OpenAI-compatible endpoint, configure `OPENAI_BASE_URL` and its matching secret. Do not put one provider's key into an unrelated provider secret.
 
@@ -42,7 +42,7 @@ A key is not interchangeable between providers: put a Gemini key on a Gemini con
 
 OVYX does not treat every arbitrary endpoint as an AI model. The saved connection type and protocol determine the safe behavior:
 
-- `ai` with `openai-chat`, `anthropic-messages`, or `gemini-generate-content`: can be tested and, after explicit selection, used as the account's AI Brain or as the explicitly confirmed Web Studio continuation provider.
+- `ai` with `openai-chat`, `anthropic-messages`, or `gemini-generate-content`: can be tested and, after explicit selection, used as the account's AI Brain. Web Studio no longer uses Universal Connections as a quota fallback.
 - `http`, `webhook`, `database`, and `tool` using `http-json`: are stored as account-owned HTTP integrations and can be tested with the read-only health check. They are not automatically invoked as an AI Brain or silently wired to listings/enquiry workflows; a feature-specific adapter and an explicit purpose mapping are required before OVYX sends business data to them.
 
 Connection ownership is verified for each request, credentials remain encrypted and server-side, and a failed selected Brain does not fall back to a platform-owned key. Do not place secrets in URLs or in public generated-site code.

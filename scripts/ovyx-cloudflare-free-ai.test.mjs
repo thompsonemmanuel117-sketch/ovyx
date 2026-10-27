@@ -14,7 +14,6 @@ import {
   hasActivePaidAiEntitlement,
   isCloudflareDailyFreeLimitError,
   isCloudflareFreeQuotaError,
-  isWebStudioUniversalConnectionFallbackTrigger,
   estimateCloudflareFreeNeurons,
   compactCloudflareFreeMessages,
 } from '../functions/_lib/cloudflare-free-ai.js';
@@ -59,8 +58,6 @@ assert.equal(isCloudflareDailyFreeLimitError({ message: 'Used up your daily free
 assert.equal(isCloudflareDailyFreeLimitError({ status: 429, message: 'temporary rate limit' }), false);
 assert.equal(isCloudflareFreeQuotaError({ code: 'OVYX_AI_NEURON_BUDGET_EXHAUSTED' }), true);
 assert.equal(isCloudflareFreeQuotaError({ code: 'OVYX_AI_CLOUDFLARE_RATE_LIMITED' }), false);
-assert.equal(isWebStudioUniversalConnectionFallbackTrigger({ code: 'DAILY_RATION_EXHAUSTED' }), true);
-assert.equal(isWebStudioUniversalConnectionFallbackTrigger({ code: 'ACTIVE_PAID_SUBSCRIPTION_REQUIRED' }), false);
 
 const sample = [{ role: 'system', content: 'Safe instructions.' }, { role: 'user', content: 'Build a responsive site.' }];
 assert.ok(estimateCloudflareFreeNeurons(sample, 256) > 0);
@@ -109,10 +106,11 @@ assert.match(exhaustionMarkerSource, /OVYX_AI_BUDGET_LEDGER_CONFLICT_EXHAUSTED/,
   'persistent stop-marker contention must report a conflict-exhausted condition rather than a generic unavailable error');
 
 assert.match(helperSource, /reserveCloudflareFreeUserMinute/);
-assert.match(providerSource, /reserveCloudflareFreeUserMinute\(env, options\.authUser\)/);
+assert.doesNotMatch(providerSource, /reserveCloudflareFreeUserMinute\(env, options\.authUser\)/);
 assert.match(helperSource, /OVYX_AI_NEURON_BUDGET_EXHAUSTED/);
 assert.match(providerSource, /isCloudflareWorkersAIGuardedMode\(env\)/);
 assert.match(providerSource, /OVYX_AI_ENGINE_MODE_NOT_CONFIGURED/);
 assert.match(middlewareSource, /ACTIVE_PAID_SUBSCRIPTION_REQUIRED/);
 assert.match(middlewareSource, /isCloudflareWorkersAIGuardedMode/);
+assert.doesNotMatch(providerSource, /useUniversalConnectionAfterCloudflareLimit|webStudioUserConnectionFallback/);
 console.log('OVYX Cloudflare free-only guard tests passed.');

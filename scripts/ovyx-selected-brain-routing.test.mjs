@@ -90,14 +90,14 @@ const docs = readFileSync(new URL('../docs/UNIVERSAL-CONNECTIONS.md', import.met
 assert.match(providerSource, /options\.useSelectedUniversalBrain === true/);
 assert.match(providerSource, /options\.webStudioRequest !== true/);
 assert.match(providerSource, /options\.appStudioRequest !== true/);
-assert.match(providerSource, /OVYX_WEBSTUDIO_UNIVERSAL_CONNECTION_NOT_READY/);
+assert.doesNotMatch(providerSource, /getActiveWebStudioConnectionId|OVYX_WEBSTUDIO_UNIVERSAL_CONNECTION_NOT_READY/);
 assert.match(assistantSource, /webStudioRequest: isWebStudio/);
 assert.match(assistantSource, /appStudioRequest: isAppStudio/);
 assert.match(assistantSource, /useSelectedUniversalBrain: !isWebStudio && !isAppStudio/);
-assert.match(assistantSource, /useUniversalConnectionAfterCloudflareLimit: true/);
+assert.doesNotMatch(assistantSource, /useUniversalConnectionAfterCloudflareLimit/);
 assert.match(docs, /Ordinary OVYX AI Assistant chats/);
 assert.match(docs, /activeWebStudioConnectionId/);
-assert.match(docs, /user explicitly confirms continuing with their own connection/);
-assert.match(docs, /Assigning a Brain alone does not authorize Web Studio to use it/);
+assert.match(docs, /quota exhaustion is a hard stop/i);
+assert.match(docs, /activeWebStudioConnectionId.*not used to bypass OVYX's Cloudflare AI quota/);
 
-console.log('Selected Universal AI Brain routing tests passed: owner-scoped, exclusive on failure, Web Studio fallback consent preserved, App Studio gate unchanged.');
+console.log('Selected Universal AI Brain routing tests passed: owner-scoped, exclusive on failure, Web Studio quota stop preserved, App Studio gate unchanged.');
