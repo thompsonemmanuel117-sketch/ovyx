@@ -161,7 +161,7 @@ function normalizeInput(value) {
 }
 
 function scoreCard(query, card) {
-  const normalized = query.toLowerCase().replace(/[^a-z0-9_./ -]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const normalized = query.toLowerCase().replace(/[^a-z0-9_.\\/ -]+/g, ' ').replace(/\s+/g, ' ').trim();
   if (!normalized) return 0;
   let score = 0;
   for (const keyword of card.keywords) {
