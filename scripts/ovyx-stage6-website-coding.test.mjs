@@ -36,7 +36,7 @@ assert.match(client, /browser\.completed\) === Number\(browser\.total\)/, 'The r
 assert.match(client, /Live external integrations and form delivery were not tested/);
 assert.match(client, /No source was changed/);
 assert.match(client, /function redactQualityText/);
-assert.ok(client.includes('BEGIN [A-Z ]* PRIVATE KEY'), 'The quality report redaction must handle private key material.');
+assert.ok(client.includes('[REDACTED PRIVATE KEY]'), 'The quality report redaction must replace private key material with a safe marker.');
 assert.match(inspector, /var WIDTHS = \[320, 390, 768, 1024, 1440\]/);
 assert.match(inspector, /setAttribute\('sandbox', 'allow-scripts'\)/);
 assert.match(inspector, /connect-src 'none'/);
