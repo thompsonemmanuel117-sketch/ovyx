@@ -1,7 +1,24 @@
 import assert from 'node:assert/strict';
-import { buildStudioMultiPage, restrictSiteMapToExplicitPages } from '../functions/_lib/studio-multipage.js';
+import { buildStudioMultiPage, restrictSiteMapToExplicitPages, resolveExplicitPageManifest } from '../functions/_lib/studio-multipage.js';
 import { auditWebsiteIntegrity } from '../functions/_lib/site-integrity.js';
  
+assert.deepEqual(
+  resolveExplicitPageManifest(
+    { OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST_ONLY: 'true', OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST: 'Home|Contact' },
+    ['Home', 'Products', 'Shop', 'Contact', 'About'],
+  ),
+  ['Home', 'Contact'],
+  'the guarded smoke manifest must replace false-positive routes from the appended QA contract',
+);
+assert.deepEqual(
+  resolveExplicitPageManifest(
+    { OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST_ONLY: 'false', OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST: 'Home|Contact' },
+    ['Home', 'Products', 'Contact'],
+  ),
+  ['Home', 'Products', 'Contact'],
+  'regular user builds must retain the original prompt-derived route manifest',
+);
+
 const boundedSmokePlan = restrictSiteMapToExplicitPages({
   architecture: 'AI suggested extra routes for a bounded smoke',
   pages: [

@@ -413,8 +413,9 @@ export function getWebStudioBuildClarification(prompt, context = {}) {
  * Deterministic, conservative post-build checks for requirements that can be
  * verified from generated files without pretending to run a browser.
  */
-export function verifyPromptContractOutput(prompt, files, siteMap = {}) {
+export function verifyPromptContractOutput(prompt, files, siteMap = {}, options = {}) {
   const contract = buildPromptContract(prompt);
+  const explicitPages = Array.isArray(options.explicitPages) ? options.explicitPages : contract.explicitPages;
   const entries = Object.entries(files && typeof files === 'object' && !Array.isArray(files) ? files : {})
     .filter(([, value]) => typeof value === 'string' && value.trim());
   const htmlEntries = entries.filter(([path]) => /\.html?$/i.test(path));
@@ -430,7 +431,7 @@ export function verifyPromptContractOutput(prompt, files, siteMap = {}) {
   }
 
   const issues = [];
-  const missingPages = contract.explicitPages.filter(title => {
+  const missingPages = explicitPages.filter(title => {
     const key = normalizedKey(title);
     return !pageKeys.has(key) && !(key === 'home' && pageKeys.has('index'));
   });
@@ -499,7 +500,7 @@ export function verifyPromptContractOutput(prompt, files, siteMap = {}) {
   return {
     ok: issues.length === 0,
     requirementCount: contract.allBriefClauses.length,
-    explicitPages: contract.explicitPages,
+    explicitPages,
     checkedFiles: entries.length,
     checkedHtmlFiles: htmlEntries.length,
     issues,
