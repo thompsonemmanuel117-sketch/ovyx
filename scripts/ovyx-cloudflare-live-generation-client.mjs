@@ -615,7 +615,7 @@ async function generateOne(origin, provider, model, integrationSettings, caseId)
           'missing-viewport-meta', 'missing-meta-description', 'page-title-mismatch',
           'qa-form-method-or-action', 'qa-form-submit-handler', 'invalid-file-path',
           'missing-or-empty-required-content', 'other-structural-validation',
-        ].includes(String(item)))].slice(0, 12)
+        ].includes(String(item))))].slice(0, 12)
       : [];
     if (validationCategories.length) {
       console.error(JSON.stringify({ event: 'live-generation-validation-diagnostics', caseId, validationCategories }));
