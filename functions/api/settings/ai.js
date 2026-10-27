@@ -14,7 +14,7 @@ import {
 export const AI_PREFERENCE_DEFAULTS = Object.freeze({
   mode: 'balanced',
   model: 'automatic',
-  provider: 'gemini',
+  provider: 'automatic',
   explain: true,
   preserve: true,
   confirmDestructive: false,
@@ -22,7 +22,7 @@ export const AI_PREFERENCE_DEFAULTS = Object.freeze({
   contextPage: true,
   contextGithub: true,
   routing: 'automatic',
-  fallback: 'next',
+  fallback: 'automatic',
   contextLimit: 'automatic',
   budget: 'automatic'
 });
@@ -32,7 +32,7 @@ const ALLOWED = new Set(Object.keys(AI_PREFERENCE_DEFAULTS));
 const ENUMS = Object.freeze({
   mode: ['balanced', 'fast', 'quality'],
   model: ['automatic', 'gemini-3.8-flash', 'claude-opus-5', 'deepseek-flash', 'gpt-6.1-sol'],
-  provider: ['gemini', 'anthropic', 'deepseek', 'openai'],
+  provider: ['automatic', 'gemini', 'anthropic', 'deepseek', 'openai'],
   routing: ['automatic', 'preferred-first', 'provider-priority'],
   fallback: ['automatic', 'next', 'stop'],
   contextLimit: ['automatic', 'conservative', 'expanded'],
@@ -58,6 +58,13 @@ export function normalizeAIPreferences(value = {}, fallback = AI_PREFERENCE_DEFA
       ? candidate
       : (options.includes(fallbackValue) ? fallbackValue : AI_PREFERENCE_DEFAULTS[key]);
   }
+  // Stage 8 removes provider/model/routing/fallback selectors from ordinary
+  // user preferences. Canonicalize old saved choices so they cannot keep
+  // silently injecting obsolete provider overrides into future AI requests.
+  result.provider = 'automatic';
+  result.model = 'automatic';
+  result.routing = 'automatic';
+  result.fallback = 'automatic';
   return result;
 }
 
