@@ -27,11 +27,11 @@ Existing provider-routing, quota, Stage 5 planning and workspace-tool suites rem
 
 Generation remains a separate workflow rather than being replaced by ordinary chat. The multi-stage orchestrator keeps its structured planning, bounded batches, validation, and repair/rollback controls. Stage 6's Web Studio quality check is a read-only verification tool: it returns real inspector findings, does not edit source, and leaves edits behind preview and explicit approval.
 
-The Stage 7 contract test verifies that these separate routes and controls remain present. A future code change should only alter a specific generation path after its existing route, bindings, entitlements, quota accounting, validation and rollback behaviour have been traced.
+The Stage 7 contract test verifies that these separate routes and controls remain present. A focused safety change removes the Web Studio post-quota personal-connection escape hatch from the browser, assistant/gateway routes, and guarded provider adapter. Exhausted Cloudflare or plan allowances now stop the request through normal quota errors; an existing Universal Connection assignment cannot bypass the limit. Explicitly selected AI Brain connections remain exclusive for ordinary assistant chat and are not silently replaced on failure. A future code change should only alter a specific generation path after its existing route, bindings, entitlements, quota accounting, validation and rollback behaviour have been traced.
 
 ## Separate modality audit — not automatically migrated
 
-Research/search, image generation, voice/transcription/speech, and other advanced tools must be audited as distinct capabilities. A text model alone does not provide image output, audio input/output, web retrieval, or external integration delivery. This Stage 7 contract does not claim those capabilities have been migrated or live-tested. Their route, required binding/API, consent, data retention, quotas, output format, and failure handling must be verified individually before any change.
+Research/search, image generation, voice/transcription/speech, and other advanced tools are not migrated by changing a text model route. This repo audit did not establish an end-to-end, independently verified Cloudflare-native replacement for those modalities. They remain explicitly out of scope for the text-model migration until their dedicated routes and integrations are traced, and their required binding/API, consent, data retention, quotas, output format, and failure handling are verified individually. Do not claim live capability or test success based on prompt instructions alone.
 
 ## Regression coverage
 
@@ -44,13 +44,14 @@ It is registered in `npm test` alongside existing ordinary-chat, provider-routin
 1. Sign in and send a normal chat message. Confirm the assistant responds and the provider/model metadata is truthful.
 2. Send a multi-turn follow-up. Confirm conversation history remains available.
 3. Ask the assistant to inspect a saved project. Confirm it uses the authenticated workspace tools and does not invent file contents.
-4. If a Universal Connection is explicitly selected, confirm its failure is surfaced without silent provider switching.
-5. Test with the Cloudflare AI quota exhausted in a controlled test environment. Confirm the guarded route stops cleanly; do not raise the budget or bypass the stop.
-6. Run the coding/reasoning agent in the configured Cloudflare guarded mode. Confirm a requested external provider in the client payload does not override the guarded server route.
-7. Generate a small website/app and confirm its existing validation and repair-preview controls still work.
-8. Confirm quality inspection itself never changes source; edits still require a preview and explicit approval.
-9. Keep research, image, voice and other modality acceptance as separate follow-up tests.
+4. If a Universal Connection is explicitly selected for ordinary assistant chat, confirm its failure is surfaced without silent provider switching.
+5. Exhaust the Cloudflare/plan allowance in a controlled test environment and confirm Web Studio stops with a quota error instead of offering or automatically using another provider.
+6. Test with the Cloudflare AI quota exhausted in a controlled test environment. Confirm the guarded route stops cleanly; do not raise the budget or bypass the stop.
+7. Run the coding/reasoning agent in the configured Cloudflare guarded mode. Confirm a requested external provider in the client payload does not override the guarded server route.
+8. Generate a small website/app and confirm its existing validation and repair-preview controls still work.
+9. Confirm quality inspection itself never changes source; edits still require a preview and explicit approval.
+10. Keep research, image, voice and other modality acceptance as separate follow-up tests.
 
 ## Completion boundary
 
-This PR audits and locks the existing migration contracts; it does not claim live Cloudflare inference, a deployed generated-site acceptance run, or real image/voice/research integration tests have passed. Stage 4's live benchmark and the manual acceptance items above remain separate evidence requirements.
+The code migration and regression contracts are in place, but live Cloudflare inference and deployed generated-site acceptance are not claimed as passed by static checks. Research, image, voice and other modality integrations remain a separate acceptance track. Stage 4's live benchmark and the manual acceptance items above remain separate evidence requirements. Stage 4's live benchmark and the manual acceptance items above remain separate evidence requirements.
