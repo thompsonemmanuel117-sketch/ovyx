@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 
 const read = path => readFile(new URL(path, import.meta.url), 'utf8');
 
-const [packageSource, chatRoute, nativeAI, chatClient, generationRoute, orchestrator, providerRouter] = await Promise.all([
+const [packageSource, chatRoute, nativeAI, chatClient, generationRoute, orchestrator, providerRouter, imageRoute, imageHelper, imageClient, middleware] = await Promise.all([
   read('../package.json'),
   read('../functions/api/ai/ovyx.js'),
   read('../functions/_lib/ovyx-native-ai.js'),
@@ -11,6 +11,10 @@ const [packageSource, chatRoute, nativeAI, chatClient, generationRoute, orchestr
   read('../functions/api/generate.js'),
   read('../functions/_lib/orchestrator.js'),
   read('../functions/_lib/providers.js'),
+  read('../functions/api/ai/image-generation.js'),
+  read('../functions/_lib/cloudflare-free-ai.js'),
+  read('../assets/ovyx-image-generation.js'),
+  read('../functions/_middleware.js'),
 ]);
 
 const packageJson = JSON.parse(packageSource);
@@ -21,6 +25,7 @@ assert.match(testCommand, /node scripts\/ovyx-cloudflare-free-ai\.test\.mjs/, 'C
 assert.match(testCommand, /node scripts\/ovyx-stage5-intelligence\.test\.mjs/, 'Stage 5 structured planning and tool-safety tests must remain registered.');
 assert.match(testCommand, /node scripts\/ovyx-stage6-website-coding\.test\.mjs/, 'Stage 6 website quality-check tests must remain registered.');
 assert.match(testCommand, /node scripts\/ovyx-stage7-ai-migration\.test\.mjs/, 'Stage 7 migration contract must run in the full test suite.');
+assert.match(testCommand, /node scripts\/ovyx-image-generation\.test\.mjs/, 'Image-generation safety regressions must run in the full test suite.');
 
 // Phase 1: ordinary chat already uses the native assistant API. Keep its
 // authentication, request bounds, quota accounting and conversation history.
@@ -98,8 +103,23 @@ assert.match(researchModule, /TAVILY_API_KEY/);
 assert.match(researchModule, /BRAVE_SEARCH_API_KEY/);
 assert.match(researchModule, /SERPER_API_KEY/);
 
-// Specialized modalities are intentionally not declared migrated by a text
-// model contract. They require their own capability and regression audit.
+// Image generation is a separate Cloudflare-native capability with its own route,
+// authentication, entitlement, AI quota and daily neuron budget. It must not be
+// implemented as a text response or allow caller-selected providers/models.
+assert.match(imageRoute, /assertAuthenticated\(context\.data\?\.user\)/);
+assert.match(imageRoute, /capabilities\?\.webStudio !== true/);
+assert.match(imageRoute, /beginAIQuota\(env, user\)/);
+assert.match(imageRoute, /finalizeAIQuota\(/);
+assert.match(imageRoute, /refundDailyPrompt\(/);
+assert.match(imageRoute, /runCloudflareFreeImageInference\(env, \{ authUser: user, prompt \}\)/);
+assert.match(imageHelper, /@cf\/black-forest-labs\/flux-1-schnell/);
+assert.match(imageHelper, /reserveDailyBudget\(env, estimate, snapshot\)/);
+assert.match(imageHelper, /settleDailyBudget\(env, reservation, estimate\)/);
+assert.match(imageHelper, /reserveUserMinute\(env, authUser\)/);
+assert.match(imageClient, /fetch\('\/api\/ai\/image-generation'/);
+assert.match(imageClient, /Authorization: 'Bearer ' \+ token/);
+assert.match(imageClient, /ovyx-image-gen-download/);
+assert.match(middleware, /ovyx-image-generation\.js\?v=20261027-1/);
 assert.match(nativeAI, /You are OVYX AI/);
 assert.match(packageSource, /benchmark:cloudflare-ai-stage4/);
 
