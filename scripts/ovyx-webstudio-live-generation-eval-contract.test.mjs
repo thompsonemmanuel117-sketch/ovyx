@@ -44,6 +44,13 @@ for (const [cause, expected] of [
 
 assert.ok(liveGenerationRoute.includes("OVYX_WEBSTUDIO_MAX_PAGES: isBudgetedStage4Smoke ? '2' : '8'"),
   'the full acceptance path keeps its eight-page ceiling; only the guarded site smoke is limited to two pages');
+assert.match(liveGenerationRoute, /Create exactly TWO linked pages for a fictional Nigerian nursery-essentials retailer: Home and Contact/,
+  'the smoke brief must not use generic “products”/“shop” nouns that the page-manifest extractor can mistake for extra requested routes');
+assert.doesNotMatch(liveGenerationRoute, /Create exactly TWO linked pages for a fictional Nigerian baby-products shop/,
+  'the smoke brief must avoid the industry-noun collision that can exceed its two-page budget');
+assert.match(liveGenerationRoute, /Do not present any sample merchandise as available for purchase/,
+  'the two-page smoke prompt must not accidentally infer a third Products page from ordinary merchandise wording');
+assert.doesNotMatch(liveGenerationRoute, /Do not invent products as available for purchase/);
 assert.ok(liveGenerationRoute.includes("payload?.profile === 'stage4-budgeted-smoke'"));
 assert.ok(liveGenerationRoute.includes("requestedProvider === 'cloudflare-workers-ai'"));
 assert.ok(liveGenerationRoute.includes("OVYX_WEBSTUDIO_POLISH_ENABLED: isBudgetedStage4Smoke ? 'false'"));
