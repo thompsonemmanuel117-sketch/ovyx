@@ -136,6 +136,13 @@ const qaFormRepair = repairStage4SmokeQaFormAttributes(qaFormRepairFixture, {
   pages: [{ title: 'Contact', path: 'src/pages/Contact.html', url: '/contact/' }],
 }, true);
 assert.equal(qaFormRepair.repaired, true, 'the protected smoke should report when its local QA form contract is repaired deterministically');
+const repairedQaScript = qaFormRepair.staged.find(item => item.path === 'src/main.js').content;
+assert.ok(repairedQaScript.includes("if (!response.ok) throw new Error('QA submission rejected')"),
+  'the smoke-only QA handler must show success only after an accepted local response');
+assert.ok(repairedQaScript.includes('Your test enquiry was received.'),
+  'the smoke-only QA handler must display the visible success state the real browser evaluator checks');
+assert.ok(repairedQaScript.includes('Unable to submit the test enquiry. Please try again.'),
+  'the smoke-only QA handler must display a safe failure state on rejected requests');
 assert.ok(
   qaFormRepair.staged[0].content.includes('method="post" action="/.well-known/ovyx-qa-enquiry"'),
   'the protected smoke must force the isolated QA-only POST action rather than retain a missing or external destination',
