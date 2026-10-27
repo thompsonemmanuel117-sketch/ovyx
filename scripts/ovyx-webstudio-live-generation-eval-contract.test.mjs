@@ -48,6 +48,8 @@ assert.ok(liveGenerationRoute.includes("OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST_ON
   'only the fixed budgeted smoke may narrow model-inferred routes to its explicit two-page manifest');
 assert.ok(liveGenerationRoute.includes("OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST: isBudgetedStage4Smoke ? 'Home|Contact' : ''"),
   'the Stage 4 smoke must pass a fixed Home/Contact manifest so appended QA instructions cannot inflate the page count');
+assert.ok(liveGenerationRoute.includes("OVYX_WEBSTUDIO_ENFORCE_BROWSER_RUNTIME: isBudgetedStage4Smoke ? 'true' : 'false'"),
+  'strict generated-browser checks must run only for the protected one-site smoke profile');
 assert.match(liveGenerationRoute, /Create exactly TWO linked pages for a fictional Nigerian nursery-essentials retailer: Home and Contact/,
   'the smoke brief must not use generic “products”/“shop” nouns that the page-manifest extractor can mistake for extra requested routes');
 assert.doesNotMatch(liveGenerationRoute, /Create exactly TWO linked pages for a fictional Nigerian baby-products shop/,
