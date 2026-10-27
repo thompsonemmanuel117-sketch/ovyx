@@ -51,6 +51,7 @@ export async function onRequestPost(context) {
           files: payload.files || null,
         },
         model: payload.model,
+        mode: payload.mode,
         authUser: user,
       });
     } catch (aiError) {
@@ -110,6 +111,7 @@ export async function onRequestPost(context) {
       routedProvider: result.routedProvider || 'cloudflare-workers-ai',
       personalConnectionUsed: result.personalConnectionUsed === true,
       model: result.model,
+      mode: result.mode || 'balanced',
       usage: result.rawUsage,
       quota,
       conversationId,
