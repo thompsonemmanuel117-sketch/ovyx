@@ -43,7 +43,7 @@ assert.match(researchKnowledge, /production secrets are configured/);
 const modalities = buildOvyxProjectKnowledge('Can OVYX generate a new image or voice audio through Cloudflare AI?');
 assert.match(modalities, /image uploads, stock\/visual asset references or a visual asset plan/i);
 assert.match(modalities, /SpeechRecognition/);
-assert.match(modalities, /not be described as AI image generation/i);
+assert.match(modalities, /Do not describe image uploads, stock\/visual asset references or a visual asset plan as AI image generation/i);
 
 const general = buildOvyxProjectKnowledge('Hello, thank you.');
 assert.match(general, /IMPORTANT SCOPE BOUNDARY/);
