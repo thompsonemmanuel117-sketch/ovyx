@@ -76,6 +76,8 @@ const gatewayRoute = await read('../functions/api/ai/gateway.js');
 assert.doesNotMatch(guardedRouter, /useUniversalConnectionAfterCloudflareLimit|webStudioUserConnectionFallback/);
 assert.doesNotMatch(assistantRoute, /requiresUniversalConnectionFallback|useUniversalConnectionAfterCloudflareLimit/);
 assert.doesNotMatch(gatewayRoute, /requiresUniversalConnectionFallback|useUniversalConnectionAfterCloudflareLimit/);
+const page = await read('../index.html');
+assert.doesNotMatch(page, /Continue with my own key|Use for Web Studio|data-v91-use-webstudio|activeWebStudioConnectionId/);
 
 // Specialized modalities are intentionally not declared migrated by a text
 // model contract. They require their own capability and regression audit.
