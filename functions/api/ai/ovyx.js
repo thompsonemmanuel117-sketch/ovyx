@@ -105,6 +105,7 @@ export async function onRequestPost(context) {
       message: result.text,
       answer: result.text,
       actions: result.actions,
+      plan: Array.isArray(result.plan) ? result.plan : [],
       provider: result.provider || 'ovyx-native',
       routedProvider: result.routedProvider || 'cloudflare-workers-ai',
       personalConnectionUsed: result.personalConnectionUsed === true,
