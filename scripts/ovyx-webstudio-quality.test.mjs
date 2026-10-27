@@ -109,8 +109,8 @@ for (const token of [
   assert.ok(runtime.includes(token), 'Quality runtime is missing: ' + token);
 }
 
-assert.ok(middleware.includes('/assets/ovyx-webstudio-quality.js?v=20261021-1'), 'The quality inspector must load from the application-shell middleware.');
-assert.equal((middleware.match(/\/assets\/ovyx-webstudio-quality\.js\?v=20261021-1/g) || []).length, 1, 'The quality inspector must be injected exactly once per application shell.');
+assert.ok(middleware.includes('/assets/ovyx-webstudio-quality.js?v=20261027-1'), 'The quality inspector must load from the application-shell middleware.');
+assert.equal((middleware.match(/\/assets\/ovyx-webstudio-quality\.js\?v=20261027-1/g) || []).length, 1, 'The quality inspector must be injected exactly once per application shell.');
 assert.ok(middleware.includes('/assets/ovyx-webstudio-navigation-polish.js?v=20261021-4'), 'Navigation header behavior must load from the application shell with the updated cache key.');
 assert.ok(middleware.includes('/assets/ovyx-webstudio-project-branding.js?v=20261021-11'), 'Project branding correction must load from the application shell with the refreshed V11 resolver cache key.');
 assert.ok(middleware.includes(".on('link[rel]'"), 'The app shell must inspect existing favicon declarations before setting the app-shell icon.');

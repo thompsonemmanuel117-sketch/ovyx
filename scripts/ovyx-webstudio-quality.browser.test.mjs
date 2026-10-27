@@ -365,6 +365,13 @@ try {
   const first = await page.evaluate(() => window.OVYXWebStudioQuality.getReport());
   assert.equal(first.browser.total, 15, 'Three generated pages must each receive five real viewport checks.');
   assert.equal(first.browser.completed, 15, 'Every planned viewport check must report completion.');
+  assert.ok(first.browser.forms.candidates >= 2, 'The generated-site browser fixture must report its discovered forms.');
+  assert.ok(first.browser.forms.tested >= 1, 'The isolated browser must execute at least one native form-constraint check.');
+  assert.ok(first.browser.forms.invalidRejected >= 1, 'An invalid email value must be rejected by native form validation.');
+  assert.equal(first.browser.forms.invalidAccepted.length, 0, 'Invalid native field states must never be reported as accepted.');
+  assert.ok(first.browser.forms.noNativeValidation.length >= 1, 'A form without detectable native constraints must be called out for manual review.');
+  assert.ok(first.checks.some(item => item.title === 'Safe form validation smoke test' && item.status === 'info'),
+    'The report must disclose when custom/native validation coverage is incomplete instead of marking all forms passed.');
   assert.ok(first.browser.interactions.tested >= 1, 'The inspector must actually click at least one safe stateful control in the generated page sandbox.');
   assert.ok(first.browser.interactions.responded >= 1, 'The inspector must observe a state change from the working disclosure control.');
   assert.ok(first.browser.interactions.noOp.every(label => !/add to cart/i.test(label)), 'A front-end Add to Cart action that updates local cart state must not be reported as a no-op.');
