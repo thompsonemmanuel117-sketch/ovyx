@@ -3,10 +3,12 @@ import { readFile } from 'node:fs/promises';
 import { generateOvyxNativeAI, normalizeOvyxNativeMode } from '../functions/_lib/ovyx-native-ai.js';
 
 const read = path => readFile(new URL(path, import.meta.url), 'utf8');
-const [packageSource, html, settingsClient, nativeClient, platformKnowledge, chatRoute, readinessRoute, trustClient, middleware, connectionReadiness] = await Promise.all([
+const [packageSource, html, settingsClient, settingsReliability, aiPreferenceApi, nativeClient, platformKnowledge, chatRoute, readinessRoute, trustClient, middleware, connectionReadiness] = await Promise.all([
   read('../package.json'),
   read('../index.html'),
   read('../assets/ovyx-assistant-workspace.js'),
+  read('../assets/ovyx-settings-reliability.js'),
+  read('../functions/api/settings/ai.js'),
   read('../functions/_lib/ovyx-native-ai.js'),
   read('../functions/_lib/ovyx-project-knowledge.js'),
   read('../functions/api/ai/ovyx.js'),
@@ -39,6 +41,17 @@ assert.match(html, /provider:'automatic'/);
 assert.match(html, /st\.provider='automatic'/);
 assert.match(html, /st\.model='automatic'/);
 assert.match(html, /ovyx:ai-preferences-changed/);
+assert.match(settingsReliability, /canonicalAIPreferences/);
+assert.match(settingsReliability, /cachedHasLegacyOverrides/);
+assert.doesNotMatch(settingsReliability, /payload\.preferredProvider = String\(prefs\.provider\)/,
+  'A saved AI Preferences provider must not silently steer OVYX generation.');
+assert.doesNotMatch(settingsReliability, /payload\.provider = String\(prefs\.provider\)/,
+  'A saved AI Preferences provider must not pin a request to a third-party provider.');
+assert.match(settingsReliability, /payload\.provider = 'automatic'/);
+assert.match(aiPreferenceApi, /result\.provider = 'automatic'/);
+assert.match(aiPreferenceApi, /result\.model = 'automatic'/);
+assert.match(aiPreferenceApi, /result\.routing = 'automatic'/);
+assert.match(aiPreferenceApi, /result\.fallback = 'automatic'/);
 
 // A selected OVYX mode reaches the actual native endpoint and changes bounded
 // output length. Invalid client-supplied values safely return to Everyday.
