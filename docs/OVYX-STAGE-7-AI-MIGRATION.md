@@ -43,7 +43,7 @@ Research/search has a real implementation path: `assets/ovyx-webstudio-research.
 
 The `scripts/ovyx-stage7-ai-migration.test.mjs` contract protects the ordinary-chat route and its safety boundaries, confirms the coding/generation orchestration still uses the shared guarded provider path, and prevents this stage from claiming specialized modalities are migrated by the text model alone. `scripts/ovyx-project-knowledge.test.mjs` additionally verifies topic retrieval, source-path existence, research-route accuracy, and the distinction between OVYX source and a user's saved project.
 
-Both Stage 7 suites are registered in `npm test` alongside existing ordinary-chat, provider-routing, Cloudflare quota, Stage 5 intelligence, and Stage 6 website/coding regression suites.
+The Stage 7 migration, project-knowledge and project-awareness suites are registered in `npm test` alongside existing ordinary-chat, provider-routing, Cloudflare quota, Stage 5 intelligence, and Stage 6 website/coding regression suites.
 
 ## Acceptance checklist
 
