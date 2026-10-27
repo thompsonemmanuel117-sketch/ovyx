@@ -79,6 +79,25 @@ assert.doesNotMatch(gatewayRoute, /requiresUniversalConnectionFallback|useUniver
 const page = await read('../index.html');
 assert.doesNotMatch(page, /Continue with my own key|Use for Web Studio|data-v91-use-webstudio|activeWebStudioConnectionId/);
 
+// Source-grounded project awareness must stay in the regular native chat prompt.
+const platformKnowledge = await read('../functions/_lib/ovyx-project-knowledge.js');
+const platformMapDoc = await read('../docs/OVYX-PLATFORM-MAP.md');
+assert.match(nativeAI, /buildOvyxProjectKnowledge\(latestUserQuery\)/);
+assert.match(nativeAI, /PLATFORM VS USER PROJECT/);
+assert.match(platformKnowledge, /getOvyxProjectKnowledgeCatalog/);
+assert.match(platformMapDoc, /This is not model fine-tuning/);
+
+// Research has a separate endpoint: distinguish a live-capable search pipeline
+// from a mere research suggestion in a text prompt.
+const researchClient = await read('../assets/ovyx-webstudio-research.js');
+const researchRoute = await read('../functions/api/ai/web-search.js');
+const researchModule = await read('../functions/_lib/web-research.js');
+assert.match(researchClient, /fetch\('\/api\/ai\/web-search'/);
+assert.match(researchRoute, /conductWebResearch/);
+assert.match(researchModule, /TAVILY_API_KEY/);
+assert.match(researchModule, /BRAVE_SEARCH_API_KEY/);
+assert.match(researchModule, /SERPER_API_KEY/);
+
 // Specialized modalities are intentionally not declared migrated by a text
 // model contract. They require their own capability and regression audit.
 assert.match(nativeAI, /You are OVYX AI/);
