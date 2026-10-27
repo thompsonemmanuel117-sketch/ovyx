@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { chooseProvider, handleLiveGenerationRequest, safeLiveGenerationFailureDetail, safeLiveGenerationProviderAttempts, safeLiveGenerationOutputDiagnostics, verifyGithubOidcToken } from '../functions/api/internal/live-generation-eval.js';
+import { chooseProvider, handleLiveGenerationRequest, safeLiveGenerationFailureDetail, safeLiveGenerationProviderAttempts, safeLiveGenerationOutputDiagnostics, safeLiveGenerationValidationCategories, verifyGithubOidcToken } from '../functions/api/internal/live-generation-eval.js';
 import { isTrustedGithubOidcRequestUrl } from './ovyx-github-oidc-url.mjs';
 import { selectLiveAcceptanceCases } from './ovyx-live-acceptance-cases.mjs';
 
@@ -104,6 +104,27 @@ assert.deepEqual(safeOutputDiagnostics, {
 assert.equal(JSON.stringify(safeOutputDiagnostics).includes('DO_NOT_LEAK'), false,
   'Output-shape diagnostics must not expose raw model output or unknown response keys.');
 assert.equal(safeLiveGenerationOutputDiagnostics(new Error('nothing attached')), null);
+assert.deepEqual(
+  safeLiveGenerationValidationCategories(Object.assign(new Error('private raw HTML must not leak'), {
+    code: 'WEBSTUDIO_SITE_VALIDATION_FAILED',
+    validationIssues: [
+      'src/pages/Home.html: add a valid html lang attribute.',
+      'src/pages/Contact.html: the isolated QA contact form must use method="post".',
+      'private customer copy, tokens=DO_NOT_LEAK',
+      'src/pages/Home.html: add a viewport meta tag for mobile devices.',
+    ],
+  })),
+  ['missing-html-language', 'qa-form-method-or-action', 'other-structural-validation', 'missing-viewport-meta'],
+  'validation diagnostics expose only bounded categories and never raw generated content',
+);
+assert.deepEqual(
+  safeLiveGenerationValidationCategories(Object.assign(new Error('hidden'), {
+    code: 'WEBSTUDIO_PAGE_LIMIT',
+    validationIssues: ['private issue'],
+  })),
+  [],
+  'validation categories are limited to structural validation failures',
+);
 const generationClientSource = readFileSync(new URL('./ovyx-cloudflare-live-generation-client.mjs', import.meta.url), 'utf8');
 assert.match(generationClientSource, /function safeOutputShapeDiagnostics\(/);
 assert.match(generationClientSource, /live-generation-output-shape-diagnostics/);
