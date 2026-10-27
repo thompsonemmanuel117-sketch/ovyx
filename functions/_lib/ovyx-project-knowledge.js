@@ -92,7 +92,7 @@ const CARDS = [
   {
     id: 'research-and-modalities',
     title: 'Live research, image creation and voice capabilities',
-    keywords: ['research', 'web search', 'internet', 'online sources', 'citations', 'search the web', 'tavily', 'brave search', 'serper', 'image generation', 'generate image', 'voice', 'speech', 'audio', 'transcription', 'microphone', 'wake word', 'sentinel'],
+    keywords: ['research', 'web search', 'internet', 'online sources', 'citations', 'search the web', 'tavily', 'brave search', 'serper', 'image generation', 'generate image', 'generate a new image', 'create image', 'image creator', 'voice', 'voice audio', 'speech', 'audio', 'transcription', 'microphone', 'wake word', 'sentinel'],
     sources: [
       'assets/ovyx-webstudio-research.js',
       'functions/api/ai/web-search.js',
