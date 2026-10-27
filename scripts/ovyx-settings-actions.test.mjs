@@ -212,7 +212,8 @@ for (const requirement of [
   "payload.provider = 'automatic'",
   'canonicalAIPreferences',
   'payload.providerRouting',
-  'payload.provider = String(prefs.provider).toLowerCase()',
+  "if (prefs.mode === 'fast') instructions.push('Generation preference: prioritize concise, low-latency iterations.')",
+  "if (prefs.mode === 'quality') instructions.push('Generation preference: prioritize thoroughness, completeness and careful validation.')",
   'limitContextFiles',
   'set-editor-mode'
 ]) assert.ok(runtime.includes(requirement), 'Settings runtime must have real behavior for: ' + requirement);
