@@ -1072,10 +1072,10 @@
 
   function redactQualityText(value, limit = 420) {
     return String(value || '')
-      .replace(/\\b(Bearer)\\s+[A-Za-z0-9._~+/-]{12,}=*/gi, '$1 [REDACTED]')
-      .replace(/\\b(api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|private[_-]?key|secret)\\b\\s*([:=])\\s*(['"]?)[^\\s'",;}]+/gi, '$1$2[REDACTED]')
-      .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\\s\\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, '[REDACTED PRIVATE KEY]')
-      .replace(/\\s+/g, ' ').trim().slice(0, limit);
+      .replace(/\b(Bearer)\s+[A-Za-z0-9._~+/-]{12,}=*/gi, '$1 [REDACTED]')
+      .replace(/\b(api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|private[_-]?key|secret)\b\s*([:=])\s*(['"]?)[^\s'",;}]+/gi, '$1$2[REDACTED]')
+      .replace(/-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----/g, '[REDACTED PRIVATE KEY]')
+      .replace(/\s+/g, ' ').trim().slice(0, limit);
   }
 
   async function runWorkspaceQualityCheck(projectId) {
