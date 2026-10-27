@@ -32,7 +32,7 @@ Web Studio and App Studio generation still use their separate workflows. Selecti
 
 The route does **not** call the AI model, test a user's credential, return a connection ID, read or return secret values, or spend usage. The UI intentionally says **“configured — not live-tested”**. A real request can still fail because of an exhausted allowance, inactive connection, temporary upstream issue, or bad configuration. That distinction avoids a false “Ready” promise.
 
-The readiness card appears in AI Preferences, and the workspace assistant header shows the same status. It can be refreshed manually. It uses the existing Firebase session and same-origin endpoint with no caching.
+The readiness card appears in AI Preferences, the Home composer shows a compact OVYX AI status chip, and the workspace assistant header shows the same status. It can be refreshed manually. It uses the existing Firebase session and same-origin endpoint with no caching.
 
 ### 3. Helpful recovery messages
 
