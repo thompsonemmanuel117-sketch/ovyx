@@ -60,6 +60,91 @@
     return { ...saved, mode: safeMode(window.OVYXAI?.mode || saved.mode), provider: 'automatic', model: 'automatic' };
   }
 
+  const MODE_LABELS = Object.freeze({
+    balanced: 'OVYX Everyday',
+    fast: 'OVYX Quick',
+    quality: 'OVYX Deep'
+  });
+
+  function syncModeSelector(modeOverride) {
+    const mode = safeMode(modeOverride || loadPreferences().mode);
+    const selector = document.getElementById('v59-ai-mode-select');
+    if (selector && selector.value !== mode) selector.value = mode;
+    const note = document.getElementById('v59-routing-note');
+    if (note) {
+      const icon = document.createElement('i');
+      icon.className = 'fa-solid fa-route';
+      icon.setAttribute('aria-hidden', 'true');
+      const detail = document.createElement('span');
+      detail.textContent = MODE_LABELS[mode] + ' selected · OVYX manages AI routing. Usage and safety limits remain active.';
+      note.replaceChildren(icon, detail);
+    }
+    return mode;
+  }
+
+  async function setMode(value) {
+    const mode = safeMode(value);
+    const user = currentUser();
+    if (!user || typeof user.getIdToken !== 'function') {
+      throw new Error('Sign in to save your OVYX mode. No AI request was sent.');
+    }
+    const token = await user.getIdToken();
+    const headers = {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      Authorization: 'Bearer ' + token
+    };
+    const loaded = await fetch('/api/settings/ai', {
+      method: 'GET',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers
+    });
+    const existing = await loaded.json().catch(() => ({}));
+    if (!loaded.ok || existing?.ok !== true || existing?.authority !== 'SERVER' || !existing.preferences) {
+      throw new Error(loaded.status === 401
+        ? 'Your sign-in session expired. Sign in again, then save your OVYX mode.'
+        : 'OVYX could not verify your saved AI preferences. Nothing was changed; open Settings → AI Preferences and retry.');
+    }
+    const next = {
+      ...existing.preferences,
+      mode,
+      provider: 'automatic',
+      model: 'automatic',
+      routing: 'automatic',
+      fallback: 'automatic'
+    };
+    const savedResponse = await fetch('/api/settings/ai', {
+      method: 'PUT',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers,
+      body: JSON.stringify({ preferences: next })
+    });
+    const saved = await savedResponse.json().catch(() => ({}));
+    if (!savedResponse.ok || saved?.ok !== true || saved?.authority !== 'SERVER' ||
+        !saved.preferences || safeMode(saved.preferences.mode) !== mode ||
+        saved.preferences.provider !== 'automatic' || saved.preferences.model !== 'automatic') {
+      throw new Error(saved?.code === 'AI_PREFERENCES_WRITE_UNCONFIRMED'
+        ? 'OVYX could not confirm that your mode was saved. Your last confirmed settings remain in effect. Please try again.'
+        : 'OVYX could not save this mode securely. Your last confirmed settings remain in effect. Please try again.');
+    }
+    const key = typeof window.OVYXAIStorageKey === 'function'
+      ? window.OVYXAIStorageKey()
+      : 'ovyx.ai.preferences.v1';
+    try { localStorage.setItem(key, JSON.stringify(saved.preferences)); } catch (_) {}
+    window.OVYXAI = {
+      ...(window.OVYXAI || {}),
+      ...saved.preferences,
+      mode,
+      provider: 'automatic',
+      model: 'automatic'
+    };
+    syncModeSelector(mode);
+    window.dispatchEvent(new CustomEvent('ovyx:ai-preferences-changed', { detail: { mode } }));
+    return { ok: true, mode, label: MODE_LABELS[mode] };
+  }
+
   function applyReadinessToTarget(target, snapshot) {
     if (!target || !snapshot) return;
     const status = String(snapshot.status || 'check_failed');
@@ -186,13 +271,41 @@
         openConnectionSettings();
       }
     });
+    document.addEventListener('change', event => {
+      const selector = event.target?.closest?.('#v59-ai-mode-select');
+      if (!selector || selector.disabled) return;
+      const priorMode = safeMode(window.OVYXAI?.mode || loadPreferences().mode);
+      const nextMode = safeMode(selector.value);
+      selector.disabled = true;
+      const note = document.getElementById('v59-routing-note');
+      if (note) note.textContent = 'Saving ' + MODE_LABELS[nextMode] + ' to your OVYX account…';
+      setMode(nextMode).then(result => {
+        if (typeof window.showToast === 'function') window.showToast(result.label + ' saved to your OVYX account.', 'success');
+      }).catch(error => {
+        selector.value = priorMode;
+        syncModeSelector(priorMode);
+        const message = String(error?.message || 'OVYX could not save this mode. Your previous mode remains active.');
+        const currentNote = document.getElementById('v59-routing-note');
+        if (currentNote) {
+          const icon = document.createElement('i');
+          icon.className = 'fa-solid fa-circle-exclamation';
+          icon.setAttribute('aria-hidden', 'true');
+          const detail = document.createElement('span');
+          detail.textContent = message;
+          currentNote.replaceChildren(icon, detail);
+        }
+        if (typeof window.showToast === 'function') window.showToast(message, 'error');
+      }).finally(() => { selector.disabled = false; });
+    });
     window.addEventListener('ovyx:ai-preferences-changed', event => {
       const mode = safeMode(event.detail?.mode || loadPreferences().mode);
       window.OVYXAI = { ...(window.OVYXAI || {}), ...loadPreferences(), mode, provider: 'automatic', model: 'automatic' };
+      syncModeSelector(mode);
     });
     window.addEventListener('storage', event => {
       if (event.key && /ovyx\.ai\.preferences\.v1/.test(event.key)) {
         window.OVYXAI = { ...(window.OVYXAI || {}), ...loadPreferences() };
+        syncModeSelector(window.OVYXAI.mode);
       }
     });
     window.addEventListener('firebase-auth-ready', () => checkReadiness(true), { passive: true });
@@ -227,8 +340,16 @@
     observeTargets();
     const initialPrefs = loadPreferences();
     window.OVYXAI = { ...(window.OVYXAI || {}), ...initialPrefs, provider: 'automatic', model: 'automatic' };
+    syncModeSelector(initialPrefs.mode);
     checkReadiness(true);
   }
+
+  window.OVYXAITrust = Object.assign(window.OVYXAITrust || {}, {
+    checkReadiness,
+    refreshReadiness: () => checkReadiness(true),
+    syncModeSelector,
+    setMode
+  });
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start, { once: true });
   else start();
