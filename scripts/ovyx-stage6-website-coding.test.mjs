@@ -28,6 +28,8 @@ assert.match(native, /workspace_quality_check/);
 assert.match(client, /const READ_ONLY_WORKSPACE_ACTIONS = new Set\([\s\S]*workspace_quality_check/);
 assert.match(client, /async function runWorkspaceQualityCheck\(projectId\)/);
 assert.match(client, /activeId !== projectId/, 'The tool must not silently test a different active project.');
+assert.match(client, /String\(report\.projectId \|\| ''\) !== projectId/, 'The report must identify the exact project that was requested.');
+assert.match(client, /sourceState,/, 'The report must disclose whether the active editor has unsaved changes.');
 assert.match(client, /window\.OVYXWebStudioQuality/);
 assert.match(client, /inspector\.run\(\)/, 'The assistant must execute the existing Web Studio inspector.');
 assert.match(client, /browser\.completed\) === Number\(browser\.total\)/, 'The result must distinguish complete browser coverage from partial runs.');
