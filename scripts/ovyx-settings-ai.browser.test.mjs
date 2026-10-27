@@ -62,10 +62,10 @@ try {
     let failNextPreferencePut = false;
     let serverUpdatedAt = null;
     let serverPreferences = {
-      mode: 'balanced', model: 'automatic', provider: 'gemini',
+      mode: 'balanced', model: 'automatic', provider: 'automatic',
       explain: true, preserve: true, confirmDestructive: false,
       contextFiles: true, contextPage: true, contextGithub: true,
-      routing: 'automatic', fallback: 'next', contextLimit: 'automatic', budget: 'automatic',
+      routing: 'automatic', fallback: 'automatic', contextLimit: 'automatic', budget: 'automatic',
     };
     await page.route('**/api/settings/ai', async route => {
       const request = route.request();
@@ -157,7 +157,10 @@ try {
       { timeout: 10000 },
     );
     assert.equal(serverPreferences.mode, 'fast', '[' + target.name + '] legacy local preferences must migrate when the account has no saved preferences.');
-    assert.equal(serverPreferences.provider, 'deepseek', '[' + target.name + '] migration must preserve the account user’s existing local provider preference.');
+    assert.equal(serverPreferences.provider, 'automatic', '[' + target.name + '] legacy provider selections must migrate to OVYX-managed routing.');
+    assert.equal(serverPreferences.model, 'automatic');
+    assert.equal(serverPreferences.routing, 'automatic');
+    assert.equal(serverPreferences.fallback, 'automatic');
     assert.ok(aiPreferenceRequests.some(request => request.method === 'PUT'), '[' + target.name + '] legacy migration must create the account-scoped preference document.');
 
     const key = await page.evaluate(() => window.OVYXAIStorageKey());
@@ -178,11 +181,10 @@ try {
       null,
       { timeout: 5000 },
     );
-    await panel.locator('#set-provider').selectOption('openai');
-    await panel.locator('#set-ai-model').selectOption('automatic');
+    for (const obsolete of ['#set-provider', '#set-ai-model', '#set-ai-routing', '#set-ai-fallback']) {
+      assert.equal(await panel.locator(obsolete).count(), 0, '[' + target.name + '] obsolete provider/model/fallback control must not be shown: ' + obsolete);
+    }
     await panel.locator('details.ovyx-ai-advanced summary').click();
-    await panel.locator('#set-ai-routing').selectOption('preferred-first');
-    await panel.locator('#set-ai-fallback').selectOption('next');
     await panel.locator('#set-ai-context-limit').selectOption('conservative');
     await panel.locator('#set-ai-budget').selectOption('maximum');
     await panel.locator('[data-ai-pref="contextPage"]').setChecked(false);
@@ -209,10 +211,10 @@ try {
     }), key);
     assert.equal(saved.writes, 1, '[' + target.name + '] one Save click must write the AI preferences key exactly once.');
     assert.equal(saved.preferences.mode, 'quality');
-    assert.equal(saved.preferences.provider, 'openai');
+    assert.equal(saved.preferences.provider, 'automatic');
     assert.equal(saved.preferences.model, 'automatic');
-    assert.equal(saved.preferences.routing, 'preferred-first');
-    assert.equal(saved.preferences.fallback, 'next');
+    assert.equal(saved.preferences.routing, 'automatic');
+    assert.equal(saved.preferences.fallback, 'automatic');
     assert.equal(saved.preferences.contextLimit, 'conservative');
     assert.equal(saved.preferences.budget, 'maximum');
     assert.equal(saved.preferences.contextPage, false);
@@ -221,8 +223,8 @@ try {
     assert.ok(serverSave, '[' + target.name + '] Save must reach the authenticated account AI-preference endpoint.');
     assert.equal(serverSave.authorization, 'Bearer settings-ai-browser-token');
     assert.deepEqual(serverSave.body.preferences, saved.preferences);
-    assert.equal(serverPreferences.provider, 'openai');
-    assert.equal(serverPreferences.routing, 'preferred-first');
+    assert.equal(serverPreferences.provider, 'automatic');
+    assert.equal(serverPreferences.routing, 'automatic');
 
     // Exercise the wrapped real AI service. The test intercepts the final HTTP
     // boundary, so it can distinguish saved preferences from UI/localStorage-only behavior.
@@ -250,12 +252,10 @@ try {
     assert.equal(generation.ok, true, '[' + target.name + '] mocked AI request should complete: ' + generation.message);
     assert.equal(aiRequests.length, 1, '[' + target.name + '] one generation should make one assistant request.');
     const sent = aiRequests[0];
-    assert.equal(sent.preferredProvider, 'openai',
-      '[' + target.name + '] preferred provider must reach the authenticated AI backend, not remain local-only.');
-    assert.equal(sent.fallback, 'next',
-      '[' + target.name + '] fallback policy must reach the authenticated AI backend.');
-    assert.equal(sent.providerRouting, 'preferred-first',
-      '[' + target.name + '] model routing must reach the authenticated AI backend.');
+    assert.equal(sent.provider, 'automatic', '[' + target.name + '] AI preferences must not pin a provider.');
+    assert.equal(sent.preferredProvider, undefined, '[' + target.name + '] old saved provider preferences must not be injected into requests.');
+    assert.equal(sent.fallback, 'automatic', '[' + target.name + '] fallback must be server-managed rather than inherited from a removed selector.');
+    assert.equal(sent.providerRouting, 'automatic', '[' + target.name + '] routing must be server-managed rather than inherited from a removed selector.');
     assert.equal(sent.model, 'automatic');
     assert.equal(sent.maxTokens, 16000,
       '[' + target.name + '] maximum budget must reach the AI backend in the request payload.');
@@ -287,8 +287,8 @@ try {
     assert.equal(gatewayGeneration.ok, true, '[' + target.name + '] mocked gateway request should complete: ' + gatewayGeneration.message);
     assert.equal(gatewayRequests.length, 1, '[' + target.name + '] explicit provider choice must use the gateway route.');
     assert.equal(gatewayRequests[0].provider, 'openai');
-    assert.equal(gatewayRequests[0].providerRouting, 'preferred-first');
-    assert.equal(gatewayRequests[0].fallback, 'next');
+    assert.equal(gatewayRequests[0].providerRouting, 'automatic');
+    assert.equal(gatewayRequests[0].fallback, 'automatic');
     assert.equal(gatewayRequests[0].model, 'automatic');
     assert.equal(gatewayRequests[0].maxTokens, 16000);
     assert.match(gatewayRequests[0].system, /prioritize thoroughness/i);
@@ -308,9 +308,10 @@ try {
     const resetResponseResult = await resetResponse;
     assert.equal(resetResponseResult.status(), 200, '[' + target.name + '] Reset must persist defaults to the server.');
     await page.waitForFunction(
-      () => document.querySelector('[data-settings-panel="ai"] #set-ai-routing')?.value === 'automatic'
-        && document.querySelector('[data-settings-panel="ai"] #set-ai-model')?.value === 'automatic'
-        && document.querySelector('[data-settings-panel="ai"] #set-provider')?.value === 'gemini',
+      () => document.querySelector('[data-settings-panel="ai"] [data-ai-mode="balanced"]')?.getAttribute('aria-pressed') === 'true'
+        && !document.querySelector('[data-settings-panel="ai"] #set-ai-routing')
+        && !document.querySelector('[data-settings-panel="ai"] #set-ai-model')
+        && !document.querySelector('[data-settings-panel="ai"] #set-provider'),
       null,
       { timeout: 10000 },
     );
@@ -318,13 +319,13 @@ try {
       stored: JSON.parse(localStorage.getItem(key) || '{}'),
       removes: window.__settingsAIRemoveCount,
     }), key);
-    assert.equal(reset.stored.provider, 'gemini', '[' + target.name + '] Reset must persist server-confirmed defaults locally.');
+    assert.equal(reset.stored.provider, 'automatic', '[' + target.name + '] Reset must persist OVYX-managed routing locally.');
     assert.equal(reset.stored.model, 'automatic');
     assert.equal(reset.stored.routing, 'automatic');
     assert.equal(reset.removes, 0, '[' + target.name + '] an account-backed Reset must save verified defaults rather than only deleting local state.');
-    assert.equal(serverPreferences.provider, 'gemini', '[' + target.name + '] Reset must update the account preferences at the server boundary.');
+    assert.equal(serverPreferences.provider, 'automatic', '[' + target.name + '] Reset must update OVYX-managed routing at the server boundary.');
     assert.equal(serverPreferences.routing, 'automatic');
-    assert.equal(serverPreferences.fallback, 'next');
+    assert.equal(serverPreferences.fallback, 'automatic');
     // The UI updates selected values before the asynchronous save handler's
     // finally block re-enables its button; wait for that boundary before the
     // next simulated user action.
@@ -356,7 +357,7 @@ try {
 
     // A failed write must not be reported as saved or optimistically replace
     // the last server-confirmed local preferences.
-    await panel.locator('#set-provider').selectOption('openai');
+    await panel.locator('[data-ai-pref="contextPage"]').setChecked(false);
     failNextPreferencePut = true;
     await panel.locator('#set-ai-save').click();
     await page.waitForFunction(
@@ -365,12 +366,12 @@ try {
       { timeout: 10000 },
     );
     const afterFailedSave = await page.evaluate(key => JSON.parse(localStorage.getItem(key) || '{}'), key);
-    assert.equal(afterFailedSave.provider, 'gemini', '[' + target.name + '] A failed account save must keep the last confirmed local preferences.');
-    assert.equal(serverPreferences.provider, 'gemini', '[' + target.name + '] A failed account save must not mutate server preferences.');
+    assert.equal(afterFailedSave.provider, 'automatic', '[' + target.name + '] A failed account save must keep the last confirmed OVYX-managed routing.');
+    assert.equal(serverPreferences.provider, 'automatic', '[' + target.name + '] A failed account save must not mutate server preferences.');
     assert.deepEqual(pageErrors, [], '[' + target.name + '] AI Preferences should not throw browser errors.');
     await context.close();
   }
-  console.log('OVYX AI Preferences browser tests passed on desktop and mobile: one Save/Reset action, saved provider/model/routing/context/budget values propagated to the real AI request boundary, context exclusions and conservative limit verified.');
+  console.log('OVYX AI Preferences browser tests passed on desktop and mobile: OVYX modes save to the account, provider overrides stay automatic, and context/budget preferences are verified at the real AI request boundary.');
 } finally {
   await browser.close();
 }
