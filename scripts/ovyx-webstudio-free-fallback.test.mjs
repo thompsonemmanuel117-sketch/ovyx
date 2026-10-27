@@ -9,6 +9,7 @@ const cloudflareSource = readFileSync(new URL('../functions/_lib/cloudflare-free
 
 assert.doesNotMatch(html, /ovyx-webstudio-free-ai-fallback-v1/);
 assert.doesNotMatch(html, /Continue with my own key/);
+assert.doesNotMatch(html, /Use for Web Studio|Web Studio assigned|data-v91-use-webstudio|activeWebStudioConnectionId/);
 assert.doesNotMatch(html, /useUniversalConnectionAfterCloudflareLimit/);
 assert.doesNotMatch(html, /requiresUniversalConnectionFallback/);
 assert.doesNotMatch(assistantRoute, /isWebStudioUniversalConnectionFallbackTrigger|requiresUniversalConnectionFallback|useUniversalConnectionAfterCloudflareLimit|webStudioUserConnectionFallback/);
