@@ -459,7 +459,7 @@
       if (httpStatus === 429) return 'OVYX has reached a usage or request limit. It stopped safely instead of switching providers. Check AI Usage/Plan and retry when the limit allows.';
       if (httpStatus === 502 || httpStatus === 503 || httpStatus === 504) return 'The AI service could not complete this request right now. Check the AI readiness indicator and retry in a moment.';
       const raw = String(data?.message || '').trim().slice(0, 320);
-      if (raw && !/(?:api[_-]?key|secret|bearer\\s+[A-Za-z0-9._~-]{12,}|sk-[A-Za-z0-9]{16,}|https?:\\/\\/[^\\s]*(?:token|key)=)/i.test(raw)) return raw;
+      if (raw && !/(?:api[_-]?key|secret|bearer\s+[A-Za-z0-9._~-]{12,}|sk-[A-Za-z0-9]{16,}|https?:\/\/[^\s]*(?:token|key)=)/i.test(raw)) return raw;
       return 'OVYX AI could not complete this request. Check AI readiness and try again. If it keeps failing, share the error code with the platform administrator.';
     }
     const conversational = !/workspace-copilot-advanced/i.test(String(payload.mode || ''));
