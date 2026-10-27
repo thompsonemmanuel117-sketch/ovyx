@@ -118,6 +118,27 @@ assert.deepEqual(parsedReadTools.actions, [
   { type: 'workspace_diagnose', projectId: 'project_123' },
 ], 'native AI should only emit allowlisted read-only tools with validated project IDs and paths');
 
+const parsedPlatformRepo = parseOvyxNativeModelOutput({
+  response: JSON.stringify({
+    text: 'I need current source evidence from OVYX itself.',
+    actions: [
+      { type: 'platform_repo_investigate', question: 'Which file implements native assistant project knowledge?' },
+      { type: 'platform_repo_investigate', question: 'no' },
+      { type: 'platform_repo_investigate', question: '   ' },
+      { type: 'platform_repo_investigate', question: 'Which file?', projectId: '../other-owner' },
+      { type: 'run_shell', command: 'cat secrets' },
+    ],
+  }),
+});
+assert.deepEqual(parsedPlatformRepo.actions, [
+  { type: 'platform_repo_investigate', question: 'Which file implements native assistant project knowledge?' },
+  { type: 'platform_repo_investigate', question: 'Which file?' },
+], 'platform source investigation must be allowlisted and question-bounded; unrelated fields and arbitrary commands must not be carried through');
+assert.equal(Object.hasOwn(parsedPlatformRepo.actions[1], 'projectId'), false, 'the repository tool must not accept a client-selected repository or project ID');
+assert.match(captured.input.messages[0].content, /platform_repo_investigate/);
+assert.match(captured.input.messages[0].content, /root-admin access/);
+assert.match(captured.input.messages[0].content, /at most three readable source files/);
+
 assert.equal(result.rawUsage.total_tokens, 35);
 
 // The native assistant should honor an account-owned AI Brain even when the
