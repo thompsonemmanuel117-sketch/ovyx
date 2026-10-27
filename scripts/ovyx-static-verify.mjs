@@ -612,7 +612,7 @@ if (fs.existsSync(html)) {
   if (
     !providerChoiceRouter ||
     !providerChoiceRouter[1].includes('failoverUsed:false') ||
-    !providerChoiceRouter[1].includes('Try OVYX Auto or choose another available AI option.') ||
+    !providerChoiceRouter[1].includes('Check AI readiness and retry; it will not silently switch providers.') ||
     /for\s*\(const provider of order\)/.test(providerChoiceRouter[1])
   ) {
     errors.push('index.html: explicitly selected AI providers must not silently fail over, and must explain how to continue when unavailable.');
