@@ -701,11 +701,11 @@ export function repairStage4SmokeQaFormAttributes(staged, siteMap, enabled = fal
   const next = source.map(item => {
     if (String(item?.path || '').replace(/\\/g, '/') !== String(contactPage.path).replace(/\\/g, '/') ||
         typeof item?.content !== 'string') return item;
-    const openingForm = item.content.match(/<form\\b[^>]*>/i)?.[0];
+    const openingForm = item.content.match(/<form\b[^>]*>/i)?.[0];
     if (!openingForm) return item;
     const attributesNormalized = openingForm
-      .replace(/\\s+(?:method|action)\\s*=\\s*(?:"[^"]*"|'[^']*'|[^\\s>]+)/gi, '')
-      .replace(/\\s*\\/?>(?:$)/, ending => ' method="post" action="/.well-known/ovyx-qa-enquiry"' + ending);
+      .replace(/\s+(?:method|action)\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+      .replace(/\s*\/?>(?:$)/, ending => ' method="post" action="/.well-known/ovyx-qa-enquiry"' + ending);
     if (attributesNormalized === openingForm) return item;
     repaired = true;
     return { ...item, content: item.content.replace(openingForm, attributesNormalized) };
