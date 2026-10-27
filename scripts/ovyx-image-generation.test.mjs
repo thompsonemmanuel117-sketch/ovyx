@@ -56,7 +56,7 @@ assert.doesNotMatch(client, /firebase\.storage\(\)|\.putString\(|\.uploadBytes\(
 
 assert.match(middleware, /ovyx-image-generation\.js\?v=20261027-1/);
 assert.match(platformMap, /POST \/api\/ai\/image-generation/);
-assert.match(stageDoc, /FLUX\.1 schnell/);
+assert.match(stageDoc, /flux-1-schnell/i);
 assert.match(stageDoc, /live production acceptance/i);
 
 console.log('OVYX image generation contract tests passed: authenticated UI, Cloudflare-only model, daily budget, quota, output bounds and explicit download.');
