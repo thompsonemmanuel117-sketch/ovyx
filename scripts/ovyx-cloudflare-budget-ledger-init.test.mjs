@@ -22,6 +22,7 @@ let modelCalls = 0;
 let lastAIOptions = null;
 let responseShape = 'legacy-response';
 let createCalls = 0;
+let ledgerReadCalls = 0;
 let ledgerReadFailuresRemaining = 1;
 let ledgerTransportFailuresRemaining = 1;
 let conflictWritesRemaining = 3;
@@ -157,6 +158,7 @@ try {
 
     if (init.method === 'GET' && /\/documents\/system\/[^/]+$/.test(url.pathname)) {
       const key = documentKey(url.pathname);
+      if (key === 'system/' + LEDGER_ID) ledgerReadCalls += 1;
       const trackConcurrency = key === 'system/' + LEDGER_ID && measureLedgerReadConcurrency;
       if (trackConcurrency) {
         activeLedgerReads += 1;
@@ -236,6 +238,7 @@ try {
     throw new Error('Unexpected mocked request: ' + init.method + ' ' + url.pathname);
   };
 
+  const ledgerReadsBeforeFirstInference = ledgerReadCalls;
   const result = await runCloudflareFreeInference(env, {
     messages: [{ role: 'user', content: 'Reply with exactly OVYX_PROVIDER_READY.' }],
     maxTokens: 32,
@@ -250,6 +253,8 @@ try {
   assert.equal(lastAIOptions.reasoning_effort, undefined, 'do not pass model-specific reasoning fields to the selected non-reasoning model');
   assert.equal(lastAIOptions.temperature, 0, 'the bounded readiness probe should be deterministic');
   assert.equal(modelCalls, 1, 'a single successful guarded model inference should run after reservation');
+  assert.equal(ledgerReadCalls - ledgerReadsBeforeFirstInference, 8,
+    'the guarded inference must reuse its initial ledger snapshot; this fixture includes two transient read failures, atomic ledger initialization, and three compare-and-set conflict retries');
 
   const ledgerKey = 'system/' + LEDGER_ID;
   const ledger = documents.get(ledgerKey);

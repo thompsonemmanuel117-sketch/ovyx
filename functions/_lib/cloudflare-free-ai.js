@@ -359,12 +359,23 @@ async function getDailyBudgetLedger(env) {
   throw fail(503, 'OVYX_AI_BUDGET_LEDGER_CONFLICT_EXHAUSTED', 'OVYX could not safely initialize its daily free AI allowance after bounded retries. Please retry later.');
 }
 
-async function reserveDailyBudget(env, estimate) {
+async function reserveDailyBudget(env, estimate, initialLedgerSnapshot = undefined) {
   const day = utcDayKey();
   const cap = dailyBudget(env);
   for (let attempt = 0; attempt < BUDGET_RETRIES; attempt += 1) {
-    const raw = await getDailyBudgetLedger(env);
+    const raw = attempt === 0 && initialLedgerSnapshot !== undefined
+      ? initialLedgerSnapshot
+      : await getDailyBudgetLedger(env);
     const config = firestoreDocumentToJs(raw) || {};
+    // The same latest snapshot is used for the pre-dispatch exhaustion check
+    // and the conditional reservation. On a CAS conflict, re-read and recheck
+    // every stop marker before another write; never reserve against stale data.
+    if (await isCloudflareFreeAllowanceExhausted(env, raw)) {
+      throw fail(429, 'OVYX_AI_CLOUDFLARE_QUOTA_EXHAUSTED',
+        isCloudflarePaidCappedMode(env)
+          ? 'OVYX has reached its configured daily Cloudflare AI budget. No external AI provider was used.'
+          : 'OVYX has reached its protected daily Cloudflare AI capacity. No external AI provider was used.');
+    }
     const sameDay = String(config._ovyxWorkersAiDayUtc || '') === day;
     const consumed = sameDay ? Math.max(0, Number(config._ovyxWorkersAiConsumedNeurons) || 0) : 0;
     const reserved = sameDay ? Math.max(0, Number(config._ovyxWorkersAiReservedNeurons) || 0) : 0;
@@ -517,8 +528,8 @@ async function recordCloudflareFreeExhaustion(env, reason) {
   return withBudgetOperationLock(() => recordCloudflareFreeExhaustionUnlocked(env, reason));
 }
 
-export async function isCloudflareFreeAllowanceExhausted(env) {
-  const raw = await getDailyBudgetLedger(env);
+export async function isCloudflareFreeAllowanceExhausted(env, ledgerSnapshot = undefined) {
+  const raw = ledgerSnapshot === undefined ? await getDailyBudgetLedger(env) : ledgerSnapshot;
   const config = firestoreDocumentToJs(raw) || {};
   const day = utcDayKey();
   const markedExhaustedToday = String(config._ovyxWorkersAiCloudflareExhaustedDayUtc || '') === day;
@@ -595,8 +606,11 @@ export async function runCloudflareFreeInference(env, {
   // the Firestore conditional-write contract remains the cross-isolate authority.
   const configuredDailyBudget = dailyBudget(env);
   const budgeted = await withBudgetOperationLock(async () => {
-    // Preserve the protected daily stop check before any inference dispatch.
-    if (await isCloudflareFreeAllowanceExhausted(env)) {
+    // Fetch the protected ledger once. Use the exact snapshot for both the
+    // pre-dispatch stop check and the conditional reservation, reducing duplicate
+    // Firestore reads while preserving cross-isolate compare-and-set protection.
+    const initialLedgerSnapshot = await getDailyBudgetLedger(env);
+    if (await isCloudflareFreeAllowanceExhausted(env, initialLedgerSnapshot)) {
       throw fail(429, 'OVYX_AI_CLOUDFLARE_QUOTA_EXHAUSTED',
         isCloudflarePaidCappedMode(env)
           ? 'OVYX has reached its configured daily Cloudflare AI budget. No external AI provider was used.'
@@ -612,7 +626,7 @@ export async function runCloudflareFreeInference(env, {
     const outputTokens = Math.min(OVYX_CLOUDFLARE_FREE_MAX_OUTPUT_TOKENS, Math.max(1, Math.ceil(Number(maxTokens) || 1024)));
     const estimate = estimateCloudflareFreeNeurons(bounded, outputTokens);
     await reserveUserMinute(env, authUser);
-    const reservation = await reserveDailyBudget(env, estimate);
+    const reservation = await reserveDailyBudget(env, estimate, initialLedgerSnapshot);
     return { bounded, outputTokens, estimate, reservation };
   });
   const { bounded, outputTokens, estimate, reservation } = budgeted;
