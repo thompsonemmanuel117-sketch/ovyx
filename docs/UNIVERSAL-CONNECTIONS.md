@@ -29,7 +29,7 @@ A user can select one active Universal Connection Brain through:
 The AI Brain selection is stored in the authenticated workspace profile as `activeBrainConnectionId`. The `activeWebStudioConnectionId` field may remain in existing profiles for compatibility, but it is not used to bypass OVYX's Cloudflare AI quota.
 
 - **Ordinary OVYX AI Assistant chats:** Automatic uses the selected AI Brain exclusively. If that selected connection cannot be verified or fails, OVYX reports the failure instead of silently switching to Cloudflare or another provider.
-- **Web Studio website builds:** Cloudflare Workers AI is the guarded platform route. If the configured Cloudflare or plan allowance is exhausted, the request stops with the quota error. OVYX does not switch to a personal or platform-paid provider to evade that limit.
+- **Web Studio website builds:** Cloudflare Workers AI is the guarded platform route. Quota exhaustion is a hard stop: the request returns the quota error. OVYX does not switch to a personal or platform-paid provider to evade that limit.
 - **App Studio:** the server-side plan entitlement is checked before generation. Neither assignment unlocks App Studio or bypasses its plan gate.
 - **Other tools and integrations:** an HTTP, webhook, database, or generic tool connection is not automatically treated as a model or connected to property listings, enquiries, social actions, or other business functions. Each requires a feature-specific adapter and an explicit purpose assignment before OVYX sends data to it.
 
