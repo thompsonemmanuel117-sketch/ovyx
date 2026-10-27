@@ -685,3 +685,79 @@ export async function runCloudflareFreeInference(env, {
     maxOutputTokens: outputTokens,
   };
 }
+
+
+// Image generation is a separate modality, but it must use the same guarded
+// Cloudflare budget ledger and per-user rate limit as text inference. FLUX.1
+// schnell defaults to four steps; the fixed step count bounds compute per call.
+export const OVYX_CLOUDFLARE_IMAGE_MODEL = '@cf/black-forest-labs/flux-1-schnell';
+export const OVYX_CLOUDFLARE_IMAGE_STEPS = 4;
+export const OVYX_CLOUDFLARE_IMAGE_NEURON_ESTIMATE = 44;
+
+export async function runCloudflareFreeImageInference(env, { authUser = null, prompt = '' } = {}) {
+  if (!isCloudflareWorkersAIGuardedMode(env)) {
+    throw fail(503, 'OVYX_AI_ENGINE_MODE_NOT_CONFIGURED', 'OVYX guarded Cloudflare AI mode is not enabled.');
+  }
+  if (!env?.AI || typeof env.AI.run !== 'function') {
+    throw fail(503, 'OVYX_NATIVE_AI_NOT_CONFIGURED', 'OVYX AI is not connected yet. Please try again later.');
+  }
+
+  const cleanPrompt = String(prompt || '').replace(/[\\u0000-\\u001f\\u007f]/g, ' ').replace(/\\s+/g, ' ').trim();
+  if (!cleanPrompt) throw fail(400, 'PROMPT_REQUIRED', 'Describe the image you want OVYX to create.');
+  if (cleanPrompt.length > 1800) {
+    throw fail(413, 'OVYX_IMAGE_PROMPT_TOO_LONG', 'Keep the image description to 1,800 characters or fewer.');
+  }
+
+  const estimate = OVYX_CLOUDFLARE_IMAGE_NEURON_ESTIMATE;
+  const reservation = await withBudgetOperationLock(async () => {
+    const snapshot = await getDailyBudgetLedger(env);
+    if (await isCloudflareFreeAllowanceExhausted(env, snapshot)) {
+      throw fail(429, 'OVYX_AI_CLOUDFLARE_QUOTA_EXHAUSTED',
+        isCloudflarePaidCappedMode(env)
+          ? 'OVYX has reached its configured daily Cloudflare AI budget. No external AI provider was used.'
+          : 'OVYX has reached its protected daily Cloudflare AI capacity. No external AI provider was used.');
+    }
+    await reserveUserMinute(env, authUser);
+    return reserveDailyBudget(env, estimate, snapshot);
+  });
+
+  let dispatched = false;
+  try {
+    dispatched = true;
+    const pending = Promise.resolve(env.AI.run(OVYX_CLOUDFLARE_IMAGE_MODEL, {
+      prompt: cleanPrompt,
+      steps: OVYX_CLOUDFLARE_IMAGE_STEPS,
+    }));
+    const result = await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(Object.assign(new Error('Image generation timed out.'), {
+        name: 'TimeoutError',
+        status: 504,
+      })), 90000);
+      pending.then(value => { clearTimeout(timer); resolve(value); }, error => { clearTimeout(timer); reject(error); });
+    });
+    const candidate = result?.image || result?.result?.image;
+    if (typeof candidate !== 'string' ||
+        candidate.length < 100 ||
+        candidate.length > 8_000_000 ||
+        !/^[A-Za-z0-9+/]+={0,2}$/.test(candidate)) {
+      await settleDailyBudget(env, reservation, estimate);
+      throw fail(502, 'OVYX_IMAGE_OUTPUT_INVALID', 'Cloudflare image generation returned an invalid image. No image was saved.');
+    }
+    await settleDailyBudget(env, reservation, estimate);
+    return {
+      image: candidate,
+      model: OVYX_CLOUDFLARE_IMAGE_MODEL,
+      steps: OVYX_CLOUDFLARE_IMAGE_STEPS,
+      estimatedNeurons: estimate,
+    };
+  } catch (error) {
+    if (dispatched && error?.code !== 'OVYX_IMAGE_OUTPUT_INVALID') {
+      await settleDailyBudget(env, reservation, estimate);
+    }
+    if (isCloudflareDailyFreeLimitError(error)) {
+      await recordCloudflareFreeExhaustion(env, 'cloudflare-daily-free-allocation');
+    }
+    if (error?.code === 'OVYX_IMAGE_OUTPUT_INVALID') throw error;
+    throw safeProviderError(error);
+  }
+}
