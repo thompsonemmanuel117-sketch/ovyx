@@ -737,3 +737,97 @@ const providerFailureBuild = await buildStudioMultiPage({
 assert.ok(providerFailureBuild, 'An upstream AI failure must still be surfaced.');
 assert.equal(providerFailureBuild.code, 'AI_PROVIDER_UNAVAILABLE');
 assert.equal(providerFailureCalls, 1, 'The output-recovery retry must not repeat provider auth/billing/quota/network failures.');
+
+function smokePlanFixture() {
+  return {
+    summary: 'Two-page evaluation fixture',
+    siteMap: {
+      architecture: 'A minimal two-page fictional retailer website.',
+      pages: [
+        { title: 'Home', goal: 'Introduce the fictional retailer and link to Contact.' },
+        { title: 'Contact', goal: 'Provide the isolated QA contact form.' },
+      ],
+    },
+  };
+}
+
+async function captureFirstHtmlSystem(env) {
+  let calls = 0;
+  let captured = '';
+  const stop = Object.assign(new Error('test stops after capturing the first HTML prompt'), {
+    status: 503,
+    code: 'AI_PROVIDER_UNAVAILABLE',
+  });
+  const error = await buildStudioMultiPage({
+    env,
+    callModel: async (_env, options) => {
+      calls += 1;
+      if (calls === 1) return { text: JSON.stringify(smokePlanFixture()) };
+      captured = options.system;
+      throw stop;
+    },
+    provider: 'cloudflare-workers-ai',
+    mode: 'build',
+    prompt: 'Create a two-page website for a fictional nursery-essentials retailer: Home and Contact. The Contact page includes an isolated QA enquiry form.',
+    qualityContract: 'QA-only evaluation contract.',
+    context: { industry: 'retail', locale: 'en-NG' },
+    project: { id: 'stage4-smoke-prompt-fixture', name: 'Nursery Essentials', pages: [] },
+    files: {},
+  }).then(() => null, result => result);
+  assert.equal(error?.code, 'AI_PROVIDER_UNAVAILABLE');
+  assert.equal(calls, 2);
+  return captured;
+}
+
+const compactSmokeSystem = await captureFirstHtmlSystem({
+  OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST_ONLY: 'true',
+  OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST: 'Home|Contact',
+  OVYX_WEBSTUDIO_MAX_PAGES: '2',
+});
+assert.match(compactSmokeSystem, /STAGE 4 SMOKE: keep this one HTML file at or below 2,800 characters/,
+  'the bounded evaluation smoke must request concise single-file HTML to avoid truncation from the small model output budget');
+assert.doesNotMatch(compactSmokeSystem, /Create a decorative SVG illustration with multiple inline style blocks/,
+  'the compact smoke must not encourage verbose inline assets');
+
+const regularBuildSystem = await captureFirstHtmlSystem({});
+assert.doesNotMatch(regularBuildSystem, /STAGE 4 SMOKE: keep this one HTML file at or below 2,800 characters/,
+  'regular user builds must not inherit the two-page smoke-only output restriction');
+
+let recoveryCalls = 0;
+let retryPlanSystem = '';
+const retryStop = Object.assign(new Error('stop after verifying the bounded retry prompt'), {
+  status: 503,
+  code: 'AI_PROVIDER_UNAVAILABLE',
+});
+const retryResult = await buildStudioMultiPage({
+  env: {
+    OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST_ONLY: 'true',
+    OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST: 'Home|Contact',
+    OVYX_WEBSTUDIO_MAX_PAGES: '2',
+  },
+  callModel: async (_env, options) => {
+    recoveryCalls += 1;
+    if (recoveryCalls === 1 || recoveryCalls === 3) {
+      if (recoveryCalls === 3) retryPlanSystem = options.system;
+      return { text: JSON.stringify(smokePlanFixture()) };
+    }
+    if (recoveryCalls === 2) {
+      // Incomplete JSON envelope, simulating the exact truncated HTML failure
+      // encountered by the real budgeted site smoke.
+      return { text: '{"summary":"truncated","files":[{"path":"src/pages/Home.html","content":"<!doctype html><html lang=\\"en-NG\\"><head><title>Home</title></head><body><h1>Home</h1>' };
+    }
+    throw retryStop;
+  },
+  provider: 'cloudflare-workers-ai',
+  mode: 'build',
+  prompt: 'Create a two-page website for a fictional nursery-essentials retailer: Home and Contact. The Contact page includes an isolated QA enquiry form.',
+  qualityContract: 'QA-only evaluation contract.',
+  context: { industry: 'retail', locale: 'en-NG' },
+  project: { id: 'stage4-smoke-recovery-fixture', name: 'Nursery Essentials', pages: [] },
+  files: {},
+}).then(() => null, result => result);
+assert.equal(retryResult?.code, 'AI_PROVIDER_UNAVAILABLE');
+assert.equal(recoveryCalls, 4, 'a malformed output must trigger at most one bounded full-build retry');
+assert.match(retryPlanSystem, /STAGE 4 SMOKE RECOVERY/,
+  'the bounded retry should name the prior truncation failure and request compact, fully closed HTML');
+
