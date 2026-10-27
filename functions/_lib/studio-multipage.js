@@ -691,6 +691,28 @@ function resolveGeneratedLocalReference(fromFile, reference) {
   return normalized.join('/');
 }
 
+export function repairStage4SmokeQaFormAttributes(staged, siteMap, enabled = false) {
+  const source = Array.isArray(staged) ? staged : [];
+  if (!enabled) return { staged: source, repaired: false };
+  const contactPage = (Array.isArray(siteMap?.pages) ? siteMap.pages : [])
+    .find(page => /contact|enquir|inquir/i.test(String(page?.title || '')));
+  if (!contactPage?.path) return { staged: source, repaired: false };
+  let repaired = false;
+  const next = source.map(item => {
+    if (String(item?.path || '').replace(/\\/g, '/') !== String(contactPage.path).replace(/\\/g, '/') ||
+        typeof item?.content !== 'string') return item;
+    const openingForm = item.content.match(/<form\\b[^>]*>/i)?.[0];
+    if (!openingForm) return item;
+    const attributesNormalized = openingForm
+      .replace(/\\s+(?:method|action)\\s*=\\s*(?:"[^"]*"|'[^']*'|[^\\s>]+)/gi, '')
+      .replace(/\\s*\\/?>(?:$)/, ending => ' method="post" action="/.well-known/ovyx-qa-enquiry"' + ending);
+    if (attributesNormalized === openingForm) return item;
+    repaired = true;
+    return { ...item, content: item.content.replace(openingForm, attributesNormalized) };
+  });
+  return { staged: next, repaired };
+}
+
 export function validateStage4BrowserRuntime(staged, siteMap) {
   const errors = [];
   const files = Object.fromEntries((Array.isArray(staged) ? staged : [])
@@ -1056,6 +1078,13 @@ async function buildStudioMultiPageOnce(options) {
   staged = initialAssetNormalization.staged;
   sharedAssetPagesRepaired += initialAssetNormalization.repairedPages;
 
+  let stage4SmokeQaFormAttributesRepaired = false;
+  if (env.OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST_ONLY === 'true') {
+    const qaFormRepair = repairStage4SmokeQaFormAttributes(staged, siteMap, true);
+    staged = qaFormRepair.staged;
+    stage4SmokeQaFormAttributesRepaired = qaFormRepair.repaired;
+  }
+
   // Validate the first complete version before the optional polish pass. A failed
   // polish must never overwrite this baseline or turn a valid build into a failure.
   let checks = validateStagedSite(staged, prompt, siteMap, explicitPagesForReconciliation, strictBrowserRuntime);
@@ -1347,6 +1376,7 @@ async function buildStudioMultiPageOnce(options) {
     totalPages: pageCount,
     batchCount: batches.length,
     sharedAssetPagesRepaired,
+    stage4SmokeQaFormAttributesRepaired,
   };
 }
 
