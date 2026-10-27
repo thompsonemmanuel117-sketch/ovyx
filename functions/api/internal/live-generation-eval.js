@@ -421,6 +421,32 @@ export function safeLiveGenerationFailureDetail(error) {
   return 'generation-error';
 }
 
+const SAFE_VALIDATION_CATEGORY_RULES = [
+  [/expected exactly one HTML document|append another page/i, 'html-document-count'],
+  [/escaped quotes|HTML attributes contain escaped quotes/i, 'escaped-html-attribute-quotes'],
+  [/valid html lang attribute/i, 'missing-html-language'],
+  [/viewport meta tag/i, 'missing-viewport-meta'],
+  [/meta description/i, 'missing-meta-description'],
+  [/page title does not match/i, 'page-title-mismatch'],
+  [/isolated QA contact form must use method/i, 'qa-form-method-or-action'],
+  [/isolated QA form must submit to its local QA receiver/i, 'qa-form-submit-handler'],
+  [/unsafe or invalid file path|path is not allowed/i, 'invalid-file-path'],
+  [/empty|missing|required/i, 'missing-or-empty-required-content'],
+];
+
+export function safeLiveGenerationValidationCategories(error) {
+  if (String(error?.code || '').toUpperCase() !== 'WEBSTUDIO_SITE_VALIDATION_FAILED') return [];
+  const issues = Array.isArray(error?.validationIssues) ? error.validationIssues : [];
+  const categories = [];
+  for (const issue of issues.slice(0, 16)) {
+    const value = String(issue || '').slice(0, 1000);
+    const match = SAFE_VALIDATION_CATEGORY_RULES.find(([pattern]) => pattern.test(value));
+    const category = match ? match[1] : 'other-structural-validation';
+    if (!categories.includes(category)) categories.push(category);
+  }
+  return categories.slice(0, 12);
+}
+
 const SAFE_OUTPUT_ROOT_KEYS = new Set([
   'summary', 'files', 'fileEdits', 'patch', 'html', 'code',
   'siteMap', 'text', 'response', 'output', 'output_text', 'content', 'message',
@@ -662,6 +688,7 @@ export async function handleLiveGenerationRequest(request, env, options = {}) {
       error: 'LIVE_SITE_GENERATION_FAILED',
       caseId: caseItem.id,
       detail: safeLiveGenerationFailureDetail(error),
+      validationCategories: safeLiveGenerationValidationCategories(error),
       providerAttempts: safeLiveGenerationProviderAttempts(error),
       ...(outputDiagnostics ? { outputDiagnostics } : {}),
     }, { status: 502, headers: { 'Cache-Control': 'no-store' } });
