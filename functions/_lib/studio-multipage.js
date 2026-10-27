@@ -698,7 +698,7 @@ export function repairStage4SmokeQaFormAttributes(staged, siteMap, enabled = fal
     .find(page => /contact|enquir|inquir/i.test(String(page?.title || '')));
   if (!contactPage?.path) return { staged: source, repaired: false };
   let repaired = false;
-  const next = source.map(item => {
+  let next = source.map(item => {
     if (String(item?.path || '').replace(/\\/g, '/') !== String(contactPage.path).replace(/\\/g, '/') ||
         typeof item?.content !== 'string') return item;
     const openingForm = item.content.match(/<form\b[^>]*>/i)?.[0];
@@ -710,6 +710,38 @@ export function repairStage4SmokeQaFormAttributes(staged, siteMap, enabled = fal
     repaired = true;
     return { ...item, content: item.content.replace(openingForm, attributesNormalized) };
   });
+  const smokeQaHandler = [
+    "document.addEventListener('DOMContentLoaded', () => {",
+    "  document.querySelectorAll('form[action=\"/.well-known/ovyx-qa-enquiry\"]').forEach(form => {",
+    "    if (form.dataset.ovyxQaBound === 'true') return;",
+    "    form.dataset.ovyxQaBound = 'true';",
+    "    let status = form.parentElement && form.parentElement.querySelector('#result, [data-ovyx-qa-status], [role=\"status\"]');",
+    "    if (!status) { status = document.createElement('p'); status.setAttribute('role', 'status'); status.setAttribute('aria-live', 'polite'); form.insertAdjacentElement('afterend', status); }",
+    "    form.addEventListener('submit', async event => {",
+    "      event.preventDefault();",
+    "      const submit = form.querySelector('button[type=\"submit\"], input[type=\"submit\"]');",
+    "      if (submit) submit.disabled = true;",
+    "      status.textContent = 'Sending test enquiry…';",
+    "      try {",
+    "        const response = await fetch('/.well-known/ovyx-qa-enquiry', { method: 'POST', body: new FormData(form) });",
+    "        if (!response.ok) throw new Error('QA submission rejected');",
+    "        status.textContent = 'Your test enquiry was received.';",
+    "        form.reset();",
+    "      } catch {",
+    "        status.textContent = 'Unable to submit the test enquiry. Please try again.';",
+    "      } finally {",
+    "        if (submit) submit.disabled = false;",
+    "      }",
+    "    });",
+    "  });",
+    "});",
+  ].join('\n');
+  let scriptIndex = next.findIndex(item => /(^|\/)main\.js$/i.test(String(item?.path || '').replace(/\\/g, '/')));
+  if (scriptIndex < 0) scriptIndex = next.findIndex(item => /\.(?:js|mjs)$/i.test(String(item?.path || '')));
+  if (scriptIndex >= 0 && String(next[scriptIndex].content || '') !== smokeQaHandler) {
+    next = next.map((item, index) => index === scriptIndex ? { ...item, content: smokeQaHandler } : item);
+    repaired = true;
+  }
   return { staged: next, repaired };
 }
 
