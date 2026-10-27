@@ -44,6 +44,8 @@ assert.match(trustClient, /method: 'PUT'/);
 assert.match(trustClient, /could not confirm that your mode was saved/i);
 assert.match(html, /response length and depth\. It does not switch AI providers/);
 assert.match(html, /data-ovyx-ai-readiness="settings"/);
+assert.match(html, /data-ovyx-ai-readiness="welcome"/, 'Home must show whether the AI configuration check succeeded.');
+assert.match(trustClient, /target\.title = detailByStatus\[status\]/, 'Readiness details must remain available to assistive technology and on hover.');
 assert.match(html, /data-ai-readiness-refresh/);
 assert.match(html, /provider:'automatic'/);
 assert.match(html, /st\.provider='automatic'/);
