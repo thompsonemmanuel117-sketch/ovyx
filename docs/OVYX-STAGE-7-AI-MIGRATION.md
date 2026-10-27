@@ -33,7 +33,7 @@ The Stage 7 contract test verifies that these separate routes and controls remai
 
 The native assistant now retrieves a bounded, topic-relevant set of source-referenced OVYX architecture notes from `functions/_lib/ovyx-project-knowledge.js` and includes them in the ordinary chat system context. The companion `docs/OVYX-PLATFORM-MAP.md` records the main request paths, security boundaries, tests, research implementation and modality limitations. The retrieval query is used only to select trusted notes; raw user instructions are not copied into that trusted block.
 
-This improves the assistant's knowledge of the platform without fine-tuning a model or loading the entire repository into every request. It also explicitly distinguishes OVYX's own GitHub codebase from each account's saved Firestore website/app project. The source map is curated rather than a live repository scan, so it must never be treated as proof that a current deployed configuration or runtime behavior was tested. The root-admin Guardian repository investigator remains a separate tool and is not automatically invoked by the regular native chat.
+This improves the assistant's knowledge of the platform without fine-tuning a model or loading the entire repository into every request. It also explicitly distinguishes OVYX's own GitHub codebase from each account's saved Firestore website/app project. For specific OVYX-source questions, the native assistant can request the `platform_repo_investigate` action, which calls the existing root-admin-only Guardian route. That route enforces same-origin and Firebase root-admin checks, uses the dedicated read-only GitHub token, redacts credential-like values, and inspects at most three safe source files. The result is bounded source evidence, not a full repository scan, live deployment check, or permission to change code. If the route or token is unavailable, the assistant must say so instead of guessing.
 
 ## Separate modality audit — not automatically migrated
 
@@ -50,13 +50,14 @@ Both Stage 7 suites are registered in `npm test` alongside existing ordinary-cha
 1. Sign in and send a normal chat message. Confirm the assistant responds and provider/model metadata is truthful.
 2. Send a multi-turn follow-up and confirm conversation history is preserved.
 3. Ask the assistant to inspect a saved project; confirm it uses authenticated workspace tools and does not invent file contents.
-4. If an account explicitly selects a Universal Connection for ordinary assistant chat, confirm failure is surfaced without silent provider switching.
-5. In a controlled test environment, exhaust the Cloudflare/plan allowance. Confirm Web Studio stops with a quota error and does not offer or automatically use another provider. Do not raise the budget or bypass the stop.
-6. Run coding/reasoning in guarded Cloudflare mode. Confirm a client-supplied external provider/model cannot override the server route.
-7. Generate a small website and an App Studio project. Confirm each existing validation, entitlement, quota, preview and repair control still works.
-8. Confirm website quality inspection is read-only; edits still require preview and explicit approval.
-9. Keep research, image, voice and other modality live acceptance separate until their actual implementation paths are identified and tested.
-10. Run the complete `npm test`, static verification, production build preflight and Wrangler validation. Manual live Cloudflare inference and Stage 4 benchmark remain separate evidence requirements.
+4. Ask a root administrator a specific question about OVYX's own source code; confirm `platform_repo_investigate` returns bounded, redacted source evidence and no source edits. Test a non-admin account and missing-token configuration to confirm access is denied honestly.
+5. If an account explicitly selects a Universal Connection for ordinary assistant chat, confirm failure is surfaced without silent provider switching.
+6. In a controlled test environment, exhaust the Cloudflare/plan allowance. Confirm Web Studio stops with a quota error and does not offer or automatically use another provider. Do not raise the budget or bypass the stop.
+7. Run coding/reasoning in guarded Cloudflare mode. Confirm a client-supplied external provider/model cannot override the server route.
+8. Generate a small website and an App Studio project. Confirm each existing validation, entitlement, quota, preview and repair control still works.
+9. Confirm website quality inspection is read-only; edits still require preview and explicit approval.
+10. Keep research, image, voice and other modality live acceptance separate until their actual implementation paths are identified and tested.
+11. Run the complete `npm test`, static verification, production build preflight and Wrangler validation. Manual live Cloudflare inference and Stage 4 benchmark remain separate evidence requirements.
 
 ## Completion boundary
 
