@@ -27,6 +27,9 @@
     '.ovyx-ai-readiness-chip[data-state=configured]{border-color:rgba(88,215,181,.3);color:#9be6d1}',
     '.ovyx-ai-readiness-chip[data-state=attention]{border-color:rgba(232,182,79,.34);color:#f2d69b}',
     '.ovyx-ai-readiness-chip[data-state=error]{border-color:rgba(248,113,133,.3);color:#fecdd3}',
+    '.v59-home-ai-status{display:flex;justify-content:flex-end;padding:0 13px 8px}',
+    '.v59-home-ai-status .ovyx-ai-readiness-chip{margin-left:0;max-width:100%}',
+    '@media(max-width:580px){.v59-home-ai-status{justify-content:flex-start}}',
     '.ovyx-ai-choice-grid{grid-template-columns:repeat(3,minmax(0,1fr))}',
     '.ovyx-ai-choice b{font-size:11px!important;font-family:Inter,system-ui,sans-serif!important}',
     '.ovyx-ai-choice small{font-size:9px!important;font-family:Inter,system-ui,sans-serif!important;line-height:1.45!important}',
@@ -183,6 +186,7 @@
       if (openSettings) openSettings.hidden = status !== 'not_configured' && status !== 'selected_brain_configured';
     } else if (target.matches('[data-ovyx-ai-readiness="welcome"]')) {
       target.textContent = 'OVYX AI · ' + label;
+      target.title = detailByStatus[status] || detailByStatus.check_failed;
     } else {
       target.textContent = label;
       target.title = detailByStatus[status] || '';
