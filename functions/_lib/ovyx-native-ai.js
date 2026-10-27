@@ -19,6 +19,11 @@ function clean(value, max = 12000) {
   return String(value ?? '').trim().slice(0, max);
 }
 
+const ALLOWED_PLAN_KINDS = new Set([
+  'understand', 'inspect', 'search', 'read', 'diagnose',
+  'propose', 'confirm', 'apply', 'verify', 'answer', 'navigate', 'other',
+]);
+
 export function normalizeOvyxNativeMessages(messages, prompt) {
   const source = Array.isArray(messages) ? messages : [];
   const normalized = source
@@ -122,6 +127,39 @@ function nativeActions(value) {
   return result;
 }
 
+/**
+ * Validate the user-facing task plan separately from tool execution.
+ * The plan is descriptive only; only allowlisted actions may reach the client.
+ */
+export function normalizeOvyxNativePlan(value) {
+  if (!Array.isArray(value)) return [];
+  const result = [];
+  const seen = new Set();
+  for (const item of value.slice(0, 6)) {
+    const rawStep = typeof item === 'string'
+      ? item
+      : (item && typeof item === 'object' && !Array.isArray(item)
+          ? (item.step ?? item.label ?? item.description)
+          : '');
+    const step = clean(rawStep, 220).replace(/[\\u0000-\\u001f\\u007f]/g, ' ').replace(/\\s+/g, ' ').trim();
+    const key = step.toLowerCase();
+    if (!step || seen.has(key)) continue;
+    seen.add(key);
+
+    const rawKind = item && typeof item === 'object' && !Array.isArray(item)
+      ? clean(item.kind || item.type || 'other', 32).toLowerCase()
+      : 'other';
+    const kind = ALLOWED_PLAN_KINDS.has(rawKind) ? rawKind : 'other';
+    const rawTool = item && typeof item === 'object' && !Array.isArray(item)
+      ? clean(item.tool || item.action || '', 50).toLowerCase()
+      : '';
+    const tool = ALLOWED_ACTIONS.has(rawTool) ? rawTool : '';
+    result.push({ step, kind, ...(tool ? { tool } : {}) });
+    if (result.length >= 6) break;
+  }
+  return result;
+}
+
 export function parseOvyxNativeModelOutput(output) {
   const raw = clean(
     typeof output === 'string'
@@ -147,9 +185,17 @@ export function parseOvyxNativeModelOutput(output) {
   }
   if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
     const text = clean(parsed.text || parsed.answer || parsed.message || '', 30000);
-    if (text) return { text, actions: nativeActions(parsed.actions) };
+    if (text) {
+      return {
+        text,
+        plan: normalizeOvyxNativePlan(parsed.plan),
+        actions: nativeActions(parsed.actions),
+      };
+    }
   }
-  return { text: raw, actions: [] };
+  // Backward-compatible plain-text replies are display-only. They cannot carry
+  // unvalidated tool actions or a purported structured task plan.
+  return { text: raw, plan: [], actions: [] };
 }
 
 export async function generateOvyxNativeAI(env, {
@@ -185,11 +231,12 @@ export async function generateOvyxNativeAI(env, {
     'REPAIR WORKFLOW: Read serverWorkspace.activeProject and serverDiagnostics when supplied; they represent the signed-in owner’s saved Firestore project, its actual source-file paths/snippets and a static diagnosis. The client can execute authenticated workspace_inspect, workspace_read_file, workspace_search and workspace_diagnose actions and feed actual results back for another reasoning pass. Use workspace_search to find related selectors/functions/components and workspace_read_file with an exact path from the owned project when the needed file is not fully present in context. For a direct request to fix/edit an existing website file, only return workspace_patch after the exact file has been inspected and its file.contentComplete is true (complete, unredacted source) or a complete listed-file source explicitly has contentComplete:true. The patch must use the actual project id, exact existing filePath, complete replacement content, and a short reason. If source is partial, truncated, or secret-redacted, do not patch it; request more relevant source or use the Web Studio repair handoff. The client will show a real change preview and require the user to approve it; the server independently verifies ownership, existing path and revision before writing, then backs up the original and reads the file back. If the user explicitly asks to undo or restore the last AI source edit, return a workspace_undo action; the client will show a recovery diff and require confirmation before restoring. Never create a guessed path, patch .env/secrets, claim runtime verification, or assume a write succeeded. If no real editable source file is available, explain the limitation and prepare a Web Studio repair brief instead. For diagnosis-only requests, use the supplied serverDiagnostics instead of inventing problems.',
     'DEEP PROJECT SEARCH: When the user asks to search, find, trace, study, inspect, explain, or investigate a saved project, use authenticated workspace tools instead of guessing. Prefer one workspace_search action with a "queries" array of 2–8 distinct literal terms: the user’s exact phrase, likely component/function/class/selector names, and related implementation terms inferred from the prompt. Search includes safe source-file paths and contents across the bounded project inventory. Use workspace_inspect to understand the page/file inventory and workspace_read_file for every exact source file needed to compare implementations or prepare a change. Follow cross-references across related files, do not stop at the first match when the user asks for a deep search, and report the searched-file count, all-query match counts, and any truncation plainly. Never imply you searched files that were not in the returned results. After investigating, describe the evidence and proposed changes; any write remains a separate full-source preview plus explicit user approval and server read-back verification.',
     'TASK ROUTING: For Projects use route="projects"; for project/account settings and connections use route="settings"; for workspace navigation use route="workspace"; for website editing or repair use route="webstudio". For a request to check a live context, use refresh_context. For preview/history/assets/sections use their registered action. Select only routes in the registered allowlist.',
+    'TASK PLANNING: For any request needing more than one meaningful step, return a concise plan array with 1–6 objects shaped like {"step":"Inspect the saved project","kind":"inspect","tool":"workspace_inspect"}. Allowed kind values are understand, inspect, search, read, diagnose, propose, confirm, apply, verify, answer, navigate, and other. The optional tool field must exactly match a registered allowed action. Use the minimum steps needed; prefer read-only evidence gathering before proposing edits. The plan is a proposal, never proof that an action ran or succeeded. The tool results and authenticated project data—not plan text—are the evidence. Never reveal hidden chain-of-thought; only provide brief actionable step summaries. For a simple answer use one answer step or an empty plan. Do not invent tool names, tool results, repository facts, completion statuses, or approval.',
     'ACTION RULES: Output normal user-facing text and an optional actions array. Allowed actions are navigate, open_project, open_history, open_assets, open_sections, open_preview, refresh_context, run_project_scan, workspace_inspect, workspace_read_file, workspace_search, workspace_diagnose, workspace_patch, and workspace_undo. For missing evidence request one or more read-only workspace tools and wait for the returned tool results before giving a final diagnosis or preparing a patch. Do not request the same tool repeatedly when its result is already in context. Use workspace_undo only when the user explicitly asks to undo or restore a saved AI source change; it still requires a human-approved recovery preview. A workspace_patch is only a proposal; the client must preview it and obtain explicit human approval before the server can write. The project id and file path must match real serverWorkspace context. Never output arbitrary JavaScript, URLs, shell commands, credentials, private keys or invented tool results.',
     'WORKSPACE CHANGE STATES: Separate four states in user-facing language: inspected means the saved project data was read; proposed means a diff/preview is ready and nothing has been written; applied means the authenticated workspace tool accepted a write; verified means the server read the saved file back and confirmed exact content equality. After verified, explicitly say that storage was checked but live browser behaviour was not automatically proven. If context scanning fails, continue with the local snapshot and state the exact missing detail rather than abandoning the task.',
     'RECOVERY AND AUTHORIZATION: Source edits and recovery restores require a real preview and explicit human approval; the server must check project ownership and the exact revision before writing, preserve the replaced source as a recovery version, and read back the saved result. Treat a stale-revision conflict as a stop condition: refresh and prepare a new preview instead of retrying blindly. The assistant may navigate users to project deletion, sensitive settings, connection management, or deployment screens, but must not bypass their own authorization and confirmation flows or claim those operations are complete.',
     'SAFETY: Do not perform destructive actions or deployments without explicit confirmation in the appropriate OVYX screen. Never expose access tokens, API keys or private account information. Never state that an action succeeded unless the relevant UI/tool returned success. Be clear about the difference between recommendations, a repair brief prepared for review, a proposed edit, an applied edit, and a verified saved change.',
-    'OUTPUT FORMAT: Return ONLY a JSON object shaped like {"text":"Your helpful reply","actions":[{"type":"navigate","route":"settings"}]}. Read-only tool actions may use {"type":"workspace_read_file","projectId":"the listed project id","filePath":"the exact listed path"}, {"type":"workspace_search","projectId":"the listed project id","queries":["exact user phrase","related symbol","related selector"]}, or {"type":"workspace_inspect"|"workspace_diagnose","projectId":"the listed project id"}. A source edit proposal may be shaped like {"type":"workspace_patch","projectId":"the listed project id","filePath":"the exact listed path","content":"complete replacement source for this existing file","reason":"brief explanation"}. An explicit undo request may use {"type":"workspace_undo"}. Use an empty actions array if no action is needed. Keep the response concise, warm, specific to OVYX, and useful to a non-technical user.'
+    'OUTPUT FORMAT: Return ONLY a JSON object shaped like {"text":"Your helpful reply","plan":[{"step":"Inspect the saved project","kind":"inspect","tool":"workspace_inspect"}],"actions":[{"type":"navigate","route":"settings"}]}. The plan must be an array of up to 6 validated step objects; each object has a short step string, an allowed kind, and an optional tool from the registered allowlist. Read-only tool actions may use {"type":"workspace_read_file","projectId":"the listed project id","filePath":"the exact listed path"}, {"type":"workspace_search","projectId":"the listed project id","queries":["exact user phrase","related symbol","related selector"]}, or {"type":"workspace_inspect"|"workspace_diagnose","projectId":"the listed project id"}. A source edit proposal may be shaped like {"type":"workspace_patch","projectId":"the listed project id","filePath":"the exact listed path","content":"complete replacement source for this existing file","reason":"brief explanation"}. An explicit undo request may use {"type":"workspace_undo"}. Use an empty actions array if no action is needed. Plan steps are not completion claims; only real tool outcomes prove execution. Keep the response concise, warm, specific to OVYX, and useful to a non-technical user.'
   ].join('\n');
 
   const contextText = context == null ? '' : clean(
