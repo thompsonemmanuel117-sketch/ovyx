@@ -61,6 +61,6 @@ const platformMap = await readFile(new URL('../docs/OVYX-PLATFORM-MAP.md', impor
 assert.match(nativeAI, /buildOvyxProjectKnowledge\(latestUserQuery\)/);
 assert.match(nativeAI, /PLATFORM VS USER PROJECT/);
 assert.match(stage7Doc, /POST \/api\/ai\/web-search/);
-assert.match(platformMap, /This is not model fine-tuning/);
+assert.match(platformMap, /not model fine-tuning/);
 
 console.log('OVYX project knowledge tests passed: source paths, topic retrieval, modality truthfulness and project-scope boundaries.');
