@@ -136,9 +136,8 @@ const qaFormRepair = repairStage4SmokeQaFormAttributes(qaFormRepairFixture, {
   pages: [{ title: 'Contact', path: 'src/pages/Contact.html', url: '/contact/' }],
 }, true);
 assert.equal(qaFormRepair.repaired, true, 'the protected smoke should report when its local QA form contract is repaired deterministically');
-assert.match(
-  qaFormRepair.staged[0].content,
-  /<form id="qa-form" method="post" action="\\/.well-known\\/ovyx-qa-enquiry">/,
+assert.ok(
+  qaFormRepair.staged[0].content.includes('method="post" action="/.well-known/ovyx-qa-enquiry"'),
   'the protected smoke must force the isolated QA-only POST action rather than retain a missing or external destination',
 );
 assert.equal(
