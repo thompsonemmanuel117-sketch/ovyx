@@ -195,4 +195,29 @@ const cartNavOnly = verifyPromptContractOutput(
 );
 assert(cartNavOnly.issues.some(issue => issue.code === 'SHOPPING_CART_MISSING'), 'A cart navigation link alone does not prove an actionable cart journey.');
 
+
+const manifestOverrideBrief = 'Build a two-page site with Home and Contact. The appendix also mentions Products and Shop, but those are not requested routes.';
+const normalManifestCheck = verifyPromptContractOutput(
+  manifestOverrideBrief,
+  {
+    'src/pages/Home.html': '<!doctype html><html><head><title>Home</title></head><body><main><h1>Home</h1><a href="/contact/">Contact</a></main></body></html>',
+    'src/pages/Contact.html': '<!doctype html><html><head><title>Contact</title></head><body><main><h1>Contact</h1><form><label>Name<input name="name" required></label><label>Email<input name="email" type="email" required></label><label>Message<textarea name="message" required></textarea></label><button type="submit">Send message</button></form></main></body></html>',
+  },
+  { pages: [{ title: 'Home' }, { title: 'Contact' }] },
+);
+assert(normalManifestCheck.issues.some(issue => issue.code === 'EXPLICIT_PAGES_MISSING'),
+  'the default prompt verifier must continue checking every page name inferred from ordinary user briefs');
+const boundedManifestCheck = verifyPromptContractOutput(
+  manifestOverrideBrief,
+  {
+    'src/pages/Home.html': '<!doctype html><html><head><title>Home</title></head><body><main><h1>Home</h1><a href="/contact/">Contact</a></main></body></html>',
+    'src/pages/Contact.html': '<!doctype html><html><head><title>Contact</title></head><body><main><h1>Contact</h1><form><label>Name<input name="name" required></label><label>Email<input name="email" type="email" required></label><label>Message<textarea name="message" required></textarea></label><button type="submit">Send message</button></form></main></body></html>',
+  },
+  { pages: [{ title: 'Home' }, { title: 'Contact' }] },
+  { explicitPages: ['Home', 'Contact'] },
+);
+assert.equal(boundedManifestCheck.issues.some(issue => issue.code === 'EXPLICIT_PAGES_MISSING'), false,
+  'the guarded smoke must not fail requirement verification on unrelated words from the appended QA contract');
+assert.deepEqual(boundedManifestCheck.explicitPages, ['Home', 'Contact']);
+
 console.log('Web Studio prompt-contract tests passed.');
