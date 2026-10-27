@@ -97,6 +97,32 @@ assert.ok(strictSmokeErrors.some(error => /jsdom/.test(error)), 'strict smoke va
 assert.ok(strictSmokeErrors.some(error => /enquiry-form/.test(error)), 'strict smoke validation must catch shared scripts binding elements absent from a route');
 assert.ok(strictSmokeErrors.some(error => /isolated QA contact form/.test(error)), 'strict smoke validation must require the local QA form on the Contact route');
 
+const sharedScriptContactValidation = validateStage4BrowserRuntime([
+  {
+    path: 'src/pages/Home.html',
+    content: '<!doctype html><html lang="en-NG"><head><title>Home</title><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Home"><script src="../main.js"></script></head><body><main><h1>Home</h1></main></body></html>',
+  },
+  {
+    path: 'src/pages/Contact.html',
+    content: '<!doctype html><html lang="en-NG"><head><title>Contact</title><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Contact"><script src="../main.js"></script></head><body><main><h1>Contact</h1><form id="qa-form" method="post" action="/.well-known/ovyx-qa-enquiry"><label>Name<input name="name" required></label><label>Email<input name="email" type="email" required></label><label>Message<textarea name="message" required></textarea></label><button type="submit">Send test enquiry</button></form></main></body></html>',
+  },
+  {
+    path: 'src/main.js',
+    content: "const form = document.getElementById('qa-form'); if (form) form.addEventListener('submit', async event => { event.preventDefault(); await fetch('/.well-known/ovyx-qa-enquiry', { method: 'POST', body: new FormData(form) }); });",
+  },
+], {
+  pages: [
+    { title: 'Home', path: 'src/pages/Home.html', url: '/' },
+    { title: 'Contact', path: 'src/pages/Contact.html', url: '/contact/' },
+  ],
+});
+assert.deepEqual(
+  sharedScriptContactValidation,
+  [],
+  'the strict smoke validator must accept a correctly wired QA form whose fetch handler lives in the linked shared browser JavaScript',
+);
+
+
 
 const integritySiteMap = {
   pages: [
