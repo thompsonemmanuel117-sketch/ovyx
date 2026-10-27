@@ -7,6 +7,27 @@ import { buildOvyxProjectKnowledge } from './ovyx-project-knowledge.js';
  */
 export const OVYX_NATIVE_DEFAULT_MODEL = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 
+const OVYX_NATIVE_MODE_CONFIG = Object.freeze({
+  balanced: {
+    maxTokens: 1800,
+    instruction: 'Use the everyday OVYX mode: be clear, practical, and moderately detailed. Prefer a useful answer and the next concrete step.',
+  },
+  fast: {
+    maxTokens: 900,
+    instruction: 'Use the OVYX Quick mode: answer directly and briefly, focus on one task at a time, and avoid unnecessary background unless the user asks.',
+  },
+  quality: {
+    maxTokens: 2800,
+    instruction: 'Use the OVYX Deep mode: carefully check dependencies, edge cases, and likely failure states, then provide a thorough, well-organized result. Do not reveal hidden chain-of-thought; give only conclusions and concise rationale.',
+  },
+});
+
+export function normalizeOvyxNativeMode(value) {
+  const mode = String(value ?? '').trim().toLowerCase();
+  return Object.prototype.hasOwnProperty.call(OVYX_NATIVE_MODE_CONFIG, mode) ? mode : 'balanced';
+}
+
+
 const ALLOWED_ROUTES = new Set([
   'home', 'projects', 'webstudio', 'appstudio', 'workspace',
   'templates', 'settings', 'pricing', 'faq', 'inbox'
@@ -215,6 +236,7 @@ export async function generateOvyxNativeAI(env, {
   system = '',
   context = null,
   model = '',
+  mode = 'balanced',
   authUser = null,
   universalBrainDependencies = null,
 } = {}) {
@@ -234,8 +256,14 @@ export async function generateOvyxNativeAI(env, {
             ? clean(env.OVYX_AI_MODEL, 180)
             : OVYX_NATIVE_DEFAULT_MODEL));
 
+  const aiMode = normalizeOvyxNativeMode(mode);
+  const modeConfig = OVYX_NATIVE_MODE_CONFIG[aiMode];
+  const maxTokens = modeConfig.maxTokens;
+
+
   const ovyxKnowledge = [
     'IDENTITY: You are OVYX AI, the native assistant built specifically for the OVYX creative workspace. You are not a generic provider selector.',
+    'OVYX MODE: ' + modeConfig.instruction,
     'PRODUCT MAP: OVYX includes a home dashboard, Projects, Web Studio for building/editing websites, App Studio, a workspace/code surface, templates, assets, project history, Settings, plans/quotas, Universal Connections, GitHub repository integration, deployment, inbox and support. Availability is governed by the signed-in account and server-side entitlements.',
     'PLATFORM VS USER PROJECT: First distinguish a question about OVYX itself and its GitHub codebase from a question about the signed-in owner\'s saved website/app project. The native workspace tools read only that owner\'s Firestore-saved projects, not the OVYX GitHub repository. For specific OVYX source-code, implementation, or repository questions, request platform_repo_investigate with a precise question. The server checks root-admin access, same-origin requests, and a dedicated read-only GitHub token; it redacts credential-like values and inspects at most three readable source files. This is a bounded investigation, not a full repository scan or runtime test, and may be unavailable if the separate token is not configured. For a saved user project, use authenticated workspace tools and exact project identity. Never claim source was inspected, tests were run, or a deployed setting was confirmed unless actual source/tool/CI results are included.',
     'WORKSPACE INTELLIGENCE: Read the supplied current workspace snapshot before answering. Use the active project, pages, source snippets, selected element, project inventory, diagnostics, assets, connection and quota fields when they are present. When citing source, name the exact file or page path provided and distinguish snippets from complete files. Give concrete next steps rather than generic product descriptions.',
@@ -286,7 +314,7 @@ export async function generateOvyxNativeAI(env, {
         system: systemText,
         user: normalizedMessages.map(message => message.role.toUpperCase() + ': ' + message.content).join('\n\n'),
         model,
-        maxTokens: 2800,
+        maxTokens,
       }, universalBrainDependencies || undefined);
     }
 
@@ -302,7 +330,7 @@ export async function generateOvyxNativeAI(env, {
       const guarded = await runCloudflareFreeInference(env, {
         authUser,
         messages: [{ role: 'system', content: systemText }, ...normalizedMessages],
-        maxTokens: 2800,
+        maxTokens,
       });
       // The shared guard has already extracted and validated the model text;
       // do not reinterpret the vendor-specific raw response a second time.
@@ -315,7 +343,7 @@ export async function generateOvyxNativeAI(env, {
           ...normalizedMessages,
         ],
         temperature: 0.2,
-        max_tokens: 2800,
+        max_tokens: maxTokens,
       });
       rawUsage = output?.usage || output?.result?.usage || null;
     }
@@ -343,6 +371,7 @@ export async function generateOvyxNativeAI(env, {
     routedProvider: selectedBrainResult ? 'universal-connection' : 'cloudflare-workers-ai',
     personalConnectionUsed: Boolean(selectedBrainResult),
     model: selectedBrainResult?.model || selectedModel,
+    mode: aiMode,
     rawUsage,
   };
 }
