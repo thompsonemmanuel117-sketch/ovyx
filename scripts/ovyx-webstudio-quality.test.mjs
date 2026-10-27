@@ -161,7 +161,7 @@ const integrity = fs.readFileSync('functions/_lib/site-integrity.js', 'utf8');
 assert.ok(multipage.includes('OVYX WEB STUDIO BOUNDED WEBSITE POLISH PHASE'), 'Multi-page builds must receive a bounded final design-polish pass.');
 assert.ok(multipage.includes('selectBoundedPolishTargets'), 'Polish context must be budgeted to protect large builds and provider limits.');
 assert.ok(multipage.includes('allowedPolishPaths'), 'Polish output must be restricted to an explicit file allowlist.');
-assert.ok(multipage.includes('validateStagedSite(candidate, prompt, siteMap)'), 'Polished files must pass the same source and prompt-requirement checks as the baseline.');
+assert.ok(multipage.includes('validateStagedSite(candidate, prompt, siteMap, explicitPagesForReconciliation)'), 'Polished files must pass the same source and prompt-requirement checks, using the unchanged user manifest or the isolated smoke manifest.');
 assert.ok(multipage.includes('const baselineStaged = staged.map(item => ({ ...item }));'), 'A valid baseline must be retained so a failed polish cannot destroy a good build.');
 assert.ok(multipage.includes('auditWebsiteIntegrity(outputFilesByPath, siteMap)'), 'Multi-page builds must audit internal routes and local assets before accepting a polish result.');
 assert.ok(multipage.includes('hasNewIntegrityFindings(integrityBefore, candidateChecks.integrity)'), 'A polish result must not introduce new source-level link or asset defects.');
