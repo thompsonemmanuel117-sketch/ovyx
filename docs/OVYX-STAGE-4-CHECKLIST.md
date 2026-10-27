@@ -144,7 +144,7 @@ Stage 4 can be marked **PASS** only after all of the following are true:
 - [ ] No serious security, privacy, fallback, or false-success issue remains.
 - [ ] Report and device records are saved without secrets.
 
-If the live quota is exhausted, a required device is unavailable, browser testing was not run, or answer scores are missing, the honest result is **BLOCKED / INCOMPLETE**, not PASS. Do not start Stage 5 until the sign-off list is satisfied.
+If the live quota is exhausted, a required device is unavailable, browser testing was not run, or answer scores are missing, the honest result is **BLOCKED / INCOMPLETE**, not PASS. The project owner may continue implementation on later stages while deferring Stage 4 live/device testing. This is a development-sequencing choice, not Stage 4 approval: keep Stage 4 marked BLOCKED / INCOMPLETE until its evidence is collected, and do not claim Stage-4 readiness on that basis.
 
 ## Current status note
 
