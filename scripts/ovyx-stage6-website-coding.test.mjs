@@ -45,6 +45,8 @@ assert.match(inspector, /function probeControls\(\)/);
 assert.match(inspector, /function auditAssetReference\(/);
 assert.match(inspector, /function performInspection\(/);
 assert.match(inspector, /window\.OVYXWebStudioQuality =/);
+assert.match(inspector, /A Web Studio quality check is already running/);
+assert.match(inspector, /return performInspection\(\)\.finally/);
 assert.match(middleware, /ovyx-webstudio-quality\.js/);
 assert.match(workspaceTools, /function diagnoseProject\(/, 'Existing saved-project diagnostics must remain available.');
 
