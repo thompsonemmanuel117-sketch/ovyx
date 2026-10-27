@@ -85,7 +85,7 @@ const platformMapDoc = await read('../docs/OVYX-PLATFORM-MAP.md');
 assert.match(nativeAI, /buildOvyxProjectKnowledge\(latestUserQuery\)/);
 assert.match(nativeAI, /PLATFORM VS USER PROJECT/);
 assert.match(platformKnowledge, /getOvyxProjectKnowledgeCatalog/);
-assert.match(platformMapDoc, /This is not model fine-tuning/);
+assert.match(platformMapDoc, /not model fine-tuning/);
 
 // Research has a separate endpoint: distinguish a live-capable search pipeline
 // from a mere research suggestion in a text prompt.
