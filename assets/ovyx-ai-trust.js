@@ -205,11 +205,17 @@
   function observeTargets() {
     if (observer || !document.body || typeof MutationObserver !== 'function') return;
     observer = new MutationObserver(() => {
-      const count = document.querySelectorAll('[data-ovyx-ai-readiness]').length;
-      if (count !== lastTargetCount) {
-        lastTargetCount = count;
-        if (count && readinessSnapshot) renderAll(readinessSnapshot);
-        else if (count) checkReadiness(false);
+      const targets = Array.from(document.querySelectorAll('[data-ovyx-ai-readiness]'));
+      const count = targets.length;
+      lastTargetCount = count;
+      if (!count) return;
+      // Settings renders its AI panel dynamically. A newly-created target can
+      // replace an old target without changing the count, so also detect nodes
+      // that still carry their initial checking state.
+      if (readinessSnapshot && targets.some(target => target.dataset.state === 'checking')) {
+        renderAll(readinessSnapshot);
+      } else if (!readinessSnapshot && count) {
+        checkReadiness(false);
       }
     });
     observer.observe(document.body, { childList: true, subtree: true });
