@@ -637,10 +637,14 @@
         const data = await api(AI_PREFERENCES_ENDPOINT);
         const remote = Object.assign({}, AI_PREFERENCE_DEFAULTS, data.preferences || {});
         const legacyLocal = !data.updatedAt && Object.keys(cached).length > 0;
+        const cachedHasLegacyOverrides = ['provider','model','routing','fallback'].some(name =>
+          String(cached[name] ?? AI_PREFERENCE_DEFAULTS[name]) !== 'automatic'
+        );
         let preferences = canonicalAIPreferences(legacyLocal ? cached : remote);
-        const needsLegacyNormalization = ['provider','model','routing','fallback'].some(name =>
+        const remoteHasLegacyOverrides = ['provider','model','routing','fallback'].some(name =>
           String(remote[name] ?? AI_PREFERENCE_DEFAULTS[name]) !== String(preferences[name])
         );
+        const needsLegacyNormalization = cachedHasLegacyOverrides || remoteHasLegacyOverrides;
         if (legacyLocal || needsLegacyNormalization) {
           const saved = await api(AI_PREFERENCES_ENDPOINT, jsonOptions('PUT', { preferences }));
           if (saved?.authority !== 'SERVER' || !saved.preferences) {
