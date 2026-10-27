@@ -32,7 +32,7 @@ const CARDS = [
   {
     id: 'assistant-context',
     title: 'Assistant project awareness and workspace tools',
-    keywords: ['my project', 'current project', 'saved project', 'project context', 'source file', 'file path', 'inspect project', 'search project', 'read file', 'diagnose', 'project awareness', 'project knowledge', 'memory', 'understand my project', 'context'],
+    keywords: ['my project', 'current project', 'saved project', 'project context', 'source file', 'file path', 'inspect project', 'search project', 'read file', 'diagnose', 'project awareness', 'project knowledge', 'memory', 'understand my project', 'context', 'repository', 'repo', 'codebase', 'GitHub', 'guardian', 'source inspection', 'implementation', 'platform code', 'current code'],
     sources: [
       'assets/ovyx-assistant-workspace.js',
       'functions/api/ai/workspace-tools.js',
@@ -161,7 +161,7 @@ function normalizeInput(value) {
 }
 
 function scoreCard(query, card) {
-  const normalized = query.toLowerCase().replace(/[^a-z0-9_.\\/ -]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const normalized = query.toLowerCase().replace(/[^a-z0-9_.\/ -]+/g, ' ').replace(/\s+/g, ' ').trim();
   if (!normalized) return 0;
   let score = 0;
   for (const keyword of card.keywords) {
