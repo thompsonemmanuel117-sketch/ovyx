@@ -276,9 +276,9 @@ export async function generateOvyxNativeAI(env, {
     // This endpoint powers ordinary OVYX assistant conversations. If the
     // authenticated account explicitly selected an AI Brain, use that owned
     // connection exclusively; a failed/invalid selection must not fall back
-    // silently to Cloudflare. Web Studio uses its separate assignment through
-    // the explicit post-limit continuation route, and App Studio remains on
-    // its own entitlement-gated API route.
+    // silently to Cloudflare. Web Studio and App Studio use separate
+    // entitlement-gated generation routes; quota exhaustion never triggers
+    // an alternate-provider continuation.
     if (authUser) {
       selectedBrainResult = await callSelectedUniversalBrain(env, {
         provider: 'automatic',
