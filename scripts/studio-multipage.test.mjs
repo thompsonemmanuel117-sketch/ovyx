@@ -633,6 +633,83 @@ assert.equal(invalidPlanCalls.filter(item => String(item.user).includes('WEBSITE
 assert.ok(invalidPlanFallbackBuild.rawUsage.total_tokens >= 132,
   'Usage accounting must include the invalid planning response and generated files.');
 
+// The fixed Stage 4 smoke manifest must also govern the deterministic fallback
+// if the planner emits an invalid sitemap. The appended QA contract mentions
+// more page-like words than the intended Home/Contact smoke pages.
+const stage4FallbackCalls = [];
+const stage4FallbackModel = async (_env, options) => {
+  stage4FallbackCalls.push(options);
+  const user = String(options.user || '');
+  if (user.includes('WEBSITE ARCHITECTURE PLANNING PHASE')) {
+    return {
+      text: 'I could not provide valid sitemap JSON.',
+      provider: 'cloudflare-workers-ai',
+      model: '@cf/meta/llama-3.1-8b-instruct-fp8-fast',
+      rawUsage: { prompt_tokens: 70, completion_tokens: 10, total_tokens: 80 },
+    };
+  }
+  if (user.includes('BOUNDED WEBSITE POLISH PHASE')) {
+    throw new Error('The Stage 4 fallback fixture disables optional polish.');
+  }
+  const match = user.match(/REQUIRED TARGET FILES JSON:\n([\s\S]*?)\n\nREQUIRED TARGET PATHS JSON:/);
+  assert.ok(match, 'Smoke fallback should provide the exact generated target manifest.');
+  const targets = JSON.parse(match[1]);
+  const files = {};
+  for (const target of targets) {
+    if (target.path === 'src/styles.css') {
+      files[target.path] = '*,*::before,*::after{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;color:#202020;background:#f7f4ef}nav{display:flex;gap:1rem;padding:1rem}main{max-width:60rem;margin:auto;padding:2rem}a:focus-visible{outline:3px solid #76513a;outline-offset:3px}@media(max-width:600px){main{padding:1rem}}';
+    } else if (target.path === 'src/main.js') {
+      files[target.path] = "document.documentElement.dataset.ready='true';";
+    } else {
+      const title = String(target.title || target.path.split('/').pop().replace(/\.html?$/i, ''));
+      files[target.path] = '<!doctype html><html lang="en-NG"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="' + title + ' information"><title>' + title + '</title><link rel="stylesheet" href="../styles.css"><script src="../main.js" defer></script></head><body><nav aria-label="Main navigation"><a href="/">Home</a><a href="/contact/">Contact</a></nav><main><h1>' + title + '</h1><p>Fictional sample information for visitors.</p></main></body></html>';
+    }
+  }
+  return {
+    text: JSON.stringify({ summary: 'Smoke fallback batch', files }),
+    provider: 'cloudflare-workers-ai',
+    model: '@cf/meta/llama-3.1-8b-instruct-fp8-fast',
+    rawUsage: { prompt_tokens: 90, completion_tokens: 160, total_tokens: 250 },
+  };
+};
+const stage4FallbackBuild = await buildStudioMultiPage({
+  env: {
+    OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST_ONLY: 'true',
+    OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST: 'Home|Contact',
+    OVYX_WEBSTUDIO_MAX_PAGES: '2',
+    OVYX_WEBSTUDIO_POLISH_ENABLED: 'false',
+  },
+  callModel: stage4FallbackModel,
+  provider: 'cloudflare-workers-ai',
+  authUser: { sub: 'stage4-explicit-manifest-fallback-test' },
+  mode: 'build',
+  prompt: 'Build a six-page static informational website with Home, About, Services, Team, FAQ and Contact pages. Each page links to Home and Contact.',
+  project: { id: 'stage4-explicit-manifest-fallback', name: 'Informational site', pages: [] },
+  files: {},
+  qualityContract: 'Bounded evaluation QA contract.',
+});
+assert.equal(
+  stage4FallbackBuild.siteMapRecovery,
+  'deterministic-fallback-after-invalid-model-plan',
+  'An invalid planning answer should use deterministic route recovery in the isolated smoke.',
+);
+assert.deepEqual(
+  stage4FallbackBuild.siteMap.pages.map(page => page.title),
+  ['Home', 'Contact'],
+  'the smoke-only Home/Contact manifest must also be used by the invalid-sitemap fallback, not the broader prompt-derived route list',
+);
+assert.equal(
+  Object.keys(stage4FallbackBuild.files).filter(path => /^src\/pages\/.*\.html$/i.test(path)).length,
+  2,
+  'the smoke fallback must produce only the two explicitly approved HTML routes',
+);
+assert.equal(
+  stage4FallbackCalls.filter(item => String(item.user).includes('WEBSITE ARCHITECTURE PLANNING PHASE')).length,
+  1,
+  'the deterministic fallback must not repeat billable planning',
+);
+
+
 const omissionModel = async (env, options) => {
   if (String(options.user).includes('WEBSITE ARCHITECTURE PLANNING PHASE')) {
     return {
