@@ -54,4 +54,4 @@ It is registered in `npm test` alongside existing ordinary-chat, provider-routin
 
 ## Completion boundary
 
-The code migration and regression contracts are in place, but live Cloudflare inference and deployed generated-site acceptance are not claimed as passed by static checks. Research, image, voice and other modality integrations remain a separate acceptance track. Stage 4's live benchmark and the manual acceptance items above remain separate evidence requirements. Stage 4's live benchmark and the manual acceptance items above remain separate evidence requirements.
+The code migration and regression contracts are in place, but live Cloudflare inference and deployed generated-site acceptance are not claimed as passed by static checks. Research, image, voice and other modality integrations remain a separate acceptance track. Stage 4's live benchmark and the manual acceptance items above remain separate evidence requirements.
