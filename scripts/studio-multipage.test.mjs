@@ -1,6 +1,42 @@
 import assert from 'node:assert/strict';
-import { buildStudioMultiPage } from '../functions/_lib/studio-multipage.js';
+import { buildStudioMultiPage, restrictSiteMapToExplicitPages } from '../functions/_lib/studio-multipage.js';
 import { auditWebsiteIntegrity } from '../functions/_lib/site-integrity.js';
+ 
+const boundedSmokePlan = restrictSiteMapToExplicitPages({
+  architecture: 'AI suggested extra routes for a bounded smoke',
+  pages: [
+    { title: 'Home', goal: 'Entry page' },
+    { title: 'Products', goal: 'Unrequested extra route' },
+    { title: 'Contact', goal: 'Explicitly requested form page' },
+    { title: 'Shop', goal: 'Unrequested extra route' },
+  ],
+}, ['Home', 'Contact'], 2);
+assert.deepEqual(
+  boundedSmokePlan.pages.map(page => page.title),
+  ['Home', 'Contact'],
+  'the isolated bounded smoke must preserve every explicitly requested page and discard only extra model-inferred routes',
+);
+assert.equal(
+  restrictSiteMapToExplicitPages({ pages: [{ title: 'Home' }, { title: 'Contact' }] }, ['Home', 'Contact', 'Products'], 2),
+  null,
+  'explicit manifests exceeding the page ceiling must still fail closed',
+);
+const recoveredManifest = restrictSiteMapToExplicitPages(
+  { pages: [{ title: 'Home', goal: 'Entry page' }] },
+  ['Home', 'Contact'],
+  2,
+);
+assert.deepEqual(
+  recoveredManifest.pages.map(page => page.title),
+  ['Home', 'Contact'],
+  'an omitted explicitly requested route must be recovered from the original manifest rather than lost',
+);
+assert.match(
+  recoveredManifest.pages[1].goal,
+  /explicitly requested route/,
+  'recovered explicit routes must remain identified as user-requested',
+);
+
 
 
 const integritySiteMap = {

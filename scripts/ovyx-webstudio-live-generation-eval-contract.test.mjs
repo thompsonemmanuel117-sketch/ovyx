@@ -44,6 +44,8 @@ for (const [cause, expected] of [
 
 assert.ok(liveGenerationRoute.includes("OVYX_WEBSTUDIO_MAX_PAGES: isBudgetedStage4Smoke ? '2' : '8'"),
   'the full acceptance path keeps its eight-page ceiling; only the guarded site smoke is limited to two pages');
+assert.ok(liveGenerationRoute.includes("OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST_ONLY: isBudgetedStage4Smoke ? 'true' : 'false'"),
+  'only the fixed budgeted smoke may narrow model-inferred routes to its explicit two-page manifest');
 assert.match(liveGenerationRoute, /Create exactly TWO linked pages for a fictional Nigerian nursery-essentials retailer: Home and Contact/,
   'the smoke brief must not use generic “products”/“shop” nouns that the page-manifest extractor can mistake for extra requested routes');
 assert.doesNotMatch(liveGenerationRoute, /Create exactly TWO linked pages for a fictional Nigerian baby-products shop/,

@@ -314,6 +314,41 @@ function deterministicFallbackSiteMapTitles(prompt, explicitPages = []) {
   return titles;
 }
 
+export function restrictSiteMapToExplicitPages(raw, explicitPages, limit) {
+  if (!raw || !Array.isArray(raw.pages) || !Array.isArray(explicitPages)) return null;
+  const ceiling = Number(limit);
+  if (!Number.isSafeInteger(ceiling) || ceiling < 2) return null;
+  const key = value => String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const titles = [];
+  const seen = new Set();
+  for (const value of explicitPages) {
+    const title = String(value || '').trim().slice(0, 100);
+    const normalized = key(title);
+    if (!title || !normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    titles.push(title);
+  }
+  // Only narrow the sitemap when the full explicit manifest fits. If the
+  // prompt itself asks for more pages than allowed, preserve the normal guard.
+  if (titles.length < 2 || titles.length > ceiling) return null;
+  const byTitle = new Map();
+  for (const page of raw.pages) {
+    const title = String(page && (page.title || page.name) || '').trim();
+    const normalized = key(title);
+    if (normalized && !byTitle.has(normalized)) byTitle.set(normalized, page);
+  }
+  const pages = titles.map(title => {
+    const planned = byTitle.get(key(title));
+    return planned
+      ? { ...planned, title }
+      : { title, goal: 'Required by the original brief; preserve this explicitly requested route.' };
+  });
+  return {
+    ...raw,
+    pages,
+  };
+}
+
 function makeSiteMap(raw, limit) {
   if (!raw || !Array.isArray(raw.pages)) return { siteMap: null, overflow: 0 };
   const overflow = Math.max(0, raw.pages.length - limit), pages = [], seen = new Set();
@@ -721,6 +756,16 @@ async function buildStudioMultiPageOnce(options) {
   let normalized = makeSiteMap(plan && plan.siteMap, pageLimit);
   let siteMap = normalized.siteMap;
   let siteMapRecovery = null;
+
+  if (env.OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST_ONLY === 'true') {
+    const restrictedPlan = restrictSiteMapToExplicitPages(plan && plan.siteMap, promptContract.explicitPages, pageLimit);
+    if (restrictedPlan) {
+      normalized = makeSiteMap(restrictedPlan, pageLimit);
+      siteMap = normalized.siteMap;
+      plan = { ...(plan || {}), siteMap: restrictedPlan };
+      siteMapRecovery = 'bounded-evaluation-explicit-page-manifest';
+    }
+  }
 
   if (normalized.overflow > 0) {
     throw accountingError(Object.assign(new Error('The website exceeds the configured page ceiling of ' + pageLimit + '. Increase OVYX_WEBSTUDIO_MAX_PAGES to allow a larger site; no pages were silently dropped.'), { status: 413, code: 'WEBSTUDIO_PAGE_LIMIT' }), usage, hasUsage, inputs, outputs);
