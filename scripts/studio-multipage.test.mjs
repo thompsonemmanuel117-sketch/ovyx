@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { buildStudioMultiPage, restrictSiteMapToExplicitPages, resolveExplicitPageManifest, extractFirstHtmlDocument, validateStage4BrowserRuntime } from '../functions/_lib/studio-multipage.js';
+import { buildStudioMultiPage, restrictSiteMapToExplicitPages, resolveExplicitPageManifest, extractFirstHtmlDocument, validateStage4BrowserRuntime, repairStage4SmokeQaFormAttributes } from '../functions/_lib/studio-multipage.js';
 import { auditWebsiteIntegrity } from '../functions/_lib/site-integrity.js';
  
 assert.deepEqual(
@@ -121,6 +121,41 @@ assert.deepEqual(
   [],
   'the strict smoke validator must accept a correctly wired QA form whose fetch handler lives in the linked shared browser JavaScript',
 );
+
+const qaFormRepairFixture = [
+  {
+    path: 'src/pages/Contact.html',
+    content: '<!doctype html><html lang="en-NG"><head><title>Contact</title><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="description" content="Contact"><script src="../main.js"></script></head><body><main><h1>Contact</h1><form id="qa-form"><label>Name<input name="name" required></label><label>Email<input name="email" type="email" required></label><label>Message<textarea name="message" required></textarea></label><button type="submit">Send test enquiry</button></form></main></body></html>',
+  },
+  {
+    path: 'src/main.js',
+    content: "const form = document.getElementById('qa-form'); if (form) form.addEventListener('submit', async event => { event.preventDefault(); await fetch('/.well-known/ovyx-qa-enquiry', { method: 'POST', body: new FormData(form) }); });",
+  },
+];
+const qaFormRepair = repairStage4SmokeQaFormAttributes(qaFormRepairFixture, {
+  pages: [{ title: 'Contact', path: 'src/pages/Contact.html', url: '/contact/' }],
+}, true);
+assert.equal(qaFormRepair.repaired, true, 'the protected smoke should report when its local QA form contract is repaired deterministically');
+assert.ok(
+  qaFormRepair.staged[0].content.includes('method="post" action="/.well-known/ovyx-qa-enquiry"'),
+  'the protected smoke must force the isolated QA-only POST action rather than retain a missing or external destination',
+);
+assert.deepEqual(
+  validateStage4BrowserRuntime(qaFormRepair.staged, {
+    pages: [{ title: 'Contact', path: 'src/pages/Contact.html', url: '/contact/' }],
+  }),
+  [],
+  'the deterministic repair must produce a Contact form that passes the strict browser contract when its handler lives in main.js',
+);
+
+assert.equal(
+  repairStage4SmokeQaFormAttributes(qaFormRepairFixture, {
+    pages: [{ title: 'Contact', path: 'src/pages/Contact.html', url: '/contact/' }],
+  }, false).repaired,
+  false,
+  'regular user builds must not receive smoke-only QA form rewrites',
+);
+
 
 
 
