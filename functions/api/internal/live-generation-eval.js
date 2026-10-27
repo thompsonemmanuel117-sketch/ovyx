@@ -629,6 +629,7 @@ export async function handleLiveGenerationRequest(request, env, options = {}) {
     const builderEnv = {
       ...env,
       OVYX_WEBSTUDIO_MAX_PAGES: isBudgetedStage4Smoke ? '2' : '8',
+      OVYX_WEBSTUDIO_EXPLICIT_PAGE_MANIFEST_ONLY: isBudgetedStage4Smoke ? 'true' : 'false',
       OVYX_WEBSTUDIO_MAX_BATCH_FILES: isBudgetedStage4Smoke ? '3' : '6',
       OVYX_WEBSTUDIO_POLISH_ENABLED: isBudgetedStage4Smoke ? 'false' : (env.OVYX_WEBSTUDIO_POLISH_ENABLED || 'true'),
       ...(isBudgetedStage4Smoke ? {
