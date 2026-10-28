@@ -80,6 +80,8 @@ assert.ok(html.includes("window.OVYXOpenBrainSettings=openSettings;window.OVYXOp
   'Existing Agent Settings and Project Node Map handlers must be exposed to Pulse delegation.');
 assert.ok(html.includes("document.addEventListener('click',function(event){var button=event.target?.closest?.('#ws-brain-btn,#ws-context-btn');if(!button||!menu?.contains(button))return;"),
   'Brain and Project menu actions must survive button moves and re-renders through delegated click handling.');
+assert.ok(html.includes("/repo|github|build|generate|deploy|assistant|(?:^|[^a-z0-9])ai(?:$|[^a-z0-9])/i.test(String(n.id||''))"),
+  'The global sign-in guard must match AI identifiers as standalone tokens so “brain” settings are not accidentally blocked.');
 assert.ok(html.includes("button.id==='ws-brain-btn'?window.OVYXOpenBrainSettings:window.OVYXOpenProjectMap"),
   'Delegated Brain and Project actions must call the existing handlers instead of duplicating their behavior.');
 assert.ok(html.includes("try{window.OVYXBindShortcutPopovers?.()}catch(_){}"),
