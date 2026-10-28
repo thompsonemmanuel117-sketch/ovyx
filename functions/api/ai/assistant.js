@@ -74,7 +74,7 @@ export function buildWebStudioAttachmentContext(attachments) {
     remaining = Math.max(0, remaining - extractedText.length);
 
     const binaryNote = !extractedText && /^image\//i.test(type)
-      ? 'Image file is attached for preview/use as a visual asset, but this text-only context does not contain its pixels. Do not claim to have visually inspected it from the filename.'
+      ? 'Image file is attached for preview/use as a visual asset, but its pixels are not included in this text-only context. Do not claim to have visually inspected it from the filename.'
       : !extractedText
         ? 'No text extraction is available for this file in this request. Do not claim to have read its internal contents.'
         : '';
@@ -347,7 +347,7 @@ When discussing project changes, distinguish recommendations from changes actual
               combined,
               sourceInspectionContext,
               attachmentContextText,
-              projectContext ? 'PROJECT CONTEXT:\n' + projectContext : '',
+              isWebStudio && projectContext ? 'PROJECT CONTEXT:\n' + projectContext : '',
             ].filter(Boolean).join('\n\n'),
             maxTokens: isWebStudio
               ? Math.min(Number(payload.maxTokens || 32000), 32000)
