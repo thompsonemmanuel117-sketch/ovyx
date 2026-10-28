@@ -21,6 +21,7 @@ assert.ok(html.includes('max-height:min(32dvh,290px)'), 'Desktop Pulse menu heig
 assert.ok(html.includes('max-height:min(30dvh,255px)'), 'Mobile Pulse menu height must be bounded more tightly.');
 assert.ok(html.includes('min-height:0!important;height:auto!important;max-height:none!important'), 'The composer must override the legacy tall minimum-height.');
 assert.ok(html.includes('composer.prepend(menu);'), 'Pulse menu must anchor to the whole composer rather than the button row.');
+assert.ok(html.includes('tools.insertBefore(pulse,tools.firstChild);'), 'Pulse insertion must reference the actual toolbar parent after the popover moves to the composer.');
 assert.ok(html.includes('#ws-mode-menu [data-ws-mode] b{color:#f1f3f5!important'), 'Mode names must have readable light text against the dark menu.');
 assert.ok(html.includes("button.style.setProperty('width','34px','important')"), 'Pulse and microphone controls must remain compact after runtime inline styling.');
 assert.ok(!html.includes("button.style.setProperty('width','38px','important')"), 'Runtime must not override compact control sizing with oversized buttons.');
