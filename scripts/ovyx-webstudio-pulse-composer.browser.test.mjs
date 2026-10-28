@@ -198,6 +198,8 @@ try {
         }
       };
     });
+    await pulse.click();
+    await popover.waitFor({ state: 'visible' });
     const [fileChooser] = await Promise.all([page.waitForEvent('filechooser', { timeout: 10000 }), popover.locator('#ws-attach-btn').click()]);
     await fileChooser.setFiles({name:'reference.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\\nOVYX reference\\n%%EOF')});
     await page.waitForFunction(() => !document.getElementById('ws-attachment-strip')?.hidden && /reference\.pdf/.test(document.getElementById('ws-attachment-strip')?.innerText || ''));
