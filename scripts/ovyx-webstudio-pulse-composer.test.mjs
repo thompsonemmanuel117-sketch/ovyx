@@ -66,6 +66,27 @@ assert.match(html, /addPulseTool\('code','fa-code','Open Code editor'\)/, 'The C
 assert.match(html, /addPulseTool\('selection','fa-wand-magic-sparkles','Use selected element'\)/, 'Selected-element helper must be available in Pulse.');
 assert.match(html, /addPulseTool\('clear','fa-eraser','Clear draft and attachments'\)/, 'Clear draft must have a real action.');
 assert.match(html, /W\.openCodeEditor\(typeof W\.entryFile==='function'\?W\.entryFile\(\):undefined\)/, 'Open Code editor must call the real Web Studio code editor.');
+assert.ok(html.includes("function closePulsePopover(){var pulseMenu=document.getElementById('ws-pulse-popover'),trigger=document.getElementById('ws-pulse-trigger')"),
+  'Opening Agent Settings or the Project Node Map must close Pulse instead of stacking overlapping menus.');
+assert.ok(html.includes('function openSettings(ev){ev.preventDefault();ev.stopImmediatePropagation();closePulsePopover();closeOthers(settings);'),
+  'The AI brain/settings control must open its dedicated settings popover.');
+assert.ok(html.includes('function openMap(ev){ev.preventDefault();ev.stopImmediatePropagation();closePulsePopover();closeOthers(map);'),
+  'Project context must open the dedicated project node map.');
+assert.ok(html.includes("depthInput.addEventListener('input',function(){syncResponseDepth(depthInput.value,true)})"),
+  'The response-depth slider must have an input handler.');
+assert.ok(html.includes("localStorage.setItem(depthKey,String(depth))"),
+  'The response-depth preference must persist.');
+assert.ok(html.includes('Response depth preference: ${responseDepthInstruction}'),
+  'The stored response-depth choice must change the actual Engineering Brain system instruction.');
+assert.ok(html.includes("W.handlePreviewMenu==='function')W.handlePreviewMenu('visual')"),
+  'Use selected element must activate the existing Visual Select flow when there is no active selection.');
+assert.ok(html.includes("setTimeout(function(){attachInput.value=''},0)"),
+  'The file picker must reset after a selection so the same file can be attached again.');
+assert.ok(html.includes("camera.addEventListener('change',function(){var files=[...(camera.files||[])];camera.value=''"),
+  'Take photo must use the existing attachment pipeline and reset the native camera input.');
+assert.ok(html.includes("if(attachInput)attachInput.value='';if(camera)camera.value=''"),
+  'Clear draft must reset the file-picker state as well as staged attachments.');
+
 assert.match(html, /if\(W\.attachmentsReady&&typeof W\.attachmentsReady\.then==='function'\)await W\.attachmentsReady;/, 'Use in website must wait for pending file reads before adding the generated image.');
 assert.match(html, /input\.style\.setProperty\('height','32px','important'\)/, 'The composer must reset to a compact one-line height with priority over legacy handlers.');
 assert.match(html, /var max=150/, 'The composer must expand for longer prompts with a bounded maximum height.');
