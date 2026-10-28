@@ -858,6 +858,7 @@
         } else if (isNativeReadableTextFile(file) && item.size <= MAX_NATIVE_TEXT_FILE_BYTES) {
           const rawText = await file.text();
           const safeText = redactNativeAttachmentText(rawText);
+          const credentialsMasked = safeText !== rawText;
           const limit = Math.max(0, Math.min(6000, remainingText));
           if (!safeText.trim()) {
             item.status = 'Text file is empty';
@@ -868,7 +869,7 @@
             remainingText -= item.textContent.length;
             item.status = item.textContent.length < safeText.length
               ? 'Text excerpt ready · content bounded'
-              : 'Text ready · common credentials masked';
+              : credentialsMasked ? 'Text ready · credential patterns masked' : 'Text ready · credential scan clear';
           }
         } else if (isNativeReadableTextFile(file)) {
           item.status = 'Metadata only · text file is over 1 MB';
