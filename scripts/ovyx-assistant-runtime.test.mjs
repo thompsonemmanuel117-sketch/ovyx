@@ -99,8 +99,8 @@ assert.match(source, /function renderNativeAttachmentStrip\(\)/);
 assert.match(source, /function syncNativeComposerState\(\)/);
 assert.match(source, /context\.userAttachments\[\]/);
 assert.match(source, /ovyx native assistant refinement: calm hierarchy, compact controls, no competing glow/i);
-assert.match(source, /\\.ovyx-native-attach:disabled/);
-assert.match(source, /@media\\(prefers-reduced-motion:reduce\\)/);
+assert.match(source, /\.ovyx-native-attach:disabled/);
+assert.match(source, /@media\(prefers-reduced-motion:reduce\)/);
 assert.match(source, /safeText\.slice\(0, limit\)/);
 assert.match(source, /MAX_NATIVE_ATTACHMENT_TEXT = 16000/);
 assert.doesNotMatch(source, /attachmentInput\.accept\s*=/,
