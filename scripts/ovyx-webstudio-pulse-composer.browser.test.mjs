@@ -120,16 +120,19 @@ try {
     const stagedImageBox = await stagedImage.boundingBox();
     assert.ok(stagedImageBox && stagedImageBox.width > 90 && stagedImageBox.height > 60,
       '[' + target.name + '] uploaded image should be previewed at a useful size before sending.');
-    await page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-actions button').filter({hasText:'Preview'}).first().click();
+    const imageCard = page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-card').filter({hasText:'reference-image.svg'});
+    await imageCard.locator('.ws-attachment-preview-actions button').filter({hasText:'Preview'}).click();
     const fullImagePreview = page.locator('#ws-file-preview-overlay:not([hidden]) .ws-file-preview-full-image');
     await fullImagePreview.waitFor({state:'visible'});
     const fullImageBox = await fullImagePreview.boundingBox();
     assert.ok(fullImageBox && fullImageBox.width > 120,
       '[' + target.name + '] image preview should open in a large full-view surface.');
     await page.locator('#ws-file-preview-overlay [data-ws-file-preview-close]').click();
-    await page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-remove').first().click();
-    assert.equal(await page.locator('#ws-attachment-preview-gallery').isHidden(), true,
-      '[' + target.name + '] removing the attachment should remove its preview too.');
+    await imageCard.locator('.ws-attachment-preview-remove').click();
+    assert.equal(await page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-card').filter({hasText:'reference-image.svg'}).count(), 0,
+      '[' + target.name + '] removing the selected image must remove its own preview.');
+    assert.match(await page.locator('#ws-attachment-preview-gallery').innerText(), /reference\.pdf/,
+      '[' + target.name + '] removing one preview must preserve other staged files.');
 
     // Exercise the actual microphone UI without relying on CI hardware: a fake
     // MediaRecorder supplies the same Blob/event contract as a browser recording.
