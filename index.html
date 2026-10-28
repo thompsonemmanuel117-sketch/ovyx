@@ -17898,7 +17898,16 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
       else{updateVoicePanel('recorded',String(error?.message||'Could not transcribe the recording.'));toast(String(error?.message||'Could not transcribe the recording.'),'error');}
     }finally{
       if(voiceAbortController===currentVoiceController)voiceAbortController=null;
-      if(sendToAI&&voiceWorkId===activeWorkId){composerWorking=false;syncComposerSendState(W);}
+      if(sendToAI&&voiceWorkId===activeWorkId){
+        composerWorking=false;
+        syncComposerSendState(W);
+      }else if(sendToAI&&currentVoiceController.signal.aborted&&!imageBusy&&!W?.pendingBuild&&!W?.liveAiActive){
+        // Stop increments activeWorkId to invalidate stale results. That is
+        // correct for message safety, but this cancelled request still needs
+        // to release the composer UI after its fetch/FileReader settles.
+        composerWorking=false;
+        syncComposerSendState(W);
+      }
     }
   }
   function installVoiceMessageRenderer(W){
