@@ -17860,10 +17860,15 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
         // Transfer ownership to the chat bubble so recording another note does not revoke its player.
         voiceObjectUrl='';
         toast('Voice note transcribed. Sending it to OVYX…','success');
+        // The chat bubble now owns the playback URL, so clear the recording
+        // controls without revoking the audio attached to the conversation.
+        discardVoiceRecording();
+        updateVoicePanel('ready','Voice note sent. Ready to record another note or dictate text.');
         // Hand the Stop control from transcription to the normal prompt request.
         composerWorking=false;
         await W.submitPrompt();
       }else{
+        updateVoicePanel('recorded','Transcript inserted. Review or edit the text, send it, or record another note.');
         toast('Transcript inserted. Review it, edit it, then send when ready.','success');
       }
     }catch(error){
