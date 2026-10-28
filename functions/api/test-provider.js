@@ -1,4 +1,4 @@
-import { isCloudflareFreeOnlyMode, isCloudflareWorkersAIGuardedMode } from '../_lib/cloudflare-free-ai.js';
+import { isCloudflareFreeOnlyMode, isCloudflareWorkersAIGuardedMode, isLegacyProviderRoutingEnabled } from '../_lib/cloudflare-free-ai.js';
 'use strict';
 
 import { assertAuthenticated } from '../_lib/firebase.js';
@@ -51,7 +51,6 @@ export async function onRequest(context) {
     }
     // Legacy provider tests are available only while the explicit rollback route
     // is enabled. A missing/unsupported mode is not permission to contact old APIs.
-    const { isLegacyProviderRoutingEnabled } = await import('../_lib/cloudflare-free-ai.js');
     if (!isLegacyProviderRoutingEnabled(context.env)) {
       return errorResponse(409, 'PROVIDER_TESTS_DISABLED_BY_ENGINE_MODE', 'Legacy provider tests are disabled because OVYX legacy provider routing is not explicitly enabled.', id);
     }
