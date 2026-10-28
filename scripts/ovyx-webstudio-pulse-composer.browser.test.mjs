@@ -16,16 +16,23 @@ try {
     await page.waitForSelector('#ws-pulse-trigger', { state: 'attached' });
     await page.waitForLoadState('load', { timeout: 30000 }).catch(() => {});
     await page.evaluate(() => {
-      if (window.KernelState) window.KernelState.activeView = 'webstudio';
-      window.__OVYX_BOOT_ROUTE = 'webstudio';
-      document.body.classList.add('ovyx-webstudio-active');
-      const view = document.getElementById('view-webstudio');
-      if (view) {
-        view.classList.remove('hidden');
-        view.setAttribute('aria-hidden', 'false');
+      // Use the real router; forcing CSS classes alone lets the shell route
+      // synchronizer hide the view again during a longer browser interaction.
+      if (typeof window.switchView === 'function') {
+        window.switchView('webstudio', { silent: true });
+      } else {
+        if (window.KernelState) window.KernelState.activeView = 'webstudio';
+        window.__OVYX_BOOT_ROUTE = 'webstudio';
+        document.body.classList.add('ovyx-webstudio-active');
+        const view = document.getElementById('view-webstudio');
+        if (view) {
+          view.classList.remove('hidden');
+          view.setAttribute('aria-hidden', 'false');
+        }
+        window.dispatchEvent(new CustomEvent('ovyx:view-changed', { detail: { view: 'webstudio' } }));
       }
-      window.dispatchEvent(new CustomEvent('ovyx:view-changed', { detail: { view: 'webstudio' } }));
-    });
+      document.body.classList.add('ovyx-webstudio-active');
+    });;
 
     const pulse = page.locator('#ws-pulse-trigger');
     const mic = page.locator('#ws-composer-mic');
