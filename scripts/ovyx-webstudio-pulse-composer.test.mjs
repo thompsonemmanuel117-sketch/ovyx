@@ -27,6 +27,7 @@ assert.match(html, /data-ovyx-use-generated-image/, 'Generated images must have 
 assert.match(html, /download\.download=asset\.name/, 'Generated images must be downloadable.');
 assert.match(html, /currentAttachments\.concat\(attachment\)/, 'Use in website must append the generated image without dropping existing attachments.');
 assert.match(html, /currentAttachments\.length>=6/, 'The generated image action must retain the six-attachment limit.');
+assert.match(html, /if\(W\.attachmentsReady&&typeof W\.attachmentsReady\.then==='function'\)await W\.attachmentsReady;/, 'Use in website must wait for pending file reads before adding the generated image.');
 assert.match(html, /input\.style\.height='42px'/, 'The composer must reset to a compact one-line height.');
 assert.match(html, /var max=180/, 'The composer must expand for longer prompts with a bounded maximum height.');
 assert.match(html, /Math\.min\(Math\.max\(contentHeight, 42\), 180\)/, 'The original Web Studio input handler must not force tall minimums after typing.');
