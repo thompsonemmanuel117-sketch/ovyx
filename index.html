@@ -14241,6 +14241,9 @@ window.OVYXDeepRepair={version:'1.0',requireAuth,projectSync:ProjectCloudSync,br
   function installProtectedActions(){
     document.addEventListener('click',e=>{
       const target=e.target?.closest?.('#ws-chat-send,[data-repo-sync],[data-github-sync],button[id*="repo"][id*="sync"],button[id*="github"][id*="sync"],[data-active-design-asset]');
+      // Stop is cancellation of an already-authorized request, not a new AI
+      // execution; never route it into the sign-in gate.
+      if(target?.id==='ws-chat-send'&&(target.dataset.ovyxComposerState==='stop'||target.getAttribute('aria-label')==='Stop generating'))return;
       if(target&&!window.OVYXDeepRepair?.requireAuth?.(target.id?.includes('repo')||target.dataset.repoSync||target.dataset.githubSync?'Repository synchronization':target.id==='ws-chat-send'?'AI prompt execution':'Design asset access')){e.preventDefault();e.stopImmediatePropagation();}
     },true);
     document.addEventListener('keydown',e=>{const input=e.target?.closest?.('#bot-chat-input,#ws-chat-input');if(input&&e.key==='Enter'&&!e.shiftKey&&!window.OVYXDeepRepair?.requireAuth?.('AI chat')){e.preventDefault();e.stopImmediatePropagation();}},true);
@@ -14474,6 +14477,10 @@ function installExploreGuard(){
   if(authSurface)return;
   const n=target?.closest?.('#ws-chat-send,#as4-generate,[data-repo-sync],[data-github-sync],button, a');
   if(!n)return;
+  // The same composer button becomes a Stop control while work is active.
+  // Cancellation must not be mistaken for a fresh "generate" action by the
+  // broad sign-in guard below.
+  if(n.id==='ws-chat-send'&&(n.dataset.ovyxComposerState==='stop'||n.getAttribute('aria-label')==='Stop generating'))return;
   const text=String(n.innerText||n.getAttribute('aria-label')||n.title||'').trim();
   const protectedAction=/^(send|download project|publish \/ deploy|convert to mobile app|run tests & repair|open code editor|project file graph|history & diff)$/i.test(text)||/repo|github|build|generate|deploy|assistant|(?:^|[^a-z0-9])ai(?:$|[^a-z0-9])/i.test(String(n.id||''));
   if(!protectedAction)return;
