@@ -307,7 +307,7 @@ try {
       {
         name: 'assistant-reference.md',
         mimeType: 'text/markdown',
-        buffer: Buffer.from('ATTACHMENT_CONTEXT_SENTINEL\\nPlease keep the file handoff truthful and preserve relevant project details.\\napi_key=ATTACHMENT_SECRET_SHOULD_NOT_REACH_MODEL'),
+        buffer: Buffer.from('ATTACHMENT_CONTEXT_SENTINEL\nPlease keep the file handoff truthful and preserve relevant project details.\napi_key=ATTACHMENT_SECRET_SHOULD_NOT_REACH_MODEL'),
       },
       {
         name: 'assistant-reference.pdf',
