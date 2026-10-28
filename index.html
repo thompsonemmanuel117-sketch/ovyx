@@ -17264,6 +17264,47 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
   body.ovyx-webstudio-active #view-webstudio .ws-pulse-busy{opacity:.6!important;pointer-events:none!important}
   @media(max-width:767px){body.ovyx-webstudio-active #view-webstudio .ws-pulse-popover{width:min(248px,calc(100vw - 24px))!important;max-height:min(46dvh,340px)!important}body.ovyx-webstudio-active #view-webstudio #ws-chat-input{font-size:16px!important}}
   @media(prefers-reduced-motion:reduce){body.ovyx-webstudio-active #view-webstudio .ws-pulse-trigger,body.ovyx-webstudio-active #view-webstudio .ws-composer-mic{transition:none!important}}
+
+/* FINAL PULSE VISUAL AUTHORITY — compact input, accessible modes, correctly anchored menu. */
+body.ovyx-webstudio-active #view-webstudio .ovyx-ws-composer{
+position:relative!important;display:flex!important;flex-direction:column!important;justify-content:flex-start!important;align-content:start!important;align-items:stretch!important;flex:0 0 auto!important;min-height:0!important;height:auto!important;max-height:none!important;gap:1px!important;padding:6px 9px!important;box-sizing:border-box!important;overflow:visible!important;border-radius:24px!important;border:1px solid rgba(255,255,255,.13)!important;background:#171719!important;box-shadow:0 2px 12px rgba(0,0,0,.14)!important}
+body.ovyx-webstudio-active #view-webstudio .ovyx-ws-composer-wrap{min-height:0!important;height:auto!important;max-height:none!important;padding-top:0!important;padding-bottom:max(8px,env(safe-area-inset-bottom,0px))!important}
+body.ovyx-webstudio-active #view-webstudio #ws-chat-input{display:block!important;box-sizing:border-box!important;width:100%!important;min-height:32px!important;height:32px!important;max-height:150px!important;resize:none!important;overflow-y:hidden!important;outline:0!important;border:0!important;padding:4px 5px!important;margin:0!important;background:transparent!important;color:#f5f6f7!important;font:500 14px/1.5 Inter,system-ui,sans-serif!important;letter-spacing:0!important;overflow-wrap:anywhere!important;white-space:pre-wrap!important}
+body.ovyx-webstudio-active #view-webstudio #ws-chat-input::placeholder{color:#a1a6af!important;opacity:1!important}
+body.ovyx-webstudio-active #view-webstudio .ovyx-ws-composer-tools{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:8px!important;margin:0!important;padding:4px 0 0!important;min-height:34px!important;flex:0 0 auto!important;border-top:1px solid rgba(255,255,255,.075)!important}
+body.ovyx-webstudio-active #view-webstudio .ovyx-ws-tools-left{position:static!important;display:flex!important;align-items:center!important;gap:7px!important;min-width:0!important;overflow:visible!important;flex:1 1 auto!important}
+body.ovyx-webstudio-active #view-webstudio #ws-chat-send{display:grid!important;place-items:center!important;flex:0 0 34px!important;width:34px!important;height:34px!important;min-width:34px!important;max-width:34px!important;padding:0!important;border-radius:50%!important;background:#f0f0f0!important;color:#101010!important;font-size:19px!important;font-weight:800!important;box-shadow:none!important}
+body.ovyx-webstudio-active #view-webstudio #ws-chat-send:disabled{opacity:.42!important}
+body.ovyx-webstudio-active #view-webstudio .ws-pulse-trigger,body.ovyx-webstudio-active #view-webstudio .ws-composer-mic{display:grid!important;place-items:center!important;flex:0 0 34px!important;width:34px!important;height:34px!important;min-width:34px!important;max-width:34px!important;padding:0!important;border:1px solid rgba(255,255,255,.11)!important;border-radius:50%!important;background:rgba(255,255,255,.055)!important;color:#e6e8eb!important;font-size:14px!important;cursor:pointer!important;touch-action:manipulation!important}
+body.ovyx-webstudio-active #view-webstudio .ws-pulse-trigger i{font-size:16px!important;color:inherit!important}
+body.ovyx-webstudio-active #view-webstudio .ws-composer-mic{border-color:transparent!important;background:transparent!important;color:#b3bac3!important}
+body.ovyx-webstudio-active #view-webstudio .ws-pulse-trigger:hover,body.ovyx-webstudio-active #view-webstudio .ws-composer-mic:hover{border-color:rgba(232,182,79,.34)!important;background:rgba(232,182,79,.07)!important;color:#f1c66c!important}
+body.ovyx-webstudio-active #view-webstudio .ws-pulse-trigger[aria-expanded="true"]{border-color:rgba(232,182,79,.48)!important;background:rgba(232,182,79,.09)!important;color:#f1c66c!important}
+/* Parent is the whole composer, so the menu opens above it rather than covering the text row. */
+body.ovyx-webstudio-active #view-webstudio .ws-pulse-popover{position:absolute!important;left:0!important;right:auto!important;bottom:calc(100% + 8px)!important;z-index:2147483009!important;box-sizing:border-box!important;width:min(220px,calc(100vw - 24px))!important;max-width:calc(100vw - 24px)!important;max-height:min(32dvh,290px)!important;overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior:contain!important;padding:7px!important;margin:0!important;border:1px solid rgba(255,255,255,.12)!important;border-radius:15px!important;background:rgba(14,15,17,.985)!important;color:#f1f3f6!important;box-shadow:0 16px 48px rgba(0,0,0,.55)!important;backdrop-filter:blur(22px)!important;-webkit-backdrop-filter:blur(22px)!important;scrollbar-width:thin!important;scrollbar-color:#3f4247 transparent!important}
+body.ovyx-webstudio-active #view-webstudio .ws-pulse-popover.open{display:grid!important;gap:5px!important}
+body.ovyx-webstudio-active #view-webstudio .ws-pulse-popover-head{display:flex!important;align-items:center!important;justify-content:space-between!important;padding:1px 2px 6px!important;border-bottom:1px solid rgba(255,255,255,.08)!important;color:#c8cdd5!important;font:800 9px/1.25 JetBrains Mono,monospace!important;letter-spacing:.12em!important}
+body.ovyx-webstudio-active #view-webstudio .ws-pulse-popover-head button{width:25px!important;height:25px!important;border:1px solid rgba(255,255,255,.1)!important;border-radius:8px!important;background:rgba(255,255,255,.04)!important;color:#e5e7eb!important}
+body.ovyx-webstudio-active #view-webstudio .ws-pulse-section-label{margin:3px 2px 1px!important;color:#9ca5b1!important;font:800 9px/1.25 JetBrains Mono,monospace!important;letter-spacing:.09em!important;text-transform:uppercase!important}
+body.ovyx-webstudio-active #view-webstudio .ws-pulse-modes{display:block!important;min-width:0!important}
+body.ovyx-webstudio-active #view-webstudio #ws-mode-menu{position:static!important;inset:auto!important;display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:3px!important;width:100%!important;padding:0!important;margin:0!important;border:0!important;background:transparent!important;box-shadow:none!important}
+body.ovyx-webstudio-active #view-webstudio #ws-mode-menu[hidden]{display:none!important}
+body.ovyx-webstudio-active #view-webstudio #ws-mode-menu [data-ws-mode]{display:flex!important;flex-direction:column!important;align-items:flex-start!important;justify-content:center!important;gap:2px!important;box-sizing:border-box!important;min-width:0!important;min-height:30px!important;padding:5px 8px!important;border:1px solid rgba(255,255,255,.075)!important;border-radius:9px!important;background:rgba(255,255,255,.025)!important;color:#f1f3f5!important;text-align:left!important;cursor:pointer!important}
+body.ovyx-webstudio-active #view-webstudio #ws-mode-menu [data-ws-mode].active{border-color:rgba(232,182,79,.42)!important;background:rgba(232,182,79,.085)!important}
+body.ovyx-webstudio-active #view-webstudio #ws-mode-menu [data-ws-mode] b{color:#f1f3f5!important;font:750 11px/1.2 Inter,system-ui,sans-serif!important}
+body.ovyx-webstudio-active #view-webstudio #ws-mode-menu [data-ws-mode] small{color:#a5aeb9!important;font:500 9px/1.35 Inter,system-ui,sans-serif!important}
+body.ovyx-webstudio-active #view-webstudio .ws-pulse-actions,body.ovyx-webstudio-active #view-webstudio .ws-pulse-extra{display:grid!important;grid-template-columns:minmax(0,1fr)!important;gap:3px!important;min-width:0!important}
+body.ovyx-webstudio-active #view-webstudio .ws-pulse-action{display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:8px!important;box-sizing:border-box!important;width:100%!important;min-width:0!important;min-height:30px!important;padding:6px 8px!important;border:1px solid rgba(255,255,255,.075)!important;border-radius:9px!important;background:rgba(255,255,255,.025)!important;color:#eef0f3!important;text-align:left!important;font:700 10px/1.3 Inter,system-ui,sans-serif!important;cursor:pointer!important}
+body.ovyx-webstudio-active #view-webstudio .ws-pulse-action i{width:14px!important;flex:0 0 14px!important;color:#e8b64f!important;text-align:center!important}
+body.ovyx-webstudio-active #view-webstudio .ws-pulse-action:hover,body.ovyx-webstudio-active #view-webstudio .ws-pulse-popover .ovyx-ws-tool:hover{border-color:rgba(232,182,79,.35)!important;background:rgba(232,182,79,.055)!important}
+body.ovyx-webstudio-active #view-webstudio .ws-pulse-popover .ovyx-ws-tool{display:flex!important;align-items:center!important;justify-content:flex-start!important;gap:8px!important;box-sizing:border-box!important;width:100%!important;min-width:0!important;min-height:30px!important;padding:6px 8px!important;border:1px solid rgba(255,255,255,.075)!important;border-radius:9px!important;background:rgba(255,255,255,.025)!important;color:#eef0f3!important;font:700 10px/1.3 Inter,system-ui,sans-serif!important;cursor:pointer!important}
+body.ovyx-webstudio-active #view-webstudio .ws-pulse-popover .ovyx-ws-tool span{color:#eef0f3!important}
+body.ovyx-webstudio-active #view-webstudio .ws-pulse-popover #ws-attach-input,body.ovyx-webstudio-active #view-webstudio .ws-pulse-popover #ws-camera-input{display:none!important}
+body.ovyx-webstudio-active #view-webstudio .ws-pulse-menu-note{margin:2px 2px 0!important;color:#a0a7b1!important;font:500 9px/1.4 Inter,system-ui,sans-serif!important}
+body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9px!important}
+@media(max-width:767px){body.ovyx-webstudio-active #view-webstudio .ovyx-ws-composer{padding:6px 8px!important}body.ovyx-webstudio-active #view-webstudio #ws-chat-input{font-size:16px!important}body.ovyx-webstudio-active #view-webstudio .ws-pulse-popover{left:0!important;width:min(220px,calc(100vw - 24px))!important;max-width:calc(100vw - 24px)!important;max-height:min(30dvh,255px)!important;bottom:calc(100% + 8px)!important}}
+@media(prefers-reduced-motion:reduce){body.ovyx-webstudio-active #view-webstudio .ws-pulse-trigger,body.ovyx-webstudio-active #view-webstudio .ws-composer-mic{transition:none!important}}
+
 </style>
 <script id="ovyx-webstudio-pulse-composer-runtime-v1">
 (function(){
@@ -17276,7 +17317,7 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
   function toast(message,type){try{window.showToast?window.showToast(message,type||'info'):console.info('[OVYX]',message)}catch(_){}}
   function closeMenu(){if(!menu||!pulse)return;menu.classList.remove('open');pulse.setAttribute('aria-expanded','false');}
   function setComposerValue(value){var input=$('ws-chat-input');if(!input)return;input.placeholder='Message OVYX…';input.value=String(value||'');input.dispatchEvent(new Event('input',{bubbles:true}));input.focus();resizeInput(input);}
-  function resizeInput(input){if(!input)return;input.style.height='42px';var max=180;var contentHeight=Math.ceil(input.scrollHeight||42);var next=Math.min(Math.max(contentHeight,42),max);input.style.height=next+'px';input.style.overflowY=contentHeight>max?'auto':'hidden';}
+  function resizeInput(input){if(!input)return;input.style.setProperty('height','32px','important');var max=150;var contentHeight=Math.ceil(input.scrollHeight||32);var next=Math.min(Math.max(contentHeight,32),max);input.style.setProperty('height',next+'px','important');input.style.setProperty('overflow-y',contentHeight>max?'auto':'hidden','important');}
   function setup(){
     var W=window.WebStudio,composer=$('ws-chat-composer'),tools=composer?.querySelector('.ovyx-ws-tools-left');
     if(composer?.dataset.ovyxPulseComposer==='1')return true;
@@ -17284,8 +17325,8 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
     composer.dataset.ovyxPulseComposer='1';root=tools;
     menu=document.createElement('div');menu.className='ws-pulse-popover';menu.id='ws-pulse-popover';menu.setAttribute('role','dialog');menu.setAttribute('aria-label','OVYX tools and modes');
     menu.innerHTML='<div class="ws-pulse-popover-head"><span>OVYX PULSE</span><button type="button" data-ws-pulse-close aria-label="Close tools">×</button></div><div class="ws-pulse-section-label">Modes</div><div class="ws-pulse-modes"></div><div class="ws-pulse-section-label">Create and attach</div><div class="ws-pulse-actions"><button type="button" class="ws-pulse-action" data-ws-pulse-action="image"><i class="fa-regular fa-image" aria-hidden="true"></i><span>Create image</span></button><button type="button" class="ws-pulse-action" data-ws-pulse-action="camera"><i class="fa-solid fa-camera" aria-hidden="true"></i><span>Take photo</span></button></div><div class="ws-pulse-section-label">Workspace tools</div><div class="ws-pulse-extra"></div><p class="ws-pulse-menu-note">You can ask for an image directly in chat. OVYX will generate it here without opening a separate image studio.</p>';
-    tools.prepend(menu);
-    pulse=document.createElement('button');pulse.type='button';pulse.className='ws-pulse-trigger';pulse.id='ws-pulse-trigger';pulse.setAttribute('aria-label','Open OVYX tools');pulse.setAttribute('aria-haspopup','dialog');pulse.setAttribute('aria-expanded','false');pulse.title='OVYX tools and modes';pulse.innerHTML='<i class="fa-solid fa-plus" aria-hidden="true"></i>';tools.insertBefore(pulse,menu.nextSibling);
+    composer.prepend(menu);
+    pulse=document.createElement('button');pulse.type='button';pulse.className='ws-pulse-trigger';pulse.id='ws-pulse-trigger';pulse.setAttribute('aria-label','Open OVYX tools');pulse.setAttribute('aria-haspopup','dialog');pulse.setAttribute('aria-expanded','false');pulse.title='OVYX tools and modes';pulse.innerHTML='<i class="fa-solid fa-plus" aria-hidden="true"></i>';tools.insertBefore(pulse,tools.firstChild);
     mic=document.createElement('button');mic.type='button';mic.className='ws-composer-mic';mic.id='ws-composer-mic';mic.setAttribute('aria-label','Dictate prompt');mic.setAttribute('aria-pressed','false');mic.title='Dictate prompt';mic.innerHTML='<i class="fa-solid fa-microphone" aria-hidden="true"></i>';tools.insertBefore(mic,pulse.nextSibling);
     tools.style.setProperty('display','flex','important');tools.style.setProperty('visibility','visible','important');tools.style.setProperty('opacity','1','important');tools.style.setProperty('overflow','visible','important');
     [pulse,mic].forEach(function(button){button.style.setProperty('display','grid','important');button.style.setProperty('place-items','center','important');button.style.setProperty('flex','0 0 34px','important');button.style.setProperty('width','34px','important');button.style.setProperty('height','34px','important');button.style.setProperty('min-width','34px','important');button.style.setProperty('visibility','visible','important');button.style.setProperty('opacity','1','important');button.style.setProperty('pointer-events','auto','important');button.style.setProperty('position','relative','important');button.style.setProperty('z-index','2','important');});
@@ -17294,23 +17335,29 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
     if(head)head.style.display='none';
     var attach=$('ws-attach-btn'),attachInput=$('ws-attach-input'),brain=$('ws-brain-btn'),context=$('ws-context-btn');
     var extra=menu.querySelector('.ws-pulse-extra');
-    if(attach){var label=attach.querySelector('span');if(label)label.textContent='Upload files or images';extra.appendChild(attach);}
-    if(attachInput)extra.appendChild(attachInput);
-    if(brain)extra.appendChild(brain);
-    if(context)extra.appendChild(context);
+    var actionRows=menu.querySelector('.ws-pulse-actions');
+    if(attach){var label=attach.querySelector('span');if(label)label.textContent='Upload files or images';var cameraButton=menu.querySelector('[data-ws-pulse-action="camera"]');if(actionRows&&cameraButton)actionRows.insertBefore(attach,cameraButton);else if(extra)extra.appendChild(attach);}
+    if(attachInput){attachInput.removeAttribute('accept');if(extra)extra.appendChild(attachInput);attachInput.addEventListener('change',function(){if(attachInput.files&&attachInput.files.length)closeMenu();});}
+    if(brain){if(extra)extra.appendChild(brain);brain.addEventListener('click',function(){setTimeout(closeMenu,0);});}
+    if(context){if(extra)extra.appendChild(context);context.addEventListener('click',function(){setTimeout(closeMenu,0);});}
+    function addPulseTool(key,icon,label){var button=document.createElement('button');button.type='button';button.className='ws-pulse-action';button.dataset.wsPulseAction=key;button.innerHTML='<i class="fa-solid '+icon+'" aria-hidden="true"></i><span></span>';button.querySelector('span').textContent=label;return button;}
+    if(extra){extra.appendChild(addPulseTool('code','fa-code','Open Code editor'));extra.appendChild(addPulseTool('selection','fa-wand-magic-sparkles','Use selected element'));extra.appendChild(addPulseTool('clear','fa-eraser','Clear draft and attachments'));}
     var camera=document.createElement('input');camera.type='file';camera.id='ws-camera-input';camera.accept='image/*';camera.setAttribute('capture','environment');camera.hidden=true;menu.appendChild(camera);
     pulse.addEventListener('click',function(event){event.preventDefault();event.stopPropagation();var opening=!menu.classList.contains('open');if(opening){menu.classList.add('open');pulse.setAttribute('aria-expanded','true');if(modeMenu)modeMenu.hidden=false;}else closeMenu();});
     menu.querySelector('[data-ws-pulse-close]').addEventListener('click',closeMenu);
     menu.querySelector('[data-ws-pulse-action="image"]').addEventListener('click',function(){W.setMode('build');setComposerValue('Create an image of ');closeMenu();});
     menu.querySelector('[data-ws-pulse-action="camera"]').addEventListener('click',function(){camera.click();});
     camera.addEventListener('change',function(){var files=[...(camera.files||[])];camera.value='';if(files.length&&typeof W.setAttachments==='function')W.setAttachments([...(files||[])]);closeMenu();});
+    menu.querySelector('[data-ws-pulse-action="code"]')?.addEventListener('click',function(){closeMenu();try{W.ensureProjectGraph?.();if(typeof W.openCodeEditor==='function')W.openCodeEditor(typeof W.entryFile==='function'?W.entryFile():undefined);else toast('The Code editor is not available in this session.','error');}catch(error){toast(String(error?.message||'Could not open the Code editor.'),'error');}});
+    menu.querySelector('[data-ws-pulse-action="selection"]')?.addEventListener('click',function(){closeMenu();var selected=W.selectedElement;if(!selected){toast('Select an element in the website preview first.','info');return;}W.setMode('build');var title=String(selected.title||selected.name||selected.tagName||'selected element');setComposerValue('Improve '+title+' in the current website. Preserve the existing design system, project structure, and responsive behavior.');});
+    menu.querySelector('[data-ws-pulse-action="clear"]')?.addEventListener('click',function(){closeMenu();var field=$('ws-chat-input');if(field){field.value='';resizeInput(field);field.dispatchEvent(new Event('input',{bubbles:true}));}if(Array.isArray(W.attachments)){W._attachmentsVersion=Number(W._attachmentsVersion||0)+1;W.attachments=[];W.attachmentsReady=Promise.resolve([]);W.renderAttachments?.();}toast('Draft and staged attachments cleared. Your project was not changed.','success');});
     modeMenu?.addEventListener('click',function(event){if(event.target.closest('[data-ws-mode]'))setTimeout(function(){closeMenu();var field=$('ws-chat-input');if(field){field.placeholder='Message OVYX…';resizeInput(field);}},0);});
     mic.addEventListener('click',toggleDictation);
     document.addEventListener('click',function(event){if(menu&&!menu.contains(event.target)&&event.target!==pulse&&!pulse.contains(event.target))closeMenu();},true);
     document.addEventListener('keydown',function(event){if(event.key==='Escape'&&menu?.classList.contains('open'))closeMenu();});
     var input=$('ws-chat-input');
     if(input){
-      input.rows=1;input.placeholder='Message OVYX…';input.style.height='42px';resizeInput(input);
+      input.rows=1;input.placeholder='Message OVYX…';input.style.height='32px';resizeInput(input);
       input.addEventListener('input',function(){resizeInput(input);});
       input.addEventListener('keydown',function(event){if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();W.submitPrompt?.();}});
     }
@@ -17382,7 +17429,7 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
     menu?.classList.remove('open');
     if(pulse)pulse.setAttribute('aria-expanded','false');
     W.appendMessage('user',text);
-    if(input){input.value='';input.placeholder='Message OVYX…';input.style.height='42px';input.dispatchEvent(new Event('input',{bubbles:true}));}
+    if(input){input.value='';input.placeholder='Message OVYX…';input.style.height='32px';input.dispatchEvent(new Event('input',{bubbles:true}));}
     try{
       if(typeof W.status==='function')W.status('Generating image…','live');
       var token=await imageToken();
