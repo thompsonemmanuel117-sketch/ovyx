@@ -1,4 +1,4 @@
-import { isCloudflareFreeOnlyMode } from '../../_lib/cloudflare-free-ai.js';
+import { isCloudflareFreeOnlyMode, isCloudflareWorkersAIGuardedMode, isLegacyProviderRoutingEnabled } from '../../_lib/cloudflare-free-ai.js';
 import { assertAuthenticated } from '../../_lib/firebase.js';
 import { errorResponse, requestId } from '../_lib/http.js';
 
@@ -162,16 +162,61 @@ export async function onRequestGet(context) {
       );
     }
 
-    if (isCloudflareFreeOnlyMode(context.env)) {
-      const workersAi = Boolean(context.env?.AI && typeof context.env.AI.run === 'function');
+    const workersAi = Boolean(context.env?.AI && typeof context.env.AI.run === 'function');
+
+    // Diagnostics must describe the same routing gate as callModel(). In a
+    // guarded mode, never probe third-party providers. If legacy routing is not
+    // explicitly enabled, report that it is disabled instead of implying those
+    // providers are live candidates.
+    if (isCloudflareWorkersAIGuardedMode(context.env)) {
+      const freeOnly = isCloudflareFreeOnlyMode(context.env);
+      const engineMode = freeOnly ? 'cloudflare-free-only' : 'cloudflare-paid-capped';
+      const disabledStatus = freeOnly ? 'DISABLED_BY_FREE_ONLY_MODE' : 'DISABLED_BY_GUARDED_MODE';
       const disabled = (provider, label) => ({
-        provider, label, status: 'DISABLED_BY_FREE_ONLY_MODE', configured: false, connected: false,
+        provider, label, status: disabledStatus, configured: false, connected: false,
       });
       return Response.json({
         ok: true,
         status: workersAi ? 'READY' : 'DEGRADED',
         authority: 'SERVER',
-        engineMode: 'cloudflare-free-only',
+        engineMode,
+        legacyProviderRoutingEnabled: false,
+        externalApiKeysRequired: false,
+        providers: [
+          disabled('gemini', 'Gemini'),
+          disabled('deepseek', 'DeepSeek'),
+          disabled('openai', 'OpenAI'),
+          disabled('anthropic', 'Claude'),
+        ],
+        additionalProviders: [
+          disabled('groq', 'Groq'),
+          disabled('openrouter', 'OpenRouter'),
+        ],
+        cloudflare: {
+          workersAiBinding: workersAi,
+          edgeRuntime: 'CLOUDFLARE_PAGES_FUNCTION',
+        },
+        checkedAt: new Date().toISOString(),
+      }, {
+        status: 200,
+        headers: { 'Cache-Control': 'no-store', 'X-OVYX-Request-ID': id },
+      });
+    }
+
+    if (!isLegacyProviderRoutingEnabled(context.env)) {
+      const rawMode = String(context.env?.OVYX_AI_ENGINE_MODE || '').trim().toLowerCase();
+      const engineMode = rawMode === 'legacy-provider-routing'
+        ? 'legacy-provider-routing-disabled'
+        : 'not-configured';
+      const disabled = (provider, label) => ({
+        provider, label, status: 'DISABLED_BY_ENGINE_MODE', configured: false, connected: false,
+      });
+      return Response.json({
+        ok: true,
+        status: 'DEGRADED',
+        authority: 'SERVER',
+        engineMode,
+        legacyProviderRoutingEnabled: false,
         externalApiKeysRequired: false,
         providers: [
           disabled('gemini', 'Gemini'),
@@ -210,6 +255,9 @@ export async function onRequestGet(context) {
       ok: true,
       status: ready > 0 || workersAi ? 'READY' : 'DEGRADED',
       authority: 'SERVER',
+      engineMode: 'legacy-provider-routing',
+      legacyProviderRoutingEnabled: true,
+      externalApiKeysRequired: true,
       providers: results,
       // Additional provider diagnostics intentionally live in a separate field so
       // legacy four-provider UI contracts are not disturbed.
