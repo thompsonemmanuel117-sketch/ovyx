@@ -17900,10 +17900,20 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
     var send=$('ws-chat-send'),input=$('ws-chat-input');if(!send||!input)return;
     var working=!!(composerWorking||imageBusy||W?.pendingBuild||W?.liveAiActive);
     if(working){
-      send.dataset.ovyxComposerState='stop';send.innerHTML='<i class="fa-solid fa-square" aria-hidden="true"></i>';send.setAttribute('aria-label','Stop generating');send.title='Stop OVYX from generating';send.disabled=false;
+      if(send.dataset.ovyxComposerState!=='stop')send.dataset.ovyxComposerState='stop';
+      if(send.getAttribute('aria-label')!=='Stop generating')send.setAttribute('aria-label','Stop generating');
+      if(send.title!=='Stop OVYX from generating')send.title='Stop OVYX from generating';
+      var stopMarkup='<i class="fa-solid fa-square" aria-hidden="true"></i>';
+      if(send.innerHTML!==stopMarkup)send.innerHTML=stopMarkup;
+      if(send.disabled)send.disabled=false;
     }else{
-      delete send.dataset.ovyxComposerState;send.innerHTML=send.dataset.ovyxOriginalSendMarkup||'↑';send.setAttribute('aria-label','Send prompt');send.title='Send prompt';
-      send.disabled=!(String(input.value||'').trim()||(Array.isArray(W?.attachments)&&W.attachments.length>0));
+      var originalMarkup=send.dataset.ovyxOriginalSendMarkup||'↑';
+      if(send.dataset.ovyxComposerState==='stop')delete send.dataset.ovyxComposerState;
+      if(send.getAttribute('aria-label')!=='Send prompt')send.setAttribute('aria-label','Send prompt');
+      if(send.title!=='Send prompt')send.title='Send prompt';
+      if(send.innerHTML!==originalMarkup)send.innerHTML=originalMarkup;
+      var shouldDisable=!(String(input.value||'').trim()||(Array.isArray(W?.attachments)&&W.attachments.length>0));
+      if(send.disabled!==shouldDisable)send.disabled=shouldDisable;
     }
   }
   function installStopBehavior(W){
@@ -17944,7 +17954,17 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
     // prompt. While work is active, reassert the Stop state if that happens.
     var send=$('ws-chat-send');
     if(send&&typeof MutationObserver==='function'){
-      var sendObserver=new MutationObserver(function(){syncComposerSendState(W);});
+      var sendObserver=new MutationObserver(function(){
+        var working=!!(composerWorking||imageBusy||W?.pendingBuild||W?.liveAiActive);
+        // Observe legacy handlers, but only repair a genuine state mismatch.
+        // Unconditionally rewriting a reflected boolean attribute can produce
+        // repeated mutation callbacks in some browsers.
+        if(working&&(send.disabled||send.getAttribute('aria-label')!=='Stop generating')){
+          syncComposerSendState(W);
+        }else if(!working&&send.getAttribute('aria-label')==='Stop generating'){
+          syncComposerSendState(W);
+        }
+      });
       sendObserver.observe(send,{attributes:true,attributeFilter:['disabled']});
     }
     W.__ovyxStopGeneration=stop;
