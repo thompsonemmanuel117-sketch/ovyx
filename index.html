@@ -17431,13 +17431,17 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
         var asset=imageStore[button.getAttribute('data-ovyx-use-generated-image')];if(!asset){toast('This generated image is no longer available in the current session. Generate it again to use it.','warning');return;}
         var W=window.WebStudio;if(!W||typeof W.renderAttachments!=='function'){toast('Web Studio attachments are not available right now.','error');return;}
         try{
-          var blob=await (await fetch(asset.dataUrl)).blob();
-          if(blob.size>8*1024*1024)throw new Error('This generated image is larger than the 8 MB attachment limit.');
+          var dataUrl=String(asset.dataUrl||'');
+          var dataMatch=dataUrl.match(/^data:(image\/[a-z0-9.+-]+);base64,([a-z0-9+/=\s]+)$/i);
+          if(!dataMatch)throw new Error('The generated image data is unavailable. Please generate it again.');
+          var base64=dataMatch[2].replace(/\s/g,'');
+          var imageSize=Math.max(0,Math.floor(base64.length*3/4)-(base64.endsWith('==')?2:base64.endsWith('=')?1:0));
+          if(imageSize>8*1024*1024)throw new Error('This generated image is larger than the 8 MB attachment limit.');
           if(W.attachmentsReady&&typeof W.attachmentsReady.then==='function')await W.attachmentsReady;
           var currentAttachments=Array.isArray(W.attachments)?W.attachments.slice():[];
           if(currentAttachments.length>=6)throw new Error('The prompt already has six attachments. Remove one before adding this image.');
           if(!currentAttachments.some(function(item){return item&&String(item.name||'')===String(asset.name||'');})){
-            var attachment={name:asset.name,size:blob.size,type:asset.type,dataUrl:asset.dataUrl,textContent:null,status:'ready',error:''};
+            var attachment={name:asset.name,size:imageSize,type:asset.type||dataMatch[1].toLowerCase(),dataUrl:dataUrl,textContent:null,status:'ready',error:''};
             W._attachmentsVersion=Number(W._attachmentsVersion||0)+1;
             W.attachments=currentAttachments.concat(attachment);
             W.attachmentsReady=Promise.resolve(W.attachments);
