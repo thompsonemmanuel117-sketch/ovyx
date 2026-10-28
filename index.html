@@ -17276,7 +17276,8 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
   function resizeInput(input){if(!input)return;input.style.height='42px';var max=200;var next=Math.min(Math.max(input.scrollHeight,42),max);input.style.height=next+'px';input.style.overflowY=input.scrollHeight>max?'auto':'hidden';}
   function setup(){
     var W=window.WebStudio,composer=$('ws-chat-composer'),tools=composer?.querySelector('.ovyx-ws-tools-left');
-    if(!W||!composer||!tools||composer.dataset.ovyxPulseComposer==='1')return false;
+    if(composer?.dataset.ovyxPulseComposer==='1')return true;
+    if(!W||!composer||!tools)return false;
     composer.dataset.ovyxPulseComposer='1';root=tools;
     menu=document.createElement('div');menu.className='ws-pulse-popover';menu.id='ws-pulse-popover';menu.setAttribute('role','dialog');menu.setAttribute('aria-label','OVYX tools and modes');
     menu.innerHTML='<div class="ws-pulse-popover-head"><span>OVYX TOOLS</span><button type="button" data-ws-pulse-close aria-label="Close tools">×</button></div><div class="ws-pulse-section-label">Modes</div><div class="ws-pulse-modes"></div><div class="ws-pulse-section-label">Create and attach</div><div class="ws-pulse-actions"><button type="button" class="ws-pulse-action" data-ws-pulse-action="image"><i class="fa-regular fa-image" aria-hidden="true"></i><span>Create image</span></button><button type="button" class="ws-pulse-action" data-ws-pulse-action="camera"><i class="fa-solid fa-camera" aria-hidden="true"></i><span>Take photo</span></button></div><div class="ws-pulse-section-label">Workspace tools</div><div class="ws-pulse-extra"></div><p class="ws-pulse-menu-note">You can ask for an image directly in chat. OVYX will generate it here without opening a separate image studio.</p>';
@@ -17309,6 +17310,11 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
       input.rows=1;input.placeholder='Message OVYX…';input.style.height='42px';resizeInput(input);
       input.addEventListener('input',function(){resizeInput(input);});
       input.addEventListener('keydown',function(event){if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();W.submitPrompt?.();}});
+    }
+    var oldSetMode=W.setMode;
+    if(typeof oldSetMode==='function'&&!oldSetMode.__ovyxCompactPlaceholder){
+      var compactSetMode=function(){var result=oldSetMode.apply(this,arguments);var field=$('ws-chat-input');if(field)field.placeholder='Message OVYX…';return result;};
+      compactSetMode.__ovyxCompactPlaceholder=true;W.setMode=compactSetMode;
     }
     var oldSubmit=W.submitPrompt;
     if(typeof oldSubmit==='function'&&!oldSubmit.__ovyxPulseImageAware){
