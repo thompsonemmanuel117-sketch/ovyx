@@ -36,7 +36,7 @@ assert.match(html, /Quick actions/, 'The Pulse menu must expose the additional w
 for (const action of ['Use selected element', 'Website brief', 'Paste clipboard text', 'Open Code editor', 'Clear draft']) {
   assert.match(html, new RegExp(action), 'Pulse quick action must be present: ' + action);
 }
-assert.doesNotMatch(html, /<script defer src="\\/assets\\/ovyx-webstudio-pulse-composer\\.js/, 'The duplicate external Pulse runtime must not be loaded.');
+assert.equal(html.includes('/assets/ovyx-webstudio-pulse-composer.js'), false, 'The duplicate external Pulse runtime must not be loaded.');
 assert.match(html, /current\.length>=6/, 'Use in website must respect the attachment count limit.');
 assert.match(html, /if\(event\.key==='Enter'&&!event\.shiftKey&&!event\.ctrlKey&&!event\.metaKey&&!event\.isComposing\)/, 'Enter sends, Shift+Enter inserts a newline, and Ctrl/Meta+Enter avoids duplicate submissions.');
 assert.match(html, /if\(launch\)launch\.remove\(\)/, 'The separate floating image-generation launcher must be removed from the Web Studio experience.');
