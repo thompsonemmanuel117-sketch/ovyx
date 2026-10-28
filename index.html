@@ -17914,6 +17914,13 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
       event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();
     },true);
     document.addEventListener('input',function(event){if(event.target?.id==='ws-chat-input')syncComposerSendState(W);},true);
+    // Legacy input handlers may disable the send button after clearing the
+    // prompt. While work is active, reassert the Stop state if that happens.
+    var send=$('ws-chat-send');
+    if(send&&typeof MutationObserver==='function'){
+      var sendObserver=new MutationObserver(function(){syncComposerSendState(W);});
+      sendObserver.observe(send,{attributes:true,attributeFilter:['disabled']});
+    }
     W.__ovyxStopGeneration=stop;
   }
 
