@@ -11,11 +11,11 @@ try {
     const page = await browser.newPage({ viewport: target.viewport });
     page.setDefaultTimeout(20000);
     const pageErrors = [];
-    page.on('pageerror', error => pageErrors.push(error.message));
     const response = await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell failed to load.');
     await page.waitForSelector('#ws-chat-composer #ws-chat-input');
     await page.waitForSelector('#ws-pulse-trigger', { state: 'attached' });
+    page.on('pageerror', error => pageErrors.push(error.message));
     await page.evaluate(() => {
       document.body.classList.add('ovyx-webstudio-active');
       const view = document.getElementById('view-webstudio');
