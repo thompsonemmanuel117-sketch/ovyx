@@ -410,7 +410,24 @@ try {
     await page.waitForFunction(() => document.getElementById('ws-chat-send')?.getAttribute('aria-label') === 'Stop generating');
     assert.equal(await send.isEnabled(), true,
       '[' + target.name + '] Stop must remain clickable while the voice note is transcribing.');
-    await send.click();
+    // Stop is a button action, never a page navigation. Record dialogs and
+    // top-level frame navigation so Playwright doesn't hide the originating
+    // auth/rollback listener behind its navigation wait.
+    let stopNavigationCount = 0;
+    const stopDialogs = [];
+    const countStopNavigation = frame => { if (frame === page.mainFrame()) stopNavigationCount += 1; };
+    const captureStopDialog = async dialog => { stopDialogs.push(dialog.type()); await dialog.dismiss(); };
+    page.on('framenavigated', countStopNavigation);
+    page.on('dialog', captureStopDialog);
+    const initialStopNavigationCount = stopNavigationCount;
+    await send.click({ noWaitAfter: true });
+    await page.waitForTimeout(100);
+    page.off('framenavigated', countStopNavigation);
+    page.off('dialog', captureStopDialog);
+    assert.deepEqual(stopDialogs, [],
+      '[' + target.name + '] the Stop control must not open a browser dialog or auth prompt.');
+    assert.equal(stopNavigationCount, initialStopNavigationCount,
+      '[' + target.name + '] the Stop control must not navigate or reload the page.');
     await page.waitForFunction(() => document.getElementById('ws-chat-send')?.getAttribute('aria-label') === 'Send prompt');
     await page.waitForFunction(() => (document.querySelector('[data-ws-voice-status]')?.textContent || '').includes('Transcription cancelled'));
     assert.doesNotMatch(await page.locator('#ws-agent-thread').innerText(), /This transcript should be cancelled/,
