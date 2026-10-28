@@ -34,11 +34,45 @@ try {
     const assistantScript = page.locator('script[src*="/assets/ovyx-assistant-workspace.js"]');
     assert.ok(await assistantScript.count(), `[${target.name}] assistant workspace script was not injected`);
     const scriptSources = await assistantScript.evaluateAll(nodes => nodes.map(node => node.src));
-    assert.ok(scriptSources.some(src => /[?&]v=20261028-1(?:&|$)/.test(src)), `[${target.name}] the updated assistant runtime cache version was not loaded`);
+    assert.ok(scriptSources.some(src => /[?&]v=20261029-1(?:&|$)/.test(src)), `[${target.name}] the updated assistant runtime cache version was not loaded`);
 
     await page.evaluate(() => window.WorkspaceBrainBot.open());
     const panel = page.locator('#kernel-brain-bot-panel');
     await panel.waitFor({ state: 'visible' });
+
+    // Reproduce a dashboard bottom bar that would otherwise overlay the chat
+    // on narrow screens, and verify the assistant isolates typing from global
+    // dashboard keyboard handlers.
+    await page.evaluate(() => {
+      const nav = document.createElement('nav');
+      nav.id = 'test-dashboard-bottom-nav';
+      nav.className = 'dashboard-bottom-nav';
+      nav.setAttribute('aria-label', 'Dashboard bottom navigation test fixture');
+      nav.style.cssText = 'position:fixed;left:0;right:0;bottom:0;width:100%;height:72px;z-index:2147483647;background:#ff00ff;';
+      document.body.appendChild(nav);
+      window.__ovyxAssistantTypingKeyBubbles = 0;
+      document.addEventListener('keydown', event => {
+        if (event.target?.id === 'bot-chat-input') window.__ovyxAssistantTypingKeyBubbles += 1;
+      });
+    });
+    const composer = panel.locator('#bot-chat-input');
+    await composer.focus();
+    await page.waitForFunction(() => {
+      const nav = document.getElementById('test-dashboard-bottom-nav');
+      return nav?.classList.contains('ovyx-native-underlying-bottom-nav-suppressed') &&
+        getComputedStyle(nav).visibility === 'hidden';
+    }, null, { timeout: 5000 });
+    await composer.press('z');
+    assert.equal(await page.evaluate(() => window.__ovyxAssistantTypingKeyBubbles), 0,
+      `[${target.name}] assistant typing must not bubble into dashboard keyboard shortcuts`);
+    await composer.fill('');
+    await composer.evaluate(node => node.blur());
+    await page.waitForFunction(() => {
+      const nav = document.getElementById('test-dashboard-bottom-nav');
+      return nav && !nav.classList.contains('ovyx-native-underlying-bottom-nav-suppressed') &&
+        getComputedStyle(nav).visibility !== 'hidden';
+    }, null, { timeout: 5000 });
+
     const attachButton = panel.locator('[data-ovyx-native-attach]');
     const attachmentInput = panel.locator('#ovyx-native-attachment-input');
     assert.equal(await attachButton.isVisible(), true, '[' + target.name + '] native assistant should expose a real attach-files control.');
