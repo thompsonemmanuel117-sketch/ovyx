@@ -17279,7 +17279,7 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
     if(!W||!composer||!tools||composer.dataset.ovyxPulseComposer==='1')return false;
     composer.dataset.ovyxPulseComposer='1';root=tools;
     menu=document.createElement('div');menu.className='ws-pulse-popover';menu.id='ws-pulse-popover';menu.setAttribute('role','dialog');menu.setAttribute('aria-label','OVYX tools and modes');
-    menu.innerHTML='<div class="ws-pulse-popover-head"><span>OVYX TOOLS</span><button type="button" data-ws-pulse-close aria-label="Close tools">×</button></div><div class="ws-pulse-section-label">Modes</div><div class="ws-pulse-modes"></div><div class="ws-pulse-section-label">Create and attach</div><div class="ws-pulse-actions"><button type="button" class="ws-pulse-action" data-ws-pulse-action="image"><i class="fa-regular fa-image" aria-hidden="true"></i><span>Create image</span></button><button type="button" class="ws-pulse-action" data-ws-pulse-action="camera"><i class="fa-solid fa-camera" aria-hidden="true"></i><span>Take photo</span></button></div><div class="ws-pulse-section-label">Workspace tools</div><div class="ws-pulse-extra"></div><p class="ws-pulse-menu-note">You can ask for an image directly in chat. OVYX will generate it here without opening a separate image studio.</p>';
+    menu.innerHTML='<div class="ws-pulse-popover-head"><span>OVYX TOOLS</span><button type="button" data-ws-pulse-close aria-label="Close tools">×</button></div><div class="ws-pulse-section-label">OVYX modes</div><div class="ws-pulse-modes"></div><div class="ws-pulse-section-label">Create and attach</div><div class="ws-pulse-actions"><button type="button" class="ws-pulse-action" data-ws-pulse-action="image"><i class="fa-regular fa-image" aria-hidden="true"></i><span>Create image</span></button><button type="button" class="ws-pulse-action" data-ws-pulse-action="camera"><i class="fa-solid fa-camera" aria-hidden="true"></i><span>Take photo</span></button></div><div class="ws-pulse-section-label">Workspace tools</div><div class="ws-pulse-extra"></div><p class="ws-pulse-menu-note">You can ask for an image directly in chat. OVYX will generate it here without opening a separate image studio.</p>';
     tools.prepend(menu);
     pulse=document.createElement('button');pulse.type='button';pulse.className='ws-pulse-trigger';pulse.id='ws-pulse-trigger';pulse.setAttribute('aria-label','Open OVYX tools');pulse.setAttribute('aria-haspopup','dialog');pulse.setAttribute('aria-expanded','false');pulse.title='OVYX tools and modes';pulse.innerHTML='<i class="fa-solid fa-wave-square" aria-hidden="true"></i>';tools.insertBefore(pulse,menu.nextSibling);
     mic=document.createElement('button');mic.type='button';mic.className='ws-composer-mic';mic.id='ws-composer-mic';mic.setAttribute('aria-label','Dictate prompt');mic.setAttribute('aria-pressed','false');mic.title='Dictate prompt';mic.innerHTML='<i class="fa-solid fa-microphone" aria-hidden="true"></i>';tools.insertBefore(mic,pulse.nextSibling);
@@ -17294,6 +17294,43 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
     if(attachInput)extra.appendChild(attachInput);
     if(brain)extra.appendChild(brain);
     if(context)extra.appendChild(context);
+    var quickLabel=document.createElement('div');quickLabel.className='ws-pulse-section-label';quickLabel.textContent='Quick actions';extra.insertAdjacentElement('afterend',quickLabel);
+    var quick=document.createElement('div');quick.className='ws-pulse-actions';quick.setAttribute('aria-label','Quick actions');quickLabel.insertAdjacentElement('afterend',quick);
+    function quickAction(label,icon,handler){
+      var button=document.createElement('button');button.type='button';button.className='ws-pulse-action';button.setAttribute('aria-label',label);
+      var glyph=document.createElement('i');glyph.className='fa-solid '+icon;glyph.setAttribute('aria-hidden','true');
+      var textNode=document.createElement('span');textNode.textContent=label;button.append(glyph,textNode);
+      button.addEventListener('click',handler);quick.appendChild(button);return button;
+    }
+    quickAction('Use selected element','fa-object-group',function(){
+      var selected=W.selectedElement||{},title=String(selected.title||selected.name||selected.type||'the selected element'),file=String(selected.file||selected.path||'');
+      setComposerValue('Improve '+title+' in the current website. Preserve the existing design system and responsive behavior.'+(file?' Relevant file: '+file+'.':''));
+      closeMenu();
+    });
+    quickAction('Website brief','fa-clipboard-list',function(){
+      var input=$('ws-chat-input'),brief='Website goal: \nAudience: \nVisual direction: \nPages or sections: \nRequired content and features: \nReferences or assets: \n';
+      setComposerValue((input?.value?input.value.replace(/\s*$/,'')+'\n\n':'')+brief);closeMenu();
+    });
+    quickAction('Paste clipboard text','fa-clipboard',async function(){
+      try{
+        if(!navigator.clipboard||typeof navigator.clipboard.readText!=='function')throw new Error('Clipboard access is unavailable in this browser. Paste directly into the prompt instead.');
+        var pasted=await navigator.clipboard.readText();
+        if(!pasted){toast('Your clipboard does not contain text.','info');return;}
+        var input=$('ws-chat-input');setComposerValue((input?.value?input.value.replace(/\s*$/,'')+'\n\n':'')+pasted);closeMenu();
+      }catch(error){toast(String(error?.message||'Could not read clipboard text.'),'error');}
+    });
+    quickAction('Open Code editor','fa-code',function(){
+      closeMenu();
+      try{W.ensureProjectGraph?.();if(typeof W.openCodeEditor==='function')W.openCodeEditor(typeof W.entryFile==='function'?W.entryFile():undefined);else toast('Code editor is unavailable in this session.','error');}
+      catch(_){toast('Could not open the project Code editor.','error');}
+    });
+    quickAction('Clear draft','fa-eraser',function(){
+      setComposerValue('');
+      if(Array.isArray(W.attachments)&&W.attachments.length){
+        W._attachmentsVersion=Number(W._attachmentsVersion||0)+1;W.attachments=[];W.attachmentsReady=Promise.resolve([]);W.renderAttachments?.();
+      }
+      closeMenu();toast('Draft cleared. Your project was not changed.','success');
+    });
     var camera=document.createElement('input');camera.type='file';camera.id='ws-camera-input';camera.accept='image/*';camera.setAttribute('capture','environment');camera.hidden=true;menu.appendChild(camera);
     pulse.addEventListener('click',function(event){event.preventDefault();event.stopPropagation();var opening=!menu.classList.contains('open');if(opening){menu.classList.add('open');pulse.setAttribute('aria-expanded','true');if(modeMenu)modeMenu.hidden=false;}else closeMenu();});
     menu.querySelector('[data-ws-pulse-close]').addEventListener('click',closeMenu);
@@ -17308,14 +17345,17 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
     if(input){
       input.rows=1;input.style.height='42px';resizeInput(input);
       input.addEventListener('input',function(){resizeInput(input);});
-      input.addEventListener('keydown',function(event){if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();W.submitPrompt?.();}});
+      input.addEventListener('keydown',function(event){if(event.key==='Enter'&&!event.shiftKey&&!event.ctrlKey&&!event.metaKey&&!event.isComposing){event.preventDefault();W.submitPrompt?.();}});
     }
     var oldSubmit=W.submitPrompt;
     if(typeof oldSubmit==='function'&&!oldSubmit.__ovyxPulseImageAware){
       var wrapped=async function(){
         var input=$('ws-chat-input'),text=String(input?.value||'').trim();
         if(/^create an image of$/i.test(text)){toast('Describe the image you want, then send the prompt.','info');input?.focus();return;}
-        if(!text||!isImageRequest(text)||imageBusy||(this.attachments||[]).length)return oldSubmit.apply(this,arguments);
+        if(!text)return oldSubmit.apply(this,arguments);
+        if(imageBusy){toast('Image generation is already running. Please wait for it to finish.','info');return;}
+        if(!isImageRequest(text))return oldSubmit.apply(this,arguments);
+        if((this.attachments||[]).length)toast('Image generation uses your text description; uploaded files remain attached for your next website prompt.','info');
         return generateImageInChat(this,text,input);
       };
       wrapped.__ovyxPulseImageAware=true;wrapped.__ovyxOriginalSubmit=oldSubmit;W.submitPrompt=wrapped;
@@ -17332,15 +17372,23 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
     try{
       recognition=new SR();recognition.lang=navigator.language||'en-NG';recognition.interimResults=true;recognition.continuous=false;
       var base=String($('ws-chat-input')?.value||'').trim();
-      recognition.onresult=function(event){var spoken='';for(var i=event.resultIndex;i<event.results.length;i++)spoken+=event.results[i][0]?.transcript||'';setComposerValue((base?base+' ':'')+spoken);};
+      recognition.onresult=function(event){var spoken='';for(var i=0;i<event.results.length;i++)spoken+=event.results[i][0]?.transcript||'';setComposerValue((base?base+' ':'')+spoken);};
       recognition.onerror=function(){toast('Voice capture stopped. You can continue typing your prompt.','info');};
       recognition.onend=function(){recognition=null;if(mic)mic.setAttribute('aria-pressed','false');};
       recognition.start();if(mic)mic.setAttribute('aria-pressed','true');toast('Listening… speak your prompt.','info');
     }catch(_){recognition=null;if(mic)mic.setAttribute('aria-pressed','false');toast('Could not start voice input in this browser.','error');}
   }
   function isImageRequest(text){
-    return /\b(?:create|generate|draw|render|make|design|produce)\s+(?:(?:me|an?|a)\s+){0,2}(?:image|picture|illustration|artwork|wallpaper|poster|thumbnail|logo|icon|background)\b/i.test(text) ||
-      /\b(?:image|picture|illustration|artwork|wallpaper|poster|thumbnail|logo|icon|background)\s+(?:of|for)\b[\s\S]{0,100}\b(?:create|generate|draw|make|render)\b/i.test(text);
+    var value=String(text||'').trim();
+    var nouns='(?:image|picture|photo|illustration|artwork|wallpaper|poster|thumbnail|logo|icon|background|banner|visual)';
+    var style='(?:beautiful|realistic|photorealistic|cinematic|minimalist|minimal|3d|3-d|vector|abstract|detailed|high-quality|professional|custom|cute|cartoon|watercolor|digital|stunning|premium|modern|dark|golden|vibrant|luxury|editorial|surreal|futuristic|fantasy|product|brand|hero|transparent|animated|anime|square|wide|vertical|4k|high-resolution)';
+    var article='(?:(?:an?|the)\\s+)?';
+    var nounPattern=nouns+'\\b';
+    var create=new RegExp('\\b(?:please\\s+)?(?:create|generate|draw|render|make|design|produce|illustrate)\\s+(?:(?:me|us)\\s+)?'+article+'(?:(?:'+style+')\\s+){0,5}'+nounPattern,'i');
+    var request=new RegExp('\\b(?:i\\s+(?:want|need|would like)|can you|could you|please)\\s+(?:(?:create|generate|draw|render|make|design|produce|illustrate)\\s+)?(?:(?:me|us)\\s+)?'+article+'(?:(?:'+style+')\\s+){0,5}'+nounPattern,'i');
+    var youToCreate=new RegExp('\\b(?:i want you to|i need you to|i would like you to)\\s+(?:create|generate|draw|render|make|design|produce|illustrate)\\s+(?:(?:an?|the)\\s+)?(?:(?:'+style+')\\s+){0,5}'+nounPattern,'i');
+    var leadingNoun=new RegExp('^\\s*'+article+nouns+'\\s+(?:of|showing|featuring)\\b','i');
+    return create.test(value)||request.test(value)||youToCreate.test(value)||leadingNoun.test(value);
   }
   function imageToken(){
     var auth=window.firebase&&typeof window.firebase.auth==='function'?window.firebase.auth():null;
@@ -17390,12 +17438,17 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
         var button=event.target.closest('[data-ovyx-use-generated-image]');if(!button)return;
         event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();
         var asset=imageStore[button.getAttribute('data-ovyx-use-generated-image')];if(!asset){toast('This generated image is no longer available in the current session. Generate it again to use it.','warning');return;}
-        var W=window.WebStudio;if(!W||typeof W.setAttachments!=='function'){toast('Web Studio attachments are not available right now.','error');return;}
+        var W=window.WebStudio;if(!W){toast('Web Studio is not available right now.','error');return;}
         try{
           var blob=await (await fetch(asset.dataUrl)).blob();
           if(blob.size>8*1024*1024)throw new Error('This generated image is larger than the 8 MB attachment limit.');
-          var file=new File([blob],asset.name,{type:asset.type});
-          await W.setAttachments([file]);
+          var current=Array.isArray(W.attachments)?W.attachments.slice():[];
+          if(current.length>=6)throw new Error('The prompt already has six attachments. Remove one before adding this image.');
+          var attachment={name:asset.name,size:blob.size,type:asset.type,dataUrl:asset.dataUrl,textContent:null,status:'ready',error:''};
+          W._attachmentsVersion=Number(W._attachmentsVersion||0)+1;
+          W.attachments=current.concat(attachment);
+          W.attachmentsReady=Promise.resolve(W.attachments);
+          if(typeof W.renderAttachments==='function')W.renderAttachments();
           W.setMode('build');
           setComposerValue('Use the attached generated image as a visual asset in the current website. Place it where it best supports the design, preserve the existing structure and styling, and verify the preview.');
           toast('Image attached. Review the prompt and press send when you are ready.','success');
