@@ -21,7 +21,7 @@ globalThis.fetch = async (url, init = {}) => {
   });
 };
 
-function context(provider, env = {}, user = { sub: 'test-user', uid: 'test-user', email: 'test@example.com' }) {
+function context(provider, env = { OVYX_AI_ENGINE_MODE: 'legacy-provider-routing', OVYX_ALLOW_PAID_PROVIDER_ROUTING: 'true' }, user = { sub: 'test-user', uid: 'test-user', email: 'test@example.com' }) {
   return {
     request: new Request('https://ovyx.test/api/ai/provider-availability?provider=' + encodeURIComponent(provider)),
     env,
@@ -84,6 +84,24 @@ try {
   assert.equal(response.status, 400);
   data = await response.json();
   assert.equal(data.error, 'PROVIDER_REQUIRED');
+
+  requests.length = 0;
+  response = await onRequestGet(context('gemini', {
+    OVYX_AI_ENGINE_MODE: 'cloudflare-paid-capped',
+    GEMINI_API_KEY: 'must-not-be-used',
+    AI: { run: async () => { throw new Error('readiness must not call inference'); } },
+  }));
+  data = await response.json();
+  assert.equal(data.provider, 'cloudflare-workers-ai');
+  assert.equal(data.engineMode, 'cloudflare-paid-capped');
+  assert.equal(data.externalApiKeysRequired, false);
+  assert.equal(requests.length, 0, 'guarded paid-capped mode must never probe an external provider');
+
+  response = await onRequestGet(context('gemini', { GEMINI_API_KEY: 'must-not-be-used' }));
+  data = await response.json();
+  assert.equal(response.status, 409);
+  assert.equal(data.error, 'PROVIDER_AVAILABILITY_DISABLED_BY_ENGINE_MODE');
+  assert.equal(requests.length, 0, 'missing engine mode must not permit external availability probes');
 
   response = await onRequestGet(context('gemini', {}, null));
   assert.equal(response.status, 401, 'missing authentication must return a valid HTTP 401 response');
