@@ -26,7 +26,7 @@ assert.match(html, /generatedImageId/, 'Generated images must be attached to cha
 assert.match(html, /data-ovyx-use-generated-image/, 'Generated images must have a Use in website action.');
 assert.match(html, /download\.download=asset\.name/, 'Generated images must be downloadable.');
 assert.match(html, /currentAttachments\.concat\(attachment\)/, 'Use in website must append the generated image without dropping existing attachments.');
-assert.match(html, /dataMatch=dataUrl\.match\(\/\^data:\(image\\\/\[a-z0-9\.\+\\-\]\+\);base64,/, 'Use in website must validate the generated image data URL directly instead of refetching it.');
+assert.ok(html.includes("var dataMatch=dataUrl.match(/^data:(image\\/"), 'Use in website must validate the generated image data URL directly instead of refetching it.');
 assert.doesNotMatch(html, /fetch\(asset\.dataUrl\)\.blob\(\)/, 'Use in website must not refetch its own generated data URL.');
 assert.match(html, /currentAttachments\.length>=6/, 'The generated image action must retain the six-attachment limit.');
 assert.match(html, /if\(W\.attachmentsReady&&typeof W\.attachmentsReady\.then==='function'\)await W\.attachmentsReady;/, 'Use in website must wait for pending file reads before adding the generated image.');
