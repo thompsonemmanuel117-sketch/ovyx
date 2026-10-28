@@ -91,6 +91,80 @@ try {
     assert.equal(await popover.locator('[data-ws-pulse-action="selection"]').isVisible(), true, '[' + target.name + '] selected-element helper must be accessible inside Pulse.');
     assert.equal(await popover.locator('[data-ws-pulse-action="clear"]').isVisible(), true, '[' + target.name + '] clear-draft action must be accessible inside Pulse.');
 
+    // Trace each mode through the real handler, not just the presence of the button.
+    for (const expectedMode of ['build', 'plan', 'ask', 'fix']) {
+      if (await popover.isHidden()) await pulse.click();
+      await popover.locator('[data-ws-mode="' + expectedMode + '"]').click();
+      await page.waitForFunction(expected => window.WebStudio?.mode === expected, expectedMode);
+      assert.equal(await page.evaluate(() => window.WebStudio.mode), expectedMode,
+        '[' + target.name + '] selecting ' + expectedMode + ' must change the real Web Studio mode.');
+      await page.waitForFunction(() => document.getElementById('ws-pulse-popover')?.hidden === true);
+    }
+
+    // The AI settings control must open its own popover, close Pulse, persist a
+    // useful response-depth value, and apply a real provider selection.
+    await pulse.click();
+    await popover.locator('#ws-brain-btn').click();
+    const brainSettings = page.locator('#ws-brain-settings-popover');
+    await brainSettings.waitFor({state:'visible'});
+    assert.equal(await popover.isHidden(), true,
+      '[' + target.name + '] Pulse should close before Agent Settings opens.');
+    await page.locator('#ws-brain-depth').evaluate(el => {
+      el.value = '3';
+      el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    assert.equal(await page.evaluate(() => window.WebStudio.responseDepth), 3,
+      '[' + target.name + '] response depth slider must update the live AI settings.');
+    assert.match(await page.locator('#ws-brain-depth-label').innerText(), /Detailed/,
+      '[' + target.name + '] response depth must display an understandable current value.');
+    assert.equal(await page.evaluate(() => localStorage.getItem('ovyx.ws.responseDepth.v1')), '3',
+      '[' + target.name + '] response depth must persist across reloads.');
+    await brainSettings.locator('[data-brain-choice="deepseek"]').click();
+    await page.waitForFunction(() => window.WebStudio?.brain === 'deepseek');
+    assert.equal(await page.locator('#ws-brain-label').innerText(), 'Deepseek',
+      '[' + target.name + '] choosing an AI brain must update the composer label.');
+
+    // Project context must open the live node map and allow a listed file to
+    // open the real embedded Code editor, then return cleanly to the chat.
+    await pulse.click();
+    await popover.locator('#ws-context-btn').click();
+    const contextMap = page.locator('#ws-context-map-popover');
+    await contextMap.waitFor({state:'visible'});
+    assert.equal(await popover.isHidden(), true,
+      '[' + target.name + '] Pulse should close before the project node map opens.');
+    const contextFile = contextMap.locator('[data-context-file]').first();
+    await contextFile.waitFor({state:'visible'});
+    const contextPath = await contextFile.getAttribute('data-context-file');
+    assert.ok(contextPath, '[' + target.name + '] project node map should expose a real project file.');
+    await contextFile.click();
+    await page.waitForFunction(() => {
+      const code = document.getElementById('ws-code-workspace');
+      return code && !code.hidden && document.getElementById('ovyx-code-back');
+    });
+    assert.equal(await page.evaluate(() => window.WebStudio.activeCodeFile), contextPath,
+      '[' + target.name + '] choosing a project node must open that exact file in Code.');
+    await page.locator('#ovyx-code-back').click();
+    await page.waitForFunction(() => document.getElementById('ws-code-workspace')?.hidden === true);
+
+    // Without a selection the tool activates the existing Visual Select flow;
+    // with a selection it prepares a prompt targeted at that element.
+    await page.evaluate(() => { window.WebStudio.selectedElement = null; });
+    await pulse.click();
+    await popover.locator('[data-ws-pulse-action="selection"]').click();
+    await page.waitForFunction(() => (document.getElementById('ws-agent-thread')?.innerText || '').includes('Visual Select is active'));
+    await page.evaluate(() => {
+      const W = window.WebStudio;
+      W.selectedElement = { title: 'Hero heading', file: W.entryFile(), id: 'hero-heading' };
+    });
+    await pulse.click();
+    await popover.locator('[data-ws-pulse-action="selection"]').click();
+    assert.match(await input.inputValue(), /^Improve Hero heading/,
+      '[' + target.name + '] selected-element action must prepare a real targeted edit prompt.');
+    assert.equal(await page.evaluate(() => window.WebStudio.mode), 'build',
+      '[' + target.name + '] selected-element action must switch to Build mode.');
+
+
     // Exercise menu actions, not only their visibility.
     await popover.locator('[data-ws-pulse-action="image"]').click();
     assert.equal(await input.inputValue(), 'Create an image of ',
@@ -161,6 +235,41 @@ try {
     assert.equal(await page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-card').count(), 0,
       '[' + target.name + '] removing the last attachment should clear the gallery.');
 
+    // Clear draft is deliberately scoped to the composer; project source files stay intact.
+    await input.fill('This draft should be cleared.');
+    await page.evaluate(async () => {
+      const W = window.WebStudio;
+      await W.setAttachments([new File(['temporary attachment'], 'clear-me.txt', { type: 'text/plain' })]);
+      window.__pulseProjectFileListBeforeClear = Object.keys(W.graph?.files || {}).sort();
+    });
+    await pulse.click();
+    await popover.locator('[data-ws-pulse-action="clear"]').click();
+    assert.equal(await input.inputValue(), '',
+      '[' + target.name + '] Clear draft must empty the prompt.');
+    assert.equal(await page.evaluate(() => window.WebStudio.attachments.length), 0,
+      '[' + target.name + '] Clear draft must remove staged attachments.');
+    assert.deepEqual(await page.evaluate(() => Object.keys(window.WebStudio.graph?.files || {}).sort()),
+      await page.evaluate(() => window.__pulseProjectFileListBeforeClear),
+      '[' + target.name + '] Clear draft must never remove or alter the project files.');
+    assert.equal(await page.locator('#ws-attachment-preview-gallery').isHidden(), true,
+      '[' + target.name + '] Clear draft should also clear the visual preview gallery.');
+
+    // The mobile camera action uses the real image picker and appends, rather than replacing, files.
+    await pulse.click();
+    const [cameraChooser] = await Promise.all([
+      page.waitForEvent('filechooser', { timeout: 10000 }),
+      popover.locator('[data-ws-pulse-action="camera"]').click()
+    ]);
+    const cameraSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360"><rect width="640" height="360" fill="#111827"/><circle cx="320" cy="180" r="108" fill="#e8b64f"/></svg>';
+    await cameraChooser.setFiles({name:'camera-capture.svg',mimeType:'image/svg+xml',buffer:Buffer.from(cameraSvg)});
+    await page.waitForFunction(() => /camera-capture\.svg/.test(document.getElementById('ws-attachment-strip')?.innerText || ''));
+    assert.ok(await page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-card').filter({hasText:'camera-capture.svg'}).count() === 1,
+      '[' + target.name + '] Take photo must attach the selected image through the same upload pipeline.');
+    await page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-card').filter({hasText:'camera-capture.svg'}).locator('.ws-attachment-preview-remove').click();
+    assert.equal(await page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-card').count(), 0,
+      '[' + target.name + '] camera attachment can be removed normally.');
+
+
     // Exercise the actual microphone UI without relying on CI hardware: a fake
     // MediaRecorder supplies the same Blob/event contract as a browser recording.
     await input.fill('');
@@ -184,7 +293,11 @@ try {
         }
       };
       window.OVYXAIService = window.OVYXAIService || {};
-      window.OVYXAIService.generate = async (payload) => ({ message: 'I received your voice note: ' + payload.prompt });
+      window.__ovyxLastPulseAIRequest = null;
+      window.OVYXAIService.generate = async (payload) => {
+        window.__ovyxLastPulseAIRequest = payload;
+        return { message: 'I received your voice note: ' + payload.prompt };
+      };
       window.WebStudio.setMode('ask');
     });
     await mic.click();
@@ -212,6 +325,8 @@ try {
       '[' + target.name + '] the transcript should be sent through the normal OVYX AI response flow.');
     assert.equal(await page.locator('#ws-agent-thread .ws-chat-voice-note audio').count(), 1,
       '[' + target.name + '] sent voice messages should retain a playable voice-note preview in chat.');
+    assert.match(await page.evaluate(() => String(window.__ovyxLastPulseAIRequest?.system || '')), /thorough step-by-step response/i,
+      '[' + target.name + '] response-depth settings must affect the real AI system instructions.');
 
     // "Dictate as text" must use the microphone's speech-to-text path and fill
     // the ordinary editable prompt field instead of requiring a voice-note upload.
@@ -305,9 +420,6 @@ try {
       '[' + target.name + '] pressing stop must clear the active thinking state.');
     
     await pulse.click();
-    await popover.locator('[data-ws-mode="ask"]').click();
-    assert.equal(await page.locator('#ws-mode-trigger-label').textContent(), 'Ask', '[' + target.name + '] selecting Ask must update the real Web Studio mode.');
-    await pulse.click();
     await popover.locator('[data-ws-pulse-action="image"]').click();
     assert.match(await input.inputValue(), /^Create an image of\s*$/, '[' + target.name + '] Create image should prepare a normal chat prompt, not open a separate studio.');
     assert.equal(await popover.isVisible(), false, '[' + target.name + '] pulse menu should close after selecting Create image.');
@@ -365,6 +477,17 @@ try {
       '[' + target.name + '] using the image must prepare a normal Web Studio build prompt.');
     assert.equal(await page.locator('#ws-mode-trigger-label').textContent(), 'Build',
       '[' + target.name + '] using the image must return the composer to Build mode.');
+
+    await pulse.click();
+    await popover.locator('[data-ws-pulse-action="code"]').click();
+    await page.waitForFunction(() => {
+      const code = document.getElementById('ws-code-workspace');
+      return code && !code.hidden && document.getElementById('ovyx-code-back');
+    });
+    assert.equal(await page.locator('#view-webstudio').getAttribute('data-ws-code-open'), '1',
+      '[' + target.name + '] Open Code editor must open the embedded Code workspace.');
+    await page.locator('#ovyx-code-back').click();
+    await page.waitForFunction(() => document.getElementById('ws-code-workspace')?.hidden === true);
     await page.close();
   }
   console.log('OVYX Web Studio pulse composer browser checks passed on desktop and mobile.');
