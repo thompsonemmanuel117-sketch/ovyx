@@ -37,7 +37,7 @@ const [
 ]);
 
 const scripts = JSON.parse(packageSource).scripts || {};
-assert.match(scripts.test || '', /node scripts\\/ovyx-stage10-provider-retirement\\.test\\.mjs/,
+assert.ok((scripts.test || '').includes('node scripts/ovyx-stage10-provider-retirement.test.mjs'),
   'Stage 10 retirement safety contract must remain in npm test.');
 
 // Production guard: legacy routing must require both the explicit mode and
