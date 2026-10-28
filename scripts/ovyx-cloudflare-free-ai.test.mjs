@@ -114,13 +114,14 @@ assert.match(exhaustionMarkerSource, /OVYX_AI_BUDGET_LEDGER_CONFLICT_EXHAUSTED/,
 assert.match(helperSource, /reserveCloudflareFreeUserMinute/);
 assert.match(helperSource, /export async function runCloudflareFreeTranscription/);
 assert.match(helperSource, /OVYX_CLOUDFLARE_TRANSCRIPTION_MODEL/);
-assert.match(helperSource, /await reserveUserMinute\\(env, authUser\\)/,
+assert.ok(helperSource.includes('await reserveUserMinute(env, authUser)'),
   'voice transcription must use the same per-user minute throttling as other Cloudflare AI requests');
-assert.match(helperSource, /reserveDailyBudget\\(env, estimate, snapshot\\)/,
+assert.ok(helperSource.includes('reserveDailyBudget(env, estimate, snapshot)'),
   'voice transcription must reserve from the shared protected daily budget before inference');
-assert.match(helperSource, /settleDailyBudget\\(env, reservation, estimate\\)/,
+assert.ok(helperSource.includes('settleDailyBudget(env, reservation, estimate)'),
   'voice transcription must settle its protected budget reservation on success or error');
-assert.match(helperSource, /env\\.AI\\.run\\(OVYX_CLOUDFLARE_TRANSCRIPTION_MODEL/);
+assert.ok(helperSource.includes('env.AI.run(OVYX_CLOUDFLARE_TRANSCRIPTION_MODEL'),
+  'voice inference must use the guarded Cloudflare model helper');
 assert.doesNotMatch(providerSource, /reserveCloudflareFreeUserMinute\(env, options\.authUser\)/);
 assert.match(helperSource, /OVYX_AI_NEURON_BUDGET_EXHAUSTED/);
 assert.match(providerSource, /isCloudflareWorkersAIGuardedMode\(env\)/);
