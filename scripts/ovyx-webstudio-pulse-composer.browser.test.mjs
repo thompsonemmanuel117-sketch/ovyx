@@ -248,6 +248,10 @@ try {
     await page.waitForFunction(() => (document.querySelector('[data-ws-voice-status]')?.textContent || '').includes('Transcription cancelled'));
     assert.doesNotMatch(await page.locator('#ws-agent-thread').innerText(), /This transcript should be cancelled/,
       '[' + target.name + '] stopping transcription must not submit a late transcript.');
+    // The cancellation UX intentionally keeps the recording available for retry.
+    // Close that panel before testing unrelated actions elsewhere in the thread.
+    await page.locator('#ws-voice-note-panel [data-ws-voice-close]').click();
+    await page.locator('#ws-voice-note-panel').waitFor({state:'hidden'});
     await page.unroute('**/api/ai/transcribe');
 
     // Stop must abort the in-flight AI response and restore the same button to Send.
