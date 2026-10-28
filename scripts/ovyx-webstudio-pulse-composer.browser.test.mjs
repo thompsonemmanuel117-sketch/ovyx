@@ -100,7 +100,7 @@ try {
         }
       };
     });
-    const [fileChooser] = await Promise.all([page.waitForEvent('filechooser'), popover.locator('#ws-attach-btn').click()]);
+    const [fileChooser] = await Promise.all([page.waitForEvent('filechooser', { timeout: 10000 }), popover.locator('#ws-attach-btn').click()]);
     await fileChooser.setFiles({name:'reference.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\\nOVYX reference\\n%%EOF')});
     await page.waitForFunction(() => !document.getElementById('ws-attachment-strip')?.hidden && /reference\.pdf/.test(document.getElementById('ws-attachment-strip')?.innerText || ''));
     assert.match(await page.locator('#ws-attachment-strip').innerText(), /reference\.pdf/, '[' + target.name + '] Pulse must attach a non-image document through the visible upload button.');
@@ -110,7 +110,7 @@ try {
     // Any supported attachment should get a large staged preview, not only a tiny chip.
     await pulse.click();
     const [imageChooser] = await Promise.all([
-      page.waitForEvent('filechooser'),
+      page.waitForEvent('filechooser', { timeout: 10000 }),
       popover.locator('#ws-attach-btn').click()
     ]);
     const svgFixture = '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360"><rect width="640" height="360" fill="#101522"/><circle cx="320" cy="180" r="110" fill="#e8b64f"/></svg>';
@@ -208,7 +208,10 @@ try {
     await page.locator('#ws-voice-note-panel [data-ws-voice-stop]').click();
     await page.locator('#ws-voice-note-panel [data-ws-voice-send]').waitFor({state:'visible'});
     await page.locator('#ws-voice-note-panel [data-ws-voice-send]').click();
-    await transcriptionStarted;
+    await Promise.race([
+      transcriptionStarted,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out waiting for the voice transcription request to start.')), 10000))
+    ]);
     await page.waitForFunction(() => document.getElementById('ws-chat-send')?.getAttribute('aria-label') === 'Stop generating');
     assert.equal(await send.isEnabled(), true,
       '[' + target.name + '] Stop must remain clickable while the voice note is transcribing.');
