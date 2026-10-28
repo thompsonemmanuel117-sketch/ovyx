@@ -17261,6 +17261,82 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
   body.ovyx-webstudio-active #view-webstudio .ws-pulse-busy{opacity:.6!important;pointer-events:none!important}
   @media(max-width:767px){body.ovyx-webstudio-active #view-webstudio .ws-pulse-popover{width:min(330px,calc(100vw - 24px))!important;max-height:min(62dvh,460px)!important}body.ovyx-webstudio-active #view-webstudio #ws-chat-input{font-size:16px!important}}
   @media(prefers-reduced-motion:reduce){body.ovyx-webstudio-active #view-webstudio .ws-pulse-trigger,body.ovyx-webstudio-active #view-webstudio .ws-composer-mic{transition:none!important}}
+
+  /* OVYX Pulse compact composer polish v2 — ChatGPT-like resting size, separate controls, compact tool menu. */
+  body.ovyx-webstudio-active #view-webstudio .ovyx-ws-composer{
+    gap:5px!important;padding:8px 10px 7px!important;border-radius:21px!important;
+    border:1px solid rgba(255,255,255,.14)!important;background:#171717!important;
+    box-shadow:0 2px 8px rgba(0,0,0,.18)!important;overflow:visible!important
+  }
+  body.ovyx-webstudio-active #view-webstudio #ws-chat-input{
+    min-height:42px!important;height:42px;max-height:180px!important;resize:none!important;
+    padding:6px 2px!important;font:500 14px/1.55 Inter,system-ui,sans-serif!important;
+    letter-spacing:0!important;background:transparent!important
+  }
+  body.ovyx-webstudio-active #view-webstudio .ovyx-ws-composer-tools{
+    display:flex!important;align-items:center!important;justify-content:space-between!important;gap:7px!important;padding:0!important
+  }
+  body.ovyx-webstudio-active #view-webstudio .ovyx-ws-tools-left{gap:8px!important;min-width:0!important}
+  body.ovyx-webstudio-active #view-webstudio .ws-pulse-trigger,
+  body.ovyx-webstudio-active #view-webstudio .ws-composer-mic{
+    display:grid!important;place-items:center!important;flex:0 0 34px!important;width:34px!important;height:34px!important;min-width:34px!important;
+    padding:0!important;border:1px solid rgba(255,255,255,.12)!important;border-radius:50%!important;
+    background:#242424!important;color:#f1f2f3!important;font-size:13px!important;box-shadow:none!important
+  }
+  body.ovyx-webstudio-active #view-webstudio #ws-pulse-trigger{color:#f0c66d!important}
+  body.ovyx-webstudio-active #view-webstudio .ws-pulse-trigger:hover,
+  body.ovyx-webstudio-active #view-webstudio .ws-composer-mic:hover{
+    border-color:rgba(232,182,79,.45)!important;background:#2b2924!important
+  }
+  body.ovyx-webstudio-active #view-webstudio .ws-pulse-trigger[aria-expanded="true"]{
+    border-color:rgba(232,182,79,.6)!important;background:rgba(232,182,79,.12)!important;color:#f5d78e!important
+  }
+  body.ovyx-webstudio-active #view-webstudio .ovyx-ws-send{
+    display:grid!important;place-items:center!important;flex:0 0 34px!important;width:34px!important;height:34px!important;
+    border-radius:50%!important;background:#e8b64f!important;color:#111!important;border:0!important;
+    box-shadow:none!important;font-size:18px!important;line-height:1!important
+  }
+  body.ovyx-webstudio-active #view-webstudio .ovyx-ws-send:not(:disabled):hover{background:#f2ca72!important}
+  body.ovyx-webstudio-active #view-webstudio .ws-pulse-popover{
+    width:min(294px,calc(100vw - 24px))!important;max-height:min(54dvh,390px)!important;
+    padding:8px!important;gap:6px!important;border-radius:15px!important;
+    border-color:rgba(255,255,255,.14)!important;background:rgba(17,17,17,.985)!important;
+    box-shadow:0 16px 48px rgba(0,0,0,.58)!important
+  }
+  body.ovyx-webstudio-active #view-webstudio .ws-pulse-popover.open{gap:6px!important}
+  body.ovyx-webstudio-active #view-webstudio .ws-pulse-popover-head{padding:1px 3px 5px!important}
+  body.ovyx-webstudio-active #view-webstudio .ws-pulse-popover-head button{width:25px!important;height:25px!important}
+  body.ovyx-webstudio-active #view-webstudio .ws-pulse-section-label{margin:1px 2px 0!important}
+  body.ovyx-webstudio-active #view-webstudio #ws-mode-menu{
+    grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:5px!important
+  }
+  body.ovyx-webstudio-active #view-webstudio #ws-mode-menu [data-ws-mode]{
+    min-height:44px!important;gap:3px!important;padding:7px 8px!important;border-radius:9px!important
+  }
+  body.ovyx-webstudio-active #view-webstudio #ws-mode-menu [data-ws-mode] b{font-size:10px!important}
+  body.ovyx-webstudio-active #view-webstudio #ws-mode-menu [data-ws-mode] small{font-size:8px!important;line-height:1.3!important}
+  body.ovyx-webstudio-active #view-webstudio .ws-pulse-actions{gap:5px!important}
+  body.ovyx-webstudio-active #view-webstudio .ws-pulse-action{
+    min-height:34px!important;gap:7px!important;padding:7px 8px!important;border-radius:9px!important;font-size:9px!important
+  }
+  body.ovyx-webstudio-active #view-webstudio .ws-pulse-popover .ovyx-ws-tool{
+    min-height:32px!important;gap:7px!important;padding:6px 8px!important;border-radius:9px!important;font-size:9px!important
+  }
+  body.ovyx-webstudio-active #view-webstudio .ws-pulse-popover .ws-pulse-menu-note{
+    margin:0 2px!important;font-size:8px!important;line-height:1.35!important
+  }
+  @media(max-width:767px){
+    body.ovyx-webstudio-active #view-webstudio .ovyx-ws-composer{padding:7px 9px 6px!important;border-radius:20px!important}
+    body.ovyx-webstudio-active #view-webstudio .ws-pulse-popover{
+      width:min(294px,calc(100vw - 20px))!important;max-height:min(52dvh,360px)!important
+    }
+    body.ovyx-webstudio-active #view-webstudio #ws-chat-input{font-size:16px!important}
+  }
+  @media(prefers-reduced-motion:reduce){
+    body.ovyx-webstudio-active #view-webstudio .ws-pulse-trigger,
+    body.ovyx-webstudio-active #view-webstudio .ws-composer-mic,
+    body.ovyx-webstudio-active #view-webstudio .ovyx-ws-send{transition:none!important}
+  }
 </style>
 <script id="ovyx-webstudio-pulse-composer-runtime-v1">
 (function(){
@@ -17280,7 +17356,7 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
     if(!W||!composer||!tools)return false;
     composer.dataset.ovyxPulseComposer='1';root=tools;
     menu=document.createElement('div');menu.className='ws-pulse-popover';menu.id='ws-pulse-popover';menu.setAttribute('role','dialog');menu.setAttribute('aria-label','OVYX tools and modes');
-    menu.innerHTML='<div class="ws-pulse-popover-head"><span>OVYX TOOLS</span><button type="button" data-ws-pulse-close aria-label="Close tools">×</button></div><div class="ws-pulse-section-label">Modes</div><div class="ws-pulse-modes"></div><div class="ws-pulse-section-label">Create and attach</div><div class="ws-pulse-actions"><button type="button" class="ws-pulse-action" data-ws-pulse-action="image"><i class="fa-regular fa-image" aria-hidden="true"></i><span>Create image</span></button><button type="button" class="ws-pulse-action" data-ws-pulse-action="camera"><i class="fa-solid fa-camera" aria-hidden="true"></i><span>Take photo</span></button></div><div class="ws-pulse-section-label">Workspace tools</div><div class="ws-pulse-extra"></div><p class="ws-pulse-menu-note">You can ask for an image directly in chat. OVYX will generate it here without opening a separate image studio.</p>';
+    menu.innerHTML='<div class="ws-pulse-popover-head"><span>OVYX TOOLS</span><button type="button" data-ws-pulse-close aria-label="Close tools">×</button></div><div class="ws-pulse-section-label">Modes</div><div class="ws-pulse-modes"></div><div class="ws-pulse-section-label">Create and attach</div><div class="ws-pulse-actions"><button type="button" class="ws-pulse-action" data-ws-pulse-action="image"><i class="fa-regular fa-image" aria-hidden="true"></i><span>Create image</span></button><button type="button" class="ws-pulse-action" data-ws-pulse-action="camera"><i class="fa-solid fa-camera" aria-hidden="true"></i><span>Take photo</span></button></div><div class="ws-pulse-section-label">Workspace tools</div><div class="ws-pulse-extra"></div><p class="ws-pulse-menu-note">Generated images stay in chat. Use “Use in website” to add one to your build.</p>';
     tools.prepend(menu);
     pulse=document.createElement('button');pulse.type='button';pulse.className='ws-pulse-trigger';pulse.id='ws-pulse-trigger';pulse.setAttribute('aria-label','Open OVYX tools');pulse.setAttribute('aria-haspopup','dialog');pulse.setAttribute('aria-expanded','false');pulse.title='OVYX tools and modes';pulse.innerHTML='<i class="fa-solid fa-wave-square" aria-hidden="true"></i>';tools.insertBefore(pulse,menu.nextSibling);
     mic=document.createElement('button');mic.type='button';mic.className='ws-composer-mic';mic.id='ws-composer-mic';mic.setAttribute('aria-label','Dictate prompt');mic.setAttribute('aria-pressed','false');mic.title='Dictate prompt';mic.innerHTML='<i class="fa-solid fa-microphone" aria-hidden="true"></i>';tools.insertBefore(mic,pulse.nextSibling);
