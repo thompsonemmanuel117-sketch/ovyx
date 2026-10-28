@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
+import { buildWebStudioAttachmentContext } from '../functions/api/ai/assistant.js';
 
 const html = fs.readFileSync('index.html', 'utf8');
 const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
@@ -31,6 +32,16 @@ assert.match(html, /thisImageController\.signal/, 'Image-generation requests mus
 const transcribeRoute = fs.readFileSync('functions/api/ai/transcribe.js', 'utf8');
 const guardedAI = fs.readFileSync('functions/_lib/cloudflare-free-ai.js', 'utf8');
 const cancelSafety = fs.readFileSync('assets/ovyx-webstudio-cancel-safety.js', 'utf8');
+const attachmentContext = buildWebStudioAttachmentContext([
+  { name: 'project-brief.md', type: 'text/markdown', size: 7200, status: 'ready', textContent: 'BEGIN_ATTACHMENT_SENTINEL\n' + 'readable brief context '.repeat(350) + '\nEND_ATTACHMENT_SENTINEL', dataUrl: 'data:text/markdown;base64,SHOULD_NOT_LEAK' },
+  { name: 'reference-image.png', type: 'image/png', size: 4200, status: 'ready', dataUrl: 'data:image/png;base64,IMAGE_BYTES_SHOULD_NOT_LEAK', textContent: null },
+]);
+assert.ok(attachmentContext.includes('project-brief.md') && attachmentContext.includes('BEGIN_ATTACHMENT_SENTINEL') && attachmentContext.includes('END_ATTACHMENT_SENTINEL'),
+  'Text attachments must be delivered as readable, bounded reference context.');
+assert.ok(attachmentContext.includes('reference-image.png') && attachmentContext.includes('pixels are not included'),
+  'Binary image attachments must be identified without inventing image contents.');
+assert.doesNotMatch(attachmentContext, /SHOULD_NOT_LEAK|IMAGE_BYTES_SHOULD_NOT_LEAK/,
+  'Attachment base64 data must not be forwarded as model prompt text.');
 assert.ok(cancelSafety.includes("send.dataset.ovyxComposerState === 'stop'") &&
   cancelSafety.includes("send.getAttribute('aria-label') === 'Stop generating'"),
   'Stop clicks must not arm a new browser-task rollback snapshot.');
