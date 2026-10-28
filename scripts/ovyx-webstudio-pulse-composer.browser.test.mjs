@@ -107,6 +107,101 @@ try {
     assert.equal(await popover.isVisible(), false, '[' + target.name + '] Pulse should close after a file has been selected.');
     await page.locator('#ws-attachment-strip [data-ws-remove-attachment]').first().click();
 
+    // Any supported attachment should get a large staged preview, not only a tiny chip.
+    await pulse.click();
+    const [imageChooser] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      popover.locator('#ws-attach-btn').click()
+    ]);
+    const svgFixture = '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360"><rect width="640" height="360" fill="#101522"/><circle cx="320" cy="180" r="110" fill="#e8b64f"/></svg>';
+    await imageChooser.setFiles({name:'reference-image.svg',mimeType:'image/svg+xml',buffer:Buffer.from(svgFixture)});
+    const stagedImage = page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-image');
+    await stagedImage.waitFor({state:'visible'});
+    const stagedImageBox = await stagedImage.boundingBox();
+    assert.ok(stagedImageBox && stagedImageBox.width > 90 && stagedImageBox.height > 60,
+      '[' + target.name + '] uploaded image should be previewed at a useful size before sending.');
+    await page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-actions button').filter({hasText:'Preview'}).first().click();
+    const fullImagePreview = page.locator('#ws-file-preview-overlay:not([hidden]) .ws-file-preview-full-image');
+    await fullImagePreview.waitFor({state:'visible'});
+    const fullImageBox = await fullImagePreview.boundingBox();
+    assert.ok(fullImageBox && fullImageBox.width > 120,
+      '[' + target.name + '] image preview should open in a large full-view surface.');
+    await page.locator('#ws-file-preview-overlay [data-ws-file-preview-close]').click();
+    await page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-remove').first().click();
+    assert.equal(await page.locator('#ws-attachment-preview-gallery').isHidden(), true,
+      '[' + target.name + '] removing the attachment should remove its preview too.');
+
+    // Exercise the actual microphone UI without relying on CI hardware: a fake
+    // MediaRecorder supplies the same Blob/event contract as a browser recording.
+    await input.fill('');
+    await page.evaluate(() => {
+      Object.defineProperty(navigator, 'mediaDevices', {
+        configurable: true,
+        value: { getUserMedia: async () => ({ getTracks: () => [{ stop() {} }] }) }
+      });
+      class FakeMediaRecorder {
+        constructor(_stream, options = {}) { this.mimeType = options.mimeType || 'audio/webm;codecs=opus'; this.state = 'inactive'; this.handlers = {}; }
+        addEventListener(type, handler) { (this.handlers[type] ||= []).push(handler); }
+        emit(type, event) { for (const handler of this.handlers[type] || []) handler(event); }
+        start() { this.state = 'recording'; setTimeout(() => this.emit('dataavailable', { data: new Blob(['fake recorded voice'], { type: 'audio/webm' }) }), 40); }
+        stop() { this.state = 'inactive'; this.emit('stop', {}); }
+        static isTypeSupported() { return true; }
+      }
+      window.MediaRecorder = FakeMediaRecorder;
+      window.OVYXAIService.generate = async (payload) => ({ message: 'I received your voice note: ' + payload.prompt });
+      window.WebStudio.setMode('ask');
+    });
+    await mic.click();
+    await page.locator('#ws-voice-note-panel').waitFor({state:'visible'});
+    await page.locator('#ws-voice-note-panel [data-ws-voice-record]').click();
+    await page.locator('#ws-voice-note-panel [data-ws-voice-stop]').waitFor({state:'visible'});
+    await page.waitForTimeout(90);
+    await page.locator('#ws-voice-note-panel [data-ws-voice-stop]').click();
+    await page.locator('#ws-voice-note-panel [data-ws-voice-player] audio').waitFor({state:'visible'});
+    await page.route('**/api/ai/transcribe', async route => {
+      const request = route.request();
+      const body = request.postDataJSON();
+      assert.ok(body && typeof body.audio === 'string' && body.audio.startsWith('data:audio/'),
+        '[' + target.name + '] voice-note recording should be sent as audio data, not just an unverified UI event.');
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ ok: true, transcript: 'Explain this project from my voice note.', wordCount: 7 })
+      });
+    });
+    await page.locator('#ws-voice-note-panel [data-ws-voice-send]').click();
+    await page.waitForSelector('#ws-agent-thread .ws-chat-voice-note audio', {state:'visible'});
+    await page.waitForFunction(() => (document.getElementById('ws-agent-thread')?.innerText || '').includes('I received your voice note'));
+    assert.match(await page.locator('#ws-agent-thread').innerText(), /Explain this project from my voice note\./,
+      '[' + target.name + '] the transcript should be sent through the normal OVYX AI response flow.');
+    assert.equal(await page.locator('#ws-agent-thread .ws-chat-voice-note audio').count(), 1,
+      '[' + target.name + '] sent voice messages should retain a playable voice-note preview in chat.');
+
+    // Stop must abort the in-flight request and restore the same button to Send.
+    await page.evaluate(() => {
+      window.__ovyxStopTest = { started: false, aborted: false };
+      window.OVYXAIService.generate = (_payload, options = {}) => new Promise((_resolve, reject) => {
+        const signal = options.signal;
+        window.__ovyxStopTest.started = true;
+        const abort = () => {
+          window.__ovyxStopTest.aborted = true;
+          reject(Object.assign(new Error('Request cancelled by user.'), { name: 'AbortError' }));
+        };
+        if (signal?.aborted) abort();
+        else signal?.addEventListener('abort', abort, { once: true });
+      });
+      window.WebStudio.setMode('ask');
+    });
+    await input.fill('Please stop this request while it is running.');
+    await send.click();
+    await page.waitForFunction(() => document.getElementById('ws-chat-send')?.getAttribute('aria-label') === 'Stop generating');
+    assert.equal(await send.isEnabled(), true, '[' + target.name + '] stop button must remain clickable while OVYX is thinking.');
+    await send.click();
+    await page.waitForFunction(() => window.__ovyxStopTest?.aborted === true &&
+      document.getElementById('ws-chat-send')?.getAttribute('aria-label') === 'Send prompt');
+    assert.equal(await page.evaluate(() => window.WebStudio.pendingBuild), false,
+      '[' + target.name + '] pressing stop must clear the active thinking state.');
+    
     await pulse.click();
     await popover.locator('[data-ws-mode="ask"]').click();
     assert.equal(await page.locator('#ws-mode-trigger-label').textContent(), 'Ask', '[' + target.name + '] selecting Ask must update the real Web Studio mode.');
