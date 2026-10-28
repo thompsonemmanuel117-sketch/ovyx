@@ -351,7 +351,7 @@ try {
     assert.equal(attachedReferenceContext.length, 2, '[' + target.name + '] submitted AI request must carry both selected file references.');
     assert.equal(attachedReferenceContext[0]?.name, 'assistant-reference.md', '[' + target.name + '] extracted text should keep its original filename.');
     assert.match(attachedReferenceContext[0]?.readableText || '', /ATTACHMENT_CONTEXT_SENTINEL/, '[' + target.name + '] readable text files must reach native AI context.');
-    assert.match(attachedReferenceContext[0]?.readableText || '', /api_key=\\[REDACTED\\]/, '[' + target.name + '] credential-like attachment values must be masked before reaching the model.');
+    assert.match(attachedReferenceContext[0]?.readableText || '', /api_key=\[REDACTED\]/, '[' + target.name + '] credential-like attachment values must be masked before reaching the model.');
     assert.doesNotMatch(attachedReferenceContext[0]?.readableText || '', /ATTACHMENT_SECRET_SHOULD_NOT_REACH_MODEL/, '[' + target.name + '] raw credential-like attachment values must not reach the model.');
     assert.equal(attachedReferenceContext[1]?.name, 'assistant-reference.pdf', '[' + target.name + '] binary file metadata should keep its filename.');
     assert.equal(attachedReferenceContext[1]?.readableText, null, '[' + target.name + '] assistant must not invent extracted PDF text.');
