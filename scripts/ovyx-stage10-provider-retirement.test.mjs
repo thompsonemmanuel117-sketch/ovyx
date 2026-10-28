@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { onRequest as testLegacyProviderEndpoint } from '../functions/api/test-provider.js';
 import {
   isCloudflareWorkersAIGuardedMode,
   isLegacyProviderRoutingEnabled,
@@ -12,6 +13,7 @@ const [
   guardedEngine,
   statusRoute,
   statusTests,
+  legacyProviderTestRoute,
   assistantRoute,
   gatewayRoute,
   agentRoute,
@@ -26,6 +28,7 @@ const [
   read('functions/_lib/cloudflare-free-ai.js'),
   read('functions/api/ai/status.js'),
   read('scripts/ai-provider-status.test.mjs'),
+  read('functions/api/test-provider.js'),
   read('functions/api/ai/assistant.js'),
   read('functions/api/ai/gateway.js'),
   read('functions/api/generate.js'),
