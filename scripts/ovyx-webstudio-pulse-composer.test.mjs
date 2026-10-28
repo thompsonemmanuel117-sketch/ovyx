@@ -25,9 +25,12 @@ assert.match(html, /fetch\('\/api\/ai\/image-generation'/, 'Image requests must 
 assert.match(html, /generatedImageId/, 'Generated images must be attached to chat messages.');
 assert.match(html, /data-ovyx-use-generated-image/, 'Generated images must have a Use in website action.');
 assert.match(html, /download\.download=asset\.name/, 'Generated images must be downloadable.');
-assert.match(html, /setAttachments\(\[file\]\)/, 'Use in website must stage the generated image as a Web Studio attachment.');
+assert.match(html, /currentAttachments\.concat\(attachment\)/, 'Use in website must append the generated image without dropping existing attachments.');
+assert.match(html, /currentAttachments\.length>=6/, 'The generated image action must retain the six-attachment limit.');
 assert.match(html, /input\.style\.height='42px'/, 'The composer must reset to a compact one-line height.');
-assert.match(html, /var max=200/, 'The composer must expand for longer prompts with a bounded maximum height.');
+assert.match(html, /var max=180/, 'The composer must expand for longer prompts with a bounded maximum height.');
+assert.match(html, /Math\.min\(Math\.max\(contentHeight, 42\), 180\)/, 'The original Web Studio input handler must not force tall minimums after typing.');
+assert.match(html, /W\.pendingBuild=true;[\s\S]{0,80}W\.liveAiActive=true;/, 'Image generation must show the in-chat processing state and block overlapping tasks.');
 assert.match(html, /if\(composer\?\.dataset\.ovyxPulseComposer==='1'\)return true/, 'Composer boot retries must be idempotent instead of creating an endless retry loop.');
 assert.match(html, /compactSetMode=function\(\)[\s\S]*?field\.placeholder='Message OVYX…'/, 'Web Studio renders and mode changes must preserve the compact mobile placeholder.');
 assert.match(html, /if\(event\.key==='Enter'&&!event\.shiftKey&&!event\.isComposing\)/, 'Enter sends and Shift+Enter remains available for a newline.');
