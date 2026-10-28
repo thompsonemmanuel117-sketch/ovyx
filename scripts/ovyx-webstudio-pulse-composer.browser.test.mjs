@@ -91,6 +91,15 @@ try {
     assert.equal(await popover.locator('[data-ws-pulse-action="selection"]').isVisible(), true, '[' + target.name + '] selected-element helper must be accessible inside Pulse.');
     assert.equal(await popover.locator('[data-ws-pulse-action="clear"]').isVisible(), true, '[' + target.name + '] clear-draft action must be accessible inside Pulse.');
 
+    // OVYX protects project attachments behind the same signed-in session gate as generation.
+    // Establish the test identity before exercising the real file-picker/change handler.
+    await page.evaluate(() => {
+      window.firebase = {
+        auth() {
+          return { currentUser: { getIdToken: async () => 'pulse-browser-test-token' } };
+        }
+      };
+    });
     const [fileChooser] = await Promise.all([page.waitForEvent('filechooser'), popover.locator('#ws-attach-btn').click()]);
     await fileChooser.setFiles({name:'reference.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\\nOVYX reference\\n%%EOF')});
     await page.waitForFunction(() => !document.getElementById('ws-attachment-strip')?.hidden && /reference\.pdf/.test(document.getElementById('ws-attachment-strip')?.innerText || ''));
