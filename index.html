@@ -17964,7 +17964,10 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
       try{imageAbortController?.abort()}catch(_){}
       try{W.abortActiveAi?.()}catch(_){}
       W.requestEpoch=Number(W.requestEpoch||0)+1;W.aiFrozen=true;W.pendingBuild=false;W.liveAiActive=false;W.activeAbortController=null;
-      syncComposerSendState(W);toast('Stopped generating. Your existing project and previous changes are preserved.','info');
+      // The click handler runs during capture. Defer button markup changes until
+      // the current click has finished dispatching, otherwise replacing the
+      // clicked icon can strand pointer interactions in Chromium.
+      setTimeout(function(){syncComposerSendState(W);toast('Stopped generating. Your existing project and previous changes are preserved.','info');},0);
     };
     document.addEventListener('click',function(event){
       var button=event.target?.closest?.('#ws-chat-send');if(!button)return;
