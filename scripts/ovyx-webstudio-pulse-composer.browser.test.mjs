@@ -16,12 +16,15 @@ try {
     await page.waitForSelector('#ws-pulse-trigger', { state: 'attached' });
     await page.waitForLoadState('load', { timeout: 30000 }).catch(() => {});
     await page.evaluate(() => {
+      if (window.KernelState) window.KernelState.activeView = 'webstudio';
+      window.__OVYX_BOOT_ROUTE = 'webstudio';
       document.body.classList.add('ovyx-webstudio-active');
       const view = document.getElementById('view-webstudio');
       if (view) {
         view.classList.remove('hidden');
         view.setAttribute('aria-hidden', 'false');
       }
+      window.dispatchEvent(new CustomEvent('ovyx:view-changed', { detail: { view: 'webstudio' } }));
     });
 
     const pulse = page.locator('#ws-pulse-trigger');
