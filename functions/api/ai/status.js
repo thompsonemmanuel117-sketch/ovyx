@@ -244,11 +244,6 @@ export async function onRequestGet(context) {
       Promise.all(Object.entries(ADDITIONAL_PROVIDERS).map(([name, config]) => checkProvider(name, config, context.env))),
     ]);
 
-    const workersAi = Boolean(
-      context.env?.AI &&
-      typeof context.env.AI.run === 'function'
-    );
-
     const ready = results.filter(item => item.connected).length;
 
     return Response.json({
