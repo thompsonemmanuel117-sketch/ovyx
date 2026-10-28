@@ -787,7 +787,7 @@ export async function runCloudflareFreeTranscription(env, {
     throw fail(503, 'OVYX_NATIVE_AI_NOT_CONFIGURED', 'OVYX AI is not connected yet. Please try again later.');
   }
 
-  const base64 = String(audio || '').replace(/\\s/g, '');
+  const base64 = String(audio || '').replace(/\s/g, '');
   if (!base64 || !/^[A-Za-z0-9+/]+={0,2}$/.test(base64) || base64.length % 4 !== 0) {
     throw fail(400, 'VOICE_AUDIO_INVALID', 'The voice note could not be read. Please record it again.');
   }
@@ -845,7 +845,7 @@ export async function runCloudflareFreeTranscription(env, {
       text,
       model: OVYX_CLOUDFLARE_TRANSCRIPTION_MODEL,
       estimatedNeurons: estimate,
-      wordCount: Number(result?.word_count || text.split(/\\s+/).filter(Boolean).length),
+      wordCount: Number(result?.word_count || text.split(/\s+/).filter(Boolean).length),
     };
   } catch (error) {
     if (dispatched && !settled) {
@@ -856,6 +856,16 @@ export async function runCloudflareFreeTranscription(env, {
     if (isCloudflareDailyFreeLimitError(error)) {
       await recordCloudflareFreeExhaustion(env, 'cloudflare-daily-free-allocation');
     }
+    // Preserve our own bounded validation/quota errors; sanitize only
+    // errors returned by the upstream Workers AI binding.
+    const safeLocalCodes = new Set([
+      'OVYX_AI_ENGINE_MODE_NOT_CONFIGURED',
+      'OVYX_NATIVE_AI_NOT_CONFIGURED',
+      'VOICE_AUDIO_INVALID',
+      'VOICE_AUDIO_TOO_LARGE',
+      'VOICE_TRANSCRIPTION_EMPTY',
+    ]);
+    if (safeLocalCodes.has(String(error?.code || ''))) throw error;
     throw safeProviderError(error);
   }
 }
