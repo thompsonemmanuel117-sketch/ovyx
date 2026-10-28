@@ -39,7 +39,11 @@ try {
     const send = page.locator('#ws-chat-send');
     const popover = page.locator('#ws-pulse-popover');
     const input = page.locator('#ws-chat-input');
+    const composer = page.locator('#ws-chat-composer');
     assert.equal(await pulse.isVisible(), true, '[' + target.name + '] pulse button should be visible.');
+    const restingComposerHeight = await composer.evaluate(el => el.getBoundingClientRect().height);
+    assert.ok(restingComposerHeight <= 108,
+      '[' + target.name + '] the resting composer should be compact, got ' + restingComposerHeight + 'px.');
     assert.equal(await mic.isVisible(), true, '[' + target.name + '] microphone should be visible.');
     assert.equal(await send.isVisible(), true, '[' + target.name + '] send arrow should be visible.');
     assert.ok(await page.locator('#ws-mode-menu [data-ws-mode]').count() === 4, '[' + target.name + '] all four modes must remain available.');
@@ -54,6 +58,15 @@ try {
 
     await pulse.click();
     await popover.waitFor({ state: 'visible' });
+    const popoverBox = await popover.evaluate(el => {
+      const rect = el.getBoundingClientRect();
+      return { width: rect.width, height: rect.height };
+    });
+    assert.ok(popoverBox.width <= 300,
+      '[' + target.name + '] Pulse menu should stay narrow, got ' + popoverBox.width + 'px.');
+    const popoverHeightLimit = target.name === 'mobile' ? 365 : 395;
+    assert.ok(popoverBox.height <= popoverHeightLimit,
+      '[' + target.name + '] Pulse menu should stay compact, got ' + popoverBox.height + 'px.');
     assert.equal(await popover.locator('[data-ws-mode="build"]').isVisible(), true, '[' + target.name + '] Build mode must be inside the pulse menu.');
     assert.equal(await popover.locator('[data-ws-mode="plan"]').isVisible(), true, '[' + target.name + '] Plan mode must be inside the pulse menu.');
     assert.equal(await popover.locator('[data-ws-mode="ask"]').isVisible(), true, '[' + target.name + '] Ask mode must be inside the pulse menu.');
