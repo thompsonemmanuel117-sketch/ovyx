@@ -861,6 +861,7 @@ export async function runCloudflareFreeTranscription(env, {
     const safeLocalCodes = new Set([
       'OVYX_AI_ENGINE_MODE_NOT_CONFIGURED',
       'OVYX_NATIVE_AI_NOT_CONFIGURED',
+      'OVYX_AI_CLOUDFLARE_QUOTA_EXHAUSTED',
       'VOICE_AUDIO_INVALID',
       'VOICE_AUDIO_TOO_LARGE',
       'VOICE_TRANSCRIPTION_EMPTY',
