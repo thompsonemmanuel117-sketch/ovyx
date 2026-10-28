@@ -54,24 +54,32 @@ try {
     assert.ok(await page.locator('#ws-mode-menu [data-ws-mode]').count() === 4, '[' + target.name + '] all four modes must remain available.');
 
     const compactHeight = await input.evaluate(el => el.getBoundingClientRect().height);
-    assert.ok(compactHeight <= 56, '[' + target.name + '] prompt should start compact, got ' + compactHeight + 'px.');
+    assert.ok(compactHeight <= 40, '[' + target.name + '] prompt should start on one compact line, got ' + compactHeight + 'px.');
+    const composer = page.locator('#ws-chat-composer');
+    const composerBox = await composer.boundingBox();
+    assert.ok(composerBox && composerBox.height <= 100, '[' + target.name + '] composer must not retain the old tall blank panel, got ' + (composerBox && composerBox.height) + 'px.');
 
     await input.fill('Hi OVYX');
     const shortPromptHeight = await input.evaluate(el => el.getBoundingClientRect().height);
-    assert.ok(shortPromptHeight <= 56,
+    assert.ok(shortPromptHeight <= 40,
       '[' + target.name + '] a short typed prompt must remain compact; legacy input handlers must not force a tall minimum, got ' + shortPromptHeight + 'px.');
 
     await pulse.click();
     await popover.waitFor({ state: 'visible' });
     const popoverBox = await popover.boundingBox();
-    const maxPopoverWidth = 250;
-    const maxPopoverHeight = target.name === 'mobile' ? 341 : 361;
+    const maxPopoverWidth = 224;
+    const maxPopoverHeight = target.name === 'mobile' ? 256 : 291;
     assert.ok(popoverBox && popoverBox.width <= maxPopoverWidth,
       '[' + target.name + '] pulse menu should be narrow and compact, got ' + (popoverBox && popoverBox.width) + 'px.');
     assert.ok(popoverBox && popoverBox.height <= maxPopoverHeight,
       '[' + target.name + '] pulse menu should respect the compact height limit, got ' + (popoverBox && popoverBox.height) + 'px.');
     assert.ok(popoverBox && popoverBox.x >= 0 && popoverBox.x + popoverBox.width <= target.viewport.width + 1,
       '[' + target.name + '] pulse menu must stay fully inside the viewport.');
+    const currentComposerBox = await composer.boundingBox();
+    assert.ok(currentComposerBox && popoverBox && popoverBox.y + popoverBox.height <= currentComposerBox.y + 2,
+      '[' + target.name + '] Pulse menu must open above the complete composer, not cover the text field or toolbar.');
+    const modeColor = await popover.locator('[data-ws-mode="build"] b').evaluate(el => getComputedStyle(el).color);
+    assert.notEqual(modeColor, 'rgb(32, 32, 32)', '[' + target.name + '] mode name must not inherit the old nearly-black text color.');
     assert.equal(await popover.locator('[data-ws-mode="build"]').isVisible(), true, '[' + target.name + '] Build mode must be inside the pulse menu.');
     assert.equal(await popover.locator('[data-ws-mode="plan"]').isVisible(), true, '[' + target.name + '] Plan mode must be inside the pulse menu.');
     assert.equal(await popover.locator('[data-ws-mode="ask"]').isVisible(), true, '[' + target.name + '] Ask mode must be inside the pulse menu.');
@@ -79,7 +87,18 @@ try {
     assert.equal(await popover.locator('#ws-attach-btn').isVisible(), true, '[' + target.name + '] upload control must be inside the pulse menu.');
     assert.equal(await popover.locator('#ws-brain-btn').isVisible(), true, '[' + target.name + '] AI brain selector must be inside the pulse menu.');
     assert.equal(await popover.locator('#ws-context-btn').isVisible(), true, '[' + target.name + '] project context control must be inside the pulse menu.');
+    assert.equal(await popover.locator('[data-ws-pulse-action="code"]').isVisible(), true, '[' + target.name + '] Open Code editor must be accessible inside Pulse.');
+    assert.equal(await popover.locator('[data-ws-pulse-action="selection"]').isVisible(), true, '[' + target.name + '] selected-element helper must be accessible inside Pulse.');
+    assert.equal(await popover.locator('[data-ws-pulse-action="clear"]').isVisible(), true, '[' + target.name + '] clear-draft action must be accessible inside Pulse.');
 
+    const [fileChooser] = await Promise.all([page.waitForEvent('filechooser'), popover.locator('#ws-attach-btn').click()]);
+    await fileChooser.setFiles({name:'reference.pdf',mimeType:'application/pdf',buffer:Buffer.from('%PDF-1.4\\nOVYX reference\\n%%EOF')});
+    await page.waitForFunction(() => !document.getElementById('ws-attachment-strip')?.hidden && /reference\.pdf/.test(document.getElementById('ws-attachment-strip')?.innerText || ''));
+    assert.match(await page.locator('#ws-attachment-strip').innerText(), /reference\.pdf/, '[' + target.name + '] Pulse must attach a non-image document through the visible upload button.');
+    assert.equal(await popover.isVisible(), false, '[' + target.name + '] Pulse should close after a file has been selected.');
+    await page.locator('#ws-attachment-strip [data-ws-remove-attachment]').first().click();
+
+    await pulse.click();
     await popover.locator('[data-ws-mode="ask"]').click();
     assert.equal(await page.locator('#ws-mode-trigger-label').textContent(), 'Ask', '[' + target.name + '] selecting Ask must update the real Web Studio mode.');
     await pulse.click();
