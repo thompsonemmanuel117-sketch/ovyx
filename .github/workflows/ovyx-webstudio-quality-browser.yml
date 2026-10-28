@@ -92,6 +92,8 @@ jobs:
 
       - name: Test Web Studio static regression contract
         run: node scripts/ovyx-webstudio-quality.test.mjs
+      - name: Test Web Studio pulse composer in Chromium
+        run: node scripts/ovyx-webstudio-pulse-composer.browser.test.mjs
       - name: Test Web Studio quality inspector in Chromium
         run: node scripts/ovyx-webstudio-quality.browser.test.mjs
       - name: Test code workspace search and sidebar logo in Chromium
