@@ -148,6 +148,7 @@ try {
         static isTypeSupported() { return true; }
       }
       window.MediaRecorder = FakeMediaRecorder;
+      window.OVYXAIService = window.OVYXAIService || {};
       window.OVYXAIService.generate = async (payload) => ({ message: 'I received your voice note: ' + payload.prompt });
       window.WebStudio.setMode('ask');
     });
@@ -180,6 +181,7 @@ try {
     // Stop must abort the in-flight request and restore the same button to Send.
     await page.evaluate(() => {
       window.__ovyxStopTest = { started: false, aborted: false };
+      window.OVYXAIService = window.OVYXAIService || {};
       window.OVYXAIService.generate = (_payload, options = {}) => new Promise((_resolve, reject) => {
         const signal = options.signal;
         window.__ovyxStopTest.started = true;
