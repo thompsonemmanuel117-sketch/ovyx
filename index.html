@@ -17829,6 +17829,8 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
       voicePanel.hidden=true;
       if(sendToAI){
         W.__ovyxPendingVoiceNoteForNextMessage={url:voiceObjectUrl,mimeType:voiceMime,durationMs:voiceDurationMs};
+        // Transfer ownership to the chat bubble so recording another note does not revoke its player.
+        voiceObjectUrl='';
         toast('Voice note transcribed. Sending it to OVYX…','success');
         Promise.resolve(W.submitPrompt()).catch(function(error){toast(String(error?.message||'Could not send the voice note to OVYX.'),'error');});
       }else{
@@ -17883,6 +17885,7 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
     var originalSubmit=W.submitPrompt;
     if(typeof originalSubmit==='function'){
       var wrappedSubmit=async function(){
+        if(composerWorking){syncComposerSendState(this);return;}
         var input=$('ws-chat-input');var hasText=!!String(input?.value||'').trim();var hasFiles=Array.isArray(this.attachments)&&this.attachments.length>0;
         if(!hasText&&hasFiles){setComposerValue('Please review the attached file(s), explain what they contain, and use them as context for my request.');}
         if(!String($('ws-chat-input')?.value||'').trim()&&!hasFiles){syncComposerSendState(this);return;}
