@@ -2708,7 +2708,7 @@
         input?.addEventListener('input', (event) => {
           const value = String(event.target?.value || '');
           if (send) send.disabled = value.trim().length === 0;
-          event.target.style.height = 'auto'; event.target.style.height = Math.min(Math.max(event.target.scrollHeight, window.innerWidth < 768 ? 112 : 82), window.innerWidth < 768 ? 220 : 220) + 'px';
+          event.target.style.height = '42px'; const contentHeight = Math.ceil(event.target.scrollHeight || 42); event.target.style.height = Math.min(Math.max(contentHeight, 42), 180) + 'px'; event.target.style.overflowY = contentHeight > 180 ? 'auto' : 'hidden';
         });
         input?.addEventListener('keydown', event => { if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') { event.preventDefault(); this.submitPrompt(); } });
         send?.addEventListener('click', () => this.submitPrompt());
@@ -17221,15 +17221,15 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
 <style id="ovyx-webstudio-pulse-composer-v1">
   #ovyx-image-gen-launch{display:none!important;visibility:hidden!important;pointer-events:none!important}
 
-  body.ovyx-webstudio-active #view-webstudio .ovyx-ws-composer{position:relative!important;gap:9px!important;padding:10px!important;border-radius:18px!important;border:1px solid rgba(255,255,255,.13)!important;background:rgba(9,10,12,.97)!important;box-shadow:0 10px 36px rgba(0,0,0,.24)!important;overflow:visible!important}
+  body.ovyx-webstudio-active #view-webstudio .ovyx-ws-composer{position:relative!important;gap:6px!important;padding:8px!important;border-radius:18px!important;border:1px solid rgba(255,255,255,.13)!important;background:rgba(9,10,12,.97)!important;box-shadow:0 10px 36px rgba(0,0,0,.24)!important;overflow:visible!important}
   body.ovyx-webstudio-active #view-webstudio .ovyx-ws-composer-head{display:none!important}
-  body.ovyx-webstudio-active #view-webstudio #ws-chat-input{display:block!important;box-sizing:border-box!important;width:100%!important;min-height:42px!important;height:42px;max-height:200px!important;resize:none!important;overflow-y:hidden;padding:10px 8px!important;border:0!important;outline:0!important;background:transparent!important;color:#f5f6f7!important;font:500 13px/1.55 Inter,system-ui,sans-serif!important;letter-spacing:0!important}
+  body.ovyx-webstudio-active #view-webstudio #ws-chat-input{display:block!important;box-sizing:border-box!important;width:100%!important;min-height:42px!important;height:42px;max-height:180px!important;resize:none!important;overflow-y:hidden;padding:8px 8px!important;border:0!important;outline:0!important;background:transparent!important;color:#f5f6f7!important;font:500 13px/1.55 Inter,system-ui,sans-serif!important;letter-spacing:0!important}
   body.ovyx-webstudio-active #view-webstudio #ws-chat-input::placeholder{color:#707984!important}
   body.ovyx-webstudio-active #view-webstudio .ovyx-ws-composer-tools{display:flex!important;align-items:center!important;justify-content:space-between!important;gap:8px!important;padding:0!important}
-  body.ovyx-webstudio-active #view-webstudio #ws-chat-send{display:grid!important;place-items:center!important;flex:0 0 38px!important;width:38px!important;height:38px!important;min-width:38px!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;border-radius:12px!important}
+  body.ovyx-webstudio-active #view-webstudio #ws-chat-send{display:grid!important;place-items:center!important;flex:0 0 36px!important;width:36px!important;height:36px!important;min-width:36px!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;border-radius:11px!important}
   body.ovyx-webstudio-active #view-webstudio #ws-chat-send:disabled{opacity:.42!important;cursor:not-allowed!important}
   body.ovyx-webstudio-active #view-webstudio .ovyx-ws-tools-left{position:relative!important;display:flex!important;align-items:center!important;gap:7px!important;min-width:0!important}
-  body.ovyx-webstudio-active #view-webstudio .ws-pulse-trigger,body.ovyx-webstudio-active #view-webstudio .ws-composer-mic{display:grid!important;place-items:center!important;flex:0 0 38px!important;width:38px!important;height:38px!important;min-width:38px!important;padding:0!important;border:1px solid rgba(255,255,255,.12)!important;border-radius:13px!important;background:rgba(255,255,255,.035)!important;color:#e9edf2!important;font-size:14px!important;cursor:pointer!important;touch-action:manipulation!important;transition:background .16s ease,border-color .16s ease,transform .16s ease!important}
+  body.ovyx-webstudio-active #view-webstudio .ws-pulse-trigger,body.ovyx-webstudio-active #view-webstudio .ws-composer-mic{display:grid!important;place-items:center!important;flex:0 0 36px!important;width:36px!important;height:36px!important;min-width:36px!important;padding:0!important;border:1px solid rgba(255,255,255,.12)!important;border-radius:13px!important;background:rgba(255,255,255,.035)!important;color:#e9edf2!important;font-size:14px!important;cursor:pointer!important;touch-action:manipulation!important;transition:background .16s ease,border-color .16s ease,transform .16s ease!important}
   body.ovyx-webstudio-active #view-webstudio .ws-pulse-trigger:hover,body.ovyx-webstudio-active #view-webstudio .ws-composer-mic:hover{border-color:rgba(232,182,79,.4)!important;background:rgba(232,182,79,.07)!important}
   body.ovyx-webstudio-active #view-webstudio .ws-pulse-trigger:active,body.ovyx-webstudio-active #view-webstudio .ws-composer-mic:active{transform:scale(.94)!important}
   body.ovyx-webstudio-active #view-webstudio .ws-pulse-trigger[aria-expanded="true"]{border-color:rgba(232,182,79,.55)!important;color:#f1c66c!important;background:rgba(232,182,79,.09)!important}
@@ -17273,7 +17273,7 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
   function toast(message,type){try{window.showToast?window.showToast(message,type||'info'):console.info('[OVYX]',message)}catch(_){}}
   function closeMenu(){if(!menu||!pulse)return;menu.classList.remove('open');pulse.setAttribute('aria-expanded','false');}
   function setComposerValue(value){var input=$('ws-chat-input');if(!input)return;input.placeholder='Message OVYX…';input.value=String(value||'');input.dispatchEvent(new Event('input',{bubbles:true}));input.focus();resizeInput(input);}
-  function resizeInput(input){if(!input)return;input.style.height='42px';var max=200;var next=Math.min(Math.max(input.scrollHeight,42),max);input.style.height=next+'px';input.style.overflowY=input.scrollHeight>max?'auto':'hidden';}
+  function resizeInput(input){if(!input)return;input.style.height='42px';var max=180;var contentHeight=Math.ceil(input.scrollHeight||42);var next=Math.min(Math.max(contentHeight,42),max);input.style.height=next+'px';input.style.overflowY=contentHeight>max?'auto':'hidden';}
   function setup(){
     var W=window.WebStudio,composer=$('ws-chat-composer'),tools=composer?.querySelector('.ovyx-ws-tools-left');
     if(composer?.dataset.ovyxPulseComposer==='1')return true;
@@ -17345,8 +17345,23 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
     }catch(_){recognition=null;if(mic)mic.setAttribute('aria-pressed','false');toast('Could not start voice input in this browser.','error');}
   }
   function isImageRequest(text){
-    return /\b(?:create|generate|draw|render|make|design|produce)\s+(?:(?:me|an?|a)\s+){0,2}(?:image|picture|illustration|artwork|wallpaper|poster|thumbnail|logo|icon|background)\b/i.test(text) ||
-      /\b(?:image|picture|illustration|artwork|wallpaper|poster|thumbnail|logo|icon|background)\s+(?:of|for)\b[\s\S]{0,100}\b(?:create|generate|draw|make|render)\b/i.test(text);
+    var value=String(text||'').trim();
+    if(!value)return false;
+    var nouns='(?:image|picture|photo|illustration|artwork|wallpaper|poster|thumbnail|logo|icon|background|banner|visual)';
+    var nounPattern=new RegExp('\\b'+nouns+'\\b','i');
+    var excludedBefore=/\b(?:website|webpage|web\s+page|landing\s+page|site|web\s+app|application|app|dashboard|homepage|home\s+page|page|section|component|template|screen|form|feature)\b/i;
+    var createLead=/^\s*(?:(?:please|kindly)\s+)?(?:(?:can|could|would)\s+you\s+)?(?:(?:i|we)\s+(?:want|need|would\s+like)\s+(?:(?:you|someone)\s+to\s+)?)?(?:please\s+)?(?:create|generate|draw|render|make|design|produce|illustrate|paint|craft)\b/i;
+    var wantLead=/^\s*(?:(?:i|we)\s+(?:want|need|would\s+like)\s+)(?:(?:you|someone)\s+to\s+)?/i;
+    function hasImageIntent(tail){
+      var found=nounPattern.exec(tail);
+      if(!found||found.index>160)return false;
+      return !excludedBefore.test(tail.slice(0,found.index));
+    }
+    var command=value.match(createLead);
+    if(command&&hasImageIntent(value.slice(command[0].length)))return true;
+    var want=value.match(wantLead);
+    if(want&&hasImageIntent(value.slice(want[0].length)))return true;
+    return /^\s*(?:an?\s+)?(?:image|picture|photo|illustration|artwork|wallpaper|poster|thumbnail|logo|icon|background|banner|visual)\s+(?:of|showing|featuring)\b/i.test(value);
   }
   function imageToken(){
     var auth=window.firebase&&typeof window.firebase.auth==='function'?window.firebase.auth():null;
@@ -17355,21 +17370,39 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
     return user.getIdToken();
   }
   async function generateImageInChat(W,text,input){
-    if(W.pendingBuild||W.liveAiActive){toast('OVYX is already working. Wait for the current request to finish.','info');return;}
-    imageBusy=true;var send=$('ws-chat-send');if(send)send.disabled=true;menu?.classList.remove('open');pulse?.classList.remove('ws-pulse-busy');
+    if(W.pendingBuild||W.liveAiActive||imageBusy){toast('OVYX is already working. Wait for the current request to finish.','info');return;}
+    imageBusy=true;
+    W.pendingBuild=true;
+    W.liveAiActive=true;
+    var send=$('ws-chat-send');
+    if(send)send.disabled=true;
+    menu?.classList.remove('open');
+    if(pulse)pulse.setAttribute('aria-expanded','false');
     W.appendMessage('user',text);
     if(input){input.value='';input.placeholder='Message OVYX…';input.style.height='42px';input.dispatchEvent(new Event('input',{bubbles:true}));}
     try{
+      if(typeof W.status==='function')W.status('Generating image…','live');
       var token=await imageToken();
-      var response=await fetch('/api/ai/image-generation',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({prompt:text})});
+      var response=await fetch('/api/ai/image-generation',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','Authorization':'Bearer '+token},credentials:'same-origin',cache:'no-store',body:JSON.stringify({prompt:text})});
       var data=await response.json().catch(function(){return{}});
       if(!response.ok||data.ok!==true||typeof data.image!=='string'||!data.image.startsWith('data:image/'))throw new Error(String(data.error||data.message||'OVYX could not generate this image. Check your AI allowance and try again.'));
       var id='ovyx-image-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7);
       imageStore[id]={dataUrl:data.image,type:(data.image.match(/^data:(image\/[^;,]+)/i)||[])[1]||'image/png',name:'ovyx-generated-image.'+((data.image.match(/^data:image\/([^;,]+)/i)||[])[1]||'png').replace('jpeg','jpg')};
       W.appendMessage('agent','Your image is ready. Preview it below, download it, or add it to the current website build.',{generatedImageId:id});
       toast('Image generated successfully.','success');
-    }catch(error){W.appendMessage('agent','Image generation failed: '+String(error?.message||'Please try again.'));toast(error?.message||'Image generation failed.','error');}
-    finally{imageBusy=false;if(send)send.disabled=!String($('ws-chat-input')?.value||'').trim();}
+    }catch(error){
+      var message=String(error?.message||'Please try again.');
+      if(/<!doctype|<html|cloudflare ray id|authorization:\s*bearer/i.test(message))message='The image service could not complete this request. Check your connection and try again.';
+      W.appendMessage('agent','Image generation failed: '+message.slice(0,240));
+      toast(message.slice(0,240),'error');
+    }finally{
+      imageBusy=false;
+      W.pendingBuild=false;
+      W.liveAiActive=false;
+      if(typeof W.renderThread==='function')W.renderThread();
+      var currentInput=$('ws-chat-input');
+      if(send)send.disabled=!String(currentInput?.value||'').trim();
+    }
   }
   function installImageRenderer(W){
     if(!W||W.__ovyxPulseImageRenderer)return;W.__ovyxPulseImageRenderer=true;
@@ -17396,12 +17429,24 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
         var button=event.target.closest('[data-ovyx-use-generated-image]');if(!button)return;
         event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();
         var asset=imageStore[button.getAttribute('data-ovyx-use-generated-image')];if(!asset){toast('This generated image is no longer available in the current session. Generate it again to use it.','warning');return;}
-        var W=window.WebStudio;if(!W||typeof W.setAttachments!=='function'){toast('Web Studio attachments are not available right now.','error');return;}
+        var W=window.WebStudio;if(!W||typeof W.renderAttachments!=='function'){toast('Web Studio attachments are not available right now.','error');return;}
         try{
-          var blob=await (await fetch(asset.dataUrl)).blob();
-          if(blob.size>8*1024*1024)throw new Error('This generated image is larger than the 8 MB attachment limit.');
-          var file=new File([blob],asset.name,{type:asset.type});
-          await W.setAttachments([file]);
+          var dataUrl=String(asset.dataUrl||'');
+          var dataMatch=dataUrl.match(/^data:(image\/[a-z0-9.+-]+);base64,([a-z0-9+/=\s]+)$/i);
+          if(!dataMatch)throw new Error('The generated image data is unavailable. Please generate it again.');
+          var base64=dataMatch[2].replace(/\s/g,'');
+          var imageSize=Math.max(0,Math.floor(base64.length*3/4)-(base64.endsWith('==')?2:base64.endsWith('=')?1:0));
+          if(imageSize>8*1024*1024)throw new Error('This generated image is larger than the 8 MB attachment limit.');
+          if(W.attachmentsReady&&typeof W.attachmentsReady.then==='function')await W.attachmentsReady;
+          var currentAttachments=Array.isArray(W.attachments)?W.attachments.slice():[];
+          if(currentAttachments.length>=6)throw new Error('The prompt already has six attachments. Remove one before adding this image.');
+          if(!currentAttachments.some(function(item){return item&&String(item.name||'')===String(asset.name||'');})){
+            var attachment={name:asset.name,size:imageSize,type:asset.type||dataMatch[1].toLowerCase(),dataUrl:dataUrl,textContent:null,status:'ready',error:''};
+            W._attachmentsVersion=Number(W._attachmentsVersion||0)+1;
+            W.attachments=currentAttachments.concat(attachment);
+            W.attachmentsReady=Promise.resolve(W.attachments);
+            W.renderAttachments();
+          }
           W.setMode('build');
           setComposerValue('Use the attached generated image as a visual asset in the current website. Place it where it best supports the design, preserve the existing structure and styling, and verify the preview.');
           toast('Image attached. Review the prompt and press send when you are ready.','success');
