@@ -2713,7 +2713,11 @@
         input?.addEventListener('keydown', event => { if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') { event.preventDefault(); this.submitPrompt(); } });
         send?.addEventListener('click', () => this.submitPrompt());
         document.getElementById('ws-attach-btn')?.addEventListener('click', () => document.getElementById('ws-attach-input')?.click());
-        document.getElementById('ws-attach-input')?.addEventListener('change', event => this.setAttachments([...event.target.files || []]));
+        document.getElementById('ws-attach-input')?.addEventListener('change', event => {
+          const files = [...event.target.files || []];
+          event.target.value = '';
+          this.setAttachments(files, { append: true });
+        });
         document.getElementById('ws-brain-btn')?.addEventListener('click', () => {
           const order = ['automatic','gemini','deepseek','anthropic','openai']; const i = order.indexOf(this.brain); this.brain = order[(i + 1) % order.length]; try{persistStateNow('brain-cycle')}catch(_){} const label = this.brain === 'automatic' ? 'Auto' : this.brain; const el = document.getElementById('ws-brain-label'); if (el) el.textContent = label[0].toUpperCase()+label.slice(1);
         });
@@ -3317,18 +3321,32 @@
       escapeAttr(value){return this.escapeHtml(value).replace(/`/g,'&#96;')},
       styleText(styles){return Object.entries(styles||{}).filter(([k,v])=>v!==undefined&&v!==null&&v!=='').map(([k,v])=>`${k.replace(/[A-Z]/g,m=>'-'+m.toLowerCase())}:${String(v).replace(/[<>]/g,'')}`).join(';')},
       mime(path){return /\.html$/i.test(path)?'text/html':/\.css$/i.test(path)?'text/css':/\.json$/i.test(path)?'application/json':/\.js$/i.test(path)?'text/javascript':'text/plain';},
-      async setAttachments(files){
-        const selected=[...(files||[])].slice(0,6);
+      async setAttachments(files, options = {}){
+        const append = options?.append === true;
+        // Finish a previous read before merging another selection, so multiple
+        // rapid file-picker actions cannot invalidate files already being read.
+        if (append && this.attachmentsReady && typeof this.attachmentsReady.then === 'function') {
+          try { await this.attachmentsReady; } catch (_) {}
+        }
+        const existing = append && Array.isArray(this.attachments) ? this.attachments.slice() : [];
+        const incoming = [...(files || [])];
+        const room = Math.max(0, 6 - existing.length);
+        const selected = incoming.slice(0, Math.min(6, room));
+        if (append && incoming.length > selected.length) {
+          window.showToast?.('OVYX supports up to six attachments per message. Extra files were not added.', 'warning');
+        }
+        if (append && !selected.length) return this.attachments;
         this._attachmentsVersion=Number(this._attachmentsVersion||0)+1;
         const version=this._attachmentsVersion;
-        this.attachments=selected.map(f=>({name:String(f.name||'file'),size:Number(f.size||0),type:String(f.type||'application/octet-stream'),dataUrl:null,textContent:null,status:'reading',error:''}));
+        const baseIndex = existing.length;
+        this.attachments=existing.concat(selected.map(f=>({name:String(f.name||'file'),size:Number(f.size||0),type:String(f.type||'application/octet-stream'),dataUrl:null,textContent:null,status:'reading',error:''})));
         this.renderAttachments();
         const MAX_BYTES=8*1024*1024;
         const readAsDataUrl=(file)=>new Promise((resolve,reject)=>{const r=new FileReader();r.onerror=()=>reject(r.error||new Error('Could not read file.'));r.onload=()=>resolve(String(r.result||''));r.readAsDataURL(file)});
         const readAsText=(file)=>new Promise((resolve,reject)=>{const r=new FileReader();r.onerror=()=>reject(r.error||new Error('Could not read text file.'));r.onload=()=>resolve(String(r.result||''));r.readAsText(file)});
         const textual=/^(text\/|application\/(json|javascript|xml|x-javascript)|application\/x-httpd-php)$/i;
         this.attachmentsReady=Promise.all(selected.map(async (file,index)=>{
-          const item=this.attachments[index]; if(!item)return;
+          const item=this.attachments[baseIndex + index]; if(!item)return;
           try{
             if(Number(file.size||0)>MAX_BYTES) throw new Error('File is larger than 8 MB.');
             const dataUrl=await readAsDataUrl(file);
@@ -17420,7 +17438,7 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
     menu.querySelector('[data-ws-pulse-close]').addEventListener('click',closeMenu);
     menu.querySelector('[data-ws-pulse-action="image"]').addEventListener('click',function(){W.setMode('build');setComposerValue('Create an image of ');closeMenu();});
     menu.querySelector('[data-ws-pulse-action="camera"]').addEventListener('click',function(){camera.click();});
-    camera.addEventListener('change',function(){var files=[...(camera.files||[])];camera.value='';if(files.length&&typeof W.setAttachments==='function')W.setAttachments([...(files||[])]);closeMenu();});
+    camera.addEventListener('change',function(){var files=[...(camera.files||[])];camera.value='';if(files.length&&typeof W.setAttachments==='function')W.setAttachments([...(files||[])],{append:true});closeMenu();});
     menu.querySelector('[data-ws-pulse-action="code"]')?.addEventListener('click',function(){closeMenu();try{W.ensureProjectGraph?.();if(typeof W.openCodeEditor==='function')W.openCodeEditor(typeof W.entryFile==='function'?W.entryFile():undefined);else toast('The Code editor is not available in this session.','error');}catch(error){toast(String(error?.message||'Could not open the Code editor.'),'error');}});
     menu.querySelector('[data-ws-pulse-action="selection"]')?.addEventListener('click',function(){closeMenu();var selected=W.selectedElement;if(!selected){toast('Select an element in the website preview first.','info');return;}W.setMode('build');var title=String(selected.title||selected.name||selected.tagName||'selected element');setComposerValue('Improve '+title+' in the current website. Preserve the existing design system, project structure, and responsive behavior.');});
     menu.querySelector('[data-ws-pulse-action="clear"]')?.addEventListener('click',function(){closeMenu();var field=$('ws-chat-input');if(field){field.value='';resizeInput(field);field.dispatchEvent(new Event('input',{bubbles:true}));}if(Array.isArray(W.attachments)){W._attachmentsVersion=Number(W._attachmentsVersion||0)+1;W.attachments=[];W.attachmentsReady=Promise.resolve([]);W.renderAttachments?.();}toast('Draft and staged attachments cleared. Your project was not changed.','success');});
