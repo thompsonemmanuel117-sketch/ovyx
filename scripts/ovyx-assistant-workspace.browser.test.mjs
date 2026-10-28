@@ -34,11 +34,16 @@ try {
     const assistantScript = page.locator('script[src*="/assets/ovyx-assistant-workspace.js"]');
     assert.ok(await assistantScript.count(), `[${target.name}] assistant workspace script was not injected`);
     const scriptSources = await assistantScript.evaluateAll(nodes => nodes.map(node => node.src));
-    assert.ok(scriptSources.some(src => /[?&]v=20261027-4(?:&|$)/.test(src)), `[${target.name}] the updated assistant runtime cache version was not loaded`);
+    assert.ok(scriptSources.some(src => /[?&]v=20261028-1(?:&|$)/.test(src)), `[${target.name}] the updated assistant runtime cache version was not loaded`);
 
     await page.evaluate(() => window.WorkspaceBrainBot.open());
     const panel = page.locator('#kernel-brain-bot-panel');
     await panel.waitFor({ state: 'visible' });
+    const attachButton = panel.locator('[data-ovyx-native-attach]');
+    const attachmentInput = panel.locator('#ovyx-native-attachment-input');
+    assert.equal(await attachButton.isVisible(), true, '[' + target.name + '] native assistant should expose a real attach-files control.');
+    assert.notEqual(await attachmentInput.getAttribute('multiple'), null, '[' + target.name + '] file picker should accept multiple files.');
+    assert.equal(await attachmentInput.getAttribute('accept'), null, '[' + target.name + '] file picker must not be restricted to one media type.');
     const trigger = panel.locator('[data-ovyx-native-more]');
     const menu = panel.locator('.ovyx-native-menu');
     await trigger.click();
@@ -298,6 +303,25 @@ try {
       await dialog.accept();
     });
     await page.locator('#bot-chat-input').fill('Search my project deeply for the mobile menu, study related source, and fix it');
+    await attachmentInput.setInputFiles([
+      {
+        name: 'assistant-reference.md',
+        mimeType: 'text/markdown',
+        buffer: Buffer.from('ATTACHMENT_CONTEXT_SENTINEL\nPlease keep the file handoff truthful and preserve relevant project details.\napi_key=ATTACHMENT_SECRET_SHOULD_NOT_REACH_MODEL'),
+      },
+      {
+        name: 'assistant-reference.pdf',
+        mimeType: 'application/pdf',
+        buffer: Buffer.from('%PDF-1.4\\nbinary-file-fixture\\n%%EOF'),
+      },
+    ]);
+    const attachmentStrip = panel.locator('.ovyx-native-attachments');
+    await attachmentStrip.waitFor({ state: 'visible' });
+    await page.waitForFunction(() => {
+      const strip = document.querySelector('#kernel-brain-bot-panel .ovyx-native-attachments');
+      return strip && strip.querySelectorAll('.ovyx-native-attachment').length === 2 &&
+        strip.textContent.includes('Text ready') && strip.textContent.toLowerCase().includes('metadata only');
+    }, null, { timeout: 10000 });
     await page.locator('[data-ovyx-native-send]').click();
     await page.getByText(/The saved change was verified/i).waitFor({ state: 'visible', timeout: 20000 });
     const savedCopy = await page.getByText(/The saved change was verified/i).innerText();
@@ -323,6 +347,15 @@ try {
     assert.equal(workspaceCalls.at(-1).confirm, true, `[${target.name}] apply_patch must carry explicit approval`);
     assert.equal(workspaceCalls.at(-1).expectedUpdateTime, 'revision-1', `[${target.name}] write must be tied to the preview revision`);
     assert.equal(aiPayloads.length, 3, `[${target.name}] the native model should reason again after search findings and source contents are returned`);
+    const attachedReferenceContext = aiPayloads[0]?.context?.userAttachments || [];
+    assert.equal(attachedReferenceContext.length, 2, '[' + target.name + '] submitted AI request must carry both selected file references.');
+    assert.equal(attachedReferenceContext[0]?.name, 'assistant-reference.md', '[' + target.name + '] extracted text should keep its original filename.');
+    assert.match(attachedReferenceContext[0]?.readableText || '', /ATTACHMENT_CONTEXT_SENTINEL/, '[' + target.name + '] readable text files must reach native AI context.');
+    assert.match(attachedReferenceContext[0]?.readableText || '', /api_key=\[REDACTED\]/, '[' + target.name + '] credential-like attachment values must be masked before reaching the model.');
+    assert.doesNotMatch(attachedReferenceContext[0]?.readableText || '', /ATTACHMENT_SECRET_SHOULD_NOT_REACH_MODEL/, '[' + target.name + '] raw credential-like attachment values must not reach the model.');
+    assert.equal(attachedReferenceContext[1]?.name, 'assistant-reference.pdf', '[' + target.name + '] binary file metadata should keep its filename.');
+    assert.equal(attachedReferenceContext[1]?.readableText, null, '[' + target.name + '] assistant must not invent extracted PDF text.');
+    assert.match(attachedReferenceContext[1]?.status || '', /metadata only/i, '[' + target.name + '] unsupported binary contents must be marked transparently.');
     assert.deepEqual(workspaceCalls.find(call => call.operation === 'search')?.queries,
       ['toggleMobileMenu', 'aria-expanded', 'hidden'],
       `[${target.name}] the assistant should request multiple related literal search terms in one tool call`);

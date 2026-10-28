@@ -84,4 +84,31 @@ assert.match(source, /type === 'workspace_undo'/);
 assert.match(source, /function reviewWorkspaceEditHistory\(\)/);
 assert.match(source, /The current file will be backed up first/);
 
+
+assert.match(source, /const MAX_NATIVE_ATTACHMENTS = 6/);
+assert.match(source, /function stageNativeAttachments\(fileList\)/);
+assert.match(source, /attachmentInput\.multiple = true/);
+assert.match(source, /data-ovyx-native-attach/);
+assert.match(source, /data-ovyx-native-remove-attachment/);
+assert.match(source, /function redactNativeAttachmentText\(value\)/);
+assert.match(source, /function isNativeSensitiveFilename\(name\)/);
+assert.match(source, /Not read for safety/);
+assert.match(source, /metadata-only binary, image, PDF or office document/);
+assert.match(source, /userAttachments: requestAttachments\.slice\(0, MAX_NATIVE_ATTACHMENTS\)/);
+assert.match(source, /function renderNativeAttachmentStrip\(\)/);
+assert.match(source, /function syncNativeComposerState\(\)/);
+assert.match(source, /context\.userAttachments\[\]/);
+assert.match(source, /ovyx native assistant refinement: calm hierarchy, compact controls, no competing glow/i);
+assert.match(source, /\.ovyx-native-attach:disabled/);
+assert.match(source, /@media\(prefers-reduced-motion:reduce\)/);
+assert.match(source, /safeText\.slice\(0, limit\)/);
+assert.match(source, /MAX_NATIVE_ATTACHMENT_TEXT = 16000/);
+assert.doesNotMatch(source, /attachmentInput\.accept\s*=/,
+  'The native assistant file picker must not be restricted to image-only uploads.');
+assert.match(source, /bot\.pushMsg\('USER: ' \+ prompt, requestAttachments\)/,
+  'The transcript must show attached filenames alongside the user message.');
+assert.match(source, /__ovyxNativeRetryAttachments/,
+  'Retry must retain the message’s reference attachments when the user has not staged new files.');
+assert.match(source, /Files over 1 MB are not read|text file is over 1 MB/);
+
 console.log('OVYX assistant reliability, fallback-context, native AI and avatar tests passed.');
