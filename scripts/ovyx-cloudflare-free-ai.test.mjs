@@ -16,10 +16,16 @@ import {
   isCloudflareFreeQuotaError,
   estimateCloudflareFreeNeurons,
   compactCloudflareFreeMessages,
+  OVYX_CLOUDFLARE_TRANSCRIPTION_MODEL,
+  OVYX_CLOUDFLARE_TRANSCRIPTION_MAX_AUDIO_BYTES,
+  runCloudflareFreeTranscription,
 } from '../functions/_lib/cloudflare-free-ai.js';
 
 assert.equal(OVYX_CLOUDFLARE_FREE_MODEL, '@cf/meta/llama-3.1-8b-instruct-fp8-fast');
 assert.equal(OVYX_CLOUDFLARE_FREE_MAX_OUTPUT_TOKENS, 4096);
+assert.equal(OVYX_CLOUDFLARE_TRANSCRIPTION_MODEL, '@cf/openai/whisper');
+assert.equal(OVYX_CLOUDFLARE_TRANSCRIPTION_MAX_AUDIO_BYTES, 8_000_000);
+assert.equal(typeof runCloudflareFreeTranscription, 'function');
 assert.equal(OVYX_CLOUDFLARE_FREE_DEFAULT_DAILY_BUDGET, 7000);
 assert.equal(OVYX_CLOUDFLARE_FREE_MAX_DAILY_BUDGET, 8000);
 assert.equal(OVYX_CLOUDFLARE_PAID_MAX_DAILY_BUDGET, 15000);
@@ -106,6 +112,15 @@ assert.match(exhaustionMarkerSource, /OVYX_AI_BUDGET_LEDGER_CONFLICT_EXHAUSTED/,
   'persistent stop-marker contention must report a conflict-exhausted condition rather than a generic unavailable error');
 
 assert.match(helperSource, /reserveCloudflareFreeUserMinute/);
+assert.match(helperSource, /export async function runCloudflareFreeTranscription/);
+assert.match(helperSource, /OVYX_CLOUDFLARE_TRANSCRIPTION_MODEL/);
+assert.match(helperSource, /await reserveUserMinute\\(env, authUser\\)/,
+  'voice transcription must use the same per-user minute throttling as other Cloudflare AI requests');
+assert.match(helperSource, /reserveDailyBudget\\(env, estimate, snapshot\\)/,
+  'voice transcription must reserve from the shared protected daily budget before inference');
+assert.match(helperSource, /settleDailyBudget\\(env, reservation, estimate\\)/,
+  'voice transcription must settle its protected budget reservation on success or error');
+assert.match(helperSource, /env\\.AI\\.run\\(OVYX_CLOUDFLARE_TRANSCRIPTION_MODEL/);
 assert.doesNotMatch(providerSource, /reserveCloudflareFreeUserMinute\(env, options\.authUser\)/);
 assert.match(helperSource, /OVYX_AI_NEURON_BUDGET_EXHAUSTED/);
 assert.match(providerSource, /isCloudflareWorkersAIGuardedMode\(env\)/);
