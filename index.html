@@ -17433,6 +17433,7 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
         try{
           var blob=await (await fetch(asset.dataUrl)).blob();
           if(blob.size>8*1024*1024)throw new Error('This generated image is larger than the 8 MB attachment limit.');
+          if(W.attachmentsReady&&typeof W.attachmentsReady.then==='function')await W.attachmentsReady;
           var currentAttachments=Array.isArray(W.attachments)?W.attachments.slice():[];
           if(currentAttachments.length>=6)throw new Error('The prompt already has six attachments. Remove one before adding this image.');
           if(!currentAttachments.some(function(item){return item&&String(item.name||'')===String(asset.name||'');})){
