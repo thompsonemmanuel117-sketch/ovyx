@@ -189,6 +189,31 @@ try {
     assert.equal(await page.locator('#ws-agent-thread .ws-chat-voice-note audio').count(), 1,
       '[' + target.name + '] sent voice messages should retain a playable voice-note preview in chat.');
 
+    // "Dictate as text" must use the microphone's speech-to-text path and fill
+    // the ordinary editable prompt field instead of requiring a voice-note upload.
+    await page.evaluate(() => {
+      class FakeSpeechRecognition {
+        constructor() { window.__ovyxDictationRecognition = this; }
+        start() {}
+        stop() { this.onend?.(); }
+      }
+      window.SpeechRecognition = FakeSpeechRecognition;
+    });
+    await mic.click();
+    await page.locator('#ws-voice-note-panel [data-ws-voice-dictate]').click();
+    await page.waitForFunction(() => !!window.__ovyxDictationRecognition);
+    await page.evaluate(() => {
+      window.__ovyxDictationRecognition.onresult({
+        resultIndex: 0,
+        results: [[{ transcript: 'Dictated text option works.' }]]
+      });
+      window.__ovyxDictationRecognition.onend();
+    });
+    assert.equal(await input.inputValue(), 'Dictated text option works.',
+      '[' + target.name + '] dictation must populate the normal editable prompt field.');
+    assert.equal(await mic.getAttribute('aria-pressed'), 'false',
+      '[' + target.name + '] microphone listening state must reset when speech recognition ends.');
+
     // The same composer Stop button must also cancel while a voice note is being transcribed.
     await page.unroute('**/api/ai/transcribe');
     let transcriptionStartedResolve;
