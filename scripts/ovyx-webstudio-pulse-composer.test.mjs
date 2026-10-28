@@ -71,7 +71,12 @@ assert.ok(html.includes("function closePulsePopover(){var pulseMenu=document.get
 assert.ok(html.includes('function openSettings(ev){ev.preventDefault();ev.stopImmediatePropagation();closePulsePopover();closeOthers(settings);'),
   'The AI brain/settings control must open its dedicated settings popover.');
 assert.ok(html.includes('function openMap(ev){ev.preventDefault();ev.stopImmediatePropagation();closePulsePopover();closeOthers(map);'),
-  'Project context must open the dedicated project node map.');
+  'Project context must open the dedicated project node map.
+assert.ok(html.includes("if(!composer||composer.dataset.ovyxShortcutBindings==='1')return;var brain=document.getElementById('ws-brain-btn'),context=document.getElementById('ws-context-btn');if(!brain||!context)return;composer.dataset.ovyxShortcutBindings='1';"),
+  'Shortcut controls must not mark themselves bound before dynamic Web Studio controls exist.');
+assert.ok(html.includes("if(r==='webstudio'){setTimeout(bindShortcutPopovers,30);setTimeout(syncStatusAndPersistence,40);setTimeout(restorePersistedState,80)}"),
+  'Agent settings and project context handlers must retry after Web Studio is mounted.');
+');
 assert.ok(html.includes("depthInput.addEventListener('input',function(){syncResponseDepth(depthInput.value,true)})"),
   'The response-depth slider must have an input handler.');
 assert.ok(html.includes("localStorage.setItem(depthKey,String(depth))"),
