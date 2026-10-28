@@ -103,9 +103,9 @@ try {
 
   // Free-only guarded mode retains the historic status contract.
   response = await onRequestGet(ctx({
+    ...env,
     OVYX_AI_ENGINE_MODE: 'cloudflare-free-only',
     AI: { run: async () => ({ response: 'test-only; must not run during a status check' }) },
-    ...env,
   }));
   data = await response.json();
   assert.equal(data.engineMode, 'cloudflare-free-only');
