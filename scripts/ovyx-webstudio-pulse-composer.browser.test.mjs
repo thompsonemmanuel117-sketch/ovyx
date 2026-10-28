@@ -32,7 +32,7 @@ try {
         window.dispatchEvent(new CustomEvent('ovyx:view-changed', { detail: { view: 'webstudio' } }));
       }
       document.body.classList.add('ovyx-webstudio-active');
-    });;
+    });
 
     const pulse = page.locator('#ws-pulse-trigger');
     const mic = page.locator('#ws-composer-mic');
@@ -63,6 +63,18 @@ try {
     await popover.locator('[data-ws-pulse-action="image"]').click();
     assert.match(await input.inputValue(), /^Create an image of\s*$/, '[' + target.name + '] Create image should prepare a normal chat prompt, not open a separate studio.');
     assert.equal(await popover.isVisible(), false, '[' + target.name + '] pulse menu should close after selecting Create image.');
+    assert.equal(await page.locator('#ovyx-image-gen-launch').count(), 0, '[' + target.name + '] there must not be a separate floating image-generation launcher.');
+
+    await pulse.click();
+    for (const action of ['Use selected element', 'Website brief', 'Paste clipboard text', 'Open Code editor', 'Clear draft']) {
+      assert.equal(await popover.locator('button[aria-label="' + action + '"]').isVisible(), true, '[' + target.name + '] quick action should be available in Pulse: ' + action);
+    }
+    await popover.locator('button[aria-label="Website brief"]').click();
+    assert.match(await input.inputValue(), /Website goal:/, '[' + target.name + '] Website brief must populate the working prompt.');
+    assert.equal(await popover.isVisible(), false, '[' + target.name + '] selecting a quick action should close Pulse.');
+    await pulse.click();
+    await popover.locator('button[aria-label="Clear draft"]').click();
+    assert.equal(await input.inputValue(), '', '[' + target.name + '] Clear draft must clear only the composer draft.');
 
     await input.fill('Build a premium website.\nAdd a responsive hero section.\nKeep the existing project architecture and test every visible interaction.');
     const expandedHeight = await input.evaluate(el => el.getBoundingClientRect().height);
