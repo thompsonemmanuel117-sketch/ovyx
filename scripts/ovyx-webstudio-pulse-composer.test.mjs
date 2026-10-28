@@ -14,10 +14,10 @@ assert.match(html, /pulse\.id='ws-pulse-trigger'/, 'The pulse control must be cr
 assert.match(html, /mic\.id='ws-composer-mic'/, 'The microphone control must be created by the runtime.');
 assert.match(html, /id="ws-chat-send"/, 'The existing send control must be preserved.');
 assert.match(html, /id="ws-chat-input"/, 'The existing prompt input must be preserved.');
-assert.match(html, /width:min\\(286px,calc\\(100vw - 24px\\)\\)/, 'Desktop pulse menu must stay narrow instead of opening as an oversized panel.');
-assert.match(html, /width:min\\(278px,calc\\(100vw - 24px\\)\\)/, 'Mobile pulse menu must be narrower and leave safe viewport margins.');
-assert.match(html, /button\\.style\\.setProperty\\('width','34px','important'\\)/, 'Pulse and microphone controls must remain compact after runtime inline styling.');
-assert.doesNotMatch(html, /button\\.style\\.setProperty\\('width','38px','important'\\)/, 'Runtime must not override compact control sizing with oversized buttons.');
+assert.ok(html.includes('width:min(286px,calc(100vw - 24px))'), 'Desktop pulse menu must stay narrow instead of opening as an oversized panel.');
+assert.ok(html.includes('width:min(278px,calc(100vw - 24px))'), 'Mobile pulse menu must be narrower and leave safe viewport margins.');
+assert.ok(html.includes("button.style.setProperty('width','34px','important')"), 'Pulse and microphone controls must remain compact after runtime inline styling.');
+assert.ok(!html.includes("button.style.setProperty('width','38px','important')"), 'Runtime must not override compact control sizing with oversized buttons.');
 for (const mode of ['build', 'plan', 'ask', 'fix']) {
   assert.match(html, new RegExp('data-ws-mode="' + mode + '"'), 'Existing ' + mode + ' mode must remain available.');
 }
