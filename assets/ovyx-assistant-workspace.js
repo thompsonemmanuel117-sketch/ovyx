@@ -49,12 +49,23 @@
       rect.top >= viewportHeight - 200;
   }
 
+  function isAssistantPanelVisible(activePanel) {
+    if (!activePanel || !activePanel.classList.contains('ovyx-native-workspace') || activePanel.hidden) return false;
+    const styles = window.getComputedStyle(activePanel);
+    return styles.display !== 'none' && styles.visibility !== 'hidden' && activePanel.getClientRects().length > 0;
+  }
+
   function syncUnderlyingBottomNavigation(forceHidden) {
     const input = $('bot-chat-input');
     const activePanel = panel();
-    const shouldHide = typeof forceHidden === 'boolean'
-      ? forceHidden
-      : Boolean(input && document.activeElement === input && activePanel?.contains(input));
+    const composerFocused = Boolean(input && document.activeElement === input && activePanel?.contains(input));
+    // On phones the assistant is a full-screen workspace, so the dashboard
+    // navigation must stay out of its viewport even while focus moves to Attach,
+    // Send, or the assistant menu. On desktop, suppress it only while typing.
+    const mobileAssistantOpen = Boolean(
+      window.matchMedia?.('(max-width: 640px)').matches && isAssistantPanelVisible(activePanel)
+    );
+    const shouldHide = forceHidden === true || composerFocused || mobileAssistantOpen;
     document.body?.classList.toggle('ovyx-native-composer-focus-mode', shouldHide);
     document.querySelectorAll(UNDERLYING_BOTTOM_NAV_SELECTOR).forEach(node => {
       const suppress = shouldHide && isUnderlyingBottomNavigation(node, activePanel);
@@ -63,12 +74,22 @@
   }
 
   function installComposerNavigationShield() {
-    if (window.__OVYX_NATIVE_COMPOSER_NAV_SHIELD__) return;
+    if (window.__OVYX_NATIVE_COMPOSER_NAV_SHIELD__) {
+      syncUnderlyingBottomNavigation();
+      return;
+    }
     window.__OVYX_NATIVE_COMPOSER_NAV_SHIELD__ = true;
     const refresh = () => syncUnderlyingBottomNavigation();
     window.addEventListener('resize', refresh, { passive: true });
     window.visualViewport?.addEventListener('resize', refresh, { passive: true });
     window.visualViewport?.addEventListener('scroll', refresh, { passive: true });
+    const activePanel = panel();
+    if (activePanel && !activePanel.dataset.ovyxNativeNavVisibilityWatch) {
+      activePanel.dataset.ovyxNativeNavVisibilityWatch = '1';
+      const observer = new MutationObserver(refresh);
+      observer.observe(activePanel, { attributes: true, attributeFilter: ['class', 'style', 'hidden', 'aria-hidden'] });
+    }
+    refresh();
   }
 
   function newConversationId() {
