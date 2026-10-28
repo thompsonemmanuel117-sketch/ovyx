@@ -3350,20 +3350,20 @@
           try{
             if(Number(file.size||0)>MAX_BYTES) throw new Error('File is larger than 8 MB.');
             const dataUrl=await readAsDataUrl(file);
-            if(version!==this._attachmentsVersion)return;
+            if(version!==this._attachmentsVersion||item._removed)return;
             item.dataUrl=dataUrl;
             if(textual.test(String(file.type||''))||/\.(txt|md|mdx|json|jsonc|js|jsx|mjs|cjs|ts|tsx|css|scss|sass|less|html|htm|xml|csv|tsv|yaml|yml|toml|ini|properties|env|log|py|sh|bash|php|java|c|h|cpp|hpp|go|rs|rb|sql|graphql|gql|vue|svelte|astro|webmanifest|ps1|bat)$/i.test(String(file.name||''))){
               try{item.textContent=(await readAsText(file)).slice(0,500000)}catch(_){ }
             }
-            if(version!==this._attachmentsVersion)return;
+            if(version!==this._attachmentsVersion||item._removed)return;
             item.status='ready';
-          }catch(err){if(version!==this._attachmentsVersion)return;item.status='error';item.error=String(err?.message||err||'Attachment could not be read.');}
+          }catch(err){if(version!==this._attachmentsVersion||item._removed)return;item.status='error';item.error=String(err?.message||err||'Attachment could not be read.');}
           if(version===this._attachmentsVersion)this.renderAttachments();
         })).then(()=>this.attachments.slice());
         try{await this.attachmentsReady}catch(_){ }
         return this.attachments;
       },
-      removeAttachment(index){if(index<0||index>=this.attachments.length)return;this._attachmentsVersion=Number(this._attachmentsVersion||0)+1;this.attachments.splice(index,1);this.attachmentsReady=Promise.resolve(this.attachments);this.renderAttachments();},
+      removeAttachment(index){if(index<0||index>=this.attachments.length)return;const removed=this.attachments[index];if(removed)removed._removed=true;this.attachments.splice(index,1);this.renderAttachments();},
       attachmentPayload(){return (this.attachments||[]).map(a=>({name:a.name,size:a.size,type:a.type,dataUrl:a.dataUrl||null,textContent:a.textContent||null,status:a.status||'ready',error:a.error||''}));},
       renderAttachments(){const host=document.getElementById('ws-attachment-strip');if(!host)return;if(!this.attachments.length){host.hidden=true;host.innerHTML='';return}host.hidden=false;host.innerHTML=this.attachments.map((a,i)=>{const size=a.size>1024*1024?(a.size/1024/1024).toFixed(1)+' MB':a.size>1024?(a.size/1024).toFixed(1)+' KB':a.size+' B';const visual=a.dataUrl&&String(a.type||'').startsWith('image/')?`<img class="ovyx-ws-attachment-thumb" src="${this.escapeAttr(a.dataUrl)}" alt="">`:`<span class="ovyx-ws-attachment-file"><i class="fa-regular fa-file"></i></span>`;const state=a.status==='error'?`<small class="ovyx-ws-attachment-error">${this.escapeHtml(a.error||'Unreadable')}</small>`:(a.status==='reading'?'<small>Reading…</small>':`<small>${this.escapeHtml(size)}</small>`);return `<div class="ovyx-ws-attachment-chip"><span>${visual}</span><span class="ovyx-ws-attachment-copy"><b>${this.escapeHtml(a.name)}</b>${state}</span><button type="button" class="ovyx-ws-attachment-remove" aria-label="Remove ${this.escapeAttr(a.name)}" data-ws-remove-attachment="${i}">×</button></div>`}).join('');host.querySelectorAll('[data-ws-remove-attachment]').forEach(btn=>btn.onclick=()=>this.removeAttachment(Number(btn.dataset.wsRemoveAttachment)));},
       createPlanFromPrompt(text,attachments=[]){this.ensureProjectGraph();this.analyzeImpact(text);this.pendingPlanAttachments=Array.isArray(attachments)?attachments.slice():[];return {goal:text,files:Object.keys(this.ensureProjectGraph()?.files||{}).slice(0,12),dependencies:this.dependencySummary(),tasks:['Analyze project','Build layout','Add responsive states','Run tests','Preview'],status:'review',impact:this.projectIntelligence?.impact||[]}},
