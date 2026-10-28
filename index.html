@@ -17272,7 +17272,7 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
   var $=function(id){return document.getElementById(id)};
   function toast(message,type){try{window.showToast?window.showToast(message,type||'info'):console.info('[OVYX]',message)}catch(_){}}
   function closeMenu(){if(!menu||!pulse)return;menu.classList.remove('open');pulse.setAttribute('aria-expanded','false');}
-  function setComposerValue(value){var input=$('ws-chat-input');if(!input)return;input.value=String(value||'');input.dispatchEvent(new Event('input',{bubbles:true}));input.focus();resizeInput(input);}
+  function setComposerValue(value){var input=$('ws-chat-input');if(!input)return;input.placeholder='Message OVYX…';input.value=String(value||'');input.dispatchEvent(new Event('input',{bubbles:true}));input.focus();resizeInput(input);}
   function resizeInput(input){if(!input)return;input.style.height='42px';var max=200;var next=Math.min(Math.max(input.scrollHeight,42),max);input.style.height=next+'px';input.style.overflowY=input.scrollHeight>max?'auto':'hidden';}
   function setup(){
     var W=window.WebStudio,composer=$('ws-chat-composer'),tools=composer?.querySelector('.ovyx-ws-tools-left');
@@ -17300,13 +17300,13 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
     menu.querySelector('[data-ws-pulse-action="image"]').addEventListener('click',function(){W.setMode('build');setComposerValue('Create an image of ');closeMenu();});
     menu.querySelector('[data-ws-pulse-action="camera"]').addEventListener('click',function(){camera.click();});
     camera.addEventListener('change',function(){var files=[...(camera.files||[])];camera.value='';if(files.length&&typeof W.setAttachments==='function')W.setAttachments([...(files||[])]);closeMenu();});
-    modeMenu?.addEventListener('click',function(event){if(event.target.closest('[data-ws-mode]'))setTimeout(closeMenu,0);});
+    modeMenu?.addEventListener('click',function(event){if(event.target.closest('[data-ws-mode]'))setTimeout(function(){closeMenu();var field=$('ws-chat-input');if(field){field.placeholder='Message OVYX…';resizeInput(field);}},0);});
     mic.addEventListener('click',toggleDictation);
     document.addEventListener('click',function(event){if(menu&&!menu.contains(event.target)&&event.target!==pulse&&!pulse.contains(event.target))closeMenu();},true);
     document.addEventListener('keydown',function(event){if(event.key==='Escape'&&menu?.classList.contains('open'))closeMenu();});
     var input=$('ws-chat-input');
     if(input){
-      input.rows=1;input.style.height='42px';resizeInput(input);
+      input.rows=1;input.placeholder='Message OVYX…';input.style.height='42px';resizeInput(input);
       input.addEventListener('input',function(){resizeInput(input);});
       input.addEventListener('keydown',function(event){if(event.key==='Enter'&&!event.shiftKey&&!event.isComposing){event.preventDefault();W.submitPrompt?.();}});
     }
@@ -17352,7 +17352,7 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
     if(W.pendingBuild||W.liveAiActive){toast('OVYX is already working. Wait for the current request to finish.','info');return;}
     imageBusy=true;var send=$('ws-chat-send');if(send)send.disabled=true;menu?.classList.remove('open');pulse?.classList.remove('ws-pulse-busy');
     W.appendMessage('user',text);
-    if(input){input.value='';input.style.height='42px';input.dispatchEvent(new Event('input',{bubbles:true}));}
+    if(input){input.value='';input.placeholder='Message OVYX…';input.style.height='42px';input.dispatchEvent(new Event('input',{bubbles:true}));}
     try{
       var token=await imageToken();
       var response=await fetch('/api/ai/image-generation',{method:'POST',headers:{'Content-Type':'application/json','Accept':'application/json','Authorization':'Bearer '+token},body:JSON.stringify({prompt:text})});
