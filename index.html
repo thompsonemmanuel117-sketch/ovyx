@@ -17969,8 +17969,11 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
       // clicked icon can strand pointer interactions in Chromium.
       setTimeout(function(){syncComposerSendState(W);toast('Stopped generating. Your existing project and previous changes are preserved.','info');},0);
     };
-    document.addEventListener('click',function(event){
-      var button=event.target?.closest?.('#ws-chat-send');if(!button)return;
+    // Intercept at the actual send button instead of document capture.
+    // This prevents a click on the Stop control from invoking submitPrompt,
+    // while allowing browser pointer/click dispatch to finish on its target.
+    var sendButton=$('ws-chat-send');
+    if(sendButton)sendButton.addEventListener('click',function(event){
       if(!composerWorking&&!imageBusy&&!W.pendingBuild&&!W.liveAiActive)return;
       event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();stop();
     },true);
