@@ -1,3 +1,4 @@
+import { isCloudflareWorkersAIGuardedMode, isLegacyProviderRoutingEnabled } from './cloudflare-free-ai.js';
 
 // Provider checks use bounded, read-only endpoints. Most are model-list checks;
 // DeepSeek also exposes a balance availability flag, and OpenRouter exposes
@@ -13,8 +14,23 @@ const AI_PROVIDER_TARGETS = Object.freeze([
 ]);
 
 async function checkAIProviderCredential(target, env, fetchImpl, now) {
-  const key = String(env?.[target.key] || '').trim();
   const path = target.label || target.provider + ' credential';
+  if (!isLegacyProviderRoutingEnabled(env)) {
+    const guarded = isCloudflareWorkersAIGuardedMode(env);
+    return {
+      id: target.id,
+      path,
+      status: 'skipped',
+      ok: true,
+      httpStatus: null,
+      durationMs: 0,
+      code: guarded ? 'PROVIDER_PROBE_DISABLED_BY_GUARDED_MODE' : 'PROVIDER_PROBE_DISABLED_BY_ENGINE_MODE',
+      summary: guarded
+        ? 'Third-party provider checks are disabled in guarded Cloudflare AI mode; no external provider request was made.'
+        : 'Third-party provider checks are disabled unless the legacy provider rollback route is explicitly enabled; no external provider request was made.',
+    };
+  }
+  const key = String(env?.[target.key] || '').trim();
   if (!key) {
     return {
       id: target.id,
