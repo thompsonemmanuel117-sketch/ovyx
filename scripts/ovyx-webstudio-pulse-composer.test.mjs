@@ -6,16 +6,19 @@ const html = fs.readFileSync('index.html', 'utf8');
 const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 
 assert.ok(html.includes('id="ovyx-webstudio-pulse-composer-v1"'), 'Web Studio Pulse styles must be installed.');
-const runtimeMatch = html.match(/<script id="ovyx-webstudio-pulse-composer-runtime-v1">([\\s\\S]*?)<\\/script>/);
-assert.ok(runtimeMatch, 'The Pulse composer runtime script must be present.');
-new vm.Script(runtimeMatch[1], { filename: 'ovyx-webstudio-pulse-composer-runtime-v1.js' });
+const runtimeStart = html.indexOf('<script id="ovyx-webstudio-pulse-composer-runtime-v1">');
+assert.ok(runtimeStart >= 0, 'The Pulse composer runtime script must be present.');
+const sourceStart = runtimeStart + '<script id="ovyx-webstudio-pulse-composer-runtime-v1">'.length;
+const runtimeEnd = html.indexOf('</script>', sourceStart);
+assert.ok(runtimeEnd > sourceStart, 'The Pulse composer runtime script must be closed.');
+new vm.Script(html.slice(sourceStart, runtimeEnd), { filename: 'ovyx-webstudio-pulse-composer-runtime-v1.js' });
 
 const requiredSource = [
   ["pulse.id='ws-pulse-trigger'", 'Pulse must be a separate, dedicated control.'],
   ["pulse.innerHTML='<i class=\"fa-solid fa-plus\" aria-hidden=\"true\"></i>';", 'Pulse must use a clear plus icon.'],
   ["mic.id='ws-composer-mic'", 'Microphone must be a separate control.'],
-  ["id=\"ws-chat-send\"", 'The existing send control must be preserved.'],
-  ["id=\"ws-chat-input\"", 'The existing prompt input must be preserved.'],
+  ['id="ws-chat-send"', 'The existing send control must be preserved.'],
+  ['id="ws-chat-input"', 'The existing prompt input must be preserved.'],
   ['width:min(248px,calc(100vw - 24px))!important;max-height:min(48dvh,360px)!important', 'Desktop Pulse menu must stay narrow.'],
   ['width:min(248px,calc(100vw - 24px))!important;max-height:min(46dvh,340px)!important', 'Mobile Pulse menu must stay narrow.'],
   ['grid-template-columns:minmax(0,1fr)!important', 'Pulse menu options must be a narrow vertical list.'],
@@ -25,12 +28,12 @@ const requiredSource = [
   ['data-ovyx-use-generated-image', 'Generated images must have a Use in website action.'],
   ['download.download=asset.name', 'Generated images must be downloadable.'],
   ['currentAttachments.concat(attachment)', 'Using an image must preserve existing attachments.'],
-  ["var dataMatch=dataUrl.match(/^data:(image\\/", 'Generated image data must be validated locally.'],
-  ["currentAttachments.length>=6", 'The six-attachment limit must be preserved.'],
+  ['var dataMatch=dataUrl.match(', 'Generated image data must be validated locally.'],
+  ['currentAttachments.length>=6', 'The six-attachment limit must be preserved.'],
   ["input.style.height='42px'", 'The prompt must start compact.'],
   ['var max=180', 'The prompt must grow only up to a bounded height.'],
-  ["W.pendingBuild=true;", 'Image generation must mark the composer busy.'],
-  ["if(launch)launch.remove()", 'The separate floating image-generation launcher must be removed.']
+  ['W.pendingBuild=true;', 'Image generation must mark the composer busy.'],
+  ['if(launch)launch.remove()', 'The separate floating image-generation launcher must be removed.']
 ];
 for (const [source, message] of requiredSource) assert.ok(html.includes(source), message);
 
