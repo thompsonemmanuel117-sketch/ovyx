@@ -4,7 +4,7 @@ if(window.__OVYX_WS_PULSE_COMPOSER_V1__)return;window.__OVYX_WS_PULSE_COMPOSER_V
 var $=id=>document.getElementById(id), state={imageBusy:false,recognition:null};
 var modes=[['build','Build','Create and edit the current website.'],['plan','Plan','Plan the work before changing files.'],['ask','Ask','Ask questions about your project.'],['fix','Fix','Find and repair a problem.']];
 function toast(m,k){if(typeof window.showToast==='function')window.showToast(m,k||'info')}
-function ws(){return window.OVYXWebStudio||window.OVYX_WEB_STUDIO||window.ovyxWebStudio||window.OVYXStudio||window.OVYX?.webStudio||null}
+function ws(){return window.WebStudio||window.OVYXWebStudio||window.OVYX_WEB_STUDIO||window.ovyxWebStudio||window.OVYXStudio||window.OVYX?.webStudio||null}
 function styles(){if($('ovyx-ws-pulse-composer-style'))return;var s=document.createElement('style');s.id='ovyx-ws-pulse-composer-style';s.textContent=[
 'body.ovyx-webstudio-active #view-webstudio .ovyx-ws-composer-head{display:none!important}',
 'body.ovyx-webstudio-active #view-webstudio #ws-chat-composer{position:relative!important;border:1px solid rgba(255,255,255,.13)!important;border-radius:19px!important;background:rgba(14,15,17,.96)!important;padding:10px 11px 9px!important;gap:8px!important}',
