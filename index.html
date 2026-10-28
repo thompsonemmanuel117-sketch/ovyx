@@ -17429,6 +17429,13 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
     var actionRows=menu.querySelector('.ws-pulse-actions');
     if(attach){var label=attach.querySelector('span');if(label)label.textContent='Upload files or images';var cameraButton=menu.querySelector('[data-ws-pulse-action="camera"]');if(actionRows&&cameraButton)actionRows.insertBefore(attach,cameraButton);else if(extra)extra.appendChild(attach);}
     if(attachInput){attachInput.removeAttribute('accept');if(extra)extra.appendChild(attachInput);attachInput.addEventListener('change',function(){if(attachInput.files&&attachInput.files.length)closeMenu();});}
+    // Close Pulse from the capturing phase as well: browsers dispatch the
+    // native file-input change only after the chooser returns, and this keeps
+    // the popover from remaining open if another attachment handler awaits reads.
+    document.addEventListener('change',function(event){
+      var changed=event.target;
+      if(changed?.id==='ws-attach-input'&&changed.files&&changed.files.length)closeMenu();
+    },true);
     if(brain){if(extra)extra.appendChild(brain);brain.addEventListener('click',function(){setTimeout(closeMenu,0);});}
     if(context){if(extra)extra.appendChild(context);context.addEventListener('click',function(){setTimeout(closeMenu,0);});}
     function addPulseTool(key,icon,label){var button=document.createElement('button');button.type='button';button.className='ws-pulse-action';button.dataset.wsPulseAction=key;button.innerHTML='<i class="fa-solid '+icon+'" aria-hidden="true"></i><span></span>';button.querySelector('span').textContent=label;return button;}
