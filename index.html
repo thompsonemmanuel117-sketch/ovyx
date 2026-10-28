@@ -17429,7 +17429,7 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
     if(modeMenu){menu.querySelector('.ws-pulse-modes').appendChild(modeMenu);modeMenu.hidden=false;modeMenu.setAttribute('aria-label','Choose mode');}
     if(head)head.style.display='none';
     var attach=$('ws-attach-btn'),attachInput=$('ws-attach-input'),brain=$('ws-brain-btn'),context=$('ws-context-btn');
-    if(!window.__OVYXPulseSubmenuDelegationV1){window.__OVYXPulseSubmenuDelegationV1=true;document.addEventListener('click',function(event){var button=event.target?.closest?.('#ws-brain-btn,#ws-context-btn');if(!button||!menu?.contains(button))return;var handler=button.id==='ws-brain-btn'?window.OVYXOpenBrainSettings:window.OVYXOpenProjectMap;if(typeof handler!=='function')return;event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();handler(event);},true);}
+    if(!window.__OVYXPulseSubmenuDelegationV1){window.__OVYXPulseSubmenuDelegationV1=true;document.addEventListener('click',function(event){var button=event.target?.closest?.('#ws-brain-btn,#ws-context-btn');if(!button||!menu?.contains(button))return;try{window.OVYXBindShortcutPopovers?.()}catch(_){}var handler=button.id==='ws-brain-btn'?window.OVYXOpenBrainSettings:window.OVYXOpenProjectMap;if(typeof handler!=='function')return;event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();handler(event);},true);}
 
     var extra=menu.querySelector('.ws-pulse-extra');
     var actionRows=menu.querySelector('.ws-pulse-actions');
