@@ -30,6 +30,15 @@ assert.match(html, /W\.abortActiveAi\?\.\(\)/, 'Stop must abort the existing AI 
 assert.match(html, /thisImageController\.signal/, 'Image-generation requests must be cancelable from the same stop control.');
 const transcribeRoute = fs.readFileSync('functions/api/ai/transcribe.js', 'utf8');
 const guardedAI = fs.readFileSync('functions/_lib/cloudflare-free-ai.js', 'utf8');
+const cancelSafety = fs.readFileSync('assets/ovyx-webstudio-cancel-safety.js', 'utf8');
+assert.ok(cancelSafety.includes("send.dataset.ovyxComposerState === 'stop'") &&
+  cancelSafety.includes("send.getAttribute('aria-label') === 'Stop generating'"),
+  'Stop clicks must not arm a new browser-task rollback snapshot.');
+assert.ok(cancelSafety.includes("activeSend.dataset.ovyxComposerState === 'stop'") &&
+  cancelSafety.includes("activeSend.getAttribute('aria-label') === 'Stop generating'"),
+  'Keyboard and pointer events during Stop must not be treated as a new composer submission.');
+assert.ok(html.includes("if(n.id==='ws-chat-send'&&(n.dataset.ovyxComposerState==='stop'"),
+  'The global sign-in guard must allow cancellation of an active AI task without redirecting to auth.');
 assert.match(transcribeRoute, /assertAuthenticated\(context\.data\?\.user\)/, 'Voice transcription must retain Firebase authentication.');
 assert.match(transcribeRoute, /capabilities\?\.webStudio !== true/, 'Voice transcription must retain the Web Studio entitlement check.');
 assert.match(transcribeRoute, /runCloudflareFreeTranscription\(env/, 'Voice transcription must use the guarded Cloudflare inference helper.');
