@@ -14466,7 +14466,7 @@ function installExploreGuard(){
   const n=target?.closest?.('#ws-chat-send,#as4-generate,[data-repo-sync],[data-github-sync],button, a');
   if(!n)return;
   const text=String(n.innerText||n.getAttribute('aria-label')||n.title||'').trim();
-  const protectedAction=/^(send|download project|publish \/ deploy|convert to mobile app|run tests & repair|open code editor|project file graph|history & diff)$/i.test(text)||/repo|github|build|generate|deploy|assistant|ai/i.test(String(n.id||''));
+  const protectedAction=/^(send|download project|publish \/ deploy|convert to mobile app|run tests & repair|open code editor|project file graph|history & diff)$/i.test(text)||/repo|github|build|generate|deploy|assistant|(?:^|[^a-z0-9])ai(?:$|[^a-z0-9])/i.test(String(n.id||''));
   if(!protectedAction)return;
   e.preventDefault();e.stopImmediatePropagation();
   try{window.OVYXMasterAuth?.openAuth?.()}catch(_){}
