@@ -16,8 +16,12 @@ assert.ok(html.includes('grid-template-columns:minmax(0,1fr)!important'), 'Pulse
 assert.match(html, /mic\.id='ws-composer-mic'/, 'The microphone control must be created by the runtime.');
 assert.match(html, /id="ws-chat-send"/, 'The existing send control must be preserved.');
 assert.match(html, /id="ws-chat-input"/, 'The existing prompt input must be preserved.');
-assert.ok(html.includes('width:min(248px,calc(100vw - 24px))'), 'Desktop pulse menu must stay narrow instead of opening as an oversized panel.');
-assert.ok(html.includes('width:min(248px,calc(100vw - 24px))'), 'Mobile pulse menu must be narrower and leave safe viewport margins.');
+assert.ok(html.includes('width:min(220px,calc(100vw - 24px))'), 'Pulse menu must be a compact 220px popover with safe viewport margins.');
+assert.ok(html.includes('max-height:min(32dvh,290px)'), 'Desktop Pulse menu height must be bounded.');
+assert.ok(html.includes('max-height:min(30dvh,255px)'), 'Mobile Pulse menu height must be bounded more tightly.');
+assert.ok(html.includes('min-height:0!important;height:auto!important;max-height:none!important'), 'The composer must override the legacy tall minimum-height.');
+assert.ok(html.includes('composer.prepend(menu);'), 'Pulse menu must anchor to the whole composer rather than the button row.');
+assert.ok(html.includes('#ws-mode-menu [data-ws-mode] b{color:#f1f3f5!important'), 'Mode names must have readable light text against the dark menu.');
 assert.ok(html.includes("button.style.setProperty('width','34px','important')"), 'Pulse and microphone controls must remain compact after runtime inline styling.');
 assert.ok(!html.includes("button.style.setProperty('width','38px','important')"), 'Runtime must not override compact control sizing with oversized buttons.');
 for (const mode of ['build', 'plan', 'ask', 'fix']) {
@@ -35,10 +39,15 @@ assert.match(html, /currentAttachments\.concat\(attachment\)/, 'Use in website m
 assert.ok(html.includes("var dataMatch=dataUrl.match(/^data:(image\\/"), 'Use in website must validate the generated image data URL directly instead of refetching it.');
 assert.doesNotMatch(html, /fetch\(asset\.dataUrl\)\.blob\(\)/, 'Use in website must not refetch its own generated data URL.');
 assert.match(html, /currentAttachments\.length>=6/, 'The generated image action must retain the six-attachment limit.');
+assert.match(html, /attachInput\.removeAttribute\('accept'\)/, 'The upload picker must accept any file type instead of limiting uploads to images.');
+assert.match(html, /addPulseTool\('code','fa-code','Open Code editor'\)/, 'The Code editor menu tool must be wired.');
+assert.match(html, /addPulseTool\('selection','fa-wand-magic-sparkles','Use selected element'\)/, 'Selected-element helper must be available in Pulse.');
+assert.match(html, /addPulseTool\('clear','fa-eraser','Clear draft and attachments'\)/, 'Clear draft must have a real action.');
+assert.match(html, /W\.openCodeEditor\(typeof W\.entryFile==='function'\?W\.entryFile\(\):undefined\)/, 'Open Code editor must call the real Web Studio code editor.');
 assert.match(html, /if\(W\.attachmentsReady&&typeof W\.attachmentsReady\.then==='function'\)await W\.attachmentsReady;/, 'Use in website must wait for pending file reads before adding the generated image.');
-assert.match(html, /input\.style\.height='42px'/, 'The composer must reset to a compact one-line height.');
-assert.match(html, /var max=180/, 'The composer must expand for longer prompts with a bounded maximum height.');
-assert.match(html, /Math\.min\(Math\.max\(contentHeight, 42\), 180\)/, 'The original Web Studio input handler must not force tall minimums after typing.');
+assert.match(html, /input\.style\.setProperty\('height','32px','important'\)/, 'The composer must reset to a compact one-line height with priority over legacy handlers.');
+assert.match(html, /var max=150/, 'The composer must expand for longer prompts with a bounded maximum height.');
+assert.match(html, /Math\.min\(Math\.max\(contentHeight,32\),max\)/, 'The original Web Studio input handler must not force tall minimums after typing.');
 assert.match(html, /W\.pendingBuild=true;[\s\S]{0,80}W\.liveAiActive=true;/, 'Image generation must show the in-chat processing state and block overlapping tasks.');
 assert.match(html, /if\(composer\?\.dataset\.ovyxPulseComposer==='1'\)return true/, 'Composer boot retries must be idempotent instead of creating an endless retry loop.');
 assert.match(html, /compactSetMode=function\(\)[\s\S]*?field\.placeholder='Message OVYX…'/, 'Web Studio renders and mode changes must preserve the compact mobile placeholder.');
