@@ -20,6 +20,57 @@
   const MAX_NATIVE_ATTACHMENT_TEXT = 16000;
   const MAX_NATIVE_TEXT_FILE_BYTES = 1024 * 1024;
 
+  const UNDERLYING_BOTTOM_NAV_SELECTOR = [
+    'nav',
+    '[role="navigation"]',
+    '[id*="bottom" i]',
+    '[class*="bottom" i]',
+    '[id*="navbar" i]',
+    '[class*="navbar" i]',
+    '[id*="toolbar" i]',
+    '[class*="toolbar" i]',
+  ].join(',');
+  const UNDERLYING_BOTTOM_NAV_CLASS = 'ovyx-native-underlying-bottom-nav-suppressed';
+
+  function isUnderlyingBottomNavigation(node, activePanel) {
+    if (!(node instanceof HTMLElement) || activePanel?.contains(node) || node.closest('#kernel-brain-bot-panel')) return false;
+    const rect = node.getBoundingClientRect();
+    const styles = window.getComputedStyle(node);
+    const viewportHeight = window.visualViewport?.height || window.innerHeight;
+    const identity = String(node.id || '') + ' ' + (typeof node.className === 'string' ? node.className : '');
+    const looksLikeNavigation = node.matches('nav,[role="navigation"]') ||
+      /(?:bottom|navigation|navbar|nav[-_ ]?bar|toolbar)/i.test(identity);
+    if (!looksLikeNavigation) return false;
+    if (!['fixed', 'sticky'].includes(styles.position) && !/bottom/i.test(identity)) return false;
+    return rect.height >= 32 &&
+      rect.height <= 180 &&
+      rect.width >= Math.min(window.innerWidth * 0.55, 360) &&
+      rect.bottom >= viewportHeight - 18 &&
+      rect.top >= viewportHeight - 200;
+  }
+
+  function syncUnderlyingBottomNavigation(forceHidden) {
+    const input = $('bot-chat-input');
+    const activePanel = panel();
+    const shouldHide = typeof forceHidden === 'boolean'
+      ? forceHidden
+      : Boolean(input && document.activeElement === input && activePanel?.contains(input));
+    document.body?.classList.toggle('ovyx-native-composer-focus-mode', shouldHide);
+    document.querySelectorAll(UNDERLYING_BOTTOM_NAV_SELECTOR).forEach(node => {
+      const suppress = shouldHide && isUnderlyingBottomNavigation(node, activePanel);
+      node.classList.toggle(UNDERLYING_BOTTOM_NAV_CLASS, suppress);
+    });
+  }
+
+  function installComposerNavigationShield() {
+    if (window.__OVYX_NATIVE_COMPOSER_NAV_SHIELD__) return;
+    window.__OVYX_NATIVE_COMPOSER_NAV_SHIELD__ = true;
+    const refresh = () => syncUnderlyingBottomNavigation();
+    window.addEventListener('resize', refresh, { passive: true });
+    window.visualViewport?.addEventListener('resize', refresh, { passive: true });
+    window.visualViewport?.addEventListener('scroll', refresh, { passive: true });
+  }
+
   function newConversationId() {
     try { return 'ovyx-' + crypto.randomUUID(); }
     catch (_) { return 'ovyx-' + Date.now().toString(36) + Math.random().toString(36).slice(2); }
@@ -139,6 +190,9 @@
       #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-send{width:42px!important;height:42px!important;display:grid!important;place-items:center!important;border:0!important;border-radius:12px!important;background:#e9edf1!important;color:#111317!important;font-size:16px!important;font-weight:900!important;flex:0 0 42px!important;cursor:pointer!important}
       #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-send:disabled{opacity:.35!important;cursor:not-allowed!important}
       #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-send[aria-busy="true"]{opacity:.65!important}
+      body.ovyx-native-composer-focus-mode .ovyx-native-underlying-bottom-nav-suppressed{
+        visibility:hidden!important;pointer-events:none!important;
+      }
       @media(max-width:640px){
         #kernel-brain-bot-panel.ovyx-native-workspace{inset:0!important;width:100vw!important;height:100dvh!important;min-height:0!important;max-height:none!important;border-radius:0!important;border-left:0!important;border-right:0!important}
         #kernel-brain-bot-panel.ovyx-native-workspace>div:first-child{padding:calc(11px + env(safe-area-inset-top)) 12px 11px!important;min-height:69px!important}
@@ -2880,19 +2934,27 @@
     const input = $('bot-chat-input');
     if (input && input.dataset.ovyxNativeKeyboard !== '1') {
       input.dataset.ovyxNativeKeyboard = '1';
+      input.addEventListener('focus', () => syncUnderlyingBottomNavigation(true));
+      input.addEventListener('blur', () => syncUnderlyingBottomNavigation(false));
       input.addEventListener('keydown', event => {
+        // Composer keystrokes belong to OVYX AI, never to dashboard-level
+        // keyboard shortcuts or navigation handlers.
+        event.stopPropagation();
         if (event.key === 'Enter' && !event.shiftKey) {
           event.preventDefault();
-          event.stopPropagation();
           send();
         }
       });
+      input.addEventListener('keyup', event => event.stopPropagation());
+      input.addEventListener('keypress', event => event.stopPropagation());
       input.addEventListener('input', () => {
         input.style.height = 'auto';
         input.style.height = Math.min(input.scrollHeight, 140) + 'px';
         syncNativeComposerState();
+        syncUnderlyingBottomNavigation();
       });
     }
+    installComposerNavigationShield();
     document.addEventListener('click', event => {
       if (!event.target.closest('#kernel-brain-bot-panel .ovyx-native-menu, #kernel-brain-bot-panel [data-ovyx-native-more]')) closeMenu();
     }, true);
