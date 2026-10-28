@@ -105,7 +105,7 @@ try {
     await page.waitForFunction(() => !document.getElementById('ws-attachment-strip')?.hidden && /reference\.pdf/.test(document.getElementById('ws-attachment-strip')?.innerText || ''));
     assert.match(await page.locator('#ws-attachment-strip').innerText(), /reference\.pdf/, '[' + target.name + '] Pulse must attach a non-image document through the visible upload button.');
     assert.equal(await popover.isVisible(), false, '[' + target.name + '] Pulse should close after a file has been selected.');
-    await page.locator('#ws-attachment-strip [data-ws-remove-attachment]').first().click();
+    // Keep the PDF staged so we can verify that removing the image leaves other files untouched.
 
     // Any supported attachment should get a large staged preview, not only a tiny chip.
     await pulse.click();
@@ -133,6 +133,9 @@ try {
       '[' + target.name + '] removing the selected image must remove its own preview.');
     assert.match(await page.locator('#ws-attachment-preview-gallery').innerText(), /reference\.pdf/,
       '[' + target.name + '] removing one preview must preserve other staged files.');
+    await page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-card').filter({hasText:'reference.pdf'}).locator('.ws-attachment-preview-remove').click();
+    assert.equal(await page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-card').count(), 0,
+      '[' + target.name + '] removing the last attachment should clear the gallery.');
 
     // Exercise the actual microphone UI without relying on CI hardware: a fake
     // MediaRecorder supplies the same Blob/event contract as a browser recording.
