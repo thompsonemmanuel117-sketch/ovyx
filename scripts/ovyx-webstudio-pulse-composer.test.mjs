@@ -6,8 +6,8 @@ const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 
 assert.match(html, /id="ovyx-webstudio-pulse-composer-v1"/, 'Web Studio pulse composer styles must be installed.');
 assert.match(html, /id="ovyx-webstudio-pulse-composer-runtime-v1"/, 'Web Studio pulse composer runtime must be installed.');
-assert.match(html, /id="ws-pulse-trigger"/, 'The pulse control must be created.');
-assert.match(html, /id="ws-composer-mic"/, 'The microphone control must be created.');
+assert.match(html, /pulse\.id='ws-pulse-trigger'/, 'The pulse control must be created by the runtime.');
+assert.match(html, /mic\.id='ws-composer-mic'/, 'The microphone control must be created by the runtime.');
 assert.match(html, /id="ws-chat-send"/, 'The existing send control must be preserved.');
 assert.match(html, /id="ws-chat-input"/, 'The existing prompt input must be preserved.');
 for (const mode of ['build', 'plan', 'ask', 'fix']) {
