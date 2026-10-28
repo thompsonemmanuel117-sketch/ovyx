@@ -186,7 +186,40 @@ try {
     assert.equal(await page.locator('#ws-agent-thread .ws-chat-voice-note audio').count(), 1,
       '[' + target.name + '] sent voice messages should retain a playable voice-note preview in chat.');
 
-    // Stop must abort the in-flight request and restore the same button to Send.
+    // The same composer Stop button must also cancel while a voice note is being transcribed.
+    await page.unroute('**/api/ai/transcribe');
+    let transcriptionStartedResolve;
+    const transcriptionStarted = new Promise(resolve => { transcriptionStartedResolve = resolve; });
+    await page.route('**/api/ai/transcribe', async route => {
+      transcriptionStartedResolve();
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      try {
+        await route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({ ok: true, transcript: 'This transcript should be cancelled.', wordCount: 6 })
+        });
+      } catch {}
+    });
+    await mic.click();
+    await page.locator('#ws-voice-note-panel [data-ws-voice-record]').click();
+    await page.locator('#ws-voice-note-panel [data-ws-voice-stop]').waitFor({state:'visible'});
+    await page.waitForTimeout(90);
+    await page.locator('#ws-voice-note-panel [data-ws-voice-stop]').click();
+    await page.locator('#ws-voice-note-panel [data-ws-voice-send]').waitFor({state:'visible'});
+    await page.locator('#ws-voice-note-panel [data-ws-voice-send]').click();
+    await transcriptionStarted;
+    await page.waitForFunction(() => document.getElementById('ws-chat-send')?.getAttribute('aria-label') === 'Stop generating');
+    assert.equal(await send.isEnabled(), true,
+      '[' + target.name + '] Stop must remain clickable while the voice note is transcribing.');
+    await send.click();
+    await page.waitForFunction(() => document.getElementById('ws-chat-send')?.getAttribute('aria-label') === 'Send prompt');
+    await page.waitForFunction(() => (document.querySelector('[data-ws-voice-status]')?.textContent || '').includes('Transcription cancelled'));
+    assert.doesNotMatch(await page.locator('#ws-agent-thread').innerText(), /This transcript should be cancelled/,
+      '[' + target.name + '] stopping transcription must not submit a late transcript.');
+    await page.unroute('**/api/ai/transcribe');
+
+    // Stop must abort the in-flight AI response and restore the same button to Send.
     await page.evaluate(() => {
       window.__ovyxStopTest = { started: false, aborted: false };
       window.OVYXAIService = window.OVYXAIService || {};
