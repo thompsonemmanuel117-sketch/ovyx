@@ -17815,11 +17815,14 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
     if(voiceDurationMs>180000){toast('Voice notes are limited to three minutes.','error');return;}
     var auth=window.firebase&&typeof window.firebase.auth==='function'?window.firebase.auth():null;
     var user=auth&&auth.currentUser;if(!user||typeof user.getIdToken!=='function'){toast('Sign in to OVYX before sending a voice note.','error');return;}
+    var voiceWorkId=0;
+    if(sendToAI){voiceWorkId=++activeWorkId;composerWorking=true;syncComposerSendState(W);}
     updateVoicePanel('transcribing','Transcribing your voice note securely…');
     voiceAbortController=new AbortController();
+    var currentVoiceController=voiceAbortController;
     try{
       var dataUrl=await new Promise(function(resolve,reject){var reader=new FileReader();reader.onerror=function(){reject(reader.error||new Error('Could not read the recording.'));};reader.onload=function(){resolve(String(reader.result||''));};reader.readAsDataURL(voiceBlob);});
-      if(voiceAbortController.signal.aborted)throw Object.assign(new Error('Voice transcription cancelled.'),{name:'AbortError'});
+      if(currentVoiceController.signal.aborted)throw Object.assign(new Error('Voice transcription cancelled.'),{name:'AbortError'});
       var token=await user.getIdToken();
       var response=await fetch('/api/ai/transcribe',{method:'POST',signal:voiceAbortController.signal,headers:{'Content-Type':'application/json','Accept':'application/json','Authorization':'Bearer '+token},credentials:'same-origin',cache:'no-store',body:JSON.stringify({audio:dataUrl,durationMs:voiceDurationMs})});
       var data=await response.json().catch(function(){return{}});
@@ -17832,14 +17835,19 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
         // Transfer ownership to the chat bubble so recording another note does not revoke its player.
         voiceObjectUrl='';
         toast('Voice note transcribed. Sending it to OVYX…','success');
-        Promise.resolve(W.submitPrompt()).catch(function(error){toast(String(error?.message||'Could not send the voice note to OVYX.'),'error');});
+        // Hand the Stop control from transcription to the normal prompt request.
+        composerWorking=false;
+        await W.submitPrompt();
       }else{
         toast('Transcript inserted. Review it, edit it, then send when ready.','success');
       }
     }catch(error){
-      if(error?.name==='AbortError'||voiceAbortController?.signal?.aborted){updateVoicePanel('recorded','Transcription cancelled. Your recording is still available.');}
+      if(error?.name==='AbortError'||currentVoiceController.signal.aborted){updateVoicePanel('recorded','Transcription cancelled. Your recording is still available.');}
       else{updateVoicePanel('recorded',String(error?.message||'Could not transcribe the recording.'));toast(String(error?.message||'Could not transcribe the recording.'),'error');}
-    }finally{voiceAbortController=null;}
+    }finally{
+      if(voiceAbortController===currentVoiceController)voiceAbortController=null;
+      if(sendToAI&&voiceWorkId===activeWorkId){composerWorking=false;syncComposerSendState(W);}
+    }
   }
   function installVoiceMessageRenderer(W){
     if(!W||W.__ovyxVoiceMessageRendererV1)return;W.__ovyxVoiceMessageRendererV1=true;
