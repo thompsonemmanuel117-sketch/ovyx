@@ -21,10 +21,14 @@ globalThis.fetch = async (url, init = {}) => {
   });
 };
 
-function context(provider, env = { OVYX_AI_ENGINE_MODE: 'legacy-provider-routing', OVYX_ALLOW_PAID_PROVIDER_ROUTING: 'true' }, user = { sub: 'test-user', uid: 'test-user', email: 'test@example.com' }) {
+function context(provider, env = {}, user = { sub: 'test-user', uid: 'test-user', email: 'test@example.com' }) {
   return {
     request: new Request('https://ovyx.test/api/ai/provider-availability?provider=' + encodeURIComponent(provider)),
-    env,
+    env: {
+      OVYX_AI_ENGINE_MODE: 'legacy-provider-routing',
+      OVYX_ALLOW_PAID_PROVIDER_ROUTING: 'true',
+      ...env,
+    },
     data: { user },
   };
 }
@@ -97,7 +101,7 @@ try {
   assert.equal(data.externalApiKeysRequired, false);
   assert.equal(requests.length, 0, 'guarded paid-capped mode must never probe an external provider');
 
-  response = await onRequestGet(context('gemini', { GEMINI_API_KEY: 'must-not-be-used' }));
+  response = await onRequestGet(context('gemini', { OVYX_AI_ENGINE_MODE: '', GEMINI_API_KEY: 'must-not-be-used' }));
   data = await response.json();
   assert.equal(response.status, 409);
   assert.equal(data.error, 'PROVIDER_AVAILABILITY_DISABLED_BY_ENGINE_MODE');
