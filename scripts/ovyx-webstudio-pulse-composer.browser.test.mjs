@@ -148,6 +148,11 @@ try {
         static isTypeSupported() { return true; }
       }
       window.MediaRecorder = FakeMediaRecorder;
+      window.firebase = {
+        auth() {
+          return { currentUser: { getIdToken: async () => 'pulse-browser-test-token' } };
+        }
+      };
       window.OVYXAIService = window.OVYXAIService || {};
       window.OVYXAIService.generate = async (payload) => ({ message: 'I received your voice note: ' + payload.prompt });
       window.WebStudio.setMode('ask');
