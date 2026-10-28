@@ -26,6 +26,22 @@ assert.equal(OVYX_CLOUDFLARE_FREE_MAX_OUTPUT_TOKENS, 4096);
 assert.equal(OVYX_CLOUDFLARE_TRANSCRIPTION_MODEL, '@cf/openai/whisper');
 assert.equal(OVYX_CLOUDFLARE_TRANSCRIPTION_MAX_AUDIO_BYTES, 8_000_000);
 assert.equal(typeof runCloudflareFreeTranscription, 'function');
+await assert.rejects(
+  runCloudflareFreeTranscription(
+    { OVYX_AI_ENGINE_MODE: 'cloudflare-free-only', AI: { run: async () => ({ text: 'must not run' }) } },
+    { authUser: { uid: 'voice-test-user' }, audio: 'not-base64!', audioBytes: 8 },
+  ),
+  error => error?.code === 'VOICE_AUDIO_INVALID',
+  'invalid voice-note data must be rejected before any Firestore quota or model call',
+);
+await assert.rejects(
+  runCloudflareFreeTranscription(
+    { OVYX_AI_ENGINE_MODE: 'cloudflare-free-only', AI: { run: async () => ({ text: 'must not run' }) } },
+    { authUser: { uid: 'voice-test-user' }, audio: 'YQ==', audioBytes: 2 },
+  ),
+  error => error?.code === 'VOICE_AUDIO_TOO_LARGE',
+  'audio byte-count mismatches must be rejected without entering the AI budget path',
+);
 assert.equal(OVYX_CLOUDFLARE_FREE_DEFAULT_DAILY_BUDGET, 7000);
 assert.equal(OVYX_CLOUDFLARE_FREE_MAX_DAILY_BUDGET, 8000);
 assert.equal(OVYX_CLOUDFLARE_PAID_MAX_DAILY_BUDGET, 15000);
