@@ -29,24 +29,35 @@
     '[class*="navbar" i]',
     '[id*="toolbar" i]',
     '[class*="toolbar" i]',
+    '[class*="fixed" i]',
+    '[class*="sticky" i]',
+    '[style*="position:fixed" i]',
+    '[style*="position: fixed" i]',
+    '[style*="position:sticky" i]',
+    '[style*="position: sticky" i]',
   ].join(',');
   const UNDERLYING_BOTTOM_NAV_CLASS = 'ovyx-native-underlying-bottom-nav-suppressed';
 
   function isUnderlyingBottomNavigation(node, activePanel) {
-    if (!(node instanceof HTMLElement) || activePanel?.contains(node) || node.closest('#kernel-brain-bot-panel')) return false;
+    if (!(node instanceof HTMLElement) || node === activePanel ||
+        activePanel?.contains(node) || node.contains(activePanel) ||
+        node.closest('#kernel-brain-bot-panel')) return false;
     const rect = node.getBoundingClientRect();
     const styles = window.getComputedStyle(node);
-    const viewportHeight = window.visualViewport?.height || window.innerHeight;
+    const viewportHeight = Math.max(window.innerHeight || 0, window.visualViewport?.height || 0);
     const identity = String(node.id || '') + ' ' + (typeof node.className === 'string' ? node.className : '');
+    const position = styles.position;
+    const isAnchored = position === 'fixed' || position === 'sticky';
     const looksLikeNavigation = node.matches('nav,[role="navigation"]') ||
-      /(?:bottom|navigation|navbar|nav[-_ ]?bar|toolbar)/i.test(identity);
-    if (!looksLikeNavigation) return false;
-    if (!['fixed', 'sticky'].includes(styles.position) && !/bottom/i.test(identity)) return false;
-    return rect.height >= 32 &&
-      rect.height <= 180 &&
-      rect.width >= Math.min(window.innerWidth * 0.55, 360) &&
-      rect.bottom >= viewportHeight - 18 &&
-      rect.top >= viewportHeight - 200;
+      /(?:bottom|navigation|navbar|nav[-_ ]?bar|toolbar|dock)/i.test(identity);
+    // A dashboard dock is often a generic div with utility classes, not a nav.
+    // Detect its actual viewport geometry instead of depending on its name.
+    if (!isAnchored && !looksLikeNavigation) return false;
+    return rect.height >= 24 &&
+      rect.height <= 300 &&
+      rect.width >= Math.min(window.innerWidth * 0.35, 280) &&
+      rect.bottom >= viewportHeight - 32 &&
+      rect.top >= viewportHeight - 320;
   }
 
   function isAssistantPanelVisible(activePanel) {
@@ -59,13 +70,11 @@
     const input = $('bot-chat-input');
     const activePanel = panel();
     const composerFocused = Boolean(input && document.activeElement === input && activePanel?.contains(input));
-    // On phones the assistant is a full-screen workspace, so the dashboard
-    // navigation must stay out of its viewport even while focus moves to Attach,
-    // Send, or the assistant menu. On desktop, suppress it only while typing.
-    const mobileAssistantOpen = Boolean(
-      window.matchMedia?.('(max-width: 640px)').matches && isAssistantPanelVisible(activePanel)
-    );
-    const shouldHide = forceHidden === true || composerFocused || mobileAssistantOpen;
+    // The assistant is a separate workspace layer. Keep any dashboard bottom
+    // dock behind it for the entire open session, on desktop and mobile, so
+    // focus changes, typing, file picking, or sending cannot reveal the dock.
+    const assistantOpen = isAssistantPanelVisible(activePanel);
+    const shouldHide = forceHidden === true || composerFocused || assistantOpen;
     document.body?.classList.toggle('ovyx-native-composer-focus-mode', shouldHide);
     document.querySelectorAll(UNDERLYING_BOTTOM_NAV_SELECTOR).forEach(node => {
       const suppress = shouldHide && isUnderlyingBottomNavigation(node, activePanel);
@@ -74,20 +83,19 @@
   }
 
   function installComposerNavigationShield() {
-    if (window.__OVYX_NATIVE_COMPOSER_NAV_SHIELD__) {
-      syncUnderlyingBottomNavigation();
-      return;
-    }
-    window.__OVYX_NATIVE_COMPOSER_NAV_SHIELD__ = true;
     const refresh = () => syncUnderlyingBottomNavigation();
-    window.addEventListener('resize', refresh, { passive: true });
-    window.visualViewport?.addEventListener('resize', refresh, { passive: true });
-    window.visualViewport?.addEventListener('scroll', refresh, { passive: true });
-    const activePanel = panel();
-    if (activePanel && !activePanel.dataset.ovyxNativeNavVisibilityWatch) {
-      activePanel.dataset.ovyxNativeNavVisibilityWatch = '1';
-      const observer = new MutationObserver(refresh);
-      observer.observe(activePanel, { attributes: true, attributeFilter: ['class', 'style', 'hidden', 'aria-hidden'] });
+    if (!window.__OVYX_NATIVE_COMPOSER_NAV_SHIELD__) {
+      window.__OVYX_NATIVE_COMPOSER_NAV_SHIELD__ = true;
+      window.addEventListener('resize', refresh, { passive: true });
+      window.visualViewport?.addEventListener('resize', refresh, { passive: true });
+      window.visualViewport?.addEventListener('scroll', refresh, { passive: true });
+      // The dashboard may mount/re-mount its dock after the assistant opens.
+      // Watch additions at the document level rather than only the panel node.
+      if (document.body && !document.body.dataset.ovyxNativeDockObserver) {
+        document.body.dataset.ovyxNativeDockObserver = '1';
+        const observer = new MutationObserver(() => refresh());
+        observer.observe(document.body, { childList: true, subtree: true });
+      }
     }
     refresh();
   }
