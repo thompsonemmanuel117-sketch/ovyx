@@ -32,6 +32,8 @@ function ctx(env = {}, email = 'ovyxsupportteam@gmail.com') {
 }
 try {
   const env = {
+    OVYX_AI_ENGINE_MODE: 'legacy-provider-routing',
+    OVYX_ALLOW_PAID_PROVIDER_ROUTING: 'true',
     GEMINI_API_KEY: 'test-gemini-key',
     DEEPSEEK_API_KEY: 'test-deepseek-key',
     OPENAI_API_KEY: 'test-openai-key',
@@ -42,6 +44,9 @@ try {
   let response = await onRequestGet(ctx(env));
   let data = await response.json();
   assert.equal(response.status, 200);
+  assert.equal(data.engineMode, 'legacy-provider-routing');
+  assert.equal(data.legacyProviderRoutingEnabled, true);
+  assert.equal(data.externalApiKeysRequired, true);
   assert.equal(data.providers.length, 4, 'keep the existing Admin AutoBrain provider contract unchanged');
   assert.equal(data.additionalProviders.length, 2, 'Groq/OpenRouter must be reported in a separate additive field');
   assert.deepEqual(data.additionalProviders.map(x => x.provider), ['groq', 'openrouter']);
@@ -61,9 +66,51 @@ try {
   calls.length = 0;
   response = await onRequestGet(ctx({}));
   data = await response.json();
-  assert.equal(data.additionalProviders.find(x => x.provider === 'groq').status, 'NOT_CONFIGURED');
-  assert.equal(data.additionalProviders.find(x => x.provider === 'openrouter').status, 'NOT_CONFIGURED');
-  assert.equal(calls.length, 0, 'missing secrets must be reported without probing external providers');
+  assert.equal(data.engineMode, 'not-configured');
+  assert.equal(data.legacyProviderRoutingEnabled, false);
+  assert.equal(data.externalApiKeysRequired, false);
+  assert.ok(data.providers.every(x => x.status === 'DISABLED_BY_ENGINE_MODE'));
+  assert.ok(data.additionalProviders.every(x => x.status === 'DISABLED_BY_ENGINE_MODE'));
+  assert.equal(calls.length, 0, 'when engine mode is not configured, diagnostics must not contact external providers');
+
+  // A legacy mode string alone is not sufficient. The explicit paid-routing
+  // acknowledgement must also be enabled before diagnostic calls are allowed.
+  response = await onRequestGet(ctx({
+    ...env,
+    OVYX_ALLOW_PAID_PROVIDER_ROUTING: 'false',
+  }));
+  data = await response.json();
+  assert.equal(data.engineMode, 'legacy-provider-routing-disabled');
+  assert.equal(data.legacyProviderRoutingEnabled, false);
+  assert.ok(data.providers.every(x => x.status === 'DISABLED_BY_ENGINE_MODE'));
+  assert.equal(calls.length, 0, 'disabled legacy routing must not probe external providers');
+
+  // Guarded paid-capped mode uses Cloudflare and must never issue third-party
+  // model-list requests, even if old API keys still exist during migration.
+  response = await onRequestGet(ctx({
+    ...env,
+    OVYX_AI_ENGINE_MODE: 'cloudflare-paid-capped',
+    AI: { run: async () => ({ response: 'test-only; must not run during a status check' }) },
+  }));
+  data = await response.json();
+  assert.equal(data.engineMode, 'cloudflare-paid-capped');
+  assert.equal(data.legacyProviderRoutingEnabled, false);
+  assert.equal(data.externalApiKeysRequired, false);
+  assert.equal(data.cloudflare.workersAiBinding, true);
+  assert.ok(data.providers.every(x => x.status === 'DISABLED_BY_GUARDED_MODE'));
+  assert.ok(data.additionalProviders.every(x => x.status === 'DISABLED_BY_GUARDED_MODE'));
+  assert.equal(calls.length, 0, 'paid-capped guarded mode must not probe external providers or run inference');
+
+  // Free-only guarded mode retains the historic status contract.
+  response = await onRequestGet(ctx({
+    ...env,
+    OVYX_AI_ENGINE_MODE: 'cloudflare-free-only',
+    AI: { run: async () => ({ response: 'test-only; must not run during a status check' }) },
+  }));
+  data = await response.json();
+  assert.equal(data.engineMode, 'cloudflare-free-only');
+  assert.ok(data.providers.every(x => x.status === 'DISABLED_BY_FREE_ONLY_MODE'));
+  assert.equal(calls.length, 0, 'free-only guarded mode must not probe external providers');
 
   response = await onRequestGet(ctx(env, 'not-the-owner@example.com'));
   assert.equal(response.status, 403, 'additional diagnostics must preserve the existing owner-only gate');

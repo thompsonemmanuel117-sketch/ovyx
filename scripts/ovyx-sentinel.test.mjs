@@ -52,7 +52,7 @@ const fakeFetch = async (url, init = {}) => {
 let tick = Date.now();
 const scan = await collectSentinelChecks({
   origin: 'https://ovyx.example',
-  env: { OVYX_SENTINEL_GITHUB_TOKEN: 'read-only-test-token', GEMINI_API_KEY: 'test-gemini', ANTHROPIC_API_KEY: 'test-anthropic', DEEPSEEK_API_KEY: 'test-deepseek', OPENAI_API_KEY: 'test-openai', GROQ_API_KEY: 'test-groq', OPENROUTER_API_KEY: 'test-openrouter' },
+  env: { OVYX_AI_ENGINE_MODE: 'legacy-provider-routing', OVYX_ALLOW_PAID_PROVIDER_ROUTING: 'true', OVYX_SENTINEL_GITHUB_TOKEN: 'read-only-test-token', GEMINI_API_KEY: 'test-gemini', ANTHROPIC_API_KEY: 'test-anthropic', DEEPSEEK_API_KEY: 'test-deepseek', OPENAI_API_KEY: 'test-openai', GROQ_API_KEY: 'test-groq', OPENROUTER_API_KEY: 'test-openrouter' },
   fetchImpl: fakeFetch,
   now: () => tick++,
 });
@@ -71,11 +71,23 @@ const githubRequest = calls.find(item => new URL(item.url).hostname === 'api.git
 assert.equal(githubRequest?.headers.get('authorization'), 'Bearer read-only-test-token', 'the optional GitHub credential must actually be sent server-side');
 assert.equal(githubRequest?.headers.get('x-github-api-version'), '2022-11-28');
 
+const disabledModeHosts = [];
 const degraded = await collectSentinelChecks({
   origin: 'https://ovyx.example',
-  env: {},
+  // Simulate old production credentials remaining configured during migration.
+  // Without an explicit engine mode, Sentinel must skip them without probing.
+  env: {
+    GEMINI_API_KEY: 'must-not-be-used-without-mode',
+    ANTHROPIC_API_KEY: 'must-not-be-used-without-mode',
+    DEEPSEEK_API_KEY: 'must-not-be-used-without-mode',
+    OPENAI_API_KEY: 'must-not-be-used-without-mode',
+    GROQ_API_KEY: 'must-not-be-used-without-mode',
+    OPENROUTER_API_KEY: 'must-not-be-used-without-mode',
+  },
   fetchImpl: async url => {
-    const path = new URL(String(url)).pathname;
+    const parsed = new URL(String(url));
+    disabledModeHosts.push(parsed.hostname);
+    const path = parsed.pathname;
     if (path === '/') return response('<html></html>', { contentType: 'text/html', rawBody: '<html></html>' });
     if (path === '/api/health') return response({ ok: false, status: 'degraded', missingRequiredEnvironment: ['FIREBASE_PROJECT_ID'], invalidRequiredEnvironment: [{ key: 'FIREBASE_SERVICE_ACCOUNT_JSON' }] });
     if (path === '/api/service-status') return response({ ok: true, connectionEncryption: { configured: false } });
@@ -88,10 +100,45 @@ assert.deepEqual(degraded.checks.find(item => item.id === 'platform_health')?.de
 assert.equal(degraded.checks.find(item => item.id === 'service_configuration')?.code, 'CONNECTION_ENCRYPTION_NOT_CONFIGURED');
 assert.equal(degraded.checks.find(item => item.id === 'github_actions')?.status, 'skipped');
 assert.equal(degraded.checks.filter(item => item.id.startsWith('ai_') && item.status === 'skipped').length, 7, 'missing optional AI keys and balance checks should be visible as skipped, not false alarms');
+assert.equal(disabledModeHosts.some(host => [
+  'generativelanguage.googleapis.com',
+  'api.anthropic.com',
+  'api.deepseek.com',
+  'api.openai.com',
+  'api.groq.com',
+  'openrouter.ai',
+].includes(host)), false, 'an unset engine mode must not probe old provider APIs even when their secrets remain configured');
+assert.equal(JSON.stringify(degraded).includes('must-not-be-used-without-mode'), false,
+  'disabled provider probe results must not expose retained secret values');
+
+const guardedCredentialProbes = await collectSentinelChecks({
+  origin: 'https://ovyx.example',
+  env: {
+    OVYX_AI_ENGINE_MODE: 'cloudflare-paid-capped',
+    OVYX_ALLOW_PAID_PROVIDER_ROUTING: 'true',
+    GEMINI_API_KEY: 'must-not-be-used',
+    OPENAI_API_KEY: 'must-not-be-used',
+    AI: { run: async () => { throw new Error('Sentinel must not run model inference'); } },
+  },
+  fetchImpl: async url => {
+    const parsed = new URL(String(url));
+    if (parsed.pathname === '/') return response('<html></html>', { contentType: 'text/html', rawBody: '<html></html>' });
+    if (parsed.pathname === '/api/health') return response({ ok: true, status: 'healthy' });
+    if (parsed.pathname === '/api/service-status') return response({ ok: true, connectionEncryption: { configured: true } });
+    if (parsed.pathname.startsWith('/assets/')) return response('js', { contentType: 'application/javascript', rawBody: 'js' });
+    throw new Error('Unexpected external call in guarded mode: ' + parsed.hostname);
+  },
+});
+assert.equal(guardedCredentialProbes.checks.find(item => item.id === 'ai_gemini')?.code, 'PROVIDER_PROBE_DISABLED_BY_GUARDED_MODE');
+assert.equal(guardedCredentialProbes.checks.find(item => item.id === 'ai_openai')?.code, 'PROVIDER_PROBE_DISABLED_BY_GUARDED_MODE');
+assert.equal(guardedCredentialProbes.checks.filter(item => item.id.startsWith('ai_') && item.status === 'skipped').length, 7,
+  'guarded mode should report each legacy credential probe as skipped without calling external providers');
+assert.equal(JSON.stringify(guardedCredentialProbes).includes('must-not-be-used'), false,
+  'guarded probe status must never contain secret values');
 
 const credentialFailures = await collectSentinelChecks({
   origin: 'https://ovyx.example',
-  env: { GEMINI_API_KEY: 'bad-gemini', OPENAI_API_KEY: 'no-credit-openai', ANTHROPIC_API_KEY: 'restricted-anthropic' },
+  env: { OVYX_AI_ENGINE_MODE: 'legacy-provider-routing', OVYX_ALLOW_PAID_PROVIDER_ROUTING: 'true', GEMINI_API_KEY: 'bad-gemini', OPENAI_API_KEY: 'no-credit-openai', ANTHROPIC_API_KEY: 'restricted-anthropic' },
   fetchImpl: async (url) => {
     const host = new URL(String(url)).hostname;
     if (host === 'generativelanguage.googleapis.com') return response({ error: true }, { status: 401 });
@@ -113,7 +160,7 @@ assert.equal(JSON.stringify(credentialFailures).includes('bad-gemini'), false, '
 
 const deepseekBalanceEmpty = await collectSentinelChecks({
   origin: 'https://ovyx.example',
-  env: { DEEPSEEK_API_KEY: 'test-deepseek-balance-empty' },
+  env: { OVYX_AI_ENGINE_MODE: 'legacy-provider-routing', OVYX_ALLOW_PAID_PROVIDER_ROUTING: 'true', DEEPSEEK_API_KEY: 'test-deepseek-balance-empty' },
   fetchImpl: async url => {
     const parsed = new URL(String(url));
     if (parsed.hostname === 'api.deepseek.com' && parsed.pathname === '/user/balance') return response({ is_available: false, balance_infos: [{ currency: 'USD', total_balance: '0.00' }] });
@@ -130,7 +177,7 @@ assert.equal(JSON.stringify(deepseekBalanceEmpty).includes('test-deepseek-balanc
 
 const expiredOpenRouterKey = await collectSentinelChecks({
   origin: 'https://ovyx.example',
-  env: { OPENROUTER_API_KEY: 'test-openrouter-expired' },
+  env: { OVYX_AI_ENGINE_MODE: 'legacy-provider-routing', OVYX_ALLOW_PAID_PROVIDER_ROUTING: 'true', OPENROUTER_API_KEY: 'test-openrouter-expired' },
   fetchImpl: async url => {
     const parsed = new URL(String(url));
     if (parsed.hostname === 'openrouter.ai' && parsed.pathname === '/api/v1/key') return response({ data: { limit: 100, limit_remaining: 10, expires_at: '2026-10-13T00:00:00Z', label: 'private-test-label' } });

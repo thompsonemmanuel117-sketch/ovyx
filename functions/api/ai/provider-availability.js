@@ -1,4 +1,4 @@
-import { isCloudflareFreeOnlyMode } from '../../_lib/cloudflare-free-ai.js';
+import { isCloudflareFreeOnlyMode, isCloudflareWorkersAIGuardedMode, isLegacyProviderRoutingEnabled } from '../../_lib/cloudflare-free-ai.js';
 import { assertAuthenticated } from '../../_lib/firebase.js';
 import { requestId } from '../_lib/http.js';
 
@@ -88,8 +88,10 @@ export async function onRequestGet(context) {
   const id = requestId(context.request);
   try {
     assertAuthenticated(context.data?.user);
-    if (isCloudflareFreeOnlyMode(context.env)) {
+    if (isCloudflareWorkersAIGuardedMode(context.env)) {
       const connected = Boolean(context.env?.AI && typeof context.env.AI.run === 'function');
+      const freeOnly = isCloudflareFreeOnlyMode(context.env);
+      const engineMode = freeOnly ? 'cloudflare-free-only' : 'cloudflare-paid-capped';
       return statusResponse(id, {
         ok: connected,
         provider: 'cloudflare-workers-ai',
@@ -97,12 +99,20 @@ export async function onRequestGet(context) {
         status: connected ? 'READY' : 'NOT_CONFIGURED',
         configured: connected,
         connected,
-        engineMode: 'cloudflare-free-only',
+        engineMode,
         externalApiKeysRequired: false,
         message: connected
-          ? 'OVYX AI is using its Cloudflare free-only engine.'
-          : 'OVYX AI is waiting for its Cloudflare Workers AI binding.',
+          ? 'Cloudflare Workers AI is configured for OVYX; this check did not send a model request or verify live inference.'
+          : 'OVYX is waiting for its Cloudflare Workers AI binding. Third-party provider checks remain disabled in guarded mode.',
       });
+    }
+    if (!isLegacyProviderRoutingEnabled(context.env)) {
+      return availabilityError(
+        409,
+        'PROVIDER_AVAILABILITY_DISABLED_BY_ENGINE_MODE',
+        'Third-party provider checks are disabled because OVYX legacy provider routing is not explicitly enabled.',
+        id,
+      );
     }
     const url = new URL(context.request.url);
     let provider = String(url.searchParams.get('provider') || '').trim().toLowerCase();
