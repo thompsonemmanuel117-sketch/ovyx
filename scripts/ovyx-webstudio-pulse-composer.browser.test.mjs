@@ -160,6 +160,10 @@ try {
       const code = document.getElementById('ws-code-workspace');
       return code && !code.hidden && document.getElementById('ovyx-code-back');
     });
+    // The editor mounts asynchronously (Monaco may fall back to the safe
+    // editable surface), so wait for the requested path rather than asserting
+    // before the project file has finished loading.
+    await page.waitForFunction(expected => window.WebStudio?.activeCodeFile === expected, contextPath);
     assert.equal(await page.evaluate(() => window.WebStudio.activeCodeFile), contextPath,
       '[' + target.name + '] choosing a project node must open that exact file in Code.');
     await page.locator('#ovyx-code-back').click();
