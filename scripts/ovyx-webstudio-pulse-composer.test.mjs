@@ -76,6 +76,12 @@ assert.ok(html.includes("if(!composer||composer.dataset.ovyxShortcutBindings==='
   'Shortcut controls must not mark themselves bound before dynamic Web Studio controls exist.');
 assert.ok(html.includes("window.OVYXBindShortcutPopovers=bindShortcutPopovers;"),
   'Pulse must be able to request shortcut binding after the dynamic composer is mounted.');
+assert.ok(html.includes("window.OVYXOpenBrainSettings=openSettings;window.OVYXOpenProjectMap=openMap;"),
+  'Existing Agent Settings and Project Node Map handlers must be exposed to Pulse delegation.');
+assert.ok(html.includes("document.addEventListener('click',function(event){var button=event.target?.closest?.('#ws-brain-btn,#ws-context-btn');if(!button||!menu?.contains(button))return;"),
+  'Brain and Project menu actions must survive button moves and re-renders through delegated click handling.');
+assert.ok(html.includes("button.id==='ws-brain-btn'?window.OVYXOpenBrainSettings:window.OVYXOpenProjectMap"),
+  'Delegated Brain and Project actions must call the existing handlers instead of duplicating their behavior.');
 assert.ok(html.includes("try{window.OVYXBindShortcutPopovers?.()}catch(_){}"),
   'Pulse setup must bind Brain and Project controls before relocating them into the menu.');
 assert.ok(html.includes("if(r==='webstudio'){setTimeout(bindShortcutPopovers,30);setTimeout(syncStatusAndPersistence,40);setTimeout(restorePersistedState,80)}"),
