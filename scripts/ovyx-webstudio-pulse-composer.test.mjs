@@ -7,7 +7,7 @@ const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 
 assert.match(html, /id="ovyx-webstudio-pulse-composer-v1"/, 'Web Studio pulse composer styles must be installed.');
 assert.match(html, /id="ovyx-webstudio-pulse-composer-runtime-v1"/, 'Web Studio pulse composer runtime must be installed.');
-const runtime = html.match(/<script id="ovyx-webstudio-pulse-composer-runtime-v1">([\\s\\S]*?)<\\/script>/);
+const runtime = html.match(/<script id="ovyx-webstudio-pulse-composer-runtime-v1">([\s\S]*?)<\/script>/);
 assert.ok(runtime, 'The pulse composer runtime script must be present.');
 new vm.Script(runtime[1], { filename: 'ovyx-webstudio-pulse-composer-runtime-v1.js' });
 assert.match(html, /pulse\.id='ws-pulse-trigger'/, 'The pulse control must be created by the runtime.');
