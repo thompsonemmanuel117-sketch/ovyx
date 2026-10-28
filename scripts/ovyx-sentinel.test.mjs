@@ -71,11 +71,23 @@ const githubRequest = calls.find(item => new URL(item.url).hostname === 'api.git
 assert.equal(githubRequest?.headers.get('authorization'), 'Bearer read-only-test-token', 'the optional GitHub credential must actually be sent server-side');
 assert.equal(githubRequest?.headers.get('x-github-api-version'), '2022-11-28');
 
+const disabledModeHosts = [];
 const degraded = await collectSentinelChecks({
   origin: 'https://ovyx.example',
-  env: {},
+  // Simulate old production credentials remaining configured during migration.
+  // Without an explicit engine mode, Sentinel must skip them without probing.
+  env: {
+    GEMINI_API_KEY: 'must-not-be-used-without-mode',
+    ANTHROPIC_API_KEY: 'must-not-be-used-without-mode',
+    DEEPSEEK_API_KEY: 'must-not-be-used-without-mode',
+    OPENAI_API_KEY: 'must-not-be-used-without-mode',
+    GROQ_API_KEY: 'must-not-be-used-without-mode',
+    OPENROUTER_API_KEY: 'must-not-be-used-without-mode',
+  },
   fetchImpl: async url => {
-    const path = new URL(String(url)).pathname;
+    const parsed = new URL(String(url));
+    disabledModeHosts.push(parsed.hostname);
+    const path = parsed.pathname;
     if (path === '/') return response('<html></html>', { contentType: 'text/html', rawBody: '<html></html>' });
     if (path === '/api/health') return response({ ok: false, status: 'degraded', missingRequiredEnvironment: ['FIREBASE_PROJECT_ID'], invalidRequiredEnvironment: [{ key: 'FIREBASE_SERVICE_ACCOUNT_JSON' }] });
     if (path === '/api/service-status') return response({ ok: true, connectionEncryption: { configured: false } });
@@ -88,6 +100,16 @@ assert.deepEqual(degraded.checks.find(item => item.id === 'platform_health')?.de
 assert.equal(degraded.checks.find(item => item.id === 'service_configuration')?.code, 'CONNECTION_ENCRYPTION_NOT_CONFIGURED');
 assert.equal(degraded.checks.find(item => item.id === 'github_actions')?.status, 'skipped');
 assert.equal(degraded.checks.filter(item => item.id.startsWith('ai_') && item.status === 'skipped').length, 7, 'missing optional AI keys and balance checks should be visible as skipped, not false alarms');
+assert.equal(disabledModeHosts.some(host => [
+  'generativelanguage.googleapis.com',
+  'api.anthropic.com',
+  'api.deepseek.com',
+  'api.openai.com',
+  'api.groq.com',
+  'openrouter.ai',
+].includes(host)), false, 'an unset engine mode must not probe old provider APIs even when their secrets remain configured');
+assert.equal(JSON.stringify(degraded).includes('must-not-be-used-without-mode'), false,
+  'disabled provider probe results must not expose retained secret values');
 
 const guardedCredentialProbes = await collectSentinelChecks({
   origin: 'https://ovyx.example',
