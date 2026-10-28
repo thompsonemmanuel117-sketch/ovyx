@@ -47,6 +47,11 @@ try {
     const compactHeight = await input.evaluate(el => el.getBoundingClientRect().height);
     assert.ok(compactHeight <= 56, '[' + target.name + '] prompt should start compact, got ' + compactHeight + 'px.');
 
+    await input.fill('Hi OVYX');
+    const shortPromptHeight = await input.evaluate(el => el.getBoundingClientRect().height);
+    assert.ok(shortPromptHeight <= 56,
+      '[' + target.name + '] a short typed prompt must remain compact; legacy input handlers must not force a tall minimum, got ' + shortPromptHeight + 'px.');
+
     await pulse.click();
     await popover.waitFor({ state: 'visible' });
     assert.equal(await popover.locator('[data-ws-mode="build"]').isVisible(), true, '[' + target.name + '] Build mode must be inside the pulse menu.');
@@ -66,11 +71,57 @@ try {
 
     await input.fill('Build a premium website.\nAdd a responsive hero section.\nKeep the existing project architecture and test every visible interaction.');
     const expandedHeight = await input.evaluate(el => el.getBoundingClientRect().height);
-    assert.ok(expandedHeight > compactHeight, '[' + target.name + '] prompt should grow when longer text is entered.');
-    assert.ok(expandedHeight <= 210, '[' + target.name + '] prompt should stop growing at its configured maximum.');
+    assert.ok(expandedHeight > shortPromptHeight, '[' + target.name + '] prompt should grow when longer text is entered.');
+    assert.ok(expandedHeight <= 190, '[' + target.name + '] prompt should stop growing at its configured maximum.');
 
     const visibleToolButtons = await page.locator('#ws-chat-composer .ovyx-ws-tools-left > button:visible').evaluateAll(nodes => nodes.map(node => node.id));
     assert.deepEqual(visibleToolButtons, ['ws-pulse-trigger', 'ws-composer-mic'], '[' + target.name + '] only pulse and microphone should remain outside the pulse menu.');
+
+    // Route the real chat action to the existing image endpoint with a tiny
+    // fixture image; the test validates UI wiring without consuming AI quota.
+    await page.route('**/api/ai/image-generation', async route => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        headers: { 'cache-control': 'no-store' },
+        body: JSON.stringify({
+          ok: true,
+          image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/eLkAAAAASUVORK5CYII='
+        })
+      });
+    });
+    await page.evaluate(() => {
+      window.firebase = {
+        auth() {
+          return { currentUser: { getIdToken: async () => 'pulse-browser-test-token' } };
+        }
+      };
+    });
+    await input.fill('Create a beautiful cinematic hero image for a fintech homepage.');
+    await send.click();
+    await page.waitForSelector('#ws-agent-thread .ws-generated-image-card img', { state: 'visible' });
+    const generatedImageSrc = await page.locator('#ws-agent-thread .ws-generated-image-card img').getAttribute('src');
+    assert.ok(generatedImageSrc && generatedImageSrc.startsWith('data:image/png;base64,'),
+      '[' + target.name + '] image requests must render inside the existing chat.');
+
+    await page.evaluate(async () => {
+      const W = window.WebStudio;
+      await W.setAttachments([new File(['keep this existing brief'], 'site-brief.txt', { type: 'text/plain' })]);
+    });
+    assert.match(await page.locator('#ws-attachment-strip').innerText(), /site-brief\.txt/,
+      '[' + target.name + '] fixture attachment must be staged before using the generated image.');
+
+    await page.locator('#ws-agent-thread [data-ovyx-use-generated-image]').click();
+    await page.waitForSelector('#ws-attachment-strip:not([hidden]) .ovyx-ws-attachment-chip', { state: 'visible' });
+    const stagedAttachmentText = await page.locator('#ws-attachment-strip').innerText();
+    assert.match(stagedAttachmentText, /site-brief\.txt/,
+      '[' + target.name + '] using a generated image must preserve existing file attachments.');
+    assert.match(stagedAttachmentText, /ovyx-generated-image\.png/,
+      '[' + target.name + '] generated image must be attached as a normal website prompt attachment.');
+    assert.match(await input.inputValue(), /^Use the attached generated image/,
+      '[' + target.name + '] using the image must prepare a normal Web Studio build prompt.');
+    assert.equal(await page.locator('#ws-mode-trigger-label').textContent(), 'Build',
+      '[' + target.name + '] using the image must return the composer to Build mode.');
     await page.close();
   }
   console.log('OVYX Web Studio pulse composer browser checks passed on desktop and mobile.');
