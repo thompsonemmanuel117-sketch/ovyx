@@ -42,6 +42,7 @@ try {
     assert.equal(await pulse.isVisible(), true, '[' + target.name + '] pulse button should be visible.');
     assert.equal(await mic.isVisible(), true, '[' + target.name + '] microphone should be visible.');
     assert.equal(await send.isVisible(), true, '[' + target.name + '] send arrow should be visible.');
+    assert.match(await pulse.locator('i').getAttribute('class') || '', /fa-plus/, '[' + target.name + '] Pulse should use a separate plus icon like ChatGPT.');
     assert.ok(await page.locator('#ws-mode-menu [data-ws-mode]').count() === 4, '[' + target.name + '] all four modes must remain available.');
 
     const compactHeight = await input.evaluate(el => el.getBoundingClientRect().height);
@@ -54,6 +55,9 @@ try {
 
     await pulse.click();
     await popover.waitFor({ state: 'visible' });
+    const popoverBox = await popover.boundingBox();
+    assert.ok(popoverBox && popoverBox.width <= 250, '[' + target.name + '] Pulse menu must be narrow (250px max), got ' + (popoverBox && popoverBox.width) + 'px.');
+    assert.ok(popoverBox && popoverBox.height <= (target.name === 'mobile' ? 341 : 361), '[' + target.name + '] Pulse menu must stay compact, got ' + (popoverBox && popoverBox.height) + 'px.');
     assert.equal(await popover.locator('[data-ws-mode="build"]').isVisible(), true, '[' + target.name + '] Build mode must be inside the pulse menu.');
     assert.equal(await popover.locator('[data-ws-mode="plan"]').isVisible(), true, '[' + target.name + '] Plan mode must be inside the pulse menu.');
     assert.equal(await popover.locator('[data-ws-mode="ask"]').isVisible(), true, '[' + target.name + '] Ask mode must be inside the pulse menu.');
