@@ -1,13 +1,17 @@
 import { assertAuthenticated } from '../../_lib/firebase.js';
 import { readJson, jsonResponse, errorResponse } from '../../_lib/http.js';
-import { beginAIQuota, finalizeAIQuota, refundDailyPrompt } from '../../_lib/token-quota.js';
+import { beginAIQuota, finalizeAIQuota, refundDailyPrompt, getQuotaState } from '../../_lib/token-quota.js';
+import { runCloudflareFreeTranscription } from '../../_lib/cloudflare-free-ai.js';
 
 const MAX_AUDIO_BYTES = 8_000_000;
 const MAX_BODY_BYTES = 11_000_000;
 const ALLOWED_AUDIO_MIME = /^audio\/(?:webm|mp4|ogg|wav|x-wav|mpeg|mp3|aac|x-m4a|3gpp|3gpp2|flac|webm;codecs=opus)$/i;
 
 function parseAudioDataUrl(value) {
-  const match = String(value || '').match(/^data:(audio\/[a-z0-9.+-]+);base64,([a-z0-9+/=\r\n]+)$/i);
+  // MediaRecorder may return a MIME parameter such as audio/webm;codecs=opus.
+  // Keep that parameter out of the canonical type check while accepting only
+  // an audio data URL, never an arbitrary URL supplied by the client.
+  const match = String(value || '').match(/^data:(audio\/[a-z0-9.+-]+(?:;codecs=[a-z0-9.+-]+)?);base64,([a-z0-9+/=\r\n]+)$/i);
   if (!match) {
     throw Object.assign(new Error('Choose a recorded audio file before sending a voice note.'), {
       status: 400,
@@ -15,7 +19,7 @@ function parseAudioDataUrl(value) {
     });
   }
 
-  const mimeType = match[1].toLowerCase();
+  const mimeType = match[1].toLowerCase().split(';', 1)[0];
   const base64 = match[2].replace(/\s/g, '');
   if (!ALLOWED_AUDIO_MIME.test(mimeType)) {
     throw Object.assign(new Error('This audio format is not supported. Record the voice note again or choose a supported audio file.'), {
@@ -65,22 +69,20 @@ export async function onRequestPost(context) {
     reservation = await beginAIQuota(env, user);
     let result;
     try {
-      result = await env.AI.run('@cf/openai/whisper', {
+      result = await runCloudflareFreeTranscription(env, {
+        authUser: user,
         audio: audio.base64,
-        task: 'transcribe',
+        audioBytes: audio.byteLength,
       });
     } catch (modelError) {
       await refundDailyPrompt(env, reservation).catch(refundError => {
         console.error('[OVYX VOICE TRANSCRIPTION QUOTA REFUND]', refundError?.message || refundError);
       });
       reservation = null;
-      throw Object.assign(new Error('OVYX could not transcribe this voice note. Check the recording and try again.'), {
-        status: 503,
-        code: 'VOICE_TRANSCRIPTION_FAILED',
-      });
+      throw modelError;
     }
 
-    const transcript = String(result?.text || result?.transcription_info?.text || '').trim().slice(0, 20_000);
+    const transcript = String(result?.text || '').trim().slice(0, 20_000);
     if (!transcript) {
       await refundDailyPrompt(env, reservation).catch(() => {});
       reservation = null;
@@ -88,7 +90,7 @@ export async function onRequestPost(context) {
     }
 
     const estimatedAudioMinutes = Math.max(1 / 60, Math.min(3, Number.isFinite(durationMs) && durationMs > 0 ? durationMs / 60_000 : audio.byteLength / 320_000));
-    const quota = await finalizeAIQuota(
+    let quota = await finalizeAIQuota(
       env,
       reservation,
       {
@@ -98,6 +100,14 @@ export async function onRequestPost(context) {
       '[voice note transcription: ' + estimatedAudioMinutes.toFixed(2) + ' audio minutes]',
       transcript
     );
+    // Transcription is input preparation for the ensuing AI message, not a
+    // second daily chat turn. Restore only the temporary daily-prompt reservation
+    // here; token usage and the protected Cloudflare inference budget stay charged.
+    if (reservation?.mode === 'daily' && reservation?.reservedDailyPrompt) {
+      await refundDailyPrompt(env, reservation);
+      const refreshed = await getQuotaState(env, user).catch(() => null);
+      if (refreshed) quota = { ...refreshed, usage: quota?.usage };
+    }
     reservation = null;
 
     return jsonResponse({
