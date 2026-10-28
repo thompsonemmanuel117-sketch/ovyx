@@ -17406,7 +17406,7 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
   var root=null,menu=null,pulse=null,mic=null,recognition=null,imageBusy=false,imageAbortController=null,voiceRecorder=null,voiceStream=null,voiceChunks=[],voiceBlob=null,voiceMime='',voicePanel=null,voiceObjectUrl='',voiceDurationMs=0,voiceStartedAt=0,voiceTimer=0,voiceAbortController=null,activeWorkId=0,composerWorking=false;
   var $=function(id){return document.getElementById(id)};
   function toast(message,type){try{window.showToast?window.showToast(message,type||'info'):console.info('[OVYX]',message)}catch(_){}}
-  function closeMenu(){if(!menu||!pulse)return;menu.classList.remove('open');pulse.setAttribute('aria-expanded','false');}
+  function closeMenu(){if(!menu||!pulse)return;menu.classList.remove('open');menu.hidden=true;pulse.setAttribute('aria-expanded','false');}
   function setComposerValue(value){var input=$('ws-chat-input');if(!input)return;input.placeholder='Message OVYX…';input.value=String(value||'');input.dispatchEvent(new Event('input',{bubbles:true}));input.focus();resizeInput(input);}
   function resizeInput(input){if(!input)return;input.style.setProperty('height','32px','important');var max=150;var contentHeight=Math.ceil(input.scrollHeight||32);var next=Math.min(Math.max(contentHeight,32),max);input.style.setProperty('height',next+'px','important');input.style.setProperty('overflow-y',contentHeight>max?'auto':'hidden','important');}
   function setup(){
@@ -17414,7 +17414,7 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
     if(composer?.dataset.ovyxPulseComposer==='1')return true;
     if(!W||!composer||!tools)return false;
     composer.dataset.ovyxPulseComposer='1';root=tools;
-    menu=document.createElement('div');menu.className='ws-pulse-popover';menu.id='ws-pulse-popover';menu.setAttribute('role','dialog');menu.setAttribute('aria-label','OVYX tools and modes');
+    menu=document.createElement('div');menu.className='ws-pulse-popover';menu.id='ws-pulse-popover';menu.hidden=true;menu.setAttribute('role','dialog');menu.setAttribute('aria-label','OVYX tools and modes');
     menu.innerHTML='<div class="ws-pulse-popover-head"><span>OVYX PULSE</span><button type="button" data-ws-pulse-close aria-label="Close tools">×</button></div><div class="ws-pulse-section-label">Modes</div><div class="ws-pulse-modes"></div><div class="ws-pulse-section-label">Create and attach</div><div class="ws-pulse-actions"><button type="button" class="ws-pulse-action" data-ws-pulse-action="image"><i class="fa-regular fa-image" aria-hidden="true"></i><span>Create image</span></button><button type="button" class="ws-pulse-action" data-ws-pulse-action="camera"><i class="fa-solid fa-camera" aria-hidden="true"></i><span>Take photo</span></button></div><div class="ws-pulse-section-label">Workspace tools</div><div class="ws-pulse-extra"></div><p class="ws-pulse-menu-note">You can ask for an image directly in chat. OVYX will generate it here without opening a separate image studio.</p>';
     composer.prepend(menu);
     pulse=document.createElement('button');pulse.type='button';pulse.className='ws-pulse-trigger';pulse.id='ws-pulse-trigger';pulse.setAttribute('aria-label','Open OVYX tools');pulse.setAttribute('aria-haspopup','dialog');pulse.setAttribute('aria-expanded','false');pulse.title='OVYX tools and modes';pulse.innerHTML='<i class="fa-solid fa-plus" aria-hidden="true"></i>';tools.insertBefore(pulse,tools.firstChild);
@@ -17434,7 +17434,7 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
     function addPulseTool(key,icon,label){var button=document.createElement('button');button.type='button';button.className='ws-pulse-action';button.dataset.wsPulseAction=key;button.innerHTML='<i class="fa-solid '+icon+'" aria-hidden="true"></i><span></span>';button.querySelector('span').textContent=label;return button;}
     if(extra){extra.appendChild(addPulseTool('code','fa-code','Open Code editor'));extra.appendChild(addPulseTool('selection','fa-wand-magic-sparkles','Use selected element'));extra.appendChild(addPulseTool('clear','fa-eraser','Clear draft and attachments'));}
     var camera=document.createElement('input');camera.type='file';camera.id='ws-camera-input';camera.accept='image/*';camera.setAttribute('capture','environment');camera.hidden=true;menu.appendChild(camera);
-    pulse.addEventListener('click',function(event){event.preventDefault();event.stopPropagation();var opening=!menu.classList.contains('open');if(opening){menu.classList.add('open');pulse.setAttribute('aria-expanded','true');if(modeMenu)modeMenu.hidden=false;}else closeMenu();});
+    pulse.addEventListener('click',function(event){event.preventDefault();event.stopPropagation();var opening=menu.hidden||!menu.classList.contains('open');if(opening){menu.hidden=false;menu.classList.add('open');pulse.setAttribute('aria-expanded','true');if(modeMenu)modeMenu.hidden=false;}else closeMenu();});
     menu.querySelector('[data-ws-pulse-close]').addEventListener('click',closeMenu);
     menu.querySelector('[data-ws-pulse-action="image"]').addEventListener('click',function(){W.setMode('build');setComposerValue('Create an image of ');closeMenu();});
     menu.querySelector('[data-ws-pulse-action="camera"]').addEventListener('click',function(){camera.click();});
