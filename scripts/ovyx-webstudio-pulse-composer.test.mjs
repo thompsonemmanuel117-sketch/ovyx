@@ -11,11 +11,13 @@ const runtime = html.match(/<script id="ovyx-webstudio-pulse-composer-runtime-v1
 assert.ok(runtime, 'The pulse composer runtime script must be present.');
 new vm.Script(runtime[1], { filename: 'ovyx-webstudio-pulse-composer-runtime-v1.js' });
 assert.match(html, /pulse\.id='ws-pulse-trigger'/, 'The pulse control must be created by the runtime.');
+assert.match(html, /pulse\.innerHTML='<i class=\\"fa-solid fa-plus\\" aria-hidden=\\"true\\"><\\/i>'/, 'Pulse must use a distinct plus-style icon like a compact chat composer.');
+assert.match(html, /grid-template-columns:minmax\\(0,1fr\\)!important/, 'Pulse menu entries must stack in a narrow single-column list.');
 assert.match(html, /mic\.id='ws-composer-mic'/, 'The microphone control must be created by the runtime.');
 assert.match(html, /id="ws-chat-send"/, 'The existing send control must be preserved.');
 assert.match(html, /id="ws-chat-input"/, 'The existing prompt input must be preserved.');
-assert.match(html, /width:min\\(286px,calc\\(100vw - 24px\\)\\)/, 'Desktop pulse menu must stay narrow instead of opening as an oversized panel.');
-assert.match(html, /width:min\\(278px,calc\\(100vw - 24px\\)\\)/, 'Mobile pulse menu must be narrower and leave safe viewport margins.');
+assert.match(html, /width:min\\(248px,calc\\(100vw - 24px\\)\\)/, 'Desktop pulse menu must stay narrow instead of opening as an oversized panel.');
+assert.match(html, /width:min\\(248px,calc\\(100vw - 24px\\)\\)/, 'Mobile pulse menu must be narrower and leave safe viewport margins.');
 assert.match(html, /button\\.style\\.setProperty\\('width','34px','important'\\)/, 'Pulse and microphone controls must remain compact after runtime inline styling.');
 assert.doesNotMatch(html, /button\\.style\\.setProperty\\('width','38px','important'\\)/, 'Runtime must not override compact control sizing with oversized buttons.');
 for (const mode of ['build', 'plan', 'ask', 'fix']) {
