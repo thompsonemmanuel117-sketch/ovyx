@@ -3334,7 +3334,7 @@
             const dataUrl=await readAsDataUrl(file);
             if(version!==this._attachmentsVersion)return;
             item.dataUrl=dataUrl;
-            if(textual.test(String(file.type||''))||/\.(txt|md|json|js|jsx|ts|tsx|css|scss|html|htm|xml|csv|yaml|yml)$/i.test(String(file.name||''))){
+            if(textual.test(String(file.type||''))||/\.(txt|md|mdx|json|jsonc|js|jsx|mjs|cjs|ts|tsx|css|scss|sass|less|html|htm|xml|csv|tsv|yaml|yml|toml|ini|properties|env|log|py|sh|bash|php|java|c|h|cpp|hpp|go|rs|rb|sql|graphql|gql|vue|svelte|astro|webmanifest|ps1|bat)$/i.test(String(file.name||''))){
               try{item.textContent=(await readAsText(file)).slice(0,500000)}catch(_){ }
             }
             if(version!==this._attachmentsVersion)return;
