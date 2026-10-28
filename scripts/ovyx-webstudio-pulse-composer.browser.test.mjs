@@ -196,7 +196,7 @@ try {
     });
     await input.fill('Please stop this request while it is running.');
     await send.click();
-    await page.waitForFunction(() => document.getElementById('ws-chat-send')?.getAttribute('aria-label') === 'Stop generating');
+    await page.waitForFunction(() => window.__ovyxStopTest?.started === true && document.getElementById('ws-chat-send')?.getAttribute('aria-label') === 'Stop generating');
     assert.equal(await send.isEnabled(), true, '[' + target.name + '] stop button must remain clickable while OVYX is thinking.');
     await send.click();
     await page.waitForFunction(() => window.__ovyxStopTest?.aborted === true &&
