@@ -7,6 +7,15 @@ const packageJson = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 
 assert.match(html, /id="ovyx-webstudio-pulse-composer-v1"/, 'Web Studio pulse composer styles must be installed.');
 assert.match(html, /id="ovyx-webstudio-pulse-composer-runtime-v1"/, 'Web Studio pulse composer runtime must be installed.');
+assert.match(html, /OVYX Pulse compact composer polish v2/, 'The ChatGPT-inspired compact composer override must be active in the Web Studio shell.');
+assert.match(html, /border-radius:21px!important;padding:8px 10px 7px!important|padding:8px 10px 7px!important;border-radius:21px!important/, 'The composer should have a compact, rounded resting shape.');
+assert.match(html, /#171717!important/, 'The composer should use the dark integrated ChatGPT-like input surface.');
+assert.match(html, /width:min\(294px,calc\(100vw - 24px\)\)!important;max-height:min\(54dvh,390px\)!important/, 'Pulse popover dimensions must be compact and bounded on desktop.');
+assert.match(html, /width:min\(294px,calc\(100vw - 20px\)\)!important;max-height:min\(52dvh,360px\)!important/, 'Pulse popover must remain compact on mobile.');
+assert.match(html, /min-height:44px!important;gap:3px!important;padding:7px 8px!important/, 'Build, Plan, Ask and Fix entries must fit in a compact mode grid.');
+assert.match(html, /min-height:34px!important;gap:7px!important;padding:7px 8px!important/, 'Create image and camera actions must remain compact.');
+assert.match(html, /\.ovyx-ws-send\{[\s\S]{0,280}border-radius:50%!important/, 'The send arrow should be a separate circular action.');
+
 const runtime = html.match(/<script id="ovyx-webstudio-pulse-composer-runtime-v1">([\s\S]*?)<\/script>/);
 assert.ok(runtime, 'The pulse composer runtime script must be present.');
 new vm.Script(runtime[1], { filename: 'ovyx-webstudio-pulse-composer-runtime-v1.js' });
