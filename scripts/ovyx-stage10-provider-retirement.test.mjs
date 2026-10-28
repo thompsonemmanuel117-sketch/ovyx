@@ -76,6 +76,40 @@ assert.ok(statusRoute.indexOf('if (!isLegacyProviderRoutingEnabled(context.env))
 assert.match(statusTests, /cloudflare-paid-capped/);
 assert.match(statusTests, /legacy-provider-routing-disabled/);
 assert.match(statusTests, /must not probe external providers/);
+assert.match(legacyProviderTestRoute, /isCloudflareWorkersAIGuardedMode/);
+assert.match(legacyProviderTestRoute, /isLegacyProviderRoutingEnabled/);
+
+// The old direct provider-test endpoint must be unreachable in guarded,
+// unsupported or unset engine modes, even if a production secret is still
+// present. Verify it never performs a network request in those states.
+{
+  const oldFetch = globalThis.fetch;
+  let externalCalls = 0;
+  globalThis.fetch = async () => {
+    externalCalls += 1;
+    throw new Error('external provider call should have been blocked');
+  };
+  try {
+    const scenarios = [
+      { env: { OVYX_AI_ENGINE_MODE: 'cloudflare-free-only', GEMINI_API_KEY: 'must-not-be-used' }, code: 'PROVIDER_TESTS_DISABLED_IN_FREE_ONLY_MODE' },
+      { env: { OVYX_AI_ENGINE_MODE: 'cloudflare-paid-capped', GEMINI_API_KEY: 'must-not-be-used' }, code: 'PROVIDER_TESTS_DISABLED_IN_GUARDED_MODE' },
+      { env: { GEMINI_API_KEY: 'must-not-be-used' }, code: 'PROVIDER_TESTS_DISABLED_BY_ENGINE_MODE' },
+    ];
+    for (const scenario of scenarios) {
+      const response = await testLegacyProviderEndpoint({
+        request: new Request('https://ovyx.test/api/test-provider?provider=gemini'),
+        env: scenario.env,
+        data: { user: { uid: 'stage10-owner', email: 'ovyxsupportteam@gmail.com' } },
+      });
+      const body = await response.json();
+      assert.equal(response.status, 409);
+      assert.equal(body.error, scenario.code);
+    }
+    assert.equal(externalCalls, 0, 'direct provider tests must not contact external APIs while legacy routing is disabled');
+  } finally {
+    globalThis.fetch = oldFetch;
+  }
+}
 
 // These call paths still import the shared adapter and are deliberately
 // classified as active migration seams until real release acceptance passes.
