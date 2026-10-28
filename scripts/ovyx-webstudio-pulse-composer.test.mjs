@@ -25,10 +25,20 @@ assert.match(html, /fetch\('\/api\/ai\/image-generation'/, 'Image requests must 
 assert.match(html, /generatedImageId/, 'Generated images must be attached to chat messages.');
 assert.match(html, /data-ovyx-use-generated-image/, 'Generated images must have a Use in website action.');
 assert.match(html, /download\.download=asset\.name/, 'Generated images must be downloadable.');
-assert.match(html, /setAttachments\(\[file\]\)/, 'Use in website must stage the generated image as a Web Studio attachment.');
+assert.match(html, /current\.concat\(attachment\)/, 'Use in website must append the generated image as a normal attachment without replacing existing files.');
 assert.match(html, /input\.style\.height='42px'/, 'The composer must reset to a compact one-line height.');
 assert.match(html, /var max=200/, 'The composer must expand for longer prompts with a bounded maximum height.');
-assert.match(html, /if\(event\.key==='Enter'&&!event\.shiftKey&&!event\.isComposing\)/, 'Enter sends and Shift+Enter remains available for a newline.');
+assert.match(html, /height:42px;max-height:200px!important;/, 'The compact default height must not lock the input against its inline auto-resize.');
+assert.match(html, /for\(var i=0;i<event\.results\.length;i\+\+\)/, 'Speech dictation must retain the full transcript across recognition events.');
+assert.match(html, /high-resolution/, 'Natural-language image prompts may include descriptive modifiers.');
+assert.match(html, /Image generation is already running/, 'Concurrent sends must not bypass the image-generation busy guard.');
+assert.match(html, /Quick actions/, 'The Pulse menu must expose the additional workspace quick actions.');
+for (const action of ['Use selected element', 'Website brief', 'Paste clipboard text', 'Open Code editor', 'Clear draft']) {
+  assert.match(html, new RegExp(action), 'Pulse quick action must be present: ' + action);
+}
+assert.doesNotMatch(html, /<script defer src="\\/assets\\/ovyx-webstudio-pulse-composer\\.js/, 'The duplicate external Pulse runtime must not be loaded.');
+assert.match(html, /current\.length>=6/, 'Use in website must respect the attachment count limit.');
+assert.match(html, /if\(event\.key==='Enter'&&!event\.shiftKey&&!event\.ctrlKey&&!event\.metaKey&&!event\.isComposing\)/, 'Enter sends, Shift+Enter inserts a newline, and Ctrl/Meta+Enter avoids duplicate submissions.');
 assert.match(html, /if\(launch\)launch\.remove\(\)/, 'The separate floating image-generation launcher must be removed from the Web Studio experience.');
 assert.match(packageJson.scripts.test, /ovyx-webstudio-pulse-composer\.test\.mjs/, 'The new pulse composer regression test must be included in npm test.');
 console.log('OVYX Web Studio pulse composer contract passed.');
