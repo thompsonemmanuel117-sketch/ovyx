@@ -96,6 +96,7 @@ jobs:
       - name: Test Web Studio static regression contract
         run: node scripts/ovyx-webstudio-quality.test.mjs
       - name: Test Web Studio pulse composer in Chromium
+        id: pulse-composer
         run: node scripts/ovyx-webstudio-pulse-composer.browser.test.mjs
       - name: Test app-shell favicon in Chromium against local Pages runtime
         run: node scripts/ovyx-app-shell-favicon.browser.test.mjs
@@ -106,6 +107,9 @@ jobs:
       - name: Test Web Studio to App Studio to Code integration in Chromium
         run: node scripts/ovyx-webstudio-appstudio-integration.browser.test.mjs
       - name: Test desktop Code Workspace editing and dashboard route recovery in Chromium
-        if: always()
+        # Keep this independent recovery probe on successful/other-failure runs,
+        # but don't delay the focused composer regression report when its own
+        # browser assertions fail.
+        if: always() && steps.pulse-composer.outcome != 'failure'
         run: node scripts/ovyx-code-workspace-dashboard-recovery.browser.test.mjs
 # Regression coverage: sidebar inline-SVG full-draw state, brand-mark favicon fallback, and project/app favicon isolation.
