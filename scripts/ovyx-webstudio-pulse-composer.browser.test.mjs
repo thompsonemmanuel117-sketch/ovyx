@@ -125,6 +125,24 @@ try {
     assert.equal(await page.locator('#ws-brain-label').innerText(), 'Deepseek',
       '[' + target.name + '] choosing an AI brain must update the composer label.');
 
+    // Seed a disposable browser-only project when the shell is in its no-project
+    // state. This validates that the map lists real source paths, not just an empty UI.
+    await page.evaluate(() => {
+      const K = window.KernelState;
+      const W = window.WebStudio;
+      if (!K || !W) throw new Error('Web Studio project state is unavailable for Pulse context testing.');
+      let project = K.activeProject;
+      if (!project) {
+        project = { id: 'pulse-menu-browser-project', name: 'Pulse Menu Browser Project', pages: [{ name: 'Home', sections: [] }] };
+        K.activeProject = project;
+      }
+      if (!project.id) project.id = 'pulse-menu-browser-project';
+      if (!Array.isArray(project.pages) || project.pages.length === 0) project.pages = [{ name: 'Home', sections: [] }];
+      W.graph = null;
+      W.ensureProjectGraph();
+      if (!Object.keys(W.graph?.files || {}).length) throw new Error('The project fixture did not produce source files.');
+    });
+
     // Project context must open the live node map and allow a listed file to
     // open the real embedded Code editor, then return cleanly to the chat.
     await pulse.click();
