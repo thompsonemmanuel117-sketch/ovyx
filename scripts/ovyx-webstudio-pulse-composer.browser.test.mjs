@@ -91,6 +91,30 @@ try {
     assert.equal(await popover.locator('[data-ws-pulse-action="selection"]').isVisible(), true, '[' + target.name + '] selected-element helper must be accessible inside Pulse.');
     assert.equal(await popover.locator('[data-ws-pulse-action="clear"]').isVisible(), true, '[' + target.name + '] clear-draft action must be accessible inside Pulse.');
 
+    // Exercise menu actions, not only their visibility.
+    await popover.locator('[data-ws-pulse-action="image"]').click();
+    assert.equal(await input.inputValue(), 'Create an image of ',
+      '[' + target.name + '] Create image must prepare a usable image prompt in the composer.');
+    assert.equal(await page.locator('#ws-mode-menu [data-ws-mode="build"]').getAttribute('class').then(v => (v || '').includes('active')), true,
+      '[' + target.name + '] Create image must select Build mode.');
+
+    await input.fill('temporary draft that should be replaced');
+    await page.evaluate(() => {
+      window.WebStudio.selectedElement = { title: 'Hero section' };
+    });
+    await pulse.click();
+    await popover.locator('[data-ws-pulse-action="selection"]').click();
+    assert.match(await input.inputValue(), /Improve Hero section/,
+      '[' + target.name + '] Use selected element must turn the current selection into a real prompt.');
+    assert.match(await input.inputValue(), /responsive behavior/,
+      '[' + target.name + '] selected-element prompt must preserve responsive/project constraints.');
+
+    await input.fill('draft to clear');
+    await pulse.click();
+    await popover.locator('[data-ws-pulse-action="clear"]').click();
+    assert.equal(await input.inputValue(), '',
+      '[' + target.name + '] Clear draft must clear the prompt without touching the project.');
+
     // OVYX protects project attachments behind the same signed-in session gate as generation.
     // Establish the test identity before exercising the real file-picker/change handler.
     await page.evaluate(() => {
