@@ -28,6 +28,8 @@ assert.match(html, /download\.download=asset\.name/, 'Generated images must be d
 assert.match(html, /setAttachments\(\[file\]\)/, 'Use in website must stage the generated image as a Web Studio attachment.');
 assert.match(html, /input\.style\.height='42px'/, 'The composer must reset to a compact one-line height.');
 assert.match(html, /var max=200/, 'The composer must expand for longer prompts with a bounded maximum height.');
+assert.match(html, /if\(composer\?\.dataset\.ovyxPulseComposer==='1'\)return true/, 'Composer boot retries must be idempotent instead of creating an endless retry loop.');
+assert.match(html, /compactSetMode=function\(\)[\s\S]*?field\.placeholder='Message OVYX…'/, 'Web Studio renders and mode changes must preserve the compact mobile placeholder.');
 assert.match(html, /if\(event\.key==='Enter'&&!event\.shiftKey&&!event\.isComposing\)/, 'Enter sends and Shift+Enter remains available for a newline.');
 assert.match(html, /if\(launch\)launch\.remove\(\)/, 'The separate floating image-generation launcher must be removed from the Web Studio experience.');
 assert.match(packageJson.scripts.test, /ovyx-webstudio-pulse-composer\.test\.mjs/, 'The new pulse composer regression test must be included in npm test.');
