@@ -1,4 +1,4 @@
-import { isCloudflareFreeOnlyMode } from '../_lib/cloudflare-free-ai.js';
+import { isCloudflareFreeOnlyMode, isCloudflareWorkersAIGuardedMode } from '../_lib/cloudflare-free-ai.js';
 'use strict';
 
 import { assertAuthenticated } from '../_lib/firebase.js';
@@ -43,8 +43,17 @@ export async function onRequest(context) {
     if (!authorized(user)) {
       return errorResponse(403, 'ADMIN_REQUIRED', 'Admin authorization is required.', id);
     }
-    if (isCloudflareFreeOnlyMode(context.env)) {
-      return errorResponse(409, 'PROVIDER_TESTS_DISABLED_IN_FREE_ONLY_MODE', 'OVYX uses Cloudflare AI only in this mode. Third-party provider checks are disabled.', id);
+    if (isCloudflareWorkersAIGuardedMode(context.env)) {
+      const code = isCloudflareFreeOnlyMode(context.env)
+        ? 'PROVIDER_TESTS_DISABLED_IN_FREE_ONLY_MODE'
+        : 'PROVIDER_TESTS_DISABLED_IN_GUARDED_MODE';
+      return errorResponse(409, code, 'OVYX uses its guarded Cloudflare AI engine in this mode. Third-party provider checks are disabled.', id);
+    }
+    // Legacy provider tests are available only while the explicit rollback route
+    // is enabled. A missing/unsupported mode is not permission to contact old APIs.
+    const { isLegacyProviderRoutingEnabled } = await import('../_lib/cloudflare-free-ai.js');
+    if (!isLegacyProviderRoutingEnabled(context.env)) {
+      return errorResponse(409, 'PROVIDER_TESTS_DISABLED_BY_ENGINE_MODE', 'Legacy provider tests are disabled because OVYX legacy provider routing is not explicitly enabled.', id);
     }
 
     const url = new URL(context.request.url);
