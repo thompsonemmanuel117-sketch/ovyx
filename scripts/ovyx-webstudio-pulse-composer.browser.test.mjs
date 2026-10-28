@@ -12,8 +12,9 @@ try {
     page.setDefaultTimeout(20000);
     const response = await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell failed to load.');
-    await page.waitForSelector('#ws-chat-composer #ws-chat-input');
+    await page.waitForSelector('#ws-chat-composer #ws-chat-input', { state: 'attached' });
     await page.waitForSelector('#ws-pulse-trigger', { state: 'attached' });
+    await page.waitForLoadState('load', { timeout: 30000 }).catch(() => {});
     await page.evaluate(() => {
       document.body.classList.add('ovyx-webstudio-active');
       const view = document.getElementById('view-webstudio');
