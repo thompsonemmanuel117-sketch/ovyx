@@ -13,6 +13,10 @@ on:
       - 'scripts/ovyx-code-workspace-dashboard-recovery.browser.test.mjs'
       - 'scripts/ovyx-app-shell-favicon.browser.test.mjs'
       - 'index.html'
+      - 'functions/_lib/cloudflare-free-ai.js'
+      - 'functions/api/ai/transcribe.js'
+      - 'scripts/ovyx-webstudio-pulse-composer.browser.test.mjs'
+      - 'scripts/ovyx-webstudio-pulse-composer.test.mjs'
       - 'assets/ovyx-webstudio-project-branding.js'
       - 'assets/ovyx-brand-mark.svg'
       - 'assets/ovyx-shell-favicon-lock.js'
@@ -87,13 +91,14 @@ jobs:
           done
           cat /tmp/ovyx-pages-dev.log
           exit 1
-      - name: Test app-shell favicon in Chromium against local Pages runtime
-        run: node scripts/ovyx-app-shell-favicon.browser.test.mjs
-
+      # Run the composer regression first so the most important interactive
+      # Web Studio controls produce evidence even if an unrelated shell probe stalls.
       - name: Test Web Studio static regression contract
         run: node scripts/ovyx-webstudio-quality.test.mjs
       - name: Test Web Studio pulse composer in Chromium
         run: node scripts/ovyx-webstudio-pulse-composer.browser.test.mjs
+      - name: Test app-shell favicon in Chromium against local Pages runtime
+        run: node scripts/ovyx-app-shell-favicon.browser.test.mjs
       - name: Test Web Studio quality inspector in Chromium
         run: node scripts/ovyx-webstudio-quality.browser.test.mjs
       - name: Test code workspace search and sidebar logo in Chromium
