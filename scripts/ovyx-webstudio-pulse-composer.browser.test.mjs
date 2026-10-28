@@ -42,6 +42,7 @@ try {
     assert.equal(await pulse.isVisible(), true, '[' + target.name + '] pulse button should be visible.');
     assert.equal(await mic.isVisible(), true, '[' + target.name + '] microphone should be visible.');
     assert.equal(await send.isVisible(), true, '[' + target.name + '] send arrow should be visible.');
+    assert.match(await pulse.locator('i').getAttribute('class') || '', /fa-plus/, '[' + target.name + '] Pulse must use a separate plus icon.');
     const pulseBox = await pulse.boundingBox();
     const micBox = await mic.boundingBox();
     assert.ok(pulseBox && pulseBox.width <= 35 && pulseBox.height <= 35,
@@ -63,8 +64,8 @@ try {
     await pulse.click();
     await popover.waitFor({ state: 'visible' });
     const popoverBox = await popover.boundingBox();
-    const maxPopoverWidth = target.name === 'mobile' ? 280 : 288;
-    const maxPopoverHeight = target.name === 'mobile' ? 421 : 441;
+    const maxPopoverWidth = 250;
+    const maxPopoverHeight = target.name === 'mobile' ? 341 : 361;
     assert.ok(popoverBox && popoverBox.width <= maxPopoverWidth,
       '[' + target.name + '] pulse menu should be narrow and compact, got ' + (popoverBox && popoverBox.width) + 'px.');
     assert.ok(popoverBox && popoverBox.height <= maxPopoverHeight,
