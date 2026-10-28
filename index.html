@@ -17429,12 +17429,19 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
         var button=event.target.closest('[data-ovyx-use-generated-image]');if(!button)return;
         event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();
         var asset=imageStore[button.getAttribute('data-ovyx-use-generated-image')];if(!asset){toast('This generated image is no longer available in the current session. Generate it again to use it.','warning');return;}
-        var W=window.WebStudio;if(!W||typeof W.setAttachments!=='function'){toast('Web Studio attachments are not available right now.','error');return;}
+        var W=window.WebStudio;if(!W||typeof W.renderAttachments!=='function'){toast('Web Studio attachments are not available right now.','error');return;}
         try{
           var blob=await (await fetch(asset.dataUrl)).blob();
           if(blob.size>8*1024*1024)throw new Error('This generated image is larger than the 8 MB attachment limit.');
-          var file=new File([blob],asset.name,{type:asset.type});
-          await W.setAttachments([file]);
+          var currentAttachments=Array.isArray(W.attachments)?W.attachments.slice():[];
+          if(currentAttachments.length>=6)throw new Error('The prompt already has six attachments. Remove one before adding this image.');
+          if(!currentAttachments.some(function(item){return item&&String(item.name||'')===String(asset.name||'');})){
+            var attachment={name:asset.name,size:blob.size,type:asset.type,dataUrl:asset.dataUrl,textContent:null,status:'ready',error:''};
+            W._attachmentsVersion=Number(W._attachmentsVersion||0)+1;
+            W.attachments=currentAttachments.concat(attachment);
+            W.attachmentsReady=Promise.resolve(W.attachments);
+            W.renderAttachments();
+          }
           W.setMode('build');
           setComposerValue('Use the attached generated image as a visual asset in the current website. Place it where it best supports the design, preserve the existing structure and styling, and verify the preview.');
           toast('Image attached. Review the prompt and press send when you are ready.','success');
