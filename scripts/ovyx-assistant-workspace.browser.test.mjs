@@ -67,11 +67,22 @@ try {
       `[${target.name}] assistant typing must not bubble into dashboard keyboard shortcuts`);
     await composer.fill('');
     await composer.evaluate(node => node.blur());
-    await page.waitForFunction(() => {
-      const nav = document.getElementById('test-dashboard-bottom-nav');
-      return nav && !nav.classList.contains('ovyx-native-underlying-bottom-nav-suppressed') &&
-        getComputedStyle(nav).visibility !== 'hidden';
-    }, null, { timeout: 5000 });
+    if (target.name === 'mobile') {
+      await page.waitForFunction(() => {
+        const nav = document.getElementById('test-dashboard-bottom-nav');
+        return nav?.classList.contains('ovyx-native-underlying-bottom-nav-suppressed') &&
+          getComputedStyle(nav).visibility === 'hidden';
+      }, null, { timeout: 5000 });
+      assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('test-dashboard-bottom-nav')).visibility), 'hidden',
+        '[mobile] dashboard navigation must stay suppressed until the full-screen assistant closes');
+    } else {
+      await page.waitForFunction(() => {
+        const nav = document.getElementById('test-dashboard-bottom-nav');
+        return nav && !nav.classList.contains('ovyx-native-underlying-bottom-nav-suppressed') &&
+          getComputedStyle(nav).visibility !== 'hidden';
+      }, null, { timeout: 5000 });
+    }
+    await page.evaluate(() => document.getElementById('test-dashboard-bottom-nav')?.remove());
 
     const attachButton = panel.locator('[data-ovyx-native-attach]');
     const attachmentInput = panel.locator('#ovyx-native-attachment-input');
