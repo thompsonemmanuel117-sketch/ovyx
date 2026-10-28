@@ -17277,7 +17277,7 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
     if(!W||!composer||!tools||composer.dataset.ovyxPulseComposer==='1')return false;
     composer.dataset.ovyxPulseComposer='1';root=tools;
     menu=document.createElement('div');menu.className='ws-pulse-popover';menu.id='ws-pulse-popover';menu.setAttribute('role','dialog');menu.setAttribute('aria-label','OVYX tools and modes');
-    menu.innerHTML='<div class="ws-pulse-popover-head"><span>OVYX TOOLS</span><button type="button" data-ws-pulse-close aria-label="Close tools">×</button></div><div class="ws-pulse-section-label">Modes</div><div class="ws-pulse-modes"></div><div class="ws-pulse-section-label">Create and attach</div><div class="ws-pulse-actions"><button type="button" class="ws-pulse-action" data-ws-pulse-action="image"><i class="fa-regular fa-image" aria-hidden="true"></i><span>Create image</span></button><button type="button" class="ws-pulse-action" data-ws-pulse-action="camera"><i class="fa-solid fa-camera" aria-hidden="true"></i><span>Take photo</span></button></div><div class="ws-pulse-extra"></div><div class="ws-pulse-section-label">Workspace</div><div class="ws-pulse-actions"><button type="button" class="ws-pulse-action" data-ws-pulse-action="context"><i class="fa-solid fa-code-branch" aria-hidden="true"></i><span>Project context</span></button><button type="button" class="ws-pulse-action" data-ws-pulse-action="brain"><i class="fa-solid fa-brain" aria-hidden="true"></i><span>AI brain: <b id="ws-pulse-brain-label">Auto</b></span></button></div><p class="ws-pulse-menu-note">You can ask for an image directly in chat. OVYX will generate it here without opening a separate image studio.</p>';
+    menu.innerHTML='<div class="ws-pulse-popover-head"><span>OVYX TOOLS</span><button type="button" data-ws-pulse-close aria-label="Close tools">×</button></div><div class="ws-pulse-section-label">Modes</div><div class="ws-pulse-modes"></div><div class="ws-pulse-section-label">Create and attach</div><div class="ws-pulse-actions"><button type="button" class="ws-pulse-action" data-ws-pulse-action="image"><i class="fa-regular fa-image" aria-hidden="true"></i><span>Create image</span></button><button type="button" class="ws-pulse-action" data-ws-pulse-action="camera"><i class="fa-solid fa-camera" aria-hidden="true"></i><span>Take photo</span></button></div><div class="ws-pulse-section-label">Workspace tools</div><div class="ws-pulse-extra"></div><p class="ws-pulse-menu-note">You can ask for an image directly in chat. OVYX will generate it here without opening a separate image studio.</p>';
     tools.prepend(menu);
     pulse=document.createElement('button');pulse.type='button';pulse.className='ws-pulse-trigger';pulse.id='ws-pulse-trigger';pulse.setAttribute('aria-label','Open OVYX tools');pulse.setAttribute('aria-haspopup','dialog');pulse.setAttribute('aria-expanded','false');pulse.title='OVYX tools and modes';pulse.innerHTML='<i class="fa-solid fa-wave-square" aria-hidden="true"></i>';tools.insertBefore(pulse,menu.nextSibling);
     mic=document.createElement('button');mic.type='button';mic.className='ws-composer-mic';mic.id='ws-composer-mic';mic.setAttribute('aria-label','Dictate prompt');mic.setAttribute('aria-pressed','false');mic.title='Dictate prompt';mic.innerHTML='<i class="fa-solid fa-microphone" aria-hidden="true"></i>';tools.insertBefore(mic,pulse.nextSibling);
@@ -17289,16 +17289,13 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
     if(attach){var label=attach.querySelector('span');if(label)label.textContent='Upload files or images';extra.appendChild(attach);}
     if(attachInput)extra.appendChild(attachInput);
     if(brain)extra.appendChild(brain);
-    if(context)context.remove();
+    if(context)extra.appendChild(context);
     var camera=document.createElement('input');camera.type='file';camera.id='ws-camera-input';camera.accept='image/*';camera.setAttribute('capture','environment');camera.hidden=true;menu.appendChild(camera);
     pulse.addEventListener('click',function(event){event.preventDefault();event.stopPropagation();var opening=!menu.classList.contains('open');if(opening){menu.classList.add('open');pulse.setAttribute('aria-expanded','true');if(modeMenu)modeMenu.hidden=false;}else closeMenu();});
     menu.querySelector('[data-ws-pulse-close]').addEventListener('click',closeMenu);
     menu.querySelector('[data-ws-pulse-action="image"]').addEventListener('click',function(){W.setMode('build');setComposerValue('Create an image of ');closeMenu();});
     menu.querySelector('[data-ws-pulse-action="camera"]').addEventListener('click',function(){camera.click();});
     camera.addEventListener('change',function(){var files=[...(camera.files||[])];camera.value='';if(files.length&&typeof W.setAttachments==='function')W.setAttachments([...(files||[])]);closeMenu();});
-    menu.querySelector('[data-ws-pulse-action="context"]').addEventListener('click',function(){try{W.ensureProjectGraph();W.appendMessage('agent','Workspace context loaded: '+W.graphFileCount()+' files across '+W.pageCount()+' page(s).');toast('Project context loaded.','success')}catch(_){toast('Project context could not be loaded.','error')}closeMenu();});
-    menu.querySelector('[data-ws-pulse-action="brain"]').addEventListener('click',function(){brain?.click();var label=$('ws-brain-label')?.textContent||'Auto';var target=$('ws-pulse-brain-label');if(target)target.textContent=label;});
-    if(brain){var syncBrain=function(){var target=$('ws-pulse-brain-label');if(target)target.textContent=$('ws-brain-label')?.textContent||'Auto'};brain.addEventListener('click',syncBrain);syncBrain();}
     modeMenu?.addEventListener('click',function(event){if(event.target.closest('[data-ws-mode]'))setTimeout(closeMenu,0);});
     mic.addEventListener('click',toggleDictation);
     document.addEventListener('click',function(event){if(menu&&!menu.contains(event.target)&&event.target!==pulse&&!pulse.contains(event.target))closeMenu();},true);
@@ -17313,6 +17310,7 @@ body.ovyx-webstudio-active #view-webstudio[data-ws-code-open="1"] #ws-code-works
     if(typeof oldSubmit==='function'&&!oldSubmit.__ovyxPulseImageAware){
       var wrapped=async function(){
         var input=$('ws-chat-input'),text=String(input?.value||'').trim();
+        if(/^create an image of$/i.test(text)){toast('Describe the image you want, then send the prompt.','info');input?.focus();return;}
         if(!text||!isImageRequest(text)||imageBusy||(this.attachments||[]).length)return oldSubmit.apply(this,arguments);
         return generateImageInChat(this,text,input);
       };
