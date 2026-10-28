@@ -187,6 +187,10 @@ try {
       '[' + target.name + '] selected-element action must switch to Build mode.');
 
 
+    // Menu actions close Pulse when selected, so reopen it before testing
+    // the next action just as a real user would.
+    await pulse.click();
+    await popover.waitFor({ state: 'visible' });
     // Exercise menu actions, not only their visibility.
     await popover.locator('[data-ws-pulse-action="image"]').click();
     assert.equal(await input.inputValue(), 'Create an image of ',
