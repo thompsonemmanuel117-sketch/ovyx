@@ -14,6 +14,8 @@ const [
   statusRoute,
   statusTests,
   legacyProviderTestRoute,
+  providerAvailabilityRoute,
+  sentinelSource,
   assistantRoute,
   gatewayRoute,
   agentRoute,
@@ -29,6 +31,8 @@ const [
   read('functions/api/ai/status.js'),
   read('scripts/ai-provider-status.test.mjs'),
   read('functions/api/test-provider.js'),
+  read('functions/api/ai/provider-availability.js'),
+  read('functions/_lib/ovyx-sentinel.js'),
   read('functions/api/ai/assistant.js'),
   read('functions/api/ai/gateway.js'),
   read('functions/api/generate.js'),
@@ -81,6 +85,10 @@ assert.match(statusTests, /legacy-provider-routing-disabled/);
 assert.match(statusTests, /must not probe external providers/);
 assert.match(legacyProviderTestRoute, /isCloudflareWorkersAIGuardedMode/);
 assert.match(legacyProviderTestRoute, /isLegacyProviderRoutingEnabled/);
+assert.match(providerAvailabilityRoute, /isCloudflareWorkersAIGuardedMode/);
+assert.match(providerAvailabilityRoute, /isLegacyProviderRoutingEnabled/);
+assert.match(sentinelSource, /isLegacyProviderRoutingEnabled/);
+assert.match(sentinelSource, /PROVIDER_PROBE_DISABLED_BY_GUARDED_MODE/);
 
 // The old direct provider-test endpoint must be unreachable in guarded,
 // unsupported or unset engine modes, even if a production secret is still
