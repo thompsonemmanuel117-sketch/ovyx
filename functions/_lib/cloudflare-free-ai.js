@@ -761,3 +761,101 @@ export async function runCloudflareFreeImageInference(env, { authUser = null, pr
     throw safeProviderError(error);
   }
 }
+
+
+export const OVYX_CLOUDFLARE_TRANSCRIPTION_MODEL = '@cf/openai/whisper';
+export const OVYX_CLOUDFLARE_TRANSCRIPTION_MAX_AUDIO_BYTES = 8_000_000;
+const OVYX_CLOUDFLARE_TRANSCRIPTION_MAX_BUDGET_ESTIMATE = 132;
+
+/**
+ * Transcribe a short recorded voice note through the same guarded Cloudflare
+ * Workers AI path as Web Studio text and image inference.
+ *
+ * The request consumes the shared per-user minute limit and reserves from the
+ * shared daily budget ledger before inference. The caller separately applies
+ * OVYX's authenticated token-quota policy for the transcript interaction.
+ */
+export async function runCloudflareFreeTranscription(env, {
+  authUser = null,
+  audio = '',
+  audioBytes = 0,
+} = {}) {
+  if (!isCloudflareWorkersAIGuardedMode(env)) {
+    throw fail(503, 'OVYX_AI_ENGINE_MODE_NOT_CONFIGURED', 'OVYX guarded Cloudflare AI mode is not enabled.');
+  }
+  if (!env?.AI || typeof env.AI.run !== 'function') {
+    throw fail(503, 'OVYX_NATIVE_AI_NOT_CONFIGURED', 'OVYX AI is not connected yet. Please try again later.');
+  }
+
+  const base64 = String(audio || '').replace(/\\s/g, '');
+  if (!base64 || !/^[A-Za-z0-9+/]+={0,2}$/.test(base64) || base64.length % 4 !== 0) {
+    throw fail(400, 'VOICE_AUDIO_INVALID', 'The voice note could not be read. Please record it again.');
+  }
+  const padding = base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0;
+  const inferredBytes = Math.max(0, Math.floor(base64.length * 3 / 4) - padding);
+  const bytes = Number.isSafeInteger(Number(audioBytes)) && Number(audioBytes) > 0
+    ? Number(audioBytes)
+    : inferredBytes;
+  if (!bytes || bytes > OVYX_CLOUDFLARE_TRANSCRIPTION_MAX_AUDIO_BYTES || bytes !== inferredBytes) {
+    throw fail(413, 'VOICE_AUDIO_TOO_LARGE', 'Voice notes must be 8 MB or smaller. Please record a shorter note.');
+  }
+
+  // Whisper input is billed by audio duration rather than text tokens. Since
+  // duration metadata is client-provided, size is used only as a bounded proxy;
+  // the hard estimate cap prevents one malformed file from reserving the ledger.
+  const estimate = Math.min(
+    OVYX_CLOUDFLARE_TRANSCRIPTION_MAX_BUDGET_ESTIMATE,
+    Math.max(15, Math.ceil(bytes / (320 * 1024) * 44))
+  );
+
+  const reservation = await withBudgetOperationLock(async () => {
+    const snapshot = await getDailyBudgetLedger(env);
+    if (await isCloudflareFreeAllowanceExhausted(env, snapshot)) {
+      throw fail(429, 'OVYX_AI_CLOUDFLARE_QUOTA_EXHAUSTED',
+        isCloudflarePaidCappedMode(env)
+          ? 'OVYX has reached its configured daily Cloudflare AI budget. No external AI provider was used.'
+          : 'OVYX has reached its protected daily Cloudflare AI capacity. No external AI provider was used.');
+    }
+    await reserveUserMinute(env, authUser);
+    return reserveDailyBudget(env, estimate, snapshot);
+  });
+
+  let dispatched = false;
+  let settled = false;
+  try {
+    dispatched = true;
+    const pending = Promise.resolve(env.AI.run(OVYX_CLOUDFLARE_TRANSCRIPTION_MODEL, {
+      audio: base64,
+      task: 'transcribe',
+    }));
+    const result = await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(Object.assign(new Error('Voice-note transcription timed out.'), {
+        name: 'TimeoutError',
+        status: 504,
+      })), 45_000);
+      pending.then(value => { clearTimeout(timer); resolve(value); }, error => { clearTimeout(timer); reject(error); });
+    });
+    const text = String(result?.text || result?.transcription_info?.text || '').trim().slice(0, 20_000);
+    await settleDailyBudget(env, reservation, estimate);
+    settled = true;
+    if (!text) {
+      throw fail(422, 'VOICE_TRANSCRIPTION_EMPTY', 'No clear speech was detected. Try speaking a little closer to the microphone.');
+    }
+    return {
+      text,
+      model: OVYX_CLOUDFLARE_TRANSCRIPTION_MODEL,
+      estimatedNeurons: estimate,
+      wordCount: Number(result?.word_count || text.split(/\\s+/).filter(Boolean).length),
+    };
+  } catch (error) {
+    if (dispatched && !settled) {
+      await settleDailyBudget(env, reservation, estimate).catch(settlementError => {
+        console.error('[OVYX VOICE TRANSCRIPTION BUDGET SETTLEMENT]', settlementError?.message || settlementError);
+      });
+    }
+    if (isCloudflareDailyFreeLimitError(error)) {
+      await recordCloudflareFreeExhaustion(env, 'cloudflare-daily-free-allocation');
+    }
+    throw safeProviderError(error);
+  }
+}
