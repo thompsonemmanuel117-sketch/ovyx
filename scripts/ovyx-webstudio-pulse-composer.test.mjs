@@ -27,7 +27,7 @@ assert.match(html, /data-ws-voice-transcribe/, 'Voice-note transcription must al
 assert.match(html, /function installStopBehavior\(W\)/, 'The composer must install request cancellation behavior.');
 assert.match(html, /send\.dataset\.ovyxComposerState='stop'/, 'The send arrow must become a stop control while a request is active.');
 assert.match(html, /W\.abortActiveAi\?\.\(\)/, 'Stop must abort the existing AI request controller.');
-assert.match(html, /imageAbortController\.signal/, 'Image-generation requests must be cancelable from the same stop control.');
+assert.match(html, /thisImageController\.signal/, 'Image-generation requests must be cancelable from the same stop control.');
 const transcribeRoute = fs.readFileSync('functions/api/ai/transcribe.js', 'utf8');
 const guardedAI = fs.readFileSync('functions/_lib/cloudflare-free-ai.js', 'utf8');
 assert.match(transcribeRoute, /assertAuthenticated\(context\.data\?\.user\)/, 'Voice transcription must retain Firebase authentication.');
