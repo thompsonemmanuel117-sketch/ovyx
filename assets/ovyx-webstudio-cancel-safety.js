@@ -113,12 +113,21 @@
     function isComposerTrigger(target) {
       if (!target || typeof target.closest !== 'function') return false;
       if (target.closest('#ws-task-cancel')) return false;
+      const send = target.closest('#ws-chat-send');
+      // While this button represents Stop, it is cancelling an existing job,
+      // not starting a fresh browser task/snapshot. Treating it as Send can
+      // re-arm fetch rollback and interfere with native pointer dispatch.
+      if (send && (send.dataset.ovyxComposerState === 'stop' ||
+          send.getAttribute('aria-label') === 'Stop generating')) return false;
       return !!target.closest(
         '#ws-chat-send, #ws-chat-composer button[type="submit"], #ws-chat-composer [data-send], #ws-chat-composer input[type="submit"]'
       );
     }
 
     function armBeforeBrowserSubmit(event) {
+      const activeSend = document.getElementById('ws-chat-send');
+      if (activeSend && (activeSend.dataset.ovyxComposerState === 'stop' ||
+          activeSend.getAttribute('aria-label') === 'Stop generating')) return;
       if (event && event.type === 'keydown') {
         if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
         const target = event.target;
