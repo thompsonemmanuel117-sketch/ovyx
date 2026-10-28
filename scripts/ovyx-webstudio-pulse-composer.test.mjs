@@ -74,6 +74,10 @@ assert.ok(html.includes('function openMap(ev){ev.preventDefault();ev.stopImmedia
   'Project context must open the dedicated project node map.');
 assert.ok(html.includes("if(!composer||composer.dataset.ovyxShortcutBindings==='1')return;var brain=document.getElementById('ws-brain-btn'),context=document.getElementById('ws-context-btn');if(!brain||!context)return;composer.dataset.ovyxShortcutBindings='1';"),
   'Shortcut controls must not mark themselves bound before dynamic Web Studio controls exist.');
+assert.ok(html.includes("window.OVYXBindShortcutPopovers=bindShortcutPopovers;"),
+  'Pulse must be able to request shortcut binding after the dynamic composer is mounted.');
+assert.ok(html.includes("try{window.OVYXBindShortcutPopovers?.()}catch(_){}"),
+  'Pulse setup must bind Brain and Project controls before relocating them into the menu.');
 assert.ok(html.includes("if(r==='webstudio'){setTimeout(bindShortcutPopovers,30);setTimeout(syncStatusAndPersistence,40);setTimeout(restorePersistedState,80)}"),
   'Agent settings and project context handlers must retry after Web Studio is mounted.');
 assert.ok(html.includes("depthInput.addEventListener('input',function(){syncResponseDepth(depthInput.value,true)})"),
