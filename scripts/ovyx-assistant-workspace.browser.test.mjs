@@ -103,7 +103,7 @@ try {
     }, null, { timeout: 5000 });
     await composer.press('z');
     assert.equal(await page.evaluate(() => window.__ovyxAssistantTypingKeyBubbles), 0,
-      `[\${target.name}] assistant typing must not bubble into dashboard keyboard shortcuts`);
+      `[${target.name}] assistant typing must not bubble into dashboard keyboard shortcuts`);
 
     await page.evaluate(() => {
       document.getElementById('test-typing-dock-shell')?.classList.replace('opaque-static', 'opaque-9c');
