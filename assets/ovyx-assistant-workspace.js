@@ -2990,7 +2990,8 @@
         input.style.height = 'auto';
         input.style.height = Math.min(input.scrollHeight, 140) + 'px';
         syncNativeComposerState();
-        syncUnderlyingBottomNavigation();
+        // Focus/blur and the document mutation observer handle dock state;
+        // avoid re-scanning the entire dashboard on every typed character.
       });
     }
     installComposerNavigationShield();
