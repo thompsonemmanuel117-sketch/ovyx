@@ -40,18 +40,27 @@
     if (!isAnchored && !looksLikeNavigation) return false;
 
     const rect = node.getBoundingClientRect();
-    const viewportHeight = Math.max(
+    const visualViewport = window.visualViewport;
+    // Android Chrome can keep the layout viewport tall while the on-screen
+    // keyboard shrinks the visual viewport. Test both coordinate bottoms
+    // instead of taking their maximum (which misses a dock above the keyboard).
+    const viewportBottoms = [
       window.innerHeight || 0,
-      window.visualViewport?.height || 0,
-      document.documentElement?.clientHeight || 0
+      document.documentElement?.clientHeight || 0,
+      visualViewport?.height || 0,
+      visualViewport ? ((visualViewport.offsetTop || 0) + (visualViewport.height || 0)) : 0,
+    ].filter((height, index, values) => height > 0 && values.indexOf(height) === index);
+    const touchesViewportBottom = viewportBottoms.some(viewportBottom =>
+      rect.bottom >= viewportBottom - 48 &&
+      rect.top >= viewportBottom - 440 &&
+      rect.top <= viewportBottom + 48
     );
     // Dock shells can be narrow, centered, or use different utility classes.
-    // Use their bottom-screen position, not an assumed minimum width.
+    // Use actual screen position, not an assumed minimum width.
     return rect.height >= 18 &&
       rect.height <= 420 &&
       rect.width > 0 &&
-      rect.bottom >= viewportHeight - 48 &&
-      rect.top >= viewportHeight - 440;
+      touchesViewportBottom;
   }
 
   function isAssistantPanelVisible(activePanel) {
