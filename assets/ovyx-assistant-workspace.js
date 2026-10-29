@@ -124,15 +124,19 @@
             const insideAssistant = Boolean(target.closest('#kernel-brain-bot-panel'));
             if (insideAssistant) return false;
             if (record.type === 'childList') return true;
-            if (target === document.body || target === document.documentElement) return false;
             if (target.classList.contains(UNDERLYING_BOTTOM_NAV_CLASS)) return false;
             return true;
           });
           if (needsRefresh) refresh();
         });
-        observer.observe(document.body, {
+        const observerOptions = {
           childList: true,
           subtree: true,
+          attributes: true,
+          attributeFilter: ['class', 'style', 'hidden', 'aria-hidden'],
+        };
+        observer.observe(document.body, observerOptions);
+        if (document.documentElement) observer.observe(document.documentElement, {
           attributes: true,
           attributeFilter: ['class', 'style', 'hidden', 'aria-hidden'],
         });
