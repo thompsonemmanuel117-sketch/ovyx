@@ -112,8 +112,30 @@
       // Watch additions at the document level rather than only the panel node.
       if (document.body && !document.body.dataset.ovyxNativeDockObserver) {
         document.body.dataset.ovyxNativeDockObserver = '1';
-        const observer = new MutationObserver(() => refresh());
-        observer.observe(document.body, { childList: true, subtree: true });
+        // Watch dashboard layout attributes as well as inserted nodes. The
+        // mobile dock can be an ordinary element at first and become fixed
+        // only after an input/file-picker state change updates an ancestor's
+        // class or style. Ignore mutations inside the assistant and our own
+        // suppression class so typing does not cause a full dashboard scan.
+        const observer = new MutationObserver(records => {
+          const needsRefresh = records.some(record => {
+            const target = record.target;
+            if (!(target instanceof HTMLElement)) return false;
+            const insideAssistant = Boolean(target.closest('#kernel-brain-bot-panel'));
+            if (insideAssistant) return false;
+            if (record.type === 'childList') return true;
+            if (target === document.body || target === document.documentElement) return false;
+            if (target.classList.contains(UNDERLYING_BOTTOM_NAV_CLASS)) return false;
+            return true;
+          });
+          if (needsRefresh) refresh();
+        });
+        observer.observe(document.body, {
+          childList: true,
+          subtree: true,
+          attributes: true,
+          attributeFilter: ['class', 'style', 'hidden', 'aria-hidden'],
+        });
       }
     }
     refresh();
