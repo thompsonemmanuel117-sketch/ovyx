@@ -64,7 +64,9 @@
   }
 
   function isAssistantPanelVisible(activePanel) {
-    if (!activePanel || !activePanel.classList.contains('ovyx-native-workspace') || activePanel.hidden) return false;
+    // The workspace can render through the legacy/class-less shell on mobile.
+    // Visibility must be based on the actual panel, not a presentation class.
+    if (!activePanel || activePanel.hidden || activePanel.getAttribute('aria-hidden') === 'true') return false;
     const styles = window.getComputedStyle(activePanel);
     return styles.display !== 'none' && styles.visibility !== 'hidden' && activePanel.getClientRects().length > 0;
   }
