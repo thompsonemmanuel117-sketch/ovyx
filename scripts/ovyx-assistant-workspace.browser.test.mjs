@@ -34,7 +34,7 @@ try {
     const assistantScript = page.locator('script[src*="/assets/ovyx-assistant-workspace.js"]');
     assert.ok(await assistantScript.count(), `[${target.name}] assistant workspace script was not injected`);
     const scriptSources = await assistantScript.evaluateAll(nodes => nodes.map(node => node.src));
-    assert.ok(scriptSources.some(src => /[?&]v=20261029-4(?:&|$)/.test(src)), `[${target.name}] the updated assistant runtime cache version was not loaded`);
+    assert.ok(scriptSources.some(src => /[?&]v=20261029-5(?:&|$)/.test(src)), `[${target.name}] the updated assistant runtime cache version was not loaded`);
 
     await page.evaluate(() => window.WorkspaceBrainBot.open());
     const panel = page.locator('#kernel-brain-bot-panel');
@@ -48,12 +48,21 @@ try {
       // a generic shell without exposing its layout role in its attributes.
       const dockStyles = document.createElement('style');
       dockStyles.id = 'test-opaque-dock-styles';
-      dockStyles.textContent = '.opaque-7a { position:fixed!important;left:0;right:0;bottom:0;width:100%;height:72px;z-index:2147483647;background:#ff00ff; } .opaque-8b { position:fixed!important;left:0;right:0;bottom:0;width:100%;height:72px;z-index:2147483647;background:#00ffff; }';
+      dockStyles.textContent = '.opaque-7a { position:fixed!important;left:0;right:0;bottom:0;width:100%;height:72px;z-index:2147483647;background:#ff00ff; } .opaque-8b { position:fixed!important;left:0;right:0;bottom:0;width:100%;height:72px;z-index:2147483647;background:#00ffff; } .opaque-9c { position:fixed!important;left:0;right:0;bottom:0;width:100%;height:72px;z-index:2147483647;background:#ffff00; } .opaque-static { position:static!important;display:block;height:1px;width:100%; }';
       document.head.appendChild(dockStyles);
       const nav = document.createElement('div');
       nav.id = 'test-floating-shell';
       nav.className = 'opaque-7a';
       document.body.appendChild(nav);
+
+      // Regression for the production failure: the element starts as a normal
+      // flow node and becomes a bottom-fixed dock only when composer state
+      // changes. Attribute-only layout changes must trigger the shield.
+      const typingDock = document.createElement('div');
+      typingDock.id = 'test-typing-dock-shell';
+      typingDock.className = 'opaque-static';
+      document.body.appendChild(typingDock);
+
       if (window.innerWidth <= 640) {
         // Emulate Android's shrunken visual viewport while the layout viewport
         // remains tall when the on-screen keyboard is visible.
@@ -94,7 +103,16 @@ try {
     }, null, { timeout: 5000 });
     await composer.press('z');
     assert.equal(await page.evaluate(() => window.__ovyxAssistantTypingKeyBubbles), 0,
-      `[${target.name}] assistant typing must not bubble into dashboard keyboard shortcuts`);
+      `[\${target.name}] assistant typing must not bubble into dashboard keyboard shortcuts`);
+
+    await page.evaluate(() => {
+      document.getElementById('test-typing-dock-shell')?.classList.replace('opaque-static', 'opaque-9c');
+    });
+    await page.waitForFunction(() => {
+      const dock = document.getElementById('test-typing-dock-shell');
+      return dock?.classList.contains('ovyx-native-underlying-bottom-nav-suppressed') &&
+        getComputedStyle(dock).display === 'none' && getComputedStyle(dock).visibility === 'hidden';
+    }, null, { timeout: 5000 });
     await composer.fill('');
     await composer.evaluate(node => node.blur());
     if (target.name === 'mobile') {
@@ -129,7 +147,7 @@ try {
     await page.evaluate(() => {
       document.getElementById('test-floating-shell')?.remove();
       document.getElementById('test-keyboard-floating-shell')?.remove();
-      document.getElementById('test-opaque-dock-styles')?.remove();
+      // Keep the style sheet alive until class/style mutation and file-upload checks finish.
       const descriptor = window.__ovyxTestVisualViewportDescriptor;
       if (descriptor) Object.defineProperty(window, 'visualViewport', descriptor);
       else delete window.visualViewport;
@@ -141,6 +159,30 @@ try {
     assert.equal(await attachButton.isVisible(), true, '[' + target.name + '] native assistant should expose a real attach-files control.');
     assert.notEqual(await attachmentInput.getAttribute('multiple'), null, '[' + target.name + '] file picker should accept multiple files.');
     assert.equal(await attachmentInput.getAttribute('accept'), null, '[' + target.name + '] file picker must not be restricted to one media type.');
+
+    // Exercise a real file selection, then make another generic node dock at
+    // the bottom as upload UI state changes. Both mutation paths must be caught.
+    await page.evaluate(() => {
+      const dock = document.createElement('div');
+      dock.id = 'test-upload-dock-shell';
+      dock.className = 'opaque-static';
+      document.body.appendChild(dock);
+    });
+    await attachmentInput.setInputFiles({
+      name: 'ovyx-dock-shield-check.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('OVYX assistant dock regression check.'),
+    });
+    await panel.locator('.ovyx-native-attachment-name').filter({ hasText: 'ovyx-dock-shield-check.txt' }).waitFor({ state: 'visible' });
+    await page.evaluate(() => {
+      document.getElementById('test-upload-dock-shell')?.classList.replace('opaque-static', 'opaque-9c');
+    });
+    await page.waitForFunction(() => {
+      const typingDock = document.getElementById('test-typing-dock-shell');
+      const uploadDock = document.getElementById('test-upload-dock-shell');
+      return [typingDock, uploadDock].every(dock => dock?.classList.contains('ovyx-native-underlying-bottom-nav-suppressed') &&
+        getComputedStyle(dock).display === 'none' && getComputedStyle(dock).visibility === 'hidden');
+    }, null, { timeout: 5000 });
     const trigger = panel.locator('[data-ovyx-native-more]');
     const menu = panel.locator('.ovyx-native-menu');
     await trigger.click();
@@ -477,6 +519,11 @@ try {
     assert.deepEqual(errors, [], `[${target.name}] assistant runtime errors: ${errors.join('; ')}`);
 
     console.log(`PASS ${target.name}: menu actions, read-only tool loop, local-context fallback, explicit approval and verified source update.`);
+    await page.evaluate(() => {
+      document.getElementById('test-typing-dock-shell')?.remove();
+      document.getElementById('test-upload-dock-shell')?.remove();
+      document.getElementById('test-opaque-dock-styles')?.remove();
+    });
     await page.close();
   }
 } finally {
