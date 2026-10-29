@@ -34,7 +34,7 @@ try {
     const assistantScript = page.locator('script[src*="/assets/ovyx-assistant-workspace.js"]');
     assert.ok(await assistantScript.count(), `[${target.name}] assistant workspace script was not injected`);
     const scriptSources = await assistantScript.evaluateAll(nodes => nodes.map(node => node.src));
-    assert.ok(scriptSources.some(src => /[?&]v=20261029-3(?:&|$)/.test(src)), `[${target.name}] the updated assistant runtime cache version was not loaded`);
+    assert.ok(scriptSources.some(src => /[?&]v=20261029-4(?:&|$)/.test(src)), `[${target.name}] the updated assistant runtime cache version was not loaded`);
 
     await page.evaluate(() => window.WorkspaceBrainBot.open());
     const panel = page.locator('#kernel-brain-bot-panel');
@@ -47,12 +47,34 @@ try {
       // No nav-like ID/class or inline positioning: real app CSS can position
       // a generic shell without exposing its layout role in its attributes.
       const dockStyles = document.createElement('style');
-      dockStyles.textContent = '.opaque-7a { position:fixed!important;left:0;right:0;bottom:0;width:100%;height:72px;z-index:2147483647;background:#ff00ff; }';
+      dockStyles.id = 'test-opaque-dock-styles';
+      dockStyles.textContent = '.opaque-7a { position:fixed!important;left:0;right:0;bottom:0;width:100%;height:72px;z-index:2147483647;background:#ff00ff; } .opaque-8b { position:fixed!important;left:0;right:0;bottom:0;width:100%;height:72px;z-index:2147483647;background:#00ffff; }';
       document.head.appendChild(dockStyles);
       const nav = document.createElement('div');
       nav.id = 'test-floating-shell';
       nav.className = 'opaque-7a';
       document.body.appendChild(nav);
+      if (window.innerWidth <= 640) {
+        // Emulate Android's shrunken visual viewport while the layout viewport
+        // remains tall when the on-screen keyboard is visible.
+        const descriptor = Object.getOwnPropertyDescriptor(window, 'visualViewport');
+        window.__ovyxTestVisualViewportDescriptor = descriptor || null;
+        Object.defineProperty(window, 'visualViewport', {
+          configurable: true,
+          enumerable: true,
+          writable: true,
+          value: { height: 500, offsetTop: 0 }
+        });
+        const keyboardDock = document.createElement('div');
+        keyboardDock.id = 'test-keyboard-floating-shell';
+        keyboardDock.className = 'opaque-8b';
+        keyboardDock.getBoundingClientRect = () => ({
+          x: 0, y: 428, top: 428, left: 0, right: window.innerWidth,
+          bottom: 500, width: window.innerWidth, height: 72,
+          toJSON() { return { x: 0, y: 428, top: 428, left: 0, right: window.innerWidth, bottom: 500, width: window.innerWidth, height: 72 }; }
+        });
+        document.body.appendChild(keyboardDock);
+      }
       window.__ovyxAssistantTypingKeyBubbles = 0;
       document.addEventListener('keydown', event => {
         if (event.target?.id === 'bot-chat-input') window.__ovyxAssistantTypingKeyBubbles += 1;
@@ -63,7 +85,12 @@ try {
     await page.waitForFunction(() => {
       const nav = document.getElementById('test-floating-shell');
       return nav?.classList.contains('ovyx-native-underlying-bottom-nav-suppressed') &&
-        getComputedStyle(nav).display === 'none' && getComputedStyle(nav).visibility === 'hidden';
+        getComputedStyle(nav).display === 'none' && getComputedStyle(nav).visibility === 'hidden' &&
+        (!document.getElementById('test-keyboard-floating-shell') || (
+          document.getElementById('test-keyboard-floating-shell').classList.contains('ovyx-native-underlying-bottom-nav-suppressed') &&
+          getComputedStyle(document.getElementById('test-keyboard-floating-shell')).display === 'none' &&
+          getComputedStyle(document.getElementById('test-keyboard-floating-shell')).visibility === 'hidden'
+        ));
     }, null, { timeout: 5000 });
     await composer.press('z');
     assert.equal(await page.evaluate(() => window.__ovyxAssistantTypingKeyBubbles), 0,
@@ -74,20 +101,40 @@ try {
       await page.waitForFunction(() => {
         const nav = document.getElementById('test-floating-shell');
         return nav?.classList.contains('ovyx-native-underlying-bottom-nav-suppressed') &&
-          getComputedStyle(nav).display === 'none' && getComputedStyle(nav).visibility === 'hidden';
+          getComputedStyle(nav).display === 'none' && getComputedStyle(nav).visibility === 'hidden' &&
+          (!document.getElementById('test-keyboard-floating-shell') || (
+            document.getElementById('test-keyboard-floating-shell').classList.contains('ovyx-native-underlying-bottom-nav-suppressed') &&
+            getComputedStyle(document.getElementById('test-keyboard-floating-shell')).display === 'none' &&
+            getComputedStyle(document.getElementById('test-keyboard-floating-shell')).visibility === 'hidden'
+          ));
       }, null, { timeout: 5000 });
       assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('test-floating-shell')).display), 'none',
         '[mobile] dashboard navigation must stay suppressed until the full-screen assistant closes');
+      assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('test-keyboard-floating-shell')).display), 'none',
+        '[mobile] dock at the shrunken visual viewport bottom must stay hidden when the keyboard is open');
     } else {
       await page.waitForFunction(() => {
         const nav = document.getElementById('test-floating-shell');
         return nav?.classList.contains('ovyx-native-underlying-bottom-nav-suppressed') &&
-          getComputedStyle(nav).display === 'none' && getComputedStyle(nav).visibility === 'hidden';
+          getComputedStyle(nav).display === 'none' && getComputedStyle(nav).visibility === 'hidden' &&
+          (!document.getElementById('test-keyboard-floating-shell') || (
+            document.getElementById('test-keyboard-floating-shell').classList.contains('ovyx-native-underlying-bottom-nav-suppressed') &&
+            getComputedStyle(document.getElementById('test-keyboard-floating-shell')).display === 'none' &&
+            getComputedStyle(document.getElementById('test-keyboard-floating-shell')).visibility === 'hidden'
+          ));
       }, null, { timeout: 5000 });
       assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('test-floating-shell')).display), 'none',
         '[desktop] dashboard bottom dock must stay hidden for the full assistant session, not just while typing');
     }
-    await page.evaluate(() => document.getElementById('test-floating-shell')?.remove());
+    await page.evaluate(() => {
+      document.getElementById('test-floating-shell')?.remove();
+      document.getElementById('test-keyboard-floating-shell')?.remove();
+      document.getElementById('test-opaque-dock-styles')?.remove();
+      const descriptor = window.__ovyxTestVisualViewportDescriptor;
+      if (descriptor) Object.defineProperty(window, 'visualViewport', descriptor);
+      else delete window.visualViewport;
+      delete window.__ovyxTestVisualViewportDescriptor;
+    });
 
     const attachButton = panel.locator('[data-ovyx-native-attach]');
     const attachmentInput = panel.locator('#ovyx-native-attachment-input');
