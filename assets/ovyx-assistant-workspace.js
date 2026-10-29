@@ -75,7 +75,8 @@
     // from a stylesheet, so attribute/class selectors alone cannot find it.
     document.body?.querySelectorAll('*').forEach(node => {
       if (!(node instanceof HTMLElement)) return;
-      const suppress = shouldHide && isUnderlyingBottomNavigation(node, activePanel);
+      const alreadySuppressed = node.classList.contains(UNDERLYING_BOTTOM_NAV_CLASS);
+      const suppress = shouldHide && (alreadySuppressed || isUnderlyingBottomNavigation(node, activePanel));
       node.classList.toggle(UNDERLYING_BOTTOM_NAV_CLASS, suppress);
     });
   }
