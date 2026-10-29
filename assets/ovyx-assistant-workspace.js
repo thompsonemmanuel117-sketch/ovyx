@@ -20,44 +20,47 @@
   const MAX_NATIVE_ATTACHMENT_TEXT = 16000;
   const MAX_NATIVE_TEXT_FILE_BYTES = 1024 * 1024;
 
-  const UNDERLYING_BOTTOM_NAV_SELECTOR = [
-    'nav',
-    '[role="navigation"]',
-    '[id*="bottom" i]',
-    '[class*="bottom" i]',
-    '[id*="navbar" i]',
-    '[class*="navbar" i]',
-    '[id*="toolbar" i]',
-    '[class*="toolbar" i]',
-    '[class*="fixed" i]',
-    '[class*="sticky" i]',
-    '[style*="position:fixed" i]',
-    '[style*="position: fixed" i]',
-    '[style*="position:sticky" i]',
-    '[style*="position: sticky" i]',
-  ].join(',');
   const UNDERLYING_BOTTOM_NAV_CLASS = 'ovyx-native-underlying-bottom-nav-suppressed';
 
   function isUnderlyingBottomNavigation(node, activePanel) {
     if (!(node instanceof HTMLElement) || node === activePanel ||
         activePanel?.contains(node) || node.contains(activePanel) ||
         node.closest('#kernel-brain-bot-panel')) return false;
-    const rect = node.getBoundingClientRect();
+
+    // Do not rely on class names or inline style text: the real dashboard may
+    // assign fixed/sticky positioning from an external stylesheet and use an
+    // opaque generated class. The caller now inspects every HTMLElement.
     const styles = window.getComputedStyle(node);
-    const viewportHeight = Math.max(window.innerHeight || 0, window.visualViewport?.height || 0);
-    const identity = String(node.id || '') + ' ' + (typeof node.className === 'string' ? node.className : '');
     const position = styles.position;
     const isAnchored = position === 'fixed' || position === 'sticky';
+    const identity = String(node.id || '') + ' ' +
+      (typeof node.className === 'string' ? node.className : '');
     const looksLikeNavigation = node.matches('nav,[role="navigation"]') ||
       /(?:bottom|navigation|navbar|nav[-_ ]?bar|toolbar|dock)/i.test(identity);
-    // A dashboard dock is often a generic div with utility classes, not a nav.
-    // Detect its actual viewport geometry instead of depending on its name.
     if (!isAnchored && !looksLikeNavigation) return false;
-    return rect.height >= 24 &&
-      rect.height <= 300 &&
-      rect.width >= Math.min(window.innerWidth * 0.35, 280) &&
-      rect.bottom >= viewportHeight - 32 &&
-      rect.top >= viewportHeight - 320;
+
+    const rect = node.getBoundingClientRect();
+    const visualViewport = window.visualViewport;
+    // Android Chrome can keep the layout viewport tall while the on-screen
+    // keyboard shrinks the visual viewport. Test both coordinate bottoms
+    // instead of taking their maximum (which misses a dock above the keyboard).
+    const viewportBottoms = [
+      window.innerHeight || 0,
+      document.documentElement?.clientHeight || 0,
+      visualViewport?.height || 0,
+      visualViewport ? ((visualViewport.offsetTop || 0) + (visualViewport.height || 0)) : 0,
+    ].filter((height, index, values) => height > 0 && values.indexOf(height) === index);
+    const touchesViewportBottom = viewportBottoms.some(viewportBottom =>
+      rect.bottom >= viewportBottom - 48 &&
+      rect.top >= viewportBottom - 440 &&
+      rect.top <= viewportBottom + 48
+    );
+    // Dock shells can be narrow, centered, or use different utility classes.
+    // Use actual screen position, not an assumed minimum width.
+    return rect.height >= 18 &&
+      rect.height <= 420 &&
+      rect.width > 0 &&
+      touchesViewportBottom;
   }
 
   function isAssistantPanelVisible(activePanel) {
@@ -76,14 +79,30 @@
     const assistantOpen = isAssistantPanelVisible(activePanel);
     const shouldHide = forceHidden === true || composerFocused || assistantOpen;
     document.body?.classList.toggle('ovyx-native-composer-focus-mode', shouldHide);
-    document.querySelectorAll(UNDERLYING_BOTTOM_NAV_SELECTOR).forEach(node => {
-      const suppress = shouldHide && isUnderlyingBottomNavigation(node, activePanel);
+    // Scan computed layout, not just selectors that depend on class/ID names.
+    // The dashboard's toolbar may be a generic div whose fixed position comes
+    // from a stylesheet, so attribute/class selectors alone cannot find it.
+    document.body?.querySelectorAll('*').forEach(node => {
+      if (!(node instanceof HTMLElement)) return;
+      const alreadySuppressed = node.classList.contains(UNDERLYING_BOTTOM_NAV_CLASS);
+      const suppress = shouldHide && (alreadySuppressed || isUnderlyingBottomNavigation(node, activePanel));
       node.classList.toggle(UNDERLYING_BOTTOM_NAV_CLASS, suppress);
     });
   }
 
   function installComposerNavigationShield() {
-    const refresh = () => syncUnderlyingBottomNavigation();
+    // A burst of assistant DOM mutations should produce one layout scan/frame.
+    let refreshPending = false;
+    const refresh = () => {
+      if (refreshPending) return;
+      refreshPending = true;
+      const run = () => {
+        refreshPending = false;
+        syncUnderlyingBottomNavigation();
+      };
+      if (typeof window.requestAnimationFrame === 'function') window.requestAnimationFrame(run);
+      else Promise.resolve().then(run);
+    };
     if (!window.__OVYX_NATIVE_COMPOSER_NAV_SHIELD__) {
       window.__OVYX_NATIVE_COMPOSER_NAV_SHIELD__ = true;
       window.addEventListener('resize', refresh, { passive: true });
@@ -220,7 +239,7 @@
       #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-send:disabled{opacity:.35!important;cursor:not-allowed!important}
       #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-send[aria-busy="true"]{opacity:.65!important}
       body.ovyx-native-composer-focus-mode .ovyx-native-underlying-bottom-nav-suppressed{
-        visibility:hidden!important;pointer-events:none!important;
+        display:none!important;visibility:hidden!important;pointer-events:none!important;
       }
       @media(max-width:640px){
         #kernel-brain-bot-panel.ovyx-native-workspace{inset:0!important;width:100vw!important;height:100dvh!important;min-height:0!important;max-height:none!important;border-radius:0!important;border-left:0!important;border-right:0!important}
@@ -2980,7 +2999,8 @@
         input.style.height = 'auto';
         input.style.height = Math.min(input.scrollHeight, 140) + 'px';
         syncNativeComposerState();
-        syncUnderlyingBottomNavigation();
+        // Focus/blur and the document mutation observer handle dock state;
+        // avoid re-scanning the entire dashboard on every typed character.
       });
     }
     installComposerNavigationShield();

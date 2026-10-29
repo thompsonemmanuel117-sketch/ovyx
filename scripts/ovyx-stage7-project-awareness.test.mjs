@@ -37,6 +37,6 @@ assert.match(guardian, /files\.length >= 3/);
 assert.match(guardian, /changesApplied: false/);
 assert.match(sourceMap, /regular native assistant can now request it with the platform_repo_investigate action/i);
 assert.match(platformDoc, /platform_repo_investigate/);
-assert.match(middleware, /ovyx-assistant-workspace\.js\?v=20261029-2/);
+assert.match(middleware, /ovyx-assistant-workspace\.js\?v=20261029-4/);
 
 console.log('OVYX Stage 7 project-awareness tests passed: live source tool is allowlisted, root-admin-only, read-only, bounded, secret-redacting and fed back into assistant reasoning.');
