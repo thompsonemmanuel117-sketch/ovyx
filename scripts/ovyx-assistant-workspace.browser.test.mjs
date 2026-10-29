@@ -44,13 +44,14 @@ try {
     // on narrow screens, and verify the assistant isolates typing from global
     // dashboard keyboard handlers.
     await page.evaluate(() => {
-      // The real dashboard dock can be a generic fixed div with no nav/toolbar
-      // name. Keep this fixture deliberately anonymous to exercise geometry detection.
+      // No nav-like ID/class or inline positioning: real app CSS can position
+      // a generic shell without exposing its layout role in its attributes.
+      const dockStyles = document.createElement('style');
+      dockStyles.textContent = '.opaque-7a { position:fixed!important;left:0;right:0;bottom:0;width:100%;height:72px;z-index:2147483647;background:#ff00ff; }';
+      document.head.appendChild(dockStyles);
       const nav = document.createElement('div');
-      nav.id = 'test-dashboard-bottom-dock';
-      nav.className = 'dashboard-dock-shell';
-      nav.setAttribute('aria-label', 'Dashboard bottom dock test fixture');
-      nav.style.cssText = 'position:fixed;left:0;right:0;bottom:0;width:100%;height:72px;z-index:2147483647;background:#ff00ff;';
+      nav.id = 'test-floating-shell';
+      nav.className = 'opaque-7a';
       document.body.appendChild(nav);
       window.__ovyxAssistantTypingKeyBubbles = 0;
       document.addEventListener('keydown', event => {
@@ -60,9 +61,9 @@ try {
     const composer = panel.locator('#bot-chat-input');
     await composer.focus();
     await page.waitForFunction(() => {
-      const nav = document.getElementById('test-dashboard-bottom-dock');
+      const nav = document.getElementById('test-floating-shell');
       return nav?.classList.contains('ovyx-native-underlying-bottom-nav-suppressed') &&
-        getComputedStyle(nav).visibility === 'hidden';
+        getComputedStyle(nav).display === 'none' && getComputedStyle(nav).visibility === 'hidden';
     }, null, { timeout: 5000 });
     await composer.press('z');
     assert.equal(await page.evaluate(() => window.__ovyxAssistantTypingKeyBubbles), 0,
@@ -71,22 +72,22 @@ try {
     await composer.evaluate(node => node.blur());
     if (target.name === 'mobile') {
       await page.waitForFunction(() => {
-        const nav = document.getElementById('test-dashboard-bottom-dock');
+        const nav = document.getElementById('test-floating-shell');
         return nav?.classList.contains('ovyx-native-underlying-bottom-nav-suppressed') &&
-          getComputedStyle(nav).visibility === 'hidden';
+          getComputedStyle(nav).display === 'none' && getComputedStyle(nav).visibility === 'hidden';
       }, null, { timeout: 5000 });
-      assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('test-dashboard-bottom-dock')).visibility), 'hidden',
+      assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('test-floating-shell')).display), 'none',
         '[mobile] dashboard navigation must stay suppressed until the full-screen assistant closes');
     } else {
       await page.waitForFunction(() => {
-        const nav = document.getElementById('test-dashboard-bottom-dock');
+        const nav = document.getElementById('test-floating-shell');
         return nav?.classList.contains('ovyx-native-underlying-bottom-nav-suppressed') &&
-          getComputedStyle(nav).visibility === 'hidden';
+          getComputedStyle(nav).display === 'none' && getComputedStyle(nav).visibility === 'hidden';
       }, null, { timeout: 5000 });
-      assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('test-dashboard-bottom-dock')).visibility), 'hidden',
+      assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('test-floating-shell')).display), 'none',
         '[desktop] dashboard bottom dock must stay hidden for the full assistant session, not just while typing');
     }
-    await page.evaluate(() => document.getElementById('test-dashboard-bottom-dock')?.remove());
+    await page.evaluate(() => document.getElementById('test-floating-shell')?.remove());
 
     const attachButton = panel.locator('[data-ovyx-native-attach]');
     const attachmentInput = panel.locator('#ovyx-native-attachment-input');
