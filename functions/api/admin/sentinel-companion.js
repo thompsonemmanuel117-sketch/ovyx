@@ -1,6 +1,7 @@
 import { verifyFirebaseIdToken } from '../_lib/auth.js';
 import { errorResponse, jsonResponse, readJson, getRequestId } from '../_lib/http.js';
 import { callModel } from '../../_lib/providers.js';
+import { withCloudflareAIOnly } from '../../_lib/cloudflare-routing.js';
 import { isSentinelAdmin } from '../../_lib/ovyx-sentinel.js';
 
 const MAX_MESSAGES = 10;
@@ -125,7 +126,7 @@ export async function onRequestPost(context, dependencies = {}) {
 
   try {
     const modelCall = typeof dependencies.callModel === 'function' ? dependencies.callModel : callModel;
-    const result = await modelCall(context.env, {
+    const result = await modelCall(withCloudflareAIOnly(context.env), {
       provider: 'automatic',
       taskPrompt,
       system,
