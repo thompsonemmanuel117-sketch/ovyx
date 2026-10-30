@@ -85,6 +85,8 @@ assert.match(routerBody, /callCloudflareWorkersAI\(secureEnv/);
 assert.match(routerBody, /OVYX_CLOUDFLARE_FREE_MODEL/);
 assert.match(routerBody, /OVYX_CLOUDFLARE_ONLY_PROVIDER/);
 assert.doesNotMatch(routerBody, /callSelectedUniversalBrain|providerOrder\(|callGemini|callClaude|callDeepSeek|callOpenAI|callGroq|callOpenRouter/);
+assert.doesNotMatch(providerSource, /GEMINI_API_KEY|ANTHROPIC_API_KEY|DEEPSEEK_API_KEY|OPENAI_API_KEY|GROQ_API_KEY|OPENROUTER_API_KEY/);
+assert.doesNotMatch(providerSource, /generativelanguage\.googleapis\.com|api\.anthropic\.com|api\.deepseek\.com|api\.openai\.com|api\.groq\.com|openrouter\.ai/);
 
 const assistant = await readFile(new URL('../functions/api/ai/assistant.js', import.meta.url), 'utf8');
 const gateway = await readFile(new URL('../functions/api/ai/gateway.js', import.meta.url), 'utf8');
