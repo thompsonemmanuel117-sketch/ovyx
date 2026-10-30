@@ -113,6 +113,15 @@ assert.doesNotMatch(indexHtml.slice(browserNormalizerStart, browserNormalizerEnd
 assert.match(indexHtml, /id="card-provider-cloudflare-workers-ai"/,
   'The main admin UI must show the single Cloudflare Workers AI engine card.');
 assert.doesNotMatch(indexHtml, /Use for Web Studio|Use as AI Brain|Use for AI requests/);
+assert.match(indexHtml, /id="ws-brain-label">Cloudflare<\\/span>/,
+  'The Web Studio composer must identify the Cloudflare engine rather than an external Brain.');
+assert.match(indexHtml, /Workspace response preferences\. OVYX uses Cloudflare Workers AI exclusively/);
+assert.match(indexHtml, /this\.brain='automatic';try\{persistStateNow\('cloudflare-only-engine'\)/,
+  'The legacy brain button must normalize old provider state to managed Cloudflare routing.');
+assert.doesNotMatch(indexHtml, /const order = \['automatic','gemini','deepseek','anthropic','openai'\]/,
+  'The shell must not retain an interactive cycle through third-party model providers.');
+assert.doesNotMatch(indexHtml, /data-brain-choice="(?:gemini|deepseek|anthropic|openai)"/,
+  'Web Studio Agent Settings must not expose third-party model buttons.');
 
 // Platform project awareness remains available and grounded in source maps.
 const platformKnowledge = await read('../functions/_lib/ovyx-project-knowledge.js');
