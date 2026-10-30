@@ -28,13 +28,13 @@ Web Studio and App Studio generation still use their separate workflows. Selecti
 - the Cloudflare Workers AI binding is configured; or
 - the binding is missing and platform-admin setup is required.
 
-The route does **not** query saved personal AI Brain connections, call the AI model, test a credential, return a connection ID, read or return secret values, or spend usage. Legacy external AI connection records cannot make OVYX look configured. The UI intentionally says **“configured — not live-tested”**. A real request can still fail because of an exhausted allowance, inactive connection, temporary upstream issue, or bad configuration. That distinction avoids a false “Ready” promise.
+The route does **not** query saved personal AI Brain connections, call the AI model, test a credential, return a connection ID, read or return secret values, or spend usage. Legacy external AI connection records cannot make OVYX look configured. The UI intentionally says **“Cloudflare AI configured — not live-tested”**. A real request can still fail because of an exhausted allowance, inactive connection, temporary upstream issue, or bad configuration. That distinction avoids a false “Ready” promise.
 
 The readiness card appears in AI Preferences, the Home composer shows a compact OVYX AI status chip, and the workspace assistant header shows the same status. It can be refreshed manually. It uses the existing Firebase session and same-origin endpoint with no caching.
 
 ### 3. Helpful recovery messages
 
-Ordinary assistant failures are mapped to plain-language guidance for common conditions: sign-in expiry, missing AI setup, an exhausted protected allowance, an unresponsive/invalid selected Brain, a timeout, a temporarily unavailable AI service, and missing feature access. The quota message explains that OVYX stopped instead of switching providers. Cloudflare service and quota failures are reported directly; no saved external AI Brain can be tested, selected, or used as a substitute.
+Ordinary assistant failures are mapped to plain-language guidance for common conditions: sign-in expiry, missing AI setup, an exhausted protected allowance, a timed-out request, a temporarily unavailable Cloudflare service, and missing feature access. The quota message explains that OVYX stopped instead of switching providers. Cloudflare service and quota failures are reported directly; no saved external AI Brain can be tested, selected, or used as a substitute.
 
 ### 4. Regression and safety boundaries
 
