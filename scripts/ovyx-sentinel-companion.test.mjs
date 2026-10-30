@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
 import { onRequest } from '../functions/api/admin/sentinel-companion.js';
+import { OVYX_CLOUDFLARE_FREE_MODEL } from '../functions/_lib/cloudflare-free-ai.js';
 
 if (!globalThis.crypto) globalThis.crypto = webcrypto;
 
@@ -150,10 +151,25 @@ try {
           finishedAt: new Date().toISOString(),
           criticalCount: 0,
           warningCount: 1,
-          checks: [{ path: 'Gemini', status: 'fail', code: 'PROVIDER_AUTH_FAILED', summary: 'Gemini rejected the credential.' }],
+          checks: [{ path: 'Cloudflare Workers AI', status: 'fail', code: 'CLOUDFLARE_AI_UNAVAILABLE', summary: 'Cloudflare AI is temporarily unavailable.' }],
         },
       },
-    }));
+    }), {
+      // Mock the shared model boundary so this unit test never reads the
+      // protected daily neuron ledger or spends real Cloudflare inference.
+      callModel: async (_env, options) => {
+        aiCalls.push({
+          model: OVYX_CLOUDFLARE_FREE_MODEL,
+          input: { messages: [{ role: 'system', content: options.system }, { role: 'user', content: options.user }] },
+          options,
+        });
+        return {
+          text: 'Welcome back. I am here to help you with OVYX.',
+          provider: 'cloudflare-workers-ai',
+          routedProvider: 'cloudflare-workers-ai',
+        };
+      },
+    });
     const body = await response.json();
     assert.equal(response.status, 200);
     assert.equal(body.ok, true);
