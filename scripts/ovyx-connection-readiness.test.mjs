@@ -65,7 +65,12 @@ assert.ok(testActionStart >= 0 && aiProtocolGuard > testActionStart && remoteChe
 
 // The older renderer must not offer external model protocols or Brain selection.
 assert.doesNotMatch(legacyUi, /<option value="ai">AI Brain<\/option>/);
-assert.doesNotMatch(legacyUi, /openai-chat|anthropic-messages|gemini-generate-content/);
+assert.doesNotMatch(legacyUi, /<option[^>]+(?:openai-chat|anthropic-messages|gemini-generate-content)/,
+  'The compatibility form must not offer legacy AI model protocol options.');
+assert.match(legacyUi, /legacyAiModel/,
+  'The compatibility renderer may recognize legacy protocols only to label old records disabled.');
+assert.match(legacyUi, /legacyAiModel\?'<span class="ovyx-deep-status">AI model disabled/,
+  'Legacy records must not be offered a remote AI model health test.');
 assert.doesNotMatch(legacyUi, /Use for AI requests|Clear AI Brain/);
 assert.match(legacyUi, /Cloudflare Workers AI · exclusive model provider/);
 assert.match(legacyUi, /data-conn-delete/);
