@@ -18033,6 +18033,24 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
       sendObserver.observe(send,{attributes:true,attributeFilter:['disabled']});
     }
     W.__ovyxStopGeneration=stop;
+    // Read-only state snapshot for safe browser regression diagnosis. It never
+    // exposes prompt text, audio bytes, tokens, or other private request data.
+    window.OVYXComposerDiagnostics=function(){
+      var currentSend=$('ws-chat-send');
+      return {
+        composerWorking:!!composerWorking,
+        imageBusy:!!imageBusy,
+        activeWorkId:Number(activeWorkId||0),
+        voiceRequestActive:!!voiceAbortController,
+        voiceRequestAborted:!!voiceAbortController?.signal?.aborted,
+        voiceStatus:String(voicePanel?.querySelector('[data-ws-voice-status]')?.textContent||''),
+        pendingBuild:!!W?.pendingBuild,
+        liveAiActive:!!W?.liveAiActive,
+        sendLabel:String(currentSend?.getAttribute('aria-label')||''),
+        sendState:String(currentSend?.dataset?.ovyxComposerState||''),
+        stopHandlerInstalled:!!W?.__ovyxComposerStopV1
+      };
+    };
   }
 
   function boot(){if(setup())return;var tries=0;var timer=setInterval(function(){if(setup()||++tries>80)clearInterval(timer)},150);}
