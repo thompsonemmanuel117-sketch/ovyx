@@ -48,6 +48,13 @@ const result = await generateOvyxNativeAI(
     prompt: 'Where are my project settings?',
     system: 'Keep answers useful.',
     context: { activeProject: { id: 'p-1', name: 'Sample website' } },
+    cloudflareInference: async (env, options) => {
+      const guardedResult = await env.AI.run(OVYX_NATIVE_DEFAULT_MODEL, {
+        messages: options.messages,
+        max_tokens: options.maxTokens,
+      });
+      return { text: guardedResult.response, result: guardedResult };
+    },
   }
 );
 
@@ -141,71 +148,49 @@ assert.match(captured.input.messages[0].content, /at most three readable source 
 
 assert.equal(result.rawUsage.total_tokens, 35);
 
-// The native assistant should honor an account-owned AI Brain even when the
-// Cloudflare AI binding is not present, and parse the provider's text format.
+// Saved Universal AI Brain connections must never replace OVYX's platform
+// inference engine. The legacy dependency hook is deliberately ignored.
 let selectedBrainCalls = 0;
-const selectedBrain = await generateOvyxNativeAI(
-  { OVYX_AI_ENGINE_MODE: 'cloudflare-free-only' },
+let cloudflareCalls = 0;
+const nativeCloudflareOnly = await generateOvyxNativeAI(
   {
-    prompt: 'Explain my current project.',
-    system: 'Keep answers useful.',
-    context: { activeProject: { id: 'p-2', name: 'Selected Brain project' } },
-    authUser: { uid: 'owner-123', sub: 'owner-123', email: 'owner@example.test' },
-    universalBrainDependencies: {
-      getActiveBrainConnectionId: async (_env, authUser) => {
-        assert.equal(authUser.uid, 'owner-123');
-        selectedBrainCalls += 1;
-        return 'owner-brain-1';
-      },
-      callUserUniversalConnection: async (_env, input) => {
-        assert.equal(input.connectionId, 'owner-brain-1');
-        assert.equal(input.requireAIProtocol, true);
-        assert.match(input.system, /Selected Brain project/);
+    AI: {
+      async run(model, input) {
+        cloudflareCalls += 1;
+        captured = { model, input };
         return {
-          text: JSON.stringify({
-            text: 'The selected account Brain is responding.',
-            actions: [{ type: 'navigate', route: 'settings' }],
-          }),
-          provider: 'connection:owner-brain-1',
-          routedProvider: 'universal-connection',
-          model: 'gemini-2.5-flash',
-          rawUsage: { prompt_tokens: 10, completion_tokens: 7, total_tokens: 17 },
+          response: JSON.stringify({ text: 'The Cloudflare engine is responding.', actions: [] }),
+          usage: { prompt_tokens: 10, completion_tokens: 7, total_tokens: 17 },
         };
       },
     },
+    OVYX_AI_ENGINE_MODE: 'legacy-provider-routing',
+    OVYX_ALLOW_PAID_PROVIDER_ROUTING: 'true',
+  },
+  {
+    prompt: 'Explain my current project.',
+    authUser: { uid: 'owner-123', sub: 'owner-123', email: 'owner@example.test' },
+    universalBrainDependencies: {
+      getActiveBrainConnectionId: async () => { selectedBrainCalls += 1; return 'owner-brain-1'; },
+      callUserUniversalConnection: async () => { throw new Error('A saved AI Brain must not be invoked.'); },
+    },
+    cloudflareInference: async (env, options) => {
+      const guardedResult = await env.AI.run(OVYX_NATIVE_DEFAULT_MODEL, {
+        messages: options.messages,
+        max_tokens: options.maxTokens,
+      });
+      return { text: guardedResult.response, result: guardedResult };
+    },
   },
 );
-assert.equal(selectedBrain.text, 'The selected account Brain is responding.');
-assert.deepEqual(selectedBrain.actions, [{ type: 'navigate', route: 'settings' }]);
-assert.equal(selectedBrain.provider, 'universal-connection');
-assert.equal(selectedBrain.routedProvider, 'universal-connection');
-assert.equal(selectedBrain.personalConnectionUsed, true);
-assert.equal(selectedBrain.model, 'gemini-2.5-flash');
-assert.equal(selectedBrain.rawUsage.total_tokens, 17);
-assert.equal(selectedBrainCalls, 1);
-
-// If the selected Brain fails, the native assistant must fail closed rather
-// than silently trying Cloudflare or another platform provider.
-await assert.rejects(
-  () => generateOvyxNativeAI(
-    { OVYX_AI_ENGINE_MODE: 'cloudflare-free-only' },
-    {
-      prompt: 'Continue with my selected Brain.',
-      authUser: { uid: 'owner-123', sub: 'owner-123', email: 'owner@example.test' },
-      universalBrainDependencies: {
-        getActiveBrainConnectionId: async () => 'owner-brain-1',
-        callUserUniversalConnection: async () => {
-          throw Object.assign(new Error('provider unreachable'), {
-            status: 503,
-            code: 'CONNECTION_UPSTREAM_FAILED',
-          });
-        },
-      },
-    },
-  ),
-  error => error.code === 'CONNECTION_UPSTREAM_FAILED' &&
-    /did not switch to another AI provider/.test(error.message),
-);
+assert.equal(nativeCloudflareOnly.text, 'The Cloudflare engine is responding.');
+assert.equal(nativeCloudflareOnly.provider, 'ovyx-native');
+assert.equal(nativeCloudflareOnly.routedProvider, 'cloudflare-workers-ai');
+assert.equal(nativeCloudflareOnly.personalConnectionUsed, false);
+assert.equal(nativeCloudflareOnly.model, OVYX_NATIVE_DEFAULT_MODEL);
+assert.equal(nativeCloudflareOnly.rawUsage.total_tokens, 17);
+assert.equal(selectedBrainCalls, 0);
+assert.equal(cloudflareCalls, 1);
 
 assert.equal(
   parseOvyxNativeModelOutput(JSON.stringify({ text: 'Normalized model text', actions: [] })).text,
