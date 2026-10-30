@@ -23,20 +23,35 @@
   const UNDERLYING_BOTTOM_NAV_CLASS = 'ovyx-native-underlying-bottom-nav-suppressed';
 
   function isUnderlyingBottomNavigation(node, activePanel) {
-    if (!(node instanceof HTMLElement) || node === activePanel ||
-        activePanel?.contains(node) || node.contains(activePanel) ||
-        node.closest('#kernel-brain-bot-panel')) return false;
+    if (!(node instanceof HTMLElement) || node === activePanel) return false;
 
-    // Do not rely on class names or inline style text: the real dashboard may
-    // assign fixed/sticky positioning from an external stylesheet and use an
-    // opaque generated class. The caller now inspects every HTMLElement.
+    // Some dashboard shells mount their fixed bottom navigation inside the
+    // same full-screen root used by the assistant. Do not blanket-exclude
+    // assistant descendants: explicitly recognize navigation semantics and
+    // the dashboard's Home / Build / Code / More labels first.
+    const identity = String(node.id || '') + ' ' +
+      (typeof node.className === 'string' ? node.className : '') + ' ' +
+      String(node.getAttribute('aria-label') || '') + ' ' +
+      String(node.getAttribute('data-testid') || '');
     const styles = window.getComputedStyle(node);
     const position = styles.position;
     const isAnchored = position === 'fixed' || position === 'sticky';
-    const identity = String(node.id || '') + ' ' +
-      (typeof node.className === 'string' ? node.className : '');
-    const looksLikeNavigation = node.matches('nav,[role="navigation"]') ||
+    const semanticNavigation = node.matches('nav,[role="navigation"]') ||
       /(?:bottom|navigation|navbar|nav[-_ ]?bar|toolbar|dock)/i.test(identity);
+    const navText = semanticNavigation || isAnchored
+      ? String(node.innerText || node.textContent || '').replace(/\\s+/g, ' ').trim()
+      : '';
+    const hasDashboardLabels = /\\bhome\\b/i.test(navText) &&
+      /\\bbuild\\b/i.test(navText) && /\\bcode\\b/i.test(navText) &&
+      /\\bmore\\b/i.test(navText);
+    const looksLikeNavigation = semanticNavigation || hasDashboardLabels;
+
+    // Preserve the assistant's own controls, but allow a clearly identified
+    // dashboard dock to be suppressed even when nested in the assistant shell.
+    if (!looksLikeNavigation && (
+      activePanel?.contains(node) || node.contains(activePanel) ||
+      node.closest('#kernel-brain-bot-panel')
+    )) return false;
     if (!isAnchored && !looksLikeNavigation) return false;
 
     const rect = node.getBoundingClientRect();
