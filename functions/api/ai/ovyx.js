@@ -3,6 +3,7 @@ import { readJson, json, errorResponse, requestId } from '../../_lib/http.js';
 import { beginAIQuota, finalizeAIQuota, refundDailyPrompt } from '../../_lib/token-quota.js';
 import { saveChatTurn, resolveConversationId } from '../../_lib/chat-history.js';
 import { generateOvyxNativeAI } from '../../_lib/ovyx-native-ai.js';
+import { withCloudflareAIOnly } from '../../_lib/cloudflare-routing.js';
 import { getAIIdentityDirective } from '../../_lib/ai-identity.js';
 
 function normalizeMessages(payload) {
@@ -42,7 +43,7 @@ export async function onRequestPost(context) {
     let result;
     try {
       const globalIdentityDirective = await getAIIdentityDirective(context.env);
-      result = await generateOvyxNativeAI(context.env, {
+      result = await generateOvyxNativeAI(withCloudflareAIOnly(context.env), {
         messages,
         prompt: requestPrompt,
         system: [String(payload.system || '').slice(0, 7000), globalIdentityDirective].filter(Boolean).join('\n\n').slice(0, 10500),
@@ -50,7 +51,7 @@ export async function onRequestPost(context) {
           project: payload.project || null,
           files: payload.files || null,
         },
-        model: payload.model,
+        model: undefined,
         mode: payload.mode,
         authUser: user,
       });
