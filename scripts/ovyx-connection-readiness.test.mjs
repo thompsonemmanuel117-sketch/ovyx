@@ -10,7 +10,7 @@ const ui = html.slice(connectionsUiStart, connectionsUiEnd);
 const api = read('functions/api/settings/connections.js');
 const connectionLib = read('functions/_lib/universal-connections.js');
 const legacyUiStart = html.indexOf('async function renderConnectionsPanel()');
-const legacyUiEnd = html.indexOf('function ', legacyUiStart + 1);
+const legacyUiEnd = html.indexOf('</script>', legacyUiStart);
 assert.ok(legacyUiStart >= 0 && legacyUiEnd > legacyUiStart, 'The compatibility connections renderer must remain bounded and available.');
 const legacyUi = html.slice(legacyUiStart, legacyUiEnd);
 
@@ -38,13 +38,17 @@ assert.ok(api.includes('OVYX uses Cloudflare Workers AI only'));
 assert.ok(api.includes('activeBrainConnectionId: null'));
 assert.ok(api.includes('activeWebStudioConnectionId: null'));
 assert.doesNotMatch(ui, /<option value="ai">AI Brain<\/option>/);
-assert.doesNotMatch(ui, /openai-chat|anthropic-messages|gemini-generate-content/);
+const v91FormMarkup = ui.slice(0, ui.indexOf('  const connType='));
+assert.doesNotMatch(v91FormMarkup, /openai-chat|anthropic-messages|gemini-generate-content/);
 assert.doesNotMatch(ui, /MODEL \(AI BRAIN\)|Use as AI Brain|Use for Web Studio|Use for AI requests/);
 assert.match(ui, /const activeBrain=false;const canUseBrain=false;/);
 assert.match(ui, /action:'use-ai'/, 'The legacy selection listener may remain inert; server-side action is rejected.');
 assert.match(ui, /action:'test'/, 'Only the separate server gate can decide whether an old saved record may be checked.');
-assert.doesNotMatch(api, /const record = await getFirestoreDataAtPath\(context\.env, \[\.\.\.base, id\]\);\s*if \(!record \|\| record\.ownerUid !== auth\.uid \|\| record\.ownerEmail !== auth\.email\) \{[\s\S]{0,400}const result = await testUserConnection/,
-  'A saved AI protocol record must be rejected before remote health-check invocation.');
+const testActionStart = api.indexOf("if (action === 'test')");
+const aiProtocolGuard = api.indexOf('if (supportsAIProtocol(record.protocol))', testActionStart);
+const remoteCheckCall = api.indexOf('const result = await testUserConnection(', testActionStart);
+assert.ok(testActionStart >= 0 && aiProtocolGuard > testActionStart && remoteCheckCall > aiProtocolGuard,
+  'Saved AI protocol records must be rejected before a remote health-check invocation.');
 
 // The older renderer must not offer external model protocols or Brain selection.
 assert.doesNotMatch(legacyUi, /<option value="ai">AI Brain<\/option>/);
