@@ -153,7 +153,6 @@
     const status = String(snapshot.status || 'check_failed');
     const userLabel = !currentUser() ? 'Sign in to check AI setup' : '';
     const labelByStatus = {
-      selected_brain_configured: 'AI Brain selected · not live-tested',
       cloudflare_configured: 'Cloudflare AI configured · not live-tested',
       not_configured: 'AI setup needed',
       check_failed: 'Could not check AI setup',
@@ -162,14 +161,13 @@
     };
     const label = userLabel || labelByStatus[status] || 'Could not check AI setup';
     const detailByStatus = {
-      selected_brain_configured: snapshot.message || 'An AI Brain is selected, but this check did not send a model request. A failed selected connection will be reported rather than silently replaced.',
       cloudflare_configured: snapshot.message || 'Cloudflare Workers AI is configured. This check does not run a model or spend AI usage; quota and live availability are checked when you send a request.',
-      not_configured: snapshot.message || 'OVYX could not find an AI engine. Ask the platform administrator to configure Cloudflare Workers AI or check your AI Brain connection.',
+      not_configured: snapshot.message || 'OVYX AI is not configured. Contact the platform administrator; personal or third-party AI providers are not supported.',
       check_failed: snapshot.message || 'OVYX could not verify the AI setup. No AI request was sent; check the connection and try again.',
       sign_in_required: 'Sign in to your OVYX account to check AI setup.',
       checking: 'Checking configuration only. No AI request is sent and no AI usage is spent.'
     };
-    target.dataset.state = status === 'selected_brain_configured' || status === 'cloudflare_configured'
+    target.dataset.state = status === 'cloudflare_configured'
       ? 'configured'
       : status === 'not_configured' || status === 'sign_in_required'
         ? 'attention'
@@ -183,7 +181,7 @@
       if (labelNode) labelNode.textContent = label;
       if (detailNode) detailNode.textContent = detailByStatus[status] || detailByStatus.check_failed;
       const openSettings = target.querySelector('[data-ai-readiness-open-settings]');
-      if (openSettings) openSettings.hidden = status !== 'not_configured' && status !== 'selected_brain_configured';
+      if (openSettings) openSettings.hidden = true;
     } else if (target.matches('[data-ovyx-ai-readiness="welcome"]')) {
       target.textContent = 'OVYX AI · ' + label;
       target.title = detailByStatus[status] || detailByStatus.check_failed;
@@ -249,15 +247,6 @@
     return pendingCheck;
   }
 
-  function openConnectionSettings() {
-    try {
-      if (window.Router && typeof window.Router.go === 'function') window.Router.go('settings');
-      window.setTimeout(() => {
-        try { window.OVYXSettings?.show?.('connections'); } catch (_) {}
-      }, 120);
-    } catch (_) {}
-  }
-
   function bindActions() {
     if (window.__OVYX_AI_TRUST_ACTIONS_BOUND__) return;
     window.__OVYX_AI_TRUST_ACTIONS_BOUND__ = true;
@@ -268,11 +257,6 @@
         refresh.disabled = true;
         checkReadiness(true).finally(() => { refresh.disabled = false; });
         return;
-      }
-      const open = event.target?.closest?.('[data-ai-readiness-open-settings]');
-      if (open) {
-        event.preventDefault();
-        openConnectionSettings();
       }
     });
     document.addEventListener('change', event => {
