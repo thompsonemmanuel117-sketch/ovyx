@@ -14,7 +14,7 @@ The ordinary assistant is already connected to the native chat route:
 - The route authenticates the user, bounds the request, reserves and finalizes AI quota, refunds failed reservations where appropriate, and saves conversation history.
 - `functions/_lib/ovyx-native-ai.js` uses the Cloudflare Workers AI binding. In the protected free-only mode it calls the guarded inference helper, which applies the existing daily neuron budget and stop conditions.
 - Structured response parsing filters plans and actions through the existing allowlists before the client can act on them.
-- An account's explicitly selected Universal Connection remains an explicit, exclusive choice. A selected connection that fails must not silently fall back to another provider. This is not an automatic quota fallback.
+- Cloudflare Workers AI is the only platform model provider. Browser-supplied provider/model values, legacy global priority settings, and saved personal AI Brain assignments are ignored at the server boundary. Legacy encrypted AI records remain stored for compatibility but cannot be selected, tested, or called. Non-AI service connections remain separate.
 - Stage 7 adds a migration contract suite to protect these existing behaviours. It does not replace a working chat route merely to make the diff larger.
 
 ### Phase 2 — Coding and reasoning modes
@@ -27,7 +27,7 @@ Existing provider-routing, quota, Stage 5 planning and workspace-tool suites rem
 
 Generation remains a separate workflow rather than being replaced by ordinary chat. The multi-stage orchestrator keeps its structured planning, bounded batches, validation, and repair/rollback controls. Stage 6's Web Studio quality check is a read-only verification tool: it returns real inspector findings, does not edit source, and leaves edits behind preview and explicit approval.
 
-The Stage 7 contract test verifies that these separate routes and controls remain present. A focused safety change removes the Web Studio post-quota personal-connection escape hatch from the browser, assistant/gateway routes, and guarded provider adapter. Exhausted Cloudflare or plan allowances now stop the request through normal quota errors; an existing Universal Connection assignment cannot bypass the limit. Explicitly selected AI Brain connections remain exclusive for ordinary assistant chat and are not silently replaced on failure. A future code change should only alter a specific generation path after its existing route, bindings, entitlements, quota accounting, validation and rollback behaviour have been traced.
+The Stage 7 contract test verifies that these separate routes and controls remain present. A focused safety change removes the Web Studio post-quota personal-connection escape hatch from the browser, assistant/gateway routes, and guarded provider adapter. Exhausted Cloudflare or plan allowances now stop the request through normal quota errors; an existing Universal Connection assignment cannot bypass the limit. Saved personal AI Brain connections are no longer part of model routing; their encrypted records are retained but the platform does not query, test, or invoke them. A future code change should only alter a specific generation path after its existing route, bindings, entitlements, quota accounting, validation and rollback behaviour have been traced.
 
 ## OVYX platform knowledge for the assistant
 
@@ -51,7 +51,7 @@ The Stage 7 migration, project-knowledge and project-awareness suites are regist
 2. Send a multi-turn follow-up and confirm conversation history is preserved.
 3. Ask the assistant to inspect a saved project; confirm it uses authenticated workspace tools and does not invent file contents.
 4. Ask a root administrator a specific question about OVYX's own source code; confirm `platform_repo_investigate` returns bounded, redacted source evidence and no source edits. Test a non-admin account and missing-token configuration to confirm access is denied honestly.
-5. If an account explicitly selects a Universal Connection for ordinary assistant chat, confirm failure is surfaced without silent provider switching.
+5. Create or retain a legacy personal AI Brain record and confirm the platform ignores it for readiness and inference; no remote health check or model call should be made.
 6. In a controlled test environment, exhaust the Cloudflare/plan allowance. Confirm Web Studio stops with a quota error and does not offer or automatically use another provider. Do not raise the budget or bypass the stop.
 7. Run coding/reasoning in guarded Cloudflare mode. Confirm a client-supplied external provider/model cannot override the server route.
 8. Generate a small website and an App Studio project. Confirm each existing validation, entitlement, quota, preview and repair control still works.
