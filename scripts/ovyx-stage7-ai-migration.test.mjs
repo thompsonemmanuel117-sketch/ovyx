@@ -110,8 +110,9 @@ const browserNormalizerEnd = indexHtml.indexOf('async function secureGenerate', 
 assert.ok(browserNormalizerStart >= 0 && browserNormalizerEnd > browserNormalizerStart);
 assert.match(indexHtml.slice(browserNormalizerStart, browserNormalizerEnd), /return 'automatic'/);
 assert.doesNotMatch(indexHtml.slice(browserNormalizerStart, browserNormalizerEnd), /connection:|gemini|deepseek|anthropic|openai/);
-assert.match(indexHtml, /Cloudflare Workers AI · exclusive model engine/);
-assert.doesNotMatch(indexHtml, /Use for Web Studio|Use as AI Brain/);
+assert.match(indexHtml, /id="card-provider-cloudflare-workers-ai"/,
+  'The main admin UI must show the single Cloudflare Workers AI engine card.');
+assert.doesNotMatch(indexHtml, /Use for Web Studio|Use as AI Brain|Use for AI requests/);
 
 // Platform project awareness remains available and grounded in source maps.
 const platformKnowledge = await read('../functions/_lib/ovyx-project-knowledge.js');
