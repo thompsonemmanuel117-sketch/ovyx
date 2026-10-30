@@ -171,7 +171,7 @@ try {
       },
     });
     const body = await response.json();
-    assert.equal(response.status, 200);
+    assert.equal(response.status, 200, JSON.stringify({ body, modelCalls: aiCalls.length }));
     assert.equal(body.ok, true);
     assert.match(body.text, /welcome back/i);
     assert.equal(body.historySaved, false, 'chat must not be persisted server-side');
