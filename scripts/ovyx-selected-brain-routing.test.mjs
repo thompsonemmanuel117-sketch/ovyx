@@ -36,7 +36,7 @@ assert.match(connectionsApi, /Saved external AI credentials are preserved but ar
 assert.match(connectionsApi, /activeBrainConnectionId: null/);
 assert.match(connectionsApi, /activeWebStudioConnectionId: null/);
 assert.match(docs, /Cloudflare Workers AI is OVYX's only supported AI model provider/i);
-assert.match(docs, /existing encrypted AI connection records are retained/i);
+assert.match(docs, /Older encrypted AI connection records are retained/i);
 assert.match(docs, /Universal Connections remain available for approved non-AI HTTP, webhook, database and tool integrations/i);
 assert.doesNotMatch(docs, /Automatic uses the selected AI Brain exclusively/i);
 assert.doesNotMatch(docs, /Platform Automatic routing[\\s\\S]*tries the providers in/i);
