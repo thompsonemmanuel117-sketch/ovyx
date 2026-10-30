@@ -125,7 +125,7 @@ export async function installOwnerBrowserApiFixtures(page, options = {}) {
     aigeneration: 'free', github: 'pro', cloudflaredeploy: 'pro',
     teamworkspace: 'max', templates: 'free'
   };
-  const aiConfig = { providerOrder: ['gemini', 'deepseek', 'claude', 'openai', 'groq', 'openrouter'] };
+  const aiConfig = { providerOrder: ['cloudflare-workers-ai'] };
   let fixtureUsers = [{ uid: 'fixture-user-123', email: 'builder@example.test', displayName: 'Fixture Builder', role: 'FREE_USER', plan: 'free', disabled: false, quota: { plan: 'free', monthlyLimit: 50000, monthlyRemaining: 50000, dailyPromptLimit: 4, dailyPromptsRemaining: 4, boosterTokens: 0 } }];
   let fixtureBroadcasts = [];
   let fixtureTemplates = [];
@@ -193,8 +193,20 @@ export async function installOwnerBrowserApiFixtures(page, options = {}) {
     if (path === '/api/admin/guardian-repo') return { ok: true, repositories: [], files: [], results: [] };
     if (path === '/api/admin/guardian-patch') return { ok: true, preview: true, changesApplied: false, files: [] };
     if (path === '/api/ai/status') return {
-      ok: true, status: 'DEGRADED', providers: [], additionalProviders: [],
-      cloudflare: { workersAiBinding: false, edgeRuntime: 'BROWSER_FIXTURE' }, checkedAt: 'fixture'
+      ok: true,
+      status: 'READY',
+      routingPolicy: 'cloudflare-only',
+      engineMode: 'cloudflare-free-only',
+      providers: [{
+        provider: 'cloudflare-workers-ai',
+        label: 'Cloudflare Workers AI',
+        status: 'READY',
+        configured: true,
+        connected: true
+      }],
+      additionalProviders: [],
+      cloudflare: { workersAiBinding: true, edgeRuntime: 'BROWSER_FIXTURE' },
+      checkedAt: 'fixture'
     };
     if (path === '/api/ai/provider-availability') return { ok: true, providers: [], availability: [] };
     if (path === '/api/tokens/balance') return {
