@@ -34,11 +34,22 @@ try {
     const assistantScript = page.locator('script[src*="/assets/ovyx-assistant-workspace.js"]');
     assert.ok(await assistantScript.count(), `[${target.name}] assistant workspace script was not injected`);
     const scriptSources = await assistantScript.evaluateAll(nodes => nodes.map(node => node.src));
-    assert.ok(scriptSources.some(src => /[?&]v=20261029-6(?:&|$)/.test(src)), `[${target.name}] the updated assistant runtime cache version was not loaded`);
+    assert.ok(scriptSources.some(src => /[?&]v=20261030-1(?:&|$)/.test(src)), `[${target.name}] the updated assistant runtime cache version was not loaded`);
 
     await page.evaluate(() => window.WorkspaceBrainBot.open());
     const panel = page.locator('#kernel-brain-bot-panel');
     await panel.waitFor({ state: 'visible' });
+
+    // Reproduce the production edge case: dashboard navigation is mounted
+    // inside the assistant's shared shell, not as a body-level sibling.
+    await page.evaluate(() => {
+      const nestedDock = document.createElement('nav');
+      nestedDock.id = 'test-nested-dashboard-dock';
+      nestedDock.setAttribute('aria-label', 'Dashboard navigation');
+      nestedDock.className = 'opaque-8b';
+      nestedDock.innerHTML = '<button>Home</button><button>Build</button><button>Code</button><button>More</button>';
+      document.getElementById('kernel-brain-bot-panel')?.appendChild(nestedDock);
+    });
 
     // Reproduce a dashboard bottom bar that would otherwise overlay the chat
     // on narrow screens, and verify the assistant isolates typing from global
@@ -93,7 +104,10 @@ try {
     await composer.focus();
     await page.waitForFunction(() => {
       const nav = document.getElementById('test-floating-shell');
-      return nav?.classList.contains('ovyx-native-underlying-bottom-nav-suppressed') &&
+      const nestedDock = document.getElementById('test-nested-dashboard-dock');
+      return nestedDock?.classList.contains('ovyx-native-underlying-bottom-nav-suppressed') &&
+        getComputedStyle(nestedDock).display === 'none' &&
+        nav?.classList.contains('ovyx-native-underlying-bottom-nav-suppressed') &&
         getComputedStyle(nav).display === 'none' && getComputedStyle(nav).visibility === 'hidden' &&
         (!document.getElementById('test-keyboard-floating-shell') || (
           document.getElementById('test-keyboard-floating-shell').classList.contains('ovyx-native-underlying-bottom-nav-suppressed') &&
