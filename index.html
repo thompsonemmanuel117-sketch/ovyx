@@ -18032,6 +18032,28 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
 })();
 </script>
 
+
+<style id="ovyx-assistant-dashboard-dock-isolation-v1">
+/* The mobile dashboard dock belongs to Home, never to the full-screen AI workspace. */
+html.ovx-ovyx-copilot-fullscreen #ovyx-v52-bottom-bar,
+body.ovx-ovyx-copilot-fullscreen #ovyx-v52-bottom-bar,
+body.ovx-ovyx-copilot-fullscreen #ovyx-v42-mobile-bottom,
+body.ovx-ovyx-copilot-fullscreen #ovyx-mobile-bottom-bar,
+body.ovx-ovyx-copilot-fullscreen .ovyx-mobile-bottom,
+body.ovx-ovyx-copilot-fullscreen .legacy-mobile-bottom-disabled,
+body.ovx-ovyx-copilot-fullscreen .bottom-nav,
+body.ovx-ovyx-copilot-fullscreen .mobile-nav,
+body.ovx-v58-assistant-open #ovyx-v52-bottom-bar,
+body.ovx-v58-assistant-open .ovyx-mobile-bottom,
+body.ovyx-native-composer-focus-mode #ovyx-v52-bottom-bar,
+body.ovyx-native-composer-focus-mode .ovyx-mobile-bottom,
+body.ovyx-native-composer-focus-mode .legacy-mobile-bottom-disabled {
+  display:none!important;
+  visibility:hidden!important;
+  opacity:0!important;
+  pointer-events:none!important;
+}
+</style>
 </body>
 </html>
 
