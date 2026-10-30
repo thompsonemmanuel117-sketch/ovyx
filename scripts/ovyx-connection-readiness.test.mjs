@@ -44,6 +44,14 @@ assert.doesNotMatch(ui, /MODEL \(AI BRAIN\)|Use as AI Brain|Use for Web Studio|U
 assert.match(ui, /const activeBrain=false;const canUseBrain=false;/);
 assert.match(ui, /action:'use-ai'/, 'The legacy selection listener may remain inert; server-side action is rejected.');
 assert.match(ui, /action:'test'/, 'Only the separate server gate can decide whether an old saved record may be checked.');
+assert.match(ui, /const legacyAiModel=String\(row\.type\|\|'\'\'\)\.toLowerCase\(\)==='ai'/,
+  'The active connection list must identify legacy AI model rows.');
+assert.match(ui, /legacyAiModel\?'<span class="ovyx-v91-status"[^']*AI model disabled/,
+  'Legacy AI model rows must not render a remote Test action in the active connections list.');
+assert.match(legacyUi, /const legacyAiModel=String\(row\.type\|\|'\'\'\)\.toLowerCase\(\)==='ai'/,
+  'The compatibility connection list must identify legacy AI model rows.');
+assert.match(legacyUi, /legacyAiModel\?'<span class="ovyx-deep-status">AI model disabled/,
+  'The compatibility renderer must suppress Test for legacy AI model rows.');
 const testActionStart = api.indexOf("if (action === 'test')");
 const aiProtocolGuard = api.indexOf('if (supportsAIProtocol(record.protocol))', testActionStart);
 const remoteCheckCall = api.indexOf('const result = await testUserConnection(', testActionStart);
