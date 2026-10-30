@@ -812,19 +812,15 @@
         payload = Object.assign({}, payload || {});
         const key = window.OVYXAIStorageKey ? window.OVYXAIStorageKey() : 'ovyx.ai.preferences.v1';
         const prefs = canonicalAIPreferences(Object.assign({}, safeJson(localStorage.getItem(key)), window.OVYXAI || {}));
-        const requestedProvider = String(payload.provider || '').trim().toLowerCase();
-        // Only a provider explicitly passed by the calling feature may choose a
-        // provider. Saved account preferences no longer silently pin requests to
-        // Gemini/Claude/OpenAI or a model-specific routing path.
-        const suppliedPreferred = String(payload.preferredProvider || '').trim().toLowerCase();
-        const explicitProvider = requestedProvider && !['automatic', 'auto'].includes(requestedProvider);
-        if (!explicitProvider) {
-          payload.provider = 'automatic';
-          if (!suppliedPreferred) delete payload.preferredProvider;
-          if (!payload.model || String(payload.model).toLowerCase() === 'automatic') payload.model = 'automatic';
-        }
-        if (!payload.providerRouting) payload.providerRouting = 'automatic';
-        if (!payload.fallback) payload.fallback = 'automatic';
+        // OVYX has exactly one supported inference engine. Strip caller-selected
+        // providers, preferred providers and model names even when an older feature
+        // or stored client still sends them. The server independently pins inference
+        // to Cloudflare Workers AI; fallback is fail-closed and never provider-based.
+        delete payload.provider;
+        delete payload.preferredProvider;
+        payload.model = 'automatic';
+        payload.providerRouting = 'automatic';
+        payload.fallback = 'stop';
         const instructions = [];
         if (prefs.mode === 'fast') instructions.push('Generation preference: prioritize concise, low-latency iterations.');
         if (prefs.mode === 'quality') instructions.push('Generation preference: prioritize thoroughness, completeness and careful validation.');
