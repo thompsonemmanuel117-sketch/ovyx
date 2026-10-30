@@ -17,6 +17,8 @@ import {
   runAgent,
 } from '../_lib/orchestrator.js';
 
+import { withCloudflareAIOnly, OVYX_CLOUDFLARE_ONLY_PROVIDER } from '../_lib/cloudflare-routing.js';
+
 import {
   getFirestoreDataAtPath,
 } from '../_lib/firebase-admin.js';
@@ -184,11 +186,7 @@ export async function onRequestPost(
 
         prompt,
 
-        requestedProvider:
-          String(
-            payload.provider ||
-              'automatic'
-          ).toLowerCase(),
+        requestedProvider: OVYX_CLOUDFLARE_ONLY_PROVIDER,
 
         model:
           payload.model ||
@@ -222,7 +220,7 @@ export async function onRequestPost(
             await runAgent(
               {
                 env:
-                  context.env,
+                  withCloudflareAIOnly(context.env),
 
                 user,
 
@@ -236,11 +234,7 @@ export async function onRequestPost(
 
                 jobId,
 
-                requestedProvider:
-                  String(
-                    payload.provider ||
-                      'automatic'
-                  ).toLowerCase(),
+                requestedProvider: OVYX_CLOUDFLARE_ONLY_PROVIDER,
 
                 model:
                   payload.model ||
