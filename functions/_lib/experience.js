@@ -32,20 +32,18 @@ export function isWebStudioPrompt(prompt, mode = '', context = {}) {
 
   // Preserve explicit existing-project edit routing independently of any
   // vertical classification.
-  const changeAction = /\\b(?:add|change|edit|update|fix|repair|improve|enhance|redesign|remove|delete|replace|refine|polish|optimi[sz]e|adjust|modify|implement|restyle|make|move|rearrange|resize|shrink|enlarge|increase|decrease|align|reposition)\\b/i.test(q);
-  const existingWebArtifact = /\\b(?:my|this|the|current|existing|selected|active|a|an|that|those|these)\\s+(?:(?:[\\w-]+\\s+){0,2})(?:website|web site|site|web page|page|homepage|landing page|web app|app|project|layout|design|header|footer|hero|headline|heading|title|text|copy|navigation|nav|menu|button|form|section|component|card|grid|modal|dialog|tab|dropdown|sidebar|style|styling|stylesheet|css|html|script|link|image|font|typeface|typography|font size|colour|color|colours|colors|background|contrast|spacing|margin|padding|border|shadow|gradient|icon|logo|animation|transition|responsiveness|responsive|mobile|desktop|tablet|accessibility|seo|content|interaction|feature|control)\\b/i.test(q);
+  const changeAction = /\b(?:add|change|edit|update|fix|repair|improve|enhance|redesign|remove|delete|replace|refine|polish|optimi[sz]e|adjust|modify|implement|restyle|make|move|rearrange|resize|shrink|enlarge|increase|decrease|align|reposition)\b/i.test(q);
+  const existingWebArtifact = /\b(?:my|this|the|current|existing|selected|active|a|an|that|those|these)\s+(?:(?:[\w-]+\s+){0,2})(?:website|web site|site|web page|page|homepage|landing page|web app|app|project|layout|design|header|footer|hero|headline|heading|title|text|copy|navigation|nav|menu|button|form|section|component|card|grid|modal|dialog|tab|dropdown|sidebar|style|styling|stylesheet|css|html|script|link|image|font|typeface|typography|font size|colour|color|colours|colors|background|contrast|spacing|margin|padding|border|shadow|gradient|icon|logo|animation|transition|responsiveness|responsive|mobile|desktop|tablet|accessibility|seo|content|interaction|feature|control)\b/i.test(q);
   if (changeAction && existingWebArtifact) return true;
 
-  const explicitBuildAction = /\\b(?:build|create|design|make|generate|develop|launch|craft|produce|turn|transform)\\b/i.test(q);
-  const naturalLanguageBuildRequest = /\\b(?:i|we)\\s+(?:want|need|would like|would love)\\s+(?:to\\s+(?:build|create|design|make|develop)\\s+)?(?:a|an|the|my|some kind of|something like)\\s*(?:website|site|web app|application|app|platform|portal|marketplace|online community|community|network|workspace|member area|customer portal|client portal|management system|booking system|interactive experience|digital product|web tool|tool|software product|creator platform|service platform|collaboration space|learning environment|resource hub)\\b/i.test(q);
+  const explicitBuildAction = /\b(?:build|create|design|make|generate|develop|launch|craft|produce|turn|transform)\b/i.test(q);
+  const naturalLanguageBuildRequest = /\b(?:i|we)\s+(?:want|need|would like|would love)\s+(?:to\s+(?:build|create|design|make|develop)\s+)?(?:a|an|the|my|some kind of|something like)\s*(?:website|site|web app|application|app|platform|portal|marketplace|online community|community|network|workspace|member area|customer portal|client portal|management system|booking system|interactive experience|digital product|web tool|tool|software product|creator platform|service platform|collaboration space|learning environment|resource hub)\b/i.test(q);
   if (!explicitBuildAction && !naturalLanguageBuildRequest) return false;
 
   // This is an intent detector, not an industry classifier. Any stated digital
   // surface or software experience is valid; unfamiliar concepts are not rejected.
-  const customDigitalProductIntent = /\\b(?:website|web site|site|web page|landing page|homepage|web app|application|app|platform|portal|marketplace|online store|online shop|storefront|shop|community|network|workspace|member area|customer portal|client portal|management system|booking system|interactive experience|experience|digital product|web tool|tool|software product|online community|creator platform|service platform|collaboration space|learning environment|resource hub|dashboard|admin panel|control centre|control center)\\b/i.test(q);
-  return customDigitalProductIntent;
+  return /\b(?:website|web site|site|web page|landing page|homepage|web app|application|app|platform|portal|marketplace|online store|online shop|storefront|shop|community|network|workspace|member area|customer portal|client portal|management system|booking system|interactive experience|experience|digital product|web tool|tool|software product|online community|creator platform|service platform|collaboration space|learning environment|resource hub|dashboard|admin panel|control centre|control center)\b/i.test(q);
 }
-
 /** Legacy-compatible name; OVYX no longer assigns projects to industry buckets. */
 export function detectArchetype(_prompt) {
   return 'adaptive';
@@ -274,57 +272,124 @@ function journeyForOutcome(outcome) {
 }
 
 export function buildExperienceBrief(prompt, context = {}) {
-  const archetypeId = detectArchetype(prompt);
-  const source = ARCHETYPES.find(item => item.id === archetypeId) || genericBlueprint();
+  const archetypeId = 'adaptive';
+  const source = genericBlueprint();
   const brand = context?.brandProfile || null;
-  const audience = firstNonEmpty(context?.audience, context?.targetAudience, profileValue(brand, 'targetAudience', 'audience')) || 'infer the primary visitor from the prompt without inventing unsupported facts';
+  const audience = firstNonEmpty(
+    context?.audience,
+    context?.targetAudience,
+    profileValue(brand, 'targetAudience', 'audience')
+  ) || 'infer the intended user from the brief; do not invent demographic or market facts';
   const brandPersonality = inferBrandPersonality(prompt, context, brand);
   const pricePositioning = inferPricePositioning(prompt, context, brand);
   const primaryOutcome = inferPrimaryOutcome(prompt, archetypeId, context, brand);
+  const briefText = clean(prompt);
+  const workflowRequirements = [];
+  const addWhen = (pattern, requirement) => {
+    if (pattern.test(briefText)) workflowRequirements.push(requirement);
+  };
+
+  // These are workflow capabilities, not website-industry categories. Add them
+  // only where the actual request signals that the workflow is needed.
+  addWhen(/\b(?:book(?:ing)?|reserve|reservation|appointment|availability|schedule|calendar|time slot)\b/i,
+    'When scheduling is requested, represent real availability, validation, review, confirmation and failure states; never fake a confirmed booking.');
+  addWhen(/\b(?:cart|checkout|purchase|buy|sell|payment|order|product variant)\b/i,
+    'When commerce is requested, keep products, variants, totals, terms, cart edits and checkout boundaries explicit and testable.');
+  addWhen(/\b(?:form|enquiry|inquiry|application|submit|contact|newsletter|subscribe)\b/i,
+    'When information submission is requested, validate inputs, protect user consent, disclose where data goes and show honest submission status.');
+  addWhen(/\b(?:sign ?in|log ?in|authentication|account|member|permission|role|invite)\b/i,
+    'When identity or access is requested, model authentication, ownership, role permissions, session states and recovery without pretending a provider is connected.');
+  addWhen(/\b(?:search|filter|sort|compare|browse|discover)\b/i,
+    'When discovery is requested, provide relevant search/filter/sort controls, useful result states and clear ways to recover or refine a query.');
+  addWhen(/\b(?:upload|file|document|media library|asset library|attachment)\b/i,
+    'When files or media are requested, include truthful upload, progress, preview, validation, storage and error states; never claim remote persistence without a configured service.');
+  addWhen(/\b(?:chat|message|notification|comment|collaborat|share|invite)\b/i,
+    'When collaboration is requested, make message ownership, recipients, unread/read states, permissions and delivery status explicit.');
+  addWhen(/\b(?:report|analytics|metric|chart|dashboard|activity log|audit log)\b/i,
+    'When reporting is requested, state metric definitions, dates, units and empty/loading/error states; do not invent data.');
+  
+  const mustHave = [
+    ...source.mustHave,
+    'a project-specific route and screen plan that follows the exact pages, tasks, content and constraints in the brief',
+    'the actual data concepts, relationships, ownership and state transitions required by the requested workflow',
+    'a complete primary user journey with appropriate validation, empty, loading, success and failure states',
+    ...workflowRequirements,
+  ];
+  const delighters = [
+    ...source.delighters,
+    'a useful shortcut, contextual action or progressive disclosure pattern based on the real task',
+    'a polished state transition that gives clear feedback without slowing the user down',
+  ];
+  const customerJourney = journeyForOutcome(primaryOutcome.value);
+  const architecture = {
+    sections: [
+      'An entry point that explains or exposes the project’s actual purpose and primary task; do not assume a marketing hero is needed',
+      'The exact core views, routes or screens implied by the requested content and workflows',
+      'A clear navigation and information hierarchy that reflects how the intended users move through this specific experience',
+      'The relevant data, records, details or tools needed to complete the primary workflow',
+      'Contextual validation, empty, loading, success, failure and recovery states wherever the interactions require them',
+      'Account, help, trust, policy or settings surfaces only when they serve a stated requirement or necessary user need',
+    ],
+    interactionConcepts: [
+      'a complete and testable primary workflow derived from the brief, with no dead-end controls',
+      'clear feedback, undo/recovery and preserved context for meaningful user actions',
+      ...workflowRequirements,
+    ],
+    motionChoreography: [
+      source.motion + '; motion must support the task rather than define the page',
+      'use state-aware transitions for navigation, feedback and progressive disclosure',
+      'respect prefers-reduced-motion and keep every control usable without animation',
+    ],
+    visualAvoid: [
+      'no industry-specific preset, mandatory page list or vertical-specific layout is applied',
+      'do not force a generic hero, repeated card grid, pricing table, testimonial strip or sales funnel onto a product that does not need it',
+      'do not invent business facts, data, people, prices, credentials, stock, customer logos or integrations',
+    ],
+  };
 
   return {
     archetype: archetypeId,
-    mission: source.mission,
+    mission: 'Create the most useful, coherent and distinctive digital experience for the exact purpose described by the user. Derive the structure from its audience, content, data, workflows and constraints rather than classifying it into an industry.',
     audience,
     experiencePrinciples: [
-      'build the whole user journey, not only the hero',
-      'make important actions obvious within one or two interaction steps',
-      'use a strong visual system instead of random decorative effects',
+      'treat the supplied brief as the source of truth; do not classify the project into a fixed website-industry list',
+      'design the whole journey and all necessary states, not only an opening screen',
+      'make the primary action and navigation obvious without adding unnecessary interface elements',
+      'derive information architecture and visual direction from the actual content, audience and task',
       'make desktop, tablet and mobile feel intentionally designed',
-      'use motion to communicate hierarchy and state',
+      'use motion only to communicate hierarchy, state or feedback',
       'prefer progressive disclosure over visual clutter',
-      'never invent business facts, prices, reviews, credentials, schedules or statistics'
+      'never invent business facts, prices, reviews, credentials, schedules, people or statistics',
     ],
     conversionPrinciples: [
-      'derive one primary business or user outcome from the brief; for task-focused apps optimize task completion rather than forcing sales patterns',
-      'communicate a clear, specific value proposition and audience-relevant benefits early',
-      'create one primary action with useful secondary paths and accurate action labels',
-      'remove avoidable steps, fields, ambiguity, and mobile interaction friction while preserving user choice',
-      'resolve relevant decision objections with supplied facts, clear policies, and useful product or service details',
-      'place authentic proof and trust information near the decisions they support; never invent testimonials, metrics, credentials, inventory, guarantees, or claims',
-      'keep commerce totals, terms, variants, cart changes, and checkout state transparent',
-      'make forms accessible, minimal, easy to recover from, and honest about what submission does',
-      'use ethical persuasion only; no fake scarcity, hidden fees, deceptive consent, confirm-shaming, or false urgency',
-      'do not promise a conversion lift; treat design as one contributor and use real, privacy-respecting measurement only when supported'
+      'derive the primary outcome from the requested user or business goal; do not assume every experience is a sales funnel',
+      'make the next useful action clear and accurately labelled',
+      'remove unnecessary steps, fields, ambiguity and mobile interaction friction while preserving user choice',
+      'surface only the information needed to make the next decision',
+      'keep any explicitly requested commerce, booking, account or submission states transparent and accurate',
+      'make forms accessible, minimal, recoverable and honest about what submission does',
+      'use ethical persuasion only; no fake scarcity, hidden fees, deceptive consent, confirm-shaming or false urgency',
+      'do not promise a conversion lift; use real, privacy-respecting measurement only when supported',
     ],
     conversionAudit: [
-      'A new visitor can understand the offer or product purpose and intended audience within seconds.',
-      'The primary action is visually obvious, accurately labelled, functional, and reachable on mobile and by keyboard.',
-      'The path to the primary goal avoids unnecessary steps without hiding important terms or choices.',
-      'Important objections and trust questions are answered with grounded facts rather than invented proof.',
-      'Forms, cart, booking, signup, and confirmation states represent actual behavior honestly.',
-      'The design does not rely on dark patterns, fake reviews, pressure tactics, or unsupported results.'
+      'Can the intended user understand the purpose of this experience and the next useful action?',
+      'Does the information architecture reflect the exact needs and terminology in the source brief?',
+      'Are primary actions obvious, accurately labelled, functional and reachable by keyboard and on mobile?',
+      'Are important data, decisions and claims grounded in supplied facts or labelled assumptions?',
+      'Do interactive workflows distinguish local/demo behavior from real connected services?',
+      'Are validation, empty, loading, success, failure and recovery states honest and understandable?',
+      'Does the design avoid dark patterns, fabricated social proof and irrelevant marketing sections?',
     ],
-    mustHave: source.mustHave,
-    delighters: source.delighters,
+    mustHave,
+    delighters,
     motion: source.motion,
     marketContext: buildMarketContext(prompt, context),
-    visualAssetPlan: buildVisualAssetPlan(prompt, context, archetypeId),
+    visualAssetPlan: buildVisualAssetPlan(prompt, context),
     signatureMoments: [
-      'one memorable above-the-fold composition',
-      'one interactive or motion-led storytelling moment',
-      'one high-confidence conversion moment',
-      'one mobile-specific convenience improvement'
+      'one memorable interaction or reveal that belongs to the project’s actual purpose, not automatically a hero animation',
+      'one high-confidence moment in the primary workflow, supported by accurate state and feedback',
+      'one context-aware detail that makes the main task faster or clearer',
+      'one mobile-specific convenience improvement based on the expected use of the interface',
     ],
     qualityGates: [
       'semantic and accessible markup',
@@ -338,65 +403,48 @@ export function buildExperienceBrief(prompt, context = {}) {
       'business-specific workflows use real logic or a connected integration, with demo-only boundaries clearly disclosed',
       'the primary journey is checked across relevant validation, empty, loading, success and error states',
       'routes, anchors, form labels, dialog keyboard behavior and visible state announcements are checked where relevant',
-      'mobile, tablet and desktop layouts are reviewed for overflow, clipping and obstructed primary actions'
+      'mobile, tablet and desktop layouts are reviewed for overflow, clipping and obstructed primary actions',
     ],
     contentRules: [
       'use supplied facts verbatim when they are provided',
       'when a fact is missing, build a finished structure without inventing the fact',
-      'write specific copy appropriate to the requested organization/product rather than generic filler'
+      'write specific copy using the terminology, purpose and audience actually described by the user',
+      'do not add industry clichés, unrequested sections or unsupported claims',
     ],
     brandDirection: brand
       ? 'Use the supplied brand profile as the visual authority.'
-      : 'Infer a restrained, coherent visual direction from the request and avoid generic AI-template styling.',
+      : 'Derive a distinctive visual direction from the project’s purpose, audience, content and explicit preferences; treat inferred brand traits as hypotheses, not facts.',
     designIntelligence: {
-      industryOrUseCase: archetypeId === 'generic'
-        ? 'User-defined concept; derive the structure from the original brief instead of forcing a predefined template'
-        : archetypeId,
+      industryOrUseCase: 'Not classified into an industry; derive the project intent directly from the user’s brief.',
+      projectIntent: {
+        value: briefText.slice(0, 800),
+        basis: 'original user brief; no industry classification applied',
+      },
       targetAudience: audience,
       brandPersonality,
       pricePositioning,
       primaryOutcome,
       decisionQuestions: decisionQuestionsForOutcome(primaryOutcome.value),
-      customerJourney: journeyForOutcome(primaryOutcome.value),
+      customerJourney,
+      adaptiveWorkflowRequirements: workflowRequirements,
       visualDirectionRule: brand
         ? 'Respect the supplied brand profile, existing brand assets and stated constraints; refine them rather than overwriting them.'
-        : 'Derive a distinctive visual system from the requested industry, audience, intended emotion and explicit positioning. Treat inferred personality as a design hypothesis, not an established brand fact.',
-      pricingTruthRule: 'Use explicit prices and supplied price positioning exactly. If price positioning is unspecified, do not invent product prices, discounts, package tiers or scarcity; keep any visual inference provisional.'
+        : 'Derive the visual system from the actual project purpose, audience, intended emotion and explicit positioning. Do not use industry-based presets.',
+      pricingTruthRule: 'Use explicit prices and supplied price positioning exactly. If pricing is unspecified, do not invent prices, discounts, package tiers or scarcity.',
     },
-    blueprintRole: 'advisory-only; never a required category, allowlist, or template',
-    customizationMode: archetypeId === 'generic' ? 'open-ended-custom-concept' : 'domain-guided-custom-concept',
+    blueprintRole: 'universal-adaptive; no industry classification, allowlist or required template',
+    customizationMode: 'universal-adaptive',
     customizationContract: [
-      'The original user request is the source of truth; this blueprint is advisory guidance only.',
-      'Predefined industry archetypes are optional hints, never a list of supported or permitted categories.',
-      'For an unfamiliar or unmatched idea, derive the audience, information architecture, routes, data concepts, key workflows, visual direction and interaction states from the user’s own description.',
-      'Do not force marketing sections such as pricing, testimonials, FAQs or conversion banners onto a task-focused application unless they serve the stated goal.',
-      'For a recognized archetype, adapt selectively to the requested brand, audience, differentiators, features and constraints instead of copying a preset.'
+      'The original user request is the source of truth; no fixed industry category selects the experience.',
+      'Every website, application, portal, dashboard, store, community, tool or unfamiliar concept is interpreted individually from its own brief.',
+      'Derive audience, information architecture, routes, data concepts, key workflows, visual direction and interaction states from the supplied description and project context.',
+      'Do not force marketing sections such as pricing, testimonials, FAQs or conversion banners onto a task-focused product unless they directly serve its stated goal.',
+      'Preserve explicit requirements, pages, exclusions, brand constraints and user terminology; ask for missing critical facts rather than inventing them.',
     ],
-    architecture: EXPERIENCE_ARCHITECTURES[archetypeId] || {
-      sections: [
-        'entry point shaped around the user’s primary goal',
-        'the core interface or workflow explicitly requested',
-        'navigation between the product’s actual tasks or content areas',
-        'supporting information, tools or records that the workflow requires',
-        'loading, empty, validation, success and error states where relevant',
-        'help, settings or next steps only when they serve this concept'
-      ],
-      interactionConcepts: [
-        'a meaningful, testable interaction derived directly from the user’s described workflow',
-        'clear feedback for the important actions and state changes in this specific product'
-      ],
-      motionChoreography: [
-        'purposeful transitions that clarify task or navigation changes',
-        'state-driven micro-interactions with reduced-motion support'
-      ],
-      visualAvoid: [
-        'forcing a generic marketing landing page, repeated card grid or irrelevant conversion sections onto a different kind of product'
-      ]
-    },
-    antiTemplateRules: GLOBAL_ANTI_TEMPLATE_RULES
+    architecture,
+    antiTemplateRules: GLOBAL_ANTI_TEMPLATE_RULES,
   };
 }
-
 export function scoreWebStudioChanges(changes = []) {
   const content = changes
     .filter(item => item.action !== 'delete')
