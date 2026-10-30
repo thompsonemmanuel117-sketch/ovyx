@@ -41,7 +41,12 @@ assert.doesNotMatch(ui, /<option value="ai">AI Brain<\/option>/);
 const v91FormMarkup = ui.slice(0, ui.indexOf('  const connType='));
 assert.doesNotMatch(v91FormMarkup, /openai-chat|anthropic-messages|gemini-generate-content/);
 assert.doesNotMatch(ui, /MODEL \(AI BRAIN\)|Use as AI Brain|Use for Web Studio|Use for AI requests/);
-assert.match(ui, /const activeBrain=false;const canUseBrain=false;/);
+const v91RowsStart = ui.indexOf('if(list)list.innerHTML=');
+const v91RowsEnd = ui.indexOf("list?.querySelectorAll('[data-v91-test]')", v91RowsStart);
+assert.ok(v91RowsStart >= 0 && v91RowsEnd > v91RowsStart, 'The active saved-connection renderer must remain bounded.');
+const v91Rows = ui.slice(v91RowsStart, v91RowsEnd);
+assert.match(v91Rows, /legacyAiModel/, 'The active renderer must classify legacy AI rows.');
+assert.doesNotMatch(v91Rows, /data-v91-use-brain/, 'Legacy AI rows must not render an AI Brain selection action.');
 assert.match(ui, /action:'use-ai'/, 'The legacy selection listener may remain inert; server-side action is rejected.');
 assert.match(ui, /action:'test'/, 'Only the separate server gate can decide whether an old saved record may be checked.');
 assert.match(ui, /const legacyAiModel=String\(row\.type\|\|''\)\.toLowerCase\(\)==='ai'/,
