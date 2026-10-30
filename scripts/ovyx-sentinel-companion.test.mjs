@@ -137,7 +137,7 @@ try {
 
   {
     const secret = 'sk-test-NEVER-ECHO-this-private-string';
-    const response = await onRequest(makeContext('POST', {
+    const context = makeContext('POST', {
       token: rootToken,
       body: {
         action: 'chat',
@@ -154,7 +154,8 @@ try {
           checks: [{ path: 'Cloudflare Workers AI', status: 'fail', code: 'CLOUDFLARE_AI_UNAVAILABLE', summary: 'Cloudflare AI is temporarily unavailable.' }],
         },
       },
-    }), {
+    });
+    context.__ovyxTestDependencies = {
       // Mock the shared model boundary so this unit test never reads the
       // protected daily neuron ledger or spends real Cloudflare inference.
       callModel: async (_env, options) => {
@@ -169,7 +170,8 @@ try {
           routedProvider: 'cloudflare-workers-ai',
         };
       },
-    });
+    };
+    const response = await onRequest(context);
     const body = await response.json();
     assert.equal(response.status, 200, JSON.stringify({ body, modelCalls: aiCalls.length }));
     assert.equal(body.ok, true);
