@@ -15843,7 +15843,7 @@ window.__OVYX_V88_MOBILE_SHELL_AUTHORITY__=true;
 const $=id=>document.getElementById(id);
 const root=()=>$('view-router-viewport');
 const clean=v=>String(v||'home').replace(/^view-/,'').toLowerCase().trim()||'home';
-const route=()=>{const r=root();const shown=r?.querySelector(':scope>section[aria-hidden="false"]')||r?.querySelector(':scope>section:not(.hidden)');return clean(shown?.id||window.KernelState?.activeView||'home')};
+const route=()=>{const r=root();if(!r)return '__route-unavailable__';const visibleSections=Array.from(r.children||[]).filter(section=>{if(section?.tagName!=='SECTION'||section.hidden||section.classList.contains('hidden'))return false;const style=getComputedStyle(section);return style.display!=='none'&&style.visibility!=='hidden'});if(visibleSections.length!==1)return '__route-ambiguous__';const visibleRoute=clean(visibleSections[0].id);const rawState=window.KernelState?.activeView;const state=rawState==null||String(rawState).trim()===''?'':clean(rawState);return state&&state!==visibleRoute?'__route-mismatch__':visibleRoute};
 const visible=e=>{if(!e)return false;const c=getComputedStyle(e);return !e.hidden&&c.display!=='none'&&c.visibility!=='hidden'&&c.opacity!=='0'&&!e.classList.contains('hidden')};
 const overlayOpen=()=>!!document.querySelector('body .fixed[role="dialog"][aria-modal="true"]:not(.hidden),body .fixed.v55-preview-modal.open,body #kernel-brain-bot-panel:not(.hidden),body #checkout-elements-modal:not(.hidden),body #cmd-palette-modal:not(.hidden),body #ovyx-owner-console:not(.hidden)');
 const drawerOpen=()=>{const d=$('mobile-drawer'),b=$('mobile-drawer-backdrop');return !!(document.body.classList.contains('ovyx-drawer-open')||document.body.classList.contains('ovyx-mobile-drawer-open')||d?.classList.contains('open')||d?.classList.contains('is-open')||d?.getAttribute('aria-hidden')==='false'||visible(b));};
@@ -15884,7 +15884,22 @@ function openDrawer(){
   document.documentElement.style.overflow='hidden';document.body.style.overflow='hidden';
   sync();
 }
+function watchRouteSections(){
+  const r=root();if(!r||r.dataset.ovyxV88RouteObserver==='1'||typeof MutationObserver!=='function')return;
+  r.dataset.ovyxV88RouteObserver='1';
+  const observer=new MutationObserver(records=>{
+    const changed=records.some(record=>{
+      if(record.type==='childList')return record.target===r;
+      const target=record.target;
+      return !!target&&target.parentElement===r&&target.tagName==='SECTION';
+    });
+    if(changed)sync();
+  });
+  observer.observe(r,{subtree:true,childList:true,attributes:true,attributeFilter:['class','hidden','style','aria-hidden']});
+  window.__OVYX_V88_ROUTE_OBSERVER__=observer;
+}
 function bind(){
+  watchRouteSections();
   const api=window.OVYXMobileDockAuthority||{};
   api.open=openDrawer;api.close=closeDrawer;api.sync=sync;window.OVYXMobileDockAuthority=api;
   const more=$('ovyx-v52-bottom-bar')?.querySelector('[data-v52-bottom="more"]');
