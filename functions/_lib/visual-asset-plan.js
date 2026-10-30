@@ -20,7 +20,7 @@ export function buildVisualAssetPlan(prompt = '', context = {}) {
     if (pattern.test(brief)) requestedKinds.push(value);
   };
 
-  addWhen(/\b(?:photography|photographs|photos|images|image-led|gallery|picture gallery|visual portfolio|lookbook)\b/i,
+  addWhen(/\b(?:photography|photographs?|photos?|images?|image-led|galler(?:y|ies)|picture\s+galler(?:y|ies)|visual\s+portfolio|lookbooks?)\b/i,
     'A coherent set of images or photography that matches the actual subject, visual tone and requested content.');
   addWhen(/\b(?:product|catalogue|catalog|inventory|variants|item detail)\b/i,
     'Consistent item imagery and detail views only for items that genuinely need visual inspection.');
@@ -43,7 +43,7 @@ export function buildVisualAssetPlan(prompt = '', context = {}) {
   }
 
   const imageHeavy = requestedKinds.length > 1 ||
-    /\b(?:image-led|gallery|photo gallery|lookbook|visual portfolio|photography|photographs|photos|video)\b/i.test(brief) ||
+    /\b(?:image-led|galler(?:y|ies)|photo\s+galler(?:y|ies)|lookbooks?|visual\s+portfolios?|photography|photographs?|photos?|videos?)\b/i.test(brief) ||
     suppliedAssets.some(asset => /\.(?:png|jpe?g|webp|avif|gif|svg|mp4|webm)(?:[?#].*)?$/i.test(asset));
   return {
     artDirection: 'Choose a distinctive art direction from the actual purpose, audience, content and brand; do not reuse a generic hero, card grid, gradient or image style across unrelated projects.',
