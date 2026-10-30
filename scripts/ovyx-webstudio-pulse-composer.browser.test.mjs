@@ -42,6 +42,10 @@ try {
     assert.equal(await pulse.isVisible(), true, '[' + target.name + '] pulse button should be visible.');
     assert.equal(await mic.isVisible(), true, '[' + target.name + '] microphone should be visible.');
     assert.equal(await send.isVisible(), true, '[' + target.name + '] send arrow should be visible.');
+    assert.equal(await page.locator('#ws-brain-label').innerText(), 'Cloudflare',
+      '[' + target.name + '] the composer must not advertise a selectable external AI Brain.');
+    assert.match(await page.locator('#ws-brain-btn').getAttribute('title') || '', /Cloudflare Workers AI only/,
+      '[' + target.name + '] Agent Settings must identify the exclusive platform model engine.');
     assert.match(await pulse.locator('i').getAttribute('class') || '', /fa-plus/, '[' + target.name + '] Pulse must use a separate plus icon.');
     const pulseBox = await pulse.boundingBox();
     const micBox = await mic.boundingBox();
