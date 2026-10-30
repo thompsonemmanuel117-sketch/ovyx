@@ -680,7 +680,7 @@
 <div class="ovyx-ws-tools-left">
 <button class="ovyx-ws-tool" id="ws-attach-btn" title="Attach files" type="button"><i class="fa-solid fa-paperclip"></i><span>Attach</span></button>
 <input hidden="" id="ws-attach-input" multiple="" type="file"/>
-<button class="ovyx-ws-tool" id="ws-brain-btn" title="Choose OVYX brain" type="button"><i aria-hidden="true" class="fa-solid fa-gear"></i><span id="ws-brain-label">Auto</span></button>
+<button class="ovyx-ws-tool" id="ws-brain-btn" title="OVYX AI settings · Cloudflare Workers AI only" type="button" aria-label="OVYX AI settings · Cloudflare Workers AI only"><i aria-hidden="true" class="fa-solid fa-gear"></i><span id="ws-brain-label">Cloudflare</span></button>
 <button class="ovyx-ws-tool" id="ws-context-btn" title="Project context" type="button"><i aria-hidden="true" class="fa-solid fa-code-branch"></i><span>Project</span></button>
 </div>
 <button aria-label="Send prompt" class="ovyx-ws-send" disabled="" id="ws-chat-send" type="button">↑</button>
@@ -2661,7 +2661,7 @@
           this.setAttachments(files, { append: true });
         });
         document.getElementById('ws-brain-btn')?.addEventListener('click', () => {
-          const order = ['automatic','gemini','deepseek','anthropic','openai']; const i = order.indexOf(this.brain); this.brain = order[(i + 1) % order.length]; try{persistStateNow('brain-cycle')}catch(_){} const label = this.brain === 'automatic' ? 'Auto' : this.brain; const el = document.getElementById('ws-brain-label'); if (el) el.textContent = label[0].toUpperCase()+label.slice(1);
+          this.brain='automatic';try{persistStateNow('cloudflare-only-engine')}catch(_){}const el=document.getElementById('ws-brain-label');if(el)el.textContent='Cloudflare';
         });
         document.getElementById('ws-context-btn')?.addEventListener('click', () => { this.ensureProjectGraph(); this.appendMessage('agent', `Workspace details loaded: ${this.graphFileCount()} files across ${this.pageCount()} page(s).`); });
       },
