@@ -58,7 +58,7 @@ assert.match(chatClient, /recordAssistantPlan\(result\.plan\)/);
 // It must not resolve saved account AI Brain connections or accept a client model.
 assert.match(nativeAI, /withCloudflareAIOnly\(env\)/);
 assert.match(nativeAI, /runCloudflareFreeInference/);
-assert.match(nativeAI, /cloudflareInference: runCloudflareFreeInference/);
+assert.match(nativeAI, /cloudflareInference\s*=\s*runCloudflareFreeInference/);
 assert.match(nativeAI, /model: selectedModel/);
 assert.match(nativeAI, /routedProvider: 'cloudflare-workers-ai'/);
 assert.match(nativeAI, /personalConnectionUsed: false/);
