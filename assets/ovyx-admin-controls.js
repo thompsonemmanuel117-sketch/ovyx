@@ -850,17 +850,15 @@
     card('Website service', health.ok ? 'Available' : 'Unavailable', health.ok ? 'Availability check completed in ' + health.duration + ' ms.' : 'The website service could not be reached.', health.ok ? '#86efac' : '#fca5a5');
     card('Account access', auth.ok ? 'Available' : 'Unavailable', auth.ok ? 'Owner access check completed in ' + auth.duration + ' ms.' : auth.error || 'Account access could not be verified.', auth.ok ? '#86efac' : '#fca5a5');
     if (ai.ok) {
-      const providers = (Array.isArray(ai.data.providers) ? ai.data.providers : []).concat(Array.isArray(ai.data.additionalProviders) ? ai.data.additionalProviders : []);
-      providers.forEach(item => {
-        const ready = item.connected === true;
-        const configured = item.configured === true;
-        card(String(item.label || item.provider || item.name || 'AI option'),
-          ready ? 'Ready' : (configured ? 'Check failed' : 'Setup required'),
-          'Availability check completed in ' + ai.duration + ' ms. ' + (ready ? 'Ready to handle AI requests.' : configured ? 'This option needs attention.' : 'Setup is required before use.'),
-          ready ? '#86efac' : (configured ? '#fcd34d' : '#fca5a5'));
-      });
-      card('Native AI service', ai.data.cloudflare?.workersAiBinding ? 'Setup detected' : 'Setup required',
-        'Setup status only; this check does not run an AI request.', ai.data.cloudflare?.workersAiBinding ? '#fcd34d' : '#fca5a5');
+      const engine = (Array.isArray(ai.data.providers) ? ai.data.providers : [])
+        .find(item => item.provider === OVYX_MODEL_PROVIDER.id);
+      const ready = engine?.connected === true && ai.data.cloudflare?.workersAiBinding === true;
+      card(OVYX_MODEL_PROVIDER.label,
+        ready ? 'Ready' : 'Setup required',
+        ready
+          ? 'Cloudflare Workers AI binding is present. This status check does not run an inference request.'
+          : 'Configure the Cloudflare Pages Workers AI binding named AI. No external provider will be used.',
+        ready ? '#86efac' : '#fca5a5');
     } else {
       card('AI service status', 'Unavailable', ai.error || ('The AI availability check could not be completed.'), '#fca5a5');
     }
