@@ -428,7 +428,11 @@ try {
       '[' + target.name + '] the Stop control must not open a browser dialog or auth prompt.');
     assert.equal(stopNavigationCount, initialStopNavigationCount,
       '[' + target.name + '] the Stop control must not navigate or reload the page.');
-    await page.waitForFunction(() => document.getElementById('ws-chat-send')?.getAttribute('aria-label') === 'Send prompt');
+    await page.waitForFunction(() => document.getElementById('ws-chat-send')?.getAttribute('aria-label') === 'Send prompt').catch(async error => {
+      const state = await page.evaluate(() => window.OVYXComposerDiagnostics?.() || null);
+      console.error('[' + target.name + '] voice transcription Stop diagnostic: ' + JSON.stringify(state));
+      throw error;
+    });
     await page.waitForFunction(() => (document.querySelector('[data-ws-voice-status]')?.textContent || '').includes('Transcription cancelled'));
     assert.doesNotMatch(await page.locator('#ws-agent-thread').innerText(), /This transcript should be cancelled/,
       '[' + target.name + '] stopping transcription must not submit a late transcript.');
