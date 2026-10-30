@@ -3872,11 +3872,7 @@
   };
   window.OVYXAutoBrain=AutoBrain;
   /* ---------------- SECURE AI ASSISTANT CLIENT ---------------- */
-  function normalizeProvider(value){
-    const v=String(value||'').trim().toLowerCase();
-    if(v==='anthropic'||v==='claude')return 'claude';
-    if(v.startsWith('connection:') && v.length>11)return v;
-    if(PROVIDERS.includes(v))return v;
+  function normalizeProvider(_value){
     return 'automatic';
   }
   async function secureGenerate(payload={},options={}){
@@ -11440,32 +11436,26 @@ window.addEventListener('pageshow',()=>setTimeout(install,0),{passive:true});
   runBuild.__ovyxFinal=true;
   window.runBuild=runBuild;
   function patchAIBrain(){
-    const A=window.OVYXAIService;if(!A||A.__ovyxFinalRouting)return;
-    const base=A.generate?.bind(A);if(!base)return;
+    const A=window.OVYXAIService;
+    if(!A||A.__ovyxFinalRouting)return;
+    const base=A.generate?.bind(A);
+    if(!base)return;
     A.generate=async function(payload={},options={}){
-      const requested=String(payload.provider||payload.requestedProvider||'automatic').trim().toLowerCase()||'automatic';
-      const normalized=requested==='claude'?'anthropic':requested;
-      /* Automatic may use the server's configured order. An explicit provider must never jump to another provider. */
-      if(requested==='automatic'||requested.startsWith('connection:')){
-        const r=await base({...payload,provider:requested,requestedProvider:requested},options);
-        return {...(r||{}),requestedProvider:requested,routedProvider:r?.provider||requested,failoverUsed:false};
-      }
       if(options?.signal?.aborted)throw Object.assign(new Error('OVYX AI request cancelled.'),{name:'AbortError'});
-      try{
-        const r=await base({...payload,provider:normalized,requestedProvider:requested,failoverAttempt:false},options);
-        if(r?.ok===false)throw Object.assign(new Error(r.error||r.message||'The AI response could not be completed. Please try again.'),{code:r.code||'AI_SERVICE_REQUEST_FAILED',status:r.status||503});
-        return {...(r||{}),requestedProvider:requested,routedProvider:r?.provider||normalized,failoverUsed:false};
-      }catch(e){
-        if(options?.signal?.aborted||e?.name==='AbortError')throw e;
-        const code=String(e?.code||'').toUpperCase(),message=String(e?.message||e||'');
-        if(code.includes('QUOTA')||code.includes('RATION')||/quota|token allocation|insufficient tokens|token balance/i.test(message))throw e;
-        if(code.startsWith('UNIVERSAL_CONNECTION')||/selected AI Brain|Universal Connection/i.test(message))throw e;
-        const labels={gemini:'Gemini',deepseek:'DeepSeek',anthropic:'Claude',openai:'OpenAI',groq:'Groq','cloudflare-workers-ai':'Native AI service'};
-        const label=labels[normalized]||normalized.replace(/[-_]+/g,' ').replace(/^./,c=>c.toUpperCase())+' AI';
-        const friendly=new Error('OVYX could not complete this request through the configured AI route. Check AI readiness and retry; it will not silently switch providers.');
-        friendly.code=code||'AI_PROVIDER_UNAVAILABLE';friendly.status=Number(e?.status)||503;friendly.provider=normalized;
-        throw friendly;
-      }
+      const result=await base({
+        ...payload,
+        provider:'automatic',
+        requestedProvider:'cloudflare-workers-ai',
+        preferredProvider:'',
+        providerRouting:'automatic',
+        fallback:'stop',
+        model:'automatic'
+      },options);
+      if(result?.ok===false)throw Object.assign(new Error(result.error||result.message||'Cloudflare AI could not complete this request.'),{
+        code:result.code||'OVYX_NATIVE_AI_REQUEST_FAILED',
+        status:result.status||503
+      });
+      return {...(result||{}),requestedProvider:'cloudflare-workers-ai',routedProvider:'cloudflare-workers-ai',failoverUsed:false};
     };
     A.__ovyxFinalRouting=true;
   }
