@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { generateOvyxNativeAI, normalizeOvyxNativeMode } from '../functions/_lib/ovyx-native-ai.js';
+import { generateOvyxNativeAI, normalizeOvyxNativeMode, OVYX_NATIVE_DEFAULT_MODEL } from '../functions/_lib/ovyx-native-ai.js';
 
 const read = path => readFile(new URL(path, import.meta.url), 'utf8');
 const [packageSource, html, settingsClient, settingsReliability, aiPreferenceApi, nativeClient, platformKnowledge, chatRoute, readinessRoute, trustClient, middleware, connectionReadiness] = await Promise.all([
@@ -72,6 +72,7 @@ assert.equal(normalizeOvyxNativeMode('../external-model'), 'balanced');
 
 async function capturedMode(mode) {
   let captured;
+  let legacyBrainCalls = 0;
   const result = await generateOvyxNativeAI({
     AI: {
       async run(model, input) {
@@ -79,13 +80,33 @@ async function capturedMode(mode) {
         return { response: JSON.stringify({ text: 'The request was handled.', actions: [] }), usage: { total_tokens: 5 } };
       },
     },
-  }, { prompt: 'Explain this task.', mode });
-  return { captured, result };
+    OVYX_AI_ENGINE_MODE: 'legacy-provider-routing',
+    OVYX_ALLOW_PAID_PROVIDER_ROUTING: 'true',
+  }, {
+    prompt: 'Explain this task.',
+    mode,
+    authUser: { uid: 'stage8-mode-owner', sub: 'stage8-mode-owner', email: 'stage8-mode-owner@example.test' },
+    // A stale account Brain must be ignored even when legacy dependencies are
+    // supplied by an old caller or a manipulated browser request.
+    universalBrainDependencies: {
+      getActiveBrainConnectionId: async () => { legacyBrainCalls += 1; return 'stage8-owned-brain'; },
+      callUserUniversalConnection: async () => { legacyBrainCalls += 1; throw new Error('Legacy Brain must not run.'); },
+    },
+    cloudflareInference: async (env, options) => {
+      const guardedResult = await env.AI.run(OVYX_NATIVE_DEFAULT_MODEL, {
+        messages: options.messages,
+        max_tokens: options.maxTokens,
+      });
+      return { text: guardedResult.response, result: guardedResult };
+    },
+  });
+  return { captured, result, legacyBrainCalls };
 }
 const quick = await capturedMode('fast');
 const everyday = await capturedMode('balanced');
 const deep = await capturedMode('quality');
 const invalid = await capturedMode('choose-another-provider');
+assert.equal(quick.captured.model, OVYX_NATIVE_DEFAULT_MODEL);
 assert.equal(quick.captured.input.max_tokens, 900);
 assert.equal(everyday.captured.input.max_tokens, 1800);
 assert.equal(deep.captured.input.max_tokens, 2800);
@@ -93,47 +114,17 @@ assert.equal(quick.result.mode, 'fast');
 assert.equal(everyday.result.mode, 'balanced');
 assert.equal(deep.result.mode, 'quality');
 assert.equal(invalid.result.mode, 'balanced');
+assert.equal(quick.result.routedProvider, 'cloudflare-workers-ai');
+assert.equal(quick.result.personalConnectionUsed, false);
+assert.equal(deep.result.routedProvider, 'cloudflare-workers-ai');
+assert.equal([quick, everyday, deep, invalid].reduce((sum, item) => sum + item.legacyBrainCalls, 0), 0);
 assert.match(quick.captured.input.messages[0].content, /OVYX Quick mode/);
 assert.match(deep.captured.input.messages[0].content, /OVYX Deep mode/);
-
-// The same mode budget must also be honored when the user explicitly selected
-// an account-owned Universal Connection Brain.
-async function capturedSelectedBrainMode(mode) {
-  let capturedMaxTokens = null;
-  const result = await generateOvyxNativeAI({ OVYX_AI_ENGINE_MODE: 'cloudflare-free-only' }, {
-    prompt: 'Explain the selected project.',
-    mode,
-    authUser: { uid: 'stage8-mode-owner', sub: 'stage8-mode-owner', email: 'stage8-mode-owner@example.test' },
-    universalBrainDependencies: {
-      getActiveBrainConnectionId: async () => 'stage8-owned-brain',
-      callUserUniversalConnection: async (_env, input) => {
-        capturedMaxTokens = input.maxTokens;
-        return {
-          text: JSON.stringify({ text: 'The selected Brain answered.', actions: [] }),
-          provider: 'connection:stage8-owned-brain',
-          routedProvider: 'universal-connection',
-          model: 'mock-selected-brain',
-          rawUsage: { total_tokens: 5 }
-        };
-      }
-    }
-  });
-  return { capturedMaxTokens, result };
-}
-const selectedQuick = await capturedSelectedBrainMode('fast');
-const selectedEveryday = await capturedSelectedBrainMode('balanced');
-const selectedDeep = await capturedSelectedBrainMode('quality');
-assert.equal(selectedQuick.capturedMaxTokens, 900);
-assert.equal(selectedEveryday.capturedMaxTokens, 1800);
-assert.equal(selectedDeep.capturedMaxTokens, 2800);
-assert.equal(selectedQuick.result.routedProvider, 'universal-connection');
-assert.equal(selectedDeep.result.mode, 'quality');
-
 // Readiness is a setup-only check and must not call model inference or suggest
 // that configuration presence proves live provider success.
 assert.match(readinessRoute, /liveInferenceTested: false/);
 assert.match(readinessRoute, /No AI request was sent/);
-assert.match(readinessRoute, /getActiveBrainConnectionId/);
+assert.doesNotMatch(readinessRoute, /getActiveBrainConnectionId|selectedBrainId|selected_brain_configured/);
 assert.match(readinessRoute, /Cache-Control.*no-store/);
 assert.match(trustClient, /\/api\/ai\/readiness/);
 assert.match(trustClient, /not live-tested/);
@@ -142,7 +133,7 @@ assert.match(trustClient, /data-ai-readiness-refresh/);
 assert.match(trustClient, /No AI request is sent and no AI usage is spent/);
 assert.match(middleware, /ovyx-ai-trust\.js\?v=/);
 
-// Failures should guide recovery while keeping selected-Brain exclusivity and
+// Failures should guide recovery while keeping Cloudflare-only routing and
 // the Stage 7 quota stop intact.
 assert.match(settingsClient, /friendlyAiRecoveryMessage/);
 assert.match(settingsClient, /did not switch to another provider/);
