@@ -266,19 +266,8 @@
       #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-send{width:42px!important;height:42px!important;display:grid!important;place-items:center!important;border:0!important;border-radius:12px!important;background:#e9edf1!important;color:#111317!important;font-size:16px!important;font-weight:900!important;flex:0 0 42px!important;cursor:pointer!important}
       #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-send:disabled{opacity:.35!important;cursor:not-allowed!important}
       #kernel-brain-bot-panel.ovyx-native-workspace .ovyx-native-send[aria-busy="true"]{opacity:.65!important}
-      /* The dashboard has several generations of mobile navigation. Hide the
-         actual dock containers explicitly while the assistant workspace is open;
-         the generic geometry detector remains as a fallback for future shells. */
-      body.ovyx-native-composer-focus-mode #ovyx-v52-bottom-bar,
-      body.ovyx-native-composer-focus-mode #ovyx-v42-mobile-bottom,
-      body.ovyx-native-composer-focus-mode #ovyx-mobile-bottom-bar,
-      body.ovyx-native-composer-focus-mode .ovyx-mobile-bottom,
-      body.ovyx-native-composer-focus-mode .legacy-mobile-bottom-disabled,
-      body.ovyx-native-composer-focus-mode .bottom-nav,
-      body.ovyx-native-composer-focus-mode .mobile-nav,
       body.ovyx-native-composer-focus-mode .ovyx-native-underlying-bottom-nav-suppressed{
-        display:none!important;visibility:hidden!important;opacity:0!important;
-        pointer-events:none!important;transform:translateY(150%)!important;
+        display:none!important;visibility:hidden!important;pointer-events:none!important;
       }
       @media(max-width:640px){
         #kernel-brain-bot-panel.ovyx-native-workspace{inset:0!important;width:100vw!important;height:100dvh!important;min-height:0!important;max-height:none!important;border-radius:0!important;border-left:0!important;border-right:0!important}
