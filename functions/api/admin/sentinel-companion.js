@@ -76,7 +76,7 @@ async function requireAdmin(context) {
   return { ok: true, user: auth.user };
 }
 
-export async function onRequestPost(context) {
+export async function onRequestPost(context, dependencies = {}) {
   const requestId = getRequestId(context.request);
   if (!originAllowed(context.request)) {
     return errorResponse(403, 'ORIGIN_REJECTED', 'Cross-origin Guardian conversation requests are not permitted.', requestId);
@@ -125,7 +125,8 @@ export async function onRequestPost(context) {
       : '');
 
   try {
-    const result = await callModel(context.env, {
+    const modelCall = typeof dependencies.callModel === 'function' ? dependencies.callModel : callModel;
+    const result = await modelCall(context.env, {
       provider: 'automatic',
       taskPrompt,
       system,
@@ -144,9 +145,11 @@ export async function onRequestPost(context) {
     }, 200, { 'X-OVYX-Request-ID': requestId, 'Cache-Control': 'no-store, max-age=0' });
   } catch (error) {
     const code = String(error?.code || 'GUARDIAN_CHAT_UNAVAILABLE').slice(0, 100);
-    const message = code === 'AI_PROVIDER_NOT_CONFIGURED'
-      ? 'I can chat when an AI provider is configured for OVYX. Open the Admin AI Brain diagnostics to check the configured services, boss.'
-      : 'I could not reach a configured AI provider right now. Try again shortly, or check the Admin AI Brain diagnostics, boss.';
+    const message = code === 'OVYX_NATIVE_AI_NOT_CONFIGURED' || code === 'OVYX_AI_ENGINE_MODE_NOT_CONFIGURED'
+      ? 'Cloudflare Workers AI is not configured for OVYX yet. Ask the platform administrator to enable the Cloudflare AI binding, boss.'
+      : code.includes('QUOTA')
+        ? 'OVYX has reached its protected Cloudflare AI allowance. It stopped instead of switching to another provider, boss.'
+        : 'I could not reach OVYX Cloudflare AI right now. Please retry when the service is available, boss.';
     return errorResponse(
       Number.isInteger(error?.status) ? error.status : 503,
       code,
@@ -156,7 +159,7 @@ export async function onRequestPost(context) {
   }
 }
 
-export async function onRequest(context) {
-  if (context.request.method === 'POST') return onRequestPost(context);
+export async function onRequest(context, dependencies = {}) {
+  if (context.request.method === 'POST') return onRequestPost(context, dependencies);
   return errorResponse(405, 'METHOD_NOT_ALLOWED', 'Use POST to send a Guardian conversation message.', getRequestId(context.request));
 }
