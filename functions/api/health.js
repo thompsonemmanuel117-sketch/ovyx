@@ -349,14 +349,10 @@ export async function onRequestGet(context) {
   }
 
   const hasAiBinding = Boolean(env?.AI && typeof env.AI.run === 'function');
-  const aiReady = [
-    'GEMINI_API_KEY',
-    'ANTHROPIC_API_KEY',
-    'DEEPSEEK_API_KEY',
-    'OPENAI_API_KEY',
-    'GROQ_API_KEY',
-    'OPENROUTER_API_KEY',
-  ].some((key) => configured(env, key)) || hasAiBinding;
+  // Legacy provider credentials may remain in the environment during migration,
+  // but they are never a supported OVYX inference route. Readiness is therefore
+  // determined exclusively by the Cloudflare Workers AI binding.
+  const aiReady = hasAiBinding;
 
   const serviceAccountRow = groups.Firebase.find((item) => item.key === 'FIREBASE_SERVICE_ACCOUNT_JSON');
   const hasBlockingConfigurationProblems =
