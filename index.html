@@ -14877,7 +14877,1245 @@ function installWebStudioSurface(){
       body.appendChild(row);
     });
     const actions=document.createElement('div');actions.className='ovyx-ws-utility-actions';
-    actions.innerHTML=(String(row.type||'').toLowerCase()==='ai'?'<span class="ovyx-v91-mini" aria-disabled="true">External AI disabled</span>':'<button class="ovyx-v91-mini" type="button" data-v91-test="'+esc(row.id)+'">Test</button>')++(canUseBrain?'<button class="ovyx-v91-mini" type="button" data-v91-use-brain="'+esc(row.id)+'" '+(activeBrain?'disabled aria-pressed="true"':'')+'>'+(activeBrain?'Brain selected':'Use as AI Brain')+'</button>':'')+'<button class="ovyx-v91-mini danger" type="button" data-v91-delete="'+esc(row.id)+'">Delete</button></div></div>'}).join(''):'<div class="ovyx-v91-status" data-state="ready">No saved connections yet.</div>';
+    actions.innerHTML='<button type="button" data-add>+ Add Page</button>';
+    actions.querySelector('[data-add]').onclick=()=>{try{w.addNewPagePrompt?.();p.remove()}catch(e){window.showToast?.(e.message||'Unable to add page.','error')}};
+    body.appendChild(actions);show(p);
+  }
+  function renderSections(){
+    if(!auth('Section ordering'))return;
+    try{window.OVYXDeepRepairV3?.openSections?.();}catch(e){window.showToast?.(e.message||'Sections are unavailable.','error')}
+  }
+  function renderAssets(){
+    if(!auth('Assets & Media'))return;
+    try{window.OVYXDeepRepairV3?.openAssets?.();}catch(e){window.showToast?.(e.message||'Assets & Media are unavailable.','error')}
+  }
+  function renderViewport(){
+    const w=W();if(!w)return;
+    const p=panel('ovyx-preview-viewport-panel','VIEWPORT');const body=p.querySelector('[data-body]');body.innerHTML='<div class="ovyx-ws-utility-grid"><button data-v="desktop">Desktop · 1440</button><button data-v="tablet">Tablet · 768</button><button data-v="mobile">Mobile · 390</button></div>';
+    body.querySelectorAll('[data-v]').forEach(b=>b.onclick=()=>{try{w.setPreviewPreset?.(b.dataset.v);document.documentElement.setAttribute('data-ovyx-ws-preview-preset',b.dataset.v);localStorage.setItem('ovyx.ws.viewport.preset.v1',b.dataset.v);w.previewPreset=b.dataset.v;w.render?.();p.remove();window.showToast?.(b.textContent+' selected.','success')}catch(e){window.showToast?.(e.message||'Viewport change failed.','error')}});show(p);
+  }
+  function renderStarterPages(){
+    if(!auth('Starter Pages'))return;
+    try{window.OVYXDeepRepairV3?.addStarterPages?.();}catch(e){window.showToast?.(e.message||'Starter Pages are unavailable.','error')}
+  }
+  function renderExport(){
+    if(!auth('Project export'))return;
+    const p=panel('ovyx-preview-export-panel','FRAMEWORK EXPORT');const body=p.querySelector('[data-body]');body.innerHTML='<div class="ovyx-ws-utility-grid two"><button data-e="vite">Vite · React · TS</button><button data-e="next">Next.js · App Router</button></div>';
+    body.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{try{window.OVYXDeepRepairV3?.downloadFrameworkProject?.(b.dataset.e)}catch(e){window.showToast?.(e.message||'Export failed.','error')}finally{p.remove()}});show(p);
+  }
+  const baseStyle=document.createElement('style');baseStyle.textContent=`
+    .ovyx-ws-utility-panel{position:fixed;z-index:120010;top:84px;right:16px;width:min(420px,calc(100vw - 32px));max-height:78vh;overflow:auto;border:1px solid rgba(255,255,255,.12);border-radius:13px;background:#070809;color:#f3f3ef;box-shadow:0 25px 80px rgba(0,0,0,.6);padding:12px;display:none}
+    .ovyx-ws-utility-panel.open{display:block}
+    .ovyx-ws-utility-panel-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding-bottom:9px;margin-bottom:9px;border-bottom:1px solid rgba(255,255,255,.07)}
+    .ovyx-ws-utility-panel-head b{font:850 9px/1.1 Inter,sans-serif;letter-spacing:.08em}.ovyx-ws-utility-panel-head small{display:block;margin-top:4px;color:#69737b;font:700 7px/1.4 JetBrains Mono,monospace}
+    .ovyx-ws-utility-panel-head [data-close]{width:28px;height:28px;border:1px solid rgba(255,255,255,.09);background:#0b0d10;color:#aab0b6;border-radius:8px;cursor:pointer}
+    .ovyx-ws-utility-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.055)}
+    .ovyx-ws-utility-row b{display:block;font:800 9px Inter,sans-serif}.ovyx-ws-utility-row small{display:block;margin-top:3px;color:#68727a;font:700 7px JetBrains Mono,monospace}.ovyx-ws-utility-row button,.ovyx-ws-utility-actions button,.ovyx-ws-utility-grid button{border:1px solid rgba(255,255,255,.09);background:#0b0d10;color:#dfe3e6;border-radius:8px;padding:8px 10px;font:800 8px Inter,sans-serif;cursor:pointer}
+    .ovyx-ws-utility-actions{padding-top:10px}.ovyx-ws-utility-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}.ovyx-ws-utility-grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+    @media(max-width:700px){.ovyx-ws-utility-panel{top:70px;right:8px;width:calc(100vw - 16px)}.ovyx-ws-utility-grid{grid-template-columns:1fr}.ovyx-ws-utility-grid.two{grid-template-columns:1fr}}`;
+  document.head.appendChild(baseStyle);
+  function patchExportBridge(){
+    if(window.OVYXDeepRepairV3&&!window.OVYXDeepRepairV3.openAssets){
+      /* The existing real assets/sections surfaces live in the project repair bridge. */
+      try{window.OVYXDeepRepairV3.openAssets=window.OVYXDeepRepairV3.openAssets||null;}catch(_){}
+    }
+  }
+  function patchMenu(){
+    const w=W();if(!w||w.__OVYXPreviewProjectMenuPatched)return;
+    const base=w.handlePreviewMenu?.bind(w);
+    if(typeof base!=='function')return;
+    w.handlePreviewMenu=function(action){
+      switch(action){
+        case 'pages':close();renderPages();return;
+        case 'sections':close();renderSections();return;
+        case 'assets':close();renderAssets();return;
+        case 'viewport':close();renderViewport();return;
+        case 'starter-pages':close();renderStarterPages();return;
+        case 'export':close();renderExport();return;
+        default:return base(action);
+      }
+    };
+    w.__OVYXPreviewProjectMenuPatched=true;
+  }
+  patchMenu();
+  [0,250,900,1800].forEach(ms=>setTimeout(patchMenu,ms));
+  window.addEventListener('ovyx:view-changed',()=>setTimeout(patchMenu,0),{passive:true});
+})();</script>
+
+<script id="ovyx-chat-strip-final-cleanup">(function(){
+  'use strict';
+  const clean=()=>{document.getElementById('ovyx-strict-ws-tools')?.remove();document.getElementById('ovyx-page-tabs')?.remove();};
+  clean();
+  window.addEventListener('ovyx:view-changed',clean,{passive:true});
+  window.addEventListener('pageshow',clean,{passive:true});
+})();</script>
+
+<script id="ovyx-retire-legacy-plan-finder-v2">(function(){
+  'use strict';
+  if(window.__OVYX_RETIRE_LEGACY_PLAN_FINDER_V2__)return;
+  window.__OVYX_RETIRE_LEGACY_PLAN_FINDER_V2__=true;
+  const remove=()=>{
+    document.querySelectorAll('.v66-feature-studio,.v67-feature-plan-panel,.v58-lockbot').forEach(el=>{try{el.remove()}catch(_){}});
+  };
+  remove();
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',remove,{once:true});
+  window.addEventListener('ovyx:view-changed',remove,{passive:true});
+  if(window.OVYXV66Admin){window.OVYXV66Admin.injectFeatureStudio=()=>false;window.OVYXV66Admin.scanFeatures=()=>[];}
+  if(window.OVYXV67){window.OVYXV67.scanFeatures=()=>[];window.OVYXV67.scan=()=>[];window.OVYXV67.render=remove;}
+})();</script>
+<!-- OVYX FINAL STABILITY + WORKSPACE COPILOT AUTHORITY -->
+<style id="ovyx-final-stability-authority-style-v2">/* The authentication surface is a viewport-level UI, not a routed canvas child. */ body.ovx-auth-surface-ready #view-master-auth, body[data-ovyx-auth-intent="1"] #view-master-auth{ position:fixed!important; inset:0!important; width:100vw!important; height:100dvh!important; min-height:100dvh!important; max-height:none!important; z-index:2147483000!important; display:flex!important; align-items:center!important; justify-content:center!important; box-sizing:border-box!important; overflow:auto!important; overscroll-behavior:contain!important; padding:clamp(14px,3vw,36px)!important; margin:0!important; } body:not([data-ovyx-auth-intent="1"]) #view-master-auth{ display:none!important; visibility:hidden!important; opacity:0!important; pointer-events:none!important; } #view-master-auth .ovyx-master-auth-shell{ width:min(1120px,100%)!important; max-height:calc(100dvh - 28px)!important; margin:auto!important; overflow:auto!important; box-sizing:border-box!important; } #view-master-auth .ovyx-auth-layout{ min-width:0!important; } @media(max-width:760px){ #view-master-auth{padding:0!important} #view-master-auth .ovyx-master-auth-shell{ width:100%!important; max-height:100dvh!important; min-height:100dvh!important; border-radius:0!important; } } /* Universal Connections is a real settings surface; never hide it as infrastructure. */ #view-settings [data-settings-nav="connections"]{ display:flex!important; visibility:visible!important; opacity:1!important; pointer-events:auto!important; } #view-settings [data-settings-panel="connections"].active{ display:block!important; visibility:visible!important; opacity:1!important; } /* No startup typography/utility animation should move the main shell after first paint. */ html.ovx-shell-stable #app-container, html.ovx-shell-stable #view-router-viewport, html.ovx-shell-stable #app-sidebar, html.ovx-shell-stable #ovyx-topbar{ transition-property:background-color,border-color,color,opacity!important; }</style>
+
+<script id="ovyx-workspace-copilot-advanced-tools-v1">(function(){
+  'use strict';
+  if(window.__OVYX_WORKSPACE_COPILOT_ADVANCED_TOOLS_V1__)return;
+  window.__OVYX_WORKSPACE_COPILOT_ADVANCED_TOOLS_V1__=true;
+  async function ask(prompt){
+    try{
+      const cp=window.OVYXWorkspaceCopilot;if(!cp?.scan)throw new Error('Workspace Copilot is still initializing.');
+      if(!window.firebase?.auth?.().currentUser){window.OVYXMasterAuth?.openAuth?.();return}
+      await cp.scan();
+      const result=await window.OVYXAIService?.generate?.({mode:'workspace-copilot-advanced',prompt,context:{workspace:window.__OVYX_WORKSPACE_AI_CONTEXT?.value||null,diagnostics:cp.diagnose?.()||null},system:cp.policy||'You are the OVYX Workspace Copilot. Inspect evidence, explain findings, and recommend or execute only safe workspace actions. Never pretend a change succeeded without verified evidence.'});
+      const text=String(result?.text||result?.message||result?.answer||'No verified AI response was returned.').trim();
+      window.WorkspaceBrainBot?.pushMsg?.('OVYX: '+text);
+      result?.actions&&window.OVYXWorkspaceCopilotActions?.run?.(result.actions);
+    }catch(e){window.WorkspaceBrainBot?.pushMsg?.('OVYX: '+(e?.message||'Advanced workspace analysis failed.'))}
+  }
+  function bind(){
+    const root=document.querySelector('#kernel-brain-bot-panel');if(!root)return;
+    const map=[
+      ['[data-ovyx-ai-audit]','Perform a full workspace health audit. Inspect the active project, its files, pages, history, assets, connections, entitlements, quota, offline cache, runtime errors, route integrity, and dependency metadata. Identify concrete problems and safest fixes.'],
+      ['[data-ovyx-ai-file-review]','Review the active project files for concrete runtime, syntax, routing, accessibility, security, or integration issues. Explain exact evidence and the safest next action.'],
+      ['[data-ovyx-ai-dependency-check]','Inspect the active project dependency metadata and source imports. Find missing, conflicting, outdated-looking, or risky dependencies without inventing package versions. Report evidence and safe remediation.'],
+      ['[data-ovyx-ai-recover]','Recover the most recent accidentally deleted project from the verified OVYX recovery store, then confirm the restored project identity.']
+    ];
+    for(const [sel,prompt] of map){const b=root.querySelector(sel);if(!b||b.dataset.ovyxAdvancedBound==='1')continue;b.dataset.ovyxAdvancedBound='1';b.addEventListener('click',()=>ask(prompt),{capture:true})}
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});else bind();
+  [0,300,900].forEach(ms=>setTimeout(bind,ms));
+  window.addEventListener('ovyx:view-changed',()=>setTimeout(bind,0),{passive:true});
+  window.OVYXWorkspaceCopilotAdvanced={ask};
+})();</script>
+
+<script id="ovyx-final-stability-authority-v2">(function(){
+  'use strict';
+  if(window.__OVYX_FINAL_STABILITY_AUTHORITY_V2__)return;
+  window.__OVYX_FINAL_STABILITY_AUTHORITY_V2__=true;
+  const $=id=>document.getElementById(id);
+  const routeOf=()=>String(window.KernelState?.activeView||'home').replace(/^view-/,'').trim().toLowerCase()||'home';
+  const auth=()=>{try{return window.firebase?.auth?.()||null}catch(_){return null}};
+  function hideAuthSurface(){
+    const overlay=$('view-master-auth');
+    try{sessionStorage.removeItem('ovyx.auth.surface.v3')}catch(_){}
+    document.body?.setAttribute('data-ovyx-auth-intent','0');
+    document.body?.classList.remove('ovyx-auth-lock');
+    if(!overlay)return;
+    overlay.classList.add('hidden');
+    overlay.classList.remove('ovyx-auth-exit');
+    overlay.setAttribute('aria-hidden','true');
+    overlay.style.setProperty('display','none','important');
+    const top=$('ovyx-topbar');
+    const action=$('ovyx-auth-action');
+    if(action&&top)action.style.removeProperty('display');
+  }
+  function mountAuthSurface(){
+    const overlay=$('view-master-auth');
+    if(!overlay)return null;
+    if(overlay.parentElement!==document.body){
+      try{document.body.appendChild(overlay);document.body.classList.add('ovx-auth-surface-ready')}catch(_){return overlay}
+    }
+    return overlay;
+  }
+  function showAuthSurface(){
+    const overlay=mountAuthSurface();
+    if(!overlay)return false;
+    try{sessionStorage.setItem('ovyx.auth.surface.v3','1')}catch(_){}
+    document.body.setAttribute('data-ovyx-auth-intent','1');
+    document.body.classList.add('ovyx-auth-lock');
+    overlay.classList.remove('hidden','ovyx-auth-exit');
+    overlay.setAttribute('aria-hidden','false');
+    overlay.style.setProperty('display','flex','important');
+    document.getElementById('ovyx-auth-action')?.style.setProperty('display','none','important');
+    setTimeout(()=>document.getElementById('ovyx-master-auth-email')?.focus(),60);
+    return true;
+  }
+  function patchAuthAPI(){
+    const api=window.OVYXMasterAuth;
+    if(!api||api.__OVYX_STABLE_AUTH_API_V2__)return false;
+    const originalOpen=typeof api.openAuth==='function'?api.openAuth:null;
+    const originalClose=typeof api.closeAuth==='function'?api.closeAuth:null;
+    api.openAuth=function(){
+      showAuthSurface();
+      return true;
+    };
+    api.lockWorkspace=api.openAuth;
+    api.closeAuth=function(){
+      try{originalClose?.apply(this,arguments)}catch(_){}
+      hideAuthSurface();
+      return true;
+    };
+    api.__OVYX_STABLE_AUTH_API_V2__=true;
+    return true;
+  }
+  function setCanonicalRouter(){
+    const canonical=window.OVYXRouteAuthority?.go;
+    if(typeof canonical!=='function')return false;
+    const stable=function(view,opts={}){
+      const v=String(view||'home').replace(/^view-/,'').trim().toLowerCase()||'home';
+      if(v!=='master-auth')hideAuthSurface();
+      const result=canonical(v,opts);
+      if(v!=='master-auth')hideAuthSurface();
+      return result;
+    };
+    stable.__OVYX_STABLE_ROUTER_V2__=true;
+    window.Router=window.Router||{};
+    window.Router.go=stable;
+    window.Router.__OVYX_STABLE_ROUTER_V2__=true;
+    window.switchView=stable;
+    return true;
+  }
+  function repairSettingsSurface(){
+    const root=$('view-settings');
+    if(!root)return;
+    const S=window.OVYXSettings;
+    try{
+      S?.show?.(S.current||'general');
+    }catch(_){ }
+    const nav=root.querySelector('[data-settings-nav="connections"]');
+    if(nav){nav.style.setProperty('display','flex','important');nav.style.setProperty('visibility','visible','important');nav.style.setProperty('pointer-events','auto','important')}
+    const panel=root.querySelector('[data-settings-panel="connections"]');
+    if(panel&&panel.classList.contains('active')){panel.hidden=false;panel.style.setProperty('display','block','important')}
+  }
+  function stabilizeFirstPaint(){
+    document.documentElement.classList.add('ovx-shell-stable');    requestAnimationFrame(()=>requestAnimationFrame(()=>document.documentElement.classList.add('ovx-shell-stable')));
+  }
+  patchAuthAPI();
+  mountAuthSurface();
+  setCanonicalRouter();
+  repairSettingsSurface();
+  stabilizeFirstPaint();
+  document.addEventListener('click',event=>{
+    const n=event.target?.closest?.('[data-nav="home"],[data-mobile-nav="home"]');
+    if(n)hideAuthSurface();
+  },true);
+  window.addEventListener('ovyx:view-changed',event=>{
+    const v=String(event?.detail?.view||routeOf()).replace(/^view-/,'').toLowerCase();
+    if(v!=='master-auth')hideAuthSurface();
+    if(v==='settings')setTimeout(repairSettingsSurface,0);
+  },{passive:true});
+  window.addEventListener('pageshow',()=>{
+    /* A refresh is not a new explicit auth request. Never resurrect the full-screen
+       sign-in surface from sessionStorage alone; only a real user action may open it. */
+    if(routeOf()!=='master-auth')hideAuthSurface();
+    repairSettingsSurface();
+  },{passive:true});
+  window.addEventListener('firebase-auth-state-ready',()=>{patchAuthAPI();setCanonicalRouter();if(routeOf()!=='master-auth')hideAuthSurface();repairSettingsSurface()},{passive:true});
+  setTimeout(()=>{patchAuthAPI();setCanonicalRouter();repairSettingsSurface();stabilizeFirstPaint()},0);
+  setTimeout(()=>{patchAuthAPI();setCanonicalRouter();repairSettingsSurface()},350);
+})();</script>
+
+<script id="ovyx-project-recovery-v1">(function(){
+  'use strict';
+  if(window.__OVYX_PROJECT_RECOVERY_V1__)return;
+  window.__OVYX_PROJECT_RECOVERY_V1__=true;
+  const KEY='ovyx.deleted-projects.v1',MAX=30;
+  const clone=v=>{try{return JSON.parse(JSON.stringify(v))}catch(_){return null}};
+  function list(){try{const x=JSON.parse(localStorage.getItem(KEY)||'[]');return Array.isArray(x)?x:[]}catch(_){return []}}
+  function save(items){try{localStorage.setItem(KEY,JSON.stringify(items.slice(0,MAX)))}catch(_){}return items.slice(0,MAX)}
+  function stash(project,reason){if(!project?.id)return null;const copy=clone(project);if(!copy)return null;const items=list().filter(x=>String(x?.project?.id)!==String(copy.id));const rec={id:'del_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),deletedAt:Date.now(),reason:String(reason||'project-delete'),project:copy};items.unshift(rec);save(items);return rec}
+  async function restore(recordId){
+    const items=list();const idx=recordId?items.findIndex(x=>String(x.id)===String(recordId)):0;
+    if(idx<0)return {ok:false,error:'Deleted project was not found in local recovery.'};
+    const rec=items[idx],p=clone(rec.project);if(!p?.id)return {ok:false,error:'Recovery snapshot is invalid.'};
+    try{
+      if(window.ProjectStore){window.KernelState.projects=Array.isArray(window.KernelState.projects)?window.KernelState.projects:[];window.KernelState.projects=window.KernelState.projects.filter(x=>String(x?.id)!==String(p.id));window.KernelState.projects.unshift(p);window.KernelState.activeProject=p;window.ProjectStore.save?.();}
+      if(window.OVYXProjectCloudSync?.save&&window.firebase?.auth?.().currentUser)await window.OVYXProjectCloudSync.save(p);
+      items.splice(idx,1);save(items);
+      try{window.OvyxProjectsUI?.render?.();window.ProjectStore?.renderProjects?.();window.ProjectStore?.renderHome?.()}catch(_){}
+      if(window.Router?.go)window.Router.go('webstudio');
+      window.showToast?.('Deleted project restored.','success');
+      return {ok:true,projectId:p.id,name:p.name||'Untitled Project'};
+    }catch(error){return {ok:false,error:String(error?.message||error||'Project recovery failed.')}}
+  }
+  function latest(){return list()[0]||null}
+  window.OVYXProjectRecovery={list,stash,restore,latest,clear(id){const xs=list().filter(x=>String(x.id)!==String(id));save(xs)}};
+})();</script>
+<!-- OVYX WORKSPACE COPILOT V2 · project-aware, non-builder assistant -->
+<script id="ovyx-workspace-copilot-v2">(function(){
+  'use strict';
+  if(window.__OVYX_WORKSPACE_COPILOT_V2__)return;
+  window.__OVYX_WORKSPACE_COPILOT_V2__=true;
+  const $=id=>document.getElementById(id);
+  const user=()=>{try{return window.firebase?.auth?.().currentUser||null}catch(_){return null}};
+  const esc=s=>String(s??'').slice(0,5000);
+  const errors=[];
+  window.__OVYX_WORKSPACE_RUNTIME_ERRORS=errors;
+  window.addEventListener('error',e=>{if(errors.length<40)errors.push({type:'error',message:esc(e.message),source:esc(e.filename),line:e.lineno||0});},{passive:true});
+  window.addEventListener('unhandledrejection',e=>{if(errors.length<40)errors.push({type:'unhandledrejection',message:esc(e.reason?.message||e.reason||'Unhandled rejection')});},{passive:true});
+  const POLICY=[
+    'You are the OVYX Workspace Copilot, not the website builder.',
+    'Never claim a build, deploy, payment, connection, repair, or backend change succeeded unless the returned server result confirms it.',
+    'Inspect the authenticated user workspace and the active project before giving project-specific advice.',
+    'You may explain, diagnose, navigate, inspect, and recommend safe next actions.',
+    'Do not generate or modify a website merely because a user asks to build one; direct website construction to Web Studio.',
+    'Protect account isolation. Only use context returned for the current authenticated user.',
+    'Prefer evidence from project files, pages, assets, history, settings, entitlements and runtime diagnostics over guesses.',
+    'For fixes, describe the exact safe action or open the relevant workspace surface; never fabricate a successful fix.',
+    'You may return an actions array only with: navigate, open_project, open_history, open_assets, open_sections, open_preview, refresh_context, run_project_scan, restore_deleted_project.'
+  ].join(' ');
+  async function token(){const u=user();if(!u)throw Object.assign(new Error('AUTH_REQUIRED'),{code:'AUTH_REQUIRED'});return u.getIdToken(false)}
+  async function api(path,options={},timeout=4500){
+    const t=await token();
+    const c=new AbortController(),timer=setTimeout(()=>c.abort(),timeout);
+    try{
+      const r=await fetch(path,{...options,credentials:'same-origin',cache:'no-store',signal:c.signal,headers:{Accept:'application/json',Authorization:'Bearer '+t,...(options.headers||{})}});
+      const d=await r.json().catch(()=>({}));
+      if(!r.ok)throw Object.assign(new Error(d?.message||d?.error||`HTTP ${r.status}`),{status:r.status,code:d?.code||'HTTP_ERROR'});
+      return d;
+    }finally{clearTimeout(timer)}
+  }
+  function activeProject(){return window.KernelState?.activeProject||null}
+  function filesFromProject(p){
+    const g=p?.id===activeProject()?.id?window.WebStudio?.graph:null;
+    const files=g?.files||p?.files||{};
+    return Object.entries(files).map(([path,value])=>({path,content:typeof value==='string'?value:String(value?.content||'')}));
+  }
+  function compactProject(p){
+    if(!p)return null;
+    const pages=Array.isArray(p.pages)?p.pages:[];
+    const files=filesFromProject(p);
+    const history=Array.isArray(p.ovyxHistory)?p.ovyxHistory.slice(-50):[];
+    return {
+      id:p.id,name:p.name||'Untitled project',status:p.status||'draft',description:p.description||'',updatedAt:p.updatedAt||null,
+      pages:pages.map(x=>({id:x.id,name:x.name||x.slug||'Page',slug:x.slug||'',sectionsCount:Array.isArray(x.sections)?x.sections.length:0})),
+      filePaths:files.map(x=>x.path).slice(0,300),fileCount:files.length,
+      history:history.map(h=>({id:h.id,at:h.at,label:h.label,changedFiles:Array.isArray(h.changedFiles)?h.changedFiles.slice(0,20):[]})),
+      historyCount:history.length
+    };
+  }
+  function projectSourcePreview(p){
+    const files=filesFromProject(p);
+    let remaining=60000;const out=[];
+    for(const f of files){
+      if(!remaining)break;
+      const content=String(f.content||'');
+      if(!content)continue;
+      const take=content.slice(0,Math.min(16000,remaining));
+      out.push({path:f.path,content:take});remaining-=take.length;
+    }
+    return out;
+  }
+  async function scan(){
+    const u=user();if(!u)throw Object.assign(new Error('Sign in to use the Workspace Copilot.'),{code:'AUTH_REQUIRED'});
+    const state=window.KernelState||{};const p=activeProject();
+    let serverProjects=[],connections=[],entitlements=null,assets=[],health=null,plans=null;
+    await Promise.allSettled([
+      api('/api/projects',{},3500).then(d=>{const rows=Array.isArray(d?.projects)?d.projects:Array.isArray(d?.items)?d.items:[];serverProjects=rows.slice(0,100).map(x=>({id:x.id,name:x.name||'Untitled project',status:x.status||'draft',updatedAt:x.updatedAt||null}))}),
+      api('/api/settings/connections',{},3500).then(d=>{const rows=Array.isArray(d?.connections)?d.connections:Array.isArray(d?.items)?d.items:[];connections=rows.slice(0,50).map(x=>({id:x.id,name:x.name||x.provider||'',provider:x.provider||'',connected:x.connected===true,status:x.status||''}))}),
+      api('/api/entitlements',{},3500).then(d=>{entitlements=d}),
+      api('/api/health',{},2200).then(d=>{health=d}),
+      api('/api/plans',{},2200).then(d=>{plans={tier:d?.tier||null,tokenQuotas:d?.tokenQuotas||null,pricing:d?.pricing||null}}),
+      (async()=>{if(p?.id&&window.OVYXAssetStore?.list){const rows=await window.OVYXAssetStore.list(p.id);assets=(Array.isArray(rows)?rows:[]).slice(0,150).map(x=>({id:x.id,name:x.name||'',type:x.contentType||x.type||'file',size:Number(x.size||0)}))}})()
+    ]);
+    const localProjects=Array.isArray(window.ProjectStore?.list?.())?window.ProjectStore.list():(Array.isArray(state.projects)?state.projects:[]);
+    const quota=window.TokenQuotaRegistry||{};
+    const offline=(()=>{try{return window.OVYXOfflineCompiler?.diagnostics?.()||null}catch(_){return null}})();
+    const view=String(state.activeView||'home').replace(/^view-/,'');
+    const visibleViews=[...document.querySelectorAll('#view-router-viewport > section')].filter(x=>getComputedStyle(x).display!=='none'&&!x.classList.contains('hidden')).map(x=>x.id);
+    const duplicateIds=(()=>{const m=new Map();document.querySelectorAll('[id]').forEach(e=>m.set(e.id,(m.get(e.id)||0)+1));return [...m.entries()].filter(([,n])=>n>1).map(([id,n])=>({id,count:n})).slice(0,20)})();
+    const routeHealthy=!!document.getElementById('view-'+view);
+    const ctx={
+      version:2,generatedAt:Date.now(),account:{uid:u.uid,displayName:u.displayName||'',emailDomain:String(u.email||'').split('@')[1]||''},
+      workspace:{name:$('sidebar-workspace-label')?.textContent?.trim()||'Creative Workspace',tier:String(state.userTier||entitlements?.planTier||'free'),currentView:view},
+      projectInventory:localProjects.slice(0,100).map(x=>({id:x.id,name:x.name||'Untitled project',status:x.status||'draft',pagesCount:Array.isArray(x.pages)?x.pages.length:0})),
+      serverProjectInventory:serverProjects,
+      activeProject:compactProject(p),activeProjectSource:projectSourcePreview(p),activeAssets:assets,connections,
+      entitlements:{role:entitlements?.role||window.__OVYX_SERVER_ENTITLEMENTS?.role||'USER',planTier:entitlements?.planTier||window.__OVYX_SERVER_ENTITLEMENTS?.planTier||String(state.userTier||'free'),features:entitlements?.features||window.__OVYX_SERVER_ENTITLEMENTS?.features||null},
+      quota:{tokensUsed:Number(quota.tokensUsed||0),serverBaseRemaining:Number(quota.serverBaseRemaining||0),dailyPrompts:Number(quota.dailyPromptsRemaining||quota.daily_prompts_allowance||0)},
+      services:{health:health||null,plans:plans||null},
+      offlineFirst:offline,deletedProjects:window.OVYXProjectRecovery?.list?.().slice(0,20).map(x=>({id:x.id,deletedAt:x.deletedAt,name:x.project?.name||'Untitled Project'}))||[],runtime:{errors:errors.slice(-20),activeRouteExists:routeHealthy,visibleViews,duplicateIds},
+      role:'workspace-copilot-not-website-builder',recovery:window.OVYXProjectRecovery?.list?.().slice(0,20).map(x=>({id:x.id,deletedAt:x.deletedAt,name:x.project?.name||'Untitled Project'}))||[]
+    };
+    window.__OVYX_WORKSPACE_AI_CONTEXT={uid:u.uid,expiresAt:Date.now()+10000,value:ctx};
+    $('bot-context-node-id')?.replaceChildren(document.createTextNode(p?.name?`WORKSPACE / ${ctx.workspace.name} · ${p.name}`:`WORKSPACE / ${ctx.workspace.name}`));
+    const node=$('bot-context-node-type');if(node)node.textContent=`${ctx.projectInventory.length} PROJECT${ctx.projectInventory.length===1?'':'S'} · ${assets.length} ASSET${assets.length===1?'':'S'}`;
+    return ctx;
+  }
+  function diagnose(){
+    const state=window.KernelState||{},v=String(state.activeView||'home').replace(/^view-/,'');
+    const direct=[...document.querySelectorAll('#view-router-viewport > section')].map(x=>x.id);
+    const duplicateIds=(()=>{const m={};document.querySelectorAll('[id]').forEach(e=>m[e.id]=(m[e.id]||0)+1);return Object.entries(m).filter(([,n])=>n>1).map(([id,n])=>`${id} (${n})`)})();
+    const visible=direct.filter(id=>{const e=$(id);return e&&!e.classList.contains('hidden')&&getComputedStyle(e).display!=='none'});
+    const graphFiles=Object.keys(window.WebStudio?.graph?.files||{});
+    return {activeView:v,routeExists:!!$('view-'+v),visibleViews:visible,routerHealthy:!!window.OVYXRouteAuthority?.go,authSurfaceMounted:!!($('view-master-auth')?.parentElement===document.body),graphFileCount:graphFiles.length,duplicateIds,runtimeErrors:errors.slice(-10)};
+  }
+  function push(text){window.WorkspaceBrainBot?.pushMsg?.('OVYX: '+String(text))}
+  function websiteRequest(q){return /\b(build|create|generate|make|design|launch)\b[\s\S]{0,100}\b(website|landing page|web site|webpage|site)\b/i.test(q)||/^build\s+(a|an)\s+/i.test(q)}
+  function actions(list){
+    if(!Array.isArray(list))return;
+    for(const a of list.slice(0,6)){
+      const t=String(a?.type||'').toLowerCase();
+      if(t==='refresh_context'){scan().catch(()=>{});continue}
+      if(t==='run_project_scan'){push(JSON.stringify(diagnose()));continue}
+      if(t==='restore_deleted_project'){window.OVYXProjectRecovery?.restore?.(a?.recoveryId||'').then(r=>push(r.ok?`Recovered ${r.name||'project'}.`:(r.error||'Recovery failed.'))).catch(e=>push(e?.message||'Recovery failed.'));continue}
+      const r=String(a?.route||'').replace(/^view-/,'').toLowerCase();
+      if(t==='navigate'&&['home','projects','webstudio','appstudio','workspace','templates','settings','pricing','faq','inbox'].includes(r)){window.Router?.go?.(r);continue}
+      if(t==='open_project'){const id=String(a?.projectId||'');if(window.ProjectStore?.list?.()?.some(p=>String(p.id)===id))window.ProjectStore.open(id);continue}
+      if(t==='open_history'){window.WebStudio?.openHistory?.();continue}
+      if(t==='open_assets'){window.OVYXDeepRepairV3?.openAssets?.();continue}
+      if(t==='open_sections'){window.OVYXDeepRepairV3?.openSections?.();continue}
+      if(t==='open_preview'){window.WebStudio?.openPreviewFull?.();}
+    }
+  }
+  async function send(){
+    const input=$('bot-chat-input');const q=String(input?.value||'').trim();if(!q)return;
+    if(!user()){window.OVYXMasterAuth?.openAuth?.();return}
+    push('USER: '+q);if(input)input.value='';
+    try{
+      const ctx=await scan();
+      if(/\b(recover|restore|undelete)\b[\s\S]{0,80}\b(deleted|delete|project)\b/i.test(q)){const r=await window.OVYXProjectRecovery?.restore?.(null);push(r?.ok?`Recovered ${r.name||'project'}.`:(r?.error||'No recoverable deleted project was found.'));return;}
+      if(websiteRequest(q)){push('This Assistant is your workspace copilot, not the website builder. I can inspect your project, diagnose problems, explain the code, check assets/history/connections, recover a recently deleted project, and guide you to Web Studio when the task is actual website construction.');return;}
+      const result=await window.OVYXAIService?.generate?.({mode:'workspace-copilot-v2',prompt:q,project:ctx.activeProject||null,files:ctx.activeProjectSource,context:{workspace:ctx,diagnostics:diagnose(),assistantPolicy:POLICY},system:POLICY});
+      const text=String(result?.text||result?.message||result?.answer||'').trim();if(!text)throw new Error('OVYX AI returned no response.');
+      push(text);actions(result?.actions||result?.toolCalls||result?.commands);
+    }catch(e){push(String(e?.code==='AUTH_REQUIRED'?'Sign in to use the Workspace Copilot.':e?.message||'Workspace Copilot request failed.'))}
+  }
+  function install(){
+    const B=window.WorkspaceBrainBot;if(!B)return;
+    B.send=send;B.__OVYX_REAL_AI_WORKSPACE_COPILOT=true;B.__OVYX_WORKSPACE_COPILOT_V2=true;
+    const scanBtn=document.querySelector('[data-ovyx-ai-scan]');
+    if(scanBtn&&!scanBtn.dataset.copilotV2){scanBtn.dataset.copilotV2='1';scanBtn.textContent='Scan Workspace';scanBtn.addEventListener('click',async()=>{try{const c=await scan();push(`Workspace scan complete · ${c.projectInventory.length} projects · ${c.activeAssets.length} assets · ${c.connections.length} connections.`)}catch(e){push(e.message||'Workspace scan failed.')}})}
+    const diagBtn=document.querySelector('[data-ovyx-ai-diagnose]');
+    if(diagBtn&&!diagBtn.dataset.copilotV2){diagBtn.dataset.copilotV2='1';diagBtn.addEventListener('click',()=>push(JSON.stringify(diagnose())))}
+    const recoverBtn=document.querySelector('[data-ovyx-ai-recover]');
+    if(recoverBtn&&!recoverBtn.dataset.copilotV2){recoverBtn.dataset.copilotV2='1';recoverBtn.addEventListener('click',async()=>{try{const r=await window.OVYXProjectRecovery?.restore?.(null);push(r?.ok?`Recovered ${r.name||'project'}.`:(r?.error||'No recoverable deleted project was found.'))}catch(e){push(e.message||'Recovery failed.')}})}
+    const controls=document.querySelector('#kernel-brain-bot-panel .v53-ai-tools');
+    if(controls&&!controls.querySelector('[data-ovyx-project-scan]')){const b=document.createElement('button');b.type='button';b.className='v53-ai-tool';b.dataset.ovyxProjectScan='1';b.textContent='Project Scan';b.onclick=()=>push(JSON.stringify(diagnose()));controls.appendChild(b)}
+  }
+  install();[0,300,900].forEach(ms=>setTimeout(install,ms));
+  window.addEventListener('firebase-auth-state-ready',install,{passive:true});
+  window.addEventListener('ovyx:view-changed',()=>setTimeout(install,0),{passive:true});
+  window.OVYXWorkspaceCopilot={scan,diagnose,policy:POLICY};
+})();</script>
+
+<script id="ovyx-workspace-copilot-input-authority-v3">(function(){
+  'use strict';
+  if(window.__OVYX_WORKSPACE_COPILOT_INPUT_AUTHORITY_V3__)return;
+  window.__OVYX_WORKSPACE_COPILOT_INPUT_AUTHORITY_V3__=true;
+  function bindButton(button, action){
+    if(!button || button.dataset.ovyxCopilotInputBound==='1')return;
+    button.dataset.ovyxCopilotInputBound='1';
+    const fire=(event)=>{
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation?.();
+      try{action()}catch(error){console.warn('[OVYX Workspace Copilot]',error)}
+    };
+    button.addEventListener('pointerdown',fire,{capture:true,passive:false});
+    button.addEventListener('keydown',(event)=>{
+      if(event.key==='Enter'||event.key===' '){fire(event)}
+    },{capture:true,passive:false});
+  }
+  function bind(){
+    bindButton(document.getElementById('desktop-ai-assistant'),()=>window.WorkspaceBrainBot?.toggle?.());
+    bindButton(document.getElementById('header-ai-project-bot'),()=>window.WorkspaceBrainBot?.toggle?.());
+    bindButton(document.querySelector('#kernel-brain-bot-panel .ovyx-ai-assistant-close'),()=>window.WorkspaceBrainBot?.close?.());
+    document.querySelectorAll('#mobile-ai-assistant').forEach(button=>bindButton(button,()=>window.WorkspaceBrainBot?.toggle?.()));
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});else bind();
+  [0,250,900].forEach(ms=>setTimeout(bind,ms));
+  window.addEventListener('ovyx:view-changed',()=>setTimeout(bind,0),{passive:true});
+})();</script>
+
+<style id="ovyx-logo-premium-motion-v2">/* Gold OVYX identity only: same geometry, no glow. Easily removable as one style block. */ #app-sidebar .ovyx-brand-mark.ovyx-brand-mark-svg .ovyx-brand-svg, #mobile-drawer .ovyx-brand-mark.ovyx-brand-mark-svg .ovyx-brand-svg{filter:none!important;animation:ovyxBrandSettle 2.4s cubic-bezier(.22,1,.36,1) both} #app-sidebar .ovyx-brand-mark.ovyx-brand-mark-svg .ovyx-brand-svg path, #mobile-drawer .ovyx-brand-mark.ovyx-brand-mark-svg .ovyx-brand-svg path{stroke-width:6.5!important;stroke-dasharray:220 220;stroke-dashoffset:220;animation:ovyxBrandFacetTrace 2.2s cubic-bezier(.65,0,.35,1) both} #app-sidebar .ovyx-brand-mark.ovyx-brand-mark-svg .ovyx-brand-svg path+path, #mobile-drawer .ovyx-brand-mark.ovyx-brand-mark-svg .ovyx-brand-svg path+path{animation-delay:.16s} @keyframes ovyxBrandSettle{0%{opacity:.65;transform:scale(.94)}45%{opacity:1}100%{opacity:1;transform:scale(1)}} @keyframes ovyxBrandFacetTrace{0%{stroke-dashoffset:220}70%,100%{stroke-dashoffset:0}} @media(prefers-reduced-motion:reduce){#app-sidebar .ovyx-brand-mark.ovyx-brand-mark-svg .ovyx-brand-svg,#mobile-drawer .ovyx-brand-mark.ovyx-brand-mark-svg .ovyx-brand-svg,#app-sidebar .ovyx-brand-mark.ovyx-brand-mark-svg .ovyx-brand-svg path,#mobile-drawer .ovyx-brand-mark.ovyx-brand-mark-svg .ovyx-brand-svg path{animation:none!important;stroke-dashoffset:0!important}}</style>
+
+<style id="ovyx-final-stability-visual-hardening-v4">/* Native controls must not leak browser-default borders into the premium shell. */ #app-sidebar button:has(#sidebar-workspace-label){ border:0!important; outline:0!important; background:transparent!important; box-shadow:none!important; appearance:none!important; -webkit-appearance:none!important; padding-left:0!important; padding-right:0!important; } /* Authentication opens fully formed; no delayed invisible card or intro flicker. */ #view-master-auth .ovyx-auth-brand-lockup, #view-master-auth .ovyx-auth-intro, #view-master-auth .ovyx-master-auth-card, #view-master-auth .ovyx-auth-footer{ animation:none!important; opacity:1!important; transform:none!important; filter:none!important; }</style>
+
+<script id="ovyx-mobile-dock-canonical-v1">(function(){
+  'use strict';
+  if(window.__OVYX_MOBILE_DOCK_CANONICAL_V1__)return;window.__OVYX_MOBILE_DOCK_CANONICAL_V1__=true;
+  const $=id=>document.getElementById(id);
+  function home(){return String(window.KernelState?.activeView||'home').replace(/^view-/,'').toLowerCase()==='home'}
+  function openState(){const d=$('mobile-drawer');return !!(document.body.classList.contains('ovyx-drawer-open')||d?.classList.contains('open')||d?.classList.contains('is-open')||d&&!d.classList.contains('-translate-x-full')||d?.getAttribute('aria-hidden')==='false')}
+  function overlay(){const a=$('kernel-brain-bot-panel'),o=$('checkout-elements-modal');return !!((a&&!a.classList.contains('hidden'))||(o&&!o.classList.contains('hidden'))||document.body.classList.contains('ovyx-v58-assistant-open'))}
+  function sync(){const dock=$('ovyx-v52-bottom-bar');if(!dock)return;const show=window.innerWidth<768&&home()&&!openState()&&!overlay();dock.style.setProperty('display',show?'grid':'none','important');dock.style.setProperty('visibility',show?'visible':'hidden','important');dock.style.setProperty('opacity',show?'1':'0','important');dock.style.setProperty('pointer-events',show?'auto':'none','important');document.body.dataset.ovyxCanonicalDrawer=openState()?'open':'closed'}
+  function normalizeClosed(){const d=$('mobile-drawer'),b=$('mobile-drawer-backdrop');document.body.classList.remove('ovyx-drawer-open','ovyx-ws-mobile-nav-open');if(d){d.classList.remove('open','is-open');d.classList.add('-translate-x-full');d.setAttribute('aria-hidden','true');d.inert=true;d.hidden=false;d.style.removeProperty('display');d.style.removeProperty('visibility');d.style.removeProperty('opacity');d.style.removeProperty('pointer-events')}if(b){b.classList.add('hidden');b.setAttribute('aria-hidden','true');b.style.opacity='0';b.style.pointerEvents='none'}sync();window.dispatchEvent(new CustomEvent('ovyx:mobile-drawer-closed'))}
+  function close(){try{window.MobileDrawer?.close?.()}catch(_){}normalizeClosed()}
+  function open(){if(window.innerWidth>=768)return;try{window.MobileDrawer?.open?.()}catch(_){}const d=$('mobile-drawer'),b=$('mobile-drawer-backdrop');if(d){d.hidden=false;d.inert=false;d.classList.remove('-translate-x-full');d.classList.add('open');d.setAttribute('aria-hidden','false');d.style.setProperty('display','flex','important');d.style.setProperty('visibility','visible','important');d.style.setProperty('opacity','1','important');d.style.setProperty('pointer-events','auto','important')}if(b){b.hidden=false;b.classList.remove('hidden');b.setAttribute('aria-hidden','false');b.style.opacity='1';b.style.pointerEvents='auto'}document.body.classList.add('ovyx-drawer-open');sync();window.dispatchEvent(new CustomEvent('ovyx:mobile-drawer-opened'))}
+  function bind(){
+    const more=$('ovyx-v52-bottom-bar')?.querySelector('[data-v52-bottom="more"]');
+    if(more&&!more.dataset.ovyxCanonicalMore){more.dataset.ovyxCanonicalMore='1';more.addEventListener('click',e=>{if(window.innerWidth>=768)return;e.preventDefault();e.stopImmediatePropagation?.();open()},{capture:true})}
+    const closeBtn=$('mobile-drawer')?.querySelector('[aria-label="Close navigation"]');if(closeBtn&&!closeBtn.dataset.ovyxCanonicalClose){closeBtn.dataset.ovyxCanonicalClose='1';closeBtn.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation?.();close()},{capture:true})}
+    const backdrop=$('mobile-drawer-backdrop');if(backdrop&&!backdrop.dataset.ovyxCanonicalClose){backdrop.dataset.ovyxCanonicalClose='1';backdrop.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation?.();close()},{capture:true})}
+    window.addEventListener('resize',sync,{passive:true});window.addEventListener('ovyx:view-changed',sync,{passive:true});window.addEventListener('pageshow',()=>setTimeout(sync,40),{passive:true});sync();
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind,{once:true});else bind();
+  window.OVYXMobileDockAuthority={open,close,sync};
+})();</script>
+
+<script id="ovyx-mobile-drawer-final-event-authority-v2">(function(){
+  'use strict';
+  if(window.__OVYX_MOBILE_DRAWER_FINAL_EVENT_AUTHORITY_V2__)return;
+  window.__OVYX_MOBILE_DRAWER_FINAL_EVENT_AUTHORITY_V2__=true;
+  function canonicalOpen(){try{window.OVYXMobileDockAuthority?.open?.()}catch(_){};}
+  function canonicalClose(){try{window.OVYXMobileDockAuthority?.close?.()}catch(_){};}
+  function targetType(t){
+    if(!t?.closest)return '';
+    if(t.closest('#ovyx-v52-bottom-bar [data-v52-bottom="more"]'))return 'more';
+    if(t.closest('#mobile-drawer-backdrop'))return 'close';
+    if(t.closest('#mobile-drawer [aria-label="Close navigation"]'))return 'close';
+    return '';
+  }
+  function handle(e){
+    if(window.innerWidth>=768)return;
+    const type=targetType(e.target);if(!type)return;
+    e.preventDefault();e.stopImmediatePropagation?.();e.stopPropagation?.();
+    if(type==='more')canonicalOpen();else canonicalClose();
+  }
+  /* Use one native click event for mouse, touch, and keyboard activation. Do not open on pointerdown:
+     changing the screen before the tap completes can suppress the browser's click event on mobile. */
+  window.addEventListener('click',handle,{capture:true,passive:false});
+  window.addEventListener('pageshow',()=>{setTimeout(()=>window.OVYXMobileDockAuthority?.sync?.(),0)},{passive:true});
+  window.addEventListener('resize',()=>setTimeout(()=>window.OVYXMobileDockAuthority?.sync?.(),0),{passive:true});
+})();</script>
+
+<script id="ovyx-v25-core-controller">(function(){
+  'use strict';
+  if(window.__OVYX_V25_CORE_CONTROLLER__)return;
+  window.__OVYX_V25_CORE_CONTROLLER__=true;
+  var ALLOWED=['home','projects','webstudio','appstudio','workspace','templates','settings','pricing','faq','inbox'];
+  var routeBusy=false;
+  var lastRouteApplied='';
+  var promptTimer=0;
+  var assistantPatchTimer=0;
+  function q(id){return document.getElementById(id)}
+  function safeJSON(key){try{var x=JSON.parse(localStorage.getItem(key)||'null');return x&&typeof x==='object'?x:null}catch(_){return null}}
+  function readRoute(){
+    var r='';
+    try{r=String(localStorage.getItem('ovyx.runtime.route.v18')||'').replace(/^view-/,'').trim().toLowerCase()}catch(_){ }
+    if(ALLOWED.indexOf(r)<0){try{r=String(localStorage.getItem('ovyx.settings.last-view.v1')||'').replace(/^view-/,'').trim().toLowerCase()}catch(_){ }}
+    if(ALLOWED.indexOf(r)<0){var x=safeJSON('ovyx.runtime.session.v4');r=String(x?.route||'').replace(/^view-/,'').trim().toLowerCase()}
+    return ALLOWED.indexOf(r)>=0?r:'home';
+  }
+  function persistLightSnapshot(){
+    try{
+      var route=String(window.KernelState?.activeView||'home').replace(/^view-/,'').toLowerCase();
+      if(ALLOWED.indexOf(route)>=0) localStorage.setItem('ovyx.runtime.route.v18',route);
+    }catch(_){ }
+  }
+  function applyRoute(reason){
+    if(routeBusy)return;
+    var route=readRoute();
+    if(route===lastRouteApplied && reason!=='pageshow-persisted')return;
+    routeBusy=true;
+    try{
+      var current=String(window.KernelState?.activeView||'').replace(/^view-/,'').toLowerCase();
+      if(current!==route && window.Router&&typeof window.Router.go==='function')window.Router.go(route);
+      if(window.KernelState)window.KernelState.activeView=route;
+      window.__OVYX_BOOT_ROUTE=route;
+      lastRouteApplied=route;
+    }catch(_){ }
+    routeBusy=false;
+  }
+  function clearTransient(){
+    try{window.__OVYX_BUILD_BUSY__=false;window.__OVYX_PROMPT_BUSY__=false;window.__OVYX_ACTIVE_BUILD__=null}catch(_){ }
+    try{
+      document.querySelectorAll('[aria-busy="true"][data-ovyx-transient-busy="1"]').forEach(function(el){el.removeAttribute('aria-busy');if('disabled' in el)el.disabled=false});
+    }catch(_){ }
+    try{
+      if(window.WebStudio){window.WebStudio.pendingBuild=false;window.WebStudio.liveAiActive=false;window.WebStudio.aiFrozen=false}
+    }catch(_){ }
+  }
+  function seedSplash(){
+    var emb=q('ovyx-splash-embers'),ash=q('ovyx-splash-ash');
+    if(emb&&!emb.dataset.v26Ready){
+      emb.dataset.v26Ready='1';
+      for(var i=0;i<48;i++){var e=document.createElement('span');e.style.setProperty('--x',(1+(i*23)%98)+'%');e.style.setProperty('--s',(2+(i%4))+'px');e.style.setProperty('--d',(2.0+(i%8)*.34)+'s');e.style.setProperty('--delay',(-i*.15)+'s');e.style.setProperty('--drift',((i%2?1:-1)*(18+(i%13)*4))+'px');emb.appendChild(e)}
+    }
+    if(ash&&!ash.dataset.v26Ready){
+      ash.dataset.v26Ready='1';
+      for(var j=0;j<42;j++){var a=document.createElement('span');a.style.setProperty('--x',(1+(j*41)%98)+'%');a.style.setProperty('--s',(1+(j%3))+'px');a.style.setProperty('--d',(2.9+(j%8)*.44)+'s');a.style.setProperty('--delay',(-j*.27)+'s');a.style.setProperty('--drift',((j%2?1:-1)*(22+(j%9)*6))+'px');ash.appendChild(a)}
+    }
+  }
+  var splashExitScheduled=false;
+  var splashReleased=false;
+  function releaseSplash(reason,event){
+    // Prefer the complete load event, but do not leave a full-screen curtain
+    // intercepting the real app when a slow remote font/script delays that event.
+    // At DOMContentLoaded, the inline OVYX shell and routed viewport already exist;
+    // two animation frames plus the bounded font wait below provide a stable release.
+    var pageReady=document.readyState==='complete'||(reason==='pageshow'&&event?.persisted===true);
+    var shellReady=document.readyState!=='loading'&&!!q('app-container')&&!!q('view-router-viewport');
+    if((!pageReady&&!shellReady)||splashExitScheduled||splashReleased)return;
+    splashExitScheduled=true;
+    var start=window.__OVYX_PREPAINT_STARTED_AT__||Date.now();
+    var fontsReady=(document.fonts&&document.fonts.ready)
+      ? Promise.race([
+          Promise.resolve(document.fonts.ready).catch(function(){}),
+          new Promise(function(resolve){setTimeout(resolve,1800)})
+        ])
+      : Promise.resolve();
+    Promise.resolve(fontsReady).then(function(){
+      var wait=Math.max(0,1850-(Date.now()-start));
+      setTimeout(function(){
+        var frames=0;
+        function settleLayout(){
+          if(frames<2&&window.requestAnimationFrame){frames++;window.requestAnimationFrame(settleLayout);return}
+          var app=q('app-container'),viewport=q('view-router-viewport');
+          if((!app||!viewport)&&Date.now()-start<11000){setTimeout(settleLayout,120);return}
+          splashReleased=true;
+          try{clearTimeout(window.__OVYX_SPLASH_FAILSAFE__);window.__OVYX_SPLASH_FAILSAFE__=null}catch(_){}
+          try{document.documentElement.removeAttribute('data-ovyx-stabilizing')}catch(_){}
+          var curtain=q('ovyx-first-paint-curtain');
+          if(curtain){curtain.classList.add('ovyx-v26-curtain-exit');setTimeout(function(){try{curtain.remove()}catch(_){ }},390)}
+        }
+        if(window.requestAnimationFrame)window.requestAnimationFrame(settleLayout);else setTimeout(settleLayout,40);
+      },wait);
+    });
+  }
+  function typePrompt(){
+    var input=q('prompt-home-input');
+    if(!input)return;
+    var state=input.__ovyxPromptV28;
+    if(!state){
+      state={timer:0,index:0,running:false,token:0};
+      input.__ovyxPromptV28=state;
+    }
+    var phrases=[
+      'Build a premium SaaS dashboard with a clean responsive layout',
+      'Design a cinematic portfolio with projects and detailed case studies',
+      'Create a modern store with product collections and a smooth checkout',
+      'Build a polished booking experience with services, calendar, and payments',
+      'Design a dark product launch site with pricing and customer testimonials',
+      'Create a creator workspace with analytics, assets, and collaboration tools',
+      'Build a responsive agency website with services and contact sections',
+      'Design a refined mobile app landing page with clear feature highlights'
+    ];
+    function isHome(){
+      var active=String(window.KernelState?.activeView||'home').replace(/^view-/,'').toLowerCase();
+      return active==='home'||active==='';
+    }
+    function setLive(on){
+      var shell=input.closest('#v59-home-composer');
+      if(shell)shell.setAttribute('data-ovyx-prompt-live',on?'1':'0');
+    }
+    function stop(clear){
+      state.token++;
+      state.running=false;
+      setLive(false);
+      if(state.timer){clearTimeout(state.timer);state.timer=0}
+      if(clear!==false)input.placeholder='';
+    }
+    function schedule(fn,ms,token){
+      state.timer=setTimeout(function(){
+        state.timer=0;
+        if(token!==state.token)return;
+        fn();
+      },ms);
+    }
+    function start(){
+      if(state.running)return;
+      if(!isHome()||document.visibilityState==='hidden'||input.value.trim()||document.activeElement===input)return;
+      state.running=true;
+      setLive(true);
+      var token=++state.token;
+      var text=phrases[state.index%phrases.length];
+      state.index=(state.index+1)%phrases.length;
+      var p=0;
+      function type(){
+        if(token!==state.token)return;
+        if(!isHome()||document.visibilityState==='hidden'||input.value.trim()||document.activeElement===input){stop(true);return}
+        p+=1;
+        input.placeholder=text.slice(0,p);
+        if(p<text.length){
+          schedule(type,34,token);
+        }else{
+          schedule(erase,1700,token);
+        }
+      }
+      function erase(){
+        if(token!==state.token)return;
+        if(!isHome()||document.visibilityState==='hidden'||input.value.trim()||document.activeElement===input){stop(true);return}
+        p-=1;
+        input.placeholder=text.slice(0,Math.max(0,p));
+        if(p>0){
+          schedule(erase,18,token);
+        }else{
+          state.running=false;
+          setLive(false);
+          schedule(start,360,token);
+        }
+      }
+      type();
+    }
+    if(input.dataset.ovyxV28PromptBound!=='1'){
+      input.dataset.ovyxV28PromptBound='1';
+      input.addEventListener('focus',function(){stop(true)},{passive:true});
+      input.addEventListener('input',function(){
+        if(input.value.trim()){
+          stop(true);
+        }else if(document.activeElement!==input&&isHome()){
+          start();
+        }
+      },{passive:true});
+      input.addEventListener('blur',function(){
+        if(!input.value.trim()&&isHome()&&document.visibilityState!=='hidden')start();
+      },{passive:true});
+    }
+    if(!isHome()||document.visibilityState==='hidden'){
+      if(state.running)stop(true);
+      return;
+    }
+    if(!input.value.trim()&&document.activeElement!==input&&!state.running)start();
+  }
+  function normalizeAdvanced(){
+    var p=q('kernel-brain-bot-panel');if(!p)return;
+    var menus=Array.from(p.querySelectorAll(':scope > div:last-child > .ovyx-ai-advanced'));
+    if(menus.length<=1)return;
+    var keep=menus[0],body=keep.querySelector('.ovyx-ai-advanced-body');if(!body)return;
+    menus.slice(1).forEach(function(extra){var eb=extra.querySelector('.ovyx-ai-advanced-body');if(eb)Array.from(eb.children).forEach(function(node){body.appendChild(node)});extra.remove()});
+  }
+  function installAssistant(){
+    var B=window.WorkspaceBrainBot;if(!B)return false;
+    normalizeAdvanced();
+    if(B.__OVYX_V19_ASSISTANT)return true;
+    var open=typeof B.open==='function'?B.open.bind(B):null,close=typeof B.close==='function'?B.close.bind(B):null,toggle=typeof B.toggle==='function'?B.toggle.bind(B):null;
+    if(!open&&!toggle)return false;
+    function state(on){
+      var p=q('kernel-brain-bot-panel');if(!p)return;
+      if(on){p.dataset.ovyxCopilotFullscreen='1';document.documentElement.classList.add('ovx-ovyx-copilot-fullscreen');document.body.classList.add('ovx-ovyx-copilot-fullscreen');}
+      else{delete p.dataset.ovyxCopilotFullscreen;document.documentElement.classList.remove('ovx-ovyx-copilot-fullscreen');document.body.classList.remove('ovx-ovyx-copilot-fullscreen');}
+    }
+    if(open){B.open=function(){var r=open.apply(B,arguments);state(true);return r}}
+    if(close){B.close=function(){var r=close.apply(B,arguments);state(false);return r}}
+    if(toggle){B.toggle=function(){var r=toggle.apply(B,arguments);setTimeout(function(){var p=q('kernel-brain-bot-panel');state(!!p&&!p.classList.contains('hidden'))},0);return r}}
+    B.__OVYX_V19_ASSISTANT=true;return true;
+  }
+  function syncViewport(){
+    var vv=window.visualViewport,h=Math.max(1,Math.round(vv?.height||window.innerHeight||1)),top=Math.max(0,Math.round(vv?.offsetTop||0));
+    document.documentElement.style.setProperty('--ovyx-vv-height',h+'px');document.documentElement.style.setProperty('--ovyx-vv-top',top+'px');document.documentElement.style.setProperty('--ovyx-keyboard-bottom',Math.max(0,(window.innerHeight||h)-h-top)+'px');
+  }
+  function enforceMobileWebStudioGeometry(){
+    try{
+      if(window.innerWidth>767) return;
+      var active=document.body&&document.body.classList.contains('ovyx-webstudio-active');
+      if(!active)return;
+      var main=document.querySelector('body.ovyx-webstudio-active main');
+      var viewport=document.getElementById('view-router-viewport');
+      var section=document.getElementById('view-webstudio');
+      var shell=document.querySelector('#view-webstudio .ovyx-ws-shell');
+      var workspace=document.querySelector('#view-webstudio .ovyx-ws-workspace');
+      var chat=document.querySelector('#view-webstudio .ovyx-ws-chat-pane');
+      var preview=document.querySelector('#view-webstudio .ovyx-ws-inline-preview');
+      var scroll=document.querySelector('#view-webstudio .ovyx-ws-chat-scroll');
+      var wrap=document.querySelector('#view-webstudio .ovyx-ws-composer-wrap');
+      var composer=document.getElementById('ws-chat-composer');
+      var set=function(el,k,v){if(el)el.style.setProperty(k,v,'important')};
+      set(main,'padding-bottom','0');set(main,'margin-bottom','0');set(main,'height','100dvh');set(main,'min-height','100dvh');set(main,'max-height','100dvh');set(main,'overflow','hidden');
+      set(viewport,'height','100dvh');set(viewport,'min-height','100dvh');set(viewport,'max-height','100dvh');set(viewport,'padding-bottom','0');set(viewport,'overflow','hidden');
+      set(section,'height','100dvh');set(section,'min-height','100dvh');set(section,'max-height','100dvh');set(section,'padding-bottom','0');set(section,'overflow','hidden');
+      set(shell,'height','100dvh');set(shell,'min-height','100dvh');set(shell,'max-height','100dvh');set(shell,'overflow','hidden');
+      set(workspace,'display','block');set(workspace,'grid-template-columns','none');set(workspace,'grid-template-rows','none');set(workspace,'width','100%');set(workspace,'height','calc(100dvh - 54px)');set(workspace,'max-height','calc(100dvh - 54px)');set(workspace,'min-height','0');set(workspace,'padding-bottom','0');
+      set(chat,'display','flex');set(chat,'width','100%');set(chat,'max-width','none');set(chat,'height','100%');set(chat,'min-width','0');set(chat,'min-height','0');set(chat,'border-right','0');set(chat,'grid-column','auto');set(chat,'grid-row','auto');
+      set(preview,'display','none');set(preview,'visibility','hidden');set(preview,'pointer-events','none');set(preview,'width','0');set(preview,'min-width','0');set(preview,'max-width','0');set(preview,'height','0');set(preview,'max-height','0');
+      set(scroll,'width','100%');set(scroll,'height','100%');set(scroll,'min-height','0');set(scroll,'padding-bottom','calc(240px + env(safe-area-inset-bottom))');set(scroll,'scroll-padding-bottom','calc(240px + env(safe-area-inset-bottom))');
+      set(wrap,'left','0');set(wrap,'right','0');set(wrap,'bottom','0');set(wrap,'width','100%');set(wrap,'max-width','none');set(wrap,'z-index','2147482000');
+      set(composer,'width','100%');set(composer,'max-width','none');
+    }catch(_){}
+  }
+  function boot(reason,event){
+    clearTransient();seedSplash();syncViewport();typePrompt();installAssistant();enforceMobileWebStudioGeometry();
+    if(reason==='pageshow'&&event?.persisted)lastRouteApplied='';
+    applyRoute(reason==='pageshow'&&event?.persisted?'pageshow-persisted':reason);
+    releaseSplash(reason,event);
+  }
+  if(!window.__OVYX_PREPAINT_STARTED_AT__)window.__OVYX_PREPAINT_STARTED_AT__=Date.now();
+  function initial(){boot('initial',null)}
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',initial,{once:true});else initial();
+  window.addEventListener('load',function(){boot('load',null)},{passive:true});
+  window.addEventListener('pageshow',function(e){boot('pageshow',e)},{passive:true});
+  document.addEventListener('visibilitychange',function(){if(document.visibilityState==='visible'){syncViewport();typePrompt();installAssistant();enforceMobileWebStudioGeometry()}},{passive:true});
+  window.addEventListener('resize',function(){syncViewport();enforceMobileWebStudioGeometry()},{passive:true});
+  window.visualViewport?.addEventListener?.('resize',function(){syncViewport();enforceMobileWebStudioGeometry()},{passive:true});
+  window.visualViewport?.addEventListener?.('scroll',syncViewport,{passive:true});
+  window.addEventListener('ovyx:view-changed',function(){typePrompt();installAssistant();syncViewport();setTimeout(enforceMobileWebStudioGeometry,0);setTimeout(enforceMobileWebStudioGeometry,120)},{passive:true});
+  window.addEventListener('pagehide',persistLightSnapshot,{passive:true});
+  window.addEventListener('beforeunload',persistLightSnapshot,{passive:true});
+  assistantPatchTimer=setInterval(function(){if(installAssistant()){clearInterval(assistantPatchTimer)}},250);setTimeout(function(){clearInterval(assistantPatchTimer)},5000);
+  window.OVYXV25={boot,applyRoute,clearTransient,syncViewport,typePrompt,installAssistant,persistLightSnapshot};
+})();</script>
+<!-- OVYX V9 · FINAL VISUAL + REFRESH AUTHORITY (built from untouched V7) -->
+<script id="ovyx-v25-final-audit-runtime">(function(){'use strict';
+  window.__OVYX_V25_FINAL_AUDIT__={version:'25',singleBootController:'ovyx-v25-core-controller',legacyRefreshControllersRemoved:true,legacyPromptLightsRemoved:true};
+})();</script>
+
+<style id="ovyx-v25-final-cascade-authority">/* OVYX V22 — final live cascade authority. This is the last visual override in the document. */ @media(max-width:767px){ body.ovyx-webstudio-active main{padding-bottom:0!important;margin-bottom:0!important;height:100dvh!important;min-height:100dvh!important;max-height:100dvh!important;overflow:hidden!important} body.ovyx-webstudio-active #view-router-viewport{height:100dvh!important;min-height:100dvh!important;max-height:100dvh!important;padding-bottom:0!important;overflow:hidden!important} body.ovyx-webstudio-active #view-router-viewport>section#view-webstudio{height:100dvh!important;min-height:100dvh!important;max-height:100dvh!important;padding-bottom:0!important;overflow:hidden!important} body.ovyx-webstudio-active #view-webstudio .ovyx-ws-shell{height:100dvh!important;min-height:100dvh!important;max-height:100dvh!important;overflow:hidden!important} body.ovyx-webstudio-active #view-webstudio .ovyx-ws-workspace{display:block!important;grid-template-columns:none!important;grid-template-rows:none!important;width:100%!important;height:calc(100dvh - 54px)!important;min-height:0!important;max-height:calc(100dvh - 54px)!important;padding:0!important;overflow:hidden!important} body.ovyx-webstudio-active #view-webstudio .ovyx-ws-chat-pane{display:flex!important;width:100%!important;height:100%!important;max-width:none!important;min-width:0!important;min-height:0!important;grid-column:auto!important;grid-row:auto!important;border:0!important} body.ovyx-webstudio-active #view-webstudio .ovyx-ws-inline-preview{display:none!important;visibility:hidden!important;pointer-events:none!important;width:0!important;min-width:0!important;max-width:0!important;height:0!important;max-height:0!important} body.ovyx-webstudio-active #view-webstudio .ovyx-ws-chat-scroll{width:100%!important;height:100%!important;min-height:0!important;padding-bottom:calc(240px + env(safe-area-inset-bottom))!important;scroll-padding-bottom:calc(240px + env(safe-area-inset-bottom))!important} body.ovyx-webstudio-active #view-webstudio .ovyx-ws-composer-wrap{position:absolute!important;left:0!important;right:0!important;bottom:0!important;width:100%!important;max-width:none!important;z-index:2147482000!important} body.ovyx-webstudio-active #ws-chat-composer{width:100%!important;max-width:none!important} body.ovyx-webstudio-active #ovyx-v52-bottom-bar{display:none!important} } /* OVYX V26 — native mobile pull-to-refresh is owned by the browser. */ html,body{height:auto!important;min-height:100%!important;overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior-y:auto!important;touch-action:pan-y pinch-zoom!important} #app-container{height:auto!important;min-height:100dvh!important;max-height:none!important;overflow:visible!important} html[data-ovyx-stabilizing="1"]{overflow-y:hidden!important;touch-action:auto!important} body.ovyx-webstudio-active{overflow-y:auto!important;overflow-x:hidden!important;overscroll-behavior-y:auto!important;touch-action:pan-y pinch-zoom!important}</style>
+
+<script id="ovyx-v26-three-fixes-audit">(function(){'use strict';
+ window.__OVYX_V26_THREE_FIXES__={
+   splashFireRemoved:true,
+   promptBorderOwner:'conic-rotation-v26',
+   rootPullToRefresh:'native-browser',
+   promptTypewriter:'textarea-placeholder-v26'
+ };
+})();</script>
+
+<style id="ovyx-v30-dashboard-composer-authority">/* V30 — fixed rounded geometry; only the conic color angle rotates. */ @property --ovyx-v30-border-angle{ syntax:'<angle>'; inherits:false; initial-value:0deg; } #v59-home-composer{ position:relative!important; isolation:isolate!important; overflow:visible!important; border:1px solid rgba(255,255,255,.09)!important; border-radius:19px!important; } #v59-home-composer::before{ content:""!important; position:absolute!important; inset:0!important; padding:1.55px!important; box-sizing:border-box!important; border-radius:inherit!important; background:conic-gradient(from var(--ovyx-v30-border-angle), #35e7ff 0%, #8b5cf6 25%, #ff4fa3 50%, #e8b64f 75%, #35e7ff 100% )!important; -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0)!important; -webkit-mask-composite:xor!important; mask-composite:exclude!important; pointer-events:none!important; z-index:1!important; opacity:.98!important; will-change:--ovyx-v30-border-angle!important; animation:ovyxV30GeminiBorderOrbit 6.2s linear infinite!important; animation-play-state:running!important; } #v59-home-composer::after{ content:""!important; position:absolute!important; inset:-1px!important; padding:3px!important; box-sizing:border-box!important; border-radius:inherit!important; background:conic-gradient(from var(--ovyx-v30-border-angle), rgba(53,231,255,.58) 0%, rgba(139,92,246,.48) 25%, rgba(255,79,163,.46) 50%, rgba(232,182,79,.50) 75%, rgba(53,231,255,.58) 100% )!important; -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0)!important; -webkit-mask-composite:xor!important; mask-composite:exclude!important; pointer-events:none!important; z-index:0!important; opacity:.25!important; filter:blur(5px)!important; will-change:--ovyx-v30-border-angle!important; animation:ovyxV30GeminiBorderOrbit 6.2s linear infinite!important; animation-play-state:running!important; } #v59-home-composer>textarea#prompt-home-input, #v59-home-composer>.v59-attachment-tray, #v59-home-composer>.v59-composer-bar, #v59-home-composer>.v59-routing-note{position:relative!important;z-index:5!important} @keyframes ovyxV30GeminiBorderOrbit{ from{--ovyx-v30-border-angle:0deg} to{--ovyx-v30-border-angle:360deg} } @media(prefers-reduced-motion:reduce){ #v59-home-composer::before,#v59-home-composer::after{animation-duration:18s!important;animation-play-state:running!important} } /* V30 — compact professional attachment popover, anchored to the + action. */ #v59-add-menu{position:absolute!important;left:8px!important;bottom:54px!important;width:258px!important;max-width:calc(100vw - 24px)!important;box-sizing:border-box!important;padding:7px!important;display:grid!important;gap:3px!important;border:1px solid rgba(255,255,255,.10)!important;border-radius:15px!important;background:rgba(8,9,10,.96)!important;backdrop-filter:blur(18px) saturate(125%)!important;-webkit-backdrop-filter:blur(18px) saturate(125%)!important;box-shadow:0 18px 55px rgba(0,0,0,.55),0 0 0 1px rgba(232,182,79,.025) inset!important;z-index:2147482500!important;pointer-events:auto!important;transform:translateY(5px) scale(.985)!important;transform-origin:bottom left!important;opacity:0!important;visibility:hidden!important;transition:opacity .16s ease,transform .16s ease,visibility .16s ease!important} #v59-add-menu:not([hidden]){opacity:1!important;visibility:visible!important;transform:translateY(0) scale(1)!important} #v59-add-menu button{width:100%!important;min-height:40px!important;display:flex!important;align-items:center!important;gap:10px!important;padding:7px 9px!important;border:1px solid transparent!important;border-radius:10px!important;background:transparent!important;color:#e3e6ea!important;text-align:left!important;cursor:pointer!important;pointer-events:auto!important;transition:background .14s ease,border-color .14s ease,transform .14s ease!important} #v59-add-menu button:hover,#v59-add-menu button:focus-visible{background:rgba(255,255,255,.045)!important;border-color:rgba(255,255,255,.07)!important;outline:0!important} #v59-add-menu button:active{transform:scale(.985)!important} #v59-add-menu i{width:28px!important;height:28px!important;flex:0 0 28px!important;display:grid!important;place-items:center!important;border-radius:8px!important;background:rgba(232,182,79,.08)!important;color:#e8b64f!important;font-size:11px!important} #v59-add-menu b{display:block!important;color:#f2f3f4!important;font:800 9px/1.2 Inter,sans-serif!important} #v59-add-menu small{display:block!important;margin-top:3px!important;color:#7e8791!important;font:600 7px/1.3 JetBrains Mono,monospace!important} #v59-add-menu::after{content:"";position:absolute;left:22px;bottom:-5px;width:10px;height:10px;background:rgba(8,9,10,.96);border-right:1px solid rgba(255,255,255,.10);border-bottom:1px solid rgba(255,255,255,.10);transform:rotate(45deg);pointer-events:none} @media(max-width:767px){#v59-add-menu{left:8px!important;bottom:54px!important;width:258px!important;max-width:calc(100vw - 24px)!important}}</style>
+
+<style id="ovyx-v30-home-liveness-authority">/* The Dashboard prompt uses one persistent timer only; no competing sweep/typewriter loop. */ #v59-home-composer[data-ovyx-prompt-live="1"]{contain:layout style} #v59-home-composer textarea{text-rendering:optimizeLegibility!important}</style>
+
+<script id="ovyx-v30-three-fixes-audit">(function(){'use strict';window.__OVYX_V30_DASHBOARD_FIXES__={composerBorder:'single-conic-gemini-orbit',attachmentMenu:'anchored-compact-popover',promptController:'single-persistent-placeholder-loop'};})();</script>
+
+<style id="ovyx-v31-premium-plans-payments">/* OVYX V31 — premium plans + secure checkout surface. Keeps existing IDs/contracts. */ #view-pricing{max-width:none!important;width:100%!important;min-height:100%!important;padding:34px 24px 54px!important;background:#000!important;color:#fff!important} #view-pricing .ovyx-v31-plans-shell{width:min(1180px,100%);margin:0 auto} .ovyx-v31-plans-head{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:30px} .ovyx-v31-kicker{display:inline-flex;align-items:center;gap:8px;color:#9ca3af;font:800 9px/1 JetBrains Mono,monospace;letter-spacing:.18em;text-transform:uppercase} .ovyx-v31-kicker i{font-size:10px;color:#e8b64f} .ovyx-v31-plans-head h2{margin:10px 0 8px;color:#fff;font:850 clamp(30px,4.5vw,52px)/.98 Inter,sans-serif;letter-spacing:-.045em} .ovyx-v31-plans-head p{max-width:630px;margin:0;color:#7d858f;font:500 13px/1.65 Inter,sans-serif} .ovyx-v31-billing{display:flex;align-items:center;gap:7px;padding:5px;border:1px solid rgba(255,255,255,.11);border-radius:14px;background:rgba(255,255,255,.025);flex:none} .ovyx-v31-billing-label{padding:0 7px;color:#6f7782;font:800 8px/1 JetBrains Mono,monospace;letter-spacing:.12em;text-transform:uppercase} #view-pricing #btn-curr-ngn,#view-pricing #btn-curr-usd{height:34px!important;min-width:115px!important;padding:0 13px!important;border-radius:10px!important;font:800 9px/1 Inter,sans-serif!important;letter-spacing:.02em;border-color:rgba(255,255,255,.10)!important;background:transparent!important;color:#7f8791!important;box-shadow:none!important} #view-pricing #btn-curr-ngn.active,#view-pricing #btn-curr-usd.active{background:rgba(255,255,255,.08)!important;color:#fff!important;border-color:rgba(255,255,255,.18)!important} .ovyx-v31-plan-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px} .ovyx-v31-plan-card{position:relative;display:flex;min-height:515px;flex-direction:column;padding:25px;border:1px solid rgba(255,255,255,.09);border-radius:22px;background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.012));overflow:hidden} .ovyx-v31-plan-card::before{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 80% 0%,rgba(255,255,255,.055),transparent 34%)} .ovyx-v31-plan-card.pro{border-color:rgba(232,182,79,.34);background:linear-gradient(180deg,rgba(232,182,79,.07),rgba(255,255,255,.012) 46%,rgba(255,255,255,.008));} .ovyx-v31-plan-card.max{border-color:rgba(53,231,255,.24);background:linear-gradient(180deg,rgba(53,231,255,.055),rgba(255,255,255,.012) 48%,rgba(255,255,255,.008));} .ovyx-v31-plan-top{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:12px} .ovyx-v31-plan-name{font:850 10px/1 Inter,sans-serif;letter-spacing:.14em;text-transform:uppercase;color:#adb3bb} .ovyx-v31-plan-card.pro .ovyx-v31-plan-name{color:#e8b64f}.ovyx-v31-plan-card.max .ovyx-v31-plan-name{color:#35e7ff} .ovyx-v31-badge{padding:6px 8px;border:1px solid rgba(232,182,79,.22);border-radius:999px;background:rgba(232,182,79,.07);color:#e8b64f;font:800 7px/1 JetBrains Mono,monospace;letter-spacing:.08em;text-transform:uppercase} .ovyx-v31-badge.cyan{border-color:rgba(53,231,255,.2);background:rgba(53,231,255,.06);color:#35e7ff} .ovyx-v31-plan-card h3{position:relative;z-index:1;margin:28px 0 9px;color:#fff;font:850 25px/1 Inter,sans-serif;letter-spacing:-.035em} .ovyx-v31-plan-copy{position:relative;z-index:1;min-height:48px;color:#7f8791;font:500 11px/1.55 Inter,sans-serif} .ovyx-v31-price{position:relative;z-index:1;display:flex;align-items:flex-end;gap:6px;margin-top:24px;color:#fff;font:850 clamp(31px,4vw,43px)/.95 Inter,sans-serif;letter-spacing:-.045em} .ovyx-v31-price small{padding-bottom:4px;color:#68717c;font:700 9px/1 JetBrains Mono,monospace;letter-spacing:.02em} .ovyx-v31-divider{position:relative;z-index:1;height:1px;margin:25px 0 18px;background:rgba(255,255,255,.08)} .ovyx-v31-feature-list{position:relative;z-index:1;display:grid;gap:10px;margin:0;padding:0;list-style:none;min-height:142px;color:#b7bec7;font:500 10px/1.45 Inter,sans-serif} .ovyx-v31-feature-list li{display:flex;align-items:flex-start;gap:9px} .ovyx-v31-feature-list li::before{content:"✓";display:grid;place-items:center;flex:0 0 15px;width:15px;height:15px;border-radius:50%;background:rgba(255,255,255,.06);color:#d8dde2;font:900 9px/1 Inter,sans-serif} .ovyx-v31-plan-card.pro .ovyx-v31-feature-list li::before{background:rgba(232,182,79,.09);color:#e8b64f}.ovyx-v31-plan-card.max .ovyx-v31-feature-list li::before{background:rgba(53,231,255,.08);color:#35e7ff} .ovyx-v31-plan-btn{position:relative;z-index:1;width:100%;height:48px;margin-top:auto;border:1px solid rgba(255,255,255,.12);border-radius:13px;background:#111318;color:#f4f5f6;font:850 10px/1 Inter,sans-serif;letter-spacing:.02em;cursor:pointer;transition:transform .2s ease,border-color .2s ease,background .2s ease} .ovyx-v31-plan-btn:hover{transform:translateY(-1px);border-color:rgba(255,255,255,.24);background:#151820} .ovyx-v31-plan-btn.primary{border-color:#e8b64f;background:#e8b64f;color:#080808}.ovyx-v31-plan-btn.primary:hover{background:#f2ca6c;border-color:#f2ca6c} .ovyx-v31-plan-btn.cyan{border-color:#35e7ff;background:#35e7ff;color:#061014}.ovyx-v31-plan-btn.cyan:hover{background:#63efff;border-color:#63efff} .ovyx-v31-plan-foot{position:relative;z-index:1;margin-top:12px;color:#4f5862;font:600 8px/1.45 JetBrains Mono,monospace;text-transform:uppercase;letter-spacing:.08em} .ovyx-v31-secure-note{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:24px;color:#59626c;font:700 8px/1.4 JetBrains Mono,monospace;letter-spacing:.08em;text-transform:uppercase}.ovyx-v31-secure-note i{color:#e8b64f} /* Secure checkout */ #checkout-elements-modal{z-index:2147483000!important;padding:10px!important;background:rgba(0,0,0,.88)!important;backdrop-filter:blur(22px)!important;overflow:auto!important;overscroll-behavior:contain!important} #checkout-elements-modal .v0-panel{width:min(560px,100%)!important;max-width:560px!important;max-height:calc(100dvh - 20px)!important;overflow-y:auto!important;padding:26px!important;border:1px solid rgba(255,255,255,.12)!important;border-radius:24px!important;background:linear-gradient(180deg,rgba(17,18,21,.985),rgba(4,5,6,.99))!important;box-shadow:0 36px 120px rgba(0,0,0,.62)!important} #checkout-elements-modal .v0-panel>div:first-child{padding-bottom:18px!important;border-bottom-color:rgba(255,255,255,.08)!important} #checkout-elements-modal .v0-panel>div:first-child .w-6{width:34px!important;height:34px!important;border-radius:11px!important;background:rgba(232,182,79,.08)!important;border-color:rgba(232,182,79,.26)!important;font-size:12px!important} #checkout-elements-modal .v0-panel>div:first-child span{font:850 9px/1 Inter,sans-serif!important;letter-spacing:.14em!important;color:#e7e9ec!important} #checkout-elements-modal #modal-checkout-tier-name{display:block!important;margin-top:5px!important;font-size:26px!important;line-height:1!important;letter-spacing:-.035em!important} #checkout-elements-modal .space-y-1>p{margin-top:8px!important;color:#747d87!important;font:500 10px/1.55 Inter,sans-serif!important} #checkout-elements-modal [role="tablist"]{gap:7px!important;padding:4px!important;border-color:rgba(255,255,255,.08)!important;background:#090a0c!important} #checkout-elements-modal [role="tablist"] button{min-height:50px!important;border-radius:11px!important;border-color:transparent!important;background:transparent!important;padding:9px 11px!important} #checkout-elements-modal [role="tablist"] button[aria-selected="true"]{border-color:rgba(232,182,79,.32)!important;background:rgba(232,182,79,.075)!important;color:#fff!important} #checkout-elements-modal [role="tablist"] button span:first-child{font:800 7px/1 JetBrains Mono,monospace!important;letter-spacing:.12em!important} #checkout-elements-modal [role="tablist"] button span:last-child{font:800 10px/1.2 Inter,sans-serif!important} #checkout-elements-modal #payment-panel-opay,#checkout-elements-modal #payment-panel-international{font-family:Inter,sans-serif!important} #checkout-elements-modal .stripe-input-box{border-color:rgba(255,255,255,.10)!important;background:#08090b!important;border-radius:12px!important} #checkout-elements-modal .stripe-input-box:focus-within{border-color:rgba(232,182,79,.42)!important;box-shadow:0 0 0 3px rgba(232,182,79,.07)!important} #checkout-elements-modal input{font-size:11px!important} #checkout-elements-modal #modal-checkout-price-tag{font-size:17px!important} #checkout-elements-modal #btn-confirm-subscription{height:50px!important;border-radius:13px!important;background:#f4f5f6!important;color:#08090a!important;font-size:10px!important;box-shadow:none!important} #checkout-elements-modal #btn-confirm-subscription:hover{background:#fff!important} .ovyx-v31-checkout-foot{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:13px;color:#515a64;font:700 7px/1.4 JetBrains Mono,monospace;letter-spacing:.08em;text-transform:uppercase}.ovyx-v31-checkout-foot i{color:#e8b64f} .ovyx-v31-provider-status{display:flex;align-items:center;gap:8px;margin-top:12px;padding:10px 12px;border:1px solid rgba(255,255,255,.08);border-radius:11px;background:rgba(255,255,255,.025);color:#7d8690;font:600 9px/1.5 Inter,sans-serif} .ovyx-v31-provider-status strong{color:#d9dde2}.ovyx-v31-provider-status .dot{width:6px;height:6px;border-radius:50%;background:#e8b64f;box-shadow:0 0 0 4px rgba(232,182,79,.06)} @media (max-width:900px){ #view-pricing{padding:24px 16px 42px!important} .ovyx-v31-plans-head{display:block}.ovyx-v31-billing{margin-top:18px;width:max-content;max-width:100%} .ovyx-v31-plan-grid{grid-template-columns:1fr;gap:12px}.ovyx-v31-plan-card{min-height:0;padding:22px}.ovyx-v31-feature-list{min-height:0}.ovyx-v31-plan-card h3{margin-top:22px} } @media (max-width:600px){ .ovyx-v31-billing{width:100%;justify-content:space-between}.ovyx-v31-billing-label{display:none}.ovyx-v31-billing button{flex:1;min-width:0!important} #checkout-elements-modal{padding:9px!important}.ovyx-v31-plan-card{border-radius:18px}.ovyx-v31-plan-card.pro{order:-1} }</style>
+
+<script id="ovyx-v31-premium-plans-runtime">(function(){
+  'use strict';
+  if(window.__OVYX_V31_PREMIUM_SURFACES__)return;
+  window.__OVYX_V31_PREMIUM_SURFACES__=true;
+  const q=(s,r=document)=>r.querySelector(s);
+  const safeText=v=>String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+  window.OVYXProductionContract=Object.freeze({
+    plans:'/api/plans',
+    entitlements:'/api/entitlements',
+    payments:{create:'/api/payments/create',verify:'/api/payments/verify'},
+    brandIdentity:'/api/settings/brand-profile',
+    universalConnections:'/api/settings/connections',
+    secrets:'backend-environment-only'
+  });
+  const fallbackFeatures={
+    free:['50,000 monthly AI tokens','4 daily prompts after monthly exhaustion','Basic HTML export'],
+    pro:['500,000 monthly AI tokens','Web Studio + AI generation','Source management and website publishing'],
+    max:['5,000,000 monthly AI tokens','App Studio + highest capacity','Maximum workspace controls']
+  };
+  function ensureFeatureFallbacks(){
+    Object.entries(fallbackFeatures).forEach(([tier,items])=>{
+      const el=document.getElementById('plan-features-'+tier);
+      if(!el)return;
+      if(el.children.length)return;
+      el.innerHTML=items.map(x=>'<li>'+safeText(x)+'</li>').join('');
+    });
+  }
+  function mountPremiumPlans(){}
+  function polishCheckout(){
+    const modal=document.getElementById('checkout-elements-modal');
+    if(!modal)return;
+    modal.querySelectorAll('.ovyx-payment-provider-note, .ovyx-v65-pay-note').forEach(el=>el.remove());
+    const head=modal.querySelector('.v0-panel>div:first-child span');
+    if(head)head.textContent='SECURE CHECKOUT';
+    const info=modal.querySelector('.space-y-1>p');
+    if(info)info.textContent='Your payment is created and verified by the OVYX server before your plan is activated.';
+    if(!modal.querySelector('.ovyx-v31-checkout-foot')){
+      const footer=document.createElement('div');
+      footer.className='ovyx-v31-checkout-foot';
+      footer.innerHTML='<span><i class="fa-solid fa-lock"></i> Verified</span><span><i class="fa-solid fa-key"></i> Credentials protected</span><span><i class="fa-solid fa-rotate"></i> Safe to retry</span>';
+      modal.querySelector('#btn-confirm-subscription')?.after(footer);
+    }
+    if(!modal.querySelector('.ovyx-v31-provider-status')){
+      const status=document.createElement('div');
+      status.className='ovyx-v31-provider-status';
+      status.innerHTML='<span class="dot"></span><span><strong>Secure provider handoff.</strong> OVYX never stores full card numbers in this interface.</span>';
+      modal.querySelector('#payment-panel-opay,#payment-panel-international')?.parentElement?.appendChild(status);
+    }
+  }
+  function applyPaymentUi(){
+    const modal=document.getElementById('checkout-elements-modal');if(!modal)return;
+    const method=String(modal.dataset.paymentMethod||'opay').toLowerCase();
+    const op=modal.querySelector('#payment-method-opay'),intl=modal.querySelector('#payment-method-international');
+    if(op){op.querySelector('span:first-child')?.replaceChildren(document.createTextNode('NIGERIA'));op.querySelector('span:last-child')?.replaceChildren(document.createTextNode('OPay · Card / Transfer'));}
+    if(intl){intl.querySelector('span:first-child')?.replaceChildren(document.createTextNode('INTERNATIONAL'));intl.querySelector('span:last-child')?.replaceChildren(document.createTextNode('Paystack · Card'));}
+    const opDesc=modal.querySelector('#payment-panel-opay p');if(opDesc)opDesc.textContent='Nigerian checkout opens the configured OPay cashier. OVYX activates the plan only after server verification.';
+    const intlDesc=modal.querySelector('#payment-panel-international .rounded-xl.bg-black p');if(intlDesc)intlDesc.textContent='International card checkout opens through the configured Paystack flow. OVYX activates the plan only after server verification.';
+    const phone=modal.querySelector('label[for="opay-phone"]');if(phone)phone.firstChild.textContent='Phone number';
+    const cardName=modal.querySelector('label[for="stripe-cardholder"]');if(cardName)cardName.firstChild.textContent='Account name';
+  }
+  function wrapCheckout(){
+    const C=window.CheckoutElements;if(!C||C.__ovyxV31Wrapped)return;
+    C.__ovyxV31Wrapped=true;
+    const oldOpen=C.openModal?.bind(C);
+    if(oldOpen){
+      C.openModal=function(input){
+        const result=oldOpen(input);
+        setTimeout(()=>{polishCheckout();applyPaymentUi();},0);
+        setTimeout(()=>{polishCheckout();applyPaymentUi();},140);
+        return result;
+      };
+    }
+    C.confirmSubscription=async function(){
+      const btn=document.getElementById('btn-confirm-subscription');
+      const modal=document.getElementById('checkout-elements-modal');
+      const cfg=(()=>{try{return JSON.parse(modal?.getAttribute('data-payment-config')||'{}')}catch{return{}}})();
+      const tier=String(cfg.productId||C.selectedTier||'pro').toLowerCase();
+      const paymentMethod=String(cfg.paymentMethod||modal?.dataset.paymentMethod||'opay').toLowerCase()==='international'?'international':'opay';
+      const currency=paymentMethod==='opay'?'NGN':'USD';
+      const user=window.firebase?.auth?.().currentUser;
+      if(!user)throw new Error('Sign in before upgrading.');
+      const price=window.OvyxCurrencyEngine?.getPrice?.(tier);
+      const phone=String(modal?.querySelector('#opay-phone')?.value||'').trim();
+      const name=String(modal?.querySelector('#stripe-cardholder')?.value||user.displayName||'OVYX Customer').trim();
+      const payload={productType:'subscription',productId:tier,plan:tier,provider:paymentMethod==='opay'?'opay':'paystack',paymentMethod,currency,amount:Number(price?.amount||0),phone,userFullName:name};
+      if(paymentMethod==='opay'&&!/^\+?[0-9]{7,15}$/.test(phone))throw new Error('Enter a valid Nigerian phone number for OPay checkout.');
+      try{
+        if(btn){btn.disabled=true;btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i><span>Opening secure checkout…</span>';}
+        const token=await user.getIdToken(true);
+        const r=await fetch('/api/payments/create',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','Accept':'application/json','Authorization':'Bearer '+token},body:JSON.stringify(payload)});
+        const data=await r.json().catch(()=>({}));
+        if(!r.ok)throw new Error(data?.error||data?.message||'Payment initialization failed.');
+        const checkoutUrl=String(data.authorizationUrl||data.checkoutUrl||data.url||'').trim();
+        if(!checkoutUrl)throw new Error('The payment server did not return a secure checkout URL.');
+        window.location.assign(checkoutUrl);
+      }finally{
+        if(btn){btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-lock text-[10px]"></i><span>Continue to Secure Checkout</span>';}
+      }
+    };
+  }
+  function init(){
+    wrapCheckout();
+    ensureFeatureFallbacks();
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});else init();
+  window.addEventListener('ovyx:view-changed',e=>{if(e.detail?.view==='pricing'){wrapCheckout();ensureFeatureFallbacks();}}, {passive:true});
+})();</script>
+
+<script id="ovyx-v32-payment-safety-contract">(function(){
+  'use strict';
+  if(window.__OVYX_V32_PAYMENT_SAFETY__)return;
+  window.__OVYX_V32_PAYMENT_SAFETY__=true;
+  window.OVYXPaymentContract=Object.freeze({
+    create:'/api/payments/create',
+    verify:'/api/payments/verify',
+    entitlements:'/api/entitlements',
+    plans:'/api/plans',
+    secretPolicy:'Credentials must be configured securely. Never include private credentials in shared content.'
+  });
+  try{localStorage.removeItem('ovyx.billing.config.v1')}catch(_){ }
+})();</script>
+<script id="ovyx-auto-ai-boot-v2">(function(){'use strict';if(window.__OVYX_AUTO_AI_BOOT_V2__)return;window.__OVYX_AUTO_AI_BOOT_V2__=true;function start(){try{if(!window.firebase?.auth?.().currentUser)return;window.OVYXAI=window.OVYXAI||{};window.OVYXAI.provider='automatic';window.OVYXAI.connected=false;window.OVYXAI.connectionStatus='not_verified';}catch(_){}}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();window.addEventListener('ovyx-auth-state-ready',start,{passive:true});window.addEventListener('firebase-auth-ready',start,{passive:true})})();</script>\n<!-- OVYX V88 · MOBILE DASHBOARD / DOCK / SPLASH STABILITY AUTHORITY -->
+<style id="ovyx-v88-mobile-shell-authority-style">
+@media(max-width:767px){
+  html,body{overflow-x:hidden!important;overscroll-behavior-y:auto!important;}
+  #view-router-viewport{pointer-events:auto!important;touch-action:pan-y pinch-zoom!important;}
+  body.ovyx-webstudio-active #view-router-viewport{pointer-events:auto!important;}
+  #view-router-viewport>section[aria-hidden="false"]{pointer-events:auto!important;}
+  #ovyx-v52-bottom-bar{
+    position:fixed!important;left:0!important;right:0!important;bottom:0!important;
+    width:100%!important;height:64px!important;box-sizing:border-box!important;
+    z-index:2147482000!important;
+    margin:0!important;border:0!important;border-top:1px solid rgba(255,255,255,.075)!important;
+    border-radius:0!important;background:#070809!important;background-image:none!important;
+    box-shadow:0 -8px 24px rgba(0,0,0,.24)!important;
+    backdrop-filter:none!important;-webkit-backdrop-filter:none!important;
+    contain:layout paint!important;transform:none!important;-webkit-transform:none!important;
+    will-change:auto!important;backface-visibility:hidden!important;-webkit-backface-visibility:hidden!important;
+    transition:none!important;
+    visibility:hidden!important;opacity:0!important;pointer-events:none!important;display:none!important;
+  }
+  body.ovyx-v88-dock-home:not(.ovyx-webstudio-active) #ovyx-v52-bottom-bar{
+    display:grid!important;visibility:visible!important;opacity:1!important;pointer-events:auto!important;
+  }
+  body.ovyx-drawer-open #ovyx-v52-bottom-bar,
+  body.ovyx-mobile-drawer-open #ovyx-v52-bottom-bar,
+  #mobile-drawer[aria-hidden="false"]~#ovyx-v52-bottom-bar,
+  body.ovyx-webstudio-active #ovyx-v52-bottom-bar,
+  body:has([role="dialog"][aria-modal="true"]:not(.hidden)) #ovyx-v52-bottom-bar{
+    display:none!important;visibility:hidden!important;opacity:0!important;pointer-events:none!important;
+  }
+  /* The dock is fixed; its clearance belongs to main, not body. The old 64px body padding created an extra outer black scroll strip below the app. */
+  body.ovyx-v88-dock-home{padding-bottom:0!important;}
+  body.ovyx-v88-dock-off{padding-bottom:0!important;}
+}
+html[data-ovyx-stabilizing="1"] #ovyx-first-paint-curtain .ovyx-boot-logo-svg,
+#ovyx-first-paint-curtain .ovyx-boot-logo-svg{
+  transform-box:fill-box!important;transform-origin:50% 50%!important;
+  backface-visibility:hidden!important;-webkit-backface-visibility:hidden!important;
+  shape-rendering:geometricPrecision!important;will-change:transform!important;
+  animation:ovyxV88SplashLogoTurn 2.5s linear infinite!important;
+}
+#ovyx-first-paint-curtain .ovyx-boot-mark{
+  perspective:none!important;perspective-origin:50% 50%!important;transform-style:flat!important;
+}
+@keyframes ovyxV88SplashLogoTurn{from{transform:rotate(0turn)}to{transform:rotate(1turn)}}
+@media(prefers-reduced-motion:reduce){#ovyx-first-paint-curtain .ovyx-boot-logo-svg{animation-duration:.01ms!important;animation-iteration-count:1!important}}
+</style>
+<script id="ovyx-v88-mobile-shell-authority">(function(){
+'use strict';
+if(window.__OVYX_V88_MOBILE_SHELL_AUTHORITY__)return;
+window.__OVYX_V88_MOBILE_SHELL_AUTHORITY__=true;
+const $=id=>document.getElementById(id);
+const root=()=>$('view-router-viewport');
+const clean=v=>String(v||'home').replace(/^view-/,'').toLowerCase().trim()||'home';
+const route=()=>{const r=root();const shown=r?.querySelector(':scope>section[aria-hidden="false"]')||r?.querySelector(':scope>section:not(.hidden)');return clean(shown?.id||window.KernelState?.activeView||'home')};
+const visible=e=>{if(!e)return false;const c=getComputedStyle(e);return !e.hidden&&c.display!=='none'&&c.visibility!=='hidden'&&c.opacity!=='0'&&!e.classList.contains('hidden')};
+const overlayOpen=()=>!!document.querySelector('body .fixed[role="dialog"][aria-modal="true"]:not(.hidden),body .fixed.v55-preview-modal.open,body #kernel-brain-bot-panel:not(.hidden),body #checkout-elements-modal:not(.hidden),body #cmd-palette-modal:not(.hidden),body #ovyx-owner-console:not(.hidden)');
+const drawerOpen=()=>{const d=$('mobile-drawer'),b=$('mobile-drawer-backdrop');return !!(document.body.classList.contains('ovyx-drawer-open')||document.body.classList.contains('ovyx-mobile-drawer-open')||d?.classList.contains('open')||d?.classList.contains('is-open')||d?.getAttribute('aria-hidden')==='false'||visible(b));};
+function sync(){
+  const dock=$('ovyx-v52-bottom-bar');if(!dock)return;
+  const mobile=window.innerWidth<768,home=route()==='home',drawer=drawerOpen(),overlay=overlayOpen();
+  const show=mobile&&home&&!drawer&&!overlay&&!document.body.classList.contains('ovyx-webstudio-active');
+  document.body.classList.toggle('ovyx-v88-dock-home',show);
+  document.body.classList.toggle('ovyx-v88-dock-off',!show);
+  dock.style.setProperty('display',show?'grid':'none','important');
+  dock.style.setProperty('visibility',show?'visible':'hidden','important');
+  dock.style.setProperty('opacity',show?'1':'0','important');
+  dock.style.setProperty('pointer-events',show?'auto':'none','important');
+  dock.style.setProperty('transform','none','important');
+  dock.style.setProperty('backdrop-filter','none','important');
+  dock.style.setProperty('-webkit-backdrop-filter','none','important');
+  if(show)dock.removeAttribute('hidden');
+}
+function closeDrawer(){
+  try{window.MobileDrawer?.close?.()}catch(_){}
+  const d=$('mobile-drawer'),b=$('mobile-drawer-backdrop');
+  if(d){d.classList.remove('open','is-open');d.classList.add('-translate-x-full');d.setAttribute('aria-hidden','true');d.inert=true;d.style.removeProperty('display');d.style.removeProperty('visibility');d.style.removeProperty('opacity');d.style.removeProperty('pointer-events')}
+  if(b){b.hidden=true;b.classList.add('hidden');b.setAttribute('aria-hidden','true');b.style.setProperty('display','none','important');b.style.setProperty('visibility','hidden','important');b.style.setProperty('opacity','0','important');b.style.setProperty('pointer-events','none','important')}
+  document.body.classList.remove('ovyx-drawer-open','ovyx-mobile-drawer-open','ovyx-ws-mobile-nav-open');
+  document.body.dataset.ovyxDrawer='closed';
+  if(!overlayOpen()){document.documentElement.style.overflow='auto';document.body.style.overflow='auto';}
+  sync();
+}
+function openDrawer(){
+  if(window.innerWidth>=768)return;
+  const d=$('mobile-drawer'),b=$('mobile-drawer-backdrop');
+  try{window.MobileDrawer?.open?.()}catch(_){}
+  if(d){d.hidden=false;d.inert=false;d.classList.remove('-translate-x-full');d.classList.add('open');d.setAttribute('aria-hidden','false');d.style.setProperty('display','flex','important');d.style.setProperty('visibility','visible','important');d.style.setProperty('opacity','1','important');d.style.setProperty('pointer-events','auto','important')}
+  if(b){b.hidden=false;b.classList.remove('hidden');b.setAttribute('aria-hidden','false');b.style.setProperty('display','block','important');b.style.setProperty('visibility','visible','important');b.style.setProperty('opacity','1','important');b.style.setProperty('pointer-events','auto','important')}
+  document.body.classList.add('ovyx-drawer-open');
+  document.body.classList.remove('ovyx-v88-dock-home');
+  document.body.dataset.ovyxDrawer='open';
+  document.documentElement.style.overflow='hidden';document.body.style.overflow='hidden';
+  sync();
+}
+function bind(){
+  const api=window.OVYXMobileDockAuthority||{};
+  api.open=openDrawer;api.close=closeDrawer;api.sync=sync;window.OVYXMobileDockAuthority=api;
+  const more=$('ovyx-v52-bottom-bar')?.querySelector('[data-v52-bottom="more"]');
+  if(more&&!more.dataset.ovyxV88Bound){more.dataset.ovyxV88Bound='1';more.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation?.();openDrawer()},{capture:true});}
+  const close=$('mobile-drawer')?.querySelector('[aria-label="Close navigation"]');
+  if(close&&!close.dataset.ovyxV88Bound){close.dataset.ovyxV88Bound='1';close.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation?.();closeDrawer()},{capture:true});}
+  const back=$('mobile-drawer-backdrop');
+  if(back&&!back.dataset.ovyxV88Bound){back.dataset.ovyxV88Bound='1';back.addEventListener('click',e=>{e.preventDefault();e.stopImmediatePropagation?.();closeDrawer()},{capture:true});}
+  sync();
+}
+function boot(){
+  const r=root();if(r)r.style.setProperty('pointer-events','auto','important');
+  if(document.documentElement.getAttribute('data-ovyx-preboot')==='1')document.documentElement.removeAttribute('data-ovyx-preboot');
+  bind();
+}
+window.addEventListener('resize',sync,{passive:true});
+window.addEventListener('pageshow',()=>setTimeout(boot,0),{passive:true});
+window.addEventListener('ovyx:view-changed',()=>setTimeout(sync,0),{passive:true});
+document.addEventListener('DOMContentLoaded',boot,{once:true});
+setTimeout(boot,600);setTimeout(sync,1600);setTimeout(sync,2800);
+window.OVYXMobileShellAuthority={sync,open:openDrawer,close:closeDrawer};
+})();</script>
+<!-- OVYX V89 · FINAL SPLASH / MOBILE MORE / STRAY-TEXT GUARD -->
+<style id="ovyx-v89-final-ui-stability-style">
+#mobile-drawer-backdrop.hidden,
+#mobile-drawer-backdrop[aria-hidden="true"]{pointer-events:none!important;opacity:0!important;visibility:hidden!important;}
+#mobile-drawer-backdrop:not(.hidden)[aria-hidden="false"]{pointer-events:auto!important;visibility:visible!important;}
+#mobile-drawer[aria-hidden="true"]{pointer-events:none!important;}
+#mobile-drawer[aria-hidden="false"]{pointer-events:auto!important;}
+@media(max-width:767px){
+  #ovyx-v52-bottom-bar,#ovyx-v52-bottom-bar button[data-v52-bottom="more"]{touch-action:manipulation!important;-webkit-user-select:none!important;user-select:none!important;}
+}
+#ovyx-first-paint-curtain .ovyx-boot-logo-svg{
+  animation:ovyxV89SplashLogoRotate 2.55s linear infinite!important;
+  animation-play-state:running!important;
+  transform:translateZ(0) scale(1)!important;
+  transform-origin:50% 50%!important;
+  transform-box:fill-box!important;
+  rotate:0deg!important;
+  backface-visibility:hidden!important;
+  -webkit-backface-visibility:hidden!important;
+  will-change:rotate!important;
+  perspective:none!important;
+}
+@keyframes ovyxV89SplashLogoRotate{from{rotate:0deg}to{rotate:360deg}}
+@media(prefers-reduced-motion:reduce){
+  #ovyx-first-paint-curtain .ovyx-boot-logo-svg{animation-duration:.01ms!important;animation-iteration-count:1!important;}
+}
+</style>
+<script id="ovyx-v89-final-ui-stability">(function(){
+'use strict';
+if(window.__OVYX_V89_FINAL_UI_STABILITY__)return;
+window.__OVYX_V89_FINAL_UI_STABILITY__=true;
+function cleanupStrayNewlineMarkers(){
+  try{
+    const walker=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);
+    const remove=[];let n;
+    while(n=walker.nextNode()){
+      if(n.parentElement?.closest('script,style,pre,textarea,code'))continue;
+      const t=String(n.nodeValue||'').trim();
+      if(t==='/n'||t==='\\n')remove.push(n);
+    }
+    remove.forEach(x=>x.parentNode?.removeChild(x));
+  }catch(_){}
+}
+function forceClosedBackdrop(){
+  const b=document.getElementById('mobile-drawer-backdrop');
+  const d=document.getElementById('mobile-drawer');
+  if(!b)return;
+  const open=document.body.classList.contains('ovyx-drawer-open')||document.body.classList.contains('ovyx-mobile-drawer-open')||d?.getAttribute('aria-hidden')==='false';
+  if(!open){
+    b.classList.add('hidden');b.setAttribute('aria-hidden','true');
+    b.style.setProperty('pointer-events','none','important');
+    b.style.setProperty('visibility','hidden','important');
+    b.style.setProperty('opacity','0','important');
+    if(d){d.setAttribute('aria-hidden','true');d.classList.remove('open','is-open');d.classList.add('-translate-x-full');d.style.setProperty('pointer-events','none','important');}
+  }
+}
+function bindMoreSafety(){
+  /* More is handled by the single document-level click gate above. Do not add
+     pointerup/touchend handlers here: they can open the drawer before click and
+     suppress or duplicate the same tap on mobile. */
+  return;
+}
+function run(){forceClosedBackdrop();bindMoreSafety();cleanupStrayNewlineMarkers();}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{run();setTimeout(run,60);setTimeout(run,320);},{once:true});else{run();setTimeout(run,60);setTimeout(run,320);}
+window.addEventListener('pageshow',()=>setTimeout(run,0),{passive:true});
+window.addEventListener('resize',()=>setTimeout(run,0),{passive:true});
+window.addEventListener('ovyx:view-changed',()=>setTimeout(run,0),{passive:true});
+})();</script>
+<style id="ovyx-v90-splash-logo-authority-style">#ovyx-first-paint-curtain .ovyx-boot-logo-spin{display:grid!important;place-items:center!important;width:clamp(118px,17vw,190px)!important;height:auto!important;flex:0 0 auto!important;margin:0!important;padding:0!important;transform:none!important;rotate:none!important;perspective:none!important;transform-style:flat!important;backface-visibility:hidden!important;-webkit-backface-visibility:hidden!important;will-change:transform!important;animation:ovyxV90SplashSpin 4.2s linear infinite!important}#ovyx-first-paint-curtain .ovyx-boot-logo-spin>.ovyx-boot-logo-svg{display:block!important;width:100%!important;height:auto!important;margin:0!important;transform:none!important;rotate:none!important;animation:none!important;will-change:auto!important;transform-origin:50% 50%!important;transform-box:view-box!important}@keyframes ovyxV90SplashSpin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}@media(prefers-reduced-motion:reduce){#ovyx-first-paint-curtain .ovyx-boot-logo-spin{animation-duration:.01ms!important;animation-iteration-count:1!important}}</style><script id="ovyx-v90-splash-logo-authority">(function(){'use strict';if(window.__OVYX_V90_SPLASH_LOGO_AUTHORITY__)return;window.__OVYX_V90_SPLASH_LOGO_AUTHORITY__=true;function mount(){const curtain=document.getElementById('ovyx-first-paint-curtain');const svg=curtain?.querySelector('.ovyx-boot-logo-svg');if(!svg||svg.dataset.ovyxV90Wrapped)return;const wrap=document.createElement('span');wrap.className='ovyx-boot-logo-spin';wrap.setAttribute('aria-hidden','true');svg.parentNode.insertBefore(wrap,svg);wrap.appendChild(svg);svg.dataset.ovyxV90Wrapped='1'}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',mount,{once:true});else mount()})();</script><!-- OVYX V91 · UNIVERSAL CONNECTIONS FINAL SURFACE AUTHORITY -->
+<style id="ovyx-v91-universal-connections-style">
+#view-settings [data-settings-panel="connections"].ovyx-v91-connection-panel{
+  width:100%!important;max-width:920px!important;margin:0 auto!important;
+  display:none!important;visibility:hidden!important;opacity:0!important;
+}
+#view-settings [data-settings-panel="connections"].ovyx-v91-connection-panel.is-v91-active{
+  display:block!important;visibility:visible!important;opacity:1!important;
+}
+.ovyx-v91-conn-shell{width:100%;color:var(--app-text,#f5f5f5)}
+.ovyx-v91-conn-breadcrumb{display:flex;align-items:center;gap:7px;color:#707781;font:800 8px/1 JetBrains Mono,monospace;letter-spacing:.12em;text-transform:uppercase;margin-bottom:11px}
+.ovyx-v91-conn-breadcrumb i{font-size:8px;color:#8b929b}
+.ovyx-v91-conn-head{margin-bottom:22px}
+.ovyx-v91-conn-head h2{margin:0;color:#f4f5f6;font:850 clamp(25px,4vw,38px)/1.05 Inter,sans-serif;letter-spacing:-.045em}
+.ovyx-v91-conn-head p{margin:9px 0 0;max-width:720px;color:#777f89;font:500 11px/1.6 Inter,sans-serif}
+.ovyx-v91-conn-card{border:1px solid rgba(255,255,255,.075);background:#0a0b0d;border-radius:18px;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.22)}
+.ovyx-v91-conn-form{padding:18px}
+.ovyx-v91-field{display:grid;gap:7px;margin-bottom:13px}
+.ovyx-v91-field:last-child{margin-bottom:0}
+.ovyx-v91-field label{color:#8d949d;font:850 8px/1 Inter,sans-serif;letter-spacing:.13em;text-transform:uppercase}
+.ovyx-v91-input,.ovyx-v91-select{
+  width:100%;min-height:44px;box-sizing:border-box;border:1px solid rgba(255,255,255,.09);
+  border-radius:10px;background:#08090b;color:#f1f2f3;padding:0 12px;outline:0;
+  font:600 11px/1 Inter,sans-serif;transition:border-color .15s ease,box-shadow .15s ease,background .15s ease;
+}
+.ovyx-v91-input::placeholder{color:#555b64}
+.ovyx-v91-input:focus,.ovyx-v91-select:focus{
+  border-color:rgba(232,182,79,.78);box-shadow:0 0 0 3px rgba(232,182,79,.08);background:#0a0b0d;
+}
+.ovyx-v91-select{appearance:auto;cursor:pointer}
+.ovyx-v91-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:17px}
+.ovyx-v91-btn{min-height:44px;border-radius:10px;padding:0 14px;border:1px solid rgba(255,255,255,.09);font:850 10px/1 Inter,sans-serif;cursor:pointer;transition:transform .12s ease,border-color .12s ease,background .12s ease,opacity .12s ease}
+.ovyx-v91-btn:active{transform:translateY(1px)}
+.ovyx-v91-btn-primary{background:#e8b64f;border-color:#e8b64f;color:#08090a}
+.ovyx-v91-btn-primary:hover{background:#f3c866;border-color:#f3c866}
+.ovyx-v91-btn-secondary{background:#111316;color:#c6cbd1}
+.ovyx-v91-btn-secondary:hover{background:#15181c;border-color:rgba(255,255,255,.15);color:#fff}
+.ovyx-v91-btn:disabled{opacity:.42;cursor:not-allowed;transform:none}
+.ovyx-v91-status{margin:14px 18px 18px;padding:12px 13px;border:1px solid rgba(255,255,255,.07);border-radius:10px;background:#090a0c;color:#696f78;font:600 9px/1.5 JetBrains Mono,monospace}
+.ovyx-v91-status[data-state="ready"]{border-color:rgba(232,182,79,.18);color:#a99a73}
+.ovyx-v91-status[data-state="ok"]{border-color:rgba(74,222,128,.18);color:#84d8a2}
+.ovyx-v91-status[data-state="error"]{border-color:rgba(248,113,113,.2);color:#e89b9b}
+.ovyx-v91-saved{margin-top:14px;padding:0 18px 18px}
+.ovyx-v91-saved-head{display:flex;align-items:end;justify-content:space-between;gap:10px;margin-bottom:8px}
+.ovyx-v91-saved-head b{color:#9ba2ab;font:850 8px/1 Inter,sans-serif;letter-spacing:.12em;text-transform:uppercase}
+.ovyx-v91-saved-head small{color:#4f555d;font:700 8px/1 JetBrains Mono,monospace}
+.ovyx-v91-list{display:grid;gap:7px}
+.ovyx-v91-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:11px;border:1px solid rgba(255,255,255,.055);background:#08090b;border-radius:10px}
+.ovyx-v91-row-main{min-width:0}
+.ovyx-v91-row-main b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e4e6e8;font:800 10px/1.2 Inter,sans-serif}
+.ovyx-v91-row-main small{display:block;margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#606771;font:700 7px/1.2 JetBrains Mono,monospace}
+.ovyx-v91-row-actions{display:flex;gap:5px}
+.ovyx-v91-mini{min-height:30px;padding:0 9px;border:1px solid rgba(255,255,255,.08);border-radius:8px;background:#0d0f12;color:#9ca3ab;font:800 8px/1 Inter,sans-serif;cursor:pointer}
+.ovyx-v91-mini:hover{color:#fff;border-color:rgba(255,255,255,.16)}
+.ovyx-v91-mini.danger{color:#d89b9b}
+@media(max-width:700px){
+  .ovyx-v91-conn-head h2{font-size:28px}
+  .ovyx-v91-conn-form{padding:14px}
+  .ovyx-v91-actions{grid-template-columns:1fr}
+  .ovyx-v91-status{margin:12px 14px 14px}
+  .ovyx-v91-saved{padding:0 14px 14px}
+  .ovyx-v91-row{grid-template-columns:1fr}
+  .ovyx-v91-row-actions{justify-content:stretch}
+  .ovyx-v91-mini{flex:1}
+}
+</style>
+<script id="ovyx-v91-universal-connections-runtime">(function(){
+'use strict';
+if(window.__OVYX_V91_CONNECTION_AUTHORITY__)return;
+window.__OVYX_V91_CONNECTION_AUTHORITY__=true;
+const $=id=>document.getElementById(id);
+const api=async(path,opts={})=>{const u=window.firebase?.auth?.().currentUser;const authHeaders=u?{Authorization:'Bearer '+await u.getIdToken(false)}:{};const r=await fetch(path,{...opts,credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json',...authHeaders,...(opts.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Object.assign(new Error(d.message||d.error||('HTTP '+r.status)),{code:d.code||'REQUEST_FAILED',status:r.status,data:d});return d};
+function getPanel(){
+  const settings=window.OVYXSettings,root=settings?.root||document.getElementById('view-settings');
+  let panel=root?.querySelector('[data-settings-panel="connections"]');
+  if(!panel)return null;
+  panel.classList.add('ovyx-v91-connection-panel');
+  return panel;
+}
+function signedIn(){return !!window.firebase?.auth?.().currentUser}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function render(panel){
+  panel.classList.add('is-v91-active');
+  const user=signedIn();
+  panel.innerHTML='<div class="ovyx-v91-conn-shell">'+
+    '<div class="ovyx-v91-conn-breadcrumb"><i class="fa-solid fa-plug"></i><span>WORKSPACE / CONNECTIONS</span></div>'+
+    '<div class="ovyx-v91-conn-head"><h2>Universal Connections &amp; Tier Limits</h2><p>Choose what each connection is for: AI Brain for ordinary assistant chats, Web Studio for explicitly approved website continuation, or a service/tool endpoint that stays unused until a feature-specific integration is configured.</p></div>'+
+    '<div class="ovyx-v91-conn-card"><div class="ovyx-v91-conn-form">'+
+      '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-name">NAME</label><input id="ovyx-v91-conn-name" class="ovyx-v91-input" placeholder="My Webhook" autocomplete="off"></div>'+
+      '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-type">TYPE</label><select id="ovyx-v91-conn-type" class="ovyx-v91-select"><option value="webhook">Webhook</option><option value="tool">Tool</option><option value="database">Database</option><option value="http">Web service</option><option value="ai">AI Brain</option></select></div>'+
+      '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-protocol">AI PROTOCOL</label><select id="ovyx-v91-conn-protocol" class="ovyx-v91-select"><option value="http-json">Generic JSON HTTP</option><option value="openai-chat">OpenAI-compatible chat (OpenAI / DeepSeek compatible)</option><option value="anthropic-messages">Anthropic Messages (Claude)</option><option value="gemini-generate-content">Gemini Generate Content</option></select></div>'+
+      '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-auth">AUTHENTICATION</label><select id="ovyx-v91-conn-auth" class="ovyx-v91-select"><option value="none">No credential</option><option value="bearer">Bearer token</option><option value="api-key">X-API-Key</option><option value="basic">Basic (username:password)</option></select></div>'+
+      '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-endpoint">ENDPOINT</label><input id="ovyx-v91-conn-endpoint" class="ovyx-v91-input" value="https://example.com/health" placeholder="https://api.example.com/v1" inputmode="url" autocomplete="url"></div>'+
+      '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-secret">ACCESS CREDENTIAL</label><input id="ovyx-v91-conn-secret" class="ovyx-v91-input" type="password" autocomplete="new-password" placeholder="Stored encrypted on the server"><small class="text-zinc-500 text-xs">Credentials are kept private. Secure service addresses are required.</small></div>'+
+      '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-model">MODEL (AI BRAIN)</label><input id="ovyx-v91-conn-model" class="ovyx-v91-input" placeholder="e.g. deepseek-flash or claude-sonnet-4-6"></div>'+
+      '<div class="ovyx-v91-actions"><button type="button" class="ovyx-v91-btn ovyx-v91-btn-primary" id="ovyx-v91-add">Add Connection</button><button type="button" class="ovyx-v91-btn ovyx-v91-btn-secondary" id="ovyx-v91-reload">Reload</button></div>'+
+    '</div><div class="ovyx-v91-status" id="ovyx-v91-status" data-state="'+(user?'ready':'error')+'">'+(user?'Ready. Your plan connection limit will be checked by the server.':'Sign in to manage Universal Connections.')+'</div></div>'+
+    '<div class="ovyx-v91-saved" id="ovyx-v91-saved-wrap" '+(user?'':'hidden')+'><div class="ovyx-v91-saved-head"><b>SAVED CONNECTIONS</b><small id="ovyx-v91-limit"></small><button class="ovyx-v91-mini" type="button" id="ovyx-v91-clear-brain">Clear AI Brain</button></div><div class="ovyx-v91-list" id="ovyx-v91-list"></div></div>'+
+  '</div>';
+  const add=$('ovyx-v91-add'),reload=$('ovyx-v91-reload'),status=$('ovyx-v91-status');const clearBrain=$('ovyx-v91-clear-brain');
+  clearBrain?.addEventListener('click',async()=>{
+    clearBrain.disabled=true;status.textContent='Clearing your AI Brain selection…';status.dataset.state='ready';
+    try{
+      await api('/api/settings/connections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'clear-ai'})});
+      const key=window.OVYXAIStorageKey?window.OVYXAIStorageKey():'ovyx.ai.preferences.v1';let prefs={};
+      try{prefs=JSON.parse(localStorage.getItem(key)||'{}')||{}}catch(_){}
+      prefs.provider='automatic';try{localStorage.setItem(key,JSON.stringify(prefs))}catch(_){}
+      if(window.OVYXAI)window.OVYXAI.provider='automatic';
+      await load();
+      status.textContent='AI Brain cleared. OVYX Automatic routing is active.';status.dataset.state='ok';
+    }catch(e){status.textContent=e.message||'AI Brain could not be cleared.';status.dataset.state='error'}
+    finally{clearBrain.disabled=false}
+  });
+  
+
+  const connType=$('ovyx-v91-conn-type'), connProtocol=$('ovyx-v91-conn-protocol');
+  const connAuth=$('ovyx-v91-conn-auth'), connSecret=$('ovyx-v91-conn-secret');
+  const connModel=$('ovyx-v91-conn-model');
+  const syncConnectionDefaults=()=>{
+    if(connType?.value==='ai'){
+      if(connProtocol?.value==='http-json')connProtocol.value='openai-chat';
+      if(connAuth?.value==='none')connAuth.value='bearer';
+    }else{
+      if(connProtocol && ['openai-chat','anthropic-messages','gemini-generate-content'].includes(connProtocol.value))connProtocol.value='http-json';
+      if(connAuth)connAuth.value='none';
+    }
+    if(connType?.value==='ai' && connProtocol && ['anthropic-messages','gemini-generate-content'].includes(connProtocol.value) && connAuth?.value==='none')connAuth.value='bearer';
+  };
+  connType?.addEventListener('change',syncConnectionDefaults);
+  connProtocol?.addEventListener('change',syncConnectionDefaults);
+  syncConnectionDefaults();
+  add.disabled=!user;
+  async function load(){
+    if(!signedIn()){status.textContent='Sign in to manage Universal Connections.';status.dataset.state='error';add.disabled=true;$('ovyx-v91-saved-wrap')?.setAttribute('hidden','');return}
+    add.disabled=false;status.textContent='Loading your connection limit…';status.dataset.state='ready';
+    try{
+      const d=await api('/api/settings/connections');
+      const limit=d.limit==null?'unlimited':String(d.limit),active=Number(d.activeCount||0);
+      const wrap=$('ovyx-v91-saved-wrap'),list=$('ovyx-v91-list'),lim=$('ovyx-v91-limit');
+      if(wrap)wrap.hidden=false;if(lim)lim.textContent=active+' active / '+limit;
+      if(list)list.innerHTML=(d.connections||[]).length?d.connections.map(row=>{const activeBrain=String(d.activeBrainConnectionId||'')===String(row.id||'');const canUseBrain=row.active===true&&(row.capabilities?.canUseAsBrain===true||(String(row.type||'').toLowerCase()==='ai'&&String(row.protocol||'').toLowerCase()==='openai-chat'));const testLabel=row.lastTestStatus==='reachable'?'Ready':row.lastTestStatus==='unreachable'?'Needs attention':'Not checked';return '<div class="ovyx-v91-row"><div class="ovyx-v91-row-main"><b>'+esc(row.name||'Connection')+'</b><small>'+esc(String(row.type||'tool').toUpperCase())+' · '+esc(row.endpoint||'')+' · '+(row.active?'Enabled':'Disabled')+(activeBrain?' · AI Brain':'')+' · Last check: '+testLabel+'</small></div><div class="ovyx-v91-row-actions"><button class="ovyx-v91-mini" type="button" data-v91-test="'+esc(row.id)+'">Test</button>'+(canUseBrain?'<button class="ovyx-v91-mini" type="button" data-v91-use-brain="'+esc(row.id)+'" '+(activeBrain?'disabled aria-pressed="true"':'')+'>'+(activeBrain?'Brain selected':'Use as AI Brain')+'</button>':'')+'<button class="ovyx-v91-mini danger" type="button" data-v91-delete="'+esc(row.id)+'">Delete</button></div></div>'}).join(''):'<div class="ovyx-v91-status" data-state="ready">No saved connections yet.</div>';
       list?.querySelectorAll('[data-v91-test]').forEach(btn=>btn.addEventListener('click',async()=>{btn.disabled=true;let message='The service check could not be completed. Please try again.',state='error';try{const d=await api('/api/settings/connections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'test',id:btn.dataset.v91Test})});message=d.ok?'Connection is reachable.':'The service check could not be completed. Please try again.';state=d.ok?'ok':'error';}catch(e){message=e.message||'The service check could not be completed. Please try again.';state='error'}finally{btn.disabled=false}await load();status.textContent=message;status.dataset.state=state;}));
       list?.querySelectorAll('[data-v91-use-brain]').forEach(btn=>btn.addEventListener('click',async()=>{btn.disabled=true;status.textContent='Checking AI service availability…';status.dataset.state='ready';try{await api('/api/settings/connections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'test',id:btn.dataset.v91UseBrain})});await api('/api/settings/connections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'use-ai',id:btn.dataset.v91UseBrain})});const key=window.OVYXAIStorageKey?window.OVYXAIStorageKey():'ovyx.ai.preferences.v1';let prefs={};try{prefs=JSON.parse(localStorage.getItem(key)||'{}')||{}}catch(_){}prefs.provider='automatic';try{localStorage.setItem(key,JSON.stringify(prefs))}catch(_){}if(window.OVYXAI)window.OVYXAI.provider='automatic';await load();status.textContent='AI option verified and saved. New AI requests will use this option automatically.';status.dataset.state='ok'}catch(e){const message='The AI option could not be verified. It was not activated.';await load();status.textContent=message;status.dataset.state='error';btn.disabled=false}}));
       list?.querySelectorAll('[data-v91-delete]').forEach(btn=>btn.addEventListener('click',async()=>{btn.disabled=true;try{await api('/api/settings/connections?id='+encodeURIComponent(btn.dataset.v91Delete),{method:'DELETE'});await load();status.textContent='Connection deleted.';status.dataset.state='ok'}catch(e){status.textContent=e.message||'Could not remove this service. Please try again.';status.dataset.state='error'}finally{btn.disabled=false}}));
