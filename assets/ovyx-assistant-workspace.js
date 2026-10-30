@@ -79,8 +79,21 @@
   }
 
   function restoreInlineProperty(style, property, saved) {
-    if (saved?.value) style.setProperty(property, saved.value, saved.priority || '');
-    else style.removeProperty(property);
+    if (saved?.value) {
+      if (style.getPropertyValue(property) !== saved.value ||
+          style.getPropertyPriority(property) !== (saved.priority || '')) {
+        style.setProperty(property, saved.value, saved.priority || '');
+      }
+    } else if (style.getPropertyValue(property)) {
+      style.removeProperty(property);
+    }
+  }
+
+  function setInlinePropertyIfDifferent(style, property, value) {
+    if (style.getPropertyValue(property) !== value ||
+        style.getPropertyPriority(property) !== 'important') {
+      style.setProperty(property, value, 'important');
+    }
   }
 
   function syncUnderlyingBottomNavigation(forceHidden) {
@@ -126,11 +139,11 @@
           }
         }
         node.classList.add(UNDERLYING_BOTTOM_NAV_CLASS);
-        node.style.setProperty('display', 'none', 'important');
-        node.style.setProperty('visibility', 'hidden', 'important');
-        node.style.setProperty('opacity', '0', 'important');
-        node.style.setProperty('pointer-events', 'none', 'important');
-        node.style.setProperty('transform', 'translateY(150%)', 'important');
+        setInlinePropertyIfDifferent(node.style, 'display', 'none');
+        setInlinePropertyIfDifferent(node.style, 'visibility', 'hidden');
+        setInlinePropertyIfDifferent(node.style, 'opacity', '0');
+        setInlinePropertyIfDifferent(node.style, 'pointer-events', 'none');
+        setInlinePropertyIfDifferent(node.style, 'transform', 'translateY(150%)');
       } else if (alreadySuppressed) {
         node.classList.remove(UNDERLYING_BOTTOM_NAV_CLASS);
         const saved = suppressedDockStyles.get(node);
