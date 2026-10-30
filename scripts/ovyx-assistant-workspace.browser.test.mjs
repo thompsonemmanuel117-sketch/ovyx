@@ -558,6 +558,16 @@ try {
     assert.deepEqual(errors, [], `[${target.name}] assistant runtime errors: ${errors.join('; ')}`);
 
     if (target.name === 'mobile') {
+      // Close the native assistant first; its full-screen mobile panel owns
+      // pointer input until hidden and the Home dock has been restored.
+      await page.evaluate(() => window.WorkspaceBrainBot.close());
+      await page.waitForFunction(() => {
+        const dock = document.getElementById('ovyx-v52-bottom-bar');
+        const assistant = document.getElementById('kernel-brain-bot-panel');
+        return dock && assistant && getComputedStyle(assistant).display === 'none' &&
+          getComputedStyle(dock).display === 'grid';
+      }, null, { timeout: 8000 });
+
       // Remove only the floating shells introduced by the assistant test so the
       // real OVYX navigation receives genuine pointer input.
       await page.evaluate(() => {
