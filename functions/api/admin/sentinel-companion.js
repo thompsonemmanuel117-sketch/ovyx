@@ -125,7 +125,8 @@ export async function onRequestPost(context, dependencies = {}) {
       : '');
 
   try {
-    const modelCall = typeof dependencies.callModel === 'function' ? dependencies.callModel : callModel;
+    const injectedModelCall = dependencies?.callModel || context?.__ovyxTestDependencies?.callModel;
+    const modelCall = typeof injectedModelCall === 'function' ? injectedModelCall : callModel;
     const result = await modelCall(withCloudflareAIOnly(context.env), {
       provider: 'automatic',
       taskPrompt,
