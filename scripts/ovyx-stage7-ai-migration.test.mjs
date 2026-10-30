@@ -113,7 +113,7 @@ assert.doesNotMatch(indexHtml.slice(browserNormalizerStart, browserNormalizerEnd
 assert.match(indexHtml, /id="card-provider-cloudflare-workers-ai"/,
   'The main admin UI must show the single Cloudflare Workers AI engine card.');
 assert.doesNotMatch(indexHtml, /Use for Web Studio|Use as AI Brain|Use for AI requests/);
-assert.match(indexHtml, /id="ws-brain-label">Cloudflare<\\/span>/,
+assert.match(indexHtml, /id="ws-brain-label">Cloudflare<\/span>/,
   'The Web Studio composer must identify the Cloudflare engine rather than an external Brain.');
 assert.match(indexHtml, /Workspace response preferences\. OVYX uses Cloudflare Workers AI exclusively/);
 assert.match(indexHtml, /this\.brain='automatic';try\{persistStateNow\('cloudflare-only-engine'\)/,
