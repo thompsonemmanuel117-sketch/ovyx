@@ -1166,78 +1166,20 @@
 <div>
 <h2 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
 <i class="fa-solid fa-brain text-brand-cyan"></i>
-<span>AI Service Availability</span>
+<span>OVYX AI Engine Availability</span>
 </h2>
-<p class="text-xs text-zinc-400 font-mono mt-0.5">Check which AI options are ready to use. Credential details remain private.</p>
+<p class="text-xs text-zinc-400 font-mono mt-0.5">OVYX uses one model engine: Cloudflare Workers AI. External AI model providers are disabled.</p>
 </div>
 </div>
-<!-- Live Provider Diagnostic Matrix Grid -->
-<div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="admin-brain-provider-grid">
-<!-- Google Gemini -->
-<div class="v0-panel rounded-2xl p-5 border border-white/12 bg-zinc-950 space-y-3" id="card-provider-gemini">
-<div class="flex items-start justify-between">
-<div class="flex items-center gap-3">
-<div class="w-9 h-9 rounded-xl bg-ovyx-black border border-white/15 flex items-center justify-center text-brand-gold text-sm font-bold">G</div>
-<div>
-<h3 class="text-sm font-bold text-white tracking-tight">Google Gemini 3.8 Flash</h3>
-<span class="text-[10px] font-mono text-zinc-500">Model: Gemini Flash</span>
-</div>
-</div>
-<span class="text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/15 bg-white/5 text-zinc-300 font-bold uppercase tracking-wider" id="brain-badge-gemini" >Setup required</span>
-</div>
-<div class="flex items-center justify-between pt-2 border-t border-white/5 font-mono text-xs">
-<span class="text-zinc-500 text-[11px]" id="brain-latency-gemini" >Availability not checked</span>
-</div>
-</div>
-<!-- DeepSeek V3 -->
-<div class="v0-panel rounded-2xl p-5 border border-white/12 bg-zinc-950 space-y-3" id="card-provider-deepseek">
-<div class="flex items-start justify-between">
-<div class="flex items-center gap-3">
-<div class="w-9 h-9 rounded-xl bg-ovyx-black border border-white/15 flex items-center justify-center text-brand-cyan text-sm font-bold">D</div>
-<div>
-<h3 class="text-sm font-bold text-white tracking-tight">DeepSeek Flash</h3>
-<span class="text-[10px] font-mono text-zinc-500">Model: DeepSeek Flash</span>
-</div>
-</div>
-<span class="text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/15 bg-white/5 text-zinc-300 font-bold uppercase tracking-wider" id="brain-badge-deepseek" >Setup required</span>
-</div>
-<div class="flex items-center justify-between pt-2 border-t border-white/5 font-mono text-xs">
-<span class="text-zinc-500 text-[11px]" id="brain-latency-deepseek" >Availability not checked</span>
-</div>
-</div>
-<!-- Anthropic Claude -->
-<div class="v0-panel rounded-2xl p-5 border border-white/12 bg-zinc-950 space-y-3" id="card-provider-anthropic">
-<div class="flex items-start justify-between">
-<div class="flex items-center gap-3">
-<div class="w-9 h-9 rounded-xl bg-ovyx-black border border-white/15 flex items-center justify-center text-amber-400 text-sm font-bold">C</div>
-<div>
-<h3 class="text-sm font-bold text-white tracking-tight">Claude Sonnet 4.6</h3>
-<span class="text-[10px] font-mono text-zinc-500">Model: Claude Sonnet</span>
-</div>
-</div>
-<span class="text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/15 bg-white/5 text-zinc-300 font-bold uppercase tracking-wider" id="brain-badge-anthropic" >Setup required</span>
-</div>
-<div class="flex items-center justify-between pt-2 border-t border-white/5 font-mono text-xs">
-<span class="text-zinc-500 text-[11px]" id="brain-latency-anthropic" >Availability not checked</span>
-</div>
-</div>
-<!-- OpenAI GPT-4o -->
-<div class="v0-panel rounded-2xl p-5 border border-white/12 bg-zinc-950 space-y-3" id="card-provider-openai">
-<div class="flex items-start justify-between">
-<div class="flex items-center gap-3">
-<div class="w-9 h-9 rounded-xl bg-ovyx-black border border-white/15 flex items-center justify-center text-emerald-400 text-sm font-bold">O</div>
-<div>
-<h3 class="text-sm font-bold text-white tracking-tight">OpenAI GPT-4o Mini</h3>
-<span class="text-[10px] font-mono text-zinc-500">Model: GPT-4o Mini</span>
-</div>
-</div>
-<span class="text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/15 bg-white/5 text-zinc-300 font-bold uppercase tracking-wider" id="brain-badge-openai" >Setup required</span>
-</div>
-<div class="flex items-center justify-between pt-2 border-t border-white/5 font-mono text-xs">
-<span class="text-zinc-500 text-[11px]" id="brain-latency-openai" >Availability not checked</span>
-</div>
-</div>
-</div>
+<!-- OVYX single supported model engine: Cloudflare Workers AI -->
+<div class="grid grid-cols-1 gap-4" id="admin-brain-provider-grid">
+<div class="v0-panel rounded-2xl p-5 border border-white/12 bg-zinc-950 space-y-3" id="card-provider-cloudflare-workers-ai">
+<div class="flex items-start justify-between"><div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-xl bg-ovyx-black border border-white/15 flex items-center justify-center text-brand-gold text-sm font-bold">CF</div>
+<div><h3 class="text-sm font-bold text-white tracking-tight">Cloudflare Workers AI</h3><span class="text-[10px] font-mono text-zinc-500">Exclusive OVYX model engine · Pages binding: AI</span></div></div>
+<span class="text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/15 bg-white/5 text-zinc-300 font-bold uppercase tracking-wider" id="brain-badge-cloudflare-workers-ai">Checking</span></div>
+<div class="flex items-center justify-between pt-2 border-t border-white/5 font-mono text-xs"><span class="text-zinc-500 text-[11px]" id="brain-latency-cloudflare-workers-ai">Binding status not checked</span></div>
+</div></div>
 </section>
 <!-- VIEW 12: AI IDENTITY STUDIO -->
 <section class="p-6 sm:p-8 max-w-4xl mx-auto space-y-6 hidden bg-black" id="view-admin-identity">
@@ -3733,12 +3675,9 @@
 
 <script id="ovyx-final-production-runtime">(function(){
   'use strict';
-  const PROVIDERS=['gemini','deepseek','anthropic','openai'];
+  const PROVIDERS=['cloudflare-workers-ai'];
   const PROVIDER_LABELS={
-    gemini:'Gemini 3.8 Flash',
-    deepseek:'DeepSeek Flash',
-    anthropic:'Claude Sonnet 4.6',
-    openai:'OpenAI GPT-4o Mini'
+    'cloudflare-workers-ai':'Cloudflare Workers AI'
   };
   const $=id=>document.getElementById(id);
   const isOwner=()=>window.OVYXServerOwner?.active===true || String(window.__OVYX_SERVER_ENTITLEMENTS?.role||'').toUpperCase()==='ROOT_SUPERUSER';
@@ -3849,7 +3788,7 @@
       const title=$('admin-brain-auto-status');
       if(providerStat){
         providerStat.textContent=status;
-        providerStat.className=status==='4/4'
+        providerStat.className=status==='1/1'
           ?'text-2xl font-bold text-emerald-400 mt-1'
           :status==='PREVIEW'||status==='SESSION'
             ?'text-2xl font-bold text-zinc-400 mt-1'
@@ -3859,8 +3798,8 @@
       if(latencyStat)latencyStat.textContent=latencyMs?`${Math.round(latencyMs)}ms`:'—';
       if(card)card.dataset.providerState=status;
       if(title){
-        title.textContent=status==='4/4'?'All AI services are ready':status==='PREVIEW'?'Live status requires administrator access':status==='SESSION'?'Sign in to check live status':'AI availability needs attention';
-        title.className=status==='4/4'||status==='SESSION'
+        title.textContent=status==='1/1'?'Cloudflare Workers AI is ready':status==='PREVIEW'?'Live status requires administrator access':status==='SESSION'?'Sign in to check live status':'AI availability needs attention';
+        title.className=status==='1/1'||status==='SESSION'
           ?'ovyx-ai-auto-status'
           :'text-[10px] font-mono text-zinc-500';
       }
@@ -3898,7 +3837,7 @@
         const data=await r.json().catch(()=>({}));
         if(!r.ok)throw Object.assign(new Error(data.error||data.message||'AI availability could not be checked. Please try again.'),{status:r.status});
         const list=Array.isArray(data.providers)?data.providers:[];
-        if(list.length!==PROVIDERS.length)throw new Error(`AI availability checks returned ${list.length} of ${PROVIDERS.length} results.`);
+        if(list.length!==PROVIDERS.length)throw new Error(`Cloudflare AI status returned ${list.length} of ${PROVIDERS.length} expected result.`);
         let ready=0;
         list.forEach(item=>{
           const id=String(item.provider||'').toLowerCase();
@@ -3917,8 +3856,8 @@
         this.lastCheckedAt=Date.now();
         const overall=`${ready}/${PROVIDERS.length}`;
         const detail=ready===PROVIDERS.length
-          ?'All configured AI services are ready to use.'
-          :`${ready}/${PROVIDERS.length} AI services ready`;
+          ?'Cloudflare Workers AI is ready to use.'
+          :`${ready}/${PROVIDERS.length} model engine ready`;
         this.applyOverview(overall,detail,performance.now()-started);
         return ready===PROVIDERS.length;
       }catch(error){
@@ -14595,7 +14534,7 @@ function installWebStudioSurface(){
  function installAdminProviderChecks(){
   const grid=$('admin-brain-provider-grid');
   if(!grid)return;
-  ['gemini','deepseek','anthropic','openai'].forEach(function(provider){
+  ['cloudflare-workers-ai'].forEach(function(provider){
     const card=$('card-provider-'+provider);
     if(!card||card.querySelector('[data-ovyx-provider-test]'))return;
     const row=document.createElement('div');
