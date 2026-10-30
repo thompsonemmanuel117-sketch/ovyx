@@ -13360,10 +13360,14 @@ window.OVYXWebStudioNavigation.bind();
   }
   window.OVYXMasterAuth={activateWorkspace,signIn,createAccount,popupSignIn,openAuth,lockWorkspace:openAuth,refreshExpiredSession:async()=>{const u=user();if(!u)return false;await u.getIdToken(true);await activateWorkspace(u,true);return true}};
   window.addEventListener('ovyx:firebase-auth-sdk-ready',function(event){
-    if(event.detail?.ready===true&&!window.__OVYX_AUTH_BOOT_COMPLETE__){
-      window.__OVYX_AUTH_BOOT_V4__=false;
-      boot();
-    }
+    if(event.detail?.ready!==true||window.__OVYX_AUTH_BOOT_COMPLETE__)return;
+    const retry=()=>{
+      // The normal DOMContentLoaded boot owns the first attempt. Never reset
+      // its in-flight guard or start a duplicate auth bootstrap.
+      if(!window.__OVYX_AUTH_BOOT_V4__&&!window.__OVYX_AUTH_BOOT_COMPLETE__)boot();
+    };
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',retry,{once:true});
+    else retry();
   },{passive:true});
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
   window.addEventListener('ovyx:firebase-ready',()=>{try{wireButtons();updateAuthAction(user())}catch(_){}},{passive:true});
