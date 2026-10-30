@@ -134,7 +134,7 @@ export async function onRequestPost(context, dependencies = {}) {
       user: userText,
       model: 'automatic',
       maxTokens: 1100,
-      authUser: user,
+      authUser: auth.user,
     });
     return jsonResponse({
       ok: true,
