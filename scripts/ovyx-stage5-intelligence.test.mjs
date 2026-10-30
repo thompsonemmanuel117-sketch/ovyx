@@ -92,6 +92,13 @@ const result = await generateOvyxNativeAI(
   {
     prompt: 'Inspect my saved project and tell me what needs to change.',
     context: { activeProject: { id: 'project_1', name: 'Task-planning sample' } },
+    cloudflareInference: async (env, options) => {
+      const guardedResult = await env.AI.run('@cf/meta/llama-3.1-8b-instruct-fp8-fast', {
+        messages: options.messages,
+        max_tokens: options.maxTokens,
+      });
+      return { text: guardedResult.response, result: guardedResult };
+    },
   },
 );
 

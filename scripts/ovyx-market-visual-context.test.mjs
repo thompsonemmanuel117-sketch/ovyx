@@ -29,11 +29,11 @@ assert.equal(unspecified.locale, null);
 assert.equal(unspecified.currency, null);
 assert.equal(formatMarketCurrency(100, unspecified), null);
 
-const plan = buildVisualAssetPlan('Build a cinematic animated property marketplace with photo galleries.', { assets: [{ name: 'brand.svg' }] }, 'realEstate');
+const plan = buildVisualAssetPlan('Build a cinematic animated property marketplace with photo galleries.', { assets: [{ name: 'brand.svg' }] });
 assert.equal(plan.imageHeavy, true);
 assert.equal(plan.motionRequested, true);
 assert.deepEqual(plan.suppliedAssets, ['brand.svg']);
-assert.ok(plan.requiredAssetKinds.some(item => /architectural photography/i.test(item)));
+assert.ok(plan.requiredAssetKinds.some(item => /coherent set of images or photography/i.test(item)));
 assert.ok(plan.motionPlan.some(item => /prefers-reduced-motion/i.test(item)));
 assert.ok(plan.responsiveTargets.some(item => item.width === 390));
 assert.ok(plan.responsiveTargets.some(item => item.width === 1440));
@@ -41,8 +41,9 @@ assert.ok(plan.responsiveTargets.some(item => item.width === 1440));
 const brief = buildExperienceBrief('Build a premium Lagos real-estate marketplace with animated property cards.');
 assert.equal(brief.marketContext.country, 'Nigeria');
 assert.equal(brief.marketContext.currency, 'NGN');
-assert.equal(brief.visualAssetPlan.imageHeavy, true);
+assert.equal(brief.visualAssetPlan.imageHeavy, false, 'a property-oriented brief does not receive a category-based photography default');
 assert.equal(brief.visualAssetPlan.motionRequested, true);
+assert.match(brief.designIntelligence.industryOrUseCase, /not classified into an industry/i);
 
 const gateway = await fs.readFile(new URL('../functions/api/ai/gateway.js', import.meta.url), 'utf8');
 assert.match(gateway, /marketContext:\s*experience\?\.marketContext/);

@@ -680,7 +680,7 @@
 <div class="ovyx-ws-tools-left">
 <button class="ovyx-ws-tool" id="ws-attach-btn" title="Attach files" type="button"><i class="fa-solid fa-paperclip"></i><span>Attach</span></button>
 <input hidden="" id="ws-attach-input" multiple="" type="file"/>
-<button class="ovyx-ws-tool" id="ws-brain-btn" title="Choose OVYX brain" type="button"><i aria-hidden="true" class="fa-solid fa-gear"></i><span id="ws-brain-label">Auto</span></button>
+<button class="ovyx-ws-tool" id="ws-brain-btn" title="OVYX AI settings · Cloudflare Workers AI only" type="button" aria-label="OVYX AI settings · Cloudflare Workers AI only"><i aria-hidden="true" class="fa-solid fa-gear"></i><span id="ws-brain-label">Cloudflare</span></button>
 <button class="ovyx-ws-tool" id="ws-context-btn" title="Project context" type="button"><i aria-hidden="true" class="fa-solid fa-code-branch"></i><span>Project</span></button>
 </div>
 <button aria-label="Send prompt" class="ovyx-ws-send" disabled="" id="ws-chat-send" type="button">↑</button>
@@ -1166,78 +1166,20 @@
 <div>
 <h2 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
 <i class="fa-solid fa-brain text-brand-cyan"></i>
-<span>AI Service Availability</span>
+<span>OVYX AI Engine Availability</span>
 </h2>
-<p class="text-xs text-zinc-400 font-mono mt-0.5">Check which AI options are ready to use. Credential details remain private.</p>
+<p class="text-xs text-zinc-400 font-mono mt-0.5">OVYX uses one model engine: Cloudflare Workers AI. External AI model providers are disabled.</p>
 </div>
 </div>
-<!-- Live Provider Diagnostic Matrix Grid -->
-<div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="admin-brain-provider-grid">
-<!-- Google Gemini -->
-<div class="v0-panel rounded-2xl p-5 border border-white/12 bg-zinc-950 space-y-3" id="card-provider-gemini">
-<div class="flex items-start justify-between">
-<div class="flex items-center gap-3">
-<div class="w-9 h-9 rounded-xl bg-ovyx-black border border-white/15 flex items-center justify-center text-brand-gold text-sm font-bold">G</div>
-<div>
-<h3 class="text-sm font-bold text-white tracking-tight">Google Gemini 3.8 Flash</h3>
-<span class="text-[10px] font-mono text-zinc-500">Model: Gemini Flash</span>
-</div>
-</div>
-<span class="text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/15 bg-white/5 text-zinc-300 font-bold uppercase tracking-wider" id="brain-badge-gemini" >Setup required</span>
-</div>
-<div class="flex items-center justify-between pt-2 border-t border-white/5 font-mono text-xs">
-<span class="text-zinc-500 text-[11px]" id="brain-latency-gemini" >Availability not checked</span>
-</div>
-</div>
-<!-- DeepSeek V3 -->
-<div class="v0-panel rounded-2xl p-5 border border-white/12 bg-zinc-950 space-y-3" id="card-provider-deepseek">
-<div class="flex items-start justify-between">
-<div class="flex items-center gap-3">
-<div class="w-9 h-9 rounded-xl bg-ovyx-black border border-white/15 flex items-center justify-center text-brand-cyan text-sm font-bold">D</div>
-<div>
-<h3 class="text-sm font-bold text-white tracking-tight">DeepSeek Flash</h3>
-<span class="text-[10px] font-mono text-zinc-500">Model: DeepSeek Flash</span>
-</div>
-</div>
-<span class="text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/15 bg-white/5 text-zinc-300 font-bold uppercase tracking-wider" id="brain-badge-deepseek" >Setup required</span>
-</div>
-<div class="flex items-center justify-between pt-2 border-t border-white/5 font-mono text-xs">
-<span class="text-zinc-500 text-[11px]" id="brain-latency-deepseek" >Availability not checked</span>
-</div>
-</div>
-<!-- Anthropic Claude -->
-<div class="v0-panel rounded-2xl p-5 border border-white/12 bg-zinc-950 space-y-3" id="card-provider-anthropic">
-<div class="flex items-start justify-between">
-<div class="flex items-center gap-3">
-<div class="w-9 h-9 rounded-xl bg-ovyx-black border border-white/15 flex items-center justify-center text-amber-400 text-sm font-bold">C</div>
-<div>
-<h3 class="text-sm font-bold text-white tracking-tight">Claude Sonnet 4.6</h3>
-<span class="text-[10px] font-mono text-zinc-500">Model: Claude Sonnet</span>
-</div>
-</div>
-<span class="text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/15 bg-white/5 text-zinc-300 font-bold uppercase tracking-wider" id="brain-badge-anthropic" >Setup required</span>
-</div>
-<div class="flex items-center justify-between pt-2 border-t border-white/5 font-mono text-xs">
-<span class="text-zinc-500 text-[11px]" id="brain-latency-anthropic" >Availability not checked</span>
-</div>
-</div>
-<!-- OpenAI GPT-4o -->
-<div class="v0-panel rounded-2xl p-5 border border-white/12 bg-zinc-950 space-y-3" id="card-provider-openai">
-<div class="flex items-start justify-between">
-<div class="flex items-center gap-3">
-<div class="w-9 h-9 rounded-xl bg-ovyx-black border border-white/15 flex items-center justify-center text-emerald-400 text-sm font-bold">O</div>
-<div>
-<h3 class="text-sm font-bold text-white tracking-tight">OpenAI GPT-4o Mini</h3>
-<span class="text-[10px] font-mono text-zinc-500">Model: GPT-4o Mini</span>
-</div>
-</div>
-<span class="text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/15 bg-white/5 text-zinc-300 font-bold uppercase tracking-wider" id="brain-badge-openai" >Setup required</span>
-</div>
-<div class="flex items-center justify-between pt-2 border-t border-white/5 font-mono text-xs">
-<span class="text-zinc-500 text-[11px]" id="brain-latency-openai" >Availability not checked</span>
-</div>
-</div>
-</div>
+<!-- OVYX single supported model engine: Cloudflare Workers AI -->
+<div class="grid grid-cols-1 gap-4" id="admin-brain-provider-grid">
+<div class="v0-panel rounded-2xl p-5 border border-white/12 bg-zinc-950 space-y-3" id="card-provider-cloudflare-workers-ai">
+<div class="flex items-start justify-between"><div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-xl bg-ovyx-black border border-white/15 flex items-center justify-center text-brand-gold text-sm font-bold">CF</div>
+<div><h3 class="text-sm font-bold text-white tracking-tight">Cloudflare Workers AI</h3><span class="text-[10px] font-mono text-zinc-500">Exclusive OVYX model engine · Pages binding: AI</span></div></div>
+<span class="text-[10px] font-mono px-2.5 py-1 rounded-full border border-white/15 bg-white/5 text-zinc-300 font-bold uppercase tracking-wider" id="brain-badge-cloudflare-workers-ai">Checking</span></div>
+<div class="flex items-center justify-between pt-2 border-t border-white/5 font-mono text-xs"><span class="text-zinc-500 text-[11px]" id="brain-latency-cloudflare-workers-ai">Binding status not checked</span></div>
+</div></div>
 </section>
 <!-- VIEW 12: AI IDENTITY STUDIO -->
 <section class="p-6 sm:p-8 max-w-4xl mx-auto space-y-6 hidden bg-black" id="view-admin-identity">
@@ -2719,7 +2661,7 @@
           this.setAttachments(files, { append: true });
         });
         document.getElementById('ws-brain-btn')?.addEventListener('click', () => {
-          const order = ['automatic','gemini','deepseek','anthropic','openai']; const i = order.indexOf(this.brain); this.brain = order[(i + 1) % order.length]; try{persistStateNow('brain-cycle')}catch(_){} const label = this.brain === 'automatic' ? 'Auto' : this.brain; const el = document.getElementById('ws-brain-label'); if (el) el.textContent = label[0].toUpperCase()+label.slice(1);
+          this.brain='automatic';try{persistStateNow('cloudflare-only-engine')}catch(_){}const el=document.getElementById('ws-brain-label');if(el)el.textContent='Cloudflare';
         });
         document.getElementById('ws-context-btn')?.addEventListener('click', () => { this.ensureProjectGraph(); this.appendMessage('agent', `Workspace details loaded: ${this.graphFileCount()} files across ${this.pageCount()} page(s).`); });
       },
@@ -3733,12 +3675,9 @@
 
 <script id="ovyx-final-production-runtime">(function(){
   'use strict';
-  const PROVIDERS=['gemini','deepseek','anthropic','openai'];
+  const PROVIDERS=['cloudflare-workers-ai'];
   const PROVIDER_LABELS={
-    gemini:'Gemini 3.8 Flash',
-    deepseek:'DeepSeek Flash',
-    anthropic:'Claude Sonnet 4.6',
-    openai:'OpenAI GPT-4o Mini'
+    'cloudflare-workers-ai':'Cloudflare Workers AI'
   };
   const $=id=>document.getElementById(id);
   const isOwner=()=>window.OVYXServerOwner?.active===true || String(window.__OVYX_SERVER_ENTITLEMENTS?.role||'').toUpperCase()==='ROOT_SUPERUSER';
@@ -3849,7 +3788,7 @@
       const title=$('admin-brain-auto-status');
       if(providerStat){
         providerStat.textContent=status;
-        providerStat.className=status==='4/4'
+        providerStat.className=status==='1/1'
           ?'text-2xl font-bold text-emerald-400 mt-1'
           :status==='PREVIEW'||status==='SESSION'
             ?'text-2xl font-bold text-zinc-400 mt-1'
@@ -3859,8 +3798,8 @@
       if(latencyStat)latencyStat.textContent=latencyMs?`${Math.round(latencyMs)}ms`:'—';
       if(card)card.dataset.providerState=status;
       if(title){
-        title.textContent=status==='4/4'?'All AI services are ready':status==='PREVIEW'?'Live status requires administrator access':status==='SESSION'?'Sign in to check live status':'AI availability needs attention';
-        title.className=status==='4/4'||status==='SESSION'
+        title.textContent=status==='1/1'?'Cloudflare Workers AI is ready':status==='PREVIEW'?'Live status requires administrator access':status==='SESSION'?'Sign in to check live status':'AI availability needs attention';
+        title.className=status==='1/1'||status==='SESSION'
           ?'ovyx-ai-auto-status'
           :'text-[10px] font-mono text-zinc-500';
       }
@@ -3898,7 +3837,7 @@
         const data=await r.json().catch(()=>({}));
         if(!r.ok)throw Object.assign(new Error(data.error||data.message||'AI availability could not be checked. Please try again.'),{status:r.status});
         const list=Array.isArray(data.providers)?data.providers:[];
-        if(list.length!==PROVIDERS.length)throw new Error(`AI availability checks returned ${list.length} of ${PROVIDERS.length} results.`);
+        if(list.length!==PROVIDERS.length)throw new Error(`Cloudflare AI status returned ${list.length} of ${PROVIDERS.length} expected result.`);
         let ready=0;
         list.forEach(item=>{
           const id=String(item.provider||'').toLowerCase();
@@ -3917,8 +3856,8 @@
         this.lastCheckedAt=Date.now();
         const overall=`${ready}/${PROVIDERS.length}`;
         const detail=ready===PROVIDERS.length
-          ?'All configured AI services are ready to use.'
-          :`${ready}/${PROVIDERS.length} AI services ready`;
+          ?'Cloudflare Workers AI is ready to use.'
+          :`${ready}/${PROVIDERS.length} model engine ready`;
         this.applyOverview(overall,detail,performance.now()-started);
         return ready===PROVIDERS.length;
       }catch(error){
@@ -3933,11 +3872,7 @@
   };
   window.OVYXAutoBrain=AutoBrain;
   /* ---------------- SECURE AI ASSISTANT CLIENT ---------------- */
-  function normalizeProvider(value){
-    const v=String(value||'').trim().toLowerCase();
-    if(v==='anthropic'||v==='claude')return 'claude';
-    if(v.startsWith('connection:') && v.length>11)return v;
-    if(PROVIDERS.includes(v))return v;
+  function normalizeProvider(_value){
     return 'automatic';
   }
   async function secureGenerate(payload={},options={}){
@@ -11501,32 +11436,26 @@ window.addEventListener('pageshow',()=>setTimeout(install,0),{passive:true});
   runBuild.__ovyxFinal=true;
   window.runBuild=runBuild;
   function patchAIBrain(){
-    const A=window.OVYXAIService;if(!A||A.__ovyxFinalRouting)return;
-    const base=A.generate?.bind(A);if(!base)return;
+    const A=window.OVYXAIService;
+    if(!A||A.__ovyxFinalRouting)return;
+    const base=A.generate?.bind(A);
+    if(!base)return;
     A.generate=async function(payload={},options={}){
-      const requested=String(payload.provider||payload.requestedProvider||'automatic').trim().toLowerCase()||'automatic';
-      const normalized=requested==='claude'?'anthropic':requested;
-      /* Automatic may use the server's configured order. An explicit provider must never jump to another provider. */
-      if(requested==='automatic'||requested.startsWith('connection:')){
-        const r=await base({...payload,provider:requested,requestedProvider:requested},options);
-        return {...(r||{}),requestedProvider:requested,routedProvider:r?.provider||requested,failoverUsed:false};
-      }
       if(options?.signal?.aborted)throw Object.assign(new Error('OVYX AI request cancelled.'),{name:'AbortError'});
-      try{
-        const r=await base({...payload,provider:normalized,requestedProvider:requested,failoverAttempt:false},options);
-        if(r?.ok===false)throw Object.assign(new Error(r.error||r.message||'The AI response could not be completed. Please try again.'),{code:r.code||'AI_SERVICE_REQUEST_FAILED',status:r.status||503});
-        return {...(r||{}),requestedProvider:requested,routedProvider:r?.provider||normalized,failoverUsed:false};
-      }catch(e){
-        if(options?.signal?.aborted||e?.name==='AbortError')throw e;
-        const code=String(e?.code||'').toUpperCase(),message=String(e?.message||e||'');
-        if(code.includes('QUOTA')||code.includes('RATION')||/quota|token allocation|insufficient tokens|token balance/i.test(message))throw e;
-        if(code.startsWith('UNIVERSAL_CONNECTION')||/selected AI Brain|Universal Connection/i.test(message))throw e;
-        const labels={gemini:'Gemini',deepseek:'DeepSeek',anthropic:'Claude',openai:'OpenAI',groq:'Groq','cloudflare-workers-ai':'Native AI service'};
-        const label=labels[normalized]||normalized.replace(/[-_]+/g,' ').replace(/^./,c=>c.toUpperCase())+' AI';
-        const friendly=new Error('OVYX could not complete this request through the configured AI route. Check AI readiness and retry; it will not silently switch providers.');
-        friendly.code=code||'AI_PROVIDER_UNAVAILABLE';friendly.status=Number(e?.status)||503;friendly.provider=normalized;
-        throw friendly;
-      }
+      const result=await base({
+        ...payload,
+        provider:'automatic',
+        requestedProvider:'cloudflare-workers-ai',
+        preferredProvider:'',
+        providerRouting:'automatic',
+        fallback:'stop',
+        model:'automatic'
+      },options);
+      if(result?.ok===false)throw Object.assign(new Error(result.error||result.message||'Cloudflare AI could not complete this request.'),{
+        code:result.code||'OVYX_NATIVE_AI_REQUEST_FAILED',
+        status:result.status||503
+      });
+      return {...(result||{}),requestedProvider:'cloudflare-workers-ai',routedProvider:'cloudflare-workers-ai',failoverUsed:false};
     };
     A.__ovyxFinalRouting=true;
   }
@@ -12191,13 +12120,30 @@ function installWebStudioPersistence(){var W=window.WebStudio;if(!W||!W.initiali
   document.addEventListener('click',function(e){if(!e.target.closest('#view-webstudio'))return;if(e.target.closest('#ws-sidebar-trigger,#ws-preview-trigger,#ws-desktop-split-toggle,#ws-mobile-preview-back,#ws-mobile-preview-menu-button,[data-ws-mode],[data-ws-console],#ws-brain-btn,#ws-context-btn,#ws-chat-send,#ws-attach-btn,[data-ws-menu],#ws-console-close,#ws-selected-clear,#ws-selected-code,#ws-selected-ask,.ovyx-ws-response-toolbar'))persistState('workspace-control')},{capture:true,passive:true});
   window.addEventListener('resize',function(){persistState('viewport-resize')},{passive:true});window.addEventListener('orientationchange',function(){persistState('orientation-change')},{passive:true});
   var scroll=document.getElementById('ws-chat-scroll');if(scroll&&!scroll.dataset.ovyxPersistScroll){scroll.dataset.ovyxPersistScroll='1';var scrollTick=0;scroll.addEventListener('scroll',function(){if(scrollTick)return;scrollTick=setTimeout(function(){scrollTick=0;persistState('chat-scroll')},120)},{passive:true});}
-  window.addEventListener('storage',function(e){if(!e.key||!e.key.startsWith(SESSION_KEY))return;var saved=safeParse(e.key,null);if(!saved||saved.projectId!==projectId())return;try{W.thread=Array.isArray(saved.thread)?saved.thread.map(function(m){return {...m}}):W.thread;if(saved.mode)W.mode=saved.mode;if(saved.brain)W.brain=saved.brain;W.activeMessageIndex=Number.isInteger(saved.activeMessageIndex)?saved.activeMessageIndex:null;W.editingMessageIndex=Number.isInteger(saved.editingMessageIndex)?saved.editingMessageIndex:null;W.render?.()}catch(_){}}
+  window.addEventListener('storage',function(e){if(!e.key||!e.key.startsWith(SESSION_KEY))return;var saved=safeParse(e.key,null);if(!saved||saved.projectId!==projectId())return;try{W.thread=Array.isArray(saved.thread)?saved.thread.map(function(m){return {...m}}):W.thread;if(saved.mode)W.mode=saved.mode;W.brain='automatic';W.activeMessageIndex=Number.isInteger(saved.activeMessageIndex)?saved.activeMessageIndex:null;W.editingMessageIndex=Number.isInteger(saved.editingMessageIndex)?saved.editingMessageIndex:null;W.render?.()}catch(_){}}
   );
 }
 function renderLiveAgentSpinner(){var W=window.WebStudio;if(!W)return;W.liveAiActive=!!W.pendingBuild;try{W.renderThread?.()}catch(_){}}
 function syncStatusAndPersistence(){installWebStudioPersistence();installPreviewUtilityRouting();bridgeHomeBuildToWebStudio();try{setDocumentLayoutMode(typeof window.getLayoutMode==='function'?window.getLayoutMode():'desktop')}catch(_){}var W=window.WebStudio;if(W?.initialized){hydrateHomeHandoff();restorePersistedState(false);try{W.renderThread?.()}catch(_){}renderLiveAgentSpinner();syncDesktopSplit();syncMobilePreviewEmpty();}}
 function bindFinalLayoutControls(){var nav=document.getElementById('ws-sidebar-trigger'),preview=document.getElementById('ws-preview-trigger'),split=document.getElementById('ws-desktop-split-toggle'),mobileBack=document.getElementById('ws-mobile-preview-back'),mobileMenu=document.getElementById('ws-mobile-preview-menu-button');var bind=function(el,key,fn){if(!el||el.dataset[key]==='1')return;el.dataset[key]='1';el.addEventListener('click',function(ev){ev.preventDefault();ev.stopImmediatePropagation();fn(ev)},true)};var bindSplit=function(el){if(!el)return;el.dataset.ovyxSplitOwner='1';if(el.dataset.ovyxSplitHardbound==='1')return;el.dataset.ovyxSplitHardbound='1';var fire=function(ev){var now=Date.now(),last=Number(el.dataset.ovyxSplitLastFire||0);if(now-last<250){if(ev){ev.preventDefault();ev.stopPropagation();ev.stopImmediatePropagation?.();}return;}el.dataset.ovyxSplitLastFire=String(now);if(ev){ev.preventDefault();ev.stopPropagation();ev.stopImmediatePropagation?.();}toggleDesktopSplit();persistStateNow('desktop-split-toggle')};el.addEventListener('pointerdown',function(ev){if(ev.button!=null&&ev.button!==0)return;fire(ev)},true);el.addEventListener('click',fire,true);el.addEventListener('keydown',function(ev){if(ev.key==='Enter'||ev.key===' '){fire(ev)}},true);el.addEventListener('pointerenter',function(){el.style.pointerEvents='auto'},true);el.style.pointerEvents='auto';el.style.touchAction='manipulation';el.style.zIndex='2147483007';};/* #ws-sidebar-trigger is owned by bindDesktopSidebarCore() to prevent duplicate toggles. */bind(preview,'ovyxBoundPreview',function(){openPreviewFromChat()});bindSplit(split);bind(mobileBack,'ovyxBoundMobilePreviewBack',function(){returnToChatFromPreview()});bind(mobileMenu,'ovyxBoundMobilePreviewMenu',function(){openPreviewFromHeaderMenu()});if(split){split.style.pointerEvents='auto';split.style.touchAction='manipulation';split.style.zIndex='2147483007'}if(nav)nav.style.pointerEvents='auto';if(preview)preview.style.pointerEvents='auto';}
-function bindShortcutPopovers(){var composer=document.getElementById('ws-chat-composer');if(!composer||composer.dataset.ovyxShortcutBindings==='1')return;var brain=document.getElementById('ws-brain-btn'),context=document.getElementById('ws-context-btn');if(!brain||!context)return;composer.dataset.ovyxShortcutBindings='1';var makePop=function(id){var p=document.getElementById(id);if(p)return p;p=document.createElement('div');p.id=id;p.className='ovyx-ws-shortcut-popover';p.hidden=true;return p};var settings=makePop('ws-brain-settings-popover');settings.innerHTML='<h4>Agent Settings</h4><p>Local generation preferences for this workspace.</p><div class="ovyx-ws-popover-row"><span>Brain</span><div id="ws-brain-options" style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end"></div></div><div class="ovyx-ws-popover-row"><span>Response depth</span><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><input id="ws-brain-depth" type="range" min="1" max="3" step="1" value="2" aria-label="Response depth" style="accent-color:#F59E0B;width:120px"><small id="ws-brain-depth-label" style="color:#A1A1AA;font:600 8px/1.3 Inter,sans-serif">Balanced · level 2 of 3</small></div></div>';composer.appendChild(settings);var map=makePop('ws-context-map-popover');map.innerHTML='<h4>Project Node Map</h4><p>App files used for the current build.</p><div id="ws-context-map-list"></div>';composer.appendChild(map);function closePulsePopover(){var pulseMenu=document.getElementById('ws-pulse-popover'),trigger=document.getElementById('ws-pulse-trigger');if(pulseMenu){pulseMenu.classList.remove('open');pulseMenu.hidden=true}if(trigger)trigger.setAttribute('aria-expanded','false')}var depthInput=document.getElementById('ws-brain-depth'),depthLabel=document.getElementById('ws-brain-depth-label'),depthKey='ovyx.ws.responseDepth.v1';function syncResponseDepth(value,save){var n=Number(value),depth=Number.isFinite(n)?Math.max(1,Math.min(3,Math.round(n))):2;var W=window.WebStudio;if(W)W.responseDepth=depth;if(depthInput&&depthInput.value!==String(depth))depthInput.value=String(depth);if(depthLabel)depthLabel.textContent=depth===1?'Concise · level 1 of 3':depth===3?'Detailed · level 3 of 3':'Balanced · level 2 of 3';if(save){try{localStorage.setItem(depthKey,String(depth))}catch(_){}}}var initialDepth=2;try{var storedDepth=Number(localStorage.getItem(depthKey));if(storedDepth===1||storedDepth===2||storedDepth===3)initialDepth=storedDepth}catch(_){}syncResponseDepth(initialDepth,false);if(depthInput&&depthInput.dataset.ovyxDepthBound!=='1'){depthInput.dataset.ovyxDepthBound='1';depthInput.addEventListener('input',function(){syncResponseDepth(depthInput.value,true)});depthInput.addEventListener('change',function(){syncResponseDepth(depthInput.value,true)})}function closeOthers(except){[settings,map].forEach(function(p){if(p!==except)p.hidden=true})}function renderBrainOptions(){var host=document.getElementById('ws-brain-options');if(!host)return;var order=['automatic','gemini','deepseek','anthropic','openai'];host.innerHTML=order.map(function(name){var label=name==='automatic'?'Auto':name.charAt(0).toUpperCase()+name.slice(1);return '<button type="button" data-brain-choice="'+name+'" class="'+((window.WebStudio?.brain||'automatic')===name?'active':'')+'">'+label+'</button>'}).join('');host.querySelectorAll('[data-brain-choice]').forEach(function(b){b.addEventListener('click',function(ev){ev.preventDefault();ev.stopPropagation();try{window.WebStudio.brain=b.dataset.brainChoice}catch(e){}persistState('brain-choice');var lab=document.getElementById('ws-brain-label');if(lab)lab.textContent=b.dataset.brainChoice==='automatic'?'Auto':b.dataset.brainChoice.charAt(0).toUpperCase()+b.dataset.brainChoice.slice(1);renderBrainOptions()})})}function openSettings(ev){ev.preventDefault();ev.stopImmediatePropagation();closePulsePopover();closeOthers(settings);renderBrainOptions();settings.hidden=!settings.hidden;persistState('brain-settings');var input=document.getElementById('ws-chat-input');if(input&&document.activeElement===brain)setTimeout(function(){input.focus()},0)}function openMap(ev){ev.preventDefault();ev.stopImmediatePropagation();closePulsePopover();closeOthers(map);var W=window.WebStudio;try{W?.ensureProjectGraph?.()}catch(e){}var g=W?.graph||{};var files=g.files||{};var list=document.getElementById('ws-context-map-list');if(list){
+function bindShortcutPopovers(){var composer=document.getElementById('ws-chat-composer');if(!composer||composer.dataset.ovyxShortcutBindings==='1')return;var brain=document.getElementById('ws-brain-btn'),context=document.getElementById('ws-context-btn');if(!brain||!context)return;composer.dataset.ovyxShortcutBindings='1';var makePop=function(id){var p=document.getElementById(id);if(p)return p;p=document.createElement('div');p.id=id;p.className='ovyx-ws-shortcut-popover';p.hidden=true;return p};var settings=makePop('ws-brain-settings-popover');settings.innerHTML='<h4>Agent Settings</h4><p>Workspace response preferences. OVYX uses Cloudflare Workers AI exclusively; model-provider selection is disabled.</p><div class="ovyx-ws-popover-row"><span>AI engine</span><div id="ws-brain-options" style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end"><span id="ws-brain-engine-label" role="status">Cloudflare Workers AI</span></div></div><div class="ovyx-ws-popover-row"><span>Response depth</span><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px"><input id="ws-brain-depth" type="range" min="1" max="3" step="1" value="2" aria-label="Response depth" style="accent-color:#F59E0B;width:120px"><small id="ws-brain-depth-label" style="color:#A1A1AA;font:600 8px/1.3 Inter,sans-serif">Balanced · level 2 of 3</small></div></div>';composer.appendChild(settings);var map=makePop('ws-context-map-popover');map.innerHTML='<h4>Project Node Map</h4><p>App files used for the current build.</p><div id="ws-context-map-list"></div>';composer.appendChild(map);function closePulsePopover(){var pulseMenu=document.getElementById('ws-pulse-popover'),trigger=document.getElementById('ws-pulse-trigger');if(pulseMenu){pulseMenu.classList.remove('open');pulseMenu.hidden=true}if(trigger)trigger.setAttribute('aria-expanded','false')}var depthInput=document.getElementById('ws-brain-depth'),depthLabel=document.getElementById('ws-brain-depth-label'),depthKey='ovyx.ws.responseDepth.v1';function syncResponseDepth(value,save){var n=Number(value),depth=Number.isFinite(n)?Math.max(1,Math.min(3,Math.round(n))):2;var W=window.WebStudio;if(W)W.responseDepth=depth;if(depthInput&&depthInput.value!==String(depth))depthInput.value=String(depth);if(depthLabel)depthLabel.textContent=depth===1?'Concise · level 1 of 3':depth===3?'Detailed · level 3 of 3':'Balanced · level 2 of 3';if(save){try{localStorage.setItem(depthKey,String(depth))}catch(_){}}}var initialDepth=2;try{var storedDepth=Number(localStorage.getItem(depthKey));if(storedDepth===1||storedDepth===2||storedDepth===3)initialDepth=storedDepth}catch(_){}syncResponseDepth(initialDepth,false);if(depthInput&&depthInput.dataset.ovyxDepthBound!=='1'){depthInput.dataset.ovyxDepthBound='1';depthInput.addEventListener('input',function(){syncResponseDepth(depthInput.value,true)});depthInput.addEventListener('change',function(){syncResponseDepth(depthInput.value,true)})}function closeOthers(except){[settings,map].forEach(function(p){if(p!==except)p.hidden=true})}function renderBrainOptions(){
+    var host=document.getElementById('ws-brain-options');
+    var W=window.WebStudio;
+    // Old workspace snapshots may contain a retired Gemini/DeepSeek/Claude/OpenAI
+    // preference. Normalize it before the next request and never render vendor choices.
+    if(W)W.brain='automatic';
+    if(host){
+      var label=document.createElement('span');
+      label.id='ws-brain-engine-label';
+      label.className='ws-brain-engine-chip';
+      label.setAttribute('role','status');
+      label.textContent='Cloudflare Workers AI';
+      host.replaceChildren(label);
+    }
+    var composerLabel=document.getElementById('ws-brain-label');
+    if(composerLabel)composerLabel.textContent='Cloudflare';
+  }
+  function openSettings(ev){ev.preventDefault();ev.stopImmediatePropagation();closePulsePopover();closeOthers(settings);renderBrainOptions();settings.hidden=!settings.hidden;persistState('brain-settings');var input=document.getElementById('ws-chat-input');if(input&&document.activeElement===brain)setTimeout(function(){input.focus()},0)}function openMap(ev){ev.preventDefault();ev.stopImmediatePropagation();closePulsePopover();closeOthers(map);var W=window.WebStudio;try{W?.ensureProjectGraph?.()}catch(e){}var g=W?.graph||{};var files=g.files||{};var list=document.getElementById('ws-context-map-list');if(list){
     var paths=Object.keys(files);
     if(paths.length){
       list.innerHTML=paths.slice(0,24).map(function(path){return '<button type="button" data-context-file="'+String(path).replace(/&/g,'&amp;').replace(/"/g,'&quot;')+'">'+String(path).replace(/[&<>]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;'}[c]})+'</button>'}).join('');
@@ -13841,10 +13787,10 @@ async function renderConnectionsPanel(){
   const rows=Array.isArray(data.connections)?data.connections:[];
   panel.innerHTML=
     '<div class="ovyx-panel-head"><div class="ovyx-panel-kicker">WORKSPACE / CONNECTIONS</div><h2>Universal Connections &amp; Tier Limits</h2><p>Manage approved webhooks, tools, and data services here. Available options depend on your plan.</p></div>'+
-    '<div class="ovyx-deep-grid"><div class="ovyx-pref-group"><div class="ovyx-pref-label">PLAN</div><div class="ovyx-deep-note"><b style="color:var(--app-text,#fff)">'+String(data.tier||'free').toUpperCase()+'</b> · '+String(data.activeCount||0)+' active / '+limit+'</div></div><div class="ovyx-pref-group"><div class="ovyx-pref-label">STATUS</div><div class="ovyx-deep-note">'+String(data.totalCount||0)+' saved connection'+(Number(data.totalCount||0)===1?'':'s')+'</div></div><div class="ovyx-pref-group"><div class="ovyx-pref-label">CURRENT AI BRAIN</div><div class="ovyx-deep-note">'+String((()=>{try{const x=JSON.parse(localStorage.getItem(window.OVYXAIStorageKey?window.OVYXAIStorageKey():'ovyx.ai.preferences.v1')||'{}');const activeId=String(data.activeBrainConnectionId||'').trim();if(activeId)return 'Universal Connection '+activeId;const p=String(x.provider||window.OVYXAI?.provider||'automatic');return p.startsWith('connection:')?'Universal Connection '+p.slice(11):p==='automatic'?'Automatic OVYX Brain':p}catch(_){return 'Automatic OVYX Brain'}})())+'</div><button class="ovyx-deep-btn" type="button" id="deep-conn-clear-ai">Clear AI Brain</button></div></div>'+
-    '<div class="ovyx-pref-group"><div class="ovyx-pref-label">ADD CONNECTION</div><div class="ovyx-deep-grid"><div class="ovyx-deep-field"><label>Name</label><input id="deep-conn-name" placeholder="Custom AI service"></div><div class="ovyx-deep-field"><label>Type</label><select id="deep-conn-type"><option value="ai">AI Brain</option><option value="http">Web service</option><option value="webhook">Webhook</option><option value="tool">Service address</option><option value="database">Legacy HTTP Database</option></select></div></div><div class="ovyx-deep-grid"><div class="ovyx-deep-field"><label>Protocol</label><select id="deep-conn-protocol"><option value="openai-chat">OpenAI-compatible chat (OpenAI / DeepSeek compatible)</option><option value="anthropic-messages">Anthropic Messages (Claude)</option><option value="gemini-generate-content">Gemini Generate Content</option><option value="http-json">Generic JSON HTTP</option></select></div><div class="ovyx-deep-field"><label>Auth</label><select id="deep-conn-auth"><option value="bearer">Bearer token</option><option value="api-key">X-API-Key</option><option value="basic">Basic token</option><option value="none">No credential</option></select></div></div><div class="ovyx-deep-status" id="deep-conn-auth-note">Credential is optional. Leave it empty for public services.</div><div class="ovyx-deep-field"><label>Endpoint</label><input id="deep-conn-endpoint" placeholder="https://api.example.com/v1/chat/completions"></div><div class="ovyx-deep-field"><label>Credential <small>(optional; only required when the external service requires one; encrypted server-side)</small></label><input id="deep-conn-secret" type="password" autocomplete="new-password" placeholder="Access credential (optional)"></div><div class="ovyx-deep-field"><label>Model (AI only)</label><input id="deep-conn-model" placeholder="provider-model-name"></div><div class="ovyx-deep-actions"><button class="ovyx-deep-btn primary" id="deep-conn-add">Save Connection</button></div><div class="ovyx-deep-status">Universal Connections are live server connectors. Saving a connection does not claim it works until its Test/Run operation succeeds.</div></div>'+
+    '<div class="ovyx-deep-grid"><div class="ovyx-pref-group"><div class="ovyx-pref-label">PLAN</div><div class="ovyx-deep-note"><b style="color:var(--app-text,#fff)">'+String(data.tier||'free').toUpperCase()+'</b> · '+String(data.activeCount||0)+' active / '+limit+'</div></div><div class="ovyx-pref-group"><div class="ovyx-pref-label">STATUS</div><div class="ovyx-deep-note">'+String(data.totalCount||0)+' saved connection'+(Number(data.totalCount||0)===1?'':'s')+'</div></div><div class="ovyx-pref-group"><div class="ovyx-pref-label">AI MODEL ENGINE</div><div class="ovyx-deep-note">'+'Cloudflare Workers AI · exclusive model provider'+'</div></div></div>'+
+    '<div class="ovyx-pref-group"><div class="ovyx-pref-label">ADD CONNECTION</div><div class="ovyx-deep-grid"><div class="ovyx-deep-field"><label>Name</label><input id="deep-conn-name" placeholder="Custom AI service"></div><div class="ovyx-deep-field"><label>Type</label><select id="deep-conn-type"><option value="http">Web service</option><option value="webhook">Webhook</option><option value="tool">Service address</option><option value="database">Legacy HTTP Database</option></select></div></div><div class="ovyx-deep-grid"><div class="ovyx-deep-field"><label>Protocol</label><select id="deep-conn-protocol"><option value="http-json">Generic JSON HTTP</option></select></div><div class="ovyx-deep-field"><label>Auth</label><select id="deep-conn-auth"><option value="bearer">Bearer token</option><option value="api-key">X-API-Key</option><option value="basic">Basic token</option><option value="none">No credential</option></select></div></div><div class="ovyx-deep-status" id="deep-conn-auth-note">Credential is optional. Leave it empty for public services.</div><div class="ovyx-deep-field"><label>Endpoint</label><input id="deep-conn-endpoint" placeholder="https://api.example.com/v1/chat/completions"></div><div class="ovyx-deep-field"><label>Credential <small>(optional; only required when the external service requires one; encrypted server-side)</small></label><input id="deep-conn-secret" type="password" autocomplete="new-password" placeholder="Access credential (optional)"></div><div class="ovyx-deep-actions"><button class="ovyx-deep-btn primary" id="deep-conn-add">Save Connection</button></div><div class="ovyx-deep-status">Universal Connections are live server connectors. Saving a connection does not claim it works until its Test/Run operation succeeds.</div></div>'+
     '<div class="ovyx-pref-group"><div class="ovyx-pref-label">SAVED CONNECTIONS</div><div class="ovyx-deep-conn-list">'+
-      (rows.length?rows.map(row=>'<div class="ovyx-deep-conn"><div><b>'+String(row.name||'Unnamed').replace(/[<>]/g,'')+'</b><small>'+String(row.type||'tool').toUpperCase()+' · '+String(row.endpoint||'').replace(/[<>]/g,'')+' · '+(row.active?'Enabled':'Disabled')+'</small></div><div class="ovyx-deep-conn-actions"><button class="ovyx-deep-btn" data-conn-test="'+String(row.id)+'">Test</button>'+(row.type==='ai'?'<button class="ovyx-deep-btn" data-conn-use-ai="'+String(row.id)+'">Use for AI requests</button>':'')+'<button class="ovyx-deep-btn danger" data-conn-delete="'+String(row.id)+'">Delete</button></div></div>').join(''):'<div class="ovyx-deep-status">No connections have been added yet.</div>')+
+      (rows.length?rows.map(row=>{const legacyAiModel=String(row.type||'').toLowerCase()==='ai'||['openai-chat','anthropic-messages','gemini-generate-content'].includes(String(row.protocol||'').toLowerCase());return '<div class="ovyx-deep-conn"><div><b>'+String(row.name||'Unnamed').replace(/[<>]/g,'')+'</b><small>'+String(row.type||'tool').toUpperCase()+' · '+String(row.endpoint||'').replace(/[<>]/g,'')+' · '+(row.active?'Enabled':'Disabled')+(legacyAiModel?' · Legacy AI model disabled':'')+'</small></div><div class="ovyx-deep-conn-actions">'+(legacyAiModel?'<span class="ovyx-deep-status">AI model disabled</span>':'<button class="ovyx-deep-btn" data-conn-test="'+String(row.id)+'">Test</button>')+'<button class="ovyx-deep-btn danger" data-conn-delete="'+String(row.id)+'">Delete</button></div></div>'}).join(''):'<div class="ovyx-deep-status">No connections have been added yet.</div>')+
     '</div></div><div class="ovyx-deep-status" id="deep-conn-status">Usage limits follow your current account plan.</div>';
   panel.querySelector('#deep-conn-add')?.addEventListener('click',async()=>{
     try{
@@ -14595,7 +14541,7 @@ function installWebStudioSurface(){
  function installAdminProviderChecks(){
   const grid=$('admin-brain-provider-grid');
   if(!grid)return;
-  ['gemini','deepseek','anthropic','openai'].forEach(function(provider){
+  ['cloudflare-workers-ai'].forEach(function(provider){
     const card=$('card-provider-'+provider);
     if(!card||card.querySelector('[data-ovyx-provider-test]'))return;
     const row=document.createElement('div');
@@ -16064,15 +16010,15 @@ function render(panel){
     '<div class="ovyx-v91-conn-head"><h2>Universal Connections &amp; Tier Limits</h2><p>Choose what each connection is for: AI Brain for ordinary assistant chats, Web Studio for explicitly approved website continuation, or a service/tool endpoint that stays unused until a feature-specific integration is configured.</p></div>'+
     '<div class="ovyx-v91-conn-card"><div class="ovyx-v91-conn-form">'+
       '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-name">NAME</label><input id="ovyx-v91-conn-name" class="ovyx-v91-input" placeholder="My Webhook" autocomplete="off"></div>'+
-      '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-type">TYPE</label><select id="ovyx-v91-conn-type" class="ovyx-v91-select"><option value="webhook">Webhook</option><option value="tool">Tool</option><option value="database">Database</option><option value="http">Web service</option><option value="ai">AI Brain</option></select></div>'+
-      '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-protocol">AI PROTOCOL</label><select id="ovyx-v91-conn-protocol" class="ovyx-v91-select"><option value="http-json">Generic JSON HTTP</option><option value="openai-chat">OpenAI-compatible chat (OpenAI / DeepSeek compatible)</option><option value="anthropic-messages">Anthropic Messages (Claude)</option><option value="gemini-generate-content">Gemini Generate Content</option></select></div>'+
+      '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-type">TYPE</label><select id="ovyx-v91-conn-type" class="ovyx-v91-select"><option value="webhook">Webhook</option><option value="tool">Tool</option><option value="database">Database</option><option value="http">Web service</option></select></div>'+
+      '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-protocol">AI PROTOCOL</label><select id="ovyx-v91-conn-protocol" class="ovyx-v91-select"><option value="http-json">Generic JSON HTTP</option></select></div>'+
       '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-auth">AUTHENTICATION</label><select id="ovyx-v91-conn-auth" class="ovyx-v91-select"><option value="none">No credential</option><option value="bearer">Bearer token</option><option value="api-key">X-API-Key</option><option value="basic">Basic (username:password)</option></select></div>'+
       '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-endpoint">ENDPOINT</label><input id="ovyx-v91-conn-endpoint" class="ovyx-v91-input" value="https://example.com/health" placeholder="https://api.example.com/v1" inputmode="url" autocomplete="url"></div>'+
       '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-secret">ACCESS CREDENTIAL</label><input id="ovyx-v91-conn-secret" class="ovyx-v91-input" type="password" autocomplete="new-password" placeholder="Stored encrypted on the server"><small class="text-zinc-500 text-xs">Credentials are kept private. Secure service addresses are required.</small></div>'+
-      '<div class="ovyx-v91-field"><label for="ovyx-v91-conn-model">MODEL (AI BRAIN)</label><input id="ovyx-v91-conn-model" class="ovyx-v91-input" placeholder="e.g. deepseek-flash or claude-sonnet-4-6"></div>'+
+      ''+
       '<div class="ovyx-v91-actions"><button type="button" class="ovyx-v91-btn ovyx-v91-btn-primary" id="ovyx-v91-add">Add Connection</button><button type="button" class="ovyx-v91-btn ovyx-v91-btn-secondary" id="ovyx-v91-reload">Reload</button></div>'+
     '</div><div class="ovyx-v91-status" id="ovyx-v91-status" data-state="'+(user?'ready':'error')+'">'+(user?'Ready. Your plan connection limit will be checked by the server.':'Sign in to manage Universal Connections.')+'</div></div>'+
-    '<div class="ovyx-v91-saved" id="ovyx-v91-saved-wrap" '+(user?'':'hidden')+'><div class="ovyx-v91-saved-head"><b>SAVED CONNECTIONS</b><small id="ovyx-v91-limit"></small><button class="ovyx-v91-mini" type="button" id="ovyx-v91-clear-brain">Clear AI Brain</button></div><div class="ovyx-v91-list" id="ovyx-v91-list"></div></div>'+
+    '<div class="ovyx-v91-saved" id="ovyx-v91-saved-wrap" '+(user?'':'hidden')+'><div class="ovyx-v91-saved-head"><b>SAVED CONNECTIONS</b><small id="ovyx-v91-limit"></small></div><div class="ovyx-v91-list" id="ovyx-v91-list"></div></div>'+
   '</div>';
   const add=$('ovyx-v91-add'),reload=$('ovyx-v91-reload'),status=$('ovyx-v91-status');const clearBrain=$('ovyx-v91-clear-brain');
   clearBrain?.addEventListener('click',async()=>{
@@ -16115,7 +16061,7 @@ function render(panel){
       const limit=d.limit==null?'unlimited':String(d.limit),active=Number(d.activeCount||0);
       const wrap=$('ovyx-v91-saved-wrap'),list=$('ovyx-v91-list'),lim=$('ovyx-v91-limit');
       if(wrap)wrap.hidden=false;if(lim)lim.textContent=active+' active / '+limit;
-      if(list)list.innerHTML=(d.connections||[]).length?d.connections.map(row=>{const activeBrain=String(d.activeBrainConnectionId||'')===String(row.id||'');const canUseBrain=row.active===true&&(row.capabilities?.canUseAsBrain===true||(String(row.type||'').toLowerCase()==='ai'&&String(row.protocol||'').toLowerCase()==='openai-chat'));const testLabel=row.lastTestStatus==='reachable'?'Ready':row.lastTestStatus==='unreachable'?'Needs attention':'Not checked';return '<div class="ovyx-v91-row"><div class="ovyx-v91-row-main"><b>'+esc(row.name||'Connection')+'</b><small>'+esc(String(row.type||'tool').toUpperCase())+' · '+esc(row.endpoint||'')+' · '+(row.active?'Enabled':'Disabled')+(activeBrain?' · AI Brain':'')+' · Last check: '+testLabel+'</small></div><div class="ovyx-v91-row-actions"><button class="ovyx-v91-mini" type="button" data-v91-test="'+esc(row.id)+'">Test</button>'+(canUseBrain?'<button class="ovyx-v91-mini" type="button" data-v91-use-brain="'+esc(row.id)+'" '+(activeBrain?'disabled aria-pressed="true"':'')+'>'+(activeBrain?'Brain selected':'Use as AI Brain')+'</button>':'')+'<button class="ovyx-v91-mini danger" type="button" data-v91-delete="'+esc(row.id)+'">Delete</button></div></div>'}).join(''):'<div class="ovyx-v91-status" data-state="ready">No saved connections yet.</div>';
+      if(list)list.innerHTML=(d.connections||[]).length?d.connections.map(row=>{const legacyAiModel=String(row.type||'').toLowerCase()==='ai'||['openai-chat','anthropic-messages','gemini-generate-content'].includes(String(row.protocol||'').toLowerCase());const testLabel=row.lastTestStatus==='reachable'?'Ready':row.lastTestStatus==='unreachable'?'Needs attention':'Not checked';return '<div class="ovyx-v91-row"><div class="ovyx-v91-row-main"><b>'+esc(row.name||'Connection')+'</b><small>'+esc(String(row.type||'tool').toUpperCase())+' · '+esc(row.endpoint||'')+' · '+(row.active?'Enabled':'Disabled')+(legacyAiModel?' · Legacy AI model disabled':' · Last check: '+testLabel)+'</small></div><div class="ovyx-v91-row-actions">'+(legacyAiModel?'<span class="ovyx-v91-status" data-state="error">AI model disabled</span>':'<button class="ovyx-v91-mini" type="button" data-v91-test="'+esc(row.id)+'">Test</button>')+'<button class="ovyx-v91-mini danger" type="button" data-v91-delete="'+esc(row.id)+'">Delete</button></div></div>'}).join(''):'<div class="ovyx-v91-status" data-state="ready">No saved connections yet.</div>';
       list?.querySelectorAll('[data-v91-test]').forEach(btn=>btn.addEventListener('click',async()=>{btn.disabled=true;let message='The service check could not be completed. Please try again.',state='error';try{const d=await api('/api/settings/connections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'test',id:btn.dataset.v91Test})});message=d.ok?'Connection is reachable.':'The service check could not be completed. Please try again.';state=d.ok?'ok':'error';}catch(e){message=e.message||'The service check could not be completed. Please try again.';state='error'}finally{btn.disabled=false}await load();status.textContent=message;status.dataset.state=state;}));
       list?.querySelectorAll('[data-v91-use-brain]').forEach(btn=>btn.addEventListener('click',async()=>{btn.disabled=true;status.textContent='Checking AI service availability…';status.dataset.state='ready';try{await api('/api/settings/connections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'test',id:btn.dataset.v91UseBrain})});await api('/api/settings/connections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'use-ai',id:btn.dataset.v91UseBrain})});const key=window.OVYXAIStorageKey?window.OVYXAIStorageKey():'ovyx.ai.preferences.v1';let prefs={};try{prefs=JSON.parse(localStorage.getItem(key)||'{}')||{}}catch(_){}prefs.provider='automatic';try{localStorage.setItem(key,JSON.stringify(prefs))}catch(_){}if(window.OVYXAI)window.OVYXAI.provider='automatic';await load();status.textContent='AI option verified and saved. New AI requests will use this option automatically.';status.dataset.state='ok'}catch(e){const message='The AI option could not be verified. It was not activated.';await load();status.textContent=message;status.dataset.state='error';btn.disabled=false}}));
       list?.querySelectorAll('[data-v91-delete]').forEach(btn=>btn.addEventListener('click',async()=>{btn.disabled=true;try{await api('/api/settings/connections?id='+encodeURIComponent(btn.dataset.v91Delete),{method:'DELETE'});await load();status.textContent='Connection deleted.';status.dataset.state='ok'}catch(e){status.textContent=e.message||'Could not remove this service. Please try again.';status.dataset.state='error'}finally{btn.disabled=false}}));
@@ -16134,11 +16080,11 @@ function render(panel){
       const saved=await api('/api/settings/connections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name,type,endpoint,healthUrl:endpoint,active:true,protocol,authMode,secret,model})});
       if(connSecret)connSecret.value='';
       let resultMessage='Connection added. Use Test to verify reachability.',resultState='ok';
-      if(type==='ai'&&saved.connection?.id){
+      if(false){
         status.textContent='Connection saved. Checking AI service availability…';status.dataset.state='ready';
         try{
           const readiness=await api('/api/settings/connections',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'test',id:saved.connection.id})});
-          resultMessage=readiness.ok?'The AI option is ready. Select “Use for AI requests” to activate it.':'The AI option could not be verified. Check the service address and credentials.';
+          resultMessage=readiness.ok?'The AI option is ready. Select “External AI disabled” to activate it.':'The AI option could not be verified. Check the service address and credentials.';
           resultState=readiness.ok?'ok':'error';
         }catch(checkError){resultMessage='Connection saved, but the AI option could not be verified. Check the service address and credentials.';resultState='error'}
       }
@@ -18104,6 +18050,24 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
       sendObserver.observe(send,{attributes:true,attributeFilter:['disabled']});
     }
     W.__ovyxStopGeneration=stop;
+    // Read-only state snapshot for safe browser regression diagnosis. It never
+    // exposes prompt text, audio bytes, tokens, or other private request data.
+    window.OVYXComposerDiagnostics=function(){
+      var currentSend=$('ws-chat-send');
+      return {
+        composerWorking:!!composerWorking,
+        imageBusy:!!imageBusy,
+        activeWorkId:Number(activeWorkId||0),
+        voiceRequestActive:!!voiceAbortController,
+        voiceRequestAborted:!!voiceAbortController?.signal?.aborted,
+        voiceStatus:String(voicePanel?.querySelector('[data-ws-voice-status]')?.textContent||''),
+        pendingBuild:!!W?.pendingBuild,
+        liveAiActive:!!W?.liveAiActive,
+        sendLabel:String(currentSend?.getAttribute('aria-label')||''),
+        sendState:String(currentSend?.dataset?.ovyxComposerState||''),
+        stopHandlerInstalled:!!W?.__ovyxComposerStopV1
+      };
+    };
   }
 
   function boot(){if(setup())return;var tries=0;var timer=setInterval(function(){if(setup()||++tries>80)clearInterval(timer)},150);}

@@ -3,8 +3,8 @@ import { getFirestoreData, setFirestoreDocument } from '../../_lib/firebase-admi
 import { errorResponse, jsonResponse, readJson, requestId, enforceSameOrigin } from '../_lib/http.js';
 
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
-const ALLOWED_PROVIDERS = Object.freeze(['gemini', 'deepseek', 'claude', 'openai', 'groq', 'openrouter']);
-const DEFAULT_CONFIG = Object.freeze({ providerOrder: ['gemini', 'deepseek', 'claude', 'openai', 'groq', 'openrouter'] });
+const ALLOWED_PROVIDERS = Object.freeze(['cloudflare-workers-ai']);
+const DEFAULT_CONFIG = Object.freeze({ providerOrder: ['cloudflare-workers-ai'] });
 
 async function requireRoot(request, env, id) {
   if (!enforceSameOrigin(request)) return { response: errorResponse(403, 'ORIGIN_REJECTED', 'Cross-origin admin requests are not permitted.', id) };
@@ -13,12 +13,10 @@ async function requireRoot(request, env, id) {
   if (normalizeEmail(auth.user.email) !== ROOT_EMAIL) return { response: errorResponse(403, 'ROOT_REQUIRED', 'Root administrator access is required.', id) };
   return { user: auth.user };
 }
-function normalizeConfig(value = {}) {
-  const order = Array.isArray(value.providerOrder)
-    ? value.providerOrder.map(provider => String(provider || '').trim().toLowerCase()).filter(provider => ALLOWED_PROVIDERS.includes(provider))
-    : [];
-  const unique = order.filter((provider, index) => order.indexOf(provider) === index).slice(0, ALLOWED_PROVIDERS.length);
-  return { providerOrder: unique.length ? unique : [...DEFAULT_CONFIG.providerOrder] };
+function normalizeConfig() {
+  // Ignore stale provider-order values from older releases. They are no longer
+  // executable and must not be reactivated by an admin save or old Firestore data.
+  return { providerOrder: [...DEFAULT_CONFIG.providerOrder] };
 }
 
 export async function onRequestGet(context) {

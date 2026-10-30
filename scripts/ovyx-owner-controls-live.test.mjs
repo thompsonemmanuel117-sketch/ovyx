@@ -163,13 +163,16 @@ assert.match(source.paystackWebhook, /Number\(data\.amount\)!==expectedMinor/);
 
 
 assert.match(source.aiConfigApi, /ROOT_REQUIRED/);
-assert.match(source.providerRouter, /readGlobalProviderOrder/);
-assert.match(source.providerRouter, /globalOrder = null/);
-assert.match(source.runtime, /function saveAIProviderOrder/);
+assert.match(source.aiConfigApi, /cloudflare-workers-ai/);
+assert.match(source.aiConfigApi, /ALLOWED_PROVIDERS/);
+assert.match(source.aiConfigApi, /providerOrder: \[\.\.\.DEFAULT_CONFIG\.providerOrder\]/);
+assert.doesNotMatch(source.providerRouter, /readGlobalProviderOrder|globalOrder = null|providerOrder\(/,
+  'The model adapter must no longer read or apply a third-party provider order.');
 assert.match(source.runtime, /function loadProviderStatus/);
 assert.match(source.runtime, /ovyx-global-ai-provider-status-note/, 'AI availability feedback must use its own status area.');
-assert.match(source.runtime, /statusText\(status, 'AI selection order: '/, 'Provider availability checks must not erase the saved AI selection order.');
-assert.match(source.runtime, /item\.connected === true/);
+assert.doesNotMatch(source.runtime, /function saveAIProviderOrder|AI selection order:/,
+  'The admin UI must not advertise a configurable multi-provider selection order.');
+assert.match(source.runtime, /engine\.connected === true/);
 
 assert.match(source.identityApi, /aiIdentityUpdatedAt/);
 assert.match(source.publicIdentityApi, /assistantName/);

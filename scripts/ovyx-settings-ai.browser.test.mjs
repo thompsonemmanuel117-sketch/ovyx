@@ -274,7 +274,7 @@ try {
     const sent = aiRequests[0];
     assert.equal(sent.provider, undefined, '[' + target.name + '] automatic assistant calls leave provider selection to the server instead of sending a client-selected provider.');
     assert.equal(sent.preferredProvider, '', '[' + target.name + '] automatic assistant calls must not inherit the saved provider preference.');
-    assert.equal(sent.fallback, 'automatic', '[' + target.name + '] fallback must be server-managed rather than inherited from a removed selector.');
+    assert.equal(sent.fallback, 'stop', '[' + target.name + '] Cloudflare-only requests must fail closed instead of falling back to another provider.');
     assert.equal(sent.providerRouting, 'automatic', '[' + target.name + '] routing must be server-managed rather than inherited from a removed selector.');
     assert.equal(sent.model, 'automatic');
     assert.equal(sent.maxTokens, 16000,
@@ -289,29 +289,31 @@ try {
     assert.equal(sent.context.github, undefined,
       '[' + target.name + '] disabled GitHub context must be omitted from the request.');
 
-    // Explicit provider choice must remain exclusive, while shared preferences
-    // for routing, fallback, mode and budget still travel to the gateway route.
-    const gatewayGeneration = await page.evaluate(async () => {
+    // A stale caller must not revive a removed provider selector or route to a
+    // third-party gateway. The client strips the legacy override before dispatch.
+    const legacyOverrideGeneration = await page.evaluate(async () => {
       try {
         const result = await window.OVYXAIService.generate({
           mode: 'assistant',
-          prompt: 'Confirm explicit-provider preferences.',
+          prompt: 'Verify that a legacy provider override is rejected.',
           provider: 'openai',
-          model: 'automatic',
+          preferredProvider: 'openai',
+          model: 'gpt-4',
         });
         return { ok: true, result };
       } catch (error) {
         return { ok: false, message: String(error?.message || error) };
       }
     });
-    assert.equal(gatewayGeneration.ok, true, '[' + target.name + '] mocked gateway request should complete: ' + gatewayGeneration.message);
-    assert.equal(gatewayRequests.length, 1, '[' + target.name + '] explicit provider choice must use the gateway route.');
-    assert.equal(gatewayRequests[0].provider, 'openai');
-    assert.equal(gatewayRequests[0].providerRouting, 'automatic');
-    assert.equal(gatewayRequests[0].fallback, 'automatic');
-    assert.equal(gatewayRequests[0].model, 'automatic');
-    assert.equal(gatewayRequests[0].maxTokens, 16000);
-    assert.match(gatewayRequests[0].system, /prioritize thoroughness/i);
+    assert.equal(legacyOverrideGeneration.ok, true, '[' + target.name + '] a stale provider override should be safely normalized: ' + legacyOverrideGeneration.message);
+    assert.equal(aiRequests.length, 2, '[' + target.name + '] the normalized request must use the managed assistant route.');
+    assert.equal(gatewayRequests.length, 0, '[' + target.name + '] a legacy external provider must never select the gateway route.');
+    const sanitizedLegacyRequest = aiRequests.at(-1);
+    assert.equal(sanitizedLegacyRequest.provider, undefined);
+    assert.equal(sanitizedLegacyRequest.preferredProvider, '');
+    assert.equal(sanitizedLegacyRequest.model, 'automatic');
+    assert.equal(sanitizedLegacyRequest.providerRouting, 'automatic');
+    assert.equal(sanitizedLegacyRequest.fallback, 'stop');
 
     // Reset must remove the stored override once and restore the real UI defaults.
     await page.evaluate(key => {

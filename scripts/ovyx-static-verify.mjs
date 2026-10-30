@@ -36,57 +36,45 @@ for (const file of walk(path.join(root, 'functions'))) {
   }
 }
 
-// Runtime contract checks for the incidents OVYX is repairing. Syntax alone
-// does not detect an AI route that can wait forever or a missing API handler.
+// OVYX uses one guarded model engine. These checks enforce Cloudflare-only
+// inference at the shared server boundary and prevent dormant vendor adapters
+// or account-owned AI connections from reappearing in the platform router.
 const providerRouterPath = path.join(root, 'functions/_lib/providers.js');
-if (fs.existsSync(providerRouterPath)) {
-  const providerRouter = fs.readFileSync(providerRouterPath, 'utf8');
-  if (!/function fetchWithTimeout\(/.test(providerRouter)) {
-    errors.push('functions/_lib/providers.js: AI provider requests need an explicit timeout.');
-  }
-  if (!/withTimeout\(\s*getActiveBrainConnectionId/.test(providerRouter)) {
-    errors.push('functions/_lib/providers.js: Universal Connection lookup needs a deadline.');
-  }
-  if (
-    !/if\s*\(options\.authUser\s*&&\s*!\/\^connection:\/i\.test\(requestedRaw\)\)/.test(providerRouter) ||
-    !/UNIVERSAL_CONNECTION_SELECTION_FAILED/.test(providerRouter) ||
-    !/selected Universal Connection AI Brain failed[\s\S]*?did not switch to another AI provider/i.test(providerRouter)
-  ) {
-    errors.push('functions/_lib/providers.js: a saved Universal Connection must override platform provider choices and fail closed instead of routing silently to platform keys.');
-  }
-  const rawFetches = (providerRouter.match(/\bawait fetch\s*\(/g) || []).length;
-  if (rawFetches !== 1 || !/return await fetch\(url,\s*\{ \.\.\.options, signal: controller\.signal \}\)/.test(providerRouter)) {
-    errors.push('functions/_lib/providers.js: provider network calls must pass through the timeout wrapper.');
-  }
-}
-
 const providerRouterSource = fs.existsSync(providerRouterPath)
   ? fs.readFileSync(providerRouterPath, 'utf8')
   : '';
 if (
-  /OVYX_AI_BASE_URL|sharedGateway|sharedKeyPreference|resolveOpenAICompatibleConfig/.test(providerRouterSource) ||
-  !/if\s*\(requested\s*!==\s*['"]automatic['"]\s*&&\s*!requested\.startsWith\(['"]connection:/.test(providerRouterSource) ||
-  !/is not available right now\. Try OVYX Auto or choose another available AI option/i.test(providerRouterSource)
+  !providerRouterSource.includes('withCloudflareAIOnly(env)') ||
+  !providerRouterSource.includes('callCloudflareWorkersAI(secureEnv') ||
+  !providerRouterSource.includes('runCloudflareFreeInference') ||
+  !providerRouterSource.includes('OVYX_CLOUDFLARE_FREE_MODEL')
 ) {
-  errors.push('functions/_lib/providers.js: an explicitly selected provider must use its own provider route and show a helpful unavailable message instead of silently switching.');
+  errors.push('functions/_lib/providers.js: the shared model route must enforce guarded Cloudflare Workers AI inference.');
 }
-
 if (
-  !providerRouterSource.includes('function isProviderConfigured(env, provider)') ||
-  !providerRouterSource.includes('AI_PROVIDER_NOT_CONFIGURED') ||
-  !providerRouterSource.includes('const availableProviders = providerOrder(')
+  /GEMINI_API_KEY|ANTHROPIC_API_KEY|DEEPSEEK_API_KEY|OPENAI_API_KEY|GROQ_API_KEY|OPENROUTER_API_KEY/.test(providerRouterSource) ||
+  /generativelanguage\.googleapis\.com|api\.anthropic\.com|api\.deepseek\.com|api\.openai\.com|api\.groq\.com|openrouter\.ai/.test(providerRouterSource) ||
+  /callSelectedUniversalBrain|callUserUniversalConnection|providerOrder\(/.test(providerRouterSource)
 ) {
-  errors.push('functions/_lib/providers.js: Automatic mode must skip unconfigured providers and fail clearly when no provider is usable.');
+  errors.push('functions/_lib/providers.js: third-party and personal AI model routing must not exist in the shared engine.');
+}
+if (
+  !/OVYX_AI_CLOUDFLARE_QUOTA_EXHAUSTED|OVYX_NATIVE_AI_NOT_CONFIGURED/.test(providerRouterSource) &&
+  !providerRouterSource.includes('No external model provider was called')
+) {
+  errors.push('functions/_lib/providers.js: missing Cloudflare inference and quota failures must be explicit rather than silently falling back.');
 }
 
 const aiStatusPath = path.join(root, 'functions/api/ai/status.js');
 if (fs.existsSync(aiStatusPath)) {
   const aiStatus = fs.readFileSync(aiStatusPath, 'utf8');
-  if (/generativelanguage\.googleapis\.com\/v1beta\/models[^\x60]*[?&]key=/i.test(aiStatus)) {
-    errors.push('functions/api/ai/status.js: Gemini API keys must not be placed in request URLs.');
-  }
-  if (!/['"]x-goog-api-key['"]\s*:\s*key/.test(aiStatus)) {
-    errors.push('functions/api/ai/status.js: Gemini health checks must send the key in the x-goog-api-key header.');
+  if (
+    !aiStatus.includes("routingPolicy: 'cloudflare-only'") ||
+    !aiStatus.includes("provider: OVYX_CLOUDFLARE_ONLY_PROVIDER") ||
+    !aiStatus.includes('workersAiBinding: workersAi') ||
+    /generativelanguage\.googleapis\.com|api\.anthropic\.com|api\.deepseek\.com|api\.openai\.com|api\.groq\.com|openrouter\.ai/.test(aiStatus)
+  ) {
+    errors.push('functions/api/ai/status.js: admin diagnostics must report the Cloudflare binding only and never probe third-party AI vendors.');
   }
 }
 
@@ -406,8 +394,8 @@ if (!fs.existsSync(studioTracePath) || !fs.existsSync(studioTraceTestPath) || !f
   }
 }
 
-// OVYX-native workspace assistant: the chat drawer must use the Cloudflare AI
-// binding directly, not the third-party provider/API-key router.
+// OVYX-native workspace assistant: the chat drawer must use the shared
+// guarded Cloudflare inference helper, including its quota reservation and stop rules.
 const nativeAssistantPath = path.join(root, 'functions/_lib/ovyx-native-ai.js');
 const nativeAssistantRoutePath = path.join(root, 'functions/api/ai/ovyx.js');
 const nativeAssistantClientPath = path.join(root, 'assets/ovyx-assistant-workspace.js');
@@ -425,8 +413,11 @@ if (!fs.existsSync(nativeAssistantPath) || !fs.existsSync(nativeAssistantRoutePa
   const workspaceToolsTest = fs.existsSync(workspaceToolsTestPath) ? fs.readFileSync(workspaceToolsTestPath, 'utf8') : '';
   const workspaceToolsIntegrationTest = fs.existsSync(workspaceToolsIntegrationTestPath) ? fs.readFileSync(workspaceToolsIntegrationTestPath, 'utf8') : '';
   if (
-    !nativeAssistant.includes('env.AI.run') ||
-    !nativeAssistant.includes('@cf/meta/llama-3.3-70b-instruct-fp8-fast') ||
+    !nativeAssistant.includes('runCloudflareFreeInference') ||
+    !nativeAssistant.includes('OVYX_CLOUDFLARE_FREE_MODEL') ||
+    !nativeAssistant.includes('withCloudflareAIOnly(env)') ||
+    nativeAssistant.includes('callUserUniversalConnection') ||
+    nativeAssistant.includes('selectedBrain') ||
     !nativeAssistant.includes('nativeActions') ||
     !nativeRoute.includes('generateOvyxNativeAI') ||
     !nativeRoute.includes('beginAIQuota(context.env, user)') ||
@@ -611,20 +602,27 @@ if (fs.existsSync(html)) {
   const providerChoiceRouter = text.match(/function patchAIBrain\(\)\{([\s\S]*?)\n  function mountGemini\(\)\{\}/);
   if (
     !providerChoiceRouter ||
+    !providerChoiceRouter[1].includes("provider:'automatic'") ||
+    !providerChoiceRouter[1].includes("requestedProvider:'cloudflare-workers-ai'") ||
+    !providerChoiceRouter[1].includes("routedProvider:'cloudflare-workers-ai'") ||
     !providerChoiceRouter[1].includes('failoverUsed:false') ||
-    !providerChoiceRouter[1].includes('Check AI readiness and retry; it will not silently switch providers.') ||
     /for\s*\(const provider of order\)/.test(providerChoiceRouter[1])
   ) {
-    errors.push('index.html: explicitly selected AI providers must not silently fail over, and must explain how to continue when unavailable.');
+    errors.push('index.html: browser AI requests must be normalized to Cloudflare Workers AI and must not implement provider failover.');
   }
-  if (!text.includes('id="deep-conn-clear-ai"') || !text.includes('id="ovyx-v91-clear-brain"')) {
-    errors.push('index.html: both Universal Connections screens must expose an explicit Clear AI Brain control.');
+  if (
+    text.includes('id="deep-conn-clear-ai"') ||
+    text.includes('id="ovyx-v91-clear-brain"') ||
+    text.includes('Use for AI requests') ||
+    text.includes('Use as AI Brain')
+  ) {
+    errors.push('index.html: external AI Brain creation and assignment controls must not be offered when Cloudflare is the only model provider.');
   }
-  if (!/panel\.querySelectorAll\('\[data-conn-use-ai\]'\)[\s\S]{0,1800}action:'use-ai'/.test(text)) {
-    errors.push('index.html: the legacy Use as Brain action must persist the selection through the backend.');
+  if (!text.includes('id="card-provider-cloudflare-workers-ai"')) {
+    errors.push('index.html: the root admin AI screen must show its single Cloudflare Workers AI engine status card.');
   }
   if ((text.match(/action:'clear-ai'/g) || []).length < 2) {
-    errors.push('index.html: both Universal Connections screens must support clearing the selected Brain through the backend.');
+    errors.push('index.html: legacy account cleanup handlers must remain available for clearing old external Brain assignments.');
   }
 
   const inlineScriptPattern = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
@@ -834,23 +832,20 @@ if (
   const headers = fs.existsSync(headersPath) ? fs.readFileSync(headersPath, 'utf8') : '';
   if (
     !endpoint.includes('assertAuthenticated(context.data?.user)') ||
-    !endpoint.includes("'x-goog-api-key'") ||
-    !endpoint.includes("'x-api-key'") ||
-    !endpoint.includes('NOT_CONFIGURED') ||
-    !endpoint.includes('AbortController') ||
-    !endpoint.includes('Cache-Control') ||
-    !endpoint.includes('Try OVYX Auto or choose another available AI option.') ||
-    endpoint.includes('console.log(key)') ||
+    !endpoint.includes('AI_PROVIDER_DISABLED') ||
+    !endpoint.includes("provider: OVYX_CLOUDFLARE_ONLY_PROVIDER") ||
+    !endpoint.includes("routingPolicy: 'cloudflare-only'") ||
+    /generativelanguage\.googleapis\.com|api\.anthropic\.com|api\.deepseek\.com|api\.openai\.com|api\.groq\.com|openrouter\.ai|GEMINI_API_KEY|ANTHROPIC_API_KEY|DEEPSEEK_API_KEY|OPENAI_API_KEY|GROQ_API_KEY|OPENROUTER_API_KEY/.test(endpoint) ||
     !client.includes("select.id !== 'v59-model-select'") ||
-    !client.includes("'/api/ai/provider-availability?provider='") ||
+    !client.includes('/api/ai/provider-availability?provider=cloudflare-workers-ai') ||
     !client.includes("credentials: 'same-origin'") ||
     !client.includes("cache: 'no-store'") ||
     !client.includes('activeChecks') ||
-    !shellMiddleware.includes('/assets/ovyx-provider-availability.js?v=20261018-2') ||
+    !shellMiddleware.includes('/assets/ovyx-provider-availability.js?v=20261030-1') ||
     !headers.includes('/assets/ovyx-provider-availability.js') ||
     !fs.readFileSync(path.join(root, 'package.json'), 'utf8').includes('scripts/provider-availability.test.mjs')
   ) {
-    errors.push('OVYX provider availability: probes must be authenticated, time-bounded, no-store, secret-safe and same-origin; the home composer must use OVYX modes instead of provider-specific choices.');
+    errors.push('OVYX provider availability: the authenticated same-origin status check must expose only Cloudflare Workers AI and must never probe a third-party provider.');
   }
 }
 

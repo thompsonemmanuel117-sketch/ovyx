@@ -6,6 +6,7 @@ import {
   requestId,
 } from '../../_lib/http.js';
 import { callModel } from '../../_lib/providers.js';
+import { cloudflareOnlyModelOptions } from '../../_lib/cloudflare-routing.js';
 import { buildStudioMultiPage } from '../../_lib/studio-multipage.js';
 import { WEB_STUDIO_SYSTEM_PROMPT, WEB_STUDIO_EXCELLENCE } from '../../_lib/prompts.js';
 import { buildExperienceBrief, isWebStudioPrompt } from '../../_lib/experience.js';
@@ -90,8 +91,10 @@ export async function onRequestPost(context) {
     const isWebStudio = !isAppStudio && (isWebStudioPrompt(promptText, mode) ||
       ((mode === 'build' || mode === 'fix') && hasStudioContext));
     const routeCallModel = (env, options = {}) => callModel(env, {
-      ...options,
+      ...cloudflareOnlyModelOptions(options),
       authUser: user,
+      webStudioRequest: isWebStudio,
+      appStudioRequest: isAppStudio,
     });
 
     // A request-scoped app brand always wins over the user's saved default.

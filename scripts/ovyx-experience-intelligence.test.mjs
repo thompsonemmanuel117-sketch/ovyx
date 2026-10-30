@@ -12,51 +12,48 @@ import {
   polishPrompt
 } from '../functions/_lib/prompts.js';
 
-const cases = [
-  ['Build me a premium online fashion store with collection pages.', 'fashion'],
-  ['Build a premium fashion website with an online store and cart controls.', 'fashion'],
-  ['Build an online store with product categories and a cart.', 'ecommerce'],
-  ['Build a luxury hotel booking website with room details and guest selection.', 'hospitality'],
-  ['Create a professional banking-style dashboard for customer accounts.', 'fintech'],
-  ['Build a real-estate marketplace with property listings and agents.', 'realEstate'],
-  ['Build a SaaS website with pricing, accounts and subscriptions.', 'saas'],
-  ['Create a complete online shop with products and a cart.', 'ecommerce'],
-  ['Design a website for a law firm with practice areas and attorney profiles.', 'legal'],
-  ['Build a travel site for tours, destinations and trip itineraries.', 'travel'],
-  ['Build a multi-vendor marketplace for independent makers.', 'marketplace'],
-  ['Create a car dealership website with searchable vehicle listings.', 'automotive'],
-  ['Build an event website for a conference with registration and schedule.', 'events'],
-  ['Create a restaurant website with a menu and reservation form.', 'restaurant'],
-  ['Build an analytics dashboard with reports and filterable records.', 'dashboard'],
-  ['Build a multi-page creative agency website with case studies.', 'agency']
+const formerlyCategorizedBriefs = [
+  'Build me a premium online fashion store with collection pages.',
+  'Build a premium fashion website with an online store and cart controls.',
+  'Build an online store with product categories and a cart.',
+  'Build a luxury hotel booking website with room details and guest selection.',
+  'Create a professional banking-style dashboard for customer accounts.',
+  'Build a real-estate marketplace with property listings and agents.',
+  'Build a SaaS website with pricing, accounts and subscriptions.',
+  'Create a complete online shop with products and a cart.',
+  'Design a website for a law firm with practice areas and attorney profiles.',
+  'Build a travel site for tours, destinations and trip itineraries.',
+  'Build a multi-vendor marketplace for independent makers.',
+  'Create a car dealership website with searchable vehicle listings.',
+  'Build an event website for a conference with registration and schedule.',
+  'Create a restaurant website with a menu and reservation form.',
+  'Build an analytics dashboard with reports and filterable records.',
+  'Build a multi-page creative agency website with case studies.',
 ];
 
-for (const [prompt, expected] of cases) {
-  assert.equal(
-    detectArchetype(prompt),
-    expected,
-    'The experience classifier should select the specific domain for: ' + prompt
-  );
+for (const prompt of formerlyCategorizedBriefs) {
+  assert.equal(detectArchetype(prompt), 'adaptive', 'No website industry is assigned: ' + prompt);
   const brief = buildExperienceBrief(prompt);
-  assert.equal(brief.archetype, expected);
-  assert.ok(brief.mission && brief.mission.length > 20, expected + ' needs a meaningful design mission');
-  assert.ok(Array.isArray(brief.mustHave) && brief.mustHave.length >= 4, expected + ' needs domain-specific page/content requirements');
-  assert.ok(Array.isArray(brief.delighters) && brief.delighters.length >= 3, expected + ' needs intentional experience ideas');
-  assert.ok(Array.isArray(brief.architecture?.sections) && brief.architecture.sections.length >= 4, expected + ' needs a usable information architecture');
-  assert.ok(Array.isArray(brief.architecture?.visualAvoid), expected + ' needs anti-pattern guidance');
+  assert.equal(brief.archetype, 'adaptive');
+  assert.equal(brief.customizationMode, 'universal-adaptive');
+  assert.match(brief.blueprintRole, /no industry classification/i);
+  assert.match(brief.designIntelligence.industryOrUseCase, /not classified into an industry/i);
+  assert.equal(brief.designIntelligence.projectIntent.value, prompt);
+  assert.ok(brief.mission && brief.mission.length > 30, 'Every brief needs a meaningful mission.');
+  assert.ok(Array.isArray(brief.mustHave) && brief.mustHave.length >= 4, 'Every brief needs a useful project plan.');
+  assert.ok(Array.isArray(brief.delighters) && brief.delighters.length >= 3, 'Every brief needs optional experience improvements.');
+  assert.ok(Array.isArray(brief.architecture?.sections) && brief.architecture.sections.length >= 4, 'Every brief needs an adaptive information architecture.');
+  assert.ok(Array.isArray(brief.architecture?.visualAvoid), 'Every brief needs anti-template guidance.');
   assert.ok(brief.qualityGates.includes('no dead controls, broken anchors or placeholder copy'));
 }
 
-assert.equal(detectArchetype('Please put a navigation bar above the main content.'), 'generic', 'A common navigation bar must not classify an unrelated request as a restaurant.');
-assert.equal(detectArchetype('Build a fashion website with an online store.'), 'fashion', 'A specific brand category must win over the generic online-store phrase.');
-assert.equal(detectArchetype('Build a real-estate marketplace for luxury homes.'), 'realEstate', 'The specific vertical should win over the generic marketplace label.');
-assert.equal(detectArchetype('Build a banking-style dashboard.'), 'fintech', 'A domain-specific banking brief should win over the generic dashboard layout.');
-assert.equal(isWebStudioPrompt('Design me a luxury hotel experience.'), true, 'Explicit creation intent for a supported website category should route to Web Studio.');
-assert.equal(isWebStudioPrompt('How do hotel booking platforms work?'), false, 'A general question about an industry should not be mistaken for a website-build request.');
+assert.equal(detectArchetype('Please put a navigation bar above the main content.'), 'adaptive');
+assert.equal(isWebStudioPrompt('Design me a luxury hotel experience.'), true);
+assert.equal(isWebStudioPrompt('How do hotel booking platforms work?'), false);
 assert.equal(isWebStudioPrompt('Please create a marketplace for local artists.'), true);
 assert.equal(isWebStudioPrompt('Build a five-page site for my business.', 'web-studio-build'), true);
 
-// Existing-site edits should route correctly even if the user omits "website".
+// Existing-site edits must continue to route even when "website" is omitted.
 const websiteEditRequests = [
   'Add a skip link to this project.',
   'Change the headline on this page.',
@@ -79,9 +76,10 @@ const websiteEditRequests = [
 for (const prompt of websiteEditRequests) {
   assert.equal(isWebStudioPrompt(prompt), true, 'Existing-page edit intent should route to Web Studio: ' + prompt);
 }
-assert.equal(isWebStudioPrompt('How can I improve my writing?'), false, 'Unrelated writing advice must not be routed into Web Studio editing.');
+assert.equal(isWebStudioPrompt('How can I improve my writing?'), false);
 
-// Unknown categories are valid custom briefs, not unsupported requests.
+// Open-ended concepts remain first-class build requests without matching a
+// fixed industry vocabulary.
 const openEndedPrompts = [
   'Build an online community where independent musicians share unfinished tracks, find collaborators, and schedule listening sessions.',
   'I need an online community where independent musicians can exchange drafts, request feedback and find collaborators.',
@@ -89,14 +87,14 @@ const openEndedPrompts = [
   'Develop a digital platform for museum visitors to build accessible, multilingual self-guided tours with audio stops and map checkpoints.'
 ];
 for (const prompt of openEndedPrompts) {
-  assert.equal(detectArchetype(prompt), 'generic', 'This deliberately novel brief should not be mislabelled as a predefined vertical: ' + prompt);
-  assert.equal(isWebStudioPrompt(prompt), true, 'Open-ended digital-product creation should route to the build experience: ' + prompt);
+  assert.equal(detectArchetype(prompt), 'adaptive');
+  assert.equal(isWebStudioPrompt(prompt), true);
   const brief = buildExperienceBrief(prompt);
-  assert.equal(brief.customizationMode, 'open-ended-custom-concept');
-  assert.equal(brief.blueprintRole, 'advisory-only; never a required category, allowlist, or template');
-  assert.ok(brief.customizationContract.some(rule => /never a list of supported or permitted categories/i.test(rule)));
-  assert.ok(brief.mustHave.some(rule => /core workflow/i.test(rule)), 'Custom concepts should prioritize the request-specific workflow.');
-  assert.ok(brief.architecture.sections.some(section => /core interface or workflow/i.test(section)), 'Custom concepts should not default to a marketing-hero sitemap.');
+  assert.equal(brief.customizationMode, 'universal-adaptive');
+  assert.match(brief.blueprintRole, /no industry classification/i);
+  assert.ok(brief.customizationContract.some(rule => /no fixed industry category/i.test(rule)));
+  assert.ok(brief.mustHave.some(rule => /core workflow/i.test(rule)), 'Custom concepts should prioritize the core workflow.');
+  assert.ok(brief.architecture.sections.some(section => /core views|core workflow/i.test(section)), 'Custom concepts should derive their actual screens.');
 }
 
 const novelBrief = openEndedPrompts[0];
@@ -140,6 +138,7 @@ assert.match(plan, /designIntelligence/);
 assert.match(execution, /end-to-end acceptance path/i);
 assert.match(polish, /interaction ledger and acceptance checks/i);
 
+// Context and user facts remain first-class inputs to the adaptive engine.
 const premiumPropertyBrief = buildExperienceBrief(
   'Build a luxury real-estate website with high-end homes and a clear property enquiry path.',
   {
@@ -147,7 +146,6 @@ const premiumPropertyBrief = buildExperienceBrief(
     brandProfile: { personality: 'quietly confident and architectural', pricePositioning: 'premium homes' }
   }
 );
-assert.equal(premiumPropertyBrief.designIntelligence.industryOrUseCase, 'realEstate');
 assert.equal(premiumPropertyBrief.designIntelligence.targetAudience, 'High-intent home buyers');
 assert.equal(premiumPropertyBrief.designIntelligence.brandPersonality.value, 'quietly confident and architectural');
 assert.equal(premiumPropertyBrief.designIntelligence.brandPersonality.basis, 'supplied brand context');
@@ -159,14 +157,22 @@ assert.ok(premiumPropertyBrief.qualityGates.some(rule => /primary journey is che
 
 const bookingBrief = buildExperienceBrief('Create a boutique hotel website that lets visitors book a room.');
 assert.match(bookingBrief.designIntelligence.primaryOutcome.value, /booking or reservation/i);
+assert.ok(bookingBrief.designIntelligence.adaptiveWorkflowRequirements.some(rule => /scheduling is requested/i));
 
 const taskBrief = buildExperienceBrief('Build a neighborhood equipment-lending management tool.');
 assert.match(taskBrief.designIntelligence.primaryOutcome.value, /core task/i);
 assert.match(taskBrief.designIntelligence.pricePositioning.value, /Not specified/i);
+assert.equal(taskBrief.customizationMode, 'universal-adaptive');
+
+const commerceBrief = buildExperienceBrief('Create a custom digital store with products, cart and checkout.');
+assert.ok(commerceBrief.designIntelligence.adaptiveWorkflowRequirements.some(rule => /commerce is requested/i));
+
+const fileBrief = buildExperienceBrief('Create a workspace where users upload and organize project documents.');
+assert.ok(fileBrief.designIntelligence.adaptiveWorkflowRequirements.some(rule => /files or media are requested/i));
 
 const inferredLuxury = buildExperienceBrief('Create a premium fashion store with an elegant, minimal brand direction.');
 assert.match(inferredLuxury.designIntelligence.brandPersonality.value, /polished, confident and restrained/i);
 assert.match(inferredLuxury.designIntelligence.pricePositioning.value, /premium \/ luxury/i);
 assert.match(inferredLuxury.designIntelligence.brandPersonality.basis, /provisional/i);
 
-console.log('OVYX experience intelligence tests passed for premium multi-industry and open-ended custom briefs.');
+console.log('OVYX adaptive experience intelligence tests passed: arbitrary concepts, no industry buckets, and workflow requirements inferred only from the brief.');

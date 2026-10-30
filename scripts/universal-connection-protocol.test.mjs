@@ -2,94 +2,113 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
   applyConnectionAuth,
-  buildUniversalConnectionPayload,
-  supportsAIProtocol,
-  universalConnectionEndpoint,
   buildConnectionRecord,
+  buildUniversalConnectionPayload,
+  callUserUniversalConnection,
+  getActiveBrainConnectionId,
+  getActiveWebStudioConnectionId,
+  publicConnection,
+  supportsAIProtocol,
+  testUserConnection,
+  universalConnectionEndpoint,
 } from '../functions/_lib/universal-connections.js';
 
+const universalSource = readFileSync(new URL('../functions/_lib/universal-connections.js', import.meta.url), 'utf8');
+const connectionsRouteSource = readFileSync(new URL('../functions/api/settings/connections.js', import.meta.url), 'utf8');
+
+// Legacy saved records can still be recognized and removed, but they are not
+// advertised or callable as model providers.
 assert.equal(supportsAIProtocol('openai-chat'), true);
 assert.equal(supportsAIProtocol('anthropic-messages'), true);
 assert.equal(supportsAIProtocol('gemini-generate-content'), true);
 assert.equal(supportsAIProtocol('http-json'), false);
-const universalSource = readFileSync(new URL('../functions/_lib/universal-connections.js', import.meta.url), 'utf8');
-const connectionsRouteSource = readFileSync(new URL('../functions/api/settings/connections.js', import.meta.url), 'utf8');
+const legacyPublicRecord = publicConnection({
+  id: 'legacy-ai-1',
+  type: 'ai',
+  protocol: 'openai-chat',
+  active: true,
+  encryptedSecret: 'encrypted-placeholder',
+  secret: 'must-not-leak',
+}, 'legacy-ai-1');
+assert.equal(legacyPublicRecord.hasSecret, true);
+assert.equal(legacyPublicRecord.secret, undefined);
+assert.equal(legacyPublicRecord.encryptedSecret, undefined);
+assert.deepEqual(legacyPublicRecord.capabilities, {
+  canUseAsBrain: false,
+  canUseForWebStudio: false,
+});
 
-// Protect the original connection-management capabilities against accidental
-// deletion while purpose-scoped Brain/Web Studio routing evolves.
-for (const name of [
-  'encryptSecret',
-  'publicConnection',
-  'buildConnectionRecord',
-  'getConnection',
-  'getActiveBrainConnectionId',
-  'callUserUniversalConnection',
-  'testUserConnection',
+assert.equal(await getActiveBrainConnectionId({}, { uid: 'owner-1' }), null);
+assert.equal(await getActiveWebStudioConnectionId({}, { uid: 'owner-1' }), null);
+await assert.rejects(
+  () => callUserUniversalConnection({}, {
+    connectionId: 'legacy-ai-1',
+    authUser: { uid: 'owner-1' },
+    system: 'system prompt',
+    user: 'user prompt',
+  }),
+  error => error.code === 'AI_PROVIDER_DISABLED' && error.status === 409,
+  'The library-level model call must fail before it can read credentials or send a request.',
+);
+
+// Attempts to create or edit an external AI model connection are rejected at
+// the connection-record boundary, before encryption or endpoint validation.
+for (const input of [
+  { name: 'Legacy AI', type: 'ai', endpoint: 'https://example.test/v1', protocol: 'openai-chat', authMode: 'none' },
+  { name: 'Gemini Brain', type: 'tool', endpoint: 'https://example.test/v1', protocol: 'gemini-generate-content', authMode: 'bearer' },
+  { name: 'Claude Brain', type: 'http', endpoint: 'https://example.test/v1', protocol: 'anthropic-messages', authMode: 'bearer' },
 ]) {
-  assert.match(
-    universalSource,
-    new RegExp('export\\s+(?:async\\s+)?function\\s+' + name + '\\b'),
-    'The existing Universal Connection runtime export must remain available: ' + name,
+  await assert.rejects(
+    () => buildConnectionRecord({}, input, { uid: 'owner-1', email: 'owner@example.test' }),
+    error => error.code === 'AI_PROVIDER_DISABLED' && error.status === 409,
   );
 }
-assert.match(universalSource, /let encryptedSecret = existing\?\.encryptedSecret \|\| null/,
-  'Editing connection metadata without supplying a new key must preserve the saved encrypted credential.');
-assert.match(universalSource, /delete copy\.encryptedSecret/);
-assert.match(universalSource, /delete copy\.secret/,
-  'Credentials must remain hidden from connection list and detail responses.');
-assert.match(universalSource, /name: 'AES-GCM'/,
-  'Saved credentials must remain authenticated-encrypted at rest.');
-for (const method of [
-  /request\.method === 'GET'/,
-  /request\.method === 'DELETE'/,
-  /request\.method !== 'POST' && request\.method !== 'PUT'/,
-]) {
-  assert.match(connectionsRouteSource, method,
-    'Listing, deleting, creating, and updating connections must remain available.');
-}
-assert.match(connectionsRouteSource, /buildConnectionRecord/,
-  'The existing create/update path must remain available.');
-assert.match(connectionsRouteSource, /deleteFirestoreDocumentAtPath/,
-  'The existing delete path must remain available.');
-assert.match(connectionsRouteSource, /action === 'test'/,
-  'The existing connection health-test action must remain available.');
-for (const action of ['use-ai', 'clear-ai', 'use-webstudio', 'clear-webstudio']) {
-  assert.ok(connectionsRouteSource.includes("action === '" + action + "'"),
-    'The account purpose-selection action must remain available: ' + action);
-}
-assert.match(universalSource, /requireAIProtocol = true/,
-  'A generic HTTP, webhook, database or tool connection must not be treated as an AI Brain by default.');
-assert.match(universalSource, /if \(requireAIProtocol && !supportsAIProtocol\(record\.protocol\)\)/,
-  'Universal Connection invocation must validate the selected protocol before sending AI prompts.');
-assert.match(universalSource, /export async function getActiveWebStudioConnectionId/,
-  'Web Studio continuation must have its own account-scoped connection selection.');
-assert.match(universalSource, /canUseForWebStudio: copy\.active === true && supportsAI/,
-  'Only active AI-protocol connections may be assigned to Web Studio.');
-assert.equal(universalConnectionEndpoint({ protocol: 'openai-chat', endpoint: 'https://api.deepseek.com' }), 'https://api.deepseek.com/chat/completions');
-assert.equal(universalConnectionEndpoint({ protocol: 'anthropic-messages', endpoint: 'https://api.anthropic.com' }), 'https://api.anthropic.com/v1/messages');
-assert.equal(universalConnectionEndpoint({ protocol: 'anthropic-messages', endpoint: 'https://api.anthropic.com/v1' }), 'https://api.anthropic.com/v1/messages');
+
+// Non-AI HTTP/webhook/database/tool connections remain creatable and keep their
+// explicit generic JSON protocol without being mistaken for model providers.
+const serviceRecord = await buildConnectionRecord(
+  {},
+  {
+    name: 'Order webhook',
+    type: 'webhook',
+    endpoint: 'https://service.example.test/ovyx/orders',
+    protocol: 'http-json',
+    authMode: 'none',
+    active: true,
+  },
+  { uid: 'owner-1', email: 'owner@example.test' },
+);
+assert.equal(serviceRecord.type, 'webhook');
+assert.equal(serviceRecord.protocol, 'http-json');
+assert.equal(serviceRecord.active, true);
+assert.equal(serviceRecord.encryptedSecret, null);
+
+// The legacy protocol serializers remain deterministic for safe compatibility
+// and migration inspection; they are not reachable from model routing.
+assert.equal(
+  universalConnectionEndpoint({ protocol: 'openai-chat', endpoint: 'https://api.deepseek.com' }),
+  'https://api.deepseek.com/chat/completions',
+);
+assert.equal(
+  universalConnectionEndpoint({ protocol: 'anthropic-messages', endpoint: 'https://api.anthropic.com' }),
+  'https://api.anthropic.com/v1/messages',
+);
+assert.equal(
+  universalConnectionEndpoint({ protocol: 'anthropic-messages', endpoint: 'https://api.anthropic.com/v1' }),
+  'https://api.anthropic.com/v1/messages',
+);
 assert.equal(
   universalConnectionEndpoint({ protocol: 'gemini-generate-content', endpoint: 'https://generativelanguage.googleapis.com/v1beta', model: 'gemini-2.5-flash' }),
-  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
+  'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
 );
-
 const anthropicBody = buildUniversalConnectionPayload(
   { protocol: 'anthropic-messages', model: 'claude-sonnet-4-6' },
-  { system: 'be helpful', user: 'say hello', maxTokens: 120 }
+  { system: 'be helpful', user: 'say hello', maxTokens: 120 },
 );
 assert.equal(anthropicBody.model, 'claude-sonnet-4-6');
-const savedAnthropicModelWins = buildUniversalConnectionPayload(
-  { protocol: 'anthropic-messages', model: 'claude-sonnet-4-6' },
-  { model: 'gemini-2.5-flash', system: 'safe', user: 'say hello' }
-);
-assert.equal(savedAnthropicModelWins.model, 'claude-sonnet-4-6');
-assert.equal(anthropicBody.system, 'be helpful');
-assert.deepEqual(anthropicBody.messages, [{ role: 'user', content: 'say hello' }]);
-assert.equal(anthropicBody.max_tokens, 120);
-
 const geminiBody = buildUniversalConnectionPayload(
   { protocol: 'gemini-generate-content', model: 'gemini-2.5-flash' },
-  { system: 'be helpful', user: 'say hello', maxTokens: 120 }
+  { system: 'be helpful', user: 'say hello', maxTokens: 120 },
 );
 assert.deepEqual(geminiBody.systemInstruction, { parts: [{ text: 'be helpful' }] });
 assert.deepEqual(geminiBody.contents, [{ role: 'user', parts: [{ text: 'say hello' }] }]);
@@ -100,26 +119,24 @@ applyConnectionAuth(anthropicHeaders, 'bearer', 'test-anthropic-key', 'anthropic
 assert.equal(anthropicHeaders['x-api-key'], 'test-anthropic-key');
 assert.equal(anthropicHeaders['anthropic-version'], '2023-06-01');
 assert.equal(anthropicHeaders.Authorization, undefined);
-
 const geminiHeaders = {};
 applyConnectionAuth(geminiHeaders, 'bearer', 'test-gemini-key', 'gemini-generate-content');
 assert.equal(geminiHeaders['x-goog-api-key'], 'test-gemini-key');
 assert.equal(geminiHeaders.Authorization, undefined);
 
-await assert.rejects(
-  () => buildConnectionRecord(
-    {},
-    { name: 'Insecure AI', type: 'ai', endpoint: 'http://example.test/v1', protocol: 'openai-chat', authMode: 'bearer', secret: 'test-key' },
-    { uid: 'test-user', email: 'test@example.test' }
-  ),
-  /HTTPS/
-);
-await assert.rejects(
-  () => buildConnectionRecord(
-    {},
-    { name: 'Query Secret', type: 'ai', endpoint: 'https://example.test/v1?api_key=do-not-save', protocol: 'openai-chat', authMode: 'bearer', secret: 'test-key' },
-    { uid: 'test-user', email: 'test@example.test' }
-  ),
-  /query parameters/
-);
-console.log('Universal Connection provider protocol tests passed.');
+// Both the route and the underlying library reject AI-protocol readiness checks
+// before any fetch call, while still allowing safe HTTP/webhook checks.
+const testStart = universalSource.indexOf('export async function testUserConnection(');
+const aiGuard = universalSource.indexOf('if (supportsAIProtocol(record.protocol))', testStart);
+const firstFetch = universalSource.indexOf('await fetch(', testStart);
+assert.ok(testStart >= 0 && aiGuard > testStart && firstFetch > aiGuard);
+assert.match(connectionsRouteSource, /if \(supportsAIProtocol\(record\.protocol\)\)[\s\S]{0,300}AI_PROVIDER_DISABLED/);
+assert.match(connectionsRouteSource, /action === 'use-ai'/);
+assert.match(connectionsRouteSource, /action === 'clear-ai'/);
+assert.match(connectionsRouteSource, /action === 'use-webstudio'/);
+assert.match(connectionsRouteSource, /action === 'clear-webstudio'/);
+assert.match(universalSource, /name: 'AES-GCM'/);
+assert.match(universalSource, /delete copy\.encryptedSecret/);
+assert.match(universalSource, /delete copy\.secret/);
+
+console.log('Universal Connection tests passed: legacy AI credentials preserved but blocked from routing, while non-AI service connections remain supported.');

@@ -215,7 +215,10 @@ for (const requirement of [
   '#ws-select-inspector',
   '__ovyxShouldPauseLivePreviewV1',
   '__ovyxRawRenderPreviewV1',
-  "payload.provider = 'automatic'",
+  'delete payload.provider',
+  'delete payload.preferredProvider',
+  "payload.model = 'automatic'",
+  "payload.fallback = 'stop'",
   'canonicalAIPreferences',
   'payload.providerRouting',
   "if (prefs.mode === 'fast') instructions.push('Generation preference: prioritize concise, low-latency iterations.')",
@@ -253,12 +256,18 @@ assert.ok(connectionsApi.includes("['users', auth.email, 'universal_connections'
 assert.match(revokeSessionsApi, /enforceSameOrigin/);
 assert.match(revokeSessionsApi, /revokeFirebaseRefreshTokens/);
 
-assert.match(providers, /providerRouting/);
-assert.match(providers, /preferredProvider/);
-assert.match(assistant, /preferredProvider: String\(payload\.preferredProvider/);
-assert.match(gateway, /preferredProvider: String\(payload\.preferredProvider/);
-assert.match(multipage, /preferredProvider/);
-assert.match(multipage, /providerRouting/);
+// The shared model adapter is now the security boundary for Cloudflare-only routing.
+assert.match(providers, /withCloudflareAIOnly\(env\)/);
+assert.match(providers, /callCloudflareWorkersAI\(secureEnv/);
+assert.match(providers, /OVYX_CLOUDFLARE_FREE_MODEL/);
+assert.doesNotMatch(providers, /providerOrder\(|callGemini|callClaude|callDeepSeek|callOpenAI|callGroq|callOpenRouter/);
+assert.doesNotMatch(providers, /preferredProvider|providerRouting|fallback/,
+  'Removed multi-provider priority/fallback controls must not be reintroduced into the shared router.');
+// Compatibility payloads may still carry old fields, but only through the
+// existing assistant and gateway endpoints; the server router ignores them.
+assert.match(assistant, /routeCallModel = \(env, options = \{\}\) => callModel/);
+assert.match(gateway, /routeCallModel = \(env, options = \{\}\) => callModel/);
+assert.match(multipage, /callModel\(/);
 
 assert.ok(packageJson.scripts.test.includes('scripts/ovyx-settings-actions.test.mjs'), 'Settings action regressions must run in the npm test chain.');
 assert.doesNotMatch(runtime, /Bearer\s+[A-Za-z0-9._~+/=-]{20,}/i, 'The Settings runtime must not contain a literal access token.');

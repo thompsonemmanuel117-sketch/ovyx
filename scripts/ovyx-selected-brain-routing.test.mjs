@@ -1,103 +1,44 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { callSelectedUniversalBrain } from '../functions/_lib/providers.js';
 
-const user = { uid: 'owner-123', sub: 'owner-123', email: 'owner@example.test' };
-const calls = [];
-const dependencies = {
-  getActiveBrainConnectionId: async (_env, authUser) => {
-    assert.equal(authUser.uid, user.uid, 'the Brain lookup must be scoped to the authenticated owner');
-    calls.push({ type: 'lookup', authUser });
-    return 'owner-brain-1';
-  },
-  callUserUniversalConnection: async (_env, input) => {
-    calls.push({ type: 'invoke', input });
-    return {
-      provider: 'connection:owner-brain-1',
-      model: 'gemini-2.5-flash',
-      text: 'Reply from the account-owned AI Brain',
-      rawUsage: { prompt_tokens: 3, completion_tokens: 4 },
-    };
-  },
-};
+const read = path => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
+const providerSource = read('functions/_lib/providers.js');
+const nativeSource = read('functions/_lib/ovyx-native-ai.js');
+const assistantSource = read('functions/api/ai/assistant.js');
+const gatewaySource = read('functions/api/ai/gateway.js');
+const connectionsApi = read('functions/api/settings/connections.js');
+const docs = read('docs/UNIVERSAL-CONNECTIONS.md');
 
-const result = await callSelectedUniversalBrain(
-  {},
-  {
-    provider: 'automatic',
-    authUser: user,
-    system: 'Be helpful.',
-    user: 'Hello.',
-    model: 'automatic',
-    maxTokens: 64,
-  },
-  dependencies,
-);
-assert.equal(result.text, 'Reply from the account-owned AI Brain');
-assert.equal(result.routedProvider, 'universal-connection');
-assert.equal(result.activeBrainConnectionId, 'owner-brain-1');
-assert.equal(result.requestedProvider, 'automatic');
-assert.deepEqual(calls.map(item => item.type), ['lookup', 'invoke']);
-assert.equal(calls[1].input.connectionId, 'owner-brain-1');
-assert.equal(calls[1].input.authUser.uid, user.uid);
-assert.equal(calls[1].input.requireAIProtocol, true);
-assert.equal(calls[1].input.user, 'Hello.');
+assert.doesNotMatch(providerSource, /callSelectedUniversalBrain|getActiveBrainConnectionId|callUserUniversalConnection/,
+  'The model adapter must not retain a callable route to account-owned AI Brain connections.');
+assert.doesNotMatch(nativeSource, /callSelectedUniversalBrain|universalBrainDependencies|selectedBrainResult/,
+  'The native assistant must not resolve or invoke a saved external AI Brain.');
+assert.match(nativeSource, /withCloudflareAIOnly\(env\)/);
+assert.match(nativeSource, /runCloudflareFreeInference/);
+assert.match(nativeSource, /routedProvider: 'cloudflare-workers-ai'/);
+assert.match(nativeSource, /personalConnectionUsed: false/);
 
-// With no explicitly selected Brain, the caller can continue with Cloudflare.
-const noBrain = await callSelectedUniversalBrain(
-  {},
-  { authUser: user, user: 'Hello.' },
-  {
-    getActiveBrainConnectionId: async () => null,
-    callUserUniversalConnection: async () => {
-      throw new Error('Must not call a connection when none is selected.');
-    },
-  },
-);
-assert.equal(noBrain, null);
+assert.match(providerSource, /export async function callModel\(env, options = \{\}\)/);
+assert.match(providerSource, /withCloudflareAIOnly\(env\)/);
+assert.match(providerSource, /callCloudflareWorkersAI\(secureEnv/);
+assert.doesNotMatch(providerSource, /export function providerOrder/,
+  'The previous multi-provider priority selector must not remain a public routing API.');
 
-// A broken selection is fail-closed: it must not silently switch providers.
-await assert.rejects(
-  () => callSelectedUniversalBrain(
-    {},
-    { authUser: user, user: 'Hello.' },
-    {
-      getActiveBrainConnectionId: async () => { throw new Error('private lookup detail'); },
-      callUserUniversalConnection: async () => { throw new Error('must not run'); },
-    },
-  ),
-  error => error.code === 'UNIVERSAL_CONNECTION_SELECTION_FAILED' &&
-    !error.message.includes('private lookup detail'),
-);
-await assert.rejects(
-  () => callSelectedUniversalBrain(
-    {},
-    { authUser: user, user: 'Hello.' },
-    {
-      getActiveBrainConnectionId: async () => 'owner-brain-1',
-      callUserUniversalConnection: async () => {
-        throw Object.assign(new Error('provider unavailable'), { status: 503, code: 'CONNECTION_UPSTREAM_FAILED' });
-      },
-    },
-  ),
-  error => error.code === 'CONNECTION_UPSTREAM_FAILED' &&
-    /did not switch to another AI provider/.test(error.message),
-);
-
-const providerSource = readFileSync(new URL('../functions/_lib/providers.js', import.meta.url), 'utf8');
-const assistantSource = readFileSync(new URL('../functions/api/ai/assistant.js', import.meta.url), 'utf8');
-const docs = readFileSync(new URL('../docs/UNIVERSAL-CONNECTIONS.md', import.meta.url), 'utf8');
-assert.match(providerSource, /options\.useSelectedUniversalBrain === true/);
-assert.match(providerSource, /options\.webStudioRequest !== true/);
-assert.match(providerSource, /options\.appStudioRequest !== true/);
-assert.doesNotMatch(providerSource, /getActiveWebStudioConnectionId|OVYX_WEBSTUDIO_UNIVERSAL_CONNECTION_NOT_READY/);
+assert.match(assistantSource, /cloudflareOnlyModelOptions\(options\)/);
+assert.match(gatewaySource, /cloudflareOnlyModelOptions\(options\)/);
 assert.match(assistantSource, /webStudioRequest: isWebStudio/);
 assert.match(assistantSource, /appStudioRequest: isAppStudio/);
-assert.match(assistantSource, /useSelectedUniversalBrain: !isWebStudio && !isAppStudio/);
-assert.doesNotMatch(assistantSource, /useUniversalConnectionAfterCloudflareLimit/);
-assert.match(docs, /Ordinary OVYX AI Assistant chats/);
-assert.match(docs, /activeWebStudioConnectionId/);
-assert.match(docs, /quota exhaustion is a hard stop/i);
-assert.match(docs, /activeWebStudioConnectionId.*not used to bypass OVYX's Cloudflare AI quota/);
+assert.match(gatewaySource, /webStudioRequest: isWebStudio/);
+assert.match(gatewaySource, /appStudioRequest: isAppStudio/);
 
-console.log('Selected Universal AI Brain routing tests passed: owner-scoped, exclusive on failure, Web Studio quota stop preserved, App Studio gate unchanged.');
+assert.match(connectionsApi, /AI_PROVIDER_DISABLED/);
+assert.match(connectionsApi, /Saved external AI credentials are preserved but are not tested or called/);
+assert.match(connectionsApi, /activeBrainConnectionId: null/);
+assert.match(connectionsApi, /activeWebStudioConnectionId: null/);
+assert.match(docs, /Cloudflare Workers AI is OVYX's only supported AI model provider/i);
+assert.match(docs, /Older encrypted AI connection records are retained/i);
+assert.match(docs, /Universal Connections remain available for approved non-AI HTTP, webhook, database and tool integrations/i);
+assert.doesNotMatch(docs, /Automatic uses the selected AI Brain exclusively/i);
+assert.doesNotMatch(docs, /Platform Automatic routing[\\s\\S]*tries the providers in/i);
+
+console.log('OVYX Cloudflare-only Brain routing tests passed: no selected external Brain route remains and generic service connections remain separate.');

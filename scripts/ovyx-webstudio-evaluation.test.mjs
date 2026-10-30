@@ -6,34 +6,40 @@ const fixturePath = 'scripts/ovyx-webstudio-evaluation-cases.json';
 const suite = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
 const runtime = fs.readFileSync('assets/ovyx-webstudio-quality.js', 'utf8');
 
-const archetypeCases = [
-  ['luxury-real-estate', 'Create a luxury real estate website with search and property listings.', 'realEstate'],
-  ['fashion-brand', 'Design an editorial fashion brand website with seasonal collections and a lookbook.', 'fashion'],
-  ['ecommerce-store', 'Build an e-commerce online store with a shopping cart and add to cart buttons.', 'ecommerce'],
-  ['booking-platform', 'Create an appointment booking platform with an availability calendar and service scheduling.', 'booking'],
-  ['data-dashboard', 'Build an analytics dashboard with metrics and data visualization.', 'dashboard'],
-  ['saas-platform', 'Create a SaaS software platform for business teams with product workflows.', 'saas'],
-  ['restaurant', 'Design a restaurant website with menu discovery and dining experience.', 'restaurant'],
-  ['agency', 'Create a creative agency website with selected work and case studies.', 'agency'],
-  ['portfolio', 'Build a developer portfolio with project case studies.', 'portfolio'],
+const experienceExamples = [
+  ['property-search', 'Create a luxury real estate website with search and property listings.'],
+  ['fashion-collections', 'Design an editorial fashion brand website with seasonal collections and a lookbook.'],
+  ['online-store', 'Build an e-commerce online store with a shopping cart and add to cart buttons.'],
+  ['appointment-booking', 'Create an appointment booking platform with an availability calendar and service scheduling.'],
+  ['analytics-workspace', 'Build an analytics dashboard with metrics and data visualization.'],
+  ['team-software', 'Create a SaaS software platform for business teams with product workflows.'],
+  ['restaurant-experience', 'Design a restaurant website with menu discovery and dining experience.'],
+  ['creative-studio', 'Create a creative agency website with selected work and case studies.'],
+  ['professional-portfolio', 'Build a developer portfolio with project case studies.'],
 ];
-for (const [id, prompt, expected] of archetypeCases) {
-  assert.equal(detectArchetype(prompt), expected, id + ' must select its dedicated experience archetype.');
+for (const [id, prompt] of experienceExamples) {
+  assert.equal(detectArchetype(prompt), 'adaptive', id + ' must remain an open-ended adaptive experience, not a fixed industry category.');
   const brief = buildExperienceBrief(prompt);
-  assert.equal(brief.archetype, expected, id + ' must receive its matching experience brief.');
-  assert.ok(brief.architecture.sections.length >= 5, id + ' needs industry-specific information architecture.');
+  assert.equal(brief.archetype, 'adaptive', id + ' must not be assigned a predefined industry archetype.');
+  assert.equal(brief.customizationMode, 'universal-adaptive');
+  assert.match(brief.blueprintRole, /no industry classification/i);
+  assert.ok(brief.architecture.sections.length >= 5, id + ' needs a complete project-specific information architecture.');
   assert.ok(brief.architecture.visualAvoid.length >= 2, id + ' needs explicit anti-template guidance.');
-  assert.ok(brief.mustHave.length >= 4, id + ' needs a visitor-journey checklist.');
+  assert.ok(brief.mustHave.length >= 4, id + ' needs a useful task and user-journey checklist.');
   assert.ok(brief.delighters.length >= 3, id + ' needs concrete design/interaction opportunities.');
 }
 
 const dashboardBrief = buildExperienceBrief('Build an analytics dashboard for inventory operations.');
-assert.ok(dashboardBrief.architecture.sections.some(item => /table|record|data/i.test(item)), 'Dashboards should prioritize usable data workflows.');
+assert.equal(dashboardBrief.archetype, 'adaptive');
+assert.ok(dashboardBrief.mustHave.some(item => /reporting is requested/i.test(item)), 'The requested reporting workflow should be inferred without classifying the project.');
 const clinicAppointmentBrief = buildExperienceBrief('Build a clinic website that lets visitors schedule appointments and choose from available dates and times.');
-assert.equal(clinicAppointmentBrief.archetype, 'healthcare', 'A clinic website with appointment scheduling should preserve the healthcare design context.');
-assert.ok(clinicAppointmentBrief.architecture.sections.some(item => /availability|slot|date|time/i.test(item)), 'Healthcare websites that offer scheduling must also plan explicit appointment availability selection.');
+assert.equal(clinicAppointmentBrief.archetype, 'adaptive', 'A clinic is not assigned a fixed healthcare archetype.');
+assert.equal(clinicAppointmentBrief.customizationMode, 'universal-adaptive');
+assert.ok(clinicAppointmentBrief.mustHave.some(item => /scheduling is requested.*availability.*confirmation/i.test(item)), 'Appointment workflows must include availability and honest confirmation states without assigning an industry category.');
+assert.ok(clinicAppointmentBrief.architecture.interactionConcepts.some(item => /scheduling is requested/i.test(item)), 'Appointment interaction guidance must be derived from the actual brief.');
 const commerceBrief = buildExperienceBrief('Build an online store where people can add items to a cart.');
-assert.ok(commerceBrief.architecture.interactionConcepts.some(item => /cart/i.test(item)), 'E-commerce briefs should receive cart-specific interaction guidance.');
+assert.equal(commerceBrief.archetype, 'adaptive');
+assert.ok(commerceBrief.architecture.interactionConcepts.some(item => /commerce is requested.*cart/i.test(item)), 'Commerce/cart behavior should be inferred from the requested workflow, not an industry preset.');
 
 const requiredCategories = [
   'luxury-real-estate',

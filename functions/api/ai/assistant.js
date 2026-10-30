@@ -6,6 +6,7 @@ import {
   requestId,
 } from '../../_lib/http.js';
 import { callModel } from '../../_lib/providers.js';
+import { cloudflareOnlyModelOptions } from '../../_lib/cloudflare-routing.js';
 import { buildStudioMultiPage } from '../../_lib/studio-multipage.js';
 import { validateOrRepairSinglePageBuild } from '../../_lib/studio-singlepage.js';
 import { WEB_STUDIO_SYSTEM_PROMPT, WEB_STUDIO_EXCELLENCE, WEB_STUDIO_RESEARCH_GUIDANCE } from '../../_lib/prompts.js';
@@ -166,13 +167,12 @@ export async function onRequestPost(context) {
     const scopedWebStudioEdit = isWebStudio && mode === 'build' &&
       isScopedWebStudioEdit(promptText, !!(submittedFiles && typeof submittedFiles === 'object' && Object.keys(submittedFiles).length));
     const routeCallModel = (env, options = {}) => callModel(env, {
-      ...options,
+      ...cloudflareOnlyModelOptions(options),
       authUser: user,
-      // Task boundaries are server-derived, never trusted from the client.
-      // Web Studio and App Studio keep their platform routing and entitlement gates.
+      // These server-derived flags preserve the existing Studio boundaries;
+      // neither view can select a personal or third-party model provider.
       webStudioRequest: isWebStudio,
       appStudioRequest: isAppStudio,
-      useSelectedUniversalBrain: !isWebStudio && !isAppStudio,
     });
 
     if (isAppStudio) {

@@ -28,13 +28,12 @@ assert.ok(feedbackApi.includes("route !== 'web-studio' && route !== 'assistant-w
 assert.ok(feedbackApi.includes('route,'), 'feedback record must retain the validated surface');
 assert.ok(feedbackApi.includes("'native-ovyx-ai'"), 'feedback provider allowlist must accept the native assistant');
 assert.ok(!feedbackApi.includes('body.prompt') && !feedbackApi.includes('body.responseText'), 'feedback metadata must not persist private prompt/response content');
-assert.ok(middleware.includes('/assets/ovyx-additional-ai-provider-diagnostics.js?v=20261018-2'), 'extended diagnostics asset must be injected');
-assert.ok(headers.includes('/assets/ovyx-additional-ai-provider-diagnostics.js'), 'extended diagnostics asset must be served with explicit cache controls');
-assert.ok(providerRouter.includes('OPENROUTER_API_KEY'), 'OpenRouter must use its existing server environment key');
-assert.ok(providerRouter.includes("'https://openrouter.ai/api/v1/chat/completions'"), 'OpenRouter must use the fixed official API origin');
-assert.ok(providerRouter.includes("provider: 'openrouter'"), 'OpenRouter routing must identify the actual provider');
-assert.ok(health.includes("'OPENROUTER_API_KEY'"), 'health diagnostics must report only OpenRouter key presence');
-assert.ok(health.includes("'OPENROUTER_MODEL'"), 'health diagnostics must include OpenRouter model configuration name');
-assert.ok(!/id:\s*'openrouter'/.test(publicServiceStatus), 'OpenRouter live/key-presence details must remain in the owner-only AI status route, not the legacy public status endpoint');
+assert.ok(middleware.includes('/assets/ovyx-additional-ai-provider-diagnostics.js'), 'the Cloudflare AI diagnostics asset must be injected');
+assert.ok(headers.includes('/assets/ovyx-additional-ai-provider-diagnostics.js'), 'the Cloudflare AI diagnostics asset must be served with explicit cache controls');
+assert.ok(providerRouter.includes('OVYX_CLOUDFLARE_ONLY_PROVIDER'), 'the single model-routing boundary must identify Cloudflare Workers AI');
+assert.doesNotMatch(providerRouter, /GEMINI_API_KEY|ANTHROPIC_API_KEY|DEEPSEEK_API_KEY|OPENAI_API_KEY|GROQ_API_KEY|OPENROUTER_API_KEY/, 'the provider router must not read legacy third-party AI credentials');
+assert.doesNotMatch(providerRouter, /openrouter\.ai|api\.anthropic\.com|api\.openai\.com|api\.deepseek\.com|api\.groq\.com|generativelanguage\.googleapis\.com/, 'the provider router must not contain third-party model endpoints');
+assert.ok(health.includes('const aiReady = hasAiBinding;'), 'system health must report AI readiness only from the Cloudflare Workers AI binding');
+assert.ok(!/id:\s*'openrouter'/.test(publicServiceStatus), 'legacy AI provider status must not appear in the public service status endpoint');
 
-console.log('Native assistant response-action contracts passed: helpful/not-helpful, editable Support hand-off, copy/retry, private metadata, and OpenRouter key recognition.');
+console.log('Native assistant response-action contracts passed: feedback, Support hand-off, copy/retry, private metadata, and Cloudflare-only routing diagnostics.');

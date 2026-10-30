@@ -1,17 +1,9 @@
-import { isCloudflareFreeOnlyMode } from '../../_lib/cloudflare-free-ai.js';
 import { assertAuthenticated } from '../../_lib/firebase.js';
+import { withCloudflareAIOnly, OVYX_CLOUDFLARE_ONLY_PROVIDER } from '../../_lib/cloudflare-routing.js';
 import { requestId } from '../_lib/http.js';
 
-
-function availabilityError(status, code, message, id) {
-  // Build the route error locally so this endpoint's HTTP status can never be
-  // confused with the similarly named helper in the root functions library.
-  return Response.json({
-    ok: false,
-    error: code,
-    message,
-    requestId: id || null,
-  }, {
+function response(id, values, status = 200) {
+  return Response.json(values, {
     status,
     headers: {
       'Cache-Control': 'no-store, max-age=0',
@@ -21,163 +13,57 @@ function availabilityError(status, code, message, id) {
   });
 }
 
-const PROVIDERS = Object.freeze({
-  gemini: {
-    env: 'GEMINI_API_KEY',
-    label: 'Gemini',
-    url: 'https://generativelanguage.googleapis.com/v1beta/models?pageSize=1',
-    headers: key => ({ 'x-goog-api-key': key }),
-  },
-  deepseek: {
-    env: 'DEEPSEEK_API_KEY',
-    label: 'DeepSeek',
-    url: 'https://api.deepseek.com/models',
-    headers: key => ({ Authorization: 'Bearer ' + key }),
-  },
-  anthropic: {
-    env: 'ANTHROPIC_API_KEY',
-    label: 'Claude',
-    url: 'https://api.anthropic.com/v1/models',
-    headers: key => ({ 'x-api-key': key, 'anthropic-version': '2023-06-01' }),
-  },
-  openai: {
-    env: 'OPENAI_API_KEY',
-    label: 'OpenAI',
-    url: 'https://api.openai.com/v1/models',
-    headers: key => ({ Authorization: 'Bearer ' + key }),
-  },
-});
-
-const NOT_AVAILABLE_SUFFIX =
-  ' is not available right now. Try OVYX Auto or choose another available AI option.';
-
-async function checkEndpoint(config, key) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 6000);
-  try {
-    return await fetch(config.url, {
-      method: 'GET',
-      headers: { Accept: 'application/json', ...config.headers(key) },
-      redirect: 'manual',
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-function statusForHttp(status) {
-  if (status === 401 || status === 403) return 'AUTH_FAILED';
-  if (status === 402) return 'INSUFFICIENT_CREDITS';
-  if (status === 429) return 'RATE_LIMITED';
-  return 'UNAVAILABLE';
-}
-
-function statusResponse(id, values) {
-  return Response.json(values, {
-    status: 200,
-    headers: {
-      'Cache-Control': 'no-store, max-age=0',
-      'X-Content-Type-Options': 'nosniff',
-      'X-OVYX-Request-ID': id,
-    },
-  });
-}
-
 export async function onRequestGet(context) {
   const id = requestId(context.request);
   try {
     assertAuthenticated(context.data?.user);
-    if (isCloudflareFreeOnlyMode(context.env)) {
-      const connected = Boolean(context.env?.AI && typeof context.env.AI.run === 'function');
-      return statusResponse(id, {
-        ok: connected,
-        provider: 'cloudflare-workers-ai',
-        label: 'Cloudflare Workers AI',
-        status: connected ? 'READY' : 'NOT_CONFIGURED',
-        configured: connected,
-        connected,
-        engineMode: 'cloudflare-free-only',
-        externalApiKeysRequired: false,
-        message: connected
-          ? 'OVYX AI is using its Cloudflare free-only engine.'
-          : 'OVYX AI is waiting for its Cloudflare Workers AI binding.',
-      });
-    }
     const url = new URL(context.request.url);
-    let provider = String(url.searchParams.get('provider') || '').trim().toLowerCase();
-    if (provider === 'claude') provider = 'anthropic';
+    const requested = String(url.searchParams.get('provider') || 'automatic').trim().toLowerCase();
+    const isCloudflare = [
+      '', 'automatic', 'cloudflare', 'cloudflare-workers-ai', 'workers-ai', 'ovyx-native',
+    ].includes(requested);
 
-    const config = PROVIDERS[provider];
-    if (!config) {
-      return availabilityError(
-        400,
-        'PROVIDER_REQUIRED',
-        'Choose Gemini, DeepSeek, Claude, or OpenAI.',
-        id,
-      );
-    }
-
-    const key = String(context.env?.[config.env] || '').trim();
-    if (!key) {
-      return statusResponse(id, {
+    if (!isCloudflare) {
+      return response(id, {
         ok: false,
-        provider,
-        label: config.label,
-        status: 'NOT_CONFIGURED',
-        configured: false,
-        connected: false,
-        message: config.label + NOT_AVAILABLE_SUFFIX,
-      });
+        error: 'AI_PROVIDER_DISABLED',
+        message: 'OVYX uses Cloudflare Workers AI as its only AI model provider. Other provider routes are disabled.',
+        requestedProvider: requested.slice(0, 80),
+        provider: OVYX_CLOUDFLARE_ONLY_PROVIDER,
+        routingPolicy: 'cloudflare-only',
+      }, 409);
     }
 
-    try {
-      const response = await checkEndpoint(config, key);
-      const ready = response.ok;
-      const status = ready ? 'READY' : statusForHttp(response.status);
-      // Do not consume or return provider response bodies: some providers echo
-      // configuration details in error payloads. Only expose a short status.
-      try { await response.body?.cancel(); } catch {}
-      return statusResponse(id, {
-        ok: ready,
-        provider,
-        label: config.label,
-        status,
-        configured: true,
-        connected: ready,
-        httpStatus: response.status,
-        message: ready
-          ? config.label + ' is connected and ready.'
-          : config.label + NOT_AVAILABLE_SUFFIX,
-      });
-    } catch (error) {
-      const timeout = error?.name === 'AbortError';
-      return statusResponse(id, {
-        ok: false,
-        provider,
-        label: config.label,
-        status: timeout ? 'TIMEOUT' : 'UNAVAILABLE',
-        configured: true,
-        connected: false,
-        message: config.label + NOT_AVAILABLE_SUFFIX,
-      });
-    }
+    const env = withCloudflareAIOnly(context.env);
+    const connected = Boolean(env.AI && typeof env.AI.run === 'function');
+    return response(id, {
+      ok: connected,
+      provider: OVYX_CLOUDFLARE_ONLY_PROVIDER,
+      label: 'Cloudflare Workers AI',
+      status: connected ? 'READY' : 'NOT_CONFIGURED',
+      configured: connected,
+      connected,
+      engineMode: env.OVYX_AI_ENGINE_MODE,
+      routingPolicy: 'cloudflare-only',
+      externalApiKeysRequired: false,
+      message: connected
+        ? 'OVYX AI is connected to Cloudflare Workers AI.'
+        : 'OVYX is waiting for its Cloudflare Workers AI binding named AI.',
+    });
   } catch (error) {
-    return availabilityError(
-      error?.status || 500,
-      error?.code || 'PROVIDER_AVAILABILITY_FAILED',
-      error?.message || 'Provider availability could not be checked.',
-      id,
-    );
+    return response(id, {
+      ok: false,
+      error: error?.code || 'PROVIDER_AVAILABILITY_FAILED',
+      message: error?.message || 'Cloudflare AI availability could not be checked.',
+    }, error?.status || 500);
   }
 }
 
 export async function onRequest(context) {
   if (context.request.method === 'GET') return onRequestGet(context);
-  return availabilityError(
-    405,
-    'METHOD_NOT_ALLOWED',
-    'GET is required.',
-    requestId(context.request),
-  );
+  return response(requestId(context.request), {
+    ok: false,
+    error: 'METHOD_NOT_ALLOWED',
+    message: 'GET is required.',
+  }, 405);
 }

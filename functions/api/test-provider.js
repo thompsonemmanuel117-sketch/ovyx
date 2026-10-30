@@ -1,30 +1,8 @@
-import { isCloudflareFreeOnlyMode } from '../_lib/cloudflare-free-ai.js';
-'use strict';
-
 import { assertAuthenticated } from '../_lib/firebase.js';
+import { withCloudflareAIOnly, OVYX_CLOUDFLARE_ONLY_PROVIDER } from '../_lib/cloudflare-routing.js';
 import { errorResponse, requestId, readJson } from './_lib/http.js';
 
 const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
-const PROVIDERS = {
-  gemini: { env: 'GEMINI_API_KEY', label: 'Gemini', url: key => `https://generativelanguage.googleapis.com/v1beta/models?pageSize=1&key=${encodeURIComponent(key)}` },
-  deepseek: { env: 'DEEPSEEK_API_KEY', label: 'DeepSeek', url: () => 'https://api.deepseek.com/models', headers: key => ({ Authorization: `Bearer ${key}` }) },
-  openai: { env: 'OPENAI_API_KEY', label: 'OpenAI', url: () => 'https://api.openai.com/v1/models', headers: key => ({ Authorization: `Bearer ${key}` }) },
-  anthropic: { env: 'ANTHROPIC_API_KEY', label: 'Anthropic', url: () => 'https://api.anthropic.com/v1/models', headers: key => ({ 'x-api-key': key, 'anthropic-version': '2023-06-01' }) },
-};
-
-async function checkedFetch(url, init = {}, ms = 6000) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), ms);
-  try {
-    return await fetch(url, {
-      ...init,
-      method: 'GET',
-      signal: controller.signal,
-    });
-  } finally {
-    clearTimeout(timer);
-  }
-}
 
 function authorized(user) {
   const email = String(user?.email || '').trim().toLowerCase();
@@ -37,94 +15,55 @@ function authorized(user) {
 
 export async function onRequest(context) {
   const id = requestId(context.request);
-
   try {
     const user = assertAuthenticated(context.data?.user);
     if (!authorized(user)) {
       return errorResponse(403, 'ADMIN_REQUIRED', 'Admin authorization is required.', id);
     }
-    if (isCloudflareFreeOnlyMode(context.env)) {
-      return errorResponse(409, 'PROVIDER_TESTS_DISABLED_IN_FREE_ONLY_MODE', 'OVYX uses Cloudflare AI only in this mode. Third-party provider checks are disabled.', id);
+    if (!['GET', 'POST'].includes(context.request.method)) {
+      return errorResponse(405, 'METHOD_NOT_ALLOWED', 'GET or POST is required.', id);
     }
 
-    const url = new URL(context.request.url);
-    let provider = String(url.searchParams.get('provider') || '').trim().toLowerCase();
-    if (context.request.method === 'POST') {
+    let requested = 'automatic';
+    if (context.request.method === 'GET') {
+      requested = String(new URL(context.request.url).searchParams.get('provider') || 'automatic').trim().toLowerCase();
+    } else {
       const body = await readJson(context.request, 16 * 1024);
-      provider = String(body?.provider || body?.context?.provider || provider).trim().toLowerCase();
-    }
-    if (provider === 'claude') provider = 'anthropic';
-
-    const config = PROVIDERS[provider];
-    if (!config) {
-      return errorResponse(400, 'PROVIDER_REQUIRED', 'Choose one of the supported AI options.', id);
+      requested = String(body?.provider || body?.context?.provider || 'automatic').trim().toLowerCase();
     }
 
-    const key = String(context.env?.[config.env] || '').trim();
-
-    if (!key) {
-      return Response.json({
-        ok: false,
-        provider,
-        label: config.label,
-        status: 'NOT_CONFIGURED',
-        configured: false,
-        connected: false,
-      }, {
-        status: 200,
-        headers: { 'Cache-Control': 'no-store', 'X-OVYX-Request-ID': id },
-      });
+    const allowed = ['', 'automatic', 'cloudflare', 'cloudflare-workers-ai', 'workers-ai', 'ovyx-native'];
+    if (!allowed.includes(requested)) {
+      return errorResponse(409, 'AI_PROVIDER_DISABLED',
+        'OVYX uses Cloudflare Workers AI as its only AI model provider. Third-party provider tests are disabled.', id);
     }
 
-    try {
-      const response = await checkedFetch(
-        config.url(key),
-        {
-          headers: {
-            Accept: 'application/json',
-            ...(config.headers?.(key) || {}),
-          },
-        },
-      );
-
-      return Response.json({
-        ok: response.ok,
-        provider,
-        label: config.label,
-        status: response.ok
-          ? 'READY'
-          : response.status === 401 || response.status === 403
-            ? 'AUTH_FAILED'
-            : 'UNAVAILABLE',
-        configured: true,
-        connected: response.ok,
-        httpStatus: response.status,
-        checkedAt: new Date().toISOString(),
-      }, {
-        status: 200,
-        headers: { 'Cache-Control': 'no-store', 'X-OVYX-Request-ID': id },
-      });
-    } catch (error) {
-      return Response.json({
-        ok: false,
-        provider,
-        label: config.label,
-        status: error?.name === 'AbortError' ? 'TIMEOUT' : 'UNAVAILABLE',
-        configured: true,
-        connected: false,
-        error: String(error?.message || error).slice(0, 240),
-      }, {
-        status: 200,
-        headers: { 'Cache-Control': 'no-store', 'X-OVYX-Request-ID': id },
-      });
-    }
+    const env = withCloudflareAIOnly(context.env);
+    const connected = Boolean(env.AI && typeof env.AI.run === 'function');
+    return Response.json({
+      ok: connected,
+      provider: OVYX_CLOUDFLARE_ONLY_PROVIDER,
+      label: 'Cloudflare Workers AI',
+      status: connected ? 'READY' : 'NOT_CONFIGURED',
+      configured: connected,
+      connected,
+      engineMode: env.OVYX_AI_ENGINE_MODE,
+      routingPolicy: 'cloudflare-only',
+      externalApiKeysRequired: false,
+      checkedAt: new Date().toISOString(),
+      message: connected
+        ? 'The Cloudflare Workers AI binding is present. This check does not spend inference quota.'
+        : 'The Cloudflare Workers AI binding named AI is missing from this deployment.',
+    }, {
+      status: 200,
+      headers: { 'Cache-Control': 'no-store, max-age=0', 'X-OVYX-Request-ID': id },
+    });
   } catch (error) {
     return errorResponse(
       error?.status || 500,
       error?.code || 'TEST_PROVIDER_FAILED',
-      error?.message || 'Provider test failed.',
+      error?.message || 'Cloudflare AI binding check failed.',
       id,
     );
   }
 }
-

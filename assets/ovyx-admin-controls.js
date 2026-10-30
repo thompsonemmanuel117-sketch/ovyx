@@ -5,14 +5,7 @@
   window.__OVYX_GLOBAL_OWNER_CONTROLS__ = true;
 
   const ROOT_EMAIL = 'ovyxsupportteam@gmail.com';
-  const PROVIDERS = [
-    { id: 'gemini', label: 'Google Gemini' },
-    { id: 'deepseek', label: 'DeepSeek' },
-    { id: 'claude', label: 'Anthropic Claude' },
-    { id: 'openai', label: 'OpenAI' },
-    { id: 'groq', label: 'Groq' },
-    { id: 'openrouter', label: 'OpenRouter' }
-  ];
+  const OVYX_MODEL_PROVIDER = Object.freeze({ id: 'cloudflare-workers-ai', label: 'Cloudflare Workers AI' });
   const PLAN_FEATURES = [
     { id: 'webStudio', label: 'Web Studio' },
     { id: 'advancedWebStudio', label: 'Advanced Web Studio' },
@@ -689,97 +682,61 @@
     }
   }
 
-  let latestAIConfig = null;
   function mountBrainControls() {
     const view = $('view-admin-brain');
     if (!view || !owner()) return;
-    const host = panel(view, 'ovyx-global-ai-routing', 'AI selection preferences',
-      'Set the preferred order for AI options used by OVYX Auto. Explicit choices for an individual request and users’ own connected options take priority.',
-      '<div id="ovyx-global-ai-priority-rows"></div><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px"><button type="button" class="ovyx-owner-live-button" id="ovyx-global-ai-route-save">Save AI selection order</button><button type="button" class="ovyx-owner-live-button" id="ovyx-global-ai-status-refresh">Check AI availability</button></div><div id="ovyx-global-ai-route-status" class="ovyx-owner-live-status">Loading AI selection preferences…</div><div id="ovyx-global-ai-provider-status-note" class="ovyx-owner-live-status" aria-live="polite">AI availability has not been checked yet.</div><div id="ovyx-global-ai-provider-status" class="ovyx-owner-live-grid" style="margin-top:10px"></div>');
+    const host = panel(
+      view,
+      'ovyx-global-ai-routing',
+      'OVYX AI model engine',
+      'Cloudflare Workers AI is OVYX’s only model provider. External AI provider selection and fallback are disabled.',
+      '<div class="ovyx-owner-live-grid" id="ovyx-global-ai-provider-status"></div>' +
+      '<div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">' +
+      '<button type="button" class="ovyx-owner-live-button" id="ovyx-global-ai-status-refresh">Check Cloudflare AI</button></div>' +
+      '<div id="ovyx-global-ai-provider-status-note" class="ovyx-owner-live-status" aria-live="polite">Cloudflare AI binding has not been checked yet.</div>'
+    );
     if (host.dataset.bound === '1') return;
     host.dataset.bound = '1';
-    const rows = $('ovyx-global-ai-priority-rows');
-    PROVIDERS.forEach(provider => {
-      const line = document.createElement('label');
-      line.className = 'ovyx-owner-provider-row';
-      const title = document.createElement('span');
-      title.className = 'ovyx-owner-live-field';
-      title.textContent = provider.label;
-      const select = document.createElement('select');
-      select.className = 'ovyx-owner-live-select';
-      select.dataset.providerPriority = provider.id;
-      for (let n = 1; n <= PROVIDERS.length; n++) {
-        const option = document.createElement('option'); option.value = String(n); option.textContent = 'Priority ' + n; select.appendChild(option);
-      }
-      line.append(title, select); rows.appendChild(line);
-    });
-    $('ovyx-global-ai-route-save')?.addEventListener('click', saveAIProviderOrder);
     $('ovyx-global-ai-status-refresh')?.addEventListener('click', loadProviderStatus);
-    loadAIProviderOrder();
-  }
-
-  async function loadAIProviderOrder() {
-    const status = $('ovyx-global-ai-route-status');
-    try {
-      const result = await api('/api/admin/ai-config');
-      latestAIConfig = result.data.config || {};
-      const order = Array.isArray(latestAIConfig.providerOrder) ? latestAIConfig.providerOrder : PROVIDERS.map(item => item.id);
-      PROVIDERS.forEach(item => {
-        const select = document.querySelector('[data-provider-priority="' + item.id + '"]');
-        if (select) select.value = String(Math.max(1, order.indexOf(item.id) + 1));
-      });
-      statusText(status, 'AI selection order: ' + order.join(' → '), 'ok');
-      await loadProviderStatus();
-    } catch (error) {
-      statusText(status, 'AI selection settings could not be loaded. Please try again.', 'error');
-    }
-  }
-
-  async function saveAIProviderOrder() {
-    const status = $('ovyx-global-ai-route-status');
-    const button = $('ovyx-global-ai-route-save');
-    if (button) button.disabled = true;
-    try {
-      const order = PROVIDERS.map(item => ({
-        id: item.id,
-        priority: Number(document.querySelector('[data-provider-priority="' + item.id + '"]')?.value || 99)
-      })).sort((a, b) => a.priority - b.priority).map(item => item.id);
-      const result = await api('/api/admin/ai-config', { method: 'POST', body: JSON.stringify({ providerOrder: order }) });
-      latestAIConfig = result.data.config;
-      statusText(status, 'AI selection preferences saved: ' + latestAIConfig.providerOrder.join(' → ') + '. OVYX Auto will follow this order when choosing an AI option.', 'ok');
-      notify('Global AI selection order saved.', 'success');
-    } catch (error) {
-      statusText(status, 'AI selection preferences could not be saved. Please try again.', 'error');
-    } finally { if (button) button.disabled = false; }
+    void loadProviderStatus();
   }
 
   async function loadProviderStatus() {
     const grid = $('ovyx-global-ai-provider-status');
     if (!grid) return;
     grid.replaceChildren();
-    statusText($('ovyx-global-ai-provider-status-note'), 'Checking AI availability…');
+    const note = $('ovyx-global-ai-provider-status-note');
+    statusText(note, 'Checking Cloudflare Workers AI binding…');
     const result = await timedRequest('/api/ai/status', true);
     if (!result.ok) {
-      statusText($('ovyx-global-ai-provider-status-note'), 'AI availability could not be checked right now. Please try again.', 'error');
+      statusText(note, 'Cloudflare AI availability could not be checked right now. Please try again.', 'error');
       return;
     }
-    const entries = (Array.isArray(result.data.providers) ? result.data.providers : []).concat(Array.isArray(result.data.additionalProviders) ? result.data.additionalProviders : []);
-    entries.forEach(item => {
-      const card = document.createElement('div'); card.className = 'ovyx-owner-live-card';
-      const label = document.createElement('div'); label.className = 'ovyx-owner-live-label'; label.textContent = String(item.label || item.provider || item.name || 'AI option');
-      const value = document.createElement('div'); value.className = 'ovyx-owner-live-value';
-      value.textContent = item.connected === true ? 'Ready' : (item.configured === true ? 'Check failed' : 'Setup required');
-      value.style.color = item.connected === true ? '#86efac' : (item.configured === true ? '#fcd34d' : '#fca5a5');
-      const detail = document.createElement('div'); detail.className = 'ovyx-owner-live-detail';
-      detail.textContent = item.connected ? 'Ready to handle AI requests.' : (item.configured ? 'This option needs attention.' : 'Setup is required before use.');
-      card.append(label, value, detail); grid.appendChild(card);
-    });
-    const cf = result.data.cloudflare || {};
-    const cfCard = document.createElement('div'); cfCard.className = 'ovyx-owner-live-card';
-    cfCard.innerHTML = '<div class="ovyx-owner-live-label">Native AI service</div><div class="ovyx-owner-live-value">' + (cf.workersAiBinding ? 'Available' : 'Setup required') + '</div><div class="ovyx-owner-live-detail">Setup is present, but this check does not run an AI request.</div>';
-    grid.appendChild(cfCard);
-    const activeOrder = Array.isArray(latestAIConfig?.providerOrder) ? latestAIConfig.providerOrder : [];
-    statusText($('ovyx-global-ai-provider-status-note'), 'AI availability check completed in ' + result.duration + ' ms.', 'ok');
+
+    const entries = Array.isArray(result.data?.providers) ? result.data.providers : [];
+    const engine = entries.find(item => item.provider === OVYX_MODEL_PROVIDER.id);
+    if (!engine) {
+      statusText(note, 'The server did not return the Cloudflare Workers AI status.', 'error');
+      return;
+    }
+
+    const card = document.createElement('div');
+    card.className = 'ovyx-owner-live-card';
+    const label = document.createElement('div');
+    label.className = 'ovyx-owner-live-label';
+    label.textContent = OVYX_MODEL_PROVIDER.label;
+    const value = document.createElement('div');
+    value.className = 'ovyx-owner-live-value';
+    value.textContent = engine.connected === true ? 'Ready' : 'Binding missing';
+    value.style.color = engine.connected === true ? '#86efac' : '#fca5a5';
+    const detail = document.createElement('div');
+    detail.className = 'ovyx-owner-live-detail';
+    detail.textContent = engine.connected === true
+      ? 'Cloudflare Pages Workers AI binding AI is present. Actual inference is still subject to the guarded user and daily budgets.'
+      : 'Configure the Cloudflare Pages Workers AI binding named AI and redeploy. OVYX will not switch to another model provider.';
+    card.append(label, value, detail);
+    grid.appendChild(card);
+    statusText(note, 'Cloudflare AI binding check completed in ' + result.duration + ' ms.', 'ok');
   }
 
   async function runLiveOverview() {
@@ -893,17 +850,15 @@
     card('Website service', health.ok ? 'Available' : 'Unavailable', health.ok ? 'Availability check completed in ' + health.duration + ' ms.' : 'The website service could not be reached.', health.ok ? '#86efac' : '#fca5a5');
     card('Account access', auth.ok ? 'Available' : 'Unavailable', auth.ok ? 'Owner access check completed in ' + auth.duration + ' ms.' : auth.error || 'Account access could not be verified.', auth.ok ? '#86efac' : '#fca5a5');
     if (ai.ok) {
-      const providers = (Array.isArray(ai.data.providers) ? ai.data.providers : []).concat(Array.isArray(ai.data.additionalProviders) ? ai.data.additionalProviders : []);
-      providers.forEach(item => {
-        const ready = item.connected === true;
-        const configured = item.configured === true;
-        card(String(item.label || item.provider || item.name || 'AI option'),
-          ready ? 'Ready' : (configured ? 'Check failed' : 'Setup required'),
-          'Availability check completed in ' + ai.duration + ' ms. ' + (ready ? 'Ready to handle AI requests.' : configured ? 'This option needs attention.' : 'Setup is required before use.'),
-          ready ? '#86efac' : (configured ? '#fcd34d' : '#fca5a5'));
-      });
-      card('Native AI service', ai.data.cloudflare?.workersAiBinding ? 'Setup detected' : 'Setup required',
-        'Setup status only; this check does not run an AI request.', ai.data.cloudflare?.workersAiBinding ? '#fcd34d' : '#fca5a5');
+      const engine = (Array.isArray(ai.data.providers) ? ai.data.providers : [])
+        .find(item => item.provider === OVYX_MODEL_PROVIDER.id);
+      const ready = engine?.connected === true && ai.data.cloudflare?.workersAiBinding === true;
+      card(OVYX_MODEL_PROVIDER.label,
+        ready ? 'Ready' : 'Setup required',
+        ready
+          ? 'Cloudflare Workers AI binding is present. This status check does not run an inference request.'
+          : 'Configure the Cloudflare Pages Workers AI binding named AI. No external provider will be used.',
+        ready ? '#86efac' : '#fca5a5');
     } else {
       card('AI service status', 'Unavailable', ai.error || ('The AI availability check could not be completed.'), '#fca5a5');
     }

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { webcrypto } from 'node:crypto';
 import { onRequest } from '../functions/api/admin/sentinel-companion.js';
+import { OVYX_CLOUDFLARE_FREE_MODEL } from '../functions/_lib/cloudflare-free-ai.js';
 
 if (!globalThis.crypto) globalThis.crypto = webcrypto;
 
@@ -136,7 +137,7 @@ try {
 
   {
     const secret = 'sk-test-NEVER-ECHO-this-private-string';
-    const response = await onRequest(makeContext('POST', {
+    const context = makeContext('POST', {
       token: rootToken,
       body: {
         action: 'chat',
@@ -150,12 +151,29 @@ try {
           finishedAt: new Date().toISOString(),
           criticalCount: 0,
           warningCount: 1,
-          checks: [{ path: 'Gemini', status: 'fail', code: 'PROVIDER_AUTH_FAILED', summary: 'Gemini rejected the credential.' }],
+          checks: [{ path: 'Cloudflare Workers AI', status: 'fail', code: 'CLOUDFLARE_AI_UNAVAILABLE', summary: 'Cloudflare AI is temporarily unavailable.' }],
         },
       },
-    }));
+    });
+    context.__ovyxTestDependencies = {
+      // Mock the shared model boundary so this unit test never reads the
+      // protected daily neuron ledger or spends real Cloudflare inference.
+      callModel: async (_env, options) => {
+        aiCalls.push({
+          model: OVYX_CLOUDFLARE_FREE_MODEL,
+          input: { messages: [{ role: 'system', content: options.system }, { role: 'user', content: options.user }] },
+          options,
+        });
+        return {
+          text: 'Welcome back. I am here to help you with OVYX.',
+          provider: 'cloudflare-workers-ai',
+          routedProvider: 'cloudflare-workers-ai',
+        };
+      },
+    };
+    const response = await onRequest(context);
     const body = await response.json();
-    assert.equal(response.status, 200);
+    assert.equal(response.status, 200, JSON.stringify({ body, modelCalls: aiCalls.length }));
     assert.equal(body.ok, true);
     assert.match(body.text, /welcome back/i);
     assert.equal(body.historySaved, false, 'chat must not be persisted server-side');

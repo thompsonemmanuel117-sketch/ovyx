@@ -214,10 +214,11 @@ export function publicConnection(record, id) {
   copy.healthUrl = redactSensitiveEndpoint(copy.healthUrl);
   copy.hasSecret = !!record?.encryptedSecret;
   copy.requiresSecret = copy.authMode !== 'none';
-  const supportsAI = AI_PROTOCOLS.has(clean(copy.protocol, 40).toLowerCase());
+  // AI protocols may remain on legacy encrypted records for migration
+  // visibility, but this release never exposes them as assignable model engines.
   copy.capabilities = {
-    canUseAsBrain: copy.active === true && supportsAI,
-    canUseForWebStudio: copy.active === true && supportsAI,
+    canUseAsBrain: false,
+    canUseForWebStudio: false,
   };
   return copy;
 }
@@ -240,6 +241,12 @@ export async function buildConnectionRecord(env, body, owner, existing = {}) {
   }
 
   const protocol = normalizeProtocol(body?.protocol || existing?.protocol, type);
+  if (type === 'ai' || AI_PROTOCOLS.has(protocol)) {
+    throw Object.assign(
+      new Error('OVYX uses Cloudflare Workers AI as its only model provider. External AI Brain connections cannot be created or updated.'),
+      { status: 409, code: 'AI_PROVIDER_DISABLED' }
+    );
+  }
   const authMode = normalizeAuthMode(body?.authMode || existing?.authMode);
   const requireHttps = authMode !== 'none' || AI_PROTOCOLS.has(protocol);
   const endpoint = assertSafeUrl(body?.endpoint || existing?.endpoint, { requireHttps });
@@ -583,86 +590,32 @@ async function requestConnection(record, input, env) {
   }
 }
 
-export async function getActiveBrainConnectionId(env, user) {
-  const { uid } = ownerOf(user);
-  if (!uid) return null;
-  const profile = await getFirestoreDataAtPath(env, ['users', uid]);
-  const id = clean(profile?.activeBrainConnectionId, 100);
-  if (!id || !/^[A-Za-z0-9_-]{1,100}$/.test(id)) return null;
-  return id;
+export async function getActiveBrainConnectionId() {
+  // Retained as a compatibility export. External AI Brain routing is disabled.
+  return null;
 }
 
-export async function getActiveWebStudioConnectionId(env, user) {
-  const { uid } = ownerOf(user);
-  if (!uid) return null;
-  const profile = await getFirestoreDataAtPath(env, ['users', uid]);
-  const id = clean(profile?.activeWebStudioConnectionId, 100);
-  if (!id || !/^[A-Za-z0-9_-]{1,100}$/.test(id)) return null;
-  return id;
+export async function getActiveWebStudioConnectionId() {
+  // Retained as a compatibility export. Web Studio uses the platform Cloudflare engine.
+  return null;
 }
 
-export async function callUserUniversalConnection(
-  env,
-  { connectionId, authUser, system, user, model, maxTokens, requireAIProtocol = true }
-) {
-  const { record, id } = await getConnection(env, authUser, connectionId);
-
-  if (!['ai', 'http', 'tool', 'database', 'webhook'].includes(record.type)) {
-    throw Object.assign(
-      new Error('This Universal Connection type cannot act as an AI Brain.'),
-      { status: 400, code: 'CONNECTION_NOT_AI_CAPABLE' }
-    );
-  }
-  if (requireAIProtocol && !supportsAIProtocol(record.protocol)) {
-    throw Object.assign(
-      new Error('Choose an active Universal Connection using a supported AI chat protocol.'),
-      { status: 409, code: 'CONNECTION_NOT_AI_CAPABLE' }
-    );
-  }
-
-  const messages = [];
-  if (clean(system)) {
-    messages.push({
-      role: 'system',
-      content: clean(system, 40_000)
-    });
-  }
-  messages.push({
-    role: 'user',
-    content: clean(user, 50_000)
-  });
-
-  const result = await requestConnection(
-    record,
-    {
-      messages,
-      prompt: user,
-      system,
-      model,
-      maxTokens
-    },
-    env
+export async function callUserUniversalConnection() {
+  // Fail before reading saved credentials or contacting the connection endpoint.
+  throw Object.assign(
+    new Error('OVYX uses Cloudflare Workers AI as its only model provider. Saved external AI Brain connections cannot be called.'),
+    { status: 409, code: 'AI_PROVIDER_DISABLED' }
   );
-
-  if (!result.text && supportsAIProtocol(record.protocol)) {
-    throw Object.assign(
-      new Error('Universal Connection returned no text content.'),
-      { status: 502, code: 'CONNECTION_EMPTY_RESPONSE' }
-    );
-  }
-
-  return {
-    provider: 'connection:' + id,
-    routedProvider: 'universal-connection',
-    model: resolveConnectionModel(record, model) || null,
-    text: result.text || (typeof result.data === 'string' ? result.data : JSON.stringify(result.data)),
-    raw: result.data,
-    rawUsage: result.data?.usage || null
-  };
 }
 
 export async function testUserConnection(env, user, id) {
   const { record } = await getConnection(env, user, id, { requireActive: false });
+  if (supportsAIProtocol(record.protocol)) {
+    throw Object.assign(
+      new Error('OVYX uses Cloudflare Workers AI only. Saved external AI credentials are preserved but are not tested or called.'),
+      { status: 409, code: 'AI_PROVIDER_DISABLED' }
+    );
+  }
   const started = Date.now();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 8000);

@@ -25,22 +25,21 @@ Web Studio and App Studio generation still use their separate workflows. Selecti
 
 `GET /api/ai/readiness` requires a signed-in user and returns only a safe readiness state:
 
-- a selected account AI Brain was found;
-- the Cloudflare Workers AI binding is configured;
-- setup is missing; or
-- the selection could not be checked.
+- the Cloudflare Workers AI binding is configured; or
+- the binding is missing and platform-admin setup is required.
 
-The route does **not** call the AI model, test a user's credential, return a connection ID, read or return secret values, or spend usage. The UI intentionally says **“configured — not live-tested”**. A real request can still fail because of an exhausted allowance, inactive connection, temporary upstream issue, or bad configuration. That distinction avoids a false “Ready” promise.
+The route does **not** query saved personal AI Brain connections, call the AI model, test a credential, return a connection ID, read or return secret values, or spend usage. Legacy external AI connection records cannot make OVYX look configured. The UI intentionally says **“Cloudflare AI configured — not live-tested”**. A real request can still fail because of an exhausted allowance, inactive connection, temporary upstream issue, or bad configuration. That distinction avoids a false “Ready” promise.
 
 The readiness card appears in AI Preferences, the Home composer shows a compact OVYX AI status chip, and the workspace assistant header shows the same status. It can be refreshed manually. It uses the existing Firebase session and same-origin endpoint with no caching.
 
 ### 3. Helpful recovery messages
 
-Ordinary assistant failures are mapped to plain-language guidance for common conditions: sign-in expiry, missing AI setup, an exhausted protected allowance, an unresponsive/invalid selected Brain, a timeout, a temporarily unavailable AI service, and missing feature access. The quota message explains that OVYX stopped instead of switching providers. The selected-Brain message explains how to test or clear the selection without silently substituting another provider.
+Ordinary assistant failures are mapped to plain-language guidance for common conditions: sign-in expiry, missing AI setup, an exhausted protected allowance, a timed-out request, a temporarily unavailable Cloudflare service, and missing feature access. The quota message explains that OVYX stopped instead of switching providers. Cloudflare service and quota failures are reported directly; no saved external AI Brain can be tested, selected, or used as a substitute.
 
 ### 4. Regression and safety boundaries
 
 - Existing plan entitlements, AI quota reservations/refunds, daily neuron ledger protections, and Stage 7 quota stop remain in place.
+- Cloudflare Workers AI is the only platform model provider across native chat, Web Studio, App Studio, Agent and automated repair. Personal/external AI Brain assignments are disabled; legacy encrypted records are retained but ignored. Non-AI HTTP, webhook, database and tool connections remain separate.
 - No external provider is automatically selected, no local model is introduced, and no quota is increased.
 - Readiness checks are configuration-only and must never be described as successful live inference.
 - The new tests assert the readiness endpoint is authenticated, no-inference, no-secret and no-store; verify mode-to-token-budget behavior; and protect the removal of confusing user-facing provider selectors.
@@ -54,10 +53,10 @@ Ordinary assistant failures are mapped to plain-language guidance for common con
 4. Select **OVYX Quick**, send the same short question, and confirm it returns a shorter answer. Select **OVYX Deep** and ask a multi-step question; confirm it has a larger response budget. These modes should not switch providers.
 5. Open the assistant and check the readiness badge. It must say **configured — not live-tested**, not promise that a live AI call succeeded.
 6. Click **Check again** in AI Preferences. Confirm the readiness check completes without charging tokens or invoking model inference.
-7. Test a no-AI-binding environment. The panel must say setup is needed and tell the user to contact the administrator/configure the engine.
-8. Test a simulated Firestore/selection lookup failure. The status must say it could not check the setup rather than claiming Cloudflare is ready.
-9. In a controlled test, simulate the selected Brain failing. Confirm OVYX explains how to test it and does not silently switch provider.
-10. In a controlled test, exhaust the AI allowance. Confirm OVYX shows a plain-language limit message and stops—no alternate-provider fallback.
+7. Test a no-AI-binding environment. The panel must say setup is needed and direct the user to the platform administrator; it must not invite a personal AI provider connection.
+8. With a legacy saved AI Brain record present, confirm readiness never queries it and still reports only the Cloudflare binding state.
+9. Confirm Universal Connections still supports non-AI HTTP, webhook, database and tool records, while legacy AI records cannot be tested or activated.
+10. In a controlled test, exhaust the Cloudflare AI allowance. Confirm OVYX shows a plain-language limit message and stops—no alternate-provider fallback.
 11. Confirm Web Studio and App Studio still generate through their own routes and retain existing validation, entitlement, quota, preview and repair controls.
 12. Run `npm test`, `npm run validate`, `npm run build`, and `npm run check` in CI. Live AI inference and deployed website acceptance must be reported separately from these automated tests.
 

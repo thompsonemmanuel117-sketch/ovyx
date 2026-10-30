@@ -10,6 +10,7 @@ const headers = fs.readFileSync('_headers', 'utf8');
 const index = fs.readFileSync('index.html', 'utf8');
 const feedbackApi = fs.readFileSync('functions/api/ai/feedback.js', 'utf8');
 const statusApi = fs.readFileSync('functions/api/ai/status.js', 'utf8');
+const cloudflareAi = fs.readFileSync('functions/_lib/cloudflare-free-ai.js', 'utf8');
 const assistantApi = fs.readFileSync('functions/api/ai/assistant.js', 'utf8');
 const researchApi = fs.readFileSync('functions/api/ai/web-search.js', 'utf8');
 const prompts = fs.readFileSync('functions/_lib/prompts.js', 'utf8');
@@ -52,8 +53,9 @@ assert.ok(index.includes("ovyxBuildState='verified'"), 'Web Studio must mark ver
 assert.ok(runtime.includes('function seedOnlyProject'), 'the generic generated seed page must be hidden until a real build exists');
 assert.ok(runtime.includes('Your existing preview remains unchanged'), 'a no-op AI build must keep the last preview unchanged');
 assert.ok(!feedbackApi.includes('body.prompt') && !feedbackApi.includes('body.responseText'), 'feedback records must not store prompts or response content');
-assert.ok(statusApi.includes("? 'RATE_LIMITED'") && statusApi.includes("? 'INSUFFICIENT_CREDITS'"), 'provider health should distinguish rate limits and credit exhaustion');
-assert.ok(statusApi.includes('Provider request timed out.'), 'provider health errors should avoid exposing exception details');
+assert.ok(statusApi.includes("routingPolicy: 'cloudflare-only'") && statusApi.includes('additionalProviders: []'), 'provider health must expose the single Cloudflare model engine and no external providers');
+assert.ok(cloudflareAi.includes("return fail(429, 'OVYX_AI_CLOUDFLARE_QUOTA_EXHAUSTED'") && cloudflareAi.includes("return fail(503, 'OVYX_AI_CLOUDFLARE_RATE_LIMITED'"), 'Cloudflare health errors must distinguish daily allocation exhaustion from temporary rate limiting');
+assert.ok(cloudflareAi.includes("return fail(504, 'OVYX_AI_TIMEOUT'") && cloudflareAi.includes('OVYX AI took too long to respond. Please try again.'), 'Cloudflare timeout errors must be mapped to a safe public message');
 
 
 

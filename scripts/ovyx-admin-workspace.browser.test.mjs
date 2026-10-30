@@ -223,17 +223,24 @@ try {
       '[' + target.name + '] Reset quota must call the server-owned quota action.');
     console.log('[' + target.name + '] Owner account plan and quota actions passed.');
 
-    // Confirm AI Brain routing writes are issued to the protected server API.
+    // Confirm the root admin UI reports its one supported model engine and
+    // does not expose a configurable third-party provider order.
     await hub.locator('[data-ovyx-admin-workspace-route="admin-brain"]').evaluate(button => button.click());
     await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-brain', null, { timeout: 15000 });
     await page.locator('#ovyx-global-ai-routing').waitFor({ state: 'attached' });
-    await page.waitForFunction(() => /AI selection order:/.test(document.getElementById('ovyx-global-ai-route-status')?.textContent || ''), null, { timeout: 20000 });
-    await page.locator('[data-provider-priority="openai"]').selectOption('1');
-    await page.locator('[data-provider-priority="gemini"]').selectOption('2');
-    await page.locator('#ovyx-global-ai-route-save').click();
-    await page.waitForFunction(() => /AI selection preferences saved/.test(document.getElementById('ovyx-global-ai-route-status')?.textContent || ''), null, { timeout: 20000 });
-    assert.ok(ownerApiWrites.some(item => item.path === '/api/admin/ai-config' && item.body.providerOrder?.[0] === 'openai'),
-      '[' + target.name + '] AI Brain provider order must be saved via the protected server route.');
+    await page.waitForFunction(() => /Cloudflare AI binding check completed/.test(document.getElementById('ovyx-global-ai-provider-status-note')?.textContent || ''), null, { timeout: 20000 });
+    assert.match(await page.locator('#ovyx-global-ai-provider-status').innerText(), /Cloudflare Workers AI[\s\S]*Ready/i,
+      '[' + target.name + '] the admin AI panel must show Cloudflare Workers AI as ready.');
+    assert.equal(await page.locator('[data-provider-priority]').count(), 0,
+      '[' + target.name + '] the admin UI must not offer third-party provider priority controls.');
+    const cloudflareCheck = page.waitForRequest(request => {
+      if (request.method() !== 'GET') return false;
+      try { return new URL(request.url()).pathname === '/api/ai/status'; } catch { return false; }
+    }, { timeout: 20000 });
+    await page.locator('#ovyx-global-ai-status-refresh').click();
+    await cloudflareCheck;
+    assert.equal(ownerApiWrites.some(item => item.path === '/api/admin/ai-config'), false,
+      '[' + target.name + '] no provider-order writes should be issued under Cloudflare-only routing.');
 
     // Confirm overview, backend and telemetry use live HTTP response measurements.
     await hub.locator('[data-ovyx-admin-workspace-route="admin-overview"]').evaluate(button => button.click());
