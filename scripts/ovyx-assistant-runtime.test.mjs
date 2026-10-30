@@ -28,7 +28,9 @@ assert.match(source, /No source changes have been applied/);
 assert.match(source, /do not say the workspace context is unavailable/i);
 assert.match(source, /\/api\/ai\/ovyx/);
 assert.match(source, /Sign in required/);
-assert.match(native, /env\.AI\.run/);
+assert.match(native, /runCloudflareFreeInference/);
+assert.match(native, /withCloudflareAIOnly\(env\)/);
+assert.doesNotMatch(native, /callUserUniversalConnection|selectedBrain/);
 assert.match(native, /No Gemini\/OpenAI\/Anthropic\/DeepSeek API key is used/);
 
 assert.match(source, /function snapshotAssets\(\.\.\.sources\)/);
