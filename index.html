@@ -13240,22 +13240,65 @@ window.OVYXWebStudioNavigation.bind();
     window.__OVYX_AUTH_STATE_READY__=false;
     authStateReady=false;
     try{
-      if(window.__OVYX_FIREBASE_READY_PROMISE__){
+      const authSdkReady=window.__OVYX_FIREBASE_AUTH_READY_PROMISE__||window.__OVYX_FIREBASE_READY_PROMISE__;
+      if(authSdkReady){
+        // firebase-app-compat (6s) and firebase-auth-compat (6s) load in
+        // sequence. Waiting 9s for all Firebase SDKs could exit before Auth
+        // itself was available.
         await Promise.race([
-          window.__OVYX_FIREBASE_READY_PROMISE__,
-          new Promise(resolve=>setTimeout(resolve,9000))
+          authSdkReady,
+          new Promise(resolve=>setTimeout(resolve,13000))
         ]);
       }
     }catch(_){}
     wireButtons();
     wrapRouter();
-    const a=auth();if(!a){setLiveState(false);openAuth();return}
+    const a=auth();
+    if(!a){
+      setLiveState(false);
+      // A transient third-party SDK failure must not become a full-screen
+      // sign-in trap. Keep navigation usable and retry if the Auth SDK arrives.
+      status('The secure account service is temporarily unavailable. The dashboard remains available; reconnect and refresh before using account features.','error');
+      window.__OVYX_AUTH_BOOT_V4__=false;
+      return;
+    }
+    // Observe Firebase's restored persisted-session state before optional
+    // persistence/redirect work. The full listener below still performs
+    // workspace activation and emits the normal auth-ready event.
+    let initialAuthStateObserved=false;
+    let stopInitialAuthObserver=null;
+    try{
+      stopInitialAuthObserver=a.onAuthStateChanged(function initialAuthStateReady(){
+        if(initialAuthStateObserved)return;
+        initialAuthStateObserved=true;
+        authStateReady=true;
+        window.__OVYX_AUTH_STATE_READY__=true;
+        try{stopInitialAuthObserver?.()}catch(_){}
+      },function(error){
+        console.warn('[OVYX auth initial readiness]',error?.message||error);
+      });
+      if(initialAuthStateObserved)try{stopInitialAuthObserver?.()}catch(_){}
+    }catch(error){
+      console.warn('[OVYX auth initial readiness observer]',error?.message||error);
+    }
+    const withAuthDeadline=(work,label,timeoutMs)=>{
+      let timer=0;
+      const deadline=new Promise((resolve,reject)=>{
+        timer=setTimeout(()=>reject(new Error(label+' timed out after '+timeoutMs+'ms.')),timeoutMs);
+      });
+      return Promise.race([Promise.resolve().then(work),deadline]).finally(()=>clearTimeout(timer));
+    };
     try{
       const persistence=window.firebase?.auth?.Auth?.Persistence?.LOCAL;
-      if(persistence&&typeof a.setPersistence==='function')await a.setPersistence(persistence);
+      if(persistence&&typeof a.setPersistence==='function'){
+        await withAuthDeadline(()=>a.setPersistence(persistence),'Firebase persistence setup',2500);
+      }
     }catch(error){console.warn('[OVYX auth persistence]',error?.message||error)}
     try{
-      const redirectCredential=await a.getRedirectResult?.();
+      // Redirect sign-in is not an active OVYX login path (OAuth uses popup and
+      // has its own registration check). Bound this legacy result check so it
+      // cannot prevent the main auth-state listener from being installed.
+      const redirectCredential=await withAuthDeadline(()=>a.getRedirectResult?.(),'Firebase redirect-result check',3500);
       if(redirectCredential?.user){
         let redirectProviderName='Google/GitHub';
         try{
@@ -13307,6 +13350,7 @@ window.OVYXWebStudioNavigation.bind();
       }
       window.dispatchEvent(new CustomEvent('firebase-auth-state-ready',{detail:{user:u}}));
     });
+    window.__OVYX_AUTH_BOOT_COMPLETE__=true;
     a.onIdTokenChanged?.(async u=>{
       if(!u){setLiveState(false);clearActivation();return}
       try{await u.getIdToken(false)}catch(_){try{await u.getIdToken(true)}catch(__){console.warn('[OVYX auth token refresh] temporary refresh failure')}}
@@ -13315,6 +13359,12 @@ window.OVYXWebStudioNavigation.bind();
     /* Final auth authority owns guest routing/UI; Firebase owns persisted session state. */
   }
   window.OVYXMasterAuth={activateWorkspace,signIn,createAccount,popupSignIn,openAuth,lockWorkspace:openAuth,refreshExpiredSession:async()=>{const u=user();if(!u)return false;await u.getIdToken(true);await activateWorkspace(u,true);return true}};
+  window.addEventListener('ovyx:firebase-auth-sdk-ready',function(event){
+    if(event.detail?.ready===true&&!window.__OVYX_AUTH_BOOT_COMPLETE__){
+      window.__OVYX_AUTH_BOOT_V4__=false;
+      boot();
+    }
+  },{passive:true});
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',boot,{once:true});else boot();
   window.addEventListener('ovyx:firebase-ready',()=>{try{wireButtons();updateAuthAction(user())}catch(_){}},{passive:true});
 })();</script>
@@ -13523,6 +13573,10 @@ function installAuthMode(){
 }
 function requireAuth(label){
   if(currentUser())return true;
+  if(window.__OVYX_FIREBASE_AUTH_READY__===false){
+    notify('OVYX account services are temporarily unavailable. Check your connection and refresh to retry.','warning');
+    return false;
+  }
   if(window.__OVYX_AUTH_STATE_READY__!==true){
     notify('Restoring your secure OVYX session…','info');
     return false;
@@ -14472,6 +14526,10 @@ function installExploreGuard(){
  window.addEventListener('firebase-auth-state-ready',release,{passive:true});
  document.addEventListener('click',e=>{
   if(user())return;
+  if(window.__OVYX_FIREBASE_AUTH_READY__===false){
+    toast('OVYX account services are temporarily unavailable. Check your connection and refresh to retry.','warning');
+    return;
+  }
   const target=e.target;
   const authSurface=target?.closest?.('#view-master-auth,#ovyx-master-auth-form,#ovyx-auth-google-btn,#ovyx-auth-github-btn,#ovyx-auth-create');
   if(authSurface)return;
@@ -14680,12 +14738,24 @@ function installWebStudioSurface(){
   window.OVYXFirebaseConfig=config;
   var resolveReady;
   window.__OVYX_FIREBASE_READY_PROMISE__=new Promise(function(resolve){resolveReady=resolve;});
+  var resolveAuthReady;
+  window.__OVYX_FIREBASE_AUTH_READY_PROMISE__=new Promise(function(resolve){resolveAuthReady=resolve;});
+  var authResolved=false;
+  function finishAuthReady(ok,error){
+    if(authResolved)return;
+    authResolved=true;
+    window.__OVYX_FIREBASE_AUTH_READY__=!!ok;
+    window.__OVYX_FIREBASE_AUTH_READY_ERROR__=error||null;
+    try{resolveAuthReady(!!ok)}catch(e){}
+    try{window.dispatchEvent(new CustomEvent('ovyx:firebase-auth-sdk-ready',{detail:{ready:!!ok,error:error||null}}))}catch(e){}
+  }
   var resolved=false;
   function finish(ok,error){
     if(resolved)return;
     resolved=true;
     window.__OVYX_FIREBASE_READY__=!!ok;
     window.__OVYX_FIREBASE_READY_ERROR__=error||null;
+    if(!authResolved)finishAuthReady(!!ok,error);
     try{resolveReady(!!ok)}catch(e){}
     try{window.dispatchEvent(new CustomEvent('ovyx:firebase-ready',{detail:{ready:!!ok,error:error||null}}))}catch(e){}
   }
@@ -14717,15 +14787,22 @@ function installWebStudioSurface(){
         throw new Error('The account service could not start. Refresh the page and try again.');
       }
       if(!firebase.apps||!firebase.apps.length)firebase.initializeApp(config);
-      await Promise.all([
-        load(base+'firebase-auth-compat.js',6000),
+      // Auth has its own readiness signal. The dashboard must not wait for
+      // Firestore and Storage downloads before it can restore a user session.
+      var authLoad=load(base+'firebase-auth-compat.js',6000);
+      var auxiliaryLoads=Promise.all([
         load(base+'firebase-firestore-compat.js',6000),
         load(base+'firebase-storage-compat.js',6000)
-      ]);
+      ]).then(function(){return null},function(error){return error});
+      await authLoad;
       if(typeof firebase.auth!=='function')throw new Error('The authentication service could not start. Refresh the page and try again.');
+      finishAuthReady(true);
+      var auxiliaryError=await auxiliaryLoads;
+      if(auxiliaryError)throw auxiliaryError;
       finish(true);
     }catch(error){
       console.warn('[OVYX Firebase] Cloud SDK unavailable; the application remains usable without pretending authentication is active.',error);
+      finishAuthReady(false,error);
       finish(false,error);
     }
   })();
