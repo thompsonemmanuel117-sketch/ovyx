@@ -5898,9 +5898,6 @@ function mount(view,opts){
  try{if(active==='projects')window.ProjectStore?.renderProjects?.()}catch(e){console.warn('[OVYX] Projects render failed',e)}
  try{if(active==='templates')window.TemplateStore?.render?.()}catch(e){console.warn('[OVYX] Template render failed',e)}
  if(!opts?.silent)try{window.MobileDrawer?.close?.()}catch(e){console.warn('[OVYX runtime]',e)}
- // Route changes made through this canonical mount also need to notify the later shell authorities.
- // The Home dock calls mount() directly, so relying only on Router.go() events misses those clicks.
- try{window.dispatchEvent(new CustomEvent('ovyx:view-changed',{detail:{view:active,source:'v52-mount'}}))}catch(e){console.warn('[OVYX V52] route change notification failed',e)}
  return active;
 }
 function installRouter(){const R=window.Router;if(!R||R.__ovyxV52)return !!R;R.__v34=true;R.__v36SurfaceWrap=true;R.__v42=true;R.__ovyxV50Authoritative=true;R.__ovyxV51Authoritative=true;R.__ovyxV52=true;R.go=mount;window.Router=R;window.switchView=mount;return true}
