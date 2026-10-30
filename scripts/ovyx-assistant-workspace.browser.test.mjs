@@ -34,11 +34,34 @@ try {
     const assistantScript = page.locator('script[src*="/assets/ovyx-assistant-workspace.js"]');
     assert.ok(await assistantScript.count(), `[${target.name}] assistant workspace script was not injected`);
     const scriptSources = await assistantScript.evaluateAll(nodes => nodes.map(node => node.src));
-    assert.ok(scriptSources.some(src => /[?&]v=20261029-6(?:&|$)/.test(src)), `[${target.name}] the updated assistant runtime cache version was not loaded`);
+    assert.ok(scriptSources.some(src => /[?&]v=20261030-1(?:&|$)/.test(src)), `[${target.name}] the updated assistant runtime cache version was not loaded`);
 
     await page.evaluate(() => window.WorkspaceBrainBot.open());
     const panel = page.locator('#kernel-brain-bot-panel');
     await panel.waitFor({ state: 'visible' });
+
+    // The real Home dock has inline !important styles and multiple shell
+    // controllers. Verify the actual production element is hidden when the
+    // assistant opens, and that a later controller cannot force it visible.
+    if (target.name === 'mobile') {
+      await page.waitForFunction(() => {
+        const dock = document.getElementById('ovyx-v52-bottom-bar');
+        const assistant = document.getElementById('kernel-brain-bot-panel');
+        return dock && assistant && getComputedStyle(assistant).display !== 'none' &&
+          getComputedStyle(assistant).visibility !== 'hidden' &&
+          getComputedStyle(dock).display === 'none';
+      }, null, { timeout: 8000 });
+      await page.evaluate(() => {
+        const dock = document.getElementById('ovyx-v52-bottom-bar');
+        dock?.style.setProperty('display', 'grid', 'important');
+      });
+      await page.waitForFunction(() => {
+        const dock = document.getElementById('ovyx-v52-bottom-bar');
+        return dock && getComputedStyle(dock).display === 'none' &&
+          dock.style.getPropertyValue('display') === 'none' &&
+          dock.style.getPropertyPriority('display') === 'important';
+      }, null, { timeout: 5000 });
+    }
 
     // Reproduce a dashboard bottom bar that would otherwise overlay the chat
     // on narrow screens, and verify the assistant isolates typing from global
@@ -534,7 +557,19 @@ try {
     assert.equal(updatedLocalSource, repairedSource, `[${target.name}] verified source must be reflected back into the active local workspace`);
     assert.deepEqual(errors, [], `[${target.name}] assistant runtime errors: ${errors.join('; ')}`);
 
-    console.log(`PASS ${target.name}: menu actions, read-only tool loop, local-context fallback, explicit approval and verified source update.`);
+    if (target.name === 'mobile') {
+      // Closing the assistant must restore the Home dock after its temporary
+      // inline styles have been released.
+      await page.evaluate(() => window.WorkspaceBrainBot.close());
+      await page.waitForFunction(() => {
+        const dock = document.getElementById('ovyx-v52-bottom-bar');
+        const assistant = document.getElementById('kernel-brain-bot-panel');
+        return dock && assistant && getComputedStyle(assistant).display === 'none' &&
+          getComputedStyle(dock).display === 'grid';
+      }, null, { timeout: 8000 });
+    }
+
+    console.log(`PASS ${target.name}: real dock isolation, menu actions, read-only tool loop, local-context fallback, explicit approval and verified source update.`);
     await page.evaluate(() => {
       document.getElementById('test-typing-dock-shell')?.remove();
       document.getElementById('test-upload-dock-shell')?.remove();

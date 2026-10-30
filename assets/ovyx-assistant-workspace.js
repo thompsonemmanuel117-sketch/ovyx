@@ -71,24 +71,87 @@
     return styles.display !== 'none' && styles.visibility !== 'hidden' && activePanel.getClientRects().length > 0;
   }
 
+  const suppressedDockStyles = new WeakMap();
+  const DOCK_HIDE_PROPERTIES = ['display', 'visibility', 'opacity', 'pointer-events', 'transform'];
+
+  function readInlineProperty(style, property) {
+    return { value: style.getPropertyValue(property), priority: style.getPropertyPriority(property) };
+  }
+
+  function restoreInlineProperty(style, property, saved) {
+    if (saved?.value) {
+      if (style.getPropertyValue(property) !== saved.value ||
+          style.getPropertyPriority(property) !== (saved.priority || '')) {
+        style.setProperty(property, saved.value, saved.priority || '');
+      }
+    } else if (style.getPropertyValue(property)) {
+      style.removeProperty(property);
+    }
+  }
+
+  function setInlinePropertyIfDifferent(style, property, value) {
+    if (style.getPropertyValue(property) !== value ||
+        style.getPropertyPriority(property) !== 'important') {
+      style.setProperty(property, value, 'important');
+    }
+  }
+
   function syncUnderlyingBottomNavigation(forceHidden) {
     const input = $('bot-chat-input');
     const activePanel = panel();
     const composerFocused = Boolean(input && document.activeElement === input && activePanel?.contains(input));
-    // The assistant is a separate workspace layer. Keep any dashboard bottom
-    // dock behind it for the entire open session, on desktop and mobile, so
-    // focus changes, typing, file picking, or sending cannot reveal the dock.
+    // The panel can open without focusing the composer (for example after
+    // file-picker return). Its own visibility transition is therefore a
+    // first-class state change, not something inferred from input focus.
     const assistantOpen = isAssistantPanelVisible(activePanel);
     const shouldHide = forceHidden === true || composerFocused || assistantOpen;
     document.body?.classList.toggle('ovyx-native-composer-focus-mode', shouldHide);
-    // Scan computed layout, not just selectors that depend on class/ID names.
-    // The dashboard's toolbar may be a generic div whose fixed position comes
-    // from a stylesheet, so attribute/class selectors alone cannot find it.
+
+    // The dashboard shell has several controllers that write inline
+    // !important display values. A class-only hide loses to those inline
+    // declarations, so temporarily take ownership of the actual dock styles.
     document.body?.querySelectorAll('*').forEach(node => {
       if (!(node instanceof HTMLElement)) return;
       const alreadySuppressed = node.classList.contains(UNDERLYING_BOTTOM_NAV_CLASS);
-      const suppress = shouldHide && (alreadySuppressed || isUnderlyingBottomNavigation(node, activePanel));
-      node.classList.toggle(UNDERLYING_BOTTOM_NAV_CLASS, suppress);
+      const isDock = alreadySuppressed || isUnderlyingBottomNavigation(node, activePanel);
+      const suppress = shouldHide && isDock;
+
+      if (suppress) {
+        if (!suppressedDockStyles.has(node)) {
+          suppressedDockStyles.set(node, Object.fromEntries(
+            DOCK_HIDE_PROPERTIES.map(property => [property, readInlineProperty(node.style, property)])
+          ));
+        }
+        const saved = suppressedDockStyles.get(node);
+        // If another OVYX controller tries to reveal the dock while the
+        // assistant is open, remember its latest requested values before
+        // reasserting the hidden state.
+        for (const property of DOCK_HIDE_PROPERTIES) {
+          const current = readInlineProperty(node.style, property);
+          const hiddenValue = property === 'display' ? 'none'
+            : property === 'visibility' ? 'hidden'
+            : property === 'opacity' ? '0'
+            : property === 'pointer-events' ? 'none'
+            : 'translateY(150%)';
+          if (current.value !== hiddenValue || current.priority !== 'important') {
+            if (current.value) saved[property] = current;
+            else saved[property] = { value: '', priority: '' };
+          }
+        }
+        node.classList.add(UNDERLYING_BOTTOM_NAV_CLASS);
+        setInlinePropertyIfDifferent(node.style, 'display', 'none');
+        setInlinePropertyIfDifferent(node.style, 'visibility', 'hidden');
+        setInlinePropertyIfDifferent(node.style, 'opacity', '0');
+        setInlinePropertyIfDifferent(node.style, 'pointer-events', 'none');
+        setInlinePropertyIfDifferent(node.style, 'transform', 'translateY(150%)');
+      } else if (alreadySuppressed) {
+        node.classList.remove(UNDERLYING_BOTTOM_NAV_CLASS);
+        const saved = suppressedDockStyles.get(node);
+        if (saved) {
+          for (const property of DOCK_HIDE_PROPERTIES) restoreInlineProperty(node.style, property, saved[property]);
+          suppressedDockStyles.delete(node);
+        }
+      }
     });
   }
 
@@ -123,10 +186,17 @@
           const needsRefresh = records.some(record => {
             const target = record.target;
             if (!(target instanceof HTMLElement)) return false;
-            const insideAssistant = Boolean(target.closest('#kernel-brain-bot-panel'));
-            if (insideAssistant) return false;
+            const assistantRoot = target.closest('#kernel-brain-bot-panel');
+            // Ignore chat transcript/composer churn, but never ignore changes
+            // to the panel element itself: hidden -> visible is the assistant
+            // open event that the old observer accidentally discarded.
+            if (assistantRoot && assistantRoot !== target) return false;
             if (record.type === 'childList') return true;
-            if (target.classList.contains(UNDERLYING_BOTTOM_NAV_CLASS)) return false;
+            if (target.classList.contains(UNDERLYING_BOTTOM_NAV_CLASS) &&
+                record.attributeName !== 'style') return false;
+            // A route/dock controller may overwrite display:inline !important
+            // while the shield class is already present. Re-run the authority
+            // for that style mutation and restore the hidden inline values.
             return true;
           });
           if (needsRefresh) refresh();
