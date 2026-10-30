@@ -18,6 +18,8 @@ import {
   repairBranchFromCI,
 } from '../../_lib/orchestrator.js';
 
+import { withCloudflareAIOnly } from '../../_lib/cloudflare-routing.js';
+
 import {
   json,
   errorResponse,
@@ -343,7 +345,7 @@ export async function onRequestPost(
       await repairBranchFromCI(
         {
           env:
-            context.env,
+            withCloudflareAIOnly(context.env),
           job,
           testOutput:
             output,
