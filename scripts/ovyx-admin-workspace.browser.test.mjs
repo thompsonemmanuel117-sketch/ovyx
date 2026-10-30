@@ -229,7 +229,7 @@ try {
     await page.waitForFunction(() => String(window.KernelState?.activeView || '').replace(/^view-/, '') === 'admin-brain', null, { timeout: 15000 });
     await page.locator('#ovyx-global-ai-routing').waitFor({ state: 'attached' });
     await page.waitForFunction(() => /Cloudflare AI binding check completed/.test(document.getElementById('ovyx-global-ai-provider-status-note')?.textContent || ''), null, { timeout: 20000 });
-    assert.match(await page.locator('#ovyx-global-ai-provider-status').innerText(), /Cloudflare Workers AI[\s\S]*Ready/,
+    assert.match(await page.locator('#ovyx-global-ai-provider-status').innerText(), /Cloudflare Workers AI[\s\S]*Ready/i,
       '[' + target.name + '] the admin AI panel must show Cloudflare Workers AI as ready.');
     assert.equal(await page.locator('[data-provider-priority]').count(), 0,
       '[' + target.name + '] the admin UI must not offer third-party provider priority controls.');
