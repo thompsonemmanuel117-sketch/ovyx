@@ -43,9 +43,9 @@
   }
 
   async function checkProvider(select) {
-    if (!select || activeChecks.get(select)?.running) {
-      activeChecks.get(select)?.controller.abort();
-    }
+    if (!select) return;
+    const previous = activeChecks.get(select);
+    if (previous?.running) previous.controller.abort();
     const controller = new AbortController();
     activeChecks.set(select, { controller, running: true });
     const timeout = setTimeout(() => controller.abort(), 9000);
