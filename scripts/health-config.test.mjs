@@ -139,4 +139,27 @@ function row(payload, group, key) {
   assert(!json.includes(validServiceAccount.client_email));
 }
 
-console.log('OVYX runtime health configuration tests passed.');
+// Legacy third-party AI credentials must never make OVYX report model readiness.
+{
+  const payload = await health({
+    ...baseEnv(),
+    GEMINI_API_KEY: 'legacy-gemini-value',
+    ANTHROPIC_API_KEY: 'legacy-anthropic-value',
+    DEEPSEEK_API_KEY: 'legacy-deepseek-value',
+    OPENAI_API_KEY: 'legacy-openai-value',
+    GROQ_API_KEY: 'legacy-groq-value',
+    OPENROUTER_API_KEY: 'legacy-openrouter-value',
+  });
+  assert.equal(payload.services.ai.ready, false);
+  assert.equal(payload.services.ai.workersAiBinding.configured, false);
+  assert.equal(payload.services.ai.workersAiBinding.binding, 'AI');
+}
+
+// The single Cloudflare Workers AI binding is the only readiness signal.
+{
+  const payload = await health({ ...baseEnv(), AI: { run() {} } });
+  assert.equal(payload.services.ai.ready, true);
+  assert.equal(payload.services.ai.workersAiBinding.configured, true);
+}
+
+console.log('OVYX runtime health configuration tests passed: service configuration is validated and AI readiness depends exclusively on Cloudflare Workers AI.');
