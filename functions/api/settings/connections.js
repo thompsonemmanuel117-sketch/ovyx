@@ -302,10 +302,8 @@ async function onRequest(context) {
         ok: true,
         deleted: true,
         id,
-        activeBrainConnectionId:
-          state.activeBrainConnectionId === id ? null : state.activeBrainConnectionId,
-        activeWebStudioConnectionId:
-          state.activeWebStudioConnectionId === id ? null : state.activeWebStudioConnectionId,
+        activeBrainConnectionId: null,
+        activeWebStudioConnectionId: null,
         activeCount:
           reservation?.count ??
           state.active.length
@@ -373,6 +371,13 @@ async function onRequest(context) {
       const record = await getFirestoreDataAtPath(context.env, [...base, id]);
       if (!record || record.ownerUid !== auth.uid || record.ownerEmail !== auth.email) {
         return errorResponse(404, 'CONNECTION_NOT_FOUND', 'This connection is no longer available.');
+      }
+      if (supportsAIProtocol(record.protocol)) {
+        return errorResponse(
+          409,
+          'AI_PROVIDER_DISABLED',
+          'OVYX uses Cloudflare Workers AI only. Saved external AI credentials are preserved but are not tested or called.'
+        );
       }
       const result = await testUserConnection(
         context.env,
@@ -499,8 +504,9 @@ async function onRequest(context) {
         [...base, id]
       );
 
-    let activeBrainConnectionId = state.activeBrainConnectionId;
-    let activeWebStudioConnectionId = state.activeWebStudioConnectionId;
+    // Legacy external-AI assignment IDs are no longer active routing settings.
+    let activeBrainConnectionId = null;
+    let activeWebStudioConnectionId = null;
     const clearInvalidSelections = {};
     if (activeBrainConnectionId === id && (!record.active || !supportsAIProtocol(record.protocol))) {
       activeBrainConnectionId = null;
