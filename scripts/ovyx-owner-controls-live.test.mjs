@@ -172,7 +172,7 @@ assert.match(source.runtime, /function loadProviderStatus/);
 assert.match(source.runtime, /ovyx-global-ai-provider-status-note/, 'AI availability feedback must use its own status area.');
 assert.doesNotMatch(source.runtime, /function saveAIProviderOrder|AI selection order:/,
   'The admin UI must not advertise a configurable multi-provider selection order.');
-assert.match(source.runtime, /item\.connected === true/);
+assert.match(source.runtime, /engine\.connected === true/);
 
 assert.match(source.identityApi, /aiIdentityUpdatedAt/);
 assert.match(source.publicIdentityApi, /assistantName/);
