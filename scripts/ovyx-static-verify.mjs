@@ -394,8 +394,8 @@ if (!fs.existsSync(studioTracePath) || !fs.existsSync(studioTraceTestPath) || !f
   }
 }
 
-// OVYX-native workspace assistant: the chat drawer must use the Cloudflare AI
-// binding directly, not the third-party provider/API-key router.
+// OVYX-native workspace assistant: the chat drawer must use the shared
+// guarded Cloudflare inference helper, including its quota reservation and stop rules.
 const nativeAssistantPath = path.join(root, 'functions/_lib/ovyx-native-ai.js');
 const nativeAssistantRoutePath = path.join(root, 'functions/api/ai/ovyx.js');
 const nativeAssistantClientPath = path.join(root, 'assets/ovyx-assistant-workspace.js');
@@ -413,8 +413,11 @@ if (!fs.existsSync(nativeAssistantPath) || !fs.existsSync(nativeAssistantRoutePa
   const workspaceToolsTest = fs.existsSync(workspaceToolsTestPath) ? fs.readFileSync(workspaceToolsTestPath, 'utf8') : '';
   const workspaceToolsIntegrationTest = fs.existsSync(workspaceToolsIntegrationTestPath) ? fs.readFileSync(workspaceToolsIntegrationTestPath, 'utf8') : '';
   if (
-    !nativeAssistant.includes('env.AI.run') ||
-    !nativeAssistant.includes('@cf/meta/llama-3.3-70b-instruct-fp8-fast') ||
+    !nativeAssistant.includes('runCloudflareFreeInference') ||
+    !nativeAssistant.includes('OVYX_CLOUDFLARE_FREE_MODEL') ||
+    !nativeAssistant.includes('withCloudflareAIOnly(env)') ||
+    nativeAssistant.includes('callUserUniversalConnection') ||
+    nativeAssistant.includes('selectedBrain') ||
     !nativeAssistant.includes('nativeActions') ||
     !nativeRoute.includes('generateOvyxNativeAI') ||
     !nativeRoute.includes('beginAIQuota(context.env, user)') ||
