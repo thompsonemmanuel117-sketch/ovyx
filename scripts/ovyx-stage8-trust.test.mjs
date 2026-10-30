@@ -57,7 +57,14 @@ assert.doesNotMatch(settingsReliability, /payload\.preferredProvider = String\(p
   'A saved AI Preferences provider must not silently steer OVYX generation.');
 assert.doesNotMatch(settingsReliability, /payload\.provider = String\(prefs\.provider\)/,
   'A saved AI Preferences provider must not pin a request to a third-party provider.');
-assert.match(settingsReliability, /payload\.provider = 'automatic'/);
+assert.match(settingsReliability, /delete payload\.provider;/,
+  'Every AI request must strip legacy caller-selected providers.');
+assert.match(settingsReliability, /delete payload\.preferredProvider;/,
+  'Every AI request must strip legacy preferred-provider hints.');
+assert.match(settingsReliability, /payload\.model = 'automatic'/,
+  'Every AI request must use the server-managed model.');
+assert.match(settingsReliability, /payload\.fallback = 'stop'/,
+  'Every AI request must fail closed rather than fall back to another model provider.');
 assert.match(aiPreferenceApi, /result\.provider = 'automatic'/);
 assert.match(aiPreferenceApi, /result\.model = 'automatic'/);
 assert.match(aiPreferenceApi, /result\.routing = 'automatic'/);
