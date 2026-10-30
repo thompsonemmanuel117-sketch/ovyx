@@ -83,13 +83,13 @@ try {
 
     await page.evaluate(() => window.OVYXProviderAvailability.check());
     await page.waitForFunction(() => (window.__toasts || []).some(item =>
-      item.type === 'success' && /Cloudflare Workers AI is connected/.test(item.message)
+      item.type === 'success' && /OVYX AI is connected to Cloudflare Workers AI/.test(item.message)
     ));
     assert.deepEqual(calls, ['cloudflare-workers-ai']);
 
     await page.evaluate(() => window.OVYXProviderAvailability.check());
     await page.waitForFunction(() => (window.__toasts || []).filter(item =>
-      item.type === 'success' && /Cloudflare Workers AI is connected/.test(item.message)
+      item.type === 'success' && /OVYX AI is connected to Cloudflare Workers AI/.test(item.message)
     ).length >= 2);
     assert.deepEqual(calls, ['cloudflare-workers-ai', 'cloudflare-workers-ai'],
       '[' + target.name + '] repeated checks must stay on the Cloudflare binding and not probe vendor endpoints');
