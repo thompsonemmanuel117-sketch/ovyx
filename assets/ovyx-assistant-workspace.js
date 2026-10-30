@@ -39,11 +39,10 @@
     const semanticNavigation = node.matches('nav,[role="navigation"]') ||
       /(?:bottom|navigation|navbar|nav[-_ ]?bar|toolbar|dock)/i.test(identity);
     const navText = semanticNavigation || isAnchored
-      ? String(node.innerText || node.textContent || '').replace(/\\s+/g, ' ').trim()
+      ? String(node.innerText || node.textContent || '').toLowerCase()
       : '';
-    const hasDashboardLabels = /\\bhome\\b/i.test(navText) &&
-      /\\bbuild\\b/i.test(navText) && /\\bcode\\b/i.test(navText) &&
-      /\\bmore\\b/i.test(navText);
+    const hasDashboardLabels = ['home', 'build', 'code', 'more']
+      .every(label => navText.includes(label));
     const looksLikeNavigation = semanticNavigation || hasDashboardLabels;
 
     // Preserve the assistant's own controls, but allow a clearly identified
