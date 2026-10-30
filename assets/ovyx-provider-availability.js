@@ -1,16 +1,10 @@
 (function () {
   'use strict';
-  if (window.__OVYX_PROVIDER_AVAILABILITY_V1__) return;
-  window.__OVYX_PROVIDER_AVAILABILITY_V1__ = true;
+  if (window.__OVYX_PROVIDER_AVAILABILITY_V2__) return;
+  window.__OVYX_PROVIDER_AVAILABILITY_V2__ = true;
 
-  const PROVIDERS = Object.freeze({
-    gemini: 'Gemini',
-    deepseek: 'DeepSeek',
-    anthropic: 'Claude',
-    claude: 'Claude',
-    openai: 'OpenAI',
-  });
   const activeChecks = new WeakMap();
+  const CLOUDFARE_OPTION = 'automatic';
 
   function toast(message, kind) {
     const type = ['success', 'error', 'warning', 'info'].includes(kind) ? kind : 'info';
@@ -27,72 +21,70 @@
     } catch (_) {}
   }
 
-  function selectedProvider(select) {
-    const raw = String(select?.value || 'automatic').trim().toLowerCase();
-    return raw === 'claude' ? 'anthropic' : raw;
+  function normalizeSelector(select) {
+    if (!select || select.id !== 'v59-model-select') return;
+    const valid = select.options.length === 1 &&
+      select.options[0].value === CLOUDFARE_OPTION &&
+      select.options[0].textContent === 'Cloudflare Workers AI';
+    if (valid) return;
+    select.replaceChildren();
+    const option = document.createElement('option');
+    option.value = CLOUDFARE_OPTION;
+    option.textContent = 'Cloudflare Workers AI';
+    select.appendChild(option);
+    select.value = CLOUDFARE_OPTION;
+    select.setAttribute('aria-label', 'AI engine: Cloudflare Workers AI');
+    select.dataset.ovyxCloudflareOnly = 'true';
+  }
+
+  function normalizeAllSelectors(root = document) {
+    if (root.matches?.('#v59-model-select')) normalizeSelector(root);
+    root.querySelectorAll?.('#v59-model-select').forEach(normalizeSelector);
   }
 
   async function checkProvider(select) {
-    const previous = activeChecks.get(select);
-    if (previous) previous.abort();
-    activeChecks.delete(select);
-    if (select) select.removeAttribute('aria-busy');
-    const selected = selectedProvider(select);
-    if (!selected || selected === 'automatic') {
-      toast('OVYX Auto selects an available AI model for your request.', 'info');
-      return;
+    if (!select || activeChecks.get(select)?.running) {
+      activeChecks.get(select)?.controller.abort();
     }
-    const label = PROVIDERS[selected];
-    if (!label) return;
-
-    const user = (() => {
-      try { return window.firebase?.auth?.()?.currentUser || null; } catch (_) { return null; }
-    })();
-    if (!user || typeof user.getIdToken !== 'function') {
-      toast('Sign in to check AI availability.', 'warning');
-      return;
-    }
-
     const controller = new AbortController();
-    activeChecks.set(select, controller);
+    activeChecks.set(select, { controller, running: true });
     const timeout = setTimeout(() => controller.abort(), 9000);
-    select.setAttribute('aria-busy', 'true');
-
+    select?.setAttribute('aria-busy', 'true');
     try {
-      const idToken = await user.getIdToken();
-      const response = await fetch('/api/ai/provider-availability?provider=' + encodeURIComponent(selected), {
+      const user = (() => {
+        try { return window.firebase?.auth?.()?.currentUser || null; } catch (_) { return null; }
+      })();
+      if (!user || typeof user.getIdToken !== 'function') {
+        toast('Sign in to check Cloudflare AI availability.', 'warning');
+        return;
+      }
+      const token = await user.getIdToken();
+      const response = await fetch('/api/ai/provider-availability?provider=cloudflare-workers-ai', {
         method: 'GET',
         credentials: 'same-origin',
         cache: 'no-store',
-        headers: { Accept: 'application/json', Authorization: 'Bearer ' + idToken },
+        headers: { Accept: 'application/json', Authorization: 'Bearer ' + token },
         signal: controller.signal,
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        if (response.status === 401) throw new Error('Your session has expired. Sign in again to check AI availability.');
+        if (response.status === 401) throw new Error('Your session has expired. Sign in again to check Cloudflare AI.');
         if (response.status === 403) throw new Error('Your account cannot perform this check.');
-        throw new Error('Could not check ' + label + ' right now. Please try again.');
+        throw new Error(data.message || 'Cloudflare AI availability could not be checked. Please try again.');
       }
       if (data.connected === true && data.status === 'READY') {
-        toast(data.message || label + ' is ready to use.', 'success');
+        toast(data.message || 'Cloudflare Workers AI is ready.', 'success');
       } else {
-        const message = data.message || 'This AI option is not available right now. Try OVYX Auto or choose another available option.';
-        toast(message, data.status === 'NOT_CONFIGURED' ? 'warning' : 'error');
+        toast(data.message || 'The Cloudflare Workers AI binding is not configured on this deployment.', 'warning');
       }
     } catch (error) {
-      if (error?.name === 'AbortError' && activeChecks.get(select) !== controller) {
-        return; // A newer selection superseded this result; do not show a stale toast.
-      }
-      if (error?.name === 'AbortError') {
-        toast('The availability check took too long. Try again or choose another AI option.', 'warning');
-      } else {
-        toast(error?.message || 'AI availability could not be checked right now. Please try again.', 'error');
-      }
+      if (error?.name === 'AbortError' && activeChecks.get(select)?.controller !== controller) return;
+      toast(error?.message || 'Cloudflare AI availability could not be checked. Please try again.', 'error');
     } finally {
       clearTimeout(timeout);
-      if (activeChecks.get(select) === controller) {
+      if (activeChecks.get(select)?.controller === controller) {
         activeChecks.delete(select);
-        select.removeAttribute('aria-busy');
+        select?.removeAttribute('aria-busy');
       }
     }
   }
@@ -100,11 +92,32 @@
   document.addEventListener('change', event => {
     const select = event.target;
     if (!select || select.id !== 'v59-model-select') return;
-    // Delegate once at document level so rebuilt selectors and repeated changes work.
+    normalizeSelector(select);
     void checkProvider(select);
   });
 
+  function boot() {
+    normalizeAllSelectors();
+    if (typeof MutationObserver === 'function' && document.documentElement) {
+      const observer = new MutationObserver(records => {
+        for (const record of records) {
+          for (const node of record.addedNodes || []) {
+            if (node.nodeType === 1) normalizeAllSelectors(node);
+          }
+        }
+      });
+      observer.observe(document.documentElement, { childList: true, subtree: true });
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
+  else boot();
+
   window.OVYXProviderAvailability = {
-    check(select) { return checkProvider(select || document.getElementById('v59-model-select')); },
+    check(select) {
+      const target = select || document.getElementById('v59-model-select');
+      if (target) normalizeSelector(target);
+      return checkProvider(target);
+    },
   };
 })();
