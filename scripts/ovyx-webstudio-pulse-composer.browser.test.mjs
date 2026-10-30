@@ -120,10 +120,14 @@ try {
       '[' + target.name + '] response depth must display an understandable current value.');
     assert.equal(await page.evaluate(() => localStorage.getItem('ovyx.ws.responseDepth.v1')), '3',
       '[' + target.name + '] response depth must persist across reloads.');
-    await brainSettings.locator('[data-brain-choice="deepseek"]').click();
-    await page.waitForFunction(() => window.WebStudio?.brain === 'deepseek');
-    assert.equal(await page.locator('#ws-brain-label').innerText(), 'Deepseek',
-      '[' + target.name + '] choosing an AI brain must update the composer label.');
+    assert.equal(await brainSettings.locator('[data-brain-choice]').count(), 0,
+      '[' + target.name + '] the workspace must not expose third-party model-provider choices.');
+    assert.equal(await brainSettings.locator('#ws-brain-engine-label').innerText(), 'Cloudflare Workers AI',
+      '[' + target.name + '] the only model engine must be stated clearly in Agent Settings.');
+    assert.equal(await page.evaluate(() => window.WebStudio.brain), 'automatic',
+      '[' + target.name + '] stale saved provider choices must be normalized to managed routing.');
+    assert.equal(await page.locator('#ws-brain-label').innerText(), 'Cloudflare',
+      '[' + target.name + '] the composer must identify the actual managed Cloudflare engine.');
 
     // Seed a disposable browser-only project when the shell is in its no-project
     // state. This validates that the map lists real source paths, not just an empty UI.
