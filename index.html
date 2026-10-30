@@ -18033,27 +18033,215 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
 </script>
 
 
-<style id="ovyx-assistant-dashboard-dock-isolation-v1">
-/* The mobile dashboard dock belongs to Home, never to the full-screen AI workspace. */
-html.ovx-ovyx-copilot-fullscreen #ovyx-v52-bottom-bar,
-body.ovx-ovyx-copilot-fullscreen #ovyx-v52-bottom-bar,
-body.ovx-ovyx-copilot-fullscreen #ovyx-v42-mobile-bottom,
-body.ovx-ovyx-copilot-fullscreen #ovyx-mobile-bottom-bar,
-body.ovx-ovyx-copilot-fullscreen .ovyx-mobile-bottom,
-body.ovx-ovyx-copilot-fullscreen .legacy-mobile-bottom-disabled,
-body.ovx-ovyx-copilot-fullscreen .bottom-nav,
-body.ovx-ovyx-copilot-fullscreen .mobile-nav,
-body.ovx-v58-assistant-open #ovyx-v52-bottom-bar,
-body.ovx-v58-assistant-open .ovyx-mobile-bottom,
-body.ovyx-native-composer-focus-mode #ovyx-v52-bottom-bar,
-body.ovyx-native-composer-focus-mode .ovyx-mobile-bottom,
-body.ovyx-native-composer-focus-mode .legacy-mobile-bottom-disabled {
-  display:none!important;
-  visibility:hidden!important;
-  opacity:0!important;
-  pointer-events:none!important;
-}
-</style>
+<script id="ovyx-assistant-mobile-dock-final-guard-v2">
+(function(){
+  'use strict';
+  if(window.__OVYX_ASSISTANT_MOBILE_DOCK_FINAL_GUARD_V2__)return;
+  window.__OVYX_ASSISTANT_MOBILE_DOCK_FINAL_GUARD_V2__=true;
+
+  const DOCK_ID='ovyx-v52-bottom-bar';
+  const PANEL_ID='kernel-brain-bot-panel';
+  const FULLSCREEN_CLASS='ovx-ovyx-copilot-fullscreen';
+  let observedDock=null,observedPanel=null;
+  let dockObserver=null,panelObserver=null;
+  let framePending=false;
+
+  const byId=id=>document.getElementById(id);
+  const isMobile=()=>window.matchMedia
+    ? window.matchMedia('(max-width:767px)').matches
+    : (window.innerWidth||0)<768;
+
+  function activeRoute(){
+    const viewport=byId('view-router-viewport');
+    const active=viewport?.querySelector(':scope>section[aria-hidden="false"]')
+      ||viewport?.querySelector(':scope>section:not(.hidden)');
+    return String(active?.id||window.KernelState?.activeView||document.body?.dataset?.ovyxView||'home')
+      .replace(/^view-/,'').trim().toLowerCase();
+  }
+
+  function elementIsVisible(element){
+    if(!element||element.hidden||element.getAttribute('aria-hidden')==='true'
+      ||element.classList.contains('hidden'))return false;
+    const style=window.getComputedStyle(element);
+    return style.display!=='none'&&style.visibility!=='hidden'
+      &&Number(style.opacity)!==0&&element.getClientRects().length>0;
+  }
+
+  function assistantIsOpen(){
+    if(document.documentElement.classList.contains(FULLSCREEN_CLASS)
+      ||document.body.classList.contains(FULLSCREEN_CLASS)
+      ||document.body.classList.contains('ovyx-v58-assistant-open')
+      ||document.body.classList.contains('ovyx-assistant-dock-locked')
+      ||window.WorkspaceBrainBot?.isOpen===true)return true;
+    const panel=byId(PANEL_ID);
+    if(panel&&!panel.hidden&&panel.getAttribute('aria-hidden')==='false'
+      &&!panel.classList.contains('hidden'))return true;
+    return elementIsVisible(panel);
+  }
+
+  function drawerIsOpen(){
+    const drawer=byId('mobile-drawer');
+    const backdrop=byId('mobile-drawer-backdrop');
+    return !!(document.body.classList.contains('ovyx-drawer-open')
+      ||document.body.classList.contains('ovyx-mobile-drawer-open')
+      ||drawer?.classList.contains('open')
+      ||drawer?.classList.contains('is-open')
+      ||drawer?.getAttribute('aria-hidden')==='false'
+      ||(backdrop&&elementIsVisible(backdrop)));
+  }
+
+  function otherModalIsOpen(){
+    const panel=byId(PANEL_ID);
+    const candidates=document.querySelectorAll(
+      '[role="dialog"],[aria-modal="true"],dialog[open],.v55-preview-modal.open,'+
+      '#checkout-elements-modal.open,#cmd-palette-modal.open,#ovyx-owner-console.open'
+    );
+    for(const element of candidates){
+      if(element===panel||panel?.contains(element)||element.closest('#mobile-drawer'))continue;
+      if(elementIsVisible(element))return true;
+    }
+    return false;
+  }
+
+  function shouldShowDock(){
+    return isMobile()&&activeRoute()==='home'
+      &&!assistantIsOpen()&&!drawerIsOpen()&&!otherModalIsOpen()
+      &&!document.body.classList.contains('ovyx-webstudio-active');
+  }
+
+  function setImportantStyle(element,property,value){
+    if(element.style.getPropertyValue(property)!==value
+      ||element.style.getPropertyPriority(property)!=='important'){
+      element.style.setProperty(property,value,'important');
+    }
+  }
+
+  function enforceDock(){
+    const dock=byId(DOCK_ID);
+    if(!dock)return;
+    const show=shouldShowDock();
+    setImportantStyle(dock,'display',show?'grid':'none');
+    setImportantStyle(dock,'visibility',show?'visible':'hidden');
+    setImportantStyle(dock,'opacity',show?'1':'0');
+    setImportantStyle(dock,'pointer-events',show?'auto':'none');
+    setImportantStyle(dock,'transform','none');
+    dock.inert=!show;
+    if(show)dock.removeAttribute('hidden');
+    const ariaHidden=show?'false':'true';
+    if(dock.getAttribute('aria-hidden')!==ariaHidden)dock.setAttribute('aria-hidden',ariaHidden);
+    document.body.classList.toggle('ovyx-assistant-dock-locked',assistantIsOpen());
+    document.body.classList.toggle('ovyx-v88-dock-home',show);
+    document.body.classList.toggle('ovyx-v88-dock-off',!show);
+    document.body.dataset.ovyxFinalDock=show?'home':'off';
+  }
+
+  function scheduleEnforcement(){
+    if(framePending)return;
+    framePending=true;
+    const run=()=>{
+      framePending=false;
+      connectDockObserver();
+      connectPanelObserver();
+      enforceDock();
+    };
+    if(typeof window.requestAnimationFrame==='function')window.requestAnimationFrame(run);
+    else Promise.resolve().then(run);
+  }
+
+  function connectDockObserver(){
+    const dock=byId(DOCK_ID);
+    if(dock===observedDock)return;
+    dockObserver?.disconnect();
+    dockObserver=null;
+    observedDock=dock;
+    if(!dock||typeof MutationObserver!=='function')return;
+    dockObserver=new MutationObserver(()=>enforceDock());
+    dockObserver.observe(dock,{
+      attributes:true,
+      attributeFilter:['style','class','hidden','aria-hidden']
+    });
+  }
+
+  function connectPanelObserver(){
+    const panel=byId(PANEL_ID);
+    if(panel===observedPanel)return;
+    panelObserver?.disconnect();
+    panelObserver=null;
+    observedPanel=panel;
+    if(!panel||typeof MutationObserver!=='function')return;
+    panelObserver=new MutationObserver(()=>enforceDock());
+    panelObserver.observe(panel,{
+      attributes:true,
+      attributeFilter:['style','class','hidden','aria-hidden']
+    });
+  }
+
+  function wrapAssistantMethod(api,name){
+    const original=api?.[name];
+    if(typeof original!=='function'||original.__ovyxDockGuardV2)return;
+    const wrapped=function(){
+      let result;
+      try{result=original.apply(this,arguments)}
+      finally{scheduleEnforcement()}
+      if(result&&typeof result.then==='function')result.then(scheduleEnforcement,scheduleEnforcement);
+      return result;
+    };
+    wrapped.__ovyxDockGuardV2=true;
+    wrapped.__ovyxDockGuardOriginal=original;
+    api[name]=wrapped;
+  }
+
+  function installAssistantHooks(){
+    const api=window.WorkspaceBrainBot;
+    if(!api)return;
+    wrapAssistantMethod(api,'open');
+    wrapAssistantMethod(api,'close');
+    wrapAssistantMethod(api,'toggle');
+  }
+
+  function connectStateObservers(){
+    if(typeof MutationObserver!=='function')return;
+    const body=document.body;
+    const root=document.documentElement;
+    if(body&&!body.__ovyxDockBodyObserver){
+      const observer=new MutationObserver(()=>enforceDock());
+      observer.observe(body,{attributes:true,attributeFilter:['class','data-ovyx-view','data-ovyx-drawer']});
+      Object.defineProperty(body,'__ovyxDockBodyObserver',{value:observer,configurable:true});
+    }
+    if(root&&!root.__ovyxDockRootObserver){
+      const observer=new MutationObserver(()=>enforceDock());
+      observer.observe(root,{attributes:true,attributeFilter:['class']});
+      Object.defineProperty(root,'__ovyxDockRootObserver',{value:observer,configurable:true});
+    }
+  }
+
+  function boot(){
+    connectStateObservers();
+    connectDockObserver();
+    connectPanelObserver();
+    installAssistantHooks();
+    enforceDock();
+  }
+
+  document.addEventListener('DOMContentLoaded',boot,{once:true});
+  window.addEventListener('load',boot,{passive:true});
+  window.addEventListener('resize',scheduleEnforcement,{passive:true});
+  window.addEventListener('orientationchange',scheduleEnforcement,{passive:true});
+  window.visualViewport?.addEventListener('resize',scheduleEnforcement,{passive:true});
+  window.visualViewport?.addEventListener('scroll',scheduleEnforcement,{passive:true});
+  window.addEventListener('pageshow',scheduleEnforcement,{passive:true});
+  window.addEventListener('visibilitychange',scheduleEnforcement,{passive:true});
+  window.addEventListener('ovyx:view-changed',scheduleEnforcement,{passive:true});
+  document.addEventListener('click',event=>{
+    if(event.target?.closest?.('#desktop-ai-assistant,#header-ai-project-bot,#mobile-ai-assistant,#kernel-brain-bot-panel .ovyx-ai-assistant-close')){
+      scheduleEnforcement();
+      setTimeout(scheduleEnforcement,80);
+    }
+  },true);
+  [0,120,450,1000].forEach(delay=>setTimeout(boot,delay));
+  boot();
+})();
+</script>
 </body>
 </html>
 
