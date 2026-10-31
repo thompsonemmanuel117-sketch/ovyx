@@ -14,6 +14,7 @@ const brief = [
   'Send order confirmation emails and store user-uploaded product documents securely.',
   'Administrators can manage orders and users with role-based access and an audit trail.',
   'Do not invent product prices, payment success, inventory or customer data.',
+  'Keep the brand voice warm and distinctive across seasonal campaign copy.',
 ].join('\n');
 const contract = buildPromptContract(brief);
 const pages = contract.explicitPages.map(title => ({
