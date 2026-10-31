@@ -75,7 +75,7 @@ The shared Website Engine now appends explicit implementation rules after the bo
 - declared data-model/schema declarations,
 - declared model relationship source evidence.
 
-The report separates missing route/method/auth/schema/relationship source evidence from evidence that is merely present in source. Even when all source evidence exists, the report explicitly keeps runtime behavior, database persistence, integration delivery and deployment unverified. Architecture metadata is accepted only when it has the expected engine identifier, stays within a bounded size and passes secret-pattern screening; it is not copied into the public client response.
+The report separates missing route/method/auth/schema/relationship source evidence from evidence that is merely present in source. Even when all source evidence exists, the report explicitly keeps runtime behavior, database persistence, integration delivery and deployment unverified. It also audits declared SQL, Prisma and Drizzle index source declarations, while leaving query performance and live integrity unverified. Login/session authentication is modeled separately from role/permission authorization; public upload flows without accounts are explicitly quarantined and only published assets may be publicly resolved. Architecture metadata is accepted only when it has the expected engine identifier, stays within a bounded size and passes secret-pattern screening; it is not copied into the public client response.
 
 
 ### Important current boundary
