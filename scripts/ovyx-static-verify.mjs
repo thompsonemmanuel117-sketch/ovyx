@@ -347,6 +347,35 @@ if (!fs.existsSync(fullStackArchitecturePath) || !fs.existsSync(fullStackArchite
   }
 }
 
+const fullStackSourceAuditPath = path.join(root, 'scripts/ovyx-fullstack-source-contracts.mjs');
+const fullStackSourceAuditTestPath = path.join(root, 'scripts/ovyx-fullstack-source-contracts.test.mjs');
+const webStudioEvaluatorPath = path.join(root, 'scripts/ovyx-webstudio-evaluation-runner.mjs');
+const webStudioEvaluatorTestPath = path.join(root, 'scripts/ovyx-webstudio-evaluation-runner.test.mjs');
+if (!fs.existsSync(fullStackSourceAuditPath) || !fs.existsSync(fullStackSourceAuditTestPath) ||
+    !fs.existsSync(webStudioEvaluatorPath) || !fs.existsSync(webStudioEvaluatorTestPath)) {
+  errors.push('OVYX full-stack source auditor: evaluator, source-contract tests or evaluation wiring is missing.');
+} else {
+  const sourceAudit = fs.readFileSync(fullStackSourceAuditPath, 'utf8');
+  const evaluator = fs.readFileSync(webStudioEvaluatorPath, 'utf8');
+  const auditTest = fs.readFileSync(fullStackSourceAuditTestPath, 'utf8');
+  const evaluatorTest = fs.readFileSync(webStudioEvaluatorTestPath, 'utf8');
+  const packageJson = fs.existsSync(packageJsonPath) ? fs.readFileSync(packageJsonPath, 'utf8') : '';
+  if (
+    !sourceAudit.includes('evaluateFullStackSourceContracts') ||
+    !sourceAudit.includes('authorization-source-not-detected') ||
+    !sourceAudit.includes('missing-schema-source') ||
+    !sourceAudit.includes('runtimeBehaviorVerified: false') ||
+    !evaluator.includes("from './ovyx-fullstack-source-contracts.mjs'") ||
+    !evaluator.includes('options.fullStackArchitecture') ||
+    !evaluator.includes('fullStackSourceEvidence') ||
+    !auditTest.includes('signed-unsubscribe-token') ||
+    !evaluatorTest.includes('fullStackSourceContracts') ||
+    !packageJson.includes('scripts/ovyx-fullstack-source-contracts.test.mjs')
+  ) {
+    errors.push('OVYX full-stack source auditor: route/method/auth, model/relationship evidence and honest runtime boundary must be covered by the standard test suite.');
+  }
+}
+
 const webStudioShellPath = path.join(root, 'index.html');
 if (fs.existsSync(webStudioShellPath)) {
   const webStudioShell = fs.readFileSync(webStudioShellPath, 'utf8');
