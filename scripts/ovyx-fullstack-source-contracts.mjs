@@ -137,14 +137,14 @@ function indexDeclarationEvidence(index, files) {
     const prisma = new RegExp('\\bmodel\\s+' + escapeRegExp(entity) + '\\s*\\{([\\s\\S]*?)\\}', 'i').exec(text);
     if (prisma) {
       const declarations = prisma[1].split(/\r?\n/).filter(line => /@@(?:index|unique)/i.test(line));
-      if (declarations.some(line => allFields(line) && (index.unique ? /@@unique/i.test(line) : /@@(?:index|unique)/i.test(line)))) return file;
+      if (declarations.some(line => allFields(line) && (index.unique ? /@@unique/i.test(line) : /@@index/i.test(line)))) return file;
     }
     const sql = new RegExp('\\bCREATE\\s+' + (index.unique ? 'UNIQUE\\s+' : '') +
       'INDEX\\b[\\s\\S]{0,240}?\\bON\\s+["\\x27]?(?:\\w+\\.)?(' +
       tableNames.map(escapeRegExp).join('|') + ')["\\x27]?\\s*\\(([^)]*)\\)', 'i').exec(text);
     if (sql && allFields(sql[2])) return file;
     const drizzleDeclarations = Array.from(text.matchAll(/\b(?:uniqueIndex|index)\s*\([^)]*\)\s*\.on\s*\(([^)]*)\)/gi));
-    if (drizzleDeclarations.some(match => allFields(match[1]) && (index.unique ? /uniqueIndex/i.test(match[0]) : /(?:uniqueIndex|index)/i.test(match[0])))) return file;
+    if (drizzleDeclarations.some(match => allFields(match[1]) && (index.unique ? /\buniqueIndex\s*\(/i.test(match[0]) : /\bindex\s*\(/i.test(match[0])))) return file;
     const mongooseIndex = /\bschema\.index\s*\(\s*\{([^}]*)\}/gi;
     for (const match of text.matchAll(mongooseIndex)) {
       if (allFields(match[1]) && (!index.unique || /unique\s*:\s*true/i.test(text))) return file;
@@ -170,10 +170,17 @@ function relationshipEvidence(relationship, files) {
     const fieldPattern = relationship.foreignKeyField
       ? new RegExp('\\b' + escapeRegExp(relationship.foreignKeyField) + '\\b', 'i')
       : null;
+    const fromPrisma = new RegExp('\\bmodel\\s+' + escapeRegExp(fromName.replace(/\s/g, '')) + '\\s*\\{([\\s\\S]*?)\\}', 'i').exec(text);
+    const toPrisma = new RegExp('\\bmodel\\s+' + escapeRegExp(toName.replace(/\s/g, '')) + '\\s*\\{([\\s\\S]*?)\\}', 'i').exec(text);
+    const prismaRelation = Boolean(fromPrisma && toPrisma && fieldPattern &&
+      fieldPattern.test(fromPrisma[1]) &&
+      new RegExp('\\b' + escapeRegExp(toName.replace(/\s/g, '')) + '\\b').test(fromPrisma[1]) &&
+      /@relation\s*\([^)]*fields\s*:/i.test(fromPrisma[1]) &&
+      /references\s*:/i.test(fromPrisma[1]));
     const relationSignal = /(?:references|foreign\s+key|relation|connect|belongsTo|hasMany|hasOne|@relation|references\s*:)/i.test(text);
     if (relationship.kind === 'polymorphic-reference') {
       if (fieldPattern && fieldPattern.test(text) && /sourceType|targetType|entityType/i.test(text)) return file;
-    } else if (namesTogether && fieldPattern && fieldPattern.test(text) && relationSignal) {
+    } else if (prismaRelation || (namesTogether && fieldPattern && fieldPattern.test(text) && relationSignal)) {
       return file;
     }
   }
