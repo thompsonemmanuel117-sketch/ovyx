@@ -89,7 +89,7 @@ function buildDataModels(capabilities) {
     push('Product', 'Catalog item and purchasable offer; price and availability come from an authoritative source.', ['id', 'name', 'sku', 'priceAmount', 'currency', 'status']);
     push('Cart', 'User or session cart with server-recomputed prices and inventory validation.', ['id', 'ownerId', 'sessionKeyHash', 'currency', 'updatedAt']);
     push('CartItem', 'A selected product and quantity; client prices are never authoritative.', ['id', 'cartId', 'productId', 'quantity', 'addedAt']);
-    push('Order', 'Immutable order intent and fulfillment lifecycle.', ['id', 'ownerId', 'currency', 'subtotalAmount', 'taxAmount', 'totalAmount', 'status'], 'financial');
+    push('Order', 'Immutable order intent and fulfillment lifecycle.', ['id', 'ownerId', 'currency', 'subtotalAmount', 'taxAmount', 'totalAmount', 'status', 'createdAt'], 'financial');
     push('OrderLine', 'Immutable purchase-time snapshot of product identity, name, quantity and unit amount.', ['id', 'orderId', 'productId', 'productNameSnapshot', 'quantity', 'unitAmount', 'lineAmount', 'currency'], 'financial');
   }
   if (capabilities.payments) push('PaymentAttempt', 'Provider payment attempt linked to an order or authorized billable action.', ['id', 'orderId', 'billableReference', 'provider', 'providerReference', 'idempotencyKey', 'amount', 'currency', 'status', 'verifiedAt'], 'financial');
