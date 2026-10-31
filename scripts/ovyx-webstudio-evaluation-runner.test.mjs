@@ -38,6 +38,7 @@ assert.ok(good.integrationReadiness.every(item => item.verified === false));
 
 assert.equal(good.qualityScoreV2.dimensionAssessmentCoveragePercent, 100);
 assert.match(good.qualityScoreV2.coverageDefinition, /not requirement coverage/i);
+console.log('Functional requirement evidence:', JSON.stringify(good.functionalAcceptance.map(({ requirement, assessment, matchedRule }) => ({ requirement, assessment, matchedRule }))));
 assert.equal(good.qualityScoreV2.functionalRequirementEvidence.missingSourceEvidenceCount, 4);
 assert.equal(good.functionalAcceptance.find(item => item.requirement === 'case-study navigation').assessment, 'missing-source-evidence', 'Generic navigation must not satisfy a case-study detail-navigation requirement.');
 assert.equal(good.qualityScoreV2.releaseDecision.automatedSourceGate, 'fail');
