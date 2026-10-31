@@ -156,7 +156,7 @@ assert.ok(websiteEngine.includes('if (shouldBuild && !scopedEdit)'), 'Fresh buil
 assert.ok(websiteEngine.indexOf('if (shouldBuild && !scopedEdit)') < websiteEngine.indexOf('if (!result)'), 'The single-page fallback must run only after the staged builder returns no result.');
 assert.ok(assistant.includes("'qualityVerification', 'siteIntegrity', 'requirementRepair'"), 'The API should surface single-page QA status in the structured response.');
 assert.ok(/WEB_STUDIO_SYSTEM_PROMPT\s*\+\s*'\\n\\n'\s*\+\s*WEB_STUDIO_EXCELLENCE/.test(assistant), 'Single-page Web Studio system instructions must use real line breaks between the core prompt and the premium quality contract.');
-assert.ok(/'\\\\n\\\\nEXPERIENCE INTELLIGENCE: the bounded design plan is included in the authoritative Website Engine instructions below\.'/.test(assistant), 'The experience architecture must be introduced after real line breaks before the model instructions.');
+assert.ok(/'\n\nEXPERIENCE INTELLIGENCE: the bounded design plan is included in the authoritative Website Engine instructions below\.'/.test(assistant), 'The experience architecture must be introduced after real line breaks before the model instructions.');
 assert.ok(/'\\n\\nCLIENT STUDIO INSTRUCTIONS:\\n'/.test(assistant), 'Client studio instructions must be separated with real line breaks for the model.');
 assert.ok(/'\\n\\nAuthenticated user UID: '/.test(assistant), 'The authenticated-user context must be appended using real line breaks.');
 const multipage = fs.readFileSync('functions/_lib/studio-multipage.js', 'utf8');
