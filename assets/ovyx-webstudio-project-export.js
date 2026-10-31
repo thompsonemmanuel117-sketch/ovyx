@@ -305,14 +305,15 @@
   }
 
   async function collectProjectAssets(project, mode) {
-    var result = { files: [], excluded: [], available: false, listedCount: 0, mode: mode };
+    var result = { files: [], excluded: [], available: false, listedCount: 0, mode: mode, status: 'not-available' };
     if (mode === 'backend-only') {
-      result.excluded.push({ path: 'project assets', reason: 'binary project assets are excluded from backend-only archives by design' });
+      result.status = 'excluded-by-design';
       return result;
     }
     var store = window.OVYXAssetStore;
     var projectId = String(project && project.id || '').trim();
     if (!projectId || !store || typeof store.list !== 'function' || typeof store.url !== 'function') {
+      result.status = 'unavailable';
       result.excluded.push({ path: 'project assets', reason: 'authenticated project asset storage is unavailable in this session' });
       return result;
     }
@@ -321,11 +322,13 @@
       assets = await store.list(projectId);
       result.available = true;
     } catch (error) {
+      result.status = 'unavailable';
       result.excluded.push({ path: 'project assets', reason: 'asset listing failed: ' + clean(error && error.message || 'storage unavailable', 160) });
       return result;
     }
     assets = Array.isArray(assets) ? assets : [];
     result.listedCount = assets.length;
+    result.status = assets.length ? 'listed' : 'none';
     if (assets.length > MAX_PROJECT_ASSETS) {
       result.excluded.push({ path: 'project assets', reason: 'asset listing capped at ' + MAX_PROJECT_ASSETS + ' of ' + assets.length + ' stored assets' });
       assets = assets.slice(0, MAX_PROJECT_ASSETS);
@@ -377,6 +380,7 @@
         result.excluded.push({ path: originalName, reason: clean(error && error.message || 'asset download failed', 220) });
       }
     }
+    result.status = result.files.length ? (result.excluded.length ? 'partial' : 'included') : (result.excluded.length ? 'unavailable' : 'none');
     return result;
   }
 
