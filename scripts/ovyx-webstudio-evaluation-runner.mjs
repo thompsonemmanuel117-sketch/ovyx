@@ -573,8 +573,9 @@ function buildProductionReadiness(findings, deployment, integrationReadiness, qu
       humanEditorialReview: 'required',
       performanceMeasurements: 'core-web-vitals-not-measured',
       fullStackSourceContracts: !fullStackSourceEvidence ? 'not-assessed'
-        : fullStackSourceEvidence.status === 'source-evidence-present-runtime-unverified'
-          ? 'source-evidence-present-runtime-unverified' : 'missing-source-evidence',
+        : fullStackSourceEvidence.status === 'no-backend-contracts-requested' ? 'not-requested'
+          : fullStackSourceEvidence.status === 'source-evidence-present-runtime-unverified'
+            ? 'source-evidence-present-runtime-unverified' : 'missing-source-evidence',
     },
     blockerCount: blockers,
     missingRequirementEvidenceCount: qualityScoreV2.releaseDecision.missingRequirementEvidenceCount,
