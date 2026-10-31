@@ -78,7 +78,7 @@ function buildDataModels(capabilities) {
       persistence: 'required-when-feature-is-enabled',
     });
   };
-  if (capabilities.authentication) push('UserAccount', 'Identity and account lifecycle; credentials remain with the configured auth provider.', ['id', 'providerSubject', 'email', 'status'], 'identity');
+  if (capabilities.authentication) push('UserAccount', 'Identity and account lifecycle; credentials remain with the configured auth provider.', ['id', 'providerSubject', 'email', 'emailNormalized', 'status'], 'identity');
   if (capabilities.authorization) push('RoleAssignment', 'Server-enforced workspace, resource and action permissions.', ['id', 'principalId', 'role', 'scope', 'grantedAt'], 'authorization');
   if (capabilities.contact) push('ContactSubmission', 'Validated enquiry with an auditable delivery state.', ['id', 'name', 'replyTo', 'message', 'status', 'createdAt'], 'personal-data');
   if (capabilities.booking) {
@@ -92,9 +92,9 @@ function buildDataModels(capabilities) {
     push('Order', 'Immutable order intent and fulfillment lifecycle.', ['id', 'ownerId', 'currency', 'subtotalAmount', 'taxAmount', 'totalAmount', 'status'], 'financial');
     push('OrderLine', 'Immutable purchase-time snapshot of product identity, name, quantity and unit amount.', ['id', 'orderId', 'productId', 'productNameSnapshot', 'quantity', 'unitAmount', 'lineAmount', 'currency'], 'financial');
   }
-  if (capabilities.payments) push('PaymentAttempt', 'Provider payment attempt linked to an order or authorized billable action.', ['id', 'orderId', 'billableReference', 'providerReference', 'idempotencyKey', 'amount', 'currency', 'status', 'verifiedAt'], 'financial');
-  if (capabilities.email) push('DeliveryRecord', 'Outbox/delivery state with retry and provider receipt; not a claim of delivery.', ['id', 'recipientRef', 'templateKey', 'idempotencyKey', 'status', 'attemptCount', 'providerReceipt'], 'personal-data');
-  if (capabilities.newsletter) push('NewsletterSubscription', 'Permission-aware subscription state with consent evidence and secure unsubscribe lifecycle.', ['id', 'email', 'status', 'consentAt', 'confirmationTokenHash', 'createdAt'], 'personal-data');
+  if (capabilities.payments) push('PaymentAttempt', 'Provider payment attempt linked to an order or authorized billable action.', ['id', 'orderId', 'billableReference', 'provider', 'providerReference', 'idempotencyKey', 'amount', 'currency', 'status', 'verifiedAt'], 'financial');
+  if (capabilities.email) push('DeliveryRecord', 'Outbox/delivery state with retry and provider receipt; not a claim of delivery.', ['id', 'recipientRef', 'sourceType', 'sourceId', 'templateKey', 'idempotencyKey', 'status', 'attemptCount', 'nextAttemptAt', 'providerReceipt'], 'personal-data');
+  if (capabilities.newsletter) push('NewsletterSubscription', 'Permission-aware subscription state with consent evidence and secure unsubscribe lifecycle.', ['id', 'listId', 'email', 'emailNormalized', 'status', 'consentAt', 'confirmationTokenHash', 'createdAt'], 'personal-data');
   if (capabilities.fileStorage) push('StoredAsset', 'Owner-scoped metadata for uploaded objects stored outside public source control.', ['id', 'ownerId', 'storageKey', 'contentType', 'byteSize', 'checksum', 'createdAt'], 'private-file');
   if (capabilities.admin) push('AuditEvent', 'Append-only record of sensitive administrative actions and actor/resource context.', ['id', 'actorId', 'action', 'resourceType', 'resourceId', 'createdAt'], 'security-audit');
   return models;
@@ -102,27 +102,35 @@ function buildDataModels(capabilities) {
 
 function buildDataIntegrityContracts(capabilities) {
   const relationships = [];
-  const addRelation = (from, to, cardinality, purpose, optional = false) => {
-    relationships.push({ id: 'relation-' + slug(from + '-' + to), from: 'model-' + slug(from), to: 'model-' + slug(to), cardinality, purpose, optional });
+  const addRelation = (from, to, cardinality, purpose, foreignKeyField, optional = false) => {
+    relationships.push({
+      id: 'relation-' + slug(from + '-' + to),
+      from: 'model-' + slug(from),
+      to: 'model-' + slug(to),
+      cardinality,
+      foreignKeyField,
+      purpose,
+      optional,
+    });
   };
-  if (capabilities.authentication && capabilities.authorization) addRelation('RoleAssignment', 'UserAccount', 'many-to-one', 'Every role grant belongs to a verified principal.');
+  if (capabilities.authentication && capabilities.authorization) addRelation('RoleAssignment', 'UserAccount', 'many-to-one', 'Every role grant belongs to a verified principal.', 'principalId');
   if (capabilities.booking) {
-    addRelation('Booking', 'BookableResource', 'many-to-one', 'A booking reserves one resource or service.');
-    if (capabilities.authentication) addRelation('Booking', 'UserAccount', 'many-to-one', 'The booking customer is the verified account owner.', true);
+    addRelation('Booking', 'BookableResource', 'many-to-one', 'A booking reserves one resource or service.', 'resourceId');
+    if (capabilities.authentication) addRelation('Booking', 'UserAccount', 'many-to-one', 'The booking customer is the verified account owner.', 'customerId', true);
   }
   if (capabilities.commerce) {
-    addRelation('CartItem', 'Cart', 'many-to-one', 'Each cart line belongs to one cart.');
-    addRelation('CartItem', 'Product', 'many-to-one', 'Each cart line references an active catalog product.');
-    addRelation('OrderLine', 'Order', 'many-to-one', 'Each immutable order line belongs to one order.');
-    addRelation('OrderLine', 'Product', 'many-to-one', 'Each order line references its catalog source and preserves a purchase-time snapshot.');
-    if (capabilities.authentication) addRelation('Order', 'UserAccount', 'many-to-one', 'The order belongs to the verified principal.', true);
+    addRelation('CartItem', 'Cart', 'many-to-one', 'Each cart line belongs to one cart.', 'cartId');
+    addRelation('CartItem', 'Product', 'many-to-one', 'Each cart line references an active catalog product.', 'productId');
+    addRelation('OrderLine', 'Order', 'many-to-one', 'Each immutable order line belongs to one order.', 'orderId');
+    addRelation('OrderLine', 'Product', 'many-to-one', 'Each order line references its catalog source and preserves a purchase-time snapshot.', 'productId');
+    if (capabilities.authentication) addRelation('Order', 'UserAccount', 'many-to-one', 'The order belongs to the verified principal.', 'ownerId', true);
   }
-  if (capabilities.payments && capabilities.commerce) addRelation('PaymentAttempt', 'Order', 'many-to-one', 'Payment attempts reconcile against an order.');
-  if (capabilities.fileStorage && capabilities.authentication) addRelation('StoredAsset', 'UserAccount', 'many-to-one', 'Private assets belong to the verified owner.');
-  if (capabilities.admin && capabilities.authentication) addRelation('AuditEvent', 'UserAccount', 'many-to-one', 'Sensitive actions record the verified actor.');
-  if (capabilities.email && capabilities.contact) addRelation('DeliveryRecord', 'ContactSubmission', 'many-to-one', 'Contact delivery events retain a link to the original submission.');
-  if (capabilities.newsletter && capabilities.email) addRelation('DeliveryRecord', 'NewsletterSubscription', 'many-to-one', 'Subscription confirmation and unsubscribe notices retain a link to subscription state.');
-  if (capabilities.newsletter && capabilities.authentication) addRelation('NewsletterSubscription', 'UserAccount', 'many-to-one', 'Account linkage is optional; public subscriptions remain possible.', true);
+  if (capabilities.payments && capabilities.commerce) addRelation('PaymentAttempt', 'Order', 'many-to-one', 'Payment attempts reconcile against an order.', 'orderId');
+  if (capabilities.fileStorage && capabilities.authentication) addRelation('StoredAsset', 'UserAccount', 'many-to-one', 'Private assets belong to the verified owner.', 'ownerId');
+  if (capabilities.admin && capabilities.authentication) addRelation('AuditEvent', 'UserAccount', 'many-to-one', 'Sensitive actions record the verified actor.', 'actorId');
+  if (capabilities.email && capabilities.contact) addRelation('DeliveryRecord', 'ContactSubmission', 'many-to-one', 'Contact delivery events retain a link to the original submission.', 'sourceId');
+  if (capabilities.newsletter && capabilities.email) addRelation('DeliveryRecord', 'NewsletterSubscription', 'many-to-one', 'Subscription confirmation and unsubscribe notices retain a link to subscription state.', 'sourceId');
+  if (capabilities.newsletter && capabilities.authentication) addRelation('NewsletterSubscription', 'UserAccount', 'many-to-one', 'Account linkage is optional; public subscriptions remain possible.', 'userId', true);
 
   const constraints = [
     { id: 'owner-scope-not-null', appliesTo: 'all owner-scoped entities', rule: 'Protected records must carry a server-derived owner or tenant scope; never accept it from an untrusted client.' },
@@ -767,7 +775,7 @@ export function fullStackArchitectureModelContract(architecture) {
       id: model.id, name: model.name, fields: model.fields, securityClass: model.securityClass,
     })).slice(0, 16),
     dataIntegrity: {
-      relationships: architecture.dataIntegrity.relationships.map(item => [item.from, item.to, item.cardinality, item.purpose]).slice(0, 20),
+      relationships: architecture.dataIntegrity.relationships.map(item => [item.from, item.to, item.cardinality, item.foreignKeyField, item.optional, item.purpose]).slice(0, 20),
       constraints: architecture.dataIntegrity.constraints.map(item => [item.id, item.appliesTo, item.rule]).slice(0, 18),
       indexes: architecture.dataIntegrity.indexes.map(item => [item.entity, item.fields, item.unique]).slice(0, 18),
     },
