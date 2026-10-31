@@ -444,6 +444,8 @@ try {
     console.log('[' + target.name + '] voice-note diagnostic: first voice flow complete');
     // "Dictate as text" must use the microphone's speech-to-text path and fill
     // the ordinary editable prompt field instead of requiring a voice-note upload.
+    lastCheckpoint = target.name + ': dictation fake install';
+    console.log('[' + target.name + '] dictation diagnostic: installing fake recognition');
     await page.evaluate(() => {
       class FakeSpeechRecognition {
         constructor() { window.__ovyxDictationRecognition = this; }
@@ -452,9 +454,17 @@ try {
       }
       window.SpeechRecognition = FakeSpeechRecognition;
     });
-    await mic.click();
-    await page.locator('#ws-voice-note-panel [data-ws-voice-dictate]').click();
-    await page.waitForFunction(() => !!window.__ovyxDictationRecognition);
+    lastCheckpoint = target.name + ': dictation microphone click';
+    console.log('[' + target.name + '] dictation diagnostic: fake recognition installed; clicking microphone');
+    await page.locator('#ws-composer-mic').click({ timeout: 15000 });
+    console.log('[' + target.name + '] dictation diagnostic: microphone opened panel');
+    lastCheckpoint = target.name + ': dictation action click';
+    await page.locator('#ws-voice-note-panel [data-ws-voice-dictate]').click({ timeout: 15000 });
+    console.log('[' + target.name + '] dictation diagnostic: dictate action clicked');
+    lastCheckpoint = target.name + ': dictation recognition wait';
+    await page.waitForFunction(() => !!window.__ovyxDictationRecognition, { timeout: 15000 });
+    console.log('[' + target.name + '] dictation diagnostic: recognition instance created');
+    lastCheckpoint = target.name + ': dictation result dispatch';
     await page.evaluate(() => {
       window.__ovyxDictationRecognition.onresult({
         resultIndex: 0,
@@ -462,6 +472,7 @@ try {
       });
       window.__ovyxDictationRecognition.onend();
     });
+    console.log('[' + target.name + '] dictation diagnostic: result and end dispatched');
     assert.equal(await input.inputValue(), 'Dictated text option works.',
       '[' + target.name + '] dictation must populate the normal editable prompt field.');
     assert.equal(await mic.getAttribute('aria-pressed'), 'false',
