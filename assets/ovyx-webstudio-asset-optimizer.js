@@ -8,8 +8,8 @@
   var QUALITY = 0.88;
 
   function replaceExtension(name) {
-    var value = String(name || 'image').replace(/[\\u0000-\\u001f\\u007f]/g, '').trim() || 'image';
-    return value.replace(/\\.[a-z0-9]{1,8}$/i, '') + '.webp';
+    var value = String(name || 'image').replace(/[\u0000-\u001f\u007f]/g, '').trim() || 'image';
+    return value.replace(/\.[a-z0-9]{1,8}$/i, '') + '.webp';
   }
 
   function canvasBlob(canvas) {
@@ -26,7 +26,7 @@
   }
 
   async function optimize(file) {
-    if (!file || !/^image\\/(?:jpeg|png)$/i.test(String(file.type || '')) || file.size < MIN_BYTES) {
+    if (!file || !/^image\/(?:jpeg|png)$/i.test(String(file.type || '')) || file.size < MIN_BYTES) {
       return { file: file, optimized: false, originalBytes: Number(file && file.size) || 0, optimizedBytes: Number(file && file.size) || 0 };
     }
     if (typeof createImageBitmap !== 'function' || typeof File !== 'function') {
