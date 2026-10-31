@@ -128,6 +128,20 @@ assert.equal(explicitFullStack.capabilities.database, true);
 assert.ok(explicitFullStack.integrations.some(item => item.capability === 'database'));
 assert.equal(explicitFullStack.capabilities.payments, false);
 assert.equal(explicitFullStack.capabilities.authentication, false);
+assert.equal(explicitFullStack.capabilities.authorization, false);
+
+const loginOnlyBrief = 'Build a customer member portal with secure sign in and account recovery.';
+const loginOnly = buildFullStackArchitecture(loginOnlyBrief, buildPromptContract(loginOnlyBrief));
+assert.equal(loginOnly.capabilities.authentication, true);
+assert.equal(loginOnly.capabilities.authorization, false,
+  'Authentication alone must not invent role-based authorization.');
+
+const roleAccessBrief = 'Build a staff portal with login, user roles and resource permissions.';
+const roleAccess = buildFullStackArchitecture(roleAccessBrief, buildPromptContract(roleAccessBrief));
+assert.equal(roleAccess.capabilities.authentication, true);
+assert.equal(roleAccess.capabilities.authorization, true);
+assert.ok(roleAccess.dataModels.some(model => model.name === 'RoleAssignment'));
+
 
 const simpleBrief = 'Build a one-page personal portfolio with an about section and project gallery.';
 const simple = buildFullStackArchitecture(simpleBrief, buildPromptContract(simpleBrief));
