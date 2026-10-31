@@ -122,6 +122,7 @@ assert.equal(prepared.ok, true);
 assert.equal(prepared.assetStorage.includedCount, 1);
 assert.equal(prepared.assetStorage.excludedCount, 0);
 assert.equal(prepared.assetStorage.rewrittenReferences, 2);
+assert.equal(prepared.assetStorage.sanitizedFirebaseTokenReferences, 0);
 assert.ok(prepared.excluded.some(item => /duplicate or case-insensitive path collision/i.test(item.reason)));
 assert.ok(prepared.excluded.some(item => item.path === '../escape.js'));
 assert.ok(!prepared.files.some(file => file.path.includes('..') || file.path === 'CON.txt' || file.path === 'bad:name.js'));
@@ -175,6 +176,8 @@ const failedAssetPreparation = await exporter.prepare();
 assert.equal(failedAssetPreparation.ok, true, 'Text source export remains available when stored media cannot be retrieved.');
 assert.equal(failedAssetPreparation.assetStorage.status, 'unavailable');
 assert.equal(failedAssetPreparation.assetStorage.excludedCount, 1);
+assert.equal(failedAssetPreparation.assetStorage.sanitizedFirebaseTokenReferences, 2);
+assert.ok(failedAssetPreparation.excluded.some(item => /download-token reference/i.test(item.reason)));
 assert.ok(failedAssetPreparation.excluded.some(item => /HTTP 403/.test(item.reason)));
 
 window.WebStudio.graph.files = {
