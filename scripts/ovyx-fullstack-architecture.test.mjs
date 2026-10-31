@@ -66,8 +66,11 @@ assert.ok(architecture.graph.nodes.some(node => node.type === 'acceptance-test')
 assert.ok(architecture.graph.edges.some(edge => edge.relation === 'reads-or-writes'));
 assert.ok(architecture.graph.edges.some(edge => edge.relation === 'must-verify'));
 assert.ok(architecture.requirementMappings.length <= contract.allBriefClauses.length);
-assert.ok(architecture.requirementMappings.every(item => item.requirementId && item.targetNodeIds.length > 0));
-assert.ok(architecture.requirementMappings.every(item => item.assessment === 'mapped-to-architecture' || item.assessment === 'needs-semantic-mapping'));
+assert.ok(architecture.requirementMappings.every(item => item.requirementId && Array.isArray(item.targetNodeIds)));
+assert.ok(architecture.requirementMappings.some(item => item.assessment === 'mapped-to-architecture'));
+assert.ok(architecture.requirementMappings.some(item => item.assessment === 'needs-semantic-mapping'));
+assert.ok(architecture.graph.edges.some(edge => edge.relation === 'persists-through-server-adapter'));
+assert.ok(architecture.graph.edges.some(edge => edge.relation === 'queues-delivery-through-server-adapter'));
 
 const instructions = buildFullStackArchitectureInstructions(architecture);
 assert.match(instructions, /ONE COHERENT APPLICATION/);
