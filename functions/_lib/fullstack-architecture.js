@@ -797,29 +797,31 @@ export function fullStackArchitectureClientSummary(architecture) {
 
 export function fullStackArchitectureModelContract(architecture) {
   if (!architecture || architecture.engine !== 'ovyx-fullstack-architecture') return null;
+  const text = value => String(value || '').slice(0, 112);
+  const compact = values => (Array.isArray(values) ? values : []).slice(0, 10).map(text);
   return {
     version: architecture.version,
     capabilities: architecture.capabilities,
-    pages: architecture.pages.map(page => [page.id, page.title, page.route]).slice(0, 18),
-    components: architecture.components.map(item => [item.id, item.name, item.purpose]).slice(0, 12),
+    pages: architecture.pages.map(page => [page.id, text(page.title), text(page.route)]).slice(0, 14),
+    components: architecture.components.map(item => [item.id, text(item.name), text(item.purpose)]).slice(0, 10),
     apiContracts: architecture.apiContracts.map(route => ({
       id: route.id, method: route.method, path: route.path, capability: route.capability,
-      authPolicy: route.authPolicy, modelIds: route.modelIds, idempotency: route.idempotency,
-      rateLimit: route.rateLimit, sideEffect: route.sideEffect || '',
-    })).slice(0, 20),
+      authPolicy: route.authPolicy, modelIds: route.modelIds.slice(0, 5), idempotency: route.idempotency,
+      rateLimit: route.rateLimit, sideEffect: text(route.sideEffect),
+    })).slice(0, 18),
     dataModels: architecture.dataModels.map(model => ({
-      id: model.id, name: model.name, fields: model.fields, securityClass: model.securityClass,
-    })).slice(0, 16),
+      id: model.id, name: model.name, fields: model.fields.slice(0, 10), securityClass: model.securityClass,
+    })).slice(0, 14),
     dataIntegrity: {
-      relationships: architecture.dataIntegrity.relationships.map(item => [item.from, item.to, item.cardinality, item.foreignKeyField, item.kind, item.optional, item.purpose]).slice(0, 20),
-      constraints: architecture.dataIntegrity.constraints.map(item => [item.id, item.appliesTo, item.rule]).slice(0, 18),
-      indexes: architecture.dataIntegrity.indexes.map(item => [item.entity, item.fields, item.unique]).slice(0, 18),
+      relationships: architecture.dataIntegrity.relationships.map(item => [item.from, item.to, item.cardinality, item.foreignKeyField, item.kind, item.optional, text(item.purpose)]).slice(0, 14),
+      constraints: architecture.dataIntegrity.constraints.map(item => [item.id, text(item.appliesTo), text(item.rule)]).slice(0, 14),
+      indexes: architecture.dataIntegrity.indexes.map(item => [item.entity, item.fields.slice(0, 5), item.unique]).slice(0, 14),
     },
     integrations: architecture.integrations.map(item => ({
-      capability: item.capability, provider: item.provider,
+      capability: item.capability, provider: text(item.provider),
       connectionMetadata: item.connectionMetadata, verification: item.verification,
       liveDeliveryOrTransaction: item.liveDeliveryOrTransaction,
-    })).slice(0, 8),
+    })).slice(0, 6),
     requirementTraceabilityGroups: (() => {
       const grouped = new Map();
       for (const item of architecture.requirementMappings) {
@@ -835,39 +837,42 @@ export function fullStackArchitectureModelContract(architecture) {
     requirementsNeedingSemanticMapping: architecture.requirementMappings
       .filter(item => item.assessment === 'needs-semantic-mapping')
       .map(item => item.requirementId),
-    dependencyEdges: architecture.graph.edges.slice(0, 48).map(edge => [edge.from, edge.relation, edge.to]),
+    dependencyEdges: architecture.graph.edges.slice(0, 36).map(edge => [edge.from, edge.relation, edge.to]),
     graphIntegrity: architecture.graphIntegrity,
     crossLayerContracts: {
-      apiBoundary: [architecture.crossLayerContracts.apiBoundary.clientRule, architecture.crossLayerContracts.apiBoundary.schemas, architecture.crossLayerContracts.apiBoundary.errors],
-      dataConsistency: [architecture.crossLayerContracts.dataConsistency.money, architecture.crossLayerContracts.dataConsistency.time, architecture.crossLayerContracts.dataConsistency.ownership, architecture.crossLayerContracts.dataConsistency.concurrency],
-      identityAndAuthorization: [architecture.crossLayerContracts.identityAndAuthorization.identity, architecture.crossLayerContracts.identityAndAuthorization.authorization, architecture.crossLayerContracts.identityAndAuthorization.clientTrust],
-      transactionSafety: [architecture.crossLayerContracts.transactionSafety.mutations, architecture.crossLayerContracts.transactionSafety.sideEffects, architecture.crossLayerContracts.transactionSafety.duplicateDelivery],
-      integrationReliability: [architecture.crossLayerContracts.integrationReliability.adapters, architecture.crossLayerContracts.integrationReliability.network, architecture.crossLayerContracts.integrationReliability.state, architecture.crossLayerContracts.integrationReliability.failure],
-      privacyAndRetention: [architecture.crossLayerContracts.privacyAndRetention.minimization, architecture.crossLayerContracts.privacyAndRetention.sensitiveData, architecture.crossLayerContracts.privacyAndRetention.lifecycle],
-      observability: [architecture.crossLayerContracts.observability.correlation, architecture.crossLayerContracts.observability.events, architecture.crossLayerContracts.observability.operations],
-      environmentAndRelease: [architecture.crossLayerContracts.environmentAndRelease.isolation, architecture.crossLayerContracts.environmentAndRelease.release, architecture.crossLayerContracts.environmentAndRelease.rollback],
-      qualityPrinciples: architecture.crossLayerContracts.qualityPrinciples,
+      apiBoundary: compact([architecture.crossLayerContracts.apiBoundary.clientRule, architecture.crossLayerContracts.apiBoundary.schemas, architecture.crossLayerContracts.apiBoundary.errors]),
+      dataConsistency: compact([architecture.crossLayerContracts.dataConsistency.money, architecture.crossLayerContracts.dataConsistency.time, architecture.crossLayerContracts.dataConsistency.ownership, architecture.crossLayerContracts.dataConsistency.concurrency]),
+      identityAndAuthorization: compact([architecture.crossLayerContracts.identityAndAuthorization.identity, architecture.crossLayerContracts.identityAndAuthorization.authorization, architecture.crossLayerContracts.identityAndAuthorization.clientTrust]),
+      transactionSafety: compact([architecture.crossLayerContracts.transactionSafety.mutations, architecture.crossLayerContracts.transactionSafety.sideEffects, architecture.crossLayerContracts.transactionSafety.duplicateDelivery]),
+      integrationReliability: compact([architecture.crossLayerContracts.integrationReliability.adapters, architecture.crossLayerContracts.integrationReliability.network, architecture.crossLayerContracts.integrationReliability.state, architecture.crossLayerContracts.integrationReliability.failure]),
+      privacyAndRetention: compact([architecture.crossLayerContracts.privacyAndRetention.minimization, architecture.crossLayerContracts.privacyAndRetention.sensitiveData, architecture.crossLayerContracts.privacyAndRetention.lifecycle]),
+      observability: compact([architecture.crossLayerContracts.observability.correlation, architecture.crossLayerContracts.observability.events, architecture.crossLayerContracts.observability.operations]),
+      environmentAndRelease: compact([architecture.crossLayerContracts.environmentAndRelease.isolation, architecture.crossLayerContracts.environmentAndRelease.release, architecture.crossLayerContracts.environmentAndRelease.rollback]),
+      qualityPrinciples: compact(architecture.crossLayerContracts.qualityPrinciples),
     },
     security: {
       defaultPosture: architecture.security.defaultPosture,
-      controls: architecture.security.controls.map(item => [item.id, item.requirement]).slice(0, 18),
+      controls: architecture.security.controls.map(item => [item.id, text(item.requirement)]).slice(0, 14),
       migrationPolicy: architecture.security.migrationPolicy,
     },
     backgroundWork: architecture.backgroundWork,
     stateMachines: architecture.stateMachines.map(machine => ({
-      id: machine.id, name: machine.name, entity: machine.entity,
-      initialState: machine.initialState, states: machine.states,
-      transitions: machine.transitions.slice(0, 16),
-      invariant: machine.invariant,
+      id: machine.id, name: text(machine.name), entity: machine.entity,
+      initialState: machine.initialState, states: machine.states.slice(0, 10),
+      transitions: machine.transitions.slice(0, 10).map(item => ({
+        from: item.from, to: item.to, authority: text(item.authority),
+        sideEffect: text(item.sideEffect), audit: text(item.audit),
+      })),
+      invariant: text(machine.invariant),
       executionState: machine.executionState,
     })).slice(0, 8),
     testPlan: architecture.testPlan.map(test => ({
-      id: test.id, type: test.type, scope: test.scope,
-      assertion: test.assertion, status: test.status,
+      id: test.id, type: test.type, scope: text(test.scope),
+      assertion: text(test.assertion), status: test.status,
       requiresExplicitOwnerApproval: test.requiresExplicitOwnerApproval === true,
-    })).slice(0, 14),
+    })).slice(0, 12),
     deployment: architecture.deployment,
-    honestyRules: architecture.honestyRules,
+    honestyRules: compact(architecture.honestyRules),
   };
 }
 
