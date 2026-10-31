@@ -37,7 +37,7 @@ function normalizeRequirements(contract) {
 }
 
 function hasPositiveIntent(source, pattern) {
-  return String(source || '').split(/[\\n.!?;]+/).some(clause => {
+  return String(source || '').split(/[\r\n.!?;]+/).some(clause => {
     const match = pattern.exec(clause);
     if (!match) return false;
     return !/\b(?:do not|don't|dont|never|avoid|exclude|without|no)\b/i.test(clause.slice(0, match.index));
