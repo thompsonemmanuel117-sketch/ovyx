@@ -736,8 +736,15 @@ export function fullStackArchitectureClientSummary(architecture) {
     version: architecture.version, architectureStatus: architecture.architectureStatus,
     capabilities: Object.entries(architecture.capabilities || {}).filter(([, enabled]) => enabled).map(([name]) => name),
     pageCount: architecture.pages.length, apiContractCount: architecture.apiContracts.length,
-    dataModelCount: architecture.dataModels.length, integrationCount: architecture.integrations.length,
-    securityControlCount: architecture.security.controls.length, acceptanceTestCount: architecture.testPlan.length,
+    dataModelCount: architecture.dataModels.length,
+    dataRelationshipCount: architecture.dataIntegrity.relationships.length,
+    dataConstraintCount: architecture.dataIntegrity.constraints.length,
+    indexCount: architecture.dataIntegrity.indexes.length,
+    integrationCount: architecture.integrations.length,
+    workflowStateMachineCount: architecture.stateMachines.length,
+    securityControlCount: architecture.security.controls.length,
+    acceptanceTestCount: architecture.testPlan.length,
+    requirementsNeedingSemanticMappingCount: architecture.requirementMappings.filter(item => item.assessment === 'needs-semantic-mapping').length,
     graph: architecture.graphIntegrity,
   };
 }
