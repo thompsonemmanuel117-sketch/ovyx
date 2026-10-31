@@ -367,6 +367,8 @@ if (!fs.existsSync(fullStackSourceAuditPath) || !fs.existsSync(fullStackSourceAu
     !sourceAudit.includes('evaluateFullStackSourceContracts') ||
     !sourceAudit.includes('authorization-source-not-detected') ||
     !sourceAudit.includes('missing-schema-source') ||
+    !sourceAudit.includes('indexDeclarationEvidence') ||
+    !sourceAudit.includes('missing-index-source') ||
     !sourceAudit.includes('runtimeBehaviorVerified: false') ||
     !evaluator.includes("from './ovyx-fullstack-source-contracts.mjs'") ||
     !evaluator.includes('options.fullStackArchitecture') ||
