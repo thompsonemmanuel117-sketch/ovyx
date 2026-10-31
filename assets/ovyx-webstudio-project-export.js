@@ -320,7 +320,7 @@
         frontendExcludedCount += 1;
         return;
       }
-      if (path && websiteOnly && (isBackendImplementationPath(path) || /(^|\/)FULL_STACK_SETUP\.md$/i.test(path) || /^OVYX_BACKEND_EXPORT_/i.test(path) || /^README_OVYX_BACKEND_EXPORT\.md$/i.test(path))) {
+      if (path && websiteOnly && (isBackendImplementationPath(path) || (path.indexOf('/') !== -1 && isBackendSupportPath(path)) || /(^|\/)FULL_STACK_SETUP\.md$/i.test(path) || /^OVYX_BACKEND_EXPORT_/i.test(path) || /^README_OVYX_BACKEND_EXPORT\.md$/i.test(path))) {
         backendExcludedCount += 1;
         return;
       }
