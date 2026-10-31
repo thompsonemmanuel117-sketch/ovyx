@@ -231,7 +231,6 @@ function buildJourneyEvidence(requirements, allSource, htmlEntries, cssEntries, 
   const hasVisibleAction = /<(?:button|a)\b[^>]*>[\s\S]*?(?:contact|enquire|inquire|book|reserve|start|continue|request|send|view|explore|sign in|subscribe)[\s\S]*?<\/(?:button|a)\s*>/i.test(html);
   const hasCollectionLinks = /(?:collection|lookbook|product)/i.test(html) && /<a\b[^>]*href\s*=/i.test(html);
   const definitions = [
-    { re: /\b(?:multi-page navigation|marketing navigation|route navigation|navigation|navigate|nav links?)\b/i, test: () => hasNav, signals: ['semantic nav and href links'] },
     { re: /\b(?:pricing routes?)\b/i, test: () => hasPricingRoute, signals: ['pricing route/file or internal link'] },
     { re: /\b(?:filters?|filtering|sorting|sort(?:ing)?)\b/i, test: () => hasFilter, signals: ['filter/sort evidence plus control or event signal'] },
     { re: /\bsearch\b/i, test: () => hasSearch, signals: ['search input/role or search source reference'] },
@@ -251,6 +250,7 @@ function buildJourneyEvidence(requirements, allSource, htmlEntries, cssEntries, 
     { re: /\b(?:keyboard use|keyboard-accessible|keyboard navigation)\b/i, test: () => hasKeyboardEvidence, signals: ['focus CSS or keyboard semantics'] },
     { re: /\b(?:collection navigation)\b/i, test: () => hasCollectionLinks, signals: ['collection/product text plus internal links'] },
     { re: /\b(?:mobile navigation)\b/i, test: () => hasMobileNav, signals: ['navigation plus mobile menu disclosure signal'] },
+    { re: /\b(?:multi-page navigation|marketing navigation|route navigation|navigation|navigate|nav links?)\b/i, test: () => hasNav, signals: ['semantic nav and href links'] },
     { re: /\b(?:responsive editorial layout|mobile property-card layout|tablet dashboard layout|mobile layout)\b/i, test: () => hasResponsive, signals: ['viewport declaration and responsive media CSS'] },
   ];
   return (Array.isArray(requirements) ? requirements : []).map(requirement => {
