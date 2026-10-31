@@ -969,6 +969,20 @@ function projectPages(project, siteMap) {
       path: page.path,
       route: page.url,
       sections: old && Array.isArray(old.sections) ? old.sections : [],
+      blueprint: {
+        audience: page.audience || '',
+        primaryAction: page.primaryAction || '',
+        sections: Array.isArray(page.sections) ? page.sections : [],
+        visualDirection: page.visualDirection || '',
+        interactionRequirements: Array.isArray(page.interactionRequirements) ? page.interactionRequirements : [],
+        dataRequirements: Array.isArray(page.dataRequirements) ? page.dataRequirements : [],
+        components: Array.isArray(page.components) ? page.components : [],
+        seoIntent: page.seoIntent || '',
+        responsiveNotes: Array.isArray(page.responsiveNotes) ? page.responsiveNotes : [],
+        accessibilityNotes: Array.isArray(page.accessibilityNotes) ? page.accessibilityNotes : [],
+        performanceNotes: Array.isArray(page.performanceNotes) ? page.performanceNotes : [],
+        integrationBoundaries: Array.isArray(page.integrationBoundaries) ? page.integrationBoundaries : [],
+      },
       order: index,
     };
   });
@@ -1439,6 +1453,7 @@ async function buildStudioMultiPageOnce(options) {
     name: project.name,
     description: project.description,
     assets: Array.isArray(project.assets) ? project.assets : [],
+    designSystem: siteMap.designSystem || project.designSystem || {},
     pages: projectPages(project, siteMap),
   } : null;
   const rawUsage = hasUsage ? {
