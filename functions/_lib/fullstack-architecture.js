@@ -39,11 +39,12 @@ function normalizeRequirements(contract) {
 function inferCapabilities(prompt, contract) {
   const source = String(prompt || '');
   const signals = contract && contract.contactSignals || {};
+  const admin = /\b(?:admin dashboard|administrator|back office|staff dashboard|manage users|manage orders|manage bookings)\b/i.test(source);
   const commerce = signals.shoppingCart === true || signals.addToCart === true ||
-    /\b(?:e-commerce|ecommerce|online store|sell products|product catalogue|product catalog|orders?|checkout)\b/i.test(source);
-  const payment = signals.payments === true || commerce ||
-    /\b(?:payment|paystack|flutterwave|stripe|paypal|subscription billing|recurring billing)\b/i.test(source);
-  const auth = signals.authentication === true ||
+    /\b(?:e-commerce|ecommerce|online store|sell products|product catalogue|product catalog|shopping cart|add to cart)\b/i.test(source);
+  const payment = signals.payments === true ||
+    /\b(?:payment|paystack|flutterwave|stripe|paypal|checkout|pay now|subscription billing|recurring billing)\b/i.test(source);
+  const auth = signals.authentication === true || admin ||
     /\b(?:user roles?|role-based access|admin access|staff accounts?|member portal|sign in|sign up|login|authentication)\b/i.test(source);
   const booking = signals.bookings === true ||
     /\b(?:appointment|reservation|booking|schedule a|availability calendar)\b/i.test(source);
@@ -51,10 +52,9 @@ function inferCapabilities(prompt, contract) {
     /\b(?:contact form|enquiry form|inquiry form|lead capture|send a message)\b/i.test(source);
   const email = signals.emailDelivery === true || signals.newsletter === true ||
     /\b(?:email delivery|send confirmation|email notification|transactional email|newsletter)\b/i.test(source);
-  const persistentData = signals.backendData === true || commerce || booking || auth || contact ||
-    /\b(?:database|persistent data|save records|customer records|admin dashboard|reporting dashboard)\b/i.test(source);
   const fileStorage = /\b(?:file upload|image upload|document upload|media library|file storage|user uploads?)\b/i.test(source);
-  const admin = /\b(?:admin dashboard|administrator|back office|staff dashboard|manage users|manage orders|manage bookings)\b/i.test(source);
+  const persistentData = signals.backendData === true || commerce || booking || auth || contact || fileStorage ||
+    /\b(?:database|persistent data|save records|customer records|reporting dashboard)\b/i.test(source);
   const search = /\b(?:search|filter|sort|catalogue|catalog|directory|listing)\b/i.test(source);
   const backgroundWork = email || booking || payment ||
     /\b(?:background job|scheduled task|queue|webhook|async processing|cron)\b/i.test(source);
@@ -114,10 +114,18 @@ function buildApiContracts(capabilities) {
   }
   if (capabilities.commerce) {
     add('GET', '/api/products', 'commerce', 'public-read', 'Read catalog items from the configured authoritative source.', ['model-product'], { cachePolicy: 'source-aware' });
-    add('POST', '/api/cart/quote', 'commerce', 'session-or-authenticated', 'Recalculate all line items, discounts, tax and inventory on the server.', ['model-cart', 'model-product', 'model-order']);
-    add('POST', '/api/checkout', 'payments', 'session-or-authenticated', 'Create a provider checkout from a server-calculated order; never accept client totals.', ['model-cart', 'model-order', 'model-paymentattempt'], { sideEffect: 'provider-checkout-with-idempotency' });
+    add('POST', '/api/cart/quote', 'commerce', 'session-or-authenticated', 'Recalculate line items, discounts, tax and inventory on the server.', ['model-cart', 'model-product', 'model-order']);
+    if (!capabilities.payments) {
+      add('POST', '/api/orders', 'commerce', 'session-or-verified-customer', 'Create an order intent without representing it as paid; fulfillment waits for the configured business process.', ['model-cart', 'model-order'], { sideEffect: 'order-intent-only' });
+    }
+    if (capabilities.payments) {
+      add('POST', '/api/checkout', 'payments', 'session-or-authenticated', 'Create provider checkout from a server-calculated order; never accept client totals.', ['model-cart', 'model-order', 'model-paymentattempt'], { sideEffect: 'provider-checkout-with-idempotency' });
+    }
   }
-  if (capabilities.payments) add('POST', '/api/webhooks/payments', 'payments', 'provider-signature-and-replay-protected', 'Verify webhook signature, timestamp and event identity before idempotent reconciliation.', ['model-paymentattempt', ...(capabilities.commerce ? ['model-order'] : [])], { sideEffect: 'idempotent-payment-reconciliation', csrf: 'provider signature required' });
+  if (capabilities.payments) {
+    if (!capabilities.commerce) add('POST', '/api/payments/intents', 'payments', 'authenticated-or-authorized-customer', 'Create a payment intent for a server-authorized invoice or billable action; amount and currency are server-derived.', ['model-paymentattempt'], { sideEffect: 'provider-payment-intent-with-idempotency' });
+    add('POST', '/api/webhooks/payments', 'payments', 'provider-signature-and-replay-protected', 'Verify webhook signature, timestamp and event identity before idempotent reconciliation.', ['model-paymentattempt', ...(capabilities.commerce ? ['model-order'] : [])], { sideEffect: 'idempotent-payment-reconciliation', csrf: 'provider signature required' });
+  }
   if (capabilities.fileStorage) {
     add('POST', '/api/assets', 'storage', 'authenticated-owner-scoped', 'Authorize upload intent and enforce MIME, size, quota and ownership rules.', ['model-storedasset'], { sideEffect: 'signed-upload-or-server-mediated-upload' });
     add('GET', '/api/assets/:assetId', 'storage', 'authenticated-owner-or-explicit-public-policy', 'Resolve an asset only after ownership/publication checks.', ['model-storedasset']);
