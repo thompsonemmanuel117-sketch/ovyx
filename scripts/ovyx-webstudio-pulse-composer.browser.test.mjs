@@ -10,6 +10,7 @@ try {
   ]) {
     console.log('[' + target.name + '] checkpoint: viewport started');
     const page = await browser.newPage({ viewport: target.viewport });
+    page.on('console', message => console.log('[' + target.name + '] browser console: ' + message.type() + ' ' + message.text()));
     page.setDefaultTimeout(20000);
     const response = await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell failed to load.');
@@ -537,14 +538,20 @@ try {
 
     console.log('[' + target.name + '] generated-image action: click dispatch starting');
     try {
-      await page.locator('#ws-agent-thread [data-ovyx-use-generated-image]').click({ timeout: 8000 });
+      await Promise.race([
+        page.locator('#ws-agent-thread [data-ovyx-use-generated-image]').click({ timeout: 8000, noWaitAfter: true }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Generated-image action did not return within 12 seconds; browser main-thread or click handler may be blocked.')), 12000))
+      ]);
     } catch (error) {
-      const diagnostic = await page.evaluate(() => ({
-        buttonCount: document.querySelectorAll('#ws-agent-thread [data-ovyx-use-generated-image]').length,
-        attachmentStripHidden: document.getElementById('ws-attachment-strip')?.hidden,
-        attachmentNames: (window.WebStudio?.attachments || []).map(item => item.name),
-        promptValue: document.getElementById('ws-chat-input')?.value,
-      })).catch(e => ({ pageEvaluationError: String(e?.message || e) }));
+      const diagnostic = await Promise.race([
+        page.evaluate(() => ({
+          buttonCount: document.querySelectorAll('#ws-agent-thread [data-ovyx-use-generated-image]').length,
+          attachmentStripHidden: document.getElementById('ws-attachment-strip')?.hidden,
+          attachmentNames: (window.WebStudio?.attachments || []).map(item => item.name),
+          promptValue: document.getElementById('ws-chat-input')?.value,
+        })).catch(e => ({ pageEvaluationError: String(e?.message || e) })),
+        new Promise(resolve => setTimeout(() => resolve({ pageEvaluationError: 'Page evaluation timed out because the browser renderer is unresponsive.' }), 1500))
+      ]);
       console.error('[' + target.name + '] generated-image click diagnostic: ' + JSON.stringify(diagnostic));
       throw error;
     }
