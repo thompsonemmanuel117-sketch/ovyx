@@ -523,8 +523,22 @@ try {
     assert.match(await page.locator('#ws-attachment-strip').innerText(), /site-brief\.txt/,
       '[' + target.name + '] fixture attachment must be staged before using the generated image.');
 
-    await page.locator('#ws-agent-thread [data-ovyx-use-generated-image]').click();
-    await page.waitForSelector('#ws-attachment-strip:not([hidden]) .ovyx-ws-attachment-chip', { state: 'visible' });
+    console.log('[' + target.name + '] generated-image action: click dispatch starting');
+    try {
+      await page.locator('#ws-agent-thread [data-ovyx-use-generated-image]').click({ timeout: 8000 });
+    } catch (error) {
+      const diagnostic = await page.evaluate(() => ({
+        buttonCount: document.querySelectorAll('#ws-agent-thread [data-ovyx-use-generated-image]').length,
+        attachmentStripHidden: document.getElementById('ws-attachment-strip')?.hidden,
+        attachmentNames: (window.WebStudio?.attachments || []).map(item => item.name),
+        promptValue: document.getElementById('ws-chat-input')?.value,
+      })).catch(e => ({ pageEvaluationError: String(e?.message || e) }));
+      console.error('[' + target.name + '] generated-image click diagnostic: ' + JSON.stringify(diagnostic));
+      throw error;
+    }
+    console.log('[' + target.name + '] generated-image action: click dispatch returned');
+    await page.waitForSelector('#ws-attachment-strip:not([hidden]) .ovyx-ws-attachment-chip', { state: 'visible', timeout: 8000 });
+    console.log('[' + target.name + '] generated-image action: attachment strip updated');
     const stagedAttachmentText = await page.locator('#ws-attachment-strip').innerText();
     assert.match(stagedAttachmentText, /site-brief\.txt/,
       '[' + target.name + '] using a generated image must preserve existing file attachments.');
