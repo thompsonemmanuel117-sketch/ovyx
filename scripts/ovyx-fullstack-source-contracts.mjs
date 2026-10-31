@@ -58,7 +58,17 @@ function routeHandlerSource(route, files, pathMap) {
     }
   }
   const literal = String(route.path || '');
-  const dynamicPathPattern = new RegExp('^' + escapeRegExp(literal).replace(/:\\w+/g, '[^/]+') + '
+  const dynamicPathPattern = new RegExp(
+    '^' + escapeRegExp(literal).replace(/:\w+/g, '[^/]+') + '$'
+  );
+  for (const [file, source] of Object.entries(files)) {
+    if (!TEXT_SOURCE.test(file)) continue;
+    const text = String(source || '');
+    const pathSignals = literal.length > 4 && (
+      text.includes(literal) ||
+      Array.from(text.matchAll(/["\x27]([^"\x27]{5,240})["\x27]/g))
+        .some(match => dynamicPathPattern.test(match[1]))
+    );
     if (pathSignals && methodEvidence(source, route.method)) {
       return { file, source, match: 'central-router-path-and-method-source' };
     }
