@@ -273,6 +273,7 @@ function buildSecurityArchitecture(capabilities) {
 function buildTestPlan(capabilities) {
   const tests = [
     { id: 'architecture-contract', type: 'contract', scope: 'all layers', assertion: 'Every requirement maps to relevant nodes or is explicitly not-assessable.' },
+    { id: 'business-state-transitions', type: 'contract-and-integration', scope: 'domain workflows', assertion: 'Only declared transitions execute; each transition's authority, side effects, idempotency and audit requirements are enforced.' },
     { id: 'route-contract', type: 'contract', scope: 'backend API', assertion: 'HTTP methods, auth policy, validation, errors and idempotency match each route contract.' },
     { id: 'data-integrity', type: 'integration', scope: 'database', assertion: 'Constraints, indexes, ownership and transaction boundaries hold against the selected database.' },
     { id: 'browser-journeys', type: 'browser-e2e', scope: 'frontend and backend', assertion: 'Every requested journey runs from UI action through API and persisted/result state.' },
@@ -465,6 +466,7 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
   const models = buildDataModels(capabilities);
   const dataIntegrity = buildDataIntegrityContracts(capabilities);
   const apiContracts = buildApiContracts(capabilities);
+  const stateMachines = buildWorkflowStateMachines(capabilities);
   const integrations = buildIntegrationContracts(capabilities, context || {});
   const nodes = [];
   const edges = [];
@@ -560,6 +562,29 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
     addEdge(edges, projectId, queueId, 'runs-background-work');
     for (const route of apiContracts.filter(item => ['contact', 'newsletter', 'payments', 'booking'].includes(item.capability))) addEdge(edges, route.id, queueId, 'enqueues-after-commit');
   }
+  const workflowNodeIds = [];
+  for (const machine of stateMachines) {
+    const nodeId = addNode(nodes, {
+      id: machine.id, type: 'business-workflow', name: machine.name,
+      entity: machine.entity, initialState: machine.initialState,
+      status: machine.executionState,
+    });
+    workflowNodeIds.push(nodeId);
+    addEdge(edges, projectId, nodeId, 'owns-state-machine');
+    const relevantRoutes = apiContracts.filter(route => {
+      const path = route.path.toLowerCase();
+      if (machine.entity === 'Order') return route.capability === 'commerce' || path.includes('checkout') || path.includes('/orders');
+      if (machine.entity === 'PaymentAttempt') return route.capability === 'payments';
+      if (machine.entity === 'Booking') return route.capability === 'booking';
+      if (machine.entity === 'ContactSubmission') return route.capability === 'contact';
+      if (machine.entity === 'NewsletterSubscription') return route.capability === 'newsletter';
+      if (machine.entity === 'StoredAsset') return route.capability === 'storage';
+      if (machine.entity === 'DeliveryRecord') return route.capability === 'email';
+      return false;
+    });
+    for (const route of relevantRoutes) addEdge(edges, route.id, nodeId, 'enforces-state-machine');
+  }
+
   const requirementMappings = requirements.map(requirement => {
     const text = requirement.text;
     const targets = [];
@@ -622,7 +647,7 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
   return {
     version: 1, engine: 'ovyx-fullstack-architecture', sourceOfTruth: 'complete-original-user-brief',
     architectureStatus: 'planned-not-provisioned', capabilities, pages: pageEntries,
-    components: nodes.filter(item => item.type === 'frontend-component'), apiContracts, dataModels: models, dataIntegrity, integrations,
+    components: nodes.filter(item => item.type === 'frontend-component'), apiContracts, dataModels: models, dataIntegrity, integrations, stateMachines,
     crossLayerContracts: buildCrossLayerContracts(capabilities),
     security: {
       defaultPosture: 'deny-by-default', controls: securityControls,
@@ -776,6 +801,13 @@ export function fullStackArchitectureModelContract(architecture) {
       migrationPolicy: architecture.security.migrationPolicy,
     },
     backgroundWork: architecture.backgroundWork,
+    stateMachines: architecture.stateMachines.map(machine => ({
+      id: machine.id, name: machine.name, entity: machine.entity,
+      initialState: machine.initialState, states: machine.states,
+      transitions: machine.transitions.slice(0, 16),
+      invariant: machine.invariant,
+      executionState: machine.executionState,
+    })).slice(0, 8),
     testPlan: architecture.testPlan.map(test => ({
       id: test.id, type: test.type, scope: test.scope,
       assertion: test.assertion, status: test.status,
