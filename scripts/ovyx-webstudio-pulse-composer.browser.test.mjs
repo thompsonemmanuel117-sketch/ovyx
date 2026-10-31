@@ -372,7 +372,7 @@ try {
       ]);
       const cameraSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360"><rect width="640" height="360" fill="#111827"/><circle cx="320" cy="180" r="108" fill="#e8b64f"/></svg>';
       await cameraChooser.setFiles({name:'camera-capture.svg',mimeType:'image/svg+xml',buffer:Buffer.from(cameraSvg)});
-      await page.waitForFunction(() => /camera-capture\\.svg/.test(document.getElementById('ws-attachment-strip')?.innerText || ''));
+      await page.waitForFunction(() => /camera-capture\.svg/.test(document.getElementById('ws-attachment-strip')?.innerText || ''));
       assert.ok(await page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-card').filter({hasText:'camera-capture.svg'}).count() === 1,
         '[' + target.name + '] Take photo must attach the selected image through the same upload pipeline.');
       await page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-card').filter({hasText:'camera-capture.svg'}).locator('.ws-attachment-preview-remove').click();
