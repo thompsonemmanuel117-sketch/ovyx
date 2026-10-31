@@ -60,8 +60,24 @@ assert.equal(parsedLongPlan.requirementManifest.indexEntriesAreExcerpts, true);
 assert.ok(parsedLongPlan.designArchitecture.mustHave.length > 0);
 assert.ok(parsedLongPlan.designArchitecture.conversionPrinciples.length > 0);
 assert.ok(parsedLongPlan.fullStackArchitecture);
-assert.equal(parsedLongPlan.fullStackArchitecture.requirementTraceability.length, 180);
+assert.equal(parsedLongPlan.fullStackArchitecture.requirementTraceabilityGroups.reduce((sum, group) => sum + group.requirementIds.length, 0), 180);
 assert.ok(serializedPlan.length <= 18000, 'The architecture contract must fit the same bounded model instruction budget.');
+
+const longFullStackBrief = Array.from({ length: 180 }, (_, index) =>
+  'Requirement ' + (index + 1) + ': Persist the order record, enforce account roles, validate checkout, reconcile payment events and verify the server API response for workflow step ' + (index + 1) + '.'
+).join('\n');
+const longFullStackPlan = buildWebsiteEnginePlan(longFullStackBrief);
+const longFullStackInstructions = buildWebsiteEngineInstructions(longFullStackPlan);
+const longFullStackSerialized = longFullStackInstructions.split(/\n\n/)[2];
+assert.ok(longFullStackSerialized.length <= 18000, 'A complex full-stack architecture and all requirement IDs must fit the safe model instruction budget.');
+const parsedLongFullStack = JSON.parse(longFullStackSerialized);
+assert.equal(parsedLongFullStack.fullStackArchitecture.requirementTraceabilityGroups.reduce(
+  (sum, group) => sum + group.requirementIds.length, 0
+), 180);
+assert.equal(parsedLongFullStack.fullStackArchitecture.graphIntegrity.valid, true);
+assert.ok(parsedLongFullStack.fullStackArchitecture.apiContracts.some(route => route.path === '/api/checkout'));
+assert.ok(parsedLongFullStack.fullStackArchitecture.security.controls.some(control => control[0] === 'payment-integrity'));
+
 
 const freshBuildReadiness = buildWebsiteEngineReadiness(
   'Build a business website with a real contact form and email delivery.',
