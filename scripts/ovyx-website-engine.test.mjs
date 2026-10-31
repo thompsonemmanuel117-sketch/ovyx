@@ -20,7 +20,7 @@ const plan = buildWebsiteEnginePlan(prompt, {
 });
 assert.equal(plan.engine, 'ovyx-unified-website-engine');
 assert.equal(plan.strategy, 'multi-page');
-assert.deepEqual(plan.pageArchitecture.pages.map(page => page.title), ['Home', 'About', 'Services', 'Pricing']);
+assert.deepEqual(plan.pageArchitecture.pages.map(page => page.title), ['Home', 'About', 'Services', 'Pricing', 'Reservations', 'Contact']);
 assert.ok(plan.requirementManifest.total >= 4);
 assert.ok(plan.requirementManifest.constraints.some(item => /do not invent/i.test(item)));
 assert.ok(plan.interactionArchitecture.capabilities.includes('booking'));
@@ -29,7 +29,7 @@ assert.ok(plan.integrations.some(item => item.capability === 'email' && item.con
 assert.ok(plan.integrations.some(item => item.capability === 'booking' && item.connection === 'not-confirmed'));
 assert.ok(plan.qualityGates.length > 0);
 assert.match(buildWebsiteEngineInstructions(plan), /AUTHORITATIVE PRE-GENERATION PLAN/);
-assert.equal(websiteEngineClientSummary(plan).explicitPages, 4);
+assert.equal(websiteEngineClientSummary(plan).pageCandidates, 6);
 assert.equal(buildWebsiteEnginePlan('A simple one-page portfolio').strategy, 'single-page-or-context-derived');
 
 let multiPageCalls = 0;
