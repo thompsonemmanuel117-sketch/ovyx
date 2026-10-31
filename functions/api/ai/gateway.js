@@ -7,10 +7,9 @@ import {
 } from '../../_lib/http.js';
 import { callModel } from '../../_lib/providers.js';
 import { cloudflareOnlyModelOptions } from '../../_lib/cloudflare-routing.js';
-import { runWebsiteGeneration, buildWebsiteEnginePlan, buildWebsiteEngineInstructions, websiteEngineClientSummary } from '../../_lib/website-engine.js';
+import { runWebsiteGeneration, buildWebsiteEnginePlan, buildWebsiteEngineInstructions, websiteEngineClientSummary, buildWebsiteEngineReadiness } from '../../_lib/website-engine.js';
 import { WEB_STUDIO_SYSTEM_PROMPT, WEB_STUDIO_EXCELLENCE } from '../../_lib/prompts.js';
 import { isWebStudioPrompt } from '../../_lib/experience.js';
-import { getWebStudioBuildClarification } from '../../_lib/prompt-contract.js';
 import { isScopedWebStudioEdit } from '../../_lib/webstudio-source.js';
 import { beginAIQuota, finalizeAIQuota, refundDailyPrompt } from '../../_lib/token-quota.js';
 import {
@@ -184,25 +183,15 @@ export async function onRequestPost(context) {
       ? JSON.stringify(payload.context).slice(0, 80_000)
       : '';
 
-    // For a fresh build, ask for essential public details or real integration
-    // readiness before spending tokens on a site that could otherwise contain
-    // invented contact data or pretend-live features. Existing-site edits stay fast.
-    const studioFilesForReadiness = payload.context?.files || payload.files || {};
-    const hasExistingHtml = Object.entries(studioFilesForReadiness && typeof studioFilesForReadiness === 'object' ? studioFilesForReadiness : {})
-      .some(([path, value]) => {
-        const text = typeof value === 'string' ? value : value && (value.content || value.text || value.source || value.code);
-        return /\.html?$/i.test(path) && typeof text === 'string' && text.length > 500 && /<body\b/i.test(text);
-      });
-    const readinessSensitiveRequest =
-      /\b(?:contact\s+forms?|enquir(?:y|ies)\s+forms?|email delivery|send (?:form )?messages|payments?|checkout|paystack|flutterwave|stripe|paypal|booking|reservations?|appointments?|newsletter|subscriptions?|login|log in|sign in|sign up|authentication|database|customer records?|order records?)\b/i.test(studioPromptText) ||
-      /\b(?:add|create|include|build|put|make)\b.{0,55}\b(?:contact|email|phone|whatsapp|address|booking|reservation|newsletter)\b/i.test(studioPromptText);
-    const isExistingSiteEdit = hasExistingHtml &&
-      /\b(?:fix|edit|change|update|modify|repair|tweak|adjust|redesign|remove|replace|add)\b/i.test(String(studioPromptText || '')) &&
-      !readinessSensitiveRequest;
-    const buildReadiness = isWebStudio && mode === 'build' && !isExistingSiteEdit
-      ? getWebStudioBuildClarification(studioPromptText, {
+    // Shared readiness contract: fresh builds ask for essential public details and real integration configuration before model spend.
+    const buildReadiness = isWebStudio
+      ? buildWebsiteEngineReadiness(studioPromptText, {
           ...(payload.context && typeof payload.context === 'object' ? payload.context : {}),
+          files: submittedFiles,
+        }, {
+          mode,
           conversationText,
+          files: submittedFiles,
         })
       : null;
 
@@ -216,6 +205,7 @@ export async function onRequestPost(context) {
         message: buildReadiness.message,
         answer: buildReadiness.message,
         experience,
+        websiteEngine: websiteEngineClientSummary(websiteEnginePlan),
       });
     }
 
