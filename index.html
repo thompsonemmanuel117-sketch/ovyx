@@ -17650,12 +17650,12 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
           (async function(){
             var W=window.WebStudio;
             if(!W||typeof W.renderAttachments!=='function'){
-              toast('Web Studio attachments are not available right now.','error');
+              var hint=$('ws-mode-hint');if(hint)hint.textContent='Web Studio attachments are not available right now.';
               return;
             }
             var currentAsset=imageStore[id];
             if(!currentAsset){
-              toast('This generated image is no longer available in the current session. Generate it again to use it.','warning');
+              var hint=$('ws-mode-hint');if(hint)hint.textContent='This generated image is no longer available in the current session. Generate it again to use it.';
               return;
             }
             var dataUrl=String(currentAsset.dataUrl||'');
