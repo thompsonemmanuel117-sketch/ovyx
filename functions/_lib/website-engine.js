@@ -305,6 +305,70 @@ function serializeWebsiteEngineModelPlan(plan) {
   };
   minimal.qualityGates = compactPlanList(plan.qualityGates, 8, 100);
   minimal.implementationRules = compactPlanList(plan.implementationRules, 8, 100);
+  if (plan.fullStackArchitecture) {
+    const fullStack = plan.fullStackArchitecture;
+    const groupedRequirements = new Map();
+    for (const item of fullStack.requirementMappings || []) {
+      const targets = (item.targetNodeIds || []).slice(0, 3);
+      const key = item.assessment + '|' + targets.join('|');
+      if (!groupedRequirements.has(key)) groupedRequirements.set(key, {
+        assessment: item.assessment,
+        targetNodeIds: targets,
+        requirementIds: [],
+      });
+      groupedRequirements.get(key).requirementIds.push(item.requirementId);
+    }
+    minimal.fullStackArchitecture = {
+      version: fullStack.version,
+      capabilities: fullStack.capabilities,
+      pages: (fullStack.pages || []).slice(0, 14).map(page => [page.id, clean(page.title, 64), clean(page.route, 96)]),
+      apiContracts: (fullStack.apiContracts || []).slice(0, 20).map(route => [
+        route.id, route.method, route.path, route.capability, route.authPolicy,
+        (route.modelIds || []).slice(0, 5), route.sideEffect || '',
+      ]),
+      dataModels: (fullStack.dataModels || []).slice(0, 16).map(model => [
+        model.id, model.name, (model.fields || []).slice(0, 10), model.securityClass,
+      ]),
+      dataIntegrity: {
+        relationships: (fullStack.dataIntegrity?.relationships || []).slice(0, 16).map(item =>
+          [item.from, item.to, item.cardinality, item.foreignKeyField, item.kind, item.optional]),
+        constraints: (fullStack.dataIntegrity?.constraints || []).slice(0, 16).map(item =>
+          [item.id, clean(item.appliesTo, 64), clean(item.rule, 96)]),
+        indexes: (fullStack.dataIntegrity?.indexes || []).slice(0, 16).map(item =>
+          [item.entity, (item.fields || []).slice(0, 5), item.unique === true]),
+      },
+      integrations: (fullStack.integrations || []).slice(0, 8).map(item =>
+        [item.capability, item.provider, item.connectionMetadata, item.verification]),
+      requirementTraceabilityGroups: [...groupedRequirements.values()],
+      graphIntegrity: {
+        valid: fullStack.graphIntegrity?.valid === true,
+        nodeCount: fullStack.graphIntegrity?.nodeCount || 0,
+        edgeCount: fullStack.graphIntegrity?.edgeCount || 0,
+        unreachableNodeIds: (fullStack.graphIntegrity?.unreachableNodeIds || []).slice(0, 12),
+      },
+      security: {
+        defaultPosture: fullStack.security?.defaultPosture,
+        controls: (fullStack.security?.controls || []).slice(0, 16).map(item => [item.id, clean(item.requirement, 100)]),
+        migrationPolicy: fullStack.security?.migrationPolicy,
+      },
+      backgroundWork: {
+        required: fullStack.backgroundWork?.required === true,
+        pattern: fullStack.backgroundWork?.pattern,
+        controls: (fullStack.backgroundWork?.controls || []).slice(0, 8),
+      },
+      stateMachines: (fullStack.stateMachines || []).slice(0, 8).map(machine => ({
+        entity: machine.entity,
+        initialState: machine.initialState,
+        states: (machine.states || []).slice(0, 10),
+        transitions: (machine.transitions || []).slice(0, 8).map(item =>
+          [item.from, item.to, clean(item.authority, 88), clean(item.sideEffect, 72)]),
+        invariant: clean(machine.invariant, 100),
+      })),
+      testPlan: (fullStack.testPlan || []).slice(0, 12).map(test =>
+        [test.id, test.type, test.status, test.requiresExplicitOwnerApproval === true]),
+      honestyRules: compactPlanList(fullStack.honestyRules, 8, 100),
+    };
+  }
   const serialized = JSON.stringify(minimal);
   if (serialized.length > WEBSITE_ENGINE_PLAN_JSON_LIMIT) {
     throw new RangeError('The Website Engine plan exceeds its safe instruction budget.');
