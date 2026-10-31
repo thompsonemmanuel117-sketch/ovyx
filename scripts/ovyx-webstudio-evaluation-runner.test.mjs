@@ -17,6 +17,17 @@ const good = evaluateSiteFiles(goodFiles, category);
 assert.equal(good.status, 'pass', JSON.stringify(good.findings));
 assert.equal(good.counts.htmlPages, 2);
 assert.ok(good.technicalReadinessScore >= 95);
+assert.equal(good.qualityScoreV2.version, 2);
+assert.equal(good.qualityScoreV2.evidenceCoveragePercent, 100);
+assert.ok(good.qualityScoreV2.overallScore >= 80);
+assert.ok(good.qualityScoreV2.dimensions.design.score >= 0);
+assert.ok(good.qualityScoreV2.dimensions.functionality.score >= 0);
+assert.ok(good.qualityScoreV2.dimensions.accessibility.score >= 0);
+assert.ok(good.qualityScoreV2.dimensions.performance.score >= 0);
+assert.equal(good.qualityScoreV2.releaseDecision.certifiedProductionReady, false);
+assert.equal(good.qualityScoreV2.releaseDecision.browserBehaviorVerificationRequired, true);
+assert.equal(good.qualityScoreV2.releaseDecision.liveIntegrationVerificationRequired, true);
+assert.equal(good.performanceEvidence.runtimeMeasurements.coreWebVitalsMeasured, false);
 assert.ok(good.functionalAcceptance.length > 0);
 assert.ok(good.functionalAcceptance.every(item => ['source-evidence-present-behavior-unverified', 'no-matching-static-evidence'].includes(item.status)));
 assert.ok(good.functionalAcceptance.every(item => item.browserBehaviorVerified === false && item.integrationVerified === false));
@@ -82,6 +93,9 @@ const badFiles = {
 };
 const bad = evaluateSiteFiles(badFiles, category);
 assert.equal(bad.status, 'needs-attention');
+assert.ok(bad.qualityScoreV2.overallScore < good.qualityScoreV2.overallScore,
+  'The v2 quality score must penalize structural, content and security defects.');
+assert.equal(bad.qualityScoreV2.releaseDecision.automatedSourceGate, 'fail');
 assert.ok(bad.findings.some(item => item.code === 'PLACEHOLDER_COPY'));
 assert.ok(bad.findings.some(item => item.code === 'CLIENT_SECRET_PATTERN'));
 assert.ok(bad.findings.some(item => item.code === 'PLACEHOLDER_LINK'));
