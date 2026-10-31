@@ -1046,7 +1046,7 @@
         return { ok: false, error: clean(error && error.message || 'Export inspection failed.', 300), modes: ['complete', 'website-only', 'backend-only'] };
       }
     },
-    version: '2.1.0',
+    version: '2.2.0',
     modes: ['complete', 'website-only', 'backend-only'],
   };
 })();
