@@ -29,7 +29,14 @@ assert.ok(plan.interactionArchitecture.capabilities.includes('forms'));
 assert.ok(plan.integrations.some(item => item.capability === 'email' && item.connection === 'connected-in-context'));
 assert.ok(plan.integrations.some(item => item.capability === 'booking' && item.connection === 'not-confirmed'));
 assert.ok(plan.qualityGates.length > 0);
+assert.equal(plan.fullStackArchitecture.engine, 'ovyx-fullstack-architecture');
+assert.ok(plan.fullStackArchitecture.capabilities.frontend);
+assert.ok(plan.fullStackArchitecture.capabilities.booking);
+assert.ok(plan.fullStackArchitecture.apiContracts.some(route => route.path === '/api/bookings'));
+assert.ok(plan.fullStackArchitecture.testPlan.some(test => test.id === 'booking-conflicts'));
+assert.equal(websiteEngineClientSummary(plan).fullStackArchitecture.graph.valid, true);
 assert.match(buildWebsiteEngineInstructions(plan), /AUTHORITATIVE PRE-GENERATION PLAN/);
+assert.match(buildWebsiteEngineInstructions(plan), /FULL-STACK ARCHITECTURE CONTRACT/);
 assert.equal(websiteEngineClientSummary(plan).pageCandidates, 6);
 assert.equal(buildWebsiteEnginePlan('A simple one-page portfolio').strategy, 'single-page-or-context-derived');
 
@@ -52,6 +59,9 @@ assert.equal(parsedLongPlan.requirementManifest.sourcePromptRemainsAuthoritative
 assert.equal(parsedLongPlan.requirementManifest.indexEntriesAreExcerpts, true);
 assert.ok(parsedLongPlan.designArchitecture.mustHave.length > 0);
 assert.ok(parsedLongPlan.designArchitecture.conversionPrinciples.length > 0);
+assert.ok(parsedLongPlan.fullStackArchitecture);
+assert.equal(parsedLongPlan.fullStackArchitecture.requirementTraceability.length, 180);
+assert.ok(serializedPlan.length <= 18000, 'The architecture contract must fit the same bounded model instruction budget.');
 
 const freshBuildReadiness = buildWebsiteEngineReadiness(
   'Build a business website with a real contact form and email delivery.',
