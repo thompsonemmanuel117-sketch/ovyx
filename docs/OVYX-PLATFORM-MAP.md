@@ -32,7 +32,9 @@ The normal `workspace_inspect`, `workspace_read_file`, and `workspace_search` to
 
 ### Coding and generation
 
-`functions/api/generate.js` invokes the multi-stage `runAgent` orchestration in `functions/_lib/orchestrator.js`, which calls the shared JSON-model adapter. Web Studio and App Studio use their own generation routes, validation, plan entitlements and recovery controls. Do not replace these pipelines with a generic chat response or treat a model's claim as proof a generated site works.
+`functions/api/generate.js` invokes the multi-stage `runAgent` orchestration in `functions/_lib/orchestrator.js`, which calls the shared JSON-model adapter. Web Studio and App Studio use separate generation routes, validation, plan entitlements and recovery controls. Do not replace these pipelines with generic chat responses or treat model claims as proof that generated code works.
+
+Web Studio's unified planning/generation lifecycle is in `functions/_lib/website-engine.js` and is shared by the authenticated Assistant and Gateway routes. It composes the original prompt contract, adaptive experience/market/visual planning, route requirements, integration readiness and quality gates. The multi-page builder is the first staged build path; the common lifecycle retains the validated single-page repair fallback. Scoped edits intentionally bypass a full rebuild. The model-facing plan is bounded valid JSON, but the complete original brief remains authoritative. This work preserves Cloudflare Workers AI routing, auth, entitlements, quotas and refunds; it does not alter App Studio's separate pipeline.
 
 ### Saved-project awareness
 
@@ -42,7 +44,9 @@ A source change must target the correct owner's existing file, use complete elig
 
 ## Web Studio quality and live research
 
-`assets/ovyx-webstudio-quality.js` and `scripts/ovyx-webstudio-evaluation-runner.mjs` perform source/static checks and bounded sandboxed browser verification. The documented viewport widths are 320, 390, 768, 1024 and 1440 CSS pixels. The sandbox blocks network requests and form submission; it cannot by itself prove remote asset availability, external links, login, payment, API delivery or deployment. Quality inspection is read-only, and a repair still requires separate preview and approval.
+`assets/ovyx-webstudio-quality.js` and `scripts/ovyx-webstudio-evaluation-runner.mjs` perform source/static checks and bounded sandboxed browser verification. The documented viewport widths are 320, 390, 768, 1024 and 1440 CSS pixels. The sandbox blocks network requests and form submission; it cannot by itself prove remote asset availability, external links, login, payment, API delivery or deployment. It also does not constitute a complete WCAG audit, exhaustive journey test, production Core Web Vitals measurement or cross-browser acceptance. Quality inspection is read-only, and a repair still requires separate preview and approval.
+
+The framework-aware ZIP pipeline is in `assets/ovyx-webstudio-project-export.js`. It supports complete, website-only and backend-only bundles, selected binary project assets, secret/path safeguards, ZIP integrity checks and advisory project profiles for detected frameworks and package managers. It does not scaffold absent files, install dependencies, run the exported build or verify a live host. `assets/ovyx-webstudio-asset-optimizer.js` can convert eligible local images to WebP when the result is smaller; the original remains when conversion is not beneficial or fails. Both modules have dedicated regression/runtime tests.
 
 **Live web research has an implementation path.** `assets/ovyx-webstudio-research.js` calls `POST /api/ai/web-search`; `functions/api/ai/web-search.js` authenticates the request and calls `conductWebResearch` in `functions/_lib/web-research.js`. The research module can use the configured Tavily, Brave Search or Serper credentials, searches a bounded number of queries, and opens a bounded selection of public source pages. It reports an error when it cannot obtain usable results. However, source-code presence does not prove the production secrets are configured or a live research request succeeded; describe the research as source-backed only when the returned report has a completed status and real source records.
 
