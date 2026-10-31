@@ -72,9 +72,13 @@ function pagePlan(contract) {
  * maintaining route-specific versions of those decisions.
  */
 export function buildWebsiteEnginePlan(prompt, context = {}) {
-  const brief = clean(prompt, 80000);
+  // Keep a line-preserving source brief for requirement extraction. The local
+  // display/planning cleaner intentionally flattens whitespace, but the prompt
+  // contract uses line boundaries to retain distinct user requirements.
+  const sourceBrief = String(prompt ?? '').replace(/\u0000/g, '').trim();
+  const brief = clean(sourceBrief, 80000);
   const safeContext = context && typeof context === 'object' && !Array.isArray(context) ? context : {};
-  const promptContract = buildPromptContract(brief);
+  const promptContract = buildPromptContract(sourceBrief);
   const experience = buildExperienceBrief(brief, safeContext);
   const pages = pagePlan(promptContract);
   const explicitMultiPage = pages.length > 1 ||
