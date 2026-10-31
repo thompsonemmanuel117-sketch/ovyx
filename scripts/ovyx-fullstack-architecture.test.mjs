@@ -120,6 +120,17 @@ const adminArchitecture = buildFullStackArchitecture(adminBrief, buildPromptCont
 assert.equal(adminArchitecture.capabilities.authentication, true, 'Admin surfaces require protected identity by default.');
 assert.equal(adminArchitecture.capabilities.authorization, true);
 
+const newsletterBrief = 'Build a community site with a newsletter signup, double opt-in confirmation email and secure unsubscribe link.';
+const newsletterArchitecture = buildFullStackArchitecture(newsletterBrief, buildPromptContract(newsletterBrief));
+assert.equal(newsletterArchitecture.capabilities.newsletter, true);
+assert.ok(newsletterArchitecture.dataModels.some(model => model.name === 'NewsletterSubscription'));
+assert.ok(newsletterArchitecture.apiContracts.some(route => route.path === '/api/newsletter/subscriptions'));
+assert.ok(newsletterArchitecture.apiContracts.some(route => route.path === '/api/newsletter/unsubscribe'));
+assert.ok(newsletterArchitecture.graph.edges.some(edge => edge.relation === 'enqueues-after-commit' &&
+  edge.from === newsletterArchitecture.apiContracts.find(route => route.path === '/api/newsletter/subscriptions').id));
+assert.ok(newsletterArchitecture.graph.edges.some(edge => edge.relation === 'queues-delivery-through-server-adapter'));
+assert.equal(newsletterArchitecture.graphIntegrity.valid, true);
+
 const corrupted = validateFullStackArchitectureGraph({
   nodes: [{ id: 'one' }],
   edges: [{ id: 'edge-a', from: 'one', to: 'missing', relation: 'uses' }],
