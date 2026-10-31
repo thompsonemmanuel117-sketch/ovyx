@@ -237,6 +237,25 @@ const plannedPages = [
     interactionRequirements: ['Accessible primary navigation', 'Working reservation route'],
     dataRequirements: ['Menu items from configured source'],
     components: ['Site navigation', 'Dish card'],
+    componentContracts: [{
+      name: 'DishCard',
+      purpose: 'Present a menu item with dietary details',
+      variants: ['featured', 'compact'],
+      shared: true,
+      dependsOn: ['PriceLabel', 'DietaryTag'],
+      accessibilityContract: 'Readable item name, price and dietary labels',
+    }],
+    imageSlots: [{
+      name: 'signature-dish',
+      subject: 'A signature plated dish from the supplied menu',
+      purpose: 'Show a real featured menu item',
+      placement: 'Home signature dishes section',
+      aspectRatio: '5:4',
+      composition: 'Close-up with natural restaurant light',
+      altText: 'Signature dish served at the restaurant',
+      sourcePreference: 'user-upload',
+      mustRepresentRealSubject: true,
+    }],
     seoIntent: 'Restaurant discovery and table reservations',
     responsiveNotes: ['Stack menu cards on mobile'],
     accessibilityNotes: ['Descriptive image alt text'],
@@ -416,11 +435,15 @@ assert.equal(result.siteMap.designSystem.artDirection, 'Warm editorial restauran
 assert.equal(result.siteMap.pages[0].audience, 'First-time local diners');
 assert.equal(result.siteMap.pages[0].sections[1].title, 'Signature dishes');
 assert.equal(result.siteMap.pages[0].integrationBoundaries[0], 'Do not claim a reservation is confirmed until provider response');
+assert.equal(result.siteMap.pages[0].componentContracts[0].name, 'DishCard');
+assert.equal(result.siteMap.pages[0].imageSlots[0].mustRepresentRealSubject, true);
 assert.equal(result.project.pages.length, 5);
 assert.equal(result.project.designSystem.artDirection, 'Warm editorial restaurant identity');
 assert.equal(result.project.pages[0].blueprint.audience, 'First-time local diners');
 assert.equal(result.project.pages[0].blueprint.sections[0].title, 'Hero');
 assert.equal(result.project.pages[0].blueprint.primaryAction, 'Explore the menu or reserve a table');
+assert.equal(result.project.pages[0].blueprint.componentContracts[0].name, 'DishCard');
+assert.equal(result.project.pages[0].blueprint.imageSlots[0].sourcePreference, 'user-upload');
 assert.equal(Object.keys(result.files).filter(path => path.startsWith('src/pages/')).length, 5);
 assert(result.files['src/pages/Home.html'].includes('<h1>Home</h1>'));
 assert.equal(malformedHomeEnvelopeServed, true, 'The fixture must exercise malformed JSON wrapped HTML recovery.');
