@@ -94,7 +94,7 @@ Statuses below mean: **Existing** = implementation found; **Partial** = useful f
 
 PR #359 contains the shared Website Engine, enhanced design architecture context, safe bounded plan serialization, Assistant/Gateway context deduplication, long-brief regression coverage, framework-aware exporter, binary asset collection, local image optimization and related regression suites.
 
-At this document revision, the feature branch is `feat/ovyx-maximum-website-engine-phase-1` and the PR remains open. The latest reviewed head is `dabebdb41753fba7e6fc585e49fc320bbbb2718f`. Eight GitHub Actions workflows were created for that head, but their jobs were still queued when checked. The source was inspected after commit; the tests were not executed in this environment. Do not merge or report CI success until the exact latest PR head completes all required checks successfully.
+At this document revision, the feature branch is `feat/ovyx-maximum-website-engine-phase-1` and the PR remains open. The latest PR head at this documentation revision is `5e13d6c736d97c139b5f4e83b4be9bf0bd1d07c6`. Eight GitHub Actions workflows were created for that head, but their jobs were still queued when checked. The source was inspected after commit; the tests were not executed in this environment. Do not merge or report CI success until the exact latest PR head completes all required checks successfully.
 
 ### Production acceptance blocker
 
