@@ -330,6 +330,9 @@ if (!fs.existsSync(fullStackArchitecturePath) || !fs.existsSync(fullStackArchite
     !websiteEngine.includes('buildFullStackArchitecture(brief, promptContract, safeContext, pages)') ||
     !websiteEngine.includes('fullStackArchitectureModelContract(plan.fullStackArchitecture)') ||
     !websiteEngine.includes('fullStackArchitectureClientSummary(plan.fullStackArchitecture)') ||
+    !websiteEngine.includes('OVYX FULL-STACK ARCHITECTURE CONTRACT — ONE COHERENT APPLICATION') ||
+    !websiteEngine.includes('do not silently return a frontend-only site') ||
+    !websiteEngine.includes('Generate the declared domain schema, relationships, constraints and indexes') ||
     !fullStackArchitecture.includes('validateFullStackArchitectureGraph') ||
     !fullStackArchitecture.includes('buildDataIntegrityContracts') ||
     !fullStackArchitecture.includes('buildWorkflowStateMachines') ||
