@@ -4,8 +4,8 @@ import { buildStudioMultiPage } from './studio-multipage.js';
 import { validateOrRepairSinglePageBuild } from './studio-singlepage.js';
 
 const clean = (value, max = 240) => String(value == null ? '' : value)
-  .replace(/[\\u0000-\\u001f\\u007f]/g, ' ')
-  .replace(/\\s+/g, ' ')
+  .replace(/[\u0000-\u001f\u007f]/g, ' ')
+  .replace(/\s+/g, ' ')
   .trim()
   .slice(0, max);
 
@@ -78,7 +78,7 @@ export function buildWebsiteEnginePlan(prompt, context = {}) {
   const experience = buildExperienceBrief(brief, safeContext);
   const pages = pagePlan(promptContract);
   const explicitMultiPage = pages.length > 1 ||
-    /\\b(?:multi[- ]?page|multiple pages|several pages|\\d+ pages)\\b/i.test(brief);
+    /\b(?:multi[- ]?page|multiple pages|several pages|\d+ pages)\b/i.test(brief);
   const signals = promptContract.contactSignals || {};
   const workflowCapabilities = [
     ['forms', signals.contactForm || signals.emailDelivery],
@@ -158,7 +158,7 @@ export function buildWebsiteEngineInstructions(plan) {
     'The following deterministic plan is derived from the complete supplied brief and project context. Follow it while preserving the existing route-specific output schema.',
     JSON.stringify(modelPlan).slice(0, 18000),
     'Before returning files, internally reconcile every requirement and exclusion against the actual output. If a real service is not connected and verified, provide an honest pending/UI-only boundary instead of a fake success path.',
-  ].join('\\n\\n');
+  ].join('\n\n');
 }
 
 export function websiteEngineClientSummary(plan) {
