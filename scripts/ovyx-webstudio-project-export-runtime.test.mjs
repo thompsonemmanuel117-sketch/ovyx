@@ -40,6 +40,7 @@ assert.equal(complete.mode, 'complete');
 assert.equal(complete.framework.name, 'Next.js');
 assert.equal(complete.framework.confidence, 'high');
 assert.equal(complete.framework.installCommand, 'npm ci');
+assert.equal(complete.framework.packageManager, 'npm');
 assert.equal(complete.framework.recommendedBuildCommand, 'next build');
 assert.equal(complete.framework.scripts.start, 'next start');
 assert.equal(complete.framework.runtimeProfile, 'framework-or-node-server-runtime');
