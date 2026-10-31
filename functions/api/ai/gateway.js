@@ -346,7 +346,6 @@ export async function onRequestPost(context) {
       multiPageBuild = generation.multiPageBuild;
       quotaInputText = generation.quotaInputText;
       quotaOutputText = generation.quotaOutputText;
-    }
     } catch (providerError) {
       if (providerError?.partialUsage) {
         await finalizeAIQuota(
