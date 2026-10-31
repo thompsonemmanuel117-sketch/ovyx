@@ -149,7 +149,7 @@ assert.ok(prompts.includes('4.5:1 for normal text and 3:1 for large/bold text'),
 assert.ok(prompts.includes('project-specific favicon'), 'Web Studio must keep browser-tab icons aligned to the generated project logo.');
 assert.ok(prompts.includes('Never reuse the OVYX platform splash/sidebar mark as the website favicon unless the brief explicitly requests that brand'), 'Generated websites must not inherit the OVYX platform mark as their favicon by default.');
 assert.ok(assistant.includes('qualityContract: WEB_STUDIO_EXCELLENCE'), 'The real Web Studio route must pass its premium quality contract into the multi-page builder.');
-assert.ok(websiteEngine.includes('repairSinglePage: validateOrRepairSinglePageBuild'), 'The shared website engine must retain deterministic single-page source/requirement repair.');
+assert.ok(websiteEngine.includes('repairSinglePage = validateOrRepairSinglePageBuild'), 'The shared website engine must retain deterministic single-page source/requirement repair.');
 assert.ok(assistant.includes('structuredFields[key] = result[key]'), 'Unparseable or file-less single-page responses must still expose an explicit not-evaluated QA status.');
 assert.ok(assistant.includes("shouldBuild: isWebStudio && mode === 'build'"), 'The Assistant route must use the shared website build lifecycle.');
 assert.ok(websiteEngine.includes('if (shouldBuild && !scopedEdit)'), 'Fresh builds must use the staged multi-page builder, while scoped edits bypass full-site rebuild.');
