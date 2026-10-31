@@ -944,11 +944,11 @@
     heading.className = 'ovyx-code-download-menu-heading';
     heading.textContent = 'Advanced download options';
     menu.appendChild(heading);
-    var websiteOption = addMenuOption(menu, toggle, 'data-ovyx-project-export-website-only', 'Website only (.zip)', 'Frontend pages, browser scripts and styles. Backend/server implementation files are left out.', function () { exportProject({ mode: 'website-only' }); });
+    var websiteOption = addMenuOption(menu, toggle, 'data-ovyx-project-export-website-only', 'Website only (.zip)', 'Frontend pages, browser scripts, styles and retrievable project media. Backend/server implementation files are left out.', function () { exportProject({ mode: 'website-only' }); });
     addMenuOption(menu, toggle, 'data-ovyx-project-export-backend-only', 'Backend only (.zip)', 'Advanced: API/server code, schemas, migrations and setup files. Frontend pages and styles are left out.', function () { exportProject({ mode: 'backend-only' }); });
     var note = document.createElement('span');
     note.className = 'ovyx-code-download-menu-note';
-    note.textContent = 'Use Download code for one complete ZIP with the website and backend together.';
+    note.textContent = 'Download code creates one complete ZIP with website, backend and retrievable stored project assets.';
     menu.appendChild(note);
 
     toggle.addEventListener('click', function (event) {
