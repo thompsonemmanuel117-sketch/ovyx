@@ -317,6 +317,30 @@ if (!fs.existsSync(studioMultiPagePath) || !fs.existsSync(websiteEnginePath) || 
   }
 }
 
+const fullStackArchitecturePath = path.join(root, 'functions/_lib/fullstack-architecture.js');
+const fullStackArchitectureTestPath = path.join(root, 'scripts/ovyx-fullstack-architecture.test.mjs');
+if (!fs.existsSync(fullStackArchitecturePath) || !fs.existsSync(fullStackArchitectureTestPath)) {
+  errors.push('OVYX full-stack architecture: the shared cross-layer planner or its regression suite is missing.');
+} else {
+  const fullStackArchitecture = fs.readFileSync(fullStackArchitecturePath, 'utf8');
+  const websiteEngine = fs.existsSync(websiteEnginePath) ? fs.readFileSync(websiteEnginePath, 'utf8') : '';
+  const fullStackTest = fs.readFileSync(fullStackArchitectureTestPath, 'utf8');
+  const packageJson = fs.existsSync(packageJsonPath) ? fs.readFileSync(packageJsonPath, 'utf8') : '';
+  if (
+    !websiteEngine.includes('buildFullStackArchitecture(brief, promptContract, safeContext, pages)') ||
+    !websiteEngine.includes('fullStackArchitectureModelContract(plan.fullStackArchitecture)') ||
+    !websiteEngine.includes('fullStackArchitectureClientSummary(plan.fullStackArchitecture)') ||
+    !fullStackArchitecture.includes('validateFullStackArchitectureGraph') ||
+    !fullStackArchitecture.includes('transactional-outbox-or-provider-safe-queue') ||
+    !fullStackArchitecture.includes('require-explicit-owner-approval') ||
+    !fullStackTest.includes('payment-integrity') ||
+    !fullStackTest.includes('needs-semantic-mapping') ||
+    !packageJson.includes('scripts/ovyx-fullstack-architecture.test.mjs')
+  ) {
+    errors.push('OVYX full-stack architecture: cross-layer graph, safe migration/background-work contracts, requirement evidence or standard regression coverage is incomplete.');
+  }
+}
+
 const webStudioShellPath = path.join(root, 'index.html');
 if (fs.existsSync(webStudioShellPath)) {
   const webStudioShell = fs.readFileSync(webStudioShellPath, 'utf8');
