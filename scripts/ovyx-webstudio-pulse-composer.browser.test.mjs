@@ -283,10 +283,18 @@ try {
     console.log('[' + target.name + '] checkpoint: clear-draft isolation');
     // Clear draft is deliberately scoped to the composer; project source files stay intact.
     await input.fill('This draft should be cleared.');
-    await page.evaluate(async () => {
-      const W = window.WebStudio;
-      await W.setAttachments([new File(['temporary attachment'], 'clear-me.txt', { type: 'text/plain' })]);
-      window.__pulseProjectFileListBeforeClear = Object.keys(W.graph?.files || {}).sort();
+    // Stage the fixture through the real file picker. A synthetic File passed
+    // directly into an awaited page.evaluate can leave Chromium's FileReader
+    // promise pending in headless CI, even though the actual picker path works.
+    await pulse.click();
+    const [clearDraftChooser] = await Promise.all([
+      page.waitForEvent('filechooser', { timeout: 10000 }),
+      popover.locator('#ws-attach-btn').click()
+    ]);
+    await clearDraftChooser.setFiles({ name: 'clear-me.txt', mimeType: 'text/plain', buffer: Buffer.from('temporary attachment') });
+    await page.waitForFunction(() => /clear-me\\.txt/.test(document.getElementById('ws-attachment-strip')?.innerText || ''));
+    await page.evaluate(() => {
+      window.__pulseProjectFileListBeforeClear = Object.keys(window.WebStudio?.graph?.files || {}).sort();
     });
     await pulse.click();
     await popover.locator('[data-ws-pulse-action="clear"]').click();
