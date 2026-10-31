@@ -157,6 +157,6 @@ assert.match(imageHelper, /reserveUserMinute\(env, authUser\)/);
 assert.match(imageClient, /fetch\('\/api\/ai\/image-generation'/);
 assert.match(imageClient, /['"]Authorization['"]: 'Bearer ' \+ token/);
 assert.match(imageClient, /ovyx-image-gen-download/);
-assert.match(middleware, /ovyx-image-generation\.js\?v=20261027-1/);
+assert.match(middleware, /ovyx-image-generation\.js\?v=20261031-1/);
 
 console.log('OVYX Stage 7 migration contract tests passed: Cloudflare-only text, website, App Studio, Agent and image routes remain bounded and independently tested.');
