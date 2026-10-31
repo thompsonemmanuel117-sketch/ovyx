@@ -253,6 +253,12 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
     for (const modelId of route.modelIds) if (modelIds.includes(modelId)) addEdge(edges, route.id, modelId, 'reads-or-writes');
     const targetIntegration = integrationIds.find(id => id === 'integration-' + slug(route.capability));
     if (targetIntegration) addEdge(edges, route.id, targetIntegration, 'calls-through-server-adapter');
+    const databaseIntegration = integrationIds.find(id => id === 'integration-database');
+    if (databaseIntegration && route.modelIds.length) addEdge(edges, route.id, databaseIntegration, 'persists-through-server-adapter');
+    if (route.capability === 'contact') {
+      const emailIntegration = integrationIds.find(id => id === 'integration-email');
+      if (emailIntegration) addEdge(edges, route.id, emailIntegration, 'queues-delivery-through-server-adapter');
+    }
   }
   for (const page of pageEntries) {
     const requiredRoutes = apiContracts.filter(route => {
@@ -298,8 +304,7 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
     }
     const routeName = pageEntries.find(page => text.toLowerCase().includes(page.title.toLowerCase()));
     if (routeName) addTarget(routeName.id);
-    if (!targets.length) addTarget(pageEntries[0] && pageEntries[0].id);
-    const assessment = targets.length ? 'mapped-to-architecture' : 'not-assessable';
+    const assessment = targets.length ? 'mapped-to-architecture' : 'needs-semantic-mapping';
     for (const target of targets) addEdge(edges, 'project', target, 'implements-requirement', requirement.id);
     return { requirementId: requirement.id, excerpt: requirement.text, targetNodeIds: targets, assessment };
   });
