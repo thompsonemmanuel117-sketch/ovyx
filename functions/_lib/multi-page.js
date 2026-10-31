@@ -18,6 +18,74 @@ function unique(values) {
   return [...new Set(values.filter(Boolean))];
 }
 
+function boundedText(value, max = 240) {
+  return String(value == null ? '' : value)
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, max);
+}
+
+function boundedTextList(value, itemLimit = 10, itemChars = 180) {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  return value.slice(0, itemLimit).map(item => boundedText(
+    typeof item === 'string' ? item : item && (item.title || item.name || item.requirement || item.purpose),
+    itemChars,
+  )).filter(item => {
+    const key = item.toLowerCase();
+    if (!item || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function normalizePageSections(value) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 12).map((section, index) => {
+    if (typeof section === 'string') return { title: boundedText(section, 100), purpose: '', contentNotes: '' };
+    if (!section || typeof section !== 'object') return null;
+    const title = boundedText(section.title || section.name || section.heading || 'Section ' + (index + 1), 100);
+    if (!title) return null;
+    return {
+      title,
+      purpose: boundedText(section.purpose || section.goal || section.role, 180),
+      contentNotes: boundedText(section.contentNotes || section.content || section.copyDirection, 220),
+    };
+  }).filter(Boolean);
+}
+
+function normalizeDesignSystem(value) {
+  const source = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  return {
+    artDirection: boundedText(source.artDirection || source.direction || source.visualDirection, 320),
+    typography: boundedText(source.typography || source.typeSystem, 240),
+    palette: boundedTextList(source.palette || source.colors, 8, 100),
+    typeScale: boundedTextList(source.typeScale, 8, 120),
+    spacingScale: boundedTextList(source.spacingScale || source.spacing, 8, 100),
+    componentPrinciples: boundedTextList(source.componentPrinciples || source.components, 10, 180),
+    motionPrinciples: boundedTextList(source.motionPrinciples || source.motion, 8, 180),
+    accessibilityPrinciples: boundedTextList(source.accessibilityPrinciples || source.accessibility, 8, 180),
+  };
+}
+
+function normalizePageBlueprint(item) {
+  return {
+    audience: boundedText(item.audience || item.targetAudience, 180),
+    primaryAction: boundedText(item.primaryAction || item.primaryCTA, 180),
+    sections: normalizePageSections(item.sections || item.contentSections),
+    visualDirection: boundedText(item.visualDirection || item.artDirection, 320),
+    interactionRequirements: boundedTextList(item.interactionRequirements || item.interactions, 12, 180),
+    dataRequirements: boundedTextList(item.dataRequirements || item.dataNeeds, 10, 180),
+    components: boundedTextList(item.components || item.reusableComponents, 10, 140),
+    seoIntent: boundedText(item.seoIntent || item.searchIntent, 220),
+    responsiveNotes: boundedTextList(item.responsiveNotes, 8, 160),
+    accessibilityNotes: boundedTextList(item.accessibilityNotes, 8, 160),
+    performanceNotes: boundedTextList(item.performanceNotes, 8, 160),
+    integrationBoundaries: boundedTextList(item.integrationBoundaries, 8, 180),
+  };
+}
+
 function preserveTextEdges(value, maxChars, reason = 'middle of the context shortened') {
   const source = String(value || '');
   const limit = Math.max(0, Math.floor(Number(maxChars) || 0));
@@ -87,10 +155,11 @@ export function normalizeSiteMap(raw, maxPages = DEFAULT_PAGE_LIMIT) {
     if (!url || url.includes('..') || url.includes('\\')) url = derivedUrl;
 
     pages.push({
-      title: String(item.title || item.name || path).trim().slice(0, 120),
+      title: boundedText(item.title || item.name || path, 120),
       path,
       url,
-      goal: String(item.goal || item.purpose || item.description || '').trim().slice(0, 180),
+      goal: boundedText(item.goal || item.purpose || item.description, 180),
+      ...normalizePageBlueprint(item),
     });
   }
 
@@ -120,7 +189,8 @@ export function normalizeSiteMap(raw, maxPages = DEFAULT_PAGE_LIMIT) {
 
   return {
     siteMap: {
-      architecture: String(raw.architecture || raw.routingStrategy || 'Project-native page architecture').trim().slice(0, 500),
+      architecture: boundedText(raw.architecture || raw.routingStrategy || 'Project-native page architecture', 500),
+      designSystem: normalizeDesignSystem(raw.designSystem),
       pages,
       sharedFiles,
       foundationPaths,
@@ -165,6 +235,7 @@ export function createSiteBuildBatches(siteMap, maxChangedFiles = 6) {
           kind: pageByPath.has(path) ? 'page' : 'shared',
           title: pageByPath.get(path)?.title || path,
           goal: pageByPath.get(path)?.goal || shared?.purpose || 'Create the shared foundation required by the website.',
+          pageBlueprint: pageByPath.has(path) ? normalizePageBlueprint(pageByPath.get(path)) : null,
         };
       }),
     });
@@ -183,6 +254,7 @@ export function createSiteBuildBatches(siteMap, maxChangedFiles = 6) {
         kind: 'page',
         title: page.title,
         goal: page.goal,
+        pageBlueprint: normalizePageBlueprint(page),
       })),
     });
   }
@@ -243,7 +315,15 @@ export function buildSiteBatchContext({
   const pages = Array.isArray(siteMap?.pages) ? siteMap.pages : [];
   const sitemapText = JSON.stringify({
     architecture: siteMap?.architecture || '',
-    pages: pages.map(page => ({ title: page.title, path: page.path, url: page.url })),
+    designSystem: siteMap?.designSystem || {},
+    pages: pages.map(page => ({
+      title: page.title, path: page.path, url: page.url, goal: page.goal,
+      audience: page.audience, primaryAction: page.primaryAction, sections: page.sections,
+      visualDirection: page.visualDirection, interactionRequirements: page.interactionRequirements,
+      dataRequirements: page.dataRequirements, components: page.components, seoIntent: page.seoIntent,
+      responsiveNotes: page.responsiveNotes, accessibilityNotes: page.accessibilityNotes,
+      performanceNotes: page.performanceNotes, integrationBoundaries: page.integrationBoundaries,
+    })),
     sharedFiles: (siteMap?.sharedFiles || []).map(file => ({ path: file.path, purpose: file.purpose })),
   });
   const staged = Array.isArray(stagedChanges)
