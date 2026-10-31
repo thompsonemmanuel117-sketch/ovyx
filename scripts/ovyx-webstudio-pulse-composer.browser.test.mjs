@@ -578,6 +578,15 @@ try {
       throw error;
     }
     console.log('[' + target.name + '] generated-image action: click dispatch returned');
+    const generatedImageDiagnostic = await page.evaluate(() => ({
+      attachmentNames: (window.WebStudio?.attachments || []).map(item => item.name),
+      attachmentCount: window.WebStudio?.attachments?.length || 0,
+      attachmentStripHidden: document.getElementById('ws-attachment-strip')?.hidden,
+      attachmentStripHtml: document.getElementById('ws-attachment-strip')?.innerHTML?.slice(0, 1800) || '',
+      imageStoreKeys: Object.keys(window.__OVYXGeneratedChatImages || {}),
+      generatedButtonId: document.querySelector('#ws-agent-thread [data-ovyx-use-generated-image]')?.getAttribute('data-ovyx-use-generated-image') || ''
+    })).catch(error => ({ diagnosticError: String(error?.message || error) }));
+    console.log('[' + target.name + '] generated-image post-click state: ' + JSON.stringify(generatedImageDiagnostic));
     await page.waitForSelector('#ws-attachment-strip:not([hidden]) .ovyx-ws-attachment-chip', { state: 'visible', timeout: 8000 });
     console.log('[' + target.name + '] generated-image action: attachment strip updated');
     const stagedAttachmentText = await page.locator('#ws-attachment-strip').innerText();
