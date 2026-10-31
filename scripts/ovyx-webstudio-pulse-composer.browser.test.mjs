@@ -613,6 +613,20 @@ try {
         wrapped.__ovyxDiagnosticWrapped = true;
         W.renderAttachments = wrapped;
       }
+      if (W && typeof W.setMode === 'function' && !W.setMode.__ovyxDiagnosticWrapped) {
+        const original = W.setMode;
+        const wrapped = function () {
+          console.log('[OVYX generated-image diagnostic] setMode entered');
+          const result = original.apply(this, arguments);
+          console.log('[OVYX generated-image diagnostic] setMode returned');
+          return result;
+        };
+        wrapped.__ovyxDiagnosticWrapped = true;
+        W.setMode = wrapped;
+      }
+      const input = document.getElementById('ws-chat-input');
+      input?.addEventListener('input', () => console.log('[OVYX generated-image diagnostic] composer input event completed'), { once: true });
+      input?.addEventListener('focus', () => console.log('[OVYX generated-image diagnostic] composer focus event completed'), { once: true });
     });
     console.log('[' + target.name + '] generated-image action: click dispatch starting');
     try {
