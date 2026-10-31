@@ -495,8 +495,8 @@
           rewrittenReferences += count;
         });
       });
-      sourceText = sourceText.replace(/https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/[^"'\\s<>]+/gi, function (downloadUrl) {
-        var sanitizedUrl = downloadUrl.replace(/(?:\?|&|&amp;)token=[^&"'\\s<>]*(?:&amp;|&)?/i, function (tokenParameter, delimiter) {
+      sourceText = sourceText.replace(/https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/[^"'\s<>]+/gi, function (downloadUrl) {
+        var sanitizedUrl = downloadUrl.replace(/(\?|&|&amp;)token=[^&"'\s<>]*(?:&amp;|&)?/i, function (tokenParameter, delimiter) {
           return delimiter === '?' ? '?' : '';
         }).replace(/\?&/g, '?').replace(/\?$/g, '');
         if (sanitizedUrl !== downloadUrl) sanitizedFirebaseTokenReferences += 1;
