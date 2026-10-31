@@ -45,6 +45,10 @@
     var parts = path.split('/');
     if (parts.some(function (part) { return !part || part === '.' || part === '..'; })) return null;
     if (parts.some(function (part) { return part === '__proto__' || part === 'constructor' || part === 'prototype'; })) return null;
+    if (parts.some(function (part) {
+      return /[<>:"|?*]/.test(part) || /[. ]$/.test(part) ||
+        /^(?:CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\..*)?$/i.test(part);
+    })) return null;
     return path;
   }
   function isSensitivePath(path) {
