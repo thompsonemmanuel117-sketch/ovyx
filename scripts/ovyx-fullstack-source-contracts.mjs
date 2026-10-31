@@ -109,6 +109,7 @@ function schemaDeclarationEvidence(model, files) {
   const patterns = [
     new RegExp('\\bmodel\\s+' + escaped + '\\s*\\{', 'i'),
     new RegExp('\\b(?:const|let|var)\\s+' + escaped + '(?:Schema|Model|Definition)\\b', 'i'),
+    new RegExp('\\bCREATE\\s+TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?["\\x27]?' + escapeRegExp(snake) + '["\\x27]?(?=\\s|\\(|;|$)', 'i'),
     new RegExp('\\bCREATE\\s+TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?["\\x27]?' + escaped + '["\\x27]?(?=\\s|\\(|;|$)', 'i'),
     new RegExp('\\bCREATE\\s+TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?["\\x27]?' + escapeRegExp(plural) + '["\\x27]?(?=\\s|\\(|;|$)', 'i'),
     new RegExp('\\b(?:pgTable|sqliteTable|mysqlTable)\\s*\\(\\s*["\\x27]' + escapeRegExp(plural) + '["\\x27]', 'i'),
