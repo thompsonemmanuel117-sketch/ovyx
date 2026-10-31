@@ -1,0 +1,58 @@
+import assert from 'node:assert/strict';
+import { evaluateFullStackSourceContracts } from './ovyx-fullstack-source-contracts.mjs';
+
+const architecture = {
+  apiContracts: [
+    { id: 'api-checkout', method: 'POST', path: '/api/checkout', authPolicy: 'session-or-authenticated' },
+    { id: 'api-payment-webhook', method: 'POST', path: '/api/webhooks/payments', authPolicy: 'provider-signature-and-replay-protected' },
+  ],
+  dataModels: [
+    { id: 'model-order', name: 'Order' },
+    { id: 'model-orderline', name: 'OrderLine' },
+    { id: 'model-product', name: 'Product' },
+  ],
+  dataIntegrity: {
+    relationships: [
+      { id: 'relation-orderline-order', from: 'model-orderline', to: 'model-order' },
+      { id: 'relation-orderline-product', from: 'model-orderline', to: 'model-product' },
+    ],
+  },
+};
+
+const completeFiles = {
+  'app/api/checkout/route.ts': 'import { requireAuth } from "@/server/auth"; export async function POST(request: Request) { const user = await requireAuth(request); return Response.json({ userId: user.id }); }',
+  'app/api/webhooks/payments/route.ts': 'import { verifyWebhookSignature } from "@/server/payments"; export async function POST(request: Request) { const event = await verifyWebhookSignature(request); return Response.json({ eventId: event.id }); }',
+  'prisma/schema.prisma': 'model Order { id String @id lines OrderLine[] } model OrderLine { id String @id orderId String order Order @relation(fields: [orderId], references: [id]) productId String product Product @relation(fields: [productId], references: [id]) } model Product { id String @id orderLines OrderLine[] }',
+};
+const complete = evaluateFullStackSourceContracts(completeFiles, architecture);
+assert.equal(complete.status, 'source-evidence-present-runtime-unverified');
+assert.equal(complete.requestedRouteCount, 2);
+assert.equal(complete.routeSourceEvidenceCount, 2);
+assert.equal(complete.modelSchemaEvidenceCount, 3);
+assert.equal(complete.relationshipSourceEvidenceCount, 2);
+assert.equal(complete.missingRouteSourceCount, 0);
+assert.equal(complete.missingMethodEvidenceCount, 0);
+assert.equal(complete.missingAuthorizationEvidenceCount, 0);
+assert.equal(complete.missingSchemaSourceCount, 0);
+assert.equal(complete.missingRelationshipSourceCount, 0);
+assert.equal(complete.runtimeBehaviorVerified, false);
+assert.equal(complete.databasePersistenceVerified, false);
+assert.equal(complete.integrationDeliveryVerified, false);
+
+const incompleteFiles = {
+  'app/api/checkout/route.ts': 'export async function POST(){ return Response.json({ ok: true }); }',
+  'prisma/schema.prisma': 'model Order { id String @id }',
+};
+const incomplete = evaluateFullStackSourceContracts(incompleteFiles, architecture);
+assert.equal(incomplete.status, 'missing-full-stack-source-evidence');
+assert.equal(incomplete.missingRouteSourceCount, 1);
+assert.equal(incomplete.missingAuthorizationEvidenceCount, 1);
+assert.equal(incomplete.missingSchemaSourceCount, 2);
+assert.equal(incomplete.missingRelationshipSourceCount, 2);
+
+const empty = evaluateFullStackSourceContracts({}, { apiContracts: [], dataModels: [], dataIntegrity: { relationships: [] } });
+assert.equal(empty.status, 'source-evidence-present-runtime-unverified');
+assert.equal(empty.requestedRouteCount, 0);
+assert.equal(empty.modelCount, 0);
+
+console.log('OVYX full-stack source contract tests passed: route/method/auth source, schema and relationship evidence with runtime claims kept unverified.');
