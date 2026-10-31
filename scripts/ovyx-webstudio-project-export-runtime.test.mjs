@@ -167,6 +167,28 @@ assert.equal(archivedManifest.framework.name, 'Next.js');
 assert.equal(archivedManifest.assetStorage.includedCount, 1);
 assert.equal(archivedManifest.assetStorage.rewrittenReferences, 2);
 
+window.fetch = async () => ({ ok: false, status: 403 });
+const failedAssetPreparation = await exporter.prepare();
+assert.equal(failedAssetPreparation.ok, true, 'Text source export remains available when stored media cannot be retrieved.');
+assert.equal(failedAssetPreparation.assetStorage.status, 'unavailable');
+assert.equal(failedAssetPreparation.assetStorage.excludedCount, 1);
+assert.ok(failedAssetPreparation.excluded.some(item => /HTTP 403/.test(item.reason)));
+
+window.WebStudio.graph.files = {
+  'package.json': JSON.stringify({
+    name: 'static-next-site',
+    scripts: { build: 'next build' },
+    dependencies: { next: '15.0.0', react: '19.0.0', 'react-dom': '19.0.0' },
+  }),
+  'package-lock.json': '{}',
+  'next.config.js': "module.exports = { output: 'export' };",
+  'app/page.tsx': 'export default function Page(){return <main>Static page</main>}',
+};
+const staticNext = exporter.inspect();
+assert.equal(staticNext.framework.name, 'Next.js');
+assert.equal(staticNext.framework.runtimeProfile, 'static-site');
+assert.equal(staticNext.framework.deploymentTarget, 'static-hosting-after-build');
+
 const unsupported = exporter.inspect({ mode: 'framework-only' });
 assert.equal(unsupported.ok, false);
 assert.match(unsupported.error, /Unsupported export mode/);
