@@ -17633,25 +17633,25 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
           Promise.resolve().then(async function(){
             var currentAsset=imageStore[id];
             if(!currentAsset){toast('This generated image is no longer available in the current session. Generate it again to use it.','warning');return;}
-            var studio=window.WebStudio;
-            if(!studio||typeof studio.renderAttachments!=='function'){toast('Web Studio attachments are not available right now.','error');return;}
+            var W=window.WebStudio;
+            if(!W||typeof W.renderAttachments!=='function'){toast('Web Studio attachments are not available right now.','error');return;}
             var dataUrl=String(currentAsset.dataUrl||'');
             var dataMatch=dataUrl.match(/^data:(image\/[a-z0-9.+-]+);base64,([a-z0-9+/=\s]+)$/i);
             if(!dataMatch)throw new Error('The generated image data is unavailable. Please generate it again.');
             var base64=dataMatch[2].replace(/\s/g,'');
             var imageSize=Math.max(0,Math.floor(base64.length*3/4)-(base64.endsWith('==')?2:base64.endsWith('=')?1:0));
             if(imageSize>8*1024*1024)throw new Error('This generated image is larger than the 8 MB attachment limit.');
-            if(studio.attachmentsReady&&typeof studio.attachmentsReady.then==='function')await studio.attachmentsReady;
-            var currentAttachments=Array.isArray(studio.attachments)?studio.attachments.slice():[];
+            if(W.attachmentsReady&&typeof W.attachmentsReady.then==='function')await W.attachmentsReady;
+            var currentAttachments=Array.isArray(W.attachments)?W.attachments.slice():[];
             if(currentAttachments.length>=6)throw new Error('The prompt already has six attachments. Remove one before adding this image.');
             if(!currentAttachments.some(function(item){return item&&String(item.name||'')===String(currentAsset.name||'');})){
               var attachment={name:currentAsset.name,size:imageSize,type:currentAsset.type||dataMatch[1].toLowerCase(),dataUrl:dataUrl,textContent:null,status:'ready',error:''};
-              studio._attachmentsVersion=Number(studio._attachmentsVersion||0)+1;
-              studio.attachments=currentAttachments.concat(attachment);
-              studio.attachmentsReady=Promise.resolve(studio.attachments);
-              studio.renderAttachments();
+              W._attachmentsVersion=Number(W._attachmentsVersion||0)+1;
+              W.attachments=currentAttachments.concat(attachment);
+              W.attachmentsReady=Promise.resolve(W.attachments);
+              W.renderAttachments();
             }
-            studio.setMode('build');
+            W.setMode('build');
             setComposerValue('Use the attached generated image as a visual asset in the current website. Place it where it best supports the design, preserve the existing structure and styling, and verify the preview.');
             toast('Image attached. Review the prompt and press send when you are ready.','success');
           }).catch(function(error){toast(String(error?.message||'Could not attach the generated image.'),'error');});
