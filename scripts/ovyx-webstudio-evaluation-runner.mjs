@@ -566,7 +566,7 @@ function buildProductionReadiness(findings, deployment, integrationReadiness, qu
       sourceValidation: sourceGate ? 'passed' : sourceNeedsReview ? 'needs-review' : 'needs-attention',
       browserAcceptance: 'not-verified',
       integrationWorkflows: integrationReadiness.length ? 'not-verified' : 'not-requested',
-      hostingCompatibility: deployment.issues.length ? 'needs-configuration' : deployment.framework.packageManifestAmbiguous ? 'ambiguous-workspace' : 'source-profile-detected',
+      hostingCompatibility: deployment.framework.packageManifestAmbiguous ? 'ambiguous-workspace' : deployment.issues.length ? 'needs-configuration' : 'source-profile-detected',
       deployment: 'not-deployed-or-not-verified',
       humanVisualReview: 'required',
       humanEditorialReview: 'required',

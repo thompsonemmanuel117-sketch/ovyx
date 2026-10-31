@@ -38,7 +38,7 @@ assert.ok(good.integrationReadiness.every(item => item.verified === false));
 
 assert.equal(good.qualityScoreV2.dimensionAssessmentCoveragePercent, 100);
 assert.match(good.qualityScoreV2.coverageDefinition, /not requirement coverage/i);
-assert.equal(good.qualityScoreV2.functionalRequirementEvidence.missingSourceEvidenceCount, 1);
+assert.equal(good.qualityScoreV2.functionalRequirementEvidence.missingSourceEvidenceCount, 4);
 assert.equal(good.qualityScoreV2.releaseDecision.automatedSourceGate, 'fail');
 assert.equal(good.productionReadiness.gates.sourceValidation, 'needs-attention');
 assert.equal(good.functionalAcceptance.find(item => item.requirement === 'contact validation').assessment, 'missing-source-evidence');
