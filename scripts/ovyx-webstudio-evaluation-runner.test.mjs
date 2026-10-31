@@ -28,6 +28,35 @@ assert.equal(good.qualityScoreV2.releaseDecision.certifiedProductionReady, false
 assert.equal(good.qualityScoreV2.releaseDecision.browserBehaviorVerificationRequired, true);
 assert.equal(good.qualityScoreV2.releaseDecision.liveIntegrationVerificationRequired, true);
 assert.equal(good.performanceEvidence.runtimeMeasurements.coreWebVitalsMeasured, false);
+assert.equal(good.deploymentIntelligence.framework.name, 'Static HTML/CSS/JavaScript');
+assert.equal(good.deploymentIntelligence.runtimeProfile, 'static-site');
+assert.equal(good.deploymentIntelligence.staticOnlyCompatible, true);
+assert.equal(good.productionReadiness.readyForProduction, false);
+assert.equal(good.productionReadiness.gates.browserAcceptance, 'not-verified');
+assert.ok(good.integrationReadiness.every(item => item.verified === false));
+
+const fullStackCategory = {
+  ...category,
+  integrationTruth: ['Real payment provider checkout', 'Persistent database records', 'Real email delivery'],
+};
+const fullStack = evaluateSiteFiles({
+  'package.json': JSON.stringify({
+    name: 'northstar-platform',
+    scripts: { build: 'next build', start: 'next start' },
+    dependencies: { next: 'latest', react: 'latest', 'react-dom': 'latest', prisma: 'latest', stripe: 'latest' },
+  }),
+  'app/page.tsx': 'export default function Page(){return <main><h1>Northstar</h1></main>}',
+  'app/api/checkout/route.ts': 'export async function POST(){ return Response.json({ status: "pending" }); }',
+  'prisma/schema.prisma': 'datasource db { provider = "postgresql" }',
+}, fullStackCategory);
+assert.equal(fullStack.deploymentIntelligence.framework.name, 'Next.js');
+assert.equal(fullStack.deploymentIntelligence.runtimeProfile, 'full-stack-server-runtime');
+assert.equal(fullStack.deploymentIntelligence.staticOnlyCompatible, false);
+assert.equal(fullStack.deploymentIntelligence.packageScripts.buildDetected, true);
+assert.ok(fullStack.deploymentIntelligence.detectedIntegrations.some(item => item.capability === 'payments'));
+assert.equal(fullStack.integrationReadiness[0].sourceReference, 'detected');
+assert.equal(fullStack.integrationReadiness[0].verified, false);
+assert.equal(fullStack.productionReadiness.readyForProduction, false);
 assert.ok(good.functionalAcceptance.length > 0);
 assert.ok(good.functionalAcceptance.every(item => ['source-evidence-present-behavior-unverified', 'no-matching-static-evidence'].includes(item.status)));
 assert.ok(good.functionalAcceptance.every(item => item.browserBehaviorVerified === false && item.integrationVerified === false));
