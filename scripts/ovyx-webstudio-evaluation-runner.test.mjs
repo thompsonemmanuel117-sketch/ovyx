@@ -131,4 +131,16 @@ assert.ok(bad.findings.some(item => item.code === 'PLACEHOLDER_LINK'));
 assert.ok(bad.findings.every(item => !item.message.includes(secret)), 'Reports must not echo secret values.');
 assert.ok(bad.findings.some(item => item.code === 'SCRIPT_UNRESOLVED'));
 
-console.log('Web Studio artifact evaluator tests passed: technical readiness, missing resources, placeholder content, secret redaction, and unverified functional/integration status.');
+const securityReview = evaluateSiteFiles({
+  'index.html': '<!doctype html><html lang="en"><head><title>Security review</title><script src="https://cdn.example.test/library.js"></script><script src="http://cdn.example.test/insecure.js"></script></head><body><main><h1>Security review</h1></main></body></html>',
+  'assets/runtime.js': 'const dynamic = eval(userInput); element.innerHTML = userInput; window.parent.postMessage({ready:true}, "*");',
+}, category);
+assert.ok(securityReview.findings.some(item => item.code === 'DANGEROUS_DYNAMIC_CODE'));
+assert.ok(securityReview.findings.some(item => item.code === 'UNSAFE_HTML_SINK'));
+assert.ok(securityReview.findings.some(item => item.code === 'INSECURE_HTTP_RESOURCE'));
+assert.ok(securityReview.findings.some(item => item.code === 'WILDCARD_POSTMESSAGE'));
+assert.ok(securityReview.findings.some(item => item.code === 'EXTERNAL_SCRIPT_NO_SRI'));
+assert.ok(securityReview.qualityScoreV2.dimensions.security.score < 100,
+  'The security dimension must reflect unsafe source evidence.');
+
+console.log('Web Studio artifact evaluator tests passed: technical readiness, security patterns, missing resources, placeholder content, secret redaction, and unverified functional/integration status.');
