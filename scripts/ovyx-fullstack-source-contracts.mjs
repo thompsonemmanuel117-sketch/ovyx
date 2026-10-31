@@ -108,16 +108,16 @@ function schemaDeclarationEvidence(model, files) {
   const plural = snake.endsWith('s') ? snake : snake + 's';
   const patterns = [
     new RegExp('\\bmodel\\s+' + escaped + '\\s*\\{', 'i'),
-    new RegExp('\\b(?:interface|type)\\s+' + escaped + '\\b', 'i'),
     new RegExp('\\b(?:const|let|var)\\s+' + escaped + '(?:Schema|Model|Definition)\\b', 'i'),
     new RegExp('\\bCREATE\\s+TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?["\\x27]?' + escaped + '["\\x27]?(?=\\s|\\(|;|$)', 'i'),
     new RegExp('\\bCREATE\\s+TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?["\\x27]?' + escapeRegExp(plural) + '["\\x27]?(?=\\s|\\(|;|$)', 'i'),
     new RegExp('\\b(?:pgTable|sqliteTable|mysqlTable)\\s*\\(\\s*["\\x27]' + escapeRegExp(plural) + '["\\x27]', 'i'),
-    new RegExp('\\b(?:collection|table)\\s*\\(\\s*["\\x27]' + escapeRegExp(plural) + '["\\x27]\\s*\\)', 'i'),
   ];
   for (const [file, source] of Object.entries(files)) {
     if (!TEXT_SOURCE.test(file)) continue;
-    if (patterns.some(pattern => pattern.test(String(source || '')))) return file;
+    const text = String(source || '');
+    const mongooseDeclaration = new RegExp('\\bmodel\\s*\\(\\s*["\\x27]' + escaped + '["\\x27]', 'i').test(text) && /\\bnew\\s+Schema\\s*\\(/i.test(text);
+    if (patterns.some(pattern => pattern.test(text)) || mongooseDeclaration) return file;
   }
   return null;
 }
@@ -136,8 +136,15 @@ function relationshipEvidence(relationship, files) {
     const text = String(source || '');
     const namesTogether = (fromPattern.test(text) || fromHuman.test(text)) &&
       (toPattern.test(text) || toHuman.test(text));
+    const fieldPattern = relationship.foreignKeyField
+      ? new RegExp('\\b' + escapeRegExp(relationship.foreignKeyField) + '\\b', 'i')
+      : null;
     const relationSignal = /(?:references|foreign\s+key|relation|connect|belongsTo|hasMany|hasOne|@relation|references\s*:)/i.test(text);
-    if (namesTogether && relationSignal) return file;
+    if (relationship.kind === 'polymorphic-reference') {
+      if (fieldPattern && fieldPattern.test(text) && /sourceType|targetType|entityType/i.test(text)) return file;
+    } else if (namesTogether && fieldPattern && fieldPattern.test(text) && relationSignal) {
+      return file;
+    }
   }
   return null;
 }
