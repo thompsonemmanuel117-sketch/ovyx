@@ -280,7 +280,7 @@
       confidence: confidence,
       packageManifests: parsedPackages.map(function (item) { return item.path; }),
       rootPackageName: clean(rootPackage && rootPackage.data.name || '', 120),
-      packageManager: packageManager ? packageManager[0].replace(/-lock\.(?:yaml|b)?$/, '') : 'npm (default; no lockfile detected)',
+      packageManager: packageManager ? packageManager[1] : 'npm (default; no lockfile detected)',
       installCommand: installCommand,
       scripts: {
         build: clean(buildCommand, 180),
