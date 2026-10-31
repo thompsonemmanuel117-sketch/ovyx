@@ -292,7 +292,7 @@ function buildSecurityArchitecture(capabilities) {
 function buildTestPlan(capabilities) {
   const tests = [
     { id: 'architecture-contract', type: 'contract', scope: 'all layers', assertion: 'Every requirement maps to relevant nodes or is explicitly not-assessable.' },
-    { id: 'business-state-transitions', type: 'contract-and-integration', scope: 'domain workflows', assertion: 'Only declared transitions execute; each transition's authority, side effects, idempotency and audit requirements are enforced.' },
+    { id: 'business-state-transitions', type: 'contract-and-integration', scope: 'domain workflows', assertion: 'Only declared transitions execute; each transition’s authority, side effects, idempotency and audit requirements are enforced.' },
     { id: 'route-contract', type: 'contract', scope: 'backend API', assertion: 'HTTP methods, auth policy, validation, errors and idempotency match each route contract.' },
     { id: 'data-integrity', type: 'integration', scope: 'database', assertion: 'Constraints, indexes, ownership and transaction boundaries hold against the selected database.' },
     { id: 'browser-journeys', type: 'browser-e2e', scope: 'frontend and backend', assertion: 'Every requested journey runs from UI action through API and persisted/result state.' },
