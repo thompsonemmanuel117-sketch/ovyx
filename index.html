@@ -10245,8 +10245,8 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
       if(!closeControl){
         var controls=Array.from(el.querySelectorAll('button,[role="button"],a'));
         closeControl=controls.find(function(btn){
-          var label=String(btn.getAttribute('aria-label')||btn.getAttribute('title')||btn.textContent||'').replace(/\\s+/g,' ').trim();
-          return /^(?:cancel|back|close|done|dismiss|×|✕|x)(?:\\s|$)/i.test(label);
+          var label=String(btn.getAttribute('aria-label')||btn.getAttribute('title')||btn.textContent||'').replace(/\s+/g,' ').trim();
+          return /^(?:cancel|back|close|done|dismiss|×|✕|x)(?:\s|$)/i.test(label);
         });
       }
       if(closeControl){closeControl.click();if(!isVisible(el))return true}
@@ -17642,9 +17642,9 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
           var asset=imageStore[imageId];if(!asset){toast('This generated image is no longer available in the current session. Generate it again to use it.','warning');return;}
           var W=window.WebStudio;if(!W||typeof W.renderAttachments!=='function'){toast('Web Studio attachments are not available right now.','error');return;}
           var dataUrl=String(asset.dataUrl||'');
-          var dataMatch=dataUrl.match(/^data:(image\\/[a-z0-9.+-]+);base64,([a-z0-9+/=\\s]+)$/i);
+          var dataMatch=dataUrl.match(/^data:(image\/[a-z0-9.+-]+);base64,([a-z0-9+/=\s]+)$/i);
           if(!dataMatch)throw new Error('The generated image data is unavailable. Please generate it again.');
-          var base64=dataMatch[2].replace(/\\s/g,'');
+          var base64=dataMatch[2].replace(/\s/g,'');
           var imageSize=Math.max(0,Math.floor(base64.length*3/4)-(base64.endsWith('==')?2:base64.endsWith('=')?1:0));
           if(imageSize>8*1024*1024)throw new Error('This generated image is larger than the 8 MB attachment limit.');
           if(W.attachmentsReady&&typeof W.attachmentsReady.then==='function')await W.attachmentsReady;
