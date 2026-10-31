@@ -117,7 +117,7 @@ function schemaDeclarationEvidence(model, files) {
   for (const [file, source] of Object.entries(files)) {
     if (!TEXT_SOURCE.test(file)) continue;
     const text = String(source || '');
-    const mongooseDeclaration = new RegExp('\\bmodel\\s*\\(\\s*["\\x27]' + escaped + '["\\x27]', 'i').test(text) && /\\bnew\\s+Schema\\s*\\(/i.test(text);
+    const mongooseDeclaration = new RegExp('\\bmodel\\s*\\(\\s*["\\x27]' + escaped + '["\\x27]', 'i').test(text) && /\bnew\s+Schema\s*\(/i.test(text);
     if (patterns.some(pattern => pattern.test(text)) || mongooseDeclaration) return file;
   }
   return null;
