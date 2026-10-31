@@ -52,6 +52,19 @@ The planner currently creates:
 
 The full contract is bounded before being sent to the model. The original brief remains authoritative, and all 180 accepted requirement IDs must survive serialization. The client response exposes summary counts only; it does not expose server credentials or raw connection secrets.
 
+### Domain integrity and business-state contracts added
+
+The Phase 2 planner now also defines relational integrity instead of listing isolated tables:
+
+- Relationships connect role grants to accounts, bookings to reservable resources, cart items to carts/products, order lines to orders/products, payment attempts to orders, private assets to owners, audit events to verified actors, and email delivery records to their source submissions/subscriptions where applicable.
+- Constraints specify server-calculated integer minor-unit money, ISO currency, immutable purchase snapshots, unique/idempotent provider events, legal state transitions, booking-overlap protection, and consent/unsubscribe requirements.
+- Index contracts describe high-value lookup paths such as account identity, owner order history, booking availability, provider payment references, delivery queues, subscription email/list pairs and asset storage keys.
+- The dependency graph now includes explicit data-relation edges and rejects missing relationship endpoints as well as missing API model references.
+- Explicit state machines cover orders, payment attempts, bookings, contact delivery, newsletter consent, and private asset ingestion. Transitions carry an authority condition and side-effect/audit expectation; they are contracts, not a substitute for implementation.
+- The generated verification plan includes business-state transition tests. The full-stack evaluator and website-engine regression tests now assert that relational and state-machine contracts survive into the bounded model-facing architecture payload.
+
+The full-stack planner distinguishes a newsletter from a contact form, a product catalogue from a payment-enabled checkout, and a payment-only billable action from a commerce order. These boundaries are regression-tested to reduce accidental over-generation.
+
 ### Important current boundary
 
 This is an architecture and code-generation contract. It does **not** provision a database, create provider credentials, run migrations, prove endpoint behavior or certify generated applications. The route/model/provider records are plans until generated source is inspected and the actual tests pass.
