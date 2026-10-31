@@ -10246,7 +10246,7 @@ window.OVYXStability=window.OVYXStability||{};window.OVYXStability.version='6.5.
         var controls=Array.from(el.querySelectorAll('button,[role="button"],a'));
         closeControl=controls.find(function(btn){
           var label=String(btn.getAttribute('aria-label')||btn.getAttribute('title')||btn.textContent||'').replace(/\\s+/g,' ').trim();
-          return /^(?:cancel|back|close|done|dismiss|×|✕|x)(?:\s|$)/i.test(label);
+          return /^(?:cancel|back|close|done|dismiss|×|✕|x)(?:\\s|$)/i.test(label);
         });
       }
       if(closeControl){closeControl.click();if(!isVisible(el))return true}
