@@ -71,6 +71,16 @@ assert.equal(architecture.graphIntegrity.unreachableNodeIds.length, 0);
 assert.ok(architecture.backgroundWork.controls.includes('dead-letter-visibility'));
 assert.ok(architecture.testPlan.some(item => item.id === 'payment-sandbox' && item.requiresExplicitOwnerApproval === true));
 assert.ok(architecture.testPlan.every(item => item.status === 'planned-not-executed' && item.evidence === null));
+assert.ok(architecture.stateMachines.some(machine => machine.entity === 'Order'));
+assert.ok(architecture.stateMachines.some(machine => machine.entity === 'PaymentAttempt'));
+assert.ok(architecture.stateMachines.some(machine => machine.entity === 'NewsletterSubscription'));
+assert.ok(architecture.graph.nodes.some(node => node.type === 'business-workflow'));
+assert.ok(architecture.graph.edges.some(edge => edge.relation === 'enforces-state-machine'));
+const paymentMachine = architecture.stateMachines.find(machine => machine.entity === 'PaymentAttempt');
+assert.ok(paymentMachine.transitions.some(transition =>
+  transition.from === 'pending' && transition.to === 'succeeded' && /verified signed provider event/i.test(transition.authority)
+));
+assert.match(paymentMachine.invariant, /deduplicated/i);
 assert.equal(architecture.graphIntegrity.valid, true);
 assert.ok(architecture.graph.nodes.some(node => node.type === 'api-route'));
 assert.ok(architecture.graph.nodes.some(node => node.type === 'data-model'));
@@ -104,6 +114,7 @@ assert.equal(simple.apiContracts.length, 0);
 assert.equal(simple.dataModels.length, 0);
 assert.equal(simple.integrations.length, 0);
 assert.equal(simple.graphIntegrity.valid, true);
+assert.equal(simple.stateMachines.length, 0);
 
 const withContacts = buildFullStackArchitecture(
   'Build a business website with a real contact form and send messages to the business owner.',
@@ -130,7 +141,10 @@ assert.equal(adminArchitecture.capabilities.authorization, true);
 const newsletterBrief = 'Build a community site with a newsletter signup, double opt-in confirmation email and secure unsubscribe link.';
 const newsletterArchitecture = buildFullStackArchitecture(newsletterBrief, buildPromptContract(newsletterBrief));
 assert.equal(newsletterArchitecture.capabilities.newsletter, true);
+assert.equal(newsletterArchitecture.capabilities.contact, false, 'Newsletter signup must not silently create a contact form feature.');
+assert.ok(!newsletterArchitecture.dataModels.some(model => model.name === 'ContactSubmission'));
 assert.ok(newsletterArchitecture.dataModels.some(model => model.name === 'NewsletterSubscription'));
+assert.ok(newsletterArchitecture.stateMachines.some(machine => machine.entity === 'NewsletterSubscription'));
 assert.ok(newsletterArchitecture.apiContracts.some(route => route.path === '/api/newsletter/subscriptions'));
 assert.ok(newsletterArchitecture.apiContracts.some(route => route.path === '/api/newsletter/unsubscribe'));
 assert.ok(newsletterArchitecture.graph.edges.some(edge => edge.relation === 'enqueues-after-commit' &&
