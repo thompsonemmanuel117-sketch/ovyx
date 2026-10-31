@@ -36,27 +36,35 @@ function normalizeRequirements(contract) {
   });
 }
 
+function hasPositiveIntent(source, pattern) {
+  return String(source || '').split(/[\\n.!?;]+/).some(clause => {
+    const match = pattern.exec(clause);
+    if (!match) return false;
+    return !/\\b(?:do not|don't|dont|never|avoid|exclude|without|no)\\b/i.test(clause.slice(0, match.index));
+  });
+}
+
 function inferCapabilities(prompt, contract) {
   const source = String(prompt || '');
   const signals = contract && contract.contactSignals || {};
   const explicitFullStack = /\b(?:full[- ]stack|backend[- ]enabled|server[- ]backed application)\b/i.test(source);
   const admin = /\b(?:admin dashboard|administrator|back office|staff dashboard|manage users|manage orders|manage bookings)\b/i.test(source);
   const commerce = signals.shoppingCart === true || signals.addToCart === true ||
-    /\b(?:e-commerce|ecommerce|online store|sell products|product catalogue|product catalog|shopping cart|add to cart)\b/i.test(source);
+    hasPositiveIntent(source, /\b(?:e-commerce|ecommerce|online store|sell products|product catalogue|product catalog|shopping cart|add to cart)\b/i);
   const payment = signals.payments === true ||
-    /\b(?:payment|paystack|flutterwave|stripe|paypal|checkout|pay now|subscription billing|recurring billing)\b/i.test(source);
+    hasPositiveIntent(source, /\b(?:payment|paystack|flutterwave|stripe|paypal|checkout|pay now|subscription billing|recurring billing)\b/i);
   const auth = signals.authentication === true || admin ||
-    /\b(?:member portal|sign in|sign up|login|authentication|user account|customer account|staff accounts?)\b/i.test(source);
+    hasPositiveIntent(source, /\b(?:member portal|sign in|sign up|login|authentication|user account|customer account|staff accounts?)\b/i);
   const authorization = admin ||
-    /\b(?:user roles?|role-based access|admin access|permissions?|permission policies|tenant access|workspace roles?|staff permissions?)\b/i.test(source);
+    hasPositiveIntent(source, /\b(?:user roles?|role-based access|admin access|permissions?|permission policies|tenant access|workspace roles?|staff permissions?)\b/i);
   const booking = signals.bookings === true ||
-    /\b(?:appointment|reservation|booking|schedule a|availability calendar)\b/i.test(source);
+    hasPositiveIntent(source, /\b(?:appointment|reservation|booking|schedule a|availability calendar)\b/i);
   const contact = signals.contactForm === true ||
-    /\b(?:contact form|enquiry form|inquiry form|lead capture|send (?:us )?a message|contact submission)\b/i.test(source);
-  const newsletter = signals.newsletter === true || /\b(?:newsletter|mailing list|email updates|subscribe for updates)\b/i.test(source);
+    hasPositiveIntent(source, /\b(?:contact form|enquiry form|inquiry form|lead capture|send (?:us )?a message|contact submission)\b/i);
+    hasPositiveIntent(source, /\b(?:newsletter|mailing list|email updates|subscribe for updates)\b/i);
   const email = signals.emailDelivery === true || newsletter ||
     /\b(?:email delivery|send\b.{0,80}\bemails?\b|emails?\b.{0,80}\b(?:send|deliver|dispatch)|email notification|transactional email)\b/i.test(source);
-  const fileStorage = /\b(?:file upload|image upload|document upload|media library|file storage|user uploads?|user[- ]uploaded|uploaded by users|users?\s+to\s+upload)\b/i.test(source) || /\b(?:upload|store)\b.{0,60}\b(?:files?|documents?|images?|media)\b/i.test(source) || /\b(?:files?|documents?|images?|media)\b.{0,60}\b(?:upload|store)\b/i.test(source);
+    hasPositiveIntent(source, /\b(?:file upload|image upload|document upload|media library|file storage|user uploads?|user[- ]uploaded|uploaded by users|users?\s+to\s+upload)\b/i) ||
   const persistentData = explicitFullStack || signals.backendData === true || commerce || booking || auth || contact || email || payment || fileStorage ||
     /\b(?:database|persistent data|save records|customer records|reporting dashboard)\b/i.test(source);
   const search = /\b(?:search|filter|sort|catalogue|catalog|directory|listing)\b/i.test(source);
