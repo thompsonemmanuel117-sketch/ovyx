@@ -5,7 +5,7 @@
 
 ## Maximum Website Engine program
 
-The separate seven-phase Website Engine upgrade is tracked in `docs/OVYX-MAXIMUM-WEBSITE-ENGINE.md`. It must preserve Cloudflare Workers AI routing, App Studio, Firebase state, quotas and existing production boundaries. PR #359 is the current implementation branch and remains open; its required Actions checks must pass before merge. Website Engine source work, PR CI, provider preflight, real website generation and external integration acceptance are separate evidence levels.
+The separate seven-phase Website Engine upgrade is tracked in `docs/OVYX-MAXIMUM-WEBSITE-ENGINE.md`. Phase 1 foundation PR #359 was merged to `main` as `ed990654cea6b5b75291aec94c9de5050839237e`. Its first post-merge verification on 2026-10-31 failed across eight workflows because of two defects: a missing object brace in `functions/_lib/ovyx-project-knowledge.js` blocked Cloudflare Functions bundling, and `website-engine.js` flattened line breaks before prompt-contract extraction, collapsing the 180-item test to one requirement. Phase 1 closeout fixes are on PR #361; verify its exact-head Actions/Pages checks before calling Phase 1 complete. PR #360 is the separate Phase 2 track and must not be merged as part of Phase 1 closeout. Preserve Cloudflare Workers AI routing, App Studio, Firebase state, quotas and existing production boundaries. Source implementation, CI, provider preflight, real generation and external delivery remain separate evidence levels.
 
 ## AI migration stages
 
