@@ -7,7 +7,7 @@ import {
 } from '../../_lib/http.js';
 import { callModel } from '../../_lib/providers.js';
 import { cloudflareOnlyModelOptions } from '../../_lib/cloudflare-routing.js';
-import { runWebsiteGeneration, buildWebsiteEnginePlan, buildWebsiteEngineInstructions, websiteEngineClientSummary } from '../../_lib/website-engine.js';
+import { runWebsiteGeneration, buildWebsiteEnginePlan, buildWebsiteEngineInstructions, websiteEngineClientSummary, buildWebsiteEngineReadiness } from '../../_lib/website-engine.js';
 import { WEB_STUDIO_SYSTEM_PROMPT, WEB_STUDIO_EXCELLENCE, WEB_STUDIO_RESEARCH_GUIDANCE } from '../../_lib/prompts.js';
 import { isWebStudioPrompt } from '../../_lib/experience.js';
 import { buildWebStudioSourceInspection, isScopedWebStudioEdit, normalizeScopedWebStudioFiles } from '../../_lib/webstudio-source.js';
@@ -239,6 +239,30 @@ export async function onRequestPost(context) {
       : null;
     const experience = websiteEnginePlan?.experience || null;
     const websiteEngineInstructions = buildWebsiteEngineInstructions(websiteEnginePlan);
+
+    const buildReadiness = isWebStudio
+      ? buildWebsiteEngineReadiness(promptText, {
+          ...modelContext,
+          files: submittedFiles || modelContext.files || {},
+        }, {
+          mode,
+          conversationText: messages.filter(item => item.role === 'user').map(item => item.content).join('\\n\\n'),
+          files: submittedFiles || modelContext.files || {},
+        })
+      : null;
+    if (buildReadiness) {
+      return json({
+        ok: true,
+        needsUserInput: true,
+        type: buildReadiness.type,
+        clarification: buildReadiness,
+        text: buildReadiness.message,
+        message: buildReadiness.message,
+        answer: buildReadiness.message,
+        experience,
+        websiteEngine: websiteEngineClientSummary(websiteEnginePlan),
+      });
+    }
 
     const globalAIIdentityDirective = await getAIIdentityDirective(context.env);
     const system = String(
