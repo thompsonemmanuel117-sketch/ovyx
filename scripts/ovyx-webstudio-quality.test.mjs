@@ -11,6 +11,7 @@ const appManifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
 const brandMark = fs.readFileSync('assets/ovyx-brand-mark.svg', 'utf8');
 const prompts = fs.readFileSync('functions/_lib/prompts.js', 'utf8');
 const assistant = fs.readFileSync('functions/api/ai/assistant.js', 'utf8');
+const websiteEngine = fs.readFileSync('functions/_lib/website-engine.js', 'utf8');
 const appShell = fs.readFileSync('index.html', 'utf8');
 
 // Parsing this script does not execute it; browser behavior is exercised separately.
@@ -148,9 +149,11 @@ assert.ok(prompts.includes('4.5:1 for normal text and 3:1 for large/bold text'),
 assert.ok(prompts.includes('project-specific favicon'), 'Web Studio must keep browser-tab icons aligned to the generated project logo.');
 assert.ok(prompts.includes('Never reuse the OVYX platform splash/sidebar mark as the website favicon unless the brief explicitly requests that brand'), 'Generated websites must not inherit the OVYX platform mark as their favicon by default.');
 assert.ok(assistant.includes('qualityContract: WEB_STUDIO_EXCELLENCE'), 'The real Web Studio route must pass its premium quality contract into the multi-page builder.');
-assert.ok(assistant.includes("validateOrRepairSinglePageBuild"), 'Single-page Web Studio builds must run the deterministic source/requirement checks.');
+assert.ok(websiteEngine.includes('repairSinglePage: validateOrRepairSinglePageBuild'), 'The shared website engine must retain deterministic single-page source/requirement repair.');
 assert.ok(assistant.includes('structuredFields[key] = result[key]'), 'Unparseable or file-less single-page responses must still expose an explicit not-evaluated QA status.');
-assert.ok(assistant.includes("mode === 'build' && !multiPageBuild"), 'Single-page QA must not be applied over the separately validated multi-page builder path.');
+assert.ok(assistant.includes("shouldBuild: isWebStudio && mode === 'build'"), 'The Assistant route must use the shared website build lifecycle.');
+assert.ok(websiteEngine.includes('if (shouldBuild && !scopedEdit)'), 'Fresh builds must use the staged multi-page builder, while scoped edits bypass full-site rebuild.');
+assert.ok(websiteEngine.indexOf('if (shouldBuild && !scopedEdit)') < websiteEngine.indexOf('if (!result)'), 'The single-page fallback must run only after the staged builder returns no result.');
 assert.ok(assistant.includes("'qualityVerification', 'siteIntegrity', 'requirementRepair'"), 'The API should surface single-page QA status in the structured response.');
 assert.ok(/WEB_STUDIO_SYSTEM_PROMPT\s*\+\s*'\\n\\n'\s*\+\s*WEB_STUDIO_EXCELLENCE/.test(assistant), 'Single-page Web Studio system instructions must use real line breaks between the core prompt and the premium quality contract.');
 assert.ok(/'\\n\\nEXPERIENCE INTELLIGENCE:\\n'/.test(assistant), 'The experience brief must be separated with real line breaks for the model.');
