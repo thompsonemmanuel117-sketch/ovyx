@@ -479,6 +479,7 @@
       if (assetFile.sourceUrl) assetUrlMappings.push({ sourceUrl: String(assetFile.sourceUrl), archivePath: path, record: record });
     });
     var rewrittenReferences = 0;
+    var sanitizedFirebaseTokenReferences = 0;
     output.forEach(function (file) {
       if (!file.textSource) return;
       var sourceText = new TextDecoder().decode(file.bytes);
@@ -494,6 +495,13 @@
           rewrittenReferences += count;
         });
       });
+      sourceText = sourceText.replace(/https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/[^"'\\s<>]+/gi, function (downloadUrl) {
+        var sanitizedUrl = downloadUrl.replace(/(?:\?|&|&amp;)token=[^&"'\\s<>]*(?:&amp;|&)?/i, function (tokenParameter, delimiter) {
+          return delimiter === '?' ? '?' : '';
+        }).replace(/\?&/g, '?').replace(/\?$/g, '');
+        if (sanitizedUrl !== downloadUrl) sanitizedFirebaseTokenReferences += 1;
+        return sanitizedUrl;
+      });
       if (sourceText !== new TextDecoder().decode(file.bytes)) file.bytes = utf8(sourceText);
     });
     var assetStorage = {
@@ -502,6 +510,7 @@
       includedCount: assetRecords.length,
       excludedCount: assetExcludedCount,
       rewrittenReferences: rewrittenReferences,
+      sanitizedFirebaseTokenReferences: sanitizedFirebaseTokenReferences,
       files: assetRecords,
     };
     var slugName = slug(project && (project.name || project.title || project.slug));
