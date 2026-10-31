@@ -246,7 +246,7 @@ export async function onRequestPost(context) {
           files: submittedFiles || modelContext.files || {},
         }, {
           mode,
-          conversationText: messages.filter(item => item.role === 'user').map(item => item.content).join('\\n\\n'),
+          conversationText: messages.filter(item => item.role === 'user').map(item => item.content).join('\n\n'),
           files: submittedFiles || modelContext.files || {},
         })
       : null;
