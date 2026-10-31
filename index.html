@@ -18023,15 +18023,23 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
       wrappedSubmit.__ovyxComposerStopV1=true;wrappedSubmit.__ovyxOriginalSubmit=originalSubmit;W.submitPrompt=wrappedSubmit;
     }
     var stop=function(){
+      console.info('[OVYX stop diagnostic] entered');
       activeWorkId++;composerWorking=false;
-      try{voiceAbortController?.abort()}catch(_){}
-      try{imageAbortController?.abort()}catch(_){}
-      try{W.abortActiveAi?.()}catch(_){}
+      try{voiceAbortController?.abort();console.info('[OVYX stop diagnostic] voice abort dispatched')}catch(error){console.warn('[OVYX stop diagnostic] voice abort threw',error)}
+      try{imageAbortController?.abort();console.info('[OVYX stop diagnostic] image abort dispatched')}catch(error){console.warn('[OVYX stop diagnostic] image abort threw',error)}
+      try{W.abortActiveAi?.();console.info('[OVYX stop diagnostic] AI abort dispatched')}catch(error){console.warn('[OVYX stop diagnostic] AI abort threw',error)}
       W.requestEpoch=Number(W.requestEpoch||0)+1;W.aiFrozen=true;W.pendingBuild=false;W.liveAiActive=false;W.activeAbortController=null;
+      console.info('[OVYX stop diagnostic] state flags cleared');
       // The click handler runs during capture. Defer button markup changes until
       // the current click has finished dispatching, otherwise replacing the
       // clicked icon can strand pointer interactions in Chromium.
-      setTimeout(function(){syncComposerSendState(W);toast('Stopped generating. Your existing project and previous changes are preserved.','info');},0);
+      setTimeout(function(){
+        console.info('[OVYX stop diagnostic] deferred reset entered');
+        syncComposerSendState(W);
+        console.info('[OVYX stop diagnostic] composer button synchronized');
+        toast('Stopped generating. Your existing project and previous changes are preserved.','info');
+        console.info('[OVYX stop diagnostic] toast completed');
+      },0);
     };
     // Intercept at the actual send button instead of document capture.
     // This prevents a click on the Stop control from invoking submitPrompt,
