@@ -2,6 +2,7 @@ import { buildExperienceBrief } from './experience.js';
 import { buildPromptContract, getWebStudioBuildClarification } from './prompt-contract.js';
 import { buildStudioMultiPage } from './studio-multipage.js';
 import { validateOrRepairSinglePageBuild } from './studio-singlepage.js';
+import { buildFullStackArchitecture, fullStackArchitectureClientSummary, fullStackArchitectureModelContract } from './fullstack-architecture.js';
 
 const clean = (value, max = 240) => String(value == null ? '' : value)
   .replace(/[\u0000-\u001f\u007f]/g, ' ')
@@ -77,6 +78,7 @@ export function buildWebsiteEnginePlan(prompt, context = {}) {
   const promptContract = buildPromptContract(brief);
   const experience = buildExperienceBrief(brief, safeContext);
   const pages = pagePlan(promptContract);
+  const fullStackArchitecture = buildFullStackArchitecture(brief, promptContract, safeContext, pages);
   const explicitMultiPage = pages.length > 1 ||
     /\b(?:multi[- ]?page|multiple pages|several pages|\d+ pages)\b/i.test(brief);
   const signals = promptContract.contactSignals || {};
@@ -137,6 +139,7 @@ export function buildWebsiteEnginePlan(prompt, context = {}) {
       motionChoreography: experience.architecture?.motionChoreography || [],
     },
     integrations: integrationRequirements(promptContract, safeContext),
+    fullStackArchitecture,
     qualityGates: experience.qualityGates || [],
     implementationRules: [
       'Plan the complete experience before writing files; do not stop at a visually attractive first screen.',
@@ -278,6 +281,7 @@ function serializeWebsiteEngineModelPlan(plan) {
         verification: clean(item?.verification, 120),
       })),
       qualityGates: compactPlanList(plan.qualityGates, 14, 140),
+      fullStackArchitecture: fullStackArchitectureModelContract(plan.fullStackArchitecture),
       implementationRules: compactPlanList(plan.implementationRules, 10, 160),
       detailSummariesAreBounded: true,
     };
@@ -335,6 +339,7 @@ export function websiteEngineClientSummary(plan) {
       connection: item.connection,
     })),
     qualityGateCount: plan.qualityGates.length,
+    fullStackArchitecture: fullStackArchitectureClientSummary(plan.fullStackArchitecture),
   };
 }
 
