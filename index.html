@@ -17570,8 +17570,15 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
     if(!user||typeof user.getIdToken!=='function')throw new Error('Sign in to OVYX before generating an image.');
     return user.getIdToken();
   }
+  function setImageComposerFeedback(message,level){
+    var hint=$('ws-mode-hint');
+    if(hint){hint.textContent=String(message||'');return;}
+    if(level==='error')console.error('[OVYX image]',message);
+    else console.info('[OVYX image]',message);
+  }
   async function generateImageInChat(W,text,input){
-    if(W.pendingBuild||W.liveAiActive||imageBusy){toast('OVYX is already working. Wait for the current request to finish.','info');return;}
+    console.info('[OVYX image diagnostic] entered', {pendingBuild:!!W.pendingBuild,liveAiActive:!!W.liveAiActive,imageBusy});
+    if(W.pendingBuild||W.liveAiActive||imageBusy){setImageComposerFeedback('OVYX is already working. Wait for the current request to finish.');return;}
     imageBusy=true;
     W.pendingBuild=true;
     W.liveAiActive=true;
@@ -17579,89 +17586,126 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
     if(send)send.disabled=true;
     menu?.classList.remove('open');
     if(pulse)pulse.setAttribute('aria-expanded','false');
+    console.info('[OVYX image diagnostic] before user message render');
     W.appendMessage('user',text);
+    console.info('[OVYX image diagnostic] after user message render');
     if(input){input.value='';input.placeholder='Message OVYX…';input.style.height='32px';input.dispatchEvent(new Event('input',{bubbles:true}));}
     try{
       if(typeof W.status==='function')W.status('Generating image…','live');
       imageAbortController=new AbortController();
       var thisImageController=imageAbortController;
+      console.info('[OVYX image diagnostic] requesting auth token');
       var token=await imageToken();
+      console.info('[OVYX image diagnostic] token resolved');
       if(thisImageController.signal.aborted)throw Object.assign(new Error('Image generation stopped.'),{name:'AbortError'});
+      console.info('[OVYX image diagnostic] sending image endpoint request');
       var response=await fetch('/api/ai/image-generation',{method:'POST',signal:thisImageController.signal,headers:{'Content-Type':'application/json','Accept':'application/json','Authorization':'Bearer '+token},credentials:'same-origin',cache:'no-store',body:JSON.stringify({prompt:text})});
+      console.info('[OVYX image diagnostic] image endpoint response received', {status:response.status});
       var data=await response.json().catch(function(){return{}});
+      console.info('[OVYX image diagnostic] response JSON parsed', {ok:data.ok===true,imageType:typeof data.image});
       if(!response.ok||data.ok!==true||typeof data.image!=='string'||!data.image.startsWith('data:image/'))throw new Error(String(data.error||data.message||'OVYX could not generate this image. Check your AI allowance and try again.'));
       var id='ovyx-image-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,7);
       imageStore[id]={dataUrl:data.image,type:(data.image.match(/^data:(image\/[^;,]+)/i)||[])[1]||'image/png',name:'ovyx-generated-image.'+((data.image.match(/^data:image\/([^;,]+)/i)||[])[1]||'png').replace('jpeg','jpg')};
+      console.info('[OVYX image diagnostic] before agent message render');
       W.appendMessage('agent','Your image is ready. Preview it below, download it, or add it to the current website build.',{generatedImageId:id});
-      toast('Image generated successfully.','success');
+      console.info('[OVYX image diagnostic] after agent message render');
+      setImageComposerFeedback('Image generated successfully. Preview it below, download it, or add it to the current website.');
     }catch(error){
       if(error?.name==='AbortError'||imageAbortController?.signal?.aborted){
         W.appendMessage('agent','Image generation stopped.');
-        toast('Image generation stopped.','info');
+        setImageComposerFeedback('Image generation stopped.');
       }else{
         var message=String(error?.message||'Please try again.');
         if(/<!doctype|<html|cloudflare ray id|authorization:\s*bearer/i.test(message))message='The image service could not complete this request. Check your connection and try again.';
         W.appendMessage('agent','Image generation failed: '+message.slice(0,240));
-        toast(message.slice(0,240),'error');
+        setImageComposerFeedback(message.slice(0,240),'error');
       }
     }finally{
+      console.info('[OVYX image diagnostic] entering cleanup');
       if(imageAbortController===thisImageController)imageAbortController=null;
       imageBusy=false;
       W.pendingBuild=false;
       W.liveAiActive=false;
       if(typeof W.renderThread==='function')W.renderThread();
+      console.info('[OVYX image diagnostic] cleanup render completed');
       syncComposerSendState(W);
+      console.info('[OVYX image diagnostic] cleanup completed');
     }
   }
   function installImageRenderer(W){
     if(!W||W.__ovyxPulseImageRenderer)return;W.__ovyxPulseImageRenderer=true;
     var original=W.renderThread;if(typeof original!=='function')return;
     W.renderThread=function(){
+      var hasGeneratedImage=(this.thread||[]).some(function(message){return !!message?.generatedImageId;});
+      if(hasGeneratedImage)console.info('[OVYX image diagnostic] image renderer before base render');
       var result=original.apply(this,arguments);
+      if(hasGeneratedImage)console.info('[OVYX image diagnostic] image renderer after base render');
       var threadRoot=$('ws-agent-thread');if(!threadRoot)return result;
       (this.thread||[]).forEach(function(message,index){
         var id=message?.generatedImageId,asset=id&&imageStore[id];if(!asset)return;
-        var bubble=threadRoot.querySelector('.ovyx-ws-msg[data-ws-thread-index="'+index+'"]');var content=bubble?.querySelector('.ovyx-ws-msg-content');if(!content||content.querySelector('[data-ovyx-generated-image="'+id+'"]'))return;
+        var bubble=threadRoot.querySelector('.ovyx-ws-msg[data-ws-thread-index="'+index+'"]');
+        var content=bubble?.querySelector('.ovyx-ws-msg-content');
+        if(!content||content.querySelector('[data-ovyx-generated-image="'+id+'"]'))return;
         var card=document.createElement('div');card.className='ws-generated-image-card';card.setAttribute('data-ovyx-generated-image',id);
         var img=document.createElement('img');img.src=asset.dataUrl;img.alt='Image generated by OVYX';
         var actions=document.createElement('div');actions.className='ws-generated-image-actions';
         var use=document.createElement('button');use.type='button';use.className='primary';use.textContent='Use in website';use.setAttribute('data-ovyx-use-generated-image',id);
+        use.addEventListener('click',function(event){
+          event.preventDefault();
+          event.stopPropagation();
+          (async function(){
+            var W=window.WebStudio;
+            if(!W||typeof W.renderAttachments!=='function'){
+              var hint=$('ws-mode-hint');if(hint)hint.textContent='Web Studio attachments are not available right now.';
+              return;
+            }
+            var currentAsset=imageStore[id];
+            if(!currentAsset){
+              var hint=$('ws-mode-hint');if(hint)hint.textContent='This generated image is no longer available in the current session. Generate it again to use it.';
+              return;
+            }
+            var dataUrl=String(currentAsset.dataUrl||'');
+            var dataMatch=dataUrl.match(/^data:(image\/[a-z0-9.+-]+);base64,([a-z0-9+/=\s]+)$/i);
+            if(!dataMatch)throw new Error('The generated image data is unavailable. Please generate it again.');
+            var base64=dataMatch[2].replace(/\s/g,'');
+            var imageSize=Math.max(0,Math.floor(base64.length*3/4)-(base64.endsWith('==')?2:base64.endsWith('=')?1:0));
+            if(imageSize>8*1024*1024)throw new Error('This generated image is larger than the 8 MB attachment limit.');
+            if(W.attachmentsReady&&typeof W.attachmentsReady.then==='function'){
+              await W.attachmentsReady;
+            }
+            var currentAttachments=Array.isArray(W.attachments)?W.attachments.slice():[];
+            if(currentAttachments.length>=6)throw new Error('The prompt already has six attachments. Remove one before adding this image.');
+            if(!currentAttachments.some(function(item){
+              return item&&String(item.name||'')===String(currentAsset.name||'');
+            })){
+              var attachment={
+                name:currentAsset.name,
+                size:imageSize,
+                type:currentAsset.type||dataMatch[1].toLowerCase(),
+                dataUrl:dataUrl,
+                textContent:null,
+                status:'ready',
+                error:''
+              };
+              W._attachmentsVersion=Number(W._attachmentsVersion||0)+1;
+              W.attachments=currentAttachments.concat(attachment);
+              W.attachmentsReady=Promise.resolve(W.attachments);
+              W.renderAttachments();
+            }
+            W.setMode('build');
+            setComposerValue('Use the attached generated image as a visual asset in the current website. Place it where it best supports the design, preserve the existing structure and styling, and verify the preview.');
+            var hint=$('ws-mode-hint');
+            if(hint)hint.textContent='Image attached. Review the prompt and press send when you are ready.';
+          })().catch(function(error){
+            var hint=$('ws-mode-hint');
+            if(hint)hint.textContent=String(error?.message||'Could not attach the generated image.').slice(0,240);
+          });
+        });
         var download=document.createElement('a');download.href=asset.dataUrl;download.download=asset.name;download.textContent='Download image';
         actions.append(use,download);card.append(img,actions);content.appendChild(card);
       });
       return result;
     };
-    var threadRoot=$('ws-agent-thread');
-    if(threadRoot&&!threadRoot.dataset.ovyxPulseImageActions){
-      threadRoot.dataset.ovyxPulseImageActions='1';
-      threadRoot.addEventListener('click',async function(event){
-        var button=event.target.closest('[data-ovyx-use-generated-image]');if(!button)return;
-        event.preventDefault();event.stopPropagation();event.stopImmediatePropagation();
-        var asset=imageStore[button.getAttribute('data-ovyx-use-generated-image')];if(!asset){toast('This generated image is no longer available in the current session. Generate it again to use it.','warning');return;}
-        var W=window.WebStudio;if(!W||typeof W.renderAttachments!=='function'){toast('Web Studio attachments are not available right now.','error');return;}
-        try{
-          var dataUrl=String(asset.dataUrl||'');
-          var dataMatch=dataUrl.match(/^data:(image\/[a-z0-9.+-]+);base64,([a-z0-9+/=\s]+)$/i);
-          if(!dataMatch)throw new Error('The generated image data is unavailable. Please generate it again.');
-          var base64=dataMatch[2].replace(/\s/g,'');
-          var imageSize=Math.max(0,Math.floor(base64.length*3/4)-(base64.endsWith('==')?2:base64.endsWith('=')?1:0));
-          if(imageSize>8*1024*1024)throw new Error('This generated image is larger than the 8 MB attachment limit.');
-          if(W.attachmentsReady&&typeof W.attachmentsReady.then==='function')await W.attachmentsReady;
-          var currentAttachments=Array.isArray(W.attachments)?W.attachments.slice():[];
-          if(currentAttachments.length>=6)throw new Error('The prompt already has six attachments. Remove one before adding this image.');
-          if(!currentAttachments.some(function(item){return item&&String(item.name||'')===String(asset.name||'');})){
-            var attachment={name:asset.name,size:imageSize,type:asset.type||dataMatch[1].toLowerCase(),dataUrl:dataUrl,textContent:null,status:'ready',error:''};
-            W._attachmentsVersion=Number(W._attachmentsVersion||0)+1;
-            W.attachments=currentAttachments.concat(attachment);
-            W.attachmentsReady=Promise.resolve(W.attachments);
-            W.renderAttachments();
-          }
-          W.setMode('build');
-          setComposerValue('Use the attached generated image as a visual asset in the current website. Place it where it best supports the design, preserve the existing structure and styling, and verify the preview.');
-          toast('Image attached. Review the prompt and press send when you are ready.','success');
-        }catch(error){toast(String(error?.message||'Could not attach the generated image.'),'error');}
-      },true);
-    }
   }
 
   function formatBytes(value){
@@ -18011,7 +18055,14 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
       // The click handler runs during capture. Defer button markup changes until
       // the current click has finished dispatching, otherwise replacing the
       // clicked icon can strand pointer interactions in Chromium.
-      setTimeout(function(){syncComposerSendState(W);toast('Stopped generating. Your existing project and previous changes are preserved.','info');},0);
+      setTimeout(function(){
+        syncComposerSendState(W);
+        // Keep cancellation feedback local to the composer. The shared global
+        // toast host can re-enter other UI observers while an aborted task is
+        // unwinding, so it must not be on the critical Stop interaction path.
+        var hint=$('ws-mode-hint');
+        if(hint)hint.textContent='Stopped generating. Your existing project and previous changes are preserved.';
+      },0);
     };
     // Intercept at the actual send button instead of document capture.
     // This prevents a click on the Stop control from invoking submitPrompt,
@@ -18019,9 +18070,13 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
     var sendButton=$('ws-chat-send');
     if(sendButton)sendButton.addEventListener('click',function(event){
       if(!composerWorking&&!imageBusy&&!W.pendingBuild&&!W.liveAiActive)return;
-      // Let the native click finish bubbling. The guard prevents the legacy
-      // send listener from submitting a second prompt while Stop is pending.
+      // While work is active this control has exactly one meaning: Stop.
+      // Prevent later legacy submit/capture handlers from running against the
+      // same click. Those handlers may start another async task or mutate the
+      // composer while the active request is being aborted.
       event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
       if(stopClickPending)return;
       stopClickPending=true;
       setTimeout(function(){stopClickPending=false;stop();},0);

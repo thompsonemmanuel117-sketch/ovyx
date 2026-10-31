@@ -3,12 +3,30 @@ import { chromium } from 'playwright';
 
 const baseURL = String(process.env.OVYX_E2E_BASE_URL || 'http://127.0.0.1:8789').trim();
 const browser = await chromium.launch({ headless: true });
+let lastCheckpoint = 'browser launch';
+const bounded = (promise, label, timeoutMs = 15000) => {
+  let timer = 0;
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Timed out while ' + label + ' after ' + timeoutMs + ' ms.')), timeoutMs); })
+  ]).finally(() => { if (timer) clearTimeout(timer); });
+};
+const testWatchdog = setTimeout(() => {
+  console.error('[pulse-composer] hard timeout after 5 minutes; last checkpoint: ' + lastCheckpoint);
+  process.exit(1);
+}, 5 * 60 * 1000);
 try {
   for (const target of [
     { name: 'desktop', viewport: { width: 1440, height: 900 } },
     { name: 'mobile', viewport: { width: 390, height: 844 } },
   ]) {
+    lastCheckpoint = target.name + ': viewport started';
+    console.log('[' + target.name + '] checkpoint: viewport started');
     const page = await browser.newPage({ viewport: target.viewport });
+    page.on('console', message => console.log('[' + target.name + '] browser console: ' + message.type() + ' ' + message.text()));
+    page.on('pageerror', error => console.error('[' + target.name + '] page JavaScript error: ' + String(error?.stack || error)));
+    page.on('crash', () => console.error('[' + target.name + '] Chromium page crashed'));
+    page.on('close', () => console.error('[' + target.name + '] Chromium page closed unexpectedly'));
     page.setDefaultTimeout(20000);
     const response = await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell failed to load.');
@@ -95,6 +113,8 @@ try {
     assert.equal(await popover.locator('[data-ws-pulse-action="selection"]').isVisible(), true, '[' + target.name + '] selected-element helper must be accessible inside Pulse.');
     assert.equal(await popover.locator('[data-ws-pulse-action="clear"]').isVisible(), true, '[' + target.name + '] clear-draft action must be accessible inside Pulse.');
 
+    lastCheckpoint = target.name + ': mode selection';
+    console.log('[' + target.name + '] checkpoint: mode selection');
     // Trace each mode through the real handler, not just the presence of the button.
     for (const expectedMode of ['build', 'plan', 'ask', 'fix']) {
       if (await popover.isHidden()) await pulse.click();
@@ -105,6 +125,8 @@ try {
       await page.waitForFunction(() => document.getElementById('ws-pulse-popover')?.hidden === true);
     }
 
+    lastCheckpoint = target.name + ': agent settings';
+    console.log('[' + target.name + '] checkpoint: agent settings');
     // The AI settings control must open its own popover, close Pulse, persist a
     // useful response-depth value, and apply a real provider selection.
     await pulse.click();
@@ -133,6 +155,8 @@ try {
     assert.equal(await page.locator('#ws-brain-label').innerText(), 'Cloudflare',
       '[' + target.name + '] the composer must identify the actual managed Cloudflare engine.');
 
+    lastCheckpoint = target.name + ': project fixture and context';
+    console.log('[' + target.name + '] checkpoint: project fixture and context');
     // Seed a disposable browser-only project when the shell is in its no-project
     // state. This validates that the map lists real source paths, not just an empty UI.
     await page.evaluate(() => {
@@ -177,6 +201,8 @@ try {
     await page.locator('#ovyx-code-back').click();
     await page.waitForFunction(() => document.getElementById('ws-code-workspace')?.hidden === true);
 
+    lastCheckpoint = target.name + ': selected-element actions';
+    console.log('[' + target.name + '] checkpoint: selected-element actions');
     // Without a selection the tool activates the existing Visual Select flow;
     // with a selection it prepares a prompt targeted at that element.
     await page.evaluate(() => { window.WebStudio.selectedElement = null; });
@@ -195,6 +221,8 @@ try {
       '[' + target.name + '] selected-element action must switch to Build mode.');
 
 
+    lastCheckpoint = target.name + ': image and clear actions';
+    console.log('[' + target.name + '] checkpoint: image and clear actions');
     // Menu actions close Pulse when selected, so reopen it before testing
     // the next action just as a real user would.
     await pulse.click();
@@ -218,11 +246,19 @@ try {
       '[' + target.name + '] selected-element prompt must preserve responsive/project constraints.');
 
     await input.fill('draft to clear');
+    lastCheckpoint = target.name + ': clear-draft reopening menu';
+    console.log('[' + target.name + '] clear-draft: reopening menu');
     await pulse.click();
+    lastCheckpoint = target.name + ': clear-draft menu reopened';
+    console.log('[' + target.name + '] clear-draft: menu reopened');
     await popover.locator('[data-ws-pulse-action="clear"]').click();
+    lastCheckpoint = target.name + ': clear-draft clear action clicked';
+    console.log('[' + target.name + '] clear-draft: clear action clicked');
     assert.equal(await input.inputValue(), '',
       '[' + target.name + '] Clear draft must clear the prompt without touching the project.');
 
+    lastCheckpoint = target.name + ': PDF upload';
+    console.log('[' + target.name + '] checkpoint: PDF upload');
     // OVYX protects project attachments behind the same signed-in session gate as generation.
     // Establish the test identity before exercising the real file-picker/change handler.
     await page.evaluate(() => {
@@ -241,6 +277,8 @@ try {
     assert.equal(await popover.isVisible(), false, '[' + target.name + '] Pulse should close after a file has been selected.');
     // Keep the PDF staged so we can verify that removing the image leaves other files untouched.
 
+    lastCheckpoint = target.name + ': image upload and preview';
+    console.log('[' + target.name + '] checkpoint: image upload and preview');
     // Any supported attachment should get a large staged preview, not only a tiny chip.
     await pulse.click();
     const [imageChooser] = await Promise.all([
@@ -271,44 +309,84 @@ try {
     assert.equal(await page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-card').count(), 0,
       '[' + target.name + '] removing the last attachment should clear the gallery.');
 
+    lastCheckpoint = target.name + ': clear-draft isolation';
+    console.log('[' + target.name + '] checkpoint: clear-draft isolation');
     // Clear draft is deliberately scoped to the composer; project source files stay intact.
+    lastCheckpoint = target.name + ': clear-draft filling draft';
+    console.log('[' + target.name + '] clear-draft: filling draft');
     await input.fill('This draft should be cleared.');
-    await page.evaluate(async () => {
-      const W = window.WebStudio;
-      await W.setAttachments([new File(['temporary attachment'], 'clear-me.txt', { type: 'text/plain' })]);
-      window.__pulseProjectFileListBeforeClear = Object.keys(W.graph?.files || {}).sort();
+    lastCheckpoint = target.name + ': clear-draft draft filled';
+    console.log('[' + target.name + '] clear-draft: draft filled');
+    // Stage the fixture through the real file picker. A synthetic File passed
+    // directly into an awaited page.evaluate can leave Chromium's FileReader
+    // promise pending in headless CI, even though the actual picker path works.
+    lastCheckpoint = target.name + ': clear-draft opening pulse menu for upload';
+    console.log('[' + target.name + '] clear-draft: opening pulse menu for upload');
+    await pulse.click();
+    lastCheckpoint = target.name + ': clear-draft pulse menu opened';
+    console.log('[' + target.name + '] clear-draft: pulse menu opened');
+    const [clearDraftChooser] = await Promise.all([
+      page.waitForEvent('filechooser', { timeout: 10000 }),
+      popover.locator('#ws-attach-btn').click()
+    ]);
+    lastCheckpoint = target.name + ': clear-draft chooser received';
+    console.log('[' + target.name + '] clear-draft: chooser received');
+    await clearDraftChooser.setFiles({ name: 'clear-me.txt', mimeType: 'text/plain', buffer: Buffer.from('temporary attachment') });
+    lastCheckpoint = target.name + ': clear-draft fixture file selected';
+    console.log('[' + target.name + '] clear-draft: fixture file selected');
+    await page.waitForFunction(() => /clear-me\.txt/.test(document.getElementById('ws-attachment-strip')?.innerText || ''));
+    lastCheckpoint = target.name + ': clear-draft fixture rendered';
+    console.log('[' + target.name + '] clear-draft: fixture rendered');
+    await page.evaluate(() => {
+      window.__pulseProjectFileListBeforeClear = Object.keys(window.WebStudio?.graph?.files || {}).sort();
     });
+    lastCheckpoint = target.name + ': clear-draft project files snapshotted';
+    console.log('[' + target.name + '] clear-draft: project files snapshotted');
     await pulse.click();
     await popover.locator('[data-ws-pulse-action="clear"]').click();
     assert.equal(await input.inputValue(), '',
       '[' + target.name + '] Clear draft must empty the prompt.');
+    lastCheckpoint = target.name + ': clear-draft prompt assertion passed';
+    console.log('[' + target.name + '] clear-draft: prompt assertion passed');
     assert.equal(await page.evaluate(() => window.WebStudio.attachments.length), 0,
       '[' + target.name + '] Clear draft must remove staged attachments.');
+    lastCheckpoint = target.name + ': clear-draft attachment assertion passed';
+    console.log('[' + target.name + '] clear-draft: attachment assertion passed');
     assert.deepEqual(await page.evaluate(() => Object.keys(window.WebStudio.graph?.files || {}).sort()),
       await page.evaluate(() => window.__pulseProjectFileListBeforeClear),
       '[' + target.name + '] Clear draft must never remove or alter the project files.');
+    lastCheckpoint = target.name + ': clear-draft project integrity assertion passed';
+    console.log('[' + target.name + '] clear-draft: project integrity assertion passed');
     assert.equal(await page.locator('#ws-attachment-preview-gallery').isHidden(), true,
       '[' + target.name + '] Clear draft should also clear the visual preview gallery.');
+    lastCheckpoint = target.name + ': clear-draft all assertions passed';
+    console.log('[' + target.name + '] clear-draft: all assertions passed');
 
-    // The mobile camera action uses the real image picker and appends, rather than replacing, files.
-    await pulse.click();
-    const [cameraChooser] = await Promise.all([
-      page.waitForEvent('filechooser', { timeout: 10000 }),
-      popover.locator('[data-ws-pulse-action="camera"]').click()
-    ]);
-    const cameraSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360"><rect width="640" height="360" fill="#111827"/><circle cx="320" cy="180" r="108" fill="#e8b64f"/></svg>';
-    await cameraChooser.setFiles({name:'camera-capture.svg',mimeType:'image/svg+xml',buffer:Buffer.from(cameraSvg)});
-    await page.waitForFunction(() => /camera-capture\.svg/.test(document.getElementById('ws-attachment-strip')?.innerText || ''));
-    assert.ok(await page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-card').filter({hasText:'camera-capture.svg'}).count() === 1,
-      '[' + target.name + '] Take photo must attach the selected image through the same upload pipeline.');
-    await page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-card').filter({hasText:'camera-capture.svg'}).locator('.ws-attachment-preview-remove').click();
-    assert.equal(await page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-card').count(), 0,
-      '[' + target.name + '] camera attachment can be removed normally.');
+    // Camera capture is a mobile-only affordance. Exercise it only at the
+    // mobile viewport; desktop runs validate the standard file picker above.
+    if (target.name === 'mobile') {
+      await pulse.click();
+      const [cameraChooser] = await Promise.all([
+        page.waitForEvent('filechooser', { timeout: 10000 }),
+        popover.locator('[data-ws-pulse-action="camera"]').click()
+      ]);
+      const cameraSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360"><rect width="640" height="360" fill="#111827"/><circle cx="320" cy="180" r="108" fill="#e8b64f"/></svg>';
+      await cameraChooser.setFiles({name:'camera-capture.svg',mimeType:'image/svg+xml',buffer:Buffer.from(cameraSvg)});
+      await page.waitForFunction(() => /camera-capture\.svg/.test(document.getElementById('ws-attachment-strip')?.innerText || ''));
+      assert.ok(await page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-card').filter({hasText:'camera-capture.svg'}).count() === 1,
+        '[' + target.name + '] Take photo must attach the selected image through the same upload pipeline.');
+      await page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-card').filter({hasText:'camera-capture.svg'}).locator('.ws-attachment-preview-remove').click();
+      assert.equal(await page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-card').count(), 0,
+        '[' + target.name + '] camera attachment can be removed normally.');
+    }
 
 
+    console.log('[' + target.name + '] voice-note diagnostic: starting microphone scenario');
+    lastCheckpoint = target.name + ': voice-note setup';
     // Exercise the actual microphone UI without relying on CI hardware: a fake
     // MediaRecorder supplies the same Blob/event contract as a browser recording.
     await input.fill('');
+    console.log('[' + target.name + '] voice-note diagnostic: composer cleared');
     await page.evaluate(() => {
       Object.defineProperty(navigator, 'mediaDevices', {
         configurable: true,
@@ -336,13 +414,20 @@ try {
       };
       window.WebStudio.setMode('ask');
     });
+    console.log('[' + target.name + '] voice-note diagnostic: fake recorder installed');
     await mic.click();
+    console.log('[' + target.name + '] voice-note diagnostic: microphone clicked');
     await page.locator('#ws-voice-note-panel').waitFor({state:'visible'});
+    console.log('[' + target.name + '] voice-note diagnostic: panel visible');
     await page.locator('#ws-voice-note-panel [data-ws-voice-record]').click();
+    console.log('[' + target.name + '] voice-note diagnostic: record clicked');
     await page.locator('#ws-voice-note-panel [data-ws-voice-stop]').waitFor({state:'visible'});
+    console.log('[' + target.name + '] voice-note diagnostic: stop control visible');
     await page.waitForTimeout(90);
     await page.locator('#ws-voice-note-panel [data-ws-voice-stop]').click();
+    console.log('[' + target.name + '] voice-note diagnostic: recording stopped');
     await page.locator('#ws-voice-note-panel [data-ws-voice-player] audio').waitFor({state:'visible'});
+    console.log('[' + target.name + '] voice-note diagnostic: audio preview mounted');
     await page.route('**/api/ai/transcribe', async route => {
       const request = route.request();
       const body = request.postDataJSON();
@@ -355,7 +440,9 @@ try {
       });
     });
     await page.locator('#ws-voice-note-panel [data-ws-voice-send]').click();
+    console.log('[' + target.name + '] voice-note diagnostic: send clicked');
     await page.waitForSelector('#ws-agent-thread .ws-chat-voice-note audio', {state:'visible'});
+    console.log('[' + target.name + '] voice-note diagnostic: chat audio mounted');
     await page.waitForFunction(() => (document.getElementById('ws-agent-thread')?.innerText || '').includes('I received your voice note'));
     assert.match(await page.locator('#ws-agent-thread').innerText(), /Explain this project from my voice note\./,
       '[' + target.name + '] the transcript should be sent through the normal OVYX AI response flow.');
@@ -364,8 +451,11 @@ try {
     assert.match(await page.evaluate(() => String(window.__ovyxLastPulseAIRequest?.system || '')), /thorough step-by-step response/i,
       '[' + target.name + '] response-depth settings must affect the real AI system instructions.');
 
+    console.log('[' + target.name + '] voice-note diagnostic: first voice flow complete');
     // "Dictate as text" must use the microphone's speech-to-text path and fill
     // the ordinary editable prompt field instead of requiring a voice-note upload.
+    lastCheckpoint = target.name + ': dictation fake install';
+    console.log('[' + target.name + '] dictation diagnostic: installing fake recognition');
     await page.evaluate(() => {
       class FakeSpeechRecognition {
         constructor() { window.__ovyxDictationRecognition = this; }
@@ -374,9 +464,17 @@ try {
       }
       window.SpeechRecognition = FakeSpeechRecognition;
     });
-    await mic.click();
-    await page.locator('#ws-voice-note-panel [data-ws-voice-dictate]').click();
-    await page.waitForFunction(() => !!window.__ovyxDictationRecognition);
+    lastCheckpoint = target.name + ': dictation microphone click';
+    console.log('[' + target.name + '] dictation diagnostic: fake recognition installed; clicking microphone');
+    await page.locator('#ws-composer-mic').click({ timeout: 15000 });
+    console.log('[' + target.name + '] dictation diagnostic: microphone opened panel');
+    lastCheckpoint = target.name + ': dictation action click';
+    await page.locator('#ws-voice-note-panel [data-ws-voice-dictate]').click({ timeout: 15000 });
+    console.log('[' + target.name + '] dictation diagnostic: dictate action clicked');
+    lastCheckpoint = target.name + ': dictation recognition wait';
+    await page.waitForFunction(() => !!window.__ovyxDictationRecognition, null, { timeout: 15000 });
+    console.log('[' + target.name + '] dictation diagnostic: recognition instance created');
+    lastCheckpoint = target.name + ': dictation result dispatch';
     await page.evaluate(() => {
       window.__ovyxDictationRecognition.onresult({
         resultIndex: 0,
@@ -384,64 +482,128 @@ try {
       });
       window.__ovyxDictationRecognition.onend();
     });
-    assert.equal(await input.inputValue(), 'Dictated text option works.',
+    console.log('[' + target.name + '] dictation diagnostic: result and end dispatched');
+    lastCheckpoint = target.name + ': dictation input assertion';
+    const dictatedValue = await input.inputValue();
+    console.log('[' + target.name + '] dictation diagnostic: composer value after result = ' + JSON.stringify(dictatedValue));
+    assert.equal(dictatedValue, 'Dictated text option works.',
       '[' + target.name + '] dictation must populate the normal editable prompt field.');
-    assert.equal(await mic.getAttribute('aria-pressed'), 'false',
+    lastCheckpoint = target.name + ': dictation microphone state assertion';
+    const dictatedMicState = await mic.getAttribute('aria-pressed');
+    console.log('[' + target.name + '] dictation diagnostic: microphone state after end = ' + JSON.stringify(dictatedMicState));
+    assert.equal(dictatedMicState, 'false',
       '[' + target.name + '] microphone listening state must reset when speech recognition ends.');
 
     // The same composer Stop button must also cancel while a voice note is being transcribed.
-    await page.unroute('**/api/ai/transcribe');
-    let transcriptionStartedResolve;
-    const transcriptionStarted = new Promise(resolve => { transcriptionStartedResolve = resolve; });
-    await page.route('**/api/ai/transcribe', async route => {
-      transcriptionStartedResolve();
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      try {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ ok: true, transcript: 'This transcript should be cancelled.', wordCount: 6 })
-        });
-      } catch {}
-    });
-    await mic.click();
-    await page.locator('#ws-voice-note-panel [data-ws-voice-record]').click();
-    await page.locator('#ws-voice-note-panel [data-ws-voice-stop]').waitFor({state:'visible'});
-    await page.waitForTimeout(90);
-    await page.locator('#ws-voice-note-panel [data-ws-voice-stop]').click();
-    await page.locator('#ws-voice-note-panel [data-ws-voice-send]').waitFor({state:'visible'});
-    await page.locator('#ws-voice-note-panel [data-ws-voice-send]').click();
-    await Promise.race([
-      transcriptionStarted,
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out waiting for the voice transcription request to start.')), 10000))
-    ]);
-    await page.waitForFunction(() => document.getElementById('ws-chat-send')?.getAttribute('aria-label') === 'Stop generating');
-    assert.equal(await send.isEnabled(), true,
-      '[' + target.name + '] Stop must remain clickable while the voice note is transcribing.');
-    // Stop is a button action, never a page navigation. Record dialogs and
-    // top-level frame navigation so Playwright doesn't hide the originating
-    // auth/rollback listener behind its navigation wait.
+    lastCheckpoint = target.name + ': voice cancellation route setup';
+    console.log('[' + target.name + '] dictation diagnostic: both dictation assertions passed; preparing cancellation test');
     let stopNavigationCount = 0;
     const stopDialogs = [];
     const countStopNavigation = frame => { if (frame === page.mainFrame()) stopNavigationCount += 1; };
-    const captureStopDialog = async dialog => { stopDialogs.push(dialog.type()); await dialog.dismiss(); };
+    const captureStopDialog = async dialog => {
+      stopDialogs.push(dialog.type());
+      console.log('[' + target.name + '] cancellation diagnostic: captured browser dialog ' + dialog.type());
+      await dialog.dismiss();
+    };
     page.on('framenavigated', countStopNavigation);
     page.on('dialog', captureStopDialog);
+    await page.unroute('**/api/ai/transcribe');
+    // Exercise the real transcription caller and AbortSignal contract without
+    // holding a Playwright-routed network request open after Chromium cancels it.
+    await page.evaluate(() => {
+      const nativeFetch = window.fetch.bind(window);
+      window.__ovyxTranscriptionAbortTest = { started: false, aborted: false, audioPayloadValid: false, signalProvided: false };
+      window.fetch = function (input, init = {}) {
+        const url = typeof input === 'string' ? input : String(input?.url || '');
+        if (!url.includes('/api/ai/transcribe')) return nativeFetch(input, init);
+        const state = window.__ovyxTranscriptionAbortTest;
+        state.started = true;
+        state.signalProvided = !!init.signal;
+        try {
+          const body = JSON.parse(String(init.body || '{}'));
+          state.audioPayloadValid = typeof body.audio === 'string' && body.audio.startsWith('data:audio/');
+        } catch {}
+        return new Promise((resolve, reject) => {
+          const abort = () => {
+            state.aborted = true;
+            reject(new DOMException('Voice transcription cancelled.', 'AbortError'));
+          };
+          if (init.signal?.aborted) abort();
+          else init.signal?.addEventListener('abort', abort, { once: true });
+          if (!init.signal) reject(new Error('OVYX transcription request did not pass an AbortSignal.'));
+        });
+      };
+    });
+    const transcriptionStarted = page.waitForFunction(() => window.__ovyxTranscriptionAbortTest?.started === true, null, { timeout: 10000 });
+    lastCheckpoint = target.name + ': voice cancellation open panel';
+    await mic.click();
+    console.log('[' + target.name + '] cancellation diagnostic: voice panel reopened');
+    await page.locator('#ws-voice-note-panel [data-ws-voice-record]').click();
+    console.log('[' + target.name + '] cancellation diagnostic: recording started');
+    await page.locator('#ws-voice-note-panel [data-ws-voice-stop]').waitFor({state:'visible'});
+    await page.waitForTimeout(90);
+    await page.locator('#ws-voice-note-panel [data-ws-voice-stop]').click();
+    console.log('[' + target.name + '] cancellation diagnostic: recording stopped');
+    await page.locator('#ws-voice-note-panel [data-ws-voice-send]').waitFor({state:'visible'});
+    await page.locator('#ws-voice-note-panel [data-ws-voice-send]').click();
+    console.log('[' + target.name + '] cancellation diagnostic: send clicked');
+    await transcriptionStarted;
+    const transcriptionRequestState = await page.evaluate(() => window.__ovyxTranscriptionAbortTest);
+    assert.equal(transcriptionRequestState.audioPayloadValid, true,
+      '[' + target.name + '] voice transcription must receive the recorded audio data URL.');
+    assert.equal(transcriptionRequestState.signalProvided, true,
+      '[' + target.name + '] voice transcription must receive an AbortSignal.');
+    console.log('[' + target.name + '] cancellation diagnostic: abort-aware transcription request started');
+    await page.waitForFunction(() => document.getElementById('ws-chat-send')?.getAttribute('aria-label') === 'Stop generating', null, {timeout:15000});
+    console.log('[' + target.name + '] cancellation diagnostic: composer entered Stop state');
+    lastCheckpoint = target.name + ': stop button enabled check';
+    const stopEnabled = await bounded(send.isEnabled(), 'reading Stop button enabled state');
+    console.log('[' + target.name + '] cancellation diagnostic: Stop button enabled = ' + stopEnabled);
+    assert.equal(stopEnabled, true,
+      '[' + target.name + '] Stop must remain clickable while the voice note is transcribing.');
+    // Stop must be a button action, never a page navigation or browser dialog.
+    const stopDialogsBeforeClick = stopDialogs.length;
+    stopDialogs.length = 0;
     const initialStopNavigationCount = stopNavigationCount;
-    await send.click({ noWaitAfter: true });
-    await page.waitForTimeout(100);
+    lastCheckpoint = target.name + ': stop button click';
+    console.log('[' + target.name + '] cancellation diagnostic: clicking Stop');
+    await bounded(send.click({ noWaitAfter: true, timeout: 12000 }), 'clicking Stop button', 15000);
+    console.log('[' + target.name + '] cancellation diagnostic: Stop click completed');
+    lastCheckpoint = target.name + ': stop click settling';
+    await bounded(page.waitForTimeout(100), 'waiting for Stop click handlers');
+    const stopPostClickState = await bounded(page.evaluate(() => ({
+      composer: window.OVYXComposerDiagnostics?.() || null,
+      sendLabel: document.getElementById('ws-chat-send')?.getAttribute('aria-label') || '',
+      sendDisabled: !!document.getElementById('ws-chat-send')?.disabled,
+      voiceStatus: document.querySelector('#ws-voice-note-panel [data-ws-voice-status]')?.textContent || '',
+      pageState: document.readyState
+    })), 'reading Stop state immediately after click', 5000).catch(error => ({ diagnosticError:String(error?.message || error) }));
+    console.log('[' + target.name + '] cancellation diagnostic: post-click state = ' + JSON.stringify(stopPostClickState));
+    console.log('[' + target.name + '] cancellation diagnostic: page closed = ' + page.isClosed());
     page.off('framenavigated', countStopNavigation);
     page.off('dialog', captureStopDialog);
     assert.deepEqual(stopDialogs, [],
       '[' + target.name + '] the Stop control must not open a browser dialog or auth prompt.');
     assert.equal(stopNavigationCount, initialStopNavigationCount,
       '[' + target.name + '] the Stop control must not navigate or reload the page.');
-    await page.waitForFunction(() => document.getElementById('ws-chat-send')?.getAttribute('aria-label') === 'Send prompt').catch(async error => {
-      const state = await page.evaluate(() => window.OVYXComposerDiagnostics?.() || null);
+    lastCheckpoint = target.name + ': composer Stop state reset';
+    try {
+      await bounded(
+        page.waitForFunction(() => document.getElementById('ws-chat-send')?.getAttribute('aria-label') === 'Send prompt', null, { timeout: 15000 }),
+        'waiting for Stop to restore the Send state', 17000
+      );
+      console.log('[' + target.name + '] cancellation diagnostic: composer returned to Send state');
+    } catch (error) {
+      const state = await bounded(page.evaluate(() => window.OVYXComposerDiagnostics?.() || null), 'reading composer state after Stop', 5000).catch(() => null);
       console.error('[' + target.name + '] voice transcription Stop diagnostic: ' + JSON.stringify(state));
       throw error;
-    });
-    await page.waitForFunction(() => (document.querySelector('[data-ws-voice-status]')?.textContent || '').includes('Transcription cancelled'));
+    }
+    lastCheckpoint = target.name + ': transcription cancelled status';
+    await bounded(
+      page.waitForFunction(() => (document.querySelector('[data-ws-voice-status]')?.textContent || '').includes('Transcription cancelled'), null, { timeout: 15000 }),
+      'waiting for transcription cancellation status', 17000
+    );
+    console.log('[' + target.name + '] cancellation diagnostic: transcription cancellation confirmed');
     assert.doesNotMatch(await page.locator('#ws-agent-thread').innerText(), /This transcript should be cancelled/,
       '[' + target.name + '] stopping transcription must not submit a late transcript.');
     // The cancellation UX intentionally keeps the recording available for retry.
@@ -450,6 +612,8 @@ try {
     await page.locator('#ws-voice-note-panel').waitFor({state:'hidden'});
     await page.unroute('**/api/ai/transcribe');
 
+    lastCheckpoint = target.name + ': voice cancellation and AI stop';
+    console.log('[' + target.name + '] checkpoint: voice cancellation and AI stop');
     // Stop must abort the in-flight AI response and restore the same button to Send.
     await page.evaluate(() => {
       window.__ovyxStopTest = { started: false, aborted: false };
@@ -476,6 +640,8 @@ try {
     assert.equal(await page.evaluate(() => window.WebStudio.pendingBuild), false,
       '[' + target.name + '] pressing stop must clear the active thinking state.');
     
+    lastCheckpoint = target.name + ': image action and composer growth';
+    console.log('[' + target.name + '] checkpoint: image action and composer growth');
     await pulse.click();
     await popover.locator('[data-ws-pulse-action="image"]').click();
     assert.match(await input.inputValue(), /^Create an image of\s*$/, '[' + target.name + '] Create image should prepare a normal chat prompt, not open a separate studio.');
@@ -489,9 +655,17 @@ try {
     const visibleToolButtons = await page.locator('#ws-chat-composer .ovyx-ws-tools-left > button:visible').evaluateAll(nodes => nodes.map(node => node.id));
     assert.deepEqual(visibleToolButtons, ['ws-pulse-trigger', 'ws-composer-mic'], '[' + target.name + '] only pulse and microphone should remain outside the pulse menu.');
 
+    lastCheckpoint = target.name + ': generated image action';
+    console.log('[' + target.name + '] checkpoint: generated image action');
     // Route the real chat action to the existing image endpoint with a tiny
     // fixture image; the test validates UI wiring without consuming AI quota.
+    let imageGenerationRouteHit = false;
+    let imageGenerationRouteResolve;
+    const imageGenerationRoute = new Promise(resolve => { imageGenerationRouteResolve = resolve; });
     await page.route('**/api/ai/image-generation', async route => {
+      imageGenerationRouteHit = true;
+      imageGenerationRouteResolve();
+      console.log('[' + target.name + '] generated-image diagnostic: image endpoint intercepted');
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -509,22 +683,123 @@ try {
         }
       };
     });
+    const imagePreflight = await page.evaluate(() => {
+      const W = window.WebStudio;
+      const submit = W?.submitPrompt;
+      const imageAware = !!(submit?.__ovyxPulseImageAware || submit?.__ovyxOriginalSubmit?.__ovyxPulseImageAware ||
+        submit?.__ovyxOriginalSubmit?.__ovyxOriginalSubmit?.__ovyxPulseImageAware);
+      return {
+        imageAwareSubmitInstalled: imageAware,
+        pendingBuild: !!W?.pendingBuild,
+        liveAiActive: !!W?.liveAiActive,
+        aiFrozen: !!W?.aiFrozen,
+        attachmentCount: Array.isArray(W?.attachments) ? W.attachments.length : -1,
+        firebaseUserAvailable: !!window.firebase?.auth?.()?.currentUser,
+        composer: window.OVYXComposerDiagnostics?.() || null
+      };
+    });
+    console.log('[' + target.name + '] generated-image diagnostic: preflight = ' + JSON.stringify(imagePreflight));
     await input.fill('Create a beautiful cinematic hero image for a fintech homepage.');
+    lastCheckpoint = target.name + ': generated image submit click';
     await send.click();
-    await page.waitForSelector('#ws-agent-thread .ws-generated-image-card img', { state: 'visible' });
+    console.log('[' + target.name + '] generated-image diagnostic: send click completed');
+    await Promise.race([
+      imageGenerationRoute,
+      new Promise(resolve => setTimeout(resolve, 5000))
+    ]);
+    console.log('[' + target.name + '] generated-image diagnostic: route hit = ' + imageGenerationRouteHit);
+    lastCheckpoint = target.name + ': generated image preview wait';
+    try {
+      await page.waitForSelector('#ws-agent-thread .ws-generated-image-card img', { state: 'visible', timeout: 12000 });
+    } catch (error) {
+      const imageFailureState = await bounded(page.evaluate(() => ({
+        composer: window.OVYXComposerDiagnostics?.() || null,
+        pendingBuild: !!window.WebStudio?.pendingBuild,
+        liveAiActive: !!window.WebStudio?.liveAiActive,
+        aiFrozen: !!window.WebStudio?.aiFrozen,
+        attachmentCount: Array.isArray(window.WebStudio?.attachments) ? window.WebStudio.attachments.length : -1,
+        promptValue: document.getElementById('ws-chat-input')?.value || '',
+        threadText: document.getElementById('ws-agent-thread')?.innerText || ''
+      })), 'reading generated-image failure state', 5000).catch(() => null);
+      console.error('[' + target.name + '] generated-image diagnostic: failure state = ' + JSON.stringify(imageFailureState));
+      throw error;
+    }
     const generatedImageSrc = await page.locator('#ws-agent-thread .ws-generated-image-card img').getAttribute('src');
     assert.ok(generatedImageSrc && generatedImageSrc.startsWith('data:image/png;base64,'),
       '[' + target.name + '] image requests must render inside the existing chat.');
 
-    await page.evaluate(async () => {
-      const W = window.WebStudio;
-      await W.setAttachments([new File(['keep this existing brief'], 'site-brief.txt', { type: 'text/plain' })]);
-    });
+    // Use the real file picker here too; do not await a synthetic FileReader
+    // created inside page.evaluate, which can remain pending in headless CI.
+    await pulse.click();
+    const [siteBriefChooser] = await Promise.all([
+      page.waitForEvent('filechooser', { timeout: 10000 }),
+      popover.locator('#ws-attach-btn').click()
+    ]);
+    await siteBriefChooser.setFiles({ name: 'site-brief.txt', mimeType: 'text/plain', buffer: Buffer.from('keep this existing brief') });
+    await page.waitForFunction(() => /site-brief\.txt/.test(document.getElementById('ws-attachment-strip')?.innerText || ''));
+    await page.waitForFunction(() => (window.WebStudio?.attachments || []).some(item => item.name === 'site-brief.txt' && item.status === 'ready'));
     assert.match(await page.locator('#ws-attachment-strip').innerText(), /site-brief\.txt/,
-      '[' + target.name + '] fixture attachment must be staged before using the generated image.');
+      '[' + target.name + '] fixture attachment must be fully read and staged before using the generated image.');
 
-    await page.locator('#ws-agent-thread [data-ovyx-use-generated-image]').click();
-    await page.waitForSelector('#ws-attachment-strip:not([hidden]) .ovyx-ws-attachment-chip', { state: 'visible' });
+    await page.evaluate(() => {
+      const W = window.WebStudio;
+      if (W && typeof W.renderAttachments === 'function' && !W.renderAttachments.__ovyxDiagnosticWrapped) {
+        const original = W.renderAttachments;
+        const wrapped = function () {
+          console.log('[OVYX generated-image diagnostic] renderAttachments entered');
+          const result = original.apply(this, arguments);
+          console.log('[OVYX generated-image diagnostic] renderAttachments returned');
+          return result;
+        };
+        wrapped.__ovyxDiagnosticWrapped = true;
+        W.renderAttachments = wrapped;
+      }
+      if (W && typeof W.setMode === 'function' && !W.setMode.__ovyxDiagnosticWrapped) {
+        const original = W.setMode;
+        const wrapped = function () {
+          console.log('[OVYX generated-image diagnostic] setMode entered');
+          const result = original.apply(this, arguments);
+          console.log('[OVYX generated-image diagnostic] setMode returned');
+          return result;
+        };
+        wrapped.__ovyxDiagnosticWrapped = true;
+        W.setMode = wrapped;
+      }
+      const input = document.getElementById('ws-chat-input');
+      input?.addEventListener('input', () => console.log('[OVYX generated-image diagnostic] composer input event completed'), { once: true });
+      input?.addEventListener('focus', () => console.log('[OVYX generated-image diagnostic] composer focus event completed'), { once: true });
+    });
+    console.log('[' + target.name + '] generated-image action: click dispatch starting');
+    try {
+      await Promise.race([
+        page.locator('#ws-agent-thread [data-ovyx-use-generated-image]').click({ timeout: 8000, noWaitAfter: true }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Generated-image action did not return within 12 seconds; browser main-thread or click handler may be blocked.')), 12000))
+      ]);
+    } catch (error) {
+      const diagnostic = await Promise.race([
+        page.evaluate(() => ({
+          buttonCount: document.querySelectorAll('#ws-agent-thread [data-ovyx-use-generated-image]').length,
+          attachmentStripHidden: document.getElementById('ws-attachment-strip')?.hidden,
+          attachmentNames: (window.WebStudio?.attachments || []).map(item => item.name),
+          promptValue: document.getElementById('ws-chat-input')?.value,
+        })).catch(e => ({ pageEvaluationError: String(e?.message || e) })),
+        new Promise(resolve => setTimeout(() => resolve({ pageEvaluationError: 'Page evaluation timed out because the browser renderer is unresponsive.' }), 1500))
+      ]);
+      console.error('[' + target.name + '] generated-image click diagnostic: ' + JSON.stringify(diagnostic));
+      throw error;
+    }
+    console.log('[' + target.name + '] generated-image action: click dispatch returned');
+    const generatedImageDiagnostic = await page.evaluate(() => ({
+      attachmentNames: (window.WebStudio?.attachments || []).map(item => item.name),
+      attachmentCount: window.WebStudio?.attachments?.length || 0,
+      attachmentStripHidden: document.getElementById('ws-attachment-strip')?.hidden,
+      attachmentStripHtml: document.getElementById('ws-attachment-strip')?.innerHTML?.slice(0, 1800) || '',
+      imageStoreKeys: Object.keys(window.__OVYXGeneratedChatImages || {}),
+      generatedButtonId: document.querySelector('#ws-agent-thread [data-ovyx-use-generated-image]')?.getAttribute('data-ovyx-use-generated-image') || ''
+    })).catch(error => ({ diagnosticError: String(error?.message || error) }));
+    console.log('[' + target.name + '] generated-image post-click state: ' + JSON.stringify(generatedImageDiagnostic));
+    await page.waitForSelector('#ws-attachment-strip:not([hidden]) .ovyx-ws-attachment-chip', { state: 'visible', timeout: 8000 });
+    console.log('[' + target.name + '] generated-image action: attachment strip updated');
     const stagedAttachmentText = await page.locator('#ws-attachment-strip').innerText();
     assert.match(stagedAttachmentText, /site-brief\.txt/,
       '[' + target.name + '] using a generated image must preserve existing file attachments.');
@@ -535,6 +810,8 @@ try {
     assert.equal(await page.locator('#ws-mode-trigger-label').textContent(), 'Build',
       '[' + target.name + '] using the image must return the composer to Build mode.');
 
+    lastCheckpoint = target.name + ': embedded code editor';
+    console.log('[' + target.name + '] checkpoint: embedded code editor');
     await pulse.click();
     await popover.locator('[data-ws-pulse-action="code"]').click();
     await page.waitForFunction(() => {
@@ -545,9 +822,19 @@ try {
       '[' + target.name + '] Open Code editor must open the embedded Code workspace.');
     await page.locator('#ovyx-code-back').click();
     await page.waitForFunction(() => document.getElementById('ws-code-workspace')?.hidden === true);
+    lastCheckpoint = target.name + ': all viewport assertions passed; closing page';
     await page.close();
   }
   console.log('OVYX Web Studio pulse composer browser checks passed on desktop and mobile.');
+} catch (error) {
+  console.error('[pulse-composer] test failure at ' + lastCheckpoint + ': ' + String(error?.stack || error));
+  throw error;
 } finally {
-  await browser.close();
+  // A failing browser assertion must be reported even if Chromium is slow to
+  // shut down after a fake media/recognition scenario.
+  await Promise.race([
+    browser.close().catch(error => console.error('[pulse-composer] browser shutdown failed: ' + String(error?.message || error))),
+    new Promise(resolve => setTimeout(resolve, 5000))
+  ]);
+  clearTimeout(testWatchdog);
 }

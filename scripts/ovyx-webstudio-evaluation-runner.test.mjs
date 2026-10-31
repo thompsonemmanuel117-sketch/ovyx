@@ -38,7 +38,9 @@ assert.ok(good.integrationReadiness.every(item => item.verified === false));
 
 assert.equal(good.qualityScoreV2.dimensionAssessmentCoveragePercent, 100);
 assert.match(good.qualityScoreV2.coverageDefinition, /not requirement coverage/i);
+console.log('Functional requirement evidence:', JSON.stringify(good.functionalAcceptance.map(({ requirement, assessment, matchedRule }) => ({ requirement, assessment, matchedRule }))));
 assert.equal(good.qualityScoreV2.functionalRequirementEvidence.missingSourceEvidenceCount, 4);
+assert.equal(good.functionalAcceptance.find(item => item.requirement === 'case-study navigation').assessment, 'missing-source-evidence', 'Generic navigation must not satisfy a case-study detail-navigation requirement.');
 assert.equal(good.qualityScoreV2.releaseDecision.automatedSourceGate, 'fail');
 assert.equal(good.productionReadiness.gates.sourceValidation, 'needs-attention');
 assert.equal(good.functionalAcceptance.find(item => item.requirement === 'contact validation').assessment, 'missing-source-evidence');
@@ -50,11 +52,6 @@ assert.equal(unassessedRequirement.qualityScoreV2.functionalRequirementEvidence.
 assert.equal(unassessedRequirement.qualityScoreV2.releaseDecision.automatedSourceGate, 'needs-review');
 assert.equal(unassessedRequirement.productionReadiness.gates.sourceValidation, 'needs-review');
 
-const mappedRequirementsPresent = evaluateSiteFiles(richFiles, {
-  ...category, mustExercise: ['service page', 'case-study navigation'], integrationTruth: [],
-});
-assert.equal(mappedRequirementsPresent.qualityScoreV2.releaseDecision.automatedSourceGate, 'no-static-blockers');
-assert.equal(mappedRequirementsPresent.qualityScoreV2.releaseDecision.missingRequirementEvidenceCount, 0);
 
 const monorepo = evaluateSiteFiles({
   'apps/web/package.json': JSON.stringify({ name: 'web-app', dependencies: { vite: 'latest' }, scripts: { build: 'vite build' } }),
@@ -160,6 +157,12 @@ const richFiles = {
   'work/project-one/index.html': '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project One</title><meta name="description" content="A selected case study."></head><body><nav><a href="/">Home</a></nav><main><h1>Project One</h1><p>Our work and process.</p></main></body></html>',
 };
 const rich = evaluateSiteFiles(richFiles, category);
+
+const mappedRequirementsPresent = evaluateSiteFiles(richFiles, {
+  ...category, mustExercise: ['service page', 'case-study navigation'], integrationTruth: [],
+});
+assert.equal(mappedRequirementsPresent.qualityScoreV2.releaseDecision.automatedSourceGate, 'no-static-blockers');
+assert.equal(mappedRequirementsPresent.qualityScoreV2.releaseDecision.missingRequirementEvidenceCount, 0);
 assert.equal(rich.designEvidence.signals.designSystemTokens.status, 'present');
 assert.equal(rich.designEvidence.signals.fluidTypography.status, 'present');
 assert.equal(rich.designEvidence.signals.layoutComposition.status, 'present');
