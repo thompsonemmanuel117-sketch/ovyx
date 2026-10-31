@@ -161,12 +161,12 @@ function buildDataIntegrityContracts(capabilities) {
   if (capabilities.authorization) addIndex('RoleAssignment', ['principalId', 'role', 'scope'], true, 'Prevent duplicate role grants.');
   if (capabilities.booking) {
     addIndex('Booking', ['resourceId', 'startsAt', 'status'], false, 'Bound availability and conflict queries.');
-    addIndex('Booking', ['customerId', 'startsAt'], false, 'List a customer's upcoming bookings.');
+    addIndex('Booking', ['customerId', 'startsAt'], false, 'List a customer’s upcoming bookings.');
   }
   if (capabilities.commerce) {
     addIndex('Product', ['sku'], true, 'Enforce unique catalog SKU within the configured catalog scope.');
     addIndex('CartItem', ['cartId', 'productId'], true, 'Avoid duplicate product lines in one cart.');
-    addIndex('Order', ['ownerId', 'createdAt'], false, 'List an owner's order history efficiently.');
+    addIndex('Order', ['ownerId', 'createdAt'], false, 'List an owner’s order history efficiently.');
     addIndex('OrderLine', ['orderId'], false, 'Load order details with bounded queries.');
   }
   if (capabilities.payments) addIndex('PaymentAttempt', ['provider', 'providerReference'], true, 'Prevent duplicate provider payment references.');
