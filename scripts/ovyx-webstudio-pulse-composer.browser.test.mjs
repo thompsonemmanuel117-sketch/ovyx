@@ -631,7 +631,13 @@ try {
     console.log('[' + target.name + '] checkpoint: generated image action');
     // Route the real chat action to the existing image endpoint with a tiny
     // fixture image; the test validates UI wiring without consuming AI quota.
+    let imageGenerationRouteHit = false;
+    let imageGenerationRouteResolve;
+    const imageGenerationRoute = new Promise(resolve => { imageGenerationRouteResolve = resolve; });
     await page.route('**/api/ai/image-generation', async route => {
+      imageGenerationRouteHit = true;
+      imageGenerationRouteResolve();
+      console.log('[' + target.name + '] generated-image diagnostic: image endpoint intercepted');
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -649,9 +655,47 @@ try {
         }
       };
     });
+    const imagePreflight = await page.evaluate(() => {
+      const W = window.WebStudio;
+      const submit = W?.submitPrompt;
+      const imageAware = !!(submit?.__ovyxPulseImageAware || submit?.__ovyxOriginalSubmit?.__ovyxPulseImageAware ||
+        submit?.__ovyxOriginalSubmit?.__ovyxOriginalSubmit?.__ovyxPulseImageAware);
+      return {
+        imageAwareSubmitInstalled: imageAware,
+        pendingBuild: !!W?.pendingBuild,
+        liveAiActive: !!W?.liveAiActive,
+        aiFrozen: !!W?.aiFrozen,
+        attachmentCount: Array.isArray(W?.attachments) ? W.attachments.length : -1,
+        firebaseUserAvailable: !!window.firebase?.auth?.()?.currentUser,
+        composer: window.OVYXComposerDiagnostics?.() || null
+      };
+    });
+    console.log('[' + target.name + '] generated-image diagnostic: preflight = ' + JSON.stringify(imagePreflight));
     await input.fill('Create a beautiful cinematic hero image for a fintech homepage.');
+    lastCheckpoint = target.name + ': generated image submit click';
     await send.click();
-    await page.waitForSelector('#ws-agent-thread .ws-generated-image-card img', { state: 'visible' });
+    console.log('[' + target.name + '] generated-image diagnostic: send click completed');
+    await Promise.race([
+      imageGenerationRoute,
+      new Promise(resolve => setTimeout(resolve, 5000))
+    ]);
+    console.log('[' + target.name + '] generated-image diagnostic: route hit = ' + imageGenerationRouteHit);
+    lastCheckpoint = target.name + ': generated image preview wait';
+    try {
+      await page.waitForSelector('#ws-agent-thread .ws-generated-image-card img', { state: 'visible', timeout: 12000 });
+    } catch (error) {
+      const imageFailureState = await bounded(page.evaluate(() => ({
+        composer: window.OVYXComposerDiagnostics?.() || null,
+        pendingBuild: !!window.WebStudio?.pendingBuild,
+        liveAiActive: !!window.WebStudio?.liveAiActive,
+        aiFrozen: !!window.WebStudio?.aiFrozen,
+        attachmentCount: Array.isArray(window.WebStudio?.attachments) ? window.WebStudio.attachments.length : -1,
+        promptValue: document.getElementById('ws-chat-input')?.value || '',
+        threadText: document.getElementById('ws-agent-thread')?.innerText || ''
+      })), 'reading generated-image failure state', 5000).catch(() => null);
+      console.error('[' + target.name + '] generated-image diagnostic: failure state = ' + JSON.stringify(imageFailureState));
+      throw error;
+    }
     const generatedImageSrc = await page.locator('#ws-agent-thread .ws-generated-image-card img').getAttribute('src');
     assert.ok(generatedImageSrc && generatedImageSrc.startsWith('data:image/png;base64,'),
       '[' + target.name + '] image requests must render inside the existing chat.');
