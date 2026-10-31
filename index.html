@@ -17570,9 +17570,15 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
     if(!user||typeof user.getIdToken!=='function')throw new Error('Sign in to OVYX before generating an image.');
     return user.getIdToken();
   }
+  function setImageComposerFeedback(message,level){
+    var hint=$('ws-mode-hint');
+    if(hint){hint.textContent=String(message||'');return;}
+    if(level==='error')console.error('[OVYX image]',message);
+    else console.info('[OVYX image]',message);
+  }
   async function generateImageInChat(W,text,input){
     console.info('[OVYX image diagnostic] entered', {pendingBuild:!!W.pendingBuild,liveAiActive:!!W.liveAiActive,imageBusy});
-    if(W.pendingBuild||W.liveAiActive||imageBusy){toast('OVYX is already working. Wait for the current request to finish.','info');return;}
+    if(W.pendingBuild||W.liveAiActive||imageBusy){setImageComposerFeedback('OVYX is already working. Wait for the current request to finish.');return;}
     imageBusy=true;
     W.pendingBuild=true;
     W.liveAiActive=true;
@@ -17603,16 +17609,16 @@ body.ovyx-webstudio-active #view-webstudio .ws-generated-image-card{margin-top:9
       console.info('[OVYX image diagnostic] before agent message render');
       W.appendMessage('agent','Your image is ready. Preview it below, download it, or add it to the current website build.',{generatedImageId:id});
       console.info('[OVYX image diagnostic] after agent message render');
-      toast('Image generated successfully.','success');
+      setImageComposerFeedback('Image generated successfully. Preview it below, download it, or add it to the current website.');
     }catch(error){
       if(error?.name==='AbortError'||imageAbortController?.signal?.aborted){
         W.appendMessage('agent','Image generation stopped.');
-        toast('Image generation stopped.','info');
+        setImageComposerFeedback('Image generation stopped.');
       }else{
         var message=String(error?.message||'Please try again.');
         if(/<!doctype|<html|cloudflare ray id|authorization:\s*bearer/i.test(message))message='The image service could not complete this request. Check your connection and try again.';
         W.appendMessage('agent','Image generation failed: '+message.slice(0,240));
-        toast(message.slice(0,240),'error');
+        setImageComposerFeedback(message.slice(0,240),'error');
       }
     }finally{
       console.info('[OVYX image diagnostic] entering cleanup');
