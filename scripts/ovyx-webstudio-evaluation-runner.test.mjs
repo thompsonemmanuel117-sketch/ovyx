@@ -201,11 +201,11 @@ const sourceAuditWiring = evaluateSiteFiles(goodFiles, category, {
   fullStackArchitecture: {
     apiContracts: [],
     dataModels: [],
-    dataIntegrity: { relationships: [] },
+    dataIntegrity: { relationships: [], indexes: [] },
   },
 });
-assert.equal(sourceAuditWiring.fullStackSourceEvidence.status, 'source-evidence-present-runtime-unverified');
-assert.equal(sourceAuditWiring.productionReadiness.gates.fullStackSourceContracts, 'source-evidence-present-runtime-unverified');
+assert.equal(sourceAuditWiring.fullStackSourceEvidence.status, 'no-backend-contracts-requested');
+assert.equal(sourceAuditWiring.productionReadiness.gates.fullStackSourceContracts, 'not-requested');
 assert.equal(sourceAuditWiring.productionReadiness.readyForProduction, false,
   'Static source evidence must never certify runtime or production readiness.');
 
