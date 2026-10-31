@@ -170,7 +170,7 @@
   function isLikelyFrontendSourcePath(path) {
     return /\.(?:html?|css|scss|sass|less|jsx?|tsx?|vue|svelte|astro)$/i.test(String(path || '')) && !isBackendImplementationPath(path) && !/(^|\/)FULL_STACK_SETUP\.md$/i.test(String(path || ''));
   }
-  function detectFrameworkProfile(files, backendPaths, frontendPaths, mode) {
+  function detectFrameworkProfile(files, backendPaths, frontendPaths, mode, backendExcludedCount) {
     var packageEntries = files.filter(function (file) { return /(^|\/)package\.json$/i.test(file.path); });
     var parsedPackages = [];
     var packageWarnings = [];
@@ -259,7 +259,7 @@
     if (framework !== 'Unknown' && framework !== 'Static HTML/CSS/JavaScript' && !buildCommand) {
       packageWarnings.push('No root package.json build script was detected; confirm the framework build command before deployment.');
     }
-    if (mode === 'website-only' && backendPaths.length && ['Next.js', 'Nuxt', 'SvelteKit', 'Remix'].indexOf(framework) !== -1) {
+    if (mode === 'website-only' && (backendPaths.length || backendExcludedCount > 0) && ['Next.js', 'Nuxt', 'SvelteKit', 'Remix'].indexOf(framework) !== -1) {
       packageWarnings.push('This framework can colocate server routes with frontend routes. Website-only export excludes recognized backend paths; use Complete ZIP if the frontend depends on those routes.');
     }
     if (parsedPackages.length > 1) {
@@ -291,6 +291,7 @@
       runtimeProfile: runtimeProfile,
       deploymentTarget: deploymentTarget,
       backendPathsIncluded: backendPaths.slice(0, 100),
+      backendFilesExcludedByDesign: mode === 'website-only' ? Number(backendExcludedCount) || 0 : 0,
       frontendPathsIncluded: frontendPaths.slice(0, 100),
       missingExpectedFiles: missingExpectedFiles,
       warnings: packageWarnings,
@@ -347,7 +348,7 @@
     var hasSetup = output.some(function (file) { return /(^|\/)FULL_STACK_SETUP\.md$/i.test(file.path); });
     var envExample = output.some(function (file) { return /(^|\/)\.env\.(?:example|sample|template|dist)$/i.test(file.path); });
     var timestamp = new Date().toISOString();
-    var frameworkProfile = detectFrameworkProfile(output, backendPaths, frontendPaths, mode);
+    var frameworkProfile = detectFrameworkProfile(output, backendPaths, frontendPaths, mode, backendExcludedCount);
     var frameworkGuide = [
       '## Framework-aware build profile',
       '',
