@@ -8,7 +8,7 @@ import {
 
 const prompt = [
   'Build a premium multi-page website for a boutique hotel.',
-  'Pages: Home, Rooms, Dining, Contact.',
+  'Pages: Home, About, Services, Pricing.',
   'Include a reservation flow, contact form and email delivery.',
   'Do not invent room prices, guest reviews or availability.',
   'Use an editorial visual direction with responsive layouts.',
@@ -20,7 +20,7 @@ const plan = buildWebsiteEnginePlan(prompt, {
 });
 assert.equal(plan.engine, 'ovyx-unified-website-engine');
 assert.equal(plan.strategy, 'multi-page');
-assert.deepEqual(plan.pageArchitecture.pages.map(page => page.title), ['Home', 'Rooms', 'Dining', 'Contact']);
+assert.deepEqual(plan.pageArchitecture.pages.map(page => page.title), ['Home', 'About', 'Services', 'Pricing']);
 assert.ok(plan.requirementManifest.total >= 4);
 assert.ok(plan.requirementManifest.constraints.some(item => /do not invent/i.test(item)));
 assert.ok(plan.interactionArchitecture.capabilities.includes('booking'));
