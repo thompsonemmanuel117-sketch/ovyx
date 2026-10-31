@@ -245,7 +245,7 @@
       'Vue': 'vite build',
       'React': 'Use the build script defined by this project (for example, react-scripts build).',
     };
-    var recommendedBuild = buildCommand || frameworkBuildDefaults[framework] || '';
+    var recommendedBuild = buildCommand || (parsedPackages.length ? frameworkBuildDefaults[framework] || '' : '');
     var missingExpectedFiles = [];
     if (mode !== 'backend-only' && framework === 'Next.js' && !hasPath(/(^|\/)(app|pages)\/(page|index)\.[cm]?[jt]sx?$/i)) {
       missingExpectedFiles.push('No conventional Next.js app/page or pages/index entry was detected.');
@@ -271,15 +271,28 @@
     if (parsedPackages.length > 1) {
       packageWarnings.push('Multiple package.json files were found. This may be a monorepo; install/build commands must be run from the correct workspace root.');
     }
-    var serverFramework = ['Next.js', 'Nuxt', 'SvelteKit', 'Remix'].indexOf(framework) !== -1;
+    var nextStaticExport = framework === 'Next.js' && files.some(function (file) {
+      return /(^|\\/)next\\.config\\.[cm]?[jt]s$/i.test(file.path) && /output\\s*:\\s*['"]export['"]/.test(new TextDecoder().decode(file.bytes));
+    });
+    var svelteStaticAdapter = framework === 'SvelteKit' && dependencies['@sveltejs/adapter-static'];
+    var astroServerAdapter = framework === 'Astro' && Object.keys(dependencies).some(function (name) {
+      return /^@astrojs\\/(?:node|cloudflare|vercel|netlify)$/.test(name);
+    });
+    var serverFramework = framework === 'Next.js' ? !nextStaticExport
+      : framework === 'Nuxt' || framework === 'Remix'
+        ? true
+        : framework === 'SvelteKit' ? !svelteStaticAdapter
+          : framework === 'Astro' ? astroServerAdapter : false;
     var hasBackend = backendPaths.length > 0;
+    if (nextStaticExport && hasBackend) packageWarnings.push('Next.js static export is configured, but backend/API source paths are also present. Static output cannot host those server routes; deploy the API separately or remove static-export mode.');
     var runtimeProfile = hasBackend || serverFramework
       ? 'framework-or-node-server-runtime'
-      : framework === 'Static HTML/CSS/JavaScript' ? 'static-site'
+      : framework === 'Static HTML/CSS/JavaScript' || framework === 'Vite' || nextStaticExport || svelteStaticAdapter || framework === 'Astro' && !astroServerAdapter
+        ? 'static-site'
         : framework === 'Unknown' ? 'unknown-project' : 'frontend-framework-build';
     var deploymentTarget = hasBackend || serverFramework
       ? 'hosting-with-compatible-framework-or-server-runtime'
-      : framework === 'Static HTML/CSS/JavaScript' || framework === 'Vite' ? 'static-hosting-after-build'
+      : runtimeProfile === 'static-site' ? 'static-hosting-after-build'
         : framework === 'Unknown' ? 'manual-hosting-review-required' : 'framework-compatible-hosting';
     return {
       name: framework,
