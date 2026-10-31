@@ -162,16 +162,152 @@
     var path = String(rawPath || '').replace(/\\/g, '/').replace(/^\/+/, '');
     var base = path.split('/').pop() || '';
     if (isSensitivePath(path) || /(^|\/)FULL_STACK_SETUP\.md$/i.test(path)) return true;
-    if (path.indexOf('/') !== -1) return false;
-    return /^(?:package\.json|package-lock\.json|npm-shrinkwrap\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lock(?:b)?|wrangler\.(?:toml|jsonc?)|vercel\.json|render\.yaml|fly\.toml|railway\.(?:json|toml)|Dockerfile|docker-compose\.(?:yml|yaml)|compose\.(?:yml|yaml)|requirements\.txt|pyproject\.toml|Pipfile(?:\.lock)?|go\.(?:mod|sum)|Cargo\.(?:toml|lock)|tsconfig\.json|\.node-version|\.nvmrc|\.env\.(?:example|sample|template|dist))$/i.test(base);
+    var supportFile = /^(?:package\.json|package-lock\.json|npm-shrinkwrap\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lock(?:b)?|wrangler\.(?:toml|jsonc?)|vercel\.json|render\.yaml|fly\.toml|railway\.(?:json|toml)|Dockerfile|docker-compose\.(?:yml|yaml)|compose\.(?:yml|yaml)|requirements\.txt|pyproject\.toml|Pipfile(?:\.lock)?|go\.(?:mod|sum)|Cargo\.(?:toml|lock)|tsconfig\.json|\.node-version|\.nvmrc|\.env\.(?:example|sample|template|dist))$/i.test(base);
+    if (path.indexOf('/') === -1) return supportFile;
+    var parent = path.slice(0, path.lastIndexOf('/'));
+    return supportFile && /^(?:(?:api|functions|server|backend|migrations|prisma|drizzle|convex|database|db)(?:\/.*)?|(?:packages|apps|services)\/api(?:\/.*)?)$/i.test(parent);
   }
   function isLikelyFrontendSourcePath(path) {
     return /\.(?:html?|css|scss|sass|less|jsx?|tsx?|vue|svelte|astro)$/i.test(String(path || '')) && !isBackendImplementationPath(path) && !/(^|\/)FULL_STACK_SETUP\.md$/i.test(String(path || ''));
   }
+  function detectFrameworkProfile(files, backendPaths, frontendPaths, mode) {
+    var packageEntries = files.filter(function (file) { return /(^|\/)package\.json$/i.test(file.path); });
+    var parsedPackages = [];
+    var packageWarnings = [];
+    packageEntries.forEach(function (file) {
+      try {
+        var parsed = JSON.parse(new TextDecoder().decode(file.bytes));
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          parsedPackages.push({ path: file.path, data: parsed });
+        }
+      } catch (_) {
+        packageWarnings.push('Could not parse ' + file.path + '; framework/dependency detection may be incomplete.');
+      }
+    });
+    parsedPackages.sort(function (a, b) {
+      if (a.path === 'package.json') return -1;
+      if (b.path === 'package.json') return 1;
+      return a.path.localeCompare(b.path);
+    });
+    var rootPackage = parsedPackages.find(function (item) { return item.path === 'package.json'; }) || parsedPackages[0] || null;
+    var dependencies = {};
+    parsedPackages.forEach(function (item) {
+      ['dependencies', 'devDependencies', 'optionalDependencies'].forEach(function (field) {
+        var source = item.data[field];
+        if (source && typeof source === 'object') Object.keys(source).forEach(function (name) {
+          dependencies[name.toLowerCase()] = true;
+        });
+      });
+    });
+    var paths = files.map(function (file) { return file.path; });
+    var hasPath = function (pattern) { return paths.some(function (path) { return pattern.test(path); }); };
+    var framework = 'Unknown';
+    var confidence = 'low';
+    if (dependencies.next || hasPath(/(^|\/)next\.config\.[cm]?[jt]s$/i)) { framework = 'Next.js'; confidence = dependencies.next ? 'high' : 'medium'; }
+    else if (dependencies['@sveltejs/kit'] || hasPath(/(^|\/)svelte\.config\.[cm]?[jt]s$/i)) { framework = 'SvelteKit'; confidence = dependencies['@sveltejs/kit'] ? 'high' : 'medium'; }
+    else if (dependencies.nuxt || hasPath(/(^|\/)nuxt\.config\.[cm]?[jt]s$/i)) { framework = 'Nuxt'; confidence = dependencies.nuxt ? 'high' : 'medium'; }
+    else if (dependencies.astro || hasPath(/(^|\/)astro\.config\.[cm]?[jt]s$/i)) { framework = 'Astro'; confidence = dependencies.astro ? 'high' : 'medium'; }
+    else if (dependencies['@remix-run/react'] || dependencies['@remix-run/dev']) { framework = 'Remix'; confidence = 'high'; }
+    else if (dependencies.vite || hasPath(/(^|\/)vite\.config\.[cm]?[jt]s$/i)) { framework = 'Vite'; confidence = dependencies.vite ? 'high' : 'medium'; }
+    else if (dependencies['@angular/core']) { framework = 'Angular'; confidence = 'high'; }
+    else if (dependencies.vue || dependencies['@vue/cli-service']) { framework = 'Vue'; confidence = 'high'; }
+    else if (dependencies.react || dependencies['react-scripts']) { framework = 'React'; confidence = 'high'; }
+    else if (frontendPaths.some(function (path) { return /\.html?$/i.test(path); })) { framework = 'Static HTML/CSS/JavaScript'; confidence = 'high'; }
+
+    var scripts = rootPackage && rootPackage.data.scripts && typeof rootPackage.data.scripts === 'object'
+      ? rootPackage.data.scripts : {};
+    var lockfiles = [
+      ['pnpm-lock.yaml', 'pnpm install --frozen-lockfile'],
+      ['yarn.lock', 'yarn install --immutable'],
+      ['bun.lockb', 'bun install --frozen-lockfile'],
+      ['bun.lock', 'bun install --frozen-lockfile'],
+      ['package-lock.json', 'npm ci'],
+    ];
+    var packageManager = lockfiles.find(function (item) { return paths.indexOf(item[0]) !== -1; });
+    var installCommand = packageManager ? packageManager[1] : 'npm install';
+    var buildCommand = typeof scripts.build === 'string' ? scripts.build : '';
+    var startCommand = typeof scripts.start === 'string' ? scripts.start : '';
+    var previewCommand = typeof scripts.preview === 'string' ? scripts.preview : '';
+    var frameworkBuildDefaults = {
+      'Next.js': 'next build',
+      'Vite': 'vite build',
+      'Astro': 'astro build',
+      'SvelteKit': 'vite build',
+      'Nuxt': 'nuxt build',
+      'Remix': 'remix vite:build',
+      'Angular': 'ng build',
+      'Vue': 'vite build',
+      'React': 'Use the build script defined by this project (for example, react-scripts build).',
+    };
+    var recommendedBuild = buildCommand || frameworkBuildDefaults[framework] || '';
+    var missingExpectedFiles = [];
+    if (framework === 'Next.js' && !hasPath(/(^|\/)(app|pages)\/(page|index)\.[cm]?[jt]sx?$/i)) {
+      missingExpectedFiles.push('No conventional Next.js app/page or pages/index entry was detected.');
+    }
+    if (framework === 'Vite' && !hasPath(/(^|\/)index\.html$/i)) {
+      missingExpectedFiles.push('No Vite root index.html was detected in the selected export.');
+    }
+    if (framework === 'Astro' && !hasPath(/(^|\/)src\/pages\/.+\.astro$/i)) {
+      missingExpectedFiles.push('No Astro src/pages route was detected in the selected export.');
+    }
+    if (framework === 'SvelteKit' && !hasPath(/(^|\/)src\/routes\/.+/i)) {
+      missingExpectedFiles.push('No SvelteKit src/routes entry was detected in the selected export.');
+    }
+    if (framework !== 'Unknown' && framework !== 'Static HTML/CSS/JavaScript' && !parsedPackages.length) {
+      missingExpectedFiles.push('Framework source/configuration was detected without a package.json in this export.');
+    }
+    if (framework !== 'Unknown' && framework !== 'Static HTML/CSS/JavaScript' && !buildCommand) {
+      packageWarnings.push('No root package.json build script was detected; confirm the framework build command before deployment.');
+    }
+    if (mode === 'website-only' && backendPaths.length && ['Next.js', 'Nuxt', 'SvelteKit', 'Remix'].indexOf(framework) !== -1) {
+      packageWarnings.push('This framework can colocate server routes with frontend routes. Website-only export excludes recognized backend paths; use Complete ZIP if the frontend depends on those routes.');
+    }
+    if (parsedPackages.length > 1) {
+      packageWarnings.push('Multiple package.json files were found. This may be a monorepo; install/build commands must be run from the correct workspace root.');
+    }
+    var serverFramework = ['Next.js', 'Nuxt', 'SvelteKit', 'Remix'].indexOf(framework) !== -1;
+    var hasBackend = backendPaths.length > 0;
+    var runtimeProfile = hasBackend || serverFramework
+      ? 'framework-or-node-server-runtime'
+      : framework === 'Static HTML/CSS/JavaScript' ? 'static-site'
+        : framework === 'Unknown' ? 'unknown-project' : 'frontend-framework-build';
+    var deploymentTarget = hasBackend || serverFramework
+      ? 'hosting-with-compatible-framework-or-server-runtime'
+      : framework === 'Static HTML/CSS/JavaScript' || framework === 'Vite' ? 'static-hosting-after-build'
+        : framework === 'Unknown' ? 'manual-hosting-review-required' : 'framework-compatible-hosting';
+    return {
+      name: framework,
+      confidence: confidence,
+      packageManifests: parsedPackages.map(function (item) { return item.path; }),
+      rootPackageName: clean(rootPackage && rootPackage.data.name || '', 120),
+      packageManager: packageManager ? packageManager[0].replace(/-lock\.(?:yaml|b)?$/, '') : 'npm (default; no lockfile detected)',
+      installCommand: installCommand,
+      scripts: {
+        build: clean(buildCommand, 180),
+        start: clean(startCommand, 180),
+        preview: clean(previewCommand, 180),
+      },
+      recommendedBuildCommand: clean(recommendedBuild, 180),
+      runtimeProfile: runtimeProfile,
+      deploymentTarget: deploymentTarget,
+      backendPathsIncluded: backendPaths.slice(0, 100),
+      frontendPathsIncluded: frontendPaths.slice(0, 100),
+      missingExpectedFiles: missingExpectedFiles,
+      warnings: packageWarnings,
+      sourcePathsPreserved: true,
+      frameworkScaffoldGenerated: false,
+      liveBuildVerified: false,
+      note: 'OVYX preserves the generated project structure and reports framework-aware setup guidance. This profile does not install dependencies, scaffold missing files, execute a build, or verify a live deployment.',
+    };
+  }
+
   function readExportFiles(graph, project, options) {
     var mode = options && options.mode || 'complete';
     var backendOnly = mode === 'backend-only';
     var websiteOnly = mode === 'website-only';
+    if (['complete', 'website-only', 'backend-only'].indexOf(mode) === -1) {
+      throw new Error('Unsupported export mode. Choose complete, website-only or backend-only.');
+    }
     var output = [];
     var excluded = [];
     var frontendExcludedCount = 0;
@@ -211,6 +347,24 @@
     var hasSetup = output.some(function (file) { return /(^|\/)FULL_STACK_SETUP\.md$/i.test(file.path); });
     var envExample = output.some(function (file) { return /(^|\/)\.env\.(?:example|sample|template|dist)$/i.test(file.path); });
     var timestamp = new Date().toISOString();
+    var frameworkProfile = detectFrameworkProfile(output, backendPaths, frontendPaths, mode);
+    var frameworkGuide = [
+      '## Framework-aware build profile',
+      '',
+      '- Detected framework: ' + frameworkProfile.name + ' (' + frameworkProfile.confidence + ' confidence).',
+      '- Runtime profile: ' + frameworkProfile.runtimeProfile + '.',
+      '- Hosting target: ' + frameworkProfile.deploymentTarget + '.',
+      '- Install command: ' + frameworkProfile.installCommand + '.',
+      frameworkProfile.recommendedBuildCommand ? '- Build command: ' + frameworkProfile.recommendedBuildCommand + '.' : '- No framework build command was inferred; inspect the source and hosting requirements.',
+      frameworkProfile.scripts.start ? '- Start script: ' + frameworkProfile.scripts.start + '.' : '',
+      frameworkProfile.scripts.preview ? '- Preview script: ' + frameworkProfile.scripts.preview + '.' : '',
+      frameworkProfile.packageManifests.length ? '- Package manifests: ' + frameworkProfile.packageManifests.join(', ') + '.' : '- No package.json was included.',
+      frameworkProfile.missingExpectedFiles.map(function (item) { return '- CHECK: ' + item; }).join('\\n'),
+      frameworkProfile.warnings.map(function (item) { return '- WARNING: ' + item; }).join('\\n'),
+      '- Original source paths are preserved; OVYX does not silently convert or scaffold a different framework.',
+      '- The ZIP has not been built or deployed by this profile. Run the commands above in the extracted project and verify the actual result.',
+      ''
+    ].filter(Boolean).join('\\n');
     var readmeName = backendOnly ? 'README_OVYX_BACKEND_EXPORT.md' : websiteOnly ? 'README_OVYX_WEBSITE_EXPORT.md' : 'README_OVYX_EXPORT.md';
     var manifestName = backendOnly ? 'OVYX_BACKEND_EXPORT_MANIFEST.json' : websiteOnly ? 'OVYX_WEBSITE_EXPORT_MANIFEST.json' : 'OVYX_EXPORT_MANIFEST.json';
     var exclusionName = backendOnly ? 'OVYX_BACKEND_EXPORT_EXCLUSIONS.md' : websiteOnly ? 'OVYX_WEBSITE_EXPORT_EXCLUSIONS.md' : 'OVYX_EXPORT_EXCLUSIONS.md';
@@ -311,8 +465,10 @@
         ''
       ].join('\n');
     }
+    readme += '\\n' + frameworkGuide;
     var manifest = {
-      schemaVersion: 1,
+      schemaVersion: 2,
+      framework: frameworkProfile,
       exportMode: mode,
       project: clean(project && (project.name || project.title || project.slug) || 'OVYX website', 160),
       exportedAt: timestamp,
@@ -343,7 +499,7 @@
       ].join('\n');
       output.push({ path: exclusionName, bytes: utf8(exclusionReport) });
     }
-    return { files: output, excluded: excluded, slug: slugName, mode: mode, backendExcludedCount: backendExcludedCount, frontendExcludedCount: frontendExcludedCount };
+    return { files: output, excluded: excluded, slug: slugName, mode: mode, framework: frameworkProfile, backendExcludedCount: backendExcludedCount, frontendExcludedCount: frontendExcludedCount };
   }
   function showMessage(message, kind) {
     try {
@@ -692,5 +848,29 @@
   window.addEventListener('ovyx:view-changed', boot);
   window.addEventListener('firebase-auth-state-ready', boot);
   window.addEventListener('ovyx:webstudio-initial-site-built', function () { window.setTimeout(boot, 0); });
-  window.OVYXWebStudioProjectExport = { export: exportProject, version: '2.0.0', modes: ['complete', 'website-only', 'backend-only'] };
+  window.OVYXWebStudioProjectExport = {
+    export: exportProject,
+    inspect: function () {
+      var studio = getStudio();
+      var graph = studio && getGraph(studio);
+      if (!graph || !Object.keys(graph.files || {}).length) {
+        return { ok: false, error: 'No saved website files were found.', modes: ['complete', 'website-only', 'backend-only'] };
+      }
+      try {
+        var result = readExportFiles(graph, getProject(studio), { mode: 'complete' });
+        return {
+          ok: true,
+          mode: result.mode,
+          fileCount: result.files.length,
+          excludedCount: result.excluded.length,
+          framework: result.framework,
+          modes: ['complete', 'website-only', 'backend-only'],
+        };
+      } catch (error) {
+        return { ok: false, error: clean(error && error.message || 'Export inspection failed.', 300), modes: ['complete', 'website-only', 'backend-only'] };
+      }
+    },
+    version: '2.1.0',
+    modes: ['complete', 'website-only', 'backend-only'],
+  };
 })();
