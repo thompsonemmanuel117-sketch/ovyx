@@ -292,7 +292,7 @@ try {
       popover.locator('#ws-attach-btn').click()
     ]);
     await clearDraftChooser.setFiles({ name: 'clear-me.txt', mimeType: 'text/plain', buffer: Buffer.from('temporary attachment') });
-    await page.waitForFunction(() => /clear-me\\.txt/.test(document.getElementById('ws-attachment-strip')?.innerText || ''));
+    await page.waitForFunction(() => /clear-me\.txt/.test(document.getElementById('ws-attachment-strip')?.innerText || ''));
     await page.evaluate(() => {
       window.__pulseProjectFileListBeforeClear = Object.keys(window.WebStudio?.graph?.files || {}).sort();
     });
