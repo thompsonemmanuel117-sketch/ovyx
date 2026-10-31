@@ -477,10 +477,18 @@ function buildIntegrationReadiness(category, deployment) {
   const requested = Array.isArray(category && category.integrationTruth) ? category.integrationTruth : [];
   return requested.map(item => {
     const requirement = clean(item, 180);
-    const normalizedRequirement = requirement.toLowerCase().replace(/[^a-z]/g, '');
-    const match = (deployment.detectedIntegrations || []).find(integration =>
-      normalizedRequirement.includes(String(integration.capability || '').toLowerCase().replace(/[^a-z]/g, ''))
-    );
+    const requirementPatterns = {
+      payments: /payment|checkout|stripe|paystack|flutterwave|paypal/i,
+      database: /database|persistence|data store|prisma|drizzle|supabase|firestore/i,
+      authentication: /auth|login|identity|user account/i,
+      email: /email|mail|notification delivery/i,
+      booking: /booking|reservation|calendar|scheduling/i,
+      storage: /storage|asset upload|file upload|media/i,
+    };
+    const match = (deployment.detectedIntegrations || []).find(integration => {
+      const pattern = requirementPatterns[integration.capability];
+      return pattern ? pattern.test(requirement) : false;
+    });
     return {
       requirement,
       sourceReference: match ? match.sourceReference : 'not-detected',
