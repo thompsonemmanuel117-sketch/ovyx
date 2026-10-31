@@ -266,6 +266,128 @@ function buildJourneyEvidence(requirements, allSource, htmlEntries, cssEntries, 
   });
 }
 
+
+function buildPerformanceEvidence(htmlEntries, cssEntries, scriptEntries) {
+  const html = htmlEntries.map(([, content]) => String(content || '')).join('\n');
+  const css = cssEntries.map(([, content]) => String(content || '')).join('\n');
+  const scripts = scriptEntries.map(([, content]) => String(content || '')).join('\n');
+  const imageTags = [...html.matchAll(/<img\b[^>]*>/gi)].map(match => match[0]);
+  const scriptTags = [...html.matchAll(/<script\b[^>]*\bsrc\s*=\s*(["'])(.*?)\1[^>]*>/gi)].map(match => match[0]);
+  const fontFaceDeclared = /@font-face\b/i.test(css);
+  return {
+    images: {
+      total: imageTags.length,
+      lazyLoaded: imageTags.filter(tag => /\bloading\s*=\s*["']lazy["']/i.test(tag)).length,
+      dimensioned: imageTags.filter(tag => /\bwidth\s*=\s*["']?\d+/i.test(tag) && /\bheight\s*=\s*["']?\d+/i.test(tag)).length,
+      responsiveCandidates: (html.match(/\bsrcset\s*=/gi) || []).length,
+    },
+    scripts: {
+      externalOrLocalSrcCount: scriptTags.length,
+      blockingCount: scriptTags.filter(tag => !/\b(?:async|defer)\b/i.test(tag)).length,
+      dynamicImportSignals: (scripts.match(/\bimport\s*\(/g) || []).length,
+    },
+    styles: {
+      mediaQueries: (css.match(/@media\b/gi) || []).length,
+      fluidTypography: (css.match(/font-size\s*:\s*[^;}]*\bclamp\s*\(/gi) || []).length,
+      fontFaceDeclared,
+      fontDisplaySwap: /font-display\s*:\s*swap/i.test(css),
+      reducedMotion: /prefers-reduced-motion\s*:\s*reduce/i.test(css),
+    },
+    networkHints: {
+      preconnects: (html.match(/<link\b[^>]*\brel\s*=\s*["']preconnect["']/gi) || []).length,
+      preloads: (html.match(/<link\b[^>]*\brel\s*=\s*["']preload["']/gi) || []).length,
+    },
+    runtimeMeasurements: {
+      coreWebVitalsMeasured: false,
+      transferSizeMeasured: false,
+      realNetworkLatencyMeasured: false,
+    },
+  };
+}
+
+function buildQualityScoreV2({ findings, designEvidence, functionalAcceptance, performanceEvidence, counts, hasHtml, hasCss, hasText }) {
+  const codes = {
+    design: ['PLACEHOLDER_COPY'],
+    functionality: ['PLACEHOLDER_LINK', 'JAVASCRIPT_HREF', 'FORM_DELIVERY_UNDECLARED', 'ROUTE_UNVERIFIED', 'LINK_HREF_MISSING'],
+    accessibility: ['LANG_MISSING', 'MAIN_LANDMARK_MISSING', 'H1_MISSING', 'IMAGE_ALT_MISSING', 'LABEL_TARGET_MISSING', 'ARIA_REFERENCE_TARGET_MISSING', 'FORM_CONTROL_LABEL_MISSING', 'BUTTON_NAME_MISSING', 'LINK_NAME_MISSING', 'DUPLICATE_IDS'],
+    seo: ['TITLE_MISSING', 'META_DESCRIPTION_MISSING', 'OPEN_GRAPH_TITLE_MISSING'],
+    performance: ['CSS_RESOURCE_UNRESOLVED', 'IMAGE_RESOURCE_UNRESOLVED', 'IMAGE_SRCSET_UNRESOLVED', 'CSS_RESOURCE_UNRESOLVED', 'REDUCED_MOTION_MISSING'],
+    responsiveness: ['VIEWPORT_MISSING', 'IMAGE_SRCSET_UNRESOLVED'],
+    security: ['SECRET_FILE_PRESENT', 'CLIENT_SECRET_PATTERN', 'JAVASCRIPT_HREF'],
+    integrity: ['STYLESHEET_UNRESOLVED', 'SCRIPT_UNRESOLVED', 'HTML_ROUTE_UNRESOLVED', 'ROUTE_UNVERIFIED', 'INTERNAL_ROUTE_UNMAPPED', 'ORPHAN_FRAGMENT', 'BROKEN_ROUTE_FRAGMENT', 'LOCAL_IMG_MISSING', 'LOCAL_CSS_ASSET_MISSING'],
+  };
+  const definitions = [
+    { key: 'design', label: 'Design system', weight: 15, assessed: hasHtml && hasCss, penalty: Math.max(0, designEvidence.signalCountAvailable - designEvidence.observedSignalCount) * 2, evidence: designEvidence.observedSignalCount + '/' + designEvidence.signalCountAvailable + ' source design signals observed' },
+    { key: 'functionality', label: 'Functionality', weight: 20, assessed: hasHtml, penalty: functionalAcceptance.filter(item => item.status === 'no-matching-static-evidence').length * 3, evidence: functionalAcceptance.filter(item => item.status === 'source-evidence-present-behavior-unverified').length + '/' + functionalAcceptance.length + ' requested journey checks have source evidence' },
+    { key: 'accessibility', label: 'Accessibility', weight: 15, assessed: hasHtml, penalty: 0, evidence: counts.controls + ' controls and ' + counts.images + ' images inspected' },
+    { key: 'seo', label: 'SEO', weight: 10, assessed: hasHtml, penalty: 0, evidence: counts.htmlPages + ' HTML pages inspected for metadata' },
+    { key: 'performance', label: 'Performance', weight: 10, assessed: hasHtml && hasCss, penalty:
+      (performanceEvidence.images.total > 0 && performanceEvidence.images.lazyLoaded === 0 ? 7 : 0) +
+      (performanceEvidence.images.total > 0 && performanceEvidence.images.responsiveCandidates === 0 ? 5 : 0) +
+      (performanceEvidence.scripts.blockingCount > 0 ? Math.min(12, performanceEvidence.scripts.blockingCount * 3) : 0) +
+      (performanceEvidence.styles.fontFaceDeclared && !performanceEvidence.styles.fontDisplaySwap ? 4 : 0), evidence: performanceEvidence.images.total + ' images and ' + performanceEvidence.scripts.externalOrLocalSrcCount + ' script references inspected; no real load metrics' },
+    { key: 'responsiveness', label: 'Responsive behavior', weight: 10, assessed: hasHtml, penalty:
+      (performanceEvidence.styles.mediaQueries === 0 ? 12 : 0) +
+      (performanceEvidence.styles.fluidTypography === 0 ? 4 : 0) +
+      (performanceEvidence.images.total > 0 && performanceEvidence.images.responsiveCandidates === 0 ? 4 : 0), evidence: performanceEvidence.styles.mediaQueries + ' media queries and ' + performanceEvidence.styles.fluidTypography + ' fluid type rules found' },
+    { key: 'security', label: 'Security', weight: 10, assessed: hasText, penalty: 0, evidence: counts.textFiles + ' text files scanned for credential patterns' },
+    { key: 'integrity', label: 'Routes and assets', weight: 10, assessed: hasHtml, penalty: 0, evidence: counts.links + ' links and local source references inspected' },
+  ];
+  const dimensions = {};
+  let weightedTotal = 0;
+  let assessedWeight = 0;
+  for (const definition of definitions) {
+    if (!definition.assessed) {
+      dimensions[definition.key] = {
+        label: definition.label, weight: definition.weight, score: null,
+        status: 'not-evaluated', evidence: 'Required source files were not supplied.',
+        blockers: 0, warnings: 0,
+      };
+      continue;
+    }
+    const relevant = findings.filter(item => codes[definition.key].includes(item.code));
+    const blockers = relevant.filter(item => item.severity === 'blocker').length;
+    const warnings = relevant.filter(item => item.severity === 'warning').length;
+    const score = Math.max(0, Math.min(100, Math.round(100 - blockers * 18 - warnings * 7 - definition.penalty)));
+    dimensions[definition.key] = {
+      label: definition.label,
+      weight: definition.weight,
+      score,
+      status: blockers ? 'needs-attention' : warnings || definition.penalty ? 'review-recommended' : 'static-checks-clear',
+      evidence: definition.evidence,
+      blockers,
+      warnings,
+    };
+    weightedTotal += score * definition.weight;
+    assessedWeight += definition.weight;
+  }
+  const overallScore = assessedWeight ? Math.round(weightedTotal / assessedWeight) : null;
+  const evidenceCoveragePercent = Math.round(assessedWeight / definitions.reduce((sum, item) => sum + item.weight, 0) * 100);
+  const blockerCount = findings.filter(item => item.severity === 'blocker').length;
+  return {
+    version: 2,
+    overallScore,
+    evidenceCoveragePercent,
+    status: blockerCount ? 'needs-attention' : evidenceCoveragePercent < 100 ? 'partial-evidence' : 'automated-source-checks-complete-human-review-pending',
+    dimensions,
+    releaseDecision: {
+      automatedSourceGate: blockerCount ? 'fail' : 'no-static-blockers',
+      humanVisualReviewRequired: true,
+      humanEditorialReviewRequired: true,
+      browserBehaviorVerificationRequired: true,
+      liveIntegrationVerificationRequired: true,
+      coreWebVitalsMeasurementRequired: true,
+      productionDeploymentVerificationRequired: true,
+      certifiedProductionReady: false,
+    },
+    limitations: [
+      'This score is a static-source readiness signal, not a measurement of visual originality, conversion, real browser behavior or business quality.',
+      'Performance scores do not replace measured Core Web Vitals, transfer size, real device testing or network profiling.',
+      'A connected integration is not considered live-verified until its real service workflow is exercised and independently confirmed.',
+    ],
+  };
+}
+
 export function evaluateSiteFiles(rawFiles, category, options = {}) {
   const files = {};
   if (rawFiles && typeof rawFiles === 'object' && !Array.isArray(rawFiles)) {
@@ -528,6 +650,18 @@ export function evaluateSiteFiles(rawFiles, category, options = {}) {
   const status = blockers ? 'needs-attention' : warnings ? 'pass-with-warnings' : 'pass';
   const exercise = Array.isArray(category && category.mustExercise) ? category.mustExercise : [];
   const integrations = Array.isArray(category && category.integrationTruth) ? category.integrationTruth : [];
+  const designEvidence = buildDesignEvidence(categoryId, allSource, htmlEntries, cssEntries);
+  const functionalAcceptance = buildJourneyEvidence(exercise, allSource, htmlEntries, cssEntries, scriptEntries);
+  const performanceEvidence = buildPerformanceEvidence(htmlEntries, cssEntries, scriptEntries);
+  const qualityScoreV2 = buildQualityScoreV2({
+    findings, designEvidence, functionalAcceptance, performanceEvidence, counts: {
+      controls: controlCount, images: imageCount, htmlPages: htmlEntries.length,
+      links: linkCount, textFiles: Object.keys(files).length,
+    },
+    hasHtml: htmlEntries.length > 0,
+    hasCss: cssEntries.length > 0,
+    hasText: Object.keys(files).length > 0,
+  });
 
   return {
     caseId: categoryId,
@@ -554,8 +688,10 @@ export function evaluateSiteFiles(rawFiles, category, options = {}) {
       info: infos,
     },
     findings,
-    designEvidence: buildDesignEvidence(categoryId, allSource, htmlEntries, cssEntries),
-    functionalAcceptance: buildJourneyEvidence(exercise, allSource, htmlEntries, cssEntries, scriptEntries),
+    designEvidence,
+    functionalAcceptance,
+    performanceEvidence,
+    qualityScoreV2,
     integrationTruth: integrations.map(integration => ({ integration, status: 'unverified-unless-checked-against-the-real-service' })),
     limitations: [
       'The score measures static technical artifact readiness, not premium visual design or business value.',
