@@ -352,20 +352,23 @@ try {
     lastCheckpoint = target.name + ': clear-draft all assertions passed';
     console.log('[' + target.name + '] clear-draft: all assertions passed');
 
-    // The mobile camera action uses the real image picker and appends, rather than replacing, files.
-    await pulse.click();
-    const [cameraChooser] = await Promise.all([
-      page.waitForEvent('filechooser', { timeout: 10000 }),
-      popover.locator('[data-ws-pulse-action="camera"]').click()
-    ]);
-    const cameraSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360"><rect width="640" height="360" fill="#111827"/><circle cx="320" cy="180" r="108" fill="#e8b64f"/></svg>';
-    await cameraChooser.setFiles({name:'camera-capture.svg',mimeType:'image/svg+xml',buffer:Buffer.from(cameraSvg)});
-    await page.waitForFunction(() => /camera-capture\.svg/.test(document.getElementById('ws-attachment-strip')?.innerText || ''));
-    assert.ok(await page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-card').filter({hasText:'camera-capture.svg'}).count() === 1,
-      '[' + target.name + '] Take photo must attach the selected image through the same upload pipeline.');
-    await page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-card').filter({hasText:'camera-capture.svg'}).locator('.ws-attachment-preview-remove').click();
-    assert.equal(await page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-card').count(), 0,
-      '[' + target.name + '] camera attachment can be removed normally.');
+    // Camera capture is a mobile-only affordance. Exercise it only at the
+    // mobile viewport; desktop runs validate the standard file picker above.
+    if (target.name === 'mobile') {
+      await pulse.click();
+      const [cameraChooser] = await Promise.all([
+        page.waitForEvent('filechooser', { timeout: 10000 }),
+        popover.locator('[data-ws-pulse-action="camera"]').click()
+      ]);
+      const cameraSvg = '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360"><rect width="640" height="360" fill="#111827"/><circle cx="320" cy="180" r="108" fill="#e8b64f"/></svg>';
+      await cameraChooser.setFiles({name:'camera-capture.svg',mimeType:'image/svg+xml',buffer:Buffer.from(cameraSvg)});
+      await page.waitForFunction(() => /camera-capture\\.svg/.test(document.getElementById('ws-attachment-strip')?.innerText || ''));
+      assert.ok(await page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-card').filter({hasText:'camera-capture.svg'}).count() === 1,
+        '[' + target.name + '] Take photo must attach the selected image through the same upload pipeline.');
+      await page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-card').filter({hasText:'camera-capture.svg'}).locator('.ws-attachment-preview-remove').click();
+      assert.equal(await page.locator('#ws-attachment-preview-gallery .ws-attachment-preview-card').count(), 0,
+        '[' + target.name + '] camera attachment can be removed normally.');
+    }
 
 
     // Exercise the actual microphone UI without relying on CI hardware: a fake
