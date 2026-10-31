@@ -148,10 +148,11 @@ function buildIntegrationContracts(capabilities, context) {
   ].filter(([, requested]) => requested);
   const roots = [context && context.connections, context && context.activeConnections,
     context && context.integrations, context && context.connectionStatus, context && context.connectedServices];
-  const flatten = value => {
-    if (Array.isArray(value)) return value.flatMap(flatten);
+  const flatten = (value, depth = 0) => {
+    if (depth > 5) return [];
+    if (Array.isArray(value)) return value.slice(0, 50).flatMap(item => flatten(item, depth + 1));
     if (!value || typeof value !== 'object') return [];
-    return [value, ...Object.values(value).flatMap(flatten)];
+    return [value, ...Object.values(value).slice(0, 50).flatMap(item => flatten(item, depth + 1))];
   };
   const connectionRecords = flatten(roots);
   const patterns = {
