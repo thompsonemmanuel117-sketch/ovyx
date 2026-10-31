@@ -72,12 +72,23 @@ function authorizationEvidence(source, policy) {
   const value = String(policy || '').toLowerCase();
   const text = String(source || '');
   if (value.includes('provider-signature')) {
-    return /(?:verify|validate|construct|check).{0,40}(?:signature|webhook)|(?:signature|hmac).{0,40}(?:verify|validate|secret)|webhooksecret|constructevent/i.test(text);
+    const signature = /(?:verify|validate|construct|check).{0,40}(?:signature|webhook)|(?:signature|hmac).{0,40}(?:verify|validate|secret)|webhooksecret|constructevent/i.test(text);
+    const replay = /eventId|event\.id|idempotencyKey|replay|processedEvent|webhookEvent/i.test(text);
+    return signature && replay;
+  }
+  if (value.includes('signed-unsubscribe-token')) {
+    return /(?:verify|validate|decode).{0,40}(?:unsubscribe|token)|unsubscribe.{0,40}(?:token|signature)|tokenHash|verifySignature/i.test(text);
+  }
+  if (value.includes('public-with-credential-provider')) {
+    return /signInWith|verifyPassword|verifyCredentials|credentialProvider|verifyIdToken|identityToken|providerSubject/i.test(text);
   }
   if (value.startsWith('public')) return true;
-  const authentication = /assertAuthenticated|requireAuth|verifyIdToken|verifySession|context\.data\??\.user|request\.auth|authUser|session\??\.user|verifyJWT|verifyJwt/i.test(text);
+  const authentication = /assertAuthenticated|requireAuth|verifyIdToken|verifySession|context\.data\??\.user|request\.auth|authUser|session\??\.user|verifyJWT|verifyJwt|requireUser/i.test(text);
   const elevated = /requireAdmin|requireRole|hasRole|authorize|permission|ownerId|tenantId|resourceOwner|role\s*===?|role\s*:/i.test(text);
   if (/administrator|role-and-resource|owner-or|owner-only|resource-scope|object-level/.test(value)) return authentication && elevated;
+  if (value.includes('verified-customer-or-server-authorized-billable-reference')) {
+    return authentication || /authorizeBillableReference|verifyBillableReference|serverAuthorizedInvoice/i.test(text);
+  }
   return authentication;
 }
 
@@ -141,7 +152,8 @@ export function evaluateFullStackSourceContracts(rawFiles, architecture) {
     const handler = routeHandlerSource(route, files, pathMap);
     const source = handler && handler.source || '';
     const methodDetected = Boolean(handler && methodEvidence(source, route.method));
-    const authorizationExpected = !String(route.authPolicy || '').toLowerCase().startsWith('public');
+    const policy = String(route.authPolicy || '').toLowerCase();
+    const authorizationExpected = !policy.startsWith('public') || policy.includes('credential-provider');
     const authorizationDetected = !authorizationExpected || Boolean(handler && authorizationEvidence(source, route.authPolicy));
     return {
       routeId: route.id,
