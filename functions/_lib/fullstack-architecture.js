@@ -233,13 +233,14 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
   };
   const navigationId = addComponent('Shared navigation', 'Consistent routes and accessible active-state navigation.');
   for (const page of pageEntries) addEdge(edges, page.id, navigationId, 'uses');
-  if (capabilities.contact) addComponent('Contact form', 'Validated fields, consent/error/success states and honest submission status.');
-  if (capabilities.booking) addComponent('Booking experience', 'Timezone-aware selection, authoritative availability and explicit pending/confirmed states.');
-  if (capabilities.commerce) addComponent('Commerce experience', 'Catalog, cart and checkout using server-calculated prices.');
-  if (capabilities.authentication) addComponent('Account experience', 'Provider-backed sign-in/session state with protected-route handling.');
-  if (capabilities.admin) addComponent('Administration workspace', 'Role-scoped management with auditable sensitive actions.');
-  if (capabilities.search) addComponent('Search and filtering', 'Accessible search/filter state with empty, loading and failure behavior.');
-  if (capabilities.fileStorage) addComponent('Asset upload manager', 'Owner-scoped upload lifecycle with progress, failure and retry feedback.');
+  const featureComponents = {};
+  if (capabilities.contact) featureComponents.contact = addComponent('Contact form', 'Validated fields, consent/error/success states and honest submission status.');
+  if (capabilities.booking) featureComponents.booking = addComponent('Booking experience', 'Timezone-aware selection, authoritative availability and explicit pending/confirmed states.');
+  if (capabilities.commerce) featureComponents.commerce = addComponent('Commerce experience', 'Catalog, cart and checkout using server-calculated prices.');
+  if (capabilities.authentication) featureComponents.authentication = addComponent('Account experience', 'Provider-backed sign-in/session state with protected-route handling.');
+  if (capabilities.admin) featureComponents.admin = addComponent('Administration workspace', 'Role-scoped management with auditable sensitive actions.');
+  if (capabilities.search) featureComponents.search = addComponent('Search and filtering', 'Accessible search/filter state with empty, loading and failure behavior.');
+  if (capabilities.fileStorage) featureComponents.storage = addComponent('Asset upload manager', 'Owner-scoped upload lifecycle with progress, failure and retry feedback.');
 
   const modelIds = [];
   for (const model of models) {
@@ -269,16 +270,34 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
     }
   }
   for (const page of pageEntries) {
+    const title = page.title;
+    const pageCapabilityMatchers = {
+      contact: /contact|enquir|inquir/i,
+      booking: /book|reserv|appointment/i,
+      commerce: /shop|product|catalog|cart|checkout|order/i,
+      payments: /shop|product|catalog|cart|checkout|order|billing/i,
+      authentication: /login|sign|account|dashboard|profile/i,
+      administration: /admin|dashboard|manage/i,
+      storage: /upload|asset|media|document/i,
+      search: /search|directory|catalog|product|listing/i,
+    };
+    const matchingCapabilities = Object.entries(featureComponents)
+      .filter(([capability]) => pageCapabilityMatchers[capability] && pageCapabilityMatchers[capability].test(title))
+      .map(([, componentId]) => componentId);
+    if (pageEntries.length === 1 || !matchingCapabilities.length && page === pageEntries[0]) {
+      for (const componentId of Object.values(featureComponents)) addEdge(edges, page.id, componentId, 'renders');
+    } else {
+      for (const componentId of matchingCapabilities) addEdge(edges, page.id, componentId, 'renders');
+    }
     const requiredRoutes = apiContracts.filter(route => {
-      if (route.capability === 'contact') return /contact|enquir|inquir/i.test(page.title);
-      if (route.capability === 'booking') return /book|reserv/i.test(page.title);
-      if (route.capability === 'commerce') return /shop|product|catalog|cart/i.test(page.title);
-      if (route.capability === 'payments') return /checkout|cart|order/i.test(page.title);
-      if (route.capability === 'authentication') return /login|sign|account|dashboard/i.test(page.title);
-      if (route.capability === 'storage') return /upload|asset|media/i.test(page.title);
-      return false;
+      const pattern = pageCapabilityMatchers[route.capability] || pageCapabilityMatchers[route.capability === 'payments' ? 'payments' : ''];
+      return pattern && pattern.test(title);
     });
     for (const route of requiredRoutes) addEdge(edges, page.id, route.id, 'submits-to');
+  }
+  const linkedRouteIds = new Set(edges.filter(edge => edge.relation === 'submits-to').map(edge => edge.to));
+  for (const route of apiContracts) {
+    if (!linkedRouteIds.has(route.id)) addEdge(edges, pageEntries[0].id, route.id, 'submits-to');
   }
   if (capabilities.backgroundWork) {
     const queueId = addNode(nodes, { id: 'background-outbox', type: 'background-workflow', name: 'Reliable background outbox', status: 'implementation-required', purpose: 'Process delivery and async work with bounded retries, dead-letter visibility and idempotency.' });
