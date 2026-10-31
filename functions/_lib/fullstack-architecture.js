@@ -79,13 +79,18 @@ function buildDataModels(capabilities) {
   if (capabilities.authentication) push('UserAccount', 'Identity and account lifecycle; credentials remain with the configured auth provider.', ['id', 'providerSubject', 'email', 'status'], 'identity');
   if (capabilities.authorization) push('RoleAssignment', 'Server-enforced workspace, resource and action permissions.', ['id', 'principalId', 'role', 'scope', 'grantedAt'], 'authorization');
   if (capabilities.contact) push('ContactSubmission', 'Validated enquiry with an auditable delivery state.', ['id', 'name', 'replyTo', 'message', 'status', 'createdAt'], 'personal-data');
-  if (capabilities.booking) push('Booking', 'Availability-backed reservation with timezone-aware start/end and explicit lifecycle.', ['id', 'resourceId', 'customerId', 'startsAt', 'endsAt', 'timezone', 'status'], 'personal-data');
+  if (capabilities.booking) {
+    push('BookableResource', 'A resource, service or staff calendar whose availability can be reserved.', ['id', 'name', 'timezone', 'capacity', 'status']);
+    push('Booking', 'Availability-backed reservation with timezone-aware start/end and explicit lifecycle.', ['id', 'resourceId', 'customerId', 'startsAt', 'endsAt', 'timezone', 'status'], 'personal-data');
+  }
   if (capabilities.commerce) {
     push('Product', 'Catalog item and purchasable offer; price and availability come from an authoritative source.', ['id', 'name', 'sku', 'priceAmount', 'currency', 'status']);
-    push('Cart', 'User or session cart with server-recomputed prices and inventory validation.', ['id', 'ownerId', 'items', 'updatedAt']);
-    push('Order', 'Immutable order intent and fulfillment lifecycle.', ['id', 'ownerId', 'items', 'subtotalAmount', 'totalAmount', 'currency', 'status'], 'financial');
+    push('Cart', 'User or session cart with server-recomputed prices and inventory validation.', ['id', 'ownerId', 'sessionKeyHash', 'currency', 'updatedAt']);
+    push('CartItem', 'A selected product and quantity; client prices are never authoritative.', ['id', 'cartId', 'productId', 'quantity', 'addedAt']);
+    push('Order', 'Immutable order intent and fulfillment lifecycle.', ['id', 'ownerId', 'currency', 'subtotalAmount', 'taxAmount', 'totalAmount', 'status'], 'financial');
+    push('OrderLine', 'Immutable purchase-time snapshot of product identity, name, quantity and unit amount.', ['id', 'orderId', 'productId', 'productNameSnapshot', 'quantity', 'unitAmount', 'lineAmount', 'currency'], 'financial');
   }
-  if (capabilities.payments) push('PaymentAttempt', 'Provider payment attempt linked to an order or authorized billable action.', ['id', 'orderId', 'providerReference', 'amount', 'currency', 'status', 'verifiedAt'], 'financial');
+  if (capabilities.payments) push('PaymentAttempt', 'Provider payment attempt linked to an order or authorized billable action.', ['id', 'orderId', 'billableReference', 'providerReference', 'idempotencyKey', 'amount', 'currency', 'status', 'verifiedAt'], 'financial');
   if (capabilities.email) push('DeliveryRecord', 'Outbox/delivery state with retry and provider receipt; not a claim of delivery.', ['id', 'recipientRef', 'templateKey', 'idempotencyKey', 'status', 'attemptCount', 'providerReceipt'], 'personal-data');
   if (capabilities.newsletter) push('NewsletterSubscription', 'Permission-aware subscription state with consent evidence and secure unsubscribe lifecycle.', ['id', 'email', 'status', 'consentAt', 'confirmationTokenHash', 'createdAt'], 'personal-data');
   if (capabilities.fileStorage) push('StoredAsset', 'Owner-scoped metadata for uploaded objects stored outside public source control.', ['id', 'ownerId', 'storageKey', 'contentType', 'byteSize', 'checksum', 'createdAt'], 'private-file');
@@ -116,16 +121,18 @@ function buildApiContracts(capabilities) {
   }
   if (capabilities.authentication) {
     add('POST', '/api/auth/session', 'authentication', 'public-with-credential-provider', 'Create a session only after provider-backed identity verification.', ['model-useraccount'], { sideEffect: 'rotate-session-and-csrf-state' });
+    add('GET', '/api/account/profile', 'authentication', 'authenticated', 'Read the current verified principal profile; derive identity from the session, never a client UID.', ['model-useraccount']);
+    add('PATCH', '/api/account/profile', 'authentication', 'authenticated-owner-only', 'Update only allowlisted profile fields for the current authenticated principal.', ['model-useraccount']);
     add('DELETE', '/api/auth/session', 'authentication', 'authenticated', 'Revoke the current session and clear session cookies.', ['model-useraccount']);
   }
   if (capabilities.commerce) {
     add('GET', '/api/products', 'commerce', 'public-read', 'Read catalog items from the configured authoritative source.', ['model-product'], { cachePolicy: 'source-aware' });
-    add('POST', '/api/cart/quote', 'commerce', 'session-or-authenticated', 'Recalculate line items, discounts, tax and inventory on the server.', ['model-cart', 'model-product', 'model-order']);
+    add('POST', '/api/cart/quote', 'commerce', 'session-or-authenticated', 'Recalculate line items, discounts, tax and inventory on the server.', ['model-cart', 'model-cartitem', 'model-product', 'model-order']);
     if (!capabilities.payments) {
-      add('POST', '/api/orders', 'commerce', 'session-or-verified-customer', 'Create an order intent without representing it as paid; fulfillment waits for the configured business process.', ['model-cart', 'model-order'], { sideEffect: 'order-intent-only' });
+      add('POST', '/api/orders', 'commerce', 'session-or-verified-customer', 'Create an order intent without representing it as paid; fulfillment waits for the configured business process.', ['model-cart', 'model-cartitem', 'model-order', 'model-orderline'], { sideEffect: 'order-intent-only' });
     }
     if (capabilities.payments) {
-      add('POST', '/api/checkout', 'payments', 'session-or-authenticated', 'Create provider checkout from a server-calculated order; never accept client totals.', ['model-cart', 'model-order', 'model-paymentattempt'], { sideEffect: 'provider-checkout-with-idempotency' });
+      add('POST', '/api/checkout', 'payments', 'session-or-authenticated', 'Create provider checkout from a server-calculated order; never accept client totals.', ['model-cart', 'model-cartitem', 'model-order', 'model-orderline', 'model-paymentattempt'], { sideEffect: 'provider-checkout-with-idempotency' });
     }
   }
   if (capabilities.payments) {
