@@ -55,7 +55,7 @@ function inferCapabilities(prompt, contract) {
     /\b(?:contact form|enquiry form|inquiry form|lead capture|send (?:us )?a message|contact submission)\b/i.test(source);
   const newsletter = signals.newsletter === true || /\b(?:newsletter|mailing list|email updates|subscribe for updates)\b/i.test(source);
   const email = signals.emailDelivery === true || newsletter ||
-    /\b(?:email delivery|send confirmation|email notification|transactional email)\b/i.test(source);
+    /\b(?:email delivery|send\b.{0,80}\bemails?\b|emails?\b.{0,80}\b(?:send|deliver|dispatch)|email notification|transactional email)\b/i.test(source);
   const fileStorage = /\b(?:file upload|image upload|document upload|media library|file storage|user uploads?)\b/i.test(source);
   const persistentData = explicitFullStack || signals.backendData === true || commerce || booking || auth || contact || email || payment || fileStorage ||
     /\b(?:database|persistent data|save records|customer records|reporting dashboard)\b/i.test(source);
