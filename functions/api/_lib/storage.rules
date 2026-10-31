@@ -1,11 +1,61 @@
 rules_version = '2';
+
 service firebase.storage {
   match /b/{bucket}/o {
-    // Only authenticated users can read/write their own files
-    match /users/{userId}/{allPaths=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    function owns(userId) {
+      return request.auth != null && request.auth.uid == userId;
     }
-    // Deny all other access by default
+
+    function validProjectAssetUpload() {
+      return request.resource != null
+        && request.resource.size > 0
+        && request.resource.size <= 100 * 1024 * 1024
+        && (
+          request.resource.contentType.matches('^(image|audio|video|font|model)/[A-Za-z0-9.+_-]+$')
+          || request.resource.contentType in [
+            'application/pdf',
+            'application/zip',
+            'application/x-zip-compressed',
+            'application/octet-stream',
+            'application/gzip',
+            'text/plain'
+          ]
+        );
+    }
+
+    function validTemplateReferenceUpload() {
+      return request.resource != null
+        && request.resource.size > 0
+        && request.resource.size <= 100 * 1024 * 1024
+        && request.resource.contentType.matches('^(image|video)/[A-Za-z0-9.+_-]+$');
+    }
+
+    // Web Studio project assets use the same owner UID and path returned by
+    // the authenticated /api/assets metadata endpoint.
+    match /users/{userId}/projects/{projectId}/assets/{assetId}/{fileName} {
+      allow read: if owns(userId);
+      allow create, update: if owns(userId) && validProjectAssetUpload();
+      allow delete: if owns(userId);
+    }
+
+    // Profile photos are resized to JPEG by the app before upload.
+    match /profile/{userId}/avatar.jpg {
+      allow read: if owns(userId);
+      allow create, update: if owns(userId)
+        && request.resource.size > 0
+        && request.resource.size <= 8 * 1024 * 1024
+        && request.resource.contentType == 'image/jpeg';
+      allow delete: if owns(userId);
+    }
+
+    // The Admin Template Factory accepts image/* and video/* references.
+    match /ovyx-template-references/{userId}/{fileName} {
+      allow read: if owns(userId);
+      allow create, update: if owns(userId) && validTemplateReferenceUpload();
+      allow delete: if owns(userId);
+    }
+
+    // All paths not explicitly listed above remain private and denied.
     match /{allPaths=**} {
       allow read, write: if false;
     }

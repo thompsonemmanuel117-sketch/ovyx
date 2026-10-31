@@ -1,6 +1,6 @@
 # OVYX — Remaining Work Register
 
-**Updated:** 2026-10-24  
+**Updated:** 2026-10-31  
 **Purpose:** Keep unfinished work visible across AI migration and existing platform QA. Items close only when the listed evidence exists; a green build or mocked test is not proof of a live external service.
 
 ## AI migration stages
@@ -29,6 +29,8 @@
 ## Existing OVYX issues not to forget
 
 | Item | Status | What closes it |
+|---|---|---|
+| Firebase Storage rules and active upload paths | **Repository configuration corrected; live deployment not verified** | Root firebase.json now references the maintained Storage rules file. Owner-scoped rules cover the existing project-assets, profile-avatar and image/video template-reference paths with size/MIME checks and default deny. The regression test is included in npm test. Live Firebase rules must still be deployed and emulator/authorized-account checks run in the correct Firebase project; repository configuration alone is not proof of production enforcement. |
 |---|---|---|
 | Real production AI generation | **Not proven / provider blocker previously observed** | Use the current, safe provider preflight first. The post-merge trusted main run `40086196880` (2026-10-24) failed before full generation: Gemini HTTP 503 (provider server error), DeepSeek HTTP 402 (billing required), Claude/OpenAI HTTP 401 (authentication rejected), and Cloudflare Workers AI HTTP 429 (rate limit/quota). It generated zero websites. The same run's sanitized configuration audit reported no authoritative listings URL/authority flag and no approved public enquiry URL/external-probe opt-in. Fix the underlying service readiness and owner-approved data/delivery configuration before explicit full acceptance; do not treat model-list health or a push/preflight-only run as recovery. |
 | Production website generation quality | **Not yet proven for the new local model** | Full generation of realistic prompts, saved outputs, deterministic integrity checks, build/load checks, screenshots at 320/390/768/1024/1440px, and manual review. Keep model acceptance separate from app-shell browser tests. |
