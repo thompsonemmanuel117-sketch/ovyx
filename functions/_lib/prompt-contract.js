@@ -334,7 +334,7 @@ export function buildPromptContract(prompt) {
       emailDelivery: /\b(?:send|sends|deliver|delivers|email|emails|notify|notifies|forward|forwards)\b.{0,55}\b(?:form|message|enquiry|enquiries|inquiry|inquiries|lead|submission)\b|\b(?:form|message|enquiry|enquiries|inquiry|inquiries|lead|submission)\b.{0,55}\b(?:send|sends|deliver|delivers|email|emails|notify|notifies|forward|forwards)\b/i.test(source),
       bookings: BOOKING_INTENT_PATTERN.test(source),
       newsletter: /\b(?:newsletter|mailing\s+list|email\s+updates|subscribe\s+(?:to\s+)?(?:the\s+)?(?:newsletter|mailing\s+list)|sign\s+up\s+for\s+(?:email\s+)?updates)\b/i.test(source),
-      payments: /\b(?:payments?|checkout|accept cards|paystack|flutterwave|stripe|paypal|buy now|subscriptions? billing)\b/i.test(source),
+      payments: /\b(?:payments?|checkout|accept cards|paystack|flutterwave|stripe|paypal|buy now|subscriptions? billing|recurring billing)\b/i.test(source),
       shoppingCart: SHOPPING_CART_PATTERN.test(source),
       addToCart: ADD_TO_CART_PATTERN.test(source),
       authentication: /\b(?:login|log in|sign in|sign up|user accounts?|authentication|register an account)\b/i.test(source),
