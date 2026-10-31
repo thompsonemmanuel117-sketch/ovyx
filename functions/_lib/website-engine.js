@@ -111,9 +111,20 @@ export function buildWebsiteEnginePlan(prompt, context = {}) {
     },
     experience,
     designArchitecture: {
+      mission: experience.mission || '',
+      audience: experience.audience || '',
       direction: experience.brandDirection || '',
       designIntelligence: experience.designIntelligence || {},
+      mustHave: experience.mustHave || [],
+      delighters: experience.delighters || [],
+      motion: experience.motion || '',
       experiencePrinciples: experience.experiencePrinciples || [],
+      conversionPrinciples: experience.conversionPrinciples || [],
+      conversionAudit: experience.conversionAudit || [],
+      signatureMoments: experience.signatureMoments || [],
+      contentRules: experience.contentRules || [],
+      architecture: experience.architecture || {},
+      customizationContract: experience.customizationContract || [],
       antiTemplateRules: experience.antiTemplateRules || [],
       visualAssetPlan: experience.visualAssetPlan || {},
       marketContext: experience.marketContext || {},
@@ -167,24 +178,144 @@ export function buildWebsiteEngineReadiness(prompt, context = {}, options = {}) 
   });
 }
 
+const WEBSITE_ENGINE_PLAN_JSON_LIMIT = 18000;
+
+function compactPlanValue(value, depth = 0) {
+  if (value === null || typeof value === 'boolean' || typeof value === 'number') return value;
+  if (typeof value === 'string') return clean(value, depth >= 3 ? 120 : 200);
+  if (Array.isArray(value)) {
+    const limit = depth >= 2 ? 6 : 10;
+    return value.slice(0, limit).map(item => compactPlanValue(item, depth + 1));
+  }
+  if (value && typeof value === 'object') {
+    const limit = depth >= 2 ? 8 : 12;
+    const output = {};
+    for (const [key, child] of Object.entries(value).slice(0, limit)) {
+      output[String(key).slice(0, 64)] = compactPlanValue(child, depth + 1);
+    }
+    return output;
+  }
+  return clean(value, 120);
+}
+
+function compactPlanList(values, maxItems, maxChars) {
+  return (Array.isArray(values) ? values : []).slice(0, maxItems).map(item => {
+    if (typeof item === 'string') return clean(item, maxChars);
+    return compactPlanValue(item);
+  });
+}
+
+/**
+ * Keep the model-facing plan valid JSON even for the largest accepted brief.
+ * The complete user brief is already sent as the task prompt; this bounded
+ * index keeps every requirement ID while making long clause excerpts shorter.
+ */
+function serializeWebsiteEngineModelPlan(plan) {
+  const requirements = Array.isArray(plan.requirementManifest?.requirements)
+    ? plan.requirementManifest.requirements
+    : [];
+  const makeModelPlan = excerptChars => {
+    const manifest = plan.requirementManifest || {};
+    const design = plan.designArchitecture || {};
+    const interaction = plan.interactionArchitecture || {};
+    const pages = Array.isArray(plan.pageArchitecture?.pages) ? plan.pageArchitecture.pages : [];
+    return {
+      version: plan.version,
+      strategy: plan.strategy,
+      requirementManifest: {
+        complete: manifest.complete === true,
+        total: Number(manifest.total) || requirements.length,
+        omitted: Number(manifest.omitted) || 0,
+        sourcePromptRemainsAuthoritative: true,
+        indexEntriesAreExcerpts: true,
+        requirements: requirements.map((value, index) => {
+          const source = String(value || '');
+          const match = source.match(/^(R\d{1,4}):\s*/);
+          const id = match ? match[1] : 'R' + String(index + 1).padStart(3, '0');
+          return [id, clean(source.slice(match ? match[0].length : 0), excerptChars)];
+        }),
+        constraints: compactPlanList(manifest.constraints, 20, 96),
+      },
+      pageArchitecture: {
+        pageCandidateCount: Number(plan.pageArchitecture?.pageCandidateCount) || pages.length,
+        pages: pages.map(page => ({
+          title: clean(page?.title, 80),
+          route: clean(page?.route, 120),
+          responsibility: clean(page?.responsibility, 140),
+        })),
+        rule: clean(plan.pageArchitecture?.rule, 200),
+      },
+      designArchitecture: {
+        mission: compactPlanValue(design.mission),
+        audience: compactPlanValue(design.audience),
+        direction: clean(design.direction, 180),
+        designIntelligence: compactPlanValue(design.designIntelligence),
+        mustHave: compactPlanList(design.mustHave, 10, 140),
+        delighters: compactPlanList(design.delighters, 8, 140),
+        motion: clean(design.motion, 140),
+        experiencePrinciples: compactPlanList(design.experiencePrinciples, 10, 140),
+        conversionPrinciples: compactPlanList(design.conversionPrinciples, 8, 140),
+        conversionAudit: compactPlanList(design.conversionAudit, 8, 140),
+        signatureMoments: compactPlanList(design.signatureMoments, 6, 140),
+        contentRules: compactPlanList(design.contentRules, 6, 140),
+        architecture: compactPlanValue(design.architecture),
+        customizationContract: compactPlanList(design.customizationContract, 6, 150),
+        antiTemplateRules: compactPlanList(design.antiTemplateRules, 8, 140),
+        visualAssetPlan: compactPlanValue(design.visualAssetPlan),
+        marketContext: compactPlanValue(design.marketContext),
+      },
+      interactionArchitecture: {
+        primaryOutcome: compactPlanValue(interaction.primaryOutcome),
+        journey: compactPlanList(interaction.journey, 8, 140),
+        capabilities: compactPlanList(interaction.capabilities, 10, 64),
+        interactionConcepts: compactPlanList(interaction.interactionConcepts, 8, 140),
+        motionChoreography: compactPlanList(interaction.motionChoreography, 8, 140),
+      },
+      integrations: (Array.isArray(plan.integrations) ? plan.integrations : []).slice(0, 8).map(item => ({
+        capability: clean(item?.capability, 48),
+        requested: item?.requested === true,
+        connection: clean(item?.connection, 48),
+        verification: clean(item?.verification, 120),
+      })),
+      qualityGates: compactPlanList(plan.qualityGates, 14, 140),
+      implementationRules: compactPlanList(plan.implementationRules, 10, 160),
+      detailSummariesAreBounded: true,
+    };
+  };
+
+  for (const excerptChars of [96, 80, 64, 48, 32, 16, 0]) {
+    const serialized = JSON.stringify(makeModelPlan(excerptChars));
+    if (serialized.length <= WEBSITE_ENGINE_PLAN_JSON_LIMIT) return serialized;
+  }
+
+  const minimal = makeModelPlan(0);
+  minimal.designArchitecture = {
+    mission: clean(plan.designArchitecture?.mission, 120),
+    direction: clean(plan.designArchitecture?.direction, 120),
+    experiencePrinciples: compactPlanList(plan.designArchitecture?.experiencePrinciples, 6, 100),
+    antiTemplateRules: compactPlanList(plan.designArchitecture?.antiTemplateRules, 6, 100),
+  };
+  minimal.interactionArchitecture = {
+    capabilities: compactPlanList(plan.interactionArchitecture?.capabilities, 10, 64),
+    interactionConcepts: compactPlanList(plan.interactionArchitecture?.interactionConcepts, 6, 100),
+  };
+  minimal.qualityGates = compactPlanList(plan.qualityGates, 8, 100);
+  minimal.implementationRules = compactPlanList(plan.implementationRules, 8, 100);
+  const serialized = JSON.stringify(minimal);
+  if (serialized.length > WEBSITE_ENGINE_PLAN_JSON_LIMIT) {
+    throw new RangeError('The Website Engine plan exceeds its safe instruction budget.');
+  }
+  return serialized;
+}
+
 export function buildWebsiteEngineInstructions(plan) {
   if (!plan || plan.engine !== 'ovyx-unified-website-engine') return '';
-  const modelPlan = {
-    version: plan.version,
-    strategy: plan.strategy,
-    requirementManifest: plan.requirementManifest,
-    pageArchitecture: plan.pageArchitecture,
-    designArchitecture: plan.designArchitecture,
-    interactionArchitecture: plan.interactionArchitecture,
-    integrations: plan.integrations,
-    qualityGates: plan.qualityGates,
-    implementationRules: plan.implementationRules,
-  };
+  const serializedPlan = serializeWebsiteEngineModelPlan(plan);
   return [
     'OVYX UNIFIED WEBSITE ENGINE — AUTHORITATIVE PRE-GENERATION PLAN',
-    'The following deterministic plan is derived from the complete supplied brief and project context. Follow it while preserving the existing route-specific output schema.',
-    JSON.stringify(modelPlan).slice(0, 18000),
-    'Before returning files, internally reconcile every requirement and exclusion against the actual output. If a real service is not connected and verified, provide an honest pending/UI-only boundary instead of a fake success path.',
+    'The complete original user brief is supplied separately as the task prompt and remains authoritative. The JSON below is a bounded architecture plan and requirement index; its clause excerpts never replace the original brief.',
+    serializedPlan,
+    'Before returning files, internally reconcile every requirement and exclusion against the complete original brief and the actual output. If a real service is not connected and verified, provide an honest pending/UI-only boundary instead of a fake success path.',
   ].join('\n\n');
 }
 

@@ -369,7 +369,10 @@ if (!fs.existsSync(promptContractPath) || !fs.existsSync(promptContractTestPath)
     !promptGateway.includes('buildWebsiteEngineReadiness') ||
     !promptAssistant.includes('buildWebsiteEngineReadiness') ||
     !promptEngine.includes('getWebStudioBuildClarification') ||
-    !promptGateway.includes('PROMPT REQUIREMENT CONTRACT') ||
+    !promptEngine.includes('sourcePromptRemainsAuthoritative') ||
+    !promptEngine.includes('serializeWebsiteEngineModelPlan') ||
+    !promptGateway.includes('compact requirement index below') ||
+    promptGateway.includes('JSON.stringify(promptContract || {})') ||
     !promptMultiPage.includes('verifyPromptContractOutput') ||
     !promptMultiPage.includes('promptContract.explicitPages') ||
     !promptContractTest.includes('CONTACT_FORM_MISSING') ||

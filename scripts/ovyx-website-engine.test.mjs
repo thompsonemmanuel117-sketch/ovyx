@@ -33,6 +33,26 @@ assert.match(buildWebsiteEngineInstructions(plan), /AUTHORITATIVE PRE-GENERATION
 assert.equal(websiteEngineClientSummary(plan).pageCandidates, 6);
 assert.equal(buildWebsiteEnginePlan('A simple one-page portfolio').strategy, 'single-page-or-context-derived');
 
+// Long accepted briefs must never be cut in the middle of the model-facing JSON.
+// The full brief remains in the task prompt; the bounded index preserves every
+// requirement ID and explicitly labels excerpts as non-authoritative summaries.
+const longBrief = Array.from({ length: 180 }, (_, index) =>
+  'Requirement ' + (index + 1) + ': Preserve the full requested route content, meaningful interactions, accessible controls, responsive layout, trustworthy data handling and recovery states without inventing unsupported facts'
+).join('\n');
+const longPlan = buildWebsiteEnginePlan(longBrief);
+assert.equal(longPlan.requirementManifest.total, 180);
+const longInstructions = buildWebsiteEngineInstructions(longPlan);
+const serializedPlan = longInstructions.split('\\n\\n')[2];
+assert.ok(serializedPlan.length <= 18000, 'The serialized Website Engine plan must stay within its defined instruction budget.');
+const parsedLongPlan = JSON.parse(serializedPlan);
+assert.equal(parsedLongPlan.requirementManifest.requirements.length, 180);
+assert.equal(parsedLongPlan.requirementManifest.requirements[0][0], 'R001');
+assert.equal(parsedLongPlan.requirementManifest.requirements.at(-1)[0], 'R180');
+assert.equal(parsedLongPlan.requirementManifest.sourcePromptRemainsAuthoritative, true);
+assert.equal(parsedLongPlan.requirementManifest.indexEntriesAreExcerpts, true);
+assert.ok(parsedLongPlan.designArchitecture.mustHave.length > 0);
+assert.ok(parsedLongPlan.designArchitecture.conversionPrinciples.length > 0);
+
 const freshBuildReadiness = buildWebsiteEngineReadiness(
   'Build a business website with a real contact form and email delivery.',
   {},

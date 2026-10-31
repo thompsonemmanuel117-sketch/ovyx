@@ -172,7 +172,6 @@ export async function onRequestPost(context) {
     const conversationText = userTurns.join('\\n\\n');
     const studioPromptText = isWebStudio && conversationText ? conversationText : String(promptText || '');
     const websiteEnginePlan = isWebStudio ? buildWebsiteEnginePlan(studioPromptText, payload.context || {}) : null;
-    const promptContract = websiteEnginePlan?.promptContract || null;
     const experience = websiteEnginePlan?.experience || null;
     const websiteEngineInstructions = buildWebsiteEngineInstructions(websiteEnginePlan);
     const submittedFiles = payload.context?.files || payload.files || {};
@@ -217,10 +216,8 @@ export async function onRequestPost(context) {
         ? WEB_STUDIO_SYSTEM_PROMPT +
           '\n\n' +
           WEB_STUDIO_EXCELLENCE +
-          '\n\nEXPERIENCE INTELLIGENCE:\n' +
-          JSON.stringify(experience || {}) +
-          '\n\nPROMPT REQUIREMENT CONTRACT (preserve every item):\n' +
-          JSON.stringify(promptContract || {}) +
+          '\n\nEXPERIENCE INTELLIGENCE: the bounded design plan is included in the authoritative Website Engine instructions below.' +
+          '\n\nPROMPT REQUIREMENT CONTRACT: the compact requirement index below refers to the complete original brief supplied separately; preserve every source requirement.' +
           '\n\n' + websiteEngineInstructions +
           '\n\nPROMPT-FIDELITY RULES:\n' +
           '- Treat every explicit request, restriction and named page as a delivery contract. Do not silently omit requirements.\n' +

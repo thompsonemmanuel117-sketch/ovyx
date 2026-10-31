@@ -268,7 +268,7 @@ export async function onRequestPost(context) {
     const system = String(
       isWebStudio
         ? WEB_STUDIO_SYSTEM_PROMPT + '\n\n' + WEB_STUDIO_EXCELLENCE +
-          '\n\nEXPERIENCE INTELLIGENCE:\n' + JSON.stringify(experience || {}) +
+          '\n\nEXPERIENCE INTELLIGENCE: the bounded design plan is included in the authoritative Website Engine instructions below.' +
           '\n\n' + websiteEngineInstructions +
           (payload.context?.webResearch && typeof payload.context.webResearch === 'object'
             ? '\n\nWEB RESEARCH RULES:\n' + WEB_STUDIO_RESEARCH_GUIDANCE
