@@ -435,6 +435,7 @@
     });
     assetBundle = assetBundle && typeof assetBundle === 'object' ? assetBundle : { files: [], excluded: [], status: 'not-loaded-during-sync-inspection', listedCount: 0 };
     (assetBundle.excluded || []).forEach(function (item) { excluded.push(item); });
+    var assetExcludedCount = (assetBundle.excluded || []).length;
     var assetRecords = [];
     var assetUrlMappings = [];
     (assetBundle.files || []).forEach(function (assetFile) {
@@ -442,13 +443,14 @@
       var bytes = assetFile && assetFile.bytes;
       if (!path || !(bytes instanceof Uint8Array)) {
         excluded.push({ path: clean(assetFile && assetFile.path || 'project asset', 180), reason: 'invalid binary asset path or data' });
+        assetExcludedCount += 1;
         return;
       }
       var pathKey = path.normalize('NFC').toLowerCase();
-      if (seenPaths.has(pathKey)) { excluded.push({ path: path, reason: 'duplicate or case-insensitive path collision' }); return; }
-      if (output.length >= MAX_FILES) { excluded.push({ path: path, reason: 'project file-count limit' }); return; }
-      if (bytes.byteLength > MAX_BINARY_ASSET_BYTES) { excluded.push({ path: path, reason: 'binary asset exceeds per-file export limit' }); return; }
-      if (total + bytes.byteLength > MAX_TOTAL_BYTES) { excluded.push({ path: path, reason: 'project export size limit' }); return; }
+      if (seenPaths.has(pathKey)) { excluded.push({ path: path, reason: 'duplicate or case-insensitive path collision' }); assetExcludedCount += 1; return; }
+      if (output.length >= MAX_FILES) { excluded.push({ path: path, reason: 'project file-count limit' }); assetExcludedCount += 1; return; }
+      if (bytes.byteLength > MAX_BINARY_ASSET_BYTES) { excluded.push({ path: path, reason: 'binary asset exceeds per-file export limit' }); assetExcludedCount += 1; return; }
+      if (total + bytes.byteLength > MAX_TOTAL_BYTES) { excluded.push({ path: path, reason: 'project export size limit' }); assetExcludedCount += 1; return; }
       output.push({ path: path, bytes: bytes, binaryAsset: true });
       seenPaths.add(pathKey);
       total += bytes.byteLength;
@@ -471,10 +473,10 @@
       if (sourceText !== new TextDecoder().decode(file.bytes)) file.bytes = utf8(sourceText);
     });
     var assetStorage = {
-      status: assetBundle.status || 'not-loaded-during-sync-inspection',
+      status: assetExcludedCount && assetBundle.status !== 'excluded-by-design' ? (assetRecords.length ? 'partial' : 'unavailable') : (assetBundle.status || 'not-loaded-during-sync-inspection'),
       listedCount: Number(assetBundle.listedCount) || 0,
       includedCount: assetRecords.length,
-      excludedCount: (assetBundle.excluded || []).length,
+      excludedCount: assetExcludedCount,
       rewrittenReferences: rewrittenReferences,
       files: assetRecords,
     };
@@ -568,7 +570,7 @@
         '## Important limits',
         '- Backend handlers, migrations, server schemas, and FULL_STACK_SETUP.md are excluded by design. Use the backend-only option for recognized separated backend source, or the complete project ZIP for a combined deployment.',
         '- This export does not deploy the site, provision a backend, or connect third-party services.',
-        '- Only text-based files saved in the current project graph are exported. Binary assets not stored in that graph are not reconstructed.',
+        '- Text source is read from the project graph. Retrievable binaries are downloaded from the authenticated OVYX asset store into assets/; oversized or unavailable files are listed in the exclusion report.',
         '- Credential files and files with recognizable high-risk embedded secret patterns are omitted. Review the exclusion report if present.',
         '',
         'Exported from OVYX Web Studio on ' + timestamp + '.',
@@ -603,7 +605,7 @@
         '- Downloading this ZIP does not publish the website, create a GitHub repository, provision a database, or connect external services automatically.',
         '- Generated source code is not proof of a live connection. Configure and test authentication, database, email, payments, storage or other providers required by this project.',
         '- Credential files and files containing recognizable high-risk secret patterns are deliberately omitted. Check the export notice and recreate needed secrets in your hosting provider secret settings.',
-        '- This archive includes text-based files stored in the current Web Studio project graph. Binary files or assets not stored in that graph are not reconstructed by this exporter.',
+        '- Text source is read from the project graph. Retrievable binaries are downloaded from the authenticated OVYX asset store into assets/; oversized or unavailable files are listed in the exclusion report.',
         '',
         'Exported from OVYX Web Studio on ' + timestamp + '.',
         ''
