@@ -16,6 +16,8 @@ assert.match(runtime, /does not certify live integrations or production deployme
 assert.match(runtime, /data-ovyx-code-download-group/);
 assert.doesNotMatch(runtime, /querySelectorAll\('\.ovyx-ws-header-actions'\)/, 'Project download controls must not be mounted in the Web Studio chat/header area.');
 assert.match(runtime, /Website only/);
+assert.match(runtime, /retrievable project media/);
+assert.match(runtime, /stored project assets/);
 assert.match(runtime, /Backend only/);
 assert.match(runtime, /data-ovyx-project-export-website-only/);
 assert.match(runtime, /data-ovyx-project-export-backend-only/);
@@ -61,9 +63,9 @@ assert.match(runtime, /schemaVersion: 2/);
 assert.match(runtime, /recommendedBuildCommand/);
 assert.match(runtime, /inspect: function \(options\)/);
 assert.match(runtime, /isBackendSupportPath\(path\)/);
-assert.match(middleware, /ovyx-webstudio-project-export\.js\?v=20261031-6/);
+assert.match(middleware, /ovyx-webstudio-project-export\.js\?v=20261031-7/);
 assert.match(runtime, /window\.OVYXWebStudioProjectExport =/);
-assert.match(middleware, /\/assets\/ovyx-webstudio-project-export\.js\?v=20261031-6/);
+assert.match(middleware, /\/assets\/ovyx-webstudio-project-export\.js\?v=20261031-7/);
 assert.match(headers, /\/assets\/ovyx-webstudio-project-export\.js\n  Cache-Control: no-store, no-cache, must-revalidate/);
 assert.doesNotThrow(() => new Function(runtime), 'Project ZIP exporter must parse as valid JavaScript.');
 
