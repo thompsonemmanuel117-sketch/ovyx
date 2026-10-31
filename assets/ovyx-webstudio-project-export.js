@@ -504,6 +504,12 @@
       });
       if (sourceText !== new TextDecoder().decode(file.bytes)) file.bytes = utf8(sourceText);
     });
+    if (sanitizedFirebaseTokenReferences) {
+      excluded.push({
+        path: 'Firebase Storage references',
+        reason: sanitizedFirebaseTokenReferences + ' download-token reference(s) were stripped because their media could not be rewritten to an included local asset. Reconnect or re-upload those assets after extraction.',
+      });
+    }
     var assetStorage = {
       status: assetExcludedCount && assetBundle.status !== 'excluded-by-design' ? (assetRecords.length ? 'partial' : 'unavailable') : (assetBundle.status || 'not-loaded-during-sync-inspection'),
       listedCount: Number(assetBundle.listedCount) || 0,
@@ -511,6 +517,7 @@
       excludedCount: assetExcludedCount,
       rewrittenReferences: rewrittenReferences,
       sanitizedFirebaseTokenReferences: sanitizedFirebaseTokenReferences,
+      firebaseDownloadTokensExcludedFromExport: true,
       files: assetRecords,
     };
     var slugName = slug(project && (project.name || project.title || project.slug));
@@ -541,6 +548,7 @@
       frameworkProfile.warnings.map(function (item) { return '- WARNING: ' + item; }).join('\n'),
       '- Asset packaging status: ' + assetStorage.status + '.',
       '- Stored binary assets: ' + assetStorage.includedCount + ' included, ' + assetStorage.excludedCount + ' excluded; ' + assetStorage.rewrittenReferences + ' source references rewritten.',
+      '- Firebase download tokens are stripped whenever a media URL cannot be rewritten to an included local asset.',
       '- Original source paths are preserved; OVYX does not silently convert or scaffold a different framework.',
       '- The ZIP has not been built or deployed by this profile. Run the commands above in the extracted project and verify the actual result.',
       ''
