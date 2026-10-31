@@ -536,6 +536,20 @@ try {
     assert.match(await page.locator('#ws-attachment-strip').innerText(), /site-brief\.txt/,
       '[' + target.name + '] fixture attachment must be staged before using the generated image.');
 
+    await page.evaluate(() => {
+      const W = window.WebStudio;
+      if (W && typeof W.renderAttachments === 'function' && !W.renderAttachments.__ovyxDiagnosticWrapped) {
+        const original = W.renderAttachments;
+        const wrapped = function () {
+          console.log('[OVYX generated-image diagnostic] renderAttachments entered');
+          const result = original.apply(this, arguments);
+          console.log('[OVYX generated-image diagnostic] renderAttachments returned');
+          return result;
+        };
+        wrapped.__ovyxDiagnosticWrapped = true;
+        W.renderAttachments = wrapped;
+      }
+    });
     console.log('[' + target.name + '] generated-image action: click dispatch starting');
     try {
       await Promise.race([
