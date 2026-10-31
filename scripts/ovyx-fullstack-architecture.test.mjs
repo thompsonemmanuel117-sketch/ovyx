@@ -46,6 +46,9 @@ assert.equal(architecture.capabilities.admin, true);
 const emailOnlyBrief = 'Send order confirmation emails after successful purchases.';
 const emailOnlyArchitecture = buildFullStackArchitecture(emailOnlyBrief, buildPromptContract(emailOnlyBrief), {}, []);
 assert.equal(emailOnlyArchitecture.capabilities.email, true, 'Order confirmation email delivery must be detected even when other words appear between send and emails.');
+const uploadBrief = 'Allow users to upload and securely store product documents.';
+const uploadArchitecture = buildFullStackArchitecture(uploadBrief, buildPromptContract(uploadBrief), {}, []);
+assert.equal(uploadArchitecture.capabilities.fileStorage, true, 'User-uploaded documents must be recognized as a storage requirement.');
 
 assert.ok(architecture.apiContracts.some(route => route.path === '/api/checkout' && route.authPolicy === 'session-or-authenticated'));
 assert.ok(architecture.apiContracts.some(route => route.path === '/api/webhooks/payments' && route.authPolicy === 'provider-signature-and-replay-protected'));
