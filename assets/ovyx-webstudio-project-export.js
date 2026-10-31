@@ -380,7 +380,18 @@
     return result;
   }
 
-  function readExportFiles(graph, project, options) {
+  function relativeArchivePath(sourcePath, targetPath) {
+    var from = String(sourcePath || '').split('/');
+    from.pop();
+    var to = String(targetPath || '').split('/');
+    while (from.length && to.length && from[0] === to[0]) {
+      from.shift();
+      to.shift();
+    }
+    return new Array(from.length + 1).join('../') + to.join('/');
+  }
+
+  function readExportFiles(graph, project, options, assetBundle) {
     var mode = options && options.mode || 'complete';
     var backendOnly = mode === 'backend-only';
     var websiteOnly = mode === 'website-only';
@@ -392,6 +403,7 @@
     var frontendExcludedCount = 0;
     var backendExcludedCount = 0;
     var total = 0;
+    var seenPaths = new Set();
     var entries = Object.entries(graph.files || {}).sort(function (a, b) { return String(a[0]).localeCompare(String(b[0])); });
     entries.forEach(function (entry) {
       var path = safePath(entry[0]);
@@ -408,12 +420,60 @@
       if (!path || text === null) { excluded.push({ path: clean(entry[0], 180), reason: 'invalid path or non-text file' }); return; }
       if (isSensitivePath(path)) { excluded.push({ path: path, reason: 'secret or credential file' }); return; }
       if (containsLikelySecret(text)) { excluded.push({ path: path, reason: 'possible embedded credential' }); return; }
+      var pathKey = path.normalize('NFC').toLowerCase();
+      if (seenPaths.has(pathKey)) { excluded.push({ path: path, reason: 'duplicate or case-insensitive path collision' }); return; }
       var bytes = utf8(text);
       if (bytes.byteLength > MAX_FILE_BYTES) { excluded.push({ path: path, reason: 'file exceeds export size limit' }); return; }
       if (total + bytes.byteLength > MAX_TOTAL_BYTES) { excluded.push({ path: path, reason: 'project export size limit' }); return; }
-      output.push({ path: path, bytes: bytes });
+      output.push({ path: path, bytes: bytes, textSource: true });
+      seenPaths.add(pathKey);
       total += bytes.byteLength;
     });
+    assetBundle = assetBundle && typeof assetBundle === 'object' ? assetBundle : { files: [], excluded: [], status: 'not-loaded-during-sync-inspection', listedCount: 0 };
+    (assetBundle.excluded || []).forEach(function (item) { excluded.push(item); });
+    var assetRecords = [];
+    var assetUrlMappings = [];
+    (assetBundle.files || []).forEach(function (assetFile) {
+      var path = safePath(assetFile && assetFile.path);
+      var bytes = assetFile && assetFile.bytes;
+      if (!path || !(bytes instanceof Uint8Array)) {
+        excluded.push({ path: clean(assetFile && assetFile.path || 'project asset', 180), reason: 'invalid binary asset path or data' });
+        return;
+      }
+      var pathKey = path.normalize('NFC').toLowerCase();
+      if (seenPaths.has(pathKey)) { excluded.push({ path: path, reason: 'duplicate or case-insensitive path collision' }); return; }
+      if (output.length >= MAX_FILES) { excluded.push({ path: path, reason: 'project file-count limit' }); return; }
+      if (bytes.byteLength > MAX_BINARY_ASSET_BYTES) { excluded.push({ path: path, reason: 'binary asset exceeds per-file export limit' }); return; }
+      if (total + bytes.byteLength > MAX_TOTAL_BYTES) { excluded.push({ path: path, reason: 'project export size limit' }); return; }
+      output.push({ path: path, bytes: bytes, binaryAsset: true });
+      seenPaths.add(pathKey);
+      total += bytes.byteLength;
+      var record = Object.assign({}, assetFile.asset || {}, { archivePath: path, size: bytes.byteLength, referenceRewriteCount: 0 });
+      assetRecords.push(record);
+      if (assetFile.sourceUrl) assetUrlMappings.push({ sourceUrl: String(assetFile.sourceUrl), archivePath: path, record: record });
+    });
+    var rewrittenReferences = 0;
+    output.forEach(function (file) {
+      if (!file.textSource) return;
+      var sourceText = new TextDecoder().decode(file.bytes);
+      assetUrlMappings.forEach(function (mapping) {
+        var relative = relativeArchivePath(file.path, mapping.archivePath);
+        var count = sourceText.split(mapping.sourceUrl).length - 1;
+        if (!count) return;
+        sourceText = sourceText.split(mapping.sourceUrl).join(relative);
+        mapping.record.referenceRewriteCount += count;
+        rewrittenReferences += count;
+      });
+      if (sourceText !== new TextDecoder().decode(file.bytes)) file.bytes = utf8(sourceText);
+    });
+    var assetStorage = {
+      status: assetBundle.status || 'not-loaded-during-sync-inspection',
+      listedCount: Number(assetBundle.listedCount) || 0,
+      includedCount: assetRecords.length,
+      excludedCount: (assetBundle.excluded || []).length,
+      rewrittenReferences: rewrittenReferences,
+      files: assetRecords,
+    };
     var slugName = slug(project && (project.name || project.title || project.slug));
     var backendPaths = output.map(function (file) { return file.path; }).filter(isBackendImplementationPath);
     var frontendPaths = output.map(function (file) { return file.path; }).filter(isLikelyFrontendSourcePath);
