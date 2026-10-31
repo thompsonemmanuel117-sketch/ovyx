@@ -359,13 +359,16 @@ if (!fs.existsSync(promptContractPath) || !fs.existsSync(promptContractTestPath)
   const promptContract = fs.readFileSync(promptContractPath, 'utf8');
   const promptContractTest = fs.readFileSync(promptContractTestPath, 'utf8');
   const promptGateway = fs.existsSync(studioGatewayPath) ? fs.readFileSync(studioGatewayPath, 'utf8') : '';
+  const promptAssistant = fs.existsSync(studioAssistantPath) ? fs.readFileSync(studioAssistantPath, 'utf8') : '';
   const promptEngine = fs.existsSync(websiteEnginePath) ? fs.readFileSync(websiteEnginePath, 'utf8') : '';
   const promptMultiPage = fs.existsSync(studioMultiPagePath) ? fs.readFileSync(studioMultiPagePath, 'utf8') : '';
   const packageJson = fs.existsSync(packageJsonPath) ? fs.readFileSync(packageJsonPath, 'utf8') : '';
   if (
     !promptGateway.includes('buildWebsiteEnginePlan') ||
     !promptEngine.includes('buildPromptContract') ||
-    !promptGateway.includes('getWebStudioBuildClarification') ||
+    !promptGateway.includes('buildWebsiteEngineReadiness') ||
+    !promptAssistant.includes('buildWebsiteEngineReadiness') ||
+    !promptEngine.includes('getWebStudioBuildClarification') ||
     !promptGateway.includes('PROMPT REQUIREMENT CONTRACT') ||
     !promptMultiPage.includes('verifyPromptContractOutput') ||
     !promptMultiPage.includes('promptContract.explicitPages') ||
