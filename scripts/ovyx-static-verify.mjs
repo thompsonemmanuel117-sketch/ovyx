@@ -639,6 +639,13 @@ for (const file of [
   path.join(root, 'functions/_lib/multi-page.js'),
   path.join(root, 'functions/_lib/orchestrator.js'),
   path.join(root, 'functions/_lib/prompts.js'),
+  path.join(root, 'functions/_lib/fullstack-architecture.js'),
+  path.join(root, 'scripts/ovyx-fullstack-architecture.test.mjs'),
+  path.join(root, 'scripts/ovyx-fullstack-source-contracts.mjs'),
+  path.join(root, 'scripts/ovyx-fullstack-source-contracts.test.mjs'),
+  path.join(root, 'scripts/ovyx-webstudio-evaluation-runner.mjs'),
+  path.join(root, 'scripts/ovyx-webstudio-evaluation-runner.test.mjs'),
+  path.join(root, 'scripts/ovyx-website-engine.test.mjs'),
 ]) {
   if (!fs.existsSync(file)) continue;
   try {
