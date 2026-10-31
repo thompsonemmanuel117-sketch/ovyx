@@ -344,11 +344,11 @@ When discussing project changes, distinguish recommendations from changes actual
               theme: payload.context?.theme || null,
               viewport: payload.context?.viewport || null,
               attachments: modelContext.attachments || [],
-              websiteEnginePlan: websiteEnginePlan,
+              websiteEngine: websiteEngineClientSummary(websiteEnginePlan),
             }),
-          ].filter(Boolean).join('\n\n').slice(0, 12000),
-          qualityContract: WEB_STUDIO_EXCELLENCE + '\n\nEXPERIENCE INTELLIGENCE:\n' +
-            JSON.stringify(experience || {}) + '\n\n' + websiteEngineInstructions + '\n\n' + globalAIIdentityDirective,
+          ].filter(Boolean).join('\n\n'),
+          qualityContract: WEB_STUDIO_EXCELLENCE + '\n\n' +
+            websiteEngineInstructions + '\n\n' + globalAIIdentityDirective,
         },
         modelOptions: {
           provider: String(payload.provider || 'automatic').toLowerCase(),

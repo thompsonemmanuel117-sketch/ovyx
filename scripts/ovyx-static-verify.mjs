@@ -371,6 +371,9 @@ if (!fs.existsSync(promptContractPath) || !fs.existsSync(promptContractTestPath)
     !promptEngine.includes('getWebStudioBuildClarification') ||
     !promptEngine.includes('sourcePromptRemainsAuthoritative') ||
     !promptEngine.includes('serializeWebsiteEngineModelPlan') ||
+    !promptAssistant.includes('websiteEngineClientSummary(websiteEnginePlan)') ||
+    promptAssistant.includes('websiteEnginePlan: websiteEnginePlan') ||
+    promptAssistant.includes('.slice(0, 12000)') ||
     !promptGateway.includes('compact requirement index below') ||
     promptGateway.includes('JSON.stringify(promptContract || {})') ||
     !promptMultiPage.includes('verifyPromptContractOutput') ||

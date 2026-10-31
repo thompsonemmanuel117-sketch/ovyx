@@ -42,7 +42,7 @@ const longBrief = Array.from({ length: 180 }, (_, index) =>
 const longPlan = buildWebsiteEnginePlan(longBrief);
 assert.equal(longPlan.requirementManifest.total, 180);
 const longInstructions = buildWebsiteEngineInstructions(longPlan);
-const serializedPlan = longInstructions.split('\\n\\n')[2];
+const serializedPlan = longInstructions.split(/\n\n/)[2];
 assert.ok(serializedPlan.length <= 18000, 'The serialized Website Engine plan must stay within its defined instruction budget.');
 const parsedLongPlan = JSON.parse(serializedPlan);
 assert.equal(parsedLongPlan.requirementManifest.requirements.length, 180);
