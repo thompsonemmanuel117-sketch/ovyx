@@ -69,6 +69,49 @@ function normalizeDesignSystem(value) {
   };
 }
 
+function normalizeComponentContracts(value) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 12).map((component, index) => {
+    if (typeof component === 'string') {
+      const name = boundedText(component, 100);
+      return name ? { name, purpose: '', variants: [], shared: false, dependsOn: [], accessibilityContract: '' } : null;
+    }
+    if (!component || typeof component !== 'object') return null;
+    const name = boundedText(component.name || component.title || component.component, 100);
+    if (!name) return null;
+    return {
+      name,
+      purpose: boundedText(component.purpose || component.role, 180),
+      variants: boundedTextList(component.variants, 8, 100),
+      shared: component.shared === true,
+      dependsOn: boundedTextList(component.dependsOn || component.dependencies, 8, 100),
+      accessibilityContract: boundedText(component.accessibilityContract || component.accessibility, 180),
+    };
+  }).filter(Boolean);
+}
+
+function normalizeImageSlots(value) {
+  if (!Array.isArray(value)) return [];
+  return value.slice(0, 10).map((slot, index) => {
+    if (!slot || typeof slot !== 'object') return null;
+    const subject = boundedText(slot.subject || slot.assetSubject || slot.description, 180);
+    const purpose = boundedText(slot.purpose || slot.role, 160);
+    if (!subject && !purpose) return null;
+    const source = String(slot.sourcePreference || slot.source || 'project-asset').toLowerCase();
+    return {
+      name: boundedText(slot.name || slot.slot || 'image-' + (index + 1), 80),
+      subject,
+      purpose,
+      placement: boundedText(slot.placement || slot.section, 140),
+      aspectRatio: boundedText(slot.aspectRatio || slot.ratio, 32),
+      composition: boundedText(slot.composition || slot.artDirection, 180),
+      altText: boundedText(slot.altText || slot.alt, 180),
+      sourcePreference: ['project-asset', 'ai-generated', 'user-upload', 'none'].includes(source) ? source : 'project-asset',
+      mustRepresentRealSubject: slot.mustRepresentRealSubject === true,
+    };
+  }).filter(Boolean);
+}
+
 function normalizePageBlueprint(item) {
   return {
     audience: boundedText(item.audience || item.targetAudience, 180),
@@ -78,6 +121,8 @@ function normalizePageBlueprint(item) {
     interactionRequirements: boundedTextList(item.interactionRequirements || item.interactions, 12, 180),
     dataRequirements: boundedTextList(item.dataRequirements || item.dataNeeds, 10, 180),
     components: boundedTextList(item.components || item.reusableComponents, 10, 140),
+    componentContracts: normalizeComponentContracts(item.componentContracts || item.componentPlan),
+    imageSlots: normalizeImageSlots(item.imageSlots || item.assetSlots),
     seoIntent: boundedText(item.seoIntent || item.searchIntent, 220),
     responsiveNotes: boundedTextList(item.responsiveNotes, 8, 160),
     accessibilityNotes: boundedTextList(item.accessibilityNotes, 8, 160),
@@ -320,7 +365,8 @@ export function buildSiteBatchContext({
       title: page.title, path: page.path, url: page.url, goal: page.goal,
       audience: page.audience, primaryAction: page.primaryAction, sections: page.sections,
       visualDirection: page.visualDirection, interactionRequirements: page.interactionRequirements,
-      dataRequirements: page.dataRequirements, components: page.components, seoIntent: page.seoIntent,
+      dataRequirements: page.dataRequirements, components: page.components,
+      componentContracts: page.componentContracts, imageSlots: page.imageSlots, seoIntent: page.seoIntent,
       responsiveNotes: page.responsiveNotes, accessibilityNotes: page.accessibilityNotes,
       performanceNotes: page.performanceNotes, integrationBoundaries: page.integrationBoundaries,
     })),
