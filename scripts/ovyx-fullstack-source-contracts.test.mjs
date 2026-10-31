@@ -50,6 +50,24 @@ assert.equal(incomplete.missingAuthorizationEvidenceCount, 1);
 assert.equal(incomplete.missingSchemaSourceCount, 2);
 assert.equal(incomplete.missingRelationshipSourceCount, 2);
 
+const policyArchitecture = {
+  apiContracts: [
+    { id: 'auth-session', method: 'POST', path: '/api/auth/session', authPolicy: 'public-with-credential-provider' },
+    { id: 'unsubscribe', method: 'POST', path: '/api/newsletter/unsubscribe', authPolicy: 'signed-unsubscribe-token' },
+    { id: 'admin-audit', method: 'GET', path: '/api/admin/audit-events', authPolicy: 'administrator-role-and-resource-scope' },
+  ],
+  dataModels: [],
+  dataIntegrity: { relationships: [] },
+};
+const policyFiles = {
+  'functions/api/auth/session.js': 'export async function onRequestPost(context) { const identity = await verifyCredentials(context.data); return Response.json(identity); }',
+  'functions/api/newsletter/unsubscribe.js': 'export async function onRequestPost(context) { const claim = verifyUnsubscribeToken(context.request); return Response.json(claim); }',
+  'functions/api/admin/audit-events.js': 'export async function onRequestGet(context) { const user = assertAuthenticated(context.data.user); requireAdmin(user); return Response.json({ events: [] }); }',
+};
+const policyEvidence = evaluateFullStackSourceContracts(policyFiles, policyArchitecture);
+assert.equal(policyEvidence.status, 'source-evidence-present-runtime-unverified');
+assert.ok(policyEvidence.routeEvidence.every(item => item.authorizationExpected && item.authorizationDetected));
+
 const empty = evaluateFullStackSourceContracts({}, { apiContracts: [], dataModels: [], dataIntegrity: { relationships: [] } });
 assert.equal(empty.status, 'source-evidence-present-runtime-unverified');
 assert.equal(empty.requestedRouteCount, 0);
