@@ -197,4 +197,16 @@ assert.ok(securityReview.findings.some(item => item.code === 'EXTERNAL_SCRIPT_NO
 assert.ok(securityReview.qualityScoreV2.dimensions.security.score < 100,
   'The security dimension must reflect unsafe source evidence.');
 
+const sourceAuditWiring = evaluateSiteFiles(goodFiles, category, {
+  fullStackArchitecture: {
+    apiContracts: [],
+    dataModels: [],
+    dataIntegrity: { relationships: [] },
+  },
+});
+assert.equal(sourceAuditWiring.fullStackSourceEvidence.status, 'source-evidence-present-runtime-unverified');
+assert.equal(sourceAuditWiring.productionReadiness.gates.fullStackSourceContracts, 'source-evidence-present-runtime-unverified');
+assert.equal(sourceAuditWiring.productionReadiness.readyForProduction, false,
+  'Static source evidence must never certify runtime or production readiness.');
+
 console.log('Web Studio artifact evaluator tests passed: requirement evidence gates, dimension coverage semantics, monorepo/root package detection, Remix hosting, security, route integrity and unverified integration boundaries.');
