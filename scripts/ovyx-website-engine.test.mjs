@@ -3,6 +3,7 @@ import {
   buildWebsiteEnginePlan,
   buildWebsiteEngineInstructions,
   websiteEngineClientSummary,
+  buildWebsiteEngineReadiness,
   runWebsiteGeneration,
 } from '../functions/_lib/website-engine.js';
 
@@ -31,6 +32,32 @@ assert.ok(plan.qualityGates.length > 0);
 assert.match(buildWebsiteEngineInstructions(plan), /AUTHORITATIVE PRE-GENERATION PLAN/);
 assert.equal(websiteEngineClientSummary(plan).pageCandidates, 6);
 assert.equal(buildWebsiteEnginePlan('A simple one-page portfolio').strategy, 'single-page-or-context-derived');
+
+const freshBuildReadiness = buildWebsiteEngineReadiness(
+  'Build a business website with a real contact form and email delivery.',
+  {},
+  { mode: 'build', conversationText: 'We need messages to reach the business owner.' },
+);
+assert.equal(freshBuildReadiness.type, 'build_readiness');
+assert.ok(freshBuildReadiness.questions.some(question => /public email address/i.test(question)));
+const existingHtml = {
+  'index.html': '<!doctype html><html><head><title>Existing</title></head><body>' + 'Existing project content '.repeat(40) + '</body></html>',
+};
+assert.equal(buildWebsiteEngineReadiness(
+  'Fix the hero spacing and align the navigation.',
+  { files: existingHtml },
+  { mode: 'build', files: existingHtml },
+), null, 'Routine existing-site edits should not be interrupted by fresh-build intake questions.');
+assert.ok(buildWebsiteEngineReadiness(
+  'Add real Paystack checkout to this existing website.',
+  { files: existingHtml },
+  { mode: 'build', files: existingHtml },
+), 'Adding a real integration to an existing site must still trigger readiness checks.');
+assert.equal(buildWebsiteEngineReadiness(
+  'Build a business website with a contact form.',
+  {},
+  { mode: 'assistant' },
+), null, 'Readiness questions only gate actual website builds.');
 
 let multiPageCalls = 0;
 let modelCalls = 0;
