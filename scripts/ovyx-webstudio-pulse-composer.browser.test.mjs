@@ -4,6 +4,13 @@ import { chromium } from 'playwright';
 const baseURL = String(process.env.OVYX_E2E_BASE_URL || 'http://127.0.0.1:8789').trim();
 const browser = await chromium.launch({ headless: true });
 let lastCheckpoint = 'browser launch';
+const bounded = (promise, label, timeoutMs = 15000) => {
+  let timer = 0;
+  return Promise.race([
+    Promise.resolve(promise),
+    new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Timed out while ' + label + ' after ' + timeoutMs + ' ms.')), timeoutMs); })
+  ]).finally(() => { if (timer) clearTimeout(timer); });
+};
 const testWatchdog = setTimeout(() => {
   console.error('[pulse-composer] hard timeout after 5 minutes; last checkpoint: ' + lastCheckpoint);
   process.exit(1);
@@ -487,6 +494,16 @@ try {
     // The same composer Stop button must also cancel while a voice note is being transcribed.
     lastCheckpoint = target.name + ': voice cancellation route setup';
     console.log('[' + target.name + '] dictation diagnostic: both dictation assertions passed; preparing cancellation test');
+    let stopNavigationCount = 0;
+    const stopDialogs = [];
+    const countStopNavigation = frame => { if (frame === page.mainFrame()) stopNavigationCount += 1; };
+    const captureStopDialog = async dialog => {
+      stopDialogs.push(dialog.type());
+      console.log('[' + target.name + '] cancellation diagnostic: captured browser dialog ' + dialog.type());
+      await dialog.dismiss();
+    };
+    page.on('framenavigated', countStopNavigation);
+    page.on('dialog', captureStopDialog);
     await page.unroute('**/api/ai/transcribe');
     let transcriptionStartedResolve;
     const transcriptionStarted = new Promise(resolve => { transcriptionStartedResolve = resolve; });
@@ -520,32 +537,45 @@ try {
     console.log('[' + target.name + '] cancellation diagnostic: transcription request started');
     await page.waitForFunction(() => document.getElementById('ws-chat-send')?.getAttribute('aria-label') === 'Stop generating', null, {timeout:15000});
     console.log('[' + target.name + '] cancellation diagnostic: composer entered Stop state');
-    assert.equal(await send.isEnabled(), true,
+    lastCheckpoint = target.name + ': stop button enabled check';
+    const stopEnabled = await bounded(send.isEnabled(), 'reading Stop button enabled state');
+    console.log('[' + target.name + '] cancellation diagnostic: Stop button enabled = ' + stopEnabled);
+    assert.equal(stopEnabled, true,
       '[' + target.name + '] Stop must remain clickable while the voice note is transcribing.');
-    // Stop is a button action, never a page navigation. Record dialogs and
-    // top-level frame navigation so Playwright doesn't hide the originating
-    // auth/rollback listener behind its navigation wait.
-    let stopNavigationCount = 0;
-    const stopDialogs = [];
-    const countStopNavigation = frame => { if (frame === page.mainFrame()) stopNavigationCount += 1; };
-    const captureStopDialog = async dialog => { stopDialogs.push(dialog.type()); await dialog.dismiss(); };
-    page.on('framenavigated', countStopNavigation);
-    page.on('dialog', captureStopDialog);
+    // Stop must be a button action, never a page navigation or browser dialog.
+    const stopDialogsBeforeClick = stopDialogs.length;
+    stopDialogs.length = 0;
     const initialStopNavigationCount = stopNavigationCount;
-    await send.click({ noWaitAfter: true });
-    await page.waitForTimeout(100);
+    lastCheckpoint = target.name + ': stop button click';
+    console.log('[' + target.name + '] cancellation diagnostic: clicking Stop');
+    await bounded(send.click({ noWaitAfter: true, timeout: 12000 }), 'clicking Stop button', 15000);
+    console.log('[' + target.name + '] cancellation diagnostic: Stop click completed');
+    lastCheckpoint = target.name + ': stop click settling';
+    await bounded(page.waitForTimeout(100), 'waiting for Stop click handlers');
     page.off('framenavigated', countStopNavigation);
     page.off('dialog', captureStopDialog);
     assert.deepEqual(stopDialogs, [],
       '[' + target.name + '] the Stop control must not open a browser dialog or auth prompt.');
     assert.equal(stopNavigationCount, initialStopNavigationCount,
       '[' + target.name + '] the Stop control must not navigate or reload the page.');
-    await page.waitForFunction(() => document.getElementById('ws-chat-send')?.getAttribute('aria-label') === 'Send prompt').catch(async error => {
-      const state = await page.evaluate(() => window.OVYXComposerDiagnostics?.() || null);
+    lastCheckpoint = target.name + ': composer Stop state reset';
+    try {
+      await bounded(
+        page.waitForFunction(() => document.getElementById('ws-chat-send')?.getAttribute('aria-label') === 'Send prompt', null, { timeout: 15000 }),
+        'waiting for Stop to restore the Send state', 17000
+      );
+      console.log('[' + target.name + '] cancellation diagnostic: composer returned to Send state');
+    } catch (error) {
+      const state = await bounded(page.evaluate(() => window.OVYXComposerDiagnostics?.() || null), 'reading composer state after Stop', 5000).catch(() => null);
       console.error('[' + target.name + '] voice transcription Stop diagnostic: ' + JSON.stringify(state));
       throw error;
-    });
-    await page.waitForFunction(() => (document.querySelector('[data-ws-voice-status]')?.textContent || '').includes('Transcription cancelled'));
+    }
+    lastCheckpoint = target.name + ': transcription cancelled status';
+    await bounded(
+      page.waitForFunction(() => (document.querySelector('[data-ws-voice-status]')?.textContent || '').includes('Transcription cancelled'), null, { timeout: 15000 }),
+      'waiting for transcription cancellation status', 17000
+    );
+    console.log('[' + target.name + '] cancellation diagnostic: transcription cancellation confirmed');
     assert.doesNotMatch(await page.locator('#ws-agent-thread').innerText(), /This transcript should be cancelled/,
       '[' + target.name + '] stopping transcription must not submit a late transcript.');
     // The cancellation UX intentionally keeps the recording available for retry.
