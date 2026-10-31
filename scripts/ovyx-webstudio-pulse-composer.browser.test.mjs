@@ -462,7 +462,7 @@ try {
     await page.locator('#ws-voice-note-panel [data-ws-voice-dictate]').click({ timeout: 15000 });
     console.log('[' + target.name + '] dictation diagnostic: dictate action clicked');
     lastCheckpoint = target.name + ': dictation recognition wait';
-    await page.waitForFunction(() => !!window.__ovyxDictationRecognition, { timeout: 15000 });
+    await page.waitForFunction(() => !!window.__ovyxDictationRecognition, null, { timeout: 15000 });
     console.log('[' + target.name + '] dictation diagnostic: recognition instance created');
     lastCheckpoint = target.name + ': dictation result dispatch';
     await page.evaluate(() => {
@@ -473,12 +473,20 @@ try {
       window.__ovyxDictationRecognition.onend();
     });
     console.log('[' + target.name + '] dictation diagnostic: result and end dispatched');
-    assert.equal(await input.inputValue(), 'Dictated text option works.',
+    lastCheckpoint = target.name + ': dictation input assertion';
+    const dictatedValue = await input.inputValue();
+    console.log('[' + target.name + '] dictation diagnostic: composer value after result = ' + JSON.stringify(dictatedValue));
+    assert.equal(dictatedValue, 'Dictated text option works.',
       '[' + target.name + '] dictation must populate the normal editable prompt field.');
-    assert.equal(await mic.getAttribute('aria-pressed'), 'false',
+    lastCheckpoint = target.name + ': dictation microphone state assertion';
+    const dictatedMicState = await mic.getAttribute('aria-pressed');
+    console.log('[' + target.name + '] dictation diagnostic: microphone state after end = ' + JSON.stringify(dictatedMicState));
+    assert.equal(dictatedMicState, 'false',
       '[' + target.name + '] microphone listening state must reset when speech recognition ends.');
 
     // The same composer Stop button must also cancel while a voice note is being transcribed.
+    lastCheckpoint = target.name + ': voice cancellation route setup';
+    console.log('[' + target.name + '] dictation diagnostic: both dictation assertions passed; preparing cancellation test');
     await page.unroute('**/api/ai/transcribe');
     let transcriptionStartedResolve;
     const transcriptionStarted = new Promise(resolve => { transcriptionStartedResolve = resolve; });
@@ -493,18 +501,25 @@ try {
         });
       } catch {}
     });
+    lastCheckpoint = target.name + ': voice cancellation open panel';
     await mic.click();
+    console.log('[' + target.name + '] cancellation diagnostic: voice panel reopened');
     await page.locator('#ws-voice-note-panel [data-ws-voice-record]').click();
+    console.log('[' + target.name + '] cancellation diagnostic: recording started');
     await page.locator('#ws-voice-note-panel [data-ws-voice-stop]').waitFor({state:'visible'});
     await page.waitForTimeout(90);
     await page.locator('#ws-voice-note-panel [data-ws-voice-stop]').click();
+    console.log('[' + target.name + '] cancellation diagnostic: recording stopped');
     await page.locator('#ws-voice-note-panel [data-ws-voice-send]').waitFor({state:'visible'});
     await page.locator('#ws-voice-note-panel [data-ws-voice-send]').click();
+    console.log('[' + target.name + '] cancellation diagnostic: send clicked');
     await Promise.race([
       transcriptionStarted,
       new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out waiting for the voice transcription request to start.')), 10000))
     ]);
-    await page.waitForFunction(() => document.getElementById('ws-chat-send')?.getAttribute('aria-label') === 'Stop generating');
+    console.log('[' + target.name + '] cancellation diagnostic: transcription request started');
+    await page.waitForFunction(() => document.getElementById('ws-chat-send')?.getAttribute('aria-label') === 'Stop generating', null, {timeout:15000});
+    console.log('[' + target.name + '] cancellation diagnostic: composer entered Stop state');
     assert.equal(await send.isEnabled(), true,
       '[' + target.name + '] Stop must remain clickable while the voice note is transcribing.');
     // Stop is a button action, never a page navigation. Record dialogs and
@@ -709,7 +724,15 @@ try {
     await page.close();
   }
   console.log('OVYX Web Studio pulse composer browser checks passed on desktop and mobile.');
+} catch (error) {
+  console.error('[pulse-composer] test failure at ' + lastCheckpoint + ': ' + String(error?.stack || error));
+  throw error;
 } finally {
-  await browser.close();
+  // A failing browser assertion must be reported even if Chromium is slow to
+  // shut down after a fake media/recognition scenario.
+  await Promise.race([
+    browser.close().catch(error => console.error('[pulse-composer] browser shutdown failed: ' + String(error?.message || error))),
+    new Promise(resolve => setTimeout(resolve, 5000))
+  ]);
   clearTimeout(testWatchdog);
 }
