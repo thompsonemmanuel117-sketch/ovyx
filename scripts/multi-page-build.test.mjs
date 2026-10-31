@@ -23,6 +23,25 @@ const pages = Array.from({ length: 20 }, (_, index) => ({
     interactionRequirements: ['Accessible mobile navigation', 'Working discovery-call form'],
     dataRequirements: ['Verified contact endpoint'],
     components: ['Global navigation', 'Lead form'],
+    componentContracts: [{
+      name: 'LeadForm',
+      purpose: 'Collect qualified discovery requests',
+      variants: ['compact', 'full'],
+      shared: true,
+      dependsOn: ['FormField', 'SubmitButton'],
+      accessibilityContract: 'Visible labels, keyboard focus and announced errors',
+    }],
+    imageSlots: [{
+      name: 'hero-image',
+      subject: 'A calm, authentic creative studio workspace',
+      purpose: 'Establish the studio atmosphere',
+      placement: 'Home hero right column',
+      aspectRatio: '4:5',
+      composition: 'Natural light with generous negative space',
+      altText: 'Creative team workspace in natural light',
+      sourcePreference: 'project-asset',
+      mustRepresentRealSubject: false,
+    }],
     seoIntent: 'Premium service provider discovery',
     responsiveNotes: ['Stack proof cards on narrow screens'],
     accessibilityNotes: ['Visible focus and labelled form controls'],
@@ -61,6 +80,10 @@ assert.equal(normalized.siteMap.pages[0].primaryAction, 'Book a discovery call')
 assert.deepEqual(normalized.siteMap.pages[0].sections.map(section => section.title), ['Hero', 'Proof']);
 assert.deepEqual(normalized.siteMap.pages[0].interactionRequirements, ['Accessible mobile navigation', 'Working discovery-call form']);
 assert.equal(normalized.siteMap.pages[0].integrationBoundaries[0], 'Do not claim delivery until endpoint confirms success');
+assert.equal(normalized.siteMap.pages[0].componentContracts[0].name, 'LeadForm');
+assert.equal(normalized.siteMap.pages[0].componentContracts[0].shared, true);
+assert.equal(normalized.siteMap.pages[0].imageSlots[0].aspectRatio, '4:5');
+assert.equal(normalized.siteMap.pages[0].imageSlots[0].altText, 'Creative team workspace in natural light');
 assert.equal(normalizeSiteMap({ pages: [{ path: 'about.html', url: '/about/' }, { path: 'contact/index.html', url: '/contact' }] }).siteMap.pages[0].url, '/about.html', 'Static HTML URLs must match the actual output path.');
 assert.equal(normalizeSiteMap({ pages: [{ path: 'src/pages/about.astro', url: '/wrong/' }, { path: 'src/pages/contact.astro', url: '/also-wrong/' }] }).siteMap.pages[0].url, '/about', 'Framework page URLs should follow native file routes.');
 
