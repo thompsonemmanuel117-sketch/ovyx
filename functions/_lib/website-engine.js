@@ -60,7 +60,7 @@ function pagePlan(contract) {
       title: clean(title, 80),
       route: /^(?:home|homepage|index)$/i.test(title) ? '/' : '/' + slug + '/',
       responsibility: 'derive page-specific content, layout, primary action and states from the original brief',
-      sourceRequirement: 'explicit-user-page-request',
+      sourceRequirement: 'brief-derived-page-candidate',
     };
   });
 }
@@ -103,10 +103,10 @@ export function buildWebsiteEnginePlan(prompt, context = {}) {
       constraints: promptContract.explicitConstraints || [],
     },
     pageArchitecture: {
-      explicitPageCount: pages.length,
+      pageCandidateCount: pages.length,
       pages,
       rule: pages.length
-        ? 'Preserve every explicitly requested page and its distinct responsibility.'
+        ? 'Preserve every page explicitly named or clearly implied by the brief, and give each a distinct responsibility.'
         : 'Do not invent a fixed page list; derive the minimum complete architecture from the brief and primary workflow.',
     },
     experience,
@@ -167,7 +167,7 @@ export function websiteEngineClientSummary(plan) {
     version: plan.version,
     stage: plan.stage,
     strategy: plan.strategy,
-    explicitPages: plan.pageArchitecture.explicitPageCount,
+    pageCandidates: plan.pageArchitecture.pageCandidateCount,
     requirementCount: plan.requirementManifest.total,
     requirementManifestComplete: plan.requirementManifest.complete,
     workflowCapabilities: plan.interactionArchitecture.capabilities,
