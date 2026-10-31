@@ -652,20 +652,30 @@
       else if (typeof window.toast === 'function') window.toast(clean(message, 420), kind || 'info');
     } catch (_) {}
   }
-  function exportProject(options) {
+  var exportBusy = false;
+  async function prepareProjectExport(options) {
+    var mode = options && options.mode || 'complete';
+    var studio = getStudio();
+    var graph = studio && getGraph(studio);
+    if (!graph || !Object.keys(graph.files || {}).length) throw new Error('No saved website files were found. Build or open a website first.');
+    var project = getProject(studio);
+    var assetBundle = await collectProjectAssets(project, mode);
+    var data = readExportFiles(graph, project, { mode: mode }, assetBundle);
+    if (!data.files.length) throw new Error('No safe project files were available to export.');
+    return { data: data, project: project };
+  }
+  async function exportProject(options) {
+    if (exportBusy) {
+      showMessage('A project export is already being prepared. Please wait for it to finish.', 'info');
+      return;
+    }
+    exportBusy = true;
     var mode = options && options.mode || 'complete';
     var backendOnly = mode === 'backend-only';
     var websiteOnly = mode === 'website-only';
-    var studio = getStudio();
-    var graph = studio && getGraph(studio);
-    if (!graph || !Object.keys(graph.files || {}).length) {
-      showMessage('No saved website files were found. Build or open a website first.', 'warning');
-      return;
-    }
     try {
-      var project = getProject(studio);
-      var data = readExportFiles(graph, project, { mode: mode });
-      if (!data.files.length) throw new Error('No safe text files were available to export.');
+      var prepared = await prepareProjectExport(options);
+      var data = prepared.data;
       var blob = buildZip(data.files);
       var url = URL.createObjectURL(blob);
       var anchor = document.createElement('a');
@@ -691,6 +701,8 @@
       }
     } catch (error) {
       showMessage((backendOnly ? 'Could not export backend-only ZIP: ' : websiteOnly ? 'Could not export website-only ZIP: ' : 'Could not export project ZIP: ') + clean(error && error.message || 'unknown export error', 300), 'error');
+    } finally {
+      exportBusy = false;
     }
   }
   function ensureCodeControlsStyles() {
@@ -995,6 +1007,22 @@
   window.addEventListener('ovyx:webstudio-initial-site-built', function () { window.setTimeout(boot, 0); });
   window.OVYXWebStudioProjectExport = {
     export: exportProject,
+    prepare: async function (options) {
+      try {
+        var prepared = await prepareProjectExport(options);
+        return {
+          ok: true,
+          mode: prepared.data.mode,
+          fileCount: prepared.data.files.length,
+          framework: prepared.data.framework,
+          assetStorage: prepared.data.assetStorage,
+          excluded: prepared.data.excluded,
+          files: prepared.data.files.map(function (file) { return { path: file.path, size: file.bytes.byteLength }; }),
+        };
+      } catch (error) {
+        return { ok: false, error: clean(error && error.message || 'Export preparation failed.', 300) };
+      }
+    },
     inspect: function (options) {
       var mode = options && options.mode || 'complete';
       var studio = getStudio();
