@@ -406,7 +406,18 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
     for (const route of apiContracts) addEdge(edges, testId, route.id, 'verifies');
   }
   const graph = { nodes, edges };
-  const integrity = validateFullStackArchitectureGraph(graph);
+  const graphCheck = validateFullStackArchitectureGraph(graph);
+  const modelIdSet = new Set(models.map(model => model.id));
+  const missingModelReferences = apiContracts.flatMap(route =>
+    route.modelIds.filter(modelId => !modelIdSet.has(modelId)).map(modelId => ({
+      routeId: route.id, modelId,
+    }))
+  );
+  const integrity = {
+    ...graphCheck,
+    valid: graphCheck.valid && missingModelReferences.length === 0,
+    missingModelReferences,
+  };
   return {
     version: 1, engine: 'ovyx-fullstack-architecture', sourceOfTruth: 'complete-original-user-brief',
     architectureStatus: 'planned-not-provisioned', capabilities, pages: pageEntries,
@@ -457,12 +468,40 @@ export function validateFullStackArchitectureGraph(graph) {
     ids.add(node.id);
   }
   const edgeIds = new Set();
+  const adjacency = new Map([...ids].map(id => [id, new Set()]));
   for (const edge of edges) {
     if (!edge || !ids.has(edge.from) || !ids.has(edge.to)) errors.push('Graph edge references a missing node.');
     if (edge && edgeIds.has(edge.id)) errors.push('Duplicate graph edge id: ' + edge.id);
-    if (edge) edgeIds.add(edge.id);
+    if (edge) {
+      edgeIds.add(edge.id);
+      if (adjacency.has(edge.from) && adjacency.has(edge.to)) {
+        adjacency.get(edge.from).add(edge.to);
+        adjacency.get(edge.to).add(edge.from);
+      }
+    }
   }
-  return { valid: errors.length === 0, nodeCount: nodes.length, edgeCount: edges.length, errors };
+  const root = ids.has('project') ? 'project' : '';
+  if (nodes.length && !root) errors.push('Graph project root is missing.');
+  const visited = new Set();
+  if (root) {
+    const queue = [root];
+    while (queue.length) {
+      const id = queue.shift();
+      if (visited.has(id)) continue;
+      visited.add(id);
+      for (const nextId of adjacency.get(id) || []) if (!visited.has(nextId)) queue.push(nextId);
+    }
+  }
+  const unreachableNodeIds = [...ids].filter(id => !visited.has(id));
+  if (unreachableNodeIds.length) errors.push('Graph contains disconnected nodes: ' + unreachableNodeIds.slice(0, 12).join(', '));
+  return {
+    valid: errors.length === 0,
+    nodeCount: nodes.length,
+    edgeCount: edges.length,
+    reachableNodeCount: visited.size,
+    unreachableNodeIds,
+    errors,
+  };
 }
 
 export function fullStackArchitectureClientSummary(architecture) {
