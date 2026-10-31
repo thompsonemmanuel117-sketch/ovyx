@@ -15,7 +15,7 @@ const files = {
   'server/package.json': JSON.stringify({ name: 'northstar-api', scripts: { start: 'node index.js' } }),
   'server/index.js': 'export function handler(){return true}',
   'public/brand.svg': '<svg xmlns="http://www.w3.org/2000/svg"></svg>',
-  'index.html': '<!doctype html><img src="https://firebasestorage.googleapis.com/v0/b/ovyx/o/hero.png?alt=media&token=secret-download-token">',
+  'index.html': '<!doctype html><img src="https://firebasestorage.googleapis.com/v0/b/ovyx/o/hero.png?alt=media&token=secret-download-token"><source srcset="https://firebasestorage.googleapis.com/v0/b/ovyx/o/hero.png?alt=media&amp;token=secret-download-token">',
   '.env.example': 'DATABASE_URL=replace-me',
   '../escape.js': 'must not export',
   'CON.txt': 'reserved Windows device name',
@@ -121,12 +121,12 @@ const prepared = await exporter.prepare();
 assert.equal(prepared.ok, true);
 assert.equal(prepared.assetStorage.includedCount, 1);
 assert.equal(prepared.assetStorage.excludedCount, 0);
-assert.equal(prepared.assetStorage.rewrittenReferences, 1);
+assert.equal(prepared.assetStorage.rewrittenReferences, 2);
 assert.ok(prepared.excluded.some(item => /duplicate or case-insensitive path collision/i.test(item.reason)));
 assert.ok(prepared.excluded.some(item => item.path === '../escape.js'));
 assert.ok(!prepared.files.some(file => file.path.includes('..') || file.path === 'CON.txt' || file.path === 'bad:name.js'));
 assert.ok(prepared.files.some(file => file.path === 'assets/asset-12345678/hero.png' && file.size === 4));
-assert.equal(prepared.assetStorage.files[0].referenceRewriteCount, 1);
+assert.equal(prepared.assetStorage.files[0].referenceRewriteCount, 2);
 
 const preparedWebsite = await exporter.prepare({ mode: 'website-only' });
 assert.equal(preparedWebsite.ok, true);
@@ -165,7 +165,7 @@ assert.doesNotMatch(archivedHtml, /secret-download-token/, 'Firebase download to
 const archivedManifest = JSON.parse(new TextDecoder().decode(archiveFiles.get('OVYX_EXPORT_MANIFEST.json')));
 assert.equal(archivedManifest.framework.name, 'Next.js');
 assert.equal(archivedManifest.assetStorage.includedCount, 1);
-assert.equal(archivedManifest.assetStorage.rewrittenReferences, 1);
+assert.equal(archivedManifest.assetStorage.rewrittenReferences, 2);
 
 const unsupported = exporter.inspect({ mode: 'framework-only' });
 assert.equal(unsupported.ok, false);
