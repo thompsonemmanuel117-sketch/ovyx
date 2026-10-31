@@ -40,6 +40,11 @@ assert.equal(websiteEngineClientSummary(plan).fullStackArchitecture.graph.valid,
 assert.ok(websiteEngineClientSummary(plan).fullStackArchitecture.workflowStateMachineCount > 0);
 assert.match(buildWebsiteEngineInstructions(plan), /AUTHORITATIVE PRE-GENERATION PLAN/);
 assert.match(buildWebsiteEngineInstructions(plan), /FULL-STACK ARCHITECTURE CONTRACT/);
+assert.match(buildWebsiteEngineInstructions(plan), /do not silently return a frontend-only site/i);
+assert.match(buildWebsiteEngineInstructions(plan), /matching server route\/handler/i);
+assert.match(buildWebsiteEngineInstructions(plan), /domain schema, relationships, constraints and indexes/i);
+assert.match(buildWebsiteEngineInstructions(plan), /workflow state machines/i);
+assert.match(buildWebsiteEngineInstructions(plan), /authorization-negative cases/i);
 assert.equal(websiteEngineClientSummary(plan).pageCandidates, 6);
 assert.equal(buildWebsiteEnginePlan('A simple one-page portfolio').strategy, 'single-page-or-context-derived');
 
