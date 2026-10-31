@@ -456,7 +456,7 @@ function buildDeploymentIntelligence(files, filePaths) {
   const hasServerEntry = backendPaths.length > 0 || /(?:export\s+(?:async\s+)?function\s+(?:GET|POST|PUT|PATCH|DELETE)|app\.(?:get|post|put|patch|delete)\s*\(|createServer\s*\()/i.test(source);
   const requiresServerRuntime = hasServerEntry || framework === 'Remix';
   const runtimeProfile = requiresServerRuntime ? 'full-stack-server-runtime'
-    : frameworkDetected ? 'frontend-framework-build'
+    : frameworkDetected && framework !== 'Static HTML/CSS/JavaScript' ? 'frontend-framework-build'
       : htmlPages.length ? 'static-site' : 'unknown-project';
   const integrationSource = packagePaths.length
     ? packagePaths.map(packageFile => String(files[packageFile] || '')).join('\n').toLowerCase() + '\n' + source
