@@ -540,7 +540,11 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
     if (targetIntegration) addEdge(edges, route.id, targetIntegration, 'calls-through-server-adapter');
     const databaseIntegration = integrationIds.find(id => id === 'integration-database');
     if (databaseIntegration && route.modelIds.length) addEdge(edges, route.id, databaseIntegration, 'persists-through-server-adapter');
-    if (['contact', 'newsletter'].includes(route.capability)) {
+    if (capabilities.email && (
+      ['contact', 'newsletter'].includes(route.capability) ||
+      route.sideEffect === 'idempotent-payment-reconciliation' ||
+      route.sideEffect === 'order-intent-only'
+    )) {
       const emailIntegration = integrationIds.find(id => id === 'integration-email');
       if (emailIntegration) addEdge(edges, route.id, emailIntegration, 'queues-delivery-through-server-adapter');
     }
