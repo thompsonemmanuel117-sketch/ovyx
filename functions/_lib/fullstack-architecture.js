@@ -411,8 +411,11 @@ export function fullStackArchitectureModelContract(architecture) {
       liveDeliveryOrTransaction: item.liveDeliveryOrTransaction,
     })).slice(0, 8),
     requirementTraceability: architecture.requirementMappings.map(item => [
-      item.requirementId, item.targetNodeIds.slice(0, 4), item.assessment,
+      item.requirementId, item.targetNodeIds.slice(0, 3),
     ]),
+    requirementsNeedingSemanticMapping: architecture.requirementMappings
+      .filter(item => item.assessment === 'needs-semantic-mapping')
+      .map(item => item.requirementId),
     dependencyEdges: architecture.graph.edges.slice(0, 72).map(edge => [edge.from, edge.relation, edge.to]),
     graphIntegrity: architecture.graphIntegrity,
     security: {
