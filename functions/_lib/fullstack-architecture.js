@@ -536,15 +536,34 @@ export function fullStackArchitectureModelContract(architecture) {
       connectionMetadata: item.connectionMetadata, verification: item.verification,
       liveDeliveryOrTransaction: item.liveDeliveryOrTransaction,
     })).slice(0, 8),
-    requirementTraceability: architecture.requirementMappings.map(item => [
-      item.requirementId, item.targetNodeIds.slice(0, 3),
-    ]),
+    requirementTraceabilityGroups: (() => {
+      const grouped = new Map();
+      for (const item of architecture.requirementMappings) {
+        const targetNodeIds = item.targetNodeIds.slice(0, 3);
+        const key = item.assessment + '|' + targetNodeIds.join('|');
+        if (!grouped.has(key)) grouped.set(key, {
+          assessment: item.assessment, targetNodeIds, requirementIds: [],
+        });
+        grouped.get(key).requirementIds.push(item.requirementId);
+      }
+      return [...grouped.values()];
+    })(),
     requirementsNeedingSemanticMapping: architecture.requirementMappings
       .filter(item => item.assessment === 'needs-semantic-mapping')
       .map(item => item.requirementId),
-    dependencyEdges: architecture.graph.edges.slice(0, 72).map(edge => [edge.from, edge.relation, edge.to]),
+    dependencyEdges: architecture.graph.edges.slice(0, 48).map(edge => [edge.from, edge.relation, edge.to]),
     graphIntegrity: architecture.graphIntegrity,
-    crossLayerContracts: architecture.crossLayerContracts,
+    crossLayerContracts: {
+      apiBoundary: [architecture.crossLayerContracts.apiBoundary.clientRule, architecture.crossLayerContracts.apiBoundary.schemas, architecture.crossLayerContracts.apiBoundary.errors],
+      dataConsistency: [architecture.crossLayerContracts.dataConsistency.money, architecture.crossLayerContracts.dataConsistency.time, architecture.crossLayerContracts.dataConsistency.ownership, architecture.crossLayerContracts.dataConsistency.concurrency],
+      identityAndAuthorization: [architecture.crossLayerContracts.identityAndAuthorization.identity, architecture.crossLayerContracts.identityAndAuthorization.authorization, architecture.crossLayerContracts.identityAndAuthorization.clientTrust],
+      transactionSafety: [architecture.crossLayerContracts.transactionSafety.mutations, architecture.crossLayerContracts.transactionSafety.sideEffects, architecture.crossLayerContracts.transactionSafety.duplicateDelivery],
+      integrationReliability: [architecture.crossLayerContracts.integrationReliability.adapters, architecture.crossLayerContracts.integrationReliability.network, architecture.crossLayerContracts.integrationReliability.state, architecture.crossLayerContracts.integrationReliability.failure],
+      privacyAndRetention: [architecture.crossLayerContracts.privacyAndRetention.minimization, architecture.crossLayerContracts.privacyAndRetention.sensitiveData, architecture.crossLayerContracts.privacyAndRetention.lifecycle],
+      observability: [architecture.crossLayerContracts.observability.correlation, architecture.crossLayerContracts.observability.events, architecture.crossLayerContracts.observability.operations],
+      environmentAndRelease: [architecture.crossLayerContracts.environmentAndRelease.isolation, architecture.crossLayerContracts.environmentAndRelease.release, architecture.crossLayerContracts.environmentAndRelease.rollback],
+      qualityPrinciples: architecture.crossLayerContracts.qualityPrinciples,
+    },
     security: {
       defaultPosture: architecture.security.defaultPosture,
       controls: architecture.security.controls.map(item => [item.id, item.requirement]).slice(0, 18),
