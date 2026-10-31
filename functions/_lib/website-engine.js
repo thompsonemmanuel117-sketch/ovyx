@@ -108,6 +108,7 @@ export function buildWebsiteEnginePlan(prompt, context = {}) {
         ? 'Preserve every explicitly requested page and its distinct responsibility.'
         : 'Do not invent a fixed page list; derive the minimum complete architecture from the brief and primary workflow.',
     },
+    experience,
     designArchitecture: {
       direction: experience.brandDirection || '',
       designIntelligence: experience.designIntelligence || {},
