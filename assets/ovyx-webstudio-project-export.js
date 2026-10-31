@@ -850,14 +850,15 @@
   window.addEventListener('ovyx:webstudio-initial-site-built', function () { window.setTimeout(boot, 0); });
   window.OVYXWebStudioProjectExport = {
     export: exportProject,
-    inspect: function () {
+    inspect: function (options) {
+      var mode = options && options.mode || 'complete';
       var studio = getStudio();
       var graph = studio && getGraph(studio);
       if (!graph || !Object.keys(graph.files || {}).length) {
         return { ok: false, error: 'No saved website files were found.', modes: ['complete', 'website-only', 'backend-only'] };
       }
       try {
-        var result = readExportFiles(graph, getProject(studio), { mode: 'complete' });
+        var result = readExportFiles(graph, getProject(studio), { mode: mode });
         return {
           ok: true,
           mode: result.mode,
