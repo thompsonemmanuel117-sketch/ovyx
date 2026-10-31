@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { evaluateFullStackSourceContracts } from './ovyx-fullstack-source-contracts.mjs';
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const REPO_ROOT = path.resolve(path.dirname(SCRIPT_PATH), '..');
@@ -554,7 +555,7 @@ function buildIntegrationReadiness(category, deployment) {
   });
 }
 
-function buildProductionReadiness(findings, deployment, integrationReadiness, qualityScoreV2) {
+function buildProductionReadiness(findings, deployment, integrationReadiness, qualityScoreV2, fullStackSourceEvidence = null) {
   const blockers = findings.filter(item => item.severity === 'blocker').length;
   const sourceGate = qualityScoreV2.releaseDecision.automatedSourceGate === 'no-static-blockers';
   const sourceNeedsReview = qualityScoreV2.releaseDecision.automatedSourceGate === 'needs-review';
@@ -571,6 +572,9 @@ function buildProductionReadiness(findings, deployment, integrationReadiness, qu
       humanVisualReview: 'required',
       humanEditorialReview: 'required',
       performanceMeasurements: 'core-web-vitals-not-measured',
+      fullStackSourceContracts: !fullStackSourceEvidence ? 'not-assessed'
+        : fullStackSourceEvidence.status === 'source-evidence-present-runtime-unverified'
+          ? 'source-evidence-present-runtime-unverified' : 'missing-source-evidence',
     },
     blockerCount: blockers,
     missingRequirementEvidenceCount: qualityScoreV2.releaseDecision.missingRequirementEvidenceCount,
@@ -585,6 +589,9 @@ function buildProductionReadiness(findings, deployment, integrationReadiness, qu
       'Run the framework-specific production build and deployment smoke test.',
       'Measure Core Web Vitals on representative devices and networks.',
       'Complete human visual and editorial review.',
+      ...(fullStackSourceEvidence && fullStackSourceEvidence.status !== 'source-evidence-present-runtime-unverified'
+        ? ['Resolve missing full-stack API route/method/auth, schema and relationship source evidence; then execute the real runtime tests.']
+        : []),
     ],
   };
 }
@@ -602,6 +609,9 @@ export function evaluateSiteFiles(rawFiles, category, options = {}) {
     ...(Array.isArray(options.filePaths) ? options.filePaths : []),
   ].map(item => String(item || '').replace(/\\/g, '/').replace(/^\/+/, '')).filter(Boolean)));
   const pathsByLower = fileLookup(filePaths);
+  const fullStackSourceEvidence = options.fullStackArchitecture
+    ? evaluateFullStackSourceContracts(files, options.fullStackArchitecture)
+    : null;
   const findings = [];
   const htmlEntries = Object.entries(files).filter(([filePath]) => /\.html?$/i.test(filePath));
   const cssEntries = Object.entries(files).filter(([filePath]) => /\.css$/i.test(filePath));
@@ -880,7 +890,7 @@ export function evaluateSiteFiles(rawFiles, category, options = {}) {
   });
   const deploymentIntelligence = buildDeploymentIntelligence(files, filePaths);
   const integrationReadiness = buildIntegrationReadiness(category, deploymentIntelligence);
-  const productionReadiness = buildProductionReadiness(findings, deploymentIntelligence, integrationReadiness, qualityScoreV2);
+  const productionReadiness = buildProductionReadiness(findings, deploymentIntelligence, integrationReadiness, qualityScoreV2, fullStackSourceEvidence);
 
   return {
     caseId: categoryId,
@@ -913,6 +923,7 @@ export function evaluateSiteFiles(rawFiles, category, options = {}) {
     qualityScoreV2,
     deploymentIntelligence,
     integrationReadiness,
+    fullStackSourceEvidence,
     productionReadiness,
     integrationTruth: integrations.map(integration => ({ integration, status: 'unverified-unless-checked-against-the-real-service' })),
     limitations: [
