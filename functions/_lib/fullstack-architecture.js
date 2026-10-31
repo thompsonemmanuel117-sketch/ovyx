@@ -46,7 +46,9 @@ function inferCapabilities(prompt, contract) {
   const payment = signals.payments === true ||
     /\b(?:payment|paystack|flutterwave|stripe|paypal|checkout|pay now|subscription billing|recurring billing)\b/i.test(source);
   const auth = signals.authentication === true || admin ||
-    /\b(?:user roles?|role-based access|admin access|staff accounts?|member portal|sign in|sign up|login|authentication)\b/i.test(source);
+    /\b(?:member portal|sign in|sign up|login|authentication|user account|customer account|staff accounts?)\b/i.test(source);
+  const authorization = admin ||
+    /\b(?:user roles?|role-based access|admin access|permissions?|permission policies|tenant access|workspace roles?|staff permissions?)\b/i.test(source);
   const booking = signals.bookings === true ||
     /\b(?:appointment|reservation|booking|schedule a|availability calendar)\b/i.test(source);
   const contact = signals.contactForm === true ||
@@ -64,7 +66,7 @@ function inferCapabilities(prompt, contract) {
   return {
     frontend: true, backend: explicitFullStack || contact || booking || payment || auth || persistentData || fileStorage || admin || backgroundWork,
     fullStackRequested: explicitFullStack,
-    database: persistentData, authentication: auth, authorization: auth || admin,
+    database: persistentData, authentication: auth, authorization,
     payments: payment, commerce, contact, email, newsletter, booking, fileStorage, admin, search, backgroundWork,
   };
 }
