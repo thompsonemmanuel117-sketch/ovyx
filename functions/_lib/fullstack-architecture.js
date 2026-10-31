@@ -286,6 +286,115 @@ function buildTestPlan(capabilities) {
   return tests.map(test => ({ ...test, status: 'planned-not-executed', evidence: null }));
 }
 
+function buildWorkflowStateMachines(capabilities) {
+  const machines = [];
+  const add = (name, entity, initialState, states, transitions, invariant) => machines.push({
+    id: 'workflow-' + slug(name),
+    name,
+    entity,
+    initialState,
+    states,
+    transitions: transitions.map(([from, to, authority, sideEffect = 'none']) => ({
+      from, to, authority, sideEffect,
+      requiresAudit: sideEffect !== 'none',
+    })),
+    invariant,
+    executionState: 'contract-only-not-executed',
+  });
+  if (capabilities.commerce) add(
+    'Order lifecycle', 'Order', 'draft',
+    ['draft', 'pending_payment', 'paid', 'processing', 'fulfilled', 'payment_failed', 'cancelled', 'refund_pending', 'refunded'],
+    [
+      ['draft', 'pending_payment', 'server-calculated order validation', 'create-checkout-session'],
+      ['draft', 'processing', 'authorized offline/manual settlement policy', 'reserve-stock'],
+      ['pending_payment', 'paid', 'verified payment provider event only', 'commit-order-payment'],
+      ['pending_payment', 'payment_failed', 'verified provider failure or terminal timeout', 'release-reservation'],
+      ['pending_payment', 'cancelled', 'owner or customer policy with no captured payment', 'release-reservation'],
+      ['paid', 'processing', 'server fulfillment policy', 'enqueue-fulfillment'],
+      ['processing', 'fulfilled', 'verified fulfillment completion', 'notify-customer'],
+      ['paid', 'refund_pending', 'authorized refund request', 'request-provider-refund'],
+      ['processing', 'refund_pending', 'authorized compensation policy', 'request-provider-refund'],
+      ['refund_pending', 'refunded', 'verified provider refund event', 'reconcile-refund'],
+    ],
+    'Never mark an order paid from browser input, never fulfill a failed/pending payment, and never transition backwards without an explicit audited compensation.'
+  );
+  if (capabilities.payments) add(
+    'Payment attempt lifecycle', 'PaymentAttempt', 'created',
+    ['created', 'pending', 'succeeded', 'failed', 'expired', 'cancelled', 'partially_refunded', 'refunded'],
+    [
+      ['created', 'pending', 'server provider adapter', 'create-provider-attempt'],
+      ['pending', 'succeeded', 'verified signed provider event or authoritative server verification', 'reconcile-payment'],
+      ['pending', 'failed', 'verified provider failure', 'release-payment-reservation'],
+      ['pending', 'expired', 'provider or server timeout policy after reconciliation', 'release-payment-reservation'],
+      ['pending', 'cancelled', 'authorized customer or owner cancellation confirmed by provider', 'cancel-provider-attempt'],
+      ['succeeded', 'partially_refunded', 'verified partial refund event', 'reconcile-partial-refund'],
+      ['succeeded', 'refunded', 'verified full refund event', 'reconcile-refund'],
+      ['partially_refunded', 'refunded', 'verified remaining refund event', 'reconcile-refund'],
+    ],
+    'Provider event IDs, references and idempotency keys must be deduplicated; amount and currency must match the server-authorized billable record.'
+  );
+  if (capabilities.booking) add(
+    'Booking lifecycle', 'Booking', 'requested',
+    ['requested', 'pending_confirmation', 'confirmed', 'rejected', 'completed', 'cancelled', 'no_show'],
+    [
+      ['requested', 'pending_confirmation', 'server availability recheck and atomic hold', 'hold-resource-slot'],
+      ['pending_confirmation', 'confirmed', 'authoritative provider or owner confirmation', 'confirm-resource-slot'],
+      ['pending_confirmation', 'rejected', 'availability conflict or provider rejection', 'release-resource-slot'],
+      ['confirmed', 'completed', 'verified service completion', 'close-booking'],
+      ['confirmed', 'cancelled', 'authorized cancellation under policy', 'release-resource-slot'],
+      ['confirmed', 'no_show', 'authorized staff action after scheduled time', 'record-no-show'],
+    ],
+    'No two active bookings may occupy the same exclusive resource/time slot; never show confirmed before the authoritative reservation succeeds.'
+  );
+  if (capabilities.contact) add(
+    'Contact submission delivery', 'ContactSubmission', 'received',
+    ['received', 'queued', 'sending', 'delivered', 'failed', 'closed'],
+    [
+      ['received', 'queued', 'email service configured and submission accepted', 'enqueue-delivery'],
+      ['queued', 'sending', 'worker claims the idempotent outbox item', 'claim-delivery'],
+      ['sending', 'delivered', 'provider receipt reconciled', 'record-provider-receipt'],
+      ['sending', 'failed', 'retry budget exhausted or permanent provider failure', 'record-delivery-failure'],
+      ['failed', 'queued', 'authorized retry after correction', 'retry-delivery'],
+      ['received', 'closed', 'owner-defined retention/triage policy', 'audit-close'],
+    ],
+    'A stored submission is not a delivered message; show pending, unavailable or failed states until a real provider receipt is reconciled.'
+  );
+  if (capabilities.newsletter) add(
+    'Newsletter consent lifecycle', 'NewsletterSubscription', 'pending_confirmation',
+    ['pending_confirmation', 'subscribed', 'unsubscribed', 'expired', 'suppressed'],
+    [
+      ['pending_confirmation', 'subscribed', 'confirmed opt-in through valid scoped token', 'record-consent-confirmation'],
+      ['pending_confirmation', 'expired', 'confirmation token expires', 'expire-token'],
+      ['subscribed', 'unsubscribed', 'valid signed unsubscribe request or verified owner request', 'suppress-campaign-delivery'],
+      ['subscribed', 'suppressed', 'complaint, hard bounce or legal suppression signal', 'suppress-campaign-delivery'],
+    ],
+    'Do not send campaigns before confirmed consent; honor unsubscribe immediately and keep a minimal suppression record.'
+  );
+  if (capabilities.fileStorage) add(
+    'Asset ingestion lifecycle', 'StoredAsset', 'upload_pending',
+    ['upload_pending', 'quarantined', 'available', 'rejected', 'deleted'],
+    [
+      ['upload_pending', 'quarantined', 'upload completed with checksum and ownership validation', 'quarantine-object'],
+      ['quarantined', 'available', 'content inspection and policy checks pass', 'publish-private-object'],
+      ['quarantined', 'rejected', 'content inspection, malware or policy checks fail', 'delete-or-isolate-object'],
+      ['available', 'deleted', 'owner-authorized deletion and retention policy', 'delete-object-and-metadata'],
+    ],
+    'Do not expose a file before content, size, ownership and publication-policy checks pass.'
+  );
+  if (capabilities.email && !capabilities.contact) add(
+    'Provider delivery lifecycle', 'DeliveryRecord', 'queued',
+    ['queued', 'sending', 'delivered', 'failed', 'suppressed'],
+    [
+      ['queued', 'sending', 'worker claims the idempotent outbox item', 'claim-delivery'],
+      ['sending', 'delivered', 'provider receipt reconciled', 'record-provider-receipt'],
+      ['sending', 'failed', 'retry budget exhausted or permanent provider failure', 'record-delivery-failure'],
+      ['queued', 'suppressed', 'recipient consent or suppression policy blocks delivery', 'record-suppression'],
+    ],
+    'Never equate accepted-for-send with delivered; respect opt-outs and provider suppression.'
+  );
+  return machines;
+}
+
 function buildCrossLayerContracts(capabilities) {
   return {
     apiBoundary: {
