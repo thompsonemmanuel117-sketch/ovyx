@@ -75,7 +75,7 @@ assert.equal(parsedLongFullStack.fullStackArchitecture.requirementTraceabilityGr
   (sum, group) => sum + group.requirementIds.length, 0
 ), 180);
 assert.equal(parsedLongFullStack.fullStackArchitecture.graphIntegrity.valid, true);
-assert.ok(parsedLongFullStack.fullStackArchitecture.apiContracts.some(route => route.path === '/api/checkout'));
+assert.ok(parsedLongFullStack.fullStackArchitecture.apiContracts.some(route => route.path === '/api/payments/intents'));
 assert.ok(parsedLongFullStack.fullStackArchitecture.security.controls.some(control => control[0] === 'payment-integrity'));
 
 
