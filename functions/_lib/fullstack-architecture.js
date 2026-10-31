@@ -354,6 +354,7 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
   const capabilities = inferCapabilities(prompt, contract);
   const requirements = normalizeRequirements(contract);
   const models = buildDataModels(capabilities);
+  const dataIntegrity = buildDataIntegrityContracts(capabilities);
   const apiContracts = buildApiContracts(capabilities);
   const integrations = buildIntegrationContracts(capabilities, context || {});
   const nodes = [];
@@ -387,6 +388,11 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
     addNode(nodes, { id: model.id, type: 'data-model', name: model.name, securityClass: model.securityClass, status: 'schema-required' });
     modelIds.push(model.id);
     addEdge(edges, projectId, model.id, 'owns-data-contract');
+  }
+  for (const relationship of dataIntegrity.relationships) {
+    if (modelIds.includes(relationship.from) && modelIds.includes(relationship.to)) {
+      addEdge(edges, relationship.from, relationship.to, 'relates-to');
+    }
   }
   const integrationIds = [];
   for (const integration of integrations) {
@@ -495,15 +501,19 @@ export function buildFullStackArchitecture(prompt, contract = {}, context = {}, 
       routeId: route.id, modelId,
     }))
   );
+  const missingRelationshipReferences = dataIntegrity.relationships.filter(relationship =>
+    !modelIdSet.has(relationship.from) || !modelIdSet.has(relationship.to)
+  );
   const integrity = {
     ...graphCheck,
-    valid: graphCheck.valid && missingModelReferences.length === 0,
+    valid: graphCheck.valid && missingModelReferences.length === 0 && missingRelationshipReferences.length === 0,
     missingModelReferences,
+    missingRelationshipReferences,
   };
   return {
     version: 1, engine: 'ovyx-fullstack-architecture', sourceOfTruth: 'complete-original-user-brief',
     architectureStatus: 'planned-not-provisioned', capabilities, pages: pageEntries,
-    components: nodes.filter(item => item.type === 'frontend-component'), apiContracts, dataModels: models, integrations,
+    components: nodes.filter(item => item.type === 'frontend-component'), apiContracts, dataModels: models, dataIntegrity, integrations,
     crossLayerContracts: buildCrossLayerContracts(capabilities),
     security: {
       defaultPosture: 'deny-by-default', controls: securityControls,
