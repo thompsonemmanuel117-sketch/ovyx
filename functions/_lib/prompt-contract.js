@@ -340,13 +340,13 @@ export function buildPromptContract(prompt) {
     contactSignals: {
       contactForm: hasPositiveIntent(source, /\b(?:contact|enquiry|inquiry|quote|lead|message)\s+forms?\b|\bforms?\b.{0,40}\b(?:contact|email|message|enquiry|inquiry|quote)\b/i),
       emailDelivery: hasPositiveIntent(source, /\b(?:send|sends|deliver|delivers|email|emails|notify|notifies|forward|forwards)\b.{0,55}\b(?:form|message|enquiry|enquiries|inquiry|inquiries|lead|submission)\b|\b(?:form|message|enquiry|enquiries|inquiry|inquiries|lead|submission)\b.{0,55}\b(?:send|sends|deliver|delivers|email|emails|notify|notifies|forward|forwards)\b/i),
-      bookings: BOOKING_INTENT_PATTERN.test(source),
+      bookings: hasPositiveIntent(source, BOOKING_INTENT_PATTERN),
       newsletter: hasPositiveIntent(source, /\b(?:newsletter|mailing\s+list|email\s+updates|subscribe\s+(?:to\s+)?(?:the\s+)?(?:newsletter|mailing\s+list)|sign\s+up\s+for\s+(?:email\s+)?updates)\b/i),
       payments: hasPositiveIntent(source, /\b(?:payments?|checkout|accept cards|paystack|flutterwave|stripe|paypal|buy now|subscriptions? billing|recurring billing)\b/i),
       shoppingCart: hasPositiveIntent(source, SHOPPING_CART_PATTERN),
       addToCart: hasPositiveIntent(source, ADD_TO_CART_PATTERN),
       authentication: hasPositiveIntent(source, /\b(?:login|log in|sign in|sign up|user accounts?|authentication|register an account)\b/i),
-      backendData: /\b(?:save|store|persist|database|backend|customer records?|booking records?|order records?)\b/i.test(source),
+      backendData: hasPositiveIntent(source, /\b(?:save|store|persist|database|backend|customer records?|booking records?|order records?)\b/i),
     },
     fidelityRules: [
       'Treat every explicit requirement and exclusion as a delivery contract, not optional inspiration.',
