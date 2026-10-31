@@ -15,12 +15,42 @@ const files = {
   'server/package.json': JSON.stringify({ name: 'northstar-api', scripts: { start: 'node index.js' } }),
   'server/index.js': 'export function handler(){return true}',
   'public/brand.svg': '<svg xmlns="http://www.w3.org/2000/svg"></svg>',
+  'index.html': '<!doctype html><img src="https://firebasestorage.googleapis.com/v0/b/ovyx/o/hero.png?alt=media&token=secret-download-token">',
   '.env.example': 'DATABASE_URL=replace-me',
 };
 
+const assetUrl = 'https://firebasestorage.googleapis.com/v0/b/ovyx/o/hero.png?alt=media&token=secret-download-token';
+let assetListCalls = 0;
 const window = {
   WebStudio: { graph: { files }, ensureProjectGraph() {} },
   KernelState: { activeProject: { id: 'northstar-1', name: 'Northstar Platform' } },
+  OVYXAssetStore: {
+    async list(projectId) {
+      assetListCalls += 1;
+      assert.equal(projectId, 'northstar-1');
+      return [{
+        id: 'asset_12345678',
+        name: 'hero.png',
+        size: 4,
+        contentType: 'image/png',
+        storagePath: 'users/user-1/projects/northstar-1/assets/asset_12345678/hero.png',
+      }];
+    },
+    async url(asset) {
+      assert.equal(asset.id, 'asset_12345678');
+      return assetUrl;
+    },
+  },
+  async fetch(url, options) {
+    assert.equal(url, assetUrl);
+    assert.equal(options.credentials, 'omit');
+    return {
+      ok: true,
+      status: 200,
+      headers: { get() { return 'image/png'; } },
+      async blob() { return new Blob([Uint8Array.from([137, 80, 78, 71])], { type: 'image/png' }); },
+    };
+  },
   addEventListener() {},
 };
 const document = { readyState: 'loading', addEventListener() {}, getElementById() { return null; } };
@@ -59,6 +89,25 @@ assert.equal(backend.ok, true);
 assert.ok(backend.framework.backendPathsIncluded.includes('app/api/contact/route.ts'));
 assert.ok(backend.framework.backendPathsIncluded.includes('server/index.js'));
 assert.ok(backend.framework.packageManifests.includes('server/package.json'));
+
+const prepared = await exporter.prepare();
+assert.equal(prepared.ok, true);
+assert.equal(prepared.assetStorage.includedCount, 1);
+assert.equal(prepared.assetStorage.excludedCount, 0);
+assert.equal(prepared.assetStorage.rewrittenReferences, 1);
+assert.ok(prepared.files.some(file => file.path === 'assets/asset-12345678/hero.png' && file.size === 4));
+assert.equal(prepared.assetStorage.files[0].referenceRewriteCount, 1);
+
+const preparedWebsite = await exporter.prepare({ mode: 'website-only' });
+assert.equal(preparedWebsite.ok, true);
+assert.ok(preparedWebsite.files.some(file => file.path === 'assets/asset-12345678/hero.png'));
+assert.ok(preparedWebsite.framework.warnings.some(item => /colocate server routes/i.test(item)));
+
+const preparedBackend = await exporter.prepare({ mode: 'backend-only' });
+assert.equal(preparedBackend.ok, true);
+assert.equal(preparedBackend.assetStorage.status, 'excluded-by-design');
+assert.ok(!preparedBackend.files.some(file => file.path.startsWith('assets/')));
+assert.equal(assetListCalls, 2, 'Backend-only export must not fetch website media.');
 
 const unsupported = exporter.inspect({ mode: 'framework-only' });
 assert.equal(unsupported.ok, false);
