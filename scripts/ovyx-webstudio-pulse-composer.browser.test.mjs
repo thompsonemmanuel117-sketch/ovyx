@@ -562,7 +562,6 @@ try {
     await siteBriefChooser.setFiles({ name: 'site-brief.txt', mimeType: 'text/plain', buffer: Buffer.from('keep this existing brief') });
     await page.waitForFunction(() => /site-brief\.txt/.test(document.getElementById('ws-attachment-strip')?.innerText || ''));
     await page.waitForFunction(() => (window.WebStudio?.attachments || []).some(item => item.name === 'site-brief.txt' && item.status === 'ready'));
-    await page.evaluate(async () => { await window.WebStudio.attachmentsReady; });
     assert.match(await page.locator('#ws-attachment-strip').innerText(), /site-brief\.txt/,
       '[' + target.name + '] fixture attachment must be fully read and staged before using the generated image.');
 
