@@ -613,6 +613,11 @@ export function fullStackArchitectureModelContract(architecture) {
     dataModels: architecture.dataModels.map(model => ({
       id: model.id, name: model.name, fields: model.fields, securityClass: model.securityClass,
     })).slice(0, 16),
+    dataIntegrity: {
+      relationships: architecture.dataIntegrity.relationships.map(item => [item.from, item.to, item.cardinality, item.purpose]).slice(0, 20),
+      constraints: architecture.dataIntegrity.constraints.map(item => [item.id, item.appliesTo, item.rule]).slice(0, 18),
+      indexes: architecture.dataIntegrity.indexes.map(item => [item.entity, item.fields, item.unique]).slice(0, 18),
+    },
     integrations: architecture.integrations.map(item => ({
       capability: item.capability, provider: item.provider,
       connectionMetadata: item.connectionMetadata, verification: item.verification,
