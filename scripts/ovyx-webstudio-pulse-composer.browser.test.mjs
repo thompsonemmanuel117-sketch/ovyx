@@ -24,6 +24,9 @@ try {
     console.log('[' + target.name + '] checkpoint: viewport started');
     const page = await browser.newPage({ viewport: target.viewport });
     page.on('console', message => console.log('[' + target.name + '] browser console: ' + message.type() + ' ' + message.text()));
+    page.on('pageerror', error => console.error('[' + target.name + '] page JavaScript error: ' + String(error?.stack || error)));
+    page.on('crash', () => console.error('[' + target.name + '] Chromium page crashed'));
+    page.on('close', () => console.error('[' + target.name + '] Chromium page closed unexpectedly'));
     page.setDefaultTimeout(20000);
     const response = await page.goto(baseURL, { waitUntil: 'domcontentloaded', timeout: 60000 });
     assert.ok(response && response.status() < 400, '[' + target.name + '] OVYX shell failed to load.');
@@ -552,6 +555,15 @@ try {
     console.log('[' + target.name + '] cancellation diagnostic: Stop click completed');
     lastCheckpoint = target.name + ': stop click settling';
     await bounded(page.waitForTimeout(100), 'waiting for Stop click handlers');
+    const stopPostClickState = await bounded(page.evaluate(() => ({
+      composer: window.OVYXComposerDiagnostics?.() || null,
+      sendLabel: document.getElementById('ws-chat-send')?.getAttribute('aria-label') || '',
+      sendDisabled: !!document.getElementById('ws-chat-send')?.disabled,
+      voiceStatus: document.querySelector('#ws-voice-note-panel [data-ws-voice-status]')?.textContent || '',
+      pageState: document.readyState
+    })), 'reading Stop state immediately after click', 5000).catch(error => ({ diagnosticError:String(error?.message || error) }));
+    console.log('[' + target.name + '] cancellation diagnostic: post-click state = ' + JSON.stringify(stopPostClickState));
+    console.log('[' + target.name + '] cancellation diagnostic: page closed = ' + page.isClosed());
     page.off('framenavigated', countStopNavigation);
     page.off('dialog', captureStopDialog);
     assert.deepEqual(stopDialogs, [],
