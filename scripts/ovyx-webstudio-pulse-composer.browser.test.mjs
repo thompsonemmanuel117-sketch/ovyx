@@ -508,19 +508,33 @@ try {
     page.on('framenavigated', countStopNavigation);
     page.on('dialog', captureStopDialog);
     await page.unroute('**/api/ai/transcribe');
-    let transcriptionStartedResolve;
-    const transcriptionStarted = new Promise(resolve => { transcriptionStartedResolve = resolve; });
-    await page.route('**/api/ai/transcribe', async route => {
-      transcriptionStartedResolve();
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      try {
-        await route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify({ ok: true, transcript: 'This transcript should be cancelled.', wordCount: 6 })
+    // Exercise the real transcription caller and AbortSignal contract without
+    // holding a Playwright-routed network request open after Chromium cancels it.
+    await page.evaluate(() => {
+      const nativeFetch = window.fetch.bind(window);
+      window.__ovyxTranscriptionAbortTest = { started: false, aborted: false, audioPayloadValid: false, signalProvided: false };
+      window.fetch = function (input, init = {}) {
+        const url = typeof input === 'string' ? input : String(input?.url || '');
+        if (!url.includes('/api/ai/transcribe')) return nativeFetch(input, init);
+        const state = window.__ovyxTranscriptionAbortTest;
+        state.started = true;
+        state.signalProvided = !!init.signal;
+        try {
+          const body = JSON.parse(String(init.body || '{}'));
+          state.audioPayloadValid = typeof body.audio === 'string' && body.audio.startsWith('data:audio/');
+        } catch {}
+        return new Promise((resolve, reject) => {
+          const abort = () => {
+            state.aborted = true;
+            reject(new DOMException('Voice transcription cancelled.', 'AbortError'));
+          };
+          if (init.signal?.aborted) abort();
+          else init.signal?.addEventListener('abort', abort, { once: true });
+          if (!init.signal) reject(new Error('OVYX transcription request did not pass an AbortSignal.'));
         });
-      } catch {}
+      };
     });
+    const transcriptionStarted = page.waitForFunction(() => window.__ovyxTranscriptionAbortTest?.started === true, null, { timeout: 10000 });
     lastCheckpoint = target.name + ': voice cancellation open panel';
     await mic.click();
     console.log('[' + target.name + '] cancellation diagnostic: voice panel reopened');
@@ -533,11 +547,13 @@ try {
     await page.locator('#ws-voice-note-panel [data-ws-voice-send]').waitFor({state:'visible'});
     await page.locator('#ws-voice-note-panel [data-ws-voice-send]').click();
     console.log('[' + target.name + '] cancellation diagnostic: send clicked');
-    await Promise.race([
-      transcriptionStarted,
-      new Promise((_, reject) => setTimeout(() => reject(new Error('Timed out waiting for the voice transcription request to start.')), 10000))
-    ]);
-    console.log('[' + target.name + '] cancellation diagnostic: transcription request started');
+    await transcriptionStarted;
+    const transcriptionRequestState = await page.evaluate(() => window.__ovyxTranscriptionAbortTest);
+    assert.equal(transcriptionRequestState.audioPayloadValid, true,
+      '[' + target.name + '] voice transcription must receive the recorded audio data URL.');
+    assert.equal(transcriptionRequestState.signalProvided, true,
+      '[' + target.name + '] voice transcription must receive an AbortSignal.');
+    console.log('[' + target.name + '] cancellation diagnostic: abort-aware transcription request started');
     await page.waitForFunction(() => document.getElementById('ws-chat-send')?.getAttribute('aria-label') === 'Stop generating', null, {timeout:15000});
     console.log('[' + target.name + '] cancellation diagnostic: composer entered Stop state');
     lastCheckpoint = target.name + ': stop button enabled check';
