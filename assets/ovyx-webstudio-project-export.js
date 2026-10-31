@@ -217,14 +217,14 @@
     var scripts = rootPackage && rootPackage.data.scripts && typeof rootPackage.data.scripts === 'object'
       ? rootPackage.data.scripts : {};
     var lockfiles = [
-      ['pnpm-lock.yaml', 'pnpm install --frozen-lockfile'],
-      ['yarn.lock', 'yarn install --immutable'],
-      ['bun.lockb', 'bun install --frozen-lockfile'],
-      ['bun.lock', 'bun install --frozen-lockfile'],
-      ['package-lock.json', 'npm ci'],
+      ['pnpm-lock.yaml', 'pnpm', 'pnpm install --frozen-lockfile'],
+      ['yarn.lock', 'yarn', 'yarn install --frozen-lockfile'],
+      ['bun.lockb', 'bun', 'bun install --frozen-lockfile'],
+      ['bun.lock', 'bun', 'bun install --frozen-lockfile'],
+      ['package-lock.json', 'npm', 'npm ci'],
     ];
     var packageManager = lockfiles.find(function (item) { return paths.indexOf(item[0]) !== -1; });
-    var installCommand = packageManager ? packageManager[1] : 'npm install';
+    var installCommand = packageManager ? packageManager[2] : 'npm install';
     var buildCommand = typeof scripts.build === 'string' ? scripts.build : '';
     var startCommand = typeof scripts.start === 'string' ? scripts.start : '';
     var previewCommand = typeof scripts.preview === 'string' ? scripts.preview : '';
