@@ -34,7 +34,10 @@ assert.ok(plan.fullStackArchitecture.capabilities.frontend);
 assert.ok(plan.fullStackArchitecture.capabilities.booking);
 assert.ok(plan.fullStackArchitecture.apiContracts.some(route => route.path === '/api/bookings'));
 assert.ok(plan.fullStackArchitecture.testPlan.some(test => test.id === 'booking-conflicts'));
+assert.ok(plan.fullStackArchitecture.stateMachines.some(machine => machine.entity === 'Booking'));
+assert.ok(plan.fullStackArchitecture.crossLayerContracts.dataConsistency);
 assert.equal(websiteEngineClientSummary(plan).fullStackArchitecture.graph.valid, true);
+assert.ok(websiteEngineClientSummary(plan).fullStackArchitecture.workflowStateMachineCount > 0);
 assert.match(buildWebsiteEngineInstructions(plan), /AUTHORITATIVE PRE-GENERATION PLAN/);
 assert.match(buildWebsiteEngineInstructions(plan), /FULL-STACK ARCHITECTURE CONTRACT/);
 assert.equal(websiteEngineClientSummary(plan).pageCandidates, 6);
@@ -77,6 +80,8 @@ assert.equal(parsedLongFullStack.fullStackArchitecture.requirementTraceabilityGr
 assert.equal(parsedLongFullStack.fullStackArchitecture.graphIntegrity.valid, true);
 assert.ok(parsedLongFullStack.fullStackArchitecture.apiContracts.some(route => route.path === '/api/payments/intents'));
 assert.ok(parsedLongFullStack.fullStackArchitecture.security.controls.some(control => control[0] === 'payment-integrity'));
+assert.ok(parsedLongFullStack.fullStackArchitecture.stateMachines.some(machine => machine.entity === 'PaymentAttempt'));
+assert.ok(parsedLongFullStack.fullStackArchitecture.dataIntegrity.constraints.some(item => item[0] === 'money-minor-units'));
 
 
 const freshBuildReadiness = buildWebsiteEngineReadiness(
