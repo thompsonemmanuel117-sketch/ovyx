@@ -60,6 +60,13 @@ assert.match(architecture.crossLayerContracts.transactionSafety.duplicateDeliver
 assert.match(architecture.crossLayerContracts.privacyAndRetention.lifecycle, /retention/i);
 assert.match(architecture.crossLayerContracts.observability.correlation, /correlation ID/i);
 assert.equal(architecture.graphIntegrity.missingModelReferences.length, 0);
+assert.equal(architecture.graphIntegrity.missingRelationshipReferences.length, 0);
+assert.ok(architecture.dataIntegrity.relationships.some(item => item.from === 'model-orderline' && item.to === 'model-order'));
+assert.ok(architecture.dataIntegrity.relationships.some(item => item.from === 'model-orderline' && item.to === 'model-product'));
+assert.ok(architecture.dataIntegrity.constraints.some(item => item.id === 'money-minor-units'));
+assert.ok(architecture.dataIntegrity.constraints.some(item => item.id === 'no-client-authoritative-prices'));
+assert.ok(architecture.dataIntegrity.indexes.some(item => item.entity === 'PaymentAttempt' && item.unique));
+assert.ok(architecture.graph.edges.some(edge => edge.relation === 'relates-to'));
 assert.equal(architecture.graphIntegrity.unreachableNodeIds.length, 0);
 assert.ok(architecture.backgroundWork.controls.includes('dead-letter-visibility'));
 assert.ok(architecture.testPlan.some(item => item.id === 'payment-sandbox' && item.requiresExplicitOwnerApproval === true));
@@ -129,6 +136,8 @@ assert.ok(newsletterArchitecture.apiContracts.some(route => route.path === '/api
 assert.ok(newsletterArchitecture.graph.edges.some(edge => edge.relation === 'enqueues-after-commit' &&
   edge.from === newsletterArchitecture.apiContracts.find(route => route.path === '/api/newsletter/subscriptions').id));
 assert.ok(newsletterArchitecture.graph.edges.some(edge => edge.relation === 'queues-delivery-through-server-adapter'));
+assert.ok(newsletterArchitecture.dataIntegrity.constraints.some(item => item.id === 'newsletter-consent-evidence'));
+assert.ok(newsletterArchitecture.dataIntegrity.constraints.some(item => item.id === 'newsletter-unsubscribe-effective'));
 assert.equal(newsletterArchitecture.graphIntegrity.valid, true);
 
 const corrupted = validateFullStackArchitectureGraph({
