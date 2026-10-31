@@ -98,6 +98,72 @@ function buildDataModels(capabilities) {
   return models;
 }
 
+function buildDataIntegrityContracts(capabilities) {
+  const relationships = [];
+  const addRelation = (from, to, cardinality, purpose, optional = false) => {
+    relationships.push({ id: 'relation-' + slug(from + '-' + to), from: 'model-' + slug(from), to: 'model-' + slug(to), cardinality, purpose, optional });
+  };
+  if (capabilities.authentication && capabilities.authorization) addRelation('RoleAssignment', 'UserAccount', 'many-to-one', 'Every role grant belongs to a verified principal.');
+  if (capabilities.booking) {
+    addRelation('Booking', 'BookableResource', 'many-to-one', 'A booking reserves one resource or service.');
+    if (capabilities.authentication) addRelation('Booking', 'UserAccount', 'many-to-one', 'The booking customer is the verified account owner.', true);
+  }
+  if (capabilities.commerce) {
+    addRelation('CartItem', 'Cart', 'many-to-one', 'Each cart line belongs to one cart.');
+    addRelation('CartItem', 'Product', 'many-to-one', 'Each cart line references an active catalog product.');
+    addRelation('OrderLine', 'Order', 'many-to-one', 'Each immutable order line belongs to one order.');
+    addRelation('OrderLine', 'Product', 'many-to-one', 'Each order line references its catalog source and preserves a purchase-time snapshot.');
+    if (capabilities.authentication) addRelation('Order', 'UserAccount', 'many-to-one', 'The order belongs to the verified principal.', true);
+  }
+  if (capabilities.payments && capabilities.commerce) addRelation('PaymentAttempt', 'Order', 'many-to-one', 'Payment attempts reconcile against an order.');
+  if (capabilities.fileStorage && capabilities.authentication) addRelation('StoredAsset', 'UserAccount', 'many-to-one', 'Private assets belong to the verified owner.');
+  if (capabilities.admin && capabilities.authentication) addRelation('AuditEvent', 'UserAccount', 'many-to-one', 'Sensitive actions record the verified actor.');
+  if (capabilities.email && capabilities.contact) addRelation('DeliveryRecord', 'ContactSubmission', 'many-to-one', 'Contact delivery events retain a link to the original submission.');
+  if (capabilities.newsletter && capabilities.email) addRelation('DeliveryRecord', 'NewsletterSubscription', 'many-to-one', 'Subscription confirmation and unsubscribe notices retain a link to subscription state.');
+  if (capabilities.newsletter && capabilities.authentication) addRelation('NewsletterSubscription', 'UserAccount', 'many-to-one', 'Account linkage is optional; public subscriptions remain possible.', true);
+
+  const constraints = [
+    { id: 'owner-scope-not-null', appliesTo: 'all owner-scoped entities', rule: 'Protected records must carry a server-derived owner or tenant scope; never accept it from an untrusted client.' },
+    { id: 'money-minor-units', appliesTo: 'Product, Order, OrderLine, PaymentAttempt', rule: 'Amounts are integer minor units paired with a valid ISO 4217 currency code.' },
+    { id: 'no-client-authoritative-prices', appliesTo: 'CartItem, OrderLine', rule: 'Recompute price, tax, discounts and total from trusted server-side catalog and rules.' },
+    { id: 'immutable-purchase-snapshot', appliesTo: 'OrderLine', rule: 'Persist product name, unit amount, currency and tax basis as a purchase-time snapshot.' },
+    { id: 'idempotent-provider-event', appliesTo: 'PaymentAttempt, DeliveryRecord', rule: 'Provider event IDs and application idempotency keys are unique within their provider/tenant scope.' },
+    { id: 'explicit-state-transitions', appliesTo: 'Order, PaymentAttempt, Booking, DeliveryRecord', rule: 'Reject invalid or backward state transitions except explicit audited compensation flows.' },
+  ];
+  if (capabilities.booking) constraints.push(
+    { id: 'booking-no-overlap', appliesTo: 'Booking', rule: 'Prevent overlapping active reservations for the same resource using a transaction, exclusion constraint or provider lock.' },
+    { id: 'booking-time-valid', appliesTo: 'Booking', rule: 'Require startsAt before endsAt; persist UTC instants and the user's IANA timezone.' },
+  );
+  if (capabilities.newsletter) constraints.push(
+    { id: 'newsletter-consent-evidence', appliesTo: 'NewsletterSubscription', rule: 'Store consent source/time and confirmation status; do not activate a subscription before required confirmation.' },
+    { id: 'newsletter-unsubscribe-effective', appliesTo: 'NewsletterSubscription', rule: 'Opt-out takes effect immediately and blocks future campaign delivery.' },
+  );
+
+  const indexes = [];
+  const addIndex = (entity, fields, unique = false, purpose = '') => indexes.push({ entity, fields, unique, purpose });
+  if (capabilities.authentication) {
+    addIndex('UserAccount', ['providerSubject'], true, 'Resolve a verified identity uniquely.');
+    addIndex('UserAccount', ['emailNormalized'], true, 'Prevent account identity ambiguity where the identity provider requires unique email.');
+  }
+  if (capabilities.authorization) addIndex('RoleAssignment', ['principalId', 'role', 'scope'], true, 'Prevent duplicate role grants.');
+  if (capabilities.booking) {
+    addIndex('Booking', ['resourceId', 'startsAt', 'status'], false, 'Bound availability and conflict queries.');
+    addIndex('Booking', ['customerId', 'startsAt'], false, 'List a customer's upcoming bookings.');
+  }
+  if (capabilities.commerce) {
+    addIndex('Product', ['sku'], true, 'Enforce unique catalog SKU within the configured catalog scope.');
+    addIndex('CartItem', ['cartId', 'productId'], true, 'Avoid duplicate product lines in one cart.');
+    addIndex('Order', ['ownerId', 'createdAt'], false, 'List an owner's order history efficiently.');
+    addIndex('OrderLine', ['orderId'], false, 'Load order details with bounded queries.');
+  }
+  if (capabilities.payments) addIndex('PaymentAttempt', ['provider', 'providerReference'], true, 'Prevent duplicate provider payment references.');
+  if (capabilities.email) addIndex('DeliveryRecord', ['status', 'nextAttemptAt'], false, 'Find due outbox deliveries without scanning all records.');
+  if (capabilities.newsletter) addIndex('NewsletterSubscription', ['listId', 'emailNormalized'], true, 'Prevent duplicate subscriptions to one list.');
+  if (capabilities.fileStorage) addIndex('StoredAsset', ['storageKey'], true, 'Prevent storage object-key collisions.');
+  if (capabilities.admin) addIndex('AuditEvent', ['resourceType', 'resourceId', 'createdAt'], false, 'Review sensitive activity for a resource.');
+  return { relationships, constraints, indexes };
+}
+
 function buildApiContracts(capabilities) {
   const routes = [];
   const add = (method, path, capability, auth, purpose, modelIds, extra = {}) => routes.push({
