@@ -51,7 +51,8 @@ assert.match(client, /['"]Authorization['"]: 'Bearer ' \+ token/);
 assert.match(client, /preview\.src = data\.image/);
 assert.match(client, /downloadLink\.href = data\.image/);
 assert.match(client, /saveButton\.addEventListener\('click', saveGeneratedImage\)/);
-assert.match(client, /window\.OVYXAssetStore\.upload\(file, project\.id/);
+assert.match(client, /var store = window\.OVYXAssetStore/);
+assert.match(client, /await store\.upload\(file, project\.id/);
 assert.match(client, /ovyx:webstudio-ai-asset-saved/);
 assert.match(client, /does not insert it into a page automatically/);
 assert.doesNotMatch(client, /firebase\.storage\(\)|\.putString\(|\.uploadBytes\(/,
