@@ -296,8 +296,10 @@ function serializeWebsiteEngineModelPlan(plan) {
   minimal.designArchitecture = {
     mission: clean(plan.designArchitecture?.mission, 120),
     direction: clean(plan.designArchitecture?.direction, 120),
-    experiencePrinciples: compactPlanList(plan.designArchitecture?.experiencePrinciples, 6, 100),
-    antiTemplateRules: compactPlanList(plan.designArchitecture?.antiTemplateRules, 6, 100),
+    mustHave: compactPlanList(plan.designArchitecture?.mustHave, 6, 96),
+    experiencePrinciples: compactPlanList(plan.designArchitecture?.experiencePrinciples, 6, 96),
+    conversionPrinciples: compactPlanList(plan.designArchitecture?.conversionPrinciples, 6, 96),
+    antiTemplateRules: compactPlanList(plan.designArchitecture?.antiTemplateRules, 6, 96),
   };
   minimal.interactionArchitecture = {
     capabilities: compactPlanList(plan.interactionArchitecture?.capabilities, 10, 64),
