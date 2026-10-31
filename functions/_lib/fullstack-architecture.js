@@ -47,8 +47,8 @@ function hasPositiveIntent(source, pattern) {
 function inferCapabilities(prompt, contract) {
   const source = String(prompt || '');
   const signals = contract && contract.contactSignals || {};
-  const explicitFullStack = /\b(?:full[- ]stack|backend[- ]enabled|server[- ]backed application)\b/i.test(source);
-  const admin = /\b(?:admin dashboard|administrator|back office|staff dashboard|manage users|manage orders|manage bookings)\b/i.test(source);
+  const explicitFullStack = hasPositiveIntent(source, /\b(?:full[- ]stack|backend[- ]enabled|server[- ]backed application)\b/i);
+  const admin = hasPositiveIntent(source, /\b(?:admin dashboard|administrator|back office|staff dashboard|manage users|manage orders|manage bookings)\b/i);
   const commerce = signals.shoppingCart === true || signals.addToCart === true ||
     hasPositiveIntent(source, /\b(?:e-commerce|ecommerce|online store|sell products|product catalogue|product catalog|shopping cart|add to cart)\b/i);
   const payment = signals.payments === true ||
@@ -61,21 +61,36 @@ function inferCapabilities(prompt, contract) {
     hasPositiveIntent(source, /\b(?:appointment|reservation|booking|schedule a|availability calendar)\b/i);
   const contact = signals.contactForm === true ||
     hasPositiveIntent(source, /\b(?:contact form|enquiry form|inquiry form|lead capture|send (?:us )?a message|contact submission)\b/i);
+  const newsletter = signals.newsletter === true ||
     hasPositiveIntent(source, /\b(?:newsletter|mailing list|email updates|subscribe for updates)\b/i);
   const email = signals.emailDelivery === true || newsletter ||
-    /\b(?:email delivery|send\b.{0,80}\bemails?\b|emails?\b.{0,80}\b(?:send|deliver|dispatch)|email notification|transactional email)\b/i.test(source);
-    hasPositiveIntent(source, /\b(?:file upload|image upload|document upload|media library|file storage|user uploads?|user[- ]uploaded|uploaded by users|users?\s+to\s+upload)\b/i) ||
+    hasPositiveIntent(source, /\b(?:email delivery|send\b.{0,80}\bemails?\b|emails?\b.{0,80}\b(?:send|deliver|dispatch)|email notification|transactional email)\b/i);
+  const fileStorage = hasPositiveIntent(source, /\b(?:file upload|image upload|document upload|media library|file storage|user uploads?|user[- ]uploaded|uploaded by users|users?\s+to\s+upload)\b/i) ||
+    hasPositiveIntent(source, /\b(?:upload|store)\b.{0,60}\b(?:files?|documents?|images?|media)\b/i) ||
+    hasPositiveIntent(source, /\b(?:files?|documents?|images?|media)\b.{0,60}\b(?:upload|store)\b/i);
   const persistentData = explicitFullStack || signals.backendData === true || commerce || booking || auth || contact || email || payment || fileStorage ||
-    /\b(?:database|persistent data|save records|customer records|reporting dashboard)\b/i.test(source);
-  const search = /\b(?:search|filter|sort|catalogue|catalog|directory|listing)\b/i.test(source);
+    hasPositiveIntent(source, /\b(?:database|persistent data|save records|customer records|reporting dashboard)\b/i);
+  const search = hasPositiveIntent(source, /\b(?:search|filter|sort|catalogue|catalog|directory|listing)\b/i);
   const backgroundWork = email || booking || payment ||
-    /\b(?:background job|scheduled task|queue|webhook|async processing|cron)\b/i.test(source);
+    hasPositiveIntent(source, /\b(?:background job|scheduled task|queue|webhook|async processing|cron)\b/i);
 
   return {
-    frontend: true, backend: explicitFullStack || contact || booking || payment || auth || persistentData || fileStorage || admin || backgroundWork,
+    frontend: true,
+    backend: explicitFullStack || contact || booking || payment || auth || persistentData || fileStorage || admin || backgroundWork,
     fullStackRequested: explicitFullStack,
-    database: persistentData, authentication: auth, authorization,
-    payments: payment, commerce, contact, email, newsletter, booking, fileStorage, admin, search, backgroundWork,
+    database: persistentData,
+    authentication: auth,
+    authorization,
+    payments: payment,
+    commerce,
+    contact,
+    email,
+    newsletter,
+    booking,
+    fileStorage,
+    admin,
+    search,
+    backgroundWork,
   };
 }
 
