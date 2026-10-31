@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 
 const root = process.cwd();
 const errors = [];
+const packageJsonPath = path.join(root, 'package.json');
 
 function walk(dir) {
   if (!fs.existsSync(dir)) return [];
@@ -420,7 +421,7 @@ if (fs.existsSync(webStudioShellPath)) {
 // required-page recovery are backend-enforced and covered by the standard test suite.
 const promptContractPath = path.join(root, 'functions/_lib/prompt-contract.js');
 const promptContractTestPath = path.join(root, 'scripts/prompt-contract.test.mjs');
-const packageJsonPath = path.join(root, 'package.json');
+
 if (!fs.existsSync(promptContractPath) || !fs.existsSync(promptContractTestPath)) {
   errors.push('OVYX Web Studio: prompt contract enforcement or its regression tests are missing.');
 } else {
