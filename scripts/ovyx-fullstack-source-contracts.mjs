@@ -6,7 +6,9 @@ function normalizePath(value) {
 }
 
 function escapeRegExp(value) {
-  return String(value).replace(/[|\\{}()[\]^$+*?.]/g, '\\$&');
+  return [...String(value)].map(character =>
+    '|\\^$.*+?()[]{}'.includes(character) ? '\\' + character : character
+  ).join('');
 }
 
 function routePathSegments(routePath) {
