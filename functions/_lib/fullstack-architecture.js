@@ -385,6 +385,47 @@ export function fullStackArchitectureClientSummary(architecture) {
   };
 }
 
+export function fullStackArchitectureModelContract(architecture) {
+  if (!architecture || architecture.engine !== 'ovyx-fullstack-architecture') return null;
+  return {
+    version: architecture.version,
+    capabilities: architecture.capabilities,
+    pages: architecture.pages.map(page => [page.id, page.title, page.route]).slice(0, 18),
+    components: architecture.components.map(item => [item.id, item.name, item.purpose]).slice(0, 12),
+    apiContracts: architecture.apiContracts.map(route => ({
+      id: route.id, method: route.method, path: route.path, capability: route.capability,
+      authPolicy: route.authPolicy, modelIds: route.modelIds, idempotency: route.idempotency,
+      rateLimit: route.rateLimit, sideEffect: route.sideEffect || '',
+    })).slice(0, 20),
+    dataModels: architecture.dataModels.map(model => ({
+      id: model.id, name: model.name, fields: model.fields, securityClass: model.securityClass,
+    })).slice(0, 16),
+    integrations: architecture.integrations.map(item => ({
+      capability: item.capability, provider: item.provider,
+      connectionMetadata: item.connectionMetadata, verification: item.verification,
+      liveDeliveryOrTransaction: item.liveDeliveryOrTransaction,
+    })).slice(0, 8),
+    requirementTraceability: architecture.requirementMappings.map(item => [
+      item.requirementId, item.targetNodeIds.slice(0, 4), item.assessment,
+    ]),
+    dependencyEdges: architecture.graph.edges.slice(0, 72).map(edge => [edge.from, edge.relation, edge.to]),
+    graphIntegrity: architecture.graphIntegrity,
+    security: {
+      defaultPosture: architecture.security.defaultPosture,
+      controls: architecture.security.controls.map(item => [item.id, item.requirement]).slice(0, 18),
+      migrationPolicy: architecture.security.migrationPolicy,
+    },
+    backgroundWork: architecture.backgroundWork,
+    testPlan: architecture.testPlan.map(test => ({
+      id: test.id, type: test.type, scope: test.scope,
+      assertion: test.assertion, status: test.status,
+      requiresExplicitOwnerApproval: test.requiresExplicitOwnerApproval === true,
+    })).slice(0, 14),
+    deployment: architecture.deployment,
+    honestyRules: architecture.honestyRules,
+  };
+}
+
 export function buildFullStackArchitectureInstructions(architecture) {
   if (!architecture || architecture.engine !== 'ovyx-fullstack-architecture') return '';
   return [
