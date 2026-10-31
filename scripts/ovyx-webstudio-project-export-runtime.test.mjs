@@ -159,6 +159,9 @@ while (archiveOffset + 30 <= archiveBytes.length && archiveView.getUint32(archiv
 }
 assert.ok(archiveFiles.has('assets/asset-12345678/hero.png'));
 assert.ok(archiveFiles.has('OVYX_EXPORT_MANIFEST.json'));
+assert.deepEqual(Array.from(archiveFiles.get('assets/asset-12345678/hero.png')), [137, 80, 78, 71]);
+assert.equal(archiveView.getUint32(archiveBytes.length - 22, true), 0x06054B50, 'ZIP must end with a valid end-of-central-directory record.');
+assert.equal(archiveView.getUint16(archiveBytes.length - 22 + 10, true), archiveFiles.size, 'ZIP central-directory entry count must match local entries.');
 const archivedHtml = new TextDecoder().decode(archiveFiles.get('index.html'));
 assert.match(archivedHtml, /assets\/asset-12345678\/hero\.png/);
 assert.doesNotMatch(archivedHtml, /secret-download-token/, 'Firebase download tokens must not leak into exported source.');
