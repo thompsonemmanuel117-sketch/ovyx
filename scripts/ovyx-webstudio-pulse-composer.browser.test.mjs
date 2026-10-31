@@ -537,10 +537,15 @@ try {
     assert.ok(generatedImageSrc && generatedImageSrc.startsWith('data:image/png;base64,'),
       '[' + target.name + '] image requests must render inside the existing chat.');
 
-    await page.evaluate(async () => {
-      const W = window.WebStudio;
-      await W.setAttachments([new File(['keep this existing brief'], 'site-brief.txt', { type: 'text/plain' })]);
-    });
+    // Use the real file picker here too; do not await a synthetic FileReader
+    // created inside page.evaluate, which can remain pending in headless CI.
+    await pulse.click();
+    const [siteBriefChooser] = await Promise.all([
+      page.waitForEvent('filechooser', { timeout: 10000 }),
+      popover.locator('#ws-attach-btn').click()
+    ]);
+    await siteBriefChooser.setFiles({ name: 'site-brief.txt', mimeType: 'text/plain', buffer: Buffer.from('keep this existing brief') });
+    await page.waitForFunction(() => /site-brief\.txt/.test(document.getElementById('ws-attachment-strip')?.innerText || ''));
     assert.match(await page.locator('#ws-attachment-strip').innerText(), /site-brief\.txt/,
       '[' + target.name + '] fixture attachment must be staged before using the generated image.');
 
