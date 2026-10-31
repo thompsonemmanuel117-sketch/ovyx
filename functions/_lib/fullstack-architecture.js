@@ -145,7 +145,7 @@ function buildDataIntegrityContracts(capabilities) {
   ];
   if (capabilities.booking) constraints.push(
     { id: 'booking-no-overlap', appliesTo: 'Booking', rule: 'Prevent overlapping active reservations for the same resource using a transaction, exclusion constraint or provider lock.' },
-    { id: 'booking-time-valid', appliesTo: 'Booking', rule: 'Require startsAt before endsAt; persist UTC instants and the user's IANA timezone.' },
+    { id: 'booking-time-valid', appliesTo: 'Booking', rule: 'Require startsAt before endsAt; persist UTC instants and the user’s IANA timezone.' },
   );
   if (capabilities.newsletter) constraints.push(
     { id: 'newsletter-consent-evidence', appliesTo: 'NewsletterSubscription', rule: 'Store consent source/time and confirmation status; do not activate a subscription before required confirmation.' },
