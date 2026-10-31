@@ -223,8 +223,8 @@ function buildJourneyEvidence(requirements, allSource, htmlEntries, cssEntries, 
   const hasHorizontalTableScroll = hasTable && /overflow-x\s*:\s*(?:auto|scroll)|overflow\s*:\s*(?:auto|scroll)/i.test(css);
   const detailRoutePattern = /(?:^|\/)(?:products?|properties|projects?|case-studies?|work|details?)(?:\/|$)/i;
   const hasDetailEvidence = htmlEntries.some(([filePath]) => detailRoutePattern.test(String(filePath || '').replace(/\\/g, '/')))
-    || /<a\\b[^>]*href\\s*=\\s*[\"'][^\"']*(?:product|property|project|case-study|detail)[^\"']*[\"'][^>]*>[\\s\\S]*?<\\/a\\s*>/i.test(html)
-    || /<a\\b[^>]*>[\\s\\S]*?(?:case study|project detail|product details?|view project|view property)[\\s\\S]*?<\\/a\\s*>/i.test(html);
+    || /<a\b[^>]*href\s*=\s*["'][^"']*(?:product|property|project|case-study|detail)[^"']*["'][^>]*>[\s\S]*?<\/a\s*>/i.test(html)
+    || /<a\b[^>]*>[\s\S]*?(?:case study|project detail|product details?|view project|view property)[\s\S]*?<\/a\s*>/i.test(html);
   const hasNav = /<nav\b/i.test(html) && /<a\b[^>]*href\s*=/i.test(html);
   const hasPricingRoute = /href\s*=\s*["'][^"']*pricing[^"']*["']/i.test(html) || htmlEntries.some(([path]) => /pricing/i.test(path));
   const hasServiceRoute = /href\s*=\s*["'][^"']*services?[^"']*["']/i.test(html) || htmlEntries.some(([path]) => /services?/i.test(path));
