@@ -68,6 +68,26 @@ const policyEvidence = evaluateFullStackSourceContracts(policyFiles, policyArchi
 assert.equal(policyEvidence.status, 'source-evidence-present-runtime-unverified');
 assert.ok(policyEvidence.routeEvidence.every(item => item.authorizationExpected && item.authorizationDetected));
 
+const sqlAndDrizzleArchitecture = {
+  apiContracts: [
+    { id: 'booking-cancel', method: 'POST', path: '/api/bookings/:bookingId/cancel', authPolicy: 'public-with-abuse-controls' },
+  ],
+  dataModels: [
+    { id: 'model-order', name: 'Order' },
+    { id: 'model-product', name: 'Product' },
+  ],
+  dataIntegrity: { relationships: [] },
+};
+const sqlAndDrizzle = evaluateFullStackSourceContracts({
+  'server/routes.ts': "router.post('/api/bookings/:bookingId/cancel', cancelBooking);",
+  'db/schema.sql': 'CREATE TABLE "orders" (id TEXT PRIMARY KEY);',
+  'db/schema.ts': "export const products = pgTable('products', { id: text('id').primaryKey() });",
+}, sqlAndDrizzleArchitecture);
+assert.equal(sqlAndDrizzle.missingRouteSourceCount, 0,
+  'A central route declaration with a dynamic path parameter should be detected.');
+assert.equal(sqlAndDrizzle.modelSchemaEvidenceCount, 2,
+  'SQL and Drizzle schema declarations should be detected.');
+
 const empty = evaluateFullStackSourceContracts({}, { apiContracts: [], dataModels: [], dataIntegrity: { relationships: [] } });
 assert.equal(empty.status, 'source-evidence-present-runtime-unverified');
 assert.equal(empty.requestedRouteCount, 0);
