@@ -17,6 +17,11 @@ const files = {
   'public/brand.svg': '<svg xmlns="http://www.w3.org/2000/svg"></svg>',
   'index.html': '<!doctype html><img src="https://firebasestorage.googleapis.com/v0/b/ovyx/o/hero.png?alt=media&token=secret-download-token">',
   '.env.example': 'DATABASE_URL=replace-me',
+  '../escape.js': 'must not export',
+  'CON.txt': 'reserved Windows device name',
+  'bad:name.js': 'invalid Windows path character',
+  'src/app.js': 'first case-collision path',
+  'SRC/App.js': 'second case-collision path',
 };
 
 const assetUrl = 'https://firebasestorage.googleapis.com/v0/b/ovyx/o/hero.png?alt=media&token=secret-download-token';
@@ -117,6 +122,9 @@ assert.equal(prepared.ok, true);
 assert.equal(prepared.assetStorage.includedCount, 1);
 assert.equal(prepared.assetStorage.excludedCount, 0);
 assert.equal(prepared.assetStorage.rewrittenReferences, 1);
+assert.ok(prepared.excluded.some(item => /duplicate or case-insensitive path collision/i.test(item.reason)));
+assert.ok(prepared.excluded.some(item => item.path === '../escape.js'));
+assert.ok(!prepared.files.some(file => file.path.includes('..') || file.path === 'CON.txt' || file.path === 'bad:name.js'));
 assert.ok(prepared.files.some(file => file.path === 'assets/asset-12345678/hero.png' && file.size === 4));
 assert.equal(prepared.assetStorage.files[0].referenceRewriteCount, 1);
 
