@@ -67,6 +67,19 @@ assert.ok(architecture.dataIntegrity.constraints.some(item => item.id === 'money
 assert.ok(architecture.dataIntegrity.constraints.some(item => item.id === 'no-client-authoritative-prices'));
 assert.ok(architecture.dataIntegrity.indexes.some(item => item.entity === 'PaymentAttempt' && item.unique));
 assert.ok(architecture.graph.edges.some(edge => edge.relation === 'relates-to'));
+const modelById = new Map(architecture.dataModels.map(model => [model.id, model]));
+for (const relation of architecture.dataIntegrity.relationships) {
+  assert.ok(modelById.has(relation.from) && modelById.has(relation.to));
+  assert.ok(modelById.get(relation.from).fields.includes(relation.foreignKeyField),
+    relation.from + ' must declare foreign key field ' + relation.foreignKeyField);
+}
+for (const index of architecture.dataIntegrity.indexes) {
+  const model = architecture.dataModels.find(item => item.name === index.entity);
+  assert.ok(model, 'Every declared index must target a declared data model: ' + index.entity);
+  assert.ok(index.fields.every(field => model.fields.includes(field)),
+    index.entity + ' index fields must exist in its model definition.');
+}
+assert.ok(architecture.dataIntegrity.relationships.some(item => item.foreignKeyField === 'principalId'));
 assert.equal(architecture.graphIntegrity.unreachableNodeIds.length, 0);
 assert.ok(architecture.backgroundWork.controls.includes('dead-letter-visibility'));
 assert.ok(architecture.testPlan.some(item => item.id === 'payment-sandbox' && item.requiresExplicitOwnerApproval === true));
