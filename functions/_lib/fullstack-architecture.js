@@ -102,13 +102,14 @@ function buildDataModels(capabilities) {
 
 function buildDataIntegrityContracts(capabilities) {
   const relationships = [];
-  const addRelation = (from, to, cardinality, purpose, foreignKeyField, optional = false) => {
+  const addRelation = (from, to, cardinality, purpose, foreignKeyField, optional = false, kind = 'foreign-key') => {
     relationships.push({
       id: 'relation-' + slug(from + '-' + to),
       from: 'model-' + slug(from),
       to: 'model-' + slug(to),
       cardinality,
       foreignKeyField,
+      kind,
       purpose,
       optional,
     });
@@ -128,8 +129,8 @@ function buildDataIntegrityContracts(capabilities) {
   if (capabilities.payments && capabilities.commerce) addRelation('PaymentAttempt', 'Order', 'many-to-one', 'Payment attempts reconcile against an order.', 'orderId');
   if (capabilities.fileStorage && capabilities.authentication) addRelation('StoredAsset', 'UserAccount', 'many-to-one', 'Private assets belong to the verified owner.', 'ownerId');
   if (capabilities.admin && capabilities.authentication) addRelation('AuditEvent', 'UserAccount', 'many-to-one', 'Sensitive actions record the verified actor.', 'actorId');
-  if (capabilities.email && capabilities.contact) addRelation('DeliveryRecord', 'ContactSubmission', 'many-to-one', 'Contact delivery events retain a link to the original submission.', 'sourceId');
-  if (capabilities.newsletter && capabilities.email) addRelation('DeliveryRecord', 'NewsletterSubscription', 'many-to-one', 'Subscription confirmation and unsubscribe notices retain a link to subscription state.', 'sourceId');
+  if (capabilities.email && capabilities.contact) addRelation('DeliveryRecord', 'ContactSubmission', 'many-to-one', 'Contact delivery events retain a link to the original submission.', 'sourceId', false, 'polymorphic-reference');
+  if (capabilities.newsletter && capabilities.email) addRelation('DeliveryRecord', 'NewsletterSubscription', 'many-to-one', 'Subscription confirmation and unsubscribe notices retain a link to subscription state.', 'sourceId', false, 'polymorphic-reference');
   if (capabilities.newsletter && capabilities.authentication) addRelation('NewsletterSubscription', 'UserAccount', 'many-to-one', 'Account linkage is optional; public subscriptions remain possible.', 'userId', true);
 
   const constraints = [
@@ -775,7 +776,7 @@ export function fullStackArchitectureModelContract(architecture) {
       id: model.id, name: model.name, fields: model.fields, securityClass: model.securityClass,
     })).slice(0, 16),
     dataIntegrity: {
-      relationships: architecture.dataIntegrity.relationships.map(item => [item.from, item.to, item.cardinality, item.foreignKeyField, item.optional, item.purpose]).slice(0, 20),
+      relationships: architecture.dataIntegrity.relationships.map(item => [item.from, item.to, item.cardinality, item.foreignKeyField, item.kind, item.optional, item.purpose]).slice(0, 20),
       constraints: architecture.dataIntegrity.constraints.map(item => [item.id, item.appliesTo, item.rule]).slice(0, 18),
       indexes: architecture.dataIntegrity.indexes.map(item => [item.entity, item.fields, item.unique]).slice(0, 18),
     },
